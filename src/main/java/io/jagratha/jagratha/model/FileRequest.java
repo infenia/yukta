@@ -1,3 +1,11 @@
 package io.jagratha.jagratha.model;
 
-public record FileRequest(String path, String content) {}
+import jakarta.validation.constraints.NotBlank;
+
+/**
+ * Request object for file operations.
+ *
+ * @param path the file path
+ * @param content the file content
+ */
+public record FileRequest(@NotBlank String path, @NotBlank String content) {}

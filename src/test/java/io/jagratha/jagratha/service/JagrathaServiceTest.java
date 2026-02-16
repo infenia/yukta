@@ -1,6 +1,7 @@
 package io.jagratha.jagratha.service;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.jagratha.jagratha.config.JagrathaConfig;
 import java.io.IOException;
