@@ -1,0 +1,4 @@
+jagratha:
+  external-project:
+    path: /tmp/external-project
+    gradle-path: ./gradlew
