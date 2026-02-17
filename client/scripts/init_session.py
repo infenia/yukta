@@ -27,10 +27,10 @@ def main():
     except Exception:
         pass
 
-    # Hardcoded configuration updated to reflect new ConfigRequest model
+    # Hardcoded configuration as per current implementation requirements
     payload = {
         "sessionId": session_id,
-        "projectPath": "/tmp/external-project",
+        "projectPath": "/media/arun/Infenia/Infenia/Development/Private/worktree/backend/feature-1",
         "pluginName": "gradle",
         "pluginConfig": {
             "gradlePath": "./gradlew"
@@ -41,10 +41,10 @@ def main():
             "checkstyleMain",
             "test"
         ],
-        "workflows": [],
-        "executionTimeout": 600,
-        "modifiedFile": "/tmp/jagratha/logs/files",
-        "results": "/tmp/jagratha/logs/results"
+         "workflows": [],
+#        "executionTimeout": 600,
+#         "modifiedFile": "/tmp/jagratha/logs/files",
+#         "results": "/tmp/jagratha/logs/results"
     }
 
     print("Sending configuration to Jagratha server...")

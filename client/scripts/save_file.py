@@ -29,17 +29,6 @@ def extract_file_path(tool_name, tool_input):
 
     return 'unknown'
 
-def extract_content(tool_name, tool_input):
-    # Try common fields for content across different tools
-    content = tool_input.get('content')
-    if content is None:
-        content = tool_input.get('new_content')
-    if content is None:
-        content = tool_input.get('replacement') # Claude Code replace_in_file
-    if content is None:
-        content = tool_input.get('diff') # Claude Code apply_diff
-    return content if content is not None else ''
-
 def main():
     try:
         data = json.load(sys.stdin)
@@ -59,13 +48,11 @@ def main():
     if tool_name in modification_tools:
         tool_input = data.get('tool_input', {})
         file_path = extract_file_path(tool_name, tool_input)
-        content = extract_content(tool_name, tool_input)
 
         if file_path != 'unknown':
             payload = {
                 "path": file_path,
                 "sessionId": session_id,
-                "content": content
             }
             http_post(WEBSERVER_HOST, WEBSERVER_PORT, WEBSERVER_ENDPOINT, payload)
         else:
