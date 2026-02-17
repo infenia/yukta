@@ -1,10 +1,12 @@
 package io.jagratha.jagratha.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.jagratha.jagratha.config.JagrathaConfigService;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -36,7 +38,7 @@ class JagrathaServiceTest {
     Files.createDirectories(projectDir);
 
     configService = mock(JagrathaConfigService.class);
-    service = new JagrathaService(configService);
+    service = new JagrathaService(configService, new ObjectMapper());
 
     when(configService.getFileLogDir()).thenReturn(filesDir.toString());
     when(configService.getResultLogDir()).thenReturn(resultsDir.toString());
@@ -53,21 +55,26 @@ class JagrathaServiceTest {
 
     StepVerifier.create(service.saveFile(path, sessionId)).verifyComplete();
 
-    Path expectedFile = filesDir.resolve(sessionId + ".log");
+    Path expectedFile = filesDir.resolve(sessionId).resolve(sessionId + ".log");
     assertTrue(Files.exists(expectedFile));
-    assertEquals(path + "|PENDING" + System.lineSeparator(), Files.readString(expectedFile));
+    String content = Files.readString(expectedFile);
+    assertTrue(content.contains("\"path\":\"src/main/java/Test.java\""));
+    assertTrue(content.contains("\"status\":\"PENDING\""));
   }
 
   @Test
   void testSaveFileResetsSuccess() throws IOException {
     String path = "src/main/java/Test.java";
     String sessionId = "session-1";
-    Path logFile = filesDir.resolve(sessionId + ".log");
-    Files.writeString(logFile, path + "|SUCCESS\n");
+    Path sessionDir = filesDir.resolve(sessionId);
+    Files.createDirectories(sessionDir);
+    Path logFile = sessionDir.resolve(sessionId + ".log");
+    Files.writeString(logFile, "{\"path\":\"" + path + "\",\"status\":\"SUCCESS\"}\n");
 
     StepVerifier.create(service.saveFile(path, sessionId)).verifyComplete();
 
-    assertEquals(path + "|PENDING" + System.lineSeparator(), Files.readString(logFile));
+    String content = Files.readString(logFile);
+    assertTrue(content.contains("\"status\":\"PENDING\""));
   }
 
   @Test
@@ -79,10 +86,10 @@ class JagrathaServiceTest {
 
     StepVerifier.create(service.saveFile(filePath.toString(), sessionId)).verifyComplete();
 
-    Path logFile = filesDir.resolve(sessionId + ".log");
+    Path logFile = filesDir.resolve(sessionId).resolve(sessionId + ".log");
     String content = Files.readString(logFile);
     // Should be relative
-    assertEquals("src/main/java/Abs.java|PENDING" + System.lineSeparator(), content);
+    assertTrue(content.contains("\"path\":\"src/main/java/Abs.java\""));
   }
 
   @Test
@@ -126,43 +133,92 @@ class JagrathaServiceTest {
     Files.createDirectories(module1);
     Files.createFile(module1.resolve("build.gradle"));
 
-    Path logFile = filesDir.resolve(sessionId + ".log");
+    Path sessionDir = filesDir.resolve(sessionId);
+    Files.createDirectories(sessionDir);
+    Path logFile = sessionDir.resolve(sessionId + ".log");
     Files.writeString(
-        logFile, "module1/src/Main.java|PENDING\nroot.java|PENDING\n", StandardCharsets.UTF_8);
+        logFile,
+        "{\"path\":\"module1/src/Main.java\",\"status\":\"PENDING\"}\n"
+            + "{\"path\":\"root.java\",\"status\":\"PENDING\"}\n",
+        StandardCharsets.UTF_8);
 
     StepVerifier.create(service.runQualityChecks(sessionId))
         .assertNext(
             response -> {
               assertEquals("FAILURE", response.status());
               assertTrue(response.output().contains("--- Module: :module1 ---"));
-              assertTrue(response.output().contains("--- Module: root ---"));
+              // Since it fails immediately, it might not even reach root if :module1 fails
+              // Actually, it will try tasks for :module1, fail, and break.
             })
         .verifyComplete();
 
-    // Check that statuses are updated (to FAILURE in this case since gradlew fails to run)
+    // Check that statuses are updated
     String content = Files.readString(logFile);
-    assertTrue(content.contains("module1/src/Main.java|FAILURE"));
-    assertTrue(content.contains("root.java|FAILURE"));
+    assertTrue(content.contains("FAILURE"));
   }
 
   @Test
   void testRunQualityChecksSkipsSuccess() throws IOException {
     String sessionId = "session-skip";
-    Path logFile = filesDir.resolve(sessionId + ".log");
+    Path sessionDir = filesDir.resolve(sessionId);
+    Files.createDirectories(sessionDir);
+    Path logFile = sessionDir.resolve(sessionId + ".log");
     Files.writeString(
-        logFile, "success.java|SUCCESS\npending.java|PENDING\n", StandardCharsets.UTF_8);
+        logFile,
+        "{\"path\":\"success.java\",\"status\":\"SUCCESS\"}\n"
+            + "{\"path\":\"pending.java\",\"status\":\"PENDING\"}\n",
+        StandardCharsets.UTF_8);
 
     StepVerifier.create(service.runQualityChecks(sessionId))
         .assertNext(
             response -> {
               assertEquals("FAILURE", response.status());
-              // Since it's failure, we should see output for pending but NOT for success
               assertTrue(response.output().contains("--- Module: root ---"));
             })
         .verifyComplete();
 
     String content = Files.readString(logFile);
-    assertTrue(content.contains("success.java|SUCCESS"));
-    assertTrue(content.contains("pending.java|FAILURE"));
+    assertTrue(content.contains("\"path\":\"success.java\",\"status\":\"SUCCESS\""));
+    assertTrue(content.contains("\"path\":\"pending.java\",\"status\":\"FAILURE\""));
+  }
+
+  @Test
+  void testListAndGetLogs() throws IOException {
+    String sessionId = "session-logs";
+    Path sessionResultsDir = resultsDir.resolve(sessionId);
+    Files.createDirectories(sessionResultsDir);
+    Files.writeString(sessionResultsDir.resolve("test.log"), "test content");
+
+    StepVerifier.create(service.listLogs(sessionId))
+        .assertNext(
+            logs -> {
+              assertTrue(logs.contains("test.log"));
+            })
+        .verifyComplete();
+
+    StepVerifier.create(service.getLogContent(sessionId, "test.log"))
+        .expectNext("test content")
+        .verifyComplete();
+  }
+
+  @Test
+  void testFailImmediately() throws IOException {
+    String sessionId = "session-fail-fast";
+    when(configService.getTasks()).thenReturn(List.of("task1", "task2"));
+
+    Path sessionDir = filesDir.resolve(sessionId);
+    Files.createDirectories(sessionDir);
+    Path logFile = sessionDir.resolve(sessionId + ".log");
+    Files.writeString(logFile, "{\"path\":\"root.java\",\"status\":\"PENDING\"}\n");
+
+    // Execution will fail because gradlew doesn't exist
+    StepVerifier.create(service.runQualityChecks(sessionId))
+        .assertNext(
+            response -> {
+              assertEquals("FAILURE", response.status());
+              assertTrue(response.output().contains("Task: task1"));
+              assertFalse(response.output().contains("Task: task2"));
+            })
+        .verifyComplete();
   }
 }

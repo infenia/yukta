@@ -1,6 +1,7 @@
 package io.jagratha.jagratha.mcp;
 
 import io.jagratha.jagratha.service.JagrathaService;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.stereotype.Component;
@@ -39,5 +40,26 @@ public class JagrathaMcpTools {
     return jagrathaService
         .runQualityChecks(MCP_SESSION_ID)
         .map(response -> "Status: " + response.status() + "\n\nOutput:\n" + response.output());
+  }
+
+  /**
+   * List quality check log files for the external project.
+   *
+   * @return Mono containing a list of log filenames
+   */
+  @Tool(description = "List quality check log files for the external project")
+  public Mono<List<String>> listQualityCheckLogs() {
+    return jagrathaService.listLogs(MCP_SESSION_ID);
+  }
+
+  /**
+   * Get the content of a specific quality check log file.
+   *
+   * @param filename the log filename to retrieve
+   * @return Mono containing the log content
+   */
+  @Tool(description = "Get the content of a specific quality check log file")
+  public Mono<String> getQualityCheckLogContent(final String filename) {
+    return jagrathaService.getLogContent(MCP_SESSION_ID, filename);
   }
 }

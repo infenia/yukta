@@ -7,8 +7,11 @@ import io.jagratha.jagratha.model.TaskRequest;
 import io.jagratha.jagratha.model.TaskResponse;
 import io.jagratha.jagratha.service.JagrathaService;
 import jakarta.validation.Valid;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -70,6 +73,33 @@ public class JagrathaController {
                 return ResponseEntity.status(500).body(response);
               }
             });
+  }
+
+  /**
+   * List logs for a session.
+   *
+   * @param sessionId the session identifier
+   * @return list of log filenames
+   */
+  @GetMapping("/logs/{sessionId}")
+  public Mono<List<String>> listLogs(@PathVariable final String sessionId) {
+    return service.listLogs(sessionId);
+  }
+
+  /**
+   * Get content of a specific log file.
+   *
+   * @param sessionId the session identifier
+   * @param filename the log filename
+   * @return log content
+   */
+  @GetMapping("/logs/{sessionId}/{filename}")
+  public Mono<ResponseEntity<String>> getLogContent(
+      @PathVariable final String sessionId, @PathVariable final String filename) {
+    return service
+        .getLogContent(sessionId, filename)
+        .map(ResponseEntity::ok)
+        .onErrorResume(e -> Mono.just(ResponseEntity.notFound().build()));
   }
 
   /**
