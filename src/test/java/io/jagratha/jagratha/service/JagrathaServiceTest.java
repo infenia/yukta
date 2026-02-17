@@ -3,12 +3,16 @@ package io.jagratha.jagratha.service;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.jagratha.jagratha.config.JagrathaConfigService;
+import io.jagratha.jagratha.model.WorkflowConfig;
+import io.jagratha.jagratha.plugin.AiPlugin;
 import io.jagratha.jagratha.plugin.GradlePlugin;
+import io.jagratha.jagratha.plugin.OutputProcessorPlugin;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -24,6 +28,8 @@ class JagrathaServiceTest {
 
   private JagrathaService service;
   private JagrathaConfigService configService;
+  private OutputProcessorPlugin mockProcessor;
+  private AiPlugin mockAiPlugin;
 
   @TempDir Path tempDir;
   private Path filesDir;
@@ -40,7 +46,19 @@ class JagrathaServiceTest {
     Files.createDirectories(projectDir);
 
     configService = mock(JagrathaConfigService.class);
-    service = new JagrathaService(configService, new ObjectMapper(), List.of(new GradlePlugin()));
+    mockProcessor = mock(OutputProcessorPlugin.class);
+    mockAiPlugin = mock(AiPlugin.class);
+
+    when(mockProcessor.getName()).thenReturn("test-processor");
+    when(mockAiPlugin.getName()).thenReturn("test-ai");
+
+    service =
+        new JagrathaService(
+            configService,
+            new ObjectMapper(),
+            List.of(new GradlePlugin()),
+            List.of(mockProcessor),
+            List.of(mockAiPlugin));
 
     when(configService.getFileLogDir()).thenReturn(filesDir.toString());
     when(configService.getResultLogDir()).thenReturn(resultsDir.toString());
@@ -221,6 +239,36 @@ class JagrathaServiceTest {
               assertEquals("FAILURE", response.status());
               assertTrue(response.output().contains("Task: task1"));
               assertFalse(response.output().contains("Task: task2"));
+            })
+        .verifyComplete();
+  }
+
+  @Test
+  void testRunWorkflow() throws IOException {
+    String sessionId = "session-workflow";
+    Path sessionDir = filesDir.resolve(sessionId);
+    Files.createDirectories(sessionDir);
+    Path logFile = sessionDir.resolve(sessionId + ".log");
+    Files.writeString(logFile, "{\"path\":\"root.java\",\"status\":\"PENDING\"}\n");
+
+    WorkflowConfig workflow =
+        new WorkflowConfig(
+            "test",
+            new WorkflowConfig.ProcessorStepConfig("test-processor", Map.of()),
+            new WorkflowConfig.AiStepConfig("test-ai", Map.of()));
+
+    when(configService.getWorkflows()).thenReturn(List.of(workflow));
+    when(mockProcessor.process(any()))
+        .thenReturn(new OutputProcessorPlugin.ProcessorResult("SUCCESS", "proc output", null));
+    when(mockAiPlugin.execute(any(), any())).thenReturn("ai response");
+
+    StepVerifier.create(service.runQualityChecks(sessionId))
+        .assertNext(
+            response -> {
+              assertEquals("SUCCESS", response.status());
+              assertTrue(response.output().contains("Task: test"));
+              assertTrue(response.output().contains("Processor: test-processor"));
+              assertTrue(response.output().contains("AI (test-ai)"));
             })
         .verifyComplete();
   }

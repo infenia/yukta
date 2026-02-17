@@ -4,7 +4,10 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.jagratha.jagratha.config.JagrathaConfigService;
 import io.jagratha.jagratha.model.TaskResponse;
+import io.jagratha.jagratha.model.WorkflowConfig;
+import io.jagratha.jagratha.plugin.AiPlugin;
 import io.jagratha.jagratha.plugin.JagrathaPlugin;
+import io.jagratha.jagratha.plugin.OutputProcessorPlugin;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
@@ -19,8 +22,6 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Stream;
 import lombok.RequiredArgsConstructor;
@@ -47,13 +48,15 @@ public class JagrathaService {
   private final JagrathaConfigService configService;
   private final ObjectMapper objectMapper;
   private final List<JagrathaPlugin> plugins;
+  private final List<OutputProcessorPlugin> processorPlugins;
+  private final List<AiPlugin> aiPlugins;
 
   private static final String FAILURE_STATUS = "FAILURE";
   private static final String SUCCESS_STATUS = "SUCCESS";
   private static final String PENDING_STATUS = "PENDING";
   private static final int SB_CAPACITY = 2048;
 
-  private final Map<String, ReentrantLock> locks = new ConcurrentHashMap<>();
+  private final Map<String, ReentrantLock> locks = new java.util.concurrent.ConcurrentHashMap<>();
 
   private ReentrantLock getLock(final String sessionId) {
     return locks.computeIfAbsent(sessionId, k -> new ReentrantLock());
@@ -401,15 +404,45 @@ public class JagrathaService {
       final DateTimeFormatter formatter,
       final String module) {
 
-    List<String> tasks = configService.getTasks();
-    if (tasks == null || tasks.isEmpty()) {
-      tasks = List.of("spotlessApply", "spotlessCheck", "checkstyleMain", "test");
-    }
-
     combinedOutput
         .append("--- Module: ")
         .append(module.isEmpty() ? "root" : module)
         .append(" ---\n");
+
+    final List<WorkflowConfig> workflows = configService.getWorkflows();
+    if (workflows != null && !workflows.isEmpty()) {
+      return runWorkflows(projectDir, sessionId, combinedOutput, formatter, module, workflows);
+    }
+    return runSimpleTasks(projectDir, sessionId, combinedOutput, formatter, module);
+  }
+
+  private TaskResponse runWorkflows(
+      final File projectDir,
+      final String sessionId,
+      final StringBuilder combinedOutput,
+      final DateTimeFormatter formatter,
+      final String module,
+      final List<WorkflowConfig> workflows) {
+    for (final WorkflowConfig workflow : workflows) {
+      final TaskResponse res =
+          executeWorkflow(projectDir, sessionId, combinedOutput, formatter, module, workflow);
+      if (FAILURE_STATUS.equals(res.status())) {
+        return res;
+      }
+    }
+    return new TaskResponse(SUCCESS_STATUS, "");
+  }
+
+  private TaskResponse runSimpleTasks(
+      final File projectDir,
+      final String sessionId,
+      final StringBuilder combinedOutput,
+      final DateTimeFormatter formatter,
+      final String module) {
+    List<String> tasks = configService.getTasks();
+    if (tasks == null || tasks.isEmpty()) {
+      tasks = List.of("spotlessApply", "spotlessCheck", "checkstyleMain", "test");
+    }
 
     for (final String task : tasks) {
       final TaskResponse res =
@@ -429,6 +462,152 @@ public class JagrathaService {
       }
     }
     return new TaskResponse(SUCCESS_STATUS, "");
+  }
+
+  private TaskResponse executeWorkflow(
+      final File projectDir,
+      final String sessionId,
+      final StringBuilder combinedOutput,
+      final DateTimeFormatter formatter,
+      final String module,
+      final WorkflowConfig workflow) {
+
+    final TaskResponse taskRes =
+        executeSingleTask(
+            projectDir,
+            sessionId,
+            formatter,
+            module,
+            workflow.task(),
+            configService.getPluginConfig());
+
+    combinedOutput
+        .append("Task: ")
+        .append(workflow.task())
+        .append(" - ")
+        .append(taskRes.status())
+        .append('\n')
+        .append(taskRes.output())
+        .append('\n');
+
+    if (FAILURE_STATUS.equals(taskRes.status()) && workflow.processor() == null) {
+      return new TaskResponse(FAILURE_STATUS, combinedOutput.toString());
+    }
+
+    String artifactPath = null;
+    if (workflow.processor() != null) {
+      final OutputProcessorPlugin processor = findProcessor(workflow.processor().name());
+      final OutputProcessorPlugin.ProcessorResult procRes =
+          processor.process(
+              new OutputProcessorPlugin.ProcessorInput(
+                  sessionId,
+                  configService.getProjectPath(),
+                  module,
+                  workflow.task(),
+                  taskRes.output(),
+                  configService.getResultLogDir(),
+                  workflow.processor().config()));
+
+      artifactPath = procRes.artifactPath();
+      combinedOutput
+          .append("Processor: ")
+          .append(workflow.processor().name())
+          .append(" - ")
+          .append(procRes.status())
+          .append('\n')
+          .append(procRes.output())
+          .append('\n');
+
+      if (FAILURE_STATUS.equals(procRes.status())) {
+        return new TaskResponse(FAILURE_STATUS, combinedOutput.toString());
+      }
+    }
+
+    if (workflow.aiStep() != null) {
+      final AiPlugin aiPlugin = findAiPlugin(workflow.aiStep().name());
+      final String prompt =
+          constructPrompt(workflow.aiStep().config(), taskRes.output(), artifactPath);
+      final String aiResponse = aiPlugin.execute(prompt, workflow.aiStep().config());
+
+      combinedOutput
+          .append("AI (")
+          .append(workflow.aiStep().name())
+          .append("):\n")
+          .append(aiResponse)
+          .append('\n');
+
+      saveAiLog(
+          sessionId, module, workflow.task(), workflow.aiStep().name(), formatter, aiResponse);
+    }
+
+    combinedOutput.append('\n');
+    return new TaskResponse(SUCCESS_STATUS, "");
+  }
+
+  private OutputProcessorPlugin findProcessor(final String name) {
+    return processorPlugins.stream()
+        .filter(p -> p.getName().equals(name))
+        .findFirst()
+        .orElseThrow(() -> new IllegalArgumentException("Processor not found: " + name));
+  }
+
+  private AiPlugin findAiPlugin(final String name) {
+    return aiPlugins.stream()
+        .filter(p -> p.getName().equals(name))
+        .findFirst()
+        .orElseThrow(() -> new IllegalArgumentException("AI plugin not found: " + name));
+  }
+
+  private String constructPrompt(
+      final Map<String, Object> config, final String taskOutput, final String artifactPath) {
+    String template = (String) config.get("promptTemplate");
+    if (template == null || template.isEmpty()) {
+      template = "Task Output:\n{{taskOutput}}\n\nProcessor Output:\n{{processorOutput}}";
+    }
+
+    String result = template.replace("{{taskOutput}}", taskOutput);
+    if (artifactPath != null && !artifactPath.isEmpty()) {
+      try {
+        final String artifactContent =
+            Files.readString(Path.of(artifactPath), StandardCharsets.UTF_8);
+        result = result.replace("{{processorOutput}}", artifactContent);
+      } catch (IOException e) {
+        log.warn("Failed to read artifact for prompt: {}", artifactPath, e);
+        result =
+            result.replace(
+                "{{processorOutput}}", "Error reading processor artifact: " + e.getMessage());
+      }
+    } else {
+      result = result.replace("{{processorOutput}}", "No processor output available.");
+    }
+    return result;
+  }
+
+  private void saveAiLog(
+      final String sessionId,
+      final String module,
+      final String task,
+      final String aiName,
+      final DateTimeFormatter formatter,
+      final String response) {
+    final String logsDir = configService.getResultLogDir();
+    if (logsDir != null && !logsDir.isEmpty()) {
+      try {
+        final String timestamp = LocalDateTime.now().format(formatter);
+        final String logFileName =
+            String.format(
+                "%s-%s-%s-%s.log",
+                module.isEmpty() ? "root" : module.replace(":", "-").substring(1),
+                task,
+                aiName,
+                timestamp);
+        final Path dirPath = Path.of(logsDir).resolve(sessionId);
+        Files.createDirectories(dirPath);
+        Files.writeString(dirPath.resolve(logFileName), response);
+      } catch (IOException e) {
+        log.error("Failed to log AI response", e);
+      }
+    }
   }
 
   private TaskResponse executeSingleTask(
@@ -504,7 +683,8 @@ public class JagrathaService {
 
       final String output = readProcessOutput(process);
       final Long timeout = configService.getExecutionTimeout();
-      final boolean finished = process.waitFor(timeout != null ? timeout : 600, TimeUnit.SECONDS);
+      final boolean finished =
+          process.waitFor(timeout != null ? timeout : 600, java.util.concurrent.TimeUnit.SECONDS);
 
       if (finished) {
         final int exitCode = process.exitValue();

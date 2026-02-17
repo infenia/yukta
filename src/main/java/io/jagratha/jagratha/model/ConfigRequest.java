@@ -11,6 +11,7 @@ import java.util.Map;
  * @param pluginName the plugin name
  * @param pluginConfig the plugin configuration
  * @param tasks the list of tasks
+ * @param workflows the list of workflows
  * @param executionTimeout the execution timeout
  * @param modifiedFile the modified file log directory
  * @param results the results log directory
@@ -21,6 +22,7 @@ public record ConfigRequest(
     String pluginName,
     Map<String, Object> pluginConfig,
     List<String> tasks,
+    List<WorkflowConfig> workflows,
     Long executionTimeout,
     String modifiedFile,
     String results) {
@@ -28,6 +30,7 @@ public record ConfigRequest(
   /** Compact constructor to ensure tasks list is immutable and maps are handled. */
   public ConfigRequest {
     tasks = tasks != null ? List.copyOf(tasks) : List.of();
+    workflows = workflows != null ? List.copyOf(workflows) : List.of();
     pluginConfig = pluginConfig != null ? Map.copyOf(pluginConfig) : Map.of();
   }
 }

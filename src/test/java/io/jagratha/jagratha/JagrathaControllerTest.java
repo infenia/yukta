@@ -138,6 +138,7 @@ class JagrathaControllerTest {
             "gradle",
             null,
             List.of("test"),
+            List.of(),
             300L,
             "/new/logs",
             "/new/results");

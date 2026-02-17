@@ -1,5 +1,6 @@
 package io.jagratha.jagratha.config;
 
+import io.jagratha.jagratha.model.WorkflowConfig;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
@@ -25,6 +26,7 @@ public class JagrathaConfigService {
   private final AtomicReference<String> pluginName = new AtomicReference<>();
   private final AtomicReference<Map<String, Object>> pluginConfig = new AtomicReference<>();
   private final AtomicReference<List<String>> tasks = new AtomicReference<>();
+  private final AtomicReference<List<WorkflowConfig>> workflows = new AtomicReference<>();
   private final AtomicReference<Long> executionTimeout = new AtomicReference<>();
   private final AtomicReference<String> fileLogDir = new AtomicReference<>();
   private final AtomicReference<String> resultLogDir = new AtomicReference<>();
@@ -138,6 +140,35 @@ public class JagrathaConfigService {
       tasks.set(List.copyOf(tasksList));
     } else {
       tasks.set(List.of());
+    }
+  }
+
+  /**
+   * Get the list of workflows.
+   *
+   * @return the list of workflows
+   */
+  public List<WorkflowConfig> getWorkflows() {
+    final List<WorkflowConfig> override = workflows.get();
+    final List<WorkflowConfig> result;
+    if (override != null && !override.isEmpty()) {
+      result = override;
+    } else {
+      result = staticConfig.workflows();
+    }
+    return result;
+  }
+
+  /**
+   * Set the workflows override.
+   *
+   * @param workflowsList the list of workflows
+   */
+  public void setWorkflows(final List<WorkflowConfig> workflowsList) {
+    if (workflowsList != null) {
+      workflows.set(List.copyOf(workflowsList));
+    } else {
+      workflows.set(List.of());
     }
   }
 

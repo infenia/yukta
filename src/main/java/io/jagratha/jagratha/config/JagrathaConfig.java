@@ -1,5 +1,6 @@
 package io.jagratha.jagratha.config;
 
+import io.jagratha.jagratha.model.WorkflowConfig;
 import java.util.List;
 import java.util.Map;
 import org.springframework.boot.context.properties.ConfigurationProperties;
@@ -11,6 +12,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  * @param pluginName the name of the active plugin
  * @param pluginConfig plugin-specific configuration
  * @param tasks list of tasks to run
+ * @param workflows list of workflows to run
  * @param executionTimeout timeout for execution in seconds
  * @param logs configuration for logging directories
  */
@@ -20,12 +22,14 @@ public record JagrathaConfig(
     String pluginName,
     Map<String, Object> pluginConfig,
     List<String> tasks,
+    List<WorkflowConfig> workflows,
     Long executionTimeout,
     Logs logs) {
 
   /** Compact constructor to ensure tasks list and maps are immutable. */
   public JagrathaConfig {
     tasks = tasks != null ? List.copyOf(tasks) : List.of();
+    workflows = workflows != null ? List.copyOf(workflows) : List.of();
     pluginConfig = pluginConfig != null ? Map.copyOf(pluginConfig) : Map.of();
   }
 

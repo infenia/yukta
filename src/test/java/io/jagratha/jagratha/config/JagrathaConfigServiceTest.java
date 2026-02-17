@@ -20,6 +20,7 @@ class JagrathaConfigServiceTest {
             "gradle",
             Map.of("gradlePath", "/static/gradle"),
             List.of("staticTask"),
+            List.of(),
             100L,
             new JagrathaConfig.Logs("/static/files", "/static/results"));
     configService = new JagrathaConfigService(staticConfig);
@@ -66,7 +67,7 @@ class JagrathaConfigServiceTest {
 
   @Test
   void testFallbacks() {
-    JagrathaConfig emptyConfig = new JagrathaConfig(null, null, null, null, null, null);
+    JagrathaConfig emptyConfig = new JagrathaConfig(null, null, null, null, null, null, null);
     JagrathaConfigService emptyService = new JagrathaConfigService(emptyConfig);
 
     assertEquals(300L, emptyService.getExecutionTimeout());

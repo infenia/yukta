@@ -110,6 +110,11 @@ public class JagrathaController {
    */
   @PostMapping("/config")
   public ResponseEntity<String> updateConfig(@RequestBody final ConfigRequest request) {
+    applyConfigOverrides(request);
+    return ResponseEntity.ok("Configuration updated successfully");
+  }
+
+  private void applyConfigOverrides(final ConfigRequest request) {
     if (request.projectPath() != null) {
       configService.setProjectPath(request.projectPath());
     }
@@ -122,15 +127,25 @@ public class JagrathaController {
     if (request.tasks() != null) {
       configService.setTasks(request.tasks());
     }
+    applyWorkflowAndTimeoutOverrides(request);
+    applyLogDirOverrides(request);
+  }
+
+  private void applyWorkflowAndTimeoutOverrides(final ConfigRequest request) {
+    if (request.workflows() != null) {
+      configService.setWorkflows(request.workflows());
+    }
     if (request.executionTimeout() != null) {
       configService.setExecutionTimeout(request.executionTimeout());
     }
+  }
+
+  private void applyLogDirOverrides(final ConfigRequest request) {
     if (request.modifiedFile() != null) {
       configService.setFileLogDir(request.modifiedFile());
     }
     if (request.results() != null) {
       configService.setResultLogDir(request.results());
     }
-    return ResponseEntity.ok("Configuration updated successfully");
   }
 }
