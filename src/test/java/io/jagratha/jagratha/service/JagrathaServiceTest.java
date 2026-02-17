@@ -8,11 +8,13 @@ import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.jagratha.jagratha.config.JagrathaConfigService;
+import io.jagratha.jagratha.plugin.GradlePlugin;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -38,12 +40,13 @@ class JagrathaServiceTest {
     Files.createDirectories(projectDir);
 
     configService = mock(JagrathaConfigService.class);
-    service = new JagrathaService(configService, new ObjectMapper());
+    service = new JagrathaService(configService, new ObjectMapper(), List.of(new GradlePlugin()));
 
     when(configService.getFileLogDir()).thenReturn(filesDir.toString());
     when(configService.getResultLogDir()).thenReturn(resultsDir.toString());
     when(configService.getProjectPath()).thenReturn(projectDir.toString());
-    when(configService.getGradlePath()).thenReturn("./gradlew");
+    when(configService.getPluginName()).thenReturn("gradle");
+    when(configService.getPluginConfig()).thenReturn(Map.of("gradlePath", "./gradlew"));
     when(configService.getExecutionTimeout()).thenReturn(600L);
     when(configService.getTasks()).thenReturn(List.of("test"));
   }

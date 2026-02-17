@@ -133,7 +133,14 @@ class JagrathaControllerTest {
   void testUpdateConfig() {
     ConfigRequest request =
         new ConfigRequest(
-            "session-1", "/new/path", null, List.of("test"), 300L, "/new/logs", "/new/results");
+            "session-1",
+            "/new/path",
+            "gradle",
+            null,
+            List.of("test"),
+            300L,
+            "/new/logs",
+            "/new/results");
 
     webTestClient
         .post()

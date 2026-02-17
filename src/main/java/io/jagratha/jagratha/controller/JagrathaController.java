@@ -113,8 +113,11 @@ public class JagrathaController {
     if (request.projectPath() != null) {
       configService.setProjectPath(request.projectPath());
     }
-    if (request.gradlePath() != null) {
-      configService.setGradlePath(request.gradlePath());
+    if (request.pluginName() != null) {
+      configService.setPluginName(request.pluginName());
+    }
+    if (request.pluginConfig() != null) {
+      configService.setPluginConfig(request.pluginConfig());
     }
     if (request.tasks() != null) {
       configService.setTasks(request.tasks());

@@ -1,6 +1,7 @@
 package io.jagratha.jagratha.config;
 
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -21,7 +22,8 @@ public class JagrathaConfigService {
   private final JagrathaConfig staticConfig;
 
   private final AtomicReference<String> projectPath = new AtomicReference<>();
-  private final AtomicReference<String> gradlePath = new AtomicReference<>();
+  private final AtomicReference<String> pluginName = new AtomicReference<>();
+  private final AtomicReference<Map<String, Object>> pluginConfig = new AtomicReference<>();
   private final AtomicReference<List<String>> tasks = new AtomicReference<>();
   private final AtomicReference<Long> executionTimeout = new AtomicReference<>();
   private final AtomicReference<String> fileLogDir = new AtomicReference<>();
@@ -55,34 +57,63 @@ public class JagrathaConfigService {
   }
 
   /**
-   * Get the Gradle path.
+   * Get the plugin name.
    *
-   * @return the Gradle path
+   * @return the plugin name
    */
-  public String getGradlePath() {
-    final String override = gradlePath.get();
+  public String getPluginName() {
+    final String override = pluginName.get();
     final String result;
     if (override != null) {
       result = override;
-    } else if (staticConfig.externalProject() != null) {
-      result = staticConfig.externalProject().gradlePath();
     } else {
-      result = "";
+      result = staticConfig.pluginName();
     }
     return result;
   }
 
   /**
-   * Set the Gradle path override.
+   * Set the plugin name override.
    *
-   * @param path the Gradle path
+   * @param name the plugin name
    */
-  public void setGradlePath(final String path) {
-    gradlePath.set(path);
+  public void setPluginName(final String name) {
+    pluginName.set(name);
   }
 
   /**
-   * Get the list of Gradle tasks.
+   * Get the plugin configuration.
+   *
+   * @return the plugin configuration map
+   */
+  public Map<String, Object> getPluginConfig() {
+    final Map<String, Object> override = pluginConfig.get();
+    final Map<String, Object> result;
+    if (override != null) {
+      result = override;
+    } else if (staticConfig.pluginConfig() != null) {
+      result = staticConfig.pluginConfig();
+    } else {
+      result = Map.of();
+    }
+    return result;
+  }
+
+  /**
+   * Set the plugin configuration override.
+   *
+   * @param config the configuration map
+   */
+  public void setPluginConfig(final Map<String, Object> config) {
+    if (config != null) {
+      pluginConfig.set(Map.copyOf(config));
+    } else {
+      pluginConfig.set(Map.of());
+    }
+  }
+
+  /**
+   * Get the list of tasks.
    *
    * @return the list of tasks
    */
@@ -98,7 +129,7 @@ public class JagrathaConfigService {
   }
 
   /**
-   * Set the Gradle tasks override.
+   * Set the tasks override.
    *
    * @param tasksList the list of tasks
    */
@@ -165,7 +196,7 @@ public class JagrathaConfigService {
   }
 
   /**
-   * Get the Gradle results log directory.
+   * Get the results log directory.
    *
    * @return the log directory
    */
@@ -183,7 +214,7 @@ public class JagrathaConfigService {
   }
 
   /**
-   * Set the Gradle results log directory override.
+   * Set the results log directory override.
    *
    * @param dir the log directory
    */

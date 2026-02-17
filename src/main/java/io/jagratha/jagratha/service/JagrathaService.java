@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.jagratha.jagratha.config.JagrathaConfigService;
 import io.jagratha.jagratha.model.TaskResponse;
+import io.jagratha.jagratha.plugin.JagrathaPlugin;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
@@ -38,12 +39,14 @@ import reactor.core.publisher.Mono;
   "PMD.OnlyOneReturn",
   "PMD.UseConcurrentHashMap",
   "PMD.CouplingBetweenObjects",
-  "PMD.CyclomaticComplexity"
+  "PMD.CyclomaticComplexity",
+  "PMD.GodClass"
 })
 public class JagrathaService {
 
   private final JagrathaConfigService configService;
   private final ObjectMapper objectMapper;
+  private final List<JagrathaPlugin> plugins;
 
   private static final String FAILURE_STATUS = "FAILURE";
   private static final String SUCCESS_STATUS = "SUCCESS";
@@ -281,12 +284,20 @@ public class JagrathaService {
   private TaskResponse executeQualityChecks(final String sessionId) {
     final String projectRoot = configService.getProjectPath();
     final String logsDir = configService.getFileLogDir();
+    final String pluginName = configService.getPluginName();
 
     if (projectRoot == null || projectRoot.isEmpty()) {
       return respondAndLog(sessionId, FAILURE_STATUS, "External project path not configured.");
     }
     if (logsDir == null || logsDir.isEmpty()) {
       return respondAndLog(sessionId, FAILURE_STATUS, "File log directory not configured.");
+    }
+    if (pluginName == null || pluginName.isEmpty()) {
+      return respondAndLog(
+          sessionId,
+          FAILURE_STATUS,
+          "No plugin name configured. Please use the /api/config endpoint to initialize the "
+              + "project configuration.");
     }
 
     final File projectDir = new File(projectRoot);
@@ -306,6 +317,19 @@ public class JagrathaService {
     return response;
   }
 
+  private JagrathaPlugin getActivePlugin() {
+    final String pluginName = configService.getPluginName();
+    if (pluginName == null || pluginName.isEmpty()) {
+      throw new IllegalStateException(
+          "No plugin name configured. Please use the /api/config endpoint to initialize the project"
+              + " configuration.");
+    }
+    return plugins.stream()
+        .filter(p -> pluginName.equals(p.getName()))
+        .findFirst()
+        .orElseThrow(() -> new IllegalStateException("Plugin not found: " + pluginName));
+  }
+
   private TaskResponse processSessionLogs(
       final String sessionId,
       final String projectRoot,
@@ -314,6 +338,7 @@ public class JagrathaService {
     final ReentrantLock lock = getLock(sessionId);
     lock.lock();
     try {
+      final JagrathaPlugin plugin = getActivePlugin();
       final Path logFile = Path.of(logsDir).resolve(sessionId).resolve(sessionId + ".log");
       final Map<String, String> files = readLogFile(logFile);
       final Map<String, List<String>> pendingByModule =
@@ -321,7 +346,7 @@ public class JagrathaService {
               .filter(entry -> !SUCCESS_STATUS.equals(entry.getValue()))
               .collect(
                   java.util.stream.Collectors.groupingBy(
-                      entry -> identifyModule(projectRoot, entry.getKey()),
+                      entry -> plugin.identifyModule(projectRoot, entry.getKey()),
                       LinkedHashMap::new,
                       java.util.stream.Collectors.mapping(
                           Map.Entry::getKey, java.util.stream.Collectors.toList())));
@@ -387,7 +412,9 @@ public class JagrathaService {
         .append(" ---\n");
 
     for (final String task : tasks) {
-      final TaskResponse res = executeSingleTask(projectDir, sessionId, formatter, module, task);
+      final TaskResponse res =
+          executeSingleTask(
+              projectDir, sessionId, formatter, module, task, configService.getPluginConfig());
       combinedOutput
           .append("Task: ")
           .append(task)
@@ -409,8 +436,9 @@ public class JagrathaService {
       final String sessionId,
       final DateTimeFormatter formatter,
       final String module,
-      final String task) {
-    final List<String> command = buildSingleGradleCommand(module, task);
+      final String task,
+      final Map<String, Object> pluginConfig) {
+    final List<String> command = getActivePlugin().buildTaskCommand(module, task, pluginConfig);
     final String timestamp = LocalDateTime.now().format(formatter);
     final String logFileName =
         String.format(
@@ -421,34 +449,9 @@ public class JagrathaService {
       log.info("Running quality check: {}", String.join(" ", command));
     }
 
-    final TaskResponse res = tryExecuteGradleChecks(command, projectDir);
+    final TaskResponse res = tryExecuteChecks(command, projectDir);
     saveTaskLog(sessionId, logFileName, res);
     return res;
-  }
-
-  private String identifyModule(final String projectRoot, final String relativePath) {
-    String result = "";
-    try {
-      final Path rootPath = Path.of(projectRoot).toAbsolutePath().normalize();
-      final Path fileAbsPath = rootPath.resolve(relativePath).toAbsolutePath().normalize();
-
-      Path current = fileAbsPath.getParent();
-      while (current != null && current.startsWith(rootPath)) {
-        if (Files.exists(current.resolve("build.gradle"))
-            || Files.exists(current.resolve("build.gradle.kts"))) {
-          final Path relPath = rootPath.relativize(current);
-          final String modulePath = relPath.toString();
-          if (!modulePath.isEmpty()) {
-            result = ":" + modulePath.replace(File.separator, ":");
-          }
-          break;
-        }
-        current = current.getParent();
-      }
-    } catch (InvalidPathException e) {
-      log.warn("Failed to identify module for path: {}", relativePath, e);
-    }
-    return result;
   }
 
   private void saveTaskLog(final String sessionId, final String fileName, final TaskResponse res) {
@@ -480,18 +483,18 @@ public class JagrathaService {
         Files.writeString(
             logFile, content, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
         if (log.isInfoEnabled()) {
-          log.info("Logged Gradle results for session {}", sessionId);
+          log.info("Logged quality check results for session {}", sessionId);
         }
       } catch (IOException e) {
         if (log.isErrorEnabled()) {
-          log.error("Failed to log Gradle results", e);
+          log.error("Failed to log results", e);
         }
       }
     }
   }
 
   @SuppressWarnings("PMD.DoNotUseThreads")
-  private TaskResponse tryExecuteGradleChecks(final List<String> command, final File projectDir) {
+  private TaskResponse tryExecuteChecks(final List<String> command, final File projectDir) {
     TaskResponse response;
     try {
       final ProcessBuilder processBuilder = new ProcessBuilder(command);
@@ -515,9 +518,9 @@ public class JagrathaService {
       }
     } catch (IOException e) {
       if (log.isErrorEnabled()) {
-        log.error("Error executing Gradle", e);
+        log.error("Error executing task", e);
       }
-      response = new TaskResponse(FAILURE_STATUS, "Error executing Gradle: " + e.getMessage());
+      response = new TaskResponse(FAILURE_STATUS, "Error executing task: " + e.getMessage());
     } catch (InterruptedException e) {
       if (log.isErrorEnabled()) {
         log.error("Quality checks interrupted", e);
@@ -526,21 +529,6 @@ public class JagrathaService {
       response = new TaskResponse(FAILURE_STATUS, "Execution interrupted: " + e.getMessage());
     }
     return response;
-  }
-
-  private List<String> buildSingleGradleCommand(final String module, final String task) {
-    final String gradlePath = configService.getGradlePath();
-    final List<String> command = new ArrayList<>();
-    command.add(gradlePath != null && !gradlePath.isEmpty() ? gradlePath : "./gradlew");
-
-    if (module.isEmpty()) {
-      command.add(task);
-    } else if (task.startsWith(":")) {
-      command.add(task);
-    } else {
-      command.add(module + ":" + task);
-    }
-    return command;
   }
 
   private String readProcessOutput(final Process process) throws IOException {

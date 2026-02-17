@@ -3,6 +3,7 @@ package io.jagratha.jagratha.config;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -15,7 +16,9 @@ class JagrathaConfigServiceTest {
   void setUp() {
     staticConfig =
         new JagrathaConfig(
-            new JagrathaConfig.ExternalProject("/static/path", "/static/gradle"),
+            new JagrathaConfig.ExternalProject("/static/path"),
+            "gradle",
+            Map.of("gradlePath", "/static/gradle"),
             List.of("staticTask"),
             100L,
             new JagrathaConfig.Logs("/static/files", "/static/results"));
@@ -25,7 +28,8 @@ class JagrathaConfigServiceTest {
   @Test
   void testDefaultValues() {
     assertEquals("/static/path", configService.getProjectPath());
-    assertEquals("/static/gradle", configService.getGradlePath());
+    assertEquals("gradle", configService.getPluginName());
+    assertEquals(Map.of("gradlePath", "/static/gradle"), configService.getPluginConfig());
     assertEquals(List.of("staticTask"), configService.getTasks());
     assertEquals(100L, configService.getExecutionTimeout());
     assertEquals("/static/files", configService.getFileLogDir());
@@ -35,14 +39,16 @@ class JagrathaConfigServiceTest {
   @Test
   void testApiOverrides() {
     configService.setProjectPath("/api/path");
-    configService.setGradlePath("/api/gradle");
+    configService.setPluginName("maven");
+    configService.setPluginConfig(Map.of("mavenPath", "/api/maven"));
     configService.setTasks(List.of("apiTask"));
     configService.setExecutionTimeout(200L);
     configService.setFileLogDir("/api/files");
     configService.setResultLogDir("/api/results");
 
     assertEquals("/api/path", configService.getProjectPath());
-    assertEquals("/api/gradle", configService.getGradlePath());
+    assertEquals("maven", configService.getPluginName());
+    assertEquals(Map.of("mavenPath", "/api/maven"), configService.getPluginConfig());
     assertEquals(List.of("apiTask"), configService.getTasks());
     assertEquals(200L, configService.getExecutionTimeout());
     assertEquals("/api/files", configService.getFileLogDir());
@@ -54,12 +60,13 @@ class JagrathaConfigServiceTest {
     configService.setProjectPath("/api/path");
 
     assertEquals("/api/path", configService.getProjectPath());
-    assertEquals("/static/gradle", configService.getGradlePath()); // still static
+    assertEquals(
+        Map.of("gradlePath", "/static/gradle"), configService.getPluginConfig()); // still static
   }
 
   @Test
   void testFallbacks() {
-    JagrathaConfig emptyConfig = new JagrathaConfig(null, null, null, null);
+    JagrathaConfig emptyConfig = new JagrathaConfig(null, null, null, null, null, null);
     JagrathaConfigService emptyService = new JagrathaConfigService(emptyConfig);
 
     assertEquals(300L, emptyService.getExecutionTimeout());
