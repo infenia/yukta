@@ -27,20 +27,24 @@ def main():
     except Exception:
         pass
 
-    # Hardcoded configuration as per current implementation requirements
+    # Hardcoded configuration updated to reflect new ConfigRequest model
     payload = {
         "sessionId": session_id,
         "projectPath": "/tmp/external-project",
-        "gradlePath": "./gradlew",
+        "pluginName": "gradle",
+        "pluginConfig": {
+            "gradlePath": "./gradlew"
+        },
         "tasks": [
             "spotlessApply",
             "spotlessCheck",
             "checkstyleMain",
             "test"
         ],
+        "workflows": [],
         "executionTimeout": 600,
-        "fileLogDir": "/tmp/jagratha/logs/files",
-        "resultLogDir": "/tmp/jagratha/logs/results"
+        "modifiedFile": "/tmp/jagratha/logs/files",
+        "results": "/tmp/jagratha/logs/results"
     }
 
     print("Sending configuration to Jagratha server...")

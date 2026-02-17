@@ -17,15 +17,28 @@ def http_post(host, port, location, payload):
         print(f"Response: {response.read().decode('utf-8')}")
 
 def extract_file_path(tool_name, tool_input):
+    # Support for various AI agent tool schemas
     if tool_name in ["Write", "Edit", "MultiEdit"]:
         return tool_input.get('file_path', 'unknown')
     if tool_name == "NotebookEdit":
         return tool_input.get('notebook_path', 'unknown')
+
+    # Support for Claude Code tool names
+    if tool_name in ["write_to_file", "replace_in_file", "insert_content_at_line", "apply_diff"]:
+        return tool_input.get('relative_path', 'unknown')
+
     return 'unknown'
 
 def extract_content(tool_name, tool_input):
-    # Try common fields for content
-    return tool_input.get('content', tool_input.get('new_content', ''))
+    # Try common fields for content across different tools
+    content = tool_input.get('content')
+    if content is None:
+        content = tool_input.get('new_content')
+    if content is None:
+        content = tool_input.get('replacement') # Claude Code replace_in_file
+    if content is None:
+        content = tool_input.get('diff') # Claude Code apply_diff
+    return content if content is not None else ''
 
 def main():
     try:
@@ -36,7 +49,12 @@ def main():
 
     session_id = data.get('session_id', 'unknown')
     tool_name = data.get('tool_name', 'unknown')
-    modification_tools = ["Write", "Edit", "MultiEdit", "NotebookEdit"]
+
+    # Expanded list of modification tools including Claude Code tools
+    modification_tools = [
+        "Write", "Edit", "MultiEdit", "NotebookEdit",
+        "write_to_file", "replace_in_file", "insert_content_at_line", "apply_diff"
+    ]
 
     if tool_name in modification_tools:
         tool_input = data.get('tool_input', {})
