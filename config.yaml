@@ -2,3 +2,12 @@ jagratha:
   external-project:
     path: /tmp/external-project
     gradle-path: ./gradlew
+  tasks:
+    - spotlessApply
+    - spotlessCheck
+    - checkstyleMain
+    - test
+  execution-timeout: 600
+  logs:
+    modified-files-dir: /tmp/jagratha/logs/files
+    gradle-results-dir: /tmp/jagratha/logs/results

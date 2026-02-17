@@ -6,6 +6,8 @@ import jakarta.validation.constraints.NotBlank;
  * Request object for file operations.
  *
  * @param path the file path
- * @param content the file content
+ * @param sessionId the session identifier
  */
-public record FileRequest(@NotBlank String path, @NotBlank String content) {}
+public record FileRequest(
+    @NotBlank(message = "Path is required") String path,
+    @NotBlank(message = "Session ID is required") String sessionId) {}

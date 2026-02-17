@@ -4,10 +4,14 @@ import static org.hamcrest.Matchers.containsString;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 
+import io.jagratha.jagratha.config.JagrathaConfigService;
 import io.jagratha.jagratha.controller.JagrathaController;
+import io.jagratha.jagratha.model.ConfigRequest;
 import io.jagratha.jagratha.model.FileRequest;
+import io.jagratha.jagratha.model.TaskRequest;
 import io.jagratha.jagratha.model.TaskResponse;
 import io.jagratha.jagratha.service.JagrathaService;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webflux.test.autoconfigure.WebFluxTest;
@@ -22,10 +26,11 @@ class JagrathaControllerTest {
   @Autowired private WebTestClient webTestClient;
 
   @MockitoBean private JagrathaService service;
+  @MockitoBean private JagrathaConfigService configService;
 
   @Test
   void testSaveFile() {
-    FileRequest request = new FileRequest("src/Test.java", "content");
+    FileRequest request = new FileRequest("src/Test.java", "session-1");
 
     when(service.saveFile(anyString(), anyString())).thenReturn(Mono.empty());
 
@@ -38,12 +43,12 @@ class JagrathaControllerTest {
         .expectStatus()
         .isOk()
         .expectBody(String.class)
-        .isEqualTo("File saved successfully");
+        .isEqualTo("File path logged successfully");
   }
 
   @Test
   void testSaveFileIllegalArgument() {
-    FileRequest request = new FileRequest("../Outside.java", "content");
+    FileRequest request = new FileRequest("../Outside.java", "session-1");
 
     when(service.saveFile(anyString(), anyString()))
         .thenReturn(Mono.error(new IllegalArgumentException("Invalid path")));
@@ -62,7 +67,7 @@ class JagrathaControllerTest {
 
   @Test
   void testSaveFileInternalError() {
-    FileRequest request = new FileRequest("test.java", "content");
+    FileRequest request = new FileRequest("test.java", "session-1");
 
     when(service.saveFile(anyString(), anyString()))
         .thenReturn(Mono.error(new RuntimeException("IO error")));
@@ -76,18 +81,21 @@ class JagrathaControllerTest {
         .expectStatus()
         .is5xxServerError()
         .expectBody(String.class)
-        .value(containsString("Failed to save file"));
+        .value(containsString("Failed to log file path"));
   }
 
   @Test
   void testCompleteTaskSuccess() {
+    TaskRequest request = new TaskRequest("session-1");
     TaskResponse response = new TaskResponse("SUCCESS", "Build successful");
 
-    when(service.runQualityChecks()).thenReturn(Mono.just(response));
+    when(service.runQualityChecks(anyString())).thenReturn(Mono.just(response));
 
     webTestClient
         .post()
         .uri("/api/tasks/complete")
+        .contentType(MediaType.APPLICATION_JSON)
+        .bodyValue(request)
         .exchange()
         .expectStatus()
         .isOk()
@@ -100,13 +108,16 @@ class JagrathaControllerTest {
 
   @Test
   void testCompleteTaskFailure() {
+    TaskRequest request = new TaskRequest("session-1");
     TaskResponse response = new TaskResponse("FAILURE", "Build failed");
 
-    when(service.runQualityChecks()).thenReturn(Mono.just(response));
+    when(service.runQualityChecks(anyString())).thenReturn(Mono.just(response));
 
     webTestClient
         .post()
         .uri("/api/tasks/complete")
+        .contentType(MediaType.APPLICATION_JSON)
+        .bodyValue(request)
         .exchange()
         .expectStatus()
         .is5xxServerError()
@@ -115,5 +126,21 @@ class JagrathaControllerTest {
         .isEqualTo("FAILURE")
         .jsonPath("$.output")
         .isEqualTo("Build failed");
+  }
+
+  @Test
+  void testUpdateConfig() {
+    ConfigRequest request = new ConfigRequest("/new/path", null, List.of("test"), 300L, null, null);
+
+    webTestClient
+        .post()
+        .uri("/api/config")
+        .contentType(MediaType.APPLICATION_JSON)
+        .bodyValue(request)
+        .exchange()
+        .expectStatus()
+        .isOk()
+        .expectBody(String.class)
+        .isEqualTo("Configuration updated successfully");
   }
 }

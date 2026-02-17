@@ -16,6 +16,8 @@ public class JagrathaMcpTools {
 
   private final JagrathaService jagrathaService;
 
+  private static final String MCP_SESSION_ID = "mcp-session";
+
   /**
    * Get current status of the external project managed by Jagratha.
    *
@@ -35,7 +37,7 @@ public class JagrathaMcpTools {
       description = "Trigger quality checks (spotless, checkstyle, tests) on the external project")
   public Mono<String> triggerQualityChecks() {
     return jagrathaService
-        .runQualityChecks()
+        .runQualityChecks(MCP_SESSION_ID)
         .map(response -> "Status: " + response.status() + "\n\nOutput:\n" + response.output());
   }
 }

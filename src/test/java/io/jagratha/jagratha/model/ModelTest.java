@@ -9,9 +9,9 @@ class ModelTest {
 
   @Test
   void testFileRequest() {
-    FileRequest request = new FileRequest("path", "content");
+    FileRequest request = new FileRequest("path", "session-1");
     assertEquals("path", request.path());
-    assertEquals("content", request.content());
+    assertEquals("session-1", request.sessionId());
     assertNotNull(request.toString());
   }
 
@@ -21,5 +21,11 @@ class ModelTest {
     assertEquals("SUCCESS", response.status());
     assertEquals("output", response.output());
     assertNotNull(response.toString());
+  }
+
+  @Test
+  void testTaskRequest() {
+    TaskRequest request = new TaskRequest("session-1");
+    assertEquals("session-1", request.sessionId());
   }
 }

@@ -1,6 +1,9 @@
 package io.jagratha.jagratha.controller;
 
+import io.jagratha.jagratha.config.JagrathaConfigService;
+import io.jagratha.jagratha.model.ConfigRequest;
 import io.jagratha.jagratha.model.FileRequest;
+import io.jagratha.jagratha.model.TaskRequest;
 import io.jagratha.jagratha.model.TaskResponse;
 import io.jagratha.jagratha.service.JagrathaService;
 import jakarta.validation.Valid;
@@ -22,20 +25,21 @@ import reactor.core.publisher.Mono;
 public class JagrathaController {
 
   private final JagrathaService service;
+  private final JagrathaConfigService configService;
 
   private static final String SUCCESS_STATUS = "SUCCESS";
 
   /**
-   * Save a file to the external project.
+   * Log a file path for a session.
    *
-   * @param request the file request containing path and content
+   * @param request the file request containing path and sessionId
    * @return response entity with success or error message
    */
   @PostMapping("/files")
   public Mono<ResponseEntity<String>> saveFile(@Valid @RequestBody final FileRequest request) {
     return service
-        .saveFile(request.path(), request.content())
-        .thenReturn(ResponseEntity.ok("File saved successfully"))
+        .saveFile(request.path(), request.sessionId())
+        .thenReturn(ResponseEntity.ok("File path logged successfully"))
         .onErrorResume(
             IllegalArgumentException.class,
             e -> Mono.just(ResponseEntity.badRequest().body(e.getMessage())))
@@ -44,18 +48,20 @@ public class JagrathaController {
             e ->
                 Mono.just(
                     ResponseEntity.internalServerError()
-                        .body("Failed to save file: " + e.getMessage())));
+                        .body("Failed to log file path: " + e.getMessage())));
   }
 
   /**
    * Run quality checks on the external project and return the results.
    *
+   * @param request the task request containing sessionId
    * @return response entity with task status and output
    */
   @PostMapping("/tasks/complete")
-  public Mono<ResponseEntity<TaskResponse>> completeTask() {
+  public Mono<ResponseEntity<TaskResponse>> completeTask(
+      @Valid @RequestBody final TaskRequest request) {
     return service
-        .runQualityChecks()
+        .runQualityChecks(request.sessionId())
         .map(
             response -> {
               if (SUCCESS_STATUS.equals(response.status())) {
@@ -64,5 +70,34 @@ public class JagrathaController {
                 return ResponseEntity.status(500).body(response);
               }
             });
+  }
+
+  /**
+   * Update configuration at runtime.
+   *
+   * @param request the config request containing new configuration values
+   * @return response entity with success message
+   */
+  @PostMapping("/config")
+  public ResponseEntity<String> updateConfig(@RequestBody final ConfigRequest request) {
+    if (request.projectPath() != null) {
+      configService.setProjectPath(request.projectPath());
+    }
+    if (request.gradlePath() != null) {
+      configService.setGradlePath(request.gradlePath());
+    }
+    if (request.tasks() != null) {
+      configService.setTasks(request.tasks());
+    }
+    if (request.executionTimeout() != null) {
+      configService.setExecutionTimeout(request.executionTimeout());
+    }
+    if (request.fileLogDir() != null) {
+      configService.setFileLogDir(request.fileLogDir());
+    }
+    if (request.resultLogDir() != null) {
+      configService.setResultLogDir(request.resultLogDir());
+    }
+    return ResponseEntity.ok("Configuration updated successfully");
   }
 }
