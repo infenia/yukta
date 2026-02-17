@@ -9,9 +9,10 @@ class ModelTest {
 
   @Test
   void testFileRequest() {
-    FileRequest request = new FileRequest("path", "session-1");
+    FileRequest request = new FileRequest("path", "session-1", "content");
     assertEquals("path", request.path());
     assertEquals("session-1", request.sessionId());
+    assertEquals("content", request.content());
     assertNotNull(request.toString());
   }
 

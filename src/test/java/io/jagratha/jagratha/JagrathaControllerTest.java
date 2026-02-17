@@ -30,7 +30,7 @@ class JagrathaControllerTest {
 
   @Test
   void testSaveFile() {
-    FileRequest request = new FileRequest("src/Test.java", "session-1");
+    FileRequest request = new FileRequest("src/Test.java", "session-1", "content");
 
     when(service.saveFile(anyString(), anyString())).thenReturn(Mono.empty());
 
@@ -48,7 +48,7 @@ class JagrathaControllerTest {
 
   @Test
   void testSaveFileIllegalArgument() {
-    FileRequest request = new FileRequest("../Outside.java", "session-1");
+    FileRequest request = new FileRequest("../Outside.java", "session-1", null);
 
     when(service.saveFile(anyString(), anyString()))
         .thenReturn(Mono.error(new IllegalArgumentException("Invalid path")));
@@ -67,7 +67,7 @@ class JagrathaControllerTest {
 
   @Test
   void testSaveFileInternalError() {
-    FileRequest request = new FileRequest("test.java", "session-1");
+    FileRequest request = new FileRequest("test.java", "session-1", null);
 
     when(service.saveFile(anyString(), anyString()))
         .thenReturn(Mono.error(new RuntimeException("IO error")));
@@ -130,7 +130,8 @@ class JagrathaControllerTest {
 
   @Test
   void testUpdateConfig() {
-    ConfigRequest request = new ConfigRequest("/new/path", null, List.of("test"), 300L, null, null);
+    ConfigRequest request =
+        new ConfigRequest("session-1", "/new/path", null, List.of("test"), 300L, null, null);
 
     webTestClient
         .post()

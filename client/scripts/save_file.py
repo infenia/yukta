@@ -34,6 +34,7 @@ def main():
         print("Error: Invalid JSON input")
         sys.exit(1)
 
+    session_id = data.get('session_id', 'unknown')
     tool_name = data.get('tool_name', 'unknown')
     modification_tools = ["Write", "Edit", "MultiEdit", "NotebookEdit"]
 
@@ -45,6 +46,7 @@ def main():
         if file_path != 'unknown':
             payload = {
                 "path": file_path,
+                "sessionId": session_id,
                 "content": content
             }
             http_post(WEBSERVER_HOST, WEBSERVER_PORT, WEBSERVER_ENDPOINT, payload)
