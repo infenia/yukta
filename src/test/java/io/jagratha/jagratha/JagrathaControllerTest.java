@@ -2,6 +2,7 @@ package io.jagratha.jagratha;
 
 import static org.hamcrest.Matchers.containsString;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import io.jagratha.jagratha.config.JagrathaConfigService;
@@ -131,7 +132,8 @@ class JagrathaControllerTest {
   @Test
   void testUpdateConfig() {
     ConfigRequest request =
-        new ConfigRequest("session-1", "/new/path", null, List.of("test"), 300L, null, null);
+        new ConfigRequest(
+            "session-1", "/new/path", null, List.of("test"), 300L, "/new/logs", "/new/results");
 
     webTestClient
         .post()
@@ -143,5 +145,10 @@ class JagrathaControllerTest {
         .isOk()
         .expectBody(String.class)
         .isEqualTo("Configuration updated successfully");
+
+    verify(configService).setProjectPath("/new/path");
+    verify(configService).setExecutionTimeout(300L);
+    verify(configService).setFileLogDir("/new/logs");
+    verify(configService).setResultLogDir("/new/results");
   }
 }

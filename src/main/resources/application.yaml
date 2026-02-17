@@ -14,3 +14,9 @@ logging:
     org.springframework: WARN
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss} %-5p %c{1}:%L - %m%n%wEx"
+
+jagratha:
+  execution-timeout: 300
+  logs:
+    modified-file: "${user.home}/.jagratha/modified-files"
+    results: "${user.home}/.jagratha/results"

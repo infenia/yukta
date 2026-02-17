@@ -92,11 +92,11 @@ public class JagrathaController {
     if (request.executionTimeout() != null) {
       configService.setExecutionTimeout(request.executionTimeout());
     }
-    if (request.fileLogDir() != null) {
-      configService.setFileLogDir(request.fileLogDir());
+    if (request.modifiedFile() != null) {
+      configService.setFileLogDir(request.modifiedFile());
     }
-    if (request.resultLogDir() != null) {
-      configService.setResultLogDir(request.resultLogDir());
+    if (request.results() != null) {
+      configService.setResultLogDir(request.results());
     }
     return ResponseEntity.ok("Configuration updated successfully");
   }

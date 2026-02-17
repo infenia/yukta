@@ -15,6 +15,9 @@ import org.springframework.stereotype.Service;
 @SuppressWarnings("PMD.DataClass")
 public class JagrathaConfigService {
 
+  private static final String DEFAULT_BASE_DIR = System.getProperty("user.home") + "/.jagratha";
+  private static final long DEFAULT_TIMEOUT = 300L;
+
   private final JagrathaConfig staticConfig;
 
   private final AtomicReference<String> projectPath = new AtomicReference<>();
@@ -117,8 +120,10 @@ public class JagrathaConfigService {
     final Long result;
     if (override != null) {
       result = override;
-    } else {
+    } else if (staticConfig.executionTimeout() != null) {
       result = staticConfig.executionTimeout();
+    } else {
+      result = DEFAULT_TIMEOUT;
     }
     return result;
   }
@@ -142,10 +147,10 @@ public class JagrathaConfigService {
     final String result;
     if (override != null) {
       result = override;
-    } else if (staticConfig.logs() != null) {
-      result = staticConfig.logs().modifiedFilesDir();
+    } else if (staticConfig.logs() != null && staticConfig.logs().modifiedFile() != null) {
+      result = staticConfig.logs().modifiedFile();
     } else {
-      result = "";
+      result = DEFAULT_BASE_DIR + "/modified-files";
     }
     return result;
   }
@@ -169,10 +174,10 @@ public class JagrathaConfigService {
     final String result;
     if (override != null) {
       result = override;
-    } else if (staticConfig.logs() != null) {
-      result = staticConfig.logs().gradleResultsDir();
+    } else if (staticConfig.logs() != null && staticConfig.logs().results() != null) {
+      result = staticConfig.logs().results();
     } else {
-      result = "";
+      result = DEFAULT_BASE_DIR + "/results";
     }
     return result;
   }

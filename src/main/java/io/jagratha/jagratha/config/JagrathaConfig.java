@@ -31,8 +31,8 @@ public record JagrathaConfig(
   /**
    * Configuration for logging directories.
    *
-   * @param modifiedFilesDir directory for session-based modified files logs
-   * @param gradleResultsDir directory for session-based gradle results logs
+   * @param modifiedFile directory for session-based modified files logs
+   * @param results directory for session-based gradle results logs
    */
-  public record Logs(String modifiedFilesDir, String gradleResultsDir) {}
+  public record Logs(String modifiedFile, String results) {}
 }

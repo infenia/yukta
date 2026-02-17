@@ -56,4 +56,15 @@ class JagrathaConfigServiceTest {
     assertEquals("/api/path", configService.getProjectPath());
     assertEquals("/static/gradle", configService.getGradlePath()); // still static
   }
+
+  @Test
+  void testFallbacks() {
+    JagrathaConfig emptyConfig = new JagrathaConfig(null, null, null, null);
+    JagrathaConfigService emptyService = new JagrathaConfigService(emptyConfig);
+
+    assertEquals(300L, emptyService.getExecutionTimeout());
+    String home = System.getProperty("user.home");
+    assertEquals(home + "/.jagratha/modified-files", emptyService.getFileLogDir());
+    assertEquals(home + "/.jagratha/results", emptyService.getResultLogDir());
+  }
 }

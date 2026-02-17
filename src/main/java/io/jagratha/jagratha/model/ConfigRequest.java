@@ -10,8 +10,8 @@ import java.util.List;
  * @param gradlePath the gradle path
  * @param tasks the list of tasks
  * @param executionTimeout the execution timeout
- * @param fileLogDir the file log directory
- * @param resultLogDir the result log directory
+ * @param modifiedFile the modified file log directory
+ * @param results the results log directory
  */
 public record ConfigRequest(
     String sessionId,
@@ -19,8 +19,8 @@ public record ConfigRequest(
     String gradlePath,
     List<String> tasks,
     Long executionTimeout,
-    String fileLogDir,
-    String resultLogDir) {
+    String modifiedFile,
+    String results) {
 
   /** Compact constructor to ensure tasks list is immutable. */
   public ConfigRequest {
