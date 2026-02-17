@@ -28,7 +28,6 @@ def main():
         pass
 
     # Hardcoded configuration as per current implementation requirements
-    # These values match the default configuration in config.yaml
     payload = {
         "sessionId": session_id,
         "projectPath": "/tmp/external-project",

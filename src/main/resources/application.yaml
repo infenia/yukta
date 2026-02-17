@@ -7,8 +7,6 @@ spring:
         name: jagratha
         version: 0.0.1
         stdio: true
-  config:
-    import: "optional:file:config.yaml"
 
 logging:
   level:
