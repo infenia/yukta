@@ -1,1 +1,6 @@
 rootProject.name = 'jagratha'
+include 'jagratha-plugin-api'
+include 'plugins:build-tools:gradle'
+include 'plugins:processors:checkstyle'
+include 'plugins:ai:qwen'
+include 'jagratha-core'

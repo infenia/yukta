@@ -1,0 +1,66 @@
+package com.infenia.jagratha.plugin.ai.qwen;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.util.Map;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
+class QwenCodePluginTest {
+
+  private QwenCodePlugin plugin;
+  private QwenCodePlugin.ProcessExecutor mockExecutor;
+
+  @BeforeEach
+  void setUp() {
+    mockExecutor = mock(QwenCodePlugin.ProcessExecutor.class);
+    plugin = new QwenCodePlugin(mockExecutor);
+  }
+
+  @Test
+  void testGetName() {
+    assertEquals("qwen-code", plugin.getName());
+  }
+
+  @Test
+  void testExecuteSuccess() throws IOException, InterruptedException {
+    Process mockProcess = mock(Process.class);
+    String output = "AI feedback";
+    when(mockProcess.getInputStream())
+        .thenReturn(new ByteArrayInputStream(output.getBytes(StandardCharsets.UTF_8)));
+    when(mockProcess.waitFor()).thenReturn(0);
+    when(mockExecutor.execute(anyList())).thenReturn(mockProcess);
+
+    String response = plugin.execute("Hello", Map.of());
+    assertEquals(output, response);
+  }
+
+  @Test
+  void testExecuteFailure() throws IOException, InterruptedException {
+    Process mockProcess = mock(Process.class);
+    String output = "Execution error";
+    when(mockProcess.getInputStream())
+        .thenReturn(new ByteArrayInputStream(output.getBytes(StandardCharsets.UTF_8)));
+    when(mockProcess.waitFor()).thenReturn(1);
+    when(mockExecutor.execute(anyList())).thenReturn(mockProcess);
+
+    String response = plugin.execute("Hello", Map.of());
+    assertTrue(response.contains("Error executing Qwen (exit code 1)"));
+    assertTrue(response.contains(output));
+  }
+
+  @Test
+  void testExecuteIOException() throws IOException {
+    when(mockExecutor.execute(anyList())).thenThrow(new IOException("Cmd not found"));
+
+    String response = plugin.execute("Hello", Map.of());
+    assertTrue(response.contains("Error executing Qwen: Cmd not found"));
+  }
+}
