@@ -5,13 +5,51 @@ on:
     branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
+  schedule:
+    - cron: '0 0 * * *' # 5:30 AM IST (00:00 UTC)
 
 permissions:
   contents: read
 
 jobs:
-  build:
+  changes:
     runs-on: ubuntu-latest
+    outputs:
+      modules: ${{ steps.filter.outputs.changes }}
+      root: ${{ steps.filter.outputs.root }}
+    steps:
+    - uses: actions/checkout@v4
+    - uses: dorny/paths-filter@v3
+      id: filter
+      with:
+        filters: |
+          jagratha-plugin-api:
+            - 'jagratha-plugin-api/**'
+          plugins-build-tools-gradle:
+            - 'plugins/build-tools/gradle/**'
+          plugins-processors-checkstyle:
+            - 'plugins/processors/checkstyle/**'
+          plugins-ai-qwen:
+            - 'plugins/ai/qwen/**'
+          jagratha-core:
+            - 'jagratha-core/**'
+          root:
+            - 'build.gradle'
+            - 'settings.gradle'
+            - 'gradle/**'
+            - 'gradlew'
+            - 'gradlew.bat'
+            - 'lombok.config'
+            - '.github/workflows/**'
+
+  build:
+    needs: changes
+    runs-on: ubuntu-latest
+    # Run if push/schedule OR if PR has relevant changes
+    if: |
+      github.event_name != 'pull_request' ||
+      needs.changes.outputs.root == 'true' ||
+      needs.changes.outputs.modules != '[]'
     steps:
     - uses: actions/checkout@v4
     - name: Set up JDK 25
@@ -22,4 +60,36 @@ jobs:
     - name: Setup Gradle
       uses: gradle/actions/setup-gradle@v4
     - name: Build with Gradle
-      run: ./gradlew build spotlessCheck check
+      run: |
+        if [[ "${{ github.event_name }}" != "pull_request" || "${{ needs.changes.outputs.root }}" == "true" ]]; then
+          echo "Running full build"
+          ./gradlew build spotlessCheck check
+        else
+          echo "Running partial build for modules: ${{ needs.changes.outputs.modules }}"
+          TASKS=""
+          for module in $(echo '${{ needs.changes.outputs.modules }}' | jq -r '.[]'); do
+            case $module in
+              "jagratha-plugin-api")
+                TASKS="$TASKS :jagratha-plugin-api:build :jagratha-plugin-api:spotlessCheck :jagratha-plugin-api:check"
+                ;;
+              "plugins-build-tools-gradle")
+                TASKS="$TASKS :plugins:build-tools:gradle:build :plugins:build-tools:gradle:spotlessCheck :plugins:build-tools:gradle:check"
+                ;;
+              "plugins-processors-checkstyle")
+                TASKS="$TASKS :plugins:processors:checkstyle:build :plugins:processors:checkstyle:spotlessCheck :plugins:processors:checkstyle:check"
+                ;;
+              "plugins-ai-qwen")
+                TASKS="$TASKS :plugins:ai:qwen:build :plugins:ai:qwen:spotlessCheck :plugins:ai:qwen:check"
+                ;;
+              "jagratha-core")
+                TASKS="$TASKS :jagratha-core:build :jagratha-core:spotlessCheck :jagratha-core:check"
+                ;;
+            esac
+          done
+          if [ -n "$TASKS" ]; then
+            echo "Executing: ./gradlew $TASKS"
+            ./gradlew $TASKS
+          else
+            echo "No module tasks to run"
+          fi
+        fi
