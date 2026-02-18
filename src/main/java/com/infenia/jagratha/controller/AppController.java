@@ -7,6 +7,10 @@ import com.infenia.jagratha.model.FileRequest;
 import com.infenia.jagratha.model.TaskRequest;
 import com.infenia.jagratha.model.TaskResponse;
 import com.infenia.jagratha.service.AppService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -25,12 +29,16 @@ import reactor.core.publisher.Mono;
 @RestController
 @RequestMapping("/api")
 @RequiredArgsConstructor
+@Tag(
+    name = "Jagratha API",
+    description = "Endpoints for file management, task execution, and configuration")
 public class AppController {
 
   private final AppService service;
   private final AppConfigMapper configMapper;
 
   private static final String SUCCESS_STATUS = "SUCCESS";
+  private static final String HTTP_200 = "200";
 
   /**
    * Log a file path for a session.
@@ -39,6 +47,11 @@ public class AppController {
    * @return response entity with success or error message
    */
   @PostMapping("/files")
+  @Operation(
+      summary = "Log a file path",
+      description = "Logs a file path associated with a session for quality checks")
+  @ApiResponse(responseCode = HTTP_200, description = "File path logged successfully")
+  @ApiResponse(responseCode = "400", description = "Invalid request data")
   public Mono<ResponseEntity<String>> saveFile(@Valid @RequestBody final FileRequest request) {
     return service
         .saveFile(request.path(), request.sessionId())
@@ -52,6 +65,11 @@ public class AppController {
    * @return response entity with task status and output
    */
   @PostMapping("/tasks/complete")
+  @Operation(
+      summary = "Complete a task",
+      description = "Triggers quality checks (spotless, checkstyle, tests) on the external project")
+  @ApiResponse(responseCode = HTTP_200, description = "Quality checks completed successfully")
+  @ApiResponse(responseCode = "500", description = "Quality checks failed")
   public Mono<ResponseEntity<TaskResponse>> completeTask(
       @Valid @RequestBody final TaskRequest request) {
     return service
@@ -73,7 +91,12 @@ public class AppController {
    * @return list of log filenames
    */
   @GetMapping("/logs/{sessionId}")
-  public Mono<List<String>> listLogs(@PathVariable final String sessionId) {
+  @Operation(
+      summary = "List logs",
+      description = "Lists all log files available for a given session")
+  @ApiResponse(responseCode = HTTP_200, description = "List of log filenames")
+  public Mono<List<String>> listLogs(
+      @Parameter(description = "Session ID") @PathVariable final String sessionId) {
     return service.listLogs(sessionId);
   }
 
@@ -85,8 +108,14 @@ public class AppController {
    * @return log content
    */
   @GetMapping("/logs/{sessionId}/{filename}")
+  @Operation(
+      summary = "Get log content",
+      description = "Retrieves the content of a specific log file for a session")
+  @ApiResponse(responseCode = HTTP_200, description = "Log content retrieved successfully")
+  @ApiResponse(responseCode = "404", description = "Log file not found")
   public Mono<ResponseEntity<String>> getLogContent(
-      @PathVariable final String sessionId, @PathVariable final String filename) {
+      @Parameter(description = "Session ID") @PathVariable final String sessionId,
+      @Parameter(description = "Log filename") @PathVariable final String filename) {
     return service
         .getLogContent(sessionId, filename)
         .map(ResponseEntity::ok)
@@ -100,6 +129,11 @@ public class AppController {
    * @return response entity with success message
    */
   @PostMapping("/config")
+  @Operation(
+      summary = "Update configuration",
+      description = "Updates the application configuration at runtime for a session")
+  @ApiResponse(responseCode = HTTP_200, description = "Configuration updated successfully")
+  @ApiResponse(responseCode = "400", description = "Invalid configuration data")
   public Mono<ResponseEntity<String>> updateConfig(
       @Valid @RequestBody final ConfigRequest request) {
     return Mono.fromRunnable(
