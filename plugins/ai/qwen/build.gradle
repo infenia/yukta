@@ -1,5 +1,7 @@
 plugins {
-    id 'java-library'
+    id 'com.infenia.jagratha.java-conventions'
+    id 'com.infenia.jagratha.quality-conventions'
+    id 'com.infenia.jagratha.jacoco-conventions'
 }
 
 version = '1.0.0'
@@ -7,8 +9,4 @@ version = '1.0.0'
 dependencies {
     implementation project(':jagratha-plugin-api')
     implementation libs.spring.boot.starter
-    compileOnly libs.lombok
-    annotationProcessor libs.lombok
-
-    testImplementation libs.spring.boot.starter.test
 }

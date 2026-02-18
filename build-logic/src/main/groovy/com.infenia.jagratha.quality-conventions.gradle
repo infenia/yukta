@@ -1,0 +1,48 @@
+plugins {
+    id 'com.diffplug.spotless'
+    id 'checkstyle'
+    id 'pmd'
+    id 'com.github.spotbugs'
+}
+
+spotless {
+    java {
+        importOrder()
+        removeUnusedImports()
+        cleanthat()
+        googleJavaFormat().reflowLongStrings()
+        leadingTabsToSpaces(4)
+        trimTrailingWhitespace()
+        endWithNewline()
+        targetExclude("bin/**", "build/**", "out/**")
+    }
+}
+
+checkstyle {
+    toolVersion = libs.versions.checkstyle.get()
+    configFile = rootProject.file("config/checkstyle/checkstyle.xml")
+    ignoreFailures = false
+    showViolations = true
+}
+
+pmd {
+    toolVersion = libs.versions.pmd.get()
+    ruleSets = [rootProject.file("config/pmd/ruleset.xml").absolutePath]
+    ignoreFailures = false
+    consoleOutput = true
+}
+
+tasks.withType(Checkstyle).configureEach {
+    reports {
+        xml.required = true
+        html.required = true
+    }
+}
+
+// Disable quality tasks for everything except main
+tasks.configureEach { task ->
+    if ((task.name.contains("Aot") || task.name.contains("Test")) &&
+        (task instanceof Checkstyle || task instanceof Pmd || task.class.name.contains("SpotBugs"))) {
+        task.enabled = false
+    }
+}

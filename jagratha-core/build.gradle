@@ -1,7 +1,9 @@
 plugins {
+    id 'com.infenia.jagratha.java-conventions'
+    id 'com.infenia.jagratha.quality-conventions'
+    id 'com.infenia.jagratha.jacoco-conventions'
     alias(libs.plugins.spring.boot)
     alias(libs.plugins.spring.dependency.management)
-    alias(libs.plugins.lombok)
 }
 
 // Library module
@@ -29,38 +31,11 @@ dependencies {
     implementation libs.spring.ai.mcp.server
     implementation libs.springdoc.openapi
 
-    compileOnly libs.lombok
     annotationProcessor libs.spring.boot.configuration.processor
-    annotationProcessor libs.lombok
     annotationProcessor libs.mapstruct.processor
     annotationProcessor libs.lombok.mapstruct.binding
 
-    testImplementation libs.spring.boot.starter.test
     testImplementation libs.spring.boot.starter.webflux.test
     testImplementation libs.spring.boot.starter.jackson.test
     testImplementation libs.reactor.test
 }
-
-tasks.named('test') {
-    finalizedBy jacocoTestReport
-}
-
-jacocoTestReport {
-    dependsOn test
-    reports {
-        xml.required = true
-        html.required = true
-    }
-}
-
-jacocoTestCoverageVerification {
-    violationRules {
-        rule {
-            limit {
-                minimum = 0.80
-            }
-        }
-    }
-}
-
-check.dependsOn jacocoTestCoverageVerification

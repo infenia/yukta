@@ -1,8 +1,10 @@
 plugins {
+    id 'com.infenia.jagratha.java-conventions'
+    id 'com.infenia.jagratha.quality-conventions'
+    id 'com.infenia.jagratha.jacoco-conventions'
     alias(libs.plugins.spring.boot)
     alias(libs.plugins.spring.dependency.management)
     alias(libs.plugins.graalvm.buildtools.native)
-    alias(libs.plugins.lombok)
 }
 
 dependencies {
@@ -13,11 +15,8 @@ dependencies {
     implementation libs.spring.boot.starter.validation
     implementation libs.spring.boot.starter.actuator
 
-    compileOnly libs.lombok
     annotationProcessor libs.spring.boot.configuration.processor
-    annotationProcessor libs.lombok
 
-    testImplementation libs.spring.boot.starter.test
     testImplementation libs.reactor.test
 }
 

@@ -1,0 +1,34 @@
+plugins {
+    id 'jacoco'
+}
+
+jacoco {
+    toolVersion = "0.8.12"
+}
+
+tasks.named('test') {
+    finalizedBy jacocoTestReport
+}
+
+jacocoTestReport {
+    dependsOn test
+    reports {
+        xml.required = true
+        html.required = true
+    }
+}
+
+afterEvaluate {
+    jacocoTestCoverageVerification {
+        dependsOn jacocoTestReport
+        violationRules {
+            rule {
+                limit {
+                    minimum = project.hasProperty('jacocoMinimumCoverage') ? project.jacocoMinimumCoverage : 0.80
+                }
+            }
+        }
+    }
+}
+
+check.dependsOn jacocoTestCoverageVerification

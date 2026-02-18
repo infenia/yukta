@@ -1,7 +1,8 @@
 plugins {
-    id 'java-library'
+    id 'com.infenia.jagratha.java-conventions'
+    id 'com.infenia.jagratha.quality-conventions'
+    id 'com.infenia.jagratha.jacoco-conventions'
 }
 
 dependencies {
-    testImplementation libs.spring.boot.starter.test
 }

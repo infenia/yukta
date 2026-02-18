@@ -1,8 +1,14 @@
 plugins {
+    id 'com.infenia.jagratha.java-conventions'
+    id 'com.infenia.jagratha.quality-conventions'
+    id 'com.infenia.jagratha.jacoco-conventions'
     alias(libs.plugins.spring.boot)
     alias(libs.plugins.spring.dependency.management)
-    alias(libs.plugins.lombok)
     alias(libs.plugins.jte)
+}
+
+ext {
+    jacocoMinimumCoverage = 0.05
 }
 
 dependencies {
@@ -11,10 +17,6 @@ dependencies {
     implementation libs.jte.core
     implementation libs.spring.boot.starter.webflux
 
-    compileOnly libs.lombok
-    annotationProcessor libs.lombok
-
-    testImplementation libs.spring.boot.starter.test
     testImplementation libs.spring.boot.starter.webflux.test
     testImplementation libs.reactor.test
 }
