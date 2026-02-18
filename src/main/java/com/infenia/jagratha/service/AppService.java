@@ -8,6 +8,8 @@ import com.infenia.jagratha.model.WorkflowConfig;
 import com.infenia.jagratha.plugin.AiPlugin;
 import com.infenia.jagratha.plugin.JagrathaPlugin;
 import com.infenia.jagratha.plugin.OutputProcessorPlugin;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
@@ -15,11 +17,9 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
-import java.nio.file.StandardOpenOption;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.locks.ReentrantLock;
@@ -40,8 +40,7 @@ import reactor.core.publisher.Mono;
   "PMD.OnlyOneReturn",
   "PMD.UseConcurrentHashMap",
   "PMD.CouplingBetweenObjects",
-  "PMD.CyclomaticComplexity",
-  "PMD.GodClass"
+  "PMD.CyclomaticComplexity"
 })
 public class AppService {
 
@@ -55,6 +54,8 @@ public class AppService {
   private static final String SUCCESS_STATUS = "SUCCESS";
   private static final String PENDING_STATUS = "PENDING";
   private static final int SB_CAPACITY = 2048;
+  private static final String SESS_ID_PATTERN = "^(?!.*\\.\\.)[^/\\\\]*$";
+  private static final String SESS_ID_MSG = "Invalid session ID format";
 
   private final Map<String, ReentrantLock> locks = new java.util.concurrent.ConcurrentHashMap<>();
 
@@ -70,8 +71,8 @@ public class AppService {
    * @return Mono that completes when the file path is logged
    */
   public Mono<Void> saveFile(
-      @jakarta.validation.constraints.NotBlank final String path,
-      @jakarta.validation.constraints.NotBlank final String sessionId) {
+      @NotBlank final String path,
+      @NotBlank @Pattern(regexp = SESS_ID_PATTERN, message = SESS_ID_MSG) final String sessionId) {
     return Mono.fromRunnable(
             () -> {
               final String logsDir = configService.getFileLogDir();
@@ -110,10 +111,10 @@ public class AppService {
 
   private Map<String, String> readLogFile(final Path logFile) throws IOException {
     if (!Files.exists(logFile)) {
-      return new LinkedHashMap<>();
+      return new java.util.LinkedHashMap<>();
     }
     try (Stream<String> lines = Files.lines(logFile, StandardCharsets.UTF_8)) {
-      final Map<String, String> result = new LinkedHashMap<>();
+      final Map<String, String> result = new java.util.LinkedHashMap<>();
       lines
           .filter(line -> !line.isBlank())
           .forEach(
@@ -184,7 +185,7 @@ public class AppService {
    * @return Mono containing the task response
    */
   public Mono<TaskResponse> runQualityChecks(
-      @jakarta.validation.constraints.NotBlank final String sessionId) {
+      @NotBlank @Pattern(regexp = SESS_ID_PATTERN, message = SESS_ID_MSG) final String sessionId) {
     return Mono.fromCallable(() -> executeQualityChecks(sessionId))
         .subscribeOn(reactor.core.scheduler.Schedulers.boundedElastic());
   }
@@ -196,12 +197,9 @@ public class AppService {
    * @return Mono containing a list of log filenames
    */
   public Mono<List<String>> listLogs(
-      @jakarta.validation.constraints.NotBlank final String sessionId) {
+      @NotBlank @Pattern(regexp = SESS_ID_PATTERN, message = SESS_ID_MSG) final String sessionId) {
     return Mono.fromCallable(
             () -> {
-              if (sessionId.contains("..")) {
-                throw new IllegalArgumentException("Invalid sessionId");
-              }
               final List<String> logFiles = new ArrayList<>();
               final String resultsDir = configService.getResultLogDir();
               final String fileLogDir = configService.getFileLogDir();
@@ -242,15 +240,14 @@ public class AppService {
    * @return Mono containing the log content
    */
   public Mono<String> getLogContent(
-      @jakarta.validation.constraints.NotBlank final String sessionId,
-      @jakarta.validation.constraints.NotBlank final String fileName) {
+      @NotBlank @Pattern(regexp = SESS_ID_PATTERN, message = SESS_ID_MSG) final String sessionId,
+      @NotBlank @Pattern(regexp = "^(?!.*\\.\\.)[^/\\\\]*$", message = "Invalid file name format")
+          final String fileName) {
     return Mono.fromCallable(() -> fetchLogContent(sessionId, fileName))
         .subscribeOn(reactor.core.scheduler.Schedulers.boundedElastic());
   }
 
   private String fetchLogContent(final String sessionId, final String fileName) throws IOException {
-    validateLogParams(sessionId, fileName);
-
     final String resultsDir = configService.getResultLogDir();
     final String fileLogDir = configService.getFileLogDir();
 
@@ -263,15 +260,6 @@ public class AppService {
       throw new IOException("Log file not found: " + fileName);
     }
     return Files.readString(logFile, StandardCharsets.UTF_8);
-  }
-
-  private void validateLogParams(final String sessionId, final String fileName) {
-    if (sessionId.contains("..")
-        || fileName.contains("..")
-        || fileName.contains("/")
-        || fileName.contains("\\")) {
-      throw new IllegalArgumentException("Invalid sessionId or fileName");
-    }
   }
 
   private Path findLogFile(final String baseDir, final String sessionId, final String fileName) {
@@ -350,7 +338,7 @@ public class AppService {
               .collect(
                   java.util.stream.Collectors.groupingBy(
                       entry -> plugin.identifyModule(projectRoot, entry.getKey()),
-                      LinkedHashMap::new,
+                      java.util.LinkedHashMap::new,
                       java.util.stream.Collectors.mapping(
                           Map.Entry::getKey, java.util.stream.Collectors.toList())));
 
@@ -641,8 +629,7 @@ public class AppService {
         Files.createDirectories(dirPath);
         final Path logFile = dirPath.resolve(fileName);
         final String content = "Status: " + res.status() + "\n\nOutput:\n" + res.output();
-        Files.writeString(
-            logFile, content, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+        Files.writeString(logFile, content);
       } catch (IOException e) {
         if (log.isErrorEnabled()) {
           log.error("Failed to log task result", e);
@@ -659,8 +646,7 @@ public class AppService {
         Files.createDirectories(dirPath);
         final Path logFile = dirPath.resolve("summary.log");
         final String content = "Status: " + response.status() + "\n\nOutput:\n" + response.output();
-        Files.writeString(
-            logFile, content, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+        Files.writeString(logFile, content);
         if (log.isInfoEnabled()) {
           log.info("Logged quality check results for session {}", sessionId);
         }

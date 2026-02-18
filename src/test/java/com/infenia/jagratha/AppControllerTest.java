@@ -49,7 +49,7 @@ class AppControllerTest {
 
   @Test
   void testSaveFileIllegalArgument() {
-    FileRequest request = new FileRequest("../Outside.java", "session-1", null);
+    FileRequest request = new FileRequest("Outside.java", "session-1", null);
 
     when(service.saveFile(anyString(), anyString()))
         .thenReturn(Mono.error(new IllegalArgumentException("Invalid path")));
@@ -62,7 +62,8 @@ class AppControllerTest {
         .exchange()
         .expectStatus()
         .isBadRequest()
-        .expectBody(String.class)
+        .expectBody()
+        .jsonPath("$.message")
         .isEqualTo("Invalid path");
   }
 
@@ -81,8 +82,9 @@ class AppControllerTest {
         .exchange()
         .expectStatus()
         .is5xxServerError()
-        .expectBody(String.class)
-        .value(containsString("Failed to log file path"));
+        .expectBody()
+        .jsonPath("$.message")
+        .value(containsString("IO error"));
   }
 
   @Test
@@ -136,9 +138,9 @@ class AppControllerTest {
             "session-1",
             "/new/path",
             "gradle",
-            null,
+            java.util.Map.of("key", "value"),
             List.of("test"),
-            List.of(),
+            List.of(new com.infenia.jagratha.model.WorkflowConfig("test", null, null)),
             300L,
             "/new/logs",
             "/new/results");
@@ -158,5 +160,88 @@ class AppControllerTest {
     verify(configService).setExecutionTimeout(300L);
     verify(configService).setFileLogDir("/new/logs");
     verify(configService).setResultLogDir("/new/results");
+  }
+
+  @Test
+  void testSaveFileValidationError() {
+    FileRequest request = new FileRequest("", "invalid session..id", null);
+
+    webTestClient
+        .post()
+        .uri("/api/files")
+        .contentType(MediaType.APPLICATION_JSON)
+        .bodyValue(request)
+        .exchange()
+        .expectStatus()
+        .isBadRequest()
+        .expectBody()
+        .jsonPath("$.message")
+        .isEqualTo("Validation failed")
+        .jsonPath("$.errors[?(@.field=='path')].message")
+        .isEqualTo("Path is required")
+        .jsonPath("$.errors[?(@.field=='sessionId')].message")
+        .isEqualTo("Invalid session ID format");
+  }
+
+  @Test
+  void testUpdateConfigValidationError() {
+    ConfigRequest request =
+        new ConfigRequest(
+            "sess",
+            "", // empty project path
+            "", // empty plugin name
+            java.util.Map.of(), // empty config
+            java.util.List.of(), // empty tasks
+            java.util.List.of(), // empty workflows
+            300L,
+            null,
+            null);
+
+    webTestClient
+        .post()
+        .uri("/api/config")
+        .contentType(MediaType.APPLICATION_JSON)
+        .bodyValue(request)
+        .exchange()
+        .expectStatus()
+        .isBadRequest()
+        .expectBody()
+        .jsonPath("$.message")
+        .isEqualTo("Validation failed");
+  }
+
+  @Test
+  void testConstraintViolation() {
+    when(service.listLogs(anyString()))
+        .thenReturn(
+            Mono.error(
+                new jakarta.validation.ConstraintViolationException(
+                    "Violation", java.util.Set.of())));
+
+    webTestClient
+        .get()
+        .uri("/api/logs/invalid..id")
+        .exchange()
+        .expectStatus()
+        .isBadRequest()
+        .expectBody()
+        .jsonPath("$.message")
+        .isEqualTo("Constraint violation");
+  }
+
+  @Test
+  void testIllegalState() {
+    when(service.listLogs(anyString()))
+        .thenReturn(Mono.error(new IllegalStateException("Bad state")));
+
+    webTestClient
+        .get()
+        .uri("/api/logs/sess")
+        .exchange()
+        .expectStatus()
+        .is5xxServerError()
+        .expectBody()
+        .jsonPath("$.message")
+        .isEqualTo("Bad state");
   }
 }

@@ -1,6 +1,7 @@
 package com.infenia.jagratha.model;
 
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
 
 /**
  * Request object for file operations.
@@ -11,5 +12,7 @@ import jakarta.validation.constraints.NotBlank;
  */
 public record FileRequest(
     @NotBlank(message = "Path is required") String path,
-    @NotBlank(message = "Session ID is required") String sessionId,
+    @NotBlank(message = "Session ID is required")
+        @Pattern(regexp = "^(?!.*\\.\\.)[^/\\\\]*$", message = "Invalid session ID format")
+        String sessionId,
     String content) {}

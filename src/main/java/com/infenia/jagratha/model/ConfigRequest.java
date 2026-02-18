@@ -1,5 +1,9 @@
 package com.infenia.jagratha.model;
 
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.Pattern;
 import java.util.List;
 import java.util.Map;
 
@@ -17,12 +21,14 @@ import java.util.Map;
  * @param results the results log directory
  */
 public record ConfigRequest(
-    String sessionId,
-    String projectPath,
-    String pluginName,
-    Map<String, Object> pluginConfig,
-    List<String> tasks,
-    List<WorkflowConfig> workflows,
+    @NotBlank(message = "Session ID is required")
+        @Pattern(regexp = "^(?!.*\\.\\.)[^/\\\\]*$", message = "Invalid session ID format")
+        String sessionId,
+    @NotBlank(message = "Project path is required") String projectPath,
+    @NotBlank(message = "Plugin name is required") String pluginName,
+    @NotEmpty(message = "Plugin config is required") Map<String, Object> pluginConfig,
+    @NotEmpty(message = "Tasks list is required") List<String> tasks,
+    @NotEmpty(message = "Workflows list is required") @Valid List<WorkflowConfig> workflows,
     Long executionTimeout,
     String modifiedFile,
     String results) {

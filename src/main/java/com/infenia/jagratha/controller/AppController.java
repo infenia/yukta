@@ -41,16 +41,7 @@ public class AppController {
   public Mono<ResponseEntity<String>> saveFile(@Valid @RequestBody final FileRequest request) {
     return service
         .saveFile(request.path(), request.sessionId())
-        .thenReturn(ResponseEntity.ok("File path logged successfully"))
-        .onErrorResume(
-            IllegalArgumentException.class,
-            e -> Mono.just(ResponseEntity.badRequest().body(e.getMessage())))
-        .onErrorResume(
-            Exception.class,
-            e ->
-                Mono.just(
-                    ResponseEntity.internalServerError()
-                        .body("Failed to log file path: " + e.getMessage())));
+        .thenReturn(ResponseEntity.ok("File path logged successfully"));
   }
 
   /**
@@ -108,7 +99,7 @@ public class AppController {
    * @return response entity with success message
    */
   @PostMapping("/config")
-  public ResponseEntity<String> updateConfig(@RequestBody final ConfigRequest request) {
+  public ResponseEntity<String> updateConfig(@Valid @RequestBody final ConfigRequest request) {
     applyConfigOverrides(request);
     return ResponseEntity.ok("Configuration updated successfully");
   }
