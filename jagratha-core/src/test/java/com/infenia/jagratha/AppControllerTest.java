@@ -1,6 +1,5 @@
 package com.infenia.jagratha;
 
-import static org.hamcrest.Matchers.containsString;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.verify;
@@ -85,7 +84,7 @@ class AppControllerTest {
         .is5xxServerError()
         .expectBody()
         .jsonPath("$.message")
-        .value(containsString("IO error"));
+        .isEqualTo("An unexpected error occurred: IO error");
   }
 
   @Test

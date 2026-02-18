@@ -51,6 +51,7 @@ public class AppService {
   private final List<JagrathaPlugin> plugins;
   private final List<OutputProcessorPlugin> processorPlugins;
   private final List<AiPlugin> aiPlugins;
+  private final TaskTrackerService tracker;
 
   private static final String FAILURE_STATUS = "FAILURE";
   private static final String SUCCESS_STATUS = "SUCCESS";
@@ -161,6 +162,26 @@ public class AppService {
         .then();
   }
 
+  /**
+   * Get the map of modified files and their statuses for a session.
+   *
+   * @param sessionId the session identifier
+   * @return map of file paths to statuses
+   */
+  public Map<String, String> getModifiedFiles(final String sessionId) {
+    final String logsDir = configService.getFileLogDir(sessionId);
+    if (logsDir == null || logsDir.isEmpty()) {
+      return Map.of();
+    }
+    final Path logFile = Path.of(logsDir).resolve(sessionId).resolve(sessionId + ".log");
+    try {
+      return readLogFile(logFile);
+    } catch (IOException e) {
+      log.warn("Failed to read modified files log for session {}", sessionId, e);
+      return Map.of();
+    }
+  }
+
   private Map<String, String> readLogFile(final Path logFile) throws IOException {
     if (!Files.exists(logFile)) {
       return new java.util.LinkedHashMap<>();
@@ -240,6 +261,47 @@ public class AppService {
       @NotBlank @Pattern(regexp = SESS_ID_PATTERN, message = SESS_ID_MSG) final String sessionId) {
     return Mono.fromCallable(() -> executeQualityChecks(sessionId))
         .subscribeOn(reactor.core.scheduler.Schedulers.boundedElastic());
+  }
+
+  /**
+   * List all session IDs that have logs or configurations.
+   *
+   * @return list of session IDs
+   */
+  public List<String> getAllSessions() {
+    final java.util.Set<String> sessions = new java.util.TreeSet<>();
+    final String resultsDir = configService.getResultLogDir(null);
+    final String fileLogDir = configService.getFileLogDir(null);
+
+    addSessionIds(sessions, resultsDir);
+    addSessionIds(sessions, fileLogDir);
+
+    return sessions.stream().toList();
+  }
+
+  /**
+   * Scan a directory for session IDs.
+   *
+   * @param sessions set to add session IDs to
+   * @param baseDir the directory to scan
+   */
+  private void addSessionIds(final java.util.Set<String> sessions, final String baseDir) {
+    if (baseDir == null || baseDir.isEmpty()) {
+      return;
+    }
+    try {
+      final Path path = Path.of(baseDir);
+      if (Files.exists(path) && Files.isDirectory(path)) {
+        try (Stream<Path> dirs = Files.list(path)) {
+          dirs.filter(Files::isDirectory)
+              .map(p -> p.getFileName().toString())
+              .filter(name -> name.matches(SESS_ID_PATTERN))
+              .forEach(sessions::add);
+        }
+      }
+    } catch (IOException e) {
+      log.warn("Failed to list sessions from directory: {}", baseDir, e);
+    }
   }
 
   /**
@@ -350,6 +412,7 @@ public class AppService {
 
     final TaskResponse response = processSessionLogs(sessionId, projectRoot, projectDir, logsDir);
     logResults(sessionId, response);
+    tracker.finishWorkflow(sessionId, response.status());
     return response;
   }
 
@@ -397,6 +460,20 @@ public class AppService {
       if (pendingByModule.isEmpty()) {
         return new TaskResponse(SUCCESS_STATUS, "No pending changes to process.");
       }
+
+      final List<String> taskNames = new ArrayList<>();
+      final List<WorkflowConfig> workflows = configService.getWorkflows(sessionId);
+      if (workflows != null && !workflows.isEmpty()) {
+        workflows.forEach(w -> taskNames.add(w.task()));
+      } else {
+        List<String> tasks = configService.getTasks(sessionId);
+        if (tasks == null || tasks.isEmpty()) {
+          tasks = List.of("spotlessApply", "spotlessCheck", "checkstyleMain", "test");
+        }
+        taskNames.addAll(tasks);
+      }
+      tracker.startWorkflow(sessionId, taskNames);
+
       final TaskResponse response =
           runChecksForModules(projectDir, pendingByModule, files, sessionId);
       writeLogFile(logFile, files);
@@ -485,6 +562,7 @@ public class AppService {
     }
 
     for (final String task : tasks) {
+      tracker.updateTaskStatus(sessionId, task, module, "RUNNING");
       final TaskResponse res =
           executeSingleTask(
               projectDir,
@@ -493,6 +571,7 @@ public class AppService {
               module,
               task,
               configService.getPluginConfig(sessionId));
+      tracker.updateTaskStatus(sessionId, task, module, res.status());
       combinedOutput
           .append("Task: ")
           .append(task)
@@ -517,6 +596,7 @@ public class AppService {
       final String module,
       final WorkflowConfig workflow) {
 
+    tracker.updateTaskStatus(sessionId, workflow.task(), module, "RUNNING");
     final TaskResponse taskRes =
         executeSingleTask(
             projectDir,
@@ -525,6 +605,7 @@ public class AppService {
             module,
             workflow.task(),
             configService.getPluginConfig(sessionId));
+    tracker.updateTaskStatus(sessionId, workflow.task(), module, taskRes.status());
 
     combinedOutput
         .append("Task: ")
@@ -726,7 +807,16 @@ public class AppService {
       processBuilder.redirectErrorStream(true);
       final Process process = processBuilder.start();
 
-      final String output = readProcessOutput(process);
+      final StringBuilder output = new StringBuilder();
+      try (BufferedReader reader = process.inputReader(StandardCharsets.UTF_8)) {
+        String line = reader.readLine();
+        while (line != null) {
+          output.append(line).append('\n');
+          tracker.appendLog(sessionId, line);
+          line = reader.readLine();
+        }
+      }
+
       final Long timeout = configService.getExecutionTimeout(sessionId);
       final boolean finished =
           process.waitFor(timeout != null ? timeout : 600, java.util.concurrent.TimeUnit.SECONDS);
@@ -736,7 +826,8 @@ public class AppService {
         if (log.isInfoEnabled()) {
           log.info("Quality checks finished with exit code {}", exitCode);
         }
-        response = new TaskResponse(exitCode == 0 ? SUCCESS_STATUS : FAILURE_STATUS, output);
+        response =
+            new TaskResponse(exitCode == 0 ? SUCCESS_STATUS : FAILURE_STATUS, output.toString());
       } else {
         process.destroyForcibly();
         response = new TaskResponse(FAILURE_STATUS, "Timeout while running checks.\n" + output);
@@ -754,12 +845,6 @@ public class AppService {
       response = new TaskResponse(FAILURE_STATUS, "Execution interrupted: " + e.getMessage());
     }
     return response;
-  }
-
-  private String readProcessOutput(final Process process) throws IOException {
-    try (BufferedReader reader = process.inputReader(StandardCharsets.UTF_8)) {
-      return String.join("\n", reader.lines().toList());
-    }
   }
 
   private static final class UncheckedIoException extends RuntimeException {

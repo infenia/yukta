@@ -12,6 +12,7 @@ checkstyle = "13.2.0"
 pmd = "7.21.0"
 spotbugs = "6.4.8"
 jacksonDataformatYaml = "2.18.2"
+jte = "3.1.12"
 
 [libraries]
 spring-boot-starter = { group = "org.springframework.boot", name = "spring-boot-starter", version.ref = "springBoot" }
@@ -26,6 +27,9 @@ mapstruct-processor = { group = "org.mapstruct", name = "mapstruct-processor", v
 lombok-mapstruct-binding = { group = "org.projectlombok", name = "lombok-mapstruct-binding", version.ref = "lombokMapstructBinding" }
 spring-ai-mcp-server = { group = "org.springframework.ai", name = "spring-ai-starter-mcp-server", version.ref = "springAi" }
 springdoc-openapi = { group = "org.springdoc", name = "springdoc-openapi-starter-webflux-ui", version.ref = "springdoc" }
+jte-starter = { group = "gg.jte", name = "jte-spring-boot-starter-3", version.ref = "jte" }
+jte-runtime = { group = "gg.jte", name = "jte-runtime", version.ref = "jte" }
+jte-core = { group = "gg.jte", name = "jte", version.ref = "jte" }
 lombok = { group = "org.projectlombok", name = "lombok", version = "1.18.36" }
 
 # Testing
@@ -41,3 +45,4 @@ graalvm-buildtools-native = { id = "org.graalvm.buildtools.native", version.ref 
 spotless = { id = "com.diffplug.spotless", version.ref = "spotless" }
 lombok = { id = "io.freefair.lombok", version.ref = "lombok" }
 spotbugs = { id = "com.github.spotbugs", version.ref = "spotbugs" }
+jte = { id = "gg.jte.gradle", version.ref = "jte" }

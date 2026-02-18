@@ -1,0 +1,63 @@
+plugins {
+    alias(libs.plugins.spring.boot)
+    alias(libs.plugins.spring.dependency.management)
+    alias(libs.plugins.lombok)
+    alias(libs.plugins.jte)
+}
+
+dependencies {
+    implementation project(':jagratha-core')
+    implementation libs.jte.starter
+    implementation libs.jte.core
+    implementation libs.spring.boot.starter.webflux
+
+    compileOnly libs.lombok
+    annotationProcessor libs.lombok
+
+    testImplementation libs.spring.boot.starter.test
+    testImplementation libs.spring.boot.starter.webflux.test
+    testImplementation libs.reactor.test
+}
+
+jte {
+    generate()
+    precompile()
+    binaryStaticContent = true
+}
+
+bootJar {
+    enabled = false
+}
+
+jar {
+    enabled = true
+}
+
+task pnpmInstall(type: Exec) {
+    workingDir projectDir
+    if (System.getProperty('os.name').toLowerCase().contains('windows')) {
+        commandLine 'cmd', '/c', 'pnpm', 'install'
+    } else {
+        commandLine 'pnpm', 'install'
+    }
+}
+
+// Tailwind CSS task
+task tailwind(type: Exec) {
+    dependsOn pnpmInstall
+    workingDir projectDir
+    inputs.file("./src/main/resources/static/css/input.css")
+    outputs.file("$buildDir/tailwind/style.css")
+    if (System.getProperty('os.name').toLowerCase().contains('windows')) {
+        commandLine 'cmd', '/c', 'pnpm', 'exec', 'tailwindcss', '-i', './src/main/resources/static/css/input.css', '-o', "$buildDir/tailwind/style.css", '--minify'
+    } else {
+        commandLine 'pnpm', 'exec', 'tailwindcss', '-i', './src/main/resources/static/css/input.css', '-o', "$buildDir/tailwind/style.css", '--minify'
+    }
+}
+
+processResources {
+    dependsOn tailwind
+    from("$buildDir/tailwind") {
+        into "static/css"
+    }
+}

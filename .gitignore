@@ -34,3 +34,9 @@ bin/
 __pycache__/
 *.py[cod]
 *$py.class
+
+### Node ###
+node_modules/
+
+### Logs ###
+*.log

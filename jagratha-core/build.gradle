@@ -1,69 +1,66 @@
 plugins {
-	alias(libs.plugins.spring.boot)
-	alias(libs.plugins.spring.dependency.management)
-	alias(libs.plugins.graalvm.buildtools.native)
-	alias(libs.plugins.lombok)
+    alias(libs.plugins.spring.boot)
+    alias(libs.plugins.spring.dependency.management)
+    alias(libs.plugins.lombok)
+}
+
+// Library module
+bootJar {
+    enabled = false
+}
+jar {
+    enabled = true
 }
 
 dependencies {
-	implementation project(':jagratha-plugin-api')
+    implementation project(':jagratha-plugin-api')
 
-	// Default plugins to include in the fat JAR
-	implementation project(':plugins:build-tools:gradle')
-	implementation project(':plugins:processors:checkstyle')
-	implementation project(':plugins:ai:qwen')
+    // Default plugins
+    implementation project(':plugins:build-tools:gradle')
+    implementation project(':plugins:processors:checkstyle')
+    implementation project(':plugins:ai:qwen')
 
-	implementation libs.spring.boot.starter.webflux
-	implementation libs.spring.boot.starter.validation
-	implementation libs.spring.boot.starter.actuator
-	implementation libs.jackson.dataformat.yaml
-	implementation libs.mapstruct
+    implementation libs.spring.boot.starter.webflux
+    implementation libs.spring.boot.starter.validation
+    implementation libs.spring.boot.starter.actuator
+    implementation libs.jackson.dataformat.yaml
+    implementation libs.mapstruct
 
-	implementation libs.spring.ai.mcp.server
-	implementation libs.springdoc.openapi
+    implementation libs.spring.ai.mcp.server
+    implementation libs.springdoc.openapi
 
-	compileOnly libs.lombok
-	annotationProcessor libs.spring.boot.configuration.processor
-	annotationProcessor libs.lombok
-	annotationProcessor libs.mapstruct.processor
-	annotationProcessor libs.lombok.mapstruct.binding
+    compileOnly libs.lombok
+    annotationProcessor libs.spring.boot.configuration.processor
+    annotationProcessor libs.lombok
+    annotationProcessor libs.mapstruct.processor
+    annotationProcessor libs.lombok.mapstruct.binding
 
-	testImplementation libs.spring.boot.starter.test
-	testImplementation libs.spring.boot.starter.webflux.test
-	testImplementation libs.spring.boot.starter.jackson.test
-	testImplementation libs.reactor.test
+    testImplementation libs.spring.boot.starter.test
+    testImplementation libs.spring.boot.starter.webflux.test
+    testImplementation libs.spring.boot.starter.jackson.test
+    testImplementation libs.reactor.test
 }
 
 tasks.named('test') {
-	finalizedBy jacocoTestReport
+    finalizedBy jacocoTestReport
 }
 
 jacocoTestReport {
-	dependsOn test
-	reports {
-		xml.required = true
-		html.required = true
-	}
+    dependsOn test
+    reports {
+        xml.required = true
+        html.required = true
+    }
 }
 
 jacocoTestCoverageVerification {
-	violationRules {
-		rule {
-			limit {
-				minimum = 0.80
-			}
-		}
-	}
+    violationRules {
+        rule {
+            limit {
+                minimum = 0.80
+            }
+        }
+    }
 }
 
 check.dependsOn jacocoTestCoverageVerification
-
-graalvmNative {
-	binaries {
-		main {
-			imageName = 'jagratha'
-			mainClass = 'com.infenia.jagratha.JagrathaApplication'
-			buildArgs.add('--no-fallback')
-		}
-	}
-}

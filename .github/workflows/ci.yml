@@ -59,6 +59,9 @@ jobs:
         distribution: 'temurin'
     - name: Setup Gradle
       uses: gradle/actions/setup-gradle@v4
+    - uses: pnpm/action-setup@v4
+      with:
+        version: 10
     - name: Build with Gradle
       run: |
         if [[ "${{ github.event_name }}" != "pull_request" || "${{ needs.changes.outputs.root }}" == "true" ]]; then

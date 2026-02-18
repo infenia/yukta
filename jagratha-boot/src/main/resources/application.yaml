@@ -12,6 +12,10 @@ logging:
   level:
     root: INFO
     org.springframework: WARN
+    org.springframework.web: DEBUG
+
+jte:
+  usePrecompiledTemplates: true
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss} %-5p %c{1}:%L - %m%n%wEx"
 

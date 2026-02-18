@@ -33,6 +33,7 @@ class AppServiceTest {
   private AppConfigService configService;
   private OutputProcessorPlugin mockProcessor;
   private AiPlugin mockAiPlugin;
+  private TaskTrackerService mockTaskTracker;
 
   @TempDir Path tempDir;
   private Path filesDir;
@@ -51,6 +52,7 @@ class AppServiceTest {
     configService = mock(AppConfigService.class);
     mockProcessor = mock(OutputProcessorPlugin.class);
     mockAiPlugin = mock(AiPlugin.class);
+    mockTaskTracker = mock(TaskTrackerService.class);
 
     when(mockProcessor.getName()).thenReturn("test-processor");
     when(mockAiPlugin.getName()).thenReturn("test-ai");
@@ -61,7 +63,8 @@ class AppServiceTest {
             new ObjectMapper(),
             List.of(new GradlePlugin()),
             List.of(mockProcessor),
-            List.of(mockAiPlugin));
+            List.of(mockAiPlugin),
+            mockTaskTracker);
 
     when(configService.getFileLogDir(anyString())).thenReturn(filesDir.toString());
     when(configService.getResultLogDir(anyString())).thenReturn(resultsDir.toString());
