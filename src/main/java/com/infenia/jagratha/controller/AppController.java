@@ -1,6 +1,7 @@
 package com.infenia.jagratha.controller;
 
-import com.infenia.jagratha.config.AppConfigService;
+import com.infenia.jagratha.mapper.AppConfigMapper;
+import com.infenia.jagratha.model.AppConfigData;
 import com.infenia.jagratha.model.ConfigRequest;
 import com.infenia.jagratha.model.FileRequest;
 import com.infenia.jagratha.model.TaskRequest;
@@ -27,7 +28,7 @@ import reactor.core.publisher.Mono;
 public class AppController {
 
   private final AppService service;
-  private final AppConfigService configService;
+  private final AppConfigMapper configMapper;
 
   private static final String SUCCESS_STATUS = "SUCCESS";
 
@@ -99,43 +100,13 @@ public class AppController {
    * @return response entity with success message
    */
   @PostMapping("/config")
-  public ResponseEntity<String> updateConfig(@Valid @RequestBody final ConfigRequest request) {
-    applyConfigOverrides(request);
-    return ResponseEntity.ok("Configuration updated successfully");
-  }
-
-  private void applyConfigOverrides(final ConfigRequest request) {
-    if (request.projectPath() != null) {
-      configService.setProjectPath(request.projectPath());
-    }
-    if (request.pluginName() != null) {
-      configService.setPluginName(request.pluginName());
-    }
-    if (request.pluginConfig() != null) {
-      configService.setPluginConfig(request.pluginConfig());
-    }
-    if (request.tasks() != null) {
-      configService.setTasks(request.tasks());
-    }
-    applyWorkflowAndTimeoutOverrides(request);
-    applyLogDirOverrides(request);
-  }
-
-  private void applyWorkflowAndTimeoutOverrides(final ConfigRequest request) {
-    if (request.workflows() != null) {
-      configService.setWorkflows(request.workflows());
-    }
-    if (request.executionTimeout() != null) {
-      configService.setExecutionTimeout(request.executionTimeout());
-    }
-  }
-
-  private void applyLogDirOverrides(final ConfigRequest request) {
-    if (request.modifiedFile() != null) {
-      configService.setFileLogDir(request.modifiedFile());
-    }
-    if (request.results() != null) {
-      configService.setResultLogDir(request.results());
-    }
+  public Mono<ResponseEntity<String>> updateConfig(
+      @Valid @RequestBody final ConfigRequest request) {
+    return Mono.fromRunnable(
+            () -> {
+              final AppConfigData configData = configMapper.toData(request);
+              service.applyConfigOverrides(configData);
+            })
+        .thenReturn(ResponseEntity.ok("Configuration updated successfully"));
   }
 }

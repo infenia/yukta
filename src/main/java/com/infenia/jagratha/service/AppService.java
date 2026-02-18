@@ -3,6 +3,7 @@ package com.infenia.jagratha.service;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.infenia.jagratha.config.AppConfigService;
+import com.infenia.jagratha.model.AppConfigData;
 import com.infenia.jagratha.model.TaskResponse;
 import com.infenia.jagratha.model.WorkflowConfig;
 import com.infenia.jagratha.plugin.AiPlugin;
@@ -40,7 +41,8 @@ import reactor.core.publisher.Mono;
   "PMD.OnlyOneReturn",
   "PMD.UseConcurrentHashMap",
   "PMD.CouplingBetweenObjects",
-  "PMD.CyclomaticComplexity"
+  "PMD.CyclomaticComplexity",
+  "PMD.ExcessiveImports"
 })
 public class AppService {
 
@@ -64,6 +66,56 @@ public class AppService {
   }
 
   /**
+   * Apply configuration overrides for a session.
+   *
+   * @param data the configuration data
+   */
+  public void applyConfigOverrides(final AppConfigData data) {
+    if (data.projectPath() != null) {
+      configService.setProjectPath(data.sessionId(), data.projectPath());
+    }
+    if (data.pluginName() != null) {
+      configService.setPluginName(data.sessionId(), data.pluginName());
+    }
+    if (data.pluginConfig() != null && !data.pluginConfig().isEmpty()) {
+      configService.setPluginConfig(data.sessionId(), data.pluginConfig());
+    }
+    if (data.tasks() != null && !data.tasks().isEmpty()) {
+      configService.setTasks(data.sessionId(), data.tasks());
+    }
+    applyWorkflowAndTimeoutOverrides(data);
+    applyLogDirOverrides(data);
+  }
+
+  /**
+   * Apply workflow and timeout overrides for a session.
+   *
+   * @param data the configuration data
+   */
+  public void applyWorkflowAndTimeoutOverrides(final AppConfigData data) {
+    if (data.workflows() != null && !data.workflows().isEmpty()) {
+      configService.setWorkflows(data.sessionId(), data.workflows());
+    }
+    if (data.executionTimeout() != null) {
+      configService.setExecutionTimeout(data.sessionId(), data.executionTimeout());
+    }
+  }
+
+  /**
+   * Apply log directory overrides for a session.
+   *
+   * @param data the configuration data
+   */
+  public void applyLogDirOverrides(final AppConfigData data) {
+    if (data.fileLogDir() != null) {
+      configService.setFileLogDir(data.sessionId(), data.fileLogDir());
+    }
+    if (data.resultLogDir() != null) {
+      configService.setResultLogDir(data.sessionId(), data.resultLogDir());
+    }
+  }
+
+  /**
    * Log a file path to a session-specific file.
    *
    * @param path the file path to log
@@ -75,7 +127,7 @@ public class AppService {
       @NotBlank @Pattern(regexp = SESS_ID_PATTERN, message = SESS_ID_MSG) final String sessionId) {
     return Mono.fromRunnable(
             () -> {
-              final String logsDir = configService.getFileLogDir();
+              final String logsDir = configService.getFileLogDir(sessionId);
               if (logsDir == null || logsDir.isEmpty()) {
                 throw new IllegalStateException(
                     "Modified files log directory is not configured. Please use the /api/config "
@@ -90,7 +142,7 @@ public class AppService {
                 final Path logFile = sessionDir.resolve(sessionId + ".log");
 
                 final Map<String, String> files = readLogFile(logFile);
-                files.put(normalizePath(path), PENDING_STATUS);
+                files.put(normalizePath(path, sessionId), PENDING_STATUS);
                 writeLogFile(logFile, files);
 
                 if (log.isInfoEnabled()) {
@@ -156,8 +208,8 @@ public class AppService {
     private String status;
   }
 
-  private String normalizePath(final String path) {
-    final String root = configService.getProjectPath();
+  private String normalizePath(final String path, final String sessionId) {
+    final String root = configService.getProjectPath(sessionId);
     if (root == null || root.isEmpty()) {
       return path;
     }
@@ -201,8 +253,8 @@ public class AppService {
     return Mono.fromCallable(
             () -> {
               final List<String> logFiles = new ArrayList<>();
-              final String resultsDir = configService.getResultLogDir();
-              final String fileLogDir = configService.getFileLogDir();
+              final String resultsDir = configService.getResultLogDir(sessionId);
+              final String fileLogDir = configService.getFileLogDir(sessionId);
 
               addLogsFromDir(logFiles, resultsDir, sessionId);
               addLogsFromDir(logFiles, fileLogDir, sessionId);
@@ -248,8 +300,8 @@ public class AppService {
   }
 
   private String fetchLogContent(final String sessionId, final String fileName) throws IOException {
-    final String resultsDir = configService.getResultLogDir();
-    final String fileLogDir = configService.getFileLogDir();
+    final String resultsDir = configService.getResultLogDir(sessionId);
+    final String fileLogDir = configService.getFileLogDir(sessionId);
 
     Path logFile = findLogFile(resultsDir, sessionId, fileName);
     if (logFile == null) {
@@ -273,9 +325,9 @@ public class AppService {
   }
 
   private TaskResponse executeQualityChecks(final String sessionId) {
-    final String projectRoot = configService.getProjectPath();
-    final String logsDir = configService.getFileLogDir();
-    final String pluginName = configService.getPluginName();
+    final String projectRoot = configService.getProjectPath(sessionId);
+    final String logsDir = configService.getFileLogDir(sessionId);
+    final String pluginName = configService.getPluginName(sessionId);
 
     if (projectRoot == null || projectRoot.isEmpty()) {
       return respondAndLog(sessionId, FAILURE_STATUS, "External project path not configured.");
@@ -308,8 +360,8 @@ public class AppService {
     return response;
   }
 
-  private JagrathaPlugin getActivePlugin() {
-    final String pluginName = configService.getPluginName();
+  private JagrathaPlugin getActivePlugin(final String sessionId) {
+    final String pluginName = configService.getPluginName(sessionId);
     if (pluginName == null || pluginName.isEmpty()) {
       throw new IllegalStateException(
           "No plugin name configured. Please use the /api/config endpoint to initialize the project"
@@ -329,7 +381,7 @@ public class AppService {
     final ReentrantLock lock = getLock(sessionId);
     lock.lock();
     try {
-      final JagrathaPlugin plugin = getActivePlugin();
+      final JagrathaPlugin plugin = getActivePlugin(sessionId);
       final Path logFile = Path.of(logsDir).resolve(sessionId).resolve(sessionId + ".log");
       final Map<String, String> files = readLogFile(logFile);
       final Map<String, List<String>> pendingByModule =
@@ -397,7 +449,7 @@ public class AppService {
         .append(module.isEmpty() ? "root" : module)
         .append(" ---\n");
 
-    final List<WorkflowConfig> workflows = configService.getWorkflows();
+    final List<WorkflowConfig> workflows = configService.getWorkflows(sessionId);
     if (workflows != null && !workflows.isEmpty()) {
       return runWorkflows(projectDir, sessionId, combinedOutput, formatter, module, workflows);
     }
@@ -427,7 +479,7 @@ public class AppService {
       final StringBuilder combinedOutput,
       final DateTimeFormatter formatter,
       final String module) {
-    List<String> tasks = configService.getTasks();
+    List<String> tasks = configService.getTasks(sessionId);
     if (tasks == null || tasks.isEmpty()) {
       tasks = List.of("spotlessApply", "spotlessCheck", "checkstyleMain", "test");
     }
@@ -435,7 +487,12 @@ public class AppService {
     for (final String task : tasks) {
       final TaskResponse res =
           executeSingleTask(
-              projectDir, sessionId, formatter, module, task, configService.getPluginConfig());
+              projectDir,
+              sessionId,
+              formatter,
+              module,
+              task,
+              configService.getPluginConfig(sessionId));
       combinedOutput
           .append("Task: ")
           .append(task)
@@ -467,7 +524,7 @@ public class AppService {
             formatter,
             module,
             workflow.task(),
-            configService.getPluginConfig());
+            configService.getPluginConfig(sessionId));
 
     combinedOutput
         .append("Task: ")
@@ -489,11 +546,11 @@ public class AppService {
           processor.process(
               new OutputProcessorPlugin.ProcessorInput(
                   sessionId,
-                  configService.getProjectPath(),
+                  configService.getProjectPath(sessionId),
                   module,
                   workflow.task(),
                   taskRes.output(),
-                  configService.getResultLogDir(),
+                  configService.getResultLogDir(sessionId),
                   workflow.processor().config()));
 
       artifactPath = procRes.artifactPath();
@@ -578,7 +635,7 @@ public class AppService {
       final String aiName,
       final DateTimeFormatter formatter,
       final String response) {
-    final String logsDir = configService.getResultLogDir();
+    final String logsDir = configService.getResultLogDir(sessionId);
     if (logsDir != null && !logsDir.isEmpty()) {
       try {
         final String timestamp = LocalDateTime.now().format(formatter);
@@ -605,7 +662,8 @@ public class AppService {
       final String module,
       final String task,
       final Map<String, Object> pluginConfig) {
-    final List<String> command = getActivePlugin().buildTaskCommand(module, task, pluginConfig);
+    final List<String> command =
+        getActivePlugin(sessionId).buildTaskCommand(module, task, pluginConfig);
     final String timestamp = LocalDateTime.now().format(formatter);
     final String logFileName =
         String.format(
@@ -616,13 +674,13 @@ public class AppService {
       log.info("Running quality check: {}", String.join(" ", command));
     }
 
-    final TaskResponse res = tryExecuteChecks(command, projectDir);
+    final TaskResponse res = tryExecuteChecks(command, projectDir, sessionId);
     saveTaskLog(sessionId, logFileName, res);
     return res;
   }
 
   private void saveTaskLog(final String sessionId, final String fileName, final TaskResponse res) {
-    final String logsDir = configService.getResultLogDir();
+    final String logsDir = configService.getResultLogDir(sessionId);
     if (logsDir != null && !logsDir.isEmpty()) {
       try {
         final Path dirPath = Path.of(logsDir).resolve(sessionId);
@@ -639,7 +697,7 @@ public class AppService {
   }
 
   private void logResults(final String sessionId, final TaskResponse response) {
-    final String logsDir = configService.getResultLogDir();
+    final String logsDir = configService.getResultLogDir(sessionId);
     if (logsDir != null && !logsDir.isEmpty()) {
       try {
         final Path dirPath = Path.of(logsDir).resolve(sessionId);
@@ -659,7 +717,8 @@ public class AppService {
   }
 
   @SuppressWarnings("PMD.DoNotUseThreads")
-  private TaskResponse tryExecuteChecks(final List<String> command, final File projectDir) {
+  private TaskResponse tryExecuteChecks(
+      final List<String> command, final File projectDir, final String sessionId) {
     TaskResponse response;
     try {
       final ProcessBuilder processBuilder = new ProcessBuilder(command);
@@ -668,7 +727,7 @@ public class AppService {
       final Process process = processBuilder.start();
 
       final String output = readProcessOutput(process);
-      final Long timeout = configService.getExecutionTimeout();
+      final Long timeout = configService.getExecutionTimeout(sessionId);
       final boolean finished =
           process.waitFor(timeout != null ? timeout : 600, java.util.concurrent.TimeUnit.SECONDS);
 

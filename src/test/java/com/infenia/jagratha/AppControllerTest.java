@@ -1,12 +1,13 @@
 package com.infenia.jagratha;
 
 import static org.hamcrest.Matchers.containsString;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.infenia.jagratha.config.AppConfigService;
 import com.infenia.jagratha.controller.AppController;
+import com.infenia.jagratha.mapper.AppConfigMapper;
 import com.infenia.jagratha.model.ConfigRequest;
 import com.infenia.jagratha.model.FileRequest;
 import com.infenia.jagratha.model.TaskRequest;
@@ -27,7 +28,7 @@ class AppControllerTest {
   @Autowired private WebTestClient webTestClient;
 
   @MockitoBean private AppService service;
-  @MockitoBean private AppConfigService configService;
+  @MockitoBean private AppConfigMapper configMapper;
 
   @Test
   void testSaveFile() {
@@ -156,10 +157,8 @@ class AppControllerTest {
         .expectBody(String.class)
         .isEqualTo("Configuration updated successfully");
 
-    verify(configService).setProjectPath("/new/path");
-    verify(configService).setExecutionTimeout(300L);
-    verify(configService).setFileLogDir("/new/logs");
-    verify(configService).setResultLogDir("/new/results");
+    verify(configMapper).toData(any());
+    verify(service).applyConfigOverrides(any());
   }
 
   @Test
