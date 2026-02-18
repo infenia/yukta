@@ -15,7 +15,7 @@ logging:
     org.springframework.web: DEBUG
 
 jte:
-  usePrecompiledTemplates: true
+  usePrecompiledTemplates: false
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss} %-5p %c{1}:%L - %m%n%wEx"
 
