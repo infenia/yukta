@@ -10,12 +10,15 @@ WEBSERVER_ENDPOINT = "/api/tasks/complete"
 def http_post(host, port, location, payload):
     body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
     headers = {'Content-Type': 'application/json'}
-    with closing(HTTPConnection(host, port, timeout=600)) as connection:  # Longer timeout for quality checks
-        connection.request("POST", location, body=body, headers=headers)
-        # Use a longer timeout for reading the response as well
-        response = connection.getresponse()
-        print(f"Status: {response.status}")
-        print(f"Response: {response.read().decode('utf-8')}")
+    try:
+        # Longer timeout for quality checks (600s)
+        with closing(HTTPConnection(host, port, timeout=600)) as connection:
+            connection.request("POST", location, body=body, headers=headers)
+            response = connection.getresponse()
+            print(f"Status: {response.status}")
+            print(f"Response: {response.read().decode('utf-8')}")
+    except Exception as e:
+        print(f"Error connecting to Jagratha server: {e}")
 
 def main():
     session_id = "unknown"
