@@ -7,6 +7,7 @@ plugins {
 
 spotless {
     java {
+        licenseHeaderFile(rootProject.file('config/license/header.txt'))
         importOrder()
         removeUnusedImports()
         cleanthat()
@@ -15,6 +16,17 @@ spotless {
         trimTrailingWhitespace()
         endWithNewline()
         targetExclude("bin/**", "build/**", "out/**")
+    }
+
+    groovyGradle {
+        target '*.gradle', 'build-logic/**/*.gradle'
+        licenseHeaderFile(rootProject.file('config/license/header.txt'), '(plugins|id|import|apply)')
+    }
+
+    format 'xml', {
+        target '**/*.xml'
+        targetExclude '**/build/**', '**/bin/**', '**/out/**'
+        licenseHeaderFile(rootProject.file('config/license/header-xml.txt'), '(<[^!?])')
     }
 }
 
