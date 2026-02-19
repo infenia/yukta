@@ -1,8 +1,11 @@
 package com.infenia.jagratha.model;
 
+import com.infenia.jagratha.validation.AiStepName;
+import com.infenia.jagratha.validation.ConfigKey;
+import com.infenia.jagratha.validation.ProcessorName;
+import com.infenia.jagratha.validation.TaskName;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import java.util.Map;
 
@@ -15,8 +18,7 @@ import java.util.Map;
  */
 @Schema(description = "Configuration for a workflow step, chaining build tasks with AI feedback")
 public record WorkflowConfig(
-    @Schema(description = "The name of the build task to run", example = "checkstyleMain")
-        @NotBlank(message = "Task name is required")
+    @Schema(description = "The name of the build task to run", example = "checkstyleMain") @TaskName
         String task,
     @Schema(description = "Configuration for processing the task output") @Valid
         ProcessorStepConfig processor,
@@ -32,13 +34,11 @@ public record WorkflowConfig(
   @Schema(description = "Configuration for an output processor step")
   public record ProcessorStepConfig(
       @Schema(description = "The name of the processor plugin", example = "checkstyle-xml")
-          @NotBlank(message = "Processor name is required")
+          @ProcessorName
           String name,
       @Schema(description = "Configuration options for the processor")
           @NotNull(message = "Processor config is required")
-          Map<
-                  @NotBlank(message = "Processor config key cannot be blank") String,
-                  @NotNull(message = "Processor config value cannot be null") Object>
+          Map<@ConfigKey String, @NotNull(message = "Processor config value cannot be null") Object>
               config) {
     /**
      * Compact constructor to ensure configuration is immutable.
@@ -59,14 +59,11 @@ public record WorkflowConfig(
    */
   @Schema(description = "Configuration for an AI plugin step")
   public record AiStepConfig(
-      @Schema(description = "The name of the AI plugin", example = "qwen-code")
-          @NotBlank(message = "AI step name is required")
+      @Schema(description = "The name of the AI plugin", example = "qwen-code") @AiStepName
           String name,
       @Schema(description = "Configuration options for the AI plugin (e.g., prompt templates)")
           @NotNull(message = "AI step config is required")
-          Map<
-                  @NotBlank(message = "AI config key cannot be blank") String,
-                  @NotNull(message = "AI config value cannot be null") Object>
+          Map<@ConfigKey String, @NotNull(message = "AI config value cannot be null") Object>
               config) {
     /**
      * Compact constructor to ensure configuration is immutable.

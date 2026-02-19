@@ -1,10 +1,10 @@
 package com.infenia.jagratha.model;
 
+import com.infenia.jagratha.validation.ProjectPath;
+import com.infenia.jagratha.validation.SessionId;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
-import jakarta.validation.constraints.Pattern;
 import java.util.List;
 
 /**
@@ -17,12 +17,10 @@ import java.util.List;
  */
 @Schema(description = "Request object for updating session configuration")
 public record ConfigRequest(
-    @Schema(description = "The unique session identifier", example = "session-123")
-        @NotBlank(message = "Session ID is required")
-        @Pattern(regexp = "^(?!.*\\.\\.)[^/\\\\]*$", message = "Invalid session ID format")
+    @Schema(description = "The unique session identifier", example = "session-123") @SessionId
         String sessionId,
     @Schema(description = "The root path of the project to manage", example = "/path/to/project")
-        @NotBlank(message = "Project path is required")
+        @ProjectPath
         String projectPath,
     @Schema(description = "List of plugins to be used in this session")
         @NotEmpty(message = "Plugins list is required")

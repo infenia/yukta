@@ -75,4 +75,18 @@ class ValidationTest {
     assertTrue(
         violations.stream().anyMatch(v -> v.getMessage().contains("Invalid session ID format")));
   }
+
+  @Test
+  void testAppConfigDataBlankSession() {
+    AppConfigData data =
+        new AppConfigData(
+            "",
+            "/path",
+            List.of(new PluginRegistration("gradle", Map.of("k", "v"))),
+            List.of(new WorkflowConfig("test", null, null)));
+    Set<ConstraintViolation<AppConfigData>> violations = validator.validate(data);
+    assertFalse(violations.isEmpty());
+    assertTrue(
+        violations.stream().anyMatch(v -> v.getMessage().contains("Session ID is required")));
+  }
 }

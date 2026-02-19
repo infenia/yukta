@@ -1,9 +1,9 @@
 package com.infenia.jagratha.model;
 
+import com.infenia.jagratha.validation.ProjectPath;
+import com.infenia.jagratha.validation.SessionId;
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
-import jakarta.validation.constraints.Pattern;
 import java.util.List;
 
 /**
@@ -15,10 +15,8 @@ import java.util.List;
  * @param workflows the list of workflows
  */
 public record AppConfigData(
-    @NotBlank(message = "Session ID is required")
-        @Pattern(regexp = "^(?!.*\\.\\.)[^/\\\\]*$", message = "Invalid session ID format")
-        String sessionId,
-    @NotBlank(message = "Project path is required") String projectPath,
+    @SessionId String sessionId,
+    @ProjectPath String projectPath,
     @NotEmpty(message = "Plugins list cannot be empty") @Valid List<PluginRegistration> plugins,
     @NotEmpty(message = "Workflows list cannot be empty") @Valid List<WorkflowConfig> workflows) {
 

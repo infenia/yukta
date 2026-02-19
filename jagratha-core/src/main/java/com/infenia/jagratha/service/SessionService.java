@@ -9,8 +9,8 @@ import com.infenia.jagratha.plugin.AiPlugin;
 import com.infenia.jagratha.plugin.JagrathaPlugin;
 import com.infenia.jagratha.plugin.OutputProcessorPlugin;
 import com.infenia.jagratha.plugin.ValidationResult;
+import com.infenia.jagratha.validation.SessionId;
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.NotBlank;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -124,8 +124,7 @@ public class SessionService {
    * @param sessionId the session identifier
    * @return Mono that completes when config is saved
    */
-  public Mono<Void> saveConfigToDisk(
-      @NotBlank(message = "Session ID is required") final String sessionId) {
+  public Mono<Void> saveConfigToDisk(@SessionId final String sessionId) {
     return configService
         .getResultLogDir(sessionId)
         .flatMap(
@@ -237,8 +236,7 @@ public class SessionService {
    * @return Mono containing map of configurations
    */
   @SuppressWarnings("unchecked")
-  public Mono<Map<String, Object>> getSessionConfig(
-      @NotBlank(message = "Session ID is required") final String sessionId) {
+  public Mono<Map<String, Object>> getSessionConfig(@SessionId final String sessionId) {
     return configService
         .isActive(sessionId)
         .flatMap(
@@ -282,8 +280,7 @@ public class SessionService {
    * @param sessionId the session identifier
    * @return Mono containing list of workflows
    */
-  public Mono<List<WorkflowConfig>> getSessionWorkflows(
-      @NotBlank(message = "Session ID is required") final String sessionId) {
+  public Mono<List<WorkflowConfig>> getSessionWorkflows(@SessionId final String sessionId) {
     return configService
         .isActive(sessionId)
         .flatMap(
