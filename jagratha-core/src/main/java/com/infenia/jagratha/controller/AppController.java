@@ -6,7 +6,10 @@ import com.infenia.jagratha.model.ConfigRequest;
 import com.infenia.jagratha.model.FileRequest;
 import com.infenia.jagratha.model.TaskRequest;
 import com.infenia.jagratha.model.TaskResponse;
-import com.infenia.jagratha.service.AppService;
+import com.infenia.jagratha.service.FileLogService;
+import com.infenia.jagratha.service.LogRetrievalService;
+import com.infenia.jagratha.service.SessionService;
+import com.infenia.jagratha.service.WorkflowService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -34,7 +37,10 @@ import reactor.core.publisher.Mono;
     description = "Endpoints for file management, task execution, and configuration")
 public class AppController {
 
-  private final AppService service;
+  private final FileLogService fileLogService;
+  private final WorkflowService workflowService;
+  private final SessionService sessionService;
+  private final LogRetrievalService retrievalService;
   private final AppConfigMapper configMapper;
 
   private static final String SUCCESS_STATUS = "SUCCESS";
@@ -53,7 +59,7 @@ public class AppController {
   @ApiResponse(responseCode = HTTP_200, description = "File path logged successfully")
   @ApiResponse(responseCode = "400", description = "Invalid request data")
   public Mono<ResponseEntity<String>> saveFile(@Valid @RequestBody final FileRequest request) {
-    return service
+    return fileLogService
         .saveFile(request.path(), request.sessionId())
         .thenReturn(ResponseEntity.ok("File path logged successfully"));
   }
@@ -72,7 +78,7 @@ public class AppController {
   @ApiResponse(responseCode = "500", description = "Quality checks failed")
   public Mono<ResponseEntity<TaskResponse>> completeTask(
       @Valid @RequestBody final TaskRequest request) {
-    return service
+    return workflowService
         .runQualityChecks(request.sessionId())
         .map(
             response -> {
@@ -97,7 +103,7 @@ public class AppController {
   @ApiResponse(responseCode = HTTP_200, description = "List of log filenames")
   public Mono<List<String>> listLogs(
       @Parameter(description = "Session ID") @PathVariable final String sessionId) {
-    return service.listLogs(sessionId);
+    return retrievalService.listLogs(sessionId);
   }
 
   /**
@@ -116,7 +122,7 @@ public class AppController {
   public Mono<ResponseEntity<String>> getLogContent(
       @Parameter(description = "Session ID") @PathVariable final String sessionId,
       @Parameter(description = "Log filename") @PathVariable final String filename) {
-    return service
+    return retrievalService
         .getLogContent(sessionId, filename)
         .map(ResponseEntity::ok)
         .onErrorResume(e -> Mono.just(ResponseEntity.notFound().build()));
@@ -136,11 +142,9 @@ public class AppController {
   @ApiResponse(responseCode = "400", description = "Invalid configuration data")
   public Mono<ResponseEntity<String>> updateConfig(
       @Valid @RequestBody final ConfigRequest request) {
-    return Mono.fromRunnable(
-            () -> {
-              final AppConfigData configData = configMapper.toData(request);
-              service.applyConfigOverrides(configData);
-            })
+    final AppConfigData configData = configMapper.toData(request);
+    return sessionService
+        .applyConfigOverrides(configData)
         .thenReturn(ResponseEntity.ok("Configuration updated successfully"));
   }
 }

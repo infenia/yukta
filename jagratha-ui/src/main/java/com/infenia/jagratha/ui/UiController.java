@@ -1,7 +1,9 @@
 package com.infenia.jagratha.ui;
 
 import com.infenia.jagratha.config.AppConfigService;
-import com.infenia.jagratha.service.AppService;
+import com.infenia.jagratha.service.FileLogService;
+import com.infenia.jagratha.service.LogRetrievalService;
+import com.infenia.jagratha.service.SessionService;
 import com.infenia.jagratha.service.TaskTrackerService;
 import gg.jte.TemplateEngine;
 import gg.jte.output.StringOutput;
@@ -23,7 +25,9 @@ import reactor.core.scheduler.Schedulers;
 @RequiredArgsConstructor
 public class UiController {
 
-  private final AppService appService;
+  private final SessionService sessionService;
+  private final FileLogService fileLogService;
+  private final LogRetrievalService retrievalService;
   private final AppConfigService configService;
   private final TaskTrackerService tracker;
   private final TemplateEngine templateEngine;
@@ -37,14 +41,20 @@ public class UiController {
   @GetMapping(produces = MediaType.TEXT_HTML_VALUE)
   @ResponseBody
   public Mono<String> index(final Model model) {
-    model.addAttribute("sessions", appService.getActiveSessions());
-    return Mono.fromCallable(
-            () -> {
-              final StringOutput output = new StringOutput();
-              templateEngine.render("index.jte", model.asMap(), output);
-              return output.toString();
-            })
-        .subscribeOn(Schedulers.boundedElastic());
+    return sessionService
+        .getActiveSessions()
+        .collectList()
+        .flatMap(
+            sessions -> {
+              model.addAttribute("sessions", sessions);
+              return Mono.fromCallable(
+                      () -> {
+                        final StringOutput output = new StringOutput();
+                        templateEngine.render("index.jte", model.asMap(), output);
+                        return output.toString();
+                      })
+                  .subscribeOn(Schedulers.boundedElastic());
+            });
   }
 
   /**
@@ -56,14 +66,20 @@ public class UiController {
   @GetMapping(value = "/history", produces = MediaType.TEXT_HTML_VALUE)
   @ResponseBody
   public Mono<String> history(final Model model) {
-    model.addAttribute("sessions", appService.getHistorySessions());
-    return Mono.fromCallable(
-            () -> {
-              final StringOutput output = new StringOutput();
-              templateEngine.render("history.jte", model.asMap(), output);
-              return output.toString();
-            })
-        .subscribeOn(Schedulers.boundedElastic());
+    return sessionService
+        .getHistorySessions()
+        .collectList()
+        .flatMap(
+            sessions -> {
+              model.addAttribute("sessions", sessions);
+              return Mono.fromCallable(
+                      () -> {
+                        final StringOutput output = new StringOutput();
+                        templateEngine.render("history.jte", model.asMap(), output);
+                        return output.toString();
+                      })
+                  .subscribeOn(Schedulers.boundedElastic());
+            });
   }
 
   /**
@@ -77,21 +93,27 @@ public class UiController {
   @ResponseBody
   public Mono<String> session(@PathVariable final String sessionId, final Model model) {
     model.addAttribute("sessionId", sessionId);
-    model.addAttribute("config", appService.getSessionConfig(sessionId));
-    model.addAttribute("workflows", appService.getSessionWorkflows(sessionId));
-    model.addAttribute("modifiedFiles", appService.getModifiedFiles(sessionId));
     model.addAttribute("progress", tracker.getProgress(sessionId));
 
-    return appService
-        .listLogs(sessionId)
-        .map(
-            logs -> {
-              model.addAttribute("logs", logs);
-              final StringOutput output = new StringOutput();
-              templateEngine.render("session.jte", model.asMap(), output);
-              return output.toString();
-            })
-        .subscribeOn(Schedulers.boundedElastic());
+    return Mono.zip(
+            sessionService.getSessionConfig(sessionId),
+            sessionService.getSessionWorkflows(sessionId),
+            fileLogService.getModifiedFiles(sessionId),
+            retrievalService.listLogs(sessionId))
+        .flatMap(
+            tuple -> {
+              model.addAttribute("config", tuple.getT1());
+              model.addAttribute("workflows", tuple.getT2());
+              model.addAttribute("modifiedFiles", tuple.getT3());
+              model.addAttribute("logs", tuple.getT4());
+              return Mono.fromCallable(
+                      () -> {
+                        final StringOutput output = new StringOutput();
+                        templateEngine.render("session.jte", model.asMap(), output);
+                        return output.toString();
+                      })
+                  .subscribeOn(Schedulers.boundedElastic());
+            });
   }
 
   /**

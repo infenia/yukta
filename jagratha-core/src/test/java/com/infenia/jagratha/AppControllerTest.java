@@ -13,7 +13,10 @@ import com.infenia.jagratha.model.PluginRegistration;
 import com.infenia.jagratha.model.TaskRequest;
 import com.infenia.jagratha.model.TaskResponse;
 import com.infenia.jagratha.model.WorkflowConfig;
-import com.infenia.jagratha.service.AppService;
+import com.infenia.jagratha.service.FileLogService;
+import com.infenia.jagratha.service.LogRetrievalService;
+import com.infenia.jagratha.service.SessionService;
+import com.infenia.jagratha.service.WorkflowService;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
@@ -29,14 +32,17 @@ class AppControllerTest {
 
   @Autowired private WebTestClient webTestClient;
 
-  @MockitoBean private AppService service;
+  @MockitoBean private FileLogService fileLogService;
+  @MockitoBean private WorkflowService workflowService;
+  @MockitoBean private SessionService sessionService;
+  @MockitoBean private LogRetrievalService logRetrievalService;
   @MockitoBean private AppConfigMapper configMapper;
 
   @Test
   void testSaveFile() {
     FileRequest request = new FileRequest("src/Test.java", "session-1", "content");
 
-    when(service.saveFile(anyString(), anyString())).thenReturn(Mono.empty());
+    when(fileLogService.saveFile(anyString(), anyString())).thenReturn(Mono.empty());
 
     webTestClient
         .post()
@@ -54,7 +60,7 @@ class AppControllerTest {
   void testSaveFileIllegalArgument() {
     FileRequest request = new FileRequest("Outside.java", "session-1", null);
 
-    when(service.saveFile(anyString(), anyString()))
+    when(fileLogService.saveFile(anyString(), anyString()))
         .thenReturn(Mono.error(new IllegalArgumentException("Invalid path")));
 
     webTestClient
@@ -74,7 +80,7 @@ class AppControllerTest {
   void testSaveFileInternalError() {
     FileRequest request = new FileRequest("test.java", "session-1", null);
 
-    when(service.saveFile(anyString(), anyString()))
+    when(fileLogService.saveFile(anyString(), anyString()))
         .thenReturn(Mono.error(new RuntimeException("IO error")));
 
     webTestClient
@@ -95,7 +101,7 @@ class AppControllerTest {
     TaskRequest request = new TaskRequest("session-1");
     TaskResponse response = new TaskResponse("SUCCESS", "Build successful");
 
-    when(service.runQualityChecks(anyString())).thenReturn(Mono.just(response));
+    when(workflowService.runQualityChecks(anyString())).thenReturn(Mono.just(response));
 
     webTestClient
         .post()
@@ -117,7 +123,7 @@ class AppControllerTest {
     TaskRequest request = new TaskRequest("session-1");
     TaskResponse response = new TaskResponse("FAILURE", "Build failed");
 
-    when(service.runQualityChecks(anyString())).thenReturn(Mono.just(response));
+    when(workflowService.runQualityChecks(anyString())).thenReturn(Mono.just(response));
 
     webTestClient
         .post()
@@ -143,6 +149,8 @@ class AppControllerTest {
             List.of(new PluginRegistration("gradle", Map.of("key", "value"))),
             List.of(new WorkflowConfig("test", null, null)));
 
+    when(sessionService.applyConfigOverrides(any())).thenReturn(Mono.empty());
+
     webTestClient
         .post()
         .uri("/api/config")
@@ -155,7 +163,7 @@ class AppControllerTest {
         .isEqualTo("Configuration updated successfully");
 
     verify(configMapper).toData(any());
-    verify(service).applyConfigOverrides(any());
+    verify(sessionService).applyConfigOverrides(any());
   }
 
   @Test
@@ -202,7 +210,7 @@ class AppControllerTest {
 
   @Test
   void testConstraintViolation() {
-    when(service.listLogs(anyString()))
+    when(logRetrievalService.listLogs(anyString()))
         .thenReturn(
             Mono.error(
                 new jakarta.validation.ConstraintViolationException(
@@ -221,7 +229,7 @@ class AppControllerTest {
 
   @Test
   void testIllegalState() {
-    when(service.listLogs(anyString()))
+    when(logRetrievalService.listLogs(anyString()))
         .thenReturn(Mono.error(new IllegalStateException("Bad state")));
 
     webTestClient

@@ -5,7 +5,8 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 
 import com.infenia.jagratha.model.TaskResponse;
-import com.infenia.jagratha.service.AppService;
+import com.infenia.jagratha.service.LogRetrievalService;
+import com.infenia.jagratha.service.WorkflowService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -15,12 +16,14 @@ import reactor.test.StepVerifier;
 class AppMcpToolsTest {
 
   private AppMcpTools mcpTools;
-  private AppService service;
+  private WorkflowService workflowService;
+  private LogRetrievalService logRetrievalService;
 
   @BeforeEach
   void setUp() {
-    service = Mockito.mock(AppService.class);
-    mcpTools = new AppMcpTools(service);
+    workflowService = Mockito.mock(WorkflowService.class);
+    logRetrievalService = Mockito.mock(LogRetrievalService.class);
+    mcpTools = new AppMcpTools(workflowService, logRetrievalService);
   }
 
   @Test
@@ -33,7 +36,7 @@ class AppMcpToolsTest {
   @Test
   void testTriggerQualityChecksSuccess() {
     TaskResponse response = new TaskResponse("SUCCESS", "Done");
-    when(service.runQualityChecks(anyString())).thenReturn(Mono.just(response));
+    when(workflowService.runQualityChecks(anyString())).thenReturn(Mono.just(response));
 
     StepVerifier.create(mcpTools.triggerQualityChecks())
         .expectNext("Status: SUCCESS\n\nOutput:\nDone")
@@ -43,7 +46,7 @@ class AppMcpToolsTest {
   @Test
   void testTriggerQualityChecksFailure() {
     TaskResponse response = new TaskResponse("FAILURE", "Error");
-    when(service.runQualityChecks(anyString())).thenReturn(Mono.just(response));
+    when(workflowService.runQualityChecks(anyString())).thenReturn(Mono.just(response));
 
     StepVerifier.create(mcpTools.triggerQualityChecks())
         .expectNext("Status: FAILURE\n\nOutput:\nError")
