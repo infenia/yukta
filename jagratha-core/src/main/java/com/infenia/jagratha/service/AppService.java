@@ -86,6 +86,7 @@ public class AppService {
     }
     applyWorkflowAndTimeoutOverrides(data);
     applyLogDirOverrides(data);
+    saveConfigToDisk(data.sessionId());
   }
 
   /**
@@ -264,11 +265,11 @@ public class AppService {
   }
 
   /**
-   * List all session IDs that have logs or configurations.
+   * List all session IDs that have logs or configurations on disk.
    *
    * @return list of session IDs
    */
-  public List<String> getAllSessions() {
+  public List<String> getAllSessionsOnDisk() {
     final java.util.Set<String> sessions = new java.util.TreeSet<>();
     final String resultsDir = configService.getResultLogDir(null);
     final String fileLogDir = configService.getFileLogDir(null);
@@ -277,6 +278,96 @@ public class AppService {
     addSessionIds(sessions, fileLogDir);
 
     return sessions.stream().toList();
+  }
+
+  /**
+   * Get all active session IDs.
+   *
+   * @return list of active session IDs
+   */
+  public List<String> getActiveSessions() {
+    return new ArrayList<>(configService.getActiveSessionIds());
+  }
+
+  /**
+   * Get all history session IDs (on disk but not active).
+   *
+   * @return list of history session IDs
+   */
+  public List<String> getHistorySessions() {
+    final List<String> allOnDisk = getAllSessionsOnDisk();
+    final java.util.Set<String> active = configService.getActiveSessionIds();
+    return allOnDisk.stream().filter(s -> !active.contains(s)).toList();
+  }
+
+  private void saveConfigToDisk(final String sessionId) {
+    final String resultsDir = configService.getResultLogDir(sessionId);
+    if (resultsDir == null || resultsDir.isEmpty()) {
+      return;
+    }
+    try {
+      final Path dirPath = Path.of(resultsDir).resolve(sessionId);
+      Files.createDirectories(dirPath);
+      final Path configFile = dirPath.resolve("config.json");
+      final Map<String, Object> configs = configService.getAllConfigs(sessionId);
+      Files.writeString(configFile, objectMapper.writeValueAsString(configs));
+    } catch (IOException e) {
+      log.error("Failed to save config to disk for session {}", sessionId, e);
+    }
+  }
+
+  /**
+   * Get configuration for a session, from memory or disk.
+   *
+   * @param sessionId the session identifier
+   * @return map of configurations
+   */
+  @SuppressWarnings("unchecked")
+  public Map<String, Object> getSessionConfig(final String sessionId) {
+    if (configService.isActive(sessionId)) {
+      return configService.getAllConfigs(sessionId);
+    }
+
+    final String resultsDir = configService.getResultLogDir(sessionId);
+    final Path configFile = Path.of(resultsDir).resolve(sessionId).resolve("config.json");
+    if (Files.exists(configFile)) {
+      try {
+        return objectMapper.readValue(
+            Files.readString(configFile, StandardCharsets.UTF_8), Map.class);
+      } catch (IOException e) {
+        log.warn("Failed to read config.json for session {}", sessionId, e);
+      }
+    }
+    return configService.getAllConfigs(sessionId);
+  }
+
+  /**
+   * Get workflows for a session, from memory or disk.
+   *
+   * @param sessionId the session identifier
+   * @return list of workflows
+   */
+  @SuppressWarnings("unchecked")
+  public List<WorkflowConfig> getSessionWorkflows(final String sessionId) {
+    if (configService.isActive(sessionId)) {
+      return configService.getWorkflows(sessionId);
+    }
+
+    final Map<String, Object> config = getSessionConfig(sessionId);
+    final Object workflows = config.get("workflows");
+    if (workflows instanceof List) {
+      try {
+        final String json = objectMapper.writeValueAsString(workflows);
+        return objectMapper.readValue(
+            json,
+            objectMapper
+                .getTypeFactory()
+                .constructCollectionType(List.class, WorkflowConfig.class));
+      } catch (IOException e) {
+        log.warn("Failed to parse workflows from disk for session {}", sessionId, e);
+      }
+    }
+    return configService.getWorkflows(sessionId);
   }
 
   /**

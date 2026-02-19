@@ -139,4 +139,23 @@ class AppConfigServiceTest {
     configService.setResultLogDir(sessionId, null);
     assertEquals("/static/results", configService.getResultLogDir(sessionId));
   }
+
+  @Test
+  void testActiveSessionTracking() {
+    String sess1 = "sess-1";
+    String sess2 = "sess-2";
+
+    assertTrue(configService.getActiveSessionIds().isEmpty());
+    assertTrue(!configService.isActive(sess1));
+
+    configService.setProjectPath(sess1, "/path/1");
+    assertTrue(configService.getActiveSessionIds().contains(sess1));
+    assertTrue(configService.isActive(sess1));
+    assertTrue(!configService.isActive(sess2));
+
+    configService.setPluginName(sess2, "maven");
+    assertTrue(configService.getActiveSessionIds().contains(sess1));
+    assertTrue(configService.getActiveSessionIds().contains(sess2));
+    assertEquals(2, configService.getActiveSessionIds().size());
+  }
 }

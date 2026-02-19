@@ -66,13 +66,13 @@ class AppServiceTest {
             List.of(mockAiPlugin),
             mockTaskTracker);
 
-    when(configService.getFileLogDir(anyString())).thenReturn(filesDir.toString());
-    when(configService.getResultLogDir(anyString())).thenReturn(resultsDir.toString());
-    when(configService.getProjectPath(anyString())).thenReturn(projectDir.toString());
-    when(configService.getPluginName(anyString())).thenReturn("gradle");
-    when(configService.getPluginConfig(anyString())).thenReturn(Map.of("gradlePath", "./gradlew"));
-    when(configService.getExecutionTimeout(anyString())).thenReturn(600L);
-    when(configService.getTasks(anyString())).thenReturn(List.of("test"));
+    when(configService.getFileLogDir(any())).thenReturn(filesDir.toString());
+    when(configService.getResultLogDir(any())).thenReturn(resultsDir.toString());
+    when(configService.getProjectPath(any())).thenReturn(projectDir.toString());
+    when(configService.getPluginName(any())).thenReturn("gradle");
+    when(configService.getPluginConfig(any())).thenReturn(Map.of("gradlePath", "./gradlew"));
+    when(configService.getExecutionTimeout(any())).thenReturn(600L);
+    when(configService.getTasks(any())).thenReturn(List.of("test"));
   }
 
   @Test
@@ -335,5 +335,45 @@ class AppServiceTest {
               assertTrue(response.output().contains("AI (test-ai)"));
             })
         .verifyComplete();
+  }
+
+  @Test
+  void testActiveAndHistorySessions() throws IOException {
+    String activeSess = "active-sess";
+    String historySess = "history-sess";
+
+    when(configService.getActiveSessionIds()).thenReturn(java.util.Set.of(activeSess));
+
+    // Create history session on disk
+    Files.createDirectories(resultsDir.resolve(historySess));
+    Files.writeString(resultsDir.resolve(historySess).resolve("summary.log"), "done");
+
+    List<String> active = service.getActiveSessions();
+    assertEquals(1, active.size());
+    assertTrue(active.contains(activeSess));
+
+    List<String> history = service.getHistorySessions();
+    assertEquals(1, history.size());
+    assertTrue(history.contains(historySess));
+    assertFalse(history.contains(activeSess));
+  }
+
+  @Test
+  void testSaveAndLoadConfig() throws IOException {
+    String sessionId = "config-sess";
+    Map<String, Object> config = Map.of("projectPath", "/path/to/project");
+    when(configService.getAllConfigs(sessionId)).thenReturn(config);
+    when(configService.isActive(sessionId)).thenReturn(true);
+
+    service.applyConfigOverrides(
+        new AppConfigData(sessionId, "/path/to/project", null, null, null, null, null, null, null));
+
+    Path configFile = resultsDir.resolve(sessionId).resolve("config.json");
+    assertTrue(Files.exists(configFile));
+
+    // Now make it inactive
+    when(configService.isActive(sessionId)).thenReturn(false);
+    Map<String, Object> loaded = service.getSessionConfig(sessionId);
+    assertEquals("/path/to/project", loaded.get("projectPath"));
   }
 }

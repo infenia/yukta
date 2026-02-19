@@ -37,11 +37,30 @@ public class UiController {
   @GetMapping(produces = MediaType.TEXT_HTML_VALUE)
   @ResponseBody
   public Mono<String> index(final Model model) {
-    model.addAttribute("sessions", appService.getAllSessions());
+    model.addAttribute("sessions", appService.getActiveSessions());
     return Mono.fromCallable(
             () -> {
               final StringOutput output = new StringOutput();
               templateEngine.render("index.jte", model.asMap(), output);
+              return output.toString();
+            })
+        .subscribeOn(Schedulers.boundedElastic());
+  }
+
+  /**
+   * Render the history page.
+   *
+   * @param model the UI model
+   * @return the rendered HTML
+   */
+  @GetMapping(value = "/history", produces = MediaType.TEXT_HTML_VALUE)
+  @ResponseBody
+  public Mono<String> history(final Model model) {
+    model.addAttribute("sessions", appService.getHistorySessions());
+    return Mono.fromCallable(
+            () -> {
+              final StringOutput output = new StringOutput();
+              templateEngine.render("history.jte", model.asMap(), output);
               return output.toString();
             })
         .subscribeOn(Schedulers.boundedElastic());
@@ -58,8 +77,8 @@ public class UiController {
   @ResponseBody
   public Mono<String> session(@PathVariable final String sessionId, final Model model) {
     model.addAttribute("sessionId", sessionId);
-    model.addAttribute("config", configService.getAllConfigs(sessionId));
-    model.addAttribute("workflows", configService.getWorkflows(sessionId));
+    model.addAttribute("config", appService.getSessionConfig(sessionId));
+    model.addAttribute("workflows", appService.getSessionWorkflows(sessionId));
     model.addAttribute("modifiedFiles", appService.getModifiedFiles(sessionId));
     model.addAttribute("progress", tracker.getProgress(sessionId));
 

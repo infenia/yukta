@@ -17,6 +17,7 @@
             <a href="/ui" class="text-2xl font-bold tracking-tight">Jagratha <span class="text-indigo-200 font-light">Vigilance</span></a>
             <div class="space-x-4">
                 <a href="/ui" class="hover:text-indigo-200 transition">Dashboard</a>
+                <a href="/ui/history" class="hover:text-indigo-200 transition">History</a>
                 <a href="/swagger-ui.html" class="hover:text-indigo-200 transition">API Docs</a>
             </div>
         </div>

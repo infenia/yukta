@@ -297,9 +297,38 @@ public class AppConfigService {
     configs.put("pluginName", getPluginName(sessionId));
     configs.put("pluginConfig", getPluginConfig(sessionId));
     configs.put("tasks", getTasks(sessionId));
+    configs.put("workflows", getWorkflows(sessionId));
     configs.put("executionTimeout", getExecutionTimeout(sessionId));
     configs.put("fileLogDir", getFileLogDir(sessionId));
     configs.put("resultLogDir", getResultLogDir(sessionId));
     return configs;
+  }
+
+  /**
+   * Get all active session IDs currently in memory.
+   *
+   * @return set of session IDs
+   */
+  public java.util.Set<String> getActiveSessionIds() {
+    final java.util.Set<String> active = new java.util.HashSet<>();
+    active.addAll(projectPaths.keySet());
+    active.addAll(pluginNames.keySet());
+    active.addAll(pluginConfigs.keySet());
+    active.addAll(tasksMap.keySet());
+    active.addAll(workflowsMap.keySet());
+    active.addAll(executionTimeouts.keySet());
+    active.addAll(fileLogDirs.keySet());
+    active.addAll(resultLogDirs.keySet());
+    return active;
+  }
+
+  /**
+   * Check if a session is active in memory.
+   *
+   * @param sessionId the session identifier
+   * @return true if active
+   */
+  public boolean isActive(final String sessionId) {
+    return sessionId != null && getActiveSessionIds().contains(sessionId);
   }
 }
