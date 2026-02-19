@@ -9,10 +9,13 @@ import com.infenia.jagratha.controller.AppController;
 import com.infenia.jagratha.mapper.AppConfigMapper;
 import com.infenia.jagratha.model.ConfigRequest;
 import com.infenia.jagratha.model.FileRequest;
+import com.infenia.jagratha.model.PluginRegistration;
 import com.infenia.jagratha.model.TaskRequest;
 import com.infenia.jagratha.model.TaskResponse;
+import com.infenia.jagratha.model.WorkflowConfig;
 import com.infenia.jagratha.service.AppService;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webflux.test.autoconfigure.WebFluxTest;
@@ -137,13 +140,8 @@ class AppControllerTest {
         new ConfigRequest(
             "session-1",
             "/new/path",
-            "gradle",
-            java.util.Map.of("key", "value"),
-            List.of("test"),
-            List.of(new com.infenia.jagratha.model.WorkflowConfig("test", null, null)),
-            300L,
-            "/new/logs",
-            "/new/results");
+            List.of(new PluginRegistration("gradle", Map.of("key", "value"))),
+            List.of(new WorkflowConfig("test", null, null)));
 
     webTestClient
         .post()
@@ -185,15 +183,9 @@ class AppControllerTest {
   void testUpdateConfigValidationError() {
     ConfigRequest request =
         new ConfigRequest(
-            "sess",
-            "", // empty project path
-            "", // empty plugin name
-            java.util.Map.of(), // empty config
-            java.util.List.of(), // empty tasks
-            java.util.List.of(), // empty workflows
-            300L,
-            null,
-            null);
+            "sess", "", // empty project path
+            List.of(), // empty plugins
+            List.of()); // empty workflows
 
     webTestClient
         .post()

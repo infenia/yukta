@@ -1,35 +1,35 @@
 package com.infenia.jagratha.config;
 
+import com.infenia.jagratha.model.PluginRegistration;
 import com.infenia.jagratha.model.WorkflowConfig;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 /**
- * Service for managing app configuration with runtime overrides. Provides a way to update
- * configuration via API while maintaining precedence: Session Override > Command Line > Environment
- * > application.yaml.
+ * Service for managing app configuration with runtime overrides. All configuration is session-based
+ * and updated via API.
  */
 @Service
-@RequiredArgsConstructor
 @SuppressWarnings("PMD.UseConcurrentHashMap")
 public class AppConfigService {
 
   private static final String DEFAULT_BASE_DIR = System.getProperty("user.home") + "/.jagratha";
+  private static final String DEFAULT_FILE_LOG = DEFAULT_BASE_DIR + "/modified-files";
+  private static final String DEFAULT_RES_LOG = DEFAULT_BASE_DIR + "/results";
   private static final long DEFAULT_TIMEOUT = 300L;
-
-  private final AppConfig staticConfig;
+  private static final List<String> DEFAULT_TASKS =
+      List.of("spotlessApply", "spotlessCheck", "checkstyleMain", "test");
 
   private final Map<String, String> projectPaths = new ConcurrentHashMap<>();
-  private final Map<String, String> pluginNames = new ConcurrentHashMap<>();
-  private final Map<String, Map<String, Object>> pluginConfigs = new ConcurrentHashMap<>();
-  private final Map<String, List<String>> tasksMap = new ConcurrentHashMap<>();
+  private final Map<String, List<PluginRegistration>> pluginsMap = new ConcurrentHashMap<>();
   private final Map<String, List<WorkflowConfig>> workflowsMap = new ConcurrentHashMap<>();
-  private final Map<String, Long> executionTimeouts = new ConcurrentHashMap<>();
-  private final Map<String, String> fileLogDirs = new ConcurrentHashMap<>();
-  private final Map<String, String> resultLogDirs = new ConcurrentHashMap<>();
+
+  /** Public constructor. */
+  public AppConfigService() {
+    super();
+  }
 
   /**
    * Get the external project path for a session.
@@ -38,16 +38,8 @@ public class AppConfigService {
    * @return the project path
    */
   public String getProjectPath(final String sessionId) {
-    final String override = sessionId != null ? projectPaths.get(sessionId) : null;
-    final String result;
-    if (override != null) {
-      result = override;
-    } else if (staticConfig.externalProject() != null) {
-      result = staticConfig.externalProject().path();
-    } else {
-      result = "";
-    }
-    return result;
+    final String result = sessionId != null ? projectPaths.get(sessionId) : null;
+    return result != null ? result : "";
   }
 
   /**
@@ -63,100 +55,58 @@ public class AppConfigService {
   }
 
   /**
-   * Get the plugin name for a session.
+   * Get all registered plugins for a session.
+   *
+   * @param sessionId the session identifier
+   * @return the list of plugins
+   */
+  public List<PluginRegistration> getPlugins(final String sessionId) {
+    final List<PluginRegistration> result = sessionId != null ? pluginsMap.get(sessionId) : null;
+    return result != null ? result : List.of();
+  }
+
+  /**
+   * Set the registered plugins for a session.
+   *
+   * @param sessionId the session identifier
+   * @param plugins the list of plugins
+   */
+  public void setPlugins(final String sessionId, final List<PluginRegistration> plugins) {
+    if (sessionId != null && plugins != null) {
+      pluginsMap.put(sessionId, List.copyOf(plugins));
+    }
+  }
+
+  /**
+   * Get the plugin name for a session. For now, returns the first plugin's name.
    *
    * @param sessionId the session identifier
    * @return the plugin name
    */
   public String getPluginName(final String sessionId) {
-    final String override = sessionId != null ? pluginNames.get(sessionId) : null;
-    final String result;
-    if (override != null) {
-      result = override;
-    } else {
-      result = staticConfig.pluginName();
-    }
-    return result;
+    final List<PluginRegistration> plugins = getPlugins(sessionId);
+    return plugins.isEmpty() ? "" : plugins.get(0).name();
   }
 
   /**
-   * Set the plugin name override for a session.
-   *
-   * @param sessionId the session identifier
-   * @param name the plugin name
-   */
-  public void setPluginName(final String sessionId, final String name) {
-    if (sessionId != null && name != null) {
-      pluginNames.put(sessionId, name);
-    }
-  }
-
-  /**
-   * Get the plugin configuration for a session.
+   * Get the plugin configuration for a session. For now, returns the first plugin's configuration.
    *
    * @param sessionId the session identifier
    * @return the plugin configuration map
    */
   public Map<String, Object> getPluginConfig(final String sessionId) {
-    final Map<String, Object> override = sessionId != null ? pluginConfigs.get(sessionId) : null;
-    final Map<String, Object> result;
-    if (override != null) {
-      result = override;
-    } else if (staticConfig.pluginConfig() != null) {
-      result = staticConfig.pluginConfig();
-    } else {
-      result = Map.of();
-    }
-    return result;
+    final List<PluginRegistration> plugins = getPlugins(sessionId);
+    return plugins.isEmpty() ? Map.of() : plugins.get(0).pluginConfig();
   }
 
   /**
-   * Set the plugin configuration override for a session.
-   *
-   * @param sessionId the session identifier
-   * @param config the configuration map
-   */
-  public void setPluginConfig(final String sessionId, final Map<String, Object> config) {
-    if (sessionId != null) {
-      if (config != null) {
-        pluginConfigs.put(sessionId, Map.copyOf(config));
-      } else {
-        pluginConfigs.remove(sessionId);
-      }
-    }
-  }
-
-  /**
-   * Get the list of tasks for a session.
+   * Get the list of tasks for a session. Defaults to a standard list if not set.
    *
    * @param sessionId the session identifier
    * @return the list of tasks
    */
   public List<String> getTasks(final String sessionId) {
-    final List<String> override = sessionId != null ? tasksMap.get(sessionId) : null;
-    final List<String> result;
-    if (override != null && !override.isEmpty()) {
-      result = override;
-    } else {
-      result = staticConfig.tasks();
-    }
-    return result;
-  }
-
-  /**
-   * Set the tasks override for a session.
-   *
-   * @param sessionId the session identifier
-   * @param tasksList the list of tasks
-   */
-  public void setTasks(final String sessionId, final List<String> tasksList) {
-    if (sessionId != null) {
-      if (tasksList != null) {
-        tasksMap.put(sessionId, List.copyOf(tasksList));
-      } else {
-        tasksMap.remove(sessionId);
-      }
-    }
+    return DEFAULT_TASKS;
   }
 
   /**
@@ -167,13 +117,7 @@ public class AppConfigService {
    */
   public List<WorkflowConfig> getWorkflows(final String sessionId) {
     final List<WorkflowConfig> override = sessionId != null ? workflowsMap.get(sessionId) : null;
-    final List<WorkflowConfig> result;
-    if (override != null && !override.isEmpty()) {
-      result = override;
-    } else {
-      result = staticConfig.workflows();
-    }
-    return result;
+    return override != null ? override : List.of();
   }
 
   /**
@@ -199,28 +143,7 @@ public class AppConfigService {
    * @return the timeout
    */
   public Long getExecutionTimeout(final String sessionId) {
-    final Long override = sessionId != null ? executionTimeouts.get(sessionId) : null;
-    final Long result;
-    if (override != null) {
-      result = override;
-    } else if (staticConfig.executionTimeout() != null) {
-      result = staticConfig.executionTimeout();
-    } else {
-      result = DEFAULT_TIMEOUT;
-    }
-    return result;
-  }
-
-  /**
-   * Set the execution timeout override for a session.
-   *
-   * @param sessionId the session identifier
-   * @param timeout the timeout in seconds
-   */
-  public void setExecutionTimeout(final String sessionId, final Long timeout) {
-    if (sessionId != null && timeout != null) {
-      executionTimeouts.put(sessionId, timeout);
-    }
+    return DEFAULT_TIMEOUT;
   }
 
   /**
@@ -230,28 +153,7 @@ public class AppConfigService {
    * @return the log directory
    */
   public String getFileLogDir(final String sessionId) {
-    final String override = sessionId != null ? fileLogDirs.get(sessionId) : null;
-    final String result;
-    if (override != null) {
-      result = override;
-    } else if (staticConfig.logs() != null && staticConfig.logs().modifiedFile() != null) {
-      result = staticConfig.logs().modifiedFile();
-    } else {
-      result = DEFAULT_BASE_DIR + "/modified-files";
-    }
-    return result;
-  }
-
-  /**
-   * Set the modified files log directory override for a session.
-   *
-   * @param sessionId the session identifier
-   * @param dir the log directory
-   */
-  public void setFileLogDir(final String sessionId, final String dir) {
-    if (sessionId != null && dir != null) {
-      fileLogDirs.put(sessionId, dir);
-    }
+    return DEFAULT_FILE_LOG;
   }
 
   /**
@@ -261,28 +163,7 @@ public class AppConfigService {
    * @return the log directory
    */
   public String getResultLogDir(final String sessionId) {
-    final String override = sessionId != null ? resultLogDirs.get(sessionId) : null;
-    final String result;
-    if (override != null) {
-      result = override;
-    } else if (staticConfig.logs() != null && staticConfig.logs().results() != null) {
-      result = staticConfig.logs().results();
-    } else {
-      result = DEFAULT_BASE_DIR + "/results";
-    }
-    return result;
-  }
-
-  /**
-   * Set the results log directory override for a session.
-   *
-   * @param sessionId the session identifier
-   * @param dir the log directory
-   */
-  public void setResultLogDir(final String sessionId, final String dir) {
-    if (sessionId != null && dir != null) {
-      resultLogDirs.put(sessionId, dir);
-    }
+    return DEFAULT_RES_LOG;
   }
 
   /**
@@ -294,9 +175,7 @@ public class AppConfigService {
   public Map<String, Object> getAllConfigs(final String sessionId) {
     final Map<String, Object> configs = new java.util.LinkedHashMap<>();
     configs.put("projectPath", getProjectPath(sessionId));
-    configs.put("pluginName", getPluginName(sessionId));
-    configs.put("pluginConfig", getPluginConfig(sessionId));
-    configs.put("tasks", getTasks(sessionId));
+    configs.put("plugins", getPlugins(sessionId));
     configs.put("workflows", getWorkflows(sessionId));
     configs.put("executionTimeout", getExecutionTimeout(sessionId));
     configs.put("fileLogDir", getFileLogDir(sessionId));
@@ -312,13 +191,8 @@ public class AppConfigService {
   public java.util.Set<String> getActiveSessionIds() {
     final java.util.Set<String> active = new java.util.HashSet<>();
     active.addAll(projectPaths.keySet());
-    active.addAll(pluginNames.keySet());
-    active.addAll(pluginConfigs.keySet());
-    active.addAll(tasksMap.keySet());
+    active.addAll(pluginsMap.keySet());
     active.addAll(workflowsMap.keySet());
-    active.addAll(executionTimeouts.keySet());
-    active.addAll(fileLogDirs.keySet());
-    active.addAll(resultLogDirs.keySet());
     return active;
   }
 

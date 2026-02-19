@@ -1,8 +1,11 @@
 package com.infenia.jagratha.plugin;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 
@@ -43,5 +46,85 @@ class PluginInterfaceTest {
     assertEquals("SUCCESS", result.status());
     assertEquals("out", result.output());
     assertEquals("art", result.artifactPath());
+  }
+
+  @Test
+  void testValidationResultSuccess() {
+    ValidationResult result = ValidationResult.success();
+    assertTrue(result.valid());
+    assertEquals("Validation successful", result.message());
+    assertTrue(result.errors().isEmpty());
+  }
+
+  @Test
+  void testValidationResultError() {
+    ValidationResult result = ValidationResult.error("Failed");
+    assertFalse(result.valid());
+    assertEquals("Failed", result.message());
+    assertTrue(result.errors().isEmpty());
+  }
+
+  @Test
+  void testValidationResultFieldErrors() {
+    List<ValidationResult.FieldError> errors =
+        List.of(new ValidationResult.FieldError("field", "error"));
+    ValidationResult result = ValidationResult.error("Invalid", errors);
+    assertFalse(result.valid());
+    assertEquals("Invalid", result.message());
+    assertEquals(1, result.errors().size());
+    assertEquals("field", result.errors().get(0).field());
+    assertEquals("error", result.errors().get(0).message());
+  }
+
+  @Test
+  void testDefaultValidateConfig() {
+    JagrathaPlugin plugin =
+        new JagrathaPlugin() {
+          @Override
+          public String getName() {
+            return "test";
+          }
+
+          @Override
+          public String identifyModule(String projectRoot, String relativePath) {
+            return "";
+          }
+
+          @Override
+          public List<String> buildTaskCommand(
+              String module, String task, Map<String, Object> pluginConfig) {
+            return List.of();
+          }
+        };
+
+    assertTrue(plugin.validateConfig(Map.of()).valid());
+
+    AiPlugin aiPlugin =
+        new AiPlugin() {
+          @Override
+          public String getName() {
+            return "test";
+          }
+
+          @Override
+          public String execute(String prompt, Map<String, Object> config) {
+            return "";
+          }
+        };
+    assertTrue(aiPlugin.validateConfig(Map.of()).valid());
+
+    OutputProcessorPlugin procPlugin =
+        new OutputProcessorPlugin() {
+          @Override
+          public String getName() {
+            return "test";
+          }
+
+          @Override
+          public ProcessorResult process(ProcessorInput input) {
+            return null;
+          }
+        };
+    assertTrue(procPlugin.validateConfig(Map.of()).valid());
   }
 }

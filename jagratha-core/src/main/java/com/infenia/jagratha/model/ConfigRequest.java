@@ -6,20 +6,14 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.Pattern;
 import java.util.List;
-import java.util.Map;
 
 /**
  * Request object for configuration updates.
  *
- * @param sessionId the session identifier (optional)
+ * @param sessionId the session identifier
  * @param projectPath the project path
- * @param pluginName the plugin name
- * @param pluginConfig the plugin configuration
- * @param tasks the list of tasks
+ * @param plugins the list of registered plugins
  * @param workflows the list of workflows
- * @param executionTimeout the execution timeout
- * @param modifiedFile the modified file log directory
- * @param results the results log directory
  */
 @Schema(description = "Request object for updating session configuration")
 public record ConfigRequest(
@@ -30,32 +24,18 @@ public record ConfigRequest(
     @Schema(description = "The root path of the project to manage", example = "/path/to/project")
         @NotBlank(message = "Project path is required")
         String projectPath,
-    @Schema(description = "The name of the build plugin to use (e.g., gradle)", example = "gradle")
-        @NotBlank(message = "Plugin name is required")
-        String pluginName,
-    @Schema(description = "Configuration options for the selected plugin")
-        @NotEmpty(message = "Plugin config is required")
-        Map<String, Object> pluginConfig,
-    @Schema(
-            description = "List of tasks to execute (e.g., spotlessApply, build)",
-            example = "[\"spotlessApply\", \"build\"]")
-        @NotEmpty(message = "Tasks list is required")
-        List<String> tasks,
+    @Schema(description = "List of plugins to be used in this session")
+        @NotEmpty(message = "Plugins list is required")
+        @Valid
+        List<PluginRegistration> plugins,
     @Schema(description = "Orchestration workflows for build tasks and AI feedback")
         @NotEmpty(message = "Workflows list is required")
         @Valid
-        List<WorkflowConfig> workflows,
-    @Schema(description = "Maximum execution time in seconds", example = "300")
-        Long executionTimeout,
-    @Schema(description = "Directory for modified file logs", example = "/path/to/logs/modified")
-        String modifiedFile,
-    @Schema(description = "Directory for task results logs", example = "/path/to/logs/results")
-        String results) {
+        List<WorkflowConfig> workflows) {
 
-  /** Compact constructor to ensure tasks list is immutable and maps are handled. */
+  /** Compact constructor to ensure lists are immutable. */
   public ConfigRequest {
-    tasks = tasks != null ? List.copyOf(tasks) : List.of();
+    plugins = plugins != null ? List.copyOf(plugins) : List.of();
     workflows = workflows != null ? List.copyOf(workflows) : List.of();
-    pluginConfig = pluginConfig != null ? Map.copyOf(pluginConfig) : Map.of();
   }
 }

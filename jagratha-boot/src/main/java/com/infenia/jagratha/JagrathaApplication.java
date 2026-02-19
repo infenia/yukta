@@ -1,16 +1,13 @@
 package com.infenia.jagratha;
 
-import com.infenia.jagratha.config.AppConfig;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.boot.context.properties.EnableConfigurationProperties;
 
 /**
  * Main application class for Jagratha. Jagratha is a Spring Boot application that manages external
  * projects and runs quality checks.
  */
 @SpringBootApplication
-@EnableConfigurationProperties(AppConfig.class)
 @SuppressWarnings("PMD.UseUtilityClass")
 public class JagrathaApplication {
 

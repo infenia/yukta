@@ -19,4 +19,14 @@ public interface AiPlugin {
    * @return the AI response
    */
   String execute(String prompt, Map<String, Object> config);
+
+  /**
+   * Validate the plugin configuration.
+   *
+   * @param config the configuration to validate
+   * @return the validation result
+   */
+  default ValidationResult validateConfig(Map<String, Object> config) {
+    return ValidationResult.success();
+  }
 }

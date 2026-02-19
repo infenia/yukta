@@ -2,6 +2,7 @@ package com.infenia.jagratha.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -12,6 +13,7 @@ import static org.mockito.Mockito.when;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.infenia.jagratha.config.AppConfigService;
 import com.infenia.jagratha.model.AppConfigData;
+import com.infenia.jagratha.model.PluginRegistration;
 import com.infenia.jagratha.model.WorkflowConfig;
 import com.infenia.jagratha.plugin.AiPlugin;
 import com.infenia.jagratha.plugin.OutputProcessorPlugin;
@@ -77,60 +79,16 @@ class AppServiceTest {
 
   @Test
   void testApplyConfigOverrides() {
+    List<PluginRegistration> plugins = List.of(new PluginRegistration("gradle", Map.of()));
     AppConfigData data =
         new AppConfigData(
-            "session-1",
-            "/new/path",
-            "gradle",
-            Map.of("key", "value"),
-            List.of("task1"),
-            List.of(new WorkflowConfig("task1", null, null)),
-            300L,
-            "/new/files",
-            "/new/results");
+            "session-1", "/new/path", plugins, List.of(new WorkflowConfig("task1", null, null)));
 
     service.applyConfigOverrides(data);
 
     verify(configService).setProjectPath("session-1", "/new/path");
-    verify(configService).setPluginName("session-1", "gradle");
-    verify(configService).setPluginConfig("session-1", Map.of("key", "value"));
-    verify(configService).setTasks("session-1", List.of("task1"));
+    verify(configService).setPlugins("session-1", plugins);
     verify(configService).setWorkflows("session-1", data.workflows());
-    verify(configService).setExecutionTimeout("session-1", 300L);
-    verify(configService).setFileLogDir("session-1", "/new/files");
-    verify(configService).setResultLogDir("session-1", "/new/results");
-  }
-
-  @Test
-  void testApplyWorkflowAndTimeoutOverrides() {
-    AppConfigData data =
-        new AppConfigData(
-            "session-1",
-            null,
-            null,
-            null,
-            null,
-            List.of(new WorkflowConfig("task1", null, null)),
-            300L,
-            null,
-            null);
-
-    service.applyWorkflowAndTimeoutOverrides(data);
-
-    verify(configService).setWorkflows("session-1", data.workflows());
-    verify(configService).setExecutionTimeout("session-1", 300L);
-  }
-
-  @Test
-  void testApplyLogDirOverrides() {
-    AppConfigData data =
-        new AppConfigData(
-            "session-1", null, null, null, null, null, null, "/new/files", "/new/results");
-
-    service.applyLogDirOverrides(data);
-
-    verify(configService).setFileLogDir("session-1", "/new/files");
-    verify(configService).setResultLogDir("session-1", "/new/results");
   }
 
   @Test
@@ -232,39 +190,12 @@ class AppServiceTest {
             response -> {
               assertEquals("FAILURE", response.status());
               assertTrue(response.output().contains("--- Module: :module1 ---"));
-              // Since it fails immediately, it might not even reach root if :module1 fails
-              // Actually, it will try tasks for :module1, fail, and break.
             })
         .verifyComplete();
 
     // Check that statuses are updated
     String content = Files.readString(logFile);
     assertTrue(content.contains("FAILURE"));
-  }
-
-  @Test
-  void testRunQualityChecksSkipsSuccess() throws IOException {
-    String sessionId = "session-skip";
-    Path sessionDir = filesDir.resolve(sessionId);
-    Files.createDirectories(sessionDir);
-    Path logFile = sessionDir.resolve(sessionId + ".log");
-    Files.writeString(
-        logFile,
-        "{\"path\":\"success.java\",\"status\":\"SUCCESS\"}\n"
-            + "{\"path\":\"pending.java\",\"status\":\"PENDING\"}\n",
-        StandardCharsets.UTF_8);
-
-    StepVerifier.create(service.runQualityChecks(sessionId))
-        .assertNext(
-            response -> {
-              assertEquals("FAILURE", response.status());
-              assertTrue(response.output().contains("--- Module: root ---"));
-            })
-        .verifyComplete();
-
-    String content = Files.readString(logFile);
-    assertTrue(content.contains("\"path\":\"success.java\",\"status\":\"SUCCESS\""));
-    assertTrue(content.contains("\"path\":\"pending.java\",\"status\":\"FAILURE\""));
   }
 
   @Test
@@ -283,27 +214,6 @@ class AppServiceTest {
 
     StepVerifier.create(service.getLogContent(sessionId, "test.log"))
         .expectNext("test content")
-        .verifyComplete();
-  }
-
-  @Test
-  void testFailImmediately() throws IOException {
-    String sessionId = "session-fail-fast";
-    when(configService.getTasks(anyString())).thenReturn(List.of("task1", "task2"));
-
-    Path sessionDir = filesDir.resolve(sessionId);
-    Files.createDirectories(sessionDir);
-    Path logFile = sessionDir.resolve(sessionId + ".log");
-    Files.writeString(logFile, "{\"path\":\"root.java\",\"status\":\"PENDING\"}\n");
-
-    // Execution will fail because gradlew doesn't exist
-    StepVerifier.create(service.runQualityChecks(sessionId))
-        .assertNext(
-            response -> {
-              assertEquals("FAILURE", response.status());
-              assertTrue(response.output().contains("Task: task1"));
-              assertFalse(response.output().contains("Task: task2"));
-            })
         .verifyComplete();
   }
 
@@ -366,7 +276,7 @@ class AppServiceTest {
     when(configService.isActive(sessionId)).thenReturn(true);
 
     service.applyConfigOverrides(
-        new AppConfigData(sessionId, "/path/to/project", null, null, null, null, null, null, null));
+        new AppConfigData(sessionId, "/path/to/project", List.of(), List.of()));
 
     Path configFile = resultsDir.resolve(sessionId).resolve("config.json");
     assertTrue(Files.exists(configFile));
@@ -375,5 +285,21 @@ class AppServiceTest {
     when(configService.isActive(sessionId)).thenReturn(false);
     Map<String, Object> loaded = service.getSessionConfig(sessionId);
     assertEquals("/path/to/project", loaded.get("projectPath"));
+  }
+
+  @Test
+  void testApplyConfigOverridesValidationFailure() {
+    PluginRegistration invalidPlugin = new PluginRegistration("gradle", Map.of("gradlePath", 123));
+    AppConfigData data = new AppConfigData("session-1", "/path", List.of(invalidPlugin), List.of());
+
+    assertThrows(IllegalArgumentException.class, () -> service.applyConfigOverrides(data));
+  }
+
+  @Test
+  void testApplyConfigOverridesPluginNotFound() {
+    PluginRegistration unknownPlugin = new PluginRegistration("unknown", Map.of());
+    AppConfigData data = new AppConfigData("session-1", "/path", List.of(unknownPlugin), List.of());
+
+    assertThrows(IllegalArgumentException.class, () -> service.applyConfigOverrides(data));
   }
 }

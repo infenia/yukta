@@ -1,36 +1,24 @@
 package com.infenia.jagratha.model;
 
 import java.util.List;
-import java.util.Map;
 
 /**
  * Data record for application configuration, used in the service layer.
  *
  * @param sessionId the session identifier
  * @param projectPath the project path
- * @param pluginName the plugin name
- * @param pluginConfig the plugin configuration
- * @param tasks the list of tasks
+ * @param plugins the list of registered plugins
  * @param workflows the list of workflows
- * @param executionTimeout the execution timeout
- * @param fileLogDir the modified file log directory
- * @param resultLogDir the results log directory
  */
 public record AppConfigData(
     String sessionId,
     String projectPath,
-    String pluginName,
-    Map<String, Object> pluginConfig,
-    List<String> tasks,
-    List<WorkflowConfig> workflows,
-    Long executionTimeout,
-    String fileLogDir,
-    String resultLogDir) {
+    List<PluginRegistration> plugins,
+    List<WorkflowConfig> workflows) {
 
-  /** Compact constructor to ensure tasks list is immutable and maps are handled. */
+  /** Compact constructor to ensure lists are immutable. */
   public AppConfigData {
-    tasks = tasks != null ? List.copyOf(tasks) : List.of();
+    plugins = plugins != null ? List.copyOf(plugins) : List.of();
     workflows = workflows != null ? List.copyOf(workflows) : List.of();
-    pluginConfig = pluginConfig != null ? Map.copyOf(pluginConfig) : Map.of();
   }
 }

@@ -19,6 +19,16 @@ public interface OutputProcessorPlugin {
    */
   ProcessorResult process(ProcessorInput input);
 
+  /**
+   * Validate the plugin configuration.
+   *
+   * @param config the configuration to validate
+   * @return the validation result
+   */
+  default ValidationResult validateConfig(Map<String, Object> config) {
+    return ValidationResult.success();
+  }
+
   /** Input data for output processing. */
   record ProcessorInput(
       String sessionId,

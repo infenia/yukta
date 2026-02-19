@@ -18,9 +18,3 @@ jte:
   usePrecompiledTemplates: false
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss} %-5p %c{1}:%L - %m%n%wEx"
-
-app:
-  execution-timeout: 300
-  logs:
-    modified-file: "${user.home}/.jagratha/modified-files"
-    results: "${user.home}/.jagratha/results"

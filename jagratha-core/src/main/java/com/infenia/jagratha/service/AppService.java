@@ -4,11 +4,13 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.infenia.jagratha.config.AppConfigService;
 import com.infenia.jagratha.model.AppConfigData;
+import com.infenia.jagratha.model.PluginRegistration;
 import com.infenia.jagratha.model.TaskResponse;
 import com.infenia.jagratha.model.WorkflowConfig;
 import com.infenia.jagratha.plugin.AiPlugin;
 import com.infenia.jagratha.plugin.JagrathaPlugin;
 import com.infenia.jagratha.plugin.OutputProcessorPlugin;
+import com.infenia.jagratha.plugin.ValidationResult;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import java.io.BufferedReader;
@@ -72,49 +74,61 @@ public class AppService {
    * @param data the configuration data
    */
   public void applyConfigOverrides(final AppConfigData data) {
+    validatePlugins(data.plugins());
+
     if (data.projectPath() != null) {
       configService.setProjectPath(data.sessionId(), data.projectPath());
     }
-    if (data.pluginName() != null) {
-      configService.setPluginName(data.sessionId(), data.pluginName());
+    if (data.plugins() != null && !data.plugins().isEmpty()) {
+      configService.setPlugins(data.sessionId(), data.plugins());
     }
-    if (data.pluginConfig() != null && !data.pluginConfig().isEmpty()) {
-      configService.setPluginConfig(data.sessionId(), data.pluginConfig());
-    }
-    if (data.tasks() != null && !data.tasks().isEmpty()) {
-      configService.setTasks(data.sessionId(), data.tasks());
-    }
-    applyWorkflowAndTimeoutOverrides(data);
-    applyLogDirOverrides(data);
-    saveConfigToDisk(data.sessionId());
-  }
-
-  /**
-   * Apply workflow and timeout overrides for a session.
-   *
-   * @param data the configuration data
-   */
-  public void applyWorkflowAndTimeoutOverrides(final AppConfigData data) {
     if (data.workflows() != null && !data.workflows().isEmpty()) {
       configService.setWorkflows(data.sessionId(), data.workflows());
     }
-    if (data.executionTimeout() != null) {
-      configService.setExecutionTimeout(data.sessionId(), data.executionTimeout());
+    saveConfigToDisk(data.sessionId());
+  }
+
+  private void validatePlugins(final List<PluginRegistration> registrations) {
+    if (registrations == null) {
+      return;
+    }
+    for (final PluginRegistration reg : registrations) {
+      final Object plugin = findPlugin(reg.name());
+      if (plugin == null) {
+        throw new IllegalArgumentException("Plugin not installed in core system: " + reg.name());
+      }
+      final ValidationResult result = validatePluginConfig(plugin, reg.pluginConfig());
+      if (!result.valid()) {
+        throw new IllegalArgumentException(
+            "Validation failed for plugin " + reg.name() + ": " + result.message());
+      }
     }
   }
 
-  /**
-   * Apply log directory overrides for a session.
-   *
-   * @param data the configuration data
-   */
-  public void applyLogDirOverrides(final AppConfigData data) {
-    if (data.fileLogDir() != null) {
-      configService.setFileLogDir(data.sessionId(), data.fileLogDir());
+  private Object findPlugin(final String name) {
+    Object result = plugins.stream().filter(p -> p.getName().equals(name)).findFirst().orElse(null);
+    if (result == null) {
+      result =
+          processorPlugins.stream().filter(p -> p.getName().equals(name)).findFirst().orElse(null);
     }
-    if (data.resultLogDir() != null) {
-      configService.setResultLogDir(data.sessionId(), data.resultLogDir());
+    if (result == null) {
+      result = aiPlugins.stream().filter(p -> p.getName().equals(name)).findFirst().orElse(null);
     }
+    return result;
+  }
+
+  private ValidationResult validatePluginConfig(
+      final Object plugin, final Map<String, Object> config) {
+    if (plugin instanceof JagrathaPlugin jagrathaPlugin) {
+      return jagrathaPlugin.validateConfig(config);
+    }
+    if (plugin instanceof OutputProcessorPlugin processorPlugin) {
+      return processorPlugin.validateConfig(config);
+    }
+    if (plugin instanceof AiPlugin aiPlugin) {
+      return aiPlugin.validateConfig(config);
+    }
+    return ValidationResult.success();
   }
 
   /**
@@ -131,9 +145,7 @@ public class AppService {
             () -> {
               final String logsDir = configService.getFileLogDir(sessionId);
               if (logsDir == null || logsDir.isEmpty()) {
-                throw new IllegalStateException(
-                    "Modified files log directory is not configured. Please use the /api/config "
-                        + "endpoint to initialize the project configuration.");
+                throw new IllegalStateException("Modified files log directory is not configured.");
               }
 
               final ReentrantLock lock = getLock(sessionId);
@@ -280,6 +292,25 @@ public class AppService {
     return sessions.stream().toList();
   }
 
+  private void addSessionIds(final java.util.Set<String> sessions, final String baseDir) {
+    if (baseDir == null || baseDir.isEmpty()) {
+      return;
+    }
+    try {
+      final Path path = Path.of(baseDir);
+      if (Files.exists(path) && Files.isDirectory(path)) {
+        try (Stream<Path> dirs = Files.list(path)) {
+          dirs.filter(Files::isDirectory)
+              .map(p -> p.getFileName().toString())
+              .filter(name -> name.matches(SESS_ID_PATTERN))
+              .forEach(sessions::add);
+        }
+      }
+    } catch (IOException e) {
+      log.warn("Failed to list sessions from directory: {}", baseDir, e);
+    }
+  }
+
   /**
    * Get all active session IDs.
    *
@@ -368,31 +399,6 @@ public class AppService {
       }
     }
     return configService.getWorkflows(sessionId);
-  }
-
-  /**
-   * Scan a directory for session IDs.
-   *
-   * @param sessions set to add session IDs to
-   * @param baseDir the directory to scan
-   */
-  private void addSessionIds(final java.util.Set<String> sessions, final String baseDir) {
-    if (baseDir == null || baseDir.isEmpty()) {
-      return;
-    }
-    try {
-      final Path path = Path.of(baseDir);
-      if (Files.exists(path) && Files.isDirectory(path)) {
-        try (Stream<Path> dirs = Files.list(path)) {
-          dirs.filter(Files::isDirectory)
-              .map(p -> p.getFileName().toString())
-              .filter(name -> name.matches(SESS_ID_PATTERN))
-              .forEach(sessions::add);
-        }
-      }
-    } catch (IOException e) {
-      log.warn("Failed to list sessions from directory: {}", baseDir, e);
-    }
   }
 
   /**
@@ -492,7 +498,7 @@ public class AppService {
       return respondAndLog(
           sessionId,
           FAILURE_STATUS,
-          "No plugin name configured. Please use the /api/config endpoint to initialize the "
+          "No plugins configured. Please use the /api/config endpoint to initialize the "
               + "project configuration.");
     }
 
@@ -518,7 +524,7 @@ public class AppService {
     final String pluginName = configService.getPluginName(sessionId);
     if (pluginName == null || pluginName.isEmpty()) {
       throw new IllegalStateException(
-          "No plugin name configured. Please use the /api/config endpoint to initialize the project"
+          "No plugins configured. Please use the /api/config endpoint to initialize the project"
               + " configuration.");
     }
     return plugins.stream()
@@ -557,10 +563,7 @@ public class AppService {
       if (workflows != null && !workflows.isEmpty()) {
         workflows.forEach(w -> taskNames.add(w.task()));
       } else {
-        List<String> tasks = configService.getTasks(sessionId);
-        if (tasks == null || tasks.isEmpty()) {
-          tasks = List.of("spotlessApply", "spotlessCheck", "checkstyleMain", "test");
-        }
+        final List<String> tasks = configService.getTasks(sessionId);
         taskNames.addAll(tasks);
       }
       tracker.startWorkflow(sessionId, taskNames);
@@ -647,10 +650,7 @@ public class AppService {
       final StringBuilder combinedOutput,
       final DateTimeFormatter formatter,
       final String module) {
-    List<String> tasks = configService.getTasks(sessionId);
-    if (tasks == null || tasks.isEmpty()) {
-      tasks = List.of("spotlessApply", "spotlessCheck", "checkstyleMain", "test");
-    }
+    final List<String> tasks = configService.getTasks(sessionId);
 
     for (final String task : tasks) {
       tracker.updateTaskStatus(sessionId, task, module, "RUNNING");

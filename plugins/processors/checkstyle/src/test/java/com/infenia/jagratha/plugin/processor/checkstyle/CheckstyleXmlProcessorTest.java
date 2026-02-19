@@ -1,10 +1,12 @@
 package com.infenia.jagratha.plugin.processor.checkstyle;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.infenia.jagratha.plugin.OutputProcessorPlugin;
+import com.infenia.jagratha.plugin.ValidationResult;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -98,5 +100,27 @@ class CheckstyleXmlProcessorTest {
 
     assertEquals("FAILURE", result.status());
     assertTrue(result.output().contains("Checkstyle report file does not exist"));
+  }
+
+  @Test
+  void testValidateConfigSuccess() {
+    ValidationResult result = processor.validateConfig(Map.of("reportPath", "path/to/report.xml"));
+    assertTrue(result.valid());
+  }
+
+  @Test
+  void testValidateConfigNull() {
+    ValidationResult result = processor.validateConfig(null);
+    assertFalse(result.valid());
+    assertEquals("Configuration is required", result.message());
+  }
+
+  @Test
+  void testValidateConfigInvalidType() {
+    ValidationResult result = processor.validateConfig(Map.of("reportPath", 123));
+    assertFalse(result.valid());
+    assertEquals("Invalid configuration", result.message());
+    assertEquals(1, result.errors().size());
+    assertEquals("reportPath", result.errors().get(0).field());
   }
 }

@@ -30,4 +30,14 @@ public interface JagrathaPlugin {
    * @return the command as a list of strings
    */
   List<String> buildTaskCommand(String module, String task, Map<String, Object> pluginConfig);
+
+  /**
+   * Validate the plugin configuration.
+   *
+   * @param config the configuration to validate
+   * @return the validation result
+   */
+  default ValidationResult validateConfig(Map<String, Object> config) {
+    return ValidationResult.success();
+  }
 }

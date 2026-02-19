@@ -1,11 +1,13 @@
 package com.infenia.jagratha.plugin.ai.qwen;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import com.infenia.jagratha.plugin.ValidationResult;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -62,5 +64,18 @@ class QwenCodePluginTest {
 
     String response = plugin.execute("Hello", Map.of());
     assertTrue(response.contains("Error executing Qwen: Cmd not found"));
+  }
+
+  @Test
+  void testValidateConfigSuccess() {
+    ValidationResult result = plugin.validateConfig(Map.of());
+    assertTrue(result.valid());
+  }
+
+  @Test
+  void testValidateConfigNull() {
+    ValidationResult result = plugin.validateConfig(null);
+    assertFalse(result.valid());
+    assertEquals("Configuration is required", result.message());
   }
 }
