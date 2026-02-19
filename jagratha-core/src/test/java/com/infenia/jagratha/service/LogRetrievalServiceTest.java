@@ -12,6 +12,7 @@ import java.nio.file.Path;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
 class LogRetrievalServiceTest {
@@ -33,8 +34,8 @@ class LogRetrievalServiceTest {
     configService = mock(AppConfigService.class);
     service = new LogRetrievalService(configService);
 
-    when(configService.getResultLogDir(any())).thenReturn(resultsDir.toString());
-    when(configService.getFileLogDir(any())).thenReturn(fileLogDir.toString());
+    when(configService.getResultLogDir(any())).thenReturn(Mono.just(resultsDir.toString()));
+    when(configService.getFileLogDir(any())).thenReturn(Mono.just(fileLogDir.toString()));
   }
 
   @Test

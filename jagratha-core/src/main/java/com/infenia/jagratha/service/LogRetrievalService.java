@@ -30,17 +30,21 @@ public class LogRetrievalService {
    * @return Mono containing a list of log filenames
    */
   public Mono<List<String>> listLogs(final String sessionId) {
-    return Mono.fromCallable(
-            () -> {
-              final List<String> logFiles = new ArrayList<>();
-              final String resultsDir = configService.getResultLogDir(sessionId);
-              final String fileLogDir = configService.getFileLogDir(sessionId);
+    return Mono.zip(
+            configService.getResultLogDir(sessionId), configService.getFileLogDir(sessionId))
+        .flatMap(
+            tuple ->
+                Mono.fromCallable(
+                    () -> {
+                      final List<String> logFiles = new ArrayList<>();
+                      final String resultsDir = tuple.getT1();
+                      final String fileLogDir = tuple.getT2();
 
-              addLogsFromDir(logFiles, resultsDir, sessionId);
-              addLogsFromDir(logFiles, fileLogDir, sessionId);
+                      addLogsFromDir(logFiles, resultsDir, sessionId);
+                      addLogsFromDir(logFiles, fileLogDir, sessionId);
 
-              return logFiles.stream().distinct().sorted().toList();
-            })
+                      return logFiles.stream().distinct().sorted().toList();
+                    }))
         .subscribeOn(Schedulers.boundedElastic());
   }
 
@@ -72,23 +76,29 @@ public class LogRetrievalService {
    * @return Mono containing the log content
    */
   public Mono<String> getLogContent(final String sessionId, final String fileName) {
-    return Mono.fromCallable(() -> fetchLogContent(sessionId, fileName))
-        .subscribeOn(Schedulers.boundedElastic());
+    return fetchLogContent(sessionId, fileName).subscribeOn(Schedulers.boundedElastic());
   }
 
-  private String fetchLogContent(final String sessionId, final String fileName) throws IOException {
-    final String resultsDir = configService.getResultLogDir(sessionId);
-    final String fileLogDir = configService.getFileLogDir(sessionId);
+  private Mono<String> fetchLogContent(final String sessionId, final String fileName) {
+    return Mono.zip(
+            configService.getResultLogDir(sessionId), configService.getFileLogDir(sessionId))
+        .flatMap(
+            tuple ->
+                Mono.fromCallable(
+                    () -> {
+                      final String resultsDir = tuple.getT1();
+                      final String fileLogDir = tuple.getT2();
 
-    Path logFile = findLogFile(resultsDir, sessionId, fileName);
-    if (logFile == null) {
-      logFile = findLogFile(fileLogDir, sessionId, fileName);
-    }
+                      Path logFile = findLogFile(resultsDir, sessionId, fileName);
+                      if (logFile == null) {
+                        logFile = findLogFile(fileLogDir, sessionId, fileName);
+                      }
 
-    if (logFile == null || !Files.exists(logFile)) {
-      throw new IOException("Log file not found: " + fileName);
-    }
-    return Files.readString(logFile, StandardCharsets.UTF_8);
+                      if (logFile == null || !Files.exists(logFile)) {
+                        throw new IOException("Log file not found: " + fileName);
+                      }
+                      return Files.readString(logFile, StandardCharsets.UTF_8);
+                    }));
   }
 
   private Path findLogFile(final String baseDir, final String sessionId, final String fileName) {

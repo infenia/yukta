@@ -36,7 +36,10 @@ public record WorkflowConfig(
           String name,
       @Schema(description = "Configuration options for the processor")
           @NotNull(message = "Processor config is required")
-          Map<String, Object> config) {
+          Map<
+                  @NotBlank(message = "Processor config key cannot be blank") String,
+                  @NotNull(message = "Processor config value cannot be null") Object>
+              config) {
     /**
      * Compact constructor to ensure configuration is immutable.
      *
@@ -61,7 +64,10 @@ public record WorkflowConfig(
           String name,
       @Schema(description = "Configuration options for the AI plugin (e.g., prompt templates)")
           @NotNull(message = "AI step config is required")
-          Map<String, Object> config) {
+          Map<
+                  @NotBlank(message = "AI config key cannot be blank") String,
+                  @NotNull(message = "AI config value cannot be null") Object>
+              config) {
     /**
      * Compact constructor to ensure configuration is immutable.
      *

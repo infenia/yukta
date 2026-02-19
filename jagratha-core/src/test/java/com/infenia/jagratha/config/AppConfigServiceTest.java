@@ -1,13 +1,11 @@
 package com.infenia.jagratha.config;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
 import com.infenia.jagratha.model.PluginRegistration;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import reactor.test.StepVerifier;
 
 class AppConfigServiceTest {
 
@@ -21,34 +19,48 @@ class AppConfigServiceTest {
   @Test
   void testDefaultValues() {
     String sessionId = "sess-1";
-    assertEquals("", configService.getProjectPath(sessionId));
-    assertEquals("", configService.getPluginName(sessionId));
-    assertEquals(Map.of(), configService.getPluginConfig(sessionId));
-    assertTrue(!configService.getTasks(sessionId).isEmpty());
-    assertEquals(300L, configService.getExecutionTimeout(sessionId));
+    StepVerifier.create(configService.getProjectPath(sessionId)).expectNext("").verifyComplete();
+    StepVerifier.create(configService.getPluginName(sessionId)).expectNext("").verifyComplete();
+    StepVerifier.create(configService.getPluginConfig(sessionId))
+        .expectNext(Map.of())
+        .verifyComplete();
+    StepVerifier.create(configService.getTasks(sessionId)).expectNextCount(4).verifyComplete();
+    StepVerifier.create(configService.getExecutionTimeout(sessionId))
+        .expectNext(300L)
+        .verifyComplete();
     String home = System.getProperty("user.home");
-    assertEquals(home + "/.jagratha/modified-files", configService.getFileLogDir(sessionId));
-    assertEquals(home + "/.jagratha/results", configService.getResultLogDir(sessionId));
-    assertTrue(configService.getWorkflows(sessionId).isEmpty());
+    StepVerifier.create(configService.getFileLogDir(sessionId))
+        .expectNext(home + "/.jagratha/modified-files")
+        .verifyComplete();
+    StepVerifier.create(configService.getResultLogDir(sessionId))
+        .expectNext(home + "/.jagratha/results")
+        .verifyComplete();
+    StepVerifier.create(configService.getWorkflows(sessionId)).expectNextCount(0).verifyComplete();
   }
 
   @Test
   void testApiOverrides() {
     String sessionId = "sess-1";
-    configService.setProjectPath(sessionId, "/api/path");
+    StepVerifier.create(configService.setProjectPath(sessionId, "/api/path")).verifyComplete();
     List<PluginRegistration> plugins =
         List.of(new PluginRegistration("gradle", Map.of("gradlePath", "/api/gradle")));
-    configService.setPlugins(sessionId, plugins);
-    configService.setWorkflows(sessionId, List.of());
+    StepVerifier.create(configService.setPlugins(sessionId, plugins)).verifyComplete();
+    StepVerifier.create(configService.setWorkflows(sessionId, List.of())).verifyComplete();
 
-    assertEquals("/api/path", configService.getProjectPath(sessionId));
-    assertEquals("gradle", configService.getPluginName(sessionId));
-    assertEquals(Map.of("gradlePath", "/api/gradle"), configService.getPluginConfig(sessionId));
-    assertTrue(configService.getWorkflows(sessionId).isEmpty());
+    StepVerifier.create(configService.getProjectPath(sessionId))
+        .expectNext("/api/path")
+        .verifyComplete();
+    StepVerifier.create(configService.getPluginName(sessionId))
+        .expectNext("gradle")
+        .verifyComplete();
+    StepVerifier.create(configService.getPluginConfig(sessionId))
+        .expectNext(Map.of("gradlePath", "/api/gradle"))
+        .verifyComplete();
+    StepVerifier.create(configService.getWorkflows(sessionId)).expectNextCount(0).verifyComplete();
 
     // Another session should still have defaults
     String otherSession = "sess-2";
-    assertEquals("", configService.getProjectPath(otherSession));
+    StepVerifier.create(configService.getProjectPath(otherSession)).expectNext("").verifyComplete();
   }
 
   @Test
@@ -56,18 +68,19 @@ class AppConfigServiceTest {
     String sess1 = "sess-1";
     String sess2 = "sess-2";
 
-    assertTrue(configService.getActiveSessionIds().isEmpty());
-    assertTrue(!configService.isActive(sess1));
+    StepVerifier.create(configService.getActiveSessionIds()).expectNextCount(0).verifyComplete();
+    StepVerifier.create(configService.isActive(sess1)).expectNext(false).verifyComplete();
 
-    configService.setProjectPath(sess1, "/path/1");
-    assertTrue(configService.getActiveSessionIds().contains(sess1));
-    assertTrue(configService.isActive(sess1));
-    assertTrue(!configService.isActive(sess2));
+    StepVerifier.create(configService.setProjectPath(sess1, "/path/1")).verifyComplete();
+    StepVerifier.create(configService.getActiveSessionIds()).expectNext(sess1).verifyComplete();
+    StepVerifier.create(configService.isActive(sess1)).expectNext(true).verifyComplete();
+    StepVerifier.create(configService.isActive(sess2)).expectNext(false).verifyComplete();
 
-    configService.setPlugins(
-        sess2, List.of(new PluginRegistration("maven", Map.of("mavenPath", "/api/maven"))));
-    assertTrue(configService.getActiveSessionIds().contains(sess1));
-    assertTrue(configService.getActiveSessionIds().contains(sess2));
-    assertEquals(2, configService.getActiveSessionIds().size());
+    StepVerifier.create(
+            configService.setPlugins(
+                sess2, List.of(new PluginRegistration("maven", Map.of("mavenPath", "/api/maven")))))
+        .verifyComplete();
+
+    StepVerifier.create(configService.getActiveSessionIds()).expectNextCount(2).verifyComplete();
   }
 }

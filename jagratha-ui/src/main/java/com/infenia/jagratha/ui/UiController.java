@@ -1,6 +1,5 @@
 package com.infenia.jagratha.ui;
 
-import com.infenia.jagratha.config.AppConfigService;
 import com.infenia.jagratha.service.FileLogService;
 import com.infenia.jagratha.service.LogRetrievalService;
 import com.infenia.jagratha.service.SessionService;
@@ -28,7 +27,6 @@ public class UiController {
   private final SessionService sessionService;
   private final FileLogService fileLogService;
   private final LogRetrievalService retrievalService;
-  private final AppConfigService configService;
   private final TaskTrackerService tracker;
   private final TemplateEngine templateEngine;
 

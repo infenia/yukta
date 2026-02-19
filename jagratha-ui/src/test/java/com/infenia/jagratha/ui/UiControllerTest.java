@@ -3,7 +3,6 @@ package com.infenia.jagratha.ui;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 
-import com.infenia.jagratha.config.AppConfigService;
 import com.infenia.jagratha.service.FileLogService;
 import com.infenia.jagratha.service.LogRetrievalService;
 import com.infenia.jagratha.service.SessionService;
@@ -26,8 +25,6 @@ class UiControllerTest {
   @MockitoBean private SessionService sessionService;
   @MockitoBean private FileLogService fileLogService;
   @MockitoBean private LogRetrievalService logRetrievalService;
-
-  @MockitoBean private AppConfigService configService;
 
   @MockitoBean private TaskTrackerService taskTrackerService;
 

@@ -20,6 +20,8 @@ import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
 class WorkflowServiceTest {
@@ -69,13 +71,15 @@ class WorkflowServiceTest {
             mockFileLogService,
             mockSessionService);
 
-    when(configService.getFileLogDir(any())).thenReturn(filesDir.toString());
-    when(configService.getResultLogDir(any())).thenReturn(resultsDir.toString());
-    when(configService.getProjectPath(any())).thenReturn(projectDir.toString());
-    when(configService.getPluginName(any())).thenReturn("gradle");
-    when(configService.getPluginConfig(any())).thenReturn(Map.of("gradlePath", "./gradlew"));
-    when(configService.getExecutionTimeout(any())).thenReturn(600L);
-    when(configService.getTasks(any())).thenReturn(List.of("test"));
+    when(configService.getFileLogDir(any())).thenReturn(Mono.just(filesDir.toString()));
+    when(configService.getResultLogDir(any())).thenReturn(Mono.just(resultsDir.toString()));
+    when(configService.getProjectPath(any())).thenReturn(Mono.just(projectDir.toString()));
+    when(configService.getPluginName(any())).thenReturn(Mono.just("gradle"));
+    when(configService.getPluginConfig(any()))
+        .thenReturn(Mono.just(Map.of("gradlePath", "./gradlew")));
+    when(configService.getExecutionTimeout(any())).thenReturn(Mono.just(600L));
+    when(configService.getTasks(any())).thenReturn(Flux.just("test"));
+    when(configService.getWorkflows(anyString())).thenReturn(Flux.empty());
 
     // Default lock behavior
     when(mockFileLogService.withLock(anyString(), any()))
@@ -98,7 +102,7 @@ class WorkflowServiceTest {
 
   @Test
   void testRunQualityChecksPathNotConfigured() {
-    when(configService.getProjectPath(anyString())).thenReturn(null);
+    when(configService.getProjectPath(anyString())).thenReturn(Mono.just(""));
 
     StepVerifier.create(service.runQualityChecks("session-1"))
         .assertNext(
@@ -144,7 +148,7 @@ class WorkflowServiceTest {
             new WorkflowConfig.ProcessorStepConfig("test-processor", Map.of()),
             new WorkflowConfig.AiStepConfig("test-ai", Map.of()));
 
-    when(configService.getWorkflows(anyString())).thenReturn(List.of(workflow));
+    when(configService.getWorkflows(anyString())).thenReturn(Flux.just(workflow));
     when(mockProcessor.process(any()))
         .thenReturn(new OutputProcessorPlugin.ProcessorResult("SUCCESS", "proc output", null));
     when(mockAiPlugin.execute(any(), any())).thenReturn("ai response");

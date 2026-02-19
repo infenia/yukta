@@ -52,9 +52,10 @@ public class FileLogService {
    * @return Mono that completes when the file path is logged
    */
   public Mono<Void> saveFile(final String path, final String sessionId) {
-    return Mono.defer(
-            () -> {
-              final String logsDir = configService.getFileLogDir(sessionId);
+    return configService
+        .getFileLogDir(sessionId)
+        .flatMap(
+            logsDir -> {
               if (logsDir == null || logsDir.isEmpty()) {
                 return Mono.error(
                     new IllegalStateException("Modified files log directory is not configured."));
@@ -62,29 +63,37 @@ public class FileLogService {
 
               final ReactiveLock lock = getLock(sessionId);
               return lock.withLock(
-                  Mono.fromRunnable(
-                          () -> {
-                            try {
-                              final Path sessionDir = Path.of(logsDir).resolve(sessionId);
-                              Files.createDirectories(sessionDir);
-                              final Path logFile = sessionDir.resolve(sessionId + ".log");
+                  normalizePath(path, sessionId)
+                      .flatMap(
+                          normalizedPath ->
+                              Mono.fromRunnable(
+                                      () -> {
+                                        try {
+                                          final Path sessionDir =
+                                              Path.of(logsDir).resolve(sessionId);
+                                          Files.createDirectories(sessionDir);
+                                          final Path logFile =
+                                              sessionDir.resolve(sessionId + ".log");
 
-                              final Map<String, String> files = readLogFileSync(logFile);
-                              files.put(normalizePath(path, sessionId), PENDING_STATUS);
-                              writeLogFileSync(logFile, files);
+                                          final Map<String, String> files =
+                                              readLogFileSync(logFile);
+                                          files.put(normalizedPath, PENDING_STATUS);
+                                          writeLogFileSync(logFile, files);
 
-                              if (log.isInfoEnabled()) {
-                                log.info("Logged file path {} for session {}", path, sessionId);
-                              }
-                            } catch (IOException e) {
-                              throw new UncheckedIoException(
-                                  "Failed to log file path: " + e.getMessage(), e);
-                            }
-                          })
-                      .subscribeOn(Schedulers.boundedElastic())
-                      .then());
-            })
-        .then();
+                                          if (log.isInfoEnabled()) {
+                                            log.info(
+                                                "Logged file path {} for session {}",
+                                                path,
+                                                sessionId);
+                                          }
+                                        } catch (IOException e) {
+                                          throw new UncheckedIoException(
+                                              "Failed to log file path: " + e.getMessage(), e);
+                                        }
+                                      })
+                                  .subscribeOn(Schedulers.boundedElastic())
+                                  .then()));
+            });
   }
 
   /**
@@ -94,20 +103,24 @@ public class FileLogService {
    * @return Mono containing map of file paths to statuses
    */
   public Mono<Map<String, String>> getModifiedFiles(final String sessionId) {
-    return Mono.fromCallable(
-            () -> {
-              final String logsDir = configService.getFileLogDir(sessionId);
-              if (logsDir == null || logsDir.isEmpty()) {
-                return Map.<String, String>of();
-              }
-              final Path logFile = Path.of(logsDir).resolve(sessionId).resolve(sessionId + ".log");
-              try {
-                return readLogFileSync(logFile);
-              } catch (IOException e) {
-                log.warn("Failed to read modified files log for session {}", sessionId, e);
-                return Map.<String, String>of();
-              }
-            })
+    return configService
+        .getFileLogDir(sessionId)
+        .flatMap(
+            logsDir ->
+                Mono.fromCallable(
+                    () -> {
+                      if (logsDir == null || logsDir.isEmpty()) {
+                        return Map.<String, String>of();
+                      }
+                      final Path logFile =
+                          Path.of(logsDir).resolve(sessionId).resolve(sessionId + ".log");
+                      try {
+                        return readLogFileSync(logFile);
+                      } catch (IOException e) {
+                        log.warn("Failed to read modified files log for session {}", sessionId, e);
+                        return Map.<String, String>of();
+                      }
+                    }))
         .subscribeOn(Schedulers.boundedElastic());
   }
 
@@ -158,12 +171,16 @@ public class FileLogService {
     private String status;
   }
 
-  private String normalizePath(final String path, final String sessionId) {
-    final String root = configService.getProjectPath(sessionId);
-    if (root == null || root.isEmpty()) {
-      return path;
-    }
-    return tryNormalize(path, root);
+  private Mono<String> normalizePath(final String path, final String sessionId) {
+    return configService
+        .getProjectPath(sessionId)
+        .map(
+            root -> {
+              if (root == null || root.isEmpty()) {
+                return path;
+              }
+              return tryNormalize(path, root);
+            });
   }
 
   private String tryNormalize(final String path, final String root) {

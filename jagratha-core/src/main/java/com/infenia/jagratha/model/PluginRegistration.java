@@ -18,7 +18,10 @@ public record PluginRegistration(
         String name,
     @Schema(description = "Configuration options for the plugin")
         @NotNull(message = "Plugin configuration is required")
-        Map<String, Object> pluginConfig) {
+        Map<
+                @NotBlank(message = "Plugin configuration key cannot be blank") String,
+                @NotNull(message = "Plugin configuration value cannot be null") Object>
+            pluginConfig) {
 
   /** Compact constructor to ensure configuration is immutable. */
   public PluginRegistration {
