@@ -10,6 +10,8 @@
     <title>${title} - Jagratha</title>
     <link rel="stylesheet" href="/css/style.css">
     <script src="https://unpkg.com/htmx.org@2.0.0"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+    <script>mermaid.initialize({ startOnLoad: true, theme: 'neutral' });</script>
 </head>
 <body class="bg-slate-50 text-slate-900 font-sans">
     <nav class="bg-indigo-700 text-white shadow-lg">

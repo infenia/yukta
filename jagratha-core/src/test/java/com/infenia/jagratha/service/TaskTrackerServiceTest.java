@@ -17,49 +17,77 @@ package com.infenia.jagratha.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.infenia.jagratha.model.WorkflowProgress;
 import java.util.List;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import reactor.core.publisher.Flux;
 import reactor.test.StepVerifier;
 
 class TaskTrackerServiceTest {
 
-  @Test
-  void testWorkflowTracking() {
-    TaskTrackerService service = new TaskTrackerService();
-    String sessionId = "sess-1";
-    List<String> tasks = List.of("task1", "task2");
+  private TaskTrackerService tracker;
 
-    service.startWorkflow(sessionId, tasks);
-
-    WorkflowProgress progress = service.getProgress(sessionId);
-    assertNotNull(progress);
-    assertEquals("RUNNING", progress.status());
-    assertEquals(2, progress.tasks().size());
-
-    service.updateTaskStatus(sessionId, "task1", "mod1", "RUNNING");
-
-    Flux<String> logStream = service.getLogStream(sessionId);
-    StepVerifier.create(logStream)
-        .then(() -> service.appendLog(sessionId, "log line"))
-        .expectNext("log line")
-        .thenCancel()
-        .verify();
-
-    service.finishWorkflow(sessionId, "SUCCESS");
-    assertTrue(service.getActiveSessions().contains(sessionId));
-    service.removeSession(sessionId);
-    assertNull(service.getProgress(sessionId));
+  @BeforeEach
+  void setUp() {
+    tracker = new TaskTrackerService();
   }
 
   @Test
-  void testStreamsWithNoSession() {
-    TaskTrackerService service = new TaskTrackerService();
-    StepVerifier.create(service.getLogStream("none")).expectComplete().verify();
-    StepVerifier.create(service.getStatusStream("none")).expectComplete().verify();
+  void testWorkflowTracking() {
+    String sessionId = "sess-1";
+    List<String> nodes = List.of("node1", "node2");
+
+    tracker.startWorkflow(sessionId, nodes);
+    WorkflowProgress progress = tracker.getProgress(sessionId);
+
+    assertNotNull(progress);
+    assertEquals("RUNNING", progress.status());
+    assertEquals(2, progress.tasks().size());
+    assertEquals("node1", progress.tasks().get(0).nodeId());
+    assertEquals("PENDING", progress.tasks().get(0).status());
+
+    tracker.updateTaskStatus(sessionId, "node1", "moduleA", "SUCCESS");
+    progress = tracker.getProgress(sessionId);
+    assertEquals("SUCCESS", progress.tasks().get(0).status());
+    assertEquals("moduleA", progress.tasks().get(0).module());
+
+    tracker.finishWorkflow(sessionId, "COMPLETED");
+    progress = tracker.getProgress(sessionId);
+    assertEquals("COMPLETED", progress.status());
+    assertNotNull(progress.endTime());
+  }
+
+  @Test
+  void testLogStreaming() {
+    String sessionId = "sess-1";
+    tracker.startWorkflow(sessionId, List.of());
+
+    StepVerifier.create(tracker.getLogStream(sessionId))
+        .then(() -> tracker.appendLog(sessionId, "log line 1"))
+        .expectNext("log line 1")
+        .thenCancel()
+        .verify();
+  }
+
+  @Test
+  void testStatusStreaming() {
+    String sessionId = "sess-1";
+    tracker.startWorkflow(sessionId, List.of("n1"));
+
+    StepVerifier.create(tracker.getStatusStream(sessionId))
+        .then(() -> tracker.updateTaskStatus(sessionId, "n1", "mod", "SUCCESS"))
+        .expectNext("update")
+        .thenCancel()
+        .verify();
+  }
+
+  @Test
+  void testRemoveSession() {
+    String sessionId = "sess-1";
+    tracker.startWorkflow(sessionId, List.of());
+    assertEquals(1, tracker.getActiveSessions().size());
+    tracker.removeSession(sessionId);
+    assertEquals(0, tracker.getActiveSessions().size());
   }
 }

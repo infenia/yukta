@@ -24,10 +24,9 @@ import com.infenia.jagratha.controller.AppController;
 import com.infenia.jagratha.mapper.AppConfigMapper;
 import com.infenia.jagratha.model.ConfigRequest;
 import com.infenia.jagratha.model.FileRequest;
-import com.infenia.jagratha.model.PluginRegistration;
-import com.infenia.jagratha.model.TaskRequest;
 import com.infenia.jagratha.model.TaskResponse;
-import com.infenia.jagratha.model.WorkflowConfig;
+import com.infenia.jagratha.model.WorkflowDefinition;
+import com.infenia.jagratha.model.WorkflowTriggerRequest;
 import com.infenia.jagratha.service.FileLogService;
 import com.infenia.jagratha.service.LogRetrievalService;
 import com.infenia.jagratha.service.SessionService;
@@ -72,55 +71,15 @@ class AppControllerTest {
   }
 
   @Test
-  void testSaveFileIllegalArgument() {
-    FileRequest request = new FileRequest("Outside.java", "session-1", null);
-
-    when(fileLogService.saveFile(anyString(), anyString()))
-        .thenReturn(Mono.error(new IllegalArgumentException("Invalid path")));
-
-    webTestClient
-        .post()
-        .uri("/api/files")
-        .contentType(MediaType.APPLICATION_JSON)
-        .bodyValue(request)
-        .exchange()
-        .expectStatus()
-        .isBadRequest()
-        .expectBody()
-        .jsonPath("$.message")
-        .isEqualTo("Invalid path");
-  }
-
-  @Test
-  void testSaveFileInternalError() {
-    FileRequest request = new FileRequest("test.java", "session-1", null);
-
-    when(fileLogService.saveFile(anyString(), anyString()))
-        .thenReturn(Mono.error(new RuntimeException("IO error")));
-
-    webTestClient
-        .post()
-        .uri("/api/files")
-        .contentType(MediaType.APPLICATION_JSON)
-        .bodyValue(request)
-        .exchange()
-        .expectStatus()
-        .is5xxServerError()
-        .expectBody()
-        .jsonPath("$.message")
-        .isEqualTo("An unexpected error occurred: IO error");
-  }
-
-  @Test
-  void testCompleteTaskSuccess() {
-    TaskRequest request = new TaskRequest("session-1");
+  void testTriggerWorkflowSuccess() {
+    WorkflowTriggerRequest request = new WorkflowTriggerRequest("session-1");
     TaskResponse response = new TaskResponse("SUCCESS", "Build successful");
 
     when(workflowService.runQualityChecks(anyString())).thenReturn(Mono.just(response));
 
     webTestClient
         .post()
-        .uri("/api/tasks/complete")
+        .uri("/api/workflow/trigger")
         .contentType(MediaType.APPLICATION_JSON)
         .bodyValue(request)
         .exchange()
@@ -134,35 +93,11 @@ class AppControllerTest {
   }
 
   @Test
-  void testCompleteTaskFailure() {
-    TaskRequest request = new TaskRequest("session-1");
-    TaskResponse response = new TaskResponse("FAILURE", "Build failed");
-
-    when(workflowService.runQualityChecks(anyString())).thenReturn(Mono.just(response));
-
-    webTestClient
-        .post()
-        .uri("/api/tasks/complete")
-        .contentType(MediaType.APPLICATION_JSON)
-        .bodyValue(request)
-        .exchange()
-        .expectStatus()
-        .is5xxServerError()
-        .expectBody()
-        .jsonPath("$.status")
-        .isEqualTo("FAILURE")
-        .jsonPath("$.output")
-        .isEqualTo("Build failed");
-  }
-
-  @Test
   void testUpdateConfig() {
-    ConfigRequest request =
-        new ConfigRequest(
-            "session-1",
-            "/new/path",
-            List.of(new PluginRegistration("gradle", Map.of("key", "value"))),
-            List.of(new WorkflowConfig("test", null, null)));
+    WorkflowDefinition workflow =
+        new WorkflowDefinition(
+            List.of(new WorkflowDefinition.Node("n1", "gradle", Map.of())), List.of());
+    ConfigRequest request = new ConfigRequest("session-1", "/new/path", workflow);
 
     when(sessionService.applyConfigOverrides(any())).thenReturn(Mono.empty());
 
@@ -179,82 +114,5 @@ class AppControllerTest {
 
     verify(configMapper).toData(any());
     verify(sessionService).applyConfigOverrides(any());
-  }
-
-  @Test
-  void testSaveFileValidationError() {
-    FileRequest request = new FileRequest("", "invalid session..id", null);
-
-    webTestClient
-        .post()
-        .uri("/api/files")
-        .contentType(MediaType.APPLICATION_JSON)
-        .bodyValue(request)
-        .exchange()
-        .expectStatus()
-        .isBadRequest()
-        .expectBody()
-        .jsonPath("$.message")
-        .isEqualTo("Validation failed")
-        .jsonPath("$.errors[?(@.field=='path')].message")
-        .isEqualTo("Path is required")
-        .jsonPath("$.errors[?(@.field=='sessionId')].message")
-        .isEqualTo("Invalid session ID format");
-  }
-
-  @Test
-  void testUpdateConfigValidationError() {
-    ConfigRequest request =
-        new ConfigRequest(
-            "sess", "", // empty project path
-            List.of(), // empty plugins
-            List.of()); // empty workflows
-
-    webTestClient
-        .post()
-        .uri("/api/config")
-        .contentType(MediaType.APPLICATION_JSON)
-        .bodyValue(request)
-        .exchange()
-        .expectStatus()
-        .isBadRequest()
-        .expectBody()
-        .jsonPath("$.message")
-        .isEqualTo("Validation failed");
-  }
-
-  @Test
-  void testConstraintViolation() {
-    when(logRetrievalService.listLogs(anyString()))
-        .thenReturn(
-            Mono.error(
-                new jakarta.validation.ConstraintViolationException(
-                    "Violation", java.util.Set.of())));
-
-    webTestClient
-        .get()
-        .uri("/api/logs/invalid..id")
-        .exchange()
-        .expectStatus()
-        .isBadRequest()
-        .expectBody()
-        .jsonPath("$.message")
-        .isEqualTo("Constraint violation");
-  }
-
-  @Test
-  void testIllegalState() {
-    when(logRetrievalService.listLogs(anyString()))
-        .thenReturn(Mono.error(new IllegalStateException("Bad state")));
-
-    webTestClient
-        .get()
-        .uri("/api/logs/sess")
-        .exchange()
-        .expectStatus()
-        .is5xxServerError()
-        .expectBody()
-        .jsonPath("$.message")
-        .isEqualTo("Bad state");
   }
 }

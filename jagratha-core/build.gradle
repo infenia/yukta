@@ -34,8 +34,6 @@ dependencies {
 
     // Default plugins
     implementation project(':plugins:build-tools:gradle')
-    implementation project(':plugins:processors:checkstyle')
-    implementation project(':plugins:ai:qwen')
 
     implementation libs.spring.boot.starter.webflux
     implementation libs.spring.boot.starter.validation

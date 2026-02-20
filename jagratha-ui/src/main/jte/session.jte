@@ -1,10 +1,11 @@
 @import com.infenia.jagratha.model.WorkflowProgress
 @import com.infenia.jagratha.model.TaskProgress
+@import com.infenia.jagratha.model.WorkflowDefinition
 @import java.util.Map
 @import java.util.List
 @param String sessionId
 @param Map<String, Object> config
-@param List<com.infenia.jagratha.model.WorkflowConfig> workflows
+@param WorkflowDefinition workflow
 @param Map<String, String> modifiedFiles
 @param List<String> logs
 @param WorkflowProgress progress
@@ -24,14 +25,16 @@
             <section class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                 <div class="bg-slate-50 px-6 py-4 border-b border-slate-200 flex justify-between items-center">
                     <h2 class="font-bold text-slate-700">Configuration</h2>
-                    <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                    <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
                 </div>
                 <div class="p-6 space-y-4">
                     @for(Map.Entry<String, Object> entry : config.entrySet())
-                        <div>
-                            <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider">${entry.getKey()}</label>
-                            <p class="text-slate-700 font-medium break-all">${String.valueOf(entry.getValue())}</p>
-                        </div>
+                        @if(!entry.getKey().equals("workflow"))
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider">${entry.getKey()}</label>
+                                <p class="text-slate-700 font-medium break-all">${String.valueOf(entry.getValue())}</p>
+                            </div>
+                        @endif
                     @endfor
                 </div>
             </section>
@@ -62,13 +65,13 @@
 
         <!-- Main Content: Workflow & Logs -->
         <div class="lg:col-span-2 space-y-8">
-            <!-- Workflow Progress -->
+            <!-- Workflow Visualization -->
             <section class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                 <div class="bg-slate-50 px-6 py-4 border-b border-slate-200 flex justify-between items-center">
-                    <h2 class="font-bold text-slate-700">Workflow Progress</h2>
+                    <h2 class="font-bold text-slate-700">Workflow DAG</h2>
                     <div id="workflow-status-badge">
                         @if(progress != null)
-                            <span class="px-3 py-1 rounded-full text-xs font-bold uppercase ${progress.status().equals("RUNNING") ? "bg-blue-100 text-blue-700 animate-pulse" : (progress.status().equals("SUCCESS") ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700")}">
+                            <span class="px-3 py-1 rounded-full text-xs font-bold uppercase ${progress.status().equals("RUNNING") ? "bg-blue-100 text-blue-700 animate-pulse" : (progress.status().equals("COMPLETED") || progress.status().equals("SUCCESS") ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700")}">
                                 ${progress.status()}
                             </span>
                         @else
@@ -77,45 +80,84 @@
                     </div>
                 </div>
                 <div class="p-6">
-                    <div class="relative">
-                        <!-- Vertical line -->
-                        <div class="absolute left-4 top-0 bottom-0 w-0.5 bg-slate-100"></div>
+                    <div class="mermaid flex justify-center">
+                        graph TD
+                        @for(WorkflowDefinition.Node node : workflow.nodes())
+                            !{
+                                String status = "PENDING";
+                                if (progress != null) {
+                                    status = progress.tasks().stream()
+                                        .filter(t -> t.nodeId().equals(node.nodeId()))
+                                        .map(com.infenia.jagratha.model.TaskProgress::status)
+                                        .findFirst()
+                                        .orElse("PENDING");
+                                }
+                                String color = status.equals("SUCCESS") ? "#10b981" : (status.equals("FAILURE") ? "#f43f5e" : (status.equals("RUNNING") ? "#3b82f6" : "#94a3b8"));
+                                String textColor = "#ffffff";
+                            }
+                            ${node.nodeId()}["${node.nodeId()}<br/>(${node.type()})"]
+                            style ${node.nodeId()} fill:${color},stroke:#fff,color:${textColor},stroke-width:2px
+                        @endfor
+                        @for(WorkflowDefinition.Edge edge : workflow.edges())
+                            ${edge.source()} --> ${edge.target()}
+                        @endfor
+                    </div>
+                </div>
+            </section>
 
-                        <div class="space-y-6 relative" id="task-list">
+            <!-- Node Status Table -->
+            <section class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                <div class="bg-slate-50 px-6 py-4 border-b border-slate-200 flex justify-between items-center">
+                    <h2 class="font-bold text-slate-700">Node Progress</h2>
+                </div>
+                <div class="p-0">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-slate-50/50 text-slate-400 text-[10px] uppercase tracking-wider">
+                                <th class="px-6 py-3 font-semibold">Node ID</th>
+                                <th class="px-6 py-3 font-semibold">Type</th>
+                                <th class="px-6 py-3 font-semibold">Status</th>
+                                <th class="px-6 py-3 font-semibold text-right">Timing</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100" id="task-list">
                             @if(progress != null)
                                 @for(TaskProgress task : progress.tasks())
-                                    <div class="flex items-start gap-6">
-                                        <div class="w-8 h-8 rounded-full border-4 border-white shadow-sm flex items-center justify-center relative z-10
-                                            ${task.status().equals("SUCCESS") ? "bg-emerald-500" : (task.status().equals("FAILURE") ? "bg-rose-500" : (task.status().equals("RUNNING") ? "bg-blue-500" : "bg-slate-200"))}">
-                                            @if(task.status().equals("SUCCESS"))
-                                                <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>
-                                            @elseif(task.status().equals("FAILURE"))
-                                                <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12"></path></svg>
-                                            @elseif(task.status().equals("RUNNING"))
-                                                <div class="w-2 h-2 bg-white rounded-full animate-ping"></div>
-                                            @endif
-                                        </div>
-                                        <div>
-                                            <h4 class="font-bold text-slate-800">${task.taskName()}</h4>
-                                            @if(!task.module().isEmpty())
-                                                <p class="text-xs text-slate-500 font-mono mt-1">Module: ${task.module()}</p>
-                                            @endif
+                                    !{
+                                        String type = workflow.nodes().stream()
+                                            .filter(n -> n.nodeId().equals(task.nodeId()))
+                                            .map(com.infenia.jagratha.model.WorkflowDefinition.Node::type)
+                                            .findFirst()
+                                            .orElse("unknown");
+                                    }
+                                    <tr class="hover:bg-slate-50 transition">
+                                        <td class="px-6 py-4 text-sm font-bold text-slate-700">${task.nodeId()}</td>
+                                        <td class="px-6 py-4 text-xs font-mono text-slate-500">${type}</td>
+                                        <td class="px-6 py-4">
+                                            <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase
+                                                ${task.status().equals("SUCCESS") ? "bg-emerald-100 text-emerald-700" : (task.status().equals("FAILURE") ? "bg-rose-100 text-rose-700" : (task.status().equals("RUNNING") ? "bg-blue-100 text-blue-700 animate-pulse" : "bg-slate-100 text-slate-400"))}">
+                                                ${task.status()}
+                                            </span>
+                                        </td>
+                                        <td class="px-6 py-4 text-right text-[10px] text-slate-400">
                                             @if(task.startTime() != null)
-                                                <p class="text-[10px] text-slate-400 mt-1">
-                                                    Started: ${task.startTime().format(java.time.format.DateTimeFormatter.ofPattern("HH:mm:ss"))}
-                                                    @if(task.endTime() != null)
-                                                        • Ended: ${task.endTime().format(java.time.format.DateTimeFormatter.ofPattern("HH:mm:ss"))}
-                                                    @endif
-                                                </p>
+                                                ${task.startTime().format(java.time.format.DateTimeFormatter.ofPattern("HH:mm:ss"))}
+                                                @if(task.endTime() != null)
+                                                    → ${task.endTime().format(java.time.format.DateTimeFormatter.ofPattern("HH:mm:ss"))}
+                                                @endif
+                                            @else
+                                                -
                                             @endif
-                                        </div>
-                                    </div>
+                                        </td>
+                                    </tr>
                                 @endfor
                             @else
-                                <div class="text-slate-400 italic text-sm pl-12 py-4">No active workflow tracking available.</div>
+                                <tr>
+                                    <td colspan="4" class="px-6 py-8 text-center text-slate-400 italic text-sm">No active workflow tracking available.</td>
+                                </tr>
                             @endif
-                        </div>
-                    </div>
+                        </tbody>
+                    </table>
                 </div>
             </section>
 

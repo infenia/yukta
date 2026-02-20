@@ -15,7 +15,7 @@
  */
 package com.infenia.jagratha.config;
 
-import com.infenia.jagratha.model.PluginRegistration;
+import com.infenia.jagratha.model.WorkflowDefinition;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
@@ -35,11 +35,7 @@ class AppConfigServiceTest {
   void testDefaultValues() {
     String sessionId = "sess-1";
     StepVerifier.create(configService.getProjectPath(sessionId)).expectNext("").verifyComplete();
-    StepVerifier.create(configService.getPluginName(sessionId)).expectNext("").verifyComplete();
-    StepVerifier.create(configService.getPluginConfig(sessionId))
-        .expectNext(Map.of())
-        .verifyComplete();
-    StepVerifier.create(configService.getTasks(sessionId)).expectNextCount(4).verifyComplete();
+    StepVerifier.create(configService.getWorkflow(sessionId)).verifyComplete(); // Empty initially
     StepVerifier.create(configService.getExecutionTimeout(sessionId))
         .expectNext(300L)
         .verifyComplete();
@@ -50,28 +46,21 @@ class AppConfigServiceTest {
     StepVerifier.create(configService.getResultLogDir(sessionId))
         .expectNext(home + "/.jagratha/results")
         .verifyComplete();
-    StepVerifier.create(configService.getWorkflows(sessionId)).expectNextCount(0).verifyComplete();
   }
 
   @Test
   void testApiOverrides() {
     String sessionId = "sess-1";
     StepVerifier.create(configService.setProjectPath(sessionId, "/api/path")).verifyComplete();
-    List<PluginRegistration> plugins =
-        List.of(new PluginRegistration("gradle", Map.of("gradlePath", "/api/gradle")));
-    StepVerifier.create(configService.setPlugins(sessionId, plugins)).verifyComplete();
-    StepVerifier.create(configService.setWorkflows(sessionId, List.of())).verifyComplete();
+    WorkflowDefinition workflow =
+        new WorkflowDefinition(
+            List.of(new WorkflowDefinition.Node("n1", "gradle", Map.of())), List.of());
+    StepVerifier.create(configService.setWorkflow(sessionId, workflow)).verifyComplete();
 
     StepVerifier.create(configService.getProjectPath(sessionId))
         .expectNext("/api/path")
         .verifyComplete();
-    StepVerifier.create(configService.getPluginName(sessionId))
-        .expectNext("gradle")
-        .verifyComplete();
-    StepVerifier.create(configService.getPluginConfig(sessionId))
-        .expectNext(Map.of("gradlePath", "/api/gradle"))
-        .verifyComplete();
-    StepVerifier.create(configService.getWorkflows(sessionId)).expectNextCount(0).verifyComplete();
+    StepVerifier.create(configService.getWorkflow(sessionId)).expectNext(workflow).verifyComplete();
 
     // Another session should still have defaults
     String otherSession = "sess-2";
@@ -91,10 +80,8 @@ class AppConfigServiceTest {
     StepVerifier.create(configService.isActive(sess1)).expectNext(true).verifyComplete();
     StepVerifier.create(configService.isActive(sess2)).expectNext(false).verifyComplete();
 
-    StepVerifier.create(
-            configService.setPlugins(
-                sess2, List.of(new PluginRegistration("maven", Map.of("mavenPath", "/api/maven")))))
-        .verifyComplete();
+    WorkflowDefinition workflow = new WorkflowDefinition(List.of(), List.of());
+    StepVerifier.create(configService.setWorkflow(sess2, workflow)).verifyComplete();
 
     StepVerifier.create(configService.getActiveSessionIds()).expectNextCount(2).verifyComplete();
   }

@@ -1,0 +1,341 @@
+/*
+ * Copyright 2026 Infenia Private Limited
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package com.infenia.jagratha.service;
+
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+import com.infenia.jagratha.model.WorkflowDefinition;
+import com.infenia.jagratha.plugin.Message;
+import com.infenia.jagratha.plugin.PluginCategory;
+import com.infenia.jagratha.plugin.ProcessorPlugin;
+import com.infenia.jagratha.plugin.TerminalPlugin;
+import com.infenia.jagratha.plugin.TriggerPlugin;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+import reactor.test.StepVerifier;
+
+class WorkflowOrchestratorTest {
+
+  private WorkflowRegistry registry;
+  private TaskTrackerService tracker;
+  private WorkflowOrchestrator orchestrator;
+
+  @BeforeEach
+  void setUp() {
+    registry = mock(WorkflowRegistry.class);
+    tracker = mock(TaskTrackerService.class);
+    orchestrator = new WorkflowOrchestrator(registry, tracker);
+  }
+
+  @Test
+  void testValidateStructuralIntegritySuccess() {
+    WorkflowDefinition.Node triggerNode = new WorkflowDefinition.Node("n1", "trigger", Map.of());
+    WorkflowDefinition.Node terminalNode = new WorkflowDefinition.Node("n2", "terminal", Map.of());
+    WorkflowDefinition def =
+        new WorkflowDefinition(
+            List.of(triggerNode, terminalNode), List.of(new WorkflowDefinition.Edge("n1", "n2")));
+
+    TriggerPlugin trigger = mock(TriggerPlugin.class);
+    when(trigger.getCategory()).thenReturn(PluginCategory.TRIGGER);
+    when(trigger.validateConfig(any())).thenReturn(Mono.empty());
+    when(trigger.initialize(any())).thenReturn(Mono.empty());
+
+    TerminalPlugin terminal = mock(TerminalPlugin.class);
+    when(terminal.getCategory()).thenReturn(PluginCategory.TERMINAL);
+    when(terminal.validateConfig(any())).thenReturn(Mono.empty());
+    when(terminal.initialize(any())).thenReturn(Mono.empty());
+
+    when(registry.get("trigger")).thenReturn(trigger);
+    when(registry.get("terminal")).thenReturn(terminal);
+
+    StepVerifier.create(orchestrator.prepareWorkflow(def)).verifyComplete();
+  }
+
+  @Test
+  void testValidateStructuralIntegrityMissingTriggerAtEntry() {
+    WorkflowDefinition.Node processorNode =
+        new WorkflowDefinition.Node("n1", "processor", Map.of());
+    WorkflowDefinition def = new WorkflowDefinition(List.of(processorNode), List.of());
+
+    ProcessorPlugin processor = mock(ProcessorPlugin.class);
+    when(processor.getCategory()).thenReturn(PluginCategory.PROCESSOR);
+    when(registry.get("processor")).thenReturn(processor);
+
+    StepVerifier.create(orchestrator.prepareWorkflow(def))
+        .expectErrorMatches(
+            e ->
+                e instanceof IllegalArgumentException
+                    && e.getMessage().contains("entry point but not a TRIGGER"))
+        .verify();
+  }
+
+  @Test
+  void testValidateStructuralIntegrityProcessorMissingEdges() {
+    WorkflowDefinition.Node triggerNode = new WorkflowDefinition.Node("n1", "trigger", Map.of());
+    WorkflowDefinition.Node processorNode =
+        new WorkflowDefinition.Node("n2", "processor", Map.of());
+    WorkflowDefinition def =
+        new WorkflowDefinition(
+            List.of(triggerNode, processorNode),
+            List.of(new WorkflowDefinition.Edge("n1", "n2"))); // n2 has no outgoing edge
+
+    TriggerPlugin trigger = mock(TriggerPlugin.class);
+    when(trigger.getCategory()).thenReturn(PluginCategory.TRIGGER);
+    ProcessorPlugin processor = mock(ProcessorPlugin.class);
+    when(processor.getCategory()).thenReturn(PluginCategory.PROCESSOR);
+
+    when(registry.get("trigger")).thenReturn(trigger);
+    when(registry.get("processor")).thenReturn(processor);
+    when(trigger.validateConfig(any())).thenReturn(Mono.empty());
+    when(trigger.initialize(any())).thenReturn(Mono.empty());
+    when(processor.validateConfig(any())).thenReturn(Mono.empty());
+    when(processor.initialize(any())).thenReturn(Mono.empty());
+
+    StepVerifier.create(orchestrator.prepareWorkflow(def))
+        .expectErrorMatches(
+            e ->
+                e instanceof IllegalArgumentException
+                    && e.getMessage().contains("must have both incoming and outgoing edges"))
+        .verify();
+  }
+
+  @Test
+  void testValidateStructuralIntegrityEndpointNotTerminal() {
+    WorkflowDefinition.Node triggerNode = new WorkflowDefinition.Node("n1", "trigger", Map.of());
+    WorkflowDefinition.Node otherTriggerNode =
+        new WorkflowDefinition.Node("n2", "trigger", Map.of());
+    WorkflowDefinition def =
+        new WorkflowDefinition(
+            List.of(triggerNode, otherTriggerNode),
+            List.of(new WorkflowDefinition.Edge("n1", "n2")));
+
+    TriggerPlugin trigger = mock(TriggerPlugin.class);
+    when(trigger.getCategory()).thenReturn(PluginCategory.TRIGGER);
+    when(trigger.getType()).thenReturn("trigger");
+    when(trigger.validateConfig(any())).thenReturn(Mono.empty());
+    when(trigger.initialize(any())).thenReturn(Mono.empty());
+
+    when(registry.get("trigger")).thenReturn(trigger);
+
+    StepVerifier.create(orchestrator.prepareWorkflow(def))
+        .expectErrorMatches(
+            e ->
+                e instanceof IllegalArgumentException
+                    && e.getMessage().contains("endpoint but not a TERMINAL"))
+        .verify();
+  }
+
+  @Test
+  void testValidateStructuralIntegrityCycleDetection() {
+    WorkflowDefinition.Node triggerNode = new WorkflowDefinition.Node("n1", "trigger", Map.of());
+    WorkflowDefinition.Node processorNode =
+        new WorkflowDefinition.Node("n2", "processor", Map.of());
+    WorkflowDefinition def =
+        new WorkflowDefinition(
+            List.of(triggerNode, processorNode),
+            List.of(
+                new WorkflowDefinition.Edge("n1", "n2"),
+                new WorkflowDefinition.Edge("n2", "n1") // Cycle
+                ));
+
+    TriggerPlugin trigger = mock(TriggerPlugin.class);
+    when(trigger.getCategory()).thenReturn(PluginCategory.TRIGGER);
+    ProcessorPlugin processor = mock(ProcessorPlugin.class);
+    when(processor.getCategory()).thenReturn(PluginCategory.PROCESSOR);
+
+    when(registry.get("trigger")).thenReturn(trigger);
+    when(registry.get("processor")).thenReturn(processor);
+    when(trigger.validateConfig(any())).thenReturn(Mono.empty());
+    when(trigger.initialize(any())).thenReturn(Mono.empty());
+    when(processor.validateConfig(any())).thenReturn(Mono.empty());
+    when(processor.initialize(any())).thenReturn(Mono.empty());
+
+    StepVerifier.create(orchestrator.prepareWorkflow(def))
+        .expectErrorMatches(
+            e ->
+                e instanceof IllegalArgumentException && e.getMessage().contains("contains cycles"))
+        .verify();
+  }
+
+  @Test
+  void testExecuteWorkflow() {
+    String sessionId = "sess-1";
+    UUID traceId = UUID.randomUUID();
+    Message msg = Message.create(traceId, "payload");
+
+    WorkflowDefinition.Node triggerNode = new WorkflowDefinition.Node("n1", "trigger", Map.of());
+    WorkflowDefinition.Node terminalNode = new WorkflowDefinition.Node("n2", "terminal", Map.of());
+    WorkflowDefinition def =
+        new WorkflowDefinition(
+            List.of(triggerNode, terminalNode), List.of(new WorkflowDefinition.Edge("n1", "n2")));
+
+    TriggerPlugin trigger = mock(TriggerPlugin.class);
+    when(trigger.getCategory()).thenReturn(PluginCategory.TRIGGER);
+    when(trigger.start()).thenReturn(Flux.just(msg));
+
+    TerminalPlugin terminal = mock(TerminalPlugin.class);
+    when(terminal.getCategory()).thenReturn(PluginCategory.TERMINAL);
+    when(terminal.consume(any())).thenReturn(Mono.empty());
+
+    when(registry.get("trigger")).thenReturn(trigger);
+    when(registry.get("terminal")).thenReturn(terminal);
+
+    StepVerifier.create(orchestrator.execute(sessionId, def)).verifyComplete();
+
+    verify(trigger).start();
+    verify(terminal).consume(any());
+    verify(tracker).startWorkflow(eq(sessionId), any());
+    verify(tracker, atLeastOnce())
+        .updateTaskStatus(eq(sessionId), anyString(), anyString(), anyString());
+    verify(tracker).finishWorkflow(sessionId, "COMPLETED");
+  }
+
+  @Test
+  void testExecuteWorkflowWithBranching() {
+    String sessionId = "sess-1";
+    Message msg = Message.create(UUID.randomUUID(), "payload");
+
+    WorkflowDefinition.Node triggerNode = new WorkflowDefinition.Node("t", "trigger", Map.of());
+    WorkflowDefinition.Node term1 = new WorkflowDefinition.Node("term1", "terminal", Map.of());
+    WorkflowDefinition.Node term2 = new WorkflowDefinition.Node("term2", "terminal", Map.of());
+
+    WorkflowDefinition def =
+        new WorkflowDefinition(
+            List.of(triggerNode, term1, term2),
+            List.of(
+                new WorkflowDefinition.Edge("t", "term1"),
+                new WorkflowDefinition.Edge("t", "term2")));
+
+    TriggerPlugin trigger = mock(TriggerPlugin.class);
+    when(trigger.getCategory()).thenReturn(PluginCategory.TRIGGER);
+    when(trigger.start()).thenReturn(Flux.just(msg));
+
+    TerminalPlugin terminal = mock(TerminalPlugin.class);
+    when(terminal.getCategory()).thenReturn(PluginCategory.TERMINAL);
+    when(terminal.consume(any())).thenReturn(Mono.empty());
+
+    when(registry.get("trigger")).thenReturn(trigger);
+    when(registry.get("terminal")).thenReturn(terminal);
+
+    StepVerifier.create(orchestrator.execute(sessionId, def)).verifyComplete();
+
+    verify(terminal, atLeastOnce()).consume(any());
+  }
+
+  @Test
+  void testExecuteWorkflowWithProcessor() {
+    String sessionId = "sess-1";
+    Message msg = Message.create(UUID.randomUUID(), "payload");
+
+    WorkflowDefinition.Node triggerNode = new WorkflowDefinition.Node("t", "trigger", Map.of());
+    WorkflowDefinition.Node procNode = new WorkflowDefinition.Node("p", "processor", Map.of());
+    WorkflowDefinition.Node termNode = new WorkflowDefinition.Node("term", "terminal", Map.of());
+
+    WorkflowDefinition def =
+        new WorkflowDefinition(
+            List.of(triggerNode, procNode, termNode),
+            List.of(
+                new WorkflowDefinition.Edge("t", "p"), new WorkflowDefinition.Edge("p", "term")));
+
+    TriggerPlugin trigger = mock(TriggerPlugin.class);
+    when(trigger.getCategory()).thenReturn(PluginCategory.TRIGGER);
+    when(trigger.start()).thenReturn(Flux.just(msg));
+
+    ProcessorPlugin processor = mock(ProcessorPlugin.class);
+    when(processor.getCategory()).thenReturn(PluginCategory.PROCESSOR);
+    when(processor.process(any())).thenReturn(Flux.just(msg));
+
+    TerminalPlugin terminal = mock(TerminalPlugin.class);
+    when(terminal.getCategory()).thenReturn(PluginCategory.TERMINAL);
+    when(terminal.consume(any())).thenReturn(Mono.empty());
+
+    when(registry.get("trigger")).thenReturn(trigger);
+    when(registry.get("processor")).thenReturn(processor);
+    when(registry.get("terminal")).thenReturn(terminal);
+
+    StepVerifier.create(orchestrator.execute(sessionId, def)).verifyComplete();
+
+    verify(trigger).start();
+    verify(processor).process(any());
+    verify(terminal).consume(any());
+  }
+
+  @Test
+  void testPrepareWorkflowPluginNotFound() {
+    WorkflowDefinition.Node node = new WorkflowDefinition.Node("n1", "unknown", Map.of());
+    WorkflowDefinition def = new WorkflowDefinition(List.of(node), List.of());
+
+    when(registry.get("unknown")).thenReturn(null);
+
+    StepVerifier.create(orchestrator.prepareWorkflow(def))
+        .expectErrorMatches(
+            e ->
+                e instanceof IllegalArgumentException
+                    && e.getMessage().contains("Plugin not found"))
+        .verify();
+  }
+
+  @Test
+  void testChainWithProcessorAndMultipleChildren() {
+    String sessionId = "sess-1";
+    Message msg = Message.create(UUID.randomUUID(), "payload");
+
+    WorkflowDefinition.Node triggerNode = new WorkflowDefinition.Node("t", "trigger", Map.of());
+    WorkflowDefinition.Node procNode = new WorkflowDefinition.Node("p", "processor", Map.of());
+    WorkflowDefinition.Node term1 = new WorkflowDefinition.Node("term1", "terminal", Map.of());
+    WorkflowDefinition.Node term2 = new WorkflowDefinition.Node("term2", "terminal", Map.of());
+
+    WorkflowDefinition def =
+        new WorkflowDefinition(
+            List.of(triggerNode, procNode, term1, term2),
+            List.of(
+                new WorkflowDefinition.Edge("t", "p"),
+                new WorkflowDefinition.Edge("p", "term1"),
+                new WorkflowDefinition.Edge("p", "term2")));
+
+    TriggerPlugin trigger = mock(TriggerPlugin.class);
+    when(trigger.getCategory()).thenReturn(PluginCategory.TRIGGER);
+    when(trigger.start()).thenReturn(Flux.just(msg));
+
+    ProcessorPlugin processor = mock(ProcessorPlugin.class);
+    when(processor.getCategory()).thenReturn(PluginCategory.PROCESSOR);
+    when(processor.process(any())).thenReturn(Flux.just(msg));
+
+    TerminalPlugin terminal = mock(TerminalPlugin.class);
+    when(terminal.getCategory()).thenReturn(PluginCategory.TERMINAL);
+    when(terminal.consume(any())).thenReturn(Mono.empty());
+
+    when(registry.get("trigger")).thenReturn(trigger);
+    when(registry.get("processor")).thenReturn(processor);
+    when(registry.get("terminal")).thenReturn(terminal);
+
+    StepVerifier.create(orchestrator.execute(sessionId, def)).verifyComplete();
+
+    verify(processor).process(any());
+    verify(terminal, atLeastOnce()).consume(any());
+  }
+}

@@ -17,10 +17,6 @@ package com.infenia.jagratha.model;
 
 import java.time.LocalDateTime;
 
-/** Represents the progress of a single task within a workflow. */
+/** Represents the progress of a single node within a workflow DAG. */
 public record TaskProgress(
-    String taskName,
-    String module,
-    String status,
-    LocalDateTime startTime,
-    LocalDateTime endTime) {}
+    String nodeId, String module, String status, LocalDateTime startTime, LocalDateTime endTime) {}

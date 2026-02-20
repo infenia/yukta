@@ -83,3 +83,7 @@ processResources {
         into "static/css"
     }
 }
+
+jacocoTestReport {
+    onlyIf = { tasks.named('test').get().didWork || file("${buildDir}/jacoco/test.exec").exists() }
+}

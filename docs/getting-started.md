@@ -59,7 +59,7 @@ curl -X POST http://localhost:8080/api/files \
 Run the tasks and see the results:
 
 ```bash
-curl -X POST http://localhost:8080/api/tasks/complete \
+curl -X POST http://localhost:8080/api/workflow/trigger \
   -H "Content-Type: application/json" \
   -d '{ "sessionId": "hello-jagratha" }'
 ```

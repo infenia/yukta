@@ -15,92 +15,129 @@
  */
 package com.infenia.jagratha.plugin.gradle;
 
-import com.infenia.jagratha.plugin.JagrathaPlugin;
-import com.infenia.jagratha.plugin.ValidationResult;
+import com.infenia.jagratha.plugin.Message;
+import com.infenia.jagratha.plugin.TriggerPlugin;
 import java.io.File;
-import java.nio.file.Files;
-import java.nio.file.InvalidPathException;
-import java.nio.file.Path;
+import java.io.IOException;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.TimeoutException;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.core.codec.StringDecoder;
+import org.springframework.core.io.buffer.DataBufferUtils;
+import org.springframework.core.io.buffer.DefaultDataBufferFactory;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
-/** Gradle plugin implementation. */
+/** Gradle implementation of a TriggerPlugin. */
 @Slf4j
-public class GradlePlugin implements JagrathaPlugin {
+public class GradlePlugin implements TriggerPlugin {
 
-  /** Public constructor for PMD. */
+  private Map<String, Object> config;
+  private UUID traceId;
+
+  /** Public constructor. */
   public GradlePlugin() {
     super();
   }
 
   @Override
-  public String getName() {
+  public String getType() {
     return "gradle";
   }
 
   @Override
-  public String identifyModule(final String projectRoot, final String relativePath) {
-    String result = "";
-    try {
-      final Path rootPath = Path.of(projectRoot).toAbsolutePath().normalize();
-      final Path fileAbsPath = rootPath.resolve(relativePath).toAbsolutePath().normalize();
-
-      Path current = fileAbsPath.getParent();
-      while (current != null && current.startsWith(rootPath)) {
-        if (Files.exists(current.resolve("build.gradle"))
-            || Files.exists(current.resolve("build.gradle.kts"))) {
-          final Path relPath = rootPath.relativize(current);
-          final String modulePath = relPath.toString();
-          if (!modulePath.isEmpty()) {
-            result = ":" + modulePath.replace(File.separator, ":");
-          }
-          break;
-        }
-        current = current.getParent();
-      }
-    } catch (InvalidPathException e) {
-      if (log.isWarnEnabled()) {
-        log.warn("Failed to identify module for path: {}", relativePath, e);
-      }
-    }
-    return result;
-  }
-
-  @Override
-  public List<String> buildTaskCommand(
-      final String module, final String task, final Map<String, Object> pluginConfig) {
-    final String gradlePath = (String) pluginConfig.get("gradlePath");
-    final List<String> command = new ArrayList<>();
-    command.add(gradlePath != null && !gradlePath.isEmpty() ? gradlePath : "./gradlew");
-
-    if (module.isEmpty()) {
-      command.add(task);
-    } else if (task.startsWith(":")) {
-      command.add(task);
-    } else {
-      command.add(module + ":" + task);
-    }
-    return command;
-  }
-
-  @Override
-  public ValidationResult validateConfig(final Map<String, Object> config) {
-    final ValidationResult result;
+  public Mono<Void> validateConfig(final Map<String, Object> config) {
+    final Mono<Void> result;
     if (config == null) {
-      result = ValidationResult.error("Configuration is required");
-    } else {
-      final Object gradlePath = config.get("gradlePath");
-      if (gradlePath != null && !(gradlePath instanceof String)) {
-        result =
-            ValidationResult.error(
-                "Invalid configuration",
-                List.of(new ValidationResult.FieldError("gradlePath", "Must be a string")));
+      result = Mono.error(new IllegalArgumentException("Configuration is required"));
+    } else if (config.containsKey("projectRoot")) {
+      final Object tasks = config.get("tasks");
+      if (tasks == null || tasks instanceof List) {
+        result = Mono.empty();
       } else {
-        result = ValidationResult.success();
+        result = Mono.error(new IllegalArgumentException("tasks must be a list of strings"));
       }
+    } else {
+      result = Mono.error(new IllegalArgumentException("projectRoot is required"));
     }
     return result;
+  }
+
+  @Override
+  public Mono<Void> initialize(final Map<String, Object> config) {
+    this.config = Map.copyOf(config);
+    this.traceId = UUID.randomUUID();
+    return Mono.empty();
+  }
+
+  @Override
+  public Flux<Message> start() {
+    final String projectRoot = (String) config.get("projectRoot");
+    @SuppressWarnings("unchecked")
+    final List<String> tasks = (List<String>) config.getOrDefault("tasks", List.of("check"));
+    final String gradlePath = (String) config.getOrDefault("gradlePath", "./gradlew");
+    final Long timeout = ((Number) config.getOrDefault("timeout", 600L)).longValue();
+
+    final File projectDir = new File(projectRoot);
+
+    return Flux.fromIterable(tasks)
+        .flatMap(task -> executeTask(projectDir, gradlePath, task, timeout));
+  }
+
+  private Flux<Message> executeTask(
+      final File projectDir, final String gradlePath, final String task, final long timeout) {
+    final List<String> command = new ArrayList<>();
+    command.add(gradlePath);
+    command.add(task);
+
+    return Mono.fromCallable(
+            () -> {
+              final ProcessBuilder processBuilder = new ProcessBuilder(command);
+              processBuilder.directory(projectDir);
+              processBuilder.redirectErrorStream(true);
+              return processBuilder.start();
+            })
+        .subscribeOn(Schedulers.boundedElastic())
+        .flatMapMany(
+            process -> {
+              final Flux<String> outputFlux =
+                  DataBufferUtils.readInputStream(
+                          process::getInputStream, DefaultDataBufferFactory.sharedInstance, 4096)
+                      .transform(
+                          flux -> StringDecoder.textPlainOnly().decode(flux, null, null, Map.of()));
+
+              final Mono<Integer> exitCodeMono =
+                  Mono.fromFuture(process.onExit())
+                      .map(Process::exitValue)
+                      .timeout(Duration.ofSeconds(timeout))
+                      .onErrorResume(
+                          TimeoutException.class,
+                          e -> {
+                            process.destroyForcibly();
+                            return Mono.error(
+                                new TimeoutException("Timeout running task: " + task));
+                          });
+
+              return outputFlux
+                  .map(line -> Message.create(traceId, line))
+                  .concatWith(
+                      exitCodeMono.flatMap(
+                          code -> {
+                            if (code != 0 && log.isWarnEnabled()) {
+                              log.warn("Task {} failed with exit code {}", task, code);
+                            }
+                            return Mono.empty();
+                          }));
+            })
+        .onErrorResume(
+            IOException.class,
+            e ->
+                Mono.error(
+                    new RuntimeException("Error executing task " + task + ": " + e.getMessage())));
   }
 }

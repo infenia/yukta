@@ -20,34 +20,26 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import com.infenia.jagratha.model.AppConfigData;
 import com.infenia.jagratha.model.ConfigRequest;
-import com.infenia.jagratha.model.PluginRegistration;
-import com.infenia.jagratha.model.WorkflowConfig;
+import com.infenia.jagratha.model.WorkflowDefinition;
 import java.util.List;
-import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 
-@SpringBootTest
+@SpringBootTest(classes = AppConfigMapperImpl.class)
 class AppConfigMapperTest {
 
   @Autowired private AppConfigMapper mapper;
 
   @Test
   void testMapping() {
-    List<PluginRegistration> plugins = List.of(new PluginRegistration("p1", Map.of("k", "v")));
-    ConfigRequest request =
-        new ConfigRequest(
-            "sess-1", "/path", plugins, List.of(new WorkflowConfig("w1", null, null)));
-
+    WorkflowDefinition workflow = new WorkflowDefinition(List.of(), List.of());
+    ConfigRequest request = new ConfigRequest("sess-1", "/path", workflow);
     AppConfigData data = mapper.toData(request);
 
     assertNotNull(data);
     assertEquals("sess-1", data.sessionId());
     assertEquals("/path", data.projectPath());
-    assertEquals(1, data.plugins().size());
-    assertEquals("p1", data.plugins().get(0).name());
-    assertEquals(Map.of("k", "v"), data.plugins().get(0).pluginConfig());
-    assertEquals(1, data.workflows().size());
+    assertEquals(workflow, data.workflow());
   }
 }

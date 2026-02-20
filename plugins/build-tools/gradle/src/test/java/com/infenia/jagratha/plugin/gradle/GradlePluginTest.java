@@ -16,10 +16,8 @@
 package com.infenia.jagratha.plugin.gradle;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
-import com.infenia.jagratha.plugin.ValidationResult;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -28,6 +26,7 @@ import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import reactor.test.StepVerifier;
 
 class GradlePluginTest {
 
@@ -41,64 +40,48 @@ class GradlePluginTest {
   }
 
   @Test
-  void testGetName() {
-    assertEquals("gradle", plugin.getName());
-  }
-
-  @Test
-  void testIdentifyModuleRoot() {
-    String module = plugin.identifyModule(tempDir.toString(), "src/main/java/App.java");
-    assertEquals("", module);
-  }
-
-  @Test
-  void testIdentifyModuleSubproject() throws IOException {
-    Path subproject = tempDir.resolve("subproject");
-    Files.createDirectories(subproject);
-    Files.createFile(subproject.resolve("build.gradle"));
-
-    String module = plugin.identifyModule(tempDir.toString(), "subproject/src/main/java/Lib.java");
-    assertEquals(":subproject", module);
-  }
-
-  @Test
-  void testBuildTaskCommandDefault() {
-    List<String> command = plugin.buildTaskCommand(":module", "test", Map.of());
-    assertEquals(List.of("./gradlew", ":module:test"), command);
-  }
-
-  @Test
-  void testBuildTaskCommandCustomGradle() {
-    List<String> command =
-        plugin.buildTaskCommand("", "build", Map.of("gradlePath", "/usr/bin/gradle"));
-    assertEquals(List.of("/usr/bin/gradle", "build"), command);
-  }
-
-  @Test
-  void testBuildTaskCommandAbsoluteTask() {
-    List<String> command = plugin.buildTaskCommand(":module", ":other:task", Map.of());
-    assertEquals(List.of("./gradlew", ":other:task"), command);
+  void testGetType() {
+    assertEquals("gradle", plugin.getType());
   }
 
   @Test
   void testValidateConfigSuccess() {
-    ValidationResult result = plugin.validateConfig(Map.of("gradlePath", "./gradlew"));
-    assertTrue(result.valid());
+    Map<String, Object> config =
+        Map.of(
+            "projectRoot", tempDir.toString(),
+            "tasks", List.of("test"));
+    StepVerifier.create(plugin.validateConfig(config)).verifyComplete();
   }
 
   @Test
-  void testValidateConfigNull() {
-    ValidationResult result = plugin.validateConfig(null);
-    assertFalse(result.valid());
-    assertEquals("Configuration is required", result.message());
+  void testValidateConfigMissingProjectRoot() {
+    Map<String, Object> config = Map.of("tasks", List.of("test"));
+    StepVerifier.create(plugin.validateConfig(config)).verifyError(IllegalArgumentException.class);
   }
 
   @Test
-  void testValidateConfigInvalidType() {
-    ValidationResult result = plugin.validateConfig(Map.of("gradlePath", 123));
-    assertFalse(result.valid());
-    assertEquals("Invalid configuration", result.message());
-    assertEquals(1, result.errors().size());
-    assertEquals("gradlePath", result.errors().get(0).field());
+  void testStart() throws IOException {
+    // Create a dummy gradlew script
+    Path gradlew = tempDir.resolve("gradlew");
+    String script = "#!/bin/sh\necho \"Task output for $1\"\n";
+    Files.writeString(gradlew, script);
+    gradlew.toFile().setExecutable(true);
+
+    Map<String, Object> config =
+        Map.of(
+            "projectRoot", tempDir.toString(),
+            "tasks", List.of("testTask"),
+            "gradlePath", "./gradlew");
+
+    plugin.initialize(config).block();
+
+    StepVerifier.create(plugin.start())
+        .assertNext(
+            message -> {
+              assertNotNull(message.id());
+              assertNotNull(message.traceId());
+              assertEquals("Task output for testTask", ((String) message.payload()).trim());
+            })
+        .verifyComplete();
   }
 }

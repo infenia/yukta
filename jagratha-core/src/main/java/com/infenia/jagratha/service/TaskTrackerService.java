@@ -44,11 +44,11 @@ public class TaskTrackerService {
    * Start tracking a new workflow for a session.
    *
    * @param sessionId the session identifier
-   * @param taskNames the list of task names in the workflow
+   * @param nodeIds the list of node IDs in the workflow DAG
    */
-  public void startWorkflow(final String sessionId, final List<String> taskNames) {
+  public void startWorkflow(final String sessionId, final List<String> nodeIds) {
     final List<TaskProgress> initialTasks =
-        taskNames.stream().map(name -> new TaskProgress(name, "", "PENDING", null, null)).toList();
+        nodeIds.stream().map(id -> new TaskProgress(id, "", "PENDING", null, null)).toList();
     states.put(
         sessionId,
         new WorkflowState(
@@ -62,19 +62,19 @@ public class TaskTrackerService {
   }
 
   /**
-   * Update the status of a specific task.
+   * Update the status of a specific node.
    *
    * @param sessionId the session identifier
-   * @param taskName the name of the task
+   * @param nodeId the ID of the node
    * @param module the module name
    * @param status the new status
    */
   @SuppressWarnings("PMD.UseObjectForClearerAPI")
   public void updateTaskStatus(
-      final String sessionId, final String taskName, final String module, final String status) {
+      final String sessionId, final String nodeId, final String module, final String status) {
     final WorkflowState state = states.get(sessionId);
     if (state != null) {
-      state.updateTask(taskName, module, status);
+      state.updateTask(nodeId, module, status);
       notifyStatusChange(sessionId);
     }
   }
@@ -195,10 +195,10 @@ public class TaskTrackerService {
       this.startTime = startTime;
     }
 
-    /* default */ void updateTask(final String taskName, final String module, final String status) {
+    /* default */ void updateTask(final String nodeId, final String module, final String status) {
       for (int i = 0; i < tasks.size(); i++) {
         final TaskProgress taskProgress = tasks.get(i);
-        if (taskProgress.taskName().equals(taskName)) {
+        if (taskProgress.nodeId().equals(nodeId)) {
           LocalDateTime taskStartTime = taskProgress.startTime();
           LocalDateTime taskEndTime = taskProgress.endTime();
           if ("RUNNING".equals(status) && taskStartTime == null) {
@@ -207,7 +207,7 @@ public class TaskTrackerService {
               && taskEndTime == null) {
             taskEndTime = LocalDateTime.now();
           }
-          tasks.set(i, new TaskProgress(taskName, module, status, taskStartTime, taskEndTime));
+          tasks.set(i, new TaskProgress(nodeId, module, status, taskStartTime, taskEndTime));
           break;
         }
       }

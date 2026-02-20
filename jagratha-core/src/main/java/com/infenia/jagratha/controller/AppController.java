@@ -19,8 +19,8 @@ import com.infenia.jagratha.mapper.AppConfigMapper;
 import com.infenia.jagratha.model.AppConfigData;
 import com.infenia.jagratha.model.ConfigRequest;
 import com.infenia.jagratha.model.FileRequest;
-import com.infenia.jagratha.model.TaskRequest;
 import com.infenia.jagratha.model.TaskResponse;
+import com.infenia.jagratha.model.WorkflowTriggerRequest;
 import com.infenia.jagratha.service.FileLogService;
 import com.infenia.jagratha.service.LogRetrievalService;
 import com.infenia.jagratha.service.SessionService;
@@ -80,19 +80,19 @@ public class AppController {
   }
 
   /**
-   * Run quality checks on the external project and return the results.
+   * Trigger a workflow execution for a session.
    *
-   * @param request the task request containing sessionId
+   * @param request the trigger request containing sessionId
    * @return response entity with task status and output
    */
-  @PostMapping("/tasks/complete")
+  @PostMapping("/workflow/trigger")
   @Operation(
-      summary = "Complete a task",
-      description = "Triggers quality checks (spotless, checkstyle, tests) on the external project")
-  @ApiResponse(responseCode = HTTP_200, description = "Quality checks completed successfully")
-  @ApiResponse(responseCode = "500", description = "Quality checks failed")
-  public Mono<ResponseEntity<TaskResponse>> completeTask(
-      @Valid @RequestBody final TaskRequest request) {
+      summary = "Trigger a workflow",
+      description = "Triggers the execution of the configured DAG workflow for a session")
+  @ApiResponse(responseCode = HTTP_200, description = "Workflow executed successfully")
+  @ApiResponse(responseCode = "500", description = "Workflow execution failed")
+  public Mono<ResponseEntity<TaskResponse>> triggerWorkflow(
+      @Valid @RequestBody final WorkflowTriggerRequest request) {
     return workflowService
         .runQualityChecks(request.sessionId())
         .map(

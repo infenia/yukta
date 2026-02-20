@@ -84,7 +84,7 @@ class UiControllerTest {
   @Test
   void testSessionDetails() {
     when(sessionService.getSessionConfig(anyString())).thenReturn(Mono.just(Map.of()));
-    when(sessionService.getSessionWorkflows(anyString())).thenReturn(Mono.just(List.of()));
+    when(sessionService.getSessionWorkflow(anyString())).thenReturn(Mono.empty());
     when(fileLogService.getModifiedFiles(anyString())).thenReturn(Mono.just(Map.of()));
     when(logRetrievalService.listLogs(anyString())).thenReturn(Mono.just(List.of()));
     webTestClient.get().uri("/ui/sessions/session1").exchange().expectStatus().isOk();

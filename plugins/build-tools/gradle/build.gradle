@@ -17,11 +17,24 @@ plugins {
     id 'com.infenia.jagratha.java-conventions'
     id 'com.infenia.jagratha.quality-conventions'
     id 'com.infenia.jagratha.jacoco-conventions'
+    alias(libs.plugins.spring.boot)
+    alias(libs.plugins.spring.dependency.management)
 }
 
 version = '1.0.0'
 
+// Library module
+bootJar {
+    enabled = false
+}
+jar {
+    enabled = true
+}
+
 dependencies {
     implementation project(':jagratha-plugin-api')
-    implementation libs.spring.boot.starter
+    implementation libs.spring.boot.starter.webflux
+
+    testImplementation libs.spring.boot.starter.test
+    testImplementation libs.reactor.test
 }

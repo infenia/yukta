@@ -20,7 +20,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.infenia.jagratha.mcp.AppMcpTools;
-import com.infenia.jagratha.plugin.JagrathaPlugin;
+import com.infenia.jagratha.plugin.WorkflowPlugin;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -46,8 +46,8 @@ class JagrathaMcpTest {
 
   @Test
   void testPluginsAutoConfigured() {
-    Map<String, JagrathaPlugin> plugins = context.getBeansOfType(JagrathaPlugin.class);
-    assertFalse(plugins.isEmpty(), "No JagrathaPlugin beans found");
+    Map<String, WorkflowPlugin> plugins = context.getBeansOfType(WorkflowPlugin.class);
+    assertFalse(plugins.isEmpty(), "No WorkflowPlugin beans found");
     assertTrue(plugins.containsKey("gradlePlugin"), "gradlePlugin bean missing");
   }
 }

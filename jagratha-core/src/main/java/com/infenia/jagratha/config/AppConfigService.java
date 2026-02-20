@@ -15,11 +15,9 @@
  */
 package com.infenia.jagratha.config;
 
-import com.infenia.jagratha.model.PluginRegistration;
-import com.infenia.jagratha.model.WorkflowConfig;
+import com.infenia.jagratha.model.WorkflowDefinition;
 import com.infenia.jagratha.validation.ProjectPath;
 import com.infenia.jagratha.validation.SessionId;
-import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import java.util.List;
 import java.util.Map;
@@ -42,12 +40,9 @@ public class AppConfigService {
   private static final String DEFAULT_FILE_LOG = DEFAULT_BASE_DIR + "/modified-files";
   private static final String DEFAULT_RES_LOG = DEFAULT_BASE_DIR + "/results";
   private static final long DEFAULT_TIMEOUT = 300L;
-  private static final List<String> DEFAULT_TASKS =
-      List.of("spotlessApply", "spotlessCheck", "checkstyleMain", "test");
 
   private final Map<String, String> projectPaths = new ConcurrentHashMap<>();
-  private final Map<String, List<PluginRegistration>> pluginsMap = new ConcurrentHashMap<>();
-  private final Map<String, List<WorkflowConfig>> workflowsMap = new ConcurrentHashMap<>();
+  private final Map<String, WorkflowDefinition> workflowsMap = new ConcurrentHashMap<>();
 
   /** Public constructor. */
   public AppConfigService() {
@@ -79,90 +74,27 @@ public class AppConfigService {
   }
 
   /**
-   * Get all registered plugins for a session.
+   * Get the workflow definition for a session.
    *
    * @param sessionId the session identifier
-   * @return Flux of plugins
+   * @return Mono containing the workflow definition
    */
-  public Flux<PluginRegistration> getPlugins(@SessionId final String sessionId) {
-    final List<PluginRegistration> result = pluginsMap.get(sessionId);
-    return Flux.fromIterable(result != null ? result : List.of());
+  public Mono<WorkflowDefinition> getWorkflow(@SessionId final String sessionId) {
+    final WorkflowDefinition result = workflowsMap.get(sessionId);
+    return result != null ? Mono.just(result) : Mono.empty();
   }
 
   /**
-   * Set the registered plugins for a session.
+   * Set the workflow definition for a session.
    *
    * @param sessionId the session identifier
-   * @param plugins the list of plugins
-   * @return Mono that completes when plugins are set
+   * @param workflow the workflow definition
+   * @return Mono that completes when the workflow is set
    */
-  public Mono<Void> setPlugins(
+  public Mono<Void> setWorkflow(
       @SessionId final String sessionId,
-      @NotEmpty(message = "Plugins list cannot be empty") final List<PluginRegistration> plugins) {
-    pluginsMap.put(sessionId, List.copyOf(plugins));
-    return Mono.empty();
-  }
-
-  /**
-   * Get the plugin name for a session. For now, returns the first plugin's name.
-   *
-   * @param sessionId the session identifier
-   * @return Mono containing the plugin name
-   */
-  public Mono<String> getPluginName(@SessionId final String sessionId) {
-    return getPlugins(sessionId).next().map(PluginRegistration::name).defaultIfEmpty("");
-  }
-
-  /**
-   * Get the plugin configuration for a session. For now, returns the first plugin's configuration.
-   *
-   * @param sessionId the session identifier
-   * @return Mono containing the plugin configuration map
-   */
-  public Mono<Map<String, Object>> getPluginConfig(@SessionId final String sessionId) {
-    return getPlugins(sessionId)
-        .next()
-        .map(PluginRegistration::pluginConfig)
-        .defaultIfEmpty(Map.of());
-  }
-
-  /**
-   * Get the list of tasks for a session. Defaults to a standard list if not set.
-   *
-   * @param sessionId the session identifier
-   * @return Flux of tasks
-   */
-  public Flux<String> getTasks(@SessionId final String sessionId) {
-    return Flux.fromIterable(DEFAULT_TASKS);
-  }
-
-  /**
-   * Get the list of workflows for a session.
-   *
-   * @param sessionId the session identifier
-   * @return Flux of workflows
-   */
-  public Flux<WorkflowConfig> getWorkflows(@SessionId final String sessionId) {
-    final List<WorkflowConfig> override = workflowsMap.get(sessionId);
-    return Flux.fromIterable(override != null ? override : List.of());
-  }
-
-  /**
-   * Set the workflows override for a session.
-   *
-   * @param sessionId the session identifier
-   * @param workflowsList the list of workflows
-   * @return Mono that completes when workflows are set
-   */
-  public Mono<Void> setWorkflows(
-      @SessionId final String sessionId,
-      @NotNull(message = "Workflows list cannot be null")
-          final List<WorkflowConfig> workflowsList) {
-    if (workflowsList.isEmpty()) {
-      workflowsMap.remove(sessionId);
-    } else {
-      workflowsMap.put(sessionId, List.copyOf(workflowsList));
-    }
+      @NotNull(message = "Workflow definition cannot be null") final WorkflowDefinition workflow) {
+    workflowsMap.put(sessionId, workflow);
     return Mono.empty();
   }
 
@@ -205,8 +137,7 @@ public class AppConfigService {
   public Mono<Map<String, Object>> getAllConfigs(@SessionId final String sessionId) {
     return Mono.zip(
             getProjectPath(sessionId),
-            getPlugins(sessionId).collectList(),
-            getWorkflows(sessionId).collectList(),
+            getWorkflow(sessionId).defaultIfEmpty(new WorkflowDefinition(List.of(), List.of())),
             getExecutionTimeout(sessionId),
             getFileLogDir(sessionId),
             getResultLogDir(sessionId))
@@ -214,11 +145,10 @@ public class AppConfigService {
             tuple -> {
               final Map<String, Object> configs = new java.util.LinkedHashMap<>();
               configs.put("projectPath", tuple.getT1());
-              configs.put("plugins", tuple.getT2());
-              configs.put("workflows", tuple.getT3());
-              configs.put("executionTimeout", tuple.getT4());
-              configs.put("fileLogDir", tuple.getT5());
-              configs.put("resultLogDir", tuple.getT6());
+              configs.put("workflow", tuple.getT2());
+              configs.put("executionTimeout", tuple.getT3());
+              configs.put("fileLogDir", tuple.getT4());
+              configs.put("resultLogDir", tuple.getT5());
               return configs;
             });
   }
@@ -231,7 +161,6 @@ public class AppConfigService {
   public Flux<String> getActiveSessionIds() {
     final java.util.Set<String> active = new java.util.HashSet<>();
     active.addAll(projectPaths.keySet());
-    active.addAll(pluginsMap.keySet());
     active.addAll(workflowsMap.keySet());
     return Flux.fromIterable(active);
   }

@@ -27,7 +27,7 @@ Initializes or updates the configuration for a specific session.
 ### 2. File Logging (`POST /api/files`)
 Logs a file path that has been modified. Jagratha will track these files and reset their status to `PENDING`.
 
-### 3. Task Execution (`POST /api/tasks/complete`)
+### 3. Task Execution (`POST /api/workflow/trigger`)
 Triggers the execution of build tasks (e.g., tests, checkstyle) for the current session. Returns a summary of success or failure.
 
 ### 4. Log Retrieval (`GET /api/logs/{sessionId}`)

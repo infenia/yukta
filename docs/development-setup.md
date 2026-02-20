@@ -15,8 +15,8 @@ We recommend using [SDKMAN!](https://sdkman.io/) to manage your Java versions.
 curl -s "https://get.sdkman.io" | bash
 source "$HOME/.sdkman/bin/sdkman-init.sh"
 
-# Install Java 21 (Temurin)
-sdk install java 21.0.6-tem
+# Install Java 25 (Temurin)
+sdk install java 25.0.6-tem
 ```
 
 ### 2. Gradle 9.0
@@ -64,7 +64,7 @@ Jagratha uses **Spotless** with **Google Java Format**. To automatically fix for
 ### IntelliJ IDEA
 
 1. **Open the project**: File > Open > Select `build.gradle`.
-2. **Project SDK**: Set to Java 21.
+2. **Project SDK**: Set to Java 25.
 3. **Annotation Processors**:
    - Enable annotation processing in `Settings > Build, Execution, Deployment > Compiler > Annotation Processors`.
    - Jagratha uses **Lombok** and **MapStruct**, which require this.
@@ -79,7 +79,7 @@ Jagratha supports building native binaries using GraalVM.
 ### 1. Install GraalVM
 
 ```bash
-sdk install java 21.0.6-graal
+sdk install java 25.0.6-graal
 ```
 
 ### 2. Build the Native Image

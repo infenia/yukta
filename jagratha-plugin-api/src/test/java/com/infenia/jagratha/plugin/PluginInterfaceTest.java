@@ -16,130 +16,100 @@
 package com.infenia.jagratha.plugin;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import org.junit.jupiter.api.Test;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+import reactor.test.StepVerifier;
 
 class PluginInterfaceTest {
 
   @Test
-  void testProcessorInputCompactConstructor() {
-    OutputProcessorPlugin.ProcessorInput input =
-        new OutputProcessorPlugin.ProcessorInput("sess", "root", "mod", "task", "out", "res", null);
+  void testMessageImmutability() {
+    UUID traceId = UUID.randomUUID();
+    Map<String, Object> metadata = new java.util.HashMap<>();
+    metadata.put("key", "value");
+    Message msg =
+        new Message(UUID.randomUUID(), traceId, metadata, "payload", java.time.Instant.now());
 
-    assertNotNull(input.config());
-    assertEquals(0, input.config().size());
-  }
+    assertEquals("value", msg.metadata().get("key"));
 
-  @Test
-  void testProcessorInputConfigImmutability() {
-    Map<String, Object> config = new java.util.HashMap<>();
-    config.put("key", "value");
-    OutputProcessorPlugin.ProcessorInput input =
-        new OutputProcessorPlugin.ProcessorInput(
-            "sess", "root", "mod", "task", "out", "res", config);
-
-    assertEquals("value", input.config().get("key"));
-
-    // Attempting to modify the returned map should throw UnsupportedOperationException
     try {
-      input.config().put("new", "val");
+      msg.metadata().put("new", "val");
     } catch (UnsupportedOperationException e) {
       // expected
     }
   }
 
   @Test
-  void testProcessorResult() {
-    OutputProcessorPlugin.ProcessorResult result =
-        new OutputProcessorPlugin.ProcessorResult("SUCCESS", "out", "art");
-
-    assertEquals("SUCCESS", result.status());
-    assertEquals("out", result.output());
-    assertEquals("art", result.artifactPath());
-  }
-
-  @Test
-  void testValidationResultSuccess() {
-    ValidationResult result = ValidationResult.success();
-    assertTrue(result.valid());
-    assertEquals("Validation successful", result.message());
-    assertTrue(result.errors().isEmpty());
-  }
-
-  @Test
-  void testValidationResultError() {
-    ValidationResult result = ValidationResult.error("Failed");
-    assertFalse(result.valid());
-    assertEquals("Failed", result.message());
-    assertTrue(result.errors().isEmpty());
-  }
-
-  @Test
-  void testValidationResultFieldErrors() {
-    List<ValidationResult.FieldError> errors =
-        List.of(new ValidationResult.FieldError("field", "error"));
-    ValidationResult result = ValidationResult.error("Invalid", errors);
-    assertFalse(result.valid());
-    assertEquals("Invalid", result.message());
-    assertEquals(1, result.errors().size());
-    assertEquals("field", result.errors().get(0).field());
-    assertEquals("error", result.errors().get(0).message());
-  }
-
-  @Test
-  void testDefaultValidateConfig() {
-    JagrathaPlugin plugin =
-        new JagrathaPlugin() {
+  void testDefaultWorkflowPluginMethods() {
+    WorkflowPlugin plugin =
+        new WorkflowPlugin() {
           @Override
-          public String getName() {
+          public String getType() {
             return "test";
           }
 
           @Override
-          public String identifyModule(String projectRoot, String relativePath) {
-            return "";
-          }
-
-          @Override
-          public List<String> buildTaskCommand(
-              String module, String task, Map<String, Object> pluginConfig) {
-            return List.of();
+          public PluginCategory getCategory() {
+            return PluginCategory.TRIGGER;
           }
         };
 
-    assertTrue(plugin.validateConfig(Map.of()).valid());
+    StepVerifier.create(plugin.validateConfig(Map.of())).verifyComplete();
+    StepVerifier.create(plugin.initialize(Map.of())).verifyComplete();
+  }
 
-    AiPlugin aiPlugin =
-        new AiPlugin() {
+  @Test
+  void testTriggerPlugin() {
+    TriggerPlugin trigger =
+        new TriggerPlugin() {
           @Override
-          public String getName() {
+          public String getType() {
             return "test";
           }
 
           @Override
-          public String execute(String prompt, Map<String, Object> config) {
-            return "";
+          public Flux<Message> start() {
+            return Flux.empty();
           }
         };
-    assertTrue(aiPlugin.validateConfig(Map.of()).valid());
+    assertEquals(PluginCategory.TRIGGER, trigger.getCategory());
+  }
 
-    OutputProcessorPlugin procPlugin =
-        new OutputProcessorPlugin() {
+  @Test
+  void testProcessorPlugin() {
+    ProcessorPlugin processor =
+        new ProcessorPlugin() {
           @Override
-          public String getName() {
+          public String getType() {
             return "test";
           }
 
           @Override
-          public ProcessorResult process(ProcessorInput input) {
-            return null;
+          public Flux<Message> process(Flux<Message> input) {
+            return input;
           }
         };
-    assertTrue(procPlugin.validateConfig(Map.of()).valid());
+    assertEquals(PluginCategory.PROCESSOR, processor.getCategory());
+  }
+
+  @Test
+  void testTerminalPlugin() {
+    TerminalPlugin terminal =
+        new TerminalPlugin() {
+          @Override
+          public String getType() {
+            return "test";
+          }
+
+          @Override
+          public Mono<Void> consume(Flux<Message> input) {
+            return input.then();
+          }
+        };
+    assertEquals(PluginCategory.TERMINAL, terminal.getCategory());
   }
 }

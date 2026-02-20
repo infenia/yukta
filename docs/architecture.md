@@ -17,7 +17,7 @@ Jagratha is a vigilance server designed to enforce code quality gates for AI-dri
 
 ## Sequence Diagram: Quality Check Execution
 
-The following diagram illustrates the flow when a quality check is triggered (via `/api/tasks/complete` or MCP).
+The following diagram illustrates the flow when a quality check is triggered (via `/api/workflow/trigger` or MCP).
 
 ```mermaid
 sequenceDiagram

@@ -15,33 +15,26 @@
  */
 package com.infenia.jagratha.model;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
+import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 class ModelTest {
 
   @Test
-  void testFileRequest() {
-    FileRequest request = new FileRequest("path", "session-1", "content");
-    assertEquals("path", request.path());
-    assertEquals("session-1", request.sessionId());
-    assertEquals("content", request.content());
-    assertNotNull(request.toString());
+  void testWorkflowDefinitionImmutability() {
+    WorkflowDefinition.Node node = new WorkflowDefinition.Node("n1", "t1", Map.of("k", "v"));
+    WorkflowDefinition.Edge edge = new WorkflowDefinition.Edge("n1", "n2");
+    WorkflowDefinition def = new WorkflowDefinition(List.of(node), List.of(edge));
+
+    assertNotNull(def.nodes());
+    assertNotNull(def.edges());
+    assertEquals(1, def.nodes().size());
   }
 
-  @Test
-  void testTaskResponse() {
-    TaskResponse response = new TaskResponse("SUCCESS", "output");
-    assertEquals("SUCCESS", response.status());
-    assertEquals("output", response.output());
-    assertNotNull(response.toString());
-  }
-
-  @Test
-  void testTaskRequest() {
-    TaskRequest request = new TaskRequest("session-1");
-    assertEquals("session-1", request.sessionId());
+  private void assertEquals(int expected, int actual) {
+    org.junit.jupiter.api.Assertions.assertEquals(expected, actual);
   }
 }
