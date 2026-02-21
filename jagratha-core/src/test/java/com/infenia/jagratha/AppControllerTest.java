@@ -66,7 +66,10 @@ class AppControllerTest {
         .exchange()
         .expectStatus()
         .isOk()
-        .expectBody(String.class)
+        .expectBody()
+        .jsonPath("$.status")
+        .isEqualTo(200)
+        .jsonPath("$.message")
         .isEqualTo("File path logged successfully");
   }
 
@@ -87,8 +90,12 @@ class AppControllerTest {
         .isOk()
         .expectBody()
         .jsonPath("$.status")
+        .isEqualTo(200)
+        .jsonPath("$.message")
+        .isEqualTo("Workflow executed successfully")
+        .jsonPath("$.data.status")
         .isEqualTo("SUCCESS")
-        .jsonPath("$.output")
+        .jsonPath("$.data.output")
         .isEqualTo("Build successful");
   }
 
@@ -109,7 +116,10 @@ class AppControllerTest {
         .exchange()
         .expectStatus()
         .isOk()
-        .expectBody(String.class)
+        .expectBody()
+        .jsonPath("$.status")
+        .isEqualTo(200)
+        .jsonPath("$.message")
         .isEqualTo("Configuration updated successfully");
 
     verify(configMapper).toData(any());

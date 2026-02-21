@@ -199,7 +199,7 @@
                                 <tr class="hover:bg-slate-50 transition">
                                     <td class="px-6 py-4 text-sm font-medium text-slate-700">${logName}</td>
                                     <td class="px-6 py-4 text-right">
-                                        <a href="/api/logs/${sessionId}/${logName}" target="_blank" class="text-indigo-600 hover:text-indigo-800 text-xs font-bold uppercase tracking-tighter">View Raw</a>
+                                        <a href="/api/logs/${sessionId}/${logName}/raw" target="_blank" class="text-indigo-600 hover:text-indigo-800 text-xs font-bold uppercase tracking-tighter">View Raw</a>
                                     </td>
                                 </tr>
                             @endfor

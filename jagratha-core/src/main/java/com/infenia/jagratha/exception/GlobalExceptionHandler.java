@@ -15,9 +15,9 @@
  */
 package com.infenia.jagratha.exception;
 
+import com.infenia.jagratha.model.ApiResponse;
 import jakarta.annotation.Nullable;
 import jakarta.validation.ConstraintViolationException;
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
@@ -51,15 +51,14 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
       final HttpHeaders headers,
       final HttpStatusCode status,
       final ServerWebExchange exchange) {
-    final List<ErrorResponse.FieldError> errors =
+    final List<ApiResponse.FieldError> errors =
         exception.getFieldErrors().stream()
-            .map(err -> new ErrorResponse.FieldError(err.getField(), err.getDefaultMessage()))
+            .map(err -> new ApiResponse.FieldError(err.getField(), err.getDefaultMessage()))
             .collect(Collectors.toList());
 
     final String path = exchange.getRequest().getPath().value();
-    final ErrorResponse errorResponse =
-        new ErrorResponse(
-            LocalDateTime.now(),
+    final ApiResponse<Object> errorResponse =
+        ApiResponse.error(
             status.value(),
             HttpStatus.valueOf(status.value()).getReasonPhrase(),
             "Validation failed",
@@ -77,13 +76,12 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
       final ServerWebExchange exchange) {
 
     Object responseBody = body;
-    if (!(body instanceof ErrorResponse)) {
+    if (!(body instanceof ApiResponse)) {
       final String path = exchange.getRequest().getPath().value();
       final String message = (body instanceof String stringBody) ? stringBody : status.toString();
 
       responseBody =
-          new ErrorResponse(
-              LocalDateTime.now(),
+          ApiResponse.error(
               status.value(),
               HttpStatus.valueOf(status.value()).getReasonPhrase(),
               message,
@@ -102,21 +100,20 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
    * @return structured error response
    */
   @ExceptionHandler(ConstraintViolationException.class)
-  public ResponseEntity<ErrorResponse> handleConstraintViolation(
+  public ResponseEntity<ApiResponse<Object>> handleConstraintViolation(
       final ConstraintViolationException exception, final ServerHttpRequest request) {
-    final List<ErrorResponse.FieldError> errors =
+    final List<ApiResponse.FieldError> errors =
         exception.getConstraintViolations().stream()
             .map(
                 violation ->
-                    new ErrorResponse.FieldError(
+                    new ApiResponse.FieldError(
                         violation.getPropertyPath().toString(), violation.getMessage()))
             .collect(Collectors.toList());
 
     final RequestPath requestPath = request.getPath();
     final String path = requestPath.value();
-    final ErrorResponse errorResponse =
-        new ErrorResponse(
-            LocalDateTime.now(),
+    final ApiResponse<Object> errorResponse =
+        ApiResponse.error(
             HttpStatus.BAD_REQUEST.value(),
             HttpStatus.BAD_REQUEST.getReasonPhrase(),
             "Constraint violation",
@@ -134,7 +131,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
    * @return structured error response
    */
   @ExceptionHandler(IllegalArgumentException.class)
-  public ResponseEntity<ErrorResponse> handleIllegalArgument(
+  public ResponseEntity<ApiResponse<Object>> handleIllegalArgument(
       final IllegalArgumentException exception, final ServerHttpRequest request) {
     return buildErrorResponse(HttpStatus.BAD_REQUEST, exception.getMessage(), request);
   }
@@ -147,7 +144,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
    * @return structured error response
    */
   @ExceptionHandler(IllegalStateException.class)
-  public ResponseEntity<ErrorResponse> handleIllegalState(
+  public ResponseEntity<ApiResponse<Object>> handleIllegalState(
       final IllegalStateException exception, final ServerHttpRequest request) {
     return buildErrorResponse(HttpStatus.INTERNAL_SERVER_ERROR, exception.getMessage(), request);
   }
@@ -160,7 +157,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
    * @return structured error response
    */
   @ExceptionHandler(Exception.class)
-  public ResponseEntity<ErrorResponse> handleGenericException(
+  public ResponseEntity<ApiResponse<Object>> handleGenericException(
       final Exception exception, final ServerHttpRequest request) {
     if (log.isErrorEnabled()) {
       log.error("Unhandled exception occurred", exception);
@@ -171,17 +168,11 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         request);
   }
 
-  private ResponseEntity<ErrorResponse> buildErrorResponse(
+  private ResponseEntity<ApiResponse<Object>> buildErrorResponse(
       final HttpStatus status, final String message, final ServerHttpRequest request) {
     final String path = request.getPath().value();
-    final ErrorResponse errorResponse =
-        new ErrorResponse(
-            LocalDateTime.now(),
-            status.value(),
-            status.getReasonPhrase(),
-            message,
-            path,
-            List.of());
+    final ApiResponse<Object> errorResponse =
+        ApiResponse.error(status.value(), status.getReasonPhrase(), message, path, List.of());
     return ResponseEntity.status(status).body(errorResponse);
   }
 }

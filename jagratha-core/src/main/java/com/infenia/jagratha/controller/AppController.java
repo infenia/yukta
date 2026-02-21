@@ -16,6 +16,7 @@
 package com.infenia.jagratha.controller;
 
 import com.infenia.jagratha.mapper.AppConfigMapper;
+import com.infenia.jagratha.model.ApiResponse;
 import com.infenia.jagratha.model.AppConfigData;
 import com.infenia.jagratha.model.ConfigRequest;
 import com.infenia.jagratha.model.FileRequest;
@@ -27,11 +28,11 @@ import com.infenia.jagratha.service.SessionService;
 import com.infenia.jagratha.service.WorkflowService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
-import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -71,12 +72,18 @@ public class AppController {
   @Operation(
       summary = "Log a file path",
       description = "Logs a file path associated with a session for quality checks")
-  @ApiResponse(responseCode = HTTP_200, description = "File path logged successfully")
-  @ApiResponse(responseCode = "400", description = "Invalid request data")
-  public Mono<ResponseEntity<String>> saveFile(@Valid @RequestBody final FileRequest request) {
+  @io.swagger.v3.oas.annotations.responses.ApiResponse(
+      responseCode = HTTP_200,
+      description = "File path logged successfully")
+  @io.swagger.v3.oas.annotations.responses.ApiResponse(
+      responseCode = "400",
+      description = "Invalid request data")
+  public Mono<ResponseEntity<ApiResponse<Void>>> saveFile(
+      @Valid @RequestBody final FileRequest request) {
     return fileLogService
         .saveFile(request.path(), request.sessionId())
-        .thenReturn(ResponseEntity.ok("File path logged successfully"));
+        .thenReturn(
+            ResponseEntity.ok(ApiResponse.success(200, "File path logged successfully", null)));
   }
 
   /**
@@ -89,18 +96,24 @@ public class AppController {
   @Operation(
       summary = "Trigger a workflow",
       description = "Triggers the execution of the configured DAG workflow for a session")
-  @ApiResponse(responseCode = HTTP_200, description = "Workflow executed successfully")
-  @ApiResponse(responseCode = "500", description = "Workflow execution failed")
-  public Mono<ResponseEntity<TaskResponse>> triggerWorkflow(
+  @io.swagger.v3.oas.annotations.responses.ApiResponse(
+      responseCode = HTTP_200,
+      description = "Workflow executed successfully")
+  @io.swagger.v3.oas.annotations.responses.ApiResponse(
+      responseCode = "500",
+      description = "Workflow execution failed")
+  public Mono<ResponseEntity<ApiResponse<TaskResponse>>> triggerWorkflow(
       @Valid @RequestBody final WorkflowTriggerRequest request) {
     return workflowService
         .runQualityChecks(request.sessionId())
         .map(
             response -> {
               if (SUCCESS_STATUS.equals(response.status())) {
-                return ResponseEntity.ok(response);
+                return ResponseEntity.ok(
+                    ApiResponse.success(200, "Workflow executed successfully", response));
               } else {
-                return ResponseEntity.status(500).body(response);
+                return ResponseEntity.status(500)
+                    .body(ApiResponse.success(500, "Workflow execution failed", response));
               }
             });
   }
@@ -115,10 +128,14 @@ public class AppController {
   @Operation(
       summary = "List logs",
       description = "Lists all log files available for a given session")
-  @ApiResponse(responseCode = HTTP_200, description = "List of log filenames")
-  public Mono<List<String>> listLogs(
+  @io.swagger.v3.oas.annotations.responses.ApiResponse(
+      responseCode = HTTP_200,
+      description = "List of log filenames")
+  public Mono<ApiResponse<List<String>>> listLogs(
       @Parameter(description = "Session ID") @PathVariable final String sessionId) {
-    return retrievalService.listLogs(sessionId);
+    return retrievalService
+        .listLogs(sessionId)
+        .map(logs -> ApiResponse.success(200, "List of log filenames", logs));
   }
 
   /**
@@ -132,9 +149,48 @@ public class AppController {
   @Operation(
       summary = "Get log content",
       description = "Retrieves the content of a specific log file for a session")
-  @ApiResponse(responseCode = HTTP_200, description = "Log content retrieved successfully")
-  @ApiResponse(responseCode = "404", description = "Log file not found")
-  public Mono<ResponseEntity<String>> getLogContent(
+  @io.swagger.v3.oas.annotations.responses.ApiResponse(
+      responseCode = HTTP_200,
+      description = "Log content retrieved successfully")
+  @io.swagger.v3.oas.annotations.responses.ApiResponse(
+      responseCode = "404",
+      description = "Log file not found")
+  public Mono<ResponseEntity<ApiResponse<String>>> getLogContent(
+      @Parameter(description = "Session ID") @PathVariable final String sessionId,
+      @Parameter(description = "Log filename") @PathVariable final String filename) {
+    return retrievalService
+        .getLogContent(sessionId, filename)
+        .map(
+            content ->
+                ResponseEntity.ok(
+                    ApiResponse.success(200, "Log content retrieved successfully", content)))
+        .onErrorResume(
+            e ->
+                Mono.just(
+                    ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(
+                            ApiResponse.error(
+                                404, "Not Found", "Log file not found", null, List.of()))));
+  }
+
+  /**
+   * Get raw content of a specific log file.
+   *
+   * @param sessionId the session identifier
+   * @param filename the log filename
+   * @return raw log content
+   */
+  @GetMapping("/logs/{sessionId}/{filename}/raw")
+  @Operation(
+      summary = "Get raw log content",
+      description = "Retrieves the raw content of a specific log file for a session")
+  @io.swagger.v3.oas.annotations.responses.ApiResponse(
+      responseCode = HTTP_200,
+      description = "Raw log content retrieved successfully")
+  @io.swagger.v3.oas.annotations.responses.ApiResponse(
+      responseCode = "404",
+      description = "Log file not found")
+  public Mono<ResponseEntity<String>> getRawLogContent(
       @Parameter(description = "Session ID") @PathVariable final String sessionId,
       @Parameter(description = "Log filename") @PathVariable final String filename) {
     return retrievalService
@@ -153,13 +209,19 @@ public class AppController {
   @Operation(
       summary = "Update configuration",
       description = "Updates the application configuration at runtime for a session")
-  @ApiResponse(responseCode = HTTP_200, description = "Configuration updated successfully")
-  @ApiResponse(responseCode = "400", description = "Invalid configuration data")
-  public Mono<ResponseEntity<String>> updateConfig(
+  @io.swagger.v3.oas.annotations.responses.ApiResponse(
+      responseCode = HTTP_200,
+      description = "Configuration updated successfully")
+  @io.swagger.v3.oas.annotations.responses.ApiResponse(
+      responseCode = "400",
+      description = "Invalid configuration data")
+  public Mono<ResponseEntity<ApiResponse<Void>>> updateConfig(
       @Valid @RequestBody final ConfigRequest request) {
     final AppConfigData configData = configMapper.toData(request);
     return sessionService
         .applyConfigOverrides(configData)
-        .thenReturn(ResponseEntity.ok("Configuration updated successfully"));
+        .thenReturn(
+            ResponseEntity.ok(
+                ApiResponse.success(200, "Configuration updated successfully", null)));
   }
 }

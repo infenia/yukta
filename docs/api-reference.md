@@ -34,11 +34,27 @@ Triggers the execution of build tasks (e.g., tests, checkstyle) for the current 
 Lists all log files generated for a specific session.
 
 ### 5. Log Content (`GET /api/logs/{sessionId}/{filename}`)
-Retrieves the raw content of a specific log file.
+Retrieves the content of a specific log file in a unified JSON format.
 
-## Error Handling
+### 6. Raw Log Content (`GET /api/logs/{sessionId}/{filename}/raw`)
+Retrieves the raw text content of a specific log file.
 
-Jagratha uses structured error responses for all API errors.
+## Unified API Response
+
+Jagratha uses a unified response format for both success and error responses.
+
+### Success Response Example
+
+```json
+{
+  "timestamp": "2026-01-01T10:00:00",
+  "status": 200,
+  "message": "Operation successful",
+  "data": { ... }
+}
+```
+
+### Error Response Example
 
 ```json
 {

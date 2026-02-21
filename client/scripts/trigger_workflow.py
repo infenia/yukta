@@ -17,8 +17,28 @@ def http_post(host, port, location, payload):
         with closing(HTTPConnection(host, port, timeout=600)) as connection:
             connection.request("POST", location, body=body, headers=headers)
             response = connection.getresponse()
-            print(f"Status: {response.status}")
-            print(f"Response: {response.read().decode('utf-8')}")
+            print(f"HTTP Status: {response.status}")
+            response_body = response.read().decode('utf-8')
+            try:
+                data = json.loads(response_body)
+                if "message" in data:
+                    print(f"Message: {data['message']}")
+                if "error" in data:
+                    print(f"Error: {data['error']}")
+                if "errors" in data and data["errors"]:
+                    print("Field Errors:")
+                    for err in data["errors"]:
+                        print(f"  - {err['field']}: {err['message']}")
+                if "data" in data and data["data"]:
+                    task_data = data["data"]
+                    if isinstance(task_data, dict) and "status" in task_data:
+                        print(f"Workflow Status: {task_data['status']}")
+                        if "output" in task_data:
+                            print(f"Workflow Output:\n{task_data['output']}")
+                    else:
+                        print(f"Data: {json.dumps(task_data, indent=2)}")
+            except json.JSONDecodeError:
+                print(f"Response: {response_body}")
             return response.status == 200
     except Exception as e:
         print(f"Error connecting to Jagratha server: {e}")

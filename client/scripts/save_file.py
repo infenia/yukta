@@ -16,8 +16,20 @@ def http_post(host, port, location, payload):
         with closing(HTTPConnection(host, port, timeout=10)) as connection:
             connection.request("POST", location, body=body, headers=headers)
             response = connection.getresponse()
-            print(f"Status: {response.status}")
-            print(f"Response: {response.read().decode('utf-8')}")
+            print(f"HTTP Status: {response.status}")
+            response_body = response.read().decode('utf-8')
+            try:
+                data = json.loads(response_body)
+                if "message" in data:
+                    print(f"Message: {data['message']}")
+                if "error" in data:
+                    print(f"Error: {data['error']}")
+                if "errors" in data and data["errors"]:
+                    print("Field Errors:")
+                    for err in data["errors"]:
+                        print(f"  - {err['field']}: {err['message']}")
+            except json.JSONDecodeError:
+                print(f"Response: {response_body}")
             return response.status == 200
     except Exception as e:
         print(f"Error connecting to Jagratha server: {e}")

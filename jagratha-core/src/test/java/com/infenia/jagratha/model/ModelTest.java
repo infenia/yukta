@@ -15,6 +15,7 @@
  */
 package com.infenia.jagratha.model;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import java.util.List;
@@ -22,6 +23,28 @@ import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 class ModelTest {
+
+  @Test
+  void testApiResponseSuccess() {
+    ApiResponse<String> response = ApiResponse.success(200, "Success", "data");
+    assertNotNull(response.timestamp());
+    assertEquals(200, response.status());
+    assertEquals("Success", response.message());
+    assertEquals("data", response.data());
+  }
+
+  @Test
+  void testApiResponseError() {
+    ApiResponse.FieldError fieldError = new ApiResponse.FieldError("field", "error");
+    ApiResponse<Void> response =
+        ApiResponse.error(400, "Bad Request", "Validation failed", "/path", List.of(fieldError));
+    assertNotNull(response.timestamp());
+    assertEquals(400, response.status());
+    assertEquals("Bad Request", response.error());
+    assertEquals("Validation failed", response.message());
+    assertEquals("/path", response.path());
+    assertEquals(1, response.errors().size());
+  }
 
   @Test
   void testWorkflowDefinitionImmutability() {
@@ -32,9 +55,5 @@ class ModelTest {
     assertNotNull(def.nodes());
     assertNotNull(def.edges());
     assertEquals(1, def.nodes().size());
-  }
-
-  private void assertEquals(int expected, int actual) {
-    org.junit.jupiter.api.Assertions.assertEquals(expected, actual);
   }
 }
