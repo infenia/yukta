@@ -1,10 +1,12 @@
 import json
+import os
 import sys
+import argparse
 from http.client import HTTPConnection
 from contextlib import closing
 
-WEBSERVER_HOST = "localhost"
-WEBSERVER_PORT = 8080
+WEBSERVER_HOST = os.environ.get("JAGRATHA_HOST", "localhost")
+WEBSERVER_PORT = int(os.environ.get("JAGRATHA_PORT", 8080))
 WEBSERVER_ENDPOINT = "/api/files"
 
 def http_post(host, port, location, payload):
@@ -16,57 +18,43 @@ def http_post(host, port, location, payload):
             response = connection.getresponse()
             print(f"Status: {response.status}")
             print(f"Response: {response.read().decode('utf-8')}")
+            return response.status == 200
     except Exception as e:
         print(f"Error connecting to Jagratha server: {e}")
-
-def extract_file_path(tool_name, tool_input):
-    # Support for various AI agent tool schemas
-    if tool_name in ["Write", "Edit", "MultiEdit"]:
-        return tool_input.get('file_path', 'unknown')
-    if tool_name == "NotebookEdit":
-        return tool_input.get('notebook_path', 'unknown')
-
-    # Support for Claude Code tool names
-    if tool_name in ["write_to_file", "replace_in_file", "insert_content_at_line", "apply_diff"]:
-        return tool_input.get('relative_path', 'unknown')
-
-    return 'unknown'
+        return False
 
 def main():
-    try:
-        data = json.load(sys.stdin)
-    except json.JSONDecodeError:
-        print("Error: Invalid JSON input")
+    parser = argparse.ArgumentParser(description="Log a file path for a Jagratha session.")
+    parser.add_argument("--session-id", help="The unique session identifier")
+    parser.add_argument("--path", help="The relative path of the file")
+
+    args, unknown = parser.parse_known_args()
+
+    session_id = args.session_id or "unknown"
+    file_path = args.path or "unknown"
+
+    # Attempt to read from stdin (for automated environments/hooks)
+    if (not args.session_id or not args.path) and not sys.stdin.isatty():
+        try:
+            data = json.load(sys.stdin)
+            session_id = data.get('session_id', session_id)
+            # Support common tool input formats if needed, but keeping it simple
+            if not args.path:
+                file_path = data.get('path') or data.get('relative_path') or file_path
+        except Exception:
+            pass
+
+    if file_path == "unknown":
+        print("Error: File path is required.")
         sys.exit(1)
 
-    session_id = data.get('session_id', 'unknown')
-    tool_name = data.get('tool_name', 'unknown')
+    payload = {
+        "path": file_path,
+        "sessionId": session_id
+    }
 
-    # Expanded list of modification tools including Claude Code tools
-    modification_tools = [
-        "Write", "Edit", "MultiEdit", "NotebookEdit",
-        "write_to_file", "replace_in_file", "insert_content_at_line", "apply_diff"
-    ]
-
-    if tool_name in modification_tools:
-        tool_input = data.get('tool_input', {})
-        file_path = extract_file_path(tool_name, tool_input)
-
-        if file_path != 'unknown':
-            payload = {
-                "path": file_path,
-                "sessionId": session_id,
-            }
-            # Extract content if available (for 'write_to_file' or 'replacement')
-            content = tool_input.get('replacement') or tool_input.get('content') or tool_input.get('diff')
-            if content:
-                payload["content"] = content
-
-            http_post(WEBSERVER_HOST, WEBSERVER_PORT, WEBSERVER_ENDPOINT, payload)
-        else:
-            print("Error: Could not extract file path from input")
-    else:
-        print(f"Skipping: tool '{tool_name}' is not a modification tool")
+    print(f"Logging file path '{file_path}' for session '{session_id}'...")
+    http_post(WEBSERVER_HOST, WEBSERVER_PORT, WEBSERVER_ENDPOINT, payload)
 
 if __name__ == "__main__":
     main()
