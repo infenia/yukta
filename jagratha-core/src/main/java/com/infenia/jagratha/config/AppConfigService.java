@@ -33,7 +33,7 @@ import reactor.core.publisher.Mono;
  */
 @Service
 @Validated
-@SuppressWarnings({"PMD.UseConcurrentHashMap", "PMD.LinguisticNaming"})
+@SuppressWarnings({"PMD.UseConcurrentHashMap", "PMD.LinguisticNaming", "PMD.TooManyMethods"})
 public class AppConfigService {
 
   private static final String DEFAULT_BASE_DIR = System.getProperty("user.home") + "/.jagratha";
@@ -43,6 +43,9 @@ public class AppConfigService {
 
   private final Map<String, String> projectPaths = new ConcurrentHashMap<>();
   private final Map<String, WorkflowDefinition> workflowsMap = new ConcurrentHashMap<>();
+  private final Map<String, String> initiators = new ConcurrentHashMap<>();
+  private final Map<String, String> initiatedTimes = new ConcurrentHashMap<>();
+  private final Map<String, Map<String, String>> tagsMap = new ConcurrentHashMap<>();
 
   /** Public constructor. */
   public AppConfigService() {
@@ -129,6 +132,82 @@ public class AppConfigService {
   }
 
   /**
+   * Get the initiator for a session.
+   *
+   * @param sessionId the session identifier
+   * @return Mono containing the initiator
+   */
+  public Mono<String> getInitiator(@SessionId final String sessionId) {
+    final String result = initiators.get(sessionId);
+    return Mono.just(result != null ? result : "");
+  }
+
+  /**
+   * Set the initiator for a session.
+   *
+   * @param sessionId the session identifier
+   * @param initiator the initiator
+   * @return Mono that completes when the initiator is set
+   */
+  public Mono<Void> setInitiator(@SessionId final String sessionId, final String initiator) {
+    if (initiator != null) {
+      initiators.putIfAbsent(sessionId, initiator);
+    }
+    return Mono.empty();
+  }
+
+  /**
+   * Get the initiated time for a session.
+   *
+   * @param sessionId the session identifier
+   * @return Mono containing the initiated time
+   */
+  public Mono<String> getInitiatedTime(@SessionId final String sessionId) {
+    final String result = initiatedTimes.get(sessionId);
+    return Mono.just(result != null ? result : "");
+  }
+
+  /**
+   * Set the initiated time for a session.
+   *
+   * @param sessionId the session identifier
+   * @param initiatedTime the initiated time
+   * @return Mono that completes when the initiated time is set
+   */
+  public Mono<Void> setInitiatedTime(
+      @SessionId final String sessionId, final String initiatedTime) {
+    if (initiatedTime != null) {
+      initiatedTimes.putIfAbsent(sessionId, initiatedTime);
+    }
+    return Mono.empty();
+  }
+
+  /**
+   * Get the tags for a session.
+   *
+   * @param sessionId the session identifier
+   * @return Mono containing the tags
+   */
+  public Mono<Map<String, String>> getTags(@SessionId final String sessionId) {
+    final Map<String, String> result = tagsMap.get(sessionId);
+    return Mono.just(result != null ? result : Map.of());
+  }
+
+  /**
+   * Set the tags for a session.
+   *
+   * @param sessionId the session identifier
+   * @param tags the tags
+   * @return Mono that completes when the tags are set
+   */
+  public Mono<Void> setTags(@SessionId final String sessionId, final Map<String, String> tags) {
+    if (tags != null) {
+      tagsMap.putIfAbsent(sessionId, Map.copyOf(tags));
+    }
+    return Mono.empty();
+  }
+
+  /**
    * Get all configurations for a session as a map.
    *
    * @param sessionId the session identifier
@@ -140,7 +219,10 @@ public class AppConfigService {
             getWorkflow(sessionId).defaultIfEmpty(new WorkflowDefinition(List.of(), List.of())),
             getExecutionTimeout(sessionId),
             getFileLogDir(sessionId),
-            getResultLogDir(sessionId))
+            getResultLogDir(sessionId),
+            getInitiator(sessionId),
+            getInitiatedTime(sessionId),
+            getTags(sessionId))
         .map(
             tuple -> {
               final Map<String, Object> configs = new java.util.LinkedHashMap<>();
@@ -149,6 +231,9 @@ public class AppConfigService {
               configs.put("executionTimeout", tuple.getT3());
               configs.put("fileLogDir", tuple.getT4());
               configs.put("resultLogDir", tuple.getT5());
+              configs.put("initiator", tuple.getT6());
+              configs.put("initiatedTime", tuple.getT7());
+              configs.put("tags", tuple.getT8());
               return configs;
             });
   }
@@ -162,6 +247,9 @@ public class AppConfigService {
     final java.util.Set<String> active = new java.util.HashSet<>();
     active.addAll(projectPaths.keySet());
     active.addAll(workflowsMap.keySet());
+    active.addAll(initiators.keySet());
+    active.addAll(initiatedTimes.keySet());
+    active.addAll(tagsMap.keySet());
     return Flux.fromIterable(active);
   }
 

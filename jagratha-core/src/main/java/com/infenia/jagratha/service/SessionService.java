@@ -24,6 +24,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Instant;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
@@ -63,7 +64,14 @@ public class SessionService {
                   configService.setProjectPath(data.sessionId(), data.projectPath());
               final Mono<Void> workflowMono =
                   configService.setWorkflow(data.sessionId(), data.workflow());
-              return Mono.when(projectPathMono, workflowMono)
+              final Mono<Void> initiatorMono =
+                  configService.setInitiator(data.sessionId(), data.initiator());
+              final Mono<Void> tagsMono = configService.setTags(data.sessionId(), data.tags());
+              final Mono<Void> initiatedTimeMono =
+                  configService.setInitiatedTime(data.sessionId(), Instant.now().toString());
+
+              return Mono.when(
+                      projectPathMono, workflowMono, initiatorMono, tagsMono, initiatedTimeMono)
                   .then(orchestrator.prepareWorkflow(data.workflow()));
             })
         .then(saveConfigToDisk(data.sessionId()));

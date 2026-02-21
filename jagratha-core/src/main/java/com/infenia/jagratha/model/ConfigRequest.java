@@ -19,12 +19,16 @@ import com.infenia.jagratha.validation.ProjectPath;
 import com.infenia.jagratha.validation.SessionId;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import java.util.Map;
 
 /**
  * Request object for configuration updates.
  *
  * @param sessionId the session identifier
+ * @param initiator the initiator name
+ * @param tags additional tags for the session
  * @param projectPath the project path
  * @param workflow the workflow definition (DAG)
  */
@@ -32,10 +36,23 @@ import jakarta.validation.constraints.NotNull;
 public record ConfigRequest(
     @Schema(description = "The unique session identifier", example = "session-123") @SessionId
         String sessionId,
+    @Schema(description = "The initiator name", example = "John Doe")
+        @NotBlank(message = "Initiator is mandatory")
+        String initiator,
+    @Schema(
+            description = "Additional tags for the session",
+            example = "{\"clientId\": \"client-1\"}")
+        Map<String, String> tags,
     @Schema(description = "The root path of the project to manage", example = "/path/to/project")
         @ProjectPath
         String projectPath,
     @Schema(description = "The workflow definition (DAG) to execute")
         @NotNull(message = "Workflow definition is required")
         @Valid
-        WorkflowDefinition workflow) {}
+        WorkflowDefinition workflow) {
+
+  /** Compact constructor to ensure immutability. */
+  public ConfigRequest {
+    tags = tags == null ? Map.of() : Map.copyOf(tags);
+  }
+}

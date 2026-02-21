@@ -62,11 +62,20 @@ def main():
     parser = argparse.ArgumentParser(description="Initialize a Jagratha session.")
     parser.add_argument("--session-id", help="The unique session identifier")
     parser.add_argument("--project-path", help="The root path of the project")
+    parser.add_argument("--initiator", help="The initiator name (mandatory)")
+    parser.add_argument("--tags", help="Additional tags as key=value pairs, comma separated (e.g., clientId=c1,env=prod)")
 
     args, unknown = parser.parse_known_args()
 
     session_id = args.session_id or "unknown"
     project_root = args.project_path or os.getcwd()
+    initiator = args.initiator
+    tags = {}
+    if args.tags:
+        for pair in args.tags.split(','):
+            if '=' in pair:
+                k, v = pair.split('=', 1)
+                tags[k.strip()] = v.strip()
 
     # Attempt to read from stdin (for automated environments/hooks)
     if not args.session_id and not sys.stdin.isatty():
@@ -74,10 +83,16 @@ def main():
             data = json.load(sys.stdin)
             session_id = data.get('session_id', session_id)
             project_root = data.get('project_root') or data.get('cwd') or project_root
+            initiator = data.get('initiator', initiator)
+            tags.update(data.get('tags', {}))
         except Exception:
             pass
 
-    print(f"Initializing for session: {session_id} at {project_root}")
+    if not initiator:
+        print("Error: --initiator is mandatory.")
+        sys.exit(1)
+
+    print(f"Initializing for session: {session_id} by {initiator} at {project_root}")
 
     # Construct the ConfigRequest payload
     # Ensure projectRoot is in the trigger node config as required by GradlePlugin
@@ -92,6 +107,8 @@ def main():
 
     payload = {
         "sessionId": session_id,
+        "initiator": initiator,
+        "tags": tags,
         "projectPath": project_root,
         "workflow": {
             "nodes": nodes,

@@ -85,4 +85,63 @@ class AppConfigServiceTest {
 
     StepVerifier.create(configService.getActiveSessionIds()).expectNextCount(2).verifyComplete();
   }
+
+  @Test
+  void testMetadataOverrides() {
+    String sessionId = "sess-1";
+    String initiator = "John Doe";
+    String time = "2026-02-21T21:00:00Z";
+    Map<String, String> tags = Map.of("clientId", "c1");
+
+    StepVerifier.create(configService.setInitiator(sessionId, initiator)).verifyComplete();
+    StepVerifier.create(configService.setInitiatedTime(sessionId, time)).verifyComplete();
+    StepVerifier.create(configService.setTags(sessionId, tags)).verifyComplete();
+
+    StepVerifier.create(configService.getInitiator(sessionId))
+        .expectNext(initiator)
+        .verifyComplete();
+    StepVerifier.create(configService.getInitiatedTime(sessionId))
+        .expectNext(time)
+        .verifyComplete();
+    StepVerifier.create(configService.getTags(sessionId)).expectNext(tags).verifyComplete();
+
+    // Verify putIfAbsent (immutability)
+    StepVerifier.create(configService.setInitiator(sessionId, "Other")).verifyComplete();
+    StepVerifier.create(configService.getInitiator(sessionId))
+        .expectNext(initiator)
+        .verifyComplete();
+
+    StepVerifier.create(configService.setInitiatedTime(sessionId, "Other")).verifyComplete();
+    StepVerifier.create(configService.getInitiatedTime(sessionId))
+        .expectNext(time)
+        .verifyComplete();
+
+    StepVerifier.create(configService.setTags(sessionId, Map.of("Other", "Val"))).verifyComplete();
+    StepVerifier.create(configService.getTags(sessionId)).expectNext(tags).verifyComplete();
+  }
+
+  @Test
+  void testGetAllConfigsIncludingMetadata() {
+    String sessionId = "sess-meta";
+    configService.setInitiator(sessionId, "Jules").block();
+    configService.setInitiatedTime(sessionId, "now").block();
+    configService.setTags(sessionId, Map.of("k", "v")).block();
+
+    StepVerifier.create(configService.getAllConfigs(sessionId))
+        .expectNextMatches(
+            map ->
+                "Jules".equals(map.get("initiator"))
+                    && "now".equals(map.get("initiatedTime"))
+                    && Map.of("k", "v").equals(map.get("tags")))
+        .verifyComplete();
+  }
+
+  @Test
+  void testActiveTrackingWithMetadata() {
+    String sess = "sess-tracking";
+    StepVerifier.create(configService.isActive(sess)).expectNext(false).verifyComplete();
+
+    configService.setInitiator(sess, "Jules").block();
+    StepVerifier.create(configService.isActive(sess)).expectNext(true).verifyComplete();
+  }
 }

@@ -18,16 +18,28 @@ package com.infenia.jagratha.model;
 import com.infenia.jagratha.validation.ProjectPath;
 import com.infenia.jagratha.validation.SessionId;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import java.util.Map;
 
 /**
  * Data record for application configuration.
  *
  * @param sessionId the session identifier
+ * @param initiator the initiator name
+ * @param tags additional tags for the session
  * @param projectPath the project path
  * @param workflow the workflow definition (DAG)
  */
 public record AppConfigData(
     @SessionId String sessionId,
+    @NotBlank(message = "Initiator is mandatory") String initiator,
+    Map<String, String> tags,
     @ProjectPath String projectPath,
-    @NotNull(message = "Workflow definition cannot be null") @Valid WorkflowDefinition workflow) {}
+    @NotNull(message = "Workflow definition cannot be null") @Valid WorkflowDefinition workflow) {
+
+  /** Compact constructor to ensure immutability. */
+  public AppConfigData {
+    tags = tags == null ? Map.of() : Map.copyOf(tags);
+  }
+}
