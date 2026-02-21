@@ -1,0 +1,36 @@
+{
+  "name": "Happy Path (Claude Hook Format)",
+  "steps": [
+    {
+      "hook": "SessionStart",
+      "data": {
+        "hook_event_name": "SessionStart",
+        "session_id": "sim-session-1",
+        "cwd": "/workspaces/jagratha",
+        "source": "startup",
+        "model": "claude-3-5-sonnet"
+      }
+    },
+    {
+      "hook": "PostToolUse",
+      "data": {
+        "hook_event_name": "PostToolUse",
+        "session_id": "sim-session-1",
+        "cwd": "/workspaces/jagratha",
+        "tool_name": "Write",
+        "tool_input": {
+          "file_path": "/workspaces/jagratha/README.md",
+          "content": "# New Content"
+        }
+      }
+    },
+    {
+      "hook": "Stop",
+      "data": {
+        "hook_event_name": "Stop",
+        "session_id": "sim-session-1",
+        "last_assistant_message": "I have updated the README."
+      }
+    }
+  ]
+}

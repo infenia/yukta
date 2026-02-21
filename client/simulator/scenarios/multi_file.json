@@ -1,0 +1,38 @@
+{
+  "name": "Multiple Files Scenario",
+  "steps": [
+    {
+      "hook": "init",
+      "data": {
+        "session_id": "multi-file-session",
+        "cwd": "/workspaces/jagratha"
+      }
+    },
+    {
+      "hook": "save",
+      "data": {
+        "session_id": "multi-file-session",
+        "cwd": "/workspaces/jagratha",
+        "tool_input": {
+          "file_path": "/workspaces/jagratha/src/main/java/com/example/Main.java"
+        }
+      }
+    },
+    {
+      "hook": "save",
+      "data": {
+        "session_id": "multi-file-session",
+        "cwd": "/workspaces/jagratha",
+        "tool_input": {
+          "file_path": "/workspaces/jagratha/src/main/resources/config.properties"
+        }
+      }
+    },
+    {
+      "hook": "trigger",
+      "data": {
+        "session_id": "multi-file-session"
+      }
+    }
+  ]
+}

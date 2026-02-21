@@ -64,7 +64,8 @@ def main():
     payload = {
         "sessionId": session_id
     }
-    http_post(WEBSERVER_HOST, WEBSERVER_PORT, WEBSERVER_ENDPOINT, payload)
+    if not http_post(WEBSERVER_HOST, WEBSERVER_PORT, WEBSERVER_ENDPOINT, payload):
+        sys.exit(1)
 
 if __name__ == "__main__":
     main()

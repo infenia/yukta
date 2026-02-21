@@ -73,7 +73,7 @@ def main():
         try:
             data = json.load(sys.stdin)
             session_id = data.get('session_id', session_id)
-            project_root = data.get('project_root', project_root)
+            project_root = data.get('project_root') or data.get('cwd') or project_root
         except Exception:
             pass
 
@@ -100,7 +100,8 @@ def main():
     }
 
     print("Sending configuration to Jagratha server...")
-    http_post(WEBSERVER_HOST, WEBSERVER_PORT, WEBSERVER_ENDPOINT, payload)
+    if not http_post(WEBSERVER_HOST, WEBSERVER_PORT, WEBSERVER_ENDPOINT, payload):
+        sys.exit(1)
 
 if __name__ == "__main__":
     main()
