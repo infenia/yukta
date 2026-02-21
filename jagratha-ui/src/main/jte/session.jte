@@ -11,234 +11,160 @@
 @param WorkflowProgress progress
 
 @template.layout.main(title = "Session " + sessionId, content = @`
-    <div class="mb-8 flex items-center gap-4">
-        <a href="/ui" class="text-slate-400 hover:text-indigo-600 transition">
-            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
-        </a>
-        <h1 class="text-3xl font-extrabold text-slate-800">Session <span class="text-indigo-600 font-mono text-2xl">${sessionId}</span></h1>
+    <div class="mb-10 flex items-center justify-between">
+        <div class="flex items-center gap-6">
+            <a href="/ui" class="p-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition shadow-sm group">
+                <svg class="w-6 h-6 group-hover:-translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+            </a>
+            <h1 class="text-4xl font-black text-slate-900 dark:text-white tracking-tight font-brand">#${sessionId}</h1>
+        </div>
+        <div id="workflow-status-badge">
+            @if(progress != null)
+                <span class="px-5 py-2 rounded-2xl text-xs font-black uppercase tracking-widest bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 border border-indigo-100 dark:border-indigo-800 shadow-sm">${progress.status()}</span>
+            @else
+                <span class="px-5 py-2 rounded-2xl text-xs font-black uppercase tracking-widest bg-slate-50 dark:bg-slate-900 text-slate-400 border border-slate-100 dark:border-slate-800 shadow-sm">IDLE</span>
+            @endif
+        </div>
     </div>
 
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <!-- Sidebar: Info & Stats -->
-        <div class="space-y-8">
-            <!-- Configuration -->
-            <section class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                <div class="bg-slate-50 px-6 py-4 border-b border-slate-200 flex justify-between items-center">
-                    <h2 class="font-bold text-slate-700">Configuration</h2>
-                    <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
-                </div>
-                <div class="p-6 space-y-4">
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-10">
+        <!-- Sidebar -->
+        <div class="lg:col-span-4 space-y-10">
+            <section class="bg-white dark:bg-slate-900 rounded-3xl shadow-sm border border-slate-200 dark:border-slate-800 p-8">
+                <h2 class="font-black text-slate-800 dark:text-white uppercase tracking-wider text-sm mb-6">System Config</h2>
+                <div class="space-y-4">
                     @for(Map.Entry<String, Object> entry : config.entrySet())
                         @if(!entry.getKey().equals("workflow"))
                             <div>
-                                <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider">${entry.getKey()}</label>
-                                <p class="text-slate-700 font-medium break-all">${String.valueOf(entry.getValue())}</p>
+                                <div class="text-[10px] font-black uppercase text-slate-400 dark:text-slate-500 mb-1 tracking-widest">${entry.getKey()}</div>
+                                <div class="font-bold text-slate-700 dark:text-slate-300 text-sm break-all">${String.valueOf(entry.getValue())}</div>
                             </div>
                         @endif
                     @endfor
                 </div>
             </section>
-
-            <!-- Modified Files -->
-            <section class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                <div class="bg-slate-50 px-6 py-4 border-b border-slate-200 flex justify-between items-center">
-                    <h2 class="font-bold text-slate-700">Modified Files</h2>
-                    <span class="text-xs bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-md font-bold">${modifiedFiles.size()}</span>
-                </div>
-                <div class="max-h-64 overflow-y-auto">
-                    <ul class="divide-y divide-slate-100">
-                        @for(Map.Entry<String, String> entry : modifiedFiles.entrySet())
-                            <li class="px-6 py-3 flex justify-between items-center text-sm">
-                                <span class="text-slate-600 truncate mr-2" title="${entry.getKey()}">${entry.getKey()}</span>
-                                <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase ${entry.getValue().equals("SUCCESS") ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}">
-                                    ${entry.getValue()}
-                                </span>
-                            </li>
-                        @endfor
-                        @if(modifiedFiles.isEmpty())
-                            <li class="px-6 py-8 text-center text-slate-400 italic text-sm">No files modified</li>
-                        @endif
-                    </ul>
-                </div>
-            </section>
         </div>
 
-        <!-- Main Content: Workflow & Logs -->
-        <div class="lg:col-span-2 space-y-8">
-            <!-- Workflow Visualization -->
-            <section class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                <div class="bg-slate-50 px-6 py-4 border-b border-slate-200 flex justify-between items-center">
-                    <h2 class="font-bold text-slate-700">Workflow DAG</h2>
-                    <div id="workflow-status-badge">
-                        @if(progress != null)
-                            <span class="px-3 py-1 rounded-full text-xs font-bold uppercase ${progress.status().equals("RUNNING") ? "bg-blue-100 text-blue-700 animate-pulse" : (progress.status().equals("COMPLETED") || progress.status().equals("SUCCESS") ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700")}">
-                                ${progress.status()}
-                            </span>
-                        @else
-                            <span class="px-3 py-1 rounded-full text-xs font-bold uppercase bg-slate-100 text-slate-400">Idle</span>
-                        @endif
-                    </div>
+        <!-- Main Content -->
+        <div class="lg:col-span-8 space-y-10">
+            <section class="bg-white dark:bg-slate-900 rounded-3xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden">
+                <div class="px-8 py-6 border-b border-slate-50 dark:border-slate-800/50 flex justify-between items-center">
+                    <h2 class="font-black text-slate-800 dark:text-white uppercase tracking-wider text-sm">Workflow Topology</h2>
                 </div>
-                <div class="p-6">
-                    <div class="mermaid flex justify-center">
-                        graph TD
-                        @for(WorkflowDefinition.Node node : workflow.nodes())
-                            !{
-                                String status = "PENDING";
-                                if (progress != null) {
-                                    status = progress.tasks().stream()
-                                        .filter(t -> t.nodeId().equals(node.nodeId()))
-                                        .map(com.infenia.jagratha.model.TaskProgress::status)
-                                        .findFirst()
-                                        .orElse("PENDING");
-                                }
-                                String color = status.equals("SUCCESS") ? "#10b981" : (status.equals("FAILURE") ? "#f43f5e" : (status.equals("RUNNING") ? "#3b82f6" : "#94a3b8"));
-                                String textColor = "#ffffff";
-                            }
-                            ${node.nodeId()}["${node.nodeId()}<br/>(${node.type()})"]
-                            style ${node.nodeId()} fill:${color},stroke:#fff,color:${textColor},stroke-width:2px
-                        @endfor
-                        @for(WorkflowDefinition.Edge edge : workflow.edges())
-                            ${edge.source()} --> ${edge.target()}
-                        @endfor
-                    </div>
+                <div class="p-8 bg-slate-50 dark:bg-slate-950 flex justify-center min-h-[300px]">
+                    <svg id="workflow-dag" width="600" height="300" class="max-w-full"></svg>
                 </div>
             </section>
 
-            <!-- Node Status Table -->
-            <section class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                <div class="bg-slate-50 px-6 py-4 border-b border-slate-200 flex justify-between items-center">
-                    <h2 class="font-bold text-slate-700">Node Progress</h2>
-                </div>
-                <div class="p-0">
-                    <table class="w-full text-left border-collapse">
-                        <thead>
-                            <tr class="bg-slate-50/50 text-slate-400 text-[10px] uppercase tracking-wider">
-                                <th class="px-6 py-3 font-semibold">Node ID</th>
-                                <th class="px-6 py-3 font-semibold">Type</th>
-                                <th class="px-6 py-3 font-semibold">Status</th>
-                                <th class="px-6 py-3 font-semibold text-right">Timing</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-slate-100" id="task-list">
-                            @if(progress != null)
-                                @for(TaskProgress task : progress.tasks())
-                                    !{
-                                        String type = workflow.nodes().stream()
-                                            .filter(n -> n.nodeId().equals(task.nodeId()))
-                                            .map(com.infenia.jagratha.model.WorkflowDefinition.Node::type)
-                                            .findFirst()
-                                            .orElse("unknown");
-                                    }
-                                    <tr class="hover:bg-slate-50 transition">
-                                        <td class="px-6 py-4 text-sm font-bold text-slate-700">${task.nodeId()}</td>
-                                        <td class="px-6 py-4 text-xs font-mono text-slate-500">${type}</td>
-                                        <td class="px-6 py-4">
-                                            <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase
-                                                ${task.status().equals("SUCCESS") ? "bg-emerald-100 text-emerald-700" : (task.status().equals("FAILURE") ? "bg-rose-100 text-rose-700" : (task.status().equals("RUNNING") ? "bg-blue-100 text-blue-700 animate-pulse" : "bg-slate-100 text-slate-400"))}">
-                                                ${task.status()}
-                                            </span>
-                                        </td>
-                                        <td class="px-6 py-4 text-right text-[10px] text-slate-400">
-                                            @if(task.startTime() != null)
-                                                ${task.startTime().format(java.time.format.DateTimeFormatter.ofPattern("HH:mm:ss"))}
-                                                @if(task.endTime() != null)
-                                                    → ${task.endTime().format(java.time.format.DateTimeFormatter.ofPattern("HH:mm:ss"))}
-                                                @endif
-                                            @else
-                                                -
-                                            @endif
-                                        </td>
-                                    </tr>
-                                @endfor
-                            @else
-                                <tr>
-                                    <td colspan="4" class="px-6 py-8 text-center text-slate-400 italic text-sm">No active workflow tracking available.</td>
-                                </tr>
-                            @endif
-                        </tbody>
-                    </table>
-                </div>
-            </section>
-
-            <!-- Live Logs / Console -->
-            <section class="bg-slate-900 rounded-xl shadow-2xl border border-slate-800 overflow-hidden flex flex-col h-[500px]">
-                <div class="bg-slate-800 px-6 py-3 border-b border-slate-700 flex justify-between items-center">
-                    <div class="flex items-center gap-2">
-                        <div class="flex gap-1.5">
-                            <div class="w-3 h-3 rounded-full bg-rose-500"></div>
-                            <div class="w-3 h-3 rounded-full bg-amber-500"></div>
-                            <div class="w-3 h-3 rounded-full bg-emerald-500"></div>
-                        </div>
-                        <span class="ml-2 text-slate-400 text-xs font-mono uppercase tracking-widest">Live Console</span>
+            <section class="bg-slate-950 rounded-3xl shadow-2xl border border-slate-800 overflow-hidden flex flex-col h-[500px]">
+                <div class="bg-slate-900 px-8 py-4 border-b border-white/5 flex items-center gap-4">
+                    <div class="flex gap-2">
+                        <div class="w-3 h-3 rounded-full bg-rose-500/80"></div>
+                        <div class="w-3 h-3 rounded-full bg-amber-500/80"></div>
+                        <div class="w-3 h-3 rounded-full bg-emerald-500/80"></div>
                     </div>
-                    <button class="text-slate-500 hover:text-white transition" onclick="document.getElementById('console-output').innerHTML = ''">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
-                    </button>
+                    <span class="text-white/40 text-[10px] font-black uppercase tracking-widest ml-4 font-mono">Reactive Terminal</span>
                 </div>
-                <div id="console-output" class="p-6 font-mono text-sm text-slate-300 overflow-y-auto flex-1 leading-relaxed whitespace-pre-wrap">
-                    <div class="text-slate-600">Waiting for task execution logs...</div>
-                </div>
-            </section>
-
-            <!-- Historical Logs -->
-            <section class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                <div class="bg-slate-50 px-6 py-4 border-b border-slate-200">
-                    <h2 class="font-bold text-slate-700">Archived Result Logs</h2>
-                </div>
-                <div class="p-0">
-                    <table class="w-full text-left border-collapse">
-                        <thead>
-                            <tr class="bg-slate-50/50 text-slate-400 text-[10px] uppercase tracking-wider">
-                                <th class="px-6 py-3 font-semibold">Log Name</th>
-                                <th class="px-6 py-3 font-semibold text-right">Action</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-slate-100">
-                            @for(String logName : logs)
-                                <tr class="hover:bg-slate-50 transition">
-                                    <td class="px-6 py-4 text-sm font-medium text-slate-700">${logName}</td>
-                                    <td class="px-6 py-4 text-right">
-                                        <a href="/api/logs/${sessionId}/${logName}/raw" target="_blank" class="text-indigo-600 hover:text-indigo-800 text-xs font-bold uppercase tracking-tighter">View Raw</a>
-                                    </td>
-                                </tr>
-                            @endfor
-                            @if(logs.isEmpty())
-                                <tr>
-                                    <td colspan="2" class="px-6 py-12 text-center text-slate-400 italic text-sm">No log files available yet.</td>
-                                </tr>
-                            @endif
-                        </tbody>
-                    </table>
+                <div id="console-output" class="p-8 font-mono text-sm text-slate-300 overflow-y-auto flex-1 leading-relaxed custom-scrollbar">
+                    <div class="text-slate-600 animate-pulse">➜ Listening for session emission...</div>
                 </div>
             </section>
         </div>
     </div>
 
-    <!-- SSE Script for Real-time Updates -->
+    <style>
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
+    </style>
+
+    <script src="https://cdn.jsdelivr.net/npm/dagre@0.8.5/dist/dagre.min.js"></script>
     <script>
+        function initDag() {
+            const svg = d3.select("#workflow-dag");
+            const width = 600, height = 300;
+            svg.selectAll("*").remove();
+
+            const nodesData = [
+                @for(WorkflowDefinition.Node node : workflow.nodes())
+                    { id: "${node.nodeId()}", label: "${node.nodeId()}" },
+                @endfor
+            ];
+            const edgesData = [
+                @for(WorkflowDefinition.Edge edge : workflow.edges())
+                    { source: "${edge.source()}", target: "${edge.target()}" },
+                @endfor
+            ];
+
+            if (nodesData.length === 0) return;
+
+            const g = new dagre.graphlib.Graph();
+            g.setGraph({ rankdir: 'LR', nodesep: 50, ranksep: 100 });
+            g.setDefaultEdgeLabel(() => ({}));
+
+            nodesData.forEach(n => g.setNode(n.id, { width: 120, height: 40 }));
+            edgesData.forEach(e => g.setEdge(e.source, e.target));
+            dagre.layout(g);
+
+            const container = svg.append("g");
+
+            // Edges
+            const line = d3.line().x(d => d.x).y(d => d.y).curve(d3.curveBasis);
+            edgesData.forEach(e => {
+                const edge = g.edge(e.source, e.target);
+                container.append("path")
+                    .attr("d", line(edge.points))
+                    .attr("fill", "none")
+                    .attr("stroke", "#6366f1")
+                    .attr("stroke-width", 2)
+                    .attr("opacity", 0.3);
+            });
+
+            // Nodes
+            nodesData.forEach(n => {
+                const node = g.node(n.id);
+                const grp = container.append("g").attr("transform", "translate(" + (node.x - 60) + "," + (node.y - 20) + ")");
+
+                grp.append("rect")
+                    .attr("width", 120)
+                    .attr("height", 40)
+                    .attr("rx", 10)
+                    .attr("fill", "#6366f1")
+                    .attr("stroke", "white")
+                    .attr("stroke-width", 2)
+                    .attr("class", "dark:stroke-slate-900");
+
+                grp.append("text")
+                    .attr("x", 60)
+                    .attr("y", 25)
+                    .attr("text-anchor", "middle")
+                    .attr("fill", "white")
+                    .attr("font-size", "10px")
+                    .attr("font-weight", "black")
+                    .attr("class", "uppercase tracking-tighter")
+                    .text(n.label);
+            });
+
+            const bbox = container.node().getBBox();
+            const scale = Math.min(width / (bbox.width + 40), height / (bbox.height + 40), 1);
+            const x = (width - bbox.width * scale) / 2 - bbox.x * scale;
+            const y = (height - bbox.height * scale) / 2 - bbox.y * scale;
+            container.attr("transform", "translate(" + x + "," + y + ") scale(" + scale + ")");
+        }
+        window.addEventListener('load', initDag);
+        window.addEventListener('resize', initDag);
+
         const sessionId = "${sessionId}";
-        const consoleOutput = document.getElementById('console-output');
-
-        // Listen for log updates
-        const logSource = new EventSource("/ui/api/sessions/" + sessionId + "/logs/stream");
-        logSource.onmessage = function(event) {
-            if (consoleOutput.innerText.includes('Waiting for task execution logs...')) {
-                consoleOutput.innerHTML = '';
-            }
+        new EventSource("/ui/api/sessions/" + sessionId + "/logs/stream").onmessage = (e) => {
+            const out = document.getElementById('console-output');
+            if (out.innerText.includes('Listening')) out.innerHTML = '';
             const line = document.createElement('div');
-            line.className = 'mb-1';
-            line.textContent = event.data;
-            consoleOutput.appendChild(line);
-            consoleOutput.scrollTop = consoleOutput.scrollHeight;
-        };
-
-        // Listen for workflow status updates
-        const statusSource = new EventSource("/ui/api/sessions/" + sessionId + "/status/stream");
-        statusSource.onmessage = function(event) {
-            if (event.data === "update") {
-                location.reload();
-            }
+            line.className = 'mb-1 text-slate-300 flex gap-4';
+            line.innerHTML = '<span class="opacity-20 w-16 shrink-0">' + new Date().toLocaleTimeString() + '</span>' +
+                             '<span class="text-indigo-400">➜</span>' +
+                             '<span>' + e.data + '</span>';
+            out.appendChild(line);
+            out.scrollTop = out.scrollHeight;
         };
     </script>
 `)
