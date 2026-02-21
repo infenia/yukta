@@ -1,5 +1,5 @@
 [versions]
-springBoot = "4.0.2"
+springBoot = "4.0.3"
 springDependencyManagement = "1.1.7"
 graalvmBuildtools = "0.11.4"
 spotless = "8.2.1"
@@ -12,12 +12,15 @@ checkstyle = "13.2.0"
 pmd = "7.21.0"
 spotbugs = "6.4.8"
 jacksonDataformatYaml = "2.18.2"
-jte = "3.1.12"
+jte = "3.1.16"
+htmx = "5.0.0"
+cyclonedx = "3.2.0"
 
 [libraries]
 spring-boot-starter = { group = "org.springframework.boot", name = "spring-boot-starter", version.ref = "springBoot" }
 spring-boot-autoconfigure = { group = "org.springframework.boot", name = "spring-boot-autoconfigure", version.ref = "springBoot" }
 spring-boot-starter-webflux = { group = "org.springframework.boot", name = "spring-boot-starter-webflux", version.ref = "springBoot" }
+spring-boot-starter-webclient = { group = "org.springframework.boot", name = "spring-boot-starter-webclient", version.ref = "springBoot" }
 spring-boot-starter-validation = { group = "org.springframework.boot", name = "spring-boot-starter-validation", version.ref = "springBoot" }
 spring-boot-starter-actuator = { group = "org.springframework.boot", name = "spring-boot-starter-actuator", version.ref = "springBoot" }
 spring-boot-configuration-processor = { group = "org.springframework.boot", name = "spring-boot-configuration-processor", version.ref = "springBoot" }
@@ -30,10 +33,16 @@ springdoc-openapi = { group = "org.springdoc", name = "springdoc-openapi-starter
 jte-starter = { group = "gg.jte", name = "jte-spring-boot-starter-3", version.ref = "jte" }
 jte-runtime = { group = "gg.jte", name = "jte-runtime", version.ref = "jte" }
 jte-core = { group = "gg.jte", name = "jte", version.ref = "jte" }
+htmx-spring-boot = { group = "io.github.wimdeblauwe", name = "htmx-spring-boot", version.ref = "htmx" }
 lombok = { group = "org.projectlombok", name = "lombok", version = "1.18.36" }
+spring-boot-devtools = { group = "org.springframework.boot", name = "spring-boot-devtools", version.ref = "springBoot" }
+spring-boot-docker-compose = { group = "org.springframework.boot", name = "spring-boot-docker-compose", version.ref = "springBoot" }
 
 # Testing
 spring-boot-starter-test = { group = "org.springframework.boot", name = "spring-boot-starter-test", version.ref = "springBoot" }
+spring-boot-starter-actuator-test = { group = "org.springframework.boot", name = "spring-boot-starter-actuator-test", version.ref = "springBoot" }
+spring-boot-starter-validation-test = { group = "org.springframework.boot", name = "spring-boot-starter-validation-test", version.ref = "springBoot" }
+spring-boot-starter-webclient-test = { group = "org.springframework.boot", name = "spring-boot-starter-webclient-test", version.ref = "springBoot" }
 spring-boot-starter-webflux-test = { group = "org.springframework.boot", name = "spring-boot-starter-webflux-test", version.ref = "springBoot" }
 spring-boot-starter-jackson-test = { group = "org.springframework.boot", name = "spring-boot-starter-jackson-test", version.ref = "springBoot" }
 reactor-test = { group = "io.projectreactor", name = "reactor-test" }
@@ -46,3 +55,4 @@ spotless = { id = "com.diffplug.spotless", version.ref = "spotless" }
 lombok = { id = "io.freefair.lombok", version.ref = "lombok" }
 spotbugs = { id = "com.github.spotbugs", version.ref = "spotbugs" }
 jte = { id = "gg.jte.gradle", version.ref = "jte" }
+cyclonedx = { id = "org.cyclonedx.bom", version.ref = "cyclonedx" }

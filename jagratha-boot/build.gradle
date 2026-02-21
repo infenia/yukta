@@ -30,8 +30,15 @@ dependencies {
     implementation libs.spring.boot.starter.validation
     implementation libs.spring.boot.starter.actuator
 
+    developmentOnly libs.spring.boot.devtools
+    developmentOnly libs.spring.boot.docker.compose
+
+    compileOnly libs.lombok
+    annotationProcessor libs.lombok
     annotationProcessor libs.spring.boot.configuration.processor
 
+    testImplementation libs.spring.boot.starter.validation.test
+    testImplementation libs.spring.boot.starter.actuator.test
     testImplementation libs.reactor.test
 }
 

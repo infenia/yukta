@@ -30,7 +30,11 @@ dependencies {
     implementation project(':jagratha-core')
     implementation libs.jte.starter
     implementation libs.jte.core
+    implementation libs.htmx.spring.boot
     implementation libs.spring.boot.starter.webflux
+
+    compileOnly libs.lombok
+    annotationProcessor libs.lombok
 
     testImplementation libs.spring.boot.starter.webflux.test
     testImplementation libs.reactor.test

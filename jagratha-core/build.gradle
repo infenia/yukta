@@ -36,6 +36,7 @@ dependencies {
     implementation project(':plugins:build-tools:gradle')
 
     implementation libs.spring.boot.starter.webflux
+    implementation libs.spring.boot.starter.webclient
     implementation libs.spring.boot.starter.validation
     implementation libs.spring.boot.starter.actuator
     implementation libs.jackson.dataformat.yaml
@@ -44,11 +45,16 @@ dependencies {
     implementation libs.spring.ai.mcp.server
     implementation libs.springdoc.openapi
 
+    compileOnly libs.lombok
+    annotationProcessor libs.lombok
     annotationProcessor libs.spring.boot.configuration.processor
     annotationProcessor libs.mapstruct.processor
     annotationProcessor libs.lombok.mapstruct.binding
 
     testImplementation libs.spring.boot.starter.webflux.test
+    testImplementation libs.spring.boot.starter.webclient.test
+    testImplementation libs.spring.boot.starter.validation.test
+    testImplementation libs.spring.boot.starter.actuator.test
     testImplementation libs.spring.boot.starter.jackson.test
     testImplementation libs.reactor.test
 }
