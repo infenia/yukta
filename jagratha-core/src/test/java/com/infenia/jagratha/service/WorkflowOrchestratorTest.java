@@ -129,17 +129,10 @@ class WorkflowOrchestratorTest {
   @Test
   void testValidateStructuralIntegrityEndpointNotTerminal() {
     WorkflowDefinition.Node triggerNode = new WorkflowDefinition.Node("n1", "trigger", Map.of());
-    WorkflowDefinition.Node otherTriggerNode =
-        new WorkflowDefinition.Node("n2", "trigger", Map.of());
-    WorkflowDefinition def =
-        new WorkflowDefinition(
-            "desc",
-            List.of(triggerNode, otherTriggerNode),
-            List.of(new WorkflowDefinition.Edge("n1", "n2")));
+    WorkflowDefinition def = new WorkflowDefinition("desc", List.of(triggerNode), List.of());
 
     TriggerPlugin trigger = mock(TriggerPlugin.class);
     when(trigger.getCategory()).thenReturn(PluginCategory.TRIGGER);
-    when(trigger.getType()).thenReturn("trigger");
     when(trigger.validateConfig(any())).thenReturn(Mono.empty());
     when(trigger.initialize(any())).thenReturn(Mono.empty());
 
@@ -155,16 +148,17 @@ class WorkflowOrchestratorTest {
 
   @Test
   void testValidateStructuralIntegrityCycleDetection() {
-    WorkflowDefinition.Node triggerNode = new WorkflowDefinition.Node("n1", "trigger", Map.of());
-    WorkflowDefinition.Node processorNode =
-        new WorkflowDefinition.Node("n2", "processor", Map.of());
+    WorkflowDefinition.Node t = new WorkflowDefinition.Node("t", "trigger", Map.of());
+    WorkflowDefinition.Node p1 = new WorkflowDefinition.Node("p1", "processor", Map.of());
+    WorkflowDefinition.Node p2 = new WorkflowDefinition.Node("p2", "processor", Map.of());
     WorkflowDefinition def =
         new WorkflowDefinition(
             "desc",
-            List.of(triggerNode, processorNode),
+            List.of(t, p1, p2),
             List.of(
-                new WorkflowDefinition.Edge("n1", "n2"),
-                new WorkflowDefinition.Edge("n2", "n1") // Cycle
+                new WorkflowDefinition.Edge("t", "p1"),
+                new WorkflowDefinition.Edge("p1", "p2"),
+                new WorkflowDefinition.Edge("p2", "p1") // Cycle
                 ));
 
     TriggerPlugin trigger = mock(TriggerPlugin.class);
@@ -183,6 +177,55 @@ class WorkflowOrchestratorTest {
         .expectErrorMatches(
             e ->
                 e instanceof IllegalArgumentException && e.getMessage().contains("contains cycles"))
+        .verify();
+  }
+
+  @Test
+  void testValidateTriggerCannotHaveIncomingEdges() {
+    WorkflowDefinition.Node t1 = new WorkflowDefinition.Node("t1", "trigger", Map.of());
+    WorkflowDefinition.Node t2 = new WorkflowDefinition.Node("t2", "trigger", Map.of());
+    WorkflowDefinition def =
+        new WorkflowDefinition(
+            "desc", List.of(t1, t2), List.of(new WorkflowDefinition.Edge("t1", "t2")));
+
+    TriggerPlugin trigger = mock(TriggerPlugin.class);
+    when(trigger.getCategory()).thenReturn(PluginCategory.TRIGGER);
+    when(registry.get("trigger")).thenReturn(trigger);
+
+    StepVerifier.create(orchestrator.prepareWorkflow(def))
+        .expectErrorMatches(
+            e ->
+                e instanceof IllegalArgumentException
+                    && e.getMessage().contains("cannot have incoming edges"))
+        .verify();
+  }
+
+  @Test
+  void testValidateTerminalCannotHaveOutgoingEdges() {
+    WorkflowDefinition.Node t = new WorkflowDefinition.Node("t", "trigger", Map.of());
+    WorkflowDefinition.Node term1 = new WorkflowDefinition.Node("term1", "terminal", Map.of());
+    WorkflowDefinition.Node term2 = new WorkflowDefinition.Node("term2", "terminal", Map.of());
+    WorkflowDefinition def =
+        new WorkflowDefinition(
+            "desc",
+            List.of(t, term1, term2),
+            List.of(
+                new WorkflowDefinition.Edge("t", "term1"),
+                new WorkflowDefinition.Edge("term1", "term2")));
+
+    TriggerPlugin trigger = mock(TriggerPlugin.class);
+    when(trigger.getCategory()).thenReturn(PluginCategory.TRIGGER);
+    TerminalPlugin terminal = mock(TerminalPlugin.class);
+    when(terminal.getCategory()).thenReturn(PluginCategory.TERMINAL);
+
+    when(registry.get("trigger")).thenReturn(trigger);
+    when(registry.get("terminal")).thenReturn(terminal);
+
+    StepVerifier.create(orchestrator.prepareWorkflow(def))
+        .expectErrorMatches(
+            e ->
+                e instanceof IllegalArgumentException
+                    && e.getMessage().contains("cannot have outgoing edges"))
         .verify();
   }
 
