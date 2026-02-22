@@ -50,7 +50,7 @@ class ModelTest {
   void testWorkflowDefinitionImmutability() {
     WorkflowDefinition.Node node = new WorkflowDefinition.Node("n1", "t1", Map.of("k", "v"));
     WorkflowDefinition.Edge edge = new WorkflowDefinition.Edge("n1", "n2");
-    WorkflowDefinition def = new WorkflowDefinition(List.of(node), List.of(edge));
+    WorkflowDefinition def = new WorkflowDefinition("desc", List.of(node), List.of(edge));
 
     assertNotNull(def.nodes());
     assertNotNull(def.edges());

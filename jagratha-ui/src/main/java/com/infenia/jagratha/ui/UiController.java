@@ -139,12 +139,12 @@ public class UiController {
                         .getSessionWorkflow(sessionId, actualWorkflowId)
                         .defaultIfEmpty(
                             new com.infenia.jagratha.model.WorkflowDefinition(
-                                java.util.List.of(), java.util.List.of()));
+                                "No workflow found", java.util.List.of(), java.util.List.of()));
               } else {
                 workflowMono =
                     Mono.just(
                         new com.infenia.jagratha.model.WorkflowDefinition(
-                            java.util.List.of(), java.util.List.of()));
+                            "No workflow defined", java.util.List.of(), java.util.List.of()));
               }
 
               return workflowMono.flatMap(

@@ -20,12 +20,14 @@ import com.infenia.jagratha.validation.SessionId;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.Size;
 import java.util.Map;
 
 /**
  * Data record for application configuration.
  *
  * @param sessionId the session identifier
+ * @param description a human-readable description of the session
  * @param initiator the initiator name
  * @param tags additional tags for the session
  * @param projectPath the project path
@@ -33,6 +35,9 @@ import java.util.Map;
  */
 public record AppConfigData(
     @SessionId String sessionId,
+    @NotBlank(message = "Session description is mandatory")
+        @Size(max = 256, message = "Session description must be at most 256 characters")
+        String description,
     @NotBlank(message = "Initiator is mandatory") String initiator,
     Map<String, String> tags,
     @ProjectPath String projectPath,

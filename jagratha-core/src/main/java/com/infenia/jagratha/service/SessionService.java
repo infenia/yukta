@@ -64,6 +64,8 @@ public class SessionService {
                   configService.setProjectPath(data.sessionId(), data.projectPath());
               final Mono<Void> workflowMono =
                   configService.setWorkflows(data.sessionId(), data.workflows());
+              final Mono<Void> descriptionMono =
+                  configService.setDescription(data.sessionId(), data.description());
               final Mono<Void> initiatorMono =
                   configService.setInitiator(data.sessionId(), data.initiator());
               final Mono<Void> tagsMono = configService.setTags(data.sessionId(), data.tags());
@@ -71,7 +73,12 @@ public class SessionService {
                   configService.setInitiatedTime(data.sessionId(), Instant.now().toString());
 
               return Mono.when(
-                      projectPathMono, workflowMono, initiatorMono, tagsMono, initiatedTimeMono)
+                      projectPathMono,
+                      workflowMono,
+                      descriptionMono,
+                      initiatorMono,
+                      tagsMono,
+                      initiatedTimeMono)
                   .then(
                       Flux.fromIterable(data.workflows().values())
                           .flatMap(orchestrator::prepareWorkflow)

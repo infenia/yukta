@@ -57,7 +57,9 @@ class WorkflowOrchestratorTest {
     WorkflowDefinition.Node terminalNode = new WorkflowDefinition.Node("n2", "terminal", Map.of());
     WorkflowDefinition def =
         new WorkflowDefinition(
-            List.of(triggerNode, terminalNode), List.of(new WorkflowDefinition.Edge("n1", "n2")));
+            "desc",
+            List.of(triggerNode, terminalNode),
+            List.of(new WorkflowDefinition.Edge("n1", "n2")));
 
     TriggerPlugin trigger = mock(TriggerPlugin.class);
     when(trigger.getCategory()).thenReturn(PluginCategory.TRIGGER);
@@ -79,7 +81,7 @@ class WorkflowOrchestratorTest {
   void testValidateStructuralIntegrityMissingTriggerAtEntry() {
     WorkflowDefinition.Node processorNode =
         new WorkflowDefinition.Node("n1", "processor", Map.of());
-    WorkflowDefinition def = new WorkflowDefinition(List.of(processorNode), List.of());
+    WorkflowDefinition def = new WorkflowDefinition("desc", List.of(processorNode), List.of());
 
     ProcessorPlugin processor = mock(ProcessorPlugin.class);
     when(processor.getCategory()).thenReturn(PluginCategory.PROCESSOR);
@@ -100,6 +102,7 @@ class WorkflowOrchestratorTest {
         new WorkflowDefinition.Node("n2", "processor", Map.of());
     WorkflowDefinition def =
         new WorkflowDefinition(
+            "desc",
             List.of(triggerNode, processorNode),
             List.of(new WorkflowDefinition.Edge("n1", "n2"))); // n2 has no outgoing edge
 
@@ -130,6 +133,7 @@ class WorkflowOrchestratorTest {
         new WorkflowDefinition.Node("n2", "trigger", Map.of());
     WorkflowDefinition def =
         new WorkflowDefinition(
+            "desc",
             List.of(triggerNode, otherTriggerNode),
             List.of(new WorkflowDefinition.Edge("n1", "n2")));
 
@@ -156,6 +160,7 @@ class WorkflowOrchestratorTest {
         new WorkflowDefinition.Node("n2", "processor", Map.of());
     WorkflowDefinition def =
         new WorkflowDefinition(
+            "desc",
             List.of(triggerNode, processorNode),
             List.of(
                 new WorkflowDefinition.Edge("n1", "n2"),
@@ -191,7 +196,9 @@ class WorkflowOrchestratorTest {
     WorkflowDefinition.Node terminalNode = new WorkflowDefinition.Node("n2", "terminal", Map.of());
     WorkflowDefinition def =
         new WorkflowDefinition(
-            List.of(triggerNode, terminalNode), List.of(new WorkflowDefinition.Edge("n1", "n2")));
+            "desc",
+            List.of(triggerNode, terminalNode),
+            List.of(new WorkflowDefinition.Edge("n1", "n2")));
 
     TriggerPlugin trigger = mock(TriggerPlugin.class);
     when(trigger.getCategory()).thenReturn(PluginCategory.TRIGGER);
@@ -225,6 +232,7 @@ class WorkflowOrchestratorTest {
 
     WorkflowDefinition def =
         new WorkflowDefinition(
+            "desc",
             List.of(triggerNode, term1, term2),
             List.of(
                 new WorkflowDefinition.Edge("t", "term1"),
@@ -257,6 +265,7 @@ class WorkflowOrchestratorTest {
 
     WorkflowDefinition def =
         new WorkflowDefinition(
+            "desc",
             List.of(triggerNode, procNode, termNode),
             List.of(
                 new WorkflowDefinition.Edge("t", "p"), new WorkflowDefinition.Edge("p", "term")));
@@ -287,7 +296,7 @@ class WorkflowOrchestratorTest {
   @Test
   void testPrepareWorkflowPluginNotFound() {
     WorkflowDefinition.Node node = new WorkflowDefinition.Node("n1", "unknown", Map.of());
-    WorkflowDefinition def = new WorkflowDefinition(List.of(node), List.of());
+    WorkflowDefinition def = new WorkflowDefinition("desc", List.of(node), List.of());
 
     when(registry.get("unknown")).thenReturn(null);
 
@@ -311,6 +320,7 @@ class WorkflowOrchestratorTest {
 
     WorkflowDefinition def =
         new WorkflowDefinition(
+            "desc",
             List.of(triggerNode, procNode, term1, term2),
             List.of(
                 new WorkflowDefinition.Edge("t", "p"),

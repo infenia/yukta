@@ -56,12 +56,14 @@ class SessionServiceTest {
   @Test
   void testApplyConfigOverrides() {
     String sessionId = "sess-1";
-    WorkflowDefinition workflow = new WorkflowDefinition(List.of(), List.of());
+    WorkflowDefinition workflow = new WorkflowDefinition("desc", List.of(), List.of());
     AppConfigData data =
-        new AppConfigData(sessionId, "initiator-1", Map.of(), "/path", Map.of("w1", workflow));
+        new AppConfigData(
+            sessionId, "desc", "initiator-1", Map.of(), "/path", Map.of("w1", workflow));
 
     when(configService.setProjectPath(anyString(), anyString())).thenReturn(Mono.empty());
     when(configService.setWorkflows(anyString(), any())).thenReturn(Mono.empty());
+    when(configService.setDescription(anyString(), anyString())).thenReturn(Mono.empty());
     when(configService.setInitiator(anyString(), anyString())).thenReturn(Mono.empty());
     when(configService.setTags(anyString(), any())).thenReturn(Mono.empty());
     when(configService.setInitiatedTime(anyString(), anyString())).thenReturn(Mono.empty());
@@ -82,10 +84,12 @@ class SessionServiceTest {
   @Test
   void testApplyConfigOverridesPartial() {
     String sessionId = "sess-partial";
-    AppConfigData data = new AppConfigData(sessionId, "initiator-p", Map.of(), null, Map.of());
+    AppConfigData data =
+        new AppConfigData(sessionId, "desc", "initiator-p", Map.of(), null, Map.of());
 
     when(configService.setProjectPath(anyString(), any())).thenReturn(Mono.empty());
     when(configService.setWorkflows(anyString(), any())).thenReturn(Mono.empty());
+    when(configService.setDescription(anyString(), anyString())).thenReturn(Mono.empty());
     when(configService.setInitiator(anyString(), anyString())).thenReturn(Mono.empty());
     when(configService.setTags(anyString(), any())).thenReturn(Mono.empty());
     when(configService.setInitiatedTime(anyString(), anyString())).thenReturn(Mono.empty());
@@ -143,7 +147,7 @@ class SessionServiceTest {
     Path sessDir = resultsDir.resolve(sessionId);
     Files.createDirectories(sessDir);
 
-    WorkflowDefinition workflow = new WorkflowDefinition(List.of(), List.of());
+    WorkflowDefinition workflow = new WorkflowDefinition("desc", List.of(), List.of());
     Map<String, Object> configMap = Map.of("workflows", Map.of("w1", workflow));
     Files.writeString(sessDir.resolve("config.json"), objectMapper.writeValueAsString(configMap));
 

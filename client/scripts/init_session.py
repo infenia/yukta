@@ -61,6 +61,7 @@ def http_post(host, port, location, payload):
 def main():
     parser = argparse.ArgumentParser(description="Initialize a Jagratha session.")
     parser.add_argument("--session-id", help="The unique session identifier")
+    parser.add_argument("--description", help="A human-readable description of the session (mandatory)")
     parser.add_argument("--project-path", help="The root path of the project")
     parser.add_argument("--initiator", help="The initiator name (mandatory)")
     parser.add_argument("--tags", help="Additional tags as key=value pairs, comma separated (e.g., clientId=c1,env=prod)")
@@ -68,6 +69,7 @@ def main():
     args, unknown = parser.parse_known_args()
 
     session_id = args.session_id or "unknown"
+    description = args.description
     project_root = args.project_path or os.getcwd()
     initiator = args.initiator
     tags = {}
@@ -82,11 +84,16 @@ def main():
         try:
             data = json.load(sys.stdin)
             session_id = data.get('session_id', session_id)
+            description = data.get('description') or description or data.get('source') or "Jagratha Session"
             project_root = data.get('project_root') or data.get('cwd') or project_root
             initiator = data.get('initiator', initiator)
             tags.update(data.get('tags', {}))
         except Exception:
             pass
+
+    if not description:
+        print("Error: --description is mandatory.")
+        sys.exit(1)
 
     if not initiator:
         print("Error: --initiator is mandatory.")
@@ -107,15 +114,18 @@ def main():
 
     payload = {
         "sessionId": session_id,
+        "description": description,
         "initiator": initiator,
         "tags": tags,
         "projectPath": project_root,
         "workflows": {
             "quality-check": {
+                "description": "Standard quality gate for checking project status",
                 "nodes": nodes,
                 "edges": DEFAULT_WORKFLOW_EDGES
             },
             "file-update": {
+                "description": "Reactive workflow to record file updates",
                 "nodes": [
                     {
                         "nodeId": "api-trigger-1",

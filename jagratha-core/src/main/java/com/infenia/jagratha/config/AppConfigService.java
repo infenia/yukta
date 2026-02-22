@@ -46,6 +46,7 @@ public class AppConfigService {
   private final Map<String, String> initiators = new ConcurrentHashMap<>();
   private final Map<String, String> initiatedTimes = new ConcurrentHashMap<>();
   private final Map<String, Map<String, String>> tagsMap = new ConcurrentHashMap<>();
+  private final Map<String, String> descriptions = new ConcurrentHashMap<>();
 
   /** Public constructor. */
   public AppConfigService() {
@@ -150,6 +151,31 @@ public class AppConfigService {
   }
 
   /**
+   * Get the description for a session.
+   *
+   * @param sessionId the session identifier
+   * @return Mono containing the description
+   */
+  public Mono<String> getDescription(@SessionId final String sessionId) {
+    final String result = descriptions.get(sessionId);
+    return Mono.just(result != null ? result : "");
+  }
+
+  /**
+   * Set the description for a session.
+   *
+   * @param sessionId the session identifier
+   * @param description the description
+   * @return Mono that completes when the description is set
+   */
+  public Mono<Void> setDescription(@SessionId final String sessionId, final String description) {
+    if (description != null) {
+      descriptions.putIfAbsent(sessionId, description);
+    }
+    return Mono.empty();
+  }
+
+  /**
    * Get the initiator for a session.
    *
    * @param sessionId the session identifier
@@ -233,27 +259,28 @@ public class AppConfigService {
    */
   public Mono<Map<String, Object>> getAllConfigs(@SessionId final String sessionId) {
     return Mono.zip(
-            getProjectPath(sessionId),
-            getWorkflows(sessionId),
-            getExecutionTimeout(sessionId),
-            getFileLogDir(sessionId),
-            getResultLogDir(sessionId),
-            getInitiator(sessionId),
-            getInitiatedTime(sessionId),
-            getTags(sessionId))
-        .map(
-            tuple -> {
-              final Map<String, Object> configs = new java.util.LinkedHashMap<>();
-              configs.put("projectPath", tuple.getT1());
-              configs.put("workflows", tuple.getT2());
-              configs.put("executionTimeout", tuple.getT3());
-              configs.put("fileLogDir", tuple.getT4());
-              configs.put("resultLogDir", tuple.getT5());
-              configs.put("initiator", tuple.getT6());
-              configs.put("initiatedTime", tuple.getT7());
-              configs.put("tags", tuple.getT8());
-              return configs;
-            });
+        arr -> {
+          final Map<String, Object> configs = new java.util.LinkedHashMap<>();
+          configs.put("projectPath", arr[0]);
+          configs.put("workflows", arr[1]);
+          configs.put("executionTimeout", arr[2]);
+          configs.put("fileLogDir", arr[3]);
+          configs.put("resultLogDir", arr[4]);
+          configs.put("initiator", arr[5]);
+          configs.put("initiatedTime", arr[6]);
+          configs.put("tags", arr[7]);
+          configs.put("description", arr[8]);
+          return configs;
+        },
+        getProjectPath(sessionId),
+        getWorkflows(sessionId),
+        getExecutionTimeout(sessionId),
+        getFileLogDir(sessionId),
+        getResultLogDir(sessionId),
+        getInitiator(sessionId),
+        getInitiatedTime(sessionId),
+        getTags(sessionId),
+        getDescription(sessionId));
   }
 
   /**
@@ -268,6 +295,7 @@ public class AppConfigService {
     active.addAll(initiators.keySet());
     active.addAll(initiatedTimes.keySet());
     active.addAll(tagsMap.keySet());
+    active.addAll(descriptions.keySet());
     return Flux.fromIterable(active);
   }
 

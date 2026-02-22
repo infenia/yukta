@@ -21,12 +21,14 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.Size;
 import java.util.Map;
 
 /**
  * Request object for configuration updates.
  *
  * @param sessionId the session identifier
+ * @param description a human-readable description of the session
  * @param initiator the initiator name
  * @param tags additional tags for the session
  * @param projectPath the project path
@@ -36,6 +38,10 @@ import java.util.Map;
 public record ConfigRequest(
     @Schema(description = "The unique session identifier", example = "session-123") @SessionId
         String sessionId,
+    @Schema(description = "A human-readable description of the session", example = "Daily build")
+        @NotBlank(message = "Session description is mandatory")
+        @Size(max = 256, message = "Session description must be at most 256 characters")
+        String description,
     @Schema(description = "The initiator name", example = "John Doe")
         @NotBlank(message = "Initiator is mandatory")
         String initiator,
