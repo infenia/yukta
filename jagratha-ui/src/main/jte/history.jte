@@ -2,41 +2,38 @@
 @param List<String> sessions
 
 @template.layout.main(title = "History", content = @`
-    <div class="flex justify-between items-center mb-10">
-        <div>
-            <h1 class="text-4xl font-black text-slate-900 dark:text-white tracking-tight">Archived Sessions</h1>
-            <p class="text-slate-500 dark:text-slate-400 mt-1">Review past quality gate results.</p>
-        </div>
-        <div class="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 px-4 py-1.5 rounded-full text-sm font-bold border border-slate-200 dark:border-slate-700">
+    <div class="flex items-center justify-between mb-6 px-1">
+        <h2 class="text-sm font-display font-bold uppercase tracking-wider text-text-slate-500">Archived Sessions</h2>
+        <div class="px-3 py-1 rounded-full bg-white/40 border border-white/60 text-[10px] font-bold text-text-slate-500">
             ${sessions.size()} ARCHIVED
         </div>
     </div>
 
     @if(sessions.isEmpty())
-        <div class="bg-white dark:bg-slate-900 rounded-3xl shadow-sm border border-slate-200 dark:border-slate-800 p-16 text-center max-w-4xl mx-auto mt-12">
-            <div class="text-slate-300 dark:text-slate-700 mb-6">
-                <svg class="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                </svg>
+        <div class="glass-panel rounded-3xl p-16 text-center max-w-2xl mx-auto mt-12">
+            <div class="text-text-slate-500/30 mb-6">
+                <span class="material-symbols-outlined text-[64px]">history</span>
             </div>
-            <h2 class="text-2xl font-bold text-slate-700 dark:text-slate-300">No history found</h2>
-            <p class="text-slate-500 dark:text-slate-400 mt-2">Completed or past sessions will appear here automatically.</p>
+            <h3 class="text-xl font-display font-bold text-text-slate-800">No history found</h3>
+            <p class="text-text-slate-500 mt-2">Completed or past sessions will appear here automatically.</p>
         </div>
     @else
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 auto-rows-min">
             @for(String session : sessions)
-                <a href="/ui/sessions/${session}" class="block group">
-                    <div class="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 p-8 hover:border-slate-400 dark:hover:border-slate-600 hover:shadow-lg transition-all duration-300 h-full">
-                        <div class="flex items-center justify-between mb-6">
-                            <span class="bg-slate-50 dark:bg-slate-800 text-slate-500 dark:text-slate-400 px-3 py-1 rounded-lg text-[10px] font-bold font-mono tracking-widest uppercase border border-slate-100 dark:border-slate-700">${session}</span>
-                            <span class="text-slate-300 dark:text-slate-600 group-hover:translate-x-1 transition-transform">
-                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
-                            </span>
+                <a href="/ui/sessions/${session}" class="glass-panel rounded-2xl p-5 flex flex-col justify-between h-[180px] hover:translate-y-[-4px] transition-all duration-300 group">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <h3 class="font-display font-bold text-lg leading-tight text-primary">#${session}</h3>
+                            <h4 class="mt-2 text-sm font-bold text-text-slate-800 group-hover:text-primary transition-colors">Archived Audit</h4>
+                            <p class="mt-1 text-[12px] leading-relaxed text-text-slate-500/70 line-clamp-2">
+                                Review historical logs and configurations from this past execution.
+                            </p>
                         </div>
-                        <h3 class="text-xl font-bold text-slate-800 dark:text-white mb-3 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">Archived Audit</h3>
-                        <p class="text-slate-500 dark:text-slate-400 text-sm leading-relaxed">
-                            Review historical logs and configurations from this past execution.
-                        </p>
+                        <span class="material-symbols-outlined text-text-slate-500/30 group-hover:text-primary transition-colors">arrow_forward_ios</span>
+                    </div>
+                    <div class="mt-4 flex items-center gap-2 text-text-slate-500 text-xs font-medium">
+                        <span class="material-symbols-outlined text-[16px]">inventory_2</span>
+                        <span>Archived</span>
                     </div>
                 </a>
             @endfor

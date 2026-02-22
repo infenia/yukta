@@ -55,6 +55,16 @@ public class UiController {
   public Mono<String> index(final Model model) {
     return sessionService
         .getActiveSessions()
+        .flatMap(
+            id ->
+                sessionService
+                    .getSessionConfig(id)
+                    .map(
+                        config -> {
+                          final java.util.Map<String, Object> map = new java.util.HashMap<>(config);
+                          map.put("sessionId", id);
+                          return map;
+                        }))
         .collectList()
         .flatMap(
             sessions -> {

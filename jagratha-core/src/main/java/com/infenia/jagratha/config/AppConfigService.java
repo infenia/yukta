@@ -136,7 +136,7 @@ public class AppConfigService {
    * @param sessionId the session identifier
    * @return Mono containing the log directory
    */
-  public Mono<String> getFileLogDir(@SessionId final String sessionId) {
+  public Mono<String> getFileLogDir(final String sessionId) {
     return Mono.just(DEFAULT_FILE_LOG);
   }
 
@@ -146,7 +146,7 @@ public class AppConfigService {
    * @param sessionId the session identifier
    * @return Mono containing the log directory
    */
-  public Mono<String> getResultLogDir(@SessionId final String sessionId) {
+  public Mono<String> getResultLogDir(final String sessionId) {
     return Mono.just(DEFAULT_RES_LOG);
   }
 

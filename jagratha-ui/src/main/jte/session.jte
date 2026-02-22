@@ -13,46 +13,48 @@
 @template.layout.main(title = "Session " + sessionId, content = @`
     <div class="mb-10 flex items-center justify-between">
         <div class="flex items-center gap-6">
-            <a href="/ui" class="p-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition shadow-sm group">
-                <svg class="w-6 h-6 group-hover:-translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+            <a href="/ui" class="w-12 h-12 flex items-center justify-center rounded-2xl glass-panel text-text-slate-500 hover:text-primary transition-all duration-300 shadow-sm group">
+                <span class="material-symbols-outlined group-hover:-translate-x-1 transition-transform">arrow_back</span>
             </a>
-            <h1 class="text-4xl font-black text-slate-900 dark:text-white tracking-tight font-brand">#${sessionId}</h1>
+            <h1 class="text-4xl font-display font-bold text-text-slate-800 tracking-tight">#${sessionId}</h1>
         </div>
         <div class="flex items-center gap-4">
             @if(config.get("workflows") instanceof Map)
-                <select id="workflow-selector"
-                        onchange="window.location.href='/ui/sessions/${sessionId}/' + this.value"
-                        class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2 text-sm font-bold text-slate-700 dark:text-slate-300 outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm">
-                    @for(String wId : ((Map<String, Object>)config.get("workflows")).keySet())
-                        @if(wId.equals(actualWorkflowId))
-                            <option value="${wId}" selected>${wId}</option>
-                        @else
-                            <option value="${wId}">${wId}</option>
-                        @endif
-                    @endfor
-                </select>
+                <div class="glass-panel px-1">
+                    <select id="workflow-selector"
+                            onchange="window.location.href='/ui/sessions/${sessionId}/' + this.value"
+                            class="bg-transparent border-none outline-none focus:ring-0 px-4 py-2 text-sm font-display font-bold text-text-slate-800 cursor-pointer">
+                        @for(String wId : ((Map<String, Object>)config.get("workflows")).keySet())
+                            @if(wId.equals(actualWorkflowId))
+                                <option value="${wId}" selected class="bg-white text-text-slate-800">${wId}</option>
+                            @else
+                                <option value="${wId}" class="bg-white text-text-slate-800">${wId}</option>
+                            @endif
+                        @endfor
+                    </select>
+                </div>
             @endif
             <div id="workflow-status-badge">
                 @if(progress != null)
-                    <span class="px-5 py-2 rounded-2xl text-xs font-black uppercase tracking-widest bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 border border-indigo-100 dark:border-indigo-800 shadow-sm">${progress.status()}</span>
+                    <span class="px-5 py-2 rounded-xl text-xs font-display font-bold uppercase tracking-widest glass-panel text-primary border-primary/20">${progress.status()}</span>
                 @else
-                    <span class="px-5 py-2 rounded-2xl text-xs font-black uppercase tracking-widest bg-slate-50 dark:bg-slate-900 text-slate-400 border border-slate-100 dark:border-slate-800 shadow-sm">IDLE</span>
+                    <span class="px-5 py-2 rounded-xl text-xs font-display font-bold uppercase tracking-widest glass-panel text-text-slate-500 opacity-60">IDLE</span>
                 @endif
             </div>
         </div>
     </div>
 
-    <div class="grid grid-cols-1 lg:grid-cols-12 gap-10">
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
         <!-- Sidebar -->
-        <div class="lg:col-span-4 space-y-10">
-            <section class="bg-white dark:bg-slate-900 rounded-3xl shadow-sm border border-slate-200 dark:border-slate-800 p-8">
-                <h2 class="font-black text-slate-800 dark:text-white uppercase tracking-wider text-sm mb-6">System Config</h2>
-                <div class="space-y-4">
+        <div class="lg:col-span-4 space-y-8">
+            <section class="glass-panel rounded-3xl p-8">
+                <h2 class="font-display font-bold text-text-slate-500 uppercase tracking-wider text-xs mb-6">System Config</h2>
+                <div class="space-y-6">
                     @for(Map.Entry<String, Object> entry : config.entrySet())
                         @if(!entry.getKey().equals("workflows"))
                             <div>
-                                <div class="text-[10px] font-black uppercase text-slate-400 dark:text-slate-500 mb-1 tracking-widest">${entry.getKey()}</div>
-                                <div class="font-bold text-slate-700 dark:text-slate-300 text-sm break-all">${String.valueOf(entry.getValue())}</div>
+                                <div class="text-[10px] font-mono font-bold uppercase text-text-slate-500/60 mb-1 tracking-widest">${entry.getKey()}</div>
+                                <div class="font-display font-medium text-text-slate-800 text-sm break-all">${String.valueOf(entry.getValue())}</div>
                             </div>
                         @endif
                     @endfor
@@ -61,26 +63,26 @@
         </div>
 
         <!-- Main Content -->
-        <div class="lg:col-span-8 space-y-10">
-            <section class="bg-white dark:bg-slate-900 rounded-3xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden">
-                <div class="px-8 py-6 border-b border-slate-50 dark:border-slate-800/50 flex justify-between items-center">
-                    <h2 class="font-black text-slate-800 dark:text-white uppercase tracking-wider text-sm">Workflow Topology</h2>
+        <div class="lg:col-span-8 space-y-8">
+            <section class="glass-panel rounded-3xl overflow-hidden">
+                <div class="px-8 py-5 border-b border-white/40 flex justify-between items-center">
+                    <h2 class="font-display font-bold text-text-slate-500 uppercase tracking-wider text-xs">Workflow Topology</h2>
                 </div>
-                <div class="p-8 bg-slate-50 dark:bg-slate-950 flex justify-center min-h-[300px]">
-                    <svg id="workflow-dag" width="600" height="300" class="max-w-full"></svg>
+                <div class="p-8 flex justify-center min-h-[400px]">
+                    <svg id="workflow-dag" width="600" height="400" class="max-w-full"></svg>
                 </div>
             </section>
 
-            <section class="bg-slate-950 rounded-3xl shadow-2xl border border-slate-800 overflow-hidden flex flex-col h-[500px]">
-                <div class="bg-slate-900 px-8 py-4 border-b border-white/5 flex items-center gap-4">
+            <section class="bg-[#0f172a] rounded-3xl shadow-2xl border border-white/5 overflow-hidden flex flex-col h-[500px]">
+                <div class="bg-white/5 px-8 py-4 border-b border-white/5 flex items-center gap-4">
                     <div class="flex gap-2">
-                        <div class="w-3 h-3 rounded-full bg-rose-500/80"></div>
-                        <div class="w-3 h-3 rounded-full bg-amber-500/80"></div>
-                        <div class="w-3 h-3 rounded-full bg-emerald-500/80"></div>
+                        <div class="w-2.5 h-2.5 rounded-full bg-rose-500/80 shadow-[0_0_8px_rgba(244,63,94,0.4)]"></div>
+                        <div class="w-2.5 h-2.5 rounded-full bg-amber-500/80 shadow-[0_0_8px_rgba(245,158,11,0.4)]"></div>
+                        <div class="w-2.5 h-2.5 rounded-full bg-emerald-500/80 shadow-[0_0_8px_rgba(16,185,129,0.4)]"></div>
                     </div>
-                    <span class="text-white/40 text-[10px] font-black uppercase tracking-widest ml-4 font-mono">Reactive Terminal</span>
+                    <span class="text-white/40 text-[10px] font-mono font-bold uppercase tracking-widest ml-4">Reactive Terminal</span>
                 </div>
-                <div id="console-output" class="p-8 font-mono text-sm text-slate-300 overflow-y-auto flex-1 leading-relaxed custom-scrollbar">
+                <div id="console-output" class="p-8 font-mono text-sm text-slate-300 overflow-y-auto flex-1 leading-relaxed no-scrollbar">
                     <div class="text-slate-600 animate-pulse">➜ Listening for session emission...</div>
                 </div>
             </section>
@@ -130,9 +132,9 @@
                 container.append("path")
                     .attr("d", line(edge.points))
                     .attr("fill", "none")
-                    .attr("stroke", "#6366f1")
+                    .attr("stroke", "#3c83f6")
                     .attr("stroke-width", 2)
-                    .attr("opacity", 0.3);
+                    .attr("opacity", 0.2);
             });
 
             // Nodes
@@ -143,20 +145,21 @@
                 grp.append("rect")
                     .attr("width", 120)
                     .attr("height", 40)
-                    .attr("rx", 10)
-                    .attr("fill", "#6366f1")
+                    .attr("rx", 12)
+                    .attr("fill", "#3c83f6")
                     .attr("stroke", "white")
                     .attr("stroke-width", 2)
-                    .attr("class", "dark:stroke-slate-900");
+                    .attr("class", "shadow-lg shadow-blue-500/20");
 
                 grp.append("text")
                     .attr("x", 60)
-                    .attr("y", 25)
+                    .attr("y", 24)
                     .attr("text-anchor", "middle")
                     .attr("fill", "white")
+                    .attr("font-family", "Space Grotesk")
                     .attr("font-size", "10px")
-                    .attr("font-weight", "black")
-                    .attr("class", "uppercase tracking-tighter")
+                    .attr("font-weight", "700")
+                    .attr("class", "uppercase tracking-widest")
                     .text(n.label);
             });
 
