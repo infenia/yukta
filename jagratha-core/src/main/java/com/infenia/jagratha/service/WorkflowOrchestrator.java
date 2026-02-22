@@ -72,9 +72,11 @@ public class WorkflowOrchestrator {
    *
    * @param sessionId the session identifier
    * @param def the workflow definition
+   * @param payload the initial trigger payload
    * @return a Mono that completes when all branches of the workflow have finished
    */
-  public Mono<Void> execute(final String sessionId, final WorkflowDefinition def) {
+  public Mono<Void> execute(
+      final String sessionId, final WorkflowDefinition def, final Map<String, Object> payload) {
     final List<Node> triggers =
         def.nodes().stream()
             .filter(n -> registry.get(n.type()).getCategory() == PluginCategory.TRIGGER)
@@ -91,7 +93,7 @@ public class WorkflowOrchestrator {
               tracker.updateTaskStatus(sessionId, triggerNode.nodeId(), "", "RUNNING");
               final Flux<Message> stream =
                   trigger
-                      .start()
+                      .start(triggerNode.config(), payload)
                       .doOnComplete(
                           () ->
                               tracker.updateTaskStatus(
@@ -134,7 +136,7 @@ public class WorkflowOrchestrator {
               if (plugin instanceof ProcessorPlugin processor) {
                 final Flux<Message> processedStream =
                     processor
-                        .process(broadcastStream)
+                        .process(broadcastStream, child.config())
                         .doOnComplete(
                             () ->
                                 tracker.updateTaskStatus(sessionId, child.nodeId(), "", "SUCCESS"))
@@ -144,7 +146,7 @@ public class WorkflowOrchestrator {
                 return chain(sessionId, processedStream, child, def);
               } else if (plugin instanceof TerminalPlugin terminal) {
                 return terminal
-                    .consume(broadcastStream)
+                    .consume(broadcastStream, child.config())
                     .doOnSuccess(
                         v -> tracker.updateTaskStatus(sessionId, child.nodeId(), "", "SUCCESS"))
                     .doOnError(

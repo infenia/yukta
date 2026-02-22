@@ -15,12 +15,12 @@
  */
 package com.infenia.jagratha.ui;
 
-import com.infenia.jagratha.service.FileLogService;
 import com.infenia.jagratha.service.LogRetrievalService;
 import com.infenia.jagratha.service.SessionService;
 import com.infenia.jagratha.service.TaskTrackerService;
 import gg.jte.TemplateEngine;
 import gg.jte.output.StringOutput;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Controller;
@@ -40,7 +40,6 @@ import reactor.core.scheduler.Schedulers;
 public class UiController {
 
   private final SessionService sessionService;
-  private final FileLogService fileLogService;
   private final LogRetrievalService retrievalService;
   private final TaskTrackerService tracker;
   private final TemplateEngine templateEngine;
@@ -99,37 +98,67 @@ public class UiController {
    * Render the session detail page.
    *
    * @param sessionId the session identifier
+   * @param workflowId the workflow identifier (optional)
    * @param model the UI model
    * @return the rendered HTML
    */
-  @GetMapping(value = "/sessions/{sessionId}", produces = MediaType.TEXT_HTML_VALUE)
+  @GetMapping(
+      value = {"/sessions/{sessionId}", "/sessions/{sessionId}/{workflowId}"},
+      produces = MediaType.TEXT_HTML_VALUE)
   @ResponseBody
-  public Mono<String> session(@PathVariable final String sessionId, final Model model) {
+  public Mono<String> session(
+      @PathVariable final String sessionId,
+      @PathVariable(required = false) final String workflowId,
+      final Model model) {
     model.addAttribute("sessionId", sessionId);
+    model.addAttribute("selectedWorkflowId", workflowId);
     model.addAttribute("progress", tracker.getProgress(sessionId));
 
     return Mono.zip(
-            sessionService.getSessionConfig(sessionId),
-            sessionService
-                .getSessionWorkflow(sessionId)
-                .defaultIfEmpty(
-                    new com.infenia.jagratha.model.WorkflowDefinition(
-                        java.util.List.of(), java.util.List.of())),
-            fileLogService.getModifiedFiles(sessionId),
-            retrievalService.listLogs(sessionId))
+            sessionService.getSessionConfig(sessionId), retrievalService.listLogs(sessionId))
         .flatMap(
             tuple -> {
-              model.addAttribute("config", tuple.getT1());
-              model.addAttribute("workflow", tuple.getT2());
-              model.addAttribute("modifiedFiles", tuple.getT3());
-              model.addAttribute("logs", tuple.getT4());
-              return Mono.fromCallable(
-                      () -> {
-                        final StringOutput output = new StringOutput();
-                        templateEngine.render("session.jte", model.asMap(), output);
-                        return output.toString();
-                      })
-                  .subscribeOn(Schedulers.boundedElastic());
+              final Map<String, Object> config = tuple.getT1();
+              model.addAttribute("config", config);
+              model.addAttribute("logs", tuple.getT2());
+
+              final Object workflowsObj = config.get("workflows");
+              final String actualWorkflowId;
+              if (workflowId != null) {
+                actualWorkflowId = workflowId;
+              } else if (workflowsObj instanceof Map workflows && !workflows.isEmpty()) {
+                actualWorkflowId = (String) workflows.keySet().iterator().next();
+              } else {
+                actualWorkflowId = null;
+              }
+
+              final Mono<com.infenia.jagratha.model.WorkflowDefinition> workflowMono;
+              if (actualWorkflowId != null) {
+                workflowMono =
+                    sessionService
+                        .getSessionWorkflow(sessionId, actualWorkflowId)
+                        .defaultIfEmpty(
+                            new com.infenia.jagratha.model.WorkflowDefinition(
+                                java.util.List.of(), java.util.List.of()));
+              } else {
+                workflowMono =
+                    Mono.just(
+                        new com.infenia.jagratha.model.WorkflowDefinition(
+                            java.util.List.of(), java.util.List.of()));
+              }
+
+              return workflowMono.flatMap(
+                  workflow -> {
+                    model.addAttribute("workflow", workflow);
+                    model.addAttribute("actualWorkflowId", actualWorkflowId);
+                    return Mono.fromCallable(
+                            () -> {
+                              final StringOutput output = new StringOutput();
+                              templateEngine.render("session.jte", model.asMap(), output);
+                              return output.toString();
+                            })
+                        .subscribeOn(Schedulers.boundedElastic());
+                  });
             });
   }
 

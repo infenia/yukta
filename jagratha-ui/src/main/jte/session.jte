@@ -4,9 +4,9 @@
 @import java.util.Map
 @import java.util.List
 @param String sessionId
+@param String actualWorkflowId
 @param Map<String, Object> config
 @param WorkflowDefinition workflow
-@param Map<String, String> modifiedFiles
 @param List<String> logs
 @param WorkflowProgress progress
 
@@ -18,12 +18,27 @@
             </a>
             <h1 class="text-4xl font-black text-slate-900 dark:text-white tracking-tight font-brand">#${sessionId}</h1>
         </div>
-        <div id="workflow-status-badge">
-            @if(progress != null)
-                <span class="px-5 py-2 rounded-2xl text-xs font-black uppercase tracking-widest bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 border border-indigo-100 dark:border-indigo-800 shadow-sm">${progress.status()}</span>
-            @else
-                <span class="px-5 py-2 rounded-2xl text-xs font-black uppercase tracking-widest bg-slate-50 dark:bg-slate-900 text-slate-400 border border-slate-100 dark:border-slate-800 shadow-sm">IDLE</span>
+        <div class="flex items-center gap-4">
+            @if(config.get("workflows") instanceof Map)
+                <select id="workflow-selector"
+                        onchange="window.location.href='/ui/sessions/${sessionId}/' + this.value"
+                        class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2 text-sm font-bold text-slate-700 dark:text-slate-300 outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm">
+                    @for(String wId : ((Map<String, Object>)config.get("workflows")).keySet())
+                        @if(wId.equals(actualWorkflowId))
+                            <option value="${wId}" selected>${wId}</option>
+                        @else
+                            <option value="${wId}">${wId}</option>
+                        @endif
+                    @endfor
+                </select>
             @endif
+            <div id="workflow-status-badge">
+                @if(progress != null)
+                    <span class="px-5 py-2 rounded-2xl text-xs font-black uppercase tracking-widest bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 border border-indigo-100 dark:border-indigo-800 shadow-sm">${progress.status()}</span>
+                @else
+                    <span class="px-5 py-2 rounded-2xl text-xs font-black uppercase tracking-widest bg-slate-50 dark:bg-slate-900 text-slate-400 border border-slate-100 dark:border-slate-800 shadow-sm">IDLE</span>
+                @endif
+            </div>
         </div>
     </div>
 
@@ -34,7 +49,7 @@
                 <h2 class="font-black text-slate-800 dark:text-white uppercase tracking-wider text-sm mb-6">System Config</h2>
                 <div class="space-y-4">
                     @for(Map.Entry<String, Object> entry : config.entrySet())
-                        @if(!entry.getKey().equals("workflow"))
+                        @if(!entry.getKey().equals("workflows"))
                             <div>
                                 <div class="text-[10px] font-black uppercase text-slate-400 dark:text-slate-500 mb-1 tracking-widest">${entry.getKey()}</div>
                                 <div class="font-bold text-slate-700 dark:text-slate-300 text-sm break-all">${String.valueOf(entry.getValue())}</div>

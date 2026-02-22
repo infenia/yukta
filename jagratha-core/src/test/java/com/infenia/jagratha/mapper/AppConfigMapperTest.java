@@ -36,7 +36,8 @@ class AppConfigMapperTest {
   void testMapping() {
     WorkflowDefinition workflow = new WorkflowDefinition(List.of(), List.of());
     Map<String, String> tags = Map.of("key", "value");
-    ConfigRequest request = new ConfigRequest("sess-1", "initiator-1", tags, "/path", workflow);
+    java.util.Map<String, WorkflowDefinition> workflows = java.util.Map.of("w1", workflow);
+    ConfigRequest request = new ConfigRequest("sess-1", "initiator-1", tags, "/path", workflows);
     AppConfigData data = mapper.toData(request);
 
     assertNotNull(data);
@@ -44,6 +45,6 @@ class AppConfigMapperTest {
     assertEquals("initiator-1", data.initiator());
     assertEquals(tags, data.tags());
     assertEquals("/path", data.projectPath());
-    assertEquals(workflow, data.workflow());
+    assertEquals(workflow, data.workflows().get("w1"));
   }
 }

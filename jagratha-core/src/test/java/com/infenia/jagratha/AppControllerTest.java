@@ -23,11 +23,9 @@ import static org.mockito.Mockito.when;
 import com.infenia.jagratha.controller.AppController;
 import com.infenia.jagratha.mapper.AppConfigMapper;
 import com.infenia.jagratha.model.ConfigRequest;
-import com.infenia.jagratha.model.FileRequest;
 import com.infenia.jagratha.model.TaskResponse;
 import com.infenia.jagratha.model.WorkflowDefinition;
 import com.infenia.jagratha.model.WorkflowTriggerRequest;
-import com.infenia.jagratha.service.FileLogService;
 import com.infenia.jagratha.service.LogRetrievalService;
 import com.infenia.jagratha.service.SessionService;
 import com.infenia.jagratha.service.WorkflowService;
@@ -46,39 +44,18 @@ class AppControllerTest {
 
   @Autowired private WebTestClient webTestClient;
 
-  @MockitoBean private FileLogService fileLogService;
   @MockitoBean private WorkflowService workflowService;
   @MockitoBean private SessionService sessionService;
   @MockitoBean private LogRetrievalService logRetrievalService;
   @MockitoBean private AppConfigMapper configMapper;
 
   @Test
-  void testSaveFile() {
-    FileRequest request = new FileRequest("src/Test.java", "session-1", "content");
-
-    when(fileLogService.saveFile(anyString(), anyString())).thenReturn(Mono.empty());
-
-    webTestClient
-        .post()
-        .uri("/api/files")
-        .contentType(MediaType.APPLICATION_JSON)
-        .bodyValue(request)
-        .exchange()
-        .expectStatus()
-        .isOk()
-        .expectBody()
-        .jsonPath("$.status")
-        .isEqualTo(200)
-        .jsonPath("$.message")
-        .isEqualTo("File path logged successfully");
-  }
-
-  @Test
   void testTriggerWorkflowSuccess() {
-    WorkflowTriggerRequest request = new WorkflowTriggerRequest("session-1");
+    WorkflowTriggerRequest request = new WorkflowTriggerRequest("session-1", "w1", Map.of());
     TaskResponse response = new TaskResponse("SUCCESS", "Build successful");
 
-    when(workflowService.runQualityChecks(anyString())).thenReturn(Mono.just(response));
+    when(workflowService.runWorkflow(anyString(), anyString(), any()))
+        .thenReturn(Mono.just(response));
 
     webTestClient
         .post()
@@ -105,7 +82,8 @@ class AppControllerTest {
         new WorkflowDefinition(
             List.of(new WorkflowDefinition.Node("n1", "gradle", Map.of())), List.of());
     ConfigRequest request =
-        new ConfigRequest("session-1", "initiator-1", Map.of(), "/new/path", workflow);
+        new ConfigRequest(
+            "session-1", "initiator-1", Map.of(), "/new/path", Map.of("w1", workflow));
 
     when(sessionService.applyConfigOverrides(any())).thenReturn(Mono.empty());
 

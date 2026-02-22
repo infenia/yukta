@@ -7,7 +7,7 @@ from contextlib import closing
 
 WEBSERVER_HOST = os.environ.get("JAGRATHA_HOST", "localhost")
 WEBSERVER_PORT = int(os.environ.get("JAGRATHA_PORT", 8080))
-WEBSERVER_ENDPOINT = "/api/files"
+WEBSERVER_ENDPOINT = "/api/workflow/trigger"
 
 def http_post(host, port, location, payload):
     body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
@@ -39,11 +39,15 @@ def main():
     parser = argparse.ArgumentParser(description="Log a file path for a Jagratha session.")
     parser.add_argument("--session-id", help="The unique session identifier")
     parser.add_argument("--path", help="The relative path of the file")
+    parser.add_argument("--status", default="PENDING", help="The status of the file")
+    parser.add_argument("--workflow-id", default="file-update", help="The workflow identifier")
 
     args, unknown = parser.parse_known_args()
 
     session_id = args.session_id or "unknown"
     file_path = args.path or "unknown"
+    status = args.status
+    workflow_id = args.workflow_id
 
     # Attempt to read from stdin (for automated environments/hooks)
     if (not args.session_id or not args.path) and not sys.stdin.isatty():
@@ -74,11 +78,15 @@ def main():
         sys.exit(1)
 
     payload = {
-        "path": file_path,
-        "sessionId": session_id
+        "sessionId": session_id,
+        "workflowId": workflow_id,
+        "payload": {
+            "path": file_path,
+            "status": status
+        }
     }
 
-    print(f"Logging file path '{file_path}' for session '{session_id}'...")
+    print(f"Triggering workflow '{workflow_id}' for file '{file_path}' with status '{status}' (Session: '{session_id}')...")
     if not http_post(WEBSERVER_HOST, WEBSERVER_PORT, WEBSERVER_ENDPOINT, payload):
         sys.exit(1)
 

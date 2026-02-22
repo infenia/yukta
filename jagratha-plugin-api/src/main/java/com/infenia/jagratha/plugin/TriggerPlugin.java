@@ -15,6 +15,7 @@
  */
 package com.infenia.jagratha.plugin;
 
+import java.util.Map;
 import reactor.core.publisher.Flux;
 
 /** Produces data from an external source. */
@@ -27,7 +28,9 @@ public interface TriggerPlugin extends WorkflowPlugin {
   /**
    * Start producing data.
    *
+   * @param config the plugin configuration
+   * @param payload the initial trigger payload
    * @return a Flux of messages
    */
-  Flux<Message> start();
+  Flux<Message> start(Map<String, Object> config, Map<String, Object> payload);
 }

@@ -110,9 +110,33 @@ def main():
         "initiator": initiator,
         "tags": tags,
         "projectPath": project_root,
-        "workflow": {
-            "nodes": nodes,
-            "edges": DEFAULT_WORKFLOW_EDGES
+        "workflows": {
+            "quality-check": {
+                "nodes": nodes,
+                "edges": DEFAULT_WORKFLOW_EDGES
+            },
+            "file-update": {
+                "nodes": [
+                    {
+                        "nodeId": "api-trigger-1",
+                        "type": "api-trigger",
+                        "config": {}
+                    },
+                    {
+                        "nodeId": "file-record-1",
+                        "type": "file-update-record",
+                        "config": {
+                            "outputDir": os.path.join(project_root, ".jagratha", "file-records")
+                        }
+                    }
+                ],
+                "edges": [
+                    {
+                        "source": "api-trigger-1",
+                        "target": "file-record-1"
+                    }
+                ]
+            }
         }
     }
 

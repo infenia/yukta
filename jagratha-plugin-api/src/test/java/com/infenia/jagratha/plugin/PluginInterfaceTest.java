@@ -72,7 +72,7 @@ class PluginInterfaceTest {
           }
 
           @Override
-          public Flux<Message> start() {
+          public Flux<Message> start(Map<String, Object> config, Map<String, Object> payload) {
             return Flux.empty();
           }
         };
@@ -89,7 +89,7 @@ class PluginInterfaceTest {
           }
 
           @Override
-          public Flux<Message> process(Flux<Message> input) {
+          public Flux<Message> process(Flux<Message> input, Map<String, Object> config) {
             return input;
           }
         };
@@ -106,7 +106,7 @@ class PluginInterfaceTest {
           }
 
           @Override
-          public Mono<Void> consume(Flux<Message> input) {
+          public Mono<Void> consume(Flux<Message> input, Map<String, Object> config) {
             return input.then();
           }
         };

@@ -15,6 +15,7 @@
  */
 package com.infenia.jagratha.plugin;
 
+import java.util.Map;
 import reactor.core.publisher.Flux;
 
 /** Logic for transforming, filtering, or splitting data. */
@@ -28,7 +29,8 @@ public interface ProcessorPlugin extends WorkflowPlugin {
    * Process the input stream of messages.
    *
    * @param input the input Flux
+   * @param config the plugin configuration
    * @return the transformed Flux
    */
-  Flux<Message> process(Flux<Message> input);
+  Flux<Message> process(Flux<Message> input, Map<String, Object> config);
 }

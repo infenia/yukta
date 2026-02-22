@@ -15,6 +15,7 @@
  */
 package com.infenia.jagratha.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.infenia.jagratha.config.AppConfigService;
 import com.infenia.jagratha.model.AppConfigData;
 import com.infenia.jagratha.model.WorkflowDefinition;
@@ -36,7 +37,6 @@ import org.springframework.validation.annotation.Validated;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
-import tools.jackson.databind.ObjectMapper;
 
 /** Service for managing session lifecycle and configuration. */
 @Slf4j
@@ -63,7 +63,7 @@ public class SessionService {
               final Mono<Void> projectPathMono =
                   configService.setProjectPath(data.sessionId(), data.projectPath());
               final Mono<Void> workflowMono =
-                  configService.setWorkflow(data.sessionId(), data.workflow());
+                  configService.setWorkflows(data.sessionId(), data.workflows());
               final Mono<Void> initiatorMono =
                   configService.setInitiator(data.sessionId(), data.initiator());
               final Mono<Void> tagsMono = configService.setTags(data.sessionId(), data.tags());
@@ -72,7 +72,10 @@ public class SessionService {
 
               return Mono.when(
                       projectPathMono, workflowMono, initiatorMono, tagsMono, initiatedTimeMono)
-                  .then(orchestrator.prepareWorkflow(data.workflow()));
+                  .then(
+                      Flux.fromIterable(data.workflows().values())
+                          .flatMap(orchestrator::prepareWorkflow)
+                          .then());
             })
         .then(saveConfigToDisk(data.sessionId()));
   }
@@ -239,40 +242,55 @@ public class SessionService {
    * Get workflow for a session, from memory or disk.
    *
    * @param sessionId the session identifier
+   * @param workflowId the workflow identifier
    * @return Mono containing the workflow definition
    */
-  public Mono<WorkflowDefinition> getSessionWorkflow(@SessionId final String sessionId) {
+  public Mono<WorkflowDefinition> getSessionWorkflow(
+      @SessionId final String sessionId, final String workflowId) {
     return configService
         .isActive(sessionId)
         .flatMap(
             active -> {
               if (active) {
-                return configService.getWorkflow(sessionId);
+                return configService.getWorkflow(sessionId, workflowId);
               }
+              return getWorkflowFromDisk(sessionId, workflowId);
+            });
+  }
 
-              return getSessionConfig(sessionId)
-                  .flatMap(
-                      config -> {
-                        final Object workflow = config.get("workflow");
-                        if (workflow != null) {
-                          return Mono.fromCallable(
-                                  () -> {
-                                    final String json = objectMapper.writeValueAsString(workflow);
-                                    return objectMapper.readValue(json, WorkflowDefinition.class);
-                                  })
-                              .onErrorResume(
-                                  e -> {
-                                    if (log.isWarnEnabled()) {
-                                      log.warn(
-                                          "Failed to parse workflow from config for session {}: {}",
-                                          sessionId,
-                                          e.getMessage());
-                                    }
-                                    return Mono.empty();
-                                  });
-                        }
-                        return configService.getWorkflow(sessionId);
-                      });
+  private Mono<WorkflowDefinition> getWorkflowFromDisk(
+      final String sessionId, final String workflowId) {
+    return getSessionConfig(sessionId)
+        .flatMap(
+            config -> {
+              final Object workflowsObj = config.get("workflows");
+              if (workflowsObj instanceof Map workflows) {
+                final Object workflow = workflows.get(workflowId);
+                if (workflow != null) {
+                  return parseWorkflow(workflow, sessionId, workflowId);
+                }
+              }
+              return configService.getWorkflow(sessionId, workflowId);
+            });
+  }
+
+  private Mono<WorkflowDefinition> parseWorkflow(
+      final Object workflow, final String sessionId, final String workflowId) {
+    return Mono.fromCallable(
+            () -> {
+              final String json = objectMapper.writeValueAsString(workflow);
+              return objectMapper.readValue(json, WorkflowDefinition.class);
+            })
+        .onErrorResume(
+            e -> {
+              if (log.isWarnEnabled()) {
+                log.warn(
+                    "Failed to parse workflow {} from config for session {}: {}",
+                    workflowId,
+                    sessionId,
+                    e.getMessage());
+              }
+              return Mono.empty();
             });
   }
 }

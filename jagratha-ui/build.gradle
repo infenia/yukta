@@ -46,7 +46,7 @@ jte {
     compilePath = sourceSets.main.compileClasspath
     generate()
     precompile()
-    binaryStaticContent = true
+    binaryStaticContent = false
 }
 
 bootJar {

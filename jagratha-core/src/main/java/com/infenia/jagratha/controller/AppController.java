@@ -19,10 +19,8 @@ import com.infenia.jagratha.mapper.AppConfigMapper;
 import com.infenia.jagratha.model.ApiResponse;
 import com.infenia.jagratha.model.AppConfigData;
 import com.infenia.jagratha.model.ConfigRequest;
-import com.infenia.jagratha.model.FileRequest;
 import com.infenia.jagratha.model.TaskResponse;
 import com.infenia.jagratha.model.WorkflowTriggerRequest;
-import com.infenia.jagratha.service.FileLogService;
 import com.infenia.jagratha.service.LogRetrievalService;
 import com.infenia.jagratha.service.SessionService;
 import com.infenia.jagratha.service.WorkflowService;
@@ -53,7 +51,6 @@ import reactor.core.publisher.Mono;
     description = "Endpoints for file management, task execution, and configuration")
 public class AppController {
 
-  private final FileLogService fileLogService;
   private final WorkflowService workflowService;
   private final SessionService sessionService;
   private final LogRetrievalService retrievalService;
@@ -63,39 +60,15 @@ public class AppController {
   private static final String HTTP_200 = "200";
 
   /**
-   * Log a file path for a session.
-   *
-   * @param request the file request containing path and sessionId
-   * @return response entity with success or error message
-   */
-  @PostMapping("/files")
-  @Operation(
-      summary = "Log a file path",
-      description = "Logs a file path associated with a session for quality checks")
-  @io.swagger.v3.oas.annotations.responses.ApiResponse(
-      responseCode = HTTP_200,
-      description = "File path logged successfully")
-  @io.swagger.v3.oas.annotations.responses.ApiResponse(
-      responseCode = "400",
-      description = "Invalid request data")
-  public Mono<ResponseEntity<ApiResponse<Void>>> saveFile(
-      @Valid @RequestBody final FileRequest request) {
-    return fileLogService
-        .saveFile(request.path(), request.sessionId())
-        .thenReturn(
-            ResponseEntity.ok(ApiResponse.success(200, "File path logged successfully", null)));
-  }
-
-  /**
    * Trigger a workflow execution for a session.
    *
-   * @param request the trigger request containing sessionId
+   * @param request the trigger request containing sessionId and workflowId
    * @return response entity with task status and output
    */
   @PostMapping("/workflow/trigger")
   @Operation(
       summary = "Trigger a workflow",
-      description = "Triggers the execution of the configured DAG workflow for a session")
+      description = "Triggers the execution of a specific DAG workflow for a session")
   @io.swagger.v3.oas.annotations.responses.ApiResponse(
       responseCode = HTTP_200,
       description = "Workflow executed successfully")
@@ -105,7 +78,7 @@ public class AppController {
   public Mono<ResponseEntity<ApiResponse<TaskResponse>>> triggerWorkflow(
       @Valid @RequestBody final WorkflowTriggerRequest request) {
     return workflowService
-        .runQualityChecks(request.sessionId())
+        .runWorkflow(request.sessionId(), request.workflowId(), request.payload())
         .map(
             response -> {
               if (SUCCESS_STATUS.equals(response.status())) {

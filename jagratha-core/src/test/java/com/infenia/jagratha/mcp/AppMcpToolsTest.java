@@ -51,7 +51,8 @@ class AppMcpToolsTest {
   @Test
   void testTriggerQualityChecksSuccess() {
     TaskResponse response = new TaskResponse("SUCCESS", "Done");
-    when(workflowService.runQualityChecks(anyString())).thenReturn(Mono.just(response));
+    when(workflowService.runWorkflow(anyString(), anyString(), Mockito.any()))
+        .thenReturn(Mono.just(response));
 
     StepVerifier.create(mcpTools.triggerQualityChecks())
         .expectNext("Status: SUCCESS\n\nOutput:\nDone")
@@ -61,7 +62,8 @@ class AppMcpToolsTest {
   @Test
   void testTriggerQualityChecksFailure() {
     TaskResponse response = new TaskResponse("FAILURE", "Error");
-    when(workflowService.runQualityChecks(anyString())).thenReturn(Mono.just(response));
+    when(workflowService.runWorkflow(anyString(), anyString(), Mockito.any()))
+        .thenReturn(Mono.just(response));
 
     StepVerifier.create(mcpTools.triggerQualityChecks())
         .expectNext("Status: FAILURE\n\nOutput:\nError")

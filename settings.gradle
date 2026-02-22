@@ -4,6 +4,7 @@ includeBuild 'build-logic'
 
 include 'jagratha-plugin-api'
 include 'plugins:build-tools:gradle'
+include 'plugins:file-update'
 include 'jagratha-core'
 include 'jagratha-ui'
 include 'jagratha-boot'

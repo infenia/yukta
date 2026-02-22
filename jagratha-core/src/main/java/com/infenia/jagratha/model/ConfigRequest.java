@@ -20,7 +20,7 @@ import com.infenia.jagratha.validation.SessionId;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.NotEmpty;
 import java.util.Map;
 
 /**
@@ -30,7 +30,7 @@ import java.util.Map;
  * @param initiator the initiator name
  * @param tags additional tags for the session
  * @param projectPath the project path
- * @param workflow the workflow definition (DAG)
+ * @param workflows map of workflow definitions (DAGs)
  */
 @Schema(description = "Request object for updating session configuration")
 public record ConfigRequest(
@@ -46,13 +46,14 @@ public record ConfigRequest(
     @Schema(description = "The root path of the project to manage", example = "/path/to/project")
         @ProjectPath
         String projectPath,
-    @Schema(description = "The workflow definition (DAG) to execute")
-        @NotNull(message = "Workflow definition is required")
+    @Schema(description = "Map of workflow definitions (DAGs) keyed by workflow ID")
+        @NotEmpty(message = "At least one workflow definition is required")
         @Valid
-        WorkflowDefinition workflow) {
+        Map<String, WorkflowDefinition> workflows) {
 
   /** Compact constructor to ensure immutability. */
   public ConfigRequest {
     tags = tags == null ? Map.of() : Map.copyOf(tags);
+    workflows = workflows != null ? Map.copyOf(workflows) : Map.of();
   }
 }

@@ -33,6 +33,8 @@ jobs:
             - 'plugins/ai/qwen/**'
           jagratha-core:
             - 'jagratha-core/**'
+          plugins-file-update:
+            - 'plugins/file-update/**'
           root:
             - 'build.gradle'
             - 'settings.gradle'
@@ -45,6 +47,7 @@ jobs:
   build:
     needs: changes
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     # Run if push/schedule OR if PR has relevant changes
     if: |
       github.event_name != 'pull_request' ||
@@ -86,6 +89,9 @@ jobs:
                 ;;
               "jagratha-core")
                 TASKS="$TASKS :jagratha-core:build :jagratha-core:spotlessCheck :jagratha-core:check"
+                ;;
+              "plugins-file-update")
+                TASKS="$TASKS :plugins:file-update:build :plugins:file-update:spotlessCheck :plugins:file-update:check"
                 ;;
             esac
           done

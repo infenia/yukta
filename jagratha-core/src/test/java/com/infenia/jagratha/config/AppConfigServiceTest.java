@@ -35,7 +35,8 @@ class AppConfigServiceTest {
   void testDefaultValues() {
     String sessionId = "sess-1";
     StepVerifier.create(configService.getProjectPath(sessionId)).expectNext("").verifyComplete();
-    StepVerifier.create(configService.getWorkflow(sessionId)).verifyComplete(); // Empty initially
+    StepVerifier.create(configService.getWorkflow(sessionId, "w1"))
+        .verifyComplete(); // Empty initially
     StepVerifier.create(configService.getExecutionTimeout(sessionId))
         .expectNext(300L)
         .verifyComplete();
@@ -55,12 +56,15 @@ class AppConfigServiceTest {
     WorkflowDefinition workflow =
         new WorkflowDefinition(
             List.of(new WorkflowDefinition.Node("n1", "gradle", Map.of())), List.of());
-    StepVerifier.create(configService.setWorkflow(sessionId, workflow)).verifyComplete();
+    StepVerifier.create(configService.setWorkflows(sessionId, Map.of("w1", workflow)))
+        .verifyComplete();
 
     StepVerifier.create(configService.getProjectPath(sessionId))
         .expectNext("/api/path")
         .verifyComplete();
-    StepVerifier.create(configService.getWorkflow(sessionId)).expectNext(workflow).verifyComplete();
+    StepVerifier.create(configService.getWorkflow(sessionId, "w1"))
+        .expectNext(workflow)
+        .verifyComplete();
 
     // Another session should still have defaults
     String otherSession = "sess-2";
@@ -80,8 +84,10 @@ class AppConfigServiceTest {
     StepVerifier.create(configService.isActive(sess1)).expectNext(true).verifyComplete();
     StepVerifier.create(configService.isActive(sess2)).expectNext(false).verifyComplete();
 
-    WorkflowDefinition workflow = new WorkflowDefinition(List.of(), List.of());
-    StepVerifier.create(configService.setWorkflow(sess2, workflow)).verifyComplete();
+    WorkflowDefinition workflow =
+        new WorkflowDefinition(
+            List.of(new WorkflowDefinition.Node("n1", "api-trigger", Map.of())), List.of());
+    StepVerifier.create(configService.setWorkflows(sess2, Map.of("w1", workflow))).verifyComplete();
 
     StepVerifier.create(configService.getActiveSessionIds()).expectNextCount(2).verifyComplete();
   }

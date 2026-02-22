@@ -60,6 +60,22 @@ class GradlePluginTest {
   }
 
   @Test
+  void testValidateConfigNull() {
+    StepVerifier.create(plugin.validateConfig(null)).verifyError(IllegalArgumentException.class);
+  }
+
+  @Test
+  void testValidateConfigInvalidTasks() {
+    Map<String, Object> config = Map.of("projectRoot", tempDir.toString(), "tasks", "not-a-list");
+    StepVerifier.create(plugin.validateConfig(config)).verifyError(IllegalArgumentException.class);
+  }
+
+  @Test
+  void testInitialize() {
+    StepVerifier.create(plugin.initialize(Map.of())).verifyComplete();
+  }
+
+  @Test
   void testStart() throws IOException {
     // Create a dummy gradlew script
     Path gradlew = tempDir.resolve("gradlew");
@@ -73,9 +89,7 @@ class GradlePluginTest {
             "tasks", List.of("testTask"),
             "gradlePath", "./gradlew");
 
-    plugin.initialize(config).block();
-
-    StepVerifier.create(plugin.start())
+    StepVerifier.create(plugin.start(config, Map.of()))
         .assertNext(
             message -> {
               assertNotNull(message.id());
@@ -83,5 +97,16 @@ class GradlePluginTest {
               assertEquals("Task output for testTask", ((String) message.payload()).trim());
             })
         .verifyComplete();
+  }
+
+  @Test
+  void testStartExecutionError() {
+    Map<String, Object> config =
+        Map.of(
+            "projectRoot", tempDir.toString(),
+            "tasks", List.of("testTask"),
+            "gradlePath", "./non-existent-gradlew");
+
+    StepVerifier.create(plugin.start(config, Map.of())).verifyError(RuntimeException.class);
   }
 }

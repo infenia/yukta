@@ -15,6 +15,7 @@
  */
 package com.infenia.jagratha.plugin;
 
+import java.util.Map;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
@@ -29,7 +30,8 @@ public interface TerminalPlugin extends WorkflowPlugin {
    * Consume the input stream of messages.
    *
    * @param input the input Flux
+   * @param config the plugin configuration
    * @return a Mono that completes when all messages are consumed
    */
-  Mono<Void> consume(Flux<Message> input);
+  Mono<Void> consume(Flux<Message> input, Map<String, Object> config);
 }

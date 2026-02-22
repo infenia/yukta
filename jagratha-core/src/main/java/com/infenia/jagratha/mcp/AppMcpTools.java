@@ -55,7 +55,7 @@ public class AppMcpTools {
       description = "Trigger quality checks (spotless, checkstyle, tests) on the external project")
   public Mono<String> triggerQualityChecks() {
     return workflowService
-        .runQualityChecks(MCP_SESSION_ID)
+        .runWorkflow(MCP_SESSION_ID, "quality-check", java.util.Map.of())
         .map(response -> "Status: " + response.status() + "\n\nOutput:\n" + response.output());
   }
 

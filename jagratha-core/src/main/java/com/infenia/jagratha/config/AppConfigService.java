@@ -18,8 +18,7 @@ package com.infenia.jagratha.config;
 import com.infenia.jagratha.model.WorkflowDefinition;
 import com.infenia.jagratha.validation.ProjectPath;
 import com.infenia.jagratha.validation.SessionId;
-import jakarta.validation.constraints.NotNull;
-import java.util.List;
+import jakarta.validation.constraints.NotEmpty;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import org.springframework.stereotype.Service;
@@ -42,7 +41,8 @@ public class AppConfigService {
   private static final long DEFAULT_TIMEOUT = 300L;
 
   private final Map<String, String> projectPaths = new ConcurrentHashMap<>();
-  private final Map<String, WorkflowDefinition> workflowsMap = new ConcurrentHashMap<>();
+  private final Map<String, Map<String, WorkflowDefinition>> workflowsMap =
+      new ConcurrentHashMap<>();
   private final Map<String, String> initiators = new ConcurrentHashMap<>();
   private final Map<String, String> initiatedTimes = new ConcurrentHashMap<>();
   private final Map<String, Map<String, String>> tagsMap = new ConcurrentHashMap<>();
@@ -77,27 +77,45 @@ public class AppConfigService {
   }
 
   /**
-   * Get the workflow definition for a session.
+   * Get all workflow definitions for a session.
    *
    * @param sessionId the session identifier
-   * @return Mono containing the workflow definition
+   * @return Mono containing map of workflows
    */
-  public Mono<WorkflowDefinition> getWorkflow(@SessionId final String sessionId) {
-    final WorkflowDefinition result = workflowsMap.get(sessionId);
-    return result != null ? Mono.just(result) : Mono.empty();
+  public Mono<Map<String, WorkflowDefinition>> getWorkflows(@SessionId final String sessionId) {
+    final Map<String, WorkflowDefinition> result = workflowsMap.get(sessionId);
+    return Mono.just(result != null ? result : Map.of());
   }
 
   /**
-   * Set the workflow definition for a session.
+   * Get a specific workflow definition for a session.
    *
    * @param sessionId the session identifier
-   * @param workflow the workflow definition
-   * @return Mono that completes when the workflow is set
+   * @param workflowId the workflow identifier
+   * @return Mono containing the workflow definition
    */
-  public Mono<Void> setWorkflow(
+  public Mono<WorkflowDefinition> getWorkflow(
+      @SessionId final String sessionId, final String workflowId) {
+    return getWorkflows(sessionId)
+        .flatMap(
+            workflows -> {
+              final WorkflowDefinition result = workflows.get(workflowId);
+              return result != null ? Mono.just(result) : Mono.empty();
+            });
+  }
+
+  /**
+   * Set the workflow definitions for a session.
+   *
+   * @param sessionId the session identifier
+   * @param workflows the map of workflow definitions
+   * @return Mono that completes when the workflows are set
+   */
+  public Mono<Void> setWorkflows(
       @SessionId final String sessionId,
-      @NotNull(message = "Workflow definition cannot be null") final WorkflowDefinition workflow) {
-    workflowsMap.put(sessionId, workflow);
+      @NotEmpty(message = "Workflows cannot be empty")
+          final Map<String, WorkflowDefinition> workflows) {
+    workflowsMap.put(sessionId, workflows);
     return Mono.empty();
   }
 
@@ -216,7 +234,7 @@ public class AppConfigService {
   public Mono<Map<String, Object>> getAllConfigs(@SessionId final String sessionId) {
     return Mono.zip(
             getProjectPath(sessionId),
-            getWorkflow(sessionId).defaultIfEmpty(new WorkflowDefinition(List.of(), List.of())),
+            getWorkflows(sessionId),
             getExecutionTimeout(sessionId),
             getFileLogDir(sessionId),
             getResultLogDir(sessionId),
@@ -227,7 +245,7 @@ public class AppConfigService {
             tuple -> {
               final Map<String, Object> configs = new java.util.LinkedHashMap<>();
               configs.put("projectPath", tuple.getT1());
-              configs.put("workflow", tuple.getT2());
+              configs.put("workflows", tuple.getT2());
               configs.put("executionTimeout", tuple.getT3());
               configs.put("fileLogDir", tuple.getT4());
               configs.put("resultLogDir", tuple.getT5());

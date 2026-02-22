@@ -18,7 +18,6 @@ package com.infenia.jagratha.ui;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 
-import com.infenia.jagratha.service.FileLogService;
 import com.infenia.jagratha.service.LogRetrievalService;
 import com.infenia.jagratha.service.SessionService;
 import com.infenia.jagratha.service.TaskTrackerService;
@@ -38,7 +37,6 @@ class UiControllerTest {
   @Autowired private WebTestClient webTestClient;
 
   @MockitoBean private SessionService sessionService;
-  @MockitoBean private FileLogService fileLogService;
   @MockitoBean private LogRetrievalService logRetrievalService;
 
   @MockitoBean private TaskTrackerService taskTrackerService;
@@ -84,8 +82,7 @@ class UiControllerTest {
   @Test
   void testSessionDetails() {
     when(sessionService.getSessionConfig(anyString())).thenReturn(Mono.just(Map.of()));
-    when(sessionService.getSessionWorkflow(anyString())).thenReturn(Mono.empty());
-    when(fileLogService.getModifiedFiles(anyString())).thenReturn(Mono.just(Map.of()));
+    when(sessionService.getSessionWorkflow(anyString(), anyString())).thenReturn(Mono.empty());
     when(logRetrievalService.listLogs(anyString())).thenReturn(Mono.just(List.of()));
     webTestClient.get().uri("/ui/sessions/session1").exchange().expectStatus().isOk();
   }

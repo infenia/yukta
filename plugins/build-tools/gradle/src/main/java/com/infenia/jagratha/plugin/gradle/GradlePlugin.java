@@ -37,9 +37,6 @@ import reactor.core.scheduler.Schedulers;
 @Slf4j
 public class GradlePlugin implements TriggerPlugin {
 
-  private Map<String, Object> config;
-  private UUID traceId;
-
   /** Public constructor. */
   public GradlePlugin() {
     super();
@@ -70,13 +67,11 @@ public class GradlePlugin implements TriggerPlugin {
 
   @Override
   public Mono<Void> initialize(final Map<String, Object> config) {
-    this.config = Map.copyOf(config);
-    this.traceId = UUID.randomUUID();
     return Mono.empty();
   }
 
   @Override
-  public Flux<Message> start() {
+  public Flux<Message> start(final Map<String, Object> config, final Map<String, Object> payload) {
     final String projectRoot = (String) config.get("projectRoot");
     @SuppressWarnings("unchecked")
     final List<String> tasks = (List<String>) config.getOrDefault("tasks", List.of("check"));
@@ -84,13 +79,18 @@ public class GradlePlugin implements TriggerPlugin {
     final Long timeout = ((Number) config.getOrDefault("timeout", 600L)).longValue();
 
     final File projectDir = new File(projectRoot);
+    final UUID traceId = UUID.randomUUID();
 
     return Flux.fromIterable(tasks)
-        .flatMap(task -> executeTask(projectDir, gradlePath, task, timeout));
+        .flatMap(task -> executeTask(projectDir, gradlePath, task, timeout, traceId));
   }
 
   private Flux<Message> executeTask(
-      final File projectDir, final String gradlePath, final String task, final long timeout) {
+      final File projectDir,
+      final String gradlePath,
+      final String task,
+      final long timeout,
+      final UUID traceId) {
     final List<String> command = new ArrayList<>();
     command.add(gradlePath);
     command.add(task);
@@ -112,16 +112,7 @@ public class GradlePlugin implements TriggerPlugin {
                           flux -> StringDecoder.textPlainOnly().decode(flux, null, null, Map.of()));
 
               final Mono<Integer> exitCodeMono =
-                  Mono.fromFuture(process.onExit())
-                      .map(Process::exitValue)
-                      .timeout(Duration.ofSeconds(timeout))
-                      .onErrorResume(
-                          TimeoutException.class,
-                          e -> {
-                            process.destroyForcibly();
-                            return Mono.error(
-                                new TimeoutException("Timeout running task: " + task));
-                          });
+                  Mono.fromFuture(process.onExit()).map(Process::exitValue);
 
               return outputFlux
                   .map(line -> Message.create(traceId, line))
@@ -132,7 +123,14 @@ public class GradlePlugin implements TriggerPlugin {
                               log.warn("Task {} failed with exit code {}", task, code);
                             }
                             return Mono.empty();
-                          }));
+                          }))
+                  .timeout(Duration.ofSeconds(timeout))
+                  .onErrorResume(
+                      TimeoutException.class,
+                      e -> {
+                        process.destroyForcibly();
+                        return Mono.error(new TimeoutException("Timeout running task: " + task));
+                      });
             })
         .onErrorResume(
             IOException.class,

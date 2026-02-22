@@ -195,19 +195,19 @@ class WorkflowOrchestratorTest {
 
     TriggerPlugin trigger = mock(TriggerPlugin.class);
     when(trigger.getCategory()).thenReturn(PluginCategory.TRIGGER);
-    when(trigger.start()).thenReturn(Flux.just(msg));
+    when(trigger.start(any(), any())).thenReturn(Flux.just(msg));
 
     TerminalPlugin terminal = mock(TerminalPlugin.class);
     when(terminal.getCategory()).thenReturn(PluginCategory.TERMINAL);
-    when(terminal.consume(any())).thenReturn(Mono.empty());
+    when(terminal.consume(any(), any())).thenReturn(Mono.empty());
 
     when(registry.get("trigger")).thenReturn(trigger);
     when(registry.get("terminal")).thenReturn(terminal);
 
-    StepVerifier.create(orchestrator.execute(sessionId, def)).verifyComplete();
+    StepVerifier.create(orchestrator.execute(sessionId, def, Map.of())).verifyComplete();
 
-    verify(trigger).start();
-    verify(terminal).consume(any());
+    verify(trigger).start(any(), any());
+    verify(terminal).consume(any(), any());
     verify(tracker).startWorkflow(eq(sessionId), any());
     verify(tracker, atLeastOnce())
         .updateTaskStatus(eq(sessionId), anyString(), anyString(), anyString());
@@ -232,18 +232,18 @@ class WorkflowOrchestratorTest {
 
     TriggerPlugin trigger = mock(TriggerPlugin.class);
     when(trigger.getCategory()).thenReturn(PluginCategory.TRIGGER);
-    when(trigger.start()).thenReturn(Flux.just(msg));
+    when(trigger.start(any(), any())).thenReturn(Flux.just(msg));
 
     TerminalPlugin terminal = mock(TerminalPlugin.class);
     when(terminal.getCategory()).thenReturn(PluginCategory.TERMINAL);
-    when(terminal.consume(any())).thenReturn(Mono.empty());
+    when(terminal.consume(any(), any())).thenReturn(Mono.empty());
 
     when(registry.get("trigger")).thenReturn(trigger);
     when(registry.get("terminal")).thenReturn(terminal);
 
-    StepVerifier.create(orchestrator.execute(sessionId, def)).verifyComplete();
+    StepVerifier.create(orchestrator.execute(sessionId, def, Map.of())).verifyComplete();
 
-    verify(terminal, atLeastOnce()).consume(any());
+    verify(terminal, atLeastOnce()).consume(any(), any());
   }
 
   @Test
@@ -263,25 +263,25 @@ class WorkflowOrchestratorTest {
 
     TriggerPlugin trigger = mock(TriggerPlugin.class);
     when(trigger.getCategory()).thenReturn(PluginCategory.TRIGGER);
-    when(trigger.start()).thenReturn(Flux.just(msg));
+    when(trigger.start(any(), any())).thenReturn(Flux.just(msg));
 
     ProcessorPlugin processor = mock(ProcessorPlugin.class);
     when(processor.getCategory()).thenReturn(PluginCategory.PROCESSOR);
-    when(processor.process(any())).thenReturn(Flux.just(msg));
+    when(processor.process(any(), any())).thenReturn(Flux.just(msg));
 
     TerminalPlugin terminal = mock(TerminalPlugin.class);
     when(terminal.getCategory()).thenReturn(PluginCategory.TERMINAL);
-    when(terminal.consume(any())).thenReturn(Mono.empty());
+    when(terminal.consume(any(), any())).thenReturn(Mono.empty());
 
     when(registry.get("trigger")).thenReturn(trigger);
     when(registry.get("processor")).thenReturn(processor);
     when(registry.get("terminal")).thenReturn(terminal);
 
-    StepVerifier.create(orchestrator.execute(sessionId, def)).verifyComplete();
+    StepVerifier.create(orchestrator.execute(sessionId, def, Map.of())).verifyComplete();
 
-    verify(trigger).start();
-    verify(processor).process(any());
-    verify(terminal).consume(any());
+    verify(trigger).start(any(), any());
+    verify(processor).process(any(), any());
+    verify(terminal).consume(any(), any());
   }
 
   @Test
@@ -319,23 +319,23 @@ class WorkflowOrchestratorTest {
 
     TriggerPlugin trigger = mock(TriggerPlugin.class);
     when(trigger.getCategory()).thenReturn(PluginCategory.TRIGGER);
-    when(trigger.start()).thenReturn(Flux.just(msg));
+    when(trigger.start(any(), any())).thenReturn(Flux.just(msg));
 
     ProcessorPlugin processor = mock(ProcessorPlugin.class);
     when(processor.getCategory()).thenReturn(PluginCategory.PROCESSOR);
-    when(processor.process(any())).thenReturn(Flux.just(msg));
+    when(processor.process(any(), any())).thenReturn(Flux.just(msg));
 
     TerminalPlugin terminal = mock(TerminalPlugin.class);
     when(terminal.getCategory()).thenReturn(PluginCategory.TERMINAL);
-    when(terminal.consume(any())).thenReturn(Mono.empty());
+    when(terminal.consume(any(), any())).thenReturn(Mono.empty());
 
     when(registry.get("trigger")).thenReturn(trigger);
     when(registry.get("processor")).thenReturn(processor);
     when(registry.get("terminal")).thenReturn(terminal);
 
-    StepVerifier.create(orchestrator.execute(sessionId, def)).verifyComplete();
+    StepVerifier.create(orchestrator.execute(sessionId, def, Map.of())).verifyComplete();
 
-    verify(processor).process(any());
-    verify(terminal, atLeastOnce()).consume(any());
+    verify(processor).process(any(), any());
+    verify(terminal, atLeastOnce()).consume(any(), any());
   }
 }

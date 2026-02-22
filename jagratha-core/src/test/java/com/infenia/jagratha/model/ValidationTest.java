@@ -51,7 +51,8 @@ class ValidationTest {
     WorkflowDefinition def =
         new WorkflowDefinition(
             List.of(new WorkflowDefinition.Node("n1", "gradle", Map.of())), List.of());
-    AppConfigData data = new AppConfigData("session-1", "initiator-1", Map.of(), "/path", def);
+    AppConfigData data =
+        new AppConfigData("session-1", "initiator-1", Map.of(), "/path", Map.of("w1", def));
     Set<ConstraintViolation<AppConfigData>> violations = validator.validate(data);
     assertTrue(violations.isEmpty());
   }
@@ -59,7 +60,8 @@ class ValidationTest {
   @Test
   void testAppConfigDataInvalidSession() {
     WorkflowDefinition def = new WorkflowDefinition(List.of(), List.of());
-    AppConfigData data = new AppConfigData("../session", "initiator-1", Map.of(), "/path", def);
+    AppConfigData data =
+        new AppConfigData("../session", "initiator-1", Map.of(), "/path", Map.of("w1", def));
     Set<ConstraintViolation<AppConfigData>> violations = validator.validate(data);
     assertFalse(violations.isEmpty());
     assertTrue(
