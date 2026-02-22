@@ -12,7 +12,7 @@ DEFAULT_WORKFLOW_NODES = [
         "nodeId": "trigger-1",
         "type": DEFAULT_PLUGIN_TYPE,
         "config": {
-            "tasks": ["check"]
+            "tasks": ["spotlessApply"]
         }
     },
     {
@@ -68,7 +68,7 @@ def main():
 
     args, unknown = parser.parse_known_args()
 
-    session_id = args.session_id or "unknown"
+    session_id = args.session_id or "sim-session-1"
     description = args.description
     project_root = args.project_path or os.getcwd()
     initiator = args.initiator

@@ -18,19 +18,16 @@ package com.infenia.jagratha.util;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
+import lombok.NoArgsConstructor;
 import reactor.core.publisher.Mono;
 import reactor.core.publisher.Sinks;
 
 /** A non-blocking reactive lock. */
+@NoArgsConstructor
 public final class ReactiveLock {
 
   private final AtomicBoolean locked = new AtomicBoolean(false);
   private final Queue<Sinks.Empty<Void>> waiters = new ConcurrentLinkedQueue<>();
-
-  /** Default constructor. */
-  public ReactiveLock() {
-    // Initializing the lock
-  }
 
   /**
    * Acquire the lock.

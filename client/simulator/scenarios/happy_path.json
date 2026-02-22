@@ -6,7 +6,7 @@
       "data": {
         "hook_event_name": "SessionStart",
         "session_id": "sim-session-1",
-        "cwd": "/workspaces/jagratha",
+        "cwd": "/media/arun/Infenia/Infenia/Development/Private/worktree/backend/feature-1",
         "source": "startup",
         "model": "claude-3-5-sonnet"
       }
@@ -16,10 +16,10 @@
       "data": {
         "hook_event_name": "PostToolUse",
         "session_id": "sim-session-1",
-        "cwd": "/workspaces/jagratha",
+        "cwd": "/media/arun/Infenia/Infenia/Development/Private/worktree/backend/feature-1",
         "tool_name": "Write",
         "tool_input": {
-          "file_path": "/workspaces/jagratha/README.md",
+          "file_path": "/media/arun/Infenia/Infenia/Development/Private/worktree/backend/feature-1/common/user-details/src/main/java/com/infenia/easymarry/user/common/config/CacheConfig.java",
           "content": "# New Content"
         }
       }
