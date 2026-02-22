@@ -17,6 +17,11 @@ package com.infenia.jagratha.service;
 
 import com.infenia.jagratha.model.TaskProgress;
 import com.infenia.jagratha.model.WorkflowProgress;
+import com.infenia.jagratha.validation.NodeId;
+import com.infenia.jagratha.validation.SessionId;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.Size;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -24,11 +29,13 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import org.springframework.stereotype.Service;
+import org.springframework.validation.annotation.Validated;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Sinks;
 
 /** Service for tracking the progress of workflows and tasks. */
 @Service
+@Validated
 public class TaskTrackerService {
 
   private final Map<String, WorkflowState> states = new ConcurrentHashMap<>();
@@ -46,7 +53,8 @@ public class TaskTrackerService {
    * @param sessionId the session identifier
    * @param nodeIds the list of node IDs in the workflow DAG
    */
-  public void startWorkflow(final String sessionId, final List<String> nodeIds) {
+  public void startWorkflow(
+      @SessionId final String sessionId, @NotEmpty final List<String> nodeIds) {
     final List<TaskProgress> initialTasks =
         nodeIds.stream().map(id -> new TaskProgress(id, "", "PENDING", null, null)).toList();
     states.put(
@@ -71,7 +79,10 @@ public class TaskTrackerService {
    */
   @SuppressWarnings("PMD.UseObjectForClearerAPI")
   public void updateTaskStatus(
-      final String sessionId, final String nodeId, final String module, final String status) {
+      @SessionId final String sessionId,
+      @NodeId final String nodeId,
+      @NotBlank @Size(max = 256) final String module,
+      @NotBlank @Size(max = 256) final String status) {
     final WorkflowState state = states.get(sessionId);
     if (state != null) {
       state.updateTask(nodeId, module, status);
@@ -85,7 +96,8 @@ public class TaskTrackerService {
    * @param sessionId the session identifier
    * @param status the final status
    */
-  public void finishWorkflow(final String sessionId, final String status) {
+  public void finishWorkflow(
+      @SessionId final String sessionId, @NotBlank @Size(max = 256) final String status) {
     final WorkflowState state = states.get(sessionId);
     if (state != null) {
       state.setStatus(status);
@@ -100,7 +112,8 @@ public class TaskTrackerService {
    * @param sessionId the session identifier
    * @param line the log line
    */
-  public void appendLog(final String sessionId, final String line) {
+  public void appendLog(
+      @SessionId final String sessionId, @NotBlank @Size(max = 16_384) final String line) {
     final Sinks.Many<String> sink = logSinks.get(sessionId);
     if (sink != null) {
       sink.tryEmitNext(line);
@@ -113,7 +126,7 @@ public class TaskTrackerService {
    * @param sessionId the session identifier
    * @return the workflow progress
    */
-  public WorkflowProgress getProgress(final String sessionId) {
+  public WorkflowProgress getProgress(@SessionId final String sessionId) {
     final WorkflowState state = states.get(sessionId);
     WorkflowProgress progress = null;
     if (state != null) {
@@ -134,7 +147,7 @@ public class TaskTrackerService {
    * @param sessionId the session identifier
    * @return the log flux
    */
-  public Flux<String> getLogStream(final String sessionId) {
+  public Flux<String> getLogStream(@SessionId final String sessionId) {
     final Sinks.Many<String> sink = logSinks.get(sessionId);
     return sink != null ? sink.asFlux() : Flux.empty();
   }
@@ -153,7 +166,7 @@ public class TaskTrackerService {
    *
    * @param sessionId the session identifier
    */
-  public void removeSession(final String sessionId) {
+  public void removeSession(@SessionId final String sessionId) {
     states.remove(sessionId);
     logSinks.remove(sessionId);
     statusSinks.remove(sessionId);
@@ -172,7 +185,7 @@ public class TaskTrackerService {
    * @param sessionId the session identifier
    * @return the status flux
    */
-  public Flux<String> getStatusStream(final String sessionId) {
+  public Flux<String> getStatusStream(@SessionId final String sessionId) {
     final Sinks.Many<String> sink = statusSinks.get(sessionId);
     return sink != null ? sink.asFlux() : Flux.empty();
   }

@@ -16,6 +16,8 @@
 package com.infenia.jagratha.service;
 
 import com.infenia.jagratha.config.AppConfigService;
+import com.infenia.jagratha.validation.FileName;
+import com.infenia.jagratha.validation.SessionId;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -26,12 +28,14 @@ import java.util.stream.Stream;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.validation.annotation.Validated;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
 /** Service for retrieving logs from disk. */
 @Slf4j
 @Service
+@Validated
 @RequiredArgsConstructor
 @SuppressWarnings("PMD.OnlyOneReturn")
 public class LogRetrievalService {
@@ -44,7 +48,7 @@ public class LogRetrievalService {
    * @param sessionId the session identifier
    * @return Mono containing a list of log filenames
    */
-  public Mono<List<String>> listLogs(final String sessionId) {
+  public Mono<List<String>> listLogs(@SessionId final String sessionId) {
     return Mono.zip(
             configService.getResultLogDir(sessionId), configService.getFileLogDir(sessionId))
         .flatMap(
@@ -90,7 +94,8 @@ public class LogRetrievalService {
    * @param fileName the log filename
    * @return Mono containing the log content
    */
-  public Mono<String> getLogContent(final String sessionId, final String fileName) {
+  public Mono<String> getLogContent(
+      @SessionId final String sessionId, @FileName final String fileName) {
     return fetchLogContent(sessionId, fileName).subscribeOn(Schedulers.boundedElastic());
   }
 

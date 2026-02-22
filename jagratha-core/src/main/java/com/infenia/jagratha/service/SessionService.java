@@ -20,6 +20,7 @@ import com.infenia.jagratha.config.AppConfigService;
 import com.infenia.jagratha.model.AppConfigData;
 import com.infenia.jagratha.model.WorkflowDefinition;
 import com.infenia.jagratha.validation.SessionId;
+import com.infenia.jagratha.validation.WorkflowId;
 import jakarta.validation.Valid;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -253,7 +254,7 @@ public class SessionService {
    * @return Mono containing the workflow definition
    */
   public Mono<WorkflowDefinition> getSessionWorkflow(
-      @SessionId final String sessionId, final String workflowId) {
+      @SessionId final String sessionId, @WorkflowId final String workflowId) {
     return configService
         .isActive(sessionId)
         .flatMap(

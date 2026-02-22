@@ -17,11 +17,15 @@ package com.infenia.jagratha.service;
 
 import com.infenia.jagratha.config.AppConfigService;
 import com.infenia.jagratha.model.TaskResponse;
+import com.infenia.jagratha.validation.SessionId;
+import com.infenia.jagratha.validation.WorkflowId;
+import jakarta.validation.constraints.NotEmpty;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.validation.annotation.Validated;
 import reactor.core.publisher.Mono;
 import reactor.core.publisher.Sinks;
 import reactor.core.scheduler.Schedulers;
@@ -29,6 +33,7 @@ import reactor.core.scheduler.Schedulers;
 /** Service for orchestrating workflow execution. */
 @Slf4j
 @Service
+@Validated
 @RequiredArgsConstructor
 public class WorkflowService {
 
@@ -46,7 +51,9 @@ public class WorkflowService {
    * @return Mono containing the task response
    */
   public Mono<TaskResponse> runWorkflow(
-      final String sessionId, final String workflowId, final Map<String, Object> payload) {
+      @SessionId final String sessionId,
+      @WorkflowId final String workflowId,
+      @NotEmpty final Map<String, Object> payload) {
     final String queueKey = sessionId + ":" + workflowId;
     final Sinks.One<TaskResponse> sink = Sinks.one();
 

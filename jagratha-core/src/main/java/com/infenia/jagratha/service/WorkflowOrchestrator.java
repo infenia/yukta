@@ -23,6 +23,10 @@ import com.infenia.jagratha.plugin.ProcessorPlugin;
 import com.infenia.jagratha.plugin.TerminalPlugin;
 import com.infenia.jagratha.plugin.TriggerPlugin;
 import com.infenia.jagratha.plugin.WorkflowPlugin;
+import com.infenia.jagratha.validation.SessionId;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotNull;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -33,12 +37,14 @@ import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.validation.annotation.Validated;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 /** Orchestrator for executing reactive workflow DAGs. */
 @Slf4j
 @Service
+@Validated
 @RequiredArgsConstructor
 @SuppressWarnings({"PMD.OnlyOneReturn", "PMD.TooManyMethods"})
 public class WorkflowOrchestrator {
@@ -52,7 +58,7 @@ public class WorkflowOrchestrator {
    * @param def the workflow definition
    * @return a Mono that completes if preparation is successful
    */
-  public Mono<Void> prepareWorkflow(final WorkflowDefinition def) {
+  public Mono<Void> prepareWorkflow(@NotNull @Valid final WorkflowDefinition def) {
     return validateStructuralIntegrity(def)
         .thenMany(Flux.fromIterable(def.nodes()))
         .flatMap(
@@ -76,7 +82,9 @@ public class WorkflowOrchestrator {
    * @return a Mono that completes when all branches of the workflow have finished
    */
   public Mono<Void> execute(
-      final String sessionId, final WorkflowDefinition def, final Map<String, Object> payload) {
+      @SessionId final String sessionId,
+      @NotNull @Valid final WorkflowDefinition def,
+      @NotEmpty final Map<String, Object> payload) {
     final List<Node> triggers =
         def.nodes().stream()
             .filter(n -> registry.get(n.type()).getCategory() == PluginCategory.TRIGGER)

@@ -16,13 +16,17 @@
 package com.infenia.jagratha.service;
 
 import com.infenia.jagratha.plugin.WorkflowPlugin;
+import com.infenia.jagratha.validation.PluginName;
+import jakarta.validation.constraints.NotEmpty;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import org.springframework.stereotype.Service;
+import org.springframework.validation.annotation.Validated;
 
 /** Registry for workflow plugins. */
 @Service
+@Validated
 public class WorkflowRegistry {
   private final Map<String, WorkflowPlugin> plugins = new ConcurrentHashMap<>();
 
@@ -31,7 +35,7 @@ public class WorkflowRegistry {
    *
    * @param pluginList list of plugins discovered by Spring
    */
-  public WorkflowRegistry(final List<WorkflowPlugin> pluginList) {
+  public WorkflowRegistry(@NotEmpty final List<WorkflowPlugin> pluginList) {
     pluginList.forEach(plugin -> plugins.put(plugin.getType(), plugin));
   }
 
@@ -41,7 +45,7 @@ public class WorkflowRegistry {
    * @param type the plugin type
    * @return the plugin, or null if not found
    */
-  public WorkflowPlugin get(final String type) {
+  public WorkflowPlugin get(@PluginName final String type) {
     return plugins.get(type);
   }
 
@@ -51,7 +55,7 @@ public class WorkflowRegistry {
    * @param type the plugin type
    * @return true if registered
    */
-  public boolean contains(final String type) {
+  public boolean contains(@PluginName final String type) {
     return plugins.containsKey(type);
   }
 }
