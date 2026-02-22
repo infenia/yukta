@@ -53,4 +53,14 @@ public interface WorkflowPlugin {
   default Mono<Void> initialize(Map<String, Object> config) {
     return Mono.empty();
   }
+
+  /**
+   * Shutdown and cleanup resources used by the plugin.
+   *
+   * @param config the plugin configuration
+   * @return a Mono that completes when cleanup is done
+   */
+  default Mono<Void> shutdown(Map<String, Object> config) {
+    return Mono.empty();
+  }
 }
