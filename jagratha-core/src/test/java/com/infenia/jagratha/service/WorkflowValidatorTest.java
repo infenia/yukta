@@ -80,4 +80,96 @@ class WorkflowValidatorTest {
     // We expect it to complete successfully, but log a warning
     StepVerifier.create(validator.validate(def)).verifyComplete();
   }
+
+  @Test
+  void testValidateFilterPlacementWarning() {
+    WorkflowDefinition.Node trigger = new WorkflowDefinition.Node("t1", "TRIGGER", Map.of());
+    WorkflowDefinition.Node heavyMapper =
+        new WorkflowDefinition.Node(
+            "m1",
+            "MAPPER",
+            Map.of(
+                "mode", "SCRIPT",
+                "mapping", "function h() { return 1; } payload.x = h(); return payload;"));
+    WorkflowDefinition.Node filter =
+        new WorkflowDefinition.Node("f1", "FILTER", Map.of("condition", "payload.x > 0"));
+    WorkflowDefinition.Node terminal = new WorkflowDefinition.Node("term1", "TERMINAL", Map.of());
+
+    WorkflowDefinition.Edge e1 = new WorkflowDefinition.Edge("t1", "m1", null);
+    WorkflowDefinition.Edge e2 = new WorkflowDefinition.Edge("m1", "f1", null);
+    WorkflowDefinition.Edge e3 = new WorkflowDefinition.Edge("f1", "term1", null);
+
+    WorkflowDefinition def =
+        new WorkflowDefinition(
+            "desc", List.of(trigger, heavyMapper, filter, terminal), List.of(e1, e2, e3));
+
+    WorkflowPlugin triggerPlugin = mock(WorkflowPlugin.class);
+    when(triggerPlugin.getCategory()).thenReturn(PluginCategory.TRIGGER);
+    when(triggerPlugin.validateConfig(any())).thenReturn(Mono.empty());
+
+    WorkflowPlugin mapperPlugin = mock(WorkflowPlugin.class);
+    when(mapperPlugin.getCategory()).thenReturn(PluginCategory.PROCESSOR);
+    when(mapperPlugin.validateConfig(any())).thenReturn(Mono.empty());
+
+    WorkflowPlugin filterPlugin = mock(WorkflowPlugin.class);
+    when(filterPlugin.getCategory()).thenReturn(PluginCategory.PROCESSOR);
+    when(filterPlugin.validateConfig(any())).thenReturn(Mono.empty());
+
+    WorkflowPlugin terminalPlugin = mock(WorkflowPlugin.class);
+    when(terminalPlugin.getCategory()).thenReturn(PluginCategory.TERMINAL);
+    when(terminalPlugin.validateConfig(any())).thenReturn(Mono.empty());
+
+    when(registry.get("TRIGGER")).thenReturn(triggerPlugin);
+    when(registry.get("MAPPER")).thenReturn(mapperPlugin);
+    when(registry.get("FILTER")).thenReturn(filterPlugin);
+    when(registry.get("TERMINAL")).thenReturn(terminalPlugin);
+
+    StepVerifier.create(validator.validate(def)).verifyComplete();
+  }
+
+  @Test
+  void testValidateFilterPlacementNoWarning() {
+    WorkflowDefinition.Node trigger = new WorkflowDefinition.Node("t1", "TRIGGER", Map.of());
+    WorkflowDefinition.Node filter =
+        new WorkflowDefinition.Node("f1", "FILTER", Map.of("condition", "payload.x > 0"));
+    WorkflowDefinition.Node heavyMapper =
+        new WorkflowDefinition.Node(
+            "m1",
+            "MAPPER",
+            Map.of(
+                "mode", "SCRIPT",
+                "mapping", "function h() { return 1; } payload.x = h(); return payload;"));
+    WorkflowDefinition.Node terminal = new WorkflowDefinition.Node("term1", "TERMINAL", Map.of());
+
+    WorkflowDefinition.Edge e1 = new WorkflowDefinition.Edge("t1", "f1", null);
+    WorkflowDefinition.Edge e2 = new WorkflowDefinition.Edge("f1", "m1", null);
+    WorkflowDefinition.Edge e3 = new WorkflowDefinition.Edge("m1", "term1", null);
+
+    WorkflowDefinition def =
+        new WorkflowDefinition(
+            "desc", List.of(trigger, filter, heavyMapper, terminal), List.of(e1, e2, e3));
+
+    WorkflowPlugin triggerPlugin = mock(WorkflowPlugin.class);
+    when(triggerPlugin.getCategory()).thenReturn(PluginCategory.TRIGGER);
+    when(triggerPlugin.validateConfig(any())).thenReturn(Mono.empty());
+
+    WorkflowPlugin mapperPlugin = mock(WorkflowPlugin.class);
+    when(mapperPlugin.getCategory()).thenReturn(PluginCategory.PROCESSOR);
+    when(mapperPlugin.validateConfig(any())).thenReturn(Mono.empty());
+
+    WorkflowPlugin filterPlugin = mock(WorkflowPlugin.class);
+    when(filterPlugin.getCategory()).thenReturn(PluginCategory.PROCESSOR);
+    when(filterPlugin.validateConfig(any())).thenReturn(Mono.empty());
+
+    WorkflowPlugin terminalPlugin = mock(WorkflowPlugin.class);
+    when(terminalPlugin.getCategory()).thenReturn(PluginCategory.TERMINAL);
+    when(terminalPlugin.validateConfig(any())).thenReturn(Mono.empty());
+
+    when(registry.get("TRIGGER")).thenReturn(triggerPlugin);
+    when(registry.get("MAPPER")).thenReturn(mapperPlugin);
+    when(registry.get("FILTER")).thenReturn(filterPlugin);
+    when(registry.get("TERMINAL")).thenReturn(terminalPlugin);
+
+    StepVerifier.create(validator.validate(def)).verifyComplete();
+  }
 }
