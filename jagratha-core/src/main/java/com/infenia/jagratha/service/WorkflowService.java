@@ -73,7 +73,7 @@ public class WorkflowService {
                                               .flatMap(
                                                   prepared ->
                                                       orchestrator.execute(
-                                                          sessionId, prepared, payload))
+                                                          sessionId, workflowId, prepared, payload))
                                               .then(
                                                   Mono.just(
                                                       new TaskResponse(

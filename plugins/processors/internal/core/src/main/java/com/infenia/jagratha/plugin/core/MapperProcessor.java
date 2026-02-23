@@ -15,12 +15,12 @@
  */
 package com.infenia.jagratha.plugin.core;
 
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.jknack.handlebars.Handlebars;
 import com.github.jknack.handlebars.Template;
 import com.infenia.jagratha.plugin.Message;
 import com.infenia.jagratha.plugin.ProcessorPlugin;
+import com.infenia.jagratha.util.MapUtils;
 import com.infenia.jagratha.util.SpelUtils;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -49,7 +49,8 @@ import reactor.core.publisher.Mono;
   "PMD.AvoidCatchingGenericException",
   "PMD.ExceptionAsFlowControl",
   "PMD.CyclomaticComplexity",
-  "PMD.UseConcurrentHashMap"
+  "PMD.UseConcurrentHashMap",
+  "PMD.GodClass"
 })
 public class MapperProcessor implements ProcessorPlugin {
 
@@ -180,12 +181,12 @@ public class MapperProcessor implements ProcessorPlugin {
       final boolean dropOriginal,
       final boolean strictMode) {
     final Map<String, Object> result =
-        dropOriginal ? new HashMap<>() : asMutableMap(message.payload());
+        dropOriginal ? new HashMap<>() : MapUtils.asMutableMap(message.payload());
     for (final Map.Entry<String, String> entry : mapping.entrySet()) {
       try {
         final Object value = SpelUtils.evaluateSync(entry.getValue(), message);
         if (value != null || strictMode) {
-          setNestedValue(result, entry.getKey(), value);
+          MapUtils.setNestedValue(result, entry.getKey(), value);
         }
       } catch (RuntimeException e) {
         if (strictMode) {
@@ -222,7 +223,7 @@ public class MapperProcessor implements ProcessorPlugin {
       final boolean dropOriginal,
       final boolean strictMode) {
     final Map<String, Object> mapResult =
-        dropOriginal ? new HashMap<>() : asMutableMap(message.payload());
+        dropOriginal ? new HashMap<>() : MapUtils.asMutableMap(message.payload());
     for (final Map.Entry<String, String> entry : mapping.entrySet()) {
       try {
         final Template template = templateCache.get(entry.getValue());
@@ -231,7 +232,7 @@ public class MapperProcessor implements ProcessorPlugin {
               "Template not found in cache for key: " + entry.getValue());
         }
         final String value = template.apply(message);
-        setNestedValue(mapResult, entry.getKey(), value);
+        MapUtils.setNestedValue(mapResult, entry.getKey(), value);
       } catch (IOException e) {
         if (strictMode) {
           throw new RuntimeException("Template application failed", e);
@@ -290,7 +291,7 @@ public class MapperProcessor implements ProcessorPlugin {
       if (dropOriginal) {
         finalResult = resultObj;
       } else {
-        final Map<String, Object> original = asMutableMap(message.payload());
+        final Map<String, Object> original = MapUtils.asMutableMap(message.payload());
         if (resultObj instanceof Map) {
           original.putAll((Map<String, Object>) resultObj);
         }
@@ -336,38 +337,6 @@ public class MapperProcessor implements ProcessorPlugin {
       return map;
     }
     return value.as(Object.class);
-  }
-
-  @SuppressWarnings({UNCHECKED, "PMD.AvoidInstantiatingObjectsInLoops"})
-  private void setNestedValue(
-      final Map<String, Object> map, final String path, final Object value) {
-    final String[] parts = path.split("\\.");
-    Map<String, Object> current = map;
-    for (int i = 0; i < parts.length - 1; i++) {
-      final String part = parts[i];
-      final Object next = current.get(part);
-      if (next instanceof Map) {
-        current = (Map<String, Object>) next;
-      } else {
-        final Map<String, Object> newMap = new HashMap<>();
-        current.put(part, newMap);
-        current = newMap;
-      }
-    }
-    current.put(parts[parts.length - 1], value);
-  }
-
-  @SuppressWarnings(UNCHECKED)
-  private Map<String, Object> asMutableMap(final Object payload) {
-    final Map<String, Object> result;
-    if (payload instanceof Map) {
-      result = new HashMap<>((Map<String, Object>) payload);
-    } else if (payload == null) {
-      result = new HashMap<>();
-    } else {
-      result = objectMapper.convertValue(payload, new TypeReference<>() {});
-    }
-    return result;
   }
 
   @Override

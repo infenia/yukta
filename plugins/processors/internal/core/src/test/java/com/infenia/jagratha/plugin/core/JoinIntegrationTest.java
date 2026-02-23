@@ -125,7 +125,7 @@ class JoinIntegrationTest {
     StepVerifier.create(
             orchestrator
                 .prepareWorkflow(def)
-                .flatMap(p -> orchestrator.execute(sessionId, p, Map.of())))
+                .flatMap(p -> orchestrator.execute(sessionId, "test-workflow", p, Map.of())))
         .verifyComplete();
 
     verify(terminal).consume(any(), any());

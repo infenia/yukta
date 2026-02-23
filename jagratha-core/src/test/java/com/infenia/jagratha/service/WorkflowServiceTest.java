@@ -54,7 +54,7 @@ class WorkflowServiceTest {
 
     when(configService.getWorkflow(sessionId, workflowId)).thenReturn(Mono.just(def));
     when(orchestrator.prepareWorkflow(any())).thenReturn(Mono.just(prepared));
-    when(orchestrator.execute(anyString(), any(), any())).thenReturn(Mono.empty());
+    when(orchestrator.execute(anyString(), anyString(), any(), any())).thenReturn(Mono.empty());
 
     StepVerifier.create(workflowService.runWorkflow(sessionId, workflowId, java.util.Map.of()))
         .expectNextMatches(res -> "SUCCESS".equals(res.status()))

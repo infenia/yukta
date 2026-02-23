@@ -81,7 +81,7 @@ class SubWorkflowProcessorTest {
     when(configService.setDescription(eq(childSessionId), any())).thenReturn(Mono.empty());
 
     when(orchestrator.prepareWorkflow(subDef)).thenReturn(Mono.just(prepared));
-    when(orchestrator.execute(eq(childSessionId), eq(prepared), anyMap()))
+    when(orchestrator.execute(eq(childSessionId), eq(subWorkflowId), eq(prepared), anyMap()))
         .thenAnswer(
             invocation -> {
               // Simulate terminal message collection

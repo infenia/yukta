@@ -26,6 +26,7 @@ import com.infenia.jagratha.plugin.TerminalPlugin;
 import com.infenia.jagratha.plugin.TriggerPlugin;
 import com.infenia.jagratha.plugin.WorkflowPlugin;
 import com.infenia.jagratha.validation.SessionId;
+import com.infenia.jagratha.validation.WorkflowId;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
@@ -137,12 +138,14 @@ public class WorkflowOrchestrator {
    * Execute the workflow.
    *
    * @param sessionId the session identifier
+   * @param workflowId the workflow identifier
    * @param prepared the prepared workflow
    * @param payload the initial trigger payload
    * @return a Mono that completes when all branches of the workflow have finished
    */
   public Mono<Void> execute(
       @SessionId final String sessionId,
+      @WorkflowId final String workflowId,
       @NotNull @Valid final PreparedWorkflow prepared,
       @NotEmpty final Map<String, Object> payload) {
 
@@ -177,7 +180,7 @@ public class WorkflowOrchestrator {
                           }))
                   .timeout(Duration.ofSeconds(GLOBAL_TIMEOUT));
             })
-        .contextWrite(Context.of("sessionId", sessionId));
+        .contextWrite(Context.of("sessionId", sessionId, "workflowId", workflowId));
   }
 
   @SuppressWarnings("PMD.LawOfDemeter")

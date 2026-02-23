@@ -269,7 +269,7 @@ class WorkflowOrchestratorTest {
     StepVerifier.create(
             orchestrator
                 .prepareWorkflow(def)
-                .flatMap(pw -> orchestrator.execute(sessionId, pw, Map.of())))
+                .flatMap(pw -> orchestrator.execute(sessionId, "test-workflow", pw, Map.of())))
         .verifyComplete();
 
     verify(trigger).start(any(), any());
@@ -316,7 +316,7 @@ class WorkflowOrchestratorTest {
     StepVerifier.create(
             orchestrator
                 .prepareWorkflow(def)
-                .flatMap(pw -> orchestrator.execute(sessionId, pw, Map.of())))
+                .flatMap(pw -> orchestrator.execute(sessionId, "test-workflow", pw, Map.of())))
         .verifyComplete();
 
     verify(terminal, atLeastOnce()).consume(any(), any());
@@ -364,7 +364,7 @@ class WorkflowOrchestratorTest {
     StepVerifier.create(
             orchestrator
                 .prepareWorkflow(def)
-                .flatMap(pw -> orchestrator.execute(sessionId, pw, Map.of())))
+                .flatMap(pw -> orchestrator.execute(sessionId, "test-workflow", pw, Map.of())))
         .verifyComplete();
 
     verify(trigger).start(any(), any());
@@ -432,7 +432,7 @@ class WorkflowOrchestratorTest {
     StepVerifier.create(
             orchestrator
                 .prepareWorkflow(def)
-                .flatMap(pw -> orchestrator.execute(sessionId, pw, Map.of())))
+                .flatMap(pw -> orchestrator.execute(sessionId, "test-workflow", pw, Map.of())))
         .verifyComplete();
 
     verify(processor).process(any(), any());

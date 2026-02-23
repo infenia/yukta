@@ -132,7 +132,7 @@ class WorkflowOrchestratorImprovementsTest {
     StepVerifier.create(
             orchestrator
                 .prepareWorkflow(defUnique)
-                .flatMap(p -> orchestrator.execute(sessionId, p, Map.of())))
+                .flatMap(p -> orchestrator.execute(sessionId, "test-workflow", p, Map.of())))
         .expectErrorMatches(
             e ->
                 e.getMessage().contains("Term1 failed")
@@ -189,7 +189,7 @@ class WorkflowOrchestratorImprovementsTest {
             () ->
                 orchestrator
                     .prepareWorkflow(def)
-                    .flatMap(p -> orchestrator.execute(sessionId, p, Map.of())))
+                    .flatMap(p -> orchestrator.execute(sessionId, "test-workflow", p, Map.of())))
         .expectSubscription()
         .thenAwait(Duration.ofSeconds(35))
         .expectError()
@@ -224,7 +224,7 @@ class WorkflowOrchestratorImprovementsTest {
     StepVerifier.create(
             orchestrator
                 .prepareWorkflow(def)
-                .flatMap(p -> orchestrator.execute(sessionId, p, Map.of())))
+                .flatMap(p -> orchestrator.execute(sessionId, "test-workflow", p, Map.of())))
         .verifyComplete();
 
     verify(tracker).startWorkflow(eq(sessionId), any());

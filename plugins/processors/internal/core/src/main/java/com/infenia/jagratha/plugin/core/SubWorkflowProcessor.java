@@ -144,7 +144,7 @@ public class SubWorkflowProcessor implements ProcessorPlugin {
                     .flatMap(
                         prepared ->
                             orchestrator
-                                .execute(childSessionId, prepared, payload)
+                                .execute(childSessionId, workflowId, prepared, payload)
                                 .contextWrite(ctx -> ctx.put("resultCollector", collector))
                                 .then(Mono.fromCallable(collector::getResults))));
   }
