@@ -21,6 +21,7 @@ import com.infenia.jagratha.service.TaskTrackerService;
 import gg.jte.TemplateEngine;
 import gg.jte.output.StringOutput;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Controller;
@@ -61,7 +62,7 @@ public class UiController {
                     .getSessionConfig(id)
                     .map(
                         config -> {
-                          final java.util.Map<String, Object> map = new java.util.HashMap<>(config);
+                          final Map<String, Object> map = new ConcurrentHashMap<>(config);
                           map.put("sessionId", id);
                           return map;
                         }))

@@ -199,6 +199,7 @@ public class WorkflowOrchestrator {
           tracker
               .updateTaskStatus(sessionId, node.nodeId(), DEFAULT_TASK_ID, STATUS_RUNNING)
               .thenMany(trigger.start(node.config(), payload))
+              .contextWrite(ctx -> ctx.put("nodeId", node.nodeId()))
               .concatWith(
                   Mono.defer(
                       () ->
@@ -225,6 +226,7 @@ public class WorkflowOrchestrator {
             tracker
                 .updateTaskStatus(sessionId, node.nodeId(), DEFAULT_TASK_ID, STATUS_RUNNING)
                 .thenMany(processor.process(mergedInput, node.config()))
+                .contextWrite(ctx -> ctx.put("nodeId", node.nodeId()))
                 .concatWith(
                     Mono.defer(
                         () ->
@@ -246,7 +248,10 @@ public class WorkflowOrchestrator {
         final Mono<Void> completion =
             tracker
                 .updateTaskStatus(sessionId, node.nodeId(), DEFAULT_TASK_ID, STATUS_RUNNING)
-                .then(terminal.consume(mergedInput, node.config()))
+                .then(
+                    terminal
+                        .consume(mergedInput, node.config())
+                        .contextWrite(ctx -> ctx.put("nodeId", node.nodeId())))
                 .timeout(nodeTimeout)
                 .then(
                     tracker.updateTaskStatus(
