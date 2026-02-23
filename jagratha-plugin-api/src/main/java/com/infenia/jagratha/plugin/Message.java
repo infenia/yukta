@@ -28,6 +28,7 @@ import java.util.UUID;
  * @param payload the actual data being passed
  * @param timestamp time when the message was created
  * @param sourcePort the port from which the message was emitted
+ * @param sourceNodeId the ID of the node that emitted the message
  */
 public record Message(
     @SuppressWarnings("PMD.ShortVariable") UUID id,
@@ -35,7 +36,8 @@ public record Message(
     Map<String, Object> metadata,
     Object payload,
     Instant timestamp,
-    String sourcePort) {
+    String sourcePort,
+    String sourceNodeId) {
 
   /**
    * Compact constructor to ensure metadata is immutable.
@@ -46,6 +48,7 @@ public record Message(
    * @param payload payload object
    * @param timestamp creation timestamp
    * @param sourcePort emission port
+   * @param sourceNodeId source node ID
    */
   public Message {
     metadata = metadata != null ? Map.copyOf(metadata) : Map.of();
@@ -59,7 +62,7 @@ public record Message(
    * @return a new message
    */
   public static Message create(final UUID traceId, final Object payload) {
-    return new Message(UUID.randomUUID(), traceId, Map.of(), payload, Instant.now(), null);
+    return new Message(UUID.randomUUID(), traceId, Map.of(), payload, Instant.now(), null, null);
   }
 
   /**
@@ -69,6 +72,16 @@ public record Message(
    * @return a new message instance
    */
   public Message withSourcePort(final String newSourcePort) {
-    return new Message(id, traceId, metadata, payload, timestamp, newSourcePort);
+    return new Message(id, traceId, metadata, payload, timestamp, newSourcePort, sourceNodeId);
+  }
+
+  /**
+   * Create a copy of this message with a new source node ID.
+   *
+   * @param newSourceNodeId the new source node ID
+   * @return a new message instance
+   */
+  public Message withSourceNodeId(final String newSourceNodeId) {
+    return new Message(id, traceId, metadata, payload, timestamp, sourcePort, newSourceNodeId);
   }
 }

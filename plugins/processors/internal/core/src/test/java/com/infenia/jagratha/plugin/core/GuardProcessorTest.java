@@ -64,6 +64,7 @@ class GuardProcessorTest {
             Map.of("priority", "HIGH"),
             "data",
             java.time.Instant.now(),
+            null,
             null);
 
     StepVerifier.create(processor.process(Flux.just(msg), config))

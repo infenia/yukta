@@ -27,8 +27,8 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 /**
- * Branch plugin routes messages to different ports based on conditions or selectors.
- * Supports SELECT_KEY (exact match) and EXPRESSION (SpEL predicate) modes.
+ * Branch plugin routes messages to different ports based on conditions or selectors. Supports
+ * SELECT_KEY (exact match) and EXPRESSION (SpEL predicate) modes.
  */
 @Slf4j
 @Component
@@ -140,7 +140,8 @@ public class BranchProcessor implements ProcessorPlugin {
     final String mode = (String) config.get(CONFIG_MODE);
     if (mode == null || (!MODE_SELECT_KEY.equals(mode) && !MODE_EXPRESSION.equals(mode))) {
       return Mono.error(
-          new IllegalArgumentException("Invalid or missing mode. Must be SELECT_KEY or EXPRESSION"));
+          new IllegalArgumentException(
+              "Invalid or missing mode. Must be SELECT_KEY or EXPRESSION"));
     }
     if (MODE_SELECT_KEY.equals(mode) && (config.get(CONFIG_SELECTOR) == null)) {
       return Mono.error(new IllegalArgumentException("selector is mandatory for SELECT_KEY mode"));

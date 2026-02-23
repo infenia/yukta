@@ -225,11 +225,13 @@ public class WorkflowOrchestrator {
                   .map(
                       edge -> {
                         final Flux<Message> parentStream = nodeStreams.get(edge.source());
+                        final Flux<Message> stampedStream =
+                            parentStream.map(msg -> msg.withSourceNodeId(edge.source()));
                         if (edge.sourcePort() != null) {
-                          return parentStream.filter(
+                          return stampedStream.filter(
                               msg -> edge.sourcePort().equals(msg.sourcePort()));
                         }
-                        return parentStream;
+                        return stampedStream;
                       })
                   .toList());
 

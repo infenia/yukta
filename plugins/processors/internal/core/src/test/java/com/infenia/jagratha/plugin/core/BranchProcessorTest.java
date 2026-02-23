@@ -38,14 +38,14 @@ class BranchProcessorTest {
 
   @Test
   void testSelectKeyMode() {
-    final Map<String, Object> config = Map.of(
-        "mode", "SELECT_KEY",
-        "selector", "payload.userType",
-        "cases", Map.of(
-            "PREMIUM", "premium_port",
-            "GUEST", "guest_port"
-        )
-    );
+    final Map<String, Object> config =
+        Map.of(
+            "mode", "SELECT_KEY",
+            "selector", "payload.userType",
+            "cases",
+                Map.of(
+                    "PREMIUM", "premium_port",
+                    "GUEST", "guest_port"));
 
     final Message msg1 = Message.create(UUID.randomUUID(), Map.of("userType", "PREMIUM"));
     final Message msg2 = Message.create(UUID.randomUUID(), Map.of("userType", "GUEST"));
@@ -61,14 +61,14 @@ class BranchProcessorTest {
 
   @Test
   void testSelectKeyTypeCoercion() {
-    final Map<String, Object> config = Map.of(
-        "mode", "SELECT_KEY",
-        "selector", "payload.code",
-        "cases", Map.of(
-            "1", "port_1",
-            "2", "port_2"
-        )
-    );
+    final Map<String, Object> config =
+        Map.of(
+            "mode", "SELECT_KEY",
+            "selector", "payload.code",
+            "cases",
+                Map.of(
+                    "1", "port_1",
+                    "2", "port_2"));
 
     final Message msg = Message.create(UUID.randomUUID(), Map.of("code", 1));
 
@@ -83,10 +83,7 @@ class BranchProcessorTest {
     cases.put("payload.score > 90", "high_score");
     cases.put("payload.score <= 90", "low_score");
 
-    final Map<String, Object> config = Map.of(
-        "mode", "EXPRESSION",
-        "cases", cases
-    );
+    final Map<String, Object> config = Map.of("mode", "EXPRESSION", "cases", cases);
 
     final Message msg = Message.create(UUID.randomUUID(), Map.of("score", 95));
 
@@ -101,11 +98,8 @@ class BranchProcessorTest {
     cases.put("payload.score > 50", "pass");
     cases.put("payload.score > 90", "excellent");
 
-    final Map<String, Object> config = Map.of(
-        "mode", "EXPRESSION",
-        "allowMultipleMatches", true,
-        "cases", cases
-    );
+    final Map<String, Object> config =
+        Map.of("mode", "EXPRESSION", "allowMultipleMatches", true, "cases", cases);
 
     final Message msg = Message.create(UUID.randomUUID(), Map.of("score", 95));
 
@@ -117,12 +111,12 @@ class BranchProcessorTest {
 
   @Test
   void testDefaultPort() {
-    final Map<String, Object> config = Map.of(
-        "mode", "SELECT_KEY",
-        "selector", "payload.userType",
-        "cases", Map.of("ADMIN", "admin_port"),
-        "defaultPort", "default_port"
-    );
+    final Map<String, Object> config =
+        Map.of(
+            "mode", "SELECT_KEY",
+            "selector", "payload.userType",
+            "cases", Map.of("ADMIN", "admin_port"),
+            "defaultPort", "default_port");
 
     final Message msg = Message.create(UUID.randomUUID(), Map.of("userType", "UNKNOWN"));
 
@@ -133,12 +127,16 @@ class BranchProcessorTest {
 
   @Test
   void testStrictModeError() {
-    final Map<String, Object> config = Map.of(
-        "mode", "SELECT_KEY",
-        "selector", "payload.userType",
-        "cases", Map.of("ADMIN", "admin_port"),
-        "strictMode", true
-    );
+    final Map<String, Object> config =
+        Map.of(
+            "mode",
+            "SELECT_KEY",
+            "selector",
+            "payload.userType",
+            "cases",
+            Map.of("ADMIN", "admin_port"),
+            "strictMode",
+            true);
 
     final Message msg = Message.create(UUID.randomUUID(), Map.of("userType", "UNKNOWN"));
 
@@ -149,26 +147,29 @@ class BranchProcessorTest {
 
   @Test
   void testNonStrictModeEmpty() {
-    final Map<String, Object> config = Map.of(
-        "mode", "SELECT_KEY",
-        "selector", "payload.userType",
-        "cases", Map.of("ADMIN", "admin_port"),
-        "strictMode", false
-    );
+    final Map<String, Object> config =
+        Map.of(
+            "mode",
+            "SELECT_KEY",
+            "selector",
+            "payload.userType",
+            "cases",
+            Map.of("ADMIN", "admin_port"),
+            "strictMode",
+            false);
 
     final Message msg = Message.create(UUID.randomUUID(), Map.of("userType", "UNKNOWN"));
 
-    StepVerifier.create(processor.process(Flux.just(msg), config))
-        .verifyComplete();
+    StepVerifier.create(processor.process(Flux.just(msg), config)).verifyComplete();
   }
 
   @Test
   void testValidateConfig() {
-    final Map<String, Object> validConfig = Map.of(
-        "mode", "SELECT_KEY",
-        "selector", "payload.id",
-        "cases", Map.of("1", "port1")
-    );
+    final Map<String, Object> validConfig =
+        Map.of(
+            "mode", "SELECT_KEY",
+            "selector", "payload.id",
+            "cases", Map.of("1", "port1"));
     StepVerifier.create(processor.validateConfig(validConfig)).verifyComplete();
 
     final Map<String, Object> invalidMode = Map.of("mode", "INVALID", "cases", Map.of());

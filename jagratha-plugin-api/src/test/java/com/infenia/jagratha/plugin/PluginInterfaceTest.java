@@ -33,7 +33,8 @@ class PluginInterfaceTest {
     Map<String, Object> metadata = new java.util.HashMap<>();
     metadata.put("key", "value");
     Message msg =
-        new Message(UUID.randomUUID(), traceId, metadata, "payload", java.time.Instant.now(), null);
+        new Message(
+            UUID.randomUUID(), traceId, metadata, "payload", java.time.Instant.now(), null, null);
 
     assertEquals("value", msg.metadata().get("key"));
 
@@ -42,6 +43,21 @@ class PluginInterfaceTest {
     } catch (UnsupportedOperationException e) {
       // expected
     }
+  }
+
+  @Test
+  void testMessageMethods() {
+    UUID traceId = UUID.randomUUID();
+    Message msg = Message.create(traceId, "payload");
+    assertEquals(traceId, msg.traceId());
+    assertEquals("payload", msg.payload());
+
+    Message stamped = msg.withSourceNodeId("node1");
+    assertEquals("node1", stamped.sourceNodeId());
+
+    Message ported = stamped.withSourcePort("port1");
+    assertEquals("port1", ported.sourcePort());
+    assertEquals("node1", ported.sourceNodeId());
   }
 
   @Test

@@ -83,7 +83,8 @@ public class GuardProcessor implements ProcessorPlugin {
                   metadata,
                   message.payload(),
                   message.timestamp(),
-                  errorPort);
+                  errorPort,
+                  message.sourceNodeId());
             }
             if (!strictMode) {
               return message.withSourcePort(PORT_FALSE);

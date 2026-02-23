@@ -159,7 +159,8 @@ public class SubWorkflowProcessor implements ProcessorPlugin {
               parentMessage.metadata(),
               results,
               parentMessage.timestamp(),
-              null));
+              null,
+              parentMessage.sourceNodeId()));
     }
 
     return SpelUtils.<Object>evaluate(mapper, results, Map.of("parentMessage", parentMessage))
@@ -171,6 +172,7 @@ public class SubWorkflowProcessor implements ProcessorPlugin {
                     parentMessage.metadata(),
                     payload,
                     parentMessage.timestamp(),
-                    null));
+                    null,
+                    parentMessage.sourceNodeId()));
   }
 }
