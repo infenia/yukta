@@ -83,6 +83,7 @@ public class SessionService {
                   .then(
                       Flux.fromIterable(data.workflows().values())
                           .flatMap(orchestrator::prepareWorkflow)
+                          .collectList()
                           .then());
             })
         .then(saveConfigToDisk(data.sessionId()));

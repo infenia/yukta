@@ -38,7 +38,7 @@ class TaskTrackerServiceTest {
     String sessionId = "sess-1";
     List<String> nodes = List.of("node1", "node2");
 
-    tracker.startWorkflow(sessionId, nodes);
+    StepVerifier.create(tracker.startWorkflow(sessionId, nodes)).verifyComplete();
     WorkflowProgress progress = tracker.getProgress(sessionId);
 
     assertNotNull(progress);
@@ -47,12 +47,13 @@ class TaskTrackerServiceTest {
     assertEquals("node1", progress.tasks().get(0).nodeId());
     assertEquals("PENDING", progress.tasks().get(0).status());
 
-    tracker.updateTaskStatus(sessionId, "node1", "moduleA", "SUCCESS");
+    StepVerifier.create(tracker.updateTaskStatus(sessionId, "node1", "moduleA", "SUCCESS"))
+        .verifyComplete();
     progress = tracker.getProgress(sessionId);
     assertEquals("SUCCESS", progress.tasks().get(0).status());
     assertEquals("moduleA", progress.tasks().get(0).module());
 
-    tracker.finishWorkflow(sessionId, "COMPLETED");
+    StepVerifier.create(tracker.finishWorkflow(sessionId, "COMPLETED")).verifyComplete();
     progress = tracker.getProgress(sessionId);
     assertEquals("COMPLETED", progress.status());
     assertNotNull(progress.endTime());
@@ -61,10 +62,10 @@ class TaskTrackerServiceTest {
   @Test
   void testLogStreaming() {
     String sessionId = "sess-1";
-    tracker.startWorkflow(sessionId, List.of());
+    StepVerifier.create(tracker.startWorkflow(sessionId, List.of())).verifyComplete();
 
     StepVerifier.create(tracker.getLogStream(sessionId))
-        .then(() -> tracker.appendLog(sessionId, "log line 1"))
+        .then(() -> tracker.appendLog(sessionId, "log line 1").subscribe())
         .expectNext("log line 1")
         .thenCancel()
         .verify();
@@ -73,10 +74,10 @@ class TaskTrackerServiceTest {
   @Test
   void testStatusStreaming() {
     String sessionId = "sess-1";
-    tracker.startWorkflow(sessionId, List.of("n1"));
+    StepVerifier.create(tracker.startWorkflow(sessionId, List.of("n1"))).verifyComplete();
 
     StepVerifier.create(tracker.getStatusStream(sessionId))
-        .then(() -> tracker.updateTaskStatus(sessionId, "n1", "mod", "SUCCESS"))
+        .then(() -> tracker.updateTaskStatus(sessionId, "n1", "mod", "SUCCESS").subscribe())
         .expectNext("update")
         .thenCancel()
         .verify();
@@ -85,7 +86,7 @@ class TaskTrackerServiceTest {
   @Test
   void testRemoveSession() {
     String sessionId = "sess-1";
-    tracker.startWorkflow(sessionId, List.of());
+    StepVerifier.create(tracker.startWorkflow(sessionId, List.of())).verifyComplete();
     assertEquals(1, tracker.getActiveSessions().size());
     tracker.removeSession(sessionId);
     assertEquals(0, tracker.getActiveSessions().size());

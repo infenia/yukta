@@ -43,13 +43,19 @@ class WorkflowOrchestratorImprovementsTest {
 
   private WorkflowRegistry registry;
   private TaskTrackerService tracker;
+  private WorkflowValidator validator;
   private WorkflowOrchestrator orchestrator;
 
   @BeforeEach
   void setUp() {
     registry = mock(WorkflowRegistry.class);
     tracker = mock(TaskTrackerService.class);
-    orchestrator = new WorkflowOrchestrator(registry, tracker);
+    validator = new WorkflowValidator(registry);
+    when(tracker.startWorkflow(any(), any())).thenReturn(Mono.empty());
+    when(tracker.updateTaskStatus(any(), any(), any(), any())).thenReturn(Mono.empty());
+    when(tracker.finishWorkflow(any(), any())).thenReturn(Mono.empty());
+    when(tracker.appendLog(any(), any())).thenReturn(Mono.empty());
+    orchestrator = new WorkflowOrchestrator(registry, tracker, validator);
   }
 
   @Test
@@ -95,25 +101,38 @@ class WorkflowOrchestratorImprovementsTest {
 
     TriggerPlugin trigger = mock(TriggerPlugin.class);
     when(trigger.getCategory()).thenReturn(PluginCategory.TRIGGER);
+    when(trigger.validateConfig(any())).thenReturn(Mono.empty());
+    when(trigger.initialize(any())).thenReturn(Mono.empty());
     when(trigger.start(any(), any()))
         .thenReturn(Flux.just(Message.create(UUID.randomUUID(), "data")));
 
     TerminalPlugin term1Plugin = mock(TerminalPlugin.class);
     when(term1Plugin.getCategory()).thenReturn(PluginCategory.TERMINAL);
-    // term1 fails
+    when(term1Plugin.validateConfig(any())).thenReturn(Mono.empty());
+    when(term1Plugin.initialize(any())).thenReturn(Mono.empty());
+    // term1 fails AFTER subscribing
     when(term1Plugin.consume(any(), any()))
-        .thenReturn(Mono.error(new RuntimeException("Term1 failed")));
+        .thenAnswer(
+            inv ->
+                ((Flux<Message>) inv.getArgument(0))
+                    .then(Mono.error(new RuntimeException("Term1 failed"))));
 
     TerminalPlugin term2Plugin = mock(TerminalPlugin.class);
     when(term2Plugin.getCategory()).thenReturn(PluginCategory.TERMINAL);
+    when(term2Plugin.validateConfig(any())).thenReturn(Mono.empty());
+    when(term2Plugin.initialize(any())).thenReturn(Mono.empty());
     // term2 succeeds
-    when(term2Plugin.consume(any(), any())).thenReturn(Mono.empty());
+    when(term2Plugin.consume(any(), any()))
+        .thenAnswer(inv -> ((Flux<Message>) inv.getArgument(0)).then());
 
     when(registry.get("type-t")).thenReturn(trigger);
     when(registry.get("type-term1")).thenReturn(term1Plugin);
     when(registry.get("type-term2")).thenReturn(term2Plugin);
 
-    StepVerifier.create(orchestrator.execute(sessionId, defUnique, Map.of()))
+    StepVerifier.create(
+            orchestrator
+                .prepareWorkflow(defUnique)
+                .flatMap(p -> orchestrator.execute(sessionId, p, Map.of())))
         .expectErrorMatches(
             e ->
                 e.getMessage().contains("Term1 failed")
@@ -138,10 +157,14 @@ class WorkflowOrchestratorImprovementsTest {
 
     TriggerPlugin trigger = mock(TriggerPlugin.class);
     when(trigger.getCategory()).thenReturn(PluginCategory.TRIGGER);
+    when(trigger.validateConfig(any())).thenReturn(Mono.empty());
+    when(trigger.initialize(any())).thenReturn(Mono.empty());
     when(trigger.start(any(), any())).thenReturn(Flux.never());
 
     TerminalPlugin term1Plugin = mock(TerminalPlugin.class);
     when(term1Plugin.getCategory()).thenReturn(PluginCategory.TERMINAL);
+    when(term1Plugin.validateConfig(any())).thenReturn(Mono.empty());
+    when(term1Plugin.initialize(any())).thenReturn(Mono.empty());
     // This one subscribes and waits
     when(term1Plugin.consume(any(), any()))
         .thenAnswer(
@@ -152,6 +175,8 @@ class WorkflowOrchestratorImprovementsTest {
 
     TerminalPlugin term2Plugin = mock(TerminalPlugin.class);
     when(term2Plugin.getCategory()).thenReturn(PluginCategory.TERMINAL);
+    when(term2Plugin.validateConfig(any())).thenReturn(Mono.empty());
+    when(term2Plugin.initialize(any())).thenReturn(Mono.empty());
     // This one DOES NOT subscribe to the stream
     when(term2Plugin.consume(any(), any())).thenReturn(Mono.empty());
 
@@ -159,9 +184,12 @@ class WorkflowOrchestratorImprovementsTest {
     when(registry.get("type-term1")).thenReturn(term1Plugin);
     when(registry.get("type-term2")).thenReturn(term2Plugin);
 
-    // autoConnect(2) will hang because only term1Plugin subscribes.
-    // timeout(30s) on broadcastStream should trigger for term1Plugin.
-    StepVerifier.withVirtualTime(() -> orchestrator.execute(sessionId, def, Map.of()))
+    // replay(1).refCount(2, 30s) will hang if only 1 subscribes
+    StepVerifier.withVirtualTime(
+            () ->
+                orchestrator
+                    .prepareWorkflow(def)
+                    .flatMap(p -> orchestrator.execute(sessionId, p, Map.of())))
         .expectSubscription()
         .thenAwait(Duration.ofSeconds(35))
         .expectError()
@@ -178,17 +206,26 @@ class WorkflowOrchestratorImprovementsTest {
 
     TriggerPlugin trigger = mock(TriggerPlugin.class);
     when(trigger.getCategory()).thenReturn(PluginCategory.TRIGGER);
+    when(trigger.validateConfig(any())).thenReturn(Mono.empty());
+    when(trigger.initialize(any())).thenReturn(Mono.empty());
     when(trigger.start(any(), any()))
         .thenReturn(Flux.just(Message.create(UUID.randomUUID(), "data")));
 
     TerminalPlugin terminal = mock(TerminalPlugin.class);
     when(terminal.getCategory()).thenReturn(PluginCategory.TERMINAL);
-    when(terminal.consume(any(), any())).thenReturn(Mono.empty());
+    when(terminal.validateConfig(any())).thenReturn(Mono.empty());
+    when(terminal.initialize(any())).thenReturn(Mono.empty());
+    when(terminal.consume(any(), any()))
+        .thenAnswer(inv -> ((Flux<Message>) inv.getArgument(0)).then());
 
     when(registry.get("trigger")).thenReturn(trigger);
     when(registry.get("terminal")).thenReturn(terminal);
 
-    StepVerifier.create(orchestrator.execute(sessionId, def, Map.of())).verifyComplete();
+    StepVerifier.create(
+            orchestrator
+                .prepareWorkflow(def)
+                .flatMap(p -> orchestrator.execute(sessionId, p, Map.of())))
+        .verifyComplete();
 
     verify(tracker).startWorkflow(eq(sessionId), any());
     verify(tracker, atLeastOnce()).updateTaskStatus(eq(sessionId), any(), any(), any());

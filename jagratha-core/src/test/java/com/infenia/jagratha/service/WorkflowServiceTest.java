@@ -20,8 +20,10 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 
 import com.infenia.jagratha.config.AppConfigService;
+import com.infenia.jagratha.model.PreparedWorkflow;
 import com.infenia.jagratha.model.WorkflowDefinition;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -48,9 +50,10 @@ class WorkflowServiceTest {
     String sessionId = "sess-success";
     String workflowId = "w-success";
     WorkflowDefinition def = new WorkflowDefinition("desc", List.of(), List.of());
+    PreparedWorkflow prepared = new PreparedWorkflow(def, Map.of(), Map.of(), Map.of(), List.of());
 
     when(configService.getWorkflow(sessionId, workflowId)).thenReturn(Mono.just(def));
-    when(orchestrator.prepareWorkflow(any())).thenReturn(Mono.empty());
+    when(orchestrator.prepareWorkflow(any())).thenReturn(Mono.just(prepared));
     when(orchestrator.execute(anyString(), any(), any())).thenReturn(Mono.empty());
 
     StepVerifier.create(workflowService.runWorkflow(sessionId, workflowId, java.util.Map.of()))

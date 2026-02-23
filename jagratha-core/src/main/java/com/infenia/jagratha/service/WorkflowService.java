@@ -70,11 +70,10 @@ public class WorkflowService {
                                       def ->
                                           orchestrator
                                               .prepareWorkflow(def)
-                                              .then(
-                                                  Mono.defer(
-                                                      () ->
-                                                          orchestrator.execute(
-                                                              sessionId, def, payload)))
+                                              .flatMap(
+                                                  prepared ->
+                                                      orchestrator.execute(
+                                                          sessionId, prepared, payload))
                                               .then(
                                                   Mono.just(
                                                       new TaskResponse(

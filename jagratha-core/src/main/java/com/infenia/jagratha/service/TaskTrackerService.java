@@ -31,6 +31,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import org.springframework.stereotype.Service;
 import org.springframework.validation.annotation.Validated;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 import reactor.core.publisher.Sinks;
 
 /** Service for tracking the progress of workflows and tasks. */
@@ -52,21 +53,25 @@ public class TaskTrackerService {
    *
    * @param sessionId the session identifier
    * @param nodeIds the list of node IDs in the workflow DAG
+   * @return a Mono that completes when the workflow tracking is started
    */
-  public void startWorkflow(
+  public Mono<Void> startWorkflow(
       @SessionId final String sessionId, @NotEmpty final List<String> nodeIds) {
-    final List<TaskProgress> initialTasks =
-        nodeIds.stream().map(id -> new TaskProgress(id, "", "PENDING", null, null)).toList();
-    states.put(
-        sessionId,
-        new WorkflowState(
-            sessionId, "RUNNING", new ArrayList<>(initialTasks), LocalDateTime.now()));
+    return Mono.fromRunnable(
+        () -> {
+          final List<TaskProgress> initialTasks =
+              nodeIds.stream().map(id -> new TaskProgress(id, "", "PENDING", null, null)).toList();
+          states.put(
+              sessionId,
+              new WorkflowState(
+                  sessionId, "RUNNING", new ArrayList<>(initialTasks), LocalDateTime.now()));
 
-    final Sinks.Many<String> sink = Sinks.many().multicast().directBestEffort();
-    logSinks.put(sessionId, sink);
+          final Sinks.Many<String> sink = Sinks.many().multicast().directBestEffort();
+          logSinks.put(sessionId, sink);
 
-    final Sinks.Many<String> statusSink = Sinks.many().multicast().directBestEffort();
-    statusSinks.put(sessionId, statusSink);
+          final Sinks.Many<String> statusSink = Sinks.many().multicast().directBestEffort();
+          statusSinks.put(sessionId, statusSink);
+        });
   }
 
   /**
@@ -76,18 +81,22 @@ public class TaskTrackerService {
    * @param nodeId the ID of the node
    * @param module the module name
    * @param status the new status
+   * @return a Mono that completes when the task status is updated
    */
   @SuppressWarnings("PMD.UseObjectForClearerAPI")
-  public void updateTaskStatus(
+  public Mono<Void> updateTaskStatus(
       @SessionId final String sessionId,
       @NodeId final String nodeId,
       @NotBlank @Size(max = 256) final String module,
       @NotBlank @Size(max = 256) final String status) {
-    final WorkflowState state = states.get(sessionId);
-    if (state != null) {
-      state.updateTask(nodeId, module, status);
-      notifyStatusChange(sessionId);
-    }
+    return Mono.fromRunnable(
+        () -> {
+          final WorkflowState state = states.get(sessionId);
+          if (state != null) {
+            state.updateTask(nodeId, module, status);
+            notifyStatusChange(sessionId);
+          }
+        });
   }
 
   /**
@@ -95,15 +104,19 @@ public class TaskTrackerService {
    *
    * @param sessionId the session identifier
    * @param status the final status
+   * @return a Mono that completes when the workflow is finished
    */
-  public void finishWorkflow(
+  public Mono<Void> finishWorkflow(
       @SessionId final String sessionId, @NotBlank @Size(max = 256) final String status) {
-    final WorkflowState state = states.get(sessionId);
-    if (state != null) {
-      state.setStatus(status);
-      state.setEndTime(LocalDateTime.now());
-      notifyStatusChange(sessionId);
-    }
+    return Mono.fromRunnable(
+        () -> {
+          final WorkflowState state = states.get(sessionId);
+          if (state != null) {
+            state.setStatus(status);
+            state.setEndTime(LocalDateTime.now());
+            notifyStatusChange(sessionId);
+          }
+        });
   }
 
   /**
@@ -111,13 +124,17 @@ public class TaskTrackerService {
    *
    * @param sessionId the session identifier
    * @param line the log line
+   * @return a Mono that completes when the log line is appended
    */
-  public void appendLog(
+  public Mono<Void> appendLog(
       @SessionId final String sessionId, @NotBlank @Size(max = 16_384) final String line) {
-    final Sinks.Many<String> sink = logSinks.get(sessionId);
-    if (sink != null) {
-      sink.tryEmitNext(line);
-    }
+    return Mono.fromRunnable(
+        () -> {
+          final Sinks.Many<String> sink = logSinks.get(sessionId);
+          if (sink != null) {
+            sink.tryEmitNext(line);
+          }
+        });
   }
 
   /**

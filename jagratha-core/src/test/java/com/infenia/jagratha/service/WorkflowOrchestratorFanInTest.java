@@ -16,8 +16,11 @@
 package com.infenia.jagratha.service;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -42,13 +45,19 @@ class WorkflowOrchestratorFanInTest {
 
   private WorkflowRegistry registry;
   private TaskTrackerService tracker;
+  private WorkflowValidator validator;
   private WorkflowOrchestrator orchestrator;
 
   @BeforeEach
   void setUp() {
     registry = mock(WorkflowRegistry.class);
     tracker = mock(TaskTrackerService.class);
-    orchestrator = new WorkflowOrchestrator(registry, tracker);
+    validator = new WorkflowValidator(registry);
+    when(tracker.startWorkflow(any(), any())).thenReturn(Mono.empty());
+    when(tracker.updateTaskStatus(any(), any(), any(), any())).thenReturn(Mono.empty());
+    when(tracker.finishWorkflow(any(), any())).thenReturn(Mono.empty());
+    when(tracker.appendLog(any(), any())).thenReturn(Mono.empty());
+    orchestrator = new WorkflowOrchestrator(registry, tracker, validator);
   }
 
   @Test
@@ -67,17 +76,19 @@ class WorkflowOrchestratorFanInTest {
 
     TriggerPlugin trigger = mock(TriggerPlugin.class);
     when(trigger.getCategory()).thenReturn(PluginCategory.TRIGGER);
+    when(trigger.validateConfig(any())).thenReturn(Mono.empty());
+    when(trigger.initialize(any())).thenReturn(Mono.empty());
     when(trigger.start(any(), any()))
         .thenAnswer(
             invocation -> {
               Map<String, Object> config = invocation.getArgument(0);
-              // We can't easily distinguish t1 and t2 here without better mocking,
-              // but we can return different data based on config if needed.
               return Flux.just(Message.create(UUID.randomUUID(), "msg-from-trigger"));
             });
 
     ProcessorPlugin processor = mock(ProcessorPlugin.class);
     when(processor.getCategory()).thenReturn(PluginCategory.PROCESSOR);
+    when(processor.validateConfig(any())).thenReturn(Mono.empty());
+    when(processor.initialize(any())).thenReturn(Mono.empty());
     when(processor.process(any(), any()))
         .thenAnswer(
             invocation -> {
@@ -87,6 +98,8 @@ class WorkflowOrchestratorFanInTest {
 
     TerminalPlugin terminal = mock(TerminalPlugin.class);
     when(terminal.getCategory()).thenReturn(PluginCategory.TERMINAL);
+    when(terminal.validateConfig(any())).thenReturn(Mono.empty());
+    when(terminal.initialize(any())).thenReturn(Mono.empty());
     when(terminal.consume(any(), any()))
         .thenAnswer(
             inv -> {
@@ -98,11 +111,15 @@ class WorkflowOrchestratorFanInTest {
     when(registry.get("processor")).thenReturn(processor);
     when(registry.get("terminal")).thenReturn(terminal);
 
-    StepVerifier.create(orchestrator.execute(sessionId, def, Map.of())).verifyComplete();
+    StepVerifier.create(
+            orchestrator
+                .prepareWorkflow(def)
+                .flatMap(p -> orchestrator.execute(sessionId, p, Map.of())))
+        .verifyComplete();
 
     // Verify that terminal received 2 messages (one from each trigger path)
     verify(terminal).consume(any(), any());
-    verify(tracker).finishWorkflow(eq(sessionId), eq("COMPLETED"));
+    verify(tracker, atLeastOnce()).finishWorkflow(eq(sessionId), eq("COMPLETED"));
   }
 
   @Test
@@ -125,15 +142,21 @@ class WorkflowOrchestratorFanInTest {
 
     TriggerPlugin trigger = mock(TriggerPlugin.class);
     when(trigger.getCategory()).thenReturn(PluginCategory.TRIGGER);
+    when(trigger.validateConfig(any())).thenReturn(Mono.empty());
+    when(trigger.initialize(any())).thenReturn(Mono.empty());
     when(trigger.start(any(), any()))
         .thenReturn(Flux.just(Message.create(UUID.randomUUID(), "data")));
 
     ProcessorPlugin processor = mock(ProcessorPlugin.class);
     when(processor.getCategory()).thenReturn(PluginCategory.PROCESSOR);
+    when(processor.validateConfig(any())).thenReturn(Mono.empty());
+    when(processor.initialize(any())).thenReturn(Mono.empty());
     when(processor.process(any(), any())).thenAnswer(inv -> inv.getArgument(0));
 
     TerminalPlugin terminal = mock(TerminalPlugin.class);
     when(terminal.getCategory()).thenReturn(PluginCategory.TERMINAL);
+    when(terminal.validateConfig(any())).thenReturn(Mono.empty());
+    when(terminal.initialize(any())).thenReturn(Mono.empty());
     when(terminal.consume(any(), any()))
         .thenAnswer(
             inv -> {
@@ -155,9 +178,13 @@ class WorkflowOrchestratorFanInTest {
     when(registry.get("processor")).thenReturn(processor);
     when(registry.get("terminal")).thenReturn(terminal);
 
-    StepVerifier.create(orchestrator.execute(sessionId, def, Map.of())).verifyComplete();
+    StepVerifier.create(
+            orchestrator
+                .prepareWorkflow(def)
+                .flatMap(p -> orchestrator.execute(sessionId, p, Map.of())))
+        .verifyComplete();
 
-    verify(tracker).finishWorkflow(eq(sessionId), eq("COMPLETED"));
+    verify(tracker, atLeastOnce()).finishWorkflow(eq(sessionId), eq("COMPLETED"));
   }
 
   @Test
@@ -176,20 +203,28 @@ class WorkflowOrchestratorFanInTest {
 
     TriggerPlugin trigger1 = mock(TriggerPlugin.class);
     when(trigger1.getCategory()).thenReturn(PluginCategory.TRIGGER);
+    when(trigger1.validateConfig(any())).thenReturn(Mono.empty());
+    when(trigger1.initialize(any())).thenReturn(Mono.empty());
     when(trigger1.start(any(), any()))
         .thenReturn(Flux.error(new RuntimeException("Trigger 1 failed")));
 
     TriggerPlugin trigger2 = mock(TriggerPlugin.class);
     when(trigger2.getCategory()).thenReturn(PluginCategory.TRIGGER);
+    when(trigger2.validateConfig(any())).thenReturn(Mono.empty());
+    when(trigger2.initialize(any())).thenReturn(Mono.empty());
     when(trigger2.start(any(), any()))
         .thenReturn(Flux.just(Message.create(UUID.randomUUID(), "t2-data")));
 
     ProcessorPlugin processor = mock(ProcessorPlugin.class);
     when(processor.getCategory()).thenReturn(PluginCategory.PROCESSOR);
+    when(processor.validateConfig(any())).thenReturn(Mono.empty());
+    when(processor.initialize(any())).thenReturn(Mono.empty());
     when(processor.process(any(), any())).thenAnswer(inv -> inv.getArgument(0));
 
     TerminalPlugin terminal = mock(TerminalPlugin.class);
     when(terminal.getCategory()).thenReturn(PluginCategory.TERMINAL);
+    when(terminal.validateConfig(any())).thenReturn(Mono.empty());
+    when(terminal.initialize(any())).thenReturn(Mono.empty());
     when(terminal.consume(any(), any()))
         .thenAnswer(
             inv -> {
@@ -197,11 +232,6 @@ class WorkflowOrchestratorFanInTest {
               return input.then();
             });
 
-    when(registry.get("trigger"))
-        .thenReturn(trigger1); // Using same mock for both for simplicity in registry
-    // Wait, I need different types if I want different plugins, or I can mock registry to return
-    // different things for different node types.
-    // In this test, let's use different types.
     Node t1_node = new Node("t1", "trigger1", Map.of());
     Node t2_node = new Node("t2", "trigger2", Map.of());
     WorkflowDefinition def2 =
@@ -215,7 +245,10 @@ class WorkflowOrchestratorFanInTest {
     when(registry.get("processor")).thenReturn(processor);
     when(registry.get("terminal")).thenReturn(terminal);
 
-    StepVerifier.create(orchestrator.execute(sessionId, def2, Map.of()))
+    StepVerifier.create(
+            orchestrator
+                .prepareWorkflow(def2)
+                .flatMap(pw -> orchestrator.execute(sessionId, pw, Map.of())))
         .expectErrorMatches(
             e ->
                 e.getMessage().contains("Trigger 1 failed")
@@ -223,7 +256,9 @@ class WorkflowOrchestratorFanInTest {
                         && e.getCause().getMessage().contains("Trigger 1 failed")))
         .verify();
 
-    verify(tracker).updateTaskStatus(eq(sessionId), eq("t1"), any(), eq("FAILURE"));
-    verify(tracker).finishWorkflow(eq(sessionId), eq("COMPLETED"));
+    verify(tracker, timeout(1000).atLeastOnce())
+        .updateTaskStatus(eq(sessionId), eq("t1"), anyString(), eq("FAILURE"));
+    // FAILURE now since I changed the error handling in execute()
+    verify(tracker, timeout(1000)).finishWorkflow(eq(sessionId), eq("FAILURE"));
   }
 }
