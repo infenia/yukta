@@ -21,6 +21,7 @@ import com.infenia.jagratha.model.WorkflowDefinition.Node;
 import com.infenia.jagratha.plugin.Message;
 import com.infenia.jagratha.plugin.PluginCategory;
 import com.infenia.jagratha.plugin.ProcessorPlugin;
+import com.infenia.jagratha.plugin.ResultCollector;
 import com.infenia.jagratha.plugin.TerminalPlugin;
 import com.infenia.jagratha.plugin.TriggerPlugin;
 import com.infenia.jagratha.plugin.WorkflowPlugin;
@@ -245,12 +246,21 @@ public class WorkflowOrchestrator {
             node.nodeId(),
             applyLoggingAndBroadcasting(sessionId, node.nodeId(), stream, children.size()));
       } else if (plugin instanceof TerminalPlugin terminal) {
+        final Flux<Message> inputToTerminal =
+            mergedInput.concatMap(
+                msg ->
+                    Mono.deferContextual(
+                        ctx -> {
+                          ctx.<ResultCollector>getOrEmpty("resultCollector")
+                              .ifPresent(collector -> collector.add(msg));
+                          return Mono.just(msg);
+                        }));
         final Mono<Void> completion =
             tracker
                 .updateTaskStatus(sessionId, node.nodeId(), DEFAULT_TASK_ID, STATUS_RUNNING)
                 .then(
                     terminal
-                        .consume(mergedInput, node.config())
+                        .consume(inputToTerminal, node.config())
                         .contextWrite(ctx -> ctx.put("nodeId", node.nodeId())))
                 .timeout(nodeTimeout)
                 .then(

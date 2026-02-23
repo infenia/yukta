@@ -1,0 +1,174 @@
+/*
+ * Copyright 2026 Infenia Private Limited
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package com.infenia.jagratha.plugin.core;
+
+import com.infenia.jagratha.config.AppConfigService;
+import com.infenia.jagratha.plugin.Message;
+import com.infenia.jagratha.plugin.ProcessorPlugin;
+import com.infenia.jagratha.plugin.ResultCollector;
+import com.infenia.jagratha.service.WorkflowOrchestrator;
+import java.util.List;
+import java.util.Map;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+
+/** Executes a nested DAG as a single node in the parent DAG. */
+@Slf4j
+@Component
+@SuppressWarnings({"PMD.OnlyOneReturn", "PMD.LawOfDemeter"})
+public class SubWorkflowProcessor implements ProcessorPlugin {
+
+  private static final String TYPE = "SUB_WORKFLOW";
+
+  @Autowired private ObjectProvider<WorkflowOrchestrator> orchProv;
+
+  @Autowired private ObjectProvider<AppConfigService> cfgServProv;
+
+  /** Default constructor. */
+  public SubWorkflowProcessor() {
+    super();
+  }
+
+  @Override
+  public String getType() {
+    return TYPE;
+  }
+
+  @Override
+  public Mono<Void> initialize(final Map<String, Object> config) {
+    final String inputMapper = (String) config.get("inputMapper");
+    final String outputMapper = (String) config.get("outputMapper");
+    SpelUtils.preParse(inputMapper);
+    SpelUtils.preParse(outputMapper);
+    return Mono.empty();
+  }
+
+  @Override
+  public Flux<Message> process(final Flux<Message> input, final Map<String, Object> config) {
+    final String subWorkflowId = (String) config.get("subWorkflowId");
+    final String inputMapper = (String) config.get("inputMapper");
+    final String outputMapper = (String) config.get("outputMapper");
+
+    if (subWorkflowId == null) {
+      return Flux.error(new IllegalArgumentException("subWorkflowId is mandatory"));
+    }
+
+    return input.concatMap(
+        parentMessage ->
+            Mono.deferContextual(
+                ctx -> {
+                  final String parentSessionId = ctx.getOrDefault("sessionId", "unknown");
+                  final String nodeId = ctx.getOrDefault("nodeId", "unknown");
+                  final String childSessionId = parentSessionId + ":" + nodeId;
+
+                  return mapInput(parentMessage, inputMapper, parentSessionId)
+                      .flatMap(
+                          triggerPayload ->
+                              executeSubWorkflow(
+                                  parentSessionId, childSessionId, subWorkflowId, triggerPayload))
+                      .flatMap(results -> mapOutput(results, outputMapper, parentMessage));
+                }));
+  }
+
+  private Mono<Map<String, Object>> mapInput(
+      final Message message, final String mapper, final String sessionId) {
+    if (mapper == null || mapper.isBlank()) {
+      if (message.payload() instanceof Map) {
+        @SuppressWarnings("unchecked")
+        final Map<String, Object> payload = (Map<String, Object>) message.payload();
+        return Mono.just(payload);
+      }
+      return Mono.just(Map.of("payload", message.payload()));
+    }
+    return SpelUtils.evaluate(
+        mapper, message, Map.of("headers", message.metadata(), "sessionId", sessionId));
+  }
+
+  private Mono<List<Message>> executeSubWorkflow(
+      final String parentSessionId,
+      final String childSessionId,
+      final String workflowId,
+      final Map<String, Object> payload) {
+    final WorkflowOrchestrator orchestrator = orchProv.getIfAvailable();
+    final AppConfigService configService = cfgServProv.getIfAvailable();
+
+    if (orchestrator == null || configService == null) {
+      return Mono.error(new IllegalStateException("Required services not available"));
+    }
+
+    final ResultCollector collector = new ResultCollector();
+
+    return configService
+        .getWorkflow(parentSessionId, workflowId)
+        .switchIfEmpty(
+            Mono.error(new IllegalArgumentException("Workflow not found: " + workflowId)))
+        .flatMap(
+            def ->
+                configService
+                    .getProjectPath(parentSessionId)
+                    .flatMap(path -> configService.setProjectPath(childSessionId, path))
+                    .then(
+                        configService
+                            .getWorkflows(parentSessionId)
+                            .flatMap(wfs -> configService.setWorkflows(childSessionId, wfs)))
+                    .then(
+                        configService
+                            .getInitiator(parentSessionId)
+                            .flatMap(init -> configService.setInitiator(childSessionId, init)))
+                    .then(
+                        configService
+                            .getDescription(parentSessionId)
+                            .flatMap(
+                                desc ->
+                                    configService.setDescription(
+                                        childSessionId, desc + " (Sub-workflow)")))
+                    .then(orchestrator.prepareWorkflow(def))
+                    .flatMap(
+                        prepared ->
+                            orchestrator
+                                .execute(childSessionId, prepared, payload)
+                                .contextWrite(ctx -> ctx.put("resultCollector", collector))
+                                .then(Mono.fromCallable(collector::getResults))));
+  }
+
+  private Mono<Message> mapOutput(
+      final List<Message> results, final String mapper, final Message parentMessage) {
+    if (mapper == null || mapper.isBlank()) {
+      // Default: merge results into a single payload if possible, or just return them
+      return Mono.just(
+          new Message(
+              parentMessage.id(),
+              parentMessage.traceId(),
+              parentMessage.metadata(),
+              results,
+              parentMessage.timestamp()));
+    }
+
+    return SpelUtils.<Object>evaluate(mapper, results, Map.of("parentMessage", parentMessage))
+        .map(
+            payload ->
+                new Message(
+                    parentMessage.id(),
+                    parentMessage.traceId(),
+                    parentMessage.metadata(),
+                    payload,
+                    parentMessage.timestamp()));
+  }
+}

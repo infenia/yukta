@@ -17,6 +17,7 @@ package com.infenia.jagratha.plugin;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -111,5 +112,24 @@ class PluginInterfaceTest {
           }
         };
     assertEquals(PluginCategory.TERMINAL, terminal.getCategory());
+  }
+
+  @Test
+  void testResultCollector() {
+    ResultCollector collector = new ResultCollector();
+    Message msg1 = Message.create(UUID.randomUUID(), "res1");
+    Message msg2 = Message.create(UUID.randomUUID(), "res2");
+
+    collector.add(msg1);
+    collector.add(msg2);
+    collector.add(null);
+
+    List<Message> results = collector.getResults();
+    assertEquals(2, results.size());
+    assertEquals("res1", results.get(0).payload());
+    assertEquals("res2", results.get(1).payload());
+
+    collector.clear();
+    assertEquals(0, collector.getResults().size());
   }
 }

@@ -25,6 +25,7 @@ plugins {
 dependencies {
     implementation project(':jagratha-core')
     implementation project(':jagratha-ui')
+    implementation project(':plugins:processors:internal:core')
 
     implementation libs.spring.boot.starter.webflux
     implementation libs.spring.boot.starter.validation
