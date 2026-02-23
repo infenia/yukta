@@ -58,6 +58,7 @@ public class WorkflowValidator {
     return validateEntryPoints(def, targetIds)
         .then(validateProcessors(def, targetIds, sourceIds))
         .then(validateEndpoints(def, sourceIds))
+        .then(validateGuards(def, sourceIds))
         .then(validateNoCycles(def))
         .then(validateNoOrphans(def))
         .then(validatePluginConfigs(def));
@@ -107,6 +108,42 @@ public class WorkflowValidator {
                             + " must have both incoming and outgoing edges"));
               }
               return Mono.empty();
+            })
+        .then();
+  }
+
+  private Mono<Void> validateGuards(final WorkflowDefinition def, final Set<String> sourceIds) {
+    final Set<String> standardPorts = Set.of("true", "false", "error");
+    return Flux.fromIterable(def.nodes())
+        .filter(node -> "GUARD".equals(node.type()))
+        .flatMap(
+            node -> {
+              if (!sourceIds.contains(node.nodeId())) {
+                return Mono.error(
+                    new IllegalArgumentException(
+                        "Guard node " + node.nodeId() + " must have at least one outgoing edge"));
+              }
+              // Validate ports on outgoing edges
+              return Flux.fromIterable(def.edges())
+                  .filter(e -> e.source().equals(node.nodeId()))
+                  .flatMap(
+                      edge -> {
+                        if (edge.sourcePort() != null
+                            && !standardPorts.contains(edge.sourcePort())) {
+                          // Allow custom error port if specified in config
+                          final String errorPort = (String) node.config().get("errorPort");
+                          if (!edge.sourcePort().equals(errorPort)) {
+                            return Mono.error(
+                                new IllegalArgumentException(
+                                    "Invalid sourcePort '"
+                                        + edge.sourcePort()
+                                        + "' for Guard node "
+                                        + node.nodeId()));
+                          }
+                        }
+                        return Mono.empty();
+                      })
+                  .then();
             })
         .then();
   }

@@ -27,13 +27,15 @@ import java.util.UUID;
  * @param metadata metadata associated with the message
  * @param payload the actual data being passed
  * @param timestamp time when the message was created
+ * @param sourcePort the port from which the message was emitted
  */
 public record Message(
     @SuppressWarnings("PMD.ShortVariable") UUID id,
     UUID traceId,
     Map<String, Object> metadata,
     Object payload,
-    Instant timestamp) {
+    Instant timestamp,
+    String sourcePort) {
 
   /**
    * Compact constructor to ensure metadata is immutable.
@@ -43,6 +45,7 @@ public record Message(
    * @param metadata metadata map
    * @param payload payload object
    * @param timestamp creation timestamp
+   * @param sourcePort emission port
    */
   public Message {
     metadata = metadata != null ? Map.copyOf(metadata) : Map.of();
@@ -56,6 +59,16 @@ public record Message(
    * @return a new message
    */
   public static Message create(final UUID traceId, final Object payload) {
-    return new Message(UUID.randomUUID(), traceId, Map.of(), payload, Instant.now());
+    return new Message(UUID.randomUUID(), traceId, Map.of(), payload, Instant.now(), null);
+  }
+
+  /**
+   * Create a copy of this message with a new source port.
+   *
+   * @param newSourcePort the new source port
+   * @return a new message instance
+   */
+  public Message withSourcePort(final String newSourcePort) {
+    return new Message(id, traceId, metadata, payload, timestamp, newSourcePort);
   }
 }

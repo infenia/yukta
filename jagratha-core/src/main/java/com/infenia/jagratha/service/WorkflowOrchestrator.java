@@ -189,7 +189,6 @@ public class WorkflowOrchestrator {
       final Map<String, Flux<Message>> nodeStreams,
       final List<Mono<Void>> terminals) {
 
-    final List<Node> parents = prepared.parentsList().get(node.nodeId());
     final List<Node> children = prepared.adjacencyList().get(node.nodeId());
     final WorkflowPlugin plugin = prepared.pluginCache().get(node.nodeId());
     final Duration nodeTimeout = getNodeTimeout(node);
@@ -220,21 +219,57 @@ public class WorkflowOrchestrator {
           applyLoggingAndBroadcasting(sessionId, node.nodeId(), stream, children.size()));
     } else {
       final Flux<Message> mergedInput =
-          Flux.merge(parents.stream().map(p -> nodeStreams.get(p.nodeId())).toList());
+          Flux.merge(
+              prepared.definition().edges().stream()
+                  .filter(edge -> edge.target().equals(node.nodeId()))
+                  .map(
+                      edge -> {
+                        final Flux<Message> parentStream = nodeStreams.get(edge.source());
+                        if (edge.sourcePort() != null) {
+                          return parentStream.filter(
+                              msg -> edge.sourcePort().equals(msg.sourcePort()));
+                        }
+                        return parentStream;
+                      })
+                  .toList());
 
       if (plugin instanceof ProcessorPlugin processor) {
         final Flux<Message> stream =
-            tracker
-                .updateTaskStatus(sessionId, node.nodeId(), DEFAULT_TASK_ID, STATUS_RUNNING)
-                .thenMany(processor.process(mergedInput, node.config()))
+            mergedInput
+                .publish(
+                    f ->
+                        f.next()
+                            .flatMapMany(
+                                msg ->
+                                    tracker
+                                        .updateTaskStatus(
+                                            sessionId,
+                                            node.nodeId(),
+                                            DEFAULT_TASK_ID,
+                                            STATUS_RUNNING)
+                                        .thenMany(
+                                            processor.process(
+                                                Flux.concat(Mono.just(msg), f), node.config()))
+                                        .concatWith(
+                                            Mono.defer(
+                                                () ->
+                                                    tracker
+                                                        .updateTaskStatus(
+                                                            sessionId,
+                                                            node.nodeId(),
+                                                            DEFAULT_TASK_ID,
+                                                            STATUS_SUCCESS)
+                                                        .then(Mono.empty()))))
+                            .switchIfEmpty(
+                                Mono.defer(
+                                        () ->
+                                            tracker.updateTaskStatus(
+                                                sessionId,
+                                                node.nodeId(),
+                                                DEFAULT_TASK_ID,
+                                                "SKIPPED"))
+                                    .thenMany(Flux.empty())))
                 .contextWrite(ctx -> ctx.put("nodeId", node.nodeId()))
-                .concatWith(
-                    Mono.defer(
-                        () ->
-                            tracker
-                                .updateTaskStatus(
-                                    sessionId, node.nodeId(), DEFAULT_TASK_ID, STATUS_SUCCESS)
-                                .then(Mono.empty())))
                 .onErrorResume(
                     e ->
                         tracker
@@ -256,16 +291,35 @@ public class WorkflowOrchestrator {
                           return Mono.just(msg);
                         }));
         final Mono<Void> completion =
-            tracker
-                .updateTaskStatus(sessionId, node.nodeId(), DEFAULT_TASK_ID, STATUS_RUNNING)
-                .then(
-                    terminal
-                        .consume(inputToTerminal, node.config())
-                        .contextWrite(ctx -> ctx.put("nodeId", node.nodeId())))
+            inputToTerminal
+                .publish(
+                    f ->
+                        f.next()
+                            .flatMap(
+                                msg ->
+                                    tracker
+                                        .updateTaskStatus(
+                                            sessionId,
+                                            node.nodeId(),
+                                            DEFAULT_TASK_ID,
+                                            STATUS_RUNNING)
+                                        .then(
+                                            terminal.consume(
+                                                Flux.concat(Mono.just(msg), f), node.config()))
+                                        .then(
+                                            tracker.updateTaskStatus(
+                                                sessionId,
+                                                node.nodeId(),
+                                                DEFAULT_TASK_ID,
+                                                STATUS_SUCCESS)))
+                            .switchIfEmpty(
+                                Mono.defer(
+                                    () ->
+                                        tracker.updateTaskStatus(
+                                            sessionId, node.nodeId(), DEFAULT_TASK_ID, "SKIPPED"))))
+                .contextWrite(ctx -> ctx.put("nodeId", node.nodeId()))
                 .timeout(nodeTimeout)
-                .then(
-                    tracker.updateTaskStatus(
-                        sessionId, node.nodeId(), DEFAULT_TASK_ID, STATUS_SUCCESS))
+                .then()
                 .onErrorResume(
                     e ->
                         tracker

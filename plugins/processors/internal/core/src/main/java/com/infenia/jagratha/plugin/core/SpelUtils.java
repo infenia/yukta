@@ -20,6 +20,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.springframework.expression.Expression;
 import org.springframework.expression.ExpressionParser;
 import org.springframework.expression.spel.standard.SpelExpressionParser;
+import org.springframework.expression.spel.support.MapAccessor;
 import org.springframework.expression.spel.support.StandardEvaluationContext;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
@@ -28,6 +29,13 @@ import reactor.core.scheduler.Schedulers;
 public final class SpelUtils {
   private static final ExpressionParser PARSER = new SpelExpressionParser();
   private static final Map<String, Expression> CACHE = new ConcurrentHashMap<>();
+  private static final ThreadLocal<StandardEvaluationContext> CONTEXT_HOLDER =
+      ThreadLocal.withInitial(
+          () -> {
+            final StandardEvaluationContext context = new StandardEvaluationContext();
+            context.addPropertyAccessor(new MapAccessor());
+            return context;
+          });
 
   private SpelUtils() {
     // Utility class
@@ -57,6 +65,20 @@ public final class SpelUtils {
               return result;
             })
         .subscribeOn(Schedulers.boundedElastic());
+  }
+
+  /**
+   * Synchronously evaluate a SpEL expression against a root object using a cached context.
+   *
+   * @param expressionStr the expression string
+   * @param root the root object
+   * @param <T> the result type
+   * @return the evaluation result
+   */
+  @SuppressWarnings("unchecked")
+  public static <T> T evaluateSync(final String expressionStr, final Object root) {
+    final Expression expression = CACHE.computeIfAbsent(expressionStr, PARSER::parseExpression);
+    return (T) expression.getValue(CONTEXT_HOLDER.get(), root);
   }
 
   /**

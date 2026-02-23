@@ -69,9 +69,21 @@ public record WorkflowDefinition(
    *
    * @param source the source node ID
    * @param target the target node ID
+   * @param sourcePort the source port name
    */
   @Schema(description = "A connection between two nodes")
   public record Edge(
       @Schema(description = "Source node ID") @NotBlank String source,
-      @Schema(description = "Target node ID") @NotBlank String target) {}
+      @Schema(description = "Target node ID") @NotBlank String target,
+      @Schema(description = "Source port name") String sourcePort) {
+    /**
+     * Backward-compatible constructor.
+     *
+     * @param source source node ID
+     * @param target target node ID
+     */
+    public Edge(final String source, final String target) {
+      this(source, target, null);
+    }
+  }
 }
