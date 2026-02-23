@@ -59,6 +59,7 @@ public class WorkflowValidator {
         .then(validateProcessors(def, targetIds, sourceIds))
         .then(validateEndpoints(def, sourceIds))
         .then(validateGuards(def, sourceIds))
+        .then(validateBranches(def))
         .then(validateNoCycles(def))
         .then(validateNoOrphans(def))
         .then(validatePluginConfigs(def));
@@ -108,6 +109,49 @@ public class WorkflowValidator {
                             + " must have both incoming and outgoing edges"));
               }
               return Mono.empty();
+            })
+        .then();
+  }
+
+  private Mono<Void> validateBranches(final WorkflowDefinition def) {
+    return Flux.fromIterable(def.nodes())
+        .filter(node -> "BRANCH".equals(node.type()))
+        .flatMap(
+            node -> {
+              final Map<String, Object> config = node.config();
+              @SuppressWarnings("unchecked")
+              final Map<String, String> cases = (Map<String, String>) config.get("cases");
+              final String defaultPort = (String) config.get("defaultPort");
+
+              final Set<String> definedPorts = new HashSet<>();
+              if (cases != null) {
+                definedPorts.addAll(cases.values());
+              }
+              if (defaultPort != null) {
+                definedPorts.add(defaultPort);
+              }
+
+              final Set<String> actualPorts =
+                  def.edges().stream()
+                      .filter(e -> e.source().equals(node.nodeId()))
+                      .map(WorkflowDefinition.Edge::sourcePort)
+                      .collect(Collectors.toSet());
+
+              return Flux.fromIterable(definedPorts)
+                  .flatMap(
+                      definedPort -> {
+                        if (!actualPorts.contains(definedPort)) {
+                          return Mono.error(
+                              new IllegalArgumentException(
+                                  "Branch node "
+                                      + node.nodeId()
+                                      + " has a case routing to port '"
+                                      + definedPort
+                                      + "' but no outgoing edge exists for this port"));
+                        }
+                        return Mono.empty();
+                      })
+                  .then();
             })
         .then();
   }
