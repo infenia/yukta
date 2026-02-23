@@ -17,8 +17,8 @@ package com.infenia.jagratha.plugin.core;
 
 import com.infenia.jagratha.plugin.Message;
 import com.infenia.jagratha.plugin.ProcessorPlugin;
-import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
@@ -30,15 +30,19 @@ import reactor.core.publisher.Mono;
  */
 @Slf4j
 @Component
-@SuppressWarnings("PMD.OnlyOneReturn")
+@SuppressWarnings({
+  "PMD.OnlyOneReturn",
+  "PMD.AvoidThrowingRawExceptionTypes",
+  "PMD.AvoidCatchingGenericException"
+})
 public class GuardProcessor implements ProcessorPlugin {
 
   private static final String TYPE = "GUARD";
   private static final String PORT_TRUE = "true";
   private static final String PORT_FALSE = "false";
   private static final String CONFIG_CONDITION = "condition";
-  private static final String CONFIG_STRICT_MODE = "strictMode";
-  private static final String CONFIG_ERROR_PORT = "errorPort";
+  private static final String STRICT = "strictMode";
+  private static final String ERROR_PORT = "errorPort";
 
   /** Default constructor. */
   public GuardProcessor() {
@@ -63,8 +67,8 @@ public class GuardProcessor implements ProcessorPlugin {
   @Override
   public Flux<Message> process(final Flux<Message> input, final Map<String, Object> config) {
     final String condition = (String) config.get(CONFIG_CONDITION);
-    final boolean strictMode = (Boolean) config.getOrDefault(CONFIG_STRICT_MODE, true);
-    final String errorPort = (String) config.get(CONFIG_ERROR_PORT);
+    final boolean strictMode = (Boolean) config.getOrDefault(STRICT, true);
+    final String errorPort = (String) config.get(ERROR_PORT);
 
     return input.map(
         message -> {
@@ -73,9 +77,12 @@ public class GuardProcessor implements ProcessorPlugin {
             final String port = (result != null && result) ? PORT_TRUE : PORT_FALSE;
             return message.withSourcePort(port);
           } catch (final Exception e) {
-            log.error("Guard evaluation failed for condition [{}]: {}", condition, e.getMessage());
+            if (log.isErrorEnabled()) {
+              log.error(
+                  "Guard evaluation failed for condition [{}]: {}", condition, e.getMessage());
+            }
             if (errorPort != null) {
-              final Map<String, Object> metadata = new HashMap<>(message.metadata());
+              final Map<String, Object> metadata = new ConcurrentHashMap<>(message.metadata());
               metadata.put("error_message", e.getMessage());
               return new Message(
                   message.id(),

@@ -32,7 +32,13 @@ import reactor.core.publisher.Mono;
  */
 @Slf4j
 @Component
-@SuppressWarnings({"PMD.OnlyOneReturn", "PMD.LawOfDemeter", "PMD.AvoidThrowingRawExceptionTypes"})
+@SuppressWarnings({
+  "PMD.OnlyOneReturn",
+  "PMD.CognitiveComplexity",
+  "PMD.AvoidDeeplyNestedIfStmts",
+  "PMD.ExceptionAsFlowControl",
+  "PMD.AvoidCatchingGenericException"
+})
 public class BranchProcessor implements ProcessorPlugin {
 
   private static final String TYPE = "BRANCH";
@@ -40,9 +46,9 @@ public class BranchProcessor implements ProcessorPlugin {
   private static final String CONFIG_MODE = "mode";
   private static final String CONFIG_SELECTOR = "selector";
   private static final String CONFIG_CASES = "cases";
-  private static final String CONFIG_DEFAULT_PORT = "defaultPort";
-  private static final String CONFIG_ALLOW_MULTIPLE = "allowMultipleMatches";
-  private static final String CONFIG_STRICT_MODE = "strictMode";
+  private static final String DEF_PORT = "defaultPort";
+  private static final String ALLOW_MULT = "allowMultipleMatches";
+  private static final String STRICT = "strictMode";
 
   private static final String MODE_SELECT_KEY = "SELECT_KEY";
   private static final String MODE_EXPRESSION = "EXPRESSION";
@@ -81,34 +87,16 @@ public class BranchProcessor implements ProcessorPlugin {
     final String selector = (String) config.get(CONFIG_SELECTOR);
     final Map<String, String> cases =
         (Map<String, String>) config.getOrDefault(CONFIG_CASES, Map.of());
-    final String defaultPort = (String) config.get(CONFIG_DEFAULT_PORT);
-    final boolean allowMultiple = (Boolean) config.getOrDefault(CONFIG_ALLOW_MULTIPLE, false);
-    final boolean strictMode = (Boolean) config.getOrDefault(CONFIG_STRICT_MODE, true);
+    final String defaultPort = (String) config.get(DEF_PORT);
+    final boolean allowMultiple = (Boolean) config.getOrDefault(ALLOW_MULT, false);
+    final boolean strictMode = (Boolean) config.getOrDefault(STRICT, true);
 
     return input.flatMap(
         message -> {
           final List<String> matchedPorts = new ArrayList<>();
 
           try {
-            if (MODE_SELECT_KEY.equals(mode)) {
-              final Object result = SpelUtils.evaluateSync(selector, message);
-              if (result != null) {
-                final String port = cases.get(result.toString());
-                if (port != null) {
-                  matchedPorts.add(port);
-                }
-              }
-            } else if (MODE_EXPRESSION.equals(mode)) {
-              for (final Map.Entry<String, String> entry : cases.entrySet()) {
-                final Boolean match = SpelUtils.evaluateSync(entry.getKey(), message);
-                if (Boolean.TRUE.equals(match)) {
-                  matchedPorts.add(entry.getValue());
-                  if (!allowMultiple) {
-                    break;
-                  }
-                }
-              }
-            }
+            evaluateBranches(mode, selector, cases, allowMultiple, message, matchedPorts);
 
             if (matchedPorts.isEmpty()) {
               if (defaultPort != null) {
@@ -125,13 +113,44 @@ public class BranchProcessor implements ProcessorPlugin {
             return Flux.fromIterable(matchedPorts).map(message::withSourcePort);
 
           } catch (final Exception e) {
-            log.error("Branch evaluation failed for message {}: {}", message.id(), e.getMessage());
+            if (log.isErrorEnabled()) {
+              log.error(
+                  "Branch evaluation failed for message {}: {}", message.id(), e.getMessage());
+            }
             return Flux.error(
                 e.getMessage() != null && e.getMessage().startsWith(ERR_PREFIX)
                     ? e
                     : new RuntimeException(ERR_PREFIX + "Branch evaluation failed", e));
           }
         });
+  }
+
+  private void evaluateBranches(
+      final String mode,
+      final String selector,
+      final Map<String, String> cases,
+      final boolean allowMultiple,
+      final Message message,
+      final List<String> matchedPorts) {
+    if (MODE_SELECT_KEY.equals(mode)) {
+      final Object result = SpelUtils.evaluateSync(selector, message);
+      if (result != null) {
+        final String port = cases.get(result.toString());
+        if (port != null) {
+          matchedPorts.add(port);
+        }
+      }
+    } else if (MODE_EXPRESSION.equals(mode)) {
+      for (final Map.Entry<String, String> entry : cases.entrySet()) {
+        final Boolean match = SpelUtils.evaluateSync(entry.getKey(), message);
+        if (Boolean.TRUE.equals(match)) {
+          matchedPorts.add(entry.getValue());
+          if (!allowMultiple) {
+            break;
+          }
+        }
+      }
+    }
   }
 
   @Override

@@ -67,18 +67,18 @@ public final class MergeUtils {
       final Object tVal = target.get(key);
       if (sVal instanceof Map && tVal instanceof Map) {
         // Defensive copy to handle immutable maps
-        final Map<String, Object> tMap = (Map<String, Object>) tVal;
-        final Map<String, Object> mutableTMap;
+        final Map<String, Object> targetMap = (Map<String, Object>) tVal;
+        final Map<String, Object> mutableTargetMap;
         try {
-          mutableTMap = tMap;
-          mutableTMap.putAll(Map.of()); // Test mutability
+          mutableTargetMap = targetMap;
+          mutableTargetMap.putAll(Map.of()); // Test mutability
         } catch (final UnsupportedOperationException e) {
-          final Map<String, Object> newTMap = new ConcurrentHashMap<>(tMap);
-          target.put(key, newTMap);
-          deepMerge(newTMap, (Map<String, Object>) sVal);
+          final Map<String, Object> newTargetMap = new ConcurrentHashMap<>(targetMap);
+          target.put(key, newTargetMap);
+          deepMerge(newTargetMap, (Map<String, Object>) sVal);
           continue;
         }
-        deepMerge(mutableTMap, (Map<String, Object>) sVal);
+        deepMerge(mutableTargetMap, (Map<String, Object>) sVal);
       } else {
         target.put(key, sVal);
       }

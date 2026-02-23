@@ -16,6 +16,8 @@ jacksonDataformatYaml = "2.18.2"
 jte = "3.1.16"
 htmx = "5.0.0"
 cyclonedx = "3.2.0"
+handlebars = "4.5.0"
+graalvmPolyglot = "25.0.2"
 
 [libraries]
 spring-boot-starter = { group = "org.springframework.boot", name = "spring-boot-starter", version.ref = "springBoot" }
@@ -36,6 +38,9 @@ jte-starter = { group = "gg.jte", name = "jte-spring-boot-starter-3", version.re
 jte-runtime = { group = "gg.jte", name = "jte-runtime", version.ref = "jte" }
 jte-core = { group = "gg.jte", name = "jte", version.ref = "jte" }
 htmx-spring-boot = { group = "io.github.wimdeblauwe", name = "htmx-spring-boot", version.ref = "htmx" }
+handlebars = { group = "com.github.jknack", name = "handlebars", version.ref = "handlebars" }
+graalvm-polyglot = { group = "org.graalvm.polyglot", name = "polyglot", version.ref = "graalvmPolyglot" }
+graalvm-js = { group = "org.graalvm.polyglot", name = "js", version.ref = "graalvmPolyglot" }
 lombok = { group = "org.projectlombok", name = "lombok", version = "1.18.36" }
 spring-boot-devtools = { group = "org.springframework.boot", name = "spring-boot-devtools", version.ref = "springBoot" }
 spring-boot-docker-compose = { group = "org.springframework.boot", name = "spring-boot-docker-compose", version.ref = "springBoot" }

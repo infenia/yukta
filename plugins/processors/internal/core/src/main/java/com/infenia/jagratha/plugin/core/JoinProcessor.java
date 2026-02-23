@@ -237,7 +237,8 @@ public class JoinProcessor implements ProcessorPlugin {
         UUID.randomUUID(), last.traceId(), last.metadata(), payload, Instant.now(), null, null);
   }
 
-  private List<Object> mergeAsArray(final List<String> ancestors, final Map<String, Message> messages) {
+  private List<Object> mergeAsArray(
+      final List<String> ancestors, final Map<String, Message> messages) {
     if (ancestors == null || ancestors.isEmpty()) {
       return messages.values().stream().map(Message::payload).toList();
     }
