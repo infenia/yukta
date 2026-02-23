@@ -21,6 +21,7 @@ import com.infenia.jagratha.plugin.ProcessorPlugin;
 import com.infenia.jagratha.service.join.JoinStore;
 import com.infenia.jagratha.service.join.JoinStore.JoinConfig;
 import com.infenia.jagratha.service.join.JoinStore.JoinResult;
+import com.infenia.jagratha.util.SpelUtils;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;

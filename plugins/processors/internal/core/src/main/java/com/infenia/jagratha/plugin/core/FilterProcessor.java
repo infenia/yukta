@@ -19,6 +19,7 @@ import com.infenia.jagratha.plugin.FilterEvaluationException;
 import com.infenia.jagratha.plugin.Message;
 import com.infenia.jagratha.plugin.PluginMetricsReporter;
 import com.infenia.jagratha.plugin.ProcessorPlugin;
+import com.infenia.jagratha.util.SpelUtils;
 import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.ObjectProvider;

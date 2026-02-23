@@ -20,6 +20,7 @@ import com.infenia.jagratha.plugin.Message;
 import com.infenia.jagratha.plugin.ProcessorPlugin;
 import com.infenia.jagratha.plugin.ResultCollector;
 import com.infenia.jagratha.service.WorkflowOrchestrator;
+import com.infenia.jagratha.util.SpelUtils;
 import java.util.List;
 import java.util.Map;
 import lombok.extern.slf4j.Slf4j;

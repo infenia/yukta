@@ -17,6 +17,7 @@ package com.infenia.jagratha.plugin.core;
 
 import com.infenia.jagratha.plugin.Message;
 import com.infenia.jagratha.plugin.ProcessorPlugin;
+import com.infenia.jagratha.util.SpelUtils;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import lombok.extern.slf4j.Slf4j;

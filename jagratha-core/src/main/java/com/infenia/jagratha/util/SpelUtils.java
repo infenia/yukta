@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.infenia.jagratha.plugin.core;
+package com.infenia.jagratha.util;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -77,8 +77,34 @@ public final class SpelUtils {
    */
   @SuppressWarnings("unchecked")
   public static <T> T evaluateSync(final String expressionStr, final Object root) {
+    return evaluateSync(expressionStr, root, null);
+  }
+
+  /**
+   * Synchronously evaluate a SpEL expression against a root object with variables.
+   *
+   * @param expressionStr the expression string
+   * @param root the root object
+   * @param variables the variables
+   * @param <T> the result type
+   * @return the evaluation result
+   */
+  @SuppressWarnings("unchecked")
+  public static <T> T evaluateSync(
+      final String expressionStr, final Object root, final Map<String, Object> variables) {
     final Expression expression = CACHE.computeIfAbsent(expressionStr, PARSER::parseExpression);
-    return (T) expression.getValue(CONTEXT_HOLDER.get(), root);
+    final StandardEvaluationContext context = CONTEXT_HOLDER.get();
+    context.setRootObject(root);
+    try {
+      if (variables != null) {
+        variables.forEach(context::setVariable);
+      }
+      return (T) expression.getValue(context);
+    } finally {
+      if (variables != null) {
+        variables.keySet().forEach(key -> context.setVariable(key, null));
+      }
+    }
   }
 
   /**

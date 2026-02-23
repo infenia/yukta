@@ -21,6 +21,7 @@ import com.github.jknack.handlebars.Handlebars;
 import com.github.jknack.handlebars.Template;
 import com.infenia.jagratha.plugin.Message;
 import com.infenia.jagratha.plugin.ProcessorPlugin;
+import com.infenia.jagratha.util.SpelUtils;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
