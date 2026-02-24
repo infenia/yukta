@@ -13,8 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.infenia.jagratha.plugin;
+package com.infenia.jagratha.plugin.core;
 
+import com.infenia.jagratha.plugin.Message;
+import com.infenia.jagratha.plugin.TerminalPlugin;
 import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;

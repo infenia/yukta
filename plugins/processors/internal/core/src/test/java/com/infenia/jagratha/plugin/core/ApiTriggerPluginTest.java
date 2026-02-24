@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.infenia.jagratha.plugin;
+package com.infenia.jagratha.plugin.core;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
