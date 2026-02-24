@@ -15,7 +15,7 @@ spotless {
         leadingTabsToSpaces(4)
         trimTrailingWhitespace()
         endWithNewline()
-        targetExclude("bin/**", "build/**", "out/**")
+        targetExclude("bin/**", "build/**", "out/**", "**/.gradle/**")
     }
 
     groovyGradle {
@@ -25,7 +25,7 @@ spotless {
 
     format 'xml', {
         target '**/*.xml'
-        targetExclude '**/build/**', '**/bin/**', '**/out/**'
+        targetExclude '**/build/**', '**/bin/**', '**/out/**', '**/.gradle/**'
         licenseHeaderFile(rootProject.file('config/license/header-xml.txt'), '(<[^!?])')
     }
 }
