@@ -57,6 +57,7 @@ public final class SpelUtils {
               final Expression expression =
                   CACHE.computeIfAbsent(expressionStr, PARSER::parseExpression);
               final StandardEvaluationContext context = new StandardEvaluationContext(root);
+              context.addPropertyAccessor(new MapAccessor());
               if (variables != null) {
                 context.setVariables(variables);
               }

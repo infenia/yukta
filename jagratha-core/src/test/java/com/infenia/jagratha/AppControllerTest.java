@@ -28,6 +28,7 @@ import com.infenia.jagratha.model.WorkflowDefinition;
 import com.infenia.jagratha.model.WorkflowTriggerRequest;
 import com.infenia.jagratha.service.LogRetrievalService;
 import com.infenia.jagratha.service.SessionService;
+import com.infenia.jagratha.service.TaskTrackerService;
 import com.infenia.jagratha.service.WorkflowService;
 import java.util.List;
 import java.util.Map;
@@ -47,6 +48,7 @@ class AppControllerTest {
   @MockitoBean private WorkflowService workflowService;
   @MockitoBean private SessionService sessionService;
   @MockitoBean private LogRetrievalService logRetrievalService;
+  @MockitoBean private TaskTrackerService trackerService;
   @MockitoBean private AppConfigMapper configMapper;
 
   @Test
@@ -64,16 +66,12 @@ class AppControllerTest {
         .bodyValue(request)
         .exchange()
         .expectStatus()
-        .isOk()
+        .isAccepted()
         .expectBody()
         .jsonPath("$.status")
-        .isEqualTo(200)
+        .isEqualTo(202)
         .jsonPath("$.message")
-        .isEqualTo("Workflow executed successfully")
-        .jsonPath("$.data.status")
-        .isEqualTo("SUCCESS")
-        .jsonPath("$.data.output")
-        .isEqualTo("Build successful");
+        .isEqualTo("Workflow trigger accepted");
   }
 
   @Test

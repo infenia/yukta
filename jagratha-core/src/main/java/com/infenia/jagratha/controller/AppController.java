@@ -19,10 +19,10 @@ import com.infenia.jagratha.mapper.AppConfigMapper;
 import com.infenia.jagratha.model.ApiResponse;
 import com.infenia.jagratha.model.AppConfigData;
 import com.infenia.jagratha.model.ConfigRequest;
-import com.infenia.jagratha.model.TaskResponse;
 import com.infenia.jagratha.model.WorkflowTriggerRequest;
 import com.infenia.jagratha.service.LogRetrievalService;
 import com.infenia.jagratha.service.SessionService;
+import com.infenia.jagratha.service.TaskTrackerService;
 import com.infenia.jagratha.service.WorkflowService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -54,39 +54,64 @@ public class AppController {
   private final WorkflowService workflowService;
   private final SessionService sessionService;
   private final LogRetrievalService retrievalService;
+  private final TaskTrackerService trackerService;
   private final AppConfigMapper configMapper;
 
-  private static final String SUCCESS_STATUS = "SUCCESS";
   private static final String HTTP_200 = "200";
+  private static final String SESSION_ID_PARAM = "Session ID";
 
   /**
    * Trigger a workflow execution for a session.
    *
    * @param request the trigger request containing sessionId and workflowId
-   * @return response entity with task status and output
+   * @return response entity with acknowledgment
    */
   @PostMapping("/workflow/trigger")
   @Operation(
       summary = "Trigger a workflow",
       description = "Triggers the execution of a specific DAG workflow for a session")
   @io.swagger.v3.oas.annotations.responses.ApiResponse(
-      responseCode = HTTP_200,
-      description = "Workflow executed successfully")
-  @io.swagger.v3.oas.annotations.responses.ApiResponse(
-      responseCode = "500",
-      description = "Workflow execution failed")
-  public Mono<ResponseEntity<ApiResponse<TaskResponse>>> triggerWorkflow(
+      responseCode = "202",
+      description = "Workflow trigger accepted")
+  public Mono<ResponseEntity<ApiResponse<Void>>> triggerWorkflow(
       @Valid @RequestBody final WorkflowTriggerRequest request) {
-    return workflowService
+    workflowService
         .runWorkflow(request.sessionId(), request.workflowId(), request.payload())
+        .subscribe();
+    return Mono.just(
+        ResponseEntity.accepted()
+            .body(ApiResponse.success(202, "Workflow trigger accepted", null)));
+  }
+
+  /**
+   * Get the status of a workflow execution.
+   *
+   * @param sessionId the session identifier
+   * @return response entity with workflow progress
+   */
+  @GetMapping("/workflow/{sessionId}/status")
+  @Operation(
+      summary = "Get workflow status",
+      description = "Retrieves the current execution status and progress of a workflow")
+  @io.swagger.v3.oas.annotations.responses.ApiResponse(
+      responseCode = HTTP_200,
+      description = "Workflow status retrieved successfully")
+  @io.swagger.v3.oas.annotations.responses.ApiResponse(
+      responseCode = "404",
+      description = "Session not found")
+  public Mono<ResponseEntity<ApiResponse<com.infenia.jagratha.model.WorkflowProgress>>>
+      getWorkflowStatus(
+          @Parameter(description = SESSION_ID_PARAM) @PathVariable final String sessionId) {
+    return Mono.fromCallable(() -> trackerService.getProgress(sessionId))
         .map(
-            response -> {
-              if (SUCCESS_STATUS.equals(response.status())) {
+            progress -> {
+              if (progress != null) {
                 return ResponseEntity.ok(
-                    ApiResponse.success(200, "Workflow executed successfully", response));
+                    ApiResponse.success(200, "Workflow status retrieved successfully", progress));
               } else {
-                return ResponseEntity.status(500)
-                    .body(ApiResponse.success(500, "Workflow execution failed", response));
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(
+                        ApiResponse.error(404, "Not Found", "Session not found", null, List.of()));
               }
             });
   }
@@ -105,7 +130,7 @@ public class AppController {
       responseCode = HTTP_200,
       description = "List of log filenames")
   public Mono<ApiResponse<List<String>>> listLogs(
-      @Parameter(description = "Session ID") @PathVariable final String sessionId) {
+      @Parameter(description = SESSION_ID_PARAM) @PathVariable final String sessionId) {
     return retrievalService
         .listLogs(sessionId)
         .map(logs -> ApiResponse.success(200, "List of log filenames", logs));
@@ -129,7 +154,7 @@ public class AppController {
       responseCode = "404",
       description = "Log file not found")
   public Mono<ResponseEntity<ApiResponse<String>>> getLogContent(
-      @Parameter(description = "Session ID") @PathVariable final String sessionId,
+      @Parameter(description = SESSION_ID_PARAM) @PathVariable final String sessionId,
       @Parameter(description = "Log filename") @PathVariable final String filename) {
     return retrievalService
         .getLogContent(sessionId, filename)
@@ -164,7 +189,7 @@ public class AppController {
       responseCode = "404",
       description = "Log file not found")
   public Mono<ResponseEntity<String>> getRawLogContent(
-      @Parameter(description = "Session ID") @PathVariable final String sessionId,
+      @Parameter(description = SESSION_ID_PARAM) @PathVariable final String sessionId,
       @Parameter(description = "Log filename") @PathVariable final String filename) {
     return retrievalService
         .getLogContent(sessionId, filename)
