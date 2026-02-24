@@ -18,16 +18,13 @@ plugins {
     id 'com.infenia.jagratha.java-conventions'
     id 'com.infenia.jagratha.quality-conventions'
     id 'com.infenia.jagratha.jacoco-conventions'
-    alias(libs.plugins.spring.boot)
     alias(libs.plugins.spring.dependency.management)
 }
 
-// Library module
-bootJar {
-    enabled = false
-}
-jar {
-    enabled = true
+dependencyManagement {
+    imports {
+        mavenBom "org.springframework.boot:spring-boot-dependencies:${libs.versions.springBoot.get()}"
+    }
 }
 
 dependencies {

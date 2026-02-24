@@ -14,12 +14,18 @@
  * limitations under the License.
  */
 plugins {
+    id 'java-library'
     id 'com.infenia.jagratha.java-conventions'
     id 'com.infenia.jagratha.quality-conventions'
     id 'com.infenia.jagratha.jacoco-conventions'
-    alias(libs.plugins.spring.boot)
     alias(libs.plugins.spring.dependency.management)
     alias(libs.plugins.jte)
+}
+
+dependencyManagement {
+    imports {
+        mavenBom "org.springframework.boot:spring-boot-dependencies:${libs.versions.springBoot.get()}"
+    }
 }
 
 ext {
@@ -42,22 +48,14 @@ dependencies {
 
 jte {
     sourceDirectory = file("src/main/jte").toPath()
-    targetDirectory = file("build/jte-classes").toPath()
+    targetDirectory = layout.buildDirectory.dir("jte-classes").get().asFile.toPath()
     compilePath = sourceSets.main.compileClasspath
     generate()
     precompile()
     binaryStaticContent = false
 }
 
-bootJar {
-    enabled = false
-}
-
-sourceSets.main.output.dir(file("build/jte-classes"), builtBy: 'precompileJte')
-
-jar {
-    enabled = true
-}
+sourceSets.main.output.dir(layout.buildDirectory.dir("jte-classes"), builtBy: 'precompileJte')
 
 task pnpmInstall(type: Exec) {
     workingDir projectDir
@@ -73,21 +71,21 @@ task tailwind(type: Exec) {
     dependsOn pnpmInstall
     workingDir projectDir
     inputs.file("./src/main/resources/static/css/input.css")
-    outputs.file("$buildDir/tailwind/style.css")
+    outputs.file(layout.buildDirectory.file("tailwind/style.css"))
     if (System.getProperty('os.name').toLowerCase().contains('windows')) {
-        commandLine 'cmd', '/c', 'pnpm', 'exec', 'tailwindcss', '-i', './src/main/resources/static/css/input.css', '-o', "$buildDir/tailwind/style.css", '--minify'
+        commandLine 'cmd', '/c', 'pnpm', 'exec', 'tailwindcss', '-i', './src/main/resources/static/css/input.css', '-o', layout.buildDirectory.file("tailwind/style.css").get().asFile.absolutePath, '--minify'
     } else {
-        commandLine 'pnpm', 'exec', 'tailwindcss', '-i', './src/main/resources/static/css/input.css', '-o', "$buildDir/tailwind/style.css", '--minify'
+        commandLine 'pnpm', 'exec', 'tailwindcss', '-i', './src/main/resources/static/css/input.css', '-o', layout.buildDirectory.file("tailwind/style.css").get().asFile.absolutePath, '--minify'
     }
 }
 
 processResources {
     dependsOn tailwind
-    from("$buildDir/tailwind") {
+    from(layout.buildDirectory.dir("tailwind")) {
         into "static/css"
     }
 }
 
 jacocoTestReport {
-    onlyIf = { tasks.named('test').get().didWork || file("${buildDir}/jacoco/test.exec").exists() }
+    onlyIf = { tasks.named('test').get().didWork || file(layout.buildDirectory.file("jacoco/test.exec").get().asFile.path).exists() }
 }
