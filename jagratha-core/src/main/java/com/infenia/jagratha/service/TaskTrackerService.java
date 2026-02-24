@@ -248,7 +248,7 @@ public class TaskTrackerService {
               .map(
                   s ->
                       new WorkflowExecutionSummary(
-                          s.executionId, s.workflowId, s.status, s.startTime))
+                          s.executionId, s.workflowId, s.status, s.startTime, s.endTime))
               .sorted((a, b) -> b.startTime().compareTo(a.startTime()))
               .toList();
     }

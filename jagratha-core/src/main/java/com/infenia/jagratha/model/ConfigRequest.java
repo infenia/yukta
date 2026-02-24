@@ -16,6 +16,7 @@
 package com.infenia.jagratha.model;
 
 import com.infenia.jagratha.validation.ProjectPath;
+import com.infenia.jagratha.validation.SessionId;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
@@ -26,6 +27,7 @@ import java.util.Map;
 /**
  * Request object for configuration updates.
  *
+ * @param sessionId the session identifier
  * @param description a human-readable description of the session
  * @param initiator the initiator name
  * @param tags additional tags for the session
@@ -34,6 +36,8 @@ import java.util.Map;
  */
 @Schema(description = "Request object for updating session configuration")
 public record ConfigRequest(
+    @Schema(description = "The unique session identifier", example = "session-123") @SessionId
+        String sessionId,
     @Schema(description = "A human-readable description of the session", example = "Daily build")
         @NotBlank(message = "Session description is mandatory")
         @Size(max = 256, message = "Session description must be at most 256 characters")

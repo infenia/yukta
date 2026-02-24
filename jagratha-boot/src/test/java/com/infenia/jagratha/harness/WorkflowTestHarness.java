@@ -39,10 +39,10 @@ public class WorkflowTestHarness {
    * @param request the config request
    * @return the session ID
    */
-  public String initSession(final ConfigRequest request, final String sessionId) {
+  public String initSession(final ConfigRequest request) {
     webClient
         .post()
-        .uri("/api/session/{sessionId}/config", sessionId)
+        .uri("/api/config")
         .contentType(MediaType.APPLICATION_JSON)
         .bodyValue(request)
         .exchange()
@@ -51,7 +51,7 @@ public class WorkflowTestHarness {
         .expectHeader()
         .exists("X-Response-Time");
 
-    return sessionId;
+    return request.sessionId();
   }
 
   /**
@@ -67,12 +67,12 @@ public class WorkflowTestHarness {
     final ApiResponse<com.infenia.jagratha.model.TriggerResponse> response =
         webClient
             .post()
-            .uri("/api/session/{sessionId}/workflow/trigger", sessionId)
+            .uri("/api/workflow/trigger")
             .contentType(MediaType.APPLICATION_JSON)
-            .bodyValue(new WorkflowTriggerRequest(workflowId, payload))
+            .bodyValue(new WorkflowTriggerRequest(sessionId, workflowId, payload))
             .exchange()
             .expectStatus()
-            .isOk()
+            .isAccepted()
             .expectHeader()
             .exists("X-Response-Time")
             .returnResult(
@@ -100,7 +100,7 @@ public class WorkflowTestHarness {
       final ApiResponse<WorkflowProgress> response =
           webClient
               .get()
-              .uri("/api/session/{sessionId}/workflow/status/{executionId}", sessionId, executionId)
+              .uri("/api/workflow/{sessionId}/status/{executionId}", sessionId, executionId)
               .exchange()
               .expectStatus()
               .isOk()

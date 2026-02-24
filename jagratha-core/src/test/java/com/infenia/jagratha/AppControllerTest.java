@@ -16,22 +16,16 @@
 package com.infenia.jagratha;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.verify;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 
 import com.infenia.jagratha.controller.AppController;
-import com.infenia.jagratha.mapper.AppConfigMapper;
-import com.infenia.jagratha.model.ConfigRequest;
 import com.infenia.jagratha.model.TaskResponse;
-import com.infenia.jagratha.model.WorkflowDefinition;
 import com.infenia.jagratha.model.WorkflowExecution;
 import com.infenia.jagratha.model.WorkflowTriggerRequest;
 import com.infenia.jagratha.service.LogRetrievalService;
-import com.infenia.jagratha.service.SessionService;
 import com.infenia.jagratha.service.TaskTrackerService;
 import com.infenia.jagratha.service.WorkflowService;
-import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -47,64 +41,32 @@ class AppControllerTest {
   @Autowired private WebTestClient webTestClient;
 
   @MockitoBean private WorkflowService workflowService;
-  @MockitoBean private SessionService sessionService;
   @MockitoBean private LogRetrievalService logRetrievalService;
   @MockitoBean private TaskTrackerService trackerService;
-  @MockitoBean private AppConfigMapper configMapper;
 
   @Test
   void testTriggerWorkflowSuccess() {
-    String sessionId = "session-1";
-    WorkflowTriggerRequest request = new WorkflowTriggerRequest("w1", Map.of());
+    WorkflowTriggerRequest request = new WorkflowTriggerRequest("session-1", "w1", Map.of());
     TaskResponse response = new TaskResponse("SUCCESS", "Build successful");
     String executionId = "exec-123";
     WorkflowExecution execution = new WorkflowExecution(executionId, Mono.just(response));
 
-    when(workflowService.runWorkflow(eq(sessionId), eq("w1"), any())).thenReturn(execution);
+    when(workflowService.runWorkflow(anyString(), anyString(), any())).thenReturn(execution);
 
     webTestClient
         .post()
-        .uri("/api/session/{sessionId}/workflow/trigger", sessionId)
+        .uri("/api/workflow/trigger")
         .contentType(MediaType.APPLICATION_JSON)
         .bodyValue(request)
         .exchange()
         .expectStatus()
-        .isOk()
+        .isAccepted()
         .expectBody()
         .jsonPath("$.status")
-        .isEqualTo(200)
+        .isEqualTo(202)
         .jsonPath("$.message")
         .isEqualTo("Workflow trigger accepted")
         .jsonPath("$.data.executionId")
         .isEqualTo(executionId);
-  }
-
-  @Test
-  void testUpdateConfig() {
-    String sessionId = "session-1";
-    WorkflowDefinition workflow =
-        new WorkflowDefinition(
-            "desc", List.of(new WorkflowDefinition.Node("n1", "gradle", Map.of())), List.of());
-    ConfigRequest request =
-        new ConfigRequest("desc", "initiator-1", Map.of(), "/new/path", Map.of("w1", workflow));
-
-    when(sessionService.applyConfigOverrides(any())).thenReturn(Mono.empty());
-
-    webTestClient
-        .post()
-        .uri("/api/session/{sessionId}/config", sessionId)
-        .contentType(MediaType.APPLICATION_JSON)
-        .bodyValue(request)
-        .exchange()
-        .expectStatus()
-        .isOk()
-        .expectBody()
-        .jsonPath("$.status")
-        .isEqualTo(200)
-        .jsonPath("$.message")
-        .isEqualTo("Configuration updated successfully");
-
-    verify(configMapper).toData(any(), eq(sessionId));
-    verify(sessionService).applyConfigOverrides(any());
   }
 }

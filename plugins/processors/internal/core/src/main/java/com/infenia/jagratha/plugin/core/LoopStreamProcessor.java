@@ -51,6 +51,25 @@ public class LoopStreamProcessor implements ProcessorPlugin {
   }
 
   @Override
+  public String getDescription() {
+    return "Executes a target plugin repeatedly and flattens all produced messages into a single"
+        + " stream.";
+  }
+
+  @Override
+  public String getUsagePattern() {
+    return "Configure with:\n"
+        + "- targetPluginId: The ID of the processor to execute in each iteration.\n"
+        + "- targetConfig: Map containing configuration for the target processor.\n"
+        + "- exitCondition: SpEL expression to terminate the loop (variables: #iterationCount, "
+        + "#elapsedTimeMs).\n"
+        + "- maxIterations: Maximum number of iterations (default: 10).\n"
+        + "- maxDuration: ISO-8601 duration string (default: PT1M).\n"
+        + "- delayInterval: ISO-8601 duration string to wait between iterations (default: PT0S).\n"
+        + "- failureStrategy: 'ABORT', 'RETRY', 'SKIP', or 'ESCALATE'. Default is 'ABORT'.";
+  }
+
+  @Override
   public String getType() {
     return TYPE;
   }

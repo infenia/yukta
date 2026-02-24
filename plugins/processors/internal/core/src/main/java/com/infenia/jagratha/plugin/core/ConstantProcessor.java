@@ -53,6 +53,21 @@ public class ConstantProcessor implements ProcessorPlugin {
   }
 
   @Override
+  public String getDescription() {
+    return "Enriches or replaces message payload or metadata with predefined constant variables.";
+  }
+
+  @Override
+  public String getUsagePattern() {
+    return "Configure with:\n"
+        + "- variables: Map of key-value pairs to inject. Supports SpEL expressions.\n"
+        + "- mode: 'ENRICH' (adds to existing) or 'REPLACE' (replaces entire target). "
+        + "Default is 'ENRICH'.\n"
+        + "- target: 'PAYLOAD' or 'METADATA'. Default is 'PAYLOAD'.\n"
+        + "- collisionPolicy: 'OVERWRITE', 'SKIP', or 'FAIL'. Default is 'OVERWRITE'.";
+  }
+
+  @Override
   @SuppressWarnings("unchecked")
   public Mono<Void> initialize(final Map<String, Object> config) {
     final Map<String, Object> variables =

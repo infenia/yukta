@@ -58,4 +58,13 @@ public class WorkflowRegistry {
   public boolean contains(@PluginName final String type) {
     return plugins.containsKey(type);
   }
+
+  /**
+   * Get all registered plugins.
+   *
+   * @return list of all plugins
+   */
+  public List<WorkflowPlugin> listPlugins() {
+    return List.copyOf(plugins.values());
+  }
 }

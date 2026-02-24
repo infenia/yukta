@@ -18,7 +18,6 @@ package com.infenia.jagratha.mapper;
 import com.infenia.jagratha.model.AppConfigData;
 import com.infenia.jagratha.model.ConfigRequest;
 import org.mapstruct.Mapper;
-import org.mapstruct.Mapping;
 
 /** Mapper for converting between ConfigRequest DTO and AppConfigData service record. */
 @Mapper(componentModel = "spring")
@@ -26,12 +25,10 @@ import org.mapstruct.Mapping;
 public interface AppConfigMapper {
 
   /**
-   * Map ConfigRequest and sessionId to AppConfigData.
+   * Map ConfigRequest to AppConfigData.
    *
    * @param request the config request
-   * @param sessionId the session identifier
    * @return the app config data
    */
-  @Mapping(target = "sessionId", source = "sessionId")
-  AppConfigData toData(ConfigRequest request, String sessionId);
+  AppConfigData toData(ConfigRequest request);
 }

@@ -15,69 +15,179 @@
  */
 package com.infenia.jagratha.mcp;
 
-import com.infenia.jagratha.service.LogRetrievalService;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.infenia.jagratha.model.PluginDetails;
+import com.infenia.jagratha.model.PluginSummary;
+import com.infenia.jagratha.model.SessionDetails;
+import com.infenia.jagratha.model.SessionSummary;
+import com.infenia.jagratha.model.WorkflowDefinition;
+import com.infenia.jagratha.model.WorkflowExecutionSummary;
+import com.infenia.jagratha.plugin.WorkflowPlugin;
+import com.infenia.jagratha.service.SessionService;
+import com.infenia.jagratha.service.TaskTrackerService;
+import com.infenia.jagratha.service.WorkflowRegistry;
 import com.infenia.jagratha.service.WorkflowService;
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
 
 /**
- * MCP (Model Context Protocol) tools for application. Provides tools for interacting with the
- * external project managed by application.
+ * MCP (Model Context Protocol) tools for Jagratha. Provides tools for interacting with workflows,
+ * sessions, and plugins.
  */
 @Component
 @RequiredArgsConstructor
 public class AppMcpTools {
 
   private final WorkflowService workflowService;
-  private final LogRetrievalService logService;
-
-  private static final String MCP_SESSION_ID = "mcp-session";
+  private final SessionService sessionService;
+  private final TaskTrackerService trackerService;
+  private final WorkflowRegistry registry;
+  private final ObjectMapper objectMapper;
 
   /**
-   * Get current status of the external project managed by application.
+   * List all active sessions.
    *
-   * @return status message indicating application is ready
+   * @return Mono containing a list of session summaries
    */
-  @Tool(description = "Get current status of the external project managed by Jagratha")
-  public String getProjectStatus() {
-    return "Jagratha is managing the project and ready to run quality checks.";
+  @Tool(description = "List all active Jagratha sessions with their summaries")
+  @SuppressWarnings("unchecked")
+  public Mono<List<SessionSummary>> listSessions() {
+    return sessionService
+        .getActiveSessions()
+        .flatMap(
+            id ->
+                sessionService
+                    .getSessionConfig(id)
+                    .map(
+                        config -> {
+                          final List<WorkflowExecutionSummary> history =
+                              trackerService.getHistory(id);
+                          final LocalDateTime lastActive =
+                              history.isEmpty() ? null : history.get(0).startTime();
+                          return new SessionSummary(
+                              id,
+                              (String) config.getOrDefault("initiator", ""),
+                              (String) config.getOrDefault("initiatedTime", ""),
+                              lastActive,
+                              (String) config.getOrDefault("description", ""),
+                              (Map<String, String>) config.getOrDefault("tags", Map.of()));
+                        }))
+        .collectList();
   }
 
   /**
-   * Trigger quality checks on the external project. Runs spotless, checkstyle, and tests.
+   * Get details of a specific session.
    *
-   * @return Mono containing the status and output of the quality checks
+   * @param sessionId the session identifier
+   * @return Mono containing session details
    */
-  @Tool(
-      description = "Trigger quality checks (spotless, checkstyle, tests) on the external project")
-  public Mono<String> triggerQualityChecks() {
-    return workflowService
-        .runWorkflow(MCP_SESSION_ID, "quality-check", java.util.Map.of())
-        .result()
-        .map(response -> "Status: " + response.status() + "\n\nOutput:\n" + response.output());
+  @Tool(description = "Get details of a specific Jagratha session including workflow IDs")
+  @SuppressWarnings("unchecked")
+  public Mono<SessionDetails> getSessionDetails(final String sessionId) {
+    return sessionService
+        .getSessionConfig(sessionId)
+        .map(
+            config -> {
+              final Map<String, Object> workflows =
+                  (Map<String, Object>) config.getOrDefault("workflows", Map.of());
+              return new SessionDetails(sessionId, List.copyOf(workflows.keySet()));
+            });
   }
 
   /**
-   * List quality check log files for the external project.
+   * Get workflow definition.
    *
-   * @return Mono containing a list of log filenames
+   * @param sessionId the session identifier
+   * @param workflowId the workflow identifier
+   * @return Mono containing workflow definition
    */
-  @Tool(description = "List quality check log files for the external project")
-  public Mono<List<String>> listQualityCheckLogs() {
-    return logService.listLogs(MCP_SESSION_ID);
+  @Tool(description = "Get the full DAG definition (nodes and edges) of a Jagratha workflow")
+  public Mono<WorkflowDefinition> getWorkflowDetails(
+      final String sessionId, final String workflowId) {
+    return sessionService.getSessionWorkflow(sessionId, workflowId);
   }
 
   /**
-   * Get the content of a specific quality check log file.
+   * Trigger a workflow execution.
    *
-   * @param filename the log filename to retrieve
-   * @return Mono containing the log content
+   * @param sessionId the session identifier
+   * @param workflowId the workflow identifier
+   * @param payloadJson optional JSON string for trigger payload
+   * @return Mono containing the execution ID
    */
-  @Tool(description = "Get the content of a specific quality check log file")
-  public Mono<String> getQualityCheckLogContent(final String filename) {
-    return logService.getLogContent(MCP_SESSION_ID, filename);
+  @Tool(description = "Trigger a Jagratha workflow with an optional JSON payload")
+  public Mono<String> triggerWorkflow(
+      final String sessionId, final String workflowId, final String payloadJson) {
+    final Mono<String> result;
+    if (payloadJson != null && !payloadJson.isBlank()) {
+      result = parseAndTrigger(sessionId, workflowId, payloadJson);
+    } else {
+      result =
+          Mono.just(workflowService.runWorkflow(sessionId, workflowId, Map.of()).executionId());
+    }
+    return result;
+  }
+
+  private Mono<String> parseAndTrigger(
+      final String sessionId, final String workflowId, final String payloadJson) {
+    Mono<String> result;
+    try {
+      final Map<String, Object> payload =
+          objectMapper.readValue(payloadJson, new TypeReference<>() {});
+      result = Mono.just(workflowService.runWorkflow(sessionId, workflowId, payload).executionId());
+    } catch (final com.fasterxml.jackson.core.JsonProcessingException e) {
+      result = Mono.error(new IllegalArgumentException("Invalid JSON payload: " + e.getMessage()));
+    }
+    return result;
+  }
+
+  /**
+   * Get status of a workflow execution.
+   *
+   * @param sessionId the session identifier
+   * @param executionId the execution identifier
+   * @return Mono containing concise workflow execution summary
+   */
+  @Tool(description = "Get the current high-level status of a workflow execution")
+  public Mono<WorkflowExecutionSummary> getWorkflowStatus(
+      final String sessionId, final String executionId) {
+    return Mono.fromCallable(() -> trackerService.getHistory(sessionId))
+        .flatMapIterable(list -> list)
+        .filter(s -> s.executionId().equals(executionId))
+        .next();
+  }
+
+  /**
+   * List available plugins.
+   *
+   * @return list of plugin summaries
+   */
+  @Tool(description = "List all available Jagratha workflow plugins")
+  public List<PluginSummary> listPlugins() {
+    return registry.listPlugins().stream()
+        .map(p -> new PluginSummary(p.getType(), p.getCategory()))
+        .toList();
+  }
+
+  /**
+   * Get plugin details.
+   *
+   * @param type the plugin type
+   * @return plugin details
+   */
+  @Tool(description = "Get full details of a specific Jagratha plugin including usage pattern")
+  public PluginDetails getPluginDetails(final String type) {
+    final WorkflowPlugin plugin = registry.get(type);
+    if (plugin == null) {
+      throw new IllegalArgumentException("Plugin not found: " + type);
+    }
+    return new PluginDetails(
+        plugin.getType(), plugin.getCategory(), plugin.getDescription(), plugin.getUsagePattern());
   }
 }

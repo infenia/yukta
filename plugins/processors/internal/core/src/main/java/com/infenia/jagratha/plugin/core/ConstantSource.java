@@ -47,6 +47,18 @@ public class ConstantSource implements TriggerPlugin {
   }
 
   @Override
+  public String getDescription() {
+    return "Emits a message with predefined variables at workflow startup.";
+  }
+
+  @Override
+  public String getUsagePattern() {
+    return "Configure with:\n"
+        + "- variables: Map of key-value pairs to emit. Supports SpEL expressions.\n"
+        + "- target: 'PAYLOAD' or 'METADATA'. Default is 'PAYLOAD'.";
+  }
+
+  @Override
   @SuppressWarnings("unchecked")
   public Mono<Void> initialize(final Map<String, Object> config) {
     final Map<String, Object> variables =

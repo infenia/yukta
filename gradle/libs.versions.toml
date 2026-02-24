@@ -18,9 +18,6 @@ htmx = "5.0.0"
 cyclonedx = "3.2.0"
 handlebars = "4.5.0"
 graalvmPolyglot = "25.0.2"
-nodeGradle = "7.1.0"
-node = "24.13.1"
-pnpm = "10.30.1"
 
 [libraries]
 spring-boot-starter = { group = "org.springframework.boot", name = "spring-boot-starter", version.ref = "springBoot" }
@@ -66,4 +63,3 @@ lombok = { id = "io.freefair.lombok", version.ref = "lombok" }
 spotbugs = { id = "com.github.spotbugs", version.ref = "spotbugs" }
 jte = { id = "gg.jte.gradle", version.ref = "jte" }
 cyclonedx = { id = "org.cyclonedx.bom", version.ref = "cyclonedx" }
-node-gradle = { id = "com.github.node-gradle.node", version.ref = "nodeGradle" }

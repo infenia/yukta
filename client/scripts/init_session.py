@@ -30,6 +30,7 @@ DEFAULT_WORKFLOW_EDGES = [
 
 WEBSERVER_HOST = os.environ.get("JAGRATHA_HOST", "localhost")
 WEBSERVER_PORT = int(os.environ.get("JAGRATHA_PORT", 8080))
+WEBSERVER_ENDPOINT = "/api/config"
 
 def http_post(host, port, location, payload):
     body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
@@ -112,6 +113,7 @@ def main():
         nodes.append(new_node)
 
     payload = {
+        "sessionId": session_id,
         "description": description,
         "initiator": initiator,
         "tags": tags,
@@ -148,9 +150,8 @@ def main():
         }
     }
 
-    endpoint = f"/api/session/{session_id}/config"
-    print(f"Sending configuration to Jagratha server at {endpoint}...")
-    if not http_post(WEBSERVER_HOST, WEBSERVER_PORT, endpoint, payload):
+    print("Sending configuration to Jagratha server...")
+    if not http_post(WEBSERVER_HOST, WEBSERVER_PORT, WEBSERVER_ENDPOINT, payload):
         sys.exit(1)
 
 if __name__ == "__main__":

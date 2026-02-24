@@ -48,6 +48,21 @@ public class SubWorkflowProcessor implements ProcessorPlugin {
   }
 
   @Override
+  public String getDescription() {
+    return "Executes a nested DAG (sub-workflow) as a single node in the parent DAG.";
+  }
+
+  @Override
+  public String getUsagePattern() {
+    return "Configure with:\n"
+        + "- subWorkflowId: The identifier of the workflow to execute.\n"
+        + "- inputMapper: Optional SpEL expression to transform parent message into child "
+        + "trigger payload.\n"
+        + "- outputMapper: Optional SpEL expression to transform child execution results back "
+        + "into the final node output.";
+  }
+
+  @Override
   public String getType() {
     return TYPE;
   }

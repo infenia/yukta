@@ -32,6 +32,17 @@ public class ConsoleTerminalPlugin implements TerminalPlugin {
   }
 
   @Override
+  public String getDescription() {
+    return "Logs message payloads to the console/logger.";
+  }
+
+  @Override
+  public String getUsagePattern() {
+    return "Consumes messages and prints their payload to the application logs. No configuration"
+        + " required.";
+  }
+
+  @Override
   public String getType() {
     return "console";
   }

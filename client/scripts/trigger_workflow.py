@@ -34,42 +34,34 @@ def trigger_workflow(session_id):
     conn = http.client.HTTPConnection(WEBSERVER_HOST, WEBSERVER_PORT)
     headers = {'Content-Type': 'application/json'}
     body = json.dumps({
+        "sessionId": session_id,
         "workflowId": WORKFLOW_ID,
         "payload": PAYLOAD
     })
 
-    path = f"/api/session/{session_id}/workflow/trigger"
-
     try:
-        conn.request("POST", path, body, headers)
+        conn.request("POST", "/api/workflow/trigger", body, headers)
         response = conn.getresponse()
         resp_body = response.read().decode('utf-8')
 
-        if response.status != 200:
+        if response.status not in (200, 202):
             print(f"Error: Failed to trigger workflow (Status: {response.status})")
             print(f"Response: {resp_body}")
-            return None
+            return False
 
-        data = json.loads(resp_body)
-        execution_id = data.get('data', {}).get('executionId')
-
-        if not execution_id:
-            print("Error: Execution ID not found in response.")
-            return None
-
-        print(f"Workflow trigger accepted. Execution ID: {execution_id}")
-        return execution_id
+        print("Workflow trigger accepted.")
+        return True
     except Exception as e:
         print(f"Error connecting to Jagratha: {e}")
-        return None
+        return False
     finally:
         conn.close()
 
-def monitor_status(session_id, execution_id):
+def monitor_status(session_id):
     """
     Monitors the workflow status via Server-Sent Events (SSE).
     """
-    path = f"/api/session/{session_id}/workflow/status/{execution_id}/stream"
+    path = f"/api/workflow/{session_id}/{WORKFLOW_ID}/status/stream"
     conn = http.client.HTTPConnection(WEBSERVER_HOST, WEBSERVER_PORT)
 
     try:
@@ -121,11 +113,10 @@ def main():
     args = parser.parse_args()
     session_id = args.session_id
 
-    execution_id = trigger_workflow(session_id)
-    if not execution_id:
+    if not trigger_workflow(session_id):
         sys.exit(1)
 
-    if not monitor_status(session_id, execution_id):
+    if not monitor_status(session_id):
         sys.exit(1)
 
 if __name__ == "__main__":

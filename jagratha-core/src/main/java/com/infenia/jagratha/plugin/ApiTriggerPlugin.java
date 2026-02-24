@@ -33,6 +33,17 @@ public class ApiTriggerPlugin implements TriggerPlugin {
   }
 
   @Override
+  public String getDescription() {
+    return "Emits the payload received from an API trigger.";
+  }
+
+  @Override
+  public String getUsagePattern() {
+    return "This plugin is automatically used when triggering a workflow via the REST API. "
+        + "It passes the 'payload' map from the trigger request to the workflow.";
+  }
+
+  @Override
   public String getType() {
     return "api-trigger";
   }

@@ -84,6 +84,25 @@ public class MapperProcessor implements ProcessorPlugin {
   }
 
   @Override
+  public String getDescription() {
+    return "Transforms message payloads using PROJECTION (SpEL), TEMPLATE (Handlebars), or SCRIPT"
+        + " (GraalVM JS) modes.";
+  }
+
+  @Override
+  public String getUsagePattern() {
+    return "Configure with:\n"
+        + "- mode: 'PROJECTION', 'TEMPLATE', or 'SCRIPT'.\n"
+        + "- mapping:\n"
+        + "    - For PROJECTION: Map of target field (supports dot notation) to SpEL expression.\n"
+        + "    - For TEMPLATE: Map of target field to Handlebars template, or a single string "
+        + "template.\n"
+        + "    - For SCRIPT: A JavaScript string returning the new payload.\n"
+        + "- dropOriginal: Boolean. If true (default), original payload is discarded.\n"
+        + "- strictMode: Boolean. If true (default), throws exception on transformation errors.";
+  }
+
+  @Override
   public String getType() {
     return TYPE;
   }

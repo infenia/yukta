@@ -35,6 +35,25 @@ public interface WorkflowPlugin {
   PluginCategory getCategory();
 
   /**
+   * Get a human-readable description of what this plugin does.
+   *
+   * @return the plugin description
+   */
+  default String getDescription() {
+    return "";
+  }
+
+  /**
+   * Get a human-readable description of the usage pattern for this plugin, including expected
+   * configuration fields and input/output message structures.
+   *
+   * @return the plugin usage pattern
+   */
+  default String getUsagePattern() {
+    return "";
+  }
+
+  /**
    * Validate the plugin configuration.
    *
    * @param config the configuration to validate

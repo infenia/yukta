@@ -13,18 +13,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-plugins {
-    id 'com.github.node-gradle.node'
-}
+package com.infenia.jagratha.model;
 
-node {
-    // Version of node to use.
-    version = libs.versions.node.get()
+import com.infenia.jagratha.plugin.PluginCategory;
+import io.swagger.v3.oas.annotations.media.Schema;
 
-    // Version of pnpm to use.
-    pnpmVersion = libs.versions.pnpm.get()
-
-    // If true, it will download node using above parameters.
-    // If false, it will try to use globally installed node.
-    download = true
-}
+/**
+ * Summary of a workflow plugin.
+ *
+ * @param type the plugin type
+ * @param category the plugin category
+ */
+@Schema(description = "Summary of a workflow plugin")
+public record PluginSummary(
+    @Schema(description = "The plugin type") String type,
+    @Schema(description = "The plugin category") PluginCategory category) {}

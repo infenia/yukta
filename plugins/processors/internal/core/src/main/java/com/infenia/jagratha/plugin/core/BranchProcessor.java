@@ -62,6 +62,27 @@ public class BranchProcessor implements ProcessorPlugin {
   }
 
   @Override
+  public String getDescription() {
+    return "Routes messages to different ports based on conditions or selectors. Supports exact"
+        + " match and SpEL predicate modes.";
+  }
+
+  @Override
+  public String getUsagePattern() {
+    return "Configure with:\n"
+        + "- mode: 'SELECT_KEY' (evaluates selector and looks up in cases) or 'EXPRESSION' "
+        + "(evaluates each case key as a predicate).\n"
+        + "- selector: SpEL expression used in 'SELECT_KEY' mode.\n"
+        + "- cases: Map where keys are match values (SELECT_KEY) or SpEL predicates (EXPRESSION), "
+        + "and values are output port names.\n"
+        + "- defaultPort: Optional port name if no matches are found.\n"
+        + "- allowMultipleMatches: Boolean. If true, message can be routed to multiple ports. "
+        + "Default is false.\n"
+        + "- strictMode: Boolean. If true (default), throws exception if no branch matches and "
+        + "no defaultPort is set.";
+  }
+
+  @Override
   public String getType() {
     return TYPE;
   }

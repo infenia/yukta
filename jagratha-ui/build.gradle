@@ -17,7 +17,6 @@ plugins {
     id 'com.infenia.jagratha.java-conventions'
     id 'com.infenia.jagratha.quality-conventions'
     id 'com.infenia.jagratha.jacoco-conventions'
-    id 'com.infenia.jagratha.node-conventions'
     alias(libs.plugins.spring.boot)
     alias(libs.plugins.spring.dependency.management)
     alias(libs.plugins.jte)
@@ -60,17 +59,31 @@ jar {
     enabled = true
 }
 
+task pnpmInstall(type: Exec) {
+    workingDir projectDir
+    if (System.getProperty('os.name').toLowerCase().contains('windows')) {
+        commandLine 'cmd', '/c', 'pnpm', 'install'
+    } else {
+        commandLine 'pnpm', 'install'
+    }
+}
+
 // Tailwind CSS task
-task tailwind(type: com.github.gradle.node.pnpm.task.PnpmTask) {
+task tailwind(type: Exec) {
     dependsOn pnpmInstall
-    pnpmCommand = ['exec', 'tailwindcss', '-i', './src/main/resources/static/css/input.css', '-o', "${layout.buildDirectory.get()}/tailwind/style.css", '--minify']
+    workingDir projectDir
     inputs.file("./src/main/resources/static/css/input.css")
-    outputs.file(layout.buildDirectory.file("tailwind/style.css"))
+    outputs.file("$buildDir/tailwind/style.css")
+    if (System.getProperty('os.name').toLowerCase().contains('windows')) {
+        commandLine 'cmd', '/c', 'pnpm', 'exec', 'tailwindcss', '-i', './src/main/resources/static/css/input.css', '-o', "$buildDir/tailwind/style.css", '--minify'
+    } else {
+        commandLine 'pnpm', 'exec', 'tailwindcss', '-i', './src/main/resources/static/css/input.css', '-o', "$buildDir/tailwind/style.css", '--minify'
+    }
 }
 
 processResources {
     dependsOn tailwind
-    from(layout.buildDirectory.dir("tailwind")) {
+    from("$buildDir/tailwind") {
         into "static/css"
     }
 }

@@ -15,6 +15,7 @@
  */
 package com.infenia.jagratha.model;
 
+import com.infenia.jagratha.validation.SessionId;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import java.util.Map;
@@ -22,11 +23,14 @@ import java.util.Map;
 /**
  * Request object for triggering a workflow.
  *
+ * @param sessionId the session identifier
  * @param workflowId the workflow identifier
  * @param payload optional trigger payload
  */
 @Schema(description = "Request object for triggering a workflow")
 public record WorkflowTriggerRequest(
+    @Schema(description = "The unique session identifier", example = "session-123") @SessionId
+        String sessionId,
     @Schema(description = "The unique workflow identifier", example = "quality-check") @NotBlank
         String workflowId,
     @Schema(description = "Optional payload for the trigger") Map<String, Object> payload) {
