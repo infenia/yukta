@@ -18,6 +18,7 @@ package com.infenia.jagratha.service;
 import com.infenia.jagratha.model.WorkflowDefinition;
 import com.infenia.jagratha.model.WorkflowDefinition.Node;
 import com.infenia.jagratha.plugin.PluginCategory;
+import com.infenia.jagratha.plugin.TriggerPlugin;
 import com.infenia.jagratha.plugin.WorkflowPlugin;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
@@ -83,14 +84,15 @@ public class WorkflowValidator {
                     new IllegalArgumentException("Plugin not found for type: " + node.type()));
               }
               final boolean isEntryPoint = !targetIds.contains(node.nodeId());
-              final boolean isTrigger = plugin.getCategory() == PluginCategory.TRIGGER;
+              final boolean canBeTrigger = plugin instanceof TriggerPlugin;
+              final boolean mustBeTrigger = plugin.getCategory() == PluginCategory.TRIGGER;
 
-              if (isEntryPoint && !isTrigger) {
+              if (isEntryPoint && !canBeTrigger) {
                 return Mono.error(
                     new IllegalArgumentException(
                         "Node " + node.nodeId() + " is an entry point but not a TRIGGER"));
               }
-              if (!isEntryPoint && isTrigger) {
+              if (!isEntryPoint && mustBeTrigger) {
                 return Mono.error(
                     new IllegalArgumentException(
                         "Trigger node " + node.nodeId() + " cannot have incoming edges"));
@@ -108,6 +110,7 @@ public class WorkflowValidator {
               final WorkflowPlugin plugin = registry.get(node.type());
               if (plugin != null
                   && plugin.getCategory() == PluginCategory.PROCESSOR
+                  && !(!targetIds.contains(node.nodeId()) && plugin instanceof TriggerPlugin)
                   && (!targetIds.contains(node.nodeId()) || !sourceIds.contains(node.nodeId()))) {
                 return Mono.error(
                     new IllegalArgumentException(
@@ -231,12 +234,14 @@ public class WorkflowValidator {
   }
 
   private Mono<Void> validateNoOrphans(final WorkflowDefinition def) {
+    final Set<String> targetIds =
+        def.edges().stream().map(WorkflowDefinition.Edge::target).collect(Collectors.toSet());
     final Set<String> triggerIds =
         def.nodes().stream()
             .filter(
                 node -> {
                   final WorkflowPlugin plugin = registry.get(node.type());
-                  return plugin != null && plugin.getCategory() == PluginCategory.TRIGGER;
+                  return plugin instanceof TriggerPlugin && !targetIds.contains(node.nodeId());
                 })
             .map(Node::nodeId)
             .collect(Collectors.toSet());
@@ -321,12 +326,14 @@ public class WorkflowValidator {
   }
 
   private int getMinDepth(final String nodeId, final WorkflowDefinition def) {
+    final Set<String> targetIds =
+        def.edges().stream().map(WorkflowDefinition.Edge::target).collect(Collectors.toSet());
     final Set<String> triggers =
         def.nodes().stream()
             .filter(
                 node -> {
                   final WorkflowPlugin plugin = registry.get(node.type());
-                  return plugin != null && plugin.getCategory() == PluginCategory.TRIGGER;
+                  return plugin instanceof TriggerPlugin && !targetIds.contains(node.nodeId());
                 })
             .map(Node::nodeId)
             .collect(Collectors.toSet());

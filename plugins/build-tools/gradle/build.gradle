@@ -30,7 +30,7 @@ dependencyManagement {
 version = '1.0.0'
 
 dependencies {
-    implementation project(':jagratha-plugin-api')
+    implementation project(':plugins:build-tools:common')
     implementation libs.spring.boot.starter.webflux
 
     testImplementation libs.spring.boot.starter.test

@@ -21,7 +21,9 @@ import static org.mockito.Mockito.when;
 
 import com.infenia.jagratha.model.WorkflowDefinition;
 import com.infenia.jagratha.plugin.PluginCategory;
-import com.infenia.jagratha.plugin.WorkflowPlugin;
+import com.infenia.jagratha.plugin.ProcessorPlugin;
+import com.infenia.jagratha.plugin.TerminalPlugin;
+import com.infenia.jagratha.plugin.TriggerPlugin;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
@@ -61,15 +63,15 @@ class WorkflowValidatorTest {
     WorkflowDefinition def =
         new WorkflowDefinition("desc", List.of(trigger, mapper, terminal), List.of(e1, e2));
 
-    WorkflowPlugin triggerPlugin = mock(WorkflowPlugin.class);
+    TriggerPlugin triggerPlugin = mock(TriggerPlugin.class);
     when(triggerPlugin.getCategory()).thenReturn(PluginCategory.TRIGGER);
     when(triggerPlugin.validateConfig(any())).thenReturn(Mono.empty());
 
-    WorkflowPlugin mapperPlugin = mock(WorkflowPlugin.class);
+    ProcessorPlugin mapperPlugin = mock(ProcessorPlugin.class);
     when(mapperPlugin.getCategory()).thenReturn(PluginCategory.PROCESSOR);
     when(mapperPlugin.validateConfig(any())).thenReturn(Mono.empty());
 
-    WorkflowPlugin terminalPlugin = mock(WorkflowPlugin.class);
+    TerminalPlugin terminalPlugin = mock(TerminalPlugin.class);
     when(terminalPlugin.getCategory()).thenReturn(PluginCategory.TERMINAL);
     when(terminalPlugin.validateConfig(any())).thenReturn(Mono.empty());
 
@@ -103,19 +105,19 @@ class WorkflowValidatorTest {
         new WorkflowDefinition(
             "desc", List.of(trigger, heavyMapper, filter, terminal), List.of(e1, e2, e3));
 
-    WorkflowPlugin triggerPlugin = mock(WorkflowPlugin.class);
+    TriggerPlugin triggerPlugin = mock(TriggerPlugin.class);
     when(triggerPlugin.getCategory()).thenReturn(PluginCategory.TRIGGER);
     when(triggerPlugin.validateConfig(any())).thenReturn(Mono.empty());
 
-    WorkflowPlugin mapperPlugin = mock(WorkflowPlugin.class);
+    ProcessorPlugin mapperPlugin = mock(ProcessorPlugin.class);
     when(mapperPlugin.getCategory()).thenReturn(PluginCategory.PROCESSOR);
     when(mapperPlugin.validateConfig(any())).thenReturn(Mono.empty());
 
-    WorkflowPlugin filterPlugin = mock(WorkflowPlugin.class);
+    ProcessorPlugin filterPlugin = mock(ProcessorPlugin.class);
     when(filterPlugin.getCategory()).thenReturn(PluginCategory.PROCESSOR);
     when(filterPlugin.validateConfig(any())).thenReturn(Mono.empty());
 
-    WorkflowPlugin terminalPlugin = mock(WorkflowPlugin.class);
+    TerminalPlugin terminalPlugin = mock(TerminalPlugin.class);
     when(terminalPlugin.getCategory()).thenReturn(PluginCategory.TERMINAL);
     when(terminalPlugin.validateConfig(any())).thenReturn(Mono.empty());
 
@@ -149,19 +151,19 @@ class WorkflowValidatorTest {
         new WorkflowDefinition(
             "desc", List.of(trigger, filter, heavyMapper, terminal), List.of(e1, e2, e3));
 
-    WorkflowPlugin triggerPlugin = mock(WorkflowPlugin.class);
+    TriggerPlugin triggerPlugin = mock(TriggerPlugin.class);
     when(triggerPlugin.getCategory()).thenReturn(PluginCategory.TRIGGER);
     when(triggerPlugin.validateConfig(any())).thenReturn(Mono.empty());
 
-    WorkflowPlugin mapperPlugin = mock(WorkflowPlugin.class);
+    ProcessorPlugin mapperPlugin = mock(ProcessorPlugin.class);
     when(mapperPlugin.getCategory()).thenReturn(PluginCategory.PROCESSOR);
     when(mapperPlugin.validateConfig(any())).thenReturn(Mono.empty());
 
-    WorkflowPlugin filterPlugin = mock(WorkflowPlugin.class);
+    ProcessorPlugin filterPlugin = mock(ProcessorPlugin.class);
     when(filterPlugin.getCategory()).thenReturn(PluginCategory.PROCESSOR);
     when(filterPlugin.validateConfig(any())).thenReturn(Mono.empty());
 
-    WorkflowPlugin terminalPlugin = mock(WorkflowPlugin.class);
+    TerminalPlugin terminalPlugin = mock(TerminalPlugin.class);
     when(terminalPlugin.getCategory()).thenReturn(PluginCategory.TERMINAL);
     when(terminalPlugin.validateConfig(any())).thenReturn(Mono.empty());
 

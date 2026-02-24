@@ -18,14 +18,17 @@ package com.infenia.jagratha.plugin.gradle;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
+import com.infenia.jagratha.plugin.Message;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import reactor.core.publisher.Flux;
 import reactor.test.StepVerifier;
 
 class GradlePluginTest {
@@ -108,5 +111,60 @@ class GradlePluginTest {
             "gradlePath", "./non-existent-gradlew");
 
     StepVerifier.create(plugin.start(config, Map.of())).verifyError(RuntimeException.class);
+  }
+
+  @Test
+  void testProcess() throws IOException {
+    // Create a dummy gradlew script
+    Path gradlew = tempDir.resolve("gradlew");
+    String script = "#!/bin/sh\necho \"Task output for $1\"\n";
+    Files.writeString(gradlew, script);
+    gradlew.toFile().setExecutable(true);
+
+    Map<String, Object> config =
+        Map.of(
+            "projectRoot", tempDir.toString(),
+            "tasks", List.of("processTask"),
+            "gradlePath", "./gradlew");
+
+    UUID traceId = UUID.randomUUID();
+    Message inputMessage = Message.create(traceId, Map.of("some", "payload"));
+
+    StepVerifier.create(plugin.process(Flux.just(inputMessage), config))
+        .assertNext(
+            message -> {
+              assertEquals(traceId, message.traceId());
+              assertEquals("Task output for processTask", ((String) message.payload()).trim());
+            })
+        .verifyComplete();
+  }
+
+  @Test
+  void testProcessExhaustMap() throws IOException {
+    // Create a dummy gradlew script that sleeps
+    Path gradlew = tempDir.resolve("gradlew");
+    String script = "#!/bin/sh\nsleep 1\necho \"Finished $1\"\n";
+    Files.writeString(gradlew, script);
+    gradlew.toFile().setExecutable(true);
+
+    Map<String, Object> config =
+        Map.of(
+            "projectRoot",
+            tempDir.toString(),
+            "tasks",
+            List.of("task"),
+            "gradlePath",
+            "./gradlew",
+            "timeout",
+            5L);
+
+    Message msg1 = Message.create(UUID.randomUUID(), "payload1");
+    Message msg2 = Message.create(UUID.randomUUID(), "payload2");
+
+    // Send two messages almost simultaneously.
+    // The second one should be ignored because the first one is running (exhaustMap behavior).
+    StepVerifier.create(plugin.process(Flux.just(msg1, msg2), config))
+        .assertNext(m -> assertEquals("Finished task", ((String) m.payload()).trim()))
+        .verifyComplete();
   }
 }

@@ -204,9 +204,10 @@ public class WorkflowOrchestrator {
     final List<Node> children = prepared.adjacencyList().get(node.nodeId());
     final WorkflowPlugin plugin = prepared.pluginCache().get(node.nodeId());
     final Duration nodeTimeout = getNodeTimeout(node);
+    final boolean hasParents = !prepared.parentsList().get(node.nodeId()).isEmpty();
 
-    if (plugin.getCategory() == PluginCategory.TRIGGER) {
-      final TriggerPlugin trigger = (TriggerPlugin) plugin;
+    if (plugin instanceof TriggerPlugin trigger
+        && (plugin.getCategory() == PluginCategory.TRIGGER || !hasParents)) {
       final Flux<Message> stream =
           tracker
               .updateTaskStatus(executionId, node.nodeId(), DEFAULT_TASK_ID, STATUS_RUNNING)

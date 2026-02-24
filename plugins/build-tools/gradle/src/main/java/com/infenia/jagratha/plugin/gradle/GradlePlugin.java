@@ -15,27 +15,14 @@
  */
 package com.infenia.jagratha.plugin.gradle;
 
-import com.infenia.jagratha.plugin.Message;
-import com.infenia.jagratha.plugin.TriggerPlugin;
-import java.io.File;
-import java.io.IOException;
-import java.time.Duration;
+import com.infenia.jagratha.plugin.buildtool.AbstractBuildToolPlugin;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
-import java.util.concurrent.TimeoutException;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.core.codec.StringDecoder;
-import org.springframework.core.io.buffer.DataBufferUtils;
-import org.springframework.core.io.buffer.DefaultDataBufferFactory;
-import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
-import reactor.core.scheduler.Schedulers;
 
-/** Gradle implementation of a TriggerPlugin. */
-@Slf4j
-public class GradlePlugin implements TriggerPlugin {
+/** Gradle implementation of a build tool plugin. */
+public class GradlePlugin extends AbstractBuildToolPlugin {
 
   /** Public constructor. */
   public GradlePlugin() {
@@ -43,8 +30,13 @@ public class GradlePlugin implements TriggerPlugin {
   }
 
   @Override
+  public String getType() {
+    return "gradle";
+  }
+
+  @Override
   public String getDescription() {
-    return "Executes Gradle tasks on a project and streams the output.";
+    return "Executes Gradle tasks on a project and returns the aggregated output.";
   }
 
   @Override
@@ -58,8 +50,29 @@ public class GradlePlugin implements TriggerPlugin {
   }
 
   @Override
-  public String getType() {
-    return "gradle";
+  protected List<String> getTasks(final Map<String, Object> config) {
+    @SuppressWarnings("unchecked")
+    final List<String> tasks = (List<String>) config.getOrDefault("tasks", List.of("check"));
+    return tasks;
+  }
+
+  @Override
+  protected String getProjectRoot(final Map<String, Object> config) {
+    return (String) config.get("projectRoot");
+  }
+
+  @Override
+  protected List<String> getCommand(final Map<String, Object> config, final String task) {
+    final String gradlePath = (String) config.getOrDefault("gradlePath", "./gradlew");
+    final List<String> command = new ArrayList<>();
+    command.add(gradlePath);
+    command.add(task);
+    return command;
+  }
+
+  @Override
+  protected long getTimeout(final Map<String, Object> config) {
+    return ((Number) config.getOrDefault("timeout", 600L)).longValue();
   }
 
   @Override
@@ -78,79 +91,5 @@ public class GradlePlugin implements TriggerPlugin {
       result = Mono.error(new IllegalArgumentException("projectRoot is required"));
     }
     return result;
-  }
-
-  @Override
-  public Mono<Void> initialize(final Map<String, Object> config) {
-    return Mono.empty();
-  }
-
-  @Override
-  public Flux<Message> start(final Map<String, Object> config, final Map<String, Object> payload) {
-    final String projectRoot = (String) config.get("projectRoot");
-    @SuppressWarnings("unchecked")
-    final List<String> tasks = (List<String>) config.getOrDefault("tasks", List.of("check"));
-    final String gradlePath = (String) config.getOrDefault("gradlePath", "./gradlew");
-    final Long timeout = ((Number) config.getOrDefault("timeout", 600L)).longValue();
-
-    final File projectDir = new File(projectRoot);
-    final UUID traceId = UUID.randomUUID();
-
-    return Flux.fromIterable(tasks)
-        .flatMap(task -> executeTask(projectDir, gradlePath, task, timeout, traceId));
-  }
-
-  private Flux<Message> executeTask(
-      final File projectDir,
-      final String gradlePath,
-      final String task,
-      final long timeout,
-      final UUID traceId) {
-    final List<String> command = new ArrayList<>();
-    command.add(gradlePath);
-    command.add(task);
-
-    return Mono.fromCallable(
-            () -> {
-              final ProcessBuilder processBuilder = new ProcessBuilder(command);
-              processBuilder.directory(projectDir);
-              processBuilder.redirectErrorStream(true);
-              return processBuilder.start();
-            })
-        .subscribeOn(Schedulers.boundedElastic())
-        .flatMapMany(
-            process -> {
-              final Flux<String> outputFlux =
-                  DataBufferUtils.readInputStream(
-                          process::getInputStream, DefaultDataBufferFactory.sharedInstance, 4096)
-                      .transform(
-                          flux -> StringDecoder.textPlainOnly().decode(flux, null, null, Map.of()));
-
-              final Mono<Integer> exitCodeMono =
-                  Mono.fromFuture(process.onExit()).map(Process::exitValue);
-
-              return outputFlux
-                  .map(line -> Message.create(traceId, line))
-                  .concatWith(
-                      exitCodeMono.flatMap(
-                          code -> {
-                            if (code != 0 && log.isWarnEnabled()) {
-                              log.warn("Task {} failed with exit code {}", task, code);
-                            }
-                            return Mono.empty();
-                          }))
-                  .timeout(Duration.ofSeconds(timeout))
-                  .onErrorResume(
-                      TimeoutException.class,
-                      e -> {
-                        process.destroyForcibly();
-                        return Mono.error(new TimeoutException("Timeout running task: " + task));
-                      });
-            })
-        .onErrorResume(
-            IOException.class,
-            e ->
-                Mono.error(
-                    new RuntimeException("Error executing task " + task + ": " + e.getMessage())));
   }
 }
