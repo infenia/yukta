@@ -87,10 +87,11 @@ public class LoopPredicateProcessor implements ProcessorPlugin {
             Mono.deferContextual(
                 ctx -> {
                   final String sId = ctx.getOrDefault("sessionId", "unknown");
+                  final String wId = ctx.getOrDefault("workflowId", "unknown");
                   final String nId = ctx.getOrDefault("nodeId", "unknown");
                   final long start = System.currentTimeMillis();
 
-                  return executeLoop(initialMessage, context, sId, nId, start);
+                  return executeLoop(initialMessage, context, sId, wId, nId, start);
                 }));
   }
 
@@ -98,6 +99,7 @@ public class LoopPredicateProcessor implements ProcessorPlugin {
       final Message initialMessage,
       final LoopContext context,
       final String sessionId,
+      final String workflowId,
       final String nodeId,
       final long startTime) {
 
@@ -110,14 +112,22 @@ public class LoopPredicateProcessor implements ProcessorPlugin {
 
               if (state.iteration() >= context.maxIterations()) {
                 return logAndTerminate(
-                    sessionId, nodeId, "Max iterations (" + context.maxIterations() + ")", state);
+                    sessionId,
+                    workflowId,
+                    nodeId,
+                    "Max iterations (" + context.maxIterations() + ")",
+                    state);
               }
               if (System.currentTimeMillis() - startTime > context.maxDuration().toMillis()) {
                 return logAndTerminate(
-                    sessionId, nodeId, "Max duration (" + context.maxDuration() + ")", state);
+                    sessionId,
+                    workflowId,
+                    nodeId,
+                    "Max duration (" + context.maxDuration() + ")",
+                    state);
               }
 
-              return logIteration(sessionId, nodeId, state.iteration() + 1)
+              return logIteration(sessionId, workflowId, nodeId, state.iteration() + 1)
                   .then(
                       context
                           .processor()
@@ -136,6 +146,7 @@ public class LoopPredicateProcessor implements ProcessorPlugin {
                                   if (Boolean.TRUE.equals(exit)) {
                                     return logAndTerminate(
                                         sessionId,
+                                        workflowId,
                                         nodeId,
                                         "Exit condition met",
                                         state.next(resultMessage, true));
@@ -182,25 +193,29 @@ public class LoopPredicateProcessor implements ProcessorPlugin {
   }
 
   private Mono<Void> logIteration(
-      final String sessionId, final String nodeId, final int iteration) {
+      final String sessionId, final String workflowId, final String nodeId, final int iteration) {
     final TaskTrackerService tracker = trackerProvider.getIfAvailable();
     if (tracker == null) {
       return Mono.empty();
     }
     return tracker
-        .appendLog(sessionId, "[Loop] Node: " + nodeId + " - Iteration " + iteration)
+        .appendLog(sessionId, workflowId, "[Loop] Node: " + nodeId + " - Iteration " + iteration)
         .subscribeOn(Schedulers.boundedElastic());
   }
 
   private Mono<LoopState> logAndTerminate(
-      final String sessionId, final String nodeId, final String reason, final LoopState state) {
+      final String sessionId,
+      final String workflowId,
+      final String nodeId,
+      final String reason,
+      final LoopState state) {
     final TaskTrackerService tracker = trackerProvider.getIfAvailable();
     final LoopState termState = state.withTerminated(true);
     if (tracker == null) {
       return Mono.just(termState);
     }
     return tracker
-        .appendLog(sessionId, "[Loop] Node: " + nodeId + " - " + reason)
+        .appendLog(sessionId, workflowId, "[Loop] Node: " + nodeId + " - " + reason)
         .subscribeOn(Schedulers.boundedElastic())
         .then(Mono.just(termState));
   }

@@ -79,9 +79,10 @@ public class WorkflowTestHarness {
    * Poll until the workflow execution is finished.
    *
    * @param sessionId the session ID
+   * @param workflowId the workflow ID
    * @return the final workflow progress
    */
-  public WorkflowProgress pollUntilFinished(final String sessionId) {
+  public WorkflowProgress pollUntilFinished(final String sessionId, final String workflowId) {
     final long start = System.currentTimeMillis();
     final long timeout = 30_000L;
     final long interval = 500L;
@@ -90,7 +91,7 @@ public class WorkflowTestHarness {
       final ApiResponse<WorkflowProgress> response =
           webClient
               .get()
-              .uri("/api/workflow/{sessionId}/status", sessionId)
+              .uri("/api/workflow/{sessionId}/{workflowId}/status", sessionId, workflowId)
               .exchange()
               .expectStatus()
               .isOk()
@@ -102,7 +103,8 @@ public class WorkflowTestHarness {
 
       if (response != null && response.data() != null) {
         final WorkflowProgress progress = response.data();
-        System.out.println("Polling status for " + sessionId + ": " + progress.status());
+        System.out.println(
+            "Polling status for " + sessionId + ":" + workflowId + ": " + progress.status());
         if (!"RUNNING".equals(progress.status())) {
           return progress;
         }

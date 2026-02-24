@@ -52,7 +52,7 @@ class LoopStreamProcessorTest {
   void setUp() {
     when(registryProvider.getIfAvailable()).thenReturn(registry);
     when(trackerProvider.getIfAvailable()).thenReturn(tracker);
-    when(tracker.appendLog(anyString(), anyString())).thenReturn(Mono.empty());
+    when(tracker.appendLog(anyString(), anyString(), anyString())).thenReturn(Mono.empty());
   }
 
   @Test

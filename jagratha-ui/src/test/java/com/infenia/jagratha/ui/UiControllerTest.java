@@ -45,9 +45,10 @@ class UiControllerTest {
 
   @Test
   void testStreamLogs() {
+    when(taskTrackerService.getLogStream(anyString(), anyString())).thenReturn(Flux.empty());
     webTestClient
         .get()
-        .uri("/ui/api/sessions/session1/logs/stream")
+        .uri("/ui/api/sessions/session1/wf1/logs/stream")
         .exchange()
         .expectStatus()
         .isOk()
@@ -57,9 +58,10 @@ class UiControllerTest {
 
   @Test
   void testStreamStatus() {
+    when(taskTrackerService.getStatusStream(anyString(), anyString())).thenReturn(Flux.empty());
     webTestClient
         .get()
-        .uri("/ui/api/sessions/session1/status/stream")
+        .uri("/ui/api/sessions/session1/wf1/status/stream")
         .exchange()
         .expectStatus()
         .isOk()

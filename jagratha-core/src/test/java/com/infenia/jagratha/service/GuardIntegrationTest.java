@@ -87,11 +87,11 @@ class GuardIntegrationTest {
     when(terminalFalse.validateConfig(any())).thenReturn(Mono.empty());
     when(terminalFalse.consume(any(), any())).thenReturn(Mono.empty());
 
-    when(tracker.startWorkflow(anyString(), any())).thenReturn(Mono.empty());
-    when(tracker.updateTaskStatus(anyString(), anyString(), anyString(), anyString()))
+    when(tracker.startWorkflow(anyString(), anyString(), any())).thenReturn(Mono.empty());
+    when(tracker.updateTaskStatus(anyString(), anyString(), anyString(), anyString(), anyString()))
         .thenReturn(Mono.empty());
-    when(tracker.finishWorkflow(anyString(), anyString())).thenReturn(Mono.empty());
-    when(tracker.appendLog(anyString(), anyString())).thenReturn(Mono.empty());
+    when(tracker.finishWorkflow(anyString(), anyString(), anyString())).thenReturn(Mono.empty());
+    when(tracker.appendLog(anyString(), anyString(), anyString())).thenReturn(Mono.empty());
   }
 
   @SuppressWarnings("unchecked")
@@ -138,10 +138,12 @@ class GuardIntegrationTest {
 
     // Verify termTrue was executed
     verify(tracker, atLeastOnce())
-        .updateTaskStatus(eq(sessionId), eq("termTrue"), anyString(), eq("RUNNING"));
+        .updateTaskStatus(
+            eq(sessionId), eq("test-workflow"), eq("termTrue"), anyString(), eq("RUNNING"));
     // Verify termFalse was NOT executed
     verify(tracker, never())
-        .updateTaskStatus(eq(sessionId), eq("termFalse"), anyString(), eq("RUNNING"));
+        .updateTaskStatus(
+            eq(sessionId), eq("test-workflow"), eq("termFalse"), anyString(), eq("RUNNING"));
   }
 
   @SuppressWarnings("unchecked")
@@ -188,9 +190,11 @@ class GuardIntegrationTest {
 
     // Verify termFalse was executed
     verify(tracker, atLeastOnce())
-        .updateTaskStatus(eq(sessionId), eq("termFalse"), anyString(), eq("RUNNING"));
+        .updateTaskStatus(
+            eq(sessionId), eq("test-workflow"), eq("termFalse"), anyString(), eq("RUNNING"));
     // Verify termTrue was NOT executed
     verify(tracker, never())
-        .updateTaskStatus(eq(sessionId), eq("termTrue"), anyString(), eq("RUNNING"));
+        .updateTaskStatus(
+            eq(sessionId), eq("test-workflow"), eq("termTrue"), anyString(), eq("RUNNING"));
   }
 }

@@ -31,13 +31,16 @@ import jakarta.validation.Valid;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 /**
@@ -87,9 +90,10 @@ public class AppController {
    * Get the status of a workflow execution.
    *
    * @param sessionId the session identifier
+   * @param workflowId the workflow identifier
    * @return response entity with workflow progress
    */
-  @GetMapping("/workflow/{sessionId}/status")
+  @GetMapping("/workflow/{sessionId}/{workflowId}/status")
   @Operation(
       summary = "Get workflow status",
       description = "Retrieves the current execution status and progress of a workflow")
@@ -101,8 +105,9 @@ public class AppController {
       description = "Session not found")
   public Mono<ResponseEntity<ApiResponse<com.infenia.jagratha.model.WorkflowProgress>>>
       getWorkflowStatus(
-          @Parameter(description = SESSION_ID_PARAM) @PathVariable final String sessionId) {
-    return Mono.fromCallable(() -> trackerService.getProgress(sessionId))
+          @Parameter(description = SESSION_ID_PARAM) @PathVariable final String sessionId,
+          @Parameter(description = "Workflow ID") @PathVariable final String workflowId) {
+    return Mono.fromCallable(() -> trackerService.getProgress(sessionId, workflowId))
         .map(
             progress -> {
               if (progress != null) {
@@ -114,6 +119,31 @@ public class AppController {
                         ApiResponse.error(404, "Not Found", "Session not found", null, List.of()));
               }
             });
+  }
+
+  /**
+   * Stream status updates for a workflow via SSE.
+   *
+   * @param sessionId the session identifier
+   * @param workflowId the workflow identifier
+   * @return a flux of status update events
+   */
+  @GetMapping(
+      value = "/workflow/{sessionId}/{workflowId}/status/stream",
+      produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+  @Operation(
+      summary = "Stream workflow status",
+      description = "Streams the current execution status and progress of a workflow via SSE")
+  public Flux<ServerSentEvent<com.infenia.jagratha.model.WorkflowProgress>> streamWorkflowStatus(
+      @Parameter(description = SESSION_ID_PARAM) @PathVariable final String sessionId,
+      @Parameter(description = "Workflow ID") @PathVariable final String workflowId) {
+    return trackerService
+        .getStatusStream(sessionId, workflowId)
+        .map(
+            progress ->
+                ServerSentEvent.<com.infenia.jagratha.model.WorkflowProgress>builder()
+                    .data(progress)
+                    .build());
   }
 
   /**

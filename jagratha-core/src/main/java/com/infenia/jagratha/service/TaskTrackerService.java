@@ -19,6 +19,7 @@ import com.infenia.jagratha.model.TaskProgress;
 import com.infenia.jagratha.model.WorkflowProgress;
 import com.infenia.jagratha.validation.NodeId;
 import com.infenia.jagratha.validation.SessionId;
+import com.infenia.jagratha.validation.WorkflowId;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
@@ -42,7 +43,7 @@ public class TaskTrackerService {
 
   private final Map<String, WorkflowState> states = new ConcurrentHashMap<>();
   private final Map<String, Sinks.Many<String>> logSinks = new ConcurrentHashMap<>();
-  private final Map<String, Sinks.Many<String>> statusSinks = new ConcurrentHashMap<>();
+  private final Map<String, Sinks.Many<WorkflowProgress>> statusSinks = new ConcurrentHashMap<>();
 
   /** Default constructor. */
   public TaskTrackerService() {
@@ -53,27 +54,36 @@ public class TaskTrackerService {
    * Start tracking a new workflow for a session.
    *
    * @param sessionId the session identifier
+   * @param workflowId the workflow identifier
    * @param nodeIds the list of node IDs in the workflow DAG
    * @return a Mono that completes when the workflow tracking is started
    */
   public Mono<Void> startWorkflow(
-      @SessionId final String sessionId, @NotEmpty final List<String> nodeIds) {
+      @SessionId final String sessionId,
+      @WorkflowId final String workflowId,
+      @NotEmpty final List<String> nodeIds) {
     return Mono.fromRunnable(
         () -> {
           final List<TaskProgress> initialTasks =
               nodeIds.stream()
                   .map(id -> new TaskProgress(id, "", "PENDING", null, null, Map.of()))
                   .toList();
+          final String key = getTrackingKey(sessionId, workflowId);
           states.put(
-              sessionId,
+              key,
               new WorkflowState(
-                  sessionId, "RUNNING", new ArrayList<>(initialTasks), LocalDateTime.now()));
+                  sessionId,
+                  workflowId,
+                  "RUNNING",
+                  new ArrayList<>(initialTasks),
+                  LocalDateTime.now()));
 
           final Sinks.Many<String> sink = Sinks.many().multicast().directBestEffort();
-          logSinks.put(sessionId, sink);
+          logSinks.put(key, sink);
 
-          final Sinks.Many<String> statusSink = Sinks.many().multicast().directBestEffort();
-          statusSinks.put(sessionId, statusSink);
+          final Sinks.Many<WorkflowProgress> statusSink =
+              Sinks.many().multicast().directBestEffort();
+          statusSinks.put(key, statusSink);
         });
   }
 
@@ -81,6 +91,7 @@ public class TaskTrackerService {
    * Update the status of a specific node.
    *
    * @param sessionId the session identifier
+   * @param workflowId the workflow identifier
    * @param nodeId the ID of the node
    * @param module the module name
    * @param status the new status
@@ -89,16 +100,18 @@ public class TaskTrackerService {
   @SuppressWarnings("PMD.UseObjectForClearerAPI")
   public Mono<Void> updateTaskStatus(
       @SessionId final String sessionId,
+      @WorkflowId final String workflowId,
       @NodeId final String nodeId,
       @NotBlank @Size(max = 256) final String module,
       @NotBlank @Size(max = 256) final String status) {
-    return updateTaskStatus(sessionId, nodeId, module, status, Map.of());
+    return updateTaskStatus(sessionId, workflowId, nodeId, module, status, Map.of());
   }
 
   /**
    * Update the status and metadata of a specific node.
    *
    * @param sessionId the session identifier
+   * @param workflowId the workflow identifier
    * @param nodeId the ID of the node
    * @param module the module name
    * @param status the new status
@@ -108,16 +121,18 @@ public class TaskTrackerService {
   @SuppressWarnings("PMD.UseObjectForClearerAPI")
   public Mono<Void> updateTaskStatus(
       @SessionId final String sessionId,
+      @WorkflowId final String workflowId,
       @NodeId final String nodeId,
       @NotBlank @Size(max = 256) final String module,
       @NotBlank @Size(max = 256) final String status,
       @NotNull final Map<String, Object> metadata) {
     return Mono.fromRunnable(
         () -> {
-          final WorkflowState state = states.get(sessionId);
+          final String key = getTrackingKey(sessionId, workflowId);
+          final WorkflowState state = states.get(key);
           if (state != null) {
             state.updateTask(nodeId, module, status, metadata);
-            notifyStatusChange(sessionId);
+            notifyStatusChange(sessionId, workflowId);
           }
         });
   }
@@ -126,18 +141,22 @@ public class TaskTrackerService {
    * Finish the workflow.
    *
    * @param sessionId the session identifier
+   * @param workflowId the workflow identifier
    * @param status the final status
    * @return a Mono that completes when the workflow is finished
    */
   public Mono<Void> finishWorkflow(
-      @SessionId final String sessionId, @NotBlank @Size(max = 256) final String status) {
+      @SessionId final String sessionId,
+      @WorkflowId final String workflowId,
+      @NotBlank @Size(max = 256) final String status) {
     return Mono.fromRunnable(
         () -> {
-          final WorkflowState state = states.get(sessionId);
+          final String key = getTrackingKey(sessionId, workflowId);
+          final WorkflowState state = states.get(key);
           if (state != null) {
             state.setStatus(status);
             state.setEndTime(LocalDateTime.now());
-            notifyStatusChange(sessionId);
+            notifyStatusChange(sessionId, workflowId);
           }
         });
   }
@@ -146,14 +165,18 @@ public class TaskTrackerService {
    * Append a log line to the live output.
    *
    * @param sessionId the session identifier
+   * @param workflowId the workflow identifier
    * @param line the log line
    * @return a Mono that completes when the log line is appended
    */
   public Mono<Void> appendLog(
-      @SessionId final String sessionId, @NotBlank @Size(max = 16_384) final String line) {
+      @SessionId final String sessionId,
+      @WorkflowId final String workflowId,
+      @NotBlank @Size(max = 16_384) final String line) {
     return Mono.fromRunnable(
         () -> {
-          final Sinks.Many<String> sink = logSinks.get(sessionId);
+          final String key = getTrackingKey(sessionId, workflowId);
+          final Sinks.Many<String> sink = logSinks.get(key);
           if (sink != null) {
             sink.tryEmitNext(line);
           }
@@ -164,15 +187,19 @@ public class TaskTrackerService {
    * Get the current progress of a workflow.
    *
    * @param sessionId the session identifier
+   * @param workflowId the workflow identifier
    * @return the workflow progress
    */
-  public WorkflowProgress getProgress(@SessionId final String sessionId) {
-    final WorkflowState state = states.get(sessionId);
+  public WorkflowProgress getProgress(
+      @SessionId final String sessionId, @WorkflowId final String workflowId) {
+    final String key = getTrackingKey(sessionId, workflowId);
+    final WorkflowState state = states.get(key);
     WorkflowProgress progress = null;
     if (state != null) {
       progress =
           new WorkflowProgress(
               state.sessionId,
+              state.workflowId,
               state.status,
               List.copyOf(state.tasks),
               state.startTime,
@@ -185,10 +212,13 @@ public class TaskTrackerService {
    * Get the log stream for a session.
    *
    * @param sessionId the session identifier
+   * @param workflowId the workflow identifier
    * @return the log flux
    */
-  public Flux<String> getLogStream(@SessionId final String sessionId) {
-    final Sinks.Many<String> sink = logSinks.get(sessionId);
+  public Flux<String> getLogStream(
+      @SessionId final String sessionId, @WorkflowId final String workflowId) {
+    final String key = getTrackingKey(sessionId, workflowId);
+    final Sinks.Many<String> sink = logSinks.get(key);
     return sink != null ? sink.asFlux() : Flux.empty();
   }
 
@@ -205,17 +235,21 @@ public class TaskTrackerService {
    * Remove tracking data for a session.
    *
    * @param sessionId the session identifier
+   * @param workflowId the workflow identifier
    */
-  public void removeSession(@SessionId final String sessionId) {
-    states.remove(sessionId);
-    logSinks.remove(sessionId);
-    statusSinks.remove(sessionId);
+  public void removeSession(
+      @SessionId final String sessionId, @WorkflowId final String workflowId) {
+    final String key = getTrackingKey(sessionId, workflowId);
+    states.remove(key);
+    logSinks.remove(key);
+    statusSinks.remove(key);
   }
 
-  private void notifyStatusChange(final String sessionId) {
-    final Sinks.Many<String> sink = statusSinks.get(sessionId);
+  private void notifyStatusChange(final String sessionId, final String workflowId) {
+    final String key = getTrackingKey(sessionId, workflowId);
+    final Sinks.Many<WorkflowProgress> sink = statusSinks.get(key);
     if (sink != null) {
-      sink.tryEmitNext("update");
+      sink.tryEmitNext(getProgress(sessionId, workflowId));
     }
   }
 
@@ -223,15 +257,23 @@ public class TaskTrackerService {
    * Get the status stream for a session.
    *
    * @param sessionId the session identifier
+   * @param workflowId the workflow identifier
    * @return the status flux
    */
-  public Flux<String> getStatusStream(@SessionId final String sessionId) {
-    final Sinks.Many<String> sink = statusSinks.get(sessionId);
+  public Flux<WorkflowProgress> getStatusStream(
+      @SessionId final String sessionId, @WorkflowId final String workflowId) {
+    final String key = getTrackingKey(sessionId, workflowId);
+    final Sinks.Many<WorkflowProgress> sink = statusSinks.get(key);
     return sink != null ? sink.asFlux() : Flux.empty();
+  }
+
+  private String getTrackingKey(final String sessionId, final String workflowId) {
+    return sessionId + ":" + workflowId;
   }
 
   private static final class WorkflowState {
     private final String sessionId;
+    private final String workflowId;
     private String status;
     private final List<TaskProgress> tasks;
     private final LocalDateTime startTime;
@@ -239,10 +281,12 @@ public class TaskTrackerService {
 
     /* default */ WorkflowState(
         final String sessionId,
+        final String workflowId,
         final String status,
         final List<TaskProgress> tasks,
         final LocalDateTime startTime) {
       this.sessionId = sessionId;
+      this.workflowId = workflowId;
       this.status = status;
       this.tasks = new CopyOnWriteArrayList<>(tasks);
       this.startTime = startTime;

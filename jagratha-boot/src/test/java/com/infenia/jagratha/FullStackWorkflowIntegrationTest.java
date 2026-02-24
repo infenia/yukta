@@ -118,8 +118,8 @@ class FullStackWorkflowIntegrationTest {
     harness.triggerWorkflow(sessionId, "main-flow", Map.of("input", 15));
 
     // 3. Poll and Verify
-    final WorkflowProgress progress = harness.pollUntilFinished(sessionId);
-    harness.verifyStatus(progress, "COMPLETED");
+    final WorkflowProgress progress = harness.pollUntilFinished(sessionId, "main-flow");
+    harness.verifyStatus(progress, "SUCCESS");
 
     // Verify task sequence
     assertThat(progress.tasks())
@@ -170,8 +170,8 @@ class FullStackWorkflowIntegrationTest {
     harness.initSession(configRequest);
     harness.triggerWorkflow(sessionId, "loop-flow", Map.of("count", 0));
 
-    final WorkflowProgress progress = harness.pollUntilFinished(sessionId);
-    harness.verifyStatus(progress, "COMPLETED");
+    final WorkflowProgress progress = harness.pollUntilFinished(sessionId, "loop-flow");
+    harness.verifyStatus(progress, "SUCCESS");
   }
 
   @Test
@@ -247,8 +247,8 @@ class FullStackWorkflowIntegrationTest {
     harness.initSession(configRequest);
     harness.triggerWorkflow(sessionId, "main-flow", Map.of("amount", 150));
 
-    final WorkflowProgress progress = harness.pollUntilFinished(sessionId);
-    harness.verifyStatus(progress, "COMPLETED");
+    final WorkflowProgress progress = harness.pollUntilFinished(sessionId, "main-flow");
+    harness.verifyStatus(progress, "SUCCESS");
 
     assertThat(progress.tasks())
         .extracting("nodeId")

@@ -123,7 +123,6 @@ public class UiController {
       final Model model) {
     model.addAttribute("sessionId", sessionId);
     model.addAttribute("selectedWorkflowId", workflowId);
-    model.addAttribute("progress", tracker.getProgress(sessionId));
 
     return Mono.zip(
             sessionService.getSessionConfig(sessionId), retrievalService.listLogs(sessionId))
@@ -141,6 +140,12 @@ public class UiController {
                 actualWorkflowId = (String) workflows.keySet().iterator().next();
               } else {
                 actualWorkflowId = null;
+              }
+
+              if (actualWorkflowId != null) {
+                model.addAttribute("progress", tracker.getProgress(sessionId, actualWorkflowId));
+              } else {
+                model.addAttribute("progress", null);
               }
 
               final Mono<com.infenia.jagratha.model.WorkflowDefinition> workflowMono;
@@ -177,27 +182,31 @@ public class UiController {
    * Stream logs for a session via SSE.
    *
    * @param sessionId the session identifier
+   * @param workflowId the workflow identifier
    * @return a flux of log lines
    */
   @GetMapping(
-      value = "/api/sessions/{sessionId}/logs/stream",
+      value = "/api/sessions/{sessionId}/{workflowId}/logs/stream",
       produces = MediaType.TEXT_EVENT_STREAM_VALUE)
   @ResponseBody
-  public Flux<String> streamLogs(@PathVariable final String sessionId) {
-    return tracker.getLogStream(sessionId);
+  public Flux<String> streamLogs(
+      @PathVariable final String sessionId, @PathVariable final String workflowId) {
+    return tracker.getLogStream(sessionId, workflowId);
   }
 
   /**
    * Stream status updates for a session via SSE.
    *
    * @param sessionId the session identifier
+   * @param workflowId the workflow identifier
    * @return a flux of status update events
    */
   @GetMapping(
-      value = "/api/sessions/{sessionId}/status/stream",
+      value = "/api/sessions/{sessionId}/{workflowId}/status/stream",
       produces = MediaType.TEXT_EVENT_STREAM_VALUE)
   @ResponseBody
-  public Flux<String> streamStatus(@PathVariable final String sessionId) {
-    return tracker.getStatusStream(sessionId);
+  public Flux<String> streamStatus(
+      @PathVariable final String sessionId, @PathVariable final String workflowId) {
+    return tracker.getStatusStream(sessionId, workflowId).map(progress -> "update");
   }
 }

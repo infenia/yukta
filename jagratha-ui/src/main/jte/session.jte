@@ -173,7 +173,8 @@
         window.addEventListener('resize', initDag);
 
         const sessionId = "${sessionId}";
-        new EventSource("/ui/api/sessions/" + sessionId + "/logs/stream").onmessage = (e) => {
+        const workflowId = "${actualWorkflowId}";
+        new EventSource("/ui/api/sessions/" + sessionId + "/" + workflowId + "/logs/stream").onmessage = (e) => {
             const out = document.getElementById('console-output');
             if (out.innerText.includes('Listening')) out.innerHTML = '';
             const line = document.createElement('div');

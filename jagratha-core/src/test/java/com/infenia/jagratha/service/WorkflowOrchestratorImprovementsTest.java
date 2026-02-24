@@ -51,10 +51,10 @@ class WorkflowOrchestratorImprovementsTest {
     registry = mock(WorkflowRegistry.class);
     tracker = mock(TaskTrackerService.class);
     validator = new WorkflowValidator(registry);
-    when(tracker.startWorkflow(any(), any())).thenReturn(Mono.empty());
-    when(tracker.updateTaskStatus(any(), any(), any(), any())).thenReturn(Mono.empty());
-    when(tracker.finishWorkflow(any(), any())).thenReturn(Mono.empty());
-    when(tracker.appendLog(any(), any())).thenReturn(Mono.empty());
+    when(tracker.startWorkflow(any(), any(), any())).thenReturn(Mono.empty());
+    when(tracker.updateTaskStatus(any(), any(), any(), any(), any())).thenReturn(Mono.empty());
+    when(tracker.finishWorkflow(any(), any(), any())).thenReturn(Mono.empty());
+    when(tracker.appendLog(any(), any(), any())).thenReturn(Mono.empty());
     orchestrator = new WorkflowOrchestrator(registry, tracker, validator);
   }
 
@@ -227,8 +227,9 @@ class WorkflowOrchestratorImprovementsTest {
                 .flatMap(p -> orchestrator.execute(sessionId, "test-workflow", p, Map.of())))
         .verifyComplete();
 
-    verify(tracker).startWorkflow(eq(sessionId), any());
-    verify(tracker, atLeastOnce()).updateTaskStatus(eq(sessionId), any(), any(), any());
-    verify(tracker).finishWorkflow(eq(sessionId), any());
+    verify(tracker).startWorkflow(eq(sessionId), eq("test-workflow"), any());
+    verify(tracker, atLeastOnce())
+        .updateTaskStatus(eq(sessionId), eq("test-workflow"), any(), any(), any());
+    verify(tracker).finishWorkflow(eq(sessionId), eq("test-workflow"), any());
   }
 }
