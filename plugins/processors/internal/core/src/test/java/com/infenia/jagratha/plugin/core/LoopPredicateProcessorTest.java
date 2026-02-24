@@ -55,7 +55,7 @@ class LoopPredicateProcessorTest {
   void setUp() {
     when(registryProvider.getIfAvailable()).thenReturn(registry);
     when(trackerProvider.getIfAvailable()).thenReturn(tracker);
-    when(tracker.appendLog(anyString(), anyString(), anyString())).thenReturn(Mono.empty());
+    when(tracker.appendLog(anyString(), anyString())).thenReturn(Mono.empty());
   }
 
   @Test
@@ -91,11 +91,11 @@ class LoopPredicateProcessorTest {
     StepVerifier.create(
             processor
                 .process(Flux.just(inputMsg), config)
-                .contextWrite(Context.of("sessionId", "s1", "workflowId", "w1", "nodeId", "n1")))
+                .contextWrite(Context.of("executionId", "e1", "nodeId", "n1")))
         .expectNextMatches(msg -> (int) msg.payload() == 3)
         .verifyComplete();
 
-    verify(tracker, atLeastOnce()).appendLog(eq("s1"), eq("w1"), anyString());
+    verify(tracker, atLeastOnce()).appendLog(eq("e1"), anyString());
   }
 
   @Test
@@ -130,11 +130,11 @@ class LoopPredicateProcessorTest {
     StepVerifier.create(
             processor
                 .process(Flux.just(inputMsg), config)
-                .contextWrite(Context.of("sessionId", "s1", "workflowId", "w1", "nodeId", "n1")))
+                .contextWrite(Context.of("executionId", "e1", "nodeId", "n1")))
         .expectNextMatches(msg -> (int) msg.payload() == 2)
         .verifyComplete();
 
-    verify(tracker).appendLog(eq("s1"), eq("w1"), eq("[Loop] Node: n1 - Max iterations (2)"));
+    verify(tracker).appendLog(eq("e1"), eq("[Loop] Node: n1 - Max iterations (2)"));
   }
 
   @Test
@@ -154,7 +154,7 @@ class LoopPredicateProcessorTest {
     StepVerifier.create(
             processor
                 .process(Flux.just(inputMsg), config)
-                .contextWrite(Context.of("sessionId", "s1", "nodeId", "n1")))
+                .contextWrite(Context.of("executionId", "e1", "nodeId", "n1")))
         .expectErrorMatches(e -> e.getMessage().contains("WorkflowExecutionException"))
         .verify();
   }

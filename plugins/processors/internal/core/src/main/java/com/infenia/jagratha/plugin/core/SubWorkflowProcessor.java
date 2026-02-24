@@ -142,11 +142,13 @@ public class SubWorkflowProcessor implements ProcessorPlugin {
                                         childSessionId, desc + " (Sub-workflow)")))
                     .then(orchestrator.prepareWorkflow(def))
                     .flatMap(
-                        prepared ->
-                            orchestrator
-                                .execute(childSessionId, workflowId, prepared, payload)
-                                .contextWrite(ctx -> ctx.put("resultCollector", collector))
-                                .then(Mono.fromCallable(collector::getResults))));
+                        prepared -> {
+                          final String executionId = java.util.UUID.randomUUID().toString();
+                          return orchestrator
+                              .execute(childSessionId, workflowId, executionId, prepared, payload)
+                              .contextWrite(ctx -> ctx.put("resultCollector", collector))
+                              .then(Mono.fromCallable(collector::getResults));
+                        }));
   }
 
   private Mono<Message> mapOutput(

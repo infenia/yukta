@@ -143,7 +143,9 @@ public class UiController {
               }
 
               if (actualWorkflowId != null) {
-                model.addAttribute("progress", tracker.getProgress(sessionId, actualWorkflowId));
+                final String execId = tracker.getLatestExecutionId(sessionId, actualWorkflowId);
+                model.addAttribute(
+                    "progress", execId != null ? tracker.getProgress(sessionId, execId) : null);
               } else {
                 model.addAttribute("progress", null);
               }
@@ -191,7 +193,8 @@ public class UiController {
   @ResponseBody
   public Flux<String> streamLogs(
       @PathVariable final String sessionId, @PathVariable final String workflowId) {
-    return tracker.getLogStream(sessionId, workflowId);
+    final String execId = tracker.getLatestExecutionId(sessionId, workflowId);
+    return execId != null ? tracker.getLogStream(execId) : Flux.empty();
   }
 
   /**
@@ -207,6 +210,9 @@ public class UiController {
   @ResponseBody
   public Flux<String> streamStatus(
       @PathVariable final String sessionId, @PathVariable final String workflowId) {
-    return tracker.getStatusStream(sessionId, workflowId).map(progress -> "update");
+    final String execId = tracker.getLatestExecutionId(sessionId, workflowId);
+    return execId != null
+        ? tracker.getStatusStream(execId).map(progress -> "update")
+        : Flux.empty();
   }
 }

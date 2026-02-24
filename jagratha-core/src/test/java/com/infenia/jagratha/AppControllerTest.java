@@ -25,6 +25,7 @@ import com.infenia.jagratha.mapper.AppConfigMapper;
 import com.infenia.jagratha.model.ConfigRequest;
 import com.infenia.jagratha.model.TaskResponse;
 import com.infenia.jagratha.model.WorkflowDefinition;
+import com.infenia.jagratha.model.WorkflowExecution;
 import com.infenia.jagratha.model.WorkflowTriggerRequest;
 import com.infenia.jagratha.service.LogRetrievalService;
 import com.infenia.jagratha.service.SessionService;
@@ -55,9 +56,10 @@ class AppControllerTest {
   void testTriggerWorkflowSuccess() {
     WorkflowTriggerRequest request = new WorkflowTriggerRequest("session-1", "w1", Map.of());
     TaskResponse response = new TaskResponse("SUCCESS", "Build successful");
+    String executionId = "exec-123";
+    WorkflowExecution execution = new WorkflowExecution(executionId, Mono.just(response));
 
-    when(workflowService.runWorkflow(anyString(), anyString(), any()))
-        .thenReturn(Mono.just(response));
+    when(workflowService.runWorkflow(anyString(), anyString(), any())).thenReturn(execution);
 
     webTestClient
         .post()
@@ -71,7 +73,9 @@ class AppControllerTest {
         .jsonPath("$.status")
         .isEqualTo(202)
         .jsonPath("$.message")
-        .isEqualTo("Workflow trigger accepted");
+        .isEqualTo("Workflow trigger accepted")
+        .jsonPath("$.data.executionId")
+        .isEqualTo(executionId);
   }
 
   @Test

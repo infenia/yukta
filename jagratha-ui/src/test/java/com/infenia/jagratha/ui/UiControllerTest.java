@@ -45,7 +45,8 @@ class UiControllerTest {
 
   @Test
   void testStreamLogs() {
-    when(taskTrackerService.getLogStream(anyString(), anyString())).thenReturn(Flux.empty());
+    when(taskTrackerService.getLatestExecutionId(anyString(), anyString())).thenReturn("exec-1");
+    when(taskTrackerService.getLogStream(anyString())).thenReturn(Flux.empty());
     webTestClient
         .get()
         .uri("/ui/api/sessions/session1/wf1/logs/stream")
@@ -58,7 +59,8 @@ class UiControllerTest {
 
   @Test
   void testStreamStatus() {
-    when(taskTrackerService.getStatusStream(anyString(), anyString())).thenReturn(Flux.empty());
+    when(taskTrackerService.getLatestExecutionId(anyString(), anyString())).thenReturn("exec-1");
+    when(taskTrackerService.getStatusStream(anyString())).thenReturn(Flux.empty());
     webTestClient
         .get()
         .uri("/ui/api/sessions/session1/wf1/status/stream")

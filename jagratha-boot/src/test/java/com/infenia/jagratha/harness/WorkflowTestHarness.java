@@ -60,29 +60,38 @@ public class WorkflowTestHarness {
    * @param sessionId the session ID
    * @param workflowId the workflow ID
    * @param payload the initial payload
+   * @return the execution ID
    */
-  public void triggerWorkflow(
+  public String triggerWorkflow(
       final String sessionId, final String workflowId, final Map<String, Object> payload) {
-    webClient
-        .post()
-        .uri("/api/workflow/trigger")
-        .contentType(MediaType.APPLICATION_JSON)
-        .bodyValue(new WorkflowTriggerRequest(sessionId, workflowId, payload))
-        .exchange()
-        .expectStatus()
-        .isAccepted()
-        .expectHeader()
-        .exists("X-Response-Time");
+    final ApiResponse<com.infenia.jagratha.model.TriggerResponse> response =
+        webClient
+            .post()
+            .uri("/api/workflow/trigger")
+            .contentType(MediaType.APPLICATION_JSON)
+            .bodyValue(new WorkflowTriggerRequest(sessionId, workflowId, payload))
+            .exchange()
+            .expectStatus()
+            .isAccepted()
+            .expectHeader()
+            .exists("X-Response-Time")
+            .returnResult(
+                new ParameterizedTypeReference<
+                    ApiResponse<com.infenia.jagratha.model.TriggerResponse>>() {})
+            .getResponseBody()
+            .blockFirst();
+
+    return response != null && response.data() != null ? response.data().executionId() : null;
   }
 
   /**
    * Poll until the workflow execution is finished.
    *
    * @param sessionId the session ID
-   * @param workflowId the workflow ID
+   * @param executionId the execution ID
    * @return the final workflow progress
    */
-  public WorkflowProgress pollUntilFinished(final String sessionId, final String workflowId) {
+  public WorkflowProgress pollUntilFinished(final String sessionId, final String executionId) {
     final long start = System.currentTimeMillis();
     final long timeout = 30_000L;
     final long interval = 500L;
@@ -91,7 +100,7 @@ public class WorkflowTestHarness {
       final ApiResponse<WorkflowProgress> response =
           webClient
               .get()
-              .uri("/api/workflow/{sessionId}/{workflowId}/status", sessionId, workflowId)
+              .uri("/api/workflow/{sessionId}/status/{executionId}", sessionId, executionId)
               .exchange()
               .expectStatus()
               .isOk()
@@ -104,7 +113,7 @@ public class WorkflowTestHarness {
       if (response != null && response.data() != null) {
         final WorkflowProgress progress = response.data();
         System.out.println(
-            "Polling status for " + sessionId + ":" + workflowId + ": " + progress.status());
+            "Polling status for " + sessionId + ":" + executionId + ": " + progress.status());
         if (!"RUNNING".equals(progress.status())) {
           return progress;
         }

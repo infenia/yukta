@@ -17,10 +17,12 @@ package com.infenia.jagratha.service;
 
 import com.infenia.jagratha.config.AppConfigService;
 import com.infenia.jagratha.model.TaskResponse;
+import com.infenia.jagratha.model.WorkflowExecution;
 import com.infenia.jagratha.validation.SessionId;
 import com.infenia.jagratha.validation.WorkflowId;
 import jakarta.validation.constraints.NotEmpty;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -48,12 +50,13 @@ public class WorkflowService {
    * @param sessionId the session identifier
    * @param workflowId the workflow identifier
    * @param payload the initial trigger payload
-   * @return Mono containing the task response
+   * @return a WorkflowExecution containing the execution ID and the result Mono
    */
-  public Mono<TaskResponse> runWorkflow(
+  public WorkflowExecution runWorkflow(
       @SessionId final String sessionId,
       @WorkflowId final String workflowId,
       @NotEmpty final Map<String, Object> payload) {
+    final String executionId = UUID.randomUUID().toString();
     final String queueKey = sessionId + ":" + workflowId;
     final Sinks.One<TaskResponse> sink = Sinks.one();
 
@@ -73,7 +76,11 @@ public class WorkflowService {
                                               .flatMap(
                                                   prepared ->
                                                       orchestrator.execute(
-                                                          sessionId, workflowId, prepared, payload))
+                                                          sessionId,
+                                                          workflowId,
+                                                          executionId,
+                                                          prepared,
+                                                          payload))
                                               .then(
                                                   Mono.just(
                                                       new TaskResponse(
@@ -128,6 +135,6 @@ public class WorkflowService {
             })
         .subscribe();
 
-    return sink.asMono();
+    return new WorkflowExecution(executionId, sink.asMono());
   }
 }

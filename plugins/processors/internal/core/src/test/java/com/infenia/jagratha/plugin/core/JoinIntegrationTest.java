@@ -57,10 +57,10 @@ class JoinIntegrationTest {
     registry = mock(WorkflowRegistry.class);
     tracker = mock(TaskTrackerService.class);
     validator = new WorkflowValidator(registry);
-    when(tracker.startWorkflow(any(), any(), any())).thenReturn(Mono.empty());
-    when(tracker.updateTaskStatus(any(), any(), any(), any(), any())).thenReturn(Mono.empty());
-    when(tracker.finishWorkflow(any(), any(), any())).thenReturn(Mono.empty());
-    when(tracker.appendLog(any(), any(), any())).thenReturn(Mono.empty());
+    when(tracker.startWorkflow(any(), any(), any(), any())).thenReturn(Mono.empty());
+    when(tracker.updateTaskStatus(any(), any(), any(), any())).thenReturn(Mono.empty());
+    when(tracker.finishWorkflow(any(), any())).thenReturn(Mono.empty());
+    when(tracker.appendLog(any(), any())).thenReturn(Mono.empty());
     orchestrator = new WorkflowOrchestrator(registry, tracker, validator);
 
     joinStore = new InMemoryJoinStore();
@@ -122,10 +122,13 @@ class JoinIntegrationTest {
     when(registry.get("JOIN")).thenReturn(joinProcessor);
     when(registry.get("terminal")).thenReturn(terminal);
 
+    String executionId = "exec-join-int";
     StepVerifier.create(
             orchestrator
                 .prepareWorkflow(def)
-                .flatMap(p -> orchestrator.execute(sessionId, "test-workflow", p, Map.of())))
+                .flatMap(
+                    p ->
+                        orchestrator.execute(sessionId, "test-workflow", executionId, p, Map.of())))
         .verifyComplete();
 
     verify(terminal).consume(any(), any());

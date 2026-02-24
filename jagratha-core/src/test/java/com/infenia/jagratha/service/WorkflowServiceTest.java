@@ -54,9 +54,11 @@ class WorkflowServiceTest {
 
     when(configService.getWorkflow(sessionId, workflowId)).thenReturn(Mono.just(def));
     when(orchestrator.prepareWorkflow(any())).thenReturn(Mono.just(prepared));
-    when(orchestrator.execute(anyString(), anyString(), any(), any())).thenReturn(Mono.empty());
+    when(orchestrator.execute(anyString(), anyString(), anyString(), any(), any()))
+        .thenReturn(Mono.empty());
 
-    StepVerifier.create(workflowService.runWorkflow(sessionId, workflowId, java.util.Map.of()))
+    StepVerifier.create(
+            workflowService.runWorkflow(sessionId, workflowId, java.util.Map.of()).result())
         .expectNextMatches(res -> "SUCCESS".equals(res.status()))
         .verifyComplete();
   }
@@ -68,7 +70,8 @@ class WorkflowServiceTest {
 
     when(configService.getWorkflow(sessionId, workflowId)).thenReturn(Mono.empty());
 
-    StepVerifier.create(workflowService.runWorkflow(sessionId, workflowId, java.util.Map.of()))
+    StepVerifier.create(
+            workflowService.runWorkflow(sessionId, workflowId, java.util.Map.of()).result())
         .expectNextMatches(
             res ->
                 "FAILURE".equals(res.status()) && res.output().contains("No workflow configured"))
@@ -84,7 +87,8 @@ class WorkflowServiceTest {
     when(configService.getWorkflow(sessionId, workflowId)).thenReturn(Mono.just(def));
     when(orchestrator.prepareWorkflow(any())).thenReturn(Mono.error(new RuntimeException("Fail")));
 
-    StepVerifier.create(workflowService.runWorkflow(sessionId, workflowId, java.util.Map.of()))
+    StepVerifier.create(
+            workflowService.runWorkflow(sessionId, workflowId, java.util.Map.of()).result())
         .expectNextMatches(
             res -> "FAILURE".equals(res.status()) && res.output().contains("Workflow failed: Fail"))
         .verifyComplete();

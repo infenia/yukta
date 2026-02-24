@@ -20,6 +20,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 
 import com.infenia.jagratha.model.TaskResponse;
+import com.infenia.jagratha.model.WorkflowExecution;
 import com.infenia.jagratha.service.LogRetrievalService;
 import com.infenia.jagratha.service.WorkflowService;
 import org.junit.jupiter.api.BeforeEach;
@@ -51,8 +52,9 @@ class AppMcpToolsTest {
   @Test
   void testTriggerQualityChecksSuccess() {
     TaskResponse response = new TaskResponse("SUCCESS", "Done");
+    WorkflowExecution execution = new WorkflowExecution("exec-1", Mono.just(response));
     when(workflowService.runWorkflow(anyString(), anyString(), Mockito.any()))
-        .thenReturn(Mono.just(response));
+        .thenReturn(execution);
 
     StepVerifier.create(mcpTools.triggerQualityChecks())
         .expectNext("Status: SUCCESS\n\nOutput:\nDone")
@@ -62,8 +64,9 @@ class AppMcpToolsTest {
   @Test
   void testTriggerQualityChecksFailure() {
     TaskResponse response = new TaskResponse("FAILURE", "Error");
+    WorkflowExecution execution = new WorkflowExecution("exec-2", Mono.just(response));
     when(workflowService.runWorkflow(anyString(), anyString(), Mockito.any()))
-        .thenReturn(Mono.just(response));
+        .thenReturn(execution);
 
     StepVerifier.create(mcpTools.triggerQualityChecks())
         .expectNext("Status: FAILURE\n\nOutput:\nError")

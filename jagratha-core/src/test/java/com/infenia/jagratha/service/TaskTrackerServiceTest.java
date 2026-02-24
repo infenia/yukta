@@ -37,10 +37,12 @@ class TaskTrackerServiceTest {
   void testWorkflowTracking() {
     String sessionId = "sess-1";
     String workflowId = "wf-1";
+    String executionId = "exec-1";
     List<String> nodes = List.of("node1", "node2");
 
-    StepVerifier.create(tracker.startWorkflow(sessionId, workflowId, nodes)).verifyComplete();
-    WorkflowProgress progress = tracker.getProgress(sessionId, workflowId);
+    StepVerifier.create(tracker.startWorkflow(executionId, sessionId, workflowId, nodes))
+        .verifyComplete();
+    WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
 
     assertNotNull(progress);
     assertEquals("RUNNING", progress.status());
@@ -48,16 +50,14 @@ class TaskTrackerServiceTest {
     assertEquals("node1", progress.tasks().get(0).nodeId());
     assertEquals("PENDING", progress.tasks().get(0).status());
 
-    StepVerifier.create(
-            tracker.updateTaskStatus(sessionId, workflowId, "node1", "moduleA", "SUCCESS"))
+    StepVerifier.create(tracker.updateTaskStatus(executionId, "node1", "moduleA", "SUCCESS"))
         .verifyComplete();
-    progress = tracker.getProgress(sessionId, workflowId);
+    progress = tracker.getProgress(sessionId, executionId);
     assertEquals("SUCCESS", progress.tasks().get(0).status());
     assertEquals("moduleA", progress.tasks().get(0).module());
 
-    StepVerifier.create(tracker.finishWorkflow(sessionId, workflowId, "COMPLETED"))
-        .verifyComplete();
-    progress = tracker.getProgress(sessionId, workflowId);
+    StepVerifier.create(tracker.finishWorkflow(executionId, "COMPLETED")).verifyComplete();
+    progress = tracker.getProgress(sessionId, executionId);
     assertEquals("COMPLETED", progress.status());
     assertNotNull(progress.endTime());
   }
@@ -66,10 +66,12 @@ class TaskTrackerServiceTest {
   void testLogStreaming() {
     String sessionId = "sess-1";
     String workflowId = "wf-1";
-    StepVerifier.create(tracker.startWorkflow(sessionId, workflowId, List.of())).verifyComplete();
+    String executionId = "exec-log-1";
+    StepVerifier.create(tracker.startWorkflow(executionId, sessionId, workflowId, List.of()))
+        .verifyComplete();
 
-    StepVerifier.create(tracker.getLogStream(sessionId, workflowId))
-        .then(() -> tracker.appendLog(sessionId, workflowId, "log line 1").subscribe())
+    StepVerifier.create(tracker.getLogStream(executionId))
+        .then(() -> tracker.appendLog(executionId, "log line 1").subscribe())
         .expectNext("log line 1")
         .thenCancel()
         .verify();
@@ -79,13 +81,12 @@ class TaskTrackerServiceTest {
   void testStatusStreaming() {
     String sessionId = "sess-1";
     String workflowId = "wf-1";
-    StepVerifier.create(tracker.startWorkflow(sessionId, workflowId, List.of("n1")))
+    String executionId = "exec-status-1";
+    StepVerifier.create(tracker.startWorkflow(executionId, sessionId, workflowId, List.of("n1")))
         .verifyComplete();
 
-    StepVerifier.create(tracker.getStatusStream(sessionId, workflowId))
-        .then(
-            () ->
-                tracker.updateTaskStatus(sessionId, workflowId, "n1", "mod", "SUCCESS").subscribe())
+    StepVerifier.create(tracker.getStatusStream(executionId))
+        .then(() -> tracker.updateTaskStatus(executionId, "n1", "mod", "SUCCESS").subscribe())
         .assertNext(progress -> assertEquals("wf-1", progress.workflowId()))
         .thenCancel()
         .verify();
@@ -95,9 +96,11 @@ class TaskTrackerServiceTest {
   void testRemoveSession() {
     String sessionId = "sess-1";
     String workflowId = "wf-1";
-    StepVerifier.create(tracker.startWorkflow(sessionId, workflowId, List.of())).verifyComplete();
+    String executionId = "exec-remove-1";
+    StepVerifier.create(tracker.startWorkflow(executionId, sessionId, workflowId, List.of()))
+        .verifyComplete();
     assertEquals(1, tracker.getActiveSessions().size());
-    tracker.removeSession(sessionId, workflowId);
+    tracker.removeSession(sessionId);
     assertEquals(0, tracker.getActiveSessions().size());
   }
 }

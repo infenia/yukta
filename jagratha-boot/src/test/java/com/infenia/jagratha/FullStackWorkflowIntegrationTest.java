@@ -115,10 +115,10 @@ class FullStackWorkflowIntegrationTest {
     harness.initSession(configRequest);
 
     // 2. Trigger
-    harness.triggerWorkflow(sessionId, "main-flow", Map.of("input", 15));
+    final String executionId = harness.triggerWorkflow(sessionId, "main-flow", Map.of("input", 15));
 
     // 3. Poll and Verify
-    final WorkflowProgress progress = harness.pollUntilFinished(sessionId, "main-flow");
+    final WorkflowProgress progress = harness.pollUntilFinished(sessionId, executionId);
     harness.verifyStatus(progress, "SUCCESS");
 
     // Verify task sequence
@@ -168,9 +168,9 @@ class FullStackWorkflowIntegrationTest {
             Map.of("loop-flow", workflow));
 
     harness.initSession(configRequest);
-    harness.triggerWorkflow(sessionId, "loop-flow", Map.of("count", 0));
+    final String executionId = harness.triggerWorkflow(sessionId, "loop-flow", Map.of("count", 0));
 
-    final WorkflowProgress progress = harness.pollUntilFinished(sessionId, "loop-flow");
+    final WorkflowProgress progress = harness.pollUntilFinished(sessionId, executionId);
     harness.verifyStatus(progress, "SUCCESS");
   }
 
@@ -245,9 +245,10 @@ class FullStackWorkflowIntegrationTest {
                 "child-flow", childWorkflow));
 
     harness.initSession(configRequest);
-    harness.triggerWorkflow(sessionId, "main-flow", Map.of("amount", 150));
+    final String executionId =
+        harness.triggerWorkflow(sessionId, "main-flow", Map.of("amount", 150));
 
-    final WorkflowProgress progress = harness.pollUntilFinished(sessionId, "main-flow");
+    final WorkflowProgress progress = harness.pollUntilFinished(sessionId, executionId);
     harness.verifyStatus(progress, "SUCCESS");
 
     assertThat(progress.tasks())

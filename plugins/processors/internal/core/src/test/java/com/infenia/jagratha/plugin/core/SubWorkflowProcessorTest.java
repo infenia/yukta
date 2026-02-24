@@ -17,6 +17,7 @@ package com.infenia.jagratha.plugin.core;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyMap;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -81,7 +82,8 @@ class SubWorkflowProcessorTest {
     when(configService.setDescription(eq(childSessionId), any())).thenReturn(Mono.empty());
 
     when(orchestrator.prepareWorkflow(subDef)).thenReturn(Mono.just(prepared));
-    when(orchestrator.execute(eq(childSessionId), eq(subWorkflowId), eq(prepared), anyMap()))
+    when(orchestrator.execute(
+            eq(childSessionId), eq(subWorkflowId), anyString(), eq(prepared), anyMap()))
         .thenAnswer(
             invocation -> {
               // Simulate terminal message collection

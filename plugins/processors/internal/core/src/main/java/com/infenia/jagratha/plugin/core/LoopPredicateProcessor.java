@@ -86,20 +86,18 @@ public class LoopPredicateProcessor implements ProcessorPlugin {
         initialMessage ->
             Mono.deferContextual(
                 ctx -> {
-                  final String sId = ctx.getOrDefault("sessionId", "unknown");
-                  final String wId = ctx.getOrDefault("workflowId", "unknown");
+                  final String eId = ctx.getOrDefault("executionId", "unknown");
                   final String nId = ctx.getOrDefault("nodeId", "unknown");
                   final long start = System.currentTimeMillis();
 
-                  return executeLoop(initialMessage, context, sId, wId, nId, start);
+                  return executeLoop(initialMessage, context, eId, nId, start);
                 }));
   }
 
   private Mono<Message> executeLoop(
       final Message initialMessage,
       final LoopContext context,
-      final String sessionId,
-      final String workflowId,
+      final String executionId,
       final String nodeId,
       final long startTime) {
 
@@ -112,22 +110,14 @@ public class LoopPredicateProcessor implements ProcessorPlugin {
 
               if (state.iteration() >= context.maxIterations()) {
                 return logAndTerminate(
-                    sessionId,
-                    workflowId,
-                    nodeId,
-                    "Max iterations (" + context.maxIterations() + ")",
-                    state);
+                    executionId, nodeId, "Max iterations (" + context.maxIterations() + ")", state);
               }
               if (System.currentTimeMillis() - startTime > context.maxDuration().toMillis()) {
                 return logAndTerminate(
-                    sessionId,
-                    workflowId,
-                    nodeId,
-                    "Max duration (" + context.maxDuration() + ")",
-                    state);
+                    executionId, nodeId, "Max duration (" + context.maxDuration() + ")", state);
               }
 
-              return logIteration(sessionId, workflowId, nodeId, state.iteration() + 1)
+              return logIteration(executionId, nodeId, state.iteration() + 1)
                   .then(
                       context
                           .processor()
@@ -145,8 +135,7 @@ public class LoopPredicateProcessor implements ProcessorPlugin {
                                 exit -> {
                                   if (Boolean.TRUE.equals(exit)) {
                                     return logAndTerminate(
-                                        sessionId,
-                                        workflowId,
+                                        executionId,
                                         nodeId,
                                         "Exit condition met",
                                         state.next(resultMessage, true));
@@ -193,29 +182,25 @@ public class LoopPredicateProcessor implements ProcessorPlugin {
   }
 
   private Mono<Void> logIteration(
-      final String sessionId, final String workflowId, final String nodeId, final int iteration) {
+      final String executionId, final String nodeId, final int iteration) {
     final TaskTrackerService tracker = trackerProvider.getIfAvailable();
     if (tracker == null) {
       return Mono.empty();
     }
     return tracker
-        .appendLog(sessionId, workflowId, "[Loop] Node: " + nodeId + " - Iteration " + iteration)
+        .appendLog(executionId, "[Loop] Node: " + nodeId + " - Iteration " + iteration)
         .subscribeOn(Schedulers.boundedElastic());
   }
 
   private Mono<LoopState> logAndTerminate(
-      final String sessionId,
-      final String workflowId,
-      final String nodeId,
-      final String reason,
-      final LoopState state) {
+      final String executionId, final String nodeId, final String reason, final LoopState state) {
     final TaskTrackerService tracker = trackerProvider.getIfAvailable();
     final LoopState termState = state.withTerminated(true);
     if (tracker == null) {
       return Mono.just(termState);
     }
     return tracker
-        .appendLog(sessionId, workflowId, "[Loop] Node: " + nodeId + " - " + reason)
+        .appendLog(executionId, "[Loop] Node: " + nodeId + " - " + reason)
         .subscribeOn(Schedulers.boundedElastic())
         .then(Mono.just(termState));
   }

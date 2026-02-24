@@ -19,6 +19,10 @@ import com.infenia.jagratha.mapper.AppConfigMapper;
 import com.infenia.jagratha.model.ApiResponse;
 import com.infenia.jagratha.model.AppConfigData;
 import com.infenia.jagratha.model.ConfigRequest;
+import com.infenia.jagratha.model.TriggerResponse;
+import com.infenia.jagratha.model.WorkflowExecution;
+import com.infenia.jagratha.model.WorkflowExecutionSummary;
+import com.infenia.jagratha.model.WorkflowProgress;
 import com.infenia.jagratha.model.WorkflowTriggerRequest;
 import com.infenia.jagratha.service.LogRetrievalService;
 import com.infenia.jagratha.service.SessionService;
@@ -52,6 +56,7 @@ import reactor.core.publisher.Mono;
 @Tag(
     name = "Jagratha API",
     description = "Endpoints for file management, task execution, and configuration")
+@SuppressWarnings("PMD.ExcessiveImports")
 public class AppController {
 
   private final WorkflowService workflowService;
@@ -67,7 +72,7 @@ public class AppController {
    * Trigger a workflow execution for a session.
    *
    * @param request the trigger request containing sessionId and workflowId
-   * @return response entity with acknowledgment
+   * @return response entity with acknowledgment and execution ID
    */
   @PostMapping("/workflow/trigger")
   @Operation(
@@ -76,38 +81,40 @@ public class AppController {
   @io.swagger.v3.oas.annotations.responses.ApiResponse(
       responseCode = "202",
       description = "Workflow trigger accepted")
-  public Mono<ResponseEntity<ApiResponse<Void>>> triggerWorkflow(
+  public Mono<ResponseEntity<ApiResponse<TriggerResponse>>> triggerWorkflow(
       @Valid @RequestBody final WorkflowTriggerRequest request) {
-    workflowService
-        .runWorkflow(request.sessionId(), request.workflowId(), request.payload())
-        .subscribe();
+    final WorkflowExecution execution =
+        workflowService.runWorkflow(request.sessionId(), request.workflowId(), request.payload());
     return Mono.just(
         ResponseEntity.accepted()
-            .body(ApiResponse.success(202, "Workflow trigger accepted", null)));
+            .body(
+                ApiResponse.success(
+                    202,
+                    "Workflow trigger accepted",
+                    new TriggerResponse(execution.executionId()))));
   }
 
   /**
-   * Get the status of a workflow execution.
+   * Get the status of a specific workflow execution.
    *
    * @param sessionId the session identifier
-   * @param workflowId the workflow identifier
+   * @param executionId the execution identifier
    * @return response entity with workflow progress
    */
-  @GetMapping("/workflow/{sessionId}/{workflowId}/status")
+  @GetMapping("/workflow/{sessionId}/status/{executionId}")
   @Operation(
-      summary = "Get workflow status",
-      description = "Retrieves the current execution status and progress of a workflow")
+      summary = "Get workflow execution status",
+      description = "Retrieves the current status and progress of a specific workflow execution")
   @io.swagger.v3.oas.annotations.responses.ApiResponse(
       responseCode = HTTP_200,
       description = "Workflow status retrieved successfully")
   @io.swagger.v3.oas.annotations.responses.ApiResponse(
       responseCode = "404",
-      description = "Session not found")
-  public Mono<ResponseEntity<ApiResponse<com.infenia.jagratha.model.WorkflowProgress>>>
-      getWorkflowStatus(
-          @Parameter(description = SESSION_ID_PARAM) @PathVariable final String sessionId,
-          @Parameter(description = "Workflow ID") @PathVariable final String workflowId) {
-    return Mono.fromCallable(() -> trackerService.getProgress(sessionId, workflowId))
+      description = "Execution not found")
+  public Mono<ResponseEntity<ApiResponse<WorkflowProgress>>> getWorkflowStatus(
+      @Parameter(description = SESSION_ID_PARAM) @PathVariable final String sessionId,
+      @Parameter(description = "Execution ID") @PathVariable final String executionId) {
+    return Mono.fromCallable(() -> trackerService.getProgress(sessionId, executionId))
         .map(
             progress -> {
               if (progress != null) {
@@ -116,34 +123,52 @@ public class AppController {
               } else {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND)
                     .body(
-                        ApiResponse.error(404, "Not Found", "Session not found", null, List.of()));
+                        ApiResponse.error(
+                            404, "Not Found", "Execution not found", null, List.of()));
               }
             });
   }
 
   /**
-   * Stream status updates for a workflow via SSE.
+   * Stream status updates for a workflow execution via SSE.
    *
    * @param sessionId the session identifier
-   * @param workflowId the workflow identifier
+   * @param executionId the execution identifier
    * @return a flux of status update events
    */
   @GetMapping(
-      value = "/workflow/{sessionId}/{workflowId}/status/stream",
+      value = "/workflow/{sessionId}/status/{executionId}/stream",
       produces = MediaType.TEXT_EVENT_STREAM_VALUE)
   @Operation(
-      summary = "Stream workflow status",
-      description = "Streams the current execution status and progress of a workflow via SSE")
-  public Flux<ServerSentEvent<com.infenia.jagratha.model.WorkflowProgress>> streamWorkflowStatus(
+      summary = "Stream workflow execution status",
+      description = "Streams the status and progress of a specific workflow execution via SSE")
+  public Flux<ServerSentEvent<WorkflowProgress>> streamWorkflowStatus(
       @Parameter(description = SESSION_ID_PARAM) @PathVariable final String sessionId,
-      @Parameter(description = "Workflow ID") @PathVariable final String workflowId) {
+      @Parameter(description = "Execution ID") @PathVariable final String executionId) {
     return trackerService
-        .getStatusStream(sessionId, workflowId)
+        .getStatusStream(executionId)
+        .map(progress -> ServerSentEvent.<WorkflowProgress>builder().data(progress).build());
+  }
+
+  /**
+   * Get history of workflow executions for a session.
+   *
+   * @param sessionId the session identifier
+   * @return response entity with list of execution summaries
+   */
+  @GetMapping("/workflow/{sessionId}/history")
+  @Operation(
+      summary = "Get workflow history",
+      description = "Retrieves the history of all workflow executions for a session")
+  @io.swagger.v3.oas.annotations.responses.ApiResponse(
+      responseCode = HTTP_200,
+      description = "Workflow history retrieved successfully")
+  public Mono<ApiResponse<List<WorkflowExecutionSummary>>> getWorkflowHistory(
+      @Parameter(description = SESSION_ID_PARAM) @PathVariable final String sessionId) {
+    return Mono.fromCallable(() -> trackerService.getHistory(sessionId))
         .map(
-            progress ->
-                ServerSentEvent.<com.infenia.jagratha.model.WorkflowProgress>builder()
-                    .data(progress)
-                    .build());
+            history ->
+                ApiResponse.success(200, "Workflow history retrieved successfully", history));
   }
 
   /**

@@ -87,11 +87,12 @@ class GuardIntegrationTest {
     when(terminalFalse.validateConfig(any())).thenReturn(Mono.empty());
     when(terminalFalse.consume(any(), any())).thenReturn(Mono.empty());
 
-    when(tracker.startWorkflow(anyString(), anyString(), any())).thenReturn(Mono.empty());
-    when(tracker.updateTaskStatus(anyString(), anyString(), anyString(), anyString(), anyString()))
+    when(tracker.startWorkflow(anyString(), anyString(), anyString(), any()))
         .thenReturn(Mono.empty());
-    when(tracker.finishWorkflow(anyString(), anyString(), anyString())).thenReturn(Mono.empty());
-    when(tracker.appendLog(anyString(), anyString(), anyString())).thenReturn(Mono.empty());
+    when(tracker.updateTaskStatus(anyString(), anyString(), anyString(), any()))
+        .thenReturn(Mono.empty());
+    when(tracker.finishWorkflow(anyString(), anyString())).thenReturn(Mono.empty());
+    when(tracker.appendLog(anyString(), anyString())).thenReturn(Mono.empty());
   }
 
   @SuppressWarnings("unchecked")
@@ -128,22 +129,22 @@ class GuardIntegrationTest {
                 new Edge("g1", "termTrue", "true"),
                 new Edge("g1", "termFalse", "false")));
 
+    String executionId = "exec-guard-true";
     orchestrator
         .prepareWorkflow(def)
         .flatMap(
             prepared ->
-                orchestrator.execute(sessionId, "test-workflow", prepared, Map.of("start", true)))
+                orchestrator.execute(
+                    sessionId, "test-workflow", executionId, prepared, Map.of("start", true)))
         .as(StepVerifier::create)
         .verifyComplete();
 
     // Verify termTrue was executed
     verify(tracker, atLeastOnce())
-        .updateTaskStatus(
-            eq(sessionId), eq("test-workflow"), eq("termTrue"), anyString(), eq("RUNNING"));
+        .updateTaskStatus(eq(executionId), eq("termTrue"), anyString(), eq("RUNNING"));
     // Verify termFalse was NOT executed
     verify(tracker, never())
-        .updateTaskStatus(
-            eq(sessionId), eq("test-workflow"), eq("termFalse"), anyString(), eq("RUNNING"));
+        .updateTaskStatus(eq(executionId), eq("termFalse"), anyString(), eq("RUNNING"));
   }
 
   @SuppressWarnings("unchecked")
@@ -180,21 +181,21 @@ class GuardIntegrationTest {
                 new Edge("g1", "termTrue", "true"),
                 new Edge("g1", "termFalse", "false")));
 
+    String executionId = "exec-guard-false";
     orchestrator
         .prepareWorkflow(def)
         .flatMap(
             prepared ->
-                orchestrator.execute(sessionId, "test-workflow", prepared, Map.of("start", true)))
+                orchestrator.execute(
+                    sessionId, "test-workflow", executionId, prepared, Map.of("start", true)))
         .as(StepVerifier::create)
         .verifyComplete();
 
     // Verify termFalse was executed
     verify(tracker, atLeastOnce())
-        .updateTaskStatus(
-            eq(sessionId), eq("test-workflow"), eq("termFalse"), anyString(), eq("RUNNING"));
+        .updateTaskStatus(eq(executionId), eq("termFalse"), anyString(), eq("RUNNING"));
     // Verify termTrue was NOT executed
     verify(tracker, never())
-        .updateTaskStatus(
-            eq(sessionId), eq("test-workflow"), eq("termTrue"), anyString(), eq("RUNNING"));
+        .updateTaskStatus(eq(executionId), eq("termTrue"), anyString(), eq("RUNNING"));
   }
 }

@@ -52,7 +52,7 @@ class LoopStreamProcessorTest {
   void setUp() {
     when(registryProvider.getIfAvailable()).thenReturn(registry);
     when(trackerProvider.getIfAvailable()).thenReturn(tracker);
-    when(tracker.appendLog(anyString(), anyString(), anyString())).thenReturn(Mono.empty());
+    when(tracker.appendLog(anyString(), anyString())).thenReturn(Mono.empty());
   }
 
   @Test
@@ -90,7 +90,7 @@ class LoopStreamProcessorTest {
     StepVerifier.create(
             processor
                 .process(Flux.just(inputMsg), config)
-                .contextWrite(Context.of("sessionId", "s1", "nodeId", "n1")))
+                .contextWrite(Context.of("executionId", "e1", "nodeId", "n1")))
         .expectNextMatches(msg -> "Item 1".equals(msg.payload()))
         .expectNextMatches(msg -> "Item 2".equals(msg.payload()))
         .expectNextMatches(msg -> Integer.valueOf(1).equals(msg.payload()))
