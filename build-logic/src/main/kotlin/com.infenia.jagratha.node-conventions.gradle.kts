@@ -13,22 +13,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+import com.github.gradle.node.NodeExtension
+
 plugins {
-    id 'java-library'
-    id 'com.infenia.jagratha.java-conventions'
-    id 'com.infenia.jagratha.quality-conventions'
-    id 'com.infenia.jagratha.jacoco-conventions'
-    alias(libs.plugins.spring.dependency.management)
+    id("com.github.node-gradle.node")
 }
 
-dependencyManagement {
-    imports {
-        mavenBom "org.springframework.boot:spring-boot-dependencies:${libs.versions.springBoot.get()}"
-    }
-}
+val libs = extensions.getByType<VersionCatalogsExtension>().named("libs")
 
-dependencies {
-    api libs.spring.boot.starter.webflux
+configure<NodeExtension> {
+    // Version of node to use.
+    version.set(libs.findVersion("node").get().requiredVersion)
 
-    testImplementation libs.reactor.test
+    // Version of pnpm to use.
+    pnpmVersion.set(libs.findVersion("pnpm").get().requiredVersion)
+
+    // If true, it will download node using above parameters.
+    // If false, it will try to use globally installed node.
+    download.set(true)
 }

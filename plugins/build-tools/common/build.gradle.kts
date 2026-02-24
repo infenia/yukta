@@ -14,26 +14,28 @@
  * limitations under the License.
  */
 plugins {
-    id 'java-library'
-    id 'com.infenia.jagratha.java-conventions'
-    id 'com.infenia.jagratha.quality-conventions'
-    id 'com.infenia.jagratha.jacoco-conventions'
+    `java-library`
+    id("com.infenia.jagratha.java-conventions")
+    id("com.infenia.jagratha.quality-conventions")
+    id("com.infenia.jagratha.jacoco-conventions")
     alias(libs.plugins.spring.dependency.management)
 }
 
 dependencyManagement {
     imports {
-        mavenBom "org.springframework.boot:spring-boot-dependencies:${libs.versions.springBoot.get()}"
+        mavenBom("org.springframework.boot:spring-boot-dependencies:${libs.versions.springBoot.get()}")
     }
 }
 
-version = '1.0.0'
+version = "1.0.0"
 
 dependencies {
-    implementation project(':jagratha-plugin-api')
-    implementation libs.spring.boot.starter.webflux
-    implementation libs.jackson.databind
+    api(project(":jagratha-plugin-api"))
+    implementation(libs.spring.boot.starter.webflux)
 
-    testImplementation libs.spring.boot.starter.test
-    testImplementation libs.reactor.test
+    compileOnly(libs.lombok)
+    annotationProcessor(libs.lombok)
+
+    testImplementation(libs.spring.boot.starter.test)
+    testImplementation(libs.reactor.test)
 }
