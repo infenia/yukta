@@ -16,7 +16,7 @@
 package com.infenia.jagratha;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -54,24 +54,25 @@ class AppControllerTest {
 
   @Test
   void testTriggerWorkflowSuccess() {
-    WorkflowTriggerRequest request = new WorkflowTriggerRequest("session-1", "w1", Map.of());
+    String sessionId = "session-1";
+    WorkflowTriggerRequest request = new WorkflowTriggerRequest("w1", Map.of());
     TaskResponse response = new TaskResponse("SUCCESS", "Build successful");
     String executionId = "exec-123";
     WorkflowExecution execution = new WorkflowExecution(executionId, Mono.just(response));
 
-    when(workflowService.runWorkflow(anyString(), anyString(), any())).thenReturn(execution);
+    when(workflowService.runWorkflow(eq(sessionId), eq("w1"), any())).thenReturn(execution);
 
     webTestClient
         .post()
-        .uri("/api/workflow/trigger")
+        .uri("/api/session/{sessionId}/workflow/trigger", sessionId)
         .contentType(MediaType.APPLICATION_JSON)
         .bodyValue(request)
         .exchange()
         .expectStatus()
-        .isAccepted()
+        .isOk()
         .expectBody()
         .jsonPath("$.status")
-        .isEqualTo(202)
+        .isEqualTo(200)
         .jsonPath("$.message")
         .isEqualTo("Workflow trigger accepted")
         .jsonPath("$.data.executionId")
@@ -80,18 +81,18 @@ class AppControllerTest {
 
   @Test
   void testUpdateConfig() {
+    String sessionId = "session-1";
     WorkflowDefinition workflow =
         new WorkflowDefinition(
             "desc", List.of(new WorkflowDefinition.Node("n1", "gradle", Map.of())), List.of());
     ConfigRequest request =
-        new ConfigRequest(
-            "session-1", "desc", "initiator-1", Map.of(), "/new/path", Map.of("w1", workflow));
+        new ConfigRequest("desc", "initiator-1", Map.of(), "/new/path", Map.of("w1", workflow));
 
     when(sessionService.applyConfigOverrides(any())).thenReturn(Mono.empty());
 
     webTestClient
         .post()
-        .uri("/api/config")
+        .uri("/api/session/{sessionId}/config", sessionId)
         .contentType(MediaType.APPLICATION_JSON)
         .bodyValue(request)
         .exchange()
@@ -103,7 +104,7 @@ class AppControllerTest {
         .jsonPath("$.message")
         .isEqualTo("Configuration updated successfully");
 
-    verify(configMapper).toData(any());
+    verify(configMapper).toData(any(), eq(sessionId));
     verify(sessionService).applyConfigOverrides(any());
   }
 }

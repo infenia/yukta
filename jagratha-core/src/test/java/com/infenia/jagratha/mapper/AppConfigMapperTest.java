@@ -37,12 +37,12 @@ class AppConfigMapperTest {
     WorkflowDefinition workflow = new WorkflowDefinition("desc-w", List.of(), List.of());
     Map<String, String> tags = Map.of("key", "value");
     java.util.Map<String, WorkflowDefinition> workflows = java.util.Map.of("w1", workflow);
-    ConfigRequest request =
-        new ConfigRequest("sess-1", "desc-s", "initiator-1", tags, "/path", workflows);
-    AppConfigData data = mapper.toData(request);
+    String sessionId = "sess-1";
+    ConfigRequest request = new ConfigRequest("desc-s", "initiator-1", tags, "/path", workflows);
+    AppConfigData data = mapper.toData(request, sessionId);
 
     assertNotNull(data);
-    assertEquals("sess-1", data.sessionId());
+    assertEquals(sessionId, data.sessionId());
     assertEquals("desc-s", data.description());
     assertEquals("initiator-1", data.initiator());
     assertEquals(tags, data.tags());

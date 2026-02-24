@@ -51,7 +51,7 @@ import reactor.core.publisher.Mono;
  * REST controller for app operations. Provides endpoints for file management and task execution.
  */
 @RestController
-@RequestMapping("/api")
+@RequestMapping("/api/session/{sessionId}")
 @RequiredArgsConstructor
 @Tag(
     name = "Jagratha API",
@@ -71,7 +71,8 @@ public class AppController {
   /**
    * Trigger a workflow execution for a session.
    *
-   * @param request the trigger request containing sessionId and workflowId
+   * @param sessionId the session identifier
+   * @param request the trigger request containing workflowId and payload
    * @return response entity with acknowledgment and execution ID
    */
   @PostMapping("/workflow/trigger")
@@ -79,17 +80,18 @@ public class AppController {
       summary = "Trigger a workflow",
       description = "Triggers the execution of a specific DAG workflow for a session")
   @io.swagger.v3.oas.annotations.responses.ApiResponse(
-      responseCode = "202",
+      responseCode = HTTP_200,
       description = "Workflow trigger accepted")
   public Mono<ResponseEntity<ApiResponse<TriggerResponse>>> triggerWorkflow(
+      @Parameter(description = SESSION_ID_PARAM) @PathVariable final String sessionId,
       @Valid @RequestBody final WorkflowTriggerRequest request) {
     final WorkflowExecution execution =
-        workflowService.runWorkflow(request.sessionId(), request.workflowId(), request.payload());
+        workflowService.runWorkflow(sessionId, request.workflowId(), request.payload());
     return Mono.just(
-        ResponseEntity.accepted()
+        ResponseEntity.ok()
             .body(
                 ApiResponse.success(
-                    202,
+                    200,
                     "Workflow trigger accepted",
                     new TriggerResponse(execution.executionId()))));
   }
@@ -101,7 +103,7 @@ public class AppController {
    * @param executionId the execution identifier
    * @return response entity with workflow progress
    */
-  @GetMapping("/workflow/{sessionId}/status/{executionId}")
+  @GetMapping("/workflow/status/{executionId}")
   @Operation(
       summary = "Get workflow execution status",
       description = "Retrieves the current status and progress of a specific workflow execution")
@@ -137,7 +139,7 @@ public class AppController {
    * @return a flux of status update events
    */
   @GetMapping(
-      value = "/workflow/{sessionId}/status/{executionId}/stream",
+      value = "/workflow/status/{executionId}/stream",
       produces = MediaType.TEXT_EVENT_STREAM_VALUE)
   @Operation(
       summary = "Stream workflow execution status",
@@ -156,7 +158,7 @@ public class AppController {
    * @param sessionId the session identifier
    * @return response entity with list of execution summaries
    */
-  @GetMapping("/workflow/{sessionId}/history")
+  @GetMapping("/workflow/history")
   @Operation(
       summary = "Get workflow history",
       description = "Retrieves the history of all workflow executions for a session")
@@ -177,7 +179,7 @@ public class AppController {
    * @param sessionId the session identifier
    * @return list of log filenames
    */
-  @GetMapping("/logs/{sessionId}")
+  @GetMapping("/logs")
   @Operation(
       summary = "List logs",
       description = "Lists all log files available for a given session")
@@ -198,7 +200,7 @@ public class AppController {
    * @param filename the log filename
    * @return log content
    */
-  @GetMapping("/logs/{sessionId}/{filename}")
+  @GetMapping("/logs/{filename}")
   @Operation(
       summary = "Get log content",
       description = "Retrieves the content of a specific log file for a session")
@@ -233,7 +235,7 @@ public class AppController {
    * @param filename the log filename
    * @return raw log content
    */
-  @GetMapping("/logs/{sessionId}/{filename}/raw")
+  @GetMapping("/logs/{filename}/raw")
   @Operation(
       summary = "Get raw log content",
       description = "Retrieves the raw content of a specific log file for a session")
@@ -255,6 +257,7 @@ public class AppController {
   /**
    * Update configuration at runtime.
    *
+   * @param sessionId the session identifier
    * @param request the config request containing new configuration values
    * @return response entity with success message
    */
@@ -269,8 +272,9 @@ public class AppController {
       responseCode = "400",
       description = "Invalid configuration data")
   public Mono<ResponseEntity<ApiResponse<Void>>> updateConfig(
+      @Parameter(description = SESSION_ID_PARAM) @PathVariable final String sessionId,
       @Valid @RequestBody final ConfigRequest request) {
-    final AppConfigData configData = configMapper.toData(request);
+    final AppConfigData configData = configMapper.toData(request, sessionId);
     return sessionService
         .applyConfigOverrides(configData)
         .thenReturn(

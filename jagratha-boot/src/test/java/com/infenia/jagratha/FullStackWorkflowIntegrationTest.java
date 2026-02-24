@@ -104,7 +104,6 @@ class FullStackWorkflowIntegrationTest {
 
     final ConfigRequest configRequest =
         new ConfigRequest(
-            sessionId,
             "Integration Test Workflow",
             "TestRunner",
             Map.of("env", "test"),
@@ -112,7 +111,7 @@ class FullStackWorkflowIntegrationTest {
             Map.of("main-flow", workflow));
 
     // 1. Initialize
-    harness.initSession(configRequest);
+    harness.initSession(configRequest, sessionId);
 
     // 2. Trigger
     final String executionId = harness.triggerWorkflow(sessionId, "main-flow", Map.of("input", 15));
@@ -160,14 +159,13 @@ class FullStackWorkflowIntegrationTest {
 
     final ConfigRequest configRequest =
         new ConfigRequest(
-            sessionId,
             "Loop Test",
             "TestRunner",
             Map.of(),
             System.getProperty("java.io.tmpdir"),
             Map.of("loop-flow", workflow));
 
-    harness.initSession(configRequest);
+    harness.initSession(configRequest, sessionId);
     final String executionId = harness.triggerWorkflow(sessionId, "loop-flow", Map.of("count", 0));
 
     final WorkflowProgress progress = harness.pollUntilFinished(sessionId, executionId);
@@ -235,7 +233,6 @@ class FullStackWorkflowIntegrationTest {
 
     final ConfigRequest configRequest =
         new ConfigRequest(
-            sessionId,
             "Advanced Test",
             "TestRunner",
             Map.of(),
@@ -244,7 +241,7 @@ class FullStackWorkflowIntegrationTest {
                 "main-flow", mainWorkflow,
                 "child-flow", childWorkflow));
 
-    harness.initSession(configRequest);
+    harness.initSession(configRequest, sessionId);
     final String executionId =
         harness.triggerWorkflow(sessionId, "main-flow", Map.of("amount", 150));
 

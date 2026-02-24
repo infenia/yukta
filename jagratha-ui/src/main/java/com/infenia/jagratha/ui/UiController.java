@@ -188,7 +188,7 @@ public class UiController {
    * @return a flux of log lines
    */
   @GetMapping(
-      value = "/api/sessions/{sessionId}/{workflowId}/logs/stream",
+      value = "/api/session/{sessionId}/{workflowId}/logs/stream",
       produces = MediaType.TEXT_EVENT_STREAM_VALUE)
   @ResponseBody
   public Flux<String> streamLogs(
@@ -205,7 +205,7 @@ public class UiController {
    * @return a flux of status update events
    */
   @GetMapping(
-      value = "/api/sessions/{sessionId}/{workflowId}/status/stream",
+      value = "/api/session/{sessionId}/{workflowId}/status/stream",
       produces = MediaType.TEXT_EVENT_STREAM_VALUE)
   @ResponseBody
   public Flux<String> streamStatus(
