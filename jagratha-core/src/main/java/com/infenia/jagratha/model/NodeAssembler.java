@@ -17,6 +17,7 @@ package com.infenia.jagratha.model;
 
 import com.infenia.jagratha.plugin.Message;
 import java.util.List;
+import reactor.core.Disposable;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
@@ -32,6 +33,13 @@ public interface NodeAssembler {
    * @param executionId the execution identifier
    * @param streams the array of all node streams in the workflow
    * @param terminals the list of terminal node completion Monos
+   * @param disposables the list of disposables to manage resource lifecycle
+   * @param connectors the list of tasks to connect upstreams to sinks
    */
-  void assemble(String executionId, Flux<Message>[] streams, List<Mono<Void>> terminals);
+  void assemble(
+      String executionId,
+      Flux<Message>[] streams,
+      List<Mono<Void>> terminals,
+      List<Disposable> disposables,
+      List<Runnable> connectors);
 }

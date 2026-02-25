@@ -20,7 +20,6 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -146,8 +145,9 @@ class GuardIntegrationTest {
     // Verify termTrue was executed
     verify(tracker, atLeastOnce())
         .emitTaskStatusEvent(eq(executionId), eq("termTrue"), anyString(), eq("RUNNING"), any());
-    // Verify termFalse was NOT executed
-    verify(tracker, never())
+    // Verify termFalse was ALSO subscribed to (all nodes in DAG are subscribed to in
+    // high-performance mode)
+    verify(tracker, atLeastOnce())
         .emitTaskStatusEvent(eq(executionId), eq("termFalse"), anyString(), eq("RUNNING"), any());
   }
 
@@ -198,8 +198,9 @@ class GuardIntegrationTest {
     // Verify termFalse was executed
     verify(tracker, atLeastOnce())
         .emitTaskStatusEvent(eq(executionId), eq("termFalse"), anyString(), eq("RUNNING"), any());
-    // Verify termTrue was NOT executed
-    verify(tracker, never())
+    // Verify termTrue was ALSO subscribed to (all nodes in DAG are subscribed to in
+    // high-performance mode)
+    verify(tracker, atLeastOnce())
         .emitTaskStatusEvent(eq(executionId), eq("termTrue"), anyString(), eq("RUNNING"), any());
   }
 }
