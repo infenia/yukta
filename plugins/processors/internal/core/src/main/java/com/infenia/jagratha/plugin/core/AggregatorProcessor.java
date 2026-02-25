@@ -68,6 +68,11 @@ public class AggregatorProcessor implements ProcessorPlugin {
   }
 
   @Override
+  public boolean isTimeoutManagedByPlugin() {
+    return true;
+  }
+
+  @Override
   public String getDescription() {
     return "Aggregates multiple incoming messages into a single window based on count, time, or"
         + " session triggers.";

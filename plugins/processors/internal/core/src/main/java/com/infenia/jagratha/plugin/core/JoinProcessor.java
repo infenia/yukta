@@ -71,6 +71,11 @@ public class JoinProcessor implements ProcessorPlugin {
   }
 
   @Override
+  public boolean isTimeoutManagedByPlugin() {
+    return true;
+  }
+
+  @Override
   public String getDescription() {
     return "Synchronizes multiple incoming execution paths by waiting for criteria to be met.";
   }

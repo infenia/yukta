@@ -56,6 +56,11 @@ public abstract class AbstractBuildToolPlugin implements TriggerPlugin, Processo
     return Duration.ofSeconds(600);
   }
 
+  @Override
+  public boolean isTimeoutManagedByPlugin() {
+    return true;
+  }
+
   /**
    * Get the list of tasks to execute.
    *

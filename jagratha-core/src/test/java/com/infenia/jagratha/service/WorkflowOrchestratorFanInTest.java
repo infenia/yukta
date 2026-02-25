@@ -104,6 +104,7 @@ class WorkflowOrchestratorFanInTest {
 
     TerminalPlugin terminal = mock(TerminalPlugin.class);
     when(terminal.getDefaultTimeout()).thenReturn(java.time.Duration.ofSeconds(30));
+    when(terminal.isTimeoutManagedByPlugin()).thenReturn(true);
     when(terminal.getCategory()).thenReturn(PluginCategory.TERMINAL);
     when(terminal.validateConfig(any())).thenReturn(Mono.empty());
     when(terminal.initialize(any())).thenReturn(Mono.empty());
@@ -166,6 +167,7 @@ class WorkflowOrchestratorFanInTest {
 
     TerminalPlugin terminal = mock(TerminalPlugin.class);
     when(terminal.getDefaultTimeout()).thenReturn(java.time.Duration.ofSeconds(30));
+    when(terminal.isTimeoutManagedByPlugin()).thenReturn(true);
     when(terminal.getCategory()).thenReturn(PluginCategory.TERMINAL);
     when(terminal.validateConfig(any())).thenReturn(Mono.empty());
     when(terminal.initialize(any())).thenReturn(Mono.empty());

@@ -32,6 +32,16 @@ public interface WorkflowPlugin {
   }
 
   /**
+   * Whether this plugin manages its own timeout logic. If true, the Orchestrator will not apply an
+   * external timeout to this node.
+   *
+   * @return true if the plugin manages its own timeout
+   */
+  default boolean isTimeoutManagedByPlugin() {
+    return false;
+  }
+
+  /**
    * Get the unique type string for this plugin.
    *
    * @return the plugin type
