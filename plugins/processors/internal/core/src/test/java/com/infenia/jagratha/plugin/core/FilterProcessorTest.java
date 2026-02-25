@@ -100,7 +100,7 @@ class FilterProcessorTest {
 
   @Test
   void testType() {
-    assertEquals("filter", processor.getType());
+    assertEquals("FILTER", processor.getType());
   }
 
   @Test

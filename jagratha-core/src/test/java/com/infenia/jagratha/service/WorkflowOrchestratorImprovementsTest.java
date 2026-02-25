@@ -156,7 +156,6 @@ class WorkflowOrchestratorImprovementsTest {
   @Test
   void testExecuteAutoConnectTimeout() {
     String sessionId = "sess-1";
-    when(configService.getExecutionTimeout(sessionId)).thenReturn(Mono.just(30L));
     Node t = new Node("t", "type-t", Map.of());
     Node term1 = new Node("term1", "type-term1", Map.of());
     Node term2 = new Node("term2", "type-term2", Map.of());

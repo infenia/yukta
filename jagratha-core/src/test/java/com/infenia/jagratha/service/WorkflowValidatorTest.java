@@ -51,7 +51,7 @@ class WorkflowValidatorTest {
     WorkflowDefinition.Node mapper =
         new WorkflowDefinition.Node(
             "m1",
-            "mapper",
+            "MAPPER",
             Map.of(
                 "mode", "SCRIPT",
                 "mapping", "payload.x"));
@@ -76,7 +76,7 @@ class WorkflowValidatorTest {
     when(terminalPlugin.validateConfig(any())).thenReturn(Mono.empty());
 
     when(registry.get("TRIGGER")).thenReturn(triggerPlugin);
-    when(registry.get("mapper")).thenReturn(mapperPlugin);
+    when(registry.get("MAPPER")).thenReturn(mapperPlugin);
     when(registry.get("TERMINAL")).thenReturn(terminalPlugin);
 
     // We expect it to complete successfully, but log a warning
@@ -89,12 +89,12 @@ class WorkflowValidatorTest {
     WorkflowDefinition.Node heavyMapper =
         new WorkflowDefinition.Node(
             "m1",
-            "mapper",
+            "MAPPER",
             Map.of(
                 "mode", "SCRIPT",
                 "mapping", "function h() { return 1; } payload.x = h(); return payload;"));
     WorkflowDefinition.Node filter =
-        new WorkflowDefinition.Node("f1", "filter", Map.of("condition", "payload.x > 0"));
+        new WorkflowDefinition.Node("f1", "FILTER", Map.of("condition", "payload.x > 0"));
     WorkflowDefinition.Node terminal = new WorkflowDefinition.Node("term1", "TERMINAL", Map.of());
 
     WorkflowDefinition.Edge e1 = new WorkflowDefinition.Edge("t1", "m1", null);
@@ -122,8 +122,8 @@ class WorkflowValidatorTest {
     when(terminalPlugin.validateConfig(any())).thenReturn(Mono.empty());
 
     when(registry.get("TRIGGER")).thenReturn(triggerPlugin);
-    when(registry.get("mapper")).thenReturn(mapperPlugin);
-    when(registry.get("filter")).thenReturn(filterPlugin);
+    when(registry.get("MAPPER")).thenReturn(mapperPlugin);
+    when(registry.get("FILTER")).thenReturn(filterPlugin);
     when(registry.get("TERMINAL")).thenReturn(terminalPlugin);
 
     StepVerifier.create(validator.validate(def)).verifyComplete();
@@ -133,11 +133,11 @@ class WorkflowValidatorTest {
   void testValidateFilterPlacementNoWarning() {
     WorkflowDefinition.Node trigger = new WorkflowDefinition.Node("t1", "TRIGGER", Map.of());
     WorkflowDefinition.Node filter =
-        new WorkflowDefinition.Node("f1", "filter", Map.of("condition", "payload.x > 0"));
+        new WorkflowDefinition.Node("f1", "FILTER", Map.of("condition", "payload.x > 0"));
     WorkflowDefinition.Node heavyMapper =
         new WorkflowDefinition.Node(
             "m1",
-            "mapper",
+            "MAPPER",
             Map.of(
                 "mode", "SCRIPT",
                 "mapping", "function h() { return 1; } payload.x = h(); return payload;"));
@@ -168,8 +168,8 @@ class WorkflowValidatorTest {
     when(terminalPlugin.validateConfig(any())).thenReturn(Mono.empty());
 
     when(registry.get("TRIGGER")).thenReturn(triggerPlugin);
-    when(registry.get("mapper")).thenReturn(mapperPlugin);
-    when(registry.get("filter")).thenReturn(filterPlugin);
+    when(registry.get("MAPPER")).thenReturn(mapperPlugin);
+    when(registry.get("FILTER")).thenReturn(filterPlugin);
     when(registry.get("TERMINAL")).thenReturn(terminalPlugin);
 
     StepVerifier.create(validator.validate(def)).verifyComplete();

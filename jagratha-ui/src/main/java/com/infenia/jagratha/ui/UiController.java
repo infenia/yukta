@@ -15,13 +15,16 @@
  */
 package com.infenia.jagratha.ui;
 
+import com.infenia.jagratha.model.PluginDetails;
 import com.infenia.jagratha.service.LogRetrievalService;
 import com.infenia.jagratha.service.SessionService;
 import com.infenia.jagratha.service.TaskTrackerService;
+import com.infenia.jagratha.service.WorkflowRegistry;
 import gg.jte.TemplateEngine;
 import gg.jte.output.StringOutput;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Controller;
@@ -43,6 +46,7 @@ public class UiController {
   private final SessionService sessionService;
   private final LogRetrievalService retrievalService;
   private final TaskTrackerService tracker;
+  private final WorkflowRegistry registry;
   private final TemplateEngine templateEngine;
 
   /**
@@ -169,6 +173,26 @@ public class UiController {
                   workflow -> {
                     model.addAttribute("workflow", workflow);
                     model.addAttribute("actualWorkflowId", actualWorkflowId);
+
+                    final Map<String, PluginDetails> pluginDetails =
+                        workflow.nodes().stream()
+                            .map(com.infenia.jagratha.model.WorkflowDefinition.Node::type)
+                            .distinct()
+                            .map(registry::get)
+                            .filter(java.util.Objects::nonNull)
+                            .collect(
+                                Collectors.toMap(
+                                    com.infenia.jagratha.plugin.WorkflowPlugin::getType,
+                                    p ->
+                                        new PluginDetails(
+                                            p.getType(),
+                                            p.getCategory(),
+                                            p.getDescription(),
+                                            p.getUsagePattern(),
+                                            p.getUiDesign().orElse(null),
+                                            p.getOutputPorts())));
+                    model.addAttribute("pluginDetails", pluginDetails);
+
                     return Mono.fromCallable(
                             () -> {
                               final StringOutput output = new StringOutput();

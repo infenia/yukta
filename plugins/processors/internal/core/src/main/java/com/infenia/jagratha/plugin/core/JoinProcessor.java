@@ -40,7 +40,7 @@ import reactor.core.publisher.Mono;
 @SuppressWarnings({"PMD.OnlyOneReturn", "PMD.TooManyMethods"})
 public class JoinProcessor implements ProcessorPlugin {
 
-  private static final String TYPE = "join";
+  private static final String TYPE = "JOIN";
   private static final String MODE_ALL = "ALL";
   private static final String MODE_ANY = "ANY";
   private static final String MODE_CUSTOM = "CUSTOM_COUNT";
@@ -68,11 +68,6 @@ public class JoinProcessor implements ProcessorPlugin {
   /** Default constructor. */
   public JoinProcessor() {
     super();
-  }
-
-  @Override
-  public boolean isTimeoutManagedByPlugin() {
-    return true;
   }
 
   @Override

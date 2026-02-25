@@ -1,12 +1,14 @@
 @import com.infenia.jagratha.model.WorkflowProgress
 @import com.infenia.jagratha.model.TaskProgress
 @import com.infenia.jagratha.model.WorkflowDefinition
+@import com.infenia.jagratha.model.PluginDetails
 @import java.util.Map
 @import java.util.List
 @param String sessionId
 @param String actualWorkflowId
 @param Map<String, Object> config
 @param WorkflowDefinition workflow
+@param Map<String, PluginDetails> pluginDetails
 @param List<String> logs
 @param WorkflowProgress progress
 
@@ -42,6 +44,18 @@
                 @endif
             </div>
         </div>
+    </div>
+
+    <div id="plugin-designs" class="hidden">
+        @for(var entry : pluginDetails.entrySet())
+            @if(entry.getValue().uiDesign() != null)
+                <div id="design-${entry.getKey()}"
+                     data-width="${entry.getValue().uiDesign().width()}"
+                     data-height="${entry.getValue().uiDesign().height()}">
+                    $unsafe{entry.getValue().uiDesign().html()}
+                </div>
+            @endif
+        @endfor
     </div>
 
     <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
@@ -104,70 +118,168 @@
 
             const nodesData = [
                 @for(WorkflowDefinition.Node node : workflow.nodes())
-                    { id: "${node.nodeId()}", label: "${node.nodeId()}" },
+                    { id: "${node.nodeId()}", type: "${node.type()}", label: "${node.nodeId()}" },
                 @endfor
             ];
             const edgesData = [
                 @for(WorkflowDefinition.Edge edge : workflow.edges())
-                    { source: "${edge.source()}", target: "${edge.target()}" },
+                    { source: "${edge.source()}", target: "${edge.target()}", sourcePort: "${edge.sourcePort()}" },
                 @endfor
             ];
+
+            const pluginDetails = {
+                @for(var entry : pluginDetails.entrySet())
+                    "${entry.getKey()}": {
+                        type: "${entry.getValue().type()}",
+                        uiDesign: (() => {
+                            const el = document.getElementById("design-${entry.getKey()}");
+                            if (!el) return null;
+                            return {
+                                html: el.innerHTML,
+                                width: parseInt(el.dataset.width),
+                                height: parseInt(el.dataset.height)
+                            };
+                        })(),
+                        outputPorts: [
+                            @for(String port : entry.getValue().outputPorts())
+                                "${port}",
+                            @endfor
+                        ]
+                    },
+                @endfor
+            };
 
             if (nodesData.length === 0) return;
 
             const g = new dagre.graphlib.Graph();
-            g.setGraph({ rankdir: 'LR', nodesep: 50, ranksep: 100 });
+            g.setGraph({ rankdir: 'LR', nodesep: 60, ranksep: 120 });
             g.setDefaultEdgeLabel(() => ({}));
 
-            nodesData.forEach(n => g.setNode(n.id, { width: 120, height: 40 }));
+            nodesData.forEach(n => {
+                const details = pluginDetails[n.type];
+                const width = details?.uiDesign?.width || 120;
+                const height = details?.uiDesign?.height || 40;
+                g.setNode(n.id, { width, height });
+            });
             edgesData.forEach(e => g.setEdge(e.source, e.target));
             dagre.layout(g);
 
             const container = svg.append("g");
-
-            // Edges
             const line = d3.line().x(d => d.x).y(d => d.y).curve(d3.curveBasis);
-            edgesData.forEach(e => {
-                const edge = g.edge(e.source, e.target);
-                container.append("path")
-                    .attr("d", line(edge.points))
-                    .attr("fill", "none")
-                    .attr("stroke", "#3c83f6")
-                    .attr("stroke-width", 2)
-                    .attr("opacity", 0.2);
-            });
 
             // Nodes
             nodesData.forEach(n => {
                 const node = g.node(n.id);
-                const grp = container.append("g").attr("transform", "translate(" + (node.x - 60) + "," + (node.y - 20) + ")");
+                const details = pluginDetails[n.type];
+                const design = details?.uiDesign;
 
-                grp.append("rect")
-                    .attr("width", 120)
-                    .attr("height", 40)
-                    .attr("rx", 12)
-                    .attr("fill", "#3c83f6")
-                    .attr("stroke", "white")
-                    .attr("stroke-width", 2)
-                    .attr("class", "shadow-lg shadow-blue-500/20");
+                const grp = container.append("g")
+                    .attr("transform", "translate(" + (node.x - node.width/2) + "," + (node.y - node.height/2) + ")")
+                    .attr("data-node-id", n.id);
 
-                grp.append("text")
-                    .attr("x", 60)
-                    .attr("y", 24)
-                    .attr("text-anchor", "middle")
-                    .attr("fill", "white")
-                    .attr("font-family", "Space Grotesk")
-                    .attr("font-size", "10px")
-                    .attr("font-weight", "700")
-                    .attr("class", "uppercase tracking-widest")
-                    .text(n.label);
+                if (design) {
+                    // Base shell
+                    grp.append("rect")
+                        .attr("width", node.width)
+                        .attr("height", node.height)
+                        .attr("rx", 16)
+                        .attr("fill", "white")
+                        .attr("stroke", "#e2e8f0")
+                        .attr("stroke-width", 1)
+                        .attr("class", "shadow-sm");
+
+                    // Inject HTML with extra space for ports
+                    const foPadding = 40;
+                    const fo = grp.append("foreignObject")
+                        .attr("x", -foPadding/2)
+                        .attr("y", -foPadding/2)
+                        .attr("width", node.width + foPadding)
+                        .attr("height", node.height + foPadding);
+
+                    let html = design.html;
+                    html = html.replace(/{{nodeId}}/g, n.id);
+                    html = html.replace(/{{type}}/g, n.type);
+
+                    fo.append("xhtml:div")
+                        .attr("style", "width:100%; height:100%; pointer-events:none; display: flex; align-items: center; justify-content: center;")
+                        .html('<div style="width:' + node.width + 'px; height:' + node.height + 'px; position: relative; overflow: visible;">' + html + '</div>');
+                } else {
+                    grp.append("rect")
+                        .attr("width", node.width)
+                        .attr("height", node.height)
+                        .attr("rx", 12)
+                        .attr("fill", "#3c83f6")
+                        .attr("stroke", "white")
+                        .attr("stroke-width", 2)
+                        .attr("class", "shadow-lg shadow-blue-500/20");
+
+                    grp.append("text")
+                        .attr("x", node.width/2)
+                        .attr("y", node.height/2 + 4)
+                        .attr("text-anchor", "middle")
+                        .attr("fill", "white")
+                        .attr("font-family", "Space Grotesk")
+                        .attr("font-size", "10px")
+                        .attr("font-weight", "700")
+                        .attr("class", "uppercase tracking-widest")
+                        .text(n.label);
+                }
             });
 
             const bbox = container.node().getBBox();
-            const scale = Math.min(width / (bbox.width + 40), height / (bbox.height + 40), 1);
+            const scale = Math.min(width / (bbox.width + 80), height / (bbox.height + 80), 1);
             const x = (width - bbox.width * scale) / 2 - bbox.x * scale;
             const y = (height - bbox.height * scale) / 2 - bbox.y * scale;
             container.attr("transform", "translate(" + x + "," + y + ") scale(" + scale + ")");
+
+            // Edges (Rendered after nodes to allow port anchoring)
+            edgesData.forEach(e => {
+                const edge = g.edge(e.source, e.target);
+                const sourceNode = g.node(e.source);
+                const targetNode = g.node(e.target);
+
+                let points = [...edge.points];
+
+                if (e.sourcePort && e.sourcePort !== "null") {
+                    const nodeGrp = document.querySelector('[data-node-id="' + e.source + '"]');
+                    const portEl = nodeGrp?.querySelector('.jagratha-port[data-port-name="' + e.sourcePort + '"]');
+
+                    if (portEl && nodeGrp) {
+                        const nodeRect = nodeGrp.getBoundingClientRect();
+                        const portRect = portEl.getBoundingClientRect();
+
+                        const relX = (portRect.left + portRect.width/2 - nodeRect.left) / scale;
+                        const relY = (portRect.top + portRect.height/2 - nodeRect.top) / scale;
+
+                        points[0] = {
+                            x: (sourceNode.x - sourceNode.width/2) + relX,
+                            y: (sourceNode.y - sourceNode.height/2) + relY
+                        };
+                    }
+                }
+
+                container.append("path")
+                    .attr("d", line(points))
+                    .attr("fill", "none")
+                    .attr("stroke", "#3c83f6")
+                    .attr("stroke-width", 2)
+                    .attr("opacity", 0.6)
+                    .attr("marker-end", "url(#arrowhead)");
+            });
+
+            // Arrowhead marker
+            svg.append("defs").append("marker")
+                .attr("id", "arrowhead")
+                .attr("viewBox", "0 0 10 10")
+                .attr("refX", 9)
+                .attr("refY", 5)
+                .attr("markerWidth", 6)
+                .attr("markerHeight", 6)
+                .attr("orient", "auto")
+                .append("path")
+                .attr("d", "M 0 0 L 10 5 L 0 10 z")
+                .attr("fill", "#3c83f6")
+                .attr("opacity", 0.2);
         }
         window.addEventListener('load', initDag);
         window.addEventListener('resize', initDag);

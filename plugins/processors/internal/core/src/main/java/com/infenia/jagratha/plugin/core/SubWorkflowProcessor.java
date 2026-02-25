@@ -37,7 +37,7 @@ import reactor.core.publisher.Mono;
 @SuppressWarnings({"PMD.OnlyOneReturn", "PMD.LawOfDemeter"})
 public class SubWorkflowProcessor implements ProcessorPlugin {
 
-  private static final String TYPE = "sub-workflow";
+  private static final String TYPE = "SUB_WORKFLOW";
 
   @Autowired private ObjectProvider<WorkflowOrchestrator> orchProv;
 

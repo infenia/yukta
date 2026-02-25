@@ -16,11 +16,31 @@
 package com.infenia.jagratha.plugin;
 
 import java.time.Duration;
+import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import reactor.core.publisher.Mono;
 
 /** Base interface for all workflow plugins. */
 public interface WorkflowPlugin {
+
+  /**
+   * Get the UI design metadata for this plugin.
+   *
+   * @return the UI design, or empty if using the default design
+   */
+  default Optional<UiDesign> getUiDesign() {
+    return Optional.empty();
+  }
+
+  /**
+   * Get the list of available output ports for this plugin.
+   *
+   * @return the list of output port names
+   */
+  default List<String> getOutputPorts() {
+    return List.of();
+  }
 
   /**
    * Get the default timeout for this plugin.
@@ -29,16 +49,6 @@ public interface WorkflowPlugin {
    */
   default Duration getDefaultTimeout() {
     return Duration.ofSeconds(30);
-  }
-
-  /**
-   * Whether this plugin manages its own timeout logic. If true, the Orchestrator will not apply an
-   * external timeout to this node.
-   *
-   * @return true if the plugin manages its own timeout
-   */
-  default boolean isTimeoutManagedByPlugin() {
-    return false;
   }
 
   /**

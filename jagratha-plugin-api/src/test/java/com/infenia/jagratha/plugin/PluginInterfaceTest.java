@@ -77,6 +77,54 @@ class PluginInterfaceTest {
 
     StepVerifier.create(plugin.validateConfig(Map.of())).verifyComplete();
     StepVerifier.create(plugin.initialize(Map.of())).verifyComplete();
+    assertEquals("", plugin.getDescription());
+    assertEquals("", plugin.getUsagePattern());
+    assertEquals(30, plugin.getDefaultTimeout().getSeconds());
+    org.junit.jupiter.api.Assertions.assertFalse(plugin.getUiDesign().isPresent());
+    org.junit.jupiter.api.Assertions.assertTrue(plugin.getOutputPorts().isEmpty());
+  }
+
+  @Test
+  void testUiDesign() {
+    UiDesign design = new UiDesign("<div>test</div>", 100, 50);
+    assertEquals("<div>test</div>", design.html());
+    assertEquals(100, design.width());
+    assertEquals(50, design.height());
+  }
+
+  @Test
+  void testExceptions() {
+    FilterEvaluationException fe = new FilterEvaluationException("filter error");
+    assertEquals("filter error", fe.getMessage());
+
+    JoinTimeoutException jte = new JoinTimeoutException("join timeout");
+    assertEquals("join timeout", jte.getMessage());
+
+    NoMatchingBranchException nme = new NoMatchingBranchException("no branch");
+    assertEquals("no branch", nme.getMessage());
+  }
+
+  @Test
+  void testDefaultWorkflowPluginExtraMethods() {
+    WorkflowPlugin plugin =
+        new WorkflowPlugin() {
+          @Override
+          public String getType() {
+            return "test";
+          }
+
+          @Override
+          public PluginCategory getCategory() {
+            return PluginCategory.TRIGGER;
+          }
+        };
+
+    StepVerifier.create(plugin.shutdown(Map.of())).verifyComplete();
+    StepVerifier.create(plugin.initialize(Map.of())).verifyComplete();
+    StepVerifier.create(plugin.validateConfig(Map.of())).verifyComplete();
+
+    java.time.Duration timeout = plugin.getDefaultTimeout();
+    assertEquals(30, timeout.getSeconds());
   }
 
   @Test

@@ -21,6 +21,7 @@ import static org.mockito.Mockito.when;
 import com.infenia.jagratha.service.LogRetrievalService;
 import com.infenia.jagratha.service.SessionService;
 import com.infenia.jagratha.service.TaskTrackerService;
+import com.infenia.jagratha.service.WorkflowRegistry;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
@@ -40,6 +41,7 @@ class UiControllerTest {
   @MockitoBean private LogRetrievalService logRetrievalService;
 
   @MockitoBean private TaskTrackerService taskTrackerService;
+  @MockitoBean private WorkflowRegistry workflowRegistry;
 
   @MockitoBean private gg.jte.TemplateEngine templateEngine;
 

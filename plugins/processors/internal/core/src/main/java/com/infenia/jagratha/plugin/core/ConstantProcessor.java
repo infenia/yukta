@@ -34,7 +34,7 @@ import reactor.core.publisher.Mono;
 @SuppressWarnings({"PMD.OnlyOneReturn", "PMD.AvoidDeeplyNestedIfStmts", "PMD.UseConcurrentHashMap"})
 public class ConstantProcessor implements ProcessorPlugin {
 
-  private static final String TYPE = "constant";
+  private static final String TYPE = "CONSTANT";
   private static final String MODE_ENRICH = "ENRICH";
   private static final String MODE_REPLACE = "REPLACE";
   private static final String TARGET_METADATA = "METADATA";

@@ -40,4 +40,25 @@ class ApiTriggerPluginTest {
   void testGetType() {
     assertEquals("api-trigger", new ApiTriggerPlugin().getType());
   }
+
+  @Test
+  void testMetadata() {
+    ApiTriggerPlugin plugin = new ApiTriggerPlugin();
+    assertEquals("Emits the payload received from an API trigger.", plugin.getDescription());
+    org.junit.jupiter.api.Assertions.assertTrue(plugin.getUsagePattern().contains("REST API"));
+    assertEquals(1, plugin.getOutputPorts().size());
+    assertEquals("default", plugin.getOutputPorts().get(0));
+    org.junit.jupiter.api.Assertions.assertTrue(plugin.getUiDesign().isPresent());
+    assertEquals(140, plugin.getUiDesign().get().width());
+    assertEquals(80, plugin.getUiDesign().get().height());
+    org.junit.jupiter.api.Assertions.assertTrue(
+        plugin.getUiDesign().get().html().contains("material-symbols-outlined"));
+  }
+
+  @Test
+  void testLifecycle() {
+    ApiTriggerPlugin plugin = new ApiTriggerPlugin();
+    StepVerifier.create(plugin.validateConfig(Map.of())).verifyComplete();
+    StepVerifier.create(plugin.initialize(Map.of())).verifyComplete();
+  }
 }

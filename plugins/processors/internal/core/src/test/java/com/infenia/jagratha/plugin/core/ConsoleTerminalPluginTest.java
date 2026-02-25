@@ -47,5 +47,17 @@ class ConsoleTerminalPluginTest {
         "Consumes messages and prints their payload to the application logs. No configuration"
             + " required.",
         plugin.getUsagePattern());
+    org.junit.jupiter.api.Assertions.assertTrue(plugin.getUiDesign().isPresent());
+    assertEquals(120, plugin.getUiDesign().get().width());
+    assertEquals(80, plugin.getUiDesign().get().height());
+    org.junit.jupiter.api.Assertions.assertTrue(
+        plugin.getUiDesign().get().html().contains("terminal"));
+  }
+
+  @Test
+  void testLifecycle() {
+    ConsoleTerminalPlugin plugin = new ConsoleTerminalPlugin();
+    StepVerifier.create(plugin.validateConfig(Map.of())).verifyComplete();
+    StepVerifier.create(plugin.initialize(Map.of())).verifyComplete();
   }
 }

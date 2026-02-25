@@ -33,7 +33,7 @@ import reactor.core.publisher.Mono;
 @SuppressWarnings({"PMD.OnlyOneReturn", "PMD.UseConcurrentHashMap"})
 public class ConstantSource implements TriggerPlugin {
 
-  private static final String TYPE = "constant-source";
+  private static final String TYPE = "CONSTANT_SOURCE";
   private static final String TARGET_METADATA = "METADATA";
   private static final String TARGET_PAYLOAD = "PAYLOAD";
 

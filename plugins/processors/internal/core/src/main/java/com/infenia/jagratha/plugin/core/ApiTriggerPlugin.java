@@ -17,7 +17,10 @@ package com.infenia.jagratha.plugin.core;
 
 import com.infenia.jagratha.plugin.Message;
 import com.infenia.jagratha.plugin.TriggerPlugin;
+import com.infenia.jagratha.plugin.UiDesign;
+import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -48,6 +51,28 @@ public class ApiTriggerPlugin implements TriggerPlugin {
   @Override
   public String getType() {
     return "api-trigger";
+  }
+
+  @Override
+  public List<String> getOutputPorts() {
+    return List.of("default");
+  }
+
+  @Override
+  public Optional<UiDesign> getUiDesign() {
+    return Optional.of(
+        new UiDesign(
+            """
+            <div class="flex flex-col items-center justify-center h-full space-y-1 relative">
+                <span class="material-symbols-outlined text-blue-500 text-2xl">api</span>
+                <div class="text-[10px] text-blue-600 font-bold uppercase tracking-widest">Trigger</div>
+                <div class="jagratha-port absolute -right-3 top-1/2 -translate-y-1/2 w-4 h-4 bg-blue-600 rounded-full border-2 border-white shadow-sm flex items-center justify-center" data-port-name="default">
+                    <div class="w-1.5 h-1.5 bg-white rounded-full"></div>
+                </div>
+            </div>
+            """,
+            140,
+            80));
   }
 
   @Override

@@ -191,6 +191,6 @@ class AggregatorProcessorTest {
 
   @Test
   void testType() {
-    assertEquals("aggregator", processor.getType());
+    assertEquals("AGGREGATOR", processor.getType());
   }
 }

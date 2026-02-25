@@ -76,7 +76,7 @@ class GuardIntegrationTest {
     when(terminalFalse.getDefaultTimeout()).thenReturn(java.time.Duration.ofSeconds(30));
 
     when(registry.get("TRIGGER")).thenReturn(triggerPlugin);
-    when(registry.get("guard")).thenReturn(guardPlugin);
+    when(registry.get("GUARD")).thenReturn(guardPlugin);
     when(registry.get("TERMINAL")).thenReturn(terminalTrue);
 
     when(triggerPlugin.getCategory()).thenReturn(PluginCategory.TRIGGER);
@@ -122,7 +122,7 @@ class GuardIntegrationTest {
             });
 
     final Node trigger = new Node("t1", "TRIGGER", Map.of());
-    final Node guard = new Node("g1", "guard", Map.of("condition", "amount > 1000"));
+    final Node guard = new Node("g1", "GUARD", Map.of("condition", "amount > 1000"));
     final Node termTrue = new Node("termTrue", "TERMINAL", Map.of());
     final Node termFalse = new Node("termFalse", "TERMINAL", Map.of());
 
@@ -175,7 +175,7 @@ class GuardIntegrationTest {
             });
 
     final Node trigger = new Node("t1", "TRIGGER", Map.of());
-    final Node guard = new Node("g1", "guard", Map.of("condition", "amount > 1000"));
+    final Node guard = new Node("g1", "GUARD", Map.of("condition", "amount > 1000"));
     final Node termTrue = new Node("termTrue", "TERMINAL", Map.of());
     final Node termFalse = new Node("termFalse", "TERMINAL", Map.of());
 

@@ -17,7 +17,9 @@ package com.infenia.jagratha.plugin.core;
 
 import com.infenia.jagratha.plugin.Message;
 import com.infenia.jagratha.plugin.TerminalPlugin;
+import com.infenia.jagratha.plugin.UiDesign;
 import java.util.Map;
+import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
@@ -47,6 +49,20 @@ public class ConsoleTerminalPlugin implements TerminalPlugin {
   @Override
   public String getType() {
     return "console";
+  }
+
+  @Override
+  public Optional<UiDesign> getUiDesign() {
+    return Optional.of(
+        new UiDesign(
+            """
+            <div class="flex flex-col items-center justify-center h-full space-y-1">
+                <span class="material-symbols-outlined text-slate-400 text-2xl">terminal</span>
+                <div class="text-[10px] text-slate-500 font-mono">Logger</div>
+            </div>
+            """,
+            120,
+            80));
   }
 
   @Override

@@ -37,7 +37,7 @@ import reactor.core.publisher.Mono;
 @SuppressWarnings({"PMD.OnlyOneReturn"})
 public class AggregatorProcessor implements ProcessorPlugin {
 
-  private static final String TYPE = "aggregator";
+  private static final String TYPE = "AGGREGATOR";
 
   private static final String CFG_GROUP_BY = "groupBy";
   private static final String CFG_WINDOW = "window";
@@ -65,11 +65,6 @@ public class AggregatorProcessor implements ProcessorPlugin {
   /** Default constructor. */
   public AggregatorProcessor() {
     super();
-  }
-
-  @Override
-  public boolean isTimeoutManagedByPlugin() {
-    return true;
   }
 
   @Override

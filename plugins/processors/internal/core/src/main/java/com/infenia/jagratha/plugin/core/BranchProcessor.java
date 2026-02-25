@@ -42,7 +42,7 @@ import reactor.core.publisher.Mono;
 })
 public class BranchProcessor implements ProcessorPlugin {
 
-  private static final String TYPE = "branch";
+  private static final String TYPE = "BRANCH";
 
   private static final String CONFIG_MODE = "mode";
   private static final String CONFIG_SELECTOR = "selector";

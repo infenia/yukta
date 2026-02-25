@@ -54,7 +54,7 @@ import reactor.core.publisher.Mono;
 })
 public class MapperProcessor implements ProcessorPlugin {
 
-  private static final String TYPE = "mapper";
+  private static final String TYPE = "MAPPER";
   private static final String UNCHECKED = "unchecked";
 
   private static final String MODE_PROJECTION = "PROJECTION";

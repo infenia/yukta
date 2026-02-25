@@ -107,6 +107,6 @@ class GuardProcessorTest {
 
   @Test
   void testType() {
-    assertEquals("guard", processor.getType());
+    assertEquals("GUARD", processor.getType());
   }
 }

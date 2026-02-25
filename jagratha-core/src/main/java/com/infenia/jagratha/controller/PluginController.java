@@ -76,7 +76,9 @@ public class PluginController {
                             p.getType(),
                             p.getCategory(),
                             p.getDescription(),
-                            p.getUsagePattern())));
+                            p.getUsagePattern(),
+                            p.getUiDesign().orElse(null),
+                            p.getOutputPorts())));
               }
               return ResponseEntity.notFound().build();
             });

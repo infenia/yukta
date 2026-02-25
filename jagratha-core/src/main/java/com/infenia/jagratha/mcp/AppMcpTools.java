@@ -188,6 +188,11 @@ public class AppMcpTools {
       throw new IllegalArgumentException("Plugin not found: " + type);
     }
     return new PluginDetails(
-        plugin.getType(), plugin.getCategory(), plugin.getDescription(), plugin.getUsagePattern());
+        plugin.getType(),
+        plugin.getCategory(),
+        plugin.getDescription(),
+        plugin.getUsagePattern(),
+        plugin.getUiDesign().orElse(null),
+        plugin.getOutputPorts());
   }
 }

@@ -46,7 +46,7 @@ import reactor.core.publisher.Mono;
 public class WorkflowValidator {
 
   private static final int SCRIPT_LIMIT = 50;
-  private static final String TYPE_MAPPER = "mapper";
+  private static final String TYPE_MAPPER = "MAPPER";
   private final WorkflowRegistry registry;
 
   /**
@@ -125,7 +125,7 @@ public class WorkflowValidator {
 
   private Mono<Void> validateBranches(final WorkflowDefinition def) {
     return Flux.fromIterable(def.nodes())
-        .filter(node -> "branch".equals(node.type()))
+        .filter(node -> "BRANCH".equals(node.type()))
         .flatMap(
             node -> {
               final Map<String, Object> config = node.config();
@@ -169,7 +169,7 @@ public class WorkflowValidator {
   private Mono<Void> validateGuards(final WorkflowDefinition def, final Set<String> sourceIds) {
     final Set<String> standardPorts = Set.of("true", "false", "error");
     return Flux.fromIterable(def.nodes())
-        .filter(node -> "guard".equals(node.type()))
+        .filter(node -> "GUARD".equals(node.type()))
         .flatMap(
             node -> {
               if (!sourceIds.contains(node.nodeId())) {
@@ -281,7 +281,7 @@ public class WorkflowValidator {
 
   private Mono<Void> validateMapper(final WorkflowDefinition def) {
     return Flux.fromIterable(def.nodes())
-        .filter(node -> "mapper".equals(node.type()))
+        .filter(node -> "MAPPER".equals(node.type()))
         .doOnNext(
             node -> {
               final Map<String, Object> config = node.config();
@@ -309,7 +309,7 @@ public class WorkflowValidator {
     def.edges().forEach(edge -> parents.get(edge.target()).add(edge.source()));
 
     return Flux.fromIterable(def.nodes())
-        .filter(node -> "filter".equals(node.type()))
+        .filter(node -> "FILTER".equals(node.type()))
         .doOnNext(
             filterNode -> {
               final int depth = getMinDepth(filterNode.nodeId(), def);
