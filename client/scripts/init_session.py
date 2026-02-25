@@ -123,29 +123,6 @@ def main():
                 "description": "Standard quality gate for checking project status",
                 "nodes": nodes,
                 "edges": DEFAULT_WORKFLOW_EDGES
-            },
-            "file-update": {
-                "description": "Reactive workflow to record file updates",
-                "nodes": [
-                    {
-                        "nodeId": "api-trigger-1",
-                        "type": "api-trigger",
-                        "config": {}
-                    },
-                    {
-                        "nodeId": "file-record-1",
-                        "type": "file-update-record",
-                        "config": {
-                            "outputDir": os.path.join(project_root, ".jagratha", "file-records")
-                        }
-                    }
-                ],
-                "edges": [
-                    {
-                        "source": "api-trigger-1",
-                        "target": "file-record-1"
-                    }
-                ]
             }
         }
     }

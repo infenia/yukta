@@ -422,15 +422,22 @@ public class WorkflowOrchestrator {
       final Flux<Message> stream,
       final int childCount) {
     Flux<Message> processedStream =
-        stream
-            .onBackpressureBuffer(BUFFER_SIZE, BufferOverflowStrategy.ERROR)
-            .log("Node-" + nodeId)
-            .doOnNext(
-                msg ->
-                    Mono.fromRunnable(
-                            () -> tracker.appendLog(executionId, String.valueOf(msg.payload())))
-                        .subscribeOn(Schedulers.boundedElastic())
-                        .subscribe());
+        stream.onBackpressureBuffer(BUFFER_SIZE, BufferOverflowStrategy.ERROR);
+    // 1. Conditional Reactor Logging: Only active if DEBUG level is set for this class
+    if (log.isDebugEnabled()) {
+      processedStream = processedStream.log("Node-" + nodeId);
+    }
+    processedStream =
+        processedStream.doOnNext(
+            msg -> {
+              if (log.isTraceEnabled()) { // Only capture payload strings at TRACE level
+                tracker
+                    .appendLog(executionId, String.valueOf(msg.payload()))
+                    .subscribeOn(Schedulers.boundedElastic())
+                    .subscribe();
+                // Note: For extreme scale, consider a RingBuffer or Disruption pattern here
+              }
+            });
     if (childCount > 0) {
       processedStream =
           processedStream.replay(1).refCount(childCount, Duration.ofSeconds(REF_COUNT_TIMEOUT));
