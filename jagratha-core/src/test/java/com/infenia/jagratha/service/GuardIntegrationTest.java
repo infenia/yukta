@@ -97,10 +97,6 @@ class GuardIntegrationTest {
 
     when(tracker.startWorkflow(anyString(), anyString(), anyString(), any()))
         .thenReturn(Mono.empty());
-    when(tracker.updateTaskStatus(anyString(), anyString(), anyString(), any()))
-        .thenReturn(Mono.empty());
-    when(tracker.finishWorkflow(anyString(), anyString())).thenReturn(Mono.empty());
-    when(tracker.appendLog(anyString(), anyString())).thenReturn(Mono.empty());
   }
 
   @SuppressWarnings("unchecked")
@@ -149,10 +145,10 @@ class GuardIntegrationTest {
 
     // Verify termTrue was executed
     verify(tracker, atLeastOnce())
-        .updateTaskStatus(eq(executionId), eq("termTrue"), anyString(), eq("RUNNING"));
+        .emitTaskStatusEvent(eq(executionId), eq("termTrue"), anyString(), eq("RUNNING"), any());
     // Verify termFalse was NOT executed
     verify(tracker, never())
-        .updateTaskStatus(eq(executionId), eq("termFalse"), anyString(), eq("RUNNING"));
+        .emitTaskStatusEvent(eq(executionId), eq("termFalse"), anyString(), eq("RUNNING"), any());
   }
 
   @SuppressWarnings("unchecked")
@@ -201,9 +197,9 @@ class GuardIntegrationTest {
 
     // Verify termFalse was executed
     verify(tracker, atLeastOnce())
-        .updateTaskStatus(eq(executionId), eq("termFalse"), anyString(), eq("RUNNING"));
+        .emitTaskStatusEvent(eq(executionId), eq("termFalse"), anyString(), eq("RUNNING"), any());
     // Verify termTrue was NOT executed
     verify(tracker, never())
-        .updateTaskStatus(eq(executionId), eq("termTrue"), anyString(), eq("RUNNING"));
+        .emitTaskStatusEvent(eq(executionId), eq("termTrue"), anyString(), eq("RUNNING"), any());
   }
 }

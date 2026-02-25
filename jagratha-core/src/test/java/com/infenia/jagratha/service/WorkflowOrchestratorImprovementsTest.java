@@ -56,9 +56,6 @@ class WorkflowOrchestratorImprovementsTest {
     configService = mock(AppConfigService.class);
     validator = new WorkflowValidator(registry);
     when(tracker.startWorkflow(any(), any(), any(), any())).thenReturn(Mono.empty());
-    when(tracker.updateTaskStatus(any(), any(), any(), any())).thenReturn(Mono.empty());
-    when(tracker.finishWorkflow(any(), any())).thenReturn(Mono.empty());
-    when(tracker.appendLog(any(), any())).thenReturn(Mono.empty());
     when(configService.getExecutionTimeout(anyString())).thenReturn(Mono.just(3600L));
     orchestrator = new WorkflowOrchestrator(registry, tracker, validator, configService);
   }
@@ -250,7 +247,7 @@ class WorkflowOrchestratorImprovementsTest {
         .verifyComplete();
 
     verify(tracker).startWorkflow(eq(executionId), eq(sessionId), eq("test-workflow"), any());
-    verify(tracker, atLeastOnce()).updateTaskStatus(eq(executionId), any(), any(), any());
-    verify(tracker).finishWorkflow(eq(executionId), any());
+    verify(tracker, atLeastOnce()).emitTaskStatusEvent(eq(executionId), any(), any(), any(), any());
+    verify(tracker).emitWorkflowStatusEvent(eq(executionId), any());
   }
 }

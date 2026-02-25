@@ -31,10 +31,11 @@ class TaskTrackerServiceTest {
   @BeforeEach
   void setUp() {
     tracker = new TaskTrackerService();
+    tracker.init();
   }
 
   @Test
-  void testWorkflowTracking() {
+  void testWorkflowTracking() throws InterruptedException {
     String sessionId = "sess-1";
     String workflowId = "wf-1";
     String executionId = "exec-1";
@@ -50,13 +51,18 @@ class TaskTrackerServiceTest {
     assertEquals("node1", progress.tasks().get(0).nodeId());
     assertEquals("PENDING", progress.tasks().get(0).status());
 
-    StepVerifier.create(tracker.updateTaskStatus(executionId, "node1", "moduleA", "SUCCESS"))
-        .verifyComplete();
+    tracker.emitTaskStatusEvent(executionId, "node1", "moduleA", "SUCCESS", java.util.Map.of());
+    // Wait for async processing
+    Thread.sleep(200);
+
     progress = tracker.getProgress(sessionId, executionId);
     assertEquals("SUCCESS", progress.tasks().get(0).status());
     assertEquals("moduleA", progress.tasks().get(0).module());
 
-    StepVerifier.create(tracker.finishWorkflow(executionId, "COMPLETED")).verifyComplete();
+    tracker.emitWorkflowStatusEvent(executionId, "COMPLETED");
+    // Wait for async processing
+    Thread.sleep(200);
+
     progress = tracker.getProgress(sessionId, executionId);
     assertEquals("COMPLETED", progress.status());
     assertNotNull(progress.endTime());
@@ -71,7 +77,7 @@ class TaskTrackerServiceTest {
         .verifyComplete();
 
     StepVerifier.create(tracker.getLogStream(executionId))
-        .then(() -> tracker.appendLog(executionId, "log line 1").subscribe())
+        .then(() -> tracker.emitLogEvent(executionId, "log line 1"))
         .expectNext("log line 1")
         .thenCancel()
         .verify();
@@ -86,7 +92,10 @@ class TaskTrackerServiceTest {
         .verifyComplete();
 
     StepVerifier.create(tracker.getStatusStream(executionId))
-        .then(() -> tracker.updateTaskStatus(executionId, "n1", "mod", "SUCCESS").subscribe())
+        .then(
+            () ->
+                tracker.emitTaskStatusEvent(
+                    executionId, "n1", "mod", "SUCCESS", java.util.Map.of()))
         .assertNext(progress -> assertEquals("wf-1", progress.workflowId()))
         .thenCancel()
         .verify();

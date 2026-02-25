@@ -56,10 +56,6 @@ class WorkflowOrchestratorTest {
     validator = new WorkflowValidator(registry);
     when(tracker.startWorkflow(anyString(), anyString(), anyString(), any()))
         .thenReturn(Mono.empty());
-    when(tracker.updateTaskStatus(anyString(), anyString(), anyString(), any()))
-        .thenReturn(Mono.empty());
-    when(tracker.finishWorkflow(anyString(), anyString())).thenReturn(Mono.empty());
-    when(tracker.appendLog(anyString(), anyString())).thenReturn(Mono.empty());
     when(configService.getExecutionTimeout(anyString())).thenReturn(Mono.just(3600L));
     when(registry.get(anyString()))
         .thenAnswer(
@@ -306,8 +302,8 @@ class WorkflowOrchestratorTest {
     verify(terminal).consume(any(), any());
     verify(tracker).startWorkflow(eq(executionId), eq(sessionId), anyString(), any());
     verify(tracker, atLeastOnce())
-        .updateTaskStatus(eq(executionId), anyString(), anyString(), anyString());
-    verify(tracker).finishWorkflow(eq(executionId), eq("SUCCESS"));
+        .emitTaskStatusEvent(eq(executionId), anyString(), anyString(), anyString(), any());
+    verify(tracker).emitWorkflowStatusEvent(eq(executionId), eq("SUCCESS"));
   }
 
   @Test
