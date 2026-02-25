@@ -20,6 +20,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.infenia.jagratha.config.AppConfigService;
 import com.infenia.jagratha.model.WorkflowDefinition;
 import com.infenia.jagratha.model.WorkflowDefinition.Edge;
 import com.infenia.jagratha.model.WorkflowDefinition.Node;
@@ -48,6 +49,7 @@ class JoinIntegrationTest {
   private WorkflowRegistry registry;
   private TaskTrackerService tracker;
   private WorkflowValidator validator;
+  private AppConfigService configService;
   private WorkflowOrchestrator orchestrator;
   private JoinProcessor joinProcessor;
   private InMemoryJoinStore joinStore;
@@ -56,12 +58,14 @@ class JoinIntegrationTest {
   void setUp() {
     registry = mock(WorkflowRegistry.class);
     tracker = mock(TaskTrackerService.class);
+    configService = mock(AppConfigService.class);
     validator = new WorkflowValidator(registry);
     when(tracker.startWorkflow(any(), any(), any(), any())).thenReturn(Mono.empty());
     when(tracker.updateTaskStatus(any(), any(), any(), any())).thenReturn(Mono.empty());
     when(tracker.finishWorkflow(any(), any())).thenReturn(Mono.empty());
     when(tracker.appendLog(any(), any())).thenReturn(Mono.empty());
-    orchestrator = new WorkflowOrchestrator(registry, tracker, validator);
+    when(configService.getExecutionTimeout(any())).thenReturn(Mono.just(3600L));
+    orchestrator = new WorkflowOrchestrator(registry, tracker, validator, configService);
 
     joinStore = new InMemoryJoinStore();
     joinStore.init();
@@ -93,6 +97,7 @@ class JoinIntegrationTest {
     UUID commonTraceId = UUID.randomUUID();
 
     TriggerPlugin trigger = mock(TriggerPlugin.class);
+    when(trigger.getDefaultTimeout()).thenReturn(java.time.Duration.ofSeconds(30));
     when(trigger.getCategory()).thenReturn(PluginCategory.TRIGGER);
     when(trigger.getType()).thenReturn("trigger");
     when(trigger.validateConfig(any())).thenReturn(Mono.empty());
@@ -105,6 +110,7 @@ class JoinIntegrationTest {
             });
 
     TerminalPlugin terminal = mock(TerminalPlugin.class);
+    when(terminal.getDefaultTimeout()).thenReturn(java.time.Duration.ofSeconds(30));
     when(terminal.getCategory()).thenReturn(PluginCategory.TERMINAL);
     when(terminal.getType()).thenReturn("terminal");
     when(terminal.validateConfig(any())).thenReturn(Mono.empty());

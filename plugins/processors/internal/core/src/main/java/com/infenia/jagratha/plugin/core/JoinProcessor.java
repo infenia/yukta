@@ -97,6 +97,11 @@ public class JoinProcessor implements ProcessorPlugin {
   }
 
   @Override
+  public Duration getDefaultTimeout() {
+    return Duration.ofSeconds(60);
+  }
+
+  @Override
   public Mono<Void> validateConfig(final Map<String, Object> config) {
     final String mode = (String) config.get(CFG_MODE);
     final Mono<Void> modeValid = validateMode(mode);

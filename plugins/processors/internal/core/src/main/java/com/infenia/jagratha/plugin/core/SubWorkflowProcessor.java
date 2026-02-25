@@ -21,6 +21,7 @@ import com.infenia.jagratha.plugin.ProcessorPlugin;
 import com.infenia.jagratha.plugin.ResultCollector;
 import com.infenia.jagratha.service.WorkflowOrchestrator;
 import com.infenia.jagratha.util.SpelUtils;
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
@@ -65,6 +66,11 @@ public class SubWorkflowProcessor implements ProcessorPlugin {
   @Override
   public String getType() {
     return TYPE;
+  }
+
+  @Override
+  public Duration getDefaultTimeout() {
+    return Duration.ofSeconds(3600);
   }
 
   @Override

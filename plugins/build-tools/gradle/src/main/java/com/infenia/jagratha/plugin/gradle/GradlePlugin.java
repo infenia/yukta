@@ -72,7 +72,8 @@ public class GradlePlugin extends AbstractBuildToolPlugin {
 
   @Override
   protected long getTimeout(final Map<String, Object> config) {
-    return ((Number) config.getOrDefault("timeout", 600L)).longValue();
+    return ((Number) config.getOrDefault("timeoutSeconds", config.getOrDefault("timeout", 600L)))
+        .longValue();
   }
 
   @Override

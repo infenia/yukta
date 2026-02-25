@@ -23,12 +23,14 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.infenia.jagratha.config.AppConfigService;
 import com.infenia.jagratha.model.WorkflowDefinition;
 import com.infenia.jagratha.plugin.Message;
 import com.infenia.jagratha.plugin.PluginCategory;
 import com.infenia.jagratha.plugin.ProcessorPlugin;
 import com.infenia.jagratha.plugin.TerminalPlugin;
 import com.infenia.jagratha.plugin.TriggerPlugin;
+import com.infenia.jagratha.plugin.WorkflowPlugin;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -43,12 +45,14 @@ class WorkflowOrchestratorTest {
   private WorkflowRegistry registry;
   private TaskTrackerService tracker;
   private WorkflowValidator validator;
+  private AppConfigService configService;
   private WorkflowOrchestrator orchestrator;
 
   @BeforeEach
   void setUp() {
     registry = mock(WorkflowRegistry.class);
     tracker = mock(TaskTrackerService.class);
+    configService = mock(AppConfigService.class);
     validator = new WorkflowValidator(registry);
     when(tracker.startWorkflow(anyString(), anyString(), anyString(), any()))
         .thenReturn(Mono.empty());
@@ -56,7 +60,15 @@ class WorkflowOrchestratorTest {
         .thenReturn(Mono.empty());
     when(tracker.finishWorkflow(anyString(), anyString())).thenReturn(Mono.empty());
     when(tracker.appendLog(anyString(), anyString())).thenReturn(Mono.empty());
-    orchestrator = new WorkflowOrchestrator(registry, tracker, validator);
+    when(configService.getExecutionTimeout(anyString())).thenReturn(Mono.just(3600L));
+    when(registry.get(anyString()))
+        .thenAnswer(
+            inv -> {
+              WorkflowPlugin p = mock(WorkflowPlugin.class);
+              when(p.getDefaultTimeout()).thenReturn(java.time.Duration.ofSeconds(30));
+              return p;
+            });
+    orchestrator = new WorkflowOrchestrator(registry, tracker, validator, configService);
   }
 
   @Test
@@ -70,11 +82,13 @@ class WorkflowOrchestratorTest {
             List.of(new WorkflowDefinition.Edge("n1", "n2")));
 
     TriggerPlugin trigger = mock(TriggerPlugin.class);
+    when(trigger.getDefaultTimeout()).thenReturn(java.time.Duration.ofSeconds(30));
     when(trigger.getCategory()).thenReturn(PluginCategory.TRIGGER);
     when(trigger.validateConfig(any())).thenReturn(Mono.empty());
     when(trigger.initialize(any())).thenReturn(Mono.empty());
 
     TerminalPlugin terminal = mock(TerminalPlugin.class);
+    when(terminal.getDefaultTimeout()).thenReturn(java.time.Duration.ofSeconds(30));
     when(terminal.getCategory()).thenReturn(PluginCategory.TERMINAL);
     when(terminal.validateConfig(any())).thenReturn(Mono.empty());
     when(terminal.initialize(any())).thenReturn(Mono.empty());
@@ -92,6 +106,7 @@ class WorkflowOrchestratorTest {
     WorkflowDefinition def = new WorkflowDefinition("desc", List.of(processorNode), List.of());
 
     ProcessorPlugin processor = mock(ProcessorPlugin.class);
+    when(processor.getDefaultTimeout()).thenReturn(java.time.Duration.ofSeconds(30));
     when(processor.getCategory()).thenReturn(PluginCategory.PROCESSOR);
     when(registry.get("processor")).thenReturn(processor);
 
@@ -115,8 +130,10 @@ class WorkflowOrchestratorTest {
             List.of(new WorkflowDefinition.Edge("n1", "n2"))); // n2 has no outgoing edge
 
     TriggerPlugin trigger = mock(TriggerPlugin.class);
+    when(trigger.getDefaultTimeout()).thenReturn(java.time.Duration.ofSeconds(30));
     when(trigger.getCategory()).thenReturn(PluginCategory.TRIGGER);
     ProcessorPlugin processor = mock(ProcessorPlugin.class);
+    when(processor.getDefaultTimeout()).thenReturn(java.time.Duration.ofSeconds(30));
     when(processor.getCategory()).thenReturn(PluginCategory.PROCESSOR);
 
     when(registry.get("trigger")).thenReturn(trigger);
@@ -140,6 +157,7 @@ class WorkflowOrchestratorTest {
     WorkflowDefinition def = new WorkflowDefinition("desc", List.of(triggerNode), List.of());
 
     TriggerPlugin trigger = mock(TriggerPlugin.class);
+    when(trigger.getDefaultTimeout()).thenReturn(java.time.Duration.ofSeconds(30));
     when(trigger.getCategory()).thenReturn(PluginCategory.TRIGGER);
     when(trigger.validateConfig(any())).thenReturn(Mono.empty());
     when(trigger.initialize(any())).thenReturn(Mono.empty());
@@ -170,8 +188,10 @@ class WorkflowOrchestratorTest {
                 ));
 
     TriggerPlugin trigger = mock(TriggerPlugin.class);
+    when(trigger.getDefaultTimeout()).thenReturn(java.time.Duration.ofSeconds(30));
     when(trigger.getCategory()).thenReturn(PluginCategory.TRIGGER);
     ProcessorPlugin processor = mock(ProcessorPlugin.class);
+    when(processor.getDefaultTimeout()).thenReturn(java.time.Duration.ofSeconds(30));
     when(processor.getCategory()).thenReturn(PluginCategory.PROCESSOR);
 
     when(registry.get("trigger")).thenReturn(trigger);
@@ -197,6 +217,7 @@ class WorkflowOrchestratorTest {
             "desc", List.of(t1, t2), List.of(new WorkflowDefinition.Edge("t1", "t2")));
 
     TriggerPlugin trigger = mock(TriggerPlugin.class);
+    when(trigger.getDefaultTimeout()).thenReturn(java.time.Duration.ofSeconds(30));
     when(trigger.getCategory()).thenReturn(PluginCategory.TRIGGER);
     when(registry.get("trigger")).thenReturn(trigger);
 
@@ -222,8 +243,10 @@ class WorkflowOrchestratorTest {
                 new WorkflowDefinition.Edge("term1", "term2")));
 
     TriggerPlugin trigger = mock(TriggerPlugin.class);
+    when(trigger.getDefaultTimeout()).thenReturn(java.time.Duration.ofSeconds(30));
     when(trigger.getCategory()).thenReturn(PluginCategory.TRIGGER);
     TerminalPlugin terminal = mock(TerminalPlugin.class);
+    when(terminal.getDefaultTimeout()).thenReturn(java.time.Duration.ofSeconds(30));
     when(terminal.getCategory()).thenReturn(PluginCategory.TERMINAL);
 
     when(registry.get("trigger")).thenReturn(trigger);
@@ -252,12 +275,14 @@ class WorkflowOrchestratorTest {
             List.of(new WorkflowDefinition.Edge("n1", "n2")));
 
     TriggerPlugin trigger = mock(TriggerPlugin.class);
+    when(trigger.getDefaultTimeout()).thenReturn(java.time.Duration.ofSeconds(30));
     when(trigger.getCategory()).thenReturn(PluginCategory.TRIGGER);
     when(trigger.validateConfig(any())).thenReturn(Mono.empty());
     when(trigger.initialize(any())).thenReturn(Mono.empty());
     when(trigger.start(any(), any())).thenReturn(Flux.just(msg));
 
     TerminalPlugin terminal = mock(TerminalPlugin.class);
+    when(terminal.getDefaultTimeout()).thenReturn(java.time.Duration.ofSeconds(30));
     when(terminal.getCategory()).thenReturn(PluginCategory.TERMINAL);
     when(terminal.validateConfig(any())).thenReturn(Mono.empty());
     when(terminal.initialize(any())).thenReturn(Mono.empty());
@@ -303,12 +328,14 @@ class WorkflowOrchestratorTest {
                 new WorkflowDefinition.Edge("t", "term2")));
 
     TriggerPlugin trigger = mock(TriggerPlugin.class);
+    when(trigger.getDefaultTimeout()).thenReturn(java.time.Duration.ofSeconds(30));
     when(trigger.getCategory()).thenReturn(PluginCategory.TRIGGER);
     when(trigger.validateConfig(any())).thenReturn(Mono.empty());
     when(trigger.initialize(any())).thenReturn(Mono.empty());
     when(trigger.start(any(), any())).thenReturn(Flux.just(msg));
 
     TerminalPlugin terminal = mock(TerminalPlugin.class);
+    when(terminal.getDefaultTimeout()).thenReturn(java.time.Duration.ofSeconds(30));
     when(terminal.getCategory()).thenReturn(PluginCategory.TERMINAL);
     when(terminal.validateConfig(any())).thenReturn(Mono.empty());
     when(terminal.initialize(any())).thenReturn(Mono.empty());
@@ -348,18 +375,21 @@ class WorkflowOrchestratorTest {
                 new WorkflowDefinition.Edge("t", "p"), new WorkflowDefinition.Edge("p", "term")));
 
     TriggerPlugin trigger = mock(TriggerPlugin.class);
+    when(trigger.getDefaultTimeout()).thenReturn(java.time.Duration.ofSeconds(30));
     when(trigger.getCategory()).thenReturn(PluginCategory.TRIGGER);
     when(trigger.validateConfig(any())).thenReturn(Mono.empty());
     when(trigger.initialize(any())).thenReturn(Mono.empty());
     when(trigger.start(any(), any())).thenReturn(Flux.just(msg));
 
     ProcessorPlugin processor = mock(ProcessorPlugin.class);
+    when(processor.getDefaultTimeout()).thenReturn(java.time.Duration.ofSeconds(30));
     when(processor.getCategory()).thenReturn(PluginCategory.PROCESSOR);
     when(processor.validateConfig(any())).thenReturn(Mono.empty());
     when(processor.initialize(any())).thenReturn(Mono.empty());
     when(processor.process(any(), any())).thenReturn(Flux.just(msg));
 
     TerminalPlugin terminal = mock(TerminalPlugin.class);
+    when(terminal.getDefaultTimeout()).thenReturn(java.time.Duration.ofSeconds(30));
     when(terminal.getCategory()).thenReturn(PluginCategory.TERMINAL);
     when(terminal.validateConfig(any())).thenReturn(Mono.empty());
     when(terminal.initialize(any())).thenReturn(Mono.empty());
@@ -420,18 +450,21 @@ class WorkflowOrchestratorTest {
                 new WorkflowDefinition.Edge("p", "term2")));
 
     TriggerPlugin trigger = mock(TriggerPlugin.class);
+    when(trigger.getDefaultTimeout()).thenReturn(java.time.Duration.ofSeconds(30));
     when(trigger.getCategory()).thenReturn(PluginCategory.TRIGGER);
     when(trigger.validateConfig(any())).thenReturn(Mono.empty());
     when(trigger.initialize(any())).thenReturn(Mono.empty());
     when(trigger.start(any(), any())).thenReturn(Flux.just(msg));
 
     ProcessorPlugin processor = mock(ProcessorPlugin.class);
+    when(processor.getDefaultTimeout()).thenReturn(java.time.Duration.ofSeconds(30));
     when(processor.getCategory()).thenReturn(PluginCategory.PROCESSOR);
     when(processor.validateConfig(any())).thenReturn(Mono.empty());
     when(processor.initialize(any())).thenReturn(Mono.empty());
     when(processor.process(any(), any())).thenReturn(Flux.just(msg));
 
     TerminalPlugin terminal = mock(TerminalPlugin.class);
+    when(terminal.getDefaultTimeout()).thenReturn(java.time.Duration.ofSeconds(30));
     when(terminal.getCategory()).thenReturn(PluginCategory.TERMINAL);
     when(terminal.validateConfig(any())).thenReturn(Mono.empty());
     when(terminal.initialize(any())).thenReturn(Mono.empty());

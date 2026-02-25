@@ -24,6 +24,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.infenia.jagratha.config.AppConfigService;
 import com.infenia.jagratha.model.WorkflowDefinition;
 import com.infenia.jagratha.model.WorkflowDefinition.Edge;
 import com.infenia.jagratha.model.WorkflowDefinition.Node;
@@ -47,6 +48,7 @@ class GuardIntegrationTest {
   private WorkflowRegistry registry;
   private TaskTrackerService tracker;
   private WorkflowValidator validator;
+  private AppConfigService configService;
 
   private TriggerPlugin triggerPlugin;
   private ProcessorPlugin guardPlugin;
@@ -57,13 +59,19 @@ class GuardIntegrationTest {
   void setUp() {
     registry = mock(WorkflowRegistry.class);
     tracker = mock(TaskTrackerService.class);
+    configService = mock(AppConfigService.class);
     validator = new WorkflowValidator(registry);
-    orchestrator = new WorkflowOrchestrator(registry, tracker, validator);
+    when(configService.getExecutionTimeout(anyString())).thenReturn(Mono.just(3600L));
+    orchestrator = new WorkflowOrchestrator(registry, tracker, validator, configService);
 
     triggerPlugin = mock(TriggerPlugin.class);
+    when(triggerPlugin.getDefaultTimeout()).thenReturn(java.time.Duration.ofSeconds(30));
     guardPlugin = mock(ProcessorPlugin.class);
+    when(guardPlugin.getDefaultTimeout()).thenReturn(java.time.Duration.ofSeconds(30));
     terminalTrue = mock(TerminalPlugin.class);
+    when(terminalTrue.getDefaultTimeout()).thenReturn(java.time.Duration.ofSeconds(30));
     terminalFalse = mock(TerminalPlugin.class);
+    when(terminalFalse.getDefaultTimeout()).thenReturn(java.time.Duration.ofSeconds(30));
 
     when(registry.get("TRIGGER")).thenReturn(triggerPlugin);
     when(registry.get("GUARD")).thenReturn(guardPlugin);

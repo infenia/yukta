@@ -38,7 +38,7 @@ public class AppConfigService {
   private static final String DEFAULT_BASE_DIR = System.getProperty("user.home") + "/.jagratha";
   private static final String DEFAULT_FILE_LOG = DEFAULT_BASE_DIR + "/modified-files";
   private static final String DEFAULT_RES_LOG = DEFAULT_BASE_DIR + "/results";
-  private static final long DEFAULT_TIMEOUT = 300L;
+  private static final long DEFAULT_TIMEOUT = 3600L;
 
   private final Map<String, String> projectPaths = new ConcurrentHashMap<>();
   private final Map<String, Map<String, WorkflowDefinition>> workflowsMap =

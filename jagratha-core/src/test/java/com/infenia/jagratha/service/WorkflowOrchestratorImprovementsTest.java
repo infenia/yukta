@@ -16,12 +16,14 @@
 package com.infenia.jagratha.service;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.infenia.jagratha.config.AppConfigService;
 import com.infenia.jagratha.model.WorkflowDefinition;
 import com.infenia.jagratha.model.WorkflowDefinition.Edge;
 import com.infenia.jagratha.model.WorkflowDefinition.Node;
@@ -44,18 +46,21 @@ class WorkflowOrchestratorImprovementsTest {
   private WorkflowRegistry registry;
   private TaskTrackerService tracker;
   private WorkflowValidator validator;
+  private AppConfigService configService;
   private WorkflowOrchestrator orchestrator;
 
   @BeforeEach
   void setUp() {
     registry = mock(WorkflowRegistry.class);
     tracker = mock(TaskTrackerService.class);
+    configService = mock(AppConfigService.class);
     validator = new WorkflowValidator(registry);
     when(tracker.startWorkflow(any(), any(), any(), any())).thenReturn(Mono.empty());
     when(tracker.updateTaskStatus(any(), any(), any(), any())).thenReturn(Mono.empty());
     when(tracker.finishWorkflow(any(), any())).thenReturn(Mono.empty());
     when(tracker.appendLog(any(), any())).thenReturn(Mono.empty());
-    orchestrator = new WorkflowOrchestrator(registry, tracker, validator);
+    when(configService.getExecutionTimeout(anyString())).thenReturn(Mono.just(3600L));
+    orchestrator = new WorkflowOrchestrator(registry, tracker, validator, configService);
   }
 
   @Test
@@ -66,12 +71,14 @@ class WorkflowOrchestratorImprovementsTest {
         new WorkflowDefinition("desc", List.of(n1, n2), List.of(new Edge("n1", "n2")));
 
     TriggerPlugin trigger = mock(TriggerPlugin.class);
+    when(trigger.getDefaultTimeout()).thenReturn(java.time.Duration.ofSeconds(30));
     when(trigger.getCategory()).thenReturn(PluginCategory.TRIGGER);
     when(trigger.validateConfig(any())).thenReturn(Mono.empty());
     when(trigger.initialize(any())).thenReturn(Mono.empty());
     when(trigger.shutdown(any())).thenReturn(Mono.empty());
 
     TerminalPlugin terminal = mock(TerminalPlugin.class);
+    when(terminal.getDefaultTimeout()).thenReturn(java.time.Duration.ofSeconds(30));
     when(terminal.getCategory()).thenReturn(PluginCategory.TERMINAL);
     when(terminal.validateConfig(any())).thenReturn(Mono.empty());
     // Fail initialization for terminal
@@ -100,6 +107,7 @@ class WorkflowOrchestratorImprovementsTest {
             "desc", List.of(n1, n2, n3), List.of(new Edge("t", "term1"), new Edge("t", "term2")));
 
     TriggerPlugin trigger = mock(TriggerPlugin.class);
+    when(trigger.getDefaultTimeout()).thenReturn(java.time.Duration.ofSeconds(30));
     when(trigger.getCategory()).thenReturn(PluginCategory.TRIGGER);
     when(trigger.validateConfig(any())).thenReturn(Mono.empty());
     when(trigger.initialize(any())).thenReturn(Mono.empty());
@@ -107,6 +115,7 @@ class WorkflowOrchestratorImprovementsTest {
         .thenReturn(Flux.just(Message.create(UUID.randomUUID(), "data")));
 
     TerminalPlugin term1Plugin = mock(TerminalPlugin.class);
+    when(term1Plugin.getDefaultTimeout()).thenReturn(java.time.Duration.ofSeconds(30));
     when(term1Plugin.getCategory()).thenReturn(PluginCategory.TERMINAL);
     when(term1Plugin.validateConfig(any())).thenReturn(Mono.empty());
     when(term1Plugin.initialize(any())).thenReturn(Mono.empty());
@@ -118,6 +127,7 @@ class WorkflowOrchestratorImprovementsTest {
                     .then(Mono.error(new RuntimeException("Term1 failed"))));
 
     TerminalPlugin term2Plugin = mock(TerminalPlugin.class);
+    when(term2Plugin.getDefaultTimeout()).thenReturn(java.time.Duration.ofSeconds(30));
     when(term2Plugin.getCategory()).thenReturn(PluginCategory.TERMINAL);
     when(term2Plugin.validateConfig(any())).thenReturn(Mono.empty());
     when(term2Plugin.initialize(any())).thenReturn(Mono.empty());
@@ -157,12 +167,14 @@ class WorkflowOrchestratorImprovementsTest {
             List.of(new Edge("t", "term1"), new Edge("t", "term2")));
 
     TriggerPlugin trigger = mock(TriggerPlugin.class);
+    when(trigger.getDefaultTimeout()).thenReturn(java.time.Duration.ofSeconds(30));
     when(trigger.getCategory()).thenReturn(PluginCategory.TRIGGER);
     when(trigger.validateConfig(any())).thenReturn(Mono.empty());
     when(trigger.initialize(any())).thenReturn(Mono.empty());
     when(trigger.start(any(), any())).thenReturn(Flux.never());
 
     TerminalPlugin term1Plugin = mock(TerminalPlugin.class);
+    when(term1Plugin.getDefaultTimeout()).thenReturn(java.time.Duration.ofSeconds(30));
     when(term1Plugin.getCategory()).thenReturn(PluginCategory.TERMINAL);
     when(term1Plugin.validateConfig(any())).thenReturn(Mono.empty());
     when(term1Plugin.initialize(any())).thenReturn(Mono.empty());
@@ -175,6 +187,7 @@ class WorkflowOrchestratorImprovementsTest {
             });
 
     TerminalPlugin term2Plugin = mock(TerminalPlugin.class);
+    when(term2Plugin.getDefaultTimeout()).thenReturn(java.time.Duration.ofSeconds(30));
     when(term2Plugin.getCategory()).thenReturn(PluginCategory.TERMINAL);
     when(term2Plugin.validateConfig(any())).thenReturn(Mono.empty());
     when(term2Plugin.initialize(any())).thenReturn(Mono.empty());
@@ -209,6 +222,7 @@ class WorkflowOrchestratorImprovementsTest {
         new WorkflowDefinition("desc", List.of(t, term), List.of(new Edge("t", "term")));
 
     TriggerPlugin trigger = mock(TriggerPlugin.class);
+    when(trigger.getDefaultTimeout()).thenReturn(java.time.Duration.ofSeconds(30));
     when(trigger.getCategory()).thenReturn(PluginCategory.TRIGGER);
     when(trigger.validateConfig(any())).thenReturn(Mono.empty());
     when(trigger.initialize(any())).thenReturn(Mono.empty());
@@ -216,6 +230,7 @@ class WorkflowOrchestratorImprovementsTest {
         .thenReturn(Flux.just(Message.create(UUID.randomUUID(), "data")));
 
     TerminalPlugin terminal = mock(TerminalPlugin.class);
+    when(terminal.getDefaultTimeout()).thenReturn(java.time.Duration.ofSeconds(30));
     when(terminal.getCategory()).thenReturn(PluginCategory.TERMINAL);
     when(terminal.validateConfig(any())).thenReturn(Mono.empty());
     when(terminal.initialize(any())).thenReturn(Mono.empty());

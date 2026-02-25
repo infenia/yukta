@@ -15,11 +15,22 @@
  */
 package com.infenia.jagratha.plugin;
 
+import java.time.Duration;
 import java.util.Map;
 import reactor.core.publisher.Mono;
 
 /** Base interface for all workflow plugins. */
 public interface WorkflowPlugin {
+
+  /**
+   * Get the default timeout for this plugin.
+   *
+   * @return the default timeout
+   */
+  default Duration getDefaultTimeout() {
+    return Duration.ofSeconds(30);
+  }
+
   /**
    * Get the unique type string for this plugin.
    *

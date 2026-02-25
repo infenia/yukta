@@ -24,6 +24,7 @@ import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.infenia.jagratha.config.AppConfigService;
 import com.infenia.jagratha.model.WorkflowDefinition;
 import com.infenia.jagratha.model.WorkflowDefinition.Edge;
 import com.infenia.jagratha.model.WorkflowDefinition.Node;
@@ -46,18 +47,21 @@ class WorkflowOrchestratorFanInTest {
   private WorkflowRegistry registry;
   private TaskTrackerService tracker;
   private WorkflowValidator validator;
+  private AppConfigService configService;
   private WorkflowOrchestrator orchestrator;
 
   @BeforeEach
   void setUp() {
     registry = mock(WorkflowRegistry.class);
     tracker = mock(TaskTrackerService.class);
+    configService = mock(AppConfigService.class);
     validator = new WorkflowValidator(registry);
     when(tracker.startWorkflow(any(), any(), any(), any())).thenReturn(Mono.empty());
     when(tracker.updateTaskStatus(any(), any(), any(), any())).thenReturn(Mono.empty());
     when(tracker.finishWorkflow(any(), any())).thenReturn(Mono.empty());
     when(tracker.appendLog(any(), any())).thenReturn(Mono.empty());
-    orchestrator = new WorkflowOrchestrator(registry, tracker, validator);
+    when(configService.getExecutionTimeout(anyString())).thenReturn(Mono.just(3600L));
+    orchestrator = new WorkflowOrchestrator(registry, tracker, validator, configService);
   }
 
   @Test
@@ -75,6 +79,7 @@ class WorkflowOrchestratorFanInTest {
             List.of(new Edge("t1", "p1"), new Edge("t2", "p1"), new Edge("p1", "term")));
 
     TriggerPlugin trigger = mock(TriggerPlugin.class);
+    when(trigger.getDefaultTimeout()).thenReturn(java.time.Duration.ofSeconds(30));
     when(trigger.getCategory()).thenReturn(PluginCategory.TRIGGER);
     when(trigger.validateConfig(any())).thenReturn(Mono.empty());
     when(trigger.initialize(any())).thenReturn(Mono.empty());
@@ -86,6 +91,7 @@ class WorkflowOrchestratorFanInTest {
             });
 
     ProcessorPlugin processor = mock(ProcessorPlugin.class);
+    when(processor.getDefaultTimeout()).thenReturn(java.time.Duration.ofSeconds(30));
     when(processor.getCategory()).thenReturn(PluginCategory.PROCESSOR);
     when(processor.validateConfig(any())).thenReturn(Mono.empty());
     when(processor.initialize(any())).thenReturn(Mono.empty());
@@ -97,6 +103,7 @@ class WorkflowOrchestratorFanInTest {
             });
 
     TerminalPlugin terminal = mock(TerminalPlugin.class);
+    when(terminal.getDefaultTimeout()).thenReturn(java.time.Duration.ofSeconds(30));
     when(terminal.getCategory()).thenReturn(PluginCategory.TERMINAL);
     when(terminal.validateConfig(any())).thenReturn(Mono.empty());
     when(terminal.initialize(any())).thenReturn(Mono.empty());
@@ -144,6 +151,7 @@ class WorkflowOrchestratorFanInTest {
                 new Edge("p2", "term")));
 
     TriggerPlugin trigger = mock(TriggerPlugin.class);
+    when(trigger.getDefaultTimeout()).thenReturn(java.time.Duration.ofSeconds(30));
     when(trigger.getCategory()).thenReturn(PluginCategory.TRIGGER);
     when(trigger.validateConfig(any())).thenReturn(Mono.empty());
     when(trigger.initialize(any())).thenReturn(Mono.empty());
@@ -151,12 +159,14 @@ class WorkflowOrchestratorFanInTest {
         .thenReturn(Flux.just(Message.create(UUID.randomUUID(), "data")));
 
     ProcessorPlugin processor = mock(ProcessorPlugin.class);
+    when(processor.getDefaultTimeout()).thenReturn(java.time.Duration.ofSeconds(30));
     when(processor.getCategory()).thenReturn(PluginCategory.PROCESSOR);
     when(processor.validateConfig(any())).thenReturn(Mono.empty());
     when(processor.initialize(any())).thenReturn(Mono.empty());
     when(processor.process(any(), any())).thenAnswer(inv -> inv.getArgument(0));
 
     TerminalPlugin terminal = mock(TerminalPlugin.class);
+    when(terminal.getDefaultTimeout()).thenReturn(java.time.Duration.ofSeconds(30));
     when(terminal.getCategory()).thenReturn(PluginCategory.TERMINAL);
     when(terminal.validateConfig(any())).thenReturn(Mono.empty());
     when(terminal.initialize(any())).thenReturn(Mono.empty());
@@ -208,6 +218,7 @@ class WorkflowOrchestratorFanInTest {
             List.of(new Edge("t1", "p"), new Edge("t2", "p"), new Edge("p", "term")));
 
     TriggerPlugin trigger1 = mock(TriggerPlugin.class);
+    when(trigger1.getDefaultTimeout()).thenReturn(java.time.Duration.ofSeconds(30));
     when(trigger1.getCategory()).thenReturn(PluginCategory.TRIGGER);
     when(trigger1.validateConfig(any())).thenReturn(Mono.empty());
     when(trigger1.initialize(any())).thenReturn(Mono.empty());
@@ -215,6 +226,7 @@ class WorkflowOrchestratorFanInTest {
         .thenReturn(Flux.error(new RuntimeException("Trigger 1 failed")));
 
     TriggerPlugin trigger2 = mock(TriggerPlugin.class);
+    when(trigger2.getDefaultTimeout()).thenReturn(java.time.Duration.ofSeconds(30));
     when(trigger2.getCategory()).thenReturn(PluginCategory.TRIGGER);
     when(trigger2.validateConfig(any())).thenReturn(Mono.empty());
     when(trigger2.initialize(any())).thenReturn(Mono.empty());
@@ -222,12 +234,14 @@ class WorkflowOrchestratorFanInTest {
         .thenReturn(Flux.just(Message.create(UUID.randomUUID(), "t2-data")));
 
     ProcessorPlugin processor = mock(ProcessorPlugin.class);
+    when(processor.getDefaultTimeout()).thenReturn(java.time.Duration.ofSeconds(30));
     when(processor.getCategory()).thenReturn(PluginCategory.PROCESSOR);
     when(processor.validateConfig(any())).thenReturn(Mono.empty());
     when(processor.initialize(any())).thenReturn(Mono.empty());
     when(processor.process(any(), any())).thenAnswer(inv -> inv.getArgument(0));
 
     TerminalPlugin terminal = mock(TerminalPlugin.class);
+    when(terminal.getDefaultTimeout()).thenReturn(java.time.Duration.ofSeconds(30));
     when(terminal.getCategory()).thenReturn(PluginCategory.TERMINAL);
     when(terminal.validateConfig(any())).thenReturn(Mono.empty());
     when(terminal.initialize(any())).thenReturn(Mono.empty());

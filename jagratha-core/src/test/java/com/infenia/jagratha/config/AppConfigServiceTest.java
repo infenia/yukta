@@ -38,7 +38,7 @@ class AppConfigServiceTest {
     StepVerifier.create(configService.getWorkflow(sessionId, "w1"))
         .verifyComplete(); // Empty initially
     StepVerifier.create(configService.getExecutionTimeout(sessionId))
-        .expectNext(300L)
+        .expectNext(3600L)
         .verifyComplete();
     String home = System.getProperty("user.home");
     StepVerifier.create(configService.getFileLogDir(sessionId))

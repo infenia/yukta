@@ -21,6 +21,7 @@ import com.infenia.jagratha.service.aggregate.AggregateStore;
 import com.infenia.jagratha.service.aggregate.AggregateStore.AggregateConfig;
 import com.infenia.jagratha.service.aggregate.AggregateStore.AggregateResult;
 import com.infenia.jagratha.util.SpelUtils;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
@@ -87,6 +88,11 @@ public class AggregatorProcessor implements ProcessorPlugin {
   @Override
   public String getType() {
     return TYPE;
+  }
+
+  @Override
+  public Duration getDefaultTimeout() {
+    return Duration.ofSeconds(60);
   }
 
   @Override
