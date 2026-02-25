@@ -52,7 +52,7 @@ class ConstantSourceTest {
 
     source.initialize(config).block();
 
-    StepVerifier.create(source.start(config, Map.of()))
+    StepVerifier.create(source.start(config).contextWrite(ctx -> ctx.put("payload", Map.of())))
         .assertNext(
             message -> {
               assertTrue(message.payload() instanceof Map);
@@ -74,7 +74,7 @@ class ConstantSourceTest {
 
     source.initialize(config).block();
 
-    StepVerifier.create(source.start(config, Map.of()))
+    StepVerifier.create(source.start(config).contextWrite(ctx -> ctx.put("payload", Map.of())))
         .assertNext(
             message -> {
               assertEquals("resolved-val", message.metadata().get("key"));

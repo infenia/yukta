@@ -50,7 +50,8 @@ class WorkflowServiceTest {
     String sessionId = "sess-success";
     String workflowId = "w-success";
     WorkflowDefinition def = new WorkflowDefinition("desc", List.of(), List.of());
-    PreparedWorkflow prepared = new PreparedWorkflow(def, Map.of(), Map.of(), Map.of(), List.of());
+    PreparedWorkflow prepared =
+        new PreparedWorkflow(def, Map.of(), Map.of(), Map.of(), List.of(), (e, p) -> Mono.empty());
 
     when(configService.getWorkflow(sessionId, workflowId)).thenReturn(Mono.just(def));
     when(orchestrator.prepareWorkflow(any())).thenReturn(Mono.just(prepared));

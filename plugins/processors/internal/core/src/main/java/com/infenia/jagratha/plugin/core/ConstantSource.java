@@ -71,7 +71,7 @@ public class ConstantSource implements TriggerPlugin {
   }
 
   @Override
-  public Flux<Message> start(final Map<String, Object> config, final Map<String, Object> payload) {
+  public Flux<Message> start(final Map<String, Object> config) {
     @SuppressWarnings("unchecked")
     final Map<String, Object> variables =
         (Map<String, Object>) config.getOrDefault("variables", Map.of());

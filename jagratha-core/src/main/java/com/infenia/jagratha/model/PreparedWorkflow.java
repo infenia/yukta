@@ -38,7 +38,8 @@ public record PreparedWorkflow(
     Map<String, List<Node>> adjacencyList,
     Map<String, List<Node>> parentsList,
     Map<String, WorkflowPlugin> pluginCache,
-    List<Node> topologicalOrder) {
+    List<Node> topologicalOrder,
+    WorkflowTemplate template) {
 
   /** Compact constructor to ensure immutability. */
   public PreparedWorkflow {

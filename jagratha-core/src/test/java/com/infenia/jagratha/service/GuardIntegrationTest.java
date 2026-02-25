@@ -106,7 +106,7 @@ class GuardIntegrationTest {
     final UUID traceId = UUID.randomUUID();
     final Message msg = Message.create(traceId, Map.of("amount", 1500));
 
-    when(triggerPlugin.start(any(), any())).thenReturn(Flux.just(msg));
+    when(triggerPlugin.start(any())).thenReturn(Flux.just(msg));
     when(guardPlugin.process(any(), any()))
         .thenAnswer(
             inv -> {
@@ -158,7 +158,7 @@ class GuardIntegrationTest {
     final UUID traceId = UUID.randomUUID();
     final Message msg = Message.create(traceId, Map.of("amount", 500));
 
-    when(triggerPlugin.start(any(), any())).thenReturn(Flux.just(msg));
+    when(triggerPlugin.start(any())).thenReturn(Flux.just(msg));
     when(guardPlugin.process(any(), any()))
         .thenAnswer(
             inv -> {

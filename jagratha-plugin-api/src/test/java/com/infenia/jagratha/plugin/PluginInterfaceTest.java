@@ -89,7 +89,7 @@ class PluginInterfaceTest {
           }
 
           @Override
-          public Flux<Message> start(Map<String, Object> config, Map<String, Object> payload) {
+          public Flux<Message> start(Map<String, Object> config) {
             return Flux.empty();
           }
         };

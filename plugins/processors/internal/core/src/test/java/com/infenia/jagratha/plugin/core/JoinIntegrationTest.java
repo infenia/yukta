@@ -102,7 +102,7 @@ class JoinIntegrationTest {
     when(trigger.getType()).thenReturn("trigger");
     when(trigger.validateConfig(any())).thenReturn(Mono.empty());
     when(trigger.initialize(any())).thenReturn(Mono.empty());
-    when(trigger.start(any(), any()))
+    when(trigger.start(any()))
         .thenAnswer(
             inv -> {
               Map<String, Object> config = inv.getArgument(0);

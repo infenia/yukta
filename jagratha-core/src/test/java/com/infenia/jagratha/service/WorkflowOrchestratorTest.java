@@ -275,7 +275,7 @@ class WorkflowOrchestratorTest {
     when(trigger.getCategory()).thenReturn(PluginCategory.TRIGGER);
     when(trigger.validateConfig(any())).thenReturn(Mono.empty());
     when(trigger.initialize(any())).thenReturn(Mono.empty());
-    when(trigger.start(any(), any())).thenReturn(Flux.just(msg));
+    when(trigger.start(any())).thenReturn(Flux.just(msg));
 
     TerminalPlugin terminal = mock(TerminalPlugin.class);
     when(terminal.getDefaultTimeout()).thenReturn(java.time.Duration.ofSeconds(30));
@@ -298,7 +298,7 @@ class WorkflowOrchestratorTest {
                             sessionId, "test-workflow", executionId, pw, Map.of())))
         .verifyComplete();
 
-    verify(trigger).start(any(), any());
+    verify(trigger).start(any());
     verify(terminal).consume(any(), any());
     verify(tracker).startWorkflow(eq(executionId), eq(sessionId), anyString(), any());
     verify(tracker, atLeastOnce())
@@ -328,7 +328,7 @@ class WorkflowOrchestratorTest {
     when(trigger.getCategory()).thenReturn(PluginCategory.TRIGGER);
     when(trigger.validateConfig(any())).thenReturn(Mono.empty());
     when(trigger.initialize(any())).thenReturn(Mono.empty());
-    when(trigger.start(any(), any())).thenReturn(Flux.just(msg));
+    when(trigger.start(any())).thenReturn(Flux.just(msg));
 
     TerminalPlugin terminal = mock(TerminalPlugin.class);
     when(terminal.getDefaultTimeout()).thenReturn(java.time.Duration.ofSeconds(30));
@@ -375,7 +375,7 @@ class WorkflowOrchestratorTest {
     when(trigger.getCategory()).thenReturn(PluginCategory.TRIGGER);
     when(trigger.validateConfig(any())).thenReturn(Mono.empty());
     when(trigger.initialize(any())).thenReturn(Mono.empty());
-    when(trigger.start(any(), any())).thenReturn(Flux.just(msg));
+    when(trigger.start(any())).thenReturn(Flux.just(msg));
 
     ProcessorPlugin processor = mock(ProcessorPlugin.class);
     when(processor.getDefaultTimeout()).thenReturn(java.time.Duration.ofSeconds(30));
@@ -406,7 +406,7 @@ class WorkflowOrchestratorTest {
                             sessionId, "test-workflow", executionId, pw, Map.of())))
         .verifyComplete();
 
-    verify(trigger).start(any(), any());
+    verify(trigger).start(any());
     verify(processor).process(any(), any());
     verify(terminal).consume(any(), any());
   }
@@ -450,7 +450,7 @@ class WorkflowOrchestratorTest {
     when(trigger.getCategory()).thenReturn(PluginCategory.TRIGGER);
     when(trigger.validateConfig(any())).thenReturn(Mono.empty());
     when(trigger.initialize(any())).thenReturn(Mono.empty());
-    when(trigger.start(any(), any())).thenReturn(Flux.just(msg));
+    when(trigger.start(any())).thenReturn(Flux.just(msg));
 
     ProcessorPlugin processor = mock(ProcessorPlugin.class);
     when(processor.getDefaultTimeout()).thenReturn(java.time.Duration.ofSeconds(30));

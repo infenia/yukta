@@ -61,7 +61,11 @@ public class ApiTriggerPlugin implements TriggerPlugin {
   }
 
   @Override
-  public Flux<Message> start(final Map<String, Object> config, final Map<String, Object> payload) {
-    return Flux.just(Message.create(UUID.randomUUID(), payload));
+  public Flux<Message> start(final Map<String, Object> config) {
+    return Flux.deferContextual(
+        ctx -> {
+          final Map<String, Object> payload = ctx.get("payload");
+          return Flux.just(Message.create(UUID.randomUUID(), payload));
+        });
   }
 }

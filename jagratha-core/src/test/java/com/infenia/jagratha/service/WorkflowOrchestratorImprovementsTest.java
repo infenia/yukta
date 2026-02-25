@@ -108,8 +108,7 @@ class WorkflowOrchestratorImprovementsTest {
     when(trigger.getCategory()).thenReturn(PluginCategory.TRIGGER);
     when(trigger.validateConfig(any())).thenReturn(Mono.empty());
     when(trigger.initialize(any())).thenReturn(Mono.empty());
-    when(trigger.start(any(), any()))
-        .thenReturn(Flux.just(Message.create(UUID.randomUUID(), "data")));
+    when(trigger.start(any())).thenReturn(Flux.just(Message.create(UUID.randomUUID(), "data")));
 
     TerminalPlugin term1Plugin = mock(TerminalPlugin.class);
     when(term1Plugin.getDefaultTimeout()).thenReturn(java.time.Duration.ofSeconds(30));
@@ -168,7 +167,7 @@ class WorkflowOrchestratorImprovementsTest {
     when(trigger.getCategory()).thenReturn(PluginCategory.TRIGGER);
     when(trigger.validateConfig(any())).thenReturn(Mono.empty());
     when(trigger.initialize(any())).thenReturn(Mono.empty());
-    when(trigger.start(any(), any())).thenReturn(Flux.never());
+    when(trigger.start(any())).thenReturn(Flux.never());
 
     TerminalPlugin term1Plugin = mock(TerminalPlugin.class);
     when(term1Plugin.getDefaultTimeout()).thenReturn(java.time.Duration.ofSeconds(30));
@@ -223,8 +222,7 @@ class WorkflowOrchestratorImprovementsTest {
     when(trigger.getCategory()).thenReturn(PluginCategory.TRIGGER);
     when(trigger.validateConfig(any())).thenReturn(Mono.empty());
     when(trigger.initialize(any())).thenReturn(Mono.empty());
-    when(trigger.start(any(), any()))
-        .thenReturn(Flux.just(Message.create(UUID.randomUUID(), "data")));
+    when(trigger.start(any())).thenReturn(Flux.just(Message.create(UUID.randomUUID(), "data")));
 
     TerminalPlugin terminal = mock(TerminalPlugin.class);
     when(terminal.getDefaultTimeout()).thenReturn(java.time.Duration.ofSeconds(30));

@@ -90,7 +90,7 @@ public abstract class AbstractBuildToolPlugin implements TriggerPlugin, Processo
   protected abstract long getTimeout(Map<String, Object> config);
 
   @Override
-  public Flux<Message> start(final Map<String, Object> config, final Map<String, Object> payload) {
+  public Flux<Message> start(final Map<String, Object> config) {
     return execute(config, UUID.randomUUID());
   }
 

@@ -16,9 +16,11 @@
 package com.infenia.jagratha.service;
 
 import com.infenia.jagratha.config.AppConfigService;
+import com.infenia.jagratha.model.NodeAssembler;
 import com.infenia.jagratha.model.PreparedWorkflow;
 import com.infenia.jagratha.model.WorkflowDefinition;
 import com.infenia.jagratha.model.WorkflowDefinition.Node;
+import com.infenia.jagratha.model.WorkflowTemplate;
 import com.infenia.jagratha.plugin.Message;
 import com.infenia.jagratha.plugin.PluginCategory;
 import com.infenia.jagratha.plugin.ProcessorPlugin;
@@ -118,8 +120,11 @@ public class WorkflowOrchestrator {
                 () -> {
                   final List<Node> topologicalOrder =
                       PreparedWorkflow.computeTopologicalOrder(def, adjacencyList, parentsList);
+                  final WorkflowTemplate template =
+                      compileTemplate(
+                          def, adjacencyList, parentsList, pluginCache, topologicalOrder);
                   return new PreparedWorkflow(
-                      def, adjacencyList, parentsList, pluginCache, topologicalOrder);
+                      def, adjacencyList, parentsList, pluginCache, topologicalOrder, template);
                 }))
         .onErrorResume(
             e ->
@@ -154,81 +159,122 @@ public class WorkflowOrchestrator {
       @NotNull @Valid final PreparedWorkflow prepared,
       @NotEmpty final Map<String, Object> payload) {
 
-    return Mono.deferContextual(
-            ctx -> {
-              final String sId = ctx.get("sessionId");
-              final String wId = ctx.get("workflowId");
-              final String eId = ctx.get("executionId");
-              final List<String> nodeIds =
-                  prepared.definition().nodes().stream().map(Node::nodeId).toList();
-
-              return tracker
-                  .startWorkflow(eId, sId, wId, nodeIds)
-                  .then(
-                      Mono.defer(
-                          () -> {
-                            final Map<String, Flux<Message>> nodeStreams =
-                                new ConcurrentHashMap<>();
-                            final List<Mono<Void>> terminals = new ArrayList<>();
-                            for (final Node node : prepared.topologicalOrder()) {
-                              buildNodeIterative(
-                                  eId, node, prepared, payload, nodeStreams, terminals);
-                            }
-                            final Mono<Long> timeoutMono =
-                                configService
-                                    .getExecutionTimeout(sId)
-                                    .defaultIfEmpty(GLOBAL_TIMEOUT);
-                            return timeoutMono
-                                .flatMap(
-                                    wfTimeout -> {
-                                      Flux<Void> terminalFlux =
-                                          Flux.fromIterable(terminals)
-                                              .flatMapDelayError(m -> m, 256, 32);
-                                      if (wfTimeout > 0) {
-                                        terminalFlux =
-                                            terminalFlux.timeout(Duration.ofSeconds(wfTimeout));
-                                      }
-                                      return terminalFlux
-                                          .then()
-                                          .doOnSuccess(
-                                              v ->
-                                                  tracker.emitWorkflowStatusEvent(
-                                                      eId, STATUS_SUCCESS));
-                                    })
-                                .onErrorResume(
-                                    e -> {
-                                      tracker.emitWorkflowStatusEvent(eId, STATUS_ERROR);
-                                      return Mono.error(e);
-                                    });
-                          }));
-            })
+    return prepared
+        .template()
+        .instantiate(executionId, payload)
         .contextWrite(
             Context.of(
                 "sessionId", sessionId, "workflowId", workflowId, "executionId", executionId));
   }
 
   /**
-   * Iteratively builds the reactive stream for a node.
+   * Compiles a workflow template for high-performance execution.
    *
-   * @param executionId the execution ID
-   * @param node the node to build
-   * @param prepared the prepared workflow
-   * @param payload the initial payload
-   * @param nodeStreams the map of node IDs to their output streams
-   * @param terminals the list of terminal node completion Monos
+   * @param def the workflow definition
+   * @param adjacencyList map of nodeId to child nodes
+   * @param parentsList map of nodeId to parent nodes
+   * @param pluginCache map of nodeId to initialized plugin instances
+   * @param topologicalOrder list of nodes in topological order
+   * @return the compiled workflow template
    */
-  private void buildNodeIterative(
-      final String executionId,
-      final Node node,
-      final PreparedWorkflow prepared,
-      final Map<String, Object> payload,
-      final Map<String, Flux<Message>> nodeStreams,
-      final List<Mono<Void>> terminals) {
+  private WorkflowTemplate compileTemplate(
+      final WorkflowDefinition def,
+      final Map<String, List<Node>> adjacencyList,
+      final Map<String, List<Node>> parentsList,
+      final Map<String, WorkflowPlugin> pluginCache,
+      final List<Node> topologicalOrder) {
 
-    final List<Node> children = prepared.adjacencyList().get(node.nodeId());
-    final WorkflowPlugin plugin = prepared.pluginCache().get(node.nodeId());
+    final int nodeCount = topologicalOrder.size();
+    final Map<String, Integer> nodeToIndex = new ConcurrentHashMap<>();
+    for (int i = 0; i < nodeCount; i++) {
+      nodeToIndex.put(topologicalOrder.get(i).nodeId(), i);
+    }
+
+    final NodeAssembler[] assemblers = new NodeAssembler[nodeCount];
+    for (int i = 0; i < nodeCount; i++) {
+      final Node node = topologicalOrder.get(i);
+      assemblers[i] =
+          createNodeAssembler(def, node, adjacencyList, parentsList, pluginCache, nodeToIndex);
+    }
+
+    final List<String> nodeIds = topologicalOrder.stream().map(Node::nodeId).toList();
+
+    return (executionId, payload) ->
+        Mono.deferContextual(
+            ctx -> {
+              final String sId = ctx.get("sessionId");
+              final String wId = ctx.get("workflowId");
+
+              return tracker
+                  .startWorkflow(executionId, sId, wId, nodeIds)
+                  .then(
+                      Mono.defer(
+                          () -> {
+                            @SuppressWarnings("unchecked")
+                            final Flux<Message>[] streams = new Flux[nodeCount];
+                            final List<Mono<Void>> terminals = new ArrayList<>();
+
+                            for (final NodeAssembler assembler : assemblers) {
+                              assembler.assemble(executionId, streams, terminals);
+                            }
+
+                            final Mono<Long> timeoutMono =
+                                configService
+                                    .getExecutionTimeout(sId)
+                                    .defaultIfEmpty(GLOBAL_TIMEOUT);
+
+                            return timeoutMono.flatMap(
+                                wfTimeout -> {
+                                  Flux<Void> terminalFlux =
+                                      Flux.fromIterable(terminals)
+                                          .flatMapDelayError(m -> m, 256, 32);
+                                  if (wfTimeout > 0) {
+                                    terminalFlux =
+                                        terminalFlux.timeout(Duration.ofSeconds(wfTimeout));
+                                  }
+                                  return terminalFlux
+                                      .then()
+                                      .doOnSuccess(
+                                          v ->
+                                              tracker.emitWorkflowStatusEvent(
+                                                  executionId, STATUS_SUCCESS))
+                                      .onErrorResume(
+                                          e -> {
+                                            tracker.emitWorkflowStatusEvent(
+                                                executionId, STATUS_ERROR);
+                                            return Mono.error(e);
+                                          });
+                                });
+                          }))
+                  .contextWrite(c -> c.put("payload", payload));
+            });
+  }
+
+  /**
+   * Creates a NodeAssembler for a specific node.
+   *
+   * @param def the workflow definition
+   * @param node the node to assemble
+   * @param adjacencyList map of nodeId to child nodes
+   * @param parentsList map of nodeId to parent nodes
+   * @param pluginCache map of nodeId to initialized plugin instances
+   * @param nodeToIndex map of nodeId to stream array index
+   * @return the NodeAssembler
+   */
+  private NodeAssembler createNodeAssembler(
+      final WorkflowDefinition def,
+      final Node node,
+      final Map<String, List<Node>> adjacencyList,
+      final Map<String, List<Node>> parentsList,
+      final Map<String, WorkflowPlugin> pluginCache,
+      final Map<String, Integer> nodeToIndex) {
+
+    final List<Node> children = adjacencyList.get(node.nodeId());
+    final int childCount = children != null ? children.size() : 0;
+    final WorkflowPlugin plugin = pluginCache.get(node.nodeId());
     final Duration nodeTimeout = getNodeTimeout(node, plugin);
-    final boolean hasParents = !prepared.parentsList().get(node.nodeId()).isEmpty();
+    final boolean hasParents = !parentsList.get(node.nodeId()).isEmpty();
+    final int nodeIndex = nodeToIndex.get(node.nodeId());
 
     boolean treatAsTrigger = false;
     if (plugin instanceof TriggerPlugin) {
@@ -238,146 +284,189 @@ public class WorkflowOrchestrator {
       }
     }
 
+    NodeAssembler resultAssembler = (executionId, streams, terminals) -> {};
+
     if (treatAsTrigger) {
       final TriggerPlugin trigger = (TriggerPlugin) plugin;
-      final Flux<Message> stream =
-          trigger
-              .start(node.config(), payload)
-              .timeout(nodeTimeout)
-              .doOnSubscribe(
-                  s ->
-                      tracker.emitTaskStatusEvent(
-                          executionId, node.nodeId(), DEFAULT_TASK_ID, STATUS_RUNNING, Map.of()))
-              .doOnComplete(
-                  () ->
-                      tracker.emitTaskStatusEvent(
-                          executionId, node.nodeId(), DEFAULT_TASK_ID, STATUS_SUCCESS, Map.of()))
-              .doOnError(
-                  e ->
-                      tracker.emitTaskStatusEvent(
-                          executionId, node.nodeId(), DEFAULT_TASK_ID, STATUS_FAILURE, Map.of()))
-              .contextWrite(ctx -> ctx.put("nodeId", node.nodeId()));
-      nodeStreams.put(
-          node.nodeId(),
-          applyLoggingAndBroadcasting(executionId, node.nodeId(), stream, children.size()));
+      resultAssembler =
+          (executionId, streams, terminals) -> {
+            final Flux<Message> stream =
+                trigger
+                    .start(node.config())
+                    .timeout(nodeTimeout)
+                    .doOnSubscribe(
+                        s ->
+                            tracker.emitTaskStatusEvent(
+                                executionId,
+                                node.nodeId(),
+                                DEFAULT_TASK_ID,
+                                STATUS_RUNNING,
+                                Map.of()))
+                    .doOnComplete(
+                        () ->
+                            tracker.emitTaskStatusEvent(
+                                executionId,
+                                node.nodeId(),
+                                DEFAULT_TASK_ID,
+                                STATUS_SUCCESS,
+                                Map.of()))
+                    .doOnError(
+                        e ->
+                            tracker.emitTaskStatusEvent(
+                                executionId,
+                                node.nodeId(),
+                                DEFAULT_TASK_ID,
+                                STATUS_FAILURE,
+                                Map.of()))
+                    .contextWrite(ctx -> ctx.put("nodeId", node.nodeId()));
+            streams[nodeIndex] =
+                applyLoggingAndBroadcasting(executionId, node.nodeId(), stream, childCount);
+          };
     } else {
-      final Flux<Message> mergedInput =
-          Flux.merge(
-              prepared.definition().edges().stream()
-                  .filter(e -> e.target().equals(node.nodeId()))
-                  .map(
-                      edge -> {
-                        final Flux<Message> parentStream = nodeStreams.get(edge.source());
-                        final Flux<Message> stampedStream =
-                            parentStream.map(msg -> msg.withSourceNodeId(edge.source()));
-                        if (edge.sourcePort() != null) {
-                          return stampedStream.filter(
-                              msg -> edge.sourcePort().equals(msg.sourcePort()));
-                        }
-                        return stampedStream;
-                      })
-                  .toList());
+      final List<ParentEdgeInfo> parentEdges =
+          def.edges().stream()
+              .filter(e -> e.target().equals(node.nodeId()))
+              .map(e -> new ParentEdgeInfo(nodeToIndex.get(e.source()), e.source(), e.sourcePort()))
+              .toList();
 
       if (plugin instanceof ProcessorPlugin processor) {
-        final Flux<Message> stream =
-            mergedInput
-                .publish(
-                    f ->
-                        f.next()
-                            .flatMapMany(
-                                msg ->
-                                    processor
-                                        .process(Flux.concat(Mono.just(msg), f), node.config())
-                                        .timeout(nodeTimeout)
-                                        .doOnSubscribe(
-                                            s ->
-                                                tracker.emitTaskStatusEvent(
-                                                    executionId,
-                                                    node.nodeId(),
-                                                    DEFAULT_TASK_ID,
-                                                    STATUS_RUNNING,
-                                                    Map.of()))
-                                        .doOnComplete(
-                                            () ->
-                                                tracker.emitTaskStatusEvent(
-                                                    executionId,
-                                                    node.nodeId(),
-                                                    DEFAULT_TASK_ID,
-                                                    STATUS_SUCCESS,
-                                                    Map.of())))
-                            .switchIfEmpty(
-                                Mono.fromRunnable(
-                                        () ->
-                                            tracker.emitTaskStatusEvent(
-                                                executionId,
-                                                node.nodeId(),
-                                                DEFAULT_TASK_ID,
-                                                "SKIPPED",
-                                                Map.of()))
-                                    .thenMany(Flux.empty())))
-                .contextWrite(ctx -> ctx.put("nodeId", node.nodeId()))
-                .doOnError(
-                    e ->
-                        tracker.emitTaskStatusEvent(
-                            executionId, node.nodeId(), DEFAULT_TASK_ID, STATUS_FAILURE, Map.of()));
-        nodeStreams.put(
-            node.nodeId(),
-            applyLoggingAndBroadcasting(executionId, node.nodeId(), stream, children.size()));
+        resultAssembler =
+            (executionId, streams, terminals) -> {
+              final Flux<Message> mergedInput = mergeParentStreams(streams, parentEdges);
+              final Flux<Message> stream =
+                  mergedInput
+                      .publish(
+                          f ->
+                              f.next()
+                                  .flatMapMany(
+                                      msg ->
+                                          processor
+                                              .process(
+                                                  Flux.concat(Mono.just(msg), f), node.config())
+                                              .timeout(nodeTimeout)
+                                              .doOnSubscribe(
+                                                  s ->
+                                                      tracker.emitTaskStatusEvent(
+                                                          executionId,
+                                                          node.nodeId(),
+                                                          DEFAULT_TASK_ID,
+                                                          STATUS_RUNNING,
+                                                          Map.of()))
+                                              .doOnComplete(
+                                                  () ->
+                                                      tracker.emitTaskStatusEvent(
+                                                          executionId,
+                                                          node.nodeId(),
+                                                          DEFAULT_TASK_ID,
+                                                          STATUS_SUCCESS,
+                                                          Map.of())))
+                                  .switchIfEmpty(
+                                      Mono.fromRunnable(
+                                              () ->
+                                                  tracker.emitTaskStatusEvent(
+                                                      executionId,
+                                                      node.nodeId(),
+                                                      DEFAULT_TASK_ID,
+                                                      "SKIPPED",
+                                                      Map.of()))
+                                          .thenMany(Flux.empty())))
+                      .contextWrite(ctx -> ctx.put("nodeId", node.nodeId()))
+                      .doOnError(
+                          e ->
+                              tracker.emitTaskStatusEvent(
+                                  executionId,
+                                  node.nodeId(),
+                                  DEFAULT_TASK_ID,
+                                  STATUS_FAILURE,
+                                  Map.of()));
+              streams[nodeIndex] =
+                  applyLoggingAndBroadcasting(executionId, node.nodeId(), stream, childCount);
+            };
       } else if (plugin instanceof TerminalPlugin terminal) {
-        final Flux<Message> inputToTerminal =
-            mergedInput.concatMap(
-                msg ->
-                    Mono.deferContextual(
-                        ctx -> {
-                          ctx.<ResultCollector>getOrEmpty("resultCollector")
-                              .ifPresent(collector -> collector.add(msg));
-                          return Mono.just(msg);
-                        }));
-        final Mono<Void> completion =
-            inputToTerminal
-                .publish(
-                    f ->
-                        f.next()
-                            .flatMap(
-                                msg ->
-                                    terminal
-                                        .consume(Flux.concat(Mono.just(msg), f), node.config())
-                                        .timeout(nodeTimeout)
-                                        .doOnSubscribe(
-                                            s ->
-                                                tracker.emitTaskStatusEvent(
-                                                    executionId,
-                                                    node.nodeId(),
-                                                    DEFAULT_TASK_ID,
-                                                    STATUS_RUNNING,
-                                                    Map.of()))
-                                        .doOnSuccess(
-                                            v ->
-                                                tracker.emitTaskStatusEvent(
-                                                    executionId,
-                                                    node.nodeId(),
-                                                    DEFAULT_TASK_ID,
-                                                    STATUS_SUCCESS,
-                                                    Map.of())))
-                            .switchIfEmpty(
-                                Mono.fromRunnable(
-                                    () ->
-                                        tracker.emitTaskStatusEvent(
-                                            executionId,
-                                            node.nodeId(),
-                                            DEFAULT_TASK_ID,
-                                            "SKIPPED",
-                                            Map.of()))))
-                .contextWrite(ctx -> ctx.put("nodeId", node.nodeId()))
-                .doOnError(
-                    e ->
-                        tracker.emitTaskStatusEvent(
-                            executionId, node.nodeId(), DEFAULT_TASK_ID, STATUS_FAILURE, Map.of()))
-                .then();
-        terminals.add(completion);
+        resultAssembler =
+            (executionId, streams, terminalsList) -> {
+              final Flux<Message> mergedInput = mergeParentStreams(streams, parentEdges);
+              final Flux<Message> inputToTerminal =
+                  mergedInput.concatMap(
+                      msg ->
+                          Mono.deferContextual(
+                              ctx -> {
+                                ctx.<ResultCollector>getOrEmpty("resultCollector")
+                                    .ifPresent(collector -> collector.add(msg));
+                                return Mono.just(msg);
+                              }));
+              final Mono<Void> completion =
+                  inputToTerminal
+                      .publish(
+                          f ->
+                              f.next()
+                                  .flatMap(
+                                      msg ->
+                                          terminal
+                                              .consume(
+                                                  Flux.concat(Mono.just(msg), f), node.config())
+                                              .timeout(nodeTimeout)
+                                              .doOnSubscribe(
+                                                  s ->
+                                                      tracker.emitTaskStatusEvent(
+                                                          executionId,
+                                                          node.nodeId(),
+                                                          DEFAULT_TASK_ID,
+                                                          STATUS_RUNNING,
+                                                          Map.of()))
+                                              .doOnSuccess(
+                                                  v ->
+                                                      tracker.emitTaskStatusEvent(
+                                                          executionId,
+                                                          node.nodeId(),
+                                                          DEFAULT_TASK_ID,
+                                                          STATUS_SUCCESS,
+                                                          Map.of())))
+                                  .switchIfEmpty(
+                                      Mono.fromRunnable(
+                                          () ->
+                                              tracker.emitTaskStatusEvent(
+                                                  executionId,
+                                                  node.nodeId(),
+                                                  DEFAULT_TASK_ID,
+                                                  "SKIPPED",
+                                                  Map.of()))))
+                      .contextWrite(ctx -> ctx.put("nodeId", node.nodeId()))
+                      .doOnError(
+                          e ->
+                              tracker.emitTaskStatusEvent(
+                                  executionId,
+                                  node.nodeId(),
+                                  DEFAULT_TASK_ID,
+                                  STATUS_FAILURE,
+                                  Map.of()))
+                      .then();
+              terminalsList.add(completion);
+            };
       }
     }
+
+    return resultAssembler;
   }
+
+  private Flux<Message> mergeParentStreams(
+      final Flux<Message>[] streams, final List<ParentEdgeInfo> parentEdges) {
+    return Flux.merge(
+        parentEdges.stream()
+            .map(
+                edge -> {
+                  final Flux<Message> parentStream = streams[edge.parentIndex()];
+                  final Flux<Message> stampedStream =
+                      parentStream.map(msg -> msg.withSourceNodeId(edge.sourceNodeId()));
+                  if (edge.sourcePort() != null) {
+                    return stampedStream.filter(msg -> edge.sourcePort().equals(msg.sourcePort()));
+                  }
+                  return stampedStream;
+                })
+            .toList());
+  }
+
+  private record ParentEdgeInfo(int parentIndex, String sourceNodeId, String sourcePort) {}
 
   /**
    * Gets the timeout for a node.

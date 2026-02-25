@@ -28,7 +28,7 @@ class ApiTriggerPluginTest {
     ApiTriggerPlugin plugin = new ApiTriggerPlugin();
     Map<String, Object> payload = Map.of("key", "value");
 
-    StepVerifier.create(plugin.start(Map.of(), payload))
+    StepVerifier.create(plugin.start(Map.of()).contextWrite(ctx -> ctx.put("payload", payload)))
         .assertNext(
             message -> {
               assertEquals(payload, message.payload());

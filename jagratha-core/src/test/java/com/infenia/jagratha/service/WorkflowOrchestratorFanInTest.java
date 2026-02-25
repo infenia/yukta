@@ -80,7 +80,7 @@ class WorkflowOrchestratorFanInTest {
     when(trigger.getCategory()).thenReturn(PluginCategory.TRIGGER);
     when(trigger.validateConfig(any())).thenReturn(Mono.empty());
     when(trigger.initialize(any())).thenReturn(Mono.empty());
-    when(trigger.start(any(), any()))
+    when(trigger.start(any()))
         .thenAnswer(
             invocation -> {
               Map<String, Object> config = invocation.getArgument(0);
@@ -152,8 +152,7 @@ class WorkflowOrchestratorFanInTest {
     when(trigger.getCategory()).thenReturn(PluginCategory.TRIGGER);
     when(trigger.validateConfig(any())).thenReturn(Mono.empty());
     when(trigger.initialize(any())).thenReturn(Mono.empty());
-    when(trigger.start(any(), any()))
-        .thenReturn(Flux.just(Message.create(UUID.randomUUID(), "data")));
+    when(trigger.start(any())).thenReturn(Flux.just(Message.create(UUID.randomUUID(), "data")));
 
     ProcessorPlugin processor = mock(ProcessorPlugin.class);
     when(processor.getDefaultTimeout()).thenReturn(java.time.Duration.ofSeconds(30));
@@ -219,16 +218,14 @@ class WorkflowOrchestratorFanInTest {
     when(trigger1.getCategory()).thenReturn(PluginCategory.TRIGGER);
     when(trigger1.validateConfig(any())).thenReturn(Mono.empty());
     when(trigger1.initialize(any())).thenReturn(Mono.empty());
-    when(trigger1.start(any(), any()))
-        .thenReturn(Flux.error(new RuntimeException("Trigger 1 failed")));
+    when(trigger1.start(any())).thenReturn(Flux.error(new RuntimeException("Trigger 1 failed")));
 
     TriggerPlugin trigger2 = mock(TriggerPlugin.class);
     when(trigger2.getDefaultTimeout()).thenReturn(java.time.Duration.ofSeconds(30));
     when(trigger2.getCategory()).thenReturn(PluginCategory.TRIGGER);
     when(trigger2.validateConfig(any())).thenReturn(Mono.empty());
     when(trigger2.initialize(any())).thenReturn(Mono.empty());
-    when(trigger2.start(any(), any()))
-        .thenReturn(Flux.just(Message.create(UUID.randomUUID(), "t2-data")));
+    when(trigger2.start(any())).thenReturn(Flux.just(Message.create(UUID.randomUUID(), "t2-data")));
 
     ProcessorPlugin processor = mock(ProcessorPlugin.class);
     when(processor.getDefaultTimeout()).thenReturn(java.time.Duration.ofSeconds(30));
