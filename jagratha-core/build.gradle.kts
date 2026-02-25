@@ -28,7 +28,7 @@ dependencyManagement {
 }
 
 dependencies {
-    implementation(project(":jagratha-plugin-api"))
+    api(project(":jagratha-plugin-api"))
 
     // Default plugins
     implementation(project(":plugins:build-tools:gradle"))

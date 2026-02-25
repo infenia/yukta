@@ -58,17 +58,17 @@ class FullStackWorkflowIntegrationTest {
     final Node mapper =
         new Node(
             "mapper",
-            "MAPPER",
+            "mapper",
             Map.of("mode", "PROJECTION", "mapping", Map.of("value", "payload.input * 2")));
 
     // Filter to check value
-    final Node filter = new Node("filter", "FILTER", Map.of("condition", "payload.value > 10"));
+    final Node filter = new Node("filter", "filter", Map.of("condition", "payload.value > 10"));
 
     // Branch to route
     final Node branch =
         new Node(
             "branch",
-            "BRANCH",
+            "branch",
             Map.of(
                 "mode", "SELECT_KEY",
                 "selector", "payload.value > 20 ? 'high' : 'low'",
@@ -81,7 +81,7 @@ class FullStackWorkflowIntegrationTest {
     final Node aggregator =
         new Node(
             "aggregator",
-            "AGGREGATOR",
+            "aggregator",
             Map.of(
                 "groupBy", "'static'",
                 "window", Map.of("type", "COUNT", "size", 1),
@@ -138,10 +138,10 @@ class FullStackWorkflowIntegrationTest {
     final Node loop =
         new Node(
             "loop",
-            "LOOP_STREAM",
+            "loop-stream",
             Map.of(
                 "targetPluginId",
-                "MAPPER", // Type MAPPER in registry
+                "mapper", // Type mapper in registry
                 "targetConfig",
                 Map.of(
                     "mode", "PROJECTION", "mapping", Map.of("count", "(payload.count ?: 0) + 1")),
@@ -182,26 +182,26 @@ class FullStackWorkflowIntegrationTest {
     final Node trigger = new Node("trigger", "api-trigger", Map.of());
 
     // 2. Guard
-    final Node guard = new Node("guard", "GUARD", Map.of("condition", "payload.amount > 100"));
+    final Node guard = new Node("guard", "guard", Map.of("condition", "payload.amount > 100"));
 
     // 3. Branches
     final Node mapperTrue =
         new Node(
             "mapperTrue",
-            "MAPPER",
+            "mapper",
             Map.of("mode", "PROJECTION", "mapping", Map.of("processed", "true")));
     final Node mapperFalse =
         new Node(
             "mapperFalse",
-            "MAPPER",
+            "mapper",
             Map.of("mode", "PROJECTION", "mapping", Map.of("processed", "false")));
 
     // 4. Join
-    final Node join = new Node("join", "JOIN", Map.of("mode", "ANY"));
+    final Node join = new Node("join", "join", Map.of("mode", "ANY"));
 
     // 5. Sub-workflow Node
     final Node subWorkflowNode =
-        new Node("sub", "SUB_WORKFLOW", Map.of("subWorkflowId", "child-flow"));
+        new Node("sub", "sub-workflow", Map.of("subWorkflowId", "child-flow"));
 
     // 6. Terminal
     final Node terminal = new Node("terminal", "console", Map.of());
@@ -228,7 +228,7 @@ class FullStackWorkflowIntegrationTest {
                 new Node("t1", "api-trigger", Map.of()),
                 new Node(
                     "m1",
-                    "MAPPER",
+                    "mapper",
                     Map.of("mode", "PROJECTION", "mapping", Map.of("subResult", "'done'"))),
                 new Node("term", "console", Map.of())),
             List.of(new Edge("t1", "m1"), new Edge("m1", "term")));

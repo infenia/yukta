@@ -41,7 +41,7 @@ import reactor.core.scheduler.Schedulers;
 @SuppressWarnings({"PMD.OnlyOneReturn", "PMD.LawOfDemeter"})
 public class LoopPredicateProcessor implements ProcessorPlugin {
 
-  private static final String TYPE = "LOOP_PREDICATE";
+  private static final String TYPE = "loop-predicate";
   private static final String DEFAULT_TASK_ID = "default";
 
   @Autowired private ObjectProvider<WorkflowRegistry> registryProvider;

@@ -39,7 +39,7 @@ import reactor.core.scheduler.Schedulers;
 @SuppressWarnings({"PMD.OnlyOneReturn", "PMD.LawOfDemeter"})
 public class LoopStreamProcessor implements ProcessorPlugin {
 
-  private static final String TYPE = "LOOP_STREAM";
+  private static final String TYPE = "loop-stream";
 
   @Autowired private ObjectProvider<WorkflowRegistry> registryProvider;
 

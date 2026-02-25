@@ -18,6 +18,7 @@ package com.infenia.jagratha.validation;
 import jakarta.validation.Constraint;
 import jakarta.validation.Payload;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import java.lang.annotation.Documented;
 import java.lang.annotation.ElementType;
@@ -28,6 +29,9 @@ import java.lang.annotation.Target;
 /** Annotation for plugin name validation. */
 @NotBlank(message = "Plugin name is required")
 @Size(max = 256, message = "Plugin name must be at most 256 characters")
+@Pattern(
+    regexp = "^[a-z0-9]+(-[a-z0-9]+)*$",
+    message = "Plugin name must be in kebab-case (lowercase and hyphens only)")
 @Target({
   ElementType.FIELD,
   ElementType.PARAMETER,

@@ -184,6 +184,6 @@ class BranchProcessorTest {
 
   @Test
   void testType() {
-    assertEquals("BRANCH", processor.getType());
+    assertEquals("branch", processor.getType());
   }
 }

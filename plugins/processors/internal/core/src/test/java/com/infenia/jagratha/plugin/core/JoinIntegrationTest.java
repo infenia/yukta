@@ -84,7 +84,7 @@ class JoinIntegrationTest {
     Node join =
         new Node(
             "join",
-            "JOIN",
+            "join",
             Map.of(
                 "mode", "ALL",
                 "expectedAncestors", List.of("t1", "t2"),
@@ -128,7 +128,7 @@ class JoinIntegrationTest {
             });
 
     when(registry.get("trigger")).thenReturn(trigger);
-    when(registry.get("JOIN")).thenReturn(joinProcessor);
+    when(registry.get("join")).thenReturn(joinProcessor);
     when(registry.get("terminal")).thenReturn(terminal);
 
     String executionId = "exec-join-int";

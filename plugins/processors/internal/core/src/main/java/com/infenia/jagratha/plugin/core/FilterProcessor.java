@@ -36,7 +36,7 @@ import reactor.core.publisher.Mono;
 @SuppressWarnings({"PMD.OnlyOneReturn", "PMD.AvoidCatchingGenericException"})
 public final class FilterProcessor implements ProcessorPlugin {
 
-  private static final String TYPE = "FILTER";
+  private static final String TYPE = "filter";
   private static final String ENGINE_SPEL = "SpEL";
   private static final String ENGINE_SIMPLE = "SIMPLE";
   private static final String ENGINE_REGO = "REGO";

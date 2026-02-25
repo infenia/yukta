@@ -334,7 +334,7 @@ class MapperProcessorTest {
 
   @Test
   void testGetType() {
-    assertEquals("MAPPER", processor.getType());
+    assertEquals("mapper", processor.getType());
   }
 
   @Test

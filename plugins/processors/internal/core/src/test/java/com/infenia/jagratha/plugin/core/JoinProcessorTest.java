@@ -195,7 +195,7 @@ class JoinProcessorTest {
 
   @Test
   void testType() {
-    assertEquals("JOIN", processor.getType());
+    assertEquals("join", processor.getType());
   }
 
   // Helper for mockito

@@ -36,7 +36,21 @@ public class WorkflowRegistry {
    * @param pluginList list of plugins discovered by Spring
    */
   public WorkflowRegistry(@NotEmpty final List<WorkflowPlugin> pluginList) {
-    pluginList.forEach(plugin -> plugins.put(plugin.getType(), plugin));
+    final java.util.regex.Pattern pattern =
+        java.util.regex.Pattern.compile("^[a-z0-9]+(-[a-z0-9]+)*$");
+    pluginList.forEach(
+        plugin -> {
+          final String type = plugin.getType();
+          if (type == null || !pattern.matcher(type).matches()) {
+            throw new IllegalStateException(
+                "Invalid plugin type: '"
+                    + type
+                    + "' for plugin "
+                    + plugin.getClass().getName()
+                    + ". Plugin types must be in kebab-case.");
+          }
+          plugins.put(type, plugin);
+        });
   }
 
   /**

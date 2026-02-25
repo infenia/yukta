@@ -38,7 +38,7 @@ import reactor.core.publisher.Mono;
 })
 public class GuardProcessor implements ProcessorPlugin {
 
-  private static final String TYPE = "GUARD";
+  private static final String TYPE = "guard";
   private static final String PORT_TRUE = "true";
   private static final String PORT_FALSE = "false";
   private static final String CONFIG_CONDITION = "condition";
