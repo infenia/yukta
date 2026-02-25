@@ -39,6 +39,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 import reactor.test.StepVerifier;
 
 class WorkflowOrchestratorImprovementsTest {
@@ -57,7 +58,9 @@ class WorkflowOrchestratorImprovementsTest {
     validator = new WorkflowValidator(registry);
     when(tracker.startWorkflow(any(), any(), any(), any())).thenReturn(Mono.empty());
     when(configService.getExecutionTimeout(anyString())).thenReturn(Mono.just(3600L));
-    orchestrator = new WorkflowOrchestrator(registry, tracker, validator, configService);
+    orchestrator =
+        new WorkflowOrchestrator(
+            registry, tracker, validator, configService, Schedulers.immediate());
   }
 
   @Test

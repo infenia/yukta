@@ -39,6 +39,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 import reactor.test.StepVerifier;
 
 class GuardIntegrationTest {
@@ -61,7 +62,9 @@ class GuardIntegrationTest {
     configService = mock(AppConfigService.class);
     validator = new WorkflowValidator(registry);
     when(configService.getExecutionTimeout(anyString())).thenReturn(Mono.just(3600L));
-    orchestrator = new WorkflowOrchestrator(registry, tracker, validator, configService);
+    orchestrator =
+        new WorkflowOrchestrator(
+            registry, tracker, validator, configService, Schedulers.immediate());
 
     triggerPlugin = mock(TriggerPlugin.class);
     when(triggerPlugin.getDefaultTimeout()).thenReturn(java.time.Duration.ofSeconds(30));

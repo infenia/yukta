@@ -57,7 +57,8 @@ public class TaskTrackerService {
 
   private static final int BATCH_SIZE = 100;
   private static final Duration BATCH_TIMEOUT = Duration.ofMillis(50);
-  private static final Duration BUSY_LOOP_TIMEOUT = Duration.ofSeconds(1);
+  private static final Sinks.EmitFailureHandler RETRY_HANDLER =
+      Sinks.EmitFailureHandler.busyLooping(Duration.ofMillis(100));
 
   private final Map<String, Map<String, WorkflowState>> sessionStates = new ConcurrentHashMap<>();
   private final Map<String, String> latestExecs = new ConcurrentHashMap<>();
@@ -144,7 +145,8 @@ public class TaskTrackerService {
         () -> {
           final List<TaskProgress> initialTasks =
               nodeIds.stream()
-                  .map(id -> new TaskProgress(id, "", "PENDING", null, null, Map.of()))
+                  .map(
+                      id -> new TaskProgress(id, "", "PENDING", null, null, Collections.emptyMap()))
                   .toList();
 
           final WorkflowState state =
@@ -227,8 +229,7 @@ public class TaskTrackerService {
       @NotBlank @Size(max = 256) final String status,
       @NotNull final Map<String, Object> metadata) {
     taskStatusSink.emitNext(
-        TaskStatusEvent.create(executionId, nodeId, module, status, metadata),
-        Sinks.EmitFailureHandler.busyLooping(BUSY_LOOP_TIMEOUT));
+        TaskStatusEvent.create(executionId, nodeId, module, status, metadata), RETRY_HANDLER);
   }
 
   /**
@@ -239,9 +240,7 @@ public class TaskTrackerService {
    */
   public void emitWorkflowStatusEvent(
       @NotBlank final String executionId, @NotBlank @Size(max = 256) final String status) {
-    wfStatusSink.emitNext(
-        WorkflowStatusEvent.create(executionId, status),
-        Sinks.EmitFailureHandler.busyLooping(BUSY_LOOP_TIMEOUT));
+    wfStatusSink.emitNext(WorkflowStatusEvent.create(executionId, status), RETRY_HANDLER);
   }
 
   /**
@@ -252,9 +251,7 @@ public class TaskTrackerService {
    */
   public void emitLogEvent(
       @NotBlank final String executionId, @NotBlank @Size(max = 16_384) final String line) {
-    logSink.emitNext(
-        WorkflowLogEvent.create(executionId, line),
-        (signalType, emitResult) -> false); // Drop on overflow
+    logSink.emitNext(WorkflowLogEvent.create(executionId, line), RETRY_HANDLER);
   }
 
   /**

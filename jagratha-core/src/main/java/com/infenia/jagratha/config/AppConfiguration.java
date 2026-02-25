@@ -16,9 +16,12 @@
 package com.infenia.jagratha.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.concurrent.Executors;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import reactor.core.scheduler.Scheduler;
+import reactor.core.scheduler.Schedulers;
 
 /** Configuration for the application. */
 @Configuration
@@ -38,5 +41,16 @@ public class AppConfiguration {
   @ConditionalOnMissingBean
   public ObjectMapper objectMapper() {
     return new ObjectMapper();
+  }
+
+  /**
+   * Provide a Scheduler that uses virtual threads.
+   *
+   * @return the virtual thread scheduler
+   */
+  @Bean
+  @SuppressWarnings("PMD.DoNotUseThreads")
+  public Scheduler virtualThreadScheduler() {
+    return Schedulers.fromExecutor(Executors.newVirtualThreadPerTaskExecutor());
   }
 }

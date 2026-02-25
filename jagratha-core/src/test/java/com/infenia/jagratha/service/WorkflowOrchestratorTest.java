@@ -38,6 +38,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 import reactor.test.StepVerifier;
 
 class WorkflowOrchestratorTest {
@@ -64,7 +65,9 @@ class WorkflowOrchestratorTest {
               when(p.getDefaultTimeout()).thenReturn(java.time.Duration.ofSeconds(30));
               return p;
             });
-    orchestrator = new WorkflowOrchestrator(registry, tracker, validator, configService);
+    orchestrator =
+        new WorkflowOrchestrator(
+            registry, tracker, validator, configService, Schedulers.immediate());
   }
 
   @Test

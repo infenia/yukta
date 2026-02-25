@@ -42,6 +42,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.test.util.ReflectionTestUtils;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 import reactor.test.StepVerifier;
 
 class JoinIntegrationTest {
@@ -65,7 +66,9 @@ class JoinIntegrationTest {
     when(tracker.finishWorkflow(any(), any())).thenReturn(Mono.empty());
     when(tracker.appendLog(any(), any())).thenReturn(Mono.empty());
     when(configService.getExecutionTimeout(any())).thenReturn(Mono.just(3600L));
-    orchestrator = new WorkflowOrchestrator(registry, tracker, validator, configService);
+    orchestrator =
+        new WorkflowOrchestrator(
+            registry, tracker, validator, configService, Schedulers.immediate());
 
     joinStore = new InMemoryJoinStore();
     joinStore.init();

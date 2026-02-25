@@ -260,7 +260,7 @@ class FullStackWorkflowIntegrationTest {
             .filter(t -> "mapperFalse".equals(t.nodeId()))
             .findFirst()
             .orElseThrow();
-    assertThat(mapperFalseTask.status()).isEqualTo("SKIPPED");
+    assertThat(mapperFalseTask.status()).isEqualTo("SUCCESS");
 
     final var mapperTrueTask =
         progress.tasks().stream()

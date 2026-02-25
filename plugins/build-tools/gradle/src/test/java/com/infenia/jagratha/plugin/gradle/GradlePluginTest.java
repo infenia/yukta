@@ -92,7 +92,7 @@ class GradlePluginTest {
             "tasks", List.of("testTask"),
             "gradlePath", "./gradlew");
 
-    StepVerifier.create(plugin.start(config, Map.of()))
+    StepVerifier.create(plugin.start(config))
         .assertNext(
             message -> {
               assertNotNull(message.id());
@@ -110,7 +110,7 @@ class GradlePluginTest {
             "tasks", List.of("testTask"),
             "gradlePath", "./non-existent-gradlew");
 
-    StepVerifier.create(plugin.start(config, Map.of())).verifyError(RuntimeException.class);
+    StepVerifier.create(plugin.start(config)).verifyError(RuntimeException.class);
   }
 
   @Test
