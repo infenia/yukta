@@ -29,7 +29,7 @@ configurations {
 
 dependencies {
     testImplementation(libs.findLibrary("spring-boot-starter-test").get())
-    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+    testRuntimeOnly(libs.findLibrary("junit-platform-launcher").get())
 }
 
 tasks.withType<JavaCompile>().configureEach {

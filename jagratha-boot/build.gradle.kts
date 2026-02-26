@@ -51,6 +51,9 @@ graalvmNative {
             imageName.set("jagratha")
             mainClass.set("com.infenia.jagratha.JagrathaApplication")
             buildArgs.add("--no-fallback")
+
+            // 🔥 Force prod profile inside native image
+            buildArgs.add("-Dspring.profiles.active=prod")
         }
     }
 }

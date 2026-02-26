@@ -13,7 +13,7 @@ pmd = "7.21.0"
 spotbugs = "6.4.8"
 jackson = "2.18.2"
 jacksonDataformatYaml = "2.18.2"
-jte = "3.1.16"
+jte = "3.2.3"
 htmx = "5.0.0"
 cyclonedx = "3.2.0"
 handlebars = "4.5.0"
@@ -23,13 +23,13 @@ node = "24.13.1"
 pnpm = "10.30.1"
 
 [libraries]
-spring-boot-starter = { group = "org.springframework.boot", name = "spring-boot-starter", version.ref = "springBoot" }
-spring-boot-autoconfigure = { group = "org.springframework.boot", name = "spring-boot-autoconfigure", version.ref = "springBoot" }
-spring-boot-starter-webflux = { group = "org.springframework.boot", name = "spring-boot-starter-webflux", version.ref = "springBoot" }
-spring-boot-starter-webclient = { group = "org.springframework.boot", name = "spring-boot-starter-webclient", version.ref = "springBoot" }
-spring-boot-starter-validation = { group = "org.springframework.boot", name = "spring-boot-starter-validation", version.ref = "springBoot" }
-spring-boot-starter-actuator = { group = "org.springframework.boot", name = "spring-boot-starter-actuator", version.ref = "springBoot" }
-spring-boot-configuration-processor = { group = "org.springframework.boot", name = "spring-boot-configuration-processor", version.ref = "springBoot" }
+spring-boot-starter = { group = "org.springframework.boot", name = "spring-boot-starter" }
+spring-boot-autoconfigure = { group = "org.springframework.boot", name = "spring-boot-autoconfigure" }
+spring-boot-starter-webflux = { group = "org.springframework.boot", name = "spring-boot-starter-webflux" }
+spring-boot-starter-webclient = { group = "org.springframework.boot", name = "spring-boot-starter-webclient" }
+spring-boot-starter-validation = { group = "org.springframework.boot", name = "spring-boot-starter-validation" }
+spring-boot-starter-actuator = { group = "org.springframework.boot", name = "spring-boot-starter-actuator" }
+spring-boot-configuration-processor = { group = "org.springframework.boot", name = "spring-boot-configuration-processor" }
 jackson-databind = { group = "com.fasterxml.jackson.core", name = "jackson-databind", version.ref = "jackson" }
 jackson-dataformat-yaml = { group = "com.fasterxml.jackson.dataformat", name = "jackson-dataformat-yaml", version.ref = "jacksonDataformatYaml" }
 mapstruct = { group = "org.mapstruct", name = "mapstruct", version.ref = "mapstruct" }
@@ -37,24 +37,23 @@ mapstruct-processor = { group = "org.mapstruct", name = "mapstruct-processor", v
 lombok-mapstruct-binding = { group = "org.projectlombok", name = "lombok-mapstruct-binding", version.ref = "lombokMapstructBinding" }
 spring-ai-mcp-server = { group = "org.springframework.ai", name = "spring-ai-starter-mcp-server", version.ref = "springAi" }
 springdoc-openapi = { group = "org.springdoc", name = "springdoc-openapi-starter-webflux-ui", version.ref = "springdoc" }
-jte-starter = { group = "gg.jte", name = "jte-spring-boot-starter-3", version.ref = "jte" }
-jte-runtime = { group = "gg.jte", name = "jte-runtime", version.ref = "jte" }
-jte-core = { group = "gg.jte", name = "jte", version.ref = "jte" }
+jte-starter = { group = "gg.jte", name = "jte-spring-boot-starter-4", version.ref = "jte" }
 htmx-spring-boot = { group = "io.github.wimdeblauwe", name = "htmx-spring-boot", version.ref = "htmx" }
 handlebars = { group = "com.github.jknack", name = "handlebars", version.ref = "handlebars" }
 graalvm-polyglot = { group = "org.graalvm.polyglot", name = "polyglot", version.ref = "graalvmPolyglot" }
 graalvm-js = { group = "org.graalvm.polyglot", name = "js", version.ref = "graalvmPolyglot" }
 lombok = { group = "org.projectlombok", name = "lombok", version = "1.18.36" }
-spring-boot-devtools = { group = "org.springframework.boot", name = "spring-boot-devtools", version.ref = "springBoot" }
-spring-boot-docker-compose = { group = "org.springframework.boot", name = "spring-boot-docker-compose", version.ref = "springBoot" }
+spring-boot-devtools = { group = "org.springframework.boot", name = "spring-boot-devtools" }
+spring-boot-docker-compose = { group = "org.springframework.boot", name = "spring-boot-docker-compose" }
 
 # Testing
-spring-boot-starter-test = { group = "org.springframework.boot", name = "spring-boot-starter-test", version.ref = "springBoot" }
-spring-boot-starter-actuator-test = { group = "org.springframework.boot", name = "spring-boot-starter-actuator-test", version.ref = "springBoot" }
-spring-boot-starter-validation-test = { group = "org.springframework.boot", name = "spring-boot-starter-validation-test", version.ref = "springBoot" }
-spring-boot-starter-webclient-test = { group = "org.springframework.boot", name = "spring-boot-starter-webclient-test", version.ref = "springBoot" }
-spring-boot-starter-webflux-test = { group = "org.springframework.boot", name = "spring-boot-starter-webflux-test", version.ref = "springBoot" }
-spring-boot-starter-jackson-test = { group = "org.springframework.boot", name = "spring-boot-starter-jackson-test", version.ref = "springBoot" }
+junit-platform-launcher = { group = "org.junit.platform", name = "junit-platform-launcher" }
+spring-boot-starter-test = { group = "org.springframework.boot", name = "spring-boot-starter-test" }
+spring-boot-starter-actuator-test = { group = "org.springframework.boot", name = "spring-boot-starter-actuator-test" }
+spring-boot-starter-validation-test = { group = "org.springframework.boot", name = "spring-boot-starter-validation-test" }
+spring-boot-starter-webclient-test = { group = "org.springframework.boot", name = "spring-boot-starter-webclient-test" }
+spring-boot-starter-webflux-test = { group = "org.springframework.boot", name = "spring-boot-starter-webflux-test" }
+spring-boot-starter-jackson-test = { group = "org.springframework.boot", name = "spring-boot-starter-jackson-test" }
 reactor-test = { group = "io.projectreactor", name = "reactor-test" }
 
 [plugins]

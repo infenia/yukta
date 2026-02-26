@@ -32,7 +32,6 @@ extra["jacocoMinimumCoverage"] = 0.05
 dependencies {
     implementation(project(":jagratha-core"))
     implementation(libs.jte.starter)
-    implementation(libs.jte.core)
     implementation(libs.htmx.spring.boot)
     implementation(libs.spring.boot.starter.webflux)
 
@@ -43,20 +42,51 @@ dependencies {
     testImplementation(libs.reactor.test)
 }
 
+val requestedTasks = gradle.startParameter.taskNames
+
+val isNativeBuild = requestedTasks.any {
+    it.contains("native", ignoreCase = true)
+}
+
+val isPackagingBuild = requestedTasks.any {
+    it.contains("build", ignoreCase = true) ||
+            it.contains("assemble", ignoreCase = true) ||
+            it.contains("bootJar", ignoreCase = true)
+}
+
+val isProdBuild = isNativeBuild || isPackagingBuild
+
+
 configure<JteExtension> {
-    sourceDirectory.set(file("src/main/jte").toPath())
-    targetDirectory.set(layout.buildDirectory.dir("jte-classes").get().asFile.toPath())
+    sourceDirectory.set(
+        project.layout.projectDirectory
+            .dir("src/main/jte")
+            .asFile
+            .toPath()
+    )
+
+    targetDirectory.set(
+        layout.buildDirectory
+            .dir("jte-classes")
+            .get()
+            .asFile
+            .toPath()
+    )
     compilePath = sourceSets.main.get().compileClasspath
-    generate()
-    precompile()
-    binaryStaticContent.set(false)
+    if (isProdBuild) {
+        println("JTE → PRODUCTION mode (precompiled)")
+        precompile()
+        binaryStaticContent.set(true)
+    } else {
+        println("JTE → DEVELOPMENT mode (hot reload)")
+        generate()
+        binaryStaticContent.set(false)
+    }
 }
 
 tasks.named("bootJar") {
     enabled = false
 }
-
-sourceSets.main.get().output.dir(mapOf("builtBy" to "precompileJte"), layout.buildDirectory.dir("jte-classes"))
 
 tasks.named<Jar>("jar") {
     enabled = true

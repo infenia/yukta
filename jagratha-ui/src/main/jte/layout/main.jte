@@ -57,15 +57,29 @@
                     </div>
                 </div>
 
-                <button onclick="toggleTheme()" class="p-2 rounded-lg glass-panel text-text-slate-500 hover:text-primary transition-colors">
-                    <span id="theme-icon-dark" class="material-symbols-outlined hidden dark:block">light_mode</span>
-                    <span id="theme-icon-light" class="material-symbols-outlined block dark:hidden">dark_mode</span>
-                </button>
+                <div class="relative">
+                    <button id="theme-toggle-btn" onclick="toggleThemeDropdown(event)" class="w-10 h-10 rounded-full glass-panel text-text-slate-500 hover:text-primary transition-colors flex items-center justify-center border border-white/50 dark:border-slate-700 hover:border-primary">
+                        <span id="theme-icon" class="material-symbols-outlined text-[20px]">light_mode</span>
+                    </button>
 
-                <button class="relative w-10 h-10 rounded-full overflow-hidden border-2 border-white/50 hover:border-white transition-colors shadow-sm">
-                    <img alt="User avatar" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuA6XqSoLS_0uUXKRsnSWNLQVHngIMz0GfSC5UOgSBOHmWKrcMaYMdpbZsA1oFjEyLAvCsn95gD5IMYOJLAj_iB6sCtsUEOyusY7m2vG2hCjFHptHLS44r9TjgbsqONUxWJTm75xjZo2BrKiK7vg3yV_9F96bShnq54kd3KlcUGuIVCzse8nTZIdfQDFx-kRnYOfW72CQTbNhgcE6kqAfLpwJzv-D6roFIhw1xvaRTJ0xCprc9jHJhV2g3BYFo93ZH1obx3qGu9aSd-Q"/>
-                    <div class="absolute bottom-0 right-0 w-2.5 h-2.5 bg-accent-success rounded-full border border-white"></div>
-                </button>
+                    <div id="theme-dropdown" class="absolute right-0 top-full mt-2 w-48 bg-white dark:bg-slate-800 rounded-lg shadow-lg border border-white/20 dark:border-slate-700 opacity-0 invisible transition-all duration-200 z-50" style="display: none; pointer-events: none;">
+                        <button onclick="setTheme('light'); event.stopPropagation();" class="w-full text-left px-4 py-3 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-t-lg flex items-center gap-3 transition-colors group/item">
+                            <span class="material-symbols-outlined text-text-slate-500 group-hover/item:text-primary">light_mode</span>
+                            <span class="text-sm font-medium text-text-slate-800 dark:text-slate-200">Light</span>
+                            <span id="light-check" class="material-symbols-outlined ml-auto text-primary hidden">check</span>
+                        </button>
+                        <button onclick="setTheme('dark'); event.stopPropagation();" class="w-full text-left px-4 py-3 hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center gap-3 transition-colors group/item">
+                            <span class="material-symbols-outlined text-text-slate-500 group-hover/item:text-primary">dark_mode</span>
+                            <span class="text-sm font-medium text-text-slate-800 dark:text-slate-200">Dark</span>
+                            <span id="dark-check" class="material-symbols-outlined ml-auto text-primary hidden">check</span>
+                        </button>
+                        <button onclick="setTheme('system'); event.stopPropagation();" class="w-full text-left px-4 py-3 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-b-lg flex items-center gap-3 transition-colors group/item">
+                            <span class="material-symbols-outlined text-text-slate-500 group-hover/item:text-primary">smart_toy</span>
+                            <span class="text-sm font-medium text-text-slate-800 dark:text-slate-200">System</span>
+                            <span id="system-check" class="material-symbols-outlined ml-auto text-primary hidden">check</span>
+                        </button>
+                    </div>
+                </div>
             </div>
         </header>
 
@@ -75,15 +89,135 @@
     </div>
 
     <script>
-        function toggleTheme() {
-            if (document.documentElement.classList.contains('dark')) {
-                document.documentElement.classList.remove('dark');
-                localStorage.theme = 'light';
+        let themeDropdownOpen = false;
+
+        function closeThemeDropdown() {
+            const dropdown = document.getElementById('theme-dropdown');
+            themeDropdownOpen = false;
+            dropdown?.classList.add('opacity-0', 'invisible');
+            dropdown.style.pointerEvents = 'none';
+            // Fallback if CSS utilities aren't available
+            if (dropdown) dropdown.style.display = 'none';
+        }
+
+        function openThemeDropdown() {
+            const dropdown = document.getElementById('theme-dropdown');
+            themeDropdownOpen = true;
+            dropdown?.classList.remove('opacity-0', 'invisible');
+            dropdown.style.pointerEvents = 'auto';
+            // Fallback if CSS utilities aren't available
+            if (dropdown) dropdown.style.display = 'block';
+        }
+
+        function toggleThemeDropdown(e) {
+            e.stopPropagation();
+            if (themeDropdownOpen) {
+                closeThemeDropdown();
             } else {
-                document.documentElement.classList.add('dark');
-                localStorage.theme = 'dark';
+                openThemeDropdown();
             }
         }
+
+        function getSystemTheme() {
+            return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        }
+
+        function applyTheme(isDark) {
+            if (isDark) {
+                document.documentElement.classList.add('dark');
+            } else {
+                document.documentElement.classList.remove('dark');
+            }
+        }
+
+        function setTheme(theme) {
+            if (theme === 'dark') {
+                localStorage.theme = 'dark';
+                applyTheme(true);
+            } else if (theme === 'light') {
+                localStorage.theme = 'light';
+                applyTheme(false);
+            } else if (theme === 'system') {
+                localStorage.removeItem('theme');
+                // Apply system preference
+                const systemTheme = getSystemTheme();
+                applyTheme(systemTheme === 'dark');
+            }
+            updateThemeIcon();
+            updateThemeCheckmarks();
+            closeThemeDropdown();
+        }
+
+        function updateThemeIcon() {
+            const themeIcon = document.getElementById('theme-icon');
+            const isDark = document.documentElement.classList.contains('dark');
+            
+            if (isDark) {
+                themeIcon.textContent = 'light_mode';
+            } else {
+                themeIcon.textContent = 'dark_mode';
+            }
+        }
+
+        function updateThemeCheckmarks() {
+            const userTheme = localStorage.theme;
+            const lightCheck = document.getElementById('light-check');
+            const darkCheck = document.getElementById('dark-check');
+            const systemCheck = document.getElementById('system-check');
+
+            if (!lightCheck || !darkCheck || !systemCheck) return;
+
+            // Hide all checks first (both utility class and inline fallback)
+            [lightCheck, darkCheck, systemCheck].forEach(el => {
+                el.classList.add('hidden');
+                el.style.display = 'none';
+            });
+
+            // Show the appropriate check (use inline display for reliability)
+            if (userTheme === 'dark') {
+                darkCheck.classList.remove('hidden');
+                darkCheck.style.display = '';
+            } else if (userTheme === 'light') {
+                lightCheck.classList.remove('hidden');
+                lightCheck.style.display = '';
+            } else {
+                // System theme is selected (or not set yet)
+                systemCheck.classList.remove('hidden');
+                systemCheck.style.display = '';
+            }
+        }
+
+        // Initialize on DOM ready
+        document.addEventListener('DOMContentLoaded', () => {
+            // Close dropdown when clicking outside
+            document.addEventListener('click', (e) => {
+                const dropdown = document.getElementById('theme-dropdown');
+                const btn = document.getElementById('theme-toggle-btn');
+                if (themeDropdownOpen && dropdown && btn && !dropdown.contains(e.target) && !btn.contains(e.target)) {
+                    closeThemeDropdown();
+                }
+            });
+
+            // Listen to system theme changes when user selected 'system'
+            const mq = window.matchMedia('(prefers-color-scheme: dark)');
+            const mqHandler = (ev) => {
+                if (!localStorage.theme) {
+                    applyTheme(ev.matches);
+                    updateThemeIcon();
+                    updateThemeCheckmarks();
+                }
+            };
+            if (mq.addEventListener) {
+                mq.addEventListener('change', mqHandler);
+            } else if (mq.addListener) {
+                mq.addListener(mqHandler);
+            }
+
+            // Ensure dropdown is hidden on load (safety fallback)
+            closeThemeDropdown();
+            updateThemeCheckmarks();
+            updateThemeIcon();
+        });
 
         // Global search shortcut
         document.addEventListener('keydown', (e) => {

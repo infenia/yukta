@@ -1,4 +1,6 @@
 spring:
+  profiles:
+    default: dev
   threads:
     virtual:
       enabled: true
@@ -20,7 +22,7 @@ logging:
     org.springframework: WARN
     org.springframework.web: DEBUG
 
-jte:
-  usePrecompiledTemplates: false
-  pattern:
-    console: "%d{yyyy-MM-dd HH:mm:ss} %-5p %c{1}:%L - %m%n%wEx"
+gg:
+  jte:
+    developmentMode: true
+    usePrecompiledTemplates: false

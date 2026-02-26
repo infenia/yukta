@@ -405,13 +405,11 @@ public class WorkflowOrchestrator {
                           Collections.emptyMap()))
               .contextWrite(
                   ctx ->
-                      ctx.putAll(
-                          Context.of(CTX_NODE_ID, node.nodeId())
-                              .put(CTX_PAYLOAD, pld)
-                              .put(CTX_SESSION_ID, sessId)
-                              .put(CTX_WORKFLOW_ID, wfId)
-                              .put(CTX_EXECUTION_ID, execId)
-                              .readOnly()));
+                      ctx.put(CTX_NODE_ID, node.nodeId())
+                          .put(CTX_PAYLOAD, pld)
+                          .put(CTX_SESSION_ID, sessId)
+                          .put(CTX_WORKFLOW_ID, wfId)
+                          .put(CTX_EXECUTION_ID, execId));
       strms[index] =
           applyLoggingAndBroadcasting(execId, node.nodeId(), stream, bufferSize, disps, conns);
     };
@@ -459,13 +457,11 @@ public class WorkflowOrchestrator {
                           Collections.emptyMap()))
               .contextWrite(
                   ctx ->
-                      ctx.putAll(
-                          Context.of(CTX_NODE_ID, node.nodeId())
-                              .put(CTX_PAYLOAD, pld)
-                              .put(CTX_SESSION_ID, sessId)
-                              .put(CTX_WORKFLOW_ID, wfId)
-                              .put(CTX_EXECUTION_ID, execId)
-                              .readOnly()))
+                      ctx.put(CTX_NODE_ID, node.nodeId())
+                          .put(CTX_PAYLOAD, pld)
+                          .put(CTX_SESSION_ID, sessId)
+                          .put(CTX_WORKFLOW_ID, wfId)
+                          .put(CTX_EXECUTION_ID, execId))
               .doOnError(
                   e ->
                       tracker.emitTaskStatusEvent(
@@ -526,13 +522,11 @@ public class WorkflowOrchestrator {
                           Collections.emptyMap()))
               .contextWrite(
                   ctx ->
-                      ctx.putAll(
-                          Context.of(CTX_NODE_ID, node.nodeId())
-                              .put(CTX_PAYLOAD, pld)
-                              .put(CTX_SESSION_ID, sessId)
-                              .put(CTX_WORKFLOW_ID, wfId)
-                              .put(CTX_EXECUTION_ID, execId)
-                              .readOnly()))
+                      ctx.put(CTX_NODE_ID, node.nodeId())
+                          .put(CTX_PAYLOAD, pld)
+                          .put(CTX_SESSION_ID, sessId)
+                          .put(CTX_WORKFLOW_ID, wfId)
+                          .put(CTX_EXECUTION_ID, execId))
               .doOnError(
                   e ->
                       tracker.emitTaskStatusEvent(
