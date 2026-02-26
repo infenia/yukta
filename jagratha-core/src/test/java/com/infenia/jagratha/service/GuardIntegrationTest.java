@@ -64,7 +64,7 @@ class GuardIntegrationTest {
     when(configService.getExecutionTimeout(anyString())).thenReturn(Mono.just(3600L));
     orchestrator =
         new WorkflowOrchestrator(
-            registry, tracker, validator, configService, Schedulers.immediate());
+            registry, tracker, validator, configService, Schedulers.parallel());
 
     triggerPlugin = mock(TriggerPlugin.class);
     when(triggerPlugin.getDefaultTimeout()).thenReturn(java.time.Duration.ofSeconds(30));

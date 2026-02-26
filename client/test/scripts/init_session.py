@@ -18,16 +18,27 @@ CONFIG = {
                 "description": "Standard quality gate for checking project status",
                 "nodes": [
                     {
-                        "nodeId": "gradle-check",
+                        "nodeId": "gradle-spotless-apply",
                         "type": "gradle",
                         "config": {
                             "tasks": ["spotlessApply"],
                             "projectRoot": "/media/arun/Infenia/Infenia/Development/Public/jagratha"
                         }
                     },
+                    {
+                        "nodeId": "gradle-checkstyle",
+                        "type": "gradle",
+                        "config": {
+                            "tasks": ["checkstyleMain"],
+                            "projectRoot": "/media/arun/Infenia/Infenia/Development/Public/jagratha"
+                        }
+                    },
                     {"nodeId": "terminal-1", "type": "console", "config": {}}
                 ],
-                "edges": [{"source": "gradle-check", "target": "terminal-1"}]
+                "edges": [
+                {"source": "gradle-spotless-apply", "target": "gradle-checkstyle"},
+                {"source": "gradle-checkstyle", "target": "terminal-1"}
+                ]
             }
         }
     }

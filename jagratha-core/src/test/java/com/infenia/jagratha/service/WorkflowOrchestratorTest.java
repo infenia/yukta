@@ -67,7 +67,7 @@ class WorkflowOrchestratorTest {
             });
     orchestrator =
         new WorkflowOrchestrator(
-            registry, tracker, validator, configService, Schedulers.immediate());
+            registry, tracker, validator, configService, Schedulers.parallel());
   }
 
   @Test

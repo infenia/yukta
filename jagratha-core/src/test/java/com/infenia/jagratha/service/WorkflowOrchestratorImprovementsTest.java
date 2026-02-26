@@ -58,9 +58,10 @@ class WorkflowOrchestratorImprovementsTest {
     validator = new WorkflowValidator(registry);
     when(tracker.startWorkflow(any(), any(), any(), any())).thenReturn(Mono.empty());
     when(configService.getExecutionTimeout(anyString())).thenReturn(Mono.just(3600L));
+    // Default orchestrator for simple tests
     orchestrator =
         new WorkflowOrchestrator(
-            registry, tracker, validator, configService, Schedulers.immediate());
+            registry, tracker, validator, configService, Schedulers.parallel());
   }
 
   @Test
@@ -155,6 +156,7 @@ class WorkflowOrchestratorImprovementsTest {
 
   @Test
   void testExecuteAutoConnectTimeout() {
+    // Re-instantiate orchestrator inside withVirtualTime to ensure it uses the virtual scheduler
     String sessionId = "sess-1";
     Node t = new Node("t", "type-t", Map.of());
     Node term1 = new Node("term1", "type-term1", Map.of());
@@ -197,15 +199,20 @@ class WorkflowOrchestratorImprovementsTest {
     when(registry.get("type-term1")).thenReturn(term1Plugin);
     when(registry.get("type-term2")).thenReturn(term2Plugin);
 
-    // replay(1).refCount(2, 30s) will hang if only 1 subscribes
+    // Set a short execution timeout for this test to verify the orchestrator handles hangs
+    when(configService.getExecutionTimeout(eq(sessionId))).thenReturn(Mono.just(30L));
+
     StepVerifier.withVirtualTime(
-            () ->
-                orchestrator
-                    .prepareWorkflow(def)
-                    .flatMap(
-                        p ->
-                            orchestrator.execute(
-                                sessionId, "test-workflow", "exec-2", p, Map.of())))
+            () -> {
+              WorkflowOrchestrator vOrchestrator =
+                  new WorkflowOrchestrator(
+                      registry, tracker, validator, configService, Schedulers.parallel());
+              return vOrchestrator
+                  .prepareWorkflow(def)
+                  .flatMap(
+                      p ->
+                          vOrchestrator.execute(sessionId, "test-workflow", "exec-2", p, Map.of()));
+            })
         .expectSubscription()
         .thenAwait(Duration.ofSeconds(35))
         .expectError()

@@ -22,21 +22,19 @@ import gg.jte.resolve.DirectoryCodeResolver;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+
+import lombok.NoArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 /** Configuration for JTE template engine. */
 @Configuration
+@NoArgsConstructor
 public class JteConfiguration {
 
   @Value("${jte.usePrecompiledTemplates:false}")
   private boolean usePrecompiled;
-
-  /** Default constructor. */
-  public JteConfiguration() {
-    // Standard configuration initialization
-  }
 
   /**
    * Create the TemplateEngine bean.

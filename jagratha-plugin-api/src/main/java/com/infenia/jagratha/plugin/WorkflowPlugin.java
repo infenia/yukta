@@ -113,4 +113,14 @@ public interface WorkflowPlugin {
   default Mono<Void> shutdown(Map<String, Object> config) {
     return Mono.empty();
   }
+
+  /**
+   * Indicates if this plugin performs blocking I/O or long-running synchronous computation that
+   * requires offloading to a dedicated thread pool (e.g., Virtual Threads).
+   *
+   * @return true if the plugin is blocking, false otherwise (default)
+   */
+  default boolean isBlocking() {
+    return false;
+  }
 }
