@@ -100,13 +100,32 @@ val tailwind = tasks.register<PnpmTask>("tailwind") {
     outputs.file(layout.buildDirectory.file("tailwind/style.css"))
 }
 
+// JS Bundle task
+val bundleJs = tasks.register<PnpmTask>("bundleJs") {
+    dependsOn("pnpmInstall")
+    pnpmCommand.set(listOf("exec", "esbuild", "./src/main/js/app.js", "--bundle", "--outfile=${layout.buildDirectory.get().asFile}/esbuild/app.js", "--minify", "--sourcemap"))
+    inputs.dir("./src/main/js")
+    outputs.dir(layout.buildDirectory.dir("esbuild"))
+}
+
 tasks.named<ProcessResources>("processResources") {
-    dependsOn(tailwind)
+    dependsOn(tailwind, bundleJs)
     from(layout.buildDirectory.dir("tailwind")) {
         into("static/css")
+    }
+    from(layout.buildDirectory.dir("esbuild")) {
+        into("static/js")
     }
 }
 
 tasks.named<JacocoReport>("jacocoTestReport") {
     onlyIf { tasks.named("test").get().didWork || layout.buildDirectory.file("jacoco/test.exec").get().asFile.exists() }
+}
+
+tasks.withType<Pmd> {
+    exclude("**/generated/**")
+}
+
+tasks.withType<Checkstyle> {
+    exclude("**/generated/**")
 }

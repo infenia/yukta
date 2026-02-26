@@ -82,18 +82,4 @@
         </div>
     @endif
 
-    <script>
-        (function() {
-            const searchInput = document.getElementById('session-search-input');
-            if (searchInput) {
-                searchInput.addEventListener('input', (e) => {
-                    const query = e.target.value.toLowerCase();
-                    document.querySelectorAll('.session-card').forEach(card => {
-                        const text = card.innerText.toLowerCase();
-                        card.style.display = text.includes(query) ? '' : 'none';
-                    });
-                });
-            }
-        })();
-    </script>
 `)

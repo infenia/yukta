@@ -27,7 +27,7 @@ spotless {
 
     format("xml") {
         target("**/*.xml")
-        targetExclude("**/build/**", "**/bin/**", "**/out/**", "**/.gradle/**")
+        targetExclude("**/build/**", "**/bin/**", "**/out/**", "**/.gradle/**", "**/node_modules/**")
         licenseHeaderFile(rootProject.file("config/license/header-xml.txt"), "(<[^!?])")
     }
 }

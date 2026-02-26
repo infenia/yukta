@@ -22,6 +22,8 @@ import com.infenia.jagratha.service.TaskTrackerService;
 import com.infenia.jagratha.service.WorkflowRegistry;
 import gg.jte.TemplateEngine;
 import gg.jte.output.StringOutput;
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
@@ -209,7 +211,7 @@ public class UiController {
    *
    * @param sessionId the session identifier
    * @param workflowId the workflow identifier
-   * @return a flux of log lines
+   * @return a flux of log lines formatted as HTML
    */
   @GetMapping(
       value = "/api/sessions/{sessionId}/{workflowId}/logs/stream",
@@ -218,7 +220,28 @@ public class UiController {
   public Flux<String> streamLogs(
       @PathVariable final String sessionId, @PathVariable final String workflowId) {
     final String execId = tracker.getLatestExecutionId(sessionId, workflowId);
-    return execId != null ? tracker.getLogStream(execId) : Flux.empty();
+    final Flux<String> result;
+    if (execId != null) {
+      final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("HH:mm:ss");
+      result =
+          tracker
+              .getLogStream(execId)
+              .map(
+                  log -> {
+                    final String time = LocalTime.now().format(formatter);
+                    return "<div class=\"mb-1 text-slate-300 flex gap-4\">"
+                        + "<span class=\"opacity-20 w-16 shrink-0\">"
+                        + time
+                        + "</span>"
+                        + "<span class=\"text-indigo-400\">➜</span>"
+                        + "<span>"
+                        + log
+                        + "</span></div>";
+                  });
+    } else {
+      result = Flux.empty();
+    }
+    return result;
   }
 
   /**
@@ -226,7 +249,7 @@ public class UiController {
    *
    * @param sessionId the session identifier
    * @param workflowId the workflow identifier
-   * @return a flux of status update events
+   * @return a flux of status update events formatted as HTML
    */
   @GetMapping(
       value = "/api/sessions/{sessionId}/{workflowId}/status/stream",
@@ -235,8 +258,23 @@ public class UiController {
   public Flux<String> streamStatus(
       @PathVariable final String sessionId, @PathVariable final String workflowId) {
     final String execId = tracker.getLatestExecutionId(sessionId, workflowId);
-    return execId != null
-        ? tracker.getStatusStream(execId).map(progress -> "update")
-        : Flux.empty();
+    final Flux<String> result;
+    if (execId != null) {
+      result =
+          tracker
+              .getStatusStream(execId)
+              .map(
+                  progress -> {
+                    final String status = progress.status();
+                    return "<span class=\"px-5 py-2 rounded-xl text-xs font-display font-bold"
+                        + " uppercase tracking-widest glass-panel text-primary"
+                        + " border-primary/20 animate-pulse\">"
+                        + status
+                        + "</span>";
+                  });
+    } else {
+      result = Flux.empty();
+    }
+    return result;
   }
 }
