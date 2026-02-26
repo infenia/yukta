@@ -6,8 +6,8 @@
 
 @theme {
   --color-primary: #3c83f6;
-  --color-background-light: #F0F2F5;
-  --color-background-dark: #101722;
+  --color-background-light: #f5f7f8;
+  --color-background-dark: #0f172a;
   --color-glass-surface: rgba(255, 255, 255, 0.65);
   --color-glass-border: rgba(255, 255, 255, 0.4);
   --color-glass-highlight: rgba(255, 255, 255, 0.8);
@@ -16,12 +16,12 @@
   --color-text-slate-800: #1E293B;
   --color-text-slate-500: #64748B;
 
-  --font-display: "Space Grotesk", sans-serif;
-  --font-body: "Space Grotesk", sans-serif;
+  --font-display: "DM Sans", sans-serif;
+  --font-heading: "Space Grotesk", sans-serif;
+  --font-body: "DM Sans", sans-serif;
   --font-mono: "JetBrains Mono", monospace;
-  --font-dm: "DM Sans", sans-serif;
 
-  --radius-DEFAULT: 0.75rem;
+  --radius-DEFAULT: 0.5rem;
   --radius-lg: 0.75rem;
   --radius-xl: 1rem;
   --radius-2xl: 1.25rem;

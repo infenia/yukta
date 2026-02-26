@@ -9,7 +9,6 @@ Alpine.data('dagComponent', dagComponent);
 // Theme management component
 Alpine.data('themeManager', () => ({
     theme: localStorage.getItem('theme') || 'system',
-    themeDropdownOpen: false,
     systemTheme: window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light',
 
     init() {
@@ -30,7 +29,6 @@ Alpine.data('themeManager', () => ({
             localStorage.setItem('theme', newTheme);
         }
         this.applyTheme();
-        this.themeDropdownOpen = false;
     },
 
     applyTheme() {
@@ -45,7 +43,7 @@ Alpine.data('themeManager', () => ({
     get currentIcon() {
         if (this.theme === 'dark') return 'dark_mode';
         if (this.theme === 'light') return 'light_mode';
-        return 'smart_toy';
+        return 'desktop_windows';
     }
 }));
 
@@ -56,7 +54,7 @@ Alpine.data('sessionSearch', () => ({
         window.addEventListener('keydown', (e) => {
             if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
                 e.preventDefault();
-                this.$refs.searchInput?.focus();
+                this.$el.querySelector('input')?.focus();
             }
         });
     },
@@ -64,7 +62,7 @@ Alpine.data('sessionSearch', () => ({
         const q = this.query.toLowerCase();
         document.querySelectorAll('.session-card').forEach(card => {
             const text = card.innerText.toLowerCase();
-            card.style.display = text.includes(q) ? '' : 'none';
+            card.style.display = text.includes(q) ? 'flex' : 'none';
         });
     }
 }));
