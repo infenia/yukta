@@ -5,16 +5,16 @@
       "hook": "init",
       "data": {
         "session_id": "multi-file-session",
-        "cwd": "/workspaces/jagratha"
+        "cwd": "/workspaces/yukta"
       }
     },
     {
       "hook": "save",
       "data": {
         "session_id": "multi-file-session",
-        "cwd": "/workspaces/jagratha",
+        "cwd": "/workspaces/yukta",
         "tool_input": {
-          "file_path": "/workspaces/jagratha/src/main/java/com/example/Main.java"
+          "file_path": "/workspaces/yukta/src/main/java/com/example/Main.java"
         }
       }
     },
@@ -22,9 +22,9 @@
       "hook": "save",
       "data": {
         "session_id": "multi-file-session",
-        "cwd": "/workspaces/jagratha",
+        "cwd": "/workspaces/yukta",
         "tool_input": {
-          "file_path": "/workspaces/jagratha/src/main/resources/config.properties"
+          "file_path": "/workspaces/yukta/src/main/resources/config.properties"
         }
       }
     },

@@ -4,6 +4,6 @@ plugins {
 }
 
 allprojects {
-    group = "com.infenia.jagratha"
+    group = "com.infenia.yukta"
     version = "0.0.1-SNAPSHOT"
 }

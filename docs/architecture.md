@@ -1,17 +1,17 @@
 # Architecture & Design
 
-This document provides a detailed overview of Jagratha's architecture, internal mechanisms, and design patterns.
+This document provides a detailed overview of Yukta's architecture, internal mechanisms, and design patterns.
 
 ## High-Level Overview
 
-Jagratha is a vigilance server designed to enforce code quality gates for AI-driven development. It acts as an orchestrator between AI agents (via MCP or REST), build tools (like Gradle), and AI models (for feedback).
+Yukta is a vigilance server designed to enforce code quality gates for AI-driven development. It acts as an orchestrator between AI agents (via MCP or REST), build tools (like Gradle), and AI models (for feedback).
 
 ## Core Components
 
 - **AppController**: REST API entry point for file logging, task execution, and configuration.
-- **AppMcpTools**: Model Context Protocol (MCP) interface, allowing AI agents to interact with Jagratha directly via standard AI tool calling.
+- **AppMcpTools**: Model Context Protocol (MCP) interface, allowing AI agents to interact with Yukta directly via standard AI tool calling.
 - **AppService**: The central orchestrator that manages sessions, triggers quality checks, and handles configuration.
-- **JagrathaPlugin**: Abstraction for build tools (e.g., `GradlePlugin`).
+- **YuktaPlugin**: Abstraction for build tools (e.g., `GradlePlugin`).
 - **OutputProcessorPlugin**: Processes raw task output into structured formats (e.g., `CheckstyleXmlProcessor` converts XML to JSONL).
 - **AiPlugin**: Invokes AI models to provide feedback on quality check results (e.g., `QwenCodePlugin`).
 
@@ -24,7 +24,7 @@ sequenceDiagram
     participant User as AI Agent / Client
     participant Controller as AppController / McpTools
     participant Service as AppService
-    participant Plugin as JagrathaPlugin (Gradle)
+    participant Plugin as YuktaPlugin (Gradle)
     participant Processor as OutputProcessorPlugin
     participant AI as AiPlugin (Qwen)
     participant FS as File System (Logs)
@@ -51,11 +51,11 @@ sequenceDiagram
 
 ## Plugin System (Class Diagram)
 
-Jagratha uses a plugin-based architecture to remain extensible and build-tool agnostic.
+Yukta uses a plugin-based architecture to remain extensible and build-tool agnostic.
 
 ```mermaid
 classDiagram
-    class JagrathaPlugin {
+    class YuktaPlugin {
         <<interface>>
         +execute(List tasks, Path projectRoot) Mono~TaskResponse~
         +isSupported(Path projectRoot) boolean
@@ -78,14 +78,14 @@ classDiagram
         +generateFeedback(String prompt, Map config) Mono~String~
     }
 
-    JagrathaPlugin <|.. GradlePlugin
+    YuktaPlugin <|.. GradlePlugin
     OutputProcessorPlugin <|.. CheckstyleXmlProcessor
     AiPlugin <|.. QwenCodePlugin
 ```
 
 ## Internal File Logging Mechanism
 
-Jagratha maintains detailed logs for every session to track file modifications and task results.
+Yukta maintains detailed logs for every session to track file modifications and task results.
 
 ### 1. Modified Files Log
 Located at: `{fileLogDir}/{sessionId}/{sessionId.log}`
@@ -107,7 +107,7 @@ Located at: `{resultLogDir}/{sessionId}/`
   A high-level summary of all tasks executed in the session.
 
 ### 3. Concurrency Handling
-Jagratha uses session-specific `ReentrantLock` instances stored in a `ConcurrentHashMap` to ensure that logs for different sessions can be written concurrently without interference, while protecting individual session logs from race conditions.
+Yukta uses session-specific `ReentrantLock` instances stored in a `ConcurrentHashMap` to ensure that logs for different sessions can be written concurrently without interference, while protecting individual session logs from race conditions.
 
 ## Tech Stack
 

@@ -1,15 +1,15 @@
 # Plugin Development Guide
 
-Jagratha's power lies in its extensibility. You can extend its functionality by implementing three types of plugins: `JagrathaPlugin` (Build Tools), `OutputProcessorPlugin` (Log Parsers), and `AiPlugin` (AI Model Integrations).
+Yukta's power lies in its extensibility. You can extend its functionality by implementing three types of plugins: `YuktaPlugin` (Build Tools), `OutputProcessorPlugin` (Log Parsers), and `AiPlugin` (AI Model Integrations).
 
-## 1. JagrathaPlugin (Build Tool Integration)
+## 1. YuktaPlugin (Build Tool Integration)
 
-A `JagrathaPlugin` defines how Jagratha interacts with a specific build tool (e.g., Gradle, Maven, NPM).
+A `YuktaPlugin` defines how Yukta interacts with a specific build tool (e.g., Gradle, Maven, NPM).
 
 ### Interface definition
 
 ```java
-public interface JagrathaPlugin {
+public interface YuktaPlugin {
     String getName();
     String identifyModule(String projectRoot, String relativePath);
     List<String> buildTaskCommand(String module, String task, Map<String, Object> pluginConfig);
@@ -24,7 +24,7 @@ public interface JagrathaPlugin {
 
 ```java
 @Component
-public class MyBuildPlugin implements JagrathaPlugin {
+public class MyBuildPlugin implements YuktaPlugin {
     @Override
     public String getName() {
         return "my-build-tool";
@@ -86,7 +86,7 @@ public class MyLogProcessor implements OutputProcessorPlugin {
 
 ## 3. AiPlugin (AI Integration)
 
-`AiPlugin` allows Jagratha to send data to an AI model and get feedback or suggestions.
+`AiPlugin` allows Yukta to send data to an AI model and get feedback or suggestions.
 
 ### Interface definition
 
@@ -119,10 +119,10 @@ public class MyAiPlugin implements AiPlugin {
 
 ## Registering Your Plugin
 
-Since Jagratha is a Spring Boot application, you simply need to:
+Since Yukta is a Spring Boot application, you simply need to:
 1. Implement the interface.
 2. Annotate your class with `@Component`.
-3. Jagratha will automatically discover and register your plugin at startup using Spring's dependency injection.
+3. Yukta will automatically discover and register your plugin at startup using Spring's dependency injection.
 
 ## Best Practices
 

@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.infenia.jagratha.plugin.core;
+package com.infenia.yukta.plugin.core;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyMap;
@@ -22,12 +22,12 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import com.infenia.jagratha.config.AppConfigService;
-import com.infenia.jagratha.model.PreparedWorkflow;
-import com.infenia.jagratha.model.WorkflowDefinition;
-import com.infenia.jagratha.plugin.Message;
-import com.infenia.jagratha.plugin.ResultCollector;
-import com.infenia.jagratha.service.WorkflowOrchestrator;
+import com.infenia.yukta.config.AppConfigService;
+import com.infenia.yukta.model.PreparedWorkflow;
+import com.infenia.yukta.model.WorkflowDefinition;
+import com.infenia.yukta.plugin.Message;
+import com.infenia.yukta.plugin.ResultCollector;
+import com.infenia.yukta.service.WorkflowOrchestrator;
 import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;

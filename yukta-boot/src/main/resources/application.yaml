@@ -1,0 +1,28 @@
+spring:
+  profiles:
+    default: dev
+  threads:
+    virtual:
+      enabled: true
+  main:
+    banner-mode: "off"
+  ai:
+    mcp:
+      server:
+        name: yukta
+        version: 0.0.1
+        stdio: true
+  docker:
+    compose:
+      enabled: false
+
+logging:
+  level:
+    root: INFO
+    org.springframework: WARN
+    org.springframework.web: DEBUG
+
+gg:
+  jte:
+    developmentMode: true
+    usePrecompiledTemplates: false

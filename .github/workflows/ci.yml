@@ -23,16 +23,16 @@ jobs:
       id: filter
       with:
         filters: |
-          jagratha-plugin-api:
-            - 'jagratha-plugin-api/**'
+          yukta-plugin-api:
+            - 'yukta-plugin-api/**'
           plugins-build-tools-gradle:
             - 'plugins/build-tools/gradle/**'
           plugins-processors-checkstyle:
             - 'plugins/processors/checkstyle/**'
           plugins-ai-qwen:
             - 'plugins/ai/qwen/**'
-          jagratha-core:
-            - 'jagratha-core/**'
+          yukta-core:
+            - 'yukta-core/**'
           plugins-file-update:
             - 'plugins/file-update/**'
           root:
@@ -75,8 +75,8 @@ jobs:
           TASKS=""
           for module in $(echo '${{ needs.changes.outputs.modules }}' | jq -r '.[]'); do
             case $module in
-              "jagratha-plugin-api")
-                TASKS="$TASKS :jagratha-plugin-api:build :jagratha-plugin-api:spotlessCheck :jagratha-plugin-api:check"
+              "yukta-plugin-api")
+                TASKS="$TASKS :yukta-plugin-api:build :yukta-plugin-api:spotlessCheck :yukta-plugin-api:check"
                 ;;
               "plugins-build-tools-gradle")
                 TASKS="$TASKS :plugins:build-tools:gradle:build :plugins:build-tools:gradle:spotlessCheck :plugins:build-tools:gradle:check"
@@ -87,8 +87,8 @@ jobs:
               "plugins-ai-qwen")
                 TASKS="$TASKS :plugins:ai:qwen:build :plugins:ai:qwen:spotlessCheck :plugins:ai:qwen:check"
                 ;;
-              "jagratha-core")
-                TASKS="$TASKS :jagratha-core:build :jagratha-core:spotlessCheck :jagratha-core:check"
+              "yukta-core")
+                TASKS="$TASKS :yukta-core:build :yukta-core:spotlessCheck :yukta-core:check"
                 ;;
               "plugins-file-update")
                 TASKS="$TASKS :plugins:file-update:build :plugins:file-update:spotlessCheck :plugins:file-update:check"

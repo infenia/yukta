@@ -13,11 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.infenia.jagratha.plugin.core;
+package com.infenia.yukta.plugin.core;
 
-import com.infenia.jagratha.plugin.Message;
-import com.infenia.jagratha.plugin.TerminalPlugin;
-import com.infenia.jagratha.plugin.UiDesign;
+import com.infenia.yukta.plugin.Message;
+import com.infenia.yukta.plugin.TerminalPlugin;
+import com.infenia.yukta.plugin.UiDesign;
 import java.util.Map;
 import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;

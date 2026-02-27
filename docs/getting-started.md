@@ -1,6 +1,6 @@
 # Getting Started
 
-This guide will walk you through setting up Jagratha and running your first quality check.
+This guide will walk you through setting up Yukta and running your first quality check.
 
 ## Prerequisites
 
@@ -12,9 +12,9 @@ This guide will walk you through setting up Jagratha and running your first qual
 
 ## 1. "Hello World" Walkthrough
 
-In this walkthrough, we will start the Jagratha server and manually trigger a quality check using `curl`.
+In this walkthrough, we will start the Yukta server and manually trigger a quality check using `curl`.
 
-### Step 1: Start the Jagratha Server
+### Step 1: Start the Yukta Server
 
 Clone the repository and run the application:
 
@@ -32,7 +32,7 @@ Send a configuration request to initialize a session for your project:
 curl -X POST http://localhost:8080/api/config \
   -H "Content-Type: application/json" \
   -d '{
-    "sessionId": "hello-jagratha",
+    "sessionId": "hello-yukta",
     "projectPath": "/path/to/your/project",
     "pluginName": "gradle",
     "pluginConfig": { "gradlePath": "./gradlew" },
@@ -43,13 +43,13 @@ curl -X POST http://localhost:8080/api/config \
 
 ### Step 3: Log a File Modification
 
-Tell Jagratha that a file has been modified:
+Tell Yukta that a file has been modified:
 
 ```bash
 curl -X POST http://localhost:8080/api/files \
   -H "Content-Type: application/json" \
   -d '{
-    "sessionId": "hello-jagratha",
+    "sessionId": "hello-yukta",
     "path": "src/main/java/com/example/App.java"
   }'
 ```
@@ -61,7 +61,7 @@ Run the tasks and see the results:
 ```bash
 curl -X POST http://localhost:8080/api/workflow/trigger \
   -H "Content-Type: application/json" \
-  -d '{ "sessionId": "hello-jagratha" }'
+  -d '{ "sessionId": "hello-yukta" }'
 ```
 
 The server will return a `TaskResponse` containing the combined output of the executed tasks.
@@ -70,7 +70,7 @@ The server will return a `TaskResponse` containing the combined output of the ex
 
 ## 2. Integrating with Claude Code
 
-Jagratha is designed to work seamlessly with **Claude Code** (the CLI tool from Anthropic) using lifecycle hooks.
+Yukta is designed to work seamlessly with **Claude Code** (the CLI tool from Anthropic) using lifecycle hooks.
 
 ### Installation
 
@@ -78,7 +78,7 @@ Copy the scripts from the `client/scripts` directory to your project's local too
 
 ### Configuration
 
-Claude Code can be configured to call Jagratha scripts at specific events in its lifecycle. Edit your `config.json` or equivalent for Claude Code:
+Claude Code can be configured to call Yukta scripts at specific events in its lifecycle. Edit your `config.json` or equivalent for Claude Code:
 
 | Claude Event | Hook Script |
 | :--- | :--- |
@@ -88,12 +88,12 @@ Claude Code can be configured to call Jagratha scripts at specific events in its
 
 ### How it Works
 
-1. **SessionStart**: Claude starts a session, and `init_session.py` sends the project configuration to Jagratha.
-2. **ToolUsage**: Whenever Claude uses a tool to modify a file (like `write_file` or `replace_text`), `save_file.py` intercepts the event and logs the file path with Jagratha.
-3. **Stop**: When Claude finishes its task, `complete_task.py` triggers Jagratha to run the configured quality gates. Claude will wait for the results before finalizing.
+1. **SessionStart**: Claude starts a session, and `init_session.py` sends the project configuration to Yukta.
+2. **ToolUsage**: Whenever Claude uses a tool to modify a file (like `write_file` or `replace_text`), `save_file.py` intercepts the event and logs the file path with Yukta.
+3. **Stop**: When Claude finishes its task, `complete_task.py` triggers Yukta to run the configured quality gates. Claude will wait for the results before finalizing.
 
 ### Benefits
 
-- **Autonomous Verification**: Jagratha ensures that the AI doesn't break your build or violate style rules before it commits the changes.
-- **Immediate Feedback**: If a check fails, Jagratha provides the exact error log back to the AI, allowing it to self-correct immediately.
+- **Autonomous Verification**: Yukta ensures that the AI doesn't break your build or violate style rules before it commits the changes.
+- **Immediate Feedback**: If a check fails, Yukta provides the exact error log back to the AI, allowing it to self-correct immediately.
 - **Traceability**: All interactions and quality check results are logged in standard formats.

@@ -2,7 +2,7 @@
 
 ## Supported Versions
 
-We currently support the following versions of Jagratha with security updates:
+We currently support the following versions of Yukta with security updates:
 
 | Version | Supported          |
 | ------- | ------------------ |
@@ -10,7 +10,7 @@ We currently support the following versions of Jagratha with security updates:
 
 ## Reporting a Vulnerability
 
-We take the security of Jagratha seriously. If you believe you have found a security vulnerability, please report it to us as soon as possible.
+We take the security of Yukta seriously. If you believe you have found a security vulnerability, please report it to us as soon as possible.
 
 Please do **not** open a public issue for security vulnerabilities. Instead, send an email to **arun@infenia.com**.
 
@@ -28,4 +28,4 @@ Please do **not** open a public issue for security vulnerabilities. Instead, sen
 3. If confirmed, we will work on a fix and coordinate a disclosure timeline with you.
 4. Once the fix is released, we will credit you for the discovery (unless you prefer to remain anonymous).
 
-Thank you for helping keep Jagratha secure!
+Thank you for helping keep Yukta secure!

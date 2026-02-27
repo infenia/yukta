@@ -13,26 +13,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.infenia.jagratha.plugin.core;
+package com.infenia.yukta.plugin.core;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.infenia.jagratha.config.AppConfigService;
-import com.infenia.jagratha.model.WorkflowDefinition;
-import com.infenia.jagratha.model.WorkflowDefinition.Edge;
-import com.infenia.jagratha.model.WorkflowDefinition.Node;
-import com.infenia.jagratha.plugin.Message;
-import com.infenia.jagratha.plugin.PluginCategory;
-import com.infenia.jagratha.plugin.TerminalPlugin;
-import com.infenia.jagratha.plugin.TriggerPlugin;
-import com.infenia.jagratha.service.TaskTrackerService;
-import com.infenia.jagratha.service.WorkflowOrchestrator;
-import com.infenia.jagratha.service.WorkflowRegistry;
-import com.infenia.jagratha.service.WorkflowValidator;
-import com.infenia.jagratha.service.join.InMemoryJoinStore;
+import com.infenia.yukta.config.AppConfigService;
+import com.infenia.yukta.model.WorkflowDefinition;
+import com.infenia.yukta.model.WorkflowDefinition.Edge;
+import com.infenia.yukta.model.WorkflowDefinition.Node;
+import com.infenia.yukta.plugin.Message;
+import com.infenia.yukta.plugin.PluginCategory;
+import com.infenia.yukta.plugin.TerminalPlugin;
+import com.infenia.yukta.plugin.TriggerPlugin;
+import com.infenia.yukta.service.TaskTrackerService;
+import com.infenia.yukta.service.WorkflowOrchestrator;
+import com.infenia.yukta.service.WorkflowRegistry;
+import com.infenia.yukta.service.WorkflowValidator;
+import com.infenia.yukta.service.join.InMemoryJoinStore;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;

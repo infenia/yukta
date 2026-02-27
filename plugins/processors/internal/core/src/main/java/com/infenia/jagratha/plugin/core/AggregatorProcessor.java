@@ -13,14 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.infenia.jagratha.plugin.core;
+package com.infenia.yukta.plugin.core;
 
-import com.infenia.jagratha.plugin.Message;
-import com.infenia.jagratha.plugin.ProcessorPlugin;
-import com.infenia.jagratha.service.aggregate.AggregateStore;
-import com.infenia.jagratha.service.aggregate.AggregateStore.AggregateConfig;
-import com.infenia.jagratha.service.aggregate.AggregateStore.AggregateResult;
-import com.infenia.jagratha.util.SpelUtils;
+import com.infenia.yukta.plugin.Message;
+import com.infenia.yukta.plugin.ProcessorPlugin;
+import com.infenia.yukta.service.aggregate.AggregateStore;
+import com.infenia.yukta.service.aggregate.AggregateStore.AggregateConfig;
+import com.infenia.yukta.service.aggregate.AggregateStore.AggregateResult;
+import com.infenia.yukta.util.SpelUtils;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Map;

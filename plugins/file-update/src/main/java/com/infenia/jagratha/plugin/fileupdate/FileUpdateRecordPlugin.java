@@ -13,11 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.infenia.jagratha.plugin.fileupdate;
+package com.infenia.yukta.plugin.fileupdate;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.infenia.jagratha.plugin.Message;
-import com.infenia.jagratha.plugin.TerminalPlugin;
+import com.infenia.yukta.plugin.Message;
+import com.infenia.yukta.plugin.TerminalPlugin;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;

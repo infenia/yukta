@@ -1,10 +1,10 @@
-# Jagratha (Vigilance) 🛡️
+# Yukta (Vigilance) 🛡️
 
 High-performance orchestrator and server designed to enforce code quality gates for AI-driven development. It acts as a bridge between AI agents (via MCP or REST), build tools, and AI feedback models.
 
 ## 🏗️ Project Overview
 
-Jagratha facilitates autonomous code validation by hosting a **Model Context Protocol (MCP)** server. It triggers quality checks (Spotless, Checkstyle, PMD), processes outputs into structured JSONL, and optionally invokes AI models for intelligent feedback on failures.
+Yukta facilitates autonomous code validation by hosting a **Model Context Protocol (MCP)** server. It triggers quality checks (Spotless, Checkstyle, PMD), processes outputs into structured JSONL, and optionally invokes AI models for intelligent feedback on failures.
 
 - **Primary Mission**: Ensure AI-generated code meets strict quality standards before merging.
 - **Key Architecture**: Plugin-based, build-tool agnostic, and session-aware.
@@ -27,7 +27,7 @@ Jagratha facilitates autonomous code validation by hosting a **Model Context Pro
 - **Clean Build**: `./gradlew clean build`
 
 ### UI Development
-The UI module (`jagratha-ui`) uses Tailwind CSS 4. JTE templates are located in `src/main/jte`.
+The UI module (`yukta-ui`) uses Tailwind CSS 4. JTE templates are located in `src/main/jte`.
 
 ## 📏 Development Conventions
 
@@ -51,9 +51,9 @@ The UI module (`jagratha-ui`) uses Tailwind CSS 4. JTE templates are located in 
 
 ## 📁 Key File Locations
 
-- **Core Logic**: `jagratha-core/src/main/java/com/infenia/jagratha/`
-- **MCP Tools**: `jagratha-boot/src/main/java/com/infenia/jagratha/mcp/`
-- **Plugin API**: `jagratha-plugin-api/`
-- **UI Templates**: `jagratha-ui/src/main/jte/`
+- **Core Logic**: `yukta-core/src/main/java/com/infenia/yukta/`
+- **MCP Tools**: `yukta-boot/src/main/java/com/infenia/yukta/mcp/`
+- **Plugin API**: `yukta-plugin-api/`
+- **UI Templates**: `yukta-ui/src/main/jte/`
 - **Checkstyle Config**: `config/checkstyle/checkstyle.xml`
 - **Session Logs**: Configured via `application.yaml` (default uses session-specific JSONL files).

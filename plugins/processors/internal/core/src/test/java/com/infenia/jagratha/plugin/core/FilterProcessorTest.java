@@ -13,11 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.infenia.jagratha.plugin.core;
+package com.infenia.yukta.plugin.core;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import com.infenia.jagratha.plugin.Message;
+import com.infenia.yukta.plugin.Message;
 import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -35,7 +35,7 @@ class FilterProcessorTest {
     StaticListableBeanFactory beanFactory = new StaticListableBeanFactory();
     processor =
         new FilterProcessor(
-            beanFactory.getBeanProvider(com.infenia.jagratha.plugin.PluginMetricsReporter.class));
+            beanFactory.getBeanProvider(com.infenia.yukta.plugin.PluginMetricsReporter.class));
   }
 
   @Test
@@ -85,7 +85,7 @@ class FilterProcessorTest {
     final Message msg = Message.create(UUID.randomUUID(), Map.of("status", "ACTIVE"));
 
     StepVerifier.create(processor.process(Flux.just(msg), config))
-        .expectErrorMatches(e -> e instanceof com.infenia.jagratha.plugin.FilterEvaluationException)
+        .expectErrorMatches(e -> e instanceof com.infenia.yukta.plugin.FilterEvaluationException)
         .verify();
   }
 

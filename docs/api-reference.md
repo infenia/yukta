@@ -1,6 +1,6 @@
 # API Reference
 
-Jagratha provides a comprehensive REST API for managing sessions, logging file changes, and executing build tasks.
+Yukta provides a comprehensive REST API for managing sessions, logging file changes, and executing build tasks.
 
 ## Swagger UI
 
@@ -25,7 +25,7 @@ The raw OpenAPI 3.0 specification is available in JSON format at:
 Initializes or updates the configuration for a specific session.
 
 ### 2. File Logging (`POST /api/files`)
-Logs a file path that has been modified. Jagratha will track these files and reset their status to `PENDING`.
+Logs a file path that has been modified. Yukta will track these files and reset their status to `PENDING`.
 
 ### 3. Task Execution (`POST /api/workflow/trigger`)
 Triggers the execution of build tasks (e.g., tests, checkstyle) for the current session. Returns a summary of success or failure.
@@ -41,7 +41,7 @@ Retrieves the raw text content of a specific log file.
 
 ## Unified API Response
 
-Jagratha uses a unified response format for both success and error responses.
+Yukta uses a unified response format for both success and error responses.
 
 ### Success Response Example
 

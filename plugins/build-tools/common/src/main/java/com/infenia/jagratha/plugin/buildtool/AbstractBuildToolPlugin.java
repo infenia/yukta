@@ -13,12 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.infenia.jagratha.plugin.buildtool;
+package com.infenia.yukta.plugin.buildtool;
 
-import com.infenia.jagratha.plugin.Message;
-import com.infenia.jagratha.plugin.PluginCategory;
-import com.infenia.jagratha.plugin.ProcessorPlugin;
-import com.infenia.jagratha.plugin.TriggerPlugin;
+import com.infenia.yukta.plugin.Message;
+import com.infenia.yukta.plugin.PluginCategory;
+import com.infenia.yukta.plugin.ProcessorPlugin;
+import com.infenia.yukta.plugin.TriggerPlugin;
 import java.io.File;
 import java.io.IOException;
 import java.time.Duration;

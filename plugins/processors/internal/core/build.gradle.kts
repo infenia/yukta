@@ -15,9 +15,9 @@
  */
 plugins {
     `java-library`
-    id("com.infenia.jagratha.java-conventions")
-    id("com.infenia.jagratha.quality-conventions")
-    id("com.infenia.jagratha.jacoco-conventions")
+    id("com.infenia.yukta.java-conventions")
+    id("com.infenia.yukta.quality-conventions")
+    id("com.infenia.yukta.jacoco-conventions")
     alias(libs.plugins.spring.dependency.management)
 }
 
@@ -30,8 +30,8 @@ dependencyManagement {
 version = "1.0.0"
 
 dependencies {
-    implementation(project(":jagratha-plugin-api"))
-    implementation(project(":jagratha-core"))
+    implementation(project(":yukta-plugin-api"))
+    implementation(project(":yukta-core"))
     implementation(libs.spring.boot.starter.webflux)
     implementation(libs.jackson.databind)
     implementation(libs.handlebars)

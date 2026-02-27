@@ -1,12 +1,12 @@
 # Development Setup
 
-This document describes how to set up your local environment for contributing to Jagratha.
+This document describes how to set up your local environment for contributing to Yukta.
 
 ## Prerequisites
 
 ### 1. Java 25 (with Java 21 Toolchain)
 
-Jagratha is designed for **Java 25**, but it currently uses a **Java 21 toolchain** for compatibility in environments where Java 25 is not yet natively available.
+Yukta is designed for **Java 25**, but it currently uses a **Java 21 toolchain** for compatibility in environments where Java 25 is not yet natively available.
 
 We recommend using [SDKMAN!](https://sdkman.io/) to manage your Java versions.
 
@@ -21,7 +21,7 @@ sdk install java 25.0.6-tem
 
 ### 2. Gradle 9.0
 
-Jagratha uses the Gradle Wrapper, so you don't need to install Gradle globally. However, if you wish to do so:
+Yukta uses the Gradle Wrapper, so you don't need to install Gradle globally. However, if you wish to do so:
 
 ```bash
 sdk install gradle 9.0
@@ -51,7 +51,7 @@ This will run:
 
 ### Apply code formatting
 
-Jagratha uses **Spotless** with **Google Java Format**. To automatically fix formatting issues:
+Yukta uses **Spotless** with **Google Java Format**. To automatically fix formatting issues:
 
 ```bash
 ./gradlew spotlessApply
@@ -67,14 +67,14 @@ Jagratha uses **Spotless** with **Google Java Format**. To automatically fix for
 2. **Project SDK**: Set to Java 25.
 3. **Annotation Processors**:
    - Enable annotation processing in `Settings > Build, Execution, Deployment > Compiler > Annotation Processors`.
-   - Jagratha uses **Lombok** and **MapStruct**, which require this.
+   - Yukta uses **Lombok** and **MapStruct**, which require this.
 4. **Plugins**: Install the **Lombok** plugin and the **Checkstyle-IDEA** plugin for real-time feedback.
 
 ---
 
 ## GraalVM Native Image
 
-Jagratha supports building native binaries using GraalVM.
+Yukta supports building native binaries using GraalVM.
 
 ### 1. Install GraalVM
 
@@ -88,7 +88,7 @@ sdk install java 25.0.6-graal
 ./gradlew nativeCompile
 ```
 
-The resulting binary will be located in `build/native/nativeCompile/jagratha`.
+The resulting binary will be located in `build/native/nativeCompile/yukta`.
 
 ---
 

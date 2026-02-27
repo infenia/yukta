@@ -1,8 +1,8 @@
-# Contributing to Jagratha
+# Contributing to Yukta
 
-First off, thank you for considering contributing to Jagratha! It's people like you that make Jagratha such a great tool.
+First off, thank you for considering contributing to Yukta! It's people like you that make Yukta such a great tool.
 
-Jagratha is an open-source project developed under **Infenia Private Limited**. We welcome contributions from everyone.
+Yukta is an open-source project developed under **Infenia Private Limited**. We welcome contributions from everyone.
 
 ## Code of Conduct
 
@@ -12,7 +12,7 @@ By participating in this project, you agree to abide by the [Code of Conduct](CO
 
 ### Reporting Bugs
 
-* Check the [issue tracker](https://github.com/infenia/jagratha/issues) to see if the bug has already been reported.
+* Check the [issue tracker](https://github.com/infenia/yukta/issues) to see if the bug has already been reported.
 * If not, open a new issue. Include:
     * A clear and descriptive title.
     * Steps to reproduce the bug.

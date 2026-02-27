@@ -13,12 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.infenia.jagratha.plugin.core;
+package com.infenia.yukta.plugin.core;
 
-import com.infenia.jagratha.plugin.Message;
-import com.infenia.jagratha.plugin.ProcessorPlugin;
-import com.infenia.jagratha.util.MapUtils;
-import com.infenia.jagratha.util.VariableResolver;
+import com.infenia.yukta.plugin.Message;
+import com.infenia.yukta.plugin.ProcessorPlugin;
+import com.infenia.yukta.util.MapUtils;
+import com.infenia.yukta.util.VariableResolver;
 import java.util.HashMap;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;

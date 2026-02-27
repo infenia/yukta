@@ -1,6 +1,6 @@
-# Jagratha Claude Hook Simulator 🛠️
+# Yukta Claude Hook Simulator 🛠️
 
-This simulator allows you to test Jagratha's client scripts by mimicking the way Claude Code invokes hooks. It reads a scenario defined in a JSON file and executes the corresponding hook scripts in sequence, passing the specified data via `stdin`.
+This simulator allows you to test Yukta's client scripts by mimicking the way Claude Code invokes hooks. It reads a scenario defined in a JSON file and executes the corresponding hook scripts in sequence, passing the specified data via `stdin`.
 
 ## 📂 Structure
 

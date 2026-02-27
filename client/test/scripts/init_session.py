@@ -12,7 +12,7 @@ CONFIG = {
         "sessionId": "claude-session-01",
         "description": "Claude Code Quality Gate",
         "initiator": "Claude-AI",
-        "projectPath": "/media/arun/Infenia/Infenia/Development/Public/jagratha",
+        "projectPath": "/media/arun/Infenia/Infenia/Development/Public/yukta",
         "workflows": {
             "quality-check": {
                 "description": "Standard quality gate for checking project status",
@@ -22,7 +22,7 @@ CONFIG = {
                         "type": "gradle",
                         "config": {
                             "tasks": ["spotlessApply"],
-                            "projectRoot": "/media/arun/Infenia/Infenia/Development/Public/jagratha"
+                            "projectRoot": "/media/arun/Infenia/Infenia/Development/Public/yukta"
                         }
                     },
                     {
@@ -30,7 +30,7 @@ CONFIG = {
                         "type": "gradle",
                         "config": {
                             "tasks": ["checkstyleMain"],
-                            "projectRoot": "/media/arun/Infenia/Infenia/Development/Public/jagratha"
+                            "projectRoot": "/media/arun/Infenia/Infenia/Development/Public/yukta"
                         }
                     },
                     {"nodeId": "terminal-1", "type": "console", "config": {}}
@@ -48,7 +48,7 @@ def send_config():
     host, port = CONFIG["host"], CONFIG["port"]
     body = json.dumps(CONFIG["payload"]).encode("utf-8")
 
-    print(f"Connecting to Jagratha at {host}:{port}...")
+    print(f"Connecting to Yukta at {host}:{port}...")
 
     try:
         with closing(HTTPConnection(host, port, timeout=5)) as conn:

@@ -13,12 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.infenia.jagratha.plugin.core;
+package com.infenia.yukta.plugin.core;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.infenia.jagratha.plugin.Message;
+import com.infenia.yukta.plugin.Message;
 import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;

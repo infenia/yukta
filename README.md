@@ -1,6 +1,6 @@
-# Jagratha 🛡️
+# Yukta 🛡️
 
-**Jagratha** (Sanskrit for *Vigilance*) is a high-performance server designed to enforce code quality gates for AI-driven development.
+**Yukta** (Sanskrit for *Vigilance*) is a high-performance server designed to enforce code quality gates for AI-driven development.
 
 It hosts a **Model Context Protocol (MCP)** server, accepts **Agent Client Protocol (ACP)** tool interactions, validates code changes, enforces quality gates (Spotless, Checkstyle, PMD), and provides structured feedback to AI agents.
 
@@ -32,7 +32,7 @@ It hosts a **Model Context Protocol (MCP)** server, accepts **Agent Client Proto
 - **[Getting Started](docs/getting-started.md)** - Run your first quality check in 5 minutes.
 - **[Architecture & Design](docs/architecture.md)** - Detailed diagrams and internal mechanisms.
 - **[API Reference](docs/api-reference.md)** - Swagger UI and endpoint details.
-- **[Plugin Development](docs/plugin-development.md)** - Guide on extending Jagratha with new tools and models.
+- **[Plugin Development](docs/plugin-development.md)** - Guide on extending Yukta with new tools and models.
 - **[Development Setup](docs/development-setup.md)** - Instructions for contributors.
 
 ---
@@ -63,7 +63,7 @@ If you discover a security vulnerability, please see our **[Security Policy](SEC
 
 ## 🏢 Attribution
 
-Jagratha is developed and maintained by **[Infenia Private Limited](https://infenia.com)**.
+Yukta is developed and maintained by **[Infenia Private Limited](https://infenia.com)**.
 
 - **Developer**: Arun Cherthedath Somanathan (**arun@infenia.com**)
 

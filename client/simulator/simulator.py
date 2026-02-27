@@ -26,10 +26,10 @@ def run_script(script_path, payload, host=None, port=None):
     return process.returncode, stdout, stderr
 
 def main():
-    parser = argparse.ArgumentParser(description="Jagratha Claude Hook Simulator")
+    parser = argparse.ArgumentParser(description="Yukta Claude Hook Simulator")
     parser.add_argument("scenario", help="Path to the scenario JSON file")
-    parser.add_argument("--host", help="Jagratha server host (overrides JAGRATHA_HOST)")
-    parser.add_argument("--port", type=int, help="Jagratha server port (overrides JAGRATHA_PORT)")
+    parser.add_argument("--host", help="Yukta server host (overrides JAGRATHA_HOST)")
+    parser.add_argument("--port", type=int, help="Yukta server port (overrides JAGRATHA_PORT)")
 
     args = parser.parse_args()
 
@@ -45,7 +45,7 @@ def main():
         sys.exit(1)
 
     print(f"====================================================")
-    print(f"🚀 Running Jagratha Simulator Scenario: {scenario.get('name', 'Unnamed')}")
+    print(f"🚀 Running Yukta Simulator Scenario: {scenario.get('name', 'Unnamed')}")
     print(f"====================================================")
 
     # Scripts are located in ../scripts relative to this file

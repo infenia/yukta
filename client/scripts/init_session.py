@@ -55,11 +55,11 @@ def http_post(host, port, location, payload):
                 print(f"Response: {response_body}")
             return response.status == 200
     except Exception as e:
-        print(f"Error connecting to Jagratha server: {e}")
+        print(f"Error connecting to Yukta server: {e}")
         return False
 
 def main():
-    parser = argparse.ArgumentParser(description="Initialize a Jagratha session.")
+    parser = argparse.ArgumentParser(description="Initialize a Yukta session.")
     parser.add_argument("--session-id", help="The unique session identifier")
     parser.add_argument("--description", help="A human-readable description of the session (mandatory)")
     parser.add_argument("--project-path", help="The root path of the project")
@@ -84,7 +84,7 @@ def main():
         try:
             data = json.load(sys.stdin)
             session_id = data.get('session_id', session_id)
-            description = data.get('description') or description or data.get('source') or "Jagratha Session"
+            description = data.get('description') or description or data.get('source') or "Yukta Session"
             project_root = data.get('project_root') or data.get('cwd') or project_root
             initiator = data.get('initiator', initiator)
             tags.update(data.get('tags', {}))
@@ -127,7 +127,7 @@ def main():
         }
     }
 
-    print("Sending configuration to Jagratha server...")
+    print("Sending configuration to Yukta server...")
     if not http_post(WEBSERVER_HOST, WEBSERVER_PORT, WEBSERVER_ENDPOINT, payload):
         sys.exit(1)
 

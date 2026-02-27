@@ -19,7 +19,7 @@ import sys
 import argparse
 import http.client
 
-# Jagratha Server Configuration
+# Yukta Server Configuration
 WEBSERVER_HOST = os.environ.get("JAGRATHA_HOST", "localhost")
 WEBSERVER_PORT = int(os.environ.get("JAGRATHA_PORT", 8080))
 
@@ -52,7 +52,7 @@ def trigger_workflow(session_id):
         print("Workflow trigger accepted.")
         return True
     except Exception as e:
-        print(f"Error connecting to Jagratha: {e}")
+        print(f"Error connecting to Yukta: {e}")
         return False
     finally:
         conn.close()
@@ -107,7 +107,7 @@ def monitor_status(session_id):
         conn.close()
 
 def main():
-    parser = argparse.ArgumentParser(description="Jagratha Workflow Trigger & Monitor")
+    parser = argparse.ArgumentParser(description="Yukta Workflow Trigger & Monitor")
     parser.add_argument("--session-id", help="The unique session identifier", required=True)
 
     args = parser.parse_args()
