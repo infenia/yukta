@@ -84,7 +84,8 @@ public interface AggregateStore {
     public enum Status {
       WAITING,
       COMPLETED,
-      EVICTED
+      EVICTED,
+      EXPIRED
     }
   }
 }

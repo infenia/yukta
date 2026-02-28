@@ -16,6 +16,7 @@
 package com.infenia.yukta.plugin.core;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
@@ -75,7 +76,13 @@ class AggregatorProcessorTest {
             processor
                 .process(Flux.just(msg1, msg2), config)
                 .contextWrite(ctx -> ctx.put("nodeId", "agg").put("sessionId", "sess1")))
-        .expectNextMatches(m -> (Double) m.getPayload() == 30.0)
+        .expectNextMatches(
+            m -> {
+              assertEquals(30.0, (Double) m.getPayload());
+              assertEquals("default", m.getSourcePort());
+              assertTrue(m.getMessageHistory().contains("agg"));
+              return true;
+            })
         .verifyComplete();
   }
 
@@ -112,6 +119,43 @@ class AggregatorProcessorTest {
   }
 
   @Test
+  void testExpiredDiscardedIfNoErrorPort() {
+    final Map<String, Object> config =
+        Map.of(
+            "groupBy",
+            "payload.userId",
+            "window",
+            Map.of("type", "TIME", "durationMs", 1000),
+            "aggregation",
+            Map.of("type", "SUM", "field", "payload.amount"),
+            "emitOnTimeout",
+            false);
+
+    final Message<?> msg1 =
+        DefaultMessage.create(UUID.randomUUID(), Map.of("userId", "u1", "amount", 10.0));
+
+    when(aggregateStore.addValue(anyString(), any(), any(), any()))
+        .thenReturn(
+            Mono.just(
+                new AggregateResult(AggregateResult.Status.WAITING, null, "sess1:agg:u1", msg1)));
+
+    final AggregateResult expired =
+        new AggregateResult(AggregateResult.Status.EXPIRED, 10.0, "sess1:agg:u1", msg1);
+    when(aggregateStore.getAsyncResults()).thenReturn(Flux.just(expired));
+
+    final TestPublisher<Message<?>> input = TestPublisher.create();
+
+    StepVerifier.create(
+            processor
+                .process(input.flux(), config)
+                .contextWrite(ctx -> ctx.put("nodeId", "agg").put("sessionId", "sess1")))
+        .then(() -> input.next(msg1))
+        .expectNextCount(0)
+        .then(input::complete)
+        .verifyComplete();
+  }
+
+  @Test
   void testEviction() {
     final Map<String, Object> config =
         Map.of(
@@ -121,7 +165,7 @@ class AggregatorProcessorTest {
             Map.of("type", "COUNT", "size", 10),
             "aggregation",
             Map.of("type", "SUM", "field", "payload.amount"),
-            "maxPendingWindows",
+            "maxPending",
             1);
 
     final Message<?> msg1 =
@@ -144,6 +188,50 @@ class AggregatorProcessorTest {
                 .contextWrite(ctx -> ctx.put("nodeId", "agg").put("sessionId", "sess1")))
         .then(() -> input.next(msg1))
         .expectNextMatches(m -> (Double) m.getPayload() == 5.0)
+        .then(input::complete)
+        .verifyComplete();
+  }
+
+  @Test
+  void testExpiredToErrorPort() {
+    final Map<String, Object> config =
+        Map.of(
+            "groupBy",
+            "payload.userId",
+            "window",
+            Map.of("type", "TIME", "durationMs", 1000),
+            "aggregation",
+            Map.of("type", "SUM", "field", "payload.amount"),
+            "emitOnTimeout",
+            false,
+            "errorPort",
+            "timeout-error");
+
+    final Message<?> msg1 =
+        DefaultMessage.create(UUID.randomUUID(), Map.of("userId", "u1", "amount", 10.0));
+
+    when(aggregateStore.addValue(anyString(), any(), any(), any()))
+        .thenReturn(
+            Mono.just(
+                new AggregateResult(AggregateResult.Status.WAITING, null, "sess1:agg:u1", msg1)));
+
+    final AggregateResult expired =
+        new AggregateResult(AggregateResult.Status.EXPIRED, 10.0, "sess1:agg:u1", msg1);
+    when(aggregateStore.getAsyncResults()).thenReturn(Flux.just(expired));
+
+    final TestPublisher<Message<?>> input = TestPublisher.create();
+
+    StepVerifier.create(
+            processor
+                .process(input.flux(), config)
+                .contextWrite(ctx -> ctx.put("nodeId", "agg").put("sessionId", "sess1")))
+        .then(() -> input.next(msg1))
+        .expectNextMatches(
+            m -> {
+              assertEquals(10.0, (Double) m.getPayload());
+              assertEquals("timeout-error", m.getSourcePort());
+              return true;
+            })
         .then(input::complete)
         .verifyComplete();
   }
@@ -198,5 +286,15 @@ class AggregatorProcessorTest {
   @Test
   void testType() {
     assertEquals("AGGREGATOR", processor.getType());
+  }
+
+  @Test
+  void testOutputPorts() {
+    Map<String, Object> config = Map.of();
+    assertTrue(processor.getOutputPorts(config).contains("default"));
+
+    config = Map.of("errorPort", "err");
+    assertTrue(processor.getOutputPorts(config).contains("default"));
+    assertTrue(processor.getOutputPorts(config).contains("err"));
   }
 }

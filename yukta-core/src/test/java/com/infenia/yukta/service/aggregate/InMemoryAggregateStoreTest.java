@@ -43,6 +43,25 @@ class InMemoryAggregateStoreTest {
   }
 
   @Test
+  void testExpiredWithoutEmit() {
+    final String key = "expired-key";
+    final AggregateConfig config =
+        new AggregateConfig("TIME", 100, 200, "SUM", 100, false, "IGNORE", null, null, null);
+    final Message<Double> msg = DefaultMessage.create(UUID.randomUUID(), 10.0);
+
+    store.addValue(key, 10.0, msg, config).block();
+
+    StepVerifier.create(store.getAsyncResults())
+        .expectNextMatches(
+            res ->
+                res.status() == AggregateResult.Status.EXPIRED
+                    && res.key().equals(key)
+                    && (Double) res.result() == 10.0)
+        .thenCancel()
+        .verify(Duration.ofSeconds(2));
+  }
+
+  @Test
   void testSumWithCount() {
     final String key = "sum-key";
     final AggregateConfig config =
