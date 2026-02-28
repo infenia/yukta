@@ -15,9 +15,12 @@
  */
 package com.infenia.yukta.plugin;
 
+import java.io.Serial;
+
 /** Exception thrown when a filter condition fails to evaluate in strict mode. */
-public class FilterEvaluationException extends RuntimeException {
-  private static final long serialVersionUID = 1L;
+public class FilterEvaluationException extends WorkflowExecutionException {
+
+  @Serial private static final long serialVersionUID = 1L;
 
   /**
    * Constructs a new FilterEvaluationException with the specified message.

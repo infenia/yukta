@@ -19,8 +19,12 @@ import com.infenia.yukta.plugin.FilterEvaluationException;
 import com.infenia.yukta.plugin.Message;
 import com.infenia.yukta.plugin.PluginMetricsReporter;
 import com.infenia.yukta.plugin.ProcessorPlugin;
+import com.infenia.yukta.plugin.UiDesign;
 import com.infenia.yukta.util.SpelUtils;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Component;
@@ -78,6 +82,33 @@ public final class FilterProcessor implements ProcessorPlugin {
   }
 
   @Override
+  public Optional<UiDesign> getUiDesign() {
+    return Optional.of(
+        new UiDesign(
+            """
+            <div class="flex flex-col items-center justify-center h-full space-y-1 relative">
+                <svg class="w-8 h-8 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"/>
+                </svg>
+                <div class="text-[10px] text-slate-500 font-medium uppercase">Filter</div>
+            </div>
+            """,
+            140,
+            80));
+  }
+
+  @Override
+  public List<String> getOutputPorts(final Map<String, Object> config) {
+    final List<String> ports = new ArrayList<>();
+    ports.add("default");
+    final String discardPort = (String) config.get(DISCARD_PORT);
+    if (discardPort != null && !discardPort.isBlank()) {
+      ports.add(discardPort);
+    }
+    return ports;
+  }
+
+  @Override
   public Mono<Void> initialize(final Map<String, Object> config) {
     final String condition = (String) config.get(CONFIG_CONDITION);
     final String engine = (String) config.getOrDefault(CONFIG_ENGINE, ENGINE_SPEL);
@@ -131,17 +162,16 @@ public final class FilterProcessor implements ProcessorPlugin {
       final String nodeId,
       final boolean isMatch,
       final String discardPort) {
-    Mono<Message<?>> result = Mono.empty();
     if (isMatch) {
       reporter.incrementFilterCount(nodeId, "MATCH");
-      result = Mono.just(message);
+      return Mono.just(message.withSourcePort("default").withAddedHistory(nodeId));
     } else {
       reporter.incrementFilterCount(nodeId, "DISCARD");
       if (discardPort != null && !discardPort.isBlank()) {
-        result = Mono.just(message.withSourcePort(discardPort));
+        return Mono.just(message.withSourcePort(discardPort).withAddedHistory(nodeId));
       }
     }
-    return result;
+    return Mono.empty();
   }
 
   private Mono<Message<?>> handleEvaluationError(
@@ -159,7 +189,11 @@ public final class FilterProcessor implements ProcessorPlugin {
 
   private boolean evaluate(final String condition, final String engine, final Message<?> message) {
     if (ENGINE_SPEL.equalsIgnoreCase(engine)) {
-      final Boolean result = SpelUtils.evaluateSync(condition, message);
+      final Map<String, Object> variables =
+          Map.of(
+              "payload", message.getPayload(),
+              "metadata", message.getMetadata());
+      final Boolean result = SpelUtils.evaluateSync(condition, message, variables);
       return result != null && result;
     } else if (ENGINE_SIMPLE.equalsIgnoreCase(engine)) {
       return SimpleExpressionEvaluator.evaluate(condition, message);
