@@ -15,25 +15,21 @@
  */
 package com.infenia.yukta.plugin.buildtool;
 
+import com.infenia.yukta.plugin.BuildGateway;
 import com.infenia.yukta.plugin.DefaultMessage;
 import com.infenia.yukta.plugin.Message;
 import com.infenia.yukta.plugin.PluginCategory;
 import com.infenia.yukta.plugin.ProcessorPlugin;
 import com.infenia.yukta.plugin.TriggerPlugin;
 import java.io.File;
-import java.io.IOException;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.TimeoutException;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.core.codec.StringDecoder;
-import org.springframework.core.io.buffer.DataBufferUtils;
-import org.springframework.core.io.buffer.DefaultDataBufferFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
-import reactor.core.scheduler.Schedulers;
 
 /**
  * Abstract base class for build tool plugins (Gradle, Maven, NPM, etc.). Supports both Trigger and
@@ -41,6 +37,8 @@ import reactor.core.scheduler.Schedulers;
  */
 @Slf4j
 public abstract class AbstractBuildToolPlugin implements TriggerPlugin, ProcessorPlugin {
+
+  @Autowired protected BuildGateway buildGateway;
 
   /** Default constructor. */
   protected AbstractBuildToolPlugin() {
@@ -125,50 +123,6 @@ public abstract class AbstractBuildToolPlugin implements TriggerPlugin, Processo
 
   private Mono<String> executeTask(
       final File projectDir, final List<String> command, final String task, final long timeout) {
-    return Mono.fromCallable(
-            () -> {
-              final ProcessBuilder processBuilder = new ProcessBuilder(command);
-              processBuilder.directory(projectDir);
-              processBuilder.redirectErrorStream(true);
-              return processBuilder.start();
-            })
-        .subscribeOn(Schedulers.boundedElastic())
-        .flatMap(
-            process -> {
-              final Flux<String> outputFlux =
-                  DataBufferUtils.readInputStream(
-                          process::getInputStream, DefaultDataBufferFactory.sharedInstance, 4096)
-                      .transform(
-                          flux -> StringDecoder.textPlainOnly().decode(flux, null, null, Map.of()));
-
-              final Mono<Integer> exitCodeMono =
-                  Mono.fromFuture(process.onExit()).map(Process::exitValue);
-
-              return outputFlux
-                  .collectList()
-                  .map(list -> String.join("", list))
-                  .zipWith(exitCodeMono)
-                  .map(
-                      tuple -> {
-                        final String logs = tuple.getT1();
-                        final Integer code = tuple.getT2();
-                        if (code != 0 && log.isWarnEnabled()) {
-                          log.warn("Task {} failed with exit code {}", task, code);
-                        }
-                        return logs;
-                      })
-                  .timeout(Duration.ofSeconds(timeout))
-                  .onErrorResume(
-                      TimeoutException.class,
-                      e -> {
-                        process.destroyForcibly();
-                        return Mono.error(new TimeoutException("Timeout running task: " + task));
-                      });
-            })
-        .onErrorResume(
-            IOException.class,
-            e ->
-                Mono.error(
-                    new RuntimeException("Error executing task " + task + ": " + e.getMessage())));
+    return buildGateway.executeTask(projectDir, command, task, timeout);
   }
 }

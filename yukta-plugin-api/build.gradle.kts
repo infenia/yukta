@@ -15,6 +15,7 @@
  */
 plugins {
     `java-library`
+    `java-test-fixtures`
     id("com.infenia.yukta.java-conventions")
     id("com.infenia.yukta.quality-conventions")
     id("com.infenia.yukta.jacoco-conventions")

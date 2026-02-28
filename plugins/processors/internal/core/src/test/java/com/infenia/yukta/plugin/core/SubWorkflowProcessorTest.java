@@ -15,29 +15,21 @@
  */
 package com.infenia.yukta.plugin.core;
 
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyMap;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import com.infenia.yukta.config.AppConfigService;
-import com.infenia.yukta.model.PreparedWorkflow;
-import com.infenia.yukta.model.WorkflowDefinition;
 import com.infenia.yukta.plugin.DefaultMessage;
 import com.infenia.yukta.plugin.Message;
-import com.infenia.yukta.plugin.ResultCollector;
-import com.infenia.yukta.service.WorkflowOrchestrator;
+import com.infenia.yukta.plugin.WorkflowGateway;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.beans.factory.ObjectProvider;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
@@ -46,18 +38,9 @@ import reactor.util.context.Context;
 @ExtendWith(MockitoExtension.class)
 class SubWorkflowProcessorTest {
 
-  @Mock private ObjectProvider<WorkflowOrchestrator> orchestratorProvider;
-  @Mock private ObjectProvider<AppConfigService> configServiceProvider;
-  @Mock private WorkflowOrchestrator orchestrator;
-  @Mock private AppConfigService configService;
+  @Mock private WorkflowGateway workflowGateway;
 
   @InjectMocks private SubWorkflowProcessor processor;
-
-  @BeforeEach
-  void setUp() {
-    when(orchestratorProvider.getIfAvailable()).thenReturn(orchestrator);
-    when(configServiceProvider.getIfAvailable()).thenReturn(configService);
-  }
 
   @Test
   @SuppressWarnings("unchecked")
@@ -67,34 +50,11 @@ class SubWorkflowProcessorTest {
     final String childSessionId = parentSessionId + ":" + nodeId;
     final String subWorkflowId = "child-wf";
 
-    final WorkflowDefinition subDef = mock(WorkflowDefinition.class);
-    final PreparedWorkflow prepared = mock(PreparedWorkflow.class);
     final Message subResult = DefaultMessage.create(UUID.randomUUID(), "success-result");
 
-    when(configService.getWorkflow(eq(parentSessionId), eq(subWorkflowId)))
-        .thenReturn(Mono.just(subDef));
-    when(configService.getProjectPath(parentSessionId)).thenReturn(Mono.just("/path"));
-    when(configService.setProjectPath(eq(childSessionId), any())).thenReturn(Mono.empty());
-    when(configService.getWorkflows(parentSessionId)).thenReturn(Mono.just(Map.of()));
-    when(configService.setWorkflows(eq(childSessionId), any())).thenReturn(Mono.empty());
-    when(configService.getInitiator(parentSessionId)).thenReturn(Mono.just("user"));
-    when(configService.setInitiator(eq(childSessionId), any())).thenReturn(Mono.empty());
-    when(configService.getDescription(parentSessionId)).thenReturn(Mono.just("desc"));
-    when(configService.setDescription(eq(childSessionId), any())).thenReturn(Mono.empty());
-
-    when(orchestrator.prepareWorkflow(subDef)).thenReturn(Mono.just(prepared));
-    when(orchestrator.execute(
-            eq(childSessionId), eq(subWorkflowId), anyString(), eq(prepared), anyMap()))
-        .thenAnswer(
-            invocation -> {
-              // Simulate terminal message collection
-              return Mono.deferContextual(
-                  ctx -> {
-                    ctx.<ResultCollector>getOrEmpty("resultCollector")
-                        .ifPresent(c -> c.add(subResult));
-                    return Mono.empty();
-                  });
-            });
+    when(workflowGateway.executeSubWorkflow(
+            eq(parentSessionId), eq(childSessionId), eq(subWorkflowId), anyMap()))
+        .thenReturn(Mono.just(List.of(subResult)));
 
     final Map<String, Object> config =
         Map.of(

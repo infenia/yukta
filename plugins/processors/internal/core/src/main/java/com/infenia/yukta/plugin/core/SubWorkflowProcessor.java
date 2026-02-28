@@ -15,18 +15,15 @@
  */
 package com.infenia.yukta.plugin.core;
 
-import com.infenia.yukta.config.AppConfigService;
 import com.infenia.yukta.plugin.DefaultMessage;
 import com.infenia.yukta.plugin.Message;
 import com.infenia.yukta.plugin.ProcessorPlugin;
-import com.infenia.yukta.plugin.ResultCollector;
-import com.infenia.yukta.service.WorkflowOrchestrator;
+import com.infenia.yukta.plugin.WorkflowGateway;
 import com.infenia.yukta.util.SpelUtils;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
@@ -40,9 +37,7 @@ public class SubWorkflowProcessor implements ProcessorPlugin {
 
   private static final String TYPE = "SUB_WORKFLOW";
 
-  @Autowired private ObjectProvider<WorkflowOrchestrator> orchProv;
-
-  @Autowired private ObjectProvider<AppConfigService> cfgServProv;
+  @Autowired private WorkflowGateway workflowGateway;
 
   /** Default constructor. */
   public SubWorkflowProcessor() {
@@ -129,48 +124,7 @@ public class SubWorkflowProcessor implements ProcessorPlugin {
       final String childSessionId,
       final String workflowId,
       final Map<String, Object> payload) {
-    final WorkflowOrchestrator orchestrator = orchProv.getIfAvailable();
-    final AppConfigService configService = cfgServProv.getIfAvailable();
-
-    if (orchestrator == null || configService == null) {
-      return Mono.error(new IllegalStateException("Required services not available"));
-    }
-
-    final ResultCollector collector = new ResultCollector();
-
-    return configService
-        .getWorkflow(parentSessionId, workflowId)
-        .switchIfEmpty(
-            Mono.error(new IllegalArgumentException("Workflow not found: " + workflowId)))
-        .flatMap(
-            def ->
-                configService
-                    .getProjectPath(parentSessionId)
-                    .flatMap(path -> configService.setProjectPath(childSessionId, path))
-                    .then(
-                        configService
-                            .getWorkflows(parentSessionId)
-                            .flatMap(wfs -> configService.setWorkflows(childSessionId, wfs)))
-                    .then(
-                        configService
-                            .getInitiator(parentSessionId)
-                            .flatMap(init -> configService.setInitiator(childSessionId, init)))
-                    .then(
-                        configService
-                            .getDescription(parentSessionId)
-                            .flatMap(
-                                desc ->
-                                    configService.setDescription(
-                                        childSessionId, desc + " (Sub-workflow)")))
-                    .then(orchestrator.prepareWorkflow(def))
-                    .flatMap(
-                        prepared -> {
-                          final String executionId = java.util.UUID.randomUUID().toString();
-                          return orchestrator
-                              .execute(childSessionId, workflowId, executionId, prepared, payload)
-                              .contextWrite(ctx -> ctx.put("resultCollector", collector))
-                              .then(Mono.fromCallable(collector::getResults));
-                        }));
+    return workflowGateway.executeSubWorkflow(parentSessionId, childSessionId, workflowId, payload);
   }
 
   private Mono<Message<?>> mapOutput(
