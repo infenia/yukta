@@ -17,16 +17,12 @@ package com.infenia.yukta.plugin.core;
 
 import com.infenia.yukta.plugin.Message;
 import com.infenia.yukta.plugin.ProcessorPlugin;
-import com.infenia.yukta.plugin.UiDesign;
 import com.infenia.yukta.service.aggregate.AggregateStore;
 import com.infenia.yukta.service.aggregate.AggregateStore.AggregateConfig;
 import com.infenia.yukta.service.aggregate.AggregateStore.AggregateResult;
 import com.infenia.yukta.util.SpelUtils;
 import java.time.Duration;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -44,10 +40,9 @@ public class AggregatorProcessor implements ProcessorPlugin {
   private static final String CFG_GROUP_BY = "groupBy";
   private static final String CFG_WINDOW = "window";
   private static final String CFG_AGGREGATION = "aggregation";
-  private static final String CFG_MAX_PENDING = "maxPending";
+  private static final String CFG_MAX_PENDING = "maxPendingWindows";
   private static final String CFG_EMIT_TIMEOUT = "emitOnTimeout";
   private static final String CFG_NULL_POLICY = "nullPolicy";
-  private static final String CFG_ERROR_PORT = "errorPort";
 
   private static final String WIN_TYPE = "type";
   private static final String WIN_SIZE = "size";
@@ -83,41 +78,9 @@ public class AggregatorProcessor implements ProcessorPlugin {
         + "- window: Map containing 'type' (COUNT, TIME, SESSION) and 'size' or 'durationMs'.\n"
         + "- aggregation: Map containing 'type' (SUM, AVERAGE, MIN, MAX, COLLECT_LIST, CUSTOM) "
         + "and optional 'field' or 'accumulateExp'/'resultExp' for CUSTOM.\n"
-        + "- maxPending: Maximum number of windows to keep in memory (default 1000).\n"
+        + "- maxPendingWindows: Maximum number of windows to keep in memory.\n"
         + "- emitOnTimeout: Boolean. If true (default), partial windows are emitted on timeout.\n"
-        + "- nullPolicy: 'IGNORE' (default), 'FAIL', or 'ZERO'.\n"
-        + "- errorPort: Port to route expired windows when emitOnTimeout is false.";
-  }
-
-  @Override
-  public Optional<UiDesign> getUiDesign() {
-    return Optional.of(
-        new UiDesign(
-            """
-            <div class="flex flex-col items-center justify-center h-full space-y-1 relative">
-                <svg class="w-8 h-8 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                          d="M4 6h16M4 10h16M4 14h16M4 18h16"/>
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                          d="M9 6v12M15 6v12" opacity="0.2"/>
-                    <rect x="7" y="5" width="10" height="14" rx="1" stroke-width="2" class="fill-blue-50"/>
-                </svg>
-                <div class="text-[10px] text-slate-500 font-medium uppercase">Aggregator</div>
-            </div>
-            """,
-            140,
-            80));
-  }
-
-  @Override
-  public List<String> getOutputPorts(final Map<String, Object> config) {
-    final List<String> ports = new ArrayList<>();
-    ports.add("default");
-    final String errorPort = (String) config.get(CFG_ERROR_PORT);
-    if (errorPort != null && !errorPort.isBlank()) {
-      ports.add(errorPort);
-    }
-    return ports;
+        + "- nullPolicy: 'IGNORE' (default) or 'FAIL'.";
   }
 
   @Override
@@ -168,7 +131,6 @@ public class AggregatorProcessor implements ProcessorPlugin {
     @SuppressWarnings(UNCHECKED)
     final Map<String, Object> aggMap = (Map<String, Object>) config.get(CFG_AGGREGATION);
     final String aggField = (String) aggMap.get(AGG_FIELD);
-    final String errorPort = (String) config.get(CFG_ERROR_PORT);
 
     return Flux.deferContextual(
         ctx -> {
@@ -186,61 +148,42 @@ public class AggregatorProcessor implements ProcessorPlugin {
 
                     return aggregateStore
                         .addValue(key, val, msg, aggConfig)
-                        .flatMapMany(res -> handleResult(res, nodeId, errorPort));
+                        .flatMapMany(this::handleResult);
                   });
 
-          final Flux<Message<?>> async =
-              getAsyncMessages(keyPrefix, nodeId, errorPort, input.then());
+          final Flux<Message<?>> async = getAsyncMessages(keyPrefix, input.then());
 
           final Flux<Message<?>> remaining =
               input.thenMany(
-                  Flux.defer(
-                      () ->
-                          aggregateStore
-                              .flushAll(keyPrefix)
-                              .map(res -> createMessage(res, nodeId, "default"))));
+                  Flux.defer(() -> aggregateStore.flushAll(keyPrefix).map(this::createMessage)));
 
           return Flux.merge(incoming, async).concatWith(remaining);
         });
   }
 
   @SuppressWarnings("PMD.LawOfDemeter")
-  private Flux<Message<?>> getAsyncMessages(
-      final String keyPrefix,
-      final String nodeId,
-      final String errorPort,
-      final Mono<Void> completion) {
+  private Flux<Message<?>> getAsyncMessages(final String keyPrefix, final Mono<Void> completion) {
     return aggregateStore
         .getAsyncResults()
         .filter(res -> res.key().startsWith(keyPrefix))
         .takeUntilOther(completion)
-        .flatMap(res -> handleResult(res, nodeId, errorPort));
+        .map(this::createMessage);
   }
 
   @Override
   public Mono<Void> shutdown(final Map<String, Object> config) {
-    return aggregateStore.flushAll().then();
+    return aggregateStore.flushAll().map(this::createMessage).then();
   }
 
-  private Flux<Message<?>> handleResult(
-      final AggregateResult result, final String nodeId, final String errorPort) {
+  private Flux<Message<?>> handleResult(final AggregateResult result) {
     if (result.status() == AggregateResult.Status.WAITING) {
       return Flux.empty();
     }
-    if (result.status() == AggregateResult.Status.EXPIRED) {
-      if (errorPort != null && !errorPort.isBlank()) {
-        return Flux.just(createMessage(result, nodeId, errorPort));
-      }
-      return Flux.empty();
-    }
-    return Flux.just(createMessage(result, nodeId, "default"));
+    return Flux.just(createMessage(result));
   }
 
-  private Message<?> createMessage(
-      final AggregateResult result, final String nodeId, final String port) {
-    return com.infenia.yukta.plugin.DefaultMessage.from(result.lastMessage(), result.result())
-        .withSourcePort(port)
-        .withAddedHistory(nodeId);
+  private Message<?> createMessage(final AggregateResult result) {
+    return com.infenia.yukta.plugin.DefaultMessage.from(result.lastMessage(), result.result());
   }
 
   private AggregateConfig createAggregateConfig(final Map<String, Object> config) {

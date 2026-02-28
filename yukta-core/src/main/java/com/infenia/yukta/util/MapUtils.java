@@ -114,4 +114,27 @@ public class MapUtils {
     }
     return current;
   }
+
+  /**
+   * Remove a value from a nested map using dot notation.
+   *
+   * @param map the map to modify
+   * @param path the dot-separated path (e.g. "a.b.c")
+   */
+  public static void removeNestedValue(final Map<String, Object> map, final String path) {
+    final String[] parts = path.split("\\.");
+    Map<String, Object> current = map;
+    for (int i = 0; i < parts.length - 1; i++) {
+      final String part = parts[i];
+      final Object next = current.get(part);
+      if (next instanceof Map) {
+        final Map<String, Object> mutableNext = new HashMap<>((Map<String, Object>) next);
+        current.put(part, mutableNext);
+        current = mutableNext;
+      } else {
+        return;
+      }
+    }
+    current.remove(parts[parts.length - 1]);
+  }
 }
