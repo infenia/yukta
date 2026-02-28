@@ -221,27 +221,28 @@ public class InMemoryAggregateStore implements AggregateStore {
     try {
       final long now = System.currentTimeMillis();
       for (final Map.Entry<String, AggregateState> entry : store.entrySet()) {
-        checkExpired(entry, now, toRemove, toDiscard);
+        final AggregateState state = entry.getValue();
+        if (state.isExpired(now)) {
+          if (state.isEmitOnTimeout()) {
+            toRemove.add(entry.getKey());
+          } else {
+            toDiscard.add(entry.getKey());
+          }
+        }
       }
-      toDiscard.forEach(store::remove);
+      toDiscard.forEach(this::emitExpiredAndRemove);
       toRemove.forEach(this::emitAndRemove);
     } finally {
       lock.unlock();
     }
   }
 
-  private void checkExpired(
-      final Map.Entry<String, AggregateState> entry,
-      final long now,
-      final List<String> toRemove,
-      final List<String> toDiscard) {
-    final AggregateState state = entry.getValue();
-    if (state.isExpired(now)) {
-      if (state.isEmitOnTimeout()) {
-        toRemove.add(entry.getKey());
-      } else {
-        toDiscard.add(entry.getKey());
-      }
+  private void emitExpiredAndRemove(final String key) {
+    final AggregateState state = store.remove(key);
+    if (state != null) {
+      asyncResults.tryEmitNext(
+          new AggregateResult(
+              AggregateResult.Status.EXPIRED, state.getFinalResult(), key, state.getLastMessage()));
     }
   }
 
