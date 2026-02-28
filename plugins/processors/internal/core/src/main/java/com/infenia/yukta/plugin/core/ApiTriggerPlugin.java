@@ -65,15 +65,12 @@ public class ApiTriggerPlugin implements TriggerPlugin {
         new UiDesign(
             """
             <div class="flex flex-col items-center justify-center h-full space-y-1 relative">
-                <span class="material-symbols-outlined text-blue-500 text-2xl">api</span>
-                <div class="text-[10px] text-blue-600 font-bold uppercase tracking-widest">Trigger</div>
-                <div class="yukta-port absolute -right-3 top-1/2 -translate-y-1/2 w-4 h-4 bg-blue-600 rounded-full border-2 border-white shadow-sm flex items-center justify-center" data-port-name="default">
-                    <div class="w-1.5 h-1.5 bg-white rounded-full"></div>
-                </div>
+                <span class="material-symbols-outlined text-blue-500 text-xl">api</span>
+                <div class="text-[9px] text-blue-600 font-bold uppercase tracking-wider">Trigger</div>
             </div>
             """,
-            140,
-            80));
+            120,
+            60));
   }
 
   @Override

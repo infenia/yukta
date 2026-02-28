@@ -49,8 +49,8 @@ class ApiTriggerPluginTest {
     assertEquals(1, plugin.getOutputPorts().size());
     assertEquals("default", plugin.getOutputPorts().get(0));
     org.junit.jupiter.api.Assertions.assertTrue(plugin.getUiDesign().isPresent());
-    assertEquals(140, plugin.getUiDesign().get().width());
-    assertEquals(80, plugin.getUiDesign().get().height());
+    assertEquals(120, plugin.getUiDesign().get().width());
+    assertEquals(60, plugin.getUiDesign().get().height());
     org.junit.jupiter.api.Assertions.assertTrue(
         plugin.getUiDesign().get().html().contains("material-symbols-outlined"));
   }

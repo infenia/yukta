@@ -120,21 +120,50 @@
 
     <style>
         .dag-node {
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-        .dag-node:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+            cursor: pointer;
+            transition: all 0.2s ease-in-out;
         }
 
-        .dark .dag-node {
-            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.3);
+        .dag-node rect {
+            fill: #ffffff;
+            stroke: #e2e8f0;
+            stroke-width: 1px;
+            transition: all 0.2s ease-in-out;
+        }
+
+        .dark .dag-node rect {
+            fill: #1e293b;
+            stroke: #334155;
+        }
+
+        .dag-node:hover rect {
+            stroke: #3c83f6;
+            filter: drop-shadow(0 4px 6px rgb(0 0 0 / 0.05));
         }
 
         .dag-line {
             stroke: #94a3b8;
-            stroke-width: 1.5;
-            opacity: 0.4;
+            stroke-width: 1.5px;
+            fill: none;
+            opacity: 0.3;
+            transition: all 0.2s ease-in-out;
+        }
+
+        .dag-line.highlight {
+            stroke: #3c83f6;
+            stroke-width: 2px;
+            opacity: 1;
+        }
+
+        #arrowhead path {
+            fill: #94a3b8;
+            opacity: 0.5;
+            transition: all 0.2s ease-in-out;
+        }
+
+        #arrowhead-highlight path {
+            fill: #3c83f6;
+            opacity: 1;
         }
 
         .terminal-header {

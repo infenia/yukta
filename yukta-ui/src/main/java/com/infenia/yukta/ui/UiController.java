@@ -352,7 +352,7 @@ public class UiController {
   }
 
   private String buildPluginDetailsJson(final Map<String, PluginDetails> pluginDetails) {
-    final StringBuilder json = new StringBuilder(256);
+    final StringBuilder json = new StringBuilder(512);
     final int openBraceLen = 1;
     json.append('{');
     pluginDetails.forEach(
@@ -360,11 +360,19 @@ public class UiController {
           if (json.length() > openBraceLen) {
             json.append(',');
           }
-          json.append('"')
-              .append(escapeJson(key))
-              .append("\":{\"type\":\"")
-              .append(escapeJson(plugin.type()))
-              .append("\"}");
+          json.append('"').append(escapeJson(key)).append("\":{");
+          json.append("\"type\":\"").append(escapeJson(plugin.type())).append("\",");
+
+          if (plugin.uiDesign() != null) {
+            json.append("\"uiDesign\":{");
+            json.append("\"html\":\"").append(escapeJson(plugin.uiDesign().html())).append("\",");
+            json.append("\"width\":").append(plugin.uiDesign().width()).append(",");
+            json.append("\"height\":").append(plugin.uiDesign().height());
+            json.append("}");
+          } else {
+            json.append("\"uiDesign\":null");
+          }
+          json.append('}');
         });
     json.append('}');
     return json.toString();

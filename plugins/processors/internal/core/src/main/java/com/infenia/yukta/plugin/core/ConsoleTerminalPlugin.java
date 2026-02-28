@@ -57,12 +57,12 @@ public class ConsoleTerminalPlugin implements TerminalPlugin {
         new UiDesign(
             """
             <div class="flex flex-col items-center justify-center h-full space-y-1">
-                <span class="material-symbols-outlined text-slate-400 text-2xl">terminal</span>
-                <div class="text-[10px] text-slate-500 font-mono">Logger</div>
+                <span class="material-symbols-outlined text-slate-400 text-xl">terminal</span>
+                <div class="text-[9px] text-slate-500 font-medium uppercase tracking-wider">Logger</div>
             </div>
             """,
             120,
-            80));
+            60));
   }
 
   @Override
