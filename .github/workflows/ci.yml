@@ -35,6 +35,8 @@ jobs:
             - 'yukta-core/**'
           plugins-file-update:
             - 'plugins/file-update/**'
+          plugins-processors-internal-core:
+            - 'plugins/processors/internal/core/**'
           root:
             - 'build.gradle'
             - 'settings.gradle'
@@ -92,6 +94,9 @@ jobs:
                 ;;
               "plugins-file-update")
                 TASKS="$TASKS :plugins:file-update:build :plugins:file-update:spotlessCheck :plugins:file-update:check"
+                ;;
+              "plugins-processors-internal-core")
+                TASKS="$TASKS :plugins:processors:internal:core:build :plugins:processors:internal:core:spotlessCheck :plugins:processors:internal:core:check"
                 ;;
             esac
           done

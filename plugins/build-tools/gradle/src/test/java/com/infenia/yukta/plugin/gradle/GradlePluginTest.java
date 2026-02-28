@@ -41,6 +41,7 @@ class GradlePluginTest {
   @BeforeEach
   void setUp() {
     plugin = new GradlePlugin();
+    plugin.setBuildGateway(new com.infenia.yukta.plugin.buildtool.DefaultBuildGateway());
   }
 
   @Test

@@ -16,7 +16,6 @@
 package com.infenia.yukta.plugin.core;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -51,7 +50,10 @@ class FilterProcessorTest {
     final Map<String, Object> config = Map.of("condition", "payload.status == 'ACTIVE'");
     final Message<?> msg = DefaultMessage.create(UUID.randomUUID(), Map.of("status", "ACTIVE"));
 
-    StepVerifier.create(processor.process(Flux.just(msg), config).contextWrite(ctx -> ctx.put("nodeId", "test-node")))
+    StepVerifier.create(
+            processor
+                .process(Flux.just(msg), config)
+                .contextWrite(ctx -> ctx.put("nodeId", "test-node")))
         .expectNextMatches(
             m -> {
               assertEquals(msg.getPayload(), m.getPayload());
@@ -66,7 +68,8 @@ class FilterProcessorTest {
 
   @Test
   void testSpelVariablesMatch() {
-    final Map<String, Object> config = Map.of("condition", "#payload.status == 'ACTIVE' && #metadata.source == 'REST'");
+    final Map<String, Object> config =
+        Map.of("condition", "#payload.status == 'ACTIVE' && #metadata.source == 'REST'");
     final Message<?> msg =
         DefaultMessage.create(UUID.randomUUID(), Map.of("status", "ACTIVE"))
             .withMetadata(Map.of("source", "REST"));

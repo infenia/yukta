@@ -372,15 +372,20 @@ public class UiController {
           if (json.length() > openBraceLen) {
             json.append(',');
           }
-          json.append('"').append(escapeJson(key)).append("\":{");
-          json.append("\"type\":\"").append(escapeJson(plugin.type())).append("\",");
+          json.append('\"')
+              .append(escapeJson(key))
+              .append("\":{\"type\":\"")
+              .append(escapeJson(plugin.type()))
+              .append("\",");
 
           if (plugin.uiDesign() != null) {
-            json.append("\"uiDesign\":{");
-            json.append("\"html\":\"").append(escapeJson(plugin.uiDesign().html())).append("\",");
-            json.append("\"width\":").append(plugin.uiDesign().width()).append(",");
-            json.append("\"height\":").append(plugin.uiDesign().height());
-            json.append("}");
+            json.append("\"uiDesign\":{\"html\":\"")
+                .append(escapeJson(plugin.uiDesign().html()))
+                .append("\",\"width\":")
+                .append(plugin.uiDesign().width())
+                .append(",\"height\":")
+                .append(plugin.uiDesign().height())
+                .append('}');
           } else {
             json.append("\"uiDesign\":null");
           }

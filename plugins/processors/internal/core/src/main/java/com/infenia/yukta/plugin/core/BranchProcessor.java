@@ -60,6 +60,7 @@ public class BranchProcessor implements ProcessorPlugin {
   private static final String MODE_EXPRESSION = "EXPRESSION";
 
   private static final String ERR_PREFIX = "WorkflowExecutionException: ";
+  private static final String UNCHECKED = "unchecked";
 
   /** Default constructor. */
   public BranchProcessor() {
@@ -111,7 +112,7 @@ public class BranchProcessor implements ProcessorPlugin {
   }
 
   @Override
-  @SuppressWarnings("unchecked")
+  @SuppressWarnings(UNCHECKED)
   public List<String> getOutputPorts(final Map<String, Object> config) {
     final Map<String, String> cases =
         (Map<String, String>) config.getOrDefault(CONFIG_CASES, Map.of());
@@ -133,7 +134,7 @@ public class BranchProcessor implements ProcessorPlugin {
   }
 
   @Override
-  @SuppressWarnings("unchecked")
+  @SuppressWarnings(UNCHECKED)
   public Mono<Void> prepare(final Map<String, Object> config) {
     final String mode = (String) config.get(CONFIG_MODE);
     if (MODE_SELECT_KEY.equals(mode)) {
@@ -148,7 +149,7 @@ public class BranchProcessor implements ProcessorPlugin {
   }
 
   @Override
-  @SuppressWarnings("unchecked")
+  @SuppressWarnings(UNCHECKED)
   public Flux<Message<?>> process(final Flux<Message<?>> input, final Map<String, Object> config) {
     final String mode = (String) config.get(CONFIG_MODE);
     final String selector = (String) config.get(CONFIG_SELECTOR);
@@ -184,29 +185,38 @@ public class BranchProcessor implements ProcessorPlugin {
                     return Flux.fromIterable(matchedPorts)
                         .map(port -> message.withSourcePort(port).withAddedHistory(nodeId));
 
-                  } catch (final Exception e) {
-                    if (log.isErrorEnabled()) {
-                      log.error(
-                          "Branch evaluation failed for message {}: {}",
-                          message.getMessageId(),
-                          e.getMessage());
-                    }
-                    if (errorPort != null) {
-                      return Flux.just(
-                          message
-                              .withSourcePort(errorPort)
-                              .withAddedHistory(nodeId)
-                              .withFailure(null, "Branch evaluation failed", e.getMessage()));
-                    }
-                    if (!strictMode) {
-                      return Flux.empty();
-                    }
-                    return Flux.error(
-                        e instanceof NoMatchingBranchException
-                            ? e
-                            : new RuntimeException(ERR_PREFIX + "Branch evaluation failed", e));
+                  } catch (final Exception exception) {
+                    return handleException(message, nodeId, errorPort, strictMode, exception);
                   }
                 }));
+  }
+
+  private Flux<Message<?>> handleException(
+      final Message<?> message,
+      final String nodeId,
+      final String errorPort,
+      final boolean strictMode,
+      final Exception exception) {
+    if (log.isErrorEnabled()) {
+      log.error(
+          "Branch evaluation failed for message {}: {}",
+          message.getMessageId(),
+          exception.getMessage());
+    }
+    if (errorPort != null) {
+      return Flux.just(
+          message
+              .withSourcePort(errorPort)
+              .withAddedHistory(nodeId)
+              .withFailure(null, "Branch evaluation failed", exception.getMessage()));
+    }
+    if (!strictMode) {
+      return Flux.empty();
+    }
+    return Flux.error(
+        exception instanceof NoMatchingBranchException
+            ? exception
+            : new RuntimeException(ERR_PREFIX + "Branch evaluation failed", exception));
   }
 
   private void evaluateBranches(
@@ -238,7 +248,7 @@ public class BranchProcessor implements ProcessorPlugin {
   }
 
   @Override
-  @SuppressWarnings("unchecked")
+  @SuppressWarnings(UNCHECKED)
   public Mono<Void> validateConfig(final Map<String, Object> config) {
     final String mode = (String) config.get(CONFIG_MODE);
     if (mode == null || (!MODE_SELECT_KEY.equals(mode) && !MODE_EXPRESSION.equals(mode))) {

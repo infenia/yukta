@@ -104,7 +104,8 @@ public class DefaultBuildGateway implements BuildGateway {
               if (e instanceof WorkflowExecutionException) {
                 return e;
               }
-              return new WorkflowExecutionException("Build task execution failed: " + e.getMessage(), e);
+              return new WorkflowExecutionException(
+                  "Build task execution failed: " + e.getMessage(), e);
             });
   }
 

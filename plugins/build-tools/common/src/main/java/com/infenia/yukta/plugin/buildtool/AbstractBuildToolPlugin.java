@@ -40,6 +40,15 @@ public abstract class AbstractBuildToolPlugin implements TriggerPlugin, Processo
 
   @Autowired protected BuildGateway buildGateway;
 
+  /**
+   * Set the build gateway.
+   *
+   * @param buildGateway the build gateway
+   */
+  public void setBuildGateway(final BuildGateway buildGateway) {
+    this.buildGateway = buildGateway;
+  }
+
   /** Default constructor. */
   protected AbstractBuildToolPlugin() {
     super();
