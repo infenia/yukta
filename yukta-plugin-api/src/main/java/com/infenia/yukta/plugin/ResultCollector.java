@@ -25,7 +25,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
  * final messages.
  */
 public class ResultCollector {
-  private final Queue<Message> results = new ConcurrentLinkedQueue<>();
+  private final Queue<Message<?>> results = new ConcurrentLinkedQueue<>();
 
   /** Default constructor. */
   public ResultCollector() {
@@ -37,7 +37,7 @@ public class ResultCollector {
    *
    * @param message the message to add
    */
-  public void add(final Message message) {
+  public void add(final Message<?> message) {
     if (message != null) {
       results.add(message);
     }
@@ -48,7 +48,7 @@ public class ResultCollector {
    *
    * @return list of collected messages
    */
-  public List<Message> getResults() {
+  public List<Message<?>> getResults() {
     return new ArrayList<>(results);
   }
 

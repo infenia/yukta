@@ -15,6 +15,7 @@
  */
 package com.infenia.yukta.service.aggregate;
 
+import com.infenia.yukta.plugin.DefaultMessage;
 import com.infenia.yukta.plugin.Message;
 import com.infenia.yukta.service.aggregate.AggregateStore.AggregateConfig;
 import com.infenia.yukta.service.aggregate.AggregateStore.AggregateResult;
@@ -46,7 +47,7 @@ class InMemoryAggregateStoreTest {
     final String key = "sum-key";
     final AggregateConfig config =
         new AggregateConfig("COUNT", 2, 0, "SUM", 100, true, "IGNORE", null, null, null);
-    final Message msg = Message.create(UUID.randomUUID(), 10.0);
+    final Message<Double> msg = DefaultMessage.create(UUID.randomUUID(), 10.0);
 
     StepVerifier.create(store.addValue(key, 10.0, msg, config))
         .expectNextMatches(res -> res.status() == AggregateResult.Status.WAITING)
@@ -64,7 +65,7 @@ class InMemoryAggregateStoreTest {
     final String key = "avg-key";
     final AggregateConfig config =
         new AggregateConfig("COUNT", 3, 0, "AVERAGE", 100, true, "IGNORE", null, null, null);
-    final Message msg = Message.create(UUID.randomUUID(), 0.0);
+    final Message<Double> msg = DefaultMessage.create(UUID.randomUUID(), 0.0);
 
     store.addValue(key, 10.0, msg, config).block();
     store.addValue(key, 20.0, msg, config).block();
@@ -81,7 +82,7 @@ class InMemoryAggregateStoreTest {
     final String key = "minmax-key";
     final AggregateConfig configMin =
         new AggregateConfig("COUNT", 2, 0, "MIN", 100, true, "IGNORE", null, null, null);
-    final Message msg = Message.create(UUID.randomUUID(), 0.0);
+    final Message<Double> msg = DefaultMessage.create(UUID.randomUUID(), 0.0);
 
     store.addValue(key, 10.0, msg, configMin).block();
     StepVerifier.create(store.addValue(key, 5.0, msg, configMin))
@@ -105,7 +106,7 @@ class InMemoryAggregateStoreTest {
     final String key = "list-key";
     final AggregateConfig config =
         new AggregateConfig("COUNT", 2, 0, "COLLECT_LIST", 100, true, "IGNORE", null, null, null);
-    final Message msg = Message.create(UUID.randomUUID(), "data");
+    final Message<String> msg = DefaultMessage.create(UUID.randomUUID(), "data");
 
     store.addValue(key, "A", msg, config).block();
     StepVerifier.create(store.addValue(key, "B", msg, config))
@@ -126,7 +127,7 @@ class InMemoryAggregateStoreTest {
     final AggregateConfig config =
         new AggregateConfig(
             "COUNT", 2, 0, "CUSTOM", 100, true, "IGNORE", 0.0, "#acc + #val + 10", "#acc * 2");
-    final Message msg = Message.create(UUID.randomUUID(), 1.0);
+    final Message<Double> msg = DefaultMessage.create(UUID.randomUUID(), 1.0);
 
     store.addValue(key, 5.0, msg, config).block();
     // acc = 0.0 + 5.0 + 10 = 15.0
@@ -147,7 +148,7 @@ class InMemoryAggregateStoreTest {
     final String key = "time-key";
     final AggregateConfig config =
         new AggregateConfig("TIME", 100, 200, "SUM", 100, true, "IGNORE", null, null, null);
-    final Message msg = Message.create(UUID.randomUUID(), 10.0);
+    final Message<Double> msg = DefaultMessage.create(UUID.randomUUID(), 10.0);
 
     store.addValue(key, 10.0, msg, config).block();
 
@@ -166,7 +167,7 @@ class InMemoryAggregateStoreTest {
     final String key = "session-key";
     final AggregateConfig config =
         new AggregateConfig("SESSION", 100, 300, "SUM", 100, true, "IGNORE", null, null, null);
-    final Message msg = Message.create(UUID.randomUUID(), 10.0);
+    final Message<Double> msg = DefaultMessage.create(UUID.randomUUID(), 10.0);
 
     store.addValue(key, 10.0, msg, config).block();
 
@@ -194,7 +195,7 @@ class InMemoryAggregateStoreTest {
     // Max pending windows = 1
     final AggregateConfig config =
         new AggregateConfig("COUNT", 10, 0, "SUM", 1, true, "IGNORE", null, null, null);
-    final Message msg = Message.create(UUID.randomUUID(), 10.0);
+    final Message<Double> msg = DefaultMessage.create(UUID.randomUUID(), 10.0);
 
     store.addValue(key1, 10.0, msg, config).block();
 
@@ -216,7 +217,7 @@ class InMemoryAggregateStoreTest {
   @Test
   void testNullPolicy() {
     final String key = "null-key";
-    final Message msg = Message.create(UUID.randomUUID(), 10.0);
+    final Message<Double> msg = DefaultMessage.create(UUID.randomUUID(), 10.0);
 
     // IGNORE
     AggregateConfig configIgnore =

@@ -27,6 +27,7 @@ import com.infenia.yukta.config.AppConfigService;
 import com.infenia.yukta.model.WorkflowDefinition;
 import com.infenia.yukta.model.WorkflowDefinition.Edge;
 import com.infenia.yukta.model.WorkflowDefinition.Node;
+import com.infenia.yukta.plugin.DefaultMessage;
 import com.infenia.yukta.plugin.Message;
 import com.infenia.yukta.plugin.PluginCategory;
 import com.infenia.yukta.plugin.TerminalPlugin;
@@ -61,7 +62,7 @@ class WorkflowOrchestratorImprovementsTest {
     // Default orchestrator for simple tests
     orchestrator =
         new WorkflowOrchestrator(
-            registry, tracker, validator, configService, Schedulers.parallel());
+            registry, tracker, validator, configService, null, Schedulers.parallel());
   }
 
   @Test
@@ -112,7 +113,8 @@ class WorkflowOrchestratorImprovementsTest {
     when(trigger.getCategory()).thenReturn(PluginCategory.TRIGGER);
     when(trigger.validateConfig(any())).thenReturn(Mono.empty());
     when(trigger.initialize(any())).thenReturn(Mono.empty());
-    when(trigger.start(any())).thenReturn(Flux.just(Message.create(UUID.randomUUID(), "data")));
+    when(trigger.start(any()))
+        .thenReturn(Flux.just(DefaultMessage.create(UUID.randomUUID(), "data")));
 
     TerminalPlugin term1Plugin = mock(TerminalPlugin.class);
     when(term1Plugin.getDefaultTimeout()).thenReturn(java.time.Duration.ofSeconds(30));
@@ -123,7 +125,7 @@ class WorkflowOrchestratorImprovementsTest {
     when(term1Plugin.consume(any(), any()))
         .thenAnswer(
             inv ->
-                ((Flux<Message>) inv.getArgument(0))
+                ((Flux<Message<?>>) inv.getArgument(0))
                     .then(Mono.error(new RuntimeException("Term1 failed"))));
 
     TerminalPlugin term2Plugin = mock(TerminalPlugin.class);
@@ -133,7 +135,7 @@ class WorkflowOrchestratorImprovementsTest {
     when(term2Plugin.initialize(any())).thenReturn(Mono.empty());
     // term2 succeeds
     when(term2Plugin.consume(any(), any()))
-        .thenAnswer(inv -> ((Flux<Message>) inv.getArgument(0)).then());
+        .thenAnswer(inv -> ((Flux<Message<?>>) inv.getArgument(0)).then());
 
     when(registry.get("type-t")).thenReturn(trigger);
     when(registry.get("type-term1")).thenReturn(term1Plugin);
@@ -183,7 +185,7 @@ class WorkflowOrchestratorImprovementsTest {
     when(term1Plugin.consume(any(), any()))
         .thenAnswer(
             inv -> {
-              Flux<Message> s = inv.getArgument(0);
+              Flux<Message<?>> s = inv.getArgument(0);
               return s.then();
             });
 
@@ -206,7 +208,7 @@ class WorkflowOrchestratorImprovementsTest {
             () -> {
               WorkflowOrchestrator vOrchestrator =
                   new WorkflowOrchestrator(
-                      registry, tracker, validator, configService, Schedulers.parallel());
+                      registry, tracker, validator, configService, null, Schedulers.parallel());
               return vOrchestrator
                   .prepareWorkflow(def)
                   .flatMap(
@@ -232,7 +234,8 @@ class WorkflowOrchestratorImprovementsTest {
     when(trigger.getCategory()).thenReturn(PluginCategory.TRIGGER);
     when(trigger.validateConfig(any())).thenReturn(Mono.empty());
     when(trigger.initialize(any())).thenReturn(Mono.empty());
-    when(trigger.start(any())).thenReturn(Flux.just(Message.create(UUID.randomUUID(), "data")));
+    when(trigger.start(any()))
+        .thenReturn(Flux.just(DefaultMessage.create(UUID.randomUUID(), "data")));
 
     TerminalPlugin terminal = mock(TerminalPlugin.class);
     when(terminal.getDefaultTimeout()).thenReturn(java.time.Duration.ofSeconds(30));
@@ -240,7 +243,7 @@ class WorkflowOrchestratorImprovementsTest {
     when(terminal.validateConfig(any())).thenReturn(Mono.empty());
     when(terminal.initialize(any())).thenReturn(Mono.empty());
     when(terminal.consume(any(), any()))
-        .thenAnswer(inv -> ((Flux<Message>) inv.getArgument(0)).then());
+        .thenAnswer(inv -> ((Flux<Message<?>>) inv.getArgument(0)).then());
 
     when(registry.get("trigger")).thenReturn(trigger);
     when(registry.get("terminal")).thenReturn(terminal);

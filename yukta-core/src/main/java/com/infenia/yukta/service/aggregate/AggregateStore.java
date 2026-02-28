@@ -32,7 +32,7 @@ public interface AggregateStore {
    * @return a Mono containing the aggregate result
    */
   Mono<AggregateResult> addValue(
-      String key, Object value, Message originalMessage, AggregateConfig config);
+      String key, Object value, Message<?> originalMessage, AggregateConfig config);
 
   /**
    * Manually flush an aggregate window.
@@ -78,7 +78,7 @@ public interface AggregateStore {
       String resExp) {}
 
   /** Result of an aggregation operation. */
-  record AggregateResult(Status status, Object result, String key, Message lastMessage) {
+  record AggregateResult(Status status, Object result, String key, Message<?> lastMessage) {
 
     /** Status of the aggregation operation. */
     public enum Status {

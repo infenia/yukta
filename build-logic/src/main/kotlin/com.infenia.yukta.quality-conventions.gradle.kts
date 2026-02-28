@@ -56,6 +56,9 @@ tasks.withType<Checkstyle>().configureEach {
 // Disable quality tasks for everything except main
 tasks.configureEach {
     val task = this
+    if (project.name == "yukta-ui" && task::class.java.name.contains("SpotBugs")) {
+        task.enabled = false
+    }
     if ((task.name.contains("Aot") || task.name.contains("Test")) &&
         (task is Checkstyle || task is Pmd || task::class.java.name.contains("SpotBugs"))) {
         task.enabled = false

@@ -32,7 +32,8 @@ public interface JoinStore {
    * @param config the join configuration
    * @return a Mono containing the join result
    */
-  Mono<JoinResult> addMessage(String key, String sourceNodeId, Message message, JoinConfig config);
+  Mono<JoinResult> addMessage(
+      String key, String sourceNodeId, Message<?> message, JoinConfig config);
 
   /**
    * Mark a join as completed to handle late arrivals.
@@ -56,7 +57,7 @@ public interface JoinStore {
   }
 
   /** Result of adding a message to the join store. */
-  record JoinResult(Status status, Map<String, Message> collectedMessages) {
+  record JoinResult(Status status, Map<String, Message<?>> collectedMessages) {
     /** Compact constructor. */
     public JoinResult {
       collectedMessages = Map.copyOf(collectedMessages != null ? collectedMessages : Map.of());

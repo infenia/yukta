@@ -71,12 +71,18 @@ public class InMemoryJoinStore implements JoinStore {
 
   @Override
   public Mono<JoinResult> addMessage(
-      final String key, final String sourceNodeId, final Message message, final JoinConfig config) {
+      final String key,
+      final String sourceNodeId,
+      final Message<?> message,
+      final JoinConfig config) {
     return Mono.fromCallable(() -> processAdd(key, sourceNodeId, message, config));
   }
 
   private JoinResult processAdd(
-      final String key, final String sourceNodeId, final Message message, final JoinConfig config) {
+      final String key,
+      final String sourceNodeId,
+      final Message<?> message,
+      final JoinConfig config) {
     final JoinState state =
         store.compute(key, (k, existing) -> updateState(existing, sourceNodeId, message, config));
 
@@ -98,7 +104,7 @@ public class InMemoryJoinStore implements JoinStore {
   private JoinState updateState(
       final JoinState existing,
       final String sourceNodeId,
-      final Message message,
+      final Message<?> message,
       final JoinConfig config) {
     if (existing == null) {
       if (store.size() >= config.maxPendingJoins()) {
@@ -150,7 +156,7 @@ public class InMemoryJoinStore implements JoinStore {
 
   @SuppressWarnings("PMD.AvoidUsingVolatile")
   private static class JoinState {
-    private final Map<String, Message> messages = new ConcurrentHashMap<>();
+    private final Map<String, Message<?>> messages = new ConcurrentHashMap<>();
     private final long expirationTime;
     private volatile boolean completed;
 
@@ -158,7 +164,7 @@ public class InMemoryJoinStore implements JoinStore {
       this.expirationTime = System.currentTimeMillis() + timeoutMs;
     }
 
-    /* default */ void addMessage(final String sourceNodeId, final Message message) {
+    /* default */ void addMessage(final String sourceNodeId, final Message<?> message) {
       messages.put(sourceNodeId, message);
     }
 
@@ -174,7 +180,7 @@ public class InMemoryJoinStore implements JoinStore {
       return messages.size();
     }
 
-    /* default */ Map<String, Message> getMessages() {
+    /* default */ Map<String, Message<?>> getMessages() {
       return new ConcurrentHashMap<>(messages);
     }
 

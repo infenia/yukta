@@ -33,5 +33,5 @@ public interface TerminalPlugin extends WorkflowPlugin {
    * @param config the plugin configuration
    * @return a Mono that completes when all messages are consumed
    */
-  Mono<Void> consume(Flux<Message> input, Map<String, Object> config);
+  Mono<Void> consume(Flux<Message<?>> input, Map<String, Object> config);
 }

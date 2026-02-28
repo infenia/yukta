@@ -31,5 +31,5 @@ public interface TriggerPlugin extends WorkflowPlugin {
    * @param config the plugin configuration
    * @return a Flux of messages
    */
-  Flux<Message> start(Map<String, Object> config);
+  Flux<Message<?>> start(Map<String, Object> config);
 }

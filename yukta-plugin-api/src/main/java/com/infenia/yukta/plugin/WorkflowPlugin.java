@@ -39,7 +39,7 @@ public interface WorkflowPlugin {
    * @return the list of output port names
    */
   default List<String> getOutputPorts() {
-    return List.of();
+    return List.of("default");
   }
 
   /**
@@ -101,6 +101,16 @@ public interface WorkflowPlugin {
    * @return a Mono that completes when initialization is done
    */
   default Mono<Void> initialize(Map<String, Object> config) {
+    return Mono.empty();
+  }
+
+  /**
+   * Pre-execution preparation phase, typically for pre-parsing expressions.
+   *
+   * @param config the plugin configuration
+   * @return a Mono that completes when preparation is done
+   */
+  default Mono<Void> prepare(Map<String, Object> config) {
     return Mono.empty();
   }
 

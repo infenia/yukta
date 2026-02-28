@@ -15,73 +15,302 @@
  */
 package com.infenia.yukta.plugin;
 
-import java.time.Instant;
+import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 
 /**
- * Data envelope for workflow execution.
+ * An atomic packet of data that can be transmitted across a Message Channel.
  *
- * @param id unique identifier for the message
- * @param traceId identifier for tracing the workflow execution
- * @param metadata metadata associated with the message
- * @param payload the actual data being passed
- * @param timestamp time when the message was created
- * @param sourcePort the port from which the message was emitted
- * @param sourceNodeId the ID of the node that emitted the message
+ * <p>A message consists of two parts: a Header for meta-information used by the messaging system,
+ * and a Body (Payload) for the actual data being transmitted.
+ *
+ * @param <T> the type of the payload
  */
-public record Message(
-    @SuppressWarnings("PMD.ShortVariable") UUID id,
-    UUID traceId,
-    Map<String, Object> metadata,
-    Object payload,
-    Instant timestamp,
-    String sourcePort,
-    String sourceNodeId) {
+@SuppressWarnings("PMD.TooManyMethods")
+public interface Message<T> {
+
+  // --- Header / Metadata Accessors ---
 
   /**
-   * Compact constructor to ensure metadata is immutable.
+   * Unique identifier for this message instance.
    *
-   * @param id unique identifier
-   * @param traceId trace identifier
-   * @param metadata metadata map
-   * @param payload payload object
-   * @param timestamp creation timestamp
-   * @param sourcePort emission port
-   * @param sourceNodeId source node ID
+   * @return the message ID
    */
-  public Message {
-    metadata = metadata != null ? Map.copyOf(metadata) : Map.of();
-  }
+  String getMessageId();
 
   /**
-   * Create a new message with default values.
+   * Used to match replies to requests in Request-Reply scenarios.
    *
-   * @param traceId the trace identifier
-   * @param payload the payload
-   * @return a new message
+   * @return the correlation ID
    */
-  public static Message create(final UUID traceId, final Object payload) {
-    return new Message(UUID.randomUUID(), traceId, Map.of(), payload, Instant.now(), null, null);
-  }
+  String getCorrelationId();
+
+  /**
+   * The Return Address specifying where to send responses.
+   *
+   * @return the reply channel/address
+   */
+  String getReplyTo();
+
+  /**
+   * The identifier for tracing the workflow execution.
+   *
+   * @return the trace ID
+   */
+  String getTraceId();
+
+  /**
+   * The time when the message was created (epoch milliseconds).
+   *
+   * @return the timestamp
+   */
+  long getTimestamp();
+
+  /**
+   * The "use-by" timestamp after which the message is discarded (epoch milliseconds).
+   *
+   * @return the expiration timestamp, or 0 if none
+   */
+  long getExpiration();
+
+  /**
+   * Indicates the data format or schema version.
+   *
+   * @return the format indicator
+   */
+  String getFormatIndicator();
+
+  /**
+   * The port from which the message was emitted.
+   *
+   * @return the source port
+   */
+  String getSourcePort();
+
+  /**
+   * The ID of the node that emitted the message.
+   *
+   * @return the source node ID
+   */
+  String getSourceNodeId();
+
+  /**
+   * Extensible metadata associated with the message.
+   *
+   * @return the metadata map
+   */
+  Map<String, Object> getMetadata();
+
+  // --- Message History ---
+
+  /**
+   * The list of component IDs this message has traversed.
+   *
+   * @return the message history list
+   */
+  List<String> getMessageHistory();
+
+  // --- Message Sequence ---
+
+  /**
+   * Unique ID for a group of related messages.
+   *
+   * @return the sequence ID
+   */
+  String getSequenceId();
+
+  /**
+   * The index of this message in a sequence (starts at 1).
+   *
+   * @return the sequence number
+   */
+  int getSequenceNumber();
+
+  /**
+   * Total number of messages in the sequence, or 0 if unknown.
+   *
+   * @return the sequence size
+   */
+  int getSequenceSize();
+
+  /**
+   * Flag indicating if this is the final message in a stream.
+   *
+   * @return true if last in sequence
+   */
+  boolean isLastInSequence();
+
+  // --- Control Bus & Quality of Service ---
+
+  /**
+   * Priority of the message (higher value = higher priority).
+   *
+   * @return the priority level
+   */
+  int getPriority();
+
+  /**
+   * Indicates if this is a management/control message.
+   *
+   * @return true if control message
+   */
+  boolean isControlMessage();
+
+  // --- Dead Letter Channel & Retry Metadata ---
+
+  /**
+   * The node or port where the message was headed before failure.
+   *
+   * @return the original destination
+   */
+  String getOrigDest();
+
+  /**
+   * Describes the reason for failure.
+   *
+   * @return the failure reason
+   */
+  String getFailureReason();
+
+  /**
+   * Detailed exception message or stack trace.
+   *
+   * @return the exception detail
+   */
+  String getExceptionDetail();
+
+  /**
+   * Number of times this message has been retried.
+   *
+   * @return the retry count
+   */
+  int getRetryCount();
+
+  // --- Body / Payload Accessors ---
+
+  /**
+   * The actual data structure being transferred.
+   *
+   * @return the payload
+   */
+  T getPayload();
+
+  // --- Functional Mutation (Wither style) ---
+
+  /**
+   * Create a copy of this message with a new correlation ID.
+   *
+   * @param correlationId the new correlation ID
+   * @return a new message instance
+   */
+  Message<T> withCorrelationId(String correlationId);
+
+  /**
+   * Create a copy of this message with a new reply address.
+   *
+   * @param replyTo the new reply address
+   * @return a new message instance
+   */
+  Message<T> withReplyTo(String replyTo);
 
   /**
    * Create a copy of this message with a new source port.
    *
-   * @param newSourcePort the new source port
+   * @param sourcePort the new source port
    * @return a new message instance
    */
-  public Message withSourcePort(final String newSourcePort) {
-    return new Message(id, traceId, metadata, payload, timestamp, newSourcePort, sourceNodeId);
-  }
+  Message<T> withSourcePort(String sourcePort);
 
   /**
    * Create a copy of this message with a new source node ID.
    *
-   * @param newSourceNodeId the new source node ID
+   * @param sourceNodeId the new source node ID
    * @return a new message instance
    */
-  public Message withSourceNodeId(final String newSourceNodeId) {
-    return new Message(id, traceId, metadata, payload, timestamp, sourcePort, newSourceNodeId);
-  }
+  Message<T> withSourceNodeId(String sourceNodeId);
+
+  /**
+   * Add a component to the history list.
+   *
+   * @param nodeId the ID of the node currently processing the message
+   * @return a new message instance with the updated history
+   */
+  Message<T> withAddedHistory(String nodeId);
+
+  /**
+   * Create a copy of this message with sequence information.
+   *
+   * @param sequenceId the sequence ID
+   * @param position the index in sequence
+   * @param total the total size of sequence
+   * @return a new message instance
+   */
+  Message<T> withSequence(String sequenceId, int position, int total);
+
+  /**
+   * Create a copy of this message with a new priority.
+   *
+   * @param priority the priority level
+   * @return a new message instance
+   */
+  Message<T> withPriority(int priority);
+
+  /**
+   * Create a copy of this message with a control flag.
+   *
+   * @param control true if this is a control message
+   * @return a new message instance
+   */
+  Message<T> withControl(boolean control);
+
+  /**
+   * Create a copy of this message augmented with failure metadata.
+   *
+   * @param origDest the original destination
+   * @param reason the failure reason
+   * @param detail the exception detail
+   * @return a new message instance
+   */
+  Message<T> withFailure(String origDest, String reason, String detail);
+
+  /**
+   * Create a copy of this message with a specific retry count.
+   *
+   * @param count the retry count
+   * @return a new message instance
+   */
+  Message<T> withRetryCount(int count);
+
+  /**
+   * Create a copy of this message with an incremented retry count.
+   *
+   * @return a new message instance
+   */
+  Message<T> withIncrementedRetry();
+
+  /**
+   * Create a copy of this message with a new payload, preserving all headers.
+   *
+   * @param <R> the new payload type
+   * @param payload the new payload
+   * @return a new message instance
+   */
+  <R> Message<R> withPayload(R payload);
+
+  /**
+   * Create a copy of this message with updated metadata.
+   *
+   * @param metadata the new metadata map
+   * @return a new message instance
+   */
+  Message<T> withMetadata(Map<String, Object> metadata);
+
+  /**
+   * Create a copy of this message with an additional or updated header in metadata.
+   *
+   * @param key the header key
+   * @param value the header value
+   * @return a new message instance
+   */
+  Message<T> withHeader(String key, Object value);
 }

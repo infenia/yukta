@@ -103,12 +103,18 @@ public class InMemoryAggregateStore implements AggregateStore {
 
   @Override
   public Mono<AggregateResult> addValue(
-      final String key, final Object value, final Message message, final AggregateConfig config) {
+      final String key,
+      final Object value,
+      final Message<?> message,
+      final AggregateConfig config) {
     return Mono.fromCallable(() -> processAdd(key, value, message, config));
   }
 
   private AggregateResult processAdd(
-      final String key, final Object value, final Message message, final AggregateConfig config) {
+      final String key,
+      final Object value,
+      final Message<?> message,
+      final AggregateConfig config) {
 
     AggregateResult evictionResult = null;
     lock.lock();
@@ -254,12 +260,12 @@ public class InMemoryAggregateStore implements AggregateStore {
   private static class AggregateState {
     private Object accumulator;
     private int count;
-    private Message lastMessage;
+    private Message<?> lastMessage;
     private final long startTime;
     private long lastAccessTime;
     private final AggregateConfig config;
 
-    /* default */ AggregateState(final Message message, final AggregateConfig config) {
+    /* default */ AggregateState(final Message<?> message, final AggregateConfig config) {
       this.startTime = System.currentTimeMillis();
       this.lastAccessTime = startTime;
       this.lastMessage = message;
@@ -276,7 +282,7 @@ public class InMemoryAggregateStore implements AggregateStore {
       };
     }
 
-    /* default */ void update(final Object value, final Message message) {
+    /* default */ void update(final Object value, final Message<?> message) {
       this.lastAccessTime = System.currentTimeMillis();
       this.lastMessage = message;
 
@@ -366,7 +372,7 @@ public class InMemoryAggregateStore implements AggregateStore {
       return config.emitOnTimeout();
     }
 
-    /* default */ Message getLastMessage() {
+    /* default */ Message<?> getLastMessage() {
       return lastMessage;
     }
   }

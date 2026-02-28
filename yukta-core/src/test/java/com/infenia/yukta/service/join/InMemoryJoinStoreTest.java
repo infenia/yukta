@@ -15,6 +15,7 @@
  */
 package com.infenia.yukta.service.join;
 
+import com.infenia.yukta.plugin.DefaultMessage;
 import com.infenia.yukta.plugin.Message;
 import com.infenia.yukta.service.join.JoinStore.JoinConfig;
 import com.infenia.yukta.service.join.JoinStore.JoinResult;
@@ -44,8 +45,8 @@ class InMemoryJoinStoreTest {
   void testJoinAllCondition() {
     final String key = "test-key";
     final JoinConfig config = new JoinConfig("ALL", List.of("A", "B"), 1000, 0, 100);
-    final Message msgA = Message.create(UUID.randomUUID(), "dataA");
-    final Message msgB = Message.create(UUID.randomUUID(), "dataB");
+    final Message<String> msgA = DefaultMessage.create(UUID.randomUUID(), "dataA");
+    final Message<String> msgB = DefaultMessage.create(UUID.randomUUID(), "dataB");
 
     StepVerifier.create(store.addMessage(key, "A", msgA, config))
         .expectNextMatches(res -> res.status() == JoinResult.Status.WAITING)
@@ -62,7 +63,7 @@ class InMemoryJoinStoreTest {
   void testJoinAnyCondition() {
     final String key = "test-key-any";
     final JoinConfig config = new JoinConfig("ANY", List.of("A", "B"), 1000, 0, 100);
-    final Message msgA = Message.create(UUID.randomUUID(), "dataA");
+    final Message<String> msgA = DefaultMessage.create(UUID.randomUUID(), "dataA");
 
     StepVerifier.create(store.addMessage(key, "A", msgA, config))
         .expectNextMatches(res -> res.status() == JoinResult.Status.COMPLETED)
@@ -73,8 +74,8 @@ class InMemoryJoinStoreTest {
   void testCustomCountCondition() {
     final String key = "test-key-count";
     final JoinConfig config = new JoinConfig("CUSTOM_COUNT", List.of(), 1000, 2, 100);
-    final Message msgA = Message.create(UUID.randomUUID(), "dataA");
-    final Message msgB = Message.create(UUID.randomUUID(), "dataB");
+    final Message<String> msgA = DefaultMessage.create(UUID.randomUUID(), "dataA");
+    final Message<String> msgB = DefaultMessage.create(UUID.randomUUID(), "dataB");
 
     StepVerifier.create(store.addMessage(key, "A", msgA, config))
         .expectNextMatches(res -> res.status() == JoinResult.Status.WAITING)
@@ -88,7 +89,7 @@ class InMemoryJoinStoreTest {
   @Test
   void testMaxPendingJoins() {
     final JoinConfig config = new JoinConfig("ALL", List.of("A"), 1000, 0, 1);
-    final Message msg = Message.create(UUID.randomUUID(), "data");
+    final Message<String> msg = DefaultMessage.create(UUID.randomUUID(), "data");
 
     store.addMessage("key1", "A", msg, config).block();
 

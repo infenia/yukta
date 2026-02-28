@@ -28,6 +28,7 @@ import com.infenia.yukta.config.AppConfigService;
 import com.infenia.yukta.model.WorkflowDefinition;
 import com.infenia.yukta.model.WorkflowDefinition.Edge;
 import com.infenia.yukta.model.WorkflowDefinition.Node;
+import com.infenia.yukta.plugin.DefaultMessage;
 import com.infenia.yukta.plugin.Message;
 import com.infenia.yukta.plugin.PluginCategory;
 import com.infenia.yukta.plugin.ProcessorPlugin;
@@ -61,7 +62,7 @@ class WorkflowOrchestratorFanInTest {
     when(configService.getExecutionTimeout(anyString())).thenReturn(Mono.just(3600L));
     orchestrator =
         new WorkflowOrchestrator(
-            registry, tracker, validator, configService, Schedulers.parallel());
+            registry, tracker, validator, configService, null, Schedulers.parallel());
   }
 
   @Test
@@ -87,7 +88,7 @@ class WorkflowOrchestratorFanInTest {
         .thenAnswer(
             invocation -> {
               Map<String, Object> config = invocation.getArgument(0);
-              return Flux.just(Message.create(UUID.randomUUID(), "msg-from-trigger"));
+              return Flux.just(DefaultMessage.create(UUID.randomUUID(), "msg-from-trigger"));
             });
 
     ProcessorPlugin processor = mock(ProcessorPlugin.class);
@@ -98,8 +99,14 @@ class WorkflowOrchestratorFanInTest {
     when(processor.process(any(), any()))
         .thenAnswer(
             invocation -> {
-              Flux<Message> input = invocation.getArgument(0);
-              return input.map(msg -> Message.create(msg.traceId(), "processed-" + msg.payload()));
+              Flux<Message<?>> input = invocation.getArgument(0);
+              return input.map(
+                  msg -> {
+                    final String traceIdStr = msg.getTraceId();
+                    final UUID traceId =
+                        traceIdStr != null ? UUID.fromString(traceIdStr) : UUID.randomUUID();
+                    return DefaultMessage.create(traceId, "processed-" + msg.getPayload());
+                  });
             });
 
     TerminalPlugin terminal = mock(TerminalPlugin.class);
@@ -110,7 +117,7 @@ class WorkflowOrchestratorFanInTest {
     when(terminal.consume(any(), any()))
         .thenAnswer(
             inv -> {
-              Flux<Message> input = inv.getArgument(0);
+              Flux<Message<?>> input = inv.getArgument(0);
               return input.then();
             });
 
@@ -155,7 +162,8 @@ class WorkflowOrchestratorFanInTest {
     when(trigger.getCategory()).thenReturn(PluginCategory.TRIGGER);
     when(trigger.validateConfig(any())).thenReturn(Mono.empty());
     when(trigger.initialize(any())).thenReturn(Mono.empty());
-    when(trigger.start(any())).thenReturn(Flux.just(Message.create(UUID.randomUUID(), "data")));
+    when(trigger.start(any()))
+        .thenReturn(Flux.just(DefaultMessage.create(UUID.randomUUID(), "data")));
 
     ProcessorPlugin processor = mock(ProcessorPlugin.class);
     when(processor.getDefaultTimeout()).thenReturn(java.time.Duration.ofSeconds(30));
@@ -172,7 +180,7 @@ class WorkflowOrchestratorFanInTest {
     when(terminal.consume(any(), any()))
         .thenAnswer(
             inv -> {
-              Flux<Message> input = inv.getArgument(0);
+              Flux<Message<?>> input = inv.getArgument(0);
               return input
                   .collectList()
                   .flatMap(
@@ -228,7 +236,8 @@ class WorkflowOrchestratorFanInTest {
     when(trigger2.getCategory()).thenReturn(PluginCategory.TRIGGER);
     when(trigger2.validateConfig(any())).thenReturn(Mono.empty());
     when(trigger2.initialize(any())).thenReturn(Mono.empty());
-    when(trigger2.start(any())).thenReturn(Flux.just(Message.create(UUID.randomUUID(), "t2-data")));
+    when(trigger2.start(any()))
+        .thenReturn(Flux.just(DefaultMessage.create(UUID.randomUUID(), "t2-data")));
 
     ProcessorPlugin processor = mock(ProcessorPlugin.class);
     when(processor.getDefaultTimeout()).thenReturn(java.time.Duration.ofSeconds(30));
@@ -245,7 +254,7 @@ class WorkflowOrchestratorFanInTest {
     when(terminal.consume(any(), any()))
         .thenAnswer(
             inv -> {
-              Flux<Message> input = inv.getArgument(0);
+              Flux<Message<?>> input = inv.getArgument(0);
               return input.then();
             });
 

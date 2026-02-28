@@ -27,6 +27,7 @@ import com.infenia.yukta.config.AppConfigService;
 import com.infenia.yukta.model.WorkflowDefinition;
 import com.infenia.yukta.model.WorkflowDefinition.Edge;
 import com.infenia.yukta.model.WorkflowDefinition.Node;
+import com.infenia.yukta.plugin.DefaultMessage;
 import com.infenia.yukta.plugin.Message;
 import com.infenia.yukta.plugin.PluginCategory;
 import com.infenia.yukta.plugin.ProcessorPlugin;
@@ -64,7 +65,7 @@ class GuardIntegrationTest {
     when(configService.getExecutionTimeout(anyString())).thenReturn(Mono.just(3600L));
     orchestrator =
         new WorkflowOrchestrator(
-            registry, tracker, validator, configService, Schedulers.parallel());
+            registry, tracker, validator, configService, null, Schedulers.parallel());
 
     triggerPlugin = mock(TriggerPlugin.class);
     when(triggerPlugin.getDefaultTimeout()).thenReturn(java.time.Duration.ofSeconds(30));
@@ -106,16 +107,16 @@ class GuardIntegrationTest {
   void testGuardPruningTrueBranch() {
     final String sessionId = "session-true";
     final UUID traceId = UUID.randomUUID();
-    final Message msg = Message.create(traceId, Map.of("amount", 1500));
+    final Message<Map<String, Object>> msg = DefaultMessage.create(traceId, Map.of("amount", 1500));
 
     when(triggerPlugin.start(any())).thenReturn(Flux.just(msg));
     when(guardPlugin.process(any(), any()))
         .thenAnswer(
             inv -> {
-              Flux<Message> in = inv.getArgument(0);
+              Flux<Message<?>> in = inv.getArgument(0);
               return in.map(
                   m -> {
-                    Map<String, Object> payload = (Map<String, Object>) m.payload();
+                    Map<String, Object> payload = (Map<String, Object>) m.getPayload();
                     if ((int) payload.get("amount") > 1000) return m.withSourcePort("true");
                     else return m.withSourcePort("false");
                   });
@@ -159,16 +160,16 @@ class GuardIntegrationTest {
   void testGuardPruningFalseBranch() {
     final String sessionId = "session-false";
     final UUID traceId = UUID.randomUUID();
-    final Message msg = Message.create(traceId, Map.of("amount", 500));
+    final Message<Map<String, Object>> msg = DefaultMessage.create(traceId, Map.of("amount", 500));
 
     when(triggerPlugin.start(any())).thenReturn(Flux.just(msg));
     when(guardPlugin.process(any(), any()))
         .thenAnswer(
             inv -> {
-              Flux<Message> in = inv.getArgument(0);
+              Flux<Message<?>> in = inv.getArgument(0);
               return in.map(
                   m -> {
-                    Map<String, Object> payload = (Map<String, Object>) m.payload();
+                    Map<String, Object> payload = (Map<String, Object>) m.getPayload();
                     if ((int) payload.get("amount") > 1000) return m.withSourcePort("true");
                     else return m.withSourcePort("false");
                   });

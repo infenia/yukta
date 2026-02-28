@@ -45,7 +45,7 @@ public interface NodeAssembler {
       String sessionId,
       String workflowId,
       Map<String, Object> payload,
-      Flux<Message>[] streams,
+      Flux<Message<?>>[] streams,
       List<Mono<Void>> terminals,
       List<Disposable> disposables,
       List<Runnable> connectors);

@@ -16,6 +16,9 @@
 package com.infenia.yukta.plugin;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 import java.util.Map;
@@ -32,14 +35,34 @@ class PluginInterfaceTest {
     UUID traceId = UUID.randomUUID();
     Map<String, Object> metadata = new java.util.HashMap<>();
     metadata.put("key", "value");
-    Message msg =
-        new Message(
-            UUID.randomUUID(), traceId, metadata, "payload", java.time.Instant.now(), null, null);
+    Message<String> msg =
+        new DefaultMessage<>(
+            UUID.randomUUID().toString(),
+            traceId.toString(),
+            null,
+            null,
+            0L,
+            null,
+            metadata,
+            List.of(),
+            null,
+            0,
+            0,
+            0,
+            false,
+            null,
+            null,
+            null,
+            0,
+            "payload",
+            java.time.Instant.now(),
+            null,
+            null);
 
-    assertEquals("value", msg.metadata().get("key"));
+    assertEquals("value", msg.getMetadata().get("key"));
 
     try {
-      msg.metadata().put("new", "val");
+      msg.getMetadata().put("new", "val");
     } catch (UnsupportedOperationException e) {
       // expected
     }
@@ -48,16 +71,58 @@ class PluginInterfaceTest {
   @Test
   void testMessageMethods() {
     UUID traceId = UUID.randomUUID();
-    Message msg = Message.create(traceId, "payload");
-    assertEquals(traceId, msg.traceId());
-    assertEquals("payload", msg.payload());
+    Message<String> msg = DefaultMessage.create(traceId, "payload");
+    assertEquals(traceId.toString(), msg.getTraceId());
+    assertEquals("payload", msg.getPayload());
+    assertNull(msg.getCorrelationId());
+    assertNull(msg.getReplyTo());
 
-    Message stamped = msg.withSourceNodeId("node1");
-    assertEquals("node1", stamped.sourceNodeId());
+    Message<String> correlationMsg = msg.withCorrelationId("corr1");
+    assertEquals("corr1", correlationMsg.getCorrelationId());
 
-    Message ported = stamped.withSourcePort("port1");
-    assertEquals("port1", ported.sourcePort());
-    assertEquals("node1", ported.sourceNodeId());
+    Message<String> replyMsg = correlationMsg.withReplyTo("replyChannel");
+    assertEquals("replyChannel", replyMsg.getReplyTo());
+    assertEquals("corr1", replyMsg.getCorrelationId());
+
+    Message<String> stamped = replyMsg.withSourceNodeId("node1");
+    assertEquals("node1", stamped.getSourceNodeId());
+
+    Message<String> ported = stamped.withSourcePort("port1");
+    assertEquals("port1", ported.getSourcePort());
+    assertEquals("node1", ported.getSourceNodeId());
+
+    Message<String> historied = ported.withAddedHistory("comp1").withAddedHistory("comp2");
+    assertEquals(List.of("comp1", "comp2"), historied.getMessageHistory());
+
+    Message<String> sequenced = historied.withSequence("seq1", 1, 5);
+    assertEquals("seq1", sequenced.getSequenceId());
+    assertEquals(1, sequenced.getSequenceNumber());
+    assertEquals(5, sequenced.getSequenceSize());
+    assertFalse(sequenced.isLastInSequence());
+
+    Message<String> lastSequenced = sequenced.withSequence("seq1", 5, 5);
+    assertTrue(lastSequenced.isLastInSequence());
+
+    Message<String> prioritized = lastSequenced.withPriority(10);
+    assertEquals(10, prioritized.getPriority());
+
+    Message<String> controlled = prioritized.withControl(true);
+    assertTrue(controlled.isControlMessage());
+
+    Message<String> failed = controlled.withFailure("error-port", "Bad Data", "Invalid format");
+    assertEquals("error-port", failed.getOrigDest());
+    assertEquals("Bad Data", failed.getFailureReason());
+    assertEquals("Invalid format", failed.getExceptionDetail());
+
+    Message<String> retried = failed.withRetryCount(3);
+    assertEquals(3, retried.getRetryCount());
+
+    Message<String> incremented = retried.withIncrementedRetry();
+    assertEquals(4, incremented.getRetryCount());
+
+    Message<Integer> rePayloaded = incremented.withPayload(123);
+    assertEquals(123, rePayloaded.getPayload());
+    assertEquals("error-port", rePayloaded.getOrigDest());
   }
 
   @Test
@@ -81,7 +146,8 @@ class PluginInterfaceTest {
     assertEquals("", plugin.getUsagePattern());
     assertEquals(30, plugin.getDefaultTimeout().getSeconds());
     org.junit.jupiter.api.Assertions.assertFalse(plugin.getUiDesign().isPresent());
-    org.junit.jupiter.api.Assertions.assertTrue(plugin.getOutputPorts().isEmpty());
+    org.junit.jupiter.api.Assertions.assertTrue(plugin.getOutputPorts().size() == 1);
+    assertEquals("default", plugin.getOutputPorts().get(0));
   }
 
   @Test
@@ -137,7 +203,7 @@ class PluginInterfaceTest {
           }
 
           @Override
-          public Flux<Message> start(Map<String, Object> config) {
+          public Flux<Message<?>> start(Map<String, Object> config) {
             return Flux.empty();
           }
         };
@@ -154,7 +220,7 @@ class PluginInterfaceTest {
           }
 
           @Override
-          public Flux<Message> process(Flux<Message> input, Map<String, Object> config) {
+          public Flux<Message<?>> process(Flux<Message<?>> input, Map<String, Object> config) {
             return input;
           }
         };
@@ -171,7 +237,7 @@ class PluginInterfaceTest {
           }
 
           @Override
-          public Mono<Void> consume(Flux<Message> input, Map<String, Object> config) {
+          public Mono<Void> consume(Flux<Message<?>> input, Map<String, Object> config) {
             return input.then();
           }
         };
@@ -181,17 +247,17 @@ class PluginInterfaceTest {
   @Test
   void testResultCollector() {
     ResultCollector collector = new ResultCollector();
-    Message msg1 = Message.create(UUID.randomUUID(), "res1");
-    Message msg2 = Message.create(UUID.randomUUID(), "res2");
+    Message<String> msg1 = DefaultMessage.create(UUID.randomUUID(), "res1");
+    Message<String> msg2 = DefaultMessage.create(UUID.randomUUID(), "res2");
 
     collector.add(msg1);
     collector.add(msg2);
     collector.add(null);
 
-    List<Message> results = collector.getResults();
+    List<Message<?>> results = collector.getResults();
     assertEquals(2, results.size());
-    assertEquals("res1", results.get(0).payload());
-    assertEquals("res2", results.get(1).payload());
+    assertEquals("res1", results.get(0).getPayload());
+    assertEquals("res2", results.get(1).getPayload());
 
     collector.clear();
     assertEquals(0, collector.getResults().size());

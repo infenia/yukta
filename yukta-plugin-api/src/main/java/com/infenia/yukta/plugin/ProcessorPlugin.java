@@ -32,5 +32,5 @@ public interface ProcessorPlugin extends WorkflowPlugin {
    * @param config the plugin configuration
    * @return the transformed Flux
    */
-  Flux<Message> process(Flux<Message> input, Map<String, Object> config);
+  Flux<Message<?>> process(Flux<Message<?>> input, Map<String, Object> config);
 }
