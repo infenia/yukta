@@ -123,6 +123,19 @@ class PluginInterfaceTest {
     Message<Integer> rePayloaded = incremented.withPayload(123);
     assertEquals(123, rePayloaded.getPayload());
     assertEquals("error-port", rePayloaded.getOrigDest());
+
+    java.time.Instant now = java.time.Instant.now();
+    Message<Integer> updated =
+        rePayloaded
+            .withTraceId("new-trace")
+            .withTimestamp(now)
+            .withExpiration(123456789L)
+            .withFormatIndicator("json-v2");
+
+    assertEquals("new-trace", updated.getTraceId());
+    assertEquals(now.toEpochMilli(), updated.getTimestamp());
+    assertEquals(123456789L, updated.getExpiration());
+    assertEquals("json-v2", updated.getFormatIndicator());
   }
 
   @Test

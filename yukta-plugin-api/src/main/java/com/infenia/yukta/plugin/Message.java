@@ -198,6 +198,14 @@ public interface Message<T> {
   // --- Functional Mutation (Wither style) ---
 
   /**
+   * Create a copy of this message with a new trace ID.
+   *
+   * @param traceId the new trace ID
+   * @return a new message instance
+   */
+  Message<T> withTraceId(String traceId);
+
+  /**
    * Create a copy of this message with a new correlation ID.
    *
    * @param correlationId the new correlation ID
@@ -228,6 +236,30 @@ public interface Message<T> {
    * @return a new message instance
    */
   Message<T> withSourceNodeId(String sourceNodeId);
+
+  /**
+   * Create a copy of this message with a new expiration timestamp.
+   *
+   * @param expiration the new expiration timestamp
+   * @return a new message instance
+   */
+  Message<T> withExpiration(long expiration);
+
+  /**
+   * Create a copy of this message with a new format indicator.
+   *
+   * @param formatIndicator the new format indicator
+   * @return a new message instance
+   */
+  Message<T> withFormatIndicator(String formatIndicator);
+
+  /**
+   * Create a copy of this message with a new timestamp.
+   *
+   * @param timestamp the new timestamp
+   * @return a new message instance
+   */
+  Message<T> withTimestamp(java.time.Instant timestamp);
 
   /**
    * Add a component to the history list.
