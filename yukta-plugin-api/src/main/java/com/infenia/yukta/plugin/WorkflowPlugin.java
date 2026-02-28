@@ -43,6 +43,16 @@ public interface WorkflowPlugin {
   }
 
   /**
+   * Get the list of available output ports for this plugin based on configuration.
+   *
+   * @param config the plugin configuration
+   * @return the list of output port names
+   */
+  default List<String> getOutputPorts(Map<String, Object> config) {
+    return getOutputPorts();
+  }
+
+  /**
    * Get the default timeout for this plugin.
    *
    * @return the default timeout

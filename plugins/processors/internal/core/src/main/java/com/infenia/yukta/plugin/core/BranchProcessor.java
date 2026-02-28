@@ -18,10 +18,14 @@ package com.infenia.yukta.plugin.core;
 import com.infenia.yukta.plugin.Message;
 import com.infenia.yukta.plugin.NoMatchingBranchException;
 import com.infenia.yukta.plugin.ProcessorPlugin;
+import com.infenia.yukta.plugin.UiDesign;
 import com.infenia.yukta.util.SpelUtils;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
@@ -50,6 +54,7 @@ public class BranchProcessor implements ProcessorPlugin {
   private static final String DEF_PORT = "defaultPort";
   private static final String ALLOW_MULT = "allowMultipleMatches";
   private static final String STRICT = "strictMode";
+  private static final String ERROR_PORT = "errorPort";
 
   private static final String MODE_SELECT_KEY = "SELECT_KEY";
   private static final String MODE_EXPRESSION = "EXPRESSION";
@@ -79,12 +84,52 @@ public class BranchProcessor implements ProcessorPlugin {
         + "- allowMultipleMatches: Boolean. If true, message can be routed to multiple ports. "
         + "Default is false.\n"
         + "- strictMode: Boolean. If true (default), throws exception if no branch matches and "
-        + "no defaultPort is set.";
+        + "no defaultPort is set.\n"
+        + "- errorPort: Optional port name to route messages when evaluation fails. Adds "
+        + "failure metadata to the message.";
   }
 
   @Override
   public String getType() {
     return TYPE;
+  }
+
+  @Override
+  public Optional<UiDesign> getUiDesign() {
+    return Optional.of(
+        new UiDesign(
+            """
+            <div class="flex flex-col items-center justify-center h-full space-y-1 relative">
+                <svg class="w-8 h-8 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h8a2 2 0 012 2v10M8 17H6a2 2 0 01-2-2V5a2 2 0 012-2h8a2 2 0 012 2v2M21 21l-3-3m0 0l-3 3m3-3v-8"/>
+                </svg>
+                <div class="text-[10px] text-slate-500 font-medium uppercase">Branch</div>
+            </div>
+            """,
+            140,
+            80));
+  }
+
+  @Override
+  @SuppressWarnings("unchecked")
+  public List<String> getOutputPorts(final Map<String, Object> config) {
+    final Map<String, String> cases =
+        (Map<String, String>) config.getOrDefault(CONFIG_CASES, Map.of());
+    final String defaultPort = (String) config.get(DEF_PORT);
+    final String errorPort = (String) config.get(ERROR_PORT);
+
+    final Set<String> ports = new HashSet<>(cases.values());
+    if (defaultPort != null && !defaultPort.isBlank()) {
+      ports.add(defaultPort);
+    }
+    if (errorPort != null && !errorPort.isBlank()) {
+      ports.add(errorPort);
+    }
+
+    if (ports.isEmpty()) {
+      return List.of("default");
+    }
+    return new ArrayList<>(ports);
   }
 
   @Override
@@ -112,41 +157,56 @@ public class BranchProcessor implements ProcessorPlugin {
     final String defaultPort = (String) config.get(DEF_PORT);
     final boolean allowMultiple = (Boolean) config.getOrDefault(ALLOW_MULT, false);
     final boolean strictMode = (Boolean) config.getOrDefault(STRICT, true);
+    final String errorPort = (String) config.get(ERROR_PORT);
 
     return input.flatMap(
-        message -> {
-          final List<String> matchedPorts = new ArrayList<>();
+        message ->
+            Flux.deferContextual(
+                ctx -> {
+                  final String nodeId = ctx.getOrDefault("nodeId", "unknown");
+                  final List<String> matchedPorts = new ArrayList<>();
 
-          try {
-            evaluateBranches(mode, selector, cases, allowMultiple, message, matchedPorts);
+                  try {
+                    evaluateBranches(mode, selector, cases, allowMultiple, message, matchedPorts);
 
-            if (matchedPorts.isEmpty()) {
-              if (defaultPort != null) {
-                matchedPorts.add(defaultPort);
-              } else if (strictMode) {
-                throw new NoMatchingBranchException(
-                    ERR_PREFIX
-                        + "No matching branch found for message "
-                        + message.getMessageId()
-                        + " and no default port configured");
-              }
-            }
+                    if (matchedPorts.isEmpty()) {
+                      if (defaultPort != null) {
+                        matchedPorts.add(defaultPort);
+                      } else if (strictMode) {
+                        throw new NoMatchingBranchException(
+                            ERR_PREFIX
+                                + "No matching branch found for message "
+                                + message.getMessageId()
+                                + " and no default port configured");
+                      }
+                    }
 
-            return Flux.fromIterable(matchedPorts).map(message::withSourcePort);
+                    return Flux.fromIterable(matchedPorts)
+                        .map(port -> message.withSourcePort(port).withAddedHistory(nodeId));
 
-          } catch (final Exception e) {
-            if (log.isErrorEnabled()) {
-              log.error(
-                  "Branch evaluation failed for message {}: {}",
-                  message.getMessageId(),
-                  e.getMessage());
-            }
-            return Flux.error(
-                e.getMessage() != null && e.getMessage().startsWith(ERR_PREFIX)
-                    ? e
-                    : new RuntimeException(ERR_PREFIX + "Branch evaluation failed", e));
-          }
-        });
+                  } catch (final Exception e) {
+                    if (log.isErrorEnabled()) {
+                      log.error(
+                          "Branch evaluation failed for message {}: {}",
+                          message.getMessageId(),
+                          e.getMessage());
+                    }
+                    if (errorPort != null) {
+                      return Flux.just(
+                          message
+                              .withSourcePort(errorPort)
+                              .withAddedHistory(nodeId)
+                              .withFailure(null, "Branch evaluation failed", e.getMessage()));
+                    }
+                    if (!strictMode) {
+                      return Flux.empty();
+                    }
+                    return Flux.error(
+                        e instanceof NoMatchingBranchException
+                            ? e
+                            : new RuntimeException(ERR_PREFIX + "Branch evaluation failed", e));
+                  }
+                }));
   }
 
   private void evaluateBranches(

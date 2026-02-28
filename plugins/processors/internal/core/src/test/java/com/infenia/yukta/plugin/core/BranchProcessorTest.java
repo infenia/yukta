@@ -16,17 +16,23 @@
 package com.infenia.yukta.plugin.core;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.infenia.yukta.plugin.DefaultMessage;
 import com.infenia.yukta.plugin.Message;
 import com.infenia.yukta.plugin.NoMatchingBranchException;
+import com.infenia.yukta.plugin.UiDesign;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import reactor.core.publisher.Flux;
 import reactor.test.StepVerifier;
+import reactor.util.context.Context;
 
 class BranchProcessorTest {
 
@@ -51,8 +57,14 @@ class BranchProcessorTest {
     final Message msg1 = DefaultMessage.create(UUID.randomUUID(), Map.of("userType", "PREMIUM"));
     final Message msg2 = DefaultMessage.create(UUID.randomUUID(), Map.of("userType", "GUEST"));
 
-    StepVerifier.create(processor.process(Flux.just(msg1), config))
-        .expectNextMatches(m -> "premium_port".equals(m.getSourcePort()))
+    StepVerifier.create(
+            processor
+                .process(Flux.just(msg1), config)
+                .contextWrite(Context.of("nodeId", "test-node")))
+        .expectNextMatches(
+            m ->
+                "premium_port".equals(m.getSourcePort())
+                    && m.getMessageHistory().contains("test-node"))
         .verifyComplete();
 
     StepVerifier.create(processor.process(Flux.just(msg2), config))
@@ -181,6 +193,55 @@ class BranchProcessorTest {
 
     final Map<String, Object> missingCases = Map.of("mode", "EXPRESSION");
     StepVerifier.create(processor.validateConfig(missingCases)).expectError().verify();
+  }
+
+  @Test
+  void testErrorPortOnEvaluationFailure() {
+    final Map<String, Object> config =
+        Map.of(
+            "mode", "SELECT_KEY",
+            "selector", "payload.unknownField.subField", // Will fail evaluation
+            "cases", Map.of("VAL", "port"),
+            "errorPort", "error_port");
+
+    final Message msg = DefaultMessage.create(UUID.randomUUID(), Map.of("key", "val"));
+
+    StepVerifier.create(
+            processor
+                .process(Flux.just(msg), config)
+                .contextWrite(Context.of("nodeId", "test-node")))
+        .expectNextMatches(
+            m ->
+                "error_port".equals(m.getSourcePort())
+                    && m.getFailureReason().contains("evaluation failed")
+                    && m.getMessageHistory().contains("test-node"))
+        .verifyComplete();
+  }
+
+  @Test
+  void testGetOutputPorts() {
+    final Map<String, Object> config =
+        Map.of(
+            "mode", "SELECT_KEY",
+            "cases", Map.of("A", "portA", "B", "portB"),
+            "defaultPort", "defPort",
+            "errorPort", "errPort");
+
+    final List<String> ports = processor.getOutputPorts(config);
+    assertEquals(4, ports.size());
+    assertTrue(ports.contains("portA"));
+    assertTrue(ports.contains("portB"));
+    assertTrue(ports.contains("defPort"));
+    assertTrue(ports.contains("errPort"));
+  }
+
+  @Test
+  void testGetUiDesign() {
+    final Optional<UiDesign> design = processor.getUiDesign();
+    assertTrue(design.isPresent());
+    assertEquals(140, design.get().width());
+    assertEquals(80, design.get().height());
+    assertTrue(design.get().html().contains("Branch"));
   }
 
   @Test

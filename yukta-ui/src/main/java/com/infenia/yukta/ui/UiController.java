@@ -209,7 +209,12 @@ public class UiController {
                             p.getDescription(),
                             p.getUsagePattern(),
                             p.getUiDesign().orElse(null),
-                            p.getOutputPorts())));
+                            p.getOutputPorts(
+                                workflow.nodes().stream()
+                                    .filter(n -> n.type().equals(p.getType()))
+                                    .findFirst()
+                                    .map(com.infenia.yukta.model.WorkflowDefinition.Node::config)
+                                    .orElse(Map.of())))));
     model.addAttribute("pluginDetails", pluginDetails);
 
     return Mono.fromCallable(
@@ -269,7 +274,14 @@ public class UiController {
                                       p.getDescription(),
                                       p.getUsagePattern(),
                                       p.getUiDesign().orElse(null),
-                                      p.getOutputPorts())));
+                                      p.getOutputPorts(
+                                          workflow.nodes().stream()
+                                              .filter(n -> n.type().equals(p.getType()))
+                                              .findFirst()
+                                              .map(
+                                                  com.infenia.yukta.model.WorkflowDefinition.Node
+                                                      ::config)
+                                              .orElse(Map.of())))));
               model.addAttribute("pluginDetails", pluginDetails);
 
               return Mono.fromCallable(
