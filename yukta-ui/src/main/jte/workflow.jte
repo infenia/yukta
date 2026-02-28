@@ -32,20 +32,20 @@
     !{
         // Convert nodes and edges to JSON format for Alpine.js
         java.util.List<String> nodesJson = workflow.nodes().stream()
-            .map(n -> "{id:\"" + n.nodeId() + "\",type:\"" + n.type() + "\"}")
+            .map(n -> "{\"id\":\"" + n.nodeId() + "\",\"type\":\"" + n.type() + "\"}")
             .collect(java.util.stream.Collectors.toList());
         java.util.List<String> edgesJson = workflow.edges().stream()
-            .map(e -> "{source:\"" + e.source() + "\",target:\"" + e.target() + "\",sourcePort:\"" + (e.sourcePort() != null ? e.sourcePort() : "null") + "\"}")
+            .map(e -> "{\"source\":\"" + e.source() + "\",\"target\":\"" + e.target() + "\",\"sourcePort\":\"" + (e.sourcePort() != null ? e.sourcePort() : "null") + "\"}")
             .collect(java.util.stream.Collectors.toList());
         String nodesStr = "[" + String.join(",", nodesJson) + "]";
         String edgesStr = "[" + String.join(",", edgesJson) + "]";
     }
-    <div class="relative w-full aspect-[21/9] bg-white dark:bg-slate-900/40 rounded-xl border border-slate-200 dark:border-slate-800/60 backdrop-blur-sm overflow-hidden shadow-xl mb-6"
-         class="group"
+    <div class="relative group w-full aspect-[21/9] bg-white dark:bg-slate-900/40 rounded-xl border border-slate-200 dark:border-slate-800/60 backdrop-blur-sm overflow-hidden shadow-xl mb-6"
          id="dag-container"
-         data-nodes="${nodesStr}"
-         data-edges="${edgesStr}"
-         data-plugins="${pluginDetailsJson}">
+         x-data="dagComponent(JSON.parse($el.dataset.nodes), JSON.parse($el.dataset.edges), JSON.parse($el.dataset.plugins))"
+         data-nodes='${nodesStr}'
+         data-edges='${edgesStr}'
+         data-plugins='${pluginDetailsJson}'>
 
         <!-- DAG Canvas -->
         <svg x-ref="dagSvg" class="w-full h-full"></svg>
@@ -146,22 +146,4 @@
             border-color: #1e2937;
         }
     </style>
-
-    <script>
-        document.addEventListener('alpine:init', () => {
-            const container = document.getElementById('dag-container');
-            if (!container) return;
-
-            const nodesData = JSON.parse(container.dataset.nodes);
-            const edgesData = JSON.parse(container.dataset.edges);
-            const pluginsData = JSON.parse(container.dataset.plugins);
-
-            container.removeAttribute('data-nodes');
-            container.removeAttribute('data-edges');
-            container.removeAttribute('data-plugins');
-
-            container.setAttribute('x-data', 'dagComponent(' + JSON.stringify(nodesData) + ', ' + JSON.stringify(edgesData) + ', ' + JSON.stringify(pluginsData) + ')');
-            Alpine.initTree(container);
-        });
-    </script>
 `)

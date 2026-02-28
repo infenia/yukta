@@ -90,7 +90,7 @@ export default function dagComponent(nodesData, edgesData, pluginDetails) {
         async renderDAG(svg, width, height) {
             svg.selectAll("*").remove();
 
-            if (this.nodes.length === 0) return;
+            if (!this.nodes || this.nodes.length === 0) return;
 
             const elkGraph = {
                 id: "root",
