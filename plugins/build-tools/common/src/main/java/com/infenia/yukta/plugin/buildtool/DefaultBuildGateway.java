@@ -17,6 +17,7 @@ package com.infenia.yukta.plugin.buildtool;
 
 import com.infenia.yukta.plugin.BuildGateway;
 import com.infenia.yukta.plugin.Message;
+import com.infenia.yukta.plugin.WorkflowExecutionException;
 import java.io.File;
 import java.io.IOException;
 import java.time.Duration;
@@ -88,24 +89,33 @@ public class DefaultBuildGateway implements BuildGateway {
                       e -> {
                         process.destroyForcibly();
                         return Mono.error(
-                            new TimeoutException("Timeout running task: " + taskName));
+                            new WorkflowExecutionException(
+                                "Timeout running task " + taskName + " after " + timeout + "s", e));
                       });
             })
         .onErrorResume(
             IOException.class,
             e ->
                 Mono.error(
-                    new RuntimeException(
-                        "Error executing task " + taskName + ": " + e.getMessage())));
+                    new WorkflowExecutionException(
+                        "Error executing task " + taskName + ": " + e.getMessage(), e)))
+        .onErrorMap(
+            e -> {
+              if (e instanceof WorkflowExecutionException) {
+                return e;
+              }
+              return new WorkflowExecutionException("Build task execution failed: " + e.getMessage(), e);
+            });
   }
 
   @Override
+  @SuppressWarnings("unchecked")
   public <T, R> Mono<Message<R>> sendAndReceive(final Message<T> request) {
     // Basic implementation that executes a build if command is in headers
     final List<String> command = (List<String>) request.getMetadata().get("command");
     if (command == null) {
       return Mono.error(
-          new IllegalArgumentException("command is required for gateway sendAndReceive"));
+          new WorkflowExecutionException("command is required for gateway sendAndReceive"));
     }
 
     final File projectDir = new File(".");

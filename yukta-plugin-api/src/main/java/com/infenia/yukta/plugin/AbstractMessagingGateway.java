@@ -15,9 +15,14 @@
  */
 package com.infenia.yukta.plugin;
 
+import java.time.Duration;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import lombok.extern.slf4j.Slf4j;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -33,14 +38,26 @@ import reactor.core.publisher.Sinks;
  * @param <S> domain response type
  */
 @Slf4j
-@SuppressWarnings("PMD.TypeParameterNamingConventions")
+@SuppressWarnings({"PMD.TypeParameterNamingConventions", "PMD.DoNotUseThreads"})
 public abstract class AbstractMessagingGateway<T, R, D, S> implements MessagingGateway {
+
+  private static final Duration DEFAULT_TIMEOUT = Duration.ofSeconds(60);
+  private static final long CLEANUP_MS = 5000;
 
   private final MessageMapper<T, D> requestMapper;
   private final MessageMapper<R, S> responseMapper;
 
   /** Sinks for correlation management. */
-  private final Map<String, Sinks.One<Message<R>>> pendingReplies = new ConcurrentHashMap<>();
+  private final Map<String, PendingReply<R>> pendingReplies = new ConcurrentHashMap<>();
+
+  private final ScheduledExecutorService scheduler =
+      Executors.newSingleThreadScheduledExecutor(
+          r -> {
+            final Thread thread =
+                new Thread(r, "gateway-cleanup-" + UUID.randomUUID().toString().substring(0, 8));
+            thread.setDaemon(true);
+            return thread;
+          });
 
   /**
    * Constructor for the abstract messaging gateway.
@@ -52,6 +69,8 @@ public abstract class AbstractMessagingGateway<T, R, D, S> implements MessagingG
       final MessageMapper<T, D> requestMapper, final MessageMapper<R, S> responseMapper) {
     this.requestMapper = requestMapper;
     this.responseMapper = responseMapper;
+    this.scheduler.scheduleAtFixedRate(
+        this::purgeExpiredReplies, CLEANUP_MS, CLEANUP_MS, TimeUnit.MILLISECONDS);
   }
 
   /**
@@ -76,11 +95,25 @@ public abstract class AbstractMessagingGateway<T, R, D, S> implements MessagingG
     final Message<T1> correlatedRequest = request.withCorrelationId(correlationId);
     final Sinks.One<Message<R>> replySink = Sinks.one();
 
-    pendingReplies.put(correlationId, replySink);
+    pendingReplies.put(correlationId, new PendingReply<>(replySink, System.currentTimeMillis()));
 
     return dispatch(correlatedRequest)
         .then(replySink.asMono())
-        .doOnTerminate(() -> pendingReplies.remove(correlationId))
+        .timeout(DEFAULT_TIMEOUT)
+        .doFinally(signalType -> pendingReplies.remove(correlationId))
+        .onErrorMap(
+            e -> {
+              if (e instanceof TimeoutException) {
+                return new WorkflowExecutionException(
+                    "Gateway request timed out after " + DEFAULT_TIMEOUT.toSeconds() + " seconds",
+                    e);
+              }
+              if (e instanceof WorkflowExecutionException) {
+                return e;
+              }
+              return new WorkflowExecutionException(
+                  "Gateway execution failed: " + e.getMessage(), e);
+            })
         .map(
             msg -> {
               @SuppressWarnings("unchecked")
@@ -105,11 +138,45 @@ public abstract class AbstractMessagingGateway<T, R, D, S> implements MessagingG
       return;
     }
 
-    final Sinks.One<Message<R>> sink = pendingReplies.get(correlationId);
-    if (sink != null) {
-      sink.tryEmitValue(response);
+    final PendingReply<R> pending = pendingReplies.get(correlationId);
+    if (pending != null) {
+      pending.sink().tryEmitValue(response);
     } else if (log.isWarnEnabled()) {
       log.warn("No pending request found for correlationId: {}, dropping response", correlationId);
+    }
+  }
+
+  private void purgeExpiredReplies() {
+    final long now = System.currentTimeMillis();
+    final long timeoutMs = DEFAULT_TIMEOUT.toMillis();
+    // Use a grace period of 5 seconds for the background purge
+    pendingReplies
+        .entrySet()
+        .removeIf(
+            entry -> {
+              if (now - entry.getValue().createdAt() > timeoutMs + 5000) {
+                entry
+                    .getValue()
+                    .sink()
+                    .tryEmitError(
+                        new WorkflowExecutionException(
+                            "Gateway request expired and was purged from memory"));
+                return true;
+              }
+              return false;
+            });
+  }
+
+  /** Shutdown the gateway and its background tasks. */
+  public void shutdown() {
+    scheduler.shutdown();
+    try {
+      if (!scheduler.awaitTermination(1, TimeUnit.SECONDS)) {
+        scheduler.shutdownNow();
+      }
+    } catch (final InterruptedException e) {
+      scheduler.shutdownNow();
+      Thread.currentThread().interrupt();
     }
   }
 
@@ -124,9 +191,18 @@ public abstract class AbstractMessagingGateway<T, R, D, S> implements MessagingG
 
   @Override
   public <T1> Mono<Void> send(final Message<T1> request) {
-    return dispatch(request);
+    return dispatch(request)
+        .onErrorMap(
+            e -> {
+              if (e instanceof WorkflowExecutionException) {
+                return e;
+              }
+              return new WorkflowExecutionException("Failed to send message: " + e.getMessage(), e);
+            });
   }
 
   @Override
   public abstract <R1> Flux<Message<R1>> receive();
+
+  private record PendingReply<R>(Sinks.One<Message<R>> sink, long createdAt) {}
 }

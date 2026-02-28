@@ -18,6 +18,7 @@ package com.infenia.yukta.service;
 import com.infenia.yukta.config.AppConfigService;
 import com.infenia.yukta.plugin.Message;
 import com.infenia.yukta.plugin.ResultCollector;
+import com.infenia.yukta.plugin.WorkflowExecutionException;
 import com.infenia.yukta.plugin.WorkflowGateway;
 import java.util.List;
 import java.util.Map;
@@ -64,7 +65,8 @@ public class DefaultWorkflowGateway implements WorkflowGateway {
     final AppConfigService configService = cfgServProv.getIfAvailable();
 
     if (orchestrator == null || configService == null) {
-      return Mono.error(new IllegalStateException("Required services not available"));
+      return Mono.error(
+          new WorkflowExecutionException("Required services (Orchestrator/Config) not available"));
     }
 
     final ResultCollector collector = new ResultCollector();
@@ -72,7 +74,7 @@ public class DefaultWorkflowGateway implements WorkflowGateway {
     return configService
         .getWorkflow(parentSessionId, workflowId)
         .switchIfEmpty(
-            Mono.error(new IllegalArgumentException("Workflow not found: " + workflowId)))
+            Mono.error(new WorkflowExecutionException("Workflow not found: " + workflowId)))
         .flatMap(
             def ->
                 configService
@@ -101,7 +103,15 @@ public class DefaultWorkflowGateway implements WorkflowGateway {
                               .execute(childSessionId, workflowId, executionId, prepared, payload)
                               .contextWrite(ctx -> ctx.put("resultCollector", collector))
                               .then(Mono.fromCallable(collector::getResults));
-                        }));
+                        }))
+        .onErrorMap(
+            e -> {
+              if (e instanceof WorkflowExecutionException) {
+                return e;
+              }
+              return new WorkflowExecutionException(
+                  "Sub-workflow execution failed for " + workflowId + ": " + e.getMessage(), e);
+            });
   }
 
   @Override
@@ -110,7 +120,7 @@ public class DefaultWorkflowGateway implements WorkflowGateway {
     final String workflowId = (String) request.getMetadata().get("workflowId");
     if (workflowId == null) {
       return Mono.error(
-          new IllegalArgumentException("workflowId is required for gateway sendAndReceive"));
+          new WorkflowExecutionException("workflowId is required for gateway sendAndReceive"));
     }
 
     final String childSessionId = UUID.randomUUID().toString();
