@@ -29,15 +29,6 @@ public interface ClaimCheckStore {
   Mono<String> store(Object payload);
 
   /**
-   * Store a large payload with a specific key.
-   *
-   * @param key the claim check key to use
-   * @param payload the payload to store
-   * @return a Mono containing the claim check key
-   */
-  Mono<String> store(String key, Object payload);
-
-  /**
    * Retrieve a payload using its claim check key.
    *
    * @param key the claim check key

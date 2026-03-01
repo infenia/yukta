@@ -122,6 +122,9 @@ public class MapUtils {
    * @param path the dot-separated path (e.g. "a.b.c")
    */
   public static void removeNestedValue(final Map<String, Object> map, final String path) {
+    if (map == null || path == null || path.isEmpty()) {
+      return;
+    }
     final String[] parts = path.split("\\.");
     Map<String, Object> current = map;
     for (int i = 0; i < parts.length - 1; i++) {
@@ -136,5 +139,35 @@ public class MapUtils {
       }
     }
     current.remove(parts[parts.length - 1]);
+  }
+
+  /**
+   * Flattens a nested Map into a single-level Map with dot-notation keys.
+   *
+   * @param source the source map to flatten
+   * @return a new flattened map
+   */
+  public static Map<String, Object> flatten(final Map<String, Object> source) {
+    final Map<String, Object> result = new HashMap<>();
+    if (source != null) {
+      flatten("", source, result);
+    }
+    return result;
+  }
+
+  private static void flatten(
+      final String prefix, final Object value, final Map<String, Object> result) {
+    if (value instanceof Map) {
+      final Map<String, Object> map = (Map<String, Object>) value;
+      map.forEach(
+          (key, val) -> {
+            final String newKey = prefix.isEmpty() ? key : prefix + "." + key;
+            flatten(newKey, val, result);
+          });
+    } else {
+      if (!prefix.isEmpty()) {
+        result.put(prefix, value);
+      }
+    }
   }
 }
