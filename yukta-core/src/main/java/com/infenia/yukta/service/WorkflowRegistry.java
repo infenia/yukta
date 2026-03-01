@@ -15,7 +15,7 @@
  */
 package com.infenia.yukta.service;
 
-import com.infenia.yukta.plugin.WorkflowPlugin;
+import com.infenia.yukta.plugin.core.WorkflowPlugin;
 import com.infenia.yukta.validation.PluginName;
 import jakarta.validation.constraints.NotEmpty;
 import java.util.List;

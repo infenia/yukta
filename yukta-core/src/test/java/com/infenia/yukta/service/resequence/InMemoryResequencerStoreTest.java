@@ -17,8 +17,8 @@ package com.infenia.yukta.service.resequence;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.infenia.yukta.plugin.DefaultMessage;
-import com.infenia.yukta.plugin.Message;
+import com.infenia.yukta.plugin.message.DefaultMessage;
+import com.infenia.yukta.plugin.message.Message;
 import com.infenia.yukta.service.resequence.ResequencerStore.ResequenceConfig;
 import com.infenia.yukta.service.resequence.ResequencerStore.ResequenceResult;
 import java.time.Duration;

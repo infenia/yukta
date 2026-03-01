@@ -23,8 +23,8 @@ import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.infenia.yukta.model.WorkflowExecution;
-import com.infenia.yukta.plugin.PluginCategory;
-import com.infenia.yukta.plugin.WorkflowPlugin;
+import com.infenia.yukta.plugin.core.PluginCategory;
+import com.infenia.yukta.plugin.core.WorkflowPlugin;
 import com.infenia.yukta.service.SessionService;
 import com.infenia.yukta.service.TaskTrackerService;
 import com.infenia.yukta.service.WorkflowRegistry;

@@ -15,7 +15,7 @@
  */
 package com.infenia.yukta.service.join;
 
-import com.infenia.yukta.plugin.Message;
+import com.infenia.yukta.plugin.message.Message;
 import java.util.List;
 import java.util.Map;
 import reactor.core.publisher.Mono;

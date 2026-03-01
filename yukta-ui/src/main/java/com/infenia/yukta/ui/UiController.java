@@ -201,7 +201,7 @@ public class UiController {
             .filter(java.util.Objects::nonNull)
             .collect(
                 Collectors.toMap(
-                    com.infenia.yukta.plugin.WorkflowPlugin::getType,
+                    com.infenia.yukta.plugin.core.WorkflowPlugin::getType,
                     p ->
                         new PluginDetails(
                             p.getType(),
@@ -266,7 +266,7 @@ public class UiController {
                       .filter(java.util.Objects::nonNull)
                       .collect(
                           Collectors.toMap(
-                              com.infenia.yukta.plugin.WorkflowPlugin::getType,
+                              com.infenia.yukta.plugin.core.WorkflowPlugin::getType,
                               p ->
                                   new PluginDetails(
                                       p.getType(),

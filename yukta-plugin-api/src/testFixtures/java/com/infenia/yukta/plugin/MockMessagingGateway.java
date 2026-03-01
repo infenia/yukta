@@ -15,6 +15,8 @@
  */
 package com.infenia.yukta.plugin;
 
+import com.infenia.yukta.plugin.gateway.MessagingGateway;
+import com.infenia.yukta.plugin.message.Message;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import reactor.core.publisher.Flux;

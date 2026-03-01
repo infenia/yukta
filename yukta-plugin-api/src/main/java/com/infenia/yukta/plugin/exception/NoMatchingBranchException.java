@@ -13,13 +13,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.infenia.yukta.plugin;
+package com.infenia.yukta.plugin.exception;
 
-/**
- * Metadata for rendering a plugin node in the UI canvas.
- *
- * @param html the HTML template for the node, can contain placeholders like {{nodeId}}
- * @param width the preferred width of the node in pixels
- * @param height the preferred height of the node in pixels
- */
-public record UiDesign(String html, int width, int height) {}
+/** Exception thrown when no matching branch is found and strict mode is enabled. */
+public class NoMatchingBranchException extends RuntimeException {
+  private static final long serialVersionUID = 1L;
+
+  /**
+   * Constructor with message.
+   *
+   * @param message the error message
+   */
+  public NoMatchingBranchException(final String message) {
+    super(message);
+  }
+}

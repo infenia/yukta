@@ -18,10 +18,9 @@ package com.infenia.yukta.plugin.core;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.infenia.yukta.plugin.DefaultMessage;
-import com.infenia.yukta.plugin.Message;
-import com.infenia.yukta.plugin.NoMatchingBranchException;
-import com.infenia.yukta.plugin.UiDesign;
+import com.infenia.yukta.plugin.exception.NoMatchingBranchException;
+import com.infenia.yukta.plugin.message.DefaultMessage;
+import com.infenia.yukta.plugin.message.Message;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;

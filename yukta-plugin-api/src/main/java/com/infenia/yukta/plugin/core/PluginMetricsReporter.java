@@ -13,28 +13,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.infenia.yukta.plugin;
+package com.infenia.yukta.plugin.core;
 
-/** Exception thrown when a join operation times out and strict mode is enabled. */
-public class JoinTimeoutException extends RuntimeException {
-  private static final long serialVersionUID = 1L;
-
+/** Interface for reporting plugin execution metrics. */
+@FunctionalInterface
+public interface PluginMetricsReporter {
   /**
-   * Constructor with message.
+   * Increment the count of messages processed by a filter.
    *
-   * @param message the error message
+   * @param nodeId the ID of the filter node
+   * @param status the filter status (e.g., "MATCH", "DISCARD", "ERROR")
    */
-  public JoinTimeoutException(final String message) {
-    super(message);
-  }
-
-  /**
-   * Constructor with message and cause.
-   *
-   * @param message the error message
-   * @param cause the cause
-   */
-  public JoinTimeoutException(final String message, final Throwable cause) {
-    super(message, cause);
-  }
+  void incrementFilterCount(String nodeId, String status);
 }

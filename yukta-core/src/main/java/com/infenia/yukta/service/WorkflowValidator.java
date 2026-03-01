@@ -17,9 +17,9 @@ package com.infenia.yukta.service;
 
 import com.infenia.yukta.model.WorkflowDefinition;
 import com.infenia.yukta.model.WorkflowDefinition.Node;
-import com.infenia.yukta.plugin.PluginCategory;
-import com.infenia.yukta.plugin.TriggerPlugin;
-import com.infenia.yukta.plugin.WorkflowPlugin;
+import com.infenia.yukta.plugin.core.PluginCategory;
+import com.infenia.yukta.plugin.core.WorkflowPlugin;
+import com.infenia.yukta.plugin.type.TriggerPlugin;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import java.util.ArrayList;

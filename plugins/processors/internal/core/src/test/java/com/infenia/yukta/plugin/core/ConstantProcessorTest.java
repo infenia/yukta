@@ -19,8 +19,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
-import com.infenia.yukta.plugin.DefaultMessage;
-import com.infenia.yukta.plugin.Message;
+import com.infenia.yukta.plugin.message.DefaultMessage;
+import com.infenia.yukta.plugin.message.Message;
 import com.infenia.yukta.util.VariableResolver;
 import java.util.Map;
 import java.util.UUID;

@@ -21,7 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import com.infenia.yukta.plugin.WorkflowPlugin;
+import com.infenia.yukta.plugin.core.WorkflowPlugin;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 

@@ -13,23 +13,27 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.infenia.yukta.plugin;
+package com.infenia.yukta.plugin.store;
 
-import java.io.File;
-import java.util.List;
 import reactor.core.publisher.Mono;
 
-/** Gateway for executing external build tool commands. */
-public interface BuildGateway extends MessagingGateway {
+/** Interface for detecting and preventing duplicate message processing. */
+public interface IdempotencyStore {
 
   /**
-   * Execute a single build task in an external process.
+   * Check if a message has already been processed.
    *
-   * @param projectDir the directory where the build should run
-   * @param command the command and arguments to execute
-   * @param taskName the name of the task being executed
-   * @param timeout the maximum time to allow for execution (seconds)
-   * @return a Mono containing the process output logs
+   * @param messageId the unique message identifier
+   * @return a Mono emitting true if the message is a duplicate
    */
-  Mono<String> executeTask(File projectDir, List<String> command, String taskName, long timeout);
+  @SuppressWarnings("PMD.LinguisticNaming")
+  Mono<Boolean> isDuplicate(String messageId);
+
+  /**
+   * Mark a message as processed.
+   *
+   * @param messageId the unique message identifier
+   * @return a Mono that completes when the message is recorded
+   */
+  Mono<Void> markProcessed(String messageId);
 }

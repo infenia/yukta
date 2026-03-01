@@ -13,16 +13,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.infenia.yukta.plugin;
+package com.infenia.yukta.plugin.type;
 
-/** Interface for reporting plugin execution metrics. */
-@FunctionalInterface
-public interface PluginMetricsReporter {
+import com.infenia.yukta.plugin.core.PluginCategory;
+import com.infenia.yukta.plugin.core.WorkflowPlugin;
+import com.infenia.yukta.plugin.message.Message;
+import java.util.Map;
+import reactor.core.publisher.Flux;
+
+/** Produces data from an external source. */
+public interface TriggerPlugin extends WorkflowPlugin {
+  @Override
+  default PluginCategory getCategory() {
+    return PluginCategory.TRIGGER;
+  }
+
   /**
-   * Increment the count of messages processed by a filter.
+   * Start producing data.
    *
-   * @param nodeId the ID of the filter node
-   * @param status the filter status (e.g., "MATCH", "DISCARD", "ERROR")
+   * @param config the plugin configuration
+   * @return a Flux of messages
    */
-  void incrementFilterCount(String nodeId, String status);
+  Flux<Message<?>> start(Map<String, Object> config);
 }

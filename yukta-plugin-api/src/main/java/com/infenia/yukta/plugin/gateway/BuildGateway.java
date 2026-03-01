@@ -13,25 +13,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.infenia.yukta.plugin;
+package com.infenia.yukta.plugin.gateway;
 
-import java.util.Map;
-import reactor.core.publisher.Flux;
+import java.io.File;
+import java.util.List;
 import reactor.core.publisher.Mono;
 
-/** Logic for side-effects. */
-public interface TerminalPlugin extends WorkflowPlugin {
-  @Override
-  default PluginCategory getCategory() {
-    return PluginCategory.TERMINAL;
-  }
+/** Gateway for executing external build tool commands. */
+public interface BuildGateway extends MessagingGateway {
 
   /**
-   * Consume the input stream of messages.
+   * Execute a single build task in an external process.
    *
-   * @param input the input Flux
-   * @param config the plugin configuration
-   * @return a Mono that completes when all messages are consumed
+   * @param projectDir the directory where the build should run
+   * @param command the command and arguments to execute
+   * @param taskName the name of the task being executed
+   * @param timeout the maximum time to allow for execution (seconds)
+   * @return a Mono containing the process output logs
    */
-  Mono<Void> consume(Flux<Message<?>> input, Map<String, Object> config);
+  Mono<String> executeTask(File projectDir, List<String> command, String taskName, long timeout);
 }

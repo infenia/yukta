@@ -15,12 +15,12 @@
  */
 package com.infenia.yukta.plugin.buildtool;
 
-import com.infenia.yukta.plugin.BuildGateway;
-import com.infenia.yukta.plugin.DefaultMessage;
-import com.infenia.yukta.plugin.Message;
-import com.infenia.yukta.plugin.PluginCategory;
-import com.infenia.yukta.plugin.ProcessorPlugin;
-import com.infenia.yukta.plugin.TriggerPlugin;
+import com.infenia.yukta.plugin.core.PluginCategory;
+import com.infenia.yukta.plugin.gateway.BuildGateway;
+import com.infenia.yukta.plugin.message.DefaultMessage;
+import com.infenia.yukta.plugin.message.Message;
+import com.infenia.yukta.plugin.type.ProcessorPlugin;
+import com.infenia.yukta.plugin.type.TriggerPlugin;
 import java.io.File;
 import java.time.Duration;
 import java.util.List;

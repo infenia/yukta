@@ -15,7 +15,7 @@
  */
 package com.infenia.yukta.util;
 
-import com.infenia.yukta.plugin.SecretProvider;
+import com.infenia.yukta.plugin.store.SecretProvider;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;

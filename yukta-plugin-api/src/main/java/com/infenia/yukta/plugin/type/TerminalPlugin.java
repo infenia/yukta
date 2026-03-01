@@ -13,23 +13,28 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.infenia.yukta.plugin;
+package com.infenia.yukta.plugin.type;
 
+import com.infenia.yukta.plugin.core.PluginCategory;
+import com.infenia.yukta.plugin.core.WorkflowPlugin;
+import com.infenia.yukta.plugin.message.Message;
 import java.util.Map;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
-/** Produces data from an external source. */
-public interface TriggerPlugin extends WorkflowPlugin {
+/** Logic for side-effects. */
+public interface TerminalPlugin extends WorkflowPlugin {
   @Override
   default PluginCategory getCategory() {
-    return PluginCategory.TRIGGER;
+    return PluginCategory.TERMINAL;
   }
 
   /**
-   * Start producing data.
+   * Consume the input stream of messages.
    *
+   * @param input the input Flux
    * @param config the plugin configuration
-   * @return a Flux of messages
+   * @return a Mono that completes when all messages are consumed
    */
-  Flux<Message<?>> start(Map<String, Object> config);
+  Mono<Void> consume(Flux<Message<?>> input, Map<String, Object> config);
 }

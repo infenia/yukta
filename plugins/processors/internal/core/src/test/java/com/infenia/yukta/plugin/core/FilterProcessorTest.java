@@ -20,9 +20,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
-import com.infenia.yukta.plugin.DefaultMessage;
-import com.infenia.yukta.plugin.Message;
-import com.infenia.yukta.plugin.PluginMetricsReporter;
+import com.infenia.yukta.plugin.message.DefaultMessage;
+import com.infenia.yukta.plugin.message.Message;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -147,7 +146,8 @@ class FilterProcessorTest {
             processor
                 .process(Flux.just(msg), config)
                 .contextWrite(ctx -> ctx.put("nodeId", "test-node")))
-        .expectErrorMatches(e -> e instanceof com.infenia.yukta.plugin.FilterEvaluationException)
+        .expectErrorMatches(
+            e -> e instanceof com.infenia.yukta.plugin.exception.FilterEvaluationException)
         .verify();
 
     verify(reporter).incrementFilterCount("test-node", "ERROR");

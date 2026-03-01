@@ -17,8 +17,8 @@ package com.infenia.yukta.controller;
 
 import static org.mockito.Mockito.when;
 
-import com.infenia.yukta.plugin.PluginCategory;
-import com.infenia.yukta.plugin.WorkflowPlugin;
+import com.infenia.yukta.plugin.core.PluginCategory;
+import com.infenia.yukta.plugin.core.WorkflowPlugin;
 import com.infenia.yukta.service.WorkflowRegistry;
 import java.util.List;
 import org.junit.jupiter.api.Test;

@@ -13,27 +13,28 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.infenia.yukta.plugin;
+package com.infenia.yukta.plugin.exception;
 
-import reactor.core.publisher.Mono;
-
-/** Interface for detecting and preventing duplicate message processing. */
-public interface IdempotencyStore {
-
-  /**
-   * Check if a message has already been processed.
-   *
-   * @param messageId the unique message identifier
-   * @return a Mono emitting true if the message is a duplicate
-   */
-  @SuppressWarnings("PMD.LinguisticNaming")
-  Mono<Boolean> isDuplicate(String messageId);
+/** Exception thrown when a join operation times out and strict mode is enabled. */
+public class JoinTimeoutException extends RuntimeException {
+  private static final long serialVersionUID = 1L;
 
   /**
-   * Mark a message as processed.
+   * Constructor with message.
    *
-   * @param messageId the unique message identifier
-   * @return a Mono that completes when the message is recorded
+   * @param message the error message
    */
-  Mono<Void> markProcessed(String messageId);
+  public JoinTimeoutException(final String message) {
+    super(message);
+  }
+
+  /**
+   * Constructor with message and cause.
+   *
+   * @param message the error message
+   * @param cause the cause
+   */
+  public JoinTimeoutException(final String message, final Throwable cause) {
+    super(message, cause);
+  }
 }

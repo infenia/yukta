@@ -20,9 +20,9 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 
-import com.infenia.yukta.plugin.DefaultMessage;
-import com.infenia.yukta.plugin.Message;
-import com.infenia.yukta.plugin.WorkflowGateway;
+import com.infenia.yukta.plugin.gateway.WorkflowGateway;
+import com.infenia.yukta.plugin.message.DefaultMessage;
+import com.infenia.yukta.plugin.message.Message;
 import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;

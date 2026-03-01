@@ -13,18 +13,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.infenia.yukta.plugin;
+package com.infenia.yukta.plugin.store;
 
-/** Exception thrown when no matching branch is found and strict mode is enabled. */
-public class NoMatchingBranchException extends RuntimeException {
-  private static final long serialVersionUID = 1L;
+import reactor.core.publisher.Mono;
 
+/** Interface for fetching encrypted or sensitive values. */
+@FunctionalInterface
+public interface SecretProvider {
   /**
-   * Constructor with message.
+   * Resolve a secret value.
    *
-   * @param message the error message
+   * @param key the secret key (e.g. from decrypted:prefix)
+   * @return a Mono containing the decrypted secret
    */
-  public NoMatchingBranchException(final String message) {
-    super(message);
-  }
+  Mono<String> getSecret(String key);
 }

@@ -16,7 +16,7 @@
 package com.infenia.yukta.model;
 
 import com.infenia.yukta.model.WorkflowDefinition.Node;
-import com.infenia.yukta.plugin.WorkflowPlugin;
+import com.infenia.yukta.plugin.core.WorkflowPlugin;
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;

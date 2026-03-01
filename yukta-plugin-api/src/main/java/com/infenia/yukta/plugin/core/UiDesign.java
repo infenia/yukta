@@ -13,18 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.infenia.yukta.plugin;
+package com.infenia.yukta.plugin.core;
 
-import reactor.core.publisher.Mono;
-
-/** Interface for fetching encrypted or sensitive values. */
-@FunctionalInterface
-public interface SecretProvider {
-  /**
-   * Resolve a secret value.
-   *
-   * @param key the secret key (e.g. from decrypted:prefix)
-   * @return a Mono containing the decrypted secret
-   */
-  Mono<String> getSecret(String key);
-}
+/**
+ * Metadata for rendering a plugin node in the UI canvas.
+ *
+ * @param html the HTML template for the node, can contain placeholders like {{nodeId}}
+ * @param width the preferred width of the node in pixels
+ * @param height the preferred height of the node in pixels
+ */
+public record UiDesign(String html, int width, int height) {}

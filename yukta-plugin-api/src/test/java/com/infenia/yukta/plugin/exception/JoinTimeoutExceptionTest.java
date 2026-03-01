@@ -13,14 +13,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.infenia.yukta.plugin;
+package com.infenia.yukta.plugin.exception;
 
-/** Categories of plugins to ensure predictable data flow. */
-public enum PluginCategory {
-  /** Sources: Producers of data. */
-  TRIGGER,
-  /** Transformers: Consumers AND Producers of data. */
-  PROCESSOR,
-  /** Sinks: Consumers only. */
-  TERMINAL
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
+import org.junit.jupiter.api.Test;
+
+class JoinTimeoutExceptionTest {
+
+  @Test
+  void testExceptionMessage() {
+    JoinTimeoutException ex = new JoinTimeoutException("timeout");
+    assertEquals("timeout", ex.getMessage());
+  }
+
+  @Test
+  void testExceptionMessageAndCause() {
+    RuntimeException cause = new RuntimeException("cause");
+    JoinTimeoutException ex = new JoinTimeoutException("timeout", cause);
+    assertEquals("timeout", ex.getMessage());
+    assertEquals(cause, ex.getCause());
+  }
 }

@@ -21,8 +21,8 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import com.infenia.yukta.plugin.DefaultMessage;
-import com.infenia.yukta.plugin.Message;
+import com.infenia.yukta.plugin.message.DefaultMessage;
+import com.infenia.yukta.plugin.message.Message;
 import com.infenia.yukta.service.aggregate.AggregateStore;
 import com.infenia.yukta.service.aggregate.AggregateStore.AggregateResult;
 import java.util.Map;

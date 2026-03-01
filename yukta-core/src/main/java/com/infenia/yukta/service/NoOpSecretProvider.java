@@ -15,7 +15,7 @@
  */
 package com.infenia.yukta.service;
 
-import com.infenia.yukta.plugin.SecretProvider;
+import com.infenia.yukta.plugin.store.SecretProvider;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;

@@ -15,9 +15,9 @@
  */
 package com.infenia.yukta.plugin.core;
 
-import com.infenia.yukta.plugin.DefaultMessage;
-import com.infenia.yukta.plugin.Message;
-import com.infenia.yukta.plugin.TriggerPlugin;
+import com.infenia.yukta.plugin.message.DefaultMessage;
+import com.infenia.yukta.plugin.message.Message;
+import com.infenia.yukta.plugin.type.TriggerPlugin;
 import com.infenia.yukta.util.MapUtils;
 import com.infenia.yukta.util.VariableResolver;
 import java.util.HashMap;

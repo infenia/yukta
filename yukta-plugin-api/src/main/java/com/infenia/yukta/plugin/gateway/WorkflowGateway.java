@@ -13,8 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.infenia.yukta.plugin;
+package com.infenia.yukta.plugin.gateway;
 
+import com.infenia.yukta.plugin.message.Message;
 import java.util.List;
 import java.util.Map;
 import reactor.core.publisher.Mono;

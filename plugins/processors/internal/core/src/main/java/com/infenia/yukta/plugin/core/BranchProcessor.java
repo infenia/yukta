@@ -15,10 +15,9 @@
  */
 package com.infenia.yukta.plugin.core;
 
-import com.infenia.yukta.plugin.Message;
-import com.infenia.yukta.plugin.NoMatchingBranchException;
-import com.infenia.yukta.plugin.ProcessorPlugin;
-import com.infenia.yukta.plugin.UiDesign;
+import com.infenia.yukta.plugin.exception.NoMatchingBranchException;
+import com.infenia.yukta.plugin.message.Message;
+import com.infenia.yukta.plugin.type.ProcessorPlugin;
 import com.infenia.yukta.util.SpelUtils;
 import java.util.ArrayList;
 import java.util.HashSet;

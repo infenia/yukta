@@ -15,9 +15,9 @@
  */
 package com.infenia.yukta.plugin.buildtool;
 
-import com.infenia.yukta.plugin.BuildGateway;
-import com.infenia.yukta.plugin.Message;
-import com.infenia.yukta.plugin.WorkflowExecutionException;
+import com.infenia.yukta.plugin.exception.WorkflowExecutionException;
+import com.infenia.yukta.plugin.gateway.BuildGateway;
+import com.infenia.yukta.plugin.message.Message;
 import java.io.File;
 import java.io.IOException;
 import java.time.Duration;

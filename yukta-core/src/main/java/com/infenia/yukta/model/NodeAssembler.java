@@ -15,7 +15,7 @@
  */
 package com.infenia.yukta.model;
 
-import com.infenia.yukta.plugin.Message;
+import com.infenia.yukta.plugin.message.Message;
 import java.util.List;
 import java.util.Map;
 import reactor.core.Disposable;

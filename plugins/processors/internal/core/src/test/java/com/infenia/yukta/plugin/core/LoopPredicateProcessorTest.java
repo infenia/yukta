@@ -22,9 +22,9 @@ import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.infenia.yukta.plugin.DefaultMessage;
-import com.infenia.yukta.plugin.Message;
-import com.infenia.yukta.plugin.ProcessorPlugin;
+import com.infenia.yukta.plugin.message.DefaultMessage;
+import com.infenia.yukta.plugin.message.Message;
+import com.infenia.yukta.plugin.type.ProcessorPlugin;
 import com.infenia.yukta.service.TaskTrackerService;
 import com.infenia.yukta.service.WorkflowRegistry;
 import java.util.Map;

@@ -13,31 +13,36 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.infenia.yukta.plugin;
+package com.infenia.yukta.plugin.exception;
 
 import java.io.Serial;
 
-/** Exception thrown when a filter condition fails to evaluate in strict mode. */
-public class FilterEvaluationException extends WorkflowExecutionException {
+/**
+ * Standardized exception for errors occurring during workflow execution or plugin processing.
+ *
+ * <p>Concrete gateways and plugins should use this exception to maintain a technology-independent
+ * error contract.
+ */
+public class WorkflowExecutionException extends RuntimeException {
 
   @Serial private static final long serialVersionUID = 1L;
 
   /**
-   * Constructs a new FilterEvaluationException with the specified message.
+   * Constructs a new WorkflowExecutionException with the specified detail message.
    *
    * @param message the detail message
    */
-  public FilterEvaluationException(final String message) {
+  public WorkflowExecutionException(final String message) {
     super(message);
   }
 
   /**
-   * Constructs a new FilterEvaluationException with the specified message and cause.
+   * Constructs a new WorkflowExecutionException with the specified detail message and cause.
    *
    * @param message the detail message
    * @param cause the cause
    */
-  public FilterEvaluationException(final String message, final Throwable cause) {
+  public WorkflowExecutionException(final String message, final Throwable cause) {
     super(message, cause);
   }
 }

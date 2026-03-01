@@ -15,10 +15,10 @@
  */
 package com.infenia.yukta.plugin.core;
 
-import com.infenia.yukta.plugin.DefaultMessage;
-import com.infenia.yukta.plugin.JoinTimeoutException;
-import com.infenia.yukta.plugin.Message;
-import com.infenia.yukta.plugin.ProcessorPlugin;
+import com.infenia.yukta.plugin.exception.JoinTimeoutException;
+import com.infenia.yukta.plugin.message.DefaultMessage;
+import com.infenia.yukta.plugin.message.Message;
+import com.infenia.yukta.plugin.type.ProcessorPlugin;
 import com.infenia.yukta.service.join.JoinStore;
 import com.infenia.yukta.service.join.JoinStore.JoinConfig;
 import com.infenia.yukta.service.join.JoinStore.JoinResult;

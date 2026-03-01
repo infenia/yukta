@@ -15,8 +15,8 @@
  */
 package com.infenia.yukta.service.join;
 
-import com.infenia.yukta.plugin.DefaultMessage;
-import com.infenia.yukta.plugin.Message;
+import com.infenia.yukta.plugin.message.DefaultMessage;
+import com.infenia.yukta.plugin.message.Message;
 import com.infenia.yukta.service.join.JoinStore.JoinConfig;
 import com.infenia.yukta.service.join.JoinStore.JoinResult;
 import java.util.List;

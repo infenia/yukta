@@ -15,8 +15,8 @@
  */
 package com.infenia.yukta.service.aggregate;
 
-import com.infenia.yukta.plugin.DefaultMessage;
-import com.infenia.yukta.plugin.Message;
+import com.infenia.yukta.plugin.message.DefaultMessage;
+import com.infenia.yukta.plugin.message.Message;
 import com.infenia.yukta.service.aggregate.AggregateStore.AggregateConfig;
 import com.infenia.yukta.service.aggregate.AggregateStore.AggregateResult;
 import java.time.Duration;

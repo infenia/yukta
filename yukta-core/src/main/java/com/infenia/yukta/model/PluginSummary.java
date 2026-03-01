@@ -15,7 +15,7 @@
  */
 package com.infenia.yukta.model;
 
-import com.infenia.yukta.plugin.PluginCategory;
+import com.infenia.yukta.plugin.core.PluginCategory;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 /**

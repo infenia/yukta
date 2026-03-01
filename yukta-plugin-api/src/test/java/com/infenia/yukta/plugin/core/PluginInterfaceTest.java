@@ -13,13 +13,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.infenia.yukta.plugin;
+package com.infenia.yukta.plugin.core;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.infenia.yukta.plugin.exception.FilterEvaluationException;
+import com.infenia.yukta.plugin.exception.JoinTimeoutException;
+import com.infenia.yukta.plugin.exception.NoMatchingBranchException;
+import com.infenia.yukta.plugin.gateway.ResultCollector;
+import com.infenia.yukta.plugin.message.DefaultMessage;
+import com.infenia.yukta.plugin.message.Message;
+import com.infenia.yukta.plugin.type.ProcessorPlugin;
+import com.infenia.yukta.plugin.type.TerminalPlugin;
+import com.infenia.yukta.plugin.type.TriggerPlugin;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;

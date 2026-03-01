@@ -15,9 +15,8 @@
  */
 package com.infenia.yukta.plugin.core;
 
-import com.infenia.yukta.plugin.Message;
-import com.infenia.yukta.plugin.TerminalPlugin;
-import com.infenia.yukta.plugin.UiDesign;
+import com.infenia.yukta.plugin.message.Message;
+import com.infenia.yukta.plugin.type.TerminalPlugin;
 import java.util.Map;
 import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;

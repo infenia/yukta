@@ -13,8 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.infenia.yukta.plugin;
+package com.infenia.yukta.plugin.gateway;
 
+import com.infenia.yukta.plugin.exception.WorkflowExecutionException;
+import com.infenia.yukta.plugin.message.Message;
+import com.infenia.yukta.plugin.message.MessageMapper;
 import java.time.Duration;
 import java.util.Map;
 import java.util.UUID;

@@ -15,7 +15,7 @@
  */
 package com.infenia.yukta.plugin.core;
 
-import com.infenia.yukta.plugin.Message;
+import com.infenia.yukta.plugin.message.Message;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Matcher;

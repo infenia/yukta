@@ -20,10 +20,10 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.infenia.yukta.model.WorkflowDefinition;
-import com.infenia.yukta.plugin.PluginCategory;
-import com.infenia.yukta.plugin.ProcessorPlugin;
-import com.infenia.yukta.plugin.TerminalPlugin;
-import com.infenia.yukta.plugin.TriggerPlugin;
+import com.infenia.yukta.plugin.core.PluginCategory;
+import com.infenia.yukta.plugin.type.ProcessorPlugin;
+import com.infenia.yukta.plugin.type.TerminalPlugin;
+import com.infenia.yukta.plugin.type.TriggerPlugin;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;

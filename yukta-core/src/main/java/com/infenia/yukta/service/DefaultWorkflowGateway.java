@@ -16,10 +16,10 @@
 package com.infenia.yukta.service;
 
 import com.infenia.yukta.config.AppConfigService;
-import com.infenia.yukta.plugin.Message;
-import com.infenia.yukta.plugin.ResultCollector;
-import com.infenia.yukta.plugin.WorkflowExecutionException;
-import com.infenia.yukta.plugin.WorkflowGateway;
+import com.infenia.yukta.plugin.exception.WorkflowExecutionException;
+import com.infenia.yukta.plugin.gateway.ResultCollector;
+import com.infenia.yukta.plugin.gateway.WorkflowGateway;
+import com.infenia.yukta.plugin.message.Message;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;

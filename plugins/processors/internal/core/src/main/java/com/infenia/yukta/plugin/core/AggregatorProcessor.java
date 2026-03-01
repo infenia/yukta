@@ -15,8 +15,8 @@
  */
 package com.infenia.yukta.plugin.core;
 
-import com.infenia.yukta.plugin.Message;
-import com.infenia.yukta.plugin.ProcessorPlugin;
+import com.infenia.yukta.plugin.message.Message;
+import com.infenia.yukta.plugin.type.ProcessorPlugin;
 import com.infenia.yukta.service.aggregate.AggregateStore;
 import com.infenia.yukta.service.aggregate.AggregateStore.AggregateConfig;
 import com.infenia.yukta.service.aggregate.AggregateStore.AggregateResult;
@@ -183,7 +183,8 @@ public class AggregatorProcessor implements ProcessorPlugin {
   }
 
   private Message<?> createMessage(final AggregateResult result) {
-    return com.infenia.yukta.plugin.DefaultMessage.from(result.lastMessage(), result.result());
+    return com.infenia.yukta.plugin.message.DefaultMessage.from(
+        result.lastMessage(), result.result());
   }
 
   private AggregateConfig createAggregateConfig(final Map<String, Object> config) {

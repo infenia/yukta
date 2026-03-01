@@ -15,7 +15,7 @@
  */
 package com.infenia.yukta.service.aggregate;
 
-import com.infenia.yukta.plugin.Message;
+import com.infenia.yukta.plugin.message.Message;
 import com.infenia.yukta.util.SpelUtils;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;

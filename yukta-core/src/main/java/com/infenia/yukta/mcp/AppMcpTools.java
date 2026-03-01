@@ -23,7 +23,7 @@ import com.infenia.yukta.model.SessionDetails;
 import com.infenia.yukta.model.SessionSummary;
 import com.infenia.yukta.model.WorkflowDefinition;
 import com.infenia.yukta.model.WorkflowExecutionSummary;
-import com.infenia.yukta.plugin.WorkflowPlugin;
+import com.infenia.yukta.plugin.core.WorkflowPlugin;
 import com.infenia.yukta.service.SessionService;
 import com.infenia.yukta.service.TaskTrackerService;
 import com.infenia.yukta.service.WorkflowRegistry;
