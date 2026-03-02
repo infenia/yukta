@@ -14,6 +14,12 @@ export default function dagComponent(nodesData, edgesData, pluginDetails) {
         panY: 0,
         isDragging: false,
         dragStart: { x: 0, y: 0 },
+        tooltip: {
+            show: false,
+            text: '',
+            x: 0,
+            y: 0
+        },
 
         async init() {
             this.$nextTick(async () => {
@@ -105,8 +111,8 @@ export default function dagComponent(nodesData, edgesData, pluginDetails) {
                     const details = this.plugins[n.type];
                     return {
                         id: n.id,
-                        width: details?.uiDesign?.width || 120,
-                        height: details?.uiDesign?.height || 60,
+                        width: details?.uiDesign?.width || 140,
+                        height: details?.uiDesign?.height || 80,
                         type: n.type
                     };
                 }),
@@ -201,30 +207,51 @@ export default function dagComponent(nodesData, edgesData, pluginDetails) {
                     .attr("height", n.height)
                     .attr("rx", 12);
 
-                if (design) {
-                    // Inject HTML
-                    const foPadding = 40;
-                    const fo = grp.append("foreignObject")
-                        .attr("x", -foPadding/2)
-                        .attr("y", -foPadding/2)
-                        .attr("width", n.width + foPadding)
-                        .attr("height", n.height + foPadding);
+                const foPadding = 40;
+                const fo = grp.append("foreignObject")
+                    .attr("x", -foPadding/2)
+                    .attr("y", -foPadding/2)
+                    .attr("width", n.width + foPadding)
+                    .attr("height", n.height + foPadding);
 
-                    let html = design.html;
-                    html = html.replace(/{{nodeId}}/g, n.id);
-                    html = html.replace(/{{type}}/g, n.type);
-
-                    fo.append("xhtml:div")
-                        .attr("style", "width:100%; height:100%; pointer-events:none; display: flex; align-items: center; justify-content: center;")
-                        .html('<div style="width:' + n.width + 'px; height:' + n.height + 'px; position: relative; overflow: visible;">' + html + '</div>');
-                } else {
-                    grp.append("text")
-                        .attr("x", n.width/2)
-                        .attr("y", n.height/2 + 4)
-                        .attr("text-anchor", "middle")
-                        .attr("class", "fill-slate-600 dark:fill-slate-300 font-mono text-[10px] font-bold uppercase tracking-widest")
-                        .text(n.id);
+                let html = design?.html;
+                if (!html) {
+                    // Default Design
+                    html = `
+                        <div class="flex items-center w-full h-full bg-slate-50 border-2 border-slate-200 rounded-xl px-4 gap-3">
+                            <div class="flex-shrink-0 w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center text-slate-500">
+                                <span class="material-symbols-outlined text-xl">extension</span>
+                            </div>
+                            <div class="flex flex-col min-w-0">
+                                <div class="text-[10px] text-slate-400 font-bold uppercase tracking-wider leading-none mb-1">{{type}}</div>
+                                <div class="text-xs font-bold text-slate-700 truncate w-full">{{nodeId}}</div>
+                            </div>
+                        </div>
+                    `;
                 }
+
+                html = html.replace(/{{nodeId}}/g, n.id);
+                html = html.replace(/{{type}}/g, n.type);
+
+                fo.append("xhtml:div")
+                    .attr("style", "width:100%; height:100%; pointer-events:none; display: flex; align-items: center; justify-content: center;")
+                    .html('<div style="width:' + n.width + 'px; height:' + n.height + 'px; position: relative; overflow: visible;">' + html + '</div>');
+
+                // Tooltip interaction
+                grp.on("mousemove", (event) => {
+                    this.tooltip = {
+                        show: true,
+                        text: n.id,
+                        x: event.clientX + 10,
+                        y: event.clientY + 10
+                    };
+                }).on("mouseleave", () => {
+                    this.tooltip.show = false;
+                    // Also trigger the existing highlight cleanup
+                    container.selectAll(".dag-line")
+                        .classed("highlight", false)
+                        .attr("marker-end", "url(#arrowhead)");
+                });
             });
 
             // Calculate Scale & Offset

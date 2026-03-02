@@ -97,12 +97,17 @@ public class ResequencerProcessor implements ProcessorPlugin {
     return Optional.of(
         new UiDesign(
             """
-            <div class="flex flex-col items-center justify-center h-full space-y-1 relative bg-cyan-50/50 rounded-lg border border-cyan-100">
-                <svg class="w-8 h-8 text-cyan-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h10M4 18h16" />
-                    <circle cx="18" cy="12" r="2" fill="currentColor" />
-                </svg>
-                <div class="text-[10px] text-cyan-600 font-medium uppercase tracking-wider">Resequencer</div>
+            <div class="flex items-center w-full h-full bg-cyan-50/50 border-2 border-cyan-100 rounded-xl px-4 gap-3">
+                <div class="flex-shrink-0 w-8 h-8 bg-cyan-100/50 rounded-lg flex items-center justify-center text-cyan-500">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h10M4 18h16" />
+                        <circle cx="18" cy="12" r="2" fill="currentColor" />
+                    </svg>
+                </div>
+                <div class="flex flex-col min-w-0">
+                    <div class="text-[10px] text-cyan-600 font-bold uppercase tracking-wider leading-none mb-1">Resequencer</div>
+                    <div class="text-xs font-bold text-slate-700 truncate w-full">{{nodeId}}</div>
+                </div>
             </div>
             """,
             140,

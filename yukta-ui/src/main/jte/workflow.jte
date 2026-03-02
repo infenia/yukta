@@ -74,6 +74,18 @@
             </button>
         </div>
 
+        <!-- Tooltip -->
+        <template x-if="tooltip.show">
+            <div
+                class="fixed z-[100] px-3 py-1.5 bg-slate-900 text-white text-xs font-mono rounded-lg shadow-xl pointer-events-none transition-opacity"
+                :style="'left: ' + tooltip.x + 'px; top: ' + tooltip.y + 'px;'"
+                x-transition:enter="transition ease-out duration-200"
+                x-transition:enter-start="opacity-0 scale-95"
+                x-transition:enter-end="opacity-100 scale-100">
+                <span x-text="tooltip.text"></span>
+            </div>
+        </template>
+
         <!-- Fullscreen Container -->
         <div x-show="isFullscreen"
              class="fixed inset-0 z-50 bg-white dark:bg-slate-900 rounded-none"

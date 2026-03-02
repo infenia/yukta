@@ -84,11 +84,16 @@ public class SplitterProcessor implements ProcessorPlugin {
     return Optional.of(
         new UiDesign(
             """
-            <div class="flex flex-col items-center justify-center h-full space-y-1 relative">
-                <svg class="w-8 h-8 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h8M8 12h8m-8 5h8M4 4h16v16H4z"/>
-                </svg>
-                <div class="text-[10px] text-slate-500 font-medium uppercase">Splitter</div>
+            <div class="flex items-center w-full h-full bg-slate-50 border-2 border-slate-200 rounded-xl px-4 gap-3">
+                <div class="flex-shrink-0 w-8 h-8 bg-indigo-100 rounded-lg flex items-center justify-center text-indigo-500">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h8M8 12h8m-8 5h8M4 4h16v16H4z"/>
+                    </svg>
+                </div>
+                <div class="flex flex-col min-w-0">
+                    <div class="text-[10px] text-slate-400 font-bold uppercase tracking-wider leading-none mb-1">Splitter</div>
+                    <div class="text-xs font-bold text-slate-700 truncate w-full">{{nodeId}}</div>
+                </div>
             </div>
             """,
             140,

@@ -64,13 +64,18 @@ public class ApiTriggerPlugin implements TriggerPlugin {
     return Optional.of(
         new UiDesign(
             """
-            <div class="flex flex-col items-center justify-center h-full space-y-1 relative">
-                <span class="material-symbols-outlined text-blue-500 text-xl">api</span>
-                <div class="text-[9px] text-blue-600 font-bold uppercase tracking-wider">Trigger</div>
+            <div class="flex items-center w-full h-full bg-blue-50/50 border-2 border-blue-100 rounded-xl px-4 gap-3">
+                <div class="flex-shrink-0 w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center text-blue-500">
+                    <span class="material-symbols-outlined text-xl">api</span>
+                </div>
+                <div class="flex flex-col min-w-0">
+                    <div class="text-[10px] text-blue-600 font-bold uppercase tracking-wider leading-none mb-1">Trigger</div>
+                    <div class="text-xs font-bold text-slate-700 truncate w-full">{{nodeId}}</div>
+                </div>
             </div>
             """,
-            120,
-            60));
+            140,
+            80));
   }
 
   @Override

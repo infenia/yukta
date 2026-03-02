@@ -100,11 +100,16 @@ public class BranchProcessor implements ProcessorPlugin {
     return Optional.of(
         new UiDesign(
             """
-            <div class="flex flex-col items-center justify-center h-full space-y-1 relative">
-                <svg class="w-8 h-8 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h8a2 2 0 012 2v10M8 17H6a2 2 0 01-2-2V5a2 2 0 012-2h8a2 2 0 012 2v2M21 21l-3-3m0 0l-3 3m3-3v-8"/>
-                </svg>
-                <div class="text-[10px] text-slate-500 font-medium uppercase">Branch</div>
+            <div class="flex items-center w-full h-full bg-slate-50 border-2 border-slate-200 rounded-xl px-4 gap-3">
+                <div class="flex-shrink-0 w-8 h-8 bg-indigo-100 rounded-lg flex items-center justify-center text-indigo-500">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h8a2 2 0 012 2v10M8 17H6a2 2 0 01-2-2V5a2 2 0 012-2h8a2 2 0 012 2v2M21 21l-3-3m0 0l-3 3m3-3v-8"/>
+                    </svg>
+                </div>
+                <div class="flex flex-col min-w-0">
+                    <div class="text-[10px] text-slate-400 font-bold uppercase tracking-wider leading-none mb-1">Branch</div>
+                    <div class="text-xs font-bold text-slate-700 truncate w-full">{{nodeId}}</div>
+                </div>
             </div>
             """,
             140,

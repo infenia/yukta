@@ -114,15 +114,16 @@ public class EnricherProcessor implements ProcessorPlugin {
     return Optional.of(
         new UiDesign(
             """
-            <div class="flex items-center justify-center w-full h-full bg-slate-50 \
-            border-2 border-slate-200 rounded-xl">
-              <svg class="w-8 h-8 text-slate-500" fill="none" stroke="currentColor" \
-              viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" \
-                d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              <span class="ml-2 font-heading text-xs font-bold text-slate-700 \
-              uppercase">Enricher</span>
+            <div class="flex items-center w-full h-full bg-slate-50 border-2 border-slate-200 rounded-xl px-4 gap-3">
+                <div class="flex-shrink-0 w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center text-slate-500">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                </div>
+                <div class="flex flex-col min-w-0">
+                    <div class="text-[10px] text-slate-400 font-bold uppercase tracking-wider leading-none mb-1">Enricher</div>
+                    <div class="text-xs font-bold text-slate-700 truncate w-full">{{nodeId}}</div>
+                </div>
             </div>
             """,
             140,

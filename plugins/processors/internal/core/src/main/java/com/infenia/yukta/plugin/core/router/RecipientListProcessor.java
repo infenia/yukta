@@ -92,11 +92,16 @@ public class RecipientListProcessor implements ProcessorPlugin {
     return Optional.of(
         new UiDesign(
             """
-            <div class="flex flex-col items-center justify-center h-full space-y-1 relative">
-                <svg class="w-8 h-8 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 12h4m0 0l4-8m-4 8l4 8m4-8h4m-4-8h4m-4 16h4"/>
-                </svg>
-                <div class="text-[10px] text-slate-500 font-medium uppercase">Recipient List</div>
+            <div class="flex items-center w-full h-full bg-slate-50 border-2 border-slate-200 rounded-xl px-4 gap-3">
+                <div class="flex-shrink-0 w-8 h-8 bg-emerald-100 rounded-lg flex items-center justify-center text-emerald-500">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 12h4m0 0l4-8m-4 8l4 8m4-8h4m-4-8h4m-4 16h4"/>
+                    </svg>
+                </div>
+                <div class="flex flex-col min-w-0">
+                    <div class="text-[10px] text-slate-400 font-bold uppercase tracking-wider leading-none mb-1">Recipient List</div>
+                    <div class="text-xs font-bold text-slate-700 truncate w-full">{{nodeId}}</div>
+                </div>
             </div>
             """,
             140,

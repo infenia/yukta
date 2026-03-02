@@ -56,13 +56,18 @@ public class ConsoleTerminalPlugin implements TerminalPlugin {
     return Optional.of(
         new UiDesign(
             """
-            <div class="flex flex-col items-center justify-center h-full space-y-1">
-                <span class="material-symbols-outlined text-slate-400 text-xl">terminal</span>
-                <div class="text-[9px] text-slate-500 font-medium uppercase tracking-wider">Logger</div>
+            <div class="flex items-center w-full h-full bg-slate-50 border-2 border-slate-200 rounded-xl px-4 gap-3">
+                <div class="flex-shrink-0 w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center text-slate-500">
+                    <span class="material-symbols-outlined text-xl">terminal</span>
+                </div>
+                <div class="flex flex-col min-w-0">
+                    <div class="text-[10px] text-slate-400 font-bold uppercase tracking-wider leading-none mb-1">Logger</div>
+                    <div class="text-xs font-bold text-slate-700 truncate w-full">{{nodeId}}</div>
+                </div>
             </div>
             """,
-            120,
-            60));
+            140,
+            80));
   }
 
   @Override
