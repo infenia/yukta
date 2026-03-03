@@ -52,6 +52,7 @@ class WorkflowOrchestratorTest {
   private TaskTrackerService tracker;
   private WorkflowValidator validator;
   private AppConfigService configService;
+  private com.infenia.yukta.plugin.gateway.ControlBusGateway controlBusGateway;
   private WorkflowOrchestrator orchestrator;
 
   @BeforeEach
@@ -59,6 +60,13 @@ class WorkflowOrchestratorTest {
     registry = mock(WorkflowRegistry.class);
     tracker = mock(TaskTrackerService.class);
     configService = mock(AppConfigService.class);
+    controlBusGateway = mock(com.infenia.yukta.service.DefaultControlBusGateway.class);
+    when(controlBusGateway.emit(any())).thenReturn(Mono.empty());
+    com.infenia.yukta.service.ControlBusService controlBusService =
+        mock(com.infenia.yukta.service.ControlBusService.class);
+    when(((com.infenia.yukta.service.DefaultControlBusGateway) controlBusGateway)
+            .getControlBusService())
+        .thenReturn(controlBusService);
     validator = new WorkflowValidator(registry);
     when(tracker.startWorkflow(anyString(), anyString(), anyString(), any()))
         .thenReturn(Mono.empty());
@@ -72,7 +80,14 @@ class WorkflowOrchestratorTest {
             });
     orchestrator =
         new WorkflowOrchestrator(
-            registry, tracker, validator, configService, null, Schedulers.parallel());
+            registry,
+            tracker,
+            validator,
+            configService,
+            null,
+            controlBusGateway,
+            java.time.Duration.ofSeconds(10),
+            Schedulers.parallel());
   }
 
   @Test
@@ -394,7 +409,14 @@ class WorkflowOrchestratorTest {
 
     final WorkflowOrchestrator tappedOrchestrator =
         new WorkflowOrchestrator(
-            registry, tracker, validator, configService, mockStore, Schedulers.immediate());
+            registry,
+            tracker,
+            validator,
+            configService,
+            mockStore,
+            controlBusGateway,
+            java.time.Duration.ofSeconds(10),
+            Schedulers.immediate());
 
     final Node triggerNode = new Node("t1", "trigger", Map.of());
     final Node terminalNode = new Node("term1", "terminal", Map.of());

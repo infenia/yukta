@@ -16,6 +16,7 @@
 package com.infenia.yukta.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.time.Duration;
 import java.util.concurrent.Executors;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.Bean;
@@ -52,5 +53,15 @@ public class AppConfiguration {
   @SuppressWarnings("PMD.DoNotUseThreads")
   public Scheduler virtualThreadScheduler() {
     return Schedulers.fromExecutor(Executors.newVirtualThreadPerTaskExecutor());
+  }
+
+  /**
+   * Global heartbeat interval for nodes in seconds.
+   *
+   * @return the heartbeat interval duration
+   */
+  @Bean
+  public Duration heartbeatInterval() {
+    return Duration.ofSeconds(10);
   }
 }

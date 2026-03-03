@@ -50,6 +50,7 @@ public class UiController {
   private final LogRetrievalService retrievalService;
   private final TaskTrackerService tracker;
   private final WorkflowRegistry registry;
+  private final com.infenia.yukta.service.ControlBusService controlBusService;
   private final TemplateEngine templateEngine;
 
   /**
@@ -106,6 +107,29 @@ public class UiController {
                       () -> {
                         final StringOutput output = new StringOutput();
                         templateEngine.render("history.jte", model.asMap(), output);
+                        return output.toString();
+                      })
+                  .subscribeOn(Schedulers.boundedElastic());
+            });
+  }
+
+  /**
+   * Render the control bus page.
+   *
+   * @param model the UI model
+   * @return the rendered HTML
+   */
+  @GetMapping(value = "/control", produces = MediaType.TEXT_HTML_VALUE)
+  @ResponseBody
+  public Mono<String> control(final Model model) {
+    return Mono.fromCallable(controlBusService::getActiveNodes)
+        .flatMap(
+            nodes -> {
+              model.addAttribute("nodes", nodes);
+              return Mono.fromCallable(
+                      () -> {
+                        final StringOutput output = new StringOutput();
+                        templateEngine.render("control-bus.jte", model.asMap(), output);
                         return output.toString();
                       })
                   .subscribeOn(Schedulers.boundedElastic());

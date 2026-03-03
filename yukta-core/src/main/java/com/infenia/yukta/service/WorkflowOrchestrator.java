@@ -23,8 +23,13 @@ import com.infenia.yukta.model.WorkflowDefinition.Node;
 import com.infenia.yukta.model.WorkflowTemplate;
 import com.infenia.yukta.plugin.core.PluginCategory;
 import com.infenia.yukta.plugin.core.WorkflowPlugin;
+import com.infenia.yukta.plugin.gateway.ControlBusGateway;
 import com.infenia.yukta.plugin.gateway.ResultCollector;
+import com.infenia.yukta.plugin.message.DefaultMessage;
 import com.infenia.yukta.plugin.message.Message;
+import com.infenia.yukta.plugin.message.control.ControlError;
+import com.infenia.yukta.plugin.message.control.ControlHeartbeat;
+import com.infenia.yukta.plugin.message.control.ControlStatistics;
 import com.infenia.yukta.plugin.store.MessageStore;
 import com.infenia.yukta.plugin.type.ProcessorPlugin;
 import com.infenia.yukta.plugin.type.TerminalPlugin;
@@ -98,6 +103,8 @@ public class WorkflowOrchestrator {
   private final WorkflowValidator validator;
   private final AppConfigService configService;
   private final MessageStore messageStore;
+  private final ControlBusGateway controlBusGateway;
+  private final Duration heartbeatInterval;
   private final Scheduler virtualThreadScheduler;
 
   /**
@@ -108,6 +115,8 @@ public class WorkflowOrchestrator {
    * @param validator the workflow validator
    * @param configService the app config service
    * @param messageStore the message store for auditing
+   * @param controlBusGateway the control bus gateway
+   * @param heartbeatInterval the heartbeat interval duration
    * @param virtualThreadScheduler the scheduler for virtual threads
    */
   @Autowired
@@ -118,12 +127,16 @@ public class WorkflowOrchestrator {
       final WorkflowValidator validator,
       final AppConfigService configService,
       @Nullable final MessageStore messageStore,
+      final ControlBusGateway controlBusGateway,
+      final Duration heartbeatInterval,
       @Qualifier("virtualThreadScheduler") final Scheduler virtualThreadScheduler) {
     this.registry = registry;
     this.tracker = tracker;
     this.validator = validator;
     this.configService = configService;
     this.messageStore = messageStore;
+    this.controlBusGateway = controlBusGateway;
+    this.heartbeatInterval = heartbeatInterval;
     this.virtualThreadScheduler = virtualThreadScheduler;
   }
 
@@ -170,7 +183,18 @@ public class WorkflowOrchestrator {
                         return Mono.error(
                             new IllegalArgumentException("Plugin not found: " + node.type()));
                       }
-                      return plugin.initialize(node.config());
+                      return plugin
+                          .initialize(node.config())
+                          .doOnSuccess(
+                              v ->
+                                  ((DefaultControlBusGateway) controlBusGateway)
+                                      .getControlBusService()
+                                      .registerPlugin(node.nodeId(), plugin))
+                          .then(
+                              controlBusGateway.emit(
+                                  DefaultMessage.create(null, "Node Online")
+                                      .withSourceNodeId(node.nodeId())
+                                      .withControl(true)));
                     })
                 .then())
         .then(
@@ -190,6 +214,9 @@ public class WorkflowOrchestrator {
                         node -> {
                           final WorkflowPlugin plugin = pluginCache.get(node.nodeId());
                           if (plugin != null) {
+                            ((DefaultControlBusGateway) controlBusGateway)
+                                .getControlBusService()
+                                .unregisterPlugin(node.nodeId());
                             final Mono<Void> shutdown = plugin.shutdown(node.config());
                             return (shutdown != null ? shutdown : Mono.<Void>empty())
                                 .onErrorResume(ex -> Mono.empty());
@@ -271,7 +298,8 @@ public class WorkflowOrchestrator {
                                     nodeCount,
                                     assemblers,
                                     ctx.get(CTX_SESSION_ID),
-                                    ctx.get(CTX_WORKFLOW_ID))))
+                                    ctx.get(CTX_WORKFLOW_ID),
+                                    nodeIds)))
                     .contextWrite(c -> c.put(CTX_PAYLOAD, payload)));
   }
 
@@ -292,7 +320,8 @@ public class WorkflowOrchestrator {
       final int nodeCount,
       final NodeAssembler[] assemblers,
       final String sessionId,
-      final String workflowId) {
+      final String workflowId,
+      final List<String> nodeIds) {
 
     @SuppressWarnings("unchecked")
     final Flux<Message<?>>[] streams = new Flux[nodeCount];
@@ -303,6 +332,35 @@ public class WorkflowOrchestrator {
     for (final NodeAssembler assembler : assemblers) {
       assembler.assemble(
           executionId, sessionId, workflowId, payload, streams, terminals, disposables, connectors);
+    }
+
+    // Add Heartbeat and Statistics emission
+    for (final String nodeId : nodeIds) {
+      final long startTime = System.currentTimeMillis();
+
+      disposables.add(
+          Flux.interval(heartbeatInterval, virtualThreadScheduler)
+              .flatMap(
+                  tick ->
+                      controlBusGateway.emit(
+                          DefaultMessage.create(
+                                  null,
+                                  new ControlHeartbeat(
+                                      nodeId, System.currentTimeMillis() - startTime))
+                              .withSourceNodeId(nodeId)
+                              .withControl(true)))
+              .subscribe());
+
+      // Simple statistics emission
+      disposables.add(
+          Flux.interval(heartbeatInterval.multipliedBy(2), virtualThreadScheduler)
+              .flatMap(
+                  tick ->
+                      controlBusGateway.emit(
+                          DefaultMessage.create(null, new ControlStatistics(nodeId, 0.0, 0.0))
+                              .withSourceNodeId(nodeId)
+                              .withControl(true)))
+              .subscribe());
     }
 
     final Mono<Long> timeoutMono =
@@ -425,13 +483,24 @@ public class WorkflowOrchestrator {
                           STATUS_SUCCESS,
                           Collections.emptyMap()))
               .doOnError(
-                  e ->
-                      tracker.emitTaskStatusEvent(
-                          execId,
-                          node.nodeId(),
-                          DEFAULT_TASK_ID,
-                          STATUS_FAILURE,
-                          Collections.emptyMap()))
+                  e -> {
+                    tracker.emitTaskStatusEvent(
+                        execId,
+                        node.nodeId(),
+                        DEFAULT_TASK_ID,
+                        STATUS_FAILURE,
+                        Collections.emptyMap());
+                    controlBusGateway
+                        .emit(
+                            DefaultMessage.create(
+                                    null,
+                                    new ControlError(
+                                        node.nodeId(), execId, "Node Failure", e.getMessage()))
+                                .withSourceNodeId(node.nodeId())
+                                .withControl(true)
+                                .withPriority(10))
+                        .subscribe();
+                  })
               .contextWrite(
                   ctx ->
                       ctx.put(CTX_NODE_ID, node.nodeId())
@@ -492,13 +561,24 @@ public class WorkflowOrchestrator {
                           .put(CTX_WORKFLOW_ID, wfId)
                           .put(CTX_EXECUTION_ID, execId))
               .doOnError(
-                  e ->
-                      tracker.emitTaskStatusEvent(
-                          execId,
-                          node.nodeId(),
-                          DEFAULT_TASK_ID,
-                          STATUS_FAILURE,
-                          Collections.emptyMap()));
+                  e -> {
+                    tracker.emitTaskStatusEvent(
+                        execId,
+                        node.nodeId(),
+                        DEFAULT_TASK_ID,
+                        STATUS_FAILURE,
+                        Collections.emptyMap());
+                    controlBusGateway
+                        .emit(
+                            DefaultMessage.create(
+                                    null,
+                                    new ControlError(
+                                        node.nodeId(), execId, "Node Failure", e.getMessage()))
+                                .withSourceNodeId(node.nodeId())
+                                .withControl(true)
+                                .withPriority(10))
+                        .subscribe();
+                  });
       strms[index] =
           applyLoggingAndBroadcasting(execId, node.nodeId(), stream, bufferSize, disps, conns);
     };
@@ -557,13 +637,24 @@ public class WorkflowOrchestrator {
                           .put(CTX_WORKFLOW_ID, wfId)
                           .put(CTX_EXECUTION_ID, execId))
               .doOnError(
-                  e ->
-                      tracker.emitTaskStatusEvent(
-                          execId,
-                          node.nodeId(),
-                          DEFAULT_TASK_ID,
-                          STATUS_FAILURE,
-                          Collections.emptyMap()))
+                  e -> {
+                    tracker.emitTaskStatusEvent(
+                        execId,
+                        node.nodeId(),
+                        DEFAULT_TASK_ID,
+                        STATUS_FAILURE,
+                        Collections.emptyMap());
+                    controlBusGateway
+                        .emit(
+                            DefaultMessage.create(
+                                    null,
+                                    new ControlError(
+                                        node.nodeId(), execId, "Node Failure", e.getMessage()))
+                                .withSourceNodeId(node.nodeId())
+                                .withControl(true)
+                                .withPriority(10))
+                        .subscribe();
+                  })
               .then();
       terms.add(completion);
     };

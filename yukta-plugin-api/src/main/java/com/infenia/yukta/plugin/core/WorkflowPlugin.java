@@ -15,6 +15,7 @@
  */
 package com.infenia.yukta.plugin.core;
 
+import com.infenia.yukta.plugin.message.Message;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
@@ -142,5 +143,15 @@ public interface WorkflowPlugin {
    */
   default boolean isBlocking() {
     return false;
+  }
+
+  /**
+   * Process an incoming administrative command from the Control Bus.
+   *
+   * @param signal the administrative command message
+   * @return a Mono that emits the response to the command, or empty
+   */
+  default Mono<Message<?>> onControlSignal(Message<?> signal) {
+    return Mono.empty();
   }
 }
