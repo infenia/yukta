@@ -15,14 +15,21 @@
  */
 package com.infenia.yukta;
 
-import org.springframework.boot.SpringApplication;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.builder.SpringApplicationBuilder;
+import org.springframework.scheduling.annotation.EnableAsync;
+import reactor.core.publisher.Hooks;
 
 /**
  * Main application class for Yukta. Yukta is a Spring Boot application that manages external
  * projects and runs quality checks.
  */
 @SpringBootApplication
+@EnableAutoConfiguration
+@EnableAsync
+@Slf4j
 @SuppressWarnings("PMD.UseUtilityClass")
 public class YuktaApplication {
 
@@ -32,6 +39,8 @@ public class YuktaApplication {
    * @param args command line arguments
    */
   public static void main(final String[] args) {
-    SpringApplication.run(YuktaApplication.class, args);
+    log.info("Starting User Application");
+    Hooks.enableAutomaticContextPropagation();
+    new SpringApplicationBuilder().sources(YuktaApplication.class).run(args);
   }
 }

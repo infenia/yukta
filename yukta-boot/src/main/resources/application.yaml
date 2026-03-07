@@ -1,3 +1,20 @@
+gg:
+  jte:
+    developmentMode: true
+    usePrecompiledTemplates: false
+
+logging:
+  level:
+    root: INFO
+    org.springframework: INFO
+    org.springframework.web: INFO
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "*"
+
 spring:
   profiles:
     default: dev
@@ -16,13 +33,4 @@ spring:
     compose:
       enabled: false
 
-logging:
-  level:
-    root: INFO
-    org.springframework: WARN
-    org.springframework.web: DEBUG
 
-gg:
-  jte:
-    developmentMode: true
-    usePrecompiledTemplates: false
