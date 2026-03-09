@@ -6,6 +6,13 @@ jacoco {
     toolVersion = "0.8.14"
 }
 
+interface CoverageExtension {
+    val exceptions: MapProperty<String, Map<String, Double>>
+}
+
+val extension = extensions.create<CoverageExtension>("coverageConfig")
+extension.exceptions.convention(emptyMap())
+
 /*
  * Configure test tasks
  */
@@ -32,15 +39,6 @@ tasks.withType<JacocoReport>().configureEach {
 
     dependsOn(tasks.withType<Test>())
 
-    // Proper provider-based filtering (NO doFirst, NO afterEvaluate)
-    classDirectories.setFrom(
-        classDirectories.files.map { dir ->
-            fileTree(dir) {
-                exclude("gg/jte/generated/**")
-            }
-        }
-    )
-
     onlyIf {
         executionData.files.any { it.exists() }
     }
@@ -54,51 +52,54 @@ tasks.withType<JacocoReport>().configureEach {
 /*
  * Coverage verification
  */
-tasks.withType<JacocoCoverageVerification>().configureEach {
+tasks.named<JacocoCoverageVerification>("jacocoTestCoverageVerification") {
 
     dependsOn(tasks.withType<JacocoReport>())
-
-    classDirectories.setFrom(
-        classDirectories.files.map { dir ->
-            fileTree(dir) {
-                exclude("gg/jte/generated/**")
-            }
-        }
-    )
 
     onlyIf {
         executionData.files.any { it.exists() }
     }
 
     violationRules {
+        val MIN_FLOOR = 0.80.toBigDecimal()
+        val TARGET_DEFAULT = 1.00.toBigDecimal()
+        val counters = listOf("LINE", "BRANCH", "CLASS", "INSTRUCTION", "METHOD")
+
+        val fileCoverageRules = extension.exceptions.get()
+
+        // 1. Global Rule (100% for everything else)
         rule {
             element = "CLASS"
-            excludes = listOf(
-                "com.infenia.yukta.mapper.*Impl",
-                "com.infenia.yukta.model.*",
-                "com.infenia.yukta.service.aggregate.InMemoryAggregateStore*",
-                "com.infenia.yukta.service.resequence.InMemoryResequencerStore*",
-                "com.infenia.yukta.service.resequence.ResequencerStore*",
-                "com.infenia.yukta.mcp.AppMcpTools",
-                "com.infenia.yukta.service.TaskTrackerService*",
-                "com.infenia.yukta.service.WorkflowService",
-                "com.infenia.yukta.service.NoOpSecretProvider",
-                "com.infenia.yukta.service.SessionService",
-                "com.infenia.yukta.service.LogRetrievalService",
-                "com.infenia.yukta.service.WorkflowRegistry",
-                "com.infenia.yukta.service.WorkflowValidator",
-                "com.infenia.yukta.service.ControlBusService",
-                "com.infenia.yukta.service.DefaultControlBusGateway",
-                "com.infenia.yukta.service.WorkflowOrchestrator*",
-                "com.infenia.yukta.service.join.InMemoryJoinStore*",
-                "com.infenia.yukta.service.join.JoinStore*",
-                "com.infenia.yukta.config.AppConfigService",
-                "com.infenia.yukta.config.AppConfiguration",
-                "com.infenia.yukta.controller.SessionController",
-                "com.infenia.yukta.controller.ConfigController"
-            )
-            limit {
-                minimum = 1.00.toBigDecimal()
+            excludes = fileCoverageRules.keys.toList()
+            counters.forEach { metric ->
+                limit {
+                    counter = metric
+                    value = "COVEREDRATIO"
+                    minimum = TARGET_DEFAULT
+                }
+            }
+        }
+
+        // 2. Exception Rules
+        fileCoverageRules.forEach { (filePattern, thresholds) ->
+            rule {
+                element = "CLASS"
+                includes = listOf(filePattern)
+
+                counters.forEach { metric ->
+                    val override = thresholds[metric]
+                    val effectiveRatio = override?.toBigDecimal() ?: TARGET_DEFAULT
+
+                    if (effectiveRatio < MIN_FLOOR) {
+                        logger.warn("🚨 [Coverage] $filePattern: $metric ($effectiveRatio) is below 80% floor!")
+                    }
+
+                    limit {
+                        counter = metric
+                        value = "COVEREDRATIO"
+                        minimum = effectiveRatio
+                    }
+                }
             }
         }
     }

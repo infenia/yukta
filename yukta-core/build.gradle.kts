@@ -57,3 +57,80 @@ dependencies {
     testImplementation(libs.spring.boot.starter.jackson.test)
     testImplementation(libs.reactor.test)
 }
+
+coverageConfig {
+    val baselineCoverage = mapOf(
+        "LINE" to 0.8,
+        "BRANCH" to 0.5,
+        "CLASS" to 0.8,
+        "INSTRUCTION" to 0.8,
+        "METHOD" to 0.8
+    )
+
+    val lowCoverage = mapOf(
+        "LINE" to 0.0,
+        "BRANCH" to 0.0,
+        "CLASS" to 0.0,
+        "INSTRUCTION" to 0.0,
+        "METHOD" to 0.0
+    )
+
+    exceptions.put("com.infenia.yukta.mapper.*Impl", baselineCoverage)
+    exceptions.put("com.infenia.yukta.model.*", baselineCoverage)
+    exceptions.put("com.infenia.yukta.service.aggregate.InMemoryAggregateStore*", baselineCoverage)
+    exceptions.put("com.infenia.yukta.service.resequence.InMemoryResequencerStore*", mapOf(
+        "LINE" to 0.7,
+        "BRANCH" to 0.5,
+        "CLASS" to 0.8,
+        "INSTRUCTION" to 0.7,
+        "METHOD" to 0.8
+    ))
+    exceptions.put("com.infenia.yukta.service.resequence.ResequencerStore*", baselineCoverage)
+    exceptions.put("com.infenia.yukta.mcp.AppMcpTools", mapOf(
+        "LINE" to 0.8,
+        "BRANCH" to 0.5,
+        "CLASS" to 0.8,
+        "INSTRUCTION" to 0.7,
+        "METHOD" to 0.6
+    ))
+    exceptions.put("com.infenia.yukta.service.TaskTrackerService*", mapOf(
+        "LINE" to 0.8,
+        "BRANCH" to 0.3,
+        "CLASS" to 0.8,
+        "INSTRUCTION" to 0.8,
+        "METHOD" to 0.7
+    ))
+    exceptions.put("com.infenia.yukta.service.WorkflowService", baselineCoverage)
+    exceptions.put("com.infenia.yukta.service.NoOpSecretProvider", mapOf(
+        "LINE" to 0.5,
+        "BRANCH" to 0.0,
+        "CLASS" to 0.8,
+        "INSTRUCTION" to 0.4,
+        "METHOD" to 0.6
+    ))
+    exceptions.put("com.infenia.yukta.service.SessionService", baselineCoverage)
+    exceptions.put("com.infenia.yukta.service.LogRetrievalService", baselineCoverage)
+    exceptions.put("com.infenia.yukta.service.WorkflowRegistry", baselineCoverage)
+    exceptions.put("com.infenia.yukta.service.WorkflowValidator", baselineCoverage)
+    exceptions.put("com.infenia.yukta.service.ControlBusService", baselineCoverage)
+    exceptions.put("com.infenia.yukta.service.DefaultControlBusGateway", lowCoverage)
+    exceptions.put("com.infenia.yukta.service.WorkflowOrchestrator*", baselineCoverage)
+    exceptions.put("com.infenia.yukta.service.join.InMemoryJoinStore*", mapOf(
+        "LINE" to 0.7,
+        "BRANCH" to 0.5,
+        "CLASS" to 0.8,
+        "INSTRUCTION" to 0.7,
+        "METHOD" to 0.8
+    ))
+    exceptions.put("com.infenia.yukta.service.join.JoinStore*", baselineCoverage)
+    exceptions.put("com.infenia.yukta.config.AppConfigService", baselineCoverage)
+    exceptions.put("com.infenia.yukta.config.AppConfiguration", baselineCoverage)
+    exceptions.put("com.infenia.yukta.controller.SessionController", baselineCoverage)
+    exceptions.put("com.infenia.yukta.controller.ConfigController", baselineCoverage)
+    exceptions.put("gg.jte.generated.**", baselineCoverage)
+
+    // Current coverage gaps to be addressed later
+    exceptions.put("com.infenia.yukta.exception.GlobalExceptionHandler", mapOf("BRANCH" to 0.6))
+    exceptions.put("com.infenia.yukta.util.VariableResolver", mapOf("BRANCH" to 0.8))
+    exceptions.put("com.infenia.yukta.util.MapUtils", mapOf("BRANCH" to 0.9))
+}
