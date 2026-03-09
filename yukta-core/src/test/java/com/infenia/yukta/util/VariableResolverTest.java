@@ -107,6 +107,46 @@ class VariableResolverTest {
     StepVerifier.create(resolver.resolve("${sys.t.bool:boolean}"))
         .expectNext(true)
         .verifyComplete();
+    StepVerifier.create(resolver.resolve("${sys.t.int:string}")).expectNext("123").verifyComplete();
+  }
+
+  @Test
+  void testResolveTypesCaseInsensitive() {
+    System.setProperty("t.int.upper", "789");
+    StepVerifier.create(resolver.resolve("${sys.t.int.upper:INT}"))
+        .expectNext(789)
+        .verifyComplete();
+    StepVerifier.create(resolver.resolve("${sys.t.int.upper:INTEGER}"))
+        .expectNext(789)
+        .verifyComplete();
+
+    System.setProperty("t.long.upper", "1011");
+    StepVerifier.create(resolver.resolve("${sys.t.long.upper:LONG}"))
+        .expectNext(1011L)
+        .verifyComplete();
+
+    System.setProperty("t.double.upper", "12.13");
+    StepVerifier.create(resolver.resolve("${sys.t.double.upper:DOUBLE}"))
+        .expectNext(12.13)
+        .verifyComplete();
+
+    System.setProperty("t.float.upper", "14.15");
+    StepVerifier.create(resolver.resolve("${sys.t.float.upper:FLOAT}"))
+        .expectNext(14.15)
+        .verifyComplete();
+
+    System.setProperty("t.bool.upper", "true");
+    StepVerifier.create(resolver.resolve("${sys.t.bool.upper:BOOL}"))
+        .expectNext(true)
+        .verifyComplete();
+    StepVerifier.create(resolver.resolve("${sys.t.bool.upper:BOOLEAN}"))
+        .expectNext(true)
+        .verifyComplete();
+
+    System.setProperty("t.string.upper", "abc");
+    StepVerifier.create(resolver.resolve("${sys.t.string.upper:STRING}"))
+        .expectNext("abc")
+        .verifyComplete();
   }
 
   @Test
