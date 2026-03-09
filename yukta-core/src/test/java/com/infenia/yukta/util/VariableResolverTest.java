@@ -74,6 +74,17 @@ class VariableResolverTest {
     StepVerifier.create(resolver.resolve("${sys.yukta.test:string}"))
         .expectNext("prop-val")
         .verifyComplete();
+
+    // Edge cases for colons
+    StepVerifier.create(resolver.resolve("${:nonexistent}"))
+        .expectNext(":nonexistent")
+        .verifyComplete();
+    StepVerifier.create(resolver.resolve("${nonexistent:}"))
+        .expectNext("nonexistent:")
+        .verifyComplete();
+    StepVerifier.create(resolver.resolve("${sys.yukta.test:unknownType}"))
+        .expectComplete()
+        .verify();
   }
 
   @Test
@@ -89,6 +100,13 @@ class VariableResolverTest {
     StepVerifier.create(resolver.resolve("${sys.t.double:double}"))
         .expectNext(1.23)
         .verifyComplete();
+
+    System.setProperty("t.float", "4.56");
+    StepVerifier.create(resolver.resolve("${sys.t.float:float}")).expectNext(4.56).verifyComplete();
+    StepVerifier.create(resolver.resolve("${sys.t.int:integer}")).expectNext(123).verifyComplete();
+    StepVerifier.create(resolver.resolve("${sys.t.bool:boolean}"))
+        .expectNext(true)
+        .verifyComplete();
   }
 
   @Test
@@ -96,6 +114,14 @@ class VariableResolverTest {
     System.setProperty("p1", "v1");
     StepVerifier.create(resolver.resolve("prefix-${sys.p1}-suffix"))
         .expectNext("prefix-v1-suffix")
+        .verifyComplete();
+
+    StepVerifier.create(resolver.resolve("${sys.p1}-suffix"))
+        .expectNext("v1-suffix")
+        .verifyComplete();
+
+    StepVerifier.create(resolver.resolve("prefix-${sys.p1}"))
+        .expectNext("prefix-v1")
         .verifyComplete();
   }
 
@@ -136,5 +162,15 @@ class VariableResolverTest {
   @Test
   void testResolveMissingSysProp() {
     StepVerifier.create(resolver.resolve("${sys.nonexistent.prop}")).expectComplete().verify();
+  }
+
+  @Test
+  void testResolveMissingEnv() {
+    StepVerifier.create(resolver.resolve("${env.NONEXISTENT_VAR}")).expectComplete().verify();
+  }
+
+  @Test
+  void testResolveMissingContext() {
+    StepVerifier.create(resolver.resolve("${context.nonexistent}")).expectComplete().verify();
   }
 }

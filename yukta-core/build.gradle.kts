@@ -131,6 +131,11 @@ coverageConfig {
 
     // Current coverage gaps to be addressed later
     exceptions.put("com.infenia.yukta.exception.GlobalExceptionHandler", mapOf("BRANCH" to 0.6))
-    exceptions.put("com.infenia.yukta.util.VariableResolver", mapOf("BRANCH" to 0.8))
-    exceptions.put("com.infenia.yukta.util.MapUtils", mapOf("BRANCH" to 0.9))
+    exceptions.put("com.infenia.yukta.util.*", mapOf(
+        "LINE" to 1.0,
+        "BRANCH" to 1.0,
+        "CLASS" to 1.0,
+        "INSTRUCTION" to 1.0,
+        "METHOD" to 1.0
+    ))
 }

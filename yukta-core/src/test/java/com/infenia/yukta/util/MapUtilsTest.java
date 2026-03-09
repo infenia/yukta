@@ -45,6 +45,14 @@ class MapUtilsTest {
   }
 
   @Test
+  void testRemoveNestedValueNotMap() {
+    Map<String, Object> map = new HashMap<>();
+    map.put("a", "not-a-map");
+    MapUtils.removeNestedValue(map, "a.b");
+    assertEquals("not-a-map", map.get("a"));
+  }
+
+  @Test
   void testGetNestedValue() {
     Map<String, Object> map = Map.of("a", Map.of("b", Map.of("c", "value")));
 
@@ -75,6 +83,7 @@ class MapUtilsTest {
 
     MapUtils.removeNestedValue(map, null);
     MapUtils.removeNestedValue(map, "");
+    MapUtils.removeNestedValue(null, "a.b.c");
     assertNotNull(map.get("a"));
   }
 
@@ -91,6 +100,12 @@ class MapUtilsTest {
     assertEquals(123, result.get("id"));
 
     assertTrue(MapUtils.flatten(null).isEmpty());
+
+    // Test with empty string key to trigger prefix.isEmpty() in else branch
+    Map<String, Object> emptyKeyMap = new HashMap<>();
+    emptyKeyMap.put("", "value");
+    Map<String, Object> flatEmpty = MapUtils.flatten(emptyKeyMap);
+    assertTrue(flatEmpty.isEmpty());
   }
 
   @Test

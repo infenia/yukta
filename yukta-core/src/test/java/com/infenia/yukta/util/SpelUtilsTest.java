@@ -71,4 +71,21 @@ class SpelUtilsTest {
     constructor.setAccessible(true);
     constructor.newInstance();
   }
+
+  @Test
+  void testEvaluateReturnsNull() {
+    assertNull(SpelUtils.evaluateSync("null", null));
+    StepVerifier.create(SpelUtils.evaluate("null", null, null)).expectNextCount(0).verifyComplete();
+  }
+
+  @Test
+  void testConcurrentEvaluateSync() {
+    // Basic test to ensure ThreadLocal context works across multiple calls
+    Map<String, Object> root1 = Map.of("v", 1);
+    Map<String, Object> root2 = Map.of("v", 2);
+
+    assertEquals(1, (Integer) SpelUtils.evaluateSync("v", root1));
+    assertEquals(2, (Integer) SpelUtils.evaluateSync("v", root2));
+    assertEquals(1, (Integer) SpelUtils.evaluateSync("v", root1));
+  }
 }
