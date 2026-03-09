@@ -18,9 +18,11 @@ package com.infenia.yukta.controller;
 import static org.mockito.Mockito.when;
 
 import com.infenia.yukta.plugin.core.PluginCategory;
+import com.infenia.yukta.plugin.core.UiDesign;
 import com.infenia.yukta.plugin.core.WorkflowPlugin;
 import com.infenia.yukta.service.WorkflowRegistry;
 import java.util.List;
+import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -51,5 +53,38 @@ class PluginControllerTest {
         .expectBody()
         .jsonPath("$.data[0].type")
         .isEqualTo("test-plugin");
+  }
+
+  @Test
+  void testGetPluginDetails() {
+    WorkflowPlugin plugin = Mockito.mock(WorkflowPlugin.class);
+    when(plugin.getType()).thenReturn("test-plugin");
+    when(plugin.getCategory()).thenReturn(PluginCategory.PROCESSOR);
+    when(plugin.getDescription()).thenReturn("desc");
+    when(plugin.getUsagePattern()).thenReturn("pattern");
+    when(plugin.getUiDesign()).thenReturn(Optional.of(new UiDesign("design", 100, 100)));
+    when(plugin.getOutputPorts()).thenReturn(List.of("default"));
+    when(registry.get("test-plugin")).thenReturn(plugin);
+
+    webTestClient
+        .get()
+        .uri("/api/plugins/test-plugin")
+        .exchange()
+        .expectStatus()
+        .isOk()
+        .expectBody()
+        .jsonPath("$.data.type")
+        .isEqualTo("test-plugin")
+        .jsonPath("$.data.description")
+        .isEqualTo("desc")
+        .jsonPath("$.data.uiDesign.html")
+        .isEqualTo("design");
+  }
+
+  @Test
+  void testGetPluginDetailsNotFound() {
+    when(registry.get("unknown")).thenReturn(null);
+
+    webTestClient.get().uri("/api/plugins/unknown").exchange().expectStatus().isNotFound();
   }
 }

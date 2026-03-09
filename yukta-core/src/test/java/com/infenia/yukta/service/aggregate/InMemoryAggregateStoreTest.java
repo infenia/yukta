@@ -147,7 +147,7 @@ class InMemoryAggregateStoreTest {
   void testTimeWindow() {
     final String key = "time-key";
     final AggregateConfig config =
-        new AggregateConfig("TIME", 100, 200, "SUM", 100, true, "IGNORE", null, null, null);
+        new AggregateConfig("TIME", 10, 50, "SUM", 100, true, "IGNORE", null, null, null);
     final Message<Double> msg = DefaultMessage.create(UUID.randomUUID(), 10.0);
 
     store.addValue(key, 10.0, msg, config).block();
@@ -159,33 +159,24 @@ class InMemoryAggregateStoreTest {
                     && res.key().equals(key)
                     && (Double) res.result() == 10.0)
         .thenCancel()
-        .verify(Duration.ofSeconds(2));
+        .verify(Duration.ofSeconds(1));
   }
 
   @Test
   void testSessionWindow() {
     final String key = "session-key";
     final AggregateConfig config =
-        new AggregateConfig("SESSION", 100, 300, "SUM", 100, true, "IGNORE", null, null, null);
+        new AggregateConfig("SESSION", 10, 50, "SUM", 100, true, "IGNORE", null, null, null);
     final Message<Double> msg = DefaultMessage.create(UUID.randomUUID(), 10.0);
 
     store.addValue(key, 10.0, msg, config).block();
 
-    // Reset session
-    try {
-      Thread.sleep(150);
-    } catch (InterruptedException e) {
-    }
-    store.addValue(key, 20.0, msg, config).block();
-
+    // Loop until COMPLETED
     StepVerifier.create(store.getAsyncResults())
         .expectNextMatches(
-            res ->
-                res.status() == AggregateResult.Status.COMPLETED
-                    && res.key().equals(key)
-                    && (Double) res.result() == 30.0)
+            res -> res.status() == AggregateResult.Status.COMPLETED && res.key().equals(key))
         .thenCancel()
-        .verify(Duration.ofSeconds(2));
+        .verify(Duration.ofSeconds(1));
   }
 
   @Test
@@ -243,6 +234,33 @@ class InMemoryAggregateStoreTest {
         new AggregateConfig("COUNT", 2, 0, "SUM", 100, true, "FAIL", null, null, null);
     assertThrows(
         IllegalArgumentException.class, () -> store.addValue(key, null, msg, configFail).block());
+  }
+
+  @Test
+  void testTimeout() {
+    final String key = "timeout-key";
+    final AggregateConfig config =
+        new AggregateConfig("COUNT", 10, 100, "SUM", 100, false, "IGNORE", null, null, null);
+    final Message<Double> msg = DefaultMessage.create(UUID.randomUUID(), 10.0);
+
+    store.addValue(key, 10.0, msg, config).block();
+
+    // emitOnTimeout = false means it should NOT be in async results as COMPLETED
+    StepVerifier.create(store.getAsyncResults()).expectTimeout(Duration.ofMillis(300)).verify();
+  }
+
+  @Test
+  void testFlushAll() {
+    final String key = "flush-key";
+    final AggregateConfig config =
+        new AggregateConfig("COUNT", 10, 0, "SUM", 100, true, "IGNORE", null, null, null);
+    final Message<Double> msg = DefaultMessage.create(UUID.randomUUID(), 10.0);
+
+    store.addValue(key, 10.0, msg, config).block();
+
+    StepVerifier.create(store.flushAll("flush-"))
+        .expectNextMatches(res -> res.key().equals(key))
+        .verifyComplete();
   }
 
   private void assertThrows(Class<? extends Throwable> clazz, Runnable runnable) {

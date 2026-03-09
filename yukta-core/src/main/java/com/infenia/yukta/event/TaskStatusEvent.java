@@ -16,8 +16,6 @@
 package com.infenia.yukta.event;
 
 import java.time.LocalDateTime;
-import java.util.Collections;
-import java.util.HashMap;
 import java.util.Map;
 
 /** Event representing a change in task status. */
@@ -40,15 +38,7 @@ public record TaskStatusEvent(
    * @param timestamp the event timestamp
    */
   public TaskStatusEvent {
-    metadata =
-        (metadata != null)
-            ? Collections.unmodifiableMap(new HashMap<>(metadata))
-            : Collections.emptyMap();
-  }
-
-  @Override
-  public Map<String, Object> metadata() {
-    return (metadata != null) ? Collections.unmodifiableMap(new HashMap<>(metadata)) : null;
+    metadata = (metadata == null) ? Map.of() : Map.copyOf(metadata);
   }
 
   /**

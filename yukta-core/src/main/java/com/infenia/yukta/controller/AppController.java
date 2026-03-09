@@ -17,7 +17,6 @@ package com.infenia.yukta.controller;
 
 import com.infenia.yukta.model.ApiResponse;
 import com.infenia.yukta.model.TriggerResponse;
-import com.infenia.yukta.model.WorkflowExecution;
 import com.infenia.yukta.model.WorkflowExecutionSummary;
 import com.infenia.yukta.model.WorkflowProgress;
 import com.infenia.yukta.model.WorkflowTriggerRequest;
@@ -76,15 +75,18 @@ public class AppController {
       description = "Workflow trigger accepted")
   public Mono<ResponseEntity<ApiResponse<TriggerResponse>>> triggerWorkflow(
       @Valid @RequestBody final WorkflowTriggerRequest request) {
-    final WorkflowExecution execution =
-        workflowService.runWorkflow(request.sessionId(), request.workflowId(), request.payload());
-    return Mono.just(
-        ResponseEntity.accepted()
-            .body(
-                ApiResponse.success(
-                    202,
-                    "Workflow trigger accepted",
-                    new TriggerResponse(execution.executionId()))));
+    return Mono.fromCallable(
+            () ->
+                workflowService.runWorkflow(
+                    request.sessionId(), request.workflowId(), request.payload()))
+        .map(
+            execution ->
+                ResponseEntity.accepted()
+                    .body(
+                        ApiResponse.success(
+                            202,
+                            "Workflow trigger accepted",
+                            new TriggerResponse(execution.executionId()))));
   }
 
   /**
@@ -108,18 +110,14 @@ public class AppController {
       @Parameter(description = SESSION_ID_PARAM) @PathVariable final String sessionId,
       @Parameter(description = "Execution ID") @PathVariable final String executionId) {
     return Mono.fromCallable(() -> trackerService.getProgress(sessionId, executionId))
+        .flatMap(progress -> Mono.justOrEmpty(progress))
         .map(
-            progress -> {
-              if (progress != null) {
-                return ResponseEntity.ok(
-                    ApiResponse.success(200, "Workflow status retrieved successfully", progress));
-              } else {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                    .body(
-                        ApiResponse.error(
-                            404, "Not Found", "Execution not found", null, List.of()));
-              }
-            });
+            progress ->
+                ResponseEntity.ok(
+                    ApiResponse.success(200, "Workflow status retrieved successfully", progress)))
+        .defaultIfEmpty(
+            ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(ApiResponse.error(404, "Not Found", "Execution not found", null, List.of())));
   }
 
   /**

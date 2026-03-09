@@ -17,8 +17,11 @@ package com.infenia.yukta.controller;
 
 import static org.mockito.Mockito.when;
 
+import com.infenia.yukta.model.WorkflowDefinition;
+import com.infenia.yukta.model.WorkflowExecutionSummary;
 import com.infenia.yukta.service.SessionService;
 import com.infenia.yukta.service.TaskTrackerService;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
@@ -39,9 +42,12 @@ class SessionControllerTest {
 
   @Test
   void testListSessions() {
+    LocalDateTime now = LocalDateTime.now();
+    WorkflowExecutionSummary summary = new WorkflowExecutionSummary("e", "w", "s", now, null);
+
     when(sessionService.getActiveSessions()).thenReturn(Flux.just("session-1"));
     when(sessionService.getSessionConfig("session-1")).thenReturn(Mono.just(Map.of()));
-    when(trackerService.getHistory("session-1")).thenReturn(List.of());
+    when(trackerService.getHistory("session-1")).thenReturn(List.of(summary));
 
     webTestClient
         .get()
@@ -51,6 +57,55 @@ class SessionControllerTest {
         .isOk()
         .expectBody()
         .jsonPath("$.data[0].sessionId")
-        .isEqualTo("session-1");
+        .isEqualTo("session-1")
+        .jsonPath("$.data[0].lastActiveTime")
+        .exists();
+  }
+
+  @Test
+  void testGetSessionDetails() {
+    Map<String, Object> config = Map.of("workflows", Map.of("wf1", Map.of()));
+    when(sessionService.getSessionConfig("s1")).thenReturn(Mono.just(config));
+
+    webTestClient
+        .get()
+        .uri("/api/sessions/s1")
+        .exchange()
+        .expectStatus()
+        .isOk()
+        .expectBody()
+        .jsonPath("$.data.workflowIds[0]")
+        .isEqualTo("wf1");
+
+    when(sessionService.getSessionConfig("unknown")).thenReturn(Mono.empty());
+    webTestClient.get().uri("/api/sessions/unknown").exchange().expectStatus().isNotFound();
+  }
+
+  @Test
+  void testGetWorkflow() {
+    WorkflowDefinition def = new WorkflowDefinition("desc", List.of(), List.of());
+    when(sessionService.getSessionWorkflow("s1", "wf1")).thenReturn(Mono.just(def));
+
+    webTestClient
+        .get()
+        .uri("/api/sessions/s1/workflows/wf1")
+        .exchange()
+        .expectStatus()
+        .isOk()
+        .expectBody()
+        .jsonPath("$.data.description")
+        .isEqualTo("desc");
+
+    when(sessionService.getSessionWorkflow("s1", "unknown")).thenReturn(Mono.empty());
+    webTestClient
+        .get()
+        .uri("/api/sessions/s1/workflows/unknown")
+        .exchange()
+        .expectStatus()
+        .isNotFound();
+  }
+
+  private WebTestClient webClient() {
+    return webTestClient;
   }
 }

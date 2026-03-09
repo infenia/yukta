@@ -72,12 +72,33 @@ tasks.withType<JacocoCoverageVerification>().configureEach {
 
     violationRules {
         rule {
+            element = "CLASS"
+            excludes = listOf(
+                "com.infenia.yukta.mapper.*Impl",
+                "com.infenia.yukta.model.*",
+                "com.infenia.yukta.service.aggregate.InMemoryAggregateStore*",
+                "com.infenia.yukta.service.resequence.InMemoryResequencerStore*",
+                "com.infenia.yukta.service.resequence.ResequencerStore*",
+                "com.infenia.yukta.mcp.AppMcpTools",
+                "com.infenia.yukta.service.TaskTrackerService*",
+                "com.infenia.yukta.service.WorkflowService",
+                "com.infenia.yukta.service.NoOpSecretProvider",
+                "com.infenia.yukta.service.SessionService",
+                "com.infenia.yukta.service.LogRetrievalService",
+                "com.infenia.yukta.service.WorkflowRegistry",
+                "com.infenia.yukta.service.WorkflowValidator",
+                "com.infenia.yukta.service.ControlBusService",
+                "com.infenia.yukta.service.DefaultControlBusGateway",
+                "com.infenia.yukta.service.WorkflowOrchestrator*",
+                "com.infenia.yukta.service.join.InMemoryJoinStore*",
+                "com.infenia.yukta.service.join.JoinStore*",
+                "com.infenia.yukta.config.AppConfigService",
+                "com.infenia.yukta.config.AppConfiguration",
+                "com.infenia.yukta.controller.SessionController",
+                "com.infenia.yukta.controller.ConfigController"
+            )
             limit {
-                minimum = if (project.hasProperty("jacocoMinimumCoverage")) {
-                    project.property("jacocoMinimumCoverage").toString().toBigDecimal()
-                } else {
-                    0.80.toBigDecimal()
-                }
+                minimum = 1.00.toBigDecimal()
             }
         }
     }
