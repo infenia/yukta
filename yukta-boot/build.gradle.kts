@@ -26,6 +26,9 @@ dependencies {
     implementation(project(":yukta-core"))
     implementation(project(":yukta-ui"))
     implementation(project(":plugins:processors:internal:core"))
+    implementation(project(":plugins:triggers:api-trigger"))
+    implementation(project(":plugins:triggers:constant-source"))
+    implementation(project(":plugins:terminals:console-terminal"))
 
     implementation(libs.spring.boot.starter.webflux)
     implementation(libs.spring.boot.starter.validation)

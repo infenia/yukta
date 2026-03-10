@@ -54,6 +54,8 @@ public class InMemoryAggregateStore implements AggregateStore {
   private static final String AGG_MIN = "MIN";
   private static final String AGG_MAX = "MAX";
   private static final String AGG_LIST = "COLLECT_LIST";
+  private static final String AGG_FIRST = "FIRST";
+  private static final String AGG_LAST = "LAST";
   private static final String AGG_CUSTOM = "CUSTOM";
 
   private static final String POLICY_ZERO = "ZERO";
@@ -257,6 +259,7 @@ public class InMemoryAggregateStore implements AggregateStore {
     }
   }
 
+  @SuppressWarnings({"PMD.TooManyMethods", "PMD.CyclomaticComplexity"})
   private static class AggregateState {
     private Object accumulator;
     private int count;
@@ -277,6 +280,7 @@ public class InMemoryAggregateStore implements AggregateStore {
       return switch (cfg.aggregationType()) {
         case AGG_SUM, AGG_AVERAGE, AGG_MIN, AGG_MAX -> 0.0;
         case AGG_LIST -> new ArrayList<>();
+        case AGG_FIRST, AGG_LAST -> null;
         case AGG_CUSTOM -> cfg.initVal();
         default -> null;
       };
@@ -308,28 +312,46 @@ public class InMemoryAggregateStore implements AggregateStore {
     }
 
     private Object performAggregation(final Object acc, final Object val) {
-      final Number numVal = convertToNumber(val);
+      final Number numVal = isNumericAggregation() ? convertToNumber(val) : null;
 
       return switch (config.aggregationType()) {
         case AGG_SUM, AGG_AVERAGE -> ((Number) acc).doubleValue() + numVal.doubleValue();
-        case AGG_LIST -> {
-          @SuppressWarnings("unchecked")
-          final List<Object> list = (List<Object>) acc;
-          list.add(val);
-          yield list;
-        }
-        case AGG_MIN ->
-            count == 1
-                ? numVal.doubleValue()
-                : Math.min(((Number) acc).doubleValue(), numVal.doubleValue());
-        case AGG_MAX ->
-            count == 1
-                ? numVal.doubleValue()
-                : Math.max(((Number) acc).doubleValue(), numVal.doubleValue());
+        case AGG_LIST -> updateList(acc, val);
+        case AGG_MIN -> aggregateMin(acc, numVal);
+        case AGG_MAX -> aggregateMax(acc, numVal);
+        case AGG_FIRST -> count == 1 ? val : acc;
+        case AGG_LAST -> val;
         case AGG_CUSTOM ->
             SpelUtils.evaluateSync(config.accExp(), lastMessage, Map.of("acc", acc, "val", val));
         default -> acc;
       };
+    }
+
+    private boolean isNumericAggregation() {
+      final String type = config.aggregationType();
+      return AGG_SUM.equals(type)
+          || AGG_AVERAGE.equals(type)
+          || AGG_MIN.equals(type)
+          || AGG_MAX.equals(type);
+    }
+
+    private Object updateList(final Object acc, final Object val) {
+      @SuppressWarnings("unchecked")
+      final List<Object> list = (List<Object>) acc;
+      list.add(val);
+      return list;
+    }
+
+    private Double aggregateMin(final Object acc, final Number val) {
+      return count == 1
+          ? val.doubleValue()
+          : Math.min(((Number) acc).doubleValue(), val.doubleValue());
+    }
+
+    private Double aggregateMax(final Object acc, final Number val) {
+      return count == 1
+          ? val.doubleValue()
+          : Math.max(((Number) acc).doubleValue(), val.doubleValue());
     }
 
     private Number convertToNumber(final Object val) {

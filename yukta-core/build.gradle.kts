@@ -32,7 +32,6 @@ dependencies {
 
     // Default plugins
     implementation(project(":plugins:build-tools:gradle"))
-    implementation(project(":plugins:file-update"))
 
     implementation(libs.spring.boot.starter.webflux)
     implementation(libs.spring.boot.starter.webclient)

@@ -15,7 +15,6 @@
  */
 package com.infenia.yukta.service;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.infenia.yukta.config.AppConfigService;
 import com.infenia.yukta.model.AppConfigData;
 import com.infenia.yukta.model.WorkflowDefinition;
@@ -38,6 +37,7 @@ import org.springframework.validation.annotation.Validated;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
+import tools.jackson.databind.ObjectMapper;
 
 /** Service for managing session lifecycle and configuration. */
 @Slf4j

@@ -33,6 +33,21 @@ dependencies {
     implementation(project(":plugins:build-tools:common"))
     implementation(libs.spring.boot.starter.webflux)
 
+    compileOnly(libs.lombok)
+    annotationProcessor(libs.lombok)
+
     testImplementation(libs.spring.boot.starter.test)
     testImplementation(libs.reactor.test)
+}
+
+coverageConfig {
+    val baselineCoverage = mapOf(
+        "LINE" to 0.8,
+        "BRANCH" to 0.5,
+        "CLASS" to 0.8,
+        "INSTRUCTION" to 0.8,
+        "METHOD" to 0.8
+    )
+
+    exceptions.put("com.infenia.yukta.plugin.gradle.**", baselineCoverage)
 }

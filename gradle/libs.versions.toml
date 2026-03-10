@@ -11,8 +11,6 @@ lombokMapstructBinding = "0.2.0"
 checkstyle = "13.2.0"
 pmd = "7.21.0"
 spotbugs = "6.4.8"
-jackson = "2.18.2"
-jacksonDataformatYaml = "2.18.2"
 jte = "3.2.3"
 htmx = "5.0.0"
 cyclonedx = "3.2.0"
@@ -30,8 +28,8 @@ spring-boot-starter-webclient = { group = "org.springframework.boot", name = "sp
 spring-boot-starter-validation = { group = "org.springframework.boot", name = "spring-boot-starter-validation" }
 spring-boot-starter-actuator = { group = "org.springframework.boot", name = "spring-boot-starter-actuator" }
 spring-boot-configuration-processor = { group = "org.springframework.boot", name = "spring-boot-configuration-processor" }
-jackson-databind = { group = "com.fasterxml.jackson.core", name = "jackson-databind", version.ref = "jackson" }
-jackson-dataformat-yaml = { group = "com.fasterxml.jackson.dataformat", name = "jackson-dataformat-yaml", version.ref = "jacksonDataformatYaml" }
+jackson-databind = { group = "tools.jackson.core", name = "jackson-databind" }
+jackson-dataformat-yaml = { group = "tools.jackson.dataformat", name = "jackson-dataformat-yaml" }
 mapstruct = { group = "org.mapstruct", name = "mapstruct", version.ref = "mapstruct" }
 mapstruct-processor = { group = "org.mapstruct", name = "mapstruct-processor", version.ref = "mapstruct" }
 lombok-mapstruct-binding = { group = "org.projectlombok", name = "lombok-mapstruct-binding", version.ref = "lombokMapstructBinding" }

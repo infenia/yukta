@@ -97,20 +97,29 @@ public class WorkflowTestHarness {
     final long interval = 500L;
 
     while (System.currentTimeMillis() - start < timeout) {
-      final ApiResponse<WorkflowProgress> response =
+      final WebTestClient.ResponseSpec responseSpec =
           webClient
               .get()
               .uri("/api/workflow/{sessionId}/status/{executionId}", sessionId, executionId)
-              .exchange()
-              .expectStatus()
-              .isOk()
-              .expectHeader()
-              .exists("X-Response-Time")
+              .exchange();
+
+      final ApiResponse<WorkflowProgress> response =
+          responseSpec
               .returnResult(new ParameterizedTypeReference<ApiResponse<WorkflowProgress>>() {})
               .getResponseBody()
               .blockFirst();
 
-      if (response != null && response.data() != null) {
+      if (response != null) {
+        if ("Not Found".equals(response.error())) {
+          try {
+            Thread.sleep(interval);
+          } catch (final InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Polling interrupted", e);
+          }
+          continue;
+        }
+        responseSpec.expectStatus().isOk().expectHeader().exists("X-Response-Time");
         final WorkflowProgress progress = response.data();
         System.out.println(
             "Polling status for " + sessionId + ":" + executionId + ": " + progress.status());

@@ -42,6 +42,7 @@ class UiControllerTest {
 
   @MockitoBean private TaskTrackerService taskTrackerService;
   @MockitoBean private WorkflowRegistry workflowRegistry;
+  @MockitoBean private com.infenia.yukta.service.ControlBusService controlBusService;
 
   @MockitoBean private gg.jte.TemplateEngine templateEngine;
 

@@ -15,12 +15,12 @@
  */
 package com.infenia.yukta.util;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.HashMap;
 import java.util.Map;
 import lombok.experimental.UtilityClass;
 import org.springframework.core.convert.support.DefaultConversionService;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.ObjectMapper;
 
 /** Utility methods for working with Maps and nested structures. */
 @UtilityClass

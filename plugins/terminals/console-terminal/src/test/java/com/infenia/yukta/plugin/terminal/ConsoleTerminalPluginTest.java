@@ -49,8 +49,8 @@ class ConsoleTerminalPluginTest {
             + " required.",
         plugin.getUsagePattern());
     org.junit.jupiter.api.Assertions.assertTrue(plugin.getUiDesign().isPresent());
-    assertEquals(120, plugin.getUiDesign().get().width());
-    assertEquals(60, plugin.getUiDesign().get().height());
+    assertEquals(140, plugin.getUiDesign().get().width());
+    assertEquals(80, plugin.getUiDesign().get().height());
     org.junit.jupiter.api.Assertions.assertTrue(
         plugin.getUiDesign().get().html().contains("terminal"));
   }

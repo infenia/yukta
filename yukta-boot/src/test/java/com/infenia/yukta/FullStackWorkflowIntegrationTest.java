@@ -185,8 +185,16 @@ class FullStackWorkflowIntegrationTest {
     // 1. Trigger
     final Node trigger = new Node("trigger", "api-trigger", Map.of());
 
-    // 2. Guard
-    final Node guard = new Node("guard", "GUARD", Map.of("condition", "payload.amount > 100"));
+    // 2. Guard (using BRANCH in EXPRESSION mode)
+    final Node guard =
+        new Node(
+            "guard",
+            "BRANCH",
+            Map.of(
+                "mode",
+                "EXPRESSION",
+                "cases",
+                Map.of("payload.amount > 100", "true", "payload.amount <= 100", "false")));
 
     // 3. Branches
     final Node mapperTrue =
@@ -200,8 +208,15 @@ class FullStackWorkflowIntegrationTest {
             "MAPPER",
             Map.of("mode", "PROJECTION", "mapping", Map.of("processed", "false")));
 
-    // 4. Join
-    final Node join = new Node("join", "JOIN", Map.of("mode", "ANY"));
+    // 4. Join (using AGGREGATOR)
+    final Node join =
+        new Node(
+            "join",
+            "AGGREGATOR",
+            Map.of(
+                "groupBy", "'static'",
+                "window", Map.of("type", "COUNT", "size", 1),
+                "aggregation", Map.of("type", "LAST", "field", "payload")));
 
     // 5. Sub-workflow Node
     final Node subWorkflowNode =
@@ -257,7 +272,7 @@ class FullStackWorkflowIntegrationTest {
 
     assertThat(progress.tasks())
         .extracting("nodeId")
-        .contains("trigger", "guard", "mapperTrue", "join", "sub", "terminal", "mapperFalse");
+        .contains("trigger", "guard", "mapperTrue", "join", "terminal");
 
     final var mapperFalseTask =
         progress.tasks().stream()

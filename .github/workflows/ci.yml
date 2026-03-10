@@ -33,11 +33,6 @@ jobs:
             - 'plugins/ai/qwen/**'
           yukta-core:
             - 'yukta-core/**'
-          plugins-file-update:
-            - 'plugins/file-update/**'
-          plugins-processors-internal-core:
-            - 'plugins/processors/internal/core/**'
-          root:
             - 'build.gradle'
             - 'settings.gradle'
             - 'gradle/**'
@@ -45,6 +40,8 @@ jobs:
             - 'gradlew.bat'
             - 'lombok.config'
             - '.github/workflows/**'
+          plugins-processors-internal-core:
+            - 'plugins/processors/internal/core/**'
 
   build:
     needs: changes
@@ -91,9 +88,6 @@ jobs:
                 ;;
               "yukta-core")
                 TASKS="$TASKS :yukta-core:build :yukta-core:spotlessCheck :yukta-core:check"
-                ;;
-              "plugins-file-update")
-                TASKS="$TASKS :plugins:file-update:build :plugins:file-update:spotlessCheck :plugins:file-update:check"
                 ;;
               "plugins-processors-internal-core")
                 TASKS="$TASKS :plugins:processors:internal:core:build :plugins:processors:internal:core:spotlessCheck :plugins:processors:internal:core:check"

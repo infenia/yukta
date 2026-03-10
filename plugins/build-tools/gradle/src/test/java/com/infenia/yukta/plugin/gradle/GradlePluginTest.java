@@ -45,6 +45,16 @@ class GradlePluginTest {
   }
 
   @Test
+  void testGetDescription() {
+    assertNotNull(plugin.getDescription());
+  }
+
+  @Test
+  void testGetUsagePattern() {
+    assertNotNull(plugin.getUsagePattern());
+  }
+
+  @Test
   void testGetType() {
     assertEquals("gradle", plugin.getType());
   }
@@ -78,6 +88,12 @@ class GradlePluginTest {
   @Test
   void testInitialize() {
     StepVerifier.create(plugin.initialize(Map.of())).verifyComplete();
+  }
+
+  @Test
+  void testAutoConfiguration() {
+    GradlePluginAutoConfiguration config = new GradlePluginAutoConfiguration();
+    assertNotNull(config.gradlePlugin());
   }
 
   @Test

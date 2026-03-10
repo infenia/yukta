@@ -15,7 +15,6 @@
  */
 package com.infenia.yukta.config;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.Duration;
 import java.util.concurrent.Executors;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -23,6 +22,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import reactor.core.scheduler.Scheduler;
 import reactor.core.scheduler.Schedulers;
+import tools.jackson.databind.ObjectMapper;
 
 /** Configuration for the application. */
 @Configuration
@@ -52,7 +52,9 @@ public class AppConfiguration {
   @Bean
   @SuppressWarnings("PMD.DoNotUseThreads")
   public Scheduler virtualThreadScheduler() {
-    return Schedulers.fromExecutor(Executors.newVirtualThreadPerTaskExecutor());
+    return Schedulers.fromExecutorService(
+        Executors.newScheduledThreadPool(
+            Runtime.getRuntime().availableProcessors(), Thread.ofVirtual().factory()));
   }
 
   /**

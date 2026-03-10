@@ -15,7 +15,6 @@
  */
 package com.infenia.yukta.plugin.core.transformer;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.jknack.handlebars.Handlebars;
 import com.github.jknack.handlebars.Template;
 import com.infenia.yukta.plugin.core.UiDesign;
@@ -42,6 +41,7 @@ import org.springframework.core.convert.support.DefaultConversionService;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import tools.jackson.databind.ObjectMapper;
 
 /** Mapper processor transforms message payloads using PROJECTION, TEMPLATE, or SCRIPT modes. */
 @Slf4j

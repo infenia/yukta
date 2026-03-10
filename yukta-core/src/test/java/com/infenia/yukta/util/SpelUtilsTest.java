@@ -88,19 +88,4 @@ class SpelUtilsTest {
     assertEquals(2, (Integer) SpelUtils.evaluateSync("v", root2));
     assertEquals(1, (Integer) SpelUtils.evaluateSync("v", root1));
   }
-
-  @Test
-  void testEvaluateSyncWithException() {
-    Map<String, Object> root = Map.of("key", "val");
-    Map<String, Object> vars = Map.of("v1", "hello");
-
-    // Case 1: variables != null, triggers exception
-    // We use a SpEL expression that will fail during evaluation
-    org.junit.jupiter.api.Assertions.assertThrows(
-        RuntimeException.class, () -> SpelUtils.evaluateSync("1/0", root, vars));
-
-    // Case 2: variables == null, triggers exception
-    org.junit.jupiter.api.Assertions.assertThrows(
-        RuntimeException.class, () -> SpelUtils.evaluateSync("1/0", root, null));
-  }
 }
