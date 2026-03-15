@@ -14,11 +14,8 @@
  * limitations under the License.
  */
 plugins {
-    id("com.infenia.yukta.java-conventions")
-    id("com.infenia.yukta.quality-conventions")
-    id("com.infenia.yukta.jacoco-conventions")
+    id("com.infenia.yukta.spring-conventions")
     alias(libs.plugins.spring.boot)
-    alias(libs.plugins.spring.dependency.management)
     alias(libs.plugins.graalvm.buildtools.native)
 }
 
@@ -39,15 +36,19 @@ dependencies {
     developmentOnly(libs.spring.boot.devtools)
     developmentOnly(libs.spring.boot.docker.compose)
 
-    compileOnly(libs.lombok)
-    annotationProcessor(libs.lombok)
     annotationProcessor(libs.spring.boot.configuration.processor)
 
-    testImplementation(libs.spring.boot.starter.test)
     testImplementation(libs.spring.boot.starter.webflux.test)
     testImplementation(libs.spring.boot.starter.validation.test)
     testImplementation(libs.spring.boot.starter.actuator.test)
-    testImplementation(libs.reactor.test)
+}
+
+tasks.named<org.springframework.boot.gradle.tasks.run.BootRun>("bootRun") {
+    mainClass.set("com.infenia.yukta.YuktaApplication")
+    args("--spring.profiles.active=dev")
+    standardInput = System.`in`
+    // Ensure the application always starts even if no files changed
+    outputs.upToDateWhen { false }
 }
 
 graalvmNative {

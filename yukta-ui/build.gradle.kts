@@ -18,12 +18,9 @@ import com.github.gradle.node.pnpm.task.PnpmTask
 import org.gradle.testing.jacoco.tasks.JacocoReport
 
 plugins {
-    id("com.infenia.yukta.java-conventions")
-    id("com.infenia.yukta.quality-conventions")
-    id("com.infenia.yukta.jacoco-conventions")
+    id("com.infenia.yukta.spring-conventions")
     id("com.infenia.yukta.node-conventions")
     alias(libs.plugins.spring.boot)
-    alias(libs.plugins.spring.dependency.management)
     alias(libs.plugins.jte)
 }
 
@@ -52,11 +49,7 @@ dependencies {
     implementation(libs.htmx.spring.boot)
     implementation(libs.spring.boot.starter.webflux)
 
-    compileOnly(libs.lombok)
-    annotationProcessor(libs.lombok)
-
     testImplementation(libs.spring.boot.starter.webflux.test)
-    testImplementation(libs.reactor.test)
     testImplementation(libs.playwright)
 }
 
@@ -103,6 +96,10 @@ configure<JteExtension> {
 }
 
 tasks.named("bootJar") {
+    enabled = false
+}
+
+tasks.named("bootRun") {
     enabled = false
 }
 

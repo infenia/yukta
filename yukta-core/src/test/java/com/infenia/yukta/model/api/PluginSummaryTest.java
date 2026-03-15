@@ -27,5 +27,11 @@ class PluginSummaryTest {
     PluginSummary summary = new PluginSummary("t", PluginCategory.PROCESSOR);
     assertEquals("t", summary.type());
     assertEquals(PluginCategory.PROCESSOR, summary.category());
+
+    // Test record methods
+    PluginSummary summary2 = new PluginSummary("t", PluginCategory.PROCESSOR);
+    assertEquals(summary, summary2);
+    assertEquals(summary.hashCode(), summary2.hashCode());
+    assertEquals(summary.toString(), summary2.toString());
   }
 }

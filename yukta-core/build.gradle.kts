@@ -14,17 +14,7 @@
  * limitations under the License.
  */
 plugins {
-    `java-library`
-    id("com.infenia.yukta.java-conventions")
-    id("com.infenia.yukta.quality-conventions")
-    id("com.infenia.yukta.jacoco-conventions")
-    alias(libs.plugins.spring.dependency.management)
-}
-
-dependencyManagement {
-    imports {
-        mavenBom("org.springframework.boot:spring-boot-dependencies:${libs.versions.springBoot.get()}")
-    }
+    id("com.infenia.yukta.library-conventions")
 }
 
 dependencies {
@@ -40,11 +30,8 @@ dependencies {
     implementation(libs.jackson.dataformat.yaml)
     implementation(libs.mapstruct)
 
-    implementation(libs.spring.ai.mcp.server)
     implementation(libs.springdoc.openapi)
 
-    compileOnly(libs.lombok)
-    annotationProcessor(libs.lombok)
     annotationProcessor(libs.spring.boot.configuration.processor)
     annotationProcessor(libs.mapstruct.processor)
     annotationProcessor(libs.lombok.mapstruct.binding)
@@ -54,7 +41,6 @@ dependencies {
     testImplementation(libs.spring.boot.starter.validation.test)
     testImplementation(libs.spring.boot.starter.actuator.test)
     testImplementation(libs.spring.boot.starter.jackson.test)
-    testImplementation(libs.reactor.test)
 }
 
 coverageConfig {

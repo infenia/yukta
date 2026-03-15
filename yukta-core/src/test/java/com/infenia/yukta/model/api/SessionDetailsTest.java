@@ -19,6 +19,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.List;
 import org.junit.jupiter.api.Test;
 
 class SessionDetailsTest {
@@ -29,5 +30,16 @@ class SessionDetailsTest {
     assertEquals("s", details.sessionId());
     assertNotNull(details.workflowIds());
     assertTrue(details.workflowIds().isEmpty());
+
+    List<String> ids = List.of("w1", "w2");
+    SessionDetails details2 = new SessionDetails("s", ids);
+    assertEquals("s", details2.sessionId());
+    assertEquals(ids, details2.workflowIds());
+
+    // Test record methods
+    SessionDetails details3 = new SessionDetails("s", ids);
+    assertEquals(details2, details3);
+    assertEquals(details2.hashCode(), details3.hashCode());
+    assertNotNull(details2.toString());
   }
 }

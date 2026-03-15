@@ -14,31 +14,23 @@
  * limitations under the License.
  */
 plugins {
-    `java-library`
-    id("com.infenia.yukta.java-conventions")
-    id("com.infenia.yukta.quality-conventions")
-    id("com.infenia.yukta.jacoco-conventions")
-    alias(libs.plugins.spring.dependency.management)
+    id("com.infenia.yukta.library-conventions")
 }
 
 dependencyManagement {
     imports {
-        mavenBom("org.springframework.boot:spring-boot-dependencies:${libs.versions.springBoot.get()}")
+        mavenBom("org.springframework.ai:spring-ai-bom:${libs.versions.springAi.get()}")
     }
 }
 
 dependencies {
     api(project(":yukta-core"))
 
-    implementation(libs.spring.ai.mcp.server)
+    implementation(libs.spring.ai.mcp.server.webflux)
 
-    compileOnly(libs.lombok)
-    annotationProcessor(libs.lombok)
     annotationProcessor(libs.spring.boot.configuration.processor)
 
-    testImplementation(libs.spring.boot.starter.test)
     testImplementation(libs.spring.boot.starter.webflux.test)
-    testImplementation(libs.reactor.test)
 }
 
 coverageConfig {

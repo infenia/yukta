@@ -33,7 +33,7 @@ jackson-dataformat-yaml = { group = "tools.jackson.dataformat", name = "jackson-
 mapstruct = { group = "org.mapstruct", name = "mapstruct", version.ref = "mapstruct" }
 mapstruct-processor = { group = "org.mapstruct", name = "mapstruct-processor", version.ref = "mapstruct" }
 lombok-mapstruct-binding = { group = "org.projectlombok", name = "lombok-mapstruct-binding", version.ref = "lombokMapstructBinding" }
-spring-ai-mcp-server = { group = "org.springframework.ai", name = "spring-ai-starter-mcp-server", version.ref = "springAi" }
+spring-ai-mcp-server-webflux = { group = "org.springframework.ai", name = "spring-ai-starter-mcp-server-webflux" }
 springdoc-openapi = { group = "org.springdoc", name = "springdoc-openapi-starter-webflux-ui", version.ref = "springdoc" }
 jte-starter = { group = "gg.jte", name = "jte-spring-boot-starter-4", version.ref = "jte" }
 htmx-spring-boot = { group = "io.github.wimdeblauwe", name = "htmx-spring-boot", version.ref = "htmx" }

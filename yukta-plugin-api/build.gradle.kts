@@ -14,24 +14,12 @@
  * limitations under the License.
  */
 plugins {
-    `java-library`
+    id("com.infenia.yukta.library-conventions")
     `java-test-fixtures`
-    id("com.infenia.yukta.java-conventions")
-    id("com.infenia.yukta.quality-conventions")
-    id("com.infenia.yukta.jacoco-conventions")
-    alias(libs.plugins.spring.dependency.management)
-}
-
-dependencyManagement {
-    imports {
-        mavenBom("org.springframework.boot:spring-boot-dependencies:${libs.versions.springBoot.get()}")
-    }
 }
 
 dependencies {
     api(libs.spring.boot.starter.webflux)
-
-    testImplementation(libs.reactor.test)
 }
 
 coverageConfig {

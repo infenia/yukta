@@ -20,6 +20,8 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.infenia.yukta.plugin.core.PluginCategory;
+import com.infenia.yukta.plugin.core.UiDesign;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 
 class PluginDetailsTest {
@@ -30,5 +32,18 @@ class PluginDetailsTest {
     assertEquals("t", details.type());
     assertNotNull(details.outputPorts());
     assertTrue(details.outputPorts().isEmpty());
+
+    List<String> ports = List.of("p1", "p2");
+    UiDesign ui = new UiDesign("<div>icon</div>", 100, 100);
+    PluginDetails details2 = new PluginDetails("t", PluginCategory.PROCESSOR, "d", "p", ui, ports);
+    assertEquals("t", details2.type());
+    assertEquals(ports, details2.outputPorts());
+    assertEquals(ui, details2.uiDesign());
+
+    // Test record methods
+    PluginDetails details3 = new PluginDetails("t", PluginCategory.PROCESSOR, "d", "p", ui, ports);
+    assertEquals(details2, details3);
+    assertEquals(details2.hashCode(), details3.hashCode());
+    assertNotNull(details2.toString());
   }
 }

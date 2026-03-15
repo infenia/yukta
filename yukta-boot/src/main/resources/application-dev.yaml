@@ -9,7 +9,8 @@ spring:
       server:
         name: yukta
         version: 0.0.1
-        stdio: true
+        type: ASYNC
+        protocol: STATELESS
   docker:
     compose:
       enabled: false

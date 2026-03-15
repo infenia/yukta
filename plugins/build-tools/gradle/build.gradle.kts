@@ -14,17 +14,7 @@
  * limitations under the License.
  */
 plugins {
-    `java-library`
-    id("com.infenia.yukta.java-conventions")
-    id("com.infenia.yukta.quality-conventions")
-    id("com.infenia.yukta.jacoco-conventions")
-    alias(libs.plugins.spring.dependency.management)
-}
-
-dependencyManagement {
-    imports {
-        mavenBom("org.springframework.boot:spring-boot-dependencies:${libs.versions.springBoot.get()}")
-    }
+    id("com.infenia.yukta.library-conventions")
 }
 
 version = "1.0.0"
@@ -32,12 +22,6 @@ version = "1.0.0"
 dependencies {
     implementation(project(":plugins:build-tools:common"))
     implementation(libs.spring.boot.starter.webflux)
-
-    compileOnly(libs.lombok)
-    annotationProcessor(libs.lombok)
-
-    testImplementation(libs.spring.boot.starter.test)
-    testImplementation(libs.reactor.test)
 }
 
 coverageConfig {
