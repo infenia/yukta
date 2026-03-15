@@ -15,9 +15,9 @@
  */
 package com.infenia.yukta.service;
 
-import com.infenia.yukta.config.AppConfigService;
-import com.infenia.yukta.model.TaskResponse;
-import com.infenia.yukta.model.WorkflowExecution;
+import com.infenia.yukta.model.session.TaskResponse;
+import com.infenia.yukta.model.workflow.WorkflowExecution;
+import com.infenia.yukta.service.session.SessionConfigStore;
 import com.infenia.yukta.validation.SessionId;
 import com.infenia.yukta.validation.WorkflowId;
 import jakarta.validation.constraints.NotEmpty;
@@ -37,9 +37,17 @@ import reactor.core.scheduler.Schedulers;
 @Service
 @Validated
 @RequiredArgsConstructor
+@SuppressWarnings("PMD.LongVariable")
 public class WorkflowService {
 
-  private final AppConfigService configService;
+  // Logging key constants
+  private static final String LOG_KEY_SESSION_ID = "sessionId";
+  private static final String LOG_KEY_WORKFLOW_ID = "workflowId";
+  private static final String LOG_KEY_EXECUTION_ID = "executionId";
+  private static final String LOG_KEY_QUEUE_KEY = "queueKey";
+  private static final String LOG_KEY_ERROR_MSG = "errorMessage";
+
+  private final SessionConfigStore configService;
   private final WorkflowOrchestrator orchestrator;
 
   private final Map<String, Mono<Void>> workflowQueues = new ConcurrentHashMap<>();
@@ -60,19 +68,41 @@ public class WorkflowService {
     final String queueKey = sessionId + ":" + workflowId;
     final Sinks.One<TaskResponse> sink = Sinks.one();
 
+    log.atInfo()
+        .addKeyValue(LOG_KEY_SESSION_ID, sessionId)
+        .addKeyValue(LOG_KEY_WORKFLOW_ID, workflowId)
+        .addKeyValue(LOG_KEY_EXECUTION_ID, executionId)
+        .log("Submitting workflow execution request");
+
     workflowQueues
         .compute(
             queueKey,
             (key, previousTail) -> {
+              log.atDebug()
+                  .addKeyValue(LOG_KEY_QUEUE_KEY, queueKey)
+                  .addKeyValue("queuedExecutions", previousTail != null ? 1 : 0)
+                  .log("Processing workflow queue");
+
               final Mono<Void> current =
                   Mono.defer(
                           () ->
                               configService
                                   .getWorkflow(sessionId, workflowId)
+                                  .doOnSuccess(
+                                      def ->
+                                          log.atTrace()
+                                              .addKeyValue(LOG_KEY_WORKFLOW_ID, workflowId)
+                                              .log("Workflow definition loaded"))
                                   .flatMap(
                                       def ->
                                           orchestrator
                                               .prepareWorkflow(def)
+                                              .doOnSuccess(
+                                                  prepared ->
+                                                      log.atDebug()
+                                                          .addKeyValue(
+                                                              LOG_KEY_EXECUTION_ID, executionId)
+                                                          .log("Workflow prepared successfully"))
                                               .flatMap(
                                                   prepared ->
                                                       orchestrator.execute(
@@ -87,26 +117,36 @@ public class WorkflowService {
                                                           "SUCCESS",
                                                           "Workflow executed successfully"))))
                                   .switchIfEmpty(
-                                      Mono.just(
-                                          new TaskResponse(
-                                              "FAILURE",
-                                              "No workflow configured with ID: " + workflowId)))
+                                      Mono.fromRunnable(
+                                              () ->
+                                                  log.atWarn()
+                                                      .addKeyValue(LOG_KEY_WORKFLOW_ID, workflowId)
+                                                      .log("No workflow configuration found"))
+                                          .then(
+                                              Mono.just(
+                                                  new TaskResponse(
+                                                      "FAILURE",
+                                                      "No workflow configured with ID: "
+                                                          + workflowId))))
                                   .onErrorResume(
                                       e -> {
-                                        if (log.isErrorEnabled()) {
-                                          log.error(
-                                              "Workflow "
-                                                  + workflowId
-                                                  + " failed for session: "
-                                                  + sessionId,
-                                              e);
-                                        }
+                                        log.atError()
+                                            .setCause(e)
+                                            .addKeyValue(LOG_KEY_SESSION_ID, sessionId)
+                                            .addKeyValue(LOG_KEY_WORKFLOW_ID, workflowId)
+                                            .addKeyValue(LOG_KEY_EXECUTION_ID, executionId)
+                                            .addKeyValue(LOG_KEY_ERROR_MSG, e.getMessage())
+                                            .log("Workflow execution failed");
                                         return Mono.just(
                                             new TaskResponse(
                                                 "FAILURE", "Workflow failed: " + e.getMessage()));
                                       })
                                   .flatMap(
                                       response -> {
+                                        log.atTrace()
+                                            .addKeyValue(LOG_KEY_EXECUTION_ID, executionId)
+                                            .addKeyValue("responseStatus", response.status())
+                                            .log("Workflow response generated");
                                         sink.tryEmitValue(response);
                                         return Mono.empty();
                                       })
@@ -115,23 +155,61 @@ public class WorkflowService {
 
               final Mono<Void> nextTail;
               if (previousTail == null) {
+                log.atTrace()
+                    .addKeyValue(LOG_KEY_QUEUE_KEY, queueKey)
+                    .log("First execution in queue, starting immediately");
                 nextTail = current;
               } else {
-                nextTail = previousTail.onErrorResume(e -> Mono.empty()).then(current);
+                log.atDebug()
+                    .addKeyValue(LOG_KEY_QUEUE_KEY, queueKey)
+                    .addKeyValue(LOG_KEY_EXECUTION_ID, executionId)
+                    .log("Queueing execution behind previous workflow");
+                nextTail =
+                    previousTail
+                        .onErrorResume(
+                            e -> {
+                              log.atWarn()
+                                  .setCause(e)
+                                  .addKeyValue(LOG_KEY_QUEUE_KEY, queueKey)
+                                  .log("Previous workflow failed, proceeding with current");
+                              return Mono.empty();
+                            })
+                        .then(current);
               }
-              return nextTail
-                  .doOnTerminate(
-                      () -> {
-                        workflowQueues.computeIfPresent(
-                            queueKey,
-                            (k, tail) -> {
-                              if (tail.equals(nextTail)) {
-                                return null;
-                              }
-                              return tail;
-                            });
-                      })
-                  .cache();
+              @SuppressWarnings("unchecked")
+              final Mono<Void>[] tailRef = new Mono[1];
+              tailRef[0] =
+                  nextTail
+                      .doOnSuccess(
+                          v ->
+                              log.atDebug()
+                                  .addKeyValue(LOG_KEY_EXECUTION_ID, executionId)
+                                  .log("Workflow completed successfully"))
+                      .doOnError(
+                          e ->
+                              log.atError()
+                                  .setCause(e)
+                                  .addKeyValue(LOG_KEY_EXECUTION_ID, executionId)
+                                  .log("Workflow execution error"))
+                      .doOnTerminate(
+                          () -> {
+                            log.atTrace()
+                                .addKeyValue(LOG_KEY_QUEUE_KEY, queueKey)
+                                .log("Cleaning up queue entry");
+                            workflowQueues.computeIfPresent(
+                                queueKey,
+                                (k, tail) -> {
+                                  if (tail.equals(tailRef[0])) {
+                                    log.atDebug()
+                                        .addKeyValue(LOG_KEY_QUEUE_KEY, queueKey)
+                                        .log("Removing queue entry");
+                                    return null;
+                                  }
+                                  return tail;
+                                });
+                          })
+                      .cache();
+              return tailRef[0];
             })
         .subscribe();
 

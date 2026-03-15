@@ -16,23 +16,20 @@
 package com.infenia.yukta.service;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import com.infenia.yukta.config.AppConfigService;
-import com.infenia.yukta.model.AppConfigData;
-import com.infenia.yukta.model.WorkflowDefinition;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
+import com.infenia.yukta.model.session.SessionConfigData;
+import com.infenia.yukta.model.workflow.WorkflowDefinition;
+import com.infenia.yukta.service.session.SessionConfigStore;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.junit.jupiter.api.io.TempDir;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 import tools.jackson.databind.ObjectMapper;
@@ -40,9 +37,7 @@ import tools.jackson.databind.ObjectMapper;
 @ExtendWith(MockitoExtension.class)
 class SessionServiceTest {
 
-  @TempDir Path tempDir;
-
-  @Mock private AppConfigService configService;
+  @Mock private SessionConfigStore configService;
   private final ObjectMapper objectMapper = new ObjectMapper();
   @Mock private WorkflowOrchestrator orchestrator;
 
@@ -54,62 +49,33 @@ class SessionServiceTest {
   }
 
   @Test
-  void testApplyConfigOverrides() {
+  void testApplyConfig() {
     String sessionId = "sess-1";
     WorkflowDefinition workflow = new WorkflowDefinition("desc", List.of(), List.of());
-    AppConfigData data =
-        new AppConfigData(
+    SessionConfigData data =
+        new SessionConfigData(
             sessionId, "desc", "initiator-1", Map.of(), "/path", Map.of("w1", workflow));
 
-    when(configService.setProjectPath(anyString(), anyString())).thenReturn(Mono.empty());
-    when(configService.setWorkflows(anyString(), any())).thenReturn(Mono.empty());
-    when(configService.setDescription(anyString(), anyString())).thenReturn(Mono.empty());
-    when(configService.setInitiator(anyString(), anyString())).thenReturn(Mono.empty());
-    when(configService.setTags(anyString(), any())).thenReturn(Mono.empty());
-    when(configService.setInitiatedTime(anyString(), anyString())).thenReturn(Mono.empty());
+    when(configService.applySessionConfig(any())).thenReturn(Mono.empty());
     when(orchestrator.prepareWorkflow(any())).thenReturn(Mono.empty());
-    when(configService.getResultLogDir(anyString())).thenReturn(Mono.just("build/results"));
-    when(configService.getAllConfigs(anyString())).thenReturn(Mono.just(java.util.Map.of()));
 
-    StepVerifier.create(sessionService.applyConfigOverrides(data)).verifyComplete();
+    StepVerifier.create(sessionService.applyConfig(data)).verifyComplete();
   }
 
   @Test
-  void testSaveConfigToDiskNoDir() {
-    String sessionId = "sess-nodir";
-    when(configService.getResultLogDir(sessionId)).thenReturn(Mono.just(""));
-    StepVerifier.create(sessionService.saveConfigToDisk(sessionId)).verifyComplete();
-  }
-
-  @Test
-  void testApplyConfigOverridesPartial() {
+  void testApplyConfigPartial() {
     String sessionId = "sess-partial";
-    AppConfigData data =
-        new AppConfigData(sessionId, "desc", "initiator-p", Map.of(), null, Map.of());
+    SessionConfigData data =
+        new SessionConfigData(sessionId, "desc", "initiator-p", Map.of(), null, Map.of());
 
-    when(configService.setProjectPath(anyString(), any())).thenReturn(Mono.empty());
-    when(configService.setWorkflows(anyString(), any())).thenReturn(Mono.empty());
-    when(configService.setDescription(anyString(), anyString())).thenReturn(Mono.empty());
-    when(configService.setInitiator(anyString(), anyString())).thenReturn(Mono.empty());
-    when(configService.setTags(anyString(), any())).thenReturn(Mono.empty());
-    when(configService.setInitiatedTime(anyString(), anyString())).thenReturn(Mono.empty());
-    when(configService.getResultLogDir(anyString())).thenReturn(Mono.just(tempDir.toString()));
-    when(configService.getAllConfigs(anyString())).thenReturn(Mono.just(Map.of()));
+    when(configService.applySessionConfig(any())).thenReturn(Mono.empty());
 
-    StepVerifier.create(sessionService.applyConfigOverrides(data)).verifyComplete();
+    StepVerifier.create(sessionService.applyConfig(data)).verifyComplete();
   }
 
   @Test
-  void testGetActiveSessions() {
-    when(configService.getActiveSessionIds())
-        .thenReturn(reactor.core.publisher.Flux.just("sess-1"));
-    StepVerifier.create(sessionService.getActiveSessions()).expectNext("sess-1").verifyComplete();
-  }
-
-  @Test
-  void testGetSessionConfigActive() {
+  void testGetSessionConfig() {
     String sessionId = "sess-1";
-    when(configService.isActive(sessionId)).thenReturn(Mono.just(true));
     when(configService.getAllConfigs(sessionId)).thenReturn(Mono.just(Map.of("k", "v")));
 
     StepVerifier.create(sessionService.getSessionConfig(sessionId))
@@ -118,42 +84,13 @@ class SessionServiceTest {
   }
 
   @Test
-  void testGetHistorySessions() throws IOException {
-    Path resultsDir = tempDir.resolve("results");
-    Files.createDirectories(resultsDir);
-    Files.createDirectories(resultsDir.resolve("sess-hist"));
-
-    when(configService.getResultLogDir(null)).thenReturn(Mono.just(resultsDir.toString()));
-    when(configService.getFileLogDir(null)).thenReturn(Mono.just("empty"));
-    when(configService.getActiveSessionIds())
-        .thenReturn(reactor.core.publisher.Flux.just("sess-active"));
-
-    StepVerifier.create(sessionService.getHistorySessions())
-        .expectNext("sess-hist")
-        .verifyComplete();
-  }
-
-  @Test
-  void testGetAllSessionsOnDiskEmpty() {
-    when(configService.getResultLogDir(null)).thenReturn(Mono.just(""));
-    when(configService.getFileLogDir(null)).thenReturn(Mono.just(""));
-    StepVerifier.create(sessionService.getAllSessionsOnDisk()).verifyComplete();
-  }
-
-  @Test
-  void testGetSessionWorkflowFromDisk() throws IOException {
+  void testGetSessionWorkflowFromDisk() {
     String sessionId = "sess-disk";
-    Path resultsDir = tempDir.resolve("results");
-    Path sessDir = resultsDir.resolve(sessionId);
-    Files.createDirectories(sessDir);
 
     WorkflowDefinition workflow = new WorkflowDefinition("desc", List.of(), List.of());
     Map<String, Object> configMap = Map.of("workflows", Map.of("w1", workflow));
-    Files.writeString(sessDir.resolve("config.json"), objectMapper.writeValueAsString(configMap));
 
-    when(configService.isActive(sessionId)).thenReturn(Mono.just(false));
-    when(configService.getResultLogDir(sessionId)).thenReturn(Mono.just(resultsDir.toString()));
-    when(configService.getAllConfigs(sessionId)).thenReturn(Mono.just(Map.of()));
+    when(configService.getAllConfigs(sessionId)).thenReturn(Mono.just(configMap));
 
     StepVerifier.create(sessionService.getSessionWorkflow(sessionId, "w1"))
         .expectNext(workflow)
@@ -161,31 +98,9 @@ class SessionServiceTest {
   }
 
   @Test
-  void testGetSessionWorkflowFromDiskInvalidJson() throws IOException {
-    String sessionId = "sess-invalid";
-    Path resultsDir = tempDir.resolve("results");
-    Path sessDir = resultsDir.resolve(sessionId);
-    Files.createDirectories(sessDir);
-    Files.writeString(sessDir.resolve("config.json"), "{invalid-json}");
-
-    when(configService.isActive(sessionId)).thenReturn(Mono.just(false));
-    when(configService.getResultLogDir(sessionId)).thenReturn(Mono.just(resultsDir.toString()));
-    when(configService.getAllConfigs(sessionId)).thenReturn(Mono.just(Map.of()));
-    when(configService.getWorkflow(sessionId, "w1")).thenReturn(Mono.empty());
-
-    StepVerifier.create(sessionService.getSessionWorkflow(sessionId, "w1")).verifyComplete();
-  }
-
-  @Test
-  void testGetSessionWorkflowFromDiskNoWorkflow() throws IOException {
+  void testGetSessionWorkflowFromDiskNoWorkflow() {
     String sessionId = "sess-noworkflow";
-    Path resultsDir = tempDir.resolve("results");
-    Path sessDir = resultsDir.resolve(sessionId);
-    Files.createDirectories(sessDir);
-    Files.writeString(sessDir.resolve("config.json"), "{}");
 
-    when(configService.isActive(sessionId)).thenReturn(Mono.just(false));
-    when(configService.getResultLogDir(sessionId)).thenReturn(Mono.just(resultsDir.toString()));
     when(configService.getAllConfigs(sessionId)).thenReturn(Mono.just(Map.of()));
     when(configService.getWorkflow(sessionId, "w1")).thenReturn(Mono.empty());
 
@@ -193,18 +108,11 @@ class SessionServiceTest {
   }
 
   @Test
-  void testGetSessionConfigFromDisk() throws IOException {
+  void testGetSessionConfigDelegatesStore() {
     String sessionId = "sess-disk-config";
-    Path resultsDir = tempDir.resolve("results");
-    Path sessDir = resultsDir.resolve(sessionId);
-    Files.createDirectories(sessDir);
-
     Map<String, Object> configMap = Map.of("k", "v");
-    Files.writeString(sessDir.resolve("config.json"), objectMapper.writeValueAsString(configMap));
 
-    when(configService.isActive(sessionId)).thenReturn(Mono.just(false));
-    when(configService.getResultLogDir(sessionId)).thenReturn(Mono.just(resultsDir.toString()));
-    when(configService.getAllConfigs(sessionId)).thenReturn(Mono.empty());
+    when(configService.getAllConfigs(sessionId)).thenReturn(Mono.just(configMap));
 
     StepVerifier.create(sessionService.getSessionConfig(sessionId))
         .expectNextMatches(m -> "v".equals(m.get("k")))
@@ -212,19 +120,41 @@ class SessionServiceTest {
   }
 
   @Test
-  void testGetSessionConfigFromDiskInvalid() throws IOException {
-    String sessionId = "sess-disk-invalid";
-    Path resultsDir = tempDir.resolve("results");
-    Path sessDir = resultsDir.resolve(sessionId);
-    Files.createDirectories(sessDir);
-    Files.writeString(sessDir.resolve("config.json"), "{invalid}");
+  void testGetSessionIds() {
+    when(configService.getSessionIds()).thenReturn(Flux.just("s1", "s2"));
+    StepVerifier.create(sessionService.getSessionIds()).expectNext("s1", "s2").verifyComplete();
+  }
 
-    when(configService.isActive(sessionId)).thenReturn(Mono.just(false));
-    when(configService.getResultLogDir(sessionId)).thenReturn(Mono.just(resultsDir.toString()));
-    when(configService.getAllConfigs(sessionId)).thenReturn(Mono.just(Map.of("default", "val")));
+  @Test
+  void testParseWorkflowError() throws Exception {
+    String sessionId = "sess-err";
+    ObjectMapper mockMapper = mock(ObjectMapper.class);
+    when(mockMapper.writeValueAsString(any())).thenThrow(new RuntimeException("json fail"));
 
-    StepVerifier.create(sessionService.getSessionConfig(sessionId))
-        .expectNextMatches(m -> "val".equals(m.get("default")))
+    SessionService errService = new SessionService(configService, mockMapper, orchestrator);
+
+    WorkflowDefinition workflow = new WorkflowDefinition("desc", List.of(), List.of());
+    Map<String, Object> configMap = Map.of("workflows", Map.of("w1", workflow));
+    when(configService.getAllConfigs(sessionId)).thenReturn(Mono.just(configMap));
+
+    StepVerifier.create(errService.getSessionWorkflow(sessionId, "w1")).verifyComplete();
+  }
+
+  @Test
+  void testGetSessionWorkflowNotFoundInMap() {
+    String sessionId = "sess-notfound";
+    WorkflowDefinition fallbackWorkflow = new WorkflowDefinition("fallback", List.of(), List.of());
+
+    Map<String, Object> configMap =
+        Map.of(
+            "workflows", Map.of("other-wf", new WorkflowDefinition("other", List.of(), List.of())));
+
+    when(configService.getAllConfigs(sessionId)).thenReturn(Mono.just(configMap));
+    when(configService.getWorkflow(sessionId, "missing-wf"))
+        .thenReturn(Mono.just(fallbackWorkflow));
+
+    StepVerifier.create(sessionService.getSessionWorkflow(sessionId, "missing-wf"))
+        .expectNext(fallbackWorkflow)
         .verifyComplete();
   }
 }

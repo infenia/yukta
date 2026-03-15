@@ -21,11 +21,11 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import com.infenia.yukta.config.AppConfigService;
-import com.infenia.yukta.model.PreparedWorkflow;
-import com.infenia.yukta.model.WorkflowDefinition;
+import com.infenia.yukta.model.workflow.PreparedWorkflow;
+import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.plugin.exception.WorkflowExecutionException;
 import com.infenia.yukta.plugin.message.Message;
+import com.infenia.yukta.service.session.SessionConfigStore;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
@@ -37,15 +37,15 @@ import reactor.test.StepVerifier;
 class DefaultWorkflowGatewayTest {
 
   private WorkflowOrchestrator orchestrator;
-  private AppConfigService configService;
+  private SessionConfigStore configService;
   private DefaultWorkflowGateway gateway;
 
   @BeforeEach
   void setUp() {
     orchestrator = mock(WorkflowOrchestrator.class);
-    configService = mock(AppConfigService.class);
+    configService = mock(SessionConfigStore.class);
     ObjectProvider<WorkflowOrchestrator> orchProv = mock(ObjectProvider.class);
-    ObjectProvider<AppConfigService> cfgServProv = mock(ObjectProvider.class);
+    ObjectProvider<SessionConfigStore> cfgServProv = mock(ObjectProvider.class);
 
     when(orchProv.getIfAvailable()).thenReturn(orchestrator);
     when(cfgServProv.getIfAvailable()).thenReturn(configService);
@@ -79,7 +79,7 @@ class DefaultWorkflowGatewayTest {
   @Test
   void testExecuteSubWorkflow_ServicesNotAvailable() {
     ObjectProvider<WorkflowOrchestrator> orchProv = mock(ObjectProvider.class);
-    ObjectProvider<AppConfigService> cfgServProv = mock(ObjectProvider.class);
+    ObjectProvider<SessionConfigStore> cfgServProv = mock(ObjectProvider.class);
     when(orchProv.getIfAvailable()).thenReturn(null);
     DefaultWorkflowGateway g = new DefaultWorkflowGateway(orchProv, cfgServProv);
 

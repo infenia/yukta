@@ -17,6 +17,7 @@ package com.infenia.yukta.plugin.core.filter;
 
 import com.infenia.yukta.plugin.core.PluginMetricsReporter;
 import com.infenia.yukta.plugin.core.UiDesign;
+import com.infenia.yukta.plugin.core.WorkflowContext;
 import com.infenia.yukta.plugin.core.util.SimpleExpressionEvaluator;
 import com.infenia.yukta.plugin.exception.FilterEvaluationException;
 import com.infenia.yukta.plugin.message.Message;
@@ -38,7 +39,7 @@ import reactor.core.publisher.Mono;
  */
 @Slf4j
 @Component
-@SuppressWarnings({"PMD.OnlyOneReturn", "PMD.AvoidCatchingGenericException"})
+@SuppressWarnings({"PMD.OnlyOneReturn", "PMD.AvoidCatchingGenericException", "PMD.LongVariable"})
 public final class FilterProcessor implements ProcessorPlugin {
 
   private static final String TYPE = "FILTER";
@@ -50,6 +51,7 @@ public final class FilterProcessor implements ProcessorPlugin {
   private static final String CONFIG_ENGINE = "engine";
   private static final String CONFIG_STRICT = "strictMode";
   private static final String DISCARD_PORT = "discardPort";
+  private static final String CONFIG_ALLOW_AFTER_HEAVY = "allowAfterHeavy";
 
   private final PluginMetricsReporter reporter;
 
@@ -74,7 +76,10 @@ public final class FilterProcessor implements ProcessorPlugin {
         + "- condition: The boolean expression to evaluate.\n"
         + "- engine: 'SpEL' (default) or 'SIMPLE'.\n"
         + "- strictMode: Boolean. If true (default), throws exception on evaluation error.\n"
-        + "- discardPort: Optional port name to route messages that do not match the condition.";
+        + "- discardPort: Optional port name to route messages that do not match the"
+        + " condition.\n"
+        + "- allowAfterHeavy: Boolean. If true, allows this filter to be placed after heavy"
+        + " computation without validation warnings (default: false).";
   }
 
   @Override
@@ -223,6 +228,36 @@ public final class FilterProcessor implements ProcessorPlugin {
       return Mono.error(
           new IllegalArgumentException(
               "REGO engine is reserved for future use and not yet implemented."));
+    }
+    return Mono.empty();
+  }
+
+  @Override
+  public boolean suppressOptimizationHint(final Map<String, Object> config) {
+    final Object allowAfterHeavy = config.get(CONFIG_ALLOW_AFTER_HEAVY);
+    return Boolean.TRUE.equals(allowAfterHeavy);
+  }
+
+  /**
+   * Validates filter placement in the workflow context. Issues an advisory warning if the filter is
+   * positioned after heavy computation without explicit allowance.
+   */
+  @Override
+  public Mono<Void> validateInContext(
+      final WorkflowContext context, final Map<String, Object> config) {
+    // If filter explicitly allows placement after heavy computation, no validation needed
+    if (suppressOptimizationHint(config)) {
+      return Mono.empty();
+    }
+
+    // Check if there are incoming edges (filter has ancestors)
+    if (!context.incomingEdges().isEmpty()) {
+      log.atWarn()
+          .log(
+              "Performance Hint: Filter [{}] is positioned after heavy computation. "
+                  + "Moving it closer to the Trigger may reduce unnecessary load. "
+                  + "Set allowAfterHeavy=true in filter config to suppress this warning.",
+              context.nodeId());
     }
     return Mono.empty();
   }

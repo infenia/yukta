@@ -23,16 +23,16 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.infenia.yukta.config.AppConfigService;
-import com.infenia.yukta.model.WorkflowDefinition;
-import com.infenia.yukta.model.WorkflowDefinition.Edge;
-import com.infenia.yukta.model.WorkflowDefinition.Node;
+import com.infenia.yukta.model.workflow.WorkflowDefinition;
+import com.infenia.yukta.model.workflow.WorkflowDefinition.Edge;
+import com.infenia.yukta.model.workflow.WorkflowDefinition.Node;
 import com.infenia.yukta.plugin.core.PluginCategory;
 import com.infenia.yukta.plugin.message.DefaultMessage;
 import com.infenia.yukta.plugin.message.Message;
 import com.infenia.yukta.plugin.type.ProcessorPlugin;
 import com.infenia.yukta.plugin.type.TerminalPlugin;
 import com.infenia.yukta.plugin.type.TriggerPlugin;
+import com.infenia.yukta.service.session.SessionConfigStore;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -49,7 +49,7 @@ class GuardIntegrationTest {
   private WorkflowRegistry registry;
   private TaskTrackerService tracker;
   private WorkflowValidator validator;
-  private AppConfigService configService;
+  private SessionConfigStore configService;
   private com.infenia.yukta.plugin.gateway.ControlBusGateway controlBusGateway;
 
   private TriggerPlugin triggerPlugin;
@@ -61,14 +61,9 @@ class GuardIntegrationTest {
   void setUp() {
     registry = mock(WorkflowRegistry.class);
     tracker = mock(TaskTrackerService.class);
-    configService = mock(AppConfigService.class);
-    controlBusGateway = mock(com.infenia.yukta.service.DefaultControlBusGateway.class);
+    configService = mock(SessionConfigStore.class);
+    controlBusGateway = mock(com.infenia.yukta.plugin.gateway.ControlBusGateway.class);
     when(controlBusGateway.emit(any())).thenReturn(Mono.empty());
-    com.infenia.yukta.service.ControlBusService controlBusService =
-        mock(com.infenia.yukta.service.ControlBusService.class);
-    when(((com.infenia.yukta.service.DefaultControlBusGateway) controlBusGateway)
-            .getControlBusService())
-        .thenReturn(controlBusService);
     validator = new WorkflowValidator(registry);
     when(configService.getExecutionTimeout(anyString())).thenReturn(Mono.just(3600L));
     orchestrator =
@@ -76,6 +71,7 @@ class GuardIntegrationTest {
             registry,
             tracker,
             validator,
+            new TopologicalSortService(),
             configService,
             null,
             controlBusGateway,
@@ -98,19 +94,23 @@ class GuardIntegrationTest {
     when(triggerPlugin.getCategory()).thenReturn(PluginCategory.TRIGGER);
     when(triggerPlugin.initialize(any())).thenReturn(Mono.empty());
     when(triggerPlugin.validateConfig(any())).thenReturn(Mono.empty());
+    when(triggerPlugin.validateInContext(any(), any())).thenReturn(Mono.empty());
 
     when(guardPlugin.getCategory()).thenReturn(PluginCategory.PROCESSOR);
     when(guardPlugin.initialize(any())).thenReturn(Mono.empty());
     when(guardPlugin.validateConfig(any())).thenReturn(Mono.empty());
+    when(guardPlugin.validateInContext(any(), any())).thenReturn(Mono.empty());
 
     when(terminalTrue.getCategory()).thenReturn(PluginCategory.TERMINAL);
     when(terminalTrue.initialize(any())).thenReturn(Mono.empty());
     when(terminalTrue.validateConfig(any())).thenReturn(Mono.empty());
+    when(terminalTrue.validateInContext(any(), any())).thenReturn(Mono.empty());
     when(terminalTrue.consume(any(), any())).thenReturn(Mono.empty());
 
     when(terminalFalse.getCategory()).thenReturn(PluginCategory.TERMINAL);
     when(terminalFalse.initialize(any())).thenReturn(Mono.empty());
     when(terminalFalse.validateConfig(any())).thenReturn(Mono.empty());
+    when(terminalFalse.validateInContext(any(), any())).thenReturn(Mono.empty());
     when(terminalFalse.consume(any(), any())).thenReturn(Mono.empty());
 
     when(tracker.startWorkflow(anyString(), anyString(), anyString(), any()))

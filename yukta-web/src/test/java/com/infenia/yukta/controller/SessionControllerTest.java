@@ -17,11 +17,9 @@ package com.infenia.yukta.controller;
 
 import static org.mockito.Mockito.when;
 
-import com.infenia.yukta.model.WorkflowDefinition;
-import com.infenia.yukta.model.WorkflowExecutionSummary;
+import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.service.SessionService;
 import com.infenia.yukta.service.TaskTrackerService;
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
@@ -29,7 +27,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webflux.test.autoconfigure.WebFluxTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.reactive.server.WebTestClient;
-import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 @WebFluxTest(SessionController.class)
@@ -39,28 +36,6 @@ class SessionControllerTest {
 
   @MockitoBean private SessionService sessionService;
   @MockitoBean private TaskTrackerService trackerService;
-
-  @Test
-  void testListSessions() {
-    LocalDateTime now = LocalDateTime.now();
-    WorkflowExecutionSummary summary = new WorkflowExecutionSummary("e", "w", "s", now, null);
-
-    when(sessionService.getActiveSessions()).thenReturn(Flux.just("session-1"));
-    when(sessionService.getSessionConfig("session-1")).thenReturn(Mono.just(Map.of()));
-    when(trackerService.getHistory("session-1")).thenReturn(List.of(summary));
-
-    webTestClient
-        .get()
-        .uri("/api/sessions")
-        .exchange()
-        .expectStatus()
-        .isOk()
-        .expectBody()
-        .jsonPath("$.data[0].sessionId")
-        .isEqualTo("session-1")
-        .jsonPath("$.data[0].lastActiveTime")
-        .exists();
-  }
 
   @Test
   void testGetSessionDetails() {

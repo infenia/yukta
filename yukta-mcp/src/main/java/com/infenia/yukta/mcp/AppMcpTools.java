@@ -15,71 +15,41 @@
  */
 package com.infenia.yukta.mcp;
 
-import com.infenia.yukta.model.PluginDetails;
-import com.infenia.yukta.model.PluginSummary;
-import com.infenia.yukta.model.SessionDetails;
-import com.infenia.yukta.model.SessionSummary;
-import com.infenia.yukta.model.WorkflowDefinition;
-import com.infenia.yukta.model.WorkflowExecutionSummary;
-import com.infenia.yukta.plugin.core.WorkflowPlugin;
-import com.infenia.yukta.service.SessionService;
-import com.infenia.yukta.service.TaskTrackerService;
-import com.infenia.yukta.service.WorkflowRegistry;
-import com.infenia.yukta.service.WorkflowService;
-import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Map;
+import com.infenia.yukta.mcp.provider.DefaultLogProvider;
+import com.infenia.yukta.mcp.provider.DefaultPluginInfoProvider;
+import com.infenia.yukta.mcp.provider.DefaultSessionInfoProvider;
+import com.infenia.yukta.mcp.provider.DefaultSystemHealthProvider;
+import com.infenia.yukta.mcp.provider.DefaultWorkflowExecutionProvider;
+import com.infenia.yukta.model.api.ControlBusStatus;
+import com.infenia.yukta.model.api.PluginCreationGuide;
+import com.infenia.yukta.model.api.PluginDetails;
+import com.infenia.yukta.model.api.PluginSummary;
+import com.infenia.yukta.model.api.SessionCreationGuide;
+import com.infenia.yukta.model.api.SessionCreationResponse;
+import com.infenia.yukta.model.api.SessionDetails;
+import com.infenia.yukta.model.api.SessionInfo;
+import com.infenia.yukta.model.monitoring.WorkflowExecutionSummary;
+import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import lombok.RequiredArgsConstructor;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.stereotype.Component;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
-import tools.jackson.core.type.TypeReference;
-import tools.jackson.databind.ObjectMapper;
 
 /**
- * MCP (Model Context Protocol) tools for Yukta. Provides tools for interacting with workflows,
- * sessions, and plugins.
+ * MCP (Model Context Protocol) tools for Yukta. Provides facade for interacting with workflows,
+ * sessions, and plugins by delegating to specialized provider classes.
  */
 @Component
 @RequiredArgsConstructor
+@SuppressWarnings({"PMD.LongVariable", "PMD.UseObjectForClearerAPI"})
 public class AppMcpTools {
 
-  private final WorkflowService workflowService;
-  private final SessionService sessionService;
-  private final TaskTrackerService trackerService;
-  private final WorkflowRegistry registry;
-  private final ObjectMapper objectMapper;
-
-  /**
-   * List all active sessions.
-   *
-   * @return Mono containing a list of session summaries
-   */
-  @Tool(description = "List all active Yukta sessions with their summaries")
-  @SuppressWarnings("unchecked")
-  public Mono<List<SessionSummary>> listSessions() {
-    return sessionService
-        .getActiveSessions()
-        .flatMap(
-            id ->
-                sessionService
-                    .getSessionConfig(id)
-                    .map(
-                        config -> {
-                          final List<WorkflowExecutionSummary> history =
-                              trackerService.getHistory(id);
-                          final LocalDateTime lastActive =
-                              history.isEmpty() ? null : history.get(0).startTime();
-                          return new SessionSummary(
-                              id,
-                              (String) config.getOrDefault("initiator", ""),
-                              (String) config.getOrDefault("initiatedTime", ""),
-                              lastActive,
-                              (String) config.getOrDefault("description", ""),
-                              (Map<String, String>) config.getOrDefault("tags", Map.of()));
-                        }))
-        .collectList();
-  }
+  private final DefaultSessionInfoProvider sessionInfoProvider;
+  private final DefaultLogProvider logProvider;
+  private final DefaultWorkflowExecutionProvider workflowExecutionProvider;
+  private final DefaultPluginInfoProvider pluginInfoProvider;
+  private final DefaultSystemHealthProvider systemHealthProvider;
 
   /**
    * Get details of a specific session.
@@ -88,16 +58,52 @@ public class AppMcpTools {
    * @return Mono containing session details
    */
   @Tool(description = "Get details of a specific Yukta session including workflow IDs")
-  @SuppressWarnings("unchecked")
   public Mono<SessionDetails> getSessionDetails(final String sessionId) {
-    return sessionService
-        .getSessionConfig(sessionId)
-        .map(
-            config -> {
-              final Map<String, Object> workflows =
-                  (Map<String, Object>) config.getOrDefault("workflows", Map.of());
-              return new SessionDetails(sessionId, List.copyOf(workflows.keySet()));
-            });
+    return sessionInfoProvider.getSessionDetails(sessionId);
+  }
+
+  /**
+   * List all available sessions.
+   *
+   * @return Flux of session information
+   */
+  @Tool(description = "List all available Yukta sessions with metadata")
+  public Flux<SessionInfo> listSessions() {
+    return sessionInfoProvider.listSessions();
+  }
+
+  /**
+   * Stream session logs with optional filtering.
+   *
+   * @param sessionId the session identifier
+   * @param workflowId optional workflow filter
+   * @param executionId optional execution filter
+   * @param filterPattern optional regex pattern filter
+   * @return Flux of log lines
+   */
+  @Tool(
+      description =
+          "Stream session logs with optional filtering by workflow, execution, or pattern")
+  public Flux<String> streamSessionLogs(
+      final String sessionId,
+      final String workflowId,
+      final String executionId,
+      final String filterPattern) {
+    return logProvider.streamSessionLogs(sessionId, workflowId, executionId, filterPattern);
+  }
+
+  /**
+   * Get workflow execution logs.
+   *
+   * @param sessionId the session identifier
+   * @param executionId the execution identifier
+   * @param filterPattern optional regex pattern filter
+   * @return Mono containing formatted logs
+   */
+  @Tool(description = "Get all logs for a specific workflow execution with optional filtering")
+  public Mono<String> getWorkflowExecutionLogs(
+      final String sessionId, final String executionId, final String filterPattern) {
+    return logProvider.getWorkflowExecutionLogs(sessionId, executionId, filterPattern);
   }
 
   /**
@@ -110,7 +116,7 @@ public class AppMcpTools {
   @Tool(description = "Get the full DAG definition (nodes and edges) of a Yukta workflow")
   public Mono<WorkflowDefinition> getWorkflowDetails(
       final String sessionId, final String workflowId) {
-    return sessionService.getSessionWorkflow(sessionId, workflowId);
+    return workflowExecutionProvider.getWorkflowDetails(sessionId, workflowId);
   }
 
   /**
@@ -124,27 +130,7 @@ public class AppMcpTools {
   @Tool(description = "Trigger a Yukta workflow with an optional JSON payload")
   public Mono<String> triggerWorkflow(
       final String sessionId, final String workflowId, final String payloadJson) {
-    final Mono<String> result;
-    if (payloadJson != null && !payloadJson.isBlank()) {
-      result = parseAndTrigger(sessionId, workflowId, payloadJson);
-    } else {
-      result =
-          Mono.just(workflowService.runWorkflow(sessionId, workflowId, Map.of()).executionId());
-    }
-    return result;
-  }
-
-  private Mono<String> parseAndTrigger(
-      final String sessionId, final String workflowId, final String payloadJson) {
-    Mono<String> result;
-    try {
-      final Map<String, Object> payload =
-          objectMapper.readValue(payloadJson, new TypeReference<>() {});
-      result = Mono.just(workflowService.runWorkflow(sessionId, workflowId, payload).executionId());
-    } catch (final tools.jackson.core.JacksonException e) {
-      result = Mono.error(new IllegalArgumentException("Invalid JSON payload: " + e.getMessage()));
-    }
-    return result;
+    return workflowExecutionProvider.triggerWorkflow(sessionId, workflowId, payloadJson);
   }
 
   /**
@@ -157,10 +143,7 @@ public class AppMcpTools {
   @Tool(description = "Get the current high-level status of a workflow execution")
   public Mono<WorkflowExecutionSummary> getWorkflowStatus(
       final String sessionId, final String executionId) {
-    return Mono.fromCallable(() -> trackerService.getHistory(sessionId))
-        .flatMapIterable(list -> list)
-        .filter(s -> s.executionId().equals(executionId))
-        .next();
+    return workflowExecutionProvider.getWorkflowStatus(sessionId, executionId);
   }
 
   /**
@@ -169,10 +152,8 @@ public class AppMcpTools {
    * @return list of plugin summaries
    */
   @Tool(description = "List all available Yukta workflow plugins")
-  public List<PluginSummary> listPlugins() {
-    return registry.listPlugins().stream()
-        .map(p -> new PluginSummary(p.getType(), p.getCategory()))
-        .toList();
+  public java.util.List<PluginSummary> listPlugins() {
+    return pluginInfoProvider.listPlugins();
   }
 
   /**
@@ -183,16 +164,54 @@ public class AppMcpTools {
    */
   @Tool(description = "Get full details of a specific Yukta plugin including usage pattern")
   public PluginDetails getPluginDetails(final String type) {
-    final WorkflowPlugin plugin = registry.get(type);
-    if (plugin == null) {
-      throw new IllegalArgumentException("Plugin not found: " + type);
-    }
-    return new PluginDetails(
-        plugin.getType(),
-        plugin.getCategory(),
-        plugin.getDescription(),
-        plugin.getUsagePattern(),
-        plugin.getUiDesign().orElse(null),
-        plugin.getOutputPorts());
+    return pluginInfoProvider.getPluginDetails(type);
+  }
+
+  /**
+   * Get control bus status with comprehensive monitoring information.
+   *
+   * @param filterType optional filter ("sessions", "plugins", "health", "executions")
+   * @return ControlBusStatus with monitoring data
+   */
+  @Tool(description = "Get comprehensive control bus status with monitoring information")
+  public ControlBusStatus getControlBusStatus(final String filterType) {
+    return systemHealthProvider.getControlBusStatus(filterType);
+  }
+
+  /**
+   * Get comprehensive instructions on how to create a new Yukta session with workflows and plugins.
+   *
+   * @return SessionCreationGuide with detailed guidance
+   */
+  @Tool(
+      description =
+          "Get comprehensive instructions on how to create a new Yukta session with "
+              + "workflows and plugins")
+  public SessionCreationGuide getSessionCreationInstructions() {
+    return sessionInfoProvider.getSessionCreationInstructions();
+  }
+
+  /**
+   * Create a new Yukta session with the provided configuration JSON.
+   *
+   * @param sessionConfigJson JSON string containing session configuration with sessionId,
+   *     workflows, and other configuration details
+   * @return Mono containing SessionCreationResponse with sessionId, created workflows, warnings,
+   *     and success status
+   */
+  @Tool(description = "Create a new Yukta session with the provided configuration JSON")
+  public Mono<SessionCreationResponse> createSession(final String sessionConfigJson) {
+    return sessionInfoProvider.createSession(sessionConfigJson);
+  }
+
+  /**
+   * Get comprehensive plugin creation guide.
+   *
+   * @param templateType optional filter ("trigger", "processor", "terminal", "all")
+   * @return PluginCreationGuide with comprehensive guidance
+   */
+  @Tool(description = "Get comprehensive guide for creating Yukta plugins with templates")
+  public PluginCreationGuide getPluginCreationGuide(final String templateType) {
+    return pluginInfoProvider.getPluginCreationGuide(templateType);
   }
 }

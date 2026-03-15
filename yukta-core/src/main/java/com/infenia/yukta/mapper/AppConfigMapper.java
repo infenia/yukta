@@ -15,20 +15,20 @@
  */
 package com.infenia.yukta.mapper;
 
-import com.infenia.yukta.model.AppConfigData;
-import com.infenia.yukta.model.ConfigRequest;
+import com.infenia.yukta.model.api.ConfigRequest;
+import com.infenia.yukta.model.session.SessionConfigData;
 import org.mapstruct.Mapper;
 
-/** Mapper for converting between ConfigRequest DTO and AppConfigData service record. */
+/** Mapper for converting between ConfigRequest DTO and SessionConfigData service record. */
 @Mapper(componentModel = "spring")
 @SuppressWarnings("PMD.ImplicitFunctionalInterface")
 public interface AppConfigMapper {
 
   /**
-   * Map ConfigRequest to AppConfigData.
+   * Map ConfigRequest to SessionConfigData.
    *
    * @param request the config request
-   * @return the app config data
+   * @return the session config data
    */
-  AppConfigData toData(ConfigRequest request);
+  SessionConfigData toData(ConfigRequest request);
 }

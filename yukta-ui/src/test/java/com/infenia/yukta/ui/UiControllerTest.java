@@ -76,13 +76,13 @@ class UiControllerTest {
 
   @Test
   void testIndex() {
-    when(sessionService.getActiveSessions()).thenReturn(Flux.empty());
+    when(sessionService.getSessionIds()).thenReturn(Flux.empty());
     webTestClient.get().uri("/ui").exchange().expectStatus().isOk();
   }
 
   @Test
   void testHistory() {
-    when(sessionService.getHistorySessions()).thenReturn(Flux.empty());
+    when(sessionService.getSessionIds()).thenReturn(Flux.empty());
     webTestClient.get().uri("/ui/history").exchange().expectStatus().isOk();
   }
 

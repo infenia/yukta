@@ -16,114 +16,168 @@
 package com.infenia.yukta.mcp;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.mockito.ArgumentMatchers.anyMap;
-import static org.mockito.ArgumentMatchers.eq;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import com.infenia.yukta.model.WorkflowExecution;
-import com.infenia.yukta.plugin.core.PluginCategory;
-import com.infenia.yukta.plugin.core.WorkflowPlugin;
-import com.infenia.yukta.service.SessionService;
-import com.infenia.yukta.service.TaskTrackerService;
-import com.infenia.yukta.service.WorkflowRegistry;
-import com.infenia.yukta.service.WorkflowService;
+import com.infenia.yukta.mcp.provider.DefaultLogProvider;
+import com.infenia.yukta.mcp.provider.DefaultPluginInfoProvider;
+import com.infenia.yukta.mcp.provider.DefaultSessionInfoProvider;
+import com.infenia.yukta.mcp.provider.DefaultSystemHealthProvider;
+import com.infenia.yukta.mcp.provider.DefaultWorkflowExecutionProvider;
+import com.infenia.yukta.model.api.ControlBusStatus;
+import com.infenia.yukta.model.api.PluginCreationGuide;
+import com.infenia.yukta.model.api.PluginDetails;
+import com.infenia.yukta.model.api.PluginSummary;
+import com.infenia.yukta.model.api.SessionCreationGuide;
+import com.infenia.yukta.model.api.SessionCreationResponse;
+import com.infenia.yukta.model.api.SessionDetails;
+import com.infenia.yukta.model.api.SessionInfo;
+import com.infenia.yukta.model.monitoring.WorkflowExecutionSummary;
+import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import java.util.List;
-import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
-import tools.jackson.databind.ObjectMapper;
 
 class AppMcpToolsTest {
 
   private AppMcpTools mcpTools;
-  private WorkflowService workflowService;
-  private SessionService sessionService;
-  private TaskTrackerService trackerService;
-  private WorkflowRegistry registry;
-  private ObjectMapper objectMapper;
+  private DefaultSessionInfoProvider sessionInfoProvider;
+  private DefaultLogProvider logProvider;
+  private DefaultWorkflowExecutionProvider workflowExecutionProvider;
+  private DefaultPluginInfoProvider pluginInfoProvider;
+  private DefaultSystemHealthProvider systemHealthProvider;
 
   @BeforeEach
   void setUp() {
-    workflowService = mock(WorkflowService.class);
-    sessionService = mock(SessionService.class);
-    trackerService = mock(TaskTrackerService.class);
-    registry = mock(WorkflowRegistry.class);
-    objectMapper = new ObjectMapper();
+    sessionInfoProvider = mock(DefaultSessionInfoProvider.class);
+    logProvider = mock(DefaultLogProvider.class);
+    workflowExecutionProvider = mock(DefaultWorkflowExecutionProvider.class);
+    pluginInfoProvider = mock(DefaultPluginInfoProvider.class);
+    systemHealthProvider = mock(DefaultSystemHealthProvider.class);
     mcpTools =
-        new AppMcpTools(workflowService, sessionService, trackerService, registry, objectMapper);
-  }
-
-  @Test
-  void testListSessions() {
-    when(sessionService.getActiveSessions()).thenReturn(Flux.just("session-1"));
-    when(sessionService.getSessionConfig("session-1"))
-        .thenReturn(
-            Mono.just(
-                Map.of(
-                    "initiator", "user",
-                    "initiatedTime", "2023-01-01T00:00:00Z",
-                    "description", "test desc",
-                    "tags", Map.of("env", "prod"))));
-    when(trackerService.getHistory("session-1")).thenReturn(List.of());
-
-    StepVerifier.create(mcpTools.listSessions())
-        .expectNextMatches(
-            list ->
-                list.size() == 1
-                    && list.get(0).sessionId().equals("session-1")
-                    && list.get(0).initiator().equals("user"))
-        .verifyComplete();
+        new AppMcpTools(
+            sessionInfoProvider,
+            logProvider,
+            workflowExecutionProvider,
+            pluginInfoProvider,
+            systemHealthProvider);
   }
 
   @Test
   void testGetSessionDetails() {
-    when(sessionService.getSessionConfig("session-1"))
-        .thenReturn(Mono.just(Map.of("workflows", Map.of("wf-1", Map.of()))));
+    var details = mock(SessionDetails.class);
+    when(sessionInfoProvider.getSessionDetails("session-1")).thenReturn(Mono.just(details));
 
     StepVerifier.create(mcpTools.getSessionDetails("session-1"))
-        .expectNextMatches(
-            details ->
-                details.sessionId().equals("session-1") && details.workflowIds().contains("wf-1"))
+        .expectNext(details)
         .verifyComplete();
   }
 
   @Test
-  void testTriggerWorkflow() {
-    WorkflowExecution execution = new WorkflowExecution("exec-1", Mono.empty());
-    when(workflowService.runWorkflow(eq("sess-1"), eq("wf-1"), anyMap())).thenReturn(execution);
+  void testListSessions() {
+    var info = mock(SessionInfo.class);
+    when(sessionInfoProvider.listSessions()).thenReturn(Flux.just(info));
 
-    StepVerifier.create(mcpTools.triggerWorkflow("sess-1", "wf-1", "{\"key\":\"val\"}"))
+    StepVerifier.create(mcpTools.listSessions()).expectNext(info).verifyComplete();
+  }
+
+  @Test
+  void testStreamSessionLogs() {
+    when(logProvider.streamSessionLogs("s1", null, null, null)).thenReturn(Flux.just("log1"));
+
+    StepVerifier.create(mcpTools.streamSessionLogs("s1", null, null, null))
+        .expectNextCount(1)
+        .verifyComplete();
+  }
+
+  @Test
+  void testGetWorkflowExecutionLogs() {
+    when(logProvider.getWorkflowExecutionLogs("s1", "e1", null)).thenReturn(Mono.just("logs"));
+
+    StepVerifier.create(mcpTools.getWorkflowExecutionLogs("s1", "e1", null))
+        .expectNext("logs")
+        .verifyComplete();
+  }
+
+  @Test
+  void testGetWorkflowDetails() {
+    var def = mock(WorkflowDefinition.class);
+    when(workflowExecutionProvider.getWorkflowDetails("s1", "w1")).thenReturn(Mono.just(def));
+
+    StepVerifier.create(mcpTools.getWorkflowDetails("s1", "w1")).expectNext(def).verifyComplete();
+  }
+
+  @Test
+  void testTriggerWorkflow() {
+    when(workflowExecutionProvider.triggerWorkflow("s1", "w1", null))
+        .thenReturn(Mono.just("exec-1"));
+
+    StepVerifier.create(mcpTools.triggerWorkflow("s1", "w1", null))
         .expectNext("exec-1")
         .verifyComplete();
   }
 
   @Test
+  void testGetWorkflowStatus() {
+    var summary = mock(WorkflowExecutionSummary.class);
+    when(workflowExecutionProvider.getWorkflowStatus("s1", "e1")).thenReturn(Mono.just(summary));
+
+    StepVerifier.create(mcpTools.getWorkflowStatus("s1", "e1"))
+        .expectNext(summary)
+        .verifyComplete();
+  }
+
+  @Test
   void testListPlugins() {
-    WorkflowPlugin plugin = mock(WorkflowPlugin.class);
-    when(plugin.getType()).thenReturn("test-plugin");
-    when(plugin.getCategory()).thenReturn(PluginCategory.PROCESSOR);
-    when(registry.listPlugins()).thenReturn(List.of(plugin));
+    var summary = mock(PluginSummary.class);
+    when(pluginInfoProvider.listPlugins()).thenReturn(List.of(summary));
 
     var plugins = mcpTools.listPlugins();
     assertEquals(1, plugins.size());
-    assertEquals("test-plugin", plugins.get(0).type());
   }
 
   @Test
   void testGetPluginDetails() {
-    WorkflowPlugin plugin = mock(WorkflowPlugin.class);
-    when(plugin.getType()).thenReturn("test-plugin");
-    when(plugin.getCategory()).thenReturn(PluginCategory.PROCESSOR);
-    when(plugin.getDescription()).thenReturn("desc");
-    when(plugin.getUsagePattern()).thenReturn("pattern");
-    when(registry.get("test-plugin")).thenReturn(plugin);
+    var details = mock(PluginDetails.class);
+    when(pluginInfoProvider.getPluginDetails("test")).thenReturn(details);
 
-    var details = mcpTools.getPluginDetails("test-plugin");
-    assertEquals("test-plugin", details.type());
-    assertEquals("desc", details.description());
+    var result = mcpTools.getPluginDetails("test");
+    assertEquals(details, result);
+  }
+
+  @Test
+  void testGetControlBusStatus() {
+    var status = mock(ControlBusStatus.class);
+    when(systemHealthProvider.getControlBusStatus(null)).thenReturn(status);
+
+    assertNotNull(mcpTools.getControlBusStatus(null));
+  }
+
+  @Test
+  void testGetSessionCreationInstructions() {
+    var guide = mock(SessionCreationGuide.class);
+    when(sessionInfoProvider.getSessionCreationInstructions()).thenReturn(guide);
+
+    assertNotNull(mcpTools.getSessionCreationInstructions());
+  }
+
+  @Test
+  void testCreateSession() {
+    var response = mock(SessionCreationResponse.class);
+    when(sessionInfoProvider.createSession("{}")).thenReturn(Mono.just(response));
+
+    StepVerifier.create(mcpTools.createSession("{}")).expectNext(response).verifyComplete();
+  }
+
+  @Test
+  void testGetPluginCreationGuide() {
+    var guide = mock(PluginCreationGuide.class);
+    when(pluginInfoProvider.getPluginCreationGuide("all")).thenReturn(guide);
+
+    assertNotNull(mcpTools.getPluginCreationGuide("all"));
   }
 }

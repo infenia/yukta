@@ -244,7 +244,229 @@ class BranchProcessorTest {
   }
 
   @Test
-  void testType() {
+  void testMetadata() {
+    assertTrue(processor.getDescription().contains("Routes"));
+    assertTrue(processor.getUsagePattern().contains("mode"));
+  }
+
+  @Test
+  void testDefaultLifecycle() {
+    processor.initialize(Map.of()).block();
+    processor.prepare(Map.of()).block();
+    processor.shutdown(Map.of()).block();
+    processor.onControlSignal(null).block();
+  }
+
+  @Test
+  void testPrepare() {
+    // SELECT_KEY
+    processor.prepare(Map.of("mode", "SELECT_KEY", "selector", "payload.x")).block();
+    // EXPRESSION
+    processor
+        .prepare(Map.of("mode", "EXPRESSION", "cases", Map.of("payload.x == 1", "port")))
+        .block();
+    // No-op
+    processor.prepare(Map.of("mode", "OTHER")).block();
+  }
+
+  @Test
+  void testValidateInContext() {
+    final Map<String, Object> config = Map.of("cases", Map.of("1", "port1"), "defaultPort", "def");
+
+    // Success
+    final com.infenia.yukta.plugin.core.WorkflowContext successContext =
+        new com.infenia.yukta.plugin.core.WorkflowContext(
+            "node1",
+            List.of(
+                new com.infenia.yukta.plugin.core.WorkflowContext.WorkflowEdge(
+                    "node1", "t1", "port1"),
+                new com.infenia.yukta.plugin.core.WorkflowContext.WorkflowEdge(
+                    "node1", "t2", "def")),
+            List.of());
+    StepVerifier.create(processor.validateInContext(successContext, config)).verifyComplete();
+
+    // Error - missing edge for port
+    final com.infenia.yukta.plugin.core.WorkflowContext errorContext =
+        new com.infenia.yukta.plugin.core.WorkflowContext(
+            "node1",
+            List.of(
+                new com.infenia.yukta.plugin.core.WorkflowContext.WorkflowEdge(
+                    "node1", "t1", "port1")),
+            List.of());
+    StepVerifier.create(processor.validateInContext(errorContext, config))
+        .expectErrorMatches(
+            e ->
+                e instanceof IllegalArgumentException
+                    && e.getMessage().contains("no outgoing edge"))
+        .verify();
+
+    // Cases null handled by getOrDefault
+    StepVerifier.create(processor.validateInContext(errorContext, Map.of())).verifyComplete();
+  }
+
+  @Test
+  void testProcessEvaluationFailureNoPort() {
+    final Map<String, Object> config =
+        Map.of("mode", "SELECT_KEY", "selector", "payload.val.fail()");
+    final Message msg = DefaultMessage.create(UUID.randomUUID(), Map.of("val", 1));
+
+    // Strict
+    StepVerifier.create(processor.process(Flux.just(msg), config)).expectError().verify();
+
+    // Non-strict
+    final Map<String, Object> nonStrict = new java.util.HashMap<>(config);
+    nonStrict.put("strictMode", false);
+    StepVerifier.create(processor.process(Flux.just(msg), nonStrict)).verifyComplete();
+  }
+
+  @Test
+  void testExpressionModeNoMatch() {
+    final Map<String, String> cases = Map.of("payload.score > 100", "impossible");
+    final Map<String, Object> config = Map.of("mode", "EXPRESSION", "cases", cases);
+    final Message msg = DefaultMessage.create(UUID.randomUUID(), Map.of("score", 50));
+
+    StepVerifier.create(processor.process(Flux.just(msg), config))
+        .expectError(NoMatchingBranchException.class)
+        .verify();
+  }
+
+  @Test
+  void testSelectKeyNoMatchResult() {
+    final Map<String, Object> config =
+        Map.of(
+            "mode",
+            "SELECT_KEY",
+            "selector",
+            "payload.missing",
+            "cases",
+            Map.of("VAL", "port"),
+            "strictMode",
+            false);
+    final Message msg = DefaultMessage.create(UUID.randomUUID(), Map.of());
+
+    StepVerifier.create(processor.process(Flux.just(msg), config)).verifyComplete();
+  }
+
+  @Test
+  void testGetOutputPortsEmpty() {
+    assertEquals(List.of("default"), processor.getOutputPorts(Map.of()));
+  }
+
+  @Test
+  void testPrepareExpressionNullCases() {
+    StepVerifier.create(processor.prepare(Map.of("mode", "EXPRESSION"))).verifyComplete();
+  }
+
+  @Test
+  void testGetType() {
     assertEquals("BRANCH", processor.getType());
+  }
+
+  @Test
+  void testHandleExceptionNoStrictMode() {
+    final Map<String, Object> config =
+        Map.of(
+            "mode", "SELECT_KEY",
+            "selector", "payload.val.fail()",
+            "strictMode", false);
+    final Message msg = DefaultMessage.create(UUID.randomUUID(), Map.of("val", 1));
+
+    StepVerifier.create(processor.process(Flux.just(msg), config)).verifyComplete();
+  }
+
+  @Test
+  void testHandleExceptionWrapped() {
+    final Map<String, Object> config = Map.of("mode", "SELECT_KEY", "selector", "1/0");
+    final Message msg = DefaultMessage.create(UUID.randomUUID(), Map.of());
+
+    StepVerifier.create(processor.process(Flux.just(msg), config))
+        .expectErrorMatches(
+            e ->
+                e instanceof RuntimeException
+                    && e.getMessage().contains("Branch evaluation failed"))
+        .verify();
+  }
+
+  @Test
+  void testSelectKeyResultNull() {
+    final Map<String, Object> config =
+        Map.of(
+            "mode", "SELECT_KEY",
+            "selector",
+                "payload['missing']", // Use bracket notation for Map to avoid reflection issues
+            "cases", Map.of("A", "portA"),
+            "defaultPort", "def");
+    final Message<Map<String, Object>> msg = DefaultMessage.create(UUID.randomUUID(), Map.of());
+
+    StepVerifier.create(processor.process(Flux.just(msg), config))
+        .expectNextMatches(m -> "def".equals(m.getSourcePort()))
+        .verifyComplete();
+  }
+
+  @Test
+  void testSelectKeyPortNotFound() {
+    final Map<String, Object> config =
+        Map.of(
+            "mode", "SELECT_KEY",
+            "selector", "payload.val",
+            "cases", Map.of("A", "portA"),
+            "defaultPort", "def");
+    final Message msg = DefaultMessage.create(UUID.randomUUID(), Map.of("val", "B"));
+
+    StepVerifier.create(processor.process(Flux.just(msg), config))
+        .expectNextMatches(m -> "def".equals(m.getSourcePort()))
+        .verifyComplete();
+  }
+
+  @Test
+  void testGetOutputPortsWithBlanks() {
+    final Map<String, Object> config =
+        Map.of(
+            "mode", "SELECT_KEY",
+            "cases", Map.of("A", "portA"),
+            "defaultPort", " ",
+            "errorPort", "");
+
+    final List<String> ports = processor.getOutputPorts(config);
+    assertEquals(List.of("portA"), ports);
+  }
+
+  @Test
+  void testValidateConfigMissingCases() {
+    final Map<String, Object> config = Map.of("mode", "SELECT_KEY", "selector", "s");
+    StepVerifier.create(processor.validateConfig(config))
+        .expectErrorMatches(
+            e -> e instanceof IllegalArgumentException && e.getMessage().contains("cases map"))
+        .verify();
+  }
+
+  @Test
+  void testValidateConfigSelectorNull() {
+    final Map<String, Object> config = Map.of("mode", "SELECT_KEY", "cases", Map.of("A", "portA"));
+    StepVerifier.create(processor.validateConfig(config))
+        .expectErrorMatches(
+            e -> e instanceof IllegalArgumentException && e.getMessage().contains("selector"))
+        .verify();
+  }
+
+  @Test
+  void testEvaluateBranchesEmptyCases() {
+    final Map<String, Object> config =
+        Map.of("mode", "SELECT_KEY", "selector", "'A'", "cases", Map.of());
+    final Message<Map<String, Object>> msg = DefaultMessage.create(UUID.randomUUID(), Map.of());
+
+    StepVerifier.create(processor.process(Flux.just(msg), config))
+        .expectError(NoMatchingBranchException.class)
+        .verify();
+  }
+
+  @Test
+  void testHandleExceptionNullErrorPort() {
+    final Map<String, Object> config = Map.of("mode", "SELECT_KEY", "selector", "1/0");
+    final Message<Map<String, Object>> msg = DefaultMessage.create(UUID.randomUUID(), Map.of());
+
+    StepVerifier.create(processor.process(Flux.just(msg), config))
+        .expectError(RuntimeException.class)
+        .verify();
   }
 }

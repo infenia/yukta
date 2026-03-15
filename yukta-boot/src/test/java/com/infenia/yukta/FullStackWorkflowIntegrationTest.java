@@ -18,11 +18,11 @@ package com.infenia.yukta;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.infenia.yukta.harness.WorkflowTestHarness;
-import com.infenia.yukta.model.ConfigRequest;
-import com.infenia.yukta.model.WorkflowDefinition;
-import com.infenia.yukta.model.WorkflowDefinition.Edge;
-import com.infenia.yukta.model.WorkflowDefinition.Node;
-import com.infenia.yukta.model.WorkflowProgress;
+import com.infenia.yukta.model.api.ConfigRequest;
+import com.infenia.yukta.model.monitoring.WorkflowProgress;
+import com.infenia.yukta.model.workflow.WorkflowDefinition;
+import com.infenia.yukta.model.workflow.WorkflowDefinition.Edge;
+import com.infenia.yukta.model.workflow.WorkflowDefinition.Node;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;

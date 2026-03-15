@@ -17,6 +17,7 @@ package com.infenia.yukta.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -25,6 +26,10 @@ import com.infenia.yukta.plugin.message.DefaultMessage;
 import com.infenia.yukta.plugin.message.Message;
 import com.infenia.yukta.plugin.message.control.ControlHeartbeat;
 import com.infenia.yukta.plugin.message.control.ControlStatistics;
+import com.infenia.yukta.service.control.ControlHeartbeatHandler;
+import com.infenia.yukta.service.control.ControlSignalHandler;
+import com.infenia.yukta.service.control.ControlStatisticsHandler;
+import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import reactor.core.publisher.Mono;
@@ -36,7 +41,9 @@ class ControlBusServiceTest {
 
   @BeforeEach
   void setUp() {
-    service = new ControlBusService();
+    final List<ControlSignalHandler> handlers =
+        List.of(new ControlHeartbeatHandler(), new ControlStatisticsHandler());
+    service = new ControlBusService(100, 50, 256, handlers);
     service.init();
   }
 
@@ -53,10 +60,10 @@ class ControlBusServiceTest {
 
   @Test
   void testHeartbeatAndStatistics() {
-    ControlHeartbeat hb = mock(ControlHeartbeat.class);
+    ControlHeartbeat hb = new ControlHeartbeat("node1", 1000L);
     Message<ControlHeartbeat> hbMsg = DefaultMessage.create(null, hb).withSourceNodeId("node1");
 
-    ControlStatistics stats = mock(ControlStatistics.class);
+    ControlStatistics stats = new ControlStatistics("node1", 100.0, 50.0);
     Message<ControlStatistics> statsMsg =
         DefaultMessage.create(null, stats).withSourceNodeId("node1");
 
@@ -91,5 +98,100 @@ class ControlBusServiceTest {
     StepVerifier.create(service.sendCommand("node1", cmd))
         .expectError(IllegalArgumentException.class)
         .verify();
+  }
+
+  @Test
+  void testInitCustomBufferSize() {
+    ControlBusService customService = new ControlBusService(10, 10, 512, List.of());
+    customService.init();
+    customService.shutdown();
+  }
+
+  @Test
+  void testInitZeroBufferSize() {
+    // bufferSize=0: condition (bufferSize > 0 && bufferSize != 256) is false
+    ControlBusService zeroBufferService = new ControlBusService(10, 10, 0, List.of());
+    zeroBufferService.init();
+    zeroBufferService.shutdown();
+  }
+
+  @Test
+  void testInitNegativeBufferSize() {
+    // bufferSize=-1: condition (bufferSize > 0 && bufferSize != 256) is false
+    ControlBusService negativeBufferService = new ControlBusService(10, 10, -1, List.of());
+    negativeBufferService.init();
+    negativeBufferService.shutdown();
+  }
+
+  @Test
+  void testBatchProcessingError() throws Exception {
+    ControlSignalHandler failingHandler = mock(ControlSignalHandler.class);
+    when(failingHandler.canHandle(any())).thenReturn(true);
+    // Throw error during handle
+    org.mockito.Mockito.doThrow(new RuntimeException("batch fail"))
+        .when(failingHandler)
+        .handle(any(), any(), any());
+
+    ControlBusService errService = new ControlBusService(1, 1, 256, List.of(failingHandler));
+    errService.init();
+
+    Message<String> msg = DefaultMessage.create(null, "payload").withSourceNodeId("node1");
+    errService.emit(msg).block();
+
+    // Wait for processing
+    Thread.sleep(100);
+    errService.shutdown();
+  }
+
+  @Test
+  void testEmitError() throws Exception {
+    // Force a failure in the sink
+    ControlBusService serviceWithFullSink = new ControlBusService(100, 50, 256, List.of());
+    // Directly close the sink to force emit fail
+    java.lang.reflect.Field sinkField = ControlBusService.class.getDeclaredField("controlSink");
+    sinkField.setAccessible(true);
+    reactor.core.publisher.Sinks.Many<Message<?>> mockSink =
+        mock(reactor.core.publisher.Sinks.Many.class);
+    org.mockito.Mockito.doThrow(new RuntimeException("sink fail"))
+        .when(mockSink)
+        .emitNext(any(), any());
+    sinkField.set(serviceWithFullSink, mockSink);
+
+    StepVerifier.create(serviceWithFullSink.emit(DefaultMessage.create(null, "d")))
+        .expectError(IllegalStateException.class)
+        .verify();
+  }
+
+  @Test
+  void testHandleControlBatchBranches() throws Exception {
+    ControlBusService testService = new ControlBusService(100, 50, 256, List.of());
+    java.lang.reflect.Method handleBatch =
+        ControlBusService.class.getDeclaredMethod("handleControlBatch", List.class);
+    handleBatch.setAccessible(true);
+
+    // Case: nodeId is null
+    Message<String> msgNoNode = DefaultMessage.create(null, "p");
+    handleBatch.invoke(testService, List.of(msgNoNode));
+
+    // Case: payload is null (if it's even possible with DefaultMessage.create)
+    // We can't easily create a message with null payload via DefaultMessage.create,
+    // but we can mock it.
+    Message<?> mockMsg = mock(Message.class);
+    when(mockMsg.getPayload()).thenReturn(null);
+    when(mockMsg.getSourceNodeId()).thenReturn("node1");
+    handleBatch.invoke(testService, List.of(mockMsg));
+  }
+
+  @Test
+  void testGetActiveNodesEmpty() {
+    ControlBusService emptyService = new ControlBusService(100, 50, 256, List.of());
+    assertTrue(emptyService.getActiveNodes().isEmpty());
+  }
+
+  @Test
+  void testGetHeartbeatAndStatsMissing() {
+    ControlBusService emptyService = new ControlBusService(100, 50, 256, List.of());
+    org.junit.jupiter.api.Assertions.assertNull(emptyService.getLastHeartbeat("n1"));
+    org.junit.jupiter.api.Assertions.assertNull(emptyService.getLastStatistics("n1"));
   }
 }

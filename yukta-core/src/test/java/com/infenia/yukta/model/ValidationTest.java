@@ -18,6 +18,8 @@ package com.infenia.yukta.model;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.infenia.yukta.model.session.SessionConfigData;
+import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Validation;
 import jakarta.validation.Validator;
@@ -47,36 +49,37 @@ class ValidationTest {
   }
 
   @Test
-  void testAppConfigDataValid() {
+  void testSessionConfigDataValid() {
     WorkflowDefinition def =
         new WorkflowDefinition(
             "desc", List.of(new WorkflowDefinition.Node("n1", "gradle", Map.of())), List.of());
-    AppConfigData data =
-        new AppConfigData("session-1", "desc", "initiator-1", Map.of(), "/path", Map.of("w1", def));
-    Set<ConstraintViolation<AppConfigData>> violations = validator.validate(data);
+    SessionConfigData data =
+        new SessionConfigData(
+            "session-1", "desc", "initiator-1", Map.of(), "/path", Map.of("w1", def));
+    Set<ConstraintViolation<SessionConfigData>> violations = validator.validate(data);
     assertTrue(violations.isEmpty());
   }
 
   @Test
-  void testAppConfigDataInvalidSession() {
+  void testSessionConfigDataInvalidSession() {
     WorkflowDefinition def = new WorkflowDefinition("desc", List.of(), List.of());
-    AppConfigData data =
-        new AppConfigData(
+    SessionConfigData data =
+        new SessionConfigData(
             "../session", "desc", "initiator-1", Map.of(), "/path", Map.of("w1", def));
-    Set<ConstraintViolation<AppConfigData>> violations = validator.validate(data);
+    Set<ConstraintViolation<SessionConfigData>> violations = validator.validate(data);
     assertFalse(violations.isEmpty());
     assertTrue(
         violations.stream().anyMatch(v -> v.getMessage().contains("Invalid session ID format")));
   }
 
   @Test
-  void testAppConfigDataDescriptionTooLong() {
+  void testSessionConfigDataDescriptionTooLong() {
     WorkflowDefinition def = new WorkflowDefinition("desc", List.of(), List.of());
     String longDesc = "a".repeat(257);
-    AppConfigData data =
-        new AppConfigData(
+    SessionConfigData data =
+        new SessionConfigData(
             "session-1", longDesc, "initiator-1", Map.of(), "/path", Map.of("w1", def));
-    Set<ConstraintViolation<AppConfigData>> violations = validator.validate(data);
+    Set<ConstraintViolation<SessionConfigData>> violations = validator.validate(data);
     assertFalse(violations.isEmpty());
     assertTrue(
         violations.stream()

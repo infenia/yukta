@@ -15,11 +15,11 @@
  */
 package com.infenia.yukta.service;
 
-import com.infenia.yukta.config.AppConfigService;
 import com.infenia.yukta.plugin.exception.WorkflowExecutionException;
 import com.infenia.yukta.plugin.gateway.ResultCollector;
 import com.infenia.yukta.plugin.gateway.WorkflowGateway;
 import com.infenia.yukta.plugin.message.Message;
+import com.infenia.yukta.service.session.SessionConfigStore;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -39,17 +39,17 @@ import reactor.core.publisher.Mono;
 public class DefaultWorkflowGateway implements WorkflowGateway {
 
   private final ObjectProvider<WorkflowOrchestrator> orchProv;
-  private final ObjectProvider<AppConfigService> cfgServProv;
+  private final ObjectProvider<SessionConfigStore> cfgServProv;
 
   /**
    * Constructor for DefaultWorkflowGateway.
    *
    * @param orchProv provider for WorkflowOrchestrator
-   * @param cfgServProv provider for AppConfigService
+   * @param cfgServProv provider for SessionConfigStore
    */
   public DefaultWorkflowGateway(
       final ObjectProvider<WorkflowOrchestrator> orchProv,
-      final ObjectProvider<AppConfigService> cfgServProv) {
+      final ObjectProvider<SessionConfigStore> cfgServProv) {
     this.orchProv = orchProv;
     this.cfgServProv = cfgServProv;
   }
@@ -62,7 +62,7 @@ public class DefaultWorkflowGateway implements WorkflowGateway {
       final Map<String, Object> payload) {
 
     final WorkflowOrchestrator orchestrator = orchProv.getIfAvailable();
-    final AppConfigService configService = cfgServProv.getIfAvailable();
+    final SessionConfigStore configService = cfgServProv.getIfAvailable();
 
     if (orchestrator == null || configService == null) {
       return Mono.error(

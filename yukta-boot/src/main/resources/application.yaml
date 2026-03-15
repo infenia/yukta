@@ -22,6 +22,25 @@ logging:
     org.springframework: WARN
     org.springframework.web: DEBUG
 
+yukta:
+  session:
+    base-dir: ${user.home}/.yukta
+    file-log-sub-dir: modified-files
+    result-log-sub-dir: results
+    execution-timeout-seconds: 3600
+    store-type: in-memory
+  tracker:
+    cleanup-ttl: 10m
+
+control:
+  bus:
+    batch:
+      size: 100          # Number of control signals to batch before processing
+      timeout:
+        ms: 50           # Timeout (in ms) for batch accumulation
+    buffer:
+      size: 256          # Internal buffer size (Queues.SMALL_BUFFER_SIZE = 256)
+
 gg:
   jte:
     developmentMode: true

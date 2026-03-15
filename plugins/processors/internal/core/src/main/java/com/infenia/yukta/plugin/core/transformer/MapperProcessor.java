@@ -18,6 +18,7 @@ package com.infenia.yukta.plugin.core.transformer;
 import com.github.jknack.handlebars.Handlebars;
 import com.github.jknack.handlebars.Template;
 import com.infenia.yukta.plugin.core.UiDesign;
+import com.infenia.yukta.plugin.core.WorkflowContext;
 import com.infenia.yukta.plugin.core.util.MapMessageMapper;
 import com.infenia.yukta.plugin.message.DefaultMessage;
 import com.infenia.yukta.plugin.message.Message;
@@ -55,7 +56,9 @@ import tools.jackson.databind.ObjectMapper;
   "PMD.CyclomaticComplexity",
   "PMD.UseConcurrentHashMap",
   "PMD.GodClass",
-  "PMD.LawOfDemeter"
+  "PMD.LawOfDemeter",
+  "PMD.CouplingBetweenObjects",
+  "PMD.CollapsibleIfStatements"
 })
 public class MapperProcessor implements ProcessorPlugin {
 
@@ -72,6 +75,8 @@ public class MapperProcessor implements ProcessorPlugin {
   private static final String STRICT = "strictMode";
 
   private static final String ERR_PREFIX = "WorkflowExecutionException: ";
+
+  private static final int SCRIPT_LIMIT = 50;
 
   private static final Engine JS_ENGINE =
       Engine.newBuilder().option("engine.WarnInterpreterOnly", "false").build();
@@ -397,5 +402,42 @@ public class MapperProcessor implements ProcessorPlugin {
       return Mono.error(new IllegalArgumentException("mapping is mandatory"));
     }
     return Mono.empty();
+  }
+
+  @Override
+  public boolean isComputationallyHeavy(final Map<String, Object> config) {
+    final String mode = (String) config.get(CONFIG_MODE);
+    return MODE_SCRIPT.equals(mode);
+  }
+
+  @Override
+  public Mono<Void> validateInContext(
+      final WorkflowContext context, final Map<String, Object> config) {
+    final String mode = (String) config.get(CONFIG_MODE);
+    final Object mapping = config.get(CONFIG_MAPPING);
+
+    if (MODE_SCRIPT.equals(mode) && mapping instanceof String script) {
+      if (isSimpleScript(script)) {
+        log.atWarn()
+            .log(
+                "Mapper node {} uses SCRIPT mode for a simple transformation. "
+                    + "Consider using PROJECTION mode for better performance.",
+                context.nodeId());
+      }
+    }
+    return Mono.empty();
+  }
+
+  private static boolean isSimpleScript(final String script) {
+    boolean simple = false;
+    if (script.length() < SCRIPT_LIMIT) {
+      final String low = script.toLowerCase(java.util.Locale.ROOT);
+      simple =
+          !low.contains("if")
+              && !low.contains("for")
+              && !low.contains("function")
+              && !low.contains("while");
+    }
+    return simple;
   }
 }

@@ -15,11 +15,11 @@
  */
 package com.infenia.yukta.controller;
 
-import com.infenia.yukta.model.ApiResponse;
-import com.infenia.yukta.model.TriggerResponse;
-import com.infenia.yukta.model.WorkflowExecutionSummary;
-import com.infenia.yukta.model.WorkflowProgress;
-import com.infenia.yukta.model.WorkflowTriggerRequest;
+import com.infenia.yukta.model.api.ApiResponse;
+import com.infenia.yukta.model.api.TriggerResponse;
+import com.infenia.yukta.model.api.WorkflowTriggerRequest;
+import com.infenia.yukta.model.monitoring.WorkflowExecutionSummary;
+import com.infenia.yukta.model.monitoring.WorkflowProgress;
 import com.infenia.yukta.service.LogRetrievalService;
 import com.infenia.yukta.service.TaskTrackerService;
 import com.infenia.yukta.service.WorkflowService;

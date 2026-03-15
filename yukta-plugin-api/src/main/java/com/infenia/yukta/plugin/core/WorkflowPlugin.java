@@ -154,4 +154,39 @@ public interface WorkflowPlugin {
   default Mono<Message<?>> onControlSignal(Message<?> signal) {
     return Mono.empty();
   }
+
+  /**
+   * Validate this plugin's role in the workflow graph, given adjacent edges and configuration.
+   * Called during workflow validation to enforce plugin-specific DAG constraints.
+   *
+   * @param context the workflow context containing this node's adjacent edges
+   * @param config the plugin configuration
+   * @return a Mono that completes if validation is successful, or emits an error
+   */
+  default Mono<Void> validateInContext(WorkflowContext context, Map<String, Object> config) {
+    return Mono.empty();
+  }
+
+  /**
+   * Indicates whether this plugin performs computationally heavy operations for the given
+   * configuration. Used by validators to detect performance optimization opportunities.
+   *
+   * @param config the plugin configuration
+   * @return true if the plugin is computationally heavy, false otherwise
+   */
+  default boolean isComputationallyHeavy(Map<String, Object> config) {
+    return false;
+  }
+
+  /**
+   * Indicates whether placement of this node at its current position is intentional and should not
+   * trigger optimization suggestions. Used by FILTER and other nodes that may be intentionally
+   * placed after heavy computation.
+   *
+   * @param config the plugin configuration
+   * @return true if placement is intentional and optimization warnings should be suppressed
+   */
+  default boolean suppressOptimizationHint(Map<String, Object> config) {
+    return false;
+  }
 }

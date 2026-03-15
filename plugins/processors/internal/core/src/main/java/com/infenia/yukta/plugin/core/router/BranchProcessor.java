@@ -16,6 +16,7 @@
 package com.infenia.yukta.plugin.core.router;
 
 import com.infenia.yukta.plugin.core.UiDesign;
+import com.infenia.yukta.plugin.core.WorkflowContext;
 import com.infenia.yukta.plugin.exception.NoMatchingBranchException;
 import com.infenia.yukta.plugin.message.Message;
 import com.infenia.yukta.plugin.type.ProcessorPlugin;
@@ -26,6 +27,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
@@ -42,7 +44,8 @@ import reactor.core.publisher.Mono;
   "PMD.CognitiveComplexity",
   "PMD.AvoidDeeplyNestedIfStmts",
   "PMD.ExceptionAsFlowControl",
-  "PMD.AvoidCatchingGenericException"
+  "PMD.AvoidCatchingGenericException",
+  "PMD.UselessParentheses"
 })
 public class BranchProcessor implements ProcessorPlugin {
 
@@ -256,7 +259,7 @@ public class BranchProcessor implements ProcessorPlugin {
   @SuppressWarnings(UNCHECKED)
   public Mono<Void> validateConfig(final Map<String, Object> config) {
     final String mode = (String) config.get(CONFIG_MODE);
-    if (mode == null || (!MODE_SELECT_KEY.equals(mode) && !MODE_EXPRESSION.equals(mode))) {
+    if ((!MODE_SELECT_KEY.equals(mode) && !MODE_EXPRESSION.equals(mode))) {
       return Mono.error(
           new IllegalArgumentException(
               "Invalid or missing mode. Must be SELECT_KEY or EXPRESSION"));
@@ -269,5 +272,44 @@ public class BranchProcessor implements ProcessorPlugin {
       return Mono.error(new IllegalArgumentException("cases map is mandatory and cannot be empty"));
     }
     return Mono.empty();
+  }
+
+  @Override
+  @SuppressWarnings(UNCHECKED)
+  public Mono<Void> validateInContext(
+      final WorkflowContext context, final Map<String, Object> config) {
+    // Each case/default port must have an outgoing edge
+    final Map<String, String> cases =
+        (Map<String, String>) config.getOrDefault(CONFIG_CASES, Map.of());
+    final String defaultPort = (String) config.get(DEF_PORT);
+
+    final Set<String> definedPorts = new HashSet<>();
+    if (cases != null) {
+      definedPorts.addAll(cases.values());
+    }
+    if (defaultPort != null) {
+      definedPorts.add(defaultPort);
+    }
+
+    final Set<String> actualPorts =
+        context.outgoingEdges().stream()
+            .map(WorkflowContext.WorkflowEdge::sourcePort)
+            .collect(Collectors.toSet());
+
+    return Flux.fromIterable(definedPorts)
+        .flatMap(
+            definedPort -> {
+              if (!actualPorts.contains(definedPort)) {
+                return Mono.error(
+                    new IllegalArgumentException(
+                        "Branch node "
+                            + context.nodeId()
+                            + " has a case routing to port '"
+                            + definedPort
+                            + "' but no outgoing edge exists for this port"));
+              }
+              return Mono.empty();
+            })
+        .then();
   }
 }

@@ -15,7 +15,7 @@
  */
 package com.infenia.yukta.controller;
 
-import com.infenia.yukta.model.ApiResponse;
+import com.infenia.yukta.model.api.ApiResponse;
 import com.infenia.yukta.plugin.message.DefaultMessage;
 import com.infenia.yukta.plugin.message.Message;
 import com.infenia.yukta.service.ControlBusService;

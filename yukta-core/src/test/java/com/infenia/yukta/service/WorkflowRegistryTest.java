@@ -15,6 +15,8 @@
  */
 package com.infenia.yukta.service;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -35,7 +37,26 @@ class WorkflowRegistryTest {
     WorkflowRegistry registry = new WorkflowRegistry(List.of(mockPlugin));
 
     assertTrue(registry.contains("test-type"));
+    assertFalse(registry.contains("unknown"));
     assertNotNull(registry.get("test-type"));
     assertNull(registry.get("unknown"));
+
+    List<WorkflowPlugin> plugins = registry.listPlugins();
+    assertEquals(1, plugins.size());
+    assertEquals("test-type", plugins.get(0).getType());
+  }
+
+  @Test
+  void testMultiplePlugins() {
+    WorkflowPlugin p1 = mock(WorkflowPlugin.class);
+    when(p1.getType()).thenReturn("type1");
+    WorkflowPlugin p2 = mock(WorkflowPlugin.class);
+    when(p2.getType()).thenReturn("type2");
+
+    WorkflowRegistry registry = new WorkflowRegistry(List.of(p1, p2));
+
+    assertEquals(2, registry.listPlugins().size());
+    assertTrue(registry.contains("type1"));
+    assertTrue(registry.contains("type2"));
   }
 }

@@ -493,4 +493,102 @@ class MapperProcessorTest {
             })
         .verifyComplete();
   }
+
+  @Test
+  void testComputationalHeavy() {
+    assertTrue(processor.isComputationallyHeavy(Map.of("mode", "SCRIPT")));
+    assertEquals(false, processor.isComputationallyHeavy(Map.of("mode", "PROJECTION")));
+  }
+
+  @Test
+  void testValidateInContext() {
+    final com.infenia.yukta.plugin.core.WorkflowContext context =
+        new com.infenia.yukta.plugin.core.WorkflowContext("node1", List.of(), List.of());
+
+    // Simple script triggers warning (log check not easy, but execution covered)
+    processor
+        .validateInContext(context, Map.of("mode", "SCRIPT", "mapping", "payload.val"))
+        .block();
+
+    // Complex script
+    processor
+        .validateInContext(
+            context,
+            Map.of("mode", "SCRIPT", "mapping", "if (payload.x) { return 1; } else { return 2; }"))
+        .block();
+
+    // Long script
+    String longScript = "/* " + "a".repeat(60) + " */ payload.x";
+    processor.validateInContext(context, Map.of("mode", "SCRIPT", "mapping", longScript)).block();
+  }
+
+  @Test
+  void testAdditionalDefaultMethods() {
+    // Description and Usage
+    assertTrue(processor.getDescription().contains("Transforms"));
+    assertTrue(processor.getUsagePattern().contains("Configure with"));
+
+    // UI Design
+    assertTrue(processor.getUiDesign().isPresent());
+
+    // Default Lifecycle (inherited)
+    processor.prepare(Map.of()).block();
+    processor.onControlSignal(null).block();
+    processor.getOutputPorts(Map.of());
+  }
+
+  @Test
+  void testExceptionInProcess() {
+    // Mode null to trigger exception in switch
+    final Map<String, Object> config = new java.util.HashMap<>();
+    config.put("mode", null);
+    config.put("mapping", "{}");
+
+    final Message<?> message = DefaultMessage.create(traceId, Map.of());
+    // initialize might fail but we check process
+    StepVerifier.create(processor.process(Flux.just(message), config)).expectError().verify();
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  void testTemplateStringErrorHandling() {
+    final Map<String, Object> config =
+        Map.of(
+            "mode", "TEMPLATE",
+            "mapping", "cached_template",
+            "strictMode", false);
+
+    // Initialize one template
+    processor.initialize(Map.of("mode", "TEMPLATE", "mapping", "Hello")).block();
+
+    final Message<?> message = DefaultMessage.create(traceId, Map.of());
+
+    // Use a different template string that is NOT initialized
+    StepVerifier.create(
+            processor.process(
+                Flux.just(message),
+                Map.of("mode", "TEMPLATE", "mapping", "not_there", "strictMode", false)))
+        .assertNext(
+            res -> {
+              assertEquals("", res.getPayload());
+            })
+        .verifyComplete();
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  void testProjectionErrorHandling() {
+    final Map<String, Object> config =
+        Map.of("mode", "PROJECTION", "mapping", Map.of("a", "payload.fail()"), "strictMode", false);
+
+    final Message<?> message = DefaultMessage.create(traceId, Map.of());
+    processor.initialize(config).block();
+
+    StepVerifier.create(processor.process(Flux.just(message), config))
+        .assertNext(
+            res -> {
+              assertTrue(((Map) res.getPayload()).isEmpty());
+            })
+        .verifyComplete();
+  }
 }

@@ -71,4 +71,68 @@ class SubWorkflowProcessorTest {
         .expectNextMatches(msg -> "success-result".equals(msg.getPayload()))
         .verifyComplete();
   }
+
+  @Test
+  void testMetadata() {
+    org.junit.jupiter.api.Assertions.assertEquals("SUB_WORKFLOW", processor.getType());
+    org.junit.jupiter.api.Assertions.assertNotNull(processor.getDescription());
+    org.junit.jupiter.api.Assertions.assertNotNull(processor.getUsagePattern());
+    org.junit.jupiter.api.Assertions.assertTrue(processor.getUiDesign().isPresent());
+    org.junit.jupiter.api.Assertions.assertNotNull(processor.getDefaultTimeout());
+  }
+
+  @Test
+  void testPrepare() {
+    final Map<String, Object> config = Map.of("inputMapper", "'in'", "outputMapper", "'out'");
+    StepVerifier.create(processor.prepare(config)).verifyComplete();
+  }
+
+  @Test
+  void testProcessMissingSubWorkflowId() {
+    StepVerifier.create(
+            processor.process(
+                Flux.just(DefaultMessage.create(UUID.randomUUID(), "test")), Map.of()))
+        .expectError(IllegalArgumentException.class)
+        .verify();
+  }
+
+  @Test
+  void testMapInputDefault() {
+    final String subWorkflowId = "wf";
+    when(workflowGateway.executeSubWorkflow(
+            eq("p"), eq("p:n"), eq(subWorkflowId), eq(Map.of("payload", "data"))))
+        .thenReturn(Mono.just(List.of(DefaultMessage.create(UUID.randomUUID(), "res"))));
+
+    final Map<String, Object> config = Map.of("subWorkflowId", subWorkflowId);
+    final Message inputMsg = DefaultMessage.create(UUID.randomUUID(), "data");
+
+    StepVerifier.create(
+            processor
+                .process(Flux.just(inputMsg), config)
+                .contextWrite(Context.of("sessionId", "p", "nodeId", "n")))
+        .expectNextMatches(
+            m -> {
+              List results = (List) m.getPayload();
+              return "res".equals(((Message) results.get(0)).getPayload());
+            })
+        .verifyComplete();
+  }
+
+  @Test
+  void testMapInputMapPayload() {
+    final String subWorkflowId = "wf";
+    final Map<String, Object> payload = Map.of("k", "v");
+    when(workflowGateway.executeSubWorkflow(eq("p"), eq("p:n"), eq(subWorkflowId), eq(payload)))
+        .thenReturn(Mono.just(List.of(DefaultMessage.create(UUID.randomUUID(), "res"))));
+
+    final Map<String, Object> config = Map.of("subWorkflowId", subWorkflowId);
+    final Message inputMsg = DefaultMessage.create(UUID.randomUUID(), payload);
+
+    StepVerifier.create(
+            processor
+                .process(Flux.just(inputMsg), config)
+                .contextWrite(Context.of("sessionId", "p", "nodeId", "n")))
+        .expectNextCount(1)
+        .verifyComplete();
+  }
 }

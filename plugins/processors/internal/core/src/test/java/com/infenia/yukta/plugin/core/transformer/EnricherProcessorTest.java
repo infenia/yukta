@@ -29,6 +29,7 @@ import com.infenia.yukta.plugin.message.DefaultMessage;
 import com.infenia.yukta.plugin.message.Message;
 import com.infenia.yukta.plugin.store.SecretProvider;
 import com.infenia.yukta.util.VariableResolver;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -224,5 +225,90 @@ class EnricherProcessorTest {
     StepVerifier.create(processor.process(Flux.just(msgObj), config))
         .expectNextMatches(m -> m.getPayload().equals("456"))
         .verifyComplete();
+  }
+
+  @Test
+  void testMetadata() {
+    assertEquals("ENRICHER", processor.getType());
+    assertNotNull(processor.getDescription());
+    assertNotNull(processor.getUsagePattern());
+    assertTrue(processor.getUiDesign().isPresent());
+  }
+
+  @Test
+  void testGetOutputPortsDefault() {
+    assertEquals(List.of("default"), processor.getOutputPorts(Map.of()));
+  }
+
+  @Test
+  void testGetOutputPortsRoute() {
+    assertEquals(
+        List.of("default", "custom-err"),
+        processor.getOutputPorts(Map.of("errorPolicy", "ROUTE", "errorPort", "custom-err")));
+  }
+
+  @Test
+  void testUnsupportedSourceType() {
+    final Map<String, Object> config = Map.of("sourceType", "INVALID");
+    final Message<?> msg = DefaultMessage.create(UUID.randomUUID(), "test");
+    StepVerifier.create(processor.process(Flux.just(msg), config))
+        .expectErrorMatches(
+            e ->
+                e instanceof WorkflowExecutionException
+                    && e.getCause() instanceof IllegalArgumentException
+                    && e.getCause().getMessage().contains("sourceType"))
+        .verify();
+  }
+
+  @Test
+  void testIgnoreErrorPolicy() {
+    // VariableResolver blocks access to keys containing PASSWORD
+    final Map<String, Object> config =
+        Map.of("sourceType", "ENVIRONMENT", "lookupKey", "'sys.PASSWORD'", "errorPolicy", "IGNORE");
+    final Message<?> msg = DefaultMessage.create(UUID.randomUUID(), "test");
+    StepVerifier.create(processor.process(Flux.just(msg), config))
+        .expectNextMatches(m -> "test".equals(m.getPayload()))
+        .verifyComplete();
+  }
+
+  @Test
+  void testInvalidErrorPolicy() {
+    final Map<String, Object> config = Map.of("errorPolicy", "INVALID");
+    StepVerifier.create(processor.validateConfig(config))
+        .expectError(IllegalArgumentException.class)
+        .verify();
+  }
+
+  @Test
+  void testResolveLookupKeyNullPayload() {
+    final Map<String, Object> config = Map.of("sourceType", "COMPUTATION", "lookupKey", "'val'");
+    final Message<?> msg = DefaultMessage.create(UUID.randomUUID(), null);
+    StepVerifier.create(processor.process(Flux.just(msg), config))
+        .expectNextMatches(m -> "val".equals(m.getPayload()))
+        .verifyComplete();
+  }
+
+  @Test
+  void testApplyResultWithNestedPayloadPath() {
+    final Map<String, Object> config =
+        Map.of(
+            "sourceType", "COMPUTATION",
+            "lookupKey", "10",
+            "targetPath", "payload.nested.val");
+    final Message<?> msg = DefaultMessage.create(UUID.randomUUID(), Map.of("other", "x"));
+    StepVerifier.create(processor.process(Flux.just(msg), config))
+        .expectNextMatches(
+            m -> {
+              Map payload = (Map) m.getPayload();
+              Map nested = (Map) payload.get("nested");
+              return Integer.valueOf(10).equals(nested.get("val"));
+            })
+        .verifyComplete();
+  }
+
+  @Test
+  void testInitializeWithMapping() {
+    final Map<String, Object> config = Map.of("lookupKey", "key", "mapping", Map.of("f1", "exp1"));
+    StepVerifier.create(processor.initialize(config)).verifyComplete();
   }
 }

@@ -17,10 +17,10 @@ package com.infenia.yukta.harness;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.infenia.yukta.model.ApiResponse;
-import com.infenia.yukta.model.ConfigRequest;
-import com.infenia.yukta.model.WorkflowProgress;
-import com.infenia.yukta.model.WorkflowTriggerRequest;
+import com.infenia.yukta.model.api.ApiResponse;
+import com.infenia.yukta.model.api.ConfigRequest;
+import com.infenia.yukta.model.api.WorkflowTriggerRequest;
+import com.infenia.yukta.model.monitoring.WorkflowProgress;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.core.ParameterizedTypeReference;
@@ -64,7 +64,7 @@ public class WorkflowTestHarness {
    */
   public String triggerWorkflow(
       final String sessionId, final String workflowId, final Map<String, Object> payload) {
-    final ApiResponse<com.infenia.yukta.model.TriggerResponse> response =
+    final ApiResponse<com.infenia.yukta.model.api.TriggerResponse> response =
         webClient
             .post()
             .uri("/api/workflow/trigger")
@@ -77,7 +77,7 @@ public class WorkflowTestHarness {
             .exists("X-Response-Time")
             .returnResult(
                 new ParameterizedTypeReference<
-                    ApiResponse<com.infenia.yukta.model.TriggerResponse>>() {})
+                    ApiResponse<com.infenia.yukta.model.api.TriggerResponse>>() {})
             .getResponseBody()
             .blockFirst();
 

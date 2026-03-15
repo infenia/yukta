@@ -1,59 +1,495 @@
-# Yukta (Vigilance) 🛡️
+# GEMINI.md
 
-High-performance orchestrator and server designed to enforce code quality gates for AI-driven development. It acts as a bridge between AI agents (via MCP or REST), build tools, and AI feedback models.
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## 🏗️ Project Overview
+## Project Overview
 
-Yukta facilitates autonomous code validation by hosting a **Model Context Protocol (MCP)** server. It triggers quality checks (Spotless, Checkstyle, PMD), processes outputs into structured JSONL, and optionally invokes AI models for intelligent feedback on failures.
+**Yukta** (Sanskrit for *united, combined, joined*) is a high-performance server that enforces code quality gates for AI-driven development. It hosts a Model Context Protocol (MCP) server, integrates with AI agents, and provides a reactive DAG-based workflow engine for orchestrating quality checks and custom plugins.
 
-- **Primary Mission**: Ensure AI-generated code meets strict quality standards before merging.
-- **Key Architecture**: Plugin-based, build-tool agnostic, and session-aware.
-- **Reactive Engine**: Built on Spring Boot WebFlux for non-blocking operations.
+**Key Architecture**: The project is a multi-module Gradle build consisting of:
+- **yukta-plugin-api**: Plugin abstraction interfaces (Trigger, Processor, Terminal plugins)
+- **yukta-core**: Core service layer (orchestration, workflow registry, session management)
+- **yukta-ui**: JTE (Java Templating Engine) UI module with Tailwind CSS
+- **yukta-boot**: Spring Boot application entry point and MCP server
+- **plugins/build-tools/gradle**: Default Gradle plugin for quality checks
+- **build-logic**: Gradle build conventions (Java, Quality gates, JaCoCo)
 
-## 🛠️ Tech Stack
+## Tech Stack
 
-- **Runtime**: Java 25 (targets Java 25, uses Java 21 toolchain for compatibility).
-- **Framework**: Spring Boot 4.0.2 (WebFlux, Spring AI for MCP).
-- **Build System**: Gradle 9.0 (Multi-module).
-- **UI**: JTE (Java Templating Engine), Tailwind CSS 4.
-- **Integration**: Model Context Protocol (MCP) native.
+- **Java 21** (source & target compatibility; uses Java 25+ compiler for toolchain)
+- **Spring Boot 4.0.2** (WebFlux for reactive non-blocking operations)
+- **Gradle 9.0** (multi-module with convention plugins)
+- **GraalVM** (native image support)
+- **JTE** (Java Templating Engine) + **Tailwind CSS 4**
+- **Project Reactor** (Mono, Flux for reactive streams)
 
-## 🚦 Building and Running
+## Build & Development Commands
 
 ### Essential Commands
-- **Start Server**: `./gradlew bootRun` (Runs the Spring Boot application).
-- **Run Quality Checks**: `./gradlew check` (Runs tests, Checkstyle, PMD, SpotBugs, and JaCoCo).
-- **Format Code**: `./gradlew spotlessApply` (Automatically fixes formatting and license headers).
-- **Clean Build**: `./gradlew clean build`
+```bash
+# Start the application
+./gradlew bootRun
 
-### UI Development
-The UI module (`yukta-ui`) uses Tailwind CSS 4. JTE templates are located in `src/main/jte`.
+# Run all quality checks (tests, Checkstyle, PMD, SpotBugs, JaCoCo)
+./gradlew check
 
-## 📏 Development Conventions
+# Format code (Spotless - must do before commit)
+./gradlew spotlessApply
 
-### Coding Style
-- **Standard**: [Google Java Style Guide](https://google.github.io/styleguide/javaguide.html).
-- **Indentation**: 2 spaces.
-- **Line Length**: 100 characters.
-- **Formatting**: Enforced via **Spotless**. Always run `./gradlew spotlessApply` before committing.
-- **Documentation**: All public/protected methods require Javadoc.
+# Clean build
+./gradlew clean build
 
-### Programming Patterns
-- **Reactive Streams**: Use Project Reactor (`Mono`, `Flux`) for all service and controller logic.
-- **Immutability**: Prefer immutable models and records (Java 16+ features).
-- **Lombok**: Extensively used for boilerplate reduction (`@Getter`, `@RequiredArgsConstructor`, etc.).
-- **Validation**: Jakarta Bean Validation (`@Valid`, `@Validated`) is used at the service and controller layers.
+# Run tests for a specific module
+./gradlew :yukta-core:test
 
-### Git & Workflow
-- **Commit Messages**: Follow [Conventional Commits](https://www.conventionalcommits.org/) (e.g., `feat:`, `fix:`, `chore:`, `docs:`).
-- **License Headers**: Every Java file MUST include the Apache License 2.0 header (managed by Spotless).
-- **Quality Gates**: Every PR must pass `checkstyle`, `pmd`, and `spotbugs` without warnings.
+# Run a single test class
+./gradlew :yukta-core:test --tests com.infenia.yukta.service.WorkflowOrchestratorTest
+```
 
-## 📁 Key File Locations
+### Development Tasks
+```bash
+# Access Swagger UI (after bootRun)
+# http://localhost:8080/swagger-ui.html
 
-- **Core Logic**: `yukta-core/src/main/java/com/infenia/yukta/`
-- **MCP Tools**: `yukta-boot/src/main/java/com/infenia/yukta/mcp/`
-- **Plugin API**: `yukta-plugin-api/`
-- **UI Templates**: `yukta-ui/src/main/jte/`
-- **Checkstyle Config**: `config/checkstyle/checkstyle.xml`
-- **Session Logs**: Configured via `application.yaml` (default uses session-specific JSONL files).
+# UI development: pnpm is used for Node dependencies (Tailwind CSS)
+# JTE templates are precompiled automatically during build
+
+# Build native image (GraalVM)
+./gradlew nativeCompile
+```
+
+## Code Architecture & Patterns
+
+### Reactive Streams (Core Pattern)
+All service and controller logic uses **Project Reactor** (`Mono`, `Flux`). Key principles:
+- Controllers return `Mono<ResponseEntity<T>>` or `Mono<T>`
+- Services use `Mono` for single operations, `Flux` for streams
+- Avoid blocking operations; use `.block()` only in tests
+
+**Example**:
+```java
+public Mono<TaskResponse> executeTask(WorkflowTriggerRequest request) {
+    return validateRequest(request)
+        .flatMap(this::executeWorkflow)
+        .doOnError(error -> log.error("Task execution failed", error));
+}
+```
+
+### WorkflowOrchestrator Builder Pattern Refactoring
+
+The refactored `WorkflowOrchestrator` uses four internal fluent builder classes to manage cross-cutting concerns and improve maintainability:
+
+**ExecutionContextBuilder** (`com.infenia.yukta.service.orchestrator`):
+- Centralizes context key management (sessionId, workflowId, executionId, nodeId, payload)
+- Provides fluent API for building and applying contexts to Mono/Flux streams
+- Ensures consistent context handling across the orchestration pipeline
+- Usage: `new ExecutionContextBuilder().sessionId(...).workflowId(...).build()`
+
+**StreamBuilder** (`com.infenia.yukta.service.orchestrator`):
+- Unifies stream construction across all plugin types (Trigger, Processor, Terminal)
+- Handles: timeout wrapping, task status tracking, error handling, context application
+- Eliminates 60+ lines of duplicated code across three assembler methods
+- Usage: `new StreamBuilder(...).withSource(...).withTimeout().withTaskTracking(...).build()`
+
+**HeartbeatBuilder** (`com.infenia.yukta.service.orchestrator`):
+- Manages periodic heartbeat and statistics emissions to the control bus
+- Encapsulates Flux.interval() subscriptions and disposable lifecycle management
+- Replaces 40+ lines of nested loops with a single configuration point
+- Usage: `new HeartbeatBuilder(...).forNodes(...).withHeartbeatInterval(...).build()`
+
+**ResourceManagementBuilder** (`com.infenia.yukta.service.orchestrator`):
+- Wraps Mono.using() pattern for resource lifecycle management
+- Manages timeouts, terminal completion, connector execution, and disposable cleanup
+- Centralizes workflow status event emission (SUCCESS/ERROR)
+- Usage: `new ResourceManagementBuilder(...).withDisposables(...).withTerminals(...).build()`
+
+**Refactoring Benefits**:
+- Node assembler methods reduced from ~70 lines each to ~25 lines (65% reduction)
+- executeTemplate method reduced from ~135 lines to ~50 lines (63% reduction)
+- Eliminates duplication across plugin types (single StreamBuilder path)
+- Improves testability: each builder is independently testable
+- No performance impact: builders are transient; no allocation overhead
+- Preserves all functionality: identical Reactor patterns and semantics
+
+### Plugin System (Extensible DAG-Based)
+Located in **yukta-plugin-api**, plugins are classified into three categories:
+1. **TriggerPlugin**: Initiates workflows (e.g., API endpoint)
+2. **ProcessorPlugin**: Transforms or validates data (e.g., quality checks)
+3. **TerminalPlugin**: Finalizes workflows (e.g., logging, feedback)
+
+Plugins are registered in `WorkflowRegistry` and orchestrated by `WorkflowOrchestrator` which executes a **Directed Acyclic Graph (DAG)** of nodes and edges defined in `WorkflowDefinition`.
+
+**Key Files**:
+- `yukta-core/src/main/java/com/infenia/yukta/service/WorkflowOrchestrator.java` - DAG orchestration logic
+- `yukta-core/src/main/java/com/infenia/yukta/service/WorkflowRegistry.java` - Plugin registration
+- `yukta-plugin-api/src/main/java/com/infenia/yukta/plugin/` - Plugin interfaces
+
+### Immutability & Records
+Use **Java records** for data models (preferred) or **Lombok** (`@RequiredArgsConstructor`, `@Getter`) for immutable objects. Example:
+```java
+public record WorkflowDefinition(
+    @NotEmpty @Valid List<Node> nodes,
+    @NotNull @Valid List<Edge> edges) {}
+```
+
+### Validation
+- Use **Jakarta Bean Validation** (`@Valid`, `@Validated`, custom validators like `@SessionId`, `@ProjectPath`)
+- Custom validators are in `yukta-core/src/main/java/com/infenia/yukta/validation/`
+- Validation errors are handled globally by `GlobalExceptionHandler`
+
+### Session Management
+- `SessionService` manages session state and logging
+- Session logs are JSONL-formatted and session-aware (per-request isolation)
+- Configuration via `application.yaml` under spring.ai.mcp.server
+
+### MapStruct Mapping
+Used for DTO mapping: `AppConfigMapper` converts between REST requests/responses and domain models. Processor: `annotationProcessor libs.mapstruct.processor` + `annotationProcessor libs.lombok.mapstruct.binding`.
+
+## Code Style & Quality Gates
+
+### Formatting & License Headers
+- **Spotless** enforces **Google Java Style Guide** (2-space indentation, 100-char line limit)
+- Every Java file MUST have an Apache License 2.0 header (managed by Spotless)
+- Always run `./gradlew spotlessApply` before committing
+
+### Static Analysis
+- **Checkstyle**: Style violations (config: `config/checkstyle/checkstyle.xml`)
+- **PMD**: Code quality rules (config: `config/pmd/ruleset.xml`)
+- **SpotBugs**: Bug detection (enabled via quality-conventions)
+- Quality gates are applied ONLY to main source code, not tests or AOT
+
+### Test Framework
+- **JUnit 5** with **Reactor Test** (`reactor.test.publisher.TestPublisher`, `StepVerifier`)
+- Use `StepVerifier` for testing reactive streams:
+  ```java
+  StepVerifier.create(mono)
+      .expectNext(expectedValue)
+      .verifyComplete();
+  ```
+
+### JaCoCo Code Coverage
+- Configured per module with minimum thresholds
+- Run `./gradlew jacocoTestReport` to generate coverage reports
+- Coverage requirements prevent low-coverage code from merging
+
+## Build Conventions (build-logic)
+
+The `build-logic` directory defines three reusable convention plugins:
+1. **java-conventions**: Java toolchain (21), Lombok, repositories, JUnit 5
+2. **quality-conventions**: Spotless, Checkstyle, PMD, SpotBugs, license headers
+3. **jacoco-conventions**: Code coverage tracking
+
+All modules apply these plugins via `plugins { id 'com.infenia.yukta.xxx-conventions' }`.
+
+## UI Development (yukta-ui)
+
+- **Templates**: JTE files in `yukta-ui/src/main/jte/` (pre-compiled to bytecode)
+- **Styling**: Tailwind CSS 4 compiled during build
+- **CSS Input**: `yukta-ui/src/main/resources/static/css/input.css` (processed by `pnpm exec tailwindcss`)
+- **Node Dependencies**: Managed via `pnpm` (see build.gradle tasks: `pnpmInstall`, `tailwind`)
+
+## Git Workflow
+
+### Commit Conventions
+Use **Conventional Commits**:
+- `feat: description` - new features
+- `fix: description` - bug fixes
+- `docs: description` - documentation changes
+- `refactor: description` - code refactoring (no behavior change)
+- `test: description` - test additions
+- `chore: description` - build/tooling updates
+- `style: description` - formatting only (no code logic change)
+
+Example: `feat: add reactive DAG workflow engine for plugin orchestration`
+
+### Pull Request Workflow
+1. Create branch from `main`
+2. Run `./gradlew spotlessApply` to format code
+3. Run `./gradlew check` to verify all quality gates pass
+4. Submit PR with descriptive title and issue references
+5. Ensure all tests pass before merge
+
+## Key File Locations
+
+- **Core Services**: `yukta-core/src/main/java/com/infenia/yukta/service/`
+- **MCP Tools**: `yukta-core/src/main/java/com/infenia/yukta/mcp/` (MCP native integration)
+- **Controllers**: `yukta-core/src/main/java/com/infenia/yukta/controller/`
+- **Plugin API**: `yukta-plugin-api/src/main/java/com/infenia/yukta/plugin/`
+- **Configuration**: `yukta-core/src/main/java/com/infenia/yukta/config/`
+- **Validation**: `yukta-core/src/main/java/com/infenia/yukta/validation/`
+- **Quality Config**: `config/checkstyle/`, `config/pmd/`, `config/license/`
+- **Application Config**: `yukta-boot/src/main/resources/application.yaml`
+
+## Testing Strategy
+
+- Unit tests use JUnit 5 + Mockito (for reactive tests: `reactor.test`)
+- Test files follow naming: `*Test.java` (in `src/test/java`)
+- Quality gates (Checkstyle, PMD, SpotBugs) are disabled for test code
+- Coverage thresholds vary per module (e.g., UI has 5% minimum via `jacocoMinimumCoverage`)
+
+## Common Development Tasks
+
+**Add a new service**: Create in `yukta-core/src/main/java/com/infenia/yukta/service/`, use `@Service`, return `Mono`/`Flux`, add tests.
+
+**Add a new plugin**: Extend `WorkflowPlugin`/`ProcessorPlugin`/`TriggerPlugin` in plugin-api, register in `WorkflowRegistry` during bean initialization.
+
+**Modify workflow DAG**: Update `WorkflowDefinition` records and `WorkflowOrchestrator` execution logic.
+
+**Add REST endpoint**: Create controller in `AppController` or new controller, return `Mono<ResponseEntity<T>>`, use validation annotations.
+
+**Update configuration**: Edit `application.yaml` or add Spring `@ConfigurationProperties` class with validation.
+
+## Troubleshooting
+
+- **Spotless fails**: Run `./gradlew spotlessApply` to auto-fix formatting
+- **Tests fail**: Ensure Reactor streams are properly tested with `StepVerifier`
+- **Quality checks fail**: Check Checkstyle (`config/checkstyle/checkstyle.xml`) and PMD (`config/pmd/ruleset.xml`) rules
+- **Build cache issues**: Run `./gradlew clean build` to clear cached outputs
+- **Native image build fails**: Check GraalVM compatibility in `yukta-boot/build.gradle` graalvmNative config
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## Project Overview
+
+**Yukta** (Sanskrit for *united, combined, joined*) is a high-performance server that enforces code quality gates for AI-driven development. It hosts a Model Context Protocol (MCP) server, integrates with AI agents, and provides a reactive DAG-based workflow engine for orchestrating quality checks and custom plugins.
+
+**Key Architecture**: The project is a multi-module Gradle build consisting of:
+- **yukta-plugin-api**: Plugin abstraction interfaces (Trigger, Processor, Terminal plugins)
+- **yukta-core**: Core service layer (orchestration, workflow registry, session management)
+- **yukta-ui**: JTE (Java Templating Engine) UI module with Tailwind CSS
+- **yukta-boot**: Spring Boot application entry point and MCP server
+- **plugins/build-tools/gradle**: Default Gradle plugin for quality checks
+- **build-logic**: Gradle build conventions (Java, Quality gates, JaCoCo)
+
+## Tech Stack
+
+- **Java 21** (source & target compatibility; uses Java 25+ compiler for toolchain)
+- **Spring Boot 4.0.2** (WebFlux for reactive non-blocking operations)
+- **Gradle 9.0** (multi-module with convention plugins)
+- **GraalVM** (native image support)
+- **JTE** (Java Templating Engine) + **Tailwind CSS 4**
+- **Project Reactor** (Mono, Flux for reactive streams)
+
+## Build & Development Commands
+
+### Essential Commands
+```bash
+# Start the application
+./gradlew bootRun
+
+# Run all quality checks (tests, Checkstyle, PMD, SpotBugs, JaCoCo)
+./gradlew check
+
+# Format code (Spotless - must do before commit)
+./gradlew spotlessApply
+
+# Clean build
+./gradlew clean build
+
+# Run tests for a specific module
+./gradlew :yukta-core:test
+
+# Run a single test class
+./gradlew :yukta-core:test --tests com.infenia.yukta.service.WorkflowOrchestratorTest
+```
+
+### Development Tasks
+```bash
+# Access Swagger UI (after bootRun)
+# http://localhost:8080/swagger-ui.html
+
+# UI development: pnpm is used for Node dependencies (Tailwind CSS)
+# JTE templates are precompiled automatically during build
+
+# Build native image (GraalVM)
+./gradlew nativeCompile
+```
+
+## Code Architecture & Patterns
+
+### Reactive Streams (Core Pattern)
+All service and controller logic uses **Project Reactor** (`Mono`, `Flux`). Key principles:
+- Controllers return `Mono<ResponseEntity<T>>` or `Mono<T>`
+- Services use `Mono` for single operations, `Flux` for streams
+- Avoid blocking operations; use `.block()` only in tests
+
+**Example**:
+```java
+public Mono<TaskResponse> executeTask(WorkflowTriggerRequest request) {
+    return validateRequest(request)
+        .flatMap(this::executeWorkflow)
+        .doOnError(error -> log.error("Task execution failed", error));
+}
+```
+
+### WorkflowOrchestrator Builder Pattern Refactoring
+
+The refactored `WorkflowOrchestrator` uses four internal fluent builder classes to manage cross-cutting concerns and improve maintainability:
+
+**ExecutionContextBuilder** (`com.infenia.yukta.service.orchestrator`):
+- Centralizes context key management (sessionId, workflowId, executionId, nodeId, payload)
+- Provides fluent API for building and applying contexts to Mono/Flux streams
+- Ensures consistent context handling across the orchestration pipeline
+- Usage: `new ExecutionContextBuilder().sessionId(...).workflowId(...).build()`
+
+**StreamBuilder** (`com.infenia.yukta.service.orchestrator`):
+- Unifies stream construction across all plugin types (Trigger, Processor, Terminal)
+- Handles: timeout wrapping, task status tracking, error handling, context application
+- Eliminates 60+ lines of duplicated code across three assembler methods
+- Usage: `new StreamBuilder(...).withSource(...).withTimeout().withTaskTracking(...).build()`
+
+**HeartbeatBuilder** (`com.infenia.yukta.service.orchestrator`):
+- Manages periodic heartbeat and statistics emissions to the control bus
+- Encapsulates Flux.interval() subscriptions and disposable lifecycle management
+- Replaces 40+ lines of nested loops with a single configuration point
+- Usage: `new HeartbeatBuilder(...).forNodes(...).withHeartbeatInterval(...).build()`
+
+**ResourceManagementBuilder** (`com.infenia.yukta.service.orchestrator`):
+- Wraps Mono.using() pattern for resource lifecycle management
+- Manages timeouts, terminal completion, connector execution, and disposable cleanup
+- Centralizes workflow status event emission (SUCCESS/ERROR)
+- Usage: `new ResourceManagementBuilder(...).withDisposables(...).withTerminals(...).build()`
+
+**Refactoring Benefits**:
+- Node assembler methods reduced from ~70 lines each to ~25 lines (65% reduction)
+- executeTemplate method reduced from ~135 lines to ~50 lines (63% reduction)
+- Eliminates duplication across plugin types (single StreamBuilder path)
+- Improves testability: each builder is independently testable
+- No performance impact: builders are transient; no allocation overhead
+- Preserves all functionality: identical Reactor patterns and semantics
+
+### Plugin System (Extensible DAG-Based)
+Located in **yukta-plugin-api**, plugins are classified into three categories:
+1. **TriggerPlugin**: Initiates workflows (e.g., API endpoint)
+2. **ProcessorPlugin**: Transforms or validates data (e.g., quality checks)
+3. **TerminalPlugin**: Finalizes workflows (e.g., logging, feedback)
+
+Plugins are registered in `WorkflowRegistry` and orchestrated by `WorkflowOrchestrator` which executes a **Directed Acyclic Graph (DAG)** of nodes and edges defined in `WorkflowDefinition`.
+
+**Key Files**:
+- `yukta-core/src/main/java/com/infenia/yukta/service/WorkflowOrchestrator.java` - DAG orchestration logic
+- `yukta-core/src/main/java/com/infenia/yukta/service/WorkflowRegistry.java` - Plugin registration
+- `yukta-plugin-api/src/main/java/com/infenia/yukta/plugin/` - Plugin interfaces
+
+### Immutability & Records
+Use **Java records** for data models (preferred) or **Lombok** (`@RequiredArgsConstructor`, `@Getter`) for immutable objects. Example:
+```java
+public record WorkflowDefinition(
+    @NotEmpty @Valid List<Node> nodes,
+    @NotNull @Valid List<Edge> edges) {}
+```
+
+### Validation
+- Use **Jakarta Bean Validation** (`@Valid`, `@Validated`, custom validators like `@SessionId`, `@ProjectPath`)
+- Custom validators are in `yukta-core/src/main/java/com/infenia/yukta/validation/`
+- Validation errors are handled globally by `GlobalExceptionHandler`
+
+### Session Management
+- `SessionService` manages session state and logging
+- Session logs are JSONL-formatted and session-aware (per-request isolation)
+- Configuration via `application.yaml` under spring.ai.mcp.server
+
+### MapStruct Mapping
+Used for DTO mapping: `AppConfigMapper` converts between REST requests/responses and domain models. Processor: `annotationProcessor libs.mapstruct.processor` + `annotationProcessor libs.lombok.mapstruct.binding`.
+
+## Code Style & Quality Gates
+
+### Formatting & License Headers
+- **Spotless** enforces **Google Java Style Guide** (2-space indentation, 100-char line limit)
+- Every Java file MUST have an Apache License 2.0 header (managed by Spotless)
+- Always run `./gradlew spotlessApply` before committing
+
+### Static Analysis
+- **Checkstyle**: Style violations (config: `config/checkstyle/checkstyle.xml`)
+- **PMD**: Code quality rules (config: `config/pmd/ruleset.xml`)
+- **SpotBugs**: Bug detection (enabled via quality-conventions)
+- Quality gates are applied ONLY to main source code, not tests or AOT
+
+### Test Framework
+- **JUnit 5** with **Reactor Test** (`reactor.test.publisher.TestPublisher`, `StepVerifier`)
+- Use `StepVerifier` for testing reactive streams:
+  ```java
+  StepVerifier.create(mono)
+      .expectNext(expectedValue)
+      .verifyComplete();
+  ```
+
+### JaCoCo Code Coverage
+- Configured per module with minimum thresholds
+- Run `./gradlew jacocoTestReport` to generate coverage reports
+- Coverage requirements prevent low-coverage code from merging
+
+## Build Conventions (build-logic)
+
+The `build-logic` directory defines three reusable convention plugins:
+1. **java-conventions**: Java toolchain (21), Lombok, repositories, JUnit 5
+2. **quality-conventions**: Spotless, Checkstyle, PMD, SpotBugs, license headers
+3. **jacoco-conventions**: Code coverage tracking
+
+All modules apply these plugins via `plugins { id 'com.infenia.yukta.xxx-conventions' }`.
+
+## UI Development (yukta-ui)
+
+- **Templates**: JTE files in `yukta-ui/src/main/jte/` (pre-compiled to bytecode)
+- **Styling**: Tailwind CSS 4 compiled during build
+- **CSS Input**: `yukta-ui/src/main/resources/static/css/input.css` (processed by `pnpm exec tailwindcss`)
+- **Node Dependencies**: Managed via `pnpm` (see build.gradle tasks: `pnpmInstall`, `tailwind`)
+
+## Git Workflow
+
+### Commit Conventions
+Use **Conventional Commits**:
+- `feat: description` - new features
+- `fix: description` - bug fixes
+- `docs: description` - documentation changes
+- `refactor: description` - code refactoring (no behavior change)
+- `test: description` - test additions
+- `chore: description` - build/tooling updates
+- `style: description` - formatting only (no code logic change)
+
+Example: `feat: add reactive DAG workflow engine for plugin orchestration`
+
+### Pull Request Workflow
+1. Create branch from `main`
+2. Run `./gradlew spotlessApply` to format code
+3. Run `./gradlew check` to verify all quality gates pass
+4. Submit PR with descriptive title and issue references
+5. Ensure all tests pass before merge
+
+## Key File Locations
+
+- **Core Services**: `yukta-core/src/main/java/com/infenia/yukta/service/`
+- **MCP Tools**: `yukta-core/src/main/java/com/infenia/yukta/mcp/` (MCP native integration)
+- **Controllers**: `yukta-core/src/main/java/com/infenia/yukta/controller/`
+- **Plugin API**: `yukta-plugin-api/src/main/java/com/infenia/yukta/plugin/`
+- **Configuration**: `yukta-core/src/main/java/com/infenia/yukta/config/`
+- **Validation**: `yukta-core/src/main/java/com/infenia/yukta/validation/`
+- **Quality Config**: `config/checkstyle/`, `config/pmd/`, `config/license/`
+- **Application Config**: `yukta-boot/src/main/resources/application.yaml`
+
+## Testing Strategy
+
+- Unit tests use JUnit 5 + Mockito (for reactive tests: `reactor.test`)
+- Test files follow naming: `*Test.java` (in `src/test/java`)
+- Quality gates (Checkstyle, PMD, SpotBugs) are disabled for test code
+- Coverage thresholds vary per module (e.g., UI has 5% minimum via `jacocoMinimumCoverage`)
+
+## Common Development Tasks
+
+**Add a new service**: Create in `yukta-core/src/main/java/com/infenia/yukta/service/`, use `@Service`, return `Mono`/`Flux`, add tests.
+
+**Add a new plugin**: Extend `WorkflowPlugin`/`ProcessorPlugin`/`TriggerPlugin` in plugin-api, register in `WorkflowRegistry` during bean initialization.
+
+**Modify workflow DAG**: Update `WorkflowDefinition` records and `WorkflowOrchestrator` execution logic.
+
+**Add REST endpoint**: Create controller in `AppController` or new controller, return `Mono<ResponseEntity<T>>`, use validation annotations.
+
+**Update configuration**: Edit `application.yaml` or add Spring `@ConfigurationProperties` class with validation.
+
+## Troubleshooting
+
+- **Spotless fails**: Run `./gradlew spotlessApply` to auto-fix formatting
+- **Tests fail**: Ensure Reactor streams are properly tested with `StepVerifier`
+- **Quality checks fail**: Check Checkstyle (`config/checkstyle/checkstyle.xml`) and PMD (`config/pmd/ruleset.xml`) rules
+- **Build cache issues**: Run `./gradlew clean build` to clear cached outputs
+- **Native image build fails**: Check GraalVM compatibility in `yukta-boot/build.gradle` graalvmNative config

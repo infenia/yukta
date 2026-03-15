@@ -19,10 +19,10 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 
-import com.infenia.yukta.model.TaskResponse;
-import com.infenia.yukta.model.WorkflowExecution;
-import com.infenia.yukta.model.WorkflowProgress;
-import com.infenia.yukta.model.WorkflowTriggerRequest;
+import com.infenia.yukta.model.api.WorkflowTriggerRequest;
+import com.infenia.yukta.model.monitoring.WorkflowProgress;
+import com.infenia.yukta.model.session.TaskResponse;
+import com.infenia.yukta.model.workflow.WorkflowExecution;
 import com.infenia.yukta.service.LogRetrievalService;
 import com.infenia.yukta.service.TaskTrackerService;
 import com.infenia.yukta.service.WorkflowService;

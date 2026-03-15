@@ -39,6 +39,8 @@ dependencies {
     implementation(libs.spring.boot.starter.actuator)
     implementation(libs.jackson.dataformat.yaml)
     implementation(libs.mapstruct)
+
+    implementation(libs.spring.ai.mcp.server)
     implementation(libs.springdoc.openapi)
 
     compileOnly(libs.lombok)
@@ -83,14 +85,9 @@ coverageConfig {
         "METHOD" to 0.8
     ))
     exceptions.put("com.infenia.yukta.service.resequence.ResequencerStore*", baselineCoverage)
-    exceptions.put("com.infenia.yukta.service.TaskTrackerService*", mapOf(
-        "LINE" to 0.8,
-        "BRANCH" to 0.3,
-        "CLASS" to 0.8,
-        "INSTRUCTION" to 0.8,
-        "METHOD" to 0.7
-    ))
-    exceptions.put("com.infenia.yukta.service.WorkflowService", baselineCoverage)
+    exceptions.put("com.infenia.yukta.service.TaskTrackerService", mapOf("LINE" to 0.99, "BRANCH" to 0.94, "INSTRUCTION" to 0.98, "METHOD" to 0.97))
+    exceptions.put("com.infenia.yukta.service.TaskTrackerService.*WorkflowState", mapOf("BRANCH" to 0.91))
+    exceptions.put("com.infenia.yukta.service.WorkflowService", mapOf("LINE" to 0.91, "INSTRUCTION" to 0.93, "METHOD" to 0.87))
     exceptions.put("com.infenia.yukta.service.NoOpSecretProvider", lowCoverage)
     exceptions.put("com.infenia.yukta.service.SessionService", baselineCoverage)
     exceptions.put("com.infenia.yukta.service.LogRetrievalService", baselineCoverage)
@@ -98,7 +95,8 @@ coverageConfig {
     exceptions.put("com.infenia.yukta.service.WorkflowValidator", baselineCoverage)
     exceptions.put("com.infenia.yukta.service.ControlBusService", baselineCoverage)
     exceptions.put("com.infenia.yukta.service.DefaultControlBusGateway", lowCoverage)
-    exceptions.put("com.infenia.yukta.service.WorkflowOrchestrator*", baselineCoverage)
+    exceptions.put("com.infenia.yukta.service.WorkflowOrchestrator", mapOf("LINE" to 0.95, "BRANCH" to 0.88, "INSTRUCTION" to 0.96, "METHOD" to 0.92))
+    exceptions.put("com.infenia.yukta.service.join.InMemoryJoinStore", mapOf("LINE" to 0.9, "INSTRUCTION" to 0.9))
     exceptions.put("com.infenia.yukta.service.join.InMemoryJoinStore*", lowCoverage)
     exceptions.put("com.infenia.yukta.service.join.JoinStore*", baselineCoverage)
     exceptions.put("com.infenia.yukta.config.AppConfigService", baselineCoverage)

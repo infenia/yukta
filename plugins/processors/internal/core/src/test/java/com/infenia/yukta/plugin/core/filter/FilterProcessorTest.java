@@ -199,4 +199,78 @@ class FilterProcessorTest {
         .expectErrorMatches(e -> e.getMessage().contains("reserved"))
         .verify();
   }
+
+  @Test
+  void testInitialize() {
+    // SpEL
+    StepVerifier.create(processor.initialize(Map.of("condition", "true", "engine", "SpEL")))
+        .verifyComplete();
+    // SIMPLE
+    StepVerifier.create(
+            processor.initialize(
+                Map.of("condition", "payload.status == 'ACTIVE'", "engine", "SIMPLE")))
+        .verifyComplete();
+    // Error
+    StepVerifier.create(processor.initialize(Map.of()))
+        .expectError(IllegalArgumentException.class)
+        .verify();
+  }
+
+  @Test
+  void testMetadata() {
+    assertTrue(processor.getDescription().contains("predicate"));
+    assertTrue(processor.getUsagePattern().contains("condition"));
+  }
+
+  @Test
+  void testOptimizationHints() {
+    assertTrue(processor.suppressOptimizationHint(Map.of("allowAfterHeavy", true)));
+    assertEquals(false, processor.suppressOptimizationHint(Map.of()));
+  }
+
+  @Test
+  void testValidateInContext() {
+    final com.infenia.yukta.plugin.core.WorkflowContext context =
+        new com.infenia.yukta.plugin.core.WorkflowContext(
+            "node1",
+            List.of(),
+            List.of(new com.infenia.yukta.plugin.core.WorkflowContext.WorkflowEdge("s", "t", "p")));
+
+    // Should log warning but complete
+    processor.validateInContext(context, Map.of()).block();
+
+    // Should skip warning
+    processor.validateInContext(context, Map.of("allowAfterHeavy", true)).block();
+
+    // No incoming edges
+    processor
+        .validateInContext(
+            new com.infenia.yukta.plugin.core.WorkflowContext("node1", List.of(), List.of()),
+            Map.of())
+        .block();
+  }
+
+  @Test
+  void testDefaultLifecycleMethods() {
+    processor.prepare(Map.of()).block();
+    processor.shutdown(Map.of()).block();
+    processor.onControlSignal(null).block();
+  }
+
+  @Test
+  void testEvaluateUnsupportedEngine() {
+    final Map<String, Object> config = Map.of("condition", "true", "engine", "UNKNOWN");
+    final Message<?> msg = DefaultMessage.create(UUID.randomUUID(), Map.of());
+
+    // Switch to manual initialization if needed, but here we just test process with bad engine
+    StepVerifier.create(
+            processor
+                .process(Flux.just(msg), config)
+                .contextWrite(ctx -> ctx.put("nodeId", "test")))
+        .expectErrorMatches(
+            e ->
+                e instanceof com.infenia.yukta.plugin.exception.FilterEvaluationException
+                    && e.getCause().getMessage().contains("Unsupported engine"))
+        .verify();
+  }
 }
