@@ -57,6 +57,7 @@ dependencies {
 
     testImplementation(libs.spring.boot.starter.webflux.test)
     testImplementation(libs.reactor.test)
+    testImplementation(libs.playwright)
 }
 
 val requestedTasks = gradle.startParameter.taskNames

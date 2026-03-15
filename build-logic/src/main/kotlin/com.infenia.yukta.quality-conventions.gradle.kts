@@ -37,6 +37,7 @@ checkstyle {
     configFile = rootProject.file("config/checkstyle/checkstyle.xml")
     isIgnoreFailures = false
     isShowViolations = true
+    maxWarnings = 0
 }
 
 pmd {

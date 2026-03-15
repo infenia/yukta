@@ -3,7 +3,6 @@
   "version": "1.0.0",
   "license": "Apache-2.0",
   "scripts": {
-    "test:e2e": "playwright test"
   },
   "dependencies": {
     "alpinejs": "3.14.8",
@@ -11,7 +10,6 @@
     "elkjs": "0.9.3"
   },
   "devDependencies": {
-    "@playwright/test": "^1.58.2",
     "@tailwindcss/cli": "4.1.18",
     "esbuild": "0.25.0",
     "tailwindcss": "4.1.18"
