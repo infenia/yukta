@@ -13,6 +13,12 @@ spring:
         version: 0.0.1
         enabled: true
         stdio: false
+        protocol: STATELESS
+        type: ASYNC
+        streamable-http:
+          mcp-endpoint: /sse
+        sse:
+          sse-endpoint: /sse
   docker:
     compose:
       enabled: false

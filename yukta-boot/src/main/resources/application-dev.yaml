@@ -9,8 +9,12 @@ spring:
       server:
         name: yukta
         version: 0.0.1
-        type: ASYNC
         protocol: STATELESS
+        type: ASYNC
+        streamable-http:
+          mcp-endpoint: /sse
+        sse:
+          sse-endpoint: /sse
   docker:
     compose:
       enabled: false
