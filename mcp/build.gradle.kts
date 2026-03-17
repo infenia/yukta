@@ -24,7 +24,7 @@ dependencyManagement {
 }
 
 dependencies {
-    api(project(":yukta-core"))
+    api(project(":core"))
 
     implementation(libs.spring.ai.mcp.server.webflux)
 

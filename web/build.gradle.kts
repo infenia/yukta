@@ -18,7 +18,7 @@ plugins {
 }
 
 dependencies {
-    api(project(":yukta-core"))
+    api(project(":core"))
 
     implementation(libs.spring.boot.starter.webflux)
     implementation(libs.spring.boot.starter.validation)

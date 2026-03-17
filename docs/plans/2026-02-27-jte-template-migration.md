@@ -13,17 +13,17 @@
 ## Task 1: Rewrite main.jte Layout Template
 
 **Files:**
-- Modify: `yukta-ui/src/main/jte/layout/main.jte`
+- Modify: `ui/src/main/jte/layout/main.jte`
 
 **Step 1: Read the current main.jte**
 
-Run: `cat yukta-ui/src/main/jte/layout/main.jte`
+Run: `cat ui/src/main/jte/layout/main.jte`
 
 Expected: See the current layout with Tailwind CDN links and Alpine.js setup.
 
 **Step 2: Read the design reference (session-list.html) for structure**
 
-Run: `cat yukta-ui/src/main/design/html/session-list.html | head -100`
+Run: `cat ui/src/main/design/html/session-list.html | head -100`
 
 Expected: See the header, theme toggle structure, and inline Tailwind config.
 
@@ -135,7 +135,7 @@ Replace the entire file with:
 
 **Step 4: Verify the file was written correctly**
 
-Run: `cat yukta-ui/src/main/jte/layout/main.jte | head -50`
+Run: `cat ui/src/main/jte/layout/main.jte | head -50`
 
 Expected: See the new Tailwind configuration and updated header structure.
 
@@ -143,7 +143,7 @@ Expected: See the new Tailwind configuration and updated header structure.
 
 ```bash
 cd /media/arun/Infenia/Infenia/Development/Public/yukta
-git add yukta-ui/src/main/jte/layout/main.jte
+git add ui/src/main/jte/layout/main.jte
 git commit -m "refactor: update main.jte layout to match session-list design"
 ```
 
@@ -154,11 +154,11 @@ Expected: Commit succeeds.
 ## Task 2: Rewrite index.jte Dashboard Template
 
 **Files:**
-- Modify: `yukta-ui/src/main/jte/index.jte`
+- Modify: `ui/src/main/jte/index.jte`
 
 **Step 1: Read the design reference for session card structure**
 
-Run: `sed -n '82,140p' yukta-ui/src/main/design/html/session-list.html`
+Run: `sed -n '82,140p' ui/src/main/design/html/session-list.html`
 
 Expected: See the session card HTML structure with badge, title, tags, and footer.
 
@@ -270,7 +270,7 @@ Replace the entire file with:
 
 **Step 3: Verify the file was written correctly**
 
-Run: `cat yukta-ui/src/main/jte/index.jte | head -60`
+Run: `cat ui/src/main/jte/index.jte | head -60`
 
 Expected: See the new structure with session card markup and search functionality.
 
@@ -278,7 +278,7 @@ Expected: See the new structure with session card markup and search functionalit
 
 ```bash
 cd /media/arun/Infenia/Infenia/Development/Public/yukta
-git add yukta-ui/src/main/jte/index.jte
+git add ui/src/main/jte/index.jte
 git commit -m "refactor: update index.jte to match session-list design with dynamic data binding"
 ```
 
@@ -289,11 +289,11 @@ Expected: Commit succeeds.
 ## Task 3: Simplify input.css
 
 **Files:**
-- Modify: `yukta-ui/src/main/resources/static/css/input.css`
+- Modify: `ui/src/main/resources/static/css/input.css`
 
 **Step 1: Read the current input.css**
 
-Run: `cat yukta-ui/src/main/resources/static/css/input.css`
+Run: `cat ui/src/main/resources/static/css/input.css`
 
 Expected: See the current file with @theme and custom utilities.
 
@@ -322,7 +322,7 @@ Replace the entire file with:
 
 **Step 3: Verify the file was written correctly**
 
-Run: `cat yukta-ui/src/main/resources/static/css/input.css`
+Run: `cat ui/src/main/resources/static/css/input.css`
 
 Expected: See only the import and theme configuration, no custom utilities.
 
@@ -330,7 +330,7 @@ Expected: See only the import and theme configuration, no custom utilities.
 
 ```bash
 cd /media/arun/Infenia/Infenia/Development/Public/yukta
-git add yukta-ui/src/main/resources/static/css/input.css
+git add ui/src/main/resources/static/css/input.css
 git commit -m "refactor: simplify input.css to only required Tailwind theme"
 ```
 
@@ -342,13 +342,13 @@ Expected: Commit succeeds.
 
 **Step 1: Clean and build the UI module**
 
-Run: `cd /media/arun/Infenia/Infenia/Development/Public/yukta && ./gradlew :yukta-ui:clean :yukta-ui:build`
+Run: `cd /media/arun/Infenia/Infenia/Development/Public/yukta && ./gradlew :ui:clean :ui:build`
 
 Expected: Build completes successfully without errors.
 
 **Step 2: Check for any Spotless formatting issues**
 
-Run: `./gradlew :yukta-ui:spotlessCheck`
+Run: `./gradlew :ui:spotlessCheck`
 
 Expected: No formatting issues detected.
 
@@ -366,7 +366,7 @@ Expected: Check if any files were modified by Spotless.
 
 If files changed:
 ```bash
-git add yukta-ui/src/main/jte/layout/main.jte yukta-ui/src/main/jte/index.jte
+git add ui/src/main/jte/layout/main.jte ui/src/main/jte/index.jte
 git commit -m "style: apply spotless formatting"
 ```
 

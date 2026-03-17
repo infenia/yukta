@@ -42,26 +42,26 @@ jobs:
               - 'config/**'
 
             # Application modules
-            yukta-plugin-api:
-              - 'yukta-plugin-api/**'
-            yukta-core:
-              - 'yukta-core/**'
-            yukta-web:
-              - 'yukta-web/**'
-            yukta-mcp:
-              - 'yukta-mcp/**'
-            yukta-ui:
-              - 'yukta-ui/**'
-            yukta-boot:
-              - 'yukta-boot/**'
+            plugin-api:
+              - 'plugin-api/**'
+            core:
+              - 'core/**'
+            web:
+              - 'web/**'
+            mcp:
+              - 'mcp/**'
+            ui:
+              - 'ui/**'
+            boot:
+              - 'boot/**'
 
             # Plugin modules
             plugins-build-tools-common:
               - 'plugins/build-tools/common/**'
             plugins-build-tools-gradle:
               - 'plugins/build-tools/gradle/**'
-            plugins-processors-internal-core:
-              - 'plugins/processors/internal/core/**'
+            plugins-processors-internal-internal-core:
+              - 'plugins/processors/internal/internal-core/**'
             plugins-processors-scripting:
               - 'plugins/processors/scripting/**'
             plugins-triggers-api-trigger:
@@ -139,24 +139,24 @@ jobs:
 
           for module in $(echo "$CHANGED_MODULES" | jq -r '.[]'); do
             case $module in
-              "yukta-plugin-api")
-                add_module_tasks ":yukta-plugin-api" ;;
-              "yukta-core")
-                add_module_tasks ":yukta-core" ;;
-              "yukta-web")
-                add_module_tasks ":yukta-web" ;;
-              "yukta-mcp")
-                add_module_tasks ":yukta-mcp" ;;
-              "yukta-ui")
-                add_module_tasks ":yukta-ui" ;;
-              "yukta-boot")
-                add_module_tasks ":yukta-boot" ;;
+              "plugin-api")
+                add_module_tasks ":plugin-api" ;;
+              "core")
+                add_module_tasks ":core" ;;
+              "web")
+                add_module_tasks ":web" ;;
+              "mcp")
+                add_module_tasks ":mcp" ;;
+              "ui")
+                add_module_tasks ":ui" ;;
+              "boot")
+                add_module_tasks ":boot" ;;
               "plugins-build-tools-common")
                 add_module_tasks ":plugins:build-tools:common" ;;
               "plugins-build-tools-gradle")
                 add_module_tasks ":plugins:build-tools:gradle" ;;
-              "plugins-processors-internal-core")
-                add_module_tasks ":plugins:processors:internal:core" ;;
+              "plugins-processors-internal-internal-core")
+                add_module_tasks ":plugins:processors:internal:internal-core" ;;
               "plugins-processors-scripting")
                 add_module_tasks ":plugins:processors:scripting" ;;
               "plugins-triggers-api-trigger")

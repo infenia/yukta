@@ -30,4 +30,4 @@ gg:
     developmentMode: true
     usePrecompiledTemplates: false
     trimControlStructures: true
-    template-location: ../yukta-ui/src/main/jte
+    template-location: ../ui/src/main/jte

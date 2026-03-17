@@ -20,6 +20,6 @@ plugins {
 version = "1.0.0"
 
 dependencies {
-    api(project(":yukta-plugin-api"))
+    api(project(":plugin-api"))
     implementation(libs.spring.boot.starter.webflux)
 }

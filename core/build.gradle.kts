@@ -18,7 +18,7 @@ plugins {
 }
 
 dependencies {
-    api(project(":yukta-plugin-api"))
+    api(project(":plugin-api"))
 
     // Default plugins
     implementation(project(":plugins:build-tools:gradle"))

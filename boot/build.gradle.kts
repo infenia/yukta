@@ -20,11 +20,11 @@ plugins {
 }
 
 dependencies {
-    implementation(project(":yukta-core"))
-    implementation(project(":yukta-web"))
-    implementation(project(":yukta-mcp"))
-    implementation(project(":yukta-ui"))
-    implementation(project(":plugins:processors:internal:core"))
+    implementation(project(":core"))
+    implementation(project(":web"))
+    implementation(project(":mcp"))
+    implementation(project(":ui"))
+    implementation(project(":plugins:processors:internal:internal-core"))
     implementation(project(":plugins:triggers:api-trigger"))
     implementation(project(":plugins:triggers:constant-source"))
     implementation(project(":plugins:terminals:console-terminal"))

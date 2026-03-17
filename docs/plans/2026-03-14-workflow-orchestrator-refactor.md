@@ -13,8 +13,8 @@
 ## Task 1: Create ExecutionContextBuilder
 
 **Files:**
-- Create: `yukta-core/src/main/java/com/infenia/yukta/service/orchestrator/ExecutionContextBuilder.java`
-- Test: `yukta-core/src/test/java/com/infenia/yukta/service/orchestrator/ExecutionContextBuilderTest.java`
+- Create: `core/src/main/java/com/infenia/yukta/service/orchestrator/ExecutionContextBuilder.java`
+- Test: `core/src/test/java/com/infenia/yukta/service/orchestrator/ExecutionContextBuilderTest.java`
 
 **Step 1: Write the test for ExecutionContextBuilder**
 
@@ -94,7 +94,7 @@ class ExecutionContextBuilderTest {
 **Step 2: Run test to verify it fails**
 
 ```bash
-./gradlew :yukta-core:test --tests ExecutionContextBuilderTest -v
+./gradlew :core:test --tests ExecutionContextBuilderTest -v
 ```
 
 Expected: FAIL (class does not exist)
@@ -250,7 +250,7 @@ public class ExecutionContextBuilder {
 **Step 4: Run test to verify it passes**
 
 ```bash
-./gradlew :yukta-core:test --tests ExecutionContextBuilderTest -v
+./gradlew :core:test --tests ExecutionContextBuilderTest -v
 ```
 
 Expected: PASS (all 4 tests pass)
@@ -258,8 +258,8 @@ Expected: PASS (all 4 tests pass)
 **Step 5: Commit**
 
 ```bash
-git add yukta-core/src/main/java/com/infenia/yukta/service/orchestrator/ExecutionContextBuilder.java
-git add yukta-core/src/test/java/com/infenia/yukta/service/orchestrator/ExecutionContextBuilderTest.java
+git add core/src/main/java/com/infenia/yukta/service/orchestrator/ExecutionContextBuilder.java
+git add core/src/test/java/com/infenia/yukta/service/orchestrator/ExecutionContextBuilderTest.java
 git commit -m "feat: add ExecutionContextBuilder for centralized context management"
 ```
 
@@ -268,9 +268,9 @@ git commit -m "feat: add ExecutionContextBuilder for centralized context managem
 ## Task 2: Create StreamBuilder
 
 **Files:**
-- Create: `yukta-core/src/main/java/com/infenia/yukta/service/orchestrator/StreamBuilder.java`
-- Test: `yukta-core/src/test/java/com/infenia/yukta/service/orchestrator/StreamBuilderTest.java`
-- Modify: `yukta-core/src/main/java/com/infenia/yukta/service/WorkflowOrchestrator.java` (remove helper methods, will be used later)
+- Create: `core/src/main/java/com/infenia/yukta/service/orchestrator/StreamBuilder.java`
+- Test: `core/src/test/java/com/infenia/yukta/service/orchestrator/StreamBuilderTest.java`
+- Modify: `core/src/main/java/com/infenia/yukta/service/WorkflowOrchestrator.java` (remove helper methods, will be used later)
 
 **Step 1: Write the test for StreamBuilder**
 
@@ -417,7 +417,7 @@ class StreamBuilderTest {
 **Step 2: Run test to verify it fails**
 
 ```bash
-./gradlew :yukta-core:test --tests StreamBuilderTest -v
+./gradlew :core:test --tests StreamBuilderTest -v
 ```
 
 Expected: FAIL (class does not exist)
@@ -602,7 +602,7 @@ public class StreamBuilder {
 **Step 4: Run test to verify it passes**
 
 ```bash
-./gradlew :yukta-core:test --tests StreamBuilderTest -v
+./gradlew :core:test --tests StreamBuilderTest -v
 ```
 
 Expected: PASS (all 5 tests pass)
@@ -610,8 +610,8 @@ Expected: PASS (all 5 tests pass)
 **Step 5: Commit**
 
 ```bash
-git add yukta-core/src/main/java/com/infenia/yukta/service/orchestrator/StreamBuilder.java
-git add yukta-core/src/test/java/com/infenia/yukta/service/orchestrator/StreamBuilderTest.java
+git add core/src/main/java/com/infenia/yukta/service/orchestrator/StreamBuilder.java
+git add core/src/test/java/com/infenia/yukta/service/orchestrator/StreamBuilderTest.java
 git commit -m "feat: add StreamBuilder for unified stream construction across plugin types"
 ```
 
@@ -620,8 +620,8 @@ git commit -m "feat: add StreamBuilder for unified stream construction across pl
 ## Task 3: Create HeartbeatBuilder
 
 **Files:**
-- Create: `yukta-core/src/main/java/com/infenia/yukta/service/orchestrator/HeartbeatBuilder.java`
-- Test: `yukta-core/src/test/java/com/infenia/yukta/service/orchestrator/HeartbeatBuilderTest.java`
+- Create: `core/src/main/java/com/infenia/yukta/service/orchestrator/HeartbeatBuilder.java`
+- Test: `core/src/test/java/com/infenia/yukta/service/orchestrator/HeartbeatBuilderTest.java`
 
 **Step 1: Write the test for HeartbeatBuilder**
 
@@ -734,7 +734,7 @@ class HeartbeatBuilderTest {
 **Step 2: Run test to verify it fails**
 
 ```bash
-./gradlew :yukta-core:test --tests HeartbeatBuilderTest -v
+./gradlew :core:test --tests HeartbeatBuilderTest -v
 ```
 
 Expected: FAIL (class does not exist)
@@ -890,7 +890,7 @@ public class HeartbeatBuilder {
 **Step 4: Run test to verify it passes**
 
 ```bash
-./gradlew :yukta-core:test --tests HeartbeatBuilderTest -v
+./gradlew :core:test --tests HeartbeatBuilderTest -v
 ```
 
 Expected: PASS (all 5 tests pass)
@@ -898,8 +898,8 @@ Expected: PASS (all 5 tests pass)
 **Step 5: Commit**
 
 ```bash
-git add yukta-core/src/main/java/com/infenia/yukta/service/orchestrator/HeartbeatBuilder.java
-git add yukta-core/src/test/java/com/infenia/yukta/service/orchestrator/HeartbeatBuilderTest.java
+git add core/src/main/java/com/infenia/yukta/service/orchestrator/HeartbeatBuilder.java
+git add core/src/test/java/com/infenia/yukta/service/orchestrator/HeartbeatBuilderTest.java
 git commit -m "feat: add HeartbeatBuilder for managing control bus heartbeats and statistics"
 ```
 
@@ -908,8 +908,8 @@ git commit -m "feat: add HeartbeatBuilder for managing control bus heartbeats an
 ## Task 4: Create ResourceManagementBuilder
 
 **Files:**
-- Create: `yukta-core/src/main/java/com/infenia/yukta/service/orchestrator/ResourceManagementBuilder.java`
-- Test: `yukta-core/src/test/java/com/infenia/yukta/service/orchestrator/ResourceManagementBuilderTest.java`
+- Create: `core/src/main/java/com/infenia/yukta/service/orchestrator/ResourceManagementBuilder.java`
+- Test: `core/src/test/java/com/infenia/yukta/service/orchestrator/ResourceManagementBuilderTest.java`
 
 **Step 1: Write the test for ResourceManagementBuilder**
 
@@ -1044,7 +1044,7 @@ class ResourceManagementBuilderTest {
 **Step 2: Run test to verify it fails**
 
 ```bash
-./gradlew :yukta-core:test --tests ResourceManagementBuilderTest -v
+./gradlew :core:test --tests ResourceManagementBuilderTest -v
 ```
 
 Expected: FAIL (class does not exist)
@@ -1236,7 +1236,7 @@ public class ResourceManagementBuilder {
 **Step 4: Run test to verify it passes**
 
 ```bash
-./gradlew :yukta-core:test --tests ResourceManagementBuilderTest -v
+./gradlew :core:test --tests ResourceManagementBuilderTest -v
 ```
 
 Expected: PASS (all 5 tests pass)
@@ -1244,8 +1244,8 @@ Expected: PASS (all 5 tests pass)
 **Step 5: Commit**
 
 ```bash
-git add yukta-core/src/main/java/com/infenia/yukta/service/orchestrator/ResourceManagementBuilder.java
-git add yukta-core/src/test/java/com/infenia/yukta/service/orchestrator/ResourceManagementBuilderTest.java
+git add core/src/main/java/com/infenia/yukta/service/orchestrator/ResourceManagementBuilder.java
+git add core/src/test/java/com/infenia/yukta/service/orchestrator/ResourceManagementBuilderTest.java
 git commit -m "feat: add ResourceManagementBuilder for unified resource lifecycle management"
 ```
 
@@ -1254,8 +1254,8 @@ git commit -m "feat: add ResourceManagementBuilder for unified resource lifecycl
 ## Task 5: Refactor createNodeAssembler to use StreamBuilder
 
 **Files:**
-- Modify: `yukta-core/src/main/java/com/infenia/yukta/service/WorkflowOrchestrator.java`
-- Modify: `yukta-core/src/test/java/com/infenia/yukta/service/WorkflowOrchestratorTest.java` (add tests for simplified assemblers)
+- Modify: `core/src/main/java/com/infenia/yukta/service/WorkflowOrchestrator.java`
+- Modify: `core/src/test/java/com/infenia/yukta/service/WorkflowOrchestratorTest.java` (add tests for simplified assemblers)
 
 **Step 1: Update createTriggerAssembler to use StreamBuilder**
 
@@ -1406,7 +1406,7 @@ private NodeAssembler createTerminalAssembler(
 **Step 4: Run tests to verify refactoring doesn't break functionality**
 
 ```bash
-./gradlew :yukta-core:test --tests WorkflowOrchestratorTest -v
+./gradlew :core:test --tests WorkflowOrchestratorTest -v
 ```
 
 Expected: PASS (all existing tests pass)
@@ -1414,7 +1414,7 @@ Expected: PASS (all existing tests pass)
 **Step 5: Run full quality checks**
 
 ```bash
-./gradlew :yukta-core:check
+./gradlew :core:check
 ```
 
 Expected: PASS (spotlessApply, checkstyle, PMD, tests all pass)
@@ -1422,7 +1422,7 @@ Expected: PASS (spotlessApply, checkstyle, PMD, tests all pass)
 **Step 6: Commit**
 
 ```bash
-git add yukta-core/src/main/java/com/infenia/yukta/service/WorkflowOrchestrator.java
+git add core/src/main/java/com/infenia/yukta/service/WorkflowOrchestrator.java
 git commit -m "refactor: simplify node assemblers using StreamBuilder pattern"
 ```
 
@@ -1431,7 +1431,7 @@ git commit -m "refactor: simplify node assemblers using StreamBuilder pattern"
 ## Task 6: Refactor executeTemplate to use HeartbeatBuilder and ResourceManagementBuilder
 
 **Files:**
-- Modify: `yukta-core/src/main/java/com/infenia/yukta/service/WorkflowOrchestrator.java`
+- Modify: `core/src/main/java/com/infenia/yukta/service/WorkflowOrchestrator.java`
 
 **Step 1: Replace executeTemplate heartbeat and resource management logic**
 
@@ -1498,7 +1498,7 @@ private Mono<Void> executeTemplate(
 **Step 2: Run tests to verify refactoring**
 
 ```bash
-./gradlew :yukta-core:test --tests WorkflowOrchestratorTest -v
+./gradlew :core:test --tests WorkflowOrchestratorTest -v
 ```
 
 Expected: PASS (all existing tests pass)
@@ -1506,7 +1506,7 @@ Expected: PASS (all existing tests pass)
 **Step 3: Run full quality checks**
 
 ```bash
-./gradlew :yukta-core:check
+./gradlew :core:check
 ```
 
 Expected: PASS
@@ -1514,7 +1514,7 @@ Expected: PASS
 **Step 4: Commit**
 
 ```bash
-git add yukta-core/src/main/java/com/infenia/yukta/service/WorkflowOrchestrator.java
+git add core/src/main/java/com/infenia/yukta/service/WorkflowOrchestrator.java
 git commit -m "refactor: simplify executeTemplate using HeartbeatBuilder and ResourceManagementBuilder"
 ```
 
@@ -1523,7 +1523,7 @@ git commit -m "refactor: simplify executeTemplate using HeartbeatBuilder and Res
 ## Task 7: Remove unused helper methods from WorkflowOrchestrator
 
 **Files:**
-- Modify: `yukta-core/src/main/java/com/infenia/yukta/service/WorkflowOrchestrator.java`
+- Modify: `core/src/main/java/com/infenia/yukta/service/WorkflowOrchestrator.java`
 
 **Step 1: Identify and remove unused methods**
 
@@ -1549,7 +1549,7 @@ Run spotlessApply to ensure formatting:
 **Step 2: Run tests**
 
 ```bash
-./gradlew :yukta-core:test --tests WorkflowOrchestratorTest -v
+./gradlew :core:test --tests WorkflowOrchestratorTest -v
 ```
 
 Expected: PASS
@@ -1557,7 +1557,7 @@ Expected: PASS
 **Step 3: Run full quality checks**
 
 ```bash
-./gradlew :yukta-core:check
+./gradlew :core:check
 ```
 
 Expected: PASS
@@ -1565,7 +1565,7 @@ Expected: PASS
 **Step 4: Commit**
 
 ```bash
-git add yukta-core/src/main/java/com/infenia/yukta/service/WorkflowOrchestrator.java
+git add core/src/main/java/com/infenia/yukta/service/WorkflowOrchestrator.java
 git commit -m "refactor: clean up WorkflowOrchestrator by removing duplicated logic now in builders"
 ```
 
@@ -1574,7 +1574,7 @@ git commit -m "refactor: clean up WorkflowOrchestrator by removing duplicated lo
 ## Task 8: Add comprehensive unit tests for refactored orchestrator
 
 **Files:**
-- Modify: `yukta-core/src/test/java/com/infenia/yukta/service/WorkflowOrchestratorTest.java`
+- Modify: `core/src/test/java/com/infenia/yukta/service/WorkflowOrchestratorTest.java`
 
 **Step 1: Write test for node assembler simplification**
 
@@ -1651,7 +1651,7 @@ void testResourceManagementBuilderIntegration() {
 **Step 2: Run new tests**
 
 ```bash
-./gradlew :yukta-core:test --tests WorkflowOrchestratorTest -v
+./gradlew :core:test --tests WorkflowOrchestratorTest -v
 ```
 
 Expected: PASS (all new and existing tests pass)
@@ -1659,7 +1659,7 @@ Expected: PASS (all new and existing tests pass)
 **Step 3: Run full quality checks**
 
 ```bash
-./gradlew :yukta-core:check
+./gradlew :core:check
 ```
 
 Expected: PASS
@@ -1667,7 +1667,7 @@ Expected: PASS
 **Step 4: Commit**
 
 ```bash
-git add yukta-core/src/test/java/com/infenia/yukta/service/WorkflowOrchestratorTest.java
+git add core/src/test/java/com/infenia/yukta/service/WorkflowOrchestratorTest.java
 git commit -m "test: add comprehensive tests for refactored orchestrator and builders"
 ```
 
@@ -1687,7 +1687,7 @@ Add a new section to `CLAUDE.md` under "Code Architecture & Patterns":
 
 The `WorkflowOrchestrator` uses internal fluent builder classes to manage cross-cutting concerns:
 
-**StreamBuilder** (`ExecutionContextBuilder` in package `yukta-core/src/main/java/com/infenia/yukta/service/orchestrator/`):
+**StreamBuilder** (`ExecutionContextBuilder` in package `core/src/main/java/com/infenia/yukta/service/orchestrator/`):
 - Unifies stream construction across Trigger, Processor, and Terminal plugins
 - Handles: timeout wrapping, task status tracking, error handling, context application
 - Usage: `new StreamBuilder(...).withSource(...).withTimeout().withTaskTracking(...).build()`
@@ -1736,7 +1736,7 @@ git commit -m "docs: add refactoring documentation for builder pattern in Workfl
 **Step 1: Run full test suite**
 
 ```bash
-./gradlew :yukta-core:test -v
+./gradlew :core:test -v
 ```
 
 Expected: PASS (all tests pass, including new builder tests)
@@ -1744,7 +1744,7 @@ Expected: PASS (all tests pass, including new builder tests)
 **Step 2: Run all quality checks**
 
 ```bash
-./gradlew :yukta-core:check
+./gradlew :core:check
 ```
 
 Expected: PASS (spotless, checkstyle, PMD, SpotBugs, JaCoCo all pass)
@@ -1752,7 +1752,7 @@ Expected: PASS (spotless, checkstyle, PMD, SpotBugs, JaCoCo all pass)
 **Step 3: Verify no regressions**
 
 ```bash
-./gradlew :yukta-core:check :yukta-plugin-api:check :yukta-ui:check :yukta-boot:check
+./gradlew :core:check :plugin-api:check :ui:check :boot:check
 ```
 
 Expected: PASS (all modules pass)

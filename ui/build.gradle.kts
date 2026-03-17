@@ -44,7 +44,7 @@ coverageConfig {
 }
 
 dependencies {
-    implementation(project(":yukta-core"))
+    implementation(project(":core"))
     implementation(libs.jte.starter)
     implementation(libs.htmx.spring.boot)
     implementation(libs.spring.boot.starter.webflux)

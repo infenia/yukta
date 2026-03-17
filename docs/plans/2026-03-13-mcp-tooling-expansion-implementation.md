@@ -15,14 +15,14 @@
 ### Task 1: Create SessionCreationGuide data model
 
 **Files:**
-- Create: `yukta-core/src/main/java/com/infenia/yukta/model/api/SessionCreationGuide.java`
-- Create: `yukta-core/src/main/java/com/infenia/yukta/model/api/SessionCreationResponse.java`
-- Create: `yukta-core/src/main/java/com/infenia/yukta/model/api/PluginReference.java`
-- Create: `yukta-core/src/main/java/com/infenia/yukta/model/api/ErrorExample.java`
+- Create: `core/src/main/java/com/infenia/yukta/model/api/SessionCreationGuide.java`
+- Create: `core/src/main/java/com/infenia/yukta/model/api/SessionCreationResponse.java`
+- Create: `core/src/main/java/com/infenia/yukta/model/api/PluginReference.java`
+- Create: `core/src/main/java/com/infenia/yukta/model/api/ErrorExample.java`
 
 **Step 1: Write the failing test**
 
-Create test file: `yukta-core/src/test/java/com/infenia/yukta/model/api/SessionCreationGuideTest.java`
+Create test file: `core/src/test/java/com/infenia/yukta/model/api/SessionCreationGuideTest.java`
 
 ```java
 package com.infenia.yukta.model.api;
@@ -62,7 +62,7 @@ class SessionCreationGuideTest {
 
 ```bash
 cd /media/arun/Infenia/Infenia/Development/Public/yukta
-./gradlew :yukta-core:test --tests "com.infenia.yukta.model.api.SessionCreationGuideTest" -v
+./gradlew :core:test --tests "com.infenia.yukta.model.api.SessionCreationGuideTest" -v
 ```
 
 Expected: FAIL - classes do not exist
@@ -173,7 +173,7 @@ public record ErrorExample(String error, String cause, String resolution) {}
 **Step 7: Run test to verify it passes**
 
 ```bash
-./gradlew :yukta-core:test --tests "com.infenia.yukta.model.api.SessionCreationGuideTest" -v
+./gradlew :core:test --tests "com.infenia.yukta.model.api.SessionCreationGuideTest" -v
 ```
 
 Expected: PASS
@@ -181,11 +181,11 @@ Expected: PASS
 **Step 8: Commit**
 
 ```bash
-git add yukta-core/src/main/java/com/infenia/yukta/model/api/SessionCreationGuide.java
-git add yukta-core/src/main/java/com/infenia/yukta/model/api/SessionCreationResponse.java
-git add yukta-core/src/main/java/com/infenia/yukta/model/api/PluginReference.java
-git add yukta-core/src/main/java/com/infenia/yukta/model/api/ErrorExample.java
-git add yukta-core/src/test/java/com/infenia/yukta/model/api/SessionCreationGuideTest.java
+git add core/src/main/java/com/infenia/yukta/model/api/SessionCreationGuide.java
+git add core/src/main/java/com/infenia/yukta/model/api/SessionCreationResponse.java
+git add core/src/main/java/com/infenia/yukta/model/api/PluginReference.java
+git add core/src/main/java/com/infenia/yukta/model/api/ErrorExample.java
+git add core/src/test/java/com/infenia/yukta/model/api/SessionCreationGuideTest.java
 git commit -m "feat: add session creation guide and response data models"
 ```
 
@@ -194,8 +194,8 @@ git commit -m "feat: add session creation guide and response data models"
 ### Task 2: Implement getSessionCreationInstructions() MCP tool
 
 **Files:**
-- Modify: `yukta-core/src/main/java/com/infenia/yukta/mcp/AppMcpTools.java`
-- Create: `yukta-core/src/test/java/com/infenia/yukta/mcp/AppMcpToolsSessionInstructionsTest.java`
+- Modify: `core/src/main/java/com/infenia/yukta/mcp/AppMcpTools.java`
+- Create: `core/src/test/java/com/infenia/yukta/mcp/AppMcpToolsSessionInstructionsTest.java`
 
 **Step 1: Write the failing test**
 
@@ -243,14 +243,14 @@ class AppMcpToolsSessionInstructionsTest {
 **Step 2: Run test to verify it fails**
 
 ```bash
-./gradlew :yukta-core:test --tests "com.infenia.yukta.mcp.AppMcpToolsSessionInstructionsTest::getSessionCreationInstructionsShouldReturnGuide" -v
+./gradlew :core:test --tests "com.infenia.yukta.mcp.AppMcpToolsSessionInstructionsTest::getSessionCreationInstructionsShouldReturnGuide" -v
 ```
 
 Expected: FAIL - method does not exist
 
 **Step 3: Add getSessionCreationInstructions() method to AppMcpTools**
 
-In `yukta-core/src/main/java/com/infenia/yukta/mcp/AppMcpTools.java`, add after the existing tools:
+In `core/src/main/java/com/infenia/yukta/mcp/AppMcpTools.java`, add after the existing tools:
 
 ```java
 /**
@@ -319,7 +319,7 @@ import java.util.List;
 **Step 4: Run test to verify it passes**
 
 ```bash
-./gradlew :yukta-core:test --tests "com.infenia.yukta.mcp.AppMcpToolsSessionInstructionsTest::getSessionCreationInstructionsShouldReturnGuide" -v
+./gradlew :core:test --tests "com.infenia.yukta.mcp.AppMcpToolsSessionInstructionsTest::getSessionCreationInstructionsShouldReturnGuide" -v
 ```
 
 Expected: PASS
@@ -333,7 +333,7 @@ Expected: PASS
 **Step 6: Run all AppMcpTools tests**
 
 ```bash
-./gradlew :yukta-core:test --tests "com.infenia.yukta.mcp.AppMcpTools*" -v
+./gradlew :core:test --tests "com.infenia.yukta.mcp.AppMcpTools*" -v
 ```
 
 Expected: All tests PASS
@@ -341,8 +341,8 @@ Expected: All tests PASS
 **Step 7: Commit**
 
 ```bash
-git add yukta-core/src/main/java/com/infenia/yukta/mcp/AppMcpTools.java
-git add yukta-core/src/test/java/com/infenia/yukta/mcp/AppMcpToolsSessionInstructionsTest.java
+git add core/src/main/java/com/infenia/yukta/mcp/AppMcpTools.java
+git add core/src/test/java/com/infenia/yukta/mcp/AppMcpToolsSessionInstructionsTest.java
 git commit -m "feat: add getSessionCreationInstructions MCP tool"
 ```
 
@@ -351,8 +351,8 @@ git commit -m "feat: add getSessionCreationInstructions MCP tool"
 ### Task 3: Implement createSession() MCP tool
 
 **Files:**
-- Modify: `yukta-core/src/main/java/com/infenia/yukta/mcp/AppMcpTools.java`
-- Create: `yukta-core/src/test/java/com/infenia/yukta/mcp/AppMcpToolsCreateSessionTest.java`
+- Modify: `core/src/main/java/com/infenia/yukta/mcp/AppMcpTools.java`
+- Create: `core/src/test/java/com/infenia/yukta/mcp/AppMcpToolsCreateSessionTest.java`
 
 **Step 1: Write the failing test**
 
@@ -427,14 +427,14 @@ class AppMcpToolsCreateSessionTest {
 **Step 2: Run test to verify it fails**
 
 ```bash
-./gradlew :yukta-core:test --tests "com.infenia.yukta.mcp.AppMcpToolsCreateSessionTest" -v
+./gradlew :core:test --tests "com.infenia.yukta.mcp.AppMcpToolsCreateSessionTest" -v
 ```
 
 Expected: FAIL - method does not exist
 
 **Step 3: Add createSession() method to AppMcpTools**
 
-In `yukta-core/src/main/java/com/infenia/yukta/mcp/AppMcpTools.java`, add:
+In `core/src/main/java/com/infenia/yukta/mcp/AppMcpTools.java`, add:
 
 ```java
 /**
@@ -495,7 +495,7 @@ import com.infenia.yukta.model.session.SessionConfigData;
 **Step 4: Run test to verify it passes**
 
 ```bash
-./gradlew :yukta-core:test --tests "com.infenia.yukta.mcp.AppMcpToolsCreateSessionTest" -v
+./gradlew :core:test --tests "com.infenia.yukta.mcp.AppMcpToolsCreateSessionTest" -v
 ```
 
 Expected: PASS
@@ -509,7 +509,7 @@ Expected: PASS
 **Step 6: Run all MCP tests**
 
 ```bash
-./gradlew :yukta-core:test --tests "com.infenia.yukta.mcp.AppMcpTools*" -v
+./gradlew :core:test --tests "com.infenia.yukta.mcp.AppMcpTools*" -v
 ```
 
 Expected: All tests PASS
@@ -517,8 +517,8 @@ Expected: All tests PASS
 **Step 7: Commit**
 
 ```bash
-git add yukta-core/src/main/java/com/infenia/yukta/mcp/AppMcpTools.java
-git add yukta-core/src/test/java/com/infenia/yukta/mcp/AppMcpToolsCreateSessionTest.java
+git add core/src/main/java/com/infenia/yukta/mcp/AppMcpTools.java
+git add core/src/test/java/com/infenia/yukta/mcp/AppMcpToolsCreateSessionTest.java
 git commit -m "feat: add createSession MCP tool with error handling"
 ```
 
@@ -529,11 +529,11 @@ git commit -m "feat: add createSession MCP tool with error handling"
 ### Task 4: Create SessionInfo and monitoring data models
 
 **Files:**
-- Create: `yukta-core/src/main/java/com/infenia/yukta/model/api/SessionInfo.java`
+- Create: `core/src/main/java/com/infenia/yukta/model/api/SessionInfo.java`
 
 **Step 1: Write the failing test**
 
-Create test file: `yukta-core/src/test/java/com/infenia/yukta/model/api/SessionInfoTest.java`
+Create test file: `core/src/test/java/com/infenia/yukta/model/api/SessionInfoTest.java`
 
 ```java
 package com.infenia.yukta.model.api;
@@ -560,7 +560,7 @@ class SessionInfoTest {
 **Step 2: Run test to verify it fails**
 
 ```bash
-./gradlew :yukta-core:test --tests "com.infenia.yukta.model.api.SessionInfoTest" -v
+./gradlew :core:test --tests "com.infenia.yukta.model.api.SessionInfoTest" -v
 ```
 
 Expected: FAIL - class does not exist
@@ -599,7 +599,7 @@ public record SessionInfo(
 **Step 4: Run test to verify it passes**
 
 ```bash
-./gradlew :yukta-core:test --tests "com.infenia.yukta.model.api.SessionInfoTest" -v
+./gradlew :core:test --tests "com.infenia.yukta.model.api.SessionInfoTest" -v
 ```
 
 Expected: PASS
@@ -607,8 +607,8 @@ Expected: PASS
 **Step 5: Commit**
 
 ```bash
-git add yukta-core/src/main/java/com/infenia/yukta/model/api/SessionInfo.java
-git add yukta-core/src/test/java/com/infenia/yukta/model/api/SessionInfoTest.java
+git add core/src/main/java/com/infenia/yukta/model/api/SessionInfo.java
+git add core/src/test/java/com/infenia/yukta/model/api/SessionInfoTest.java
 git commit -m "feat: add SessionInfo data model for session discovery"
 ```
 
@@ -617,8 +617,8 @@ git commit -m "feat: add SessionInfo data model for session discovery"
 ### Task 5: Implement listSessions() MCP tool
 
 **Files:**
-- Modify: `yukta-core/src/main/java/com/infenia/yukta/mcp/AppMcpTools.java`
-- Create: `yukta-core/src/test/java/com/infenia/yukta/mcp/AppMcpToolsListSessionsTest.java`
+- Modify: `core/src/main/java/com/infenia/yukta/mcp/AppMcpTools.java`
+- Create: `core/src/test/java/com/infenia/yukta/mcp/AppMcpToolsListSessionsTest.java`
 
 **Step 1: Write the failing test**
 
@@ -683,14 +683,14 @@ class AppMcpToolsListSessionsTest {
 **Step 2: Run test to verify it fails**
 
 ```bash
-./gradlew :yukta-core:test --tests "com.infenia.yukta.mcp.AppMcpToolsListSessionsTest" -v
+./gradlew :core:test --tests "com.infenia.yukta.mcp.AppMcpToolsListSessionsTest" -v
 ```
 
 Expected: FAIL - method does not exist
 
 **Step 3: Add listSessions() method to AppMcpTools**
 
-In `yukta-core/src/main/java/com/infenia/yukta/mcp/AppMcpTools.java`, add:
+In `core/src/main/java/com/infenia/yukta/mcp/AppMcpTools.java`, add:
 
 ```java
 /**
@@ -735,7 +735,7 @@ import reactor.core.publisher.Flux;
 **Step 4: Run test to verify it passes**
 
 ```bash
-./gradlew :yukta-core:test --tests "com.infenia.yukta.mcp.AppMcpToolsListSessionsTest" -v
+./gradlew :core:test --tests "com.infenia.yukta.mcp.AppMcpToolsListSessionsTest" -v
 ```
 
 Expected: PASS
@@ -749,7 +749,7 @@ Expected: PASS
 **Step 6: Run all MCP tests**
 
 ```bash
-./gradlew :yukta-core:test --tests "com.infenia.yukta.mcp.AppMcpTools*" -v
+./gradlew :core:test --tests "com.infenia.yukta.mcp.AppMcpTools*" -v
 ```
 
 Expected: All tests PASS
@@ -757,8 +757,8 @@ Expected: All tests PASS
 **Step 7: Commit**
 
 ```bash
-git add yukta-core/src/main/java/com/infenia/yukta/mcp/AppMcpTools.java
-git add yukta-core/src/test/java/com/infenia/yukta/mcp/AppMcpToolsListSessionsTest.java
+git add core/src/main/java/com/infenia/yukta/mcp/AppMcpTools.java
+git add core/src/test/java/com/infenia/yukta/mcp/AppMcpToolsListSessionsTest.java
 git commit -m "feat: add listSessions MCP tool for session discovery"
 ```
 
@@ -767,8 +767,8 @@ git commit -m "feat: add listSessions MCP tool for session discovery"
 ### Task 6: Implement streamSessionLogs() MCP tool
 
 **Files:**
-- Modify: `yukta-core/src/main/java/com/infenia/yukta/mcp/AppMcpTools.java`
-- Create: `yukta-core/src/test/java/com/infenia/yukta/mcp/AppMcpToolsStreamLogsTest.java`
+- Modify: `core/src/main/java/com/infenia/yukta/mcp/AppMcpTools.java`
+- Create: `core/src/test/java/com/infenia/yukta/mcp/AppMcpToolsStreamLogsTest.java`
 
 **Step 1: Write the failing test**
 
@@ -828,14 +828,14 @@ class AppMcpToolsStreamLogsTest {
 **Step 2: Run test to verify it fails**
 
 ```bash
-./gradlew :yukta-core:test --tests "com.infenia.yukta.mcp.AppMcpToolsStreamLogsTest" -v
+./gradlew :core:test --tests "com.infenia.yukta.mcp.AppMcpToolsStreamLogsTest" -v
 ```
 
 Expected: FAIL - method does not exist
 
 **Step 3: Add streamSessionLogs() method to AppMcpTools**
 
-In `yukta-core/src/main/java/com/infenia/yukta/mcp/AppMcpTools.java`, add:
+In `core/src/main/java/com/infenia/yukta/mcp/AppMcpTools.java`, add:
 
 ```java
 /**
@@ -894,7 +894,7 @@ private boolean matchesPattern(final String text, final String pattern) {
 **Step 4: Run test to verify it passes**
 
 ```bash
-./gradlew :yukta-core:test --tests "com.infenia.yukta.mcp.AppMcpToolsStreamLogsTest" -v
+./gradlew :core:test --tests "com.infenia.yukta.mcp.AppMcpToolsStreamLogsTest" -v
 ```
 
 Expected: PASS
@@ -908,7 +908,7 @@ Expected: PASS
 **Step 6: Run all MCP tests**
 
 ```bash
-./gradlew :yukta-core:test --tests "com.infenia.yukta.mcp.AppMcpTools*" -v
+./gradlew :core:test --tests "com.infenia.yukta.mcp.AppMcpTools*" -v
 ```
 
 Expected: All tests PASS
@@ -916,8 +916,8 @@ Expected: All tests PASS
 **Step 7: Commit**
 
 ```bash
-git add yukta-core/src/main/java/com/infenia/yukta/mcp/AppMcpTools.java
-git add yukta-core/src/test/java/com/infenia/yukta/mcp/AppMcpToolsStreamLogsTest.java
+git add core/src/main/java/com/infenia/yukta/mcp/AppMcpTools.java
+git add core/src/test/java/com/infenia/yukta/mcp/AppMcpToolsStreamLogsTest.java
 git commit -m "feat: add streamSessionLogs MCP tool with regex filtering"
 ```
 
@@ -926,8 +926,8 @@ git commit -m "feat: add streamSessionLogs MCP tool with regex filtering"
 ### Task 7: Implement getWorkflowExecutionLogs() MCP tool
 
 **Files:**
-- Modify: `yukta-core/src/main/java/com/infenia/yukta/mcp/AppMcpTools.java`
-- Create: `yukta-core/src/test/java/com/infenia/yukta/mcp/AppMcpToolsExecutionLogsTest.java`
+- Modify: `core/src/main/java/com/infenia/yukta/mcp/AppMcpTools.java`
+- Create: `core/src/test/java/com/infenia/yukta/mcp/AppMcpToolsExecutionLogsTest.java`
 
 **Step 1: Write the failing test**
 
@@ -983,14 +983,14 @@ class AppMcpToolsExecutionLogsTest {
 **Step 2: Run test to verify it fails**
 
 ```bash
-./gradlew :yukta-core:test --tests "com.infenia.yukta.mcp.AppMcpToolsExecutionLogsTest" -v
+./gradlew :core:test --tests "com.infenia.yukta.mcp.AppMcpToolsExecutionLogsTest" -v
 ```
 
 Expected: FAIL - method does not exist
 
 **Step 3: Add getWorkflowExecutionLogs() method to AppMcpTools**
 
-In `yukta-core/src/main/java/com/infenia/yukta/mcp/AppMcpTools.java`, add:
+In `core/src/main/java/com/infenia/yukta/mcp/AppMcpTools.java`, add:
 
 ```java
 /**
@@ -1056,7 +1056,7 @@ private String filterLogsByPattern(final String logs, final String pattern) {
 **Step 4: Run test to verify it passes**
 
 ```bash
-./gradlew :yukta-core:test --tests "com.infenia.yukta.mcp.AppMcpToolsExecutionLogsTest" -v
+./gradlew :core:test --tests "com.infenia.yukta.mcp.AppMcpToolsExecutionLogsTest" -v
 ```
 
 Expected: PASS
@@ -1070,7 +1070,7 @@ Expected: PASS
 **Step 6: Run all MCP tests**
 
 ```bash
-./gradlew :yukta-core:test --tests "com.infenia.yukta.mcp.AppMcpTools*" -v
+./gradlew :core:test --tests "com.infenia.yukta.mcp.AppMcpTools*" -v
 ```
 
 Expected: All tests PASS
@@ -1078,8 +1078,8 @@ Expected: All tests PASS
 **Step 7: Commit**
 
 ```bash
-git add yukta-core/src/main/java/com/infenia/yukta/mcp/AppMcpTools.java
-git add yukta-core/src/test/java/com/infenia/yukta/mcp/AppMcpToolsExecutionLogsTest.java
+git add core/src/main/java/com/infenia/yukta/mcp/AppMcpTools.java
+git add core/src/test/java/com/infenia/yukta/mcp/AppMcpToolsExecutionLogsTest.java
 git commit -m "feat: add getWorkflowExecutionLogs MCP tool with filtering"
 ```
 
@@ -1090,15 +1090,15 @@ git commit -m "feat: add getWorkflowExecutionLogs MCP tool with filtering"
 ### Task 8: Create control bus monitoring data models
 
 **Files:**
-- Create: `yukta-core/src/main/java/com/infenia/yukta/model/api/ControlBusStatus.java`
-- Create: `yukta-core/src/main/java/com/infenia/yukta/model/api/SessionExecutionInfo.java`
-- Create: `yukta-core/src/main/java/com/infenia/yukta/model/api/PluginRegistryEntry.java`
-- Create: `yukta-core/src/main/java/com/infenia/yukta/model/api/SystemHealthMetrics.java`
-- Create: `yukta-core/src/main/java/com/infenia/yukta/model/api/ExecutionRecord.java`
+- Create: `core/src/main/java/com/infenia/yukta/model/api/ControlBusStatus.java`
+- Create: `core/src/main/java/com/infenia/yukta/model/api/SessionExecutionInfo.java`
+- Create: `core/src/main/java/com/infenia/yukta/model/api/PluginRegistryEntry.java`
+- Create: `core/src/main/java/com/infenia/yukta/model/api/SystemHealthMetrics.java`
+- Create: `core/src/main/java/com/infenia/yukta/model/api/ExecutionRecord.java`
 
 **Step 1: Write the failing test**
 
-Create test file: `yukta-core/src/test/java/com/infenia/yukta/model/api/ControlBusStatusTest.java`
+Create test file: `core/src/test/java/com/infenia/yukta/model/api/ControlBusStatusTest.java`
 
 ```java
 package com.infenia.yukta.model.api;
@@ -1161,7 +1161,7 @@ class ControlBusStatusTest {
 **Step 2: Run test to verify it fails**
 
 ```bash
-./gradlew :yukta-core:test --tests "com.infenia.yukta.model.api.ControlBusStatusTest" -v
+./gradlew :core:test --tests "com.infenia.yukta.model.api.ControlBusStatusTest" -v
 ```
 
 Expected: FAIL - classes do not exist
@@ -1296,7 +1296,7 @@ public record ExecutionRecord(String sessionId, String executionId, String statu
 **Step 8: Run test to verify it passes**
 
 ```bash
-./gradlew :yukta-core:test --tests "com.infenia.yukta.model.api.ControlBusStatusTest" -v
+./gradlew :core:test --tests "com.infenia.yukta.model.api.ControlBusStatusTest" -v
 ```
 
 Expected: PASS
@@ -1304,12 +1304,12 @@ Expected: PASS
 **Step 9: Commit**
 
 ```bash
-git add yukta-core/src/main/java/com/infenia/yukta/model/api/ControlBusStatus.java
-git add yukta-core/src/main/java/com/infenia/yukta/model/api/SessionExecutionInfo.java
-git add yukta-core/src/main/java/com/infenia/yukta/model/api/PluginRegistryEntry.java
-git add yukta-core/src/main/java/com/infenia/yukta/model/api/SystemHealthMetrics.java
-git add yukta-core/src/main/java/com/infenia/yukta/model/api/ExecutionRecord.java
-git add yukta-core/src/test/java/com/infenia/yukta/model/api/ControlBusStatusTest.java
+git add core/src/main/java/com/infenia/yukta/model/api/ControlBusStatus.java
+git add core/src/main/java/com/infenia/yukta/model/api/SessionExecutionInfo.java
+git add core/src/main/java/com/infenia/yukta/model/api/PluginRegistryEntry.java
+git add core/src/main/java/com/infenia/yukta/model/api/SystemHealthMetrics.java
+git add core/src/main/java/com/infenia/yukta/model/api/ExecutionRecord.java
+git add core/src/test/java/com/infenia/yukta/model/api/ControlBusStatusTest.java
 git commit -m "feat: add control bus monitoring data models"
 ```
 
@@ -1318,8 +1318,8 @@ git commit -m "feat: add control bus monitoring data models"
 ### Task 9: Implement getControlBusStatus() MCP tool
 
 **Files:**
-- Modify: `yukta-core/src/main/java/com/infenia/yukta/mcp/AppMcpTools.java`
-- Create: `yukta-core/src/test/java/com/infenia/yukta/mcp/AppMcpToolsControlBusTest.java`
+- Modify: `core/src/main/java/com/infenia/yukta/mcp/AppMcpTools.java`
+- Create: `core/src/test/java/com/infenia/yukta/mcp/AppMcpToolsControlBusTest.java`
 
 **Step 1: Write the failing test**
 
@@ -1376,14 +1376,14 @@ class AppMcpToolsControlBusTest {
 **Step 2: Run test to verify it fails**
 
 ```bash
-./gradlew :yukta-core:test --tests "com.infenia.yukta.mcp.AppMcpToolsControlBusTest" -v
+./gradlew :core:test --tests "com.infenia.yukta.mcp.AppMcpToolsControlBusTest" -v
 ```
 
 Expected: FAIL - method does not exist
 
 **Step 3: Add getControlBusStatus() method to AppMcpTools**
 
-In `yukta-core/src/main/java/com/infenia/yukta/mcp/AppMcpTools.java`, add:
+In `core/src/main/java/com/infenia/yukta/mcp/AppMcpTools.java`, add:
 
 ```java
 /**
@@ -1499,7 +1499,7 @@ import com.infenia.yukta.model.api.ExecutionRecord;
 **Step 4: Run test to verify it passes**
 
 ```bash
-./gradlew :yukta-core:test --tests "com.infenia.yukta.mcp.AppMcpToolsControlBusTest" -v
+./gradlew :core:test --tests "com.infenia.yukta.mcp.AppMcpToolsControlBusTest" -v
 ```
 
 Expected: PASS
@@ -1513,7 +1513,7 @@ Expected: PASS
 **Step 6: Run all MCP tests**
 
 ```bash
-./gradlew :yukta-core:test --tests "com.infenia.yukta.mcp.AppMcpTools*" -v
+./gradlew :core:test --tests "com.infenia.yukta.mcp.AppMcpTools*" -v
 ```
 
 Expected: All tests PASS
@@ -1521,8 +1521,8 @@ Expected: All tests PASS
 **Step 7: Commit**
 
 ```bash
-git add yukta-core/src/main/java/com/infenia/yukta/mcp/AppMcpTools.java
-git add yukta-core/src/test/java/com/infenia/yukta/mcp/AppMcpToolsControlBusTest.java
+git add core/src/main/java/com/infenia/yukta/mcp/AppMcpTools.java
+git add core/src/test/java/com/infenia/yukta/mcp/AppMcpToolsControlBusTest.java
 git commit -m "feat: add getControlBusStatus MCP tool for system monitoring"
 ```
 
@@ -1531,9 +1531,9 @@ git commit -m "feat: add getControlBusStatus MCP tool for system monitoring"
 ### Task 10: Create plugin documentation data model and tool
 
 **Files:**
-- Create: `yukta-core/src/main/java/com/infenia/yukta/model/api/PluginCreationGuide.java`
-- Modify: `yukta-core/src/main/java/com/infenia/yukta/mcp/AppMcpTools.java`
-- Create: `yukta-core/src/test/java/com/infenia/yukta/mcp/AppMcpToolsPluginGuideTest.java`
+- Create: `core/src/main/java/com/infenia/yukta/model/api/PluginCreationGuide.java`
+- Modify: `core/src/main/java/com/infenia/yukta/mcp/AppMcpTools.java`
+- Create: `core/src/test/java/com/infenia/yukta/mcp/AppMcpToolsPluginGuideTest.java`
 
 **Step 1: Write the failing test**
 
@@ -1587,14 +1587,14 @@ class AppMcpToolsPluginGuideTest {
 **Step 2: Run test to verify it fails**
 
 ```bash
-./gradlew :yukta-core:test --tests "com.infenia.yukta.mcp.AppMcpToolsPluginGuideTest" -v
+./gradlew :core:test --tests "com.infenia.yukta.mcp.AppMcpToolsPluginGuideTest" -v
 ```
 
 Expected: FAIL - classes and method do not exist
 
 **Step 3: Write PluginCreationGuide record**
 
-Create file: `yukta-core/src/main/java/com/infenia/yukta/model/api/PluginCreationGuide.java`
+Create file: `core/src/main/java/com/infenia/yukta/model/api/PluginCreationGuide.java`
 
 ```java
 /*
@@ -1628,7 +1628,7 @@ public record PluginCreationGuide(
 
 **Step 4: Add getPluginCreationGuide() method to AppMcpTools**
 
-In `yukta-core/src/main/java/com/infenia/yukta/mcp/AppMcpTools.java`, add:
+In `core/src/main/java/com/infenia/yukta/mcp/AppMcpTools.java`, add:
 
 ```java
 /**
@@ -1827,7 +1827,7 @@ private String buildIntegrationExamples() {
 
       ## Registering the Plugin
       The plugin is automatically discovered via Spring's @Component annotation if placed in:
-      `yukta-core/src/main/java/com/infenia/yukta/plugin/custom/`
+      `core/src/main/java/com/infenia/yukta/plugin/custom/`
 
       ## Example Workflow DAG
       {
@@ -1938,9 +1938,9 @@ private String buildDeploymentGuide() {
       # Deployment Guide
 
       ## Package the Plugin
-      1. Place plugin in `yukta-core/src/main/java/com/infenia/yukta/plugin/custom/`
+      1. Place plugin in `core/src/main/java/com/infenia/yukta/plugin/custom/`
       2. Run `./gradlew spotlessApply` to format
-      3. Run `./gradlew :yukta-core:test` to verify tests pass
+      3. Run `./gradlew :core:test` to verify tests pass
       4. Run `./gradlew check` to run all quality gates
       5. Commit to git with message: `feat: add MyPlugin`
 
@@ -1967,7 +1967,7 @@ import com.infenia.yukta.model.api.PluginCreationGuide;
 **Step 5: Run test to verify it passes**
 
 ```bash
-./gradlew :yukta-core:test --tests "com.infenia.yukta.mcp.AppMcpToolsPluginGuideTest" -v
+./gradlew :core:test --tests "com.infenia.yukta.mcp.AppMcpToolsPluginGuideTest" -v
 ```
 
 Expected: PASS
@@ -1981,7 +1981,7 @@ Expected: PASS
 **Step 7: Run all MCP tests**
 
 ```bash
-./gradlew :yukta-core:test --tests "com.infenia.yukta.mcp.AppMcpTools*" -v
+./gradlew :core:test --tests "com.infenia.yukta.mcp.AppMcpTools*" -v
 ```
 
 Expected: All tests PASS
@@ -1989,9 +1989,9 @@ Expected: All tests PASS
 **Step 8: Commit**
 
 ```bash
-git add yukta-core/src/main/java/com/infenia/yukta/model/api/PluginCreationGuide.java
-git add yukta-core/src/main/java/com/infenia/yukta/mcp/AppMcpTools.java
-git add yukta-core/src/test/java/com/infenia/yukta/mcp/AppMcpToolsPluginGuideTest.java
+git add core/src/main/java/com/infenia/yukta/model/api/PluginCreationGuide.java
+git add core/src/main/java/com/infenia/yukta/mcp/AppMcpTools.java
+git add core/src/test/java/com/infenia/yukta/mcp/AppMcpToolsPluginGuideTest.java
 git commit -m "feat: add getPluginCreationGuide MCP tool with comprehensive templates"
 ```
 
@@ -2007,7 +2007,7 @@ git commit -m "feat: add getPluginCreationGuide MCP tool with comprehensive temp
 **Step 1: Run all unit tests**
 
 ```bash
-./gradlew :yukta-core:test -v
+./gradlew :core:test -v
 ```
 
 Expected: All tests PASS
@@ -2015,7 +2015,7 @@ Expected: All tests PASS
 **Step 2: Run quality gates**
 
 ```bash
-./gradlew :yukta-core:check
+./gradlew :core:check
 ```
 
 Expected: Checkstyle, PMD, SpotBugs all PASS
