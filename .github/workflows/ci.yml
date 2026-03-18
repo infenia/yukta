@@ -8,6 +8,10 @@ on:
   schedule:
     - cron: '0 0 * * *' # 5:30 AM IST (00:00 UTC)
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  NODE_VERSION: 24
+
 permissions:
   contents: write
 
@@ -56,14 +60,10 @@ jobs:
               - 'boot/**'
 
             # Plugin modules
-            plugins-build-tools-common:
-              - 'plugins/build-tools/common/**'
-            plugins-build-tools-gradle:
-              - 'plugins/build-tools/gradle/**'
+            plugins-processors-process-executor:
+              - 'plugins/processors/process-executor/**'
             plugins-processors-internal-internal-core:
               - 'plugins/processors/internal/internal-core/**'
-            plugins-processors-scripting:
-              - 'plugins/processors/scripting/**'
             plugins-triggers-api-trigger:
               - 'plugins/triggers/api-trigger/**'
             plugins-triggers-constant-source:
@@ -151,14 +151,10 @@ jobs:
                 add_module_tasks ":ui" ;;
               "boot")
                 add_module_tasks ":boot" ;;
-              "plugins-build-tools-common")
-                add_module_tasks ":plugins:build-tools:common" ;;
-              "plugins-build-tools-gradle")
-                add_module_tasks ":plugins:build-tools:gradle" ;;
+              "plugins-processors-process-executor")
+                add_module_tasks ":plugins:processors:process-executor" ;;
               "plugins-processors-internal-internal-core")
                 add_module_tasks ":plugins:processors:internal:internal-core" ;;
-              "plugins-processors-scripting")
-                add_module_tasks ":plugins:processors:scripting" ;;
               "plugins-triggers-api-trigger")
                 add_module_tasks ":plugins:triggers:api-trigger" ;;
               "plugins-triggers-constant-source")

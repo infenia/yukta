@@ -8,9 +8,9 @@ def run_script(script_path, payload, host=None, port=None):
     """Runs a hook script with the given payload on stdin."""
     env = os.environ.copy()
     if host:
-        env["JAGRATHA_HOST"] = host
+        env["YUKTA_HOST"] = host
     if port:
-        env["JAGRATHA_PORT"] = str(port)
+        env["YUKTA_PORT"] = str(port)
 
     process = subprocess.Popen(
         [sys.executable, script_path],
@@ -28,8 +28,8 @@ def run_script(script_path, payload, host=None, port=None):
 def main():
     parser = argparse.ArgumentParser(description="Yukta Claude Hook Simulator")
     parser.add_argument("scenario", help="Path to the scenario JSON file")
-    parser.add_argument("--host", help="Yukta server host (overrides JAGRATHA_HOST)")
-    parser.add_argument("--port", type=int, help="Yukta server port (overrides JAGRATHA_PORT)")
+    parser.add_argument("--host", help="Yukta server host (overrides YUKTA_HOST)")
+    parser.add_argument("--port", type=int, help="Yukta server port (overrides YUKTA_PORT)")
 
     args = parser.parse_args()
 

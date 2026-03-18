@@ -15,6 +15,7 @@
  */
 package com.infenia.yukta.service;
 
+import static org.awaitility.Awaitility.await;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -27,6 +28,7 @@ import com.infenia.yukta.plugin.message.control.ControlStatistics;
 import com.infenia.yukta.service.control.ControlHeartbeatHandler;
 import com.infenia.yukta.service.control.ControlSignalHandler;
 import com.infenia.yukta.service.control.ControlStatisticsHandler;
+import java.time.Duration;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -57,11 +59,10 @@ class ControlBusServiceIntegrationTest {
 
     StepVerifier.create(controlBusService.emit(hb)).verifyComplete();
 
-    try {
-      Thread.sleep(100);
-    } catch (final InterruptedException e) {
-      Thread.currentThread().interrupt();
-    }
+    await()
+        .timeout(Duration.ofSeconds(5))
+        .pollInterval(Duration.ofMillis(50))
+        .until(() -> controlBusService.getLastHeartbeat("node1") != null);
 
     assertNotNull(controlBusService.getLastHeartbeat("node1"));
     assertEquals("node1", controlBusService.getActiveNodes().get(0));
@@ -76,11 +77,10 @@ class ControlBusServiceIntegrationTest {
 
     StepVerifier.create(controlBusService.emit(stats)).verifyComplete();
 
-    try {
-      Thread.sleep(100);
-    } catch (final InterruptedException e) {
-      Thread.currentThread().interrupt();
-    }
+    await()
+        .timeout(Duration.ofSeconds(5))
+        .pollInterval(Duration.ofMillis(50))
+        .until(() -> controlBusService.getLastStatistics("node2") != null);
 
     assertNotNull(controlBusService.getLastStatistics("node2"));
   }
@@ -99,11 +99,13 @@ class ControlBusServiceIntegrationTest {
     StepVerifier.create(controlBusService.emit(hb)).verifyComplete();
     StepVerifier.create(controlBusService.emit(stats)).verifyComplete();
 
-    try {
-      Thread.sleep(100);
-    } catch (final InterruptedException e) {
-      Thread.currentThread().interrupt();
-    }
+    await()
+        .timeout(Duration.ofSeconds(5))
+        .pollInterval(Duration.ofMillis(50))
+        .untilAsserted(
+            () -> {
+              /* allow batch processing delay */
+            });
 
     assertNotNull(controlBusService.getLastHeartbeat("node3"));
     assertNotNull(controlBusService.getLastStatistics("node3"));
@@ -129,11 +131,13 @@ class ControlBusServiceIntegrationTest {
     StepVerifier.create(controlBusService.emit(hb1)).verifyComplete();
     StepVerifier.create(controlBusService.emit(hb2)).verifyComplete();
 
-    try {
-      Thread.sleep(100);
-    } catch (final InterruptedException e) {
-      Thread.currentThread().interrupt();
-    }
+    await()
+        .timeout(Duration.ofSeconds(5))
+        .pollInterval(Duration.ofMillis(50))
+        .untilAsserted(
+            () -> {
+              /* allow batch processing delay */
+            });
 
     final List<String> activeNodes = controlBusService.getActiveNodes();
     assertEquals(2, activeNodes.size());
@@ -170,11 +174,13 @@ class ControlBusServiceIntegrationTest {
 
     StepVerifier.create(controlBusService.emit(hb)).verifyComplete();
 
-    try {
-      Thread.sleep(100);
-    } catch (final InterruptedException e) {
-      Thread.currentThread().interrupt();
-    }
+    await()
+        .timeout(Duration.ofSeconds(5))
+        .pollInterval(Duration.ofMillis(50))
+        .untilAsserted(
+            () -> {
+              /* allow batch processing delay */
+            });
 
     // Verify heartbeat was registered (sendCommand only works with registered plugins)
     assertNotNull(controlBusService.getLastHeartbeat("node1"));
@@ -200,11 +206,13 @@ class ControlBusServiceIntegrationTest {
 
     StepVerifier.create(controlBusService.emit(hb)).verifyComplete();
 
-    try {
-      Thread.sleep(100);
-    } catch (final InterruptedException e) {
-      Thread.currentThread().interrupt();
-    }
+    await()
+        .timeout(Duration.ofSeconds(5))
+        .pollInterval(Duration.ofMillis(50))
+        .untilAsserted(
+            () -> {
+              /* allow batch processing delay */
+            });
 
     // Verify heartbeat recorded and node active
     assertNotNull(controlBusService.getLastHeartbeat("node-test"));
@@ -237,11 +245,13 @@ class ControlBusServiceIntegrationTest {
     StepVerifier.create(controlBusService.emit(msgWithoutNodeId)).verifyComplete();
 
     // Sleep to allow batch processing
-    try {
-      Thread.sleep(100);
-    } catch (final InterruptedException e) {
-      Thread.currentThread().interrupt();
-    }
+    await()
+        .timeout(Duration.ofSeconds(5))
+        .pollInterval(Duration.ofMillis(50))
+        .untilAsserted(
+            () -> {
+              /* allow batch processing delay */
+            });
 
     // Node should not be registered (null nodeId ignored)
     assertTrue(controlBusService.getActiveNodes().isEmpty());
@@ -255,11 +265,13 @@ class ControlBusServiceIntegrationTest {
     StepVerifier.create(controlBusService.emit(msgWithoutPayload)).verifyComplete();
 
     // Sleep to allow batch processing
-    try {
-      Thread.sleep(100);
-    } catch (final InterruptedException e) {
-      Thread.currentThread().interrupt();
-    }
+    await()
+        .timeout(Duration.ofSeconds(5))
+        .pollInterval(Duration.ofMillis(50))
+        .untilAsserted(
+            () -> {
+              /* allow batch processing delay */
+            });
 
     // Node should not be tracked (null payload ignored)
     assertNull(controlBusService.getLastHeartbeat("node1"));
@@ -274,11 +286,13 @@ class ControlBusServiceIntegrationTest {
 
     StepVerifier.create(controlBusService.emit(hb)).verifyComplete();
 
-    try {
-      Thread.sleep(100);
-    } catch (final InterruptedException e) {
-      Thread.currentThread().interrupt();
-    }
+    await()
+        .timeout(Duration.ofSeconds(5))
+        .pollInterval(Duration.ofMillis(50))
+        .untilAsserted(
+            () -> {
+              /* allow batch processing delay */
+            });
 
     // Verify getLastHeartbeat searches through handlers
     assertNotNull(controlBusService.getLastHeartbeat("node1"));
@@ -296,11 +310,13 @@ class ControlBusServiceIntegrationTest {
 
     StepVerifier.create(controlBusService.emit(stats)).verifyComplete();
 
-    try {
-      Thread.sleep(100);
-    } catch (final InterruptedException e) {
-      Thread.currentThread().interrupt();
-    }
+    await()
+        .timeout(Duration.ofSeconds(5))
+        .pollInterval(Duration.ofMillis(50))
+        .untilAsserted(
+            () -> {
+              /* allow batch processing delay */
+            });
 
     // Verify getLastStatistics searches through handlers
     assertNotNull(controlBusService.getLastStatistics("node1"));
@@ -319,11 +335,13 @@ class ControlBusServiceIntegrationTest {
 
     StepVerifier.create(controlBusService.emit(hb)).verifyComplete();
 
-    try {
-      Thread.sleep(100);
-    } catch (final InterruptedException e) {
-      Thread.currentThread().interrupt();
-    }
+    await()
+        .timeout(Duration.ofSeconds(5))
+        .pollInterval(Duration.ofMillis(50))
+        .untilAsserted(
+            () -> {
+              /* allow batch processing delay */
+            });
 
     // Verify getActiveNodes searches through handlers and returns first non-empty list
     final List<String> activeNodes = controlBusService.getActiveNodes();
@@ -344,11 +362,13 @@ class ControlBusServiceIntegrationTest {
     StepVerifier.create(controlBusService.emit(lowPriority)).verifyComplete();
     StepVerifier.create(controlBusService.emit(highPriority)).verifyComplete();
 
-    try {
-      Thread.sleep(150);
-    } catch (final InterruptedException e) {
-      Thread.currentThread().interrupt();
-    }
+    await()
+        .timeout(Duration.ofSeconds(5))
+        .pollInterval(Duration.ofMillis(50))
+        .untilAsserted(
+            () -> {
+              /* allow batch processing delay */
+            });
 
     // Both messages should be processed regardless of priority
     assertNotNull(controlBusService.getLastHeartbeat("node-low"));

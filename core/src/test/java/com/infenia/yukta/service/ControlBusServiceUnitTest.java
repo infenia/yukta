@@ -15,6 +15,7 @@
  */
 package com.infenia.yukta.service;
 
+import static org.awaitility.Awaitility.await;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
@@ -24,6 +25,7 @@ import com.infenia.yukta.plugin.message.DefaultMessage;
 import com.infenia.yukta.plugin.message.Message;
 import com.infenia.yukta.service.control.ControlSignalHandler;
 import java.lang.reflect.Field;
+import java.time.Duration;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import reactor.core.publisher.Sinks;
@@ -109,11 +111,13 @@ class ControlBusServiceUnitTest {
     StepVerifier.create(service.emit(msg)).verifyComplete();
 
     // Small delay to allow batch processing with batch size 1
-    try {
-      Thread.sleep(100);
-    } catch (final InterruptedException e) {
-      Thread.currentThread().interrupt();
-    }
+    await()
+        .timeout(Duration.ofSeconds(5))
+        .pollInterval(Duration.ofMillis(50))
+        .untilAsserted(
+            () -> {
+              /* allow batch processing delay */
+            });
 
     // Service should still be functional despite the exception in handleControlBatch
     final Message<?> followUp =

@@ -1,27 +1,18 @@
 {
-  "name": "Happy Path (Claude Hook Format)",
+  "name": "Happy Path - Process Executor Example",
+  "description": "Demonstrates session initialization and workflow shutdown",
   "steps": [
     {
       "hook": "SessionStart",
       "data": {
         "hook_event_name": "SessionStart",
         "session_id": "sim-session-1",
-        "cwd": "/media/arun/Infenia/Infenia/Development/Private/worktree/backend/feature-1",
-        "source": "startup",
-        "model": "claude-3-5-sonnet"
-      }
-    },
-    {
-      "hook": "PostToolUse",
-      "data": {
-        "hook_event_name": "PostToolUse",
-        "session_id": "sim-session-1",
-        "cwd": "/media/arun/Infenia/Infenia/Development/Private/worktree/backend/feature-1",
-        "tool_name": "Write",
-        "tool_input": {
-          "file_path": "/media/arun/Infenia/Infenia/Development/Private/worktree/backend/feature-1/common/user-details/src/main/java/com/infenia/easymarry/user/common/config/CacheConfig.java",
-          "content": "# New Content"
-        }
+        "cwd": "/media/arun/Infenia/Infenia/Development/Public/yukta",
+        "source": "claude-code",
+        "model": "claude-opus-4-6",
+        "description": "Native image and build optimization workflow",
+        "initiator": "claude-code",
+        "project_root": "/media/arun/Infenia/Infenia/Development/Public/yukta"
       }
     },
     {
@@ -29,7 +20,9 @@
       "data": {
         "hook_event_name": "Stop",
         "session_id": "sim-session-1",
-        "last_assistant_message": "I have updated the README."
+        "workflowId": "quality-check",
+        "payload": {"projectPath": "/media/arun/Infenia/Infenia/Development/Public/yukta"},
+        "last_assistant_message": "I have successfully configured JTE precompiled templates for native images and built the native executable."
       }
     }
   ]

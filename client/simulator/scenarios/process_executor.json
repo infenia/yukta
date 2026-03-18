@@ -1,0 +1,27 @@
+{
+  "name": "Process Executor Workflow",
+  "description": "Demonstrates workflow with ProcessExecutor plugin for running external commands",
+  "steps": [
+    {
+      "hook": "SessionStart",
+      "data": {
+        "hook_event_name": "SessionStart",
+        "session_id": "process-exec-session",
+        "cwd": "/media/arun/Infenia/Infenia/Development/Public/yukta",
+        "source": "claude-code",
+        "model": "claude-opus-4-6",
+        "description": "Quality checks with ProcessExecutor plugin",
+        "initiator": "claude-code",
+        "project_root": "/media/arun/Infenia/Infenia/Development/Public/yukta"
+      }
+    },
+    {
+      "hook": "Stop",
+      "data": {
+        "hook_event_name": "Stop",
+        "session_id": "process-exec-session",
+        "last_assistant_message": "Quality checks completed successfully. All formatting and analysis passed."
+      }
+    }
+  ]
+}

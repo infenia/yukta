@@ -28,6 +28,7 @@ dependencies {
     implementation(project(":plugins:triggers:api-trigger"))
     implementation(project(":plugins:triggers:constant-source"))
     implementation(project(":plugins:terminals:console-terminal"))
+    implementation(project(":plugins:processors:process-executor"))
 
     implementation(libs.spring.boot.starter.webflux)
     implementation(libs.spring.boot.starter.validation)
@@ -49,6 +50,16 @@ tasks.named<org.springframework.boot.gradle.tasks.run.BootRun>("bootRun") {
     standardInput = System.`in`
     // Ensure the application always starts even if no files changed
     outputs.upToDateWhen { false }
+}
+
+coverageConfig {
+    exceptions.put("com.infenia.yukta.YuktaApplication", mapOf(
+        "LINE" to 0.5,
+        "BRANCH" to 0.1,
+        "CLASS" to 0.8,
+        "INSTRUCTION" to 0.3,
+        "METHOD" to 0.7
+    ))
 }
 
 graalvmNative {

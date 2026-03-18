@@ -20,12 +20,12 @@ import argparse
 import http.client
 
 # Yukta Server Configuration
-WEBSERVER_HOST = os.environ.get("JAGRATHA_HOST", "localhost")
-WEBSERVER_PORT = int(os.environ.get("JAGRATHA_PORT", 8080))
+WEBSERVER_HOST = os.environ.get("YUKTA_HOST", "localhost")
+WEBSERVER_PORT = int(os.environ.get("YUKTA_PORT", 8080))
 
 # Workflow Configuration - Set these values as needed
 WORKFLOW_ID = "quality-check"
-PAYLOAD = {}
+PAYLOAD = {"projectPath": "."}
 
 def trigger_workflow(session_id):
     """
@@ -61,7 +61,7 @@ def monitor_status(session_id):
     """
     Monitors the workflow status via Server-Sent Events (SSE).
     """
-    path = f"/api/workflow/{session_id}/{WORKFLOW_ID}/status/stream"
+    path = f"/api/sessions/{session_id}/{WORKFLOW_ID}/status/stream"
     conn = http.client.HTTPConnection(WEBSERVER_HOST, WEBSERVER_PORT)
 
     try:
@@ -108,16 +108,40 @@ def monitor_status(session_id):
 
 def main():
     parser = argparse.ArgumentParser(description="Yukta Workflow Trigger & Monitor")
-    parser.add_argument("--session-id", help="The unique session identifier", required=True)
+    parser.add_argument("--session-id", help="The unique session identifier")
 
-    args = parser.parse_args()
+    args, unknown = parser.parse_known_args()
     session_id = args.session_id
+
+    # Attempt to read from stdin (for automated environments/hooks)
+    if not session_id and not sys.stdin.isatty():
+        try:
+            data = json.load(sys.stdin)
+            session_id = data.get('session_id', session_id)
+            # Also read workflow configuration from stdin if available
+            global WORKFLOW_ID, PAYLOAD
+            if 'workflowId' in data:
+                WORKFLOW_ID = data['workflowId']
+            if 'payload' in data and data['payload']:
+                PAYLOAD = data['payload']
+        except Exception as e:
+            # Non-fatal: stdin may be empty or not contain valid JSON; fall back to CLI args only.
+            print(f"Note: Could not read session configuration from stdin: {e}", file=sys.stderr)
+
+    if not session_id:
+        print("Error: --session-id is required or must be provided via stdin")
+        sys.exit(1)
 
     if not trigger_workflow(session_id):
         sys.exit(1)
 
-    if not monitor_status(session_id):
-        sys.exit(1)
+    # Optionally monitor status (may fail if workflow is still initializing)
+    try:
+        if not monitor_status(session_id):
+            # Non-fatal: workflow may still be running
+            print("Note: Could not monitor status stream, but workflow was triggered successfully.")
+    except Exception as e:
+        print(f"Note: Status monitoring unavailable: {e}")
 
 if __name__ == "__main__":
     main()

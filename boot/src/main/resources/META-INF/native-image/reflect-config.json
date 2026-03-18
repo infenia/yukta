@@ -1,0 +1,69 @@
+[
+  {
+    "name": "gg.jte.TemplateEngine",
+    "methods": [
+      {
+        "name": "render",
+        "parameterTypes": ["java.lang.String", "java.util.Map", "java.lang.Appendable"]
+      },
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      },
+      {
+        "name": "<init>",
+        "parameterTypes": ["gg.jte.CodeResolver", "gg.jte.ContentType"]
+      }
+    ]
+  },
+  {
+    "name": "gg.jte.output.StringOutput",
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      },
+      {
+        "name": "toString",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "gg.jte.resolve.ResourceCodeResolver",
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": ["java.lang.String"]
+      },
+      {
+        "name": "<init>",
+        "parameterTypes": ["java.lang.String", "java.lang.ClassLoader"]
+      }
+    ]
+  },
+  {
+    "name": "gg.jte.generated.precompiled.JteindexGenerated",
+    "allPublicMethods": true
+  },
+  {
+    "name": "gg.jte.generated.precompiled.JtesessionGenerated",
+    "allPublicMethods": true
+  },
+  {
+    "name": "gg.jte.generated.precompiled.JteworkflowGenerated",
+    "allPublicMethods": true
+  },
+  {
+    "name": "gg.jte.generated.precompiled.layout.JtemainGenerated",
+    "allPublicMethods": true
+  },
+  {
+    "name": "gg.jte.generated.precompiled.JtecontrolbusGenerated",
+    "allPublicMethods": true
+  },
+  {
+    "name": "gg.jte.generated.precompiled.JtehistoryGenerated",
+    "allPublicMethods": true
+  }
+]

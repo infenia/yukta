@@ -57,7 +57,6 @@ class UiE2ETest {
   @MockitoBean private TaskTrackerService taskTrackerService;
   @MockitoBean private WorkflowRegistry workflowRegistry;
   @MockitoBean private ControlBusService controlBusService;
-  @MockitoBean private com.infenia.yukta.plugin.gateway.BuildGateway buildGateway;
 
   private static Playwright playwright;
   private static Browser browser;

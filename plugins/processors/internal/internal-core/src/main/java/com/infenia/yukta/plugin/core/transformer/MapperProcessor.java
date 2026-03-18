@@ -94,6 +94,10 @@ public class MapperProcessor implements ProcessorPlugin {
     super();
   }
 
+  private Handlebars getHandlebars() {
+    return handlebars;
+  }
+
   @Override
   public String getDescription() {
     return "Transforms message payloads using PROJECTION (SpEL), TEMPLATE (Handlebars), or SCRIPT"
@@ -170,7 +174,7 @@ public class MapperProcessor implements ProcessorPlugin {
         templateStr,
         t -> {
           try {
-            return handlebars.compileInline(t);
+            return getHandlebars().compileInline(t);
           } catch (Exception e) {
             throw new RuntimeException("Failed to compile Handlebars template", e);
           }

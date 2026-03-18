@@ -21,7 +21,6 @@ dependencies {
     api(project(":plugin-api"))
 
     // Default plugins
-    implementation(project(":plugins:build-tools:gradle"))
 
     implementation(libs.spring.boot.starter.webflux)
     implementation(libs.spring.boot.starter.webclient)
@@ -41,6 +40,7 @@ dependencies {
     testImplementation(libs.spring.boot.starter.validation.test)
     testImplementation(libs.spring.boot.starter.actuator.test)
     testImplementation(libs.spring.boot.starter.jackson.test)
+    testImplementation(libs.awaitility)
 }
 
 coverageConfig {
