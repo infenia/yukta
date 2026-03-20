@@ -18,7 +18,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Tech Stack
 
-- **Java 21** (source & target compatibility; uses Java 25+ compiler for toolchain)
+- **Java 25** (source & target compatibility; LTS alternative Java 21 supported)
 - **Spring Boot 4.0.2** (WebFlux for reactive non-blocking operations)
 - **Gradle 9.0** (multi-module with convention plugins)
 - **GraalVM** (native image support)
@@ -177,7 +177,7 @@ Used for DTO mapping: `AppConfigMapper` converts between REST requests/responses
 ## Build Conventions (build-logic)
 
 The `build-logic` directory defines three reusable convention plugins:
-1. **java-conventions**: Java toolchain (21), Lombok, repositories, JUnit 5
+1. **java-conventions**: Java toolchain (25), Lombok, repositories, JUnit 5
 2. **quality-conventions**: Spotless, Checkstyle, PMD, SpotBugs, license headers
 3. **jacoco-conventions**: Code coverage tracking
 
