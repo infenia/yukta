@@ -87,7 +87,10 @@ configure<JteExtension> {
     if (isProdBuild) {
         println("JTE → PRODUCTION mode (precompiled)")
         precompile()
-        binaryStaticContent.set(true)
+        // Disable binary static content for native images: BinaryContent.load() uses
+        // ClassLoader.getResourceAsStream() which doesn't work reliably in GraalVM native images.
+        // Text-based content works fine and adds minimal overhead.
+        binaryStaticContent.set(false)
     } else {
         println("JTE → DEVELOPMENT mode (hot reload)")
         generate()
@@ -97,6 +100,17 @@ configure<JteExtension> {
 
 // Add generated JTE source directory to Java compilation
 sourceSets.main.get().java.srcDir(layout.buildDirectory.dir("jte-classes"))
+
+// Copy JTE precompiled classes to classes output dir so they're included in JAR
+tasks.register<Copy>("copyJteClasses") {
+    dependsOn(tasks.named("precompileJte"), tasks.named("generateJte"))
+    from(layout.buildDirectory.dir("jte-classes"))
+    into(layout.buildDirectory.dir("classes/java/main"))
+}
+
+tasks.named("classes") {
+    dependsOn(tasks.named("copyJteClasses"))
+}
 
 // Fix dependency: Checkstyle should depend on JTE generation
 tasks.named("checkstyleMain") {
@@ -132,13 +146,15 @@ val bundleJs = tasks.register<PnpmTask>("bundleJs") {
 }
 
 tasks.named<ProcessResources>("processResources") {
-    dependsOn(tailwind, bundleJs)
+    dependsOn(tailwind, bundleJs, tasks.named("precompileJte"), tasks.named("generateJte"))
     from(layout.buildDirectory.dir("tailwind")) {
         into("static/css")
     }
     from(layout.buildDirectory.dir("esbuild")) {
         into("static/js")
     }
+    // JTE plugin automatically includes binary content files (.bin) in generated-resources/jte
+    // which are picked up by processResources. No need to explicitly copy them.
 }
 
 tasks.named<JacocoReport>("jacocoTestReport") {

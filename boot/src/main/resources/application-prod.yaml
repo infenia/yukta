@@ -1,26 +1,24 @@
 spring:
+  config:
+    activate:
+      on-profile: prod
+  jte:
+    developmentMode: false              # Precompiled JTE templates for native
+    usePrecompiledTemplates: true       # Critical: use precompiled classes
+  main:
+    banner-mode: "off"                  # Disable startup banner
+    lazy-initialization: true           # Lazy-init beans to reduce startup time
+  web:
+    compression:
+      enabled: true                     # Enable gzip compression
+      min-response-size: 1024           # Compress responses >1KB
   threads:
     virtual:
-      enabled: true
-  main:
-    banner-mode: "off"
-  ai:
-    mcp:
-      server:
-        name: yukta
-        version: 0.0.1
-        stdio: true
-  docker:
-    compose:
-      enabled: false
+      enabled: true                     # Virtual threads for better concurrency
 
 logging:
   level:
-    root: INFO
-    org.springframework: WARN
-    org.springframework.web: DEBUG
-
-gg:
-  jte:
-    developmentMode: false
-    usePrecompiledTemplates: true
+    root: WARN                          # Reduce default log verbosity in prod
+    org.springframework: ERROR           # Suppress Spring framework logs
+    org.springframework.web: WARN        # Keep web request logging minimal
+    com.infenia.yukta: INFO             # App-level logging

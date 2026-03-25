@@ -81,7 +81,7 @@ public class MapperProcessor implements ProcessorPlugin {
   private static final Engine JS_ENGINE =
       Engine.newBuilder().option("engine.WarnInterpreterOnly", "false").build();
 
-  private final Handlebars handlebars = new Handlebars();
+  private Handlebars handlebars;
   private final ObjectMapper objectMapper = new ObjectMapper();
   private final MapMessageMapper mapMapper = new MapMessageMapper();
   private final DefaultConversionService conversionService = new DefaultConversionService();
@@ -95,6 +95,12 @@ public class MapperProcessor implements ProcessorPlugin {
   }
 
   private Handlebars getHandlebars() {
+    if (handlebars == null) {
+      // Lazy initialization: Handlebars static initializer may fail in native images
+      // if classpath resources aren't available. Deferring initialization ensures it
+      // happens only when actually needed, and in the context where resources are available.
+      handlebars = new Handlebars();
+    }
     return handlebars;
   }
 

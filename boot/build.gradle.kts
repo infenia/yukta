@@ -34,6 +34,7 @@ dependencies {
     implementation(libs.spring.boot.starter.validation)
     implementation(libs.spring.boot.starter.actuator)
 
+    // Dev-only dependencies (automatically excluded from native image but made explicit for clarity)
     developmentOnly(libs.spring.boot.devtools)
     developmentOnly(libs.spring.boot.docker.compose)
 
@@ -69,8 +70,17 @@ graalvmNative {
             mainClass.set("com.infenia.yukta.YuktaApplication")
             buildArgs.add("--no-fallback")
 
-            // 🔥 Force prod profile inside native image
+            // Increase heap for native image compilation (JTE classes need more memory)
+            buildArgs.add("-J-Xmx16g")
+
+            // Size-reduction flags (compatible with GraalVM 25)
+            buildArgs.add("-H:+RemoveUnusedSymbols")           // Remove unused symbols
+            buildArgs.add("-H:+StripDebugInfo")                // Remove debug information
+            buildArgs.add("-H:-AddAllCharsets")                // Remove unnecessary charsets
+
+            // Force prod profile + AOT compilation
             buildArgs.add("-Dspring.profiles.active=prod")
+            buildArgs.add("-Dspring.aot.enabled=true")
         }
     }
 }
