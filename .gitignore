@@ -41,3 +41,4 @@ node_modules/
 ### Logs ###
 *.log
 jte-classes/
+.gitnexus

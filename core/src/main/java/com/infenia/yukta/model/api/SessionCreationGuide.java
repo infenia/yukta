@@ -16,8 +16,6 @@
 package com.infenia.yukta.model.api;
 
 import io.swagger.v3.oas.annotations.media.Schema;
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 
 /**
@@ -48,7 +46,7 @@ public record SessionCreationGuide(
 
   /** Compact constructor that wraps mutable lists with immutable views. */
   public SessionCreationGuide {
-    availablePlugins = Collections.unmodifiableList(new ArrayList<>(availablePlugins));
-    commonErrors = Collections.unmodifiableList(new ArrayList<>(commonErrors));
+    availablePlugins = List.copyOf(availablePlugins);
+    commonErrors = List.copyOf(commonErrors);
   }
 }
