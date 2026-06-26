@@ -15,10 +15,10 @@
  */
 package com.infenia.yukta.mcp.provider;
 
-import com.infenia.yukta.model.api.SessionCreationGuide;
-import com.infenia.yukta.model.api.SessionCreationResponse;
-import com.infenia.yukta.model.api.SessionDetails;
-import com.infenia.yukta.model.api.SessionInfo;
+import com.infenia.yukta.dto.response.SessionCreationGuide;
+import com.infenia.yukta.dto.response.SessionCreationResponse;
+import com.infenia.yukta.dto.response.SessionDetails;
+import com.infenia.yukta.dto.response.SessionInfo;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 

@@ -15,13 +15,13 @@
  */
 package com.infenia.yukta.plugin.core.router;
 
+import com.infenia.yukta.message.Message;
+import com.infenia.yukta.message.resequence.ResequencerStore;
+import com.infenia.yukta.message.resequence.ResequencerStore.ResequenceConfig;
+import com.infenia.yukta.message.resequence.ResequencerStore.ResequenceResult;
+import com.infenia.yukta.message.util.SpelUtils;
 import com.infenia.yukta.plugin.core.UiDesign;
-import com.infenia.yukta.plugin.message.Message;
 import com.infenia.yukta.plugin.type.ProcessorPlugin;
-import com.infenia.yukta.service.resequence.ResequencerStore;
-import com.infenia.yukta.service.resequence.ResequencerStore.ResequenceConfig;
-import com.infenia.yukta.service.resequence.ResequencerStore.ResequenceResult;
-import com.infenia.yukta.util.SpelUtils;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;

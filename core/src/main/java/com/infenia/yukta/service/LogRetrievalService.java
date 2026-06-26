@@ -15,7 +15,7 @@
  */
 package com.infenia.yukta.service;
 
-import com.infenia.yukta.service.session.SessionConfigStore;
+import com.infenia.yukta.service.session.store.SessionConfigStore;
 import com.infenia.yukta.validation.FileName;
 import com.infenia.yukta.validation.SessionId;
 import java.io.IOException;
@@ -37,9 +37,9 @@ import reactor.core.scheduler.Schedulers;
 @Service
 @Validated
 @RequiredArgsConstructor
-@SuppressWarnings("PMD.OnlyOneReturn")
 public class LogRetrievalService {
 
+  /** The session configuration store for retrieving session directory paths. */
   private final SessionConfigStore configService;
 
   /**
@@ -123,13 +123,12 @@ public class LogRetrievalService {
                     }));
   }
 
+  @SuppressWarnings("PMD.OnlyOneReturn")
   private Path findLogFile(final String baseDir, final String sessionId, final String fileName) {
-    if (!baseDir.isEmpty()) {
-      final Path path = Path.of(baseDir).resolve(sessionId).resolve(fileName);
-      if (Files.exists(path)) {
-        return path;
-      }
+    if (baseDir.isEmpty()) {
+      return null;
     }
-    return null;
+    final Path path = Path.of(baseDir).resolve(sessionId).resolve(fileName);
+    return Files.exists(path) ? path : null;
   }
 }

@@ -43,7 +43,8 @@ class ValidationTest {
   @Test
   void testWorkflowDefinitionValid() {
     WorkflowDefinition.Node node = new WorkflowDefinition.Node("n1", "gradle", Map.of());
-    WorkflowDefinition def = new WorkflowDefinition("desc", List.of(node), List.of());
+    WorkflowDefinition def =
+        new WorkflowDefinition("test-workflow", "desc", List.of(node), List.of());
     Set<ConstraintViolation<WorkflowDefinition>> violations = validator.validate(def);
     assertTrue(violations.isEmpty());
   }
@@ -52,7 +53,10 @@ class ValidationTest {
   void testSessionConfigDataValid() {
     WorkflowDefinition def =
         new WorkflowDefinition(
-            "desc", List.of(new WorkflowDefinition.Node("n1", "gradle", Map.of())), List.of());
+            "test-workflow",
+            "desc",
+            List.of(new WorkflowDefinition.Node("n1", "gradle", Map.of())),
+            List.of());
     SessionConfigData data =
         new SessionConfigData(
             "session-1", "desc", "initiator-1", Map.of(), "/path", Map.of("w1", def));
@@ -62,7 +66,7 @@ class ValidationTest {
 
   @Test
   void testSessionConfigDataInvalidSession() {
-    WorkflowDefinition def = new WorkflowDefinition("desc", List.of(), List.of());
+    WorkflowDefinition def = new WorkflowDefinition("test-workflow", "desc", List.of(), List.of());
     SessionConfigData data =
         new SessionConfigData(
             "../session", "desc", "initiator-1", Map.of(), "/path", Map.of("w1", def));
@@ -74,7 +78,7 @@ class ValidationTest {
 
   @Test
   void testSessionConfigDataDescriptionTooLong() {
-    WorkflowDefinition def = new WorkflowDefinition("desc", List.of(), List.of());
+    WorkflowDefinition def = new WorkflowDefinition("test-workflow", "desc", List.of(), List.of());
     String longDesc = "a".repeat(257);
     SessionConfigData data =
         new SessionConfigData(

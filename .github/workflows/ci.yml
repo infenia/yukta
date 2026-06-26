@@ -45,31 +45,13 @@ jobs:
               - 'lombok.config'
               - 'config/**'
 
-            # Application modules
-            plugin-api:
-              - 'plugin-api/**'
+            # Application modules (only boot, core, web)
             core:
               - 'core/**'
             web:
               - 'web/**'
-            mcp:
-              - 'mcp/**'
-            ui:
-              - 'ui/**'
             boot:
               - 'boot/**'
-
-            # Plugin modules
-            plugins-processors-process-executor:
-              - 'plugins/processors/process-executor/**'
-            plugins-processors-internal-internal-core:
-              - 'plugins/processors/internal/internal-core/**'
-            plugins-triggers-api-trigger:
-              - 'plugins/triggers/api-trigger/**'
-            plugins-triggers-constant-source:
-              - 'plugins/triggers/constant-source/**'
-            plugins-terminals-console-terminal:
-              - 'plugins/terminals/console-terminal/**'
 
   # ─────────────────────────────────────────────
   # Job 2: Build and quality-gate changed modules.
@@ -139,28 +121,12 @@ jobs:
 
           for module in $(echo "$CHANGED_MODULES" | jq -r '.[]'); do
             case $module in
-              "plugin-api")
-                add_module_tasks ":plugin-api" ;;
               "core")
                 add_module_tasks ":core" ;;
               "web")
                 add_module_tasks ":web" ;;
-              "mcp")
-                add_module_tasks ":mcp" ;;
-              "ui")
-                add_module_tasks ":ui" ;;
               "boot")
                 add_module_tasks ":boot" ;;
-              "plugins-processors-process-executor")
-                add_module_tasks ":plugins:processors:process-executor" ;;
-              "plugins-processors-internal-internal-core")
-                add_module_tasks ":plugins:processors:internal:internal-core" ;;
-              "plugins-triggers-api-trigger")
-                add_module_tasks ":plugins:triggers:api-trigger" ;;
-              "plugins-triggers-constant-source")
-                add_module_tasks ":plugins:triggers:constant-source" ;;
-              "plugins-terminals-console-terminal")
-                add_module_tasks ":plugins:terminals:console-terminal" ;;
             esac
           done
 

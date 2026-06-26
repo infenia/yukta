@@ -15,10 +15,11 @@
  */
 package com.infenia.yukta.config;
 
-import com.infenia.yukta.service.session.SessionConfigStore;
-import com.infenia.yukta.service.session.SessionConfigStoreFactory;
+import com.infenia.yukta.service.control.store.ExecutionControlStore;
+import com.infenia.yukta.service.control.store.InMemoryExecutionControlStore;
 import java.time.Duration;
 import java.util.concurrent.Executors;
+import lombok.NoArgsConstructor;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -29,13 +30,9 @@ import tools.jackson.databind.ObjectMapper;
 
 /** Configuration for the application. */
 @Configuration
-@EnableConfigurationProperties(SessionConfigProperties.class)
+@EnableConfigurationProperties({SessionConfigProperties.class, YuktaProperties.class})
+@NoArgsConstructor
 public class AppConfiguration {
-
-  /** Public constructor for PMD. */
-  public AppConfiguration() {
-    super();
-  }
 
   /**
    * Provide an ObjectMapper bean if not already present.
@@ -54,7 +51,6 @@ public class AppConfiguration {
    * @return the virtual thread scheduler
    */
   @Bean
-  @SuppressWarnings("PMD.DoNotUseThreads")
   public Scheduler virtualThreadScheduler() {
     return Schedulers.fromExecutorService(
         Executors.newScheduledThreadPool(
@@ -64,22 +60,25 @@ public class AppConfiguration {
   /**
    * Global heartbeat interval for nodes in seconds.
    *
+   * @param properties the Yukta configuration properties
    * @return the heartbeat interval duration
    */
   @Bean
-  public Duration heartbeatInterval() {
-    return Duration.ofSeconds(10);
+  public Duration heartbeatInterval(final YuktaProperties properties) {
+    return Duration.ofSeconds(properties.getHeartbeatIntervalSeconds());
   }
 
   /**
-   * Provide the configured SessionConfigStore instance based on store-type property.
+   * Provide the ExecutionControlStore bean.
    *
-   * @param factory the store factory
-   * @return the configured SessionConfigStore
+   * <p>In-memory implementation suitable for single-node deployments. Override this bean to use
+   * alternative backends (Redis, database, etc.).
+   *
+   * @return the execution control store instance
    */
   @Bean
   @ConditionalOnMissingBean
-  public SessionConfigStore sessionConfigStore(final SessionConfigStoreFactory factory) {
-    return factory.getStore();
+  public ExecutionControlStore executionControlStore() {
+    return new InMemoryExecutionControlStore();
   }
 }

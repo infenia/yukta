@@ -15,7 +15,7 @@
  */
 package com.infenia.yukta.plugin.gateway;
 
-import com.infenia.yukta.plugin.message.Message;
+import com.infenia.yukta.message.Message;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Queue;
@@ -26,6 +26,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
  * final messages.
  */
 public class ResultCollector {
+  /** Thread-safe queue for storing collected result messages. */
   private final Queue<Message<?>> results = new ConcurrentLinkedQueue<>();
 
   /** Default constructor. */

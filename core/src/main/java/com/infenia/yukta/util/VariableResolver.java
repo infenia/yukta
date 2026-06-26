@@ -34,11 +34,17 @@ import reactor.core.publisher.Mono;
 @SuppressWarnings({"PMD.OnlyOneReturn", "PMD.SimplifyBooleanReturns"})
 public class VariableResolver {
 
+  /** Pattern for matching variable expressions like ${varname}. */
   private static final Pattern EXPR_PATTERN = Pattern.compile("\\$\\{([^}]+)\\}");
+
+  /** Pattern for identifying sensitive configuration key names. */
   private static final Pattern SECRET_BLACKLIST =
       Pattern.compile(".*(PASSWORD|SECRET|KEY).*", Pattern.CASE_INSENSITIVE);
+
+  /** Prefix indicating a value is encrypted and needs decryption. */
   private static final String DECRYPTED_PREFIX = "decrypted:";
 
+  /** Provider for retrieving encrypted secrets. */
   private final SecretProvider secretProvider;
 
   /**

@@ -15,38 +15,22 @@
  */
 package com.infenia.yukta.model.workflow;
 
-import com.infenia.yukta.plugin.message.Message;
-import java.util.List;
-import java.util.Map;
-import reactor.core.Disposable;
-import reactor.core.publisher.Flux;
-import reactor.core.publisher.Mono;
+import com.infenia.yukta.service.orchestrator.assembly.AssemblyContext;
 
 /**
  * A functional interface for reifying a single node's reactive stream during workflow
  * instantiation.
+ *
+ * <p>Takes a single {@link AssemblyContext} parameter bundling all state, execution context, and
+ * control mechanisms needed to assemble the node's stream.
  */
 @FunctionalInterface
 public interface NodeAssembler {
   /**
    * Assembles the reactive stream for a node.
    *
-   * @param executionId the execution identifier
-   * @param sessionId the session identifier
-   * @param workflowId the workflow identifier
-   * @param payload the initial trigger payload
-   * @param streams the array of all node streams in the workflow
-   * @param terminals the list of terminal node completion Monos
-   * @param disposables the list of disposables to manage resource lifecycle
-   * @param connectors the list of tasks to connect upstreams to sinks
+   * @param context the assembly context containing execution state, control handles, and
+   *     collections
    */
-  void assemble(
-      String executionId,
-      String sessionId,
-      String workflowId,
-      Map<String, Object> payload,
-      Flux<Message<?>>[] streams,
-      List<Mono<Void>> terminals,
-      List<Disposable> disposables,
-      List<Runnable> connectors);
+  void assemble(AssemblyContext context);
 }

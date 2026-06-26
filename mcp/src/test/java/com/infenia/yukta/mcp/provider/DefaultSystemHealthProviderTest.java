@@ -20,10 +20,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import com.infenia.yukta.model.api.ControlBusStatus;
+import com.infenia.yukta.dto.response.ControlBusStatus;
+import com.infenia.yukta.plugin.core.Plugin;
 import com.infenia.yukta.plugin.core.PluginCategory;
-import com.infenia.yukta.plugin.core.WorkflowPlugin;
-import com.infenia.yukta.service.WorkflowRegistry;
+import com.infenia.yukta.service.plugin.PluginRegistry;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -31,11 +31,11 @@ import org.junit.jupiter.api.Test;
 class DefaultSystemHealthProviderTest {
 
   private DefaultSystemHealthProvider provider;
-  private WorkflowRegistry registry;
+  private PluginRegistry registry;
 
   @BeforeEach
   void setUp() {
-    registry = mock(WorkflowRegistry.class);
+    registry = mock(PluginRegistry.class);
     provider = new DefaultSystemHealthProvider(registry);
   }
 
@@ -57,7 +57,7 @@ class DefaultSystemHealthProviderTest {
 
   @Test
   void testGetControlBusStatusPlugins() {
-    WorkflowPlugin plugin = mock(WorkflowPlugin.class);
+    Plugin plugin = mock(Plugin.class);
     when(plugin.getType()).thenReturn("test");
     when(plugin.getCategory()).thenReturn(PluginCategory.PROCESSOR);
     when(registry.listPlugins()).thenReturn(List.of(plugin));

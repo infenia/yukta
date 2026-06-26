@@ -26,7 +26,10 @@ import reactor.core.publisher.Sinks;
 @NoArgsConstructor
 public final class ReactiveLock {
 
+  /** Flag indicating whether the lock is currently held. */
   private final AtomicBoolean locked = new AtomicBoolean(false);
+
+  /** Queue of waiting sink signals for lock acquisition. */
   private final Queue<Sinks.Empty<Void>> waiters = new ConcurrentLinkedQueue<>();
 
   /**

@@ -1,0 +1,29 @@
+meta {
+  name: Get Active Nodes in Workflow
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{base_url}}/api/control/workflows/{{workflowId}}/nodes
+  body: none
+  auth: none
+}
+
+params:query {
+}
+
+headers {
+  Content-Type: application/json
+}
+
+tests {
+  test("Status code should be 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("Response should contain list of active nodes", function() {
+    expect(res.body).to.have.property('data');
+    expect(res.body.data).to.be.an('array');
+  });
+}

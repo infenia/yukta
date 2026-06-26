@@ -1,0 +1,28 @@
+meta {
+  name: Stream Execution Progress
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{base_url}}/api/control/executions/{{executionId}}/progress/stream
+  body: none
+  auth: none
+}
+
+params:query {
+}
+
+headers {
+  Accept: text/event-stream
+}
+
+tests {
+  test("Status code should be 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("Content-Type should be text/event-stream", function() {
+    expect(res.getHeader('content-type')).to.include('text/event-stream');
+  });
+}

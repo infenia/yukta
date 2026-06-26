@@ -15,44 +15,38 @@
  */
 package com.infenia.yukta.mcp.provider;
 
-import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.infenia.yukta.model.monitoring.WorkflowExecutionSummary;
+import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.model.workflow.WorkflowExecution;
-import com.infenia.yukta.service.SessionService;
-import com.infenia.yukta.service.TaskTrackerService;
-import com.infenia.yukta.service.WorkflowService;
+import com.infenia.yukta.service.orchestrator.tracker.DefaultTaskTrackerService;
+import com.infenia.yukta.service.session.SessionService;
+import com.infenia.yukta.service.workflow.WorkflowService;
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
-import tools.jackson.databind.ObjectMapper;
 
 class DefaultWorkflowExecutionProviderTest {
 
   private DefaultWorkflowExecutionProvider provider;
   private WorkflowService workflowService;
   private SessionService sessionService;
-  private TaskTrackerService trackerService;
-  private ObjectMapper objectMapper;
+  private DefaultTaskTrackerService trackerService;
 
   @BeforeEach
   void setUp() {
     workflowService = mock(WorkflowService.class);
     sessionService = mock(SessionService.class);
-    trackerService = mock(TaskTrackerService.class);
-    objectMapper = new ObjectMapper();
+    trackerService = mock(DefaultTaskTrackerService.class);
     provider =
-        new DefaultWorkflowExecutionProvider(
-            workflowService, sessionService, trackerService, objectMapper);
+        new DefaultWorkflowExecutionProvider(workflowService, sessionService, trackerService);
   }
 
   @Test
@@ -64,53 +58,29 @@ class DefaultWorkflowExecutionProviderTest {
   }
 
   @Test
-  void testTriggerWorkflowWithPayload() {
+  void testTriggerWorkflow() {
     WorkflowExecution execution = new WorkflowExecution("exec-1", Mono.empty());
-    when(workflowService.runWorkflow(eq("sess-1"), eq("wf-1"), anyMap())).thenReturn(execution);
-
-    StepVerifier.create(provider.triggerWorkflow("sess-1", "wf-1", "{\"key\":\"val\"}"))
-        .expectNext("exec-1")
-        .verifyComplete();
-  }
-
-  @Test
-  void testTriggerWorkflowNoPayload() {
-    WorkflowExecution execution = new WorkflowExecution("exec-1", Mono.empty());
-    when(workflowService.runWorkflow(eq("sess-1"), eq("wf-1"), anyMap())).thenReturn(execution);
+    when(workflowService.validateAndStartWorkflow(eq("sess-1"), eq("wf-1")))
+        .thenReturn(Mono.just(execution));
 
     StepVerifier.create(provider.triggerWorkflow("sess-1", "wf-1", null))
         .expectNext("exec-1")
         .verifyComplete();
+
+    verify(workflowService).validateAndStartWorkflow(eq("sess-1"), eq("wf-1"));
   }
 
   @Test
-  void testTriggerWorkflowBlankPayload() {
+  void testTriggerWorkflowIgnoresPayloadJson() {
     WorkflowExecution execution = new WorkflowExecution("exec-1", Mono.empty());
-    when(workflowService.runWorkflow(eq("sess-1"), eq("wf-1"), anyMap())).thenReturn(execution);
+    when(workflowService.validateAndStartWorkflow(eq("sess-1"), eq("wf-1")))
+        .thenReturn(Mono.just(execution));
 
-    StepVerifier.create(provider.triggerWorkflow("sess-1", "wf-1", ""))
+    StepVerifier.create(provider.triggerWorkflow("sess-1", "wf-1", "{\"key\":\"val\"}"))
         .expectNext("exec-1")
         .verifyComplete();
 
-    verify(workflowService).runWorkflow(eq("sess-1"), eq("wf-1"), eq(Map.of()));
-  }
-
-  @Test
-  void testTriggerWorkflowWhitespacePayload() {
-    WorkflowExecution execution = new WorkflowExecution("exec-1", Mono.empty());
-    when(workflowService.runWorkflow(eq("sess-1"), eq("wf-1"), anyMap())).thenReturn(execution);
-
-    StepVerifier.create(provider.triggerWorkflow("sess-1", "wf-1", "   "))
-        .expectNext("exec-1")
-        .verifyComplete();
-
-    verify(workflowService).runWorkflow(eq("sess-1"), eq("wf-1"), eq(Map.of()));
-  }
-
-  @Test
-  void testTriggerWorkflowInvalidJson() {
-    StepVerifier.create(provider.triggerWorkflow("sess-1", "wf-1", "invalid-json"))
-        .verifyError(IllegalArgumentException.class);
+    verify(workflowService).validateAndStartWorkflow(eq("sess-1"), eq("wf-1"));
   }
 
   @Test

@@ -15,14 +15,14 @@
  */
 package com.infenia.yukta.plugin.core.filter;
 
+import com.infenia.yukta.message.Message;
+import com.infenia.yukta.message.util.SpelUtils;
 import com.infenia.yukta.plugin.core.PluginMetricsReporter;
 import com.infenia.yukta.plugin.core.UiDesign;
 import com.infenia.yukta.plugin.core.WorkflowContext;
 import com.infenia.yukta.plugin.core.util.SimpleExpressionEvaluator;
 import com.infenia.yukta.plugin.exception.FilterEvaluationException;
-import com.infenia.yukta.plugin.message.Message;
 import com.infenia.yukta.plugin.type.ProcessorPlugin;
-import com.infenia.yukta.util.SpelUtils;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;

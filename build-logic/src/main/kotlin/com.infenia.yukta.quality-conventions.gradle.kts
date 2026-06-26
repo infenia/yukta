@@ -47,6 +47,57 @@ pmd {
     isConsoleOutput = true
 }
 
+spotbugs {
+    excludeFilter.set(rootProject.file("config/spotbugs/exclude.xml"))
+}
+
+tasks.register<Exec>("semgrep") {
+    description = "Run Semgrep static analysis"
+    group = "verification"
+
+    val sourceDir = project.file("src/main/java")
+    val configFile = rootProject.file("config/semgrep/.semgrep.yml")
+    val reportDir = project.layout.buildDirectory.dir("reports/semgrep").get()
+    val reportFile = reportDir.file("semgrep-report.sarif").asFile
+
+    doFirst {
+        reportDir.asFile.mkdirs()
+    }
+
+    // Use temp directory for semgrep settings to avoid read-only filesystem issues
+    val tempDir = System.getProperty("java.io.tmpdir")
+    environment("HOME", tempDir)
+
+    commandLine("semgrep", "scan",
+        "--config=${configFile.absolutePath}",
+        "--output=${reportFile.absolutePath}",
+        "--json",
+        "--quiet",
+        sourceDir.absolutePath
+    )
+
+    isIgnoreExitValue = true
+
+    doLast {
+        // Exit code 1 means findings were reported, which is not a failure
+        // Exit code 0 means no findings
+        if (executionResult.get().exitValue > 1) {
+            throw GradleException("Semgrep scan failed with exit code ${executionResult.get().exitValue}")
+        }
+    }
+
+    onlyIf {
+        val sourceExists = sourceDir.exists()
+        val semgrepExists = try {
+            Runtime.getRuntime().exec(arrayOf("sh", "-c", "which semgrep")).waitFor() == 0
+        } catch (e: Exception) {
+            false
+        }
+
+        sourceExists && semgrepExists
+    }
+}
+
 tasks.withType<Checkstyle>().configureEach {
     reports {
         xml.required.set(true)
@@ -54,14 +105,15 @@ tasks.withType<Checkstyle>().configureEach {
     }
 }
 
-// Disable quality tasks for everything except main
+// Disable quality tasks for AOT generated code and test code
 tasks.configureEach {
     val task = this
-    if (project.name == "ui" && task::class.java.name.contains("SpotBugs")) {
-        task.enabled = false
-    }
     if ((task.name.contains("Aot") || task.name.contains("Test")) &&
         (task is Checkstyle || task is Pmd || task::class.java.name.contains("SpotBugs"))) {
         task.enabled = false
     }
+}
+
+tasks.named("check") {
+    dependsOn(tasks.withType<Task>().matching { it.name == "semgrep" })
 }

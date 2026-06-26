@@ -19,6 +19,8 @@ graalvmPolyglot = "25.0.2"
 nodeGradle = "7.1.0"
 node = "24.13.1"
 pnpm = "10.30.1"
+picocli = "4.7.7"
+caffeine = "3.1.8"
 
 [libraries]
 spring-boot-starter = { group = "org.springframework.boot", name = "spring-boot-starter" }
@@ -27,7 +29,7 @@ spring-boot-starter-webflux = { group = "org.springframework.boot", name = "spri
 spring-boot-starter-webclient = { group = "org.springframework.boot", name = "spring-boot-starter-webclient" }
 spring-boot-starter-validation = { group = "org.springframework.boot", name = "spring-boot-starter-validation" }
 spring-boot-starter-actuator = { group = "org.springframework.boot", name = "spring-boot-starter-actuator" }
-spring-boot-configuration-processor = { group = "org.springframework.boot", name = "spring-boot-configuration-processor" }
+spring-boot-configuration-processor = { group = "org.springframework.boot", name = "spring-boot-configuration-processor", version.ref = "springBoot" }
 jackson-databind = { group = "tools.jackson.core", name = "jackson-databind" }
 jackson-dataformat-yaml = { group = "tools.jackson.dataformat", name = "jackson-dataformat-yaml" }
 mapstruct = { group = "org.mapstruct", name = "mapstruct", version.ref = "mapstruct" }
@@ -43,6 +45,9 @@ graalvm-js = { group = "org.graalvm.polyglot", name = "js", version.ref = "graal
 lombok = { group = "org.projectlombok", name = "lombok", version = "1.18.36" }
 spring-boot-devtools = { group = "org.springframework.boot", name = "spring-boot-devtools" }
 spring-boot-docker-compose = { group = "org.springframework.boot", name = "spring-boot-docker-compose" }
+picocli = { group = "info.picocli", name = "picocli", version.ref = "picocli" }
+picocli-codegen = { group = "info.picocli", name = "picocli-codegen", version.ref = "picocli" }
+caffeine = { group = "com.github.ben-manes.caffeine", name = "caffeine", version.ref = "caffeine" }
 
 # Testing
 junit-platform-launcher = { group = "org.junit.platform", name = "junit-platform-launcher" }

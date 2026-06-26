@@ -15,11 +15,14 @@
  */
 package com.infenia.yukta.ui;
 
-import com.infenia.yukta.model.api.PluginDetails;
+import com.infenia.yukta.dto.response.PluginDetails;
+import com.infenia.yukta.model.workflow.WorkflowDefinition;
+import com.infenia.yukta.plugin.core.Plugin;
 import com.infenia.yukta.service.LogRetrievalService;
-import com.infenia.yukta.service.SessionService;
-import com.infenia.yukta.service.TaskTrackerService;
-import com.infenia.yukta.service.WorkflowRegistry;
+import com.infenia.yukta.service.control.gateway.ControlBusGateway;
+import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
+import com.infenia.yukta.service.plugin.PluginRegistry;
+import com.infenia.yukta.service.session.SessionService;
 import gg.jte.TemplateEngine;
 import gg.jte.output.StringOutput;
 import java.time.LocalTime;
@@ -51,8 +54,8 @@ public class UiController {
   private final SessionService sessionService;
   private final LogRetrievalService retrievalService;
   private final TaskTrackerService tracker;
-  private final WorkflowRegistry registry;
-  private final com.infenia.yukta.service.ControlBusService controlBusService;
+  private final PluginRegistry registry;
+  private final ControlBusGateway controlBus;
   private final TemplateEngine templateEngine;
 
   /**
@@ -134,7 +137,7 @@ public class UiController {
   @GetMapping(value = "/control", produces = MediaType.TEXT_HTML_VALUE)
   @ResponseBody
   public Mono<String> control(final Model model) {
-    return Mono.fromCallable(controlBusService::getActiveNodes)
+    return Mono.fromCallable(controlBus::getActiveNodes)
         .flatMap(
             nodes -> {
               model.addAttribute("nodes", nodes);
@@ -208,36 +211,34 @@ public class UiController {
 
   private Mono<String> fetchAndRenderSession(
       final String sessionId, final String workflowId, final Model model) {
-    final Mono<com.infenia.yukta.model.workflow.WorkflowDefinition> workflowMono =
+    final Mono<WorkflowDefinition> workflowMono =
         workflowId != null
             ? sessionService
                 .getSessionWorkflow(sessionId, workflowId)
                 .defaultIfEmpty(
-                    new com.infenia.yukta.model.workflow.WorkflowDefinition(
-                        "No workflow found", java.util.List.of(), java.util.List.of()))
+                    new WorkflowDefinition(
+                        workflowId, "No workflow found", java.util.List.of(), java.util.List.of()))
             : Mono.just(
-                new com.infenia.yukta.model.workflow.WorkflowDefinition(
-                    "No workflow defined", java.util.List.of(), java.util.List.of()));
+                new WorkflowDefinition(
+                    workflowId, "No workflow defined", java.util.List.of(), java.util.List.of()));
 
     return workflowMono.flatMap(workflow -> renderSessionTemplate(workflow, workflowId, model));
   }
 
   private Mono<String> renderSessionTemplate(
-      final com.infenia.yukta.model.workflow.WorkflowDefinition workflow,
-      final String workflowId,
-      final Model model) {
+      final WorkflowDefinition workflow, final String workflowId, final Model model) {
     model.addAttribute("workflow", workflow);
     model.addAttribute("actualWorkflowId", workflowId);
 
     final Map<String, PluginDetails> pluginDetails =
         workflow.nodes().stream()
-            .map(com.infenia.yukta.model.workflow.WorkflowDefinition.Node::type)
+            .map(WorkflowDefinition.Node::type)
             .distinct()
             .map(registry::get)
             .filter(java.util.Objects::nonNull)
             .collect(
                 Collectors.toMap(
-                    com.infenia.yukta.plugin.core.WorkflowPlugin::getType,
+                    Plugin::getType,
                     p ->
                         new PluginDetails(
                             p.getType(),
@@ -249,9 +250,7 @@ public class UiController {
                                 workflow.nodes().stream()
                                     .filter(n -> n.type().equals(p.getType()))
                                     .findFirst()
-                                    .map(
-                                        com.infenia.yukta.model.workflow.WorkflowDefinition.Node
-                                            ::config)
+                                    .map(WorkflowDefinition.Node::config)
                                     .orElse(Map.of())))));
     model.addAttribute("pluginDetails", pluginDetails);
 
@@ -288,7 +287,7 @@ public class UiController {
             retrievalService.listLogs(sessionId))
         .flatMap(
             tuple -> {
-              final com.infenia.yukta.model.workflow.WorkflowDefinition workflow = tuple.getT1();
+              final WorkflowDefinition workflow = tuple.getT1();
               model.addAttribute("workflow", workflow);
               model.addAttribute("logs", tuple.getT2());
 
@@ -298,13 +297,13 @@ public class UiController {
 
               final Map<String, PluginDetails> pluginDetails =
                   workflow.nodes().stream()
-                      .map(com.infenia.yukta.model.workflow.WorkflowDefinition.Node::type)
+                      .map(WorkflowDefinition.Node::type)
                       .distinct()
                       .map(registry::get)
                       .filter(java.util.Objects::nonNull)
                       .collect(
                           Collectors.toMap(
-                              com.infenia.yukta.plugin.core.WorkflowPlugin::getType,
+                              Plugin::getType,
                               p ->
                                   new PluginDetails(
                                       p.getType(),
@@ -316,10 +315,7 @@ public class UiController {
                                           workflow.nodes().stream()
                                               .filter(n -> n.type().equals(p.getType()))
                                               .findFirst()
-                                              .map(
-                                                  com.infenia.yukta.model.workflow
-                                                          .WorkflowDefinition.Node
-                                                      ::config)
+                                              .map(WorkflowDefinition.Node::config)
                                               .orElse(Map.of())))));
               model.addAttribute("pluginDetails", pluginDetails);
 

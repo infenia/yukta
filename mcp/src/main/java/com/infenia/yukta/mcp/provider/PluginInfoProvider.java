@@ -15,9 +15,9 @@
  */
 package com.infenia.yukta.mcp.provider;
 
-import com.infenia.yukta.model.api.PluginCreationGuide;
-import com.infenia.yukta.model.api.PluginDetails;
-import com.infenia.yukta.model.api.PluginSummary;
+import com.infenia.yukta.dto.response.PluginCreationGuide;
+import com.infenia.yukta.dto.response.PluginDetails;
+import com.infenia.yukta.dto.response.PluginSummary;
 import java.util.List;
 
 /**

@@ -1,0 +1,39 @@
+meta {
+  name: Start Workflow
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{base_url}}/api/workflow/start
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "sessionId": "cli-spotless-session",
+    "workflowId": "spotless-check"
+  }
+}
+
+tests {
+  test("Status code should be 202 Accepted", function() {
+    expect(res.getStatus()).to.equal(202);
+  });
+  
+  test("Response should contain execution ID", function() {
+    expect(res.body).to.have.property('data');
+    expect(res.body.data).to.have.property('executionId');
+  });
+  
+  test("Should store execution ID for subsequent tests", function() {
+    if (res.body.data && res.body.data.executionId) {
+      bru.setVar("executionId", res.body.data.executionId);
+    }
+  });
+}

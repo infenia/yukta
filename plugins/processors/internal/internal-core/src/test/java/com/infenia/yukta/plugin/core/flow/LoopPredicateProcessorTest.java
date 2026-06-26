@@ -22,11 +22,12 @@ import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.infenia.yukta.plugin.message.DefaultMessage;
-import com.infenia.yukta.plugin.message.Message;
+import com.infenia.yukta.message.DefaultMessage;
+import com.infenia.yukta.message.Message;
+import com.infenia.yukta.plugin.core.Plugin;
 import com.infenia.yukta.plugin.type.ProcessorPlugin;
-import com.infenia.yukta.service.TaskTrackerService;
-import com.infenia.yukta.service.WorkflowRegistry;
+import com.infenia.yukta.service.orchestrator.tracker.DefaultTaskTrackerService;
+import com.infenia.yukta.service.plugin.PluginRegistry;
 import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -44,10 +45,10 @@ import reactor.util.context.Context;
 @ExtendWith(MockitoExtension.class)
 class LoopPredicateProcessorTest {
 
-  @Mock private ObjectProvider<WorkflowRegistry> registryProvider;
-  @Mock private ObjectProvider<TaskTrackerService> trackerProvider;
-  @Mock private WorkflowRegistry registry;
-  @Mock private TaskTrackerService tracker;
+  @Mock private ObjectProvider<PluginRegistry> registryProvider;
+  @Mock private ObjectProvider<DefaultTaskTrackerService> trackerProvider;
+  @Mock private PluginRegistry registry;
+  @Mock private DefaultTaskTrackerService tracker;
   @Mock private ProcessorPlugin targetPlugin;
 
   @InjectMocks private LoopPredicateProcessor processor;
@@ -189,8 +190,7 @@ class LoopPredicateProcessorTest {
   @Test
   void testNotAProcessor() {
     when(registry.contains("trigger")).thenReturn(true);
-    when(registry.get("trigger"))
-        .thenReturn(org.mockito.Mockito.mock(com.infenia.yukta.plugin.core.WorkflowPlugin.class));
+    when(registry.get("trigger")).thenReturn(org.mockito.Mockito.mock(Plugin.class));
     StepVerifier.create(
             processor.process(
                 Flux.just(DefaultMessage.create(UUID.randomUUID(), "test")),

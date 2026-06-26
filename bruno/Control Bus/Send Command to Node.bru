@@ -1,0 +1,35 @@
+meta {
+  name: Send Command to Node
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{base_url}}/api/control/workflows/{{workflowId}}/nodes/{{nodeId}}/command
+  body: json
+  auth: none
+}
+
+params:query {
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "command": "pause",
+    "reason": "testing control bus"
+  }
+}
+
+tests {
+  test("Status code should be 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("Response should contain command response", function() {
+    expect(res.body).to.have.property('data');
+  });
+}

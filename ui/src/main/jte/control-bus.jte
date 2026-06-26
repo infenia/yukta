@@ -1,4 +1,3 @@
-@import com.infenia.yukta.plugin.message.Message
 @import java.util.List
 @param List<String> nodes
 

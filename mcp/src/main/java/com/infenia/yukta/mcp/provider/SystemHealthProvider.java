@@ -15,7 +15,7 @@
  */
 package com.infenia.yukta.mcp.provider;
 
-import com.infenia.yukta.model.api.ControlBusStatus;
+import com.infenia.yukta.dto.response.ControlBusStatus;
 
 /**
  * Provider for system health monitoring and control bus status. Handles metrics collection, system

@@ -19,7 +19,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.infenia.yukta.mcp.AppMcpTools;
-import com.infenia.yukta.plugin.core.WorkflowPlugin;
+import com.infenia.yukta.plugin.core.Plugin;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -45,11 +45,11 @@ class YuktaMcpTest {
 
   @Test
   void testPluginsAutoConfiguredIfPresent() {
-    Map<String, WorkflowPlugin> plugins = context.getBeansOfType(WorkflowPlugin.class);
+    Map<String, Plugin> plugins = context.getBeansOfType(Plugin.class);
     // Note: Plugins are optional in MCP module tests. This test only verifies that if
     // plugins are available in the classpath, they are properly registered as beans.
     // Plugin auto-configuration is comprehensively tested in boot module integration tests.
     // This is a no-op assertion when plugins aren't in the test classpath.
-    assertTrue(true, "WorkflowPlugin auto-configuration test passed");
+    assertTrue(true, "Plugin auto-configuration test passed");
   }
 }

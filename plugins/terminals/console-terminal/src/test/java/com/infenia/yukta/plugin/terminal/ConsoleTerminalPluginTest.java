@@ -17,8 +17,8 @@ package com.infenia.yukta.plugin.terminal;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import com.infenia.yukta.plugin.message.DefaultMessage;
-import com.infenia.yukta.plugin.message.Message;
+import com.infenia.yukta.message.DefaultMessage;
+import com.infenia.yukta.message.Message;
 import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -37,7 +37,7 @@ class ConsoleTerminalPluginTest {
 
   @Test
   void testGetType() {
-    assertEquals("console", new ConsoleTerminalPlugin().getType());
+    assertEquals("CONSOLE_TERMINAL", new ConsoleTerminalPlugin().getType());
   }
 
   @Test

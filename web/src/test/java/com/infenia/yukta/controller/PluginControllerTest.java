@@ -17,10 +17,10 @@ package com.infenia.yukta.controller;
 
 import static org.mockito.Mockito.when;
 
+import com.infenia.yukta.plugin.core.Plugin;
 import com.infenia.yukta.plugin.core.PluginCategory;
 import com.infenia.yukta.plugin.core.UiDesign;
-import com.infenia.yukta.plugin.core.WorkflowPlugin;
-import com.infenia.yukta.service.WorkflowRegistry;
+import com.infenia.yukta.service.plugin.PluginRegistry;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
@@ -35,11 +35,11 @@ class PluginControllerTest {
 
   @Autowired private WebTestClient webTestClient;
 
-  @MockitoBean private WorkflowRegistry registry;
+  @MockitoBean private PluginRegistry registry;
 
   @Test
   void testListPlugins() {
-    WorkflowPlugin plugin = Mockito.mock(WorkflowPlugin.class);
+    Plugin plugin = Mockito.mock(Plugin.class);
     when(plugin.getType()).thenReturn("test-plugin");
     when(plugin.getCategory()).thenReturn(PluginCategory.PROCESSOR);
     when(registry.listPlugins()).thenReturn(List.of(plugin));
@@ -57,7 +57,7 @@ class PluginControllerTest {
 
   @Test
   void testGetPluginDetails() {
-    WorkflowPlugin plugin = Mockito.mock(WorkflowPlugin.class);
+    Plugin plugin = Mockito.mock(Plugin.class);
     when(plugin.getType()).thenReturn("test-plugin");
     when(plugin.getCategory()).thenReturn(PluginCategory.PROCESSOR);
     when(plugin.getDescription()).thenReturn("desc");
@@ -86,5 +86,34 @@ class PluginControllerTest {
     when(registry.get("unknown")).thenReturn(null);
 
     webTestClient.get().uri("/api/plugins/unknown").exchange().expectStatus().isNotFound();
+  }
+
+  @Test
+  void testGetPluginDetailsWithoutUiDesign() {
+    Plugin plugin = Mockito.mock(Plugin.class);
+    when(plugin.getType()).thenReturn("test-plugin");
+    when(plugin.getCategory()).thenReturn(PluginCategory.PROCESSOR);
+    when(plugin.getDescription()).thenReturn("desc");
+    when(plugin.getUsagePattern()).thenReturn("pattern");
+    when(plugin.getUiDesign()).thenReturn(Optional.empty());
+    when(plugin.getOutputPorts()).thenReturn(List.of("default"));
+    when(registry.get("test-plugin")).thenReturn(plugin);
+
+    webTestClient
+        .get()
+        .uri("/api/plugins/test-plugin")
+        .exchange()
+        .expectStatus()
+        .isOk()
+        .expectBody()
+        .jsonPath("$.data.uiDesign")
+        .doesNotExist();
+  }
+
+  @Test
+  void testListPluginsError() {
+    when(registry.listPlugins()).thenThrow(new RuntimeException("Registry error"));
+
+    webTestClient.get().uri("/api/plugins").exchange().expectStatus().is5xxServerError();
   }
 }

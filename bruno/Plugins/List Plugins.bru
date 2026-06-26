@@ -1,0 +1,38 @@
+meta {
+  name: List Plugins
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{base_url}}/api/plugins
+  body: none
+  auth: none
+}
+
+params:query {
+}
+
+headers {
+  Content-Type: application/json
+}
+
+tests {
+  test("Status code should be 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("Response should contain plugin list", function() {
+    expect(res.body).to.have.property('data');
+    expect(res.body.data).to.be.an('array');
+  });
+
+  test("Each plugin should have type and category", function() {
+    if (res.body.data.length > 0) {
+      res.body.data.forEach(plugin => {
+        expect(plugin).to.have.property('type');
+        expect(plugin).to.have.property('category');
+      });
+    }
+  });
+}

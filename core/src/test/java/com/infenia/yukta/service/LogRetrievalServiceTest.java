@@ -18,7 +18,7 @@ package com.infenia.yukta.service;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import com.infenia.yukta.service.session.SessionConfigStore;
+import com.infenia.yukta.service.session.store.SessionConfigStore;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;

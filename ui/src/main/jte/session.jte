@@ -1,7 +1,7 @@
 @import java.util.Map
 @import java.util.List
-@import com.infenia.yukta.model.monitoring.WorkflowProgress
-@import com.infenia.yukta.model.api.PluginDetails
+@import com.infenia.yukta.model.execution.WorkflowProgress
+@import com.infenia.yukta.dto.response.PluginDetails
 @import com.infenia.yukta.model.workflow.WorkflowDefinition
 
 @param String sessionId

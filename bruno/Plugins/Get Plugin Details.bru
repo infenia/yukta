@@ -1,0 +1,33 @@
+meta {
+  name: Get Plugin Details
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{base_url}}/api/plugins/{{pluginType}}
+  body: none
+  auth: none
+}
+
+params:query {
+}
+
+headers {
+  Content-Type: application/json
+}
+
+tests {
+  test("Status code should be 200 or 404", function() {
+    expect([200, 404]).to.include(res.getStatus());
+  });
+
+  test("If found, response should contain plugin details", function() {
+    if (res.getStatus() === 200) {
+      expect(res.body).to.have.property('data');
+      expect(res.body.data).to.have.property('type');
+      expect(res.body.data).to.have.property('category');
+      expect(res.body.data).to.have.property('description');
+    }
+  });
+}

@@ -26,6 +26,7 @@ import reactor.core.publisher.Mono;
 @RequiredArgsConstructor
 public class AppMcpResources {
 
+  /** Provides log data for MCP resources. */
   private final DefaultLogProvider logProvider;
 
   /**

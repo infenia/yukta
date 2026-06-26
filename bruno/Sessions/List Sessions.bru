@@ -1,0 +1,35 @@
+meta {
+  name: List Sessions
+  type: http
+  seq: 0
+}
+
+get {
+  url: {{base_url}}/api/sessions
+  body: none
+  auth: none
+}
+
+params:query {
+}
+
+headers {
+  Content-Type: application/json
+}
+
+tests {
+  test("Status code should be 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("Response should have success status", function() {
+    expect(res.body).to.have.property('status', 200);
+    expect(res.body).to.have.property('message', 'Sessions retrieved successfully');
+  });
+
+  test("Response should contain sessionIds array", function() {
+    expect(res.body).to.have.property('data');
+    expect(res.body.data).to.have.property('sessionIds');
+    expect(res.body.data.sessionIds).to.be.an('array');
+  });
+}

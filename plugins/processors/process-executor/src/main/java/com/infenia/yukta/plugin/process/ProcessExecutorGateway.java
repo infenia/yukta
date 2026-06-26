@@ -74,13 +74,24 @@ public class ProcessExecutorGateway {
     return Flux.usingWhen(
             Mono.fromCallable(
                     () -> {
-                      log.debug("Starting process: {}", actualCommand);
+                      log.atDebug()
+                          .setMessage("Starting process: {}")
+                          .addArgument(actualCommand)
+                          .log();
                       final ProcessBuilder processBuilder = new ProcessBuilder(actualCommand);
                       if (workingDir != null && !workingDir.isBlank()) {
                         processBuilder.directory(new File(workingDir));
+                        log.atDebug()
+                            .setMessage("Process working directory set to: {}")
+                            .addArgument(workingDir)
+                            .log();
                       }
-                      if (env != null) {
+                      if (env != null && !env.isEmpty()) {
                         processBuilder.environment().putAll(env);
+                        log.atDebug()
+                            .setMessage("Process environment variables configured: {} variable(s)")
+                            .addArgument(env.size())
+                            .log();
                       }
                       processBuilder.redirectErrorStream(true);
                       return processBuilder.start();
@@ -94,38 +105,53 @@ public class ProcessExecutorGateway {
               final Flux<String> lines =
                   Flux.fromStream(reader.lines())
                       .doFinally(
-                          signalType -> {
+                          _ -> {
                             try {
                               reader.close();
                             } catch (java.io.IOException e) {
-                              log.warn("Failed to close process output reader", e);
+                              log.atWarn()
+                                  .setMessage("Failed to close process output reader")
+                                  .setCause(e)
+                                  .log();
                             }
                           })
                       .subscribeOn(Schedulers.boundedElastic());
 
-              // Validate exit code after all lines are consumed to ensure proper ordering
-              final Mono<Void> exitCheck =
-                  Mono.fromFuture(process.onExit())
-                      .flatMap(
-                          p -> {
-                            final int exitCode = p.exitValue();
-                            if (exitCode != 0) {
-                              log.warn(
-                                  "Process completed with exit code {}: {}",
-                                  exitCode,
-                                  actualCommand);
-                              return Mono.error(
-                                  new WorkflowExecutionException(
-                                      "Process failed with exit code " + exitCode));
-                            }
-                            log.debug("Process completed successfully: {}", actualCommand);
-                            return Mono.empty();
-                          })
-                      .then()
-                      .subscribeOn(Schedulers.boundedElastic());
-
-              // Emit all lines first, then validate exit code
-              return lines.concatWith(exitCheck.then(Mono.empty()));
+              // Collect all output before checking exit code so we can include it in error messages
+              return lines
+                  .collectList()
+                  .flatMapMany(
+                      collectedLines ->
+                          Mono.fromFuture(process.onExit())
+                              .flatMapMany(
+                                  p -> {
+                                    final int exitCode = p.exitValue();
+                                    final String output = String.join("\n", collectedLines);
+                                    if (exitCode != 0) {
+                                      log.atError()
+                                          .setMessage(
+                                              "Process failed with exit code {}: {}\n"
+                                                  + "--- Process Output ---\n"
+                                                  + "{}\n"
+                                                  + "--- End Output ---")
+                                          .addArgument(exitCode)
+                                          .addArgument(actualCommand)
+                                          .addArgument(output)
+                                          .log();
+                                      return Flux.error(
+                                          new WorkflowExecutionException(
+                                              "Process failed with exit code "
+                                                  + exitCode
+                                                  + "\n--- Output ---\n"
+                                                  + output));
+                                    }
+                                    log.atDebug()
+                                        .setMessage("Process completed successfully: {}")
+                                        .addArgument(actualCommand)
+                                        .log();
+                                    return Flux.fromIterable(collectedLines);
+                                  })
+                              .subscribeOn(Schedulers.boundedElastic()));
             },
             process ->
                 Mono.fromRunnable(
@@ -135,11 +161,14 @@ public class ProcessExecutorGateway {
                           }
                         })
                     .subscribeOn(Schedulers.boundedElastic()),
-            (process, err) ->
+            (process, _) ->
                 Mono.fromRunnable(
                         () -> {
                           if (process.isAlive()) {
-                            log.warn("Forcibly destroying process due to error: {}", actualCommand);
+                            log.atWarn()
+                                .setMessage("Forcibly destroying process due to error: {}")
+                                .addArgument(actualCommand)
+                                .log();
                             process.destroyForcibly();
                           }
                         })
@@ -156,7 +185,12 @@ public class ProcessExecutorGateway {
         .onErrorMap(
             e -> {
               if (e instanceof TimeoutException) {
-                log.error("Process timed out after {}s: {}", timeoutSeconds, actualCommand);
+                log.atError()
+                    .setMessage("Process timed out after {}s: {}")
+                    .addArgument(timeoutSeconds)
+                    .addArgument(actualCommand)
+                    .setCause(e)
+                    .log();
                 return new WorkflowExecutionException(
                     "Process timed out after " + timeoutSeconds + "s", e);
               }

@@ -17,10 +17,10 @@ package com.infenia.yukta.plugin.core.router;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.infenia.yukta.plugin.message.DefaultMessage;
-import com.infenia.yukta.plugin.message.Message;
-import com.infenia.yukta.service.resequence.InMemoryResequencerStore;
-import com.infenia.yukta.service.resequence.ResequencerStore;
+import com.infenia.yukta.message.DefaultMessage;
+import com.infenia.yukta.message.Message;
+import com.infenia.yukta.message.resequence.InMemoryResequencerStore;
+import com.infenia.yukta.message.resequence.ResequencerStore;
 import java.time.Duration;
 import java.util.Map;
 import java.util.UUID;

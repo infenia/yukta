@@ -17,10 +17,10 @@ package com.infenia.yukta.config;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
-import com.infenia.yukta.service.session.SessionConfigStore;
-import com.infenia.yukta.service.session.SessionConfigStoreFactory;
+import com.infenia.yukta.service.control.store.ExecutionControlStore;
+import com.infenia.yukta.service.control.store.InMemoryExecutionControlStore;
+import com.infenia.yukta.service.session.store.SessionConfigStore;
 import java.time.Duration;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
@@ -38,25 +38,23 @@ class AppConfigurationTest {
 
   @Test
   void shouldProvideDefaultBeans() {
-    this.contextRunner
-        .withBean(SessionConfigStoreFactory.class, () -> mock(SessionConfigStoreFactory.class))
-        .run(
-            context -> {
-              assertThat(context).hasSingleBean(ObjectMapper.class);
-              assertThat(context).hasSingleBean(Scheduler.class);
-              assertThat(context).hasSingleBean(Duration.class);
-              assertThat(context).hasBean("heartbeatInterval");
-              assertThat(context.getBean("heartbeatInterval")).isEqualTo(Duration.ofSeconds(10));
-              assertThat(context).hasSingleBean(SessionConfigStore.class);
-            });
+    this.contextRunner.run(
+        context -> {
+          assertThat(context).hasSingleBean(ObjectMapper.class);
+          assertThat(context).hasSingleBean(Scheduler.class);
+          assertThat(context).hasSingleBean(Duration.class);
+          assertThat(context).hasBean("heartbeatInterval");
+          assertThat(context.getBean("heartbeatInterval")).isEqualTo(Duration.ofSeconds(10));
+          assertThat(context).hasSingleBean(ExecutionControlStore.class);
+          assertThat(context.getBean(ExecutionControlStore.class))
+              .isInstanceOf(InMemoryExecutionControlStore.class);
+        });
   }
 
   @Test
   void shouldNotOverrideExistingObjectMapper() {
-    ObjectMapper customMapper = new ObjectMapper();
     this.contextRunner
         .withUserConfiguration(CustomObjectMapperConfiguration.class)
-        .withBean(SessionConfigStoreFactory.class, () -> mock(SessionConfigStoreFactory.class))
         .run(
             context -> {
               assertThat(context).hasSingleBean(ObjectMapper.class);
@@ -70,7 +68,6 @@ class AppConfigurationTest {
     SessionConfigStore customStore = mock(SessionConfigStore.class);
     this.contextRunner
         .withBean(SessionConfigStore.class, () -> customStore)
-        .withBean(SessionConfigStoreFactory.class, () -> mock(SessionConfigStoreFactory.class))
         .run(
             context -> {
               assertThat(context).hasSingleBean(SessionConfigStore.class);
@@ -79,17 +76,14 @@ class AppConfigurationTest {
   }
 
   @Test
-  void shouldCreateSessionConfigStoreFromFactory() {
-    SessionConfigStoreFactory factory = mock(SessionConfigStoreFactory.class);
-    SessionConfigStore storeFromFactory = mock(SessionConfigStore.class);
-    when(factory.getStore()).thenReturn(storeFromFactory);
-
+  void shouldNotOverrideExistingExecutionControlStore() {
+    ExecutionControlStore customStore = mock(ExecutionControlStore.class);
     this.contextRunner
-        .withBean(SessionConfigStoreFactory.class, () -> factory)
+        .withBean(ExecutionControlStore.class, () -> customStore)
         .run(
             context -> {
-              assertThat(context).hasSingleBean(SessionConfigStore.class);
-              assertThat(context.getBean(SessionConfigStore.class)).isSameAs(storeFromFactory);
+              assertThat(context).hasSingleBean(ExecutionControlStore.class);
+              assertThat(context.getBean(ExecutionControlStore.class)).isSameAs(customStore);
             });
   }
 
@@ -101,9 +95,8 @@ class AppConfigurationTest {
 
   @Test
   void shouldRegisterSessionConfigProperties() {
-    this.contextRunner
-        .withBean(SessionConfigStoreFactory.class, () -> mock(SessionConfigStoreFactory.class))
-        .run(context -> assertThat(context).hasSingleBean(SessionConfigProperties.class));
+    this.contextRunner.run(
+        context -> assertThat(context).hasSingleBean(SessionConfigProperties.class));
   }
 
   @Configuration

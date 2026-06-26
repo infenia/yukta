@@ -15,13 +15,13 @@
  */
 package com.infenia.yukta.plugin.core.flow;
 
+import com.infenia.yukta.message.Message;
+import com.infenia.yukta.message.util.SpelUtils;
+import com.infenia.yukta.plugin.core.Plugin;
 import com.infenia.yukta.plugin.core.UiDesign;
-import com.infenia.yukta.plugin.core.WorkflowPlugin;
-import com.infenia.yukta.plugin.message.Message;
 import com.infenia.yukta.plugin.type.ProcessorPlugin;
-import com.infenia.yukta.service.TaskTrackerService;
-import com.infenia.yukta.service.WorkflowRegistry;
-import com.infenia.yukta.util.SpelUtils;
+import com.infenia.yukta.service.orchestrator.tracker.DefaultTaskTrackerService;
+import com.infenia.yukta.service.plugin.PluginRegistry;
 import java.time.Duration;
 import java.util.Locale;
 import java.util.Map;
@@ -46,9 +46,9 @@ public class LoopPredicateProcessor implements ProcessorPlugin {
   private static final String TYPE = "LOOP_PREDICATE";
   private static final String DEFAULT_TASK_ID = "default";
 
-  @Autowired private ObjectProvider<WorkflowRegistry> registryProvider;
+  @Autowired private ObjectProvider<PluginRegistry> registryProvider;
 
-  @Autowired private ObjectProvider<TaskTrackerService> trackerProvider;
+  @Autowired private ObjectProvider<DefaultTaskTrackerService> trackerProvider;
 
   /** Default constructor. */
   public LoopPredicateProcessor() {
@@ -110,13 +110,13 @@ public class LoopPredicateProcessor implements ProcessorPlugin {
   @Override
   public Flux<Message<?>> process(final Flux<Message<?>> input, final Map<String, Object> config) {
     final String targetId = (String) config.get("targetPluginId");
-    final WorkflowRegistry registry = registryProvider.getIfAvailable();
+    final PluginRegistry registry = registryProvider.getIfAvailable();
 
     if (registry == null || !registry.contains(targetId)) {
       return Flux.error(new IllegalArgumentException("Target plugin not found: " + targetId));
     }
 
-    final WorkflowPlugin targetPlugin = registry.get(targetId);
+    final Plugin targetPlugin = registry.get(targetId);
     if (!(targetPlugin instanceof ProcessorPlugin processor)) {
       return Flux.error(
           new IllegalArgumentException("Target plugin must be a ProcessorPlugin: " + targetId));
@@ -225,7 +225,7 @@ public class LoopPredicateProcessor implements ProcessorPlugin {
 
   private Mono<Void> logIteration(
       final String executionId, final String nodeId, final int iteration) {
-    final TaskTrackerService tracker = trackerProvider.getIfAvailable();
+    final DefaultTaskTrackerService tracker = trackerProvider.getIfAvailable();
     if (tracker == null) {
       return Mono.empty();
     }
@@ -236,7 +236,7 @@ public class LoopPredicateProcessor implements ProcessorPlugin {
 
   private Mono<LoopState> logAndTerminate(
       final String executionId, final String nodeId, final String reason, final LoopState state) {
-    final TaskTrackerService tracker = trackerProvider.getIfAvailable();
+    final DefaultTaskTrackerService tracker = trackerProvider.getIfAvailable();
     final LoopState termState = state.withTerminated(true);
     if (tracker == null) {
       return Mono.just(termState);

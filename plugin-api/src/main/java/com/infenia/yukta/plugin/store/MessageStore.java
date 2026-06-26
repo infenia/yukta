@@ -15,7 +15,7 @@
  */
 package com.infenia.yukta.plugin.store;
 
-import com.infenia.yukta.plugin.message.Message;
+import com.infenia.yukta.message.Message;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 

@@ -21,10 +21,10 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import com.infenia.yukta.plugin.message.DefaultMessage;
-import com.infenia.yukta.plugin.message.Message;
-import com.infenia.yukta.service.aggregate.AggregateStore;
-import com.infenia.yukta.service.aggregate.AggregateStore.AggregateResult;
+import com.infenia.yukta.message.DefaultMessage;
+import com.infenia.yukta.message.Message;
+import com.infenia.yukta.message.aggregate.AggregateStore;
+import com.infenia.yukta.message.aggregate.AggregateStore.AggregateResult;
 import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;

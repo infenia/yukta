@@ -15,9 +15,9 @@
  */
 package com.infenia.yukta.plugin.trigger;
 
+import com.infenia.yukta.message.DefaultMessage;
+import com.infenia.yukta.message.Message;
 import com.infenia.yukta.plugin.core.UiDesign;
-import com.infenia.yukta.plugin.message.DefaultMessage;
-import com.infenia.yukta.plugin.message.Message;
 import com.infenia.yukta.plugin.type.TriggerPlugin;
 import java.util.List;
 import java.util.Map;

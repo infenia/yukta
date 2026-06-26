@@ -1,0 +1,34 @@
+meta {
+  name: Get Session Details
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{base_url}}/api/sessions/{{sessionId}}
+  body: none
+  auth: none
+}
+
+params:query {
+}
+
+headers {
+  Content-Type: application/json
+}
+
+tests {
+  test("Status code should be 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("Response should have success status", function() {
+    expect(res.body).to.have.property('statusCode', 200);
+  });
+
+  test("Response should contain sessionDetails", function() {
+    expect(res.body).to.have.property('data');
+    expect(res.body.data).to.have.property('sessionId');
+    expect(res.body.data).to.have.property('workflowIds');
+  });
+}

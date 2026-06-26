@@ -15,7 +15,7 @@
  */
 package com.infenia.yukta.plugin.core.util;
 
-import com.infenia.yukta.plugin.message.Message;
+import com.infenia.yukta.message.Message;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;

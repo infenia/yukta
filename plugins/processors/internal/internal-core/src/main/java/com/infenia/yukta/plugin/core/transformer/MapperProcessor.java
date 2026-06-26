@@ -17,14 +17,13 @@ package com.infenia.yukta.plugin.core.transformer;
 
 import com.github.jknack.handlebars.Handlebars;
 import com.github.jknack.handlebars.Template;
+import com.infenia.yukta.message.DefaultMessage;
+import com.infenia.yukta.message.Message;
+import com.infenia.yukta.message.util.SpelUtils;
 import com.infenia.yukta.plugin.core.UiDesign;
 import com.infenia.yukta.plugin.core.WorkflowContext;
-import com.infenia.yukta.plugin.core.util.MapMessageMapper;
-import com.infenia.yukta.plugin.message.DefaultMessage;
-import com.infenia.yukta.plugin.message.Message;
 import com.infenia.yukta.plugin.type.ProcessorPlugin;
 import com.infenia.yukta.util.MapUtils;
-import com.infenia.yukta.util.SpelUtils;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;

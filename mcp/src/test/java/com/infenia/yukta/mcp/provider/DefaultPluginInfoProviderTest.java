@@ -22,12 +22,12 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import com.infenia.yukta.model.api.PluginCreationGuide;
-import com.infenia.yukta.model.api.PluginDetails;
-import com.infenia.yukta.model.api.PluginSummary;
+import com.infenia.yukta.dto.response.PluginCreationGuide;
+import com.infenia.yukta.dto.response.PluginDetails;
+import com.infenia.yukta.dto.response.PluginSummary;
+import com.infenia.yukta.plugin.core.Plugin;
 import com.infenia.yukta.plugin.core.PluginCategory;
-import com.infenia.yukta.plugin.core.WorkflowPlugin;
-import com.infenia.yukta.service.WorkflowRegistry;
+import com.infenia.yukta.service.plugin.PluginRegistry;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
@@ -36,17 +36,17 @@ import org.junit.jupiter.api.Test;
 class DefaultPluginInfoProviderTest {
 
   private DefaultPluginInfoProvider provider;
-  private WorkflowRegistry registry;
+  private PluginRegistry registry;
 
   @BeforeEach
   void setUp() {
-    registry = mock(WorkflowRegistry.class);
+    registry = mock(PluginRegistry.class);
     provider = new DefaultPluginInfoProvider(registry);
   }
 
   @Test
   void testListPlugins() {
-    WorkflowPlugin plugin = mock(WorkflowPlugin.class);
+    Plugin plugin = mock(Plugin.class);
     when(plugin.getType()).thenReturn("test-plugin");
     when(plugin.getCategory()).thenReturn(PluginCategory.PROCESSOR);
     when(registry.listPlugins()).thenReturn(List.of(plugin));
@@ -58,7 +58,7 @@ class DefaultPluginInfoProviderTest {
 
   @Test
   void testGetPluginDetails() {
-    WorkflowPlugin plugin = mock(WorkflowPlugin.class);
+    Plugin plugin = mock(Plugin.class);
     when(plugin.getType()).thenReturn("test-plugin");
     when(plugin.getCategory()).thenReturn(PluginCategory.PROCESSOR);
     when(plugin.getDescription()).thenReturn("desc");

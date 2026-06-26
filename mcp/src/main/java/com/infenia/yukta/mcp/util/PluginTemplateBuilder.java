@@ -27,6 +27,7 @@ import lombok.experimental.UtilityClass;
 @UtilityClass
 public class PluginTemplateBuilder {
 
+  /** Constant for selecting all plugin types. */
   private static final String ALL_TYPE = "all";
 
   /**

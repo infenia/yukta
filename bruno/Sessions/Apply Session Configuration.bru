@@ -1,0 +1,81 @@
+meta {
+  name: Apply Session Configuration
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{base_url}}/api/sessions
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "sessionId": "cli-spotless-session",
+    "description": "CLI Spotless formatting workflow",
+    "initiator": "spotless-cli",
+    "projectPath": "/home/arun-cs/IdeaProjects/yukta",
+    "tags": {},
+    "workflows": {
+      "spotless-check": {
+        "workflowId": "spotless-check",
+        "description": "Apply spotless code formatting",
+        "nodes": [
+          {
+            "nodeId": "trigger",
+            "type": "MANUAL",
+            "config": {}
+          },
+          {
+            "nodeId": "spotless",
+            "type": "PROCESS_EXECUTOR",
+            "config": {
+              "command": ["./gradlew", "spotlessApply", "--info", "--stacktrace"],
+              "workingDir": "/home/arun-cs/IdeaProjects/yukta",
+              "timeout": 600,
+              "streamOutput": false,
+              "outputTarget": "PAYLOAD",
+              "env": {
+                "GRADLE_OPTS": "-Dorg.gradle.logging.level=info",
+                "JAVA_HOME": "/home/arun-cs/.sdkman/candidates/java/current"
+              }
+            }
+          },
+          {
+            "nodeId": "terminal",
+            "type": "CONSOLE_TERMINAL",
+            "config": {
+              "displayOutput": true
+            }
+          }
+        ],
+        "edges": [
+          {
+            "source": "trigger",
+            "target": "spotless"
+          },
+          {
+            "source": "spotless",
+            "target": "terminal"
+          }
+        ]
+      }
+    }
+  }
+}
+
+tests {
+  test("Status code should be 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+  
+  test("Response should indicate successful configuration", function() {
+    expect(res.body).to.have.property('statusCode', 200);
+    expect(res.body).to.have.property('message');
+  });
+}

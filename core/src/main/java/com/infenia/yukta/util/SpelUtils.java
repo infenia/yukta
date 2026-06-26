@@ -16,103 +16,58 @@
 package com.infenia.yukta.util;
 
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import lombok.experimental.UtilityClass;
-import org.springframework.expression.Expression;
-import org.springframework.expression.ExpressionParser;
-import org.springframework.expression.spel.standard.SpelExpressionParser;
-import org.springframework.expression.spel.support.MapAccessor;
-import org.springframework.expression.spel.support.StandardEvaluationContext;
 import reactor.core.publisher.Mono;
-import reactor.core.scheduler.Schedulers;
 
-/** Utility for SpEL expression evaluation and caching. */
+/** Utility class for evaluating Spring Expression Language (SpEL) expressions. */
 @UtilityClass
 public final class SpelUtils {
-  private static final ExpressionParser PARSER = new SpelExpressionParser();
-  private static final Map<String, Expression> CACHE = new ConcurrentHashMap<>();
-  private static final ThreadLocal<StandardEvaluationContext> CONTEXT_HOLDER =
-      ThreadLocal.withInitial(
-          () -> {
-            final StandardEvaluationContext context = new StandardEvaluationContext();
-            context.addPropertyAccessor(new MapAccessor());
-            return context;
-          });
-
   /**
-   * Evaluate a SpEL expression against a message.
+   * Evaluates a SpEL expression asynchronously.
    *
-   * @param expressionStr the expression string
-   * @param root the root object
-   * @param variables additional variables
-   * @param <T> the result type
-   * @return a Mono emitting the result
+   * @param <T> the type of the expression result
+   * @param expressionStr the SpEL expression string
+   * @param root the root object for expression evaluation
+   * @param variables a map of variables available in the expression context
+   * @return a Mono containing the evaluated result
    */
   public static <T> Mono<T> evaluate(
       final String expressionStr, final Object root, final Map<String, Object> variables) {
-    return Mono.fromCallable(
-            () -> {
-              final Expression expression =
-                  CACHE.computeIfAbsent(expressionStr, PARSER::parseExpression);
-              final StandardEvaluationContext context = new StandardEvaluationContext(root);
-              context.addPropertyAccessor(new MapAccessor());
-              if (variables != null) {
-                context.setVariables(variables);
-              }
-              @SuppressWarnings("unchecked")
-              final T result = (T) expression.getValue(context);
-              return result;
-            })
-        .subscribeOn(Schedulers.boundedElastic());
+    return com.infenia.yukta.message.util.SpelUtils.evaluate(expressionStr, root, variables);
   }
 
   /**
-   * Synchronously evaluate a SpEL expression against a root object using a cached context.
+   * Evaluates a SpEL expression synchronously.
    *
-   * @param expressionStr the expression string
-   * @param root the root object
-   * @param <T> the result type
-   * @return the evaluation result
+   * @param <T> the type of the expression result
+   * @param expressionStr the SpEL expression string
+   * @param root the root object for expression evaluation
+   * @return the evaluated result
    */
   public static <T> T evaluateSync(final String expressionStr, final Object root) {
-    return evaluateSync(expressionStr, root, null);
+    return com.infenia.yukta.message.util.SpelUtils.evaluateSync(expressionStr, root);
   }
 
   /**
-   * Synchronously evaluate a SpEL expression against a root object with variables.
+   * Evaluates a SpEL expression synchronously with variables.
    *
-   * @param expressionStr the expression string
-   * @param root the root object
-   * @param variables the variables
-   * @param <T> the result type
-   * @return the evaluation result
+   * @param <T> the type of the expression result
+   * @param expressionStr the SpEL expression string
+   * @param root the root object for expression evaluation
+   * @param variables a map of variables available in the expression context
+   * @return the evaluated result
    */
-  @SuppressWarnings("unchecked")
   public static <T> T evaluateSync(
       final String expressionStr, final Object root, final Map<String, Object> variables) {
-    final Expression expression = CACHE.computeIfAbsent(expressionStr, PARSER::parseExpression);
-    final StandardEvaluationContext context = CONTEXT_HOLDER.get();
-    context.setRootObject(root);
-    try {
-      if (variables != null) {
-        variables.forEach(context::setVariable);
-      }
-      return (T) expression.getValue(context);
-    } finally {
-      if (variables != null) {
-        variables.keySet().forEach(key -> context.setVariable(key, null));
-      }
-    }
+    return com.infenia.yukta.message.util.SpelUtils.evaluateSync(expressionStr, root, variables);
   }
 
   /**
-   * Parse an expression and cache it.
+   * Pre-parses a SpEL expression to validate syntax.
    *
-   * @param expressionStr the expression string
+   * @param expressionStr the SpEL expression string to pre-parse
    */
   public static void preParse(final String expressionStr) {
-    if (expressionStr != null && !expressionStr.isBlank()) {
-      CACHE.computeIfAbsent(expressionStr, PARSER::parseExpression);
-    }
+    com.infenia.yukta.message.util.SpelUtils.preParse(expressionStr);
   }
 }

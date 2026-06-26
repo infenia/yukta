@@ -1,0 +1,21 @@
+{
+  "version": "1",
+  "name": "Yukta API",
+  "type": "collection",
+  "ignore": [
+    "node_modules",
+    ".git"
+  ],
+  "settings": {
+    "auth": {},
+    "headers": {},
+    "tests": {}
+  },
+  "variables": {
+    "base_url": "http://localhost:8080",
+    "sessionId": "session-001",
+    "workflowId": "workflow-001",
+    "executionId": "exec-001",
+    "pluginType": "gradle"
+  }
+}

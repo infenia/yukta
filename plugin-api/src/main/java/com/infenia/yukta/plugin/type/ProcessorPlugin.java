@@ -15,14 +15,14 @@
  */
 package com.infenia.yukta.plugin.type;
 
+import com.infenia.yukta.message.Message;
+import com.infenia.yukta.plugin.core.Plugin;
 import com.infenia.yukta.plugin.core.PluginCategory;
-import com.infenia.yukta.plugin.core.WorkflowPlugin;
-import com.infenia.yukta.plugin.message.Message;
 import java.util.Map;
 import reactor.core.publisher.Flux;
 
 /** Logic for transforming, filtering, or splitting data. */
-public interface ProcessorPlugin extends WorkflowPlugin {
+public interface ProcessorPlugin extends Plugin {
   @Override
   default PluginCategory getCategory() {
     return PluginCategory.PROCESSOR;

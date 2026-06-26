@@ -41,23 +41,25 @@ public class YuktaApplication {
     if (isNativeImage() && !hasProfileArgument(args)) {
       System.setProperty("spring.profiles.active", "prod");
     }
-    SpringApplication.run(YuktaApplication.class, args);
+
+    final SpringApplication app = new SpringApplication(YuktaApplication.class);
+    app.run(args);
   }
 
-  @SuppressWarnings("PMD.LocalVariableCouldBeFinal")
   private static boolean isNativeImage() {
-    String nativeImageProp = System.getProperty("org.graalvm.nativeimage.imagecode");
+    final String nativeImageProp = System.getProperty("org.graalvm.nativeimage.imagecode");
     return "runtime".equals(nativeImageProp);
   }
 
-  @SuppressWarnings({"PMD.UseVarargs", "PMD.LocalVariableCouldBeFinal", "PMD.OnlyOneReturn"})
-  private static boolean hasProfileArgument(final String[] args) {
-    for (String arg : args) {
+  private static boolean hasProfileArgument(final String... args) {
+    boolean retValue = false;
+    for (final String arg : args) {
       if (arg.startsWith("--spring.profiles.active=")
           || arg.startsWith("-Dspring.profiles.active=")) {
-        return true;
+        retValue = true;
+        break;
       }
     }
-    return false;
+    return retValue;
   }
 }

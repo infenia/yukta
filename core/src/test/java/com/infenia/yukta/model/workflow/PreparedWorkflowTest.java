@@ -26,18 +26,18 @@ class PreparedWorkflowTest {
 
   @Test
   void testPreparedWorkflowConstructor() {
-    WorkflowDefinition.Node n1 = new WorkflowDefinition.Node("n1", "t", null);
-    WorkflowDefinition.Node n2 = new WorkflowDefinition.Node("n2", "t", null);
-    WorkflowDefinition.Edge e1 = new WorkflowDefinition.Edge("n1", "n2");
-    WorkflowDefinition def = new WorkflowDefinition("d", List.of(n1, n2), List.of(e1));
+    WorkflowNode n1 = new WorkflowNode("n1", "t", null);
+    WorkflowNode n2 = new WorkflowNode("n2", "t", null);
+    WorkflowDefinition.Edge e1 = new WorkflowDefinition.Edge("n1", "n2", "default");
 
-    Map<String, List<WorkflowDefinition.Node>> adj = Map.of("n1", List.of(n2), "n2", List.of());
-    Map<String, List<WorkflowDefinition.Node>> parents = Map.of("n1", List.of(), "n2", List.of(n1));
-    List<WorkflowDefinition.Node> order = List.of(n1, n2);
+    List<WorkflowEdge> edges = List.of(new WorkflowEdge("n1", "n2", null));
+    Map<String, List<WorkflowNode>> adj = Map.of("n1", List.of(n2), "n2", List.of());
+    Map<String, List<WorkflowNode>> parents = Map.of("n1", List.of(), "n2", List.of(n1));
+    List<WorkflowNode> order = List.of(n1, n2);
 
     PreparedWorkflow prepared =
-        new PreparedWorkflow(def, adj, parents, Map.of(), order, (id, p) -> Mono.empty());
-    assertEquals(def, prepared.definition());
+        new PreparedWorkflow(edges, adj, parents, Map.of(), order, (id, p) -> Mono.empty());
+    assertEquals(edges, prepared.edges());
     assertEquals(2, prepared.topologicalOrder().size());
     assertEquals("n1", prepared.topologicalOrder().get(0).nodeId());
     assertEquals("n2", prepared.topologicalOrder().get(1).nodeId());

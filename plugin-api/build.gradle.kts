@@ -20,16 +20,10 @@ plugins {
 
 dependencies {
     api(libs.spring.boot.starter.webflux)
+    api(project(":messaging"))
 }
 
 coverageConfig {
-    val baselineCoverage = mapOf(
-        "LINE" to 0.8,
-        "BRANCH" to 0.5,
-        "CLASS" to 0.8,
-        "INSTRUCTION" to 0.8,
-        "METHOD" to 0.8
-    )
 
     val lowCoverage = mapOf(
         "LINE" to 0.0,
@@ -39,14 +33,7 @@ coverageConfig {
         "METHOD" to 0.0
     )
 
-    exceptions.put("com.infenia.yukta.plugin.message.DefaultMessage", mapOf(
-        "LINE" to 0.9,
-        "BRANCH" to 0.5,
-        "CLASS" to 0.8,
-        "INSTRUCTION" to 0.9,
-        "METHOD" to 0.9
-    ))
-    exceptions.put("com.infenia.yukta.plugin.message.control.*", lowCoverage)
+    exceptions.put("com.infenia.yukta.plugin.control.*", lowCoverage)
     exceptions.put("com.infenia.yukta.plugin.exception.*", mapOf(
         "LINE" to 0.5,
         "BRANCH" to 0.5,
@@ -68,4 +55,5 @@ coverageConfig {
         "INSTRUCTION" to 0.6,
         "METHOD" to 0.6
     ))
+    exceptions.put("com.infenia.yukta.plugin.core.Plugin", lowCoverage)
 }

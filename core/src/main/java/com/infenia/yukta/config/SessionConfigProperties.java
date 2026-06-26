@@ -25,12 +25,20 @@ import org.springframework.validation.annotation.Validated;
 @Validated
 @Data
 @NoArgsConstructor
-@SuppressWarnings("PMD.LongVariable")
 public class SessionConfigProperties {
 
+  /** Base directory for session storage. */
   private String baseDir = System.getProperty("user.home") + "/.yukta";
+
+  /** Subdirectory for file modification logs. */
   private String fileLogSubDir = "modified-files";
+
+  /** Subdirectory for execution results. */
   private String resultLogSubDir = "results";
+
+  /** Execution timeout in seconds. */
   private Long executionTimeoutSeconds = 3600L;
+
+  /** Type of session store (e.g., in-memory). */
   private String storeType = "in-memory";
 }

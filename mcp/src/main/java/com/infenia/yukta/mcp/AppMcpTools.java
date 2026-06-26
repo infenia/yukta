@@ -15,20 +15,20 @@
  */
 package com.infenia.yukta.mcp;
 
+import com.infenia.yukta.dto.response.ControlBusStatus;
+import com.infenia.yukta.dto.response.PluginCreationGuide;
+import com.infenia.yukta.dto.response.PluginDetails;
+import com.infenia.yukta.dto.response.PluginSummary;
+import com.infenia.yukta.dto.response.SessionCreationGuide;
+import com.infenia.yukta.dto.response.SessionCreationResponse;
+import com.infenia.yukta.dto.response.SessionDetails;
+import com.infenia.yukta.dto.response.SessionInfo;
 import com.infenia.yukta.mcp.provider.DefaultLogProvider;
 import com.infenia.yukta.mcp.provider.DefaultPluginInfoProvider;
 import com.infenia.yukta.mcp.provider.DefaultSessionInfoProvider;
 import com.infenia.yukta.mcp.provider.DefaultSystemHealthProvider;
 import com.infenia.yukta.mcp.provider.DefaultWorkflowExecutionProvider;
-import com.infenia.yukta.model.api.ControlBusStatus;
-import com.infenia.yukta.model.api.PluginCreationGuide;
-import com.infenia.yukta.model.api.PluginDetails;
-import com.infenia.yukta.model.api.PluginSummary;
-import com.infenia.yukta.model.api.SessionCreationGuide;
-import com.infenia.yukta.model.api.SessionCreationResponse;
-import com.infenia.yukta.model.api.SessionDetails;
-import com.infenia.yukta.model.api.SessionInfo;
-import com.infenia.yukta.model.monitoring.WorkflowExecutionSummary;
+import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import lombok.RequiredArgsConstructor;
 import org.springaicommunity.mcp.annotation.McpArg;
@@ -43,16 +43,25 @@ import reactor.core.publisher.Mono;
  */
 @Component
 @RequiredArgsConstructor
-@SuppressWarnings({"PMD.LongVariable", "PMD.UseObjectForClearerAPI"})
+@SuppressWarnings("PMD.UseObjectForClearerAPI")
 public class AppMcpTools {
 
   /** Description for session ID parameter. */
   private static final String SESSION_ID_DESC = "The unique identifier of the session";
 
+  /** Provides session information for MCP tools. */
   private final DefaultSessionInfoProvider sessionInfoProvider;
+
+  /** Provides log data for MCP tools. */
   private final DefaultLogProvider logProvider;
+
+  /** Provides workflow execution information for MCP tools. */
   private final DefaultWorkflowExecutionProvider workflowExecutionProvider;
+
+  /** Provides plugin information for MCP tools. */
   private final DefaultPluginInfoProvider pluginInfoProvider;
+
+  /** Provides system health information for MCP tools. */
   private final DefaultSystemHealthProvider systemHealthProvider;
 
   /**
