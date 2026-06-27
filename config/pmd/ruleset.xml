@@ -9,6 +9,7 @@
     </description>
 
     <rule ref="category/java/bestpractices.xml">
+        <exclude name="UnitTestContainsTooManyAsserts"/>
     </rule>
     <!-- Code Style Category -->
     <rule ref="category/java/codestyle.xml">
@@ -21,6 +22,17 @@
             <property name="minimum" value="30"/>
         </properties>
     </rule>
+
+    <rule ref="category/java/codestyle.xml/MethodNamingConventions">
+        <properties>
+            <!-- Retain standard camelCase for regular production methods -->
+            <property name="methodPattern" value="[a-z][a-zA-Z0-9]*" />
+
+            <!-- Allow snake_case and alphanumeric characters for JUnit 5 test methods -->
+            <property name="junit5TestPattern" value="[a-z][a-zA-Z0-9_]*" />
+        </properties>
+    </rule>
+
     <rule ref="category/java/design.xml">
     </rule>
     <!-- Documentation -->

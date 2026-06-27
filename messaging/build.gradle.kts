@@ -22,48 +22,4 @@ dependencies {
 }
 
 coverageConfig {
-    val baselineCoverage = mapOf(
-        "LINE" to 0.8,
-        "BRANCH" to 0.5,
-        "CLASS" to 0.8,
-        "INSTRUCTION" to 0.8,
-        "METHOD" to 0.8
-    )
-
-    val lowCoverage = mapOf(
-        "LINE" to 0.0,
-        "BRANCH" to 0.0,
-        "CLASS" to 0.0,
-        "INSTRUCTION" to 0.0,
-        "METHOD" to 0.0
-    )
-
-    exceptions.put("com.infenia.yukta.message.DefaultMessage", mapOf(
-        "LINE" to 0.9,
-        "BRANCH" to 0.5,
-        "CLASS" to 0.8,
-        "INSTRUCTION" to 0.9,
-        "METHOD" to 0.9
-    ))
-    exceptions.put("com.infenia.yukta.message.resequence.*", mapOf(
-        "LINE" to 0.0,
-        "BRANCH" to 0.0,
-        "CLASS" to 0.0,
-        "INSTRUCTION" to 0.0,
-        "METHOD" to 0.0
-    ))
-    exceptions.put("com.infenia.yukta.message.aggregate.*", mapOf(
-        "LINE" to 0.0,
-        "BRANCH" to 0.0,
-        "CLASS" to 0.0,
-        "INSTRUCTION" to 0.0,
-        "METHOD" to 0.0
-    ))
-    exceptions.put("com.infenia.yukta.message.util.SpelUtils", mapOf(
-        "LINE" to 0.0,
-        "BRANCH" to 0.0,
-        "CLASS" to 0.0,
-        "INSTRUCTION" to 0.0,
-        "METHOD" to 0.0
-    ))
 }

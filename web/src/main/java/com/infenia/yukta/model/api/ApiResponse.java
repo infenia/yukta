@@ -79,7 +79,8 @@ public record ApiResponse<T>(
    * @return a successful ApiResponse
    */
   public static <T> ApiResponse<T> success(final int status, final String message, final T data) {
-    return new ApiResponse<>(LocalDateTime.now(ZoneId.systemDefault()), status, message, data, null, null, null);
+    return new ApiResponse<>(
+        LocalDateTime.now(ZoneId.systemDefault()), status, message, data, null, null, null);
   }
 
   /**

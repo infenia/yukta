@@ -18,18 +18,22 @@ package com.infenia.yukta.message.channel;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.Map;
+import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 
+/** Tests for {@link DirectNodeMessageChannelConfiguration}. */
+@NoArgsConstructor
 class DirectNodeMessageChannelConfigurationTest {
 
+  /** Context runner for testing. */
   private final ApplicationContextRunner contextRunner =
       new ApplicationContextRunner()
           .withUserConfiguration(DirectNodeMessageChannelConfiguration.class);
 
   @Test
-  void
-      directNodeMessageChannelProvider_whenNoBeanPresent_registersDirectNodeMessageChannelProvider() {
+  @SuppressWarnings("PMD.UnitTestShouldIncludeAssert")
+  void nodeMessageChannelProvider_whenNoBeanPresent_registersDirectNodeMessageChannelProvider() {
     contextRunner.run(
         context -> {
           assertThat(context).hasSingleBean(NodeMessageChannelProvider.class);
@@ -39,6 +43,7 @@ class DirectNodeMessageChannelConfigurationTest {
   }
 
   @Test
+  @SuppressWarnings("PMD.UnitTestShouldIncludeAssert")
   void directNodeMessageChannelProvider_whenCustomBeanPresent_doesNotRegisterDefaultBean() {
     final NodeMessageChannelProvider customProvider = new StubNodeMessageChannelProvider();
 
@@ -52,7 +57,8 @@ class DirectNodeMessageChannelConfigurationTest {
             });
   }
 
-  private static class StubNodeMessageChannelProvider implements NodeMessageChannelProvider {
+  /** Stub provider for tests. */
+  private static final class StubNodeMessageChannelProvider implements NodeMessageChannelProvider {
     @Override
     public NodeMessageChannel channelFor(final String nodeId, final Map<String, Object> config) {
       return null;

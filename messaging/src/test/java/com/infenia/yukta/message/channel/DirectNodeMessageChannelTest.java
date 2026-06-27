@@ -20,11 +20,15 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
 import java.util.UUID;
+import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 import reactor.core.publisher.Flux;
 
+/** Tests for {@link DirectNodeMessageChannel}. */
+@NoArgsConstructor
 class DirectNodeMessageChannelTest {
 
+  /** Channel instance for testing. */
   private final DirectNodeMessageChannel channel = new DirectNodeMessageChannel();
 
   @Test

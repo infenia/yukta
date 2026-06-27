@@ -16,10 +16,10 @@
 package com.infenia.yukta.plugin.core.flow;
 
 import com.infenia.yukta.message.Message;
-import com.infenia.yukta.message.util.SpelUtils;
 import com.infenia.yukta.plugin.core.Plugin;
 import com.infenia.yukta.plugin.core.UiDesign;
 import com.infenia.yukta.plugin.type.ProcessorPlugin;
+import com.infenia.yukta.plugin.util.SpelUtils;
 import com.infenia.yukta.service.orchestrator.tracker.DefaultTaskTrackerService;
 import com.infenia.yukta.service.plugin.PluginRegistry;
 import java.time.Duration;

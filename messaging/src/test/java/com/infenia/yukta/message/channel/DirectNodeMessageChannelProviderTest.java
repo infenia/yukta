@@ -19,10 +19,14 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatNoException;
 
 import java.util.Map;
+import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 
+/** Tests for {@link DirectNodeMessageChannelProvider}. */
+@NoArgsConstructor
 class DirectNodeMessageChannelProviderTest {
 
+  /** Provider instance for testing. */
   private final DirectNodeMessageChannelProvider provider = new DirectNodeMessageChannelProvider();
 
   @Test
@@ -42,6 +46,10 @@ class DirectNodeMessageChannelProviderTest {
 
   @Test
   void channelFor_withNullConfig_doesNotThrow() {
-    assertThatNoException().isThrownBy(() -> provider.channelFor("node-1", null));
+    assertThatNoException()
+        .isThrownBy(
+            () -> {
+              assertThat(provider.channelFor("node-1", null)).isNotNull();
+            });
   }
 }

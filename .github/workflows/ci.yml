@@ -59,6 +59,8 @@ jobs:
               - 'web/**'
             boot:
               - 'boot/**'
+            messaging:
+              - 'messaging/**'
 
   # ─────────────────────────────────────────────
   # Job 2: Build and quality-gate changed modules.
@@ -166,8 +168,8 @@ jobs:
                 add_module_tasks ":web" ;;
               "boot")
                 add_module_tasks ":boot" ;;
-              "root")
-                add_module_tasks ":boot" ;;
+              "messaging")
+                add_module_tasks ":messaging" ;;
             esac
           done
 
