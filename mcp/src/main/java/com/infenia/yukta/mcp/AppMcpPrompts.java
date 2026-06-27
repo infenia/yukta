@@ -15,8 +15,8 @@
  */
 package com.infenia.yukta.mcp;
 
-import org.springaicommunity.mcp.annotation.McpArg;
-import org.springaicommunity.mcp.annotation.McpPrompt;
+import org.springframework.ai.mcp.annotation.McpArg;
+import org.springframework.ai.mcp.annotation.McpPrompt;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
 

@@ -105,6 +105,34 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
+      - name: Verify dependency lock files are up-to-date
+        run: |
+          echo "▶ Verifying lock files match resolved dependencies..."
+          # Create a temporary directory to write fresh locks
+          mkdir -p /tmp/fresh-locks
+
+          # Resolve dependencies and write locks to temp (this will fail if locks are violated)
+          # We use boot:compileAotJava which exercises the full Spring Boot AOT compilation path
+          set +e
+          ./gradlew boot:compileAotJava --write-locks --no-configuration-cache 2>&1 | tee /tmp/gradle-verify.log
+          GRADLE_EXIT=$?
+          set -e
+
+          # Check for "which is not part of the dependency lock state" errors
+          if grep -q "which is not part of the dependency lock state" /tmp/gradle-verify.log; then
+            echo "❌ Lock files are out of date - new dependencies detected."
+            echo "Run locally: ./gradlew boot:compileAotJava --write-locks --no-configuration-cache"
+            echo "Then commit the updated gradle.lockfile files."
+            exit 1
+          fi
+
+          if [ $GRADLE_EXIT -ne 0 ]; then
+            echo "⚠ Gradle verification failed with exit code $GRADLE_EXIT"
+            exit $GRADLE_EXIT
+          fi
+
+          echo "✓ Lock files are current and valid"
+
       - name: Full build (push to main / schedule / root change on PR)
         if: |
           github.event_name != 'pull_request' ||

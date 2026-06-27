@@ -17,7 +17,7 @@ package com.infenia.yukta.mcp;
 
 import com.infenia.yukta.mcp.provider.DefaultLogProvider;
 import lombok.RequiredArgsConstructor;
-import org.springaicommunity.mcp.annotation.McpResource;
+import org.springframework.ai.mcp.annotation.McpResource;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
 

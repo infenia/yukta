@@ -1,11 +1,11 @@
 [versions]
-springBoot = "4.0.3"
+springBoot = "4.1.0"
 springDependencyManagement = "1.1.7"
 graalvmBuildtools = "0.11.4"
 spotless = "8.2.1"
 lombok = "9.2.0"
 mapstruct = "1.6.3"
-springAi = "2.0.0-M2"
+springAi = "2.0.0"
 springdoc = "3.0.3"
 lombokMapstructBinding = "0.2.0"
 checkstyle = "13.2.0"
