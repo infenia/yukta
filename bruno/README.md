@@ -7,7 +7,7 @@ Comprehensive Bruno collection for testing all Yukta API endpoints. 20 requests 
 1. **Download & Open Bruno** from [usebruno.com](https://www.usebruno.com/)
 2. **Import Collection**: Drag the `/bruno` folder into Bruno
 3. **Select Environment**: Click Environment dropdown (top-right) → Select `local`
-4. **Start Testing**: Run `Sessions/Apply Session Configuration.bru`
+4. **Start Testing**: Run `SessionConfigController/Apply Session Configuration.bru`
 
 That's it! All variables auto-load from the environment file.
 
@@ -81,110 +81,137 @@ In Bruno, click the **Variables** tab at the bottom to see all active variables 
 
 ## Collection Structure
 
+Bruno collections are now organized to match the backend controller structure for easier maintenance and API tracking:
+
 ```
 bruno/
 ├── environments/
-│   ├── local.bru              (pre-configured for localhost:8080)
-│   └── production.bru         (pre-configured for production)
-├── Sessions/                  (3 requests)
-├── Plugins/                   (2 requests)
-├── Execution/                 (3 requests)
-├── Logging/                   (3 requests)
-├── Control Bus/               (4 requests)
-├── Observability/             (2 requests)
-├── Streaming/                 (3 requests)
-├── bruno.json                 (collection config)
-└── README.md                  (this file)
+│   ├── local.bru                         (pre-configured for localhost:8080)
+│   └── production.bru                    (pre-configured for production)
+├── SessionConfigController/              (4 requests)
+│   ├── List Sessions.bru
+│   ├── Get Session Details.bru
+│   ├── Get Workflow.bru
+│   └── Apply Session Configuration.bru
+├── WorkflowController/                   (4 requests)
+│   ├── Start Workflow.bru
+│   ├── Stop Workflow.bru
+│   ├── Get Workflow Status.bru
+│   ├── Stream Workflow Status.bru
+│   └── Get Workflow History.bru
+├── LogManagementController/              (3 requests)
+│   ├── List Logs.bru
+│   ├── Get Log Content.bru
+│   └── Get Raw Log Content.bru
+├── ControlBusController/                 (6 requests)
+│   ├── Get All Active Nodes.bru
+│   ├── Get Active Nodes in Workflow.bru
+│   ├── Get Node Heartbeat.bru
+│   ├── Send Command to Node.bru
+│   ├── Get Execution Progress.bru
+│   └── Get Session Execution History.bru
+├── PluginController/                     (2 requests)
+│   ├── List Plugins.bru
+│   └── Get Plugin Details.bru
+├── Streaming/                            (2 requests)
+│   ├── Stream Execution Progress.bru
+│   └── Stream Execution Logs.bru
+├── bruno.json                            (collection config)
+└── README.md                             (this file)
 ```
+
+### Why This Structure?
+
+- **Controller Mapping**: Each folder corresponds directly to a backend REST controller
+- **Easy Navigation**: Find API requests by controller name, not by functionality
+- **Maintenance**: Track which controller owns which requests
+- **Scalability**: As new controllers are added, new folders follow the same pattern
 
 ## API Endpoints Summary
 
-### Sessions API (`/api/sessions`)
+### SessionConfigController (`/api/sessions`)
 
-| Request | Method | Purpose |
-|---------|--------|---------|
-| Get Session Details | GET | Retrieve session config and available workflows |
-| Get Workflow | GET | Get workflow definition with nodes and edges |
-| Apply Session Configuration | POST | Initialize or update session configuration |
+| Request | Method | Folder | Purpose |
+|---------|--------|--------|---------|
+| List Sessions | GET | SessionConfigController | List all available sessions |
+| Get Session Details | GET | SessionConfigController | Retrieve session config and available workflows |
+| Get Workflow | GET | SessionConfigController | Get workflow definition with nodes and edges |
+| Apply Session Configuration | POST | SessionConfigController | Initialize or update session configuration |
 
-### Plugins API (`/api/plugins`)
+### WorkflowController (`/api/workflow`)
 
-| Request | Method | Purpose |
-|---------|--------|---------|
-| List Plugins | GET | List all registered workflow plugins |
-| Get Plugin Details | GET | Get detailed info for a specific plugin |
+| Request | Method | Folder | Purpose |
+|---------|--------|--------|---------|
+| Start Workflow | POST | WorkflowController | Start workflow execution (returns executionId) |
+| Stop Workflow | POST | WorkflowController | Stop active workflow execution |
+| Get Workflow Status | GET | WorkflowController | Get execution status and progress |
+| Stream Workflow Status | GET | WorkflowController | Real-time workflow status updates (SSE) |
+| Get Workflow History | GET | WorkflowController | Get execution history for a session |
 
-### Execution API (`/api/workflow`)
+### LogManagementController (`/api/logs`)
 
-| Request | Method | Purpose |
-|---------|--------|---------|
-| Trigger Workflow | POST | Start workflow execution (returns executionId) |
-| Get Workflow Status | GET | Get execution status and progress |
-| Get Workflow History | GET | Get execution history for a session |
+| Request | Method | Folder | Purpose |
+|---------|--------|--------|---------|
+| List Logs | GET | LogManagementController | List available log files for a session |
+| Get Log Content | GET | LogManagementController | Get formatted log content |
+| Get Raw Log Content | GET | LogManagementController | Get raw text log content |
 
-### Logging API (`/api/logs`)
+### ControlBusController (`/api/control`)
 
-| Request | Method | Purpose |
-|---------|--------|---------|
-| List Logs | GET | List available log files for a session |
-| Get Log Content | GET | Get formatted log content |
-| Get Raw Log Content | GET | Get raw text log content |
+| Request | Method | Folder | Purpose |
+|---------|--------|--------|---------|
+| Get All Active Nodes | GET | ControlBusController | List all active nodes globally |
+| Get Active Nodes in Workflow | GET | ControlBusController | List active nodes in a specific workflow |
+| Get Node Heartbeat | GET | ControlBusController | Get node's most recent heartbeat |
+| Send Command to Node | POST | ControlBusController | Send administrative command to a node |
+| Get Execution Progress | GET | ControlBusController | Get current progress snapshot |
+| Get Session Execution History | GET | ControlBusController | Get all executions for a session |
 
-### Control Bus API (`/api/control`)
+### PluginController (`/api/plugins`)
 
-| Request | Method | Purpose |
-|---------|--------|---------|
-| Get Active Nodes in Workflow | GET | List active nodes in a specific workflow |
-| Get Node Heartbeat | GET | Get node's most recent heartbeat |
-| Send Command to Node | POST | Send administrative command to a node |
-| Get All Active Nodes | GET | List all active nodes globally |
-
-### Observability API (`/api/control`)
-
-| Request | Method | Purpose |
-|---------|--------|---------|
-| Get Execution Progress | GET | Get current progress snapshot |
-| Get Session Execution History | GET | Get all executions for a session |
+| Request | Method | Folder | Purpose |
+|---------|--------|--------|---------|
+| List Plugins | GET | PluginController | List all registered workflow plugins |
+| Get Plugin Details | GET | PluginController | Get detailed info for a specific plugin |
 
 ### Streaming API (Real-time SSE)
 
-| Request | Method | Purpose |
-|---------|--------|---------|
-| Stream Workflow Status | GET | Real-time workflow status updates |
-| Stream Execution Progress | GET | Real-time execution progress updates |
-| Stream Execution Logs | GET | Real-time log streaming |
+| Request | Method | Folder | Purpose |
+|---------|--------|--------|---------|
+| Stream Execution Progress | GET | Streaming | Real-time execution progress updates |
+| Stream Execution Logs | GET | Streaming | Real-time log streaming |
 
 ## Testing Workflows
 
 ### Basic Execution Flow
 
-1. **Apply Session Configuration** → Create/initialize session
-2. **Get Session Details** → Verify configuration loaded
-3. **Get Workflow** → View workflow definition
-4. **Trigger Workflow** → Start execution (returns executionId)
-5. **Get Workflow Status** → Check execution progress
-6. **Get Workflow History** → View all executions
+1. **SessionConfigController/Apply Session Configuration** → Create/initialize session
+2. **SessionConfigController/Get Session Details** → Verify configuration loaded
+3. **SessionConfigController/Get Workflow** → View workflow definition
+4. **WorkflowController/Start Workflow** → Start execution (returns executionId)
+5. **WorkflowController/Get Workflow Status** → Check execution progress
+6. **WorkflowController/Get Workflow History** → View all executions
 
 ### Real-Time Monitoring
 
-1. **Trigger Workflow** → Start execution
-2. **Stream Workflow Status** → Watch real-time updates
-3. **Stream Execution Progress** → Monitor detailed progress
-4. **Stream Execution Logs** → View logs as written
+1. **WorkflowController/Start Workflow** → Start execution
+2. **WorkflowController/Stream Workflow Status** → Watch real-time updates
+3. **Streaming/Stream Execution Progress** → Monitor detailed progress
+4. **Streaming/Stream Execution Logs** → View logs as written
 
 ### Plugin Discovery
 
-1. **List Plugins** → See all available plugins
-2. **Get Plugin Details** → Learn about specific plugins
+1. **PluginController/List Plugins** → See all available plugins
+2. **PluginController/Get Plugin Details** → Learn about specific plugins
 3. Review workflow definition to see which plugins are used
 
 ### Debugging Failed Execution
 
-1. **Get Execution Progress** → Check current state
-2. **Get Log Content** → Read execution logs
-3. **Get Active Nodes in Workflow** → Check node status
-4. **Get Node Heartbeat** → Verify node health
-5. **Send Command to Node** → Send diagnostic commands
+1. **ControlBusController/Get Execution Progress** → Check current state
+2. **LogManagementController/Get Log Content** → Read execution logs
+3. **ControlBusController/Get Active Nodes in Workflow** → Check node status
+4. **ControlBusController/Get Node Heartbeat** → Verify node health
+5. **ControlBusController/Send Command to Node** → Send diagnostic commands
 
 ## Response Format
 
@@ -298,15 +325,15 @@ While using an environment:
 ## Typical Request Flow
 
 ```
-1. POST /api/sessions                              (Create session)
-2. GET  /api/sessions/{sessionId}                  (Verify session)
-3. GET  /api/sessions/{sessionId}/workflows/{wfId} (Get workflow)
-4. GET  /api/plugins                               (List plugins)
-5. POST /api/workflow/trigger                      (Start execution)
-6. GET  /api/workflow/{sessionId}/status/{execId}  (Check status)
-7. GET  /api/logs/{sessionId}                      (List logs)
-8. GET  /api/logs/{sessionId}/{filename}           (Read logs)
-9. GET  /api/control/workflows/{wfId}/nodes        (List active nodes)
+1. POST /api/sessions                              (SessionConfigController/Apply Configuration)
+2. GET  /api/sessions/{sessionId}                  (SessionConfigController/Get Session Details)
+3. GET  /api/sessions/{sessionId}/workflows/{wfId} (SessionConfigController/Get Workflow)
+4. GET  /api/plugins                               (PluginController/List Plugins)
+5. POST /api/workflow/start                        (WorkflowController/Start Workflow)
+6. GET  /api/workflow/{sessionId}/status/{execId}  (WorkflowController/Get Workflow Status)
+7. GET  /api/logs/{sessionId}                      (LogManagementController/List Logs)
+8. GET  /api/logs/{sessionId}/{filename}           (LogManagementController/Get Log Content)
+9. GET  /api/control/workflows/{wfId}/nodes        (ControlBusController/Get Active Nodes)
 ```
 
 ## Setup by Deployment Type
@@ -345,8 +372,10 @@ While using an environment:
 - **Swagger UI**: `http://localhost:8080/swagger-ui.html`
 - **Source Code**: `web/src/main/java/com/infenia/yukta/controller/`
   - SessionConfigController.java
+  - WorkflowController.java
+  - LogManagementController.java
+  - ControlBusController.java
   - PluginController.java
-  - ExecutionManagementController.java
 - **Project Documentation**: CLAUDE.md (architecture & conventions)
 
 ## Collection Summary
@@ -368,6 +397,23 @@ While using an environment:
 
 ---
 
-**Start here**: Import collection → Select `local` environment → Run `Sessions/Apply Session Configuration.bru`
+**Start here**: Import collection → Select `local` environment → Run `SessionConfigController/Apply Session Configuration.bru`
 
 **Time to first test**: ~1 minute (environment already configured!)
+
+## Collection Reorganization
+
+**As of v2.0**: Collections are now organized by controller name to match the backend REST controller structure. This makes it easier to:
+
+- Track which controller owns which endpoints
+- Maintain API requests alongside controller changes
+- Discover related endpoints by controller
+- Scale with new controllers
+
+Old folder names → New controller-based names:
+- `Sessions/` → `SessionConfigController/`
+- `Execution/` → `WorkflowController/`
+- `Logging/` → `LogManagementController/`
+- `Control Bus/` + `Observability/` → `ControlBusController/`
+- `Plugins/` → `PluginController/`
+- `Streaming/` → `Streaming/` (unchanged)
