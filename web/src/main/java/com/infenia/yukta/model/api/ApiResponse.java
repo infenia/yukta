@@ -19,6 +19,7 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonInclude.Include;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 
 /**
@@ -78,7 +79,7 @@ public record ApiResponse<T>(
    * @return a successful ApiResponse
    */
   public static <T> ApiResponse<T> success(final int status, final String message, final T data) {
-    return new ApiResponse<>(LocalDateTime.now(), status, message, data, null, null, null);
+    return new ApiResponse<>(LocalDateTime.now(ZoneId.systemDefault()), status, message, data, null, null, null);
   }
 
   /**
@@ -99,7 +100,7 @@ public record ApiResponse<T>(
       final String path,
       final List<FieldError> errors) {
     return new ApiResponse<>(
-        LocalDateTime.now(),
+        LocalDateTime.now(ZoneId.systemDefault()),
         status,
         message,
         null,

@@ -11,7 +11,9 @@ lombokMapstructBinding = "0.2.0"
 checkstyle = "13.2.0"
 pmd = "7.21.0"
 spotbugs = "6.4.8"
-jte = "3.2.4"
+errorprone = "2.36.0"
+errorpronePlugin = "5.0.0"
+jte = "3.2.3"
 htmx = "5.0.0"
 cyclonedx = "3.2.4"
 handlebars = "4.5.0"
@@ -48,6 +50,8 @@ spring-boot-docker-compose = { group = "org.springframework.boot", name = "sprin
 picocli = { group = "info.picocli", name = "picocli", version.ref = "picocli" }
 picocli-codegen = { group = "info.picocli", name = "picocli-codegen", version.ref = "picocli" }
 caffeine = { group = "com.github.ben-manes.caffeine", name = "caffeine", version.ref = "caffeine" }
+errorprone = { group = "com.google.errorprone", name = "error_prone_core", version.ref = "errorprone" }
+errorprone-annotations = { group = "com.google.errorprone", name = "error_prone_annotations", version.ref = "errorprone" }
 
 # Testing
 junit-platform-launcher = { group = "org.junit.platform", name = "junit-platform-launcher" }
@@ -70,3 +74,4 @@ spotbugs = { id = "com.github.spotbugs", version.ref = "spotbugs" }
 jte = { id = "gg.jte.gradle", version.ref = "jte" }
 cyclonedx = { id = "org.cyclonedx.bom", version.ref = "cyclonedx" }
 node-gradle = { id = "com.github.node-gradle.node", version.ref = "nodeGradle" }
+errorprone-gradle = { id = "net.ltgt.errorprone", version.ref = "errorpronePlugin" }

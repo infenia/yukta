@@ -3,6 +3,7 @@ plugins {
     checkstyle
     pmd
     id("com.github.spotbugs")
+    id("net.ltgt.errorprone")
 }
 
 val libs = extensions.getByType<VersionCatalogsExtension>().named("libs")
@@ -49,6 +50,11 @@ pmd {
 
 spotbugs {
     excludeFilter.set(rootProject.file("config/spotbugs/exclude.xml"))
+}
+
+// Error Prone configuration
+dependencies {
+    add("errorprone", libs.findLibrary("errorprone").get())
 }
 
 tasks.register<Exec>("semgrep") {
