@@ -153,7 +153,7 @@ jobs:
       # Upload test reports (helpful for debugging)
       - name: Upload test reports
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: test-reports
           path: |
