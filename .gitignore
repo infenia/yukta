@@ -48,3 +48,4 @@ jte-classes/
 /.junie/memory/language.json
 /.junie/memory/memory.version
 /.junie/memory/tasks.md
+/cli/coverage.out

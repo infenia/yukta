@@ -16,6 +16,7 @@
 package com.infenia.yukta.event;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 
 /** Event representing a workflow log entry. */
 public record WorkflowLogEvent(String executionId, String line, LocalDateTime timestamp) {
@@ -27,6 +28,6 @@ public record WorkflowLogEvent(String executionId, String line, LocalDateTime ti
    * @return a new WorkflowLogEvent
    */
   public static WorkflowLogEvent create(final String executionId, final String line) {
-    return new WorkflowLogEvent(executionId, line, LocalDateTime.now());
+    return new WorkflowLogEvent(executionId, line, LocalDateTime.now(ZoneId.systemDefault()));
   }
 }

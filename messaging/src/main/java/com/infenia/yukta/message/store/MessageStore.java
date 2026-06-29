@@ -13,10 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.infenia.yukta.plugin.store;
+package com.infenia.yukta.message.store;
 
 import com.infenia.yukta.message.Message;
-import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 /**
@@ -40,12 +39,4 @@ public interface MessageStore {
    * @return a Mono containing the message if found
    */
   Mono<Message<?>> get(String messageId);
-
-  /**
-   * Find all messages associated with a specific trace.
-   *
-   * @param traceId the trace identifier
-   * @return a Flux of messages in chronological order
-   */
-  Flux<Message<?>> getByTrace(String traceId);
 }

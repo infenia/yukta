@@ -17,10 +17,8 @@ package com.infenia.yukta.service.orchestrator.stream;
 
 import com.infenia.yukta.message.Message;
 import com.infenia.yukta.model.workflow.ParentEdgeInfo;
-import com.infenia.yukta.plugin.store.MessageStore;
 import com.infenia.yukta.plugin.store.NodeCheckpointStore;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
-import jakarta.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -37,7 +35,7 @@ import reactor.core.publisher.Sinks;
  *
  * <ul>
  *   <li>Merging parent streams with edge-based routing and filtering
- *   <li>Applying logging, wire-tap, and checkpoint operators
+ *   <li>Applying logging, checkpoint operators, and task tracking
  *   <li>Broadcasting messages to downstream subscribers via multicast sinks
  * </ul>
  */
@@ -48,9 +46,6 @@ public class StreamTopologyDecorator {
 
   /** Constant for single parent node. */
   private static final int SINGLE_PARENT = 1;
-
-  /** The message store for persisting messages. */
-  @Nullable private final MessageStore messageStore;
 
   /** The task tracker service for tracking task execution. */
   private final TaskTrackerService tracker;
@@ -144,13 +139,12 @@ public class StreamTopologyDecorator {
   }
 
   /**
-   * Applies logging, wire-tap, and checkpointing, then broadcasts to downstream subscribers.
+   * Applies logging, checkpointing, and task tracking, then broadcasts to downstream subscribers.
    *
    * <p>Decorates stream with:
    *
    * <ul>
    *   <li>Reactor logging (if DEBUG enabled)
-   *   <li>Wire-tap to MessageStore (if available)
    *   <li>Checkpoint save to NodeCheckpointStore
    *   <li>Task tracker log events (if TRACE enabled)
    * </ul>
@@ -215,13 +209,12 @@ public class StreamTopologyDecorator {
   }
 
   /**
-   * Applies operators for conditional logging, wire-tapping, and checkpointing.
+   * Applies operators for conditional logging, checkpointing, and task tracking.
    *
    * <p>Pipeline:
    *
    * <ol>
    *   <li>Reactor logging (if DEBUG enabled on this class)
-   *   <li>Wire-tap to MessageStore (if configured)
    *   <li>Checkpoint save to NodeCheckpointStore
    *   <li>Task tracker emission (if TRACE enabled)
    * </ol>
@@ -229,7 +222,7 @@ public class StreamTopologyDecorator {
    * @param executionId the execution identifier
    * @param nodeId the node identifier
    * @param stream the incoming message stream
-   * @return decorated Flux with logging, wire-tap, and checkpoint operators
+   * @return decorated Flux with logging, checkpoint, and tracking operators
    */
   private Flux<Message<?>> getMessageFlux(
       final String executionId, final String nodeId, final Flux<Message<?>> stream) {
@@ -242,14 +235,6 @@ public class StreamTopologyDecorator {
     Flux<Message<?>> logStream =
         stream.doOnNext(
             _ -> log.atDebug().setMessage("Node-{}: message received").addArgument(nodeId).log());
-
-    if (messageStore != null) {
-      log.atDebug()
-          .setMessage("Applying message store wire-tap for node: {}")
-          .addArgument(nodeId)
-          .log();
-      logStream = logStream.flatMap(msg -> messageStore.store(msg).thenReturn(msg));
-    }
 
     log.atDebug()
         .setMessage("Applying checkpoint for execution: {}, node: {}")

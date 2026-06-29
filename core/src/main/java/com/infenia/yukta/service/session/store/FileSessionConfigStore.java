@@ -92,7 +92,7 @@ public class FileSessionConfigStore implements SessionConfigStore {
             config ->
                 saveSessionConfig(data.sessionId(), config)
                     .doOnSuccess(
-                        unused ->
+                        _ ->
                             log.atInfo()
                                 .addKeyValue("sessionId", data.sessionId())
                                 .addKeyValue("projectPath", config.projectPath())
@@ -136,7 +136,7 @@ public class FileSessionConfigStore implements SessionConfigStore {
                         config.tags(),
                         config.description())))
         .doOnSuccess(
-            unused ->
+            _ ->
                 log.atDebug()
                     .addKeyValue("sessionId", sessionId)
                     .addKeyValue("projectPath", path)
@@ -184,7 +184,7 @@ public class FileSessionConfigStore implements SessionConfigStore {
                         config.tags(),
                         description)))
         .doOnSuccess(
-            unused ->
+            _ ->
                 log.atDebug()
                     .addKeyValue("sessionId", sessionId)
                     .addKeyValue("description", description)
@@ -218,7 +218,7 @@ public class FileSessionConfigStore implements SessionConfigStore {
                         config.tags(),
                         config.description())))
         .doOnSuccess(
-            unused ->
+            _ ->
                 log.atDebug()
                     .addKeyValue("sessionId", sessionId)
                     .addKeyValue("initiator", initiator)
@@ -253,7 +253,7 @@ public class FileSessionConfigStore implements SessionConfigStore {
                         config.tags(),
                         config.description())))
         .doOnSuccess(
-            unused ->
+            _ ->
                 log.atDebug()
                     .addKeyValue("sessionId", sessionId)
                     .log("Set initiated time for session"))
@@ -286,7 +286,7 @@ public class FileSessionConfigStore implements SessionConfigStore {
                         tags,
                         config.description())))
         .doOnSuccess(
-            unused ->
+            _ ->
                 log.atDebug()
                     .addKeyValue("sessionId", sessionId)
                     .addKeyValue("tagCount", tags.size())
@@ -432,7 +432,7 @@ public class FileSessionConfigStore implements SessionConfigStore {
     if (!Files.exists(sessionDir)) {
       return java.util.List.of();
     }
-    try (var stream = Files.list(sessionDir)) {
+    try (final var stream = Files.list(sessionDir)) {
       return stream.filter(path -> path.toString().endsWith(".json")).toList();
     }
   }

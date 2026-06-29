@@ -12,8 +12,8 @@ spotless {
     java {
         licenseHeaderFile(rootProject.file("config/license/header.txt"))
         importOrder()
-        removeUnusedImports()
-        cleanthat()
+//        removeUnusedImports()
+//        cleanthat()
         googleJavaFormat().reflowLongStrings()
         leadingTabsToSpaces(4)
         trimTrailingWhitespace()

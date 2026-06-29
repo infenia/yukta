@@ -16,6 +16,7 @@
 package com.infenia.yukta.event;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 
 /** Event representing a change in workflow status. */
 public record WorkflowStatusEvent(String executionId, String status, LocalDateTime timestamp) {
@@ -27,6 +28,6 @@ public record WorkflowStatusEvent(String executionId, String status, LocalDateTi
    * @return a new WorkflowStatusEvent
    */
   public static WorkflowStatusEvent create(final String executionId, final String status) {
-    return new WorkflowStatusEvent(executionId, status, LocalDateTime.now());
+    return new WorkflowStatusEvent(executionId, status, LocalDateTime.now(ZoneId.systemDefault()));
   }
 }

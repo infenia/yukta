@@ -16,6 +16,7 @@
 package com.infenia.yukta.event;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.Map;
 
 /** Event representing a change in task status. */
@@ -58,6 +59,7 @@ public record TaskStatusEvent(
       final String module,
       final String status,
       final Map<String, Object> metadata) {
-    return new TaskStatusEvent(executionId, nodeId, module, status, metadata, LocalDateTime.now());
+    return new TaskStatusEvent(
+        executionId, nodeId, module, status, metadata, LocalDateTime.now(ZoneId.systemDefault()));
   }
 }
