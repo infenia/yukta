@@ -48,13 +48,11 @@ class YuktaDaemonClientTest {
 
   @Mock private WebClient mockWebClient;
 
-  @Mock private DaemonProperties mockProps;
-
   private YuktaDaemonClient client;
 
   @BeforeEach
   void setUp() {
-    client = new YuktaDaemonClient(mockWebClient, mockProps);
+    client = new YuktaDaemonClient(mockWebClient);
   }
 
   // applySession tests
