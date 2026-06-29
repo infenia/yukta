@@ -61,6 +61,8 @@ jobs:
               - 'boot/**'
             messaging:
               - 'messaging/**'
+            cli:
+              - 'cli/**'
 
   # ─────────────────────────────────────────────
   # Job 2: Build and quality-gate changed modules.
@@ -170,6 +172,8 @@ jobs:
                 add_module_tasks ":boot" ;;
               "messaging")
                 add_module_tasks ":messaging" ;;
+              "cli")
+                add_module_tasks ":cli" ;;
             esac
           done
 

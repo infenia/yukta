@@ -1,0 +1,26 @@
+run:
+  timeout: 5m
+
+issues:
+  exclude-dirs:
+    - vendor
+    - build
+    - bin
+  exclude-rules:
+    - path: _test\.go
+      linters:
+        - gosec
+    # Exclude style-only issues in revive for now
+    - linters:
+        - revive
+      text: "unused-parameter|exported|package-comments"
+
+linters:
+  enable:
+    - errcheck      # Check for unchecked errors (critical)
+    - gosimple      # Simplify code (helpful)
+    - gocritic      # Additional code review checks
+    - staticcheck   # Advanced static analysis
+    - revive        # Go style guide (revived golint)
+  disable:
+    - typecheck

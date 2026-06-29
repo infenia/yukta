@@ -1,0 +1,21 @@
+# Coverage configuration for Go CLI
+# Defines coverage requirements and per-file overrides
+
+coverage:
+  # Default minimum coverage requirement
+  min: 100
+
+  # Per-file coverage requirements with overrides
+  # Format: relative path from go-cli directory
+  overrides:
+    # Entrypoint file - main function not directly testable
+    - path: cmd/yukta/main.go
+      min: 0
+
+    # Session client ApplyConfig - request body creation edge case
+    - path: internal/client/mock.go
+      min: 0
+
+    # Integration test file (special case)
+    - path: test/integration_test.go
+      min: 0  # Integration tests are supplementary
