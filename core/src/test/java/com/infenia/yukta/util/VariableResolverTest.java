@@ -15,20 +15,26 @@
  */
 package com.infenia.yukta.util;
 
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.infenia.yukta.plugin.store.SecretProvider;
+import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
+/** Unit tests for {@link VariableResolver}. */
+@NoArgsConstructor
+@SuppressWarnings("PMD.TooManyMethods")
 class VariableResolverTest {
 
+  /** Mocked secret provider. */
   private SecretProvider secretProvider;
+
+  /** Resolver instance for testing. */
   private VariableResolver resolver;
 
   @BeforeEach
@@ -39,10 +45,10 @@ class VariableResolverTest {
 
   @Test
   void testIsStatic() {
-    assertTrue(resolver.isStatic(123));
-    assertTrue(resolver.isStatic("static"));
-    assertFalse(resolver.isStatic("${var}"));
-    assertFalse(resolver.isStatic("decrypted:key"));
+    assertThat(resolver.isStatic(123)).isTrue();
+    assertThat(resolver.isStatic("static")).isTrue();
+    assertThat(resolver.isStatic("${var}")).isFalse();
+    assertThat(resolver.isStatic("decrypted:key")).isFalse();
   }
 
   @Test

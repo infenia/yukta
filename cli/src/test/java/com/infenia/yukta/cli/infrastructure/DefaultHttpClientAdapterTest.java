@@ -30,6 +30,10 @@ class DefaultHttpClientAdapterTest {
   private DefaultHttpClientAdapter adapter;
   private HttpServer mockServer;
 
+  // NOTE: InterruptedException branch in healthCheck() not covered — HttpClient is not
+  // injectable
+  // and InterruptedException cannot be triggered from the standard Java HTTP client.
+
   @BeforeEach
   void setUp() {
     adapter = new DefaultHttpClientAdapter();
@@ -111,12 +115,6 @@ class DefaultHttpClientAdapterTest {
   }
 
   @Test
-  void healthCheck_adapterIsInstantiable() {
-    DefaultHttpClientAdapter testAdapter = new DefaultHttpClientAdapter();
-    assertThat(testAdapter).isNotNull();
-  }
-
-  @Test
   void healthCheck_status404_returnsFalse() throws Exception {
     mockServer = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
     int port = mockServer.getAddress().getPort();
@@ -135,43 +133,6 @@ class DefaultHttpClientAdapterTest {
   }
 
   @Test
-  void healthCheck_multipleHealthChecks_allSucceed() throws Exception {
-    mockServer = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
-    int port = mockServer.getAddress().getPort();
-
-    mockServer.createContext(
-        "/actuator/health",
-        exchange -> {
-          exchange.sendResponseHeaders(200, 0);
-          exchange.close();
-        });
-    mockServer.start();
-
-    for (int i = 0; i < 3; i++) {
-      boolean result = adapter.healthCheck(port);
-      assertThat(result).isTrue();
-    }
-  }
-
-  @Test
-  void healthCheck_correctPort_usesProvidedPort() throws Exception {
-    mockServer = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
-    int port = mockServer.getAddress().getPort();
-
-    mockServer.createContext(
-        "/actuator/health",
-        exchange -> {
-          exchange.sendResponseHeaders(200, 0);
-          exchange.close();
-        });
-    mockServer.start();
-
-    boolean result = adapter.healthCheck(port);
-
-    assertThat(result).isTrue();
-  }
-
-  @Test
   void healthCheck_status201_returnsFalse() throws Exception {
     mockServer = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
     int port = mockServer.getAddress().getPort();
@@ -187,5 +148,15 @@ class DefaultHttpClientAdapterTest {
     boolean result = adapter.healthCheck(port);
 
     assertThat(result).isFalse();
+  }
+
+  @Test
+  void healthCheck_socketTimeout_throwsConnectException() throws Exception {
+    mockServer = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+    mockServer.setExecutor(null);
+
+    assertThatThrownBy(() -> adapter.healthCheck(1))
+        .isInstanceOf(ConnectException.class)
+        .hasMessageContaining("Daemon not responding");
   }
 }

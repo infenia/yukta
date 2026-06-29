@@ -341,7 +341,7 @@ public class WorkflowController {
     return sessionService
         .getSessionConfig(sessionId)
         .doOnNext(
-            config ->
+            _ ->
                 log.atInfo().log(
                     "getWorkflowHistory session config retrieved: sessionId={}", sessionId))
         .flatMap(

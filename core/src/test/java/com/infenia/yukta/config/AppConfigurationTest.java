@@ -22,6 +22,7 @@ import com.infenia.yukta.service.control.store.ExecutionControlStore;
 import com.infenia.yukta.service.control.store.InMemoryExecutionControlStore;
 import com.infenia.yukta.service.session.store.SessionConfigStore;
 import java.time.Duration;
+import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
@@ -30,13 +31,18 @@ import org.springframework.context.annotation.Configuration;
 import reactor.core.scheduler.Scheduler;
 import tools.jackson.databind.ObjectMapper;
 
+/** Tests for {@link AppConfiguration}. */
+@NoArgsConstructor
+@SuppressWarnings("PMD.AvoidDuplicateLiterals")
 class AppConfigurationTest {
 
+  /** Application context runner for testing Spring configuration. */
   private final ApplicationContextRunner contextRunner =
       new ApplicationContextRunner()
           .withConfiguration(AutoConfigurations.of(AppConfiguration.class));
 
   @Test
+  @SuppressWarnings("PMD.UnitTestShouldIncludeAssert")
   void shouldProvideDefaultBeans() {
     this.contextRunner.run(
         context -> {
@@ -52,6 +58,7 @@ class AppConfigurationTest {
   }
 
   @Test
+  @SuppressWarnings("PMD.UnitTestShouldIncludeAssert")
   void shouldNotOverrideExistingObjectMapper() {
     this.contextRunner
         .withUserConfiguration(CustomObjectMapperConfiguration.class)
@@ -64,8 +71,9 @@ class AppConfigurationTest {
   }
 
   @Test
+  @SuppressWarnings("PMD.UnitTestShouldIncludeAssert")
   void shouldNotOverrideExistingSessionConfigStore() {
-    SessionConfigStore customStore = mock(SessionConfigStore.class);
+    final SessionConfigStore customStore = mock(SessionConfigStore.class);
     this.contextRunner
         .withBean(SessionConfigStore.class, () -> customStore)
         .run(
@@ -76,8 +84,9 @@ class AppConfigurationTest {
   }
 
   @Test
+  @SuppressWarnings("PMD.UnitTestShouldIncludeAssert")
   void shouldNotOverrideExistingExecutionControlStore() {
-    ExecutionControlStore customStore = mock(ExecutionControlStore.class);
+    final ExecutionControlStore customStore = mock(ExecutionControlStore.class);
     this.contextRunner
         .withBean(ExecutionControlStore.class, () -> customStore)
         .run(
@@ -89,20 +98,27 @@ class AppConfigurationTest {
 
   @Test
   void shouldBeInstantiable() {
-    AppConfiguration config = new AppConfiguration();
+    final AppConfiguration config = new AppConfiguration();
     assertThat(config).isNotNull();
   }
 
   @Test
+  @SuppressWarnings("PMD.UnitTestShouldIncludeAssert")
   void shouldRegisterSessionConfigProperties() {
     this.contextRunner.run(
         context -> assertThat(context).hasSingleBean(SessionConfigProperties.class));
   }
 
+  /** Custom object mapper configuration for testing. */
   @Configuration
-  static class CustomObjectMapperConfiguration {
+  /* package */ static class CustomObjectMapperConfiguration {
+    /**
+     * Creates a custom object mapper.
+     *
+     * @return the object mapper
+     */
     @Bean
-    public ObjectMapper customObjectMapper() {
+    /* package */ ObjectMapper customObjectMapper() {
       return new ObjectMapper();
     }
   }

@@ -27,6 +27,7 @@ import com.infenia.yukta.service.control.store.ExecutionControlRegistry;
 import com.infenia.yukta.service.orchestrator.tracker.DefaultTaskTrackerService;
 import java.util.Map;
 import java.util.Optional;
+import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -36,6 +37,8 @@ import reactor.core.publisher.Sinks;
 import reactor.test.StepVerifier;
 
 @ExtendWith(MockitoExtension.class)
+@NoArgsConstructor
+@SuppressWarnings({"PMD.CommentRequired", "PMD.AvoidDuplicateLiterals", "PMD.LinguisticNaming"})
 class StopNodeCommandProcessorTest {
 
   @Mock private ExecutionControlRegistry registry;
@@ -47,10 +50,10 @@ class StopNodeCommandProcessorTest {
   @Test
   void canProcess_stopNodeCommand_returnsTrue() {
     // Given
-    ExecutionControlCommand command = new StopNodeCommand("exec-1", "node-1", false, null);
+    final ExecutionControlCommand command = new StopNodeCommand("exec-1", "node-1", false, null);
 
     // When
-    boolean actualResult = processor.canProcess(command);
+    final boolean actualResult = processor.canProcess(command);
 
     // Then
     assertThat(actualResult).isTrue();
@@ -59,10 +62,10 @@ class StopNodeCommandProcessorTest {
   @Test
   void canProcess_otherCommand_returnsFalse() {
     // Given
-    ExecutionControlCommand command = new PauseWorkflowCommand("exec-1");
+    final ExecutionControlCommand command = new PauseWorkflowCommand("exec-1");
 
     // When
-    boolean actualResult = processor.canProcess(command);
+    final boolean actualResult = processor.canProcess(command);
 
     // Then
     assertThat(actualResult).isFalse();
@@ -71,15 +74,16 @@ class StopNodeCommandProcessorTest {
   @Test
   void process_immediateStop_usesImmediateStopSinkAndEmitsEvent() {
     // Given
-    String executionId = "exec-immediate-stop";
-    String nodeId = "node-1";
-    Sinks.One<Void> immediateSink = Sinks.one();
-    StopNodeCommand command = new StopNodeCommand(executionId, nodeId, true, "immediate stop");
+    final String executionId = "exec-immediate-stop";
+    final String nodeId = "node-1";
+    final Sinks.One<Void> immediateSink = Sinks.one();
+    final StopNodeCommand command =
+        new StopNodeCommand(executionId, nodeId, true, "immediate stop");
     when(registry.findByExecutionId(executionId)).thenReturn(Optional.of(executionControl));
     when(executionControl.nodeImmediateStopSinks()).thenReturn(Map.of(nodeId, immediateSink));
 
     // When
-    var result = processor.process(command);
+    final var result = processor.process(command);
 
     // Then
     StepVerifier.create(result).verifyComplete();
@@ -89,15 +93,15 @@ class StopNodeCommandProcessorTest {
   @Test
   void process_safeStop_usesSafeStopSinkAndEmitsEvent() {
     // Given
-    String executionId = "exec-safe-stop";
-    String nodeId = "node-1";
-    Sinks.One<Void> safeSink = Sinks.one();
-    StopNodeCommand command = new StopNodeCommand(executionId, nodeId, false, "safe stop");
+    final String executionId = "exec-safe-stop";
+    final String nodeId = "node-1";
+    final Sinks.One<Void> safeSink = Sinks.one();
+    final StopNodeCommand command = new StopNodeCommand(executionId, nodeId, false, "safe stop");
     when(registry.findByExecutionId(executionId)).thenReturn(Optional.of(executionControl));
     when(executionControl.nodeSafeStopSinks()).thenReturn(Map.of(nodeId, safeSink));
 
     // When
-    var result = processor.process(command);
+    final var result = processor.process(command);
 
     // Then
     StepVerifier.create(result).verifyComplete();
@@ -107,12 +111,12 @@ class StopNodeCommandProcessorTest {
   @Test
   void process_executionNotFound_errorWithIllegalArgumentException() {
     // Given
-    String executionId = "exec-not-found";
-    StopNodeCommand command = new StopNodeCommand(executionId, "node-1", false, null);
+    final String executionId = "exec-not-found";
+    final StopNodeCommand command = new StopNodeCommand(executionId, "node-1", false, null);
     when(registry.findByExecutionId(executionId)).thenReturn(Optional.empty());
 
     // When
-    var result = processor.process(command);
+    final var result = processor.process(command);
 
     // Then
     StepVerifier.create(result)
@@ -126,14 +130,14 @@ class StopNodeCommandProcessorTest {
   @Test
   void process_nodeNotFoundForSafeStop_errorWithIllegalArgumentException() {
     // Given
-    String executionId = "exec-1";
-    String nodeId = "unknown-node";
-    StopNodeCommand command = new StopNodeCommand(executionId, nodeId, false, null);
+    final String executionId = "exec-1";
+    final String nodeId = "unknown-node";
+    final StopNodeCommand command = new StopNodeCommand(executionId, nodeId, false, null);
     when(registry.findByExecutionId(executionId)).thenReturn(Optional.of(executionControl));
     when(executionControl.nodeSafeStopSinks()).thenReturn(Map.of());
 
     // When
-    var result = processor.process(command);
+    final var result = processor.process(command);
 
     // Then
     StepVerifier.create(result)
@@ -147,14 +151,14 @@ class StopNodeCommandProcessorTest {
   @Test
   void process_nodeNotFoundForImmediateStop_errorWithIllegalArgumentException() {
     // Given
-    String executionId = "exec-1";
-    String nodeId = "unknown-node";
-    StopNodeCommand command = new StopNodeCommand(executionId, nodeId, true, null);
+    final String executionId = "exec-1";
+    final String nodeId = "unknown-node";
+    final StopNodeCommand command = new StopNodeCommand(executionId, nodeId, true, null);
     when(registry.findByExecutionId(executionId)).thenReturn(Optional.of(executionControl));
     when(executionControl.nodeImmediateStopSinks()).thenReturn(Map.of());
 
     // When
-    var result = processor.process(command);
+    final var result = processor.process(command);
 
     // Then
     StepVerifier.create(result)
@@ -168,7 +172,7 @@ class StopNodeCommandProcessorTest {
   @Test
   void getPriority_returnsCorrectValue() {
     // When
-    int actualPriority = processor.getPriority();
+    final int actualPriority = processor.getPriority();
 
     // Then
     assertThat(actualPriority).isEqualTo(15);

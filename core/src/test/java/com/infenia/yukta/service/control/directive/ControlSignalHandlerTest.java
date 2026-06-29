@@ -15,18 +15,24 @@
  */
 package com.infenia.yukta.service.control.directive;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.assertj.core.api.Assertions.*;
 
 import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
 import com.infenia.yukta.model.control.ControlHeartbeat;
 import com.infenia.yukta.model.control.ControlStatistics;
 import java.util.List;
+import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+@SuppressWarnings({
+  "PMD.AvoidDuplicateLiterals",
+  "PMD.CommentRequired",
+  "PMD.ShortVariable",
+  "PMD.UncommentedEmptyMethodBody"
+})
+@NoArgsConstructor
 class ControlSignalHandlerTest {
 
   private ControlHeartbeatHandler heartbeatHandler;
@@ -46,11 +52,11 @@ class ControlSignalHandlerTest {
         DefaultMessage.create(null, new ControlStatistics("node1", 100.0, 50.0))
             .withSourceNodeId("node1");
 
-    assertTrue(heartbeatHandler.canHandle(hb.getPayload()));
-    assertTrue(!statisticsHandler.canHandle(hb.getPayload()));
+    assertThat(heartbeatHandler.canHandle(hb.getPayload())).isTrue();
+    assertThat(statisticsHandler.canHandle(hb.getPayload())).isFalse();
 
-    assertTrue(statisticsHandler.canHandle(stats.getPayload()));
-    assertTrue(!heartbeatHandler.canHandle(stats.getPayload()));
+    assertThat(statisticsHandler.canHandle(stats.getPayload())).isTrue();
+    assertThat(heartbeatHandler.canHandle(stats.getPayload())).isFalse();
   }
 
   @Test
@@ -60,8 +66,8 @@ class ControlSignalHandlerTest {
 
     heartbeatHandler.handle("node1", msg, msg.getPayload());
 
-    assertEquals(msg, heartbeatHandler.getLastHeartbeat("node1"));
-    assertEquals(List.of("node1"), heartbeatHandler.getActiveNodes());
+    assertThat(heartbeatHandler.getLastHeartbeat("node1")).isEqualTo(msg);
+    assertThat(heartbeatHandler.getActiveNodes()).isEqualTo(List.of("node1"));
   }
 
   @Test
@@ -70,12 +76,12 @@ class ControlSignalHandlerTest {
         DefaultMessage.create(null, new ControlHeartbeat("node1", 1000L)).withSourceNodeId("node1");
 
     heartbeatHandler.handle("node1", msg, msg.getPayload());
-    assertEquals(msg, heartbeatHandler.getLastHeartbeat("node1"));
+    assertThat(heartbeatHandler.getLastHeartbeat("node1")).isEqualTo(msg);
 
     heartbeatHandler.removeNode("node1");
 
-    assertNull(heartbeatHandler.getLastHeartbeat("node1"));
-    assertEquals(List.of(), heartbeatHandler.getActiveNodes());
+    assertThat(heartbeatHandler.getLastHeartbeat("node1")).isNull();
+    assertThat(heartbeatHandler.getActiveNodes()).isEqualTo(List.of());
   }
 
   @Test
@@ -86,7 +92,7 @@ class ControlSignalHandlerTest {
 
     statisticsHandler.handle("node1", msg, msg.getPayload());
 
-    assertEquals(msg, statisticsHandler.getLastStatistics("node1"));
+    assertThat(statisticsHandler.getLastStatistics("node1")).isEqualTo(msg);
   }
 
   @Test
@@ -96,29 +102,29 @@ class ControlSignalHandlerTest {
             .withSourceNodeId("node1");
 
     statisticsHandler.handle("node1", msg, msg.getPayload());
-    assertEquals(msg, statisticsHandler.getLastStatistics("node1"));
+    assertThat(statisticsHandler.getLastStatistics("node1")).isEqualTo(msg);
 
     statisticsHandler.removeNode("node1");
 
-    assertNull(statisticsHandler.getLastStatistics("node1"));
+    assertThat(statisticsHandler.getLastStatistics("node1")).isNull();
   }
 
   @Test
   void testDefaultMethods() {
-    ControlSignalHandler dummy =
+    final ControlSignalHandler dummy =
         new ControlSignalHandler() {
           @Override
-          public boolean canHandle(Object payload) {
+          public boolean canHandle(final Object payload) {
             return false;
           }
 
           @Override
-          public void handle(String nodeId, Message<?> message, Object payload) {}
+          public void handle(final String nodeId, final Message<?> message, final Object payload) {}
         };
 
-    assertNull(dummy.getLastHeartbeat("node1"));
-    assertNull(dummy.getLastStatistics("node1"));
-    assertEquals(List.of(), dummy.getActiveNodes());
+    assertThat(dummy.getLastHeartbeat("node1")).isNull();
+    assertThat(dummy.getLastStatistics("node1")).isNull();
+    assertThat(dummy.getActiveNodes()).isEqualTo(List.of());
     dummy.removeNode("node1"); // Cover default no-op
   }
 }

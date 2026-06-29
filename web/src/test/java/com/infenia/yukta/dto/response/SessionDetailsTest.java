@@ -19,18 +19,27 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.util.List;
+import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 
+/** Tests for SessionDetailsTest. */
+@NoArgsConstructor
 class SessionDetailsTest {
+
+  /** First session ID test constant. */
+  private static final String SESSION_ID_123 = "session-123";
+
+  /** Second session ID test constant. */
+  private static final String SESSION_ID_456 = "session-456";
 
   @Test
   void constructor_validInputs_createsRecord() {
     // Given
-    String sessionId = "session-123";
-    List<String> workflowIds = List.of("workflow1", "workflow2");
+    final String sessionId = SESSION_ID_123;
+    final List<String> workflowIds = List.of("workflow1", "workflow2");
 
     // When
-    SessionDetails details = new SessionDetails(sessionId, workflowIds);
+    final SessionDetails details = new SessionDetails(sessionId, workflowIds);
 
     // Then
     assertThat(details.sessionId()).isEqualTo(sessionId);
@@ -40,7 +49,7 @@ class SessionDetailsTest {
   @Test
   void constructor_withNullWorkflowIds_convertsToEmptyList() {
     // Given-When
-    SessionDetails details = new SessionDetails("session-123", null);
+    final SessionDetails details = new SessionDetails(SESSION_ID_123, null);
 
     // Then
     assertThat(details.workflowIds()).isEmpty();
@@ -50,7 +59,7 @@ class SessionDetailsTest {
   @Test
   void workflowIds_modificationAttempt_throwsUnsupportedOperationException() {
     // Given
-    SessionDetails details = new SessionDetails("session-123", List.of("workflow1"));
+    final SessionDetails details = new SessionDetails(SESSION_ID_123, List.of("workflow1"));
 
     // When-Then
     assertThatThrownBy(() -> details.workflowIds().add("workflow2"))
@@ -60,9 +69,9 @@ class SessionDetailsTest {
   @Test
   void equals_sameValues_returnsTrue() {
     // Given
-    List<String> workflowIds = List.of("workflow1");
-    SessionDetails details1 = new SessionDetails("session-123", workflowIds);
-    SessionDetails details2 = new SessionDetails("session-123", workflowIds);
+    final List<String> workflowIds = List.of("workflow1");
+    final SessionDetails details1 = new SessionDetails(SESSION_ID_123, workflowIds);
+    final SessionDetails details2 = new SessionDetails(SESSION_ID_123, workflowIds);
 
     // When-Then
     assertThat(details1).isEqualTo(details2);
@@ -71,22 +80,22 @@ class SessionDetailsTest {
   @Test
   void equals_differentValues_returnsFalse() {
     // Given
-    SessionDetails details1 = new SessionDetails("session-123", List.of());
-    SessionDetails details2 = new SessionDetails("session-456", List.of());
+    final SessionDetails details1 = new SessionDetails(SESSION_ID_123, List.of());
+    final SessionDetails details2 = new SessionDetails(SESSION_ID_456, List.of());
 
     // When-Then
     assertThat(details1).isNotEqualTo(details2);
   }
 
   @Test
-  void toString_contains_relevantFieldValues() {
+  void verifyToStringContainsRelevantFieldValues() {
     // Given
-    SessionDetails details = new SessionDetails("session-123", List.of());
+    final SessionDetails details = new SessionDetails(SESSION_ID_123, List.of());
 
     // When
-    String actual = details.toString();
+    final String actual = details.toString();
 
     // Then
-    assertThat(actual).contains("SessionDetails").contains("session-123");
+    assertThat(actual).contains("SessionDetails").contains(SESSION_ID_123);
   }
 }

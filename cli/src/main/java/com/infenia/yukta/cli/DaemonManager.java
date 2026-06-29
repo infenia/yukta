@@ -61,7 +61,7 @@ public class DaemonManager {
   public boolean isRunning() {
     try {
       return httpHealthCheck();
-    } catch (Exception e) {
+    } catch (final Exception e) {
       log.debug("Health check failed", e);
       return false;
     }
@@ -75,18 +75,18 @@ public class DaemonManager {
    * @throws DaemonStartupException if startup validation fails
    */
   public Process startDaemon() throws IOException, DaemonStartupException {
-    Path pidFilePath = props.getPidFilePath();
-    Path logFilePath = props.getLogFilePath();
+    final Path pidFilePath = props.getPidFilePath();
+    final Path logFilePath = props.getLogFilePath();
 
     try {
       fileSystemAdapter.createDirectories(pidFilePath.getParent());
       fileSystemAdapter.createDirectories(logFilePath.getParent());
-    } catch (Exception e) {
+    } catch (final Exception e) {
       throw new IOException("Failed to create directories", e);
     }
 
-    try (var randomAccessFile = new java.io.RandomAccessFile(pidFilePath.toFile(), "rw");
-        FileLock lock = randomAccessFile.getChannel().tryLock()) {
+    try (final var randomAccessFile = new java.io.RandomAccessFile(pidFilePath.toFile(), "rw");
+        final FileLock lock = randomAccessFile.getChannel().tryLock()) {
 
       if (lock == null) {
         throw new DaemonStartupException(
@@ -96,21 +96,21 @@ public class DaemonManager {
       if (isDaemonProcess()) {
         try {
           log.info("Daemon already running with PID {}", readPidFile());
-        } catch (Exception e) {
+        } catch (final Exception e) {
           log.info("Daemon already running (could not read PID: {})", e.getMessage());
         }
         return null;
       }
 
-      Process process;
+      final Process process;
       try {
         process =
             processProvider.startProcess(
                 buildDaemonCommand(), new File("."), logFilePath.toFile(), logFilePath.toFile());
-      } catch (Exception e) {
+      } catch (final Exception e) {
         throw new IOException("Failed to start daemon process", e);
       }
-      long pid = process.pid();
+      final long pid = process.pid();
 
       try {
         fileSystemAdapter.writeString(
@@ -118,14 +118,14 @@ public class DaemonManager {
             String.valueOf(pid),
             StandardOpenOption.CREATE,
             StandardOpenOption.TRUNCATE_EXISTING);
-      } catch (Exception e) {
+      } catch (final Exception e) {
         throw new IOException("Failed to write PID file", e);
       }
 
       log.info("Started daemon process with PID {}", pid);
       return process;
 
-    } catch (OverlappingFileLockException e) {
+    } catch (final OverlappingFileLockException e) {
       throw new DaemonStartupException(
           "Another CLI process is starting the daemon. Please wait and retry.", e);
     }
@@ -138,7 +138,7 @@ public class DaemonManager {
    * @throws InterruptedException if the wait is interrupted
    */
   public void waitForReady() throws DaemonStartupException, InterruptedException {
-    Instant deadline = Instant.now().plusSeconds(props.getStartupTimeoutSeconds());
+    final Instant deadline = Instant.now().plusSeconds(props.getStartupTimeoutSeconds());
 
     while (Instant.now().isBefore(deadline)) {
       try {
@@ -146,9 +146,9 @@ public class DaemonManager {
           log.info("Daemon is ready");
           return;
         }
-      } catch (ConnectException e) {
+      } catch (final ConnectException e) {
         log.debug("Daemon not yet responding: {}", e.getMessage());
-      } catch (Exception e) {
+      } catch (final Exception e) {
         log.debug("Health check failed", e);
       }
 
@@ -189,7 +189,7 @@ public class DaemonManager {
    * @return true if daemon was stopped, false if it wasn't running
    */
   public boolean stopDaemon() {
-    Path pidFilePath = props.getPidFilePath();
+    final Path pidFilePath = props.getPidFilePath();
 
     if (!fileSystemAdapter.exists(pidFilePath)) {
       log.info("No daemon PID file found");
@@ -197,7 +197,7 @@ public class DaemonManager {
     }
 
     try {
-      long pid = readPidFile();
+      final long pid = readPidFile();
       processProvider
           .findProcess(pid)
           .ifPresent(
@@ -207,11 +207,11 @@ public class DaemonManager {
               });
       fileSystemAdapter.delete(pidFilePath);
       return true;
-    } catch (Exception e) {
+    } catch (final Exception e) {
       log.warn("Error stopping daemon: {}", e.getMessage());
       try {
         fileSystemAdapter.deleteIfExists(pidFilePath);
-      } catch (Exception ex) {
+      } catch (final Exception ex) {
         log.warn("Failed to delete PID file: {}", ex.getMessage());
       }
       return false;
@@ -224,31 +224,31 @@ public class DaemonManager {
    * @return the daemon status
    */
   public DaemonStatus status() {
-    boolean running = isRunning();
+    final boolean running = isRunning();
     long pid = -1;
     try {
       pid = readPidFile();
-    } catch (Exception ignored) {
+    } catch (final Exception ignored) {
       // PID file not readable, return default
     }
-    String url = running ? "http://127.0.0.1:" + props.getPort() : null;
+    final String url = running ? "http://127.0.0.1:" + props.getPort() : null;
     return new DaemonStatus(running, pid, url);
   }
 
   private boolean isDaemonProcess() {
     try {
-      long pid = readPidFile();
+      final long pid = readPidFile();
       if (processProvider.findProcess(pid).isEmpty()) {
         log.debug("PID {} is stale, cleaning up", pid);
         fileSystemAdapter.deleteIfExists(props.getPidFilePath());
         return false;
       }
       return httpHealthCheck();
-    } catch (Exception e) {
+    } catch (final Exception e) {
       log.debug("Stale PID file detected", e);
       try {
         fileSystemAdapter.deleteIfExists(props.getPidFilePath());
-      } catch (Exception ex) {
+      } catch (final Exception ex) {
         log.debug("Failed to delete stale PID file", ex);
       }
       return false;
@@ -256,30 +256,30 @@ public class DaemonManager {
   }
 
   private long readPidFile() throws Exception {
-    String content = fileSystemAdapter.readString(props.getPidFilePath());
+    final String content = fileSystemAdapter.readString(props.getPidFilePath());
     return Long.parseLong(content.trim());
   }
 
   private List<String> buildDaemonCommand() throws DaemonStartupException {
-    String javaHome =
+    final String javaHome =
         envProvider
             .getProperty("java.home")
             .or(() -> envProvider.getProperty("JAVA_HOME"))
             .orElse("/usr/lib/jvm/java");
-    String javaExe = javaHome + File.separator + "bin" + File.separator + "java";
+    final String javaExe = javaHome + File.separator + "bin" + File.separator + "java";
 
-    boolean isNative =
+    final boolean isNative =
         "runtime".equals(envProvider.getProperty("org.graalvm.nativeimage.imagecode").orElse(null));
 
     if (isNative) {
-      String processCmd = processProvider.currentProcessCommand().orElse(null);
+      final String processCmd = processProvider.currentProcessCommand().orElse(null);
       if (processCmd == null) {
         throw new DaemonStartupException("Cannot determine native image command path");
       }
       return List.of(processCmd, "--spring.profiles.active=" + getActiveProfile());
     }
 
-    String jarPath = resolveJarPath();
+    final String jarPath = resolveJarPath();
     return List.of(
         javaExe,
         "-jar",
@@ -293,9 +293,9 @@ public class DaemonManager {
       return props.getJarPath();
     }
 
-    String classPath = envProvider.getProperty("java.class.path").orElse("");
-    String[] entries = classPath.split(File.pathSeparator);
-    for (String entry : entries) {
+    final String classPath = envProvider.getProperty("java.class.path").orElse("");
+    final String[] entries = classPath.split(File.pathSeparator);
+    for (final String entry : entries) {
       if (entry.endsWith(".jar")) {
         return entry;
       }

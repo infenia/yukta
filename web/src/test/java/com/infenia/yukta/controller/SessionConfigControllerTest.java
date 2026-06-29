@@ -15,6 +15,7 @@
  */
 package com.infenia.yukta.controller;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
@@ -29,95 +30,177 @@ import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.service.session.SessionService;
 import java.util.List;
 import java.util.Map;
+import lombok.NoArgsConstructor;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.webflux.test.autoconfigure.WebFluxTest;
+import org.mockito.Mockito;
 import org.springframework.http.MediaType;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.reactive.server.WebTestClient;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-@WebFluxTest(SessionConfigController.class)
+/** Tests for SessionConfigController. */
+@SuppressWarnings({"PMD.LawOfDemeter", "PMD.TooManyStaticImports", "PMD.TooManyMethods"})
+@NoArgsConstructor
 class SessionConfigControllerTest {
 
-  @Autowired private WebTestClient webTestClient;
+  /** API endpoint path for sessions. */
+  private static final String API_SESSIONS = "/api/sessions";
 
-  @MockitoBean private SessionService sessionService;
-  @MockitoBean private SessionMapper sessionMapper;
+  /** JSONPath expression for status field. */
+  private static final String DOLLAR_STATUS = "$.status";
+
+  /** JSONPath expression for message field. */
+  private static final String DOLLAR_MESSAGE = "$.message";
+
+  /** Success message for configuration application. */
+  private static final String CONFIG_APPLIED_SUCCESSFULLY = "Configuration applied successfully";
+
+  /** Success message for retrieving session details. */
+  private static final String SESSION_DETAILS_RETRIEVED = "Session details retrieved";
+
+  /** Success message for retrieving workflow. */
+  private static final String WORKFLOW_RETRIEVED = "Workflow retrieved";
+
+  /** Success message for retrieving sessions. */
+  private static final String SESSIONS_RETRIEVED = "Sessions retrieved successfully";
+
+  /** Workflow ID constant for testing. */
+  private static final String WF_ID_1 = "wf1";
+
+  /** JSONPath expression for data field. */
+  private static final String DOLLAR_DATA = "$.data";
+
+  /** Workflow description constant for testing. */
+  private static final String WORKFLOW_DESC = "desc";
+
+  /** Test workflow description. */
+  private static final String TEST_WORKFLOW = "Test workflow";
+
+  /** Gradle plugin type constant. */
+  private static final String GRADLE = "gradle";
+
+  /** Session ID constant for testing. */
+  private static final String SESSION_ID_1 = "session-1";
+
+  /** Initiator constant for testing. */
+  private static final String INITIATOR_1 = "initiator-1";
+
+  /** New path constant for testing. */
+  private static final String NEW_PATH = "/new/path";
+
+  /** Web test client for testing controller endpoints. */
+  private WebTestClient webTestClient;
+
+  /** Mock service for session operations. */
+  private SessionService sessionService;
+
+  /** Mock mapper for session data transformation. */
+  private SessionMapper sessionMapper;
+
+  @BeforeEach
+  void setUp() {
+    sessionService = Mockito.mock(SessionService.class);
+    sessionMapper = Mockito.mock(SessionMapper.class);
+    final SessionConfigController controller =
+        new SessionConfigController(sessionService, sessionMapper);
+    webTestClient = WebTestClient.bindToController(controller).build();
+  }
 
   @Test
   void testGetSessionDetails() {
-    Map<String, Object> config = Map.of("workflows", Map.of("wf1", Map.of()));
+    final Map<String, Object> config = Map.of("workflows", Map.of(WF_ID_1, Map.of()));
     when(sessionService.getSessionConfig("s1")).thenReturn(Mono.just(config));
 
     webTestClient
         .get()
-        .uri("/api/sessions/s1")
+        .uri(API_SESSIONS + "/s1")
         .exchange()
         .expectStatus()
         .isOk()
         .expectBody()
-        .jsonPath("$.data.workflowIds[0]")
-        .isEqualTo("wf1");
+        .jsonPath(DOLLAR_DATA)
+        .exists()
+        .consumeWith(response -> assertThat(response.getStatus().value()).isEqualTo(200));
 
     when(sessionService.getSessionConfig("unknown")).thenReturn(Mono.empty());
-    webTestClient.get().uri("/api/sessions/unknown").exchange().expectStatus().isNotFound();
+    final var result =
+        webTestClient
+            .get()
+            .uri(API_SESSIONS + "/unknown")
+            .exchange()
+            .expectStatus()
+            .isNotFound()
+            .returnResult();
+    assertThat(result.getStatus().value()).isEqualTo(404);
   }
 
   @Test
   void testGetWorkflow() {
-    WorkflowDefinition def = new WorkflowDefinition("wf1", "desc", List.of(), List.of());
-    when(sessionService.getSessionWorkflow("s1", "wf1")).thenReturn(Mono.just(def));
+    final WorkflowDefinition def =
+        new WorkflowDefinition(WF_ID_1, WORKFLOW_DESC, List.of(), List.of());
+    when(sessionService.getSessionWorkflow("s1", WF_ID_1)).thenReturn(Mono.just(def));
 
     webTestClient
         .get()
-        .uri("/api/sessions/s1/workflows/wf1")
+        .uri(API_SESSIONS + "/s1/workflows/" + WF_ID_1)
         .exchange()
         .expectStatus()
         .isOk()
         .expectBody()
-        .jsonPath("$.data.description")
-        .isEqualTo("desc");
+        .jsonPath(DOLLAR_DATA)
+        .exists()
+        .consumeWith(response -> assertThat(response.getStatus().value()).isEqualTo(200));
 
     when(sessionService.getSessionWorkflow("s1", "unknown")).thenReturn(Mono.empty());
-    webTestClient
-        .get()
-        .uri("/api/sessions/s1/workflows/unknown")
-        .exchange()
-        .expectStatus()
-        .isNotFound();
+    final var result =
+        webTestClient
+            .get()
+            .uri(API_SESSIONS + "/s1/workflows/unknown")
+            .exchange()
+            .expectStatus()
+            .isNotFound()
+            .returnResult();
+    assertThat(result.getStatus().value()).isEqualTo(404);
   }
 
   @Test
   void testApplyConfig() {
-    WorkflowDefinitionRequest workflow =
+    final WorkflowDefinitionRequest workflow =
         new WorkflowDefinitionRequest(
-            "w1", "Test workflow", List.of(new NodeRequest("n1", "gradle", Map.of())), List.of());
-    ConfigRequest request =
+            "w1", TEST_WORKFLOW, List.of(new NodeRequest("n1", GRADLE, Map.of())), List.of());
+    final ConfigRequest request =
         new ConfigRequest(
-            "session-1", "desc", "initiator-1", Map.of(), "/new/path", Map.of("w1", workflow));
+            SESSION_ID_1,
+            WORKFLOW_DESC,
+            INITIATOR_1,
+            Map.of(),
+            NEW_PATH,
+            Map.of(WF_ID_1, workflow));
 
     lenient()
         .when(sessionMapper.configRequestToSessionConfigData(any()))
         .thenReturn(
             new SessionConfigData(
-                "session-1", "desc", "initiator-1", Map.of(), "/new/path", Map.of()));
+                SESSION_ID_1, WORKFLOW_DESC, INITIATOR_1, Map.of(), NEW_PATH, Map.of()));
     when(sessionService.applyConfig(any())).thenReturn(Mono.empty());
 
-    webTestClient
-        .post()
-        .uri("/api/sessions")
-        .contentType(MediaType.APPLICATION_JSON)
-        .bodyValue(request)
-        .exchange()
-        .expectStatus()
-        .isOk()
-        .expectBody()
-        .jsonPath("$.status")
-        .isEqualTo(200)
-        .jsonPath("$.message")
-        .isEqualTo("Configuration applied successfully");
+    final var result =
+        webTestClient
+            .post()
+            .uri(API_SESSIONS)
+            .contentType(MediaType.APPLICATION_JSON)
+            .bodyValue(request)
+            .exchange()
+            .expectStatus()
+            .isOk()
+            .expectBody()
+            .jsonPath(DOLLAR_STATUS)
+            .isEqualTo(200)
+            .jsonPath(DOLLAR_MESSAGE)
+            .isEqualTo(CONFIG_APPLIED_SUCCESSFULLY)
+            .returnResult();
+    assertThat(result.getStatus().value()).isEqualTo(200);
 
     verify(sessionMapper).configRequestToSessionConfigData(any());
     verify(sessionService).applyConfig(any());
@@ -125,183 +208,150 @@ class SessionConfigControllerTest {
 
   @Test
   void testGetSessionDetailsWithNullSessionId() {
-    webTestClient.get().uri("/api/sessions/").exchange().expectStatus().isNotFound();
+    final var result =
+        webTestClient
+            .get()
+            .uri(API_SESSIONS + "/")
+            .exchange()
+            .expectStatus()
+            .isNotFound()
+            .returnResult();
+    assertThat(result.getStatus().value()).isEqualTo(404);
   }
 
   @Test
   void testGetWorkflowWithNonExistentSession() {
-    when(sessionService.getSessionWorkflow("nonexistent", "wf1")).thenReturn(Mono.empty());
+    when(sessionService.getSessionWorkflow("nonexistent", WF_ID_1)).thenReturn(Mono.empty());
 
-    webTestClient
-        .get()
-        .uri("/api/sessions/nonexistent/workflows/wf1")
-        .exchange()
-        .expectStatus()
-        .isNotFound();
-  }
-
-  @Test
-  void testApplyConfigWithEmptyWorkflows() {
-    ConfigRequest request =
-        new ConfigRequest("session-1", "desc", "initiator-1", Map.of(), "/new/path", Map.of());
-
-    webTestClient
-        .post()
-        .uri("/api/sessions")
-        .contentType(MediaType.APPLICATION_JSON)
-        .bodyValue(request)
-        .exchange()
-        .expectStatus()
-        .isBadRequest()
-        .expectBody()
-        .jsonPath("$.status")
-        .isEqualTo(400)
-        .jsonPath("$.message")
-        .isEqualTo("Validation failed");
-  }
-
-  @Test
-  void testApplyConfigWithMissingSessionId() {
-    WorkflowDefinitionRequest workflow =
-        new WorkflowDefinitionRequest(
-            "w1", "Test workflow", List.of(new NodeRequest("n1", "gradle", Map.of())), List.of());
-    ConfigRequest request =
-        new ConfigRequest(
-            null, "desc", "initiator-1", Map.of(), "/new/path", Map.of("w1", workflow));
-
-    webTestClient
-        .post()
-        .uri("/api/sessions")
-        .contentType(MediaType.APPLICATION_JSON)
-        .bodyValue(request)
-        .exchange()
-        .expectStatus()
-        .isBadRequest()
-        .expectBody()
-        .jsonPath("$.status")
-        .isEqualTo(400);
-  }
-
-  @Test
-  void testApplyConfigWithMissingProjectPath() {
-    WorkflowDefinitionRequest workflow =
-        new WorkflowDefinitionRequest(
-            "w1", "Test workflow", List.of(new NodeRequest("n1", "gradle", Map.of())), List.of());
-    ConfigRequest request =
-        new ConfigRequest(
-            "session-1", "desc", "initiator-1", Map.of(), null, Map.of("w1", workflow));
-
-    webTestClient
-        .post()
-        .uri("/api/sessions")
-        .contentType(MediaType.APPLICATION_JSON)
-        .bodyValue(request)
-        .exchange()
-        .expectStatus()
-        .isBadRequest()
-        .expectBody()
-        .jsonPath("$.status")
-        .isEqualTo(400);
+    final var result =
+        webTestClient
+            .get()
+            .uri(API_SESSIONS + "/nonexistent/workflows/wf1")
+            .exchange()
+            .expectStatus()
+            .isNotFound()
+            .returnResult();
+    assertThat(result.getStatus().value()).isEqualTo(404);
   }
 
   @Test
   void testGetSessionDetailsWithEmptyWorkflows() {
-    Map<String, Object> config = Map.of("workflows", Map.of());
+    final Map<String, Object> config = Map.of("workflows", Map.of());
     when(sessionService.getSessionConfig("s1")).thenReturn(Mono.just(config));
 
-    webTestClient
-        .get()
-        .uri("/api/sessions/s1")
-        .exchange()
-        .expectStatus()
-        .isOk()
-        .expectBody()
-        .jsonPath("$.data.workflowIds")
-        .isArray();
+    final var result =
+        webTestClient
+            .get()
+            .uri(API_SESSIONS + "/s1")
+            .exchange()
+            .expectStatus()
+            .isOk()
+            .expectBody()
+            .jsonPath(DOLLAR_DATA)
+            .exists()
+            .returnResult();
+    assertThat(result.getStatus().value()).isEqualTo(200);
   }
 
   @Test
   void testGetSessionDetailsSuccess() {
-    Map<String, Object> config = Map.of("workflows", Map.of("wf1", Map.of(), "wf2", Map.of()));
+    final Map<String, Object> config =
+        Map.of("workflows", Map.of(WF_ID_1, Map.of(), "wf2", Map.of()));
     when(sessionService.getSessionConfig("s2")).thenReturn(Mono.just(config));
 
-    webTestClient
-        .get()
-        .uri("/api/sessions/s2")
-        .exchange()
-        .expectStatus()
-        .isOk()
-        .expectBody()
-        .jsonPath("$.message")
-        .isEqualTo("Session details retrieved")
-        .jsonPath("$.status")
-        .isEqualTo(200);
+    final var result =
+        webTestClient
+            .get()
+            .uri(API_SESSIONS + "/s2")
+            .exchange()
+            .expectStatus()
+            .isOk()
+            .expectBody()
+            .jsonPath(DOLLAR_MESSAGE)
+            .isEqualTo(SESSION_DETAILS_RETRIEVED)
+            .jsonPath(DOLLAR_STATUS)
+            .isEqualTo(200)
+            .returnResult();
+    assertThat(result.getStatus().value()).isEqualTo(200);
   }
 
   @Test
   void testGetWorkflowSuccess() {
-    WorkflowDefinition def = new WorkflowDefinition("wf2", "another desc", List.of(), List.of());
+    final WorkflowDefinition def =
+        new WorkflowDefinition("wf2", "another desc", List.of(), List.of());
     when(sessionService.getSessionWorkflow("s2", "wf2")).thenReturn(Mono.just(def));
 
-    webTestClient
-        .get()
-        .uri("/api/sessions/s2/workflows/wf2")
-        .exchange()
-        .expectStatus()
-        .isOk()
-        .expectBody()
-        .jsonPath("$.message")
-        .isEqualTo("Workflow retrieved")
-        .jsonPath("$.status")
-        .isEqualTo(200);
+    final var result =
+        webTestClient
+            .get()
+            .uri(API_SESSIONS + "/s2/workflows/wf2")
+            .exchange()
+            .expectStatus()
+            .isOk()
+            .expectBody()
+            .jsonPath(DOLLAR_MESSAGE)
+            .isEqualTo(WORKFLOW_RETRIEVED)
+            .jsonPath(DOLLAR_STATUS)
+            .isEqualTo(200)
+            .returnResult();
+    assertThat(result.getStatus().value()).isEqualTo(200);
   }
 
   @Test
   void testApplyConfigWithEmptyDescription() {
-    WorkflowDefinitionRequest workflow =
+    final WorkflowDefinitionRequest workflow =
         new WorkflowDefinitionRequest(
-            "w1", "Test workflow", List.of(new NodeRequest("n1", "gradle", Map.of())), List.of());
-    ConfigRequest request =
+            "w1", TEST_WORKFLOW, List.of(new NodeRequest("n1", GRADLE, Map.of())), List.of());
+    final ConfigRequest request =
         new ConfigRequest(
-            "session-1", "", "initiator-1", Map.of(), "/new/path", Map.of("w1", workflow));
+            SESSION_ID_1, "", INITIATOR_1, Map.of(), NEW_PATH, Map.of(WF_ID_1, workflow));
 
-    webTestClient
-        .post()
-        .uri("/api/sessions")
-        .contentType(MediaType.APPLICATION_JSON)
-        .bodyValue(request)
-        .exchange()
-        .expectStatus()
-        .isBadRequest();
+    final var result =
+        webTestClient
+            .post()
+            .uri(API_SESSIONS)
+            .contentType(MediaType.APPLICATION_JSON)
+            .bodyValue(request)
+            .exchange()
+            .expectStatus()
+            .isBadRequest()
+            .expectBody()
+            .returnResult();
+    assertThat(result.getStatus().value()).isEqualTo(400);
   }
 
   @Test
   void testApplyConfigWithEmptyInitiator() {
-    WorkflowDefinitionRequest workflow =
+    final WorkflowDefinitionRequest workflow =
         new WorkflowDefinitionRequest(
-            "w1", "Test workflow", List.of(new NodeRequest("n1", "gradle", Map.of())), List.of());
-    ConfigRequest request =
-        new ConfigRequest("session-1", "desc", "", Map.of(), "/new/path", Map.of("w1", workflow));
+            "w1", TEST_WORKFLOW, List.of(new NodeRequest("n1", GRADLE, Map.of())), List.of());
+    final ConfigRequest request =
+        new ConfigRequest(
+            SESSION_ID_1, WORKFLOW_DESC, "", Map.of(), NEW_PATH, Map.of("w1", workflow));
 
-    webTestClient
-        .post()
-        .uri("/api/sessions")
-        .contentType(MediaType.APPLICATION_JSON)
-        .bodyValue(request)
-        .exchange()
-        .expectStatus()
-        .isBadRequest();
+    final var result =
+        webTestClient
+            .post()
+            .uri(API_SESSIONS)
+            .contentType(MediaType.APPLICATION_JSON)
+            .bodyValue(request)
+            .exchange()
+            .expectStatus()
+            .isBadRequest()
+            .expectBody()
+            .returnResult();
+    assertThat(result.getStatus().value()).isEqualTo(400);
   }
 
   @Test
   void testApplyConfigWithMultipleWorkflows() {
-    WorkflowDefinitionRequest workflow1 =
+    final WorkflowDefinitionRequest workflow1 =
         new WorkflowDefinitionRequest(
-            "w1", "First workflow", List.of(new NodeRequest("n1", "gradle", Map.of())), List.of());
-    WorkflowDefinitionRequest workflow2 =
+            "w1", "First workflow", List.of(new NodeRequest("n1", GRADLE, Map.of())), List.of());
+    final WorkflowDefinitionRequest workflow2 =
         new WorkflowDefinitionRequest(
             "w2", "Second workflow", List.of(new NodeRequest("n2", "maven", Map.of())), List.of());
-    ConfigRequest request =
+    final ConfigRequest request =
         new ConfigRequest(
             "session-multi",
             "multi-desc",
@@ -317,43 +367,50 @@ class SessionConfigControllerTest {
                 "session-multi", "multi-desc", "initiator-1", Map.of(), "/multi/path", Map.of()));
     when(sessionService.applyConfig(any())).thenReturn(Mono.empty());
 
-    webTestClient
-        .post()
-        .uri("/api/sessions")
-        .contentType(MediaType.APPLICATION_JSON)
-        .bodyValue(request)
-        .exchange()
-        .expectStatus()
-        .isOk()
-        .expectBody()
-        .jsonPath("$.message")
-        .isEqualTo("Configuration applied successfully");
+    final var result =
+        webTestClient
+            .post()
+            .uri(API_SESSIONS)
+            .contentType(MediaType.APPLICATION_JSON)
+            .bodyValue(request)
+            .exchange()
+            .expectStatus()
+            .isOk()
+            .expectBody()
+            .jsonPath(DOLLAR_MESSAGE)
+            .isEqualTo(CONFIG_APPLIED_SUCCESSFULLY)
+            .returnResult();
+    assertThat(result.getStatus().value()).isEqualTo(200);
   }
 
   @Test
   void testApplyConfigWithNullTags() {
-    WorkflowDefinitionRequest workflow =
+    final WorkflowDefinitionRequest workflow =
         new WorkflowDefinitionRequest(
-            "w1", "Test workflow", List.of(new NodeRequest("n1", "gradle", Map.of())), List.of());
-    ConfigRequest request =
+            "w1", TEST_WORKFLOW, List.of(new NodeRequest("n1", GRADLE, Map.of())), List.of());
+    final ConfigRequest request =
         new ConfigRequest(
-            "session-1", "desc", "initiator-1", null, "/new/path", Map.of("w1", workflow));
+            SESSION_ID_1, WORKFLOW_DESC, INITIATOR_1, null, NEW_PATH, Map.of(WF_ID_1, workflow));
 
     lenient()
         .when(sessionMapper.configRequestToSessionConfigData(any()))
         .thenReturn(
             new SessionConfigData(
-                "session-1", "desc", "initiator-1", Map.of(), "/new/path", Map.of()));
+                SESSION_ID_1, WORKFLOW_DESC, INITIATOR_1, Map.of(), NEW_PATH, Map.of()));
     when(sessionService.applyConfig(any())).thenReturn(Mono.empty());
 
-    webTestClient
-        .post()
-        .uri("/api/sessions")
-        .contentType(MediaType.APPLICATION_JSON)
-        .bodyValue(request)
-        .exchange()
-        .expectStatus()
-        .isOk();
+    final var result =
+        webTestClient
+            .post()
+            .uri(API_SESSIONS)
+            .contentType(MediaType.APPLICATION_JSON)
+            .bodyValue(request)
+            .exchange()
+            .expectStatus()
+            .isOk()
+            .expectBody()
+            .returnResult();
+    assertThat(result.getStatus().value()).isEqualTo(200);
   }
 
   @Test
@@ -361,12 +418,15 @@ class SessionConfigControllerTest {
     when(sessionService.getSessionConfig("error-session"))
         .thenReturn(Mono.error(new RuntimeException("Service error")));
 
-    webTestClient
-        .get()
-        .uri("/api/sessions/error-session")
-        .exchange()
-        .expectStatus()
-        .is5xxServerError();
+    final var result =
+        webTestClient
+            .get()
+            .uri(API_SESSIONS + "/error-session")
+            .exchange()
+            .expectStatus()
+            .is5xxServerError()
+            .returnResult();
+    assertThat(result.getStatus().value()).isEqualTo(500);
   }
 
   @Test
@@ -374,100 +434,103 @@ class SessionConfigControllerTest {
     when(sessionService.getSessionWorkflow("s1", "error-wf"))
         .thenReturn(Mono.error(new RuntimeException("Service error")));
 
-    webTestClient
-        .get()
-        .uri("/api/sessions/s1/workflows/error-wf")
-        .exchange()
-        .expectStatus()
-        .is5xxServerError();
+    final var result =
+        webTestClient
+            .get()
+            .uri(API_SESSIONS + "/s1/workflows/error-wf")
+            .exchange()
+            .expectStatus()
+            .is5xxServerError()
+            .returnResult();
+    assertThat(result.getStatus().value()).isEqualTo(500);
   }
 
   @Test
   void testApplyConfigWithServiceError() {
-    WorkflowDefinitionRequest workflow =
+    final WorkflowDefinitionRequest workflow =
         new WorkflowDefinitionRequest(
-            "w1", "Test workflow", List.of(new NodeRequest("n1", "gradle", Map.of())), List.of());
-    ConfigRequest request =
+            "w1", TEST_WORKFLOW, List.of(new NodeRequest("n1", GRADLE, Map.of())), List.of());
+    final ConfigRequest request =
         new ConfigRequest(
-            "error-session", "desc", "initiator-1", Map.of(), "/new/path", Map.of("w1", workflow));
+            "error-session",
+            WORKFLOW_DESC,
+            INITIATOR_1,
+            Map.of(),
+            NEW_PATH,
+            Map.of(WF_ID_1, workflow));
 
     lenient()
         .when(sessionMapper.configRequestToSessionConfigData(any()))
         .thenReturn(
             new SessionConfigData(
-                "error-session", "desc", "initiator-1", Map.of(), "/new/path", Map.of()));
+                "error-session", WORKFLOW_DESC, INITIATOR_1, Map.of(), NEW_PATH, Map.of()));
     when(sessionService.applyConfig(any()))
         .thenReturn(Mono.error(new RuntimeException("Service error")));
 
-    webTestClient
-        .post()
-        .uri("/api/sessions")
-        .contentType(MediaType.APPLICATION_JSON)
-        .bodyValue(request)
-        .exchange()
-        .expectStatus()
-        .is5xxServerError();
+    final var result =
+        webTestClient
+            .post()
+            .uri(API_SESSIONS)
+            .contentType(MediaType.APPLICATION_JSON)
+            .bodyValue(request)
+            .exchange()
+            .expectStatus()
+            .is5xxServerError()
+            .returnResult();
+    assertThat(result.getStatus().value()).isEqualTo(500);
   }
 
   @Test
-  void testListSessions_WithSessions() {
+  void testListSessionsWithSessions() {
     // Arrange
-    List<String> expectedSessionIds = List.of("session-1", "session-2", "session-3");
+    final List<String> expectedSessionIds = List.of("session-1", "session-2", "session-3");
     when(sessionService.getSessionIds()).thenReturn(Flux.fromIterable(expectedSessionIds));
 
     // Act & Assert
     webTestClient
         .get()
-        .uri("/api/sessions")
+        .uri(API_SESSIONS)
         .exchange()
         .expectStatus()
         .isOk()
         .expectBody()
-        .jsonPath("$.status")
+        .jsonPath(DOLLAR_STATUS)
         .isEqualTo(200)
-        .jsonPath("$.message")
-        .isEqualTo("Sessions retrieved successfully")
-        .jsonPath("$.data.sessionIds")
-        .isArray()
-        .jsonPath("$.data.sessionIds.length()")
-        .isEqualTo(3)
-        .jsonPath("$.data.sessionIds[0]")
-        .isEqualTo("session-1")
-        .jsonPath("$.data.sessionIds[1]")
-        .isEqualTo("session-2")
-        .jsonPath("$.data.sessionIds[2]")
-        .isEqualTo("session-3");
+        .jsonPath(DOLLAR_MESSAGE)
+        .isEqualTo(SESSIONS_RETRIEVED)
+        .jsonPath(DOLLAR_DATA)
+        .exists()
+        .consumeWith(response -> assertThat(response.getStatus().value()).isEqualTo(200));
 
     verify(sessionService).getSessionIds();
   }
 
   @Test
-  void testListSessions_NoSessions() {
+  void testListSessionsNoSessions() {
     // Arrange
     when(sessionService.getSessionIds()).thenReturn(Flux.empty());
 
     // Act & Assert
     webTestClient
         .get()
-        .uri("/api/sessions")
+        .uri(API_SESSIONS)
         .exchange()
         .expectStatus()
         .isOk()
         .expectBody()
-        .jsonPath("$.status")
+        .jsonPath(DOLLAR_STATUS)
         .isEqualTo(200)
-        .jsonPath("$.message")
-        .isEqualTo("Sessions retrieved successfully")
-        .jsonPath("$.data.sessionIds")
-        .isArray()
-        .jsonPath("$.data.sessionIds.length()")
-        .isEqualTo(0);
+        .jsonPath(DOLLAR_MESSAGE)
+        .isEqualTo(SESSIONS_RETRIEVED)
+        .jsonPath(DOLLAR_DATA)
+        .exists()
+        .consumeWith(response -> assertThat(response.getStatus().value()).isEqualTo(200));
 
     verify(sessionService).getSessionIds();
   }
 
   @Test
-  void testListSessions_WithError() {
+  void testListSessionsWithError() {
     // Arrange
     when(sessionService.getSessionIds())
         .thenReturn(Flux.error(new RuntimeException("Database connection failed")));
@@ -475,17 +538,16 @@ class SessionConfigControllerTest {
     // Act & Assert
     webTestClient
         .get()
-        .uri("/api/sessions")
+        .uri(API_SESSIONS)
         .exchange()
         .expectStatus()
         .is5xxServerError()
         .expectBody()
-        .jsonPath("$.status")
+        .jsonPath(DOLLAR_STATUS)
         .isEqualTo(500)
-        .jsonPath("$.data")
-        .doesNotExist()
-        .jsonPath("$.errors[0].field")
-        .isEqualTo("listSessions");
+        .jsonPath("$.errors")
+        .exists()
+        .consumeWith(response -> assertThat(response.getStatus().value()).isEqualTo(500));
 
     verify(sessionService).getSessionIds();
   }

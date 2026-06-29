@@ -20,20 +20,28 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.util.HashMap;
 import java.util.Map;
+import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 
+/** Tests for {@link SessionConfig}. */
+@NoArgsConstructor
+@SuppressWarnings({
+  "PMD.AvoidDuplicateLiterals",
+  "PMD.UseConcurrentHashMap",
+  "PMD.LinguisticNaming"
+})
 class SessionConfigTest {
 
   @Test
   void constructor_nullTags_tagsReturnsEmptyMap() {
     // Given
-    String projectPath = "/path/to/project";
-    String initiator = "user1";
-    String initiatedTime = "2026-06-25T10:00:00Z";
-    String description = "Test session";
+    final String projectPath = "/path/to/project";
+    final String initiator = "user1";
+    final String initiatedTime = "2026-06-25T10:00:00Z";
+    final String description = "Test session";
 
     // When
-    SessionConfig config =
+    final SessionConfig config =
         new SessionConfig(projectPath, initiator, initiatedTime, null, description);
 
     // Then
@@ -43,14 +51,14 @@ class SessionConfigTest {
   @Test
   void constructor_nonNullTags_tagsReturnsCopyWithSameContent() {
     // Given
-    String projectPath = "/path/to/project";
-    String initiator = "user1";
-    String initiatedTime = "2026-06-25T10:00:00Z";
-    Map<String, String> tags = Map.of("env", "test", "version", "1.0");
-    String description = "Test session";
+    final String projectPath = "/path/to/project";
+    final String initiator = "user1";
+    final String initiatedTime = "2026-06-25T10:00:00Z";
+    final Map<String, String> tags = Map.of("env", "test", "version", "1.0");
+    final String description = "Test session";
 
     // When
-    SessionConfig config =
+    final SessionConfig config =
         new SessionConfig(projectPath, initiator, initiatedTime, tags, description);
 
     // Then
@@ -60,12 +68,12 @@ class SessionConfigTest {
   @Test
   void constructor_nonNullTags_returnsUnmodifiableMap() {
     // Given
-    String projectPath = "/path/to/project";
-    String initiator = "user1";
-    String initiatedTime = "2026-06-25T10:00:00Z";
-    Map<String, String> tags = Map.of("env", "test");
-    String description = "Test session";
-    SessionConfig config =
+    final String projectPath = "/path/to/project";
+    final String initiator = "user1";
+    final String initiatedTime = "2026-06-25T10:00:00Z";
+    final Map<String, String> tags = Map.of("env", "test");
+    final String description = "Test session";
+    final SessionConfig config =
         new SessionConfig(projectPath, initiator, initiatedTime, tags, description);
 
     // When & Then
@@ -76,13 +84,13 @@ class SessionConfigTest {
   @Test
   void constructor_nonNullTags_defensivelyCopiesMap() {
     // Given
-    String projectPath = "/path/to/project";
-    String initiator = "user1";
-    String initiatedTime = "2026-06-25T10:00:00Z";
-    Map<String, String> originalTags = new HashMap<>();
+    final String projectPath = "/path/to/project";
+    final String initiator = "user1";
+    final String initiatedTime = "2026-06-25T10:00:00Z";
+    final Map<String, String> originalTags = new HashMap<>();
     originalTags.put("env", "test");
-    String description = "Test session";
-    SessionConfig config =
+    final String description = "Test session";
+    final SessionConfig config =
         new SessionConfig(projectPath, initiator, initiatedTime, originalTags, description);
 
     // When
@@ -96,12 +104,12 @@ class SessionConfigTest {
   @Test
   void record_allFieldsAccessible() {
     // Given
-    String projectPath = "/path/to/project";
-    String initiator = "user1";
-    String initiatedTime = "2026-06-25T10:00:00Z";
-    Map<String, String> tags = Map.of("env", "test");
-    String description = "Test session";
-    SessionConfig config =
+    final String projectPath = "/path/to/project";
+    final String initiator = "user1";
+    final String initiatedTime = "2026-06-25T10:00:00Z";
+    final Map<String, String> tags = Map.of("env", "test");
+    final String description = "Test session";
+    final SessionConfig config =
         new SessionConfig(projectPath, initiator, initiatedTime, tags, description);
 
     // When & Then
@@ -115,10 +123,10 @@ class SessionConfigTest {
   @Test
   void equality_sameFieldValues_isEqual() {
     // Given
-    Map<String, String> tags = Map.of("env", "test");
-    SessionConfig config1 =
+    final Map<String, String> tags = Map.of("env", "test");
+    final SessionConfig config1 =
         new SessionConfig("/path", "user1", "2026-06-25T10:00:00Z", tags, "Test");
-    SessionConfig config2 =
+    final SessionConfig config2 =
         new SessionConfig("/path", "user1", "2026-06-25T10:00:00Z", tags, "Test");
 
     // When & Then
@@ -128,10 +136,10 @@ class SessionConfigTest {
   @Test
   void equality_differentFieldValues_isNotEqual() {
     // Given
-    Map<String, String> tags = Map.of("env", "test");
-    SessionConfig config1 =
+    final Map<String, String> tags = Map.of("env", "test");
+    final SessionConfig config1 =
         new SessionConfig("/path", "user1", "2026-06-25T10:00:00Z", tags, "Test");
-    SessionConfig config2 =
+    final SessionConfig config2 =
         new SessionConfig("/path", "user2", "2026-06-25T10:00:00Z", tags, "Test");
 
     // When & Then
@@ -141,11 +149,11 @@ class SessionConfigTest {
   @Test
   void toString_recordWithValues_containsAllFields() {
     // Given
-    SessionConfig config =
+    final SessionConfig config =
         new SessionConfig("/path", "user1", "2026-06-25T10:00:00Z", Map.of(), "Test");
 
     // When
-    String result = config.toString();
+    final String result = config.toString();
 
     // Then
     assertThat(result).contains("/path").contains("user1");

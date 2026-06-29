@@ -15,16 +15,21 @@
  */
 package com.infenia.yukta.util;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import java.util.concurrent.atomic.AtomicBoolean;
+import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
+/** Unit tests for {@link ReactiveLock}. */
+@NoArgsConstructor
 class ReactiveLockTest {
 
   @Test
   void testAcquireRelease() {
-    ReactiveLock lock = new ReactiveLock();
+    final ReactiveLock lock = new ReactiveLock();
 
     StepVerifier.create(lock.acquire()).verifyComplete();
     lock.release();
@@ -35,27 +40,27 @@ class ReactiveLockTest {
 
   @Test
   void testWaiting() {
-    ReactiveLock lock = new ReactiveLock();
+    final ReactiveLock lock = new ReactiveLock();
     StepVerifier.create(lock.acquire()).verifyComplete();
 
-    AtomicBoolean secondAcquired = new AtomicBoolean(false);
-    Mono<Void> second = lock.acquire().doOnSuccess(v -> secondAcquired.set(true));
+    final AtomicBoolean secondAcquired = new AtomicBoolean(false);
+    final Mono<Void> second = lock.acquire().doOnSuccess(v -> secondAcquired.set(true));
 
     StepVerifier.create(second)
         .expectSubscription()
         .then(
             () -> {
-              assert !secondAcquired.get();
+              assertThat(secondAcquired.get()).isFalse();
               lock.release();
             })
         .verifyComplete();
 
-    assert secondAcquired.get();
+    assertThat(secondAcquired.get()).isTrue();
   }
 
   @Test
   void testWithLock() {
-    ReactiveLock lock = new ReactiveLock();
+    final ReactiveLock lock = new ReactiveLock();
     StepVerifier.create(lock.withLock(Mono.just("result"))).expectNext("result").verifyComplete();
 
     // Verify it was released

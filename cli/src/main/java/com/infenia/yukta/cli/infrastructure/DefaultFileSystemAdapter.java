@@ -15,6 +15,7 @@
  */
 package com.infenia.yukta.cli.infrastructure;
 
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.OpenOption;
 import java.nio.file.Path;
@@ -23,15 +24,17 @@ import org.springframework.stereotype.Component;
 /** Default implementation of file system adapter using Java NIO. */
 @Component
 public class DefaultFileSystemAdapter implements FileSystemAdapter {
+  /** Constructs a new DefaultFileSystemAdapter. */
+  public DefaultFileSystemAdapter() {}
 
   /**
    * Creates directories for the given path, including all parent directories.
    *
    * @param path the path to create
-   * @throws Exception if creation fails
+   * @throws IOException if creation fails
    */
   @Override
-  public void createDirectories(Path path) throws Exception {
+  public void createDirectories(final Path path) throws IOException {
     Files.createDirectories(path);
   }
 
@@ -41,10 +44,11 @@ public class DefaultFileSystemAdapter implements FileSystemAdapter {
    * @param path the file path
    * @param content the string content to write
    * @param options open options
-   * @throws Exception if writing fails
+   * @throws IOException if writing fails
    */
   @Override
-  public void writeString(Path path, String content, OpenOption... options) throws Exception {
+  public void writeString(final Path path, final String content, final OpenOption... options)
+      throws IOException {
     Files.writeString(path, content, options);
   }
 
@@ -53,10 +57,10 @@ public class DefaultFileSystemAdapter implements FileSystemAdapter {
    *
    * @param path the file path
    * @return the file content
-   * @throws Exception if reading fails
+   * @throws IOException if reading fails
    */
   @Override
-  public String readString(Path path) throws Exception {
+  public String readString(final Path path) throws IOException {
     return Files.readString(path);
   }
 
@@ -64,10 +68,10 @@ public class DefaultFileSystemAdapter implements FileSystemAdapter {
    * Deletes a file.
    *
    * @param path the file path
-   * @throws Exception if deletion fails
+   * @throws IOException if deletion fails
    */
   @Override
-  public void delete(Path path) throws Exception {
+  public void delete(final Path path) throws IOException {
     Files.delete(path);
   }
 
@@ -76,10 +80,10 @@ public class DefaultFileSystemAdapter implements FileSystemAdapter {
    *
    * @param path the file path
    * @return true if deleted, false if it didn't exist
-   * @throws Exception if deletion fails
+   * @throws IOException if deletion fails
    */
   @Override
-  public boolean deleteIfExists(Path path) throws Exception {
+  public boolean deleteIfExists(final Path path) throws IOException {
     return Files.deleteIfExists(path);
   }
 

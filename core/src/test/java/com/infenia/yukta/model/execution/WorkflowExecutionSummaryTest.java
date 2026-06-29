@@ -18,8 +18,12 @@ package com.infenia.yukta.model.execution;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.time.LocalDateTime;
+import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 
+/** Tests for {@link WorkflowExecutionSummary}. */
+@SuppressWarnings({"PMD.TooManyMethods", "PMD.AvoidDuplicateLiterals"})
+@NoArgsConstructor
 class WorkflowExecutionSummaryTest {
 
   @Test

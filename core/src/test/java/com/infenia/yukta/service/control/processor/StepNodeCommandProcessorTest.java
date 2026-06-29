@@ -27,6 +27,7 @@ import com.infenia.yukta.service.control.store.ExecutionControlRegistry;
 import com.infenia.yukta.service.orchestrator.tracker.DefaultTaskTrackerService;
 import java.util.Map;
 import java.util.Optional;
+import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -36,25 +37,31 @@ import reactor.core.publisher.Sinks;
 import reactor.test.StepVerifier;
 
 @ExtendWith(MockitoExtension.class)
+@NoArgsConstructor
+@SuppressWarnings({"PMD.CommentRequired", "PMD.LinguisticNaming"})
 class StepNodeCommandProcessorTest {
 
+  /** Registry for execution control. */
   @Mock private ExecutionControlRegistry registry;
+
+  /** Task tracker service. */
   @Mock private DefaultTaskTrackerService taskTracker;
+
+  /** Execution control instance. */
   @Mock private ExecutionControl executionControl;
 
-  @SuppressWarnings("unchecked")
-  @Mock
-  private Sinks.Many<Void> stepSink;
+  /** Step sink for control messages. */
+  @Mock private Sinks.Many<Void> stepSink;
 
   @InjectMocks private StepNodeCommandProcessor processor;
 
   @Test
   void canProcess_stepNodeCommand_returnsTrue() {
     // Given
-    ExecutionControlCommand command = new StepNodeCommand("exec-1", "node-1");
+    final ExecutionControlCommand command = new StepNodeCommand("exec-1", "node-1");
 
     // When
-    boolean actualResult = processor.canProcess(command);
+    final boolean actualResult = processor.canProcess(command);
 
     // Then
     assertThat(actualResult).isTrue();
@@ -63,10 +70,10 @@ class StepNodeCommandProcessorTest {
   @Test
   void canProcess_otherCommand_returnsFalse() {
     // Given
-    ExecutionControlCommand command = new PauseWorkflowCommand("exec-1");
+    final ExecutionControlCommand command = new PauseWorkflowCommand("exec-1");
 
     // When
-    boolean actualResult = processor.canProcess(command);
+    final boolean actualResult = processor.canProcess(command);
 
     // Then
     assertThat(actualResult).isFalse();
@@ -75,16 +82,16 @@ class StepNodeCommandProcessorTest {
   @Test
   void process_nodeFound_emitsStepSignalAndEmitsEvent() {
     // Given
-    String executionId = "exec-step";
-    String nodeId = "node-1";
-    StepNodeCommand command = new StepNodeCommand(executionId, nodeId);
+    final String executionId = "exec-step";
+    final String nodeId = "node-1";
+    final StepNodeCommand command = new StepNodeCommand(executionId, nodeId);
     when(registry.findByExecutionId(executionId)).thenReturn(Optional.of(executionControl));
     when(executionControl.nodeStepSinks()).thenReturn(Map.of(nodeId, stepSink));
     // stepSink.emitNext(null, FAIL_FAST) is called — mock returns null by default (EmitResult)
     // Production code does not check the return value, so null is acceptable here
 
     // When
-    var result = processor.process(command);
+    final var result = processor.process(command);
 
     // Then
     StepVerifier.create(result).verifyComplete();
@@ -94,12 +101,12 @@ class StepNodeCommandProcessorTest {
   @Test
   void process_executionNotFound_errorWithIllegalArgumentException() {
     // Given
-    String executionId = "exec-not-found";
-    StepNodeCommand command = new StepNodeCommand(executionId, "node-1");
+    final String executionId = "exec-not-found";
+    final StepNodeCommand command = new StepNodeCommand(executionId, "node-1");
     when(registry.findByExecutionId(executionId)).thenReturn(Optional.empty());
 
     // When
-    var result = processor.process(command);
+    final var result = processor.process(command);
 
     // Then
     StepVerifier.create(result)
@@ -113,14 +120,14 @@ class StepNodeCommandProcessorTest {
   @Test
   void process_nodeNotFound_errorWithIllegalArgumentException() {
     // Given
-    String executionId = "exec-1";
-    String nodeId = "unknown-node";
-    StepNodeCommand command = new StepNodeCommand(executionId, nodeId);
+    final String executionId = "exec-1";
+    final String nodeId = "unknown-node";
+    final StepNodeCommand command = new StepNodeCommand(executionId, nodeId);
     when(registry.findByExecutionId(executionId)).thenReturn(Optional.of(executionControl));
     when(executionControl.nodeStepSinks()).thenReturn(Map.of());
 
     // When
-    var result = processor.process(command);
+    final var result = processor.process(command);
 
     // Then
     StepVerifier.create(result)
@@ -135,7 +142,7 @@ class StepNodeCommandProcessorTest {
   @Test
   void getPriority_returnsCorrectValue() {
     // When
-    int actualPriority = processor.getPriority();
+    final int actualPriority = processor.getPriority();
 
     // Then
     assertThat(actualPriority).isEqualTo(10);

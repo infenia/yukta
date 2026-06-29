@@ -20,25 +20,34 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
+import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 
+@NoArgsConstructor
+@SuppressWarnings({
+  "PMD.CommentRequired",
+  "PMD.AvoidDuplicateLiterals",
+  "PMD.TooManyMethods",
+  "PMD.LinguisticNaming",
+  "PMD.UseConcurrentHashMap"
+})
 class ExecutionStatusEventTest {
 
   @Test
   void constructor_allFieldsProvided_preservesAllValues() {
     // Given
-    String executionId = "exec-123";
-    String nodeId = "node-456";
-    String workflowId = "workflow-789";
-    String sessionId = "session-012";
-    String status = "RUNNING";
-    String module = "core";
-    Map<String, Object> metadata = Map.of("key1", "value1", "key2", 42);
-    Throwable error = null;
-    Instant timestamp = Instant.parse("2026-06-25T10:00:00Z");
+    final String executionId = "exec-123";
+    final String nodeId = "node-456";
+    final String workflowId = "workflow-789";
+    final String sessionId = "session-012";
+    final String status = "RUNNING";
+    final String module = "core";
+    final Map<String, Object> metadata = Map.of("key1", "value1", "key2", 42);
+    final Throwable error = null;
+    final Instant timestamp = Instant.parse("2026-06-25T10:00:00Z");
 
     // When
-    ExecutionStatusEvent event =
+    final ExecutionStatusEvent event =
         new ExecutionStatusEvent(
             executionId, nodeId, workflowId, sessionId, status, module, metadata, error, timestamp);
 
@@ -57,16 +66,16 @@ class ExecutionStatusEventTest {
   @Test
   void constructor_withNullableMetadata_acceptsNull() {
     // Given
-    String executionId = "exec-123";
-    String nodeId = "node-456";
-    String workflowId = "workflow-789";
-    String sessionId = "session-012";
-    String status = "RUNNING";
-    String module = "core";
-    Instant timestamp = Instant.parse("2026-06-25T10:00:00Z");
+    final String executionId = "exec-123";
+    final String nodeId = "node-456";
+    final String workflowId = "workflow-789";
+    final String sessionId = "session-012";
+    final String status = "RUNNING";
+    final String module = "core";
+    final Instant timestamp = Instant.parse("2026-06-25T10:00:00Z");
 
     // When
-    ExecutionStatusEvent event =
+    final ExecutionStatusEvent event =
         new ExecutionStatusEvent(
             executionId, nodeId, workflowId, sessionId, status, module, null, null, timestamp);
 
@@ -77,16 +86,16 @@ class ExecutionStatusEventTest {
   @Test
   void constructor_withNullableError_acceptsNull() {
     // Given
-    String executionId = "exec-123";
-    String nodeId = "node-456";
-    String workflowId = "workflow-789";
-    String sessionId = "session-012";
-    String status = "FAILURE";
-    String module = "core";
-    Instant timestamp = Instant.parse("2026-06-25T10:00:00Z");
+    final String executionId = "exec-123";
+    final String nodeId = "node-456";
+    final String workflowId = "workflow-789";
+    final String sessionId = "session-012";
+    final String status = "FAILURE";
+    final String module = "core";
+    final Instant timestamp = Instant.parse("2026-06-25T10:00:00Z");
 
     // When
-    ExecutionStatusEvent event =
+    final ExecutionStatusEvent event =
         new ExecutionStatusEvent(
             executionId, nodeId, workflowId, sessionId, status, module, null, null, timestamp);
 
@@ -97,14 +106,14 @@ class ExecutionStatusEventTest {
   @Test
   void constructor_withMetadataMap_preservesContents() {
     // Given
-    Map<String, Object> metadata = new HashMap<>();
+    final Map<String, Object> metadata = new HashMap<>();
     metadata.put("executionTime", 1234L);
     metadata.put("retryCount", 3);
     metadata.put("details", "Operation completed successfully");
-    Instant timestamp = Instant.parse("2026-06-25T10:00:00Z");
+    final Instant timestamp = Instant.parse("2026-06-25T10:00:00Z");
 
     // When
-    ExecutionStatusEvent event =
+    final ExecutionStatusEvent event =
         new ExecutionStatusEvent(
             "exec-123",
             "node-456",
@@ -126,11 +135,11 @@ class ExecutionStatusEventTest {
   @Test
   void constructor_withThrowable_preservesError() {
     // Given
-    RuntimeException exception = new RuntimeException("Test error");
-    Instant timestamp = Instant.parse("2026-06-25T10:00:00Z");
+    final RuntimeException exception = new RuntimeException("Test error");
+    final Instant timestamp = Instant.parse("2026-06-25T10:00:00Z");
 
     // When
-    ExecutionStatusEvent event =
+    final ExecutionStatusEvent event =
         new ExecutionStatusEvent(
             "exec-123",
             "node-456",
@@ -151,8 +160,8 @@ class ExecutionStatusEventTest {
   @Test
   void record_sameFieldValues_areEqual() {
     // Given
-    Instant timestamp = Instant.parse("2026-06-25T10:00:00Z");
-    ExecutionStatusEvent event1 =
+    final Instant timestamp = Instant.parse("2026-06-25T10:00:00Z");
+    final ExecutionStatusEvent event1 =
         new ExecutionStatusEvent(
             "exec-123",
             "node-456",
@@ -163,7 +172,7 @@ class ExecutionStatusEventTest {
             null,
             null,
             timestamp);
-    ExecutionStatusEvent event2 =
+    final ExecutionStatusEvent event2 =
         new ExecutionStatusEvent(
             "exec-123",
             "node-456",
@@ -182,8 +191,8 @@ class ExecutionStatusEventTest {
   @Test
   void record_differentExecutionId_areNotEqual() {
     // Given
-    Instant timestamp = Instant.parse("2026-06-25T10:00:00Z");
-    ExecutionStatusEvent event1 =
+    final Instant timestamp = Instant.parse("2026-06-25T10:00:00Z");
+    final ExecutionStatusEvent event1 =
         new ExecutionStatusEvent(
             "exec-123",
             "node-456",
@@ -194,7 +203,7 @@ class ExecutionStatusEventTest {
             null,
             null,
             timestamp);
-    ExecutionStatusEvent event2 =
+    final ExecutionStatusEvent event2 =
         new ExecutionStatusEvent(
             "exec-999",
             "node-456",
@@ -213,8 +222,8 @@ class ExecutionStatusEventTest {
   @Test
   void record_differentNodeId_areNotEqual() {
     // Given
-    Instant timestamp = Instant.parse("2026-06-25T10:00:00Z");
-    ExecutionStatusEvent event1 =
+    final Instant timestamp = Instant.parse("2026-06-25T10:00:00Z");
+    final ExecutionStatusEvent event1 =
         new ExecutionStatusEvent(
             "exec-123",
             "node-456",
@@ -225,7 +234,7 @@ class ExecutionStatusEventTest {
             null,
             null,
             timestamp);
-    ExecutionStatusEvent event2 =
+    final ExecutionStatusEvent event2 =
         new ExecutionStatusEvent(
             "exec-123",
             "node-999",
@@ -244,8 +253,8 @@ class ExecutionStatusEventTest {
   @Test
   void record_differentWorkflowId_areNotEqual() {
     // Given
-    Instant timestamp = Instant.parse("2026-06-25T10:00:00Z");
-    ExecutionStatusEvent event1 =
+    final Instant timestamp = Instant.parse("2026-06-25T10:00:00Z");
+    final ExecutionStatusEvent event1 =
         new ExecutionStatusEvent(
             "exec-123",
             "node-456",
@@ -256,7 +265,7 @@ class ExecutionStatusEventTest {
             null,
             null,
             timestamp);
-    ExecutionStatusEvent event2 =
+    final ExecutionStatusEvent event2 =
         new ExecutionStatusEvent(
             "exec-123",
             "node-456",
@@ -275,8 +284,8 @@ class ExecutionStatusEventTest {
   @Test
   void record_differentSessionId_areNotEqual() {
     // Given
-    Instant timestamp = Instant.parse("2026-06-25T10:00:00Z");
-    ExecutionStatusEvent event1 =
+    final Instant timestamp = Instant.parse("2026-06-25T10:00:00Z");
+    final ExecutionStatusEvent event1 =
         new ExecutionStatusEvent(
             "exec-123",
             "node-456",
@@ -287,7 +296,7 @@ class ExecutionStatusEventTest {
             null,
             null,
             timestamp);
-    ExecutionStatusEvent event2 =
+    final ExecutionStatusEvent event2 =
         new ExecutionStatusEvent(
             "exec-123",
             "node-456",
@@ -306,8 +315,8 @@ class ExecutionStatusEventTest {
   @Test
   void record_differentStatus_areNotEqual() {
     // Given
-    Instant timestamp = Instant.parse("2026-06-25T10:00:00Z");
-    ExecutionStatusEvent event1 =
+    final Instant timestamp = Instant.parse("2026-06-25T10:00:00Z");
+    final ExecutionStatusEvent event1 =
         new ExecutionStatusEvent(
             "exec-123",
             "node-456",
@@ -318,7 +327,7 @@ class ExecutionStatusEventTest {
             null,
             null,
             timestamp);
-    ExecutionStatusEvent event2 =
+    final ExecutionStatusEvent event2 =
         new ExecutionStatusEvent(
             "exec-123",
             "node-456",
@@ -337,8 +346,8 @@ class ExecutionStatusEventTest {
   @Test
   void record_differentModule_areNotEqual() {
     // Given
-    Instant timestamp = Instant.parse("2026-06-25T10:00:00Z");
-    ExecutionStatusEvent event1 =
+    final Instant timestamp = Instant.parse("2026-06-25T10:00:00Z");
+    final ExecutionStatusEvent event1 =
         new ExecutionStatusEvent(
             "exec-123",
             "node-456",
@@ -349,7 +358,7 @@ class ExecutionStatusEventTest {
             null,
             null,
             timestamp);
-    ExecutionStatusEvent event2 =
+    final ExecutionStatusEvent event2 =
         new ExecutionStatusEvent(
             "exec-123",
             "node-456",
@@ -368,9 +377,9 @@ class ExecutionStatusEventTest {
   @Test
   void record_differentTimestamp_areNotEqual() {
     // Given
-    Instant timestamp1 = Instant.parse("2026-06-25T10:00:00Z");
-    Instant timestamp2 = Instant.parse("2026-06-25T10:00:01Z");
-    ExecutionStatusEvent event1 =
+    final Instant timestamp1 = Instant.parse("2026-06-25T10:00:00Z");
+    final Instant timestamp2 = Instant.parse("2026-06-25T10:00:01Z");
+    final ExecutionStatusEvent event1 =
         new ExecutionStatusEvent(
             "exec-123",
             "node-456",
@@ -381,7 +390,7 @@ class ExecutionStatusEventTest {
             null,
             null,
             timestamp1);
-    ExecutionStatusEvent event2 =
+    final ExecutionStatusEvent event2 =
         new ExecutionStatusEvent(
             "exec-123",
             "node-456",
@@ -400,8 +409,8 @@ class ExecutionStatusEventTest {
   @Test
   void record_sameValues_haveSameHashCode() {
     // Given
-    Instant timestamp = Instant.parse("2026-06-25T10:00:00Z");
-    ExecutionStatusEvent event1 =
+    final Instant timestamp = Instant.parse("2026-06-25T10:00:00Z");
+    final ExecutionStatusEvent event1 =
         new ExecutionStatusEvent(
             "exec-123",
             "node-456",
@@ -412,7 +421,7 @@ class ExecutionStatusEventTest {
             null,
             null,
             timestamp);
-    ExecutionStatusEvent event2 =
+    final ExecutionStatusEvent event2 =
         new ExecutionStatusEvent(
             "exec-123",
             "node-456",
@@ -431,8 +440,8 @@ class ExecutionStatusEventTest {
   @Test
   void record_differentValues_likelyDifferentHashCode() {
     // Given
-    Instant timestamp = Instant.parse("2026-06-25T10:00:00Z");
-    ExecutionStatusEvent event1 =
+    final Instant timestamp = Instant.parse("2026-06-25T10:00:00Z");
+    final ExecutionStatusEvent event1 =
         new ExecutionStatusEvent(
             "exec-123",
             "node-456",
@@ -443,7 +452,7 @@ class ExecutionStatusEventTest {
             null,
             null,
             timestamp);
-    ExecutionStatusEvent event2 =
+    final ExecutionStatusEvent event2 =
         new ExecutionStatusEvent(
             "exec-999",
             "node-999",
@@ -462,8 +471,8 @@ class ExecutionStatusEventTest {
   @Test
   void toString_containsFieldValues() {
     // Given
-    Instant timestamp = Instant.parse("2026-06-25T10:00:00Z");
-    ExecutionStatusEvent event =
+    final Instant timestamp = Instant.parse("2026-06-25T10:00:00Z");
+    final ExecutionStatusEvent event =
         new ExecutionStatusEvent(
             "exec-123",
             "node-456",
@@ -476,7 +485,7 @@ class ExecutionStatusEventTest {
             timestamp);
 
     // When
-    String actualToString = event.toString();
+    final String actualToString = event.toString();
 
     // Then
     assertThat(actualToString).contains("exec-123");
@@ -490,21 +499,21 @@ class ExecutionStatusEventTest {
   @Test
   void staticFactoryMethod_of_validInputs_returnsEventWithCurrentTimestamp() {
     // Given
-    String executionId = "exec-123";
-    String nodeId = "node-456";
-    String workflowId = "workflow-789";
-    String sessionId = "session-012";
-    String status = "RUNNING";
-    String module = "core";
-    Map<String, Object> metadata = Map.of("key", "value");
-    Throwable error = null;
-    Instant before = Instant.now();
+    final String executionId = "exec-123";
+    final String nodeId = "node-456";
+    final String workflowId = "workflow-789";
+    final String sessionId = "session-012";
+    final String status = "RUNNING";
+    final String module = "core";
+    final Map<String, Object> metadata = Map.of("key", "value");
+    final Throwable error = null;
+    final Instant before = Instant.now();
 
     // When
-    ExecutionStatusEvent actualEvent =
+    final ExecutionStatusEvent actualEvent =
         ExecutionStatusEvent.of(
             executionId, nodeId, workflowId, sessionId, status, module, metadata, error);
-    Instant after = Instant.now();
+    final Instant after = Instant.now();
 
     // Then
     assertThat(actualEvent.executionId()).isEqualTo(executionId);
@@ -522,13 +531,13 @@ class ExecutionStatusEventTest {
   @Test
   void staticFactoryMethod_of_withNullMetadata_acceptsNull() {
     // Given
-    Instant before = Instant.now();
+    final Instant before = Instant.now();
 
     // When
-    ExecutionStatusEvent actualEvent =
+    final ExecutionStatusEvent actualEvent =
         ExecutionStatusEvent.of(
             "exec-123", "node-456", "workflow-789", "session-012", "RUNNING", "core", null, null);
-    Instant after = Instant.now();
+    final Instant after = Instant.now();
 
     // Then
     assertThat(actualEvent.metadata()).isNull();
@@ -540,13 +549,13 @@ class ExecutionStatusEventTest {
   @Test
   void staticFactoryMethod_of_withNullError_acceptsNull() {
     // Given
-    Instant before = Instant.now();
+    final Instant before = Instant.now();
 
     // When
-    ExecutionStatusEvent actualEvent =
+    final ExecutionStatusEvent actualEvent =
         ExecutionStatusEvent.of(
             "exec-123", "node-456", "workflow-789", "session-012", "FAILURE", "core", null, null);
-    Instant after = Instant.now();
+    final Instant after = Instant.now();
 
     // Then
     assertThat(actualEvent.error()).isNull();
@@ -558,13 +567,13 @@ class ExecutionStatusEventTest {
   @Test
   void staticFactoryMethod_of_timestampIsRecent() {
     // Given
-    Instant before = Instant.now();
+    final Instant before = Instant.now();
 
     // When
-    ExecutionStatusEvent actualEvent =
+    final ExecutionStatusEvent actualEvent =
         ExecutionStatusEvent.of(
             "exec-123", "node-456", "workflow-789", "session-012", "RUNNING", "core", null, null);
-    Instant after = Instant.now();
+    final Instant after = Instant.now();
 
     // Then
     assertThat(actualEvent.timestamp()).isNotNull();
@@ -577,11 +586,11 @@ class ExecutionStatusEventTest {
       throws InterruptedException {
     // Given
     // When
-    ExecutionStatusEvent event1 =
+    final ExecutionStatusEvent event1 =
         ExecutionStatusEvent.of(
             "exec-123", "node-456", "workflow-789", "session-012", "RUNNING", "core", null, null);
     Thread.sleep(10);
-    ExecutionStatusEvent event2 =
+    final ExecutionStatusEvent event2 =
         ExecutionStatusEvent.of(
             "exec-123", "node-456", "workflow-789", "session-012", "SUCCESS", "core", null, null);
 
@@ -592,8 +601,8 @@ class ExecutionStatusEventTest {
   @Test
   void record_accessorsReturnCorrectTypes() {
     // Given
-    Instant timestamp = Instant.parse("2026-06-25T10:00:00Z");
-    ExecutionStatusEvent event =
+    final Instant timestamp = Instant.parse("2026-06-25T10:00:00Z");
+    final ExecutionStatusEvent event =
         new ExecutionStatusEvent(
             "exec-123",
             "node-456",
@@ -618,8 +627,8 @@ class ExecutionStatusEventTest {
   @Test
   void record_equals_withNull_returnsFalse() {
     // Given
-    Instant timestamp = Instant.parse("2026-06-25T10:00:00Z");
-    ExecutionStatusEvent event =
+    final Instant timestamp = Instant.parse("2026-06-25T10:00:00Z");
+    final ExecutionStatusEvent event =
         new ExecutionStatusEvent(
             "exec-123",
             "node-456",
@@ -638,8 +647,8 @@ class ExecutionStatusEventTest {
   @Test
   void record_equals_withDifferentType_returnsFalse() {
     // Given
-    Instant timestamp = Instant.parse("2026-06-25T10:00:00Z");
-    ExecutionStatusEvent event =
+    final Instant timestamp = Instant.parse("2026-06-25T10:00:00Z");
+    final ExecutionStatusEvent event =
         new ExecutionStatusEvent(
             "exec-123",
             "node-456",

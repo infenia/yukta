@@ -15,6 +15,7 @@
  */
 package com.infenia.yukta.service.workflow;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.when;
 
 import com.infenia.yukta.model.workflow.WorkflowExecution;
@@ -27,12 +28,20 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
+/** Unit tests for {@link WorkflowService}. */
 @ExtendWith(MockitoExtension.class)
 class WorkflowServiceTest {
 
+  /** Mock control bus gateway. */
   @Mock private ControlBusGateway controlBus;
 
+  /** Service under test. */
   private WorkflowService workflowService;
+
+  /** Constructor. */
+  /* default */ WorkflowServiceTest() {
+    // Required by PMD
+  }
 
   @BeforeEach
   void setUp() {
@@ -41,25 +50,25 @@ class WorkflowServiceTest {
 
   @Test
   void testValidateAndStartWorkflowSuccess() {
-    String sessionId = "sess-123";
-    String workflowId = "wf-456";
-    String executionId = "exec-789";
+    final String sessionId = "sess-123";
+    final String workflowId = "wf-456";
+    final String executionId = "exec-789";
 
     when(controlBus.startWorkflow(sessionId, workflowId)).thenReturn(Mono.just(executionId));
 
     StepVerifier.create(workflowService.validateAndStartWorkflow(sessionId, workflowId))
         .assertNext(
             execution -> {
-              assert execution.executionId().equals(executionId);
-              assert execution.result() != null;
+              assertThat(execution.executionId()).isEqualTo(executionId);
+              assertThat(execution.result()).isNotNull();
             })
         .verifyComplete();
   }
 
   @Test
   void testValidateAndStartWorkflowNotFound() {
-    String sessionId = "sess-missing";
-    String workflowId = "wf-missing";
+    final String sessionId = "sess-missing";
+    final String workflowId = "wf-missing";
 
     when(controlBus.startWorkflow(sessionId, workflowId))
         .thenReturn(
@@ -77,16 +86,16 @@ class WorkflowServiceTest {
 
   @Test
   void testValidateAndStartWorkflowReturnsExecutionWithId() {
-    String sessionId = "sess-exec";
-    String workflowId = "wf-exec";
-    String executionId = "exec-001";
+    final String sessionId = "sess-exec";
+    final String workflowId = "wf-exec";
+    final String executionId = "exec-001";
 
     when(controlBus.startWorkflow(sessionId, workflowId)).thenReturn(Mono.just(executionId));
 
-    WorkflowExecution execution =
+    final WorkflowExecution execution =
         workflowService.validateAndStartWorkflow(sessionId, workflowId).block();
 
-    assert execution != null;
-    assert execution.executionId().equals(executionId);
+    assertThat(execution).isNotNull();
+    assertThat(execution.executionId()).isEqualTo(executionId);
   }
 }

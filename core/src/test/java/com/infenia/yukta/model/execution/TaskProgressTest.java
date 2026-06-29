@@ -19,24 +19,30 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.HashMap;
 import java.util.Map;
+import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 
+/** Tests for {@link TaskProgress}. */
+@SuppressWarnings({"PMD.TooManyMethods", "PMD.AvoidDuplicateLiterals"})
+@NoArgsConstructor
 class TaskProgressTest {
 
   @Test
   void constructor_withValidValues_createsRecordSuccessfully() {
     // Given
-    String nodeId = "node-1";
-    String module = "processor";
-    String status = "RUNNING";
-    LocalDateTime startTime = LocalDateTime.parse("2026-06-25T10:00:00");
-    LocalDateTime endTime = LocalDateTime.parse("2026-06-25T11:00:00");
-    Map<String, Object> metadata = Map.of("key1", "value1");
+    final String nodeId = "node-1";
+    final String module = "processor";
+    final String status = "RUNNING";
+    final LocalDateTime startTime = LocalDateTime.parse("2026-06-25T10:00:00");
+    final LocalDateTime endTime = LocalDateTime.parse("2026-06-25T11:00:00");
+    final Map<String, Object> metadata = Map.of("key1", "value1");
 
     // When
-    TaskProgress progress = new TaskProgress(nodeId, module, status, startTime, endTime, metadata);
+    final TaskProgress progress =
+        new TaskProgress(nodeId, module, status, startTime, endTime, metadata);
 
     // Then
     assertThat(progress.nodeId()).isEqualTo(nodeId);
@@ -49,14 +55,15 @@ class TaskProgressTest {
   @Test
   void constructor_withNullMetadata_convertsToEmptyMap() {
     // Given
-    String nodeId = "node-1";
-    String module = "processor";
-    String status = "COMPLETED";
-    LocalDateTime startTime = LocalDateTime.parse("2026-06-25T10:00:00");
-    LocalDateTime endTime = LocalDateTime.parse("2026-06-25T11:00:00");
+    final String nodeId = "node-1";
+    final String module = "processor";
+    final String status = "COMPLETED";
+    final LocalDateTime startTime = LocalDateTime.parse("2026-06-25T10:00:00");
+    final LocalDateTime endTime = LocalDateTime.parse("2026-06-25T11:00:00");
 
     // When
-    TaskProgress progress = new TaskProgress(nodeId, module, status, startTime, endTime, null);
+    final TaskProgress progress =
+        new TaskProgress(nodeId, module, status, startTime, endTime, null);
 
     // Then
     assertThat(progress.metadata()).isEmpty();
@@ -65,25 +72,27 @@ class TaskProgressTest {
   @Test
   void constructor_withNonNullMetadata_copiesMetadata() {
     // Given
-    String nodeId = "node-1";
-    Map<String, Object> metadata = Map.of("key1", "value1", "key2", 42);
-    LocalDateTime now = LocalDateTime.now();
+    final String nodeId = "node-1";
+    final Map<String, Object> metadata = Map.of("key1", "value1", "key2", 42);
+    final LocalDateTime now = LocalDateTime.now(ZoneId.systemDefault());
 
     // When
-    TaskProgress progress = new TaskProgress(nodeId, "processor", "RUNNING", now, now, metadata);
+    final TaskProgress progress =
+        new TaskProgress(nodeId, "processor", "RUNNING", now, now, metadata);
 
     // Then
     assertThat(progress.metadata()).containsEntry("key1", "value1").containsEntry("key2", 42);
   }
 
   @Test
+  @SuppressWarnings("PMD.UseConcurrentHashMap")
   void constructor_modifyingOriginalMetadata_doesNotAffectRecord() {
     // Given
-    String nodeId = "node-1";
-    Map<String, Object> originalMetadata = new HashMap<>();
+    final String nodeId = "node-1";
+    final Map<String, Object> originalMetadata = new HashMap<>();
     originalMetadata.put("key1", "value1");
-    LocalDateTime now = LocalDateTime.now();
-    TaskProgress progress =
+    final LocalDateTime now = LocalDateTime.now(ZoneId.systemDefault());
+    final TaskProgress progress =
         new TaskProgress(nodeId, "processor", "RUNNING", now, now, originalMetadata);
 
     // When
@@ -97,12 +106,13 @@ class TaskProgressTest {
   @Test
   void constructor_withEmptyMetadata_createsSuccessfully() {
     // Given
-    String nodeId = "node-1";
-    Map<String, Object> metadata = Map.of();
-    LocalDateTime now = LocalDateTime.now();
+    final String nodeId = "node-1";
+    final Map<String, Object> metadata = Map.of();
+    final LocalDateTime now = LocalDateTime.now(ZoneId.systemDefault());
 
     // When
-    TaskProgress progress = new TaskProgress(nodeId, "processor", "RUNNING", now, now, metadata);
+    final TaskProgress progress =
+        new TaskProgress(nodeId, "processor", "RUNNING", now, now, metadata);
 
     // Then
     assertThat(progress.metadata()).isEmpty();
@@ -111,13 +121,14 @@ class TaskProgressTest {
   @Test
   void fields_withVariousValues_accessorsWork() {
     // Given
-    String nodeId = "test-node";
-    String module = "test-module";
-    String status = "SUCCESS";
-    LocalDateTime startTime = LocalDateTime.parse("2026-06-25T09:00:00");
-    LocalDateTime endTime = LocalDateTime.parse("2026-06-25T10:00:00");
-    Map<String, Object> metadata = Map.of("result", "success");
-    TaskProgress progress = new TaskProgress(nodeId, module, status, startTime, endTime, metadata);
+    final String nodeId = "test-node";
+    final String module = "test-module";
+    final String status = "SUCCESS";
+    final LocalDateTime startTime = LocalDateTime.parse("2026-06-25T09:00:00");
+    final LocalDateTime endTime = LocalDateTime.parse("2026-06-25T10:00:00");
+    final Map<String, Object> metadata = Map.of("result", "success");
+    final TaskProgress progress =
+        new TaskProgress(nodeId, module, status, startTime, endTime, metadata);
 
     // When & Then
     assertThat(progress.nodeId()).isEqualTo(nodeId);
@@ -131,12 +142,12 @@ class TaskProgressTest {
   @Test
   void equality_sameFieldValues_isEqual() {
     // Given
-    LocalDateTime startTime = LocalDateTime.parse("2026-06-25T10:00:00");
-    LocalDateTime endTime = LocalDateTime.parse("2026-06-25T11:00:00");
-    Map<String, Object> metadata = Map.of("key1", "value1");
-    TaskProgress progress1 =
+    final LocalDateTime startTime = LocalDateTime.parse("2026-06-25T10:00:00");
+    final LocalDateTime endTime = LocalDateTime.parse("2026-06-25T11:00:00");
+    final Map<String, Object> metadata = Map.of("key1", "value1");
+    final TaskProgress progress1 =
         new TaskProgress("node-1", "processor", "RUNNING", startTime, endTime, metadata);
-    TaskProgress progress2 =
+    final TaskProgress progress2 =
         new TaskProgress("node-1", "processor", "RUNNING", startTime, endTime, metadata);
 
     // When & Then
@@ -146,12 +157,12 @@ class TaskProgressTest {
   @Test
   void equality_differentFieldValues_isNotEqual() {
     // Given
-    LocalDateTime startTime = LocalDateTime.parse("2026-06-25T10:00:00");
-    LocalDateTime endTime = LocalDateTime.parse("2026-06-25T11:00:00");
-    Map<String, Object> metadata = Map.of("key1", "value1");
-    TaskProgress progress1 =
+    final LocalDateTime startTime = LocalDateTime.parse("2026-06-25T10:00:00");
+    final LocalDateTime endTime = LocalDateTime.parse("2026-06-25T11:00:00");
+    final Map<String, Object> metadata = Map.of("key1", "value1");
+    final TaskProgress progress1 =
         new TaskProgress("node-1", "processor", "RUNNING", startTime, endTime, metadata);
-    TaskProgress progress2 =
+    final TaskProgress progress2 =
         new TaskProgress("node-2", "processor", "RUNNING", startTime, endTime, metadata);
 
     // When & Then
@@ -161,12 +172,12 @@ class TaskProgressTest {
   @Test
   void hashCode_sameFieldValues_sameHashCode() {
     // Given
-    LocalDateTime startTime = LocalDateTime.parse("2026-06-25T10:00:00");
-    LocalDateTime endTime = LocalDateTime.parse("2026-06-25T11:00:00");
-    Map<String, Object> metadata = Map.of("key1", "value1");
-    TaskProgress progress1 =
+    final LocalDateTime startTime = LocalDateTime.parse("2026-06-25T10:00:00");
+    final LocalDateTime endTime = LocalDateTime.parse("2026-06-25T11:00:00");
+    final Map<String, Object> metadata = Map.of("key1", "value1");
+    final TaskProgress progress1 =
         new TaskProgress("node-1", "processor", "RUNNING", startTime, endTime, metadata);
-    TaskProgress progress2 =
+    final TaskProgress progress2 =
         new TaskProgress("node-1", "processor", "RUNNING", startTime, endTime, metadata);
 
     // When & Then
@@ -174,15 +185,16 @@ class TaskProgressTest {
   }
 
   @Test
+  @SuppressWarnings("PMD.LinguisticNaming")
   void toString_recordWithValues_containsAllFields() {
     // Given
-    LocalDateTime startTime = LocalDateTime.parse("2026-06-25T10:00:00");
-    LocalDateTime endTime = LocalDateTime.parse("2026-06-25T11:00:00");
-    TaskProgress progress =
+    final LocalDateTime startTime = LocalDateTime.parse("2026-06-25T10:00:00");
+    final LocalDateTime endTime = LocalDateTime.parse("2026-06-25T11:00:00");
+    final TaskProgress progress =
         new TaskProgress("node-1", "processor", "RUNNING", startTime, endTime, Map.of());
 
     // When
-    String result = progress.toString();
+    final String result = progress.toString();
 
     // Then
     assertThat(result).contains("node-1").contains("processor").contains("RUNNING");
@@ -191,8 +203,8 @@ class TaskProgressTest {
   @Test
   void metadata_whenStored_isImmutable() {
     // Given
-    LocalDateTime now = LocalDateTime.now();
-    TaskProgress progress =
+    final LocalDateTime now = LocalDateTime.now(ZoneId.systemDefault());
+    final TaskProgress progress =
         new TaskProgress("node-1", "processor", "RUNNING", now, now, Map.of("key", "value"));
 
     // When & Then

@@ -19,17 +19,22 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.HashMap;
 import java.util.Map;
+import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 
+/** Tests for {@link SessionSummary}. */
+@SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.ShortVariable", "PMD.UseConcurrentHashMap"})
+@NoArgsConstructor
 class SessionSummaryTest {
 
   @Test
   void shouldCreateSessionSummaryWithAllFields() {
-    LocalDateTime now = LocalDateTime.now();
-    Map<String, String> tags = Map.of("env", "prod");
-    SessionSummary summary =
+    final LocalDateTime now = LocalDateTime.now(ZoneId.systemDefault());
+    final Map<String, String> tags = Map.of("env", "prod");
+    final SessionSummary summary =
         new SessionSummary("s1", "user1", "2026-03-10T10:00:00Z", now, "desc", tags);
 
     assertThat(summary.sessionId()).isEqualTo("s1");
@@ -42,16 +47,17 @@ class SessionSummaryTest {
 
   @Test
   void shouldHandleNullTags() {
-    SessionSummary summary = new SessionSummary("s1", "user1", "time", null, "desc", null);
+    final SessionSummary summary = new SessionSummary("s1", "user1", "time", null, "desc", null);
     assertThat(summary.tags()).isNotNull().isEmpty();
   }
 
   @Test
   void shouldCreateImmutableCopyOfTags() {
-    Map<String, String> mutableTags = new HashMap<>();
+    final Map<String, String> mutableTags = new HashMap<>();
     mutableTags.put("key", "value");
 
-    SessionSummary summary = new SessionSummary("s1", "user1", "time", null, "desc", mutableTags);
+    final SessionSummary summary =
+        new SessionSummary("s1", "user1", "time", null, "desc", mutableTags);
     mutableTags.put("key2", "value2");
 
     assertThat(summary.tags()).hasSize(1).containsEntry("key", "value");
@@ -60,11 +66,11 @@ class SessionSummaryTest {
 
   @Test
   void testEqualsAndHashCode() {
-    LocalDateTime now = LocalDateTime.now();
-    Map<String, String> tags = Map.of("a", "b");
-    SessionSummary s1 = new SessionSummary("id", "init", "time", now, "desc", tags);
-    SessionSummary s2 = new SessionSummary("id", "init", "time", now, "desc", tags);
-    SessionSummary s3 = new SessionSummary("id2", "init", "time", now, "desc", tags);
+    final LocalDateTime now = LocalDateTime.now(ZoneId.systemDefault());
+    final Map<String, String> tags = Map.of("a", "b");
+    final SessionSummary s1 = new SessionSummary("id", "init", "time", now, "desc", tags);
+    final SessionSummary s2 = new SessionSummary("id", "init", "time", now, "desc", tags);
+    final SessionSummary s3 = new SessionSummary("id2", "init", "time", now, "desc", tags);
 
     assertThat(s1).isEqualTo(s2).hasSameHashCodeAs(s2);
     assertThat(s1).isNotEqualTo(s3);
@@ -73,9 +79,9 @@ class SessionSummaryTest {
 
   @Test
   void testToString() {
-    SessionSummary summary =
+    final SessionSummary summary =
         new SessionSummary("id", "init", "time", null, "desc", Map.of("k", "v"));
-    String toString = summary.toString();
+    final String toString = summary.toString();
     assertThat(toString)
         .contains("id")
         .contains("init")

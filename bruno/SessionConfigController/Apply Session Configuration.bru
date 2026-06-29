@@ -19,7 +19,7 @@ body:json {
     "sessionId": "cli-spotless-session",
     "description": "CLI Spotless formatting workflow",
     "initiator": "spotless-cli",
-    "projectPath": "/home/arun-cs/IdeaProjects/yukta",
+    "projectPath": "{{projectPath}}",
     "tags": {},
     "workflows": {
       "spotless-check": {
@@ -36,13 +36,13 @@ body:json {
             "type": "PROCESS_EXECUTOR",
             "config": {
               "command": ["./gradlew", "spotlessApply", "--info", "--stacktrace"],
-              "workingDir": "/home/arun-cs/IdeaProjects/yukta",
+              "workingDir": "{{workingDir}}",
               "timeout": 600,
               "streamOutput": false,
               "outputTarget": "PAYLOAD",
               "env": {
                 "GRADLE_OPTS": "-Dorg.gradle.logging.level=info",
-                "JAVA_HOME": "/home/arun-cs/.sdkman/candidates/java/current"
+                "JAVA_HOME": "{{java_home}}"
               }
             }
           },

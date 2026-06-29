@@ -17,13 +17,17 @@ package com.infenia.yukta.config;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+/** Tests for {@link YuktaProperties}. */
 @DisplayName("YuktaProperties")
+@NoArgsConstructor
 class YuktaPropertiesTest {
 
+  /** The properties instance under test. */
   private YuktaProperties properties;
 
   @BeforeEach
@@ -53,7 +57,7 @@ class YuktaPropertiesTest {
   @Test
   @DisplayName("equals returns true for instances with same values")
   void testEqualsWithSameValues() {
-    YuktaProperties other = new YuktaProperties();
+    final YuktaProperties other = new YuktaProperties();
     other.setHeartbeatIntervalSeconds(10L);
 
     assertThat(properties).isEqualTo(other);
@@ -62,7 +66,7 @@ class YuktaPropertiesTest {
   @Test
   @DisplayName("equals returns false for instances with different values")
   void testEqualsWithDifferentValues() {
-    YuktaProperties other = new YuktaProperties();
+    final YuktaProperties other = new YuktaProperties();
     other.setHeartbeatIntervalSeconds(20L);
 
     assertThat(properties).isNotEqualTo(other);
@@ -71,7 +75,7 @@ class YuktaPropertiesTest {
   @Test
   @DisplayName("hashCode returns same value for instances with same heartbeatIntervalSeconds")
   void testHashCodeWithSameValues() {
-    YuktaProperties other = new YuktaProperties();
+    final YuktaProperties other = new YuktaProperties();
     other.setHeartbeatIntervalSeconds(10L);
 
     assertThat(properties.hashCode()).isEqualTo(other.hashCode());
@@ -81,7 +85,7 @@ class YuktaPropertiesTest {
   @DisplayName(
       "hashCode returns different value for instances with different heartbeatIntervalSeconds")
   void testHashCodeWithDifferentValues() {
-    YuktaProperties other = new YuktaProperties();
+    final YuktaProperties other = new YuktaProperties();
     other.setHeartbeatIntervalSeconds(20L);
 
     assertThat(properties.hashCode()).isNotEqualTo(other.hashCode());
@@ -91,7 +95,7 @@ class YuktaPropertiesTest {
   @DisplayName("toString contains class name and field values")
   void testToString() {
     properties.setHeartbeatIntervalSeconds(15L);
-    String result = properties.toString();
+    final String result = properties.toString();
 
     assertThat(result)
         .contains("YuktaProperties")

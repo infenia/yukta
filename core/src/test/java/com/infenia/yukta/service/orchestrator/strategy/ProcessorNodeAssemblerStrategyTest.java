@@ -46,6 +46,7 @@ import java.util.ArrayList;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
+import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -59,6 +60,15 @@ import reactor.core.scheduler.Schedulers;
 
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
+@NoArgsConstructor
+@SuppressWarnings({
+  "PMD.ExcessiveImports",
+  "PMD.TooManyStaticImports",
+  "PMD.CommentRequired",
+  "PMD.TooManyMethods",
+  "PMD.AvoidDuplicateLiterals",
+  "PMD.UseShortArrayInitializer"
+})
 class ProcessorNodeAssemblerStrategyTest {
 
   @Mock private TaskTrackerService tracker;

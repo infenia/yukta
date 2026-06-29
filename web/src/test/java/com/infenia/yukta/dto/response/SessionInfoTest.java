@@ -18,21 +18,31 @@ package com.infenia.yukta.dto.response;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.time.LocalDateTime;
+import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 
+/** Tests for SessionInfoTest. */
+@NoArgsConstructor
 class SessionInfoTest {
+
+  /** Session ID test constant. */
+  private static final String SESSION_ID_123 = "session-123";
+
+  /** Active status constant. */
+  private static final String ACTIVE = "ACTIVE";
 
   @Test
   void constructor_validInputs_createsRecord() {
     // Given
-    String sessionId = "session-123";
-    int workflowCount = 5;
-    LocalDateTime createdAt = LocalDateTime.of(2026, 1, 1, 10, 0);
-    LocalDateTime lastModified = LocalDateTime.of(2026, 1, 2, 11, 30);
-    String status = "ACTIVE";
+    final String sessionId = SESSION_ID_123;
+    final int workflowCount = 5;
+    final LocalDateTime createdAt = LocalDateTime.of(2026, 1, 1, 10, 0);
+    final LocalDateTime lastModified = LocalDateTime.of(2026, 1, 2, 11, 30);
+    final String status = ACTIVE;
 
     // When
-    SessionInfo info = new SessionInfo(sessionId, workflowCount, createdAt, lastModified, status);
+    final SessionInfo info =
+        new SessionInfo(sessionId, workflowCount, createdAt, lastModified, status);
 
     // Then
     assertThat(info.sessionId()).isEqualTo(sessionId);
@@ -45,13 +55,13 @@ class SessionInfoTest {
   @Test
   void createdAt_localDateTime_returnsCorrectValue() {
     // Given
-    LocalDateTime expectedCreatedAt = LocalDateTime.of(2026, 1, 1, 10, 0);
-    SessionInfo info =
+    final LocalDateTime expectedCreatedAt = LocalDateTime.of(2026, 1, 1, 10, 0);
+    final SessionInfo info =
         new SessionInfo(
-            "session-123", 5, expectedCreatedAt, LocalDateTime.of(2026, 1, 2, 11, 30), "ACTIVE");
+            SESSION_ID_123, 5, expectedCreatedAt, LocalDateTime.of(2026, 1, 2, 11, 30), ACTIVE);
 
     // When
-    LocalDateTime actual = info.createdAt();
+    final LocalDateTime actual = info.createdAt();
 
     // Then
     assertThat(actual).isEqualTo(expectedCreatedAt);
@@ -60,13 +70,13 @@ class SessionInfoTest {
   @Test
   void lastModified_localDateTime_returnsCorrectValue() {
     // Given
-    LocalDateTime expectedLastModified = LocalDateTime.of(2026, 1, 2, 11, 30);
-    SessionInfo info =
+    final LocalDateTime expectedLastModified = LocalDateTime.of(2026, 1, 2, 11, 30);
+    final SessionInfo info =
         new SessionInfo(
-            "session-123", 5, LocalDateTime.of(2026, 1, 1, 10, 0), expectedLastModified, "ACTIVE");
+            SESSION_ID_123, 5, LocalDateTime.of(2026, 1, 1, 10, 0), expectedLastModified, ACTIVE);
 
     // When
-    LocalDateTime actual = info.lastModified();
+    final LocalDateTime actual = info.lastModified();
 
     // Then
     assertThat(actual).isEqualTo(expectedLastModified);
@@ -75,10 +85,10 @@ class SessionInfoTest {
   @Test
   void equals_sameValues_returnsTrue() {
     // Given
-    LocalDateTime createdAt = LocalDateTime.of(2026, 1, 1, 10, 0);
-    LocalDateTime lastModified = LocalDateTime.of(2026, 1, 2, 11, 30);
-    SessionInfo info1 = new SessionInfo("session-123", 5, createdAt, lastModified, "ACTIVE");
-    SessionInfo info2 = new SessionInfo("session-123", 5, createdAt, lastModified, "ACTIVE");
+    final LocalDateTime createdAt = LocalDateTime.of(2026, 1, 1, 10, 0);
+    final LocalDateTime lastModified = LocalDateTime.of(2026, 1, 2, 11, 30);
+    final SessionInfo info1 = new SessionInfo(SESSION_ID_123, 5, createdAt, lastModified, ACTIVE);
+    final SessionInfo info2 = new SessionInfo(SESSION_ID_123, 5, createdAt, lastModified, ACTIVE);
 
     // When-Then
     assertThat(info1).isEqualTo(info2);
@@ -87,30 +97,30 @@ class SessionInfoTest {
   @Test
   void equals_differentValues_returnsFalse() {
     // Given
-    LocalDateTime createdAt = LocalDateTime.of(2026, 1, 1, 10, 0);
-    LocalDateTime lastModified = LocalDateTime.of(2026, 1, 2, 11, 30);
-    SessionInfo info1 = new SessionInfo("session-123", 5, createdAt, lastModified, "ACTIVE");
-    SessionInfo info2 = new SessionInfo("session-456", 5, createdAt, lastModified, "ACTIVE");
+    final LocalDateTime createdAt = LocalDateTime.of(2026, 1, 1, 10, 0);
+    final LocalDateTime lastModified = LocalDateTime.of(2026, 1, 2, 11, 30);
+    final SessionInfo info1 = new SessionInfo(SESSION_ID_123, 5, createdAt, lastModified, ACTIVE);
+    final SessionInfo info2 = new SessionInfo("session-456", 5, createdAt, lastModified, ACTIVE);
 
     // When-Then
     assertThat(info1).isNotEqualTo(info2);
   }
 
   @Test
-  void toString_contains_relevantFieldValues() {
+  void verifyToStringContainsRelevantFieldValues() {
     // Given
-    SessionInfo info =
+    final SessionInfo info =
         new SessionInfo(
             "session-123",
             5,
             LocalDateTime.of(2026, 1, 1, 10, 0),
             LocalDateTime.of(2026, 1, 2, 11, 30),
-            "ACTIVE");
+            ACTIVE);
 
     // When
-    String actual = info.toString();
+    final String actual = info.toString();
 
     // Then
-    assertThat(actual).contains("SessionInfo").contains("session-123");
+    assertThat(actual).contains("SessionInfo").contains(SESSION_ID_123);
   }
 }

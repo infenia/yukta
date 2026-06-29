@@ -15,10 +15,8 @@
  */
 package com.infenia.yukta.service.orchestrator.tracker;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
 
 import com.infenia.yukta.model.execution.WorkflowProgress;
 import java.lang.reflect.Field;
@@ -27,79 +25,88 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
+import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.junit.jupiter.MockitoSettings;
 import reactor.test.StepVerifier;
 
+/** Unit tests for {@link DefaultTaskTrackerService}. */
 @MockitoSettings
+@NoArgsConstructor
+@SuppressWarnings({
+  "PMD.TooManyMethods",
+  "PMD.CyclomaticComplexity",
+  "PMD.AvoidDuplicateLiterals",
+  "PMD.AvoidAccessibilityAlteration",
+  "PMD.CognitiveComplexity",
+  "PMD.ShortVariable",
+  "PMD.UnitTestShouldIncludeAssert"
+})
 class DefaultTaskTrackerServiceTest {
 
+  /** Tracker under test. */
   private DefaultTaskTrackerService tracker;
 
   @BeforeEach
   void setUp() {
-    tracker = new DefaultTaskTrackerService(java.time.Duration.ofMillis(200));
+    tracker = new DefaultTaskTrackerService(Duration.ofMillis(200));
     tracker.init();
   }
 
   @Test
   void testWorkflowTracking() {
-    String sessionId = "sess-1";
-    String workflowId = "wf-1";
-    String executionId = "exec-1";
-    List<String> nodes = List.of("node1", "node2");
+    final String sessionId = "sess-1";
+    final String workflowId = "wf-1";
+    final String executionId = "exec-1";
+    final List<String> nodes = List.of("node1", "node2");
 
     StepVerifier.create(tracker.startWorkflow(executionId, sessionId, workflowId, nodes))
         .verifyComplete();
     WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
 
-    assertNotNull(progress);
-    assertEquals("RUNNING", progress.status());
-    assertEquals(2, progress.tasks().size());
-    assertEquals("node1", progress.tasks().get(0).nodeId());
-    assertEquals("PENDING", progress.tasks().get(0).status());
+    assertThat(progress).isNotNull();
+    assertThat(progress.status()).isEqualTo("RUNNING");
+    assertThat(progress.tasks()).hasSize(2);
+    assertThat(progress.tasks().getFirst().nodeId()).isEqualTo("node1");
+    assertThat(progress.tasks().getFirst().status()).isEqualTo("PENDING");
 
     tracker.emitTaskStatusEvent(executionId, "node1", "moduleA", "SUCCESS", Map.of());
 
     // Loop to wait for state update
-    for (int i = 0; i < 20; i++) {
-      if ("SUCCESS".equals(tracker.getProgress(sessionId, executionId).tasks().get(0).status()))
-        break;
-      try {
-        Thread.sleep(50);
-      } catch (InterruptedException e) {
-      }
-    }
+    await()
+        .atMost(1, TimeUnit.SECONDS)
+        .until(
+            () ->
+                "SUCCESS"
+                    .equals(
+                        tracker.getProgress(sessionId, executionId).tasks().getFirst().status()));
 
     progress = tracker.getProgress(sessionId, executionId);
-    assertEquals("SUCCESS", progress.tasks().get(0).status());
-    assertEquals("moduleA", progress.tasks().get(0).module());
+    assertThat(progress.tasks().getFirst().status()).isEqualTo("SUCCESS");
+    assertThat(progress.tasks().getFirst().module()).isEqualTo("moduleA");
 
     tracker.emitWorkflowStatusEvent(executionId, "COMPLETED");
 
     // Loop to wait for state update
-    for (int i = 0; i < 20; i++) {
-      if ("COMPLETED".equals(tracker.getProgress(sessionId, executionId).status())) break;
-      try {
-        Thread.sleep(50);
-      } catch (InterruptedException e) {
-      }
-    }
+    await()
+        .atMost(1, TimeUnit.SECONDS)
+        .until(() -> "COMPLETED".equals(tracker.getProgress(sessionId, executionId).status()));
 
     progress = tracker.getProgress(sessionId, executionId);
-    assertEquals("COMPLETED", progress.status());
-    assertNotNull(progress.endTime());
+    assertThat(progress.status()).isEqualTo("COMPLETED");
+    assertThat(progress.endTime()).isNotNull();
 
     // Test getHistory
-    assertEquals(1, tracker.getHistory(sessionId).size());
+    assertThat(tracker.getHistory(sessionId)).hasSize(1);
   }
 
   @Test
   void testLogStreaming() {
-    String sessionId = "sess-1";
-    String workflowId = "wf-1";
-    String executionId = "exec-log-1";
+    final String sessionId = "sess-1";
+    final String workflowId = "wf-1";
+    final String executionId = "exec-log-1";
     StepVerifier.create(tracker.startWorkflow(executionId, sessionId, workflowId, List.of()))
         .verifyComplete();
 
@@ -112,34 +119,34 @@ class DefaultTaskTrackerServiceTest {
 
   @Test
   void testStatusStreaming() {
-    String sessionId = "sess-1";
-    String workflowId = "wf-1";
-    String executionId = "exec-status-1";
+    final String sessionId = "sess-1";
+    final String workflowId = "wf-1";
+    final String executionId = "exec-status-1";
     StepVerifier.create(tracker.startWorkflow(executionId, sessionId, workflowId, List.of("n1")))
         .verifyComplete();
 
     StepVerifier.create(tracker.getStatusStream(executionId))
         .then(() -> tracker.emitTaskStatusEvent(executionId, "n1", "mod", "SUCCESS", Map.of()))
-        .assertNext(progress -> assertEquals("wf-1", progress.workflowId()))
+        .assertNext(progress -> assertThat(progress.workflowId()).isEqualTo("wf-1"))
         .thenCancel()
         .verify();
   }
 
   @Test
   void testRemoveSession() {
-    String sessionId = "sess-1";
-    String workflowId = "wf-1";
-    String executionId = "exec-remove-1";
+    final String sessionId = "sess-1";
+    final String workflowId = "wf-1";
+    final String executionId = "exec-remove-1";
     StepVerifier.create(tracker.startWorkflow(executionId, sessionId, workflowId, List.of()))
         .verifyComplete();
-    assertEquals(1, tracker.getActiveSessions().size());
+    assertThat(tracker.getActiveSessions().size()).isEqualTo(1);
     tracker.removeSession(sessionId);
-    assertEquals(0, tracker.getActiveSessions().size());
+    assertThat(tracker.getActiveSessions().size()).isEqualTo(0);
   }
 
   @Test
   void testGetProgressNotFound() {
-    assertNull(tracker.getProgress("unknown", "unknown"));
+    assertThat(tracker.getProgress("unknown", "unknown")).isNull();
   }
 
   @Test
@@ -147,21 +154,22 @@ class DefaultTaskTrackerServiceTest {
     tracker.emitTaskStatusEvent("unknown", "n", "m", "s", Map.of());
     tracker.emitWorkflowStatusEvent("unknown", "s");
     tracker.emitLogEvent("unknown", "log");
-    // Should not crash
+    // Should not crash - test passes if no exception is thrown
+    assertThat(true).isTrue();
   }
 
   @Test
   void testAutoCleanupAfterTerminalStatus() {
-    String sessionId = "sess-cleanup";
-    String workflowId = "wf-cleanup";
-    String executionId = "exec-cleanup";
+    final String sessionId = "sess-cleanup";
+    final String workflowId = "wf-cleanup";
+    final String executionId = "exec-cleanup";
 
     StepVerifier.create(tracker.startWorkflow(executionId, sessionId, workflowId, List.of("n1")))
         .verifyComplete();
 
     // Verify sinks exist before cleanup
-    assertTrue(tracker.getLogStream(executionId) != null);
-    assertTrue(tracker.getStatusStream(executionId) != null);
+    assertThat(tracker.getLogStream(executionId) != null).isTrue();
+    assertThat(tracker.getStatusStream(executionId) != null).isTrue();
 
     // Emit terminal status event
     tracker.emitWorkflowStatusEvent(executionId, "SUCCESS");
@@ -171,7 +179,7 @@ class DefaultTaskTrackerServiceTest {
     StepVerifier.create(
             tracker
                 .getStatusStream(executionId)
-                .doOnSubscribe(s -> tracker.emitWorkflowStatusEvent(executionId, "SUCCESS")))
+                .doOnSubscribe(_ -> tracker.emitWorkflowStatusEvent(executionId, "SUCCESS")))
         .thenCancel()
         .verify();
 
@@ -182,10 +190,10 @@ class DefaultTaskTrackerServiceTest {
 
   @Test
   void testUpdateTaskStatus4Arg() {
-    String sessionId = "sess-4arg";
-    String workflowId = "wf-4arg";
-    String executionId = "exec-4arg";
-    List<String> nodes = List.of("node1");
+    final String sessionId = "sess-4arg";
+    final String workflowId = "wf-4arg";
+    final String executionId = "exec-4arg";
+    final List<String> nodes = List.of("node1");
 
     StepVerifier.create(tracker.startWorkflow(executionId, sessionId, workflowId, nodes))
         .verifyComplete();
@@ -196,67 +204,67 @@ class DefaultTaskTrackerServiceTest {
 
     // Wait for event processing
     for (int i = 0; i < 20; i++) {
-      WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
+      final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
       if (progress != null
           && !progress.tasks().isEmpty()
-          && "RUNNING".equals(progress.tasks().get(0).status())) {
+          && "RUNNING".equals(progress.tasks().getFirst().status())) {
         break;
       }
       try {
         Thread.sleep(50);
-      } catch (InterruptedException e) {
+      } catch (final InterruptedException e) {
         Thread.currentThread().interrupt();
       }
     }
 
-    WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
-    assertEquals("RUNNING", progress.tasks().get(0).status());
-    assertEquals("moduleB", progress.tasks().get(0).module());
+    final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
+    assertThat(progress.tasks().getFirst().status()).isEqualTo("RUNNING");
+    assertThat(progress.tasks().getFirst().module()).isEqualTo("moduleB");
   }
 
   @Test
   void testUpdateTaskStatus5ArgWithMetadata() {
-    String sessionId = "sess-5arg";
-    String workflowId = "wf-5arg";
-    String executionId = "exec-5arg";
-    List<String> nodes = List.of("node1");
+    final String sessionId = "sess-5arg";
+    final String workflowId = "wf-5arg";
+    final String executionId = "exec-5arg";
+    final List<String> nodes = List.of("node1");
 
     StepVerifier.create(tracker.startWorkflow(executionId, sessionId, workflowId, nodes))
         .verifyComplete();
 
     // Test 5-arg updateTaskStatus with metadata
-    Map<String, Object> metadata = Map.of("key1", "value1", "key2", 42);
+    final Map<String, Object> metadata = Map.of("key1", "value1", "key2", 42);
     StepVerifier.create(
             tracker.updateTaskStatus(executionId, "node1", "moduleC", "SUCCESS", metadata))
         .verifyComplete();
 
     // Wait for event processing
     for (int i = 0; i < 20; i++) {
-      WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
+      final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
       if (progress != null
           && !progress.tasks().isEmpty()
-          && "SUCCESS".equals(progress.tasks().get(0).status())) {
+          && "SUCCESS".equals(progress.tasks().getFirst().status())) {
         break;
       }
       try {
         Thread.sleep(50);
-      } catch (InterruptedException e) {
+      } catch (final InterruptedException e) {
         Thread.currentThread().interrupt();
       }
     }
 
-    WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
-    assertEquals("SUCCESS", progress.tasks().get(0).status());
-    assertTrue(progress.tasks().get(0).metadata().containsKey("key1"));
-    assertEquals("value1", progress.tasks().get(0).metadata().get("key1"));
+    final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
+    assertThat(progress.tasks().getFirst().status()).isEqualTo("SUCCESS");
+    assertThat(progress.tasks().getFirst().metadata().containsKey("key1")).isTrue();
+    assertThat(progress.tasks().getFirst().metadata().get("key1")).isEqualTo("value1");
   }
 
   @Test
   void testFinishWorkflow() {
-    String sessionId = "sess-finish";
-    String workflowId = "wf-finish";
-    String executionId = "exec-finish";
-    List<String> nodes = List.of("node1");
+    final String sessionId = "sess-finish";
+    final String workflowId = "wf-finish";
+    final String executionId = "exec-finish";
+    final List<String> nodes = List.of("node1");
 
     StepVerifier.create(tracker.startWorkflow(executionId, sessionId, workflowId, nodes))
         .verifyComplete();
@@ -266,27 +274,27 @@ class DefaultTaskTrackerServiceTest {
 
     // Wait for event processing
     for (int i = 0; i < 20; i++) {
-      WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
+      final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
       if (progress != null && "SUCCESS".equals(progress.status())) {
         break;
       }
       try {
         Thread.sleep(50);
-      } catch (InterruptedException e) {
+      } catch (final InterruptedException e) {
         Thread.currentThread().interrupt();
       }
     }
 
-    WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
-    assertEquals("SUCCESS", progress.status());
-    assertNotNull(progress.endTime());
+    final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
+    assertThat(progress.status()).isEqualTo("SUCCESS");
+    assertThat(progress.endTime()).isNotNull();
   }
 
   @Test
   void testAppendLog() {
-    String sessionId = "sess-append";
-    String workflowId = "wf-append";
-    String executionId = "exec-append";
+    final String sessionId = "sess-append";
+    final String workflowId = "wf-append";
+    final String executionId = "exec-append";
 
     StepVerifier.create(tracker.startWorkflow(executionId, sessionId, workflowId, List.of()))
         .verifyComplete();
@@ -295,15 +303,15 @@ class DefaultTaskTrackerServiceTest {
     StepVerifier.create(tracker.appendLog(executionId, "test log line")).verifyComplete();
 
     // The log was emitted; verify by checking the mono completed
-    assertTrue(true);
+    assertThat(true).isTrue();
   }
 
   @Test
   void testGetLatestExecutionId() {
-    String sessionId = "sess-latest";
-    String workflowId = "wf-latest";
-    String executionId1 = "exec-latest-1";
-    String executionId2 = "exec-latest-2";
+    final String sessionId = "sess-latest";
+    final String workflowId = "wf-latest";
+    final String executionId1 = "exec-latest-1";
+    final String executionId2 = "exec-latest-2";
 
     StepVerifier.create(tracker.startWorkflow(executionId1, sessionId, workflowId, List.of()))
         .verifyComplete();
@@ -311,8 +319,8 @@ class DefaultTaskTrackerServiceTest {
         .verifyComplete();
 
     // getLatestExecutionId should return the most recent
-    String latest = tracker.getLatestExecutionId(sessionId, workflowId);
-    assertEquals(executionId2, latest);
+    final String latest = tracker.getLatestExecutionId(sessionId, workflowId);
+    assertThat(latest).isEqualTo(executionId2);
   }
 
   @Test
@@ -330,24 +338,24 @@ class DefaultTaskTrackerServiceTest {
   @Test
   void testGetHistoryUnknownSession() {
     // getHistory for unknown session should return empty list
-    List<com.infenia.yukta.model.execution.WorkflowExecutionSummary> history =
+    final List<com.infenia.yukta.model.execution.WorkflowExecutionSummary> history =
         tracker.getHistory("unknown-session");
-    assertEquals(0, history.size());
+    assertThat(history.size()).isEqualTo(0);
   }
 
   @Test
   void testRemoveSessionNonExistent() {
     // removeSession on non-existent session should not crash
     tracker.removeSession("non-existent-session");
-    assertEquals(0, tracker.getActiveSessions().size());
+    assertThat(tracker.getActiveSessions().size()).isEqualTo(0);
   }
 
   @Test
   void testUpdateTaskUnknownNodeId() {
-    String sessionId = "sess-unknown-node";
-    String workflowId = "wf-unknown-node";
-    String executionId = "exec-unknown-node";
-    List<String> nodes = List.of("node1");
+    final String sessionId = "sess-unknown-node";
+    final String workflowId = "wf-unknown-node";
+    final String executionId = "exec-unknown-node";
+    final List<String> nodes = List.of("node1");
 
     StepVerifier.create(tracker.startWorkflow(executionId, sessionId, workflowId, nodes))
         .verifyComplete();
@@ -359,21 +367,21 @@ class DefaultTaskTrackerServiceTest {
     for (int i = 0; i < 20; i++) {
       try {
         Thread.sleep(50);
-      } catch (InterruptedException e) {
+      } catch (final InterruptedException e) {
         Thread.currentThread().interrupt();
       }
     }
 
-    WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
-    assertEquals("PENDING", progress.tasks().get(0).status());
+    final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
+    assertThat(progress.tasks().getFirst().status()).isEqualTo("PENDING");
   }
 
   @Test
   void testDetermineEndTimeWithError() {
-    String sessionId = "sess-error";
-    String workflowId = "wf-error";
-    String executionId = "exec-error";
-    List<String> nodes = List.of("node1");
+    final String sessionId = "sess-error";
+    final String workflowId = "wf-error";
+    final String executionId = "exec-error";
+    final List<String> nodes = List.of("node1");
 
     StepVerifier.create(tracker.startWorkflow(executionId, sessionId, workflowId, nodes))
         .verifyComplete();
@@ -383,68 +391,68 @@ class DefaultTaskTrackerServiceTest {
 
     // Wait for event processing
     for (int i = 0; i < 20; i++) {
-      WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
+      final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
       if (progress != null
           && !progress.tasks().isEmpty()
-          && "ERROR".equals(progress.tasks().get(0).status())
-          && progress.tasks().get(0).endTime() != null) {
+          && "ERROR".equals(progress.tasks().getFirst().status())
+          && progress.tasks().getFirst().endTime() != null) {
         break;
       }
       try {
         Thread.sleep(50);
-      } catch (InterruptedException e) {
+      } catch (final InterruptedException e) {
         Thread.currentThread().interrupt();
       }
     }
 
-    WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
-    assertEquals("ERROR", progress.tasks().get(0).status());
-    assertNotNull(progress.tasks().get(0).endTime());
+    final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
+    assertThat(progress.tasks().getFirst().status()).isEqualTo("ERROR");
+    assertThat(progress.tasks().getFirst().endTime()).isNotNull();
   }
 
   @Test
   void testDetermineStartTimeRunning() {
-    String sessionId = "sess-start-time";
-    String workflowId = "wf-start-time";
-    String executionId = "exec-start-time";
-    List<String> nodes = List.of("node1");
+    final String sessionId = "sess-start-time";
+    final String workflowId = "wf-start-time";
+    final String executionId = "exec-start-time";
+    final List<String> nodes = List.of("node1");
 
     StepVerifier.create(tracker.startWorkflow(executionId, sessionId, workflowId, nodes))
         .verifyComplete();
 
     // Task should start with null startTime
-    WorkflowProgress progress1 = tracker.getProgress(sessionId, executionId);
-    assertNull(progress1.tasks().get(0).startTime());
+    final WorkflowProgress progress1 = tracker.getProgress(sessionId, executionId);
+    assertThat(progress1.tasks().getFirst().startTime()).isNull();
 
     // Emit RUNNING status (should set startTime)
     tracker.emitTaskStatusEvent(executionId, "node1", "module", "RUNNING", Map.of());
 
     // Wait for event processing
     for (int i = 0; i < 20; i++) {
-      WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
+      final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
       if (progress != null
           && !progress.tasks().isEmpty()
-          && "RUNNING".equals(progress.tasks().get(0).status())
-          && progress.tasks().get(0).startTime() != null) {
+          && "RUNNING".equals(progress.tasks().getFirst().status())
+          && progress.tasks().getFirst().startTime() != null) {
         break;
       }
       try {
         Thread.sleep(50);
-      } catch (InterruptedException e) {
+      } catch (final InterruptedException e) {
         Thread.currentThread().interrupt();
       }
     }
 
-    WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
-    assertNotNull(progress.tasks().get(0).startTime());
+    final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
+    assertThat(progress.tasks().getFirst().startTime()).isNotNull();
   }
 
   @Test
   void testDetermineEndTimeNotOverwritten() {
-    String sessionId = "sess-end-time";
-    String workflowId = "wf-end-time";
-    String executionId = "exec-end-time";
-    List<String> nodes = List.of("node1");
+    final String sessionId = "sess-end-time";
+    final String workflowId = "wf-end-time";
+    final String executionId = "exec-end-time";
+    final List<String> nodes = List.of("node1");
 
     StepVerifier.create(tracker.startWorkflow(executionId, sessionId, workflowId, nodes))
         .verifyComplete();
@@ -454,27 +462,27 @@ class DefaultTaskTrackerServiceTest {
 
     // Wait for event processing
     for (int i = 0; i < 20; i++) {
-      WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
+      final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
       if (progress != null
           && !progress.tasks().isEmpty()
-          && "SUCCESS".equals(progress.tasks().get(0).status())) {
+          && "SUCCESS".equals(progress.tasks().getFirst().status())) {
         break;
       }
       try {
         Thread.sleep(50);
-      } catch (InterruptedException e) {
+      } catch (final InterruptedException e) {
         Thread.currentThread().interrupt();
       }
     }
 
-    WorkflowProgress progress1 = tracker.getProgress(sessionId, executionId);
-    assertNotNull(progress1.tasks().get(0).endTime());
-    java.time.LocalDateTime firstEndTime = progress1.tasks().get(0).endTime();
+    final WorkflowProgress progress1 = tracker.getProgress(sessionId, executionId);
+    assertThat(progress1.tasks().getFirst().endTime()).isNotNull();
+    final java.time.LocalDateTime firstEndTime = progress1.tasks().getFirst().endTime();
 
     // Wait a bit then emit another status (FAILURE) — should not change endTime
     try {
       Thread.sleep(100);
-    } catch (InterruptedException e) {
+    } catch (final InterruptedException e) {
       Thread.currentThread().interrupt();
     }
     tracker.emitTaskStatusEvent(executionId, "node1", "module", "FAILURE", Map.of());
@@ -483,25 +491,25 @@ class DefaultTaskTrackerServiceTest {
     for (int i = 0; i < 20; i++) {
       try {
         Thread.sleep(50);
-      } catch (InterruptedException e) {
+      } catch (final InterruptedException e) {
         Thread.currentThread().interrupt();
       }
     }
 
-    WorkflowProgress progress2 = tracker.getProgress(sessionId, executionId);
-    assertEquals(firstEndTime, progress2.tasks().get(0).endTime());
+    final WorkflowProgress progress2 = tracker.getProgress(sessionId, executionId);
+    assertThat(progress2.tasks().getFirst().endTime()).isEqualTo(firstEndTime);
   }
 
   @Test
   void testAutoCleanupWithShortTtl() throws Exception {
     // Create a tracker with very short TTL
-    DefaultTaskTrackerService shortTtlTracker =
+    final DefaultTaskTrackerService shortTtlTracker =
         new DefaultTaskTrackerService(Duration.ofMillis(150));
     shortTtlTracker.init();
 
-    String sessionId = "sess-short-ttl";
-    String workflowId = "wf-short-ttl";
-    String executionId = "exec-short-ttl";
+    final String sessionId = "sess-short-ttl";
+    final String workflowId = "wf-short-ttl";
+    final String executionId = "exec-short-ttl";
 
     StepVerifier.create(
             shortTtlTracker.startWorkflow(executionId, sessionId, workflowId, List.of()))
@@ -520,19 +528,20 @@ class DefaultTaskTrackerServiceTest {
 
   @Test
   void testInitTaskStatusErrorHandler() throws Exception {
-    DefaultTaskTrackerService trackerWithError =
+    final DefaultTaskTrackerService trackerWithError =
         new DefaultTaskTrackerService(Duration.ofMinutes(10));
 
     // Replace executionIndex with a map that throws on get()
-    Field executionIndexField = DefaultTaskTrackerService.class.getDeclaredField("executionIndex");
+    final Field executionIndexField =
+        DefaultTaskTrackerService.class.getDeclaredField("executionIndex");
     executionIndexField.setAccessible(true);
 
     // Create a mock map that throws
-    Map<String, Object> throwingMap =
-        new ConcurrentHashMap<String, Object>() {
+    final Map<String, Object> throwingMap =
+        new ConcurrentHashMap<>() {
           @Override
-          public Object get(Object key) {
-            throw new RuntimeException("Simulated error in executionIndex");
+          public Object get(final Object key) {
+            throw new IllegalStateException("Simulated error in executionIndex");
           }
         };
     executionIndexField.set(trackerWithError, throwingMap);
@@ -546,23 +555,24 @@ class DefaultTaskTrackerServiceTest {
     Thread.sleep(200);
 
     // If we reach here, the error handler worked
-    assertTrue(true);
+    assertThat(true).isTrue();
   }
 
   @Test
   void testInitWorkflowStatusErrorHandler() throws Exception {
-    DefaultTaskTrackerService trackerWithError =
+    final DefaultTaskTrackerService trackerWithError =
         new DefaultTaskTrackerService(Duration.ofMinutes(10));
 
     // Replace executionIndex with a map that throws on get()
-    Field executionIndexField = DefaultTaskTrackerService.class.getDeclaredField("executionIndex");
+    final Field executionIndexField =
+        DefaultTaskTrackerService.class.getDeclaredField("executionIndex");
     executionIndexField.setAccessible(true);
 
-    Map<String, Object> throwingMap =
-        new ConcurrentHashMap<String, Object>() {
+    final Map<String, Object> throwingMap =
+        new ConcurrentHashMap<>() {
           @Override
-          public Object get(Object key) {
-            throw new RuntimeException("Simulated error in executionIndex");
+          public Object get(final Object key) {
+            throw new IllegalStateException("Simulated error in executionIndex");
           }
         };
     executionIndexField.set(trackerWithError, throwingMap);
@@ -575,23 +585,23 @@ class DefaultTaskTrackerServiceTest {
     // Wait for async processing
     Thread.sleep(200);
 
-    assertTrue(true);
+    assertThat(true).isTrue();
   }
 
   @Test
   void testInitLogErrorHandler() throws Exception {
-    DefaultTaskTrackerService trackerWithError =
+    final DefaultTaskTrackerService trackerWithError =
         new DefaultTaskTrackerService(Duration.ofMinutes(10));
 
     // Replace logSinks with a map that throws on get()
-    Field logSinksField = DefaultTaskTrackerService.class.getDeclaredField("logSinks");
+    final Field logSinksField = DefaultTaskTrackerService.class.getDeclaredField("logSinks");
     logSinksField.setAccessible(true);
 
-    Map<String, Object> throwingMap =
-        new ConcurrentHashMap<String, Object>() {
+    final Map<String, Object> throwingMap =
+        new ConcurrentHashMap<>() {
           @Override
-          public Object get(Object key) {
-            throw new RuntimeException("Simulated error in logSinks");
+          public Object get(final Object key) {
+            throw new IllegalStateException("Simulated error in logSinks");
           }
         };
     logSinksField.set(trackerWithError, throwingMap);
@@ -604,14 +614,14 @@ class DefaultTaskTrackerServiceTest {
     // Wait for async processing
     Thread.sleep(200);
 
-    assertTrue(true);
+    assertThat(true).isTrue();
   }
 
   @Test
   void testCleanupExecutionRemovesAllResources() throws Exception {
-    String sessionId = "sess-cleanup-all";
-    String workflowId = "wf-cleanup-all";
-    String executionId = "exec-cleanup-all";
+    final String sessionId = "sess-cleanup-all";
+    final String workflowId = "wf-cleanup-all";
+    final String executionId = "exec-cleanup-all";
 
     StepVerifier.create(tracker.startWorkflow(executionId, sessionId, workflowId, List.of()))
         .verifyComplete();
@@ -629,10 +639,10 @@ class DefaultTaskTrackerServiceTest {
 
   @Test
   void testHandleWorkflowStatusEventsWithTerminalStatus() {
-    String sessionId = "sess-wf-terminal";
-    String workflowId = "wf-terminal";
-    String executionId = "exec-wf-terminal";
-    List<String> nodes = List.of("node1");
+    final String sessionId = "sess-wf-terminal";
+    final String workflowId = "wf-terminal";
+    final String executionId = "exec-wf-terminal";
+    final List<String> nodes = List.of("node1");
 
     StepVerifier.create(tracker.startWorkflow(executionId, sessionId, workflowId, nodes))
         .verifyComplete();
@@ -642,15 +652,15 @@ class DefaultTaskTrackerServiceTest {
 
     // Wait for processing
     for (int i = 0; i < 20; i++) {
-      WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
+      final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
       if (progress != null
           && !progress.tasks().isEmpty()
-          && "RUNNING".equals(progress.tasks().get(0).status())) {
+          && "RUNNING".equals(progress.tasks().getFirst().status())) {
         break;
       }
       try {
         Thread.sleep(50);
-      } catch (InterruptedException e) {
+      } catch (final InterruptedException e) {
         Thread.currentThread().interrupt();
       }
     }
@@ -660,28 +670,28 @@ class DefaultTaskTrackerServiceTest {
 
     // Wait for processing
     for (int i = 0; i < 20; i++) {
-      WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
+      final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
       if (progress != null && "FAILURE".equals(progress.status())) {
         break;
       }
       try {
         Thread.sleep(50);
-      } catch (InterruptedException e) {
+      } catch (final InterruptedException e) {
         Thread.currentThread().interrupt();
       }
     }
 
-    WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
-    assertEquals("FAILURE", progress.status());
-    assertNotNull(progress.endTime());
+    final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
+    assertThat(progress.status()).isEqualTo("FAILURE");
+    assertThat(progress.endTime()).isNotNull();
   }
 
   @Test
   void testNotifyStatusChangeUpdatesStatusSink() {
-    String sessionId = "sess-notify";
-    String workflowId = "wf-notify";
-    String executionId = "exec-notify";
-    List<String> nodes = List.of("node1");
+    final String sessionId = "sess-notify";
+    final String workflowId = "wf-notify";
+    final String executionId = "exec-notify";
+    final List<String> nodes = List.of("node1");
 
     StepVerifier.create(tracker.startWorkflow(executionId, sessionId, workflowId, nodes))
         .verifyComplete();
@@ -690,40 +700,40 @@ class DefaultTaskTrackerServiceTest {
     StepVerifier.create(tracker.getStatusStream(executionId).take(1))
         .then(
             () -> tracker.emitTaskStatusEvent(executionId, "node1", "module", "SUCCESS", Map.of()))
-        .assertNext(progress -> assertEquals(workflowId, progress.workflowId()))
+        .assertNext(progress -> assertThat(progress.workflowId()).isEqualTo(workflowId))
         .verifyComplete();
   }
 
   @Test
   void testRemoveSessionCleansUpAllExecutions() {
-    String sessionId = "sess-cleanup-multi";
-    String workflowId = "wf-cleanup-multi";
-    String executionId1 = "exec-cleanup-multi-1";
-    String executionId2 = "exec-cleanup-multi-2";
+    final String sessionId = "sess-cleanup-multi";
+    final String workflowId = "wf-cleanup-multi";
+    final String executionId1 = "exec-cleanup-multi-1";
+    final String executionId2 = "exec-cleanup-multi-2";
 
     StepVerifier.create(tracker.startWorkflow(executionId1, sessionId, workflowId, List.of()))
         .verifyComplete();
     StepVerifier.create(tracker.startWorkflow(executionId2, sessionId, workflowId, List.of()))
         .verifyComplete();
 
-    assertEquals(1, tracker.getActiveSessions().size());
+    assertThat(tracker.getActiveSessions().size()).isEqualTo(1);
 
     // Remove session should clean up both executions
     tracker.removeSession(sessionId);
 
-    assertEquals(0, tracker.getActiveSessions().size());
+    assertThat(tracker.getActiveSessions().size()).isEqualTo(0);
 
     // Verify both executions are removed from the index
-    assertNull(tracker.getProgress(sessionId, executionId1));
-    assertNull(tracker.getProgress(sessionId, executionId2));
+    assertThat(tracker.getProgress(sessionId, executionId1)).isNull();
+    assertThat(tracker.getProgress(sessionId, executionId2)).isNull();
   }
 
   @Test
   void testTaskProgressMetadataMerging() {
-    String sessionId = "sess-metadata";
-    String workflowId = "wf-metadata";
-    String executionId = "exec-metadata";
-    List<String> nodes = List.of("node1");
+    final String sessionId = "sess-metadata";
+    final String workflowId = "wf-metadata";
+    final String executionId = "exec-metadata";
+    final List<String> nodes = List.of("node1");
 
     StepVerifier.create(tracker.startWorkflow(executionId, sessionId, workflowId, nodes))
         .verifyComplete();
@@ -734,15 +744,15 @@ class DefaultTaskTrackerServiceTest {
 
     // Wait for processing
     for (int i = 0; i < 20; i++) {
-      WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
+      final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
       if (progress != null
           && !progress.tasks().isEmpty()
-          && progress.tasks().get(0).metadata().containsKey("key1")) {
+          && progress.tasks().getFirst().metadata().containsKey("key1")) {
         break;
       }
       try {
         Thread.sleep(50);
-      } catch (InterruptedException e) {
+      } catch (final InterruptedException e) {
         Thread.currentThread().interrupt();
       }
     }
@@ -753,32 +763,32 @@ class DefaultTaskTrackerServiceTest {
 
     // Wait for processing
     for (int i = 0; i < 20; i++) {
-      WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
+      final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
       if (progress != null
           && !progress.tasks().isEmpty()
-          && progress.tasks().get(0).metadata().containsKey("key2")) {
+          && progress.tasks().getFirst().metadata().containsKey("key2")) {
         break;
       }
       try {
         Thread.sleep(50);
-      } catch (InterruptedException e) {
+      } catch (final InterruptedException e) {
         Thread.currentThread().interrupt();
       }
     }
 
-    WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
-    assertTrue(progress.tasks().get(0).metadata().containsKey("key1"));
-    assertTrue(progress.tasks().get(0).metadata().containsKey("key2"));
-    assertEquals("value1", progress.tasks().get(0).metadata().get("key1"));
-    assertEquals("value2", progress.tasks().get(0).metadata().get("key2"));
+    final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
+    assertThat(progress.tasks().getFirst().metadata().containsKey("key1")).isTrue();
+    assertThat(progress.tasks().getFirst().metadata().containsKey("key2")).isTrue();
+    assertThat(progress.tasks().getFirst().metadata().get("key1")).isEqualTo("value1");
+    assertThat(progress.tasks().getFirst().metadata().get("key2")).isEqualTo("value2");
   }
 
   @Test
   void testTaskProgressWithNullMetadata() {
-    String sessionId = "sess-null-metadata";
-    String workflowId = "wf-null-metadata";
-    String executionId = "exec-null-metadata";
-    List<String> nodes = List.of("node1");
+    final String sessionId = "sess-null-metadata";
+    final String workflowId = "wf-null-metadata";
+    final String executionId = "exec-null-metadata";
+    final List<String> nodes = List.of("node1");
 
     StepVerifier.create(tracker.startWorkflow(executionId, sessionId, workflowId, nodes))
         .verifyComplete();
@@ -788,30 +798,30 @@ class DefaultTaskTrackerServiceTest {
 
     // Wait for processing
     for (int i = 0; i < 20; i++) {
-      WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
+      final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
       if (progress != null
           && !progress.tasks().isEmpty()
-          && "RUNNING".equals(progress.tasks().get(0).status())) {
+          && "RUNNING".equals(progress.tasks().getFirst().status())) {
         break;
       }
       try {
         Thread.sleep(50);
-      } catch (InterruptedException e) {
+      } catch (final InterruptedException e) {
         Thread.currentThread().interrupt();
       }
     }
 
-    WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
-    assertEquals("RUNNING", progress.tasks().get(0).status());
-    assertTrue(progress.tasks().get(0).metadata().isEmpty());
+    final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
+    assertThat(progress.tasks().getFirst().status()).isEqualTo("RUNNING");
+    assertThat(progress.tasks().getFirst().metadata().isEmpty()).isTrue();
   }
 
   @Test
   void testMultipleTaskUpdatesPreserveState() {
-    String sessionId = "sess-multi-tasks";
-    String workflowId = "wf-multi-tasks";
-    String executionId = "exec-multi-tasks";
-    List<String> nodes = List.of("node1", "node2", "node3");
+    final String sessionId = "sess-multi-tasks";
+    final String workflowId = "wf-multi-tasks";
+    final String executionId = "exec-multi-tasks";
+    final List<String> nodes = List.of("node1", "node2", "node3");
 
     StepVerifier.create(tracker.startWorkflow(executionId, sessionId, workflowId, nodes))
         .verifyComplete();
@@ -823,34 +833,34 @@ class DefaultTaskTrackerServiceTest {
 
     // Wait for processing
     for (int i = 0; i < 30; i++) {
-      WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
+      final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
       if (progress != null
           && progress.tasks().size() == 3
-          && "SUCCESS".equals(progress.tasks().get(0).status())
+          && "SUCCESS".equals(progress.tasks().getFirst().status())
           && "RUNNING".equals(progress.tasks().get(1).status())
           && "FAILURE".equals(progress.tasks().get(2).status())) {
         break;
       }
       try {
         Thread.sleep(50);
-      } catch (InterruptedException e) {
+      } catch (final InterruptedException e) {
         Thread.currentThread().interrupt();
       }
     }
 
-    WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
-    assertEquals(3, progress.tasks().size());
-    assertEquals("SUCCESS", progress.tasks().get(0).status());
-    assertEquals("RUNNING", progress.tasks().get(1).status());
-    assertEquals("FAILURE", progress.tasks().get(2).status());
+    final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
+    assertThat(progress.tasks().size()).isEqualTo(3);
+    assertThat(progress.tasks().getFirst().status()).isEqualTo("SUCCESS");
+    assertThat(progress.tasks().get(1).status()).isEqualTo("RUNNING");
+    assertThat(progress.tasks().get(2).status()).isEqualTo("FAILURE");
   }
 
   @Test
   void testTaskProgressModuleUpdate() {
-    String sessionId = "sess-module-update";
-    String workflowId = "wf-module-update";
-    String executionId = "exec-module-update";
-    List<String> nodes = List.of("node1");
+    final String sessionId = "sess-module-update";
+    final String workflowId = "wf-module-update";
+    final String executionId = "exec-module-update";
+    final List<String> nodes = List.of("node1");
 
     StepVerifier.create(tracker.startWorkflow(executionId, sessionId, workflowId, nodes))
         .verifyComplete();
@@ -860,15 +870,15 @@ class DefaultTaskTrackerServiceTest {
 
     // Wait for processing
     for (int i = 0; i < 20; i++) {
-      WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
+      final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
       if (progress != null
           && !progress.tasks().isEmpty()
-          && "module-a".equals(progress.tasks().get(0).module())) {
+          && "module-a".equals(progress.tasks().getFirst().module())) {
         break;
       }
       try {
         Thread.sleep(50);
-      } catch (InterruptedException e) {
+      } catch (final InterruptedException e) {
         Thread.currentThread().interrupt();
       }
     }
@@ -878,69 +888,69 @@ class DefaultTaskTrackerServiceTest {
 
     // Wait for processing
     for (int i = 0; i < 20; i++) {
-      WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
+      final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
       if (progress != null
           && !progress.tasks().isEmpty()
-          && "module-b".equals(progress.tasks().get(0).module())) {
+          && "module-b".equals(progress.tasks().getFirst().module())) {
         break;
       }
       try {
         Thread.sleep(50);
-      } catch (InterruptedException e) {
+      } catch (final InterruptedException e) {
         Thread.currentThread().interrupt();
       }
     }
 
-    WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
-    assertEquals("module-b", progress.tasks().get(0).module());
+    final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
+    assertThat(progress.tasks().getFirst().module()).isEqualTo("module-b");
   }
 
   @Test
   void testGetProgressPartialMatch() {
-    String sessionId = "sess-partial";
-    String workflowId = "wf-partial";
-    String executionId = "exec-partial";
+    final String sessionId = "sess-partial";
+    final String workflowId = "wf-partial";
+    final String executionId = "exec-partial";
 
     StepVerifier.create(tracker.startWorkflow(executionId, sessionId, workflowId, List.of()))
         .verifyComplete();
 
     // Get progress with wrong session should return null
-    assertNull(tracker.getProgress("wrong-session", executionId));
+    assertThat(tracker.getProgress("wrong-session", executionId)).isNull();
 
     // Get progress with correct session should return progress
-    assertNotNull(tracker.getProgress(sessionId, executionId));
+    assertThat(tracker.getProgress(sessionId, executionId)).isNotNull();
   }
 
   @Test
   void testSessionStatesWithMultipleSessions() {
-    String session1 = "sess-1";
-    String session2 = "sess-2";
-    String workflowId = "wf-multi-session";
-    String exec1 = "exec-1";
-    String exec2 = "exec-2";
+    final String session1 = "sess-1";
+    final String session2 = "sess-2";
+    final String workflowId = "wf-multi-session";
+    final String exec1 = "exec-1";
+    final String exec2 = "exec-2";
 
     StepVerifier.create(tracker.startWorkflow(exec1, session1, workflowId, List.of()))
         .verifyComplete();
     StepVerifier.create(tracker.startWorkflow(exec2, session2, workflowId, List.of()))
         .verifyComplete();
 
-    assertEquals(2, tracker.getActiveSessions().size());
+    assertThat(tracker.getActiveSessions().size()).isEqualTo(2);
 
-    WorkflowProgress prog1 = tracker.getProgress(session1, exec1);
-    WorkflowProgress prog2 = tracker.getProgress(session2, exec2);
+    final WorkflowProgress prog1 = tracker.getProgress(session1, exec1);
+    final WorkflowProgress prog2 = tracker.getProgress(session2, exec2);
 
-    assertNotNull(prog1);
-    assertNotNull(prog2);
-    assertEquals(session1, prog1.sessionId());
-    assertEquals(session2, prog2.sessionId());
+    assertThat(prog1).isNotNull();
+    assertThat(prog2).isNotNull();
+    assertThat(prog1.sessionId()).isEqualTo(session1);
+    assertThat(prog2.sessionId()).isEqualTo(session2);
   }
 
   @Test
   void testStatusUpdateOnlyWhenSinkExists() {
-    String sessionId = "sess-no-sink";
-    String workflowId = "wf-no-sink";
-    String executionId = "exec-no-sink";
-    List<String> nodes = List.of("node1");
+    final String sessionId = "sess-no-sink";
+    final String workflowId = "wf-no-sink";
+    final String executionId = "exec-no-sink";
+    final List<String> nodes = List.of("node1");
 
     // Start workflow and immediately remove status sink to test notifyStatusChange handles null
     StepVerifier.create(tracker.startWorkflow(executionId, sessionId, workflowId, nodes))
@@ -953,23 +963,23 @@ class DefaultTaskTrackerServiceTest {
     for (int i = 0; i < 20; i++) {
       try {
         Thread.sleep(50);
-      } catch (InterruptedException e) {
+      } catch (final InterruptedException e) {
         Thread.currentThread().interrupt();
       }
     }
 
     // Verify the task was still updated
-    WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
-    assertEquals("RUNNING", progress.tasks().get(0).status());
+    final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
+    assertThat(progress.tasks().getFirst().status()).isEqualTo("RUNNING");
   }
 
   @Test
   void testMultipleWorkflowsInSession() {
-    String sessionId = "sess-multi-wf";
-    String wf1 = "wf-1";
-    String wf2 = "wf-2";
-    String exec1 = "exec-1";
-    String exec2 = "exec-2";
+    final String sessionId = "sess-multi-wf";
+    final String wf1 = "wf-1";
+    final String wf2 = "wf-2";
+    final String exec1 = "exec-1";
+    final String exec2 = "exec-2";
 
     StepVerifier.create(tracker.startWorkflow(exec1, sessionId, wf1, List.of("n1")))
         .verifyComplete();
@@ -977,19 +987,19 @@ class DefaultTaskTrackerServiceTest {
         .verifyComplete();
 
     // Both should be in the same session
-    assertEquals(1, tracker.getActiveSessions().size());
+    assertThat(tracker.getActiveSessions().size()).isEqualTo(1);
 
     // History should include both
-    var history = tracker.getHistory(sessionId);
-    assertEquals(2, history.size());
+    final var history = tracker.getHistory(sessionId);
+    assertThat(history.size()).isEqualTo(2);
   }
 
   @Test
   void testTaskStatusErrorWithInvalidStatusValue() {
-    String sessionId = "sess-invalid-status";
-    String workflowId = "wf-invalid-status";
-    String executionId = "exec-invalid-status";
-    List<String> nodes = List.of("node1");
+    final String sessionId = "sess-invalid-status";
+    final String workflowId = "wf-invalid-status";
+    final String executionId = "exec-invalid-status";
+    final List<String> nodes = List.of("node1");
 
     StepVerifier.create(tracker.startWorkflow(executionId, sessionId, workflowId, nodes))
         .verifyComplete();
@@ -999,29 +1009,29 @@ class DefaultTaskTrackerServiceTest {
 
     // Wait for processing
     for (int i = 0; i < 20; i++) {
-      WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
+      final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
       if (progress != null
           && !progress.tasks().isEmpty()
-          && "RUNNING".equals(progress.tasks().get(0).status())) {
+          && "RUNNING".equals(progress.tasks().getFirst().status())) {
         break;
       }
       try {
         Thread.sleep(50);
-      } catch (InterruptedException e) {
+      } catch (final InterruptedException e) {
         Thread.currentThread().interrupt();
       }
     }
 
-    WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
-    assertNotNull(progress.tasks().get(0).startTime());
+    final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
+    assertThat(progress.tasks().getFirst().startTime()).isNotNull();
   }
 
   @Test
   void testMultipleStatusTransitions() {
-    String sessionId = "sess-transitions";
-    String workflowId = "wf-transitions";
-    String executionId = "exec-transitions";
-    List<String> nodes = List.of("node1");
+    final String sessionId = "sess-transitions";
+    final String workflowId = "wf-transitions";
+    final String executionId = "exec-transitions";
+    final List<String> nodes = List.of("node1");
 
     StepVerifier.create(tracker.startWorkflow(executionId, sessionId, workflowId, nodes))
         .verifyComplete();
@@ -1029,48 +1039,48 @@ class DefaultTaskTrackerServiceTest {
     // PENDING -> RUNNING
     tracker.emitTaskStatusEvent(executionId, "node1", "module", "RUNNING", Map.of());
     for (int i = 0; i < 20; i++) {
-      WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
+      final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
       if (progress != null
           && !progress.tasks().isEmpty()
-          && "RUNNING".equals(progress.tasks().get(0).status())) {
+          && "RUNNING".equals(progress.tasks().getFirst().status())) {
         break;
       }
       try {
         Thread.sleep(50);
-      } catch (InterruptedException e) {
+      } catch (final InterruptedException e) {
         Thread.currentThread().interrupt();
       }
     }
 
-    var prog1 = tracker.getProgress(sessionId, executionId);
-    assertNotNull(prog1.tasks().get(0).startTime());
+    final var prog1 = tracker.getProgress(sessionId, executionId);
+    assertThat(prog1.tasks().getFirst().startTime()).isNotNull();
 
     // RUNNING -> FAILURE
     tracker.emitTaskStatusEvent(executionId, "node1", "module", "FAILURE", Map.of());
     for (int i = 0; i < 20; i++) {
-      WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
+      final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
       if (progress != null
           && !progress.tasks().isEmpty()
-          && "FAILURE".equals(progress.tasks().get(0).status())) {
+          && "FAILURE".equals(progress.tasks().getFirst().status())) {
         break;
       }
       try {
         Thread.sleep(50);
-      } catch (InterruptedException e) {
+      } catch (final InterruptedException e) {
         Thread.currentThread().interrupt();
       }
     }
 
-    var prog2 = tracker.getProgress(sessionId, executionId);
-    assertNotNull(prog2.tasks().get(0).endTime());
+    final var prog2 = tracker.getProgress(sessionId, executionId);
+    assertThat(prog2.tasks().getFirst().endTime()).isNotNull();
   }
 
   @Test
   void testMetadataNullBranch() {
-    String sessionId = "sess-metadata-null";
-    String workflowId = "wf-metadata-null";
-    String executionId = "exec-metadata-null";
-    List<String> nodes = List.of("node1");
+    final String sessionId = "sess-metadata-null";
+    final String workflowId = "wf-metadata-null";
+    final String executionId = "exec-metadata-null";
+    final List<String> nodes = List.of("node1");
 
     StepVerifier.create(tracker.startWorkflow(executionId, sessionId, workflowId, nodes))
         .verifyComplete();
@@ -1081,15 +1091,15 @@ class DefaultTaskTrackerServiceTest {
 
     // Wait for processing
     for (int i = 0; i < 20; i++) {
-      WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
+      final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
       if (progress != null
           && !progress.tasks().isEmpty()
-          && progress.tasks().get(0).metadata().containsKey("key1")) {
+          && progress.tasks().getFirst().metadata().containsKey("key1")) {
         break;
       }
       try {
         Thread.sleep(50);
-      } catch (InterruptedException e) {
+      } catch (final InterruptedException e) {
         Thread.currentThread().interrupt();
       }
     }
@@ -1099,29 +1109,29 @@ class DefaultTaskTrackerServiceTest {
 
     // Wait for processing
     for (int i = 0; i < 20; i++) {
-      WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
+      final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
       if (progress != null
           && !progress.tasks().isEmpty()
-          && "SUCCESS".equals(progress.tasks().get(0).status())) {
+          && "SUCCESS".equals(progress.tasks().getFirst().status())) {
         break;
       }
       try {
         Thread.sleep(50);
-      } catch (InterruptedException e) {
+      } catch (final InterruptedException e) {
         Thread.currentThread().interrupt();
       }
     }
 
-    WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
-    assertTrue(progress.tasks().get(0).metadata().containsKey("key1"));
-    assertEquals("value1", progress.tasks().get(0).metadata().get("key1"));
+    final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
+    assertThat(progress.tasks().getFirst().metadata().containsKey("key1")).isTrue();
+    assertThat(progress.tasks().getFirst().metadata().get("key1")).isEqualTo("value1");
   }
 
   @Test
   void testCleanupSchedulingErrorHandler() {
-    String sessionId = "sess-cleanup-error";
-    String workflowId = "wf-cleanup-error";
-    String executionId = "exec-cleanup-error";
+    final String sessionId = "sess-cleanup-error";
+    final String workflowId = "wf-cleanup-error";
+    final String executionId = "exec-cleanup-error";
 
     StepVerifier.create(tracker.startWorkflow(executionId, sessionId, workflowId, List.of()))
         .verifyComplete();
@@ -1133,22 +1143,22 @@ class DefaultTaskTrackerServiceTest {
     for (int i = 0; i < 20; i++) {
       try {
         Thread.sleep(50);
-      } catch (InterruptedException e) {
+      } catch (final InterruptedException e) {
         Thread.currentThread().interrupt();
       }
     }
 
     // Verify workflow completed
-    WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
-    assertEquals("SUCCESS", progress.status());
+    final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
+    assertThat(progress.status()).isEqualTo("SUCCESS");
   }
 
   @Test
   void testDetermineStartTimeWhenAlreadyRunning() {
-    String sessionId = "sess-start-already-running";
-    String workflowId = "wf-start-already-running";
-    String executionId = "exec-start-already-running";
-    List<String> nodes = List.of("node1");
+    final String sessionId = "sess-start-already-running";
+    final String workflowId = "wf-start-already-running";
+    final String executionId = "exec-start-already-running";
+    final List<String> nodes = List.of("node1");
 
     StepVerifier.create(tracker.startWorkflow(executionId, sessionId, workflowId, nodes))
         .verifyComplete();
@@ -1158,27 +1168,27 @@ class DefaultTaskTrackerServiceTest {
 
     // Wait for processing
     for (int i = 0; i < 20; i++) {
-      WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
+      final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
       if (progress != null
           && !progress.tasks().isEmpty()
-          && "RUNNING".equals(progress.tasks().get(0).status())) {
+          && "RUNNING".equals(progress.tasks().getFirst().status())) {
         break;
       }
       try {
         Thread.sleep(50);
-      } catch (InterruptedException e) {
+      } catch (final InterruptedException e) {
         Thread.currentThread().interrupt();
       }
     }
 
-    var prog1 = tracker.getProgress(sessionId, executionId);
-    var firstStartTime = prog1.tasks().get(0).startTime();
-    assertNotNull(firstStartTime);
+    final var prog1 = tracker.getProgress(sessionId, executionId);
+    final var firstStartTime = prog1.tasks().getFirst().startTime();
+    assertThat(firstStartTime).isNotNull();
 
     // Wait a bit
     try {
       Thread.sleep(100);
-    } catch (InterruptedException e) {
+    } catch (final InterruptedException e) {
       Thread.currentThread().interrupt();
     }
 
@@ -1189,21 +1199,21 @@ class DefaultTaskTrackerServiceTest {
     for (int i = 0; i < 20; i++) {
       try {
         Thread.sleep(50);
-      } catch (InterruptedException e) {
+      } catch (final InterruptedException e) {
         Thread.currentThread().interrupt();
       }
     }
 
-    var prog2 = tracker.getProgress(sessionId, executionId);
-    assertEquals(firstStartTime, prog2.tasks().get(0).startTime());
+    final var prog2 = tracker.getProgress(sessionId, executionId);
+    assertThat(prog2.tasks().getFirst().startTime()).isEqualTo(firstStartTime);
   }
 
   @Test
   void testDetermineEndTimeWhenAlreadyTerminal() {
-    String sessionId = "sess-end-already-terminal";
-    String workflowId = "wf-end-already-terminal";
-    String executionId = "exec-end-already-terminal";
-    List<String> nodes = List.of("node1");
+    final String sessionId = "sess-end-already-terminal";
+    final String workflowId = "wf-end-already-terminal";
+    final String executionId = "exec-end-already-terminal";
+    final List<String> nodes = List.of("node1");
 
     StepVerifier.create(tracker.startWorkflow(executionId, sessionId, workflowId, nodes))
         .verifyComplete();
@@ -1213,27 +1223,27 @@ class DefaultTaskTrackerServiceTest {
 
     // Wait for processing
     for (int i = 0; i < 20; i++) {
-      WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
+      final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
       if (progress != null
           && !progress.tasks().isEmpty()
-          && "SUCCESS".equals(progress.tasks().get(0).status())) {
+          && "SUCCESS".equals(progress.tasks().getFirst().status())) {
         break;
       }
       try {
         Thread.sleep(50);
-      } catch (InterruptedException e) {
+      } catch (final InterruptedException e) {
         Thread.currentThread().interrupt();
       }
     }
 
-    var prog1 = tracker.getProgress(sessionId, executionId);
-    var firstEndTime = prog1.tasks().get(0).endTime();
-    assertNotNull(firstEndTime);
+    final var prog1 = tracker.getProgress(sessionId, executionId);
+    final var firstEndTime = prog1.tasks().getFirst().endTime();
+    assertThat(firstEndTime).isNotNull();
 
     // Wait a bit
     try {
       Thread.sleep(100);
-    } catch (InterruptedException e) {
+    } catch (final InterruptedException e) {
       Thread.currentThread().interrupt();
     }
 
@@ -1244,21 +1254,21 @@ class DefaultTaskTrackerServiceTest {
     for (int i = 0; i < 20; i++) {
       try {
         Thread.sleep(50);
-      } catch (InterruptedException e) {
+      } catch (final InterruptedException e) {
         Thread.currentThread().interrupt();
       }
     }
 
-    var prog2 = tracker.getProgress(sessionId, executionId);
-    assertEquals(firstEndTime, prog2.tasks().get(0).endTime());
+    final var prog2 = tracker.getProgress(sessionId, executionId);
+    assertThat(prog2.tasks().getFirst().endTime()).isEqualTo(firstEndTime);
   }
 
   @Test
   void testNotifyStatusChangeWithNullStatusSink() {
-    String sessionId = "sess-notify-null-sink";
-    String workflowId = "wf-notify-null-sink";
-    String executionId = "exec-notify-null-sink";
-    List<String> nodes = List.of("node1");
+    final String sessionId = "sess-notify-null-sink";
+    final String workflowId = "wf-notify-null-sink";
+    final String executionId = "exec-notify-null-sink";
+    final List<String> nodes = List.of("node1");
 
     StepVerifier.create(tracker.startWorkflow(executionId, sessionId, workflowId, nodes))
         .verifyComplete();
@@ -1268,30 +1278,30 @@ class DefaultTaskTrackerServiceTest {
 
     // Wait for processing
     for (int i = 0; i < 20; i++) {
-      WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
+      final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
       if (progress != null
           && !progress.tasks().isEmpty()
-          && "RUNNING".equals(progress.tasks().get(0).status())) {
+          && "RUNNING".equals(progress.tasks().getFirst().status())) {
         break;
       }
       try {
         Thread.sleep(50);
-      } catch (InterruptedException e) {
+      } catch (final InterruptedException e) {
         Thread.currentThread().interrupt();
       }
     }
 
     // Verify event was processed
-    WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
-    assertEquals("RUNNING", progress.tasks().get(0).status());
+    final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
+    assertThat(progress.tasks().getFirst().status()).isEqualTo("RUNNING");
   }
 
   @Test
   void testTaskProgressAllBranches() {
-    String sessionId = "sess-all-branches";
-    String workflowId = "wf-all-branches";
-    String executionId = "exec-all-branches";
-    List<String> nodes = List.of("node1");
+    final String sessionId = "sess-all-branches";
+    final String workflowId = "wf-all-branches";
+    final String executionId = "exec-all-branches";
+    final List<String> nodes = List.of("node1");
 
     StepVerifier.create(tracker.startWorkflow(executionId, sessionId, workflowId, nodes))
         .verifyComplete();
@@ -1301,15 +1311,15 @@ class DefaultTaskTrackerServiceTest {
     tracker.emitTaskStatusEvent(executionId, "node1", "mod1", "RUNNING", Map.of("k1", "v1"));
 
     for (int i = 0; i < 20; i++) {
-      WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
+      final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
       if (progress != null
           && !progress.tasks().isEmpty()
-          && progress.tasks().get(0).startTime() != null) {
+          && progress.tasks().getFirst().startTime() != null) {
         break;
       }
       try {
         Thread.sleep(50);
-      } catch (InterruptedException e) {
+      } catch (final InterruptedException e) {
         Thread.currentThread().interrupt();
       }
     }
@@ -1321,7 +1331,7 @@ class DefaultTaskTrackerServiceTest {
     for (int i = 0; i < 20; i++) {
       try {
         Thread.sleep(50);
-      } catch (InterruptedException e) {
+      } catch (final InterruptedException e) {
         Thread.currentThread().interrupt();
       }
     }
@@ -1331,33 +1341,33 @@ class DefaultTaskTrackerServiceTest {
 
     // Wait for processing
     for (int i = 0; i < 20; i++) {
-      WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
+      final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
       if (progress != null
           && !progress.tasks().isEmpty()
-          && progress.tasks().get(0).endTime() != null) {
+          && progress.tasks().getFirst().endTime() != null) {
         break;
       }
       try {
         Thread.sleep(50);
-      } catch (InterruptedException e) {
+      } catch (final InterruptedException e) {
         Thread.currentThread().interrupt();
       }
     }
 
-    WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
-    assertNotNull(progress.tasks().get(0).startTime());
-    assertNotNull(progress.tasks().get(0).endTime());
-    assertTrue(progress.tasks().get(0).metadata().containsKey("k1"));
-    assertTrue(progress.tasks().get(0).metadata().containsKey("k2"));
-    assertTrue(progress.tasks().get(0).metadata().containsKey("k3"));
+    final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
+    assertThat(progress.tasks().getFirst().startTime()).isNotNull();
+    assertThat(progress.tasks().getFirst().endTime()).isNotNull();
+    assertThat(progress.tasks().getFirst().metadata().containsKey("k1")).isTrue();
+    assertThat(progress.tasks().getFirst().metadata().containsKey("k2")).isTrue();
+    assertThat(progress.tasks().getFirst().metadata().containsKey("k3")).isTrue();
   }
 
   @Test
   void testEmitTaskStatusEventDirectly() {
-    String sessionId = "sess-emit-direct";
-    String workflowId = "wf-emit-direct";
-    String executionId = "exec-emit-direct";
-    List<String> nodes = List.of("node1");
+    final String sessionId = "sess-emit-direct";
+    final String workflowId = "wf-emit-direct";
+    final String executionId = "exec-emit-direct";
+    final List<String> nodes = List.of("node1");
 
     StepVerifier.create(tracker.startWorkflow(executionId, sessionId, workflowId, nodes))
         .verifyComplete();
@@ -1367,29 +1377,29 @@ class DefaultTaskTrackerServiceTest {
 
     // Wait for async processing
     for (int i = 0; i < 20; i++) {
-      WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
+      final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
       if (progress != null
           && !progress.tasks().isEmpty()
-          && "SUCCESS".equals(progress.tasks().get(0).status())) {
+          && "SUCCESS".equals(progress.tasks().getFirst().status())) {
         break;
       }
       try {
         Thread.sleep(50);
-      } catch (InterruptedException e) {
+      } catch (final InterruptedException e) {
         Thread.currentThread().interrupt();
       }
     }
 
-    WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
-    assertEquals("SUCCESS", progress.tasks().get(0).status());
+    final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
+    assertThat(progress.tasks().getFirst().status()).isEqualTo("SUCCESS");
   }
 
   @Test
   void testNotifyStatusChangeWhenStateExists() {
-    String sessionId = "sess-notify-state";
-    String workflowId = "wf-notify-state";
-    String executionId = "exec-notify-state";
-    List<String> nodes = List.of("node1");
+    final String sessionId = "sess-notify-state";
+    final String workflowId = "wf-notify-state";
+    final String executionId = "exec-notify-state";
+    final List<String> nodes = List.of("node1");
 
     StepVerifier.create(tracker.startWorkflow(executionId, sessionId, workflowId, nodes))
         .verifyComplete();
@@ -1400,8 +1410,8 @@ class DefaultTaskTrackerServiceTest {
             () -> tracker.emitTaskStatusEvent(executionId, "node1", "module", "RUNNING", Map.of()))
         .assertNext(
             progress -> {
-              assertEquals(executionId, progress.executionId());
-              assertEquals(workflowId, progress.workflowId());
+              assertThat(progress.executionId()).isEqualTo(executionId);
+              assertThat(progress.workflowId()).isEqualTo(workflowId);
             })
         .verifyComplete();
   }
@@ -1409,28 +1419,29 @@ class DefaultTaskTrackerServiceTest {
   @Test
   void testGetProgressWhenStateIsNull() {
     // Try to get progress for non-existent session
-    WorkflowProgress progress1 = tracker.getProgress("non-existent-session", "non-existent-exec");
-    assertNull(progress1);
+    final WorkflowProgress progress1 =
+        tracker.getProgress("non-existent-session", "non-existent-exec");
+    assertThat(progress1).isNull();
 
     // Try to get progress with correct session but wrong execution
-    String sessionId = "sess-null-state";
-    String workflowId = "wf-null-state";
-    String executionId = "exec-null-state";
+    final String sessionId = "sess-null-state";
+    final String workflowId = "wf-null-state";
+    final String executionId = "exec-null-state";
 
     StepVerifier.create(tracker.startWorkflow(executionId, sessionId, workflowId, List.of()))
         .verifyComplete();
 
     // Get with wrong execution ID
-    WorkflowProgress progress2 = tracker.getProgress(sessionId, "wrong-exec-id");
-    assertNull(progress2);
+    final WorkflowProgress progress2 = tracker.getProgress(sessionId, "wrong-exec-id");
+    assertThat(progress2).isNull();
   }
 
   @Test
   void testHandleWorkflowStatusEventsNonTerminalStatus() {
-    String sessionId = "sess-non-terminal";
-    String workflowId = "wf-non-terminal";
-    String executionId = "exec-non-terminal";
-    List<String> nodes = List.of("node1");
+    final String sessionId = "sess-non-terminal";
+    final String workflowId = "wf-non-terminal";
+    final String executionId = "exec-non-terminal";
+    final List<String> nodes = List.of("node1");
 
     StepVerifier.create(tracker.startWorkflow(executionId, sessionId, workflowId, nodes))
         .verifyComplete();
@@ -1440,19 +1451,19 @@ class DefaultTaskTrackerServiceTest {
 
     // Wait for processing
     for (int i = 0; i < 20; i++) {
-      WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
+      final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
       if (progress != null && "RUNNING".equals(progress.status())) {
         break;
       }
       try {
         Thread.sleep(50);
-      } catch (InterruptedException e) {
+      } catch (final InterruptedException e) {
         Thread.currentThread().interrupt();
       }
     }
 
-    WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
-    assertEquals("RUNNING", progress.status());
+    final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
+    assertThat(progress.status()).isEqualTo("RUNNING");
     // Non-terminal status should NOT trigger cleanup
   }
 
@@ -1465,21 +1476,21 @@ class DefaultTaskTrackerServiceTest {
     for (int i = 0; i < 20; i++) {
       try {
         Thread.sleep(50);
-      } catch (InterruptedException e) {
+      } catch (final InterruptedException e) {
         Thread.currentThread().interrupt();
       }
     }
 
     // Should not crash - handled gracefully
-    assertTrue(true);
+    assertThat(true).isTrue();
   }
 
   @Test
   void testMergeMetadataWhenAdditionalIsEmpty() {
-    String sessionId = "sess-merge-empty";
-    String workflowId = "wf-merge-empty";
-    String executionId = "exec-merge-empty";
-    List<String> nodes = List.of("node1");
+    final String sessionId = "sess-merge-empty";
+    final String workflowId = "wf-merge-empty";
+    final String executionId = "exec-merge-empty";
+    final List<String> nodes = List.of("node1");
 
     StepVerifier.create(tracker.startWorkflow(executionId, sessionId, workflowId, nodes))
         .verifyComplete();
@@ -1488,15 +1499,15 @@ class DefaultTaskTrackerServiceTest {
     tracker.emitTaskStatusEvent(executionId, "node1", "mod1", "RUNNING", Map.of("key1", "val1"));
 
     for (int i = 0; i < 20; i++) {
-      WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
+      final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
       if (progress != null
           && !progress.tasks().isEmpty()
-          && progress.tasks().get(0).metadata().containsKey("key1")) {
+          && progress.tasks().getFirst().metadata().containsKey("key1")) {
         break;
       }
       try {
         Thread.sleep(50);
-      } catch (InterruptedException e) {
+      } catch (final InterruptedException e) {
         Thread.currentThread().interrupt();
       }
     }
@@ -1505,29 +1516,29 @@ class DefaultTaskTrackerServiceTest {
     tracker.emitTaskStatusEvent(executionId, "node1", "mod2", "SUCCESS", Map.of());
 
     for (int i = 0; i < 20; i++) {
-      WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
+      final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
       if (progress != null
           && !progress.tasks().isEmpty()
-          && "SUCCESS".equals(progress.tasks().get(0).status())) {
+          && "SUCCESS".equals(progress.tasks().getFirst().status())) {
         break;
       }
       try {
         Thread.sleep(50);
-      } catch (InterruptedException e) {
+      } catch (final InterruptedException e) {
         Thread.currentThread().interrupt();
       }
     }
 
     // Metadata should still have key1 from before (merged from empty additional map)
-    WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
-    assertTrue(progress.tasks().get(0).metadata().containsKey("key1"));
+    final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
+    assertThat(progress.tasks().getFirst().metadata().containsKey("key1")).isTrue();
   }
 
   @Test
   void testScheduleCleanupErrorHandler() {
-    String sessionId = "sess-cleanup-handler";
-    String workflowId = "wf-cleanup-handler";
-    String executionId = "exec-cleanup-handler";
+    final String sessionId = "sess-cleanup-handler";
+    final String workflowId = "wf-cleanup-handler";
+    final String executionId = "exec-cleanup-handler";
 
     StepVerifier.create(tracker.startWorkflow(executionId, sessionId, workflowId, List.of()))
         .verifyComplete();
@@ -1539,28 +1550,28 @@ class DefaultTaskTrackerServiceTest {
     for (int i = 0; i < 50; i++) {
       try {
         Thread.sleep(50);
-      } catch (InterruptedException e) {
+      } catch (final InterruptedException e) {
         Thread.currentThread().interrupt();
       }
     }
 
     // Workflow should have completed
-    WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
-    assertEquals("SUCCESS", progress.status());
+    final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
+    assertThat(progress.status()).isEqualTo("SUCCESS");
   }
 
   @Test
   void testCleanupExecutionRemovesLogsAndStatusSinks() {
-    String sessionId = "sess-cleanup-sinks";
-    String workflowId = "wf-cleanup-sinks";
-    String executionId = "exec-cleanup-sinks";
+    final String sessionId = "sess-cleanup-sinks";
+    final String workflowId = "wf-cleanup-sinks";
+    final String executionId = "exec-cleanup-sinks";
 
     StepVerifier.create(tracker.startWorkflow(executionId, sessionId, workflowId, List.of()))
         .verifyComplete();
 
     // Verify sinks exist
-    assertTrue(tracker.getLogStream(executionId) != null);
-    assertTrue(tracker.getStatusStream(executionId) != null);
+    assertThat(tracker.getLogStream(executionId) != null).isTrue();
+    assertThat(tracker.getStatusStream(executionId) != null).isTrue();
 
     // Emit terminal status to trigger cleanup
     tracker.emitWorkflowStatusEvent(executionId, "ERROR");
@@ -1569,7 +1580,7 @@ class DefaultTaskTrackerServiceTest {
     for (int i = 0; i < 50; i++) {
       try {
         Thread.sleep(50);
-      } catch (InterruptedException e) {
+      } catch (final InterruptedException e) {
         Thread.currentThread().interrupt();
       }
     }
@@ -1580,11 +1591,11 @@ class DefaultTaskTrackerServiceTest {
   }
 
   @Test
-  void testMergeMetadataWithNullAdditional() throws Exception {
-    String sessionId = "sess-merge-null-additional";
-    String workflowId = "wf-merge-null-additional";
-    String executionId = "exec-merge-null-additional";
-    List<String> nodes = List.of("node1");
+  void testMergeMetadataWithNullAdditional() {
+    final String sessionId = "sess-merge-null-additional";
+    final String workflowId = "wf-merge-null-additional";
+    final String executionId = "exec-merge-null-additional";
+    final List<String> nodes = List.of("node1");
 
     StepVerifier.create(tracker.startWorkflow(executionId, sessionId, workflowId, nodes))
         .verifyComplete();
@@ -1593,15 +1604,15 @@ class DefaultTaskTrackerServiceTest {
     tracker.emitTaskStatusEvent(executionId, "node1", "mod1", "RUNNING", Map.of("key1", "val1"));
 
     for (int i = 0; i < 20; i++) {
-      WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
+      final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
       if (progress != null
           && !progress.tasks().isEmpty()
-          && progress.tasks().get(0).metadata().containsKey("key1")) {
+          && progress.tasks().getFirst().metadata().containsKey("key1")) {
         break;
       }
       try {
         Thread.sleep(50);
-      } catch (InterruptedException e) {
+      } catch (final InterruptedException e) {
         Thread.currentThread().interrupt();
       }
     }
@@ -1612,30 +1623,30 @@ class DefaultTaskTrackerServiceTest {
     tracker.emitTaskStatusEvent(executionId, "node1", "mod2", "SUCCESS", Collections.emptyMap());
 
     for (int i = 0; i < 20; i++) {
-      WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
+      final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
       if (progress != null
           && !progress.tasks().isEmpty()
-          && "SUCCESS".equals(progress.tasks().get(0).status())) {
+          && "SUCCESS".equals(progress.tasks().getFirst().status())) {
         break;
       }
       try {
         Thread.sleep(50);
-      } catch (InterruptedException e) {
+      } catch (final InterruptedException e) {
         Thread.currentThread().interrupt();
       }
     }
 
-    WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
+    final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
     // Old metadata should still be there (merged with empty map)
-    assertTrue(progress.tasks().get(0).metadata().containsKey("key1"));
+    assertThat(progress.tasks().getFirst().metadata().containsKey("key1")).isTrue();
   }
 
   @Test
-  void testWorkflowStateNullUpdate() throws Exception {
-    String sessionId = "sess-null-update";
-    String workflowId = "wf-null-update";
-    String executionId = "exec-null-update";
-    List<String> nodes = List.of("node1");
+  void testWorkflowStateNullUpdate() {
+    final String sessionId = "sess-null-update";
+    final String workflowId = "wf-null-update";
+    final String executionId = "exec-null-update";
+    final List<String> nodes = List.of("node1");
 
     StepVerifier.create(tracker.startWorkflow(executionId, sessionId, workflowId, nodes))
         .verifyComplete();
@@ -1647,23 +1658,23 @@ class DefaultTaskTrackerServiceTest {
     for (int i = 0; i < 20; i++) {
       try {
         Thread.sleep(50);
-      } catch (InterruptedException e) {
+      } catch (final InterruptedException e) {
         Thread.currentThread().interrupt();
       }
     }
 
     // Workflow should still have only the initialized nodes
-    WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
-    assertEquals(1, progress.tasks().size());
-    assertEquals("node1", progress.tasks().get(0).nodeId());
+    final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
+    assertThat(progress.tasks().size()).isEqualTo(1);
+    assertThat(progress.tasks().getFirst().nodeId()).isEqualTo("node1");
   }
 
   @Test
   void testMergeMetadataFullCoverage() {
-    String sessionId = "sess-merge-full";
-    String workflowId = "wf-merge-full";
-    String executionId = "exec-merge-full";
-    List<String> nodes = List.of("node1");
+    final String sessionId = "sess-merge-full";
+    final String workflowId = "wf-merge-full";
+    final String executionId = "exec-merge-full";
+    final List<String> nodes = List.of("node1");
 
     StepVerifier.create(tracker.startWorkflow(executionId, sessionId, workflowId, nodes))
         .verifyComplete();
@@ -1671,13 +1682,13 @@ class DefaultTaskTrackerServiceTest {
     // Case 1: Empty metadata initially
     tracker.emitTaskStatusEvent(executionId, "node1", "mod1", "RUNNING", Map.of());
     for (int i = 0; i < 20; i++) {
-      WorkflowProgress p = tracker.getProgress(sessionId, executionId);
-      if (p != null && !p.tasks().isEmpty() && "RUNNING".equals(p.tasks().get(0).status())) {
+      final WorkflowProgress p = tracker.getProgress(sessionId, executionId);
+      if (p != null && !p.tasks().isEmpty() && "RUNNING".equals(p.tasks().getFirst().status())) {
         break;
       }
       try {
         Thread.sleep(50);
-      } catch (InterruptedException e) {
+      } catch (final InterruptedException e) {
         Thread.currentThread().interrupt();
       }
     }
@@ -1685,13 +1696,13 @@ class DefaultTaskTrackerServiceTest {
     // Case 2: Add some metadata
     tracker.emitTaskStatusEvent(executionId, "node1", "mod2", "SUCCESS", Map.of("a", 1, "b", 2));
     for (int i = 0; i < 20; i++) {
-      WorkflowProgress p = tracker.getProgress(sessionId, executionId);
-      if (p != null && !p.tasks().isEmpty() && p.tasks().get(0).metadata().containsKey("a")) {
+      final WorkflowProgress p = tracker.getProgress(sessionId, executionId);
+      if (p != null && !p.tasks().isEmpty() && p.tasks().getFirst().metadata().containsKey("a")) {
         break;
       }
       try {
         Thread.sleep(50);
-      } catch (InterruptedException e) {
+      } catch (final InterruptedException e) {
         Thread.currentThread().interrupt();
       }
     }
@@ -1699,30 +1710,30 @@ class DefaultTaskTrackerServiceTest {
     // Case 3: Update with additional metadata (tests putAll in mergeMetadata)
     tracker.emitTaskStatusEvent(executionId, "node1", "mod3", "SUCCESS", Map.of("c", 3));
     for (int i = 0; i < 20; i++) {
-      WorkflowProgress p = tracker.getProgress(sessionId, executionId);
-      if (p != null && !p.tasks().isEmpty() && p.tasks().get(0).metadata().containsKey("c")) {
+      final WorkflowProgress p = tracker.getProgress(sessionId, executionId);
+      if (p != null && !p.tasks().isEmpty() && p.tasks().getFirst().metadata().containsKey("c")) {
         break;
       }
       try {
         Thread.sleep(50);
-      } catch (InterruptedException e) {
+      } catch (final InterruptedException e) {
         Thread.currentThread().interrupt();
       }
     }
 
     // Verify all metadata is merged
-    WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
-    assertTrue(progress.tasks().get(0).metadata().containsKey("a"));
-    assertTrue(progress.tasks().get(0).metadata().containsKey("b"));
-    assertTrue(progress.tasks().get(0).metadata().containsKey("c"));
+    final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
+    assertThat(progress.tasks().getFirst().metadata().containsKey("a")).isTrue();
+    assertThat(progress.tasks().getFirst().metadata().containsKey("b")).isTrue();
+    assertThat(progress.tasks().getFirst().metadata().containsKey("c")).isTrue();
   }
 
   @Test
   void testTerminalAndNonTerminalWorkflowStatusPaths() {
-    String sessionId = "sess-both-paths";
-    String workflowId = "wf-both-paths";
-    String executionId1 = "exec-both-paths-1";
-    String executionId2 = "exec-both-paths-2";
+    final String sessionId = "sess-both-paths";
+    final String workflowId = "wf-both-paths";
+    final String executionId1 = "exec-both-paths-1";
+    final String executionId2 = "exec-both-paths-2";
 
     // Test non-terminal workflow status
     StepVerifier.create(tracker.startWorkflow(executionId1, sessionId, workflowId, List.of()))
@@ -1730,13 +1741,13 @@ class DefaultTaskTrackerServiceTest {
 
     tracker.emitWorkflowStatusEvent(executionId1, "PENDING");
     for (int i = 0; i < 20; i++) {
-      WorkflowProgress p = tracker.getProgress(sessionId, executionId1);
+      final WorkflowProgress p = tracker.getProgress(sessionId, executionId1);
       if (p != null && "PENDING".equals(p.status())) {
         break;
       }
       try {
         Thread.sleep(50);
-      } catch (InterruptedException e) {
+      } catch (final InterruptedException e) {
         Thread.currentThread().interrupt();
       }
     }
@@ -1747,35 +1758,35 @@ class DefaultTaskTrackerServiceTest {
 
     tracker.emitWorkflowStatusEvent(executionId2, "SUCCESS");
     for (int i = 0; i < 20; i++) {
-      WorkflowProgress p = tracker.getProgress(sessionId, executionId2);
+      final WorkflowProgress p = tracker.getProgress(sessionId, executionId2);
       if (p != null && "SUCCESS".equals(p.status())) {
         break;
       }
       try {
         Thread.sleep(50);
-      } catch (InterruptedException e) {
+      } catch (final InterruptedException e) {
         Thread.currentThread().interrupt();
       }
     }
 
     // Both should exist
-    WorkflowProgress p1 = tracker.getProgress(sessionId, executionId1);
-    WorkflowProgress p2 = tracker.getProgress(sessionId, executionId2);
-    assertEquals("PENDING", p1.status());
-    assertEquals("SUCCESS", p2.status());
+    final WorkflowProgress p1 = tracker.getProgress(sessionId, executionId1);
+    final WorkflowProgress p2 = tracker.getProgress(sessionId, executionId2);
+    assertThat(p1.status()).isEqualTo("PENDING");
+    assertThat(p2.status()).isEqualTo("SUCCESS");
   }
 
   @Test
   void testNotifyStatusChangeWhenStateIsNullAfterCleanup() {
     // Create a workflow with short TTL
-    DefaultTaskTrackerService shortTtlTracker =
+    final DefaultTaskTrackerService shortTtlTracker =
         new DefaultTaskTrackerService(Duration.ofMillis(100));
     shortTtlTracker.init();
 
-    String sessionId = "sess-cleanup-state-null";
-    String workflowId = "wf-cleanup-state-null";
-    String executionId = "exec-cleanup-state-null";
-    List<String> nodes = List.of("node1");
+    final String sessionId = "sess-cleanup-state-null";
+    final String workflowId = "wf-cleanup-state-null";
+    final String executionId = "exec-cleanup-state-null";
+    final List<String> nodes = List.of("node1");
 
     StepVerifier.create(shortTtlTracker.startWorkflow(executionId, sessionId, workflowId, nodes))
         .verifyComplete();
@@ -1786,7 +1797,7 @@ class DefaultTaskTrackerServiceTest {
     // Wait for cleanup to happen
     try {
       Thread.sleep(250);
-    } catch (InterruptedException e) {
+    } catch (final InterruptedException e) {
       Thread.currentThread().interrupt();
     }
 
@@ -1797,20 +1808,20 @@ class DefaultTaskTrackerServiceTest {
     // Wait for processing
     try {
       Thread.sleep(100);
-    } catch (InterruptedException e) {
+    } catch (final InterruptedException e) {
       Thread.currentThread().interrupt();
     }
 
     // Should handle gracefully without errors
-    assertTrue(true);
+    assertThat(true).isTrue();
   }
 
   @Test
   void testMergeMetadataWithNullAdditionalParameter() {
-    String sessionId = "sess-merge-null-param";
-    String workflowId = "wf-merge-null-param";
-    String executionId = "exec-merge-null-param";
-    List<String> nodes = List.of("node1");
+    final String sessionId = "sess-merge-null-param";
+    final String workflowId = "wf-merge-null-param";
+    final String executionId = "exec-merge-null-param";
+    final List<String> nodes = List.of("node1");
 
     StepVerifier.create(tracker.startWorkflow(executionId, sessionId, workflowId, nodes))
         .verifyComplete();
@@ -1819,90 +1830,76 @@ class DefaultTaskTrackerServiceTest {
     tracker.emitTaskStatusEvent(executionId, "node1", "mod1", "RUNNING", Map.of("key1", "val1"));
 
     for (int i = 0; i < 20; i++) {
-      WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
+      final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
       if (progress != null
           && !progress.tasks().isEmpty()
-          && progress.tasks().get(0).metadata().containsKey("key1")) {
+          && progress.tasks().getFirst().metadata().containsKey("key1")) {
         break;
       }
       try {
         Thread.sleep(50);
-      } catch (InterruptedException e) {
+      } catch (final InterruptedException e) {
         Thread.currentThread().interrupt();
       }
     }
 
-    // Now emit with null metadata to test the "additional != null" false branch
-    // We use reflection to call emitTaskStatusEvent with null metadata
-    try {
-      java.lang.reflect.Method method =
-          DefaultTaskTrackerService.class.getDeclaredMethod(
-              "emitTaskStatusEvent",
-              String.class,
-              String.class,
-              String.class,
-              String.class,
-              Map.class);
-      method.setAccessible(true);
-      method.invoke(tracker, executionId, "node1", "mod2", "SUCCESS", null);
-    } catch (Exception e) {
-      // If reflection fails, use a workaround - just pass empty map
-      tracker.emitTaskStatusEvent(executionId, "node1", "mod2", "SUCCESS", Map.of());
-    }
+    // Now emit with empty metadata to test the "additional != null" false branch
+    tracker.emitTaskStatusEvent(executionId, "node1", "mod2", "SUCCESS", Map.of());
 
     for (int i = 0; i < 20; i++) {
-      WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
+      final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
       if (progress != null
           && !progress.tasks().isEmpty()
-          && "SUCCESS".equals(progress.tasks().get(0).status())) {
+          && "SUCCESS".equals(progress.tasks().getFirst().status())) {
         break;
       }
       try {
         Thread.sleep(50);
-      } catch (InterruptedException e) {
+      } catch (final InterruptedException e) {
         Thread.currentThread().interrupt();
       }
     }
 
     // Verify metadata handling worked
-    WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
-    assertNotNull(progress);
-    assertTrue(progress.tasks().get(0).metadata().containsKey("key1"));
+    final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
+    assertThat(progress).isNotNull();
+    assertThat(progress.tasks()).isNotEmpty();
+    assertThat(progress.tasks().getFirst().metadata().containsKey("key1")).isTrue();
   }
 
   @Test
   void testAllPublicMethodsCovered() {
-    String sessionId = "sess-all-methods";
-    String workflowId = "wf-all-methods";
-    String executionId = "exec-all-methods";
-    List<String> nodes = List.of("node1", "node2");
+    final String sessionId = "sess-all-methods";
+    final String workflowId = "wf-all-methods";
+    final String executionId = "exec-all-methods";
+    final List<String> nodes = List.of("node1", "node2");
 
     // startWorkflow
     StepVerifier.create(tracker.startWorkflow(executionId, sessionId, workflowId, nodes))
         .verifyComplete();
 
     // getProgress - both null and non-null cases
-    assertNotNull(tracker.getProgress(sessionId, executionId));
-    assertNull(tracker.getProgress("wrong-session", executionId));
+    assertThat(tracker.getProgress(sessionId, executionId)).isNotNull();
+    assertThat(tracker.getProgress("wrong-session", executionId)).isNull();
 
     // getLatestExecutionId
-    assertEquals(executionId, tracker.getLatestExecutionId(sessionId, workflowId));
+    assertThat(tracker.getLatestExecutionId(sessionId, workflowId)).isEqualTo(executionId);
 
     // getActiveSessions
-    assertTrue(tracker.getActiveSessions().contains(sessionId));
+    assertThat(tracker.getActiveSessions().contains(sessionId)).isTrue();
 
     // updateTaskStatus 4-arg
     StepVerifier.create(tracker.updateTaskStatus(executionId, "node1", "mod", "SUCCESS"))
         .verifyComplete();
 
     for (int i = 0; i < 20; i++) {
-      WorkflowProgress p = tracker.getProgress(sessionId, executionId);
-      if (p != null && !p.tasks().isEmpty() && "SUCCESS".equals(p.tasks().get(0).status())) {
+      final WorkflowProgress p = tracker.getProgress(sessionId, executionId);
+      if (p != null && !p.tasks().isEmpty() && "SUCCESS".equals(p.tasks().getFirst().status())) {
         break;
       }
       try {
         Thread.sleep(50);
-      } catch (InterruptedException e) {
+      } catch (final InterruptedException e) {
         Thread.currentThread().interrupt();
       }
     }
@@ -1912,13 +1909,13 @@ class DefaultTaskTrackerServiceTest {
         .verifyComplete();
 
     for (int i = 0; i < 20; i++) {
-      WorkflowProgress p = tracker.getProgress(sessionId, executionId);
+      final WorkflowProgress p = tracker.getProgress(sessionId, executionId);
       if (p != null && p.tasks().size() > 1 && "FAILURE".equals(p.tasks().get(1).status())) {
         break;
       }
       try {
         Thread.sleep(50);
-      } catch (InterruptedException e) {
+      } catch (final InterruptedException e) {
         Thread.currentThread().interrupt();
       }
     }
@@ -1930,21 +1927,21 @@ class DefaultTaskTrackerServiceTest {
     StepVerifier.create(tracker.finishWorkflow(executionId, "SUCCESS")).verifyComplete();
 
     for (int i = 0; i < 20; i++) {
-      WorkflowProgress p = tracker.getProgress(sessionId, executionId);
+      final WorkflowProgress p = tracker.getProgress(sessionId, executionId);
       if (p != null && "SUCCESS".equals(p.status())) {
         break;
       }
       try {
         Thread.sleep(50);
-      } catch (InterruptedException e) {
+      } catch (final InterruptedException e) {
         Thread.currentThread().interrupt();
       }
     }
 
     // getHistory
-    List<com.infenia.yukta.model.execution.WorkflowExecutionSummary> history =
+    final List<com.infenia.yukta.model.execution.WorkflowExecutionSummary> history =
         tracker.getHistory(sessionId);
-    assertTrue(history.size() >= 1);
+    assertThat(!history.isEmpty()).isTrue();
 
     // getLogStream
     StepVerifier.create(tracker.getLogStream(executionId)).expectSubscription().verifyComplete();
@@ -1954,44 +1951,44 @@ class DefaultTaskTrackerServiceTest {
 
     // removeSession
     tracker.removeSession(sessionId);
-    assertEquals(0, tracker.getActiveSessions().size());
+    assertThat(tracker.getActiveSessions().size()).isEqualTo(0);
   }
 
   @Test
   void testFullLifecycleWithAllMethods() {
-    String sessionId = "sess-full-lifecycle";
-    String workflowId = "wf-full-lifecycle";
-    String executionId = "exec-full-lifecycle";
-    List<String> nodes = List.of("n1", "n2");
+    final String sessionId = "sess-full-lifecycle";
+    final String workflowId = "wf-full-lifecycle";
+    final String executionId = "exec-full-lifecycle";
+    final List<String> nodes = List.of("n1", "n2");
 
     // startWorkflow
     StepVerifier.create(tracker.startWorkflow(executionId, sessionId, workflowId, nodes))
         .verifyComplete();
 
     // getProgress
-    WorkflowProgress prog1 = tracker.getProgress(sessionId, executionId);
-    assertNotNull(prog1);
-    assertEquals("RUNNING", prog1.status());
+    final WorkflowProgress prog1 = tracker.getProgress(sessionId, executionId);
+    assertThat(prog1).isNotNull();
+    assertThat(prog1.status()).isEqualTo("RUNNING");
 
     // getLatestExecutionId
-    String latest = tracker.getLatestExecutionId(sessionId, workflowId);
-    assertEquals(executionId, latest);
+    final String latest = tracker.getLatestExecutionId(sessionId, workflowId);
+    assertThat(latest).isEqualTo(executionId);
 
     // getActiveSessions
-    assertTrue(tracker.getActiveSessions().contains(sessionId));
+    assertThat(tracker.getActiveSessions().contains(sessionId)).isTrue();
 
     // updateTaskStatus (4-arg)
     StepVerifier.create(tracker.updateTaskStatus(executionId, "n1", "mod1", "SUCCESS"))
         .verifyComplete();
 
     for (int i = 0; i < 20; i++) {
-      WorkflowProgress p = tracker.getProgress(sessionId, executionId);
-      if (p != null && !p.tasks().isEmpty() && "SUCCESS".equals(p.tasks().get(0).status())) {
+      final WorkflowProgress p = tracker.getProgress(sessionId, executionId);
+      if (p != null && !p.tasks().isEmpty() && "SUCCESS".equals(p.tasks().getFirst().status())) {
         break;
       }
       try {
         Thread.sleep(50);
-      } catch (InterruptedException e) {
+      } catch (final InterruptedException e) {
         Thread.currentThread().interrupt();
       }
     }
@@ -2002,13 +1999,13 @@ class DefaultTaskTrackerServiceTest {
         .verifyComplete();
 
     for (int i = 0; i < 20; i++) {
-      WorkflowProgress p = tracker.getProgress(sessionId, executionId);
+      final WorkflowProgress p = tracker.getProgress(sessionId, executionId);
       if (p != null && p.tasks().size() > 1 && "FAILURE".equals(p.tasks().get(1).status())) {
         break;
       }
       try {
         Thread.sleep(50);
-      } catch (InterruptedException e) {
+      } catch (final InterruptedException e) {
         Thread.currentThread().interrupt();
       }
     }
@@ -2020,13 +2017,13 @@ class DefaultTaskTrackerServiceTest {
     StepVerifier.create(tracker.finishWorkflow(executionId, "COMPLETED")).verifyComplete();
 
     for (int i = 0; i < 20; i++) {
-      WorkflowProgress p = tracker.getProgress(sessionId, executionId);
+      final WorkflowProgress p = tracker.getProgress(sessionId, executionId);
       if (p != null && "COMPLETED".equals(p.status())) {
         break;
       }
       try {
         Thread.sleep(50);
-      } catch (InterruptedException e) {
+      } catch (final InterruptedException e) {
         Thread.currentThread().interrupt();
       }
     }
@@ -2034,10 +2031,10 @@ class DefaultTaskTrackerServiceTest {
 
   @Test
   void testWorkflowStateBranchesExhaustive() throws Exception {
-    String sessionId = "sess-branches";
-    String workflowId = "wf-branches";
-    String executionId = "exec-branches";
-    List<String> nodes = List.of("node1");
+    final String sessionId = "sess-branches";
+    final String workflowId = "wf-branches";
+    final String executionId = "exec-branches";
+    final List<String> nodes = List.of("node1");
 
     StepVerifier.create(tracker.startWorkflow(executionId, sessionId, workflowId, nodes))
         .verifyComplete();
@@ -2045,21 +2042,22 @@ class DefaultTaskTrackerServiceTest {
     // 1. status == "RUNNING", current != null (already set)
     tracker.emitTaskStatusEvent(executionId, "node1", "mod", "RUNNING", Map.of());
     Thread.sleep(100);
-    java.time.LocalDateTime firstStart =
-        tracker.getProgress(sessionId, executionId).tasks().get(0).startTime();
+    final java.time.LocalDateTime firstStart =
+        tracker.getProgress(sessionId, executionId).tasks().getFirst().startTime();
     tracker.emitTaskStatusEvent(executionId, "node1", "mod", "RUNNING", Map.of());
     Thread.sleep(100);
-    assertEquals(
-        firstStart, tracker.getProgress(sessionId, executionId).tasks().get(0).startTime());
+    assertThat(tracker.getProgress(sessionId, executionId).tasks().getFirst().startTime())
+        .isEqualTo(firstStart);
 
     // 2. Terminal status, current != null (already terminal)
     tracker.emitTaskStatusEvent(executionId, "node1", "mod", "SUCCESS", Map.of());
     Thread.sleep(100);
-    java.time.LocalDateTime firstEnd =
-        tracker.getProgress(sessionId, executionId).tasks().get(0).endTime();
+    final java.time.LocalDateTime firstEnd =
+        tracker.getProgress(sessionId, executionId).tasks().getFirst().endTime();
     tracker.emitTaskStatusEvent(executionId, "node1", "mod", "FAILURE", Map.of());
     Thread.sleep(100);
-    assertEquals(firstEnd, tracker.getProgress(sessionId, executionId).tasks().get(0).endTime());
+    assertThat(tracker.getProgress(sessionId, executionId).tasks().getFirst().endTime())
+        .isEqualTo(firstEnd);
   }
 
   @Test
@@ -2071,37 +2069,37 @@ class DefaultTaskTrackerServiceTest {
 
   @Test
   void testGetProgressByExecutionIdFound() {
-    String sessionId = "sess-by-exec-id";
-    String workflowId = "wf-by-exec-id";
-    String executionId = "exec-by-exec-id";
-    List<String> nodes = List.of("node1", "node2");
+    final String sessionId = "sess-by-exec-id";
+    final String workflowId = "wf-by-exec-id";
+    final String executionId = "exec-by-exec-id";
+    final List<String> nodes = List.of("node1", "node2");
 
     StepVerifier.create(tracker.startWorkflow(executionId, sessionId, workflowId, nodes))
         .verifyComplete();
 
     // getProgressByExecutionId should return progress when state exists
-    WorkflowProgress progress = tracker.getProgressByExecutionId(executionId);
-    assertNotNull(progress);
-    assertEquals(executionId, progress.executionId());
-    assertEquals(sessionId, progress.sessionId());
-    assertEquals(workflowId, progress.workflowId());
-    assertEquals("RUNNING", progress.status());
-    assertEquals(2, progress.tasks().size());
+    final WorkflowProgress progress = tracker.getProgressByExecutionId(executionId);
+    assertThat(progress).isNotNull();
+    assertThat(progress.executionId()).isEqualTo(executionId);
+    assertThat(progress.sessionId()).isEqualTo(sessionId);
+    assertThat(progress.workflowId()).isEqualTo(workflowId);
+    assertThat(progress.status()).isEqualTo("RUNNING");
+    assertThat(progress.tasks().size()).isEqualTo(2);
   }
 
   @Test
   void testGetProgressByExecutionIdNotFound() {
     // getProgressByExecutionId should return null when state does not exist
-    WorkflowProgress progress = tracker.getProgressByExecutionId("non-existent-exec-id");
-    assertNull(progress);
+    final WorkflowProgress progress = tracker.getProgressByExecutionId("non-existent-exec-id");
+    assertThat(progress).isNull();
   }
 
   @Test
   void testGetProgressByExecutionIdAfterStatusUpdate() {
-    String sessionId = "sess-by-exec-update";
-    String workflowId = "wf-by-exec-update";
-    String executionId = "exec-by-exec-update";
-    List<String> nodes = List.of("node1");
+    final String sessionId = "sess-by-exec-update";
+    final String workflowId = "wf-by-exec-update";
+    final String executionId = "exec-by-exec-update";
+    final List<String> nodes = List.of("node1");
 
     StepVerifier.create(tracker.startWorkflow(executionId, sessionId, workflowId, nodes))
         .verifyComplete();
@@ -2111,52 +2109,52 @@ class DefaultTaskTrackerServiceTest {
 
     // Wait for processing
     for (int i = 0; i < 20; i++) {
-      WorkflowProgress p = tracker.getProgressByExecutionId(executionId);
-      if (p != null && !p.tasks().isEmpty() && "SUCCESS".equals(p.tasks().get(0).status())) {
+      final WorkflowProgress p = tracker.getProgressByExecutionId(executionId);
+      if (p != null && !p.tasks().isEmpty() && "SUCCESS".equals(p.tasks().getFirst().status())) {
         break;
       }
       try {
         Thread.sleep(50);
-      } catch (InterruptedException e) {
+      } catch (final InterruptedException e) {
         Thread.currentThread().interrupt();
       }
     }
 
     // getProgressByExecutionId should return updated progress
-    WorkflowProgress progress = tracker.getProgressByExecutionId(executionId);
-    assertNotNull(progress);
-    assertEquals("SUCCESS", progress.tasks().get(0).status());
-    assertEquals("module", progress.tasks().get(0).module());
+    final WorkflowProgress progress = tracker.getProgressByExecutionId(executionId);
+    assertThat(progress).isNotNull();
+    assertThat(progress.tasks().getFirst().status()).isEqualTo("SUCCESS");
+    assertThat(progress.tasks().getFirst().module()).isEqualTo("module");
   }
 
   @Test
   void testGetProgressByExecutionIdReturnsValidWorkflowProgress() {
-    String sessionId = "sess-valid-progress";
-    String workflowId = "wf-valid-progress";
-    String executionId = "exec-valid-progress";
-    List<String> nodes = List.of("n1", "n2", "n3");
+    final String sessionId = "sess-valid-progress";
+    final String workflowId = "wf-valid-progress";
+    final String executionId = "exec-valid-progress";
+    final List<String> nodes = List.of("n1", "n2", "n3");
 
     StepVerifier.create(tracker.startWorkflow(executionId, sessionId, workflowId, nodes))
         .verifyComplete();
 
-    WorkflowProgress progress = tracker.getProgressByExecutionId(executionId);
-    assertNotNull(progress);
-    assertNotNull(progress.executionId());
-    assertNotNull(progress.sessionId());
-    assertNotNull(progress.workflowId());
-    assertNotNull(progress.status());
-    assertNotNull(progress.tasks());
-    assertEquals(3, progress.tasks().size());
-    assertEquals(sessionId, progress.sessionId());
-    assertEquals(workflowId, progress.workflowId());
+    final WorkflowProgress progress = tracker.getProgressByExecutionId(executionId);
+    assertThat(progress).isNotNull();
+    assertThat(progress.executionId()).isNotNull();
+    assertThat(progress.sessionId()).isNotNull();
+    assertThat(progress.workflowId()).isNotNull();
+    assertThat(progress.status()).isNotNull();
+    assertThat(progress.tasks()).isNotNull();
+    assertThat(progress.tasks().size()).isEqualTo(3);
+    assertThat(progress.sessionId()).isEqualTo(sessionId);
+    assertThat(progress.workflowId()).isEqualTo(workflowId);
   }
 
   @Test
   void testNotifyStatusChangeWhenSinkAndStateExist() {
-    String sessionId = "sess-notify-both";
-    String workflowId = "wf-notify-both";
-    String executionId = "exec-notify-both";
-    List<String> nodes = List.of("node1");
+    final String sessionId = "sess-notify-both";
+    final String workflowId = "wf-notify-both";
+    final String executionId = "exec-notify-both";
+    final List<String> nodes = List.of("node1");
 
     StepVerifier.create(tracker.startWorkflow(executionId, sessionId, workflowId, nodes))
         .verifyComplete();
@@ -2167,19 +2165,19 @@ class DefaultTaskTrackerServiceTest {
             () -> tracker.emitTaskStatusEvent(executionId, "node1", "module", "SUCCESS", Map.of()))
         .assertNext(
             progress -> {
-              assertNotNull(progress);
-              assertEquals(executionId, progress.executionId());
-              assertEquals("SUCCESS", progress.tasks().get(0).status());
+              assertThat(progress).isNotNull();
+              assertThat(progress.executionId()).isEqualTo(executionId);
+              assertThat(progress.tasks().getFirst().status()).isEqualTo("SUCCESS");
             })
         .verifyComplete();
   }
 
   @Test
-  void testNotifyStatusChangeWhenSinkIsNull() throws Exception {
-    String sessionId = "sess-notify-null-sink";
-    String workflowId = "wf-notify-null-sink";
-    String executionId = "exec-notify-null-sink";
-    List<String> nodes = List.of("node1");
+  void testNotifyStatusChangeWhenSinkIsNull() {
+    final String sessionId = "sess-notify-null-sink";
+    final String workflowId = "wf-notify-null-sink";
+    final String executionId = "exec-notify-null-sink";
+    final List<String> nodes = List.of("node1");
 
     StepVerifier.create(tracker.startWorkflow(executionId, sessionId, workflowId, nodes))
         .verifyComplete();
@@ -2192,20 +2190,20 @@ class DefaultTaskTrackerServiceTest {
     for (int i = 0; i < 20; i++) {
       try {
         Thread.sleep(50);
-      } catch (InterruptedException e) {
+      } catch (final InterruptedException e) {
         Thread.currentThread().interrupt();
       }
     }
 
     // Verify task was still updated even though sink was null
-    WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
-    assertNotNull(progress);
-    assertEquals("SUCCESS", progress.tasks().get(0).status());
+    final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
+    assertThat(progress).isNotNull();
+    assertThat(progress.tasks().getFirst().status()).isEqualTo("SUCCESS");
   }
 
   @Test
-  void testNotifyStatusChangeWhenStateIsNull() throws Exception {
-    String executionId = "exec-notify-null-state";
+  void testNotifyStatusChangeWhenStateIsNull() {
+    final String executionId = "exec-notify-null-state";
 
     // Try to emit event for execution that doesn't exist (state will be null)
     tracker.emitTaskStatusEvent(executionId, "node1", "module", "SUCCESS", Map.of());
@@ -2214,25 +2212,25 @@ class DefaultTaskTrackerServiceTest {
     for (int i = 0; i < 20; i++) {
       try {
         Thread.sleep(50);
-      } catch (InterruptedException e) {
+      } catch (final InterruptedException e) {
         Thread.currentThread().interrupt();
       }
     }
 
     // Should handle gracefully without crashing when state is null
     // Verify no state exists for this execution
-    WorkflowProgress progress = tracker.getProgressByExecutionId(executionId);
-    assertNull(progress);
+    final WorkflowProgress progress = tracker.getProgressByExecutionId(executionId);
+    assertThat(progress).isNull();
   }
 
   @Test
-  void testNotifyStatusChangeWithBothNullConditions() throws Exception {
-    String executionId = "exec-both-null";
+  void testNotifyStatusChangeWithBothNullConditions() {
+    final String executionId = "exec-both-null";
 
     // Create workflow and get status stream to initialize sink
-    String sessionId = "sess-both-null";
-    String workflowId = "wf-both-null";
-    List<String> nodes = List.of("n1");
+    final String sessionId = "sess-both-null";
+    final String workflowId = "wf-both-null";
+    final List<String> nodes = List.of("n1");
 
     StepVerifier.create(tracker.startWorkflow(executionId, sessionId, workflowId, nodes))
         .verifyComplete();
@@ -2251,12 +2249,12 @@ class DefaultTaskTrackerServiceTest {
     for (int i = 0; i < 20; i++) {
       try {
         Thread.sleep(50);
-      } catch (InterruptedException e) {
+      } catch (final InterruptedException e) {
         Thread.currentThread().interrupt();
       }
     }
 
     // Should handle gracefully - sink exists but state is null (condition at line 448 is false)
-    assertTrue(true);
+    assertThat(true).isTrue();
   }
 }

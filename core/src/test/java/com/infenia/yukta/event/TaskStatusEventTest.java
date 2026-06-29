@@ -15,217 +15,238 @@
  */
 package com.infenia.yukta.event;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.assertj.core.api.Assertions.*;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.HashMap;
 import java.util.Map;
+import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 
+/** Tests for {@link TaskStatusEvent}. */
+@NoArgsConstructor
+@SuppressWarnings({"PMD.TooManyMethods", "PMD.AvoidDuplicateLiterals", "PMD.UseConcurrentHashMap"})
 class TaskStatusEventTest {
+  /** Key constant for test metadata. */
+  private static final String KEY = "key";
+
+  /** Value constant for test metadata. */
+  private static final String VALUE = "value";
+
+  /** Execution ID constant for tests. */
+  private static final String EXEC1 = "exec1";
+
+  /** Node ID constant for tests. */
+  private static final String NODE1 = "node1";
+
+  /** Module ID constant for tests. */
+  private static final String MODULE1 = "module1";
+
+  /** Success status constant. */
+  private static final String SUCCESS = "SUCCESS";
+
+  /** Secondary execution ID constant for tests. */
+  private static final String EXEC2 = "exec2";
 
   @Test
   void create_withValidMetadata_returnsEventWithAllFields() {
-    Map<String, Object> metadata = Map.of("key", "value", "count", 42);
-    TaskStatusEvent event =
-        TaskStatusEvent.create("exec1", "node1", "module1", "SUCCESS", metadata);
+    final Map<String, Object> metadata = Map.of(KEY, VALUE, "count", 42);
+    final TaskStatusEvent event = TaskStatusEvent.create(EXEC1, NODE1, MODULE1, SUCCESS, metadata);
 
-    assertEquals("exec1", event.executionId());
-    assertEquals("node1", event.nodeId());
-    assertEquals("module1", event.module());
-    assertEquals("SUCCESS", event.status());
-    assertEquals(metadata, event.metadata());
-    assertNotNull(event.timestamp());
+    assertThat(event.executionId()).isEqualTo(EXEC1);
+    assertThat(event.nodeId()).isEqualTo(NODE1);
+    assertThat(event.module()).isEqualTo(MODULE1);
+    assertThat(event.status()).isEqualTo(SUCCESS);
+    assertThat(event.metadata()).isEqualTo(metadata);
+    assertThat(event.timestamp()).isNotNull();
   }
 
   @Test
   void create_withNullMetadata_normalizesToEmptyMap() {
-    TaskStatusEvent event = TaskStatusEvent.create("exec1", "node1", "module1", "FAILED", null);
+    final TaskStatusEvent event = TaskStatusEvent.create(EXEC1, NODE1, MODULE1, "FAILED", null);
 
-    assertEquals("exec1", event.executionId());
-    assertEquals("node1", event.nodeId());
-    assertEquals("module1", event.module());
-    assertEquals("FAILED", event.status());
-    assertEquals(Map.of(), event.metadata());
-    assertNotNull(event.timestamp());
+    assertThat(event.executionId()).isEqualTo(EXEC1);
+    assertThat(event.nodeId()).isEqualTo(NODE1);
+    assertThat(event.module()).isEqualTo(MODULE1);
+    assertThat(event.status()).isEqualTo("FAILED");
+    assertThat(event.metadata()).isEqualTo(Map.of());
+    assertThat(event.timestamp()).isNotNull();
   }
 
   @Test
   void directConstructor_withValidMetadata_createsEvent() {
-    LocalDateTime now = LocalDateTime.now();
-    Map<String, Object> metadata = Map.of("key1", "val1");
-    TaskStatusEvent event =
-        new TaskStatusEvent("exec2", "node2", "module2", "PENDING", metadata, now);
+    final LocalDateTime now = LocalDateTime.now(ZoneId.systemDefault());
+    final Map<String, Object> metadata = Map.of("key1", "val1");
+    final TaskStatusEvent event =
+        new TaskStatusEvent(EXEC2, "node2", "module2", "PENDING", metadata, now);
 
-    assertEquals("exec2", event.executionId());
-    assertEquals("node2", event.nodeId());
-    assertEquals("module2", event.module());
-    assertEquals("PENDING", event.status());
-    assertEquals(metadata, event.metadata());
-    assertEquals(now, event.timestamp());
+    assertThat(event.executionId()).isEqualTo(EXEC2);
+    assertThat(event.nodeId()).isEqualTo("node2");
+    assertThat(event.module()).isEqualTo("module2");
+    assertThat(event.status()).isEqualTo("PENDING");
+    assertThat(event.metadata()).isEqualTo(metadata);
+    assertThat(event.timestamp()).isEqualTo(now);
   }
 
   @Test
   void directConstructor_withNullMetadata_normalizesToEmptyMap() {
-    LocalDateTime now = LocalDateTime.now();
-    TaskStatusEvent event = new TaskStatusEvent("exec3", "node3", "module3", "RUNNING", null, now);
+    final LocalDateTime now = LocalDateTime.now(ZoneId.systemDefault());
+    final TaskStatusEvent event =
+        new TaskStatusEvent("exec3", "node3", "module3", "RUNNING", null, now);
 
-    assertEquals("exec3", event.executionId());
-    assertEquals("node3", event.nodeId());
-    assertEquals("module3", event.module());
-    assertEquals("RUNNING", event.status());
-    assertEquals(Map.of(), event.metadata());
-    assertEquals(now, event.timestamp());
+    assertThat(event.executionId()).isEqualTo("exec3");
+    assertThat(event.nodeId()).isEqualTo("node3");
+    assertThat(event.module()).isEqualTo("module3");
+    assertThat(event.status()).isEqualTo("RUNNING");
+    assertThat(event.metadata()).isEqualTo(Map.of());
+    assertThat(event.timestamp()).isEqualTo(now);
   }
 
   @Test
   void metadata_isMutableMapInput_isConvertedToImmutable() {
-    Map<String, Object> mutableMetadata = new HashMap<>();
-    mutableMetadata.put("key", "value");
-    TaskStatusEvent event =
-        TaskStatusEvent.create("exec4", "node4", "module4", "SUCCESS", mutableMetadata);
+    final Map<String, Object> mutableMetadata = new HashMap<>();
+    mutableMetadata.put(KEY, VALUE);
+    final TaskStatusEvent event =
+        TaskStatusEvent.create("exec4", "node4", "module4", SUCCESS, mutableMetadata);
 
-    assertThrows(
-        UnsupportedOperationException.class, () -> event.metadata().put("newKey", "newValue"));
+    assertThatThrownBy(() -> event.metadata().put("newKey", "newValue"))
+        .isInstanceOf(UnsupportedOperationException.class);
   }
 
   @Test
   void create_withMultipleMetadataEntries_allEntriesPreserved() {
-    Map<String, Object> metadata =
+    final Map<String, Object> metadata =
         Map.of("status_code", 200, "duration_ms", 500, "request_id", "req-123");
-    TaskStatusEvent event =
+    final TaskStatusEvent event =
         TaskStatusEvent.create("exec5", "node5", "module5", "COMPLETED", metadata);
 
-    assertEquals(3, event.metadata().size());
-    assertEquals(200, event.metadata().get("status_code"));
-    assertEquals(500, event.metadata().get("duration_ms"));
-    assertEquals("req-123", event.metadata().get("request_id"));
+    assertThat(event.metadata()).hasSize(3);
+    assertThat(event.metadata().get("status_code")).isEqualTo(200);
+    assertThat(event.metadata().get("duration_ms")).isEqualTo(500);
+    assertThat(event.metadata().get("request_id")).isEqualTo("req-123");
   }
 
   @Test
   void recordEquality_sameValues_areEqual() {
-    LocalDateTime timestamp = LocalDateTime.of(2026, 6, 21, 10, 30, 0);
-    Map<String, Object> metadata = Map.of("key", "value");
-    TaskStatusEvent event1 =
+    final LocalDateTime timestamp = LocalDateTime.of(2026, 6, 21, 10, 30, 0);
+    final Map<String, Object> metadata = Map.of("key", "value");
+    final TaskStatusEvent event1 =
         new TaskStatusEvent("exec1", "node1", "module1", "SUCCESS", metadata, timestamp);
-    TaskStatusEvent event2 =
+    final TaskStatusEvent event2 =
         new TaskStatusEvent("exec1", "node1", "module1", "SUCCESS", metadata, timestamp);
 
-    assertEquals(event1, event2);
+    assertThat(event1).isEqualTo(event2);
   }
 
   @Test
   void recordEquality_differentExecutionId_areNotEqual() {
-    LocalDateTime timestamp = LocalDateTime.of(2026, 6, 21, 10, 30, 0);
-    Map<String, Object> metadata = Map.of("key", "value");
-    TaskStatusEvent event1 =
+    final LocalDateTime timestamp = LocalDateTime.of(2026, 6, 21, 10, 30, 0);
+    final Map<String, Object> metadata = Map.of("key", "value");
+    final TaskStatusEvent event1 =
         new TaskStatusEvent("exec1", "node1", "module1", "SUCCESS", metadata, timestamp);
-    TaskStatusEvent event2 =
+    final TaskStatusEvent event2 =
         new TaskStatusEvent("exec2", "node1", "module1", "SUCCESS", metadata, timestamp);
 
-    assertNotEquals(event1, event2);
+    assertThat(event1).isNotEqualTo(event2);
   }
 
   @Test
   void recordEquality_differentNodeId_areNotEqual() {
-    LocalDateTime timestamp = LocalDateTime.of(2026, 6, 21, 10, 30, 0);
-    Map<String, Object> metadata = Map.of("key", "value");
-    TaskStatusEvent event1 =
+    final LocalDateTime timestamp = LocalDateTime.of(2026, 6, 21, 10, 30, 0);
+    final Map<String, Object> metadata = Map.of("key", "value");
+    final TaskStatusEvent event1 =
         new TaskStatusEvent("exec1", "node1", "module1", "SUCCESS", metadata, timestamp);
-    TaskStatusEvent event2 =
+    final TaskStatusEvent event2 =
         new TaskStatusEvent("exec1", "node2", "module1", "SUCCESS", metadata, timestamp);
 
-    assertNotEquals(event1, event2);
+    assertThat(event1).isNotEqualTo(event2);
   }
 
   @Test
   void recordEquality_differentStatus_areNotEqual() {
-    LocalDateTime timestamp = LocalDateTime.of(2026, 6, 21, 10, 30, 0);
-    Map<String, Object> metadata = Map.of("key", "value");
-    TaskStatusEvent event1 =
+    final LocalDateTime timestamp = LocalDateTime.of(2026, 6, 21, 10, 30, 0);
+    final Map<String, Object> metadata = Map.of("key", "value");
+    final TaskStatusEvent event1 =
         new TaskStatusEvent("exec1", "node1", "module1", "SUCCESS", metadata, timestamp);
-    TaskStatusEvent event2 =
+    final TaskStatusEvent event2 =
         new TaskStatusEvent("exec1", "node1", "module1", "FAILED", metadata, timestamp);
 
-    assertNotEquals(event1, event2);
+    assertThat(event1).isNotEqualTo(event2);
   }
 
   @Test
   void recordHashCode_sameValues_sameHash() {
-    LocalDateTime timestamp = LocalDateTime.of(2026, 6, 21, 10, 30, 0);
-    Map<String, Object> metadata = Map.of("key", "value");
-    TaskStatusEvent event1 =
+    final LocalDateTime timestamp = LocalDateTime.of(2026, 6, 21, 10, 30, 0);
+    final Map<String, Object> metadata = Map.of("key", "value");
+    final TaskStatusEvent event1 =
         new TaskStatusEvent("exec1", "node1", "module1", "SUCCESS", metadata, timestamp);
-    TaskStatusEvent event2 =
+    final TaskStatusEvent event2 =
         new TaskStatusEvent("exec1", "node1", "module1", "SUCCESS", metadata, timestamp);
 
-    assertEquals(event1.hashCode(), event2.hashCode());
+    assertThat(event1.hashCode()).isEqualTo(event2.hashCode());
   }
 
   @Test
   void recordHashCode_differentValues_differentHash() {
-    LocalDateTime timestamp = LocalDateTime.of(2026, 6, 21, 10, 30, 0);
-    Map<String, Object> metadata = Map.of("key", "value");
-    TaskStatusEvent event1 =
+    final LocalDateTime timestamp = LocalDateTime.of(2026, 6, 21, 10, 30, 0);
+    final Map<String, Object> metadata = Map.of("key", "value");
+    final TaskStatusEvent event1 =
         new TaskStatusEvent("exec1", "node1", "module1", "SUCCESS", metadata, timestamp);
-    TaskStatusEvent event2 =
+    final TaskStatusEvent event2 =
         new TaskStatusEvent("exec2", "node1", "module1", "SUCCESS", metadata, timestamp);
 
-    assertNotEquals(event1.hashCode(), event2.hashCode());
+    assertThat(event1.hashCode()).isNotEqualTo(event2.hashCode());
   }
 
   @Test
   void recordToString_containsAllFields() {
-    LocalDateTime timestamp = LocalDateTime.of(2026, 6, 21, 10, 30, 0);
-    TaskStatusEvent event =
+    final LocalDateTime timestamp = LocalDateTime.of(2026, 6, 21, 10, 30, 0);
+    final TaskStatusEvent event =
         new TaskStatusEvent("exec1", "node1", "module1", "SUCCESS", Map.of("k", "v"), timestamp);
 
-    String toString = event.toString();
-    assertTrue(toString.contains("exec1"));
-    assertTrue(toString.contains("node1"));
-    assertTrue(toString.contains("module1"));
-    assertTrue(toString.contains("SUCCESS"));
+    final String toString = event.toString();
+    assertThat(toString)
+        .contains("exec1")
+        .contains("node1")
+        .contains("module1")
+        .contains("SUCCESS");
   }
 
   @Test
   void create_timestampIsApproximatelyNow() {
-    LocalDateTime before = LocalDateTime.now();
-    TaskStatusEvent event =
+    final LocalDateTime before = LocalDateTime.now(ZoneId.systemDefault());
+    final TaskStatusEvent event =
         TaskStatusEvent.create("exec1", "node1", "module1", "SUCCESS", Map.of("key", "value"));
-    LocalDateTime after = LocalDateTime.now();
+    final LocalDateTime after = LocalDateTime.now(ZoneId.systemDefault());
 
-    assertTrue(
-        !event.timestamp().isBefore(before.minusSeconds(1))
-            && !event.timestamp().isAfter(after.plusSeconds(1)));
+    assertThat(event.timestamp())
+        .isAfterOrEqualTo(before.minusSeconds(1))
+        .isBeforeOrEqualTo(after.plusSeconds(1));
   }
 
   @Test
   void emptyMetadata_createsDifferentInstanceThanNullMetadata() {
-    TaskStatusEvent eventWithNull =
+    final TaskStatusEvent eventWithNull =
         TaskStatusEvent.create("exec1", "node1", "module1", "SUCCESS", null);
-    TaskStatusEvent eventWithEmpty =
+    final TaskStatusEvent eventWithEmpty =
         TaskStatusEvent.create("exec1", "node1", "module1", "SUCCESS", Map.of());
 
-    assertEquals(eventWithNull.metadata(), eventWithEmpty.metadata());
+    assertThat(eventWithNull.metadata()).isEqualTo(eventWithEmpty.metadata());
   }
 
   @Test
   void record_accessorsReturnCorrectTypes() {
-    LocalDateTime timestamp = LocalDateTime.of(2026, 6, 21, 10, 30, 0);
-    Map<String, Object> metadata = Map.of("key", "value");
-    TaskStatusEvent event =
+    final LocalDateTime timestamp = LocalDateTime.of(2026, 6, 21, 10, 30, 0);
+    final Map<String, Object> metadata = Map.of("key", "value");
+    final TaskStatusEvent event =
         new TaskStatusEvent("exec1", "node1", "module1", "SUCCESS", metadata, timestamp);
 
-    assertTrue(event.executionId() instanceof String);
-    assertTrue(event.nodeId() instanceof String);
-    assertTrue(event.module() instanceof String);
-    assertTrue(event.status() instanceof String);
-    assertNotNull(event.metadata());
-    assertEquals(metadata, event.metadata());
-    assertTrue(event.timestamp() instanceof LocalDateTime);
+    assertThat(event.executionId()).isInstanceOf(String.class);
+    assertThat(event.nodeId()).isInstanceOf(String.class);
+    assertThat(event.module()).isInstanceOf(String.class);
+    assertThat(event.status()).isInstanceOf(String.class);
+    assertThat(event.metadata()).isNotNull().isEqualTo(metadata);
+    assertThat(event.timestamp()).isInstanceOf(LocalDateTime.class);
   }
 }

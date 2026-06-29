@@ -18,6 +18,7 @@ package com.infenia.yukta.cli.command.control;
 import com.infenia.yukta.cli.CliFormatter;
 import com.infenia.yukta.cli.YuktaDaemonClient;
 import com.infenia.yukta.dto.request.ConfigRequest;
+import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -51,7 +52,9 @@ public class SessionApplyCommand implements Runnable {
    * @param formatter the CLI formatter
    */
   public SessionApplyCommand(
-      YuktaDaemonClient daemonClient, ObjectMapper objectMapper, CliFormatter formatter) {
+      final YuktaDaemonClient daemonClient,
+      final ObjectMapper objectMapper,
+      final CliFormatter formatter) {
     this.daemonClient = daemonClient;
     this.objectMapper = objectMapper;
     this.formatter = formatter;
@@ -84,7 +87,7 @@ public class SessionApplyCommand implements Runnable {
       } else {
         formatter.printTable(List.of(message));
       }
-    } catch (Exception e) {
+    } catch (final Exception e) {
       System.err.println("Error applying session: " + e.getMessage());
       throw new RuntimeException(e);
     }
@@ -101,7 +104,7 @@ public class SessionApplyCommand implements Runnable {
     try {
       final Path path = Path.of(input);
       if (Files.exists(path) && Files.isRegularFile(path)) {
-        return new String(Files.readAllBytes(path));
+        return Files.readString(path, Charset.defaultCharset());
       }
     } catch (final Exception ignored) {
       // Not a valid file path, treat as inline JSON

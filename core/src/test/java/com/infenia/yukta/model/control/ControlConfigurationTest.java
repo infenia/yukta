@@ -20,18 +20,22 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.util.HashMap;
 import java.util.Map;
+import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 
+/** Tests for {@link ControlConfiguration}. */
+@NoArgsConstructor
+@SuppressWarnings({"PMD.TooManyMethods", "PMD.AvoidDuplicateLiterals", "PMD.UseConcurrentHashMap"})
 class ControlConfigurationTest {
 
   @Test
   void compactConstructor_validMapProvided_createsInstanceWithCopiedConfig() {
     // Given
-    String nodeId = "node-1";
-    Map<String, Object> config = Map.of("key1", "value1", "key2", 42);
+    final String nodeId = "node-1";
+    final Map<String, Object> config = Map.of("key1", "value1", "key2", 42);
 
     // When
-    ControlConfiguration controlConfig = new ControlConfiguration(nodeId, config);
+    final ControlConfiguration controlConfig = new ControlConfiguration(nodeId, config);
 
     // Then
     assertThat(controlConfig.nodeId()).isEqualTo(nodeId);
@@ -41,10 +45,10 @@ class ControlConfigurationTest {
   @Test
   void compactConstructor_mapDefensivelyCopied_originalMapMutationsHaveNoEffect() {
     // Given
-    String nodeId = "node-1";
-    Map<String, Object> originalMap = new HashMap<>();
+    final String nodeId = "node-1";
+    final Map<String, Object> originalMap = new HashMap<>();
     originalMap.put("key1", "value1");
-    ControlConfiguration controlConfig = new ControlConfiguration(nodeId, originalMap);
+    final ControlConfiguration controlConfig = new ControlConfiguration(nodeId, originalMap);
 
     // When
     originalMap.put("key2", "value2");
@@ -57,9 +61,9 @@ class ControlConfigurationTest {
   @Test
   void compactConstructor_storedMapIsUnmodifiable_mutationsThrowException() {
     // Given
-    String nodeId = "node-1";
-    Map<String, Object> config = Map.of("key1", "value1");
-    ControlConfiguration controlConfig = new ControlConfiguration(nodeId, config);
+    final String nodeId = "node-1";
+    final Map<String, Object> config = Map.of("key1", "value1");
+    final ControlConfiguration controlConfig = new ControlConfiguration(nodeId, config);
 
     // When & Then
     assertThatThrownBy(() -> controlConfig.config().put("key2", "value2"))
@@ -69,9 +73,9 @@ class ControlConfigurationTest {
   @Test
   void record_sameFieldValues_areEqual() {
     // Given
-    Map<String, Object> config = Map.of("key1", "value1");
-    ControlConfiguration config1 = new ControlConfiguration("node-1", config);
-    ControlConfiguration config2 = new ControlConfiguration("node-1", config);
+    final Map<String, Object> config = Map.of("key1", "value1");
+    final ControlConfiguration config1 = new ControlConfiguration("node-1", config);
+    final ControlConfiguration config2 = new ControlConfiguration("node-1", config);
 
     // When & Then
     assertThat(config1).isEqualTo(config2);
@@ -80,9 +84,9 @@ class ControlConfigurationTest {
   @Test
   void record_differentNodeId_areNotEqual() {
     // Given
-    Map<String, Object> config = Map.of("key1", "value1");
-    ControlConfiguration config1 = new ControlConfiguration("node-1", config);
-    ControlConfiguration config2 = new ControlConfiguration("node-2", config);
+    final Map<String, Object> config = Map.of("key1", "value1");
+    final ControlConfiguration config1 = new ControlConfiguration("node-1", config);
+    final ControlConfiguration config2 = new ControlConfiguration("node-2", config);
 
     // When & Then
     assertThat(config1).isNotEqualTo(config2);
@@ -91,10 +95,10 @@ class ControlConfigurationTest {
   @Test
   void record_differentConfig_areNotEqual() {
     // Given
-    Map<String, Object> config1 = Map.of("key1", "value1");
-    Map<String, Object> config2 = Map.of("key2", "value2");
-    ControlConfiguration controlConfig1 = new ControlConfiguration("node-1", config1);
-    ControlConfiguration controlConfig2 = new ControlConfiguration("node-1", config2);
+    final Map<String, Object> config1 = Map.of("key1", "value1");
+    final Map<String, Object> config2 = Map.of("key2", "value2");
+    final ControlConfiguration controlConfig1 = new ControlConfiguration("node-1", config1);
+    final ControlConfiguration controlConfig2 = new ControlConfiguration("node-1", config2);
 
     // When & Then
     assertThat(controlConfig1).isNotEqualTo(controlConfig2);
@@ -103,9 +107,9 @@ class ControlConfigurationTest {
   @Test
   void record_sameValues_haveSameHashCode() {
     // Given
-    Map<String, Object> config = Map.of("key1", "value1");
-    ControlConfiguration config1 = new ControlConfiguration("node-1", config);
-    ControlConfiguration config2 = new ControlConfiguration("node-1", config);
+    final Map<String, Object> config = Map.of("key1", "value1");
+    final ControlConfiguration config1 = new ControlConfiguration("node-1", config);
+    final ControlConfiguration config2 = new ControlConfiguration("node-1", config);
 
     // When & Then
     assertThat(config1.hashCode()).isEqualTo(config2.hashCode());
@@ -114,10 +118,10 @@ class ControlConfigurationTest {
   @Test
   void record_differentValues_likelyDifferentHashCode() {
     // Given
-    Map<String, Object> config1 = Map.of("key1", "value1");
-    Map<String, Object> config2 = Map.of("key2", "value2");
-    ControlConfiguration controlConfig1 = new ControlConfiguration("node-1", config1);
-    ControlConfiguration controlConfig2 = new ControlConfiguration("node-2", config2);
+    final Map<String, Object> config1 = Map.of("key1", "value1");
+    final Map<String, Object> config2 = Map.of("key2", "value2");
+    final ControlConfiguration controlConfig1 = new ControlConfiguration("node-1", config1);
+    final ControlConfiguration controlConfig2 = new ControlConfiguration("node-2", config2);
 
     // When & Then
     assertThat(controlConfig1.hashCode()).isNotEqualTo(controlConfig2.hashCode());
@@ -126,12 +130,12 @@ class ControlConfigurationTest {
   @Test
   void record_accessor_nodeIdReturnsCorrectValue() {
     // Given
-    String nodeId = "test-node";
-    Map<String, Object> config = Map.of();
-    ControlConfiguration controlConfig = new ControlConfiguration(nodeId, config);
+    final String nodeId = "test-node";
+    final Map<String, Object> config = Map.of();
+    final ControlConfiguration controlConfig = new ControlConfiguration(nodeId, config);
 
     // When
-    String result = controlConfig.nodeId();
+    final String result = controlConfig.nodeId();
 
     // Then
     assertThat(result).isEqualTo(nodeId);
@@ -140,26 +144,27 @@ class ControlConfigurationTest {
   @Test
   void record_accessor_configReturnsCorrectValue() {
     // Given
-    String nodeId = "node-1";
-    Map<String, Object> config = Map.of("key1", "value1", "key2", 42);
-    ControlConfiguration controlConfig = new ControlConfiguration(nodeId, config);
+    final String nodeId = "node-1";
+    final Map<String, Object> config = Map.of("key1", "value1", "key2", 42);
+    final ControlConfiguration controlConfig = new ControlConfiguration(nodeId, config);
 
     // When
-    Map<String, Object> result = controlConfig.config();
+    final Map<String, Object> result = controlConfig.config();
 
     // Then
     assertThat(result).containsEntry("key1", "value1").containsEntry("key2", 42);
   }
 
   @Test
+  @SuppressWarnings("PMD.LinguisticNaming")
   void toString_containsAllFieldValues() {
     // Given
-    String nodeId = "node-1";
-    Map<String, Object> config = Map.of("key1", "value1");
-    ControlConfiguration controlConfig = new ControlConfiguration(nodeId, config);
+    final String nodeId = "node-1";
+    final Map<String, Object> config = Map.of("key1", "value1");
+    final ControlConfiguration controlConfig = new ControlConfiguration(nodeId, config);
 
     // When
-    String result = controlConfig.toString();
+    final String result = controlConfig.toString();
 
     // Then
     assertThat(result).contains("node-1").contains("key1");
@@ -168,8 +173,8 @@ class ControlConfigurationTest {
   @Test
   void record_nullComparison_isNotEqual() {
     // Given
-    Map<String, Object> config = Map.of();
-    ControlConfiguration controlConfig = new ControlConfiguration("node-1", config);
+    final Map<String, Object> config = Map.of();
+    final ControlConfiguration controlConfig = new ControlConfiguration("node-1", config);
 
     // When & Then
     assertThat(controlConfig).isNotEqualTo(null);
@@ -178,9 +183,9 @@ class ControlConfigurationTest {
   @Test
   void equals_withDifferentType_returnsFalse() {
     // Given
-    Map<String, Object> config = Map.of();
-    ControlConfiguration controlConfig = new ControlConfiguration("node-1", config);
-    String other = "not a control configuration";
+    final Map<String, Object> config = Map.of();
+    final ControlConfiguration controlConfig = new ControlConfiguration("node-1", config);
+    final String other = "not a control configuration";
 
     // When & Then
     assertThat(controlConfig).isNotEqualTo(other);

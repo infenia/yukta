@@ -363,10 +363,19 @@ public class DefaultControlBusGateway implements ControlBusGateway, ExecutionSta
               }
             })
         .flatMap(
-            prepared ->
-                orchestrator
-                    .execute(sessionId, workflowId, executionId, prepared, Map.of())
-                    .thenReturn(executionId));
+            prepared -> {
+              orchestrator
+                  .execute(sessionId, workflowId, executionId, prepared, Map.of())
+                  .subscribeOn(reactor.core.scheduler.Schedulers.boundedElastic())
+                  .doOnError(
+                      err ->
+                          log.atError()
+                              .setCause(err)
+                              .addKeyValue("executionId", executionId)
+                              .log("Async workflow execution failed"))
+                  .subscribe();
+              return Mono.just(executionId);
+            });
   }
 
   @Override

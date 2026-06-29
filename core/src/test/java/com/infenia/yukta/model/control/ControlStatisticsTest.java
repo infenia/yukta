@@ -20,20 +20,24 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.util.HashMap;
 import java.util.Map;
+import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 
+/** Tests for {@link ControlStatistics}. */
+@SuppressWarnings("PMD.AvoidDuplicateLiterals")
+@NoArgsConstructor
 class ControlStatisticsTest {
 
   @Test
   void testConstructorWithMetrics() {
     // Given
-    String nodeId = "node-1";
-    double throughput = 100.5;
-    double latency = 50.0;
-    Map<String, Object> metrics = Map.of("metric1", "value1", "metric2", 42);
+    final String nodeId = "node-1";
+    final double throughput = 100.5;
+    final double latency = 50.0;
+    final Map<String, Object> metrics = Map.of("metric1", "value1", "metric2", 42);
 
     // When
-    ControlStatistics stats = new ControlStatistics(nodeId, throughput, latency, metrics);
+    final ControlStatistics stats = new ControlStatistics(nodeId, throughput, latency, metrics);
 
     // Then
     assertThat(stats.nodeId()).isEqualTo(nodeId);
@@ -45,13 +49,13 @@ class ControlStatisticsTest {
   @Test
   void testConstructorWithEmptyMetrics() {
     // Given
-    String nodeId = "node-2";
-    double throughput = 200.0;
-    double latency = 30.5;
-    Map<String, Object> metrics = Map.of();
+    final String nodeId = "node-2";
+    final double throughput = 200.0;
+    final double latency = 30.5;
+    final Map<String, Object> metrics = Map.of();
 
     // When
-    ControlStatistics stats = new ControlStatistics(nodeId, throughput, latency, metrics);
+    final ControlStatistics stats = new ControlStatistics(nodeId, throughput, latency, metrics);
 
     // Then
     assertThat(stats.metrics()).isEmpty();
@@ -60,12 +64,12 @@ class ControlStatisticsTest {
   @Test
   void testConstructorWithNullMetrics() {
     // Given
-    String nodeId = "node-3";
-    double throughput = 150.0;
-    double latency = 40.0;
+    final String nodeId = "node-3";
+    final double throughput = 150.0;
+    final double latency = 40.0;
 
     // When
-    ControlStatistics stats = new ControlStatistics(nodeId, throughput, latency);
+    final ControlStatistics stats = new ControlStatistics(nodeId, throughput, latency);
 
     // Then
     assertThat(stats.metrics()).isEmpty();
@@ -74,9 +78,9 @@ class ControlStatisticsTest {
   @Test
   void testMetricsImmutability() {
     // Given
-    String nodeId = "node-1";
-    Map<String, Object> metrics = Map.of("key1", "value1");
-    ControlStatistics stats = new ControlStatistics(nodeId, 100.0, 50.0, metrics);
+    final String nodeId = "node-1";
+    final Map<String, Object> metrics = Map.of("key1", "value1");
+    final ControlStatistics stats = new ControlStatistics(nodeId, 100.0, 50.0, metrics);
 
     // When & Then
     assertThatThrownBy(() -> stats.metrics().put("key2", "value2"))
@@ -86,11 +90,11 @@ class ControlStatisticsTest {
   @Test
   void testAccessorMethods() {
     // Given
-    String nodeId = "test-node";
-    double throughput = 123.45;
-    double latency = 67.89;
-    Map<String, Object> metrics = Map.of("key", "value");
-    ControlStatistics stats = new ControlStatistics(nodeId, throughput, latency, metrics);
+    final String nodeId = "test-node";
+    final double throughput = 123.45;
+    final double latency = 67.89;
+    final Map<String, Object> metrics = Map.of("key", "value");
+    final ControlStatistics stats = new ControlStatistics(nodeId, throughput, latency, metrics);
 
     // When & Then
     assertThat(stats.nodeId()).isEqualTo(nodeId);
@@ -102,9 +106,9 @@ class ControlStatisticsTest {
   @Test
   void testEqualsAndHashCode() {
     // Given
-    Map<String, Object> metrics = Map.of("key", "value");
-    ControlStatistics stats1 = new ControlStatistics("node-1", 100.0, 50.0, metrics);
-    ControlStatistics stats2 = new ControlStatistics("node-1", 100.0, 50.0, metrics);
+    final Map<String, Object> metrics = Map.of("key", "value");
+    final ControlStatistics stats1 = new ControlStatistics("node-1", 100.0, 50.0, metrics);
+    final ControlStatistics stats2 = new ControlStatistics("node-1", 100.0, 50.0, metrics);
 
     // When & Then
     assertThat(stats1).isEqualTo(stats2);
@@ -114,10 +118,10 @@ class ControlStatisticsTest {
   @Test
   void testEqualsAndHashCodeDifferent() {
     // Given
-    Map<String, Object> metrics1 = Map.of("key1", "value1");
-    Map<String, Object> metrics2 = Map.of("key2", "value2");
-    ControlStatistics stats1 = new ControlStatistics("node-1", 100.0, 50.0, metrics1);
-    ControlStatistics stats2 = new ControlStatistics("node-2", 200.0, 30.0, metrics2);
+    final Map<String, Object> metrics1 = Map.of("key1", "value1");
+    final Map<String, Object> metrics2 = Map.of("key2", "value2");
+    final ControlStatistics stats1 = new ControlStatistics("node-1", 100.0, 50.0, metrics1);
+    final ControlStatistics stats2 = new ControlStatistics("node-2", 200.0, 30.0, metrics2);
 
     // When & Then
     assertThat(stats1).isNotEqualTo(stats2);
@@ -126,41 +130,43 @@ class ControlStatisticsTest {
   @Test
   void testToString() {
     // Given
-    String nodeId = "node-1";
-    ControlStatistics stats = new ControlStatistics(nodeId, 100.0, 50.0);
+    final String nodeId = "node-1";
+    final ControlStatistics stats = new ControlStatistics(nodeId, 100.0, 50.0);
 
     // When
-    String result = stats.toString();
+    final String result = stats.toString();
 
     // Then
     assertThat(result).contains("node-1").contains("100.0").contains("50.0");
   }
 
   @Test
+  @SuppressWarnings("PMD.UseConcurrentHashMap")
   void testMetricsPreservesContent() {
     // Given
-    Map<String, Object> metrics = new HashMap<>();
+    final Map<String, Object> metrics = new HashMap<>();
     metrics.put("stringMetric", "value");
     metrics.put("numberMetric", 42);
-    metrics.put("doubleMetric", 3.14);
-    ControlStatistics stats = new ControlStatistics("node-1", 100.0, 50.0, metrics);
+    metrics.put("doubleMetric", Math.PI);
+    final ControlStatistics stats = new ControlStatistics("node-1", 100.0, 50.0, metrics);
 
     // When
-    Map<String, Object> result = stats.metrics();
+    final Map<String, Object> result = stats.metrics();
 
     // Then
     assertThat(result)
         .containsEntry("stringMetric", "value")
         .containsEntry("numberMetric", 42)
-        .containsEntry("doubleMetric", 3.14);
+        .containsEntry("doubleMetric", Math.PI);
   }
 
   @Test
+  @SuppressWarnings("PMD.UseConcurrentHashMap")
   void defensiveCopyPreventsOriginalMapMutations() {
     // Given
-    Map<String, Object> originalMap = new HashMap<>();
+    final Map<String, Object> originalMap = new HashMap<>();
     originalMap.put("key1", "value1");
-    ControlStatistics stats = new ControlStatistics("node-1", 100.0, 50.0, originalMap);
+    final ControlStatistics stats = new ControlStatistics("node-1", 100.0, 50.0, originalMap);
 
     // When
     originalMap.put("key2", "value2");

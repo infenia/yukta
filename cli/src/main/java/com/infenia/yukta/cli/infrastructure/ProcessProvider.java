@@ -16,6 +16,7 @@
 package com.infenia.yukta.cli.infrastructure;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
 
@@ -31,7 +32,7 @@ public interface ProcessProvider {
    * @return the started Process
    */
   Process startProcess(List<String> command, File workDir, File stdout, File stderr)
-      throws Exception;
+      throws IOException;
 
   /**
    * Finds a process by PID.

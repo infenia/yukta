@@ -19,12 +19,16 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.infenia.yukta.service.control.ExecutionControl;
 import java.util.Map;
+import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import reactor.core.publisher.Sinks;
 
+@NoArgsConstructor
+@SuppressWarnings({"PMD.CommentRequired", "PMD.AvoidDuplicateLiterals"})
 class ExecutionControlRegistryTest {
 
+  /** Registry instance under test. */
   private ExecutionControlRegistry registry;
 
   @BeforeEach
@@ -33,11 +37,10 @@ class ExecutionControlRegistryTest {
     registry = new ExecutionControlRegistry(store);
   }
 
-  private ExecutionControl createControl(
-      final String sessionId, final String workflowId, final String executionId) {
+  private ExecutionControl createControl(final String sessionId, final String executionId) {
     return new ExecutionControl(
         sessionId,
-        workflowId,
+        "workflow-1",
         executionId,
         null,
         Map.of(),
@@ -56,8 +59,7 @@ class ExecutionControlRegistryTest {
   void testRegisterAndFindByExecutionId() {
     final String executionId = "exec-1";
     final String sessionId = "session-1";
-    final String workflowId = "workflow-1";
-    final ExecutionControl control = createControl(sessionId, workflowId, executionId);
+    final ExecutionControl control = createControl(sessionId, executionId);
 
     registry.register(control);
 
@@ -76,8 +78,7 @@ class ExecutionControlRegistryTest {
     final String executionId = "exec-1";
     final String sessionId = "session-1";
     final String workflowId = "workflow-1";
-    final Sinks.One<Void> stopSink = Sinks.one();
-    final ExecutionControl control = createControl(sessionId, workflowId, executionId);
+    final ExecutionControl control = createControl(sessionId, executionId);
 
     registry.register(control);
 
@@ -95,9 +96,7 @@ class ExecutionControlRegistryTest {
   void testUnregister() {
     final String executionId = "exec-1";
     final String sessionId = "session-1";
-    final String workflowId = "workflow-1";
-    final Sinks.One<Void> stopSink = Sinks.one();
-    final ExecutionControl control = createControl(sessionId, workflowId, executionId);
+    final ExecutionControl control = createControl(sessionId, executionId);
 
     registry.register(control);
     registry.unregister(executionId);
@@ -108,10 +107,8 @@ class ExecutionControlRegistryTest {
 
   @Test
   void testMultipleExecutions() {
-    final Sinks.One<Void> sink1 = Sinks.one();
-    final Sinks.One<Void> sink2 = Sinks.one();
-    final ExecutionControl control1 = createControl("session-1", "workflow-1", "exec-1");
-    final ExecutionControl control2 = createControl("session-1", "workflow-1", "exec-2");
+    final ExecutionControl control1 = createControl("session-1", "exec-1");
+    final ExecutionControl control2 = createControl("session-1", "exec-2");
 
     registry.register(control1);
     registry.register(control2);
@@ -122,10 +119,8 @@ class ExecutionControlRegistryTest {
 
   @Test
   void testFindActiveByWorkflowMultipleSessions() {
-    final Sinks.One<Void> sink1 = Sinks.one();
-    final Sinks.One<Void> sink2 = Sinks.one();
-    final ExecutionControl control1 = createControl("session-1", "workflow-1", "exec-1");
-    final ExecutionControl control2 = createControl("session-2", "workflow-1", "exec-2");
+    final ExecutionControl control1 = createControl("session-1", "exec-1");
+    final ExecutionControl control2 = createControl("session-2", "exec-2");
 
     registry.register(control1);
     registry.register(control2);

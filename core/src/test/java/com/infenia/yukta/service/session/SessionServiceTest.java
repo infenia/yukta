@@ -25,9 +25,11 @@ import com.infenia.yukta.model.session.SessionConfigData;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import com.infenia.yukta.service.session.store.SessionConfigStore;
+import com.infenia.yukta.service.workflow.store.PreparedWorkflowCache;
 import com.infenia.yukta.service.workflow.store.WorkflowDefinitionStore;
 import java.util.List;
 import java.util.Map;
+import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -39,12 +41,21 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
+/** Unit tests for SessionService. */
+@SuppressWarnings({"PMD.CommentRequired", "PMD.TooManyMethods", "PMD.TooManyStaticImports"})
 @ExtendWith(MockitoExtension.class)
+@NoArgsConstructor
 class SessionServiceTest {
+
+  private static final String DESC = "desc";
+  private static final String PATH = "/path";
+  private static final String INITIATOR = "initiator";
+  private static final String SESSION_ID_1 = "sess-1";
 
   @Mock private SessionConfigStore configService;
   @Mock private ControlBusGateway controlBus;
   @Mock private WorkflowDefinitionStore workflowDefinitionStore;
+  @Mock private PreparedWorkflowCache preparedWorkflowCache;
 
   @Captor private ArgumentCaptor<SessionConfigData> configDataCaptor;
   @Captor private ArgumentCaptor<WorkflowDefinition> workflowCaptor;
@@ -53,18 +64,20 @@ class SessionServiceTest {
 
   @BeforeEach
   void setUp() {
-    sessionService = new SessionService(configService, controlBus, workflowDefinitionStore);
+    sessionService =
+        new SessionService(
+            configService, controlBus, workflowDefinitionStore, preparedWorkflowCache);
   }
 
   @Test
   void applyConfig_withMultipleWorkflows_compilesAndCachesAllWorkflows() {
     // Given
-    String sessionId = "sess-1";
-    WorkflowDefinition workflow =
-        new WorkflowDefinition("test-workflow", "desc", List.of(), List.of());
-    SessionConfigData data =
+    final String sessionId = SESSION_ID_1;
+    final WorkflowDefinition workflow =
+        new WorkflowDefinition("test-workflow", DESC, List.of(), List.of());
+    final SessionConfigData data =
         new SessionConfigData(
-            sessionId, "desc", "initiator-1", Map.of(), "/path", Map.of("w1", workflow));
+            sessionId, DESC, "initiator-1", Map.of(), PATH, Map.of("w1", workflow));
 
     when(configService.applySessionConfig(configDataCaptor.capture())).thenReturn(Mono.empty());
     when(controlBus.compileAndCacheWorkflow(eq(sessionId), workflowCaptor.capture()))
@@ -87,9 +100,9 @@ class SessionServiceTest {
   @Test
   void applyConfig_withEmptyWorkflows_skipsCompilation() {
     // Given
-    String sessionId = "sess-partial";
-    SessionConfigData data =
-        new SessionConfigData(sessionId, "desc", "initiator-p", Map.of(), null, Map.of());
+    final String sessionId = "sess-partial";
+    final SessionConfigData data =
+        new SessionConfigData(sessionId, DESC, "initiator-p", Map.of(), null, Map.of());
 
     when(configService.applySessionConfig(configDataCaptor.capture())).thenReturn(Mono.empty());
 
@@ -107,10 +120,10 @@ class SessionServiceTest {
   }
 
   @Test
-  void getSessionConfig_validSessionId_returnsConfigMap() {
+  void testGetSessionConfig_validSessionId_returnsConfigMap() {
     // Given
-    String sessionId = "sess-1";
-    Map<String, Object> configMap = Map.of("k", "v");
+    final String sessionId = SESSION_ID_1;
+    final Map<String, Object> configMap = Map.of("k", "v");
     when(configService.getAllConfigs(sessionId)).thenReturn(Mono.just(configMap));
 
     // When & Then
@@ -120,11 +133,11 @@ class SessionServiceTest {
   }
 
   @Test
-  void getSessionWorkflow_validSessionAndWorkflowIds_returnsWorkflowDefinition() {
+  void testGetSessionWorkflow_validSessionAndWorkflowIds_returnsWorkflowDefinition() {
     // Given
-    String sessionId = "sess-wf";
-    WorkflowDefinition workflow =
-        new WorkflowDefinition("test-workflow", "desc", List.of(), List.of());
+    final String sessionId = "sess-wf";
+    final WorkflowDefinition workflow =
+        new WorkflowDefinition("test-workflow", DESC, List.of(), List.of());
 
     when(workflowDefinitionStore.find(sessionId, "w1")).thenReturn(Mono.just(workflow));
 
@@ -137,7 +150,7 @@ class SessionServiceTest {
   }
 
   @Test
-  void getSessionIds_multipleSessionsExist_returnsAllSessionIds() {
+  void testGetSessionIds_multipleSessionsExist_returnsAllSessionIds() {
     // Given
     when(configService.getSessionIds()).thenReturn(Flux.just("s1", "s2"));
 
@@ -150,19 +163,14 @@ class SessionServiceTest {
   @Test
   void applyConfig_withMultipleWorkflowsAndCompilationError_propagatesError() {
     // Given
-    String sessionId = "sess-multi";
-    WorkflowDefinition workflow1 =
+    final String sessionId = "sess-multi";
+    final WorkflowDefinition workflow1 =
         new WorkflowDefinition("workflow-1", "desc1", List.of(), List.of());
-    WorkflowDefinition workflow2 =
+    final WorkflowDefinition workflow2 =
         new WorkflowDefinition("workflow-2", "desc2", List.of(), List.of());
-    SessionConfigData data =
+    final SessionConfigData data =
         new SessionConfigData(
-            sessionId,
-            "desc",
-            "initiator",
-            Map.of(),
-            "/path",
-            Map.of("w1", workflow1, "w2", workflow2));
+            sessionId, DESC, INITIATOR, Map.of(), PATH, Map.of("w1", workflow1, "w2", workflow2));
 
     when(configService.applySessionConfig(configDataCaptor.capture())).thenReturn(Mono.empty());
     when(controlBus.compileAndCacheWorkflow(eq(sessionId), workflowCaptor.capture()))
@@ -183,12 +191,11 @@ class SessionServiceTest {
   @Test
   void applyConfig_compilationFailsForWorkflow_propagatesError() {
     // Given
-    String sessionId = "sess-error";
-    WorkflowDefinition workflow =
-        new WorkflowDefinition("test-workflow", "desc", List.of(), List.of());
-    SessionConfigData data =
-        new SessionConfigData(
-            sessionId, "desc", "initiator", Map.of(), "/path", Map.of("w1", workflow));
+    final String sessionId = "sess-error";
+    final WorkflowDefinition workflow =
+        new WorkflowDefinition("test-workflow", DESC, List.of(), List.of());
+    final SessionConfigData data =
+        new SessionConfigData(sessionId, DESC, INITIATOR, Map.of(), PATH, Map.of("w1", workflow));
 
     when(configService.applySessionConfig(any())).thenReturn(Mono.empty());
     when(controlBus.compileAndCacheWorkflow(eq(sessionId), any()))
@@ -203,9 +210,9 @@ class SessionServiceTest {
   @Test
   void applyConfig_storeFailsToApplyConfig_propagatesError() {
     // Given
-    String sessionId = "sess-store-error";
-    SessionConfigData data =
-        new SessionConfigData(sessionId, "desc", "initiator", Map.of(), "/path", Map.of());
+    final String sessionId = "sess-store-error";
+    final SessionConfigData data =
+        new SessionConfigData(sessionId, DESC, INITIATOR, Map.of(), PATH, Map.of());
 
     when(configService.applySessionConfig(any()))
         .thenReturn(Mono.error(new RuntimeException("Store failed")));
@@ -217,9 +224,9 @@ class SessionServiceTest {
   }
 
   @Test
-  void getSessionConfig_storeThrowsError_propagatesError() {
+  void testGetSessionConfig_storeThrowsError_propagatesError() {
     // Given
-    String sessionId = "sess-config-error";
+    final String sessionId = "sess-config-error";
     when(configService.getAllConfigs(sessionId))
         .thenReturn(Mono.error(new RuntimeException("Config fetch failed")));
 
@@ -230,9 +237,9 @@ class SessionServiceTest {
   }
 
   @Test
-  void getSessionWorkflow_storeThrowsError_propagatesError() {
+  void testGetSessionWorkflow_storeThrowsError_propagatesError() {
     // Given
-    String sessionId = "sess-wf-error";
+    final String sessionId = "sess-wf-error";
     when(workflowDefinitionStore.find(sessionId, "w1"))
         .thenReturn(Mono.error(new RuntimeException("Workflow fetch failed")));
 
@@ -243,7 +250,7 @@ class SessionServiceTest {
   }
 
   @Test
-  void getSessionIds_noSessionsExist_returnsEmpty() {
+  void testGetSessionIds_noSessionsExist_returnsEmpty() {
     // Given
     when(configService.getSessionIds()).thenReturn(Flux.empty());
 
@@ -254,7 +261,7 @@ class SessionServiceTest {
   }
 
   @Test
-  void getSessionIds_storeThrowsError_propagatesError() {
+  void testGetSessionIds_storeThrowsError_propagatesError() {
     // Given
     when(configService.getSessionIds())
         .thenReturn(Flux.error(new RuntimeException("Session IDs fetch failed")));
@@ -266,9 +273,9 @@ class SessionServiceTest {
   }
 
   @Test
-  void getSessionConfig_configIsNull_returnsNull() {
+  void testGetSessionConfig_configIsNull_returnsNull() {
     // Given
-    String sessionId = "sess-null-config";
+    final String sessionId = "sess-null-config";
     when(configService.getAllConfigs(sessionId)).thenReturn(Mono.empty());
 
     // When & Then
@@ -276,9 +283,9 @@ class SessionServiceTest {
   }
 
   @Test
-  void getSessionWorkflow_workflowIsNull_returnsNull() {
+  void testGetSessionWorkflow_workflowIsNull_returnsNull() {
     // Given
-    String sessionId = "sess-null-wf";
+    final String sessionId = "sess-null-wf";
     when(workflowDefinitionStore.find(sessionId, "w1")).thenReturn(Mono.empty());
 
     // When & Then
@@ -288,12 +295,11 @@ class SessionServiceTest {
   @Test
   void applyConfig_withSingleWorkflow_compilesSuccessfully() {
     // Given
-    String sessionId = "sess-single";
-    WorkflowDefinition workflow =
-        new WorkflowDefinition("single-workflow", "desc", List.of(), List.of());
-    SessionConfigData data =
-        new SessionConfigData(
-            sessionId, "desc", "initiator", Map.of(), "/path", Map.of("w1", workflow));
+    final String sessionId = "sess-single";
+    final WorkflowDefinition workflow =
+        new WorkflowDefinition("single-workflow", DESC, List.of(), List.of());
+    final SessionConfigData data =
+        new SessionConfigData(sessionId, DESC, INITIATOR, Map.of(), PATH, Map.of("w1", workflow));
 
     when(configService.applySessionConfig(configDataCaptor.capture())).thenReturn(Mono.empty());
     when(controlBus.compileAndCacheWorkflow(eq(sessionId), workflowCaptor.capture()))
@@ -314,10 +320,10 @@ class SessionServiceTest {
   }
 
   @Test
-  void getSessionConfig_withMultipleConfigValues_returnsAllValues() {
+  void testGetSessionConfig_withMultipleConfigValues_returnsAllValues() {
     // Given
-    String sessionId = "sess-multi-config";
-    Map<String, Object> configMap =
+    final String sessionId = "sess-multi-config";
+    final Map<String, Object> configMap =
         Map.of(
             "config1", "value1",
             "config2", "value2",

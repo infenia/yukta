@@ -23,18 +23,26 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
+/** Tests for {@link LogRetrievalService}. */
+@SuppressWarnings({"PMD.TooManyMethods", "PMD.AvoidDuplicateLiterals"})
+@NoArgsConstructor
 class LogRetrievalServiceTest {
 
+  /** Mock session config store. */
   private SessionConfigStore configService;
+
+  /** The log retrieval service to test. */
   private LogRetrievalService service;
 
-  @TempDir Path tempDir;
+  /** Temporary directory for test files. */
+  @TempDir /* package */ Path tempDir;
 
   @BeforeEach
   void setUp() {
@@ -44,9 +52,9 @@ class LogRetrievalServiceTest {
 
   @Test
   void testListLogs() throws IOException {
-    String sessionId = "s1";
-    Path resultsDir = tempDir.resolve("results");
-    Path fileDir = tempDir.resolve("files");
+    final String sessionId = "s1";
+    final Path resultsDir = tempDir.resolve("results");
+    final Path fileDir = tempDir.resolve("files");
 
     Files.createDirectories(resultsDir.resolve(sessionId));
     Files.createDirectories(fileDir.resolve(sessionId));
@@ -64,7 +72,7 @@ class LogRetrievalServiceTest {
 
   @Test
   void testListLogsEmptyDirs() {
-    String sessionId = "s1";
+    final String sessionId = "s1";
     when(configService.getResultLogDir(sessionId)).thenReturn(Mono.just(""));
     when(configService.getFileLogDir(sessionId)).thenReturn(Mono.just(""));
 
@@ -73,7 +81,7 @@ class LogRetrievalServiceTest {
 
   @Test
   void testListLogsNullDirs() {
-    String sessionId = "s1";
+    final String sessionId = "s1";
     when(configService.getResultLogDir(sessionId)).thenReturn(Mono.empty());
     when(configService.getFileLogDir(sessionId)).thenReturn(Mono.empty());
 
@@ -82,8 +90,8 @@ class LogRetrievalServiceTest {
 
   @Test
   void testListLogsSessionDirMissing() throws IOException {
-    String sessionId = "s1";
-    Path resultsDir = tempDir.resolve("results-missing");
+    final String sessionId = "s1";
+    final Path resultsDir = tempDir.resolve("results-missing");
     Files.createDirectories(resultsDir); // resultsDir exists, but resultsDir/s1 does not
 
     when(configService.getResultLogDir(sessionId)).thenReturn(Mono.just(resultsDir.toString()));
@@ -93,9 +101,9 @@ class LogRetrievalServiceTest {
   }
 
   @Test
-  void testListLogsNotADirectory() throws IOException {
-    String sessionId = "s1";
-    Path resultsDir = tempDir.resolve("results-not-dir");
+  void testListLogsNotaDirectory() throws IOException {
+    final String sessionId = "s1";
+    final Path resultsDir = tempDir.resolve("results-not-dir");
     Files.createDirectories(resultsDir);
     Files.createFile(resultsDir.resolve(sessionId)); // resultsDir/s1 is a FILE
 
@@ -106,9 +114,9 @@ class LogRetrievalServiceTest {
   }
 
   @Test
-  void testListLogsIOException() throws Exception {
-    String sessionId = "s1";
-    Path resultsDir = tempDir.resolve("results-io");
+  void testListLogsIoException() throws Exception {
+    final String sessionId = "s1";
+    final Path resultsDir = tempDir.resolve("results-io");
     Files.createDirectories(resultsDir.resolve(sessionId));
     resultsDir.resolve(sessionId).toFile().setReadable(false);
 
@@ -124,10 +132,10 @@ class LogRetrievalServiceTest {
 
   @Test
   void testGetLogContent() throws IOException {
-    String sessionId = "s1";
-    Path resultsDir = tempDir.resolve("results");
+    final String sessionId = "s1";
+    final Path resultsDir = tempDir.resolve("results");
     Files.createDirectories(resultsDir.resolve(sessionId));
-    Path logFile = resultsDir.resolve(sessionId).resolve("log1.txt");
+    final Path logFile = resultsDir.resolve(sessionId).resolve("log1.txt");
     Files.writeString(logFile, "content");
 
     when(configService.getResultLogDir(sessionId)).thenReturn(Mono.just(resultsDir.toString()));
@@ -140,7 +148,7 @@ class LogRetrievalServiceTest {
 
   @Test
   void testGetLogContentNotFound() {
-    String sessionId = "s1";
+    final String sessionId = "s1";
     when(configService.getResultLogDir(sessionId)).thenReturn(Mono.just(tempDir.toString()));
     when(configService.getFileLogDir(sessionId)).thenReturn(Mono.just(""));
 
@@ -150,7 +158,7 @@ class LogRetrievalServiceTest {
 
   @Test
   void testGetLogContentNullDirs() {
-    String sessionId = "s1";
+    final String sessionId = "s1";
     when(configService.getResultLogDir(sessionId)).thenReturn(Mono.empty());
     when(configService.getFileLogDir(sessionId)).thenReturn(Mono.empty());
 
@@ -159,9 +167,9 @@ class LogRetrievalServiceTest {
 
   @Test
   void testListLogsDuplicateFilesAcrossDirectories() throws IOException {
-    String sessionId = "s1";
-    Path resultsDir = tempDir.resolve("results");
-    Path fileDir = tempDir.resolve("files");
+    final String sessionId = "s1";
+    final Path resultsDir = tempDir.resolve("results");
+    final Path fileDir = tempDir.resolve("files");
 
     Files.createDirectories(resultsDir.resolve(sessionId));
     Files.createDirectories(fileDir.resolve(sessionId));
@@ -185,8 +193,8 @@ class LogRetrievalServiceTest {
 
   @Test
   void testListLogsSortedOrder() throws IOException {
-    String sessionId = "s1";
-    Path resultsDir = tempDir.resolve("results");
+    final String sessionId = "s1";
+    final Path resultsDir = tempDir.resolve("results");
 
     Files.createDirectories(resultsDir.resolve(sessionId));
     Files.createFile(resultsDir.resolve(sessionId).resolve("z-log.txt"));
@@ -203,14 +211,14 @@ class LogRetrievalServiceTest {
 
   @Test
   void testGetLogContentFoundInResultsDir() throws IOException {
-    String sessionId = "s1";
-    Path resultsDir = tempDir.resolve("results");
-    Path fileDir = tempDir.resolve("files");
+    final String sessionId = "s1";
+    final Path resultsDir = tempDir.resolve("results");
+    final Path fileDir = tempDir.resolve("files");
 
     Files.createDirectories(resultsDir.resolve(sessionId));
     Files.createDirectories(fileDir.resolve(sessionId));
 
-    Path logFile = resultsDir.resolve(sessionId).resolve("log1.txt");
+    final Path logFile = resultsDir.resolve(sessionId).resolve("log1.txt");
     Files.writeString(logFile, "results-content");
 
     when(configService.getResultLogDir(sessionId)).thenReturn(Mono.just(resultsDir.toString()));
@@ -223,14 +231,14 @@ class LogRetrievalServiceTest {
 
   @Test
   void testGetLogContentFoundInFileLogDirOnly() throws IOException {
-    String sessionId = "s1";
-    Path resultsDir = tempDir.resolve("results");
-    Path fileDir = tempDir.resolve("files");
+    final String sessionId = "s1";
+    final Path resultsDir = tempDir.resolve("results");
+    final Path fileDir = tempDir.resolve("files");
 
     Files.createDirectories(resultsDir.resolve(sessionId));
     Files.createDirectories(fileDir.resolve(sessionId));
 
-    Path logFile = fileDir.resolve(sessionId).resolve("log2.txt");
+    final Path logFile = fileDir.resolve(sessionId).resolve("log2.txt");
     Files.writeString(logFile, "files-content");
 
     when(configService.getResultLogDir(sessionId)).thenReturn(Mono.just(resultsDir.toString()));
@@ -243,7 +251,7 @@ class LogRetrievalServiceTest {
 
   @Test
   void testGetLogContentEmptyDirStrings() {
-    String sessionId = "s1";
+    final String sessionId = "s1";
     when(configService.getResultLogDir(sessionId)).thenReturn(Mono.just(""));
     when(configService.getFileLogDir(sessionId)).thenReturn(Mono.just(""));
 
@@ -252,8 +260,8 @@ class LogRetrievalServiceTest {
 
   @Test
   void testListLogsOneDirNull() throws IOException {
-    String sessionId = "s1";
-    Path resultsDir = tempDir.resolve("results");
+    final String sessionId = "s1";
+    final Path resultsDir = tempDir.resolve("results");
 
     Files.createDirectories(resultsDir.resolve(sessionId));
     Files.createFile(resultsDir.resolve(sessionId).resolve("log1.txt"));

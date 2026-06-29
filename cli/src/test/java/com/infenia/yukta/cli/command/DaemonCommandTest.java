@@ -16,34 +16,35 @@
 package com.infenia.yukta.cli.command;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import picocli.CommandLine.InitializationException;
 
+@DisplayName("DaemonCommand")
 class DaemonCommandTest {
 
   @Test
+  @DisplayName("constructor creates instance")
   void constructor_createsInstance() {
-    DaemonCommand command = new DaemonCommand();
+    final DaemonCommand command = new DaemonCommand();
 
     assertThat(command).isNotNull();
   }
 
   @Test
+  @DisplayName("run throws exception when no subcommand provided")
   void run_throwsException() {
-    DaemonCommand command = new DaemonCommand();
+    final DaemonCommand command = new DaemonCommand();
 
-    boolean exceptionThrown = false;
-    try {
-      command.run();
-    } catch (Exception e) {
-      exceptionThrown = true;
-    }
-    assertThat(exceptionThrown).isTrue();
+    assertThatThrownBy(command::run).isInstanceOf(InitializationException.class);
   }
 
   @Test
+  @DisplayName("implements Runnable interface")
   void isRunnable() {
-    DaemonCommand command = new DaemonCommand();
+    final DaemonCommand command = new DaemonCommand();
 
     assertThat(command).isInstanceOf(Runnable.class);
   }

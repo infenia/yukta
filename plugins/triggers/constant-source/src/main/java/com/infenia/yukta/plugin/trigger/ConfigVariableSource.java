@@ -113,7 +113,9 @@ public class ConfigVariableSource implements TriggerPlugin {
                     "Emitted message with variables in payload: {} keys", resolvedVars.size());
               }
 
-              return DefaultMessage.create(UUID.randomUUID(), resultPayload).withMetadata(metadata);
+              return DefaultMessage.create(UUID.randomUUID(), resultPayload)
+                  .withMetadata(metadata)
+                  .withSourcePort("default");
             })
         .flux();
   }

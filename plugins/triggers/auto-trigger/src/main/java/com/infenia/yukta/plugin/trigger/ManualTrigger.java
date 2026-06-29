@@ -73,6 +73,6 @@ public class ManualTrigger implements TriggerPlugin {
   @Override
   public Flux<Message<?>> start(final Map<String, Object> config) {
     log.atDebug().log("ManualTrigger firing: emitting empty message");
-    return Flux.just(DefaultMessage.create(UUID.randomUUID(), Map.of()));
+    return Flux.just(DefaultMessage.create(UUID.randomUUID(), Map.of()).withSourcePort("default"));
   }
 }

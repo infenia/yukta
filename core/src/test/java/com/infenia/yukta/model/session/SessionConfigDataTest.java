@@ -16,14 +16,12 @@
 package com.infenia.yukta.model.session;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import jakarta.validation.Validator;
 import java.util.List;
 import java.util.Map;
+import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -36,28 +34,42 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
 import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
 
+/** Tests for {@link SessionConfigData}. */
+@SuppressWarnings({
+  "PMD.TooManyMethods",
+  "PMD.AvoidDuplicateLiterals",
+  "PMD.CommentDefaultAccessModifier",
+  "PMD.TestClassWithoutTestCases",
+  "PMD.FieldDeclarationsShouldBeAtStartOfClass"
+})
 @SpringJUnitConfig(SessionConfigDataTest.TestConfig.class)
 @Tag("SessionConfigDataTest")
+@NoArgsConstructor
 class SessionConfigDataTest {
 
+  /** Test configuration for validation. */
   @Configuration
   static class TestConfig {
+    /**
+     * Creates a validator bean.
+     *
+     * @return the validator
+     */
     @Bean
     LocalValidatorFactoryBean validator() {
       return new LocalValidatorFactoryBean();
     }
   }
 
+  /** The validator instance. */
   @Autowired private Validator validator;
 
   @Test
   void testSessionConfigData() {
-    SessionConfigData data = new SessionConfigData("s", "d", "i", null, "/p", null);
-    assertEquals("s", data.sessionId());
-    assertNotNull(data.tags());
-    assertNotNull(data.workflows());
-    assertTrue(data.tags().isEmpty());
-    assertTrue(data.workflows().isEmpty());
+    final SessionConfigData data = new SessionConfigData("s", "d", "i", null, "/p", null);
+    assertThat(data.sessionId()).isEqualTo("s");
+    assertThat(data.tags()).isNotNull().isEmpty();
+    assertThat(data.workflows()).isNotNull().isEmpty();
   }
 
   @ParameterizedTest
@@ -283,6 +295,7 @@ class SessionConfigDataTest {
   }
 
   @Test
+  @SuppressWarnings("PMD.ShortVariable")
   void workflowsMapShouldBeImmutable() {
     final var wf =
         new WorkflowDefinition(

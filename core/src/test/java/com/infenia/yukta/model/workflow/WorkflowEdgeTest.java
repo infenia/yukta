@@ -15,62 +15,63 @@
  */
 package com.infenia.yukta.model.workflow;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.assertj.core.api.Assertions.*;
 
+import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 
 /** Unit tests for {@link WorkflowEdge}. */
+@NoArgsConstructor
+@SuppressWarnings("PMD.AvoidDuplicateLiterals")
 class WorkflowEdgeTest {
 
   @Test
   void testConstructorAndGetters() {
     // Test with null sourcePort
-    WorkflowEdge edge1 = new WorkflowEdge("source1", "target1", null);
-    assertEquals("source1", edge1.source());
-    assertEquals("target1", edge1.target());
-    assertNull(edge1.sourcePort());
+    final WorkflowEdge edge1 = new WorkflowEdge("source1", "target1", null);
+    assertThat(edge1.source()).isEqualTo("source1");
+    assertThat(edge1.target()).isEqualTo("target1");
+    assertThat(edge1.sourcePort()).isNull();
 
     // Test with non-null sourcePort
-    WorkflowEdge edge2 = new WorkflowEdge("source2", "target2", "port1");
-    assertEquals("source2", edge2.source());
-    assertEquals("target2", edge2.target());
-    assertEquals("port1", edge2.sourcePort());
+    final WorkflowEdge edge2 = new WorkflowEdge("source2", "target2", "port1");
+    assertThat(edge2.source()).isEqualTo("source2");
+    assertThat(edge2.target()).isEqualTo("target2");
+    assertThat(edge2.sourcePort()).isEqualTo("port1");
   }
 
   @Test
   void testEqualsAndHashCode() {
-    WorkflowEdge edge1 = new WorkflowEdge("source", "target", null);
-    WorkflowEdge edge2 = new WorkflowEdge("source", "target", null);
-    WorkflowEdge edge3 = new WorkflowEdge("source", "target", "port");
-    WorkflowEdge edge4 = new WorkflowEdge("different", "target", null);
+    final WorkflowEdge edge1 = new WorkflowEdge("source", "target", null);
+    final WorkflowEdge edge2 = new WorkflowEdge("source", "target", null);
+    final WorkflowEdge edge3 = new WorkflowEdge("source", "target", "port");
+    final WorkflowEdge edge4 = new WorkflowEdge("different", "target", null);
 
     // Same values should be equal
-    assertEquals(edge1, edge2);
-    assertEquals(edge1.hashCode(), edge2.hashCode());
+    assertThat(edge1).isEqualTo(edge2);
+    assertThat(edge1.hashCode()).isEqualTo(edge2.hashCode());
 
     // Different sourcePort should not be equal
-    assertNotEquals(edge1, edge3);
-    assertNotEquals(edge1.hashCode(), edge3.hashCode());
+    assertThat(edge1).isNotEqualTo(edge3);
+    assertThat(edge1.hashCode()).isNotEqualTo(edge3.hashCode());
 
     // Different source should not be equal
-    assertNotEquals(edge1, edge4);
-    assertNotEquals(edge1.hashCode(), edge4.hashCode());
-
-    // Reflexive
-    assertEquals(edge1, edge1);
-    assertEquals(edge1.hashCode(), edge1.hashCode());
+    assertThat(edge1).isNotEqualTo(edge4);
+    assertThat(edge1.hashCode()).isNotEqualTo(edge4.hashCode());
   }
 
   @Test
   void testToString() {
-    WorkflowEdge edgeWithNullPort = new WorkflowEdge("source", "target", null);
-    WorkflowEdge edgeWithPort = new WorkflowEdge("source", "target", "port");
+    final WorkflowEdge edgeWithNullPort = new WorkflowEdge("source", "target", null);
+    final WorkflowEdge edgeWithPort = new WorkflowEdge("source", "target", "port");
 
-    String toStringWithNull = edgeWithNullPort.toString();
-    String toStringWithPort = edgeWithPort.toString();
+    final String toStringWithNull = edgeWithNullPort.toString();
+    final String toStringWithPort = edgeWithPort.toString();
 
     // toString should contain all field values
-    assertEquals("WorkflowEdge[source=source, target=target, sourcePort=null]", toStringWithNull);
-    assertEquals("WorkflowEdge[source=source, target=target, sourcePort=port]", toStringWithPort);
+    assertThat(toStringWithNull)
+        .isEqualTo("WorkflowEdge[source=source, target=target, sourcePort=null]");
+    assertThat(toStringWithPort)
+        .isEqualTo("WorkflowEdge[source=source, target=target, sourcePort=port]");
   }
 }

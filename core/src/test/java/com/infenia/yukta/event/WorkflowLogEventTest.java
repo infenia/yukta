@@ -15,157 +15,159 @@
  */
 package com.infenia.yukta.event;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.assertj.core.api.Assertions.*;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
+import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 
+/** Tests for {@link WorkflowLogEvent}. */
+@NoArgsConstructor
+@SuppressWarnings({"PMD.TooManyMethods", "PMD.AvoidDuplicateLiterals", "PMD.LinguisticNaming"})
 class WorkflowLogEventTest {
 
   @Test
   void create_validInputs_createsEventWithProvidedDataAndRecentTimestamp() {
-    WorkflowLogEvent event = WorkflowLogEvent.create("exec1", "log line 1");
+    final WorkflowLogEvent event = WorkflowLogEvent.create("exec1", "log line 1");
 
-    assertEquals("exec1", event.executionId());
-    assertEquals("log line 1", event.line());
-    assertNotNull(event.timestamp());
+    assertThat(event.executionId()).isEqualTo("exec1");
+    assertThat(event.line()).isEqualTo("log line 1");
+    assertThat(event.timestamp()).isNotNull();
   }
 
   @Test
   void create_validInputs_executionIdPreserved() {
-    String executionId = "workflow-12345";
-    WorkflowLogEvent event = WorkflowLogEvent.create(executionId, "some log");
+    final String executionId = "workflow-12345";
+    final WorkflowLogEvent event = WorkflowLogEvent.create(executionId, "some log");
 
-    assertEquals(executionId, event.executionId());
+    assertThat(event.executionId()).isEqualTo(executionId);
   }
 
   @Test
   void create_validInputs_linePreserved() {
-    String logLine = "Task completed successfully";
-    WorkflowLogEvent event = WorkflowLogEvent.create("exec1", logLine);
+    final String logLine = "Task completed successfully";
+    final WorkflowLogEvent event = WorkflowLogEvent.create("exec1", logLine);
 
-    assertEquals(logLine, event.line());
+    assertThat(event.line()).isEqualTo(logLine);
   }
 
   @Test
   void create_multilineLogContent_preserved() {
-    String multiLineLog = "Error occurred\nStack trace follows\nException details";
-    WorkflowLogEvent event = WorkflowLogEvent.create("exec1", multiLineLog);
+    final String multiLineLog = "Error occurred\nStack trace follows\nException details";
+    final WorkflowLogEvent event = WorkflowLogEvent.create("exec1", multiLineLog);
 
-    assertEquals(multiLineLog, event.line());
+    assertThat(event.line()).isEqualTo(multiLineLog);
   }
 
   @Test
   void create_emptyLineString_accepted() {
-    WorkflowLogEvent event = WorkflowLogEvent.create("exec1", "");
+    final WorkflowLogEvent event = WorkflowLogEvent.create("exec1", "");
 
-    assertEquals("", event.line());
+    assertThat(event.line()).isEqualTo("");
   }
 
   @Test
   void constructor_allFieldsProvided_createsRecord() {
-    LocalDateTime timestamp = LocalDateTime.of(2026, 6, 21, 10, 30, 0);
-    WorkflowLogEvent event = new WorkflowLogEvent("exec2", "line 2", timestamp);
+    final LocalDateTime timestamp = LocalDateTime.of(2026, 6, 21, 10, 30, 0);
+    final WorkflowLogEvent event = new WorkflowLogEvent("exec2", "line 2", timestamp);
 
-    assertEquals("exec2", event.executionId());
-    assertEquals("line 2", event.line());
-    assertEquals(timestamp, event.timestamp());
+    assertThat(event.executionId()).isEqualTo("exec2");
+    assertThat(event.line()).isEqualTo("line 2");
+    assertThat(event.timestamp()).isEqualTo(timestamp);
   }
 
   @Test
   void equals_identicalFieldValues_returnsTrue() {
-    LocalDateTime timestamp = LocalDateTime.of(2026, 6, 21, 10, 30, 0);
-    WorkflowLogEvent event1 = new WorkflowLogEvent("exec1", "log line", timestamp);
-    WorkflowLogEvent event2 = new WorkflowLogEvent("exec1", "log line", timestamp);
+    final LocalDateTime timestamp = LocalDateTime.of(2026, 6, 21, 10, 30, 0);
+    final WorkflowLogEvent event1 = new WorkflowLogEvent("exec1", "log line", timestamp);
+    final WorkflowLogEvent event2 = new WorkflowLogEvent("exec1", "log line", timestamp);
 
-    assertEquals(event1, event2);
+    assertThat(event1).isEqualTo(event2);
   }
 
   @Test
   void equals_differentExecutionId_returnsFalse() {
-    LocalDateTime timestamp = LocalDateTime.of(2026, 6, 21, 10, 30, 0);
-    WorkflowLogEvent event1 = new WorkflowLogEvent("exec1", "log line", timestamp);
-    WorkflowLogEvent event2 = new WorkflowLogEvent("exec2", "log line", timestamp);
+    final LocalDateTime timestamp = LocalDateTime.of(2026, 6, 21, 10, 30, 0);
+    final WorkflowLogEvent event1 = new WorkflowLogEvent("exec1", "log line", timestamp);
+    final WorkflowLogEvent event2 = new WorkflowLogEvent("exec2", "log line", timestamp);
 
-    assertNotEquals(event1, event2);
+    assertThat(event1).isNotEqualTo(event2);
   }
 
   @Test
   void equals_differentLine_returnsFalse() {
-    LocalDateTime timestamp = LocalDateTime.of(2026, 6, 21, 10, 30, 0);
-    WorkflowLogEvent event1 = new WorkflowLogEvent("exec1", "line 1", timestamp);
-    WorkflowLogEvent event2 = new WorkflowLogEvent("exec1", "line 2", timestamp);
+    final LocalDateTime timestamp = LocalDateTime.of(2026, 6, 21, 10, 30, 0);
+    final WorkflowLogEvent event1 = new WorkflowLogEvent("exec1", "line 1", timestamp);
+    final WorkflowLogEvent event2 = new WorkflowLogEvent("exec1", "line 2", timestamp);
 
-    assertNotEquals(event1, event2);
+    assertThat(event1).isNotEqualTo(event2);
   }
 
   @Test
   void equals_differentTimestamp_returnsFalse() {
-    LocalDateTime timestamp1 = LocalDateTime.of(2026, 6, 21, 10, 30, 0);
-    LocalDateTime timestamp2 = LocalDateTime.of(2026, 6, 21, 10, 30, 1);
-    WorkflowLogEvent event1 = new WorkflowLogEvent("exec1", "log line", timestamp1);
-    WorkflowLogEvent event2 = new WorkflowLogEvent("exec1", "log line", timestamp2);
+    final LocalDateTime timestamp1 = LocalDateTime.of(2026, 6, 21, 10, 30, 0);
+    final LocalDateTime timestamp2 = LocalDateTime.of(2026, 6, 21, 10, 30, 1);
+    final WorkflowLogEvent event1 = new WorkflowLogEvent("exec1", "log line", timestamp1);
+    final WorkflowLogEvent event2 = new WorkflowLogEvent("exec1", "log line", timestamp2);
 
-    assertNotEquals(event1, event2);
+    assertThat(event1).isNotEqualTo(event2);
   }
 
   @Test
   void hashCode_identicalFieldValues_returnsSameHash() {
-    LocalDateTime timestamp = LocalDateTime.of(2026, 6, 21, 10, 30, 0);
-    WorkflowLogEvent event1 = new WorkflowLogEvent("exec1", "log line", timestamp);
-    WorkflowLogEvent event2 = new WorkflowLogEvent("exec1", "log line", timestamp);
+    final LocalDateTime timestamp = LocalDateTime.of(2026, 6, 21, 10, 30, 0);
+    final WorkflowLogEvent event1 = new WorkflowLogEvent("exec1", "log line", timestamp);
+    final WorkflowLogEvent event2 = new WorkflowLogEvent("exec1", "log line", timestamp);
 
-    assertEquals(event1.hashCode(), event2.hashCode());
+    assertThat(event1.hashCode()).isEqualTo(event2.hashCode());
   }
 
   @Test
   void hashCode_differentValues_likelyDifferentHash() {
-    LocalDateTime timestamp = LocalDateTime.of(2026, 6, 21, 10, 30, 0);
-    WorkflowLogEvent event1 = new WorkflowLogEvent("exec1", "log line", timestamp);
-    WorkflowLogEvent event2 = new WorkflowLogEvent("exec2", "log line", timestamp);
+    final LocalDateTime timestamp = LocalDateTime.of(2026, 6, 21, 10, 30, 0);
+    final WorkflowLogEvent event1 = new WorkflowLogEvent("exec1", "log line", timestamp);
+    final WorkflowLogEvent event2 = new WorkflowLogEvent("exec2", "log line", timestamp);
 
-    assertNotEquals(event1.hashCode(), event2.hashCode());
+    assertThat(event1.hashCode()).isNotEqualTo(event2.hashCode());
   }
 
   @Test
   void toString_containsFieldValues() {
-    LocalDateTime timestamp = LocalDateTime.of(2026, 6, 21, 10, 30, 0);
-    WorkflowLogEvent event = new WorkflowLogEvent("exec1", "test log", timestamp);
+    final LocalDateTime timestamp = LocalDateTime.of(2026, 6, 21, 10, 30, 0);
+    final WorkflowLogEvent event = new WorkflowLogEvent("exec1", "test log", timestamp);
 
-    String toString = event.toString();
-    assertTrue(toString.contains("exec1"));
-    assertTrue(toString.contains("test log"));
+    final String toString = event.toString();
+    assertThat(toString).contains("exec1");
+    assertThat(toString).contains("test log");
   }
 
   @Test
   void create_timestampIsApproximatelyNow() {
-    LocalDateTime before = LocalDateTime.now();
-    WorkflowLogEvent event = WorkflowLogEvent.create("exec1", "log message");
-    LocalDateTime after = LocalDateTime.now();
+    final LocalDateTime before = LocalDateTime.now(ZoneId.systemDefault());
+    final WorkflowLogEvent event = WorkflowLogEvent.create("exec1", "log message");
+    final LocalDateTime after = LocalDateTime.now(ZoneId.systemDefault());
 
-    assertTrue(
-        !event.timestamp().isBefore(before.minusSeconds(1))
-            && !event.timestamp().isAfter(after.plusSeconds(1)));
+    assertThat(event.timestamp())
+        .isAfterOrEqualTo(before.minusSeconds(1))
+        .isBeforeOrEqualTo(after.plusSeconds(1));
   }
 
   @Test
   void record_accessorsReturnCorrectTypes() {
-    LocalDateTime timestamp = LocalDateTime.of(2026, 6, 21, 10, 30, 0);
-    WorkflowLogEvent event = new WorkflowLogEvent("exec1", "line", timestamp);
+    final LocalDateTime timestamp = LocalDateTime.of(2026, 6, 21, 10, 30, 0);
+    final WorkflowLogEvent event = new WorkflowLogEvent("exec1", "line", timestamp);
 
-    assertTrue(event.executionId() instanceof String);
-    assertTrue(event.line() instanceof String);
-    assertTrue(event.timestamp() instanceof LocalDateTime);
+    assertThat(event.executionId()).isInstanceOf(String.class);
+    assertThat(event.line()).isInstanceOf(String.class);
+    assertThat(event.timestamp()).isInstanceOf(LocalDateTime.class);
   }
 
   @Test
   void create_specialCharactersInLogLine_preserved() {
-    String specialLog = "Status: [COMPLETED] | Duration: 500ms | Errors: 0";
-    WorkflowLogEvent event = WorkflowLogEvent.create("exec1", specialLog);
+    final String specialLog = "Status: [COMPLETED] | Duration: 500ms | Errors: 0";
+    final WorkflowLogEvent event = WorkflowLogEvent.create("exec1", specialLog);
 
-    assertEquals(specialLog, event.line());
+    assertThat(event.line()).isEqualTo(specialLog);
   }
 }

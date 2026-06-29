@@ -62,18 +62,6 @@ class YuktaDaemonClientTest {
   @Test
   void applySession_validRequest_logsSessionApplied() {
     // Given
-    ConfigRequest request =
-        new ConfigRequest(
-            "session-123",
-            "Test Session",
-            "Test User",
-            Map.of("env", "test"),
-            "/test/project",
-            Map.of(
-                "workflow-1",
-                new WorkflowDefinitionRequest(
-                    "workflow-1", "Test Workflow", List.of(), List.of())));
-
     ApiResponse<Void> response = ApiResponse.success(200, "Session applied", null);
     WebClient.ResponseSpec responseSpec = mock(WebClient.ResponseSpec.class);
     when(responseSpec.bodyToMono(any(ParameterizedTypeReference.class)))
@@ -86,6 +74,18 @@ class YuktaDaemonClientTest {
     when(uriSpec.retrieve()).thenReturn(responseSpec);
     when(mockWebClient.post()).thenReturn(uriSpec);
 
+    ConfigRequest request =
+        new ConfigRequest(
+            "session-123",
+            "Test Session",
+            "Test User",
+            Map.of("env", "test"),
+            "/test/project",
+            Map.of(
+                "workflow-1",
+                new WorkflowDefinitionRequest(
+                    "workflow-1", "Test Workflow", List.of(), List.of())));
+
     // When
     client.applySession(request);
 
@@ -96,6 +96,16 @@ class YuktaDaemonClientTest {
   @Test
   void applySession_nullResponse_doesNotThrowError() {
     // Given
+    WebClient.ResponseSpec responseSpec = mock(WebClient.ResponseSpec.class);
+    when(responseSpec.bodyToMono(any(ParameterizedTypeReference.class))).thenReturn(Mono.empty());
+
+    WebClient.RequestBodyUriSpec uriSpec =
+        mock(WebClient.RequestBodyUriSpec.class, withSettings().lenient());
+    when(uriSpec.uri(anyString())).thenAnswer(inv -> uriSpec);
+    when(uriSpec.bodyValue(any())).thenAnswer(inv -> uriSpec);
+    when(uriSpec.retrieve()).thenReturn(responseSpec);
+    when(mockWebClient.post()).thenReturn(uriSpec);
+
     ConfigRequest request =
         new ConfigRequest(
             "session-123",
@@ -107,16 +117,6 @@ class YuktaDaemonClientTest {
                 "workflow-1",
                 new WorkflowDefinitionRequest(
                     "workflow-1", "Test Workflow", List.of(), List.of())));
-
-    WebClient.ResponseSpec responseSpec = mock(WebClient.ResponseSpec.class);
-    when(responseSpec.bodyToMono(any(ParameterizedTypeReference.class))).thenReturn(Mono.empty());
-
-    WebClient.RequestBodyUriSpec uriSpec =
-        mock(WebClient.RequestBodyUriSpec.class, withSettings().lenient());
-    when(uriSpec.uri(anyString())).thenAnswer(inv -> uriSpec);
-    when(uriSpec.bodyValue(any())).thenAnswer(inv -> uriSpec);
-    when(uriSpec.retrieve()).thenReturn(responseSpec);
-    when(mockWebClient.post()).thenReturn(uriSpec);
 
     // When-Then
     client.applySession(request);
@@ -550,8 +550,6 @@ class YuktaDaemonClientTest {
   @Test
   void streamProgress_withData_callsLineConsumerForEachLine() {
     // Given
-    String executionId = "exec-789";
-    Consumer<String> lineConsumer = mock(Consumer.class);
     Flux<String> flux = Flux.just("line1", "line2", "line3");
 
     WebClient.ResponseSpec responseSpec = mock(WebClient.ResponseSpec.class);
@@ -563,6 +561,9 @@ class YuktaDaemonClientTest {
     when(uriSpec.uri(anyString(), any(Object[].class))).thenAnswer(inv -> uriSpec);
     when(uriSpec.retrieve()).thenReturn(responseSpec);
     when(mockWebClient.get()).thenReturn(uriSpec);
+
+    String executionId = "exec-789";
+    Consumer<String> lineConsumer = mock(Consumer.class);
 
     // When
     client.streamProgress(executionId, lineConsumer);
@@ -576,8 +577,6 @@ class YuktaDaemonClientTest {
   @Test
   void streamProgress_emptyStream_completesWithoutCallingConsumer() {
     // Given
-    String executionId = "exec-789";
-    Consumer<String> lineConsumer = mock(Consumer.class);
     Flux<String> flux = Flux.empty();
 
     WebClient.ResponseSpec responseSpec = mock(WebClient.ResponseSpec.class);
@@ -587,6 +586,9 @@ class YuktaDaemonClientTest {
         mock(WebClient.RequestHeadersUriSpec.class, withSettings().lenient());
     when(uriSpec.uri(anyString())).thenAnswer(inv -> uriSpec);
     when(uriSpec.uri(anyString(), any(Object[].class))).thenAnswer(inv -> uriSpec);
+
+    String executionId = "exec-789";
+    Consumer<String> lineConsumer = mock(Consumer.class);
     when(uriSpec.retrieve()).thenReturn(responseSpec);
     when(mockWebClient.get()).thenReturn(uriSpec);
 
@@ -602,8 +604,6 @@ class YuktaDaemonClientTest {
   @Test
   void streamLogs_withData_callsLineConsumerForEachLine() {
     // Given
-    String executionId = "exec-789";
-    Consumer<String> lineConsumer = mock(Consumer.class);
     Flux<String> flux = Flux.just("log1", "log2");
 
     WebClient.ResponseSpec responseSpec = mock(WebClient.ResponseSpec.class);
@@ -615,6 +615,9 @@ class YuktaDaemonClientTest {
     when(uriSpec.uri(anyString(), any(Object[].class))).thenAnswer(inv -> uriSpec);
     when(uriSpec.retrieve()).thenReturn(responseSpec);
     when(mockWebClient.get()).thenReturn(uriSpec);
+
+    String executionId = "exec-789";
+    Consumer<String> lineConsumer = mock(Consumer.class);
 
     // When
     client.streamLogs(executionId, lineConsumer);
@@ -628,8 +631,6 @@ class YuktaDaemonClientTest {
   @Test
   void streamLogs_emptyStream_completesWithoutCallingConsumer() {
     // Given
-    String executionId = "exec-789";
-    Consumer<String> lineConsumer = mock(Consumer.class);
     Flux<String> flux = Flux.empty();
 
     WebClient.ResponseSpec responseSpec = mock(WebClient.ResponseSpec.class);
@@ -641,6 +642,9 @@ class YuktaDaemonClientTest {
     when(uriSpec.uri(anyString(), any(Object[].class))).thenAnswer(inv -> uriSpec);
     when(uriSpec.retrieve()).thenReturn(responseSpec);
     when(mockWebClient.get()).thenReturn(uriSpec);
+
+    String executionId = "exec-789";
+    Consumer<String> lineConsumer = mock(Consumer.class);
 
     // When
     client.streamLogs(executionId, lineConsumer);

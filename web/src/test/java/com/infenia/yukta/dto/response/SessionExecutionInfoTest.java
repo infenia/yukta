@@ -17,19 +17,28 @@ package com.infenia.yukta.dto.response;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 
+/** Tests for SessionExecutionInfoTest. */
+@NoArgsConstructor
 class SessionExecutionInfoTest {
+
+  /** First session ID test constant. */
+  private static final String SESSION_ID_123 = "session-123";
+
+  /** Second session ID test constant. */
+  private static final String SESSION_ID_456 = "session-456";
 
   @Test
   void constructor_validInputs_createsRecord() {
     // Given
-    String sessionId = "session-123";
-    int activeExecutions = 5;
-    int totalWorkflows = 10;
+    final String sessionId = SESSION_ID_123;
+    final int activeExecutions = 5;
+    final int totalWorkflows = 10;
 
     // When
-    SessionExecutionInfo info =
+    final SessionExecutionInfo info =
         new SessionExecutionInfo(sessionId, activeExecutions, totalWorkflows);
 
     // Then
@@ -41,8 +50,8 @@ class SessionExecutionInfoTest {
   @Test
   void equals_sameValues_returnsTrue() {
     // Given
-    SessionExecutionInfo info1 = new SessionExecutionInfo("session-123", 5, 10);
-    SessionExecutionInfo info2 = new SessionExecutionInfo("session-123", 5, 10);
+    final SessionExecutionInfo info1 = new SessionExecutionInfo(SESSION_ID_123, 5, 10);
+    final SessionExecutionInfo info2 = new SessionExecutionInfo(SESSION_ID_123, 5, 10);
 
     // When-Then
     assertThat(info1).isEqualTo(info2);
@@ -51,22 +60,22 @@ class SessionExecutionInfoTest {
   @Test
   void equals_differentValues_returnsFalse() {
     // Given
-    SessionExecutionInfo info1 = new SessionExecutionInfo("session-123", 5, 10);
-    SessionExecutionInfo info2 = new SessionExecutionInfo("session-456", 5, 10);
+    final SessionExecutionInfo info1 = new SessionExecutionInfo(SESSION_ID_123, 5, 10);
+    final SessionExecutionInfo info2 = new SessionExecutionInfo(SESSION_ID_456, 5, 10);
 
     // When-Then
     assertThat(info1).isNotEqualTo(info2);
   }
 
   @Test
-  void toString_contains_relevantFieldValues() {
+  void verifyToStringContainsRelevantFieldValues() {
     // Given
-    SessionExecutionInfo info = new SessionExecutionInfo("session-123", 5, 10);
+    final SessionExecutionInfo info = new SessionExecutionInfo(SESSION_ID_123, 5, 10);
 
     // When
-    String actual = info.toString();
+    final String actual = info.toString();
 
     // Then
-    assertThat(actual).contains("SessionExecutionInfo").contains("session-123");
+    assertThat(actual).contains("SessionExecutionInfo").contains(SESSION_ID_123);
   }
 }

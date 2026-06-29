@@ -15,6 +15,7 @@
  */
 package com.infenia.yukta.cli.infrastructure;
 
+import java.io.IOException;
 import java.net.ConnectException;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -28,6 +29,8 @@ import org.springframework.stereotype.Component;
 @Component
 @Slf4j
 public class DefaultHttpClientAdapter implements HttpClientAdapter {
+  /** Constructs a new DefaultHttpClientAdapter. */
+  public DefaultHttpClientAdapter() {}
 
   /** HTTP client with one-second connection timeout. */
   private final HttpClient httpClient =
@@ -38,20 +41,25 @@ public class DefaultHttpClientAdapter implements HttpClientAdapter {
    *
    * @param port the daemon port
    * @return true if health check succeeds (200 status)
-   * @throws Exception if connection or timeout occurs
+   * @throws IOException if connection or timeout occurs
    */
   @Override
-  public boolean healthCheck(int port) throws Exception {
-    String url = "http://127.0.0.1:" + port + "/actuator/health";
-    HttpRequest request =
+  public boolean healthCheck(final int port) throws IOException {
+    final String url = "http://127.0.0.1:" + port + "/actuator/health";
+    final HttpRequest request =
         HttpRequest.newBuilder(URI.create(url)).timeout(Duration.ofSeconds(1)).GET().build();
 
     try {
-      HttpResponse<String> response =
+      final HttpResponse<String> response =
           httpClient.send(request, HttpResponse.BodyHandlers.ofString());
       return response.statusCode() == 200;
     } catch (ConnectException | java.net.SocketTimeoutException e) {
-      throw new ConnectException("Daemon not responding: " + e.getMessage());
+      final ConnectException ex = new ConnectException("Daemon not responding: " + e.getMessage());
+      ex.initCause(e);
+      throw ex;
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      throw new IOException("Health check interrupted", e);
     }
   }
 }

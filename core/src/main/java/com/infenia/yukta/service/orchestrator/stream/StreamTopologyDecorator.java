@@ -62,6 +62,9 @@ public class StreamTopologyDecorator {
   private static final Sinks.EmitFailureHandler RETRY_HANDLER =
       (_, emitResult) -> handleEmitFailure(emitResult);
 
+  /** Maximum size for log event line in bytes. */
+  private static final int MAX_LOG_LINE_SIZE = 16_384;
+
   // ~ Package-private visibility
   /* default */ static boolean handleEmitFailure(final Sinks.EmitResult emitResult) {
     final boolean shouldRetry = emitResult == Sinks.EmitResult.FAIL_NON_SERIALIZED;
@@ -69,6 +72,12 @@ public class StreamTopologyDecorator {
       java.util.concurrent.locks.LockSupport.parkNanos(10_000);
     }
     return shouldRetry;
+  }
+
+  private static String truncateLogLine(final String line) {
+    return line.length() <= MAX_LOG_LINE_SIZE
+        ? line
+        : line.substring(0, MAX_LOG_LINE_SIZE - 20) + "\n[... truncated ...]";
   }
 
   /**
@@ -252,11 +261,9 @@ public class StreamTopologyDecorator {
 
     return logStream.doOnNext(
         msg -> {
-          log.atTrace()
-              .setMessage("Processing message payload: {}")
-              .addArgument(msg.getPayload())
-              .log();
-          tracker.emitLogEvent(executionId, String.valueOf(msg.getPayload()));
+          final String payload = String.valueOf(msg.getPayload());
+          log.atTrace().setMessage("Processing message payload: {}").addArgument(payload).log();
+          tracker.emitLogEvent(executionId, truncateLogLine(payload));
         });
   }
 }

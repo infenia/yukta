@@ -16,13 +16,11 @@
 package com.infenia.yukta.dto.request;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import jakarta.validation.Validator;
 import java.util.List;
 import java.util.Map;
+import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -35,28 +33,57 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
 import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
 
+/** Tests for ConfigRequest. */
 @SpringJUnitConfig(ConfigRequestTest.TestConfig.class)
 @Tag("ConfigRequestTest")
+@NoArgsConstructor
+@SuppressWarnings("PMD.TooManyMethods")
 class ConfigRequestTest {
 
+  /** Test workflow identifier. */
+  private static final String WORKFLOW_ID = "wf1";
+
+  /** Test workflow description. */
+  private static final String WORKFLOW_DESC = "desc";
+
+  /** Test session identifier. */
+  private static final String SESSION_ID = "session-1";
+
+  /** Test initiator constant for validation testing. */
+  private static final String INITIATOR = "initiator";
+
+  /** Test description field constant for validation testing. */
+  private static final String DESCRIPTION_FIELD = "description";
+
+  /** Test project path. */
+  private static final String PROJECT_PATH = "/path";
+
+  /** Validator for testing constraint violations. */
+  @Autowired private Validator validator;
+
+  /** Test configuration for validator bean. */
   @Configuration
-  static class TestConfig {
+  @SuppressWarnings("PMD.TestClassWithoutTestCases")
+  /* default */ static class TestConfig {
+    /**
+     * Creates a LocalValidatorFactoryBean for validation testing.
+     *
+     * @return validator factory bean
+     */
     @Bean
-    LocalValidatorFactoryBean validator() {
+    /* default */ LocalValidatorFactoryBean validator() {
       return new LocalValidatorFactoryBean();
     }
   }
 
-  @Autowired private Validator validator;
-
   @Test
   void testConfigRequest() {
-    ConfigRequest request = new ConfigRequest("s", "d", "i", null, "/p", null);
-    assertEquals("s", request.sessionId());
-    assertNotNull(request.tags());
-    assertNotNull(request.workflows());
-    assertTrue(request.tags().isEmpty());
-    assertTrue(request.workflows().isEmpty());
+    final ConfigRequest request = new ConfigRequest("s", "d", "i", null, "/p", null);
+    assertThat(request.sessionId()).as("session ID should be 's'").isEqualTo("s");
+    assertThat(request.tags()).as("tags should not be null").isNotNull();
+    assertThat(request.workflows()).as("workflows should not be null").isNotNull();
+    assertThat(request.tags()).as("tags should be empty").isEmpty();
+    assertThat(request.workflows()).as("workflows should be empty").isEmpty();
   }
 
   private static WorkflowDefinitionRequest createWorkflowDefinitionRequest(
@@ -71,8 +98,10 @@ class ConfigRequestTest {
   @ParameterizedTest
   @ValueSource(strings = {"session-123", "test-session", "prod-workflow-session"})
   void validationShouldNotFailWithValidSessionId(final String sessionId) {
-    final var workflows = Map.of("wf1", createWorkflowDefinitionRequest("wf1", "desc"));
-    final var request = new ConfigRequest(sessionId, "desc", "initiator", null, "/path", workflows);
+    final var workflows =
+        Map.of(WORKFLOW_ID, createWorkflowDefinitionRequest(WORKFLOW_ID, WORKFLOW_DESC));
+    final var request =
+        new ConfigRequest(sessionId, WORKFLOW_DESC, INITIATOR, null, PROJECT_PATH, workflows);
     final var result = validator.validateProperty(request, "sessionId");
     assertThat(result).isEmpty();
   }
@@ -82,17 +111,20 @@ class ConfigRequestTest {
   @EmptySource
   @ValueSource(strings = {" ", "\t", "\n"})
   void validationShouldFailWithInvalidSessionId(final String sessionId) {
-    final var workflows = Map.of("wf1", createWorkflowDefinitionRequest("wf1", "desc"));
-    final var request = new ConfigRequest(sessionId, "desc", "initiator", null, "/path", workflows);
+    final var workflows =
+        Map.of(WORKFLOW_ID, createWorkflowDefinitionRequest(WORKFLOW_ID, WORKFLOW_DESC));
+    final var request =
+        new ConfigRequest(sessionId, WORKFLOW_DESC, INITIATOR, null, PROJECT_PATH, workflows);
     final var result = validator.validateProperty(request, "sessionId");
     assertThat(result).isNotEmpty();
   }
 
   @Test
   void validationShouldFailWithSessionIdContainingPathTraversal() {
-    final var workflows = Map.of("wf1", createWorkflowDefinitionRequest("wf1", "desc"));
+    final var workflows =
+        Map.of(WORKFLOW_ID, createWorkflowDefinitionRequest(WORKFLOW_ID, WORKFLOW_DESC));
     final var request =
-        new ConfigRequest("../session", "desc", "initiator", null, "/path", workflows);
+        new ConfigRequest("../session", WORKFLOW_DESC, INITIATOR, null, PROJECT_PATH, workflows);
     final var result = validator.validateProperty(request, "sessionId");
     assertThat(result).isNotEmpty();
   }
@@ -100,10 +132,11 @@ class ConfigRequestTest {
   @ParameterizedTest
   @ValueSource(strings = {"d", "description", "This is a session description"})
   void validationShouldNotFailWithValidDescription(final String description) {
-    final var workflows = Map.of("wf1", createWorkflowDefinitionRequest("wf1", "desc"));
+    final var workflows =
+        Map.of(WORKFLOW_ID, createWorkflowDefinitionRequest(WORKFLOW_ID, WORKFLOW_DESC));
     final var request =
-        new ConfigRequest("session-1", description, "initiator", null, "/path", workflows);
-    final var result = validator.validateProperty(request, "description");
+        new ConfigRequest(SESSION_ID, description, INITIATOR, null, PROJECT_PATH, workflows);
+    final var result = validator.validateProperty(request, DESCRIPTION_FIELD);
     assertThat(result).isEmpty();
   }
 
@@ -112,29 +145,33 @@ class ConfigRequestTest {
   @EmptySource
   @ValueSource(strings = {" ", "\t", "\n"})
   void validationShouldFailWithInvalidDescription(final String description) {
-    final var workflows = Map.of("wf1", createWorkflowDefinitionRequest("wf1", "desc"));
+    final var workflows =
+        Map.of(WORKFLOW_ID, createWorkflowDefinitionRequest(WORKFLOW_ID, WORKFLOW_DESC));
     final var request =
-        new ConfigRequest("session-1", description, "initiator", null, "/path", workflows);
-    final var result = validator.validateProperty(request, "description");
+        new ConfigRequest(SESSION_ID, description, INITIATOR, null, PROJECT_PATH, workflows);
+    final var result = validator.validateProperty(request, DESCRIPTION_FIELD);
     assertThat(result).isNotEmpty();
   }
 
   @Test
   void validationShouldFailWhenDescriptionExceedsMaxLength() {
-    final var workflows = Map.of("wf1", createWorkflowDefinitionRequest("wf1", "desc"));
+    final var workflows =
+        Map.of(WORKFLOW_ID, createWorkflowDefinitionRequest(WORKFLOW_ID, WORKFLOW_DESC));
     final var tooLongDescription = "a".repeat(257);
     final var request =
-        new ConfigRequest("session-1", tooLongDescription, "initiator", null, "/path", workflows);
-    final var result = validator.validateProperty(request, "description");
+        new ConfigRequest(SESSION_ID, tooLongDescription, INITIATOR, null, PROJECT_PATH, workflows);
+    final var result = validator.validateProperty(request, DESCRIPTION_FIELD);
     assertThat(result).isNotEmpty();
   }
 
   @ParameterizedTest
   @ValueSource(strings = {"initiator", "AI Agent", "test-runner"})
   void validationShouldNotFailWithValidInitiator(final String initiator) {
-    final var workflows = Map.of("wf1", createWorkflowDefinitionRequest("wf1", "desc"));
-    final var request = new ConfigRequest("session-1", "desc", initiator, null, "/path", workflows);
-    final var result = validator.validateProperty(request, "initiator");
+    final var workflows =
+        Map.of(WORKFLOW_ID, createWorkflowDefinitionRequest(WORKFLOW_ID, WORKFLOW_DESC));
+    final var request =
+        new ConfigRequest(SESSION_ID, WORKFLOW_DESC, initiator, null, PROJECT_PATH, workflows);
+    final var result = validator.validateProperty(request, INITIATOR);
     assertThat(result).isEmpty();
   }
 
@@ -143,18 +180,21 @@ class ConfigRequestTest {
   @EmptySource
   @ValueSource(strings = {" ", "\t", "\n"})
   void validationShouldFailWithInvalidInitiator(final String initiator) {
-    final var workflows = Map.of("wf1", createWorkflowDefinitionRequest("wf1", "desc"));
-    final var request = new ConfigRequest("session-1", "desc", initiator, null, "/path", workflows);
-    final var result = validator.validateProperty(request, "initiator");
+    final var workflows =
+        Map.of(WORKFLOW_ID, createWorkflowDefinitionRequest(WORKFLOW_ID, WORKFLOW_DESC));
+    final var request =
+        new ConfigRequest(SESSION_ID, WORKFLOW_DESC, initiator, null, PROJECT_PATH, workflows);
+    final var result = validator.validateProperty(request, INITIATOR);
     assertThat(result).isNotEmpty();
   }
 
   @ParameterizedTest
   @ValueSource(strings = {"/path/to/project", "/home/user/workspace", "/projects/my-app"})
   void validationShouldNotFailWithValidProjectPath(final String projectPath) {
-    final var workflows = Map.of("wf1", createWorkflowDefinitionRequest("wf1", "desc"));
+    final var workflows =
+        Map.of(WORKFLOW_ID, createWorkflowDefinitionRequest(WORKFLOW_ID, WORKFLOW_DESC));
     final var request =
-        new ConfigRequest("session-1", "desc", "initiator", null, projectPath, workflows);
+        new ConfigRequest(SESSION_ID, WORKFLOW_DESC, INITIATOR, null, projectPath, workflows);
     final var result = validator.validateProperty(request, "projectPath");
     assertThat(result).isEmpty();
   }
@@ -164,19 +204,21 @@ class ConfigRequestTest {
   @EmptySource
   @ValueSource(strings = {" ", "\t", "\n"})
   void validationShouldFailWithInvalidProjectPath(final String projectPath) {
-    final var workflows = Map.of("wf1", createWorkflowDefinitionRequest("wf1", "desc"));
+    final var workflows =
+        Map.of(WORKFLOW_ID, createWorkflowDefinitionRequest(WORKFLOW_ID, WORKFLOW_DESC));
     final var request =
-        new ConfigRequest("session-1", "desc", "initiator", null, projectPath, workflows);
+        new ConfigRequest(SESSION_ID, WORKFLOW_DESC, INITIATOR, null, projectPath, workflows);
     final var result = validator.validateProperty(request, "projectPath");
     assertThat(result).isNotEmpty();
   }
 
   @Test
   void validationShouldFailWhenProjectPathExceedsMaxLength() {
-    final var workflows = Map.of("wf1", createWorkflowDefinitionRequest("wf1", "desc"));
+    final var workflows =
+        Map.of(WORKFLOW_ID, createWorkflowDefinitionRequest(WORKFLOW_ID, WORKFLOW_DESC));
     final var tooLongPath = "/path" + "/a".repeat(512);
     final var request =
-        new ConfigRequest("session-1", "desc", "initiator", null, tooLongPath, workflows);
+        new ConfigRequest(SESSION_ID, WORKFLOW_DESC, INITIATOR, null, tooLongPath, workflows);
     final var result = validator.validateProperty(request, "projectPath");
     assertThat(result).isNotEmpty();
   }
@@ -185,10 +227,12 @@ class ConfigRequestTest {
   void validationShouldNotFailWithValidWorkflows() {
     final var workflows =
         Map.of(
-            "wf1", createWorkflowDefinitionRequest("wf1", "desc"),
-            "wf2", createWorkflowDefinitionRequest("wf2", "desc"));
+            WORKFLOW_ID,
+            createWorkflowDefinitionRequest(WORKFLOW_ID, WORKFLOW_DESC),
+            "wf2",
+            createWorkflowDefinitionRequest("wf2", WORKFLOW_DESC));
     final var request =
-        new ConfigRequest("session-1", "desc", "initiator", null, "/path", workflows);
+        new ConfigRequest(SESSION_ID, WORKFLOW_DESC, INITIATOR, null, PROJECT_PATH, workflows);
     final var result = validator.validateProperty(request, "workflows");
     assertThat(result).isEmpty();
   }
@@ -198,7 +242,7 @@ class ConfigRequestTest {
   void validationShouldFailWithNullWorkflows(
       final Map<String, WorkflowDefinitionRequest> workflows) {
     final var request =
-        new ConfigRequest("session-1", "desc", "initiator", null, "/path", workflows);
+        new ConfigRequest(SESSION_ID, WORKFLOW_DESC, INITIATOR, null, PROJECT_PATH, workflows);
     final var result = validator.validateProperty(request, "workflows");
     assertThat(result).isNotEmpty();
   }
@@ -207,36 +251,38 @@ class ConfigRequestTest {
   void validationShouldFailWithEmptyWorkflows() {
     final var workflows = Map.<String, WorkflowDefinitionRequest>of();
     final var request =
-        new ConfigRequest("session-1", "desc", "initiator", null, "/path", workflows);
+        new ConfigRequest(SESSION_ID, WORKFLOW_DESC, INITIATOR, null, PROJECT_PATH, workflows);
     final var result = validator.validateProperty(request, "workflows");
     assertThat(result).isNotEmpty();
   }
 
   @Test
   void tagsMapShouldBeEmptyWhenNull() {
-    final var workflows = Map.of("wf1", createWorkflowDefinitionRequest("wf1", "desc"));
+    final var workflows =
+        Map.of(WORKFLOW_ID, createWorkflowDefinitionRequest(WORKFLOW_ID, WORKFLOW_DESC));
     final var request =
-        new ConfigRequest("session-1", "desc", "initiator", null, "/path", workflows);
+        new ConfigRequest(SESSION_ID, WORKFLOW_DESC, INITIATOR, null, PROJECT_PATH, workflows);
     assertThat(request.tags()).isEmpty();
   }
 
   @Test
   void tagsMapShouldBeImmutable() {
     final var tags = Map.of("env", "prod", "client", "web");
-    final var workflows = Map.of("wf1", createWorkflowDefinitionRequest("wf1", "desc"));
+    final var workflows =
+        Map.of(WORKFLOW_ID, createWorkflowDefinitionRequest(WORKFLOW_ID, WORKFLOW_DESC));
     final var request =
-        new ConfigRequest("session-1", "desc", "initiator", tags, "/path", workflows);
+        new ConfigRequest(SESSION_ID, WORKFLOW_DESC, INITIATOR, tags, PROJECT_PATH, workflows);
     assertThat(request.tags()).isEqualTo(tags);
     assertThat(request.tags()).containsExactlyEntriesOf(tags);
   }
 
   @Test
   void workflowsMapShouldBeImmutable() {
-    final var wf = createWorkflowDefinitionRequest("wf1", "desc");
-    final var workflows = Map.of("wf1", wf);
+    final var workflowDefinition = createWorkflowDefinitionRequest(WORKFLOW_ID, WORKFLOW_DESC);
+    final var workflows = Map.of(WORKFLOW_ID, workflowDefinition);
     final var request =
-        new ConfigRequest("session-1", "desc", "initiator", null, "/path", workflows);
-    assertThat(request.workflows()).containsEntry("wf1", wf);
+        new ConfigRequest(SESSION_ID, WORKFLOW_DESC, INITIATOR, null, PROJECT_PATH, workflows);
+    assertThat(request.workflows()).containsEntry(WORKFLOW_ID, workflowDefinition);
     assertThat(request.workflows()).hasSize(1);
   }
 }

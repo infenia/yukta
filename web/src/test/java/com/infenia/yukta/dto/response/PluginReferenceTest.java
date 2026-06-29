@@ -17,19 +17,31 @@ package com.infenia.yukta.dto.response;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 
+/** Tests for PluginReferenceTest. */
+@NoArgsConstructor
 class PluginReferenceTest {
+
+  /** Gradle plugin type constant. */
+  private static final String GRADLE = "gradle";
+
+  /** Processor category constant. */
+  private static final String PROCESSOR = "PROCESSOR";
+
+  /** Gradle quality checks plugin description constant. */
+  private static final String GRADLE_QUALITY_CHECKS_PLUGIN = "Gradle quality checks plugin";
 
   @Test
   void constructor_validInputs_createsRecord() {
     // Given
-    String type = "gradle";
-    String category = "PROCESSOR";
-    String description = "Gradle quality checks plugin";
+    final String type = GRADLE;
+    final String category = PROCESSOR;
+    final String description = GRADLE_QUALITY_CHECKS_PLUGIN;
 
     // When
-    PluginReference reference = new PluginReference(type, category, description);
+    final PluginReference reference = new PluginReference(type, category, description);
 
     // Then
     assertThat(reference.type()).isEqualTo(type);
@@ -40,10 +52,10 @@ class PluginReferenceTest {
   @Test
   void equals_sameValues_returnsTrue() {
     // Given
-    PluginReference reference1 =
-        new PluginReference("gradle", "PROCESSOR", "Gradle quality checks plugin");
-    PluginReference reference2 =
-        new PluginReference("gradle", "PROCESSOR", "Gradle quality checks plugin");
+    final PluginReference reference1 =
+        new PluginReference(GRADLE, PROCESSOR, GRADLE_QUALITY_CHECKS_PLUGIN);
+    final PluginReference reference2 =
+        new PluginReference(GRADLE, PROCESSOR, GRADLE_QUALITY_CHECKS_PLUGIN);
 
     // When-Then
     assertThat(reference1).isEqualTo(reference2);
@@ -52,25 +64,25 @@ class PluginReferenceTest {
   @Test
   void equals_differentValues_returnsFalse() {
     // Given
-    PluginReference reference1 =
-        new PluginReference("gradle", "PROCESSOR", "Gradle quality checks plugin");
-    PluginReference reference2 =
-        new PluginReference("maven", "PROCESSOR", "Gradle quality checks plugin");
+    final PluginReference reference1 =
+        new PluginReference(GRADLE, PROCESSOR, GRADLE_QUALITY_CHECKS_PLUGIN);
+    final PluginReference reference2 =
+        new PluginReference("maven", PROCESSOR, GRADLE_QUALITY_CHECKS_PLUGIN);
 
     // When-Then
     assertThat(reference1).isNotEqualTo(reference2);
   }
 
   @Test
-  void toString_contains_relevantFieldValues() {
+  void verifyToStringContainsRelevantFieldValues() {
     // Given
-    PluginReference reference =
-        new PluginReference("gradle", "PROCESSOR", "Gradle quality checks plugin");
+    final PluginReference reference =
+        new PluginReference(GRADLE, PROCESSOR, GRADLE_QUALITY_CHECKS_PLUGIN);
 
     // When
-    String actual = reference.toString();
+    final String actual = reference.toString();
 
     // Then
-    assertThat(actual).contains("PluginReference").contains("gradle");
+    assertThat(actual).contains("PluginReference").contains(GRADLE);
   }
 }

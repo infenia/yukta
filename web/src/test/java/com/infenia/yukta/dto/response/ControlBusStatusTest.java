@@ -19,23 +19,57 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.util.List;
+import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 
+/** Tests for ControlBusStatus. */
+@NoArgsConstructor
 class ControlBusStatusTest {
+
+  /** Session ID test constant. */
+  private static final String SESSION_ID_123 = "session-123";
+
+  /** Execution ID test constant. */
+  private static final String EXEC_ID_456 = "exec-456";
+
+  /** Completed status constant. */
+  private static final String STATUS_COMPLETED = "COMPLETED";
+
+  /** Gradle plugin name constant. */
+  private static final String GRADLE = "gradle";
+
+  /** Processor plugin type constant. */
+  private static final String PROCESSOR = "PROCESSOR";
+
+  /** Active status constant. */
+  private static final String ACTIVE = "ACTIVE";
+
+  /** Second execution ID test constant. */
+  private static final String EXEC_ID_789 = "exec-789";
+
+  /** Failed status constant. */
+  private static final String STATUS_FAILED = "FAILED";
+
+  /** Memory value constant 1024. */
+  private static final String VALUE_1024 = "1024";
+
+  /** Memory value constant 512. */
+  private static final String VALUE_512 = "512";
 
   @Test
   void constructor_validInputs_createsRecord() {
     // Given
-    List<SessionExecutionInfo> activeSessions =
-        List.of(new SessionExecutionInfo("session-123", 5, 10));
-    List<PluginRegistryEntry> pluginRegistry =
-        List.of(new PluginRegistryEntry("gradle", "PROCESSOR", "ACTIVE"));
-    SystemHealthMetrics systemHealth = new SystemHealthMetrics(75.5, 42, "1024", "2048", "2h");
-    List<ExecutionRecord> recentExecutions =
-        List.of(new ExecutionRecord("session-123", "exec-456", "COMPLETED", "5000ms"));
+    final List<SessionExecutionInfo> activeSessions =
+        List.of(new SessionExecutionInfo(SESSION_ID_123, 5, 10));
+    final List<PluginRegistryEntry> pluginRegistry =
+        List.of(new PluginRegistryEntry(GRADLE, PROCESSOR, ACTIVE));
+    final SystemHealthMetrics systemHealth =
+        new SystemHealthMetrics(75.5, 42, VALUE_1024, "2048", "2h");
+    final List<ExecutionRecord> recentExecutions =
+        List.of(new ExecutionRecord(SESSION_ID_123, EXEC_ID_456, STATUS_COMPLETED, "5000ms"));
 
     // When
-    ControlBusStatus status =
+    final ControlBusStatus status =
         new ControlBusStatus(activeSessions, pluginRegistry, systemHealth, recentExecutions);
 
     // Then
@@ -48,9 +82,12 @@ class ControlBusStatusTest {
   @Test
   void constructor_withNullActiveSessions_convertsToEmptyList() {
     // Given-When
-    ControlBusStatus status =
+    final ControlBusStatus status =
         new ControlBusStatus(
-            null, List.of(), new SystemHealthMetrics(50.0, 10, "512", "1024", "1h"), List.of());
+            null,
+            List.of(),
+            new SystemHealthMetrics(50.0, 10, VALUE_512, VALUE_1024, "1h"),
+            List.of());
 
     // Then
     assertThat(status.activeSessions()).isEmpty();
@@ -60,9 +97,12 @@ class ControlBusStatusTest {
   @Test
   void constructor_withNullPluginRegistry_convertsToEmptyList() {
     // Given-When
-    ControlBusStatus status =
+    final ControlBusStatus status =
         new ControlBusStatus(
-            List.of(), null, new SystemHealthMetrics(50.0, 10, "512", "1024", "1h"), List.of());
+            List.of(),
+            null,
+            new SystemHealthMetrics(50.0, 10, VALUE_512, VALUE_1024, "1h"),
+            List.of());
 
     // Then
     assertThat(status.pluginRegistry()).isEmpty();
@@ -72,9 +112,12 @@ class ControlBusStatusTest {
   @Test
   void constructor_withNullRecentExecutions_convertsToEmptyList() {
     // Given-When
-    ControlBusStatus status =
+    final ControlBusStatus status =
         new ControlBusStatus(
-            List.of(), List.of(), new SystemHealthMetrics(50.0, 10, "512", "1024", "1h"), null);
+            List.of(),
+            List.of(),
+            new SystemHealthMetrics(50.0, 10, VALUE_512, VALUE_1024, "1h"),
+            null);
 
     // Then
     assertThat(status.recentExecutions()).isEmpty();
@@ -84,11 +127,11 @@ class ControlBusStatusTest {
   @Test
   void activeSessions_modificationAttempt_throwsUnsupportedOperationException() {
     // Given
-    ControlBusStatus status =
+    final ControlBusStatus status =
         new ControlBusStatus(
-            List.of(new SessionExecutionInfo("session-123", 5, 10)),
+            List.of(new SessionExecutionInfo(SESSION_ID_123, 5, 10)),
             List.of(),
-            new SystemHealthMetrics(50.0, 10, "512", "1024", "1h"),
+            new SystemHealthMetrics(50.0, 10, VALUE_512, VALUE_1024, "1h"),
             List.of());
 
     // When-Then
@@ -100,11 +143,11 @@ class ControlBusStatusTest {
   @Test
   void pluginRegistry_modificationAttempt_throwsUnsupportedOperationException() {
     // Given
-    ControlBusStatus status =
+    final ControlBusStatus status =
         new ControlBusStatus(
             List.of(),
-            List.of(new PluginRegistryEntry("gradle", "PROCESSOR", "ACTIVE")),
-            new SystemHealthMetrics(50.0, 10, "512", "1024", "1h"),
+            List.of(new PluginRegistryEntry(GRADLE, PROCESSOR, ACTIVE)),
+            new SystemHealthMetrics(50.0, 10, VALUE_512, VALUE_1024, "1h"),
             List.of());
 
     // When-Then
@@ -119,32 +162,33 @@ class ControlBusStatusTest {
   @Test
   void recentExecutions_modificationAttempt_throwsUnsupportedOperationException() {
     // Given
-    ControlBusStatus status =
+    final ControlBusStatus status =
         new ControlBusStatus(
             List.of(),
             List.of(),
-            new SystemHealthMetrics(50.0, 10, "512", "1024", "1h"),
-            List.of(new ExecutionRecord("session-123", "exec-456", "COMPLETED", "5000ms")));
+            new SystemHealthMetrics(50.0, 10, VALUE_512, VALUE_1024, "1h"),
+            List.of(new ExecutionRecord(SESSION_ID_123, EXEC_ID_456, STATUS_COMPLETED, "5000ms")));
 
     // When-Then
     assertThatThrownBy(
             () ->
                 status
                     .recentExecutions()
-                    .add(new ExecutionRecord("session-456", "exec-789", "FAILED", "3000ms")))
+                    .add(new ExecutionRecord("session-456", EXEC_ID_789, STATUS_FAILED, "3000ms")))
         .isInstanceOf(UnsupportedOperationException.class);
   }
 
   @Test
   void equals_sameValues_returnsTrue() {
     // Given
-    List<SessionExecutionInfo> activeSessions = List.of();
-    List<PluginRegistryEntry> pluginRegistry = List.of();
-    SystemHealthMetrics health = new SystemHealthMetrics(50.0, 10, "512", "1024", "1h");
-    List<ExecutionRecord> recentExecutions = List.of();
-    ControlBusStatus status1 =
+    final List<SessionExecutionInfo> activeSessions = List.of();
+    final List<PluginRegistryEntry> pluginRegistry = List.of();
+    final SystemHealthMetrics health =
+        new SystemHealthMetrics(50.0, 10, VALUE_512, VALUE_1024, "1h");
+    final List<ExecutionRecord> recentExecutions = List.of();
+    final ControlBusStatus status1 =
         new ControlBusStatus(activeSessions, pluginRegistry, health, recentExecutions);
-    ControlBusStatus status2 =
+    final ControlBusStatus status2 =
         new ControlBusStatus(activeSessions, pluginRegistry, health, recentExecutions);
 
     // When-Then
@@ -154,27 +198,28 @@ class ControlBusStatusTest {
   @Test
   void equals_differentValues_returnsFalse() {
     // Given
-    SystemHealthMetrics health1 = new SystemHealthMetrics(50.0, 10, "512", "1024", "1h");
-    SystemHealthMetrics health2 = new SystemHealthMetrics(60.0, 10, "512", "1024", "1h");
-    ControlBusStatus status1 = new ControlBusStatus(List.of(), List.of(), health1, List.of());
-    ControlBusStatus status2 = new ControlBusStatus(List.of(), List.of(), health2, List.of());
+    final SystemHealthMetrics health1 =
+        new SystemHealthMetrics(50.0, 10, VALUE_512, VALUE_1024, "1h");
+    final SystemHealthMetrics health2 = new SystemHealthMetrics(60.0, 10, "512", "1024", "1h");
+    final ControlBusStatus status1 = new ControlBusStatus(List.of(), List.of(), health1, List.of());
+    final ControlBusStatus status2 = new ControlBusStatus(List.of(), List.of(), health2, List.of());
 
     // When-Then
     assertThat(status1).isNotEqualTo(status2);
   }
 
   @Test
-  void toString_contains_relevantFieldValues() {
+  void verifyToStringContainsRelevantFieldValues() {
     // Given
-    ControlBusStatus status =
+    final ControlBusStatus status =
         new ControlBusStatus(
             List.of(),
             List.of(),
-            new SystemHealthMetrics(50.0, 10, "512", "1024", "1h"),
+            new SystemHealthMetrics(50.0, 10, VALUE_512, VALUE_1024, "1h"),
             List.of());
 
     // When
-    String actual = status.toString();
+    final String actual = status.toString();
 
     // Then
     assertThat(actual).contains("ControlBusStatus");

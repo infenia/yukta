@@ -19,27 +19,36 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.util.List;
+import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 
+/** Tests for SessionListTest. */
+@NoArgsConstructor
 class SessionListTest {
+
+  /** First session ID test constant. */
+  private static final String SESSION_ID_123 = "session-123";
+
+  /** Second session ID test constant. */
+  private static final String SESSION_ID_456 = "session-456";
 
   @Test
   void constructor_validInputs_createsRecord() {
     // Given
-    List<String> sessionIds = List.of("session-123", "session-456");
+    final List<String> sessionIds = List.of(SESSION_ID_123, SESSION_ID_456);
 
     // When
-    SessionList list = new SessionList(sessionIds);
+    final SessionList list = new SessionList(sessionIds);
 
     // Then
     assertThat(list.sessionIds()).hasSize(2);
-    assertThat(list.sessionIds()).contains("session-123", "session-456");
+    assertThat(list.sessionIds()).contains(SESSION_ID_123, SESSION_ID_456);
   }
 
   @Test
   void constructor_withNullSessionIds_convertsToEmptyList() {
     // Given-When
-    SessionList list = new SessionList(null);
+    final SessionList list = new SessionList(null);
 
     // Then
     assertThat(list.sessionIds()).isEmpty();
@@ -49,7 +58,7 @@ class SessionListTest {
   @Test
   void sessionIds_modificationAttempt_throwsUnsupportedOperationException() {
     // Given
-    SessionList list = new SessionList(List.of("session-123"));
+    final SessionList list = new SessionList(List.of(SESSION_ID_123));
 
     // When-Then
     assertThatThrownBy(() -> list.sessionIds().add("session-456"))
@@ -59,9 +68,9 @@ class SessionListTest {
   @Test
   void equals_sameValues_returnsTrue() {
     // Given
-    List<String> sessionIds = List.of("session-123");
-    SessionList list1 = new SessionList(sessionIds);
-    SessionList list2 = new SessionList(sessionIds);
+    final List<String> sessionIds = List.of("session-123");
+    final SessionList list1 = new SessionList(sessionIds);
+    final SessionList list2 = new SessionList(sessionIds);
 
     // When-Then
     assertThat(list1).isEqualTo(list2);
@@ -70,20 +79,20 @@ class SessionListTest {
   @Test
   void equals_differentValues_returnsFalse() {
     // Given
-    SessionList list1 = new SessionList(List.of("session-123"));
-    SessionList list2 = new SessionList(List.of("session-456"));
+    final SessionList list1 = new SessionList(List.of(SESSION_ID_123));
+    final SessionList list2 = new SessionList(List.of(SESSION_ID_456));
 
     // When-Then
     assertThat(list1).isNotEqualTo(list2);
   }
 
   @Test
-  void toString_contains_relevantFieldValues() {
+  void verifyToStringContainsRelevantFieldValues() {
     // Given
-    SessionList list = new SessionList(List.of());
+    final SessionList list = new SessionList(List.of());
 
     // When
-    String actual = list.toString();
+    final String actual = list.toString();
 
     // Then
     assertThat(actual).contains("SessionList");

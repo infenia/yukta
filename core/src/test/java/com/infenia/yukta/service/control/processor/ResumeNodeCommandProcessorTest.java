@@ -28,6 +28,7 @@ import com.infenia.yukta.service.control.valve.ReactiveControlValve;
 import com.infenia.yukta.service.orchestrator.tracker.DefaultTaskTrackerService;
 import java.util.Map;
 import java.util.Optional;
+import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -36,6 +37,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import reactor.test.StepVerifier;
 
 @ExtendWith(MockitoExtension.class)
+@NoArgsConstructor
+@SuppressWarnings({"PMD.CommentRequired", "PMD.AvoidDuplicateLiterals", "PMD.LinguisticNaming"})
 class ResumeNodeCommandProcessorTest {
 
   @Mock private ExecutionControlRegistry registry;
@@ -48,10 +51,10 @@ class ResumeNodeCommandProcessorTest {
   @Test
   void canProcess_resumeNodeCommand_returnsTrue() {
     // Given
-    ExecutionControlCommand command = new ResumeNodeCommand("exec-1", "node-1");
+    final ExecutionControlCommand command = new ResumeNodeCommand("exec-1", "node-1");
 
     // When
-    boolean actualResult = processor.canProcess(command);
+    final boolean actualResult = processor.canProcess(command);
 
     // Then
     assertThat(actualResult).isTrue();
@@ -60,10 +63,10 @@ class ResumeNodeCommandProcessorTest {
   @Test
   void canProcess_otherCommand_returnsFalse() {
     // Given
-    ExecutionControlCommand command = new PauseNodeCommand("exec-1", "node-1");
+    final ExecutionControlCommand command = new PauseNodeCommand("exec-1", "node-1");
 
     // When
-    boolean actualResult = processor.canProcess(command);
+    final boolean actualResult = processor.canProcess(command);
 
     // Then
     assertThat(actualResult).isFalse();
@@ -72,14 +75,14 @@ class ResumeNodeCommandProcessorTest {
   @Test
   void process_nodeFound_resumesNodeValveAndEmitsEvent() {
     // Given
-    String executionId = "exec-resume-node";
-    String nodeId = "node-1";
-    ResumeNodeCommand command = new ResumeNodeCommand(executionId, nodeId);
+    final String executionId = "exec-resume-node";
+    final String nodeId = "node-1";
+    final ResumeNodeCommand command = new ResumeNodeCommand(executionId, nodeId);
     when(registry.findByExecutionId(executionId)).thenReturn(Optional.of(executionControl));
     when(executionControl.nodePauseValves()).thenReturn(Map.of(nodeId, nodePauseValve));
 
     // When
-    var result = processor.process(command);
+    final var result = processor.process(command);
 
     // Then
     StepVerifier.create(result).verifyComplete();
@@ -90,12 +93,12 @@ class ResumeNodeCommandProcessorTest {
   @Test
   void process_executionNotFound_errorWithIllegalArgumentException() {
     // Given
-    String executionId = "exec-not-found";
-    ResumeNodeCommand command = new ResumeNodeCommand(executionId, "node-1");
+    final String executionId = "exec-not-found";
+    final ResumeNodeCommand command = new ResumeNodeCommand(executionId, "node-1");
     when(registry.findByExecutionId(executionId)).thenReturn(Optional.empty());
 
     // When
-    var result = processor.process(command);
+    final var result = processor.process(command);
 
     // Then
     StepVerifier.create(result)
@@ -109,14 +112,14 @@ class ResumeNodeCommandProcessorTest {
   @Test
   void process_nodeNotFound_errorWithIllegalArgumentException() {
     // Given
-    String executionId = "exec-1";
-    String nodeId = "unknown-node";
-    ResumeNodeCommand command = new ResumeNodeCommand(executionId, nodeId);
+    final String executionId = "exec-1";
+    final String nodeId = "unknown-node";
+    final ResumeNodeCommand command = new ResumeNodeCommand(executionId, nodeId);
     when(registry.findByExecutionId(executionId)).thenReturn(Optional.of(executionControl));
     when(executionControl.nodePauseValves()).thenReturn(Map.of());
 
     // When
-    var result = processor.process(command);
+    final var result = processor.process(command);
 
     // Then
     StepVerifier.create(result)
@@ -130,7 +133,7 @@ class ResumeNodeCommandProcessorTest {
   @Test
   void getPriority_returnsCorrectValue() {
     // When
-    int actualPriority = processor.getPriority();
+    final int actualPriority = processor.getPriority();
 
     // Then
     assertThat(actualPriority).isEqualTo(10);

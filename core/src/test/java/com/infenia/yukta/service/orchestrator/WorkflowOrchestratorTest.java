@@ -38,6 +38,7 @@ import com.infenia.yukta.service.orchestrator.preparator.WorkflowPreparator;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import java.util.List;
 import java.util.Map;
+import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -48,6 +49,16 @@ import reactor.core.publisher.Sinks;
 import reactor.test.StepVerifier;
 
 @ExtendWith(MockitoExtension.class)
+@NoArgsConstructor
+@SuppressWarnings({
+  "PMD.CommentRequired",
+  "PMD.ExcessiveImports",
+  "PMD.TooManyStaticImports",
+  "PMD.TooManyMethods",
+  "PMD.AvoidDuplicateLiterals",
+  "PMD.LambdaCanBeMethodReference",
+  "PMD.UseShortArrayInitializer"
+})
 class WorkflowOrchestratorTest {
 
   @Mock private TaskTrackerService tracker;

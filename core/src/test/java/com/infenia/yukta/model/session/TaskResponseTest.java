@@ -17,18 +17,22 @@ package com.infenia.yukta.model.session;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 
+/** Tests for {@link TaskResponse}. */
+@SuppressWarnings({"PMD.TooManyMethods", "PMD.AvoidDuplicateLiterals"})
+@NoArgsConstructor
 class TaskResponseTest {
 
   @Test
   void constructor_withValidStatusAndOutput_createsRecord() {
     // Given
-    String status = "SUCCESS";
-    String output = "Operation completed";
+    final String status = "SUCCESS";
+    final String output = "Operation completed";
 
     // When
-    TaskResponse response = new TaskResponse(status, output);
+    final TaskResponse response = new TaskResponse(status, output);
 
     // Then
     assertThat(response.status()).isEqualTo(status);
@@ -38,10 +42,10 @@ class TaskResponseTest {
   @Test
   void status_afterCreation_returnsProvidedStatus() {
     // Given
-    TaskResponse response = new TaskResponse("FAILURE", "Error occurred");
+    final TaskResponse response = new TaskResponse("FAILURE", "Error occurred");
 
     // When
-    String result = response.status();
+    final String result = response.status();
 
     // Then
     assertThat(result).isEqualTo("FAILURE");
@@ -50,10 +54,10 @@ class TaskResponseTest {
   @Test
   void output_afterCreation_returnsProvidedOutput() {
     // Given
-    TaskResponse response = new TaskResponse("SUCCESS", "Error occurred");
+    final TaskResponse response = new TaskResponse("SUCCESS", "Error occurred");
 
     // When
-    String result = response.output();
+    final String result = response.output();
 
     // Then
     assertThat(result).isEqualTo("Error occurred");
@@ -62,8 +66,8 @@ class TaskResponseTest {
   @Test
   void equals_sameStatusAndOutput_returnsTrue() {
     // Given
-    TaskResponse response1 = new TaskResponse("SUCCESS", "Done");
-    TaskResponse response2 = new TaskResponse("SUCCESS", "Done");
+    final TaskResponse response1 = new TaskResponse("SUCCESS", "Done");
+    final TaskResponse response2 = new TaskResponse("SUCCESS", "Done");
 
     // When & Then
     assertThat(response1).isEqualTo(response2);
@@ -72,8 +76,8 @@ class TaskResponseTest {
   @Test
   void equals_differentStatus_returnsFalse() {
     // Given
-    TaskResponse response1 = new TaskResponse("SUCCESS", "Done");
-    TaskResponse response2 = new TaskResponse("FAILURE", "Done");
+    final TaskResponse response1 = new TaskResponse("SUCCESS", "Done");
+    final TaskResponse response2 = new TaskResponse("FAILURE", "Done");
 
     // When & Then
     assertThat(response1).isNotEqualTo(response2);
@@ -82,8 +86,8 @@ class TaskResponseTest {
   @Test
   void equals_differentOutput_returnsFalse() {
     // Given
-    TaskResponse response1 = new TaskResponse("SUCCESS", "Done");
-    TaskResponse response2 = new TaskResponse("SUCCESS", "Failed");
+    final TaskResponse response1 = new TaskResponse("SUCCESS", "Done");
+    final TaskResponse response2 = new TaskResponse("SUCCESS", "Failed");
 
     // When & Then
     assertThat(response1).isNotEqualTo(response2);
@@ -92,8 +96,8 @@ class TaskResponseTest {
   @Test
   void hashCode_sameStatusAndOutput_returnsSameHashCode() {
     // Given
-    TaskResponse response1 = new TaskResponse("SUCCESS", "Done");
-    TaskResponse response2 = new TaskResponse("SUCCESS", "Done");
+    final TaskResponse response1 = new TaskResponse("SUCCESS", "Done");
+    final TaskResponse response2 = new TaskResponse("SUCCESS", "Done");
 
     // When & Then
     assertThat(response1.hashCode()).isEqualTo(response2.hashCode());
@@ -102,20 +106,21 @@ class TaskResponseTest {
   @Test
   void hashCode_differentStatusAndOutput_returnsDifferentHashCode() {
     // Given
-    TaskResponse response1 = new TaskResponse("SUCCESS", "Done");
-    TaskResponse response2 = new TaskResponse("FAILURE", "Failed");
+    final TaskResponse response1 = new TaskResponse("SUCCESS", "Done");
+    final TaskResponse response2 = new TaskResponse("FAILURE", "Failed");
 
     // When & Then
     assertThat(response1.hashCode()).isNotEqualTo(response2.hashCode());
   }
 
   @Test
+  @SuppressWarnings("PMD.LinguisticNaming")
   void toString_validRecord_returnsFormattedString() {
     // Given
-    TaskResponse response = new TaskResponse("SUCCESS", "Done");
+    final TaskResponse response = new TaskResponse("SUCCESS", "Done");
 
     // When
-    String result = response.toString();
+    final String result = response.toString();
 
     // Then
     assertThat(result).contains("SUCCESS").contains("Done");
@@ -124,7 +129,7 @@ class TaskResponseTest {
   @Test
   void constructor_withNullStatus_createsRecord() {
     // Given & When
-    TaskResponse response = new TaskResponse(null, "Output");
+    final TaskResponse response = new TaskResponse(null, "Output");
 
     // Then
     assertThat(response.status()).isNull();
@@ -134,7 +139,7 @@ class TaskResponseTest {
   @Test
   void constructor_withNullOutput_createsRecord() {
     // Given & When
-    TaskResponse response = new TaskResponse("SUCCESS", null);
+    final TaskResponse response = new TaskResponse("SUCCESS", null);
 
     // Then
     assertThat(response.status()).isEqualTo("SUCCESS");

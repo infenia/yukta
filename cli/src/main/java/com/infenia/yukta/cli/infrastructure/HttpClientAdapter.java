@@ -15,14 +15,17 @@
  */
 package com.infenia.yukta.cli.infrastructure;
 
+import java.io.IOException;
+
 /** Adapter interface for HTTP client operations. */
+@FunctionalInterface
 public interface HttpClientAdapter {
   /**
    * Performs a health check by sending an HTTP GET request to the daemon's health endpoint.
    *
    * @param port the daemon port
    * @return true if health check succeeds (200 status), false if it fails
-   * @throws Exception if there's a connection or timeout error
+   * @throws IOException if there's a connection or timeout error
    */
-  boolean healthCheck(int port) throws Exception;
+  boolean healthCheck(int port) throws IOException;
 }

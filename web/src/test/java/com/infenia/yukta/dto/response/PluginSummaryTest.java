@@ -18,18 +18,24 @@ package com.infenia.yukta.dto.response;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.infenia.yukta.plugin.core.PluginCategory;
+import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 
+/** Tests for PluginSummaryTest. */
+@NoArgsConstructor
 class PluginSummaryTest {
+
+  /** Gradle plugin type constant. */
+  private static final String GRADLE = "gradle";
 
   @Test
   void constructor_validInputs_createsRecord() {
     // Given
-    String type = "gradle";
-    PluginCategory category = PluginCategory.PROCESSOR;
+    final String type = GRADLE;
+    final PluginCategory category = PluginCategory.PROCESSOR;
 
     // When
-    PluginSummary summary = new PluginSummary(type, category);
+    final PluginSummary summary = new PluginSummary(type, category);
 
     // Then
     assertThat(summary.type()).isEqualTo(type);
@@ -39,10 +45,10 @@ class PluginSummaryTest {
   @Test
   void category_enumValue_returnsCorrectCategory() {
     // Given
-    PluginSummary summary = new PluginSummary("gradle", PluginCategory.PROCESSOR);
+    final PluginSummary summary = new PluginSummary(GRADLE, PluginCategory.PROCESSOR);
 
     // When
-    PluginCategory actual = summary.category();
+    final PluginCategory actual = summary.category();
 
     // Then
     assertThat(actual).isEqualTo(PluginCategory.PROCESSOR);
@@ -51,8 +57,8 @@ class PluginSummaryTest {
   @Test
   void equals_sameValues_returnsTrue() {
     // Given
-    PluginSummary summary1 = new PluginSummary("gradle", PluginCategory.PROCESSOR);
-    PluginSummary summary2 = new PluginSummary("gradle", PluginCategory.PROCESSOR);
+    final PluginSummary summary1 = new PluginSummary(GRADLE, PluginCategory.PROCESSOR);
+    final PluginSummary summary2 = new PluginSummary(GRADLE, PluginCategory.PROCESSOR);
 
     // When-Then
     assertThat(summary1).isEqualTo(summary2);
@@ -61,22 +67,22 @@ class PluginSummaryTest {
   @Test
   void equals_differentValues_returnsFalse() {
     // Given
-    PluginSummary summary1 = new PluginSummary("gradle", PluginCategory.PROCESSOR);
-    PluginSummary summary2 = new PluginSummary("gradle", PluginCategory.TRIGGER);
+    final PluginSummary summary1 = new PluginSummary(GRADLE, PluginCategory.PROCESSOR);
+    final PluginSummary summary2 = new PluginSummary(GRADLE, PluginCategory.TRIGGER);
 
     // When-Then
     assertThat(summary1).isNotEqualTo(summary2);
   }
 
   @Test
-  void toString_contains_relevantFieldValues() {
+  void verifyToStringContainsRelevantFieldValues() {
     // Given
-    PluginSummary summary = new PluginSummary("gradle", PluginCategory.PROCESSOR);
+    final PluginSummary summary = new PluginSummary(GRADLE, PluginCategory.PROCESSOR);
 
     // When
-    String actual = summary.toString();
+    final String actual = summary.toString();
 
     // Then
-    assertThat(actual).contains("PluginSummary").contains("gradle");
+    assertThat(actual).contains("PluginSummary").contains(GRADLE);
   }
 }

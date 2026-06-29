@@ -18,11 +18,20 @@ package com.infenia.yukta.service.control.valve;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.time.Duration;
+import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import reactor.core.publisher.Flux;
 import reactor.test.StepVerifier;
 
+@NoArgsConstructor
+@SuppressWarnings({
+  "PMD.CommentRequired",
+  "PMD.TooManyMethods",
+  "PMD.LambdaCanBeMethodReference",
+  "PMD.AvoidLiteralsInIfCondition",
+  "PMD.LawOfDemeter"
+})
 class ReactiveControlValveTest {
 
   private ReactiveControlValve valve;
@@ -193,7 +202,7 @@ class ReactiveControlValveTest {
   void testStepModeAllowsOneElementThenBlocks() {
     valve.enableStepMode();
 
-    Flux<Integer> source = Flux.range(1, 3).transform(valve.asTransform());
+    final Flux<Integer> source = Flux.range(1, 3).transform(valve.asTransform());
 
     StepVerifier.create(source)
         .expectSubscription()
@@ -201,7 +210,7 @@ class ReactiveControlValveTest {
         .expectNext(1)
         .then(
             () -> {
-              var result =
+              final var result =
                   valve.allowPassage().timeout(Duration.ofMillis(50)).onErrorReturn(false).block();
               assertThat(result).isFalse();
             })

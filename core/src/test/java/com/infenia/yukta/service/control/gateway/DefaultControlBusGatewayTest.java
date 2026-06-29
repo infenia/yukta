@@ -57,6 +57,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -67,7 +68,21 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
+@SuppressWarnings({
+  "PMD.AvoidAccessibilityAlteration",
+  "PMD.AvoidDuplicateLiterals",
+  "PMD.CommentRequired",
+  "PMD.CouplingBetweenObjects",
+  "PMD.CyclomaticComplexity",
+  "PMD.ExcessiveImports",
+  "PMD.LawOfDemeter",
+  "PMD.LinguisticNaming",
+  "PMD.TooManyMethods",
+  "PMD.TooManyStaticImports",
+  "PMD.UnitTestShouldIncludeAssert"
+})
 @ExtendWith(MockitoExtension.class)
+@NoArgsConstructor
 class DefaultControlBusGatewayTest {
 
   @Mock private ControlBusService controlBusService;
@@ -96,11 +111,11 @@ class DefaultControlBusGatewayTest {
   @Test
   void emit_validMessage_delegatesToControlBusService() {
     // Given
-    Message<String> signal = DefaultMessage.create(null, "test-payload");
+    final Message<String> signal = DefaultMessage.create(null, "test-payload");
     when(controlBusService.emit(signal)).thenReturn(Mono.empty());
 
     // When
-    Mono<Void> result = gateway.emit(signal);
+    final Mono<Void> result = gateway.emit(signal);
 
     // Then
     StepVerifier.create(result).verifyComplete();
@@ -110,9 +125,9 @@ class DefaultControlBusGatewayTest {
   @Test
   void registerPlugin_validInputs_delegatesToControlBusService() {
     // Given
-    String workflowId = "workflow-1";
-    String nodeId = "node-1";
-    Plugin plugin = mock(Plugin.class);
+    final String workflowId = "workflow-1";
+    final String nodeId = "node-1";
+    final Plugin plugin = mock(Plugin.class);
 
     // When
     gateway.registerPlugin(workflowId, nodeId, plugin);
@@ -124,8 +139,8 @@ class DefaultControlBusGatewayTest {
   @Test
   void unregisterPlugin_validInputs_delegatesToControlBusService() {
     // Given
-    String workflowId = "workflow-1";
-    String nodeId = "node-1";
+    final String workflowId = "workflow-1";
+    final String nodeId = "node-1";
 
     // When
     gateway.unregisterPlugin(workflowId, nodeId);
@@ -137,15 +152,15 @@ class DefaultControlBusGatewayTest {
   @Test
   void sendCommand_validInputs_delegatesToControlBusService() {
     // Given
-    String workflowId = "workflow-1";
-    String nodeId = "node-1";
-    Message<?> command = DefaultMessage.create(null, "command-payload");
-    Message<?> response = DefaultMessage.create(null, "response-payload");
+    final String workflowId = "workflow-1";
+    final String nodeId = "node-1";
+    final Message<?> command = DefaultMessage.create(null, "command-payload");
+    final Message<?> response = DefaultMessage.create(null, "response-payload");
     when(controlBusService.sendCommand(workflowId, nodeId, command))
         .thenReturn(Mono.just(response));
 
     // When
-    Mono<Message<?>> result = gateway.sendCommand(workflowId, nodeId, command);
+    final Mono<Message<?>> result = gateway.sendCommand(workflowId, nodeId, command);
 
     // Then
     StepVerifier.create(result).expectNext(response).verifyComplete();
@@ -155,13 +170,13 @@ class DefaultControlBusGatewayTest {
   @Test
   void compileAndCacheWorkflow_validInputs_delegatesToControlBusService() {
     // Given
-    String sessionId = "session-1";
-    WorkflowDefinition definition =
+    final String sessionId = "session-1";
+    final WorkflowDefinition definition =
         new WorkflowDefinition("workflow-1", "description", List.of(), List.of());
     when(controlBusService.compileAndCacheWorkflow(sessionId, definition)).thenReturn(Mono.empty());
 
     // When
-    Mono<Void> result = gateway.compileAndCacheWorkflow(sessionId, definition);
+    final Mono<Void> result = gateway.compileAndCacheWorkflow(sessionId, definition);
 
     // Then
     StepVerifier.create(result).verifyComplete();
@@ -173,20 +188,20 @@ class DefaultControlBusGatewayTest {
   @Test
   void pauseWorkflow_validExecutionId_emitsPauseCommand() {
     // Given
-    String executionId = "exec-1";
+    final String executionId = "exec-1";
     when(controlBusService.emit(any())).thenReturn(Mono.empty());
 
     // When
-    Mono<Void> result = gateway.pauseWorkflow(executionId);
+    final Mono<Void> result = gateway.pauseWorkflow(executionId);
 
     // Then
     StepVerifier.create(result).verifyComplete();
 
-    ArgumentCaptor<Message<?>> captor = ArgumentCaptor.forClass(Message.class);
+    final ArgumentCaptor<Message<?>> captor = ArgumentCaptor.forClass(Message.class);
     verify(controlBusService).emit(captor.capture());
-    Message<?> emittedMessage = captor.getValue();
+    final Message<?> emittedMessage = captor.getValue();
     assertThat(emittedMessage.getPayload()).isInstanceOf(PauseWorkflowCommand.class);
-    PauseWorkflowCommand cmd = (PauseWorkflowCommand) emittedMessage.getPayload();
+    final PauseWorkflowCommand cmd = (PauseWorkflowCommand) emittedMessage.getPayload();
     assertThat(cmd.executionId()).isEqualTo(executionId);
     assertThat(emittedMessage.getPriority()).isEqualTo(100);
     assertThat(emittedMessage.getSourceNodeId()).isEqualTo("CONTROL_BUS");
@@ -196,41 +211,41 @@ class DefaultControlBusGatewayTest {
   @Test
   void resumeWorkflow_validExecutionId_emitsResumeCommand() {
     // Given
-    String executionId = "exec-2";
+    final String executionId = "exec-2";
     when(controlBusService.emit(any())).thenReturn(Mono.empty());
 
     // When
-    Mono<Void> result = gateway.resumeWorkflow(executionId);
+    final Mono<Void> result = gateway.resumeWorkflow(executionId);
 
     // Then
     StepVerifier.create(result).verifyComplete();
 
-    ArgumentCaptor<Message<?>> captor = ArgumentCaptor.forClass(Message.class);
+    final ArgumentCaptor<Message<?>> captor = ArgumentCaptor.forClass(Message.class);
     verify(controlBusService).emit(captor.capture());
-    Message<?> emittedMessage = captor.getValue();
+    final Message<?> emittedMessage = captor.getValue();
     assertThat(emittedMessage.getPayload()).isInstanceOf(ResumeWorkflowCommand.class);
-    ResumeWorkflowCommand cmd = (ResumeWorkflowCommand) emittedMessage.getPayload();
+    final ResumeWorkflowCommand cmd = (ResumeWorkflowCommand) emittedMessage.getPayload();
     assertThat(cmd.executionId()).isEqualTo(executionId);
   }
 
   @Test
   void pauseNode_validInputs_emitsPauseNodeCommand() {
     // Given
-    String executionId = "exec-3";
-    String nodeId = "node-2";
+    final String executionId = "exec-3";
+    final String nodeId = "node-2";
     when(controlBusService.emit(any())).thenReturn(Mono.empty());
 
     // When
-    Mono<Void> result = gateway.pauseNode(executionId, nodeId);
+    final Mono<Void> result = gateway.pauseNode(executionId, nodeId);
 
     // Then
     StepVerifier.create(result).verifyComplete();
 
-    ArgumentCaptor<Message<?>> captor = ArgumentCaptor.forClass(Message.class);
+    final ArgumentCaptor<Message<?>> captor = ArgumentCaptor.forClass(Message.class);
     verify(controlBusService).emit(captor.capture());
-    Message<?> emittedMessage = captor.getValue();
+    final Message<?> emittedMessage = captor.getValue();
     assertThat(emittedMessage.getPayload()).isInstanceOf(PauseNodeCommand.class);
-    PauseNodeCommand cmd = (PauseNodeCommand) emittedMessage.getPayload();
+    final PauseNodeCommand cmd = (PauseNodeCommand) emittedMessage.getPayload();
     assertThat(cmd.executionId()).isEqualTo(executionId);
     assertThat(cmd.nodeId()).isEqualTo(nodeId);
   }
@@ -238,21 +253,21 @@ class DefaultControlBusGatewayTest {
   @Test
   void resumeNode_validInputs_emitsResumeNodeCommand() {
     // Given
-    String executionId = "exec-4";
-    String nodeId = "node-3";
+    final String executionId = "exec-4";
+    final String nodeId = "node-3";
     when(controlBusService.emit(any())).thenReturn(Mono.empty());
 
     // When
-    Mono<Void> result = gateway.resumeNode(executionId, nodeId);
+    final Mono<Void> result = gateway.resumeNode(executionId, nodeId);
 
     // Then
     StepVerifier.create(result).verifyComplete();
 
-    ArgumentCaptor<Message<?>> captor = ArgumentCaptor.forClass(Message.class);
+    final ArgumentCaptor<Message<?>> captor = ArgumentCaptor.forClass(Message.class);
     verify(controlBusService).emit(captor.capture());
-    Message<?> emittedMessage = captor.getValue();
+    final Message<?> emittedMessage = captor.getValue();
     assertThat(emittedMessage.getPayload()).isInstanceOf(ResumeNodeCommand.class);
-    ResumeNodeCommand cmd = (ResumeNodeCommand) emittedMessage.getPayload();
+    final ResumeNodeCommand cmd = (ResumeNodeCommand) emittedMessage.getPayload();
     assertThat(cmd.executionId()).isEqualTo(executionId);
     assertThat(cmd.nodeId()).isEqualTo(nodeId);
   }
@@ -260,23 +275,23 @@ class DefaultControlBusGatewayTest {
   @Test
   void stopNode_normalStop_emitsStopCommandWithElevatedPriority() {
     // Given
-    String executionId = "exec-5";
-    String nodeId = "node-4";
-    boolean immediate = false;
-    String reason = "test reason";
+    final String executionId = "exec-5";
+    final String nodeId = "node-4";
+    final boolean immediate = false;
+    final String reason = "test reason";
     when(controlBusService.emit(any())).thenReturn(Mono.empty());
 
     // When
-    Mono<Void> result = gateway.stopNode(executionId, nodeId, immediate, reason);
+    final Mono<Void> result = gateway.stopNode(executionId, nodeId, immediate, reason);
 
     // Then
     StepVerifier.create(result).verifyComplete();
 
-    ArgumentCaptor<Message<?>> captor = ArgumentCaptor.forClass(Message.class);
+    final ArgumentCaptor<Message<?>> captor = ArgumentCaptor.forClass(Message.class);
     verify(controlBusService).emit(captor.capture());
-    Message<?> emittedMessage = captor.getValue();
+    final Message<?> emittedMessage = captor.getValue();
     assertThat(emittedMessage.getPayload()).isInstanceOf(StopNodeCommand.class);
-    StopNodeCommand cmd = (StopNodeCommand) emittedMessage.getPayload();
+    final StopNodeCommand cmd = (StopNodeCommand) emittedMessage.getPayload();
     assertThat(cmd.executionId()).isEqualTo(executionId);
     assertThat(cmd.nodeId()).isEqualTo(nodeId);
     assertThat(cmd.immediate()).isEqualTo(immediate);
@@ -287,22 +302,22 @@ class DefaultControlBusGatewayTest {
   @Test
   void stopNode_immediateStop_emitsStopCommandWithImmediateFlag() {
     // Given
-    String executionId = "exec-6";
-    String nodeId = "node-5";
-    boolean immediate = true;
-    String reason = "immediate stop";
+    final String executionId = "exec-6";
+    final String nodeId = "node-5";
+    final boolean immediate = true;
+    final String reason = "immediate stop";
     when(controlBusService.emit(any())).thenReturn(Mono.empty());
 
     // When
-    Mono<Void> result = gateway.stopNode(executionId, nodeId, immediate, reason);
+    final Mono<Void> result = gateway.stopNode(executionId, nodeId, immediate, reason);
 
     // Then
     StepVerifier.create(result).verifyComplete();
 
-    ArgumentCaptor<Message<?>> captor = ArgumentCaptor.forClass(Message.class);
+    final ArgumentCaptor<Message<?>> captor = ArgumentCaptor.forClass(Message.class);
     verify(controlBusService).emit(captor.capture());
-    Message<?> emittedMessage = captor.getValue();
-    StopNodeCommand cmd = (StopNodeCommand) emittedMessage.getPayload();
+    final Message<?> emittedMessage = captor.getValue();
+    final StopNodeCommand cmd = (StopNodeCommand) emittedMessage.getPayload();
     assertThat(cmd.immediate()).isTrue();
   }
 
@@ -311,26 +326,23 @@ class DefaultControlBusGatewayTest {
   @Test
   void stopWorkflow_activeExecutionFound_stopsWorkflowAndReturnsExecutionId() {
     // Given
-    String sessionId = "sess-stop-wf";
-    String workflowId = "wf-stop";
-    String executionId = "exec-to-stop";
-    String reason = "User requested stop";
+    final String sessionId = "sess-stop-wf";
+    final String workflowId = "wf-stop";
+    final String executionId = "exec-to-stop";
+    final String reason = "User requested stop";
 
-    ExecutionControl control = mock(ExecutionControl.class);
+    final ExecutionControl control = mock(ExecutionControl.class);
     when(control.executionId()).thenReturn(executionId);
     when(executionControlRegistry.findActiveByWorkflow(sessionId, workflowId))
         .thenReturn(Optional.of(control));
     when(controlBusService.emit(any())).thenReturn(Mono.empty());
 
     // When
-    Mono<String> result = gateway.stopWorkflow(sessionId, workflowId, reason);
+    final Mono<String> result = gateway.stopWorkflow(sessionId, workflowId, reason);
 
     // Then
     StepVerifier.create(result)
-        .assertNext(
-            stoppedId -> {
-              assertThat(stoppedId).isEqualTo(executionId);
-            })
+        .assertNext(stoppedId -> assertThat(stoppedId).isEqualTo(executionId))
         .verifyComplete();
 
     verify(executionControlRegistry).findActiveByWorkflow(sessionId, workflowId);
@@ -340,14 +352,14 @@ class DefaultControlBusGatewayTest {
   @Test
   void stopWorkflow_noActiveExecution_throwsIllegalArgumentException() {
     // Given
-    String sessionId = "sess-no-exec";
-    String workflowId = "wf-no-exec";
-    String reason = "stop";
+    final String sessionId = "sess-no-exec";
+    final String workflowId = "wf-no-exec";
+    final String reason = "stop";
     when(executionControlRegistry.findActiveByWorkflow(sessionId, workflowId))
         .thenReturn(Optional.empty());
 
     // When
-    Mono<String> result = gateway.stopWorkflow(sessionId, workflowId, reason);
+    final Mono<String> result = gateway.stopWorkflow(sessionId, workflowId, reason);
 
     // Then
     StepVerifier.create(result)
@@ -363,31 +375,31 @@ class DefaultControlBusGatewayTest {
   @Test
   void stopWorkflow_correctStopWorkflowCommandBuilt_withElevatedPriority() {
     // Given
-    String sessionId = "sess-cmd-build";
-    String workflowId = "wf-cmd-build";
-    String executionId = "exec-cmd";
-    String reason = "priority test";
+    final String sessionId = "sess-cmd-build";
+    final String workflowId = "wf-cmd-build";
+    final String executionId = "exec-cmd";
+    final String reason = "priority test";
 
-    ExecutionControl control = mock(ExecutionControl.class);
+    final ExecutionControl control = mock(ExecutionControl.class);
     when(control.executionId()).thenReturn(executionId);
     when(executionControlRegistry.findActiveByWorkflow(sessionId, workflowId))
         .thenReturn(Optional.of(control));
     when(controlBusService.emit(any())).thenReturn(Mono.empty());
 
     // When
-    Mono<String> result = gateway.stopWorkflow(sessionId, workflowId, reason);
+    final Mono<String> result = gateway.stopWorkflow(sessionId, workflowId, reason);
 
     // Then
     StepVerifier.create(result)
         .assertNext(id -> assertThat(id).isEqualTo(executionId))
         .verifyComplete();
 
-    ArgumentCaptor<Message<?>> captor = ArgumentCaptor.forClass(Message.class);
+    final ArgumentCaptor<Message<?>> captor = ArgumentCaptor.forClass(Message.class);
     verify(controlBusService).emit(captor.capture());
-    Message<?> emittedMessage = captor.getValue();
+    final Message<?> emittedMessage = captor.getValue();
 
     assertThat(emittedMessage.getPayload()).isInstanceOf(StopWorkflowCommand.class);
-    StopWorkflowCommand cmd = (StopWorkflowCommand) emittedMessage.getPayload();
+    final StopWorkflowCommand cmd = (StopWorkflowCommand) emittedMessage.getPayload();
     assertThat(cmd.executionId()).isEqualTo(executionId);
     assertThat(cmd.reason()).isEqualTo(reason);
     assertThat(emittedMessage.getPriority()).isEqualTo(120); // CONTROL_COMMAND_PRIORITY + 20
@@ -398,50 +410,50 @@ class DefaultControlBusGatewayTest {
   @Test
   void stopWorkflow_withSpecificReason_reasonIncludedInCommand() {
     // Given
-    String sessionId = "sess-reason";
-    String workflowId = "wf-reason";
-    String executionId = "exec-reason";
-    String reason = "Timeout exceeded";
+    final String sessionId = "sess-reason";
+    final String workflowId = "wf-reason";
+    final String executionId = "exec-reason";
+    final String reason = "Timeout exceeded";
 
-    ExecutionControl control = mock(ExecutionControl.class);
+    final ExecutionControl control = mock(ExecutionControl.class);
     when(control.executionId()).thenReturn(executionId);
     when(executionControlRegistry.findActiveByWorkflow(sessionId, workflowId))
         .thenReturn(Optional.of(control));
     when(controlBusService.emit(any())).thenReturn(Mono.empty());
 
     // When
-    Mono<String> result = gateway.stopWorkflow(sessionId, workflowId, reason);
+    final Mono<String> result = gateway.stopWorkflow(sessionId, workflowId, reason);
 
     // Then
     StepVerifier.create(result)
         .assertNext(id -> assertThat(id).isEqualTo(executionId))
         .verifyComplete();
 
-    ArgumentCaptor<Message<?>> captor = ArgumentCaptor.forClass(Message.class);
+    final ArgumentCaptor<Message<?>> captor = ArgumentCaptor.forClass(Message.class);
     verify(controlBusService).emit(captor.capture());
-    Message<?> emittedMessage = captor.getValue();
-    StopWorkflowCommand cmd = (StopWorkflowCommand) emittedMessage.getPayload();
+    final Message<?> emittedMessage = captor.getValue();
+    final StopWorkflowCommand cmd = (StopWorkflowCommand) emittedMessage.getPayload();
     assertThat(cmd.reason()).isEqualTo(reason);
   }
 
   @Test
   void stopWorkflow_executeCommandFails_propagatesError() {
     // Given
-    String sessionId = "sess-fail";
-    String workflowId = "wf-fail";
-    String executionId = "exec-fail";
-    String reason = "should fail";
+    final String sessionId = "sess-fail";
+    final String workflowId = "wf-fail";
+    final String executionId = "exec-fail";
+    final String reason = "should fail";
 
-    ExecutionControl control = mock(ExecutionControl.class);
+    final ExecutionControl control = mock(ExecutionControl.class);
     when(control.executionId()).thenReturn(executionId);
     when(executionControlRegistry.findActiveByWorkflow(sessionId, workflowId))
         .thenReturn(Optional.of(control));
 
-    RuntimeException testError = new RuntimeException("Command execution failed");
+    final RuntimeException testError = new RuntimeException("Command execution failed");
     when(controlBusService.emit(any())).thenReturn(Mono.error(testError));
 
     // When
-    Mono<String> result = gateway.stopWorkflow(sessionId, workflowId, reason);
+    final Mono<String> result = gateway.stopWorkflow(sessionId, workflowId, reason);
 
     // Then
     StepVerifier.create(result).expectError(RuntimeException.class).verify();
@@ -450,19 +462,19 @@ class DefaultControlBusGatewayTest {
   @Test
   void stopWorkflow_sessionAndWorkflowIdsPassed_queriesRegistryCorrectly() {
     // Given
-    String sessionId = "sess-registry";
-    String workflowId = "wf-registry";
-    String executionId = "exec-registry";
-    String reason = "registry test";
+    final String sessionId = "sess-registry";
+    final String workflowId = "wf-registry";
+    final String executionId = "exec-registry";
+    final String reason = "registry test";
 
-    ExecutionControl control = mock(ExecutionControl.class);
+    final ExecutionControl control = mock(ExecutionControl.class);
     when(control.executionId()).thenReturn(executionId);
     when(executionControlRegistry.findActiveByWorkflow(sessionId, workflowId))
         .thenReturn(Optional.of(control));
     when(controlBusService.emit(any())).thenReturn(Mono.empty());
 
     // When
-    Mono<String> result = gateway.stopWorkflow(sessionId, workflowId, reason);
+    final Mono<String> result = gateway.stopWorkflow(sessionId, workflowId, reason);
 
     // Then
     StepVerifier.create(result).assertNext(id -> assertThat(id).isNotNull()).verifyComplete();
@@ -473,49 +485,49 @@ class DefaultControlBusGatewayTest {
   @Test
   void stopWorkflow_multipleReasons_eachReasonStoredInCommand() {
     // Test with first reason
-    String sessionId = "sess-multi-reason";
-    String workflowId = "wf-multi-reason";
-    String executionId1 = "exec-reason-1";
-    String reason1 = "Timeout";
+    final String sessionId = "sess-multi-reason";
+    final String workflowId = "wf-multi-reason";
+    final String executionId1 = "exec-reason-1";
+    final String reason1 = "Timeout";
 
-    ExecutionControl control1 = mock(ExecutionControl.class);
+    final ExecutionControl control1 = mock(ExecutionControl.class);
     when(control1.executionId()).thenReturn(executionId1);
     when(executionControlRegistry.findActiveByWorkflow(sessionId, workflowId))
         .thenReturn(Optional.of(control1));
     when(controlBusService.emit(any())).thenReturn(Mono.empty());
 
     // When
-    Mono<String> result1 = gateway.stopWorkflow(sessionId, workflowId, reason1);
+    final Mono<String> result1 = gateway.stopWorkflow(sessionId, workflowId, reason1);
 
     // Then
     StepVerifier.create(result1)
         .assertNext(id -> assertThat(id).isEqualTo(executionId1))
         .verifyComplete();
 
-    ArgumentCaptor<Message<?>> captor1 = ArgumentCaptor.forClass(Message.class);
+    final ArgumentCaptor<Message<?>> captor1 = ArgumentCaptor.forClass(Message.class);
     verify(controlBusService).emit(captor1.capture());
-    StopWorkflowCommand cmd1 = (StopWorkflowCommand) captor1.getValue().getPayload();
+    final StopWorkflowCommand cmd1 = (StopWorkflowCommand) captor1.getValue().getPayload();
     assertThat(cmd1.reason()).isEqualTo(reason1);
   }
 
   @Test
   void stopWorkflow_emitError_logsErrorAndPropagates() {
     // Given
-    String sessionId = "sess-emit-error";
-    String workflowId = "wf-emit-error";
-    String executionId = "exec-emit-error";
-    String reason = "emit test";
+    final String sessionId = "sess-emit-error";
+    final String workflowId = "wf-emit-error";
+    final String executionId = "exec-emit-error";
+    final String reason = "emit test";
 
-    ExecutionControl control = mock(ExecutionControl.class);
+    final ExecutionControl control = mock(ExecutionControl.class);
     when(control.executionId()).thenReturn(executionId);
     when(executionControlRegistry.findActiveByWorkflow(sessionId, workflowId))
         .thenReturn(Optional.of(control));
 
-    RuntimeException testError = new RuntimeException("Emit failed");
+    final RuntimeException testError = new RuntimeException("Emit failed");
     when(controlBusService.emit(any())).thenReturn(Mono.error(testError));
 
     // When
-    Mono<String> result = gateway.stopWorkflow(sessionId, workflowId, reason);
+    final Mono<String> result = gateway.stopWorkflow(sessionId, workflowId, reason);
 
     // Then - error is propagated through doOnError
     StepVerifier.create(result).expectError(RuntimeException.class).verify();
@@ -524,64 +536,64 @@ class DefaultControlBusGatewayTest {
   @Test
   void skipNode_skipTrue_emitsSkipCommand() {
     // Given
-    String executionId = "exec-7";
-    String nodeId = "node-6";
-    boolean skip = true;
+    final String executionId = "exec-7";
+    final String nodeId = "node-6";
+    final boolean skip = true;
     when(controlBusService.emit(any())).thenReturn(Mono.empty());
 
     // When
-    Mono<Void> result = gateway.skipNode(executionId, nodeId, skip);
+    final Mono<Void> result = gateway.skipNode(executionId, nodeId, skip);
 
     // Then
     StepVerifier.create(result).verifyComplete();
 
-    ArgumentCaptor<Message<?>> captor = ArgumentCaptor.forClass(Message.class);
+    final ArgumentCaptor<Message<?>> captor = ArgumentCaptor.forClass(Message.class);
     verify(controlBusService).emit(captor.capture());
-    Message<?> emittedMessage = captor.getValue();
+    final Message<?> emittedMessage = captor.getValue();
     assertThat(emittedMessage.getPayload()).isInstanceOf(SkipNodeCommand.class);
-    SkipNodeCommand cmd = (SkipNodeCommand) emittedMessage.getPayload();
+    final SkipNodeCommand cmd = (SkipNodeCommand) emittedMessage.getPayload();
     assertThat(cmd.skip()).isTrue();
   }
 
   @Test
   void skipNode_skipFalse_emitsUnskipCommand() {
     // Given
-    String executionId = "exec-8";
-    String nodeId = "node-7";
-    boolean skip = false;
+    final String executionId = "exec-8";
+    final String nodeId = "node-7";
+    final boolean skip = false;
     when(controlBusService.emit(any())).thenReturn(Mono.empty());
 
     // When
-    Mono<Void> result = gateway.skipNode(executionId, nodeId, skip);
+    final Mono<Void> result = gateway.skipNode(executionId, nodeId, skip);
 
     // Then
     StepVerifier.create(result).verifyComplete();
 
-    ArgumentCaptor<Message<?>> captor = ArgumentCaptor.forClass(Message.class);
+    final ArgumentCaptor<Message<?>> captor = ArgumentCaptor.forClass(Message.class);
     verify(controlBusService).emit(captor.capture());
-    Message<?> emittedMessage = captor.getValue();
-    SkipNodeCommand cmd = (SkipNodeCommand) emittedMessage.getPayload();
+    final Message<?> emittedMessage = captor.getValue();
+    final SkipNodeCommand cmd = (SkipNodeCommand) emittedMessage.getPayload();
     assertThat(cmd.skip()).isFalse();
   }
 
   @Test
   void enableStepMode_validInputs_emitsEnableStepModeCommand() {
     // Given
-    String executionId = "exec-9";
-    String nodeId = "node-8";
+    final String executionId = "exec-9";
+    final String nodeId = "node-8";
     when(controlBusService.emit(any())).thenReturn(Mono.empty());
 
     // When
-    Mono<Void> result = gateway.enableStepMode(executionId, nodeId);
+    final Mono<Void> result = gateway.enableStepMode(executionId, nodeId);
 
     // Then
     StepVerifier.create(result).verifyComplete();
 
-    ArgumentCaptor<Message<?>> captor = ArgumentCaptor.forClass(Message.class);
+    final ArgumentCaptor<Message<?>> captor = ArgumentCaptor.forClass(Message.class);
     verify(controlBusService).emit(captor.capture());
-    Message<?> emittedMessage = captor.getValue();
+    final Message<?> emittedMessage = captor.getValue();
     assertThat(emittedMessage.getPayload()).isInstanceOf(EnableStepModeCommand.class);
-    EnableStepModeCommand cmd = (EnableStepModeCommand) emittedMessage.getPayload();
+    final EnableStepModeCommand cmd = (EnableStepModeCommand) emittedMessage.getPayload();
     assertThat(cmd.executionId()).isEqualTo(executionId);
     assertThat(cmd.nodeId()).isEqualTo(nodeId);
   }
@@ -589,21 +601,21 @@ class DefaultControlBusGatewayTest {
   @Test
   void disableStepMode_validInputs_emitsDisableStepModeCommand() {
     // Given
-    String executionId = "exec-10";
-    String nodeId = "node-9";
+    final String executionId = "exec-10";
+    final String nodeId = "node-9";
     when(controlBusService.emit(any())).thenReturn(Mono.empty());
 
     // When
-    Mono<Void> result = gateway.disableStepMode(executionId, nodeId);
+    final Mono<Void> result = gateway.disableStepMode(executionId, nodeId);
 
     // Then
     StepVerifier.create(result).verifyComplete();
 
-    ArgumentCaptor<Message<?>> captor = ArgumentCaptor.forClass(Message.class);
+    final ArgumentCaptor<Message<?>> captor = ArgumentCaptor.forClass(Message.class);
     verify(controlBusService).emit(captor.capture());
-    Message<?> emittedMessage = captor.getValue();
+    final Message<?> emittedMessage = captor.getValue();
     assertThat(emittedMessage.getPayload()).isInstanceOf(DisableStepModeCommand.class);
-    DisableStepModeCommand cmd = (DisableStepModeCommand) emittedMessage.getPayload();
+    final DisableStepModeCommand cmd = (DisableStepModeCommand) emittedMessage.getPayload();
     assertThat(cmd.executionId()).isEqualTo(executionId);
     assertThat(cmd.nodeId()).isEqualTo(nodeId);
   }
@@ -611,21 +623,21 @@ class DefaultControlBusGatewayTest {
   @Test
   void stepNode_validInputs_emitsStepNodeCommand() {
     // Given
-    String executionId = "exec-11";
-    String nodeId = "node-10";
+    final String executionId = "exec-11";
+    final String nodeId = "node-10";
     when(controlBusService.emit(any())).thenReturn(Mono.empty());
 
     // When
-    Mono<Void> result = gateway.stepNode(executionId, nodeId);
+    final Mono<Void> result = gateway.stepNode(executionId, nodeId);
 
     // Then
     StepVerifier.create(result).verifyComplete();
 
-    ArgumentCaptor<Message<?>> captor = ArgumentCaptor.forClass(Message.class);
+    final ArgumentCaptor<Message<?>> captor = ArgumentCaptor.forClass(Message.class);
     verify(controlBusService).emit(captor.capture());
-    Message<?> emittedMessage = captor.getValue();
+    final Message<?> emittedMessage = captor.getValue();
     assertThat(emittedMessage.getPayload()).isInstanceOf(StepNodeCommand.class);
-    StepNodeCommand cmd = (StepNodeCommand) emittedMessage.getPayload();
+    final StepNodeCommand cmd = (StepNodeCommand) emittedMessage.getPayload();
     assertThat(cmd.executionId()).isEqualTo(executionId);
     assertThat(cmd.nodeId()).isEqualTo(nodeId);
   }
@@ -633,11 +645,11 @@ class DefaultControlBusGatewayTest {
   @Test
   void restartWorkflow_validExecutionId_generatesNewExecutionId() {
     // Given
-    String executionId = "exec-12";
+    final String executionId = "exec-12";
     when(controlBusService.emit(any())).thenReturn(Mono.empty());
 
     // When
-    Mono<String> result = gateway.restartWorkflow(executionId);
+    final Mono<String> result = gateway.restartWorkflow(executionId);
 
     // Then
     StepVerifier.create(result)
@@ -648,17 +660,17 @@ class DefaultControlBusGatewayTest {
               // Verify it's a valid UUID format - should not throw exception
               try {
                 UUID.fromString(newExecId);
-              } catch (IllegalArgumentException e) {
+              } catch (final IllegalArgumentException e) {
                 throw new AssertionError("Not a valid UUID: " + newExecId, e);
               }
             })
         .verifyComplete();
 
-    ArgumentCaptor<Message<?>> captor = ArgumentCaptor.forClass(Message.class);
+    final ArgumentCaptor<Message<?>> captor = ArgumentCaptor.forClass(Message.class);
     verify(controlBusService).emit(captor.capture());
-    Message<?> emittedMessage = captor.getValue();
+    final Message<?> emittedMessage = captor.getValue();
     assertThat(emittedMessage.getPayload()).isInstanceOf(RestartCommand.class);
-    RestartCommand cmd = (RestartCommand) emittedMessage.getPayload();
+    final RestartCommand cmd = (RestartCommand) emittedMessage.getPayload();
     assertThat(cmd.executionId()).isEqualTo(executionId);
     assertThat(emittedMessage.getPriority()).isEqualTo(120); // CONTROL_COMMAND_PRIORITY + 20
   }
@@ -666,12 +678,12 @@ class DefaultControlBusGatewayTest {
   @Test
   void restartFromNode_validInputs_generatesNewExecutionId() {
     // Given
-    String executionId = "exec-13";
-    String fromNodeId = "node-11";
+    final String executionId = "exec-13";
+    final String fromNodeId = "node-11";
     when(controlBusService.emit(any())).thenReturn(Mono.empty());
 
     // When
-    Mono<String> result = gateway.restartFromNode(executionId, fromNodeId);
+    final Mono<String> result = gateway.restartFromNode(executionId, fromNodeId);
 
     // Then
     StepVerifier.create(result)
@@ -682,17 +694,17 @@ class DefaultControlBusGatewayTest {
               // Verify it's a valid UUID format - should not throw exception
               try {
                 UUID.fromString(newExecId);
-              } catch (IllegalArgumentException e) {
+              } catch (final IllegalArgumentException e) {
                 throw new AssertionError("Not a valid UUID: " + newExecId, e);
               }
             })
         .verifyComplete();
 
-    ArgumentCaptor<Message<?>> captor = ArgumentCaptor.forClass(Message.class);
+    final ArgumentCaptor<Message<?>> captor = ArgumentCaptor.forClass(Message.class);
     verify(controlBusService).emit(captor.capture());
-    Message<?> emittedMessage = captor.getValue();
+    final Message<?> emittedMessage = captor.getValue();
     assertThat(emittedMessage.getPayload()).isInstanceOf(RestartFromNodeCommand.class);
-    RestartFromNodeCommand cmd = (RestartFromNodeCommand) emittedMessage.getPayload();
+    final RestartFromNodeCommand cmd = (RestartFromNodeCommand) emittedMessage.getPayload();
     assertThat(cmd.executionId()).isEqualTo(executionId);
     assertThat(cmd.fromNodeId()).isEqualTo(fromNodeId);
     assertThat(emittedMessage.getPriority()).isEqualTo(120); // CONTROL_COMMAND_PRIORITY + 20
@@ -703,12 +715,12 @@ class DefaultControlBusGatewayTest {
   @Test
   void watchExecution_validExecutionId_delegatesToTaskTracker() {
     // Given
-    String executionId = "exec-14";
-    WorkflowProgress progress = mock(WorkflowProgress.class);
+    final String executionId = "exec-14";
+    final WorkflowProgress progress = mock(WorkflowProgress.class);
     when(taskTracker.getStatusStream(executionId)).thenReturn(Flux.just(progress));
 
     // When
-    Flux<WorkflowProgress> result = gateway.watchExecution(executionId);
+    final Flux<WorkflowProgress> result = gateway.watchExecution(executionId);
 
     // Then
     StepVerifier.create(result).expectNext(progress).verifyComplete();
@@ -718,12 +730,12 @@ class DefaultControlBusGatewayTest {
   @Test
   void watchLogs_validExecutionId_delegatesToTaskTracker() {
     // Given
-    String executionId = "exec-15";
-    String logLine = "test log";
+    final String executionId = "exec-15";
+    final String logLine = "test log";
     when(taskTracker.getLogStream(executionId)).thenReturn(Flux.just(logLine));
 
     // When
-    Flux<String> result = gateway.watchLogs(executionId);
+    final Flux<String> result = gateway.watchLogs(executionId);
 
     // Then
     StepVerifier.create(result).expectNext(logLine).verifyComplete();
@@ -733,12 +745,12 @@ class DefaultControlBusGatewayTest {
   @Test
   void getCurrentProgress_validExecutionId_delegatesToTaskTracker() {
     // Given
-    String executionId = "exec-16";
-    WorkflowProgress progress = mock(WorkflowProgress.class);
+    final String executionId = "exec-16";
+    final WorkflowProgress progress = mock(WorkflowProgress.class);
     when(taskTracker.getProgressByExecutionId(executionId)).thenReturn(progress);
 
     // When
-    WorkflowProgress result = gateway.getCurrentProgress(executionId);
+    final WorkflowProgress result = gateway.getCurrentProgress(executionId);
 
     // Then
     assertThat(result).isEqualTo(progress);
@@ -748,13 +760,13 @@ class DefaultControlBusGatewayTest {
   @Test
   void getHistory_validSessionId_delegatesToTaskTracker() {
     // Given
-    String sessionId = "session-2";
-    WorkflowExecutionSummary summary = mock(WorkflowExecutionSummary.class);
-    List<WorkflowExecutionSummary> history = List.of(summary);
+    final String sessionId = "session-2";
+    final WorkflowExecutionSummary summary = mock(WorkflowExecutionSummary.class);
+    final List<WorkflowExecutionSummary> history = List.of(summary);
     when(taskTracker.getHistory(sessionId)).thenReturn(history);
 
     // When
-    List<WorkflowExecutionSummary> result = gateway.getHistory(sessionId);
+    final List<WorkflowExecutionSummary> result = gateway.getHistory(sessionId);
 
     // Then
     assertThat(result).isEqualTo(history);
@@ -766,12 +778,12 @@ class DefaultControlBusGatewayTest {
   @Test
   void getLastHeartbeat_validInputs_delegatesToControlBusService() {
     // Given
-    String workflowId = "workflow-2";
-    String nodeId = "node-12";
+    final String workflowId = "workflow-2";
+    final String nodeId = "node-12";
     when(controlBusService.getLastHeartbeat(workflowId, nodeId)).thenReturn(null);
 
     // When
-    Message<?> result = gateway.getLastHeartbeat(workflowId, nodeId);
+    final Message<?> result = gateway.getLastHeartbeat(workflowId, nodeId);
 
     // Then
     assertThat(result).isNull();
@@ -781,12 +793,12 @@ class DefaultControlBusGatewayTest {
   @Test
   void getLastStatistics_validInputs_delegatesToControlBusService() {
     // Given
-    String workflowId = "workflow-3";
-    String nodeId = "node-13";
+    final String workflowId = "workflow-3";
+    final String nodeId = "node-13";
     when(controlBusService.getLastStatistics(workflowId, nodeId)).thenReturn(null);
 
     // When
-    Message<?> result = gateway.getLastStatistics(workflowId, nodeId);
+    final Message<?> result = gateway.getLastStatistics(workflowId, nodeId);
 
     // Then
     assertThat(result).isNull();
@@ -796,12 +808,12 @@ class DefaultControlBusGatewayTest {
   @Test
   void getActiveNodes_withWorkflowId_delegatesToControlBusService() {
     // Given
-    String workflowId = "workflow-4";
-    List<String> activeNodes = List.of("node-14", "node-15");
+    final String workflowId = "workflow-4";
+    final List<String> activeNodes = List.of("node-14", "node-15");
     when(controlBusService.getActiveNodes(workflowId)).thenReturn(activeNodes);
 
     // When
-    List<String> result = gateway.getActiveNodes(workflowId);
+    final List<String> result = gateway.getActiveNodes(workflowId);
 
     // Then
     assertThat(result).isEqualTo(activeNodes);
@@ -811,11 +823,11 @@ class DefaultControlBusGatewayTest {
   @Test
   void getActiveNodes_noWorkflowId_delegatesToControlBusService() {
     // Given
-    List<String> allActiveNodes = List.of("node-16", "node-17", "node-18");
+    final List<String> allActiveNodes = List.of("node-16", "node-17", "node-18");
     when(controlBusService.getActiveNodes()).thenReturn(allActiveNodes);
 
     // When
-    List<String> result = gateway.getActiveNodes();
+    final List<String> result = gateway.getActiveNodes();
 
     // Then
     assertThat(result).isEqualTo(allActiveNodes);
@@ -827,7 +839,7 @@ class DefaultControlBusGatewayTest {
   @Test
   void publishStatus_validEvent_emitsToSink() {
     // Given
-    ExecutionStatusEvent event =
+    final ExecutionStatusEvent event =
         new ExecutionStatusEvent(
             "exec-17",
             "node-19",
@@ -841,7 +853,7 @@ class DefaultControlBusGatewayTest {
     gateway.subscribeToStatusEvents(); // Initialize subscription
 
     // When
-    Mono<Void> result = gateway.publishStatus(event);
+    final Mono<Void> result = gateway.publishStatus(event);
 
     // Then
     StepVerifier.create(result).verifyComplete();
@@ -850,7 +862,7 @@ class DefaultControlBusGatewayTest {
   @Test
   void publishStatus_eventWithNullMetadata_emitsToSink() {
     // Given
-    ExecutionStatusEvent event =
+    final ExecutionStatusEvent event =
         new ExecutionStatusEvent(
             "exec-18",
             "node-20",
@@ -864,7 +876,7 @@ class DefaultControlBusGatewayTest {
     gateway.subscribeToStatusEvents();
 
     // When
-    Mono<Void> result = gateway.publishStatus(event);
+    final Mono<Void> result = gateway.publishStatus(event);
 
     // Then
     StepVerifier.create(result).verifyComplete();
@@ -873,7 +885,7 @@ class DefaultControlBusGatewayTest {
   @Test
   void statusStream_returnsFluxOfEvents() {
     // Given
-    ExecutionStatusEvent event =
+    final ExecutionStatusEvent event =
         new ExecutionStatusEvent(
             "exec-19",
             "node-21",
@@ -886,7 +898,7 @@ class DefaultControlBusGatewayTest {
             Instant.now());
 
     // When - get stream and publish concurrently
-    Flux<ExecutionStatusEvent> stream = gateway.statusStream();
+    final Flux<ExecutionStatusEvent> stream = gateway.statusStream();
 
     // Then - verify stream returns events published to it
     // Subscribe before publishing to avoid race condition with multicast sink
@@ -913,12 +925,12 @@ class DefaultControlBusGatewayTest {
   @Test
   void executeCommand_validCommand_delegatesToEmit() {
     // Given
-    PauseWorkflowCommand command = new PauseWorkflowCommand("exec-22");
-    Message<PauseWorkflowCommand> cmdMessage = DefaultMessage.create(null, command);
+    final PauseWorkflowCommand command = new PauseWorkflowCommand("exec-22");
+    final Message<PauseWorkflowCommand> cmdMessage = DefaultMessage.create(null, command);
     when(controlBusService.emit(any())).thenReturn(Mono.empty());
 
     // When
-    Mono<Void> result = gateway.executeCommand(cmdMessage);
+    final Mono<Void> result = gateway.executeCommand(cmdMessage);
 
     // Then
     StepVerifier.create(result).verifyComplete();
@@ -928,7 +940,7 @@ class DefaultControlBusGatewayTest {
   @Test
   void publishStatus_emitsEventToSink() {
     // Given
-    ExecutionStatusEvent event =
+    final ExecutionStatusEvent event =
         new ExecutionStatusEvent(
             "exec-publish",
             "node-publish",
@@ -942,7 +954,7 @@ class DefaultControlBusGatewayTest {
     gateway.subscribeToStatusEvents();
 
     // When
-    Mono<Void> result = gateway.publishStatus(event);
+    final Mono<Void> result = gateway.publishStatus(event);
 
     // Then
     StepVerifier.create(result).verifyComplete();
@@ -955,18 +967,18 @@ class DefaultControlBusGatewayTest {
   void buildCommand_createsMessageWithCorrectProperties() {
     // This test verifies the buildCommand method is executed
     // by testing that control commands create proper messages
-    String executionId = "exec-build-cmd";
+    final String executionId = "exec-build-cmd";
     when(controlBusService.emit(any())).thenReturn(Mono.empty());
 
     // When
-    Mono<Void> result = gateway.pauseWorkflow(executionId);
+    final Mono<Void> result = gateway.pauseWorkflow(executionId);
 
     // Then - verify the message has correct properties
     StepVerifier.create(result).verifyComplete();
 
-    ArgumentCaptor<Message<?>> captor = ArgumentCaptor.forClass(Message.class);
+    final ArgumentCaptor<Message<?>> captor = ArgumentCaptor.forClass(Message.class);
     verify(controlBusService).emit(captor.capture());
-    Message<?> emittedMessage = captor.getValue();
+    final Message<?> emittedMessage = captor.getValue();
     assertThat(emittedMessage.isControlMessage()).isTrue();
     assertThat(emittedMessage.getSourceNodeId()).isEqualTo("CONTROL_BUS");
   }
@@ -975,7 +987,7 @@ class DefaultControlBusGatewayTest {
   void subscribeToStatusEvents_forwardsEventsToTaskTracker() {
     // Given
     gateway.subscribeToStatusEvents();
-    ExecutionStatusEvent event =
+    final ExecutionStatusEvent event =
         new ExecutionStatusEvent(
             "exec-forward",
             "node-forward",
@@ -1004,7 +1016,7 @@ class DefaultControlBusGatewayTest {
   void subscribeToStatusEvents_withNullMetadata_usesEmptyMap() {
     // Given
     gateway.subscribeToStatusEvents();
-    ExecutionStatusEvent event =
+    final ExecutionStatusEvent event =
         new ExecutionStatusEvent(
             "exec-null-meta",
             "node-null-meta",
@@ -1032,12 +1044,12 @@ class DefaultControlBusGatewayTest {
   @Test
   void pauseWorkflow_emitError_logsErrorAndPropagates() {
     // Given
-    String executionId = "exec-error";
-    RuntimeException testError = new RuntimeException("Emit failed");
+    final String executionId = "exec-error";
+    final RuntimeException testError = new RuntimeException("Emit failed");
     when(controlBusService.emit(any())).thenReturn(Mono.error(testError));
 
     // When
-    Mono<Void> result = gateway.pauseWorkflow(executionId);
+    final Mono<Void> result = gateway.pauseWorkflow(executionId);
 
     // Then - error should be propagated
     StepVerifier.create(result).expectError(RuntimeException.class).verify();
@@ -1046,12 +1058,12 @@ class DefaultControlBusGatewayTest {
   @Test
   void resumeWorkflow_emitError_logsErrorAndPropagates() {
     // Given
-    String executionId = "exec-error";
-    RuntimeException testError = new RuntimeException("Emit failed");
+    final String executionId = "exec-error";
+    final RuntimeException testError = new RuntimeException("Emit failed");
     when(controlBusService.emit(any())).thenReturn(Mono.error(testError));
 
     // When
-    Mono<Void> result = gateway.resumeWorkflow(executionId);
+    final Mono<Void> result = gateway.resumeWorkflow(executionId);
 
     // Then
     StepVerifier.create(result).expectError(RuntimeException.class).verify();
@@ -1060,13 +1072,13 @@ class DefaultControlBusGatewayTest {
   @Test
   void pauseNode_emitError_logsErrorAndPropagates() {
     // Given
-    String executionId = "exec-error";
-    String nodeId = "node-error";
-    RuntimeException testError = new RuntimeException("Emit failed");
+    final String executionId = "exec-error";
+    final String nodeId = "node-error";
+    final RuntimeException testError = new RuntimeException("Emit failed");
     when(controlBusService.emit(any())).thenReturn(Mono.error(testError));
 
     // When
-    Mono<Void> result = gateway.pauseNode(executionId, nodeId);
+    final Mono<Void> result = gateway.pauseNode(executionId, nodeId);
 
     // Then
     StepVerifier.create(result).expectError(RuntimeException.class).verify();
@@ -1075,13 +1087,13 @@ class DefaultControlBusGatewayTest {
   @Test
   void resumeNode_emitError_logsErrorAndPropagates() {
     // Given
-    String executionId = "exec-error";
-    String nodeId = "node-error";
-    RuntimeException testError = new RuntimeException("Emit failed");
+    final String executionId = "exec-error";
+    final String nodeId = "node-error";
+    final RuntimeException testError = new RuntimeException("Emit failed");
     when(controlBusService.emit(any())).thenReturn(Mono.error(testError));
 
     // When
-    Mono<Void> result = gateway.resumeNode(executionId, nodeId);
+    final Mono<Void> result = gateway.resumeNode(executionId, nodeId);
 
     // Then
     StepVerifier.create(result).expectError(RuntimeException.class).verify();
@@ -1090,13 +1102,13 @@ class DefaultControlBusGatewayTest {
   @Test
   void stopNode_emitError_logsErrorAndPropagates() {
     // Given
-    String executionId = "exec-error";
-    String nodeId = "node-error";
-    RuntimeException testError = new RuntimeException("Emit failed");
+    final String executionId = "exec-error";
+    final String nodeId = "node-error";
+    final RuntimeException testError = new RuntimeException("Emit failed");
     when(controlBusService.emit(any())).thenReturn(Mono.error(testError));
 
     // When
-    Mono<Void> result = gateway.stopNode(executionId, nodeId, true, "test reason");
+    final Mono<Void> result = gateway.stopNode(executionId, nodeId, true, "test reason");
 
     // Then
     StepVerifier.create(result).expectError(RuntimeException.class).verify();
@@ -1105,13 +1117,13 @@ class DefaultControlBusGatewayTest {
   @Test
   void skipNode_emitError_logsErrorAndPropagates() {
     // Given
-    String executionId = "exec-error";
-    String nodeId = "node-error";
-    RuntimeException testError = new RuntimeException("Emit failed");
+    final String executionId = "exec-error";
+    final String nodeId = "node-error";
+    final RuntimeException testError = new RuntimeException("Emit failed");
     when(controlBusService.emit(any())).thenReturn(Mono.error(testError));
 
     // When
-    Mono<Void> result = gateway.skipNode(executionId, nodeId, true);
+    final Mono<Void> result = gateway.skipNode(executionId, nodeId, true);
 
     // Then
     StepVerifier.create(result).expectError(RuntimeException.class).verify();
@@ -1120,13 +1132,13 @@ class DefaultControlBusGatewayTest {
   @Test
   void enableStepMode_emitError_logsErrorAndPropagates() {
     // Given
-    String executionId = "exec-error";
-    String nodeId = "node-error";
-    RuntimeException testError = new RuntimeException("Emit failed");
+    final String executionId = "exec-error";
+    final String nodeId = "node-error";
+    final RuntimeException testError = new RuntimeException("Emit failed");
     when(controlBusService.emit(any())).thenReturn(Mono.error(testError));
 
     // When
-    Mono<Void> result = gateway.enableStepMode(executionId, nodeId);
+    final Mono<Void> result = gateway.enableStepMode(executionId, nodeId);
 
     // Then
     StepVerifier.create(result).expectError(RuntimeException.class).verify();
@@ -1135,13 +1147,13 @@ class DefaultControlBusGatewayTest {
   @Test
   void disableStepMode_emitError_logsErrorAndPropagates() {
     // Given
-    String executionId = "exec-error";
-    String nodeId = "node-error";
-    RuntimeException testError = new RuntimeException("Emit failed");
+    final String executionId = "exec-error";
+    final String nodeId = "node-error";
+    final RuntimeException testError = new RuntimeException("Emit failed");
     when(controlBusService.emit(any())).thenReturn(Mono.error(testError));
 
     // When
-    Mono<Void> result = gateway.disableStepMode(executionId, nodeId);
+    final Mono<Void> result = gateway.disableStepMode(executionId, nodeId);
 
     // Then
     StepVerifier.create(result).expectError(RuntimeException.class).verify();
@@ -1150,13 +1162,13 @@ class DefaultControlBusGatewayTest {
   @Test
   void stepNode_emitError_logsErrorAndPropagates() {
     // Given
-    String executionId = "exec-error";
-    String nodeId = "node-error";
-    RuntimeException testError = new RuntimeException("Emit failed");
+    final String executionId = "exec-error";
+    final String nodeId = "node-error";
+    final RuntimeException testError = new RuntimeException("Emit failed");
     when(controlBusService.emit(any())).thenReturn(Mono.error(testError));
 
     // When
-    Mono<Void> result = gateway.stepNode(executionId, nodeId);
+    final Mono<Void> result = gateway.stepNode(executionId, nodeId);
 
     // Then
     StepVerifier.create(result).expectError(RuntimeException.class).verify();
@@ -1165,12 +1177,12 @@ class DefaultControlBusGatewayTest {
   @Test
   void restartWorkflow_emitError_logsErrorAndPropagates() {
     // Given
-    String executionId = "exec-error";
-    RuntimeException testError = new RuntimeException("Emit failed");
+    final String executionId = "exec-error";
+    final RuntimeException testError = new RuntimeException("Emit failed");
     when(controlBusService.emit(any())).thenReturn(Mono.error(testError));
 
     // When
-    Mono<String> result = gateway.restartWorkflow(executionId);
+    final Mono<String> result = gateway.restartWorkflow(executionId);
 
     // Then
     StepVerifier.create(result).expectError(RuntimeException.class).verify();
@@ -1179,13 +1191,13 @@ class DefaultControlBusGatewayTest {
   @Test
   void restartFromNode_emitError_logsErrorAndPropagates() {
     // Given
-    String executionId = "exec-error";
-    String fromNodeId = "node-error";
-    RuntimeException testError = new RuntimeException("Emit failed");
+    final String executionId = "exec-error";
+    final String fromNodeId = "node-error";
+    final RuntimeException testError = new RuntimeException("Emit failed");
     when(controlBusService.emit(any())).thenReturn(Mono.error(testError));
 
     // When
-    Mono<String> result = gateway.restartFromNode(executionId, fromNodeId);
+    final Mono<String> result = gateway.restartFromNode(executionId, fromNodeId);
 
     // Then
     StepVerifier.create(result).expectError(RuntimeException.class).verify();
@@ -1194,11 +1206,11 @@ class DefaultControlBusGatewayTest {
   @Test
   void emit_validMessage_logsAndEmits() {
     // Given
-    Message<String> signal = DefaultMessage.create(null, "test-payload");
+    final Message<String> signal = DefaultMessage.create(null, "test-payload");
     when(controlBusService.emit(signal)).thenReturn(Mono.empty());
 
     // When
-    Mono<Void> result = gateway.emit(signal);
+    final Mono<Void> result = gateway.emit(signal);
 
     // Then
     StepVerifier.create(result).verifyComplete();
@@ -1208,12 +1220,12 @@ class DefaultControlBusGatewayTest {
   @Test
   void watchExecution_validExecutionId_logsAndReturnsStream() {
     // Given
-    String executionId = "exec-watch";
-    WorkflowProgress progress = mock(WorkflowProgress.class);
+    final String executionId = "exec-watch";
+    final WorkflowProgress progress = mock(WorkflowProgress.class);
     when(taskTracker.getStatusStream(executionId)).thenReturn(Flux.just(progress));
 
     // When
-    Flux<WorkflowProgress> result = gateway.watchExecution(executionId);
+    final Flux<WorkflowProgress> result = gateway.watchExecution(executionId);
 
     // Then
     StepVerifier.create(result).expectNext(progress).verifyComplete();
@@ -1222,13 +1234,13 @@ class DefaultControlBusGatewayTest {
   @Test
   void watchLogs_validExecutionId_logsAndReturnsStream() {
     // Given
-    String executionId = "exec-logs";
-    String logLine1 = "log line 1";
-    String logLine2 = "log line 2";
+    final String executionId = "exec-logs";
+    final String logLine1 = "log line 1";
+    final String logLine2 = "log line 2";
     when(taskTracker.getLogStream(executionId)).thenReturn(Flux.just(logLine1, logLine2));
 
     // When
-    Flux<String> result = gateway.watchLogs(executionId);
+    final Flux<String> result = gateway.watchLogs(executionId);
 
     // Then
     StepVerifier.create(result).expectNext(logLine1, logLine2).verifyComplete();
@@ -1237,14 +1249,14 @@ class DefaultControlBusGatewayTest {
   @Test
   void getCurrentProgress_progressExists_logsAndReturnsProgress() {
     // Given
-    String executionId = "exec-progress";
-    WorkflowProgress progress = mock(WorkflowProgress.class);
+    final String executionId = "exec-progress";
+    final WorkflowProgress progress = mock(WorkflowProgress.class);
     when(progress.status()).thenReturn("RUNNING");
     when(progress.tasks()).thenReturn(List.of());
     when(taskTracker.getProgressByExecutionId(executionId)).thenReturn(progress);
 
     // When
-    WorkflowProgress result = gateway.getCurrentProgress(executionId);
+    final WorkflowProgress result = gateway.getCurrentProgress(executionId);
 
     // Then
     assertThat(result).isEqualTo(progress);
@@ -1253,11 +1265,11 @@ class DefaultControlBusGatewayTest {
   @Test
   void getCurrentProgress_progressNotFound_logsWarning() {
     // Given
-    String executionId = "exec-notfound";
+    final String executionId = "exec-notfound";
     when(taskTracker.getProgressByExecutionId(executionId)).thenReturn(null);
 
     // When
-    WorkflowProgress result = gateway.getCurrentProgress(executionId);
+    final WorkflowProgress result = gateway.getCurrentProgress(executionId);
 
     // Then
     assertThat(result).isNull();
@@ -1266,14 +1278,14 @@ class DefaultControlBusGatewayTest {
   @Test
   void getHistory_validSessionId_logsAndReturnsHistory() {
     // Given
-    String sessionId = "session-history";
-    WorkflowExecutionSummary summary1 = mock(WorkflowExecutionSummary.class);
-    WorkflowExecutionSummary summary2 = mock(WorkflowExecutionSummary.class);
-    List<WorkflowExecutionSummary> history = List.of(summary1, summary2);
+    final String sessionId = "session-history";
+    final WorkflowExecutionSummary summary1 = mock(WorkflowExecutionSummary.class);
+    final WorkflowExecutionSummary summary2 = mock(WorkflowExecutionSummary.class);
+    final List<WorkflowExecutionSummary> history = List.of(summary1, summary2);
     when(taskTracker.getHistory(sessionId)).thenReturn(history);
 
     // When
-    List<WorkflowExecutionSummary> result = gateway.getHistory(sessionId);
+    final List<WorkflowExecutionSummary> result = gateway.getHistory(sessionId);
 
     // Then
     assertThat(result).isEqualTo(history);
@@ -1283,12 +1295,12 @@ class DefaultControlBusGatewayTest {
   @Test
   void getLastHeartbeat_heartbeatNotFound_logsDebug() {
     // Given
-    String workflowId = "wf-no-hb";
-    String nodeId = "node-no-hb";
+    final String workflowId = "wf-no-hb";
+    final String nodeId = "node-no-hb";
     when(controlBusService.getLastHeartbeat(workflowId, nodeId)).thenReturn(null);
 
     // When
-    Message<?> result = gateway.getLastHeartbeat(workflowId, nodeId);
+    final Message<?> result = gateway.getLastHeartbeat(workflowId, nodeId);
 
     // Then
     assertThat(result).isNull();
@@ -1297,12 +1309,12 @@ class DefaultControlBusGatewayTest {
   @Test
   void getLastStatistics_statisticsNotFound_logsDebug() {
     // Given
-    String workflowId = "wf-no-stats";
-    String nodeId = "node-no-stats";
+    final String workflowId = "wf-no-stats";
+    final String nodeId = "node-no-stats";
     when(controlBusService.getLastStatistics(workflowId, nodeId)).thenReturn(null);
 
     // When
-    Message<?> result = gateway.getLastStatistics(workflowId, nodeId);
+    final Message<?> result = gateway.getLastStatistics(workflowId, nodeId);
 
     // Then
     assertThat(result).isNull();
@@ -1311,12 +1323,12 @@ class DefaultControlBusGatewayTest {
   @Test
   void getActiveNodes_withWorkflowId_logsAndReturnsNodes() {
     // Given
-    String workflowId = "wf-active";
-    List<String> activeNodes = List.of("node-1", "node-2", "node-3");
+    final String workflowId = "wf-active";
+    final List<String> activeNodes = List.of("node-1", "node-2", "node-3");
     when(controlBusService.getActiveNodes(workflowId)).thenReturn(activeNodes);
 
     // When
-    List<String> result = gateway.getActiveNodes(workflowId);
+    final List<String> result = gateway.getActiveNodes(workflowId);
 
     // Then
     assertThat(result).isEqualTo(activeNodes);
@@ -1326,11 +1338,11 @@ class DefaultControlBusGatewayTest {
   @Test
   void getActiveNodes_noWorkflowId_logsAndReturnsAllNodes() {
     // Given
-    List<String> allActiveNodes = List.of("node-a", "node-b", "node-c", "node-d");
+    final List<String> allActiveNodes = List.of("node-a", "node-b", "node-c", "node-d");
     when(controlBusService.getActiveNodes()).thenReturn(allActiveNodes);
 
     // When
-    List<String> result = gateway.getActiveNodes();
+    final List<String> result = gateway.getActiveNodes();
 
     // Then
     assertThat(result).isEqualTo(allActiveNodes);
@@ -1340,13 +1352,13 @@ class DefaultControlBusGatewayTest {
   @Test
   void compileAndCacheWorkflow_validInputs_logsAndCompiles() {
     // Given
-    String sessionId = "sess-compile";
-    WorkflowDefinition definition =
+    final String sessionId = "sess-compile";
+    final WorkflowDefinition definition =
         new WorkflowDefinition("wf-compile", "desc", List.of(), List.of());
     when(controlBusService.compileAndCacheWorkflow(sessionId, definition)).thenReturn(Mono.empty());
 
     // When
-    Mono<Void> result = gateway.compileAndCacheWorkflow(sessionId, definition);
+    final Mono<Void> result = gateway.compileAndCacheWorkflow(sessionId, definition);
 
     // Then
     StepVerifier.create(result).verifyComplete();
@@ -1355,12 +1367,12 @@ class DefaultControlBusGatewayTest {
   @Test
   void executeCommand_validCommand_logsAndExecutes() {
     // Given
-    PauseWorkflowCommand command = new PauseWorkflowCommand("exec-cmd");
-    Message<PauseWorkflowCommand> cmdMessage = DefaultMessage.create(null, command);
+    final PauseWorkflowCommand command = new PauseWorkflowCommand("exec-cmd");
+    final Message<PauseWorkflowCommand> cmdMessage = DefaultMessage.create(null, command);
     when(controlBusService.emit(any())).thenReturn(Mono.empty());
 
     // When
-    Mono<Void> result = gateway.executeCommand(cmdMessage);
+    final Mono<Void> result = gateway.executeCommand(cmdMessage);
 
     // Then
     StepVerifier.create(result).verifyComplete();
@@ -1369,12 +1381,12 @@ class DefaultControlBusGatewayTest {
   @Test
   void emit_emitError_logsErrorAndPropagates() {
     // Given
-    Message<String> signal = DefaultMessage.create(null, "test");
-    RuntimeException testError = new RuntimeException("Emit failed");
+    final Message<String> signal = DefaultMessage.create(null, "test");
+    final RuntimeException testError = new RuntimeException("Emit failed");
     when(controlBusService.emit(signal)).thenReturn(Mono.error(testError));
 
     // When
-    Mono<Void> result = gateway.emit(signal);
+    final Mono<Void> result = gateway.emit(signal);
 
     // Then
     StepVerifier.create(result).expectError(RuntimeException.class).verify();
@@ -1383,15 +1395,15 @@ class DefaultControlBusGatewayTest {
   @Test
   void sendCommand_sendError_logsErrorAndPropagates() {
     // Given
-    String workflowId = "wf-send-error";
-    String nodeId = "node-send-error";
-    Message<?> command = DefaultMessage.create(null, "cmd");
-    RuntimeException testError = new RuntimeException("Send failed");
+    final String workflowId = "wf-send-error";
+    final String nodeId = "node-send-error";
+    final Message<?> command = DefaultMessage.create(null, "cmd");
+    final RuntimeException testError = new RuntimeException("Send failed");
     when(controlBusService.sendCommand(anyString(), anyString(), any()))
         .thenReturn(Mono.error(testError));
 
     // When
-    Mono<Message<?>> result = gateway.sendCommand(workflowId, nodeId, command);
+    final Mono<Message<?>> result = gateway.sendCommand(workflowId, nodeId, command);
 
     // Then
     StepVerifier.create(result).expectError(RuntimeException.class).verify();
@@ -1400,15 +1412,15 @@ class DefaultControlBusGatewayTest {
   @Test
   void compileAndCacheWorkflow_compileError_logsErrorAndPropagates() {
     // Given
-    String sessionId = "sess-compile-error";
-    WorkflowDefinition definition =
+    final String sessionId = "sess-compile-error";
+    final WorkflowDefinition definition =
         new WorkflowDefinition("wf-error", "desc", List.of(), List.of());
-    RuntimeException testError = new RuntimeException("Compile failed");
+    final RuntimeException testError = new RuntimeException("Compile failed");
     when(controlBusService.compileAndCacheWorkflow(sessionId, definition))
         .thenReturn(Mono.error(testError));
 
     // When
-    Mono<Void> result = gateway.compileAndCacheWorkflow(sessionId, definition);
+    final Mono<Void> result = gateway.compileAndCacheWorkflow(sessionId, definition);
 
     // Then
     StepVerifier.create(result).expectError(RuntimeException.class).verify();
@@ -1417,11 +1429,11 @@ class DefaultControlBusGatewayTest {
   @Test
   void watchExecution_withEmptyStream_completesWithoutItems() {
     // Given
-    String executionId = "exec-empty";
+    final String executionId = "exec-empty";
     when(taskTracker.getStatusStream(executionId)).thenReturn(Flux.empty());
 
     // When
-    Flux<WorkflowProgress> result = gateway.watchExecution(executionId);
+    final Flux<WorkflowProgress> result = gateway.watchExecution(executionId);
 
     // Then
     StepVerifier.create(result).verifyComplete();
@@ -1430,12 +1442,12 @@ class DefaultControlBusGatewayTest {
   @Test
   void watchExecution_withStreamError_propagatesError() {
     // Given
-    String executionId = "exec-stream-error";
-    RuntimeException testError = new RuntimeException("Stream error");
+    final String executionId = "exec-stream-error";
+    final RuntimeException testError = new RuntimeException("Stream error");
     when(taskTracker.getStatusStream(executionId)).thenReturn(Flux.error(testError));
 
     // When
-    Flux<WorkflowProgress> result = gateway.watchExecution(executionId);
+    final Flux<WorkflowProgress> result = gateway.watchExecution(executionId);
 
     // Then
     StepVerifier.create(result).expectError(RuntimeException.class).verify();
@@ -1444,11 +1456,11 @@ class DefaultControlBusGatewayTest {
   @Test
   void watchLogs_withEmptyStream_completesWithoutItems() {
     // Given
-    String executionId = "exec-empty-logs";
+    final String executionId = "exec-empty-logs";
     when(taskTracker.getLogStream(executionId)).thenReturn(Flux.empty());
 
     // When
-    Flux<String> result = gateway.watchLogs(executionId);
+    final Flux<String> result = gateway.watchLogs(executionId);
 
     // Then
     StepVerifier.create(result).verifyComplete();
@@ -1457,12 +1469,12 @@ class DefaultControlBusGatewayTest {
   @Test
   void watchLogs_withStreamError_propagatesError() {
     // Given
-    String executionId = "exec-logs-error";
-    RuntimeException testError = new RuntimeException("Logs stream error");
+    final String executionId = "exec-logs-error";
+    final RuntimeException testError = new RuntimeException("Logs stream error");
     when(taskTracker.getLogStream(executionId)).thenReturn(Flux.error(testError));
 
     // When
-    Flux<String> result = gateway.watchLogs(executionId);
+    final Flux<String> result = gateway.watchLogs(executionId);
 
     // Then
     StepVerifier.create(result).expectError(RuntimeException.class).verify();
@@ -1473,7 +1485,7 @@ class DefaultControlBusGatewayTest {
     // Given - status stream should be accessible
 
     // When
-    Flux<ExecutionStatusEvent> result = gateway.statusStream();
+    final Flux<ExecutionStatusEvent> result = gateway.statusStream();
 
     // Then - verify it returns a non-null Flux
     assertThat(result).isNotNull();
@@ -1483,7 +1495,7 @@ class DefaultControlBusGatewayTest {
   void publishStatus_withRuntimeException_wrapsInIllegalStateException() {
     // Note: This test validates that the try-catch block works,
     // though normal operation wouldn't throw from emitNext
-    ExecutionStatusEvent event =
+    final ExecutionStatusEvent event =
         new ExecutionStatusEvent(
             "exec-pub-error",
             "node-pub-error",
@@ -1496,7 +1508,7 @@ class DefaultControlBusGatewayTest {
             Instant.now());
 
     // When
-    Mono<Void> result = gateway.publishStatus(event);
+    final Mono<Void> result = gateway.publishStatus(event);
 
     // Then - should complete successfully (Mono.create handles success path)
     StepVerifier.create(result).verifyComplete();
@@ -1505,11 +1517,11 @@ class DefaultControlBusGatewayTest {
   @Test
   void registerPlugin_multipleCalls_registersEachPlugin() {
     // Given
-    String workflowId = "wf-multi";
-    String nodeId1 = "node-1";
-    String nodeId2 = "node-2";
-    Plugin plugin1 = mock(Plugin.class);
-    Plugin plugin2 = mock(Plugin.class);
+    final String workflowId = "wf-multi";
+    final String nodeId1 = "node-1";
+    final String nodeId2 = "node-2";
+    final Plugin plugin1 = mock(Plugin.class);
+    final Plugin plugin2 = mock(Plugin.class);
 
     // When
     gateway.registerPlugin(workflowId, nodeId1, plugin1);
@@ -1523,11 +1535,11 @@ class DefaultControlBusGatewayTest {
   @Test
   void getHistory_emptyHistory_returnsEmptyList() {
     // Given
-    String sessionId = "sess-empty-history";
+    final String sessionId = "sess-empty-history";
     when(taskTracker.getHistory(sessionId)).thenReturn(List.of());
 
     // When
-    List<WorkflowExecutionSummary> result = gateway.getHistory(sessionId);
+    final List<WorkflowExecutionSummary> result = gateway.getHistory(sessionId);
 
     // Then
     assertThat(result).isEmpty();
@@ -1536,11 +1548,11 @@ class DefaultControlBusGatewayTest {
   @Test
   void getActiveNodes_emptyList_returnsEmpty() {
     // Given
-    String workflowId = "wf-no-active";
+    final String workflowId = "wf-no-active";
     when(controlBusService.getActiveNodes(workflowId)).thenReturn(List.of());
 
     // When
-    List<String> result = gateway.getActiveNodes(workflowId);
+    final List<String> result = gateway.getActiveNodes(workflowId);
 
     // Then
     assertThat(result).isEmpty();
@@ -1552,7 +1564,7 @@ class DefaultControlBusGatewayTest {
     when(controlBusService.getActiveNodes()).thenReturn(List.of());
 
     // When
-    List<String> result = gateway.getActiveNodes();
+    final List<String> result = gateway.getActiveNodes();
 
     // Then
     assertThat(result).isEmpty();
@@ -1573,7 +1585,7 @@ class DefaultControlBusGatewayTest {
   void subscribeToStatusEvents_forwardsWithMetadata() {
     // Given
     gateway.subscribeToStatusEvents();
-    ExecutionStatusEvent event =
+    final ExecutionStatusEvent event =
         new ExecutionStatusEvent(
             "exec-meta",
             "node-meta",
@@ -1602,14 +1614,14 @@ class DefaultControlBusGatewayTest {
   @SuppressWarnings("unchecked")
   void getLastHeartbeat_heartbeatFound_returnsHeartbeat() {
     // Given
-    String workflowId = "wf-hb-found";
-    String nodeId = "node-hb-found";
-    Message<String> heartbeat = DefaultMessage.create(null, "heartbeat-payload");
+    final String workflowId = "wf-hb-found";
+    final String nodeId = "node-hb-found";
+    final Message<String> heartbeat = DefaultMessage.create(null, "heartbeat-payload");
     when((Message<String>) controlBusService.getLastHeartbeat(workflowId, nodeId))
         .thenReturn(heartbeat);
 
     // When
-    Message<?> result = gateway.getLastHeartbeat(workflowId, nodeId);
+    final Message<?> result = gateway.getLastHeartbeat(workflowId, nodeId);
 
     // Then - covers the non-null branch (line 591-594)
     assertThat(result).isEqualTo(heartbeat);
@@ -1620,14 +1632,14 @@ class DefaultControlBusGatewayTest {
   @SuppressWarnings("unchecked")
   void getLastStatistics_statisticsFound_returnsStatistics() {
     // Given
-    String workflowId = "wf-stats-found";
-    String nodeId = "node-stats-found";
-    Message<String> statistics = DefaultMessage.create(null, "stats-payload");
+    final String workflowId = "wf-stats-found";
+    final String nodeId = "node-stats-found";
+    final Message<String> statistics = DefaultMessage.create(null, "stats-payload");
     when((Message<String>) controlBusService.getLastStatistics(workflowId, nodeId))
         .thenReturn(statistics);
 
     // When
-    Message<?> result = gateway.getLastStatistics(workflowId, nodeId);
+    final Message<?> result = gateway.getLastStatistics(workflowId, nodeId);
 
     // Then - covers the non-null branch (line 612-615)
     assertThat(result).isEqualTo(statistics);
@@ -1640,7 +1652,7 @@ class DefaultControlBusGatewayTest {
     when(taskTracker.updateTaskStatus(anyString(), anyString(), anyString(), anyString(), anyMap()))
         .thenReturn(Mono.empty());
     gateway.subscribeToStatusEvents();
-    ExecutionStatusEvent event =
+    final ExecutionStatusEvent event =
         new ExecutionStatusEvent(
             "exec-success-cb",
             "node-success-cb",
@@ -1671,7 +1683,7 @@ class DefaultControlBusGatewayTest {
     when(taskTracker.updateTaskStatus(anyString(), anyString(), anyString(), anyString(), anyMap()))
         .thenReturn(Mono.error(new RuntimeException("tracker error")));
     gateway.subscribeToStatusEvents();
-    ExecutionStatusEvent event =
+    final ExecutionStatusEvent event =
         new ExecutionStatusEvent(
             "exec-error-cb",
             "node-error-cb",
@@ -1700,10 +1712,10 @@ class DefaultControlBusGatewayTest {
   @SuppressWarnings("unchecked")
   void subscribeToStatusEvents_sinkCompletion_triggersOnCompleteCallback() throws Exception {
     // Access the private statusSink via reflection to trigger sink completion
-    java.lang.reflect.Field sinkField =
+    final java.lang.reflect.Field sinkField =
         DefaultControlBusGateway.class.getDeclaredField("statusSink");
     sinkField.setAccessible(true);
-    reactor.core.publisher.Sinks.Many<ExecutionStatusEvent> sink =
+    final reactor.core.publisher.Sinks.Many<ExecutionStatusEvent> sink =
         (reactor.core.publisher.Sinks.Many<ExecutionStatusEvent>) sinkField.get(gateway);
 
     gateway.subscribeToStatusEvents();
@@ -1720,11 +1732,11 @@ class DefaultControlBusGatewayTest {
   @Test
   void startWorkflow_workflowFound_returnsNewExecutionId() {
     // Given
-    String sessionId = "sess-start";
-    String workflowId = "wf-start";
-    WorkflowDefinition definition =
+    final String sessionId = "sess-start";
+    final String workflowId = "wf-start";
+    final WorkflowDefinition definition =
         new WorkflowDefinition(workflowId, "test workflow", List.of(), List.of());
-    PreparedWorkflow preparedWorkflow = mock(PreparedWorkflow.class);
+    final PreparedWorkflow preparedWorkflow = mock(PreparedWorkflow.class);
 
     when(workflowDefinitionStore.find(sessionId, workflowId)).thenReturn(Mono.just(definition));
     when(preparedWorkflowCache.get(sessionId, workflowId)).thenReturn(Optional.empty());
@@ -1734,7 +1746,7 @@ class DefaultControlBusGatewayTest {
         .thenReturn(Mono.empty());
 
     // When
-    Mono<String> result = gateway.startWorkflow(sessionId, workflowId);
+    final Mono<String> result = gateway.startWorkflow(sessionId, workflowId);
 
     // Then
     StepVerifier.create(result)
@@ -1744,7 +1756,7 @@ class DefaultControlBusGatewayTest {
               // Verify it's a valid UUID format
               try {
                 UUID.fromString(executionId);
-              } catch (IllegalArgumentException e) {
+              } catch (final IllegalArgumentException e) {
                 throw new AssertionError("Not a valid UUID: " + executionId, e);
               }
             })
@@ -1760,12 +1772,12 @@ class DefaultControlBusGatewayTest {
   @Test
   void startWorkflow_workflowNotFound_throwsIllegalArgumentException() {
     // Given
-    String sessionId = "sess-not-found";
-    String workflowId = "wf-not-found";
+    final String sessionId = "sess-not-found";
+    final String workflowId = "wf-not-found";
     when(workflowDefinitionStore.find(sessionId, workflowId)).thenReturn(Mono.empty());
 
     // When
-    Mono<String> result = gateway.startWorkflow(sessionId, workflowId);
+    final Mono<String> result = gateway.startWorkflow(sessionId, workflowId);
 
     // Then
     StepVerifier.create(result)
@@ -1783,11 +1795,11 @@ class DefaultControlBusGatewayTest {
   @Test
   void startWorkflow_preparedWorkflowCached_usesCachedVersion() {
     // Given
-    String sessionId = "sess-cached";
-    String workflowId = "wf-cached";
-    WorkflowDefinition definition =
+    final String sessionId = "sess-cached";
+    final String workflowId = "wf-cached";
+    final WorkflowDefinition definition =
         new WorkflowDefinition(workflowId, "cached workflow", List.of(), List.of());
-    PreparedWorkflow cachedPreparedWorkflow = mock(PreparedWorkflow.class);
+    final PreparedWorkflow cachedPreparedWorkflow = mock(PreparedWorkflow.class);
 
     when(workflowDefinitionStore.find(sessionId, workflowId)).thenReturn(Mono.just(definition));
     when(preparedWorkflowCache.get(sessionId, workflowId))
@@ -1797,7 +1809,7 @@ class DefaultControlBusGatewayTest {
         .thenReturn(Mono.empty());
 
     // When
-    Mono<String> result = gateway.startWorkflow(sessionId, workflowId);
+    final Mono<String> result = gateway.startWorkflow(sessionId, workflowId);
 
     // Then
     StepVerifier.create(result)
@@ -1814,11 +1826,11 @@ class DefaultControlBusGatewayTest {
   @Test
   void startWorkflow_preparedWorkflowNotCached_preparesAndCaches() {
     // Given
-    String sessionId = "sess-prepare";
-    String workflowId = "wf-prepare";
-    WorkflowDefinition definition =
+    final String sessionId = "sess-prepare";
+    final String workflowId = "wf-prepare";
+    final WorkflowDefinition definition =
         new WorkflowDefinition(workflowId, "workflow to prepare", List.of(), List.of());
-    PreparedWorkflow preparedWorkflow = mock(PreparedWorkflow.class);
+    final PreparedWorkflow preparedWorkflow = mock(PreparedWorkflow.class);
 
     when(workflowDefinitionStore.find(sessionId, workflowId)).thenReturn(Mono.just(definition));
     when(preparedWorkflowCache.get(sessionId, workflowId)).thenReturn(Optional.empty());
@@ -1828,7 +1840,7 @@ class DefaultControlBusGatewayTest {
         .thenReturn(Mono.empty());
 
     // When
-    Mono<String> result = gateway.startWorkflow(sessionId, workflowId);
+    final Mono<String> result = gateway.startWorkflow(sessionId, workflowId);
 
     // Then
     StepVerifier.create(result)
@@ -1838,7 +1850,8 @@ class DefaultControlBusGatewayTest {
     // Verify prepareWorkflow was called
     verify(orchestrator).prepareWorkflow(definition);
     // Verify cache.put was called with the prepared workflow
-    ArgumentCaptor<PreparedWorkflow> cacheCaptor = ArgumentCaptor.forClass(PreparedWorkflow.class);
+    final ArgumentCaptor<PreparedWorkflow> cacheCaptor =
+        ArgumentCaptor.forClass(PreparedWorkflow.class);
     verify(preparedWorkflowCache).put(eq(sessionId), eq(workflowId), cacheCaptor.capture());
     assertThat(cacheCaptor.getValue()).isEqualTo(preparedWorkflow);
   }
@@ -1846,32 +1859,32 @@ class DefaultControlBusGatewayTest {
   @Test
   void startWorkflow_orchestratorPrepareFailure_propagatesError() {
     // Given
-    String sessionId = "sess-prepare-fail";
-    String workflowId = "wf-prepare-fail";
-    WorkflowDefinition definition =
+    final String sessionId = "sess-prepare-fail";
+    final String workflowId = "wf-prepare-fail";
+    final WorkflowDefinition definition =
         new WorkflowDefinition(workflowId, "workflow", List.of(), List.of());
-    RuntimeException testError = new RuntimeException("Prepare failed");
+    final RuntimeException testError = new RuntimeException("Prepare failed");
 
     when(workflowDefinitionStore.find(sessionId, workflowId)).thenReturn(Mono.just(definition));
     when(preparedWorkflowCache.get(sessionId, workflowId)).thenReturn(Optional.empty());
     when(orchestrator.prepareWorkflow(definition)).thenReturn(Mono.error(testError));
 
     // When
-    Mono<String> result = gateway.startWorkflow(sessionId, workflowId);
+    final Mono<String> result = gateway.startWorkflow(sessionId, workflowId);
 
     // Then
     StepVerifier.create(result).expectError(RuntimeException.class).verify();
   }
 
   @Test
-  void startWorkflow_orchestratorExecuteFailure_propagatesError() {
-    // Given
-    String sessionId = "sess-exec-fail";
-    String workflowId = "wf-exec-fail";
-    WorkflowDefinition definition =
+  void startWorkflow_orchestratorExecuteFailure_returnsExecutionIdAndRunsAsync() {
+    // Given - orchestrator execute errors are now handled asynchronously
+    final String sessionId = "sess-exec-fail";
+    final String workflowId = "wf-exec-fail";
+    final WorkflowDefinition definition =
         new WorkflowDefinition(workflowId, "workflow", List.of(), List.of());
-    PreparedWorkflow preparedWorkflow = mock(PreparedWorkflow.class);
-    RuntimeException testError = new RuntimeException("Execute failed");
+    final PreparedWorkflow preparedWorkflow = mock(PreparedWorkflow.class);
+    final RuntimeException testError = new RuntimeException("Execute failed");
 
     when(workflowDefinitionStore.find(sessionId, workflowId)).thenReturn(Mono.just(definition));
     when(preparedWorkflowCache.get(sessionId, workflowId)).thenReturn(Optional.empty());
@@ -1880,24 +1893,24 @@ class DefaultControlBusGatewayTest {
             eq(sessionId), eq(workflowId), anyString(), eq(preparedWorkflow), anyMap()))
         .thenReturn(Mono.error(testError));
 
-    // When
-    Mono<String> result = gateway.startWorkflow(sessionId, workflowId);
+    // When - execution starts asynchronously, so we get execution ID immediately
+    final Mono<String> result = gateway.startWorkflow(sessionId, workflowId);
 
-    // Then
-    StepVerifier.create(result).expectError(RuntimeException.class).verify();
+    // Then - returns execution ID without waiting for execution to complete
+    StepVerifier.create(result).expectNextMatches(id -> !id.isEmpty()).verifyComplete();
   }
 
   @Test
   void startWorkflow_workflowDefinitionStoreError_propagatesError() {
     // Given
-    String sessionId = "sess-store-error";
-    String workflowId = "wf-store-error";
-    RuntimeException testError = new RuntimeException("Store error");
+    final String sessionId = "sess-store-error";
+    final String workflowId = "wf-store-error";
+    final RuntimeException testError = new RuntimeException("Store error");
 
     when(workflowDefinitionStore.find(sessionId, workflowId)).thenReturn(Mono.error(testError));
 
     // When
-    Mono<String> result = gateway.startWorkflow(sessionId, workflowId);
+    final Mono<String> result = gateway.startWorkflow(sessionId, workflowId);
 
     // Then
     StepVerifier.create(result).expectError(RuntimeException.class).verify();
@@ -1906,11 +1919,11 @@ class DefaultControlBusGatewayTest {
   @Test
   void startWorkflow_executionIdUnique_generatesNewIdEachTime() {
     // Given
-    String sessionId = "sess-unique";
-    String workflowId = "wf-unique";
-    WorkflowDefinition definition =
+    final String sessionId = "sess-unique";
+    final String workflowId = "wf-unique";
+    final WorkflowDefinition definition =
         new WorkflowDefinition(workflowId, "workflow", List.of(), List.of());
-    PreparedWorkflow preparedWorkflow = mock(PreparedWorkflow.class);
+    final PreparedWorkflow preparedWorkflow = mock(PreparedWorkflow.class);
 
     when(workflowDefinitionStore.find(sessionId, workflowId)).thenReturn(Mono.just(definition));
     when(preparedWorkflowCache.get(sessionId, workflowId)).thenReturn(Optional.empty());
@@ -1920,12 +1933,12 @@ class DefaultControlBusGatewayTest {
         .thenReturn(Mono.empty());
 
     // When - call twice
-    Mono<String> result1 = gateway.startWorkflow(sessionId, workflowId);
-    Mono<String> result2 = gateway.startWorkflow(sessionId, workflowId);
+    final Mono<String> result1 = gateway.startWorkflow(sessionId, workflowId);
+    final Mono<String> result2 = gateway.startWorkflow(sessionId, workflowId);
 
     // Then - execution IDs should be different
-    String execId1 = result1.block();
-    String execId2 = result2.block();
+    final String execId1 = result1.block();
+    final String execId2 = result2.block();
 
     assertThat(execId1).isNotEqualTo(execId2);
     assertThat(execId1).isNotNull();
@@ -1935,11 +1948,11 @@ class DefaultControlBusGatewayTest {
   @Test
   void startWorkflow_executePassesCorrectParameters() {
     // Given
-    String sessionId = "sess-params";
-    String workflowId = "wf-params";
-    WorkflowDefinition definition =
+    final String sessionId = "sess-params";
+    final String workflowId = "wf-params";
+    final WorkflowDefinition definition =
         new WorkflowDefinition(workflowId, "workflow", List.of(), List.of());
-    PreparedWorkflow preparedWorkflow = mock(PreparedWorkflow.class);
+    final PreparedWorkflow preparedWorkflow = mock(PreparedWorkflow.class);
 
     when(workflowDefinitionStore.find(sessionId, workflowId)).thenReturn(Mono.just(definition));
     when(preparedWorkflowCache.get(sessionId, workflowId))
@@ -1949,19 +1962,19 @@ class DefaultControlBusGatewayTest {
         .thenReturn(Mono.empty());
 
     // When
-    Mono<String> result = gateway.startWorkflow(sessionId, workflowId);
+    final Mono<String> result = gateway.startWorkflow(sessionId, workflowId);
 
     // Then
     StepVerifier.create(result)
         .assertNext(executionId -> assertThat(executionId).isNotNull())
         .verifyComplete();
 
-    ArgumentCaptor<String> sessionCaptor = ArgumentCaptor.forClass(String.class);
-    ArgumentCaptor<String> workflowCaptor = ArgumentCaptor.forClass(String.class);
-    ArgumentCaptor<String> executionIdCaptor = ArgumentCaptor.forClass(String.class);
-    ArgumentCaptor<PreparedWorkflow> preparedCaptor =
+    final ArgumentCaptor<String> sessionCaptor = ArgumentCaptor.forClass(String.class);
+    final ArgumentCaptor<String> workflowCaptor = ArgumentCaptor.forClass(String.class);
+    final ArgumentCaptor<String> executionIdCaptor = ArgumentCaptor.forClass(String.class);
+    final ArgumentCaptor<PreparedWorkflow> preparedCaptor =
         ArgumentCaptor.forClass(PreparedWorkflow.class);
-    ArgumentCaptor<Map> contextMapCaptor = ArgumentCaptor.forClass(Map.class);
+    final ArgumentCaptor<Map> contextMapCaptor = ArgumentCaptor.forClass(Map.class);
 
     verify(orchestrator)
         .execute(
@@ -1979,15 +1992,15 @@ class DefaultControlBusGatewayTest {
   @Test
   void startWorkflow_multipleWorkflows_cachesEachSeparately() {
     // Given
-    String sessionId = "sess-multi";
-    String workflowId1 = "wf-1";
-    String workflowId2 = "wf-2";
-    WorkflowDefinition definition1 =
+    final String sessionId = "sess-multi";
+    final String workflowId1 = "wf-1";
+    final String workflowId2 = "wf-2";
+    final WorkflowDefinition definition1 =
         new WorkflowDefinition(workflowId1, "workflow 1", List.of(), List.of());
-    WorkflowDefinition definition2 =
+    final WorkflowDefinition definition2 =
         new WorkflowDefinition(workflowId2, "workflow 2", List.of(), List.of());
-    PreparedWorkflow preparedWorkflow1 = mock(PreparedWorkflow.class);
-    PreparedWorkflow preparedWorkflow2 = mock(PreparedWorkflow.class);
+    final PreparedWorkflow preparedWorkflow1 = mock(PreparedWorkflow.class);
+    final PreparedWorkflow preparedWorkflow2 = mock(PreparedWorkflow.class);
 
     when(workflowDefinitionStore.find(sessionId, workflowId1)).thenReturn(Mono.just(definition1));
     when(workflowDefinitionStore.find(sessionId, workflowId2)).thenReturn(Mono.just(definition2));
@@ -1999,12 +2012,12 @@ class DefaultControlBusGatewayTest {
         .thenReturn(Mono.empty());
 
     // When
-    Mono<String> result1 = gateway.startWorkflow(sessionId, workflowId1);
-    Mono<String> result2 = gateway.startWorkflow(sessionId, workflowId2);
+    final Mono<String> result1 = gateway.startWorkflow(sessionId, workflowId1);
+    final Mono<String> result2 = gateway.startWorkflow(sessionId, workflowId2);
 
     // Then
-    String execId1 = result1.block();
-    String execId2 = result2.block();
+    final String execId1 = result1.block();
+    final String execId2 = result2.block();
 
     assertThat(execId1).isNotNull();
     assertThat(execId2).isNotNull();

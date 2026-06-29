@@ -15,8 +15,7 @@
  */
 package com.infenia.yukta.model;
 
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import com.infenia.yukta.model.session.SessionConfigData;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
@@ -27,68 +26,77 @@ import jakarta.validation.ValidatorFactory;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
+/** Tests for model validation. */
+@NoArgsConstructor
+@SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.LawOfDemeter"})
 class ValidationTest {
 
+  /** The validator instance. */
   private static Validator validator;
 
+  @SuppressWarnings("PMD.UnnecessaryModifier")
   @BeforeAll
   static void setUp() {
-    ValidatorFactory factory = Validation.buildDefaultValidatorFactory();
-    validator = factory.getValidator();
+    try (final ValidatorFactory factory = Validation.buildDefaultValidatorFactory()) {
+      validator = factory.getValidator();
+    }
   }
 
   @Test
   void testWorkflowDefinitionValid() {
-    WorkflowDefinition.Node node = new WorkflowDefinition.Node("n1", "gradle", Map.of());
-    WorkflowDefinition def =
+    final WorkflowDefinition.Node node = new WorkflowDefinition.Node("n1", "gradle", Map.of());
+    final WorkflowDefinition def =
         new WorkflowDefinition("test-workflow", "desc", List.of(node), List.of());
-    Set<ConstraintViolation<WorkflowDefinition>> violations = validator.validate(def);
-    assertTrue(violations.isEmpty());
+    final Set<ConstraintViolation<WorkflowDefinition>> violations = validator.validate(def);
+    assertThat(violations).isEmpty();
   }
 
   @Test
   void testSessionConfigDataValid() {
-    WorkflowDefinition def =
+    final WorkflowDefinition def =
         new WorkflowDefinition(
             "test-workflow",
             "desc",
             List.of(new WorkflowDefinition.Node("n1", "gradle", Map.of())),
             List.of());
-    SessionConfigData data =
+    final SessionConfigData data =
         new SessionConfigData(
             "session-1", "desc", "initiator-1", Map.of(), "/path", Map.of("w1", def));
-    Set<ConstraintViolation<SessionConfigData>> violations = validator.validate(data);
-    assertTrue(violations.isEmpty());
+    final Set<ConstraintViolation<SessionConfigData>> violations = validator.validate(data);
+    assertThat(violations).isEmpty();
   }
 
   @Test
   void testSessionConfigDataInvalidSession() {
-    WorkflowDefinition def = new WorkflowDefinition("test-workflow", "desc", List.of(), List.of());
-    SessionConfigData data =
+    final WorkflowDefinition def =
+        new WorkflowDefinition("test-workflow", "desc", List.of(), List.of());
+    final SessionConfigData data =
         new SessionConfigData(
             "../session", "desc", "initiator-1", Map.of(), "/path", Map.of("w1", def));
-    Set<ConstraintViolation<SessionConfigData>> violations = validator.validate(data);
-    assertFalse(violations.isEmpty());
-    assertTrue(
-        violations.stream().anyMatch(v -> v.getMessage().contains("Invalid session ID format")));
+    final Set<ConstraintViolation<SessionConfigData>> violations = validator.validate(data);
+    assertThat(violations)
+        .isNotEmpty()
+        .anySatisfy(v -> assertThat(v.getMessage()).contains("Invalid session ID format"));
   }
 
   @Test
   void testSessionConfigDataDescriptionTooLong() {
-    WorkflowDefinition def = new WorkflowDefinition("test-workflow", "desc", List.of(), List.of());
-    String longDesc = "a".repeat(257);
-    SessionConfigData data =
+    final WorkflowDefinition def =
+        new WorkflowDefinition("test-workflow", "desc", List.of(), List.of());
+    final String longDesc = "a".repeat(257);
+    final SessionConfigData data =
         new SessionConfigData(
             "session-1", longDesc, "initiator-1", Map.of(), "/path", Map.of("w1", def));
-    Set<ConstraintViolation<SessionConfigData>> violations = validator.validate(data);
-    assertFalse(violations.isEmpty());
-    assertTrue(
-        violations.stream()
-            .anyMatch(
-                v ->
-                    v.getMessage().contains("Session description must be at most 256 characters")));
+    final Set<ConstraintViolation<SessionConfigData>> violations = validator.validate(data);
+    assertThat(violations)
+        .isNotEmpty()
+        .anySatisfy(
+            v ->
+                assertThat(v.getMessage())
+                    .contains("Session description must be at most 256 characters"));
   }
 }

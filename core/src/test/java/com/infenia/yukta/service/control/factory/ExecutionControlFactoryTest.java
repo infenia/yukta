@@ -23,11 +23,14 @@ import com.infenia.yukta.service.control.ExecutionControl;
 import com.infenia.yukta.service.control.valve.ReactiveControlValve;
 import java.util.List;
 import java.util.Map;
+import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
 /** Test for {@link ExecutionControlFactory}. */
+@SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.CommentRequired"})
+@NoArgsConstructor
 class ExecutionControlFactoryTest {
 
   private ExecutionControlFactory factory;
@@ -40,19 +43,19 @@ class ExecutionControlFactoryTest {
   @Test
   void testCreateWithSingleNodeWorkflow() {
     // Given
-    String sessionId = "session-1";
-    String workflowId = "workflow-1";
-    String executionId = "exec-1";
-    Map<String, Object> payload = Map.of("key", "value");
+    final String sessionId = "session-1";
+    final String workflowId = "workflow-1";
+    final String executionId = "exec-1";
+    final Map<String, Object> payload = Map.of("key", "value");
 
     // Mock PreparedWorkflow with single node
-    PreparedWorkflow prepared = Mockito.mock(PreparedWorkflow.class);
-    WorkflowNode node = Mockito.mock(WorkflowNode.class);
+    final PreparedWorkflow prepared = Mockito.mock(PreparedWorkflow.class);
+    final WorkflowNode node = Mockito.mock(WorkflowNode.class);
     Mockito.when(node.nodeId()).thenReturn("node-1");
     Mockito.when(prepared.topologicalOrder()).thenReturn(List.of(node));
 
     // When
-    ExecutionControl control =
+    final ExecutionControl control =
         factory.create(sessionId, workflowId, executionId, prepared, payload);
 
     // Then
@@ -91,16 +94,16 @@ class ExecutionControlFactoryTest {
   @Test
   void testCreateWithMultipleNodeWorkflow() {
     // Given
-    String sessionId = "session-1";
-    String workflowId = "workflow-1";
-    String executionId = "exec-1";
-    Map<String, Object> payload = Map.of();
+    final String sessionId = "session-1";
+    final String workflowId = "workflow-1";
+    final String executionId = "exec-1";
+    final Map<String, Object> payload = Map.of();
 
     // Mock PreparedWorkflow with multiple nodes
-    PreparedWorkflow prepared = Mockito.mock(PreparedWorkflow.class);
-    WorkflowNode node1 = Mockito.mock(WorkflowNode.class);
-    WorkflowNode node2 = Mockito.mock(WorkflowNode.class);
-    WorkflowNode node3 = Mockito.mock(WorkflowNode.class);
+    final PreparedWorkflow prepared = Mockito.mock(PreparedWorkflow.class);
+    final WorkflowNode node1 = Mockito.mock(WorkflowNode.class);
+    final WorkflowNode node2 = Mockito.mock(WorkflowNode.class);
+    final WorkflowNode node3 = Mockito.mock(WorkflowNode.class);
 
     Mockito.when(node1.nodeId()).thenReturn("node-1");
     Mockito.when(node2.nodeId()).thenReturn("node-2");
@@ -108,7 +111,7 @@ class ExecutionControlFactoryTest {
     Mockito.when(prepared.topologicalOrder()).thenReturn(List.of(node1, node2, node3));
 
     // When
-    ExecutionControl control =
+    final ExecutionControl control =
         factory.create(sessionId, workflowId, executionId, prepared, payload);
 
     // Then
@@ -140,17 +143,17 @@ class ExecutionControlFactoryTest {
   @Test
   void testCreateWithEmptyWorkflow() {
     // Given
-    String sessionId = "session-1";
-    String workflowId = "workflow-1";
-    String executionId = "exec-1";
-    Map<String, Object> payload = Map.of("test", "data");
+    final String sessionId = "session-1";
+    final String workflowId = "workflow-1";
+    final String executionId = "exec-1";
+    final Map<String, Object> payload = Map.of("test", "data");
 
     // Mock PreparedWorkflow with no nodes
-    PreparedWorkflow prepared = Mockito.mock(PreparedWorkflow.class);
+    final PreparedWorkflow prepared = Mockito.mock(PreparedWorkflow.class);
     Mockito.when(prepared.topologicalOrder()).thenReturn(List.of());
 
     // When
-    ExecutionControl control =
+    final ExecutionControl control =
         factory.create(sessionId, workflowId, executionId, prepared, payload);
 
     // Then
@@ -178,31 +181,31 @@ class ExecutionControlFactoryTest {
   @Test
   void testNodeControlsAreIndependentInstances() {
     // Given
-    PreparedWorkflow prepared = Mockito.mock(PreparedWorkflow.class);
-    WorkflowNode node1 = Mockito.mock(WorkflowNode.class);
-    WorkflowNode node2 = Mockito.mock(WorkflowNode.class);
+    final PreparedWorkflow prepared = Mockito.mock(PreparedWorkflow.class);
+    final WorkflowNode node1 = Mockito.mock(WorkflowNode.class);
+    final WorkflowNode node2 = Mockito.mock(WorkflowNode.class);
 
     Mockito.when(node1.nodeId()).thenReturn("node-1");
     Mockito.when(node2.nodeId()).thenReturn("node-2");
     Mockito.when(prepared.topologicalOrder()).thenReturn(List.of(node1, node2));
 
     // When
-    ExecutionControl control = factory.create("s", "w", "e", prepared, Map.of());
+    final ExecutionControl control = factory.create("s", "w", "e", prepared, Map.of());
 
     // Then
     // Get references to the same node's controls twice
-    var valve1First = control.nodePauseValves().get("node-1");
-    var valve1Second = control.nodePauseValves().get("node-1");
-    var skip1First = control.nodeSkipFlags().get("node-1");
-    var skip1Second = control.nodeSkipFlags().get("node-1");
+    final var valve1First = control.nodePauseValves().get("node-1");
+    final var valve1Second = control.nodePauseValves().get("node-1");
+    final var skip1First = control.nodeSkipFlags().get("node-1");
+    final var skip1Second = control.nodeSkipFlags().get("node-1");
 
     // Verify they are the same instances (consistent mapping)
     assertThat(valve1First).isSameAs(valve1Second);
     assertThat(skip1First).isSameAs(skip1Second);
 
     // Verify different nodes have different instances
-    var valve2 = control.nodePauseValves().get("node-2");
-    var skip2 = control.nodeSkipFlags().get("node-2");
+    final var valve2 = control.nodePauseValves().get("node-2");
+    final var skip2 = control.nodeSkipFlags().get("node-2");
 
     assertThat(valve1First).isNotSameAs(valve2);
     assertThat(skip1First).isNotSameAs(skip2);

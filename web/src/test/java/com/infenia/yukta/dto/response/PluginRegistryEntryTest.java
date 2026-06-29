@@ -17,19 +17,31 @@ package com.infenia.yukta.dto.response;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 
+/** Tests for PluginRegistryEntryTest. */
+@NoArgsConstructor
 class PluginRegistryEntryTest {
+
+  /** Gradle plugin type constant. */
+  private static final String GRADLE = "gradle";
+
+  /** Processor category constant. */
+  private static final String PROCESSOR = "PROCESSOR";
+
+  /** Active status constant. */
+  private static final String ACTIVE = "ACTIVE";
 
   @Test
   void constructor_validInputs_createsRecord() {
     // Given
-    String type = "gradle";
-    String category = "PROCESSOR";
-    String status = "ACTIVE";
+    final String type = GRADLE;
+    final String category = PROCESSOR;
+    final String status = ACTIVE;
 
     // When
-    PluginRegistryEntry entry = new PluginRegistryEntry(type, category, status);
+    final PluginRegistryEntry entry = new PluginRegistryEntry(type, category, status);
 
     // Then
     assertThat(entry.type()).isEqualTo(type);
@@ -40,8 +52,8 @@ class PluginRegistryEntryTest {
   @Test
   void equals_sameValues_returnsTrue() {
     // Given
-    PluginRegistryEntry entry1 = new PluginRegistryEntry("gradle", "PROCESSOR", "ACTIVE");
-    PluginRegistryEntry entry2 = new PluginRegistryEntry("gradle", "PROCESSOR", "ACTIVE");
+    final PluginRegistryEntry entry1 = new PluginRegistryEntry(GRADLE, PROCESSOR, ACTIVE);
+    final PluginRegistryEntry entry2 = new PluginRegistryEntry(GRADLE, PROCESSOR, ACTIVE);
 
     // When-Then
     assertThat(entry1).isEqualTo(entry2);
@@ -50,22 +62,22 @@ class PluginRegistryEntryTest {
   @Test
   void equals_differentValues_returnsFalse() {
     // Given
-    PluginRegistryEntry entry1 = new PluginRegistryEntry("gradle", "PROCESSOR", "ACTIVE");
-    PluginRegistryEntry entry2 = new PluginRegistryEntry("maven", "PROCESSOR", "ACTIVE");
+    final PluginRegistryEntry entry1 = new PluginRegistryEntry(GRADLE, PROCESSOR, ACTIVE);
+    final PluginRegistryEntry entry2 = new PluginRegistryEntry("maven", PROCESSOR, ACTIVE);
 
     // When-Then
     assertThat(entry1).isNotEqualTo(entry2);
   }
 
   @Test
-  void toString_contains_relevantFieldValues() {
+  void verifyToStringContainsRelevantFieldValues() {
     // Given
-    PluginRegistryEntry entry = new PluginRegistryEntry("gradle", "PROCESSOR", "ACTIVE");
+    final PluginRegistryEntry entry = new PluginRegistryEntry(GRADLE, PROCESSOR, ACTIVE);
 
     // When
-    String actual = entry.toString();
+    final String actual = entry.toString();
 
     // Then
-    assertThat(actual).contains("PluginRegistryEntry").contains("gradle");
+    assertThat(actual).contains("PluginRegistryEntry").contains(GRADLE);
   }
 }

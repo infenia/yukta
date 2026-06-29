@@ -144,7 +144,7 @@ class DaemonManagerTest {
 
   @Test
   @DisplayName("startDaemon throws IOException when PID file directory creation fails")
-  void startDaemon_pidDirectoryCreationFails_throwsIOException() throws Exception {
+  void startDaemon_pidDirectoryCreationFails_throwsIoException() throws Exception {
     // Given: createDirectories throws exception on first call (PID file path)
     doThrow(new RuntimeException("Permission denied"))
         .when(fileSystemAdapter)
@@ -159,7 +159,7 @@ class DaemonManagerTest {
 
   @Test
   @DisplayName("startDaemon throws IOException when log file directory creation fails")
-  void startDaemon_logDirectoryCreationFails_throwsIOException() throws Exception {
+  void startDaemon_logDirectoryCreationFails_throwsIoException() throws Exception {
     // Given: First createDirectories succeeds, second throws exception
     // Note: Mockito will intercept the second call and throw, triggering the catch block
     doNothing()
@@ -214,11 +214,6 @@ class DaemonManagerTest {
   void startDaemon_daemonAlreadyRunning_withRealFileSystem_returnsNull() throws Exception {
     // Given: Use real FileSystemAdapter
     FileSystemAdapter realFileSystemAdapter = new DefaultFileSystemAdapter();
-    DaemonManager managerWithRealFs =
-        new DaemonManager(
-            props, httpClientAdapter, envProvider, processProvider, realFileSystemAdapter);
-
-    // Setup: Write an initial PID file and mock the daemon as running
     realFileSystemAdapter.createDirectories(props.getPidFilePath().getParent());
     realFileSystemAdapter.writeString(
         props.getPidFilePath(),
@@ -228,10 +223,12 @@ class DaemonManagerTest {
 
     // Mock process as existing and health check succeeding
     when(processProvider.findProcess(9999L)).thenReturn(Optional.of(mock(ProcessHandle.class)));
-
     when(httpClientAdapter.healthCheck(props.getPort())).thenReturn(true);
 
     // When: startDaemon is called
+    DaemonManager managerWithRealFs =
+        new DaemonManager(
+            props, httpClientAdapter, envProvider, processProvider, realFileSystemAdapter);
     Process result = managerWithRealFs.startDaemon();
 
     // Then: returns null (daemon already running)
@@ -541,7 +538,7 @@ class DaemonManagerTest {
 
   @Test
   @DisplayName("startDaemon throws IOException when process start fails")
-  void startDaemon_processStartFails_throwsIOException() throws Exception {
+  void startDaemon_processStartFails_throwsIoException() throws Exception {
     // Given: real file system so lock works, but processProvider throws
     FileSystemAdapter realFs = new DefaultFileSystemAdapter();
     DaemonManager managerWithRealFs =
@@ -563,7 +560,7 @@ class DaemonManagerTest {
 
   @Test
   @DisplayName("startDaemon throws IOException when PID file write fails")
-  void startDaemon_pidFileWriteFails_throwsIOException() throws Exception {
+  void startDaemon_pidFileWriteFails_throwsIoException() throws Exception {
     // Given: real file system so lock works, process starts, but PID write fails
     FileSystemAdapter realFs = new DefaultFileSystemAdapter();
     // Wrap real FS to make writeString fail
@@ -571,9 +568,11 @@ class DaemonManagerTest {
         new DefaultFileSystemAdapter() {
           @Override
           public void writeString(
-              java.nio.file.Path path, String content, java.nio.file.OpenOption... options)
-              throws Exception {
-            throw new RuntimeException("disk full");
+              final java.nio.file.Path path,
+              final String content,
+              final java.nio.file.OpenOption... options)
+              throws IOException {
+            throw new IOException("disk full");
           }
         };
     DaemonManager managerWithFailingFs =
@@ -910,10 +909,6 @@ class DaemonManagerTest {
   void startDaemon_stalePidProcessExistsButHealthCheckFails_startsDaemon() throws Exception {
     // Given: real FS with a stale PID file where process exists but health check fails
     FileSystemAdapter realFs = new DefaultFileSystemAdapter();
-    DaemonManager managerWithRealFs =
-        new DaemonManager(props, httpClientAdapter, envProvider, processProvider, realFs);
-
-    // Write a stale PID file
     realFs.createDirectories(props.getPidFilePath().getParent());
     realFs.writeString(
         props.getPidFilePath(),
@@ -936,6 +931,8 @@ class DaemonManagerTest {
     when(envProvider.getEnvironment("SPRING_PROFILES_ACTIVE")).thenReturn(Optional.empty());
 
     // When: startDaemon is called
+    DaemonManager managerWithRealFs =
+        new DaemonManager(props, httpClientAdapter, envProvider, processProvider, realFs);
     Process result = managerWithRealFs.startDaemon();
 
     // Then: starts a new daemon process
@@ -948,10 +945,6 @@ class DaemonManagerTest {
   void startDaemon_stalePidProcessNotFound_startsDaemon() throws Exception {
     // Given: real FS with a stale PID file where process does not exist
     FileSystemAdapter realFs = new DefaultFileSystemAdapter();
-    DaemonManager managerWithRealFs =
-        new DaemonManager(props, httpClientAdapter, envProvider, processProvider, realFs);
-
-    // Write a stale PID file
     realFs.createDirectories(props.getPidFilePath().getParent());
     realFs.writeString(
         props.getPidFilePath(),
@@ -971,6 +964,9 @@ class DaemonManagerTest {
     when(envProvider.getProperty("java.class.path")).thenReturn(Optional.of("/path/to/app.jar"));
     when(envProvider.getProperty("spring.profiles.active")).thenReturn(Optional.empty());
     when(envProvider.getEnvironment("SPRING_PROFILES_ACTIVE")).thenReturn(Optional.empty());
+
+    DaemonManager managerWithRealFs =
+        new DaemonManager(props, httpClientAdapter, envProvider, processProvider, realFs);
 
     // When: startDaemon is called
     Process result = managerWithRealFs.startDaemon();

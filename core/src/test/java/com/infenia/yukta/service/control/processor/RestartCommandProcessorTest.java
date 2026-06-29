@@ -31,6 +31,7 @@ import com.infenia.yukta.service.orchestrator.WorkflowOrchestrator;
 import com.infenia.yukta.service.orchestrator.tracker.DefaultTaskTrackerService;
 import java.util.Map;
 import java.util.Optional;
+import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -42,12 +43,23 @@ import reactor.core.publisher.Sinks;
 import reactor.test.StepVerifier;
 
 @ExtendWith(MockitoExtension.class)
+@NoArgsConstructor
+@SuppressWarnings({"PMD.TooManyStaticImports", "PMD.CommentRequired", "PMD.LinguisticNaming"})
 class RestartCommandProcessorTest {
 
+  /** Registry for execution control. */
   @Mock private ExecutionControlRegistry registry;
+
+  /** Workflow orchestrator. */
   @Mock private WorkflowOrchestrator orchestrator;
+
+  /** Task tracker service. */
   @Mock private DefaultTaskTrackerService taskTracker;
+
+  /** Execution control instance. */
   @Mock private ExecutionControl executionControl;
+
+  /** Prepared workflow. */
   @Mock private PreparedWorkflow preparedWorkflow;
 
   @InjectMocks private RestartCommandProcessor processor;
@@ -55,10 +67,10 @@ class RestartCommandProcessorTest {
   @Test
   void canProcess_restartCommand_returnsTrue() {
     // Given
-    ExecutionControlCommand command = new RestartCommand("exec-1");
+    final ExecutionControlCommand command = new RestartCommand("exec-1");
 
     // When
-    boolean actualResult = processor.canProcess(command);
+    final boolean actualResult = processor.canProcess(command);
 
     // Then
     assertThat(actualResult).isTrue();
@@ -67,10 +79,10 @@ class RestartCommandProcessorTest {
   @Test
   void canProcess_otherCommand_returnsFalse() {
     // Given
-    ExecutionControlCommand command = new PauseWorkflowCommand("exec-1");
+    final ExecutionControlCommand command = new PauseWorkflowCommand("exec-1");
 
     // When
-    boolean actualResult = processor.canProcess(command);
+    final boolean actualResult = processor.canProcess(command);
 
     // Then
     assertThat(actualResult).isFalse();
@@ -79,12 +91,12 @@ class RestartCommandProcessorTest {
   @Test
   void process_executionFound_unregistersAndRestartsWorkflow() {
     // Given
-    String executionId = "exec-restart";
-    String sessionId = "session-1";
-    String workflowId = "workflow-1";
-    Map<String, Object> payload = Map.of("key", "value");
-    Sinks.One<Void> safeStopSink = Sinks.one();
-    RestartCommand command = new RestartCommand(executionId);
+    final String executionId = "exec-restart";
+    final String sessionId = "session-1";
+    final String workflowId = "workflow-1";
+    final Map<String, Object> payload = Map.of("key", "value");
+    final Sinks.One<Void> safeStopSink = Sinks.one();
+    final RestartCommand command = new RestartCommand(executionId);
 
     when(registry.findByExecutionId(executionId)).thenReturn(Optional.of(executionControl));
     when(executionControl.executionId()).thenReturn(executionId);
@@ -98,13 +110,13 @@ class RestartCommandProcessorTest {
         .thenReturn(Mono.empty());
 
     // When
-    var result = processor.process(command);
+    final var result = processor.process(command);
 
     // Then
     StepVerifier.create(result).verifyComplete();
     verify(registry).unregister(executionId);
 
-    ArgumentCaptor<String> newExecIdCaptor = ArgumentCaptor.forClass(String.class);
+    final ArgumentCaptor<String> newExecIdCaptor = ArgumentCaptor.forClass(String.class);
     verify(orchestrator)
         .execute(
             eq(sessionId),
@@ -112,7 +124,7 @@ class RestartCommandProcessorTest {
             newExecIdCaptor.capture(),
             eq(preparedWorkflow),
             eq(payload));
-    String actualNewExecutionId = newExecIdCaptor.getValue();
+    final String actualNewExecutionId = newExecIdCaptor.getValue();
     assertThat(actualNewExecutionId).isNotEqualTo(executionId).isNotBlank();
     verify(taskTracker).emitWorkflowStatusEvent(actualNewExecutionId, "RUNNING");
   }
@@ -120,12 +132,12 @@ class RestartCommandProcessorTest {
   @Test
   void process_executionNotFound_completesEmptyWithoutError() {
     // Given
-    String executionId = "exec-not-found";
-    RestartCommand command = new RestartCommand(executionId);
+    final String executionId = "exec-not-found";
+    final RestartCommand command = new RestartCommand(executionId);
     when(registry.findByExecutionId(executionId)).thenReturn(Optional.empty());
 
     // When
-    var result = processor.process(command);
+    final var result = processor.process(command);
 
     // Then — error is swallowed by onErrorResume, Mono completes empty
     StepVerifier.create(result).verifyComplete();
@@ -134,11 +146,11 @@ class RestartCommandProcessorTest {
   @Test
   void process_orchestratorFails_completesEmptyWithoutError() {
     // Given
-    String executionId = "exec-orch-fail";
-    String sessionId = "session-1";
-    String workflowId = "workflow-1";
-    Sinks.One<Void> safeStopSink = Sinks.one();
-    RestartCommand command = new RestartCommand(executionId);
+    final String executionId = "exec-orch-fail";
+    final String sessionId = "session-1";
+    final String workflowId = "workflow-1";
+    final Sinks.One<Void> safeStopSink = Sinks.one();
+    final RestartCommand command = new RestartCommand(executionId);
 
     when(registry.findByExecutionId(executionId)).thenReturn(Optional.of(executionControl));
     when(executionControl.executionId()).thenReturn(executionId);
@@ -152,7 +164,7 @@ class RestartCommandProcessorTest {
         .thenReturn(Mono.error(new RuntimeException("Orchestrator failure")));
 
     // When
-    var result = processor.process(command);
+    final var result = processor.process(command);
 
     // Then — inner onErrorResume swallows the error
     StepVerifier.create(result).verifyComplete();
@@ -161,7 +173,7 @@ class RestartCommandProcessorTest {
   @Test
   void getPriority_returnsCorrectValue() {
     // When
-    int actualPriority = processor.getPriority();
+    final int actualPriority = processor.getPriority();
 
     // Then
     assertThat(actualPriority).isEqualTo(20);

@@ -19,23 +19,50 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.util.Map;
+import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 
+/** Tests for PluginCreationGuideTest. */
+@NoArgsConstructor
 class PluginCreationGuideTest {
+
+  /** Architecture overview key. */
+  private static final String OVERVIEW = "overview";
+
+  /** Trigger plugin type key. */
+  private static final String TRIGGER = "trigger";
+
+  /** Template code constant. */
+  private static final String CODE = "code";
+
+  /** Integration examples constant. */
+  private static final String EXAMPLES = "examples";
+
+  /** Configuration reference constant. */
+  private static final String CONFIG = "config";
+
+  /** Validation checklist constant. */
+  private static final String CHECKLIST = "checklist";
+
+  /** Testing strategy constant. */
+  private static final String STRATEGY = "strategy";
+
+  /** Deployment guide constant. */
+  private static final String GUIDE = "guide";
 
   @Test
   void constructor_validInputs_createsRecord() {
     // Given
-    String architectureOverview = "Architecture overview";
-    Map<String, String> templateCode = Map.of("trigger", "template code");
-    String integrationExamples = "Integration examples";
-    String configurationReference = "Configuration reference";
-    String validationChecklist = "Validation checklist";
-    String testingStrategy = "Testing strategy";
-    String deploymentGuide = "Deployment guide";
+    final String architectureOverview = "Architecture overview";
+    final Map<String, String> templateCode = Map.of(TRIGGER, "template code");
+    final String integrationExamples = "Integration examples";
+    final String configurationReference = "Configuration reference";
+    final String validationChecklist = "Validation checklist";
+    final String testingStrategy = "Testing strategy";
+    final String deploymentGuide = "Deployment guide";
 
     // When
-    PluginCreationGuide guide =
+    final PluginCreationGuide guide =
         new PluginCreationGuide(
             architectureOverview,
             templateCode,
@@ -58,9 +85,8 @@ class PluginCreationGuideTest {
   @Test
   void constructor_withNullTemplateCode_convertsToEmptyMap() {
     // Given-When
-    PluginCreationGuide guide =
-        new PluginCreationGuide(
-            "overview", null, "examples", "config", "checklist", "strategy", "guide");
+    final PluginCreationGuide guide =
+        new PluginCreationGuide(OVERVIEW, null, EXAMPLES, CONFIG, CHECKLIST, STRATEGY, GUIDE);
 
     // Then
     assertThat(guide.templateCode()).isEmpty();
@@ -70,15 +96,9 @@ class PluginCreationGuideTest {
   @Test
   void templateCode_modificationAttempt_throwsUnsupportedOperationException() {
     // Given
-    PluginCreationGuide guide =
+    final PluginCreationGuide guide =
         new PluginCreationGuide(
-            "overview",
-            Map.of("trigger", "code"),
-            "examples",
-            "config",
-            "checklist",
-            "strategy",
-            "guide");
+            OVERVIEW, Map.of(TRIGGER, CODE), EXAMPLES, CONFIG, CHECKLIST, STRATEGY, GUIDE);
 
     // When-Then
     assertThatThrownBy(() -> guide.templateCode().put("processor", "more code"))
@@ -88,13 +108,13 @@ class PluginCreationGuideTest {
   @Test
   void equals_sameValues_returnsTrue() {
     // Given
-    Map<String, String> templateCode = Map.of("trigger", "code");
-    PluginCreationGuide guide1 =
+    final Map<String, String> templateCode = Map.of(TRIGGER, CODE);
+    final PluginCreationGuide guide1 =
         new PluginCreationGuide(
-            "overview", templateCode, "examples", "config", "checklist", "strategy", "guide");
-    PluginCreationGuide guide2 =
+            OVERVIEW, templateCode, EXAMPLES, CONFIG, CHECKLIST, STRATEGY, GUIDE);
+    final PluginCreationGuide guide2 =
         new PluginCreationGuide(
-            "overview", templateCode, "examples", "config", "checklist", "strategy", "guide");
+            OVERVIEW, templateCode, EXAMPLES, CONFIG, CHECKLIST, STRATEGY, GUIDE);
 
     // When-Then
     assertThat(guide1).isEqualTo(guide2);
@@ -103,26 +123,25 @@ class PluginCreationGuideTest {
   @Test
   void equals_differentValues_returnsFalse() {
     // Given
-    PluginCreationGuide guide1 =
+    final PluginCreationGuide guide1 =
         new PluginCreationGuide(
-            "overview1", Map.of(), "examples", "config", "checklist", "strategy", "guide");
-    PluginCreationGuide guide2 =
+            "overview1", Map.of(), EXAMPLES, CONFIG, CHECKLIST, STRATEGY, GUIDE);
+    final PluginCreationGuide guide2 =
         new PluginCreationGuide(
-            "overview2", Map.of(), "examples", "config", "checklist", "strategy", "guide");
+            "overview2", Map.of(), EXAMPLES, CONFIG, CHECKLIST, STRATEGY, GUIDE);
 
     // When-Then
     assertThat(guide1).isNotEqualTo(guide2);
   }
 
   @Test
-  void toString_contains_relevantFieldValues() {
+  void verifyToStringContainsRelevantFieldValues() {
     // Given
-    PluginCreationGuide guide =
-        new PluginCreationGuide(
-            "overview", Map.of(), "examples", "config", "checklist", "strategy", "guide");
+    final PluginCreationGuide guide =
+        new PluginCreationGuide(OVERVIEW, Map.of(), EXAMPLES, CONFIG, CHECKLIST, STRATEGY, GUIDE);
 
     // When
-    String actual = guide.toString();
+    final String actual = guide.toString();
 
     // Then
     assertThat(actual).contains("PluginCreationGuide");

@@ -19,20 +19,29 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.util.List;
+import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 
+/** Tests for SessionCreationResponseTest. */
+@NoArgsConstructor
 class SessionCreationResponseTest {
+
+  /** First session ID test constant. */
+  private static final String SESSION_ID_123 = "session-123";
+
+  /** Second session ID test constant. */
+  private static final String SESSION_ID_456 = "session-456";
 
   @Test
   void constructor_validInputs_createsRecord() {
     // Given
-    String sessionId = "session-123";
-    List<String> createdWorkflows = List.of("workflow1", "workflow2");
-    List<String> warnings = List.of("warning1");
-    boolean success = true;
+    final String sessionId = SESSION_ID_123;
+    final List<String> createdWorkflows = List.of("workflow1", "workflow2");
+    final List<String> warnings = List.of("warning1");
+    final boolean success = true;
 
     // When
-    SessionCreationResponse response =
+    final SessionCreationResponse response =
         new SessionCreationResponse(sessionId, createdWorkflows, warnings, success);
 
     // Then
@@ -45,8 +54,8 @@ class SessionCreationResponseTest {
   @Test
   void constructor_withEmptyCreatedWorkflows_createsUnmodifiableList() {
     // Given-When
-    SessionCreationResponse response =
-        new SessionCreationResponse("session-123", List.of(), List.of(), false);
+    final SessionCreationResponse response =
+        new SessionCreationResponse(SESSION_ID_123, List.of(), List.of(), false);
 
     // Then
     assertThat(response.createdWorkflows()).isEmpty();
@@ -56,8 +65,8 @@ class SessionCreationResponseTest {
   @Test
   void constructor_withEmptyWarnings_createsUnmodifiableList() {
     // Given-When
-    SessionCreationResponse response =
-        new SessionCreationResponse("session-123", List.of(), List.of(), false);
+    final SessionCreationResponse response =
+        new SessionCreationResponse(SESSION_ID_123, List.of(), List.of(), false);
 
     // Then
     assertThat(response.warnings()).isEmpty();
@@ -67,8 +76,8 @@ class SessionCreationResponseTest {
   @Test
   void createdWorkflows_modificationAttempt_throwsUnsupportedOperationException() {
     // Given
-    SessionCreationResponse response =
-        new SessionCreationResponse("session-123", List.of("workflow1"), List.of(), true);
+    final SessionCreationResponse response =
+        new SessionCreationResponse(SESSION_ID_123, List.of("workflow1"), List.of(), true);
 
     // When-Then
     assertThatThrownBy(() -> response.createdWorkflows().add("workflow2"))
@@ -78,8 +87,8 @@ class SessionCreationResponseTest {
   @Test
   void warnings_modificationAttempt_throwsUnsupportedOperationException() {
     // Given
-    SessionCreationResponse response =
-        new SessionCreationResponse("session-123", List.of(), List.of("warning1"), true);
+    final SessionCreationResponse response =
+        new SessionCreationResponse(SESSION_ID_123, List.of(), List.of("warning1"), true);
 
     // When-Then
     assertThatThrownBy(() -> response.warnings().add("warning2"))
@@ -89,12 +98,12 @@ class SessionCreationResponseTest {
   @Test
   void equals_sameValues_returnsTrue() {
     // Given
-    List<String> workflows = List.of("workflow1");
-    List<String> warnings = List.of("warning1");
-    SessionCreationResponse response1 =
-        new SessionCreationResponse("session-123", workflows, warnings, true);
-    SessionCreationResponse response2 =
-        new SessionCreationResponse("session-123", workflows, warnings, true);
+    final List<String> workflows = List.of("workflow1");
+    final List<String> warnings = List.of("warning1");
+    final SessionCreationResponse response1 =
+        new SessionCreationResponse(SESSION_ID_123, workflows, warnings, true);
+    final SessionCreationResponse response2 =
+        new SessionCreationResponse(SESSION_ID_123, workflows, warnings, true);
 
     // When-Then
     assertThat(response1).isEqualTo(response2);
@@ -103,25 +112,25 @@ class SessionCreationResponseTest {
   @Test
   void equals_differentValues_returnsFalse() {
     // Given
-    SessionCreationResponse response1 =
-        new SessionCreationResponse("session-123", List.of(), List.of(), true);
-    SessionCreationResponse response2 =
-        new SessionCreationResponse("session-456", List.of(), List.of(), true);
+    final SessionCreationResponse response1 =
+        new SessionCreationResponse(SESSION_ID_123, List.of(), List.of(), true);
+    final SessionCreationResponse response2 =
+        new SessionCreationResponse(SESSION_ID_456, List.of(), List.of(), true);
 
     // When-Then
     assertThat(response1).isNotEqualTo(response2);
   }
 
   @Test
-  void toString_contains_relevantFieldValues() {
+  void verifyToStringContainsRelevantFieldValues() {
     // Given
-    SessionCreationResponse response =
-        new SessionCreationResponse("session-123", List.of(), List.of(), true);
+    final SessionCreationResponse response =
+        new SessionCreationResponse(SESSION_ID_123, List.of(), List.of(), true);
 
     // When
-    String actual = response.toString();
+    final String actual = response.toString();
 
     // Then
-    assertThat(actual).contains("SessionCreationResponse").contains("session-123");
+    assertThat(actual).contains("SessionCreationResponse").contains(SESSION_ID_123);
   }
 }

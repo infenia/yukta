@@ -41,6 +41,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
@@ -51,6 +52,16 @@ import reactor.core.scheduler.Schedulers;
 import reactor.test.StepVerifier;
 
 @MockitoSettings
+@NoArgsConstructor
+@SuppressWarnings({
+  "PMD.ExcessiveImports",
+  "PMD.TooManyStaticImports",
+  "PMD.CommentRequired",
+  "PMD.TooManyMethods",
+  "PMD.AvoidDuplicateLiterals",
+  "PMD.ShortVariable",
+  "PMD.UseConcurrentHashMap"
+})
 class WorkflowCompilerTest {
 
   @Mock private TaskTrackerService tracker;
@@ -198,7 +209,7 @@ class WorkflowCompilerTest {
     final NodeAssembler mockAssembler = mock(NodeAssembler.class);
     when(assemblerStrategy.supports(plugin, false)).thenReturn(true);
     when(assemblerStrategy.createAssembler(
-            eq(node), eq(plugin), eq(Duration.ofSeconds(120)), eq(0), eq(1024)))
+            eq(node), eq(plugin), eq(Duration.ofMinutes(2)), eq(0), eq(1024)))
         .thenReturn(mockAssembler);
 
     final NodeAssembler[] assemblers = compiler.compileAssemblers(edges, parents, plugins, order);

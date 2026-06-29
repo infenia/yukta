@@ -15,24 +15,27 @@
  */
 package com.infenia.yukta.service.plugin;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.infenia.yukta.plugin.core.Plugin;
 import java.util.List;
+import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
 import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
 
+/** Unit tests for {@link PluginRegistry}. */
 @SpringJUnitConfig(LocalValidatorFactoryBean.class)
+@NoArgsConstructor
+@SuppressWarnings("PMD.TooManyMethods")
 class PluginRegistryTest {
+
+  /** Test plugin type identifier. */
+  private static final String TEST_TYPE = "test-type";
 
   @BeforeEach
   void setUp() {
@@ -43,163 +46,167 @@ class PluginRegistryTest {
 
   @Test
   void testConstructorWithSinglePlugin() {
-    Plugin mockPlugin = mock(Plugin.class);
+    final Plugin mockPlugin = mock(Plugin.class);
     when(mockPlugin.getType()).thenReturn("test-plugin");
 
-    PluginRegistry registry = new PluginRegistry(List.of(mockPlugin));
+    final PluginRegistry registry = new PluginRegistry(List.of(mockPlugin));
 
-    assertTrue(registry.contains("test-plugin"));
-    assertNotNull(registry.get("test-plugin"));
+    assertThat(registry.contains("test-plugin")).isTrue();
+    assertThat(registry.get("test-plugin")).isNotNull();
   }
 
   @Test
   void testConstructorWithMultiplePlugins() {
-    Plugin p1 = mock(Plugin.class);
-    when(p1.getType()).thenReturn("type-1");
-    Plugin p2 = mock(Plugin.class);
-    when(p2.getType()).thenReturn("type-2");
-    Plugin p3 = mock(Plugin.class);
-    when(p3.getType()).thenReturn("type-3");
+    final Plugin firstPlugin = mock(Plugin.class);
+    when(firstPlugin.getType()).thenReturn("type-1");
+    final Plugin secondPlugin = mock(Plugin.class);
+    when(secondPlugin.getType()).thenReturn("type-2");
+    final Plugin thirdPlugin = mock(Plugin.class);
+    when(thirdPlugin.getType()).thenReturn("type-3");
 
-    PluginRegistry registry = new PluginRegistry(List.of(p1, p2, p3));
+    final PluginRegistry registry =
+        new PluginRegistry(List.of(firstPlugin, secondPlugin, thirdPlugin));
 
-    assertEquals(3, registry.listPlugins().size());
-    assertTrue(registry.contains("type-1"));
-    assertTrue(registry.contains("type-2"));
-    assertTrue(registry.contains("type-3"));
+    assertThat(registry.listPlugins().size()).isEqualTo(3);
+    assertThat(registry.contains("type-1")).isTrue();
+    assertThat(registry.contains("type-2")).isTrue();
+    assertThat(registry.contains("type-3")).isTrue();
   }
 
   @Test
   void testConstructorWithEmptyPluginList() {
-    PluginRegistry registry = new PluginRegistry(List.of());
+    final PluginRegistry registry = new PluginRegistry(List.of());
 
-    assertTrue(registry.listPlugins().isEmpty());
-    assertFalse(registry.contains("any-type"));
-    assertNull(registry.get("any-type"));
+    assertThat(registry.listPlugins().isEmpty()).isTrue();
+    assertThat(registry.contains("any-type")).isFalse();
+    assertThat(registry.get("any-type")).isNull();
   }
 
   @Test
   void testGetWithRegisteredType() {
-    Plugin mockPlugin = mock(Plugin.class);
+    final Plugin mockPlugin = mock(Plugin.class);
     when(mockPlugin.getType()).thenReturn("my-plugin");
 
-    PluginRegistry registry = new PluginRegistry(List.of(mockPlugin));
-    Plugin retrieved = registry.get("my-plugin");
+    final PluginRegistry registry = new PluginRegistry(List.of(mockPlugin));
+    final Plugin retrieved = registry.get("my-plugin");
 
-    assertNotNull(retrieved);
-    assertEquals(mockPlugin, retrieved);
+    assertThat(retrieved).isNotNull();
+    assertThat(retrieved).isEqualTo(mockPlugin);
   }
 
   @Test
   void testGetWithUnregisteredType() {
-    Plugin mockPlugin = mock(Plugin.class);
+    final Plugin mockPlugin = mock(Plugin.class);
     when(mockPlugin.getType()).thenReturn("registered");
 
-    PluginRegistry registry = new PluginRegistry(List.of(mockPlugin));
-    Plugin retrieved = registry.get("non-existent");
+    final PluginRegistry registry = new PluginRegistry(List.of(mockPlugin));
+    final Plugin retrieved = registry.get("non-existent");
 
-    assertNull(retrieved);
+    assertThat(retrieved).isNull();
   }
 
   @Test
   void testContainsWithRegisteredType() {
-    Plugin mockPlugin = mock(Plugin.class);
+    final Plugin mockPlugin = mock(Plugin.class);
     when(mockPlugin.getType()).thenReturn("registered-type");
 
-    PluginRegistry registry = new PluginRegistry(List.of(mockPlugin));
+    final PluginRegistry registry = new PluginRegistry(List.of(mockPlugin));
 
-    assertTrue(registry.contains("registered-type"));
+    assertThat(registry.contains("registered-type")).isTrue();
   }
 
   @Test
   void testContainsWithUnregisteredType() {
-    Plugin mockPlugin = mock(Plugin.class);
+    final Plugin mockPlugin = mock(Plugin.class);
     when(mockPlugin.getType()).thenReturn("registered");
 
-    PluginRegistry registry = new PluginRegistry(List.of(mockPlugin));
+    final PluginRegistry registry = new PluginRegistry(List.of(mockPlugin));
 
-    assertFalse(registry.contains("non-existent"));
+    assertThat(registry.contains("non-existent")).isFalse();
   }
 
   @Test
   void testListPluginsReturnsAllPlugins() {
-    Plugin p1 = mock(Plugin.class);
-    when(p1.getType()).thenReturn("type1");
-    Plugin p2 = mock(Plugin.class);
-    when(p2.getType()).thenReturn("type2");
-    Plugin p3 = mock(Plugin.class);
-    when(p3.getType()).thenReturn("type3");
+    final Plugin firstPlugin = mock(Plugin.class);
+    when(firstPlugin.getType()).thenReturn("type1");
+    final Plugin secondPlugin = mock(Plugin.class);
+    when(secondPlugin.getType()).thenReturn("type2");
+    final Plugin thirdPlugin = mock(Plugin.class);
+    when(thirdPlugin.getType()).thenReturn("type3");
 
-    PluginRegistry registry = new PluginRegistry(List.of(p1, p2, p3));
-    List<Plugin> plugins = registry.listPlugins();
+    final PluginRegistry registry =
+        new PluginRegistry(List.of(firstPlugin, secondPlugin, thirdPlugin));
+    final List<Plugin> plugins = registry.listPlugins();
 
-    assertEquals(3, plugins.size());
-    assertTrue(plugins.contains(p1));
-    assertTrue(plugins.contains(p2));
-    assertTrue(plugins.contains(p3));
+    assertThat(plugins).hasSize(3);
+    assertThat(plugins.contains(firstPlugin)).isTrue();
+    assertThat(plugins.contains(secondPlugin)).isTrue();
+    assertThat(plugins.contains(thirdPlugin)).isTrue();
   }
 
   @Test
   void testListPluginsReturnsImmutableCopy() {
-    Plugin mockPlugin = mock(Plugin.class);
+    final Plugin mockPlugin = mock(Plugin.class);
     when(mockPlugin.getType()).thenReturn("plugin");
 
-    PluginRegistry registry = new PluginRegistry(List.of(mockPlugin));
-    List<Plugin> plugins = registry.listPlugins();
+    final PluginRegistry registry = new PluginRegistry(List.of(mockPlugin));
+    final List<Plugin> plugins = registry.listPlugins();
 
-    assertThrows(UnsupportedOperationException.class, () -> plugins.add(mock(Plugin.class)));
+    assertThatThrownBy(() -> plugins.add(mock(Plugin.class)))
+        .isInstanceOf(UnsupportedOperationException.class);
   }
 
   @Test
   void testListPluginsEmptyRegistry() {
-    PluginRegistry registry = new PluginRegistry(List.of());
-    List<Plugin> plugins = registry.listPlugins();
+    final PluginRegistry registry = new PluginRegistry(List.of());
+    final List<Plugin> plugins = registry.listPlugins();
 
-    assertTrue(plugins.isEmpty());
-    assertThrows(UnsupportedOperationException.class, () -> plugins.add(mock(Plugin.class)));
+    assertThat(plugins.isEmpty()).isTrue();
+    assertThatThrownBy(() -> plugins.add(mock(Plugin.class)))
+        .isInstanceOf(UnsupportedOperationException.class);
   }
 
   @Test
   void testPluginTypeIsUsedAsKey() {
-    Plugin p1 = mock(Plugin.class);
-    when(p1.getType()).thenReturn("same-type");
-    Plugin p2 = mock(Plugin.class);
-    when(p2.getType()).thenReturn("same-type");
+    final Plugin firstPlugin = mock(Plugin.class);
+    when(firstPlugin.getType()).thenReturn("same-type");
+    final Plugin secondPlugin = mock(Plugin.class);
+    when(secondPlugin.getType()).thenReturn("same-type");
 
-    PluginRegistry registry = new PluginRegistry(List.of(p1, p2));
+    final PluginRegistry registry = new PluginRegistry(List.of(firstPlugin, secondPlugin));
 
-    assertEquals(1, registry.listPlugins().size());
-    assertEquals(p2, registry.get("same-type"));
+    assertThat(registry.listPlugins().size()).isEqualTo(1);
+    assertThat(registry.get("same-type")).isEqualTo(secondPlugin);
   }
 
   @Test
   void testRegistry() {
-    Plugin mockPlugin = mock(Plugin.class);
-    when(mockPlugin.getType()).thenReturn("test-type");
+    final Plugin mockPlugin = mock(Plugin.class);
+    when(mockPlugin.getType()).thenReturn(TEST_TYPE);
 
-    PluginRegistry registry = new PluginRegistry(List.of(mockPlugin));
+    final PluginRegistry registry = new PluginRegistry(List.of(mockPlugin));
 
-    assertTrue(registry.contains("test-type"));
-    assertFalse(registry.contains("unknown"));
-    assertNotNull(registry.get("test-type"));
-    assertNull(registry.get("unknown"));
+    assertThat(registry.contains(TEST_TYPE)).isTrue();
+    assertThat(registry.contains("unknown")).isFalse();
+    assertThat(registry.get(TEST_TYPE)).isNotNull();
+    assertThat(registry.get("unknown")).isNull();
 
-    List<Plugin> plugins = registry.listPlugins();
-    assertEquals(1, plugins.size());
-    assertEquals("test-type", plugins.get(0).getType());
+    final List<Plugin> plugins = registry.listPlugins();
+    assertThat(plugins).hasSize(1);
+    assertThat(plugins.get(0).getType()).isEqualTo(TEST_TYPE);
   }
 
   @Test
   void testMultiplePlugins() {
-    Plugin p1 = mock(Plugin.class);
-    when(p1.getType()).thenReturn("type1");
-    Plugin p2 = mock(Plugin.class);
-    when(p2.getType()).thenReturn("type2");
+    final Plugin firstPlugin = mock(Plugin.class);
+    when(firstPlugin.getType()).thenReturn("type1");
+    final Plugin secondPlugin = mock(Plugin.class);
+    when(secondPlugin.getType()).thenReturn("type2");
 
-    PluginRegistry registry = new PluginRegistry(List.of(p1, p2));
+    final PluginRegistry registry = new PluginRegistry(List.of(firstPlugin, secondPlugin));
 
-    assertEquals(2, registry.listPlugins().size());
-    assertTrue(registry.contains("type1"));
-    assertTrue(registry.contains("type2"));
+    assertThat(registry.listPlugins().size()).isEqualTo(2);
+    assertThat(registry.contains("type1")).isTrue();
+    assertThat(registry.contains("type2")).isTrue();
   }
 }

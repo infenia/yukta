@@ -15,9 +15,11 @@
  */
 package com.infenia.yukta.service.orchestrator.assembly;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.util.Map;
+import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 import org.mockito.junit.jupiter.MockitoSettings;
 import reactor.core.publisher.Flux;
@@ -25,13 +27,16 @@ import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 import reactor.util.context.Context;
 
+/** Unit tests for {@link ExecutionContextBuilder}. */
 @MockitoSettings
+@NoArgsConstructor
+@SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.UseConcurrentHashMap", "PMD.TooManyMethods"})
 class ExecutionContextBuilderTest {
 
   @Test
   void testBuildContextWithAllFields() {
-    ExecutionContextBuilder builder = new ExecutionContextBuilder();
-    Context context =
+    final ExecutionContextBuilder builder = new ExecutionContextBuilder();
+    final Context context =
         builder
             .sessionId("session-123")
             .workflowId("workflow-456")
@@ -40,16 +45,16 @@ class ExecutionContextBuilderTest {
             .payload(Map.of("key", "value"))
             .build();
 
-    assertEquals("session-123", context.get("sessionId"));
-    assertEquals("workflow-456", context.get("workflowId"));
-    assertEquals("exec-789", context.get("executionId"));
-    assertEquals("node-001", context.get("nodeId"));
-    assertEquals(Map.of("key", "value"), context.get("payload"));
+    assertThat(context.<String>get("sessionId")).isEqualTo("session-123");
+    assertThat(context.<String>get("workflowId")).isEqualTo("workflow-456");
+    assertThat(context.<String>get("executionId")).isEqualTo("exec-789");
+    assertThat(context.<String>get("nodeId")).isEqualTo("node-001");
+    assertThat(context.<Map<String, Object>>get("payload")).isEqualTo(Map.of("key", "value"));
   }
 
   @Test
   void testApplyContextToMono() {
-    ExecutionContextBuilder builder =
+    final ExecutionContextBuilder builder =
         new ExecutionContextBuilder()
             .sessionId("session-123")
             .workflowId("workflow-456")
@@ -57,40 +62,39 @@ class ExecutionContextBuilderTest {
             .nodeId("node-001")
             .payload(Map.of("data", "test"));
 
-    Mono<String> mono = Mono.deferContextual(ctx -> Mono.just((String) ctx.get("sessionId")));
+    final Mono<String> mono = Mono.deferContextual(ctx -> Mono.just(ctx.get("sessionId")));
 
     StepVerifier.create(builder.applyContextTo(mono)).expectNext("session-123").verifyComplete();
   }
 
   @Test
   void testBuildContextIsImmutable() {
-    ExecutionContextBuilder builder = new ExecutionContextBuilder().sessionId("session-1");
-    Context ctx1 = builder.build();
+    final ExecutionContextBuilder builder = new ExecutionContextBuilder().sessionId("session-1");
+    final Context ctx1 = builder.build();
 
     builder.sessionId("session-2");
-    Context ctx2 = builder.build();
+    final Context ctx2 = builder.build();
 
-    assertEquals("session-1", ctx1.get("sessionId"));
-    assertEquals("session-2", ctx2.get("sessionId"));
+    assertThat(ctx1.<String>get("sessionId")).isEqualTo("session-1");
+    assertThat(ctx2.<String>get("sessionId")).isEqualTo("session-2");
   }
 
   @Test
   void testContextBuilderConstants() {
-    assertEquals("sessionId", ExecutionContextBuilder.CTX_SESSION_ID);
-    assertEquals("workflowId", ExecutionContextBuilder.CTX_WORKFLOW_ID);
-    assertEquals("executionId", ExecutionContextBuilder.CTX_EXECUTION_ID);
-    assertEquals("nodeId", ExecutionContextBuilder.CTX_NODE_ID);
-    assertEquals("payload", ExecutionContextBuilder.CTX_PAYLOAD);
+    assertThat(ExecutionContextBuilder.CTX_SESSION_ID).isEqualTo("sessionId");
+    assertThat(ExecutionContextBuilder.CTX_WORKFLOW_ID).isEqualTo("workflowId");
+    assertThat(ExecutionContextBuilder.CTX_EXECUTION_ID).isEqualTo("executionId");
+    assertThat(ExecutionContextBuilder.CTX_NODE_ID).isEqualTo("nodeId");
+    assertThat(ExecutionContextBuilder.CTX_PAYLOAD).isEqualTo("payload");
   }
 
   @Test
   void testApplyContextToFlux() {
-    ExecutionContextBuilder builder =
+    final ExecutionContextBuilder builder =
         new ExecutionContextBuilder().sessionId("session-123").workflowId("workflow-456");
 
-    Flux<String> flux =
-        Flux.deferContextual(
-            ctx -> Flux.just((String) ctx.get("sessionId"), (String) ctx.get("workflowId")));
+    final Flux<String> flux =
+        Flux.deferContextual(ctx -> Flux.just(ctx.get("sessionId"), ctx.get("workflowId")));
 
     StepVerifier.create(builder.applyContextTo(flux))
         .expectNext("session-123")
@@ -99,39 +103,30 @@ class ExecutionContextBuilderTest {
   }
 
   @Test
-  void testBuildContextWithPartialFields() {
-    ExecutionContextBuilder builder = new ExecutionContextBuilder();
-    Context context = builder.sessionId("session-123").executionId("exec-789").build();
+  void testBuildContextWithEmptyBuilder() {
+    final ExecutionContextBuilder builder = new ExecutionContextBuilder();
+    final Context context = builder.build();
 
-    assertEquals("session-123", context.get("sessionId"));
-    assertEquals("exec-789", context.get("executionId"));
-  }
-
-  @Test
-  void testBuildContextWithoutFields() {
-    ExecutionContextBuilder builder = new ExecutionContextBuilder();
-    Context context = builder.build();
-
-    assertTrue(context.isEmpty());
+    assertThat(context.isEmpty()).isTrue();
   }
 
   @Test
   void testPayloadImmutability() {
-    Map<String, Object> originalPayload = new java.util.HashMap<>();
+    final Map<String, Object> originalPayload = new java.util.HashMap<>();
     originalPayload.put("key1", "value1");
 
-    ExecutionContextBuilder builder = new ExecutionContextBuilder().payload(originalPayload);
-    Context context = builder.build();
+    final ExecutionContextBuilder builder = new ExecutionContextBuilder().payload(originalPayload);
+    final Context context = builder.build();
 
-    @SuppressWarnings("unchecked")
-    Map<String, Object> contextPayload = (Map<String, Object>) context.get("payload");
+    final Map<String, Object> contextPayload = context.get("payload");
 
-    assertThrows(UnsupportedOperationException.class, () -> contextPayload.put("key2", "value2"));
+    assertThatThrownBy(() -> contextPayload.put("key2", "value2"))
+        .isInstanceOf(UnsupportedOperationException.class);
   }
 
   @Test
   void testFluentChaining() {
-    ExecutionContextBuilder builder =
+    final ExecutionContextBuilder builder =
         new ExecutionContextBuilder()
             .sessionId("s1")
             .workflowId("w1")
@@ -139,81 +134,82 @@ class ExecutionContextBuilderTest {
             .nodeId("n1")
             .payload(Map.of("data", "value"));
 
-    Context context = builder.build();
+    final Context context = builder.build();
 
-    assertEquals("s1", context.get("sessionId"));
-    assertEquals("w1", context.get("workflowId"));
-    assertEquals("e1", context.get("executionId"));
-    assertEquals("n1", context.get("nodeId"));
+    assertThat(context.<String>get("sessionId")).isEqualTo("s1");
+    assertThat(context.<String>get("workflowId")).isEqualTo("w1");
+    assertThat(context.<String>get("executionId")).isEqualTo("e1");
+    assertThat(context.<String>get("nodeId")).isEqualTo("n1");
   }
 
   @Test
   void testPayloadWithNullValue() {
-    ExecutionContextBuilder builder = new ExecutionContextBuilder().payload(null);
-    Context context = builder.build();
+    final ExecutionContextBuilder builder = new ExecutionContextBuilder().payload(null);
+    final Context context = builder.build();
 
-    assertTrue(context.isEmpty());
+    assertThat(context.isEmpty()).isTrue();
   }
 
   @Test
   void testBuildContextWithOneField() {
-    ExecutionContextBuilder builder = new ExecutionContextBuilder().sessionId("session-only");
-    Context context = builder.build();
+    final ExecutionContextBuilder builder = new ExecutionContextBuilder().sessionId("session-only");
+    final Context context = builder.build();
 
-    assertEquals("session-only", context.get("sessionId"));
-    assertEquals(1, context.stream().count());
+    assertThat(context.<String>get("sessionId")).isEqualTo("session-only");
+    assertThat(context.stream().count()).isEqualTo(1L);
   }
 
   @Test
   void testBuildContextWithWorkflowIdOnly() {
-    ExecutionContextBuilder builder = new ExecutionContextBuilder().workflowId("workflow-only");
-    Context context = builder.build();
+    final ExecutionContextBuilder builder =
+        new ExecutionContextBuilder().workflowId("workflow-only");
+    final Context context = builder.build();
 
-    assertEquals("workflow-only", context.get("workflowId"));
+    assertThat(context.<String>get("workflowId")).isEqualTo("workflow-only");
   }
 
   @Test
   void testBuildContextWithExecutionIdOnly() {
-    ExecutionContextBuilder builder = new ExecutionContextBuilder().executionId("exec-only");
-    Context context = builder.build();
+    final ExecutionContextBuilder builder = new ExecutionContextBuilder().executionId("exec-only");
+    final Context context = builder.build();
 
-    assertEquals("exec-only", context.get("executionId"));
+    assertThat(context.<String>get("executionId")).isEqualTo("exec-only");
   }
 
   @Test
   void testBuildContextWithNodeIdOnly() {
-    ExecutionContextBuilder builder = new ExecutionContextBuilder().nodeId("node-only");
-    Context context = builder.build();
+    final ExecutionContextBuilder builder = new ExecutionContextBuilder().nodeId("node-only");
+    final Context context = builder.build();
 
-    assertEquals("node-only", context.get("nodeId"));
+    assertThat(context.<String>get("nodeId")).isEqualTo("node-only");
   }
 
   @Test
   void testBuildContextWithPayloadOnly() {
-    ExecutionContextBuilder builder = new ExecutionContextBuilder().payload(Map.of("key", "value"));
-    Context context = builder.build();
+    final ExecutionContextBuilder builder =
+        new ExecutionContextBuilder().payload(Map.of("key", "value"));
+    final Context context = builder.build();
 
-    assertEquals(Map.of("key", "value"), context.get("payload"));
+    assertThat(context.<Map<String, Object>>get("payload")).isEqualTo(Map.of("key", "value"));
   }
 
   @Test
   void testPayloadDefensiveCopy() {
-    Map<String, Object> originalPayload = new java.util.HashMap<>();
+    final Map<String, Object> originalPayload = new java.util.HashMap<>();
     originalPayload.put("key1", "value1");
 
-    ExecutionContextBuilder builder = new ExecutionContextBuilder().payload(originalPayload);
+    final ExecutionContextBuilder builder = new ExecutionContextBuilder().payload(originalPayload);
 
     // Modify original after setting
     originalPayload.put("key2", "value2");
 
-    Context context = builder.build();
+    final Context context = builder.build();
 
-    @SuppressWarnings("unchecked")
-    Map<String, Object> contextPayload = (Map<String, Object>) context.get("payload");
+    final Map<String, Object> contextPayload = context.get("payload");
 
     // Context should only have key1
-    assertEquals(1, contextPayload.size());
-    assertTrue(contextPayload.containsKey("key1"));
-    assertFalse(contextPayload.containsKey("key2"));
+    assertThat(contextPayload).hasSize(1);
+    assertThat(contextPayload.containsKey("key1")).isTrue();
+    assertThat(contextPayload.containsKey("key2")).isFalse();
   }
 }

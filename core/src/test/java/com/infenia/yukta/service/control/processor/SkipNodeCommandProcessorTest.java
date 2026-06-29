@@ -28,6 +28,7 @@ import com.infenia.yukta.service.orchestrator.tracker.DefaultTaskTrackerService;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
+import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -36,10 +37,17 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import reactor.test.StepVerifier;
 
 @ExtendWith(MockitoExtension.class)
+@NoArgsConstructor
+@SuppressWarnings({"PMD.CommentRequired", "PMD.LinguisticNaming", "PMD.AvoidDuplicateLiterals"})
 class SkipNodeCommandProcessorTest {
 
+  /** Registry for execution control. */
   @Mock private ExecutionControlRegistry registry;
+
+  /** Task tracker service. */
   @Mock private DefaultTaskTrackerService taskTracker;
+
+  /** Execution control instance. */
   @Mock private ExecutionControl executionControl;
 
   @InjectMocks private SkipNodeCommandProcessor processor;
@@ -47,10 +55,10 @@ class SkipNodeCommandProcessorTest {
   @Test
   void canProcess_skipNodeCommand_returnsTrue() {
     // Given
-    ExecutionControlCommand command = new SkipNodeCommand("exec-1", "node-1", true);
+    final ExecutionControlCommand command = new SkipNodeCommand("exec-1", "node-1", true);
 
     // When
-    boolean actualResult = processor.canProcess(command);
+    final boolean actualResult = processor.canProcess(command);
 
     // Then
     assertThat(actualResult).isTrue();
@@ -59,10 +67,10 @@ class SkipNodeCommandProcessorTest {
   @Test
   void canProcess_otherCommand_returnsFalse() {
     // Given
-    ExecutionControlCommand command = new PauseWorkflowCommand("exec-1");
+    final ExecutionControlCommand command = new PauseWorkflowCommand("exec-1");
 
     // When
-    boolean actualResult = processor.canProcess(command);
+    final boolean actualResult = processor.canProcess(command);
 
     // Then
     assertThat(actualResult).isFalse();
@@ -71,15 +79,15 @@ class SkipNodeCommandProcessorTest {
   @Test
   void process_skipTrue_setsSkipFlagAndEmitsNodeSkipped() {
     // Given
-    String executionId = "exec-skip";
-    String nodeId = "node-1";
-    AtomicBoolean skipFlag = new AtomicBoolean(false);
-    SkipNodeCommand command = new SkipNodeCommand(executionId, nodeId, true);
+    final String executionId = "exec-skip";
+    final String nodeId = "node-1";
+    final AtomicBoolean skipFlag = new AtomicBoolean(false);
+    final SkipNodeCommand command = new SkipNodeCommand(executionId, nodeId, true);
     when(registry.findByExecutionId(executionId)).thenReturn(Optional.of(executionControl));
     when(executionControl.nodeSkipFlags()).thenReturn(Map.of(nodeId, skipFlag));
 
     // When
-    var result = processor.process(command);
+    final var result = processor.process(command);
 
     // Then
     StepVerifier.create(result).verifyComplete();
@@ -90,15 +98,15 @@ class SkipNodeCommandProcessorTest {
   @Test
   void process_skipFalse_clearsSkipFlagAndEmitsNodeUnskipped() {
     // Given
-    String executionId = "exec-unskip";
-    String nodeId = "node-1";
-    AtomicBoolean skipFlag = new AtomicBoolean(true);
-    SkipNodeCommand command = new SkipNodeCommand(executionId, nodeId, false);
+    final String executionId = "exec-unskip";
+    final String nodeId = "node-1";
+    final AtomicBoolean skipFlag = new AtomicBoolean(true);
+    final SkipNodeCommand command = new SkipNodeCommand(executionId, nodeId, false);
     when(registry.findByExecutionId(executionId)).thenReturn(Optional.of(executionControl));
     when(executionControl.nodeSkipFlags()).thenReturn(Map.of(nodeId, skipFlag));
 
     // When
-    var result = processor.process(command);
+    final var result = processor.process(command);
 
     // Then
     StepVerifier.create(result).verifyComplete();
@@ -109,12 +117,12 @@ class SkipNodeCommandProcessorTest {
   @Test
   void process_executionNotFound_errorWithIllegalArgumentException() {
     // Given
-    String executionId = "exec-not-found";
-    SkipNodeCommand command = new SkipNodeCommand(executionId, "node-1", true);
+    final String executionId = "exec-not-found";
+    final SkipNodeCommand command = new SkipNodeCommand(executionId, "node-1", true);
     when(registry.findByExecutionId(executionId)).thenReturn(Optional.empty());
 
     // When
-    var result = processor.process(command);
+    final var result = processor.process(command);
 
     // Then
     StepVerifier.create(result)
@@ -128,14 +136,14 @@ class SkipNodeCommandProcessorTest {
   @Test
   void process_nodeNotFound_errorWithIllegalArgumentException() {
     // Given
-    String executionId = "exec-1";
-    String nodeId = "unknown-node";
-    SkipNodeCommand command = new SkipNodeCommand(executionId, nodeId, true);
+    final String executionId = "exec-1";
+    final String nodeId = "unknown-node";
+    final SkipNodeCommand command = new SkipNodeCommand(executionId, nodeId, true);
     when(registry.findByExecutionId(executionId)).thenReturn(Optional.of(executionControl));
     when(executionControl.nodeSkipFlags()).thenReturn(Map.of());
 
     // When
-    var result = processor.process(command);
+    final var result = processor.process(command);
 
     // Then
     StepVerifier.create(result)
@@ -149,7 +157,7 @@ class SkipNodeCommandProcessorTest {
   @Test
   void getPriority_returnsCorrectValue() {
     // When
-    int actualPriority = processor.getPriority();
+    final int actualPriority = processor.getPriority();
 
     // Then
     assertThat(actualPriority).isEqualTo(10);

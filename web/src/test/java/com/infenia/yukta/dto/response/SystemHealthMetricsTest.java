@@ -17,21 +17,33 @@ package com.infenia.yukta.dto.response;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 
+/** Tests for SystemHealthMetricsTest. */
+@NoArgsConstructor
 class SystemHealthMetricsTest {
+
+  /** Memory 1024 MB constant. */
+  private static final String MEMORY_1024 = "1024";
+
+  /** Memory 2048 MB constant. */
+  private static final String MEMORY_2048 = "2048";
+
+  /** Uptime 2h 30m constant. */
+  private static final String UPTIME_2H_30M = "2h 30m";
 
   @Test
   void constructor_validInputs_createsRecord() {
     // Given
-    double threadPoolUtilization = 75.5;
-    int queueDepth = 42;
-    String memoryUsedMb = "1024";
-    String memoryMaxMb = "2048";
-    String uptime = "2h 30m";
+    final double threadPoolUtilization = 75.5;
+    final int queueDepth = 42;
+    final String memoryUsedMb = MEMORY_1024;
+    final String memoryMaxMb = MEMORY_2048;
+    final String uptime = UPTIME_2H_30M;
 
     // When
-    SystemHealthMetrics metrics =
+    final SystemHealthMetrics metrics =
         new SystemHealthMetrics(
             threadPoolUtilization, queueDepth, memoryUsedMb, memoryMaxMb, uptime);
 
@@ -46,12 +58,12 @@ class SystemHealthMetricsTest {
   @Test
   void threadPoolUtilization_doubleValue_returnsCorrectValue() {
     // Given
-    double expectedUtilization = 85.3;
-    SystemHealthMetrics metrics =
-        new SystemHealthMetrics(expectedUtilization, 10, "512", "1024", "1h");
+    final double expectedUtilization = 85.3;
+    final SystemHealthMetrics metrics =
+        new SystemHealthMetrics(expectedUtilization, 10, "512", MEMORY_1024, "1h");
 
     // When
-    double actual = metrics.threadPoolUtilization();
+    final double actual = metrics.threadPoolUtilization();
 
     // Then
     assertThat(actual).isEqualTo(expectedUtilization);
@@ -60,12 +72,12 @@ class SystemHealthMetricsTest {
   @Test
   void queueDepth_intValue_returnsCorrectValue() {
     // Given
-    int expectedQueueDepth = 100;
-    SystemHealthMetrics metrics =
-        new SystemHealthMetrics(50.0, expectedQueueDepth, "512", "1024", "1h");
+    final int expectedQueueDepth = 100;
+    final SystemHealthMetrics metrics =
+        new SystemHealthMetrics(50.0, expectedQueueDepth, "512", MEMORY_1024, "1h");
 
     // When
-    int actual = metrics.queueDepth();
+    final int actual = metrics.queueDepth();
 
     // Then
     assertThat(actual).isEqualTo(expectedQueueDepth);
@@ -74,12 +86,12 @@ class SystemHealthMetricsTest {
   @Test
   void memoryUsedMb_stringValue_returnsCorrectValue() {
     // Given
-    String expectedMemoryUsed = "2048";
-    SystemHealthMetrics metrics =
+    final String expectedMemoryUsed = "2048";
+    final SystemHealthMetrics metrics =
         new SystemHealthMetrics(50.0, 10, expectedMemoryUsed, "4096", "1h");
 
     // When
-    String actual = metrics.memoryUsedMb();
+    final String actual = metrics.memoryUsedMb();
 
     // Then
     assertThat(actual).isEqualTo(expectedMemoryUsed);
@@ -88,8 +100,10 @@ class SystemHealthMetricsTest {
   @Test
   void equals_sameValues_returnsTrue() {
     // Given
-    SystemHealthMetrics metrics1 = new SystemHealthMetrics(75.5, 42, "1024", "2048", "2h 30m");
-    SystemHealthMetrics metrics2 = new SystemHealthMetrics(75.5, 42, "1024", "2048", "2h 30m");
+    final SystemHealthMetrics metrics1 =
+        new SystemHealthMetrics(75.5, 42, MEMORY_1024, MEMORY_2048, UPTIME_2H_30M);
+    final SystemHealthMetrics metrics2 =
+        new SystemHealthMetrics(75.5, 42, MEMORY_1024, MEMORY_2048, UPTIME_2H_30M);
 
     // When-Then
     assertThat(metrics1).isEqualTo(metrics2);
@@ -98,20 +112,23 @@ class SystemHealthMetricsTest {
   @Test
   void equals_differentValues_returnsFalse() {
     // Given
-    SystemHealthMetrics metrics1 = new SystemHealthMetrics(75.5, 42, "1024", "2048", "2h 30m");
-    SystemHealthMetrics metrics2 = new SystemHealthMetrics(80.0, 42, "1024", "2048", "2h 30m");
+    final SystemHealthMetrics metrics1 =
+        new SystemHealthMetrics(75.5, 42, MEMORY_1024, MEMORY_2048, UPTIME_2H_30M);
+    final SystemHealthMetrics metrics2 =
+        new SystemHealthMetrics(80.0, 42, MEMORY_1024, MEMORY_2048, UPTIME_2H_30M);
 
     // When-Then
     assertThat(metrics1).isNotEqualTo(metrics2);
   }
 
   @Test
-  void toString_contains_relevantFieldValues() {
+  void verifyToStringContainsRelevantFieldValues() {
     // Given
-    SystemHealthMetrics metrics = new SystemHealthMetrics(75.5, 42, "1024", "2048", "2h 30m");
+    final SystemHealthMetrics metrics =
+        new SystemHealthMetrics(75.5, 42, MEMORY_1024, MEMORY_2048, UPTIME_2H_30M);
 
     // When
-    String actual = metrics.toString();
+    final String actual = metrics.toString();
 
     // Then
     assertThat(actual).contains("SystemHealthMetrics").contains("75.5");

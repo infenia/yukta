@@ -20,6 +20,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
@@ -31,27 +32,33 @@ import org.springframework.web.server.WebFilterChain;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
+/** Tests for RequestLoggingFilter. */
+@NoArgsConstructor
 class RequestLoggingFilterTest {
 
+  /** Context path for request parsing. */
+  private static final String CONTEXT_PATH = "/";
+
+  /** Filter instance for testing. */
   private final RequestLoggingFilter filter = new RequestLoggingFilter();
 
   @Test
   void testConstructor() {
-    RequestLoggingFilter instance = new RequestLoggingFilter();
+    final RequestLoggingFilter instance = new RequestLoggingFilter();
     assertThat(instance).isNotNull();
   }
 
   @Test
   void testFilterLogsRequest() {
-    ServerWebExchange exchange = mock(ServerWebExchange.class);
-    ServerHttpRequest request = mock(ServerHttpRequest.class);
-    ServerHttpResponse response = mock(ServerHttpResponse.class);
-    WebFilterChain chain = mock(WebFilterChain.class);
+    final ServerWebExchange exchange = mock(ServerWebExchange.class);
+    final ServerHttpRequest request = mock(ServerHttpRequest.class);
+    final ServerHttpResponse response = mock(ServerHttpResponse.class);
+    final WebFilterChain chain = mock(WebFilterChain.class);
 
     when(exchange.getRequest()).thenReturn(request);
     when(exchange.getResponse()).thenReturn(response);
     when(request.getMethod()).thenReturn(HttpMethod.GET);
-    when(request.getPath()).thenReturn(RequestPath.parse("/api/test", "/"));
+    when(request.getPath()).thenReturn(RequestPath.parse("/api/test", CONTEXT_PATH));
     when(response.getStatusCode()).thenReturn(HttpStatus.OK);
     when(chain.filter(exchange)).thenReturn(Mono.empty());
 
@@ -62,15 +69,15 @@ class RequestLoggingFilterTest {
 
   @Test
   void testFilterWithNullStatusCode() {
-    ServerWebExchange exchange = mock(ServerWebExchange.class);
-    ServerHttpRequest request = mock(ServerHttpRequest.class);
-    ServerHttpResponse response = mock(ServerHttpResponse.class);
-    WebFilterChain chain = mock(WebFilterChain.class);
+    final ServerWebExchange exchange = mock(ServerWebExchange.class);
+    final ServerHttpRequest request = mock(ServerHttpRequest.class);
+    final ServerHttpResponse response = mock(ServerHttpResponse.class);
+    final WebFilterChain chain = mock(WebFilterChain.class);
 
     when(exchange.getRequest()).thenReturn(request);
     when(exchange.getResponse()).thenReturn(response);
     when(request.getMethod()).thenReturn(HttpMethod.POST);
-    when(request.getPath()).thenReturn(RequestPath.parse("/api/create", "/"));
+    when(request.getPath()).thenReturn(RequestPath.parse("/api/create", CONTEXT_PATH));
     when(response.getStatusCode()).thenReturn(null);
     when(chain.filter(exchange)).thenReturn(Mono.empty());
 
@@ -81,17 +88,17 @@ class RequestLoggingFilterTest {
 
   @Test
   void testFilterWithDifferentMethods() {
-    for (HttpMethod method :
+    for (final HttpMethod method :
         new HttpMethod[] {HttpMethod.GET, HttpMethod.POST, HttpMethod.PUT, HttpMethod.DELETE}) {
-      ServerWebExchange exchange = mock(ServerWebExchange.class);
-      ServerHttpRequest request = mock(ServerHttpRequest.class);
-      ServerHttpResponse response = mock(ServerHttpResponse.class);
-      WebFilterChain chain = mock(WebFilterChain.class);
+      final ServerWebExchange exchange = mock(ServerWebExchange.class);
+      final ServerHttpRequest request = mock(ServerHttpRequest.class);
+      final ServerHttpResponse response = mock(ServerHttpResponse.class);
+      final WebFilterChain chain = mock(WebFilterChain.class);
 
       when(exchange.getRequest()).thenReturn(request);
       when(exchange.getResponse()).thenReturn(response);
       when(request.getMethod()).thenReturn(method);
-      when(request.getPath()).thenReturn(RequestPath.parse("/api/resource", "/"));
+      when(request.getPath()).thenReturn(RequestPath.parse("/api/resource", CONTEXT_PATH));
       when(response.getStatusCode()).thenReturn(HttpStatus.OK);
       when(chain.filter(exchange)).thenReturn(Mono.empty());
 
@@ -103,7 +110,7 @@ class RequestLoggingFilterTest {
 
   @Test
   void testFilterWithDifferentStatusCodes() {
-    HttpStatus[] statusCodes = {
+    final HttpStatus[] statusCodes = {
       HttpStatus.OK,
       HttpStatus.CREATED,
       HttpStatus.BAD_REQUEST,
@@ -112,16 +119,16 @@ class RequestLoggingFilterTest {
       HttpStatus.INTERNAL_SERVER_ERROR
     };
 
-    for (HttpStatus statusCode : statusCodes) {
-      ServerWebExchange exchange = mock(ServerWebExchange.class);
-      ServerHttpRequest request = mock(ServerHttpRequest.class);
-      ServerHttpResponse response = mock(ServerHttpResponse.class);
-      WebFilterChain chain = mock(WebFilterChain.class);
+    for (final HttpStatus statusCode : statusCodes) {
+      final ServerWebExchange exchange = mock(ServerWebExchange.class);
+      final ServerHttpRequest request = mock(ServerHttpRequest.class);
+      final ServerHttpResponse response = mock(ServerHttpResponse.class);
+      final WebFilterChain chain = mock(WebFilterChain.class);
 
       when(exchange.getRequest()).thenReturn(request);
       when(exchange.getResponse()).thenReturn(response);
       when(request.getMethod()).thenReturn(HttpMethod.GET);
-      when(request.getPath()).thenReturn(RequestPath.parse("/api/test", "/"));
+      when(request.getPath()).thenReturn(RequestPath.parse("/api/test", CONTEXT_PATH));
       when(response.getStatusCode()).thenReturn(statusCode);
       when(chain.filter(exchange)).thenReturn(Mono.empty());
 
@@ -133,15 +140,15 @@ class RequestLoggingFilterTest {
 
   @Test
   void testFilterContinuesChainOnError() {
-    ServerWebExchange exchange = mock(ServerWebExchange.class);
-    ServerHttpRequest request = mock(ServerHttpRequest.class);
-    ServerHttpResponse response = mock(ServerHttpResponse.class);
-    WebFilterChain chain = mock(WebFilterChain.class);
+    final ServerWebExchange exchange = mock(ServerWebExchange.class);
+    final ServerHttpRequest request = mock(ServerHttpRequest.class);
+    final ServerHttpResponse response = mock(ServerHttpResponse.class);
+    final WebFilterChain chain = mock(WebFilterChain.class);
 
     when(exchange.getRequest()).thenReturn(request);
     when(exchange.getResponse()).thenReturn(response);
     when(request.getMethod()).thenReturn(HttpMethod.GET);
-    when(request.getPath()).thenReturn(RequestPath.parse("/api/error", "/"));
+    when(request.getPath()).thenReturn(RequestPath.parse("/api/error", CONTEXT_PATH));
     when(response.getStatusCode()).thenReturn(HttpStatus.INTERNAL_SERVER_ERROR);
     when(chain.filter(exchange)).thenReturn(Mono.error(new RuntimeException("upstream error")));
 
@@ -154,15 +161,16 @@ class RequestLoggingFilterTest {
 
   @Test
   void testFilterWithComplexPath() {
-    ServerWebExchange exchange = mock(ServerWebExchange.class);
-    ServerHttpRequest request = mock(ServerHttpRequest.class);
-    ServerHttpResponse response = mock(ServerHttpResponse.class);
-    WebFilterChain chain = mock(WebFilterChain.class);
+    final ServerWebExchange exchange = mock(ServerWebExchange.class);
+    final ServerHttpRequest request = mock(ServerHttpRequest.class);
+    final ServerHttpResponse response = mock(ServerHttpResponse.class);
+    final WebFilterChain chain = mock(WebFilterChain.class);
 
     when(exchange.getRequest()).thenReturn(request);
     when(exchange.getResponse()).thenReturn(response);
     when(request.getMethod()).thenReturn(HttpMethod.GET);
-    when(request.getPath()).thenReturn(RequestPath.parse("/api/v1/resources/123/details", "/"));
+    when(request.getPath())
+        .thenReturn(RequestPath.parse("/api/v1/resources/123/details", CONTEXT_PATH));
     when(response.getStatusCode()).thenReturn(HttpStatus.OK);
     when(chain.filter(exchange)).thenReturn(Mono.empty());
 

@@ -19,6 +19,7 @@ import com.infenia.yukta.model.session.SessionConfigData;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import com.infenia.yukta.service.session.store.SessionConfigStore;
+import com.infenia.yukta.service.workflow.store.PreparedWorkflowCache;
 import com.infenia.yukta.service.workflow.store.WorkflowDefinitionStore;
 import com.infenia.yukta.validation.SessionId;
 import com.infenia.yukta.validation.WorkflowId;
@@ -47,6 +48,9 @@ public class SessionService {
   /** The workflow definition store for accessing workflow definitions. */
   private final WorkflowDefinitionStore workflowDefinitionStore;
 
+  /** The prepared workflow cache for invalidating stale compiled workflows. */
+  private final PreparedWorkflowCache preparedWorkflowCache;
+
   /**
    * Apply configuration for a session.
    *
@@ -58,6 +62,13 @@ public class SessionService {
    * @return Mono that completes when the configuration is successfully applied and persisted
    */
   public Mono<Void> applyConfig(@Valid final SessionConfigData data) {
+    final Mono<Void> cacheInvalidation =
+        Mono.fromRunnable(
+            () -> {
+              log.atDebug().log(
+                  "Invalidating prepared workflow cache for session: {}", data.sessionId());
+              preparedWorkflowCache.invalidateAll(data.sessionId());
+            });
     final Mono<Void> workflowCompilation =
         data.workflows().isEmpty()
             ? Mono.<Void>empty()
@@ -94,6 +105,7 @@ public class SessionService {
         .applySessionConfig(data)
         .doOnSubscribe(
             _ -> log.atInfo().log("Applying configuration for session: {}", data.sessionId()))
+        .then(cacheInvalidation)
         .then(workflowCompilation)
         .doOnSuccess(
             _ ->

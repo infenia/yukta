@@ -31,7 +31,7 @@ public class DefaultSystemEnvironmentProvider implements SystemEnvironmentProvid
    * @return the property value if found
    */
   @Override
-  public Optional<String> getProperty(String key) {
+  public Optional<String> getProperty(final String key) {
     return Optional.ofNullable(System.getProperty(key));
   }
 
@@ -42,7 +42,7 @@ public class DefaultSystemEnvironmentProvider implements SystemEnvironmentProvid
    * @return the variable value if found
    */
   @Override
-  public Optional<String> getEnvironment(String key) {
+  public Optional<String> getEnvironment(final String key) {
     return Optional.ofNullable(System.getenv(key));
   }
 }

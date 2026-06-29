@@ -23,6 +23,7 @@ import com.infenia.yukta.message.Message;
 import com.infenia.yukta.service.control.ExecutionControl;
 import java.util.List;
 import java.util.Map;
+import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -34,6 +35,14 @@ import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
 @ExtendWith(MockitoExtension.class)
+@NoArgsConstructor
+@SuppressWarnings({
+  "PMD.CommentRequired",
+  "PMD.AvoidDuplicateLiterals",
+  "PMD.TooManyMethods",
+  "PMD.LiteralsFirstInComparisons",
+  "PMD.UseShortArrayInitializer"
+})
 class AssemblyContextTest {
 
   @Mock private ExecutionControl mockControl;
@@ -51,7 +60,7 @@ class AssemblyContextTest {
 
   @Test
   void testAllArgsConstructor() {
-    AssemblyContext context =
+    final AssemblyContext context =
         new AssemblyContext(
             "exec-001",
             "session-001",
@@ -76,7 +85,7 @@ class AssemblyContextTest {
 
   @Test
   void testRecordComponentsNotNull() {
-    AssemblyContext context =
+    final AssemblyContext context =
         new AssemblyContext(
             "exec-001",
             "session-001",
@@ -101,8 +110,8 @@ class AssemblyContextTest {
 
   @Test
   void testPayloadImmutability() {
-    Map<String, Object> originalPayload = Map.of("data", "value");
-    AssemblyContext context =
+    final Map<String, Object> originalPayload = Map.of("data", "value");
+    final AssemblyContext context =
         new AssemblyContext(
             "exec-001",
             "session-001",
@@ -114,7 +123,7 @@ class AssemblyContextTest {
             List.of(mockDisposable),
             List.of(mockConnector));
 
-    Map<String, Object> contextPayload = context.payload();
+    final Map<String, Object> contextPayload = context.payload();
     assertThat(contextPayload).containsEntry("data", "value");
     assertThatThrownBy(() -> contextPayload.put("newKey", "newValue"))
         .isInstanceOf(UnsupportedOperationException.class);
@@ -122,7 +131,7 @@ class AssemblyContextTest {
 
   @Test
   void testControlAccessor() {
-    AssemblyContext context =
+    final AssemblyContext context =
         new AssemblyContext(
             "exec-001",
             "session-001",
@@ -139,9 +148,9 @@ class AssemblyContextTest {
 
   @Test
   void testStreamsAccessor() {
-    Flux<Message<?>> stream1 = Flux.just(DefaultMessage.create(null, "msg1"));
-    Flux<Message<?>> stream2 = Flux.just(DefaultMessage.create(null, "msg2"));
-    AssemblyContext context =
+    final Flux<Message<?>> stream1 = Flux.just(DefaultMessage.create(null, "msg1"));
+    final Flux<Message<?>> stream2 = Flux.just(DefaultMessage.create(null, "msg2"));
+    final AssemblyContext context =
         new AssemblyContext(
             "exec-001",
             "session-001",
@@ -154,7 +163,7 @@ class AssemblyContextTest {
             List.of(mockConnector));
 
     assertThat(context.streams()).hasSize(2);
-    Flux<Message<?>> combined = Flux.concat(context.streams()[0], context.streams()[1]);
+    final Flux<Message<?>> combined = Flux.concat(context.streams()[0], context.streams()[1]);
     StepVerifier.create(combined)
         .expectNextMatches(msg -> msg.getPayload().equals("msg1"))
         .expectNextMatches(msg -> msg.getPayload().equals("msg2"))
@@ -163,9 +172,9 @@ class AssemblyContextTest {
 
   @Test
   void testTerminalsAccessor() {
-    Mono<Void> terminal1 = Mono.empty();
-    Mono<Void> terminal2 = Mono.empty();
-    AssemblyContext context =
+    final Mono<Void> terminal1 = Mono.empty();
+    final Mono<Void> terminal2 = Mono.empty();
+    final AssemblyContext context =
         new AssemblyContext(
             "exec-001",
             "session-001",
@@ -178,13 +187,13 @@ class AssemblyContextTest {
             List.of(mockConnector));
 
     assertThat(context.terminals()).hasSize(2);
-    Mono<Void> combined = Mono.when(context.terminals());
+    final Mono<Void> combined = Mono.when(context.terminals());
     StepVerifier.create(combined).verifyComplete();
   }
 
   @Test
   void testDisposablesAccessor() {
-    AssemblyContext context =
+    final AssemblyContext context =
         new AssemblyContext(
             "exec-001",
             "session-001",
@@ -201,7 +210,7 @@ class AssemblyContextTest {
 
   @Test
   void testConnectorsAccessor() {
-    AssemblyContext context =
+    final AssemblyContext context =
         new AssemblyContext(
             "exec-001",
             "session-001",
@@ -218,7 +227,7 @@ class AssemblyContextTest {
 
   @Test
   void testWithNullPayload() {
-    AssemblyContext context =
+    final AssemblyContext context =
         new AssemblyContext(
             "exec-001",
             "session-001",
@@ -235,7 +244,7 @@ class AssemblyContextTest {
 
   @Test
   void testWithEmptyCollections() {
-    AssemblyContext context =
+    final AssemblyContext context =
         new AssemblyContext(
             "exec-001",
             "session-001",
@@ -255,7 +264,7 @@ class AssemblyContextTest {
 
   @Test
   void testToString() {
-    AssemblyContext context =
+    final AssemblyContext context =
         new AssemblyContext(
             "exec-001",
             "session-001",
@@ -267,7 +276,7 @@ class AssemblyContextTest {
             List.of(mockDisposable),
             List.of(mockConnector));
 
-    String str = context.toString();
+    final String str = context.toString();
     assertThat(str).contains("exec-001");
     assertThat(str).contains("session-001");
     assertThat(str).contains("workflow-001");
@@ -275,8 +284,8 @@ class AssemblyContextTest {
 
   @Test
   void testEquality() {
-    Flux<Message<?>>[] streams = new Flux[] {mockStream};
-    AssemblyContext context1 =
+    final Flux<Message<?>>[] streams = new Flux[] {mockStream};
+    final AssemblyContext context1 =
         new AssemblyContext(
             "exec-001",
             "session-001",
@@ -287,7 +296,7 @@ class AssemblyContextTest {
             List.of(mockTerminal),
             List.of(mockDisposable),
             List.of(mockConnector));
-    AssemblyContext context2 =
+    final AssemblyContext context2 =
         new AssemblyContext(
             "exec-001",
             "session-001",
@@ -305,7 +314,7 @@ class AssemblyContextTest {
 
   @Test
   void testInequality() {
-    AssemblyContext context1 =
+    final AssemblyContext context1 =
         new AssemblyContext(
             "exec-001",
             "session-001",
@@ -316,7 +325,7 @@ class AssemblyContextTest {
             List.of(mockTerminal),
             List.of(mockDisposable),
             List.of(mockConnector));
-    AssemblyContext context2 =
+    final AssemblyContext context2 =
         new AssemblyContext(
             "exec-002",
             "session-002",

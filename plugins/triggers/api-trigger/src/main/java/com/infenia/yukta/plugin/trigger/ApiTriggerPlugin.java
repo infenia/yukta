@@ -93,7 +93,8 @@ public class ApiTriggerPlugin implements TriggerPlugin {
     return Flux.deferContextual(
         ctx -> {
           final Map<String, Object> payload = ctx.get("payload");
-          return Flux.just(DefaultMessage.create(UUID.randomUUID(), payload));
+          return Flux.just(
+              DefaultMessage.create(UUID.randomUUID(), payload).withSourcePort("default"));
         });
   }
 }

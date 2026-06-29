@@ -21,10 +21,11 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Validator;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -33,25 +34,81 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
 import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
 
+/** Tests for WorkflowDefinitionRequest. */
 @SpringJUnitConfig(WorkflowDefinitionRequestTest.TestConfig.class)
+@NoArgsConstructor
+@SuppressWarnings("PMD.TooManyMethods")
 class WorkflowDefinitionRequestTest {
 
+  /** Gradle plugin identifier. */
+  private static final String GRADLE = "gradle";
+
+  /** Gradle workflow ID constant. */
+  private static final String GRADLE_WORKFLOW_ID = "quality-check";
+
+  /** Gradle workflow description constant. */
+  private static final String GRADLE_WORKFLOW_DESC = "Quality check workflow";
+
+  /** Gradle plugin description constant. */
+  private static final String GRADLE_DESC = "Gradle quality checks plugin";
+
+  /** First node identifier constant. */
+  private static final String NODE1 = "node1";
+
+  /** Second node identifier constant. */
+  private static final String NODE2 = "node2";
+
+  /** Third node identifier constant. */
+  private static final String NODE3 = "node3";
+
+  /** First edge identifier constant. */
+  private static final String EDGE1 = "edge1";
+
+  /** Second edge identifier constant. */
+  private static final String EDGE2 = "edge2";
+
+  /** Configuration key constant. */
+  private static final String KEY = "key";
+
+  /** Configuration value constant. */
+  private static final String VALUE = "value";
+
+  /** Port configuration constant. */
+  private static final String PORT = "port";
+
+  /** Workflow ID wf1 constant. */
+  private static final String WORKFLOW_ID_WF1 = "wf1";
+
+  /** Description constant for workflow testing. */
+  private static final String DESCRIPTION = "desc";
+
+  /** Valid nodes for workflow definition testing. */
+  private List<WorkflowDefinitionRequest.NodeRequest> validNodes;
+
+  /** Valid edges for workflow definition testing. */
+  private List<WorkflowDefinitionRequest.EdgeRequest> validEdges;
+
+  /** Validator for testing constraint violations. */
+  @Autowired private Validator validator;
+
+  /** Test configuration for validator bean. */
   @Configuration
-  static class TestConfig {
+  @SuppressWarnings("PMD.TestClassWithoutTestCases")
+  /* default */ static class TestConfig {
+    /**
+     * Creates a LocalValidatorFactoryBean for validation testing.
+     *
+     * @return validator factory bean
+     */
     @Bean
-    LocalValidatorFactoryBean validator() {
+    /* default */ LocalValidatorFactoryBean validator() {
       return new LocalValidatorFactoryBean();
     }
   }
 
-  @Autowired private Validator validator;
-
-  private List<WorkflowDefinitionRequest.NodeRequest> validNodes;
-  private List<WorkflowDefinitionRequest.EdgeRequest> validEdges;
-
   @BeforeEach
   void setUp() {
-    validNodes = List.of(new WorkflowDefinitionRequest.NodeRequest("node1", "gradle", null));
+    validNodes = List.of(new WorkflowDefinitionRequest.NodeRequest(NODE1, GRADLE, null));
     validEdges = List.of();
   }
 
@@ -60,14 +117,14 @@ class WorkflowDefinitionRequestTest {
   @Test
   void constructor_validInputs_createsRecord() {
     // Given
-    String workflowId = "quality-check";
-    String description = "Quality check workflow";
-    List<WorkflowDefinitionRequest.NodeRequest> nodes =
-        List.of(new WorkflowDefinitionRequest.NodeRequest("n1", "gradle", null));
-    List<WorkflowDefinitionRequest.EdgeRequest> edges = List.of();
+    final String workflowId = GRADLE_WORKFLOW_ID;
+    final String description = GRADLE_WORKFLOW_DESC;
+    final List<WorkflowDefinitionRequest.NodeRequest> nodes =
+        List.of(new WorkflowDefinitionRequest.NodeRequest("n1", GRADLE, null));
+    final List<WorkflowDefinitionRequest.EdgeRequest> edges = List.of();
 
     // When
-    WorkflowDefinitionRequest request =
+    final WorkflowDefinitionRequest request =
         new WorkflowDefinitionRequest(workflowId, description, nodes, edges);
 
     // Then
@@ -80,8 +137,8 @@ class WorkflowDefinitionRequestTest {
   @Test
   void constructor_nullNodes_convertsToEmptyList() {
     // When
-    WorkflowDefinitionRequest request =
-        new WorkflowDefinitionRequest("wf1", "desc", null, List.of());
+    final WorkflowDefinitionRequest request =
+        new WorkflowDefinitionRequest(WORKFLOW_ID_WF1, DESCRIPTION, null, List.of());
 
     // Then
     assertThat(request.nodes()).isEmpty();
@@ -91,8 +148,8 @@ class WorkflowDefinitionRequestTest {
   @Test
   void constructor_nullEdges_convertsToEmptyList() {
     // When
-    WorkflowDefinitionRequest request =
-        new WorkflowDefinitionRequest("wf1", "desc", validNodes, null);
+    final WorkflowDefinitionRequest request =
+        new WorkflowDefinitionRequest(WORKFLOW_ID_WF1, DESCRIPTION, validNodes, null);
 
     // Then
     assertThat(request.edges()).isEmpty();
@@ -102,7 +159,8 @@ class WorkflowDefinitionRequestTest {
   @Test
   void constructor_nullBothNodesAndEdges_convertsToEmptyLists() {
     // When
-    WorkflowDefinitionRequest request = new WorkflowDefinitionRequest("wf1", "desc", null, null);
+    final WorkflowDefinitionRequest request =
+        new WorkflowDefinitionRequest(WORKFLOW_ID_WF1, DESCRIPTION, null, null);
 
     // Then
     assertThat(request.nodes()).isEmpty();
@@ -112,39 +170,37 @@ class WorkflowDefinitionRequestTest {
   @Test
   void constructor_mutableNodesList_convertsToImmutable() {
     // Given
-    List<WorkflowDefinitionRequest.NodeRequest> mutableNodes =
+    final List<WorkflowDefinitionRequest.NodeRequest> mutableNodes =
         new ArrayList<>(
             List.of(
-                new WorkflowDefinitionRequest.NodeRequest("n1", "gradle", null),
+                new WorkflowDefinitionRequest.NodeRequest("n1", GRADLE, null),
                 new WorkflowDefinitionRequest.NodeRequest("n2", "maven", null)));
 
     // When
-    WorkflowDefinitionRequest request =
-        new WorkflowDefinitionRequest("wf1", "desc", mutableNodes, validEdges);
+    final WorkflowDefinitionRequest request =
+        new WorkflowDefinitionRequest(WORKFLOW_ID_WF1, DESCRIPTION, mutableNodes, validEdges);
 
     // Then - verify nodes are immutable
     assertThat(request.nodes()).hasSize(2);
     assertThatThrownBy(
             () ->
-                request
-                    .nodes()
-                    .add(new WorkflowDefinitionRequest.NodeRequest("n3", "gradle", null)))
+                request.nodes().add(new WorkflowDefinitionRequest.NodeRequest("n3", GRADLE, null)))
         .isInstanceOf(UnsupportedOperationException.class);
 
     // Modify original list - request should be unaffected
-    mutableNodes.add(new WorkflowDefinitionRequest.NodeRequest("n4", "gradle", null));
+    mutableNodes.add(new WorkflowDefinitionRequest.NodeRequest("n4", GRADLE, null));
     assertThat(request.nodes()).hasSize(2);
   }
 
   @Test
   void constructor_mutableEdgesList_convertsToImmutable() {
     // Given
-    List<WorkflowDefinitionRequest.EdgeRequest> mutableEdges =
+    final List<WorkflowDefinitionRequest.EdgeRequest> mutableEdges =
         new ArrayList<>(List.of(new WorkflowDefinitionRequest.EdgeRequest("n1", "n2", null)));
 
     // When
-    WorkflowDefinitionRequest request =
-        new WorkflowDefinitionRequest("wf1", "desc", validNodes, mutableEdges);
+    final WorkflowDefinitionRequest request =
+        new WorkflowDefinitionRequest(WORKFLOW_ID_WF1, DESCRIPTION, validNodes, mutableEdges);
 
     // Then - verify edges are immutable
     assertThat(request.edges()).hasSize(1);
@@ -160,23 +216,21 @@ class WorkflowDefinitionRequestTest {
   @Test
   void nodes_modificationAttempt_throwsUnsupportedOperationException() {
     // Given
-    WorkflowDefinitionRequest request =
-        new WorkflowDefinitionRequest("wf1", "desc", validNodes, validEdges);
+    final WorkflowDefinitionRequest request =
+        new WorkflowDefinitionRequest(WORKFLOW_ID_WF1, DESCRIPTION, validNodes, validEdges);
 
     // When-Then
     assertThatThrownBy(
             () ->
-                request
-                    .nodes()
-                    .add(new WorkflowDefinitionRequest.NodeRequest("n2", "gradle", null)))
+                request.nodes().add(new WorkflowDefinitionRequest.NodeRequest("n2", GRADLE, null)))
         .isInstanceOf(UnsupportedOperationException.class);
   }
 
   @Test
   void edges_modificationAttempt_throwsUnsupportedOperationException() {
     // Given
-    WorkflowDefinitionRequest request =
-        new WorkflowDefinitionRequest("wf1", "desc", validNodes, validEdges);
+    final WorkflowDefinitionRequest request =
+        new WorkflowDefinitionRequest(WORKFLOW_ID_WF1, DESCRIPTION, validNodes, validEdges);
 
     // When-Then
     assertThatThrownBy(
@@ -187,10 +241,10 @@ class WorkflowDefinitionRequestTest {
   @Test
   void equals_sameValues_returnsTrue() {
     // Given
-    WorkflowDefinitionRequest req1 =
-        new WorkflowDefinitionRequest("wf1", "desc", validNodes, validEdges);
-    WorkflowDefinitionRequest req2 =
-        new WorkflowDefinitionRequest("wf1", "desc", validNodes, validEdges);
+    final WorkflowDefinitionRequest req1 =
+        new WorkflowDefinitionRequest(WORKFLOW_ID_WF1, DESCRIPTION, validNodes, validEdges);
+    final WorkflowDefinitionRequest req2 =
+        new WorkflowDefinitionRequest(WORKFLOW_ID_WF1, DESCRIPTION, validNodes, validEdges);
 
     // When-Then
     assertThat(req1).isEqualTo(req2);
@@ -200,10 +254,10 @@ class WorkflowDefinitionRequestTest {
   @Test
   void equals_differentWorkflowIds_returnsFalse() {
     // Given
-    WorkflowDefinitionRequest req1 =
-        new WorkflowDefinitionRequest("wf1", "desc", validNodes, validEdges);
-    WorkflowDefinitionRequest req2 =
-        new WorkflowDefinitionRequest("wf2", "desc", validNodes, validEdges);
+    final WorkflowDefinitionRequest req1 =
+        new WorkflowDefinitionRequest(WORKFLOW_ID_WF1, DESCRIPTION, validNodes, validEdges);
+    final WorkflowDefinitionRequest req2 =
+        new WorkflowDefinitionRequest("wf2", DESCRIPTION, validNodes, validEdges);
 
     // When-Then
     assertThat(req1).isNotEqualTo(req2);
@@ -212,23 +266,23 @@ class WorkflowDefinitionRequestTest {
   @Test
   void equals_differentDescriptions_returnsFalse() {
     // Given
-    WorkflowDefinitionRequest req1 =
-        new WorkflowDefinitionRequest("wf1", "desc1", validNodes, validEdges);
-    WorkflowDefinitionRequest req2 =
-        new WorkflowDefinitionRequest("wf1", "desc2", validNodes, validEdges);
+    final WorkflowDefinitionRequest req1 =
+        new WorkflowDefinitionRequest(WORKFLOW_ID_WF1, "desc1", validNodes, validEdges);
+    final WorkflowDefinitionRequest req2 =
+        new WorkflowDefinitionRequest(WORKFLOW_ID_WF1, "desc2", validNodes, validEdges);
 
     // When-Then
     assertThat(req1).isNotEqualTo(req2);
   }
 
   @Test
-  void toString_containsRelevantFields() {
+  void verifyToStringContainsRelevantFields() {
     // Given
-    WorkflowDefinitionRequest request =
-        new WorkflowDefinitionRequest("wf1", "desc", validNodes, validEdges);
+    final WorkflowDefinitionRequest request =
+        new WorkflowDefinitionRequest(WORKFLOW_ID_WF1, DESCRIPTION, validNodes, validEdges);
 
     // When
-    String actual = request.toString();
+    final String actual = request.toString();
 
     // Then
     assertThat(actual).contains("WorkflowDefinitionRequest").contains("wf1").contains("desc");
@@ -237,11 +291,12 @@ class WorkflowDefinitionRequestTest {
   @Test
   void validation_blankWorkflowId_fails() {
     // Given
-    WorkflowDefinitionRequest request =
-        new WorkflowDefinitionRequest("", "desc", validNodes, validEdges);
+    final WorkflowDefinitionRequest request =
+        new WorkflowDefinitionRequest("", DESCRIPTION, validNodes, validEdges);
 
     // When
-    Set<ConstraintViolation<WorkflowDefinitionRequest>> violations = validator.validate(request);
+    final Set<ConstraintViolation<WorkflowDefinitionRequest>> violations =
+        validator.validate(request);
 
     // Then
     assertThat(violations).isNotEmpty();
@@ -251,11 +306,12 @@ class WorkflowDefinitionRequestTest {
   @Test
   void validation_nullWorkflowId_fails() {
     // Given
-    WorkflowDefinitionRequest request =
-        new WorkflowDefinitionRequest(null, "desc", validNodes, validEdges);
+    final WorkflowDefinitionRequest request =
+        new WorkflowDefinitionRequest(null, DESCRIPTION, validNodes, validEdges);
 
     // When
-    Set<ConstraintViolation<WorkflowDefinitionRequest>> violations = validator.validate(request);
+    final Set<ConstraintViolation<WorkflowDefinitionRequest>> violations =
+        validator.validate(request);
 
     // Then
     assertThat(violations).isNotEmpty();
@@ -264,11 +320,12 @@ class WorkflowDefinitionRequestTest {
   @Test
   void validation_blankDescription_fails() {
     // Given
-    WorkflowDefinitionRequest request =
-        new WorkflowDefinitionRequest("wf1", "", validNodes, validEdges);
+    final WorkflowDefinitionRequest request =
+        new WorkflowDefinitionRequest(WORKFLOW_ID_WF1, "", validNodes, validEdges);
 
     // When
-    Set<ConstraintViolation<WorkflowDefinitionRequest>> violations = validator.validate(request);
+    final Set<ConstraintViolation<WorkflowDefinitionRequest>> violations =
+        validator.validate(request);
 
     // Then
     assertThat(violations).isNotEmpty();
@@ -278,12 +335,13 @@ class WorkflowDefinitionRequestTest {
   @Test
   void validation_descriptionExceedsMaxLength_fails() {
     // Given
-    String longDescription = "a".repeat(257);
-    WorkflowDefinitionRequest request =
-        new WorkflowDefinitionRequest("wf1", longDescription, validNodes, validEdges);
+    final String longDescription = "a".repeat(257);
+    final WorkflowDefinitionRequest request =
+        new WorkflowDefinitionRequest(WORKFLOW_ID_WF1, longDescription, validNodes, validEdges);
 
     // When
-    Set<ConstraintViolation<WorkflowDefinitionRequest>> violations = validator.validate(request);
+    final Set<ConstraintViolation<WorkflowDefinitionRequest>> violations =
+        validator.validate(request);
 
     // Then
     assertThat(violations).isNotEmpty();
@@ -293,12 +351,13 @@ class WorkflowDefinitionRequestTest {
   @Test
   void validation_descriptionAtMaxLength_passes() {
     // Given
-    String maxDescription = "a".repeat(256);
-    WorkflowDefinitionRequest request =
-        new WorkflowDefinitionRequest("wf1", maxDescription, validNodes, validEdges);
+    final String maxDescription = "a".repeat(256);
+    final WorkflowDefinitionRequest request =
+        new WorkflowDefinitionRequest(WORKFLOW_ID_WF1, maxDescription, validNodes, validEdges);
 
     // When
-    Set<ConstraintViolation<WorkflowDefinitionRequest>> violations = validator.validate(request);
+    final Set<ConstraintViolation<WorkflowDefinitionRequest>> violations =
+        validator.validate(request);
 
     // Then
     assertThat(violations).isEmpty();
@@ -307,11 +366,12 @@ class WorkflowDefinitionRequestTest {
   @Test
   void validation_emptyNodesList_fails() {
     // Given
-    WorkflowDefinitionRequest request =
-        new WorkflowDefinitionRequest("wf1", "desc", List.of(), validEdges);
+    final WorkflowDefinitionRequest request =
+        new WorkflowDefinitionRequest(WORKFLOW_ID_WF1, DESCRIPTION, List.of(), validEdges);
 
     // When
-    Set<ConstraintViolation<WorkflowDefinitionRequest>> violations = validator.validate(request);
+    final Set<ConstraintViolation<WorkflowDefinitionRequest>> violations =
+        validator.validate(request);
 
     // Then
     assertThat(violations).isNotEmpty();
@@ -322,11 +382,8 @@ class WorkflowDefinitionRequestTest {
   void validation_nullEdges_fails() {
     // Given - null edges gets converted to List.of() by compact constructor
     // So we need to test the validation on the parameter level
-    WorkflowDefinitionRequest request =
-        new WorkflowDefinitionRequest("wf1", "desc", validNodes, null);
-
-    // When
-    Set<ConstraintViolation<WorkflowDefinitionRequest>> violations = validator.validate(request);
+    final WorkflowDefinitionRequest request =
+        new WorkflowDefinitionRequest(WORKFLOW_ID_WF1, DESCRIPTION, validNodes, null);
 
     // Then - edges should be empty list after compact constructor
     assertThat(request.edges()).isEmpty();
@@ -336,11 +393,12 @@ class WorkflowDefinitionRequestTest {
   @Test
   void validation_validNodesList_passes() {
     // Given
-    WorkflowDefinitionRequest request =
-        new WorkflowDefinitionRequest("wf1", "desc", validNodes, validEdges);
+    final WorkflowDefinitionRequest request =
+        new WorkflowDefinitionRequest(WORKFLOW_ID_WF1, DESCRIPTION, validNodes, validEdges);
 
     // When
-    Set<ConstraintViolation<WorkflowDefinitionRequest>> violations = validator.validate(request);
+    final Set<ConstraintViolation<WorkflowDefinitionRequest>> violations =
+        validator.validate(request);
 
     // Then
     assertThat(violations).isEmpty();
@@ -351,25 +409,25 @@ class WorkflowDefinitionRequestTest {
   @Test
   void nodeRequest_validInputs_createsRecord() {
     // Given
-    String nodeId = "node1";
-    String type = "gradle";
-    Map<String, Object> config = Map.of("key", "value");
+    final String nodeId = NODE1;
+    final String type = GRADLE;
+    final Map<String, Object> config = Map.of(KEY, VALUE);
 
     // When
-    WorkflowDefinitionRequest.NodeRequest request =
+    final WorkflowDefinitionRequest.NodeRequest request =
         new WorkflowDefinitionRequest.NodeRequest(nodeId, type, config);
 
     // Then
     assertThat(request.nodeId()).isEqualTo(nodeId);
     assertThat(request.type()).isEqualTo(type);
-    assertThat(request.config()).containsEntry("key", "value");
+    assertThat(request.config()).containsEntry(KEY, VALUE);
   }
 
   @Test
   void nodeRequest_nullConfig_convertsToEmptyMap() {
     // When
-    WorkflowDefinitionRequest.NodeRequest request =
-        new WorkflowDefinitionRequest.NodeRequest("n1", "gradle", null);
+    final WorkflowDefinitionRequest.NodeRequest request =
+        new WorkflowDefinitionRequest.NodeRequest("n1", GRADLE, null);
 
     // Then
     assertThat(request.config()).isEmpty();
@@ -379,11 +437,11 @@ class WorkflowDefinitionRequestTest {
   @Test
   void nodeRequest_mutableConfig_convertsToImmutable() {
     // Given
-    Map<String, Object> mutableConfig = new HashMap<>(Map.of("key1", "value1"));
+    final Map<String, Object> mutableConfig = new ConcurrentHashMap<>(Map.of("key1", "value1"));
 
     // When
-    WorkflowDefinitionRequest.NodeRequest request =
-        new WorkflowDefinitionRequest.NodeRequest("n1", "gradle", mutableConfig);
+    final WorkflowDefinitionRequest.NodeRequest request =
+        new WorkflowDefinitionRequest.NodeRequest("n1", GRADLE, mutableConfig);
 
     // Then - verify config is immutable
     assertThat(request.config()).containsEntry("key1", "value1");
@@ -398,8 +456,8 @@ class WorkflowDefinitionRequestTest {
   @Test
   void nodeRequest_configMapModification_throwsUnsupportedOperationException() {
     // Given
-    WorkflowDefinitionRequest.NodeRequest request =
-        new WorkflowDefinitionRequest.NodeRequest("n1", "gradle", Map.of("key", "value"));
+    final WorkflowDefinitionRequest.NodeRequest request =
+        new WorkflowDefinitionRequest.NodeRequest("n1", GRADLE, Map.of(KEY, VALUE));
 
     // When-Then
     assertThatThrownBy(() -> request.config().put("newKey", "newValue"))
@@ -409,10 +467,10 @@ class WorkflowDefinitionRequestTest {
   @Test
   void nodeRequest_equals_sameValues_returnsTrue() {
     // Given
-    WorkflowDefinitionRequest.NodeRequest req1 =
-        new WorkflowDefinitionRequest.NodeRequest("n1", "gradle", Map.of("key", "value"));
-    WorkflowDefinitionRequest.NodeRequest req2 =
-        new WorkflowDefinitionRequest.NodeRequest("n1", "gradle", Map.of("key", "value"));
+    final WorkflowDefinitionRequest.NodeRequest req1 =
+        new WorkflowDefinitionRequest.NodeRequest("n1", GRADLE, Map.of(KEY, VALUE));
+    final WorkflowDefinitionRequest.NodeRequest req2 =
+        new WorkflowDefinitionRequest.NodeRequest("n1", GRADLE, Map.of(KEY, VALUE));
 
     // When-Then
     assertThat(req1).isEqualTo(req2);
@@ -422,10 +480,10 @@ class WorkflowDefinitionRequestTest {
   @Test
   void nodeRequest_equals_differentNodeId_returnsFalse() {
     // Given
-    WorkflowDefinitionRequest.NodeRequest req1 =
-        new WorkflowDefinitionRequest.NodeRequest("n1", "gradle", null);
-    WorkflowDefinitionRequest.NodeRequest req2 =
-        new WorkflowDefinitionRequest.NodeRequest("n2", "gradle", null);
+    final WorkflowDefinitionRequest.NodeRequest req1 =
+        new WorkflowDefinitionRequest.NodeRequest("n1", GRADLE, null);
+    final WorkflowDefinitionRequest.NodeRequest req2 =
+        new WorkflowDefinitionRequest.NodeRequest("n2", GRADLE, null);
 
     // When-Then
     assertThat(req1).isNotEqualTo(req2);
@@ -434,9 +492,9 @@ class WorkflowDefinitionRequestTest {
   @Test
   void nodeRequest_equals_differentType_returnsFalse() {
     // Given
-    WorkflowDefinitionRequest.NodeRequest req1 =
-        new WorkflowDefinitionRequest.NodeRequest("n1", "gradle", null);
-    WorkflowDefinitionRequest.NodeRequest req2 =
+    final WorkflowDefinitionRequest.NodeRequest req1 =
+        new WorkflowDefinitionRequest.NodeRequest("n1", GRADLE, null);
+    final WorkflowDefinitionRequest.NodeRequest req2 =
         new WorkflowDefinitionRequest.NodeRequest("n1", "maven", null);
 
     // When-Then
@@ -446,24 +504,24 @@ class WorkflowDefinitionRequestTest {
   @Test
   void nodeRequest_toString_containsAllFields() {
     // Given
-    WorkflowDefinitionRequest.NodeRequest request =
-        new WorkflowDefinitionRequest.NodeRequest("n1", "gradle", Map.of("key", "value"));
+    final WorkflowDefinitionRequest.NodeRequest request =
+        new WorkflowDefinitionRequest.NodeRequest("n1", GRADLE, Map.of(KEY, VALUE));
 
     // When
-    String actual = request.toString();
+    final String actual = request.toString();
 
     // Then
-    assertThat(actual).contains("NodeRequest").contains("n1").contains("gradle");
+    assertThat(actual).contains("NodeRequest").contains("n1").contains(GRADLE);
   }
 
   @Test
   void nodeRequest_validation_nullNodeId_fails() {
     // Given
-    WorkflowDefinitionRequest.NodeRequest request =
-        new WorkflowDefinitionRequest.NodeRequest(null, "gradle", null);
+    final WorkflowDefinitionRequest.NodeRequest request =
+        new WorkflowDefinitionRequest.NodeRequest(null, GRADLE, null);
 
     // When
-    Set<ConstraintViolation<WorkflowDefinitionRequest.NodeRequest>> violations =
+    final Set<ConstraintViolation<WorkflowDefinitionRequest.NodeRequest>> violations =
         validator.validate(request);
 
     // Then
@@ -474,11 +532,11 @@ class WorkflowDefinitionRequestTest {
   @Test
   void nodeRequest_validation_blankNodeId_fails() {
     // Given
-    WorkflowDefinitionRequest.NodeRequest request =
-        new WorkflowDefinitionRequest.NodeRequest("", "gradle", null);
+    final WorkflowDefinitionRequest.NodeRequest request =
+        new WorkflowDefinitionRequest.NodeRequest("", GRADLE, null);
 
     // When
-    Set<ConstraintViolation<WorkflowDefinitionRequest.NodeRequest>> violations =
+    final Set<ConstraintViolation<WorkflowDefinitionRequest.NodeRequest>> violations =
         validator.validate(request);
 
     // Then
@@ -489,11 +547,11 @@ class WorkflowDefinitionRequestTest {
   @Test
   void nodeRequest_validation_nullType_fails() {
     // Given
-    WorkflowDefinitionRequest.NodeRequest request =
+    final WorkflowDefinitionRequest.NodeRequest request =
         new WorkflowDefinitionRequest.NodeRequest("n1", null, null);
 
     // When
-    Set<ConstraintViolation<WorkflowDefinitionRequest.NodeRequest>> violations =
+    final Set<ConstraintViolation<WorkflowDefinitionRequest.NodeRequest>> violations =
         validator.validate(request);
 
     // Then
@@ -504,11 +562,11 @@ class WorkflowDefinitionRequestTest {
   @Test
   void nodeRequest_validation_blankType_fails() {
     // Given
-    WorkflowDefinitionRequest.NodeRequest request =
+    final WorkflowDefinitionRequest.NodeRequest request =
         new WorkflowDefinitionRequest.NodeRequest("n1", "", null);
 
     // When
-    Set<ConstraintViolation<WorkflowDefinitionRequest.NodeRequest>> violations =
+    final Set<ConstraintViolation<WorkflowDefinitionRequest.NodeRequest>> violations =
         validator.validate(request);
 
     // Then
@@ -519,11 +577,11 @@ class WorkflowDefinitionRequestTest {
   @Test
   void nodeRequest_validation_validValues_passes() {
     // Given
-    WorkflowDefinitionRequest.NodeRequest request =
-        new WorkflowDefinitionRequest.NodeRequest("n1", "gradle", Map.of("key", "value"));
+    final WorkflowDefinitionRequest.NodeRequest request =
+        new WorkflowDefinitionRequest.NodeRequest("n1", GRADLE, Map.of(KEY, VALUE));
 
     // When
-    Set<ConstraintViolation<WorkflowDefinitionRequest.NodeRequest>> violations =
+    final Set<ConstraintViolation<WorkflowDefinitionRequest.NodeRequest>> violations =
         validator.validate(request);
 
     // Then
@@ -535,12 +593,12 @@ class WorkflowDefinitionRequestTest {
   @Test
   void edgeRequest_validInputs_createsRecord() {
     // Given
-    String source = "node1";
-    String target = "node2";
-    String sourcePort = "output";
+    final String source = NODE1;
+    final String target = NODE2;
+    final String sourcePort = "output";
 
     // When
-    WorkflowDefinitionRequest.EdgeRequest request =
+    final WorkflowDefinitionRequest.EdgeRequest request =
         new WorkflowDefinitionRequest.EdgeRequest(source, target, sourcePort);
 
     // Then
@@ -552,7 +610,7 @@ class WorkflowDefinitionRequestTest {
   @Test
   void edgeRequest_nullSourcePort_isAllowed() {
     // When
-    WorkflowDefinitionRequest.EdgeRequest request =
+    final WorkflowDefinitionRequest.EdgeRequest request =
         new WorkflowDefinitionRequest.EdgeRequest("n1", "n2", null);
 
     // Then
@@ -562,10 +620,10 @@ class WorkflowDefinitionRequestTest {
   @Test
   void edgeRequest_equals_sameValues_returnsTrue() {
     // Given
-    WorkflowDefinitionRequest.EdgeRequest req1 =
-        new WorkflowDefinitionRequest.EdgeRequest("n1", "n2", "port");
-    WorkflowDefinitionRequest.EdgeRequest req2 =
-        new WorkflowDefinitionRequest.EdgeRequest("n1", "n2", "port");
+    final WorkflowDefinitionRequest.EdgeRequest req1 =
+        new WorkflowDefinitionRequest.EdgeRequest("n1", "n2", PORT);
+    final WorkflowDefinitionRequest.EdgeRequest req2 =
+        new WorkflowDefinitionRequest.EdgeRequest("n1", "n2", PORT);
 
     // When-Then
     assertThat(req1).isEqualTo(req2);
@@ -575,9 +633,9 @@ class WorkflowDefinitionRequestTest {
   @Test
   void edgeRequest_equals_differentSource_returnsFalse() {
     // Given
-    WorkflowDefinitionRequest.EdgeRequest req1 =
+    final WorkflowDefinitionRequest.EdgeRequest req1 =
         new WorkflowDefinitionRequest.EdgeRequest("n1", "n2", null);
-    WorkflowDefinitionRequest.EdgeRequest req2 =
+    final WorkflowDefinitionRequest.EdgeRequest req2 =
         new WorkflowDefinitionRequest.EdgeRequest("n3", "n2", null);
 
     // When-Then
@@ -587,9 +645,9 @@ class WorkflowDefinitionRequestTest {
   @Test
   void edgeRequest_equals_differentTarget_returnsFalse() {
     // Given
-    WorkflowDefinitionRequest.EdgeRequest req1 =
+    final WorkflowDefinitionRequest.EdgeRequest req1 =
         new WorkflowDefinitionRequest.EdgeRequest("n1", "n2", null);
-    WorkflowDefinitionRequest.EdgeRequest req2 =
+    final WorkflowDefinitionRequest.EdgeRequest req2 =
         new WorkflowDefinitionRequest.EdgeRequest("n1", "n3", null);
 
     // When-Then
@@ -599,24 +657,24 @@ class WorkflowDefinitionRequestTest {
   @Test
   void edgeRequest_toString_containsAllFields() {
     // Given
-    WorkflowDefinitionRequest.EdgeRequest request =
-        new WorkflowDefinitionRequest.EdgeRequest("n1", "n2", "port");
+    final WorkflowDefinitionRequest.EdgeRequest request =
+        new WorkflowDefinitionRequest.EdgeRequest("n1", "n2", PORT);
 
     // When
-    String actual = request.toString();
+    final String actual = request.toString();
 
     // Then
-    assertThat(actual).contains("EdgeRequest").contains("n1").contains("n2").contains("port");
+    assertThat(actual).contains("EdgeRequest").contains("n1").contains("n2").contains(PORT);
   }
 
   @Test
   void edgeRequest_validation_nullSource_fails() {
     // Given
-    WorkflowDefinitionRequest.EdgeRequest request =
+    final WorkflowDefinitionRequest.EdgeRequest request =
         new WorkflowDefinitionRequest.EdgeRequest(null, "n2", null);
 
     // When
-    Set<ConstraintViolation<WorkflowDefinitionRequest.EdgeRequest>> violations =
+    final Set<ConstraintViolation<WorkflowDefinitionRequest.EdgeRequest>> violations =
         validator.validate(request);
 
     // Then
@@ -627,11 +685,11 @@ class WorkflowDefinitionRequestTest {
   @Test
   void edgeRequest_validation_blankSource_fails() {
     // Given
-    WorkflowDefinitionRequest.EdgeRequest request =
+    final WorkflowDefinitionRequest.EdgeRequest request =
         new WorkflowDefinitionRequest.EdgeRequest("", "n2", null);
 
     // When
-    Set<ConstraintViolation<WorkflowDefinitionRequest.EdgeRequest>> violations =
+    final Set<ConstraintViolation<WorkflowDefinitionRequest.EdgeRequest>> violations =
         validator.validate(request);
 
     // Then
@@ -642,11 +700,11 @@ class WorkflowDefinitionRequestTest {
   @Test
   void edgeRequest_validation_nullTarget_fails() {
     // Given
-    WorkflowDefinitionRequest.EdgeRequest request =
+    final WorkflowDefinitionRequest.EdgeRequest request =
         new WorkflowDefinitionRequest.EdgeRequest("n1", null, null);
 
     // When
-    Set<ConstraintViolation<WorkflowDefinitionRequest.EdgeRequest>> violations =
+    final Set<ConstraintViolation<WorkflowDefinitionRequest.EdgeRequest>> violations =
         validator.validate(request);
 
     // Then
@@ -657,11 +715,11 @@ class WorkflowDefinitionRequestTest {
   @Test
   void edgeRequest_validation_blankTarget_fails() {
     // Given
-    WorkflowDefinitionRequest.EdgeRequest request =
+    final WorkflowDefinitionRequest.EdgeRequest request =
         new WorkflowDefinitionRequest.EdgeRequest("n1", "", null);
 
     // When
-    Set<ConstraintViolation<WorkflowDefinitionRequest.EdgeRequest>> violations =
+    final Set<ConstraintViolation<WorkflowDefinitionRequest.EdgeRequest>> violations =
         validator.validate(request);
 
     // Then
@@ -672,11 +730,11 @@ class WorkflowDefinitionRequestTest {
   @Test
   void edgeRequest_validation_nullSourcePort_passes() {
     // Given
-    WorkflowDefinitionRequest.EdgeRequest request =
+    final WorkflowDefinitionRequest.EdgeRequest request =
         new WorkflowDefinitionRequest.EdgeRequest("n1", "n2", null);
 
     // When
-    Set<ConstraintViolation<WorkflowDefinitionRequest.EdgeRequest>> violations =
+    final Set<ConstraintViolation<WorkflowDefinitionRequest.EdgeRequest>> violations =
         validator.validate(request);
 
     // Then
@@ -686,11 +744,11 @@ class WorkflowDefinitionRequestTest {
   @Test
   void edgeRequest_validation_validValues_passes() {
     // Given
-    WorkflowDefinitionRequest.EdgeRequest request =
-        new WorkflowDefinitionRequest.EdgeRequest("n1", "n2", "port");
+    final WorkflowDefinitionRequest.EdgeRequest request =
+        new WorkflowDefinitionRequest.EdgeRequest("n1", "n2", PORT);
 
     // When
-    Set<ConstraintViolation<WorkflowDefinitionRequest.EdgeRequest>> violations =
+    final Set<ConstraintViolation<WorkflowDefinitionRequest.EdgeRequest>> violations =
         validator.validate(request);
 
     // Then

@@ -15,31 +15,33 @@
  */
 package com.infenia.yukta.model.workflow;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.List;
 import java.util.Map;
+import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 import reactor.core.publisher.Mono;
 
+/** Tests for {@link PreparedWorkflow}. */
+@NoArgsConstructor
 class PreparedWorkflowTest {
 
   @Test
   void testPreparedWorkflowConstructor() {
-    WorkflowNode n1 = new WorkflowNode("n1", "t", null);
-    WorkflowNode n2 = new WorkflowNode("n2", "t", null);
-    WorkflowDefinition.Edge e1 = new WorkflowDefinition.Edge("n1", "n2", "default");
+    final WorkflowNode node1 = new WorkflowNode("n1", "t", null);
+    final WorkflowNode node2 = new WorkflowNode("n2", "t", null);
 
-    List<WorkflowEdge> edges = List.of(new WorkflowEdge("n1", "n2", null));
-    Map<String, List<WorkflowNode>> adj = Map.of("n1", List.of(n2), "n2", List.of());
-    Map<String, List<WorkflowNode>> parents = Map.of("n1", List.of(), "n2", List.of(n1));
-    List<WorkflowNode> order = List.of(n1, n2);
+    final List<WorkflowEdge> edges = List.of(new WorkflowEdge("n1", "n2", null));
+    final Map<String, List<WorkflowNode>> adj = Map.of("n1", List.of(node2), "n2", List.of());
+    final Map<String, List<WorkflowNode>> parents = Map.of("n1", List.of(), "n2", List.of(node1));
+    final List<WorkflowNode> order = List.of(node1, node2);
 
-    PreparedWorkflow prepared =
+    final PreparedWorkflow prepared =
         new PreparedWorkflow(edges, adj, parents, Map.of(), order, (id, p) -> Mono.empty());
-    assertEquals(edges, prepared.edges());
-    assertEquals(2, prepared.topologicalOrder().size());
-    assertEquals("n1", prepared.topologicalOrder().get(0).nodeId());
-    assertEquals("n2", prepared.topologicalOrder().get(1).nodeId());
+    assertThat(prepared.edges()).isEqualTo(edges);
+    assertThat(prepared.topologicalOrder()).hasSize(2);
+    assertThat(prepared.topologicalOrder().get(0).nodeId()).isEqualTo("n1");
+    assertThat(prepared.topologicalOrder().get(1).nodeId()).isEqualTo("n2");
   }
 }

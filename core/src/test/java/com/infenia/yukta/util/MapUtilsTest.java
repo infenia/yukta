@@ -15,117 +15,128 @@
  */
 package com.infenia.yukta.util;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.entry;
 
-import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 
+/** Unit tests for {@link MapUtils}. */
+@NoArgsConstructor
 class MapUtilsTest {
+
+  /** Nested path for testing. */
+  private static final String NESTED_PATH = "a.b.c";
+
+  /** Test value. */
+  private static final String TEST_VALUE = "value";
+
+  /** User name for testing. */
+  private static final String USER_NAME = "John";
 
   @Test
   @SuppressWarnings("unchecked")
   void testSetNestedValue() {
-    Map<String, Object> map = new HashMap<>();
-    MapUtils.setNestedValue(map, "a.b.c", "value");
+    final Map<String, Object> map = new ConcurrentHashMap<>();
+    MapUtils.setNestedValue(map, NESTED_PATH, TEST_VALUE);
 
-    assertNotNull(map.get("a"));
-    assertInstanceOf(Map.class, map.get("a"));
-    Map<String, Object> a = (Map<String, Object>) map.get("a");
+    assertThat(map.get("a")).isNotNull().isInstanceOf(Map.class);
+    final Map<String, Object> mapA = (Map<String, Object>) map.get("a");
 
-    assertNotNull(a.get("b"));
-    assertInstanceOf(Map.class, a.get("b"));
-    Map<String, Object> b = (Map<String, Object>) a.get("b");
+    assertThat(mapA.get("b")).isNotNull().isInstanceOf(Map.class);
+    final Map<String, Object> mapB = (Map<String, Object>) mapA.get("b");
 
-    assertEquals("value", b.get("c"));
+    assertThat(mapB.get("c")).isEqualTo(TEST_VALUE);
   }
 
   @Test
   void testRemoveNestedValueNotMap() {
-    Map<String, Object> map = new HashMap<>();
+    final Map<String, Object> map = new ConcurrentHashMap<>();
     map.put("a", "not-a-map");
     MapUtils.removeNestedValue(map, "a.b");
-    assertEquals("not-a-map", map.get("a"));
+    assertThat(map.get("a")).isEqualTo("not-a-map");
   }
 
   @Test
   void testGetNestedValue() {
-    Map<String, Object> map = Map.of("a", Map.of("b", Map.of("c", "value")));
+    final Map<String, Object> map = Map.of("a", Map.of("b", Map.of("c", TEST_VALUE)));
 
-    assertEquals("value", MapUtils.getNestedValue(map, "a.b.c"));
-    assertNull(MapUtils.getNestedValue(map, "a.b.d"));
-    assertNull(MapUtils.getNestedValue(map, "x.y.z"));
-    assertNull(MapUtils.getNestedValue(map, "a.b.c.d"));
+    assertThat(MapUtils.getNestedValue(map, NESTED_PATH)).isEqualTo(TEST_VALUE);
+    assertThat(MapUtils.getNestedValue(map, "a.b.d")).isNull();
+    assertThat(MapUtils.getNestedValue(map, "x.y.z")).isNull();
+    assertThat(MapUtils.getNestedValue(map, "a.b.c.d")).isNull();
   }
 
   @Test
   @SuppressWarnings("unchecked")
   void testRemoveNestedValue() {
-    Map<String, Object> map = new HashMap<>();
-    MapUtils.setNestedValue(map, "a.b.c", "value1");
+    final Map<String, Object> map = new ConcurrentHashMap<>();
+    MapUtils.setNestedValue(map, NESTED_PATH, "value1");
     MapUtils.setNestedValue(map, "a.b.d", "value2");
 
-    MapUtils.removeNestedValue(map, "a.b.c");
+    MapUtils.removeNestedValue(map, NESTED_PATH);
 
-    Map<String, Object> b = (Map<String, Object>) ((Map<String, Object>) map.get("a")).get("b");
-    assertFalse(b.containsKey("c"));
-    assertEquals("value2", b.get("d"));
+    final Map<String, Object> mapB =
+        (Map<String, Object>) ((Map<String, Object>) map.get("a")).get("b");
+    assertThat(mapB).doesNotContainKey("c");
+    assertThat(mapB.get("d")).isEqualTo("value2");
 
     MapUtils.removeNestedValue(map, "a.b.x"); // Non-existent path
-    assertTrue(b.containsKey("d"));
+    assertThat(mapB).containsKey("d");
 
     MapUtils.removeNestedValue(map, "x.y.z"); // Root non-existent
-    assertNotNull(map.get("a"));
+    assertThat(map.get("a")).isNotNull();
 
     MapUtils.removeNestedValue(map, null);
     MapUtils.removeNestedValue(map, "");
-    MapUtils.removeNestedValue(null, "a.b.c");
-    assertNotNull(map.get("a"));
+    MapUtils.removeNestedValue(null, NESTED_PATH);
+    assertThat(map.get("a")).isNotNull();
   }
 
   @Test
   void testFlatten() {
-    Map<String, Object> source =
-        Map.of("user", Map.of("name", "John", "address", Map.of("city", "NY")), "id", 123);
+    final Map<String, Object> source =
+        Map.of("user", Map.of("name", USER_NAME, "address", Map.of("city", "NY")), "id", 123);
 
-    Map<String, Object> result = MapUtils.flatten(source);
+    final Map<String, Object> result = MapUtils.flatten(source);
 
-    assertEquals(3, result.size());
-    assertEquals("John", result.get("user.name"));
-    assertEquals("NY", result.get("user.address.city"));
-    assertEquals(123, result.get("id"));
+    assertThat(result)
+        .hasSize(3)
+        .contains(
+            entry("user.name", USER_NAME), entry("user.address.city", "NY"), entry("id", 123));
 
-    assertTrue(MapUtils.flatten(null).isEmpty());
+    assertThat(MapUtils.flatten(null)).isEmpty();
 
     // Test with empty string key to trigger prefix.isEmpty() in else branch
-    Map<String, Object> emptyKeyMap = new HashMap<>();
-    emptyKeyMap.put("", "value");
-    Map<String, Object> flatEmpty = MapUtils.flatten(emptyKeyMap);
-    assertTrue(flatEmpty.isEmpty());
+    final Map<String, Object> emptyKeyMap = new ConcurrentHashMap<>();
+    emptyKeyMap.put("", TEST_VALUE);
+    final Map<String, Object> flatEmpty = MapUtils.flatten(emptyKeyMap);
+    assertThat(flatEmpty).isEmpty();
   }
 
   @Test
   void testAsMutableMap() {
-    Map<String, Object> immutable = Map.of("key", "value");
-    Map<String, Object> mutable = MapUtils.asMutableMap(immutable);
+    final Map<String, Object> immutable = Map.of("key", TEST_VALUE);
+    final Map<String, Object> mutable = MapUtils.asMutableMap(immutable);
 
     mutable.put("new", "val");
-    assertEquals("value", mutable.get("key"));
-    assertEquals("val", mutable.get("new"));
+    assertThat(mutable).containsEntry("key", TEST_VALUE).containsEntry("new", "val");
 
-    assertNotNull(MapUtils.asMutableMap(null));
-    assertTrue(MapUtils.asMutableMap(null).isEmpty());
+    assertThat(MapUtils.asMutableMap(null)).isNotNull().isEmpty();
 
     record User(String name) {}
-    Map<String, Object> fromPojo = MapUtils.asMutableMap(new User("John"));
-    assertEquals("John", fromPojo.get("name"));
+
+    final Map<String, Object> fromPojo = MapUtils.asMutableMap(new User(USER_NAME));
+    assertThat(fromPojo.get("name")).isEqualTo(USER_NAME);
   }
 
   @Test
   void testConvert() {
-    assertEquals(Integer.valueOf(123), MapUtils.convert("123", Integer.class));
-    assertEquals("123", MapUtils.convert(123, String.class));
-    assertEquals(123, MapUtils.convert(123, Integer.class));
-    assertNull(MapUtils.convert(null, Integer.class));
+    assertThat(MapUtils.convert("123", Integer.class)).isEqualTo(123);
+    assertThat(MapUtils.convert(123, String.class)).isEqualTo("123");
+    assertThat(MapUtils.convert(123, Integer.class)).isEqualTo(123);
+    assertThat(MapUtils.convert(null, Integer.class)).isNull();
   }
 }

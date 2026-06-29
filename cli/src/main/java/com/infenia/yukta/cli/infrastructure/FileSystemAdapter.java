@@ -15,6 +15,7 @@
  */
 package com.infenia.yukta.cli.infrastructure;
 
+import java.io.IOException;
 import java.nio.file.OpenOption;
 import java.nio.file.Path;
 
@@ -25,7 +26,7 @@ public interface FileSystemAdapter {
    *
    * @param path the path to create
    */
-  void createDirectories(Path path) throws Exception;
+  void createDirectories(Path path) throws IOException;
 
   /**
    * Writes a string to a file with the given options.
@@ -34,7 +35,7 @@ public interface FileSystemAdapter {
    * @param content the string content
    * @param options open options (e.g., CREATE, TRUNCATE_EXISTING)
    */
-  void writeString(Path path, String content, OpenOption... options) throws Exception;
+  void writeString(Path path, String content, OpenOption... options) throws IOException;
 
   /**
    * Reads a string from a file.
@@ -42,14 +43,14 @@ public interface FileSystemAdapter {
    * @param path the file path
    * @return the file content
    */
-  String readString(Path path) throws Exception;
+  String readString(Path path) throws IOException;
 
   /**
    * Deletes a file.
    *
    * @param path the file path
    */
-  void delete(Path path) throws Exception;
+  void delete(Path path) throws IOException;
 
   /**
    * Deletes a file if it exists.
@@ -57,7 +58,7 @@ public interface FileSystemAdapter {
    * @param path the file path
    * @return true if the file was deleted, false if it didn't exist
    */
-  boolean deleteIfExists(Path path) throws Exception;
+  boolean deleteIfExists(Path path) throws IOException;
 
   /**
    * Checks if a file exists.

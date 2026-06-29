@@ -18,21 +18,25 @@ package com.infenia.yukta.model.control;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.time.Instant;
+import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 
+/** Tests for {@link ControlError}. */
+@NoArgsConstructor
+@SuppressWarnings({"PMD.TooManyMethods", "PMD.AvoidDuplicateLiterals"})
 class ControlErrorTest {
 
   @Test
   void fullConstructor_allParametersProvided_createsInstanceWithAllFields() {
     // Given
-    String expectedNodeId = "node-123";
-    String expectedExecutionId = "exec-456";
-    String expectedReason = "validation failed";
-    String expectedDetail = "Invalid input format";
-    Instant expectedTimestamp = Instant.parse("2026-06-25T10:30:00Z");
+    final String expectedNodeId = "node-123";
+    final String expectedExecutionId = "exec-456";
+    final String expectedReason = "validation failed";
+    final String expectedDetail = "Invalid input format";
+    final Instant expectedTimestamp = Instant.parse("2026-06-25T10:30:00Z");
 
     // When
-    ControlError error =
+    final ControlError error =
         new ControlError(
             expectedNodeId, expectedExecutionId, expectedReason, expectedDetail, expectedTimestamp);
 
@@ -47,16 +51,16 @@ class ControlErrorTest {
   @Test
   void convenienceConstructor_withoutTimestamp_setsTimestampToNow() {
     // Given
-    String expectedNodeId = "node-789";
-    String expectedExecutionId = "exec-012";
-    String expectedReason = "timeout occurred";
-    String expectedDetail = "Operation exceeded time limit";
-    Instant beforeConstruction = Instant.now();
+    final String expectedNodeId = "node-789";
+    final String expectedExecutionId = "exec-012";
+    final String expectedReason = "timeout occurred";
+    final String expectedDetail = "Operation exceeded time limit";
+    final Instant beforeConstruction = Instant.now();
 
     // When
-    ControlError error =
+    final ControlError error =
         new ControlError(expectedNodeId, expectedExecutionId, expectedReason, expectedDetail);
-    Instant afterConstruction = Instant.now();
+    final Instant afterConstruction = Instant.now();
 
     // Then
     assertThat(error.nodeId()).isEqualTo(expectedNodeId);
@@ -71,15 +75,15 @@ class ControlErrorTest {
   @Test
   void record_sameFieldValues_areEqual() {
     // Given
-    String nodeId = "node-123";
-    String executionId = "exec-456";
-    String reason = "invalid state";
-    String detail = "Processing cannot continue";
-    Instant timestamp = Instant.parse("2026-06-25T12:00:00Z");
+    final String nodeId = "node-123";
+    final String executionId = "exec-456";
+    final String reason = "invalid state";
+    final String detail = "Processing cannot continue";
+    final Instant timestamp = Instant.parse("2026-06-25T12:00:00Z");
 
     // When
-    ControlError error1 = new ControlError(nodeId, executionId, reason, detail, timestamp);
-    ControlError error2 = new ControlError(nodeId, executionId, reason, detail, timestamp);
+    final ControlError error1 = new ControlError(nodeId, executionId, reason, detail, timestamp);
+    final ControlError error2 = new ControlError(nodeId, executionId, reason, detail, timestamp);
 
     // Then
     assertThat(error1).isEqualTo(error2);
@@ -88,9 +92,9 @@ class ControlErrorTest {
   @Test
   void record_differentNodeId_areNotEqual() {
     // Given
-    Instant timestamp = Instant.parse("2026-06-25T12:00:00Z");
-    ControlError error1 = new ControlError("node-1", "exec-1", "reason", "detail", timestamp);
-    ControlError error2 = new ControlError("node-2", "exec-1", "reason", "detail", timestamp);
+    final Instant timestamp = Instant.parse("2026-06-25T12:00:00Z");
+    final ControlError error1 = new ControlError("node-1", "exec-1", "reason", "detail", timestamp);
+    final ControlError error2 = new ControlError("node-2", "exec-1", "reason", "detail", timestamp);
 
     // Then
     assertThat(error1).isNotEqualTo(error2);
@@ -99,9 +103,9 @@ class ControlErrorTest {
   @Test
   void record_differentExecutionId_areNotEqual() {
     // Given
-    Instant timestamp = Instant.parse("2026-06-25T12:00:00Z");
-    ControlError error1 = new ControlError("node-1", "exec-1", "reason", "detail", timestamp);
-    ControlError error2 = new ControlError("node-1", "exec-2", "reason", "detail", timestamp);
+    final Instant timestamp = Instant.parse("2026-06-25T12:00:00Z");
+    final ControlError error1 = new ControlError("node-1", "exec-1", "reason", "detail", timestamp);
+    final ControlError error2 = new ControlError("node-1", "exec-2", "reason", "detail", timestamp);
 
     // Then
     assertThat(error1).isNotEqualTo(error2);
@@ -110,9 +114,11 @@ class ControlErrorTest {
   @Test
   void record_differentReason_areNotEqual() {
     // Given
-    Instant timestamp = Instant.parse("2026-06-25T12:00:00Z");
-    ControlError error1 = new ControlError("node-1", "exec-1", "reason-1", "detail", timestamp);
-    ControlError error2 = new ControlError("node-1", "exec-1", "reason-2", "detail", timestamp);
+    final Instant timestamp = Instant.parse("2026-06-25T12:00:00Z");
+    final ControlError error1 =
+        new ControlError("node-1", "exec-1", "reason-1", "detail", timestamp);
+    final ControlError error2 =
+        new ControlError("node-1", "exec-1", "reason-2", "detail", timestamp);
 
     // Then
     assertThat(error1).isNotEqualTo(error2);
@@ -121,9 +127,11 @@ class ControlErrorTest {
   @Test
   void record_differentDetail_areNotEqual() {
     // Given
-    Instant timestamp = Instant.parse("2026-06-25T12:00:00Z");
-    ControlError error1 = new ControlError("node-1", "exec-1", "reason", "detail-1", timestamp);
-    ControlError error2 = new ControlError("node-1", "exec-1", "reason", "detail-2", timestamp);
+    final Instant timestamp = Instant.parse("2026-06-25T12:00:00Z");
+    final ControlError error1 =
+        new ControlError("node-1", "exec-1", "reason", "detail-1", timestamp);
+    final ControlError error2 =
+        new ControlError("node-1", "exec-1", "reason", "detail-2", timestamp);
 
     // Then
     assertThat(error1).isNotEqualTo(error2);
@@ -132,10 +140,10 @@ class ControlErrorTest {
   @Test
   void record_differentTimestamp_areNotEqual() {
     // Given
-    ControlError error1 =
+    final ControlError error1 =
         new ControlError(
             "node-1", "exec-1", "reason", "detail", Instant.parse("2026-06-25T10:00:00Z"));
-    ControlError error2 =
+    final ControlError error2 =
         new ControlError(
             "node-1", "exec-1", "reason", "detail", Instant.parse("2026-06-25T11:00:00Z"));
 
@@ -146,15 +154,15 @@ class ControlErrorTest {
   @Test
   void record_sameValues_haveSameHashCode() {
     // Given
-    String nodeId = "node-abc";
-    String executionId = "exec-xyz";
-    String reason = "error occurred";
-    String detail = "Exception details";
-    Instant timestamp = Instant.parse("2026-06-25T14:30:00Z");
+    final String nodeId = "node-abc";
+    final String executionId = "exec-xyz";
+    final String reason = "error occurred";
+    final String detail = "Exception details";
+    final Instant timestamp = Instant.parse("2026-06-25T14:30:00Z");
 
     // When
-    ControlError error1 = new ControlError(nodeId, executionId, reason, detail, timestamp);
-    ControlError error2 = new ControlError(nodeId, executionId, reason, detail, timestamp);
+    final ControlError error1 = new ControlError(nodeId, executionId, reason, detail, timestamp);
+    final ControlError error2 = new ControlError(nodeId, executionId, reason, detail, timestamp);
 
     // Then
     assertThat(error1.hashCode()).isEqualTo(error2.hashCode());
@@ -163,10 +171,10 @@ class ControlErrorTest {
   @Test
   void record_differentValues_likelyDifferentHashCode() {
     // Given
-    ControlError error1 =
+    final ControlError error1 =
         new ControlError(
             "node-1", "exec-1", "reason-1", "detail-1", Instant.parse("2026-06-25T10:00:00Z"));
-    ControlError error2 =
+    final ControlError error2 =
         new ControlError(
             "node-2", "exec-2", "reason-2", "detail-2", Instant.parse("2026-06-25T11:00:00Z"));
 
@@ -177,10 +185,10 @@ class ControlErrorTest {
   @Test
   void record_accessor_nodeIdReturnsCorrectValue() {
     // Given
-    String expectedNodeId = "target-node-123";
+    final String expectedNodeId = "target-node-123";
 
     // When
-    ControlError error = new ControlError(expectedNodeId, "exec-1", "reason", "detail");
+    final ControlError error = new ControlError(expectedNodeId, "exec-1", "reason", "detail");
 
     // Then
     assertThat(error.nodeId()).isEqualTo(expectedNodeId);
@@ -189,10 +197,10 @@ class ControlErrorTest {
   @Test
   void record_accessor_executionIdReturnsCorrectValue() {
     // Given
-    String expectedExecutionId = "execution-xyz-789";
+    final String expectedExecutionId = "execution-xyz-789";
 
     // When
-    ControlError error = new ControlError("node-1", expectedExecutionId, "reason", "detail");
+    final ControlError error = new ControlError("node-1", expectedExecutionId, "reason", "detail");
 
     // Then
     assertThat(error.executionId()).isEqualTo(expectedExecutionId);
@@ -201,10 +209,10 @@ class ControlErrorTest {
   @Test
   void record_accessor_reasonReturnsCorrectValue() {
     // Given
-    String expectedReason = "validation error";
+    final String expectedReason = "validation error";
 
     // When
-    ControlError error = new ControlError("node-1", "exec-1", expectedReason, "detail");
+    final ControlError error = new ControlError("node-1", "exec-1", expectedReason, "detail");
 
     // Then
     assertThat(error.reason()).isEqualTo(expectedReason);
@@ -213,10 +221,10 @@ class ControlErrorTest {
   @Test
   void record_accessor_detailReturnsCorrectValue() {
     // Given
-    String expectedDetail = "Missing required field 'name'";
+    final String expectedDetail = "Missing required field 'name'";
 
     // When
-    ControlError error = new ControlError("node-1", "exec-1", "reason", expectedDetail);
+    final ControlError error = new ControlError("node-1", "exec-1", "reason", expectedDetail);
 
     // Then
     assertThat(error.detail()).isEqualTo(expectedDetail);
@@ -225,10 +233,10 @@ class ControlErrorTest {
   @Test
   void record_accessor_timestampReturnsCorrectValue() {
     // Given
-    Instant expectedTimestamp = Instant.parse("2026-06-25T16:45:30Z");
+    final Instant expectedTimestamp = Instant.parse("2026-06-25T16:45:30Z");
 
     // When
-    ControlError error =
+    final ControlError error =
         new ControlError("node-1", "exec-1", "reason", "detail", expectedTimestamp);
 
     // Then
@@ -236,17 +244,18 @@ class ControlErrorTest {
   }
 
   @Test
+  @SuppressWarnings("PMD.LinguisticNaming")
   void toString_containsAllFieldValues() {
     // Given
-    String nodeId = "node-123";
-    String executionId = "exec-456";
-    String reason = "critical error";
-    String detail = "System failure";
-    Instant timestamp = Instant.parse("2026-06-25T12:00:00Z");
+    final String nodeId = "node-123";
+    final String executionId = "exec-456";
+    final String reason = "critical error";
+    final String detail = "System failure";
+    final Instant timestamp = Instant.parse("2026-06-25T12:00:00Z");
 
     // When
-    ControlError error = new ControlError(nodeId, executionId, reason, detail, timestamp);
-    String toStringOutput = error.toString();
+    final ControlError error = new ControlError(nodeId, executionId, reason, detail, timestamp);
+    final String toStringOutput = error.toString();
 
     // Then
     assertThat(toStringOutput)
@@ -259,7 +268,7 @@ class ControlErrorTest {
   @Test
   void record_nullComparison_isNotEqual() {
     // Given
-    ControlError error = new ControlError("node-1", "exec-1", "reason", "detail");
+    final ControlError error = new ControlError("node-1", "exec-1", "reason", "detail");
 
     // Then
     assertThat(error).isNotEqualTo(null);
@@ -268,8 +277,8 @@ class ControlErrorTest {
   @Test
   void equals_withDifferentType_returnsFalse() {
     // Given
-    ControlError error = new ControlError("node-1", "exec-1", "reason", "detail");
-    String differentObject = "not a ControlError";
+    final ControlError error = new ControlError("node-1", "exec-1", "reason", "detail");
+    final String differentObject = "not a ControlError";
 
     // Then
     assertThat(error).isNotEqualTo(differentObject);

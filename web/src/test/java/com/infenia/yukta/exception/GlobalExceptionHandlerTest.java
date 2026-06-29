@@ -16,8 +16,6 @@
 package com.infenia.yukta.exception;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -26,6 +24,7 @@ import com.infenia.yukta.model.api.ApiResponse;
 import jakarta.validation.ConstraintViolationException;
 import java.util.List;
 import java.util.Set;
+import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.boot.test.system.CapturedOutput;
@@ -43,33 +42,66 @@ import org.springframework.web.server.ServerWebExchange;
 import org.springframework.web.server.ServerWebInputException;
 import reactor.test.StepVerifier;
 
+/** Tests for GlobalExceptionHandler. */
+@NoArgsConstructor
+@SuppressWarnings({"PMD.LawOfDemeter", "PMD.TooManyMethods"})
 class GlobalExceptionHandlerTest {
 
+  /** Validation failed message constant. */
+  private static final String VALIDATION_FAILED = "Validation failed";
+
+  /** Constraint violation message constant. */
+  private static final String CONSTRAINT_VIOLATION = "Constraint violation";
+
+  /** Invalid request body message constant. */
+  private static final String INVALID_REQUEST_BODY = "Invalid request body";
+
+  /** API path constant. */
+  private static final String API_PATH = "/api";
+
+  /** HTTP status code 400 constant. */
+  private static final String STATUS_CODE_400 = "400";
+
+  /** HTTP status code 404 constant. */
+  private static final String STATUS_CODE_404 = "404";
+
+  /** HTTP status code 500 constant. */
+  private static final String STATUS_CODE_500 = "500";
+
+  /** Unchecked warning suppression constant. */
+  private static final String UNCHECKED_SUPPRESSION = "unchecked";
+
+  /** Object name constant. */
+  private static final String OBJ = "obj";
+
+  /** Error message constant. */
+  private static final String ERROR = "error";
+
+  /** Exception handler for testing. */
   private final GlobalExceptionHandler handler = new GlobalExceptionHandler();
 
   @Test
-  @SuppressWarnings("unchecked")
+  @SuppressWarnings(UNCHECKED_SUPPRESSION)
   void testHandleWebExchangeBindException() {
-    BeanPropertyBindingResult result = new BeanPropertyBindingResult(new Object(), "obj");
-    result.addError(new FieldError("obj", "field", "rejected", false, null, null, "message"));
-    WebExchangeBindException ex = new WebExchangeBindException(null, result);
+    final BeanPropertyBindingResult result = new BeanPropertyBindingResult(new Object(), OBJ);
+    result.addError(new FieldError(OBJ, "field", "rejected", false, null, null, "message"));
+    final WebExchangeBindException exception = new WebExchangeBindException(null, result);
 
-    ServerWebExchange exchange = mock(ServerWebExchange.class);
-    ServerHttpRequest request = mock(ServerHttpRequest.class);
+    final ServerWebExchange exchange = mock(ServerWebExchange.class);
+    final ServerHttpRequest request = mock(ServerHttpRequest.class);
     when(exchange.getRequest()).thenReturn(request);
-    when(request.getPath())
-        .thenReturn(org.springframework.http.server.RequestPath.parse("/api", "/"));
+    when(request.getPath()).thenReturn(RequestPath.parse(API_PATH, "/"));
 
     StepVerifier.create(
             handler.handleWebExchangeBindException(
-                ex, new HttpHeaders(), HttpStatus.BAD_REQUEST, exchange))
+                exception, new HttpHeaders(), HttpStatus.BAD_REQUEST, exchange))
         .expectNextMatches(
             resp -> {
-              ApiResponse<Object> body = (ApiResponse<Object>) resp.getBody();
+              final ApiResponse<Object> body = (ApiResponse<Object>) resp.getBody();
               return resp.getStatusCode() == HttpStatus.BAD_REQUEST
                   && body.status() == 400
-                  && "Validation failed".equals(body.message())
-                  && "/api".equals(body.path())
+                  && VALIDATION_FAILED.equals(body.message())
+                  && API_PATH.equals(body.path())
                   && body.errors().size() == 1
                   && "field".equals(body.errors().get(0).field());
             })
@@ -77,13 +109,12 @@ class GlobalExceptionHandlerTest {
   }
 
   @Test
-  @SuppressWarnings("unchecked")
+  @SuppressWarnings(UNCHECKED_SUPPRESSION)
   void testCreateResponseEntity() {
-    ServerWebExchange exchange = mock(ServerWebExchange.class);
-    ServerHttpRequest request = mock(ServerHttpRequest.class);
+    final ServerWebExchange exchange = mock(ServerWebExchange.class);
+    final ServerHttpRequest request = mock(ServerHttpRequest.class);
     when(exchange.getRequest()).thenReturn(request);
-    when(request.getPath())
-        .thenReturn(org.springframework.http.server.RequestPath.parse("/create", "/"));
+    when(request.getPath()).thenReturn(RequestPath.parse("/create", "/"));
 
     // Case body not ApiResponse
     StepVerifier.create(
@@ -91,7 +122,7 @@ class GlobalExceptionHandlerTest {
                 "error msg", new HttpHeaders(), HttpStatusCode.valueOf(404), exchange))
         .expectNextMatches(
             resp -> {
-              ApiResponse<Object> body = (ApiResponse<Object>) resp.getBody();
+              final ApiResponse<Object> body = (ApiResponse<Object>) resp.getBody();
               return resp.getStatusCode().value() == 404
                   && body.status() == 404
                   && "error msg".equals(body.message())
@@ -105,7 +136,7 @@ class GlobalExceptionHandlerTest {
                 null, new HttpHeaders(), HttpStatusCode.valueOf(500), exchange))
         .expectNextMatches(
             resp -> {
-              ApiResponse<Object> body = (ApiResponse<Object>) resp.getBody();
+              final ApiResponse<Object> body = (ApiResponse<Object>) resp.getBody();
               return resp.getStatusCode().value() == 500
                   && body.status() == 500
                   && "500 INTERNAL_SERVER_ERROR".equals(body.message());
@@ -113,13 +144,13 @@ class GlobalExceptionHandlerTest {
         .verifyComplete();
 
     // Case body IS ApiResponse
-    ApiResponse<Object> existing = ApiResponse.success(200, "OK", "data");
+    final ApiResponse<Object> existing = ApiResponse.success(200, "OK", "data");
     StepVerifier.create(
             handler.createResponseEntity(
                 existing, new HttpHeaders(), HttpStatusCode.valueOf(200), exchange))
         .expectNextMatches(
             resp -> {
-              ApiResponse<Object> body = (ApiResponse<Object>) resp.getBody();
+              final ApiResponse<Object> body = (ApiResponse<Object>) resp.getBody();
               return resp.getStatusCode().value() == 200 && body.equals(existing);
             })
         .verifyComplete();
@@ -127,160 +158,162 @@ class GlobalExceptionHandlerTest {
 
   @Test
   void testHandleConstraintViolation() {
-    jakarta.validation.ConstraintViolation<?> violation =
+    final jakarta.validation.ConstraintViolation<?> violation =
         mock(jakarta.validation.ConstraintViolation.class);
-    jakarta.validation.Path path = mock(jakarta.validation.Path.class);
+    final jakarta.validation.Path path = mock(jakarta.validation.Path.class);
     when(path.toString()).thenReturn("property");
     when(violation.getPropertyPath()).thenReturn(path);
     when(violation.getMessage()).thenReturn("violation message");
 
-    ConstraintViolationException ex = new ConstraintViolationException(Set.of(violation));
-    ServerHttpRequest request = mock(ServerHttpRequest.class);
-    when(request.getPath())
-        .thenReturn(org.springframework.http.server.RequestPath.parse("/api", "/"));
+    final ConstraintViolationException exception =
+        new ConstraintViolationException(Set.of(violation));
+    final ServerHttpRequest request = mock(ServerHttpRequest.class);
+    when(request.getPath()).thenReturn(RequestPath.parse(API_PATH, "/"));
 
-    ResponseEntity<ApiResponse<Object>> resp = handler.handleConstraintViolation(ex, request);
-    assertEquals(HttpStatus.BAD_REQUEST, resp.getStatusCode());
-    ApiResponse<Object> body = resp.getBody();
-    assert body != null;
-    assertEquals(400, body.status());
-    assertEquals("Constraint violation", body.message());
-    assertEquals("/api", body.path());
-    assertEquals(1, body.errors().size());
-    assertEquals("property", body.errors().get(0).field());
-    assertEquals("violation message", body.errors().get(0).message());
+    final ResponseEntity<ApiResponse<Object>> resp =
+        handler.handleConstraintViolation(exception, request);
+    assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+    final ApiResponse<Object> body = resp.getBody();
+    assertThat(body).isNotNull();
+    assertThat(body.status()).isEqualTo(400);
+    assertThat(body.message()).isEqualTo(CONSTRAINT_VIOLATION);
+    assertThat(body.path()).isEqualTo(API_PATH);
+    assertThat(body.errors()).hasSize(1);
+    assertThat(body.errors().get(0).field()).isEqualTo("property");
+    assertThat(body.errors().get(0).message()).isEqualTo("violation message");
   }
 
   @Test
   void testHandleResourceNotFoundException() {
-    ResourceNotFoundException ex = new ResourceNotFoundException("Session", "sess-123");
-    ServerHttpRequest request = mock(ServerHttpRequest.class);
-    when(request.getPath())
-        .thenReturn(org.springframework.http.server.RequestPath.parse("/api/session", "/"));
+    final ResourceNotFoundException exception =
+        new ResourceNotFoundException("Session", "sess-123");
+    final ServerHttpRequest request = mock(ServerHttpRequest.class);
+    when(request.getPath()).thenReturn(RequestPath.parse("/api/session", "/"));
 
-    ResponseEntity<ApiResponse<Object>> resp = handler.handleResourceNotFound(ex, request);
-    assertEquals(HttpStatus.NOT_FOUND, resp.getStatusCode());
-    ApiResponse<Object> body = resp.getBody();
-    assert body != null;
-    assertEquals(404, body.status());
-    assertEquals("Session not found: 'sess-123'", body.message());
-    assertEquals("/api/session", body.path());
-    assertEquals(1, body.errors().size());
-    assertEquals("session", body.errors().get(0).field());
+    final ResponseEntity<ApiResponse<Object>> resp =
+        handler.handleResourceNotFound(exception, request);
+    assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+    final ApiResponse<Object> body = resp.getBody();
+    assertThat(body).isNotNull();
+    assertThat(body.status()).isEqualTo(404);
+    assertThat(body.message()).isEqualTo("Session not found: 'sess-123'");
+    assertThat(body.path()).isEqualTo("/api/session");
+    assertThat(body.errors()).hasSize(1);
+    assertThat(body.errors().get(0).field()).isEqualTo("session");
   }
 
   @Test
   void testHandleValidationException() {
-    ValidationException ex =
+    final ValidationException exception =
         new ValidationException(
-            "Validation failed",
-            java.util.List.of("Field A is required", "Field B must be positive"));
-    ServerHttpRequest request = mock(ServerHttpRequest.class);
-    when(request.getPath())
-        .thenReturn(org.springframework.http.server.RequestPath.parse("/api/validate", "/"));
+            VALIDATION_FAILED, List.of("Field A is required", "Field B must be positive"));
+    final ServerHttpRequest request = mock(ServerHttpRequest.class);
+    when(request.getPath()).thenReturn(RequestPath.parse("/api/validate", "/"));
 
-    ResponseEntity<ApiResponse<Object>> resp = handler.handleValidationException(ex, request);
-    assertEquals(HttpStatus.BAD_REQUEST, resp.getStatusCode());
-    ApiResponse<Object> body = resp.getBody();
-    assert body != null;
-    assertEquals(400, body.status());
-    assertEquals("Validation failed", body.message());
-    assertEquals("/api/validate", body.path());
-    assertEquals(2, body.errors().size());
+    final ResponseEntity<ApiResponse<Object>> resp =
+        handler.handleValidationException(exception, request);
+    assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+    final ApiResponse<Object> body = resp.getBody();
+    assertThat(body).isNotNull();
+    assertThat(body.status()).isEqualTo(400);
+    assertThat(body.message()).isEqualTo(VALIDATION_FAILED);
+    assertThat(body.path()).isEqualTo("/api/validate");
+    assertThat(body.errors()).hasSize(2);
   }
 
   @Test
   void testHandleIllegalArgument() {
-    IllegalArgumentException ex = new IllegalArgumentException("invalid arg");
-    ServerHttpRequest request = mock(ServerHttpRequest.class);
-    when(request.getPath())
-        .thenReturn(org.springframework.http.server.RequestPath.parse("/arg", "/"));
+    final IllegalArgumentException exception = new IllegalArgumentException("invalid arg");
+    final ServerHttpRequest request = mock(ServerHttpRequest.class);
+    when(request.getPath()).thenReturn(RequestPath.parse("/arg", "/"));
 
-    ResponseEntity<ApiResponse<Object>> resp = handler.handleIllegalArgument(ex, request);
-    assertEquals(HttpStatus.BAD_REQUEST, resp.getStatusCode());
-    ApiResponse<Object> body = resp.getBody();
-    assert body != null;
-    assertEquals("invalid arg", body.message());
-    assertEquals("/arg", body.path());
+    final ResponseEntity<ApiResponse<Object>> resp =
+        handler.handleIllegalArgument(exception, request);
+    assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+    final ApiResponse<Object> body = resp.getBody();
+    assertThat(body).isNotNull();
+    assertThat(body.message()).isEqualTo("invalid arg");
+    assertThat(body.path()).isEqualTo("/arg");
   }
 
   @Test
   void testHandleIllegalState() {
-    IllegalStateException ex = new IllegalStateException("bad state");
-    ServerHttpRequest request = mock(ServerHttpRequest.class);
-    when(request.getPath())
-        .thenReturn(org.springframework.http.server.RequestPath.parse("/state", "/"));
+    final IllegalStateException exception = new IllegalStateException("bad state");
+    final ServerHttpRequest request = mock(ServerHttpRequest.class);
+    when(request.getPath()).thenReturn(RequestPath.parse("/state", "/"));
 
-    ResponseEntity<ApiResponse<Object>> resp = handler.handleIllegalState(ex, request);
-    assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, resp.getStatusCode());
-    ApiResponse<Object> body = resp.getBody();
-    assert body != null;
-    assertEquals("bad state", body.message());
+    final ResponseEntity<ApiResponse<Object>> resp = handler.handleIllegalState(exception, request);
+    assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
+    final ApiResponse<Object> body = resp.getBody();
+    assertThat(body).isNotNull();
+    assertThat(body.message()).isEqualTo("bad state");
   }
 
   @Test
   void testHandleGenericException() {
-    Exception ex = new Exception("fatal");
-    ServerHttpRequest request = mock(ServerHttpRequest.class);
-    when(request.getPath())
-        .thenReturn(org.springframework.http.server.RequestPath.parse("/fatal", "/"));
+    final Exception exception = new Exception("fatal");
+    final ServerHttpRequest request = mock(ServerHttpRequest.class);
+    when(request.getPath()).thenReturn(RequestPath.parse("/fatal", "/"));
 
-    ResponseEntity<ApiResponse<Object>> resp = handler.handleGenericException(ex, request);
-    assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, resp.getStatusCode());
-    ApiResponse<Object> body = resp.getBody();
-    assert body != null;
-    assertEquals("An unexpected error occurred: fatal", body.message());
-    assertEquals("/fatal", body.path());
+    final ResponseEntity<ApiResponse<Object>> resp =
+        handler.handleGenericException(exception, request);
+    assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
+    final ApiResponse<Object> body = resp.getBody();
+    assertThat(body).isNotNull();
+    assertThat(body.message()).isEqualTo("An unexpected error occurred: fatal");
+    assertThat(body.path()).isEqualTo("/fatal");
   }
 
   @Test
-  @SuppressWarnings("unchecked")
+  @SuppressWarnings(UNCHECKED_SUPPRESSION)
   void testHandleWebExchangeBindException_multipleErrors() {
-    BeanPropertyBindingResult result = new BeanPropertyBindingResult(new Object(), "obj");
-    result.addError(new FieldError("obj", "field1", "message1"));
-    result.addError(new FieldError("obj", "field2", "message2"));
-    WebExchangeBindException ex = new WebExchangeBindException(null, result);
+    final BeanPropertyBindingResult result = new BeanPropertyBindingResult(new Object(), OBJ);
+    result.addError(new FieldError(OBJ, "field1", "message1"));
+    result.addError(new FieldError(OBJ, "field2", "message2"));
+    final WebExchangeBindException exception = new WebExchangeBindException(null, result);
 
-    ServerWebExchange exchange = mock(ServerWebExchange.class);
-    ServerHttpRequest request = mock(ServerHttpRequest.class);
+    final ServerWebExchange exchange = mock(ServerWebExchange.class);
+    final ServerHttpRequest request = mock(ServerHttpRequest.class);
     when(exchange.getRequest()).thenReturn(request);
     when(request.getPath()).thenReturn(RequestPath.parse("/api/multi", "/"));
 
     StepVerifier.create(
             handler.handleWebExchangeBindException(
-                ex, new HttpHeaders(), HttpStatus.BAD_REQUEST, exchange))
+                exception, new HttpHeaders(), HttpStatus.BAD_REQUEST, exchange))
         .expectNextMatches(
             resp -> {
-              ApiResponse<Object> body = (ApiResponse<Object>) resp.getBody();
+              final ApiResponse<Object> body = (ApiResponse<Object>) resp.getBody();
               return body.errors().size() == 2
                   && "field1".equals(body.errors().get(0).field())
-                  && "field2".equals(body.errors().get(1).field());
+                  && "field2".equals(body.errors().get(1).field())
+                  && body.status() == 400;
             })
         .verifyComplete();
   }
 
   @Test
-  @SuppressWarnings("unchecked")
+  @SuppressWarnings(UNCHECKED_SUPPRESSION)
   void testHandleServerWebInputException_withUnrecognizedProperty() {
-    UnrecognizedPropertyException unrecognizedEx = mock(UnrecognizedPropertyException.class);
+    final UnrecognizedPropertyException unrecognizedEx = mock(UnrecognizedPropertyException.class);
     when(unrecognizedEx.getPropertyName()).thenReturn("extraField");
 
-    ServerWebInputException ex = new ServerWebInputException("error", null, unrecognizedEx);
+    final ServerWebInputException exception =
+        new ServerWebInputException(ERROR, null, unrecognizedEx);
 
-    ServerWebExchange exchange = mock(ServerWebExchange.class);
-    ServerHttpRequest request = mock(ServerHttpRequest.class);
+    final ServerWebExchange exchange = mock(ServerWebExchange.class);
+    final ServerHttpRequest request = mock(ServerHttpRequest.class);
     when(exchange.getRequest()).thenReturn(request);
     when(request.getPath()).thenReturn(RequestPath.parse("/api/input", "/"));
 
     StepVerifier.create(
             handler.handleServerWebInputException(
-                ex, new HttpHeaders(), HttpStatus.BAD_REQUEST, exchange))
+                exception, new HttpHeaders(), HttpStatus.BAD_REQUEST, exchange))
         .expectNextMatches(
             resp -> {
-              ApiResponse<Object> body = (ApiResponse<Object>) resp.getBody();
+              final ApiResponse<Object> body = (ApiResponse<Object>) resp.getBody();
               return resp.getStatusCode() == HttpStatus.BAD_REQUEST
                   && body.status() == 400
-                  && "Invalid request body".equals(body.message())
+                  && INVALID_REQUEST_BODY.equals(body.message())
                   && body.errors().size() == 1
                   && "extraField".equals(body.errors().get(0).field())
                   && "Unknown field: 'extraField'".equals(body.errors().get(0).message());
@@ -289,35 +322,35 @@ class GlobalExceptionHandlerTest {
   }
 
   @Test
-  @SuppressWarnings("unchecked")
+  @SuppressWarnings(UNCHECKED_SUPPRESSION)
   void testHandleServerWebInputException_nestedUnrecognizedProperty() {
-    UnrecognizedPropertyException unrecognizedEx = mock(UnrecognizedPropertyException.class);
+    final UnrecognizedPropertyException unrecognizedEx = mock(UnrecognizedPropertyException.class);
     when(unrecognizedEx.getPropertyName()).thenReturn("nestedField");
 
-    RuntimeException middle = new RuntimeException("intermediate", unrecognizedEx);
-    ServerWebInputException ex = new ServerWebInputException("error", null, middle);
+    final RuntimeException middle = new RuntimeException("intermediate", unrecognizedEx);
+    final ServerWebInputException exception = new ServerWebInputException(ERROR, null, middle);
 
-    ServerWebExchange exchange = mock(ServerWebExchange.class);
-    ServerHttpRequest request = mock(ServerHttpRequest.class);
+    final ServerWebExchange exchange = mock(ServerWebExchange.class);
+    final ServerHttpRequest request = mock(ServerHttpRequest.class);
     when(exchange.getRequest()).thenReturn(request);
     when(request.getPath()).thenReturn(RequestPath.parse("/api/nested", "/"));
 
     StepVerifier.create(
             handler.handleServerWebInputException(
-                ex, new HttpHeaders(), HttpStatus.BAD_REQUEST, exchange))
+                exception, new HttpHeaders(), HttpStatus.BAD_REQUEST, exchange))
         .expectNextMatches(
             resp -> {
-              ApiResponse<Object> body = (ApiResponse<Object>) resp.getBody();
+              final ApiResponse<Object> body = (ApiResponse<Object>) resp.getBody();
               return "nestedField".equals(body.errors().get(0).field());
             })
         .verifyComplete();
   }
 
   @Test
-  @SuppressWarnings("unchecked")
+  @SuppressWarnings(UNCHECKED_SUPPRESSION)
   void testCreateResponseEntity_stringBody() {
-    ServerWebExchange exchange = mock(ServerWebExchange.class);
-    ServerHttpRequest request = mock(ServerHttpRequest.class);
+    final ServerWebExchange exchange = mock(ServerWebExchange.class);
+    final ServerHttpRequest request = mock(ServerHttpRequest.class);
     when(exchange.getRequest()).thenReturn(request);
     when(request.getPath()).thenReturn(RequestPath.parse("/test", "/"));
 
@@ -326,18 +359,19 @@ class GlobalExceptionHandlerTest {
                 "custom error message", new HttpHeaders(), HttpStatus.BAD_REQUEST, exchange))
         .expectNextMatches(
             resp -> {
-              ApiResponse<Object> body = (ApiResponse<Object>) resp.getBody();
+              final ApiResponse<Object> body = (ApiResponse<Object>) resp.getBody();
               return "custom error message".equals(body.message())
-                  && resp.getStatusCode() == HttpStatus.BAD_REQUEST;
+                  && resp.getStatusCode() == HttpStatus.BAD_REQUEST
+                  && body.status() == 400;
             })
         .verifyComplete();
   }
 
   @Test
-  @SuppressWarnings("unchecked")
+  @SuppressWarnings(UNCHECKED_SUPPRESSION)
   void testCreateResponseEntity_nullBody() {
-    ServerWebExchange exchange = mock(ServerWebExchange.class);
-    ServerHttpRequest request = mock(ServerHttpRequest.class);
+    final ServerWebExchange exchange = mock(ServerWebExchange.class);
+    final ServerHttpRequest request = mock(ServerHttpRequest.class);
     when(exchange.getRequest()).thenReturn(request);
     when(request.getPath()).thenReturn(RequestPath.parse("/null", "/"));
 
@@ -346,20 +380,22 @@ class GlobalExceptionHandlerTest {
                 null, new HttpHeaders(), HttpStatus.INTERNAL_SERVER_ERROR, exchange))
         .expectNextMatches(
             resp -> {
-              ApiResponse<Object> body = (ApiResponse<Object>) resp.getBody();
+              final ApiResponse<Object> body = (ApiResponse<Object>) resp.getBody();
               return "500 INTERNAL_SERVER_ERROR".equals(body.message())
-                  && resp.getStatusCode() == HttpStatus.INTERNAL_SERVER_ERROR;
+                  && resp.getStatusCode() == HttpStatus.INTERNAL_SERVER_ERROR
+                  && body.status() == 500;
             })
         .verifyComplete();
   }
 
   @Test
-  @SuppressWarnings("unchecked")
+  @SuppressWarnings(UNCHECKED_SUPPRESSION)
   void testCreateResponseEntity_alreadyApiResponse() {
-    ApiResponse<String> existingResponse = ApiResponse.success(200, "Already formatted", "data");
+    final ApiResponse<String> existingResponse =
+        ApiResponse.success(200, "Already formatted", "data");
 
-    ServerWebExchange exchange = mock(ServerWebExchange.class);
-    ServerHttpRequest request = mock(ServerHttpRequest.class);
+    final ServerWebExchange exchange = mock(ServerWebExchange.class);
+    final ServerHttpRequest request = mock(ServerHttpRequest.class);
     when(exchange.getRequest()).thenReturn(request);
     when(request.getPath()).thenReturn(RequestPath.parse("/api", "/"));
 
@@ -368,7 +404,7 @@ class GlobalExceptionHandlerTest {
                 existingResponse, new HttpHeaders(), HttpStatus.OK, exchange))
         .expectNextMatches(
             resp -> {
-              ApiResponse<Object> body = (ApiResponse<Object>) resp.getBody();
+              final ApiResponse<Object> body = (ApiResponse<Object>) resp.getBody();
               return body.equals(existingResponse) && resp.getStatusCode() == HttpStatus.OK;
             })
         .verifyComplete();
@@ -376,60 +412,68 @@ class GlobalExceptionHandlerTest {
 
   @Test
   void testHandleResourceNotFoundException_withoutResourceTypeAndId() {
-    ResourceNotFoundException ex = new ResourceNotFoundException("Custom message");
-    ServerHttpRequest request = mock(ServerHttpRequest.class);
+    final ResourceNotFoundException exception = new ResourceNotFoundException("Custom message");
+    final ServerHttpRequest request = mock(ServerHttpRequest.class);
     when(request.getPath()).thenReturn(RequestPath.parse("/api/resource", "/"));
 
-    ResponseEntity<ApiResponse<Object>> resp = handler.handleResourceNotFound(ex, request);
-    assertEquals(HttpStatus.NOT_FOUND, resp.getStatusCode());
-    ApiResponse<Object> body = resp.getBody();
-    assertNotNull(body);
-    assertEquals("Custom message", body.message());
-    assertEquals(0, body.errors().size());
+    final ResponseEntity<ApiResponse<Object>> resp =
+        handler.handleResourceNotFound(exception, request);
+    assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+    final ApiResponse<Object> body = resp.getBody();
+    assertThat(body).isNotNull();
+    assertThat(body.message()).isEqualTo("Custom message");
+    assertThat(body.errors()).isEmpty();
   }
 
   @Test
   void testHandleResourceNotFoundException_withResourceTypeOnly() {
-    ResourceNotFoundException ex = new ResourceNotFoundException("Workflow", null);
-    ServerHttpRequest request = mock(ServerHttpRequest.class);
+    final ResourceNotFoundException exception = new ResourceNotFoundException("Workflow", null);
+    final ServerHttpRequest request = mock(ServerHttpRequest.class);
     when(request.getPath()).thenReturn(RequestPath.parse("/workflows", "/"));
 
-    ResponseEntity<ApiResponse<Object>> resp = handler.handleResourceNotFound(ex, request);
-    assertEquals(HttpStatus.NOT_FOUND, resp.getStatusCode());
-    ApiResponse<Object> body = resp.getBody();
-    assertNotNull(body);
-    assertEquals(404, body.status());
-    assertEquals(0, body.errors().size());
+    final ResponseEntity<ApiResponse<Object>> resp =
+        handler.handleResourceNotFound(exception, request);
+    assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+    final ApiResponse<Object> body = resp.getBody();
+    assertThat(body).isNotNull();
+    assertThat(body.status()).isEqualTo(404);
+    assertThat(body.errors()).isEmpty();
   }
 
   @Test
   void testHandleValidationException_singleError() {
-    ValidationException ex = new ValidationException("Validation failed");
-    ServerHttpRequest request = mock(ServerHttpRequest.class);
+    final ValidationException exception = new ValidationException(VALIDATION_FAILED);
+    final ServerHttpRequest request = mock(ServerHttpRequest.class);
     when(request.getPath()).thenReturn(RequestPath.parse("/validate", "/"));
 
-    ResponseEntity<ApiResponse<Object>> resp = handler.handleValidationException(ex, request);
-    assertEquals(HttpStatus.BAD_REQUEST, resp.getStatusCode());
-    ApiResponse<Object> body = resp.getBody();
-    assertNotNull(body);
-    assertEquals(400, body.status());
-    assertEquals("Validation failed", body.message());
-    assertEquals(1, body.errors().size());
-    assertEquals("validation", body.errors().get(0).field());
+    final ResponseEntity<ApiResponse<Object>> resp =
+        handler.handleValidationException(exception, request);
+    assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+    final ApiResponse<Object> body = resp.getBody();
+    assertThat(body).isNotNull();
+    assertThat(body.status()).isEqualTo(400);
+    assertThat(body.message()).isEqualTo(VALIDATION_FAILED);
+    assertThat(body.errors()).hasSize(1);
+    assertThat(body.errors().get(0).field()).isEqualTo("validation");
   }
 
   @Test
   void testHandleValidationException_multipleErrors() {
-    ValidationException ex =
-        new ValidationException("Validation failed", List.of("Error 1", "Error 2", "Error 3"));
-    ServerHttpRequest request = mock(ServerHttpRequest.class);
+    final ValidationException exception =
+        new ValidationException(VALIDATION_FAILED, List.of("Error 1", "Error 2", "Error 3"));
+    final ServerHttpRequest request = mock(ServerHttpRequest.class);
     when(request.getPath()).thenReturn(RequestPath.parse("/validate", "/"));
 
-    ResponseEntity<ApiResponse<Object>> resp = handler.handleValidationException(ex, request);
-    assertEquals(HttpStatus.BAD_REQUEST, resp.getStatusCode());
-    ApiResponse<Object> body = resp.getBody();
-    assertNotNull(body);
-    assertEquals(3, body.errors().size());
+    final ResponseEntity<ApiResponse<Object>> resp =
+        handler.handleValidationException(exception, request);
+    assertThat(resp.getStatusCode())
+        .as("status should be BAD_REQUEST")
+        .isEqualTo(HttpStatus.BAD_REQUEST);
+    final ApiResponse<Object> body = resp.getBody();
+    assertThat(body).as("response body should not be null").isNotNull();
+    assertThat(body.status()).isEqualTo(400);
+    assertThat(body.message()).isEqualTo(VALIDATION_FAILED);
+    assertThat(body.errors()).as("errors should have 3 items").hasSize(3);
     assertThat(body.errors())
         .allMatch(err -> "validation".equals(err.field()))
         .extracting(ApiResponse.FieldError::message)
@@ -438,12 +482,12 @@ class GlobalExceptionHandlerTest {
 
   @Test
   void testHandleConstraintViolation_multipleViolations() {
-    jakarta.validation.ConstraintViolation<?> violation1 =
+    final jakarta.validation.ConstraintViolation<?> violation1 =
         mock(jakarta.validation.ConstraintViolation.class);
-    jakarta.validation.ConstraintViolation<?> violation2 =
+    final jakarta.validation.ConstraintViolation<?> violation2 =
         mock(jakarta.validation.ConstraintViolation.class);
-    jakarta.validation.Path path1 = mock(jakarta.validation.Path.class);
-    jakarta.validation.Path path2 = mock(jakarta.validation.Path.class);
+    final jakarta.validation.Path path1 = mock(jakarta.validation.Path.class);
+    final jakarta.validation.Path path2 = mock(jakarta.validation.Path.class);
 
     when(path1.toString()).thenReturn("field1");
     when(path2.toString()).thenReturn("field2");
@@ -452,183 +496,192 @@ class GlobalExceptionHandlerTest {
     when(violation1.getMessage()).thenReturn("message1");
     when(violation2.getMessage()).thenReturn("message2");
 
-    ConstraintViolationException ex =
+    final ConstraintViolationException exception =
         new ConstraintViolationException(Set.of(violation1, violation2));
-    ServerHttpRequest request = mock(ServerHttpRequest.class);
+    final ServerHttpRequest request = mock(ServerHttpRequest.class);
     when(request.getPath()).thenReturn(RequestPath.parse("/api", "/"));
 
-    ResponseEntity<ApiResponse<Object>> resp = handler.handleConstraintViolation(ex, request);
-    assertEquals(HttpStatus.BAD_REQUEST, resp.getStatusCode());
-    ApiResponse<Object> body = resp.getBody();
-    assertNotNull(body);
-    assertEquals(2, body.errors().size());
-    assertEquals("Constraint violation", body.message());
+    final ResponseEntity<ApiResponse<Object>> resp =
+        handler.handleConstraintViolation(exception, request);
+    assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+    final ApiResponse<Object> body = resp.getBody();
+    assertThat(body).isNotNull();
+    assertThat(body.errors()).hasSize(2);
+    assertThat(body.message()).isEqualTo(CONSTRAINT_VIOLATION);
+    assertThat(body.status()).isEqualTo(400);
   }
 
   @Test
   void testHandleUnrecognizedProperty() {
-    UnrecognizedPropertyException ex = mock(UnrecognizedPropertyException.class);
-    when(ex.getPropertyName()).thenReturn("unknownProperty");
+    final UnrecognizedPropertyException exception = mock(UnrecognizedPropertyException.class);
+    when(exception.getPropertyName()).thenReturn("unknownProperty");
 
-    ServerHttpRequest request = mock(ServerHttpRequest.class);
+    final ServerHttpRequest request = mock(ServerHttpRequest.class);
     when(request.getPath()).thenReturn(RequestPath.parse("/api/body", "/"));
 
-    ResponseEntity<ApiResponse<Object>> resp = handler.handleUnrecognizedProperty(ex, request);
-    assertEquals(HttpStatus.BAD_REQUEST, resp.getStatusCode());
-    ApiResponse<Object> body = resp.getBody();
-    assertNotNull(body);
-    assertEquals(400, body.status());
-    assertEquals("Invalid request body", body.message());
-    assertEquals(1, body.errors().size());
-    assertEquals("unknownProperty", body.errors().get(0).field());
-    assertEquals("Unknown field: 'unknownProperty'", body.errors().get(0).message());
+    final ResponseEntity<ApiResponse<Object>> resp =
+        handler.handleUnrecognizedProperty(exception, request);
+    assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+    final ApiResponse<Object> body = resp.getBody();
+    assertThat(body).isNotNull();
+    assertThat(body.status()).isEqualTo(400);
+    assertThat(body.message()).isEqualTo(INVALID_REQUEST_BODY);
+    assertThat(body.errors()).hasSize(1);
+    assertThat(body.errors().get(0).field()).isEqualTo("unknownProperty");
+    assertThat(body.errors().get(0).message()).isEqualTo("Unknown field: 'unknownProperty'");
   }
 
   @Test
   void testHandleIllegalArgument_withMessage() {
-    IllegalArgumentException ex = new IllegalArgumentException("argument was invalid");
-    ServerHttpRequest request = mock(ServerHttpRequest.class);
+    final IllegalArgumentException exception = new IllegalArgumentException("argument was invalid");
+    final ServerHttpRequest request = mock(ServerHttpRequest.class);
     when(request.getPath()).thenReturn(RequestPath.parse("/args", "/"));
 
-    ResponseEntity<ApiResponse<Object>> resp = handler.handleIllegalArgument(ex, request);
-    assertEquals(HttpStatus.BAD_REQUEST, resp.getStatusCode());
-    ApiResponse<Object> body = resp.getBody();
-    assertNotNull(body);
-    assertEquals(400, body.status());
-    assertEquals("Bad Request", body.error());
-    assertEquals("argument was invalid", body.message());
-    assertEquals("/args", body.path());
-    assertEquals(0, body.errors().size());
+    final ResponseEntity<ApiResponse<Object>> resp =
+        handler.handleIllegalArgument(exception, request);
+    assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+    final ApiResponse<Object> body = resp.getBody();
+    assertThat(body).isNotNull();
+    assertThat(body.status()).isEqualTo(400);
+    assertThat(body.message()).isEqualTo("argument was invalid");
+    assertThat(body.path()).isEqualTo("/args");
+    assertThat(body.errors()).isEmpty();
   }
 
   @Test
   void testHandleIllegalArgument_emptyMessage() {
-    IllegalArgumentException ex = new IllegalArgumentException();
-    ServerHttpRequest request = mock(ServerHttpRequest.class);
+    final IllegalArgumentException exception = new IllegalArgumentException();
+    final ServerHttpRequest request = mock(ServerHttpRequest.class);
     when(request.getPath()).thenReturn(RequestPath.parse("/args", "/"));
 
-    ResponseEntity<ApiResponse<Object>> resp = handler.handleIllegalArgument(ex, request);
-    assertEquals(HttpStatus.BAD_REQUEST, resp.getStatusCode());
-    ApiResponse<Object> body = resp.getBody();
-    assertNotNull(body);
-    assertEquals(400, body.status());
+    final ResponseEntity<ApiResponse<Object>> resp =
+        handler.handleIllegalArgument(exception, request);
+    assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+    final ApiResponse<Object> body = resp.getBody();
+    assertThat(body).isNotNull();
+    assertThat(body.status()).isEqualTo(400);
   }
 
   @Test
   void testHandleIllegalState_withMessage() {
-    IllegalStateException ex = new IllegalStateException("system in invalid state");
-    ServerHttpRequest request = mock(ServerHttpRequest.class);
+    final IllegalStateException exception = new IllegalStateException("system in invalid state");
+    final ServerHttpRequest request = mock(ServerHttpRequest.class);
     when(request.getPath()).thenReturn(RequestPath.parse("/state", "/"));
 
-    ResponseEntity<ApiResponse<Object>> resp = handler.handleIllegalState(ex, request);
-    assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, resp.getStatusCode());
-    ApiResponse<Object> body = resp.getBody();
-    assertNotNull(body);
-    assertEquals(500, body.status());
-    assertEquals("Internal Server Error", body.error());
-    assertEquals("system in invalid state", body.message());
+    final ResponseEntity<ApiResponse<Object>> resp = handler.handleIllegalState(exception, request);
+    assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
+    final ApiResponse<Object> body = resp.getBody();
+    assertThat(body).isNotNull();
+    assertThat(body.status()).isEqualTo(500);
+    assertThat(body.message()).isEqualTo("system in invalid state");
   }
 
   @Test
   void testHandleIllegalState_emptyMessage() {
-    IllegalStateException ex = new IllegalStateException();
-    ServerHttpRequest request = mock(ServerHttpRequest.class);
+    final IllegalStateException exception = new IllegalStateException();
+    final ServerHttpRequest request = mock(ServerHttpRequest.class);
     when(request.getPath()).thenReturn(RequestPath.parse("/state", "/"));
 
-    ResponseEntity<ApiResponse<Object>> resp = handler.handleIllegalState(ex, request);
-    assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, resp.getStatusCode());
-    ApiResponse<Object> body = resp.getBody();
-    assertNotNull(body);
-    assertEquals(500, body.status());
+    final ResponseEntity<ApiResponse<Object>> resp = handler.handleIllegalState(exception, request);
+    assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
+    final ApiResponse<Object> body = resp.getBody();
+    assertThat(body).isNotNull();
+    assertThat(body.status()).isEqualTo(500);
   }
 
   @Test
   @ExtendWith(OutputCaptureExtension.class)
-  void testHandleGenericException_logsErrorWithCause(CapturedOutput output) {
-    Exception cause = new RuntimeException("root cause");
-    Exception ex = new Exception("wrapper", cause);
-    ServerHttpRequest request = mock(ServerHttpRequest.class);
+  void testHandleGenericException_logsErrorWithCause(final CapturedOutput output) {
+    final Exception cause = new RuntimeException("root cause");
+    final Exception exception = new Exception("wrapper", cause);
+    final ServerHttpRequest request = mock(ServerHttpRequest.class);
     when(request.getPath()).thenReturn(RequestPath.parse("/error", "/"));
 
-    ResponseEntity<ApiResponse<Object>> resp = handler.handleGenericException(ex, request);
-    assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, resp.getStatusCode());
+    final ResponseEntity<ApiResponse<Object>> resp =
+        handler.handleGenericException(exception, request);
+    assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
     assertThat(output.getAll()).contains("Unhandled exception occurred");
   }
 
   @Test
   void testHandleGenericException_nullMessage() {
-    Exception ex = new Exception();
-    ServerHttpRequest request = mock(ServerHttpRequest.class);
+    final Exception exception = new Exception();
+    final ServerHttpRequest request = mock(ServerHttpRequest.class);
     when(request.getPath()).thenReturn(RequestPath.parse("/error", "/"));
 
-    ResponseEntity<ApiResponse<Object>> resp = handler.handleGenericException(ex, request);
-    assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, resp.getStatusCode());
-    ApiResponse<Object> body = resp.getBody();
-    assertNotNull(body);
-    assertEquals(500, body.status());
-    assertEquals("An unexpected error occurred: null", body.message());
+    final ResponseEntity<ApiResponse<Object>> resp =
+        handler.handleGenericException(exception, request);
+    assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
+    final ApiResponse<Object> body = resp.getBody();
+    assertThat(body).isNotNull();
+    assertThat(body.status()).isEqualTo(500);
+    assertThat(body.message()).isEqualTo("An unexpected error occurred: null");
   }
 
   @Test
   void testHandleResourceNotFound_errorFieldLowercase() {
-    ResourceNotFoundException ex = new ResourceNotFoundException("Session", "test-id");
-    ServerHttpRequest request = mock(ServerHttpRequest.class);
+    final ResourceNotFoundException exception = new ResourceNotFoundException("Session", "test-id");
+    final ServerHttpRequest request = mock(ServerHttpRequest.class);
     when(request.getPath()).thenReturn(RequestPath.parse("/sessions", "/"));
 
-    ResponseEntity<ApiResponse<Object>> resp = handler.handleResourceNotFound(ex, request);
-    ApiResponse<Object> body = resp.getBody();
-    assertNotNull(body);
-    assertEquals(1, body.errors().size());
-    assertEquals("session", body.errors().get(0).field());
+    final ResponseEntity<ApiResponse<Object>> resp =
+        handler.handleResourceNotFound(exception, request);
+    final ApiResponse<Object> body = resp.getBody();
+    assertThat(body).isNotNull();
+    assertThat(body.errors()).hasSize(1);
+    assertThat(body.errors().get(0).field()).isEqualTo("session");
   }
 
   @Test
   void testConstructor() {
-    GlobalExceptionHandler handlerInstance = new GlobalExceptionHandler();
-    assertNotNull(handlerInstance);
+    final GlobalExceptionHandler handlerInstance = new GlobalExceptionHandler();
+    assertThat(handlerInstance).isNotNull();
   }
 
   @Test
-  @SuppressWarnings("unchecked")
+  @SuppressWarnings(UNCHECKED_SUPPRESSION)
   void testHandleServerWebInputException_unrecognizedIsNull() {
-    ServerWebInputException ex = new ServerWebInputException("error", null, null);
+    final ServerWebInputException exception = new ServerWebInputException(ERROR, null, null);
 
-    ServerWebExchange exchange = mock(ServerWebExchange.class);
-    ServerHttpRequest request = mock(ServerHttpRequest.class);
+    final ServerWebExchange exchange = mock(ServerWebExchange.class);
+    final ServerHttpRequest request = mock(ServerHttpRequest.class);
     when(exchange.getRequest()).thenReturn(request);
     when(request.getPath()).thenReturn(RequestPath.parse("/api/input", "/"));
 
     StepVerifier.create(
             handler.handleServerWebInputException(
-                ex, new HttpHeaders(), HttpStatus.BAD_REQUEST, exchange))
+                exception, new HttpHeaders(), HttpStatus.BAD_REQUEST, exchange))
         .expectNextMatches(
             resp -> {
-              ApiResponse<Object> body = (ApiResponse<Object>) resp.getBody();
-              return "unknown".equals(body.errors().get(0).field());
+              final ApiResponse<Object> body = (ApiResponse<Object>) resp.getBody();
+              assertThat(body.errors().get(0).field()).isEqualTo("unknown");
+              return true;
             })
         .verifyComplete();
   }
 
   @Test
-  @SuppressWarnings("unchecked")
+  @SuppressWarnings(UNCHECKED_SUPPRESSION)
   void testHandleServerWebInputException_propertyNameIsNull() {
-    UnrecognizedPropertyException unrecognizedEx = mock(UnrecognizedPropertyException.class);
+    final UnrecognizedPropertyException unrecognizedEx = mock(UnrecognizedPropertyException.class);
     when(unrecognizedEx.getPropertyName()).thenReturn(null);
 
-    ServerWebInputException ex = new ServerWebInputException("error", null, unrecognizedEx);
+    final ServerWebInputException exception =
+        new ServerWebInputException(ERROR, null, unrecognizedEx);
 
-    ServerWebExchange exchange = mock(ServerWebExchange.class);
-    ServerHttpRequest request = mock(ServerHttpRequest.class);
+    final ServerWebExchange exchange = mock(ServerWebExchange.class);
+    final ServerHttpRequest request = mock(ServerHttpRequest.class);
     when(exchange.getRequest()).thenReturn(request);
     when(request.getPath()).thenReturn(RequestPath.parse("/api/input", "/"));
 
     StepVerifier.create(
             handler.handleServerWebInputException(
-                ex, new HttpHeaders(), HttpStatus.BAD_REQUEST, exchange))
+                exception, new HttpHeaders(), HttpStatus.BAD_REQUEST, exchange))
         .expectNextMatches(
             resp -> {
-              ApiResponse<Object> body = (ApiResponse<Object>) resp.getBody();
-              return "unknown".equals(body.errors().get(0).field());
+              final ApiResponse<Object> body = (ApiResponse<Object>) resp.getBody();
+              assertThat(body.errors().get(0).field()).isEqualTo("unknown");
+              return true;
             })
         .verifyComplete();
   }

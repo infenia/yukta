@@ -28,6 +28,7 @@ import com.infenia.yukta.service.orchestrator.tracker.DefaultTaskTrackerService;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
+import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -35,7 +36,9 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import reactor.test.StepVerifier;
 
+@SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.CommentRequired", "PMD.LinguisticNaming"})
 @ExtendWith(MockitoExtension.class)
+@NoArgsConstructor
 class DisableStepModeCommandProcessorTest {
 
   @Mock private ExecutionControlRegistry registry;
@@ -47,10 +50,10 @@ class DisableStepModeCommandProcessorTest {
   @Test
   void canProcess_disableStepModeCommand_returnsTrue() {
     // Given
-    ExecutionControlCommand command = new DisableStepModeCommand("exec-1", "node-1");
+    final ExecutionControlCommand command = new DisableStepModeCommand("exec-1", "node-1");
 
     // When
-    boolean actualResult = processor.canProcess(command);
+    final boolean actualResult = processor.canProcess(command);
 
     // Then
     assertThat(actualResult).isTrue();
@@ -59,10 +62,10 @@ class DisableStepModeCommandProcessorTest {
   @Test
   void canProcess_otherCommand_returnsFalse() {
     // Given
-    ExecutionControlCommand command = new EnableStepModeCommand("exec-1", "node-1");
+    final ExecutionControlCommand command = new EnableStepModeCommand("exec-1", "node-1");
 
     // When
-    boolean actualResult = processor.canProcess(command);
+    final boolean actualResult = processor.canProcess(command);
 
     // Then
     assertThat(actualResult).isFalse();
@@ -71,15 +74,15 @@ class DisableStepModeCommandProcessorTest {
   @Test
   void process_nodeFound_clearsStepModeFlagAndEmitsEvent() {
     // Given
-    String executionId = "exec-disable-step";
-    String nodeId = "node-1";
-    AtomicBoolean stepModeFlag = new AtomicBoolean(true);
-    DisableStepModeCommand command = new DisableStepModeCommand(executionId, nodeId);
+    final String executionId = "exec-disable-step";
+    final String nodeId = "node-1";
+    final AtomicBoolean stepModeFlag = new AtomicBoolean(true);
+    final DisableStepModeCommand command = new DisableStepModeCommand(executionId, nodeId);
     when(registry.findByExecutionId(executionId)).thenReturn(Optional.of(executionControl));
     when(executionControl.nodeStepModes()).thenReturn(Map.of(nodeId, stepModeFlag));
 
     // When
-    var result = processor.process(command);
+    final var result = processor.process(command);
 
     // Then
     StepVerifier.create(result).verifyComplete();
@@ -90,12 +93,12 @@ class DisableStepModeCommandProcessorTest {
   @Test
   void process_executionNotFound_errorWithIllegalArgumentException() {
     // Given
-    String executionId = "exec-not-found";
-    DisableStepModeCommand command = new DisableStepModeCommand(executionId, "node-1");
+    final String executionId = "exec-not-found";
+    final DisableStepModeCommand command = new DisableStepModeCommand(executionId, "node-1");
     when(registry.findByExecutionId(executionId)).thenReturn(Optional.empty());
 
     // When
-    var result = processor.process(command);
+    final var result = processor.process(command);
 
     // Then
     StepVerifier.create(result)
@@ -109,14 +112,14 @@ class DisableStepModeCommandProcessorTest {
   @Test
   void process_nodeNotFound_errorWithIllegalArgumentException() {
     // Given
-    String executionId = "exec-1";
-    String nodeId = "unknown-node";
-    DisableStepModeCommand command = new DisableStepModeCommand(executionId, nodeId);
+    final String executionId = "exec-1";
+    final String nodeId = "unknown-node";
+    final DisableStepModeCommand command = new DisableStepModeCommand(executionId, nodeId);
     when(registry.findByExecutionId(executionId)).thenReturn(Optional.of(executionControl));
     when(executionControl.nodeStepModes()).thenReturn(Map.of());
 
     // When
-    var result = processor.process(command);
+    final var result = processor.process(command);
 
     // Then
     StepVerifier.create(result)
@@ -131,7 +134,7 @@ class DisableStepModeCommandProcessorTest {
   @Test
   void getPriority_returnsCorrectValue() {
     // When
-    int actualPriority = processor.getPriority();
+    final int actualPriority = processor.getPriority();
 
     // Then
     assertThat(actualPriority).isEqualTo(10);

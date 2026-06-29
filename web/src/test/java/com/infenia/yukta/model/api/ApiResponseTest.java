@@ -15,53 +15,59 @@
  */
 package com.infenia.yukta.model.api;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
+import java.time.ZoneId;
 import java.util.List;
+import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 
+/** Tests for ApiResponse. */
+@NoArgsConstructor
 class ApiResponseTest {
 
   @Test
   void testSuccess() {
-    ApiResponse<String> resp = ApiResponse.success(200, "ok", "data");
-    assertNotNull(resp.timestamp());
-    assertEquals(200, resp.status());
-    assertEquals("ok", resp.message());
-    assertEquals("data", resp.data());
-    assertNull(resp.error());
-    assertTrue(resp.errors().isEmpty());
+    final ApiResponse<String> resp = ApiResponse.success(200, "ok", "data");
+    assertThat(resp.timestamp()).isNotNull();
+    assertThat(resp.status()).isEqualTo(200);
+    assertThat(resp.message()).isEqualTo("ok");
+    assertThat(resp.data()).isEqualTo("data");
+    assertThat(resp.error()).isNull();
+    assertThat(resp.errors()).isEmpty();
   }
 
   @Test
   void testError() {
-    ApiResponse.FieldError fieldError = new ApiResponse.FieldError("f", "m");
-    ApiResponse<Void> resp = ApiResponse.error(400, "Bad", "msg", "/p", List.of(fieldError));
+    final ApiResponse.FieldError fieldError = new ApiResponse.FieldError("f", "m");
+    final ApiResponse<Void> resp = ApiResponse.error(400, "Bad", "msg", "/p", List.of(fieldError));
 
-    assertEquals(400, resp.status());
-    assertEquals("Bad", resp.error());
-    assertEquals("msg", resp.message());
-    assertEquals("/p", resp.path());
-    assertEquals(1, resp.errors().size());
-    assertEquals("f", resp.errors().get(0).field());
-    assertEquals("m", resp.errors().get(0).message());
+    assertThat(resp.status()).isEqualTo(400);
+    assertThat(resp.error()).isEqualTo("Bad");
+    assertThat(resp.message()).isEqualTo("msg");
+    assertThat(resp.path()).isEqualTo("/p");
+    assertThat(resp.errors()).hasSize(1);
+    assertThat(resp.errors().get(0).field()).isEqualTo("f");
+    assertThat(resp.errors().get(0).message()).isEqualTo("m");
   }
 
   @Test
   void testErrorWithNullErrors() {
-    ApiResponse<Void> resp = ApiResponse.error(500, "Error", "msg", "/p", null);
-    assertNotNull(resp.errors());
-    assertTrue(resp.errors().isEmpty());
+    final ApiResponse<Void> resp = ApiResponse.error(500, "Error", "msg", "/p", null);
+    assertThat(resp.errors()).isNotNull().isEmpty();
   }
 
   @Test
   void testConstructorWithNullErrors() {
-    ApiResponse<String> resp =
-        new ApiResponse<>(java.time.LocalDateTime.now(), 200, "ok", "data", null, null, null);
-    assertNotNull(resp.errors());
-    assertTrue(resp.errors().isEmpty());
+    final ApiResponse<String> resp =
+        new ApiResponse<>(
+            java.time.LocalDateTime.now(ZoneId.systemDefault()),
+            200,
+            "ok",
+            "data",
+            null,
+            null,
+            null);
+    assertThat(resp.errors()).isNotNull().isEmpty();
   }
 }

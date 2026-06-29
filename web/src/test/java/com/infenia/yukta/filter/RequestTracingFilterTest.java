@@ -20,6 +20,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.server.reactive.ServerHttpRequest;
@@ -29,25 +30,40 @@ import org.springframework.web.server.WebFilterChain;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
+/** Tests for RequestTracingFilter. */
+@NoArgsConstructor
 class RequestTracingFilterTest {
 
+  /** HTTP header name for request ID. */
+  private static final String X_REQUEST_ID = "X-Request-ID";
+
+  /** HTTP header name for correlation ID. */
+  private static final String X_CORRELATION_ID = "X-Correlation-ID";
+
+  /** Example existing request ID. */
+  private static final String EXISTING_REQUEST_ID = "existing-request-id";
+
+  /** Example existing correlation ID. */
+  private static final String EXISTING_CORRELATION_ID = "existing-correlation-id";
+
+  /** Filter instance for testing. */
   private final RequestTracingFilter filter = new RequestTracingFilter();
 
   @Test
   void testConstructor() {
-    RequestTracingFilter instance = new RequestTracingFilter();
+    final RequestTracingFilter instance = new RequestTracingFilter();
     assertThat(instance).isNotNull();
   }
 
   @Test
   void testFilterGeneratesNewRequestIdWhenMissing() {
-    ServerWebExchange exchange = mock(ServerWebExchange.class);
-    ServerHttpRequest request = mock(ServerHttpRequest.class);
-    ServerHttpResponse response = mock(ServerHttpResponse.class);
-    WebFilterChain chain = mock(WebFilterChain.class);
+    final ServerWebExchange exchange = mock(ServerWebExchange.class);
+    final ServerHttpRequest request = mock(ServerHttpRequest.class);
+    final ServerHttpResponse response = mock(ServerHttpResponse.class);
+    final WebFilterChain chain = mock(WebFilterChain.class);
 
-    HttpHeaders requestHeaders = new HttpHeaders();
-    HttpHeaders responseHeaders = new HttpHeaders();
+    final HttpHeaders requestHeaders = new HttpHeaders();
+    final HttpHeaders responseHeaders = new HttpHeaders();
 
     when(exchange.getRequest()).thenReturn(request);
     when(exchange.getResponse()).thenReturn(response);
@@ -58,22 +74,22 @@ class RequestTracingFilterTest {
     StepVerifier.create(filter.filter(exchange, chain)).verifyComplete();
 
     verify(chain).filter(exchange);
-    assertThat(responseHeaders.get("X-Request-ID")).isNotNull();
-    assertThat(responseHeaders.get("X-Request-ID")).hasSize(1);
-    assertThat(responseHeaders.get("X-Correlation-ID")).isNotNull();
-    assertThat(responseHeaders.get("X-Correlation-ID")).hasSize(1);
+    assertThat(responseHeaders.get(X_REQUEST_ID)).isNotNull();
+    assertThat(responseHeaders.get(X_REQUEST_ID)).hasSize(1);
+    assertThat(responseHeaders.get(X_CORRELATION_ID)).isNotNull();
+    assertThat(responseHeaders.get(X_CORRELATION_ID)).hasSize(1);
   }
 
   @Test
   void testFilterUsesExistingRequestId() {
-    ServerWebExchange exchange = mock(ServerWebExchange.class);
-    ServerHttpRequest request = mock(ServerHttpRequest.class);
-    ServerHttpResponse response = mock(ServerHttpResponse.class);
-    WebFilterChain chain = mock(WebFilterChain.class);
+    final ServerWebExchange exchange = mock(ServerWebExchange.class);
+    final ServerHttpRequest request = mock(ServerHttpRequest.class);
+    final ServerHttpResponse response = mock(ServerHttpResponse.class);
+    final WebFilterChain chain = mock(WebFilterChain.class);
 
-    HttpHeaders requestHeaders = new HttpHeaders();
-    requestHeaders.add("X-Request-ID", "existing-request-id");
-    HttpHeaders responseHeaders = new HttpHeaders();
+    final HttpHeaders requestHeaders = new HttpHeaders();
+    requestHeaders.add(X_REQUEST_ID, EXISTING_REQUEST_ID);
+    final HttpHeaders responseHeaders = new HttpHeaders();
 
     when(exchange.getRequest()).thenReturn(request);
     when(exchange.getResponse()).thenReturn(response);
@@ -84,20 +100,20 @@ class RequestTracingFilterTest {
     StepVerifier.create(filter.filter(exchange, chain)).verifyComplete();
 
     verify(chain).filter(exchange);
-    assertThat(responseHeaders.getFirst("X-Request-ID")).isEqualTo("existing-request-id");
-    assertThat(responseHeaders.getFirst("X-Correlation-ID")).isEqualTo("existing-request-id");
+    assertThat(responseHeaders.getFirst(X_REQUEST_ID)).isEqualTo(EXISTING_REQUEST_ID);
+    assertThat(responseHeaders.getFirst(X_CORRELATION_ID)).isEqualTo(EXISTING_REQUEST_ID);
   }
 
   @Test
   void testFilterUsesExistingCorrelationId() {
-    ServerWebExchange exchange = mock(ServerWebExchange.class);
-    ServerHttpRequest request = mock(ServerHttpRequest.class);
-    ServerHttpResponse response = mock(ServerHttpResponse.class);
-    WebFilterChain chain = mock(WebFilterChain.class);
+    final ServerWebExchange exchange = mock(ServerWebExchange.class);
+    final ServerHttpRequest request = mock(ServerHttpRequest.class);
+    final ServerHttpResponse response = mock(ServerHttpResponse.class);
+    final WebFilterChain chain = mock(WebFilterChain.class);
 
-    HttpHeaders requestHeaders = new HttpHeaders();
-    requestHeaders.add("X-Correlation-ID", "existing-correlation-id");
-    HttpHeaders responseHeaders = new HttpHeaders();
+    final HttpHeaders requestHeaders = new HttpHeaders();
+    requestHeaders.add(X_CORRELATION_ID, EXISTING_CORRELATION_ID);
+    final HttpHeaders responseHeaders = new HttpHeaders();
 
     when(exchange.getRequest()).thenReturn(request);
     when(exchange.getResponse()).thenReturn(response);
@@ -108,21 +124,21 @@ class RequestTracingFilterTest {
     StepVerifier.create(filter.filter(exchange, chain)).verifyComplete();
 
     verify(chain).filter(exchange);
-    assertThat(responseHeaders.getFirst("X-Request-ID")).isNotNull();
-    assertThat(responseHeaders.getFirst("X-Correlation-ID")).isEqualTo("existing-correlation-id");
+    assertThat(responseHeaders.getFirst(X_REQUEST_ID)).isNotNull();
+    assertThat(responseHeaders.getFirst(X_CORRELATION_ID)).isEqualTo(EXISTING_CORRELATION_ID);
   }
 
   @Test
   void testFilterUsesBothExistingHeaders() {
-    ServerWebExchange exchange = mock(ServerWebExchange.class);
-    ServerHttpRequest request = mock(ServerHttpRequest.class);
-    ServerHttpResponse response = mock(ServerHttpResponse.class);
-    WebFilterChain chain = mock(WebFilterChain.class);
+    final ServerWebExchange exchange = mock(ServerWebExchange.class);
+    final ServerHttpRequest request = mock(ServerHttpRequest.class);
+    final ServerHttpResponse response = mock(ServerHttpResponse.class);
+    final WebFilterChain chain = mock(WebFilterChain.class);
 
-    HttpHeaders requestHeaders = new HttpHeaders();
-    requestHeaders.add("X-Request-ID", "existing-request-id");
-    requestHeaders.add("X-Correlation-ID", "existing-correlation-id");
-    HttpHeaders responseHeaders = new HttpHeaders();
+    final HttpHeaders requestHeaders = new HttpHeaders();
+    requestHeaders.add(X_REQUEST_ID, EXISTING_REQUEST_ID);
+    requestHeaders.add(X_CORRELATION_ID, EXISTING_CORRELATION_ID);
+    final HttpHeaders responseHeaders = new HttpHeaders();
 
     when(exchange.getRequest()).thenReturn(request);
     when(exchange.getResponse()).thenReturn(response);
@@ -133,19 +149,19 @@ class RequestTracingFilterTest {
     StepVerifier.create(filter.filter(exchange, chain)).verifyComplete();
 
     verify(chain).filter(exchange);
-    assertThat(responseHeaders.getFirst("X-Request-ID")).isEqualTo("existing-request-id");
-    assertThat(responseHeaders.getFirst("X-Correlation-ID")).isEqualTo("existing-correlation-id");
+    assertThat(responseHeaders.getFirst(X_REQUEST_ID)).isEqualTo(EXISTING_REQUEST_ID);
+    assertThat(responseHeaders.getFirst(X_CORRELATION_ID)).isEqualTo(EXISTING_CORRELATION_ID);
   }
 
   @Test
   void testFilterContinuesChain() {
-    ServerWebExchange exchange = mock(ServerWebExchange.class);
-    ServerHttpRequest request = mock(ServerHttpRequest.class);
-    ServerHttpResponse response = mock(ServerHttpResponse.class);
-    WebFilterChain chain = mock(WebFilterChain.class);
+    final ServerWebExchange exchange = mock(ServerWebExchange.class);
+    final ServerHttpRequest request = mock(ServerHttpRequest.class);
+    final ServerHttpResponse response = mock(ServerHttpResponse.class);
+    final WebFilterChain chain = mock(WebFilterChain.class);
 
-    HttpHeaders requestHeaders = new HttpHeaders();
-    HttpHeaders responseHeaders = new HttpHeaders();
+    final HttpHeaders requestHeaders = new HttpHeaders();
+    final HttpHeaders responseHeaders = new HttpHeaders();
 
     when(exchange.getRequest()).thenReturn(request);
     when(exchange.getResponse()).thenReturn(response);

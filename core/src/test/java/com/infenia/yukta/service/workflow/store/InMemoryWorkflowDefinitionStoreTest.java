@@ -22,12 +22,28 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.List;
 import java.util.Map;
+import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import reactor.test.StepVerifier;
 
+/** Tests for {@link InMemoryWorkflowDefinitionStore}. */
+@NoArgsConstructor
 class InMemoryWorkflowDefinitionStoreTest {
 
+  /** Constant for workflow ID 1. */
+  private static final String WORKFLOW_ID_1 = "wf1";
+
+  /** Constant for workflow ID 2. */
+  private static final String WORKFLOW_ID_2 = "wf2";
+
+  /** Constant for session ID 1. */
+  private static final String SESSION_ID_1 = "s1";
+
+  /** Constant for session ID 2. */
+  private static final String SESSION_ID_2 = "s2";
+
+  /** The store under test. */
   private InMemoryWorkflowDefinitionStore store;
 
   private static WorkflowDefinition definition(final String workflowId) {
@@ -45,27 +61,27 @@ class InMemoryWorkflowDefinitionStoreTest {
 
   @Test
   void saveAndFindReturnsDefinition() {
-    final WorkflowDefinition def = definition("wf1");
-    StepVerifier.create(store.save("s1", def).then(store.find("s1", "wf1")))
+    final WorkflowDefinition def = definition(WORKFLOW_ID_1);
+    StepVerifier.create(store.save(SESSION_ID_1, def).then(store.find(SESSION_ID_1, WORKFLOW_ID_1)))
         .expectNext(def)
         .verifyComplete();
   }
 
   @Test
   void findOnUnknownKeyReturnsEmpty() {
-    StepVerifier.create(store.find("unknown", "wf1")).verifyComplete();
+    StepVerifier.create(store.find("unknown", WORKFLOW_ID_1)).verifyComplete();
   }
 
   @Test
   void findOnKnownSessionUnknownWorkflowReturnsEmpty() {
-    final WorkflowDefinition wf1 = definition("wf1");
-    StepVerifier.create(store.save("s1", wf1).then(store.find("s1", "nonexistent")))
+    final WorkflowDefinition wf1 = definition(WORKFLOW_ID_1);
+    StepVerifier.create(store.save(SESSION_ID_1, wf1).then(store.find(SESSION_ID_1, "nonexistent")))
         .verifyComplete();
   }
 
   @Test
   void removeOnUnknownSessionCompletesGracefully() {
-    StepVerifier.create(store.remove("unknown", "wf1")).verifyComplete();
+    StepVerifier.create(store.remove("unknown", WORKFLOW_ID_1)).verifyComplete();
   }
 
   @Test
@@ -77,47 +93,52 @@ class InMemoryWorkflowDefinitionStoreTest {
 
   @Test
   void findAllReturnsAllDefinitionsForSession() {
-    final WorkflowDefinition wf1 = definition("wf1");
-    final WorkflowDefinition wf2 = definition("wf2");
-    StepVerifier.create(store.save("s1", wf1).then(store.save("s1", wf2)).then(store.findAll("s1")))
-        .assertNext(map -> assertThat(map).containsKeys("wf1", "wf2"))
+    final WorkflowDefinition wf1 = definition(WORKFLOW_ID_1);
+    final WorkflowDefinition wf2 = definition(WORKFLOW_ID_2);
+    StepVerifier.create(
+            store
+                .save(SESSION_ID_1, wf1)
+                .then(store.save(SESSION_ID_1, wf2))
+                .then(store.findAll(SESSION_ID_1)))
+        .assertNext(map -> assertThat(map).containsKeys(WORKFLOW_ID_1, WORKFLOW_ID_2))
         .verifyComplete();
   }
 
   @Test
   void removeDeletesOnlyTargetWorkflow() {
-    final WorkflowDefinition wf1 = definition("wf1");
-    final WorkflowDefinition wf2 = definition("wf2");
+    final WorkflowDefinition wf1 = definition(WORKFLOW_ID_1);
+    final WorkflowDefinition wf2 = definition(WORKFLOW_ID_2);
     StepVerifier.create(
             store
-                .save("s1", wf1)
-                .then(store.save("s1", wf2))
-                .then(store.remove("s1", "wf1"))
-                .then(store.find("s1", "wf1")))
+                .save(SESSION_ID_1, wf1)
+                .then(store.save(SESSION_ID_1, wf2))
+                .then(store.remove(SESSION_ID_1, WORKFLOW_ID_1))
+                .then(store.find(SESSION_ID_1, WORKFLOW_ID_1)))
         .verifyComplete();
-    StepVerifier.create(store.find("s1", "wf2")).expectNext(wf2).verifyComplete();
+    StepVerifier.create(store.find(SESSION_ID_1, WORKFLOW_ID_2)).expectNext(wf2).verifyComplete();
   }
 
   @Test
   void removeAllClearsSessionLeavesOthersIntact() {
-    final WorkflowDefinition wf1 = definition("wf1");
-    final WorkflowDefinition wf2 = definition("wf2");
+    final WorkflowDefinition wf1 = definition(WORKFLOW_ID_1);
+    final WorkflowDefinition wf2 = definition(WORKFLOW_ID_2);
     StepVerifier.create(
             store
-                .save("s1", wf1)
-                .then(store.save("s2", wf2))
-                .then(store.removeAll("s1"))
-                .then(store.find("s1", "wf1")))
+                .save(SESSION_ID_1, wf1)
+                .then(store.save(SESSION_ID_2, wf2))
+                .then(store.removeAll(SESSION_ID_1))
+                .then(store.find(SESSION_ID_1, WORKFLOW_ID_1)))
         .verifyComplete();
-    StepVerifier.create(store.find("s2", "wf2")).expectNext(wf2).verifyComplete();
+    StepVerifier.create(store.find(SESSION_ID_2, WORKFLOW_ID_2)).expectNext(wf2).verifyComplete();
   }
 
   @Test
+  @SuppressWarnings("PMD.AvoidAccessibilityAlteration")
   void logInitializationExecutedOnBeanCreation()
       throws InvocationTargetException, IllegalAccessException, NoSuchMethodException {
-    InMemoryWorkflowDefinitionStore newStore = new InMemoryWorkflowDefinitionStore();
+    final InMemoryWorkflowDefinitionStore newStore = new InMemoryWorkflowDefinitionStore();
 
-    Method logInitMethod =
+    final Method logInitMethod =
         InMemoryWorkflowDefinitionStore.class.getDeclaredMethod("logInitialization");
     logInitMethod.setAccessible(true);
     logInitMethod.invoke(newStore);

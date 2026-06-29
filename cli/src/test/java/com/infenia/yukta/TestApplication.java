@@ -17,5 +17,6 @@ package com.infenia.yukta;
 
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
+/** Test application bootstrap for the yukta-cli module. */
 @SpringBootApplication
 public class TestApplication {}

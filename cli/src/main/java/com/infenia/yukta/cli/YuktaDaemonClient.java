@@ -35,16 +35,13 @@ public class YuktaDaemonClient {
   /** WebClient for communicating with the daemon. */
   private final WebClient daemonWebClient;
 
-  /** Daemon configuration properties. */
-  private final DaemonProperties props;
-
   /**
    * Applies session configuration to the daemon.
    *
    * @param request the session configuration request
    */
-  public void applySession(ConfigRequest request) {
-    ApiResponse<Void> response =
+  public void applySession(final ConfigRequest request) {
+    final ApiResponse<Void> response =
         daemonWebClient
             .post()
             .uri("/api/sessions")
@@ -65,10 +62,10 @@ public class YuktaDaemonClient {
    * @param workflowId the workflow ID
    * @return the execution ID
    */
-  public String triggerWorkflow(String sessionId, String workflowId) {
-    Map<String, Object> request = Map.of("sessionId", sessionId, "workflowId", workflowId);
+  public String triggerWorkflow(final String sessionId, final String workflowId) {
+    final Map<String, Object> request = Map.of("sessionId", sessionId, "workflowId", workflowId);
 
-    ApiResponse<Map<String, Object>> response =
+    final ApiResponse<Map<String, Object>> response =
         daemonWebClient
             .post()
             .uri("/api/workflow/trigger")
@@ -89,8 +86,8 @@ public class YuktaDaemonClient {
    * @param workflowId the workflow ID
    * @return list of active node IDs
    */
-  public List<String> getActiveNodes(String workflowId) {
-    ApiResponse<List<String>> response =
+  public List<String> getActiveNodes(final String workflowId) {
+    final ApiResponse<List<String>> response =
         daemonWebClient
             .get()
             .uri("/api/control/workflows/{workflowId}/nodes", workflowId)
@@ -107,7 +104,7 @@ public class YuktaDaemonClient {
    * @return list of all active node IDs
    */
   public List<String> getAllActiveNodes() {
-    ApiResponse<List<String>> response =
+    final ApiResponse<List<String>> response =
         daemonWebClient
             .get()
             .uri("/api/control/nodes")
@@ -125,8 +122,8 @@ public class YuktaDaemonClient {
    * @param nodeId the node ID
    * @return heartbeat data map
    */
-  public Map<String, Object> getLastHeartbeat(String workflowId, String nodeId) {
-    ApiResponse<Map<String, Object>> response =
+  public Map<String, Object> getLastHeartbeat(final String workflowId, final String nodeId) {
+    final ApiResponse<Map<String, Object>> response =
         daemonWebClient
             .get()
             .uri("/api/control/workflows/{workflowId}/nodes/{nodeId}/heartbeat", workflowId, nodeId)
@@ -146,8 +143,8 @@ public class YuktaDaemonClient {
    * @return response data map
    */
   public Map<String, Object> sendCommand(
-      String workflowId, String nodeId, Map<String, Object> payload) {
-    ApiResponse<Map<String, Object>> response =
+      final String workflowId, final String nodeId, final Map<String, Object> payload) {
+    final ApiResponse<Map<String, Object>> response =
         daemonWebClient
             .post()
             .uri("/api/control/workflows/{workflowId}/nodes/{nodeId}/command", workflowId, nodeId)
@@ -165,8 +162,8 @@ public class YuktaDaemonClient {
    * @param executionId the execution ID
    * @return progress data map
    */
-  public Map<String, Object> getProgress(String executionId) {
-    ApiResponse<Map<String, Object>> response =
+  public Map<String, Object> getProgress(final String executionId) {
+    final ApiResponse<Map<String, Object>> response =
         daemonWebClient
             .get()
             .uri("/api/control/executions/{executionId}/progress", executionId)
@@ -183,8 +180,8 @@ public class YuktaDaemonClient {
    * @param sessionId the session ID
    * @return list of history records
    */
-  public List<Map<String, Object>> getHistory(String sessionId) {
-    ApiResponse<List<Map<String, Object>>> response =
+  public List<Map<String, Object>> getHistory(final String sessionId) {
+    final ApiResponse<List<Map<String, Object>>> response =
         daemonWebClient
             .get()
             .uri("/api/control/sessions/{sessionId}/history", sessionId)
@@ -201,7 +198,7 @@ public class YuktaDaemonClient {
    * @param executionId the execution ID
    * @param lineConsumer consumer for progress lines
    */
-  public void streamProgress(String executionId, Consumer<String> lineConsumer) {
+  public void streamProgress(final String executionId, final Consumer<String> lineConsumer) {
     daemonWebClient
         .get()
         .uri("/api/control/executions/{executionId}/progress/stream", executionId)
@@ -217,7 +214,7 @@ public class YuktaDaemonClient {
    * @param executionId the execution ID
    * @param lineConsumer consumer for log lines
    */
-  public void streamLogs(String executionId, Consumer<String> lineConsumer) {
+  public void streamLogs(final String executionId, final Consumer<String> lineConsumer) {
     daemonWebClient
         .get()
         .uri("/api/control/executions/{executionId}/logs/stream", executionId)
@@ -233,8 +230,8 @@ public class YuktaDaemonClient {
    * @param sessionId the session ID
    * @return session details map
    */
-  public Map<String, Object> getSessionDetails(String sessionId) {
-    ApiResponse<Map<String, Object>> response =
+  public Map<String, Object> getSessionDetails(final String sessionId) {
+    final ApiResponse<Map<String, Object>> response =
         daemonWebClient
             .get()
             .uri("/api/sessions/{sessionId}", sessionId)
@@ -252,8 +249,8 @@ public class YuktaDaemonClient {
    * @param workflowId the workflow ID
    * @return workflow details map
    */
-  public Map<String, Object> getWorkflow(String sessionId, String workflowId) {
-    ApiResponse<Map<String, Object>> response =
+  public Map<String, Object> getWorkflow(final String sessionId, final String workflowId) {
+    final ApiResponse<Map<String, Object>> response =
         daemonWebClient
             .get()
             .uri("/api/sessions/{sessionId}/workflows/{workflowId}", sessionId, workflowId)
