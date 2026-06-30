@@ -25,7 +25,7 @@ import org.junit.jupiter.api.Test;
 import reactor.core.publisher.Sinks;
 
 @NoArgsConstructor
-@SuppressWarnings({"PMD.CommentRequired", "PMD.AvoidDuplicateLiterals"})
+@SuppressWarnings({"PMD.CommentRequired", "PMD.AvoidDuplicateLiterals", "PMD.TooManyMethods"})
 class ExecutionControlRegistryTest {
 
   /** Registry instance under test. */
@@ -130,5 +130,50 @@ class ExecutionControlRegistryTest {
 
     assertThat(found1).isPresent().contains(control1);
     assertThat(found2).isPresent().contains(control2);
+  }
+
+  @Test
+  void testFindAllActiveByWorkflow() {
+    final ExecutionControl control1 = createControl("session-1", "exec-1");
+    final ExecutionControl control2 = createControl("session-1", "exec-2");
+
+    registry.register(control1);
+    registry.register(control2);
+
+    final var found = registry.findAllActiveByWorkflow("session-1", "workflow-1");
+    assertThat(found).hasSize(2).contains(control1, control2);
+  }
+
+  @Test
+  void testFindAllActiveByWorkflowEmpty() {
+    final var found = registry.findAllActiveByWorkflow("session-1", "workflow-1");
+    assertThat(found).isEmpty();
+  }
+
+  @Test
+  void testFindAllActiveByWorkflowSingleExecution() {
+    final ExecutionControl control = createControl("session-1", "exec-1");
+    registry.register(control);
+
+    final var found = registry.findAllActiveByWorkflow("session-1", "workflow-1");
+    assertThat(found).hasSize(1).contains(control);
+  }
+
+  @Test
+  void testFindAllActiveByWorkflowDifferentSession() {
+    final ExecutionControl control1 = createControl("session-1", "exec-1");
+    final ExecutionControl control2 = createControl("session-2", "exec-2");
+
+    registry.register(control1);
+    registry.register(control2);
+
+    final var found = registry.findAllActiveByWorkflow("session-1", "workflow-1");
+    assertThat(found).hasSize(1).contains(control1);
+  }
+
+  @Test
+  void testUnregisterNonExistent() {
+    registry.unregister("non-existent");
+    assertThat(registry.findByExecutionId("non-existent")).isEmpty();
   }
 }

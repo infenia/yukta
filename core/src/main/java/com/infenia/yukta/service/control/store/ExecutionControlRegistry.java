@@ -79,4 +79,16 @@ public class ExecutionControlRegistry {
       final String sessionId, final String workflowId) {
     return store.findActiveByWorkflow(sessionId, workflowId);
   }
+
+  /**
+   * Finds all active executions for a given workflow and session.
+   *
+   * @param sessionId the session identifier
+   * @param workflowId the workflow identifier
+   * @return a list of all active execution handles (empty if none found)
+   */
+  public java.util.List<ExecutionControl> findAllActiveByWorkflow(
+      final String sessionId, final String workflowId) {
+    return store.findAllActiveByWorkflow(sessionId, workflowId);
+  }
 }

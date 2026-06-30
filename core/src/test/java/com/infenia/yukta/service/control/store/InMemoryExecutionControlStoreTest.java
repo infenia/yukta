@@ -198,4 +198,57 @@ class InMemoryExecutionControlStoreTest {
 
     assertThat(store.findByExecutionId("exec-0-0")).isEmpty();
   }
+
+  @Test
+  void testFindAllActiveByWorkflow() {
+    final ExecutionControl control1 = createControl("session-1", "workflow-1", "exec-1");
+    final ExecutionControl control2 = createControl("session-1", "workflow-1", "exec-2");
+    final ExecutionControl control3 = createControl("session-1", "workflow-2", "exec-3");
+
+    store.save(control1);
+    store.save(control2);
+    store.save(control3);
+
+    final var found = store.findAllActiveByWorkflow("session-1", "workflow-1");
+    assertThat(found).hasSize(2).contains(control1, control2);
+  }
+
+  @Test
+  void testFindAllActiveByWorkflowEmpty() {
+    final var found = store.findAllActiveByWorkflow("session-1", "workflow-1");
+    assertThat(found).isEmpty();
+  }
+
+  @Test
+  void testFindAllActiveByWorkflowSingleExecution() {
+    final ExecutionControl control = createControl("session-1", "workflow-1", "exec-1");
+    store.save(control);
+
+    final var found = store.findAllActiveByWorkflow("session-1", "workflow-1");
+    assertThat(found).hasSize(1).contains(control);
+  }
+
+  @Test
+  void testFindAllActiveByWorkflowDifferentSession() {
+    final ExecutionControl control1 = createControl("session-1", "workflow-1", "exec-1");
+    final ExecutionControl control2 = createControl("session-2", "workflow-1", "exec-2");
+
+    store.save(control1);
+    store.save(control2);
+
+    final var found = store.findAllActiveByWorkflow("session-1", "workflow-1");
+    assertThat(found).hasSize(1).contains(control1);
+  }
+
+  @Test
+  void testFindAllActiveByWorkflowDifferentWorkflow() {
+    final ExecutionControl control1 = createControl("session-1", "workflow-1", "exec-1");
+    final ExecutionControl control2 = createControl("session-1", "workflow-2", "exec-2");
+
+    store.save(control1);
+    store.save(control2);
+
+    final var found = store.findAllActiveByWorkflow("session-1", "workflow-1");
+    assertThat(found).hasSize(1).contains(control1);
+  }
 }

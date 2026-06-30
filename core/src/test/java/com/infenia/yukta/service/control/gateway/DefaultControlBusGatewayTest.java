@@ -324,7 +324,7 @@ class DefaultControlBusGatewayTest {
   // --- stopWorkflow Tests ---
 
   @Test
-  void stopWorkflow_activeExecutionFound_stopsWorkflowAndReturnsExecutionId() {
+  void stopWorkflow_activeExecutionFound_stopsAllAndReturnsExecutionIds() {
     // Given
     final String sessionId = "sess-stop-wf";
     final String workflowId = "wf-stop";
@@ -333,19 +333,22 @@ class DefaultControlBusGatewayTest {
 
     final ExecutionControl control = mock(ExecutionControl.class);
     when(control.executionId()).thenReturn(executionId);
-    when(executionControlRegistry.findActiveByWorkflow(sessionId, workflowId))
-        .thenReturn(Optional.of(control));
+    when(executionControlRegistry.findAllActiveByWorkflow(sessionId, workflowId))
+        .thenReturn(List.of(control));
     when(controlBusService.emit(any())).thenReturn(Mono.empty());
 
     // When
-    final Mono<String> result = gateway.stopWorkflow(sessionId, workflowId, reason);
+    final Mono<List<String>> result = gateway.stopWorkflow(sessionId, workflowId, reason);
 
     // Then
     StepVerifier.create(result)
-        .assertNext(stoppedId -> assertThat(stoppedId).isEqualTo(executionId))
+        .assertNext(
+            stoppedIds -> {
+              assertThat(stoppedIds).hasSize(1).contains(executionId);
+            })
         .verifyComplete();
 
-    verify(executionControlRegistry).findActiveByWorkflow(sessionId, workflowId);
+    verify(executionControlRegistry).findAllActiveByWorkflow(sessionId, workflowId);
     verify(controlBusService).emit(any());
   }
 
@@ -355,11 +358,11 @@ class DefaultControlBusGatewayTest {
     final String sessionId = "sess-no-exec";
     final String workflowId = "wf-no-exec";
     final String reason = "stop";
-    when(executionControlRegistry.findActiveByWorkflow(sessionId, workflowId))
-        .thenReturn(Optional.empty());
+    when(executionControlRegistry.findAllActiveByWorkflow(sessionId, workflowId))
+        .thenReturn(List.of());
 
     // When
-    final Mono<String> result = gateway.stopWorkflow(sessionId, workflowId, reason);
+    final Mono<List<String>> result = gateway.stopWorkflow(sessionId, workflowId, reason);
 
     // Then
     StepVerifier.create(result)
@@ -373,6 +376,49 @@ class DefaultControlBusGatewayTest {
   }
 
   @Test
+  void stopExecution_validInputs_emitsStopCommand() {
+    // Given
+    final String executionId = "exec-to-stop";
+    final String reason = "User requested stop";
+
+    final ExecutionControl control = mock(ExecutionControl.class);
+    when(control.executionId()).thenReturn(executionId);
+    when(executionControlRegistry.findByExecutionId(executionId)).thenReturn(Optional.of(control));
+    when(controlBusService.emit(any())).thenReturn(Mono.empty());
+
+    // When
+    final Mono<String> result = gateway.stopExecution(executionId, reason);
+
+    // Then
+    StepVerifier.create(result)
+        .assertNext(stoppedId -> assertThat(stoppedId).isEqualTo(executionId))
+        .verifyComplete();
+
+    verify(executionControlRegistry).findByExecutionId(executionId);
+    verify(controlBusService).emit(any());
+  }
+
+  @Test
+  void stopExecution_executionNotFound_throwsIllegalArgumentException() {
+    // Given
+    final String executionId = "exec-not-found";
+    final String reason = "stop";
+    when(executionControlRegistry.findByExecutionId(executionId)).thenReturn(Optional.empty());
+
+    // When
+    final Mono<String> result = gateway.stopExecution(executionId, reason);
+
+    // Then
+    StepVerifier.create(result)
+        .expectErrorMatches(
+            err ->
+                err instanceof IllegalArgumentException
+                    && err.getMessage().contains("Execution not found")
+                    && err.getMessage().contains(executionId))
+        .verify();
+  }
+
+  @Test
   void stopWorkflow_correctStopWorkflowCommandBuilt_withElevatedPriority() {
     // Given
     final String sessionId = "sess-cmd-build";
@@ -382,16 +428,16 @@ class DefaultControlBusGatewayTest {
 
     final ExecutionControl control = mock(ExecutionControl.class);
     when(control.executionId()).thenReturn(executionId);
-    when(executionControlRegistry.findActiveByWorkflow(sessionId, workflowId))
-        .thenReturn(Optional.of(control));
+    when(executionControlRegistry.findAllActiveByWorkflow(sessionId, workflowId))
+        .thenReturn(List.of(control));
     when(controlBusService.emit(any())).thenReturn(Mono.empty());
 
     // When
-    final Mono<String> result = gateway.stopWorkflow(sessionId, workflowId, reason);
+    final Mono<List<String>> result = gateway.stopWorkflow(sessionId, workflowId, reason);
 
     // Then
     StepVerifier.create(result)
-        .assertNext(id -> assertThat(id).isEqualTo(executionId))
+        .assertNext(ids -> assertThat(ids).contains(executionId))
         .verifyComplete();
 
     final ArgumentCaptor<Message<?>> captor = ArgumentCaptor.forClass(Message.class);
@@ -408,32 +454,42 @@ class DefaultControlBusGatewayTest {
   }
 
   @Test
-  void stopWorkflow_withSpecificReason_reasonIncludedInCommand() {
+  void stopWorkflow_multipleActiveExecutions_stopsAllWithReasons() {
     // Given
     final String sessionId = "sess-reason";
     final String workflowId = "wf-reason";
-    final String executionId = "exec-reason";
+    final String executionId1 = "exec-1";
+    final String executionId2 = "exec-2";
     final String reason = "Timeout exceeded";
 
-    final ExecutionControl control = mock(ExecutionControl.class);
-    when(control.executionId()).thenReturn(executionId);
-    when(executionControlRegistry.findActiveByWorkflow(sessionId, workflowId))
-        .thenReturn(Optional.of(control));
+    final ExecutionControl control1 = mock(ExecutionControl.class);
+    when(control1.executionId()).thenReturn(executionId1);
+
+    final ExecutionControl control2 = mock(ExecutionControl.class);
+    when(control2.executionId()).thenReturn(executionId2);
+
+    when(executionControlRegistry.findAllActiveByWorkflow(sessionId, workflowId))
+        .thenReturn(List.of(control1, control2));
     when(controlBusService.emit(any())).thenReturn(Mono.empty());
 
     // When
-    final Mono<String> result = gateway.stopWorkflow(sessionId, workflowId, reason);
+    final Mono<List<String>> result = gateway.stopWorkflow(sessionId, workflowId, reason);
 
     // Then
     StepVerifier.create(result)
-        .assertNext(id -> assertThat(id).isEqualTo(executionId))
+        .assertNext(
+            ids -> {
+              assertThat(ids).hasSize(2).contains(executionId1, executionId2);
+            })
         .verifyComplete();
 
     final ArgumentCaptor<Message<?>> captor = ArgumentCaptor.forClass(Message.class);
-    verify(controlBusService).emit(captor.capture());
-    final Message<?> emittedMessage = captor.getValue();
-    final StopWorkflowCommand cmd = (StopWorkflowCommand) emittedMessage.getPayload();
-    assertThat(cmd.reason()).isEqualTo(reason);
+    verify(controlBusService, times(2)).emit(captor.capture());
+    final List<Message<?>> allMessages = captor.getAllValues();
+    for (final Message<?> msg : allMessages) {
+      final StopWorkflowCommand cmd = (StopWorkflowCommand) msg.getPayload();
+      assertThat(cmd.reason()).isEqualTo(reason);
+    }
   }
 
   @Test
@@ -446,14 +502,14 @@ class DefaultControlBusGatewayTest {
 
     final ExecutionControl control = mock(ExecutionControl.class);
     when(control.executionId()).thenReturn(executionId);
-    when(executionControlRegistry.findActiveByWorkflow(sessionId, workflowId))
-        .thenReturn(Optional.of(control));
+    when(executionControlRegistry.findAllActiveByWorkflow(sessionId, workflowId))
+        .thenReturn(List.of(control));
 
     final RuntimeException testError = new RuntimeException("Command execution failed");
     when(controlBusService.emit(any())).thenReturn(Mono.error(testError));
 
     // When
-    final Mono<String> result = gateway.stopWorkflow(sessionId, workflowId, reason);
+    final Mono<List<String>> result = gateway.stopWorkflow(sessionId, workflowId, reason);
 
     // Then
     StepVerifier.create(result).expectError(RuntimeException.class).verify();
@@ -469,68 +525,17 @@ class DefaultControlBusGatewayTest {
 
     final ExecutionControl control = mock(ExecutionControl.class);
     when(control.executionId()).thenReturn(executionId);
-    when(executionControlRegistry.findActiveByWorkflow(sessionId, workflowId))
-        .thenReturn(Optional.of(control));
+    when(executionControlRegistry.findAllActiveByWorkflow(sessionId, workflowId))
+        .thenReturn(List.of(control));
     when(controlBusService.emit(any())).thenReturn(Mono.empty());
 
     // When
-    final Mono<String> result = gateway.stopWorkflow(sessionId, workflowId, reason);
+    final Mono<List<String>> result = gateway.stopWorkflow(sessionId, workflowId, reason);
 
     // Then
-    StepVerifier.create(result).assertNext(id -> assertThat(id).isNotNull()).verifyComplete();
+    StepVerifier.create(result).assertNext(ids -> assertThat(ids).isNotNull()).verifyComplete();
 
-    verify(executionControlRegistry).findActiveByWorkflow(sessionId, workflowId);
-  }
-
-  @Test
-  void stopWorkflow_multipleReasons_eachReasonStoredInCommand() {
-    // Test with first reason
-    final String sessionId = "sess-multi-reason";
-    final String workflowId = "wf-multi-reason";
-    final String executionId1 = "exec-reason-1";
-    final String reason1 = "Timeout";
-
-    final ExecutionControl control1 = mock(ExecutionControl.class);
-    when(control1.executionId()).thenReturn(executionId1);
-    when(executionControlRegistry.findActiveByWorkflow(sessionId, workflowId))
-        .thenReturn(Optional.of(control1));
-    when(controlBusService.emit(any())).thenReturn(Mono.empty());
-
-    // When
-    final Mono<String> result1 = gateway.stopWorkflow(sessionId, workflowId, reason1);
-
-    // Then
-    StepVerifier.create(result1)
-        .assertNext(id -> assertThat(id).isEqualTo(executionId1))
-        .verifyComplete();
-
-    final ArgumentCaptor<Message<?>> captor1 = ArgumentCaptor.forClass(Message.class);
-    verify(controlBusService).emit(captor1.capture());
-    final StopWorkflowCommand cmd1 = (StopWorkflowCommand) captor1.getValue().getPayload();
-    assertThat(cmd1.reason()).isEqualTo(reason1);
-  }
-
-  @Test
-  void stopWorkflow_emitError_logsErrorAndPropagates() {
-    // Given
-    final String sessionId = "sess-emit-error";
-    final String workflowId = "wf-emit-error";
-    final String executionId = "exec-emit-error";
-    final String reason = "emit test";
-
-    final ExecutionControl control = mock(ExecutionControl.class);
-    when(control.executionId()).thenReturn(executionId);
-    when(executionControlRegistry.findActiveByWorkflow(sessionId, workflowId))
-        .thenReturn(Optional.of(control));
-
-    final RuntimeException testError = new RuntimeException("Emit failed");
-    when(controlBusService.emit(any())).thenReturn(Mono.error(testError));
-
-    // When
-    final Mono<String> result = gateway.stopWorkflow(sessionId, workflowId, reason);
-
-    // Then - error is propagated through doOnError
-    StepVerifier.create(result).expectError(RuntimeException.class).verify();
+    verify(executionControlRegistry).findAllActiveByWorkflow(sessionId, workflowId);
   }
 
   @Test

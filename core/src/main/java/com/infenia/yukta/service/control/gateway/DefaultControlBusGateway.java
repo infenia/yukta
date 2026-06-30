@@ -36,7 +36,6 @@ import com.infenia.yukta.plugin.control.ExecutionControlCommand.StopNodeCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.StopWorkflowCommand;
 import com.infenia.yukta.plugin.core.Plugin;
 import com.infenia.yukta.service.control.ControlBusService;
-import com.infenia.yukta.service.control.ExecutionControl;
 import com.infenia.yukta.service.control.store.ExecutionControlRegistry;
 import com.infenia.yukta.service.execution.status.ExecutionStatusEvent;
 import com.infenia.yukta.service.execution.status.ExecutionStatusPublisher;
@@ -380,8 +379,8 @@ public class DefaultControlBusGateway implements ControlBusGateway, ExecutionSta
 
   @Override
   public <T extends ExecutionControlCommand> Mono<Void> executeCommand(final Message<T> command) {
-    @SuppressWarnings({"PMD.LawOfDemeter", "PMD.LocalVariableCouldBeFinal"})
-    var commandType = command.getPayload().getClass().getSimpleName();
+    @SuppressWarnings({"PMD.LawOfDemeter"})
+    final var commandType = command.getPayload().getClass().getSimpleName();
     log.atDebug().addKeyValue("commandType", commandType).log("Executing control command");
     return emit(command);
   }
@@ -493,21 +492,65 @@ public class DefaultControlBusGateway implements ControlBusGateway, ExecutionSta
   }
 
   @Override
-  public Mono<String> stopWorkflow(
+  public Mono<List<String>> stopWorkflow(
       final String sessionId, final String workflowId, final String reason) {
+    return Mono.fromCallable(
+            () -> {
+              final var allExecutions =
+                  executionControlRegistry.findAllActiveByWorkflow(sessionId, workflowId);
+              if (allExecutions.isEmpty()) {
+                throw new IllegalArgumentException(
+                    "No active execution found for session: "
+                        + sessionId
+                        + ", workflow: "
+                        + workflowId);
+              }
+              return allExecutions;
+            })
+        .flatMapMany(
+            executions ->
+                Flux.fromIterable(executions)
+                    .flatMap(
+                        control ->
+                            executeCommand(
+                                    buildCommand(
+                                        new StopWorkflowCommand(control.executionId(), reason),
+                                        CONTROL_COMMAND_PRIORITY + 20))
+                                .thenReturn(control.executionId())))
+        .collectList()
+        .doOnSubscribe(
+            _ ->
+                log.atInfo()
+                    .addKeyValue("sessionId", sessionId)
+                    .addKeyValue("workflowId", workflowId)
+                    .addKeyValue("reason", reason)
+                    .log("Stopping all workflow executions"))
+        .doOnSuccess(
+            stoppedIds ->
+                log.atInfo()
+                    .addKeyValue("sessionId", sessionId)
+                    .addKeyValue("workflowId", workflowId)
+                    .addKeyValue("count", stoppedIds.size())
+                    .log("All workflow stop commands executed"))
+        .doOnError(
+            err ->
+                log.atError()
+                    .setCause(err)
+                    .addKeyValue("sessionId", sessionId)
+                    .addKeyValue("workflowId", workflowId)
+                    .log("Failed to stop workflow executions"));
+  }
+
+  @Override
+  public Mono<String> stopExecution(final String executionId, final String reason) {
     return Mono.fromSupplier(
             () ->
                 executionControlRegistry
-                    .findActiveByWorkflow(sessionId, workflowId)
+                    .findByExecutionId(executionId)
                     .orElseThrow(
-                        () ->
-                            new IllegalArgumentException(
-                                "No active execution found for session: "
-                                    + sessionId
-                                    + ", workflow: "
-                                    + workflowId)))
+                        () -> new IllegalArgumentException("Execution not found: " + executionId)))
         .flatMap(
-            (ExecutionControl control) ->
+            control ->
                 executeCommand(
                         buildCommand(
                             new StopWorkflowCommand(control.executionId(), reason),
@@ -516,24 +559,20 @@ public class DefaultControlBusGateway implements ControlBusGateway, ExecutionSta
         .doOnSubscribe(
             _ ->
                 log.atInfo()
-                    .addKeyValue("sessionId", sessionId)
-                    .addKeyValue("workflowId", workflowId)
+                    .addKeyValue("executionId", executionId)
                     .addKeyValue("reason", reason)
-                    .log("Stopping workflow"))
+                    .log("Stopping specific execution"))
         .doOnSuccess(
             stoppedId ->
                 log.atInfo()
-                    .addKeyValue("sessionId", sessionId)
-                    .addKeyValue("workflowId", workflowId)
                     .addKeyValue("executionId", stoppedId)
-                    .log("Workflow stop command executed"))
+                    .log("Execution stop command executed"))
         .doOnError(
             err ->
                 log.atError()
                     .setCause(err)
-                    .addKeyValue("sessionId", sessionId)
-                    .addKeyValue("workflowId", workflowId)
-                    .log("Failed to stop workflow"));
+                    .addKeyValue("executionId", executionId)
+                    .log("Failed to stop execution"));
   }
 
   @Override

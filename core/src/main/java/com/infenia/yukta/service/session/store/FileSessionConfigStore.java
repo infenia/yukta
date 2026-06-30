@@ -29,6 +29,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.time.Instant;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import lombok.RequiredArgsConstructor;
@@ -427,10 +428,11 @@ public class FileSessionConfigStore implements SessionConfigStore {
    * @return list of session file paths
    * @throws IOException if directory reading fails
    */
-  private java.util.List<Path> getSessionFiles() throws IOException {
+  @SuppressWarnings("PMD.UnnecessaryModifier")
+  private List<Path> getSessionFiles() throws IOException {
     final Path sessionDir = Path.of(props.getBaseDir()).resolve("sessions");
     if (!Files.exists(sessionDir)) {
-      return java.util.List.of();
+      return List.of();
     }
     try (final var stream = Files.list(sessionDir)) {
       return stream.filter(path -> path.toString().endsWith(".json")).toList();

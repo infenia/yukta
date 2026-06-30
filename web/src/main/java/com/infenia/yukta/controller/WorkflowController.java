@@ -17,6 +17,7 @@ package com.infenia.yukta.controller;
 
 import com.infenia.yukta.dto.request.WorkflowStartRequest;
 import com.infenia.yukta.dto.response.WorkflowStartResponse;
+import com.infenia.yukta.dto.response.WorkflowStopResponse;
 import com.infenia.yukta.model.api.ApiResponse;
 import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
 import com.infenia.yukta.model.execution.WorkflowProgress;
@@ -142,27 +143,28 @@ public class WorkflowController {
   }
 
   /**
-   * Stop the active workflow execution for a session and workflow.
+   * Stop all active workflow executions for a session and workflow.
    *
-   * <p>Emits a safe-stop signal that drains inflight work before terminating. The trigger plugin's
-   * stream is also severed, preventing new input from starting new executions.
+   * <p>Emits a safe-stop signal for each execution that drains inflight work before terminating.
+   * The trigger plugin's stream is also severed, preventing new input from starting new executions.
    *
    * @param sessionId the session identifier
    * @param workflowId the workflow identifier
-   * @return response entity with the stopped execution ID
+   * @return response entity with the list of stopped execution IDs
    */
   @PostMapping("/workflow/{sessionId}/{workflowId}/stop")
   @Operation(
-      summary = "Stop a workflow",
+      summary = "Stop all workflow executions",
       description =
-          "Stops the active workflow execution and severs the trigger plugin input stream")
+          "Stops all active workflow executions for a session and workflow, and severs the trigger"
+              + " plugin input stream")
   @io.swagger.v3.oas.annotations.responses.ApiResponse(
       responseCode = "200",
-      description = "Workflow stop signal accepted")
+      description = "Workflow stop signals accepted")
   @io.swagger.v3.oas.annotations.responses.ApiResponse(
       responseCode = "404",
-      description = "No active workflow execution found")
-  public Mono<ResponseEntity<ApiResponse<WorkflowStartResponse>>> stopWorkflow(
+      description = "No active workflow executions found")
+  public Mono<ResponseEntity<ApiResponse<WorkflowStopResponse>>> stopWorkflow(
       @Parameter(description = SESSION_ID_PARAM) @PathVariable final String sessionId,
       @Parameter(description = "Workflow ID") @PathVariable final String workflowId,
       final ServerWebExchange exchange) {
@@ -170,19 +172,19 @@ public class WorkflowController {
     return controlBus
         .stopWorkflow(sessionId, workflowId, "Stopped via REST API")
         .doOnNext(
-            executionId ->
+            executionIds ->
                 log.atInfo().log(
-                    "stopWorkflow command accepted: sessionId={}, workflowId={}, executionId={}",
+                    "stopWorkflow command accepted: sessionId={}, workflowId={}, count={}",
                     sessionId,
                     workflowId,
-                    executionId))
+                    executionIds.size()))
         .map(
-            executionId ->
+            executionIds ->
                 ResponseEntity.ok(
                     ApiResponse.success(
                         200,
-                        "Workflow stop signal accepted",
-                        new WorkflowStartResponse(executionId))))
+                        "Workflow stop signals accepted",
+                        new WorkflowStopResponse(executionIds))))
         .doOnSuccess(
             _ ->
                 log.atInfo().log(
@@ -206,7 +208,64 @@ public class WorkflowController {
                   ResponseEntity.status(HttpStatus.NOT_FOUND)
                       .body(
                           ApiResponse.error(
-                              404, NOT_FOUND, "No active workflow execution", path, errors)));
+                              404, NOT_FOUND, "No active workflow executions", path, errors)));
+            });
+  }
+
+  /**
+   * Stop a specific workflow execution by execution ID.
+   *
+   * <p>Emits a safe-stop signal that drains inflight work before terminating.
+   *
+   * @param executionId the execution identifier
+   * @return response entity with the stopped execution ID
+   */
+  @PostMapping("/workflow/executions/{executionId}/stop")
+  @Operation(
+      summary = "Stop a specific execution",
+      description = "Stops a specific workflow execution by execution ID")
+  @io.swagger.v3.oas.annotations.responses.ApiResponse(
+      responseCode = "200",
+      description = "Execution stop signal accepted")
+  @io.swagger.v3.oas.annotations.responses.ApiResponse(
+      responseCode = "404",
+      description = "Execution not found")
+  public Mono<ResponseEntity<ApiResponse<WorkflowStartResponse>>> stopExecution(
+      @Parameter(description = "Execution ID") @PathVariable final String executionId,
+      final ServerWebExchange exchange) {
+    log.atInfo().log("stopExecution: executionId={}", executionId);
+    return controlBus
+        .stopExecution(executionId, "Stopped via REST API")
+        .doOnNext(
+            stoppedId ->
+                log.atInfo().log("stopExecution command accepted: executionId={}", stoppedId))
+        .map(
+            stoppedId ->
+                ResponseEntity.ok(
+                    ApiResponse.success(
+                        200,
+                        "Execution stop signal accepted",
+                        new WorkflowStartResponse(stoppedId))))
+        .doOnSuccess(
+            _ ->
+                log.atInfo().log(
+                    "stopExecution response sent successfully: executionId={}", executionId))
+        .onErrorResume(
+            e -> {
+              log.atError()
+                  .log(
+                      "stopExecution error occurred: executionId={}, error={}",
+                      executionId,
+                      e.getMessage());
+              @SuppressWarnings("PMD.LawOfDemeter")
+              final var req = exchange.getRequest();
+              final String path = req.getPath().value();
+              final List<ApiResponse.FieldError> errors =
+                  List.of(new ApiResponse.FieldError("execution", e.getMessage()));
+              return Mono.just(
+                  ResponseEntity.status(HttpStatus.NOT_FOUND)
+                      .body(
+                          ApiResponse.error(404, NOT_FOUND, "Execution not found", path, errors)));
             });
   }
 

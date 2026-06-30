@@ -1,0 +1,32 @@
+meta {
+  name: Stop All Workflow Executions
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{base_url}}/api/workflow/{{sessionId}}/{{workflowId}}/stop
+  body: none
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+tests {
+  test("Status code should be 200 OK", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("Response should contain list of execution IDs", function() {
+    expect(res.body).to.have.property('data');
+    expect(res.body.data).to.have.property('executionIds');
+    expect(Array.isArray(res.body.data.executionIds)).to.be.true;
+  });
+
+  test("Message should indicate stop signals accepted", function() {
+    expect(res.body).to.have.property('message');
+    expect(res.body.message).to.include('stop signals accepted');
+  });
+}

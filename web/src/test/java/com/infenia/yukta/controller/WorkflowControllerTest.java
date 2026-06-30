@@ -91,9 +91,6 @@ class WorkflowControllerTest {
   /** Error message when session not found. */
   private static final String SESSION_NOT_FOUND = "Session not found";
 
-  /** Success message for workflow stop signal. */
-  private static final String WORKFLOW_STOP_SIGNAL_ACCEPTED = "Workflow stop signal accepted";
-
   /** JSONPath expression for status field. */
   private static final String DOLLAR_STATUS = "$.status";
 
@@ -105,6 +102,15 @@ class WorkflowControllerTest {
 
   /** Stream endpoint suffix. */
   private static final String STREAM = "/stream";
+
+  /** Workflow execution suffix. */
+  private static final String API_WORKFLOW_EXECUTIONS = "/api/workflow/executions/";
+
+  /** Stop endpoint. */
+  private static final String STOP = "/stop";
+
+  /** Execution not found message. */
+  private static final String EXECUTION_NOT_FOUND = "Execution not found";
 
   /** Web test client for testing controller endpoints. */
   private WebTestClient webClient;
@@ -521,7 +527,7 @@ class WorkflowControllerTest {
   @Test
   void testStopWorkflowSuccess() {
     when(controlBusGateway.stopWorkflow(SESS_ID_1, WF_ID_1, STOPPED_VIA_REST_API))
-        .thenReturn(Mono.just("exec-456"));
+        .thenReturn(Mono.just(List.of("exec-456", "exec-457")));
 
     final var result =
         webClient
@@ -534,9 +540,11 @@ class WorkflowControllerTest {
             .jsonPath(DOLLAR_STATUS)
             .isEqualTo(200)
             .jsonPath(DOLLAR_MESSAGE)
-            .isEqualTo(WORKFLOW_STOP_SIGNAL_ACCEPTED)
-            .jsonPath("$.data.executionId")
+            .isEqualTo("Workflow stop signals accepted")
+            .jsonPath("$.data.executionIds[0]")
             .isEqualTo("exec-456")
+            .jsonPath("$.data.executionIds[1]")
+            .isEqualTo("exec-457")
             .returnResult();
     assertThat(result.getStatus().value()).isEqualTo(200);
   }
@@ -544,7 +552,7 @@ class WorkflowControllerTest {
   @Test
   void testStopWorkflowSuccessLogging(final CapturedOutput output) {
     when(controlBusGateway.stopWorkflow(SESS_ID_1, WF_ID_1, STOPPED_VIA_REST_API))
-        .thenReturn(Mono.just("exec-456"));
+        .thenReturn(Mono.just(List.of("exec-456")));
 
     webClient.post().uri(STOP_ENDPOINT).exchange().expectStatus().isOk();
 
@@ -570,7 +578,7 @@ class WorkflowControllerTest {
             .jsonPath(DOLLAR_STATUS)
             .isEqualTo(404)
             .jsonPath(DOLLAR_MESSAGE)
-            .isEqualTo("No active workflow execution")
+            .isEqualTo("No active workflow executions")
             .returnResult();
     assertThat(result.getStatus().value()).isEqualTo(404);
   }
@@ -586,5 +594,87 @@ class WorkflowControllerTest {
         .contains("stopWorkflow: sessionId=" + SESS_ID_1 + ", workflowId=" + WF_ID_1)
         .contains("stopWorkflow error occurred")
         .contains("No active execution found");
+  }
+
+  // --- Stop Execution Tests ---
+
+  @Test
+  void testStopExecutionSuccess() {
+    when(controlBusGateway.stopExecution(EXEC_ID_1, STOPPED_VIA_REST_API))
+        .thenReturn(Mono.just(EXEC_ID_1));
+
+    final var result =
+        webClient
+            .post()
+            .uri(API_WORKFLOW_EXECUTIONS + EXEC_ID_1 + STOP)
+            .exchange()
+            .expectStatus()
+            .isOk()
+            .expectBody()
+            .jsonPath(DOLLAR_STATUS)
+            .isEqualTo(200)
+            .jsonPath(DOLLAR_MESSAGE)
+            .isEqualTo("Execution stop signal accepted")
+            .jsonPath("$.data.executionId")
+            .isEqualTo(EXEC_ID_1)
+            .returnResult();
+    assertThat(result.getStatus().value()).isEqualTo(200);
+  }
+
+  @Test
+  void testStopExecutionSuccessLogging(final CapturedOutput output) {
+    when(controlBusGateway.stopExecution(EXEC_ID_1, STOPPED_VIA_REST_API))
+        .thenReturn(Mono.just(EXEC_ID_1));
+
+    webClient
+        .post()
+        .uri(API_WORKFLOW_EXECUTIONS + EXEC_ID_1 + STOP)
+        .exchange()
+        .expectStatus()
+        .isOk();
+
+    assertThat(output.toString())
+        .contains("stopExecution: executionId=" + EXEC_ID_1)
+        .contains("stopExecution command accepted")
+        .contains("stopExecution response sent successfully");
+  }
+
+  @Test
+  void testStopExecutionNotFound() {
+    when(controlBusGateway.stopExecution(EXEC_ID_1, STOPPED_VIA_REST_API))
+        .thenReturn(Mono.error(new IllegalArgumentException(EXECUTION_NOT_FOUND)));
+
+    final var result =
+        webClient
+            .post()
+            .uri(API_WORKFLOW_EXECUTIONS + EXEC_ID_1 + STOP)
+            .exchange()
+            .expectStatus()
+            .isNotFound()
+            .expectBody()
+            .jsonPath(DOLLAR_STATUS)
+            .isEqualTo(404)
+            .jsonPath(DOLLAR_MESSAGE)
+            .isEqualTo(EXECUTION_NOT_FOUND)
+            .returnResult();
+    assertThat(result.getStatus().value()).isEqualTo(404);
+  }
+
+  @Test
+  void testStopExecutionNotFoundLogging(final CapturedOutput output) {
+    when(controlBusGateway.stopExecution(EXEC_ID_1, STOPPED_VIA_REST_API))
+        .thenReturn(Mono.error(new IllegalArgumentException(EXECUTION_NOT_FOUND)));
+
+    webClient
+        .post()
+        .uri(API_WORKFLOW_EXECUTIONS + EXEC_ID_1 + STOP)
+        .exchange()
+        .expectStatus()
+        .isNotFound();
+
+    assertThat(output.toString())
+        .contains("stopExecution: executionId=" + EXEC_ID_1)
+        .contains("stopExecution error occurred")
+        .contains(EXECUTION_NOT_FOUND);
   }
 }

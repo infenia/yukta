@@ -1,0 +1,31 @@
+meta {
+  name: Stop Specific Execution
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{base_url}}/api/workflow/executions/{{executionId}}/stop
+  body: none
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+tests {
+  test("Status code should be 200 OK", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("Response should contain stopped execution ID", function() {
+    expect(res.body).to.have.property('data');
+    expect(res.body.data).to.have.property('executionId');
+  });
+
+  test("Message should indicate execution stop signal accepted", function() {
+    expect(res.body).to.have.property('message');
+    expect(res.body.message).to.include('stop signal accepted');
+  });
+}

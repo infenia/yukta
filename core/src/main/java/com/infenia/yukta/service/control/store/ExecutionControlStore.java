@@ -57,4 +57,13 @@ public interface ExecutionControlStore {
    * @return an Optional containing the active handle, or empty if not found
    */
   Optional<ExecutionControl> findActiveByWorkflow(String sessionId, String workflowId);
+
+  /**
+   * Finds all active executions for a workflow and session.
+   *
+   * @param sessionId the session ID
+   * @param workflowId the workflow ID
+   * @return a list of all active execution handles (empty if none found)
+   */
+  java.util.List<ExecutionControl> findAllActiveByWorkflow(String sessionId, String workflowId);
 }
