@@ -33,7 +33,6 @@ import org.springframework.stereotype.Component;
  */
 @Component
 @RequiredArgsConstructor
-@SuppressWarnings("PMD.DoNotUseThreads")
 public class DefaultSystemHealthProvider implements SystemHealthProvider {
 
   /** Registry for accessing all available plugins. */
@@ -74,13 +73,12 @@ public class DefaultSystemHealthProvider implements SystemHealthProvider {
         .toList();
   }
 
-  @SuppressWarnings("PMD.LongVariable")
   private SystemHealthMetrics buildSystemHealthMetrics() {
     final Runtime runtime = Runtime.getRuntime();
     final long maxMemory = runtime.maxMemory() / (1024 * 1024);
     final long usedMemory = (runtime.totalMemory() - runtime.freeMemory()) / (1024 * 1024);
     final double threadPoolUtilization =
-        (Thread.activeCount() / (double) runtime.availableProcessors()) * 100;
+        Thread.activeCount() / (double) runtime.availableProcessors() * 100;
 
     return new SystemHealthMetrics(
         threadPoolUtilization,
