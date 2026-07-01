@@ -6,6 +6,21 @@
       "Read(./**/.gradle/**)",
       "Read(./cli-boot/**)",
       "Read(./**/node_modules/**)"
+    ],
+    "allow": [
+      "mcp__codegraph__*"
+    ]
+  },
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "codegraph prompt-hook"
+          }
+        ]
+      }
     ]
   }
 }
