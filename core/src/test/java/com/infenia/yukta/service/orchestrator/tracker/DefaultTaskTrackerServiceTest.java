@@ -19,6 +19,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
 import com.infenia.yukta.model.execution.WorkflowProgress;
+import com.infenia.yukta.service.streaming.StatusHistoryCache;
 import java.lang.reflect.Field;
 import java.time.Duration;
 import java.util.Collections;
@@ -29,6 +30,7 @@ import java.util.concurrent.TimeUnit;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoSettings;
 import reactor.test.StepVerifier;
 
@@ -49,9 +51,12 @@ class DefaultTaskTrackerServiceTest {
   /** Tracker under test. */
   private DefaultTaskTrackerService tracker;
 
+  /** Mock status history cache. */
+  @Mock private StatusHistoryCache statusHistoryCache;
+
   @BeforeEach
   void setUp() {
-    tracker = new DefaultTaskTrackerService(Duration.ofMillis(200));
+    tracker = new DefaultTaskTrackerService(Duration.ofMillis(200), statusHistoryCache);
     tracker.init();
   }
 
@@ -504,7 +509,7 @@ class DefaultTaskTrackerServiceTest {
   void testAutoCleanupWithShortTtl() throws Exception {
     // Create a tracker with very short TTL
     final DefaultTaskTrackerService shortTtlTracker =
-        new DefaultTaskTrackerService(Duration.ofMillis(150));
+        new DefaultTaskTrackerService(Duration.ofMillis(150), statusHistoryCache);
     shortTtlTracker.init();
 
     final String sessionId = "sess-short-ttl";
@@ -529,7 +534,7 @@ class DefaultTaskTrackerServiceTest {
   @Test
   void testInitTaskStatusErrorHandler() throws Exception {
     final DefaultTaskTrackerService trackerWithError =
-        new DefaultTaskTrackerService(Duration.ofMinutes(10));
+        new DefaultTaskTrackerService(Duration.ofMinutes(10), statusHistoryCache);
 
     // Replace executionIndex with a map that throws on get()
     final Field executionIndexField =
@@ -561,7 +566,7 @@ class DefaultTaskTrackerServiceTest {
   @Test
   void testInitWorkflowStatusErrorHandler() throws Exception {
     final DefaultTaskTrackerService trackerWithError =
-        new DefaultTaskTrackerService(Duration.ofMinutes(10));
+        new DefaultTaskTrackerService(Duration.ofMinutes(10), statusHistoryCache);
 
     // Replace executionIndex with a map that throws on get()
     final Field executionIndexField =
@@ -591,7 +596,7 @@ class DefaultTaskTrackerServiceTest {
   @Test
   void testInitLogErrorHandler() throws Exception {
     final DefaultTaskTrackerService trackerWithError =
-        new DefaultTaskTrackerService(Duration.ofMinutes(10));
+        new DefaultTaskTrackerService(Duration.ofMinutes(10), statusHistoryCache);
 
     // Replace logSinks with a map that throws on get()
     final Field logSinksField = DefaultTaskTrackerService.class.getDeclaredField("logSinks");
@@ -1780,7 +1785,7 @@ class DefaultTaskTrackerServiceTest {
   void testNotifyStatusChangeWhenStateIsNullAfterCleanup() {
     // Create a workflow with short TTL
     final DefaultTaskTrackerService shortTtlTracker =
-        new DefaultTaskTrackerService(Duration.ofMillis(100));
+        new DefaultTaskTrackerService(Duration.ofMillis(100), statusHistoryCache);
     shortTtlTracker.init();
 
     final String sessionId = "sess-cleanup-state-null";

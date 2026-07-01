@@ -721,15 +721,16 @@ class DefaultControlBusGatewayTest {
   void watchExecution_validExecutionId_delegatesToTaskTracker() {
     // Given
     final String executionId = "exec-14";
-    final WorkflowProgress progress = mock(WorkflowProgress.class);
-    when(taskTracker.getStatusStream(executionId)).thenReturn(Flux.just(progress));
+    final WorkflowProgress progress =
+        new WorkflowProgress("exec", "sess", "wf", "status", List.of(), null, null);
+    when(taskTracker.getStatusStream(executionId, true)).thenReturn(Flux.just(progress));
 
     // When
     final Flux<WorkflowProgress> result = gateway.watchExecution(executionId);
 
     // Then
     StepVerifier.create(result).expectNext(progress).verifyComplete();
-    verify(taskTracker).getStatusStream(executionId);
+    verify(taskTracker).getStatusStream(executionId, true);
   }
 
   @Test
@@ -1226,14 +1227,16 @@ class DefaultControlBusGatewayTest {
   void watchExecution_validExecutionId_logsAndReturnsStream() {
     // Given
     final String executionId = "exec-watch";
-    final WorkflowProgress progress = mock(WorkflowProgress.class);
-    when(taskTracker.getStatusStream(executionId)).thenReturn(Flux.just(progress));
+    final WorkflowProgress progress =
+        new WorkflowProgress("exec", "sess", "wf", "status", List.of(), null, null);
+    when(taskTracker.getStatusStream(executionId, true)).thenReturn(Flux.just(progress));
 
     // When
     final Flux<WorkflowProgress> result = gateway.watchExecution(executionId);
 
     // Then
     StepVerifier.create(result).expectNext(progress).verifyComplete();
+    verify(taskTracker).getStatusStream(executionId, true);
   }
 
   @Test
@@ -1435,13 +1438,14 @@ class DefaultControlBusGatewayTest {
   void watchExecution_withEmptyStream_completesWithoutItems() {
     // Given
     final String executionId = "exec-empty";
-    when(taskTracker.getStatusStream(executionId)).thenReturn(Flux.empty());
+    when(taskTracker.getStatusStream(executionId, true)).thenReturn(Flux.empty());
 
     // When
     final Flux<WorkflowProgress> result = gateway.watchExecution(executionId);
 
     // Then
     StepVerifier.create(result).verifyComplete();
+    verify(taskTracker).getStatusStream(executionId, true);
   }
 
   @Test
@@ -1449,13 +1453,14 @@ class DefaultControlBusGatewayTest {
     // Given
     final String executionId = "exec-stream-error";
     final RuntimeException testError = new RuntimeException("Stream error");
-    when(taskTracker.getStatusStream(executionId)).thenReturn(Flux.error(testError));
+    when(taskTracker.getStatusStream(executionId, true)).thenReturn(Flux.error(testError));
 
     // When
     final Flux<WorkflowProgress> result = gateway.watchExecution(executionId);
 
     // Then
     StepVerifier.create(result).expectError(RuntimeException.class).verify();
+    verify(taskTracker).getStatusStream(executionId, true);
   }
 
   @Test

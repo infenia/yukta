@@ -276,6 +276,19 @@ public interface ControlBusGateway {
       String executionId);
 
   /**
+   * Watch a specific execution for status updates with optional history.
+   *
+   * <p>If includeHistory is true, the returned flux emits cached historical updates before live
+   * updates. Stream auto-completes when the workflow reaches a terminal state.
+   *
+   * @param executionId the execution identifier
+   * @param includeHistory if true, emit cached history before live updates
+   * @return a flux of workflow progress updates
+   */
+  reactor.core.publisher.Flux<com.infenia.yukta.model.execution.WorkflowProgress> watchExecution(
+      String executionId, boolean includeHistory);
+
+  /**
    * Watch workflow logs in real-time.
    *
    * <p>Emits log lines as they are generated during execution. Useful for live log streaming to

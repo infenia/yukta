@@ -722,11 +722,18 @@ public class DefaultControlBusGateway implements ControlBusGateway, ExecutionSta
 
   @Override
   public Flux<WorkflowProgress> watchExecution(final String executionId) {
+    return watchExecution(executionId, true);
+  }
+
+  @Override
+  public Flux<WorkflowProgress> watchExecution(
+      final String executionId, final boolean includeHistory) {
     log.atDebug()
         .addKeyValue("executionId", executionId)
+        .addKeyValue("includeHistory", includeHistory)
         .log("Starting to watch workflow execution");
     return taskTracker
-        .getStatusStream(executionId)
+        .getStatusStream(executionId, includeHistory)
         .doOnSubscribe(
             _ ->
                 log.atDebug()
@@ -744,7 +751,9 @@ public class DefaultControlBusGateway implements ControlBusGateway, ExecutionSta
                 log.atError()
                     .setCause(err)
                     .addKeyValue("executionId", executionId)
-                    .log("Execution status stream error"));
+                    .log("Stream error"))
+        .doOnComplete(
+            () -> log.atInfo().addKeyValue("executionId", executionId).log("Stream completed"));
   }
 
   @Override

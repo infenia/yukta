@@ -45,6 +45,8 @@ yukta:
     store-type: in-memory
   tracker:
     cleanup-ttl: 10m
+  streaming:
+    status-history-ttl-minutes: 5
   daemon:
     port: 8080
     startup-timeout-seconds: 30

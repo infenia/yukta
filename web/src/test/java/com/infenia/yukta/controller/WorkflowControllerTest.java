@@ -341,7 +341,7 @@ class WorkflowControllerTest {
             List.of(),
             LocalDateTime.now(ZoneId.systemDefault()),
             null);
-    when(controlBusGateway.watchExecution(EXEC_ID_1)).thenReturn(Flux.just(progress));
+    when(controlBusGateway.watchExecution(EXEC_ID_1, true)).thenReturn(Flux.just(progress));
 
     final var result =
         webClient
@@ -367,7 +367,7 @@ class WorkflowControllerTest {
             List.of(),
             LocalDateTime.now(ZoneId.systemDefault()),
             null);
-    when(controlBusGateway.watchExecution(EXEC_ID_1)).thenReturn(Flux.just(progress));
+    when(controlBusGateway.watchExecution(EXEC_ID_1, true)).thenReturn(Flux.just(progress));
 
     final var result =
         webClient
@@ -404,7 +404,8 @@ class WorkflowControllerTest {
             List.of(),
             LocalDateTime.now(ZoneId.systemDefault()),
             null);
-    when(controlBusGateway.watchExecution(EXEC_ID_1)).thenReturn(Flux.just(progress1, progress2));
+    when(controlBusGateway.watchExecution(EXEC_ID_1, true))
+        .thenReturn(Flux.just(progress1, progress2));
 
     final var result =
         webClient
@@ -421,7 +422,7 @@ class WorkflowControllerTest {
 
   @Test
   void testStreamWorkflowStatusError(final CapturedOutput output) {
-    when(controlBusGateway.watchExecution(EXEC_ID_1))
+    when(controlBusGateway.watchExecution(EXEC_ID_1, true))
         .thenReturn(Flux.error(new RuntimeException("Stream error")));
 
     final var result =

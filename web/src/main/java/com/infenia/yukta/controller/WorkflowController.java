@@ -40,6 +40,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Flux;
@@ -58,7 +59,7 @@ import reactor.core.publisher.Mono;
 @Tag(
     name = "Workflow API",
     description = "Endpoints for starting and monitoring workflow executions")
-@SuppressWarnings("PMD.AvoidDuplicateLiterals")
+@SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.ExcessiveImports"})
 public class WorkflowController {
   /** The service for managing workflow operations. */
   private final WorkflowService workflowService;
@@ -352,10 +353,17 @@ public class WorkflowController {
       description = "Streams the status and progress of a specific workflow execution via SSE")
   public Flux<ServerSentEvent<WorkflowProgress>> streamWorkflowStatus(
       @Parameter(description = SESSION_ID_PARAM) @PathVariable final String sessionId,
-      @Parameter(description = "Execution ID") @PathVariable final String executionId) {
-    log.atInfo().log("streamWorkflowStatus: sessionId={}, executionId={}", sessionId, executionId);
+      @Parameter(description = "Execution ID") @PathVariable final String executionId,
+      @Parameter(description = "Include historical status updates (last N minutes)")
+          @RequestParam(defaultValue = "true")
+          final boolean includeHistory) {
+    log.atInfo().log(
+        "streamWorkflowStatus: sessionId={}, executionId={}, includeHistory={}",
+        sessionId,
+        executionId,
+        includeHistory);
     return controlBus
-        .watchExecution(executionId)
+        .watchExecution(executionId, includeHistory)
         .doOnNext(
             _ ->
                 log.atDebug().log(

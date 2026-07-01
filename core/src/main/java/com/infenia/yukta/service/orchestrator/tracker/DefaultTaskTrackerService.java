@@ -22,9 +22,11 @@ import com.infenia.yukta.model.execution.TaskProgress;
 import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
 import com.infenia.yukta.model.execution.WorkflowProgress;
+import com.infenia.yukta.service.streaming.StatusHistoryCache;
 import com.infenia.yukta.validation.NodeId;
 import com.infenia.yukta.validation.SessionId;
 import com.infenia.yukta.validation.WorkflowId;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import jakarta.annotation.PostConstruct;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
@@ -63,6 +65,7 @@ import reactor.util.concurrent.Queues;
   "PMD.OnlyOneReturn",
   "PMD.AvoidDuplicateLiterals"
 })
+@SuppressFBWarnings("EI2")
 public class DefaultTaskTrackerService implements TaskTrackerService {
 
   /** Batch size for event processing. */
@@ -77,6 +80,9 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
 
   /** Time to live for execution data after terminal status. */
   private final Duration cleanupTtl;
+
+  /** Cache for storing recent workflow progress updates per execution. */
+  private final StatusHistoryCache statusHistoryCache;
 
   /** Map of session ID to workflow states. */
   private final Map<String, Map<String, WorkflowState>> sessionStates = new ConcurrentHashMap<>();
@@ -109,10 +115,13 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
    * Create a new DefaultTaskTrackerService with configurable cleanup TTL.
    *
    * @param cleanupTtl the time to live for execution data after terminal status
+   * @param statusHistoryCache the cache for storing recent workflow progress updates
    */
   public DefaultTaskTrackerService(
-      @Value("${yukta.tracker.cleanup-ttl:10m}") final Duration cleanupTtl) {
+      @Value("${yukta.tracker.cleanup-ttl:10m}") final Duration cleanupTtl,
+      final StatusHistoryCache statusHistoryCache) {
     this.cleanupTtl = cleanupTtl;
+    this.statusHistoryCache = statusHistoryCache;
   }
 
   /** Initialize background event consumers. */
@@ -592,8 +601,55 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
    */
   @Override
   public Flux<WorkflowProgress> getStatusStream(@NotBlank final String executionId) {
+    return getStatusStream(executionId, true);
+  }
+
+  /**
+   * Get a flux of status updates for an execution with optional history.
+   *
+   * <p>If includeHistory is true, emits cached historical updates first, then chains to live
+   * updates. Stream auto-completes when a terminal state is detected. Each live update is cached
+   * for future clients.
+   *
+   * @param executionId the execution identifier
+   * @param includeHistory if true, emit cached history before live updates
+   * @return the status flux (history + live), or empty if execution not found
+   */
+  @Override
+  public Flux<WorkflowProgress> getStatusStream(
+      @NotBlank final String executionId, final boolean includeHistory) {
+    log.atDebug()
+        .addKeyValue("executionId", executionId)
+        .addKeyValue("includeHistory", includeHistory)
+        .log("Getting status stream");
+
     final Sinks.Many<WorkflowProgress> sink = statusSinks.get(executionId);
-    return sink != null ? sink.asFlux() : Flux.empty();
+    if (sink == null) {
+      log.atWarn()
+          .addKeyValue("executionId", executionId)
+          .log("No status sink found for execution");
+      return Flux.empty();
+    }
+
+    Flux<WorkflowProgress> statusFlux = sink.asFlux();
+
+    if (includeHistory) {
+      final List<WorkflowProgress> history = statusHistoryCache.get(executionId);
+      log.atDebug()
+          .addKeyValue("executionId", executionId)
+          .addKeyValue("historySize", history.size())
+          .log("Including history in stream");
+      statusFlux = Flux.fromIterable(history).concatWith(statusFlux);
+    }
+
+    return statusFlux
+        .doOnNext(progress -> statusHistoryCache.put(executionId, progress))
+        .takeUntil(this::isWorkflowTerminal)
+        .doOnComplete(
+            () ->
+                log.atInfo()
+                    .addKeyValue("executionId", executionId)
+                    .log("Status stream completed"));
   }
 
   private WorkflowState findState(final String executionId) {
@@ -606,6 +662,35 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
 
   private boolean isTerminal(final String status) {
     return TaskStatus.valueOf(status).isTerminal();
+  }
+
+  /**
+   * Check if a workflow progress represents a terminal state.
+   *
+   * <p>Both conditions must be true: status must be terminal AND endTime must be set.
+   *
+   * @param progress the workflow progress to check
+   * @return true if terminal state detected, false otherwise
+   */
+  private boolean isWorkflowTerminal(final WorkflowProgress progress) {
+    final String status = progress.status();
+    final LocalDateTime endTime = progress.endTime();
+
+    final Set<String> terminalStatuses =
+        Set.of("COMPLETED", "FAILED", "CANCELLED", "WORKFLOW_STOPPED");
+
+    final boolean isTerminalStatus = terminalStatuses.contains(status);
+    final boolean hasEndTime = endTime != null;
+
+    if (isTerminalStatus && hasEndTime) {
+      log.atDebug()
+          .addKeyValue("status", status)
+          .addKeyValue("endTime", endTime)
+          .log("Workflow reached terminal state");
+      return true;
+    }
+
+    return false;
   }
 
   private void scheduleCleanup(final String executionId) {
