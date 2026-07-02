@@ -44,7 +44,7 @@ htmx-spring-boot = { group = "io.github.wimdeblauwe", name = "htmx-spring-boot",
 handlebars = { group = "com.github.jknack", name = "handlebars", version.ref = "handlebars" }
 graalvm-polyglot = { group = "org.graalvm.polyglot", name = "polyglot", version.ref = "graalvmPolyglot" }
 graalvm-js = { group = "org.graalvm.polyglot", name = "js", version.ref = "graalvmPolyglot" }
-lombok = { group = "org.projectlombok", name = "lombok", version = "1.18.36" }
+lombok = { group = "org.projectlombok", name = "lombok", version = "1.18.46" }
 spring-boot-devtools = { group = "org.springframework.boot", name = "spring-boot-devtools" }
 spring-boot-docker-compose = { group = "org.springframework.boot", name = "spring-boot-docker-compose" }
 picocli = { group = "info.picocli", name = "picocli", version.ref = "picocli" }
