@@ -18,18 +18,18 @@
 
 > **Yukta is pre-beta (`0.0.1-SNAPSHOT`).** The engine, plugins, REST API, and MCP server all run and are exercised by the test suite, but there are no tagged releases or downloadable binaries yet, and no changelog. Expect breaking changes to the JSON workflow schema and APIs before v0.1.0. This section is the source of truth for "what actually works today" — update it whenever a module's status changes, rather than scattering status claims through the rest of the doc.
 
-| Area | Status | Notes |
-|---|---|---|
-| DAG orchestration engine (`core`) | Working | Reactive compiler/validator/executor; requires each workflow to have at least one trigger node |
-| REST API (`web`) | Working | 5 controllers, 23 endpoints; see [REST API](#rest-api) |
-| MCP server (`mcp`) | Working | 13 tools, 2 prompts, 3 resources over `/sse` (always on, no flag needed) |
-| Built-in plugins (`plugins`) | Working | 13 plugins across trigger/processor/terminal; see [Plugins](#plugins) |
-| Web UI (`ui`) | Working | JTE + Tailwind + Alpine.js dashboard at `/ui` |
-| Native image (GraalVM) | Configured, not yet published | `./gradlew nativeCompile` builds a `yukta` binary; no released artifacts |
-| Go CLI (`cli`) | In progress | See `cli/CLAUDE.md` |
-| CI | Working | `.github/workflows/ci.yml`, path-filtered per-module builds, nightly run |
-| Tagged releases / downloads | Not yet | No git tags, no CHANGELOG.md, no GitHub Releases |
-| User-facing docs (getting-started, architecture, api-reference, plugin-development guides) | Not yet | `docs/` currently only has internal notes; use module-level `CLAUDE.md` files in the meantime |
+| Area                                                                                       | Status                        | Notes                                                                                          |
+|--------------------------------------------------------------------------------------------|-------------------------------|------------------------------------------------------------------------------------------------|
+| DAG orchestration engine (`core`)                                                          | Working                       | Reactive compiler/validator/executor; requires each workflow to have at least one trigger node |
+| REST API (`web`)                                                                           | Working                       | 5 controllers, 23 endpoints; see [REST API](#rest-api)                                         |
+| MCP server (`mcp`)                                                                         | Working                       | 13 tools, 2 prompts, 3 resources over `/sse` (always on, no flag needed)                       |
+| Built-in plugins (`plugins`)                                                               | Working                       | 13 plugins across trigger/processor/terminal; see [Plugins](#plugins)                          |
+| Web UI (`ui`)                                                                              | Working                       | JTE + Tailwind + Alpine.js dashboard at `/ui`                                                  |
+| Native image (GraalVM)                                                                     | Configured, not yet published | `./gradlew nativeCompile` builds a `yukta` binary; no released artifacts                       |
+| Go CLI (`cli`)                                                                             | In progress                   | See `cli/CLAUDE.md`                                                                            |
+| CI                                                                                         | Working                       | `.github/workflows/ci.yml`, path-filtered per-module builds, nightly run                       |
+| Tagged releases / downloads                                                                | Not yet                       | No git tags, no CHANGELOG.md, no GitHub Releases                                               |
+| User-facing docs (getting-started, architecture, api-reference, plugin-development guides) | Not yet                       | `docs/` currently only has internal notes; use module-level `CLAUDE.md` files in the meantime  |
 
 **Path to beta** (rough, update as items land):
 - [ ] Publish a first tagged release with native-image binaries
@@ -102,30 +102,30 @@ Each layer is independent — plugins are Spring `@Component` beans implementing
 
 **Triggers** (entry points — start a workflow)
 
-| Type | Class | Description |
-|---|---|---|
-| `MANUAL` | `ManualTrigger` | Emits a single empty message to start a workflow with no input |
-| `CONSTANT_SOURCE` | `ConfigVariableSource` | Emits a message with predefined/SpEL-evaluated variables at startup |
-| `api-trigger` | `ApiTriggerPlugin` | Passes the payload received from an API trigger directly into the workflow |
+| Type              | Class                  | Description                                                                |
+|-------------------|------------------------|----------------------------------------------------------------------------|
+| `MANUAL`          | `ManualTrigger`        | Emits a single empty message to start a workflow with no input             |
+| `CONSTANT_SOURCE` | `ConfigVariableSource` | Emits a message with predefined/SpEL-evaluated variables at startup        |
+| `api-trigger`     | `ApiTriggerPlugin`     | Passes the payload received from an API trigger directly into the workflow |
 
 **Processors** (transform / route messages)
 
-| Type | Class | Description |
-|---|---|---|
-| `FILTER` | `FilterProcessor` | Evaluates a boolean predicate; passes or drops/reroutes the message |
-| `BRANCH` | `BranchProcessor` | Routes to different ports via exact-match selectors or SpEL expressions |
-| `SPLITTER` | `SplitterProcessor` | Splits a composite message into individual items (parallel or sequential) |
-| `RECIPIENT_LIST` | `RecipientListProcessor` | Fans a single message out to a set of static/dynamic/external recipients |
-| `MAPPER` | `MapperProcessor` | Transforms payloads via PROJECTION (SpEL), TEMPLATE (Handlebars), or SCRIPT (GraalVM JS) |
-| `CONTENT-FILTER` | `ContentFilterProcessor` | Removes unimportant/redundant/sensitive fields (include or exclude modes) |
-| `LOOP_PREDICATE` | `LoopPredicateProcessor` | Repeats a target plugin until an exit condition is met; emits the final result |
-| `LOOP_STREAM` | `LoopStreamProcessor` | Repeats a target plugin and flattens all produced messages into one stream |
-| `PROCESS_EXECUTOR` | `ProcessExecutorPlugin` | Runs an external OS process with reactive streaming output, timeouts, error handling |
+| Type               | Class                    | Description                                                                              |
+|--------------------|--------------------------|------------------------------------------------------------------------------------------|
+| `FILTER`           | `FilterProcessor`        | Evaluates a boolean predicate; passes or drops/reroutes the message                      |
+| `BRANCH`           | `BranchProcessor`        | Routes to different ports via exact-match selectors or SpEL expressions                  |
+| `SPLITTER`         | `SplitterProcessor`      | Splits a composite message into individual items (parallel or sequential)                |
+| `RECIPIENT_LIST`   | `RecipientListProcessor` | Fans a single message out to a set of static/dynamic/external recipients                 |
+| `MAPPER`           | `MapperProcessor`        | Transforms payloads via PROJECTION (SpEL), TEMPLATE (Handlebars), or SCRIPT (GraalVM JS) |
+| `CONTENT-FILTER`   | `ContentFilterProcessor` | Removes unimportant/redundant/sensitive fields (include or exclude modes)                |
+| `LOOP_PREDICATE`   | `LoopPredicateProcessor` | Repeats a target plugin until an exit condition is met; emits the final result           |
+| `LOOP_STREAM`      | `LoopStreamProcessor`    | Repeats a target plugin and flattens all produced messages into one stream               |
+| `PROCESS_EXECUTOR` | `ProcessExecutorPlugin`  | Runs an external OS process with reactive streaming output, timeouts, error handling     |
 
 **Terminals** (end a workflow branch)
 
-| Type | Class | Description |
-|---|---|---|
+| Type               | Class                   | Description                                |
+|--------------------|-------------------------|--------------------------------------------|
 | `CONSOLE_TERMINAL` | `ConsoleTerminalPlugin` | Logs the message payload to console/logger |
 
 Custom plugins implement `TriggerPlugin`, `ProcessorPlugin`, or `TerminalPlugin` from `plugin-api` and register as a Spring bean — no changes to `core` needed. See `plugin-api/CLAUDE.md` and `plugins/CLAUDE.md` for the interfaces and conventions, or ask the MCP server's `get_plugin_creation_guide` tool for a template.
@@ -149,13 +149,13 @@ Point any MCP-compatible client at `http://localhost:8080/sse` (SSE transport, `
 
 Base path `/api`, 5 controllers, 23 endpoints. Full interactive docs at `http://localhost:8080/swagger-ui.html` once running.
 
-| Controller | Base path | Handles |
-|---|---|---|
-| `SessionConfigController` | `/api/sessions` | Create/update session config, list sessions, read workflow definitions |
-| `WorkflowController` | `/api/workflow` | Start/stop executions, poll or stream (SSE) status, history |
-| `ControlBusController` | `/api/control` | Live node/heartbeat introspection, execution progress + log streams (SSE) |
-| `PluginController` | `/api/plugins` | List plugins and get plugin details |
-| `LogManagementController` | `/api/logs` | List and read session log files |
+| Controller                | Base path       | Handles                                                                   |
+|---------------------------|-----------------|---------------------------------------------------------------------------|
+| `SessionConfigController` | `/api/sessions` | Create/update session config, list sessions, read workflow definitions    |
+| `WorkflowController`      | `/api/workflow` | Start/stop executions, poll or stream (SSE) status, history               |
+| `ControlBusController`    | `/api/control`  | Live node/heartbeat introspection, execution progress + log streams (SSE) |
+| `PluginController`        | `/api/plugins`  | List plugins and get plugin details                                       |
+| `LogManagementController` | `/api/logs`     | List and read session log files                                           |
 
 ---
 

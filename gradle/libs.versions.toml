@@ -62,7 +62,7 @@ spring-boot-starter-webclient-test = { group = "org.springframework.boot", name 
 spring-boot-starter-webflux-test = { group = "org.springframework.boot", name = "spring-boot-starter-webflux-test" }
 spring-boot-starter-jackson-test = { group = "org.springframework.boot", name = "spring-boot-starter-jackson-test" }
 reactor-test = { group = "io.projectreactor", name = "reactor-test" }
-playwright = { group = "com.microsoft.playwright", name = "playwright", version = "1.49.0" }
+playwright = { group = "com.microsoft.playwright", name = "playwright", version = "1.61.0" }
 awaitility = { group = "org.awaitility", name = "awaitility", version = "4.3.0" }
 [plugins]
 spring-boot = { id = "org.springframework.boot", version.ref = "springBoot" }
