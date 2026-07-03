@@ -55,6 +55,10 @@ spotbugs {
 // Error Prone configuration
 dependencies {
     add("errorprone", libs.findLibrary("errorprone").get())
+    // Resolve CVE-2025-67030: Plexus-utils directory traversal vulnerability
+    constraints {
+        add("checkstyle", "org.codehaus.plexus:plexus-utils:3.6.1")
+    }
 }
 
 tasks.register<Exec>("opengrep") {
@@ -62,7 +66,6 @@ tasks.register<Exec>("opengrep") {
     group = "verification"
 
     val sourceDir = project.file("src/main/java")
-    val configFile = rootProject.file("config/opengrep/.semgrep.yml")
     val reportDir = project.layout.buildDirectory.dir("reports/opengrep").get()
     val reportFile = reportDir.file("opengrep-report.sarif").asFile
 
@@ -96,13 +99,69 @@ tasks.register<Exec>("opengrep") {
         val sourceExists = sourceDir.exists()
         val opengrepExists = try {
             Runtime.getRuntime().exec(arrayOf("sh", "-c", "which opengrep")).waitFor() == 0
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             false
         }
 
         sourceExists && opengrepExists
     }
 }
+
+tasks.register<Exec>("trivy") {
+    description = "Scan for vulnerabilities with Trivy"
+    group = "verification"
+
+    val reportDir = project.layout.buildDirectory.dir("reports/trivy").get().asFile
+    val fsSarifReport = File(reportDir, "trivy-fs-report.sarif")
+
+    doFirst {
+        reportDir.mkdirs()
+    }
+
+    commandLine("sh", "-c", """
+        trivy fs \
+          --format sarif \
+          --output ${fsSarifReport.absolutePath} \
+          --severity HIGH,CRITICAL \
+          --exit-code 0 \
+          ${project.projectDir.absolutePath}
+    """.trimIndent())
+
+    isIgnoreExitValue = true
+
+    doLast {
+        val reportExists = fsSarifReport.exists()
+        if (reportExists) {
+            logger.info("✓ Trivy filesystem scan report: ${fsSarifReport.absolutePath}")
+        }
+
+        // Exit code 1 means vulnerabilities found (not a failure for this task in Gradle)
+        // We report findings but don't fail - that's the CI job's responsibility
+        if (executionResult.get().exitValue > 1) {
+            throw GradleException("Trivy scan failed with exit code ${executionResult.get().exitValue}")
+        }
+    }
+
+    onlyIf {
+        val trivyExists = try {
+            Runtime.getRuntime().exec(arrayOf("sh", "-c", "which trivy")).waitFor() == 0
+        } catch (_: Exception) {
+            false
+        }
+
+        if (!trivyExists) {
+            logger.warn("⚠ Trivy not found. Install with: curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin")
+        }
+
+        trivyExists
+    }
+}
+
+// Make Trivy part of the check task (runs after check completes)
+tasks.named("check") {
+    finalizedBy(tasks.named("trivy"))
+}
+
 
 tasks.withType<Checkstyle>().configureEach {
     reports {
