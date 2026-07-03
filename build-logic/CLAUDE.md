@@ -5,7 +5,7 @@ The `build-logic` directory defines reusable convention plugins for the Yukta pr
 
 ## Convention Plugins
 1. **java-conventions**: Java toolchain (25), Lombok, repositories, JUnit 5.
-2. **quality-conventions**: Spotless, Checkstyle, PMD, SpotBugs, Semgrep, license headers.
+2. **quality-conventions**: Spotless, Checkstyle, PMD, SpotBugs, OpenGrep, license headers.
 3. **jacoco-conventions**: Code coverage tracking.
 4. **library-conventions**: Base conventions for non-Spring library modules.
 5. **spring-conventions**: Base conventions for Spring Boot modules.
@@ -16,7 +16,7 @@ All modules apply these plugins via `plugins { id 'com.infenia.yukta.xxx-convent
 ## Quality Configuration
 - **Checkstyle**: `config/checkstyle/checkstyle.xml`
 - **PMD**: `config/pmd/ruleset.xml`
-- **Semgrep**: `config/semgrep/.semgrep.yml` (runs in `check` only if the `semgrep` CLI is installed)
+- **OpenGrep**: `config/opengrep/.semgrep.yml` (runs in `check` only if the `opengrep` CLI is installed)
 - **License**: `config/license/`
 
 ## Imports

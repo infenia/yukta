@@ -57,25 +57,25 @@ dependencies {
     add("errorprone", libs.findLibrary("errorprone").get())
 }
 
-tasks.register<Exec>("semgrep") {
-    description = "Run Semgrep static analysis"
+tasks.register<Exec>("opengrep") {
+    description = "Run OpenGrep static analysis"
     group = "verification"
 
     val sourceDir = project.file("src/main/java")
-    val configFile = rootProject.file("config/semgrep/.semgrep.yml")
-    val reportDir = project.layout.buildDirectory.dir("reports/semgrep").get()
-    val reportFile = reportDir.file("semgrep-report.sarif").asFile
+    val configFile = rootProject.file("config/opengrep/.semgrep.yml")
+    val reportDir = project.layout.buildDirectory.dir("reports/opengrep").get()
+    val reportFile = reportDir.file("opengrep-report.sarif").asFile
 
     doFirst {
         reportDir.asFile.mkdirs()
     }
 
-    // Use temp directory for semgrep settings to avoid read-only filesystem issues
+    // Use temp directory for opengrep settings to avoid read-only filesystem issues
     val tempDir = System.getProperty("java.io.tmpdir")
     environment("HOME", tempDir)
 
-    commandLine("semgrep", "scan",
-        "--config=${configFile.absolutePath}",
+    commandLine("opengrep", "scan",
+        "--config=auto",
         "--output=${reportFile.absolutePath}",
         "--json",
         "--quiet",
@@ -88,19 +88,19 @@ tasks.register<Exec>("semgrep") {
         // Exit code 1 means findings were reported, which is not a failure
         // Exit code 0 means no findings
         if (executionResult.get().exitValue > 1) {
-            throw GradleException("Semgrep scan failed with exit code ${executionResult.get().exitValue}")
+            throw GradleException("OpenGrep scan failed with exit code ${executionResult.get().exitValue}")
         }
     }
 
     onlyIf {
         val sourceExists = sourceDir.exists()
-        val semgrepExists = try {
-            Runtime.getRuntime().exec(arrayOf("sh", "-c", "which semgrep")).waitFor() == 0
+        val opengrepExists = try {
+            Runtime.getRuntime().exec(arrayOf("sh", "-c", "which opengrep")).waitFor() == 0
         } catch (e: Exception) {
             false
         }
 
-        sourceExists && semgrepExists
+        sourceExists && opengrepExists
     }
 }
 
@@ -116,7 +116,7 @@ tasks.configureEach {
     val task = this
     val isQualityTask = task is Checkstyle || task is Pmd ||
         task::class.java.name.contains("SpotBugs") ||
-        task.name == "semgrep" ||
+        task.name == "opengrep" ||
         task.name.startsWith("spotless")
 
     if (isQualityTask && task.name.contains("Aot")) {
@@ -125,5 +125,5 @@ tasks.configureEach {
 }
 
 tasks.named("check") {
-    dependsOn(tasks.withType<Task>().matching { it.name == "semgrep" })
+    dependsOn(tasks.withType<Task>().matching { it.name == "opengrep" })
 }

@@ -23,5 +23,5 @@
 - **Checkstyle**: Style violations (config: `config/checkstyle/checkstyle.xml`)
 - **PMD**: Code quality rules (config: `config/pmd/ruleset.xml`)
 - **SpotBugs**: Bug detection (enabled via quality-conventions)
-- **Semgrep**: Security/best-practice scanning (config: `config/semgrep/.semgrep.yml`); runs as part of `check` only if the `semgrep` CLI is installed
+- **OpenGrep**: Security/best-practice scanning (config: `config/opengrep/.semgrep.yml`); runs as part of `check` only if the `opengrep` CLI is installed
 - Quality gates are applied ONLY to main source code, not tests or AOT

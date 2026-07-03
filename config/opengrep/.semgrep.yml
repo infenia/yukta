@@ -1,0 +1,8 @@
+# OpenGrep configuration for Yukta quality gates
+# Combines OpenGrep registry rules for Java security and quality
+
+extends:
+  - p/security-audit
+  - p/java
+
+rules: []

@@ -1,8 +1,0 @@
-# Semgrep configuration for Yukta quality gates
-# Combines Semgrep registry rules for Java security and quality
-
-extends:
-  - p/security-audit
-  - p/java
-
-rules: []

@@ -109,6 +109,44 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
+      - name: Get Latest OpenGrep Version
+        id: opengrep-version
+        run: |
+          LATEST_VERSION=$(curl -s https://api.github.com/repos/opengrep/opengrep/releases/latest | grep '"tag_name"' | cut -d'"' -f4)
+          echo "version=$LATEST_VERSION" >> $GITHUB_OUTPUT
+          echo "▶ Latest OpenGrep version: $LATEST_VERSION"
+
+      - name: Cache OpenGrep
+        uses: actions/cache@v4
+        id: cache-opengrep
+        with:
+          path: ~/.opengrep
+          key: opengrep-${{ runner.os }}-${{ runner.arch }}-${{ steps.opengrep-version.outputs.version }}
+          restore-keys: |
+            opengrep-${{ runner.os }}-${{ runner.arch }}-
+            opengrep-${{ runner.os }}-
+
+      - name: Install OpenGrep
+        if: steps.cache-opengrep.outputs.cache-hit != 'true'
+        run: |
+          echo "▶ Installing OpenGrep (not found in cache)..."
+          curl -fsSL https://raw.githubusercontent.com/opengrep/opengrep/main/install.sh | bash
+          echo "▶ OpenGrep installation complete"
+
+      - name: Setup OpenGrep PATH
+        run: |
+          # Add to PATH for this step and export for subsequent steps
+          export PATH="$HOME/.opengrep/cli/latest:$HOME/.local/bin:$PATH"
+
+          # Verify opengrep is available
+          which opengrep
+          opengrep --version
+
+          # Persist PATH for all subsequent steps in this job
+          echo "$HOME/.opengrep/cli/latest" >> $GITHUB_PATH
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+          echo "▶ OpenGrep PATH configured and verified"
+
       - name: Verify dependency lock files are up-to-date
         run: |
           echo "▶ Verifying lock files match resolved dependencies..."

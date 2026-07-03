@@ -31,7 +31,7 @@ This is a multi-module Gradle monorepo. Launch Claude from the specific package 
 # Start the application (Swagger UI at http://localhost:8080/swagger-ui.html)
 ./gradlew bootRun
 
-# Run all quality checks across all modules (tests, Checkstyle, PMD, SpotBugs, Semgrep, JaCoCo)
+# Run all quality checks across all modules (tests, Checkstyle, PMD, SpotBugs, OpenGrep, JaCoCo)
 ./gradlew check
 
 # Run every test in one module
@@ -50,7 +50,7 @@ This is a multi-module Gradle monorepo. Launch Claude from the specific package 
 ## Testing Strategy
 - Unit tests use JUnit 5 + Mockito (for reactive: `reactor.test`).
 - Use `StepVerifier` for testing reactive streams.
-- Quality gates (Checkstyle, PMD, SpotBugs, Semgrep) are enforced via `build-logic` — see `.claude/rules/coding-standards.md` for details.
+- Quality gates (Checkstyle, PMD, SpotBugs, OpenGrep) are enforced via `build-logic` — see `.claude/rules/coding-standards.md` for details.
 - Minimum coverage thresholds are module-specific.
 
 ### Test Skill
