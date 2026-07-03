@@ -25,14 +25,5 @@ dependencies {
     implementation(libs.spring.boot.starter.webflux)
 }
 
-// Oneshot-trigger has no tests yet
 coverageConfig {
-    val zeroCoverage = mapOf(
-        "LINE" to 0.0,
-        "BRANCH" to 0.0,
-        "CLASS" to 0.0,
-        "INSTRUCTION" to 0.0,
-        "METHOD" to 0.0
-    )
-    exceptions.put("com.infenia.yukta.plugin.trigger.*", zeroCoverage)
 }

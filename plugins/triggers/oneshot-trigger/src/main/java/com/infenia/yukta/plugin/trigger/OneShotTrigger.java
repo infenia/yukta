@@ -29,16 +29,16 @@ import reactor.core.publisher.Flux;
 /** Fires a workflow with no input. Emits a single empty message and ignores any caller data. */
 @Slf4j
 @Component
-public class ManualTrigger implements TriggerPlugin {
+public class OneShotTrigger implements TriggerPlugin {
 
   /** Default constructor. */
-  public ManualTrigger() {
+  public OneShotTrigger() {
     super();
   }
 
   @Override
   public String getType() {
-    return "MANUAL";
+    return "ONE_SHOT";
   }
 
   @Override
@@ -61,7 +61,7 @@ public class ManualTrigger implements TriggerPlugin {
                     <span class="material-symbols-outlined text-xl">touch_app</span>
                 </div>
                 <div class="flex flex-col min-w-0">
-                    <div class="text-[10px] text-green-600 font-bold uppercase tracking-wider leading-none mb-1">Manual</div>
+                    <div class="text-[10px] text-green-600 font-bold uppercase tracking-wider leading-none mb-1">One-Shot</div>
                     <div class="text-xs font-bold text-slate-700 truncate w-full">{{nodeId}}</div>
                 </div>
             </div>
@@ -72,7 +72,7 @@ public class ManualTrigger implements TriggerPlugin {
 
   @Override
   public Flux<Message<?>> start(final Map<String, Object> config) {
-    log.atDebug().log("ManualTrigger firing: emitting empty message");
+    log.atDebug().log("OneShotTrigger firing: emitting empty message");
     return Flux.just(DefaultMessage.create(UUID.randomUUID(), Map.of()).withSourcePort("default"));
   }
 }
