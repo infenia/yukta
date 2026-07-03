@@ -25,7 +25,7 @@ dependencies {
     implementation(libs.spring.boot.starter.webflux)
 }
 
-// Auto-trigger has no tests yet
+// Oneshot-trigger has no tests yet
 coverageConfig {
     val zeroCoverage = mapOf(
         "LINE" to 0.0,

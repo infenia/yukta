@@ -271,7 +271,7 @@ Expected output (at least these):
 ./plugins/processors/internal/internal-core/gradle.lockfile
 ./plugins/triggers/api-trigger/gradle.lockfile
 ./plugins/triggers/constant-source/gradle.lockfile
-./plugins/triggers/auto-trigger/gradle.lockfile
+./plugins/triggers/oneshot-trigger/gradle.lockfile
 ./plugins/terminals/console-terminal/gradle.lockfile
 ```
 

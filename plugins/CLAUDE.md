@@ -5,7 +5,7 @@ Implementations of various Yukta plugins.
 
 ## Plugin Types
 - **Processors**: Located in `processors/`. Modules: `process-executor`, `internal/internal-core`.
-- **Triggers**: Located in `triggers/`. Modules: `api-trigger`, `constant-source`, `auto-trigger`.
+- **Triggers**: Located in `triggers/`. Modules: `api-trigger`, `constant-source`, `oneshot-trigger`.
 - **Terminals**: Located in `terminals/`. Module: `console-terminal`.
 
 Note: `triggers/manual-trigger/` exists on disk but has no source and isn't in `settings.gradle.kts` — it's a retired/unwired module, not a live plugin.

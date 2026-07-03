@@ -27,7 +27,7 @@ dependencies {
     implementation(project(":plugins:processors:internal:internal-core"))
     implementation(project(":plugins:triggers:api-trigger"))
     implementation(project(":plugins:triggers:constant-source"))
-    implementation(project(":plugins:triggers:auto-trigger"))
+    implementation(project(":plugins:triggers:oneshot-trigger"))
     implementation(project(":plugins:terminals:console-terminal"))
     implementation(project(":plugins:processors:process-executor"))
 
