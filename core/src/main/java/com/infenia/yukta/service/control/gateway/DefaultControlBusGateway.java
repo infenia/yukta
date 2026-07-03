@@ -37,15 +37,10 @@ import com.infenia.yukta.plugin.control.ExecutionControlCommand.StopWorkflowComm
 import com.infenia.yukta.plugin.core.Plugin;
 import com.infenia.yukta.service.control.ControlBusService;
 import com.infenia.yukta.service.control.store.ExecutionControlRegistry;
-import com.infenia.yukta.service.execution.status.ExecutionStatusEvent;
-import com.infenia.yukta.service.execution.status.ExecutionStatusPublisher;
 import com.infenia.yukta.service.orchestrator.WorkflowOrchestrator;
 import com.infenia.yukta.service.orchestrator.tracker.DefaultTaskTrackerService;
 import com.infenia.yukta.service.workflow.store.PreparedWorkflowCache;
 import com.infenia.yukta.service.workflow.store.WorkflowDefinitionStore;
-import jakarta.annotation.PostConstruct;
-import jakarta.validation.constraints.NotNull;
-import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -55,16 +50,12 @@ import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
-import reactor.core.publisher.Sinks;
-import reactor.util.concurrent.Queues;
 
 /**
- * Default implementation of the {@link ControlBusGateway} and {@link ExecutionStatusPublisher}.
+ * Default implementation of the {@link ControlBusGateway}.
  *
- * <p>Combines control bus gateway functionality with execution status publishing. Delegates
- * low-level plugin management and message operations to {@link ControlBusService}, and high-level
- * control commands and observability operations to {@link DefaultTaskTrackerService}. Manages
- * status event publication via internal Reactor Sinks.
+ * <p>Delegates low-level plugin management and message operations to {@link ControlBusService}, and
+ * high-level control commands and observability operations to {@link DefaultTaskTrackerService}.
  */
 @Slf4j
 @Service
@@ -76,17 +67,13 @@ import reactor.util.concurrent.Queues;
   "PMD.TooManyMethods",
   "PMD.AvoidDuplicateLiterals"
 })
-public class DefaultControlBusGateway implements ControlBusGateway, ExecutionStatusPublisher {
+public class DefaultControlBusGateway implements ControlBusGateway {
 
   /** Source identifier for control bus operations. */
   private static final String CONTROL_BUS_SOURCE = "CONTROL_BUS";
 
   /** Priority level for control commands. */
   private static final int CONTROL_COMMAND_PRIORITY = 100;
-
-  /** Emit failure handler with retry logic. */
-  private static final Sinks.EmitFailureHandler RETRY_HANDLER =
-      Sinks.EmitFailureHandler.busyLooping(Duration.ofMillis(100));
 
   /** The control bus service for low-level plugin and message operations. */
   private final ControlBusService controlBusService;
@@ -106,64 +93,12 @@ public class DefaultControlBusGateway implements ControlBusGateway, ExecutionSta
   /** The prepared workflow cache for caching compiled workflows. */
   private final PreparedWorkflowCache preparedWorkflowCache;
 
-  /** Sink for publishing execution status events. */
-  private final Sinks.Many<ExecutionStatusEvent> statusSink =
-      Sinks.many().multicast().onBackpressureBuffer(Queues.SMALL_BUFFER_SIZE, false);
-
   private <T extends ExecutionControlCommand> Message<T> buildCommand(
       final T command, final int priority) {
     return DefaultMessage.create(null, command)
         .withSourceNodeId(CONTROL_BUS_SOURCE)
         .withPriority(priority)
         .withControl(true);
-  }
-
-  /**
-   * Subscribes to status events emitted by the control bus and forwards them to the task tracker.
-   * This method is called automatically during Spring bean initialization.
-   */
-  @PostConstruct
-  public void subscribeToStatusEvents() {
-    log.atDebug().log("Subscribing to status event stream");
-    statusSink
-        .asFlux()
-        .doOnSubscribe(_ -> log.atDebug().log("Status event stream subscription established"))
-        .doOnNext(
-            event ->
-                log.atTrace()
-                    .addKeyValue("executionId", event.executionId())
-                    .addKeyValue("nodeId", event.nodeId())
-                    .addKeyValue("status", event.status())
-                    .log("Status event received"))
-        .subscribe(
-            event -> {
-              log.atDebug()
-                  .addKeyValue("executionId", event.executionId())
-                  .addKeyValue("nodeId", event.nodeId())
-                  .log("Forwarding status to task tracker");
-              taskTracker
-                  .updateTaskStatus(
-                      event.executionId(),
-                      event.nodeId(),
-                      event.module(),
-                      event.status(),
-                      event.metadata() != null ? event.metadata() : Map.of())
-                  .doOnSuccess(
-                      _ ->
-                          log.atDebug()
-                              .addKeyValue("executionId", event.executionId())
-                              .log("Task status updated successfully"))
-                  .doOnError(
-                      err ->
-                          log.atError()
-                              .setCause(err)
-                              .addKeyValue("executionId", event.executionId())
-                              .addKeyValue("nodeId", event.nodeId())
-                              .log("Failed to update task status"))
-                  .subscribe();
-            },
-            error -> log.atError().setCause(error).log("Status event stream error"),
-            () -> log.atDebug().log("Status event stream completed"));
   }
 
   // --- Plugin & Message Management ---
@@ -867,44 +802,5 @@ public class DefaultControlBusGateway implements ControlBusGateway, ExecutionSta
         .addKeyValue("totalActiveNodes", allActiveNodes.size())
         .log("All active nodes retrieved");
     return allActiveNodes;
-  }
-
-  // --- ExecutionStatusPublisher Implementation ---
-
-  @Override
-  @SuppressWarnings("PMD.GuardLogStatement")
-  public Mono<Void> publishStatus(@NotNull final ExecutionStatusEvent event) {
-    log.atTrace()
-        .addKeyValue("executionId", event.executionId())
-        .addKeyValue("nodeId", event.nodeId())
-        .addKeyValue("status", event.status())
-        .log("Publishing status event");
-    return Mono.create(
-        sink -> {
-          try {
-            statusSink.emitNext(event, RETRY_HANDLER);
-            log.atDebug()
-                .addKeyValue("executionId", event.executionId())
-                .addKeyValue("status", event.status())
-                .log("Status event published successfully");
-            sink.success();
-          } catch (
-              @SuppressWarnings("PMD.AvoidCatchingGenericException")
-              final RuntimeException e) {
-            final var errorLog =
-                log.atError()
-                    .setCause(e)
-                    .addKeyValue("executionId", event.executionId())
-                    .addKeyValue("nodeId", event.nodeId())
-                    .addKeyValue("status", event.status());
-            errorLog.log("Failed to publish status event");
-            sink.error(new IllegalStateException("Status event publish failed", e));
-          }
-        });
-  }
-
-  @Override
-  public Flux<ExecutionStatusEvent> statusStream() {
-    return statusSink.asFlux();
   }
 }

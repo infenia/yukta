@@ -47,12 +47,10 @@ import com.infenia.yukta.plugin.core.Plugin;
 import com.infenia.yukta.service.control.ControlBusService;
 import com.infenia.yukta.service.control.ExecutionControl;
 import com.infenia.yukta.service.control.store.ExecutionControlRegistry;
-import com.infenia.yukta.service.execution.status.ExecutionStatusEvent;
 import com.infenia.yukta.service.orchestrator.WorkflowOrchestrator;
 import com.infenia.yukta.service.orchestrator.tracker.DefaultTaskTrackerService;
 import com.infenia.yukta.service.workflow.store.PreparedWorkflowCache;
 import com.infenia.yukta.service.workflow.store.WorkflowDefinitionStore;
-import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -69,7 +67,6 @@ import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
 @SuppressWarnings({
-  "PMD.AvoidAccessibilityAlteration",
   "PMD.AvoidDuplicateLiterals",
   "PMD.CommentRequired",
   "PMD.CouplingBetweenObjects",
@@ -78,8 +75,7 @@ import reactor.test.StepVerifier;
   "PMD.LawOfDemeter",
   "PMD.LinguisticNaming",
   "PMD.TooManyMethods",
-  "PMD.TooManyStaticImports",
-  "PMD.UnitTestShouldIncludeAssert"
+  "PMD.TooManyStaticImports"
 })
 @ExtendWith(MockitoExtension.class)
 @NoArgsConstructor
@@ -840,94 +836,6 @@ class DefaultControlBusGatewayTest {
     verify(controlBusService).getActiveNodes();
   }
 
-  // --- ExecutionStatusPublisher Tests ---
-
-  @Test
-  void publishStatus_validEvent_emitsToSink() {
-    // Given
-    final ExecutionStatusEvent event =
-        new ExecutionStatusEvent(
-            "exec-17",
-            "node-19",
-            "workflow-5",
-            "session-3",
-            "RUNNING",
-            "module-1",
-            Map.of("key", "value"),
-            null,
-            Instant.now());
-    gateway.subscribeToStatusEvents(); // Initialize subscription
-
-    // When
-    final Mono<Void> result = gateway.publishStatus(event);
-
-    // Then
-    StepVerifier.create(result).verifyComplete();
-  }
-
-  @Test
-  void publishStatus_eventWithNullMetadata_emitsToSink() {
-    // Given
-    final ExecutionStatusEvent event =
-        new ExecutionStatusEvent(
-            "exec-18",
-            "node-20",
-            "workflow-6",
-            "session-4",
-            "SUCCESS",
-            "module-2",
-            null,
-            null,
-            Instant.now());
-    gateway.subscribeToStatusEvents();
-
-    // When
-    final Mono<Void> result = gateway.publishStatus(event);
-
-    // Then
-    StepVerifier.create(result).verifyComplete();
-  }
-
-  @Test
-  void statusStream_returnsFluxOfEvents() {
-    // Given
-    final ExecutionStatusEvent event =
-        new ExecutionStatusEvent(
-            "exec-19",
-            "node-21",
-            "workflow-7",
-            "session-5",
-            "FAILURE",
-            "module-3",
-            null,
-            null,
-            Instant.now());
-
-    // When - get stream and publish concurrently
-    final Flux<ExecutionStatusEvent> stream = gateway.statusStream();
-
-    // Then - verify stream returns events published to it
-    // Subscribe before publishing to avoid race condition with multicast sink
-    StepVerifier.create(stream.doFirst(() -> gateway.publishStatus(event).block()).take(1))
-        .assertNext(
-            receivedEvent -> {
-              assertThat(receivedEvent.executionId()).isEqualTo("exec-19");
-              assertThat(receivedEvent.status()).isEqualTo("FAILURE");
-            })
-        .verifyComplete();
-  }
-
-  @Test
-  void subscribeToStatusEvents_initializesSubscription() {
-    // Given - just verify subscribeToStatusEvents is callable and doesn't error
-
-    // When
-    gateway.subscribeToStatusEvents();
-
-    // Then - method completes without error (subscription is established internally)
-    // This verifies the @PostConstruct method works correctly
-  }
-
   @Test
   void executeCommand_validCommand_delegatesToEmit() {
     // Given
@@ -941,32 +849,6 @@ class DefaultControlBusGatewayTest {
     // Then
     StepVerifier.create(result).verifyComplete();
     verify(controlBusService).emit(any());
-  }
-
-  @Test
-  void publishStatus_emitsEventToSink() {
-    // Given
-    final ExecutionStatusEvent event =
-        new ExecutionStatusEvent(
-            "exec-publish",
-            "node-publish",
-            "workflow-publish",
-            "session-publish",
-            "RUNNING",
-            "module-publish",
-            Map.of("key", "value"),
-            null,
-            Instant.now());
-    gateway.subscribeToStatusEvents();
-
-    // When
-    final Mono<Void> result = gateway.publishStatus(event);
-
-    // Then
-    StepVerifier.create(result).verifyComplete();
-    verify(taskTracker)
-        .updateTaskStatus(
-            eq("exec-publish"), eq("node-publish"), eq("module-publish"), eq("RUNNING"), anyMap());
   }
 
   @Test
@@ -987,64 +869,6 @@ class DefaultControlBusGatewayTest {
     final Message<?> emittedMessage = captor.getValue();
     assertThat(emittedMessage.isControlMessage()).isTrue();
     assertThat(emittedMessage.getSourceNodeId()).isEqualTo("CONTROL_BUS");
-  }
-
-  @Test
-  void subscribeToStatusEvents_forwardsEventsToTaskTracker() {
-    // Given
-    gateway.subscribeToStatusEvents();
-    final ExecutionStatusEvent event =
-        new ExecutionStatusEvent(
-            "exec-forward",
-            "node-forward",
-            "workflow-forward",
-            "session-forward",
-            "COMPLETED",
-            "module-forward",
-            Map.of("key", "value"),
-            null,
-            Instant.now());
-
-    // When
-    gateway.publishStatus(event).block();
-
-    // Then - verify task tracker received the update
-    verify(taskTracker)
-        .updateTaskStatus(
-            eq("exec-forward"),
-            eq("node-forward"),
-            eq("module-forward"),
-            eq("COMPLETED"),
-            anyMap());
-  }
-
-  @Test
-  void subscribeToStatusEvents_withNullMetadata_usesEmptyMap() {
-    // Given
-    gateway.subscribeToStatusEvents();
-    final ExecutionStatusEvent event =
-        new ExecutionStatusEvent(
-            "exec-null-meta",
-            "node-null-meta",
-            "workflow-null-meta",
-            "session-null-meta",
-            "PENDING",
-            "module-null-meta",
-            null,
-            null,
-            Instant.now());
-
-    // When
-    gateway.publishStatus(event).block();
-
-    // Then - verify empty map is used when metadata is null
-    verify(taskTracker)
-        .updateTaskStatus(
-            eq("exec-null-meta"),
-            eq("node-null-meta"),
-            eq("module-null-meta"),
-            eq("PENDING"),
-            eq(Map.of()));
   }
 
   @Test
@@ -1491,40 +1315,6 @@ class DefaultControlBusGatewayTest {
   }
 
   @Test
-  void statusStream_returnsFlux() {
-    // Given - status stream should be accessible
-
-    // When
-    final Flux<ExecutionStatusEvent> result = gateway.statusStream();
-
-    // Then - verify it returns a non-null Flux
-    assertThat(result).isNotNull();
-  }
-
-  @Test
-  void publishStatus_withRuntimeException_wrapsInIllegalStateException() {
-    // Note: This test validates that the try-catch block works,
-    // though normal operation wouldn't throw from emitNext
-    final ExecutionStatusEvent event =
-        new ExecutionStatusEvent(
-            "exec-pub-error",
-            "node-pub-error",
-            "wf-pub",
-            "sess-pub",
-            "RUNNING",
-            "mod-pub",
-            Map.of(),
-            null,
-            Instant.now());
-
-    // When
-    final Mono<Void> result = gateway.publishStatus(event);
-
-    // Then - should complete successfully (Mono.create handles success path)
-    StepVerifier.create(result).verifyComplete();
-  }
-
-  @Test
   void registerPlugin_multipleCalls_registersEachPlugin() {
     // Given
     final String workflowId = "wf-multi";
@@ -1581,46 +1371,6 @@ class DefaultControlBusGatewayTest {
   }
 
   @Test
-  void subscribeToStatusEvents_calls_updateTaskStatus() {
-    // This test verifies that subscribeToStatusEvents() establishes the subscription
-    // that forwards events to taskTracker.updateTaskStatus()
-    // The actual doOnSuccess and doOnError handlers are covered by the existing
-    // subscribeToStatusEvents_forwardsEventsToTaskTracker test
-    gateway.subscribeToStatusEvents();
-    // If no exception is thrown, subscription was established successfully
-    assertThat(gateway).isNotNull();
-  }
-
-  @Test
-  void subscribeToStatusEvents_forwardsWithMetadata() {
-    // Given
-    gateway.subscribeToStatusEvents();
-    final ExecutionStatusEvent event =
-        new ExecutionStatusEvent(
-            "exec-meta",
-            "node-meta",
-            "workflow-meta",
-            "session-meta",
-            "PROCESSING",
-            "module-meta",
-            Map.of("key1", "value1"),
-            null,
-            Instant.now());
-
-    // When
-    gateway.publishStatus(event).block();
-
-    // Then - verify task tracker received the metadata
-    verify(taskTracker)
-        .updateTaskStatus(
-            eq("exec-meta"),
-            eq("node-meta"),
-            eq("module-meta"),
-            eq("PROCESSING"),
-            eq(Map.of("key1", "value1")));
-  }
-
-  @Test
   @SuppressWarnings("unchecked")
   void getLastHeartbeat_heartbeatFound_returnsHeartbeat() {
     // Given
@@ -1654,87 +1404,6 @@ class DefaultControlBusGatewayTest {
     // Then - covers the non-null branch (line 612-615)
     assertThat(result).isEqualTo(statistics);
     verify(controlBusService).getLastStatistics(workflowId, nodeId);
-  }
-
-  @Test
-  void subscribeToStatusEvents_updateTaskStatusSuccess_triggersDoOnSuccess() {
-    // Given - mock updateTaskStatus to return Mono.empty() so doOnSuccess fires
-    when(taskTracker.updateTaskStatus(anyString(), anyString(), anyString(), anyString(), anyMap()))
-        .thenReturn(Mono.empty());
-    gateway.subscribeToStatusEvents();
-    final ExecutionStatusEvent event =
-        new ExecutionStatusEvent(
-            "exec-success-cb",
-            "node-success-cb",
-            "workflow-success-cb",
-            "session-success-cb",
-            "DONE",
-            "module-success-cb",
-            Map.of(),
-            null,
-            Instant.now());
-
-    // When
-    gateway.publishStatus(event).block();
-
-    // Then - verify updateTaskStatus was called and doOnSuccess lambda was exercised
-    verify(taskTracker)
-        .updateTaskStatus(
-            eq("exec-success-cb"),
-            eq("node-success-cb"),
-            eq("module-success-cb"),
-            eq("DONE"),
-            eq(Map.of()));
-  }
-
-  @Test
-  void subscribeToStatusEvents_updateTaskStatusError_triggersDoOnError() {
-    // Given - mock updateTaskStatus to return Mono.error() so doOnError fires
-    when(taskTracker.updateTaskStatus(anyString(), anyString(), anyString(), anyString(), anyMap()))
-        .thenReturn(Mono.error(new RuntimeException("tracker error")));
-    gateway.subscribeToStatusEvents();
-    final ExecutionStatusEvent event =
-        new ExecutionStatusEvent(
-            "exec-error-cb",
-            "node-error-cb",
-            "workflow-error-cb",
-            "session-error-cb",
-            "FAILED",
-            "module-error-cb",
-            Map.of(),
-            null,
-            Instant.now());
-
-    // When - error is swallowed by inner subscribe(), outer publishStatus still completes
-    StepVerifier.create(gateway.publishStatus(event)).verifyComplete();
-
-    // Then - verify updateTaskStatus was called (doOnError lambda exercised internally)
-    verify(taskTracker)
-        .updateTaskStatus(
-            eq("exec-error-cb"),
-            eq("node-error-cb"),
-            eq("module-error-cb"),
-            eq("FAILED"),
-            eq(Map.of()));
-  }
-
-  @Test
-  @SuppressWarnings("unchecked")
-  void subscribeToStatusEvents_sinkCompletion_triggersOnCompleteCallback() throws Exception {
-    // Access the private statusSink via reflection to trigger sink completion
-    final java.lang.reflect.Field sinkField =
-        DefaultControlBusGateway.class.getDeclaredField("statusSink");
-    sinkField.setAccessible(true);
-    final reactor.core.publisher.Sinks.Many<ExecutionStatusEvent> sink =
-        (reactor.core.publisher.Sinks.Many<ExecutionStatusEvent>) sinkField.get(gateway);
-
-    gateway.subscribeToStatusEvents();
-
-    // Completing the sink fires the onComplete callback (line 133)
-    sink.tryEmitComplete();
-
-    // Verify gateway is still valid after completion
-    assertThat(gateway).isNotNull();
   }
 
   // --- startWorkflow Tests ---

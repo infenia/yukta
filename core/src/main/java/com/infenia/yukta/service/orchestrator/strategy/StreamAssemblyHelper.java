@@ -56,7 +56,7 @@ class StreamAssemblyHelper {
             .payload(context.payload());
 
     Flux<Message<?>> built =
-        new StreamBuilder(node, timeout, tracker, null)
+        new StreamBuilder(node, timeout, tracker)
             .withSource(stream)
             .withTimeout()
             .withTaskTracking(context.executionId())

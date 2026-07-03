@@ -26,7 +26,6 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
 import com.infenia.yukta.model.workflow.WorkflowNode;
-import com.infenia.yukta.service.execution.status.ExecutionStatusPublisher;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import java.time.Duration;
 import java.time.Instant;
@@ -67,23 +66,19 @@ class StreamBuilderTest {
   /** Injected mocked tracker service. */
   @Mock private TaskTrackerService taskTrackerService;
 
-  /** Injected mocked execution status publisher. */
-  @Mock private ExecutionStatusPublisher statusPublisher;
-
   /** Builder under test. */
   private StreamBuilder builder;
 
   @BeforeEach
   void setUp() {
     org.mockito.Mockito.when(node.nodeId()).thenReturn(NODE_ID);
-    builder = new StreamBuilder(node, TIMEOUT, taskTrackerService, statusPublisher);
+    builder = new StreamBuilder(node, TIMEOUT, taskTrackerService);
   }
 
   @Test
   @DisplayName("constructor initializes all fields correctly")
   void constructor_validParameters_initializesFields() {
-    final StreamBuilder testBuilder =
-        new StreamBuilder(node, TIMEOUT, taskTrackerService, statusPublisher);
+    final StreamBuilder testBuilder = new StreamBuilder(node, TIMEOUT, taskTrackerService);
 
     assertThat(testBuilder).isNotNull();
   }
@@ -398,8 +393,7 @@ class StreamBuilderTest {
     final Message<?> testMessage = createTestMessage();
     final Flux<Message<?>> sourceFlux = Flux.just(testMessage);
 
-    final StreamBuilder multiCallBuilder =
-        new StreamBuilder(node, TIMEOUT, taskTrackerService, statusPublisher);
+    final StreamBuilder multiCallBuilder = new StreamBuilder(node, TIMEOUT, taskTrackerService);
     final Flux<Message<?>> result =
         multiCallBuilder
             .withSource(sourceFlux)

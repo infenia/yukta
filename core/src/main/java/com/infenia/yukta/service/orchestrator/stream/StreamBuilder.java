@@ -17,7 +17,6 @@ package com.infenia.yukta.service.orchestrator.stream;
 
 import com.infenia.yukta.message.Message;
 import com.infenia.yukta.model.workflow.WorkflowNode;
-import com.infenia.yukta.service.execution.status.ExecutionStatusPublisher;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.time.Duration;
@@ -32,8 +31,7 @@ import reactor.core.publisher.Flux;
  * types (Trigger, Processor, Terminal).
  *
  * <p>StreamBuilder encapsulates common stream transformation patterns: timeout handling with
- * TimeoutException mapping, task status tracking (RUNNING → SUCCESS/FAILURE), and error handling
- * with ExecutionStatusPublisher emission.
+ * TimeoutException mapping, task status tracking (RUNNING → SUCCESS/FAILURE), and error handling.
  *
  * <p>Example usage:
  *
@@ -41,8 +39,7 @@ import reactor.core.publisher.Flux;
  * Flux<Message<?>> stream = new StreamBuilder(
  *     node,
  *     Duration.ofSeconds(10),
- *     taskTrackerService,
- *     controlBus)
+ *     taskTrackerService)
  *   .withSource(sourceFlux)
  *   .withTimeout()
  *   .withTaskTracking("exec-001", "session-001")
@@ -75,9 +72,6 @@ public class StreamBuilder {
   /** The task tracker service for status events. */
   private final TaskTrackerService taskTrackerService;
 
-  /** The execution status publisher for error emission. */
-  private final ExecutionStatusPublisher statusPublisher;
-
   /** The source stream for this builder. */
   @Nullable private Flux<Message<?>> sourceStream;
 
@@ -99,17 +93,14 @@ public class StreamBuilder {
    * @param node the workflow node
    * @param timeout the operation timeout duration
    * @param taskTrackerService the task tracker service for status events
-   * @param statusPublisher the execution status publisher for error emission
    */
   public StreamBuilder(
       final WorkflowNode node,
       final Duration timeout,
-      final TaskTrackerService taskTrackerService,
-      final ExecutionStatusPublisher statusPublisher) {
+      final TaskTrackerService taskTrackerService) {
     this.node = node;
     this.timeout = timeout;
     this.taskTrackerService = taskTrackerService;
-    this.statusPublisher = statusPublisher;
     log.atDebug()
         .setMessage("StreamBuilder created for node: {}, timeout: {}")
         .addArgument(node.nodeId())
@@ -165,7 +156,7 @@ public class StreamBuilder {
   }
 
   /**
-   * Enables error handling with ExecutionStatusPublisher emission of errors.
+   * Enables error handling with task tracker emission of errors.
    *
    * @param execId the execution identifier for error tracking
    * @return this builder for fluent chaining
