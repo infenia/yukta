@@ -63,6 +63,8 @@ jobs:
               - 'messaging/**'
             cli:
               - 'cli/**'
+            oneshot-trigger:
+              - 'plugins/triggers/oneshot-trigger/**'
 
   # ─────────────────────────────────────────────
   # Job 2: Build and quality-gate changed modules.
@@ -212,6 +214,8 @@ jobs:
                 add_module_tasks ":messaging" ;;
               "cli")
                 add_module_tasks ":cli" ;;
+              "oneshot-trigger")
+                add_module_tasks ":plugins:triggers:oneshot-trigger" ;;
             esac
           done
 
