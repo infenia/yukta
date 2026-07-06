@@ -24,7 +24,8 @@ reviews:
   review_level: comment
 
   # Automatically review on PR creation
-  auto_review: true
+  auto_review:
+    enabled: true
 
   # Fail review on detection of issues
   fail_on_issues: false
