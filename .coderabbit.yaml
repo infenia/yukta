@@ -1,0 +1,261 @@
+# Code Rabbit Configuration
+# Documentation: https://docs.coderabbit.ai/
+
+# Multi-language support for Yukta monorepo
+languages:
+  - java
+  - go
+  - javascript
+  - css
+  - jte  # Java Template Engine
+
+frameworks:
+  - spring-boot
+  - tailwind-css
+  - alpinejs
+  - jte
+
+# Review settings
+reviews:
+  # Maximum number of files to review per PR
+  max_files_to_review: 30
+
+  # Review level: draft, comment, or approve
+  review_level: comment
+
+  # Automatically review on PR creation
+  auto_review: true
+
+  # Fail review on detection of issues
+  fail_on_issues: false
+
+  # Request review from Code Rabbit automatically
+  request_review_on_auto_changes: true
+
+# Code quality rules to enforce
+rules:
+  # Security issues to flag
+  security:
+    enabled: true
+    severity: high
+
+  # Performance issues
+  performance:
+    enabled: true
+    severity: medium
+
+  # Best practices
+  best_practices:
+    enabled: true
+    severity: medium
+
+  # Code style (using Google Java Style Guide)
+  style:
+    enabled: true
+    severity: low
+    config: google
+
+# Paths to exclude from review
+excluded_paths:
+  - build/
+  - dist/
+  - '*.min.js'
+  - '*.lock'
+  - '.gradle/'
+  - 'node_modules/'
+  - 'pnpm-lock.yaml'
+  - 'gradlew'
+  - 'gradlew.bat'
+  - 'ui/dist/'
+  - 'cli/bin/'
+  - 'cli/vendor/'
+
+# Paths to prioritize in review
+prioritized_paths:
+  - core/src/main
+  - web/src/main
+  - plugins/
+  - boot/src/main
+  - cli/cmd/
+  - cli/internal/
+  - ui/src/
+  - 'src/main/java/**'
+
+# Comment preferences
+comments:
+  # Group similar findings together
+  group_findings: true
+
+  # Include code snippets in comments
+  include_snippets: true
+
+  # Use threaded replies
+  threaded_replies: true
+
+# Specific rules for different file types
+file_rules:
+  # Java files
+  java:
+    - name: check_nullpointer_exceptions
+      enabled: true
+    - name: check_unchecked_exceptions
+      enabled: true
+    - name: check_deprecation
+      enabled: true
+    - name: check_code_complexity
+      enabled: true
+      max_complexity: 10
+    - name: check_method_length
+      enabled: true
+      max_length: 50
+    - name: check_class_length
+      enabled: true
+      max_length: 300
+
+  # Gradle files
+  gradle:
+    - name: check_dependency_versions
+      enabled: true
+    - name: check_gradle_plugin_updates
+      enabled: true
+
+  # Go files (CLI module)
+  go:
+    - name: check_error_handling
+      enabled: true
+    - name: check_goroutine_leaks
+      enabled: true
+    - name: check_code_complexity
+      enabled: true
+      max_complexity: 10
+    - name: check_function_length
+      enabled: true
+      max_length: 50
+    - name: check_unused_variables
+      enabled: true
+    - name: check_naming_conventions
+      enabled: true
+      style: go_conventions
+
+  # JavaScript files (UI module - Alpine.js + esbuild)
+  javascript:
+    - name: check_code_complexity
+      enabled: true
+      max_complexity: 10
+    - name: check_unused_variables
+      enabled: true
+    - name: check_dom_manipulation
+      enabled: true
+    - name: check_event_handlers
+      enabled: true
+    - name: check_alpine_patterns
+      enabled: true
+
+  # CSS/Tailwind files (UI module)
+  css:
+    - name: check_tailwind_class_usage
+      enabled: true
+    - name: check_responsive_design
+      enabled: true
+    - name: check_duplicate_styles
+      enabled: true
+    - name: check_css_specificity
+      enabled: true
+
+  # JTE (Java Template Engine) files (UI module)
+  jte:
+    - name: check_template_syntax
+      enabled: true
+    - name: check_html_structure
+      enabled: true
+    - name: check_xss_vulnerabilities
+      enabled: true
+    - name: check_template_escaping
+      enabled: true
+    - name: check_form_validation
+      enabled: true
+
+  # pnpm package files
+  package_json:
+    - name: check_dependency_versions
+      enabled: true
+    - name: check_security_vulnerabilities
+      enabled: true
+
+# Lombok and Spring annotations handling
+annotation_aware:
+  enable_lombok_analysis: true
+  enable_spring_analysis: true
+
+# Review focus areas for this project
+focus_areas:
+  # Java/Spring Boot
+  - reactive_streams
+  - plugin_architecture
+  - spring_boot_configuration
+  - dependency_injection
+  - lombok_usage
+  - gradle_patterns
+  - jte_template_rendering
+
+  # Go CLI
+  - error_handling
+  - goroutine_patterns
+  - cli_flag_parsing
+  - cli_output_formatting
+
+  # UI/Frontend (JTE + Alpine.js + Tailwind)
+  - jte_template_patterns
+  - alpine_js_patterns
+  - dom_manipulation
+  - event_handling
+  - form_validation
+
+  # CSS/Styling
+  - tailwind_best_practices
+  - responsive_design
+  - accessibility
+  - css_specificity
+
+# Custom instructions
+custom_instructions: |
+  # Java/Spring Boot Standards
+  - Ensure Lombok annotations are used properly (@Slf4j, @RequiredArgsConstructor, @Builder, @With)
+  - Check for proper Spring Boot WebFlux reactive patterns
+  - Verify Spring AI MCP server configurations
+  - Validate plugin-api compliance for custom plugins
+  - Ensure JaCoCo test coverage thresholds are maintained (80% new code, 70% overall)
+  - Check for Apache License 2.0 headers in new files
+  - Validate Gradle conventions and build-logic patterns
+  - Review Trivy security scan compliance
+
+  # UI Module (JTE + Alpine.js + Tailwind)
+  - Verify proper JTE template syntax and escaping to prevent XSS
+  - Check Tailwind CSS best practices and class utility usage
+  - Ensure Alpine.js directives are properly used (x-data, x-on, etc.)
+  - Validate form handling and client-side validation patterns
+  - Ensure responsive design with Tailwind breakpoints
+  - Check accessibility standards (ARIA labels, semantic HTML)
+  - Validate esbuild bundling and asset optimization
+  - Review pnpm dependency management and lock file integrity
+
+  # CLI Module (Go)
+  - Ensure proper Go error handling with error wrapping
+  - Check for goroutine leak prevention and resource cleanup
+  - Validate CLI flag parsing and user input validation
+  - Review output formatting and user experience
+  - Check for proper logging in Go CLI
+
+  # General
+  - Maintain consistency across monorepo modules
+  - Flag potential security vulnerabilities
+  - Check performance and optimization opportunities
+  - Review test coverage and testing patterns
+
+# Integration with other tools
+integrations:
+  # Link to build logs
+  show_build_logs: true
+
+  # Show test coverage changes
+  show_coverage_changes: true

@@ -1,0 +1,244 @@
+# GitHub Code Quality Bot Configuration
+# Automated code quality checks and enforcement
+
+# Main configuration
+enabled: true
+
+# Quality metrics to track
+metrics:
+  # Code coverage
+  coverage:
+    enabled: true
+    # Minimum coverage percentage for new code
+    min_new_code_coverage: 80
+    # Overall project coverage target
+    min_total_coverage: 70
+    # Track coverage changes
+    track_changes: true
+    # Fail if coverage decreases
+    fail_on_decrease: true
+
+  # Complexity analysis
+  complexity:
+    enabled: true
+    # Maximum cyclomatic complexity per method
+    max_cyclomatic_complexity: 10
+    # Maximum cognitive complexity per method
+    max_cognitive_complexity: 15
+    # Flag high-complexity methods
+    flag_high_complexity: true
+
+  # Code duplication
+  duplication:
+    enabled: true
+    # Maximum duplication percentage
+    max_duplication_percent: 3
+    # Minimum lines for duplication detection
+    min_duplicated_lines: 5
+
+  # Dependency analysis
+  dependencies:
+    enabled: true
+    # Flag outdated dependencies
+    flag_outdated: true
+    # Flag security vulnerabilities
+    flag_vulnerabilities: true
+    # Check for license compatibility
+    check_licenses: true
+
+# Quality gates for PR approval
+quality_gates:
+  # Require all quality checks to pass
+  strict_mode: false
+
+  # Checks that must pass
+  required_checks:
+    - test-coverage
+    - code-complexity
+    - security-scan
+    - lint-checks
+
+  # Blocks PR merge if checks fail
+  block_on_failure: true
+
+  # Auto-request changes if quality issues found
+  request_changes: true
+
+# Issue and bug detection
+issue_detection:
+  # Detect potential bugs
+  detect_bugs: true
+  bug_severity: medium
+
+  # Detect security issues
+  detect_security_issues: true
+  security_severity: high
+
+  # Detect code smells
+  detect_code_smells: true
+  smell_severity: low
+
+  # Detect performance issues
+  detect_performance: true
+  performance_severity: medium
+
+# Specific rules for this project
+project_rules:
+  # Enforce Google Java Style Guide
+  style_guide: google_java_style
+
+  # Check for Apache License headers
+  require_license_headers: true
+  license_header_pattern: 'Apache License 2.0'
+
+  # Check for Lombok usage best practices
+  check_lombok_patterns: true
+
+  # Enforce reactive programming patterns
+  check_reactive_patterns: true
+
+  # Spring Boot best practices
+  check_spring_patterns: true
+
+  # Plugin architecture compliance
+  check_plugin_patterns: true
+
+  # Test naming conventions
+  enforce_test_naming: true
+  test_pattern: '(.*Test|.*Tests)\.java'
+
+  # Maximum file sizes
+  max_file_size_lines: 500
+  max_class_size_lines: 300
+  max_method_size_lines: 50
+
+# File-specific configurations
+file_filters:
+  # Exclude certain paths
+  exclude_paths:
+    - build/
+    - '.gradle/'
+    - 'node_modules/'
+    - 'gradlew'
+    - 'gradlew.bat'
+    - '*.lock'
+
+  # Prioritize review for critical paths
+  prioritize_paths:
+    - core/src/main
+    - web/src/main
+    - plugins/
+    - boot/src/main
+
+  # Lighter checks for generated code
+  generated_code_patterns:
+    - '**/generated/**'
+    - '**/build/**'
+
+# Report settings
+reporting:
+  # Generate detailed reports
+  detailed_reports: true
+
+  # Comment style
+  comment_style: inline
+
+  # Grouping similar issues
+  group_issues: true
+
+  # Include code snippets in comments
+  include_code_snippets: true
+
+  # Summary report on PR
+  summary_report: true
+
+  # Badge showing quality status
+  show_quality_badge: true
+
+# Integration with external tools
+integrations:
+  # SonarQube integration
+  sonarqube:
+    enabled: false
+    # Uncomment and configure if using SonarQube
+    # server_url: https://sonarqube.example.com
+    # project_key: com.infenia.yukta
+    # token: ${{ secrets.SONARQUBE_TOKEN }}
+
+  # CodeCov integration
+  codecov:
+    enabled: false
+    # Uncomment if using CodeCov
+    # token: ${{ secrets.CODECOV_TOKEN }}
+
+  # JaCoCo (already used in project)
+  jacoco:
+    enabled: true
+    # Minimum coverage thresholds
+    min_coverage_line: 70
+    min_coverage_branch: 65
+    min_coverage_instruction: 70
+
+# Severity and thresholds
+severity_levels:
+  # Critical: blocks merge
+  critical: 0
+
+  # High: requires fixes
+  high: 3
+
+  # Medium: should fix
+  medium: 10
+
+  # Low: nice to have
+  low: -1
+
+# Notifications and alerts
+notifications:
+  # Send notifications on PR
+  enabled: true
+
+  # Notify on quality regression
+  notify_on_regression: true
+
+  # Notify on security issues
+  notify_on_security: true
+
+  # Mention reviewers for high-priority issues
+  mention_reviewers: true
+
+# Custom workflows
+workflows:
+  # Run on PR open/update
+  on_pr_update: true
+
+  # Run on push to main
+  on_main_push: true
+
+  # Run scheduled checks
+  scheduled_checks: true
+  schedule_cron: '0 0 * * *'  # Daily at midnight UTC
+
+# Exclusions and overrides
+exclusions:
+  # Ignore certain violations
+  ignore_patterns:
+    - 'TODO'
+    - 'FIXME'
+    - '@SuppressWarnings'
+
+  # Exempt specific files from coverage
+  exempt_from_coverage:
+    - '**/config/**'
+    - '**/dto/**'
+    - '**/entity/**'
+
+# Development and production settings
+environments:
+  development:
+    strict: false
+    coverage_threshold: 70
+
+  production:
+    strict: true
+    coverage_threshold: 80

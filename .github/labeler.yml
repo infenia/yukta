@@ -1,0 +1,134 @@
+# PR Labeler Configuration
+# Labels are automatically applied based on file paths changed in the PR
+
+# Core module changes
+core:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'core/**'
+
+# Web module changes
+web:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'web/**'
+
+# Boot module changes
+boot:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'boot/**'
+
+# Messaging module changes
+messaging:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'messaging/**'
+
+# CLI module changes
+cli:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'cli/**'
+
+# Plugin changes
+plugins:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'plugins/**'
+
+# Triggers plugin changes
+triggers:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'plugins/triggers/**'
+
+# Processors plugin changes
+processors:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'plugins/processors/**'
+
+# Terminals plugin changes
+terminals:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'plugins/terminals/**'
+
+# UI/Frontend changes (JTE + Alpine.js + Tailwind)
+ui:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'ui/**'
+
+# JTE Template changes
+jte:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'ui/src/main/jte/**'
+
+# Tailwind CSS changes
+tailwind:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'ui/src/main/resources/static/css/**'
+          - 'ui/tailwind.config.js'
+
+# Alpine.js and frontend JS changes
+frontend:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'ui/src/main/js/**'
+
+# Build and tooling changes
+build:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'build.gradle.kts'
+          - 'settings.gradle.kts'
+          - 'build-logic/**'
+          - 'gradle/**'
+          - 'config/**'
+          - '.github/**'
+
+# Documentation changes
+documentation:
+  - changed-files:
+      - any-glob-to-any-file:
+          - '*.md'
+          - 'docs/**'
+
+# Test changes
+test:
+  - changed-files:
+      - any-glob-to-any-file:
+          - '**/*Test.java'
+          - '**/*Tests.java'
+
+# Dependency changes
+dependencies:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'gradle/libs.versions.toml'
+          - '**/*.lock'
+          - 'ui/package.json'
+          - 'ui/pnpm-lock.yaml'
+
+# Type labels based on PR context
+type/feature:
+  - head-ref: '^feat/'
+
+type/bugfix:
+  - head-ref: '^fix/'
+
+type/chore:
+  - head-ref: '^chore/'
+
+type/refactor:
+  - head-ref: '^refactor/'
+
+type/docs:
+  - head-ref: '^docs/'
+
+type/test:
+  - head-ref: '^test/'
