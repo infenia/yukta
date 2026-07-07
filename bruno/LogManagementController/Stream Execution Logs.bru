@@ -1,0 +1,40 @@
+meta {
+  name: Stream Execution Logs
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{base_url}}/api/sessions/{{sessionId}}/executions/{{executionId}}/logs
+  body: none
+  auth: none
+}
+
+params:path {
+  sessionId: {{sessionId}}
+  executionId: {{executionId}}
+}
+
+headers {
+  Accept: text/event-stream
+}
+
+script:post-response {
+  if (res.status === 200) {
+    console.log('Stream started successfully');
+  }
+}
+
+tests {
+  test("Stream execution logs - 200 OK", function() {
+    expect(res.status).to.equal(200);
+  });
+
+  test("Response is a text/event-stream", function() {
+    expect(res.headers['content-type']).to.include('text/event-stream');
+  });
+
+  test("Response body is a plain-text log stream, not JSON", function() {
+    expect(res.body).to.be.a('string');
+  });
+}

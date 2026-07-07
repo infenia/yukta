@@ -18,7 +18,6 @@ package com.infenia.yukta.ui;
 import com.infenia.yukta.dto.response.PluginDetails;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.plugin.core.Plugin;
-import com.infenia.yukta.service.LogRetrievalService;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import com.infenia.yukta.service.plugin.PluginRegistry;
@@ -52,7 +51,6 @@ public class UiController {
   private static final String SESSION_ID_KEY = "sessionId";
 
   private final SessionService sessionService;
-  private final LogRetrievalService retrievalService;
   private final TaskTrackerService tracker;
   private final PluginRegistry registry;
   private final ControlBusGateway controlBus;
@@ -170,13 +168,12 @@ public class UiController {
     model.addAttribute("sessionId", sessionId);
     model.addAttribute("selectedWorkflowId", workflowId);
 
-    return Mono.zip(
-            sessionService.getSessionConfig(sessionId), retrievalService.listLogs(sessionId))
+    return sessionService
+        .getSessionConfig(sessionId)
         .flatMap(
-            tuple -> {
-              final Map<String, Object> config = tuple.getT1();
+            config -> {
               model.addAttribute("config", config);
-              model.addAttribute("logs", tuple.getT2());
+              model.addAttribute("logs", java.util.List.of());
 
               final Object workflowsObj = config.get("workflows");
               model.addAttribute(
@@ -282,14 +279,12 @@ public class UiController {
     model.addAttribute("sessionId", sessionId);
     model.addAttribute("workflowId", workflowId);
 
-    return Mono.zip(
-            sessionService.getSessionWorkflow(sessionId, workflowId),
-            retrievalService.listLogs(sessionId))
+    return sessionService
+        .getSessionWorkflow(sessionId, workflowId)
         .flatMap(
-            tuple -> {
-              final WorkflowDefinition workflow = tuple.getT1();
+            workflow -> {
               model.addAttribute("workflow", workflow);
-              model.addAttribute("logs", tuple.getT2());
+              model.addAttribute("logs", java.util.List.of());
 
               final String execId = tracker.getLatestExecutionId(sessionId, workflowId);
               model.addAttribute(

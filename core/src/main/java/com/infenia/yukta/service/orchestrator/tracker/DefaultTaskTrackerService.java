@@ -18,6 +18,9 @@ package com.infenia.yukta.service.orchestrator.tracker;
 import com.infenia.yukta.event.TaskStatusEvent;
 import com.infenia.yukta.event.WorkflowLogEvent;
 import com.infenia.yukta.event.WorkflowStatusEvent;
+import com.infenia.yukta.logging.api.LogLevel;
+import com.infenia.yukta.logging.api.LogStream;
+import com.infenia.yukta.logging.api.PluginLogEntry;
 import com.infenia.yukta.model.execution.TaskProgress;
 import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
@@ -63,7 +66,8 @@ import reactor.util.concurrent.Queues;
   "PMD.CouplingBetweenObjects",
   "PMD.UseObjectForClearerAPI",
   "PMD.OnlyOneReturn",
-  "PMD.AvoidDuplicateLiterals"
+  "PMD.AvoidDuplicateLiterals",
+  "PMD.LawOfDemeter"
 })
 @SuppressFBWarnings("EI2")
 public class DefaultTaskTrackerService implements TaskTrackerService {
@@ -321,16 +325,20 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
    * Emit a log event for asynchronous processing.
    *
    * @param executionId the execution identifier
+   * @param nodeId the node identifier (for plugin resolution)
    * @param line the log line
    */
   @Override
   public void emitLogEvent(
-      @NotBlank final String executionId, @NotBlank @Size(max = 16_384) final String line) {
+      @NotBlank final String executionId,
+      @NotBlank final String nodeId,
+      @NotBlank @Size(max = 16_384) final String line) {
     log.atTrace()
         .addKeyValue("executionId", executionId)
+        .addKeyValue("nodeId", nodeId)
         .addKeyValue("lineLength", line.length())
         .log("Emitting workflow log event");
-    logSink.emitNext(WorkflowLogEvent.create(executionId, line), RETRY_HANDLER);
+    logSink.emitNext(WorkflowLogEvent.create(executionId, nodeId, line), RETRY_HANDLER);
   }
 
   /**
@@ -363,7 +371,7 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
   @Override
   public Mono<Void> appendLog(
       @NotBlank final String executionId, @NotBlank @Size(max = 16_384) final String line) {
-    return Mono.fromRunnable(() -> emitLogEvent(executionId, line));
+    return Mono.fromRunnable(() -> emitLogEvent(executionId, "system", line));
   }
 
   /**
@@ -433,15 +441,75 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
   }
 
   /**
-   * Get the log stream for an execution.
+   * Get the log stream for an execution with history and auto-termination.
+   *
+   * <p>Emits all logs from execution start, then continues with live logs as they arrive. Stream
+   * auto-completes when execution reaches terminal state.
    *
    * @param executionId the execution identifier
-   * @return the log flux
+   * @return the log flux that completes on workflow terminal state
    */
   @Override
   public Flux<String> getLogStream(@NotBlank final String executionId) {
+    log.atDebug().addKeyValue("executionId", executionId).log("Getting log stream");
+
     final Sinks.Many<String> sink = logSinks.get(executionId);
-    return sink != null ? sink.asFlux() : Flux.empty();
+    if (sink == null) {
+      log.atWarn().addKeyValue("executionId", executionId).log("No log sink found for execution");
+      return Flux.empty();
+    }
+
+    final Flux<String> logFlux = sink.asFlux();
+
+    return logFlux
+        .takeUntil(
+            _ -> {
+              final WorkflowState state = findState(executionId);
+              if (state != null && isTerminal(state.status) && state.endTime != null) {
+                log.atDebug()
+                    .addKeyValue("executionId", executionId)
+                    .addKeyValue("status", state.status)
+                    .log("Workflow terminal status detected, terminating log stream");
+                return true;
+              }
+              return false;
+            })
+        .doOnComplete(
+            () -> log.atInfo().addKeyValue("executionId", executionId).log("Log stream completed"));
+  }
+
+  /**
+   * Get a Flux of all log entries across all executions.
+   *
+   * <p>Converts WorkflowLogEvent to PluginLogEntry with available context. Missing fields
+   * (pluginId, pluginName, stream, logLevel) are populated with defaults or derived values.
+   *
+   * @return flux of plugin log entries
+   */
+  public Flux<PluginLogEntry> getLogFlux() {
+    return logSink
+        .asFlux()
+        .map(
+            event -> {
+              final WorkflowState state = findState(event.executionId());
+              final String sessionId = state != null ? state.sessionId : "unknown";
+              final String module =
+                  state != null && state.taskMap.get(event.nodeId()) != null
+                      ? state.taskMap.get(event.nodeId()).module()
+                      : "unknown";
+
+              return new PluginLogEntry(
+                  event.executionId(),
+                  sessionId,
+                  event.nodeId(), // Use nodeId as pluginId
+                  module, // Use module as pluginName
+                  LogStream.STDOUT, // Default to STDOUT
+                  event.line(),
+                  LogLevel.INFO, // Default to INFO
+                  event.timestamp().atZone(ZoneId.systemDefault()).toInstant(),
+                  null,
+                  null);
+            });
   }
 
   /**
@@ -588,7 +656,9 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
     if (sink != null) {
       final WorkflowState state = findState(executionId);
       if (state != null) {
-        sink.tryEmitNext(getProgress(state.sessionId, executionId));
+        final WorkflowProgress progress = getProgress(state.sessionId, executionId);
+        statusHistoryCache.put(executionId, progress);
+        sink.emitNext(progress, RETRY_HANDLER);
       }
     }
   }
@@ -643,8 +713,17 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
     }
 
     return statusFlux
-        .doOnNext(progress -> statusHistoryCache.put(executionId, progress))
-        .takeUntil(this::isWorkflowTerminal)
+        .takeUntil(
+            progress -> {
+              final boolean isTerminal = isWorkflowTerminal(progress);
+              if (isTerminal) {
+                log.atDebug()
+                    .addKeyValue("executionId", executionId)
+                    .addKeyValue("status", progress.status())
+                    .log("Workflow terminal status detected, terminating stream");
+              }
+              return isTerminal;
+            })
         .doOnComplete(
             () ->
                 log.atInfo()
@@ -676,10 +755,7 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
     final String status = progress.status();
     final LocalDateTime endTime = progress.endTime();
 
-    final Set<String> terminalStatuses =
-        Set.of("COMPLETED", "FAILED", "CANCELLED", "WORKFLOW_STOPPED");
-
-    final boolean isTerminalStatus = terminalStatuses.contains(status);
+    final boolean isTerminalStatus = isTerminal(status);
     final boolean hasEndTime = endTime != null;
 
     if (isTerminalStatus && hasEndTime) {

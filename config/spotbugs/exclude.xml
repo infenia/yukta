@@ -5,4 +5,11 @@
     <Class name="com.infenia.yukta.service.orchestrator.assembly.AssemblyContext"/>
     <Bug pattern="EI_EXPOSE_REP,EI_EXPOSE_REP2"/>
   </Match>
+
+  <!-- PluginLogEntry.metadata() returns an unmodifiable map view of frozen values -->
+  <Match>
+    <Class name="com.infenia.yukta.logging.api.PluginLogEntry"/>
+    <Method name="metadata"/>
+    <Bug pattern="EI_EXPOSE_REP"/>
+  </Match>
 </FindBugsFilter>

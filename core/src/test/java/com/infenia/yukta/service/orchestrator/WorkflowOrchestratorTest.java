@@ -20,6 +20,7 @@ import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -73,6 +74,7 @@ class WorkflowOrchestratorTest {
 
   @BeforeEach
   void setUp() {
+    lenient().when(tracker.finishWorkflow(anyString(), anyString())).thenReturn(Mono.empty());
     orchestrator =
         new WorkflowOrchestrator(
             tracker,

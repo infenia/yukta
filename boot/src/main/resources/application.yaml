@@ -51,6 +51,13 @@ yukta:
     port: 8080
     startup-timeout-seconds: 30
     health-check-interval-ms: 500
+  logs:
+    store:
+      backend: memory              # memory | file | database (when available)
+      retention:
+        default-period-minutes: 30 # User-configurable retention period
+        # Note: Maximum retention is hardcoded to 1440 minutes (24 hours)
+        # If configured value exceeds max, max will take effect
 
 control:
   bus:

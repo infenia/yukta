@@ -15,130 +15,117 @@
  */
 package com.infenia.yukta.controller;
 
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import com.infenia.yukta.service.LogRetrievalService;
+import com.infenia.yukta.logging.api.LogLevel;
+import com.infenia.yukta.logging.api.LogStream;
+import com.infenia.yukta.logging.api.PluginLogEntry;
+import com.infenia.yukta.logging.api.PluginLogStore;
+import com.infenia.yukta.model.execution.WorkflowProgress;
+import com.infenia.yukta.service.control.gateway.ControlBusGateway;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.test.web.reactive.server.WebTestClient;
-import reactor.core.publisher.Mono;
+import reactor.core.publisher.Flux;
+import reactor.test.StepVerifier;
 
-/** Tests for LogManagementController. */
+/** Unit tests for {@link LogManagementController}'s reactive log-streaming behavior. */
 @NoArgsConstructor
-@SuppressWarnings("PMD.LawOfDemeter")
 class LogManagementControllerTest {
 
-  /** Session identifier for testing. */
-  private static final String SESSION_ID = "sess-1";
+  /** Test execution ID. */
+  private static final String EXEC_ID = "exec-123";
 
-  /** Test log file name. */
-  private static final String TEST_LOG = "test.log";
+  /** Test session ID. */
+  private static final String SESSION_ID = "session-456";
 
-  /** Sample log content. */
-  private static final String LOG_CONTENT = "content";
+  /** Mock control bus gateway for testing. */
+  private ControlBusGateway mockControlBus;
 
-  /** API logs endpoint path. */
-  private static final String API_LOGS_ENDPOINT = "/api/logs/";
+  /** Mock plugin log store for testing. */
+  private PluginLogStore mockLogStore;
 
-  /** Web test client for testing controller endpoints. */
-  private WebTestClient webClient;
-
-  /** Mock service for log retrieval operations. */
-  private LogRetrievalService logs;
+  /** Controller under test. */
+  private LogManagementController controller;
 
   @BeforeEach
   void setUp() {
-    logs = mock(LogRetrievalService.class);
-    final LogManagementController controller = new LogManagementController(logs);
-    webClient = WebTestClient.bindToController(controller).build();
+    mockControlBus = mock(ControlBusGateway.class);
+    mockLogStore = mock(PluginLogStore.class);
+    controller = new LogManagementController(mockControlBus, mockLogStore);
+  }
+
+  private static WorkflowProgress progressWithStatus(final String status, final Instant endTime) {
+    return new WorkflowProgress(
+        EXEC_ID,
+        SESSION_ID,
+        "workflow-1",
+        status,
+        List.of(),
+        LocalDateTime.now(ZoneOffset.UTC),
+        endTime == null ? null : LocalDateTime.ofInstant(endTime, ZoneOffset.UTC));
+  }
+
+  private static PluginLogEntry historicalEntry(final String message) {
+    return new PluginLogEntry(
+        EXEC_ID,
+        SESSION_ID,
+        "processor-1",
+        "Processor",
+        LogStream.STDOUT,
+        message,
+        LogLevel.INFO,
+        Instant.now(),
+        null,
+        null);
   }
 
   @Test
-  void testListLogs() {
-    when(logs.listLogs(SESSION_ID)).thenReturn(Mono.just(List.of(TEST_LOG)));
+  void streamsHistoricalLogsOnlyWhenExecutionAlreadyTerminal() {
+    when(mockControlBus.getCurrentProgress(EXEC_ID))
+        .thenReturn(progressWithStatus("COMPLETED", Instant.now()));
+    when(mockLogStore.readExecution(EXEC_ID))
+        .thenReturn(Flux.just(historicalEntry("line 1"), historicalEntry("line 2")));
 
-    final var result =
-        webClient
-            .get()
-            .uri(API_LOGS_ENDPOINT + SESSION_ID)
-            .exchange()
-            .expectStatus()
-            .isOk()
-            .expectBody()
-            .jsonPath("$.data[0]")
-            .isEqualTo(TEST_LOG)
-            .returnResult();
-    assertThat(result.getStatus().value()).isEqualTo(200);
+    StepVerifier.create(controller.streamExecutionLogs(SESSION_ID, EXEC_ID))
+        .expectNextMatches(line -> line.contains("line 1"))
+        .expectNextMatches(line -> line.contains("line 2"))
+        .verifyComplete();
   }
 
   @Test
-  void testGetLogContent() {
-    when(logs.getLogContent(SESSION_ID, TEST_LOG)).thenReturn(Mono.just(LOG_CONTENT));
+  void streamsHistoricalThenLiveLogsWhenExecutionInProgress() {
+    when(mockControlBus.getCurrentProgress(EXEC_ID))
+        .thenReturn(progressWithStatus("RUNNING", null));
+    when(mockLogStore.readExecution(EXEC_ID)).thenReturn(Flux.just(historicalEntry("history 1")));
+    when(mockControlBus.watchExecution(EXEC_ID)).thenReturn(Flux.never());
+    when(mockControlBus.watchLogs(SESSION_ID, EXEC_ID)).thenReturn(Flux.just("live 1", "live 2"));
 
-    final var result =
-        webClient
-            .get()
-            .uri(API_LOGS_ENDPOINT + SESSION_ID + "/" + TEST_LOG)
-            .exchange()
-            .expectStatus()
-            .isOk()
-            .expectBody()
-            .jsonPath("$.data")
-            .isEqualTo(LOG_CONTENT)
-            .returnResult();
-    assertThat(result.getStatus().value()).isEqualTo(200);
+    StepVerifier.create(controller.streamExecutionLogs(SESSION_ID, EXEC_ID))
+        .expectNextMatches(line -> line.contains("history 1"))
+        .expectNext("live 1", "live 2")
+        .verifyComplete();
   }
 
   @Test
-  void testGetLogContentNotFound() {
-    when(logs.getLogContent(SESSION_ID, TEST_LOG))
-        .thenReturn(Mono.error(new java.io.IOException()));
+  void stopsLiveLogsWhenExecutionReachesTerminalStateMidStream() {
+    when(mockControlBus.getCurrentProgress(EXEC_ID))
+        .thenReturn(progressWithStatus("RUNNING", null));
+    when(mockLogStore.readExecution(EXEC_ID)).thenReturn(Flux.empty());
+    when(mockControlBus.watchExecution(EXEC_ID))
+        .thenReturn(
+            Flux.just(
+                progressWithStatus("RUNNING", null),
+                progressWithStatus("FAILED", null),
+                progressWithStatus("CANCELLED", Instant.now()),
+                progressWithStatus("WORKFLOW_STOPPED", Instant.now())));
+    when(mockControlBus.watchLogs(SESSION_ID, EXEC_ID)).thenReturn(Flux.never());
 
-    final var result =
-        webClient
-            .get()
-            .uri(API_LOGS_ENDPOINT + SESSION_ID + "/" + TEST_LOG)
-            .exchange()
-            .expectStatus()
-            .isNotFound()
-            .returnResult();
-    assertThat(result.getStatus().value()).isEqualTo(404);
-  }
-
-  @Test
-  void testGetRawLogContent() {
-    when(logs.getLogContent(SESSION_ID, TEST_LOG)).thenReturn(Mono.just(LOG_CONTENT));
-
-    final var result =
-        webClient
-            .get()
-            .uri("/api/logs/" + SESSION_ID + "/" + TEST_LOG + "/raw")
-            .exchange()
-            .expectStatus()
-            .isOk()
-            .expectBody(String.class)
-            .isEqualTo(LOG_CONTENT)
-            .returnResult();
-    assertThat(result.getStatus().value()).isEqualTo(200);
-  }
-
-  @Test
-  void testGetRawLogContentNotFound() {
-    when(logs.getLogContent(SESSION_ID, TEST_LOG))
-        .thenReturn(Mono.error(new java.io.IOException()));
-
-    final var result =
-        webClient
-            .get()
-            .uri("/api/logs/" + SESSION_ID + "/" + TEST_LOG + "/raw")
-            .exchange()
-            .expectStatus()
-            .isNotFound()
-            .returnResult();
-    assertThat(result.getStatus().value()).isEqualTo(404);
+    StepVerifier.create(controller.streamExecutionLogs(SESSION_ID, EXEC_ID)).verifyComplete();
   }
 }

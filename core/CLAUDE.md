@@ -31,6 +31,12 @@ Use **Java records** for data models (preferred) or **Lombok** (`@RequiredArgsCo
 - Custom validators in `com.infenia.yukta.validation`.
 - Use Jakarta Bean Validation.
 
+### Logging API Design
+- **PluginLoggerFactory**: Uses `@FunctionalInterface` with a single abstract method `create(LoggerContext)`.
+  - `LoggerContext` is a record encapsulating execution context (executionId, sessionId, pluginId, pluginName).
+  - Convenience default methods provided for 3 and 4-parameter creation to maintain backward compatibility.
+  - Implementation: `DefaultPluginLoggerFactory` extracts values from LoggerContext and passes to `DefaultPluginLogger`.
+
 ## Key File Locations
 - **Services**: `src/main/java/com/infenia/yukta/service/`
 - **MCP Tools**: `src/main/java/com/infenia/yukta/mcp/`

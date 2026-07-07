@@ -732,12 +732,13 @@ class DefaultControlBusGatewayTest {
   @Test
   void watchLogs_validExecutionId_delegatesToTaskTracker() {
     // Given
+    final String sessionId = "session-1";
     final String executionId = "exec-15";
     final String logLine = "test log";
     when(taskTracker.getLogStream(executionId)).thenReturn(Flux.just(logLine));
 
     // When
-    final Flux<String> result = gateway.watchLogs(executionId);
+    final Flux<String> result = gateway.watchLogs(sessionId, executionId);
 
     // Then
     StepVerifier.create(result).expectNext(logLine).verifyComplete();
@@ -1066,13 +1067,14 @@ class DefaultControlBusGatewayTest {
   @Test
   void watchLogs_validExecutionId_logsAndReturnsStream() {
     // Given
+    final String sessionId = "session-2";
     final String executionId = "exec-logs";
     final String logLine1 = "log line 1";
     final String logLine2 = "log line 2";
     when(taskTracker.getLogStream(executionId)).thenReturn(Flux.just(logLine1, logLine2));
 
     // When
-    final Flux<String> result = gateway.watchLogs(executionId);
+    final Flux<String> result = gateway.watchLogs(sessionId, executionId);
 
     // Then
     StepVerifier.create(result).expectNext(logLine1, logLine2).verifyComplete();
@@ -1290,11 +1292,12 @@ class DefaultControlBusGatewayTest {
   @Test
   void watchLogs_withEmptyStream_completesWithoutItems() {
     // Given
+    final String sessionId = "session-3";
     final String executionId = "exec-empty-logs";
     when(taskTracker.getLogStream(executionId)).thenReturn(Flux.empty());
 
     // When
-    final Flux<String> result = gateway.watchLogs(executionId);
+    final Flux<String> result = gateway.watchLogs(sessionId, executionId);
 
     // Then
     StepVerifier.create(result).verifyComplete();
@@ -1303,12 +1306,13 @@ class DefaultControlBusGatewayTest {
   @Test
   void watchLogs_withStreamError_propagatesError() {
     // Given
+    final String sessionId = "session-4";
     final String executionId = "exec-logs-error";
     final RuntimeException testError = new RuntimeException("Logs stream error");
     when(taskTracker.getLogStream(executionId)).thenReturn(Flux.error(testError));
 
     // When
-    final Flux<String> result = gateway.watchLogs(executionId);
+    final Flux<String> result = gateway.watchLogs(sessionId, executionId);
 
     // Then
     StepVerifier.create(result).expectError(RuntimeException.class).verify();

@@ -692,20 +692,30 @@ public class DefaultControlBusGateway implements ControlBusGateway {
   }
 
   @Override
-  public Flux<String> watchLogs(final String executionId) {
-    log.atDebug().addKeyValue("executionId", executionId).log("Starting to watch execution logs");
+  public Flux<String> watchLogs(final String sessionId, final String executionId) {
+    log.atDebug()
+        .addKeyValue("sessionId", sessionId)
+        .addKeyValue("executionId", executionId)
+        .log("Starting to watch execution logs");
     return taskTracker
         .getLogStream(executionId)
         .doOnSubscribe(
             _ ->
                 log.atDebug()
+                    .addKeyValue("sessionId", sessionId)
                     .addKeyValue("executionId", executionId)
                     .log("Subscribed to log stream"))
-        .doOnNext(logLine -> log.atTrace().addKeyValue("executionId", executionId).log(logLine))
+        .doOnNext(
+            logLine ->
+                log.atTrace()
+                    .addKeyValue("sessionId", sessionId)
+                    .addKeyValue("executionId", executionId)
+                    .log(logLine))
         .doOnError(
             err ->
                 log.atError()
                     .setCause(err)
+                    .addKeyValue("sessionId", sessionId)
                     .addKeyValue("executionId", executionId)
                     .log("Log stream error"));
   }

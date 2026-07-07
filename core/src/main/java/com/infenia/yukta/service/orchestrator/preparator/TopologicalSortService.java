@@ -16,12 +16,8 @@
 package com.infenia.yukta.service.orchestrator.preparator;
 
 import com.infenia.yukta.model.workflow.WorkflowNode;
-import java.util.ArrayDeque;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Queue;
-import java.util.concurrent.ConcurrentHashMap;
+// CHECKSTYLE.SUPPRESS: AvoidStarImport for 1 lines
+import java.util.*;
 import lombok.NoArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -30,7 +26,11 @@ import org.springframework.stereotype.Service;
 @Slf4j
 @Service
 @NoArgsConstructor
-@SuppressWarnings("PMD.AvoidDuplicateLiterals")
+@SuppressWarnings({
+  "PMD.AvoidDuplicateLiterals",
+  "checkstyle:AvoidStarImport",
+  "PMD.UseConcurrentHashMap"
+})
 public class TopologicalSortService {
 
   /**
@@ -51,8 +51,8 @@ public class TopologicalSortService {
         .addKeyValue("edgeCount", adj.size())
         .log("Starting topological sort of workflow DAG");
 
-    final Map<String, Integer> inDegree = new ConcurrentHashMap<>();
-    final Map<String, WorkflowNode> nodeMap = new ConcurrentHashMap<>();
+    final Map<String, Integer> inDegree = new HashMap<>();
+    final Map<String, WorkflowNode> nodeMap = new HashMap<>();
 
     for (final WorkflowNode node : nodes) {
       nodeMap.put(node.nodeId(), node);

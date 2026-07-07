@@ -152,8 +152,32 @@ public class WorkflowOrchestrator {
             .startWorkflow(executionId, sessionId, workflowId, nodeIds)
             .then(prepared.template().instantiate(executionId, payload));
 
-    return Mono.firstWithSignal(
-            execution, control.immediateStopSink().asMono(), control.safeStopSink().asMono())
+    final Mono<Void> trackExecution =
+        Mono.firstWithSignal(
+                execution, control.immediateStopSink().asMono(), control.safeStopSink().asMono())
+            .then(tracker.finishWorkflow(executionId, "SUCCESS"))
+            .doOnSuccess(
+                _ ->
+                    log.atInfo()
+                        .addKeyValue(LOG_KEY_SESSION_ID, sessionId)
+                        .addKeyValue(LOG_KEY_WORKFLOW_ID, workflowId)
+                        .addKeyValue(LOG_KEY_EXECUTION_ID, executionId)
+                        .log("Workflow execution completed successfully"))
+            .onErrorResume(
+                e ->
+                    tracker
+                        .finishWorkflow(executionId, "FAILURE")
+                        .doOnSuccess(
+                            _ ->
+                                log.atError()
+                                    .setCause(e)
+                                    .addKeyValue(LOG_KEY_SESSION_ID, sessionId)
+                                    .addKeyValue(LOG_KEY_WORKFLOW_ID, workflowId)
+                                    .addKeyValue(LOG_KEY_EXECUTION_ID, executionId)
+                                    .log("Workflow execution failed"))
+                        .then(Mono.error(e)));
+
+    return trackExecution
         .doFinally(
             signal -> {
               executionControlRegistry.unregister(executionId);
@@ -163,21 +187,6 @@ public class WorkflowOrchestrator {
                   .addKeyValue("signal", signal)
                   .log("Cleaned up execution resources");
             })
-        .doOnSuccess(
-            _ ->
-                log.atInfo()
-                    .addKeyValue(LOG_KEY_SESSION_ID, sessionId)
-                    .addKeyValue(LOG_KEY_WORKFLOW_ID, workflowId)
-                    .addKeyValue(LOG_KEY_EXECUTION_ID, executionId)
-                    .log("Workflow execution completed successfully"))
-        .doOnError(
-            e ->
-                log.atError()
-                    .setCause(e)
-                    .addKeyValue(LOG_KEY_SESSION_ID, sessionId)
-                    .addKeyValue(LOG_KEY_WORKFLOW_ID, workflowId)
-                    .addKeyValue(LOG_KEY_EXECUTION_ID, executionId)
-                    .log("Workflow execution failed"))
         .contextWrite(
             Context.of(
                 CTX_SESSION_ID, sessionId,
@@ -260,35 +269,49 @@ public class WorkflowOrchestrator {
         .addKeyValue(LOG_KEY_EXECUTION_ID, newExecutionId)
         .log("Registered execution control for restarted workflow");
 
-    return tracker
-        .startWorkflow(newExecutionId, sessionId, workflowId, nodeIds)
-        .then(
-            compiler.executeTemplate(
-                newExecutionId, Map.of(), nodeCount, assemblers, sessionId, workflowId, nodeIds))
-        .as(mono -> Mono.firstWithSignal(mono, control.safeStopSink().asMono()))
-        .doFinally(
-            signal -> {
-              executionControlRegistry.unregister(newExecutionId);
-              checkpointStore.clear(newExecutionId);
-              log.atDebug()
-                  .addKeyValue(LOG_KEY_EXECUTION_ID, newExecutionId)
-                  .addKeyValue("signal", signal)
-                  .log("Cleaned up restarted execution resources");
-            })
-        .doOnSuccess(
-            _ ->
-                log.atInfo()
-                    .addKeyValue(LOG_KEY_SESSION_ID, sessionId)
-                    .addKeyValue(LOG_KEY_WORKFLOW_ID, workflowId)
-                    .addKeyValue(LOG_KEY_EXECUTION_ID, newExecutionId)
-                    .log("RestartFromNode execution completed"))
-        .doOnError(
-            e ->
-                log.atError()
-                    .setCause(e)
-                    .addKeyValue(LOG_KEY_SESSION_ID, sessionId)
-                    .addKeyValue(LOG_KEY_WORKFLOW_ID, workflowId)
-                    .addKeyValue(LOG_KEY_EXECUTION_ID, newExecutionId)
-                    .log("RestartFromNode execution failed"));
+    final Mono<Void> trackRestart =
+        tracker
+            .startWorkflow(newExecutionId, sessionId, workflowId, nodeIds)
+            .then(
+                compiler.executeTemplate(
+                    newExecutionId,
+                    Map.of(),
+                    nodeCount,
+                    assemblers,
+                    sessionId,
+                    workflowId,
+                    nodeIds))
+            .as(mono -> Mono.firstWithSignal(mono, control.safeStopSink().asMono()))
+            .then(tracker.finishWorkflow(newExecutionId, "SUCCESS"))
+            .doOnSuccess(
+                _ ->
+                    log.atInfo()
+                        .addKeyValue(LOG_KEY_SESSION_ID, sessionId)
+                        .addKeyValue(LOG_KEY_WORKFLOW_ID, workflowId)
+                        .addKeyValue(LOG_KEY_EXECUTION_ID, newExecutionId)
+                        .log("RestartFromNode execution completed"))
+            .onErrorResume(
+                e ->
+                    tracker
+                        .finishWorkflow(newExecutionId, "FAILURE")
+                        .doOnSuccess(
+                            _ ->
+                                log.atError()
+                                    .setCause(e)
+                                    .addKeyValue(LOG_KEY_SESSION_ID, sessionId)
+                                    .addKeyValue(LOG_KEY_WORKFLOW_ID, workflowId)
+                                    .addKeyValue(LOG_KEY_EXECUTION_ID, newExecutionId)
+                                    .log("RestartFromNode execution failed"))
+                        .then(Mono.error(e)));
+
+    return trackRestart.doFinally(
+        signal -> {
+          executionControlRegistry.unregister(newExecutionId);
+          checkpointStore.clear(newExecutionId);
+          log.atDebug()
+              .addKeyValue(LOG_KEY_EXECUTION_ID, newExecutionId)
+              .addKeyValue("signal", signal)
+              .log("Cleaned up restarted execution resources");
+        });
   }
 }

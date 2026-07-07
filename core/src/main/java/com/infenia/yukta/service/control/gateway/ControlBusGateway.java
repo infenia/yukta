@@ -294,10 +294,11 @@ public interface ControlBusGateway {
    * <p>Emits log lines as they are generated during execution. Useful for live log streaming to
    * UIs.
    *
+   * @param sessionId the session identifier
    * @param executionId the execution to watch
    * @return a Flux of log lines that completes when execution finishes
    */
-  reactor.core.publisher.Flux<String> watchLogs(String executionId);
+  reactor.core.publisher.Flux<String> watchLogs(String sessionId, String executionId);
 
   /**
    * Get current execution progress snapshot.

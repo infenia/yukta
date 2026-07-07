@@ -16,6 +16,8 @@
 package com.infenia.yukta.service.orchestrator.stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 
 import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
@@ -334,6 +336,46 @@ class StreamTopologyDecoratorTest {
     StepVerifier.create(output).expectNextCount(1).verifyComplete();
 
     // Cleanup
+    disposables.forEach(Disposable::dispose);
+  }
+
+  @Test
+  void testApplyLoggingAndBroadcastingMultiLineChunkOverflow() {
+    // 20 lines of 1000 chars joined by newlines: total length exceeds MAX_LOG_LINE_SIZE
+    // (16,384), but every individual line fits, so chunks accumulate via append rather than
+    // being split character-by-character. After 16 lines the running chunk (16,015 chars)
+    // is one line away from overflow: adding line 17 pushes past the limit, forcing a flush
+    // and starting a fresh chunk with line 17 itself (which still fits on its own).
+    final String line = "A".repeat(1000);
+    final StringBuilder payload = new StringBuilder();
+    for (int i = 0; i < 20; i++) {
+      if (i > 0) {
+        payload.append('\n');
+      }
+      payload.append(line);
+    }
+
+    final Message<?> msg = DefaultMessage.create(UUID.randomUUID(), payload.toString());
+    final Flux<Message<?>> input = Flux.just(msg);
+    final List<Disposable> disposables = new ArrayList<>();
+    final List<Runnable> connectors = new ArrayList<>();
+
+    final Flux<Message<?>> output =
+        decorator.applyLoggingAndBroadcasting(EXEC_1, NODE_1, input, 1024, disposables, connectors);
+
+    for (final Runnable connector : connectors) {
+      connector.run();
+    }
+
+    StepVerifier.create(output).expectNextCount(1).verifyComplete();
+
+    // Payload is split into exactly two chunks: lines 1-16 and lines 17-20.
+    verify(tracker, times(2))
+        .emitLogEvent(
+            org.mockito.ArgumentMatchers.eq(EXEC_1),
+            org.mockito.ArgumentMatchers.eq(NODE_1),
+            org.mockito.ArgumentMatchers.anyString());
+
     disposables.forEach(Disposable::dispose);
   }
 }

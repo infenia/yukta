@@ -18,6 +18,8 @@ package com.infenia.yukta.service.orchestrator.tracker;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
+import com.infenia.yukta.logging.api.LogLevel;
+import com.infenia.yukta.logging.api.LogStream;
 import com.infenia.yukta.model.execution.WorkflowProgress;
 import com.infenia.yukta.service.streaming.StatusHistoryCache;
 import java.lang.reflect.Field;
@@ -116,7 +118,7 @@ class DefaultTaskTrackerServiceTest {
         .verifyComplete();
 
     StepVerifier.create(tracker.getLogStream(executionId))
-        .then(() -> tracker.emitLogEvent(executionId, "log line 1"))
+        .then(() -> tracker.emitLogEvent(executionId, "system", "log line 1"))
         .expectNext("log line 1")
         .thenCancel()
         .verify();
@@ -158,7 +160,7 @@ class DefaultTaskTrackerServiceTest {
   void testEventsForUnknownExecution() {
     tracker.emitTaskStatusEvent("unknown", "n", "m", "s", Map.of());
     tracker.emitWorkflowStatusEvent("unknown", "s");
-    tracker.emitLogEvent("unknown", "log");
+    tracker.emitLogEvent("unknown", "system", "log");
     // Should not crash - test passes if no exception is thrown
     assertThat(true).isTrue();
   }
@@ -614,7 +616,7 @@ class DefaultTaskTrackerServiceTest {
     trackerWithError.init();
 
     // Emit a log event — should not crash
-    trackerWithError.emitLogEvent("exec-id", "log line");
+    trackerWithError.emitLogEvent("exec-id", "system", "log line");
 
     // Wait for async processing
     Thread.sleep(200);
@@ -2261,5 +2263,139 @@ class DefaultTaskTrackerServiceTest {
 
     // Should handle gracefully - sink exists but state is null (condition at line 448 is false)
     assertThat(true).isTrue();
+  }
+
+  @Test
+  void testGetLogFluxMapsKnownExecutionAndNode() {
+    final String sessionId = "sess-logflux-known";
+    final String workflowId = "wf-logflux-known";
+    final String executionId = "exec-logflux-known";
+    final String nodeId = "node1";
+
+    StepVerifier.create(tracker.startWorkflow(executionId, sessionId, workflowId, List.of(nodeId)))
+        .verifyComplete();
+
+    StepVerifier.create(tracker.getLogFlux())
+        .then(() -> tracker.emitLogEvent(executionId, nodeId, "hello world"))
+        .assertNext(
+            entry -> {
+              assertThat(entry.executionId()).isEqualTo(executionId);
+              assertThat(entry.sessionId()).isEqualTo(sessionId);
+              assertThat(entry.pluginId()).isEqualTo(nodeId);
+              assertThat(entry.pluginName()).isEmpty();
+              assertThat(entry.stream()).isEqualTo(LogStream.STDOUT);
+              assertThat(entry.message()).isEqualTo("hello world");
+              assertThat(entry.logLevel()).isEqualTo(LogLevel.INFO);
+            })
+        .thenCancel()
+        .verify();
+  }
+
+  @Test
+  void testGetLogFluxForUnknownExecutionDefaultsToUnknown() {
+    StepVerifier.create(tracker.getLogFlux())
+        .then(() -> tracker.emitLogEvent("unknown-exec-for-flux", "node-x", "orphan log"))
+        .assertNext(
+            entry -> {
+              assertThat(entry.sessionId()).isEqualTo("unknown");
+              assertThat(entry.pluginName()).isEqualTo("unknown");
+              assertThat(entry.pluginId()).isEqualTo("node-x");
+            })
+        .thenCancel()
+        .verify();
+  }
+
+  @Test
+  void testGetLogFluxForKnownExecutionUnknownNodeDefaultsModuleToUnknown() {
+    final String sessionId = "sess-logflux-node-unknown";
+    final String workflowId = "wf-logflux-node-unknown";
+    final String executionId = "exec-logflux-node-unknown";
+
+    StepVerifier.create(tracker.startWorkflow(executionId, sessionId, workflowId, List.of()))
+        .verifyComplete();
+
+    StepVerifier.create(tracker.getLogFlux())
+        .then(() -> tracker.emitLogEvent(executionId, "node-not-in-map", "line"))
+        .assertNext(
+            entry -> {
+              assertThat(entry.sessionId()).isEqualTo(sessionId);
+              assertThat(entry.pluginName()).isEqualTo("unknown");
+            })
+        .thenCancel()
+        .verify();
+  }
+
+  @Test
+  void testGetLogStreamAutoTerminatesOnWorkflowTerminalStatus() {
+    final DefaultTaskTrackerService longTtlTracker =
+        new DefaultTaskTrackerService(Duration.ofMinutes(10), statusHistoryCache);
+    longTtlTracker.init();
+
+    final String sessionId = "sess-log-terminal";
+    final String workflowId = "wf-log-terminal";
+    final String executionId = "exec-log-terminal";
+
+    StepVerifier.create(longTtlTracker.startWorkflow(executionId, sessionId, workflowId, List.of()))
+        .verifyComplete();
+
+    StepVerifier.create(longTtlTracker.getLogStream(executionId))
+        .then(() -> longTtlTracker.emitLogEvent(executionId, "system", "line before terminal"))
+        .expectNext("line before terminal")
+        .then(
+            () -> {
+              longTtlTracker.emitWorkflowStatusEvent(executionId, "SUCCESS");
+              await()
+                  .atMost(2, TimeUnit.SECONDS)
+                  .until(
+                      () -> {
+                        final WorkflowProgress progress =
+                            longTtlTracker.getProgressByExecutionId(executionId);
+                        return progress != null
+                            && "SUCCESS".equals(progress.status())
+                            && progress.endTime() != null;
+                      });
+              longTtlTracker.emitLogEvent(executionId, "system", "line after terminal");
+            })
+        .expectNext("line after terminal")
+        .expectComplete()
+        .verify(Duration.ofSeconds(5));
+  }
+
+  @Test
+  void testGetStatusStreamAutoTerminatesOnTerminalProgress() {
+    final DefaultTaskTrackerService longTtlTracker =
+        new DefaultTaskTrackerService(Duration.ofMinutes(10), statusHistoryCache);
+    longTtlTracker.init();
+
+    final String sessionId = "sess-status-terminal-full";
+    final String workflowId = "wf-status-terminal-full";
+    final String executionId = "exec-status-terminal-full";
+
+    StepVerifier.create(
+            longTtlTracker.startWorkflow(executionId, sessionId, workflowId, List.of("n1")))
+        .verifyComplete();
+
+    StepVerifier.create(longTtlTracker.getStatusStream(executionId))
+        .then(() -> longTtlTracker.emitWorkflowStatusEvent(executionId, "SUCCESS"))
+        .assertNext(progress -> assertThat(progress.status()).isEqualTo("SUCCESS"))
+        .expectComplete()
+        .verify(Duration.ofSeconds(5));
+  }
+
+  @Test
+  void testGetStatusStreamWithoutHistory() {
+    final String sessionId = "sess-no-history";
+    final String workflowId = "wf-no-history";
+    final String executionId = "exec-no-history";
+    final List<String> nodes = List.of("n1");
+
+    StepVerifier.create(tracker.startWorkflow(executionId, sessionId, workflowId, nodes))
+        .verifyComplete();
+
+    StepVerifier.create(tracker.getStatusStream(executionId, false))
+        .then(() -> tracker.emitTaskStatusEvent(executionId, "n1", "mod", "RUNNING", Map.of()))
+        .expectNextCount(1)
+        .thenCancel()
+        .verify();
   }
 }

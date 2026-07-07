@@ -200,7 +200,11 @@ public interface TaskTrackerService {
    * Emit a log event for asynchronous processing.
    *
    * @param executionId the execution identifier
+   * @param nodeId the node identifier (for plugin resolution)
    * @param line the log line
    */
-  void emitLogEvent(@NotBlank String executionId, @NotBlank @Size(max = 16_384) String line);
+  void emitLogEvent(
+      @NotBlank String executionId,
+      @NotBlank String nodeId,
+      @NotBlank @Size(max = 16_384) String line);
 }

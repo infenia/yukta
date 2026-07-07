@@ -24,4 +24,4 @@
 - **PMD**: Code quality rules (config: `config/pmd/ruleset.xml`)
 - **SpotBugs**: Bug detection (enabled via quality-conventions)
 - **OpenGrep**: Security/best-practice scanning (config: `config/opengrep/.semgrep.yml`); runs as part of `check` only if the `opengrep` CLI is installed
-- Quality gates are applied ONLY to main source code, not tests or AOT
+- Checkstyle, PMD, and SpotBugs apply to both main and test source; only AOT-generated code is exempt

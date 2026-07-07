@@ -75,7 +75,7 @@ public class TriggerNodeAssemblerStrategy implements NodeAssemblerStrategy {
       final Duration timeout,
       final int index,
       final int bufferSize,
-      final ParentEdgeInfo[] parentEdges) {
+      final ParentEdgeInfo... parentEdges) {
     final TriggerPlugin trigger = (TriggerPlugin) plugin;
 
     log.atDebug()

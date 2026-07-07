@@ -104,6 +104,7 @@ sourceSets.main.get().java.srcDir(layout.buildDirectory.dir("jte-classes"))
 
 // Copy JTE precompiled classes to classes output dir so they're included in JAR
 tasks.register<Copy>("copyJteClasses") {
+    description = "Copy JTE Classes"
     dependsOn(tasks.named("precompileJte"), tasks.named("generateJte"))
     from(layout.buildDirectory.dir("jte-classes"))
     into(layout.buildDirectory.dir("classes/java/main"))
@@ -132,6 +133,7 @@ tasks.named<Jar>("jar") {
 
 // Tailwind CSS task
 val tailwind = tasks.register<PnpmTask>("tailwind") {
+    description = "Tailwind"
     dependsOn("pnpmInstall")
     pnpmCommand.set(listOf("exec", "tailwindcss", "-i", "./src/main/resources/static/css/input.css", "-o", "${layout.buildDirectory.get().asFile}/tailwind/style.css", "--minify"))
     inputs.file("./src/main/resources/static/css/input.css")
@@ -140,6 +142,7 @@ val tailwind = tasks.register<PnpmTask>("tailwind") {
 
 // JS Bundle task
 val bundleJs = tasks.register<PnpmTask>("bundleJs") {
+    description = "Bundle JS"
     dependsOn("pnpmInstall")
     pnpmCommand.set(listOf("exec", "esbuild", "./src/main/js/app.js", "--bundle", "--outfile=${layout.buildDirectory.get().asFile}/esbuild/app.js", "--minify", "--sourcemap"))
     inputs.dir("./src/main/js")

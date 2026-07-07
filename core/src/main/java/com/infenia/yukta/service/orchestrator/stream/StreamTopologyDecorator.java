@@ -69,10 +69,75 @@ public class StreamTopologyDecorator {
     return shouldRetry;
   }
 
-  private static String truncateLogLine(final String line) {
-    return line.length() <= MAX_LOG_LINE_SIZE
-        ? line
-        : line.substring(0, MAX_LOG_LINE_SIZE - 20) + "\n[... truncated ...]";
+  /**
+   * Split a log line into chunks if it exceeds MAX_LOG_LINE_SIZE.
+   *
+   * <p>Preserves all log data by splitting at newline boundaries first, then splitting individual
+   * lines that exceed MAX_LOG_LINE_SIZE character-by-character. Each chunk becomes a separate log
+   * entry to avoid validation failures from oversized lines.
+   *
+   * @param line the log line to split
+   * @return array of log chunks, each <= MAX_LOG_LINE_SIZE
+   */
+  private static String[] splitLogLine(final String line) {
+    final String[] result;
+    if (line.length() <= MAX_LOG_LINE_SIZE) {
+      result = new String[] {line};
+    } else {
+      final List<String> chunks = new ArrayList<>();
+      final String[] lines = line.split("\n", -1);
+      final StringBuilder currentChunk = new StringBuilder();
+
+      for (final String currentLine : lines) {
+        processLine(currentLine, currentChunk, chunks);
+      }
+
+      flushChunk(currentChunk, chunks);
+      result = chunks.toArray(new String[0]);
+    }
+    return result;
+  }
+
+  private static void processLine(
+      final String currentLine, final StringBuilder currentChunk, final List<String> chunks) {
+    final int potentialSize =
+        currentChunk.length() + (currentChunk.isEmpty() ? 0 : 1) + currentLine.length();
+
+    if (potentialSize <= MAX_LOG_LINE_SIZE) {
+      if (!currentChunk.isEmpty()) {
+        currentChunk.append('\n');
+      }
+      currentChunk.append(currentLine);
+    } else {
+      flushChunk(currentChunk, chunks);
+      if (currentLine.length() > MAX_LOG_LINE_SIZE) {
+        splitLongLine(currentLine, chunks);
+      } else {
+        currentChunk.append(currentLine);
+      }
+    }
+  }
+
+  private static void flushChunk(final StringBuilder currentChunk, final List<String> chunks) {
+    if (!currentChunk.isEmpty()) {
+      chunks.add(currentChunk.toString());
+      currentChunk.setLength(0);
+    }
+  }
+
+  /**
+   * Split a single line that exceeds MAX_LOG_LINE_SIZE into character-bounded chunks.
+   *
+   * @param line the line to split
+   * @param chunks the list to append chunks to
+   */
+  private static void splitLongLine(final String line, final List<String> chunks) {
+    int offset = 0;
+    while (offset < line.length()) {
+      final int endOffset = Math.min(offset + MAX_LOG_LINE_SIZE, line.length());
+      chunks.add(line.substring(offset, endOffset));
+      offset = endOffset;
+    }
   }
 
   /**
@@ -248,7 +313,10 @@ public class StreamTopologyDecorator {
         msg -> {
           final String payload = String.valueOf(msg.getPayload());
           log.atTrace().setMessage("Processing message payload: {}").addArgument(payload).log();
-          tracker.emitLogEvent(executionId, truncateLogLine(payload));
+          final String[] chunks = splitLogLine(payload);
+          for (final String chunk : chunks) {
+            tracker.emitLogEvent(executionId, nodeId, chunk);
+          }
         });
   }
 }

@@ -77,7 +77,7 @@ public class ProcessorNodeAssemblerStrategy implements NodeAssemblerStrategy {
       final Duration timeout,
       final int index,
       final int bufferSize,
-      final ParentEdgeInfo[] parentEdges) {
+      final ParentEdgeInfo... parentEdges) {
     final ProcessorPlugin processor = (ProcessorPlugin) plugin;
 
     log.atDebug()
