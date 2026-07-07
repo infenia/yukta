@@ -39,6 +39,7 @@ import com.infenia.yukta.plugin.type.ProcessorPlugin;
 import com.infenia.yukta.plugin.type.TerminalPlugin;
 import com.infenia.yukta.plugin.type.TriggerPlugin;
 import com.infenia.yukta.service.control.ExecutionControl;
+import com.infenia.yukta.service.control.store.ActivePluginRegistry;
 import com.infenia.yukta.service.control.valve.ReactiveControlValve;
 import com.infenia.yukta.service.orchestrator.assembly.AssemblyContext;
 import com.infenia.yukta.service.orchestrator.stream.StreamTopologyDecorator;
@@ -80,6 +81,7 @@ class TerminalNodeAssemblerStrategyTest {
   @Mock private TaskTrackerService tracker;
   @Mock private StreamTopologyDecorator streamTopologyDecorator;
   @Mock private NodeMessageChannelProvider channelProvider;
+  @Mock private ActivePluginRegistry activePluginRegistry;
 
   private TerminalNodeAssemblerStrategy strategy;
 
@@ -93,7 +95,11 @@ class TerminalNodeAssemblerStrategyTest {
     when(channelProvider.channelFor(any(), any())).thenReturn(new DirectNodeMessageChannel());
     strategy =
         new TerminalNodeAssemblerStrategy(
-            tracker, Schedulers.boundedElastic(), streamTopologyDecorator, channelProvider);
+            tracker,
+            Schedulers.boundedElastic(),
+            streamTopologyDecorator,
+            channelProvider,
+            activePluginRegistry);
   }
 
   // ── supports() ────────────────────────────────────────────────────────────
@@ -186,6 +192,8 @@ class TerminalNodeAssemblerStrategyTest {
 
     verify(tracker, atLeastOnce())
         .emitTaskStatusEvent(eq(EXECUTION_ID), eq(NODE_ID), anyString(), anyString(), any());
+    verify(activePluginRegistry).register(WORKFLOW_ID, NODE_ID, terminal);
+    verify(activePluginRegistry).unregister(WORKFLOW_ID, NODE_ID);
   }
 
   @Test
@@ -211,6 +219,8 @@ class TerminalNodeAssemblerStrategyTest {
 
     verify(tracker, atLeastOnce())
         .emitTaskStatusEvent(eq(EXECUTION_ID), eq(NODE_ID), anyString(), eq("FAILURE"), any());
+    verify(activePluginRegistry).register(WORKFLOW_ID, NODE_ID, terminal);
+    verify(activePluginRegistry).unregister(WORKFLOW_ID, NODE_ID);
   }
 
   @Test

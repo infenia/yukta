@@ -19,6 +19,7 @@ import com.infenia.yukta.message.Message;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.plugin.core.Plugin;
 import com.infenia.yukta.service.control.directive.ControlSignalHandler;
+import com.infenia.yukta.service.control.store.ActivePluginRegistry;
 import com.infenia.yukta.service.orchestrator.WorkflowOrchestrator;
 import com.infenia.yukta.service.workflow.store.PreparedWorkflowCache;
 import com.infenia.yukta.service.workflow.store.WorkflowDefinitionStore;
@@ -29,9 +30,7 @@ import jakarta.validation.constraints.NotBlank;
 import java.time.Duration;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
-import java.util.concurrent.ConcurrentHashMap;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -78,8 +77,8 @@ public class ControlBusService {
   /** Workflow orchestrator for compiling workflows. */
   private final WorkflowOrchestrator orchestrator;
 
-  /** Map of active plugins by composite key. */
-  private final Map<String, Plugin> activePlugins = new ConcurrentHashMap<>();
+  /** Registry of plugin instances actively servicing workflow nodes. */
+  private final ActivePluginRegistry activePluginRegistry;
 
   /** Sink for emitting control messages. */
   private Sinks.Many<Message<?>> controlSink =
@@ -109,6 +108,7 @@ public class ControlBusService {
    * @param handlers the list of signal handlers for dispatching messages
    * @param preparedWorkflowCache the cache for compiled workflow instances
    * @param orchestrator the workflow orchestrator for compiling workflows
+   * @param activePluginRegistry the registry of plugin instances actively servicing nodes
    */
   @SuppressFBWarnings("EI_EXPOSE_REP2")
   public ControlBusService(
@@ -117,13 +117,15 @@ public class ControlBusService {
       @Value("${control.bus.buffer.size:256}") final int bufferSize,
       final List<ControlSignalHandler> handlers,
       final PreparedWorkflowCache preparedWorkflowCache,
-      final WorkflowOrchestrator orchestrator) {
+      final WorkflowOrchestrator orchestrator,
+      final ActivePluginRegistry activePluginRegistry) {
     this.batchSize = batchSize;
     this.batchTimeout = Duration.ofMillis(batchTimeoutMs);
     this.bufferSize = Math.max(bufferSize, Queues.SMALL_BUFFER_SIZE);
     this.handlers = List.copyOf(handlers);
     this.preparedWorkflowCache = preparedWorkflowCache;
     this.orchestrator = orchestrator;
+    this.activePluginRegistry = activePluginRegistry;
   }
 
   /** Initialize the control sink and background event consumer. */
@@ -332,13 +334,7 @@ public class ControlBusService {
    */
   public void registerPlugin(
       @NotBlank final String workflowId, @NotBlank final String nodeId, final Plugin plugin) {
-    final String key = compositeKey(workflowId, nodeId);
-    activePlugins.put(key, plugin);
-    log.atDebug()
-        .addArgument(nodeId)
-        .addArgument(workflowId)
-        .addArgument(plugin.getClass().getSimpleName())
-        .log("Registered plugin {} for node: {} in workflow: {}");
+    activePluginRegistry.register(workflowId, nodeId, plugin);
   }
 
   /**
@@ -348,20 +344,7 @@ public class ControlBusService {
    * @param nodeId the node identifier
    */
   public void unregisterPlugin(@NotBlank final String workflowId, @NotBlank final String nodeId) {
-    final String key = compositeKey(workflowId, nodeId);
-    final Plugin removed = activePlugins.remove(key);
-    if (removed != null) {
-      log.atDebug()
-          .addArgument(nodeId)
-          .addArgument(workflowId)
-          .log("Unregistered plugin for node: {} in workflow: {}");
-    } else {
-      log.atWarn()
-          .addArgument(nodeId)
-          .addArgument(workflowId)
-          .log("Attempted to unregister plugin for non-existent node: {} in workflow: {}");
-    }
-    handlers.forEach(h -> h.removeNode(key));
+    activePluginRegistry.unregister(workflowId, nodeId);
   }
 
   /**
@@ -374,8 +357,7 @@ public class ControlBusService {
    */
   public Mono<Message<?>> sendCommand(
       @NotBlank final String workflowId, @NotBlank final String nodeId, final Message<?> command) {
-    final String key = compositeKey(workflowId, nodeId);
-    final Plugin plugin = activePlugins.get(key);
+    final Plugin plugin = activePluginRegistry.lookup(workflowId, nodeId).orElse(null);
     if (plugin == null) {
       log.atWarn()
           .addArgument(nodeId)

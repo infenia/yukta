@@ -23,8 +23,11 @@ import com.infenia.yukta.logging.api.PluginLogEntry;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.PosixFilePermission;
 import java.time.Instant;
+import java.util.EnumSet;
 import java.util.List;
+import java.util.Set;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -350,6 +353,23 @@ class FileSystemPluginLogReaderTest {
   }
 
   @Test
+  void readExecution_timestampWithoutOffset_parsesAtSystemDefaultZone() throws IOException {
+    final Path sessionDir = Files.createDirectories(tempDir.resolve(SESSION_ID));
+    Files.writeString(
+        sessionDir.resolve("exec-123.log"),
+        "2026-07-02T10:00:00 | STDOUT | INFO | plugin-1 | Plugin One | Message\n");
+
+    final List<PluginLogEntry> entries = reader.readExecution("exec-123").collectList().block();
+
+    assertThat(entries).hasSize(1);
+    assertThat(entries.getFirst().timestamp())
+        .isEqualTo(
+            java.time.LocalDateTime.parse("2026-07-02T10:00:00")
+                .atZone(java.time.ZoneId.systemDefault())
+                .toInstant());
+  }
+
+  @Test
   void listExecutions_logFileWithNoParseableEntries_excludedFromSummaries() throws IOException {
     final Path sessionDir = Files.createDirectories(tempDir.resolve(SESSION_ID));
     Files.writeString(sessionDir.resolve("exec-invalid.log"), "not a valid log line\n");
@@ -404,5 +424,50 @@ class FileSystemPluginLogReaderTest {
     final String content = reader.getRawContent("exec-123").block();
 
     assertThat(content).isEmpty();
+  }
+
+  @Test
+  void readExecution_ioExceptionWhileScanningBaseDir_returnsEmptyList() throws IOException {
+    Files.createDirectories(tempDir.resolve(SESSION_ID));
+    final Set<PosixFilePermission> original = Files.getPosixFilePermissions(tempDir);
+    try {
+      Files.setPosixFilePermissions(tempDir, EnumSet.noneOf(PosixFilePermission.class));
+
+      final List<PluginLogEntry> entries = reader.readExecution("exec-123").collectList().block();
+
+      assertThat(entries).isEmpty();
+    } finally {
+      Files.setPosixFilePermissions(tempDir, original);
+    }
+  }
+
+  @Test
+  void readSession_ioExceptionWhileListingSessionDir_returnsEmptyList() throws IOException {
+    final Path sessionDir = Files.createDirectories(tempDir.resolve(SESSION_ID));
+    final Set<PosixFilePermission> original = Files.getPosixFilePermissions(sessionDir);
+    try {
+      Files.setPosixFilePermissions(sessionDir, EnumSet.noneOf(PosixFilePermission.class));
+
+      final List<PluginLogEntry> entries = reader.readSession(SESSION_ID).collectList().block();
+
+      assertThat(entries).isEmpty();
+    } finally {
+      Files.setPosixFilePermissions(sessionDir, original);
+    }
+  }
+
+  @Test
+  void listExecutions_ioExceptionWhileListingSessionDir_returnsEmptyList() throws IOException {
+    final Path sessionDir = Files.createDirectories(tempDir.resolve(SESSION_ID));
+    final Set<PosixFilePermission> original = Files.getPosixFilePermissions(sessionDir);
+    try {
+      Files.setPosixFilePermissions(sessionDir, EnumSet.noneOf(PosixFilePermission.class));
+
+      final List<ExecutionSummary> summaries = reader.listExecutions(SESSION_ID).block();
+
+      assertThat(summaries).isEmpty();
+    } finally {
+      Files.setPosixFilePermissions(sessionDir, original);
+    }
   }
 }

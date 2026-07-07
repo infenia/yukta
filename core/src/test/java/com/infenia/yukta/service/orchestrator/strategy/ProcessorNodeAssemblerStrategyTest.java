@@ -37,6 +37,7 @@ import com.infenia.yukta.plugin.type.ProcessorPlugin;
 import com.infenia.yukta.plugin.type.TerminalPlugin;
 import com.infenia.yukta.plugin.type.TriggerPlugin;
 import com.infenia.yukta.service.control.ExecutionControl;
+import com.infenia.yukta.service.control.store.ActivePluginRegistry;
 import com.infenia.yukta.service.control.valve.ReactiveControlValve;
 import com.infenia.yukta.service.orchestrator.assembly.AssemblyContext;
 import com.infenia.yukta.service.orchestrator.stream.StreamTopologyDecorator;
@@ -74,6 +75,7 @@ class ProcessorNodeAssemblerStrategyTest {
   @Mock private TaskTrackerService tracker;
   @Mock private StreamTopologyDecorator streamTopologyDecorator;
   @Mock private NodeMessageChannelProvider channelProvider;
+  @Mock private ActivePluginRegistry activePluginRegistry;
 
   private ProcessorNodeAssemblerStrategy strategy;
 
@@ -87,7 +89,11 @@ class ProcessorNodeAssemblerStrategyTest {
     when(channelProvider.channelFor(any(), any())).thenReturn(new DirectNodeMessageChannel());
     strategy =
         new ProcessorNodeAssemblerStrategy(
-            tracker, Schedulers.boundedElastic(), streamTopologyDecorator, channelProvider);
+            tracker,
+            Schedulers.boundedElastic(),
+            streamTopologyDecorator,
+            channelProvider,
+            activePluginRegistry);
   }
 
   // ── supports() ────────────────────────────────────────────────────────────
@@ -162,6 +168,35 @@ class ProcessorNodeAssemblerStrategyTest {
 
     verify(processor).process(any(), any());
     assertThat(context.streams()[0]).isSameAs(broadcast);
+  }
+
+  @Test
+  void createAssembler_streamSubscribedAndCompleted_registersThenUnregistersPlugin() {
+    final Message<?> msg = DefaultMessage.create(UUID.randomUUID(), "input");
+    final Message<?> out = DefaultMessage.create(UUID.randomUUID(), "output");
+    final ProcessorPlugin processor = mock(ProcessorPlugin.class);
+    when(processor.process(any(), any())).thenReturn(Flux.just(out));
+    when(processor.isBlocking()).thenReturn(false);
+
+    final WorkflowNode node = new WorkflowNode(NODE_ID, "processor", Map.of());
+    final Flux<Message<?>> parentStream = Flux.just(msg);
+    final AssemblyContext context = buildContext(NODE_ID, parentStream, null);
+
+    when(streamTopologyDecorator.mergeParentStreams(any(), any(ParentEdgeInfo[].class)))
+        .thenReturn(parentStream);
+    when(streamTopologyDecorator.applyLoggingAndBroadcasting(
+            anyString(), anyString(), any(), any(int.class), any(), any()))
+        .thenAnswer(invocation -> invocation.getArgument(2));
+
+    final NodeAssembler assembler =
+        strategy.createAssembler(
+            node, processor, Duration.ofSeconds(5), 0, 1024, new ParentEdgeInfo[0]);
+    assembler.assemble(context);
+
+    reactor.test.StepVerifier.create(context.streams()[0]).expectNextCount(1).verifyComplete();
+
+    verify(activePluginRegistry).register(WORKFLOW_ID, NODE_ID, processor);
+    verify(activePluginRegistry).unregister(WORKFLOW_ID, NODE_ID);
   }
 
   @Test

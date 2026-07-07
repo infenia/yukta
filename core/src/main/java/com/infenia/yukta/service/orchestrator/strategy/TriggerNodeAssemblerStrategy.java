@@ -24,6 +24,7 @@ import com.infenia.yukta.model.workflow.WorkflowNode;
 import com.infenia.yukta.plugin.core.Plugin;
 import com.infenia.yukta.plugin.core.PluginCategory;
 import com.infenia.yukta.plugin.type.TriggerPlugin;
+import com.infenia.yukta.service.control.store.ActivePluginRegistry;
 import com.infenia.yukta.service.orchestrator.stream.StreamTopologyDecorator;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import java.time.Duration;
@@ -53,6 +54,9 @@ public class TriggerNodeAssemblerStrategy implements NodeAssemblerStrategy {
 
   /** The node message channel provider for creating message channels. */
   private final NodeMessageChannelProvider channelProvider;
+
+  /** The registry of plugin instances actively servicing workflow nodes. */
+  private final ActivePluginRegistry activePluginRegistry;
 
   @Override
   public boolean supports(final Plugin plugin, final boolean hasParents) {
@@ -105,7 +109,8 @@ public class TriggerNodeAssemblerStrategy implements NodeAssemblerStrategy {
       }
 
       Flux<Message<?>> built =
-          StreamAssemblyHelper.buildStreamWithContext(node, stream, timeout, tracker, context);
+          StreamAssemblyHelper.buildStreamWithContext(
+              node, stream, timeout, tracker, context, plugin, activePluginRegistry);
 
       final var nodeSafeSink = control.nodeSafeStopSinks().get(node.nodeId());
       if (nodeSafeSink != null) {

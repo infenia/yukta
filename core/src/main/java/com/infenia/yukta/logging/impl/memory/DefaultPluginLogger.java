@@ -182,9 +182,7 @@ public class DefaultPluginLogger implements PluginLogger {
 
   @Override
   public Mono<Void> logCustom(
-      final String customStreamName,
-      final String message,
-      final Map<String, Object> metadata) {
+      final String customStreamName, final String message, final Map<String, Object> metadata) {
     log.atDebug()
         .addKeyValue(EXECUTION_ID, executionId)
         .addKeyValue(SESSION_ID, sessionId)

@@ -25,9 +25,11 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
+import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -117,7 +119,8 @@ public class FileSystemPluginLogReader implements PluginLogReader {
               }
 
               try (final var files = Files.list(sessionDir)) {
-                files.filter(logFile -> logFile.toString().endsWith(LOG_FILE_EXTENSION))
+                files
+                    .filter(logFile -> logFile.toString().endsWith(LOG_FILE_EXTENSION))
                     .forEach(logFile -> entries.addAll(readLogFile(logFile, sessionId)));
               } catch (final IOException e) {
                 log.atWarn()
@@ -145,7 +148,8 @@ public class FileSystemPluginLogReader implements PluginLogReader {
               }
 
               try (final var files = Files.list(sessionDir)) {
-                files.filter(logFile -> logFile.toString().endsWith(LOG_FILE_EXTENSION))
+                files
+                    .filter(logFile -> logFile.toString().endsWith(LOG_FILE_EXTENSION))
                     .forEach(
                         logFile -> {
                           final String executionId =
@@ -271,30 +275,27 @@ public class FileSystemPluginLogReader implements PluginLogReader {
 
   private Instant parseTimestamp(final String timestampStr) {
     Instant result;
-    if (timestampStr.contains("Z") || timestampStr.contains("+") || timestampStr.contains("-")) {
-      try {
-        final ZonedDateTime zonedDateTime = ZonedDateTime.parse(timestampStr, TIMESTAMP_FORMAT);
-        result = zonedDateTime.toInstant();
-      } catch (final java.time.format.DateTimeParseException e) {
-        log.atDebug()
-            .addKeyValue("timestampStr", timestampStr)
-            .setCause(e)
-            .log("Failed to parse timestamp with zone, using current time");
-        result = Instant.now();
-      }
-    } else {
-      try {
-        result =
-            java.time.LocalDateTime.parse(timestampStr, DateTimeFormatter.ISO_LOCAL_DATE_TIME)
-                .atZone(ZoneId.systemDefault())
-                .toInstant();
-      } catch (final java.time.format.DateTimeParseException e) {
-        log.atDebug()
-            .addKeyValue("timestampStr", timestampStr)
-            .setCause(e)
-            .log("Failed to parse timestamp, using current time");
-        result = Instant.now();
-      }
+    try {
+      result = ZonedDateTime.parse(timestampStr, TIMESTAMP_FORMAT).toInstant();
+    } catch (final DateTimeParseException e) {
+      result = parseLocalTimestamp(timestampStr);
+    }
+    return result;
+  }
+
+  private Instant parseLocalTimestamp(final String timestampStr) {
+    Instant result;
+    try {
+      result =
+          LocalDateTime.parse(timestampStr, DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+              .atZone(ZoneId.systemDefault())
+              .toInstant();
+    } catch (final DateTimeParseException e) {
+      log.atDebug()
+          .addKeyValue("timestampStr", timestampStr)
+          .setCause(e)
+          .log("Failed to parse timestamp, using current time");
+      result = Instant.now();
     }
     return result;
   }

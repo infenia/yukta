@@ -115,7 +115,7 @@ class DefaultPluginLoggerTest {
     StepVerifier.create(logger.logStdout("User action logged", metadata)).verifyComplete();
 
     verify(mockWriter).write(captor.capture());
-    final PluginLogEntry capturedEntry = captor.getValue();
+    final PluginLogEntry capturedEntry = captureValue(captor);
     Assertions.assertThat(capturedEntry.metadata()).containsExactlyInAnyOrderEntriesOf(metadata);
   }
 
@@ -140,7 +140,7 @@ class DefaultPluginLoggerTest {
     StepVerifier.create(logger.logCustom(DOCKER_BUILD, "Building image")).verifyComplete();
 
     verify(mockWriter).write(captor.capture());
-    final PluginLogEntry capturedEntry = captor.getValue();
+    final PluginLogEntry capturedEntry = captureValue(captor);
     Assertions.assertThat(capturedEntry.customStreamName()).isEqualTo(DOCKER_BUILD);
   }
 
@@ -163,7 +163,7 @@ class DefaultPluginLoggerTest {
         .verifyComplete();
 
     verify(mockWriter).write(captor.capture());
-    final PluginLogEntry capturedEntry = captor.getValue();
+    final PluginLogEntry capturedEntry = captureValue(captor);
     Assertions.assertThat(capturedEntry.customStreamName()).isEqualTo(DOCKER_BUILD);
     Assertions.assertThat(capturedEntry.metadata()).containsExactlyInAnyOrderEntriesOf(metadata);
   }
@@ -186,11 +186,24 @@ class DefaultPluginLoggerTest {
     verify(mockWriter).close();
   }
 
-  private PluginLogWriter getAdapter() throws Exception {
+  private PluginLogWriter getAdapter() throws NoSuchFieldException, IllegalAccessException {
     final java.lang.reflect.Field writerField =
         DefaultPluginLogger.class.getDeclaredField("writer");
     writerField.setAccessible(true);
     return (PluginLogWriter) writerField.get(logger);
+  }
+
+  /**
+   * Reads the captured value off an {@link ArgumentCaptor}.
+   *
+   * <p>Isolated in its own method (with the captor as a parameter, not a foreign value) so callers
+   * can freely call further methods on the returned entry without a PMD LawOfDemeter violation.
+   *
+   * @param captor the captor to read from
+   * @return the captured value
+   */
+  private static PluginLogEntry captureValue(final ArgumentCaptor<PluginLogEntry> captor) {
+    return captor.getValue();
   }
 
   @Test
@@ -413,7 +426,7 @@ class DefaultPluginLoggerTest {
     StepVerifier.create(logger.logStderr("Error message")).verifyComplete();
 
     verify(mockWriter).write(captor.capture());
-    final PluginLogEntry capturedEntry = captor.getValue();
+    final PluginLogEntry capturedEntry = captureValue(captor);
     Assertions.assertThat(capturedEntry.logLevel()).isEqualTo(LogLevel.ERROR);
   }
 
@@ -424,7 +437,7 @@ class DefaultPluginLoggerTest {
     StepVerifier.create(logger.logStdout("Info message")).verifyComplete();
 
     verify(mockWriter).write(captor.capture());
-    final PluginLogEntry capturedEntry = captor.getValue();
+    final PluginLogEntry capturedEntry = captureValue(captor);
     Assertions.assertThat(capturedEntry.logLevel()).isEqualTo(LogLevel.INFO);
   }
 
@@ -435,7 +448,7 @@ class DefaultPluginLoggerTest {
     StepVerifier.create(logger.logCustom("custom-stream", "Custom message")).verifyComplete();
 
     verify(mockWriter).write(captor.capture());
-    final PluginLogEntry capturedEntry = captor.getValue();
+    final PluginLogEntry capturedEntry = captureValue(captor);
     Assertions.assertThat(capturedEntry.stream()).isEqualTo(LogStream.CUSTOM);
     Assertions.assertThat(capturedEntry.logLevel()).isEqualTo(LogLevel.INFO);
   }
@@ -447,7 +460,7 @@ class DefaultPluginLoggerTest {
     StepVerifier.create(logger.logStderr("Error")).verifyComplete();
 
     verify(mockWriter).write(captor.capture());
-    final PluginLogEntry capturedEntry = captor.getValue();
+    final PluginLogEntry capturedEntry = captureValue(captor);
     Assertions.assertThat(capturedEntry.stream()).isEqualTo(LogStream.STDERR);
   }
 
@@ -458,7 +471,7 @@ class DefaultPluginLoggerTest {
     StepVerifier.create(logger.logStdout("Output")).verifyComplete();
 
     verify(mockWriter).write(captor.capture());
-    final PluginLogEntry capturedEntry = captor.getValue();
+    final PluginLogEntry capturedEntry = captureValue(captor);
     Assertions.assertThat(capturedEntry.stream()).isEqualTo(LogStream.STDOUT);
   }
 

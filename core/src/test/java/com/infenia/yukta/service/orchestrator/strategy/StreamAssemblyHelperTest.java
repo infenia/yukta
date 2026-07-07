@@ -21,7 +21,9 @@ import static org.mockito.Mockito.doNothing;
 import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
 import com.infenia.yukta.model.workflow.WorkflowNode;
+import com.infenia.yukta.plugin.core.Plugin;
 import com.infenia.yukta.service.control.ExecutionControl;
+import com.infenia.yukta.service.control.store.ActivePluginRegistry;
 import com.infenia.yukta.service.control.valve.ReactiveControlValve;
 import com.infenia.yukta.service.orchestrator.assembly.AssemblyContext;
 import com.infenia.yukta.service.orchestrator.assembly.ExecutionContextBuilder;
@@ -45,15 +47,12 @@ import reactor.test.StepVerifier;
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
 @NoArgsConstructor
-@SuppressWarnings({
-  "PMD.CommentRequired",
-  "PMD.TooManyMethods",
-  "PMD.AvoidDuplicateLiterals",
-  "PMD.CompareObjectsWithEquals"
-})
+@SuppressWarnings({"PMD.CommentRequired", "PMD.TooManyMethods", "PMD.AvoidDuplicateLiterals"})
 class StreamAssemblyHelperTest {
 
   @Mock private TaskTrackerService tracker;
+  @Mock private Plugin plugin;
+  @Mock private ActivePluginRegistry activePluginRegistry;
 
   private static final String NODE_ID = "node-1";
   private static final String EXECUTION_ID = "exec-001";
@@ -76,7 +75,13 @@ class StreamAssemblyHelperTest {
 
     final Flux<Message<?>> result =
         StreamAssemblyHelper.buildStreamWithContext(
-            node, Flux.just(msg), Duration.ofSeconds(5), tracker, context);
+            node,
+            Flux.just(msg),
+            Duration.ofSeconds(5),
+            tracker,
+            context,
+            plugin,
+            activePluginRegistry);
 
     StepVerifier.create(result).expectNextCount(1).verifyComplete();
   }
@@ -88,7 +93,13 @@ class StreamAssemblyHelperTest {
 
     final Flux<Message<?>> result =
         StreamAssemblyHelper.buildStreamWithContext(
-            node, Flux.empty(), Duration.ofSeconds(5), tracker, context);
+            node,
+            Flux.empty(),
+            Duration.ofSeconds(5),
+            tracker,
+            context,
+            plugin,
+            activePluginRegistry);
 
     StepVerifier.create(result).verifyComplete();
   }
@@ -101,7 +112,13 @@ class StreamAssemblyHelperTest {
 
     final Flux<Message<?>> result =
         StreamAssemblyHelper.buildStreamWithContext(
-            node, Flux.just(msg), Duration.ofSeconds(5), tracker, context);
+            node,
+            Flux.just(msg),
+            Duration.ofSeconds(5),
+            tracker,
+            context,
+            plugin,
+            activePluginRegistry);
 
     StepVerifier.create(result)
         .expectAccessibleContext()
@@ -119,7 +136,13 @@ class StreamAssemblyHelperTest {
 
     final Flux<Message<?>> result =
         StreamAssemblyHelper.buildStreamWithContext(
-            node, Flux.just(msg), Duration.ofSeconds(5), tracker, context);
+            node,
+            Flux.just(msg),
+            Duration.ofSeconds(5),
+            tracker,
+            context,
+            plugin,
+            activePluginRegistry);
 
     StepVerifier.create(result)
         .expectAccessibleContext()
@@ -137,7 +160,13 @@ class StreamAssemblyHelperTest {
 
     final Flux<Message<?>> result =
         StreamAssemblyHelper.buildStreamWithContext(
-            node, Flux.just(msg), Duration.ofSeconds(5), tracker, context);
+            node,
+            Flux.just(msg),
+            Duration.ofSeconds(5),
+            tracker,
+            context,
+            plugin,
+            activePluginRegistry);
 
     StepVerifier.create(result)
         .expectAccessibleContext()
@@ -155,7 +184,13 @@ class StreamAssemblyHelperTest {
 
     final Flux<Message<?>> result =
         StreamAssemblyHelper.buildStreamWithContext(
-            node, Flux.just(msg), Duration.ofSeconds(5), tracker, context);
+            node,
+            Flux.just(msg),
+            Duration.ofSeconds(5),
+            tracker,
+            context,
+            plugin,
+            activePluginRegistry);
 
     StepVerifier.create(result)
         .expectAccessibleContext()
@@ -175,7 +210,13 @@ class StreamAssemblyHelperTest {
 
     final Flux<Message<?>> result =
         StreamAssemblyHelper.buildStreamWithContext(
-            node, Flux.just(msg1, msg2, msg3), Duration.ofSeconds(5), tracker, context);
+            node,
+            Flux.just(msg1, msg2, msg3),
+            Duration.ofSeconds(5),
+            tracker,
+            context,
+            plugin,
+            activePluginRegistry);
 
     StepVerifier.create(result).expectNextCount(3).verifyComplete();
   }
@@ -194,7 +235,13 @@ class StreamAssemblyHelperTest {
 
     final Flux<Message<?>> result =
         StreamAssemblyHelper.buildStreamWithContext(
-            node, Flux.just(msg), Duration.ofSeconds(5), tracker, context);
+            node,
+            Flux.just(msg),
+            Duration.ofSeconds(5),
+            tracker,
+            context,
+            plugin,
+            activePluginRegistry);
 
     // With immediate stop triggered, items are taken until completion signal
     StepVerifier.create(result).verifyComplete();
@@ -208,7 +255,13 @@ class StreamAssemblyHelperTest {
 
     final Flux<Message<?>> result =
         StreamAssemblyHelper.buildStreamWithContext(
-            node, Flux.error(cause), Duration.ofSeconds(5), tracker, context);
+            node,
+            Flux.error(cause),
+            Duration.ofSeconds(5),
+            tracker,
+            context,
+            plugin,
+            activePluginRegistry);
 
     StepVerifier.create(result).expectErrorMatches(cause::equals).verify();
   }
@@ -222,7 +275,13 @@ class StreamAssemblyHelperTest {
 
     final Flux<Message<?>> result =
         StreamAssemblyHelper.buildStreamWithContext(
-            node, Flux.just(msg), Duration.ofSeconds(5), tracker, context);
+            node,
+            Flux.just(msg),
+            Duration.ofSeconds(5),
+            tracker,
+            context,
+            plugin,
+            activePluginRegistry);
 
     StepVerifier.create(result)
         .expectAccessibleContext()
@@ -230,6 +289,71 @@ class StreamAssemblyHelperTest {
         .then()
         .expectNextCount(1)
         .verifyComplete();
+  }
+
+  @Test
+  void buildStreamWithContext_completion_registersThenUnregistersPlugin() {
+    final Message<?> msg = DefaultMessage.create(UUID.randomUUID(), "data");
+    final WorkflowNode node = new WorkflowNode(NODE_ID, "trigger", Map.of());
+    final AssemblyContext context = buildContext();
+
+    final Flux<Message<?>> result =
+        StreamAssemblyHelper.buildStreamWithContext(
+            node,
+            Flux.just(msg),
+            Duration.ofSeconds(5),
+            tracker,
+            context,
+            plugin,
+            activePluginRegistry);
+
+    StepVerifier.create(result).expectNextCount(1).verifyComplete();
+
+    org.mockito.Mockito.verify(activePluginRegistry).register(WORKFLOW_ID, NODE_ID, plugin);
+    org.mockito.Mockito.verify(activePluginRegistry).unregister(WORKFLOW_ID, NODE_ID);
+  }
+
+  @Test
+  void buildStreamWithContext_upstreamError_stillUnregistersPlugin() {
+    final RuntimeException cause = new RuntimeException("upstream failure");
+    final WorkflowNode node = new WorkflowNode(NODE_ID, "trigger", Map.of());
+    final AssemblyContext context = buildContext();
+
+    final Flux<Message<?>> result =
+        StreamAssemblyHelper.buildStreamWithContext(
+            node,
+            Flux.error(cause),
+            Duration.ofSeconds(5),
+            tracker,
+            context,
+            plugin,
+            activePluginRegistry);
+
+    StepVerifier.create(result).expectError().verify();
+
+    org.mockito.Mockito.verify(activePluginRegistry).register(WORKFLOW_ID, NODE_ID, plugin);
+    org.mockito.Mockito.verify(activePluginRegistry).unregister(WORKFLOW_ID, NODE_ID);
+  }
+
+  @Test
+  void buildStreamWithContext_cancellation_stillUnregistersPlugin() {
+    final WorkflowNode node = new WorkflowNode(NODE_ID, "trigger", Map.of());
+    final AssemblyContext context = buildContext();
+
+    final Flux<Message<?>> result =
+        StreamAssemblyHelper.buildStreamWithContext(
+            node,
+            Flux.<Message<?>>never(),
+            Duration.ofSeconds(5),
+            tracker,
+            context,
+            plugin,
+            activePluginRegistry);
+
+    StepVerifier.create(result).thenCancel().verify();
+
+    org.mockito.Mockito.verify(activePluginRegistry).register(WORKFLOW_ID, NODE_ID, plugin);
+    org.mockito.Mockito.verify(activePluginRegistry).unregister(WORKFLOW_ID, NODE_ID);
   }
 
   // ── helpers ───────────────────────────────────────────────────────────────

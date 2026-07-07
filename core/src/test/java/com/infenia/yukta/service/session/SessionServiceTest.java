@@ -80,6 +80,7 @@ class SessionServiceTest {
             sessionId, DESC, "initiator-1", Map.of(), PATH, Map.of("w1", workflow));
 
     when(configService.applySessionConfig(configDataCaptor.capture())).thenReturn(Mono.empty());
+    when(workflowDefinitionStore.findAll(sessionId)).thenReturn(Mono.just(Map.of()));
     when(controlBus.compileAndCacheWorkflow(eq(sessionId), workflowCaptor.capture()))
         .thenReturn(Mono.empty());
 
@@ -105,6 +106,7 @@ class SessionServiceTest {
         new SessionConfigData(sessionId, DESC, "initiator-p", Map.of(), null, Map.of());
 
     when(configService.applySessionConfig(configDataCaptor.capture())).thenReturn(Mono.empty());
+    when(workflowDefinitionStore.findAll(sessionId)).thenReturn(Mono.just(Map.of()));
 
     // When
     StepVerifier.create(sessionService.applyConfig(data)).verifyComplete();
@@ -117,6 +119,56 @@ class SessionServiceTest {
               assertThat(capturedData.sessionId()).isEqualTo(sessionId);
               assertThat(capturedData.workflows()).isEmpty();
             });
+  }
+
+  @Test
+  void applyConfig_workflowDroppedFromConfig_removesStaleDefinitionOnly() {
+    // Given: the session previously had workflows "w1" and "w2" persisted...
+    final String sessionId = "sess-stale-cleanup";
+    final WorkflowDefinition workflowA = new WorkflowDefinition("w1", DESC, List.of(), List.of());
+    final WorkflowDefinition workflowB = new WorkflowDefinition("w2", DESC, List.of(), List.of());
+    when(workflowDefinitionStore.findAll(sessionId))
+        .thenReturn(Mono.just(Map.of("w1", workflowA, "w2", workflowB)));
+    when(workflowDefinitionStore.remove(eq(sessionId), any())).thenReturn(Mono.empty());
+
+    // ...and the new config only keeps "w1", dropping "w2".
+    final SessionConfigData data =
+        new SessionConfigData(sessionId, DESC, INITIATOR, Map.of(), PATH, Map.of("w1", workflowA));
+    when(configService.applySessionConfig(any())).thenReturn(Mono.empty());
+    when(controlBus.compileAndCacheWorkflow(eq(sessionId), any())).thenReturn(Mono.empty());
+
+    // When
+    StepVerifier.create(sessionService.applyConfig(data)).verifyComplete();
+
+    // Then: only the dropped workflow is removed; the kept one is left alone.
+    verify(workflowDefinitionStore).remove(sessionId, "w2");
+    verify(workflowDefinitionStore, org.mockito.Mockito.never()).remove(sessionId, "w1");
+  }
+
+  @Test
+  void applyConfig_staleWorkflowRemovalFails_continuesWithCompilation() {
+    // Given: removing the stale workflow "w2" fails...
+    final String sessionId = "sess-stale-cleanup-error";
+    final WorkflowDefinition workflowA = new WorkflowDefinition("w1", DESC, List.of(), List.of());
+    final WorkflowDefinition workflowB = new WorkflowDefinition("w2", DESC, List.of(), List.of());
+    when(workflowDefinitionStore.findAll(sessionId))
+        .thenReturn(Mono.just(Map.of("w1", workflowA, "w2", workflowB)));
+    when(workflowDefinitionStore.remove(sessionId, "w2"))
+        .thenReturn(Mono.error(new IllegalStateException("boom")));
+
+    final SessionConfigData data =
+        new SessionConfigData(sessionId, DESC, INITIATOR, Map.of(), PATH, Map.of("w1", workflowA));
+    when(configService.applySessionConfig(any())).thenReturn(Mono.empty());
+    when(controlBus.compileAndCacheWorkflow(eq(sessionId), any())).thenReturn(Mono.empty());
+
+    // When: the removal failure is swallowed as best-effort, so the rest of the pipeline
+    // (cache invalidation, workflow compilation) still completes successfully.
+    StepVerifier.create(sessionService.applyConfig(data)).verifyComplete();
+
+    // Then
+    verify(workflowDefinitionStore).remove(sessionId, "w2");
+    verify(preparedWorkflowCache).invalidateAll(sessionId);
+    verify(controlBus).compileAndCacheWorkflow(eq(sessionId), any());
   }
 
   @Test
@@ -173,6 +225,7 @@ class SessionServiceTest {
             sessionId, DESC, INITIATOR, Map.of(), PATH, Map.of("w1", workflow1, "w2", workflow2));
 
     when(configService.applySessionConfig(configDataCaptor.capture())).thenReturn(Mono.empty());
+    when(workflowDefinitionStore.findAll(sessionId)).thenReturn(Mono.just(Map.of()));
     when(controlBus.compileAndCacheWorkflow(eq(sessionId), workflowCaptor.capture()))
         .thenReturn(Mono.empty());
 
@@ -198,6 +251,7 @@ class SessionServiceTest {
         new SessionConfigData(sessionId, DESC, INITIATOR, Map.of(), PATH, Map.of("w1", workflow));
 
     when(configService.applySessionConfig(any())).thenReturn(Mono.empty());
+    when(workflowDefinitionStore.findAll(sessionId)).thenReturn(Mono.just(Map.of()));
     when(controlBus.compileAndCacheWorkflow(eq(sessionId), any()))
         .thenReturn(Mono.error(new RuntimeException("Compilation failed")));
 
@@ -302,6 +356,7 @@ class SessionServiceTest {
         new SessionConfigData(sessionId, DESC, INITIATOR, Map.of(), PATH, Map.of("w1", workflow));
 
     when(configService.applySessionConfig(configDataCaptor.capture())).thenReturn(Mono.empty());
+    when(workflowDefinitionStore.findAll(sessionId)).thenReturn(Mono.just(Map.of()));
     when(controlBus.compileAndCacheWorkflow(eq(sessionId), workflowCaptor.capture()))
         .thenReturn(Mono.empty());
 

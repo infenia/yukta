@@ -55,8 +55,7 @@ import reactor.test.StepVerifier;
   "PMD.CommentRequired",
   "PMD.ExcessiveImports",
   "PMD.TooManyMethods",
-  "PMD.TooManyStaticImports",
-  "PMD.UnitTestShouldIncludeAssert"
+  "PMD.TooManyStaticImports"
 })
 @NoArgsConstructor
 class DirectiveDispatcherTest {

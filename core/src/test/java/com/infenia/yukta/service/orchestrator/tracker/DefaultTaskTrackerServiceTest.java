@@ -45,8 +45,7 @@ import reactor.test.StepVerifier;
   "PMD.AvoidDuplicateLiterals",
   "PMD.AvoidAccessibilityAlteration",
   "PMD.CognitiveComplexity",
-  "PMD.ShortVariable",
-  "PMD.UnitTestShouldIncludeAssert"
+  "PMD.ShortVariable"
 })
 class DefaultTaskTrackerServiceTest {
 
@@ -538,7 +537,8 @@ class DefaultTaskTrackerServiceTest {
     verifyInitTaskStatusErrorHandler();
   }
 
-  private void verifyInitTaskStatusErrorHandler() throws Exception {
+  private void verifyInitTaskStatusErrorHandler()
+      throws NoSuchFieldException, IllegalAccessException, InterruptedException {
     final DefaultTaskTrackerService trackerWithError =
         new DefaultTaskTrackerService(Duration.ofMinutes(10), statusHistoryCache);
 
@@ -574,7 +574,8 @@ class DefaultTaskTrackerServiceTest {
     verifyInitWorkflowStatusErrorHandler();
   }
 
-  private void verifyInitWorkflowStatusErrorHandler() throws Exception {
+  private void verifyInitWorkflowStatusErrorHandler()
+      throws NoSuchFieldException, IllegalAccessException, InterruptedException {
     final DefaultTaskTrackerService trackerWithError =
         new DefaultTaskTrackerService(Duration.ofMinutes(10), statusHistoryCache);
 
@@ -608,7 +609,8 @@ class DefaultTaskTrackerServiceTest {
     verifyInitLogErrorHandler();
   }
 
-  private void verifyInitLogErrorHandler() throws Exception {
+  private void verifyInitLogErrorHandler()
+      throws NoSuchFieldException, IllegalAccessException, InterruptedException {
     final DefaultTaskTrackerService trackerWithError =
         new DefaultTaskTrackerService(Duration.ofMinutes(10), statusHistoryCache);
 

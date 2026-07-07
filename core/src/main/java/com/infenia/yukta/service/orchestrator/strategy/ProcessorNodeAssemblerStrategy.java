@@ -23,6 +23,7 @@ import com.infenia.yukta.model.workflow.ParentEdgeInfo;
 import com.infenia.yukta.model.workflow.WorkflowNode;
 import com.infenia.yukta.plugin.core.Plugin;
 import com.infenia.yukta.plugin.type.ProcessorPlugin;
+import com.infenia.yukta.service.control.store.ActivePluginRegistry;
 import com.infenia.yukta.service.orchestrator.stream.StreamTopologyDecorator;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import java.time.Duration;
@@ -52,6 +53,9 @@ public class ProcessorNodeAssemblerStrategy implements NodeAssemblerStrategy {
 
   /** The node message channel provider for creating message channels. */
   private final NodeMessageChannelProvider channelProvider;
+
+  /** The registry of plugin instances actively servicing workflow nodes. */
+  private final ActivePluginRegistry activePluginRegistry;
 
   /** Log key for node ID. */
   private static final String LOG_KEY_NODE_ID = "nodeId";
@@ -130,7 +134,8 @@ public class ProcessorNodeAssemblerStrategy implements NodeAssemblerStrategy {
       }
 
       final Flux<Message<?>> built =
-          StreamAssemblyHelper.buildStreamWithContext(node, stream, timeout, tracker, context);
+          StreamAssemblyHelper.buildStreamWithContext(
+              node, stream, timeout, tracker, context, plugin, activePluginRegistry);
       context.streams()[index] =
           streamTopologyDecorator.applyLoggingAndBroadcasting(
               context.executionId(),

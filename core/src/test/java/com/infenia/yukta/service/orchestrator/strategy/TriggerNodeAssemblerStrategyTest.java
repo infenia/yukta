@@ -38,6 +38,7 @@ import com.infenia.yukta.plugin.type.ProcessorPlugin;
 import com.infenia.yukta.plugin.type.TerminalPlugin;
 import com.infenia.yukta.plugin.type.TriggerPlugin;
 import com.infenia.yukta.service.control.ExecutionControl;
+import com.infenia.yukta.service.control.store.ActivePluginRegistry;
 import com.infenia.yukta.service.control.valve.ReactiveControlValve;
 import com.infenia.yukta.service.orchestrator.assembly.AssemblyContext;
 import com.infenia.yukta.service.orchestrator.stream.StreamTopologyDecorator;
@@ -75,6 +76,7 @@ class TriggerNodeAssemblerStrategyTest {
   @Mock private TaskTrackerService tracker;
   @Mock private StreamTopologyDecorator streamTopologyDecorator;
   @Mock private NodeMessageChannelProvider channelProvider;
+  @Mock private ActivePluginRegistry activePluginRegistry;
 
   private TriggerNodeAssemblerStrategy strategy;
 
@@ -88,7 +90,11 @@ class TriggerNodeAssemblerStrategyTest {
     when(channelProvider.channelFor(any(), any())).thenReturn(new DirectNodeMessageChannel());
     strategy =
         new TriggerNodeAssemblerStrategy(
-            tracker, Schedulers.boundedElastic(), streamTopologyDecorator, channelProvider);
+            tracker,
+            Schedulers.boundedElastic(),
+            streamTopologyDecorator,
+            channelProvider,
+            activePluginRegistry);
   }
 
   // ── supports() ────────────────────────────────────────────────────────────
@@ -177,6 +183,31 @@ class TriggerNodeAssemblerStrategyTest {
     verify(streamTopologyDecorator)
         .applyLoggingAndBroadcasting(anyString(), anyString(), any(), any(int.class), any(), any());
     assertThat(context.streams()[0]).isSameAs(broadcastFlux);
+  }
+
+  @Test
+  void createAssembler_streamSubscribedAndCompleted_registersThenUnregistersPlugin() {
+    final Message<?> msg = DefaultMessage.create(UUID.randomUUID(), "hello");
+    final TriggerPlugin trigger = mock(TriggerPlugin.class);
+    when(trigger.start(any())).thenReturn(Flux.just(msg));
+    when(trigger.isBlocking()).thenReturn(false);
+
+    final WorkflowNode node = new WorkflowNode(NODE_ID, "trigger", Map.of());
+    final AssemblyContext context = buildContext(NODE_ID, null);
+
+    when(streamTopologyDecorator.applyLoggingAndBroadcasting(
+            anyString(), anyString(), any(), any(int.class), any(), any()))
+        .thenAnswer(inv -> inv.getArgument(2));
+
+    final NodeAssembler assembler =
+        strategy.createAssembler(
+            node, trigger, Duration.ofSeconds(5), 0, 1024, new ParentEdgeInfo[0]);
+    assembler.assemble(context);
+
+    StepVerifier.create(context.streams()[0]).expectNextCount(1).verifyComplete();
+
+    verify(activePluginRegistry).register(WORKFLOW_ID, NODE_ID, trigger);
+    verify(activePluginRegistry).unregister(WORKFLOW_ID, NODE_ID);
   }
 
   @Test

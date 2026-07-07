@@ -24,6 +24,7 @@ import com.infenia.yukta.model.workflow.WorkflowNode;
 import com.infenia.yukta.plugin.core.Plugin;
 import com.infenia.yukta.plugin.gateway.ResultCollector;
 import com.infenia.yukta.plugin.type.TerminalPlugin;
+import com.infenia.yukta.service.control.store.ActivePluginRegistry;
 import com.infenia.yukta.service.orchestrator.stream.StreamTopologyDecorator;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import java.time.Duration;
@@ -77,6 +78,9 @@ public class TerminalNodeAssemblerStrategy implements NodeAssemblerStrategy {
 
   /** The node message channel provider for creating message channels. */
   private final NodeMessageChannelProvider channelProvider;
+
+  /** The registry of plugin instances actively servicing workflow nodes. */
+  private final ActivePluginRegistry activePluginRegistry;
 
   @Override
   public boolean supports(final Plugin plugin, final boolean hasParents) {
@@ -157,6 +161,10 @@ public class TerminalNodeAssemblerStrategy implements NodeAssemblerStrategy {
             .log("Subscribing blocking terminal to virtual thread scheduler");
         completion = completion.subscribeOn(virtualThreadScheduler);
       }
+
+      completion =
+          StreamAssemblyHelper.withPluginLifecycle(
+              completion, context.workflowId(), node.nodeId(), plugin, activePluginRegistry);
 
       completion =
           completion
