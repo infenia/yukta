@@ -59,15 +59,6 @@ class GlobalExceptionHandlerTest {
   /** API path constant. */
   private static final String API_PATH = "/api";
 
-  /** HTTP status code 400 constant. */
-  private static final String STATUS_CODE_400 = "400";
-
-  /** HTTP status code 404 constant. */
-  private static final String STATUS_CODE_404 = "404";
-
-  /** HTTP status code 500 constant. */
-  private static final String STATUS_CODE_500 = "500";
-
   /** Unchecked warning suppression constant. */
   private static final String UNCHECKED_SUPPRESSION = "unchecked";
 

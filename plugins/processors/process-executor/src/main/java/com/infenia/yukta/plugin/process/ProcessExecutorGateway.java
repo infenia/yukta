@@ -130,10 +130,12 @@ public class ProcessExecutorGateway {
                                     if (exitCode != 0) {
                                       log.atError()
                                           .setMessage(
-                                              "Process failed with exit code {}: {}\n"
-                                                  + "--- Process Output ---\n"
-                                                  + "{}\n"
-                                                  + "--- End Output ---")
+                                              """
+                                              Process failed with exit code {}: {}
+                                              --- Process Output ---
+                                              {}
+                                              --- End Output ---\
+                                              """)
                                           .addArgument(exitCode)
                                           .addArgument(actualCommand)
                                           .addArgument(output)

@@ -210,7 +210,7 @@ class StreamAssemblyHelperTest {
         StreamAssemblyHelper.buildStreamWithContext(
             node, Flux.error(cause), Duration.ofSeconds(5), tracker, context);
 
-    StepVerifier.create(result).expectErrorMatches(e -> e == cause).verify();
+    StepVerifier.create(result).expectErrorMatches(cause::equals).verify();
   }
 
   @Test

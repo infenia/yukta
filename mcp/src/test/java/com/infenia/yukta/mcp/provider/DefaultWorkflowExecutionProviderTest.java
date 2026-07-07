@@ -27,6 +27,7 @@ import com.infenia.yukta.service.orchestrator.tracker.DefaultTaskTrackerService;
 import com.infenia.yukta.service.session.SessionService;
 import com.infenia.yukta.service.workflow.WorkflowService;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -87,7 +88,11 @@ class DefaultWorkflowExecutionProviderTest {
   void testGetWorkflowStatus() {
     WorkflowExecutionSummary summary =
         new WorkflowExecutionSummary(
-            "e1", "w1", "COMPLETED", LocalDateTime.now(), LocalDateTime.now());
+            "e1",
+            "w1",
+            "COMPLETED",
+            LocalDateTime.now(ZoneId.systemDefault()),
+            LocalDateTime.now(ZoneId.systemDefault()));
     when(trackerService.getHistory("sess-1")).thenReturn(List.of(summary));
 
     StepVerifier.create(provider.getWorkflowStatus("sess-1", "e1"))

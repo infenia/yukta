@@ -46,7 +46,7 @@ public class MapUtils {
    */
   public static void setNestedValue(
       final Map<String, Object> map, final String path, final Object value) {
-    final String[] parts = path.split("\\.");
+    final String[] parts = path.split("\\.", -1);
     Map<String, Object> current = map;
     for (int i = 0; i < parts.length - 1; i++) {
       final String part = parts[i];
@@ -106,7 +106,7 @@ public class MapUtils {
    * @return the value, or null if not found
    */
   public static Object getNestedValue(final Map<String, Object> map, final String path) {
-    final String[] parts = path.split("\\.");
+    final String[] parts = path.split("\\.", -1);
     Object current = map;
     for (final String part : parts) {
       if (!(current instanceof Map)) {
@@ -127,7 +127,7 @@ public class MapUtils {
     if (map == null || path == null || path.isEmpty()) {
       return;
     }
-    final String[] parts = path.split("\\.");
+    final String[] parts = path.split("\\.", -1);
     Map<String, Object> current = map;
     for (int i = 0; i < parts.length - 1; i++) {
       final String part = parts[i];

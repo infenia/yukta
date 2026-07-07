@@ -25,6 +25,7 @@ import com.infenia.yukta.model.session.SessionConfigData;
 import com.infenia.yukta.service.plugin.PluginRegistry;
 import com.infenia.yukta.service.session.SessionService;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -80,7 +81,7 @@ public class DefaultSessionInfoProvider implements SessionInfoProvider {
                           final Map<String, Object> workflows =
                               (Map<String, Object>) config.getOrDefault("workflows", Map.of());
                           final int workflowCount = workflows.size();
-                          final LocalDateTime now = LocalDateTime.now();
+                          final LocalDateTime now = LocalDateTime.now(ZoneId.systemDefault());
                           return new SessionInfo(sessionId, workflowCount, now, now, "active");
                         })
                     .onErrorResume(

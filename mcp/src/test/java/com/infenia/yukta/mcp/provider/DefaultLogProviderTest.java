@@ -22,6 +22,7 @@ import static org.mockito.Mockito.when;
 import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
 import com.infenia.yukta.service.orchestrator.tracker.DefaultTaskTrackerService;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -42,7 +43,11 @@ class DefaultLogProviderTest {
   void testStreamSessionLogs() {
     WorkflowExecutionSummary s1 =
         new WorkflowExecutionSummary(
-            "e1", "w1", "COMPLETED", LocalDateTime.now(), LocalDateTime.now());
+            "e1",
+            "w1",
+            "COMPLETED",
+            LocalDateTime.now(ZoneId.systemDefault()),
+            LocalDateTime.now(ZoneId.systemDefault()));
     when(trackerService.getHistory("sess-1")).thenReturn(List.of(s1));
 
     StepVerifier.create(provider.streamSessionLogs("sess-1", "w1", "e1", ".*Execution.*"))
@@ -54,7 +59,11 @@ class DefaultLogProviderTest {
   void testStreamSessionLogsWithFilter() {
     WorkflowExecutionSummary s1 =
         new WorkflowExecutionSummary(
-            "e1", "w1", "COMPLETED", LocalDateTime.now(), LocalDateTime.now());
+            "e1",
+            "w1",
+            "COMPLETED",
+            LocalDateTime.now(ZoneId.systemDefault()),
+            LocalDateTime.now(ZoneId.systemDefault()));
     when(trackerService.getHistory("sess-1")).thenReturn(List.of(s1));
 
     StepVerifier.create(provider.streamSessionLogs("sess-1", "other", null, null))
@@ -66,10 +75,18 @@ class DefaultLogProviderTest {
   void testStreamSessionLogsWorkflowIdNull() {
     WorkflowExecutionSummary s1 =
         new WorkflowExecutionSummary(
-            "e1", "w1", "COMPLETED", LocalDateTime.now(), LocalDateTime.now());
+            "e1",
+            "w1",
+            "COMPLETED",
+            LocalDateTime.now(ZoneId.systemDefault()),
+            LocalDateTime.now(ZoneId.systemDefault()));
     WorkflowExecutionSummary s2 =
         new WorkflowExecutionSummary(
-            "e2", "w2", "RUNNING", LocalDateTime.now(), LocalDateTime.now());
+            "e2",
+            "w2",
+            "RUNNING",
+            LocalDateTime.now(ZoneId.systemDefault()),
+            LocalDateTime.now(ZoneId.systemDefault()));
     when(trackerService.getHistory("sess-1")).thenReturn(List.of(s1, s2));
 
     // workflowId=null, executionId="e1" - should match only e1
@@ -82,10 +99,18 @@ class DefaultLogProviderTest {
   void testStreamSessionLogsBothNull() {
     WorkflowExecutionSummary s1 =
         new WorkflowExecutionSummary(
-            "e1", "w1", "COMPLETED", LocalDateTime.now(), LocalDateTime.now());
+            "e1",
+            "w1",
+            "COMPLETED",
+            LocalDateTime.now(ZoneId.systemDefault()),
+            LocalDateTime.now(ZoneId.systemDefault()));
     WorkflowExecutionSummary s2 =
         new WorkflowExecutionSummary(
-            "e2", "w2", "RUNNING", LocalDateTime.now(), LocalDateTime.now());
+            "e2",
+            "w2",
+            "RUNNING",
+            LocalDateTime.now(ZoneId.systemDefault()),
+            LocalDateTime.now(ZoneId.systemDefault()));
     when(trackerService.getHistory("sess-1")).thenReturn(List.of(s1, s2));
 
     // workflowId=null, executionId=null - should match all
@@ -98,7 +123,11 @@ class DefaultLogProviderTest {
   void testStreamSessionLogsInvalidPattern() {
     WorkflowExecutionSummary s1 =
         new WorkflowExecutionSummary(
-            "e1", "w1", "COMPLETED", LocalDateTime.now(), LocalDateTime.now());
+            "e1",
+            "w1",
+            "COMPLETED",
+            LocalDateTime.now(ZoneId.systemDefault()),
+            LocalDateTime.now(ZoneId.systemDefault()));
     when(trackerService.getHistory("sess-1")).thenReturn(List.of(s1));
 
     assertThrows(
@@ -110,7 +139,11 @@ class DefaultLogProviderTest {
   void testGetWorkflowExecutionLogs() {
     WorkflowExecutionSummary s1 =
         new WorkflowExecutionSummary(
-            "e1", "w1", "COMPLETED", LocalDateTime.now(), LocalDateTime.now());
+            "e1",
+            "w1",
+            "COMPLETED",
+            LocalDateTime.now(ZoneId.systemDefault()),
+            LocalDateTime.now(ZoneId.systemDefault()));
     when(trackerService.getHistory("sess-1")).thenReturn(List.of(s1));
 
     StepVerifier.create(provider.getWorkflowExecutionLogs("sess-1", "e1", ".*COMPLETED.*"))
@@ -130,7 +163,11 @@ class DefaultLogProviderTest {
   void testGetWorkflowExecutionLogsFilterNoMatch() {
     WorkflowExecutionSummary s1 =
         new WorkflowExecutionSummary(
-            "e1", "w1", "COMPLETED", LocalDateTime.now(), LocalDateTime.now());
+            "e1",
+            "w1",
+            "COMPLETED",
+            LocalDateTime.now(ZoneId.systemDefault()),
+            LocalDateTime.now(ZoneId.systemDefault()));
     when(trackerService.getHistory("sess-1")).thenReturn(List.of(s1));
 
     StepVerifier.create(provider.getWorkflowExecutionLogs("sess-1", "e1", "NOT_FOUND"))

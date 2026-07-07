@@ -79,6 +79,9 @@ public final class SpelUtils {
    * @param <T> the result type
    * @return the evaluation result
    */
+  // Type witness is inferred from the assignment context, matching the same trade-off as
+  // Collections.emptyList(); a Class<T> witness parameter would break every plugin call site.
+  @SuppressWarnings("TypeParameterUnusedInFormals")
   public static <T> T evaluateSync(final String expressionStr, final Object root) {
     return evaluateSync(expressionStr, root, null);
   }
@@ -92,7 +95,7 @@ public final class SpelUtils {
    * @param <T> the result type
    * @return the evaluation result
    */
-  @SuppressWarnings("unchecked")
+  @SuppressWarnings({"unchecked", "TypeParameterUnusedInFormals"})
   public static <T> T evaluateSync(
       final String expressionStr, final Object root, final Map<String, Object> variables) {
     final Expression expression = CACHE.computeIfAbsent(expressionStr, PARSER::parseExpression);

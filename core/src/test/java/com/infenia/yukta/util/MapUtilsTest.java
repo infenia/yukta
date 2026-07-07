@@ -139,4 +139,42 @@ class MapUtilsTest {
     assertThat(MapUtils.convert(123, Integer.class)).isEqualTo(123);
     assertThat(MapUtils.convert(null, Integer.class)).isNull();
   }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  void testSetNestedValueWithTrailingDot() {
+    final Map<String, Object> map = new ConcurrentHashMap<>();
+    MapUtils.setNestedValue(map, "a.b.", TEST_VALUE);
+
+    final Map<String, Object> mapA = (Map<String, Object>) map.get("a");
+    final Map<String, Object> mapB = (Map<String, Object>) mapA.get("b");
+    assertThat(mapB).containsEntry("", TEST_VALUE);
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  void testSetNestedValueWithConsecutiveDots() {
+    final Map<String, Object> map = new ConcurrentHashMap<>();
+    MapUtils.setNestedValue(map, "a..b", TEST_VALUE);
+
+    final Map<String, Object> mapA = (Map<String, Object>) map.get("a");
+    final Map<String, Object> emptyMap = (Map<String, Object>) mapA.get("");
+    assertThat(emptyMap).containsEntry("b", TEST_VALUE);
+  }
+
+  @Test
+  void testGetNestedValueWithTrailingDot() {
+    final Map<String, Object> map =
+        Map.of("a", Map.of("b", Map.of("", TEST_VALUE)));
+
+    assertThat(MapUtils.getNestedValue(map, "a.b.")).isEqualTo(TEST_VALUE);
+  }
+
+  @Test
+  void testGetNestedValueWithConsecutiveDots() {
+    final Map<String, Object> map =
+        Map.of("a", Map.of("", Map.of("b", TEST_VALUE)));
+
+    assertThat(MapUtils.getNestedValue(map, "a..b")).isEqualTo(TEST_VALUE);
+  }
 }

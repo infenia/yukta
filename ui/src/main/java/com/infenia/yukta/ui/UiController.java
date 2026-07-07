@@ -25,6 +25,7 @@ import com.infenia.yukta.service.session.SessionService;
 import gg.jte.TemplateEngine;
 import gg.jte.output.StringOutput;
 import java.time.LocalTime;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -348,7 +349,7 @@ public class UiController {
               .getLogStream(execId)
               .map(
                   log -> {
-                    final String time = LocalTime.now().format(formatter);
+                    final String time = LocalTime.now(ZoneId.systemDefault()).format(formatter);
                     return "<div class=\"mb-1 text-slate-300 flex gap-4\">"
                         + "<span class=\"opacity-20 w-16 shrink-0\">"
                         + time

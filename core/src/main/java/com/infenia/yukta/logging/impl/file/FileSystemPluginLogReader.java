@@ -85,14 +85,16 @@ public class FileSystemPluginLogReader implements PluginLogReader {
    */
   private Path findExecutionLogFile(final String executionId) {
     final Path baseDir = Path.of(baseLogDir);
+    Path result = null;
 
     if (Files.exists(baseDir)) {
       try (final var sessions = Files.list(baseDir)) {
-        return sessions
-            .map(sessionDir -> sessionDir.resolve(executionId + LOG_FILE_EXTENSION))
-            .filter(Files::exists)
-            .findFirst()
-            .orElse(null);
+        result =
+            sessions
+                .map(sessionDir -> sessionDir.resolve(executionId + LOG_FILE_EXTENSION))
+                .filter(Files::exists)
+                .findFirst()
+                .orElse(null);
       } catch (final IOException e) {
         log.atWarn()
             .addKeyValue("baseDir", baseLogDir)
@@ -100,7 +102,7 @@ public class FileSystemPluginLogReader implements PluginLogReader {
             .log("Error scanning sessions for execution log");
       }
     }
-    return null;
+    return result;
   }
 
   @Override

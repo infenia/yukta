@@ -55,6 +55,11 @@ public class ConfigVariableSource implements TriggerPlugin {
   }
 
   @Override
+  // A bare "return """ text block collides with this project's checkstyle
+  // TextBlockGoogleStyleFormatting rule, which google-java-format's own formatting of `return`
+  // statements can never satisfy (spotlessApply keeps re-collapsing it); string concatenation
+  // stays.
+  @SuppressWarnings("StringConcatToTextBlock")
   public String getUsagePattern() {
     return "Configure with:\n"
         + "- variables: Map of key-value pairs to emit. Supports SpEL expressions.\n"

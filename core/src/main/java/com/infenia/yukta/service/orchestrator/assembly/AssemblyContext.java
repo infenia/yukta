@@ -40,7 +40,9 @@ import reactor.core.publisher.Mono;
  * @param disposables the list of disposables to manage resource lifecycle
  * @param connectors the list of tasks to connect upstreams to sinks
  */
-@SuppressWarnings("PMD.DataClass")
+// streams is a fixed-size, index-addressed array filled in-place during assembly; equals/hashCode
+// on this record are never used, so the array's reference-equality semantics are not a concern.
+@SuppressWarnings({"PMD.DataClass", "ArrayRecordComponent"})
 public record AssemblyContext(
     String executionId,
     String sessionId,

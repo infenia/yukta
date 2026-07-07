@@ -37,11 +37,9 @@ import org.graalvm.polyglot.Engine;
 import org.graalvm.polyglot.HostAccess;
 import org.graalvm.polyglot.Source;
 import org.graalvm.polyglot.Value;
-import org.springframework.core.convert.support.DefaultConversionService;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
-import tools.jackson.databind.ObjectMapper;
 
 /** Mapper processor transforms message payloads using PROJECTION, TEMPLATE, or SCRIPT modes. */
 @Slf4j
@@ -81,9 +79,7 @@ public class MapperProcessor implements ProcessorPlugin {
       Engine.newBuilder().option("engine.WarnInterpreterOnly", "false").build();
 
   private Handlebars handlebars;
-  private final ObjectMapper objectMapper = new ObjectMapper();
   private final MapMessageMapper mapMapper = new MapMessageMapper();
-  private final DefaultConversionService conversionService = new DefaultConversionService();
 
   private final Map<String, Template> templateCache = new ConcurrentHashMap<>();
   private final Map<String, Source> jsSourceCache = new ConcurrentHashMap<>();
@@ -158,9 +154,9 @@ public class MapperProcessor implements ProcessorPlugin {
       ((Map<String, String>) mapping).values().forEach(SpelUtils::preParse);
     } else if (MODE_TEMPLATE.equals(mode)) {
       initializeTemplates(mapping);
-    } else if (MODE_SCRIPT.equals(mode) && mapping instanceof String) {
+    } else if (MODE_SCRIPT.equals(mode) && mapping instanceof String script) {
       jsSourceCache.computeIfAbsent(
-          (String) mapping, s -> Source.newBuilder("js", s, "mapper.js").buildLiteral());
+          script, s -> Source.newBuilder("js", s, "mapper.js").buildLiteral());
     }
     return Mono.empty();
   }
@@ -169,8 +165,8 @@ public class MapperProcessor implements ProcessorPlugin {
   private void initializeTemplates(final Object mapping) {
     if (mapping instanceof Map) {
       ((Map<String, String>) mapping).values().forEach(this::compileTemplate);
-    } else if (mapping instanceof String) {
-      compileTemplate((String) mapping);
+    } else if (mapping instanceof String template) {
+      compileTemplate(template);
     }
   }
 
@@ -266,8 +262,8 @@ public class MapperProcessor implements ProcessorPlugin {
     final Object result;
     if (mapping instanceof Map) {
       result = executeTemplateMap(message, (Map<String, String>) mapping, dropOriginal, strictMode);
-    } else if (mapping instanceof String) {
-      result = executeTemplateString(message, (String) mapping, strictMode);
+    } else if (mapping instanceof String template) {
+      result = executeTemplateString(message, template, strictMode);
     } else {
       throw new IllegalArgumentException("Invalid mapping for TEMPLATE mode");
     }

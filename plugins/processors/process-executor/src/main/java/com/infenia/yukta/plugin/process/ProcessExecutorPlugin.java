@@ -65,6 +65,11 @@ public class ProcessExecutorPlugin implements ProcessorPlugin {
   }
 
   @Override
+  // A bare "return """ text block collides with this project's checkstyle
+  // TextBlockGoogleStyleFormatting rule, which google-java-format's own formatting of `return`
+  // statements can never satisfy (spotlessApply keeps re-collapsing it); string concatenation
+  // stays.
+  @SuppressWarnings("StringConcatToTextBlock")
   public String getUsagePattern() {
     return "Configuration Parameters:\n\n"
         + "REQUIRED:\n"

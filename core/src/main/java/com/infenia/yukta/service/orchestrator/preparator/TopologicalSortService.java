@@ -16,8 +16,12 @@
 package com.infenia.yukta.service.orchestrator.preparator;
 
 import com.infenia.yukta.model.workflow.WorkflowNode;
-// CHECKSTYLE.SUPPRESS: AvoidStarImport for 1 lines
-import java.util.*;
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Queue;
 import lombok.NoArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;

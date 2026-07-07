@@ -1,3 +1,5 @@
+import net.ltgt.gradle.errorprone.errorprone
+
 plugins {
     id("com.diffplug.spotless")
     checkstyle
@@ -58,6 +60,14 @@ dependencies {
     // Resolve CVE-2025-67030: Plexus-utils directory traversal vulnerability
     constraints {
         add("checkstyle", "org.codehaus.plexus:plexus-utils:3.6.1")
+    }
+}
+
+// Skip generated sources (MapStruct mappers, JTE templates) we don't hand-edit and that get
+// regenerated on every build.
+tasks.withType<JavaCompile>().configureEach {
+    options.errorprone {
+        excludedPaths.set(".*/build/generated/.*|.*/build/jte-classes/.*")
     }
 }
 

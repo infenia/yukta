@@ -487,7 +487,7 @@ public class ContentFilterProcessor implements ProcessorPlugin {
   }
 
   private boolean hasKey(final Map<String, Object> map, final String path) {
-    final String[] parts = path.split("\\.");
+    final String[] parts = path.split("\\.", -1);
     Map<String, Object> current = map;
     for (int i = 0; i < parts.length - 1; i++) {
       final Object next = current.get(parts[i]);

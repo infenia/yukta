@@ -107,6 +107,10 @@ class DirectiveDispatcherTest {
 
   @Test
   void dispatch_commandWithActiveExecution_invokesProcessorAndAppliesDirective() {
+    verifyDispatchWithActiveExecutionInvokesProcessorAndAppliesDirective();
+  }
+
+  private void verifyDispatchWithActiveExecutionInvokesProcessorAndAppliesDirective() {
     final String executionId = "exec-1";
 
     final ExecutionControl control = createControl("session-1", "workflow-1", executionId);
@@ -129,6 +133,10 @@ class DirectiveDispatcherTest {
 
   @Test
   void dispatch_noActiveExecution_completesEmpty() {
+    verifyDispatchWithNoActiveExecutionCompletesEmpty();
+  }
+
+  private void verifyDispatchWithNoActiveExecutionCompletesEmpty() {
     final ExecutionControlCommand command =
         new ExecutionControlCommand.StopNodeCommand("exec-no-exist", "node-1", false, null);
 
@@ -144,6 +152,10 @@ class DirectiveDispatcherTest {
 
   @Test
   void dispatch_processorNotFound_throwsIllegalArgumentException() {
+    verifyDispatchWithProcessorNotFoundThrowsIllegalArgumentException();
+  }
+
+  private void verifyDispatchWithProcessorNotFoundThrowsIllegalArgumentException() {
     final String executionId = "exec-1";
 
     final ExecutionControl control = createControl("session-1", "workflow-1", executionId);
@@ -162,6 +174,10 @@ class DirectiveDispatcherTest {
 
   @Test
   void dispatch_multipleProcessors_selectsByHighestPriority() {
+    verifyDispatchWithMultipleProcessorsSelectsByHighestPriority();
+  }
+
+  private void verifyDispatchWithMultipleProcessorsSelectsByHighestPriority() {
     final String executionId = "exec-1";
 
     final ExecutionControl control = createControl("session-1", "workflow-1", executionId);
@@ -602,12 +618,12 @@ class DirectiveDispatcherTest {
   // Legacy test names for backward compatibility
   @Test
   void testDispatchStopCommand() {
-    dispatch_commandWithActiveExecution_invokesProcessorAndAppliesDirective();
+    verifyDispatchWithActiveExecutionInvokesProcessorAndAppliesDirective();
   }
 
   @Test
   void testDispatchNoActiveExecution() {
-    dispatch_noActiveExecution_completesEmpty();
+    verifyDispatchWithNoActiveExecutionCompletesEmpty();
   }
 
   @Test
@@ -630,11 +646,11 @@ class DirectiveDispatcherTest {
 
   @Test
   void testDispatchProcessorNotFound() {
-    dispatch_processorNotFound_throwsIllegalArgumentException();
+    verifyDispatchWithProcessorNotFoundThrowsIllegalArgumentException();
   }
 
   @Test
   void testDispatchMultipleProcessorsPriority() {
-    dispatch_multipleProcessors_selectsByHighestPriority();
+    verifyDispatchWithMultipleProcessorsSelectsByHighestPriority();
   }
 }

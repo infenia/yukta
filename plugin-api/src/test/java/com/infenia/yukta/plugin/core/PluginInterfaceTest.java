@@ -161,7 +161,7 @@ class PluginInterfaceTest {
     // Metadata methods
     assertEquals("", plugin.getDescription());
     assertEquals("", plugin.getUsagePattern());
-    assertEquals(30, plugin.getDefaultTimeout().getSeconds());
+    assertEquals(30, plugin.getDefaultTimeout().toSeconds());
     assertFalse(plugin.getUiDesign().isPresent());
 
     // Port methods
