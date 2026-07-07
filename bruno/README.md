@@ -103,13 +103,11 @@ bruno/
 │   ├── List Logs.bru
 │   ├── Get Log Content.bru
 │   └── Get Raw Log Content.bru
-├── ControlBusController/                 (6 requests)
+├── ControlBusController/                 (4 requests)
 │   ├── Get All Active Nodes.bru
 │   ├── Get Active Nodes in Workflow.bru
 │   ├── Get Node Heartbeat.bru
-│   ├── Send Command to Node.bru
-│   ├── Get Execution Progress.bru
-│   └── Get Session Execution History.bru
+│   └── Send Command to Node.bru
 ├── PluginController/                     (2 requests)
 │   ├── List Plugins.bru
 │   └── Get Plugin Details.bru
@@ -164,8 +162,6 @@ bruno/
 | Get Active Nodes in Workflow | GET | ControlBusController | List active nodes in a specific workflow |
 | Get Node Heartbeat | GET | ControlBusController | Get node's most recent heartbeat |
 | Send Command to Node | POST | ControlBusController | Send administrative command to a node |
-| Get Execution Progress | GET | ControlBusController | Get current progress snapshot |
-| Get Session Execution History | GET | ControlBusController | Get all executions for a session |
 
 ### PluginController (`/api/plugins`)
 
@@ -207,7 +203,7 @@ bruno/
 
 ### Debugging Failed Execution
 
-1. **ControlBusController/Get Execution Progress** → Check current state
+1. **WorkflowController/Get Workflow Status** → Check current state
 2. **LogManagementController/Get Log Content** → Read execution logs
 3. **ControlBusController/Get Active Nodes in Workflow** → Check node status
 4. **ControlBusController/Get Node Heartbeat** → Verify node health

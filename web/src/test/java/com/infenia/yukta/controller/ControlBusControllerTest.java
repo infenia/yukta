@@ -24,7 +24,6 @@ import static org.mockito.Mockito.when;
 
 import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
-import com.infenia.yukta.model.execution.WorkflowProgress;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import java.util.List;
 import java.util.Map;
@@ -33,7 +32,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.reactive.server.WebTestClient;
-import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 /** Tests for ControlBusController. */
@@ -123,25 +121,6 @@ class ControlBusControllerTest {
   }
 
   @Test
-  void testStreamProgress() {
-    final WorkflowProgress progress = mock(WorkflowProgress.class);
-    when(controlBusGateway.watchExecution("exec1")).thenReturn(Flux.just(progress));
-
-    final var result =
-        webClient
-            .get()
-            .uri("/api/control/executions/exec1/progress/stream")
-            .accept(MediaType.TEXT_EVENT_STREAM)
-            .exchange()
-            .expectStatus()
-            .isOk()
-            .expectHeader()
-            .contentTypeCompatibleWith(MediaType.TEXT_EVENT_STREAM)
-            .returnResult();
-    assertThat(result.getStatus().value()).isEqualTo(200);
-  }
-
-  @Test
   void testGetActiveNodesInWorkflow() {
     when(controlBusGateway.getActiveNodes("wf1")).thenReturn(List.of(NODE1, NODE2));
     final var result =
@@ -156,43 +135,6 @@ class ControlBusControllerTest {
             .isEqualTo(NODE1)
             .jsonPath(MESSAGE_PATH)
             .isEqualTo("Active nodes retrieved")
-            .returnResult();
-    assertThat(result.getStatus().value()).isEqualTo(200);
-  }
-
-  @Test
-  void testGetProgress() {
-    final WorkflowProgress progress = mock(WorkflowProgress.class);
-    when(controlBusGateway.getCurrentProgress("exec1")).thenReturn(progress);
-
-    final var result =
-        webClient
-            .get()
-            .uri("/api/control/executions/exec1/progress")
-            .exchange()
-            .expectStatus()
-            .isOk()
-            .expectBody()
-            .jsonPath(MESSAGE_PATH)
-            .isEqualTo("Progress retrieved")
-            .returnResult();
-    assertThat(result.getStatus().value()).isEqualTo(200);
-  }
-
-  @Test
-  void testGetHistory() {
-    when(controlBusGateway.getHistory("session1")).thenReturn(List.of());
-
-    final var result =
-        webClient
-            .get()
-            .uri("/api/control/sessions/session1/history")
-            .exchange()
-            .expectStatus()
-            .isOk()
-            .expectBody()
-            .jsonPath(MESSAGE_PATH)
-            .isEqualTo("History retrieved")
             .returnResult();
     assertThat(result.getStatus().value()).isEqualTo(200);
   }
