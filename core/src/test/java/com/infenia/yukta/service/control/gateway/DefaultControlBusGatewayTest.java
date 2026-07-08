@@ -185,6 +185,25 @@ class DefaultControlBusGatewayTest {
     verify(controlBusService).compileAndCacheWorkflow(sessionId, definition);
   }
 
+  /**
+   * Stubs an {@link ExecutionControl} registered under {@code executionId} whose {@code
+   * nodePauseValves()} contains {@code nodeId}, satisfying the node-existence check shared by the
+   * pause/resume/stop/skip node operations.
+   */
+  private ExecutionControl stubNodeExists(final String executionId, final String nodeId) {
+    final ExecutionControl control = mock(ExecutionControl.class);
+    when(control.nodePauseValves()).thenReturn(Map.of(nodeId, mock(ReactiveControlValve.class)));
+    when(executionControlRegistry.findByExecutionId(executionId)).thenReturn(Optional.of(control));
+    return control;
+  }
+
+  /** Stubs an {@link ExecutionControl} registered under {@code executionId} with no nodes. */
+  private void stubNoNodes(final String executionId) {
+    final ExecutionControl control = mock(ExecutionControl.class);
+    when(control.nodePauseValves()).thenReturn(Map.of());
+    when(executionControlRegistry.findByExecutionId(executionId)).thenReturn(Optional.of(control));
+  }
+
   // --- Execution Control Command Tests ---
 
   @Test
@@ -279,9 +298,7 @@ class DefaultControlBusGatewayTest {
     // Given
     final String executionId = "exec-3";
     final String nodeId = "node-2";
-    final ExecutionControl control = mock(ExecutionControl.class);
-    when(control.nodePauseValves()).thenReturn(Map.of(nodeId, mock(ReactiveControlValve.class)));
-    when(executionControlRegistry.findByExecutionId(executionId)).thenReturn(Optional.of(control));
+    stubNodeExists(executionId, nodeId);
     when(controlBusService.emit(any())).thenReturn(Mono.empty());
 
     // When
@@ -304,9 +321,7 @@ class DefaultControlBusGatewayTest {
     // Given
     final String executionId = "exec-4";
     final String nodeId = "node-3";
-    final ExecutionControl control = mock(ExecutionControl.class);
-    when(control.nodePauseValves()).thenReturn(Map.of(nodeId, mock(ReactiveControlValve.class)));
-    when(executionControlRegistry.findByExecutionId(executionId)).thenReturn(Optional.of(control));
+    stubNodeExists(executionId, nodeId);
     when(controlBusService.emit(any())).thenReturn(Mono.empty());
 
     // When
@@ -371,9 +386,7 @@ class DefaultControlBusGatewayTest {
     // Given
     final String executionId = "exec-6";
     final String nodeId = "missing-node";
-    final ExecutionControl control = mock(ExecutionControl.class);
-    when(control.nodePauseValves()).thenReturn(Map.of());
-    when(executionControlRegistry.findByExecutionId(executionId)).thenReturn(Optional.of(control));
+    stubNoNodes(executionId);
 
     // When
     final Mono<Void> result = gateway.pauseNode(executionId, nodeId);
@@ -394,9 +407,7 @@ class DefaultControlBusGatewayTest {
     // Given
     final String executionId = "exec-7";
     final String nodeId = "missing-node";
-    final ExecutionControl control = mock(ExecutionControl.class);
-    when(control.nodePauseValves()).thenReturn(Map.of());
-    when(executionControlRegistry.findByExecutionId(executionId)).thenReturn(Optional.of(control));
+    stubNoNodes(executionId);
 
     // When
     final Mono<Void> result = gateway.resumeNode(executionId, nodeId);
@@ -466,6 +477,7 @@ class DefaultControlBusGatewayTest {
     final String nodeId = "node-4";
     final boolean immediate = false;
     final String reason = "test reason";
+    stubNodeExists(executionId, nodeId);
     when(controlBusService.emit(any())).thenReturn(Mono.empty());
 
     // When
@@ -493,6 +505,7 @@ class DefaultControlBusGatewayTest {
     final String nodeId = "node-5";
     final boolean immediate = true;
     final String reason = "immediate stop";
+    stubNodeExists(executionId, nodeId);
     when(controlBusService.emit(any())).thenReturn(Mono.empty());
 
     // When
@@ -731,6 +744,7 @@ class DefaultControlBusGatewayTest {
     final String executionId = "exec-7";
     final String nodeId = "node-6";
     final boolean skip = true;
+    stubNodeExists(executionId, nodeId);
     when(controlBusService.emit(any())).thenReturn(Mono.empty());
 
     // When
@@ -753,6 +767,7 @@ class DefaultControlBusGatewayTest {
     final String executionId = "exec-8";
     final String nodeId = "node-7";
     final boolean skip = false;
+    stubNodeExists(executionId, nodeId);
     when(controlBusService.emit(any())).thenReturn(Mono.empty());
 
     // When
@@ -1102,9 +1117,7 @@ class DefaultControlBusGatewayTest {
     // Given
     final String executionId = "exec-error";
     final String nodeId = "node-error";
-    final ExecutionControl control = mock(ExecutionControl.class);
-    when(control.nodePauseValves()).thenReturn(Map.of(nodeId, mock(ReactiveControlValve.class)));
-    when(executionControlRegistry.findByExecutionId(executionId)).thenReturn(Optional.of(control));
+    stubNodeExists(executionId, nodeId);
     final RuntimeException testError = new RuntimeException("Emit failed");
     when(controlBusService.emit(any())).thenReturn(Mono.error(testError));
 
@@ -1120,9 +1133,7 @@ class DefaultControlBusGatewayTest {
     // Given
     final String executionId = "exec-error";
     final String nodeId = "node-error";
-    final ExecutionControl control = mock(ExecutionControl.class);
-    when(control.nodePauseValves()).thenReturn(Map.of(nodeId, mock(ReactiveControlValve.class)));
-    when(executionControlRegistry.findByExecutionId(executionId)).thenReturn(Optional.of(control));
+    stubNodeExists(executionId, nodeId);
     final RuntimeException testError = new RuntimeException("Emit failed");
     when(controlBusService.emit(any())).thenReturn(Mono.error(testError));
 
@@ -1138,6 +1149,7 @@ class DefaultControlBusGatewayTest {
     // Given
     final String executionId = "exec-error";
     final String nodeId = "node-error";
+    stubNodeExists(executionId, nodeId);
     final RuntimeException testError = new RuntimeException("Emit failed");
     when(controlBusService.emit(any())).thenReturn(Mono.error(testError));
 
@@ -1149,10 +1161,53 @@ class DefaultControlBusGatewayTest {
   }
 
   @Test
+  void stopNode_nodeNotFound_throwsIllegalArgumentException() {
+    // Given
+    final String executionId = "exec-stop-node-not-found";
+    final String nodeId = "missing-node";
+    stubNoNodes(executionId);
+
+    // When
+    final Mono<Void> result = gateway.stopNode(executionId, nodeId, false, "reason");
+
+    // Then
+    StepVerifier.create(result)
+        .expectErrorMatches(
+            err ->
+                err instanceof IllegalArgumentException
+                    && err.getMessage().contains("Node not found")
+                    && err.getMessage().contains(nodeId))
+        .verify();
+    verify(controlBusService, never()).emit(any());
+  }
+
+  @Test
+  void stopNode_executionNotFound_throwsIllegalArgumentException() {
+    // Given
+    final String executionId = "exec-stop-execution-not-found";
+    final String nodeId = "node-x";
+    when(executionControlRegistry.findByExecutionId(executionId)).thenReturn(Optional.empty());
+
+    // When
+    final Mono<Void> result = gateway.stopNode(executionId, nodeId, false, "reason");
+
+    // Then
+    StepVerifier.create(result)
+        .expectErrorMatches(
+            err ->
+                err instanceof IllegalArgumentException
+                    && err.getMessage().contains("Execution not found")
+                    && err.getMessage().contains(executionId))
+        .verify();
+    verify(controlBusService, never()).emit(any());
+  }
+
+  @Test
   void skipNode_emitError_logsErrorAndPropagates() {
     // Given
     final String executionId = "exec-error";
     final String nodeId = "node-error";
+    stubNodeExists(executionId, nodeId);
     final RuntimeException testError = new RuntimeException("Emit failed");
     when(controlBusService.emit(any())).thenReturn(Mono.error(testError));
 
@@ -1161,6 +1216,48 @@ class DefaultControlBusGatewayTest {
 
     // Then
     StepVerifier.create(result).expectError(RuntimeException.class).verify();
+  }
+
+  @Test
+  void skipNode_nodeNotFound_throwsIllegalArgumentException() {
+    // Given
+    final String executionId = "exec-skip-node-not-found";
+    final String nodeId = "missing-node";
+    stubNoNodes(executionId);
+
+    // When
+    final Mono<Void> result = gateway.skipNode(executionId, nodeId, true);
+
+    // Then
+    StepVerifier.create(result)
+        .expectErrorMatches(
+            err ->
+                err instanceof IllegalArgumentException
+                    && err.getMessage().contains("Node not found")
+                    && err.getMessage().contains(nodeId))
+        .verify();
+    verify(controlBusService, never()).emit(any());
+  }
+
+  @Test
+  void skipNode_executionNotFound_throwsIllegalArgumentException() {
+    // Given
+    final String executionId = "exec-skip-execution-not-found";
+    final String nodeId = "node-x";
+    when(executionControlRegistry.findByExecutionId(executionId)).thenReturn(Optional.empty());
+
+    // When
+    final Mono<Void> result = gateway.skipNode(executionId, nodeId, true);
+
+    // Then
+    StepVerifier.create(result)
+        .expectErrorMatches(
+            err ->
+                err instanceof IllegalArgumentException
+                    && err.getMessage().contains("Execution not found")
+                    && err.getMessage().contains(executionId))
+        .verify();
+    verify(controlBusService, never()).emit(any());
   }
 
   @Test

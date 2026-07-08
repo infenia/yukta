@@ -470,6 +470,88 @@ public class WorkflowController {
   }
 
   /**
+   * Stop a single node within a workflow execution.
+   *
+   * @param sessionId the session identifier
+   * @param executionId the execution to target
+   * @param nodeId the node to stop
+   * @param immediate true for hard stop (cancel upstream), false for drain & stop
+   * @param reason human-readable explanation for logging
+   * @return response entity with the execution ID
+   */
+  @PostMapping("/workflow/{sessionId}/{executionId}/node/{nodeId}/stop")
+  @Operation(
+      summary = "Stop a node",
+      description =
+          "Stops a single node in a workflow execution, either immediately or after draining"
+              + " inflight work")
+  @io.swagger.v3.oas.annotations.responses.ApiResponse(
+      responseCode = HTTP_200,
+      description = "Node stop signal accepted")
+  @io.swagger.v3.oas.annotations.responses.ApiResponse(
+      responseCode = "404",
+      description = "Execution or node not found")
+  @SuppressWarnings("PMD.UseObjectForClearerAPI")
+  public Mono<ResponseEntity<ApiResponse<WorkflowStartResponse>>> stopNode(
+      @Parameter(description = SESSION_ID_PARAM) @PathVariable final String sessionId,
+      @Parameter(description = "Execution ID") @PathVariable final String executionId,
+      @Parameter(description = "Node ID") @PathVariable final String nodeId,
+      @Parameter(description = "True for hard stop, false for drain & stop")
+          @RequestParam(defaultValue = "false")
+          final boolean immediate,
+      @Parameter(description = "Human-readable reason for the stop")
+          @RequestParam(defaultValue = "Stopped via REST API")
+          final String reason,
+      final ServerWebExchange exchange) {
+    return executeControlSignal(
+        "stopNode",
+        sessionId,
+        executionId,
+        nodeId,
+        "Node stop signal accepted",
+        () -> controlBus.stopNode(executionId, nodeId, immediate, reason),
+        exchange);
+  }
+
+  /**
+   * Mark a node as skipped or not within a workflow execution.
+   *
+   * <p>When skipped, the node passes messages through without invoking the processor.
+   *
+   * @param sessionId the session identifier
+   * @param executionId the execution to target
+   * @param nodeId the node to skip
+   * @param skip true to skip, false to unskip
+   * @return response entity with the execution ID
+   */
+  @PostMapping("/workflow/{sessionId}/{executionId}/node/{nodeId}/skip")
+  @Operation(
+      summary = "Skip or unskip a node",
+      description = "Marks a single node in a workflow execution as skipped (passthrough) or not")
+  @io.swagger.v3.oas.annotations.responses.ApiResponse(
+      responseCode = HTTP_200,
+      description = "Node skip signal accepted")
+  @io.swagger.v3.oas.annotations.responses.ApiResponse(
+      responseCode = "404",
+      description = "Execution or node not found")
+  public Mono<ResponseEntity<ApiResponse<WorkflowStartResponse>>> skipNode(
+      @Parameter(description = SESSION_ID_PARAM) @PathVariable final String sessionId,
+      @Parameter(description = "Execution ID") @PathVariable final String executionId,
+      @Parameter(description = "Node ID") @PathVariable final String nodeId,
+      @Parameter(description = "True to skip, false to unskip") @RequestParam(defaultValue = "true")
+          final boolean skip,
+      final ServerWebExchange exchange) {
+    return executeControlSignal(
+        "skipNode",
+        sessionId,
+        executionId,
+        nodeId,
+        "Node skip signal accepted",
+        () -> controlBus.skipNode(executionId, nodeId, skip),
+        exchange);
+  }
+
+  /**
    * Get the status of a specific workflow execution.
    *
    * @param sessionId the session identifier

@@ -118,6 +118,9 @@ class WorkflowControllerTest {
   /** Error message when node not found. */
   private static final String NODE_NOT_FOUND = "Node not found";
 
+  /** Error message prefix used when mocking a node-not-found gateway failure. */
+  private static final String NODE_NOT_FOUND_PREFIX = "Node not found: ";
+
   /** Pause endpoint path. */
   private static final String PAUSE_ENDPOINT = "/api/workflow/sess-1/exec-1/pause";
 
@@ -145,6 +148,23 @@ class WorkflowControllerTest {
 
   /** Resume node accepted message. */
   private static final String NODE_RESUME_ACCEPTED = "Node resume signal accepted";
+
+  /** Stop node endpoint path. */
+  private static final String STOP_NODE_ENDPOINT =
+      "/api/workflow/sess-1/exec-1/node/node-1/stop?immediate=true&reason=test-reason";
+
+  /** Reason used in stop node requests. */
+  private static final String STOP_NODE_REASON = "test-reason";
+
+  /** Skip node endpoint path. */
+  private static final String SKIP_NODE_ENDPOINT =
+      "/api/workflow/sess-1/exec-1/node/node-1/skip?skip=true";
+
+  /** Stop node accepted message. */
+  private static final String NODE_STOP_ACCEPTED = "Node stop signal accepted";
+
+  /** Skip node accepted message. */
+  private static final String NODE_SKIP_ACCEPTED = "Node skip signal accepted";
 
   /** Session identifier used to simulate a session-ownership mismatch. */
   private static final String OTHER_SESSION = "other-session";
@@ -1106,7 +1126,7 @@ class WorkflowControllerTest {
             null);
     when(controlBusGateway.getCurrentProgress(EXEC_ID_1)).thenReturn(progress);
     when(controlBusGateway.pauseNode(EXEC_ID_1, NODE_ID_1))
-        .thenReturn(Mono.error(new IllegalArgumentException("Node not found: " + NODE_ID_1)));
+        .thenReturn(Mono.error(new IllegalArgumentException(NODE_NOT_FOUND_PREFIX + NODE_ID_1)));
 
     final var result =
         webClient
@@ -1280,7 +1300,7 @@ class WorkflowControllerTest {
             null);
     when(controlBusGateway.getCurrentProgress(EXEC_ID_1)).thenReturn(progress);
     when(controlBusGateway.resumeNode(EXEC_ID_1, NODE_ID_1))
-        .thenReturn(Mono.error(new IllegalArgumentException("Node not found: " + NODE_ID_1)));
+        .thenReturn(Mono.error(new IllegalArgumentException(NODE_NOT_FOUND_PREFIX + NODE_ID_1)));
 
     final var result =
         webClient
@@ -1346,6 +1366,332 @@ class WorkflowControllerTest {
         webClient
             .post()
             .uri(RESUME_NODE_ENDPOINT)
+            .exchange()
+            .expectStatus()
+            .is5xxServerError()
+            .returnResult();
+    assertThat(result.getStatus().value()).isEqualTo(500);
+  }
+
+  // --- Stop Node Tests ---
+
+  @Test
+  void testStopNodeSuccess() {
+    final WorkflowProgress progress =
+        new WorkflowProgress(
+            EXEC_ID_1,
+            SESS_ID_1,
+            WF_ID_1,
+            RUNNING,
+            List.of(),
+            LocalDateTime.now(ZoneId.systemDefault()),
+            null);
+    when(controlBusGateway.getCurrentProgress(EXEC_ID_1)).thenReturn(progress);
+    when(controlBusGateway.stopNode(EXEC_ID_1, NODE_ID_1, true, STOP_NODE_REASON))
+        .thenReturn(Mono.empty());
+
+    final var result =
+        webClient
+            .post()
+            .uri(STOP_NODE_ENDPOINT)
+            .exchange()
+            .expectStatus()
+            .isOk()
+            .expectBody()
+            .jsonPath(DOLLAR_STATUS)
+            .isEqualTo(200)
+            .jsonPath(DOLLAR_MESSAGE)
+            .isEqualTo(NODE_STOP_ACCEPTED)
+            .jsonPath(DOLLAR_DATA_EXECUTION_ID)
+            .isEqualTo(EXEC_ID_1)
+            .returnResult();
+    assertThat(result.getStatus().value()).isEqualTo(200);
+  }
+
+  @Test
+  void testStopNodeSuccessLogging(final CapturedOutput output) {
+    final WorkflowProgress progress =
+        new WorkflowProgress(
+            EXEC_ID_1,
+            SESS_ID_1,
+            WF_ID_1,
+            RUNNING,
+            List.of(),
+            LocalDateTime.now(ZoneId.systemDefault()),
+            null);
+    when(controlBusGateway.getCurrentProgress(EXEC_ID_1)).thenReturn(progress);
+    when(controlBusGateway.stopNode(EXEC_ID_1, NODE_ID_1, true, STOP_NODE_REASON))
+        .thenReturn(Mono.empty());
+
+    webClient.post().uri(STOP_NODE_ENDPOINT).exchange().expectStatus().isOk();
+
+    assertThat(output.toString())
+        .contains("stopNode: executionId=" + EXEC_ID_1)
+        .contains("stopNode command accepted")
+        .contains("stopNode response sent successfully");
+  }
+
+  @Test
+  void testStopNodeExecutionNotFound() {
+    when(controlBusGateway.getCurrentProgress(EXEC_ID_1)).thenReturn(null);
+
+    final var result =
+        webClient
+            .post()
+            .uri(STOP_NODE_ENDPOINT)
+            .exchange()
+            .expectStatus()
+            .isNotFound()
+            .expectBody()
+            .jsonPath(DOLLAR_STATUS)
+            .isEqualTo(404)
+            .jsonPath(DOLLAR_MESSAGE)
+            .isEqualTo(EXECUTION_NOT_FOUND)
+            .returnResult();
+    assertThat(result.getStatus().value()).isEqualTo(404);
+  }
+
+  @Test
+  void testStopNodeNodeNotFound() {
+    final WorkflowProgress progress =
+        new WorkflowProgress(
+            EXEC_ID_1,
+            SESS_ID_1,
+            WF_ID_1,
+            RUNNING,
+            List.of(),
+            LocalDateTime.now(ZoneId.systemDefault()),
+            null);
+    when(controlBusGateway.getCurrentProgress(EXEC_ID_1)).thenReturn(progress);
+    when(controlBusGateway.stopNode(EXEC_ID_1, NODE_ID_1, true, STOP_NODE_REASON))
+        .thenReturn(Mono.error(new IllegalArgumentException(NODE_NOT_FOUND_PREFIX + NODE_ID_1)));
+
+    final var result =
+        webClient
+            .post()
+            .uri(STOP_NODE_ENDPOINT)
+            .exchange()
+            .expectStatus()
+            .isNotFound()
+            .expectBody()
+            .jsonPath(DOLLAR_STATUS)
+            .isEqualTo(404)
+            .jsonPath(DOLLAR_MESSAGE)
+            .isEqualTo(NODE_NOT_FOUND)
+            .returnResult();
+    assertThat(result.getStatus().value()).isEqualTo(404);
+  }
+
+  @Test
+  void testStopNodeSessionMismatch() {
+    final WorkflowProgress progress =
+        new WorkflowProgress(
+            EXEC_ID_1,
+            OTHER_SESSION,
+            WF_ID_1,
+            RUNNING,
+            List.of(),
+            LocalDateTime.now(ZoneId.systemDefault()),
+            null);
+    when(controlBusGateway.getCurrentProgress(EXEC_ID_1)).thenReturn(progress);
+
+    final var result =
+        webClient
+            .post()
+            .uri(STOP_NODE_ENDPOINT)
+            .exchange()
+            .expectStatus()
+            .isNotFound()
+            .expectBody()
+            .jsonPath(DOLLAR_STATUS)
+            .isEqualTo(404)
+            .jsonPath(DOLLAR_MESSAGE)
+            .isEqualTo(EXECUTION_NOT_FOUND)
+            .returnResult();
+    assertThat(result.getStatus().value()).isEqualTo(404);
+  }
+
+  @Test
+  void testStopNodeNonNotFoundErrorPropagates() {
+    final WorkflowProgress progress =
+        new WorkflowProgress(
+            EXEC_ID_1,
+            SESS_ID_1,
+            WF_ID_1,
+            RUNNING,
+            List.of(),
+            LocalDateTime.now(ZoneId.systemDefault()),
+            null);
+    when(controlBusGateway.getCurrentProgress(EXEC_ID_1)).thenReturn(progress);
+    when(controlBusGateway.stopNode(EXEC_ID_1, NODE_ID_1, true, STOP_NODE_REASON))
+        .thenReturn(Mono.error(new RuntimeException(CONTROL_BUS_FAILURE)));
+
+    final var result =
+        webClient
+            .post()
+            .uri(STOP_NODE_ENDPOINT)
+            .exchange()
+            .expectStatus()
+            .is5xxServerError()
+            .returnResult();
+    assertThat(result.getStatus().value()).isEqualTo(500);
+  }
+
+  // --- Skip Node Tests ---
+
+  @Test
+  void testSkipNodeSuccess() {
+    final WorkflowProgress progress =
+        new WorkflowProgress(
+            EXEC_ID_1,
+            SESS_ID_1,
+            WF_ID_1,
+            RUNNING,
+            List.of(),
+            LocalDateTime.now(ZoneId.systemDefault()),
+            null);
+    when(controlBusGateway.getCurrentProgress(EXEC_ID_1)).thenReturn(progress);
+    when(controlBusGateway.skipNode(EXEC_ID_1, NODE_ID_1, true)).thenReturn(Mono.empty());
+
+    final var result =
+        webClient
+            .post()
+            .uri(SKIP_NODE_ENDPOINT)
+            .exchange()
+            .expectStatus()
+            .isOk()
+            .expectBody()
+            .jsonPath(DOLLAR_STATUS)
+            .isEqualTo(200)
+            .jsonPath(DOLLAR_MESSAGE)
+            .isEqualTo(NODE_SKIP_ACCEPTED)
+            .jsonPath(DOLLAR_DATA_EXECUTION_ID)
+            .isEqualTo(EXEC_ID_1)
+            .returnResult();
+    assertThat(result.getStatus().value()).isEqualTo(200);
+  }
+
+  @Test
+  void testSkipNodeSuccessLogging(final CapturedOutput output) {
+    final WorkflowProgress progress =
+        new WorkflowProgress(
+            EXEC_ID_1,
+            SESS_ID_1,
+            WF_ID_1,
+            RUNNING,
+            List.of(),
+            LocalDateTime.now(ZoneId.systemDefault()),
+            null);
+    when(controlBusGateway.getCurrentProgress(EXEC_ID_1)).thenReturn(progress);
+    when(controlBusGateway.skipNode(EXEC_ID_1, NODE_ID_1, true)).thenReturn(Mono.empty());
+
+    webClient.post().uri(SKIP_NODE_ENDPOINT).exchange().expectStatus().isOk();
+
+    assertThat(output.toString())
+        .contains("skipNode: executionId=" + EXEC_ID_1)
+        .contains("skipNode command accepted")
+        .contains("skipNode response sent successfully");
+  }
+
+  @Test
+  void testSkipNodeExecutionNotFound() {
+    when(controlBusGateway.getCurrentProgress(EXEC_ID_1)).thenReturn(null);
+
+    final var result =
+        webClient
+            .post()
+            .uri(SKIP_NODE_ENDPOINT)
+            .exchange()
+            .expectStatus()
+            .isNotFound()
+            .expectBody()
+            .jsonPath(DOLLAR_STATUS)
+            .isEqualTo(404)
+            .jsonPath(DOLLAR_MESSAGE)
+            .isEqualTo(EXECUTION_NOT_FOUND)
+            .returnResult();
+    assertThat(result.getStatus().value()).isEqualTo(404);
+  }
+
+  @Test
+  void testSkipNodeNodeNotFound() {
+    final WorkflowProgress progress =
+        new WorkflowProgress(
+            EXEC_ID_1,
+            SESS_ID_1,
+            WF_ID_1,
+            RUNNING,
+            List.of(),
+            LocalDateTime.now(ZoneId.systemDefault()),
+            null);
+    when(controlBusGateway.getCurrentProgress(EXEC_ID_1)).thenReturn(progress);
+    when(controlBusGateway.skipNode(EXEC_ID_1, NODE_ID_1, true))
+        .thenReturn(Mono.error(new IllegalArgumentException(NODE_NOT_FOUND_PREFIX + NODE_ID_1)));
+
+    final var result =
+        webClient
+            .post()
+            .uri(SKIP_NODE_ENDPOINT)
+            .exchange()
+            .expectStatus()
+            .isNotFound()
+            .expectBody()
+            .jsonPath(DOLLAR_STATUS)
+            .isEqualTo(404)
+            .jsonPath(DOLLAR_MESSAGE)
+            .isEqualTo(NODE_NOT_FOUND)
+            .returnResult();
+    assertThat(result.getStatus().value()).isEqualTo(404);
+  }
+
+  @Test
+  void testSkipNodeSessionMismatch() {
+    final WorkflowProgress progress =
+        new WorkflowProgress(
+            EXEC_ID_1,
+            OTHER_SESSION,
+            WF_ID_1,
+            RUNNING,
+            List.of(),
+            LocalDateTime.now(ZoneId.systemDefault()),
+            null);
+    when(controlBusGateway.getCurrentProgress(EXEC_ID_1)).thenReturn(progress);
+
+    final var result =
+        webClient
+            .post()
+            .uri(SKIP_NODE_ENDPOINT)
+            .exchange()
+            .expectStatus()
+            .isNotFound()
+            .expectBody()
+            .jsonPath(DOLLAR_STATUS)
+            .isEqualTo(404)
+            .jsonPath(DOLLAR_MESSAGE)
+            .isEqualTo(EXECUTION_NOT_FOUND)
+            .returnResult();
+    assertThat(result.getStatus().value()).isEqualTo(404);
+  }
+
+  @Test
+  void testSkipNodeNonNotFoundErrorPropagates() {
+    final WorkflowProgress progress =
+        new WorkflowProgress(
+            EXEC_ID_1,
+            SESS_ID_1,
+            WF_ID_1,
+            RUNNING,
+            List.of(),
+            LocalDateTime.now(ZoneId.systemDefault()),
+            null);
+    when(controlBusGateway.getCurrentProgress(EXEC_ID_1)).thenReturn(progress);
+    when(controlBusGateway.skipNode(EXEC_ID_1, NODE_ID_1, true))
+        .thenReturn(Mono.error(new RuntimeException(CONTROL_BUS_FAILURE)));
+
+    final var result =
+        webClient
+            .post()
+            .uri(SKIP_NODE_ENDPOINT)
             .exchange()
             .expectStatus()
             .is5xxServerError()

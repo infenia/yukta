@@ -432,10 +432,13 @@ public class DefaultControlBusGateway implements ControlBusGateway {
   @Override
   public Mono<Void> stopNode(
       final String executionId, final String nodeId, final boolean immediate, final String reason) {
-    return executeCommand(
-            buildCommand(
-                new StopNodeCommand(executionId, nodeId, immediate, reason),
-                CONTROL_COMMAND_PRIORITY + 10))
+    return Mono.fromSupplier(() -> requireNodeControl(executionId, nodeId))
+        .flatMap(
+            control ->
+                executeCommand(
+                    buildCommand(
+                        new StopNodeCommand(executionId, nodeId, immediate, reason),
+                        CONTROL_COMMAND_PRIORITY + 10)))
         .doOnSubscribe(
             _ ->
                 log.atInfo()
@@ -536,8 +539,12 @@ public class DefaultControlBusGateway implements ControlBusGateway {
 
   @Override
   public Mono<Void> skipNode(final String executionId, final String nodeId, final boolean skip) {
-    return executeCommand(
-            buildCommand(new SkipNodeCommand(executionId, nodeId, skip), CONTROL_COMMAND_PRIORITY))
+    return Mono.fromSupplier(() -> requireNodeControl(executionId, nodeId))
+        .flatMap(
+            control ->
+                executeCommand(
+                    buildCommand(
+                        new SkipNodeCommand(executionId, nodeId, skip), CONTROL_COMMAND_PRIORITY)))
         .doOnSubscribe(
             _ ->
                 log.atInfo()
