@@ -45,7 +45,7 @@ import reactor.core.publisher.Mono;
 /** Tests for WorkflowController. */
 @ExtendWith(OutputCaptureExtension.class)
 @NoArgsConstructor
-@SuppressWarnings({"PMD.LawOfDemeter", "PMD.TooManyMethods"})
+@SuppressWarnings({"PMD.LawOfDemeter", "PMD.TooManyMethods", "PMD.CyclomaticComplexity"})
 class WorkflowControllerTest {
 
   /** API endpoint for workflow start. */
@@ -165,6 +165,26 @@ class WorkflowControllerTest {
 
   /** Skip node accepted message. */
   private static final String NODE_SKIP_ACCEPTED = "Node skip signal accepted";
+
+  /** Enable step mode endpoint path. */
+  private static final String ENABLE_STEP_MODE_ENDPOINT =
+      "/api/workflow/sess-1/exec-1/node/node-1/step/enable";
+
+  /** Disable step mode endpoint path. */
+  private static final String DISABLE_STEP_MODE_ENDPOINT =
+      "/api/workflow/sess-1/exec-1/node/node-1/step/disable";
+
+  /** Step node endpoint path. */
+  private static final String STEP_NODE_ENDPOINT = "/api/workflow/sess-1/exec-1/node/node-1/step";
+
+  /** Enable step mode accepted message. */
+  private static final String STEP_MODE_ENABLE_ACCEPTED = "Step mode enable signal accepted";
+
+  /** Disable step mode accepted message. */
+  private static final String STEP_MODE_DISABLE_ACCEPTED = "Step mode disable signal accepted";
+
+  /** Step node accepted message. */
+  private static final String NODE_STEP_ACCEPTED = "Node step signal accepted";
 
   /** Session identifier used to simulate a session-ownership mismatch. */
   private static final String OTHER_SESSION = "other-session";
@@ -1692,6 +1712,492 @@ class WorkflowControllerTest {
         webClient
             .post()
             .uri(SKIP_NODE_ENDPOINT)
+            .exchange()
+            .expectStatus()
+            .is5xxServerError()
+            .returnResult();
+    assertThat(result.getStatus().value()).isEqualTo(500);
+  }
+
+  // --- Enable Step Mode Tests ---
+
+  @Test
+  void testEnableStepModeSuccess() {
+    final WorkflowProgress progress =
+        new WorkflowProgress(
+            EXEC_ID_1,
+            SESS_ID_1,
+            WF_ID_1,
+            RUNNING,
+            List.of(),
+            LocalDateTime.now(ZoneId.systemDefault()),
+            null);
+    when(controlBusGateway.getCurrentProgress(EXEC_ID_1)).thenReturn(progress);
+    when(controlBusGateway.enableStepMode(EXEC_ID_1, NODE_ID_1)).thenReturn(Mono.empty());
+
+    final var result =
+        webClient
+            .post()
+            .uri(ENABLE_STEP_MODE_ENDPOINT)
+            .exchange()
+            .expectStatus()
+            .isOk()
+            .expectBody()
+            .jsonPath(DOLLAR_STATUS)
+            .isEqualTo(200)
+            .jsonPath(DOLLAR_MESSAGE)
+            .isEqualTo(STEP_MODE_ENABLE_ACCEPTED)
+            .jsonPath(DOLLAR_DATA_EXECUTION_ID)
+            .isEqualTo(EXEC_ID_1)
+            .returnResult();
+    assertThat(result.getStatus().value()).isEqualTo(200);
+  }
+
+  @Test
+  void testEnableStepModeSuccessLogging(final CapturedOutput output) {
+    final WorkflowProgress progress =
+        new WorkflowProgress(
+            EXEC_ID_1,
+            SESS_ID_1,
+            WF_ID_1,
+            RUNNING,
+            List.of(),
+            LocalDateTime.now(ZoneId.systemDefault()),
+            null);
+    when(controlBusGateway.getCurrentProgress(EXEC_ID_1)).thenReturn(progress);
+    when(controlBusGateway.enableStepMode(EXEC_ID_1, NODE_ID_1)).thenReturn(Mono.empty());
+
+    webClient.post().uri(ENABLE_STEP_MODE_ENDPOINT).exchange().expectStatus().isOk();
+
+    assertThat(output.toString())
+        .contains("enableStepMode: executionId=" + EXEC_ID_1)
+        .contains("enableStepMode command accepted")
+        .contains("enableStepMode response sent successfully");
+  }
+
+  @Test
+  void testEnableStepModeExecutionNotFound() {
+    when(controlBusGateway.getCurrentProgress(EXEC_ID_1)).thenReturn(null);
+
+    final var result =
+        webClient
+            .post()
+            .uri(ENABLE_STEP_MODE_ENDPOINT)
+            .exchange()
+            .expectStatus()
+            .isNotFound()
+            .expectBody()
+            .jsonPath(DOLLAR_STATUS)
+            .isEqualTo(404)
+            .jsonPath(DOLLAR_MESSAGE)
+            .isEqualTo(EXECUTION_NOT_FOUND)
+            .returnResult();
+    assertThat(result.getStatus().value()).isEqualTo(404);
+  }
+
+  @Test
+  void testEnableStepModeNodeNotFound() {
+    final WorkflowProgress progress =
+        new WorkflowProgress(
+            EXEC_ID_1,
+            SESS_ID_1,
+            WF_ID_1,
+            RUNNING,
+            List.of(),
+            LocalDateTime.now(ZoneId.systemDefault()),
+            null);
+    when(controlBusGateway.getCurrentProgress(EXEC_ID_1)).thenReturn(progress);
+    when(controlBusGateway.enableStepMode(EXEC_ID_1, NODE_ID_1))
+        .thenReturn(Mono.error(new IllegalArgumentException(NODE_NOT_FOUND_PREFIX + NODE_ID_1)));
+
+    final var result =
+        webClient
+            .post()
+            .uri(ENABLE_STEP_MODE_ENDPOINT)
+            .exchange()
+            .expectStatus()
+            .isNotFound()
+            .expectBody()
+            .jsonPath(DOLLAR_STATUS)
+            .isEqualTo(404)
+            .jsonPath(DOLLAR_MESSAGE)
+            .isEqualTo(NODE_NOT_FOUND)
+            .returnResult();
+    assertThat(result.getStatus().value()).isEqualTo(404);
+  }
+
+  @Test
+  void testEnableStepModeSessionMismatch() {
+    final WorkflowProgress progress =
+        new WorkflowProgress(
+            EXEC_ID_1,
+            OTHER_SESSION,
+            WF_ID_1,
+            RUNNING,
+            List.of(),
+            LocalDateTime.now(ZoneId.systemDefault()),
+            null);
+    when(controlBusGateway.getCurrentProgress(EXEC_ID_1)).thenReturn(progress);
+
+    final var result =
+        webClient
+            .post()
+            .uri(ENABLE_STEP_MODE_ENDPOINT)
+            .exchange()
+            .expectStatus()
+            .isNotFound()
+            .expectBody()
+            .jsonPath(DOLLAR_STATUS)
+            .isEqualTo(404)
+            .jsonPath(DOLLAR_MESSAGE)
+            .isEqualTo(EXECUTION_NOT_FOUND)
+            .returnResult();
+    assertThat(result.getStatus().value()).isEqualTo(404);
+  }
+
+  @Test
+  void testEnableStepModeNonNotFoundErrorPropagates() {
+    final WorkflowProgress progress =
+        new WorkflowProgress(
+            EXEC_ID_1,
+            SESS_ID_1,
+            WF_ID_1,
+            RUNNING,
+            List.of(),
+            LocalDateTime.now(ZoneId.systemDefault()),
+            null);
+    when(controlBusGateway.getCurrentProgress(EXEC_ID_1)).thenReturn(progress);
+    when(controlBusGateway.enableStepMode(EXEC_ID_1, NODE_ID_1))
+        .thenReturn(Mono.error(new RuntimeException(CONTROL_BUS_FAILURE)));
+
+    final var result =
+        webClient
+            .post()
+            .uri(ENABLE_STEP_MODE_ENDPOINT)
+            .exchange()
+            .expectStatus()
+            .is5xxServerError()
+            .returnResult();
+    assertThat(result.getStatus().value()).isEqualTo(500);
+  }
+
+  // --- Disable Step Mode Tests ---
+
+  @Test
+  void testDisableStepModeSuccess() {
+    final WorkflowProgress progress =
+        new WorkflowProgress(
+            EXEC_ID_1,
+            SESS_ID_1,
+            WF_ID_1,
+            RUNNING,
+            List.of(),
+            LocalDateTime.now(ZoneId.systemDefault()),
+            null);
+    when(controlBusGateway.getCurrentProgress(EXEC_ID_1)).thenReturn(progress);
+    when(controlBusGateway.disableStepMode(EXEC_ID_1, NODE_ID_1)).thenReturn(Mono.empty());
+
+    final var result =
+        webClient
+            .post()
+            .uri(DISABLE_STEP_MODE_ENDPOINT)
+            .exchange()
+            .expectStatus()
+            .isOk()
+            .expectBody()
+            .jsonPath(DOLLAR_STATUS)
+            .isEqualTo(200)
+            .jsonPath(DOLLAR_MESSAGE)
+            .isEqualTo(STEP_MODE_DISABLE_ACCEPTED)
+            .jsonPath(DOLLAR_DATA_EXECUTION_ID)
+            .isEqualTo(EXEC_ID_1)
+            .returnResult();
+    assertThat(result.getStatus().value()).isEqualTo(200);
+  }
+
+  @Test
+  void testDisableStepModeSuccessLogging(final CapturedOutput output) {
+    final WorkflowProgress progress =
+        new WorkflowProgress(
+            EXEC_ID_1,
+            SESS_ID_1,
+            WF_ID_1,
+            RUNNING,
+            List.of(),
+            LocalDateTime.now(ZoneId.systemDefault()),
+            null);
+    when(controlBusGateway.getCurrentProgress(EXEC_ID_1)).thenReturn(progress);
+    when(controlBusGateway.disableStepMode(EXEC_ID_1, NODE_ID_1)).thenReturn(Mono.empty());
+
+    webClient.post().uri(DISABLE_STEP_MODE_ENDPOINT).exchange().expectStatus().isOk();
+
+    assertThat(output.toString())
+        .contains("disableStepMode: executionId=" + EXEC_ID_1)
+        .contains("disableStepMode command accepted")
+        .contains("disableStepMode response sent successfully");
+  }
+
+  @Test
+  void testDisableStepModeExecutionNotFound() {
+    when(controlBusGateway.getCurrentProgress(EXEC_ID_1)).thenReturn(null);
+
+    final var result =
+        webClient
+            .post()
+            .uri(DISABLE_STEP_MODE_ENDPOINT)
+            .exchange()
+            .expectStatus()
+            .isNotFound()
+            .expectBody()
+            .jsonPath(DOLLAR_STATUS)
+            .isEqualTo(404)
+            .jsonPath(DOLLAR_MESSAGE)
+            .isEqualTo(EXECUTION_NOT_FOUND)
+            .returnResult();
+    assertThat(result.getStatus().value()).isEqualTo(404);
+  }
+
+  @Test
+  void testDisableStepModeNodeNotFound() {
+    final WorkflowProgress progress =
+        new WorkflowProgress(
+            EXEC_ID_1,
+            SESS_ID_1,
+            WF_ID_1,
+            RUNNING,
+            List.of(),
+            LocalDateTime.now(ZoneId.systemDefault()),
+            null);
+    when(controlBusGateway.getCurrentProgress(EXEC_ID_1)).thenReturn(progress);
+    when(controlBusGateway.disableStepMode(EXEC_ID_1, NODE_ID_1))
+        .thenReturn(Mono.error(new IllegalArgumentException(NODE_NOT_FOUND_PREFIX + NODE_ID_1)));
+
+    final var result =
+        webClient
+            .post()
+            .uri(DISABLE_STEP_MODE_ENDPOINT)
+            .exchange()
+            .expectStatus()
+            .isNotFound()
+            .expectBody()
+            .jsonPath(DOLLAR_STATUS)
+            .isEqualTo(404)
+            .jsonPath(DOLLAR_MESSAGE)
+            .isEqualTo(NODE_NOT_FOUND)
+            .returnResult();
+    assertThat(result.getStatus().value()).isEqualTo(404);
+  }
+
+  @Test
+  void testDisableStepModeSessionMismatch() {
+    final WorkflowProgress progress =
+        new WorkflowProgress(
+            EXEC_ID_1,
+            OTHER_SESSION,
+            WF_ID_1,
+            RUNNING,
+            List.of(),
+            LocalDateTime.now(ZoneId.systemDefault()),
+            null);
+    when(controlBusGateway.getCurrentProgress(EXEC_ID_1)).thenReturn(progress);
+
+    final var result =
+        webClient
+            .post()
+            .uri(DISABLE_STEP_MODE_ENDPOINT)
+            .exchange()
+            .expectStatus()
+            .isNotFound()
+            .expectBody()
+            .jsonPath(DOLLAR_STATUS)
+            .isEqualTo(404)
+            .jsonPath(DOLLAR_MESSAGE)
+            .isEqualTo(EXECUTION_NOT_FOUND)
+            .returnResult();
+    assertThat(result.getStatus().value()).isEqualTo(404);
+  }
+
+  @Test
+  void testDisableStepModeNonNotFoundErrorPropagates() {
+    final WorkflowProgress progress =
+        new WorkflowProgress(
+            EXEC_ID_1,
+            SESS_ID_1,
+            WF_ID_1,
+            RUNNING,
+            List.of(),
+            LocalDateTime.now(ZoneId.systemDefault()),
+            null);
+    when(controlBusGateway.getCurrentProgress(EXEC_ID_1)).thenReturn(progress);
+    when(controlBusGateway.disableStepMode(EXEC_ID_1, NODE_ID_1))
+        .thenReturn(Mono.error(new RuntimeException(CONTROL_BUS_FAILURE)));
+
+    final var result =
+        webClient
+            .post()
+            .uri(DISABLE_STEP_MODE_ENDPOINT)
+            .exchange()
+            .expectStatus()
+            .is5xxServerError()
+            .returnResult();
+    assertThat(result.getStatus().value()).isEqualTo(500);
+  }
+
+  // --- Step Node Tests ---
+
+  @Test
+  void testStepNodeSuccess() {
+    final WorkflowProgress progress =
+        new WorkflowProgress(
+            EXEC_ID_1,
+            SESS_ID_1,
+            WF_ID_1,
+            RUNNING,
+            List.of(),
+            LocalDateTime.now(ZoneId.systemDefault()),
+            null);
+    when(controlBusGateway.getCurrentProgress(EXEC_ID_1)).thenReturn(progress);
+    when(controlBusGateway.stepNode(EXEC_ID_1, NODE_ID_1)).thenReturn(Mono.empty());
+
+    final var result =
+        webClient
+            .post()
+            .uri(STEP_NODE_ENDPOINT)
+            .exchange()
+            .expectStatus()
+            .isOk()
+            .expectBody()
+            .jsonPath(DOLLAR_STATUS)
+            .isEqualTo(200)
+            .jsonPath(DOLLAR_MESSAGE)
+            .isEqualTo(NODE_STEP_ACCEPTED)
+            .jsonPath(DOLLAR_DATA_EXECUTION_ID)
+            .isEqualTo(EXEC_ID_1)
+            .returnResult();
+    assertThat(result.getStatus().value()).isEqualTo(200);
+  }
+
+  @Test
+  void testStepNodeSuccessLogging(final CapturedOutput output) {
+    final WorkflowProgress progress =
+        new WorkflowProgress(
+            EXEC_ID_1,
+            SESS_ID_1,
+            WF_ID_1,
+            RUNNING,
+            List.of(),
+            LocalDateTime.now(ZoneId.systemDefault()),
+            null);
+    when(controlBusGateway.getCurrentProgress(EXEC_ID_1)).thenReturn(progress);
+    when(controlBusGateway.stepNode(EXEC_ID_1, NODE_ID_1)).thenReturn(Mono.empty());
+
+    webClient.post().uri(STEP_NODE_ENDPOINT).exchange().expectStatus().isOk();
+
+    assertThat(output.toString())
+        .contains("stepNode: executionId=" + EXEC_ID_1)
+        .contains("stepNode command accepted")
+        .contains("stepNode response sent successfully");
+  }
+
+  @Test
+  void testStepNodeExecutionNotFound() {
+    when(controlBusGateway.getCurrentProgress(EXEC_ID_1)).thenReturn(null);
+
+    final var result =
+        webClient
+            .post()
+            .uri(STEP_NODE_ENDPOINT)
+            .exchange()
+            .expectStatus()
+            .isNotFound()
+            .expectBody()
+            .jsonPath(DOLLAR_STATUS)
+            .isEqualTo(404)
+            .jsonPath(DOLLAR_MESSAGE)
+            .isEqualTo(EXECUTION_NOT_FOUND)
+            .returnResult();
+    assertThat(result.getStatus().value()).isEqualTo(404);
+  }
+
+  @Test
+  void testStepNodeNodeNotFound() {
+    final WorkflowProgress progress =
+        new WorkflowProgress(
+            EXEC_ID_1,
+            SESS_ID_1,
+            WF_ID_1,
+            RUNNING,
+            List.of(),
+            LocalDateTime.now(ZoneId.systemDefault()),
+            null);
+    when(controlBusGateway.getCurrentProgress(EXEC_ID_1)).thenReturn(progress);
+    when(controlBusGateway.stepNode(EXEC_ID_1, NODE_ID_1))
+        .thenReturn(Mono.error(new IllegalArgumentException(NODE_NOT_FOUND_PREFIX + NODE_ID_1)));
+
+    final var result =
+        webClient
+            .post()
+            .uri(STEP_NODE_ENDPOINT)
+            .exchange()
+            .expectStatus()
+            .isNotFound()
+            .expectBody()
+            .jsonPath(DOLLAR_STATUS)
+            .isEqualTo(404)
+            .jsonPath(DOLLAR_MESSAGE)
+            .isEqualTo(NODE_NOT_FOUND)
+            .returnResult();
+    assertThat(result.getStatus().value()).isEqualTo(404);
+  }
+
+  @Test
+  void testStepNodeSessionMismatch() {
+    final WorkflowProgress progress =
+        new WorkflowProgress(
+            EXEC_ID_1,
+            OTHER_SESSION,
+            WF_ID_1,
+            RUNNING,
+            List.of(),
+            LocalDateTime.now(ZoneId.systemDefault()),
+            null);
+    when(controlBusGateway.getCurrentProgress(EXEC_ID_1)).thenReturn(progress);
+
+    final var result =
+        webClient
+            .post()
+            .uri(STEP_NODE_ENDPOINT)
+            .exchange()
+            .expectStatus()
+            .isNotFound()
+            .expectBody()
+            .jsonPath(DOLLAR_STATUS)
+            .isEqualTo(404)
+            .jsonPath(DOLLAR_MESSAGE)
+            .isEqualTo(EXECUTION_NOT_FOUND)
+            .returnResult();
+    assertThat(result.getStatus().value()).isEqualTo(404);
+  }
+
+  @Test
+  void testStepNodeNonNotFoundErrorPropagates() {
+    final WorkflowProgress progress =
+        new WorkflowProgress(
+            EXEC_ID_1,
+            SESS_ID_1,
+            WF_ID_1,
+            RUNNING,
+            List.of(),
+            LocalDateTime.now(ZoneId.systemDefault()),
+            null);
+    when(controlBusGateway.getCurrentProgress(EXEC_ID_1)).thenReturn(progress);
+    when(controlBusGateway.stepNode(EXEC_ID_1, NODE_ID_1))
+        .thenReturn(Mono.error(new RuntimeException(CONTROL_BUS_FAILURE)));
+
+    final var result =
+        webClient
+            .post()
+            .uri(STEP_NODE_ENDPOINT)
             .exchange()
             .expectStatus()
             .is5xxServerError()

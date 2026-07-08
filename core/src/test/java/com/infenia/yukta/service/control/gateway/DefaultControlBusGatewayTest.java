@@ -788,6 +788,7 @@ class DefaultControlBusGatewayTest {
     // Given
     final String executionId = "exec-9";
     final String nodeId = "node-8";
+    stubNodeExists(executionId, nodeId);
     when(controlBusService.emit(any())).thenReturn(Mono.empty());
 
     // When
@@ -810,6 +811,7 @@ class DefaultControlBusGatewayTest {
     // Given
     final String executionId = "exec-10";
     final String nodeId = "node-9";
+    stubNodeExists(executionId, nodeId);
     when(controlBusService.emit(any())).thenReturn(Mono.empty());
 
     // When
@@ -832,6 +834,7 @@ class DefaultControlBusGatewayTest {
     // Given
     final String executionId = "exec-11";
     final String nodeId = "node-10";
+    stubNodeExists(executionId, nodeId);
     when(controlBusService.emit(any())).thenReturn(Mono.empty());
 
     // When
@@ -1265,6 +1268,7 @@ class DefaultControlBusGatewayTest {
     // Given
     final String executionId = "exec-error";
     final String nodeId = "node-error";
+    stubNodeExists(executionId, nodeId);
     final RuntimeException testError = new RuntimeException("Emit failed");
     when(controlBusService.emit(any())).thenReturn(Mono.error(testError));
 
@@ -1280,6 +1284,7 @@ class DefaultControlBusGatewayTest {
     // Given
     final String executionId = "exec-error";
     final String nodeId = "node-error";
+    stubNodeExists(executionId, nodeId);
     final RuntimeException testError = new RuntimeException("Emit failed");
     when(controlBusService.emit(any())).thenReturn(Mono.error(testError));
 
@@ -1295,6 +1300,7 @@ class DefaultControlBusGatewayTest {
     // Given
     final String executionId = "exec-error";
     final String nodeId = "node-error";
+    stubNodeExists(executionId, nodeId);
     final RuntimeException testError = new RuntimeException("Emit failed");
     when(controlBusService.emit(any())).thenReturn(Mono.error(testError));
 
@@ -1303,6 +1309,132 @@ class DefaultControlBusGatewayTest {
 
     // Then
     StepVerifier.create(result).expectError(RuntimeException.class).verify();
+  }
+
+  @Test
+  void enableStepMode_executionNotFound_throwsIllegalArgumentException() {
+    // Given
+    final String executionId = "exec-step-enable-not-found";
+    final String nodeId = "node-x";
+    when(executionControlRegistry.findByExecutionId(executionId)).thenReturn(Optional.empty());
+
+    // When
+    final Mono<Void> result = gateway.enableStepMode(executionId, nodeId);
+
+    // Then
+    StepVerifier.create(result)
+        .expectErrorMatches(
+            err ->
+                err instanceof IllegalArgumentException
+                    && err.getMessage().contains("Execution not found")
+                    && err.getMessage().contains(executionId))
+        .verify();
+    verify(controlBusService, never()).emit(any());
+  }
+
+  @Test
+  void enableStepMode_nodeNotFound_throwsIllegalArgumentException() {
+    // Given
+    final String executionId = "exec-step-enable-node-not-found";
+    final String nodeId = "missing-node";
+    stubNoNodes(executionId);
+
+    // When
+    final Mono<Void> result = gateway.enableStepMode(executionId, nodeId);
+
+    // Then
+    StepVerifier.create(result)
+        .expectErrorMatches(
+            err ->
+                err instanceof IllegalArgumentException
+                    && err.getMessage().contains("Node not found")
+                    && err.getMessage().contains(nodeId))
+        .verify();
+    verify(controlBusService, never()).emit(any());
+  }
+
+  @Test
+  void disableStepMode_executionNotFound_throwsIllegalArgumentException() {
+    // Given
+    final String executionId = "exec-step-disable-not-found";
+    final String nodeId = "node-x";
+    when(executionControlRegistry.findByExecutionId(executionId)).thenReturn(Optional.empty());
+
+    // When
+    final Mono<Void> result = gateway.disableStepMode(executionId, nodeId);
+
+    // Then
+    StepVerifier.create(result)
+        .expectErrorMatches(
+            err ->
+                err instanceof IllegalArgumentException
+                    && err.getMessage().contains("Execution not found")
+                    && err.getMessage().contains(executionId))
+        .verify();
+    verify(controlBusService, never()).emit(any());
+  }
+
+  @Test
+  void disableStepMode_nodeNotFound_throwsIllegalArgumentException() {
+    // Given
+    final String executionId = "exec-step-disable-node-not-found";
+    final String nodeId = "missing-node";
+    stubNoNodes(executionId);
+
+    // When
+    final Mono<Void> result = gateway.disableStepMode(executionId, nodeId);
+
+    // Then
+    StepVerifier.create(result)
+        .expectErrorMatches(
+            err ->
+                err instanceof IllegalArgumentException
+                    && err.getMessage().contains("Node not found")
+                    && err.getMessage().contains(nodeId))
+        .verify();
+    verify(controlBusService, never()).emit(any());
+  }
+
+  @Test
+  void stepNode_executionNotFound_throwsIllegalArgumentException() {
+    // Given
+    final String executionId = "exec-step-node-not-found";
+    final String nodeId = "node-x";
+    when(executionControlRegistry.findByExecutionId(executionId)).thenReturn(Optional.empty());
+
+    // When
+    final Mono<Void> result = gateway.stepNode(executionId, nodeId);
+
+    // Then
+    StepVerifier.create(result)
+        .expectErrorMatches(
+            err ->
+                err instanceof IllegalArgumentException
+                    && err.getMessage().contains("Execution not found")
+                    && err.getMessage().contains(executionId))
+        .verify();
+    verify(controlBusService, never()).emit(any());
+  }
+
+  @Test
+  void stepNode_nodeNotFound_throwsIllegalArgumentException() {
+    // Given
+    final String executionId = "exec-step-node-node-not-found";
+    final String nodeId = "missing-node";
+    stubNoNodes(executionId);
+
+    // When
+    final Mono<Void> result = gateway.stepNode(executionId, nodeId);
+
+    // Then
+    StepVerifier.create(result)
+        .expectErrorMatches(
+            err ->
+                err instanceof IllegalArgumentException
+                    && err.getMessage().contains("Node not found")
+                    && err.getMessage().contains(nodeId))
+        .verify();
+    verify(controlBusService, never()).emit(any());
   }
 
   @Test

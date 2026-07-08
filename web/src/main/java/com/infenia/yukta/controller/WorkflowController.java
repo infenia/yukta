@@ -552,6 +552,112 @@ public class WorkflowController {
   }
 
   /**
+   * Enable step-through debug mode on a node within a workflow execution.
+   *
+   * <p>Each element must be explicitly stepped via {@link #stepNode}. The node automatically pauses
+   * until step signals are sent.
+   *
+   * @param sessionId the session identifier
+   * @param executionId the execution to target
+   * @param nodeId the node to enable step mode on
+   * @return response entity with the execution ID
+   */
+  @PostMapping("/workflow/{sessionId}/{executionId}/node/{nodeId}/step/enable")
+  @Operation(
+      summary = "Enable step mode on a node",
+      description = "Enables step-through debug mode on a single node in a workflow execution")
+  @io.swagger.v3.oas.annotations.responses.ApiResponse(
+      responseCode = HTTP_200,
+      description = "Step mode enable signal accepted")
+  @io.swagger.v3.oas.annotations.responses.ApiResponse(
+      responseCode = "404",
+      description = "Execution or node not found")
+  public Mono<ResponseEntity<ApiResponse<WorkflowStartResponse>>> enableStepMode(
+      @Parameter(description = SESSION_ID_PARAM) @PathVariable final String sessionId,
+      @Parameter(description = "Execution ID") @PathVariable final String executionId,
+      @Parameter(description = "Node ID") @PathVariable final String nodeId,
+      final ServerWebExchange exchange) {
+    return executeControlSignal(
+        "enableStepMode",
+        sessionId,
+        executionId,
+        nodeId,
+        "Step mode enable signal accepted",
+        () -> controlBus.enableStepMode(executionId, nodeId),
+        exchange);
+  }
+
+  /**
+   * Disable step-through debug mode on a node within a workflow execution.
+   *
+   * <p>The node returns to normal pause/resume behavior.
+   *
+   * @param sessionId the session identifier
+   * @param executionId the execution to target
+   * @param nodeId the node to disable step mode on
+   * @return response entity with the execution ID
+   */
+  @PostMapping("/workflow/{sessionId}/{executionId}/node/{nodeId}/step/disable")
+  @Operation(
+      summary = "Disable step mode on a node",
+      description = "Disables step-through debug mode on a single node in a workflow execution")
+  @io.swagger.v3.oas.annotations.responses.ApiResponse(
+      responseCode = HTTP_200,
+      description = "Step mode disable signal accepted")
+  @io.swagger.v3.oas.annotations.responses.ApiResponse(
+      responseCode = "404",
+      description = "Execution or node not found")
+  public Mono<ResponseEntity<ApiResponse<WorkflowStartResponse>>> disableStepMode(
+      @Parameter(description = SESSION_ID_PARAM) @PathVariable final String sessionId,
+      @Parameter(description = "Execution ID") @PathVariable final String executionId,
+      @Parameter(description = "Node ID") @PathVariable final String nodeId,
+      final ServerWebExchange exchange) {
+    return executeControlSignal(
+        "disableStepMode",
+        sessionId,
+        executionId,
+        nodeId,
+        "Step mode disable signal accepted",
+        () -> controlBus.disableStepMode(executionId, nodeId),
+        exchange);
+  }
+
+  /**
+   * Step to the next element on a node that is in step-through mode.
+   *
+   * <p>Allows exactly one element to pass through the node before blocking again.
+   *
+   * @param sessionId the session identifier
+   * @param executionId the execution to target
+   * @param nodeId the node to step
+   * @return response entity with the execution ID
+   */
+  @PostMapping("/workflow/{sessionId}/{executionId}/node/{nodeId}/step")
+  @Operation(
+      summary = "Step a node",
+      description = "Allows exactly one element to pass through a node in step-through mode")
+  @io.swagger.v3.oas.annotations.responses.ApiResponse(
+      responseCode = HTTP_200,
+      description = "Node step signal accepted")
+  @io.swagger.v3.oas.annotations.responses.ApiResponse(
+      responseCode = "404",
+      description = "Execution or node not found")
+  public Mono<ResponseEntity<ApiResponse<WorkflowStartResponse>>> stepNode(
+      @Parameter(description = SESSION_ID_PARAM) @PathVariable final String sessionId,
+      @Parameter(description = "Execution ID") @PathVariable final String executionId,
+      @Parameter(description = "Node ID") @PathVariable final String nodeId,
+      final ServerWebExchange exchange) {
+    return executeControlSignal(
+        "stepNode",
+        sessionId,
+        executionId,
+        nodeId,
+        "Node step signal accepted",
+        () -> controlBus.stepNode(executionId, nodeId),
+        exchange);
+  }
+
+  /**
    * Get the status of a specific workflow execution.
    *
    * @param sessionId the session identifier

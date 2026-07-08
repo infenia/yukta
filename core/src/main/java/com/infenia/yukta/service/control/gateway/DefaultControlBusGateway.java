@@ -569,8 +569,12 @@ public class DefaultControlBusGateway implements ControlBusGateway {
 
   @Override
   public Mono<Void> enableStepMode(final String executionId, final String nodeId) {
-    return executeCommand(
-            buildCommand(new EnableStepModeCommand(executionId, nodeId), CONTROL_COMMAND_PRIORITY))
+    return Mono.fromSupplier(() -> requireNodeControl(executionId, nodeId))
+        .flatMap(
+            control ->
+                executeCommand(
+                    buildCommand(
+                        new EnableStepModeCommand(executionId, nodeId), CONTROL_COMMAND_PRIORITY)))
         .doOnSubscribe(
             _ ->
                 log.atInfo()
@@ -589,8 +593,12 @@ public class DefaultControlBusGateway implements ControlBusGateway {
 
   @Override
   public Mono<Void> disableStepMode(final String executionId, final String nodeId) {
-    return executeCommand(
-            buildCommand(new DisableStepModeCommand(executionId, nodeId), CONTROL_COMMAND_PRIORITY))
+    return Mono.fromSupplier(() -> requireNodeControl(executionId, nodeId))
+        .flatMap(
+            control ->
+                executeCommand(
+                    buildCommand(
+                        new DisableStepModeCommand(executionId, nodeId), CONTROL_COMMAND_PRIORITY)))
         .doOnSubscribe(
             _ ->
                 log.atInfo()
@@ -609,8 +617,12 @@ public class DefaultControlBusGateway implements ControlBusGateway {
 
   @Override
   public Mono<Void> stepNode(final String executionId, final String nodeId) {
-    return executeCommand(
-            buildCommand(new StepNodeCommand(executionId, nodeId), CONTROL_COMMAND_PRIORITY))
+    return Mono.fromSupplier(() -> requireNodeControl(executionId, nodeId))
+        .flatMap(
+            control ->
+                executeCommand(
+                    buildCommand(
+                        new StepNodeCommand(executionId, nodeId), CONTROL_COMMAND_PRIORITY)))
         .doOnSubscribe(
             _ ->
                 log.atInfo()
