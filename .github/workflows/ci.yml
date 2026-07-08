@@ -226,6 +226,21 @@ jobs:
             echo "▶ No module tasks matched — nothing to build"
           fi
 
+      - name: Cache Maven repository
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          key: maven-repo-${{ hashFiles('**/gradle.lockfile', '**/build.gradle.kts') }}
+          restore-keys: |
+            maven-repo-
+
+      - name: Populate Maven cache (resolve dependencies)
+        continue-on-error: true
+        run: |
+          echo "▶ Resolving all dependencies to populate Maven cache..."
+          ./gradlew dependencies --refresh-dependencies > /dev/null 2>&1 || true
+          echo "✓ Maven cache populated"
+
       - name: Run Trivy vulnerability scanner (Filesystem)
         uses: aquasecurity/trivy-action@master
         with:
