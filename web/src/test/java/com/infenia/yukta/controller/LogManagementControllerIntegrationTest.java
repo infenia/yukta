@@ -117,7 +117,7 @@ class LogManagementControllerIntegrationTest {
                 List.of(),
                 LocalDateTime.now(ZoneOffset.UTC),
                 null));
-    when(mockControlBus.watchExecution(executionId)).thenReturn(Flux.never());
+    when(mockControlBus.watchExecution(executionId, true)).thenReturn(Flux.never());
 
     // Set up live logs from control bus with delay
     when(mockControlBus.watchLogs(sessionId, executionId))
@@ -166,7 +166,7 @@ class LogManagementControllerIntegrationTest {
                 List.of(),
                 LocalDateTime.now(ZoneOffset.UTC),
                 null));
-    when(mockControlBus.watchExecution(executionId)).thenReturn(Flux.never());
+    when(mockControlBus.watchExecution(executionId, true)).thenReturn(Flux.never());
 
     // Mock: live logs available
     when(mockControlBus.watchLogs(sessionId, executionId))

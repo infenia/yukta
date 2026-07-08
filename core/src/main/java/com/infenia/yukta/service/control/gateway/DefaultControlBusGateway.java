@@ -672,11 +672,6 @@ public class DefaultControlBusGateway implements ControlBusGateway {
   // --- Observability ---
 
   @Override
-  public Flux<WorkflowProgress> watchExecution(final String executionId) {
-    return watchExecution(executionId, true);
-  }
-
-  @Override
   public Flux<WorkflowProgress> watchExecution(
       final String executionId, final boolean includeHistory) {
     log.atDebug()

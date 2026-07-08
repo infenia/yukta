@@ -264,18 +264,6 @@ public interface ControlBusGateway {
   // --- Observability ---
 
   /**
-   * Watch workflow execution progress in real-time.
-   *
-   * <p>Emits progress updates as the execution progresses (status changes, tasks complete, etc.).
-   * Useful for UI streaming, progress tracking, and monitoring.
-   *
-   * @param executionId the execution to watch
-   * @return a Flux of progress updates that completes when execution finishes
-   */
-  reactor.core.publisher.Flux<com.infenia.yukta.model.execution.WorkflowProgress> watchExecution(
-      String executionId);
-
-  /**
    * Watch a specific execution for status updates with optional history.
    *
    * <p>If includeHistory is true, the returned flux emits cached historical updates before live

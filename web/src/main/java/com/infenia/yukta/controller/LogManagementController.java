@@ -129,7 +129,7 @@ public class LogManagementController {
 
               final var executionTermination =
                   controlBus
-                      .watchExecution(executionId)
+                      .watchExecution(executionId, true)
                       .filter(
                           p -> {
                             final boolean isTerminalState =

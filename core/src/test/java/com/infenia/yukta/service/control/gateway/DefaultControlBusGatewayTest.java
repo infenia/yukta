@@ -767,7 +767,7 @@ class DefaultControlBusGatewayTest {
     when(taskTracker.getStatusStream(executionId, true)).thenReturn(Flux.just(progress));
 
     // When
-    final Flux<WorkflowProgress> result = gateway.watchExecution(executionId);
+    final Flux<WorkflowProgress> result = gateway.watchExecution(executionId, true);
 
     // Then
     StepVerifier.create(result).expectNext(progress).verifyComplete();
@@ -1108,7 +1108,7 @@ class DefaultControlBusGatewayTest {
     when(taskTracker.getStatusStream(executionId, true)).thenReturn(Flux.just(progress));
 
     // When
-    final Flux<WorkflowProgress> result = gateway.watchExecution(executionId);
+    final Flux<WorkflowProgress> result = gateway.watchExecution(executionId, true);
 
     // Then
     StepVerifier.create(result).expectNext(progress).verifyComplete();
@@ -1318,7 +1318,7 @@ class DefaultControlBusGatewayTest {
     when(taskTracker.getStatusStream(executionId, true)).thenReturn(Flux.empty());
 
     // When
-    final Flux<WorkflowProgress> result = gateway.watchExecution(executionId);
+    final Flux<WorkflowProgress> result = gateway.watchExecution(executionId, true);
 
     // Then
     StepVerifier.create(result).verifyComplete();
@@ -1333,7 +1333,7 @@ class DefaultControlBusGatewayTest {
     when(taskTracker.getStatusStream(executionId, true)).thenReturn(Flux.error(testError));
 
     // When
-    final Flux<WorkflowProgress> result = gateway.watchExecution(executionId);
+    final Flux<WorkflowProgress> result = gateway.watchExecution(executionId, true);
 
     // Then
     StepVerifier.create(result).expectError(RuntimeException.class).verify();

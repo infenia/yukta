@@ -103,7 +103,7 @@ class LogManagementControllerTest {
     when(mockControlBus.getCurrentProgress(EXEC_ID))
         .thenReturn(progressWithStatus("RUNNING", null));
     when(mockLogStore.readExecution(EXEC_ID)).thenReturn(Flux.just(historicalEntry("history 1")));
-    when(mockControlBus.watchExecution(EXEC_ID)).thenReturn(Flux.never());
+    when(mockControlBus.watchExecution(EXEC_ID, true)).thenReturn(Flux.never());
     when(mockControlBus.watchLogs(SESSION_ID, EXEC_ID)).thenReturn(Flux.just("live 1", "live 2"));
 
     StepVerifier.create(controller.streamExecutionLogs(SESSION_ID, EXEC_ID))
@@ -117,7 +117,7 @@ class LogManagementControllerTest {
     when(mockControlBus.getCurrentProgress(EXEC_ID))
         .thenReturn(progressWithStatus("RUNNING", null));
     when(mockLogStore.readExecution(EXEC_ID)).thenReturn(Flux.empty());
-    when(mockControlBus.watchExecution(EXEC_ID))
+    when(mockControlBus.watchExecution(EXEC_ID, true))
         .thenReturn(
             Flux.just(
                 progressWithStatus("RUNNING", null),
