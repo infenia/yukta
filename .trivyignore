@@ -1,0 +1,20 @@
+# Trivy Ignore File
+# ─────────────────────────────────────────────────────────────────────────
+# Format: <vulnerability-id> [expiration-date | reason]
+# Lines starting with '#' are comments
+# To ignore a vulnerability: add its ID (e.g., CVE-2024-12345) with optional reason
+#
+# Example:
+# CVE-2024-12345 2026-12-31 # Will be patched in Q4 2026
+# CVE-2024-99999          # Known false positive, no patch available
+#
+# Common categories:
+# - test-only dependencies (only in test classpath)
+# - build-time only (not included in runtime artifact)
+# - false positives (misidentified by scanner)
+# - accepted risks (security decision with known tradeoff)
+#
+# ─────────────────────────────────────────────────────────────────────────
+
+# Example ignored vulnerability (uncomment to use):
+# CVE-2024-XXXXX 2026-08-15 # Pending Spring Boot patch in next minor release

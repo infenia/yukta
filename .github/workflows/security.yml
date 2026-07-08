@@ -1,0 +1,201 @@
+name: Security Scanning (Trivy)
+
+on:
+  # ─────────────────────────────────────────────
+  # On push to main: blocking (security scan must pass)
+  # ─────────────────────────────────────────────
+  push:
+    branches: [ "main" ]
+
+  # ─────────────────────────────────────────────
+  # After CI completes on PR: async (non-blocking)
+  # Triggered by successful ci.yml workflow
+  # ─────────────────────────────────────────────
+  workflow_run:
+    workflows: [ "Java CI with Gradle" ]
+    types: [ completed ]
+
+  # ─────────────────────────────────────────────
+  # Manual trigger for on-demand security scans
+  # ─────────────────────────────────────────────
+  workflow_dispatch:
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+permissions:
+  contents: read
+  checks: write
+  security-events: write    # For SARIF uploads
+
+jobs:
+  # ─────────────────────────────────────────────
+  # Determine context: is this a PR or main?
+  # ─────────────────────────────────────────────
+  context:
+    name: Determine Scan Context
+    runs-on: ubuntu-latest
+    outputs:
+      is_main: ${{ steps.context.outputs.is_main }}
+      is_pr: ${{ steps.context.outputs.is_pr }}
+      branch: ${{ steps.context.outputs.branch }}
+    steps:
+      - name: Determine context
+        id: context
+        run: |
+          if [ "${{ github.event_name }}" = "push" ]; then
+            echo "is_main=true" >> $GITHUB_OUTPUT
+            echo "is_pr=false" >> $GITHUB_OUTPUT
+            BRANCH="main (push)"
+          elif [ "${{ github.event_name }}" = "workflow_run" ]; then
+            echo "is_main=false" >> $GITHUB_OUTPUT
+            echo "is_pr=true" >> $GITHUB_OUTPUT
+            BRANCH="PR (async)"
+          else
+            echo "is_main=false" >> $GITHUB_OUTPUT
+            echo "is_pr=false" >> $GITHUB_OUTPUT
+            BRANCH="manual"
+          fi
+          echo "branch=$BRANCH" >> $GITHUB_OUTPUT
+
+  security:
+    name: Trivy Security Scan
+    runs-on: ubuntu-latest
+    needs: context
+    timeout-minutes: 20
+    # On PRs via workflow_run: only run if CI succeeded
+    if: |
+      github.event_name != 'workflow_run' ||
+      github.event.workflow_run.conclusion == 'success'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Set up JDK 25 (for Gradle build if needed)
+        uses: actions/setup-java@v5
+        with:
+          java-version: '25'
+          distribution: 'temurin'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          gradle-version: wrapper
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Build artifacts (if not from workflow_run)
+        if: github.event_name != 'workflow_run'
+        run: ./gradlew boot:build -x test
+
+      - name: Cache Trivy vulnerability database
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/trivy
+          key: trivy-db-${{ runner.os }}
+          restore-keys: |
+            trivy-db-${{ runner.os }}-
+            trivy-db-
+
+      - name: Scan for secrets
+        run: |
+          echo "▶ [${{ needs.context.outputs.branch }}] Scanning for secrets..."
+          trivy secret --exit-code 0 --format json --output trivy-secrets.json \
+            --skip-dirs ".git,.github,build,.*" .
+
+          SECRETS_COUNT=$(jq '.Results | length' trivy-secrets.json 2>/dev/null || echo 0)
+          if [ "$SECRETS_COUNT" -gt 0 ]; then
+            echo "⚠ WARNING: $SECRETS_COUNT potential secrets detected"
+            CRITICAL_SECRETS=$(trivy secret --severity HIGH,CRITICAL --exit-code 0 --format json . 2>/dev/null | jq '.Results | length')
+            if [ "$CRITICAL_SECRETS" -gt 0 ]; then
+              echo "❌ CRITICAL: $CRITICAL_SECRETS high/critical secrets found - failing build"
+              exit 1
+            fi
+          else
+            echo "✓ No secrets detected"
+          fi
+
+      - name: Scan dependencies (gradle.lockfile) for vulnerabilities
+        run: |
+          echo "▶ [${{ needs.context.outputs.branch }}] Scanning dependency lock files..."
+          trivy fs --severity HIGH,CRITICAL --exit-code 0 \
+            --format json --output trivy-deps.json \
+            --skip-dirs ".git,.github,build,*/build" \
+            --file-patterns "gradle.lockfile" .
+
+          VULN_COUNT=$(jq '.Results[] | select(.Vulnerabilities) | .Vulnerabilities | length' trivy-deps.json 2>/dev/null | paste -sd+ | bc 2>/dev/null || echo 0)
+          if [ "$VULN_COUNT" -gt 0 ]; then
+            echo "⚠ WARNING: $VULN_COUNT dependency vulnerabilities detected"
+            trivy fs --severity HIGH,CRITICAL --format table \
+              --skip-dirs ".git,.github,build,*/build" \
+              --file-patterns "gradle.lockfile" .
+            echo "❌ Build will FAIL due to dependency vulnerabilities"
+            exit 1
+          fi
+
+      - name: Run Trivy vulnerability scanner (Filesystem + Misconfigs)
+        run: |
+          echo "▶ [${{ needs.context.outputs.branch }}] Scanning filesystem for vulns and misconfigs..."
+          trivy fs --severity HIGH,CRITICAL --exit-code 1 \
+            --skip-dirs ".git,.github,build,*/build,node_modules,vendor,test" \
+            --format json --output trivy-fs.json \
+            --format sarif --output trivy-fs-results.sarif .
+
+          trivy fs --severity HIGH,CRITICAL \
+            --skip-dirs ".git,.github,build,*/build,node_modules,vendor,test" \
+            --format table .
+
+      - name: Upload Trivy SARIF reports to GitHub Security
+        if: always() && hashFiles('trivy-fs-results.sarif') != ''
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: 'trivy-fs-results.sarif'
+          category: 'Trivy Security Scan'
+
+      - name: Generate SBOM from compiled artifacts
+        continue-on-error: true
+        run: |
+          echo "▶ Generating SBOMs from compiled JAR artifacts..."
+          find . -path "*/build/libs/*.jar" -type f | while read jar_file; do
+            module=$(echo "$jar_file" | cut -d'/' -f2)
+            echo "Generating SBOM for: $jar_file"
+            trivy image --format cyclonedx --output "sbom-${module}.json" "file://${jar_file}"
+          done
+          echo "✓ SBOM generation complete"
+
+      - name: Generate license compliance report
+        continue-on-error: true
+        run: |
+          echo "▶ Scanning for license compliance issues..."
+          trivy fs --severity CRITICAL --exit-code 0 \
+            --format json --output trivy-licenses.json \
+            --scanners license \
+            --skip-dirs ".git,.github,build,*/build" . || true
+          echo "✓ License scan complete (informational)"
+
+      - name: Upload security artifacts
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: security-reports-${{ github.run_id }}
+          path: |
+            trivy-*.sarif
+            trivy-*.json
+            sbom-*.json
+          retention-days: 30
+          if-no-files-found: warn
+
+      - name: Print scan summary
+        if: always()
+        run: |
+          echo ""
+          echo "════════════════════════════════════════════════════════════"
+          echo "  Security Scan Summary"
+          echo "════════════════════════════════════════════════════════════"
+          echo "  Context:        ${{ needs.context.outputs.branch }}"
+          echo "  Blocking Mode:  ${{ needs.context.outputs.is_main }}"
+          echo "  Non-Blocking:   ${{ needs.context.outputs.is_pr }}"
+          echo "  Artifacts:      security-reports-${{ github.run_id }}"
+          echo "════════════════════════════════════════════════════════════"
+          echo ""
