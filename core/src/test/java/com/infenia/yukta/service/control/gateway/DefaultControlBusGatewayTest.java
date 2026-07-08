@@ -21,6 +21,7 @@ import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -185,6 +186,8 @@ class DefaultControlBusGatewayTest {
   void pauseWorkflow_validExecutionId_emitsPauseCommand() {
     // Given
     final String executionId = "exec-1";
+    final ExecutionControl control = mock(ExecutionControl.class);
+    when(executionControlRegistry.findByExecutionId(executionId)).thenReturn(Optional.of(control));
     when(controlBusService.emit(any())).thenReturn(Mono.empty());
 
     // When
@@ -208,6 +211,8 @@ class DefaultControlBusGatewayTest {
   void resumeWorkflow_validExecutionId_emitsResumeCommand() {
     // Given
     final String executionId = "exec-2";
+    final ExecutionControl control = mock(ExecutionControl.class);
+    when(executionControlRegistry.findByExecutionId(executionId)).thenReturn(Optional.of(control));
     when(controlBusService.emit(any())).thenReturn(Mono.empty());
 
     // When
@@ -222,6 +227,46 @@ class DefaultControlBusGatewayTest {
     assertThat(emittedMessage.getPayload()).isInstanceOf(ResumeWorkflowCommand.class);
     final ResumeWorkflowCommand cmd = (ResumeWorkflowCommand) emittedMessage.getPayload();
     assertThat(cmd.executionId()).isEqualTo(executionId);
+  }
+
+  @Test
+  void pauseWorkflow_executionNotFound_throwsIllegalArgumentException() {
+    // Given
+    final String executionId = "exec-pause-not-found";
+    when(executionControlRegistry.findByExecutionId(executionId)).thenReturn(Optional.empty());
+
+    // When
+    final Mono<Void> result = gateway.pauseWorkflow(executionId);
+
+    // Then
+    StepVerifier.create(result)
+        .expectErrorMatches(
+            err ->
+                err instanceof IllegalArgumentException
+                    && err.getMessage().contains("Execution not found")
+                    && err.getMessage().contains(executionId))
+        .verify();
+    verify(controlBusService, never()).emit(any());
+  }
+
+  @Test
+  void resumeWorkflow_executionNotFound_throwsIllegalArgumentException() {
+    // Given
+    final String executionId = "exec-resume-not-found";
+    when(executionControlRegistry.findByExecutionId(executionId)).thenReturn(Optional.empty());
+
+    // When
+    final Mono<Void> result = gateway.resumeWorkflow(executionId);
+
+    // Then
+    StepVerifier.create(result)
+        .expectErrorMatches(
+            err ->
+                err instanceof IllegalArgumentException
+                    && err.getMessage().contains("Execution not found")
+                    && err.getMessage().contains(executionId))
+        .verify();
+    verify(controlBusService, never()).emit(any());
   }
 
   @Test
@@ -857,6 +902,8 @@ class DefaultControlBusGatewayTest {
     // This test verifies the buildCommand method is executed
     // by testing that control commands create proper messages
     final String executionId = "exec-build-cmd";
+    final ExecutionControl control = mock(ExecutionControl.class);
+    when(executionControlRegistry.findByExecutionId(executionId)).thenReturn(Optional.of(control));
     when(controlBusService.emit(any())).thenReturn(Mono.empty());
 
     // When
@@ -876,6 +923,8 @@ class DefaultControlBusGatewayTest {
   void pauseWorkflow_emitError_logsErrorAndPropagates() {
     // Given
     final String executionId = "exec-error";
+    final ExecutionControl control = mock(ExecutionControl.class);
+    when(executionControlRegistry.findByExecutionId(executionId)).thenReturn(Optional.of(control));
     final RuntimeException testError = new RuntimeException("Emit failed");
     when(controlBusService.emit(any())).thenReturn(Mono.error(testError));
 
@@ -890,6 +939,8 @@ class DefaultControlBusGatewayTest {
   void resumeWorkflow_emitError_logsErrorAndPropagates() {
     // Given
     final String executionId = "exec-error";
+    final ExecutionControl control = mock(ExecutionControl.class);
+    when(executionControlRegistry.findByExecutionId(executionId)).thenReturn(Optional.of(control));
     final RuntimeException testError = new RuntimeException("Emit failed");
     when(controlBusService.emit(any())).thenReturn(Mono.error(testError));
 

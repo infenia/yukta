@@ -322,8 +322,16 @@ public class DefaultControlBusGateway implements ControlBusGateway {
 
   @Override
   public Mono<Void> pauseWorkflow(final String executionId) {
-    return executeCommand(
-            buildCommand(new PauseWorkflowCommand(executionId), CONTROL_COMMAND_PRIORITY))
+    return Mono.fromSupplier(
+            () ->
+                executionControlRegistry
+                    .findByExecutionId(executionId)
+                    .orElseThrow(
+                        () -> new IllegalArgumentException("Execution not found: " + executionId)))
+        .flatMap(
+            control ->
+                executeCommand(
+                    buildCommand(new PauseWorkflowCommand(executionId), CONTROL_COMMAND_PRIORITY)))
         .doOnSubscribe(
             _ -> log.atInfo().addKeyValue("executionId", executionId).log("Pausing workflow"))
         .doOnSuccess(
@@ -341,8 +349,16 @@ public class DefaultControlBusGateway implements ControlBusGateway {
 
   @Override
   public Mono<Void> resumeWorkflow(final String executionId) {
-    return executeCommand(
-            buildCommand(new ResumeWorkflowCommand(executionId), CONTROL_COMMAND_PRIORITY))
+    return Mono.fromSupplier(
+            () ->
+                executionControlRegistry
+                    .findByExecutionId(executionId)
+                    .orElseThrow(
+                        () -> new IllegalArgumentException("Execution not found: " + executionId)))
+        .flatMap(
+            control ->
+                executeCommand(
+                    buildCommand(new ResumeWorkflowCommand(executionId), CONTROL_COMMAND_PRIORITY)))
         .doOnSubscribe(
             _ -> log.atInfo().addKeyValue("executionId", executionId).log("Resuming workflow"))
         .doOnSuccess(
