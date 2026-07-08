@@ -29,6 +29,7 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.util.List;
+import java.util.function.Supplier;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -59,7 +60,7 @@ import reactor.core.publisher.Mono;
 @Tag(
     name = "Workflow API",
     description = "Endpoints for starting and monitoring workflow executions")
-@SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.ExcessiveImports"})
+@SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.ExcessiveImports", "PMD.TooManyMethods"})
 public class WorkflowController {
   /** The service for managing workflow operations. */
   private final WorkflowService workflowService;
@@ -271,6 +272,67 @@ public class WorkflowController {
   }
 
   /**
+   * Run a session-scoped control signal against an execution (and optionally a single node),
+   * sharing the session-ownership check, logging, and 404-on-{@link IllegalArgumentException}
+   * handling common to the pause/resume workflow and node endpoints.
+   *
+   * @param operationName the operation name used as the log message prefix
+   * @param sessionId the session identifier
+   * @param executionId the execution to target
+   * @param nodeId the node to target, or {@code null} for a workflow-level operation
+   * @param successMessage the message returned in the success response body
+   * @param action supplies the control-bus call to invoke once session ownership is confirmed
+   * @param exchange the current server exchange, used to build the error response path
+   * @return response entity with the targeted execution ID
+   */
+  private Mono<ResponseEntity<ApiResponse<WorkflowStartResponse>>> executeControlSignal(
+      final String operationName,
+      final String sessionId,
+      final String executionId,
+      final String nodeId,
+      final String successMessage,
+      final Supplier<Mono<Void>> action,
+      final ServerWebExchange exchange) {
+    final String idContext =
+        nodeId == null
+            ? "executionId=" + executionId
+            : "executionId=" + executionId + ", nodeId=" + nodeId;
+    log.atInfo().log("{}: {}, sessionId={}", operationName, idContext, sessionId);
+    return Mono.fromCallable(() -> controlBus.getCurrentProgress(executionId))
+        .switchIfEmpty(
+            Mono.error(new IllegalArgumentException("Execution not found: " + executionId)))
+        .flatMap(
+            progress ->
+                progress.sessionId().equals(sessionId)
+                    ? action.get()
+                    : Mono.<Void>error(
+                        new IllegalArgumentException("Execution not found: " + executionId)))
+        .doOnSuccess(_ -> log.atInfo().log("{} command accepted: {}", operationName, idContext))
+        .thenReturn(
+            ResponseEntity.ok(
+                ApiResponse.success(200, successMessage, new WorkflowStartResponse(executionId))))
+        .doOnSuccess(
+            _ -> log.atInfo().log("{} response sent successfully: {}", operationName, idContext))
+        .onErrorResume(
+            IllegalArgumentException.class,
+            e -> {
+              log.atError()
+                  .log("{} error occurred: {}, error={}", operationName, idContext, e.getMessage());
+              @SuppressWarnings("PMD.LawOfDemeter")
+              final var req = exchange.getRequest();
+              final String path = req.getPath().value();
+              final boolean nodeNotFound = e.getMessage().startsWith("Node not found");
+              final String field = nodeNotFound ? "node" : "execution";
+              final String topMessage = nodeNotFound ? "Node not found" : "Execution not found";
+              final List<ApiResponse.FieldError> errors =
+                  List.of(new ApiResponse.FieldError(field, e.getMessage()));
+              return Mono.just(
+                  ResponseEntity.status(HttpStatus.NOT_FOUND)
+                      .body(ApiResponse.error(404, NOT_FOUND, topMessage, path, errors)));
+            });
+  }
+
+  /**
    * Pause a workflow execution.
    *
    * <p>Applies global backpressure so the execution stops pulling new elements while inflight work
@@ -294,44 +356,14 @@ public class WorkflowController {
       @Parameter(description = SESSION_ID_PARAM) @PathVariable final String sessionId,
       @Parameter(description = "Execution ID") @PathVariable final String executionId,
       final ServerWebExchange exchange) {
-    log.atInfo().log("pauseWorkflow: executionId={}, sessionId={}", executionId, sessionId);
-    return Mono.fromCallable(() -> controlBus.getCurrentProgress(executionId))
-        .switchIfEmpty(
-            Mono.error(new IllegalArgumentException("Execution not found: " + executionId)))
-        .flatMap(
-            progress ->
-                progress.sessionId().equals(sessionId)
-                    ? controlBus.pauseWorkflow(executionId)
-                    : Mono.<Void>error(
-                        new IllegalArgumentException("Execution not found: " + executionId)))
-        .doOnSuccess(
-            _ -> log.atInfo().log("pauseWorkflow command accepted: executionId={}", executionId))
-        .thenReturn(
-            ResponseEntity.ok(
-                ApiResponse.success(
-                    200, "Workflow pause signal accepted", new WorkflowStartResponse(executionId))))
-        .doOnSuccess(
-            _ ->
-                log.atInfo().log(
-                    "pauseWorkflow response sent successfully: executionId={}", executionId))
-        .onErrorResume(
-            IllegalArgumentException.class,
-            e -> {
-              log.atError()
-                  .log(
-                      "pauseWorkflow error occurred: executionId={}, error={}",
-                      executionId,
-                      e.getMessage());
-              @SuppressWarnings("PMD.LawOfDemeter")
-              final var req = exchange.getRequest();
-              final String path = req.getPath().value();
-              final List<ApiResponse.FieldError> errors =
-                  List.of(new ApiResponse.FieldError("execution", e.getMessage()));
-              return Mono.just(
-                  ResponseEntity.status(HttpStatus.NOT_FOUND)
-                      .body(
-                          ApiResponse.error(404, NOT_FOUND, "Execution not found", path, errors)));
-            });
+    return executeControlSignal(
+        "pauseWorkflow",
+        sessionId,
+        executionId,
+        null,
+        "Workflow pause signal accepted",
+        () -> controlBus.pauseWorkflow(executionId),
+        exchange);
   }
 
   /**
@@ -357,46 +389,84 @@ public class WorkflowController {
       @Parameter(description = SESSION_ID_PARAM) @PathVariable final String sessionId,
       @Parameter(description = "Execution ID") @PathVariable final String executionId,
       final ServerWebExchange exchange) {
-    log.atInfo().log("resumeWorkflow: executionId={}, sessionId={}", executionId, sessionId);
-    return Mono.fromCallable(() -> controlBus.getCurrentProgress(executionId))
-        .switchIfEmpty(
-            Mono.error(new IllegalArgumentException("Execution not found: " + executionId)))
-        .flatMap(
-            progress ->
-                progress.sessionId().equals(sessionId)
-                    ? controlBus.resumeWorkflow(executionId)
-                    : Mono.<Void>error(
-                        new IllegalArgumentException("Execution not found: " + executionId)))
-        .doOnSuccess(
-            _ -> log.atInfo().log("resumeWorkflow command accepted: executionId={}", executionId))
-        .thenReturn(
-            ResponseEntity.ok(
-                ApiResponse.success(
-                    200,
-                    "Workflow resume signal accepted",
-                    new WorkflowStartResponse(executionId))))
-        .doOnSuccess(
-            _ ->
-                log.atInfo().log(
-                    "resumeWorkflow response sent successfully: executionId={}", executionId))
-        .onErrorResume(
-            IllegalArgumentException.class,
-            e -> {
-              log.atError()
-                  .log(
-                      "resumeWorkflow error occurred: executionId={}, error={}",
-                      executionId,
-                      e.getMessage());
-              @SuppressWarnings("PMD.LawOfDemeter")
-              final var req = exchange.getRequest();
-              final String path = req.getPath().value();
-              final List<ApiResponse.FieldError> errors =
-                  List.of(new ApiResponse.FieldError("execution", e.getMessage()));
-              return Mono.just(
-                  ResponseEntity.status(HttpStatus.NOT_FOUND)
-                      .body(
-                          ApiResponse.error(404, NOT_FOUND, "Execution not found", path, errors)));
-            });
+    return executeControlSignal(
+        "resumeWorkflow",
+        sessionId,
+        executionId,
+        null,
+        "Workflow resume signal accepted",
+        () -> controlBus.resumeWorkflow(executionId),
+        exchange);
+  }
+
+  /**
+   * Pause a single node within a workflow execution via backpressure.
+   *
+   * <p>The target node stops pulling elements but inflight work continues to completion.
+   *
+   * @param sessionId the session identifier
+   * @param executionId the execution to target
+   * @param nodeId the node to pause
+   * @return response entity with the execution ID
+   */
+  @PostMapping("/workflow/{sessionId}/{executionId}/node/{nodeId}/pause")
+  @Operation(
+      summary = "Pause a node",
+      description = "Pauses a single node in a workflow execution via backpressure")
+  @io.swagger.v3.oas.annotations.responses.ApiResponse(
+      responseCode = HTTP_200,
+      description = "Node pause signal accepted")
+  @io.swagger.v3.oas.annotations.responses.ApiResponse(
+      responseCode = "404",
+      description = "Execution or node not found")
+  public Mono<ResponseEntity<ApiResponse<WorkflowStartResponse>>> pauseNode(
+      @Parameter(description = SESSION_ID_PARAM) @PathVariable final String sessionId,
+      @Parameter(description = "Execution ID") @PathVariable final String executionId,
+      @Parameter(description = "Node ID") @PathVariable final String nodeId,
+      final ServerWebExchange exchange) {
+    return executeControlSignal(
+        "pauseNode",
+        sessionId,
+        executionId,
+        nodeId,
+        "Node pause signal accepted",
+        () -> controlBus.pauseNode(executionId, nodeId),
+        exchange);
+  }
+
+  /**
+   * Resume a paused node within a workflow execution.
+   *
+   * <p>The node resumes pulling elements and normal processing.
+   *
+   * @param sessionId the session identifier
+   * @param executionId the execution to target
+   * @param nodeId the node to resume
+   * @return response entity with the execution ID
+   */
+  @PostMapping("/workflow/{sessionId}/{executionId}/node/{nodeId}/resume")
+  @Operation(
+      summary = "Resume a node",
+      description = "Resumes a single paused node in a workflow execution")
+  @io.swagger.v3.oas.annotations.responses.ApiResponse(
+      responseCode = HTTP_200,
+      description = "Node resume signal accepted")
+  @io.swagger.v3.oas.annotations.responses.ApiResponse(
+      responseCode = "404",
+      description = "Execution or node not found")
+  public Mono<ResponseEntity<ApiResponse<WorkflowStartResponse>>> resumeNode(
+      @Parameter(description = SESSION_ID_PARAM) @PathVariable final String sessionId,
+      @Parameter(description = "Execution ID") @PathVariable final String executionId,
+      @Parameter(description = "Node ID") @PathVariable final String nodeId,
+      final ServerWebExchange exchange) {
+    return executeControlSignal(
+        "resumeNode",
+        sessionId,
+        executionId,
+        nodeId,
+        "Node resume signal accepted",
+        () -> controlBus.resumeNode(executionId, nodeId),
+        exchange);
   }
 
   /**

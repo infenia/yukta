@@ -32,6 +32,8 @@ import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
 import com.infenia.yukta.model.execution.WorkflowProgress;
 import com.infenia.yukta.model.workflow.PreparedWorkflow;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
+import com.infenia.yukta.model.workflow.WorkflowEdge;
+import com.infenia.yukta.model.workflow.WorkflowNode;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.DisableStepModeCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.EnableStepModeCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.PauseNodeCommand;
@@ -47,7 +49,10 @@ import com.infenia.yukta.plugin.control.ExecutionControlCommand.StopWorkflowComm
 import com.infenia.yukta.plugin.core.Plugin;
 import com.infenia.yukta.service.control.ControlBusService;
 import com.infenia.yukta.service.control.ExecutionControl;
+import com.infenia.yukta.service.control.factory.ExecutionControlFactory;
 import com.infenia.yukta.service.control.store.ExecutionControlRegistry;
+import com.infenia.yukta.service.control.store.InMemoryExecutionControlStore;
+import com.infenia.yukta.service.control.valve.ReactiveControlValve;
 import com.infenia.yukta.service.orchestrator.WorkflowOrchestrator;
 import com.infenia.yukta.service.orchestrator.tracker.DefaultTaskTrackerService;
 import com.infenia.yukta.service.workflow.store.PreparedWorkflowCache;
@@ -274,6 +279,9 @@ class DefaultControlBusGatewayTest {
     // Given
     final String executionId = "exec-3";
     final String nodeId = "node-2";
+    final ExecutionControl control = mock(ExecutionControl.class);
+    when(control.nodePauseValves()).thenReturn(Map.of(nodeId, mock(ReactiveControlValve.class)));
+    when(executionControlRegistry.findByExecutionId(executionId)).thenReturn(Optional.of(control));
     when(controlBusService.emit(any())).thenReturn(Mono.empty());
 
     // When
@@ -296,6 +304,9 @@ class DefaultControlBusGatewayTest {
     // Given
     final String executionId = "exec-4";
     final String nodeId = "node-3";
+    final ExecutionControl control = mock(ExecutionControl.class);
+    when(control.nodePauseValves()).thenReturn(Map.of(nodeId, mock(ReactiveControlValve.class)));
+    when(executionControlRegistry.findByExecutionId(executionId)).thenReturn(Optional.of(control));
     when(controlBusService.emit(any())).thenReturn(Mono.empty());
 
     // When
@@ -311,6 +322,141 @@ class DefaultControlBusGatewayTest {
     final ResumeNodeCommand cmd = (ResumeNodeCommand) emittedMessage.getPayload();
     assertThat(cmd.executionId()).isEqualTo(executionId);
     assertThat(cmd.nodeId()).isEqualTo(nodeId);
+  }
+
+  @Test
+  void pauseNode_executionNotFound_throwsIllegalArgumentException() {
+    // Given
+    final String executionId = "exec-pause-node-not-found";
+    final String nodeId = "node-x";
+    when(executionControlRegistry.findByExecutionId(executionId)).thenReturn(Optional.empty());
+
+    // When
+    final Mono<Void> result = gateway.pauseNode(executionId, nodeId);
+
+    // Then
+    StepVerifier.create(result)
+        .expectErrorMatches(
+            err ->
+                err instanceof IllegalArgumentException
+                    && err.getMessage().contains("Execution not found")
+                    && err.getMessage().contains(executionId))
+        .verify();
+    verify(controlBusService, never()).emit(any());
+  }
+
+  @Test
+  void resumeNode_executionNotFound_throwsIllegalArgumentException() {
+    // Given
+    final String executionId = "exec-resume-node-not-found";
+    final String nodeId = "node-x";
+    when(executionControlRegistry.findByExecutionId(executionId)).thenReturn(Optional.empty());
+
+    // When
+    final Mono<Void> result = gateway.resumeNode(executionId, nodeId);
+
+    // Then
+    StepVerifier.create(result)
+        .expectErrorMatches(
+            err ->
+                err instanceof IllegalArgumentException
+                    && err.getMessage().contains("Execution not found")
+                    && err.getMessage().contains(executionId))
+        .verify();
+    verify(controlBusService, never()).emit(any());
+  }
+
+  @Test
+  void pauseNode_nodeNotFound_throwsIllegalArgumentException() {
+    // Given
+    final String executionId = "exec-6";
+    final String nodeId = "missing-node";
+    final ExecutionControl control = mock(ExecutionControl.class);
+    when(control.nodePauseValves()).thenReturn(Map.of());
+    when(executionControlRegistry.findByExecutionId(executionId)).thenReturn(Optional.of(control));
+
+    // When
+    final Mono<Void> result = gateway.pauseNode(executionId, nodeId);
+
+    // Then
+    StepVerifier.create(result)
+        .expectErrorMatches(
+            err ->
+                err instanceof IllegalArgumentException
+                    && err.getMessage().contains("Node not found")
+                    && err.getMessage().contains(nodeId))
+        .verify();
+    verify(controlBusService, never()).emit(any());
+  }
+
+  @Test
+  void resumeNode_nodeNotFound_throwsIllegalArgumentException() {
+    // Given
+    final String executionId = "exec-7";
+    final String nodeId = "missing-node";
+    final ExecutionControl control = mock(ExecutionControl.class);
+    when(control.nodePauseValves()).thenReturn(Map.of());
+    when(executionControlRegistry.findByExecutionId(executionId)).thenReturn(Optional.of(control));
+
+    // When
+    final Mono<Void> result = gateway.resumeNode(executionId, nodeId);
+
+    // Then
+    StepVerifier.create(result)
+        .expectErrorMatches(
+            err ->
+                err instanceof IllegalArgumentException
+                    && err.getMessage().contains("Node not found")
+                    && err.getMessage().contains(nodeId))
+        .verify();
+    verify(controlBusService, never()).emit(any());
+  }
+
+  @Test
+  void pauseNodeAndResumeNode_realExecutionControl_validatesAgainstActualNodePauseValves() {
+    // Given - a real ExecutionControl built by the real factory, registered in a real registry,
+    // so the node-existence check exercises the actual nodePauseValves() population logic
+    // instead of a hand-shaped mock.
+    final WorkflowNode node1 = new WorkflowNode("n1", "t", null);
+    final WorkflowNode node2 = new WorkflowNode("n2", "t", null);
+    final PreparedWorkflow prepared =
+        new PreparedWorkflow(
+            List.of(new WorkflowEdge("n1", "n2", null)),
+            Map.of("n1", List.of(node2), "n2", List.of()),
+            Map.of("n1", List.of(), "n2", List.of(node1)),
+            Map.of(),
+            List.of(node1, node2),
+            (id, payload) -> Mono.empty());
+    final String executionId = "exec-real";
+    final ExecutionControl control =
+        new ExecutionControlFactory()
+            .create("session-1", "workflow-1", executionId, prepared, Map.of());
+    final ExecutionControlRegistry realRegistry =
+        new ExecutionControlRegistry(new InMemoryExecutionControlStore());
+    realRegistry.register(control);
+    final DefaultControlBusGateway realGateway =
+        new DefaultControlBusGateway(
+            controlBusService,
+            taskTracker,
+            realRegistry,
+            orchestrator,
+            workflowDefinitionStore,
+            preparedWorkflowCache);
+    when(controlBusService.emit(any())).thenReturn(Mono.empty());
+
+    // When / Then - a real, existing node succeeds
+    StepVerifier.create(realGateway.pauseNode(executionId, "n1")).verifyComplete();
+    StepVerifier.create(realGateway.resumeNode(executionId, "n2")).verifyComplete();
+    verify(controlBusService, times(2)).emit(any());
+
+    // When / Then - a node absent from the real topological order is rejected
+    StepVerifier.create(realGateway.pauseNode(executionId, "unknown-node"))
+        .expectErrorMatches(
+            err ->
+                err instanceof IllegalArgumentException
+                    && err.getMessage().contains("Node not found")
+                    && err.getMessage().contains("unknown-node"))
+        .verify();
   }
 
   @Test
@@ -956,6 +1102,9 @@ class DefaultControlBusGatewayTest {
     // Given
     final String executionId = "exec-error";
     final String nodeId = "node-error";
+    final ExecutionControl control = mock(ExecutionControl.class);
+    when(control.nodePauseValves()).thenReturn(Map.of(nodeId, mock(ReactiveControlValve.class)));
+    when(executionControlRegistry.findByExecutionId(executionId)).thenReturn(Optional.of(control));
     final RuntimeException testError = new RuntimeException("Emit failed");
     when(controlBusService.emit(any())).thenReturn(Mono.error(testError));
 
@@ -971,6 +1120,9 @@ class DefaultControlBusGatewayTest {
     // Given
     final String executionId = "exec-error";
     final String nodeId = "node-error";
+    final ExecutionControl control = mock(ExecutionControl.class);
+    when(control.nodePauseValves()).thenReturn(Map.of(nodeId, mock(ReactiveControlValve.class)));
+    when(executionControlRegistry.findByExecutionId(executionId)).thenReturn(Optional.of(control));
     final RuntimeException testError = new RuntimeException("Emit failed");
     when(controlBusService.emit(any())).thenReturn(Mono.error(testError));
 
