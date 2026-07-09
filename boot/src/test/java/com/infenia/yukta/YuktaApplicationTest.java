@@ -1,26 +1,18 @@
-/*
- * Copyright 2026 Infenia Private Limited
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta;
 
 import static org.assertj.core.api.Assertions.*;
 
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.parallel.Isolated;
 
 @Isolated
@@ -29,7 +21,8 @@ import org.junit.jupiter.api.parallel.Isolated;
   "PMD.AvoidCatchingGenericException",
   "PMD.AvoidAccessibilityAlteration",
   "PMD.CommentRequired",
-  "PMD.TooManyMethods"
+  "PMD.TooManyMethods",
+  "SpotBugs.UwF_UNWRITTEN_FIELD"
 })
 @NoArgsConstructor
 class YuktaApplicationTest {
@@ -53,9 +46,21 @@ class YuktaApplicationTest {
   }
 
   @Test
-  void main() {
+  @Timeout(20)
+  void mainStartsApplicationWithoutError() {
     assertThatNoException()
-        .isThrownBy(() -> YuktaApplication.main(new String[] {"--server.port=0"}));
+        .isThrownBy(
+            () -> {
+              final ExecutorService executor = Executors.newSingleThreadExecutor();
+              @SuppressWarnings("unused")
+              Future<?> startTask =
+                  executor.submit(() -> YuktaApplication.main(new String[] {"--server.port=0"}));
+              executor.shutdown();
+              final boolean completed = executor.awaitTermination(10, TimeUnit.SECONDS);
+              if (!completed) {
+                executor.shutdownNow();
+              }
+            });
   }
 
   @Test

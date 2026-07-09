@@ -1,0 +1,49 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: 2026 Infenia Private Limited
+
+version = 1
+SPDX-PackageName = "Yukta"
+SPDX-PackageSupplier = "Infenia Private Limited"
+SPDX-PackageDownloadLocation = "https://github.com/infenia/yukta"
+
+[[annotations]]
+path = ["build/", ".gradle/", "dist/", "target/", "node_modules/"]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "none"
+SPDX-License-Identifier = "CC0-1.0"
+
+[[annotations]]
+path = ["**.lockfile", "**.lock", "go.mod", "go.sum", ".gitignore", "config/**/**.xml", "config/**/**.txt"]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "none"
+SPDX-License-Identifier = "CC0-1.0"
+
+[[annotations]]
+path = ["gradle/wrapper/**", "**.ico", "**.svg", "**.webmanifest"]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "none"
+SPDX-License-Identifier = "CC0-1.0"
+
+[[annotations]]
+path = [".claude/**", ".agents/**", ".codegraph/**", ".serena/**", ".idea/**", ".vscode/**"]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "none"
+SPDX-License-Identifier = "CC0-1.0"
+
+[[annotations]]
+path = ["META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports", "boot/src/main/resources/META-INF/native-image/**", "plugins/**/src/main/resources/META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports", "boot/src/main/resources/banner.txt"]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "none"
+SPDX-License-Identifier = "CC0-1.0"
+
+[[annotations]]
+path = ["bruno/**", "config/license/**", "docs/superpowers/plans/**"]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "none"
+SPDX-License-Identifier = "CC0-1.0"
+
+[[annotations]]
+path = [".reuse/dep5", ".mcp.json", "skills-lock.json", "cli/go.mod", "cli/go.sum", "cli/.gitignore", "ui/.gitignore", "ui/package.json", "ui/package-lock.json", "ui/pnpm-lock.yaml"]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "none"
+SPDX-License-Identifier = "CC0-1.0"

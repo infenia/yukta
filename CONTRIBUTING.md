@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: 2026 Infenia Private Limited
+
 # Contributing to Yukta
 
 First off, thank you for considering contributing to Yukta! It's people like you that make Yukta such a great tool.

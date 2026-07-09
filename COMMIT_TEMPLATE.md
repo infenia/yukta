@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: 2026 Infenia Private Limited
+
 # Native Image Optimization - Commit Template
 
 When the build completes successfully, use this commit message:

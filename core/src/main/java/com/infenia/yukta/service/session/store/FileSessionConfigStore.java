@@ -1,18 +1,5 @@
-/*
- * Copyright 2026 Infenia Private Limited
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.service.session.store;
 
 import com.infenia.yukta.config.SessionConfigProperties;
@@ -407,9 +394,18 @@ public class FileSessionConfigStore implements SessionConfigStore {
    *
    * @param sessionId the session ID
    * @return the path to the session config file
+   * @throws IllegalArgumentException if the resolved path escapes the sessions directory
    */
   private Path getSessionConfigPath(final String sessionId) {
-    return Path.of(props.getBaseDir()).resolve("sessions").resolve(sessionId + ".json");
+    final Path baseDir =
+        Path.of(props.getBaseDir()).resolve("sessions").normalize().toAbsolutePath();
+    final Path configPath = baseDir.resolve(sessionId + ".json").normalize().toAbsolutePath();
+
+    if (!configPath.startsWith(baseDir)) {
+      throw new IllegalArgumentException("Invalid session ID: path traversal detected");
+    }
+
+    return configPath;
   }
 
   /**

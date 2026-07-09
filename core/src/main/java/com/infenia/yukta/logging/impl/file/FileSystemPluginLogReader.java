@@ -1,18 +1,5 @@
-/*
- * Copyright 2026 Infenia Private Limited
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.logging.impl.file;
 
 import com.infenia.yukta.logging.api.ExecutionSummary;
@@ -112,7 +99,7 @@ public class FileSystemPluginLogReader implements PluginLogReader {
     return Mono.fromCallable(
             () -> {
               final List<PluginLogEntry> entries = new ArrayList<>();
-              final Path sessionDir = Path.of(baseLogDir).resolve(sessionId);
+              final Path sessionDir = getValidatedSessionDir(sessionId);
 
               if (!Files.exists(sessionDir)) {
                 return entries;
@@ -141,7 +128,7 @@ public class FileSystemPluginLogReader implements PluginLogReader {
     return Mono.fromCallable(
             () -> {
               final List<ExecutionSummary> summaries = new ArrayList<>();
-              final Path sessionDir = Path.of(baseLogDir).resolve(sessionId);
+              final Path sessionDir = getValidatedSessionDir(sessionId);
 
               if (!Files.exists(sessionDir)) {
                 return summaries;
@@ -205,6 +192,24 @@ public class FileSystemPluginLogReader implements PluginLogReader {
               }
             })
         .subscribeOn(Schedulers.boundedElastic());
+  }
+
+  /**
+   * Get the validated session directory path.
+   *
+   * @param sessionId the session ID
+   * @return the validated session directory path
+   * @throws IllegalArgumentException if the resolved path escapes the base log directory
+   */
+  private Path getValidatedSessionDir(final String sessionId) {
+    final Path baseDir = Path.of(baseLogDir).normalize().toAbsolutePath();
+    final Path sessionDir = baseDir.resolve(sessionId).normalize().toAbsolutePath();
+
+    if (!sessionDir.startsWith(baseDir)) {
+      throw new IllegalArgumentException("Invalid session ID: path traversal detected");
+    }
+
+    return sessionDir;
   }
 
   private List<PluginLogEntry> readLogFile(final Path logFile, final String sessionId) {

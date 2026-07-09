@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: 2026 Infenia Private Limited
+
 # Yukta Project CLAUDE.md
 
 This is the global repository guide for **Yukta**.

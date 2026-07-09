@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: 2026 Infenia Private Limited
+
 # Security Scanning with Trivy
 
 This document describes the security scanning infrastructure powered by Trivy, which runs in a **separate, dedicated workflow** (`security.yml`).

@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: 2026 Infenia Private Limited
+
 # OpenGrep configuration for Yukta quality gates
 # Combines OpenGrep registry rules for Java security and quality
 

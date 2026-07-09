@@ -12,4 +12,9 @@
     <Method name="metadata"/>
     <Bug pattern="EI_EXPOSE_REP"/>
   </Match>
+
+  <!-- YuktaApplicationTest uses reflection to test private methods and manages app context lifecycle -->
+  <Match>
+    <Class name="com.infenia.yukta.YuktaApplicationTest"/>
+  </Match>
 </FindBugsFilter>

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: 2026 Infenia Private Limited
+
 import Alpine from 'alpinejs';
 import dagComponent from './components/dag';
 

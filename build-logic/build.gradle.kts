@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: 2026 Infenia Private Limited
+
 plugins {
     `kotlin-dsl`
 }
@@ -18,4 +21,5 @@ dependencies {
     implementation("com.github.node-gradle:gradle-node-plugin:${libs.versions.nodeGradle.get()}")
     implementation("io.spring.dependency-management:io.spring.dependency-management.gradle.plugin:${libs.versions.springDependencyManagement.get()}")
     implementation("net.ltgt.gradle:gradle-errorprone-plugin:${libs.versions.errorpronePlugin.get()}")
+    implementation("app.cash.licensee:licensee-gradle-plugin:${libs.versions.licensee.get()}")
 }

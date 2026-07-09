@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: 2026 Infenia Private Limited
+
 # Code Quality Tools & Bot Configuration
 
 This document describes the automated code quality tools configured for the Yukta project.

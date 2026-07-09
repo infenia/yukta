@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: 2026 Infenia Private Limited
+
 name: Java CI with Gradle
 
 on:
@@ -225,7 +228,6 @@ jobs:
           else
             echo "▶ No module tasks matched — nothing to build"
           fi
-
 
       # Upload test reports (helpful for debugging)
       - name: Upload test reports

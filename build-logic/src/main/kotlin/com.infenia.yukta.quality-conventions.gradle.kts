@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: 2026 Infenia Private Limited
+
 import net.ltgt.gradle.errorprone.errorprone
 
 plugins {
@@ -6,6 +9,7 @@ plugins {
     pmd
     id("com.github.spotbugs")
     id("net.ltgt.errorprone")
+    id("app.cash.licensee")
 }
 
 val libs = extensions.getByType<VersionCatalogsExtension>().named("libs")
@@ -34,6 +38,49 @@ spotless {
         licenseHeaderFile(rootProject.file("config/license/header-xml.txt"), "(<[^!?])")
     }
 }
+
+licensee {
+    // Allow Apache-2.0 compatible licenses
+    allow("Apache-2.0")
+    allow("MIT")
+    allow("MIT-0")
+    allow("BSD-2-Clause")
+    allow("BSD-3-Clause")
+    allow("ISC")
+    allow("Unlicense")
+    allow("0BSD")
+    // Common open-source licenses compatible with Apache-2.0
+    allow("Python-2.0")
+    allow("LGPL-2.1+")
+    allow("LGPL-2.1-only")
+    allow("LGPL-3.0+")
+    allow("LGPL-3.0-only")
+    // Java/Spring ecosystem licenses
+    allow("EPL-1.0")
+    allow("EPL-2.0")
+    allow("CDDL-1.0")
+    allow("CDDL-1.1")
+    allow("GPL-2.0-with-classpath-exception")
+    allow("UPL-1.0")
+    // Other permissive licenses
+    allow("MPL-2.0")
+    allow("WTFPL")
+    // Allow specific license URLs (non-standard but compatible)
+    allowUrl("http://antlr.org/license.html")
+    allowUrl("https://www.antlr.org/license.html")
+    allowUrl("http://www.antlr.org/license.html")
+    allowUrl("https://asm.ow2.io/license.html")
+    allowUrl("https://github.com/openjdk/nashorn/blob/main/LICENSE")
+    allowUrl("https://github.com/webjars/webjars-locator-lite/blob/main/LICENSE.md")
+    allowUrl("https://raw.githubusercontent.com/unicode-org/icu/main/LICENSE")
+    allowUrl("https://repository.jboss.org/licenses/apache-2.0.txt")
+    allowUrl("http://www.eclipse.org/org/documents/edl-v10.php")
+    allowUrl("https://www.eclipse.org/org/documents/edl-v10.php")
+    allowUrl("https://opensource.org/license/mit")
+    allowUrl("http://opensource.org/licenses/UPL")
+    allowUrl("https://opensource.org/licenses/UPL")
+}
+
 
 checkstyle {
     toolVersion = libs.findVersion("checkstyle").get().requiredVersion

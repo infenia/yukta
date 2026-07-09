@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: 2026 Infenia Private Limited
+
 # Yukta Go CLI
 
 A lightweight, cross-platform command-line interface (CLI) for Yukta, built in Go. The Yukta Go CLI provides seamless access to Yukta server functionality with minimal dependencies and fast startup times.
