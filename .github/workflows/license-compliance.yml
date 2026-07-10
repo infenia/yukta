@@ -21,7 +21,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Check REUSE compliance
-        uses: fsfe/reuse-action@v4
+        uses: fsfe/reuse-action@v6
 
   gradle-license-validation:
     name: Dependency License Validation (Licensee)
