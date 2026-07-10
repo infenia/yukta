@@ -179,9 +179,11 @@ public interface ExecutionControlCommand {
   /**
    * Stop the current execution and restart from the beginning with the original payload.
    *
-   * <p>A new {@code executionId} is generated for the restarted execution.
+   * @param executionId the execution to restart
+   * @param newExecutionId the pre-generated identifier for the restarted execution
    */
-  record RestartCommand(String executionId) implements ExecutionControlCommand {
+  record RestartCommand(String executionId, String newExecutionId)
+      implements ExecutionControlCommand {
     @Override
     public String commandType() {
       return "execution.restart";
@@ -192,12 +194,13 @@ public interface ExecutionControlCommand {
    * Stop the current execution and restart from a specific node.
    *
    * <p>The restart uses the last checkpoint messages from the target node's direct parents,
-   * allowing partial replay. A new {@code executionId} is generated.
+   * allowing partial replay.
    *
    * @param executionId the execution to restart
    * @param fromNodeId the node from which to resume execution
+   * @param newExecutionId the pre-generated identifier for the restarted execution
    */
-  record RestartFromNodeCommand(String executionId, String fromNodeId)
+  record RestartFromNodeCommand(String executionId, String fromNodeId, String newExecutionId)
       implements ExecutionControlCommand {
     @Override
     public String commandType() {

@@ -19,6 +19,7 @@ import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import reactor.test.StepVerifier;
 
 /** Tests for FileSystemPluginLogReader. */
 @NoArgsConstructor
@@ -456,5 +457,61 @@ class FileSystemPluginLogReaderTest {
     } finally {
       Files.setPosixFilePermissions(sessionDir, original);
     }
+  }
+
+  @Test
+  void readSession_pathTraversalSessionId_throwsIllegalArgumentException() {
+    final FileSystemPluginLogReader readerForTest =
+        new FileSystemPluginLogReader(tempDir.toString());
+
+    StepVerifier.create(readerForTest.readSession("../../../etc/passwd"))
+        .expectErrorSatisfies(
+            exception -> {
+              assertThat(exception).isInstanceOf(IllegalArgumentException.class);
+              assertThat(exception).hasMessageContaining("path traversal detected");
+            })
+        .verify();
+  }
+
+  @Test
+  void readSession_absolutePathSessionId_throwsIllegalArgumentException() {
+    final FileSystemPluginLogReader readerForTest =
+        new FileSystemPluginLogReader(tempDir.toString());
+
+    StepVerifier.create(readerForTest.readSession("/etc/passwd"))
+        .expectErrorSatisfies(
+            exception -> {
+              assertThat(exception).isInstanceOf(IllegalArgumentException.class);
+              assertThat(exception).hasMessageContaining("path traversal detected");
+            })
+        .verify();
+  }
+
+  @Test
+  void listExecutions_pathTraversalSessionId_throwsIllegalArgumentException() {
+    final FileSystemPluginLogReader readerForTest =
+        new FileSystemPluginLogReader(tempDir.toString());
+
+    StepVerifier.create(readerForTest.listExecutions("../../../etc/passwd"))
+        .expectErrorSatisfies(
+            exception -> {
+              assertThat(exception).isInstanceOf(IllegalArgumentException.class);
+              assertThat(exception).hasMessageContaining("path traversal detected");
+            })
+        .verify();
+  }
+
+  @Test
+  void listExecutions_absolutePathSessionId_throwsIllegalArgumentException() {
+    final FileSystemPluginLogReader readerForTest =
+        new FileSystemPluginLogReader(tempDir.toString());
+
+    StepVerifier.create(readerForTest.listExecutions("/etc/passwd"))
+        .expectErrorSatisfies(
+            exception -> {
+              assertThat(exception).isInstanceOf(IllegalArgumentException.class);
+              assertThat(exception).hasMessageContaining("path traversal detected");
+            })
+        .verify();
   }
 }

@@ -259,6 +259,135 @@ public class WorkflowController {
   }
 
   /**
+   * Safely stop the current execution and restart the entire workflow from the beginning using the
+   * original trigger payload.
+   *
+   * @param executionId the execution to restart
+   * @return response entity with the new execution ID
+   */
+  @PostMapping("/workflow/executions/{executionId}/restart")
+  @Operation(
+      summary = "Restart a workflow execution",
+      description =
+          "Stops the current execution and restarts the entire workflow from the beginning using"
+              + " the original trigger payload")
+  @io.swagger.v3.oas.annotations.responses.ApiResponse(
+      responseCode = HTTP_200,
+      description = "Workflow restart accepted")
+  @io.swagger.v3.oas.annotations.responses.ApiResponse(
+      responseCode = "404",
+      description = "Execution not found")
+  public Mono<ResponseEntity<ApiResponse<WorkflowStartResponse>>> restartWorkflow(
+      @Parameter(description = "Execution ID") @PathVariable final String executionId,
+      final ServerWebExchange exchange) {
+    log.atInfo().log("restartWorkflow: executionId={}", executionId);
+    return controlBus
+        .restartWorkflow(executionId)
+        .doOnNext(
+            newExecId ->
+                log.atInfo().log(
+                    "restartWorkflow command accepted: executionId={}, newExecutionId={}",
+                    executionId,
+                    newExecId))
+        .map(
+            newExecId ->
+                ResponseEntity.ok(
+                    ApiResponse.success(
+                        200, "Workflow restart accepted", new WorkflowStartResponse(newExecId))))
+        .doOnSuccess(
+            _ ->
+                log.atInfo().log(
+                    "restartWorkflow response sent successfully: executionId={}", executionId))
+        .onErrorResume(
+            IllegalArgumentException.class,
+            e -> {
+              log.atError()
+                  .log(
+                      "restartWorkflow error occurred: executionId={}, error={}",
+                      executionId,
+                      e.getMessage());
+              @SuppressWarnings("PMD.LawOfDemeter")
+              final var req = exchange.getRequest();
+              final String path = req.getPath().value();
+              final List<ApiResponse.FieldError> errors =
+                  List.of(new ApiResponse.FieldError("execution", e.getMessage()));
+              return Mono.just(
+                  ResponseEntity.status(HttpStatus.NOT_FOUND)
+                      .body(
+                          ApiResponse.error(404, NOT_FOUND, "Execution not found", path, errors)));
+            });
+  }
+
+  /**
+   * Safely stop the current execution and restart the workflow from a specific node, replaying the
+   * last known checkpoints for its parent nodes.
+   *
+   * @param executionId the execution to restart
+   * @param fromNodeId the node from which to resume execution
+   * @return response entity with the new execution ID
+   */
+  @PostMapping("/workflow/executions/{executionId}/restart/{fromNodeId}")
+  @Operation(
+      summary = "Restart a workflow execution from a node",
+      description =
+          "Stops the current execution and restarts from a specific node, replaying the last"
+              + " known checkpoints for its parent nodes")
+  @io.swagger.v3.oas.annotations.responses.ApiResponse(
+      responseCode = HTTP_200,
+      description = "Workflow restart from node accepted")
+  @io.swagger.v3.oas.annotations.responses.ApiResponse(
+      responseCode = "404",
+      description = "Execution not found")
+  public Mono<ResponseEntity<ApiResponse<WorkflowStartResponse>>> restartFromNode(
+      @Parameter(description = "Execution ID") @PathVariable final String executionId,
+      @Parameter(description = "Node ID to restart from") @PathVariable final String fromNodeId,
+      final ServerWebExchange exchange) {
+    log.atInfo().log("restartFromNode: executionId={}, fromNodeId={}", executionId, fromNodeId);
+    return controlBus
+        .restartFromNode(executionId, fromNodeId)
+        .doOnNext(
+            newExecId ->
+                log.atInfo().log(
+                    "restartFromNode command accepted: executionId={}, fromNodeId={},"
+                        + " newExecutionId={}",
+                    executionId,
+                    fromNodeId,
+                    newExecId))
+        .map(
+            newExecId ->
+                ResponseEntity.ok(
+                    ApiResponse.success(
+                        200,
+                        "Workflow restart from node accepted",
+                        new WorkflowStartResponse(newExecId))))
+        .doOnSuccess(
+            _ ->
+                log.atInfo().log(
+                    "restartFromNode response sent successfully: executionId={}, fromNodeId={}",
+                    executionId,
+                    fromNodeId))
+        .onErrorResume(
+            IllegalArgumentException.class,
+            e -> {
+              log.atError()
+                  .log(
+                      "restartFromNode error occurred: executionId={}, fromNodeId={}, error={}",
+                      executionId,
+                      fromNodeId,
+                      e.getMessage());
+              @SuppressWarnings("PMD.LawOfDemeter")
+              final var req = exchange.getRequest();
+              final String path = req.getPath().value();
+              final List<ApiResponse.FieldError> errors =
+                  List.of(new ApiResponse.FieldError("execution", e.getMessage()));
+              return Mono.just(
+                  ResponseEntity.status(HttpStatus.NOT_FOUND)
+                      .body(
+                          ApiResponse.error(404, NOT_FOUND, "Execution not found", path, errors)));
+            });
+  }
+
+  /**
    * Run a session-scoped control signal against an execution (and optionally a single node),
    * sharing the session-ownership check, logging, and 404-on-{@link IllegalArgumentException}
    * handling common to the pause/resume workflow and node endpoints.

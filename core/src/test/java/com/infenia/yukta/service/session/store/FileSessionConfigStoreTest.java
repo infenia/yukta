@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.service.session.store;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -510,5 +511,39 @@ class FileSessionConfigStoreTest {
         FileSessionConfigStore.class.getDeclaredMethod("logInitialization");
     logInitMethod.setAccessible(true);
     logInitMethod.invoke(configStore);
+  }
+
+  @Test
+  @SuppressWarnings({"PMD.AvoidAccessibilityAlteration"})
+  void testPathTraversalDetectionInGetSessionConfigPath() throws Exception {
+    final java.lang.reflect.Method getSessionConfigPathMethod =
+        FileSessionConfigStore.class.getDeclaredMethod("getSessionConfigPath", String.class);
+    getSessionConfigPathMethod.setAccessible(true);
+
+    final java.lang.reflect.InvocationTargetException invocationException =
+        org.junit.jupiter.api.Assertions.assertThrows(
+            java.lang.reflect.InvocationTargetException.class,
+            () -> getSessionConfigPathMethod.invoke(configStore, "../../../etc/passwd"));
+
+    assertThat(invocationException.getCause())
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("path traversal detected");
+  }
+
+  @Test
+  @SuppressWarnings({"PMD.AvoidAccessibilityAlteration"})
+  void testPathTraversalDetectionWithAbsolutePathInGetSessionConfigPath() throws Exception {
+    final java.lang.reflect.Method getSessionConfigPathMethod =
+        FileSessionConfigStore.class.getDeclaredMethod("getSessionConfigPath", String.class);
+    getSessionConfigPathMethod.setAccessible(true);
+
+    final java.lang.reflect.InvocationTargetException invocationException =
+        org.junit.jupiter.api.Assertions.assertThrows(
+            java.lang.reflect.InvocationTargetException.class,
+            () -> getSessionConfigPathMethod.invoke(configStore, "/etc/passwd"));
+
+    assertThat(invocationException.getCause())
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("path traversal detected");
   }
 }

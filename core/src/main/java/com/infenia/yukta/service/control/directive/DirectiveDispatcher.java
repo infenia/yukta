@@ -2,28 +2,19 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.service.control.directive;
 
-import com.infenia.yukta.message.Message;
 import com.infenia.yukta.model.control.ControlCommand;
-import com.infenia.yukta.model.workflow.WorkflowNode;
 import com.infenia.yukta.plugin.control.ControlSignalProcessor;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.control.WorkflowDirective;
-import com.infenia.yukta.plugin.store.NodeCheckpointStore;
 import com.infenia.yukta.service.control.ControlBusService;
 import com.infenia.yukta.service.control.ExecutionControl;
 import com.infenia.yukta.service.control.store.ExecutionControlRegistry;
-import com.infenia.yukta.service.orchestrator.WorkflowOrchestrator;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import jakarta.annotation.PostConstruct;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
-import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
-import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.publisher.Sinks;
 
@@ -34,9 +25,6 @@ import reactor.core.publisher.Sinks;
  * message whose payload is a {@link ControlCommand}, finds the first matching {@link
  * ControlSignalProcessor} (by priority), obtains a {@link WorkflowDirective}, and applies it to the
  * active execution found in {@link ExecutionControlRegistry}.
- *
- * <p>Directive application is fire-and-forget for restart operations (a new execution is subscribed
- * independently). Stop is synchronous (just completes a sink).
  */
 @Slf4j
 @Component
@@ -51,12 +39,6 @@ public class DirectiveDispatcher {
   /** The execution control registry for managing active executions. */
   private final ExecutionControlRegistry registry;
 
-  /** The workflow orchestrator for restart operations. */
-  private final WorkflowOrchestrator orchestrator;
-
-  /** The node checkpoint store for accessing node replay data. */
-  private final NodeCheckpointStore checkpointStore;
-
   /** The control bus service for subscribing to control signals. */
   private final ControlBusService controlBusService;
 
@@ -65,21 +47,14 @@ public class DirectiveDispatcher {
    *
    * @param processors the registered signal processors, ordered by priority
    * @param registry the live execution registry
-   * @param orchestrator the workflow orchestrator for restart operations
-   * @param checkpointStore the checkpoint store for node replay data
    * @param controlBusService the control bus to subscribe to
    */
-  @SuppressFBWarnings("EI_EXPOSE_REP2")
   public DirectiveDispatcher(
       final List<ControlSignalProcessor> processors,
       final ExecutionControlRegistry registry,
-      final WorkflowOrchestrator orchestrator,
-      final NodeCheckpointStore checkpointStore,
       final ControlBusService controlBusService) {
     this.processors = List.copyOf(processors);
     this.registry = registry;
-    this.orchestrator = orchestrator;
-    this.checkpointStore = checkpointStore;
     this.controlBusService = controlBusService;
   }
 
@@ -144,8 +119,6 @@ public class DirectiveDispatcher {
       final ExecutionControl control, final WorkflowDirective directive) {
     return switch (directive) {
       case WorkflowDirective.Stop stop -> applyStop(control, stop);
-      case WorkflowDirective.Restart _ -> applyRestart(control);
-      case WorkflowDirective.RestartFromNode rfn -> applyRestartFromNode(control, rfn);
     };
   }
 
@@ -161,87 +134,5 @@ public class DirectiveDispatcher {
               control.workflowId(),
               directive.reason());
         });
-  }
-
-  private Mono<Void> applyRestart(final ExecutionControl control) {
-    return Mono.fromRunnable(
-            () -> {
-              registry.unregister(control.executionId());
-              control.safeStopSink().emitEmpty(FAIL_FAST);
-            })
-        .then(
-            Mono.defer(
-                () -> {
-                  final String newExecutionId = UUID.randomUUID().toString();
-                  orchestrator
-                      .execute(
-                          control.sessionId(),
-                          control.workflowId(),
-                          newExecutionId,
-                          control.prepared(),
-                          control.payload())
-                      .subscribe(
-                          v ->
-                              log.atDebug().log("Restarted execution for {}", control.workflowId()),
-                          e ->
-                              log.atError()
-                                  .setCause(e)
-                                  .log("Restart failed for {}", control.workflowId()));
-                  return Mono.empty();
-                }));
-  }
-
-  private Mono<Void> applyRestartFromNode(
-      final ExecutionControl control, final WorkflowDirective.RestartFromNode directive) {
-    final List<String> parentNodeIds =
-        control.prepared().parentsList().getOrDefault(directive.nodeId(), List.of()).stream()
-            .map(WorkflowNode::nodeId)
-            .toList();
-
-    final Map<String, Message<?>> parentCheckpoints = new ConcurrentHashMap<>();
-
-    return Flux.fromIterable(parentNodeIds)
-        .flatMap(
-            parentNodeId ->
-                checkpointStore
-                    .get(control.executionId(), parentNodeId)
-                    .doOnNext(msg -> parentCheckpoints.put(parentNodeId, msg))
-                    .onErrorResume(
-                        e -> {
-                          log.atWarn().log("No checkpoint for parent node {}", parentNodeId);
-                          return Mono.empty();
-                        }))
-        .then(
-            Mono.defer(
-                () -> {
-                  registry.unregister(control.executionId());
-                  control.safeStopSink().emitEmpty(FAIL_FAST);
-                  checkpointStore.clear(control.executionId());
-
-                  final String newExecutionId = UUID.randomUUID().toString();
-                  orchestrator
-                      .restartFromNode(
-                          control.sessionId(),
-                          control.workflowId(),
-                          control.executionId(),
-                          newExecutionId,
-                          control.prepared(),
-                          directive.nodeId(),
-                          parentCheckpoints)
-                      .subscribe(
-                          v ->
-                              log.atDebug().log(
-                                  "RestartFromNode {} completed for {}",
-                                  directive.nodeId(),
-                                  control.workflowId()),
-                          e ->
-                              log.atError()
-                                  .setCause(e)
-                                  .log(
-                                      "RestartFromNode {} failed for {}",
-                                      directive.nodeId(),
-                                      control.workflowId()));
-                  return Mono.empty();
-                }));
   }
 }

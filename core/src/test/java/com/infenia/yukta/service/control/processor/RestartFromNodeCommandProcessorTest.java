@@ -5,6 +5,8 @@ package com.infenia.yukta.service.control.processor;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -16,16 +18,15 @@ import com.infenia.yukta.plugin.control.ExecutionControlCommand.PauseWorkflowCom
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.RestartFromNodeCommand;
 import com.infenia.yukta.plugin.store.NodeCheckpointStore;
 import com.infenia.yukta.service.control.ExecutionControl;
+import com.infenia.yukta.service.control.gateway.RestartCompletionSink;
 import com.infenia.yukta.service.control.store.ExecutionControlRegistry;
 import com.infenia.yukta.service.orchestrator.WorkflowOrchestrator;
-import com.infenia.yukta.service.orchestrator.tracker.DefaultTaskTrackerService;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -39,7 +40,7 @@ import reactor.test.StepVerifier;
   "PMD.CommentRequired",
   "PMD.AvoidDuplicateLiterals",
   "PMD.LinguisticNaming",
-  "PMD.TooManyMethods",
+  "PMD.ExcessiveImports",
   "PMD.TooManyStaticImports"
 })
 class RestartFromNodeCommandProcessorTest {
@@ -47,7 +48,7 @@ class RestartFromNodeCommandProcessorTest {
   @Mock private ExecutionControlRegistry registry;
   @Mock private WorkflowOrchestrator orchestrator;
   @Mock private NodeCheckpointStore checkpointStore;
-  @Mock private DefaultTaskTrackerService taskTracker;
+  @Mock private RestartCompletionSink completionSink;
   @Mock private ExecutionControl executionControl;
   @Mock private PreparedWorkflow preparedWorkflow;
   @Mock private Message<?> checkpointMessage;
@@ -56,37 +57,27 @@ class RestartFromNodeCommandProcessorTest {
 
   @Test
   void canProcess_restartFromNodeCommand_returnsTrue() {
-    // Given
-    final ExecutionControlCommand command = new RestartFromNodeCommand("exec-1", "node-1");
-
-    // When
-    final boolean actualResult = processor.canProcess(command);
-
-    // Then
-    assertThat(actualResult).isTrue();
+    final ExecutionControlCommand command = new RestartFromNodeCommand("exec-1", "node-1", "new-1");
+    assertThat(processor.canProcess(command)).isTrue();
   }
 
   @Test
   void canProcess_otherCommand_returnsFalse() {
-    // Given
     final ExecutionControlCommand command = new PauseWorkflowCommand("exec-1");
-
-    // When
-    final boolean actualResult = processor.canProcess(command);
-
-    // Then
-    assertThat(actualResult).isFalse();
+    assertThat(processor.canProcess(command)).isFalse();
   }
 
   @Test
-  void process_noParentNodes_restartsWithEmptyCheckpoints() {
+  void process_noParentNodes_detachesRestartAndReportsSuccessImmediately() {
     // Given
     final String executionId = "exec-restart-from-no-parents";
+    final String newExecutionId = "new-exec-restart-from-no-parents";
     final String sessionId = "session-1";
     final String workflowId = "workflow-1";
     final String fromNodeId = "node-target";
     final Sinks.One<Void> safeStopSink = Sinks.one();
-    final RestartFromNodeCommand command = new RestartFromNodeCommand(executionId, fromNodeId);
+    final RestartFromNodeCommand command =
+        new RestartFromNodeCommand(executionId, fromNodeId, newExecutionId);
 
     when(registry.findByExecutionId(executionId)).thenReturn(Optional.of(executionControl));
     when(executionControl.executionId()).thenReturn(executionId);
@@ -94,52 +85,51 @@ class RestartFromNodeCommandProcessorTest {
     when(executionControl.workflowId()).thenReturn(workflowId);
     when(executionControl.prepared()).thenReturn(preparedWorkflow);
     when(executionControl.safeStopSink()).thenReturn(safeStopSink);
-    // No parent nodes for fromNodeId
     when(preparedWorkflow.parentsList()).thenReturn(Map.of());
+    // Never completes — proves the processor does not wait for it.
     when(orchestrator.restartFromNode(
             eq(sessionId),
             eq(workflowId),
             eq(executionId),
-            any(String.class),
+            eq(newExecutionId),
             eq(preparedWorkflow),
             eq(fromNodeId),
             eq(Map.of())))
-        .thenReturn(Mono.empty());
+        .thenReturn(Mono.never());
 
     // When
     final var result = processor.process(command);
 
-    // Then
+    // Then — verify atomic handoff and detached execution
     StepVerifier.create(result).verifyComplete();
+    assertThat(safeStopSink.currentSubscriberCount()).isZero();
     verify(registry).unregister(executionId);
     verify(checkpointStore).clear(executionId);
-
-    final ArgumentCaptor<String> newExecIdCaptor = ArgumentCaptor.forClass(String.class);
+    verify(completionSink).completeRestartSuccess(newExecutionId);
     verify(orchestrator)
         .restartFromNode(
             eq(sessionId),
             eq(workflowId),
             eq(executionId),
-            newExecIdCaptor.capture(),
+            eq(newExecutionId),
             eq(preparedWorkflow),
             eq(fromNodeId),
             eq(Map.of()));
-    final String actualNewExecutionId = newExecIdCaptor.getValue();
-    assertThat(actualNewExecutionId).isNotEqualTo(executionId).isNotBlank();
-    verify(taskTracker).emitWorkflowStatusEvent(actualNewExecutionId, "RUNNING");
   }
 
   @Test
-  void process_withParentNodes_loadsCheckpointsAndRestartsFromNode() {
+  void process_withParentNodes_loadsCheckpointsAndDetachesRestart() {
     // Given
     final String executionId = "exec-restart-from-parents";
+    final String newExecutionId = "new-exec-restart-from-parents";
     final String sessionId = "session-1";
     final String workflowId = "workflow-1";
     final String fromNodeId = "node-target";
     final String parentNodeId = "parent-node";
     final Sinks.One<Void> safeStopSink = Sinks.one();
     final WorkflowNode parentNode = new WorkflowNode(parentNodeId, "processor", Map.of());
-    final RestartFromNodeCommand command = new RestartFromNodeCommand(executionId, fromNodeId);
+    final RestartFromNodeCommand command =
+        new RestartFromNodeCommand(executionId, fromNodeId, newExecutionId);
 
     when(registry.findByExecutionId(executionId)).thenReturn(Optional.of(executionControl));
     when(executionControl.executionId()).thenReturn(executionId);
@@ -154,33 +144,37 @@ class RestartFromNodeCommandProcessorTest {
             eq(sessionId),
             eq(workflowId),
             eq(executionId),
-            any(String.class),
+            eq(newExecutionId),
             eq(preparedWorkflow),
             eq(fromNodeId),
             any()))
-        .thenReturn(Mono.empty());
+        .thenReturn(Mono.never());
 
     // When
     final var result = processor.process(command);
 
-    // Then
+    // Then — verify checkpoint loading and atomic handoff
     StepVerifier.create(result).verifyComplete();
+    assertThat(safeStopSink.currentSubscriberCount()).isZero();
     verify(checkpointStore).get(executionId, parentNodeId);
     verify(registry).unregister(executionId);
     verify(checkpointStore).clear(executionId);
+    verify(completionSink).completeRestartSuccess(newExecutionId);
   }
 
   @Test
   void process_checkpointStoreFails_continuesWithAvailableCheckpoints() {
     // Given
     final String executionId = "exec-checkpoint-fail";
+    final String newExecutionId = "new-exec-checkpoint-fail";
     final String sessionId = "session-1";
     final String workflowId = "workflow-1";
     final String fromNodeId = "node-target";
     final String parentNodeId = "parent-node";
     final Sinks.One<Void> safeStopSink = Sinks.one();
     final WorkflowNode parentNode = new WorkflowNode(parentNodeId, "processor", Map.of());
-    final RestartFromNodeCommand command = new RestartFromNodeCommand(executionId, fromNodeId);
+    final RestartFromNodeCommand command =
+        new RestartFromNodeCommand(executionId, fromNodeId, newExecutionId);
 
     when(registry.findByExecutionId(executionId)).thenReturn(Optional.of(executionControl));
     when(executionControl.executionId()).thenReturn(executionId);
@@ -189,60 +183,63 @@ class RestartFromNodeCommandProcessorTest {
     when(executionControl.prepared()).thenReturn(preparedWorkflow);
     when(executionControl.safeStopSink()).thenReturn(safeStopSink);
     when(preparedWorkflow.parentsList()).thenReturn(Map.of(fromNodeId, List.of(parentNode)));
-    // Checkpoint store fails — should be handled gracefully
     when(checkpointStore.get(executionId, parentNodeId))
         .thenReturn(Mono.error(new RuntimeException("Checkpoint not found")));
     when(orchestrator.restartFromNode(
             eq(sessionId),
             eq(workflowId),
             eq(executionId),
-            any(String.class),
+            eq(newExecutionId),
             eq(preparedWorkflow),
             eq(fromNodeId),
             eq(Map.of())))
-        .thenReturn(Mono.empty());
+        .thenReturn(Mono.never());
 
     // When
     final var result = processor.process(command);
 
-    // Then — checkpoint failure is swallowed, orchestrator called with empty checkpoints
+    // Then
     StepVerifier.create(result).verifyComplete();
+    verify(completionSink).completeRestartSuccess(newExecutionId);
   }
 
   @Test
-  void process_executionNotFound_completesEmptyWithoutError() {
+  void process_executionNotFound_reportsFailureAndCompletesEmpty() {
     // Given
     final String executionId = "exec-not-found";
-    final RestartFromNodeCommand command = new RestartFromNodeCommand(executionId, "node-1");
+    final String newExecutionId = "new-exec-not-found";
+    final RestartFromNodeCommand command =
+        new RestartFromNodeCommand(executionId, "node-1", newExecutionId);
     when(registry.findByExecutionId(executionId)).thenReturn(Optional.empty());
 
     // When
     final var result = processor.process(command);
 
-    // Then — outer onErrorResume swallows the error
+    // Then
     StepVerifier.create(result).verifyComplete();
+    verify(completionSink)
+        .completeRestartFailure(eq(newExecutionId), any(IllegalArgumentException.class));
   }
 
   @Test
   void getPriority_returnsCorrectValue() {
-    // When
-    final int actualPriority = processor.getPriority();
-
-    // Then
-    assertThat(actualPriority).isEqualTo(20);
+    assertThat(processor.getPriority()).isEqualTo(20);
   }
 
   @Test
-  void process_orchestratorFailsDuringRestart_unregistersButDoesNotEmitTrackingEvent() {
-    // Given
+  void process_orchestratorFailsAsynchronously_doesNotReportFailureViaCompletionSink() {
+    // Given: detachment means an async orchestrator failure is not observable by process()'s
+    // own Mono — completeRestartSuccess was already called at subscribe time.
     final String executionId = "exec-orch-fails";
+    final String newExecutionId = "new-exec-orch-fails";
     final String sessionId = "session-1";
     final String workflowId = "workflow-1";
     final String fromNodeId = "node-target";
     final String parentNodeId = "parent-node";
     final Sinks.One<Void> safeStopSink = Sinks.one();
     final WorkflowNode parentNode = new WorkflowNode(parentNodeId, "processor", Map.of());
-    final RestartFromNodeCommand command = new RestartFromNodeCommand(executionId, fromNodeId);
+    final RestartFromNodeCommand command =
+        new RestartFromNodeCommand(executionId, fromNodeId, newExecutionId);
 
     when(registry.findByExecutionId(executionId)).thenReturn(Optional.of(executionControl));
     when(executionControl.executionId()).thenReturn(executionId);
@@ -253,12 +250,11 @@ class RestartFromNodeCommandProcessorTest {
     when(preparedWorkflow.parentsList()).thenReturn(Map.of(fromNodeId, List.of(parentNode)));
     when(checkpointStore.get(executionId, parentNodeId)).thenReturn(Mono.just(checkpointMessage));
     when(checkpointMessage.getSourceNodeId()).thenReturn(parentNodeId);
-    // Orchestrator fails
     when(orchestrator.restartFromNode(
             eq(sessionId),
             eq(workflowId),
             eq(executionId),
-            any(String.class),
+            eq(newExecutionId),
             eq(preparedWorkflow),
             eq(fromNodeId),
             any()))
@@ -267,64 +263,19 @@ class RestartFromNodeCommandProcessorTest {
     // When
     final var result = processor.process(command);
 
-    // Then — error is swallowed by onErrorResume at line 131-139
-    StepVerifier.create(result).verifyComplete();
-    // Side effects (unregister, clear) still happen before orchestrator is called
-    verify(registry).unregister(executionId);
-    verify(checkpointStore).clear(executionId);
-    // doOnSuccess is not reached, so tracking event is NOT emitted
-    verify(taskTracker, org.mockito.Mockito.never())
-        .emitWorkflowStatusEvent(any(String.class), any(String.class));
-  }
-
-  @Test
-  void process_withParentNodes_verifyTaskTrackerEmitsWorkflowStatusEvent() {
-    // Given
-    final String executionId = "exec-verify-tracker";
-    final String sessionId = "session-1";
-    final String workflowId = "workflow-1";
-    final String fromNodeId = "node-target";
-    final String parentNodeId = "parent-node";
-    final Sinks.One<Void> safeStopSink = Sinks.one();
-    final WorkflowNode parentNode = new WorkflowNode(parentNodeId, "processor", Map.of());
-    final RestartFromNodeCommand command = new RestartFromNodeCommand(executionId, fromNodeId);
-
-    when(registry.findByExecutionId(executionId)).thenReturn(Optional.of(executionControl));
-    when(executionControl.executionId()).thenReturn(executionId);
-    when(executionControl.sessionId()).thenReturn(sessionId);
-    when(executionControl.workflowId()).thenReturn(workflowId);
-    when(executionControl.prepared()).thenReturn(preparedWorkflow);
-    when(executionControl.safeStopSink()).thenReturn(safeStopSink);
-    when(preparedWorkflow.parentsList()).thenReturn(Map.of(fromNodeId, List.of(parentNode)));
-    when(checkpointStore.get(executionId, parentNodeId)).thenReturn(Mono.just(checkpointMessage));
-    when(checkpointMessage.getSourceNodeId()).thenReturn(parentNodeId);
-    when(orchestrator.restartFromNode(
-            eq(sessionId),
-            eq(workflowId),
-            eq(executionId),
-            any(String.class),
-            eq(preparedWorkflow),
-            eq(fromNodeId),
-            any()))
-        .thenReturn(Mono.empty());
-
-    // When
-    final var result = processor.process(command);
-
     // Then
     StepVerifier.create(result).verifyComplete();
-
-    // Capture and verify the new execution ID passed to task tracker
-    final ArgumentCaptor<String> newExecIdCaptor = ArgumentCaptor.forClass(String.class);
-    verify(taskTracker).emitWorkflowStatusEvent(newExecIdCaptor.capture(), eq("RUNNING"));
-    final String actualNewExecutionId = newExecIdCaptor.getValue();
-    assertThat(actualNewExecutionId).isNotEqualTo(executionId).isNotBlank();
+    verify(registry).unregister(executionId);
+    verify(checkpointStore).clear(executionId);
+    verify(completionSink, timeout(1000)).completeRestartSuccess(newExecutionId);
+    verify(completionSink, never()).completeRestartFailure(eq(newExecutionId), any());
   }
 
   @Test
   void process_multipleParentNodes_oneCheckpointFailsPartial() {
     // Given
     final String executionId = "exec-partial-checkpoints";
+    final String newExecutionId = "new-exec-partial-checkpoints";
     final String sessionId = "session-1";
     final String workflowId = "workflow-1";
     final String fromNodeId = "node-target";
@@ -333,7 +284,8 @@ class RestartFromNodeCommandProcessorTest {
     final Sinks.One<Void> safeStopSink = Sinks.one();
     final WorkflowNode parentNode1 = new WorkflowNode(parentNode1Id, "processor", Map.of());
     final WorkflowNode parentNode2 = new WorkflowNode(parentNode2Id, "processor", Map.of());
-    final RestartFromNodeCommand command = new RestartFromNodeCommand(executionId, fromNodeId);
+    final RestartFromNodeCommand command =
+        new RestartFromNodeCommand(executionId, fromNodeId, newExecutionId);
 
     when(registry.findByExecutionId(executionId)).thenReturn(Optional.of(executionControl));
     when(executionControl.executionId()).thenReturn(executionId);
@@ -343,78 +295,58 @@ class RestartFromNodeCommandProcessorTest {
     when(executionControl.safeStopSink()).thenReturn(safeStopSink);
     when(preparedWorkflow.parentsList())
         .thenReturn(Map.of(fromNodeId, List.of(parentNode1, parentNode2)));
-    // First parent succeeds
     when(checkpointStore.get(executionId, parentNode1Id)).thenReturn(Mono.just(checkpointMessage));
     when(checkpointMessage.getSourceNodeId()).thenReturn(parentNode1Id);
-    // Second parent fails — onErrorResume produces Mono.empty()
     when(checkpointStore.get(executionId, parentNode2Id))
         .thenReturn(Mono.error(new RuntimeException("Checkpoint not found")));
     when(orchestrator.restartFromNode(
             eq(sessionId),
             eq(workflowId),
             eq(executionId),
-            any(String.class),
+            eq(newExecutionId),
             eq(preparedWorkflow),
             eq(fromNodeId),
             any()))
-        .thenReturn(Mono.empty());
+        .thenReturn(Mono.never());
 
     // When
     final var result = processor.process(command);
 
     // Then
     StepVerifier.create(result).verifyComplete();
-    // Verify orchestrator was called (checkpoints should contain only the successful one)
-    verify(orchestrator)
-        .restartFromNode(
-            eq(sessionId),
-            eq(workflowId),
-            eq(executionId),
-            any(String.class),
-            eq(preparedWorkflow),
-            eq(fromNodeId),
-            any());
     verify(registry).unregister(executionId);
     verify(checkpointStore).clear(executionId);
+    verify(completionSink).completeRestartSuccess(newExecutionId);
   }
 
   @Test
-  void process_safeStopSinkEmitFails_continuesWithRestart() {
+  void process_safeStopSinkEmitFails_reportsFailure() {
     // Given
     final String executionId = "exec-sink-emit-fail";
-    final String sessionId = "session-1";
-    final String workflowId = "workflow-1";
+    final String newExecutionId = "new-exec-sink-emit-fail";
     final String fromNodeId = "node-target";
     final String parentNodeId = "parent-node";
     final WorkflowNode parentNode = new WorkflowNode(parentNodeId, "processor", Map.of());
-    final RestartFromNodeCommand command = new RestartFromNodeCommand(executionId, fromNodeId);
+    final RestartFromNodeCommand command =
+        new RestartFromNodeCommand(executionId, fromNodeId, newExecutionId);
 
     when(registry.findByExecutionId(executionId)).thenReturn(Optional.of(executionControl));
     when(executionControl.executionId()).thenReturn(executionId);
-    when(executionControl.sessionId()).thenReturn(sessionId);
-    when(executionControl.workflowId()).thenReturn(workflowId);
     when(executionControl.prepared()).thenReturn(preparedWorkflow);
     when(preparedWorkflow.parentsList()).thenReturn(Map.of(fromNodeId, List.of(parentNode)));
     when(checkpointStore.get(executionId, parentNodeId)).thenReturn(Mono.just(checkpointMessage));
     when(checkpointMessage.getSourceNodeId()).thenReturn(parentNodeId);
-    // Mock safeStopSink that throws when emitEmpty is called
     final Sinks.One<Void> failingSink = Sinks.one();
     failingSink.emitEmpty(Sinks.EmitFailureHandler.FAIL_FAST);
     when(executionControl.safeStopSink()).thenReturn(failingSink);
-    when(orchestrator.restartFromNode(
-            eq(sessionId),
-            eq(workflowId),
-            eq(executionId),
-            any(String.class),
-            eq(preparedWorkflow),
-            eq(fromNodeId),
-            any()))
-        .thenReturn(Mono.empty());
 
     // When
     final var result = processor.process(command);
 
-    // Then — the inner onErrorResume (lines 131-139) catches the sink emit failure
+    // Then — the outer onErrorResume catches the sink emit failure and reports it
     StepVerifier.create(result).verifyComplete();
+    verify(registry, never()).unregister(executionId);
+    verify(orchestrator, never()).restartFromNode(any(), any(), any(), any(), any(), any(), any());
+    verify(completionSink).completeRestartFailure(eq(newExecutionId), any(RuntimeException.class));
   }
 }

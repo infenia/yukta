@@ -29,15 +29,19 @@ import com.infenia.yukta.service.orchestrator.WorkflowOrchestrator;
 import com.infenia.yukta.service.orchestrator.tracker.DefaultTaskTrackerService;
 import com.infenia.yukta.service.workflow.store.PreparedWorkflowCache;
 import com.infenia.yukta.service.workflow.store.WorkflowDefinitionStore;
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.core.publisher.Sinks;
+import reactor.core.scheduler.Schedulers;
 
 /**
  * Default implementation of the {@link ControlBusGateway}.
@@ -55,13 +59,19 @@ import reactor.core.publisher.Mono;
   "PMD.TooManyMethods",
   "PMD.AvoidDuplicateLiterals"
 })
-public class DefaultControlBusGateway implements ControlBusGateway {
+public class DefaultControlBusGateway implements ControlBusGateway, RestartCompletionSink {
 
   /** Source identifier for control bus operations. */
   private static final String CONTROL_BUS_SOURCE = "CONTROL_BUS";
 
   /** Priority level for control commands. */
   private static final int CONTROL_COMMAND_PRIORITY = 100;
+
+  /** Timeout for awaiting a restart's real outcome from its command processor. */
+  private static final Duration RESTART_TIMEOUT = Duration.ofSeconds(30);
+
+  /** Pending restart completions, keyed by the pre-generated new execution ID. */
+  private final Map<String, Sinks.One<String>> pendingRestarts = new ConcurrentHashMap<>();
 
   /** The control bus service for low-level plugin and message operations. */
   private final ControlBusService controlBusService;
@@ -288,7 +298,7 @@ public class DefaultControlBusGateway implements ControlBusGateway {
             prepared -> {
               orchestrator
                   .execute(sessionId, workflowId, executionId, prepared, Map.of())
-                  .subscribeOn(reactor.core.scheduler.Schedulers.boundedElastic())
+                  .subscribeOn(Schedulers.boundedElastic())
                   .doOnError(
                       err ->
                           log.atError()
@@ -629,58 +639,97 @@ public class DefaultControlBusGateway implements ControlBusGateway {
 
   @Override
   public Mono<String> restartWorkflow(final String executionId) {
-    final String newExecutionId = UUID.randomUUID().toString();
-    return executeCommand(
-            buildCommand(new RestartCommand(executionId), CONTROL_COMMAND_PRIORITY + 20))
-        .doOnSubscribe(
-            _ ->
-                log.atInfo()
-                    .addKeyValue("executionId", executionId)
-                    .addKeyValue("newExecutionId", newExecutionId)
-                    .log("Restarting workflow"))
-        .then(Mono.just(newExecutionId))
-        .doOnSuccess(
-            newId ->
-                log.atInfo()
-                    .addKeyValue("oldExecutionId", executionId)
-                    .addKeyValue("newExecutionId", newId)
-                    .log("Workflow restarted successfully"))
-        .doOnError(
-            err ->
-                log.atError()
-                    .setCause(err)
-                    .addKeyValue("executionId", executionId)
-                    .log("Failed to restart workflow"));
+    return awaitRestart(
+        executionId,
+        newId -> new RestartCommand(executionId, newId),
+        newExecutionId ->
+            log.atInfo()
+                .addKeyValue("executionId", executionId)
+                .addKeyValue("newExecutionId", newExecutionId)
+                .log("Restarting workflow"),
+        newId ->
+            log.atInfo()
+                .addKeyValue("oldExecutionId", executionId)
+                .addKeyValue("newExecutionId", newId)
+                .log("Workflow restarted successfully"),
+        err ->
+            log.atError()
+                .setCause(err)
+                .addKeyValue("executionId", executionId)
+                .log("Failed to restart workflow"));
   }
 
   @Override
   public Mono<String> restartFromNode(final String executionId, final String fromNodeId) {
-    final String newExecutionId = UUID.randomUUID().toString();
-    return executeCommand(
-            buildCommand(
-                new RestartFromNodeCommand(executionId, fromNodeId), CONTROL_COMMAND_PRIORITY + 20))
-        .doOnSubscribe(
-            _ ->
-                log.atInfo()
-                    .addKeyValue("executionId", executionId)
-                    .addKeyValue("fromNodeId", fromNodeId)
-                    .addKeyValue("newExecutionId", newExecutionId)
-                    .log("Restarting workflow from node"))
-        .then(Mono.just(newExecutionId))
-        .doOnSuccess(
-            newId ->
-                log.atInfo()
-                    .addKeyValue("oldExecutionId", executionId)
-                    .addKeyValue("fromNodeId", fromNodeId)
-                    .addKeyValue("newExecutionId", newId)
-                    .log("Workflow restarted from node successfully"))
-        .doOnError(
-            err ->
-                log.atError()
-                    .setCause(err)
-                    .addKeyValue("executionId", executionId)
-                    .addKeyValue("fromNodeId", fromNodeId)
-                    .log("Failed to restart workflow from node"));
+    return awaitRestart(
+        executionId,
+        newId -> new RestartFromNodeCommand(executionId, fromNodeId, newId),
+        newExecutionId ->
+            log.atInfo()
+                .addKeyValue("executionId", executionId)
+                .addKeyValue("fromNodeId", fromNodeId)
+                .addKeyValue("newExecutionId", newExecutionId)
+                .log("Restarting workflow from node"),
+        newId ->
+            log.atInfo()
+                .addKeyValue("oldExecutionId", executionId)
+                .addKeyValue("fromNodeId", fromNodeId)
+                .addKeyValue("newExecutionId", newId)
+                .log("Workflow restarted from node successfully"),
+        err ->
+            log.atError()
+                .setCause(err)
+                .addKeyValue("executionId", executionId)
+                .addKeyValue("fromNodeId", fromNodeId)
+                .log("Failed to restart workflow from node"));
+  }
+
+  private Mono<String> awaitRestart(
+      final String executionId,
+      final java.util.function.Function<String, ExecutionControlCommand> commandFactory,
+      final java.util.function.Consumer<String> onSubscribeLogger,
+      final java.util.function.Consumer<String> onSuccessLogger,
+      final java.util.function.Consumer<Throwable> onErrorLogger) {
+    return Mono.defer(
+            () -> {
+              findExecutionOrThrow(executionId);
+              final String newExecutionId = UUID.randomUUID().toString();
+              final Sinks.One<String> sink = Sinks.one();
+              pendingRestarts.put(newExecutionId, sink);
+              return executeCommand(
+                      buildCommand(
+                          commandFactory.apply(newExecutionId), CONTROL_COMMAND_PRIORITY + 20))
+                  .doOnSubscribe(_ -> onSubscribeLogger.accept(newExecutionId))
+                  .then(sink.asMono())
+                  .timeout(RESTART_TIMEOUT)
+                  .doFinally(_ -> pendingRestarts.remove(newExecutionId));
+            })
+        .doOnSuccess(onSuccessLogger)
+        .doOnError(onErrorLogger);
+  }
+
+  @Override
+  public void completeRestartSuccess(final String newExecutionId) {
+    final Sinks.One<String> sink = pendingRestarts.remove(newExecutionId);
+    if (sink == null) {
+      log.atDebug()
+          .addKeyValue("newExecutionId", newExecutionId)
+          .log("Restart completion arrived after caller already timed out");
+      return;
+    }
+    sink.tryEmitValue(newExecutionId);
+  }
+
+  @Override
+  public void completeRestartFailure(final String newExecutionId, final Throwable error) {
+    final Sinks.One<String> sink = pendingRestarts.remove(newExecutionId);
+    if (sink == null) {
+      log.atDebug()
+          .addKeyValue("newExecutionId", newExecutionId)
+          .log("Restart failure arrived after caller already timed out");
+      return;
+    }
+    sink.tryEmitError(error);
   }
 
   // --- Observability ---

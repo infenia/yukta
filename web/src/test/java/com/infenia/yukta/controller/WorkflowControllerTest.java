@@ -99,6 +99,9 @@ class WorkflowControllerTest {
   /** Stop endpoint. */
   private static final String STOP = "/stop";
 
+  /** Restart endpoint suffix. */
+  private static final String RESTART = "/restart";
+
   /** Execution not found message. */
   private static final String EXECUTION_NOT_FOUND = "Execution not found";
 
@@ -744,6 +747,128 @@ class WorkflowControllerTest {
         .contains("stopExecution: executionId=" + EXEC_ID_1)
         .contains("stopExecution error occurred")
         .contains(EXECUTION_NOT_FOUND);
+  }
+
+  // --- Restart Workflow Tests ---
+
+  @Test
+  void testRestartWorkflowSuccess() {
+    final String newExecId = "new-exec-1";
+    when(controlBusGateway.restartWorkflow(EXEC_ID_1)).thenReturn(Mono.just(newExecId));
+
+    final var result =
+        webClient
+            .post()
+            .uri(API_WORKFLOW_EXECUTIONS + EXEC_ID_1 + RESTART)
+            .exchange()
+            .expectStatus()
+            .isOk()
+            .expectBody()
+            .jsonPath(DOLLAR_STATUS)
+            .isEqualTo(200)
+            .jsonPath(DOLLAR_MESSAGE)
+            .isEqualTo("Workflow restart accepted")
+            .jsonPath(DOLLAR_DATA_EXECUTION_ID)
+            .isEqualTo(newExecId)
+            .returnResult();
+    assertThat(result.getStatus().value()).isEqualTo(200);
+  }
+
+  @Test
+  void testRestartWorkflowNotFound() {
+    when(controlBusGateway.restartWorkflow(EXEC_ID_1))
+        .thenReturn(Mono.error(new IllegalArgumentException(EXECUTION_NOT_FOUND)));
+
+    final var result =
+        webClient
+            .post()
+            .uri(API_WORKFLOW_EXECUTIONS + EXEC_ID_1 + RESTART)
+            .exchange()
+            .expectStatus()
+            .isNotFound()
+            .expectBody()
+            .jsonPath(DOLLAR_STATUS)
+            .isEqualTo(404)
+            .jsonPath(DOLLAR_MESSAGE)
+            .isEqualTo(EXECUTION_NOT_FOUND)
+            .returnResult();
+    assertThat(result.getStatus().value()).isEqualTo(404);
+  }
+
+  @Test
+  void testRestartWorkflowNonNotFoundErrorPropagates() {
+    when(controlBusGateway.restartWorkflow(EXEC_ID_1))
+        .thenReturn(Mono.error(new RuntimeException(CONTROL_BUS_FAILURE)));
+
+    final var result =
+        webClient
+            .post()
+            .uri(API_WORKFLOW_EXECUTIONS + EXEC_ID_1 + RESTART)
+            .exchange()
+            .expectStatus()
+            .is5xxServerError()
+            .returnResult();
+    assertThat(result.getStatus().value()).isEqualTo(500);
+  }
+
+  @Test
+  void testRestartFromNodeSuccess() {
+    final String newExecId = "new-exec-2";
+    when(controlBusGateway.restartFromNode(EXEC_ID_1, NODE_ID_1)).thenReturn(Mono.just(newExecId));
+
+    final var result =
+        webClient
+            .post()
+            .uri(API_WORKFLOW_EXECUTIONS + EXEC_ID_1 + RESTART + "/" + NODE_ID_1)
+            .exchange()
+            .expectStatus()
+            .isOk()
+            .expectBody()
+            .jsonPath(DOLLAR_STATUS)
+            .isEqualTo(200)
+            .jsonPath(DOLLAR_MESSAGE)
+            .isEqualTo("Workflow restart from node accepted")
+            .jsonPath(DOLLAR_DATA_EXECUTION_ID)
+            .isEqualTo(newExecId)
+            .returnResult();
+    assertThat(result.getStatus().value()).isEqualTo(200);
+  }
+
+  @Test
+  void testRestartFromNodeNotFound() {
+    when(controlBusGateway.restartFromNode(EXEC_ID_1, NODE_ID_1))
+        .thenReturn(Mono.error(new IllegalArgumentException(EXECUTION_NOT_FOUND)));
+
+    final var result =
+        webClient
+            .post()
+            .uri(API_WORKFLOW_EXECUTIONS + EXEC_ID_1 + RESTART + "/" + NODE_ID_1)
+            .exchange()
+            .expectStatus()
+            .isNotFound()
+            .expectBody()
+            .jsonPath(DOLLAR_STATUS)
+            .isEqualTo(404)
+            .jsonPath(DOLLAR_MESSAGE)
+            .isEqualTo(EXECUTION_NOT_FOUND)
+            .returnResult();
+    assertThat(result.getStatus().value()).isEqualTo(404);
+  }
+
+  @Test
+  void testRestartFromNodeNonNotFoundErrorPropagates() {
+    when(controlBusGateway.restartFromNode(EXEC_ID_1, NODE_ID_1))
+        .thenReturn(Mono.error(new RuntimeException(CONTROL_BUS_FAILURE)));
+
+    final var result =
+        webClient
+            .post()
+            .uri(API_WORKFLOW_EXECUTIONS + EXEC_ID_1 + RESTART + "/" + NODE_ID_1)
+            .exchange()
+            .expectStatus()
+            .is5xxServerError()
+            .returnResult();
+    assertThat(result.getStatus().value()).isEqualTo(500);
   }
 
   // --- Pause Workflow Tests ---
