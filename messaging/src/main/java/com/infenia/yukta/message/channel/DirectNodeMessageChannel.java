@@ -3,10 +3,11 @@
 package com.infenia.yukta.message.channel;
 
 import com.infenia.yukta.message.Message;
+import lombok.NoArgsConstructor;
 import reactor.core.publisher.Flux;
 
 /** Zero-overhead passthrough channel. Both sides return the Flux unchanged. */
-@SuppressWarnings("PMD.AtLeastOneConstructor")
+@NoArgsConstructor
 public class DirectNodeMessageChannel implements NodeMessageChannel {
 
   @Override

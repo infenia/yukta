@@ -2,13 +2,14 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.message.channel;
 
+import lombok.NoArgsConstructor;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 /** Registers the default NodeMessageChannelProvider when no other is present. */
 @Configuration
-@SuppressWarnings("PMD.AtLeastOneConstructor")
+@NoArgsConstructor
 public class DirectNodeMessageChannelConfiguration {
 
   /**

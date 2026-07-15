@@ -3,9 +3,10 @@
 package com.infenia.yukta.message.channel;
 
 import java.util.Map;
+import lombok.NoArgsConstructor;
 
 /** Default provider — returns a singleton DirectNodeMessageChannel for every node. */
-@SuppressWarnings("PMD.AtLeastOneConstructor")
+@NoArgsConstructor
 public class DirectNodeMessageChannelProvider implements NodeMessageChannelProvider {
 
   /** Singleton instance of DirectNodeMessageChannel. */

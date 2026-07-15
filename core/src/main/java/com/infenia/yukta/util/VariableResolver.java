@@ -2,10 +2,12 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.util;
 
+import com.infenia.yukta.message.Message;
 import com.infenia.yukta.plugin.store.SecretProvider;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import lombok.RequiredArgsConstructor;
@@ -18,7 +20,7 @@ import reactor.core.publisher.Mono;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-@SuppressWarnings({"PMD.OnlyOneReturn", "PMD.SimplifyBooleanReturns"})
+@SuppressWarnings({"PMD.OnlyOneReturn", "PMD.SimplifyBooleanReturns", "PMD.TooManyMethods"})
 public class VariableResolver {
 
   /** Pattern for matching variable expressions like ${varname}. */
@@ -30,6 +32,15 @@ public class VariableResolver {
 
   /** Prefix indicating a value is encrypted and needs decryption. */
   private static final String DECRYPTED_PREFIX = "decrypted:";
+
+  /** Key referencing the whole message payload. */
+  private static final String PAYLOAD = "payload";
+
+  /** Prefix for paths into the message payload. */
+  private static final String PAYLOAD_PREFIX = "payload.";
+
+  /** Prefix for keys into the message metadata. */
+  private static final String METADATA_PREFIX = "metadata.";
 
   /** Provider for retrieving encrypted secrets. */
   private final SecretProvider secretProvider;
@@ -54,6 +65,23 @@ public class VariableResolver {
    * @return a Mono containing the resolved value
    */
   public Mono<Object> resolve(final Object value) {
+    return resolve(value, null);
+  }
+
+  /**
+   * Resolve a value that may contain variables or expressions, with access to the message being
+   * processed.
+   *
+   * <p>In addition to the message-independent sources, expressions may reference the message via
+   * {@code ${payload}}, {@code ${payload.some.field}} (nested map access), and {@code
+   * ${metadata.someKey}}. When {@code message} is null, such expressions fall back to the default
+   * behavior of returning the key literally.
+   *
+   * @param value the value to resolve
+   * @param message the message being processed, or null when no message context is available
+   * @return a Mono containing the resolved value
+   */
+  public Mono<Object> resolve(final Object value, final Message<?> message) {
     if (!(value instanceof String strValue)) {
       return Mono.just(value);
     }
@@ -69,14 +97,14 @@ public class VariableResolver {
 
     // Optimization: If the whole string is a single variable, we can preserve type
     if (matcher.start() == 0 && matcher.end() == strValue.length()) {
-      return resolveExpression(matcher.group(1));
+      return resolveExpression(matcher.group(1), message);
     }
 
     // Interpolation case: Always returns String
-    return resolveInterpolation(strValue);
+    return resolveInterpolation(strValue, message);
   }
 
-  private Mono<Object> resolveExpression(final String expression) {
+  private Mono<Object> resolveExpression(final String expression, final Message<?> message) {
     String resolvedKey = expression;
     String resolvedType = "string";
 
@@ -92,7 +120,7 @@ public class VariableResolver {
     final String finalKey = resolvedKey;
     final String finalType = resolvedType;
 
-    return resolveRawValue(finalKey).map(val -> castValue(val, finalType));
+    return resolveRawValue(finalKey, message).map(val -> castValue(val, finalType));
   }
 
   private boolean isSupportedType(final String type) {
@@ -107,7 +135,7 @@ public class VariableResolver {
         || "string".equals(lowType);
   }
 
-  private Mono<Object> resolveRawValue(final String key) {
+  private Mono<Object> resolveRawValue(final String key, final Message<?> message) {
     if (key.startsWith(DECRYPTED_PREFIX)) {
       return resolveSecret(key.substring(DECRYPTED_PREFIX.length())).map(Object::toString);
     }
@@ -122,9 +150,38 @@ public class VariableResolver {
       return Mono.justOrEmpty(System.getProperty(key.substring(4)));
     } else if (key.startsWith("context.")) {
       return resolveContextVariable(key.substring(8));
+    } else if (message != null && isMessageKey(key)) {
+      return resolveMessageValue(key, message);
     }
 
     return Mono.just(key);
+  }
+
+  private boolean isMessageKey(final String key) {
+    return PAYLOAD.equals(key) || key.startsWith(PAYLOAD_PREFIX) || key.startsWith(METADATA_PREFIX);
+  }
+
+  private Mono<Object> resolveMessageValue(final String key, final Message<?> message) {
+    if (PAYLOAD.equals(key)) {
+      return Mono.justOrEmpty(message.getPayload());
+    }
+    if (key.startsWith(PAYLOAD_PREFIX)) {
+      return Mono.justOrEmpty(
+          getNested(message.getPayload(), key.substring(PAYLOAD_PREFIX.length())));
+    }
+    return Mono.justOrEmpty(message.getMetadata().get(key.substring(METADATA_PREFIX.length())));
+  }
+
+  private Object getNested(final Object obj, final String path) {
+    if (!(obj instanceof Map<?, ?> map)) {
+      return null;
+    }
+    final int dotIndex = path.indexOf('.');
+    if (dotIndex < 0) {
+      return map.get(path);
+    }
+    final Object next = map.get(path.substring(0, dotIndex));
+    return next == null ? null : getNested(next, path.substring(dotIndex + 1));
   }
 
   private Mono<Object> resolveContextVariable(final String varName) {
@@ -148,7 +205,7 @@ public class VariableResolver {
     };
   }
 
-  private Mono<Object> resolveInterpolation(final String value) {
+  private Mono<Object> resolveInterpolation(final String value, final Message<?> message) {
     int lastEnd = 0;
     final Matcher matcher = EXPR_PATTERN.matcher(value);
 
@@ -172,7 +229,7 @@ public class VariableResolver {
         .flatMapSequential(
             segment -> {
               if (segment.expression() != null) {
-                return resolveExpression(segment.expression()).map(String::valueOf);
+                return resolveExpression(segment.expression(), message).map(String::valueOf);
               } else {
                 return Mono.just(segment.literal());
               }

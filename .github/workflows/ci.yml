@@ -68,6 +68,8 @@ jobs:
               - 'cli/**'
             oneshot-trigger:
               - 'plugins/triggers/oneshot-trigger/**'
+            process-executor:
+              - 'plugins/processors/process-executor/**'
 
   # ─────────────────────────────────────────────
   # Job 2: Build and quality-gate changed modules.
@@ -219,6 +221,8 @@ jobs:
                 add_module_tasks ":cli" ;;
               "oneshot-trigger")
                 add_module_tasks ":plugins:triggers:oneshot-trigger" ;;
+              "process-executor")
+                add_module_tasks ":plugins:processors:process-executor" ;;
             esac
           done
 

@@ -3,6 +3,7 @@
 package com.infenia.yukta.message.channel;
 
 import com.infenia.yukta.message.store.MessageStore;
+import lombok.NoArgsConstructor;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -15,7 +16,7 @@ import org.springframework.context.annotation.Configuration;
  */
 @Configuration
 @ConditionalOnBean(MessageStore.class)
-@SuppressWarnings("PMD.AtLeastOneConstructor")
+@NoArgsConstructor
 public class PersistingNodeMessageChannelConfiguration {
 
   /**

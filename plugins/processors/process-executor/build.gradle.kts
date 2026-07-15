@@ -14,13 +14,4 @@ dependencies {
 }
 
 coverageConfig {
-    val relaxedCoverage = mapOf(
-        "LINE" to 0.7,
-        "BRANCH" to 0.5,
-        "CLASS" to 0.8,
-        "INSTRUCTION" to 0.7,
-        "METHOD" to 0.7
-    )
-
-    exceptions.put("com.infenia.yukta.plugin.process.**", relaxedCoverage)
 }

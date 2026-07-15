@@ -123,7 +123,7 @@ Each layer is independent — plugins are Spring `@Component` beans implementing
 | `CONTENT-FILTER`   | `ContentFilterProcessor` | Removes unimportant/redundant/sensitive fields (include or exclude modes)                |
 | `LOOP_PREDICATE`   | `LoopPredicateProcessor` | Repeats a target plugin until an exit condition is met; emits the final result           |
 | `LOOP_STREAM`      | `LoopStreamProcessor`    | Repeats a target plugin and flattens all produced messages into one stream               |
-| `PROCESS_EXECUTOR` | `ProcessExecutorPlugin`  | Runs an external OS process with reactive streaming output, timeouts, error handling     |
+| `PROCESS_EXECUTOR` | `ProcessExecutorPlugin`  | Runs an external OS process; emits exit code/output as structured, raw, or JSON payload, templates commands from the message, and routes by success/failure |
 
 **Terminals** (end a workflow branch)
 

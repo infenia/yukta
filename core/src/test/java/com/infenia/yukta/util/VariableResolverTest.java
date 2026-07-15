@@ -6,7 +6,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import com.infenia.yukta.message.DefaultMessage;
+import com.infenia.yukta.message.Message;
 import com.infenia.yukta.plugin.store.SecretProvider;
+import java.util.Map;
+import java.util.UUID;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -165,5 +169,121 @@ class VariableResolverTest {
   @Test
   void testResolveMissingContext() {
     StepVerifier.create(resolver.resolve("${context.nonexistent}")).expectComplete().verify();
+  }
+
+  // --- message-aware resolution ---
+
+  private static Message<?> testMessage(final Object payload, final Map<String, Object> metadata) {
+    return DefaultMessage.create(UUID.randomUUID(), payload).withMetadata(metadata);
+  }
+
+  @Test
+  void testResolveWholePayload() {
+    final Message<?> message = testMessage("payload-value", Map.of());
+    StepVerifier.create(resolver.resolve("${payload}", message))
+        .expectNext("payload-value")
+        .verifyComplete();
+  }
+
+  @Test
+  void testResolvePayloadField() {
+    final Message<?> message = testMessage(Map.of("version", "1.2.3"), Map.of());
+    StepVerifier.create(resolver.resolve("${payload.version}", message))
+        .expectNext("1.2.3")
+        .verifyComplete();
+  }
+
+  @Test
+  void testResolveNestedPayloadField() {
+    final Message<?> message =
+        testMessage(Map.of("build", Map.of("artifact", "app.jar")), Map.of());
+    StepVerifier.create(resolver.resolve("${payload.build.artifact}", message))
+        .expectNext("app.jar")
+        .verifyComplete();
+  }
+
+  @Test
+  void testResolvePayloadFieldCastsToStringByDefault() {
+    final Message<?> message = testMessage(Map.of("count", 42), Map.of());
+    StepVerifier.create(resolver.resolve("${payload.count}", message))
+        .expectNext("42")
+        .verifyComplete();
+  }
+
+  @Test
+  void testResolvePayloadFieldWithTypeSuffixPreservesType() {
+    final Message<?> message = testMessage(Map.of("count", 42), Map.of());
+    StepVerifier.create(resolver.resolve("${payload.count:int}", message))
+        .expectNext(42)
+        .verifyComplete();
+  }
+
+  @Test
+  void testResolveMetadataEntry() {
+    final Message<?> message = testMessage("payload", Map.of("executionId", "exec-7"));
+    StepVerifier.create(resolver.resolve("${metadata.executionId}", message))
+        .expectNext("exec-7")
+        .verifyComplete();
+  }
+
+  @Test
+  void testResolvePayloadInterpolation() {
+    final Message<?> message = testMessage(Map.of("version", "2.0"), Map.of());
+    StepVerifier.create(resolver.resolve("release-${payload.version}-final", message))
+        .expectNext("release-2.0-final")
+        .verifyComplete();
+  }
+
+  @Test
+  void testResolveMissingPayloadFieldIsEmpty() {
+    final Message<?> message = testMessage(Map.of("other", "x"), Map.of());
+    StepVerifier.create(resolver.resolve("${payload.missing}", message)).expectComplete().verify();
+  }
+
+  @Test
+  void testResolveMissingMetadataKeyIsEmpty() {
+    final Message<?> message = testMessage("payload", Map.of());
+    StepVerifier.create(resolver.resolve("${metadata.missing}", message)).expectComplete().verify();
+  }
+
+  @Test
+  void testResolvePayloadPathOnNonMapPayloadIsEmpty() {
+    final Message<?> message = testMessage("plain-string", Map.of());
+    StepVerifier.create(resolver.resolve("${payload.field}", message)).expectComplete().verify();
+  }
+
+  @Test
+  void testResolveNestedPathThroughMissingIntermediateIsEmpty() {
+    final Message<?> message = testMessage(Map.of("a", "leaf"), Map.of());
+    StepVerifier.create(resolver.resolve("${payload.b.c}", message)).expectComplete().verify();
+  }
+
+  @Test
+  void testResolveNullWholePayloadIsEmpty() {
+    final Message<?> message = testMessage(null, Map.of());
+    StepVerifier.create(resolver.resolve("${payload}", message)).expectComplete().verify();
+  }
+
+  @Test
+  void testResolvePayloadKeyWithoutMessageFallsBackToLiteral() {
+    StepVerifier.create(resolver.resolve("${payload.version}", null))
+        .expectNext("payload.version")
+        .verifyComplete();
+  }
+
+  @Test
+  void testResolveNonMessageKeyWithMessageFallsBackToLiteral() {
+    final Message<?> message = testMessage("payload", Map.of());
+    StepVerifier.create(resolver.resolve("${some-static-item}", message))
+        .expectNext("some-static-item")
+        .verifyComplete();
+  }
+
+  @Test
+  void testResolveBlockedSensitiveKeyStillBlockedWithMessage() {
+    final Message<?> message = testMessage(Map.of("apiKey", "s3cr3t"), Map.of());
+    StepVerifier.create(resolver.resolve("${payload.apiKey}", message))
+        .expectError(SecurityException.class)
+        .verify();
   }
 }

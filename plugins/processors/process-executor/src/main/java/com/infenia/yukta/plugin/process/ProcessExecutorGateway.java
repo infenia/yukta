@@ -3,17 +3,21 @@
 package com.infenia.yukta.plugin.process;
 
 import com.infenia.yukta.plugin.exception.WorkflowExecutionException;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import java.io.BufferedReader;
 import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
+import lombok.NoArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
@@ -23,19 +27,52 @@ import reactor.core.scheduler.Schedulers;
 /** Gateway for executing external processes with reactive streaming output. */
 @Slf4j
 @Service
-@SuppressWarnings({
-  "PMD.OnlyOneReturn",
-  "PMD.UseConcurrentHashMap",
-  "PMD.CognitiveComplexity",
-  "PMD.AtLeastOneConstructor"
-})
-@SuppressFBWarnings(
-    value = "OS_OPEN_STREAM",
-    justification = "Streams are properly closed via Flux.usingWhen lifecycle management")
+@SuppressWarnings({"PMD.OnlyOneReturn", "PMD.TooManyMethods"})
+@NoArgsConstructor
 public class ProcessExecutorGateway {
+
+  /** Conversion factor from nanoseconds to milliseconds. */
+  private static final long NANOS_PER_MILLI = 1_000_000L;
+
+  /** Grace period for a destroyed process to exit before it is forcibly killed. */
+  private static final Duration FORCE_DESTROY_GRACE = Duration.ofSeconds(2);
+
+  /**
+   * Execute a process described by the given specification and return its full outcome.
+   *
+   * <p>This is the non-throwing core API: a non-zero exit code and a timeout are reported as data
+   * on the {@link ProcessExecutionResult} instead of as errors, so callers can route on the exit
+   * code. The returned Mono errors only for an invalid specification ({@link
+   * IllegalArgumentException}), a process that cannot be started (e.g. {@link IOException} for an
+   * unknown command), or unexpected internal failures.
+   *
+   * <p><strong>MEMORY:</strong> captured output is buffered in memory. Use {@link
+   * ProcessExecutionSpec#maxOutputLines()} / {@link ProcessExecutionSpec#maxOutputBytes()} to cap
+   * retention for processes with large outputs; excess output is drained but discarded and the
+   * result is flagged as truncated.
+   *
+   * @param spec the execution specification
+   * @return a Mono emitting the execution result
+   */
+  public Mono<ProcessExecutionResult> executeForResult(final ProcessExecutionSpec spec) {
+    if (spec == null) {
+      return Mono.error(new IllegalArgumentException("spec is mandatory"));
+    }
+    if (spec.command().isEmpty()) {
+      return Mono.error(new IllegalArgumentException("command must not be empty"));
+    }
+    final List<String> actualCommand =
+        spec.useShell() ? wrapInShell(spec.command()) : spec.command();
+
+    return Mono.fromSupplier(System::nanoTime)
+        .flatMap(startNanos -> runProcess(spec, actualCommand, startNanos));
+  }
 
   /**
    * Execute a process and return the output as a stream of strings with newlines preserved.
+   *
+   * <p>Unlike {@link #executeForResult(ProcessExecutionSpec)}, this API signals failures as errors:
+   * a non-zero exit code or a timeout produces a {@link WorkflowExecutionException}.
    *
    * @param command the command and arguments to execute
    * @param workingDir the working directory (null defaults to current directory)
@@ -55,144 +92,24 @@ public class ProcessExecutorGateway {
       return Flux.error(
           new IllegalArgumentException("timeoutSeconds must be positive, got: " + timeoutSeconds));
     }
-
-    final List<String> actualCommand = useShell ? wrapInShell(command) : command;
-
-    return Flux.usingWhen(
-            Mono.fromCallable(
-                    () -> {
-                      log.atDebug()
-                          .setMessage("Starting process: {}")
-                          .addArgument(actualCommand)
-                          .log();
-                      final ProcessBuilder processBuilder = new ProcessBuilder(actualCommand);
-                      if (workingDir != null && !workingDir.isBlank()) {
-                        processBuilder.directory(new File(workingDir));
-                        log.atDebug()
-                            .setMessage("Process working directory set to: {}")
-                            .addArgument(workingDir)
-                            .log();
-                      }
-                      if (env != null && !env.isEmpty()) {
-                        processBuilder.environment().putAll(env);
-                        log.atDebug()
-                            .setMessage("Process environment variables configured: {} variable(s)")
-                            .addArgument(env.size())
-                            .log();
-                      }
-                      processBuilder.redirectErrorStream(true);
-                      return processBuilder.start();
-                    })
-                .subscribeOn(Schedulers.boundedElastic()),
-            process -> {
-              final java.io.BufferedReader reader =
-                  new java.io.BufferedReader(
-                      new java.io.InputStreamReader(
-                          process.getInputStream(), StandardCharsets.UTF_8));
-              final Flux<String> lines =
-                  Flux.fromStream(reader.lines())
-                      .doFinally(
-                          _ -> {
-                            try {
-                              reader.close();
-                            } catch (java.io.IOException e) {
-                              log.atWarn()
-                                  .setMessage("Failed to close process output reader")
-                                  .setCause(e)
-                                  .log();
-                            }
-                          })
-                      .subscribeOn(Schedulers.boundedElastic());
-
-              // Collect all output before checking exit code so we can include it in error messages
-              return lines
-                  .collectList()
-                  .flatMapMany(
-                      collectedLines ->
-                          Mono.fromFuture(process.onExit())
-                              .flatMapMany(
-                                  p -> {
-                                    final int exitCode = p.exitValue();
-                                    final String output = String.join("\n", collectedLines);
-                                    if (exitCode != 0) {
-                                      log.atError()
-                                          .setMessage(
-                                              """
-                                              Process failed with exit code {}: {}
-                                              --- Process Output ---
-                                              {}
-                                              --- End Output ---\
-                                              """)
-                                          .addArgument(exitCode)
-                                          .addArgument(actualCommand)
-                                          .addArgument(output)
-                                          .log();
-                                      return Flux.error(
-                                          new WorkflowExecutionException(
-                                              "Process failed with exit code "
-                                                  + exitCode
-                                                  + "\n--- Output ---\n"
-                                                  + output));
-                                    }
-                                    log.atDebug()
-                                        .setMessage("Process completed successfully: {}")
-                                        .addArgument(actualCommand)
-                                        .log();
-                                    return Flux.fromIterable(collectedLines);
-                                  })
-                              .subscribeOn(Schedulers.boundedElastic()));
-            },
-            process ->
-                Mono.fromRunnable(
-                        () -> {
-                          if (process.isAlive()) {
-                            process.destroy();
-                          }
-                        })
-                    .subscribeOn(Schedulers.boundedElastic()),
-            (process, _) ->
-                Mono.fromRunnable(
-                        () -> {
-                          if (process.isAlive()) {
-                            log.atWarn()
-                                .setMessage("Forcibly destroying process due to error: {}")
-                                .addArgument(actualCommand)
-                                .log();
-                            process.destroyForcibly();
-                          }
-                        })
-                    .subscribeOn(Schedulers.boundedElastic()),
-            process ->
-                Mono.fromRunnable(
-                        () -> {
-                          if (process.isAlive()) {
-                            process.destroy();
-                          }
-                        })
-                    .subscribeOn(Schedulers.boundedElastic()))
-        .timeout(Duration.ofSeconds(timeoutSeconds))
-        .onErrorMap(
-            e -> {
-              if (e instanceof TimeoutException) {
-                log.atError()
-                    .setMessage("Process timed out after {}s: {}")
-                    .addArgument(timeoutSeconds)
-                    .addArgument(actualCommand)
-                    .setCause(e)
-                    .log();
-                return new WorkflowExecutionException(
-                    "Process timed out after " + timeoutSeconds + "s", e);
-              }
-              return e;
-            });
+    final ProcessExecutionSpec spec =
+        ProcessExecutionSpec.builder()
+            .command(command)
+            .workingDir(workingDir)
+            .timeoutSeconds(timeoutSeconds)
+            .env(env)
+            .useShell(useShell)
+            .build();
+    return executeForResult(spec).flatMapMany(result -> toLineStream(result, spec));
   }
 
   /**
    * Execute a process with the given command, working directory, and timeout.
    *
    * <p><strong>MEMORY WARNING:</strong> This method buffers the entire process output in memory.
-   * For processes generating large outputs (>100MB), consider using {@link #executeStream(List,
-   * String, long, Map, boolean)} with streaming instead to avoid Out-of-Memory errors.
+   * For processes generating large outputs (>100MB), consider using {@link
+   * #executeForResult(ProcessExecutionSpec)} with output caps instead to avoid Out-of-Memory
+   * errors.
    *
    * @param command the command and arguments to execute
    * @param workingDir the working directory (null defaults to current directory)
@@ -216,54 +133,268 @@ public class ProcessExecutorGateway {
   }
 
   /**
-   * Execute a process with metadata exported as environment variables.
+   * Run the process lifecycle: start, capture output, await exit, and clean up.
    *
-   * <p><strong>SECURITY WARNING:</strong> All metadata values are exported as YUKTA_METADATA_*
-   * environment variables, which are:
-   *
-   * <ul>
-   *   <li>Visible to all child processes spawned by the command
-   *   <li>May appear in process listings and logs
-   *   <li>Potentially visible in stack traces and error messages
-   * </ul>
-   *
-   * <p><strong>Do NOT export sensitive data such as:</strong> passwords, API keys, tokens, private
-   * keys, or other credentials.
-   *
-   * <p><strong>MEMORY WARNING:</strong> This method buffers the entire process output in memory.
-   * For processes generating large outputs (>100MB), consider using {@link #executeStream(List,
-   * String, long, Map, boolean)} with streaming instead to avoid Out-of-Memory errors.
-   *
-   * @param command the command and arguments to execute
-   * @param workingDir the working directory (null defaults to current directory)
-   * @param timeoutSeconds the timeout in seconds
-   * @param metadata the metadata map to export as environment variables (must not contain sensitive
-   *     data)
-   * @return a Mono containing the process output with newlines preserved between lines
+   * @param spec the execution specification
+   * @param actualCommand the command after optional shell wrapping
+   * @param startNanos the execution start timestamp in nanoseconds
+   * @return a Mono emitting the execution result
    */
-  public Mono<String> executeWithMetadata(
-      final List<String> command,
-      final String workingDir,
-      final long timeoutSeconds,
-      final Map<String, Object> metadata) {
+  private Mono<ProcessExecutionResult> runProcess(
+      final ProcessExecutionSpec spec, final List<String> actualCommand, final long startNanos) {
+    return Mono.usingWhen(
+            startProcess(spec, actualCommand),
+            process -> collectResult(process, spec, startNanos),
+            this::cleanupProcess)
+        .timeout(Duration.ofSeconds(spec.timeoutSeconds()))
+        .onErrorResume(
+            TimeoutException.class, _ -> timedOutResult(spec, actualCommand, startNanos));
+  }
 
-    final Map<String, String> env = new HashMap<>();
-    if (metadata != null) {
-      exportMetadata(metadata, env);
-    }
-
-    return executeStream(command, workingDir, timeoutSeconds, env, false)
-        .collectList()
-        // Restore newlines between lines that were stripped by BufferedReader.lines()
-        .map(list -> String.join("\n", list))
-        .onErrorMap(
-            e -> {
-              if (e instanceof WorkflowExecutionException) {
-                return e;
+  /**
+   * Start the process described by the specification.
+   *
+   * @param spec the execution specification
+   * @param actualCommand the command after optional shell wrapping
+   * @return a Mono emitting the started process
+   */
+  private Mono<Process> startProcess(
+      final ProcessExecutionSpec spec, final List<String> actualCommand) {
+    return Mono.fromCallable(
+            () -> {
+              log.atDebug().setMessage("Starting process: {}").addArgument(actualCommand).log();
+              final ProcessBuilder processBuilder = new ProcessBuilder(actualCommand);
+              if (spec.workingDir() != null && !spec.workingDir().isBlank()) {
+                processBuilder.directory(new File(spec.workingDir()));
+                log.atDebug()
+                    .setMessage("Process working directory set to: {}")
+                    .addArgument(spec.workingDir())
+                    .log();
               }
-              return new WorkflowExecutionException(
-                  "Process execution failed: " + e.getMessage(), e);
-            });
+              if (!spec.env().isEmpty()) {
+                processBuilder.environment().putAll(spec.env());
+                log.atDebug()
+                    .setMessage("Process environment variables configured: {} variable(s)")
+                    .addArgument(spec.env().size())
+                    .log();
+              }
+              processBuilder.redirectErrorStream(!spec.captureStderr());
+              return processBuilder.start();
+            })
+        .subscribeOn(Schedulers.boundedElastic());
+  }
+
+  /**
+   * Write stdin, capture stdout/stderr concurrently, then await process exit.
+   *
+   * <p>Stdin writing and output draining run concurrently to avoid pipe deadlocks with processes
+   * that produce output while reading input.
+   *
+   * @param process the running process
+   * @param spec the execution specification
+   * @param startNanos the execution start timestamp in nanoseconds
+   * @return a Mono emitting the execution result
+   */
+  private Mono<ProcessExecutionResult> collectResult(
+      final Process process, final ProcessExecutionSpec spec, final long startNanos) {
+    final Mono<Boolean> stdinWriter =
+        Mono.fromRunnable(() -> writeStdin(process.getOutputStream(), spec.stdin()))
+            .subscribeOn(Schedulers.boundedElastic())
+            .thenReturn(Boolean.TRUE);
+    final Mono<OutputCapture> stdoutCapture =
+        Mono.fromCallable(
+                () ->
+                    readOutput(
+                        process.getInputStream(), spec.maxOutputLines(), spec.maxOutputBytes()))
+            .subscribeOn(Schedulers.boundedElastic());
+    final Mono<OutputCapture> stderrCapture =
+        spec.captureStderr()
+            ? Mono.fromCallable(
+                    () ->
+                        readOutput(
+                            process.getErrorStream(), spec.maxOutputLines(), spec.maxOutputBytes()))
+                .subscribeOn(Schedulers.boundedElastic())
+            : Mono.just(OutputCapture.EMPTY);
+
+    return Mono.zip(stdoutCapture, stderrCapture, stdinWriter)
+        .flatMap(
+            outputs ->
+                Mono.fromFuture(process.onExit())
+                    .map(
+                        exited ->
+                            buildResult(exited, outputs.getT1(), outputs.getT2(), startNanos)));
+  }
+
+  /**
+   * Build the result for a process that exited within the timeout.
+   *
+   * @param exited the exited process
+   * @param stdout the captured standard output
+   * @param stderr the captured standard error
+   * @param startNanos the execution start timestamp in nanoseconds
+   * @return the execution result
+   */
+  private ProcessExecutionResult buildResult(
+      final Process exited,
+      final OutputCapture stdout,
+      final OutputCapture stderr,
+      final long startNanos) {
+    final int exitCode = exited.exitValue();
+    log.atDebug().setMessage("Process completed with exit code {}").addArgument(exitCode).log();
+    return ProcessExecutionResult.of(
+        exitCode,
+        stdout.lines(),
+        stderr.lines(),
+        elapsedMillis(startNanos),
+        false,
+        stdout.truncated() || stderr.truncated());
+  }
+
+  /**
+   * Build the result for a process that exceeded its timeout and was destroyed.
+   *
+   * @param spec the execution specification
+   * @param actualCommand the command after optional shell wrapping
+   * @param startNanos the execution start timestamp in nanoseconds
+   * @return a Mono emitting the timed-out result
+   */
+  private Mono<ProcessExecutionResult> timedOutResult(
+      final ProcessExecutionSpec spec, final List<String> actualCommand, final long startNanos) {
+    log.atWarn()
+        .setMessage("Process timed out after {}s and was destroyed: {}")
+        .addArgument(spec.timeoutSeconds())
+        .addArgument(actualCommand)
+        .log();
+    return Mono.just(
+        ProcessExecutionResult.of(
+            ProcessExecutionResult.TIMEOUT_EXIT_CODE,
+            List.of(),
+            List.of(),
+            elapsedMillis(startNanos),
+            true,
+            false));
+  }
+
+  /**
+   * Map a completed execution result to the legacy line-stream contract used by {@link
+   * #executeStream(List, String, long, Map, boolean)}.
+   *
+   * @param result the execution result
+   * @param spec the execution specification
+   * @return the output lines, or an error for a timed-out or failed process
+   */
+  private Flux<String> toLineStream(
+      final ProcessExecutionResult result, final ProcessExecutionSpec spec) {
+    if (result.timedOut()) {
+      log.atError()
+          .setMessage("Process timed out after {}s: {}")
+          .addArgument(spec.timeoutSeconds())
+          .addArgument(spec.command())
+          .log();
+      return Flux.error(
+          new WorkflowExecutionException(
+              "Process timed out after " + spec.timeoutSeconds() + "s",
+              new TimeoutException("Process timed out after " + spec.timeoutSeconds() + "s")));
+    }
+    if (result.exitCode() != 0) {
+      final String output = result.stdout();
+      log.atError()
+          .setMessage(
+              """
+              Process failed with exit code {}: {}
+              --- Process Output ---
+              {}
+              --- End Output ---\
+              """)
+          .addArgument(result.exitCode())
+          .addArgument(spec.command())
+          .addArgument(output)
+          .log();
+      return Flux.error(
+          new WorkflowExecutionException(
+              "Process failed with exit code "
+                  + result.exitCode()
+                  + "\n--- Output ---\n"
+                  + output));
+    }
+    return Flux.fromIterable(result.stdoutLines());
+  }
+
+  /**
+   * Read a process output stream to exhaustion, retaining at most the configured caps.
+   *
+   * <p>Output beyond the caps is drained but discarded so the process is never blocked on a full
+   * pipe. Package-private for direct testing.
+   *
+   * @param stream the process output stream to read
+   * @param maxLines maximum lines to retain (non-positive for unlimited)
+   * @param maxBytes maximum UTF-8 bytes to retain (non-positive for unlimited)
+   * @return the captured output with a truncation flag
+   */
+  @SuppressWarnings("PMD.UnnecessaryModifier")
+  /* package */ OutputCapture readOutput(
+      final InputStream stream, final int maxLines, final long maxBytes) {
+    final List<String> lines = new ArrayList<>();
+    boolean truncated = false;
+    long bytes = 0;
+    try (final BufferedReader reader =
+        new BufferedReader(new InputStreamReader(stream, StandardCharsets.UTF_8))) {
+      String line = reader.readLine();
+      while (line != null) {
+        if (!truncated) {
+          // +1 accounts for the newline separator stripped by readLine()
+          final long lineBytes = line.getBytes(StandardCharsets.UTF_8).length + 1L;
+          final boolean withinLineCap = maxLines <= 0 || lines.size() < maxLines;
+          final boolean withinByteCap = maxBytes <= 0 || bytes + lineBytes <= maxBytes;
+          if (withinLineCap && withinByteCap) {
+            lines.add(line);
+            bytes += lineBytes;
+          } else {
+            truncated = true;
+          }
+        }
+        line = reader.readLine();
+      }
+    } catch (final IOException e) {
+      log.atWarn()
+          .setMessage("Failed to read process output; returning partial capture")
+          .setCause(e)
+          .log();
+    }
+    return new OutputCapture(lines, truncated);
+  }
+
+  /**
+   * Write the given text to the process standard input and close the stream.
+   *
+   * <p>The stream is always closed, even when there is nothing to write, so processes reading stdin
+   * terminate deterministically instead of waiting for input until the timeout. Package-private for
+   * direct testing.
+   *
+   * @param stream the process standard input stream
+   * @param stdin the text to write, or null/empty for none
+   */
+  /* package */ void writeStdin(final OutputStream stream, final String stdin) {
+    try (stream) {
+      if (stdin != null && !stdin.isEmpty()) {
+        stream.write(stdin.getBytes(StandardCharsets.UTF_8));
+      }
+    } catch (final IOException e) {
+      log.atDebug()
+          .setMessage("Failed to write stdin to process (it may have exited early)")
+          .setCause(e)
+          .log();
+    }
+  }
+
+  /**
+   * Compute elapsed wall-clock milliseconds since the given start timestamp.
+   *
+   * @param startNanos the start timestamp from {@link System#nanoTime()}
+   * @return the elapsed milliseconds
+   */
+  private long elapsedMillis(final long startNanos) {
+    return (System.nanoTime() - startNanos) / NANOS_PER_MILLI;
   }
 
   /**
@@ -274,9 +405,20 @@ public class ProcessExecutorGateway {
    * @return the shell-wrapped command
    */
   private List<String> wrapInShell(final List<String> command) {
-    final String osName = System.getProperty("os.name").toLowerCase(Locale.ROOT);
+    return wrapInShell(command, System.getProperty("os.name"));
+  }
+
+  /**
+   * Wrap the command in a shell for the given OS name. Package-private to allow direct testing of
+   * both the Windows and non-Windows branches regardless of the OS running the build.
+   *
+   * @param command the original command and arguments
+   * @param osName the {@code os.name} system property value to branch on
+   * @return the shell-wrapped command
+   */
+  /* package */ List<String> wrapInShell(final List<String> command, final String osName) {
     final List<String> wrapped = new ArrayList<>();
-    if (osName.contains("win")) {
+    if (osName.toLowerCase(Locale.ROOT).contains("win")) {
       wrapped.add("cmd.exe");
       wrapped.add("/c");
     } else {
@@ -312,21 +454,54 @@ public class ProcessExecutorGateway {
   }
 
   /**
-   * Export metadata as environment variables with YUKTA_METADATA_ prefix. Useful for passing
-   * workflow context to spawned processes.
+   * Terminate a process if it is still alive, escalating from graceful to forcible destruction.
    *
-   * @param metadata the metadata map
-   * @param env the environment map to populate
+   * <p>The process is first asked to terminate via {@link Process#destroy()}; if it is still alive
+   * after {@link #FORCE_DESTROY_GRACE}, it is killed via {@link Process#destroyForcibly()}.
+   * Package-private for direct testing.
+   *
+   * @param process the process to terminate
+   * @return a Mono completing when termination has been initiated or the process already exited
    */
-  private void exportMetadata(final Map<String, Object> metadata, final Map<String, String> env) {
-    metadata.forEach(
-        (key, value) -> {
-          if (value != null) {
-            final String metadataValue = value.toString();
-            final String keyUpper = key.toUpperCase(Locale.ROOT);
-            final String envKey = "YUKTA_METADATA_" + keyUpper.replace('.', '_');
-            env.put(envKey, metadataValue);
-          }
-        });
+  /* package */ Mono<Void> cleanupProcess(final Process process) {
+    return Mono.defer(
+            () -> {
+              if (!process.isAlive()) {
+                return Mono.empty();
+              }
+              process.destroy();
+              return Mono.fromFuture(process.onExit())
+                  .timeout(FORCE_DESTROY_GRACE)
+                  .then()
+                  .onErrorResume(
+                      TimeoutException.class,
+                      _ ->
+                          Mono.fromRunnable(
+                              () -> {
+                                log.atWarn()
+                                    .setMessage(
+                                        "Process ignored graceful termination; destroying forcibly")
+                                    .log();
+                                process.destroyForcibly();
+                              }));
+            })
+        .subscribeOn(Schedulers.boundedElastic());
+  }
+
+  /**
+   * Captured output of a single process stream.
+   *
+   * @param lines the retained output lines
+   * @param truncated whether output beyond the configured caps was discarded
+   */
+  /* package */ record OutputCapture(List<String> lines, boolean truncated) {
+
+    /** Shared empty capture used when a stream is not captured separately. */
+    /* package */ static final OutputCapture EMPTY = new OutputCapture(List.of(), false);
+
+    /** Defensively copies the line list. */
+    /* package */ OutputCapture {
+      lines = List.copyOf(lines);
+    }
   }
 }
