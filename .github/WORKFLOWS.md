@@ -8,22 +8,23 @@ Quick guide to the automated workflows in this repository.
 ## Overview
 
 ```
-Your Change
+Your PR
     │
-    ├─→ ci.yml (Build & Test)
-    │   ├─ Compile & unit tests
-    │   ├─ Quality gates (Checkstyle, PMD, SpotBugs, OpenGrep)
-    │   ├─ JaCoCo coverage
-    │   └─ Dependency lock verification
-    │   └─ Triggered on: push/PR
-    │
-    └─→ security.yml (Trivy Scans) ← triggered after CI
-        ├─ Secrets scanning
-        ├─ Dependency vulnerabilities
-        ├─ Filesystem vulnerabilities
-        ├─ SBOM generation
-        └─ License compliance
-        └─ Triggered on: workflow_run (PR) + direct push (main)
+    ├─→ license-compliance.yml ─────────┐
+    │   ├─ REUSE header validation      │
+    │   ├─ Licensee dependency check    │
+    │   └─ Trivy license scanning       │
+    │                                    │
+    ├─→ code-quality.yml ───────────────┼→ compliance-summary.yml → Unified PR Comment
+    │   ├─ JaCoCo coverage              │   ├─ Aggregates results
+    │   ├─ PMD complexity               │   └─ Posts single unified comment
+    │   ├─ SpotBugs analysis            │
+    │   └─ Checkstyle validation        │
+    │                                    │
+    └─→ security.yml ───────────────────┘
+        ├─ Trivy vulnerability scans
+        ├─ Secret scanning
+        └─ SBOM generation
 ```
 
 ## Workflows
@@ -49,6 +50,84 @@ Your Change
 
 **Artifacts**:
 - `test-reports` (if failed) — JUnit XML, coverage reports
+
+---
+
+### `license-compliance.yml` — License Compliance
+
+**Purpose**: Validate dependency licenses and REUSE compliance
+
+| Component | Check | Purpose |
+|-----------|-------|---------|
+| **Licensee** | Dependency License Validation | Ensures all dependencies have Apache-2.0 compatible licenses |
+| **REUSE** | License Header Compliance | Verifies all files have SPDX license headers |
+| **Trivy** | License Scanning | Scans for known license issues |
+
+**Jobs**:
+1. `reuse-compliance` — REUSE header check
+2. `gradle-license-validation` — Licensee dependency validation
+3. `trivy-license-scan` — Trivy license scanning
+
+**Triggered on**: Push to main, PR, manual trigger
+
+**Artifacts**:
+- `licensee-reports` — Detailed license reports per module
+- Trivy SARIF files (uploaded to GitHub Security tab)
+
+---
+
+### `code-quality.yml` — Code Quality Checks
+
+**Purpose**: Enforce code quality, coverage, and static analysis
+
+**Jobs**:
+1. `code-quality` — All quality checks in one job
+   - JaCoCo coverage analysis
+   - PMD complexity analysis
+   - SpotBugs static analysis
+   - Checkstyle format validation
+   - Security vulnerability scanning
+
+**Triggered on**: Push to main, PR, manual trigger
+
+**Artifacts**:
+- `quality-reports` — JaCoCo, SpotBugs, PMD, Checkstyle reports
+
+---
+
+### `compliance-summary.yml` — Compliance & Quality Aggregator
+
+**Purpose**: Consolidate license compliance and code quality results into a single PR comment
+
+**Jobs**:
+1. `aggregate-report` — Fetches results from license and quality workflows
+   - Queries GitHub API for workflow run statuses
+   - Aggregates individual job results
+   - Posts unified PR comment with all statuses
+
+**Triggered on**: After license-compliance.yml and code-quality.yml complete
+
+**Output**: Single PR comment with:
+- ✅ License Compliance section (REUSE, Licensee, Trivy status)
+- 📊 Code Quality section (Coverage, Complexity, SpotBugs, Security status)
+- Links to detailed reports
+
+**Example output**:
+
+```text
+📋 Compliance & Quality Summary
+
+✅ License Compliance
+| REUSE Headers              | ✅ SUCCESS |
+| Dependency Licenses (Licensee) | ✅ SUCCESS |
+| License Scanning (Trivy)   | ✅ SUCCESS |
+
+📊 Code Quality
+| JaCoCo Coverage       | ✅ SUCCESS |
+| PMD Complexity        | ✅ SUCCESS |
+| SpotBugs Analysis     | ✅ SUCCESS |
+| Security Checks       | ✅ SUCCESS |
+```
 
 ---
 
@@ -177,9 +256,30 @@ Full build runs on every push to main. To speed up, use git config to batch comm
 
 ---
 
+## Understanding PR Comments
+
+When you open a PR, you'll see:
+
+1. **Compliance & Quality Summary** (main report)
+   - Shows status of all license and quality checks
+   - Single consolidated comment for easy review
+   - Links to detailed reports
+
+2. **Individual workflow comments** (if issues found)
+   - Only posted if specific checks fail
+   - Provides context-specific guidance
+
+For detailed explanation, see [COMPLIANCE_REPORTING.md](./COMPLIANCE_REPORTING.md).
+
+---
+
 ## File References
 
-- **CI workflow**: `.github/workflows/ci.yml`
+- **License Compliance workflow**: `.github/workflows/license-compliance.yml`
+- **Code Quality workflow**: `.github/workflows/code-quality.yml`
+- **Compliance Summary workflow**: `.github/workflows/compliance-summary.yml`
 - **Security workflow**: `.github/workflows/security.yml`
+- **CI workflow**: `.github/workflows/ci.yml`
+- **Compliance reporting guide**: `.github/COMPLIANCE_REPORTING.md`
 - **Security scanning docs**: `.github/SECURITY_SCANNING.md`
 - **Trivy ignore list**: `.trivyignore`

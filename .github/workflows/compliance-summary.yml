@@ -1,0 +1,209 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: 2026 Infenia Private Limited
+
+name: Compliance & Quality Summary
+
+on:
+  workflow_run:
+    workflows:
+      - "License Compliance Check"
+      - "Code Quality Checks"
+    types: [completed]
+  pull_request:
+    branches: ["main"]
+
+permissions:
+  contents: read
+  pull-requests: write
+  checks: read
+
+jobs:
+  aggregate-report:
+    name: Generate Unified Compliance Report
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' || (github.event.workflow_run.conclusion != 'skipped')
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Get License Workflow Run
+        id: license-run
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const headSha = context.eventName === 'workflow_run'
+              ? context.payload.workflow_run.head_sha
+              : context.sha;
+            const runs = await github.rest.actions.listWorkflowRuns({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'license-compliance.yml',
+              head_sha: headSha,
+              status: 'completed',
+              per_page: 1
+            });
+            if (runs.data.workflow_runs.length > 0) {
+              const run = runs.data.workflow_runs[0];
+              core.setOutput('conclusion', run.conclusion);
+              core.setOutput('run_id', run.id);
+            } else {
+              core.setOutput('conclusion', 'not_run');
+            }
+
+      - name: Get Code Quality Workflow Run
+        id: quality-run
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const headSha = context.eventName === 'workflow_run'
+              ? context.payload.workflow_run.head_sha
+              : context.sha;
+            const runs = await github.rest.actions.listWorkflowRuns({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'code-quality.yml',
+              head_sha: headSha,
+              status: 'completed',
+              per_page: 1
+            });
+            if (runs.data.workflow_runs.length > 0) {
+              const run = runs.data.workflow_runs[0];
+              core.setOutput('conclusion', run.conclusion);
+              core.setOutput('run_id', run.id);
+            } else {
+              core.setOutput('conclusion', 'not_run');
+            }
+
+      - name: Fetch License Jobs
+        id: license-jobs
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const runId = '${{ steps.license-run.outputs.run_id }}';
+            if (!runId || runId === '') {
+              core.setOutput('reuse_status', 'not_run');
+              core.setOutput('licensee_status', 'not_run');
+              core.setOutput('trivy_status', 'not_run');
+              return;
+            }
+            try {
+              const jobs = await github.rest.actions.listJobsForWorkflowRun({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                run_id: parseInt(runId)
+              });
+              const jobMap = {};
+              jobs.data.jobs.forEach(job => {
+                jobMap[job.name] = job.conclusion;
+              });
+              core.setOutput('reuse_status', jobMap['REUSE License Headers'] || 'not_run');
+              core.setOutput('licensee_status', jobMap['Dependency License Validation (Licensee)'] || 'not_run');
+              core.setOutput('trivy_status', jobMap['Trivy License Scanning'] || 'not_run');
+            } catch (error) {
+              core.warning(`Failed to fetch license jobs: ${error.message}`);
+            }
+
+      - name: Post Unified Compliance Report
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const licenseRun = '${{ steps.license-run.outputs.run_id }}';
+            const qualityRun = '${{ steps.quality-run.outputs.run_id }}';
+
+            // Map status to icon
+            const statusIcon = (status) => {
+              switch(status) {
+                case 'success': return '✅';
+                case 'failure': return '❌';
+                case 'neutral': return '⚠️';
+                case 'not_run': return 'ℹ️';
+                default: return '❓';
+              }
+            };
+
+            // Fetch individual job statuses
+            let licenseJobs = {
+              reuse: 'not_run',
+              licensee: 'not_run',
+              trivy: 'not_run'
+            };
+
+            let qualityJobs = {
+              coverage: 'not_run',
+              complexity: 'not_run',
+              spotbugs: 'not_run',
+              security: 'not_run'
+            };
+
+            // Get license jobs
+            if (licenseRun && licenseRun !== '') {
+              try {
+                const licenseJobsResp = await github.rest.actions.listJobsForWorkflowRun({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  run_id: parseInt(licenseRun)
+                });
+                licenseJobsResp.data.jobs.forEach(job => {
+                  if (job.name.includes('REUSE')) licenseJobs.reuse = job.conclusion;
+                  if (job.name.includes('Licensee')) licenseJobs.licensee = job.conclusion;
+                  if (job.name.includes('Trivy')) licenseJobs.trivy = job.conclusion;
+                });
+              } catch (e) {
+                console.log('Could not fetch license jobs');
+              }
+            }
+
+            // Get quality jobs
+            if (qualityRun && qualityRun !== '') {
+              try {
+                const qualityJobsResp = await github.rest.actions.listJobsForWorkflowRun({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  run_id: parseInt(qualityRun)
+                });
+                qualityJobsResp.data.jobs.forEach(job => {
+                  if (job.name.includes('Coverage')) qualityJobs.coverage = job.conclusion;
+                  if (job.name.includes('Complexity')) qualityJobs.complexity = job.conclusion;
+                  if (job.name.includes('SpotBugs')) qualityJobs.spotbugs = job.conclusion;
+                  if (job.name.includes('Security')) qualityJobs.security = job.conclusion;
+                });
+              } catch (e) {
+                console.log('Could not fetch quality jobs');
+              }
+            }
+
+            const comment = `## 📋 Compliance & Quality Summary
+
+            ### ✅ License Compliance
+            | Check | Status |
+            |-------|--------|
+            | REUSE Headers | ${statusIcon(licenseJobs.reuse)} ${licenseJobs.reuse.toUpperCase()} |
+            | Dependency Licenses (Licensee) | ${statusIcon(licenseJobs.licensee)} ${licenseJobs.licensee.toUpperCase()} |
+            | License Scanning (Trivy) | ${statusIcon(licenseJobs.trivy)} ${licenseJobs.trivy.toUpperCase()} |
+
+            ### 📊 Code Quality
+            | Check | Status |
+            |-------|--------|
+            | JaCoCo Coverage | ${statusIcon(qualityJobs.coverage)} ${qualityJobs.coverage.toUpperCase()} |
+            | PMD Complexity | ${statusIcon(qualityJobs.complexity)} ${qualityJobs.complexity.toUpperCase()} |
+            | SpotBugs Analysis | ${statusIcon(qualityJobs.spotbugs)} ${qualityJobs.spotbugs.toUpperCase()} |
+            | Security Checks | ${statusIcon(qualityJobs.security)} ${qualityJobs.security.toUpperCase()} |
+
+            ### 📚 Allowed Licenses
+            - Apache-2.0 and compatible (MIT, BSD variants, ISC)
+            - Java ecosystem (EPL, CDDL, GPL with classpath exception)
+            - Other permissive licenses (MPL-2.0, WTFPL)
+
+            ### 📎 Detailed Reports
+            - [License Compliance](https://github.com/${{ github.repository }}/actions/runs/${licenseRun})
+            - [Code Quality](https://github.com/${{ github.repository }}/actions/runs/${qualityRun})
+
+            ---
+            *Generated by Compliance & Quality Bot*`;
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
