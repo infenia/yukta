@@ -1,0 +1,57 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: 2026 Infenia Private Limited
+
+name: OpenSSF Scorecard
+
+on:
+  # Re-evaluate when branch protection settings change
+  branch_protection_rule:
+  push:
+    branches: [ "main" ]
+  schedule:
+    - cron: '0 3 * * 1' # Monday 8:30 AM IST (03:00 UTC)
+  workflow_dispatch:
+
+# Every trigger targets the default branch; cancel superseded runs so an
+# older overlapping analysis cannot publish stale results last.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions: read-all
+
+jobs:
+  analysis:
+    name: Scorecard analysis
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read           # Checkout (explicit; required if repo goes private)
+      security-events: write   # Upload results to code scanning
+      id-token: write          # Publish results to the OpenSSF REST API
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          persist-credentials: false
+
+      - name: Run Scorecard analysis
+        uses: ossf/scorecard-action@4eaacf0543bb3f2c246792bd56e8cdeffafb205a # v2.4.3
+        with:
+          results_file: results.sarif
+          results_format: sarif
+          publish_results: true
+
+      - name: Upload Scorecard results artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: scorecard-results
+          path: results.sarif
+          retention-days: 5
+
+      - name: Upload SARIF to GitHub Security
+        uses: github/codeql-action/upload-sarif@99df26d4f13ea111d4ec1a7dddef6063f76b97e9 # v4
+        with:
+          sarif_file: results.sarif
+          category: 'OpenSSF Scorecard'

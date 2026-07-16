@@ -7,11 +7,16 @@ updates:
     directory: "/"
     schedule:
       interval: "daily"
-    # Filter to only monitor boot module indirectly via root, or specific paths
-    # (Dependabot for Gradle usually monitors the root and finds all subprojects)
+    open-pull-requests-limit: 10
     labels:
       - "dependencies"
       - "java"
+    groups:
+      # One PR for all minor/patch bumps; majors stay individual
+      gradle-minor-patch:
+        update-types:
+          - "minor"
+          - "patch"
 
   - package-ecosystem: "github-actions"
     directory: "/"
@@ -20,3 +25,41 @@ updates:
     labels:
       - "dependencies"
       - "github-actions"
+    groups:
+      actions-all:
+        patterns:
+          - "*"
+
+  - package-ecosystem: "gomod"
+    directory: "/cli"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "dependencies"
+      - "go"
+    groups:
+      go-minor-patch:
+        update-types:
+          - "minor"
+          - "patch"
+
+  - package-ecosystem: "npm"
+    directory: "/ui"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "dependencies"
+      - "javascript"
+    groups:
+      npm-minor-patch:
+        update-types:
+          - "minor"
+          - "patch"
+
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "dependencies"
+      - "docker"

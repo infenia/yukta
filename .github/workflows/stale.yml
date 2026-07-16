@@ -15,9 +15,10 @@ permissions:
 jobs:
   stale:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Close stale issues and pull requests
-        uses: actions/stale@v10
+        uses: actions/stale@1e223db275d687790206a7acac4d1a11bd6fe629 # v10
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
 
@@ -53,4 +54,3 @@ jobs:
           # Behavior
           operations-per-run: 30
           remove-stale-when-updated: true
-          remove-stale-when-commented: true

@@ -10,46 +10,73 @@ Quick guide to the automated workflows in this repository.
 ```
 Your PR
     │
-    ├─→ license-compliance.yml ─────────┐
-    │   ├─ REUSE header validation      │
-    │   ├─ Licensee dependency check    │
+    ├─→ ci.yml ─────────────────────────┐
+    │   ├─ Detect changed modules       │
+    │   ├─ Build + tests + quality      │
+    │   │  gates (Checkstyle, PMD,      │
+    │   │  SpotBugs, OpenGrep, JaCoCo)  │
+    │   └─ Dependency review            │
+    │                                   │
+    ├─→ license-compliance.yml ─────────┼→ compliance-summary.yml
+    │   ├─ REUSE header validation      │   └─ One sticky PR comment,
+    │   ├─ Licensee dependency check    │      updated in place
     │   └─ Trivy license scanning       │
-    │                                    │
-    ├─→ code-quality.yml ───────────────┼→ compliance-summary.yml → Unified PR Comment
-    │   ├─ JaCoCo coverage              │   ├─ Aggregates results
-    │   ├─ PMD complexity               │   └─ Posts single unified comment
-    │   ├─ SpotBugs analysis            │
-    │   └─ Checkstyle validation        │
-    │                                    │
-    └─→ security.yml ───────────────────┘
-        ├─ Trivy vulnerability scans
-        ├─ Secret scanning
-        └─ SBOM generation
+    │                                   │
+    ├─→ security.yml ───────────────────┘
+    │   ├─ Secret scanning (blocking)
+    │   └─ Trivy vuln/misconfig scan (report-only on PRs)
+    │
+    └─→ codeql.yml
+        └─ CodeQL analysis (Java, Go, Actions)
 ```
+
+On `main` (push/schedule): full builds, blocking security gates, SBOM
+generation, weekly CodeQL and OpenSSF Scorecard runs.
 
 ## Workflows
 
 ### `ci.yml` — Java CI with Gradle
+
 **Purpose**: Build, test, and enforce quality gates
 
 | When | Branch | Behavior |
 |------|--------|----------|
-| PR opened/updated | any | Build changed modules only |
-| Push | main | Full build (all modules) |
+| PR opened/updated | any | Build changed modules **and their dependents** |
+| Push | main | Full build — every module's tests + quality gates |
 | Scheduled | daily @ 5:30 AM IST | Full build (cache refresh) |
 
 **Jobs**:
-1. `changes` — Detect which modules changed (fast, ~5s)
-2. `build` — Compile, test, quality checks
-   - Full build on push to main
-   - Partial build on PR (only changed modules)
+1. `changes` — Detect which modules changed (fast, ~5s). Every Gradle
+   module in `settings.gradle.kts` is listed; a module missing here would
+   silently skip CI.
+2. `build` — Compile, test, quality checks (`build` includes `check`:
+   Checkstyle, PMD, SpotBugs, OpenGrep, JaCoCo coverage verification).
+   Changed library modules run `buildDependents` so consumers are
+   re-tested. Publishes a JUnit summary, uploads coverage to Codecov on
+   main, submits the dependency graph (non-fork), uploads `build-reports`.
+3. `dependency-review` — Fails PRs that introduce dependencies with
+   known HIGH/CRITICAL vulnerabilities (skipped for fork PRs).
 
-**Exits with**:
-- ✅ **0** if all checks pass
-- ❌ **1** if build, tests, or quality gates fail
+---
 
-**Artifacts**:
-- `test-reports` (if failed) — JUnit XML, coverage reports
+### `security.yml` — Security Scanning (Trivy)
+
+**Purpose**: Secret, vulnerability, and misconfiguration scanning + SBOM
+
+| When | Trigger | Behavior |
+|------|---------|----------|
+| PR | pull_request | Secrets **blocking**; vulns/misconfigs report-only (table + SARIF) |
+| Push to main | push | All scans **blocking** (HIGH/CRITICAL fail the run) |
+| Weekly (Mon 6:30 AM IST) | schedule | Blocking rescan of main for newly published CVEs |
+| Manual | workflow_dispatch | Blocking scan |
+
+New HIGH/CRITICAL vulnerabilities *introduced by a PR* are blocked by
+`dependency-review` in ci.yml; the full-repo Trivy gate is enforced on main
+so unrelated PRs are not blocked by pre-existing CVEs.
+
+**Artifacts**: `security-reports-{run_id}` — SARIF + CycloneDX SBOM
+(`sbom-yukta.cdx.json`, main/schedule/manual runs only). SARIF is uploaded to
+the GitHub Security tab.
 
 ---
 
@@ -59,227 +86,125 @@ Your PR
 
 | Component | Check | Purpose |
 |-----------|-------|---------|
-| **Licensee** | Dependency License Validation | Ensures all dependencies have Apache-2.0 compatible licenses |
 | **REUSE** | License Header Compliance | Verifies all files have SPDX license headers |
-| **Trivy** | License Scanning | Scans for known license issues |
+| **Licensee** | Dependency License Validation | Ensures all dependencies have Apache-2.0 compatible licenses |
+| **Trivy** | License Scanning | Scans lock files for forbidden/restricted licenses |
 
-**Jobs**:
-1. `reuse-compliance` — REUSE header check
-2. `gradle-license-validation` — Licensee dependency validation
-3. `trivy-license-scan` — Trivy license scanning
+**Jobs**: `reuse-compliance`, `gradle-license-validation`, `trivy-license-scan`
 
 **Triggered on**: Push to main, PR, manual trigger
 
-**Artifacts**:
-- `licensee-reports` — Detailed license reports per module
-- Trivy SARIF files (uploaded to GitHub Security tab)
+**Artifacts**: `licensee-reports`; Trivy license SARIF in the Security tab.
+Results are summarized in the job summary and the unified PR comment.
 
 ---
 
-### `code-quality.yml` — Code Quality Checks
+### `compliance-summary.yml` — Compliance & Quality Summary
 
-**Purpose**: Enforce code quality, coverage, and static analysis
+**Purpose**: One sticky PR comment aggregating CI, license, and security results
 
-**Jobs**:
-1. `code-quality` — All quality checks in one job
-   - JaCoCo coverage analysis
-   - PMD complexity analysis
-   - SpotBugs static analysis
-   - Checkstyle format validation
-   - Security vulnerability scanning
-
-**Triggered on**: Push to main, PR, manual trigger
-
-**Artifacts**:
-- `quality-reports` — JaCoCo, SpotBugs, PMD, Checkstyle reports
+**How it works**: Triggered by `workflow_run` completions of the three
+workflows above. Resolves the PR from the run, lists every job of each
+workflow's latest run for that commit, and creates **or updates** a single
+comment identified by an HTML marker — no comment spam, no stale data.
 
 ---
 
-### `compliance-summary.yml` — Compliance & Quality Aggregator
+### `codeql.yml` — CodeQL
 
-**Purpose**: Consolidate license compliance and code quality results into a single PR comment
+**Purpose**: Static application security testing (SAST)
 
-**Jobs**:
-1. `aggregate-report` — Fetches results from license and quality workflows
-   - Queries GitHub API for workflow run statuses
-   - Aggregates individual job results
-   - Posts unified PR comment with all statuses
-
-**Triggered on**: After license-compliance.yml and code-quality.yml complete
-
-**Output**: Single PR comment with:
-- ✅ License Compliance section (REUSE, Licensee, Trivy status)
-- 📊 Code Quality section (Coverage, Complexity, SpotBugs, Security status)
-- Links to detailed reports
-
-**Example output**:
-
-```text
-📋 Compliance & Quality Summary
-
-✅ License Compliance
-| REUSE Headers              | ✅ SUCCESS |
-| Dependency Licenses (Licensee) | ✅ SUCCESS |
-| License Scanning (Trivy)   | ✅ SUCCESS |
-
-📊 Code Quality
-| JaCoCo Coverage       | ✅ SUCCESS |
-| PMD Complexity        | ✅ SUCCESS |
-| SpotBugs Analysis     | ✅ SUCCESS |
-| Security Checks       | ✅ SUCCESS |
-```
+Analyzes `java-kotlin` (build-mode `none` — no Gradle build needed), `go`
+(the `cli/` module, manual build), and `actions` (the workflows themselves)
+on PRs, pushes to main, and weekly. Findings appear under Security → Code
+scanning.
 
 ---
 
-### `security.yml` — Security Scanning (Trivy)
-**Purpose**: Security scanning (secrets, vulns, SBOMs)
+### `scorecard.yml` — OpenSSF Scorecard
 
-| When | Trigger | Behavior | Fails Build? |
-|------|---------|----------|--------------|
-| **Push to main** | Direct push | Blocking scan | ✅ YES |
-| **After CI on PR** | workflow_run | Blocking scan | ✅ YES |
-| **Manual** | workflow_dispatch | Blocking scan | ✅ YES |
+**Purpose**: Continuously score the repo against OpenSSF supply-chain best
+practices (pinned dependencies, token permissions, branch protection, …).
 
-**Jobs**:
-1. `context` — Determine if running on main/PR/manual
-2. `security` — Run all Trivy scans (secrets, vulns, SBOMs, license)
-
-**Behavior** (all contexts):
-- **Main (push)**: Fails workflow if HIGH/CRITICAL findings detected
-- **PR (workflow_run)**: Fails workflow if HIGH/CRITICAL findings detected
-- **Manual**: Fails workflow if HIGH/CRITICAL findings detected
-
-**Exits with**:
-- ✅ **0** if no HIGH/CRITICAL findings detected
-- ❌ **1** if HIGH/CRITICAL findings detected (all contexts)
-
-**Artifacts**:
-- `security-reports-{run_id}` — Trivy JSON/SARIF, SBOMs, license reports
-- SARIF automatically uploaded to GitHub Security tab
+Runs weekly, on pushes to main, and when branch protection rules change.
+Publishes to the OpenSSF API (powers the README badge) and uploads SARIF.
 
 ---
 
-## Key Differences
+### `labeler.yml` / `stale.yml`
 
-| Feature | ci.yml | security.yml |
-|---------|--------|--------------|
-| **Speed** | ~5-10 min | ~2-3 min |
-| **Blocks main** | ✅ Always | ✅ Always |
-| **Blocks PRs** | ✅ Always | ✅ Always |
-| **Runs on** | Each push/PR | After CI succeeds |
-| **Artifacts** | Test reports | Security reports |
-| **GitHub tab** | Checks | Security + Checks |
+Auto-label PRs by touched paths; mark and close stale issues/PRs.
 
 ---
+
+## Conventions
+
+- **All actions are pinned to full commit SHAs** (with `# vN` comments).
+  Dependabot keeps the pins updated weekly. New steps must follow suit.
+- **Least-privilege permissions**: workflows default to `contents: read`;
+  jobs elevate only what they need.
+- **`persist-credentials: false`** on every checkout.
+- **Every job has `timeout-minutes`.**
+- All workflow files carry SPDX headers (REUSE-enforced).
 
 ## Status Checks (Branch Protection)
 
-Once configured, GitHub shows these required status checks before merge:
+Recommended required checks on `main`:
 
 ```
-✓ Java CI with Gradle / Build & Check         (Required — from ci.yml)
-✓ Security Scanning (Trivy) / Trivy Sec Scan  (Required — from security.yml)
-  (on main)
+✓ Java CI with Gradle / Build & Check
+✓ Java CI with Gradle / Dependency Review
+✓ Security Scanning (Trivy) / Trivy Security Scan
+✓ License Compliance Check / REUSE License Headers
+✓ License Compliance Check / Dependency License Validation (Licensee)
+✓ CodeQL / Analyze (java-kotlin)
 ```
 
-On **PRs**:
-- ✓ `ci.yml` is blocking (must pass)
-- ✓ `security.yml` is blocking (must pass) — triggered after CI succeeds
+## One-time Setup
 
----
-
-## Viewing Results
-
-### Build Results (ci.yml)
-- **Location**: GitHub Actions → Java CI with Gradle
-- **Status check**: Shows as ✅ or ❌ in PR
-- **Logs**: Click workflow run → Build & Check job
-- **Artifacts**: `test-reports` (if failed)
-
-### Security Results (security.yml)
-- **Location**: GitHub Actions → Security Scanning (Trivy)
-- **Logs**: Click workflow run → Trivy Security Scan job
-- **Artifacts**: `security-reports-{run_id}`
-- **GitHub Security tab**: Repository → Security → Code scanning alerts
-  - Shows HIGH/CRITICAL issues automatically
-
----
+- **Codecov**: create the repo at [codecov.io](https://about.codecov.io/)
+  (free for open source) and add the `CODECOV_TOKEN` repository secret.
+  Until then the upload step is `continue-on-error` and simply skips.
+- **Scorecard badge**: appears after the first `scorecard.yml` run on `main`.
 
 ## Manual Triggers
 
-### Trigger security scan manually
 ```bash
-# Via GitHub CLI
-gh workflow run security.yml
-
-# Via GitHub UI
-Settings → Actions → General → (scroll down)
-Select "Security Scanning (Trivy)" → "Run workflow" → main branch
+gh workflow run security.yml          # on-demand security scan
+gh workflow run ci.yml                # full build
+gh workflow run license-compliance.yml
 ```
-
-### Trigger full build manually
-```bash
-# Via GitHub CLI
-gh workflow run "ci.yml"
-
-# Via GitHub UI
-Actions → Java CI with Gradle → "Run workflow" → main branch
-```
-
----
 
 ## Troubleshooting
 
-### "Why is security scan still running on my PR?"
-Expected. `security.yml` runs **after** `ci.yml` completes (workflow_run trigger). PR checks show immediately, but security scan runs in the background.
+### "Why did CI skip entirely on my PR?"
+Nothing under a known module path changed (e.g. docs-only PR). The `changes`
+job output lists what was detected.
 
-**Can I merge while security scan is running?**
-No — security scan is blocking. You must wait for the security scan to complete and pass before merging.
+### "Why did my one-module PR rebuild half the repo?"
+Library modules (e.g. `messaging`, `core`, `plugin-api`) run
+`buildDependents` so everything that consumes them is re-tested before merge.
 
-### "Why didn't security scan run?"
-Possible reasons:
-1. `ci.yml` failed — security.yml only runs if CI succeeded
-2. `workflow_run` not triggered — check Actions tab for errors
-3. Filtered by path? Check `.github/workflows/security.yml` triggers
+### "Security scan flags a CVE my PR didn't introduce"
+On PRs the Trivy vulnerability scan is report-only. Only
+`dependency-review` (new dependencies) and secret findings block PRs.
+Pre-existing CVEs are enforced on `main` — fix or add a justified entry to
+`.trivyignore`.
 
 ### "Why does building take so long on main?"
-Full build runs on every push to main. To speed up, use git config to batch commits or test locally first.
-
----
-
-## Next Steps
-
-1. **Test locally**: Run `./gradlew check` and `trivy fs .` before pushing
-2. **Set up branch protection**: See `.github/SECURITY_SCANNING.md` for details
-3. **Review security findings**: Check artifacts after each security scan
-4. **Update `.trivyignore`**: As needed for false positives
-
----
-
-## Understanding PR Comments
-
-When you open a PR, you'll see:
-
-1. **Compliance & Quality Summary** (main report)
-   - Shows status of all license and quality checks
-   - Single consolidated comment for easy review
-   - Links to detailed reports
-
-2. **Individual workflow comments** (if issues found)
-   - Only posted if specific checks fail
-   - Provides context-specific guidance
-
-For detailed explanation, see [COMPLIANCE_REPORTING.md](./COMPLIANCE_REPORTING.md).
+Full build (all modules, all gates) runs on every push to main. Test locally
+first with `./gradlew check`.
 
 ---
 
 ## File References
 
-- **License Compliance workflow**: `.github/workflows/license-compliance.yml`
-- **Code Quality workflow**: `.github/workflows/code-quality.yml`
-- **Compliance Summary workflow**: `.github/workflows/compliance-summary.yml`
-- **Security workflow**: `.github/workflows/security.yml`
 - **CI workflow**: `.github/workflows/ci.yml`
+- **Security workflow**: `.github/workflows/security.yml`
+- **License Compliance workflow**: `.github/workflows/license-compliance.yml`
+- **Compliance Summary workflow**: `.github/workflows/compliance-summary.yml`
+- **CodeQL workflow**: `.github/workflows/codeql.yml`
+- **Scorecard workflow**: `.github/workflows/scorecard.yml`
 - **Compliance reporting guide**: `.github/COMPLIANCE_REPORTING.md`
 - **Security scanning docs**: `.github/SECURITY_SCANNING.md`
 - **Trivy ignore list**: `.trivyignore`

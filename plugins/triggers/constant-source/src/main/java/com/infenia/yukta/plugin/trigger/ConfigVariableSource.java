@@ -20,7 +20,7 @@ import reactor.core.publisher.Mono;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-@SuppressWarnings({"PMD.OnlyOneReturn", "PMD.UseConcurrentHashMap"})
+@SuppressWarnings({"PMD.UseConcurrentHashMap"})
 public class ConfigVariableSource implements TriggerPlugin {
 
   private static final String TYPE = "CONSTANT_SOURCE";

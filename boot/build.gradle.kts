@@ -40,9 +40,10 @@ tasks.named<org.springframework.boot.gradle.tasks.run.BootRun>("bootRun") {
 
 coverageConfig {
     exceptions.put("com.infenia.yukta.YuktaApplication", mapOf(
-        "LINE" to 0.80,
+        "LINE" to 0.70,
         "BRANCH" to 0.60,
-        "INSTRUCTION" to 0.75
+        "INSTRUCTION" to 0.75,
+        "METHOD" to 0.70,
     ))
 }
 

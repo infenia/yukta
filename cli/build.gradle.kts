@@ -420,7 +420,33 @@ tasks.register("goCoverageCheck") {
         "go", "test", "-coverprofile=coverage.out", "./..."
       )
       testProcess.directory(projectDirectory)
-      val exitCode = testProcess.start().waitFor()
+      val process = testProcess.start()
+      val testOutput = StringBuilder()
+      val testErrorOutput = StringBuilder()
+
+      val stdoutThread = Thread {
+        process.inputStream.bufferedReader().use { reader ->
+          reader.forEachLine { testOutput.appendLine(it) }
+        }
+      }
+      val stderrThread = Thread {
+        process.errorStream.bufferedReader().use { reader ->
+          reader.forEachLine { testErrorOutput.appendLine(it) }
+        }
+      }
+
+      stdoutThread.start()
+      stderrThread.start()
+      val exitCode = process.waitFor()
+      stdoutThread.join()
+      stderrThread.join()
+
+      if (testOutput.isNotEmpty()) {
+        println(testOutput)
+      }
+      if (testErrorOutput.isNotEmpty()) {
+        println(testErrorOutput)
+      }
       if (exitCode != 0) {
         throw GradleException("Failed to generate coverage: exit code $exitCode")
       }
