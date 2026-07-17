@@ -29,7 +29,7 @@ import tools.jackson.databind.ObjectMapper;
 /** Unit tests for {@link FileSessionConfigStore}. */
 @MockitoSettings(strictness = Strictness.LENIENT)
 @NoArgsConstructor
-@SuppressWarnings("PMD.TooManyMethods")
+@SuppressWarnings({"PMD.TooManyMethods", "PMD.AvoidDuplicateLiterals"})
 class FileSessionConfigStoreTest {
 
   /** The sessions directory name. */
@@ -40,6 +40,9 @@ class FileSessionConfigStoreTest {
 
   /** A generic path string. */
   private static final String TEST_PATH = "/path";
+
+  /** Root filesystem path for testing null filename. */
+  private static final String ROOT_PATH = "/";
 
   /** A generic description string. */
   private static final String TEST_DESC = "desc";
@@ -545,5 +548,21 @@ class FileSessionConfigStoreTest {
     assertThat(invocationException.getCause())
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining("path traversal detected");
+  }
+
+  @Test
+  @SuppressWarnings({"PMD.AvoidAccessibilityAlteration"})
+  @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(
+      value = "DMI_HARDCODED_ABSOLUTE_FILENAME",
+      justification = "Root path '/' is intentionally used to test null filename edge case")
+  void testExtractSessionIdFromFileWithNullFileName() throws Exception {
+    final java.lang.reflect.Method extractSessionIdMethod =
+        FileSessionConfigStore.class.getDeclaredMethod("extractSessionIdFromFile", Path.class);
+    extractSessionIdMethod.setAccessible(true);
+
+    // Root path has getFileName() == null, testing defensive null check
+    final String result = (String) extractSessionIdMethod.invoke(configStore, Path.of(ROOT_PATH));
+
+    assertThat(result).isEmpty();
   }
 }

@@ -51,6 +51,7 @@ public class FileSystemPluginLogReader implements PluginLogReader {
   private final String baseLogDir;
 
   @Override
+  @SuppressWarnings("java:S2259") // sessionDir/getFileName never null for Files.list() results
   public Flux<PluginLogEntry> readExecution(final String executionId) {
     return Mono.fromCallable(
             () -> {
@@ -58,6 +59,7 @@ public class FileSystemPluginLogReader implements PluginLogReader {
               final Path logFile = findExecutionLogFile(executionId);
               if (logFile != null) {
                 final Path sessionDir = logFile.getParent();
+                // NOSONAR: getFileName() never returns null for Files.list() results
                 entries.addAll(readLogFile(logFile, sessionDir.getFileName().toString()));
               }
               return entries;
@@ -124,6 +126,7 @@ public class FileSystemPluginLogReader implements PluginLogReader {
   }
 
   @Override
+  @SuppressWarnings("java:S2259") // logFile.getFileName() never null for Files.list() results
   public Mono<List<ExecutionSummary>> listExecutions(final String sessionId) {
     return Mono.fromCallable(
             () -> {
@@ -139,6 +142,7 @@ public class FileSystemPluginLogReader implements PluginLogReader {
                     .filter(logFile -> logFile.toString().endsWith(LOG_FILE_EXTENSION))
                     .forEach(
                         logFile -> {
+                          // NOSONAR: getFileName() never returns null for Files.list() results
                           final String executionId =
                               logFile.getFileName().toString().replace(LOG_FILE_EXTENSION, "");
                           final List<PluginLogEntry> entries = readLogFile(logFile, sessionId);

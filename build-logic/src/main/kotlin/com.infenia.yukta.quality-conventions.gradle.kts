@@ -107,6 +107,8 @@ dependencies {
     // Resolve CVE-2025-67030: Plexus-utils directory traversal vulnerability
     constraints {
         add("checkstyle", "org.codehaus.plexus:plexus-utils:3.6.1")
+        // Align spotbugs-annotations with gradle.lockfile versions
+        add("implementation", "com.github.spotbugs:spotbugs-annotations:4.10.3")
     }
 }
 

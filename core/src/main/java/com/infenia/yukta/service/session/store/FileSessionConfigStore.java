@@ -442,7 +442,11 @@ public class FileSessionConfigStore implements SessionConfigStore {
    * @return the session ID
    */
   private String extractSessionIdFromFile(final Path path) {
-    final String filename = path.getFileName().toString();
+    final Path fileName = path.getFileName();
+    if (fileName == null) {
+      return "";
+    }
+    final String filename = fileName.toString();
     return filename.substring(0, filename.length() - 5); // Remove .json extension
   }
 

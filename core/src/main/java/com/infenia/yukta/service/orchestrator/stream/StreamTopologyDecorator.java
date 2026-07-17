@@ -183,9 +183,10 @@ public class StreamTopologyDecorator {
     Flux<Message<?>> stream =
         streams[edge.parentIndex()].map(msg -> msg.withSourceNodeId(edge.sourceNodeId()));
 
-    if (edge.sourcePort() != null) {
-      log.atDebug().setMessage("Filtering by source port: {}").addArgument(edge.sourcePort()).log();
-      stream = stream.filter(msg -> edge.sourcePort().equals(msg.getSourcePort()));
+    final String sourcePort = edge.sourcePort();
+    if (sourcePort != null) {
+      log.atDebug().setMessage("Filtering by source port: {}").addArgument(sourcePort).log();
+      stream = stream.filter(msg -> sourcePort.equals(msg.getSourcePort()));
     }
     return stream;
   }

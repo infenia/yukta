@@ -28,4 +28,11 @@
   <Match>
     <Class name="com.infenia.yukta.YuktaApplicationTest"/>
   </Match>
+
+  <!-- FileSystemPluginLogReader: sessionDir.getFileName() and logFile.getFileName() are never null
+       for paths returned by Files.list() in session directories -->
+  <Match>
+    <Class name="com.infenia.yukta.logging.impl.file.FileSystemPluginLogReader"/>
+    <Bug pattern="NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE"/>
+  </Match>
 </FindBugsFilter>

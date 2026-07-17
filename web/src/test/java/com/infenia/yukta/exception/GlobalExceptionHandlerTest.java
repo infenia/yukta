@@ -43,11 +43,11 @@ class GlobalExceptionHandlerTest {
   /** Invalid request body message constant. */
   private static final String INVALID_REQUEST_BODY = "Invalid request body";
 
+  /** Unchecked suppression constant. */
+  private static final String UNCHECKED_SUPPRESSION = "unchecked";
+
   /** API path constant. */
   private static final String API_PATH = "/api";
-
-  /** Unchecked warning suppression constant. */
-  private static final String UNCHECKED_SUPPRESSION = "unchecked";
 
   /** Object name constant. */
   private static final String OBJ = "obj";
@@ -261,7 +261,8 @@ class GlobalExceptionHandlerTest {
         .expectNextMatches(
             resp -> {
               final ApiResponse<Object> body = (ApiResponse<Object>) resp.getBody();
-              return body.errors().size() == 2
+              return body != null
+                  && body.errors().size() == 2
                   && "field1".equals(body.errors().get(0).field())
                   && "field2".equals(body.errors().get(1).field())
                   && body.status() == 400;
@@ -319,7 +320,7 @@ class GlobalExceptionHandlerTest {
         .expectNextMatches(
             resp -> {
               final ApiResponse<Object> body = (ApiResponse<Object>) resp.getBody();
-              return "nestedField".equals(body.errors().get(0).field());
+              return body != null && "nestedField".equals(body.errors().get(0).field());
             })
         .verifyComplete();
   }
@@ -338,7 +339,8 @@ class GlobalExceptionHandlerTest {
         .expectNextMatches(
             resp -> {
               final ApiResponse<Object> body = (ApiResponse<Object>) resp.getBody();
-              return "custom error message".equals(body.message())
+              return body != null
+                  && "custom error message".equals(body.message())
                   && resp.getStatusCode() == HttpStatus.BAD_REQUEST
                   && body.status() == 400;
             })
@@ -359,7 +361,8 @@ class GlobalExceptionHandlerTest {
         .expectNextMatches(
             resp -> {
               final ApiResponse<Object> body = (ApiResponse<Object>) resp.getBody();
-              return "500 INTERNAL_SERVER_ERROR".equals(body.message())
+              return body != null
+                  && "500 INTERNAL_SERVER_ERROR".equals(body.message())
                   && resp.getStatusCode() == HttpStatus.INTERNAL_SERVER_ERROR
                   && body.status() == 500;
             })
@@ -383,7 +386,9 @@ class GlobalExceptionHandlerTest {
         .expectNextMatches(
             resp -> {
               final ApiResponse<Object> body = (ApiResponse<Object>) resp.getBody();
-              return body.equals(existingResponse) && resp.getStatusCode() == HttpStatus.OK;
+              return body != null
+                  && body.equals(existingResponse)
+                  && resp.getStatusCode() == HttpStatus.OK;
             })
         .verifyComplete();
   }
