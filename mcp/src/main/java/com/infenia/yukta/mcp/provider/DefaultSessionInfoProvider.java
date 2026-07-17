@@ -2,24 +2,21 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.mcp.provider;
 
-import com.infenia.yukta.dto.response.ErrorExample;
-import com.infenia.yukta.dto.response.PluginReference;
-import com.infenia.yukta.dto.response.SessionCreationGuide;
-import com.infenia.yukta.dto.response.SessionCreationResponse;
-import com.infenia.yukta.dto.response.SessionDetails;
-import com.infenia.yukta.dto.response.SessionInfo;
+import com.infenia.yukta.mcp.dto.ErrorExample;
+import com.infenia.yukta.mcp.dto.PluginReference;
+import com.infenia.yukta.mcp.dto.SessionCreationGuide;
+import com.infenia.yukta.mcp.dto.SessionCreationResult;
+import com.infenia.yukta.mcp.dto.SessionDetails;
+import com.infenia.yukta.mcp.dto.SessionSummary;
 import com.infenia.yukta.model.session.SessionConfigData;
 import com.infenia.yukta.service.plugin.PluginRegistry;
 import com.infenia.yukta.service.session.SessionService;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
-import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import tools.jackson.databind.ObjectMapper;
 
@@ -42,35 +39,28 @@ public class DefaultSessionInfoProvider implements SessionInfoProvider {
   private final ObjectMapper objectMapper;
 
   @Override
-  @SuppressWarnings("unchecked")
   public Mono<SessionDetails> getSessionDetails(final String sessionId) {
     return sessionService
         .getSessionConfig(sessionId)
-        .map(
-            config -> {
-              final Map<String, Object> workflows =
-                  (Map<String, Object>) config.getOrDefault("workflows", Map.of());
-              return new SessionDetails(sessionId, List.copyOf(workflows.keySet()));
-            });
+        .map(config -> new SessionDetails(sessionId, List.copyOf(workflowsOf(config).keySet())))
+        .switchIfEmpty(
+            Mono.error(
+                () ->
+                    new IllegalArgumentException(
+                        "Session not found: "
+                            + sessionId
+                            + ". Use list_sessions to see available sessions.")));
   }
 
   @Override
-  @SuppressWarnings("unchecked")
-  public Flux<SessionInfo> listSessions() {
+  public Mono<List<SessionSummary>> listSessions() {
     return sessionService
         .getSessionIds()
         .flatMap(
             sessionId ->
                 sessionService
                     .getSessionConfig(sessionId)
-                    .map(
-                        config -> {
-                          final Map<String, Object> workflows =
-                              (Map<String, Object>) config.getOrDefault("workflows", Map.of());
-                          final int workflowCount = workflows.size();
-                          final LocalDateTime now = LocalDateTime.now(ZoneId.systemDefault());
-                          return new SessionInfo(sessionId, workflowCount, now, now, "active");
-                        })
+                    .map(config -> new SessionSummary(sessionId, workflowsOf(config).size()))
                     .onErrorResume(
                         e -> {
                           log.atWarn()
@@ -80,7 +70,13 @@ public class DefaultSessionInfoProvider implements SessionInfoProvider {
                                   sessionId,
                                   e.getMessage());
                           return Mono.empty();
-                        }));
+                        }))
+        .collectList();
+  }
+
+  @SuppressWarnings("unchecked")
+  private Map<String, Object> workflowsOf(final Map<String, Object> config) {
+    return (Map<String, Object>) config.getOrDefault("workflows", Map.of());
   }
 
   @Override
@@ -157,7 +153,7 @@ public class DefaultSessionInfoProvider implements SessionInfoProvider {
                 "Used a plugin type that is not registered in the PluginRegistry. "
                     + "For example, referencing 'invalid-plugin' when only 'gradle-checker' is "
                     + "available.",
-                "Check the available plugins using the listPlugins() tool. Ensure the 'type' "
+                "Check the available plugins using the list_plugins tool. Ensure the 'type' "
                     + "field in your node configuration matches exactly (case-sensitive) with a "
                     + "registered plugin."),
             new ErrorExample(
@@ -170,7 +166,7 @@ public class DefaultSessionInfoProvider implements SessionInfoProvider {
                 "Missing Required Configuration Fields",
                 "A plugin node is missing required configuration fields. For example, a "
                     + "gradle-checker node missing the 'tasks' array in its config.",
-                "Review the plugin's usage pattern using getPluginDetails(pluginType) and ensure "
+                "Review the plugin's usage pattern using the get_plugin_details tool and ensure "
                     + "all required configuration fields are present in the node's config."));
 
     return new SessionCreationGuide(
@@ -183,7 +179,7 @@ public class DefaultSessionInfoProvider implements SessionInfoProvider {
   }
 
   @Override
-  public Mono<SessionCreationResponse> createSession(final String sessionConfigJson) {
+  public Mono<SessionCreationResult> createSession(final String sessionConfigJson) {
     return parseSessionConfig(sessionConfigJson)
         .flatMap(
             config ->
@@ -194,15 +190,19 @@ public class DefaultSessionInfoProvider implements SessionInfoProvider {
                             () -> {
                               final List<String> createdWorkflows =
                                   new ArrayList<>(config.workflows().keySet());
-                              return new SessionCreationResponse(
+                              return new SessionCreationResult(
                                   config.sessionId(), createdWorkflows, List.of(), true);
                             })))
         .onErrorResume(
             e -> {
               log.atWarn().setCause(e).log("Failed to create session: {}", e.getMessage());
-              return Mono.just(
-                  new SessionCreationResponse(
-                      "", List.of(), List.of("Error creating session: " + e.getMessage()), false));
+              return Mono.error(
+                  new IllegalArgumentException(
+                      "Failed to create session: "
+                          + e.getMessage()
+                          + ". Use get_session_creation_instructions for the expected "
+                          + "configuration format.",
+                      e));
             });
   }
 

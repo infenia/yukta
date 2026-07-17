@@ -2,20 +2,24 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.mcp.provider;
 
+import com.infenia.yukta.mcp.dto.WorkflowStartResult;
 import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
+import com.infenia.yukta.model.execution.WorkflowProgress;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.model.workflow.WorkflowExecution;
-import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
+import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import com.infenia.yukta.service.session.SessionService;
 import com.infenia.yukta.service.workflow.WorkflowService;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
 /**
  * Default implementation of WorkflowExecutionProvider. Handles workflow execution operations
- * including definition retrieval, trigger operations, and status monitoring.
+ * including definition retrieval, start operations, status snapshots, and execution history.
  */
 @Slf4j
 @Component
@@ -28,8 +32,8 @@ public class DefaultWorkflowExecutionProvider implements WorkflowExecutionProvid
   /** Service for managing session state and configuration. */
   private final SessionService sessionService;
 
-  /** Service for tracking task progress and execution details. */
-  private final TaskTrackerService trackerService;
+  /** Gateway for workflow control and observability operations. */
+  private final ControlBusGateway controlBus;
 
   @Override
   public Mono<WorkflowDefinition> getWorkflowDetails(
@@ -38,19 +42,42 @@ public class DefaultWorkflowExecutionProvider implements WorkflowExecutionProvid
   }
 
   @Override
-  public Mono<String> triggerWorkflow(
-      final String sessionId, final String workflowId, final String payloadJson) {
+  public Mono<WorkflowStartResult> startWorkflow(final String sessionId, final String workflowId) {
     return workflowService
         .validateAndStartWorkflow(sessionId, workflowId)
-        .map(WorkflowExecution::executionId);
+        .map(WorkflowExecution::executionId)
+        .map(WorkflowStartResult::new);
   }
 
   @Override
-  public Mono<WorkflowExecutionSummary> getWorkflowStatus(
+  public Mono<WorkflowProgress> getWorkflowStatus(
       final String sessionId, final String executionId) {
-    return Mono.fromCallable(() -> trackerService.getHistory(sessionId))
-        .flatMapIterable(list -> list)
-        .filter(s -> s.executionId().equals(executionId))
-        .next();
+    return Mono.fromCallable(() -> controlBus.getCurrentProgress(executionId))
+        .subscribeOn(Schedulers.boundedElastic())
+        .filter(progress -> progress.sessionId().equals(sessionId))
+        .switchIfEmpty(
+            Mono.error(
+                () ->
+                    new IllegalArgumentException(
+                        "Execution not found: "
+                            + executionId
+                            + ". Use get_workflow_history to list executions.")));
+  }
+
+  @Override
+  public Mono<List<WorkflowExecutionSummary>> getWorkflowHistory(final String sessionId) {
+    return sessionService
+        .getSessionConfig(sessionId)
+        .flatMap(
+            ignored ->
+                Mono.fromCallable(() -> controlBus.getHistory(sessionId))
+                    .subscribeOn(Schedulers.boundedElastic()))
+        .switchIfEmpty(
+            Mono.error(
+                () ->
+                    new IllegalArgumentException(
+                        "Session not found: "
+                            + sessionId
+                            + ". Use list_sessions to see available sessions.")));
   }
 }

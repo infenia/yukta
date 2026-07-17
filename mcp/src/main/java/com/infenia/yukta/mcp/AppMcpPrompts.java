@@ -32,8 +32,12 @@ public class AppMcpPrompts {
     return Mono.just(
         String.format(
             "I need help debugging the workflow execution %s in session %s. "
-                + "Please analyze the logs and the DAG definition to identify the "
-                + "root cause of the failure.",
+                + "Use get_workflow_status to inspect the per-node task progress, "
+                + "get_execution_logs (with a filterPattern like 'ERROR' if helpful) to "
+                + "analyze the logs, and get_workflow_details to review the DAG definition. "
+                + "Identify the root cause of the failure and suggest a fix. If a retry is "
+                + "appropriate, use control_workflow with action RESTART or "
+                + "RESTART_FROM_NODE.",
             executionId, sessionId));
   }
 
@@ -47,7 +51,9 @@ public class AppMcpPrompts {
       description = "Help the agent generate a valid session configuration JSON")
   public Mono<String> createSessionConfig() {
     return Mono.just(
-        "Please help me generate a valid JSON configuration for a new Yukta session. I need to"
-            + " include workflow definitions with nodes and edges for code quality checks.");
+        "Please help me generate a valid JSON configuration for a new Yukta session. First "
+            + "call get_session_creation_instructions for the configuration format and "
+            + "list_plugins to see the available node types, then draft workflow definitions "
+            + "with nodes and edges and apply them with create_session.");
   }
 }

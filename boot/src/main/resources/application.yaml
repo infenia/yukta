@@ -20,8 +20,6 @@ spring:
         type: ASYNC
         streamable-http:
           mcp-endpoint: /sse
-        sse:
-          sse-endpoint: /sse
   docker:
     compose:
       enabled: false

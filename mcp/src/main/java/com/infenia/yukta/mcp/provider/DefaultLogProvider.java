@@ -2,75 +2,71 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.mcp.provider;
 
+import com.infenia.yukta.logging.api.PluginLogEntry;
+import com.infenia.yukta.logging.api.PluginLogStore;
+import com.infenia.yukta.mcp.dto.ExecutionLogs;
 import com.infenia.yukta.mcp.util.RegexPatternValidator;
-import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
-import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
+import com.infenia.yukta.model.execution.WorkflowProgress;
+import com.infenia.yukta.service.control.gateway.ControlBusGateway;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
-import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
 /**
- * Default implementation of LogProvider. Handles log streaming and filtering with centralized regex
- * pattern validation.
+ * Default implementation of LogProvider. Reads persisted plugin logs from the log store, applying
+ * the same session-ownership check as the web layer's log endpoint.
  */
 @Component
 @RequiredArgsConstructor
-@SuppressWarnings("PMD.UseObjectForClearerAPI")
 public class DefaultLogProvider implements LogProvider {
 
-  /** Service for tracking and retrieving task logs. */
-  private final TaskTrackerService trackerService;
+  /** Store of persisted plugin log entries. */
+  private final PluginLogStore logStore;
+
+  /** Gateway used to resolve execution ownership. */
+  private final ControlBusGateway controlBus;
 
   @Override
-  public Flux<String> streamSessionLogs(
+  public Mono<ExecutionLogs> getExecutionLogs(
       final String sessionId,
-      final String workflowId,
       final String executionId,
+      final Integer tailLines,
       final String filterPattern) {
-    return Mono.fromCallable(
-            () -> {
-              RegexPatternValidator.validatePattern(filterPattern);
-              return trackerService.getHistory(sessionId);
-            })
-        .flatMapIterable(
-            history ->
-                history.stream()
-                    .filter(
-                        exec ->
-                            (workflowId == null || exec.workflowId().equals(workflowId))
-                                && (executionId == null || exec.executionId().equals(executionId)))
-                    .map(this::formatExecution)
-                    .filter(line -> RegexPatternValidator.matches(line, filterPattern))
-                    .toList());
+    return Mono.fromRunnable(() -> RegexPatternValidator.validatePattern(filterPattern))
+        .then(requireOwnership(sessionId, executionId))
+        .thenMany(logStore.readExecution(executionId))
+        .map(PluginLogEntry::format)
+        .filter(line -> RegexPatternValidator.matches(line, filterPattern))
+        .collectList()
+        .map(lines -> toExecutionLogs(executionId, lines, tailLines));
   }
 
-  @Override
-  public Mono<String> getWorkflowExecutionLogs(
-      final String sessionId, final String executionId, final String filterPattern) {
-    return Mono.fromCallable(
-            () -> {
-              RegexPatternValidator.validatePattern(filterPattern);
-              return trackerService.getHistory(sessionId);
-            })
-        .map(
-            history ->
-                history.stream()
-                    .filter(exec -> exec.executionId().equals(executionId))
-                    .findFirst()
-                    .orElseThrow(
-                        () -> new IllegalArgumentException("Execution not found: " + executionId)))
-        .map(this::formatExecution)
-        .map(logs -> filterLogsByContent(logs, filterPattern));
+  private ExecutionLogs toExecutionLogs(
+      final String executionId, final List<String> lines, final Integer tailLines) {
+    final List<String> returned =
+        tailLines == null || tailLines <= 0 || tailLines >= lines.size()
+            ? lines
+            : lines.subList(lines.size() - tailLines, lines.size());
+    return new ExecutionLogs(executionId, lines.size(), returned.size(), returned);
   }
 
-  private String formatExecution(final WorkflowExecutionSummary exec) {
-    return String.format(
-        "Execution: %s | Workflow: %s | Status: %s | Start: %s | End: %s",
-        exec.executionId(), exec.workflowId(), exec.status(), exec.startTime(), exec.endTime());
-  }
-
-  private String filterLogsByContent(final String logs, final String pattern) {
-    return RegexPatternValidator.matches(logs, pattern) ? logs : "";
+  /**
+   * Verify that the execution exists and belongs to the session. A missing execution and a session
+   * mismatch yield the same error so callers cannot probe executions of other sessions.
+   */
+  private Mono<WorkflowProgress> requireOwnership(
+      final String sessionId, final String executionId) {
+    return Mono.fromCallable(() -> controlBus.getCurrentProgress(executionId))
+        .subscribeOn(Schedulers.boundedElastic())
+        .filter(progress -> progress.sessionId().equals(sessionId))
+        .switchIfEmpty(
+            Mono.error(
+                () ->
+                    new IllegalArgumentException(
+                        "Execution not found: "
+                            + executionId
+                            + ". Use get_workflow_history to list executions.")));
   }
 }

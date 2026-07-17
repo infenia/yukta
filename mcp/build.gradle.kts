@@ -12,7 +12,6 @@ dependencyManagement {
 
 dependencies {
     api(project(":core"))
-    api(project(":web"))
 
     implementation(libs.spring.ai.mcp.server.webflux)
 

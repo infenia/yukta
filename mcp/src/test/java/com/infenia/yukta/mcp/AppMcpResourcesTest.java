@@ -3,15 +3,15 @@
 package com.infenia.yukta.mcp;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import com.infenia.yukta.mcp.dto.ExecutionLogs;
 import com.infenia.yukta.mcp.provider.DefaultLogProvider;
+import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
 class AppMcpResourcesTest {
@@ -48,11 +48,11 @@ class AppMcpResourcesTest {
   }
 
   @Test
-  void testGetSessionLogs() {
-    when(logProvider.streamSessionLogs(eq("s1"), any(), any(), any()))
-        .thenReturn(Flux.just("line1", "line2"));
+  void testGetExecutionLogs() {
+    when(logProvider.getExecutionLogs("s1", "e1", null, null))
+        .thenReturn(Mono.just(new ExecutionLogs("e1", 2, 2, List.of("line1", "line2"))));
 
-    StepVerifier.create(mcpResources.getSessionLogs("s1"))
+    StepVerifier.create(mcpResources.getExecutionLogs("s1", "e1"))
         .expectNext("line1\nline2")
         .verifyComplete();
   }

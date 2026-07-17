@@ -8,8 +8,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import com.infenia.yukta.dto.response.PluginReference;
-import com.infenia.yukta.dto.response.SessionCreationGuide;
+import com.infenia.yukta.mcp.dto.PluginReference;
+import com.infenia.yukta.mcp.dto.SessionCreationGuide;
 import com.infenia.yukta.plugin.core.Plugin;
 import com.infenia.yukta.plugin.core.PluginCategory;
 import com.infenia.yukta.service.plugin.PluginRegistry;
@@ -51,14 +51,43 @@ class DefaultSessionInfoProviderTest {
   }
 
   @Test
-  void testListSessions() {
+  void testGetSessionDetailsNotFound() {
+    when(sessionService.getSessionConfig("nope")).thenReturn(Mono.empty());
+
+    StepVerifier.create(provider.getSessionDetails("nope"))
+        .expectErrorMatches(
+            error ->
+                error instanceof IllegalArgumentException
+                    && error.getMessage().contains("Session not found: nope"))
+        .verify();
+  }
+
+  @Test
+  void testListSessionsSkipsFailingSession() {
     when(sessionService.getSessionIds()).thenReturn(Flux.just("s1", "s2"));
-    when(sessionService.getSessionConfig("s1")).thenReturn(Mono.just(Map.of()));
+    when(sessionService.getSessionConfig("s1"))
+        .thenReturn(Mono.just(Map.of("workflows", Map.of("wf-1", Map.of()))));
     when(sessionService.getSessionConfig("s2"))
         .thenReturn(Mono.error(new RuntimeException("fail")));
 
     StepVerifier.create(provider.listSessions())
-        .expectNextMatches(info -> info.sessionId().equals("s1"))
+        .expectNextMatches(
+            sessions ->
+                sessions.size() == 1
+                    && sessions.get(0).sessionId().equals("s1")
+                    && sessions.get(0).workflowCount() == 1)
+        .verifyComplete();
+  }
+
+  @Test
+  void testListSessionsMultiple() {
+    when(sessionService.getSessionIds()).thenReturn(Flux.just("s1", "s2", "s3"));
+    when(sessionService.getSessionConfig("s1")).thenReturn(Mono.just(Map.of("wf", "data")));
+    when(sessionService.getSessionConfig("s2")).thenReturn(Mono.just(Map.of()));
+    when(sessionService.getSessionConfig("s3")).thenReturn(Mono.just(Map.of()));
+
+    StepVerifier.create(provider.listSessions())
+        .expectNextMatches(sessions -> sessions.size() == 3)
         .verifyComplete();
   }
 
@@ -78,7 +107,6 @@ class DefaultSessionInfoProviderTest {
 
   @Test
   void testGetSessionCreationInstructionsWithPlugins() {
-    // Mock plugins to cover the PluginReference creation code path
     Plugin plugin1 = mock(Plugin.class);
     when(plugin1.getType()).thenReturn("test-plugin");
     when(plugin1.getCategory()).thenReturn(PluginCategory.PROCESSOR);
@@ -97,7 +125,6 @@ class DefaultSessionInfoProviderTest {
     assertNotNull(guide.availablePlugins());
     assertFalse(guide.availablePlugins().isEmpty());
 
-    // Verify PluginReference objects were created correctly
     List<PluginReference> plugins = guide.availablePlugins();
     assertTrue(
         plugins.stream()
@@ -120,25 +147,18 @@ class DefaultSessionInfoProviderTest {
     when(sessionService.applyConfig(org.mockito.ArgumentMatchers.any())).thenReturn(Mono.empty());
 
     StepVerifier.create(provider.createSession("{\"sessionId\":\"s1\", \"workflows\":{}}"))
-        .expectNextMatches(res -> res.success())
+        .expectNextMatches(res -> res.success() && res.sessionId().equals("s1"))
         .verifyComplete();
   }
 
   @Test
   void testCreateSessionInvalidJson() {
     StepVerifier.create(provider.createSession("invalid"))
-        .expectNextMatches(res -> !res.success())
-        .verifyComplete();
-  }
-
-  @Test
-  void testListSessionsMultiple() {
-    when(sessionService.getSessionIds()).thenReturn(Flux.just("s1", "s2", "s3"));
-    when(sessionService.getSessionConfig("s1")).thenReturn(Mono.just(Map.of("wf", "data")));
-    when(sessionService.getSessionConfig("s2")).thenReturn(Mono.just(Map.of()));
-    when(sessionService.getSessionConfig("s3")).thenReturn(Mono.just(Map.of()));
-
-    StepVerifier.create(provider.listSessions()).expectNextCount(3).verifyComplete();
+        .expectErrorMatches(
+            error ->
+                error instanceof IllegalArgumentException
+                    && error.getMessage().contains("Failed to create session"))
+        .verify();
   }
 
   @Test
@@ -147,7 +167,11 @@ class DefaultSessionInfoProviderTest {
         .thenReturn(Mono.error(new RuntimeException("Config error")));
 
     StepVerifier.create(provider.createSession("{\"sessionId\":\"s1\", \"workflows\":{}}"))
-        .expectNextMatches(res -> !res.success() && res.warnings().size() > 0)
-        .verifyComplete();
+        .expectErrorMatches(
+            error ->
+                error instanceof IllegalArgumentException
+                    && error.getMessage().contains("Config error")
+                    && error.getCause() instanceof RuntimeException)
+        .verify();
   }
 }

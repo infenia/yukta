@@ -9,9 +9,9 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import com.infenia.yukta.dto.response.PluginCreationGuide;
-import com.infenia.yukta.dto.response.PluginDetails;
-import com.infenia.yukta.dto.response.PluginSummary;
+import com.infenia.yukta.mcp.dto.PluginCreationGuide;
+import com.infenia.yukta.mcp.dto.PluginDetails;
+import com.infenia.yukta.mcp.dto.PluginSummary;
 import com.infenia.yukta.plugin.core.Plugin;
 import com.infenia.yukta.plugin.core.PluginCategory;
 import com.infenia.yukta.service.plugin.PluginRegistry;

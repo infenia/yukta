@@ -2,13 +2,16 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.mcp.provider;
 
+import com.infenia.yukta.mcp.dto.WorkflowStartResult;
 import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
+import com.infenia.yukta.model.execution.WorkflowProgress;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
+import java.util.List;
 import reactor.core.publisher.Mono;
 
 /**
- * Provider for workflow execution operations. Handles workflow definition retrieval, trigger
- * operations, and status monitoring.
+ * Provider for workflow execution operations. Handles workflow definition retrieval, start
+ * operations, status snapshots, and execution history.
  */
 public interface WorkflowExecutionProvider {
 
@@ -22,21 +25,29 @@ public interface WorkflowExecutionProvider {
   Mono<WorkflowDefinition> getWorkflowDetails(String sessionId, String workflowId);
 
   /**
-   * Trigger a workflow execution.
+   * Start a workflow execution.
    *
    * @param sessionId the session identifier
    * @param workflowId the workflow identifier
-   * @param payloadJson optional JSON string for trigger payload
-   * @return Mono containing the execution ID
+   * @return Mono containing the start result with the new execution ID
    */
-  Mono<String> triggerWorkflow(String sessionId, String workflowId, String payloadJson);
+  Mono<WorkflowStartResult> startWorkflow(String sessionId, String workflowId);
 
   /**
-   * Get status of a workflow execution.
+   * Get the current progress snapshot of a workflow execution owned by the session.
+   *
+   * @param sessionId the session that owns the execution
+   * @param executionId the execution identifier
+   * @return Mono containing the current workflow progress; errors if the execution is unknown or
+   *     owned by another session
+   */
+  Mono<WorkflowProgress> getWorkflowStatus(String sessionId, String executionId);
+
+  /**
+   * Get the execution history of a session.
    *
    * @param sessionId the session identifier
-   * @param executionId the execution identifier
-   * @return Mono containing workflow execution summary
+   * @return Mono containing the list of execution summaries; errors if the session is unknown
    */
-  Mono<WorkflowExecutionSummary> getWorkflowStatus(String sessionId, String executionId);
+  Mono<List<WorkflowExecutionSummary>> getWorkflowHistory(String sessionId);
 }

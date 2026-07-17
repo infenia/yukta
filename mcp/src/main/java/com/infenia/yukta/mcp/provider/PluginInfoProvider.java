@@ -2,9 +2,9 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.mcp.provider;
 
-import com.infenia.yukta.dto.response.PluginCreationGuide;
-import com.infenia.yukta.dto.response.PluginDetails;
-import com.infenia.yukta.dto.response.PluginSummary;
+import com.infenia.yukta.mcp.dto.PluginCreationGuide;
+import com.infenia.yukta.mcp.dto.PluginDetails;
+import com.infenia.yukta.mcp.dto.PluginSummary;
 import java.util.List;
 
 /**

@@ -2,35 +2,23 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.mcp.provider;
 
-import reactor.core.publisher.Flux;
+import com.infenia.yukta.mcp.dto.ExecutionLogs;
 import reactor.core.publisher.Mono;
 
-/**
- * Provider for session and workflow logging operations. Handles log streaming and filtering with
- * optional regex pattern matching.
- */
-@SuppressWarnings("PMD.UseObjectForClearerAPI")
+/** Provider for workflow execution logs backed by the persistent plugin log store. */
+@FunctionalInterface
 public interface LogProvider {
 
   /**
-   * Stream session logs with optional filtering.
+   * Get the logs of a workflow execution.
    *
-   * @param sessionId the session identifier
-   * @param workflowId optional workflow filter
-   * @param executionId optional execution filter
-   * @param filterPattern optional regex pattern filter
-   * @return Flux of log lines
-   */
-  Flux<String> streamSessionLogs(
-      String sessionId, String workflowId, String executionId, String filterPattern);
-
-  /**
-   * Get workflow execution logs.
-   *
-   * @param sessionId the session identifier
+   * @param sessionId the session that owns the execution
    * @param executionId the execution identifier
-   * @param filterPattern optional regex pattern filter
-   * @return Mono containing formatted logs
+   * @param tailLines optional maximum number of trailing lines to return
+   * @param filterPattern optional regex applied to each formatted log line
+   * @return Mono containing the execution logs; errors if the execution is unknown or the pattern
+   *     is invalid
    */
-  Mono<String> getWorkflowExecutionLogs(String sessionId, String executionId, String filterPattern);
+  Mono<ExecutionLogs> getExecutionLogs(
+      String sessionId, String executionId, Integer tailLines, String filterPattern);
 }

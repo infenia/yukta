@@ -2,11 +2,11 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.mcp.provider;
 
-import com.infenia.yukta.dto.response.SessionCreationGuide;
-import com.infenia.yukta.dto.response.SessionCreationResponse;
-import com.infenia.yukta.dto.response.SessionDetails;
-import com.infenia.yukta.dto.response.SessionInfo;
-import reactor.core.publisher.Flux;
+import com.infenia.yukta.mcp.dto.SessionCreationGuide;
+import com.infenia.yukta.mcp.dto.SessionCreationResult;
+import com.infenia.yukta.mcp.dto.SessionDetails;
+import com.infenia.yukta.mcp.dto.SessionSummary;
+import java.util.List;
 import reactor.core.publisher.Mono;
 
 /**
@@ -19,16 +19,16 @@ public interface SessionInfoProvider {
    * Get details of a specific session.
    *
    * @param sessionId the session identifier
-   * @return Mono containing session details
+   * @return Mono containing session details; errors if the session is unknown
    */
   Mono<SessionDetails> getSessionDetails(String sessionId);
 
   /**
    * List all available sessions.
    *
-   * @return Flux of session information
+   * @return Mono containing the list of session summaries
    */
-  Flux<SessionInfo> listSessions();
+  Mono<List<SessionSummary>> listSessions();
 
   /**
    * Get comprehensive instructions for creating a new session.
@@ -41,7 +41,7 @@ public interface SessionInfoProvider {
    * Create a new session with the provided configuration.
    *
    * @param sessionConfigJson JSON string containing session configuration
-   * @return Mono containing session creation response
+   * @return Mono containing the session creation result
    */
-  Mono<SessionCreationResponse> createSession(String sessionConfigJson);
+  Mono<SessionCreationResult> createSession(String sessionConfigJson);
 }
