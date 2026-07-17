@@ -54,8 +54,14 @@ class DefaultSystemHealthProviderTest {
     when(registry.listPlugins()).thenReturn(List.of(plugin));
 
     when(sessionService.getSessionIds()).thenReturn(Flux.just("s1"));
-    when(sessionService.getSessionConfig("s1"))
-        .thenReturn(Mono.just(Map.of("workflows", Map.of("wf-1", Map.of(), "wf-2", Map.of()))));
+    final var wf1 =
+        new com.infenia.yukta.model.workflow.WorkflowDefinition("wf-1", "d", List.of(), List.of());
+    final var wf2 =
+        new com.infenia.yukta.model.workflow.WorkflowDefinition("wf-2", "d", List.of(), List.of());
+    final var config =
+        new com.infenia.yukta.model.session.SessionConfigResponse(
+            "s1", "desc", "initiator", Map.of(), "/path", Map.of("wf-1", wf1, "wf-2", wf2));
+    when(sessionService.getSessionConfig("s1")).thenReturn(Mono.just(config));
     when(controlBus.getHistory("s1"))
         .thenReturn(List.of(execution("e1", "RUNNING"), execution("e2", "COMPLETED")));
 
@@ -100,7 +106,10 @@ class DefaultSystemHealthProviderTest {
   @Test
   void testSessionsFilterSkipsPlugins() {
     when(sessionService.getSessionIds()).thenReturn(Flux.just("s1"));
-    when(sessionService.getSessionConfig("s1")).thenReturn(Mono.just(Map.of()));
+    final var config =
+        new com.infenia.yukta.model.session.SessionConfigResponse(
+            "s1", "desc", "initiator", Map.of(), "/path", Map.of());
+    when(sessionService.getSessionConfig("s1")).thenReturn(Mono.just(config));
     when(controlBus.getHistory("s1")).thenReturn(List.of());
 
     StepVerifier.create(provider.getControlBusStatus("sessions"))
@@ -212,7 +221,10 @@ class DefaultSystemHealthProviderTest {
     when(sessionService.getSessionIds()).thenReturn(Flux.just("s1", "s2"));
     when(sessionService.getSessionConfig("s1"))
         .thenReturn(Mono.error(new RuntimeException("boom")));
-    when(sessionService.getSessionConfig("s2")).thenReturn(Mono.just(Map.of()));
+    final var config =
+        new com.infenia.yukta.model.session.SessionConfigResponse(
+            "s2", "desc", "initiator", Map.of(), "/path", Map.of());
+    when(sessionService.getSessionConfig("s2")).thenReturn(Mono.just(config));
     when(controlBus.getHistory("s2")).thenReturn(List.of());
 
     StepVerifier.create(provider.getControlBusStatus("sessions"))

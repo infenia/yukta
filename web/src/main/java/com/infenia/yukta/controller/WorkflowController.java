@@ -911,11 +911,13 @@ public class WorkflowController {
     return sessionService
         .getSessionConfig(sessionId)
         .doOnNext(
-            _ ->
+            config ->
                 log.atInfo().log(
-                    "getWorkflowHistory session config retrieved: sessionId={}", sessionId))
+                    "getWorkflowHistory session config retrieved: sessionId={}, workflowCount={}",
+                    sessionId,
+                    config.workflows().size()))
         .flatMap(
-            ignored ->
+            config ->
                 Mono.fromCallable(() -> controlBus.getHistory(sessionId))
                     .map(
                         history ->

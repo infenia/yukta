@@ -16,7 +16,6 @@ import java.time.Duration;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -149,9 +148,8 @@ public class DefaultSystemHealthProvider implements SystemHealthProvider {
         .subscribeOn(Schedulers.boundedElastic());
   }
 
-  @SuppressWarnings("unchecked")
-  private int workflowCount(final Map<String, Object> config) {
-    return ((Map<String, Object>) config.getOrDefault("workflows", Map.of())).size();
+  private int workflowCount(final com.infenia.yukta.model.session.SessionConfigResponse config) {
+    return config.workflows().size();
   }
 
   private int countActive(final List<WorkflowExecutionSummary> history) {

@@ -14,8 +14,8 @@ import gg.jte.output.StringOutput;
 import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
@@ -61,7 +61,14 @@ public class UiController {
                     .getSessionConfig(id)
                     .map(
                         config -> {
-                          final Map<String, Object> map = new ConcurrentHashMap<>(config);
+                          @SuppressWarnings("PMD.UseConcurrentHashMap")
+                          final Map<String, Object> map = new HashMap<>();
+                          map.put("sessionId", config.sessionId());
+                          map.put("description", config.description());
+                          map.put("initiator", config.initiator());
+                          map.put("tags", config.tags());
+                          map.put("projectPath", config.projectPath());
+                          map.put("workflows", config.workflows());
                           map.put(SESSION_ID_KEY, id);
                           return map;
                         }))
@@ -96,7 +103,14 @@ public class UiController {
                     .getSessionConfig(id)
                     .map(
                         config -> {
-                          final Map<String, Object> map = new ConcurrentHashMap<>(config);
+                          @SuppressWarnings("PMD.UseConcurrentHashMap")
+                          final Map<String, Object> map = new HashMap<>();
+                          map.put("sessionId", config.sessionId());
+                          map.put("description", config.description());
+                          map.put("initiator", config.initiator());
+                          map.put("tags", config.tags());
+                          map.put("projectPath", config.projectPath());
+                          map.put("workflows", config.workflows());
                           map.put(SESSION_ID_KEY, id);
                           return map;
                         }))
@@ -163,10 +177,9 @@ public class UiController {
               model.addAttribute("config", config);
               model.addAttribute("logs", java.util.List.of());
 
-              final Object workflowsObj = config.get("workflows");
-              model.addAttribute(
-                  "workflows", workflowsObj instanceof Map ? workflowsObj : Map.of());
-              final String actualWorkflowId = resolveWorkflowId(workflowId, workflowsObj);
+              final Map<String, WorkflowDefinition> workflows = config.workflows();
+              model.addAttribute("workflows", workflows);
+              final String actualWorkflowId = resolveWorkflowId(workflowId, workflows);
 
               addProgressToModel(sessionId, actualWorkflowId, model);
               return fetchAndRenderSession(sessionId, actualWorkflowId, model);
@@ -174,13 +187,12 @@ public class UiController {
   }
 
   @SuppressWarnings("PMD.OnlyOneReturn")
-  private String resolveWorkflowId(final String workflowId, final Object workflowsObj) {
+  private String resolveWorkflowId(
+      final String workflowId, final Map<String, WorkflowDefinition> workflows) {
     if (workflowId != null) {
       return workflowId;
     }
-    return workflowsObj instanceof Map workflows && !workflows.isEmpty()
-        ? (String) workflows.keySet().iterator().next()
-        : null;
+    return !workflows.isEmpty() ? workflows.keySet().iterator().next() : null;
   }
 
   private void addProgressToModel(

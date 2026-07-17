@@ -16,7 +16,6 @@ import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.util.List;
-import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -84,7 +83,6 @@ public class SessionConfigController {
       responseCode = HTTP_500,
       description = INTERNAL_SERVER_ERROR,
       content = @Content(mediaType = APPLICATION_JSON))
-  @SuppressWarnings("unchecked")
   public Mono<ResponseEntity<ApiResponse<SessionDetails>>> getSessionDetails(
       @Parameter(description = "The unique identifier of the session") @PathVariable
           final String sessionId,
@@ -97,15 +95,10 @@ public class SessionConfigController {
                 log.atInfo().log(
                     "getSessionDetails service call succeeded: sessionId={}, workflowCount={}",
                     sessionId,
-                    ((Map<String, Object>) config.getOrDefault("workflows", Map.of())).size()))
+                    config.workflows().size()))
         .map(
             config -> {
-              // Cast is safe: config comes from SessionConfigData which guarantees workflows is
-              // a Map<String, Object> per SessionConfigData structure. getOrDefault fallback
-              // ensures type safety.
-              final Map<String, Object> workflows =
-                  (Map<String, Object>) config.getOrDefault("workflows", Map.of());
-              final List<String> workflowIds = List.copyOf(workflows.keySet());
+              final List<String> workflowIds = List.copyOf(config.workflows().keySet());
               return ResponseEntity.ok(
                   ApiResponse.success(
                       HttpStatus.OK.value(),

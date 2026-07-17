@@ -13,7 +13,6 @@ import com.infenia.yukta.service.plugin.PluginRegistry;
 import com.infenia.yukta.service.session.SessionService;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -42,7 +41,7 @@ public class DefaultSessionInfoProvider implements SessionInfoProvider {
   public Mono<SessionDetails> getSessionDetails(final String sessionId) {
     return sessionService
         .getSessionConfig(sessionId)
-        .map(config -> new SessionDetails(sessionId, List.copyOf(workflowsOf(config).keySet())))
+        .map(config -> new SessionDetails(sessionId, List.copyOf(config.workflows().keySet())))
         .switchIfEmpty(
             Mono.error(
                 () ->
@@ -60,7 +59,7 @@ public class DefaultSessionInfoProvider implements SessionInfoProvider {
             sessionId ->
                 sessionService
                     .getSessionConfig(sessionId)
-                    .map(config -> new SessionSummary(sessionId, workflowsOf(config).size()))
+                    .map(config -> new SessionSummary(sessionId, config.workflows().size()))
                     .onErrorResume(
                         e -> {
                           log.atWarn()
@@ -72,11 +71,6 @@ public class DefaultSessionInfoProvider implements SessionInfoProvider {
                           return Mono.empty();
                         }))
         .collectList();
-  }
-
-  @SuppressWarnings("unchecked")
-  private Map<String, Object> workflowsOf(final Map<String, Object> config) {
-    return (Map<String, Object>) config.getOrDefault("workflows", Map.of());
   }
 
   @Override

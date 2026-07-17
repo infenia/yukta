@@ -120,8 +120,10 @@ class DefaultWorkflowExecutionProviderTest {
             "COMPLETED",
             LocalDateTime.now(ZoneId.systemDefault()),
             LocalDateTime.now(ZoneId.systemDefault()));
-    when(sessionService.getSessionConfig("sess-1"))
-        .thenReturn(Mono.just(Map.of("workflows", Map.of())));
+    final var config =
+        new com.infenia.yukta.model.session.SessionConfigResponse(
+            "sess-1", "desc", "initiator", Map.of(), "/path", Map.of());
+    when(sessionService.getSessionConfig("sess-1")).thenReturn(Mono.just(config));
     when(controlBus.getHistory("sess-1")).thenReturn(List.of(summary));
 
     StepVerifier.create(provider.getWorkflowHistory("sess-1"))

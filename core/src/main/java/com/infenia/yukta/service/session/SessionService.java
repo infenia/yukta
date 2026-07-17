@@ -3,6 +3,7 @@
 package com.infenia.yukta.service.session;
 
 import com.infenia.yukta.model.session.SessionConfigData;
+import com.infenia.yukta.model.session.SessionConfigResponse;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import com.infenia.yukta.service.session.store.SessionConfigStore;
@@ -155,26 +156,45 @@ public class SessionService {
    * Get configuration for a session.
    *
    * <p>The store implementation (file or in-memory) handles retrieval from its configured backend.
+   * Returns the complete session configuration including metadata and all workflows.
    *
    * @param sessionId the session identifier
-   * @return Mono containing map of configurations
+   * @return Mono containing the session configuration response
    */
-  public Mono<Map<String, Object>> getSessionConfig(@SessionId final String sessionId) {
+  public Mono<SessionConfigResponse> getSessionConfig(@SessionId final String sessionId) {
     return configService
         .getAllConfigs(sessionId)
         .doOnSubscribe(_ -> log.atDebug().log("Fetching configuration for session: {}", sessionId))
-        .doOnSuccess(
+        .map(this::mapToSessionConfigResponse)
+        .doOnNext(
             config ->
                 log.atDebug().log(
-                    "Retrieved {} configuration entries for session: {}",
-                    config != null ? config.size() : 0,
-                    sessionId))
+                    "Retrieved configuration for session: {} with {} workflows",
+                    sessionId,
+                    config.workflows().size()))
         .doOnError(
             err ->
                 log.atError()
                     .addArgument(sessionId)
                     .setCause(err)
                     .log("Failed to retrieve configuration for session: {}"));
+  }
+
+  /**
+   * Map generic configuration map to SessionConfigResponse.
+   *
+   * @param config the configuration map from the store
+   * @return SessionConfigResponse with all fields extracted
+   */
+  @SuppressWarnings("unchecked")
+  private SessionConfigResponse mapToSessionConfigResponse(final Map<String, Object> config) {
+    return new SessionConfigResponse(
+        (String) config.get("sessionId"),
+        (String) config.get("description"),
+        (String) config.get("initiator"),
+        (Map<String, String>) config.getOrDefault("tags", Map.of()),
+        (String) config.get("projectPath"),
+        (Map<String, WorkflowDefinition>) config.getOrDefault("workflows", Map.of()));
   }
 
   /**
