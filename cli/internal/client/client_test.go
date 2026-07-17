@@ -44,10 +44,6 @@ func TestNewRequest_validMethodAndPath_setsHeaders(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if req == nil {
-		t.Fatal("expected request, got nil")
-	}
-
 	contentType := req.Header.Get("Content-Type")
 	if contentType != "application/json" {
 		t.Errorf("expected Content-Type 'application/json', got %q", contentType)

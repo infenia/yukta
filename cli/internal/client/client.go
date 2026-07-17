@@ -4,6 +4,7 @@
 package client
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -57,9 +58,10 @@ func NewClient(baseURL string) *Client {
 	}
 }
 
-// newRequest creates a new HTTP request for the given method and path.
+// newRequestWithBody creates a new HTTP request with optional body.
 // The path should be relative to the base URL (e.g., "/api/sessions").
-func (c *Client) newRequest(method string, path string) (*http.Request, error) {
+// If body is nil, the request will have no body.
+func (c *Client) newRequestWithBody(method string, path string, body []byte) (*http.Request, error) {
 	if method == "" {
 		return nil, errors.New("method cannot be empty")
 	}
@@ -76,7 +78,12 @@ func (c *Client) newRequest(method string, path string) (*http.Request, error) {
 		return nil, fmt.Errorf("invalid URL: %w", err)
 	}
 
-	req, err := c.RequestFactory.NewRequest(method, urlStr, nil)
+	var bodyReader io.Reader
+	if body != nil {
+		bodyReader = bytes.NewReader(body)
+	}
+
+	req, err := c.RequestFactory.NewRequest(method, urlStr, bodyReader)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
@@ -85,6 +92,12 @@ func (c *Client) newRequest(method string, path string) (*http.Request, error) {
 	req.Header.Set("Accept", "application/json")
 
 	return req, nil
+}
+
+// newRequest creates a new HTTP request for the given method and path.
+// The path should be relative to the base URL (e.g., "/api/sessions").
+func (c *Client) newRequest(method string, path string) (*http.Request, error) {
+	return c.newRequestWithBody(method, path, nil)
 }
 
 // doRequest executes an HTTP request and returns the response body as bytes.

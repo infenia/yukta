@@ -59,6 +59,7 @@ func TestRootCmd_setPersistentFlags_urlFlag(t *testing.T) {
 	urlFlag := cmd.PersistentFlags().Lookup("url")
 	if urlFlag == nil {
 		t.Fatal("expected --url flag to be defined")
+		return
 	}
 
 	if urlFlag.Usage == "" {
@@ -74,11 +75,13 @@ func TestRootCmd_setPersistentFlags_outputFlag(t *testing.T) {
 	outputFlag := cmd.PersistentFlags().Lookup("output")
 	if outputFlag == nil {
 		t.Fatal("expected --output flag to be defined")
+		return
 	}
 
 	shorthand := cmd.PersistentFlags().ShorthandLookup("o")
 	if shorthand == nil {
 		t.Fatal("expected -o shorthand for output flag")
+		return
 	}
 
 	if outputFlag.Value.String() != "table" {
@@ -293,6 +296,7 @@ func TestOutputFlagShorthandIsO(t *testing.T) {
 	shorthand := cmd.PersistentFlags().ShorthandLookup("o")
 	if shorthand == nil {
 		t.Fatal("expected -o shorthand for output flag")
+		return
 	}
 
 	if shorthand.Name != "output" {

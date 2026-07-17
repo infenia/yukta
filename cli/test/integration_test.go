@@ -154,10 +154,6 @@ func TestClientURLNormalization(t *testing.T) {
 func TestClientHTTPHeadersConfiguration(t *testing.T) {
 	c := client.NewClient("http://localhost:8080")
 
-	if c == nil {
-		t.Fatal("Client should not be nil")
-	}
-
 	if c.HTTPClient == nil {
 		t.Fatal("HTTPClient should not be nil")
 	}

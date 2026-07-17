@@ -4,7 +4,6 @@
 package client
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 )
@@ -109,17 +108,11 @@ func (c *Client) ApplyConfig(configJSON []byte) error {
 		return fmt.Errorf("configJSON cannot be empty")
 	}
 
-	// Create request with body using the factory
-	req, err := c.RequestFactory.NewRequest("POST", c.BaseURL+"/api/sessions", bytes.NewReader(configJSON))
+	req, err := c.newRequestWithBody("POST", "/api/sessions", configJSON)
 	if err != nil {
-		return fmt.Errorf("failed to create request with body: %w", err)
+		return err
 	}
 
-	// Set headers
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Accept", "application/json")
-
-	// Execute the request
 	_, err = c.doRequest(req)
 	return err
 }

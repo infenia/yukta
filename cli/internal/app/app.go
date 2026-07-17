@@ -6,7 +6,11 @@ package app
 import (
 	"com.infenia.yukta/go-cli/internal/client"
 	"com.infenia.yukta/go-cli/internal/commands"
+	"com.infenia.yukta/go-cli/internal/commands/controlbus"
+	"com.infenia.yukta/go-cli/internal/commands/logs"
+	"com.infenia.yukta/go-cli/internal/commands/plugin"
 	"com.infenia.yukta/go-cli/internal/commands/session"
+	"com.infenia.yukta/go-cli/internal/commands/workflow"
 )
 
 // Run initializes and executes the Yukta CLI application.
@@ -18,6 +22,18 @@ func Run() error {
 
 	// Create the root command
 	rootCmd := commands.RootCmd(c)
+
+	// Add the plugin command group with all its subcommands
+	rootCmd.AddCommand(plugin.PluginCmd(c))
+
+	// Add the controlbus command group with all its subcommands
+	rootCmd.AddCommand(controlbus.ControlBusCmd(c))
+
+	// Add the logs command for streaming execution logs
+	rootCmd.AddCommand(logs.LogsCmd(c))
+
+	// Add the workflow command group with all its subcommands
+	rootCmd.AddCommand(workflow.WorkflowCmd(c))
 
 	// Add the session command group with all its subcommands
 	rootCmd.AddCommand(session.SessionCmd(c))
