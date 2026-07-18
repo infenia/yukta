@@ -25,10 +25,3 @@ logging:
     root: INFO
     org.springframework: WARN
     org.springframework.web: DEBUG
-
-gg:
-  jte:
-    developmentMode: true
-    usePrecompiledTemplates: false
-    trimControlStructures: true
-    template-location: ../ui/src/main/jte

@@ -1,0 +1,24 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: 2026 Infenia Private Limited
+
+# Build artifacts
+dist/
+build/
+node_modules/
+.gradle/
+.next/
+out/
+
+# Configuration files (JSON/YAML) — license headers not supported
+.prettierrc.json
+tsconfig.json
+tsconfig.node.json
+package.json
+package-lock.json
+pnpm-lock.yaml
+
+# Design & documentation — no code
+docs/
+*.md
+*.png
+*.html

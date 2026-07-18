@@ -69,11 +69,6 @@ control:
     buffer:
       size: 256          # Internal buffer size (Queues.SMALL_BUFFER_SIZE = 256)
 
-gg:
-  jte:
-    developmentMode: true
-    usePrecompiledTemplates: false
-
 management:
   endpoints:
     web:

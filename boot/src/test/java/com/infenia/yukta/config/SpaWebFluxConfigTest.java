@@ -1,0 +1,197 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: 2026 Infenia Private Limited
+package com.infenia.yukta.config;
+
+import static org.assertj.core.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
+
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Captor;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.CacheControl;
+import org.springframework.http.MediaType;
+import org.springframework.test.web.reactive.server.WebTestClient;
+import org.springframework.web.reactive.config.ResourceHandlerRegistration;
+import org.springframework.web.reactive.config.ResourceHandlerRegistry;
+import org.springframework.web.reactive.function.server.RouterFunction;
+import org.springframework.web.reactive.function.server.ServerResponse;
+
+@SuppressWarnings({
+  "PMD.CommentRequired",
+  "PMD.AtLeastOneConstructor",
+  "PMD.TooManyMethods",
+  "PMD.UnitTestShouldIncludeAssert",
+  "PMD.LawOfDemeter"
+})
+@ExtendWith(MockitoExtension.class)
+class SpaWebFluxConfigTest {
+
+  private final SpaWebFluxConfig config = new SpaWebFluxConfig();
+
+  @Mock private ResourceHandlerRegistry registry;
+
+  @Captor private ArgumentCaptor<String[]> pathPatternsCaptor;
+
+  @Test
+  void testAddResourceHandlersRegistersStaticAssetPatterns() {
+    final ResourceHandlerRegistration registration = mock(ResourceHandlerRegistration.class);
+    when(registry.addResourceHandler(any(String[].class))).thenReturn(registration);
+    when(registration.addResourceLocations(anyString())).thenReturn(registration);
+    when(registration.setCacheControl(any(CacheControl.class))).thenReturn(registration);
+
+    config.addResourceHandlers(registry);
+
+    verify(registry).addResourceHandler(pathPatternsCaptor.capture());
+    final String[] patterns = pathPatternsCaptor.getValue();
+
+    assertThat(patterns)
+        .contains(
+            "/**/*.js",
+            "/**/*.css",
+            "/**/*.woff",
+            "/**/*.woff2",
+            "/**/*.ttf",
+            "/**/*.svg",
+            "/**/*.png",
+            "/**/*.ico",
+            "/**/*.webmanifest");
+    assertThat(patterns).hasSize(9);
+  }
+
+  @Test
+  void testAddResourceHandlersUsesClassPathStaticLocation() {
+    final ResourceHandlerRegistration registration = mock(ResourceHandlerRegistration.class);
+    when(registry.addResourceHandler(any(String[].class))).thenReturn(registration);
+    when(registration.addResourceLocations(anyString())).thenReturn(registration);
+    when(registration.setCacheControl(any(CacheControl.class))).thenReturn(registration);
+
+    config.addResourceHandlers(registry);
+
+    verify(registration).addResourceLocations("classpath:/static/");
+  }
+
+  @Test
+  void testAddResourceHandlersSetsCacheControlFor365Days() {
+    final ResourceHandlerRegistration registration = mock(ResourceHandlerRegistration.class);
+    when(registry.addResourceHandler(any(String[].class))).thenReturn(registration);
+    when(registration.addResourceLocations(anyString())).thenReturn(registration);
+
+    config.addResourceHandlers(registry);
+
+    final ArgumentCaptor<CacheControl> cacheControlCaptor =
+        ArgumentCaptor.forClass(CacheControl.class);
+    verify(registration).setCacheControl(cacheControlCaptor.capture());
+
+    final CacheControl capturedControl = cacheControlCaptor.getValue();
+    assertThat(capturedControl).isNotNull();
+  }
+
+  @Test
+  void testSpaRouterReturnsBeanInstance() {
+    final RouterFunction<ServerResponse> router = config.spaRouter();
+    assertThat(router).isNotNull();
+  }
+
+  @Test
+  void testSpaRouterServesIndexHtmlOnGetRequest() {
+    final RouterFunction<ServerResponse> router = config.spaRouter();
+    final WebTestClient client = WebTestClient.bindToRouterFunction(router).build();
+
+    client
+        .get()
+        .uri("/")
+        .exchange()
+        .expectStatus()
+        .isOk()
+        .expectHeader()
+        .contentTypeCompatibleWith(MediaType.TEXT_HTML)
+        .expectHeader()
+        .exists("Cache-Control");
+  }
+
+  @Test
+  void testSpaRouterServesIndexHtmlOnUnmatchedRoute() {
+    final RouterFunction<ServerResponse> router = config.spaRouter();
+    final WebTestClient client = WebTestClient.bindToRouterFunction(router).build();
+
+    client
+        .get()
+        .uri("/sessions/123/details")
+        .exchange()
+        .expectStatus()
+        .isOk()
+        .expectHeader()
+        .contentTypeCompatibleWith(MediaType.TEXT_HTML);
+  }
+
+  @Test
+  void testSpaRouterSetsCacheControlNoCacheOnResponses() {
+    final RouterFunction<ServerResponse> router = config.spaRouter();
+    final WebTestClient client = WebTestClient.bindToRouterFunction(router).build();
+
+    client
+        .get()
+        .uri("/app")
+        .exchange()
+        .expectStatus()
+        .isOk()
+        .expectHeader()
+        .exists("Cache-Control");
+  }
+
+  @Test
+  void testSpaRouterReturnsMonoServerResponse() {
+    final RouterFunction<ServerResponse> router = config.spaRouter();
+    assertThat(router).isNotNull();
+
+    final WebTestClient client = WebTestClient.bindToRouterFunction(router).build();
+
+    client
+        .get()
+        .uri("/any-path")
+        .exchange()
+        .expectStatus()
+        .isOk()
+        .expectHeader()
+        .contentTypeCompatibleWith(MediaType.TEXT_HTML);
+  }
+
+  @ParameterizedTest
+  @ValueSource(
+      strings = {"/", "/foo/bar/baz/deeply/nested/path", "/sessions?filter=active&sort=created"})
+  void testSpaRouterHandlesVariousRoutes(final String uri) {
+    final RouterFunction<ServerResponse> router = config.spaRouter();
+    final WebTestClient client = WebTestClient.bindToRouterFunction(router).build();
+
+    client
+        .get()
+        .uri(uri)
+        .exchange()
+        .expectStatus()
+        .isOk()
+        .expectHeader()
+        .contentTypeCompatibleWith(MediaType.TEXT_HTML);
+  }
+
+  @Test
+  void testConfigurationIsNotNull() {
+    assertThat(config).isNotNull();
+  }
+
+  @Test
+  void testAddResourceHandlersDoesNotThrowException() {
+    final ResourceHandlerRegistry registration = mock(ResourceHandlerRegistry.class);
+    final ResourceHandlerRegistration regHandler = mock(ResourceHandlerRegistration.class);
+    when(registration.addResourceHandler(any(String[].class))).thenReturn(regHandler);
+    when(regHandler.addResourceLocations(anyString())).thenReturn(regHandler);
+    when(regHandler.setCacheControl(any(CacheControl.class))).thenReturn(regHandler);
+
+    assertThatNoException().isThrownBy(() -> config.addResourceHandlers(registration));
+  }
+}

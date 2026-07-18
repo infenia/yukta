@@ -5,9 +5,6 @@ spring:
   config:
     activate:
       on-profile: prod
-  jte:
-    developmentMode: false              # Precompiled JTE templates for native
-    usePrecompiledTemplates: true       # Critical: use precompiled classes
   main:
     banner-mode: "off"                  # Disable startup banner
     lazy-initialization: true           # Lazy-init beans to reduce startup time

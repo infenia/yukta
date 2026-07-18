@@ -1,17 +1,50 @@
 {
-  "name": "ui",
-  "version": "1.0.0",
-  "license": "Apache-2.0",
+  "name": "frontend",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
   "scripts": {
-  },
-  "dependencies": {
-    "alpinejs": "3.15.12",
-    "d3": "7.9.0",
-    "elkjs": "0.11.1"
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "lint": "eslint .",
+    "lint:headers": "node scripts/validate-headers.js",
+    "test": "vitest",
+    "test:e2e": "playwright test"
   },
   "devDependencies": {
-    "@tailwindcss/cli": "4.3.3",
-    "esbuild": "0.28.1",
-    "tailwindcss": "4.1.18"
+    "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.61.1",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.3",
+    "eslint": "^10.7.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-react-refresh": "^0.5.3",
+    "glob": "^11.0.0",
+    "globals": "^17.7.0",
+    "jsdom": "^29.1.1",
+    "msw": "^2.15.0",
+    "prettier": "^3.9.5",
+    "typescript": "~6.0.2",
+    "typescript-eslint": "^8.64.0",
+    "vite": "^8.1.5",
+    "vitest": "^4.1.10"
+  },
+  "dependencies": {
+    "@tailwindcss/vite": "^4.3.3",
+    "@tanstack/react-query": "^5.101.2",
+    "@tanstack/react-table": "^8.21.3",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
+    "react-router": "^8.2.0",
+    "tailwind-merge": "^3.6.0",
+    "tailwindcss": "^4.3.3"
   }
 }

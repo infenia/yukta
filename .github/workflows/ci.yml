@@ -137,6 +137,14 @@ jobs:
           go-version-file: 'cli/go.mod'
           cache-dependency-path: 'cli/go.sum'
 
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Install pnpm globally
+        run: npm install -g pnpm@10.30.1
+
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@3f131e8634966bd73d06cc69884922b02e6faf92 # v6
         with:
@@ -239,7 +247,12 @@ jobs:
           needs.changes.outputs.root == 'true'
         run: |
           echo "▶ Running full build (all modules: tests + quality gates)"
-          ./gradlew build jacocoTestReport
+          # On PRs, skip Trivy (vulnerability database downloads timeout in CI)
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            ./gradlew build jacocoTestReport -x trivy
+          else
+            ./gradlew build jacocoTestReport
+          fi
 
       - name: Partial build (PR — changed modules and their dependents)
         if: |
@@ -293,8 +306,8 @@ jobs:
           done
 
           if [ -n "$TASKS" ]; then
-            echo "▶ Executing: ./gradlew $TASKS jacocoTestReport"
-            ./gradlew $TASKS jacocoTestReport
+            echo "▶ Executing: ./gradlew $TASKS jacocoTestReport -x trivy"
+            ./gradlew $TASKS jacocoTestReport -x trivy
           else
             echo "▶ No module tasks matched — nothing to build"
           fi
@@ -364,6 +377,14 @@ jobs:
         with:
           go-version-file: 'cli/go.mod'
           cache-dependency-path: 'cli/go.sum'
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Install pnpm globally
+        run: npm install -g pnpm@10.30.1
 
       - name: Generate and submit dependency graph
         uses: gradle/actions/dependency-submission@3f131e8634966bd73d06cc69884922b02e6faf92 # v6

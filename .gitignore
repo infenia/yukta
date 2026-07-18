@@ -37,6 +37,7 @@ __pycache__/
 
 ### Node ###
 node_modules/
+ui/dist/
 
 ### Logs ###
 *.log

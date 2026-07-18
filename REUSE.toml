@@ -7,7 +7,7 @@ SPDX-PackageSupplier = "Infenia Private Limited"
 SPDX-PackageDownloadLocation = "https://github.com/infenia/yukta"
 
 [[annotations]]
-path = ["build/", ".gradle/", "dist/", "target/", "node_modules/"]
+path = ["build/", ".gradle/", "dist/", "ui/dist/", "target/", "node_modules/"]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "none"
 SPDX-License-Identifier = "CC0-1.0"
@@ -43,7 +43,7 @@ SPDX-FileCopyrightText = "none"
 SPDX-License-Identifier = "CC0-1.0"
 
 [[annotations]]
-path = [".reuse/dep5", ".mcp.json", "skills-lock.json", "cli/go.mod", "cli/go.sum", "cli/.gitignore", "ui/.gitignore", "ui/package.json", "ui/package-lock.json", "ui/pnpm-lock.yaml", ".gitmessage", ".git-commit-guide.md"]
+path = [".reuse/dep5", ".mcp.json", "skills-lock.json", "cli/go.mod", "cli/go.sum", "cli/.gitignore", "ui/.gitignore", "ui/package.json", "ui/package-lock.json", "ui/pnpm-lock.yaml", ".gitmessage", ".git-commit-guide.md", "ui/.prettierignore", "ui/.prettierrc.json", "ui/docs/design/**", "ui/src/assets/**"]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "none"
 SPDX-License-Identifier = "CC0-1.0"
