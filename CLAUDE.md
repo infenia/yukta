@@ -50,6 +50,38 @@ This is a multi-module Gradle monorepo. Launch Claude from the specific package 
 ./gradlew clean build
 ```
 
+## Commit Message Conventions
+
+All commits to Yukta follow **Conventional Commits** format:
+
+```
+<type>(<scope>): <subject>
+
+<body>
+
+<footer>
+```
+
+**Quick reference:**
+- **Types**: `feat`, `fix`, `docs`, `test`, `refactor`, `chore`, `style`, `perf`, `ci`, `build`
+- **Scope** (optional): `cli`, `core`, `web`, `ui`, `plugin-api`, `plugins`, `mcp`, `messaging`, `boot`, `build-logic`, `deps`
+- **Subject**: Imperative mood, max 50 chars, no period, lowercase start
+- **Body**: Detailed explanation of what and why (wrap at 72 chars)
+- **Footer**: Issue references (`Fixes #123`), breaking changes, etc.
+- **NO Co-Authored-By**: Remove from all manual commits
+
+**Example:**
+```
+feat(cli): add workflow status command
+
+Add a new status subcommand to fetch current workflow execution state
+with human-readable formatting showing node progress and errors.
+
+Fixes #142
+```
+
+See `.gitmessage` template (shown when committing) and `.git-commit-guide.md` for full details. The `.git/hooks/commit-msg` hook validates format automatically.
+
 ## Testing Strategy
 - Unit tests use JUnit 5 + Mockito (for reactive: `reactor.test`).
 - Use `StepVerifier` for testing reactive streams.

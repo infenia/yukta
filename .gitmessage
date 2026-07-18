@@ -1,0 +1,56 @@
+# <type>(<scope>): <subject>
+#
+# <body>
+#
+# <footer>
+#
+# ---
+# COMMIT MESSAGE TEMPLATE FOR YUKTA
+#
+# TYPE: feat, fix, docs, test, refactor, chore, style, perf, ci, build
+#
+# SCOPE (optional): The area affected by this change
+#   Examples: cli, core, web, ui, plugin-api, mcp, messaging, boot, build-logic
+#
+# SUBJECT (required):
+#   - Use imperative mood ("add" not "added" or "adds")
+#   - Do not capitalize first letter
+#   - Limit to 50 characters
+#   - Do not end with period
+#
+# BODY (optional):
+#   - Wrap at 72 characters
+#   - Explain what and why, not how
+#   - Separate paragraphs with blank lines
+#
+# FOOTER (optional):
+#   - Reference issues: "Fixes #123", "Closes #456"
+#   - Document breaking changes: "BREAKING CHANGE: ..."
+#   - No Co-Authored-By lines (use git commit --co-authored-by in CI/bots only)
+#
+# EXAMPLES:
+#
+# feat(cli): add workflow status command
+#
+# Add a new status subcommand to fetch current workflow execution state
+# with human-readable formatting. Connects to the ControlBus REST API
+# and displays node progress, timestamps, and error details if present.
+#
+# Fixes #142
+#
+# ---
+#
+# fix(core): prevent race condition in plugin lifecycle
+#
+# Synchronize ActivePluginRegistry state transitions with a read-write lock
+# to avoid stale-workflow cleanup interfering with concurrent executions.
+# Adds unit tests covering concurrent registration and cleanup.
+#
+# Fixes #156
+#
+# ---
+#
+# build(deps): bump actions/checkout from 4 to 7 (#199)
+#
+# Automated dependency update via Dependabot. No manual changes.
+#
