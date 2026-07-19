@@ -43,7 +43,13 @@ SPDX-FileCopyrightText = "none"
 SPDX-License-Identifier = "CC0-1.0"
 
 [[annotations]]
-path = [".reuse/dep5", ".mcp.json", "skills-lock.json", "cli/go.mod", "cli/go.sum", "cli/.gitignore", "ui/.gitignore", "ui/package.json", "ui/package-lock.json", "ui/pnpm-lock.yaml", ".gitmessage", ".git-commit-guide.md", "ui/.prettierignore", "ui/.prettierrc.json", "ui/docs/design/**", "ui/src/assets/**"]
+path = [".reuse/dep5", ".mcp.json", "skills-lock.json", "cli/go.mod", "cli/go.sum", "cli/.gitignore", ".gitmessage", ".git-commit-guide.md" ]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "none"
+SPDX-License-Identifier = "CC0-1.0"
+
+[[annotations]]
+path = ["ui/.gitignore", "ui/components.json", "ui/package.json", "ui/package-lock.json", "ui/pnpm-lock.yaml", "ui/.prettierignore", "ui/.prettierrc.json", "ui/docs/design/**", "ui/src/assets/**"]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "none"
 SPDX-License-Identifier = "CC0-1.0"

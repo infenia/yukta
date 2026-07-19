@@ -5,6 +5,7 @@ import js from '@eslint/js';
 import globals from 'globals';
 import reactHooks from 'eslint-plugin-react-hooks';
 import reactRefresh from 'eslint-plugin-react-refresh';
+import tailwindcss from 'eslint-plugin-tailwindcss';
 import tseslint from 'typescript-eslint';
 import prettierConfig from 'eslint-config-prettier';
 
@@ -26,6 +27,12 @@ export default tseslint.config(
     plugins: {
       'react-hooks': reactHooks,
       'react-refresh': reactRefresh,
+      tailwindcss,
+    },
+    settings: {
+      tailwindcss: {
+        cssFiles: ['src/index.css'],
+      },
     },
     rules: {
       ...reactHooks.configs.recommended.rules,
@@ -33,6 +40,9 @@ export default tseslint.config(
         'warn',
         { allowConstantExport: true },
       ],
+      ...tailwindcss.configs.recommended.rules,
+      'tailwindcss/classnames-order': 'warn',
+      'tailwindcss/no-custom-classname': 'off',
     },
   },
   {

@@ -11,10 +11,13 @@ export default function ComingSoonPage({
   description,
 }: ComingSoonPageProps) {
   return (
-    <div className="flex-1 flex items-center justify-center px-spacing-md py-spacing-lg">
-      <div className="text-center max-w-md">
+    <div className="px-spacing-md py-spacing-lg flex flex-1 items-center justify-center">
+      <div className="max-w-md text-center">
         <div className="mb-spacing-lg">
-          <span aria-hidden="true" className="material-symbols-outlined text-6xl text-outline">
+          <span
+            aria-hidden="true"
+            className="material-symbols-outlined text-outline text-6xl"
+          >
             construction
           </span>
         </div>

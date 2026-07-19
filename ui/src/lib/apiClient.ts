@@ -49,7 +49,11 @@ export async function fetchApi<T>(
   }
 
   if (!response.ok) {
-    throw new ApiError(response.status, json.error || `HTTP ${response.status}`, json.errors);
+    throw new ApiError(
+      response.status,
+      json.error || `HTTP ${response.status}`,
+      json.errors
+    );
   }
 
   return json.data;

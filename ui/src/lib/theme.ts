@@ -9,7 +9,7 @@ export type Theme = 'light' | 'dark' | 'system';
 const THEME_KEY = 'theme';
 
 // Subscribers to theme changes
-let subscribers: Set<() => void> = new Set();
+const subscribers: Set<() => void> = new Set();
 
 export function getTheme(): Theme {
   const stored = localStorage.getItem(THEME_KEY);
