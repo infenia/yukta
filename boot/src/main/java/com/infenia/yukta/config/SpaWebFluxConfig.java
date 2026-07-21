@@ -4,6 +4,7 @@ package com.infenia.yukta.config;
 
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Stream;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.ClassPathResource;
@@ -23,10 +24,9 @@ import reactor.core.publisher.Mono;
 @Configuration
 public class SpaWebFluxConfig implements WebFluxConfigurer {
 
-  /** Patterns for static asset routes served from classpath. */
-  private static final List<String> STATIC_ASSET_PATTERNS =
+  /** Patterns for flat, top-level static asset routes served from classpath:/static/. */
+  private static final List<String> TOP_LEVEL_ASSET_PATTERNS =
       List.of(
-          "/assets/**",
           "/*.js",
           "/*.css",
           "/*.woff",
@@ -40,6 +40,10 @@ public class SpaWebFluxConfig implements WebFluxConfigurer {
           "/*.json",
           "/*.webmanifest");
 
+  /** All static asset patterns (top-level plus nested /assets/**) excluded from the SPA router. */
+  private static final List<String> STATIC_ASSET_PATTERNS =
+      Stream.concat(Stream.of("/assets/**"), TOP_LEVEL_ASSET_PATTERNS.stream()).toList();
+
   /** Default constructor for Spring. */
   public SpaWebFluxConfig() {
     // Intentionally empty
@@ -47,9 +51,18 @@ public class SpaWebFluxConfig implements WebFluxConfigurer {
 
   @Override
   public void addResourceHandlers(final ResourceHandlerRegistry registry) {
-    // Serve all static assets (JS, CSS, fonts, images) with cache
+    // Vite emits hashed bundles under dist/assets/, which is copied to classpath:/static/assets/.
+    // AntPathMatcher strips the "/assets/" prefix from "/assets/**" before resolving against the
+    // location, so this pattern needs its own location that includes the "assets" segment —
+    // otherwise it looks for the file directly under classpath:/static/ and 404s.
     registry
-        .addResourceHandler(STATIC_ASSET_PATTERNS.toArray(new String[0]))
+        .addResourceHandler("/assets/**")
+        .addResourceLocations("classpath:/static/assets/")
+        .setCacheControl(CacheControl.maxAge(365, TimeUnit.DAYS));
+
+    // Flat, top-level static assets (favicon, manifest, fonts referenced outside /assets/, etc.)
+    registry
+        .addResourceHandler(TOP_LEVEL_ASSET_PATTERNS.toArray(new String[0]))
         .addResourceLocations("classpath:/static/")
         .setCacheControl(CacheControl.maxAge(365, TimeUnit.DAYS));
   }

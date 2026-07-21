@@ -107,20 +107,28 @@ export function SessionListPage() {
                 ))}
               </TableHeader>
               <TableBody>
-                {table.getRowModel().rows.map((row, idx) => (
-                  <TableRow
-                    key={row.id}
-                    className={`border-b border-outline-variant py-3 hover:bg-surface-container-high ${
-                      idx % 2 === 1 ? 'bg-surface-container-low' : ''
-                    }`}
-                  >
-                    {row.getVisibleCells().map((cell) => (
-                      <TableCell key={cell.id} className="px-4">
-                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                      </TableCell>
-                    ))}
+                {table.getRowModel().rows.length === 0 ? (
+                  <TableRow className="border-b border-outline-variant hover:bg-surface-container-high">
+                    <TableCell colSpan={columns.length} className="py-8 text-center">
+                      <p className="text-body-md text-on-surface-variant">No sessions yet</p>
+                    </TableCell>
                   </TableRow>
-                ))}
+                ) : (
+                  table.getRowModel().rows.map((row, idx) => (
+                    <TableRow
+                      key={row.id}
+                      className={`border-b border-outline-variant py-3 hover:bg-surface-container-high ${
+                        idx % 2 === 1 ? 'bg-surface-container-low' : ''
+                      }`}
+                    >
+                      {row.getVisibleCells().map((cell) => (
+                        <TableCell key={cell.id} className="px-4">
+                          {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                        </TableCell>
+                      ))}
+                    </TableRow>
+                  ))
+                )}
               </TableBody>
             </Table>
 

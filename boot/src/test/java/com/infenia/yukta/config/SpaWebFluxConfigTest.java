@@ -39,7 +39,7 @@ class SpaWebFluxConfigTest {
   @Captor private ArgumentCaptor<String[]> pathPatternsCaptor;
 
   @Test
-  void testAddResourceHandlersRegistersStaticAssetPatterns() {
+  void testAddResourceHandlersRegistersNestedAssetsPatternSeparately() {
     final ResourceHandlerRegistration registration = mock(ResourceHandlerRegistration.class);
     when(registry.addResourceHandler(any(String[].class))).thenReturn(registration);
     when(registration.addResourceLocations(anyString())).thenReturn(registration);
@@ -47,12 +47,26 @@ class SpaWebFluxConfigTest {
 
     config.addResourceHandlers(registry);
 
-    verify(registry).addResourceHandler(pathPatternsCaptor.capture());
-    final String[] patterns = pathPatternsCaptor.getValue();
+    verify(registry, times(2)).addResourceHandler(pathPatternsCaptor.capture());
+    final String[] nestedAssetsPatterns = pathPatternsCaptor.getAllValues().get(0);
 
-    assertThat(patterns)
-        .contains(
-            "/assets/**",
+    assertThat(nestedAssetsPatterns).containsExactly("/assets/**");
+  }
+
+  @Test
+  void testAddResourceHandlersRegistersTopLevelAssetPatterns() {
+    final ResourceHandlerRegistration registration = mock(ResourceHandlerRegistration.class);
+    when(registry.addResourceHandler(any(String[].class))).thenReturn(registration);
+    when(registration.addResourceLocations(anyString())).thenReturn(registration);
+    when(registration.setCacheControl(any(CacheControl.class))).thenReturn(registration);
+
+    config.addResourceHandlers(registry);
+
+    verify(registry, times(2)).addResourceHandler(pathPatternsCaptor.capture());
+    final String[] topLevelPatterns = pathPatternsCaptor.getAllValues().get(1);
+
+    assertThat(topLevelPatterns)
+        .containsExactlyInAnyOrder(
             "/*.js",
             "/*.css",
             "/*.woff",
@@ -65,11 +79,10 @@ class SpaWebFluxConfigTest {
             "/*.ico",
             "/*.json",
             "/*.webmanifest");
-    assertThat(patterns).hasSize(13);
   }
 
   @Test
-  void testAddResourceHandlersUsesClassPathStaticLocation() {
+  void testAddResourceHandlersUsesNestedAssetsLocationForAssetsPattern() {
     final ResourceHandlerRegistration registration = mock(ResourceHandlerRegistration.class);
     when(registry.addResourceHandler(any(String[].class))).thenReturn(registration);
     when(registration.addResourceLocations(anyString())).thenReturn(registration);
@@ -77,11 +90,12 @@ class SpaWebFluxConfigTest {
 
     config.addResourceHandlers(registry);
 
+    verify(registration).addResourceLocations("classpath:/static/assets/");
     verify(registration).addResourceLocations("classpath:/static/");
   }
 
   @Test
-  void testAddResourceHandlersSetsCacheControlFor365Days() {
+  void testAddResourceHandlersSetsCacheControlFor365DaysOnBothRegistrations() {
     final ResourceHandlerRegistration registration = mock(ResourceHandlerRegistration.class);
     when(registry.addResourceHandler(any(String[].class))).thenReturn(registration);
     when(registration.addResourceLocations(anyString())).thenReturn(registration);
@@ -90,10 +104,9 @@ class SpaWebFluxConfigTest {
 
     final ArgumentCaptor<CacheControl> cacheControlCaptor =
         ArgumentCaptor.forClass(CacheControl.class);
-    verify(registration).setCacheControl(cacheControlCaptor.capture());
+    verify(registration, times(2)).setCacheControl(cacheControlCaptor.capture());
 
-    final CacheControl capturedControl = cacheControlCaptor.getValue();
-    assertThat(capturedControl).isNotNull();
+    assertThat(cacheControlCaptor.getAllValues()).hasSize(2).doesNotContainNull();
   }
 
   @Test

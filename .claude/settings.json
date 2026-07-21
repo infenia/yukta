@@ -1,12 +1,6 @@
 {
   "permissions": {
-    "deny": [
-      "Read(./**/build/**)",
-      "Read(./**/bin/**)",
-      "Read(./**/.gradle/**)",
-      "Read(./cli-boot/**)",
-      "Read(./**/node_modules/**)"
-    ],
+    "deny": [],
     "allow": [
       "mcp__codegraph__*"
     ]
