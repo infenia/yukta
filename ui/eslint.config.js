@@ -10,7 +10,7 @@ import tseslint from 'typescript-eslint';
 import prettierConfig from 'eslint-config-prettier';
 
 export default tseslint.config(
-  { ignores: ['dist', 'node_modules', '*.json', '*.css'] },
+  { ignores: ['dist', 'node_modules', 'coverage', 'build', 'playwright-report', '*.json', '*.css'] },
   {
     extends: [js.configs.recommended, ...tseslint.configs.strict],
     files: ['**/*.{ts,tsx}'],
@@ -31,7 +31,7 @@ export default tseslint.config(
     },
     settings: {
       tailwindcss: {
-        cssFiles: ['src/index.css'],
+        cssConfigPath: './src/index.css',
       },
     },
     rules: {
@@ -43,6 +43,13 @@ export default tseslint.config(
       ...tailwindcss.configs.recommended.rules,
       'tailwindcss/classnames-order': 'warn',
       'tailwindcss/no-custom-classname': 'off',
+    },
+  },
+  {
+    // shadcn/ui copy-in primitives export cva variants alongside components by convention
+    files: ['src/components/ui/**/*.tsx'],
+    rules: {
+      'react-refresh/only-export-components': 'off',
     },
   },
   {

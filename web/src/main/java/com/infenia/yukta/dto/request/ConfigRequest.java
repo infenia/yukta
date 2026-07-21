@@ -18,6 +18,7 @@ import java.util.Map;
  * definitions, and metadata.
  *
  * @param sessionId the unique session identifier
+ * @param name a human-readable name for the session
  * @param description a human-readable description of the session's purpose
  * @param initiator the user or system name that initiated the session
  * @param tags additional key-value metadata to categorize the session
@@ -34,6 +35,10 @@ public record ConfigRequest(
             example = "session-123")
         @SessionId
         String sessionId,
+    @Schema(description = "A human-readable name for the session", example = "Production ETL v4")
+        @NotBlank(message = "Session name is mandatory")
+        @Size(max = 256, message = "Session name must be at most 256 characters")
+        String name,
     @Schema(
             description = "A human-readable description of the session",
             example = "Daily build and quality check")

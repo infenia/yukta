@@ -514,7 +514,7 @@ class WorkflowControllerTest {
   void testGetWorkflowHistory() {
     final var config =
         new com.infenia.yukta.model.session.SessionConfigResponse(
-            SESS_ID_1, "desc", "initiator", Map.of(), "/path", Map.of());
+            SESS_ID_1, "Test Session", "desc", "initiator", Map.of(), "/path", Map.of());
     when(sessionService.getSessionConfig(SESS_ID_1)).thenReturn(Mono.just(config));
     when(controlBusGateway.getHistory(SESS_ID_1)).thenReturn(List.of());
 
@@ -540,7 +540,7 @@ class WorkflowControllerTest {
   void testGetWorkflowHistoryLogging(final CapturedOutput output) {
     final var config =
         new com.infenia.yukta.model.session.SessionConfigResponse(
-            SESS_ID_1, "desc", "initiator", Map.of(), "/path", Map.of());
+            SESS_ID_1, "Test Session", "desc", "initiator", Map.of(), "/path", Map.of());
     when(sessionService.getSessionConfig(SESS_ID_1)).thenReturn(Mono.just(config));
     when(controlBusGateway.getHistory(SESS_ID_1)).thenReturn(List.of());
 

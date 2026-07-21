@@ -75,7 +75,8 @@ public class FileSessionConfigStore implements SessionConfigStore {
                     data.initiator(),
                     Instant.now().toString(),
                     data.tags(),
-                    data.description()))
+                    data.description(),
+                    data.name()))
         .flatMap(
             config ->
                 saveSessionConfig(data.sessionId(), config)
@@ -112,7 +113,7 @@ public class FileSessionConfigStore implements SessionConfigStore {
   public Mono<Void> setProjectPath(
       @SessionId final String sessionId, @ProjectPath final String path) {
     return loadSessionConfig(sessionId)
-        .defaultIfEmpty(new SessionConfig("", "", "", Map.of(), ""))
+        .defaultIfEmpty(new SessionConfig("", "", "", Map.of(), "", ""))
         .flatMap(
             config ->
                 saveSessionConfig(
@@ -122,7 +123,8 @@ public class FileSessionConfigStore implements SessionConfigStore {
                         config.initiator(),
                         config.initiatedTime(),
                         config.tags(),
-                        config.description())))
+                        config.description(),
+                        config.name())))
         .doOnSuccess(
             _ ->
                 log.atDebug()
@@ -159,7 +161,7 @@ public class FileSessionConfigStore implements SessionConfigStore {
       return Mono.empty();
     }
     return loadSessionConfig(sessionId)
-        .switchIfEmpty(Mono.just(new SessionConfig("", "", "", Map.of(), "")))
+        .switchIfEmpty(Mono.just(new SessionConfig("", "", "", Map.of(), "", "")))
         .filter(config -> config.description() == null || config.description().isEmpty())
         .flatMap(
             config ->
@@ -170,7 +172,8 @@ public class FileSessionConfigStore implements SessionConfigStore {
                         config.initiator(),
                         config.initiatedTime(),
                         config.tags(),
-                        description)))
+                        description,
+                        config.name())))
         .doOnSuccess(
             _ ->
                 log.atDebug()
@@ -193,7 +196,7 @@ public class FileSessionConfigStore implements SessionConfigStore {
       return Mono.empty();
     }
     return loadSessionConfig(sessionId)
-        .switchIfEmpty(Mono.just(new SessionConfig("", "", "", Map.of(), "")))
+        .switchIfEmpty(Mono.just(new SessionConfig("", "", "", Map.of(), "", "")))
         .filter(config -> config.initiator() == null || config.initiator().isEmpty())
         .flatMap(
             config ->
@@ -204,7 +207,8 @@ public class FileSessionConfigStore implements SessionConfigStore {
                         initiator,
                         config.initiatedTime(),
                         config.tags(),
-                        config.description())))
+                        config.description(),
+                        config.name())))
         .doOnSuccess(
             _ ->
                 log.atDebug()
@@ -228,7 +232,7 @@ public class FileSessionConfigStore implements SessionConfigStore {
       return Mono.empty();
     }
     return loadSessionConfig(sessionId)
-        .switchIfEmpty(Mono.just(new SessionConfig("", "", "", Map.of(), "")))
+        .switchIfEmpty(Mono.just(new SessionConfig("", "", "", Map.of(), "", "")))
         .filter(config -> config.initiatedTime() == null || config.initiatedTime().isEmpty())
         .flatMap(
             config ->
@@ -239,7 +243,8 @@ public class FileSessionConfigStore implements SessionConfigStore {
                         config.initiator(),
                         initiatedTime,
                         config.tags(),
-                        config.description())))
+                        config.description(),
+                        config.name())))
         .doOnSuccess(
             _ ->
                 log.atDebug()
@@ -261,7 +266,7 @@ public class FileSessionConfigStore implements SessionConfigStore {
       return Mono.empty();
     }
     return loadSessionConfig(sessionId)
-        .switchIfEmpty(Mono.just(new SessionConfig("", "", "", Map.of(), "")))
+        .switchIfEmpty(Mono.just(new SessionConfig("", "", "", Map.of(), "", "")))
         .filter(config -> config.tags() == null || config.tags().isEmpty())
         .flatMap(
             config ->
@@ -272,7 +277,8 @@ public class FileSessionConfigStore implements SessionConfigStore {
                         config.initiator(),
                         config.initiatedTime(),
                         tags,
-                        config.description())))
+                        config.description(),
+                        config.name())))
         .doOnSuccess(
             _ ->
                 log.atDebug()
@@ -286,10 +292,11 @@ public class FileSessionConfigStore implements SessionConfigStore {
   public Mono<Map<String, Object>> getAllConfigs(@SessionId final String sessionId) {
     return loadSessionConfig(sessionId)
         .flatMap(
-            ignored ->
+            loadedConfig ->
                 Mono.zip(
                     arr -> {
                       final Map<String, Object> configs = new java.util.LinkedHashMap<>();
+                      configs.put("sessionId", sessionId);
                       configs.put("projectPath", arr[0]);
                       configs.put("executionTimeout", arr[1]);
                       configs.put("fileLogDir", arr[2]);
@@ -298,6 +305,7 @@ public class FileSessionConfigStore implements SessionConfigStore {
                       configs.put("initiatedTime", arr[5]);
                       configs.put("tags", arr[6]);
                       configs.put("description", arr[7]);
+                      configs.put("name", loadedConfig.name());
                       configs.put("workflows", arr[8]);
                       return configs;
                     },
@@ -317,7 +325,8 @@ public class FileSessionConfigStore implements SessionConfigStore {
       String initiator,
       String initiatedTime,
       Map<String, String> tags,
-      String description) {}
+      String description,
+      String name) {}
 
   /**
    * Load session configuration from file (with caching).
@@ -344,7 +353,8 @@ public class FileSessionConfigStore implements SessionConfigStore {
                   fileConfig.initiator(),
                   fileConfig.initiatedTime(),
                   fileConfig.tags(),
-                  fileConfig.description());
+                  fileConfig.description(),
+                  fileConfig.name());
             })
         .doOnNext(config -> sessionCache.put(sessionId, config))
         .flatMap(Mono::just)
@@ -369,7 +379,8 @@ public class FileSessionConfigStore implements SessionConfigStore {
                       config.initiator(),
                       config.initiatedTime(),
                       config.tags(),
-                      config.description());
+                      config.description(),
+                      config.name());
               final String json = objectMapper.writeValueAsString(fileConfig);
               Files.writeString(
                   configPath,

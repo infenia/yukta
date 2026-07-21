@@ -39,6 +39,7 @@ class SessionServiceTest {
   private static final String INITIATOR = "initiator";
   private static final String SESSION_ID_1 = "sess-1";
   private static final String CONFIG_SESSION_ID = "sessionId";
+  private static final String CONFIG_NAME = "name";
   private static final String CONFIG_DESCRIPTION = "description";
   private static final String CONFIG_INITIATOR = "initiator";
   private static final String CONFIG_TAGS = "tags";
@@ -72,7 +73,7 @@ class SessionServiceTest {
         new WorkflowDefinition(TEST_WORKFLOW, DESC, List.of(), List.of());
     final SessionConfigData data =
         new SessionConfigData(
-            sessionId, DESC, "initiator-1", Map.of(), PATH, Map.of("w1", workflow));
+            sessionId, "test-session", DESC, "initiator-1", Map.of(), PATH, Map.of("w1", workflow));
 
     when(configService.applySessionConfig(configDataCaptor.capture())).thenReturn(Mono.empty());
     when(workflowDefinitionStore.findAll(sessionId)).thenReturn(Mono.just(Map.of()));
@@ -98,7 +99,8 @@ class SessionServiceTest {
     // Given
     final String sessionId = "sess-partial";
     final SessionConfigData data =
-        new SessionConfigData(sessionId, DESC, "initiator-p", Map.of(), null, Map.of());
+        new SessionConfigData(
+            sessionId, "partial-session", DESC, "initiator-p", Map.of(), null, Map.of());
 
     when(configService.applySessionConfig(configDataCaptor.capture())).thenReturn(Mono.empty());
     when(workflowDefinitionStore.findAll(sessionId)).thenReturn(Mono.just(Map.of()));
@@ -128,7 +130,8 @@ class SessionServiceTest {
 
     // ...and the new config only keeps "w1", dropping "w2".
     final SessionConfigData data =
-        new SessionConfigData(sessionId, DESC, INITIATOR, Map.of(), PATH, Map.of("w1", workflowA));
+        new SessionConfigData(
+            sessionId, "stale-cleanup", DESC, INITIATOR, Map.of(), PATH, Map.of("w1", workflowA));
     when(configService.applySessionConfig(any())).thenReturn(Mono.empty());
     when(controlBus.compileAndCacheWorkflow(eq(sessionId), any())).thenReturn(Mono.empty());
 
@@ -152,7 +155,14 @@ class SessionServiceTest {
         .thenReturn(Mono.error(new IllegalStateException("boom")));
 
     final SessionConfigData data =
-        new SessionConfigData(sessionId, DESC, INITIATOR, Map.of(), PATH, Map.of("w1", workflowA));
+        new SessionConfigData(
+            sessionId,
+            "stale-cleanup-error",
+            DESC,
+            INITIATOR,
+            Map.of(),
+            PATH,
+            Map.of("w1", workflowA));
     when(configService.applySessionConfig(any())).thenReturn(Mono.empty());
     when(controlBus.compileAndCacheWorkflow(eq(sessionId), any())).thenReturn(Mono.empty());
 
@@ -232,7 +242,13 @@ class SessionServiceTest {
         new WorkflowDefinition("workflow-2", "desc2", List.of(), List.of());
     final SessionConfigData data =
         new SessionConfigData(
-            sessionId, DESC, INITIATOR, Map.of(), PATH, Map.of("w1", workflow1, "w2", workflow2));
+            sessionId,
+            "multi-workflow-session",
+            DESC,
+            INITIATOR,
+            Map.of(),
+            PATH,
+            Map.of("w1", workflow1, "w2", workflow2));
 
     when(configService.applySessionConfig(configDataCaptor.capture())).thenReturn(Mono.empty());
     when(workflowDefinitionStore.findAll(sessionId)).thenReturn(Mono.just(Map.of()));
@@ -258,7 +274,8 @@ class SessionServiceTest {
     final WorkflowDefinition workflow =
         new WorkflowDefinition(TEST_WORKFLOW, DESC, List.of(), List.of());
     final SessionConfigData data =
-        new SessionConfigData(sessionId, DESC, INITIATOR, Map.of(), PATH, Map.of("w1", workflow));
+        new SessionConfigData(
+            sessionId, "error-session", DESC, INITIATOR, Map.of(), PATH, Map.of("w1", workflow));
 
     when(configService.applySessionConfig(any())).thenReturn(Mono.empty());
     when(workflowDefinitionStore.findAll(sessionId)).thenReturn(Mono.just(Map.of()));
@@ -276,7 +293,7 @@ class SessionServiceTest {
     // Given
     final String sessionId = "sess-store-error";
     final SessionConfigData data =
-        new SessionConfigData(sessionId, DESC, INITIATOR, Map.of(), PATH, Map.of());
+        new SessionConfigData(sessionId, "store-error", DESC, INITIATOR, Map.of(), PATH, Map.of());
 
     when(configService.applySessionConfig(any()))
         .thenReturn(Mono.error(new RuntimeException("Store failed")));
@@ -365,7 +382,8 @@ class SessionServiceTest {
     final WorkflowDefinition workflow =
         new WorkflowDefinition("single-workflow", DESC, List.of(), List.of());
     final SessionConfigData data =
-        new SessionConfigData(sessionId, DESC, INITIATOR, Map.of(), PATH, Map.of("w1", workflow));
+        new SessionConfigData(
+            sessionId, "single-workflow", DESC, INITIATOR, Map.of(), PATH, Map.of("w1", workflow));
 
     when(configService.applySessionConfig(configDataCaptor.capture())).thenReturn(Mono.empty());
     when(workflowDefinitionStore.findAll(sessionId)).thenReturn(Mono.just(Map.of()));
@@ -396,12 +414,18 @@ class SessionServiceTest {
         new WorkflowDefinition("w2", "desc2", List.of(), List.of());
     final Map<String, Object> configMap =
         Map.of(
-            CONFIG_SESSION_ID, sessionId,
-            CONFIG_DESCRIPTION, DESC,
-            CONFIG_INITIATOR, INITIATOR,
-            CONFIG_TAGS, Map.of(),
-            CONFIG_PROJECT_PATH, PATH,
-            CONFIG_WORKFLOWS, Map.of("w1", workflow1, "w2", workflow2));
+            CONFIG_SESSION_ID,
+            sessionId,
+            CONFIG_DESCRIPTION,
+            DESC,
+            CONFIG_INITIATOR,
+            INITIATOR,
+            CONFIG_TAGS,
+            Map.of(),
+            CONFIG_PROJECT_PATH,
+            PATH,
+            CONFIG_WORKFLOWS,
+            Map.of("w1", workflow1, "w2", workflow2));
     when(configService.getAllConfigs(sessionId)).thenReturn(Mono.just(configMap));
 
     // When & Then
@@ -555,6 +579,113 @@ class SessionServiceTest {
                     && response.workflows().size() == 2
                     && response.workflows().containsKey("workflow-a")
                     && response.workflows().containsKey("workflow-b"))
+        .verifyComplete();
+  }
+
+  @Test
+  void testGetAllSessionConfigs_multipleSessions_returnsAll() {
+    // Given: multiple sessions in the store
+    when(configService.getSessionIds()).thenReturn(Flux.just("s1", "s2"));
+    final Map<String, Object> config1 =
+        Map.of(
+            CONFIG_SESSION_ID,
+            "s1",
+            CONFIG_NAME,
+            "Session 1",
+            CONFIG_DESCRIPTION,
+            DESC,
+            CONFIG_INITIATOR,
+            INITIATOR,
+            CONFIG_TAGS,
+            Map.of(),
+            CONFIG_PROJECT_PATH,
+            PATH,
+            CONFIG_WORKFLOWS,
+            Map.of());
+    final Map<String, Object> config2 =
+        Map.of(
+            CONFIG_SESSION_ID,
+            "s2",
+            CONFIG_NAME,
+            "Session 2",
+            CONFIG_DESCRIPTION,
+            "desc2",
+            CONFIG_INITIATOR,
+            "user2",
+            CONFIG_TAGS,
+            Map.of(),
+            CONFIG_PROJECT_PATH,
+            "/path2",
+            CONFIG_WORKFLOWS,
+            Map.of());
+    when(configService.getAllConfigs("s1")).thenReturn(Mono.just(config1));
+    when(configService.getAllConfigs("s2")).thenReturn(Mono.just(config2));
+
+    // When & Then
+    StepVerifier.create(sessionService.getAllSessionConfigs())
+        .expectNextMatches(response -> "s1".equals(response.sessionId()))
+        .expectNextMatches(response -> "s2".equals(response.sessionId()))
+        .verifyComplete();
+  }
+
+  @Test
+  void testGetAllSessionConfigs_noSessions_returnsEmpty() {
+    // Given: no sessions in store
+    when(configService.getSessionIds()).thenReturn(Flux.empty());
+
+    // When & Then
+    StepVerifier.create(sessionService.getAllSessionConfigs()).verifyComplete();
+  }
+
+  @Test
+  void testGetAllSessionConfigs_oneSessionFailsToLoad_skipsAndReturnsOthers() {
+    // Given: first session fails to load, second succeeds
+    when(configService.getSessionIds()).thenReturn(Flux.just("s1", "s2"));
+    when(configService.getAllConfigs("s1"))
+        .thenReturn(Mono.error(new RuntimeException("Failed to load s1")));
+    final Map<String, Object> config2 =
+        Map.of(
+            CONFIG_SESSION_ID,
+            "s2",
+            CONFIG_NAME,
+            "Session 2",
+            CONFIG_DESCRIPTION,
+            DESC,
+            CONFIG_INITIATOR,
+            INITIATOR,
+            CONFIG_TAGS,
+            Map.of(),
+            CONFIG_PROJECT_PATH,
+            PATH,
+            CONFIG_WORKFLOWS,
+            Map.of());
+    when(configService.getAllConfigs("s2")).thenReturn(Mono.just(config2));
+
+    // When & Then: s1 is skipped, s2 is returned
+    StepVerifier.create(sessionService.getAllSessionConfigs())
+        .expectNextMatches(response -> "s2".equals(response.sessionId()))
+        .verifyComplete();
+  }
+
+  @Test
+  void testGetSessionConfig_includesNameField() {
+    // Given: config map includes name field
+    final String sessionId = "sess-with-name";
+    final String sessionName = "My Custom Session";
+    final Map<String, Object> configMap =
+        Map.of(
+            CONFIG_SESSION_ID, sessionId,
+            CONFIG_NAME, sessionName,
+            CONFIG_DESCRIPTION, DESC,
+            CONFIG_INITIATOR, INITIATOR,
+            CONFIG_TAGS, Map.of(),
+            CONFIG_PROJECT_PATH, PATH,
+            CONFIG_WORKFLOWS, Map.of());
+    when(configService.getAllConfigs(sessionId)).thenReturn(Mono.just(configMap));
+
+    // When & Then
+    StepVerifier.create(sessionService.getSessionConfig(sessionId))
+        .expectNextMatches(response -> sessionName.equals(response.name()))
         .verifyComplete();
   }
 

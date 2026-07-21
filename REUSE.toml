@@ -53,3 +53,10 @@ path = ["ui/.gitignore", "ui/components.json", "ui/package.json", "ui/package-lo
 precedence = "aggregate"
 SPDX-FileCopyrightText = "none"
 SPDX-License-Identifier = "CC0-1.0"
+
+# Copy-in shadcn/ui primitives (https://ui.shadcn.com), distributed under MIT
+[[annotations]]
+path = ["ui/src/components/ui/**"]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "shadcn"
+SPDX-License-Identifier = "MIT"

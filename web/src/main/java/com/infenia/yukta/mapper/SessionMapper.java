@@ -4,7 +4,9 @@ package com.infenia.yukta.mapper;
 
 import com.infenia.yukta.dto.request.ConfigRequest;
 import com.infenia.yukta.dto.request.WorkflowDefinitionRequest;
+import com.infenia.yukta.dto.response.SessionListItem;
 import com.infenia.yukta.model.session.SessionConfigData;
+import com.infenia.yukta.model.session.SessionConfigResponse;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.model.workflow.WorkflowDefinition.Edge;
 import org.mapstruct.Mapper;
@@ -39,4 +41,17 @@ public interface SessionMapper {
    */
   @Mapping(target = "sourcePort", source = "sourcePort", defaultValue = "default")
   Edge edgeRequestToEdge(WorkflowDefinitionRequest.EdgeRequest edgeRequest);
+
+  /**
+   * Map session configuration response to a lean session list item for table display.
+   *
+   * <p>Extracts tags from the map (using keys only) and counts workflows, omitting full workflow
+   * bodies.
+   *
+   * @param response the full session configuration response
+   * @return a lean session list item suitable for tables/lists
+   */
+  @Mapping(target = "tags", expression = "java(java.util.List.copyOf(response.tags().keySet()))")
+  @Mapping(target = "workflowCount", expression = "java(response.workflows().size())")
+  SessionListItem sessionConfigResponseToSessionListItem(SessionConfigResponse response);
 }

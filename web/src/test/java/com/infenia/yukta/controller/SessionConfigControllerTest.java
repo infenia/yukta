@@ -11,6 +11,7 @@ import static org.mockito.Mockito.when;
 import com.infenia.yukta.dto.request.ConfigRequest;
 import com.infenia.yukta.dto.request.WorkflowDefinitionRequest;
 import com.infenia.yukta.dto.request.WorkflowDefinitionRequest.NodeRequest;
+import com.infenia.yukta.dto.response.SessionListItem;
 import com.infenia.yukta.mapper.SessionMapper;
 import com.infenia.yukta.model.session.SessionConfigData;
 import com.infenia.yukta.model.session.SessionConfigResponse;
@@ -28,7 +29,12 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 /** Tests for SessionConfigController. */
-@SuppressWarnings({"PMD.LawOfDemeter", "PMD.TooManyStaticImports", "PMD.TooManyMethods"})
+@SuppressWarnings({
+  "PMD.LawOfDemeter",
+  "PMD.TooManyStaticImports",
+  "PMD.TooManyMethods",
+  "PMD.AvoidDuplicateLiterals"
+})
 @NoArgsConstructor
 class SessionConfigControllerTest {
 
@@ -103,6 +109,7 @@ class SessionConfigControllerTest {
     final var config =
         new SessionConfigResponse(
             "s1",
+            "Test Session",
             WORKFLOW_DESC,
             "initiator",
             Map.of(),
@@ -170,6 +177,7 @@ class SessionConfigControllerTest {
     final ConfigRequest request =
         new ConfigRequest(
             SESSION_ID_1,
+            "Test Session",
             WORKFLOW_DESC,
             INITIATOR_1,
             Map.of(),
@@ -180,7 +188,13 @@ class SessionConfigControllerTest {
         .when(sessionMapper.configRequestToSessionConfigData(any()))
         .thenReturn(
             new SessionConfigData(
-                SESSION_ID_1, WORKFLOW_DESC, INITIATOR_1, Map.of(), NEW_PATH, Map.of()));
+                SESSION_ID_1,
+                "Test Session",
+                WORKFLOW_DESC,
+                INITIATOR_1,
+                Map.of(),
+                NEW_PATH,
+                Map.of()));
     when(sessionService.applyConfig(any())).thenReturn(Mono.empty());
 
     final var result =
@@ -235,7 +249,8 @@ class SessionConfigControllerTest {
   @Test
   void testGetSessionDetailsWithEmptyWorkflows() {
     final var config =
-        new SessionConfigResponse("s1", "desc", "initiator", Map.of(), "/path", Map.of());
+        new SessionConfigResponse(
+            "s1", "Test Session", "desc", "initiator", Map.of(), "/path", Map.of());
     when(sessionService.getSessionConfig("s1")).thenReturn(Mono.just(config));
 
     final var result =
@@ -258,7 +273,13 @@ class SessionConfigControllerTest {
     final var wf2 = new WorkflowDefinition(WF_ID_2, "d", List.of(), List.of());
     final var config =
         new SessionConfigResponse(
-            "s2", "desc", "initiator", Map.of(), "/path", Map.of("wf1", wf1, WF_ID_2, wf2));
+            "s2",
+            "Test Session",
+            "desc",
+            "initiator",
+            Map.of(),
+            "/path",
+            Map.of("wf1", wf1, WF_ID_2, wf2));
     when(sessionService.getSessionConfig("s2")).thenReturn(Mono.just(config));
 
     final var result =
@@ -306,7 +327,13 @@ class SessionConfigControllerTest {
             "w1", TEST_WORKFLOW, List.of(new NodeRequest("n1", GRADLE, Map.of())), List.of());
     final ConfigRequest request =
         new ConfigRequest(
-            SESSION_ID_1, "", INITIATOR_1, Map.of(), NEW_PATH, Map.of(WF_ID_1, workflow));
+            SESSION_ID_1,
+            "Test Session",
+            "",
+            INITIATOR_1,
+            Map.of(),
+            NEW_PATH,
+            Map.of(WF_ID_1, workflow));
 
     final var result =
         webTestClient
@@ -329,7 +356,13 @@ class SessionConfigControllerTest {
             "w1", TEST_WORKFLOW, List.of(new NodeRequest("n1", GRADLE, Map.of())), List.of());
     final ConfigRequest request =
         new ConfigRequest(
-            SESSION_ID_1, WORKFLOW_DESC, "", Map.of(), NEW_PATH, Map.of("w1", workflow));
+            SESSION_ID_1,
+            "Test Session",
+            WORKFLOW_DESC,
+            "",
+            Map.of(),
+            NEW_PATH,
+            Map.of("w1", workflow));
 
     final var result =
         webTestClient
@@ -356,6 +389,7 @@ class SessionConfigControllerTest {
     final ConfigRequest request =
         new ConfigRequest(
             "session-multi",
+            "Test Session",
             "multi-desc",
             "initiator-1",
             Map.of(),
@@ -366,7 +400,13 @@ class SessionConfigControllerTest {
         .when(sessionMapper.configRequestToSessionConfigData(any()))
         .thenReturn(
             new SessionConfigData(
-                "session-multi", "multi-desc", "initiator-1", Map.of(), "/multi/path", Map.of()));
+                "session-multi",
+                "Test Session",
+                "multi-desc",
+                "initiator-1",
+                Map.of(),
+                "/multi/path",
+                Map.of()));
     when(sessionService.applyConfig(any())).thenReturn(Mono.empty());
 
     final var result =
@@ -392,13 +432,25 @@ class SessionConfigControllerTest {
             "w1", TEST_WORKFLOW, List.of(new NodeRequest("n1", GRADLE, Map.of())), List.of());
     final ConfigRequest request =
         new ConfigRequest(
-            SESSION_ID_1, WORKFLOW_DESC, INITIATOR_1, null, NEW_PATH, Map.of(WF_ID_1, workflow));
+            SESSION_ID_1,
+            "Test Session",
+            WORKFLOW_DESC,
+            INITIATOR_1,
+            null,
+            NEW_PATH,
+            Map.of(WF_ID_1, workflow));
 
     lenient()
         .when(sessionMapper.configRequestToSessionConfigData(any()))
         .thenReturn(
             new SessionConfigData(
-                SESSION_ID_1, WORKFLOW_DESC, INITIATOR_1, Map.of(), NEW_PATH, Map.of()));
+                SESSION_ID_1,
+                "Test Session",
+                WORKFLOW_DESC,
+                INITIATOR_1,
+                Map.of(),
+                NEW_PATH,
+                Map.of()));
     when(sessionService.applyConfig(any())).thenReturn(Mono.empty());
 
     final var result =
@@ -455,6 +507,7 @@ class SessionConfigControllerTest {
     final ConfigRequest request =
         new ConfigRequest(
             "error-session",
+            "Test Session",
             WORKFLOW_DESC,
             INITIATOR_1,
             Map.of(),
@@ -465,7 +518,13 @@ class SessionConfigControllerTest {
         .when(sessionMapper.configRequestToSessionConfigData(any()))
         .thenReturn(
             new SessionConfigData(
-                "error-session", WORKFLOW_DESC, INITIATOR_1, Map.of(), NEW_PATH, Map.of()));
+                "error-session",
+                "Test Session",
+                WORKFLOW_DESC,
+                INITIATOR_1,
+                Map.of(),
+                NEW_PATH,
+                Map.of()));
     when(sessionService.applyConfig(any()))
         .thenReturn(Mono.error(new RuntimeException("Service error")));
 
@@ -552,5 +611,97 @@ class SessionConfigControllerTest {
         .consumeWith(response -> assertThat(response.getStatus().value()).isEqualTo(500));
 
     verify(sessionService).getSessionIds();
+  }
+
+  @Test
+  void testListSessionSummariesWithSessions() {
+    final SessionConfigResponse config1 =
+        new SessionConfigResponse(
+            "sess-1",
+            "Session 1",
+            "Description 1",
+            "user1",
+            Map.of("tag1", "val1"),
+            "/path1",
+            Map.of(WF_ID_1, new WorkflowDefinition(WF_ID_1, "desc", List.of(), List.of())));
+    final SessionConfigResponse config2 =
+        new SessionConfigResponse(
+            "sess-2",
+            "Session 2",
+            "Description 2",
+            "user2",
+            Map.of("tag2", "val2"),
+            "/path2",
+            Map.of(
+                WF_ID_1, new WorkflowDefinition(WF_ID_1, "desc", List.of(), List.of()),
+                WF_ID_2, new WorkflowDefinition(WF_ID_2, "desc", List.of(), List.of())));
+
+    when(sessionService.getAllSessionConfigs()).thenReturn(Flux.just(config1, config2));
+    when(sessionMapper.sessionConfigResponseToSessionListItem(config1))
+        .thenReturn(
+            new SessionListItem(
+                "sess-1", "Session 1", "Description 1", "user1", List.of("tag1"), "/path1", 1));
+    when(sessionMapper.sessionConfigResponseToSessionListItem(config2))
+        .thenReturn(
+            new SessionListItem(
+                "sess-2", "Session 2", "Description 2", "user2", List.of("tag2"), "/path2", 2));
+
+    webTestClient
+        .get()
+        .uri(API_SESSIONS + "/summaries")
+        .exchange()
+        .expectStatus()
+        .isOk()
+        .expectBody()
+        .jsonPath(DOLLAR_DATA)
+        .exists()
+        .jsonPath("$.data.sessions")
+        .isArray()
+        .consumeWith(response -> assertThat(response.getStatus().value()).isEqualTo(200));
+
+    verify(sessionService).getAllSessionConfigs();
+  }
+
+  @Test
+  void testListSessionSummariesNoSessions() {
+    when(sessionService.getAllSessionConfigs()).thenReturn(Flux.empty());
+
+    webTestClient
+        .get()
+        .uri(API_SESSIONS + "/summaries")
+        .exchange()
+        .expectStatus()
+        .isOk()
+        .expectBody()
+        .jsonPath(DOLLAR_DATA)
+        .exists()
+        .jsonPath("$.data.sessions")
+        .isArray()
+        .jsonPath("$.data.sessions")
+        .isEmpty()
+        .consumeWith(response -> assertThat(response.getStatus().value()).isEqualTo(200));
+
+    verify(sessionService).getAllSessionConfigs();
+  }
+
+  @Test
+  void testListSessionSummariesWithError() {
+    when(sessionService.getAllSessionConfigs())
+        .thenReturn(Flux.error(new RuntimeException("Service error")));
+
+    webTestClient
+        .get()
+        .uri(API_SESSIONS + "/summaries")
+        .exchange()
+        .expectStatus()
+        .is5xxServerError()
+        .expectBody()
+        .jsonPath(DOLLAR_STATUS)
+        .isEqualTo(500)
+        .jsonPath("$.errors")
+        .exists()
+        .consumeWith(response -> assertThat(response.getStatus().value()).isEqualTo(500));
+
+    verify(sessionService).getAllSessionConfigs();
   }
 }

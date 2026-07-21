@@ -7,7 +7,7 @@ import AppFooter from '@/components/layout/AppFooter';
 
 export default function App() {
   return (
-    <div className="bg-background text-on-surface flex min-h-screen flex-col">
+    <div className="flex min-h-screen flex-col bg-background text-on-surface">
       <AppHeader />
       <main className="mt-20 flex flex-1 flex-col">
         <Outlet />

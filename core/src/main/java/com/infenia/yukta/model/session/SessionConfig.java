@@ -12,13 +12,15 @@ import java.util.Map;
  * @param initiatedTime the timestamp when the session was initiated
  * @param tags additional tags for the session
  * @param description a human-readable description of the session
+ * @param name a human-readable name for the session
  */
 public record SessionConfig(
     String projectPath,
     String initiator,
     String initiatedTime,
     Map<String, String> tags,
-    String description) {
+    String description,
+    String name) {
 
   /** Compact constructor for immutability. */
   public SessionConfig {

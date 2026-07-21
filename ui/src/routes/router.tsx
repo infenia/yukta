@@ -4,6 +4,7 @@
 import { createBrowserRouter } from 'react-router';
 import App from '@/App';
 import ComingSoonPage from '@/components/layout/ComingSoonPage';
+import { SessionListPage } from '@/features/sessions/components/SessionListPage';
 
 const router = createBrowserRouter([
   {
@@ -12,7 +13,7 @@ const router = createBrowserRouter([
     children: [
       {
         index: true,
-        element: <div>Hello Yukta</div>,
+        element: <SessionListPage />,
       },
       {
         path: 'sessions/:sessionId',

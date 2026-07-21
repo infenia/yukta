@@ -29,7 +29,7 @@ class SessionConfigTest {
 
     // When
     final SessionConfig config =
-        new SessionConfig(projectPath, initiator, initiatedTime, null, description);
+        new SessionConfig(projectPath, initiator, initiatedTime, null, description, "test");
 
     // Then
     assertThat(config.tags()).isEmpty();
@@ -46,7 +46,7 @@ class SessionConfigTest {
 
     // When
     final SessionConfig config =
-        new SessionConfig(projectPath, initiator, initiatedTime, tags, description);
+        new SessionConfig(projectPath, initiator, initiatedTime, tags, description, "test");
 
     // Then
     assertThat(config.tags()).containsEntry("env", "test").containsEntry("version", "1.0");
@@ -61,7 +61,7 @@ class SessionConfigTest {
     final Map<String, String> tags = Map.of("env", "test");
     final String description = "Test session";
     final SessionConfig config =
-        new SessionConfig(projectPath, initiator, initiatedTime, tags, description);
+        new SessionConfig(projectPath, initiator, initiatedTime, tags, description, "test");
 
     // When & Then
     assertThatThrownBy(() -> config.tags().put("key", "value"))
@@ -78,7 +78,7 @@ class SessionConfigTest {
     originalTags.put("env", "test");
     final String description = "Test session";
     final SessionConfig config =
-        new SessionConfig(projectPath, initiator, initiatedTime, originalTags, description);
+        new SessionConfig(projectPath, initiator, initiatedTime, originalTags, description, "test");
 
     // When
     originalTags.put("newTag", "newValue");
@@ -97,7 +97,7 @@ class SessionConfigTest {
     final Map<String, String> tags = Map.of("env", "test");
     final String description = "Test session";
     final SessionConfig config =
-        new SessionConfig(projectPath, initiator, initiatedTime, tags, description);
+        new SessionConfig(projectPath, initiator, initiatedTime, tags, description, "test");
 
     // When & Then
     assertThat(config.projectPath()).isEqualTo(projectPath);
@@ -112,9 +112,9 @@ class SessionConfigTest {
     // Given
     final Map<String, String> tags = Map.of("env", "test");
     final SessionConfig config1 =
-        new SessionConfig("/path", "user1", "2026-06-25T10:00:00Z", tags, "Test");
+        new SessionConfig("/path", "user1", "2026-06-25T10:00:00Z", tags, "Test", "test");
     final SessionConfig config2 =
-        new SessionConfig("/path", "user1", "2026-06-25T10:00:00Z", tags, "Test");
+        new SessionConfig("/path", "user1", "2026-06-25T10:00:00Z", tags, "Test", "test");
 
     // When & Then
     assertThat(config1).isEqualTo(config2);
@@ -125,9 +125,9 @@ class SessionConfigTest {
     // Given
     final Map<String, String> tags = Map.of("env", "test");
     final SessionConfig config1 =
-        new SessionConfig("/path", "user1", "2026-06-25T10:00:00Z", tags, "Test");
+        new SessionConfig("/path", "user1", "2026-06-25T10:00:00Z", tags, "Test", "test");
     final SessionConfig config2 =
-        new SessionConfig("/path", "user2", "2026-06-25T10:00:00Z", tags, "Test");
+        new SessionConfig("/path", "user2", "2026-06-25T10:00:00Z", tags, "Test", "test");
 
     // When & Then
     assertThat(config1).isNotEqualTo(config2);
@@ -137,7 +137,7 @@ class SessionConfigTest {
   void toString_recordWithValues_containsAllFields() {
     // Given
     final SessionConfig config =
-        new SessionConfig("/path", "user1", "2026-06-25T10:00:00Z", Map.of(), "Test");
+        new SessionConfig("/path", "user1", "2026-06-25T10:00:00Z", Map.of(), "Test", "test");
 
     // When
     final String result = config.toString();

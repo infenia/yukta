@@ -44,7 +44,13 @@ class DefaultSessionInfoProviderTest {
         new com.infenia.yukta.model.workflow.WorkflowDefinition("wf-1", "d", List.of(), List.of());
     final var config =
         new com.infenia.yukta.model.session.SessionConfigResponse(
-            "session-1", "desc", "initiator", Map.of(), "/path", Map.of("wf-1", wf));
+            "session-1",
+            "Test Session",
+            "desc",
+            "initiator",
+            Map.of(),
+            "/path",
+            Map.of("wf-1", wf));
     when(sessionService.getSessionConfig("session-1")).thenReturn(Mono.just(config));
 
     StepVerifier.create(provider.getSessionDetails("session-1"))
@@ -73,7 +79,7 @@ class DefaultSessionInfoProviderTest {
         new com.infenia.yukta.model.workflow.WorkflowDefinition("wf-1", "d", List.of(), List.of());
     final var config =
         new com.infenia.yukta.model.session.SessionConfigResponse(
-            "s1", "desc", "initiator", Map.of(), "/path", Map.of("wf-1", wf));
+            "s1", "Test Session", "desc", "initiator", Map.of(), "/path", Map.of("wf-1", wf));
     when(sessionService.getSessionConfig("s1")).thenReturn(Mono.just(config));
     when(sessionService.getSessionConfig("s2"))
         .thenReturn(Mono.error(new RuntimeException("fail")));
@@ -94,13 +100,13 @@ class DefaultSessionInfoProviderTest {
         new com.infenia.yukta.model.workflow.WorkflowDefinition("wf", "d", List.of(), List.of());
     final var config1 =
         new com.infenia.yukta.model.session.SessionConfigResponse(
-            "s1", "desc", "initiator", Map.of(), "/path", Map.of("wf", wf));
+            "s1", "Test Session 1", "desc", "initiator", Map.of(), "/path", Map.of("wf", wf));
     final var config2 =
         new com.infenia.yukta.model.session.SessionConfigResponse(
-            "s2", "desc", "initiator", Map.of(), "/path", Map.of());
+            "s2", "Test Session 2", "desc", "initiator", Map.of(), "/path", Map.of());
     final var config3 =
         new com.infenia.yukta.model.session.SessionConfigResponse(
-            "s3", "desc", "initiator", Map.of(), "/path", Map.of());
+            "s3", "Test Session 3", "desc", "initiator", Map.of(), "/path", Map.of());
     when(sessionService.getSessionConfig("s1")).thenReturn(Mono.just(config1));
     when(sessionService.getSessionConfig("s2")).thenReturn(Mono.just(config2));
     when(sessionService.getSessionConfig("s3")).thenReturn(Mono.just(config3));

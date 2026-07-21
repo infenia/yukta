@@ -23,6 +23,9 @@ final class SessionConfigResponseTest {
   /** Test initiator constant. */
   private static final String TEST_INIT = "init";
 
+  /** Test name constant. */
+  private static final String TEST_NAME = "test-name";
+
   /** Test path constant. */
   private static final String TEST_PATH = "path";
 
@@ -34,14 +37,16 @@ final class SessionConfigResponseTest {
   @Test
   void testSessionConfigResponse_withNullTags_defaultsToEmpty() {
     final var response =
-        new SessionConfigResponse(TEST_ID, TEST_DESC, TEST_INIT, null, TEST_PATH, Map.of());
+        new SessionConfigResponse(
+            TEST_ID, TEST_NAME, TEST_DESC, TEST_INIT, null, TEST_PATH, Map.of());
     assertThat(response.tags()).isEmpty();
   }
 
   @Test
   void testSessionConfigResponse_withNullWorkflows_defaultsToEmpty() {
     final var response =
-        new SessionConfigResponse(TEST_ID, TEST_DESC, TEST_INIT, Map.of(), TEST_PATH, null);
+        new SessionConfigResponse(
+            TEST_ID, TEST_NAME, TEST_DESC, TEST_INIT, Map.of(), TEST_PATH, null);
     assertThat(response.workflows()).isEmpty();
   }
 
@@ -50,7 +55,8 @@ final class SessionConfigResponseTest {
     final var tags = new HashMap<String, String>();
     tags.put("env", "test");
     final var response =
-        new SessionConfigResponse(TEST_ID, TEST_DESC, TEST_INIT, tags, TEST_PATH, Map.of());
+        new SessionConfigResponse(
+            TEST_ID, TEST_NAME, TEST_DESC, TEST_INIT, tags, TEST_PATH, Map.of());
     tags.put("extra", "value");
     assertThat(response.tags()).hasSize(1).containsEntry("env", "test");
   }
@@ -59,7 +65,8 @@ final class SessionConfigResponseTest {
   void testSessionConfigResponse_defensivelyCopiesWorkflows() {
     final var workflows = new HashMap<String, WorkflowDefinition>();
     final var response =
-        new SessionConfigResponse(TEST_ID, TEST_DESC, TEST_INIT, Map.of(), TEST_PATH, workflows);
+        new SessionConfigResponse(
+            TEST_ID, TEST_NAME, TEST_DESC, TEST_INIT, Map.of(), TEST_PATH, workflows);
     workflows.put("w1", new WorkflowDefinition("w1", "description", List.of(), List.of()));
     assertThat(response.workflows()).isEmpty();
   }

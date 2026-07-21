@@ -63,7 +63,8 @@ public class InMemorySessionConfigStore implements SessionConfigStore {
                       data.initiator(),
                       Instant.now().toString(),
                       data.tags(),
-                      data.description());
+                      data.description(),
+                      data.name());
               sessions.put(sessionId, config);
               log.atInfo()
                   .addKeyValue("sessionId", sessionId)
@@ -99,14 +100,15 @@ public class InMemorySessionConfigStore implements SessionConfigStore {
         sessionId,
         (_, config) -> {
           if (config == null) {
-            return new SessionConfig(path, "", "", Map.of(), "");
+            return new SessionConfig(path, "", "", Map.of(), "", "");
           }
           return new SessionConfig(
               path,
               config.initiator(),
               config.initiatedTime(),
               config.tags(),
-              config.description());
+              config.description(),
+              config.name());
         });
     log.atDebug()
         .addKeyValue("sessionId", sessionId)
@@ -145,7 +147,7 @@ public class InMemorySessionConfigStore implements SessionConfigStore {
           (_, config) -> {
             if (config == null) {
               isNew[0] = true;
-              return new SessionConfig("", "", "", Map.of(), description);
+              return new SessionConfig("", "", "", Map.of(), description, "");
             } else if (config.description().isEmpty()) {
               isNew[0] = true;
               return new SessionConfig(
@@ -153,7 +155,8 @@ public class InMemorySessionConfigStore implements SessionConfigStore {
                   config.initiator(),
                   config.initiatedTime(),
                   config.tags(),
-                  description);
+                  description,
+                  config.name());
             }
             return config;
           });
@@ -180,7 +183,7 @@ public class InMemorySessionConfigStore implements SessionConfigStore {
           (_, config) -> {
             if (config == null) {
               isNew[0] = true;
-              return new SessionConfig("", initiator, "", Map.of(), "");
+              return new SessionConfig("", initiator, "", Map.of(), "", "");
             } else if (config.initiator().isEmpty()) {
               isNew[0] = true;
               return new SessionConfig(
@@ -188,7 +191,8 @@ public class InMemorySessionConfigStore implements SessionConfigStore {
                   initiator,
                   config.initiatedTime(),
                   config.tags(),
-                  config.description());
+                  config.description(),
+                  config.name());
             }
             return config;
           });
@@ -217,7 +221,7 @@ public class InMemorySessionConfigStore implements SessionConfigStore {
           (_, config) -> {
             if (config == null) {
               isNew[0] = true;
-              return new SessionConfig("", "", initiatedTime, Map.of(), "");
+              return new SessionConfig("", "", initiatedTime, Map.of(), "", "");
             } else if (config.initiatedTime().isEmpty()) {
               isNew[0] = true;
               return new SessionConfig(
@@ -225,7 +229,8 @@ public class InMemorySessionConfigStore implements SessionConfigStore {
                   config.initiator(),
                   initiatedTime,
                   config.tags(),
-                  config.description());
+                  config.description(),
+                  config.name());
             }
             return config;
           });
@@ -252,7 +257,7 @@ public class InMemorySessionConfigStore implements SessionConfigStore {
           (_, config) -> {
             if (config == null) {
               isNew[0] = true;
-              return new SessionConfig("", "", "", tags, "");
+              return new SessionConfig("", "", "", tags, "", "");
             } else if (config.tags().isEmpty()) {
               isNew[0] = true;
               return new SessionConfig(
@@ -260,7 +265,8 @@ public class InMemorySessionConfigStore implements SessionConfigStore {
                   config.initiator(),
                   config.initiatedTime(),
                   tags,
-                  config.description());
+                  config.description(),
+                  config.name());
             }
             return config;
           });
@@ -279,6 +285,7 @@ public class InMemorySessionConfigStore implements SessionConfigStore {
         ? Mono.zip(
             arr -> {
               final Map<String, Object> configs = new java.util.LinkedHashMap<>();
+              configs.put("sessionId", sessionId);
               configs.put("projectPath", arr[0]);
               configs.put("executionTimeout", arr[1]);
               configs.put("fileLogDir", arr[2]);
@@ -287,6 +294,7 @@ public class InMemorySessionConfigStore implements SessionConfigStore {
               configs.put("initiatedTime", arr[5]);
               configs.put("tags", arr[6]);
               configs.put("description", arr[7]);
+              configs.put("name", sessions.get(sessionId).name());
               configs.put("workflows", arr[8]);
               log.atDebug()
                   .addKeyValue("sessionId", sessionId)

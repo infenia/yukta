@@ -8,7 +8,9 @@ import com.infenia.yukta.dto.request.ConfigRequest;
 import com.infenia.yukta.dto.request.WorkflowDefinitionRequest;
 import com.infenia.yukta.dto.request.WorkflowDefinitionRequest.EdgeRequest;
 import com.infenia.yukta.dto.request.WorkflowDefinitionRequest.NodeRequest;
+import com.infenia.yukta.dto.response.SessionListItem;
 import com.infenia.yukta.model.session.SessionConfigData;
+import com.infenia.yukta.model.session.SessionConfigResponse;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.model.workflow.WorkflowDefinition.Edge;
 import java.util.List;
@@ -21,7 +23,11 @@ import org.junit.jupiter.api.Test;
 import org.mapstruct.factory.Mappers;
 
 /** Tests for SessionMapper. */
-@SuppressWarnings({"PMD.AvoidAccessibilityAlteration", "PMD.TooManyMethods"})
+@SuppressWarnings({
+  "PMD.AvoidAccessibilityAlteration",
+  "PMD.TooManyMethods",
+  "PMD.AvoidDuplicateLiterals"
+})
 @NoArgsConstructor
 class SessionMapperTest {
 
@@ -80,6 +86,7 @@ class SessionMapperTest {
             "session-123",
             "Test Session",
             "test-user",
+            "initiator",
             Map.of("env", "test"),
             "/home/user/project",
             Map.of(
@@ -94,8 +101,9 @@ class SessionMapperTest {
 
     assertThat(result).isNotNull();
     assertThat(result.sessionId()).isEqualTo("session-123");
-    assertThat(result.description()).isEqualTo("Test Session");
-    assertThat(result.initiator()).isEqualTo("test-user");
+    assertThat(result.name()).isEqualTo("Test Session");
+    assertThat(result.description()).isEqualTo("test-user");
+    assertThat(result.initiator()).isEqualTo("initiator");
     assertThat(result.projectPath()).isEqualTo("/home/user/project");
   }
 
@@ -145,7 +153,13 @@ class SessionMapperTest {
   void testConfigRequestToSessionConfigDataWithEmptyWorkflows() {
     final ConfigRequest request =
         new ConfigRequest(
-            "session-456", "Empty Session", "system", null, "/home/user/project2", Map.of());
+            "session-456",
+            "Empty Session",
+            "system",
+            "initiator",
+            null,
+            "/home/user/project2",
+            Map.of());
 
     final SessionConfigData result = mapper.configRequestToSessionConfigData(request);
 
@@ -202,6 +216,7 @@ class SessionMapperTest {
             "session-many",
             "Many Workflows",
             "test-user",
+            "initiator",
             Map.of("key1", "val1", "key2", "val2"),
             "/home/user/project",
             workflows);
@@ -645,6 +660,79 @@ class SessionMapperTest {
     assertThat(edgeResult.source()).isEqualTo(SOURCE_NODE);
     assertThat(edgeResult.target()).isEqualTo(TARGET_NODE);
     assertThat(edgeResult.sourcePort()).isEqualTo("");
+  }
+
+  @Test
+  void testSessionConfigResponseToSessionListItem() {
+    final SessionConfigResponse response =
+        new SessionConfigResponse(
+            "sess-123",
+            "Session Name",
+            "Session Description",
+            "initiator-user",
+            Map.of("env", "prod", "region", "us-west"),
+            "/home/project",
+            Map.of(
+                "wf1", new WorkflowDefinition("wf1", "Workflow 1", List.of(), List.of()),
+                "wf2", new WorkflowDefinition("wf2", "Workflow 2", List.of(), List.of()),
+                "wf3", new WorkflowDefinition("wf3", "Workflow 3", List.of(), List.of())));
+
+    final SessionListItem result = mapper.sessionConfigResponseToSessionListItem(response);
+
+    assertThat(result).isNotNull();
+    assertThat(result.sessionId()).isEqualTo("sess-123");
+    assertThat(result.name()).isEqualTo("Session Name");
+    assertThat(result.description()).isEqualTo("Session Description");
+    assertThat(result.initiator()).isEqualTo("initiator-user");
+    assertThat(result.projectPath()).isEqualTo("/home/project");
+    assertThat(result.tags()).containsExactlyInAnyOrder("env", "region");
+    assertThat(result.workflowCount()).isEqualTo(3);
+  }
+
+  @Test
+  void testSessionConfigResponseToSessionListItemWithNoTags() {
+    final SessionConfigResponse response =
+        new SessionConfigResponse(
+            "sess-456",
+            "No Tags Session",
+            "No metadata",
+            "system",
+            Map.of(),
+            "/data/path",
+            Map.of("wf1", new WorkflowDefinition("wf1", "desc", List.of(), List.of())));
+
+    final SessionListItem result = mapper.sessionConfigResponseToSessionListItem(response);
+
+    assertThat(result).isNotNull();
+    assertThat(result.sessionId()).isEqualTo("sess-456");
+    assertThat(result.tags()).isEmpty();
+    assertThat(result.workflowCount()).isEqualTo(1);
+  }
+
+  @Test
+  void testSessionConfigResponseToSessionListItemWithNoWorkflows() {
+    final SessionConfigResponse response =
+        new SessionConfigResponse(
+            "sess-789",
+            "Empty Session",
+            "No workflows",
+            "admin",
+            Map.of("critical", "true"),
+            "/empty/path",
+            Map.of());
+
+    final SessionListItem result = mapper.sessionConfigResponseToSessionListItem(response);
+
+    assertThat(result).isNotNull();
+    assertThat(result.workflowCount()).isEqualTo(0);
+    assertThat(result.tags()).containsExactly("critical");
+  }
+
+  @Test
+  void testSessionConfigResponseToSessionListItemWithNull() {
+    final SessionListItem result = mapper.sessionConfigResponseToSessionListItem(null);
+
+    assertThat(result).isNull();
   }
 
   /* default */ WorkflowDefinitionRequest buildWorkflowDefinitionRequest(

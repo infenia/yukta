@@ -52,7 +52,13 @@ class ValidationTest {
             List.of());
     final SessionConfigData data =
         new SessionConfigData(
-            "session-1", "desc", "initiator-1", Map.of(), "/path", Map.of("w1", def));
+            "session-1",
+            "test-session",
+            "desc",
+            "initiator-1",
+            Map.of(),
+            "/path",
+            Map.of("w1", def));
     final Set<ConstraintViolation<SessionConfigData>> violations = validator.validate(data);
     assertThat(violations).isEmpty();
   }
@@ -63,7 +69,13 @@ class ValidationTest {
         new WorkflowDefinition("test-workflow", "desc", List.of(), List.of());
     final SessionConfigData data =
         new SessionConfigData(
-            "../session", "desc", "initiator-1", Map.of(), "/path", Map.of("w1", def));
+            "../session",
+            "invalid-session",
+            "desc",
+            "initiator-1",
+            Map.of(),
+            "/path",
+            Map.of("w1", def));
     final Set<ConstraintViolation<SessionConfigData>> violations = validator.validate(data);
     assertThat(violations)
         .isNotEmpty()
@@ -77,7 +89,13 @@ class ValidationTest {
     final String longDesc = "a".repeat(257);
     final SessionConfigData data =
         new SessionConfigData(
-            "session-1", longDesc, "initiator-1", Map.of(), "/path", Map.of("w1", def));
+            "session-1",
+            "long-desc-session",
+            longDesc,
+            "initiator-1",
+            Map.of(),
+            "/path",
+            Map.of("w1", def));
     final Set<ConstraintViolation<SessionConfigData>> violations = validator.validate(data);
     assertThat(violations)
         .isNotEmpty()

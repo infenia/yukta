@@ -16,7 +16,7 @@ export default function BreadcrumbNav() {
   const breadcrumbs = parseBreadcrumbsFromPath(pathname);
 
   return (
-    <div className="px-spacing-md bg-surface-container-low border-outline-variant flex h-8 w-full items-center border-t p-4">
+    <div className="px-spacing-md flex h-8 w-full items-center border-t border-outline-variant bg-surface-container-low p-4">
       <Breadcrumb>
         <BreadcrumbList className="gap-spacing-sm">
           {breadcrumbs.map((item, index) => (
@@ -30,18 +30,18 @@ export default function BreadcrumbNav() {
               )}
               <BreadcrumbItem key={`${item.label}-${index}`}>
                 {item.isCurrent ? (
-                  <span className="text-on-surface text-xs font-medium">
+                  <span className="text-xs font-medium text-on-surface">
                     {item.label}
                   </span>
                 ) : item.href ? (
                   <Link
                     to={item.href}
-                    className="text-on-surface-variant hover:text-on-surface text-xs transition-colors"
+                    className="text-xs text-on-surface-variant transition-colors hover:text-on-surface"
                   >
                     {item.label}
                   </Link>
                 ) : (
-                  <span className="text-on-surface-variant text-xs">
+                  <span className="text-xs text-on-surface-variant">
                     {item.label}
                   </span>
                 )}

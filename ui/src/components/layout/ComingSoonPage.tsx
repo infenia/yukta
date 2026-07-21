@@ -16,12 +16,12 @@ export default function ComingSoonPage({
         <div className="mb-spacing-lg">
           <span
             aria-hidden="true"
-            className="material-symbols-outlined text-outline text-6xl"
+            className="material-symbols-outlined text-6xl text-outline"
           >
             construction
           </span>
         </div>
-        <h1 className="text-headline-lg mb-spacing-md">{title}</h1>
+        <h1 className="mb-spacing-md text-headline-lg">{title}</h1>
         <p className="text-body-md text-on-surface-variant">
           {description || 'This page is coming soon.'}
         </p>

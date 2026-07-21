@@ -10,15 +10,15 @@ export default function HeaderLogo() {
       <Button
         variant="ghost"
         size="default"
-        className="gap-spacing-sm hover:bg-surface-container-low flex items-center"
+        className="gap-spacing-sm flex items-center hover:bg-surface-container-low"
       >
         {/* Yukta Logo Icon from public/favicon.svg */}
         <img
           src="/favicon.svg"
           alt="Yukta"
-          className="h-7 w-7 object-contain rounded-3xl"
+          className="size-7 rounded-3xl object-contain"
         />
-        <span className="font-headline text-on-surface dark:text-on-surface text-lg font-semibold tracking-tight">
+        <span className="font-headline text-lg font-semibold tracking-tight text-on-surface dark:text-on-surface">
           YUKTA
         </span>
       </Button>

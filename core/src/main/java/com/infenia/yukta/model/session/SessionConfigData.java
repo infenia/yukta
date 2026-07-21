@@ -15,6 +15,7 @@ import java.util.Map;
  * Data record for session configuration.
  *
  * @param sessionId the session identifier
+ * @param name a human-readable name for the session
  * @param description a human-readable description of the session
  * @param initiator the initiator name
  * @param tags additional tags for the session
@@ -23,6 +24,9 @@ import java.util.Map;
  */
 public record SessionConfigData(
     @SessionId String sessionId,
+    @NotBlank(message = "Session name is mandatory")
+        @Size(max = 256, message = "Session name must be at most 256 characters")
+        String name,
     @NotBlank(message = "Session description is mandatory")
         @Size(max = 256, message = "Session description must be at most 256 characters")
         String description,

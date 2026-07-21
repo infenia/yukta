@@ -52,16 +52,20 @@ class SpaWebFluxConfigTest {
 
     assertThat(patterns)
         .contains(
-            "/**/*.js",
-            "/**/*.css",
-            "/**/*.woff",
-            "/**/*.woff2",
-            "/**/*.ttf",
-            "/**/*.svg",
-            "/**/*.png",
-            "/**/*.ico",
-            "/**/*.webmanifest");
-    assertThat(patterns).hasSize(9);
+            "/assets/**",
+            "/*.js",
+            "/*.css",
+            "/*.woff",
+            "/*.woff2",
+            "/*.ttf",
+            "/*.svg",
+            "/*.png",
+            "/*.jpg",
+            "/*.webp",
+            "/*.ico",
+            "/*.json",
+            "/*.webmanifest");
+    assertThat(patterns).hasSize(13);
   }
 
   @Test
@@ -177,6 +181,39 @@ class SpaWebFluxConfigTest {
         .isOk()
         .expectHeader()
         .contentTypeCompatibleWith(MediaType.TEXT_HTML);
+  }
+
+  @ParameterizedTest
+  @ValueSource(
+      strings = {
+        "/assets/index-CeV2IbxW.js",
+        "/assets/index-qFjbJNVv.css",
+        "/assets/font-BEAKL7Jp.woff2",
+        "/assets/font-BEAKL7Jp.woff",
+        "/assets/font-BEAKL7Jp.ttf",
+        "/favicon.svg",
+        "/favicon.png",
+        "/favicon.ico",
+        "/site.webmanifest"
+      })
+  void testSpaRouterDoesNotMatchStaticAssetPaths(final String uri) {
+    final RouterFunction<ServerResponse> router = config.spaRouter();
+    final WebTestClient client = WebTestClient.bindToRouterFunction(router).build();
+
+    // The router must NOT handle these — they must fall through so the resource handler
+    // mapping (registered separately in addResourceHandlers) can serve the real asset. If the
+    // router wrongly matches, WebTestClient's default handler returns 404 for the unmatched
+    // route, which is what we assert here since no resource handler is wired in this test.
+    client.get().uri(uri).exchange().expectStatus().isNotFound();
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"/api/sessions/summaries", "/actuator/health", "/sse/status"})
+  void testSpaRouterDoesNotMatchBackendPaths(final String uri) {
+    final RouterFunction<ServerResponse> router = config.spaRouter();
+    final WebTestClient client = WebTestClient.bindToRouterFunction(router).build();
+
+    client.get().uri(uri).exchange().expectStatus().isNotFound();
   }
 
   @Test

@@ -190,11 +190,39 @@ public class SessionService {
   private SessionConfigResponse mapToSessionConfigResponse(final Map<String, Object> config) {
     return new SessionConfigResponse(
         (String) config.get("sessionId"),
+        (String) config.get("name"),
         (String) config.get("description"),
         (String) config.get("initiator"),
         (Map<String, String>) config.getOrDefault("tags", Map.of()),
         (String) config.get("projectPath"),
         (Map<String, WorkflowDefinition>) config.getOrDefault("workflows", Map.of()));
+  }
+
+  /**
+   * Get all session configurations.
+   *
+   * <p>Retrieves full configuration for all sessions. Individual sessions that fail to load are
+   * skipped with a warning; the flux completes with only successfully loaded sessions.
+   *
+   * @return Flux of all available session configurations
+   */
+  public Flux<SessionConfigResponse> getAllSessionConfigs() {
+    return getSessionIds()
+        .doOnSubscribe(_ -> log.atDebug().log("Fetching all session configurations"))
+        .flatMap(
+            sessionId ->
+                getSessionConfig(sessionId)
+                    .onErrorResume(
+                        err -> {
+                          log.atWarn()
+                              .addKeyValue("sessionId", sessionId)
+                              .setCause(err)
+                              .log(
+                                  "Skipping unreadable session config, continuing with other"
+                                      + " sessions");
+                          return Mono.empty();
+                        }))
+        .doOnComplete(() -> log.atDebug().log("All session configurations retrieved"));
   }
 
   /**

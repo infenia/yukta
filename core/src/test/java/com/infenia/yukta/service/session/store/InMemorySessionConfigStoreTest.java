@@ -219,6 +219,7 @@ class InMemorySessionConfigStoreTest {
     final SessionConfigData data =
         new SessionConfigData(
             sessionId,
+            "apply-session",
             "full desc",
             "initiator-x",
             Map.of(ENV, "prod"),
@@ -252,7 +253,13 @@ class InMemorySessionConfigStoreTest {
             WORKFLOW, DESC, List.of(new WorkflowDefinition.Node("n1", "t", Map.of())), List.of());
     final SessionConfigData data =
         new SessionConfigData(
-            "s1", "some description", "init", Map.of(), PATH, Map.of(WORKFLOW, workflow));
+            "s1",
+            "workflow-session",
+            "some description",
+            "init",
+            Map.of(),
+            PATH,
+            Map.of(WORKFLOW, workflow));
 
     when(workflowDefinitionStore.save("s1", workflow)).thenReturn(Mono.empty());
 
@@ -265,7 +272,13 @@ class InMemorySessionConfigStoreTest {
   void applySessionConfigWithEmptyWorkflows() {
     final SessionConfigData data =
         new SessionConfigData(
-            EMPTY_SESSION_ID, "description", "initiator", Map.of("key", "value"), PATH, Map.of());
+            EMPTY_SESSION_ID,
+            "empty-session",
+            "description",
+            "initiator",
+            Map.of("key", "value"),
+            PATH,
+            Map.of());
 
     StepVerifier.create(configService.applySessionConfig(data)).verifyComplete();
 
@@ -328,6 +341,7 @@ class InMemorySessionConfigStoreTest {
     final SessionConfigData data =
         new SessionConfigData(
             sessionId,
+            "multi-workflow",
             "description",
             "initiator",
             Map.of(ENV, "test"),

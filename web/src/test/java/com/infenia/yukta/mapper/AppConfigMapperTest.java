@@ -80,6 +80,7 @@ class AppConfigMapperTest {
             "session-123",
             "Test Session",
             "test-user",
+            "test-initiator",
             Map.of("env", "test", "version", "1.0"),
             "/home/user/project",
             Map.of(
@@ -94,8 +95,9 @@ class AppConfigMapperTest {
 
     assertThat(result).isNotNull();
     assertThat(result.sessionId()).isEqualTo("session-123");
-    assertThat(result.description()).isEqualTo("Test Session");
-    assertThat(result.initiator()).isEqualTo("test-user");
+    assertThat(result.name()).isEqualTo("Test Session");
+    assertThat(result.description()).isEqualTo("test-user");
+    assertThat(result.initiator()).isEqualTo("test-initiator");
     assertThat(result.projectPath()).isEqualTo("/home/user/project");
   }
 
@@ -146,6 +148,7 @@ class AppConfigMapperTest {
             "session-456",
             "Session Without Tags",
             "system",
+            "initiator",
             null,
             "/home/user/project2",
             Map.of(
@@ -236,6 +239,7 @@ class AppConfigMapperTest {
             "session-many",
             "Many Workflows",
             "test-user",
+            "initiator",
             Map.of("key1", "val1", "key2", "val2"),
             "/home/user/project",
             workflows);

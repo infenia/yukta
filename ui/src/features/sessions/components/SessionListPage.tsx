@@ -1,0 +1,133 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: 2026 Infenia Private Limited
+
+import { useState } from 'react';
+import {
+  useReactTable,
+  getCoreRowModel,
+  getFilteredRowModel,
+  getPaginationRowModel,
+  flexRender,
+  type ColumnFiltersState,
+} from '@tanstack/react-table';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { useSessionSummaries } from '../hooks/useSessionSummaries';
+import { columns } from './columns';
+import { SessionsHeader } from './SessionsHeader';
+import { SessionsFilterBar } from './SessionsFilterBar';
+import { SessionsPaginationFooter } from './SessionsPaginationFooter';
+
+export function SessionListPage() {
+  const { data: sessions = [], isLoading, error } = useSessionSummaries();
+  const [globalFilter, setGlobalFilter] = useState('');
+  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
+
+  // React Compiler skips memoizing useReactTable (headless API returns unstable functions); accepted
+  // eslint-disable-next-line react-hooks/incompatible-library
+  const table = useReactTable({
+    data: sessions,
+    columns,
+    getCoreRowModel: getCoreRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
+    state: {
+      globalFilter,
+      columnFilters,
+    },
+    onGlobalFilterChange: setGlobalFilter,
+    onColumnFiltersChange: setColumnFilters,
+    globalFilterFn: (row, _columnId, filterValue) => {
+      const { name, sessionId } = row.original;
+      return (
+        name.toLowerCase().includes(filterValue.toLowerCase()) ||
+        sessionId.toLowerCase().includes(filterValue.toLowerCase())
+      );
+    },
+    initialState: {
+      pagination: {
+        pageSize: 10,
+      },
+    },
+  });
+
+  if (isLoading) {
+    return (
+      <div className="flex flex-1 items-center justify-center">
+        <p className="text-on-surface-variant">Loading sessions...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-1 items-center justify-center">
+        <p className="text-error">Failed to load sessions</p>
+      </div>
+    );
+  }
+
+  const handleReset = () => {
+    setGlobalFilter('');
+    setColumnFilters([]);
+    table.setPageIndex(0);
+  };
+
+  return (
+    <div className="flex flex-1 flex-col gap-0 bg-background">
+      <div className="w-full">
+        <SessionsHeader sessionCount={sessions.length} />
+
+        <SessionsFilterBar
+          data={sessions}
+          globalFilter={globalFilter}
+          onGlobalFilterChange={setGlobalFilter}
+          onReset={handleReset}
+        />
+
+        <div className="px-6 pb-12">
+          <div className="border border-outline-variant bg-surface-container">
+            <Table>
+              <TableHeader>
+                {table.getHeaderGroups().map((headerGroup) => (
+                  <TableRow
+                    key={headerGroup.id}
+                    className="border-b border-outline-variant bg-surface-container-high hover:bg-surface-container-high"
+                  >
+                    {headerGroup.headers.map((header) => (
+                      <TableHead
+                        key={header.id}
+                        className="h-10 text-xs font-semibold tracking-wider uppercase"
+                      >
+                        {header.isPlaceholder
+                          ? null
+                          : flexRender(header.column.columnDef.header, header.getContext())}
+                      </TableHead>
+                    ))}
+                  </TableRow>
+                ))}
+              </TableHeader>
+              <TableBody>
+                {table.getRowModel().rows.map((row, idx) => (
+                  <TableRow
+                    key={row.id}
+                    className={`border-b border-outline-variant py-3 hover:bg-surface-container-high ${
+                      idx % 2 === 1 ? 'bg-surface-container-low' : ''
+                    }`}
+                  >
+                    {row.getVisibleCells().map((cell) => (
+                      <TableCell key={cell.id} className="px-4">
+                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+
+            <SessionsPaginationFooter table={table} />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

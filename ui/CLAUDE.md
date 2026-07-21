@@ -38,6 +38,23 @@ cd ui && pnpm dev
 ./gradlew :ui:pnpmTestE2e -PrunE2e=true
 ```
 
+### Test Coverage Reporting
+```bash
+# Generate coverage report and auto-open in browser (line + branch coverage)
+pnpm coverage
+
+# Generate coverage without opening (useful for CI/CD)
+pnpm exec vitest run --coverage
+```
+
+The report includes:
+- **Line coverage**: Which lines were/weren't executed
+- **Branch coverage**: Which conditional branches were/weren't taken
+- **Interactive HTML**: Click any file to see source code with coverage highlighting
+- **Metrics**: Per-file and aggregate coverage statistics
+
+Report location: `coverage/index.html` (generated, git-ignored)
+
 ## Tech Stack
 - **React 19**: UI framework
 - **Vite 7+**: Fast dev server and production build

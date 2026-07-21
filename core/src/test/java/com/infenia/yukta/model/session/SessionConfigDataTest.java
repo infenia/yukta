@@ -53,7 +53,7 @@ class SessionConfigDataTest {
 
   @Test
   void testSessionConfigData() {
-    final SessionConfigData data = new SessionConfigData("s", "d", "i", null, "/p", null);
+    final SessionConfigData data = new SessionConfigData("s", "n", "d", "i", null, "/p", null);
     assertThat(data.sessionId()).isEqualTo("s");
     assertThat(data.tags()).isNotNull().isEmpty();
     assertThat(data.workflows()).isNotNull().isEmpty();
@@ -68,7 +68,7 @@ class SessionConfigDataTest {
             new WorkflowDefinition(
                 "wf1", "desc", List.of(new WorkflowDefinition.Node("n1", "t1", null)), null));
     final var data =
-        new SessionConfigData(sessionId, "desc", "initiator", null, "/path", workflows);
+        new SessionConfigData(sessionId, "test", "desc", "initiator", null, "/path", workflows);
     final var result = validator.validateProperty(data, "sessionId");
     assertThat(result).isEmpty();
   }
@@ -84,7 +84,7 @@ class SessionConfigDataTest {
             new WorkflowDefinition(
                 "wf1", "desc", List.of(new WorkflowDefinition.Node("n1", "t1", null)), null));
     final var data =
-        new SessionConfigData(sessionId, "desc", "initiator", null, "/path", workflows);
+        new SessionConfigData(sessionId, "test", "desc", "initiator", null, "/path", workflows);
     final var result = validator.validateProperty(data, "sessionId");
     assertThat(result).isNotEmpty();
   }
@@ -97,8 +97,53 @@ class SessionConfigDataTest {
             new WorkflowDefinition(
                 "wf1", "desc", List.of(new WorkflowDefinition.Node("n1", "t1", null)), null));
     final var data =
-        new SessionConfigData("../session", "desc", "initiator", null, "/path", workflows);
+        new SessionConfigData("../session", "test", "desc", "initiator", null, "/path", workflows);
     final var result = validator.validateProperty(data, "sessionId");
+    assertThat(result).isNotEmpty();
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"my-session", "test-name", "Session A"})
+  void validationShouldNotFailWithValidName(final String name) {
+    final var workflows =
+        Map.of(
+            "wf1",
+            new WorkflowDefinition(
+                "wf1", "desc", List.of(new WorkflowDefinition.Node("n1", "t1", null)), null));
+    final var data =
+        new SessionConfigData("session-1", name, "desc", "initiator", null, "/path", workflows);
+    final var result = validator.validateProperty(data, "name");
+    assertThat(result).isEmpty();
+  }
+
+  @ParameterizedTest
+  @NullSource
+  @EmptySource
+  @ValueSource(strings = {" ", "\t", "\n"})
+  void validationShouldFailWithInvalidName(final String name) {
+    final var workflows =
+        Map.of(
+            "wf1",
+            new WorkflowDefinition(
+                "wf1", "desc", List.of(new WorkflowDefinition.Node("n1", "t1", null)), null));
+    final var data =
+        new SessionConfigData("session-1", name, "desc", "initiator", null, "/path", workflows);
+    final var result = validator.validateProperty(data, "name");
+    assertThat(result).isNotEmpty();
+  }
+
+  @Test
+  void validationShouldFailWhenNameExceedsMaxLength() {
+    final var workflows =
+        Map.of(
+            "wf1",
+            new WorkflowDefinition(
+                "wf1", "desc", List.of(new WorkflowDefinition.Node("n1", "t1", null)), null));
+    final var tooLongName = "a".repeat(257);
+    final var data =
+        new SessionConfigData(
+            "session-1", tooLongName, "desc", "initiator", null, "/path", workflows);
+    final var result = validator.validateProperty(data, "name");
     assertThat(result).isNotEmpty();
   }
 
@@ -111,7 +156,8 @@ class SessionConfigDataTest {
             new WorkflowDefinition(
                 "wf1", "desc", List.of(new WorkflowDefinition.Node("n1", "t1", null)), null));
     final var data =
-        new SessionConfigData("session-1", description, "initiator", null, "/path", workflows);
+        new SessionConfigData(
+            "session-1", "test", description, "initiator", null, "/path", workflows);
     final var result = validator.validateProperty(data, "description");
     assertThat(result).isEmpty();
   }
@@ -127,7 +173,8 @@ class SessionConfigDataTest {
             new WorkflowDefinition(
                 "wf1", "desc", List.of(new WorkflowDefinition.Node("n1", "t1", null)), null));
     final var data =
-        new SessionConfigData("session-1", description, "initiator", null, "/path", workflows);
+        new SessionConfigData(
+            "session-1", "test", description, "initiator", null, "/path", workflows);
     final var result = validator.validateProperty(data, "description");
     assertThat(result).isNotEmpty();
   }
@@ -142,7 +189,7 @@ class SessionConfigDataTest {
     final var tooLongDescription = "a".repeat(257);
     final var data =
         new SessionConfigData(
-            "session-1", tooLongDescription, "initiator", null, "/path", workflows);
+            "session-1", "test", tooLongDescription, "initiator", null, "/path", workflows);
     final var result = validator.validateProperty(data, "description");
     assertThat(result).isNotEmpty();
   }
@@ -156,7 +203,7 @@ class SessionConfigDataTest {
             new WorkflowDefinition(
                 "wf1", "desc", List.of(new WorkflowDefinition.Node("n1", "t1", null)), null));
     final var data =
-        new SessionConfigData("session-1", "desc", initiator, null, "/path", workflows);
+        new SessionConfigData("session-1", "test", "desc", initiator, null, "/path", workflows);
     final var result = validator.validateProperty(data, "initiator");
     assertThat(result).isEmpty();
   }
@@ -172,7 +219,7 @@ class SessionConfigDataTest {
             new WorkflowDefinition(
                 "wf1", "desc", List.of(new WorkflowDefinition.Node("n1", "t1", null)), null));
     final var data =
-        new SessionConfigData("session-1", "desc", initiator, null, "/path", workflows);
+        new SessionConfigData("session-1", "test", "desc", initiator, null, "/path", workflows);
     final var result = validator.validateProperty(data, "initiator");
     assertThat(result).isNotEmpty();
   }
@@ -186,7 +233,8 @@ class SessionConfigDataTest {
             new WorkflowDefinition(
                 "wf1", "desc", List.of(new WorkflowDefinition.Node("n1", "t1", null)), null));
     final var data =
-        new SessionConfigData("session-1", "desc", "initiator", null, projectPath, workflows);
+        new SessionConfigData(
+            "session-1", "test", "desc", "initiator", null, projectPath, workflows);
     final var result = validator.validateProperty(data, "projectPath");
     assertThat(result).isEmpty();
   }
@@ -202,7 +250,8 @@ class SessionConfigDataTest {
             new WorkflowDefinition(
                 "wf1", "desc", List.of(new WorkflowDefinition.Node("n1", "t1", null)), null));
     final var data =
-        new SessionConfigData("session-1", "desc", "initiator", null, projectPath, workflows);
+        new SessionConfigData(
+            "session-1", "test", "desc", "initiator", null, projectPath, workflows);
     final var result = validator.validateProperty(data, "projectPath");
     assertThat(result).isNotEmpty();
   }
@@ -216,7 +265,8 @@ class SessionConfigDataTest {
                 "wf1", "desc", List.of(new WorkflowDefinition.Node("n1", "t1", null)), null));
     final var tooLongPath = "/path" + "/a".repeat(512);
     final var data =
-        new SessionConfigData("session-1", "desc", "initiator", null, tooLongPath, workflows);
+        new SessionConfigData(
+            "session-1", "test", "desc", "initiator", null, tooLongPath, workflows);
     final var result = validator.validateProperty(data, "projectPath");
     assertThat(result).isNotEmpty();
   }
@@ -232,7 +282,7 @@ class SessionConfigDataTest {
             new WorkflowDefinition(
                 "wf2", "desc", List.of(new WorkflowDefinition.Node("n2", "t2", null)), null));
     final var data =
-        new SessionConfigData("session-1", "desc", "initiator", null, "/path", workflows);
+        new SessionConfigData("session-1", "test", "desc", "initiator", null, "/path", workflows);
     final var result = validator.validateProperty(data, "workflows");
     assertThat(result).isEmpty();
   }
@@ -241,7 +291,7 @@ class SessionConfigDataTest {
   @NullSource
   void validationShouldFailWithNullWorkflows(final Map<String, WorkflowDefinition> workflows) {
     final var data =
-        new SessionConfigData("session-1", "desc", "initiator", null, "/path", workflows);
+        new SessionConfigData("session-1", "test", "desc", "initiator", null, "/path", workflows);
     final var result = validator.validateProperty(data, "workflows");
     assertThat(result).isNotEmpty();
   }
@@ -250,7 +300,7 @@ class SessionConfigDataTest {
   void validationShouldFailWithEmptyWorkflows() {
     final var workflows = Map.<String, WorkflowDefinition>of();
     final var data =
-        new SessionConfigData("session-1", "desc", "initiator", null, "/path", workflows);
+        new SessionConfigData("session-1", "test", "desc", "initiator", null, "/path", workflows);
     final var result = validator.validateProperty(data, "workflows");
     assertThat(result).isNotEmpty();
   }
@@ -263,7 +313,7 @@ class SessionConfigDataTest {
             new WorkflowDefinition(
                 "wf1", "desc", List.of(new WorkflowDefinition.Node("n1", "t1", null)), null));
     final var data =
-        new SessionConfigData("session-1", "desc", "initiator", null, "/path", workflows);
+        new SessionConfigData("session-1", "test", "desc", "initiator", null, "/path", workflows);
     assertThat(data.tags()).isEmpty();
   }
 
@@ -276,7 +326,7 @@ class SessionConfigDataTest {
             new WorkflowDefinition(
                 "wf1", "desc", List.of(new WorkflowDefinition.Node("n1", "t1", null)), null));
     final var data =
-        new SessionConfigData("session-1", "desc", "initiator", tags, "/path", workflows);
+        new SessionConfigData("session-1", "test", "desc", "initiator", tags, "/path", workflows);
     assertThat(data.tags()).isEqualTo(tags);
     assertThat(data.tags()).containsExactlyEntriesOf(tags);
   }
@@ -289,7 +339,7 @@ class SessionConfigDataTest {
             "wf1", "desc", List.of(new WorkflowDefinition.Node("n1", "t1", null)), null);
     final var workflows = Map.of("wf1", wf);
     final var data =
-        new SessionConfigData("session-1", "desc", "initiator", null, "/path", workflows);
+        new SessionConfigData("session-1", "test", "desc", "initiator", null, "/path", workflows);
     assertThat(data.workflows()).containsEntry("wf1", wf);
     assertThat(data.workflows()).hasSize(1);
   }

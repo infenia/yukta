@@ -10,6 +10,7 @@ import java.util.Map;
  * Response record containing complete session configuration data.
  *
  * @param sessionId the session identifier
+ * @param name a human-readable name for the session
  * @param description a human-readable description of the session
  * @param initiator the initiator name
  * @param tags additional tags for the session
@@ -18,6 +19,7 @@ import java.util.Map;
  */
 public record SessionConfigResponse(
     String sessionId,
+    String name,
     String description,
     String initiator,
     Map<String, String> tags,

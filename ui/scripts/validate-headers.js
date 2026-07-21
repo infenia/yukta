@@ -39,7 +39,14 @@ const patterns = [
   'src/**/*.css',
 ];
 
-const ignorePatterns = ['dist/**', 'node_modules/**', 'build/**', 'coverage/**'];
+// src/components/ui/** holds copy-in shadcn/ui primitives (third-party-derived); no SPDX headers required
+const ignorePatterns = [
+  'dist/**',
+  'node_modules/**',
+  'build/**',
+  'coverage/**',
+  'src/components/ui/**',
+];
 
 let errors = [];
 

@@ -185,4 +185,9 @@ describe('parseBreadcrumbsFromPath', () => {
     expect(breadcrumbs[1].label).toBe('Item');
     expect(breadcrumbs[1].isCurrent).toBe(true);
   });
+
+  it('should handle numeric segment as first element without prepending Sessions', () => {
+    const breadcrumbs = parseBreadcrumbsFromPath('/123');
+    expect(breadcrumbs).toHaveLength(0);
+  });
 });

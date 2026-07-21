@@ -60,7 +60,13 @@ class DefaultSystemHealthProviderTest {
         new com.infenia.yukta.model.workflow.WorkflowDefinition("wf-2", "d", List.of(), List.of());
     final var config =
         new com.infenia.yukta.model.session.SessionConfigResponse(
-            "s1", "desc", "initiator", Map.of(), "/path", Map.of("wf-1", wf1, "wf-2", wf2));
+            "s1",
+            "Test Session",
+            "desc",
+            "initiator",
+            Map.of(),
+            "/path",
+            Map.of("wf-1", wf1, "wf-2", wf2));
     when(sessionService.getSessionConfig("s1")).thenReturn(Mono.just(config));
     when(controlBus.getHistory("s1"))
         .thenReturn(List.of(execution("e1", "RUNNING"), execution("e2", "COMPLETED")));
@@ -108,7 +114,7 @@ class DefaultSystemHealthProviderTest {
     when(sessionService.getSessionIds()).thenReturn(Flux.just("s1"));
     final var config =
         new com.infenia.yukta.model.session.SessionConfigResponse(
-            "s1", "desc", "initiator", Map.of(), "/path", Map.of());
+            "s1", "Test Session", "desc", "initiator", Map.of(), "/path", Map.of());
     when(sessionService.getSessionConfig("s1")).thenReturn(Mono.just(config));
     when(controlBus.getHistory("s1")).thenReturn(List.of());
 
@@ -223,7 +229,7 @@ class DefaultSystemHealthProviderTest {
         .thenReturn(Mono.error(new RuntimeException("boom")));
     final var config =
         new com.infenia.yukta.model.session.SessionConfigResponse(
-            "s2", "desc", "initiator", Map.of(), "/path", Map.of());
+            "s2", "Test Session", "desc", "initiator", Map.of(), "/path", Map.of());
     when(sessionService.getSessionConfig("s2")).thenReturn(Mono.just(config));
     when(controlBus.getHistory("s2")).thenReturn(List.of());
 

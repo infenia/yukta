@@ -5,6 +5,7 @@ package com.infenia.yukta.controller;
 import com.infenia.yukta.dto.request.ConfigRequest;
 import com.infenia.yukta.dto.response.SessionDetails;
 import com.infenia.yukta.dto.response.SessionList;
+import com.infenia.yukta.dto.response.SessionListItems;
 import com.infenia.yukta.mapper.SessionMapper;
 import com.infenia.yukta.model.api.ApiResponse;
 import com.infenia.yukta.model.session.SessionConfigData;
@@ -188,6 +189,65 @@ public class SessionConfigController {
                               HttpStatus.INTERNAL_SERVER_ERROR.value(),
                               "Internal Server Error",
                               "Failed to retrieve sessions",
+                              path,
+                              errors)));
+            });
+  }
+
+  /**
+   * List all session summaries.
+   *
+   * @return list of all session summaries for table display
+   */
+  @GetMapping("/summaries")
+  @Operation(
+      summary = "List all session summaries",
+      description =
+          "Retrieves a list of all available sessions with their summaries (lean data"
+              + " suitable for table display). Response is non-blocking and asynchronous.")
+  @io.swagger.v3.oas.annotations.responses.ApiResponse(
+      responseCode = HTTP_200,
+      description = "Session summaries retrieved successfully",
+      content = @Content(mediaType = APPLICATION_JSON))
+  @io.swagger.v3.oas.annotations.responses.ApiResponse(
+      responseCode = HTTP_500,
+      description = INTERNAL_SERVER_ERROR,
+      content = @Content(mediaType = APPLICATION_JSON))
+  public Mono<ResponseEntity<ApiResponse<SessionListItems>>> listSessionSummaries() {
+    log.atInfo().log("listSessionSummaries: retrieving all session summaries");
+    return sessionService
+        .getAllSessionConfigs()
+        .map(sessionMapper::sessionConfigResponseToSessionListItem)
+        .collectList()
+        .map(
+            items -> {
+              log.atDebug().log("listSessionSummaries: found {} sessions", items.size());
+              return new SessionListItems(items);
+            })
+        .map(
+            summaries ->
+                ResponseEntity.ok(
+                    ApiResponse.success(
+                        HttpStatus.OK.value(),
+                        "Session summaries retrieved successfully",
+                        summaries)))
+        .doOnSuccess(_ -> log.atInfo().log("listSessionSummaries: response sent successfully"))
+        .onErrorResume(
+            error -> {
+              log.atError().log("listSessionSummaries: error occurred: {}", error.getMessage());
+              final String path = "/api/sessions/summaries";
+              final List<ApiResponse.FieldError> errors =
+                  List.of(
+                      new ApiResponse.FieldError(
+                          "listSessionSummaries",
+                          "Failed to retrieve session summaries: " + error.getMessage()));
+              return Mono.just(
+                  ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                      .body(
+                          ApiResponse.error(
+                              HttpStatus.INTERNAL_SERVER_ERROR.value(),
+                              "Internal Server Error",
+                              "Failed to retrieve session summaries",
                               path,
                               errors)));
             });
