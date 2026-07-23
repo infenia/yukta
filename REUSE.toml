@@ -49,7 +49,7 @@ SPDX-FileCopyrightText = "none"
 SPDX-License-Identifier = "CC0-1.0"
 
 [[annotations]]
-path = ["ui/.gitignore", "ui/components.json", "ui/package.json", "ui/package-lock.json", "ui/pnpm-lock.yaml", "ui/.prettierignore", "ui/.prettierrc.json", "ui/docs/design/**", "ui/src/assets/**"]
+path = ["ui/.gitignore", "ui/components.json", "ui/package.json", "ui/package-lock.json", "ui/pnpm-lock.yaml", "ui/.prettierignore", "ui/.prettierrc.json", "ui/docs/design/**", "ui/src/assets/**", "ui/e2e/__snapshots__/**", "ui/e2e/test-results/**", "ui/playwright-report/**"]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "none"
 SPDX-License-Identifier = "CC0-1.0"

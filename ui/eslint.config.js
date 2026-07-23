@@ -53,6 +53,14 @@ export default tseslint.config(
     },
   },
   {
+    // Playwright fixtures use an empty `{}` first parameter by convention
+    // when a fixture has no dependencies on other fixtures.
+    files: ['e2e/fixtures.ts'],
+    rules: {
+      'no-empty-pattern': 'off',
+    },
+  },
+  {
     files: ['**/*.js', '**/*.ts', '**/*.tsx'],
     ...prettierConfig,
   },

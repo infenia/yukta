@@ -1,0 +1,25 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: 2026 Infenia Private Limited
+
+extends: default
+
+rules:
+  # Disable document-start requirement (GitHub Actions workflows don't need it)
+  document-start: disable
+
+  # Line length: allow up to 140 chars for GitHub Actions workflows
+  # (inline JavaScript strings and action URLs can be very long)
+  line-length:
+    max: 140
+    level: error
+
+  # Comment spacing: allow 1 space before comments (GitHub Actions style)
+  comments:
+    min-spaces-from-content: 1
+
+  # Brackets: GitHub Actions uses [ "main" ] spacing, which is valid but non-standard
+  brackets: disable
+
+  # Truthy values: relax for GitHub Actions (many workflows use bare 'true'/'false')
+  truthy:
+    check-keys: false

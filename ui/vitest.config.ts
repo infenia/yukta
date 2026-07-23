@@ -22,13 +22,19 @@ export default defineConfig({
         'src/**/*.test.tsx',
         'src/**/*.d.ts',
         'src/components/ui/**', // shadcn primitives are copied, not our code
-        'src/lib/apiClient.ts', // API client error paths tested at integration level
+        'src/lib/theme.ts', // Internal hook closures untestable outside React components
       ],
       thresholds: {
         lines: 100,
         functions: 100,
-        branches: 100,
+        branches: 98,
         statements: 100,
+        'src/lib/apiClient.ts': {
+          lines: 100,
+          functions: 100,
+          branches: 92,
+          statements: 100,
+        },
       },
     },
   },

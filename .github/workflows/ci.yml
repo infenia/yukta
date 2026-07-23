@@ -30,6 +30,22 @@ permissions:
 
 jobs:
   # ─────────────────────────────────────────────
+  # Job 0: Lint workflow files (fail fast on syntax errors)
+  # ─────────────────────────────────────────────
+  lint-workflows:
+    name: Lint Workflows
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          persist-credentials: false
+      - name: Lint YAML workflows
+        run: |
+          pip install yamllint
+          yamllint .github/workflows/
+
+  # ─────────────────────────────────────────────
   # Job 1: Detect which modules were changed.
   # This is always fast (~5s) and only does file-diff analysis.
   # ─────────────────────────────────────────────
@@ -426,3 +442,108 @@ jobs:
           # snapshot hasn't landed yet — retrying briefly is safe.
           retry-on-snapshot-warnings: true
           retry-on-snapshot-warnings-timeout: 120
+
+  # ─────────────────────────────────────────────
+  # Job: E2E Tests (Playwright + Screenshots)
+  # Only runs when UI module changes
+  # ─────────────────────────────────────────────
+  e2e-tests:
+    name: E2E Tests (Playwright)
+    needs: changes
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    if: |
+      contains(fromJson(needs.changes.outputs.modules), 'ui') &&
+      (github.event_name == 'pull_request' || github.ref == 'refs/heads/main')
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Install UI dependencies
+        working-directory: ui
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright browsers
+        working-directory: ui
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Run E2E tests
+        working-directory: ui
+        run: |
+          pnpm test:e2e \
+            --project=chromium \
+            --reporter=html \
+            --reporter=json \
+            --reporter=junit \
+            --reporter=github
+        env:
+          CI: true
+          BASE_URL: http://localhost:5173
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v4
+        with:
+          name: playwright-report
+          path: ui/playwright-report/
+          retention-days: 30
+          if-no-files-found: ignore
+
+      - name: Upload test videos
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v4
+        with:
+          name: playwright-videos
+          path: ui/test-results/
+          retention-days: 7
+          if-no-files-found: ignore
+
+      - name: Comment PR with test results
+        if: github.event_name == 'pull_request' && always()
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7
+        with:
+          script: |
+            const fs = require('fs');
+            const resultsPath = 'ui/test-results/results.json';
+            if (!fs.existsSync(resultsPath)) {
+              return;
+            }
+            const results = JSON.parse(fs.readFileSync(resultsPath, 'utf8'));
+            const stats = results.stats || {
+              tests: 0, passes: 0, failures: 0, duration: 0
+            };
+            const status = stats.failures === 0
+              ? '✅ All tests passed'
+              : '❌ Tests failed';
+            const table = '| Metric | Value |\n'
+              + '|--------|-------|\n'
+              + `| Total Tests | ${stats.tests || 0} |\n`
+              + `| Passed | ${stats.passes || 0} |\n`
+              + `| Failed | ${stats.failures || 0} |\n`
+              + `| Duration | ${((stats.duration || 0) / 1000).toFixed(1)}s |`;
+            const comment = `## ${status}\n\n${table}\n\n<details>\n`
+              + '<summary>View detailed report</summary>\n\n'
+              + '[Download Playwright Report]'
+              + '(https://github.com/${{ github.repository }}/actions/runs/'
+              + '${{ github.run_id }})\n\n</details>';
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+        continue-on-error: true

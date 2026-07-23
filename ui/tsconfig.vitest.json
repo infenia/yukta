@@ -1,0 +1,14 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ * SPDX-FileCopyrightText: 2026 Infenia Private Limited
+ */
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "types": ["vite/client", "@testing-library/jest-dom", "vitest/globals"]
+  },
+  "include": [
+    "src",
+    "vitest.config.ts"
+  ]
+}

@@ -7,6 +7,7 @@ import { afterEach, vi } from 'vitest';
 
 afterEach(() => {
   cleanup();
+  vi.restoreAllMocks();
 });
 
 // Mock window.matchMedia if not available

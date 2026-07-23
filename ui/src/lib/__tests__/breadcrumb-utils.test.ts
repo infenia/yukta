@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import { describe, it, expect } from 'vitest';
-import { parseBreadcrumbsFromPath } from './breadcrumb-utils';
+import { parseBreadcrumbsFromPath } from '../breadcrumb-utils';
 
 describe('parseBreadcrumbsFromPath', () => {
   it('should return Sessions for root path', () => {

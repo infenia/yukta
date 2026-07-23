@@ -8,7 +8,7 @@
     "target": "ES2020",
     "module": "esnext",
     "lib": ["ES2020", "DOM", "DOM.Iterable"],
-    "types": ["vite/client", "@testing-library/jest-dom"],
+    "types": ["vite/client"],
     "skipLibCheck": true,
     "strict": true,
     "esModuleInterop": true,
@@ -33,5 +33,6 @@
     "jsx": "react-jsx"
   },
   "include": ["src"],
+  "exclude": ["src/**/*.test.ts", "src/**/*.test.tsx", "src/**/__tests__/**"],
   "references": [{ "path": "./tsconfig.node.json" }]
 }

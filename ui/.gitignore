@@ -2,3 +2,8 @@ node_modules/
 jte-classes/
 src/main/resources/static/css/style.css
 coverage/
+
+# Playwright test artifacts
+test-results/
+playwright-report/
+.playwright/

@@ -9,23 +9,12 @@ import {
   getPaginationRowModel,
   getFilteredRowModel,
 } from '@tanstack/react-table';
-import { SessionsPaginationFooter } from '../components/SessionsPaginationFooter';
-import { columns } from '../components/columns';
-import type { SessionListItem } from '../types/session';
+import { SessionsPaginationFooter } from '../SessionsPaginationFooter';
+import { columns } from '../columns';
+import { createMockSessions } from '@/test/factories/sessionFactory';
+import type { SessionListItem } from '@/features/sessions/types/session';
 
-describe('Coverage - SessionsPaginationFooter Exhaustive', () => {
-  // Create enough sessions to test all pagination behaviors
-  const createSessions = (count: number): SessionListItem[] =>
-    Array.from({ length: count }, (_, i) => ({
-      sessionId: `session-${i}`,
-      name: `Session ${i}`,
-      description: `Desc ${i}`,
-      initiator: 'user@example.com',
-      tags: [],
-      projectPath: '/path',
-      workflowCount: i,
-    }));
-
+describe('SessionsPaginationFooter', () => {
   const PaginationTest = ({
     sessions,
     pageSize = 10,
@@ -46,7 +35,7 @@ describe('Coverage - SessionsPaginationFooter Exhaustive', () => {
   };
 
   it('should cover first page navigation buttons', () => {
-    const sessions = createSessions(30);
+    const sessions = createMockSessions(30);
     render(<PaginationTest sessions={sessions} pageSize={10} />);
 
     // All buttons should be visible
@@ -58,21 +47,21 @@ describe('Coverage - SessionsPaginationFooter Exhaustive', () => {
   });
 
   it('should cover rows per page selection', () => {
-    const sessions = createSessions(50);
+    const sessions = createMockSessions(50);
     render(<PaginationTest sessions={sessions} pageSize={10} />);
 
     expect(screen.getByText('10')).toBeInTheDocument();
   });
 
   it('should cover last page state', () => {
-    const sessions = createSessions(25);
+    const sessions = createMockSessions(25);
     render(<PaginationTest sessions={sessions} pageSize={10} />);
 
     expect(screen.getByText('1–10 of 25 items')).toBeInTheDocument();
   });
 
   it('should cover with twenty page size', () => {
-    const sessions = createSessions(100);
+    const sessions = createMockSessions(100);
     render(<PaginationTest sessions={sessions} pageSize={20} />);
 
     expect(screen.getByText('20')).toBeInTheDocument();
@@ -80,7 +69,7 @@ describe('Coverage - SessionsPaginationFooter Exhaustive', () => {
   });
 
   it('should cover with fifty page size', () => {
-    const sessions = createSessions(100);
+    const sessions = createMockSessions(100);
     render(<PaginationTest sessions={sessions} pageSize={50} />);
 
     expect(screen.getByText('50')).toBeInTheDocument();
@@ -88,7 +77,7 @@ describe('Coverage - SessionsPaginationFooter Exhaustive', () => {
   });
 
   it('should cover all button states', () => {
-    const sessions = createSessions(100);
+    const sessions = createMockSessions(100);
     render(<PaginationTest sessions={sessions} pageSize={10} />);
 
     const buttons = screen.getAllByRole('button');
@@ -98,7 +87,7 @@ describe('Coverage - SessionsPaginationFooter Exhaustive', () => {
   });
 
   it('should separate pagination controls visually', () => {
-    const sessions = createSessions(30);
+    const sessions = createMockSessions(30);
     render(<PaginationTest sessions={sessions} pageSize={10} />);
 
     // Verify distinct sections are present and visible
@@ -111,14 +100,14 @@ describe('Coverage - SessionsPaginationFooter Exhaustive', () => {
   });
 
   it('should render pagination with exact items text', () => {
-    const sessions = createSessions(3);
+    const sessions = createMockSessions(3);
     render(<PaginationTest sessions={sessions} pageSize={10} />);
 
     expect(screen.getByText('1–3 of 3 items')).toBeInTheDocument();
   });
 
   it('should display all pagination controls', () => {
-    const sessions = createSessions(40);
+    const sessions = createMockSessions(40);
     render(<PaginationTest sessions={sessions} pageSize={10} />);
 
     // Verify rows per page selector is present
@@ -133,7 +122,7 @@ describe('Coverage - SessionsPaginationFooter Exhaustive', () => {
   });
 
   it('should organize controls horizontally', () => {
-    const sessions = createSessions(50);
+    const sessions = createMockSessions(50);
     render(<PaginationTest sessions={sessions} pageSize={10} />);
 
     // Verify all controls are present and accessible
@@ -143,7 +132,7 @@ describe('Coverage - SessionsPaginationFooter Exhaustive', () => {
   });
 
   it('should render navigation icons', () => {
-    const sessions = createSessions(30);
+    const sessions = createMockSessions(30);
     render(<PaginationTest sessions={sessions} pageSize={10} />);
 
     // Verify icon buttons are present and accessible
@@ -159,7 +148,7 @@ describe('Coverage - SessionsPaginationFooter Exhaustive', () => {
   });
 
   it('should align controls appropriately', () => {
-    const sessions = createSessions(50);
+    const sessions = createMockSessions(50);
     render(<PaginationTest sessions={sessions} pageSize={10} />);
 
     // Verify information section is readable
