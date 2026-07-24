@@ -25,6 +25,7 @@ pnpm = "10.30.1"
 picocli = "4.7.7"
 caffeine = "3.2.4"
 licensee = "1.14.1"
+netty = "4.2.16.Final"
 
 [libraries]
 spring-boot-starter = { group = "org.springframework.boot", name = "spring-boot-starter" }
@@ -52,6 +53,11 @@ picocli-codegen = { group = "info.picocli", name = "picocli-codegen", version.re
 caffeine = { group = "com.github.ben-manes.caffeine", name = "caffeine", version.ref = "caffeine" }
 errorprone = { group = "com.google.errorprone", name = "error_prone_core", version.ref = "errorprone" }
 errorprone-annotations = { group = "com.google.errorprone", name = "error_prone_annotations", version.ref = "errorprone" }
+
+# Netty - override for CVE-2026-59901, CVE-2026-55831, CVE-2026-55833, CVE-2026-56745, CVE-2026-56816
+netty-codec-compression = { group = "io.netty", name = "netty-codec-compression", version.ref = "netty" }
+netty-codec-http = { group = "io.netty", name = "netty-codec-http", version.ref = "netty" }
+netty-codec-http3 = { group = "io.netty", name = "netty-codec-http3", version.ref = "netty" }
 
 # Testing
 junit-platform-launcher = { group = "org.junit.platform", name = "junit-platform-launcher" }
