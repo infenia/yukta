@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
+import { Fragment } from 'react';
 import { useLocation } from 'react-router';
 import { Link } from 'react-router';
 import {
@@ -20,7 +21,7 @@ export default function BreadcrumbNav() {
       <Breadcrumb>
         <BreadcrumbList className="gap-spacing-sm">
           {breadcrumbs.map((item, index) => (
-            <>
+            <Fragment key={`${item.label}-${index}`}>
               {index > 0 && (
                 <BreadcrumbSeparator className="text-outline-variant">
                   <span className="material-symbols-outlined text-xs">
@@ -28,7 +29,7 @@ export default function BreadcrumbNav() {
                   </span>
                 </BreadcrumbSeparator>
               )}
-              <BreadcrumbItem key={`${item.label}-${index}`}>
+              <BreadcrumbItem>
                 {item.isCurrent ? (
                   <span className="text-xs font-medium text-on-surface">
                     {item.label}
@@ -46,7 +47,7 @@ export default function BreadcrumbNav() {
                   </span>
                 )}
               </BreadcrumbItem>
-            </>
+            </Fragment>
           ))}
         </BreadcrumbList>
       </Breadcrumb>

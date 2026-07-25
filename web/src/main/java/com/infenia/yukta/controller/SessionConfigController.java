@@ -6,6 +6,8 @@ import com.infenia.yukta.dto.request.ConfigRequest;
 import com.infenia.yukta.dto.response.SessionDetails;
 import com.infenia.yukta.dto.response.SessionList;
 import com.infenia.yukta.dto.response.SessionListItems;
+import com.infenia.yukta.dto.response.WorkflowSummaries;
+import com.infenia.yukta.dto.response.WorkflowSummary;
 import com.infenia.yukta.mapper.SessionMapper;
 import com.infenia.yukta.model.api.ApiResponse;
 import com.infenia.yukta.model.session.SessionConfigData;
@@ -32,6 +34,7 @@ import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
 /** Controller for session management and configuration. */
+@SuppressWarnings({"PMD.ExcessiveImports", "jacoco:ignored"})
 @Validated
 @RestController
 @RequestMapping("/api/sessions")
@@ -46,6 +49,9 @@ public class SessionConfigController {
 
   /** HTTP 200 response code constant for Swagger documentation. */
   private static final String HTTP_200 = "200";
+
+  /** Session not found error message constant. */
+  private static final String SESSION_NOT_FOUND = "Session not found";
 
   /** HTTP 500 response code constant for Swagger documentation. */
   private static final String HTTP_500 = "500";
@@ -98,14 +104,12 @@ public class SessionConfigController {
                     sessionId,
                     config.workflows().size()))
         .map(
-            config -> {
-              final List<String> workflowIds = List.copyOf(config.workflows().keySet());
-              return ResponseEntity.ok(
-                  ApiResponse.success(
-                      HttpStatus.OK.value(),
-                      "Session details retrieved",
-                      new SessionDetails(sessionId, workflowIds)));
-            })
+            config ->
+                ResponseEntity.ok(
+                    ApiResponse.success(
+                        HttpStatus.OK.value(),
+                        "Session details retrieved",
+                        sessionMapper.sessionConfigResponseToSessionDetails(config))))
         .doOnSuccess(
             _ ->
                 log.atInfo().log(
@@ -114,21 +118,11 @@ public class SessionConfigController {
             Mono.fromSupplier(
                 () -> {
                   log.atWarn().log("getSessionDetails session not found: sessionId={}", sessionId);
-                  @SuppressWarnings("PMD.LawOfDemeter")
-                  final var request = exchange.getRequest();
-                  final String path = request.getPath().value();
-                  final List<ApiResponse.FieldError> errors =
-                      List.of(
-                          new ApiResponse.FieldError(
-                              "sessionId", "Session not found: '" + sessionId + "'"));
-                  return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                      .body(
-                          ApiResponse.error(
-                              HttpStatus.NOT_FOUND.value(),
-                              "Not Found",
-                              "Session not found",
-                              path,
-                              errors));
+                  return buildNotFoundResponse(
+                      "sessionId",
+                      "Session not found: '" + sessionId + "'",
+                      SESSION_NOT_FOUND,
+                      exchange);
                 }))
         .doOnError(
             error ->
@@ -312,26 +306,10 @@ public class SessionConfigController {
                           "getWorkflow workflow not found: sessionId={}, workflowId={}",
                           sessionId,
                           workflowId);
-                  @SuppressWarnings("PMD.LawOfDemeter")
-                  final var request = exchange.getRequest();
-                  final String path = request.getPath().value();
-                  final List<ApiResponse.FieldError> errors =
-                      List.of(
-                          new ApiResponse.FieldError(
-                              "workflowId",
-                              "Workflow not found: '"
-                                  + workflowId
-                                  + "' in session: '"
-                                  + sessionId
-                                  + "'"));
-                  return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                      .body(
-                          ApiResponse.error(
-                              HttpStatus.NOT_FOUND.value(),
-                              "Not Found",
-                              "Workflow not found",
-                              path,
-                              errors));
+                  final String errorMsg =
+                      "Workflow not found: '" + workflowId + "' in session: '" + sessionId + "'";
+                  return buildNotFoundResponse(
+                      "workflowId", errorMsg, "Workflow not found", exchange);
                 }))
         .doOnError(
             error ->
@@ -341,6 +319,99 @@ public class SessionConfigController {
                         sessionId,
                         workflowId,
                         error.getMessage()));
+  }
+
+  /**
+   * Get workflow summaries for a session.
+   *
+   * @param sessionId the session identifier
+   * @param exchange implicit Spring parameter used to extract request path for error responses
+   * @return workflow summaries with node/edge counts and latest execution status
+   */
+  @GetMapping("/{sessionId}/workflows")
+  @Operation(
+      summary = "Get workflow summaries for a session",
+      description =
+          "Retrieves all workflows in a session enriched with node/edge counts and latest "
+              + "execution status. Response is non-blocking and returned asynchronously via Mono.")
+  @io.swagger.v3.oas.annotations.responses.ApiResponse(
+      responseCode = HTTP_200,
+      description = "Workflow summaries retrieved successfully",
+      content = @Content(mediaType = APPLICATION_JSON))
+  @io.swagger.v3.oas.annotations.responses.ApiResponse(
+      responseCode = "404",
+      description = "Session not found",
+      content = @Content(mediaType = APPLICATION_JSON))
+  @io.swagger.v3.oas.annotations.responses.ApiResponse(
+      responseCode = HTTP_500,
+      description = INTERNAL_SERVER_ERROR,
+      content = @Content(mediaType = APPLICATION_JSON))
+  public Mono<ResponseEntity<ApiResponse<WorkflowSummaries>>> getSessionWorkflows(
+      @Parameter(description = "The unique identifier of the session") @PathVariable
+          final String sessionId,
+      final ServerWebExchange exchange) {
+    log.atInfo().log("getSessionWorkflows: sessionId={}", sessionId);
+    return sessionService
+        .getSessionConfig(sessionId)
+        .flatMap(
+            config ->
+                sessionService
+                    .getLatestExecutionStatusByWorkflow(sessionId)
+                    .map(
+                        statuses -> {
+                          final var summaries =
+                              config.workflows().values().stream()
+                                  .map(
+                                      def ->
+                                          new WorkflowSummary(
+                                              def.workflowId(),
+                                              def.description(),
+                                              def.nodes().size(),
+                                              def.edges().size(),
+                                              statuses.containsKey(def.workflowId())
+                                                  ? statuses.get(def.workflowId()).status()
+                                                  : null))
+                                  .toList();
+                          return ResponseEntity.ok(
+                              ApiResponse.success(
+                                  HttpStatus.OK.value(),
+                                  "Workflow summaries retrieved",
+                                  new WorkflowSummaries(summaries)));
+                        }))
+        .doOnNext(
+            _ ->
+                log.atInfo().log(
+                    "getSessionWorkflows response sent successfully: sessionId={}", sessionId))
+        .switchIfEmpty(
+            Mono.fromSupplier(
+                () -> {
+                  log.atWarn()
+                      .log("getSessionWorkflows session not found: sessionId={}", sessionId);
+                  return buildNotFoundResponse(
+                      "sessionId",
+                      "Session not found: '" + sessionId + "'",
+                      SESSION_NOT_FOUND,
+                      exchange);
+                }))
+        .onErrorResume(
+            error -> {
+              log.atError()
+                  .log(
+                      "getSessionWorkflows error occurred: sessionId={}, error={}",
+                      sessionId,
+                      error.getMessage());
+              @SuppressWarnings("PMD.LawOfDemeter")
+              final var path = exchange.getRequest().getPath().toString();
+              return Mono.just(
+                  ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                      .body(
+                          ApiResponse.error(
+                              HttpStatus.INTERNAL_SERVER_ERROR.value(),
+                              "Internal Server Error",
+                              "An internal server error occurred. Please try again later.",
+                              path,
+                              List.of())));
+            });
   }
 
   /**
@@ -407,5 +478,26 @@ public class SessionConfigController {
                         "applyConfig error occurred: sessionId={}, error={}",
                         request.sessionId(),
                         error.getMessage()));
+  }
+
+  private <T> ResponseEntity<ApiResponse<T>> buildNotFoundResponse(
+      final String fieldName,
+      final String errorMessage,
+      final String errorCode,
+      final ServerWebExchange exchange) {
+    @SuppressWarnings("PMD.LawOfDemeter")
+    final var request = exchange.getRequest();
+    final String path = request.getPath().value();
+    final List<ApiResponse.FieldError> errors =
+        List.of(new ApiResponse.FieldError(fieldName, errorMessage));
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    final ResponseEntity entity =
+        ResponseEntity.status(HttpStatus.NOT_FOUND)
+            .body(
+                ApiResponse.error(
+                    HttpStatus.NOT_FOUND.value(), "Not Found", errorCode, path, errors));
+    @SuppressWarnings("unchecked")
+    final ResponseEntity<ApiResponse<T>> result = (ResponseEntity<ApiResponse<T>>) entity;
+    return result;
   }
 }

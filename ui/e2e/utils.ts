@@ -57,6 +57,8 @@ export async function waitForLoadingComplete(
   timeout = 5000
 ): Promise<void> {
   await page.waitForLoadState('networkidle', { timeout });
+  // Wait for fonts to load via document.fonts.ready API
+  await page.evaluate(() => document.fonts.ready);
 }
 
 /**

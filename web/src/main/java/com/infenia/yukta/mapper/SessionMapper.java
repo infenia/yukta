@@ -4,6 +4,7 @@ package com.infenia.yukta.mapper;
 
 import com.infenia.yukta.dto.request.ConfigRequest;
 import com.infenia.yukta.dto.request.WorkflowDefinitionRequest;
+import com.infenia.yukta.dto.response.SessionDetails;
 import com.infenia.yukta.dto.response.SessionListItem;
 import com.infenia.yukta.model.session.SessionConfigData;
 import com.infenia.yukta.model.session.SessionConfigResponse;
@@ -54,4 +55,19 @@ public interface SessionMapper {
   @Mapping(target = "tags", expression = "java(java.util.List.copyOf(response.tags().keySet()))")
   @Mapping(target = "workflowCount", expression = "java(response.workflows().size())")
   SessionListItem sessionConfigResponseToSessionListItem(SessionConfigResponse response);
+
+  /**
+   * Map session configuration response to session details for the detail page.
+   *
+   * <p>Extracts all metadata (name, description, initiator, tags, projectPath) and workflow IDs
+   * from the configuration.
+   *
+   * @param response the full session configuration response
+   * @return session details including metadata and workflow IDs
+   */
+  @Mapping(target = "tags", expression = "java(java.util.List.copyOf(response.tags().keySet()))")
+  @Mapping(
+      target = "workflowIds",
+      expression = "java(java.util.List.copyOf(response.workflows().keySet()))")
+  SessionDetails sessionConfigResponseToSessionDetails(SessionConfigResponse response);
 }

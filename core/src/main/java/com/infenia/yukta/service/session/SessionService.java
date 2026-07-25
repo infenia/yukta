@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.service.session;
 
+import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
 import com.infenia.yukta.model.session.SessionConfigData;
 import com.infenia.yukta.model.session.SessionConfigResponse;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
@@ -13,6 +14,8 @@ import com.infenia.yukta.validation.SessionId;
 import com.infenia.yukta.validation.WorkflowId;
 import jakarta.validation.Valid;
 import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -253,5 +256,59 @@ public class SessionService {
                     .addArgument(sessionId)
                     .setCause(err)
                     .log("Failed to retrieve workflow: {} for session: {}"));
+  }
+
+  /**
+   * Get all workflow definitions for a session.
+   *
+   * @param sessionId the session identifier
+   * @return Mono containing map of workflowId to WorkflowDefinition
+   */
+  public Mono<Map<String, WorkflowDefinition>> getSessionWorkflows(
+      @SessionId final String sessionId) {
+    return workflowDefinitionStore
+        .findAll(sessionId)
+        .doOnSubscribe(_ -> log.atDebug().log("Fetching all workflows for session: {}", sessionId))
+        .doOnSuccess(
+            workflows ->
+                log.atDebug().log(
+                    "Retrieved {} workflows for session: {}", workflows.size(), sessionId))
+        .doOnError(
+            err ->
+                log.atError()
+                    .addArgument(sessionId)
+                    .setCause(err)
+                    .log("Failed to retrieve workflows for session: {}"));
+  }
+
+  /**
+   * Get the latest execution status per workflowId for a session.
+   *
+   * <p>Derives status from execution history, which is sorted most-recent-first. The first match
+   * per workflowId is the latest. Workflows with no execution history are absent from the returned
+   * map.
+   *
+   * @param sessionId the session identifier
+   * @return Mono containing map of workflowId to latest WorkflowExecutionSummary
+   */
+  public Mono<Map<String, WorkflowExecutionSummary>> getLatestExecutionStatusByWorkflow(
+      @SessionId final String sessionId) {
+    return Mono.fromCallable(() -> controlBus.getHistory(sessionId))
+        .map(
+            history ->
+                history.stream()
+                    .collect(
+                        Collectors.toMap(
+                            WorkflowExecutionSummary::workflowId,
+                            Function.identity(),
+                            (first, second) -> first)))
+        .doOnSubscribe(
+            _ -> log.atDebug().log("Fetching execution history for session: {}", sessionId))
+        .doOnError(
+            err ->
+                log.atError()
+                    .addArgument(sessionId)
+                    .setCause(err)
+                    .log("Failed to retrieve execution history for session: {}"));
   }
 }

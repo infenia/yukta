@@ -24,7 +24,7 @@ spotless {
         leadingTabsToSpaces(4)
         trimTrailingWhitespace()
         endWithNewline()
-        targetExclude("bin/**", "build/**", "out/**", "**/.gradle/**")
+        targetExclude("bin/**", "build/**", "out/**", "**/.gradle/**", "**/node_modules/**", "**/dist/**", "**/coverage/**", "**/.gradle/**")
     }
 
     kotlinGradle {

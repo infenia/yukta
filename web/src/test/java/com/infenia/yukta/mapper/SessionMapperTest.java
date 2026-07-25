@@ -8,6 +8,7 @@ import com.infenia.yukta.dto.request.ConfigRequest;
 import com.infenia.yukta.dto.request.WorkflowDefinitionRequest;
 import com.infenia.yukta.dto.request.WorkflowDefinitionRequest.EdgeRequest;
 import com.infenia.yukta.dto.request.WorkflowDefinitionRequest.NodeRequest;
+import com.infenia.yukta.dto.response.SessionDetails;
 import com.infenia.yukta.dto.response.SessionListItem;
 import com.infenia.yukta.model.session.SessionConfigData;
 import com.infenia.yukta.model.session.SessionConfigResponse;
@@ -742,5 +743,96 @@ class SessionMapperTest {
         description,
         List.of(new NodeRequest(nodeId, PROCESSOR_PLUGIN, Map.of())),
         List.of());
+  }
+
+  @Test
+  void testSessionConfigResponseToSessionDetails() {
+    final SessionConfigResponse response =
+        new SessionConfigResponse(
+            "sess-123",
+            "Test Session",
+            "Session description",
+            "john.doe",
+            Map.of("tag1", "value1", "tag2", "value2"),
+            "/path/to/project",
+            Map.of("wf1", new WorkflowDefinition("wf1", "desc", List.of(), List.of())));
+
+    final SessionDetails details = mapper.sessionConfigResponseToSessionDetails(response);
+
+    assertThat(details.sessionId()).isEqualTo("sess-123");
+    assertThat(details.name()).isEqualTo("Test Session");
+    assertThat(details.description()).isEqualTo("Session description");
+    assertThat(details.initiator()).isEqualTo("john.doe");
+    assertThat(details.tags()).containsExactlyInAnyOrder("tag1", "tag2");
+    assertThat(details.projectPath()).isEqualTo("/path/to/project");
+    assertThat(details.workflowIds()).containsExactly("wf1");
+  }
+
+  @Test
+  void testSessionConfigResponseToSessionDetailsWithMultipleWorkflows() {
+    final SessionConfigResponse response =
+        new SessionConfigResponse(
+            "sess-456",
+            "Multi Workflow Session",
+            "Multiple workflows",
+            "admin",
+            Map.of("env", "staging"),
+            "/multi/path",
+            Map.of(
+                "wf1", new WorkflowDefinition("wf1", "First", List.of(), List.of()),
+                "wf2", new WorkflowDefinition("wf2", "Second", List.of(), List.of()),
+                "wf3", new WorkflowDefinition("wf3", "Third", List.of(), List.of())));
+
+    final SessionDetails details = mapper.sessionConfigResponseToSessionDetails(response);
+
+    assertThat(details.sessionId()).isEqualTo("sess-456");
+    assertThat(details.name()).isEqualTo("Multi Workflow Session");
+    assertThat(details.description()).isEqualTo("Multiple workflows");
+    assertThat(details.initiator()).isEqualTo("admin");
+    assertThat(details.tags()).containsExactly("env");
+    assertThat(details.workflowIds()).hasSize(3).containsExactlyInAnyOrder("wf1", "wf2", "wf3");
+  }
+
+  @Test
+  void testSessionConfigResponseToSessionDetailsWithNoTags() {
+    final SessionConfigResponse response =
+        new SessionConfigResponse(
+            "sess-789",
+            "No Tags Session",
+            "No metadata tags",
+            "user",
+            Map.of(),
+            "/no/tags/path",
+            Map.of("wf1", new WorkflowDefinition("wf1", "desc", List.of(), List.of())));
+
+    final SessionDetails details = mapper.sessionConfigResponseToSessionDetails(response);
+
+    assertThat(details.tags()).isEmpty();
+    assertThat(details.workflowIds()).containsExactly("wf1");
+  }
+
+  @Test
+  void testSessionConfigResponseToSessionDetailsWithNoWorkflows() {
+    final SessionConfigResponse response =
+        new SessionConfigResponse(
+            "sess-empty",
+            "Empty Session",
+            "No workflows configured",
+            "system",
+            Map.of("status", "inactive"),
+            "/empty/path",
+            Map.of());
+
+    final SessionDetails details = mapper.sessionConfigResponseToSessionDetails(response);
+
+    assertThat(details.workflowIds()).isEmpty();
+    assertThat(details.tags()).containsExactly("status");
+  }
+
+  @Test
+  void testSessionConfigResponseToSessionDetailsWithNull() {
+    final SessionDetails result = mapper.sessionConfigResponseToSessionDetails(null);
+
+    assertThat(result).isNull();
   }
 }

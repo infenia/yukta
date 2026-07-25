@@ -26,13 +26,22 @@ export function SessionRowActionsMenu({ session }: SessionRowActionsMenuProps) {
     <DropdownMenu>
       <DropdownMenuTrigger
         render={(state) => (
-          <Button variant="ghost" size="sm" aria-label="Session actions" {...state}>
+          <Button
+            variant="ghost"
+            size="sm"
+            aria-label="Session actions"
+            {...state}
+            onClick={(e: React.MouseEvent) => {
+              e.stopPropagation();
+              state.onClick?.(e);
+            }}
+          >
             <span className="material-symbols-outlined" aria-hidden="true">more_vert</span>
           </Button>
         )}
       />
       <DropdownMenuContent align="end">
-        <DropdownMenuItem onClick={handleView}>View Details</DropdownMenuItem>
+        <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleView(); }}>View Details</DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );

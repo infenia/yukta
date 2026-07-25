@@ -67,6 +67,10 @@ export const columns: ColumnDef<SessionListItem>[] = [
   },
   {
     id: 'actions',
-    cell: ({ row }) => <SessionRowActionsMenu session={row.original} />,
+    cell: ({ row }) => (
+      <div onClick={(e) => e.stopPropagation()}>
+        <SessionRowActionsMenu session={row.original} />
+      </div>
+    ),
   },
 ];

@@ -5,6 +5,7 @@ import { createBrowserRouter } from 'react-router';
 import App from '@/App';
 import ComingSoonPage from '@/components/layout/ComingSoonPage';
 import { SessionListPage } from '@/features/sessions/components/SessionListPage';
+import { SessionDetailsPage } from '@/features/sessions/components/SessionDetailsPage';
 
 const router = createBrowserRouter([
   {
@@ -17,7 +18,7 @@ const router = createBrowserRouter([
       },
       {
         path: 'sessions/:sessionId',
-        element: <ComingSoonPage title="Session Detail" />,
+        element: <SessionDetailsPage />,
       },
       {
         path: 'sessions/:sessionId/workflow/:workflowId',

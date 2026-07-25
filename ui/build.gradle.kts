@@ -103,6 +103,9 @@ tasks.named<Test>("test") {
 // NOTE: Spotless is NOT applied to UI module to avoid conflicts with Prettier.
 // The UI module uses Prettier (pnpm format) for code formatting and license headers are
 // managed manually. See .prettierignore for files excluded from formatting checks.
+tasks.withType<com.diffplug.gradle.spotless.SpotlessTask>().configureEach {
+  enabled = false
+}
 
 // Disable npm and yarn tasks — only pnpm is used
 tasks.withType<com.github.gradle.node.npm.task.NpmSetupTask>().configureEach {

@@ -14,3 +14,27 @@ export interface SessionListItem {
 export interface SessionListItems {
   sessions: SessionListItem[];
 }
+
+export interface SessionDetails {
+  sessionId: string;
+  name: string;
+  description: string;
+  initiator: string;
+  tags: string[];
+  projectPath: string;
+  workflowIds: string[];
+}
+
+export type WorkflowExecutionStatus = 'PENDING' | 'RUNNING' | 'SUCCESS' | 'FAILURE' | 'ERROR';
+
+export interface WorkflowSummary {
+  workflowId: string;
+  description: string;
+  nodeCount: number;
+  edgeCount: number;
+  status: WorkflowExecutionStatus | null;
+}
+
+export interface WorkflowSummaries {
+  workflows: WorkflowSummary[];
+}

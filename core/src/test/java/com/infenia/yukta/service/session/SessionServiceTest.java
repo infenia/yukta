@@ -35,9 +35,12 @@ import reactor.test.StepVerifier;
 class SessionServiceTest {
 
   private static final String DESC = "desc";
+  private static final String DESC2 = "desc2";
   private static final String PATH = "/path";
   private static final String INITIATOR = "initiator";
   private static final String SESSION_ID_1 = "sess-1";
+  private static final String WF1 = "wf1";
+  private static final String WF2 = "wf2";
   private static final String CONFIG_SESSION_ID = "sessionId";
   private static final String CONFIG_NAME = "name";
   private static final String CONFIG_DESCRIPTION = "description";
@@ -47,6 +50,11 @@ class SessionServiceTest {
   private static final String CONFIG_WORKFLOWS = "workflows";
   private static final String TEST_WORKFLOW = "test-workflow";
   private static final String TEST_ENV = "env";
+  private static final String EXEC1 = "exec1";
+  private static final String EXEC2 = "exec2";
+  private static final String SUCCESS = "SUCCESS";
+  private static final String RUNNING = "RUNNING";
+  private static final String FAILURE = "FAILURE";
 
   @Mock private SessionConfigStore configService;
   @Mock private ControlBusGateway controlBus;
@@ -239,7 +247,7 @@ class SessionServiceTest {
     final WorkflowDefinition workflow1 =
         new WorkflowDefinition("workflow-1", "desc1", List.of(), List.of());
     final WorkflowDefinition workflow2 =
-        new WorkflowDefinition("workflow-2", "desc2", List.of(), List.of());
+        new WorkflowDefinition("workflow-2", DESC2, List.of(), List.of());
     final SessionConfigData data =
         new SessionConfigData(
             sessionId,
@@ -410,8 +418,7 @@ class SessionServiceTest {
     final String sessionId = "sess-multi-config";
     final WorkflowDefinition workflow1 =
         new WorkflowDefinition("w1", "desc1", List.of(), List.of());
-    final WorkflowDefinition workflow2 =
-        new WorkflowDefinition("w2", "desc2", List.of(), List.of());
+    final WorkflowDefinition workflow2 = new WorkflowDefinition("w2", DESC2, List.of(), List.of());
     final Map<String, Object> configMap =
         Map.of(
             CONFIG_SESSION_ID,
@@ -609,7 +616,7 @@ class SessionServiceTest {
             CONFIG_NAME,
             "Session 2",
             CONFIG_DESCRIPTION,
-            "desc2",
+            DESC2,
             CONFIG_INITIATOR,
             "user2",
             CONFIG_TAGS,
@@ -702,5 +709,135 @@ class SessionServiceTest {
         .verify();
 
     verify(configService).getAllConfigs(sessionId);
+  }
+
+  @Test
+  void testGetSessionWorkflows_delegatesToStore() {
+    // Given
+    final String sessionId = "sess-workflows";
+    final WorkflowDefinition workflow1 = new WorkflowDefinition(WF1, "desc1", List.of(), List.of());
+    final WorkflowDefinition workflow2 = new WorkflowDefinition(WF2, DESC2, List.of(), List.of());
+    final Map<String, WorkflowDefinition> workflows = Map.of(WF1, workflow1, WF2, workflow2);
+
+    when(workflowDefinitionStore.findAll(sessionId)).thenReturn(Mono.just(workflows));
+
+    // When & Then
+    StepVerifier.create(sessionService.getSessionWorkflows(sessionId))
+        .expectNext(workflows)
+        .verifyComplete();
+
+    verify(workflowDefinitionStore).findAll(sessionId);
+  }
+
+  @Test
+  void testGetSessionWorkflows_storeReturnsEmpty() {
+    // Given
+    final String sessionId = "sess-no-workflows";
+    when(workflowDefinitionStore.findAll(sessionId)).thenReturn(Mono.just(Map.of()));
+
+    // When & Then
+    StepVerifier.create(sessionService.getSessionWorkflows(sessionId))
+        .expectNext(Map.of())
+        .verifyComplete();
+
+    verify(workflowDefinitionStore).findAll(sessionId);
+  }
+
+  @Test
+  void testGetSessionWorkflows_storeReturnsError() {
+    // Given
+    final String sessionId = "sess-workflow-error";
+    final RuntimeException testError = new RuntimeException("Store error");
+    when(workflowDefinitionStore.findAll(sessionId)).thenReturn(Mono.error(testError));
+
+    // When & Then
+    StepVerifier.create(sessionService.getSessionWorkflows(sessionId))
+        .expectError(RuntimeException.class)
+        .verify();
+
+    verify(workflowDefinitionStore).findAll(sessionId);
+  }
+
+  @Test
+  void testGetLatestExecutionStatusByWorkflow_groupsAndTakesFirst() {
+    // Given: history with multiple entries, most recent first
+    final String sessionId = "sess-status";
+    final com.infenia.yukta.model.execution.WorkflowExecutionSummary status1 =
+        new com.infenia.yukta.model.execution.WorkflowExecutionSummary(
+            EXEC1, WF1, RUNNING, null, null);
+    final com.infenia.yukta.model.execution.WorkflowExecutionSummary status2 =
+        new com.infenia.yukta.model.execution.WorkflowExecutionSummary(
+            EXEC2, WF1, SUCCESS, null, null);
+    final List<com.infenia.yukta.model.execution.WorkflowExecutionSummary> history =
+        List.of(status1, status2);
+
+    when(controlBus.getHistory(sessionId)).thenReturn(history);
+
+    // When & Then: only the first (most recent) status per workflow is kept
+    StepVerifier.create(sessionService.getLatestExecutionStatusByWorkflow(sessionId))
+        .expectNextMatches(
+            result ->
+                result.size() == 1
+                    && result.containsKey(WF1)
+                    && RUNNING.equals(result.get(WF1).status()))
+        .verifyComplete();
+
+    verify(controlBus).getHistory(sessionId);
+  }
+
+  @Test
+  void testGetLatestExecutionStatusByWorkflow_withEmptyHistory() {
+    // Given
+    final String sessionId = "sess-no-history";
+    when(controlBus.getHistory(sessionId)).thenReturn(List.of());
+
+    // When & Then
+    StepVerifier.create(sessionService.getLatestExecutionStatusByWorkflow(sessionId))
+        .expectNext(Map.of())
+        .verifyComplete();
+
+    verify(controlBus).getHistory(sessionId);
+  }
+
+  @Test
+  void testGetLatestExecutionStatusByWorkflow_storeReturnsError() {
+    // Given
+    final String sessionId = "sess-history-error";
+    final RuntimeException testError = new RuntimeException("History error");
+    when(controlBus.getHistory(sessionId)).thenThrow(testError);
+
+    // When & Then
+    StepVerifier.create(sessionService.getLatestExecutionStatusByWorkflow(sessionId))
+        .expectError(RuntimeException.class)
+        .verify();
+
+    verify(controlBus).getHistory(sessionId);
+  }
+
+  @Test
+  void testGetLatestExecutionStatusByWorkflow_multipleWorkflows() {
+    // Given: history with different workflows
+    final String sessionId = "sess-multi-wf";
+    final com.infenia.yukta.model.execution.WorkflowExecutionSummary wf1Status =
+        new com.infenia.yukta.model.execution.WorkflowExecutionSummary(
+            EXEC1, WF1, SUCCESS, null, null);
+    final com.infenia.yukta.model.execution.WorkflowExecutionSummary wf2Status =
+        new com.infenia.yukta.model.execution.WorkflowExecutionSummary(
+            EXEC2, WF2, FAILURE, null, null);
+    final List<com.infenia.yukta.model.execution.WorkflowExecutionSummary> history =
+        List.of(wf1Status, wf2Status);
+
+    when(controlBus.getHistory(sessionId)).thenReturn(history);
+
+    // When & Then
+    StepVerifier.create(sessionService.getLatestExecutionStatusByWorkflow(sessionId))
+        .expectNextMatches(
+            result ->
+                result.size() == 2
+                    && SUCCESS.equals(result.get(WF1).status())
+                    && FAILURE.equals(result.get(WF2).status()))
+        .verifyComplete();
+
+    verify(controlBus).getHistory(sessionId);
   }
 }

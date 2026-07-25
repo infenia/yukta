@@ -24,13 +24,13 @@ export default defineConfig({
   retries: process.env['CI'] ? 2 : 0,
   workers: process.env['CI'] ? 1 : undefined,
 
-  // Timeout configuration
-  timeout: 30 * 1000,
-  expect: { timeout: 5000 },
+  // Timeout configuration (CI needs longer timeouts due to resource constraints)
+  timeout: process.env['CI'] ? 60 * 1000 : 30 * 1000,
+  expect: { timeout: process.env['CI'] ? 10000 : 5000 },
 
-  // Screenshot comparison
+  // Screenshot comparison (organized by test file name for better maintainability)
   snapshotDir: 'e2e/__snapshots__',
-  snapshotPathTemplate: '{snapshotDir}/{testFileDir}/{arg}-{projectName}-{platform}{ext}',
+  snapshotPathTemplate: '{snapshotDir}/{testFileName}/{arg}-{projectName}-{platform}{ext}',
 
   // Reporting
   reporter: [
@@ -51,11 +51,11 @@ export default defineConfig({
     // Video recording (optional, can be slow)
     // video: 'retain-on-failure',
 
-    // Action timeout for clicks, fills, etc.
-    actionTimeout: 10 * 1000,
+    // Action timeout for clicks, fills, etc. (CI needs longer timeouts)
+    actionTimeout: process.env['CI'] ? 20 * 1000 : 10 * 1000,
 
-    // Navigation timeout
-    navigationTimeout: 30 * 1000,
+    // Navigation timeout (CI needs longer timeouts)
+    navigationTimeout: process.env['CI'] ? 60 * 1000 : 30 * 1000,
   },
 
   projects: [

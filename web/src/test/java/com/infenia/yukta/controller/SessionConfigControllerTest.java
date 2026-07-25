@@ -11,8 +11,10 @@ import static org.mockito.Mockito.when;
 import com.infenia.yukta.dto.request.ConfigRequest;
 import com.infenia.yukta.dto.request.WorkflowDefinitionRequest;
 import com.infenia.yukta.dto.request.WorkflowDefinitionRequest.NodeRequest;
+import com.infenia.yukta.dto.response.SessionDetails;
 import com.infenia.yukta.dto.response.SessionListItem;
 import com.infenia.yukta.mapper.SessionMapper;
+import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
 import com.infenia.yukta.model.session.SessionConfigData;
 import com.infenia.yukta.model.session.SessionConfigResponse;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
@@ -115,7 +117,13 @@ class SessionConfigControllerTest {
             Map.of(),
             "/path",
             Map.of(WF_ID_1, new WorkflowDefinition("w1", "d", List.of(), List.of())));
+    final var sessionDetails =
+        new SessionDetails(
+            "s1", "Test Session", WORKFLOW_DESC, "initiator", List.of(), "/path", List.of(WF_ID_1));
     when(sessionService.getSessionConfig("s1")).thenReturn(Mono.just(config));
+    lenient()
+        .when(sessionMapper.sessionConfigResponseToSessionDetails(config))
+        .thenReturn(sessionDetails);
 
     webTestClient
         .get()
@@ -251,7 +259,13 @@ class SessionConfigControllerTest {
     final var config =
         new SessionConfigResponse(
             "s1", "Test Session", "desc", "initiator", Map.of(), "/path", Map.of());
+    final var sessionDetails =
+        new SessionDetails(
+            "s1", "Test Session", "desc", "initiator", List.of(), "/path", List.of());
     when(sessionService.getSessionConfig("s1")).thenReturn(Mono.just(config));
+    lenient()
+        .when(sessionMapper.sessionConfigResponseToSessionDetails(config))
+        .thenReturn(sessionDetails);
 
     final var result =
         webTestClient
@@ -268,6 +282,7 @@ class SessionConfigControllerTest {
   }
 
   @Test
+  @SuppressWarnings("PMD.UnitTestShouldIncludeAssert")
   void testGetSessionDetailsSuccess() {
     final var wf1 = new WorkflowDefinition("wf1", "d", List.of(), List.of());
     final var wf2 = new WorkflowDefinition(WF_ID_2, "d", List.of(), List.of());
@@ -280,22 +295,28 @@ class SessionConfigControllerTest {
             Map.of(),
             "/path",
             Map.of("wf1", wf1, WF_ID_2, wf2));
+    final var sessionDetails =
+        new SessionDetails(
+            "s2", "Test Session", "desc", "initiator", List.of(), "/path", List.of("wf1", WF_ID_2));
     when(sessionService.getSessionConfig("s2")).thenReturn(Mono.just(config));
+    lenient()
+        .when(sessionMapper.sessionConfigResponseToSessionDetails(config))
+        .thenReturn(sessionDetails);
 
-    final var result =
-        webTestClient
-            .get()
-            .uri(API_SESSIONS + "/s2")
-            .exchange()
-            .expectStatus()
-            .isOk()
-            .expectBody()
-            .jsonPath(DOLLAR_MESSAGE)
-            .isEqualTo(SESSION_DETAILS_RETRIEVED)
-            .jsonPath(DOLLAR_STATUS)
-            .isEqualTo(200)
-            .returnResult();
-    assertThat(result.getStatus().value()).isEqualTo(200);
+    webTestClient
+        .get()
+        .uri(API_SESSIONS + "/s2")
+        .exchange()
+        .expectStatus()
+        .isOk()
+        .expectBody()
+        .jsonPath(DOLLAR_DATA)
+        .exists()
+        .jsonPath(DOLLAR_MESSAGE)
+        .isEqualTo(SESSION_DETAILS_RETRIEVED)
+        .jsonPath(DOLLAR_STATUS)
+        .isEqualTo(200)
+        .consumeWith(response -> assertThat(response.getStatus().value()).isEqualTo(200));
   }
 
   @Test
@@ -703,5 +724,202 @@ class SessionConfigControllerTest {
         .consumeWith(response -> assertThat(response.getStatus().value()).isEqualTo(500));
 
     verify(sessionService).getAllSessionConfigs();
+  }
+
+  @Test
+  void testGetSessionWorkflowsSuccess() {
+    when(sessionService.getSessionConfig("sess-123"))
+        .thenReturn(
+            Mono.just(
+                new SessionConfigResponse(
+                    "sess-123", "name", "desc", "user", Map.of(), "/path", Map.of())));
+    when(sessionService.getLatestExecutionStatusByWorkflow("sess-123"))
+        .thenReturn(Mono.just(Map.of()));
+
+    webTestClient
+        .get()
+        .uri(API_SESSIONS + "/sess-123/workflows")
+        .exchange()
+        .expectStatus()
+        .isOk()
+        .expectBody()
+        .jsonPath(DOLLAR_DATA)
+        .exists()
+        .jsonPath("$.data.workflows")
+        .isArray()
+        .consumeWith(response -> assertThat(response.getStatus().value()).isEqualTo(200));
+
+    verify(sessionService).getSessionConfig("sess-123");
+    verify(sessionService).getLatestExecutionStatusByWorkflow("sess-123");
+  }
+
+  @Test
+  void testGetSessionWorkflowsSessionNotFound() {
+    when(sessionService.getSessionConfig("sess-missing")).thenReturn(Mono.empty());
+
+    webTestClient
+        .get()
+        .uri(API_SESSIONS + "/sess-missing/workflows")
+        .exchange()
+        .expectStatus()
+        .isNotFound()
+        .expectBody()
+        .jsonPath(DOLLAR_STATUS)
+        .isEqualTo(404)
+        .jsonPath(DOLLAR_MESSAGE)
+        .exists()
+        .jsonPath("$.error")
+        .exists()
+        .jsonPath("$.path")
+        .exists()
+        .jsonPath("$.errors")
+        .isArray()
+        .consumeWith(response -> assertThat(response.getStatus().value()).isEqualTo(404));
+
+    verify(sessionService).getSessionConfig("sess-missing");
+  }
+
+  @Test
+  void testGetSessionWorkflowsWithError() {
+    when(sessionService.getSessionConfig("sess-123"))
+        .thenReturn(
+            Mono.just(
+                new SessionConfigResponse(
+                    "sess-123", "name", "desc", "user", Map.of(), "/path", Map.of())));
+    when(sessionService.getLatestExecutionStatusByWorkflow("sess-123"))
+        .thenReturn(Mono.error(new RuntimeException("Service error")));
+
+    webTestClient
+        .get()
+        .uri(API_SESSIONS + "/sess-123/workflows")
+        .exchange()
+        .expectStatus()
+        .isEqualTo(500)
+        .expectBody()
+        .jsonPath(DOLLAR_STATUS)
+        .isEqualTo(500)
+        .jsonPath(DOLLAR_MESSAGE)
+        .isEqualTo("An internal server error occurred. Please try again later.");
+
+    verify(sessionService).getSessionConfig("sess-123");
+    verify(sessionService).getLatestExecutionStatusByWorkflow("sess-123");
+  }
+
+  @Test
+  void testGetSessionWorkflowsWithMultipleWorkflows() {
+    final var config =
+        new SessionConfigResponse(
+            "sess-multi",
+            "Multi Workflow",
+            "desc",
+            "user",
+            Map.of(),
+            "/path",
+            Map.of(
+                WF_ID_1, new WorkflowDefinition(WF_ID_1, "desc1", List.of(), List.of()),
+                WF_ID_2, new WorkflowDefinition(WF_ID_2, "desc2", List.of(), List.of())));
+    when(sessionService.getSessionConfig("sess-multi")).thenReturn(Mono.just(config));
+    when(sessionService.getLatestExecutionStatusByWorkflow("sess-multi"))
+        .thenReturn(
+            Mono.just(
+                Map.of(
+                    WF_ID_1,
+                    new WorkflowExecutionSummary("exec1", WF_ID_1, "SUCCESS", null, null),
+                    WF_ID_2,
+                    new WorkflowExecutionSummary("exec2", WF_ID_2, "RUNNING", null, null))));
+
+    webTestClient
+        .get()
+        .uri(API_SESSIONS + "/sess-multi/workflows")
+        .exchange()
+        .expectStatus()
+        .isOk()
+        .expectBody()
+        .jsonPath(DOLLAR_DATA)
+        .exists()
+        .jsonPath("$.data.workflows")
+        .isArray()
+        .jsonPath("$.data.workflows.length()")
+        .isEqualTo(2)
+        .jsonPath("$.data.workflows[0].workflowId")
+        .exists()
+        .jsonPath("$.data.workflows[0].description")
+        .exists()
+        .jsonPath("$.data.workflows[0].nodeCount")
+        .isNumber()
+        .jsonPath("$.data.workflows[0].edgeCount")
+        .isNumber()
+        .jsonPath("$.data.workflows[0].status")
+        .isNotEmpty()
+        .jsonPath("$.data.workflows[1].workflowId")
+        .exists()
+        .jsonPath("$.data.workflows[1].description")
+        .exists()
+        .jsonPath("$.data.workflows[1].nodeCount")
+        .isNumber()
+        .jsonPath("$.data.workflows[1].edgeCount")
+        .isNumber()
+        .jsonPath("$.data.workflows[1].status")
+        .isNotEmpty();
+
+    verify(sessionService).getSessionConfig("sess-multi");
+    verify(sessionService).getLatestExecutionStatusByWorkflow("sess-multi");
+  }
+
+  @Test
+  void testGetSessionWorkflowsWithWorkflowsButNoStatus() {
+    final var config =
+        new SessionConfigResponse(
+            "sess-unstatus",
+            "Unstatus",
+            "desc",
+            "user",
+            Map.of(),
+            "/path",
+            Map.of(WF_ID_1, new WorkflowDefinition(WF_ID_1, "desc1", List.of(), List.of())));
+    when(sessionService.getSessionConfig("sess-unstatus")).thenReturn(Mono.just(config));
+    when(sessionService.getLatestExecutionStatusByWorkflow("sess-unstatus"))
+        .thenReturn(Mono.just(Map.of()));
+
+    webTestClient
+        .get()
+        .uri(API_SESSIONS + "/sess-unstatus/workflows")
+        .exchange()
+        .expectStatus()
+        .isOk()
+        .expectBody()
+        .jsonPath(DOLLAR_DATA)
+        .exists()
+        .jsonPath("$.data.workflows[0].status")
+        .doesNotExist()
+        .consumeWith(response -> assertThat(response.getStatus().value()).isEqualTo(200));
+
+    verify(sessionService).getSessionConfig("sess-unstatus");
+    verify(sessionService).getLatestExecutionStatusByWorkflow("sess-unstatus");
+  }
+
+  @Test
+  void testGetSessionWorkflowsWithEmptyWorkflows() {
+    final var config =
+        new SessionConfigResponse(
+            "sess-empty-wf", "Empty", "desc", "user", Map.of(), "/path", Map.of());
+    when(sessionService.getSessionConfig("sess-empty-wf")).thenReturn(Mono.just(config));
+    when(sessionService.getLatestExecutionStatusByWorkflow("sess-empty-wf"))
+        .thenReturn(Mono.just(Map.of()));
+
+    webTestClient
+        .get()
+        .uri(API_SESSIONS + "/sess-empty-wf/workflows")
+        .exchange()
+        .expectStatus()
+        .isOk()
+        .expectBody()
+        .jsonPath("$.data.workflows")
+        .isArray()
+        .jsonPath("$.data.workflows.length()")
+        .isEqualTo(0);
+
+    verify(sessionService).getSessionConfig("sess-empty-wf");
+    verify(sessionService).getLatestExecutionStatusByWorkflow("sess-empty-wf");
   }
 }
