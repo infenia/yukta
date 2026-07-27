@@ -29,6 +29,14 @@ export const renderWithProviders = (
     renderOptions
   );
 
+/** Narrow an optional value in tests, failing loudly instead of using non-null assertions. */
+export function must<T>(value: T | null | undefined, label = 'value'): T {
+  if (value == null) {
+    throw new Error(`Expected ${label} to be defined`);
+  }
+  return value;
+}
+
 export const createTestWrapper = (queryClient = createTestQueryClient()) =>
   ({ children }: { children: React.ReactNode }) =>
     React.createElement(

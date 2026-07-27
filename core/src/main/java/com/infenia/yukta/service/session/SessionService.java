@@ -293,7 +293,8 @@ public class SessionService {
    */
   public Mono<Map<String, WorkflowExecutionSummary>> getLatestExecutionStatusByWorkflow(
       @SessionId final String sessionId) {
-    return Mono.fromCallable(() -> controlBus.getHistory(sessionId))
+    return controlBus
+        .getHistory(sessionId)
         .map(
             history ->
                 history.stream()

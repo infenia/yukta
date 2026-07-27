@@ -69,9 +69,7 @@ public class DefaultWorkflowExecutionProvider implements WorkflowExecutionProvid
     return sessionService
         .getSessionConfig(sessionId)
         .flatMap(
-            config ->
-                Mono.fromCallable(() -> controlBus.getHistory(sessionId))
-                    .subscribeOn(Schedulers.boundedElastic()))
+            config -> controlBus.getHistory(sessionId).subscribeOn(Schedulers.boundedElastic()))
         .switchIfEmpty(
             Mono.error(
                 () ->

@@ -771,7 +771,7 @@ class SessionServiceTest {
     final List<com.infenia.yukta.model.execution.WorkflowExecutionSummary> history =
         List.of(status1, status2);
 
-    when(controlBus.getHistory(sessionId)).thenReturn(history);
+    when(controlBus.getHistory(sessionId)).thenReturn(Mono.just(history));
 
     // When & Then: only the first (most recent) status per workflow is kept
     StepVerifier.create(sessionService.getLatestExecutionStatusByWorkflow(sessionId))
@@ -789,7 +789,7 @@ class SessionServiceTest {
   void testGetLatestExecutionStatusByWorkflow_withEmptyHistory() {
     // Given
     final String sessionId = "sess-no-history";
-    when(controlBus.getHistory(sessionId)).thenReturn(List.of());
+    when(controlBus.getHistory(sessionId)).thenReturn(Mono.just(List.of()));
 
     // When & Then
     StepVerifier.create(sessionService.getLatestExecutionStatusByWorkflow(sessionId))
@@ -804,7 +804,7 @@ class SessionServiceTest {
     // Given
     final String sessionId = "sess-history-error";
     final RuntimeException testError = new RuntimeException("History error");
-    when(controlBus.getHistory(sessionId)).thenThrow(testError);
+    when(controlBus.getHistory(sessionId)).thenReturn(Mono.error(testError));
 
     // When & Then
     StepVerifier.create(sessionService.getLatestExecutionStatusByWorkflow(sessionId))
@@ -827,7 +827,7 @@ class SessionServiceTest {
     final List<com.infenia.yukta.model.execution.WorkflowExecutionSummary> history =
         List.of(wf1Status, wf2Status);
 
-    when(controlBus.getHistory(sessionId)).thenReturn(history);
+    when(controlBus.getHistory(sessionId)).thenReturn(Mono.just(history));
 
     // When & Then
     StepVerifier.create(sessionService.getLatestExecutionStatusByWorkflow(sessionId))

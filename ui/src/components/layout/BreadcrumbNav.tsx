@@ -11,10 +11,12 @@ import {
   BreadcrumbSeparator,
 } from '@/components/ui/breadcrumb';
 import { parseBreadcrumbsFromPath } from '@/lib/breadcrumb-utils';
+import { useBreadcrumbOverrides } from '@/lib/breadcrumbOverrides';
 
 export default function BreadcrumbNav() {
   const { pathname } = useLocation();
-  const breadcrumbs = parseBreadcrumbsFromPath(pathname);
+  const overrides = useBreadcrumbOverrides();
+  const breadcrumbs = parseBreadcrumbsFromPath(pathname, overrides);
 
   return (
     <div className="px-spacing-md flex h-8 w-full items-center border-t border-outline-variant bg-surface-container-low p-4">
@@ -51,6 +53,7 @@ export default function BreadcrumbNav() {
           ))}
         </BreadcrumbList>
       </Breadcrumb>
+      <div id="breadcrumb-actions" className="ml-auto flex items-center" />
     </div>
   );
 }

@@ -144,8 +144,7 @@ public class DefaultSystemHealthProvider implements SystemHealthProvider {
   private record SessionExecution(String sessionId, WorkflowExecutionSummary summary) {}
 
   private Mono<List<WorkflowExecutionSummary>> historyOf(final String sessionId) {
-    return Mono.fromCallable(() -> controlBus.getHistory(sessionId))
-        .subscribeOn(Schedulers.boundedElastic());
+    return controlBus.getHistory(sessionId).subscribeOn(Schedulers.boundedElastic());
   }
 
   private int workflowCount(final com.infenia.yukta.model.session.SessionConfigResponse config) {

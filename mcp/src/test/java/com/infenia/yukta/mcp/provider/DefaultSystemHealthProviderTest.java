@@ -69,7 +69,7 @@ class DefaultSystemHealthProviderTest {
             Map.of("wf-1", wf1, "wf-2", wf2));
     when(sessionService.getSessionConfig("s1")).thenReturn(Mono.just(config));
     when(controlBus.getHistory("s1"))
-        .thenReturn(List.of(execution("e1", "RUNNING"), execution("e2", "COMPLETED")));
+        .thenReturn(Mono.just(List.of(execution("e1", "RUNNING"), execution("e2", "COMPLETED"))));
 
     StepVerifier.create(provider.getControlBusStatus(null))
         .assertNext(
@@ -116,7 +116,7 @@ class DefaultSystemHealthProviderTest {
         new com.infenia.yukta.model.session.SessionConfigResponse(
             "s1", "Test Session", "desc", "initiator", Map.of(), "/path", Map.of());
     when(sessionService.getSessionConfig("s1")).thenReturn(Mono.just(config));
-    when(controlBus.getHistory("s1")).thenReturn(List.of());
+    when(controlBus.getHistory("s1")).thenReturn(Mono.just(List.of()));
 
     StepVerifier.create(provider.getControlBusStatus("sessions"))
         .assertNext(
@@ -164,8 +164,8 @@ class DefaultSystemHealthProviderTest {
                         base.plusMinutes(2L * i + 2)))
             .toList();
     when(sessionService.getSessionIds()).thenReturn(Flux.just("s1", "s2"));
-    when(controlBus.getHistory("s1")).thenReturn(s1History);
-    when(controlBus.getHistory("s2")).thenReturn(s2History);
+    when(controlBus.getHistory("s1")).thenReturn(Mono.just(s1History));
+    when(controlBus.getHistory("s2")).thenReturn(Mono.just(s2History));
 
     StepVerifier.create(provider.getControlBusStatus("executions"))
         .assertNext(
@@ -208,8 +208,8 @@ class DefaultSystemHealthProviderTest {
   @Test
   void testExecutionsFilterSkipsFailingHistory() {
     when(sessionService.getSessionIds()).thenReturn(Flux.just("s1", "s2"));
-    when(controlBus.getHistory("s1")).thenThrow(new IllegalStateException("boom"));
-    when(controlBus.getHistory("s2")).thenReturn(List.of(execution("e2", "COMPLETED")));
+    when(controlBus.getHistory("s1")).thenReturn(Mono.error(new IllegalStateException("boom")));
+    when(controlBus.getHistory("s2")).thenReturn(Mono.just(List.of(execution("e2", "COMPLETED"))));
 
     StepVerifier.create(provider.getControlBusStatus("executions"))
         .assertNext(
@@ -231,7 +231,7 @@ class DefaultSystemHealthProviderTest {
         new com.infenia.yukta.model.session.SessionConfigResponse(
             "s2", "Test Session", "desc", "initiator", Map.of(), "/path", Map.of());
     when(sessionService.getSessionConfig("s2")).thenReturn(Mono.just(config));
-    when(controlBus.getHistory("s2")).thenReturn(List.of());
+    when(controlBus.getHistory("s2")).thenReturn(Mono.just(List.of()));
 
     StepVerifier.create(provider.getControlBusStatus("sessions"))
         .assertNext(

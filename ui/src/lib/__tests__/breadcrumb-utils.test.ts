@@ -190,4 +190,36 @@ describe('parseBreadcrumbsFromPath', () => {
     const breadcrumbs = parseBreadcrumbsFromPath('/123');
     expect(breadcrumbs).toHaveLength(0);
   });
+
+  it('should fold the literal workflow segment into its neighbours', () => {
+    const breadcrumbs = parseBreadcrumbsFromPath(
+      '/sessions/SESSION_A92_XP_2024/workflow/wf-982-xk-11'
+    );
+
+    expect(breadcrumbs.map((item) => item.label)).toEqual([
+      'Sessions',
+      'SESSION_A92_XP_2024',
+      'Wf-982-xk-11',
+    ]);
+    expect(breadcrumbs[2].isCurrent).toBe(true);
+  });
+
+  it('should apply label overrides to raw segments', () => {
+    const breadcrumbs = parseBreadcrumbsFromPath(
+      '/sessions/SESSION_A92_XP_2024/workflow/wf-982-xk-11',
+      { 'wf-982-xk-11': 'Supply_Chain_Optimizer_V2' }
+    );
+
+    expect(breadcrumbs[2].label).toBe('Supply_Chain_Optimizer_V2');
+    expect(breadcrumbs[1].label).toBe('SESSION_A92_XP_2024');
+  });
+
+  it('should keep intermediate session segment clickable on the workflow page', () => {
+    const breadcrumbs = parseBreadcrumbsFromPath(
+      '/sessions/SESSION_A92_XP_2024/workflow/wf-982-xk-11'
+    );
+
+    expect(breadcrumbs[1].href).toBe('/sessions/SESSION_A92_XP_2024');
+    expect(breadcrumbs[1].isCurrent).toBe(false);
+  });
 });

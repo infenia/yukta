@@ -6,6 +6,7 @@ import App from '@/App';
 import ComingSoonPage from '@/components/layout/ComingSoonPage';
 import { SessionListPage } from '@/features/sessions/components/SessionListPage';
 import { SessionDetailsPage } from '@/features/sessions/components/SessionDetailsPage';
+import { WorkflowDetailsPage } from '@/features/workflow/components/WorkflowDetailsPage';
 
 const router = createBrowserRouter([
   {
@@ -22,7 +23,7 @@ const router = createBrowserRouter([
       },
       {
         path: 'sessions/:sessionId/workflow/:workflowId',
-        element: <ComingSoonPage title="Workflow" />,
+        element: <WorkflowDetailsPage />,
       },
       {
         path: 'control',

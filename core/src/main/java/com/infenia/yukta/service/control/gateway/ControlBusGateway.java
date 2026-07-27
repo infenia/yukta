@@ -293,9 +293,20 @@ public interface ControlBusGateway {
    * runs.
    *
    * @param sessionId the session to query
-   * @return list of execution summaries
+   * @return Mono containing list of execution summaries
    */
-  List<com.infenia.yukta.model.execution.WorkflowExecutionSummary> getHistory(String sessionId);
+  Mono<List<com.infenia.yukta.model.execution.WorkflowExecutionSummary>> getHistory(
+      String sessionId);
+
+  /**
+   * Get execution history for a single workflow within a session.
+   *
+   * @param sessionId the session to query
+   * @param workflowId the workflow to query
+   * @return Mono containing list of execution summaries for the given workflow
+   */
+  Mono<List<com.infenia.yukta.model.execution.WorkflowExecutionSummary>> getHistory(
+      String sessionId, String workflowId);
 
   // --- State Queries ---
 

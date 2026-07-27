@@ -9,14 +9,24 @@ const ROUTE_LABEL_MAP: RouteSegmentMap = {
   workflows: 'Workflows',
 };
 
+// Literal route segments folded into their neighbours instead of rendering their own crumb,
+// e.g. /sessions/:id/workflow/:workflowId renders Sessions > :id > :workflowId
+const FOLDED_SEGMENTS = new Set(['workflow']);
+
 /**
  * Parse pathname into breadcrumb items with navigation links.
  * Routes like /sessions/123/workflows/456 become:
  * [Sessions (link to /sessions)] > [Workflows (current)]
+ *
+ * Optional overrides replace the label of a raw path segment (e.g. a workflow ID
+ * segment labelled with the workflow's display name).
  */
-export function parseBreadcrumbsFromPath(pathname: string): BreadcrumbItem[] {
+export function parseBreadcrumbsFromPath(
+  pathname: string,
+  overrides: Record<string, string> = {}
+): BreadcrumbItem[] {
   // Remove leading/trailing slashes and split
-  const segments = pathname.split('/').filter(Boolean);
+  const segments = pathname.split('/').filter(Boolean).filter((segment) => !FOLDED_SEGMENTS.has(segment));
 
   if (segments.length === 0) {
     // Root path
@@ -64,12 +74,16 @@ export function parseBreadcrumbsFromPath(pathname: string): BreadcrumbItem[] {
       return;
     }
 
-    // Get friendly label from map, or use segment as-is
-    const label = ROUTE_LABEL_MAP[segment] || capitalizeFirst(segment);
+    // Overrides win, then the friendly label map, then the capitalized segment
+    const hasOwn = Object.prototype.hasOwnProperty;
+    const label =
+      (hasOwn.call(overrides, segment) && overrides[segment]) ||
+      (hasOwn.call(ROUTE_LABEL_MAP, segment) && ROUTE_LABEL_MAP[segment]) ||
+      capitalizeFirst(segment);
 
     // Determine if Sessions needs to be prepended
     if (breadcrumbs.length === 0 && label !== 'Sessions') {
-      const isMappedRoute = ROUTE_LABEL_MAP[segment] !== undefined;
+      const isMappedRoute = hasOwn.call(ROUTE_LABEL_MAP, segment);
       // Need to prepend Sessions for mapped routes or multi-segment paths
       sessionsPrependNeeded = isMappedRoute || segments.length > 1;
     }

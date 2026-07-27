@@ -918,7 +918,8 @@ public class WorkflowController {
                     config.workflows().size()))
         .flatMap(
             config ->
-                Mono.fromCallable(() -> controlBus.getHistory(sessionId))
+                controlBus
+                    .getHistory(sessionId)
                     .map(
                         history ->
                             ResponseEntity.ok(

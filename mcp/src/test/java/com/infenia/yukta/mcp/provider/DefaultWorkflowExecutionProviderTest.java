@@ -124,7 +124,7 @@ class DefaultWorkflowExecutionProviderTest {
         new com.infenia.yukta.model.session.SessionConfigResponse(
             "sess-1", "Test Session", "desc", "initiator", Map.of(), "/path", Map.of());
     when(sessionService.getSessionConfig("sess-1")).thenReturn(Mono.just(config));
-    when(controlBus.getHistory("sess-1")).thenReturn(List.of(summary));
+    when(controlBus.getHistory("sess-1")).thenReturn(Mono.just(List.of(summary)));
 
     StepVerifier.create(provider.getWorkflowHistory("sess-1"))
         .expectNext(List.of(summary))

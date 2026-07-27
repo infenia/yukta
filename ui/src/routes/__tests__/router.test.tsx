@@ -25,7 +25,7 @@ describe('router', () => {
     const rootRoute = router.routes[0];
     expect(rootRoute.children).toBeDefined();
     expect(Array.isArray(rootRoute.children)).toBe(true);
-    expect(rootRoute.children!.length).toBeGreaterThan(0);
+    expect(rootRoute.children?.length).toBeGreaterThan(0);
   });
 
   describe('route configuration', () => {
@@ -110,17 +110,22 @@ describe('router', () => {
 
     it('should have Coming Soon pages for unimplemented routes', () => {
       const rootRoute = router.routes[0];
-      const comingSoonRoutes = [
-        'sessions/:sessionId',
-        'sessions/:sessionId/workflow/:workflowId',
-        'control',
-        'history',
-      ];
+      const comingSoonRoutes = ['control', 'history'];
 
       comingSoonRoutes.forEach((path) => {
         const route = rootRoute.children?.find((r) => r.path === path);
         expect(route?.element).toBeDefined();
       });
+    });
+
+    it('should render the workflow details page for the workflow route', () => {
+      const rootRoute = router.routes[0];
+      const workflowRoute = rootRoute.children?.find(
+        (r) => r.path === 'sessions/:sessionId/workflow/:workflowId'
+      );
+      expect(workflowRoute?.element).toBeDefined();
+      const element = workflowRoute?.element as { type: { name?: string } };
+      expect(element.type.name).toBe('WorkflowDetailsPage');
     });
   });
 

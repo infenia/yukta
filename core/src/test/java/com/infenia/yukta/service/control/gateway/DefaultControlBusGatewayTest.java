@@ -1060,14 +1060,35 @@ class DefaultControlBusGatewayTest {
     final String sessionId = "session-2";
     final WorkflowExecutionSummary summary = mock(WorkflowExecutionSummary.class);
     final List<WorkflowExecutionSummary> history = List.of(summary);
-    when(taskTracker.getHistory(sessionId)).thenReturn(history);
+    when(taskTracker.getHistory(sessionId)).thenReturn(Mono.just(history));
 
     // When
-    final List<WorkflowExecutionSummary> result = gateway.getHistory(sessionId);
+    final Mono<List<WorkflowExecutionSummary>> result = gateway.getHistory(sessionId);
 
     // Then
-    assertThat(result).isEqualTo(history);
+    StepVerifier.create(result)
+        .assertNext(actual -> assertThat(actual).isEqualTo(history))
+        .verifyComplete();
     verify(taskTracker).getHistory(sessionId);
+  }
+
+  @Test
+  void getHistory_validSessionAndWorkflowId_delegatesToTaskTracker() {
+    // Given
+    final String sessionId = "session-2b";
+    final String workflowId = "workflow-2b";
+    final WorkflowExecutionSummary summary = mock(WorkflowExecutionSummary.class);
+    final List<WorkflowExecutionSummary> history = List.of(summary);
+    when(taskTracker.getHistory(sessionId, workflowId)).thenReturn(Mono.just(history));
+
+    // When
+    final Mono<List<WorkflowExecutionSummary>> result = gateway.getHistory(sessionId, workflowId);
+
+    // Then
+    StepVerifier.create(result)
+        .assertNext(actual -> assertThat(actual).isEqualTo(history))
+        .verifyComplete();
+    verify(taskTracker).getHistory(sessionId, workflowId);
   }
 
   // --- State Query Tests ---
@@ -1637,14 +1658,19 @@ class DefaultControlBusGatewayTest {
     final WorkflowExecutionSummary summary1 = mock(WorkflowExecutionSummary.class);
     final WorkflowExecutionSummary summary2 = mock(WorkflowExecutionSummary.class);
     final List<WorkflowExecutionSummary> history = List.of(summary1, summary2);
-    when(taskTracker.getHistory(sessionId)).thenReturn(history);
+    when(taskTracker.getHistory(sessionId)).thenReturn(Mono.just(history));
 
     // When
-    final List<WorkflowExecutionSummary> result = gateway.getHistory(sessionId);
+    final Mono<List<WorkflowExecutionSummary>> result = gateway.getHistory(sessionId);
 
     // Then
-    assertThat(result).isEqualTo(history);
-    assertThat(result).hasSize(2);
+    StepVerifier.create(result)
+        .assertNext(
+            actual -> {
+              assertThat(actual).isEqualTo(history);
+              assertThat(actual).hasSize(2);
+            })
+        .verifyComplete();
   }
 
   @Test
@@ -1861,13 +1887,13 @@ class DefaultControlBusGatewayTest {
   void getHistory_emptyHistory_returnsEmptyList() {
     // Given
     final String sessionId = "sess-empty-history";
-    when(taskTracker.getHistory(sessionId)).thenReturn(List.of());
+    when(taskTracker.getHistory(sessionId)).thenReturn(Mono.just(List.of()));
 
     // When
-    final List<WorkflowExecutionSummary> result = gateway.getHistory(sessionId);
+    final Mono<List<WorkflowExecutionSummary>> result = gateway.getHistory(sessionId);
 
     // Then
-    assertThat(result).isEmpty();
+    StepVerifier.create(result).assertNext(actual -> assertThat(actual).isEmpty()).verifyComplete();
   }
 
   @Test

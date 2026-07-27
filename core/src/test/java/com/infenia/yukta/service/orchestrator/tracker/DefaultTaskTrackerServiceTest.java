@@ -92,7 +92,9 @@ class DefaultTaskTrackerServiceTest {
     assertThat(progress.endTime()).isNotNull();
 
     // Test getHistory
-    assertThat(tracker.getHistory(sessionId)).hasSize(1);
+    StepVerifier.create(tracker.getHistory(sessionId))
+        .assertNext(history -> assertThat(history).hasSize(1))
+        .verifyComplete();
   }
 
   @Test
@@ -331,9 +333,39 @@ class DefaultTaskTrackerServiceTest {
   @Test
   void testGetHistoryUnknownSession() {
     // getHistory for unknown session should return empty list
-    final List<com.infenia.yukta.model.execution.WorkflowExecutionSummary> history =
-        tracker.getHistory("unknown-session");
-    assertThat(history.size()).isEqualTo(0);
+    StepVerifier.create(tracker.getHistory("unknown-session"))
+        .assertNext(history -> assertThat(history).isEmpty())
+        .verifyComplete();
+  }
+
+  @Test
+  void testGetHistoryFiltersByWorkflowId() {
+    final String sessionId = "sess-scoped";
+    final String workflowId = "wf-scoped";
+    final String otherWorkflowId = "wf-other";
+
+    StepVerifier.create(
+            tracker.startWorkflow("exec-scoped-1", sessionId, workflowId, List.of("node1")))
+        .verifyComplete();
+    StepVerifier.create(
+            tracker.startWorkflow("exec-scoped-2", sessionId, otherWorkflowId, List.of("node1")))
+        .verifyComplete();
+
+    StepVerifier.create(tracker.getHistory(sessionId, workflowId))
+        .assertNext(
+            history -> {
+              assertThat(history).hasSize(1);
+              assertThat(history.getFirst().executionId()).isEqualTo("exec-scoped-1");
+              assertThat(history.getFirst().workflowId()).isEqualTo(workflowId);
+            })
+        .verifyComplete();
+  }
+
+  @Test
+  void testGetHistoryByWorkflowIdUnknownSession() {
+    StepVerifier.create(tracker.getHistory("unknown-session", "unknown-workflow"))
+        .assertNext(history -> assertThat(history).isEmpty())
+        .verifyComplete();
   }
 
   @Test
@@ -998,8 +1030,9 @@ class DefaultTaskTrackerServiceTest {
     assertThat(tracker.getActiveSessions().size()).isEqualTo(1);
 
     // History should include both
-    final var history = tracker.getHistory(sessionId);
-    assertThat(history.size()).isEqualTo(2);
+    StepVerifier.create(tracker.getHistory(sessionId))
+        .assertNext(history -> assertThat(history).hasSize(2))
+        .verifyComplete();
   }
 
   @Test
@@ -1947,9 +1980,9 @@ class DefaultTaskTrackerServiceTest {
     }
 
     // getHistory
-    final List<com.infenia.yukta.model.execution.WorkflowExecutionSummary> history =
-        tracker.getHistory(sessionId);
-    assertThat(!history.isEmpty()).isTrue();
+    StepVerifier.create(tracker.getHistory(sessionId))
+        .assertNext(history -> assertThat(history).isNotEmpty())
+        .verifyComplete();
 
     // getLogStream
     StepVerifier.create(tracker.getLogStream(executionId)).expectSubscription().verifyComplete();
