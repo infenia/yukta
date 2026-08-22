@@ -51,7 +51,7 @@
     "@xyflow/react": "^12.11.2",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "dompurify": "^3.4.12",
+    "dompurify": "^3.4.13",
     "lucide-react": "^1.28.0",
     "material-symbols": "^0.45.10",
     "react": "^19.2.8",
