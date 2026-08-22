@@ -61,7 +61,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Detect changed paths
-        uses: dorny/paths-filter@7b450fff21473bca461d4b92ce414b9d0420d706 # v4
+        uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4
         id: filter
         with:
           filters: |
@@ -162,7 +162,7 @@ jobs:
         run: npm install -g pnpm@10.30.1
 
       - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@3f131e8634966bd73d06cc69884922b02e6faf92 # v6
+        uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6
         with:
           # Use the exact Gradle version from your wrapper
           gradle-version: wrapper
@@ -403,7 +403,7 @@ jobs:
         run: npm install -g pnpm@10.30.1
 
       - name: Generate and submit dependency graph
-        uses: gradle/actions/dependency-submission@3f131e8634966bd73d06cc69884922b02e6faf92 # v6
+        uses: gradle/actions/dependency-submission@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6
         with:
           gradle-version: wrapper
           dependency-graph-continue-on-failure: true   # Don't fail CI if submission fails
