@@ -2,7 +2,7 @@ module com.infenia.yukta/go-cli
 
 go 1.26
 
-toolchain go1.26.5
+toolchain go1.26.6
 
 require github.com/spf13/cobra v1.10.2
 
