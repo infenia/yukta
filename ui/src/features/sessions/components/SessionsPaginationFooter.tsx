@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
-import type { Table } from '@tanstack/react-table';
+import type { LegacyReactTable } from '@tanstack/react-table/legacy';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -12,7 +12,7 @@ import {
 import type { SessionListItem } from '../types/session';
 
 interface SessionsPaginationFooterProps {
-  table: Table<SessionListItem>;
+  table: LegacyReactTable<SessionListItem>;
 }
 
 export function SessionsPaginationFooter({ table }: SessionsPaginationFooterProps) {

@@ -1,30 +1,30 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
-import type { ColumnDef } from '@tanstack/react-table';
+import type { LegacyColumnDef } from '@tanstack/react-table/legacy';
 import { Badge } from '@/components/ui/badge';
 import type { SessionListItem } from '../types/session';
 import { SessionRowActionsMenu } from './SessionRowActionsMenu';
 
-export const columns: ColumnDef<SessionListItem>[] = [
+export const columns: LegacyColumnDef<SessionListItem>[] = [
   {
     accessorKey: 'name',
     header: 'Name',
-    cell: ({ row }) => (
+    cell: ({ row }: any) => (
       <div className="text-primary dark:text-primary">{row.getValue('name')}</div>
     ),
   },
   {
     accessorKey: 'sessionId',
     header: 'Session ID',
-    cell: ({ row }) => (
+    cell: ({ row }: any) => (
       <div className="text-body-sm font-mono">{row.getValue('sessionId')}</div>
     ),
   },
   {
     accessorKey: 'description',
     header: 'Description',
-    cell: ({ row }) => (
+    cell: ({ row }: any) => (
       <div className="max-w-xs truncate">{row.getValue('description')}</div>
     ),
   },
@@ -54,20 +54,20 @@ export const columns: ColumnDef<SessionListItem>[] = [
   {
     accessorKey: 'projectPath',
     header: 'Project Path',
-    cell: ({ row }) => (
+    cell: ({ row }: any) => (
       <div className="text-body-sm font-mono">{row.getValue('projectPath')}</div>
     ),
   },
   {
     accessorKey: 'workflowCount',
     header: 'Workflows',
-    cell: ({ row }) => (
+    cell: ({ row }: any) => (
       <div className="text-center">{row.getValue('workflowCount')}</div>
     ),
   },
   {
     id: 'actions',
-    cell: ({ row }) => (
+    cell: ({ row }: any) => (
       <div onClick={(e) => e.stopPropagation()}>
         <SessionRowActionsMenu session={row.original} />
       </div>

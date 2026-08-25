@@ -4,10 +4,12 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import {
-  useReactTable,
+  useLegacyTable,
   getCoreRowModel,
   getFilteredRowModel,
   getPaginationRowModel,
+} from '@tanstack/react-table/legacy';
+import {
   flexRender,
   type ColumnFiltersState,
 } from '@tanstack/react-table';
@@ -24,9 +26,9 @@ export function SessionListPage() {
   const [globalFilter, setGlobalFilter] = useState('');
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
 
-  // React Compiler skips memoizing useReactTable (headless API returns unstable functions); accepted
+  // React Compiler skips memoizing useLegacyTable (headless API returns unstable functions); accepted
   // eslint-disable-next-line react-hooks/incompatible-library
-  const table = useReactTable({
+  const table = useLegacyTable({
     data: sessions,
     columns,
     getCoreRowModel: getCoreRowModel(),
@@ -38,7 +40,7 @@ export function SessionListPage() {
     },
     onGlobalFilterChange: setGlobalFilter,
     onColumnFiltersChange: setColumnFilters,
-    globalFilterFn: (row, _columnId, filterValue) => {
+    globalFilterFn: (row: any, _columnId: string, filterValue: string) => {
       const { name, sessionId } = row.original;
       return (
         name.toLowerCase().includes(filterValue.toLowerCase()) ||
@@ -47,6 +49,7 @@ export function SessionListPage() {
     },
     initialState: {
       pagination: {
+        pageIndex: 0,
         pageSize: 10,
       },
     },
@@ -90,12 +93,12 @@ export function SessionListPage() {
           <div className="border border-outline-variant bg-surface-container">
             <Table>
               <TableHeader>
-                {table.getHeaderGroups().map((headerGroup) => (
+                {table.getHeaderGroups().map((headerGroup: any) => (
                   <TableRow
                     key={headerGroup.id}
                     className="border-b border-outline-variant bg-surface-container-high hover:bg-surface-container-high"
                   >
-                    {headerGroup.headers.map((header) => (
+                    {headerGroup.headers.map((header: any) => (
                       <TableHead
                         key={header.id}
                         className="h-10 text-xs font-semibold tracking-wider uppercase"
@@ -116,7 +119,7 @@ export function SessionListPage() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  table.getRowModel().rows.map((row, idx) => (
+                  table.getRowModel().rows.map((row: any, idx: number) => (
                     <TableRow
                       key={row.id}
                       tabIndex={0}
@@ -131,7 +134,7 @@ export function SessionListPage() {
                         idx % 2 === 1 ? 'bg-surface-container-low' : ''
                       }`}
                     >
-                      {row.getVisibleCells().map((cell) => (
+                      {row.getVisibleCells().map((cell: any) => (
                         <TableCell key={cell.id} className="px-4">
                           {flexRender(cell.column.columnDef.cell, cell.getContext())}
                         </TableCell>
