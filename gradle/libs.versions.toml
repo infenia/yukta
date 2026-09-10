@@ -4,21 +4,21 @@
 [versions]
 springBoot = "4.1.1"
 springDependencyManagement = "1.1.7"
-graalvmBuildtools = "1.1.10"
-spotless = "8.10.0"
+graalvmBuildtools = "1.1.12"
+spotless = "8.10.2"
 lombok = "9.5.0"
 mapstruct = "1.6.3"
 springAi = "2.0.0"
-springdoc = "3.1.0"
+springdoc = "3.1.1"
 lombokMapstructBinding = "0.2.0"
 checkstyle = "13.2.0"
 pmd = "7.21.0"
 spotbugs = "6.5.11"
 errorprone = "2.50.0"
-errorpronePlugin = "5.1.0"
+errorpronePlugin = "5.1.1"
 cyclonedx = "3.4.1"
 handlebars = "4.5.4"
-graalvmPolyglot = "25.2.4"
+graalvmPolyglot = "25.3.4.1"
 nodeGradle = "7.1.0"
 node = "24.13.1"
 pnpm = "10.30.1"
@@ -45,7 +45,7 @@ springdoc-openapi = { group = "org.springdoc", name = "springdoc-openapi-starter
 handlebars = { group = "com.github.jknack", name = "handlebars", version.ref = "handlebars" }
 graalvm-polyglot = { group = "org.graalvm.polyglot", name = "polyglot", version.ref = "graalvmPolyglot" }
 graalvm-js = { group = "org.graalvm.polyglot", name = "js", version.ref = "graalvmPolyglot" }
-lombok = { group = "org.projectlombok", name = "lombok", version = "1.18.46" }
+lombok = { group = "org.projectlombok", name = "lombok", version = "1.18.48" }
 spring-boot-devtools = { group = "org.springframework.boot", name = "spring-boot-devtools" }
 spring-boot-docker-compose = { group = "org.springframework.boot", name = "spring-boot-docker-compose" }
 picocli = { group = "info.picocli", name = "picocli", version.ref = "picocli" }
