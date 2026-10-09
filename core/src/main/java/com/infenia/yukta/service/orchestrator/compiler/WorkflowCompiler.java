@@ -226,13 +226,8 @@ public class WorkflowCompiler {
         .addKeyValue(LOG_KEY_TERMINAL_COUNT, terminals.size())
         .log("Node assembly complete");
 
-    // Execute with resource management
-    return new ResourceManagementBuilder(configService, virtualThreadScheduler)
-        .withDisposables(disposables)
-        .withTerminals(terminals)
-        .withConnectors(connectors)
-        .withExecutionTimeout(sessionId, executionId)
-        .buildAndExecute();
+    return ExecutionResources.run(
+        configService, virtualThreadScheduler, sessionId, terminals, connectors, disposables);
   }
 
   /**

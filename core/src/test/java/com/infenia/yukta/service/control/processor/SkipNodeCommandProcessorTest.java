@@ -3,151 +3,49 @@
 package com.infenia.yukta.service.control.processor;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
-import com.infenia.yukta.model.execution.ControlState;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.PauseWorkflowCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.SkipNodeCommand;
-import com.infenia.yukta.service.control.ExecutionControl;
-import com.infenia.yukta.service.control.store.ExecutionControlRegistry;
-import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
-import java.util.Map;
-import java.util.Optional;
-import java.util.concurrent.atomic.AtomicBoolean;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
 import reactor.test.StepVerifier;
 
-@ExtendWith(MockitoExtension.class)
 @NoArgsConstructor
-@SuppressWarnings({"PMD.CommentRequired", "PMD.LinguisticNaming", "PMD.AvoidDuplicateLiterals"})
+@SuppressWarnings({"PMD.CommentRequired", "PMD.LinguisticNaming"})
 class SkipNodeCommandProcessorTest {
 
-  /** Registry for execution control. */
-  @Mock private ExecutionControlRegistry registry;
-
-  /** Task tracker service. */
-  @Mock private TaskTrackerService taskTracker;
-
-  /** Execution control instance. */
-  @Mock private ExecutionControl executionControl;
-
-  @InjectMocks private SkipNodeCommandProcessor processor;
+  private final SkipNodeCommandProcessor processor = new SkipNodeCommandProcessor();
 
   @Test
   void canProcess_skipNodeCommand_returnsTrue() {
-    // Given
     final ExecutionControlCommand command = new SkipNodeCommand("exec-1", "node-1", true);
 
-    // When
-    final boolean actualResult = processor.canProcess(command);
-
-    // Then
-    assertThat(actualResult).isTrue();
+    assertThat(processor.canProcess(command)).isTrue();
   }
 
   @Test
   void canProcess_otherCommand_returnsFalse() {
-    // Given
     final ExecutionControlCommand command = new PauseWorkflowCommand("exec-1");
 
-    // When
-    final boolean actualResult = processor.canProcess(command);
-
-    // Then
-    assertThat(actualResult).isFalse();
+    assertThat(processor.canProcess(command)).isFalse();
   }
 
   @Test
-  void process_skipTrue_setsSkipFlagAndEmitsNodeSkipped() {
-    // Given
-    final String executionId = "exec-skip";
-    final String nodeId = "node-1";
-    final AtomicBoolean skipFlag = new AtomicBoolean(false);
-    final SkipNodeCommand command = new SkipNodeCommand(executionId, nodeId, true);
-    when(registry.findByExecutionId(executionId)).thenReturn(Optional.of(executionControl));
-    when(executionControl.nodeSkipFlags()).thenReturn(Map.of(nodeId, skipFlag));
+  void process_rejectsSkipOfRunningExecution() {
+    final ExecutionControlCommand command = new SkipNodeCommand("exec-1", "node-1", true);
 
-    // When
-    final var result = processor.process(command);
-
-    // Then
-    StepVerifier.create(result).verifyComplete();
-    assertThat(skipFlag.get()).isTrue();
-    verify(taskTracker).emitControlStateEvent(executionId, ControlState.NODE_SKIPPED);
-  }
-
-  @Test
-  void process_skipFalse_clearsSkipFlagAndEmitsNodeUnskipped() {
-    // Given
-    final String executionId = "exec-unskip";
-    final String nodeId = "node-1";
-    final AtomicBoolean skipFlag = new AtomicBoolean(true);
-    final SkipNodeCommand command = new SkipNodeCommand(executionId, nodeId, false);
-    when(registry.findByExecutionId(executionId)).thenReturn(Optional.of(executionControl));
-    when(executionControl.nodeSkipFlags()).thenReturn(Map.of(nodeId, skipFlag));
-
-    // When
-    final var result = processor.process(command);
-
-    // Then
-    StepVerifier.create(result).verifyComplete();
-    assertThat(skipFlag.get()).isFalse();
-    verify(taskTracker).emitControlStateEvent(executionId, ControlState.NODE_UNSKIPPED);
-  }
-
-  @Test
-  void process_executionNotFound_errorWithIllegalArgumentException() {
-    // Given
-    final String executionId = "exec-not-found";
-    final SkipNodeCommand command = new SkipNodeCommand(executionId, "node-1", true);
-    when(registry.findByExecutionId(executionId)).thenReturn(Optional.empty());
-
-    // When
-    final var result = processor.process(command);
-
-    // Then
-    StepVerifier.create(result)
+    StepVerifier.create(processor.process(command))
         .expectErrorMatches(
             e ->
                 e instanceof IllegalArgumentException
-                    && e.getMessage().contains("Execution not found: " + executionId))
-        .verify();
-  }
-
-  @Test
-  void process_nodeNotFound_errorWithIllegalArgumentException() {
-    // Given
-    final String executionId = "exec-1";
-    final String nodeId = "unknown-node";
-    final SkipNodeCommand command = new SkipNodeCommand(executionId, nodeId, true);
-    when(registry.findByExecutionId(executionId)).thenReturn(Optional.of(executionControl));
-    when(executionControl.nodeSkipFlags()).thenReturn(Map.of());
-
-    // When
-    final var result = processor.process(command);
-
-    // Then
-    StepVerifier.create(result)
-        .expectErrorMatches(
-            e ->
-                e instanceof IllegalArgumentException
-                    && e.getMessage().contains("Node not found or not skippable: " + nodeId))
+                    && e.getMessage().contains("not supported")
+                    && e.getMessage().contains("node-1"))
         .verify();
   }
 
   @Test
   void getPriority_returnsCorrectValue() {
-    // When
-    final int actualPriority = processor.getPriority();
-
-    // Then
-    assertThat(actualPriority).isEqualTo(10);
+    assertThat(processor.getPriority()).isEqualTo(10);
   }
 }

@@ -5,6 +5,7 @@ package com.infenia.yukta.service.orchestrator.assembly;
 import com.infenia.yukta.message.Message;
 import com.infenia.yukta.service.control.ExecutionControl;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import reactor.core.Disposable;
@@ -44,7 +45,7 @@ public record AssemblyContext(
   /** Compact constructor to ensure all mutable collections are defensively copied. */
   @SuppressWarnings("PMD.NullAssignment")
   public AssemblyContext {
-    payload = payload != null ? Map.copyOf(payload) : null;
+    payload = payload != null ? Collections.unmodifiableMap(new HashMap<>(payload)) : null;
   }
 
   @Override

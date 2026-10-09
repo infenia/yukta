@@ -400,4 +400,29 @@ class ExecutionControlTest {
         .expectNext(TEST_MESSAGE)
         .verifyComplete();
   }
+
+  @Test
+  @SuppressWarnings("PMD.UseConcurrentHashMap")
+  void payloadWithNullValueIsAccepted() {
+    final Map<String, Object> payload = new java.util.HashMap<>();
+    payload.put("a", null);
+    payload.put("b", 1);
+
+    final ExecutionControl ctrl =
+        new ExecutionControl(
+            "s",
+            "w",
+            "e",
+            null,
+            payload,
+            Sinks.one(),
+            new ReactiveControlValve(),
+            Map.of(),
+            Map.of(),
+            Map.of(),
+            Map.of());
+
+    assertThat(ctrl.payload()).containsEntry("b", 1).containsKey("a");
+    assertThat(ctrl.payload()).isUnmodifiable();
+  }
 }

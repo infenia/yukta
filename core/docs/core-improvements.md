@@ -278,6 +278,8 @@ reliability risk) · **P2** should fix · **P3** clean-up. Effort: S < ½ day, M
 > Phase 3 done on `refactor/core-dead-code`: S5, P2, P7, C6, C17, S6, and S8 in part. Only the `TerminalNodeAssemblerStrategy` coverage exception could be dropped; the others still fail at 100%.
 >
 > Phase 4 done on `perf/core-backpressure`: C8, P1, P3, P4 (checkpoint ordering only). **Measured:** before, a fast 10k-message source into a node with `bufferSize` 16 (or 256 through 20 nodes) delivered only 16 (or 256) messages and then completed with no error, i.e. silent data loss. After, all 10,000 arrive; a 20-node linear chain of 10k messages takes about 1.0 s in a cold test JVM (`StreamTopologyDecoratorBackpressureTest`). Not done: P4's "checkpoint only the last message" (the decorator does not know a node's children), P5, P6.
+>
+> Phase 5 done on `fix/core-robustness`: C5, C9, C10, C11, C12, C13, C14, C16, C18, S2, S3 (StreamBuilder and ResourceManagementBuilder; ExecutionContextBuilder kept), S9. **C15 not done on purpose:** moving registration into `Mono.defer` would make an immediate pause/stop after start fail (the gateway returns the id and subscribes asynchronously), and graceful shutdown buys little because all execution state is in memory. C5 was resolved by rejecting runtime skip with a clear error rather than implementing it; the per-node skip flags are now dead. Also fixed: connector subscriptions were never disposed because the old builder copied the disposables list.
 
 | Phase | Items | Outcome |
 |---|---|---|

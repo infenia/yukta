@@ -6,6 +6,7 @@ import com.infenia.yukta.message.Message;
 import com.infenia.yukta.model.workflow.PreparedWorkflow;
 import com.infenia.yukta.service.control.valve.ReactiveControlValve;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 import lombok.extern.slf4j.Slf4j;
@@ -60,7 +61,7 @@ public record ExecutionControl(
 
   /** Compact constructor: makes all maps immutable and enforces field consistency. */
   public ExecutionControl {
-    payload = Map.copyOf(payload);
+    payload = Collections.unmodifiableMap(new HashMap<>(payload));
     nodeImmediateStopSinks = Map.copyOf(nodeImmediateStopSinks);
     nodeSafeStopSinks = Map.copyOf(nodeSafeStopSinks);
     nodePauseValves = Map.copyOf(nodePauseValves);

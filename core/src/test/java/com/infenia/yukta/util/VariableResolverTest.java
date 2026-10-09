@@ -124,9 +124,22 @@ class VariableResolverTest {
 
   @Test
   void testSecurityBlacklist() {
-    StepVerifier.create(resolver.resolve("${DB_PASSWORD}"))
+    StepVerifier.create(resolver.resolve("${env.DB_PASSWORD}"))
         .expectError(SecurityException.class)
         .verify();
+    StepVerifier.create(resolver.resolve("${env.GITHUB_TOKEN}"))
+        .expectError(SecurityException.class)
+        .verify();
+    StepVerifier.create(resolver.resolve("${sys.app.secret}"))
+        .expectError(SecurityException.class)
+        .verify();
+  }
+
+  @Test
+  void testBlacklistDoesNotRejectLiteralKeysThatMerelyContainSensitiveWords() {
+    StepVerifier.create(resolver.resolve("${DB_PASSWORD}"))
+        .expectNext("DB_PASSWORD")
+        .verifyComplete();
   }
 
   @Test
@@ -280,10 +293,13 @@ class VariableResolverTest {
   }
 
   @Test
-  void testResolveBlockedSensitiveKeyStillBlockedWithMessage() {
-    final Message<?> message = testMessage(Map.of("apiKey", "s3cr3t"), Map.of());
-    StepVerifier.create(resolver.resolve("${payload.apiKey}", message))
-        .expectError(SecurityException.class)
-        .verify();
+  void testPayloadAndMetadataKeysAreNotFilteredBySecretBlacklist() {
+    final Message<?> message = testMessage(Map.of("keyword", "k1"), Map.of("monkey", "m1"));
+    StepVerifier.create(resolver.resolve("${payload.keyword}", message))
+        .expectNext("k1")
+        .verifyComplete();
+    StepVerifier.create(resolver.resolve("${metadata.monkey}", message))
+        .expectNext("m1")
+        .verifyComplete();
   }
 }

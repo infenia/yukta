@@ -9,7 +9,7 @@ import com.infenia.yukta.service.control.ExecutionControl;
 import com.infenia.yukta.service.control.store.ActivePluginRegistry;
 import com.infenia.yukta.service.orchestrator.assembly.AssemblyContext;
 import com.infenia.yukta.service.orchestrator.assembly.ExecutionContextBuilder;
-import com.infenia.yukta.service.orchestrator.stream.StreamBuilder;
+import com.infenia.yukta.service.orchestrator.stream.NodeStreams;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import java.time.Duration;
 import lombok.experimental.UtilityClass;
@@ -48,11 +48,7 @@ class StreamAssemblyHelper {
             .payload(context.payload());
 
     Flux<Message<?>> built =
-        new StreamBuilder(node, timeout, tracker)
-            .withSource(stream)
-            .withTimeout()
-            .withTaskTracking(context.executionId())
-            .build();
+        NodeStreams.withTimeoutAndTracking(node, timeout, tracker, context.executionId(), stream);
 
     built =
         withPluginLifecycle(
