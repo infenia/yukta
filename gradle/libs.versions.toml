@@ -41,6 +41,10 @@ mapstruct = { group = "org.mapstruct", name = "mapstruct", version.ref = "mapstr
 mapstruct-processor = { group = "org.mapstruct", name = "mapstruct-processor", version.ref = "mapstruct" }
 lombok-mapstruct-binding = { group = "org.projectlombok", name = "lombok-mapstruct-binding", version.ref = "lombokMapstructBinding" }
 spring-ai-mcp-server-webflux = { group = "org.springframework.ai", name = "spring-ai-starter-mcp-server-webflux" }
+spring-ai-client-chat = { group = "org.springframework.ai", name = "spring-ai-client-chat" }
+spring-ai-openai = { group = "org.springframework.ai", name = "spring-ai-openai" }
+spring-ai-anthropic = { group = "org.springframework.ai", name = "spring-ai-anthropic" }
+spring-ai-ollama = { group = "org.springframework.ai", name = "spring-ai-ollama" }
 springdoc-openapi = { group = "org.springdoc", name = "springdoc-openapi-starter-webflux-ui", version.ref = "springdoc" }
 handlebars = { group = "com.github.jknack", name = "handlebars", version.ref = "handlebars" }
 graalvm-polyglot = { group = "org.graalvm.polyglot", name = "polyglot", version.ref = "graalvmPolyglot" }

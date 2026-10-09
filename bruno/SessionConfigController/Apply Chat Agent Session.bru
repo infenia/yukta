@@ -1,0 +1,107 @@
+meta {
+  name: Apply Chat Agent Session
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{base_url}}/api/sessions
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+docs {
+  Chat-agent workflow: api-trigger -> SESSION_MEMORY(load) -> LLM_CALL (primary)
+  -failure-> LLM_CALL (fallback) -> SESSION_MEMORY(append) -> CONSOLE_TERMINAL.
+  Start it with "Start Chat Agent Turn". Set llm_base_url / llm_fallback_base_url / llm_model
+  in the environment. For real keys use "apiKey": "decrypted:<key>" with a SecretProvider.
+}
+
+body:json {
+  {
+    "sessionId": "chat-agent",
+    "name": "chat-agent",
+    "description": "Chat agent with memory and model failover",
+    "initiator": "bruno",
+    "projectPath": "{{projectPath}}",
+    "tags": {},
+    "workflows": {
+      "chat": {
+        "workflowId": "chat",
+        "description": "One chat turn",
+        "nodes": [
+          { "nodeId": "trigger", "type": "api-trigger", "config": {} },
+          {
+            "nodeId": "memory_load",
+            "type": "SESSION_MEMORY",
+            "config": {
+              "mode": "load",
+              "sessionId": "${payload.sessionId}",
+              "message": "${payload.message}",
+              "maxTurns": 20
+            }
+          },
+          {
+            "nodeId": "llm_primary",
+            "type": "LLM_CALL",
+            "config": {
+              "provider": "openai",
+              "baseUrl": "{{llm_base_url}}",
+              "apiKey": "{{llm_api_key}}",
+              "model": "{{llm_model}}",
+              "system": "You are a helpful assistant.",
+              "messages": "payload['history']",
+              "prompt": "${payload.message}",
+              "timeout": 60,
+              "retries": 1,
+              "failureMode": "CONTINUE",
+              "routeByStatus": true
+            }
+          },
+          {
+            "nodeId": "llm_fallback",
+            "type": "LLM_CALL",
+            "config": {
+              "provider": "openai",
+              "baseUrl": "{{llm_fallback_base_url}}",
+              "apiKey": "{{llm_api_key}}",
+              "model": "{{llm_model}}",
+              "system": "You are a helpful assistant.",
+              "messages": "payload['history']",
+              "prompt": "${payload.message}",
+              "timeout": 60
+            }
+          },
+          {
+            "nodeId": "memory_append",
+            "type": "SESSION_MEMORY",
+            "config": { "mode": "append", "maxTurns": 20 }
+          },
+          {
+            "nodeId": "terminal",
+            "type": "CONSOLE_TERMINAL",
+            "config": { "displayOutput": true }
+          }
+        ],
+        "edges": [
+          { "source": "trigger", "target": "memory_load" },
+          { "source": "memory_load", "target": "llm_primary" },
+          { "source": "llm_primary", "target": "memory_append", "sourcePort": "success" },
+          { "source": "llm_primary", "target": "llm_fallback", "sourcePort": "failure" },
+          { "source": "llm_fallback", "target": "memory_append" },
+          { "source": "memory_append", "target": "terminal" }
+        ]
+      }
+    }
+  }
+}
+
+tests {
+  test("Status code should be 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+}

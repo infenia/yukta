@@ -17,6 +17,9 @@ dependencies {
     implementation(project(":plugins:triggers:oneshot-trigger"))
     implementation(project(":plugins:terminals:console-terminal"))
     implementation(project(":plugins:processors:process-executor"))
+    implementation(project(":plugins:processors:http-request"))
+    implementation(project(":plugins:processors:llm-call"))
+    implementation(project(":plugins:processors:session-memory"))
 
     implementation(libs.spring.boot.starter.webflux)
     implementation(libs.spring.boot.starter.validation)

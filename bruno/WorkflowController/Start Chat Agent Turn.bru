@@ -1,0 +1,32 @@
+meta {
+  name: Start Chat Agent Turn
+  type: http
+  seq: 7
+}
+
+post {
+  url: {{base_url}}/api/workflow/start
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "sessionId": "chat-agent",
+    "workflowId": "chat",
+    "payload": {
+      "sessionId": "user-42",
+      "message": "Hello, what can you do?"
+    }
+  }
+}
+
+tests {
+  test("Status code should be 202 Accepted", function() {
+    expect(res.getStatus()).to.equal(202);
+  });
+}

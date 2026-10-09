@@ -1,0 +1,187 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: 2026 Infenia Private Limited
+package com.infenia.yukta.plugin.llm;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
+import com.sun.net.httpserver.HttpExchange;
+import com.sun.net.httpserver.HttpServer;
+import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.nio.charset.StandardCharsets;
+import java.time.Duration;
+import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
+import lombok.NoArgsConstructor;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
+@SuppressWarnings({
+  "PMD.CommentRequired",
+  "PMD.LawOfDemeter",
+  "PMD.AvoidDuplicateLiterals",
+  "PMD.TooManyMethods"
+})
+@NoArgsConstructor
+class LlmGatewayTest {
+
+  private static final String OPENAI_BODY =
+      "{\"id\":\"c1\",\"object\":\"chat.completion\",\"created\":1,\"model\":\"m-served\","
+          + "\"choices\":[{\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"hi\"},"
+          + "\"finish_reason\":\"stop\"}],"
+          + "\"usage\":{\"prompt_tokens\":3,\"completion_tokens\":2,\"total_tokens\":5}}";
+  private static final String ANTHROPIC_BODY =
+      "{\"id\":\"msg_1\",\"type\":\"message\",\"role\":\"assistant\",\"model\":\"m-served\","
+          + "\"content\":[{\"type\":\"text\",\"text\":\"hi\"}],\"stop_reason\":\"end_turn\","
+          + "\"stop_sequence\":null,\"usage\":{\"input_tokens\":3,\"output_tokens\":2}}";
+  private static final String OLLAMA_BODY =
+      "{\"model\":\"m-served\",\"created_at\":\"2024-01-01T00:00:00Z\","
+          + "\"message\":{\"role\":\"assistant\",\"content\":\"hi\"},\"done\":true,"
+          + "\"done_reason\":\"stop\",\"prompt_eval_count\":3,\"eval_count\":2}";
+
+  private HttpServer server;
+  private String base;
+  private final List<String> bodies = new CopyOnWriteArrayList<>();
+  private final LlmGateway gateway = new LlmGateway();
+
+  @BeforeEach
+  void start() throws IOException {
+    server = HttpServer.create(new InetSocketAddress("localhost", 0), 0);
+    reply("/v1/chat/completions", OPENAI_BODY);
+    reply("/v1/messages", ANTHROPIC_BODY);
+    reply("/api/chat", OLLAMA_BODY);
+    reply(
+        "/empty/v1/chat/completions",
+        "{\"id\":\"c\",\"object\":\"chat.completion\",\"created\":1,"
+            + "\"model\":\"m\",\"choices\":[]}");
+    server.start();
+    base = "http://localhost:" + server.getAddress().getPort();
+  }
+
+  private void reply(final String path, final String json) {
+    server.createContext(
+        path,
+        exchange -> {
+          bodies.add(new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8));
+          send(exchange, json);
+        });
+  }
+
+  private static void send(final HttpExchange exchange, final String json) throws IOException {
+    final byte[] bytes = json.getBytes(StandardCharsets.UTF_8);
+    exchange.getResponseHeaders().add("Content-Type", "application/json");
+    exchange.sendResponseHeaders(200, bytes.length);
+    exchange.getResponseBody().write(bytes);
+    exchange.close();
+  }
+
+  @AfterEach
+  void stop() {
+    server.stop(0);
+  }
+
+  private LlmRequest request(final Provider provider, final String path) {
+    return new LlmRequest(
+        provider,
+        base + path,
+        "key",
+        "m",
+        0.2,
+        64,
+        Duration.ofSeconds(10),
+        "be brief",
+        List.of(
+            new ChatTurn("user", "q1"),
+            new ChatTurn("Assistant", "a1"),
+            new ChatTurn("user", "q2")));
+  }
+
+  @Test
+  void openAiCompatible() {
+    final LlmResponse response = gateway.call(request(Provider.OPENAI, "/v1"));
+
+    assertThat(response).isEqualTo(new LlmResponse("hi", 3, 2, "m-served"));
+    assertThat(bodies.getFirst()).contains("be brief", "q1", "a1", "q2");
+  }
+
+  @Test
+  void anthropic() {
+    final LlmResponse response = gateway.call(request(Provider.ANTHROPIC, ""));
+
+    assertThat(response.text()).isEqualTo("hi");
+    assertThat(response.inputTokens()).isEqualTo(3);
+    assertThat(response.outputTokens()).isEqualTo(2);
+    assertThat(bodies.getFirst()).contains("be brief", "q1", "a1", "q2");
+  }
+
+  @Test
+  void ollama() {
+    final LlmResponse response = gateway.call(request(Provider.OLLAMA, ""));
+
+    assertThat(response.text()).isEqualTo("hi");
+    assertThat(response.inputTokens()).isEqualTo(3);
+    assertThat(response.outputTokens()).isEqualTo(2);
+    assertThat(bodies.getFirst()).contains("be brief", "q1", "a1", "q2");
+  }
+
+  @Test
+  void ollamaWithDefaultBaseUrlFailsFastWithoutBuiltInRetries() {
+    // Nothing listens on Ollama's default port in tests; a built-in retry loop would hang here.
+    final LlmRequest request =
+        new LlmRequest(
+            Provider.OLLAMA,
+            null,
+            null,
+            "m",
+            null,
+            null,
+            Duration.ofSeconds(1),
+            null,
+            List.of(new ChatTurn("user", "q")));
+
+    assertThatThrownBy(() -> gateway.call(request)).isInstanceOf(RuntimeException.class);
+  }
+
+  @Test
+  void reusesModelAndSkipsBlankSystemPrompt() {
+    final LlmRequest request =
+        new LlmRequest(
+            Provider.OPENAI,
+            base + "/v1",
+            "key",
+            "m",
+            null,
+            null,
+            Duration.ofSeconds(10),
+            " ",
+            List.of(new ChatTurn("user", "q")));
+
+    gateway.call(request);
+    gateway.call(request);
+
+    assertThat(bodies).hasSize(2);
+    assertThat(bodies.getFirst()).doesNotContain("\"system\"");
+  }
+
+  @Test
+  void noChoicesYieldsEmptyText() {
+    final LlmRequest request =
+        new LlmRequest(
+            Provider.OPENAI,
+            base + "/empty/v1",
+            "key",
+            "m",
+            null,
+            null,
+            Duration.ofSeconds(10),
+            null,
+            List.of(new ChatTurn("user", "q")));
+
+    final LlmResponse response = gateway.call(request);
+
+    assertThat(response.text()).isEmpty();
+    assertThat(response.inputTokens()).isZero();
+  }
+}
