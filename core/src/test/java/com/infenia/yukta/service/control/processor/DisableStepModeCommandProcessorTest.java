@@ -12,10 +12,10 @@ import com.infenia.yukta.plugin.control.ExecutionControlCommand.DisableStepModeC
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.EnableStepModeCommand;
 import com.infenia.yukta.service.control.ExecutionControl;
 import com.infenia.yukta.service.control.store.ExecutionControlRegistry;
+import com.infenia.yukta.service.control.valve.ReactiveControlValve;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.atomic.AtomicBoolean;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -64,17 +64,19 @@ class DisableStepModeCommandProcessorTest {
     // Given
     final String executionId = "exec-disable-step";
     final String nodeId = "node-1";
-    final AtomicBoolean stepModeFlag = new AtomicBoolean(true);
+    final ReactiveControlValve valve = new ReactiveControlValve();
+    valve.enableStepMode();
     final DisableStepModeCommand command = new DisableStepModeCommand(executionId, nodeId);
     when(registry.findByExecutionId(executionId)).thenReturn(Optional.of(executionControl));
-    when(executionControl.nodeStepModes()).thenReturn(Map.of(nodeId, stepModeFlag));
+    when(executionControl.nodePauseValves()).thenReturn(Map.of(nodeId, valve));
 
     // When
     final var result = processor.process(command);
 
     // Then
     StepVerifier.create(result).verifyComplete();
-    assertThat(stepModeFlag.get()).isFalse();
+    assertThat(valve.isStepMode()).isFalse();
+    assertThat(valve.isPaused()).isFalse();
     verify(taskTracker).emitControlStateEvent(executionId, ControlState.STEP_MODE_DISABLED);
   }
 
@@ -104,7 +106,7 @@ class DisableStepModeCommandProcessorTest {
     final String nodeId = "unknown-node";
     final DisableStepModeCommand command = new DisableStepModeCommand(executionId, nodeId);
     when(registry.findByExecutionId(executionId)).thenReturn(Optional.of(executionControl));
-    when(executionControl.nodeStepModes()).thenReturn(Map.of());
+    when(executionControl.nodePauseValves()).thenReturn(Map.of());
 
     // When
     final var result = processor.process(command);

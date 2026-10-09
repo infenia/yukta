@@ -8,7 +8,6 @@ import static org.mockito.Mockito.mock;
 import com.infenia.yukta.service.control.store.ExecutionControlStore;
 import com.infenia.yukta.service.control.store.InMemoryExecutionControlStore;
 import com.infenia.yukta.service.session.store.SessionConfigStore;
-import java.time.Duration;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
@@ -35,9 +34,6 @@ class AppConfigurationTest {
         context -> {
           assertThat(context).hasSingleBean(ObjectMapper.class);
           assertThat(context).hasSingleBean(Scheduler.class);
-          assertThat(context).hasSingleBean(Duration.class);
-          assertThat(context).hasBean("heartbeatInterval");
-          assertThat(context.getBean("heartbeatInterval")).isEqualTo(Duration.ofSeconds(10));
           assertThat(context).hasSingleBean(ExecutionControlStore.class);
           assertThat(context.getBean(ExecutionControlStore.class))
               .isInstanceOf(InMemoryExecutionControlStore.class);

@@ -12,6 +12,7 @@ import com.infenia.yukta.plugin.store.NodeCheckpointStore;
 import com.infenia.yukta.service.control.ExecutionControl;
 import com.infenia.yukta.service.control.factory.ExecutionControlFactory;
 import com.infenia.yukta.service.control.store.ExecutionControlRegistry;
+import com.infenia.yukta.service.orchestrator.assembly.ExecutionContextBuilder;
 import com.infenia.yukta.service.orchestrator.compiler.WorkflowCompiler;
 import com.infenia.yukta.service.orchestrator.preparator.WorkflowPreparator;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
@@ -37,15 +38,6 @@ import reactor.util.context.Context;
 @Validated
 @RequiredArgsConstructor
 public class WorkflowOrchestrator {
-
-  /** Context key for session ID. */
-  private static final String CTX_SESSION_ID = "sessionId";
-
-  /** Context key for workflow ID. */
-  private static final String CTX_WORKFLOW_ID = "workflowId";
-
-  /** Context key for execution ID. */
-  private static final String CTX_EXECUTION_ID = "executionId";
 
   /** Log key for session ID. */
   private static final String LOG_KEY_SESSION_ID = "sessionId";
@@ -143,7 +135,6 @@ public class WorkflowOrchestrator {
     final Mono<Void> trackExecution =
         Mono.firstWithSignal(
                 execution.thenReturn(TaskStatus.SUCCESS),
-                control.immediateStopSink().asMono().thenReturn(TaskStatus.STOPPED),
                 control.safeStopSink().asMono().thenReturn(TaskStatus.STOPPED))
             .flatMap(status -> tracker.finishWorkflow(executionId, status))
             .doOnSuccess(
@@ -179,9 +170,9 @@ public class WorkflowOrchestrator {
             })
         .contextWrite(
             Context.of(
-                CTX_SESSION_ID, sessionId,
-                CTX_WORKFLOW_ID, workflowId,
-                CTX_EXECUTION_ID, executionId));
+                ExecutionContextBuilder.CTX_SESSION_ID, sessionId,
+                ExecutionContextBuilder.CTX_WORKFLOW_ID, workflowId,
+                ExecutionContextBuilder.CTX_EXECUTION_ID, executionId));
   }
 
   /**

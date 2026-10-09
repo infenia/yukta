@@ -2,6 +2,10 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.service.orchestrator.compiler;
 
+import static com.infenia.yukta.service.orchestrator.assembly.ExecutionContextBuilder.CTX_PAYLOAD;
+import static com.infenia.yukta.service.orchestrator.assembly.ExecutionContextBuilder.CTX_SESSION_ID;
+import static com.infenia.yukta.service.orchestrator.assembly.ExecutionContextBuilder.CTX_WORKFLOW_ID;
+
 import com.infenia.yukta.message.Message;
 import com.infenia.yukta.model.workflow.NodeAssembler;
 import com.infenia.yukta.model.workflow.ParentEdgeInfo;
@@ -40,15 +44,6 @@ public class WorkflowCompiler {
   /** Reference count timeout in seconds for disposing resources. */
   private static final long REF_COUNT_TIMEOUT = 30L;
 
-  /** Context key for session ID. */
-  private static final String CTX_SESSION_ID = "sessionId";
-
-  /** Context key for workflow ID. */
-  private static final String CTX_WORKFLOW_ID = "workflowId";
-
-  /** Context key for payload. */
-  private static final String CTX_PAYLOAD = "payload";
-
   /** Log key for execution ID. */
   private static final String LOG_KEY_EXECUTION_ID = "executionId";
 
@@ -57,9 +52,6 @@ public class WorkflowCompiler {
 
   /** Log key for node IDs. */
   private static final String LOG_KEY_NODE_IDS = "nodeIds";
-
-  /** Log key for heartbeat interval. */
-  private static final String LOG_KEY_HEARTBEAT_INTERVAL = "heartbeatInterval";
 
   /** Log key for terminal count. */
   private static final String LOG_KEY_TERMINAL_COUNT = "terminalCount";
@@ -75,9 +67,6 @@ public class WorkflowCompiler {
 
   /** The virtual thread scheduler for non-blocking execution. */
   private final Scheduler virtualThreadScheduler;
-
-  /** The heartbeat interval duration. */
-  private final Duration heartbeatInterval;
 
   /** The session configuration store for accessing session settings. */
   private final SessionConfigStore configService;
@@ -237,23 +226,6 @@ public class WorkflowCompiler {
         .addKeyValue(LOG_KEY_TERMINAL_COUNT, terminals.size())
         .log("Node assembly complete");
 
-    // Setup heartbeats and statistics
-    log.atDebug()
-        .addKeyValue(LOG_KEY_EXECUTION_ID, executionId)
-        .addKeyValue(LOG_KEY_NODE_COUNT, nodeIds.size())
-        .addKeyValue(LOG_KEY_HEARTBEAT_INTERVAL, heartbeatInterval.toMillis())
-        .log("Starting heartbeat and statistics emission for {} nodes", nodeIds.size());
-
-    final HeartbeatBuilder heartbeatBuilder =
-        new HeartbeatBuilder(heartbeatInterval, virtualThreadScheduler);
-    final List<Disposable> heartbeatDisposables =
-        heartbeatBuilder
-            .forNodes(workflowId, nodeIds)
-            .withHeartbeatInterval(heartbeatInterval)
-            .withStatisticsInterval(heartbeatInterval.multipliedBy(2))
-            .build();
-    disposables.addAll(heartbeatDisposables);
-
     // Execute with resource management
     return new ResourceManagementBuilder(configService, virtualThreadScheduler)
         .withDisposables(disposables)
@@ -316,14 +288,8 @@ public class WorkflowCompiler {
               return strategy.createAssembler(
                   node, plugin, nodeTimeout, nodeIndex, bufferSize, parentEdges);
             })
-        .orElseGet(
-            () -> {
-              log.atWarn()
-                  .addKeyValue(LOG_KEY_NODE_ID, node.nodeId())
-                  .addKeyValue(LOG_KEY_PLUGIN_TYPE, node.type())
-                  .log("Unknown plugin type, creating no-op assembler");
-              return context -> {};
-            });
+        .orElseThrow(
+            () -> new IllegalStateException("No assembler strategy for node type: " + node.type()));
   }
 
   /**

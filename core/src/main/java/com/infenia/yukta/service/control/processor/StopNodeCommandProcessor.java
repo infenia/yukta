@@ -60,7 +60,8 @@ public class StopNodeCommandProcessor implements ControlSignalProcessor {
             throw new IllegalArgumentException("Node not found or not stoppable: " + nodeId);
           }
 
-          sink.emitEmpty(Sinks.EmitFailureHandler.FAIL_FAST);
+          // Already-stopped sinks are terminated; stopping twice is a no-op.
+          sink.tryEmitEmpty();
 
           taskTracker.emitControlStateEvent(stop.executionId(), ControlState.NODE_STOPPED);
 

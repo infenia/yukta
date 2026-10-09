@@ -4,7 +4,6 @@ package com.infenia.yukta.config;
 
 import com.infenia.yukta.service.control.store.ExecutionControlStore;
 import com.infenia.yukta.service.control.store.InMemoryExecutionControlStore;
-import java.time.Duration;
 import java.util.concurrent.Executors;
 import lombok.NoArgsConstructor;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -17,7 +16,7 @@ import tools.jackson.databind.ObjectMapper;
 
 /** Configuration for the application. */
 @Configuration
-@EnableConfigurationProperties({SessionConfigProperties.class, YuktaProperties.class})
+@EnableConfigurationProperties(SessionConfigProperties.class)
 @NoArgsConstructor
 public class AppConfiguration {
 
@@ -42,17 +41,6 @@ public class AppConfiguration {
     return Schedulers.fromExecutorService(
         Executors.newScheduledThreadPool(
             Runtime.getRuntime().availableProcessors(), Thread.ofVirtual().factory()));
-  }
-
-  /**
-   * Global heartbeat interval for nodes in seconds.
-   *
-   * @param properties the Yukta configuration properties
-   * @return the heartbeat interval duration
-   */
-  @Bean
-  public Duration heartbeatInterval(final YuktaProperties properties) {
-    return Duration.ofSeconds(properties.getHeartbeatIntervalSeconds());
   }
 
   /**

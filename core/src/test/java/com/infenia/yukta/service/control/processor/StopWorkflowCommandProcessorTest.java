@@ -76,7 +76,21 @@ class StopWorkflowCommandProcessorTest {
 
     // Then
     StepVerifier.create(result).verifyComplete();
-    verify(safeStopSink).emitEmpty(Sinks.EmitFailureHandler.FAIL_FAST);
+    verify(safeStopSink).tryEmitEmpty();
+  }
+
+  @Test
+  void process_stoppedTwice_doesNotThrow() {
+    // Given
+    final String executionId = "exec-stop-twice";
+    final Sinks.One<Void> realSink = Sinks.one();
+    when(registry.findByExecutionId(executionId)).thenReturn(Optional.of(executionControl));
+    when(executionControl.safeStopSink()).thenReturn(realSink);
+    final StopWorkflowCommand command = new StopWorkflowCommand(executionId, "again");
+
+    // When-Then
+    StepVerifier.create(processor.process(command)).verifyComplete();
+    StepVerifier.create(processor.process(command)).verifyComplete();
   }
 
   @Test
@@ -111,7 +125,7 @@ class StopWorkflowCommandProcessorTest {
 
     // Then
     StepVerifier.create(result).verifyComplete();
-    verify(safeStopSink).emitEmpty(Sinks.EmitFailureHandler.FAIL_FAST);
+    verify(safeStopSink).tryEmitEmpty();
   }
 
   @Test

@@ -5,7 +5,6 @@ package com.infenia.yukta.service.control.valve;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import lombok.NoArgsConstructor;
-import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.publisher.Sinks;
 import reactor.core.publisher.Sinks.Many;
@@ -117,16 +116,5 @@ public final class ReactiveControlValve {
    */
   public boolean isStepMode() {
     return stepMode.get();
-  }
-
-  /**
-   * Applies this valve as a transform to a flux source.
-   *
-   * <p>Usage: {@code flux.transform(valve.asTransform())}
-   *
-   * @return a function suitable for use with {@code Flux.transform()}
-   */
-  public <T> java.util.function.Function<Flux<T>, Flux<T>> asTransform() {
-    return source -> source.delayUntil(t -> allowPassage().then());
   }
 }

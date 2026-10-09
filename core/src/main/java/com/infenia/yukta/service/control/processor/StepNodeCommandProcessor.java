@@ -9,12 +9,12 @@ import com.infenia.yukta.plugin.control.ExecutionControlCommand.StepNodeCommand;
 import com.infenia.yukta.plugin.control.WorkflowDirective;
 import com.infenia.yukta.service.control.ExecutionControl;
 import com.infenia.yukta.service.control.store.ExecutionControlRegistry;
+import com.infenia.yukta.service.control.valve.ReactiveControlValve;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
-import reactor.core.publisher.Sinks;
 
 /**
  * Processor for step node commands.
@@ -51,13 +51,14 @@ public class StepNodeCommandProcessor implements ControlSignalProcessor {
                           new IllegalArgumentException(
                               "Execution not found: " + step.executionId()));
 
-          final Sinks.Many<Void> stepSink = control.nodeStepSinks().get(step.nodeId());
-          if (stepSink == null) {
+          final ReactiveControlValve valve = control.nodePauseValves().get(step.nodeId());
+          if (valve == null) {
             throw new IllegalArgumentException(
                 "Node not found or does not support stepping: " + step.nodeId());
           }
-
-          stepSink.emitNext(null, Sinks.EmitFailureHandler.FAIL_FAST);
+          if (!valve.step()) {
+            throw new IllegalStateException("Node is not in step mode: " + step.nodeId());
+          }
 
           taskTracker.emitControlStateEvent(step.executionId(), ControlState.NODE_STEPPED);
 

@@ -12,6 +12,7 @@ import com.infenia.yukta.plugin.control.ExecutionControlCommand.PauseWorkflowCom
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.StepNodeCommand;
 import com.infenia.yukta.service.control.ExecutionControl;
 import com.infenia.yukta.service.control.store.ExecutionControlRegistry;
+import com.infenia.yukta.service.control.valve.ReactiveControlValve;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import java.util.Map;
 import java.util.Optional;
@@ -21,12 +22,11 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import reactor.core.publisher.Sinks;
 import reactor.test.StepVerifier;
 
 @ExtendWith(MockitoExtension.class)
 @NoArgsConstructor
-@SuppressWarnings({"PMD.CommentRequired", "PMD.LinguisticNaming"})
+@SuppressWarnings({"PMD.CommentRequired", "PMD.LinguisticNaming", "PMD.AvoidDuplicateLiterals"})
 class StepNodeCommandProcessorTest {
 
   /** Registry for execution control. */
@@ -39,8 +39,6 @@ class StepNodeCommandProcessorTest {
   @Mock private ExecutionControl executionControl;
 
   /** Step sink for control messages. */
-  @Mock private Sinks.Many<Void> stepSink;
-
   @InjectMocks private StepNodeCommandProcessor processor;
 
   @Test
@@ -68,15 +66,15 @@ class StepNodeCommandProcessorTest {
   }
 
   @Test
-  void process_nodeFound_emitsStepSignalAndEmitsEvent() {
+  void process_nodeInStepMode_stepsValveAndEmitsEvent() {
     // Given
     final String executionId = "exec-step";
     final String nodeId = "node-1";
     final StepNodeCommand command = new StepNodeCommand(executionId, nodeId);
     when(registry.findByExecutionId(executionId)).thenReturn(Optional.of(executionControl));
-    when(executionControl.nodeStepSinks()).thenReturn(Map.of(nodeId, stepSink));
-    // stepSink.emitNext(null, FAIL_FAST) is called — mock returns null by default (EmitResult)
-    // Production code does not check the return value, so null is acceptable here
+    final ReactiveControlValve valve = new ReactiveControlValve();
+    valve.enableStepMode();
+    when(executionControl.nodePauseValves()).thenReturn(Map.of(nodeId, valve));
 
     // When
     final var result = processor.process(command);
@@ -84,6 +82,26 @@ class StepNodeCommandProcessorTest {
     // Then
     StepVerifier.create(result).verifyComplete();
     verify(taskTracker).emitControlStateEvent(executionId, ControlState.NODE_STEPPED);
+  }
+
+  @Test
+  void process_nodeNotInStepMode_errorWithIllegalStateException() {
+    // Given
+    final String executionId = "exec-1";
+    final String nodeId = "node-1";
+    when(registry.findByExecutionId(executionId)).thenReturn(Optional.of(executionControl));
+    when(executionControl.nodePauseValves()).thenReturn(Map.of(nodeId, new ReactiveControlValve()));
+
+    // When
+    final var result = processor.process(new StepNodeCommand(executionId, nodeId));
+
+    // Then
+    StepVerifier.create(result)
+        .expectErrorMatches(
+            e ->
+                e instanceof IllegalStateException
+                    && e.getMessage().contains("Node is not in step mode: " + nodeId))
+        .verify();
   }
 
   @Test
@@ -112,7 +130,7 @@ class StepNodeCommandProcessorTest {
     final String nodeId = "unknown-node";
     final StepNodeCommand command = new StepNodeCommand(executionId, nodeId);
     when(registry.findByExecutionId(executionId)).thenReturn(Optional.of(executionControl));
-    when(executionControl.nodeStepSinks()).thenReturn(Map.of());
+    when(executionControl.nodePauseValves()).thenReturn(Map.of());
 
     // When
     final var result = processor.process(command);

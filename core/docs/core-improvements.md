@@ -274,6 +274,8 @@ reliability risk) · **P2** should fix · **P3** clean-up. Effort: S < ½ day, M
 
 > **Progress:** Phase 1 done on `fix/core-status-correctness`: C1 stop-gap, C2, C3, C4, C7 (tests T1, T2, T5). 
 > Phase 2 done on `refactor/core-typed-status`: S1, S4 and the full C1 fix (`ControlState` / `WorkflowProgress.controlState`; the C1 stop-gap is removed).
+>
+> Phase 3 done on `refactor/core-dead-code`: S5, P2, P7, C6, C17, S6, and S8 in part. Only the `TerminalNodeAssemblerStrategy` coverage exception could be dropped; the others still fail at 100%.
 
 | Phase | Items | Outcome |
 |---|---|---|

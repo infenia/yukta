@@ -12,7 +12,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
-import reactor.core.publisher.Sinks;
 
 /**
  * Processor for stop workflow commands.
@@ -46,7 +45,8 @@ public class StopWorkflowCommandProcessor implements ControlSignalProcessor {
                           new IllegalArgumentException(
                               "Execution not found: " + stop.executionId()));
 
-          control.safeStopSink().emitEmpty(Sinks.EmitFailureHandler.FAIL_FAST);
+          // Already-stopped sinks are terminated; stopping twice is a no-op.
+          control.safeStopSink().tryEmitEmpty();
 
           log.atDebug()
               .addKeyValue("executionId", stop.executionId())

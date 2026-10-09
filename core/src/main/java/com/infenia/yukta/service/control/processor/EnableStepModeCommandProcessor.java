@@ -9,8 +9,8 @@ import com.infenia.yukta.plugin.control.ExecutionControlCommand.EnableStepModeCo
 import com.infenia.yukta.plugin.control.WorkflowDirective;
 import com.infenia.yukta.service.control.ExecutionControl;
 import com.infenia.yukta.service.control.store.ExecutionControlRegistry;
+import com.infenia.yukta.service.control.valve.ReactiveControlValve;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
-import java.util.concurrent.atomic.AtomicBoolean;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -51,13 +51,13 @@ public class EnableStepModeCommandProcessor implements ControlSignalProcessor {
                           new IllegalArgumentException(
                               "Execution not found: " + enable.executionId()));
 
-          final AtomicBoolean stepMode = control.nodeStepModes().get(enable.nodeId());
-          if (stepMode == null) {
+          final ReactiveControlValve valve = control.nodePauseValves().get(enable.nodeId());
+          if (valve == null) {
             throw new IllegalArgumentException(
                 "Node not found or does not support step mode: " + enable.nodeId());
           }
 
-          stepMode.set(true);
+          valve.enableStepMode();
 
           taskTracker.emitControlStateEvent(enable.executionId(), ControlState.STEP_MODE_ENABLED);
 

@@ -110,11 +110,9 @@ class WorkflowOrchestratorTest {
     final Map<String, Object> payload = Map.of("key", "val");
 
     final PreparedWorkflow prepared = buildPreparedWorkflow(List.of("node-a"));
-    final Sinks.One<Void> immediateStop = Sinks.one();
     final Sinks.One<Void> safeStop = Sinks.one();
 
-    setupExecutionControl(
-        sessionId, workflowId, executionId, prepared, payload, immediateStop, safeStop);
+    setupExecutionControl(sessionId, workflowId, executionId, prepared, payload, safeStop);
     when(tracker.startWorkflow(eq(executionId), eq(sessionId), eq(workflowId), anyList()))
         .thenReturn(Mono.empty());
     when(prepared.template().instantiate(eq(executionId), eq(payload))).thenReturn(Mono.empty());
@@ -137,11 +135,9 @@ class WorkflowOrchestratorTest {
     final Map<String, Object> payload = Map.of("k", "v");
 
     final PreparedWorkflow prepared = buildPreparedWorkflow(List.of("node-x"));
-    final Sinks.One<Void> immediateStop = Sinks.one();
     final Sinks.One<Void> safeStop = Sinks.one();
 
-    setupExecutionControl(
-        sessionId, workflowId, executionId, prepared, payload, immediateStop, safeStop);
+    setupExecutionControl(sessionId, workflowId, executionId, prepared, payload, safeStop);
     when(tracker.startWorkflow(anyString(), anyString(), anyString(), anyList()))
         .thenReturn(Mono.empty());
     when(prepared.template().instantiate(anyString(), any()))
@@ -156,36 +152,6 @@ class WorkflowOrchestratorTest {
   }
 
   @Test
-  void execute_immediateStopSinkTerminatesExecution() {
-    final String sessionId = "sess-stop";
-    final String workflowId = "wf-stop";
-    final String executionId = "exec-stop";
-    final Map<String, Object> payload = Map.of();
-
-    final PreparedWorkflow prepared = buildPreparedWorkflow(List.of("node-s"));
-    final Sinks.One<Void> immediateStop = Sinks.one();
-    final Sinks.One<Void> safeStop = Sinks.one();
-
-    setupExecutionControl(
-        sessionId, workflowId, executionId, prepared, payload, immediateStop, safeStop);
-    when(tracker.startWorkflow(anyString(), anyString(), anyString(), anyList()))
-        .thenReturn(Mono.empty());
-    // Template never completes — stopped via immediateStop signal
-    when(prepared.template().instantiate(anyString(), any())).thenReturn(Mono.never());
-
-    final Mono<Void> execution =
-        orchestrator.execute(sessionId, workflowId, executionId, prepared, payload);
-
-    StepVerifier.create(execution).then(() -> immediateStop.tryEmitEmpty()).verifyComplete();
-
-    verify(tracker).finishWorkflow(executionId, TaskStatus.STOPPED);
-    verify(tracker, never()).finishWorkflow(executionId, TaskStatus.SUCCESS);
-
-    verify(executionControlRegistry).unregister(executionId);
-    verify(checkpointStore).clear(executionId);
-  }
-
-  @Test
   void execute_safeStopSinkTerminatesExecution() {
     final String sessionId = "sess-safe";
     final String workflowId = "wf-safe";
@@ -193,11 +159,9 @@ class WorkflowOrchestratorTest {
     final Map<String, Object> payload = Map.of();
 
     final PreparedWorkflow prepared = buildPreparedWorkflow(List.of("node-q"));
-    final Sinks.One<Void> immediateStop = Sinks.one();
     final Sinks.One<Void> safeStop = Sinks.one();
 
-    setupExecutionControl(
-        sessionId, workflowId, executionId, prepared, payload, immediateStop, safeStop);
+    setupExecutionControl(sessionId, workflowId, executionId, prepared, payload, safeStop);
     when(tracker.startWorkflow(anyString(), anyString(), anyString(), anyList()))
         .thenReturn(Mono.empty());
     when(prepared.template().instantiate(anyString(), any())).thenReturn(Mono.never());
@@ -223,11 +187,9 @@ class WorkflowOrchestratorTest {
 
     final PreparedWorkflow prepared =
         buildPreparedWorkflow(List.of("trigger", "processor", "terminal"));
-    final Sinks.One<Void> immediateStop = Sinks.one();
     final Sinks.One<Void> safeStop = Sinks.one();
 
-    setupExecutionControl(
-        sessionId, workflowId, executionId, prepared, payload, immediateStop, safeStop);
+    setupExecutionControl(sessionId, workflowId, executionId, prepared, payload, safeStop);
     when(tracker.startWorkflow(anyString(), anyString(), anyString(), anyList()))
         .thenReturn(Mono.empty());
     when(prepared.template().instantiate(anyString(), any())).thenReturn(Mono.empty());
@@ -478,14 +440,12 @@ class WorkflowOrchestratorTest {
       final String executionId,
       final PreparedWorkflow prepared,
       final Map<String, Object> payload,
-      final Sinks.One<Void> immediateStop,
       final Sinks.One<Void> safeStop) {
     when(executionControlFactory.create(sessionId, workflowId, executionId, prepared, payload))
         .thenReturn(executionControl);
     doNothing().when(executionControlRegistry).register(executionControl);
     doNothing().when(executionControlRegistry).unregister(executionId);
     doNothing().when(checkpointStore).clear(executionId);
-    when(executionControl.immediateStopSink()).thenReturn(immediateStop);
     when(executionControl.safeStopSink()).thenReturn(safeStop);
   }
 
