@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: 2026 Infenia Private Limited
+
 # boot — Review, Improvements & Optimisations
 
 > Scope: `boot/` (2 Java classes, 5 resource files, the native-image config and `build.gradle.kts`)

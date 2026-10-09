@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: 2026 Infenia Private Limited
+
 # plugin-api — Review, Improvements & Optimisations
 
 > Scope: `plugin-api/src/main` (22 files, ≈1.05k lines) reviewed on 2026-10-09 against `main` @ `8d3161b5`.

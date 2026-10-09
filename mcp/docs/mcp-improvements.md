@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: 2026 Infenia Private Limited
+
 # mcp — Review, Improvements & Optimisations
 
 > Scope: `mcp/src/main` (40 files, ≈2.3k lines) reviewed on 2026-10-09 against `main` @ `8d3161b5`.

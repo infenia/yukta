@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: 2026 Infenia Private Limited
+
 # build-logic — Review, Improvements & Optimisations
 
 > Scope: `build-logic/` (6 precompiled convention plugins, 465 lines) reviewed on 2026-10-09 against `main` @ `8d3161b5`.

@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: 2026 Infenia Private Limited
+
 # Core Module — Review, Improvements & Optimisations
 
 > Scope: `core/src/main` (≈14k lines, 120 classes) reviewed on 2026-10-09 against `main` @ `8d3161b5`.

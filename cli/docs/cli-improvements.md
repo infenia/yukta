@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: 2026 Infenia Private Limited
+
 # cli — Review, Improvements & Optimisations
 
 > Scope: `cli/` (Go 1.26, Cobra; ≈3.7k main lines, ≈11.5k test lines) plus its `build.gradle.kts`
