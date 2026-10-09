@@ -2,7 +2,6 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.service.orchestrator.compiler;
 
-import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import com.infenia.yukta.service.session.store.SessionConfigStore;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.time.Duration;
@@ -18,15 +17,14 @@ import reactor.core.scheduler.Scheduler;
  * Fluent builder for managing execution resources in reactive streams.
  *
  * <p>ResourceManagementBuilder manages the Mono.using() pattern for resource lifecycle, handling
- * disposables collection, timeouts, terminal completion, and cleanup. It emits workflow status
- * events to DefaultTaskTrackerService on completion or error, and executes connector runnables on
- * subscription in reverse order.
+ * disposables collection, timeouts, terminal completion, and cleanup. It executes connector
+ * runnables on subscription in reverse order. Terminal workflow status is owned by the
+ * orchestrator.
  *
  * <p>Example usage:
  *
  * <pre>{@code
  * ResourceManagementBuilder builder = new ResourceManagementBuilder(
- *     tracker,
  *     configStore,
  *     Schedulers.boundedElastic());
  *
@@ -41,18 +39,8 @@ import reactor.core.scheduler.Scheduler;
 @Slf4j
 public class ResourceManagementBuilder {
 
-  /** Status value indicating successful execution. */
-  private static final String STATUS_SUCCESS = "SUCCESS";
-
-  /** Status value indicating error execution. */
-  private static final String STATUS_ERROR = "ERROR";
-
   /** Default timeout in seconds for workflow execution. */
   private static final long DEFAULT_TIMEOUT = 3600L;
-
-  /** The task tracker service for emitting workflow status events. */
-  @SuppressFBWarnings("EI_EXPOSE_REP2")
-  private final TaskTrackerService tracker;
 
   /** The session configuration store for retrieving execution settings. */
   @SuppressFBWarnings("EI_EXPOSE_REP2")
@@ -79,15 +67,11 @@ public class ResourceManagementBuilder {
   /**
    * Creates a new ResourceManagementBuilder instance.
    *
-   * @param tracker the task tracker service for emitting workflow status events
    * @param configStore the session config store for retrieving execution timeouts
    * @param scheduler the scheduler for timeout operations
    */
   public ResourceManagementBuilder(
-      final TaskTrackerService tracker,
-      final SessionConfigStore configStore,
-      final Scheduler scheduler) {
-    this.tracker = tracker;
+      final SessionConfigStore configStore, final Scheduler scheduler) {
     this.configStore = configStore;
     this.scheduler = scheduler;
   }
@@ -189,15 +173,7 @@ public class ResourceManagementBuilder {
           final Mono<Void> timedMono = terminalMono.timeout(Duration.ofSeconds(timeout), scheduler);
 
           return Mono.using(
-                  () -> disposables,
-                  _ -> timedMono.doOnSubscribe(_ -> runConnectors()),
-                  this::cleanup)
-              .doOnSuccess(_ -> emitStatus(STATUS_SUCCESS))
-              .onErrorResume(
-                  error -> {
-                    emitStatus(STATUS_ERROR);
-                    return Mono.error(error);
-                  });
+              () -> disposables, _ -> timedMono.doOnSubscribe(_ -> runConnectors()), this::cleanup);
         });
   }
 
@@ -235,21 +211,6 @@ public class ResourceManagementBuilder {
               .log("Error executing connector", e);
         }
       }
-    }
-  }
-
-  /**
-   * Emits a workflow status event.
-   *
-   * @param status the status to emit
-   */
-  private void emitStatus(final String status) {
-    if (executionId != null) {
-      log.atInfo()
-          .addKeyValue("executionId", executionId)
-          .addKeyValue("status", status)
-          .log("Emitting workflow status event");
-      tracker.emitWorkflowStatusEvent(executionId, status);
     }
   }
 

@@ -113,6 +113,26 @@ class DefaultTaskTrackerServiceTest {
   }
 
   @Test
+  void controlStatusEvent_doesNotBreakBatchOrTerminateStream() {
+    final String executionId = "exec-ctrl-1";
+    StepVerifier.create(tracker.startWorkflow(executionId, "sess-1", "wf-1", List.of("n1")))
+        .verifyComplete();
+
+    // A control value (not a TaskStatus) followed by a real terminal status in the same batch
+    // must not drop the terminal event nor error the stream.
+    StepVerifier.create(tracker.getStatusStream(executionId))
+        .then(
+            () -> {
+              tracker.emitWorkflowStatusEvent(executionId, "NODE_PAUSED");
+              tracker.emitWorkflowStatusEvent(executionId, "STOPPED");
+            })
+        .thenConsumeWhile(p -> !"STOPPED".equals(p.status()))
+        .assertNext(p -> assertThat(p.status()).isEqualTo("STOPPED"))
+        .expectComplete()
+        .verify(Duration.ofSeconds(5));
+  }
+
+  @Test
   void testStatusStreaming() {
     final String sessionId = "sess-1";
     final String workflowId = "wf-1";

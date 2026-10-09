@@ -8,6 +8,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -174,6 +175,9 @@ class WorkflowOrchestratorTest {
 
     StepVerifier.create(execution).then(() -> immediateStop.tryEmitEmpty()).verifyComplete();
 
+    verify(tracker).finishWorkflow(executionId, "STOPPED");
+    verify(tracker, never()).finishWorkflow(executionId, "SUCCESS");
+
     verify(executionControlRegistry).unregister(executionId);
     verify(checkpointStore).clear(executionId);
   }
@@ -199,6 +203,9 @@ class WorkflowOrchestratorTest {
         orchestrator.execute(sessionId, workflowId, executionId, prepared, payload);
 
     StepVerifier.create(execution).then(() -> safeStop.tryEmitEmpty()).verifyComplete();
+
+    verify(tracker).finishWorkflow(executionId, "STOPPED");
+    verify(tracker, never()).finishWorkflow(executionId, "SUCCESS");
 
     verify(executionControlRegistry).unregister(executionId);
     verify(checkpointStore).clear(executionId);
@@ -364,6 +371,9 @@ class WorkflowOrchestratorTest {
             sessionId, workflowId, prevExecId, newExecId, prepared, "trigger", Map.of());
 
     StepVerifier.create(restart).then(() -> safeStop.tryEmitEmpty()).verifyComplete();
+
+    verify(tracker).finishWorkflow(newExecId, "STOPPED");
+    verify(tracker, never()).finishWorkflow(newExecId, "SUCCESS");
 
     verify(executionControlRegistry).unregister(newExecId);
     verify(checkpointStore).clear(newExecId);

@@ -123,22 +123,6 @@ class StreamBuilderTest {
   }
 
   @Test
-  @DisplayName("withErrorHandling enables error handling with execution ID")
-  void withErrorHandling_enablesErrorHandlingWithExecutionId() {
-    final StreamBuilder result = builder.withErrorHandling(EXECUTION_ID);
-
-    assertThat(result).isSameAs(builder);
-  }
-
-  @Test
-  @DisplayName("withErrorHandling returns builder for fluent chaining")
-  void withErrorHandling_returnsBuilder_forFluentChaining() {
-    final StreamBuilder result = builder.withErrorHandling(EXECUTION_ID);
-
-    assertThat(result).isInstanceOf(StreamBuilder.class).isSameAs(builder);
-  }
-
-  @Test
   @DisplayName("build with no source returns empty flux")
   void build_noSourceProvided_returnsEmptyFlux() {
     final Flux<Message<?>> result = builder.build();
@@ -226,22 +210,6 @@ class StreamBuilderTest {
   }
 
   @Test
-  @DisplayName("build with error handling emits FAILURE on error")
-  void build_withErrorHandlingEnabled_emitsFailureOnError() {
-    final RuntimeException testException = new RuntimeException("Test error");
-    final Flux<Message<?>> sourceFlux = Flux.error(testException);
-
-    final Flux<Message<?>> result =
-        builder.withSource(sourceFlux).withErrorHandling(EXECUTION_ID).build();
-
-    StepVerifier.create(result).expectError(RuntimeException.class).verify();
-
-    verify(taskTrackerService)
-        .emitTaskStatusEvent(
-            eq(EXECUTION_ID), eq(NODE_ID), eq(DEFAULT_TASK_ID), eq(STATUS_FAILURE), anyMap());
-  }
-
-  @Test
   @DisplayName("build with timeout and task tracking applies both transformations")
   void build_withTimeoutAndTaskTracking_appliesBothTransformations() {
     final Message<?> testMessage = createTestMessage();
@@ -261,21 +229,17 @@ class StreamBuilderTest {
   }
 
   @Test
-  @DisplayName("build with task tracking and error handling applies both transformations")
-  void build_withTaskTrackingAndErrorHandling_appliesBothTransformations() {
+  @DisplayName("build with task tracking emits FAILURE exactly once on error")
+  void build_withTaskTracking_emitsFailureOnceOnError() {
     final RuntimeException testException = new RuntimeException("Test error");
     final Flux<Message<?>> sourceFlux = Flux.error(testException);
 
     final Flux<Message<?>> result =
-        builder
-            .withSource(sourceFlux)
-            .withTaskTracking(EXECUTION_ID)
-            .withErrorHandling(EXECUTION_ID)
-            .build();
+        builder.withSource(sourceFlux).withTaskTracking(EXECUTION_ID).build();
 
     StepVerifier.create(result).expectError(RuntimeException.class).verify();
 
-    verify(taskTrackerService, org.mockito.Mockito.times(2))
+    verify(taskTrackerService, org.mockito.Mockito.times(1))
         .emitTaskStatusEvent(
             eq(EXECUTION_ID), eq(NODE_ID), eq(DEFAULT_TASK_ID), eq(STATUS_FAILURE), anyMap());
   }
@@ -287,12 +251,7 @@ class StreamBuilderTest {
     final Flux<Message<?>> sourceFlux = Flux.just(testMessage);
 
     final Flux<Message<?>> result =
-        builder
-            .withSource(sourceFlux)
-            .withTimeout()
-            .withTaskTracking(EXECUTION_ID)
-            .withErrorHandling(EXECUTION_ID)
-            .build();
+        builder.withSource(sourceFlux).withTimeout().withTaskTracking(EXECUTION_ID).build();
 
     StepVerifier.create(result).expectNext(testMessage).verifyComplete();
 
@@ -313,11 +272,7 @@ class StreamBuilderTest {
     final Flux<Message<?>> sourceFlux = Flux.empty();
 
     final StreamBuilder result =
-        builder
-            .withSource(sourceFlux)
-            .withTimeout()
-            .withTaskTracking(EXECUTION_ID)
-            .withErrorHandling(EXECUTION_ID);
+        builder.withSource(sourceFlux).withTimeout().withTaskTracking(EXECUTION_ID);
 
     assertThat(result).isSameAs(builder);
   }

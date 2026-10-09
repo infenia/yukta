@@ -18,7 +18,7 @@ import reactor.core.publisher.Flux;
  * types (Trigger, Processor, Terminal).
  *
  * <p>StreamBuilder encapsulates common stream transformation patterns: timeout handling with
- * TimeoutException mapping, task status tracking (RUNNING → SUCCESS/FAILURE), and error handling.
+ * TimeoutException mapping, task status tracking (RUNNING → SUCCESS/FAILURE).
  *
  * <p>Example usage:
  *
@@ -30,7 +30,6 @@ import reactor.core.publisher.Flux;
  *   .withSource(sourceFlux)
  *   .withTimeout()
  *   .withTaskTracking("exec-001", "session-001")
- *   .withErrorHandling("exec-001")
  *   .build();
  * }</pre>
  */
@@ -67,9 +66,6 @@ public class StreamBuilder {
 
   /** Flag to apply task tracking to the stream. */
   private boolean applyTaskTracking;
-
-  /** Flag to apply error handling to the stream. */
-  private boolean applyErrors;
 
   /** The execution ID for status tracking. */
   @Nullable private String executionId;
@@ -143,23 +139,6 @@ public class StreamBuilder {
   }
 
   /**
-   * Enables error handling with task tracker emission of errors.
-   *
-   * @param execId the execution identifier for error tracking
-   * @return this builder for fluent chaining
-   */
-  public StreamBuilder withErrorHandling(final String execId) {
-    this.applyErrors = true;
-    this.executionId = execId;
-    log.atDebug()
-        .setMessage("Error handling enabled for execution: {} on node: {}")
-        .addArgument(execId)
-        .addArgument(node.nodeId())
-        .log();
-    return this;
-  }
-
-  /**
    * Builds and returns the configured Flux stream with all registered transformations applied in
    * order.
    *
@@ -192,15 +171,6 @@ public class StreamBuilder {
           .addArgument(executionId)
           .log();
       stream = applyTaskTrackingTransform(stream);
-    }
-
-    // Apply error handling
-    if (applyErrors) {
-      log.atDebug()
-          .setMessage("Applying error handling transformation for execution: {}")
-          .addArgument(executionId)
-          .log();
-      stream = applyErrorsTransform(stream);
     }
 
     log.atDebug().setMessage("Stream build complete for node: {}").addArgument(node.nodeId()).log();
@@ -278,26 +248,5 @@ public class StreamBuilder {
                   STATUS_FAILURE,
                   Collections.emptyMap());
             });
-  }
-
-  /**
-   * Applies error handling transformation to the stream.
-   *
-   * @param flux the source flux
-   * @return the flux with error handling applied
-   */
-  private Flux<Message<?>> applyErrorsTransform(final Flux<Message<?>> flux) {
-    return flux.doOnError(
-        error -> {
-          log.atError()
-              .setMessage(
-                  "Stream error occurred for execution: {}, node: {} - emitting failure status")
-              .addArgument(executionId)
-              .addArgument(node.nodeId())
-              .setCause(error)
-              .log();
-          taskTrackerService.emitTaskStatusEvent(
-              executionId, node.nodeId(), DEFAULT_TASK_ID, STATUS_FAILURE, Collections.emptyMap());
-        });
   }
 }

@@ -255,7 +255,7 @@ public class WorkflowCompiler {
     disposables.addAll(heartbeatDisposables);
 
     // Execute with resource management
-    return new ResourceManagementBuilder(tracker, configService, virtualThreadScheduler)
+    return new ResourceManagementBuilder(configService, virtualThreadScheduler)
         .withDisposables(disposables)
         .withTerminals(terminals)
         .withConnectors(connectors)

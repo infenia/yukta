@@ -52,7 +52,6 @@ class StreamAssemblyHelper {
             .withSource(stream)
             .withTimeout()
             .withTaskTracking(context.executionId())
-            .withErrorHandling(context.executionId())
             .build();
 
     built =

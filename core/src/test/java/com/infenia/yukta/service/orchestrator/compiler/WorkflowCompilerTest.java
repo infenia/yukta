@@ -403,7 +403,7 @@ class WorkflowCompilerTest {
   }
 
   @Test
-  void executeTemplate_emitsSuccessStatusOnCompletion() {
+  void executeTemplate_doesNotEmitWorkflowStatus_orchestratorOwnsIt() {
     when(executionControlRegistry.findByExecutionId(EXECUTION_ID))
         .thenReturn(Optional.of(buildMinimalExecutionControl()));
     when(configService.getExecutionTimeout(SESSION_ID)).thenReturn(Mono.just(60L));
@@ -416,7 +416,7 @@ class WorkflowCompilerTest {
 
     StepVerifier.create(execution).verifyComplete();
 
-    verify(tracker).emitWorkflowStatusEvent(EXECUTION_ID, "SUCCESS");
+    verify(tracker, never()).emitWorkflowStatusEvent(any(), any());
   }
 
   @Test

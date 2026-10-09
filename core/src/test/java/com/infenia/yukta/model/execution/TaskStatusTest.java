@@ -41,6 +41,11 @@ class TaskStatusTest {
   }
 
   @Test
+  void isTerminal_stoppedStatus_returnsTrue() {
+    assertThat(TaskStatus.STOPPED.isTerminal()).isTrue();
+  }
+
+  @Test
   void isTerminal_pendingStatus_returnsFalse() {
     // When
     final boolean actualResult = TaskStatus.PENDING.isTerminal();
@@ -122,15 +127,16 @@ class TaskStatusTest {
             TaskStatus.RUNNING,
             TaskStatus.SUCCESS,
             TaskStatus.FAILURE,
-            TaskStatus.ERROR);
+            TaskStatus.ERROR,
+            TaskStatus.STOPPED);
   }
 
   @Test
-  void values_called_returnsArrayOfFiveElements() {
+  void values_called_returnsArrayOfSixElements() {
     // When
     final TaskStatus[] actualValues = TaskStatus.values();
 
     // Then
-    assertThat(actualValues).hasSize(5);
+    assertThat(actualValues).hasSize(6);
   }
 }

@@ -3,6 +3,7 @@
 package com.infenia.yukta.service.orchestrator;
 
 import com.infenia.yukta.message.Message;
+import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.model.workflow.NodeAssembler;
 import com.infenia.yukta.model.workflow.PreparedWorkflow;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
@@ -141,8 +142,10 @@ public class WorkflowOrchestrator {
 
     final Mono<Void> trackExecution =
         Mono.firstWithSignal(
-                execution, control.immediateStopSink().asMono(), control.safeStopSink().asMono())
-            .then(tracker.finishWorkflow(executionId, "SUCCESS"))
+                execution.thenReturn(TaskStatus.SUCCESS.name()),
+                control.immediateStopSink().asMono().thenReturn(TaskStatus.STOPPED.name()),
+                control.safeStopSink().asMono().thenReturn(TaskStatus.STOPPED.name()))
+            .flatMap(status -> tracker.finishWorkflow(executionId, status))
             .doOnSuccess(
                 _ ->
                     log.atInfo()
@@ -268,8 +271,13 @@ public class WorkflowOrchestrator {
                     sessionId,
                     workflowId,
                     nodeIds))
-            .as(mono -> Mono.firstWithSignal(mono, control.safeStopSink().asMono()))
-            .then(tracker.finishWorkflow(newExecutionId, "SUCCESS"))
+            .thenReturn(TaskStatus.SUCCESS.name())
+            .as(
+                mono ->
+                    Mono.firstWithSignal(
+                        mono,
+                        control.safeStopSink().asMono().thenReturn(TaskStatus.STOPPED.name())))
+            .flatMap(status -> tracker.finishWorkflow(newExecutionId, status))
             .doOnSuccess(
                 _ ->
                     log.atInfo()

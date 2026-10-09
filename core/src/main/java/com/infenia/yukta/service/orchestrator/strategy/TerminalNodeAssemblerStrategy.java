@@ -16,7 +16,6 @@ import com.infenia.yukta.service.orchestrator.stream.StreamTopologyDecorator;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import java.time.Duration;
 import java.util.Collections;
-import java.util.concurrent.TimeoutException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.annotation.Order;
@@ -32,9 +31,6 @@ import reactor.core.scheduler.Scheduler;
 @RequiredArgsConstructor
 @SuppressWarnings("PMD.AvoidDuplicateLiterals")
 public class TerminalNodeAssemblerStrategy implements NodeAssemblerStrategy {
-
-  /** Buffer size for workflow streams. */
-  private static final int BUFFER_SIZE = 1024;
 
   /** Default task identifier. */
   private static final String DEFAULT_TASK_ID = "default";
@@ -114,12 +110,7 @@ public class TerminalNodeAssemblerStrategy implements NodeAssemblerStrategy {
 
       final Flux<Message<?>> inputToTerminal =
           safeInput
-              .flatMap(
-                  msg ->
-                      Mono.<Message<?>>just(msg)
-                          .timeout(timeout, virtualThreadScheduler)
-                          .onErrorMap(TimeoutException.class, e -> e),
-                  BUFFER_SIZE)
+              .timeout(timeout, virtualThreadScheduler)
               .transformDeferredContextual(
                   (flux, ctx) -> {
                     final ResultCollector collector = ctx.getOrDefault("resultCollector", null);

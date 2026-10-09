@@ -272,6 +272,8 @@ reliability risk) · **P2** should fix · **P3** clean-up. Effort: S < ½ day, M
 
 ## 3. Suggested roadmap
 
+> **Progress:** Phase 1 done on `fix/core-status-correctness`: C1 stop-gap, C2, C3, C4, C7 (tests T1, T2, T5). C1 full fix is Phase 2.
+
 | Phase | Items | Outcome |
 |---|---|---|
 | **1. Stop the bleeding** (≈1 day) | C1 stop-gap, C2, C3, C4, C7, T1, T2, T5 | Statuses are correct and SSE streams terminate |

@@ -25,6 +25,7 @@ import jakarta.validation.constraints.Size;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -759,7 +760,14 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
   }
 
   private boolean isTerminal(final String status) {
-    return TaskStatus.valueOf(status).isTerminal();
+    return isTerminalStatus(status);
+  }
+
+  private static boolean isTerminalStatus(final String status) {
+    // Control events (e.g. NODE_PAUSED) are not lifecycle statuses; treat unknown values as
+    // non-terminal instead of throwing and dropping the whole event batch.
+    return Arrays.stream(TaskStatus.values())
+        .anyMatch(s -> s.name().equals(status) && s.isTerminal());
   }
 
   /**
@@ -898,8 +906,7 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
     }
 
     private LocalDateTime determineEndTime(final LocalDateTime current, final String status) {
-      final TaskStatus taskStatus = TaskStatus.valueOf(status);
-      return (taskStatus.isTerminal() && current == null)
+      return (isTerminalStatus(status) && current == null)
           ? LocalDateTime.now(ZoneId.systemDefault())
           : current;
     }

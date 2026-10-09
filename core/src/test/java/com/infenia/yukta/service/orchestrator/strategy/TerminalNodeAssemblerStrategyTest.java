@@ -211,6 +211,31 @@ class TerminalNodeAssemblerStrategyTest {
   }
 
   @Test
+  void createAssembler_stalledInput_timesOut() {
+    final TerminalPlugin terminal = mock(TerminalPlugin.class);
+    when(terminal.consume(any(), any()))
+        .thenAnswer(
+            inv -> {
+              final Flux<Message<?>> input = inv.getArgument(0);
+              return input.then();
+            });
+    when(terminal.isBlocking()).thenReturn(false);
+
+    final WorkflowNode node = new WorkflowNode(NODE_ID, "terminal", Map.of());
+    final Flux<Message<?>> stalled = Flux.never();
+    final AssemblyContext context = buildContext(stalled);
+    when(streamTopologyDecorator.mergeParentStreams(any(), any(ParentEdgeInfo[].class)))
+        .thenReturn(stalled);
+
+    strategy
+        .createAssembler(node, terminal, Duration.ofMillis(100), 0, 1024, new ParentEdgeInfo[0])
+        .assemble(context);
+
+    StepVerifier.create(context.terminals().getFirst())
+        .verifyError(java.util.concurrent.TimeoutException.class);
+  }
+
+  @Test
   void createAssembler_blockingTerminal_subscribesOnScheduler() {
     final Message<?> msg = DefaultMessage.create(UUID.randomUUID(), "data");
     final TerminalPlugin terminal = mock(TerminalPlugin.class);
