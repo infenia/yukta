@@ -177,6 +177,17 @@ reliability risk) · **P2** should fix · **P3** clean-up. Effort: S < ½ day, M
   if the sink has already completed.
 - **Fix:** Use `tryEmitEmpty()` and ignore `FAIL_TERMINATED`.
 
+#### C18 · P2 · The `VariableResolver` secret blacklist blocks the wrong keys — Effort S
+- **Where:** `util/VariableResolver.SECRET_BLACKLIST = .*(PASSWORD|SECRET|KEY).*` is checked
+  against **every** expression key: payload, metadata, env and sys.
+- **Impact:**
+  - `${payload.keyword}` and `${metadata.monkey}` throw `SecurityException`.
+  - `${env.GITHUB_TOKEN}` and `${env.DATABASE_URL}` are readable.
+  - Combined with `NoOpSecretProvider` (which returns empty), there's no supported way to pass an
+    API key except plaintext in workflow config. See plugins G5 and G6.
+- **Fix:** Apply it only to `env.` and `sys.` with an allow-list prefix (for example `YUKTA_`).
+  Ship an `EnvSecretProvider` for `decrypted:` keys.
+
 ### 2.2 Performance and optimisation
 
 #### P1 · High · The "virtual thread scheduler" is capped at nCPU threads — Effort S
@@ -267,7 +278,7 @@ reliability risk) · **P2** should fix · **P3** clean-up. Effort: S < ½ day, M
 | **2. Type the status model** (≈1–2 days) | S1, S4, then the full C1 fix | Status bugs become compile errors |
 | **3. Delete before optimising** (≈1 day) | S5, P2, S6, C6 (wire the valve), C17 | Smaller surface. Coverage exceptions can shrink |
 | **4. Throughput** (≈2 days) | P1, C8 (`publish()`), P3, P4, T3 | Real backpressure and real virtual threads. Less work per message |
-| **5. Robustness** (≈2 days) | C5, C9 contract, C10–C16, S2, S3 | Predictable restart, skip, shutdown and storage |
+| **5. Robustness** (≈2 days) | C5, C9 contract, C10–C16, C18, S2, S3 | Predictable restart, skip, shutdown and storage |
 
 Measure before and after phase 4. A JMH benchmark or a simple `StepVerifier` throughput test is
 enough: a 20-node linear DAG, 10k messages, with throughput and allocation rate recorded.

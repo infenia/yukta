@@ -367,6 +367,10 @@ var F=[
   where:"FileSessionConfigStore.saveSessionConfig with TRUNCATE_EXISTING",impact:"A crash mid-write corrupts the session file.",fix:"Write to a temp file, then Files.move with ATOMIC_MOVE.",eff:"S"},
  {id:"C17",sev:"P3",area:"Correctness",pkg:["service/control/processor"],t:"Stopping twice throws",
   where:"emitEmpty(FAIL_FAST) on an already-completed sink",impact:"A second stop returns an error.",fix:"Use tryEmitEmpty() and ignore FAIL_TERMINATED.",eff:"S"},
+ {id:"C18",sev:"P2",area:"Security",pkg:["util"],t:"VariableResolver secret blacklist blocks the wrong keys",
+  where:"VariableResolver.SECRET_BLACKLIST .*(PASSWORD|SECRET|KEY).* applied to every key",
+  impact:"${payload.keyword} throws; ${env.GITHUB_TOKEN} is readable. NoOpSecretProvider means API keys end up in plaintext in workflow config.",
+  fix:"Restrict it to env and sys with an allow-list prefix, and add an EnvSecretProvider.",eff:"S"},
  {id:"P1",sev:"P1",area:"Performance",pkg:["config","service/orchestrator/strategy"],t:"The virtual-thread scheduler is a fixed pool of nCPU threads",
   where:"AppConfiguration.virtualThreadScheduler: newScheduledThreadPool(nCPU, virtual factory)",
   impact:"At most nCPU blocking plugin calls can run at once, JVM-wide, so virtual threads give no benefit.",
@@ -491,7 +495,7 @@ var ROAD=[
  ["2 · Type the status model",["S1","S4"],"Status bugs become compile errors"],
  ["3 · Delete before optimising",["S5","P2","S6","C6","C17"],"Smaller surface, fewer coverage exceptions"],
  ["4 · Throughput",["P1","C8","P3","P4","T2"],"Real backpressure and virtual threads, less work per message"],
- ["5 · Robustness",["C5","C9","C10","C11","C12","C13","C14","C15","C16","S2","S3"],"Predictable restart, skip, shutdown and storage"]
+ ["5 · Robustness",["C5","C9","C10","C11","C12","C13","C14","C15","C16","C18","S2","S3"],"Predictable restart, skip, shutdown and storage"]
 ];
 
 /* ---------- state ---------- */

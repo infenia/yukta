@@ -1,0 +1,249 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+<!-- SPDX-FileCopyrightText: 2026 Infenia Private Limited -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Yukta CLI Guide</title>
+<style>
+:root{
+  --bg:#f7f7f5;--surface:#ffffff;--surface-2:#f0efec;--text:#1d1d1b;--muted:#5f5e5a;--line:#dcdad4;
+  --accent:#2f5bd3;--accent-soft:#e6ecfb;
+  --p0:#b42318;--p0-soft:#fde8e6;--p1:#b54708;--p1-soft:#fdf0e1;--p2:#6941c6;--p2-soft:#efe9fb;--p3:#475467;--p3-soft:#eceef1;
+  --ok:#067647;--ok-soft:#e3f5ec;
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#141413;--surface:#1d1d1b;--surface-2:#262624;--text:#ecebe6;--muted:#a3a29c;--line:#383835;
+  --accent:#8aa8ff;--accent-soft:#232c45;
+  --p0:#ff8a80;--p0-soft:#3b1d1a;--p1:#ffb35c;--p1-soft:#3a2915;--p2:#c3a6ff;--p2-soft:#2b2240;--p3:#b8c0cc;--p3-soft:#2a2d31;
+  --ok:#5fd39b;--ok-soft:#173226;
+}}
+:root[data-theme="dark"]{
+  --bg:#141413;--surface:#1d1d1b;--surface-2:#262624;--text:#ecebe6;--muted:#a3a29c;--line:#383835;
+  --accent:#8aa8ff;--accent-soft:#232c45;
+  --p0:#ff8a80;--p0-soft:#3b1d1a;--p1:#ffb35c;--p1-soft:#3a2915;--p2:#c3a6ff;--p2-soft:#2b2240;--p3:#b8c0cc;--p3-soft:#2a2d31;
+  --ok:#5fd39b;--ok-soft:#173226;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.6 var(--sans)}
+code,.mono{font-family:var(--mono);font-size:.88em}
+code{background:var(--surface-2);padding:.1em .35em;border-radius:4px}
+pre{background:var(--surface-2);padding:10px 12px;border-radius:8px;overflow-x:auto;font-family:var(--mono);font-size:13px;margin:8px 0}
+pre code{background:none;padding:0}
+a{color:var(--accent)}
+.layout{display:grid;grid-template-columns:230px minmax(0,1fr);max-width:1240px;margin:0 auto}
+nav.side{position:sticky;top:0;height:100vh;overflow:auto;padding:28px 18px;border-right:1px solid var(--line)}
+nav.side .brand{font-weight:700;font-size:17px;margin-bottom:2px}
+nav.side .sub{color:var(--muted);font-size:13px;margin-bottom:22px}
+nav.side a{display:block;color:var(--muted);text-decoration:none;padding:5px 10px;border-radius:6px;font-size:14px}
+nav.side a:hover,nav.side a.active{background:var(--accent-soft);color:var(--text)}
+nav.side .theme{margin-top:22px}
+main{padding:32px 40px 80px;min-width:0}
+section{margin-bottom:56px;scroll-margin-top:16px}
+h1{font-size:30px;line-height:1.2;margin:0 0 8px}
+h2{font-size:22px;margin:0 0 6px}
+h3{font-size:16px;margin:18px 0 6px}
+.lede{color:var(--muted);max-width:760px;margin:0 0 18px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:18px;min-width:0}
+.card>h3:first-child{margin-top:0}
+.card ul,.card ol{padding-left:18px;margin:6px 0}
+.grid{display:grid;gap:12px}
+.g4{grid-template-columns:repeat(4,minmax(0,1fr))}
+.g2{grid-template-columns:repeat(2,minmax(0,1fr))}
+.stat .n{font-size:26px;font-weight:700}
+.stat .l{color:var(--muted);font-size:13px}
+.pill{display:inline-block;font-size:12px;font-weight:600;padding:1px 8px;border-radius:999px;white-space:nowrap;text-decoration:none}
+.P0{background:var(--p0-soft);color:var(--p0)}.P1{background:var(--p1-soft);color:var(--p1)}
+.P2{background:var(--p2-soft);color:var(--p2)}.P3{background:var(--p3-soft);color:var(--p3)}
+.okp{background:var(--ok-soft);color:var(--ok)}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{color:var(--muted);font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.04em}
+.tablewrap{overflow-x:auto}
+button{font:inherit;font-size:13px;border:1px solid var(--line);background:var(--surface);color:var(--text);padding:5px 12px;border-radius:7px;cursor:pointer}
+button:hover{border-color:var(--accent)}
+button[aria-pressed="true"]{background:var(--accent);color:#fff;border-color:var(--accent)}
+:root[data-theme="dark"] button[aria-pressed="true"]{color:#111}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) button[aria-pressed="true"]{color:#111}}
+input[type=search]{font:inherit;font-size:14px;padding:6px 10px;border:1px solid var(--line);border-radius:7px;background:var(--surface);color:var(--text);min-width:220px}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.pipe{width:100%;height:auto;display:block}
+.pipe .box rect{fill:var(--surface);stroke:var(--line);stroke-width:1.2;transition:fill .15s,stroke .15s}
+.pipe .box text{fill:var(--text);font:600 13px var(--sans)}
+.pipe .box .s{fill:var(--muted);font:12px var(--mono)}
+.pipe .box.on rect{fill:var(--accent-soft);stroke:var(--accent);stroke-width:2}
+.pipe .arrow{stroke:var(--muted);stroke-width:1.4;fill:none}
+.pipe .box{cursor:pointer}
+.steps{display:flex;gap:6px;flex-wrap:wrap;margin:14px 0}
+.stepbody h3{margin-top:0}
+.refs{font-size:13px;color:var(--muted)}
+.flag{border-left:3px solid var(--p1);background:var(--p1-soft);padding:8px 12px;border-radius:0 6px 6px 0;margin-top:10px;font-size:14px}
+.flag.p0{border-color:var(--p0);background:var(--p0-soft)}
+.pkgs{display:grid;grid-template-columns:280px minmax(0,1fr);gap:14px}
+.pkglist button{display:flex;justify-content:space-between;width:100%;text-align:left;border:0;border-radius:6px;padding:7px 10px;background:transparent;font-family:var(--mono);font-size:12.5px}
+.pkglist button[aria-pressed="true"]{background:var(--accent-soft);color:var(--text)}
+.bar{height:6px;background:var(--surface-2);border-radius:3px;overflow:hidden;margin-top:6px}
+.bar>i{display:block;height:100%;background:var(--accent)}
+.filters{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+.filters .lbl{color:var(--muted);font-size:13px;margin-right:2px}
+.finding{border:1px solid var(--line);border-radius:10px;background:var(--surface);margin-bottom:10px}
+.finding summary{list-style:none;cursor:pointer;display:grid;grid-template-columns:auto auto minmax(0,1fr) auto;gap:10px;align-items:center;padding:12px 14px}
+.finding summary::-webkit-details-marker{display:none}
+.finding .id{font-family:var(--mono);font-size:12px;color:var(--muted);min-width:30px}
+.finding .t{font-weight:600}
+.finding .meta{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.finding .body{padding:0 14px 14px 14px;border-top:1px solid var(--line)}
+.finding .body dl{display:grid;grid-template-columns:90px minmax(0,1fr);gap:6px 12px;margin:12px 0 0}
+.finding .body dt{color:var(--muted);font-size:13px}
+.finding .body dd{margin:0;min-width:0;overflow-wrap:anywhere}
+.finding.done{opacity:.55}
+.finding.done .t{text-decoration:line-through}
+.progress{display:flex;align-items:center;gap:10px;margin-bottom:12px;font-size:14px;color:var(--muted)}
+.progress .bar{flex:1;height:8px;margin:0}
+.progress .bar>i{background:var(--ok)}
+.empty{color:var(--muted);padding:20px;text-align:center}
+.score td:nth-child(2){font-family:var(--mono);white-space:nowrap}
+@media (max-width:860px){
+  .layout{grid-template-columns:1fr}
+  nav.side{position:static;height:auto;border-right:0;border-bottom:1px solid var(--line);padding:16px}
+  nav.side .links{display:flex;flex-wrap:wrap;gap:4px}
+  main{padding:20px 16px 60px}
+  .g4{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .g2,.pkgs{grid-template-columns:1fr}
+  .finding summary{grid-template-columns:auto minmax(0,1fr)}
+  .finding .meta{grid-column:1/-1}
+  .finding .body dl{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+<div class="layout">
+<nav class="side" aria-label="Sections">
+  <div class="brand" id="brand"></div>
+  <div class="sub" id="sub"></div>
+  <div class="links" id="navLinks"></div>
+  <div class="theme"><button id="themeBtn" type="button">Toggle theme</button></div>
+</nav>
+<main id="main"></main>
+</div>
+<script>
+var DATA = {"module": "cli", "htmlTitle": "Yukta CLI Guide", "title": "cli module guide", "date": "2026-10-09", "lede": "<code>yukta<\/code>, a small cross-platform Go CLI (Cobra) that drives a Yukta server over REST and SSE: sessions, workflows, node control, executions, logs, plugins and the control bus.", "stats": [["≈3.7k", "main lines (Go)"], ["≈11.5k", "test lines"], ["7", "command groups"]], "overviewHtml": "<h3>Design in one paragraph<\/h3><p><code>cmd/yukta/main.go<\/code> calls <code>app.Run()<\/code>, which builds one <code>client.Client<\/code> and the Cobra tree. <code>RootCmd<\/code> resolves the server URL from <code>--url<\/code>, then <code>YUKTA_SERVER_URL<\/code>, then <code>http://localhost:8080<\/code>. Each command calls one client method, which builds the request, checks for a 2xx response, and decodes <code>ApiResponse.data<\/code>. Streams (<code>workflow status-stream<\/code>, <code>logs<\/code>) use <code>streamRequest<\/code> and <code>ScanSSE<\/code>. Output goes through <code>output.Formatter<\/code> as a table or JSON.<\/p>", "score": [["Command design", "4/5", "Mirrors the REST resources"], ["Correctness", "3/5", "Unescaped paths; no timeout"], ["Server parity", "3/5", "No payload or auth"], ["Build", "2/5", "@latest tools; hidden errors"], ["Tests", "4/5", "Thorough, heavy mocks"]], "flowTitle": "What happens when you run a command", "steps": [{"k": "Parse", "cls": "cobra RootCmd · PersistentPreRun", "d": "Parses positional arguments (for example <code>start &lt;session-id&gt; &lt;workflow-id&gt;<\/code>) and flags. Resolves the server URL from <code>--url/-u<\/code>, then <code>YUKTA_SERVER_URL<\/code>, then the default, and sets <code>client.BaseURL<\/code>.", "f": ["C-12"]}, {"k": "Build URL", "cls": "client.*: fmt.Sprintf(\"/api/…/%s\")", "d": "Puts the IDs into the path without escaping. Query parameters use <code>url.Values<\/code>.", "f": ["C-1"]}, {"k": "Request", "cls": "newRequestWithBody → httpDoer.Do", "d": "JSON content-type and accept headers. No auth header. No timeout.", "f": ["C-2", "C-3", "C-11"]}, {"k": "Decode", "cls": "doRequest → json.Unmarshal", "d": "A non-2xx status becomes an <code>API error: status N: body<\/code> error. Otherwise <code>ApiResponse.data<\/code> is decoded.", "f": []}, {"k": "Stream", "cls": "streamRequest · ScanSSE", "d": "Checks for <code>text/event-stream<\/code>. Scans <code>data:<\/code> and <code>event:<\/code> lines (1 MB line buffer) until EOF or Ctrl-C.", "f": []}, {"k": "Print", "cls": "output.Formatter", "d": "Table, or <code>--output/-o json<\/code>.", "f": []}], "pkgTitle": "Code explorer", "pkgs": [["internal/client", 8, 1242, "HTTP client: workflow (613), mock (612, test-only), controlbus, session, stream, plugin, logs.", "cli/internal/client"], ["internal/commands/workflow", 17, 733, "start, stop, pause, resume, status, status-stream, history, plus the <code>node<\/code> (pause, resume, stop, skip, step) and <code>executions<\/code> (stop, restart) subcommands.", "cli/internal/commands/workflow"], ["internal/commands/session", 5, 330, "list, get, apply (from a JSON file), workflow get.", "cli/internal/commands/session"], ["internal/commands/controlbus", 5, 274, "nodes, all-nodes, heartbeat, command.", "cli/internal/commands/controlbus"], ["internal/commands/plugin", 3, 124, "list, get.", "cli/internal/commands/plugin"], ["internal/commands/logs", 1, 60, "Streams execution logs.", "cli/internal/commands/logs"], ["internal/commands (root)", 1, 82, "Root command, <code>--url<\/code> and <code>YUKTA_SERVER_URL<\/code>.", "cli/internal/commands"], ["internal/output", 1, 68, "Table and JSON formatter.", "cli/internal/output"], ["build.gradle.kts", 1, 400, "Go tasks: format, tidy, verify, vet, lint (@latest), gosec (@latest), govulncheck (@latest), build, test, coverage check.", "cli/build.gradle.kts"]], "sections": [{"id": "commands", "title": "Command map", "lede": "CLI command and the REST endpoint it calls.", "html": "<div class=\"card tablewrap\"><table><tr><th>Command<\/th><th>Endpoint<\/th><\/tr><tr><td class=\"mono\">session list | get &lt;sid&gt; | apply &lt;json-or-file&gt; | workflow get &lt;sid&gt; &lt;wid&gt;<\/td><td class=\"mono\">GET/POST /api/sessions…<\/td><\/tr><tr><td class=\"mono\">workflow start<\/td><td class=\"mono\">POST /api/workflow/start <span class=\"pill P2\">no payload<\/span><\/td><\/tr><tr><td class=\"mono\">workflow stop<\/td><td class=\"mono\">POST /api/workflow/{sid}/{wid}/stop<\/td><\/tr><tr><td class=\"mono\">workflow pause | resume<\/td><td class=\"mono\">POST /api/workflow/{sid}/{eid}/pause|resume<\/td><\/tr><tr><td class=\"mono\">workflow status | status-stream | history<\/td><td class=\"mono\">GET /api/workflow/{sid}/status/{eid}[/stream], /history<\/td><\/tr><tr><td class=\"mono\">workflow node pause | resume | stop | skip<\/td><td class=\"mono\">POST /api/workflow/{sid}/{eid}/node/{nid}/…<\/td><\/tr><tr><td class=\"mono\">workflow node step enable | disable | next &lt;sid&gt; &lt;eid&gt; &lt;nid&gt;<\/td><td class=\"mono\">POST …/node/{nid}/step[/enable|/disable]<\/td><\/tr><tr><td class=\"mono\">workflow executions stop &lt;eid&gt; | restart &lt;eid&gt; [from-node-id]<\/td><td class=\"mono\">POST /api/workflow/executions/{eid}/…<\/td><\/tr><tr><td class=\"mono\">logs<\/td><td class=\"mono\">GET (SSE) /api/sessions/{sid}/executions/{eid}/logs<\/td><\/tr><tr><td class=\"mono\">plugin list | get<\/td><td class=\"mono\">GET /api/plugins[/{type}]<\/td><\/tr><tr><td class=\"mono\">controlbus nodes | all-nodes | heartbeat | command<\/td><td class=\"mono\">/api/control/…<\/td><\/tr><\/table><\/div>"}, {"id": "usage", "title": "Usage", "html": "<div class=\"grid g2\"><div class=\"card\"><h3>Examples<\/h3><pre><code>export YUKTA_SERVER_URL=http://localhost:8080\nyukta session apply session.json\nyukta workflow start s1 build\nyukta workflow status-stream s1 &lt;execution-id&gt;\nyukta logs s1 &lt;execution-id&gt;\nyukta plugin list -o json\nyukta workflow node stop s1 &lt;exec&gt; &lt;node&gt; --immediate --reason \"…\"<\/code><\/pre><\/div><div class=\"card\"><h3>Build<\/h3><pre><code>cd cli &amp;&amp; make build        # current platform\n./gradlew :cli:goBuildAll    # all platforms\n./gradlew :cli:check         # test, coverage, lint, vet, gosec, vuln<\/code><\/pre><\/div><\/div>"}], "findings": [{"id": "C-1", "sev": "P1", "area": "Correctness", "pkg": ["internal/client"], "t": "Path segments aren't escaped", "where": "fmt.Sprintf(\"/api/workflow/%s/%s/node/%s/…\") across the client", "impact": "IDs containing / ? # hit a different endpoint.", "fix": "Use url.PathEscape on every segment through a helper.", "eff": "S"}, {"id": "C-2", "sev": "P1", "area": "Reliability", "pkg": ["internal/client"], "t": "No timeout on non-streaming requests", "where": "http.Client{Timeout: 0}", "impact": "A hung server hangs every command.", "fix": "--timeout (default 30 s) with a context for normal calls.", "eff": "S"}, {"id": "C-3", "sev": "P2", "area": "Parity", "pkg": ["internal/client", "internal/commands (root)"], "t": "No auth support", "where": "newRequestWithBody sets no Authorization header", "impact": "Breaks once the server requires a key (web W1).", "fix": "--token / YUKTA_TOKEN → Bearer header.", "eff": "S"}, {"id": "C-4", "sev": "P2", "area": "Parity", "pkg": ["internal/commands/workflow"], "t": "workflow start can't send a payload", "where": "start.go / client StartWorkflow", "impact": "Can't drive payload-based workflows (chat agent).", "fix": "An optional third argument or --payload / --payload-file.", "eff": "S"}, {"id": "C-5", "sev": "P3", "area": "Parity", "pkg": ["internal/client"], "t": "No commands for newer endpoints", "where": "summaries, graph, workflow executions, logs/entries", "impact": "The CLI lags behind the server.", "fix": "Add them, or generate the client from OpenAPI.", "eff": "S"}, {"id": "C-6", "sev": "P1", "area": "Build", "pkg": ["build.gradle.kts"], "t": "@latest lint, security and vuln tools run during check", "where": "go run …@latest for golangci-lint, gosec, govulncheck", "impact": "Non-reproducible builds that execute unpinned code.", "fix": "Pin them with go tool directives in go.mod.", "eff": "S"}, {"id": "C-7", "sev": "P2", "area": "Build", "pkg": ["build.gradle.kts"], "t": "go build errors are hidden", "where": "ProcessBuilder without reading output in goBuild/goVet/goModTidy", "impact": "Failures show no reason, and output can block the process.", "fix": "Exec tasks or inheritIO().", "eff": "S"}, {"id": "C-8", "sev": "P2", "area": "Build", "pkg": ["build.gradle.kts"], "t": "The coverage check can use a stale coverage.out", "where": "goCoverageCheck reuses an existing file and parses YAML with regexes", "impact": "Outdated coverage can pass.", "fix": "Always regenerate; declare inputs and outputs.", "eff": "S"}, {"id": "C-9", "sev": "P3", "area": "Simplicity", "pkg": ["build.gradle.kts"], "t": "About 400 lines of Kotlin duplicate the Makefile", "where": "build.gradle.kts vs Makefile", "impact": "Two places to change.", "fix": "Gradle Exec calling make targets.", "eff": "M"}, {"id": "C-10", "sev": "P3", "area": "Build", "pkg": ["build.gradle.kts"], "t": "Architecture detection defaults to amd64", "where": "goBuild osArch mapping", "impact": "Wrong binary on other architectures.", "fix": "Use go env GOARCH.", "eff": "S"}, {"id": "C-11", "sev": "P3", "area": "Simplicity", "pkg": ["internal/client"], "t": "Test-only interfaces and a 612-line mock", "where": "RequestFactory, HTTPDoer, client/mock.go", "impact": "About 650 lines to maintain.", "fix": "Use httptest.Server.", "eff": "M"}, {"id": "C-12", "sev": "P3", "area": "Simplicity", "pkg": ["internal/commands (root)"], "t": "The client is created before the flags are parsed", "where": "app.Run NewClient(\"\") plus a PersistentPreRun mutation", "impact": "Mutable shared state.", "fix": "Create the client after parsing.", "eff": "S"}, {"id": "C-13", "sev": "P3", "area": "Simplicity", "pkg": ["internal/commands/workflow"], "t": "Near-identical command files", "where": "pause/resume/step enable/disable… (about 40 lines each)", "impact": "Boilerplate.", "fix": "A table-driven helper.", "eff": "S"}], "road": [["1 · Safe requests", ["C-1", "C-2"], "Correct endpoints, no hangs"], ["2 · Parity", ["C-3", "C-4", "C-5"], "Auth and payload support"], ["3 · Reproducible build", ["C-6", "C-7", "C-8", "C-10"], "Pinned tools, visible errors"], ["4 · Trim", ["C-9", "C-11", "C-12", "C-13"], "About 1.5k fewer lines"]]};
+(function(){
+"use strict";
+var D=DATA,store={get:function(k){try{return JSON.parse(localStorage.getItem(k))}catch(e){return null}},
+  set:function(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+var root=document.documentElement,saved=store.get("yk-theme");if(saved)root.setAttribute("data-theme",saved);
+document.getElementById("themeBtn").onclick=function(){
+  var dark=root.getAttribute("data-theme")==="dark"||(!root.getAttribute("data-theme")&&matchMedia("(prefers-color-scheme: dark)").matches);
+  var n=dark?"light":"dark";root.setAttribute("data-theme",n);store.set("yk-theme",n)};
+function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
+var F=D.findings,KEY="yk-"+D.module+"-done",done=store.get(KEY)||{};
+function byId(id){for(var i=0;i<F.length;i++)if(F[i].id===id)return F[i]}
+function pillFor(id){var f=byId(id);return f?'<a href="#f-'+id+'" class="pill '+f.sev+'" data-jump="'+id+'" title="'+esc(f.t)+'">'+id+'</a>':""}
+
+document.getElementById("brand").textContent="Yukta · "+D.module;
+document.getElementById("sub").textContent="Module guide & review · "+D.date;
+var secs=[["overview","Overview"]];
+if(D.steps&&D.steps.length)secs.push(["flow",D.flowTitle||"How it works"]);
+if(D.pkgs&&D.pkgs.length)secs.push(["packages",D.pkgTitle||"Package explorer"]);
+(D.sections||[]).forEach(function(s){secs.push([s.id,s.title])});
+secs.push(["findings","Improvement board"],["roadmap","Roadmap"]);
+document.getElementById("navLinks").innerHTML=secs.map(function(s){return '<a href="#'+s[0]+'">'+esc(s[1])+'</a>'}).join("");
+
+var h='<section id="overview"><h1>'+esc(D.title)+'</h1><p class="lede">'+D.lede+'</p><div class="grid g4">'+
+  D.stats.map(function(s){return '<div class="card stat"><div class="n">'+esc(s[0])+'</div><div class="l">'+esc(s[1])+'</div></div>'}).join("")+
+  '<div class="card stat"><div class="n" id="statFindings">–</div><div class="l">open review findings</div></div></div>'+
+  (D.overviewHtml||"")+
+  (D.score?'<h3>Scorecard</h3><div class="card tablewrap"><table class="score"><tr><th>Area</th><th>Score</th><th>Notes</th></tr>'+D.score.map(function(r){return '<tr><td>'+esc(r[0])+'</td><td>'+esc(r[1])+'</td><td>'+r[2]+'</td></tr>'}).join("")+'</table></div>':"")+'</section>';
+if(D.steps&&D.steps.length)h+='<section id="flow"><h2>'+esc(D.flowTitle||"How it works")+'</h2><p class="lede">'+(D.flowLede||"Click a stage or step through with the buttons. Each stage names the classes involved and the review findings that touch it.")+'</p><div class="card"><svg class="pipe" id="pipe" role="img" aria-label="Flow diagram"><g id="pipeBoxes"></g></svg><div class="steps" id="stepBtns" role="tablist"></div><div class="stepbody" id="stepBody" aria-live="polite"></div></div></section>';
+if(D.pkgs&&D.pkgs.length)h+='<section id="packages"><h2>'+esc(D.pkgTitle||"Package explorer")+'</h2><p class="lede">Bar width is lines of code. Select an entry to see what it owns and which findings apply to it.</p><div class="pkgs"><div class="card pkglist" id="pkgList" style="padding:8px"></div><div class="card" id="pkgDetail"></div></div></section>';
+(D.sections||[]).forEach(function(s){h+='<section id="'+s.id+'"><h2>'+esc(s.title)+'</h2>'+(s.lede?'<p class="lede">'+s.lede+'</p>':"")+s.html+'</section>'});
+h+='<section id="findings"><h2>Improvement board</h2><p class="lede">All review findings from <a href="'+D.module+'-improvements.md">'+D.module+'-improvements.md</a>. Filter, search and tick items off. Ticks are saved in this browser only.</p>'+
+ '<div class="progress"><span id="progTxt"></span><div class="bar"><i id="progBar" style="width:0"></i></div><button type="button" id="resetBtn">Reset ticks</button></div>'+
+ '<div class="filters" id="sevFilters"><span class="lbl">Severity</span></div><div class="filters" id="areaFilters"><span class="lbl">Area</span></div>'+
+ '<div class="filters"><input type="search" id="q" placeholder="Search class, keyword…" aria-label="Search findings"><button type="button" id="hideDone" aria-pressed="false">Hide done</button><button type="button" id="expandAll">Expand all</button></div><div id="findingList"></div></section>'+
+ '<section id="roadmap"><h2>Roadmap</h2><div class="card tablewrap"><table id="roadTable"><thead><tr><th>Phase</th><th>Items</th><th>Outcome</th><th>Done</th></tr></thead><tbody></tbody></table></div></section>';
+document.getElementById("main").innerHTML=h;
+
+/* flow */
+if(D.steps&&D.steps.length){
+  var NS="http://www.w3.org/2000/svg",g=document.getElementById("pipeBoxes"),S=D.steps,n=S.length,W=112,gap=Math.max(12,Math.floor((980-n*W)/Math.max(1,n-1)));
+  var total=n*W+(n-1)*gap;document.getElementById("pipe").setAttribute("viewBox","0 30 "+Math.max(total,300)+" 130");
+  S.forEach(function(s,i){var x=i*(W+gap),y=i%2?100:40,grp=document.createElementNS(NS,"g");
+    grp.setAttribute("class","box");grp.setAttribute("data-i",i);grp.setAttribute("tabindex","0");grp.setAttribute("role","button");grp.setAttribute("aria-label",s.k);
+    grp.innerHTML='<rect x="'+x+'" y="'+y+'" width="'+W+'" height="50" rx="8"/><text x="'+(x+W/2)+'" y="'+(y+22)+'" text-anchor="middle">'+esc(s.k)+'</text><text class="s" x="'+(x+W/2)+'" y="'+(y+39)+'" text-anchor="middle">step '+(i+1)+'</text>';
+    g.appendChild(grp);
+    if(i<n-1){var nx=(i+1)*(W+gap),ny=(i+1)%2?100:40,p=document.createElementNS(NS,"path");p.setAttribute("class","arrow");
+      p.setAttribute("d","M"+(x+W)+","+(y+25)+" C"+(x+W+gap/2)+","+(y+25)+" "+(nx-gap/2)+","+(ny+25)+" "+nx+","+(ny+25));g.insertBefore(p,g.firstChild)}
+    grp.addEventListener("click",function(){showStep(i)});
+    grp.addEventListener("keydown",function(e){if(e.key==="Enter"||e.key===" "){e.preventDefault();showStep(i)}})});
+  var sb=document.getElementById("stepBtns");
+  S.forEach(function(s,i){var b=document.createElement("button");b.type="button";b.textContent=(i+1)+". "+s.k;b.setAttribute("role","tab");b.onclick=function(){showStep(i)};sb.appendChild(b)});
+  var showStep=function(i){var s=S[i];
+    [].forEach.call(g.querySelectorAll(".box"),function(el){el.classList.toggle("on",+el.getAttribute("data-i")===i)});
+    [].forEach.call(sb.children,function(b,j){b.setAttribute("aria-pressed",j===i?"true":"false");b.setAttribute("aria-selected",j===i?"true":"false")});
+    var r=(s.f||[]).map(byId).filter(Boolean),p0=r.some(function(f){return f.sev==="P0"});
+    document.getElementById("stepBody").innerHTML='<h3>'+(i+1)+'. '+esc(s.k)+'</h3><div class="refs mono">'+esc(s.cls||"")+'</div><p>'+s.d+'</p>'+
+      (r.length?'<div class="flag'+(p0?" p0":"")+'"><b>Findings here:</b> '+r.map(function(f){return pillFor(f.id)+" "+esc(f.t)}).join(" · ")+'</div>':"")};
+  showStep(0);
+}
+/* packages */
+if(D.pkgs&&D.pkgs.length){
+  var P=D.pkgs,maxL=Math.max.apply(null,P.map(function(p){return p[2]})),pl=document.getElementById("pkgList");
+  P.forEach(function(p,i){var b=document.createElement("button");b.type="button";var c=F.filter(function(f){return (f.pkg||[]).indexOf(p[0])>=0}).length;
+    b.innerHTML='<span style="min-width:0;flex:1"><span>'+esc(p[0])+'</span><span class="bar"><i style="width:'+(p[2]/maxL*100)+'%"></i></span></span><span style="margin-left:8px;color:var(--muted)">'+(c?c+"⚑":"")+'</span>';
+    b.onclick=function(){showPkg(i)};pl.appendChild(b)});
+  var showPkg=function(i){var p=P[i];[].forEach.call(pl.children,function(b,j){b.setAttribute("aria-pressed",j===i?"true":"false")});
+    var fs=F.filter(function(f){return (f.pkg||[]).indexOf(p[0])>=0});
+    document.getElementById("pkgDetail").innerHTML='<h3 class="mono" style="margin-top:0">'+esc(p[4]||p[0])+'</h3><p class="refs">'+p[1]+' files · '+p[2]+' lines</p><p>'+p[3]+'</p>'+
+      (fs.length?'<h3>Findings ('+fs.length+')</h3><ul style="padding-left:18px;margin:0">'+fs.map(function(f){return '<li>'+pillFor(f.id)+' '+esc(f.t)+'</li>'}).join("")+'</ul>':'<p class="refs">No findings.</p>')};
+  showPkg(0);
+}
+/* findings */
+var SEVS=["P0","P1","P2","P3"].filter(function(s){return F.some(function(f){return f.sev===s})}),AREAS=[];
+F.forEach(function(f){if(AREAS.indexOf(f.area)<0)AREAS.push(f.area)});
+var sevOn={},areaOn={},hideDone=false;SEVS.forEach(function(s){sevOn[s]=true});AREAS.forEach(function(a){areaOn[a]=true});
+function chip(c,label,cb){var b=document.createElement("button");b.type="button";b.textContent=label;b.setAttribute("aria-pressed","true");
+  b.onclick=function(){var v=b.getAttribute("aria-pressed")!=="true";b.setAttribute("aria-pressed",v?"true":"false");cb(v);render()};c.appendChild(b)}
+SEVS.forEach(function(s){chip(document.getElementById("sevFilters"),s,function(v){sevOn[s]=v})});
+AREAS.forEach(function(a){chip(document.getElementById("areaFilters"),a,function(v){areaOn[a]=v})});
+var q=document.getElementById("q");q.oninput=render;
+var hd=document.getElementById("hideDone");hd.onclick=function(){hideDone=!hideDone;hd.setAttribute("aria-pressed",hideDone?"true":"false");render()};
+document.getElementById("expandAll").onclick=function(){var ds=document.querySelectorAll("#findingList details"),o=!(ds[0]&&ds[0].open);[].forEach.call(ds,function(d){d.open=o})};
+document.getElementById("resetBtn").onclick=function(){done={};store.set(KEY,done);render()};
+function render(){var t=q.value.trim().toLowerCase();
+  var list=F.filter(function(f){if(!sevOn[f.sev]||!areaOn[f.area])return false;if(hideDone&&done[f.id])return false;
+    if(t&&(f.id+" "+f.t+" "+f.where+" "+f.impact+" "+f.fix+" "+(f.pkg||[]).join(" ")).toLowerCase().indexOf(t)<0)return false;return true});
+  var el=document.getElementById("findingList");
+  el.innerHTML=list.length?list.map(function(f){return '<details class="finding'+(done[f.id]?" done":"")+'" id="f-'+f.id+'"><summary><span class="id">'+f.id+'</span>'+
+    '<input type="checkbox" aria-label="Mark '+f.id+' done" data-id="'+f.id+'"'+(done[f.id]?" checked":"")+'><span class="t">'+esc(f.t)+'</span>'+
+    '<span class="meta"><span class="pill '+f.sev+'">'+f.sev+'</span><span class="pill P3">'+esc(f.area)+'</span><span class="pill P3">effort '+f.eff+'</span></span></summary>'+
+    '<div class="body"><dl><dt>Where</dt><dd class="mono">'+esc(f.where)+'</dd><dt>Impact</dt><dd>'+esc(f.impact)+'</dd><dt>Fix</dt><dd>'+esc(f.fix)+'</dd>'+
+    ((f.pkg||[]).length?'<dt>Area</dt><dd class="mono">'+esc(f.pkg.join(", "))+'</dd>':"")+'</dl></div></details>'}).join("")
+    :'<div class="empty">No findings match these filters.</div>';
+  [].forEach.call(el.querySelectorAll("input[type=checkbox]"),function(cb){cb.onclick=function(e){e.stopPropagation()};
+    cb.onchange=function(){if(cb.checked)done[cb.dataset.id]=true;else delete done[cb.dataset.id];store.set(KEY,done);render()}});
+  var k=Object.keys(done).filter(byId).length;
+  document.getElementById("progTxt").textContent=k+" / "+F.length+" done";
+  document.getElementById("progBar").style.width=(k/F.length*100)+"%";
+  document.getElementById("statFindings").textContent=F.length-k;
+  document.querySelector("#roadTable tbody").innerHTML=D.road.map(function(r){var d=r[1].filter(function(id){return done[id]}).length;
+    return '<tr><td><b>'+esc(r[0])+'</b></td><td>'+r[1].map(pillFor).join(" ")+'</td><td>'+esc(r[2])+'</td><td class="mono">'+d+'/'+r[1].length+'</td></tr>'}).join("")}
+render();
+document.addEventListener("click",function(e){var a=e.target.closest&&e.target.closest("[data-jump]");if(!a)return;e.preventDefault();
+  var id=a.getAttribute("data-jump");SEVS.forEach(function(s){sevOn[s]=true});AREAS.forEach(function(x){areaOn[x]=true});hideDone=false;q.value="";
+  [].forEach.call(document.querySelectorAll("#sevFilters button,#areaFilters button"),function(b){b.setAttribute("aria-pressed","true")});
+  hd.setAttribute("aria-pressed","false");render();var d=document.getElementById("f-"+id);if(d){d.open=true;d.scrollIntoView({behavior:"smooth",block:"center"})}});
+var links=document.querySelectorAll("nav.side a");
+[].forEach.call(links,function(l){l.addEventListener("click",function(e){var t=document.querySelector(l.getAttribute("href"));if(t){e.preventDefault();t.scrollIntoView({behavior:"smooth"})}})});
+if("IntersectionObserver" in window){var io=new IntersectionObserver(function(es){es.forEach(function(en){if(en.isIntersecting)
+  [].forEach.call(links,function(l){l.classList.toggle("active",l.getAttribute("href")==="#"+en.target.id)})})},{rootMargin:"-40% 0px -55% 0px"});
+  [].forEach.call(document.querySelectorAll("main section"),function(s){io.observe(s)})}
+})();
+</script>
+</body>
+</html>

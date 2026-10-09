@@ -131,7 +131,7 @@ Severity: **P0** fix now · **P1** fix next · **P2** should fix · **P3** clean
 | A11 | Unused types: `ClaimCheckStore`, `IdempotencyStore`, `JoinTimeoutException` have no implementation or caller | Delete. Re-add when a feature needs them | S |
 | A12 | `ExecutionControlCommand` is an open interface. Each record repeats a `commandType()` string | Make it `sealed`, so the dispatcher and processors can switch exhaustively. Derive the type name, or drop it if it's only used for logging | S |
 | A13 | `Plugin` has 16 methods across four concerns: runtime, validation, UI metadata, optimiser hints | Optional: move descriptive metadata (`description`, `usagePattern`, `uiDesign`, `outputPorts`) into a `PluginDescriptor` record returned by one method | M |
-| A14 | `UiDesign.html` is raw HTML that the UI renders | Document that it's trusted plugin-author content, and check that the UI sanitises it (review in `ui`) | S |
+| A14 | `UiDesign.html` is raw HTML that the UI renders. The UI does sanitise it with DOMPurify (`renderNodeHtml`), so this is defence in depth only | Document it as plugin-author content that gets sanitised. Prefer a structured `(colour, icon, label)` descriptor (plugins G22, ui U1) | S |
 | A15 | `PluginMetricsReporter.incrementFilterCount` is a filter-specific method in a generic SPI | Generalise to `increment(nodeId, metric, tag)`, or move it into the filter plugin | S |
 
 ### 2.3 Build and tests

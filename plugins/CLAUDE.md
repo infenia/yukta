@@ -21,6 +21,7 @@ Note: `triggers/manual-trigger/` exists on disk but has no source and isn't in `
 
 ## Development
 Each plugin should implement the interfaces defined in `plugin-api`.
+Guide (interactive): `docs/plugins-module-guide.html`; review findings: `docs/plugins-improvements.md`.
 
 ## Imports
 @.claude/rules/coding-standards.md
