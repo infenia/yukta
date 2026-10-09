@@ -14,10 +14,11 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardOpenOption;
+import java.nio.file.StandardCopyOption;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -382,13 +383,20 @@ public class FileSessionConfigStore implements SessionConfigStore {
                       config.description(),
                       config.name());
               final String json = objectMapper.writeValueAsString(fileConfig);
-              Files.writeString(
-                  configPath,
-                  json,
-                  StandardCharsets.UTF_8,
-                  StandardOpenOption.CREATE,
-                  StandardOpenOption.WRITE,
-                  StandardOpenOption.TRUNCATE_EXISTING);
+              // Write beside the target, then move: a crash mid-write never leaves a torn file.
+              final Path tmp =
+                  Files.createTempFile(
+                      Objects.requireNonNull(configPath.getParent()), sessionId + ".", ".tmp");
+              try {
+                Files.writeString(tmp, json, StandardCharsets.UTF_8);
+                Files.move(
+                    tmp,
+                    configPath,
+                    StandardCopyOption.ATOMIC_MOVE,
+                    StandardCopyOption.REPLACE_EXISTING);
+              } finally {
+                Files.deleteIfExists(tmp);
+              }
               return config;
             })
         .doOnNext(

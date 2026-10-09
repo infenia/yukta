@@ -1335,4 +1335,36 @@ class WorkflowValidatorTest {
                     && error.getMessage().contains("is an endpoint but not a TERMINAL"))
         .verify();
   }
+
+  @Test
+  void testEdgeFromUnknownNodeIsRejected() {
+    final WorkflowDefinition def =
+        new WorkflowDefinition(
+            WORKFLOW_NAME,
+            "d",
+            List.of(new WorkflowDefinition.Node("n1", TRIGGER_ID, Map.of())),
+            List.of(new WorkflowDefinition.Edge("ghost", "n1", DEFAULT_EDGE_LABEL)));
+
+    StepVerifier.create(validator.validate(def))
+        .expectErrorMatches(e -> e.getMessage().contains("ghost -> n1"))
+        .verify();
+  }
+
+  @Test
+  void testEdgeToUnknownNodeIsRejectedWithMessage() {
+    final WorkflowDefinition def =
+        new WorkflowDefinition(
+            WORKFLOW_NAME,
+            "d",
+            List.of(new WorkflowDefinition.Node("n1", TRIGGER_ID, Map.of())),
+            List.of(new WorkflowDefinition.Edge("n1", "ghost", DEFAULT_EDGE_LABEL)));
+
+    StepVerifier.create(validator.validate(def))
+        .expectErrorMatches(
+            e ->
+                e instanceof IllegalArgumentException
+                    && e.getMessage().contains("n1 -> ghost")
+                    && e.getMessage().contains("unknown node"))
+        .verify();
+  }
 }

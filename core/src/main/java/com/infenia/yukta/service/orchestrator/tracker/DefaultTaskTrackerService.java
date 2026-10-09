@@ -27,6 +27,7 @@ import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -68,6 +69,9 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
   /** Emit failure handler with retry logic. */
   private static final Sinks.EmitFailureHandler RETRY_HANDLER =
       Sinks.EmitFailureHandler.busyLooping(Duration.ofMillis(100));
+
+  /** Finished executions kept per session for history; older ones are dropped on cleanup. */
+  /* default */ static final int MAX_FINISHED_PER_SESSION = 100;
 
   /** Time to live for execution data after terminal status. */
   private final Duration cleanupTtl;
@@ -840,11 +844,34 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
     if (statusSink != null) {
       statusSink.emitComplete(RETRY_HANDLER);
     }
-    executionIndex.remove(executionId);
+    final WorkflowState state = executionIndex.remove(executionId);
+    if (state != null) {
+      trimHistory(state.sessionId);
+    }
     log.atDebug().addKeyValue("executionId", executionId).log("Completed execution cleanup");
   }
 
-  /** Tracks the state of a workflow execution. */
+  /**
+   * Drops the oldest cleaned-up executions of a session beyond {@code MAX_FINISHED_PER_SESSION}.
+   */
+  @SuppressWarnings("PMD.AvoidSynchronizedStatement")
+  private void trimHistory(final String sessionId) {
+    final Map<String, WorkflowState> states = sessionStates.get(sessionId);
+    if (states == null || states.size() <= MAX_FINISHED_PER_SESSION) {
+      return;
+    }
+    // Cleanups of one session can run concurrently; serialise so none works from a stale size.
+    synchronized (states) {
+      states.values().stream()
+          .filter(candidate -> !executionIndex.containsKey(candidate.executionId))
+          .sorted(Comparator.comparing(candidate -> candidate.startTime))
+          .limit(Math.max(0, states.size() - (long) MAX_FINISHED_PER_SESSION))
+          .forEach(old -> states.remove(old.executionId));
+    }
+  }
+
+  /** Tracks the state of a workflow execution; written by the event thread, read by requests. */
+  @SuppressWarnings("PMD.AvoidUsingVolatile")
   private static final class WorkflowState {
     /** The execution identifier. */
     private final String executionId;
@@ -856,10 +883,9 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
     private final String workflowId;
 
     /** The current execution status. */
-    private String status;
+    private volatile String status;
 
     /** The latest operator control state, or null. */
-    @SuppressWarnings("PMD.AvoidUsingVolatile")
     private volatile String controlState;
 
     /** Map of task progress by node ID. */
@@ -869,7 +895,7 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
     private final LocalDateTime startTime;
 
     /** The end time of the execution. */
-    private LocalDateTime endTime;
+    private volatile LocalDateTime endTime;
 
     /* default */ WorkflowState(
         final String executionId,

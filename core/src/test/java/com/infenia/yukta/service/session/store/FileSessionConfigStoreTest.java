@@ -110,6 +110,21 @@ class FileSessionConfigStoreTest {
   }
 
   @Test
+  void save_leavesNoTempFilesAndReplacesExistingFile() throws IOException {
+    final String sessionId = "sess-atomic";
+
+    StepVerifier.create(configStore.setProjectPath(sessionId, "/first")).verifyComplete();
+    StepVerifier.create(configStore.setProjectPath(sessionId, "/second")).verifyComplete();
+
+    try (var files = Files.list(tempDir.resolve("sessions"))) {
+      assertThat(files.map(f -> f.toFile().getName()).toList())
+          .containsExactly(sessionId + ".json");
+    }
+    assertThat(Files.readString(tempDir.resolve("sessions/" + sessionId + ".json")))
+        .contains("/second");
+  }
+
+  @Test
   @SuppressWarnings("PMD.LawOfDemeter")
   void testGetSessionIds() {
     configStore.setProjectPath("s1", "/p1").block();

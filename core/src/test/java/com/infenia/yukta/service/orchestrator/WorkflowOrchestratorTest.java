@@ -23,6 +23,7 @@ import com.infenia.yukta.plugin.store.NodeCheckpointStore;
 import com.infenia.yukta.service.control.ExecutionControl;
 import com.infenia.yukta.service.control.factory.ExecutionControlFactory;
 import com.infenia.yukta.service.control.store.ExecutionControlRegistry;
+import com.infenia.yukta.service.orchestrator.assembly.AssemblyContext;
 import com.infenia.yukta.service.orchestrator.compiler.WorkflowCompiler;
 import com.infenia.yukta.service.orchestrator.preparator.WorkflowPreparator;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
@@ -34,6 +35,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.publisher.Sinks;
 import reactor.test.StepVerifier;
@@ -43,6 +45,7 @@ import reactor.test.StepVerifier;
 @SuppressWarnings({
   "PMD.CommentRequired",
   "PMD.ExcessiveImports",
+  "PMD.CouplingBetweenObjects",
   "PMD.TooManyStaticImports",
   "PMD.TooManyMethods",
   "PMD.AvoidDuplicateLiterals",
@@ -277,6 +280,14 @@ class WorkflowOrchestratorTest {
         .verifyComplete();
 
     verify(compiler).compileAssemblers(any(), any(), any(), any());
+
+    // the pre-restart assembler now replays the parent's checkpoint
+    final AssemblyContext context = org.mockito.Mockito.mock(AssemblyContext.class);
+    @SuppressWarnings("unchecked")
+    final Flux<Message<?>>[] streams = new Flux[2];
+    when(context.streams()).thenReturn(streams);
+    assemblers[0].assemble(context);
+    StepVerifier.create(streams[0]).expectNext(checkpoint).verifyComplete();
   }
 
   @Test
@@ -308,6 +319,23 @@ class WorkflowOrchestratorTest {
 
     verify(executionControlRegistry).unregister(newExecId);
     verify(checkpointStore).clear(newExecId);
+  }
+
+  @Test
+  void restartFromNode_unknownNode_errorsWithoutRegisteringExecution() {
+    final WorkflowNode node = new WorkflowNode("trigger", "t", Map.of());
+    final PreparedWorkflow prepared = buildPreparedWorkflowFromNodes(List.of(node));
+
+    final Mono<Void> restart =
+        orchestrator.restartFromNode("s", "w", "prev", "new", prepared, "ghost", Map.of());
+
+    StepVerifier.create(restart)
+        .expectErrorMatches(
+            e ->
+                e instanceof IllegalArgumentException
+                    && e.getMessage().contains("Unknown restart node: ghost"))
+        .verify();
+    verify(executionControlRegistry, never()).register(any());
   }
 
   @Test
@@ -345,37 +373,6 @@ class WorkflowOrchestratorTest {
   }
 
   @Test
-  void restartFromNode_withUnknownRestartNode_defaultsToFirstPosition() {
-    final String sessionId = "sess-unknown-node";
-    final String workflowId = "wf-unknown-node";
-    final String prevExecId = "exec-un-prev";
-    final String newExecId = "exec-un-new";
-
-    final WorkflowNode trigger = new WorkflowNode("trigger", "t", Map.of());
-    final WorkflowNode processor = new WorkflowNode("processor", "p", Map.of());
-    final PreparedWorkflow prepared = buildPreparedWorkflowFromNodes(List.of(trigger, processor));
-
-    final NodeAssembler[] assemblers = new NodeAssembler[] {ctx -> {}, ctx -> {}};
-    when(compiler.compileAssemblers(any(), any(), any(), any())).thenReturn(assemblers);
-    when(tracker.startWorkflow(anyString(), anyString(), anyString(), anyList()))
-        .thenReturn(Mono.empty());
-    when(compiler.executeTemplate(
-            anyString(), any(), eq(2), any(), anyString(), anyString(), anyList()))
-        .thenReturn(Mono.empty());
-
-    final Sinks.One<Void> safeStop = Sinks.one();
-    setupRestartControl(sessionId, workflowId, newExecId, prepared, safeStop);
-
-    // "nonexistent" defaults to index 0 → no pre-restart nodes are replaced
-    StepVerifier.create(
-            orchestrator.restartFromNode(
-                sessionId, workflowId, prevExecId, newExecId, prepared, "nonexistent", Map.of()))
-        .verifyComplete();
-
-    verify(compiler).compileAssemblers(any(), any(), any(), any());
-  }
-
-  @Test
   void restartFromNode_withNoCheckpointForParent_replacesPreRestartAssemblerWithEmpty() {
     final String sessionId = "sess-no-cp";
     final String workflowId = "wf-no-cp";
@@ -410,6 +407,14 @@ class WorkflowOrchestratorTest {
     verify(compiler)
         .executeTemplate(
             eq(newExecId), any(), eq(3), any(), eq(sessionId), eq(workflowId), anyList());
+
+    // without a checkpoint the bypassed nodes emit nothing
+    final AssemblyContext context = org.mockito.Mockito.mock(AssemblyContext.class);
+    @SuppressWarnings("unchecked")
+    final Flux<Message<?>>[] streams = new Flux[3];
+    when(context.streams()).thenReturn(streams);
+    assemblers[0].assemble(context);
+    StepVerifier.create(streams[0]).verifyComplete();
   }
 
   // --- helpers ---

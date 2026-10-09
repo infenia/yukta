@@ -135,6 +135,24 @@ class DefaultTaskTrackerServiceTest {
   }
 
   @Test
+  void cleanup_capsFinishedHistoryPerSession() {
+    final int total = DefaultTaskTrackerService.MAX_FINISHED_PER_SESSION + 5;
+    for (int i = 0; i < total; i++) {
+      final String id = "exec-hist-" + i;
+      StepVerifier.create(tracker.startWorkflow(id, "sess-hist", "wf-" + i, List.of("n1")))
+          .verifyComplete();
+      tracker.emitWorkflowStatusEvent(id, TaskStatus.SUCCESS);
+    }
+
+    await()
+        .atMost(10, TimeUnit.SECONDS)
+        .untilAsserted(
+            () ->
+                assertThat(tracker.getHistory("sess-hist").block())
+                    .hasSize(DefaultTaskTrackerService.MAX_FINISHED_PER_SESSION));
+  }
+
+  @Test
   void testStatusStreaming() {
     final String sessionId = "sess-1";
     final String workflowId = "wf-1";

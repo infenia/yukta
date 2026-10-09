@@ -104,26 +104,6 @@ public class WorkflowPreparator {
               }
             });
 
-    def.edges()
-        .forEach(
-            edge -> {
-              final Node targetApiNode = nodeMap.get(edge.target());
-              final Node sourceApiNode = nodeMap.get(edge.source());
-              final WorkflowNode targetNode =
-                  new WorkflowNode(
-                      targetApiNode.nodeId(), targetApiNode.type(), targetApiNode.config());
-              final WorkflowNode sourceNode =
-                  new WorkflowNode(
-                      sourceApiNode.nodeId(), sourceApiNode.type(), sourceApiNode.config());
-              adjacencyList.get(edge.source()).add(targetNode);
-              parentsList.get(edge.target()).add(sourceNode);
-              log.atTrace()
-                  .addKeyValue(LOG_KEY_SOURCE, edge.source())
-                  .addKeyValue(LOG_KEY_TARGET, edge.target())
-                  .addKeyValue(LOG_KEY_PORT, edge.sourcePort())
-                  .log("Added workflow edge");
-            });
-
     return validator
         .validate(def)
         .doOnError(e -> log.atError().setCause(e).log("Workflow validation failed"))
@@ -154,6 +134,31 @@ public class WorkflowPreparator {
         .then(
             Mono.fromCallable(
                 () -> {
+                  // Edges are only resolved once validation has proven their endpoints exist.
+                  def.edges()
+                      .forEach(
+                          edge -> {
+                            final Node targetApiNode = nodeMap.get(edge.target());
+                            final Node sourceApiNode = nodeMap.get(edge.source());
+                            final WorkflowNode targetNode =
+                                new WorkflowNode(
+                                    targetApiNode.nodeId(),
+                                    targetApiNode.type(),
+                                    targetApiNode.config());
+                            final WorkflowNode sourceNode =
+                                new WorkflowNode(
+                                    sourceApiNode.nodeId(),
+                                    sourceApiNode.type(),
+                                    sourceApiNode.config());
+                            adjacencyList.get(edge.source()).add(targetNode);
+                            parentsList.get(edge.target()).add(sourceNode);
+                            log.atTrace()
+                                .addKeyValue(LOG_KEY_SOURCE, edge.source())
+                                .addKeyValue(LOG_KEY_TARGET, edge.target())
+                                .addKeyValue(LOG_KEY_PORT, edge.sourcePort())
+                                .log("Added workflow edge");
+                          });
+
                   final List<WorkflowNode> workflowNodes =
                       def.nodes().stream()
                           .map(n -> new WorkflowNode(n.nodeId(), n.type(), n.config()))
@@ -173,36 +178,12 @@ public class WorkflowPreparator {
                       topologicalOrder,
                       compiler.compileTemplate(edges, parentsList, pluginCache, topologicalOrder));
                 }))
-        .onErrorResume(
-            e -> {
-              log.atError()
-                  .setCause(e)
-                  .addKeyValue(LOG_KEY_PLUGIN_COUNT, pluginCache.size())
-                  .log("Workflow preparation failed, shutting down plugins");
-              return Flux.fromIterable(pluginCache.entrySet())
-                  .flatMap(
-                      entry -> {
-                        final String nodeId = entry.getKey();
-                        final Plugin plugin = entry.getValue();
-
-                        log.atDebug()
-                            .addKeyValue(LOG_KEY_NODE_ID, nodeId)
-                            .log("Unregistering and shutting down plugin");
-
-                        final Node node = nodeMap.get(nodeId);
-                        final Mono<Void> shutdown = plugin.shutdown(node.config());
-
-                        return (shutdown != null ? shutdown : Mono.<Void>empty())
-                            .onErrorResume(
-                                ex -> {
-                                  log.atWarn()
-                                      .setCause(ex)
-                                      .addKeyValue(LOG_KEY_NODE_ID, nodeId)
-                                      .log("Error during plugin shutdown");
-                                  return Mono.empty();
-                                });
-                      })
-                  .then(Mono.error(e));
-            });
+        // Plugin instances are shared singletons, so a failed preparation must not shut them down.
+        .doOnError(
+            e ->
+                log.atError()
+                    .setCause(e)
+                    .addKeyValue(LOG_KEY_PLUGIN_COUNT, pluginCache.size())
+                    .log("Workflow preparation failed"));
   }
 }
