@@ -210,7 +210,8 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
   // --- Execution Control ---
 
   @Override
-  public Mono<String> startWorkflow(final String sessionId, final String workflowId) {
+  public Mono<String> startWorkflow(
+      final String sessionId, final String workflowId, final Map<String, Object> payload) {
     log.atInfo()
         .addKeyValue("sessionId", sessionId)
         .addKeyValue("workflowId", workflowId)
@@ -242,7 +243,7 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
                   .log("Workflow definition found and loaded");
 
               final String executionId = UUID.randomUUID().toString();
-              return prepareAndExecute(sessionId, workflowId, def, executionId);
+              return prepareAndExecute(sessionId, workflowId, def, executionId, payload);
             })
         .doOnSuccess(
             executionId ->
@@ -264,7 +265,8 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
       final String sessionId,
       final String workflowId,
       final WorkflowDefinition def,
-      final String executionId) {
+      final String executionId,
+      final Map<String, Object> payload) {
     return Mono.defer(
             () -> {
               log.atDebug()
@@ -297,7 +299,7 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
         .flatMap(
             prepared -> {
               orchestrator
-                  .execute(sessionId, workflowId, executionId, prepared, Map.of())
+                  .execute(sessionId, workflowId, executionId, prepared, payload)
                   .subscribeOn(Schedulers.boundedElastic())
                   .doOnError(
                       err ->

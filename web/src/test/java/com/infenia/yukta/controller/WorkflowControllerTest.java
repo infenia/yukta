@@ -3,8 +3,11 @@
 package com.infenia.yukta.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.infenia.yukta.dto.request.WorkflowStartRequest;
@@ -32,7 +35,12 @@ import reactor.core.publisher.Mono;
 /** Tests for WorkflowController. */
 @ExtendWith(OutputCaptureExtension.class)
 @NoArgsConstructor
-@SuppressWarnings({"PMD.LawOfDemeter", "PMD.TooManyMethods", "PMD.CyclomaticComplexity"})
+@SuppressWarnings({
+  "PMD.LawOfDemeter",
+  "PMD.TooManyMethods",
+  "PMD.CyclomaticComplexity",
+  "PMD.TooManyStaticImports"
+})
 class WorkflowControllerTest {
 
   /** API endpoint for workflow start. */
@@ -213,7 +221,7 @@ class WorkflowControllerTest {
     final String executionId = "exec-123";
     final WorkflowExecution execution = new WorkflowExecution(executionId, Mono.just(response));
 
-    when(workflowService.validateAndStartWorkflow(anyString(), anyString()))
+    when(workflowService.validateAndStartWorkflow(anyString(), anyString(), anyMap()))
         .thenReturn(Mono.just(execution));
 
     final var result =
@@ -237,13 +245,39 @@ class WorkflowControllerTest {
   }
 
   @Test
+  void testTriggerWorkflowForwardsJsonPayload() {
+    final WorkflowExecution execution =
+        new WorkflowExecution("exec-payload", Mono.just(new TaskResponse("SUCCESS", "ok")));
+    when(workflowService.validateAndStartWorkflow(
+            eq(SESSION_ID_1), eq("w1"), eq(Map.of("message", "hi"))))
+        .thenReturn(Mono.just(execution));
+
+    webClient
+        .post()
+        .uri(API_WORKFLOW_START)
+        .contentType(MediaType.APPLICATION_JSON)
+        .bodyValue(
+            "{\"sessionId\":\""
+                + SESSION_ID_1
+                + "\",\"workflowId\":\"w1\","
+                + "\"payload\":{\"message\":\"hi\"}}")
+        .exchange()
+        .expectStatus()
+        .isAccepted()
+        .expectBody()
+        .jsonPath(DOLLAR_DATA_EXECUTION_ID)
+        .isEqualTo("exec-payload");
+    verify(workflowService).validateAndStartWorkflow(SESSION_ID_1, "w1", Map.of("message", "hi"));
+  }
+
+  @Test
   void testTriggerWorkflowSuccessLogging(final CapturedOutput output) {
     final WorkflowStartRequest request = new WorkflowStartRequest(SESSION_ID_1, "w1");
     final TaskResponse response = new TaskResponse("SUCCESS", "Build successful");
     final String executionId = "exec-123";
     final WorkflowExecution execution = new WorkflowExecution(executionId, Mono.just(response));
 
-    when(workflowService.validateAndStartWorkflow(anyString(), anyString()))
+    when(workflowService.validateAndStartWorkflow(anyString(), anyString(), anyMap()))
         .thenReturn(Mono.just(execution));
 
     final var result =
@@ -268,7 +302,7 @@ class WorkflowControllerTest {
   void testTriggerWorkflowError() {
     final WorkflowStartRequest request = new WorkflowStartRequest(SESSION_ID_1, "w1");
 
-    when(workflowService.validateAndStartWorkflow(anyString(), anyString()))
+    when(workflowService.validateAndStartWorkflow(anyString(), anyString(), anyMap()))
         .thenReturn(Mono.error(new RuntimeException(WORKFLOW_NOT_FOUND)));
 
     final var result =
@@ -293,7 +327,7 @@ class WorkflowControllerTest {
   void testTriggerWorkflowErrorLogging(final CapturedOutput output) {
     final WorkflowStartRequest request = new WorkflowStartRequest(SESSION_ID_1, "w1");
 
-    when(workflowService.validateAndStartWorkflow(anyString(), anyString()))
+    when(workflowService.validateAndStartWorkflow(anyString(), anyString(), anyMap()))
         .thenReturn(Mono.error(new RuntimeException(WORKFLOW_NOT_FOUND)));
 
     final var result =

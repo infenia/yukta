@@ -7,6 +7,7 @@ import com.infenia.yukta.model.workflow.WorkflowExecution;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import com.infenia.yukta.validation.SessionId;
 import com.infenia.yukta.validation.WorkflowId;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -42,13 +43,29 @@ public class WorkflowService {
    */
   public Mono<WorkflowExecution> validateAndStartWorkflow(
       @SessionId final String sessionId, @WorkflowId final String workflowId) {
+    return validateAndStartWorkflow(sessionId, workflowId, Map.of());
+  }
+
+  /**
+   * Validate and run a specific workflow for a session with a trigger payload.
+   *
+   * @param sessionId the session identifier
+   * @param workflowId the workflow identifier
+   * @param payload the trigger payload, read by the workflow's trigger node
+   * @return a Mono containing the WorkflowExecution
+   * @throws IllegalArgumentException if session or workflow not found
+   */
+  public Mono<WorkflowExecution> validateAndStartWorkflow(
+      @SessionId final String sessionId,
+      @WorkflowId final String workflowId,
+      final Map<String, Object> payload) {
     log.atInfo()
         .addKeyValue(LOG_KEY_SESSION_ID, sessionId)
         .addKeyValue(LOG_KEY_WORKFLOW_ID, workflowId)
         .log("Validating and triggering workflow");
 
     return controlBus
-        .startWorkflow(sessionId, workflowId)
+        .startWorkflow(sessionId, workflowId, payload)
         .map(
             executionId -> {
               log.atDebug()
