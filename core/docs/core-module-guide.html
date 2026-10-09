@@ -1,0 +1,604 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+<!-- SPDX-FileCopyrightText: 2026 Infenia Private Limited -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Yukta Core Guide</title>
+<style>
+:root{
+  --bg:#f7f7f5;--surface:#ffffff;--surface-2:#f0efec;--text:#1d1d1b;--muted:#5f5e5a;--line:#dcdad4;
+  --accent:#2f5bd3;--accent-soft:#e6ecfb;
+  --p0:#b42318;--p0-soft:#fde8e6;--p1:#b54708;--p1-soft:#fdf0e1;--p2:#6941c6;--p2-soft:#efe9fb;--p3:#475467;--p3-soft:#eceef1;
+  --ok:#067647;--ok-soft:#e3f5ec;
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#141413;--surface:#1d1d1b;--surface-2:#262624;--text:#ecebe6;--muted:#a3a29c;--line:#383835;
+  --accent:#8aa8ff;--accent-soft:#232c45;
+  --p0:#ff8a80;--p0-soft:#3b1d1a;--p1:#ffb35c;--p1-soft:#3a2915;--p2:#c3a6ff;--p2-soft:#2b2240;--p3:#b8c0cc;--p3-soft:#2a2d31;
+  --ok:#5fd39b;--ok-soft:#173226;
+}}
+:root[data-theme="dark"]{
+  --bg:#141413;--surface:#1d1d1b;--surface-2:#262624;--text:#ecebe6;--muted:#a3a29c;--line:#383835;
+  --accent:#8aa8ff;--accent-soft:#232c45;
+  --p0:#ff8a80;--p0-soft:#3b1d1a;--p1:#ffb35c;--p1-soft:#3a2915;--p2:#c3a6ff;--p2-soft:#2b2240;--p3:#b8c0cc;--p3-soft:#2a2d31;
+  --ok:#5fd39b;--ok-soft:#173226;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.6 var(--sans)}
+code,.mono{font-family:var(--mono);font-size:.88em}
+code{background:var(--surface-2);padding:.1em .35em;border-radius:4px}
+a{color:var(--accent)}
+.layout{display:grid;grid-template-columns:230px minmax(0,1fr);max-width:1240px;margin:0 auto}
+nav.side{position:sticky;top:0;height:100vh;overflow:auto;padding:28px 18px;border-right:1px solid var(--line)}
+nav.side .brand{font-weight:700;font-size:17px;margin-bottom:2px}
+nav.side .sub{color:var(--muted);font-size:13px;margin-bottom:22px}
+nav.side a{display:block;color:var(--muted);text-decoration:none;padding:5px 10px;border-radius:6px;font-size:14px}
+nav.side a:hover,nav.side a.active{background:var(--accent-soft);color:var(--text)}
+nav.side .theme{margin-top:22px}
+main{padding:32px 40px 80px;min-width:0}
+section{margin-bottom:56px;scroll-margin-top:16px}
+h1{font-size:30px;line-height:1.2;margin:0 0 8px}
+h2{font-size:22px;margin:0 0 6px}
+h3{font-size:16px;margin:18px 0 6px}
+.lede{color:var(--muted);max-width:760px;margin:0 0 18px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:18px}
+.grid{display:grid;gap:12px}
+.g4{grid-template-columns:repeat(4,minmax(0,1fr))}
+.g2{grid-template-columns:repeat(2,minmax(0,1fr))}
+.stat .n{font-size:26px;font-weight:700}
+.stat .l{color:var(--muted);font-size:13px}
+.pill{display:inline-block;font-size:12px;font-weight:600;padding:1px 8px;border-radius:999px;white-space:nowrap}
+.P0{background:var(--p0-soft);color:var(--p0)}.P1{background:var(--p1-soft);color:var(--p1)}
+.P2{background:var(--p2-soft);color:var(--p2)}.P3{background:var(--p3-soft);color:var(--p3)}
+.High{background:var(--p0-soft);color:var(--p0)}.Medium{background:var(--p1-soft);color:var(--p1)}.Low{background:var(--p3-soft);color:var(--p3)}
+.okp{background:var(--ok-soft);color:var(--ok)}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{color:var(--muted);font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.04em}
+.tablewrap{overflow-x:auto}
+button,.btn{font:inherit;font-size:13px;border:1px solid var(--line);background:var(--surface);color:var(--text);padding:5px 12px;border-radius:7px;cursor:pointer}
+button:hover{border-color:var(--accent)}
+button[aria-pressed="true"]{background:var(--accent);color:#fff;border-color:var(--accent)}
+:root[data-theme="dark"] button[aria-pressed="true"]{color:#111}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) button[aria-pressed="true"]{color:#111}}
+input[type=search]{font:inherit;font-size:14px;padding:6px 10px;border:1px solid var(--line);border-radius:7px;background:var(--surface);color:var(--text);min-width:220px}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+/* pipeline */
+.pipe{width:100%;height:auto;display:block}
+.pipe .box rect{fill:var(--surface);stroke:var(--line);stroke-width:1.2;transition:fill .15s,stroke .15s}
+.pipe .box text{fill:var(--text);font:600 13px var(--sans)}
+.pipe .box .s{fill:var(--muted);font:12px var(--mono)}
+.pipe .box.on rect{fill:var(--accent-soft);stroke:var(--accent);stroke-width:2}
+.pipe .arrow{stroke:var(--muted);stroke-width:1.4;fill:none;marker-end:url(#ah)}
+.pipe .box{cursor:pointer}
+.steps{display:flex;gap:6px;flex-wrap:wrap;margin:14px 0}
+.stepbody h3{margin-top:0}
+.refs{font-size:13px;color:var(--muted)}
+.flag{border-left:3px solid var(--p1);background:var(--p1-soft);padding:8px 12px;border-radius:0 6px 6px 0;margin-top:10px;font-size:14px}
+.flag.p0{border-color:var(--p0);background:var(--p0-soft)}
+/* packages */
+.pkgs{display:grid;grid-template-columns:260px minmax(0,1fr);gap:14px}
+.pkglist button{display:flex;justify-content:space-between;width:100%;text-align:left;border:0;border-radius:6px;padding:7px 10px;background:transparent;font-family:var(--mono);font-size:12.5px}
+.pkglist button[aria-pressed="true"]{background:var(--accent-soft);color:var(--text)}
+.bar{height:6px;background:var(--surface-2);border-radius:3px;overflow:hidden;margin-top:6px}
+.bar>i{display:block;height:100%;background:var(--accent)}
+/* findings */
+.filters{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+.filters .lbl{color:var(--muted);font-size:13px;margin-right:2px}
+.finding{border:1px solid var(--line);border-radius:10px;background:var(--surface);margin-bottom:10px}
+.finding summary{list-style:none;cursor:pointer;display:grid;grid-template-columns:auto auto minmax(0,1fr) auto;gap:10px;align-items:center;padding:12px 14px}
+.finding summary::-webkit-details-marker{display:none}
+.finding .id{font-family:var(--mono);font-size:12px;color:var(--muted);min-width:30px}
+.finding .t{font-weight:600}
+.finding .meta{display:flex;gap:6px;align-items:center}
+.finding .body{padding:0 14px 14px 14px;border-top:1px solid var(--line)}
+.finding .body dl{display:grid;grid-template-columns:90px minmax(0,1fr);gap:6px 12px;margin:12px 0 0}
+.finding .body dt{color:var(--muted);font-size:13px}
+.finding .body dd{margin:0}
+.finding.done{opacity:.55}
+.finding.done .t{text-decoration:line-through}
+.progress{display:flex;align-items:center;gap:10px;margin-bottom:12px;font-size:14px;color:var(--muted)}
+.progress .bar{flex:1;height:8px;margin:0}
+.progress .bar>i{background:var(--ok)}
+.empty{color:var(--muted);padding:20px;text-align:center}
+.vocab{display:flex;flex-wrap:wrap;gap:6px}
+.vocab span{font-family:var(--mono);font-size:12px;padding:2px 8px;border-radius:6px;border:1px solid var(--line)}
+.vocab .in{background:var(--ok-soft);color:var(--ok);border-color:transparent}
+.vocab .out{background:var(--p0-soft);color:var(--p0);border-color:transparent}
+.menu-btn{display:none}
+@media (max-width:860px){
+  .layout{grid-template-columns:1fr}
+  nav.side{position:static;height:auto;border-right:0;border-bottom:1px solid var(--line);padding:16px}
+  nav.side .links{display:flex;flex-wrap:wrap;gap:4px}
+  main{padding:20px 16px 60px}
+  .g4{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .g2,.pkgs{grid-template-columns:1fr}
+  .finding summary{grid-template-columns:auto minmax(0,1fr);}
+  .finding .meta{grid-column:1/-1}
+  .finding .body dl{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+<div class="layout">
+<nav class="side" aria-label="Sections">
+  <div class="brand">Yukta · core</div>
+  <div class="sub">Module guide &amp; review · 2026-10-09</div>
+  <div class="links">
+    <a href="#overview">Overview</a>
+    <a href="#pipeline">Execution pipeline</a>
+    <a href="#packages">Package explorer</a>
+    <a href="#runtime">Runtime model</a>
+    <a href="#control">Control commands</a>
+    <a href="#status">Status model</a>
+    <a href="#extend">Extending</a>
+    <a href="#findings">Improvement board</a>
+    <a href="#roadmap">Roadmap</a>
+  </div>
+  <div class="theme"><button id="themeBtn" type="button">Toggle theme</button></div>
+</nav>
+
+<main>
+<!-- OVERVIEW -->
+<section id="overview">
+  <h1>Core module guide</h1>
+  <p class="lede"><code>core</code> is Yukta's engine. It turns a JSON workflow definition (nodes plus edges) into a graph of
+  Project Reactor streams, runs it, tracks per-node status and logs, and exposes runtime controls:
+  pause, resume, stop, skip, step and restart. REST (<code>web</code>), MCP (<code>mcp</code>) and the UI all reach it
+  through <code>WorkflowService</code>, <code>SessionService</code> and <code>ControlBusGateway</code>.</p>
+  <div class="grid g4">
+    <div class="card stat"><div class="n">120</div><div class="l">main classes</div></div>
+    <div class="card stat"><div class="n">≈14k</div><div class="l">main lines</div></div>
+    <div class="card stat"><div class="n">94</div><div class="l">test classes</div></div>
+    <div class="card stat"><div class="n" id="statFindings">–</div><div class="l">open review findings</div></div>
+  </div>
+  <h3>Design in one paragraph</h3>
+  <p>A <code>WorkflowDefinition</code> is <b>prepared</b> once: it's validated, plugins are looked up and initialised,
+  nodes are topologically sorted, and the definition is compiled into a <code>WorkflowTemplate</code> holding one
+  <code>NodeAssembler</code> per node. The prepared workflow is cached per <i>session + workflow</i> in Caffeine.
+  Each <b>execution</b> creates an <code>ExecutionControl</code> (stop sinks, pause valves, flags), runs every
+  assembler in topological order to wire the streams, then subscribes to all terminal nodes in one
+  <code>Mono.using</code>. Status and log events go through batched sinks into <code>DefaultTaskTrackerService</code>,
+  which feeds the SSE status and log streams.</p>
+</section>
+
+<!-- PIPELINE -->
+<section id="pipeline">
+  <h2>Execution pipeline</h2>
+  <p class="lede">Click a stage, or step through with the buttons. Each stage names the classes involved and the
+  review findings that touch it.</p>
+  <div class="card">
+    <svg class="pipe" viewBox="0 30 980 130" role="img" aria-label="Pipeline: request, prepare, compile, execute, assemble, run, track, cleanup">
+      <defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="currentColor" style="color:var(--muted)"/></marker></defs>
+      <g id="pipeBoxes"></g>
+    </svg>
+    <div class="steps" id="stepBtns" role="tablist" aria-label="Pipeline stages"></div>
+    <div class="stepbody" id="stepBody" aria-live="polite"></div>
+  </div>
+</section>
+
+<!-- PACKAGES -->
+<section id="packages">
+  <h2>Package explorer</h2>
+  <p class="lede">Bar width is lines of code. Select a package to see what it owns and which findings apply to it.</p>
+  <div class="pkgs">
+    <div class="card pkglist" id="pkgList" style="padding:8px"></div>
+    <div class="card" id="pkgDetail"></div>
+  </div>
+</section>
+
+<!-- RUNTIME -->
+<section id="runtime">
+  <h2>Runtime model</h2>
+  <div class="grid g2">
+    <div class="card">
+      <h3 style="margin-top:0">How a node stream is wired</h3>
+      <ol style="padding-left:18px;margin:0">
+        <li><b>Merge parents</b>: <code>StreamTopologyDecorator.mergeParentStreams</code> merges each parent's hot flux,
+          stamps <code>sourceNodeId</code>, and filters on <code>sourcePort</code> when the edge sets one.</li>
+        <li><b>Pre-controls</b>: <code>ExecutionControl.applyPreProcessingControls</code> applies the node's safe-stop (<code>takeUntilOther</code>).</li>
+        <li><b>Plugin</b>: <code>NodeMessageChannel.inbound</code> → <code>process()</code> / <code>consume()</code> → <code>outbound</code>.
+          Blocking plugins run with <code>subscribeOn(virtualThreadScheduler)</code>.</li>
+        <li><b>Tracking</b>: <code>StreamBuilder</code> adds an idle timeout and emits RUNNING, then SUCCESS or FAILURE.</li>
+        <li><b>Post-controls</b>: the node and global pause valves (<code>filterWhen</code>) and the node immediate-stop.</li>
+        <li><b>Broadcast</b>: history stamp → checkpoint → payload echo to the log → a multicast sink.
+          A <i>connector</i> subscribes it when the run starts.</li>
+      </ol>
+    </div>
+    <div class="card">
+      <h3 style="margin-top:0">Who owns what state</h3>
+      <div class="tablewrap"><table>
+        <tr><th>State</th><th>Owner</th><th>Lifetime</th></tr>
+        <tr><td>Prepared DAG and plugin cache</td><td><code>PreparedWorkflowCache</code> (Caffeine)</td><td>10 min after last access</td></tr>
+        <tr><td>Execution controls</td><td><code>ExecutionControlRegistry</code></td><td>Until the run finishes (<code>doFinally</code>)</td></tr>
+        <tr><td>Last message per node</td><td><code>InMemoryNodeCheckpointStore</code></td><td>Until the run finishes</td></tr>
+        <tr><td>Progress and sinks</td><td><code>DefaultTaskTrackerService</code></td><td>Index: TTL 10 min · session map: until session cleared</td></tr>
+        <tr><td>Status history</td><td><code>DefaultStatusHistoryCache</code></td><td>Caffeine TTL</td></tr>
+        <tr><td>Session config</td><td><code>FileSessionConfigStore</code> / in-memory</td><td>Persistent / process</td></tr>
+        <tr><td>Active plugins</td><td><code>ActivePluginRegistry</code></td><td>Ref-counted per workflow + node</td></tr>
+      </table></div>
+    </div>
+  </div>
+</section>
+
+<!-- CONTROL -->
+<section id="control">
+  <h2>Control commands</h2>
+  <p class="lede">A command goes from <code>ControlBusGateway</code> to <code>ControlBusService</code> (a batched sink), then <code>DirectiveDispatcher</code>,
+  then a <code>*CommandProcessor</code>, which mutates the run's <code>ExecutionControl</code>. The "Effective?" column records whether the mutation reaches the running stream.</p>
+  <div class="card tablewrap"><table id="ctlTable"><thead><tr><th>Command</th><th>Mechanism</th><th>Effective?</th><th>Status string emitted</th></tr></thead><tbody></tbody></table></div>
+</section>
+
+<!-- STATUS -->
+<section id="status">
+  <h2>Status model</h2>
+  <p class="lede">The tracker parses every workflow status with <code>TaskStatus.valueOf</code>. Green values are enum members.
+  Red values are emitted somewhere in core but aren't members, so they throw and drop the rest of the event batch (finding C1).</p>
+  <div class="card">
+    <h3 style="margin-top:0">Values emitted into <code>emitWorkflowStatusEvent</code> / <code>finishWorkflow</code></h3>
+    <div class="vocab" id="vocab"></div>
+    <h3>Terminal-status sequence for one run today</h3>
+    <div class="tablewrap"><table>
+      <tr><th>Scenario</th><th>Events received by the tracker</th><th>Expected</th></tr>
+      <tr><td>Success</td><td><code>SUCCESS</code> (ResourceManagementBuilder) → <code>SUCCESS</code> (Orchestrator)</td><td><code>SUCCESS</code> once</td></tr>
+      <tr><td>Node error</td><td>task <code>FAILURE</code> ×2 → <code>ERROR</code> → <code>FAILURE</code></td><td>task <code>FAILURE</code> → <code>FAILURE</code></td></tr>
+      <tr><td>User stop</td><td><code>WORKFLOW_STOPPED</code> (throws) → <code>SUCCESS</code></td><td><code>STOPPED</code></td></tr>
+    </table></div>
+  </div>
+</section>
+
+<!-- EXTEND -->
+<section id="extend">
+  <h2>Extending core</h2>
+  <div class="grid g2">
+    <div class="card">
+      <h3 style="margin-top:0">Add a plugin</h3>
+      <p>Implement <code>TriggerPlugin</code>, <code>ProcessorPlugin</code> or <code>TerminalPlugin</code> from <code>plugin-api</code> and register it as a Spring bean.
+      <code>PluginRegistry</code> keys plugins by <code>getType()</code>.</p>
+      <ul style="padding-left:18px">
+        <li>Keep instances <b>stateless</b>. One bean serves every node and every workflow (C9).</li>
+        <li>Read config from the <code>config</code> argument of <code>start/process/consume</code>, not from <code>initialize</code>.</li>
+        <li>Return <code>isBlocking() = true</code> for I/O. Note the current pool limit (P1).</li>
+        <li>Override <code>getDefaultTimeout()</code> / <code>getDefaultBufferSize()</code>. Node config keys
+          <code>timeoutSeconds</code> and <code>bufferSize</code> take precedence.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3 style="margin-top:0">Swap a store</h3>
+      <ul style="padding-left:18px;margin:0">
+        <li><code>ExecutionControlStore</code>: <code>@ConditionalOnMissingBean</code> in <code>AppConfiguration</code>.</li>
+        <li><code>SessionConfigStore</code>: file or memory via <code>SessionConfigStoreConfiguration</code>.</li>
+        <li><code>WorkflowDefinitionStore</code>: via <code>WorkflowDefinitionStoreConfiguration</code>.</li>
+        <li><code>PluginLogStore</code> (reader and writer): memory or file via <code>LogStoreAutoConfiguration</code>.</li>
+        <li><code>NodeCheckpointStore</code>: in-memory today. If you persist it, switch the save to <code>concatMap</code> (P4).</li>
+      </ul>
+      <h3>Commands</h3>
+      <pre class="mono" style="margin:0;white-space:pre-wrap">./gradlew :core:test
+./gradlew :core:check</pre>
+    </div>
+  </div>
+</section>
+
+<!-- FINDINGS -->
+<section id="findings">
+  <h2>Improvement board</h2>
+  <p class="lede">All review findings from <a href="core-improvements.md">core-improvements.md</a>. Filter, search and tick items off.
+  Ticks are saved in this browser only.</p>
+  <div class="progress"><span id="progTxt"></span><div class="bar"><i id="progBar" style="width:0"></i></div><button type="button" id="resetBtn">Reset ticks</button></div>
+  <div class="filters" id="sevFilters"><span class="lbl">Severity</span></div>
+  <div class="filters" id="areaFilters"><span class="lbl">Area</span></div>
+  <div class="filters"><input type="search" id="q" placeholder="Search class, keyword…" aria-label="Search findings"><button type="button" id="hideDone" aria-pressed="false">Hide done</button><button type="button" id="expandAll">Expand all</button></div>
+  <div id="findingList"></div>
+</section>
+
+<!-- ROADMAP -->
+<section id="roadmap">
+  <h2>Roadmap</h2>
+  <div class="card tablewrap"><table id="roadTable"><thead><tr><th>Phase</th><th>Items</th><th>Outcome</th><th>Done</th></tr></thead><tbody></tbody></table></div>
+</section>
+</main>
+</div>
+
+<script>
+(function(){
+"use strict";
+var store={get:function(k){try{return JSON.parse(localStorage.getItem(k))}catch(e){return null}},
+           set:function(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+
+/* theme */
+var root=document.documentElement,saved=store.get("yk-theme");
+if(saved)root.setAttribute("data-theme",saved);
+document.getElementById("themeBtn").onclick=function(){
+  var dark=root.getAttribute("data-theme")==="dark"||(!root.getAttribute("data-theme")&&matchMedia("(prefers-color-scheme: dark)").matches);
+  var next=dark?"light":"dark";root.setAttribute("data-theme",next);store.set("yk-theme",next);
+};
+
+/* ---------- data ---------- */
+var F=[
+ {id:"C1",sev:"P0",area:"Correctness",pkg:["service/control/processor","service/orchestrator/tracker"],t:"Control status strings crash the tracker's batch handler",
+  where:"*CommandProcessor → emitWorkflowStatusEvent(\"NODE_PAUSED\"…); DefaultTaskTrackerService.handleWorkflowStatusEvents → TaskStatus.valueOf",
+  impact:"IllegalArgumentException. The rest of the 100-event batch is dropped for every execution, the status is left as NODE_PAUSED with an endTime, and the SSE status stream later errors.",
+  fix:"Type the status as TaskStatus. Keep control state (paused, step) out of lifecycle status. Stop-gap: make isTerminal tolerant of unknown values.",eff:"S"},
+ {id:"C2",sev:"P0",area:"Correctness",pkg:["service/orchestrator"],t:"A stopped workflow is reported as SUCCESS",
+  where:"WorkflowOrchestrator.execute: firstWithSignal(execution, immediateStop, safeStop).then(finishWorkflow(\"SUCCESS\"))",
+  impact:"The UI and API show user-stopped runs as successful.",fix:"Add a terminal STOPPED status and map the stop branch to it.",eff:"S"},
+ {id:"C3",sev:"P1",area:"Correctness",pkg:["service/orchestrator/compiler","service/orchestrator"],t:"Two owners emit the terminal workflow status",
+  where:"ResourceManagementBuilder.emitStatus(SUCCESS|ERROR) and WorkflowOrchestrator.finishWorkflow(SUCCESS|FAILURE)",
+  impact:"ERROR then FAILURE are emitted, endTime is overwritten, and cleanup is scheduled twice.",fix:"Delete emitStatus from ResourceManagementBuilder.",eff:"S"},
+ {id:"C4",sev:"P1",area:"Correctness",pkg:["service/orchestrator/stream"],t:"Each node error emits FAILURE twice",
+  where:"StreamBuilder.applyTaskTrackingTransform and applyErrorsTransform both use doOnError → FAILURE",impact:"Duplicate task events and a noisy status history.",fix:"Delete withErrorHandling.",eff:"S"},
+ {id:"C5",sev:"P1",area:"Correctness",pkg:["service/orchestrator/strategy","service/control"],t:"Runtime skip-node has no effect",
+  where:"ProcessorNodeAssemblerStrategy reads skipFlag.get() once at assembly, and the pre-control skip branch only logs",
+  impact:"A SkipNode command on a running execution is silently ignored.",fix:"Accept skipNodes at start time and reject skip at runtime, or bypass per message.",eff:"M"},
+ {id:"C6",sev:"P1",area:"Correctness",pkg:["service/control/processor","service/control/valve","service/control"],t:"Step mode is a no-op",
+  where:"Enable/Disable/StepNode processors write nodeStepModes and nodeStepSinks, which no stream reads. ReactiveControlValve.step() is never called.",
+  impact:"The step debugging feature doesn't work.",fix:"Call the valve's enableStepMode/step/disableStepMode and delete the two maps.",eff:"S"},
+ {id:"C7",sev:"P1",area:"Correctness",pkg:["service/orchestrator/strategy"],t:"The terminal-node timeout never fires",
+  where:"TerminalNodeAssemblerStrategy: flatMap(msg -> Mono.just(msg).timeout(t))",impact:"Terminal nodes have no timeout, and the flatMap adds overhead for nothing.",
+  fix:"Remove the flatMap and apply timeout() to the completion or the input flux.",eff:"S"},
+ {id:"C8",sev:"P1",area:"Correctness",pkg:["service/orchestrator/stream"],t:"The broadcast sink bypasses backpressure, so a slow child errors with overflow",
+  where:"StreamTopologyDecorator.applyLoggingAndBroadcasting: subscribe(sink::emitNext) into multicast.onBackpressureBuffer(bufferSize)",
+  impact:"When a child is slower than its parent, the node fails with 'Backpressure overflow'. Contention also causes busy-wait parking.",
+  fix:"Use processedStream.publish(bufferSize) and add connectable::connect as the connector. This deletes RETRY_HANDLER.",eff:"M"},
+ {id:"C9",sev:"P1",area:"Design",pkg:["service/plugin","service/orchestrator/preparator"],t:"Shared singleton plugins get per-node initialize and shutdown",
+  where:"PluginRegistry (type → bean); WorkflowPreparator initialize(config) per node and shutdown() on failure",
+  impact:"Config state can be clobbered across nodes or workflows, and a failed prepare can shut down a plugin in use elsewhere.",
+  fix:"Document plugins as stateless and drop the shutdown fan-out, or add a PluginFactory.",eff:"M"},
+ {id:"C10",sev:"P2",area:"Correctness",pkg:["service/orchestrator/preparator"],t:"A bad edge gives an NPE before validation",
+  where:"WorkflowPreparator builds adjacency before validator.validate()",impact:"Users get a NullPointerException instead of a validation message.",fix:"Build the maps after validate().",eff:"S"},
+ {id:"C11",sev:"P2",area:"Correctness",pkg:["service/orchestrator"],t:"restartFromNode with an unknown node restarts from the beginning",
+  where:"nodeToIndex.getOrDefault(restartNodeId, 0)",impact:"A typo silently re-runs the whole workflow.",fix:"Error on an unknown node and share the lifecycle helper with execute().",eff:"S"},
+ {id:"C12",sev:"P2",area:"Correctness",pkg:["service/plugin"],t:"Duplicate plugin types silently overwrite each other",
+  where:"PluginRegistry constructor plugins.put",impact:"The plugin that wins depends on bean order.",fix:"Use putIfAbsent and throw on a collision.",eff:"S"},
+ {id:"C13",sev:"P2",area:"Performance",pkg:["service/orchestrator/tracker"],t:"Tracker sessionStates grows without bound",
+  where:"cleanupExecution doesn't remove sessionStates[session][exec]",impact:"Memory grows for long-lived sessions, and the two progress lookups disagree after cleanup.",
+  fix:"Remove the entry in cleanup, or cap the history with Caffeine.",eff:"S"},
+ {id:"C14",sev:"P2",area:"Correctness",pkg:["service/orchestrator/tracker"],t:"WorkflowState status/endTime aren't safely published across threads",
+  where:"Written on Schedulers.parallel(), read on request threads",impact:"Reads can be stale.",fix:"Use volatile fields or an immutable state swapped with compute().",eff:"S"},
+ {id:"C15",sev:"P2",area:"Reliability",pkg:["service/control/gateway","service/orchestrator"],t:"Fire-and-forget execution can't shut down gracefully",
+  where:"DefaultControlBusGateway.prepareAndExecute ….subscribe(). execute() registers the control eagerly.",
+  impact:"No graceful shutdown, and the control leaks if the subscription never happens.",fix:"Wrap execute in Mono.defer, keep the Disposable, and dispose in @PreDestroy.",eff:"M"},
+ {id:"C16",sev:"P2",area:"Reliability",pkg:["service/session/store"],t:"Session config writes aren't atomic",
+  where:"FileSessionConfigStore.saveSessionConfig with TRUNCATE_EXISTING",impact:"A crash mid-write corrupts the session file.",fix:"Write to a temp file, then Files.move with ATOMIC_MOVE.",eff:"S"},
+ {id:"C17",sev:"P3",area:"Correctness",pkg:["service/control/processor"],t:"Stopping twice throws",
+  where:"emitEmpty(FAIL_FAST) on an already-completed sink",impact:"A second stop returns an error.",fix:"Use tryEmitEmpty() and ignore FAIL_TERMINATED.",eff:"S"},
+ {id:"P1",sev:"P1",area:"Performance",pkg:["config","service/orchestrator/strategy"],t:"The virtual-thread scheduler is a fixed pool of nCPU threads",
+  where:"AppConfiguration.virtualThreadScheduler: newScheduledThreadPool(nCPU, virtual factory)",
+  impact:"At most nCPU blocking plugin calls can run at once, JVM-wide, so virtual threads give no benefit.",
+  fix:"Use Schedulers.boundedElastic() with reactor.schedulers.defaultBoundedElasticOnVirtualThreads=true, or newVirtualThreadPerTaskExecutor.",eff:"S"},
+ {id:"P2",sev:"P1",area:"Performance",pkg:["service/orchestrator/compiler"],t:"HeartbeatBuilder starts 2×N idle timers per execution",
+  where:"WorkflowCompiler.executeTemplate → HeartbeatBuilder: Flux.interval that only logs at debug",
+  impact:"20 nodes × 50 runs means 2,000 scheduled tasks that do nothing.",fix:"Delete HeartbeatBuilder and the heartbeatInterval wiring.",eff:"S"},
+ {id:"P3",sev:"P1",area:"Performance",pkg:["service/orchestrator/stream","service/orchestrator/tracker"],t:"Every payload is stringified and logged at every node",
+  where:"StreamTopologyDecorator.getMessageFlux: String.valueOf(payload) → splitLogLine → emitLogEvent",
+  impact:"Log work is O(messages × nodes), large payloads are serialised repeatedly, and one global sink is shared by all runs.",
+  fix:"Make it opt-in (config.logPayload) or truncate to about 2 KB.",eff:"S"},
+ {id:"P4",sev:"P2",area:"Performance",pkg:["service/orchestrator/stream","service/store"],t:"A checkpoint is written for every message",
+  where:"flatMap(msg -> checkpointStore.save(...))",impact:"Wasted writes, and with a persistent store flatMap can reorder messages.",
+  fix:"Use concatMap. Save only the last message, and only for nodes that have children.",eff:"S"},
+ {id:"P5",sev:"P2",area:"Performance",pkg:["service/orchestrator/tracker","service/control"],t:"Global sinks busy-loop under contention",
+  where:"Tracker (×3) and control bus use busyLooping(100ms)",impact:"CPU burn under load.",fix:"Measure with JFR first, then partition the sinks or drop telemetry with tryEmitNext.",eff:"M"},
+ {id:"P6",sev:"P3",area:"Performance",pkg:["service/orchestrator/compiler","service/orchestrator/preparator"],t:"O(N·E) edge scan and eager debug arguments",
+  where:"createNodeAssembler filters every edge per node; the topological sort error path uses List.contains",
+  impact:"Prepare cost grows with DAG size.",fix:"Group incoming edges once and use a Set.",eff:"S"},
+ {id:"P7",sev:"P3",area:"Performance",pkg:["service/control/factory"],t:"Per-execution control allocations",
+  where:"ExecutionControlFactory creates 6 maps per node, including dead step maps and an unused immediateStopSink",
+  impact:"Allocations that nothing uses.",fix:"Removing the dead controls (S5) also removes these.",eff:"S"},
+ {id:"S1",sev:"P1",area:"Simplicity",pkg:["service/orchestrator/tracker","model/execution"],t:"Status is a free-form String",
+  where:"TaskTrackerService API and about 15 literals",impact:"This is the root cause of C1, C2 and C3.",fix:"Use the TaskStatus enum in signatures and add STOPPED.",eff:"M"},
+ {id:"S2",sev:"P2",area:"Simplicity",pkg:["service/orchestrator"],t:"execute() and restartFromNode() duplicate the lifecycle code",
+  where:"WorkflowOrchestrator, about 60 duplicated lines",impact:"The two paths have already drifted: restart lacks immediateStop and contextWrite.",fix:"Extract a runTracked() helper.",eff:"S"},
+ {id:"S3",sev:"P2",area:"Simplicity",pkg:["service/orchestrator/stream","service/orchestrator/compiler","service/orchestrator/assembly"],t:"Four fluent builders that each have one caller",
+  where:"StreamBuilder, ResourceManagementBuilder, HeartbeatBuilder, ExecutionContextBuilder",impact:"About 700 lines of main and test code, plus coverage exceptions.",fix:"Replace with plain static methods.",eff:"M"},
+ {id:"S4",sev:"P3",area:"Simplicity",pkg:["service/control/processor"],t:"Processors depend on the concrete DefaultTaskTrackerService",
+  where:"11 control classes",impact:"Hard to swap or mock the tracker.",fix:"Inject the TaskTrackerService interface.",eff:"S"},
+ {id:"S5",sev:"P2",area:"Simplicity",pkg:["util","service/control/valve","service/control","service/orchestrator/compiler"],t:"Dead code",
+  where:"ReactiveLock, ReactiveControlValve.asTransform, HeartbeatBuilder, step maps, workflow immediateStopSink, the no-op assembler fallback, the log-only skip branch",
+  impact:"Maintenance cost and lowered coverage thresholds.",fix:"Delete.",eff:"S"},
+ {id:"S6",sev:"P3",area:"Simplicity",pkg:["service/orchestrator","service/orchestrator/compiler","service/orchestrator/assembly"],t:"Reactor context keys are redefined in four classes",
+  where:"CTX_SESSION_ID and friends",impact:"Keys can drift apart.",fix:"Use ExecutionContextBuilder.CTX_* as the single source.",eff:"S"},
+ {id:"S7",sev:"P3",area:"Simplicity",pkg:["service/orchestrator/stream","service/orchestrator/strategy"],t:"About 40% of lines are logging, often per message",
+  where:"Debug logs per operator and per message",impact:"Noise, and some arguments are computed even when debug is off.",fix:"Keep lifecycle logs and put the IDs in context or MDC.",eff:"M"},
+ {id:"S8",sev:"P3",area:"Tests",pkg:[],t:"12 coverage-threshold exceptions in build.gradle.kts",
+  where:"core/build.gradle.kts coverageConfig",impact:"They hide dead branches.",fix:"Remove them after S3 and S5.",eff:"S"},
+ {id:"S9",sev:"P2",area:"Correctness",pkg:["service/orchestrator/assembly","service/control"],t:"Map.copyOf throws an NPE when a payload contains null values",
+  where:"AssemblyContext, ExecutionControl, ExecutionContextBuilder",impact:"A JSON payload with {\"x\":null} crashes the run.",fix:"Copy once, at the boundary, with a null-tolerant copy.",eff:"S"},
+ {id:"S10",sev:"P3",area:"Docs",pkg:[],t:"core/CLAUDE.md points to a non-existent mcp package",
+  where:"core/CLAUDE.md, Key File Locations",impact:"Misleads contributors and agents.",fix:"Fix the path and link this guide.",eff:"S"},
+ {id:"T1",sev:"P1",area:"Tests",pkg:["service/orchestrator/tracker"],t:"No test with a real tracker plus control processors",
+  where:"Processor tests mock DefaultTaskTrackerService",impact:"C1 went undetected.",fix:"Add an integration test asserting the status stream terminates after a pause.",eff:"S"},
+ {id:"T2",sev:"P2",area:"Tests",pkg:[],t:"No backpressure, stop-status, step/skip or terminal-timeout tests",
+  where:"core/src/test",impact:"C2–C8 went undetected.",fix:"Add T2–T6 from the markdown report.",eff:"M"}
+];
+var SEVS=["P0","P1","P2","P3"],AREAS=[];F.forEach(function(f){if(AREAS.indexOf(f.area)<0)AREAS.push(f.area)});
+
+var PKGS=[
+ ["service/orchestrator",1,304,"WorkflowOrchestrator: prepare(), execute(), and restartFromNode(). Registers the ExecutionControl, starts and finishes tracking, races the run against the stop sinks, and cleans up."],
+ ["service/orchestrator/preparator",2,326,"WorkflowPreparator (validate → init plugins → topo sort → compile) and TopologicalSortService (Kahn's algorithm)."],
+ ["service/orchestrator/validator",1,369,"WorkflowValidator: structure, unknown nodes and plugins, cycles, and port checks."],
+ ["service/orchestrator/compiler",3,855,"WorkflowCompiler builds a NodeAssembler[] and the WorkflowTemplate. ResourceManagementBuilder runs the terminals inside Mono.using with a session timeout. HeartbeatBuilder (no-op timers)."],
+ ["service/orchestrator/strategy",5,625,"One NodeAssemblerStrategy per plugin category (Trigger @Order 1, Processor 2, Terminal 3). StreamAssemblyHelper adds tracking, context and the plugin lifecycle."],
+ ["service/orchestrator/stream",2,613,"StreamBuilder (timeout and task events). StreamTopologyDecorator (merge parents, port routing, checkpoint, payload log echo, multicast broadcast)."],
+ ["service/orchestrator/assembly",2,249,"AssemblyContext (the per-execution wiring bag) and ExecutionContextBuilder (Reactor Context keys)."],
+ ["service/orchestrator/tracker",2,1131,"TaskTrackerService and DefaultTaskTrackerService: batched status and log sinks, WorkflowState, SSE status and log streams, TTL cleanup."],
+ ["service/control",3,693,"ControlBusService (batched command bus), ExecutionControl (per-run sinks, valves, flags), and WorkflowExecutionSnapshot."],
+ ["service/control/gateway",3,1283,"ControlBusGateway is the façade for start, stop, pause, skip, step, restart, watch and history. RestartCompletionSink."],
+ ["service/control/processor",12,1046,"One processor per command. Each mutates the ExecutionControl and emits a status string."],
+ ["service/control/directive",4,326,"DirectiveDispatcher plus heartbeat, statistics and signal handlers."],
+ ["service/control/store",4,329,"ExecutionControlRegistry/Store (active runs) and ActivePluginRegistry (ref-counted plugins in use)."],
+ ["service/control/valve",1,132,"ReactiveControlValve: pause, resume and step gates (step isn't wired; see C6)."],
+ ["service/control/factory",1,83,"ExecutionControlFactory: allocates the per-node sinks, valves and flags."],
+ ["service/plugin",1,58,"PluginRegistry: plugin type → singleton bean."],
+ ["service/workflow",2,213,"WorkflowService (validate and start) and WorkflowGraphService (graph projection for the UI)."],
+ ["service/workflow/store",4,331,"WorkflowDefinitionStore and PreparedWorkflowCache (Caffeine, expire after access)."],
+ ["service/session",1,315,"SessionService: apply config, list sessions, and workflows per session."],
+ ["service/session/store",4,991,"SessionConfigStore: file (JSON per session, path-traversal guarded) or in-memory."],
+ ["service/streaming",2,137,"StatusHistoryCache: replay of progress for late SSE subscribers."],
+ ["service/store",1,56,"InMemoryNodeCheckpointStore: last message per node, used by restartFromNode."],
+ ["logging/api",10,544,"Plugin logging SPI: PluginLogger, factory, reader, writer, store, and the log entry types."],
+ ["logging/impl/memory",7,749,"In-memory log store (Caffeine), the default logger and factory, the subscriber, and auto-configuration."],
+ ["logging/impl/file",2,486,"File-system log writer and reader."],
+ ["model/workflow",8,236,"WorkflowDefinition (API), WorkflowNode/Edge (internal), PreparedWorkflow, WorkflowTemplate, NodeAssembler."],
+ ["model/execution",5,138,"TaskStatus enum, TaskProgress, WorkflowProgress, and summaries."],
+ ["model/control",5,146,"Control-bus message records."],
+ ["model/session",4,132,"Session config records."],
+ ["event",3,96,"TaskStatusEvent, WorkflowStatusEvent and WorkflowLogEvent (tracker sink payloads)."],
+ ["config",3,121,"AppConfiguration (ObjectMapper, virtualThreadScheduler, heartbeatInterval, control store) and properties."],
+ ["util",3,461,"VariableResolver, MapUtils, and ReactiveLock (unused)."],
+ ["validation",8,390,"Custom constraint annotations: SessionId, WorkflowId, NodeId, PluginName, paths."]
+];
+
+var STEPS=[
+ {k:"Request",cls:"WorkflowService · ControlBusGateway",x:10,
+  d:"<code>WorkflowService.validateAndStartWorkflow</code> calls <code>ControlBusGateway.startWorkflow</code>, which loads the definition from <code>WorkflowDefinitionStore</code> and generates a UUID execution ID. It returns the ID straight away (fire-and-forget subscribe).",f:["C15"]},
+ {k:"Prepare",cls:"WorkflowPreparator · WorkflowValidator · TopologicalSortService",x:132,
+  d:"On a <code>PreparedWorkflowCache</code> miss: build the adjacency and parent maps, validate, call <code>initialize(config)</code> on each node's plugin, run the Kahn topological sort, compile. The result is cached per session + workflow.",f:["C9","C10","P6"]},
+ {k:"Compile",cls:"WorkflowCompiler · NodeAssemblerStrategy",x:254,
+  d:"For each node in topological order, choose a strategy with <code>supports(plugin, hasParents)</code> and create a <code>NodeAssembler</code> closure. Timeout and buffer size come from node config, then the plugin default, then the system default (30 s / 1024).",f:["P6","S5"]},
+ {k:"Execute",cls:"WorkflowOrchestrator · ExecutionControlFactory",x:376,
+  d:"Create and register the <code>ExecutionControl</code>, then <code>tracker.startWorkflow</code>, then <code>template.instantiate</code>. The run is raced against the stop sinks with <code>Mono.firstWithSignal</code>, and the result goes to <code>finishWorkflow</code>.",f:["C2","C11","S2"]},
+ {k:"Assemble",cls:"AssemblyContext · *AssemblerStrategy",x:498,
+  d:"Run every assembler. It fills <code>streams[i]</code>, collects <code>terminals</code>, and registers the <i>connectors</i> that subscribe each node's broadcast sink. Heartbeat timers are added to the disposables.",f:["C5","C7","P2"]},
+ {k:"Run",cls:"ResourceManagementBuilder · StreamTopologyDecorator",x:620,
+  d:"<code>Mono.using(disposables, whenDelayError(terminals).timeout(sessionTimeout), cleanup)</code>. On subscribe, the connectors run in reverse order so children subscribe before their parents emit.",f:["C3","C8","P1","P3","P4"]},
+ {k:"Track",cls:"DefaultTaskTrackerService",x:742,
+  d:"Task, workflow and log events are batched (100 events / 50 ms) on <code>Schedulers.parallel()</code>, then applied to <code>WorkflowState</code> and pushed to the per-execution SSE sinks and the history cache.",f:["C1","C4","C13","C14","P5"]},
+ {k:"Cleanup",cls:"Orchestrator.doFinally · tracker TTL",x:864,
+  d:"Unregister the control and clear the checkpoints. When the tracker sees a terminal status, it completes the sinks and drops the index after <code>yukta.tracker.cleanup-ttl</code> (10 min).",f:["C13"]}
+];
+
+var CTL=[
+ ["Pause / Resume workflow","Global ReactiveControlValve; filterWhen after each node",true,"PAUSED / RUNNING"],
+ ["Pause / Resume node","Node valve; filterWhen after the plugin (the message is already processed)",true,"NODE_PAUSED / NODE_RESUMED"],
+ ["Stop workflow","safeStopSink, raced in the orchestrator, which cancels the run",true,"WORKFLOW_STOPPED → then SUCCESS"],
+ ["Stop node (safe / immediate)","Node safe sink (pre) or immediate sink (post)",true,"NODE_STOPPED"],
+ ["Skip node","AtomicBoolean read once at assembly",false,"—"],
+ ["Enable / Disable step mode","nodeStepModes AtomicBoolean (never read)",false,"STEP_MODE_ENABLED / DISABLED"],
+ ["Step node","nodeStepSinks emit (no subscriber)",false,"NODE_STEPPED"],
+ ["Restart / Restart from node","Safe-stop the old run, replay parent checkpoints, start a new execution",true,"(new execution)"]
+];
+
+var VOCAB_IN=["PENDING","RUNNING","SUCCESS","FAILURE","ERROR"],
+    VOCAB_OUT=["PAUSED","NODE_PAUSED","NODE_RESUMED","NODE_STOPPED","WORKFLOW_STOPPED","NODE_STEPPED","STEP_MODE_ENABLED","STEP_MODE_DISABLED"];
+
+var ROAD=[
+ ["1 · Stop the bleeding",["C1","C2","C3","C4","C7","T1"],"Correct statuses, and SSE streams terminate"],
+ ["2 · Type the status model",["S1","S4"],"Status bugs become compile errors"],
+ ["3 · Delete before optimising",["S5","P2","S6","C6","C17"],"Smaller surface, fewer coverage exceptions"],
+ ["4 · Throughput",["P1","C8","P3","P4","T2"],"Real backpressure and virtual threads, less work per message"],
+ ["5 · Robustness",["C5","C9","C10","C11","C12","C13","C14","C15","C16","S2","S3"],"Predictable restart, skip, shutdown and storage"]
+];
+
+/* ---------- state ---------- */
+var done=store.get("yk-core-done")||{};
+var sevOn={},areaOn={};SEVS.forEach(function(s){sevOn[s]=true});AREAS.forEach(function(a){areaOn[a]=true});
+var hideDone=false;
+function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
+function byId(id){for(var i=0;i<F.length;i++)if(F[i].id===id)return F[i]}
+function pillFor(id){var f=byId(id);return f?'<a href="#f-'+id+'" class="pill '+f.sev+'" data-jump="'+id+'" title="'+esc(f.t)+'">'+id+'</a>':""}
+
+/* ---------- pipeline ---------- */
+var g=document.getElementById("pipeBoxes"),NS="http://www.w3.org/2000/svg",cur=0;
+STEPS.forEach(function(s,i){
+  var grp=document.createElementNS(NS,"g");grp.setAttribute("class","box");grp.setAttribute("data-i",i);
+  grp.setAttribute("tabindex","0");grp.setAttribute("role","button");grp.setAttribute("aria-label",s.k);
+  var y=i%2?100:40;
+  grp.innerHTML='<rect x="'+s.x+'" y="'+y+'" width="106" height="50" rx="8"/><text x="'+(s.x+53)+'" y="'+(y+22)+'" text-anchor="middle">'+s.k+'</text><text class="s" x="'+(s.x+53)+'" y="'+(y+39)+'" text-anchor="middle">step '+(i+1)+'</text>';
+  g.appendChild(grp);
+  if(i<STEPS.length-1){var n=STEPS[i+1],ny=(i+1)%2?100:40;
+    var p=document.createElementNS(NS,"path");p.setAttribute("class","arrow");
+    p.setAttribute("d","M"+(s.x+106)+","+(y+25)+" C"+(s.x+114)+","+(y+25)+" "+(n.x-8)+","+(ny+25)+" "+n.x+","+(ny+25));g.insertBefore(p,g.firstChild);}
+  grp.addEventListener("click",function(){showStep(i)});
+  grp.addEventListener("keydown",function(e){if(e.key==="Enter"||e.key===" "){e.preventDefault();showStep(i)}});
+});
+var sb=document.getElementById("stepBtns");
+STEPS.forEach(function(s,i){var b=document.createElement("button");b.type="button";b.textContent=(i+1)+". "+s.k;b.setAttribute("role","tab");b.onclick=function(){showStep(i)};sb.appendChild(b)});
+function showStep(i){cur=i;var s=STEPS[i];
+  [].forEach.call(g.querySelectorAll(".box"),function(el){el.classList.toggle("on",+el.getAttribute("data-i")===i)});
+  [].forEach.call(sb.children,function(b,j){b.setAttribute("aria-pressed",j===i?"true":"false");b.setAttribute("aria-selected",j===i?"true":"false")});
+  var risky=s.f.map(byId).filter(Boolean),hasP0=risky.some(function(f){return f.sev==="P0"});
+  document.getElementById("stepBody").innerHTML='<h3>'+(i+1)+'. '+s.k+'</h3><div class="refs mono">'+esc(s.cls)+'</div><p>'+s.d+'</p>'+
+    (risky.length?'<div class="flag'+(hasP0?" p0":"")+'"><b>Findings here:</b> '+risky.map(function(f){return pillFor(f.id)+" "+esc(f.t)}).join(" · ")+'</div>':"");
+}
+showStep(0);
+
+/* ---------- packages ---------- */
+var maxL=Math.max.apply(null,PKGS.map(function(p){return p[2]}));
+var pl=document.getElementById("pkgList");
+PKGS.forEach(function(p,i){var b=document.createElement("button");b.type="button";
+  var n=F.filter(function(f){return f.pkg.indexOf(p[0])>=0}).length;
+  b.innerHTML='<span style="min-width:0;flex:1"><span>'+p[0]+'</span><span class="bar"><i style="width:'+(p[2]/maxL*100)+'%"></i></span></span><span style="margin-left:8px;color:var(--muted)">'+(n?n+"⚑":"")+'</span>';
+  b.onclick=function(){showPkg(i)};pl.appendChild(b)});
+function showPkg(i){var p=PKGS[i];
+  [].forEach.call(pl.children,function(b,j){b.setAttribute("aria-pressed",j===i?"true":"false")});
+  var fs=F.filter(function(f){return f.pkg.indexOf(p[0])>=0});
+  document.getElementById("pkgDetail").innerHTML='<h3 class="mono" style="margin-top:0">com.infenia.yukta.'+p[0].replace(/\//g,".")+'</h3>'+
+    '<p class="refs">'+p[1]+' classes · '+p[2]+' lines</p><p>'+esc(p[3])+'</p>'+
+    (fs.length?'<h3>Findings ('+fs.length+')</h3><ul style="padding-left:18px;margin:0">'+fs.map(function(f){return '<li>'+pillFor(f.id)+' '+esc(f.t)+'</li>'}).join("")+'</ul>':'<p class="refs">No findings.</p>');
+}
+showPkg(0);
+
+/* ---------- control & vocab ---------- */
+document.querySelector("#ctlTable tbody").innerHTML=CTL.map(function(r){
+  return '<tr><td>'+r[0]+'</td><td>'+esc(r[1])+'</td><td><span class="pill '+(r[2]?"okp":"P0")+'">'+(r[2]?"yes":"no")+'</span></td><td class="mono">'+esc(r[3])+'</td></tr>'}).join("");
+document.getElementById("vocab").innerHTML=VOCAB_IN.map(function(v){return '<span class="in">'+v+'</span>'}).join("")+VOCAB_OUT.map(function(v){return '<span class="out">'+v+'</span>'}).join("");
+
+/* ---------- findings ---------- */
+function chip(container,label,on,cb){var b=document.createElement("button");b.type="button";b.textContent=label;b.setAttribute("aria-pressed",on?"true":"false");
+  b.onclick=function(){var v=b.getAttribute("aria-pressed")!=="true";b.setAttribute("aria-pressed",v?"true":"false");cb(v);render()};container.appendChild(b)}
+SEVS.forEach(function(s){chip(document.getElementById("sevFilters"),s,true,function(v){sevOn[s]=v})});
+AREAS.forEach(function(a){chip(document.getElementById("areaFilters"),a,true,function(v){areaOn[a]=v})});
+var q=document.getElementById("q");q.oninput=render;
+var hd=document.getElementById("hideDone");hd.onclick=function(){hideDone=!hideDone;hd.setAttribute("aria-pressed",hideDone?"true":"false");render()};
+document.getElementById("expandAll").onclick=function(){var ds=document.querySelectorAll("#findingList details"),open=!(ds[0]&&ds[0].open);[].forEach.call(ds,function(d){d.open=open})};
+document.getElementById("resetBtn").onclick=function(){done={};store.set("yk-core-done",done);render()};
+
+function render(){
+  var term=q.value.trim().toLowerCase();
+  var list=F.filter(function(f){
+    if(!sevOn[f.sev]||!areaOn[f.area])return false;
+    if(hideDone&&done[f.id])return false;
+    if(term&&(f.id+" "+f.t+" "+f.where+" "+f.impact+" "+f.fix+" "+f.pkg.join(" ")).toLowerCase().indexOf(term)<0)return false;
+    return true});
+  var el=document.getElementById("findingList");
+  el.innerHTML=list.length?list.map(function(f){
+    return '<details class="finding'+(done[f.id]?" done":"")+'" id="f-'+f.id+'"><summary><span class="id">'+f.id+'</span>'+
+      '<input type="checkbox" aria-label="Mark '+f.id+' done" data-id="'+f.id+'"'+(done[f.id]?" checked":"")+'>'+
+      '<span class="t">'+esc(f.t)+'</span><span class="meta"><span class="pill '+f.sev+'">'+f.sev+'</span><span class="pill P3">'+f.area+'</span><span class="pill P3">effort '+f.eff+'</span></span></summary>'+
+      '<div class="body"><dl><dt>Where</dt><dd class="mono">'+esc(f.where)+'</dd><dt>Impact</dt><dd>'+esc(f.impact)+'</dd><dt>Fix</dt><dd>'+esc(f.fix)+'</dd>'+
+      (f.pkg.length?'<dt>Packages</dt><dd class="mono">'+f.pkg.join(", ")+'</dd>':"")+'</dl></div></details>'}).join("")
+    :'<div class="empty">No findings match these filters.</div>';
+  [].forEach.call(el.querySelectorAll("input[type=checkbox]"),function(cb){
+    cb.onclick=function(e){e.stopPropagation()};
+    cb.onchange=function(){if(cb.checked)done[cb.dataset.id]=true;else delete done[cb.dataset.id];store.set("yk-core-done",done);render()}});
+  var n=Object.keys(done).filter(byId).length;
+  document.getElementById("progTxt").textContent=n+" / "+F.length+" done";
+  document.getElementById("progBar").style.width=(n/F.length*100)+"%";
+  document.getElementById("statFindings").textContent=F.length-n;
+  document.querySelector("#roadTable tbody").innerHTML=ROAD.map(function(r){
+    var d=r[1].filter(function(id){return done[id]}).length;
+    return '<tr><td><b>'+r[0]+'</b></td><td>'+r[1].map(pillFor).join(" ")+'</td><td>'+r[2]+'</td><td class="mono">'+d+'/'+r[1].length+'</td></tr>'}).join("");
+}
+render();
+
+/* jump links open the finding */
+document.addEventListener("click",function(e){var a=e.target.closest&&e.target.closest("[data-jump]");if(!a)return;
+  e.preventDefault();var id=a.getAttribute("data-jump");SEVS.forEach(function(s){sevOn[s]=true});AREAS.forEach(function(x){areaOn[x]=true});hideDone=false;q.value="";
+  [].forEach.call(document.querySelectorAll("#sevFilters button,#areaFilters button"),function(b){b.setAttribute("aria-pressed","true")});
+  hd.setAttribute("aria-pressed","false");render();var d=document.getElementById("f-"+id);if(d){d.open=true;d.scrollIntoView({behavior:"smooth",block:"center"})}});
+
+/* nav: scroll in JS so it also works when opened from file:// or data: URLs */
+var links=document.querySelectorAll("nav.side a");
+[].forEach.call(links,function(l){l.addEventListener("click",function(e){var t=document.querySelector(l.getAttribute("href"));if(t){e.preventDefault();t.scrollIntoView({behavior:"smooth"})}})});
+if("IntersectionObserver" in window){var io=new IntersectionObserver(function(es){es.forEach(function(en){if(en.isIntersecting){
+  [].forEach.call(links,function(l){l.classList.toggle("active",l.getAttribute("href")==="#"+en.target.id)})}})},{rootMargin:"-40% 0px -55% 0px"});
+  [].forEach.call(document.querySelectorAll("main section"),function(s){io.observe(s)});}
+})();
+</script>
+</body>
+</html>

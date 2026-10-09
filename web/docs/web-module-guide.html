@@ -1,0 +1,249 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+<!-- SPDX-FileCopyrightText: 2026 Infenia Private Limited -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Yukta Web API Guide</title>
+<style>
+:root{
+  --bg:#f7f7f5;--surface:#ffffff;--surface-2:#f0efec;--text:#1d1d1b;--muted:#5f5e5a;--line:#dcdad4;
+  --accent:#2f5bd3;--accent-soft:#e6ecfb;
+  --p0:#b42318;--p0-soft:#fde8e6;--p1:#b54708;--p1-soft:#fdf0e1;--p2:#6941c6;--p2-soft:#efe9fb;--p3:#475467;--p3-soft:#eceef1;
+  --ok:#067647;--ok-soft:#e3f5ec;
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#141413;--surface:#1d1d1b;--surface-2:#262624;--text:#ecebe6;--muted:#a3a29c;--line:#383835;
+  --accent:#8aa8ff;--accent-soft:#232c45;
+  --p0:#ff8a80;--p0-soft:#3b1d1a;--p1:#ffb35c;--p1-soft:#3a2915;--p2:#c3a6ff;--p2-soft:#2b2240;--p3:#b8c0cc;--p3-soft:#2a2d31;
+  --ok:#5fd39b;--ok-soft:#173226;
+}}
+:root[data-theme="dark"]{
+  --bg:#141413;--surface:#1d1d1b;--surface-2:#262624;--text:#ecebe6;--muted:#a3a29c;--line:#383835;
+  --accent:#8aa8ff;--accent-soft:#232c45;
+  --p0:#ff8a80;--p0-soft:#3b1d1a;--p1:#ffb35c;--p1-soft:#3a2915;--p2:#c3a6ff;--p2-soft:#2b2240;--p3:#b8c0cc;--p3-soft:#2a2d31;
+  --ok:#5fd39b;--ok-soft:#173226;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.6 var(--sans)}
+code,.mono{font-family:var(--mono);font-size:.88em}
+code{background:var(--surface-2);padding:.1em .35em;border-radius:4px}
+pre{background:var(--surface-2);padding:10px 12px;border-radius:8px;overflow-x:auto;font-family:var(--mono);font-size:13px;margin:8px 0}
+pre code{background:none;padding:0}
+a{color:var(--accent)}
+.layout{display:grid;grid-template-columns:230px minmax(0,1fr);max-width:1240px;margin:0 auto}
+nav.side{position:sticky;top:0;height:100vh;overflow:auto;padding:28px 18px;border-right:1px solid var(--line)}
+nav.side .brand{font-weight:700;font-size:17px;margin-bottom:2px}
+nav.side .sub{color:var(--muted);font-size:13px;margin-bottom:22px}
+nav.side a{display:block;color:var(--muted);text-decoration:none;padding:5px 10px;border-radius:6px;font-size:14px}
+nav.side a:hover,nav.side a.active{background:var(--accent-soft);color:var(--text)}
+nav.side .theme{margin-top:22px}
+main{padding:32px 40px 80px;min-width:0}
+section{margin-bottom:56px;scroll-margin-top:16px}
+h1{font-size:30px;line-height:1.2;margin:0 0 8px}
+h2{font-size:22px;margin:0 0 6px}
+h3{font-size:16px;margin:18px 0 6px}
+.lede{color:var(--muted);max-width:760px;margin:0 0 18px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:18px;min-width:0}
+.card>h3:first-child{margin-top:0}
+.card ul,.card ol{padding-left:18px;margin:6px 0}
+.grid{display:grid;gap:12px}
+.g4{grid-template-columns:repeat(4,minmax(0,1fr))}
+.g2{grid-template-columns:repeat(2,minmax(0,1fr))}
+.stat .n{font-size:26px;font-weight:700}
+.stat .l{color:var(--muted);font-size:13px}
+.pill{display:inline-block;font-size:12px;font-weight:600;padding:1px 8px;border-radius:999px;white-space:nowrap;text-decoration:none}
+.P0{background:var(--p0-soft);color:var(--p0)}.P1{background:var(--p1-soft);color:var(--p1)}
+.P2{background:var(--p2-soft);color:var(--p2)}.P3{background:var(--p3-soft);color:var(--p3)}
+.okp{background:var(--ok-soft);color:var(--ok)}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{color:var(--muted);font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.04em}
+.tablewrap{overflow-x:auto}
+button{font:inherit;font-size:13px;border:1px solid var(--line);background:var(--surface);color:var(--text);padding:5px 12px;border-radius:7px;cursor:pointer}
+button:hover{border-color:var(--accent)}
+button[aria-pressed="true"]{background:var(--accent);color:#fff;border-color:var(--accent)}
+:root[data-theme="dark"] button[aria-pressed="true"]{color:#111}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) button[aria-pressed="true"]{color:#111}}
+input[type=search]{font:inherit;font-size:14px;padding:6px 10px;border:1px solid var(--line);border-radius:7px;background:var(--surface);color:var(--text);min-width:220px}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.pipe{width:100%;height:auto;display:block}
+.pipe .box rect{fill:var(--surface);stroke:var(--line);stroke-width:1.2;transition:fill .15s,stroke .15s}
+.pipe .box text{fill:var(--text);font:600 13px var(--sans)}
+.pipe .box .s{fill:var(--muted);font:12px var(--mono)}
+.pipe .box.on rect{fill:var(--accent-soft);stroke:var(--accent);stroke-width:2}
+.pipe .arrow{stroke:var(--muted);stroke-width:1.4;fill:none}
+.pipe .box{cursor:pointer}
+.steps{display:flex;gap:6px;flex-wrap:wrap;margin:14px 0}
+.stepbody h3{margin-top:0}
+.refs{font-size:13px;color:var(--muted)}
+.flag{border-left:3px solid var(--p1);background:var(--p1-soft);padding:8px 12px;border-radius:0 6px 6px 0;margin-top:10px;font-size:14px}
+.flag.p0{border-color:var(--p0);background:var(--p0-soft)}
+.pkgs{display:grid;grid-template-columns:280px minmax(0,1fr);gap:14px}
+.pkglist button{display:flex;justify-content:space-between;width:100%;text-align:left;border:0;border-radius:6px;padding:7px 10px;background:transparent;font-family:var(--mono);font-size:12.5px}
+.pkglist button[aria-pressed="true"]{background:var(--accent-soft);color:var(--text)}
+.bar{height:6px;background:var(--surface-2);border-radius:3px;overflow:hidden;margin-top:6px}
+.bar>i{display:block;height:100%;background:var(--accent)}
+.filters{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+.filters .lbl{color:var(--muted);font-size:13px;margin-right:2px}
+.finding{border:1px solid var(--line);border-radius:10px;background:var(--surface);margin-bottom:10px}
+.finding summary{list-style:none;cursor:pointer;display:grid;grid-template-columns:auto auto minmax(0,1fr) auto;gap:10px;align-items:center;padding:12px 14px}
+.finding summary::-webkit-details-marker{display:none}
+.finding .id{font-family:var(--mono);font-size:12px;color:var(--muted);min-width:30px}
+.finding .t{font-weight:600}
+.finding .meta{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.finding .body{padding:0 14px 14px 14px;border-top:1px solid var(--line)}
+.finding .body dl{display:grid;grid-template-columns:90px minmax(0,1fr);gap:6px 12px;margin:12px 0 0}
+.finding .body dt{color:var(--muted);font-size:13px}
+.finding .body dd{margin:0;min-width:0;overflow-wrap:anywhere}
+.finding.done{opacity:.55}
+.finding.done .t{text-decoration:line-through}
+.progress{display:flex;align-items:center;gap:10px;margin-bottom:12px;font-size:14px;color:var(--muted)}
+.progress .bar{flex:1;height:8px;margin:0}
+.progress .bar>i{background:var(--ok)}
+.empty{color:var(--muted);padding:20px;text-align:center}
+.score td:nth-child(2){font-family:var(--mono);white-space:nowrap}
+@media (max-width:860px){
+  .layout{grid-template-columns:1fr}
+  nav.side{position:static;height:auto;border-right:0;border-bottom:1px solid var(--line);padding:16px}
+  nav.side .links{display:flex;flex-wrap:wrap;gap:4px}
+  main{padding:20px 16px 60px}
+  .g4{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .g2,.pkgs{grid-template-columns:1fr}
+  .finding summary{grid-template-columns:auto minmax(0,1fr)}
+  .finding .meta{grid-column:1/-1}
+  .finding .body dl{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+<div class="layout">
+<nav class="side" aria-label="Sections">
+  <div class="brand" id="brand"></div>
+  <div class="sub" id="sub"></div>
+  <div class="links" id="navLinks"></div>
+  <div class="theme"><button id="themeBtn" type="button">Toggle theme</button></div>
+</nav>
+<main id="main"></main>
+</div>
+<script>
+var DATA = {"module": "web", "htmlTitle": "Yukta Web API Guide", "title": "web module guide", "date": "2026-10-09", "lede": "The REST and Server-Sent-Events boundary. Six WebFlux controllers turn HTTP into calls on core's <code>SessionService<\/code>, <code>WorkflowService<\/code>, <code>ControlBusGateway<\/code>, <code>WorkflowGraphService<\/code> and <code>PluginLogReader<\/code>, and wrap the results in <code>ApiResponse&lt;T&gt;<\/code>.", "stats": [["44", "main files"], ["≈3.9k", "main lines"], ["31", "endpoints"]], "overviewHtml": "<h3>Design in one paragraph<\/h3><p>Every controller returns <code>Mono&lt;ResponseEntity&lt;ApiResponse&lt;T&gt;&gt;&gt;<\/code>, or a <code>Flux<\/code> for SSE. Request bodies are records validated with Jakarta Bean Validation. MapStruct mappers convert between web DTOs and core models. <code>GlobalExceptionHandler<\/code> extends <code>ResponseEntityExceptionHandler<\/code> and maps exceptions to <code>ApiResponse.error(...)<\/code>, but most controllers also catch errors themselves. Two <code>WebFilter<\/code>s add <code>X-Request-ID<\/code>/<code>X-Correlation-ID<\/code> and log timing. OpenAPI is served by springdoc at <code>/swagger-ui.html<\/code>.<\/p><div class=\"flag p0\"><b>Read first:<\/b> <a href=\"#f-W1\" data-jump=\"W1\">W1<\/a>. No endpoint requires authentication.<\/div>", "score": [["API design", "2.5/5", "Three URL shapes; sessionId not checked on read endpoints"], ["Security", "1/5", "No auth; message leaks"], ["Error handling", "2/5", "Errors map to 404; misleading 400"], ["Streaming", "3/5", "Gap between history and live; no heartbeat"], ["Simplicity", "2/5", "About 60% boilerplate in WorkflowController"], ["Tests", "4/5", "44 test classes"]], "flowTitle": "Request lifecycle", "steps": [{"k": "Filters", "cls": "RequestTracingFilter · RequestLoggingFilter", "d": "Adds the <code>X-Request-ID<\/code> and <code>X-Correlation-ID<\/code> response headers (generated or echoed) and logs the method, path, status and duration at debug. The IDs are not put into the Reactor context.", "f": ["W13", "W12"]}, {"k": "Auth", "cls": "(none)", "d": "There is no authentication or authorisation step. Every request reaches the controller.", "f": ["W1"]}, {"k": "Bind", "cls": "@Valid @RequestBody records", "d": "JSON is bound to request records such as <code>ConfigRequest<\/code>, <code>WorkflowStartRequest<\/code> and <code>WorkflowDefinitionRequest<\/code>. Unknown properties are rejected.", "f": ["W6", "W3"]}, {"k": "Map", "cls": "SessionMapper · WorkflowMapper · AppConfigMapper", "d": "MapStruct converts the DTOs to core models (<code>SessionConfigData<\/code>, <code>WorkflowDefinition<\/code>) and back.", "f": []}, {"k": "Core call", "cls": "SessionService · WorkflowService · ControlBusGateway", "d": "Calls the reactive core APIs. Control endpoints check that the execution belongs to the session in the path; status, stream and log endpoints don't.", "f": ["W7"]}, {"k": "Wrap", "cls": "ApiResponse.success", "d": "Successful results are wrapped in <code>{status, message, data, timestamp}<\/code>.", "f": ["W14", "W15"]}, {"k": "Errors", "cls": "controller onErrorResume · GlobalExceptionHandler", "d": "Start and stop map every error to 404 with <code>e.getMessage()<\/code>. Restart and control map every <code>IllegalArgumentException<\/code> to 404. The rest go to the advice, which leaks the message on 500.", "f": ["W2", "W4", "W5"]}, {"k": "Stream", "cls": "WorkflowController.streamWorkflowStatus · LogManagementController", "d": "SSE: status uses <code>watchExecution<\/code> with optional history replay. Logs use the stored log entries <code>concatWith<\/code> the live sink.", "f": ["W8", "W9"]}], "pkgTitle": "Code explorer", "pkgs": [["WorkflowController", 1, 954, "Start, stop, restart, restart-from-node, workflow and node pause/resume/stop/skip/step, status, the status SSE stream, and history.", "controller/WorkflowController"], ["SessionConfigController", 1, 503, "Create or update a session (<code>POST /api/sessions<\/code>, which also carries the workflow definitions), list sessions and summaries, get one session, and its workflows.", "controller/SessionConfigController"], ["LogManagementController", 1, 253, "Log SSE streams: formatted lines, and structured <code>LogEntryResponse<\/code>. History first, then live.", "controller/LogManagementController"], ["WorkflowDetailsController", 1, 250, "Workflow graph for the React Flow canvas, plus the per-workflow execution list.", "controller/WorkflowDetailsController"], ["PluginController", 1, 147, "Plugin catalogue and plugin details (description, usage pattern, ports, UI design).", "controller/PluginController"], ["ControlBusController", 1, 112, "Active nodes, the last heartbeat, and an arbitrary admin command to a node.", "controller/ControlBusController"], ["dto", 29, 1011, "Request records (3) and response records (26), several of which only wrap a single list.", "dto"], ["exception", 3, 373, "<code>GlobalExceptionHandler<\/code>, <code>ResourceNotFoundException<\/code>, <code>ValidationException<\/code>.", "exception"], ["filter", 2, 105, "Request tracing headers and request logging.", "filter"], ["mapper", 3, 190, "MapStruct mappers for sessions, workflows and app config.", "mapper"], ["model/api", 1, 99, "<code>ApiResponse&lt;T&gt;<\/code> envelope with <code>FieldError<\/code>.", "model/api"]], "sections": [{"id": "endpoints", "title": "Endpoint map", "lede": "All 31 routes. ⚠ marks a route with an open finding.", "html": "<div class=\"card tablewrap\"><table><tr><th>Method<\/th><th>Path<\/th><th>Purpose<\/th><th>Notes<\/th><\/tr><tr><td>POST<\/td><td class=\"mono\">/api/sessions<\/td><td>Create or update a session and its workflows<\/td><td>⚠ W1, unauthenticated workflow submission<\/td><\/tr><tr><td>GET<\/td><td class=\"mono\">/api/sessions<\/td><td>Session IDs<\/td><td>⚠ W11, no paging<\/td><\/tr><tr><td>GET<\/td><td class=\"mono\">/api/sessions/summaries<\/td><td>Session table rows<\/td><td>⚠ W11, reads every config<\/td><\/tr><tr><td>GET<\/td><td class=\"mono\">/api/sessions/{sid}<\/td><td>Session config<\/td><td><\/td><\/tr><tr><td>GET<\/td><td class=\"mono\">/api/sessions/{sid}/workflows[/{wid}]<\/td><td>Workflow definitions<\/td><td><\/td><\/tr><tr><td>GET<\/td><td class=\"mono\">/api/sessions/{sid}/workflows/{wid}/graph<\/td><td>Graph for the canvas<\/td><td><\/td><\/tr><tr><td>GET<\/td><td class=\"mono\">/api/sessions/{sid}/workflows/{wid}/executions<\/td><td>Executions of a workflow<\/td><td><\/td><\/tr><tr><td>GET (SSE)<\/td><td class=\"mono\">/api/sessions/{sid}/executions/{eid}/logs[/entries]<\/td><td>Log stream<\/td><td>⚠ W8, W9<\/td><\/tr><tr><td>POST<\/td><td class=\"mono\">/api/workflow/start<\/td><td>Start an execution<\/td><td>⚠ W4, every error is 404<\/td><\/tr><tr><td>POST<\/td><td class=\"mono\">/api/workflow/{sid}/{wid}/stop<\/td><td>Stop all executions of a workflow<\/td><td>⚠ W4<\/td><\/tr><tr><td>POST<\/td><td class=\"mono\">/api/workflow/executions/{eid}/stop|restart|restart/{node}<\/td><td>Execution lifecycle<\/td><td>⚠ W4, W10<\/td><\/tr><tr><td>POST<\/td><td class=\"mono\">/api/workflow/{sid}/{eid}/pause|resume<\/td><td>Workflow pause<\/td><td><\/td><\/tr><tr><td>POST<\/td><td class=\"mono\">/api/workflow/{sid}/{eid}/node/{nid}/pause|resume|stop|skip|step[/enable|/disable]<\/td><td>Node control<\/td><td>⚠ W5; skip and step don't work in core<\/td><\/tr><tr><td>GET<\/td><td class=\"mono\">/api/workflow/{sid}/status/{eid}<\/td><td>Progress snapshot<\/td><td>⚠ W7<\/td><\/tr><tr><td>GET (SSE)<\/td><td class=\"mono\">/api/workflow/{sid}/status/{eid}/stream<\/td><td>Progress stream<\/td><td>⚠ W9<\/td><\/tr><tr><td>GET<\/td><td class=\"mono\">/api/workflow/{sid}/history<\/td><td>Execution history<\/td><td>⚠ W11<\/td><\/tr><tr><td>GET<\/td><td class=\"mono\">/api/plugins[/{type}]<\/td><td>Plugin catalogue<\/td><td><\/td><\/tr><tr><td>GET<\/td><td class=\"mono\">/api/control/nodes, /control/workflows/{wid}/nodes[/{nid}/heartbeat]<\/td><td>Active nodes and heartbeat<\/td><td><\/td><\/tr><tr><td>POST<\/td><td class=\"mono\">/api/control/workflows/{wid}/nodes/{nid}/command<\/td><td>Admin command to a plugin<\/td><td>⚠ W3, arbitrary map<\/td><\/tr><\/table><\/div>"}, {"id": "conventions", "title": "Conventions for new endpoints", "html": "<div class=\"grid g2\"><div class=\"card\"><h3>Target shape<\/h3><pre><code>@PostMapping(\"/executions/{id}/pause\")\npublic Mono&lt;ApiResponse&lt;ExecutionRef&gt;&gt; pause(@PathVariable String id) {\n  return controlBus.pauseWorkflow(id)\n      .thenReturn(ApiResponse.ok(new ExecutionRef(id)));\n  // no onErrorResume: core throws ResourceNotFoundException,\n  // GlobalExceptionHandler maps it to 404\n}<\/code><\/pre><\/div><div class=\"card\"><h3>Rules<\/h3><ul><li>Don't catch errors in controllers. Throw typed exceptions from core.<\/li><li>Don't branch on <code>getMessage()<\/code> text.<\/li><li>Don't send exception messages to clients on 5xx.<\/li><li>If a path has <code>sessionId<\/code>, verify that the resource belongs to it.<\/li><li>Paginate every list endpoint.<\/li><li>Rely on the request filter for logging. Don't add per-endpoint INFO logs.<\/li><li>SSE: send a heartbeat comment and an event <code>id<\/code>.<\/li><\/ul><\/div><\/div>"}], "findings": [{"id": "W1", "sev": "P0", "area": "Security", "pkg": ["SessionConfigController", "WorkflowController", "ControlBusController"], "t": "No authentication or authorisation on any endpoint", "where": "No spring-security and no SecurityWebFilterChain. POST /api/sessions, /api/workflow/**, /api/control/** are all open", "impact": "Anyone on the network can submit and run workflows, which can execute code (plugin-api A1, process-executor).", "fix": "Bind to 127.0.0.1 by default and add an API-key WebFilter. Later: OAuth2 resource server with roles.", "eff": "M"}, {"id": "W2", "sev": "P1", "area": "Security", "pkg": ["exception", "WorkflowController"], "t": "Exception messages leak to clients", "where": "handleGenericException, handleIllegalState, controller FieldError(e.getMessage())", "impact": "Internal details are exposed.", "fix": "For 5xx, return a fixed message plus the request ID and log the cause.", "eff": "S"}, {"id": "W3", "sev": "P2", "area": "Security", "pkg": ["ControlBusController"], "t": "The admin command endpoint takes an arbitrary map", "where": "sendCommand(@RequestBody Map<String,Object>) returns the raw Message<?>", "impact": "Unvalidated input reaches plugins, and the internal envelope is exposed.", "fix": "A typed @Valid request, auth, and a DTO response.", "eff": "S"}, {"id": "W4", "sev": "P1", "area": "Correctness", "pkg": ["WorkflowController"], "t": "Controller error mapping turns failures into 404", "where": "start/stopWorkflow/stopExecution catch every error; restart/restartFromNode/executeControlSignal catch every IllegalArgumentException", "impact": "Validation and internal errors are reported as 'not found'.", "fix": "Delete them, throw ResourceNotFoundException in core, and let GlobalExceptionHandler map the status.", "eff": "M"}, {"id": "W5", "sev": "P3", "area": "Correctness", "pkg": ["WorkflowController"], "t": "The error handler branches on message text", "where": "executeControlSignal: e.getMessage().startsWith(\"Node not found\")", "impact": "Renaming a message in core changes the HTTP response; a null message would cause an NPE.", "fix": "Branch on exception type, not message text.", "eff": "S"}, {"id": "W6", "sev": "P1", "area": "Correctness", "pkg": ["exception"], "t": "Every malformed request is reported as 'Unknown field: unknown'", "where": "GlobalExceptionHandler.handleServerWebInputException", "impact": "Bad JSON, type mismatches and missing bodies all get a misleading message.", "fix": "Only use the unknown-field message when UnrecognizedPropertyException is present.", "eff": "S"}, {"id": "W7", "sev": "P2", "area": "Security", "pkg": ["WorkflowController", "LogManagementController"], "t": "Read endpoints don't check that the execution belongs to the session", "where": "status, status/stream and log streams look up by executionId only (control endpoints do check)", "impact": "Session A's URL can read session B's status and logs. An IDOR once auth exists.", "fix": "Reuse the executeControlSignal ownership check in one helper or filter.", "eff": "S"}, {"id": "W8", "sev": "P2", "area": "Correctness", "pkg": ["LogManagementController"], "t": "Log SSE loses or duplicates lines at the history/live seam", "where": "historicalLogs.concatWith(liveLogs); live sink is directBestEffort", "impact": "Gaps or duplicates in the UI log panel.", "fix": "Subscribe to live first into a replay buffer and dedupe by sequence number.", "eff": "M"}, {"id": "W9", "sev": "P2", "area": "Reliability", "pkg": ["WorkflowController", "LogManagementController"], "t": "SSE has no heartbeat and no event id", "where": "streamWorkflowStatus and the log streams", "impact": "Proxies drop idle streams, and reconnects replay everything.", "fix": "Send a 15 s comment heartbeat and support id plus Last-Event-ID.", "eff": "S"}, {"id": "W10", "sev": "P2", "area": "API design", "pkg": ["WorkflowController"], "t": "Three URL shapes for execution operations", "where": "/workflow/executions/{id}/stop vs /workflow/{sid}/{eid}/pause vs /workflow/{sid}/status/{eid}", "impact": "A confusing API surface for the CLI, MCP and the UI.", "fix": "Use /api/executions/{id}/… and keep deprecated aliases for one release.", "eff": "M"}, {"id": "W11", "sev": "P2", "area": "Performance", "pkg": ["SessionConfigController", "WorkflowController"], "t": "List endpoints aren't paginated", "where": "/api/sessions, /summaries (reads every config), /history", "impact": "O(sessions) I/O per request.", "fix": "Add limit and cursor, and cache the summaries.", "eff": "M"}, {"id": "W12", "sev": "P3", "area": "Simplicity", "pkg": ["WorkflowController", "SessionConfigController", "filter"], "t": "Each request is logged 3–4 times", "where": "Per-endpoint reached/succeeded/sent INFO logs plus RequestLoggingFilter", "impact": "Log noise and cost.", "fix": "Keep only the filter.", "eff": "S"}, {"id": "W13", "sev": "P3", "area": "Observability", "pkg": ["filter"], "t": "The request ID isn't propagated to logs, and client values aren't validated", "where": "RequestTracingFilter", "impact": "Logs can't be correlated by request.", "fix": "Use contextWrite plus context propagation, and validate the ID format.", "eff": "S"}, {"id": "W14", "sev": "P3", "area": "API design", "pkg": ["model/api", "dto"], "t": "A custom error envelope instead of ProblemDetail", "where": "ApiResponse (status repeated in the body), ErrorExample", "impact": "A non-standard error format.", "fix": "Use RFC 9457 ProblemDetail for errors.", "eff": "M"}, {"id": "W15", "sev": "P3", "area": "Simplicity", "pkg": ["dto"], "t": "Wrapper DTOs around a single list", "where": "SessionList, SessionListItems, WorkflowSummaries, WorkflowExecutions", "impact": "Extra types and mapping.", "fix": "Return the lists directly.", "eff": "S"}, {"id": "W16", "sev": "P3", "area": "Simplicity", "pkg": ["WorkflowController"], "t": "WorkflowController is 954 lines, about 60% boilerplate", "where": "Repeated swagger, logging and error lambdas", "impact": "Hard to change safely.", "fix": "After W4 and W12, split into lifecycle and control controllers.", "eff": "S"}, {"id": "W17", "sev": "P2", "area": "Tests", "pkg": ["exception", "WorkflowController"], "t": "Missing tests for error paths", "where": "Malformed JSON, null-message exceptions, 5xx leaks, cross-session IDs", "impact": "W2 and W4–W7 went unnoticed.", "fix": "Add WebTestClient cases.", "eff": "S"}], "road": [["1 · Lock the door", ["W1", "W2", "W3"], "No anonymous code execution"], ["2 · Honest errors", ["W4", "W5", "W6", "W17"], "Correct status codes and about 300 fewer lines"], ["3 · Streams", ["W8", "W9"], "No lost log lines; connections survive proxies"], ["4 · API shape", ["W7", "W10", "W11", "W14", "W15", "W16"], "Consistent and paginated"], ["5 · Observability", ["W12", "W13"], "Correlated, quieter logs"]]};
+(function(){
+"use strict";
+var D=DATA,store={get:function(k){try{return JSON.parse(localStorage.getItem(k))}catch(e){return null}},
+  set:function(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+var root=document.documentElement,saved=store.get("yk-theme");if(saved)root.setAttribute("data-theme",saved);
+document.getElementById("themeBtn").onclick=function(){
+  var dark=root.getAttribute("data-theme")==="dark"||(!root.getAttribute("data-theme")&&matchMedia("(prefers-color-scheme: dark)").matches);
+  var n=dark?"light":"dark";root.setAttribute("data-theme",n);store.set("yk-theme",n)};
+function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
+var F=D.findings,KEY="yk-"+D.module+"-done",done=store.get(KEY)||{};
+function byId(id){for(var i=0;i<F.length;i++)if(F[i].id===id)return F[i]}
+function pillFor(id){var f=byId(id);return f?'<a href="#f-'+id+'" class="pill '+f.sev+'" data-jump="'+id+'" title="'+esc(f.t)+'">'+id+'</a>':""}
+
+document.getElementById("brand").textContent="Yukta · "+D.module;
+document.getElementById("sub").textContent="Module guide & review · "+D.date;
+var secs=[["overview","Overview"]];
+if(D.steps&&D.steps.length)secs.push(["flow",D.flowTitle||"How it works"]);
+if(D.pkgs&&D.pkgs.length)secs.push(["packages",D.pkgTitle||"Package explorer"]);
+(D.sections||[]).forEach(function(s){secs.push([s.id,s.title])});
+secs.push(["findings","Improvement board"],["roadmap","Roadmap"]);
+document.getElementById("navLinks").innerHTML=secs.map(function(s){return '<a href="#'+s[0]+'">'+esc(s[1])+'</a>'}).join("");
+
+var h='<section id="overview"><h1>'+esc(D.title)+'</h1><p class="lede">'+D.lede+'</p><div class="grid g4">'+
+  D.stats.map(function(s){return '<div class="card stat"><div class="n">'+esc(s[0])+'</div><div class="l">'+esc(s[1])+'</div></div>'}).join("")+
+  '<div class="card stat"><div class="n" id="statFindings">–</div><div class="l">open review findings</div></div></div>'+
+  (D.overviewHtml||"")+
+  (D.score?'<h3>Scorecard</h3><div class="card tablewrap"><table class="score"><tr><th>Area</th><th>Score</th><th>Notes</th></tr>'+D.score.map(function(r){return '<tr><td>'+esc(r[0])+'</td><td>'+esc(r[1])+'</td><td>'+r[2]+'</td></tr>'}).join("")+'</table></div>':"")+'</section>';
+if(D.steps&&D.steps.length)h+='<section id="flow"><h2>'+esc(D.flowTitle||"How it works")+'</h2><p class="lede">'+(D.flowLede||"Click a stage or step through with the buttons. Each stage names the classes involved and the review findings that touch it.")+'</p><div class="card"><svg class="pipe" id="pipe" role="img" aria-label="Flow diagram"><g id="pipeBoxes"></g></svg><div class="steps" id="stepBtns" role="tablist"></div><div class="stepbody" id="stepBody" aria-live="polite"></div></div></section>';
+if(D.pkgs&&D.pkgs.length)h+='<section id="packages"><h2>'+esc(D.pkgTitle||"Package explorer")+'</h2><p class="lede">Bar width is lines of code. Select an entry to see what it owns and which findings apply to it.</p><div class="pkgs"><div class="card pkglist" id="pkgList" style="padding:8px"></div><div class="card" id="pkgDetail"></div></div></section>';
+(D.sections||[]).forEach(function(s){h+='<section id="'+s.id+'"><h2>'+esc(s.title)+'</h2>'+(s.lede?'<p class="lede">'+s.lede+'</p>':"")+s.html+'</section>'});
+h+='<section id="findings"><h2>Improvement board</h2><p class="lede">All review findings from <a href="'+D.module+'-improvements.md">'+D.module+'-improvements.md</a>. Filter, search and tick items off. Ticks are saved in this browser only.</p>'+
+ '<div class="progress"><span id="progTxt"></span><div class="bar"><i id="progBar" style="width:0"></i></div><button type="button" id="resetBtn">Reset ticks</button></div>'+
+ '<div class="filters" id="sevFilters"><span class="lbl">Severity</span></div><div class="filters" id="areaFilters"><span class="lbl">Area</span></div>'+
+ '<div class="filters"><input type="search" id="q" placeholder="Search class, keyword…" aria-label="Search findings"><button type="button" id="hideDone" aria-pressed="false">Hide done</button><button type="button" id="expandAll">Expand all</button></div><div id="findingList"></div></section>'+
+ '<section id="roadmap"><h2>Roadmap</h2><div class="card tablewrap"><table id="roadTable"><thead><tr><th>Phase</th><th>Items</th><th>Outcome</th><th>Done</th></tr></thead><tbody></tbody></table></div></section>';
+document.getElementById("main").innerHTML=h;
+
+/* flow */
+if(D.steps&&D.steps.length){
+  var NS="http://www.w3.org/2000/svg",g=document.getElementById("pipeBoxes"),S=D.steps,n=S.length,W=112,gap=Math.max(12,Math.floor((980-n*W)/Math.max(1,n-1)));
+  var total=n*W+(n-1)*gap;document.getElementById("pipe").setAttribute("viewBox","0 30 "+Math.max(total,300)+" 130");
+  S.forEach(function(s,i){var x=i*(W+gap),y=i%2?100:40,grp=document.createElementNS(NS,"g");
+    grp.setAttribute("class","box");grp.setAttribute("data-i",i);grp.setAttribute("tabindex","0");grp.setAttribute("role","button");grp.setAttribute("aria-label",s.k);
+    grp.innerHTML='<rect x="'+x+'" y="'+y+'" width="'+W+'" height="50" rx="8"/><text x="'+(x+W/2)+'" y="'+(y+22)+'" text-anchor="middle">'+esc(s.k)+'</text><text class="s" x="'+(x+W/2)+'" y="'+(y+39)+'" text-anchor="middle">step '+(i+1)+'</text>';
+    g.appendChild(grp);
+    if(i<n-1){var nx=(i+1)*(W+gap),ny=(i+1)%2?100:40,p=document.createElementNS(NS,"path");p.setAttribute("class","arrow");
+      p.setAttribute("d","M"+(x+W)+","+(y+25)+" C"+(x+W+gap/2)+","+(y+25)+" "+(nx-gap/2)+","+(ny+25)+" "+nx+","+(ny+25));g.insertBefore(p,g.firstChild)}
+    grp.addEventListener("click",function(){showStep(i)});
+    grp.addEventListener("keydown",function(e){if(e.key==="Enter"||e.key===" "){e.preventDefault();showStep(i)}})});
+  var sb=document.getElementById("stepBtns");
+  S.forEach(function(s,i){var b=document.createElement("button");b.type="button";b.textContent=(i+1)+". "+s.k;b.setAttribute("role","tab");b.onclick=function(){showStep(i)};sb.appendChild(b)});
+  var showStep=function(i){var s=S[i];
+    [].forEach.call(g.querySelectorAll(".box"),function(el){el.classList.toggle("on",+el.getAttribute("data-i")===i)});
+    [].forEach.call(sb.children,function(b,j){b.setAttribute("aria-pressed",j===i?"true":"false");b.setAttribute("aria-selected",j===i?"true":"false")});
+    var r=(s.f||[]).map(byId).filter(Boolean),p0=r.some(function(f){return f.sev==="P0"});
+    document.getElementById("stepBody").innerHTML='<h3>'+(i+1)+'. '+esc(s.k)+'</h3><div class="refs mono">'+esc(s.cls||"")+'</div><p>'+s.d+'</p>'+
+      (r.length?'<div class="flag'+(p0?" p0":"")+'"><b>Findings here:</b> '+r.map(function(f){return pillFor(f.id)+" "+esc(f.t)}).join(" · ")+'</div>':"")};
+  showStep(0);
+}
+/* packages */
+if(D.pkgs&&D.pkgs.length){
+  var P=D.pkgs,maxL=Math.max.apply(null,P.map(function(p){return p[2]})),pl=document.getElementById("pkgList");
+  P.forEach(function(p,i){var b=document.createElement("button");b.type="button";var c=F.filter(function(f){return (f.pkg||[]).indexOf(p[0])>=0}).length;
+    b.innerHTML='<span style="min-width:0;flex:1"><span>'+esc(p[0])+'</span><span class="bar"><i style="width:'+(p[2]/maxL*100)+'%"></i></span></span><span style="margin-left:8px;color:var(--muted)">'+(c?c+"⚑":"")+'</span>';
+    b.onclick=function(){showPkg(i)};pl.appendChild(b)});
+  var showPkg=function(i){var p=P[i];[].forEach.call(pl.children,function(b,j){b.setAttribute("aria-pressed",j===i?"true":"false")});
+    var fs=F.filter(function(f){return (f.pkg||[]).indexOf(p[0])>=0});
+    document.getElementById("pkgDetail").innerHTML='<h3 class="mono" style="margin-top:0">'+esc(p[4]||p[0])+'</h3><p class="refs">'+p[1]+' files · '+p[2]+' lines</p><p>'+p[3]+'</p>'+
+      (fs.length?'<h3>Findings ('+fs.length+')</h3><ul style="padding-left:18px;margin:0">'+fs.map(function(f){return '<li>'+pillFor(f.id)+' '+esc(f.t)+'</li>'}).join("")+'</ul>':'<p class="refs">No findings.</p>')};
+  showPkg(0);
+}
+/* findings */
+var SEVS=["P0","P1","P2","P3"].filter(function(s){return F.some(function(f){return f.sev===s})}),AREAS=[];
+F.forEach(function(f){if(AREAS.indexOf(f.area)<0)AREAS.push(f.area)});
+var sevOn={},areaOn={},hideDone=false;SEVS.forEach(function(s){sevOn[s]=true});AREAS.forEach(function(a){areaOn[a]=true});
+function chip(c,label,cb){var b=document.createElement("button");b.type="button";b.textContent=label;b.setAttribute("aria-pressed","true");
+  b.onclick=function(){var v=b.getAttribute("aria-pressed")!=="true";b.setAttribute("aria-pressed",v?"true":"false");cb(v);render()};c.appendChild(b)}
+SEVS.forEach(function(s){chip(document.getElementById("sevFilters"),s,function(v){sevOn[s]=v})});
+AREAS.forEach(function(a){chip(document.getElementById("areaFilters"),a,function(v){areaOn[a]=v})});
+var q=document.getElementById("q");q.oninput=render;
+var hd=document.getElementById("hideDone");hd.onclick=function(){hideDone=!hideDone;hd.setAttribute("aria-pressed",hideDone?"true":"false");render()};
+document.getElementById("expandAll").onclick=function(){var ds=document.querySelectorAll("#findingList details"),o=!(ds[0]&&ds[0].open);[].forEach.call(ds,function(d){d.open=o})};
+document.getElementById("resetBtn").onclick=function(){done={};store.set(KEY,done);render()};
+function render(){var t=q.value.trim().toLowerCase();
+  var list=F.filter(function(f){if(!sevOn[f.sev]||!areaOn[f.area])return false;if(hideDone&&done[f.id])return false;
+    if(t&&(f.id+" "+f.t+" "+f.where+" "+f.impact+" "+f.fix+" "+(f.pkg||[]).join(" ")).toLowerCase().indexOf(t)<0)return false;return true});
+  var el=document.getElementById("findingList");
+  el.innerHTML=list.length?list.map(function(f){return '<details class="finding'+(done[f.id]?" done":"")+'" id="f-'+f.id+'"><summary><span class="id">'+f.id+'</span>'+
+    '<input type="checkbox" aria-label="Mark '+f.id+' done" data-id="'+f.id+'"'+(done[f.id]?" checked":"")+'><span class="t">'+esc(f.t)+'</span>'+
+    '<span class="meta"><span class="pill '+f.sev+'">'+f.sev+'</span><span class="pill P3">'+esc(f.area)+'</span><span class="pill P3">effort '+f.eff+'</span></span></summary>'+
+    '<div class="body"><dl><dt>Where</dt><dd class="mono">'+esc(f.where)+'</dd><dt>Impact</dt><dd>'+esc(f.impact)+'</dd><dt>Fix</dt><dd>'+esc(f.fix)+'</dd>'+
+    ((f.pkg||[]).length?'<dt>Area</dt><dd class="mono">'+esc(f.pkg.join(", "))+'</dd>':"")+'</dl></div></details>'}).join("")
+    :'<div class="empty">No findings match these filters.</div>';
+  [].forEach.call(el.querySelectorAll("input[type=checkbox]"),function(cb){cb.onclick=function(e){e.stopPropagation()};
+    cb.onchange=function(){if(cb.checked)done[cb.dataset.id]=true;else delete done[cb.dataset.id];store.set(KEY,done);render()}});
+  var k=Object.keys(done).filter(byId).length;
+  document.getElementById("progTxt").textContent=k+" / "+F.length+" done";
+  document.getElementById("progBar").style.width=(k/F.length*100)+"%";
+  document.getElementById("statFindings").textContent=F.length-k;
+  document.querySelector("#roadTable tbody").innerHTML=D.road.map(function(r){var d=r[1].filter(function(id){return done[id]}).length;
+    return '<tr><td><b>'+esc(r[0])+'</b></td><td>'+r[1].map(pillFor).join(" ")+'</td><td>'+esc(r[2])+'</td><td class="mono">'+d+'/'+r[1].length+'</td></tr>'}).join("")}
+render();
+document.addEventListener("click",function(e){var a=e.target.closest&&e.target.closest("[data-jump]");if(!a)return;e.preventDefault();
+  var id=a.getAttribute("data-jump");SEVS.forEach(function(s){sevOn[s]=true});AREAS.forEach(function(x){areaOn[x]=true});hideDone=false;q.value="";
+  [].forEach.call(document.querySelectorAll("#sevFilters button,#areaFilters button"),function(b){b.setAttribute("aria-pressed","true")});
+  hd.setAttribute("aria-pressed","false");render();var d=document.getElementById("f-"+id);if(d){d.open=true;d.scrollIntoView({behavior:"smooth",block:"center"})}});
+var links=document.querySelectorAll("nav.side a");
+[].forEach.call(links,function(l){l.addEventListener("click",function(e){var t=document.querySelector(l.getAttribute("href"));if(t){e.preventDefault();t.scrollIntoView({behavior:"smooth"})}})});
+if("IntersectionObserver" in window){var io=new IntersectionObserver(function(es){es.forEach(function(en){if(en.isIntersecting)
+  [].forEach.call(links,function(l){l.classList.toggle("active",l.getAttribute("href")==="#"+en.target.id)})})},{rootMargin:"-40% 0px -55% 0px"});
+  [].forEach.call(document.querySelectorAll("main section"),function(s){io.observe(s)})}
+})();
+</script>
+</body>
+</html>

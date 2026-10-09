@@ -36,6 +36,7 @@ controllers as an agent-friendly MCP tool surface backed directly by `core` serv
 - `src/main/java/com/infenia/yukta/mcp/dto/`: MCP-owned response records (plain records,
   no swagger annotations). Core records (`WorkflowProgress`, `WorkflowExecutionSummary`,
   `WorkflowDefinition`) are returned directly where already clean.
+- `docs/mcp-module-guide.html` (interactive guide) and `docs/mcp-improvements.md` (review findings).
 
 ## Conventions & Gotchas
 - Tool params use `@McpToolParam(required, description)`; `@McpArg` is only for

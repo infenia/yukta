@@ -16,6 +16,7 @@ Message-based inter-node communication framework with optional persistence:
 - `src/main/java/com/infenia/yukta/message/Message.java`
 - `src/main/java/com/infenia/yukta/message/channel/NodeMessageChannel.java` (+ `DirectNodeMessageChannel`, `PersistingNodeMessageChannel`)
 - `src/main/java/com/infenia/yukta/message/store/MessageStore.java`
+- Module guide (interactive): `docs/messaging-module-guide.html`; review findings: `docs/messaging-improvements.md`
 
 ## Build & Development Commands
 ```bash
