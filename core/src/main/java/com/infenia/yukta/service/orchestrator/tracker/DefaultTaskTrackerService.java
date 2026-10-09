@@ -8,6 +8,7 @@ import com.infenia.yukta.event.WorkflowStatusEvent;
 import com.infenia.yukta.logging.api.LogLevel;
 import com.infenia.yukta.logging.api.LogStream;
 import com.infenia.yukta.logging.api.PluginLogEntry;
+import com.infenia.yukta.model.execution.ControlState;
 import com.infenia.yukta.model.execution.TaskProgress;
 import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
@@ -25,7 +26,6 @@ import jakarta.validation.constraints.Size;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -52,7 +52,6 @@ import reactor.util.concurrent.Queues;
   "PMD.GodClass",
   "PMD.TooManyMethods",
   "PMD.CouplingBetweenObjects",
-  "PMD.UseObjectForClearerAPI",
   "PMD.OnlyOneReturn",
   "PMD.AvoidDuplicateLiterals",
   "PMD.LawOfDemeter"
@@ -241,7 +240,7 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
       @NotBlank final String executionId,
       @NodeId final String nodeId,
       @NotBlank @Size(max = 256) final String module,
-      @NotBlank @Size(max = 256) final String status) {
+      @NotNull final TaskStatus status) {
     return updateTaskStatus(executionId, nodeId, module, status, Map.of());
   }
 
@@ -260,7 +259,7 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
       @NotBlank final String executionId,
       @NodeId final String nodeId,
       @NotBlank @Size(max = 256) final String module,
-      @NotBlank @Size(max = 256) final String status,
+      @NotNull final TaskStatus status,
       @NotNull final Map<String, Object> metadata) {
     return Mono.fromRunnable(
         () -> emitTaskStatusEvent(executionId, nodeId, module, status, metadata));
@@ -280,7 +279,7 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
       @NotBlank final String executionId,
       @NotBlank final String nodeId,
       @NotBlank @Size(max = 256) final String module,
-      @NotBlank @Size(max = 256) final String status,
+      @NotNull final TaskStatus status,
       @NotNull final Map<String, Object> metadata) {
     log.atDebug()
         .addKeyValue("executionId", executionId)
@@ -290,7 +289,29 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
         .addKeyValue("metadataSize", metadata.size())
         .log("Emitting task status event");
     taskStatusSink.emitNext(
-        TaskStatusEvent.create(executionId, nodeId, module, status, metadata), RETRY_HANDLER);
+        TaskStatusEvent.create(executionId, nodeId, module, status.name(), metadata),
+        RETRY_HANDLER);
+  }
+
+  /**
+   * Record an operator control state for an execution and notify status subscribers.
+   *
+   * @param executionId the execution identifier
+   * @param state the new control state
+   */
+  @Override
+  public void emitControlStateEvent(
+      @NotBlank final String executionId, @NotNull final ControlState state) {
+    final WorkflowState workflowState = findState(executionId);
+    if (workflowState == null) {
+      log.atWarn()
+          .addKeyValue("executionId", executionId)
+          .addKeyValue("controlState", state)
+          .log("Received control state for unknown execution");
+      return;
+    }
+    workflowState.setControlState(state.name());
+    notifyStatusChange(executionId);
   }
 
   /**
@@ -301,12 +322,12 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
    */
   @Override
   public void emitWorkflowStatusEvent(
-      @NotBlank final String executionId, @NotBlank @Size(max = 256) final String status) {
+      @NotBlank final String executionId, @NotNull final TaskStatus status) {
     log.atDebug()
         .addKeyValue("executionId", executionId)
         .addKeyValue("status", status)
         .log("Emitting workflow status event");
-    wfStatusSink.emitNext(WorkflowStatusEvent.create(executionId, status), RETRY_HANDLER);
+    wfStatusSink.emitNext(WorkflowStatusEvent.create(executionId, status.name()), RETRY_HANDLER);
   }
 
   /**
@@ -338,7 +359,7 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
    */
   @Override
   public Mono<Void> finishWorkflow(
-      @NotBlank final String executionId, @NotBlank @Size(max = 256) final String status) {
+      @NotBlank final String executionId, @NotNull final TaskStatus status) {
     return Mono.fromRunnable(
         () -> {
           log.atInfo()
@@ -385,7 +406,8 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
                 state.status,
                 state.getTasks(),
                 state.startTime,
-                state.endTime);
+                state.endTime,
+                state.controlState);
       }
     }
     return progress;
@@ -412,7 +434,8 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
         state.status,
         state.getTasks(),
         state.startTime,
-        state.endTime);
+        state.endTime,
+        state.controlState);
   }
 
   /**
@@ -623,10 +646,10 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
       final WorkflowState state = findState(event.executionId());
       if (state != null) {
         state.setStatus(event.status());
-        state.setEndTime(event.timestamp());
         execIds.add(event.executionId());
 
         if (isTerminal(event.status())) {
+          state.setEndTime(event.timestamp());
           scheduleCleanup(event.executionId());
           terminalCount++;
           log.atDebug()
@@ -764,10 +787,7 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
   }
 
   private static boolean isTerminalStatus(final String status) {
-    // Control events (e.g. NODE_PAUSED) are not lifecycle statuses; treat unknown values as
-    // non-terminal instead of throwing and dropping the whole event batch.
-    return Arrays.stream(TaskStatus.values())
-        .anyMatch(s -> s.name().equals(status) && s.isTerminal());
+    return TaskStatus.valueOf(status).isTerminal();
   }
 
   /**
@@ -837,6 +857,10 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
 
     /** The current execution status. */
     private String status;
+
+    /** The latest operator control state, or null. */
+    @SuppressWarnings("PMD.AvoidUsingVolatile")
+    private volatile String controlState;
 
     /** Map of task progress by node ID. */
     private final Map<String, TaskProgress> taskMap;
@@ -922,6 +946,10 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
 
     /* default */ void setStatus(final String status) {
       this.status = status;
+    }
+
+    /* default */ void setControlState(final String controlState) {
+      this.controlState = controlState;
     }
 
     /* default */ void setEndTime(final LocalDateTime endTime) {

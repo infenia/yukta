@@ -6,12 +6,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.infenia.yukta.model.execution.ControlState;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.DisableStepModeCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.EnableStepModeCommand;
 import com.infenia.yukta.service.control.ExecutionControl;
 import com.infenia.yukta.service.control.store.ExecutionControlRegistry;
-import com.infenia.yukta.service.orchestrator.tracker.DefaultTaskTrackerService;
+import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -29,7 +30,7 @@ import reactor.test.StepVerifier;
 class EnableStepModeCommandProcessorTest {
 
   @Mock private ExecutionControlRegistry registry;
-  @Mock private DefaultTaskTrackerService taskTracker;
+  @Mock private TaskTrackerService taskTracker;
   @Mock private ExecutionControl executionControl;
 
   @InjectMocks private EnableStepModeCommandProcessor processor;
@@ -74,7 +75,7 @@ class EnableStepModeCommandProcessorTest {
     // Then
     StepVerifier.create(result).verifyComplete();
     assertThat(stepModeFlag.get()).isTrue();
-    verify(taskTracker).emitWorkflowStatusEvent(executionId, "STEP_MODE_ENABLED");
+    verify(taskTracker).emitControlStateEvent(executionId, ControlState.STEP_MODE_ENABLED);
   }
 
   @Test

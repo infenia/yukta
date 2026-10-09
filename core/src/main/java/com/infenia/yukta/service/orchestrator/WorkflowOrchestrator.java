@@ -142,9 +142,9 @@ public class WorkflowOrchestrator {
 
     final Mono<Void> trackExecution =
         Mono.firstWithSignal(
-                execution.thenReturn(TaskStatus.SUCCESS.name()),
-                control.immediateStopSink().asMono().thenReturn(TaskStatus.STOPPED.name()),
-                control.safeStopSink().asMono().thenReturn(TaskStatus.STOPPED.name()))
+                execution.thenReturn(TaskStatus.SUCCESS),
+                control.immediateStopSink().asMono().thenReturn(TaskStatus.STOPPED),
+                control.safeStopSink().asMono().thenReturn(TaskStatus.STOPPED))
             .flatMap(status -> tracker.finishWorkflow(executionId, status))
             .doOnSuccess(
                 _ ->
@@ -156,7 +156,7 @@ public class WorkflowOrchestrator {
             .onErrorResume(
                 e ->
                     tracker
-                        .finishWorkflow(executionId, "FAILURE")
+                        .finishWorkflow(executionId, TaskStatus.FAILURE)
                         .doOnSuccess(
                             _ ->
                                 log.atError()
@@ -271,12 +271,11 @@ public class WorkflowOrchestrator {
                     sessionId,
                     workflowId,
                     nodeIds))
-            .thenReturn(TaskStatus.SUCCESS.name())
+            .thenReturn(TaskStatus.SUCCESS)
             .as(
                 mono ->
                     Mono.firstWithSignal(
-                        mono,
-                        control.safeStopSink().asMono().thenReturn(TaskStatus.STOPPED.name())))
+                        mono, control.safeStopSink().asMono().thenReturn(TaskStatus.STOPPED)))
             .flatMap(status -> tracker.finishWorkflow(newExecutionId, status))
             .doOnSuccess(
                 _ ->
@@ -288,7 +287,7 @@ public class WorkflowOrchestrator {
             .onErrorResume(
                 e ->
                     tracker
-                        .finishWorkflow(newExecutionId, "FAILURE")
+                        .finishWorkflow(newExecutionId, TaskStatus.FAILURE)
                         .doOnSuccess(
                             _ ->
                                 log.atError()

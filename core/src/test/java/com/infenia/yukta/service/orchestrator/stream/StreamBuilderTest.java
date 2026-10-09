@@ -3,6 +3,7 @@
 package com.infenia.yukta.service.orchestrator.stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -12,6 +13,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 
 import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
+import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.model.workflow.WorkflowNode;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import java.time.Duration;
@@ -36,15 +38,20 @@ import reactor.test.StepVerifier;
 @ExtendWith(MockitoExtension.class)
 @DisplayName("StreamBuilder Tests")
 @NoArgsConstructor
-@SuppressWarnings({"PMD.TooManyStaticImports", "PMD.TooManyMethods", "PMD.CommentRequired"})
+@SuppressWarnings({
+  "PMD.TooManyStaticImports",
+  "PMD.TooManyMethods",
+  "PMD.CommentRequired",
+  "PMD.ExcessiveImports"
+})
 class StreamBuilderTest {
 
   private static final String EXECUTION_ID = "exec-001";
   private static final String NODE_ID = "test-node";
   private static final String DEFAULT_TASK_ID = "default";
-  private static final String STATUS_RUNNING = "RUNNING";
-  private static final String STATUS_SUCCESS = "SUCCESS";
-  private static final String STATUS_FAILURE = "FAILURE";
+  private static final TaskStatus STATUS_RUNNING = TaskStatus.RUNNING;
+  private static final TaskStatus STATUS_SUCCESS = TaskStatus.SUCCESS;
+  private static final TaskStatus STATUS_FAILURE = TaskStatus.FAILURE;
   private static final Duration TIMEOUT = Duration.ofSeconds(10);
 
   /** Injected mocked node. */
@@ -297,7 +304,7 @@ class StreamBuilderTest {
             executionIdCaptor.capture(),
             nodeIdCaptor.capture(),
             taskIdCaptor.capture(),
-            anyString(),
+            any(TaskStatus.class),
             anyMap());
 
     assertThat(executionIdCaptor.getValue()).isEqualTo(EXECUTION_ID);
@@ -347,7 +354,7 @@ class StreamBuilderTest {
 
     verify(taskTrackerService, org.mockito.Mockito.atLeastOnce())
         .emitTaskStatusEvent(
-            eq(latestExecId), eq(NODE_ID), eq(DEFAULT_TASK_ID), anyString(), anyMap());
+            eq(latestExecId), eq(NODE_ID), eq(DEFAULT_TASK_ID), any(TaskStatus.class), anyMap());
   }
 
   @Test
@@ -366,7 +373,7 @@ class StreamBuilderTest {
 
     verify(taskTrackerService, org.mockito.Mockito.atLeastOnce())
         .emitTaskStatusEvent(
-            anyString(), anyString(), anyString(), anyString(), mapCaptor.capture());
+            anyString(), anyString(), anyString(), any(TaskStatus.class), mapCaptor.capture());
 
     assertThat(mapCaptor.getValue()).isEqualTo(Collections.emptyMap());
   }

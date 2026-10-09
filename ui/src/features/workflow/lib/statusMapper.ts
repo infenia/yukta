@@ -73,6 +73,15 @@ export function isTerminalExecStatus(raw: string | null | undefined): boolean {
   return raw != null && TERMINAL_EXEC_STATUSES.has(raw);
 }
 
+/** Status to display for an execution: a live pause control state overrides a non-terminal status. */
+export function toDisplayExecStatus(
+  status: string | null | undefined,
+  controlState: string | null | undefined
+): string | null {
+  const paused = controlState === 'PAUSED' || controlState === 'NODE_PAUSED';
+  return paused && !isTerminalExecStatus(status) ? controlState : (status ?? null);
+}
+
 /** Mockup-style node status label, e.g. "Done", "Active", "Waiting". */
 export function toNodeStatusLabel(status: NodeUiStatus): string {
   const labels: Record<NodeUiStatus, string> = {

@@ -3,6 +3,7 @@
 package com.infenia.yukta.service.orchestrator.stream;
 
 import com.infenia.yukta.message.Message;
+import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.model.workflow.WorkflowNode;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -39,15 +40,6 @@ public class StreamBuilder {
 
   /** Default task identifier constant. */
   private static final String DEFAULT_TASK_ID = "default";
-
-  /** Status constant: RUNNING. */
-  private static final String STATUS_RUNNING = "RUNNING";
-
-  /** Status constant: SUCCESS. */
-  private static final String STATUS_SUCCESS = "SUCCESS";
-
-  /** Status constant: FAILURE. */
-  private static final String STATUS_FAILURE = "FAILURE";
 
   /** The workflow node being processed. */
   private final WorkflowNode node;
@@ -216,7 +208,7 @@ public class StreamBuilder {
                   executionId,
                   node.nodeId(),
                   DEFAULT_TASK_ID,
-                  STATUS_RUNNING,
+                  TaskStatus.RUNNING,
                   Collections.emptyMap());
             })
         .doOnComplete(
@@ -230,7 +222,7 @@ public class StreamBuilder {
                   executionId,
                   node.nodeId(),
                   DEFAULT_TASK_ID,
-                  STATUS_SUCCESS,
+                  TaskStatus.SUCCESS,
                   Collections.emptyMap());
             })
         .doOnError(
@@ -245,7 +237,7 @@ public class StreamBuilder {
                   executionId,
                   node.nodeId(),
                   DEFAULT_TASK_ID,
-                  STATUS_FAILURE,
+                  TaskStatus.FAILURE,
                   Collections.emptyMap());
             });
   }

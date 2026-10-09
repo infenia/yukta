@@ -10,6 +10,7 @@ import { ProgressPanel } from './ProgressPanel';
 import { RunHistoryDropdown } from './RunHistoryDropdown';
 import { WorkflowCanvas } from './WorkflowCanvas';
 import { WorkflowTitleBar } from './WorkflowTitleBar';
+import { toDisplayExecStatus } from '../lib/statusMapper';
 import { useExecutionLogs } from '../hooks/useExecutionLogs';
 import { useExecutionProgress } from '../hooks/useExecutionProgress';
 import { useExecutionSelection } from '../hooks/useExecutionSelection';
@@ -62,7 +63,10 @@ export function WorkflowDetailsPage() {
   const selectedExecution = executions.find(
     (execution) => execution.executionId === selectedExecutionId
   );
-  const executionStatus = progress?.status ?? selectedExecution?.status ?? null;
+  const executionStatus = toDisplayExecStatus(
+    progress?.status ?? selectedExecution?.status,
+    progress?.controlState
+  );
 
   return (
     <div className="flex flex-1 flex-col bg-background" data-testid="workflow-details-page">

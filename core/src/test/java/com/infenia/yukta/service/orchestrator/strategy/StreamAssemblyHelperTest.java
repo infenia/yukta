@@ -7,6 +7,7 @@ import static org.mockito.Mockito.doNothing;
 
 import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
+import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.model.workflow.WorkflowNode;
 import com.infenia.yukta.plugin.core.Plugin;
 import com.infenia.yukta.service.control.ExecutionControl;
@@ -51,7 +52,11 @@ class StreamAssemblyHelperTest {
     doNothing()
         .when(tracker)
         .emitTaskStatusEvent(
-            anyString(), anyString(), anyString(), anyString(), org.mockito.ArgumentMatchers.any());
+            anyString(),
+            anyString(),
+            anyString(),
+            org.mockito.ArgumentMatchers.any(TaskStatus.class),
+            org.mockito.ArgumentMatchers.any());
   }
 
   @Test

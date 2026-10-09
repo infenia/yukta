@@ -2,13 +2,14 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.service.control.processor;
 
+import com.infenia.yukta.model.execution.ControlState;
 import com.infenia.yukta.plugin.control.ControlSignalProcessor;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.DisableStepModeCommand;
 import com.infenia.yukta.plugin.control.WorkflowDirective;
 import com.infenia.yukta.service.control.ExecutionControl;
 import com.infenia.yukta.service.control.store.ExecutionControlRegistry;
-import com.infenia.yukta.service.orchestrator.tracker.DefaultTaskTrackerService;
+import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -30,7 +31,7 @@ public class DisableStepModeCommandProcessor implements ControlSignalProcessor {
   private final ExecutionControlRegistry registry;
 
   /** The task tracker service for tracking task execution. */
-  private final DefaultTaskTrackerService taskTracker;
+  private final TaskTrackerService taskTracker;
 
   @Override
   public boolean canProcess(final ExecutionControlCommand command) {
@@ -58,7 +59,7 @@ public class DisableStepModeCommandProcessor implements ControlSignalProcessor {
 
           stepMode.set(false);
 
-          taskTracker.emitWorkflowStatusEvent(disable.executionId(), "STEP_MODE_DISABLED");
+          taskTracker.emitControlStateEvent(disable.executionId(), ControlState.STEP_MODE_DISABLED);
 
           log.atDebug()
               .addKeyValue("executionId", disable.executionId())

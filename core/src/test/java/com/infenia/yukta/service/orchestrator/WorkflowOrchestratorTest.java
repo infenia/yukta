@@ -13,6 +13,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.infenia.yukta.message.Message;
+import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.model.workflow.NodeAssembler;
 import com.infenia.yukta.model.workflow.PreparedWorkflow;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
@@ -62,7 +63,9 @@ class WorkflowOrchestratorTest {
 
   @BeforeEach
   void setUp() {
-    lenient().when(tracker.finishWorkflow(anyString(), anyString())).thenReturn(Mono.empty());
+    lenient()
+        .when(tracker.finishWorkflow(anyString(), any(TaskStatus.class)))
+        .thenReturn(Mono.empty());
     orchestrator =
         new WorkflowOrchestrator(
             tracker,
@@ -175,8 +178,8 @@ class WorkflowOrchestratorTest {
 
     StepVerifier.create(execution).then(() -> immediateStop.tryEmitEmpty()).verifyComplete();
 
-    verify(tracker).finishWorkflow(executionId, "STOPPED");
-    verify(tracker, never()).finishWorkflow(executionId, "SUCCESS");
+    verify(tracker).finishWorkflow(executionId, TaskStatus.STOPPED);
+    verify(tracker, never()).finishWorkflow(executionId, TaskStatus.SUCCESS);
 
     verify(executionControlRegistry).unregister(executionId);
     verify(checkpointStore).clear(executionId);
@@ -204,8 +207,8 @@ class WorkflowOrchestratorTest {
 
     StepVerifier.create(execution).then(() -> safeStop.tryEmitEmpty()).verifyComplete();
 
-    verify(tracker).finishWorkflow(executionId, "STOPPED");
-    verify(tracker, never()).finishWorkflow(executionId, "SUCCESS");
+    verify(tracker).finishWorkflow(executionId, TaskStatus.STOPPED);
+    verify(tracker, never()).finishWorkflow(executionId, TaskStatus.SUCCESS);
 
     verify(executionControlRegistry).unregister(executionId);
     verify(checkpointStore).clear(executionId);
@@ -372,8 +375,8 @@ class WorkflowOrchestratorTest {
 
     StepVerifier.create(restart).then(() -> safeStop.tryEmitEmpty()).verifyComplete();
 
-    verify(tracker).finishWorkflow(newExecId, "STOPPED");
-    verify(tracker, never()).finishWorkflow(newExecId, "SUCCESS");
+    verify(tracker).finishWorkflow(newExecId, TaskStatus.STOPPED);
+    verify(tracker, never()).finishWorkflow(newExecId, TaskStatus.SUCCESS);
 
     verify(executionControlRegistry).unregister(newExecId);
     verify(checkpointStore).clear(newExecId);

@@ -6,12 +6,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.infenia.yukta.model.execution.ControlState;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.PauseWorkflowCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.SkipNodeCommand;
 import com.infenia.yukta.service.control.ExecutionControl;
 import com.infenia.yukta.service.control.store.ExecutionControlRegistry;
-import com.infenia.yukta.service.orchestrator.tracker.DefaultTaskTrackerService;
+import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -32,7 +33,7 @@ class SkipNodeCommandProcessorTest {
   @Mock private ExecutionControlRegistry registry;
 
   /** Task tracker service. */
-  @Mock private DefaultTaskTrackerService taskTracker;
+  @Mock private TaskTrackerService taskTracker;
 
   /** Execution control instance. */
   @Mock private ExecutionControl executionControl;
@@ -79,7 +80,7 @@ class SkipNodeCommandProcessorTest {
     // Then
     StepVerifier.create(result).verifyComplete();
     assertThat(skipFlag.get()).isTrue();
-    verify(taskTracker).emitWorkflowStatusEvent(executionId, "NODE_SKIPPED");
+    verify(taskTracker).emitControlStateEvent(executionId, ControlState.NODE_SKIPPED);
   }
 
   @Test
@@ -98,7 +99,7 @@ class SkipNodeCommandProcessorTest {
     // Then
     StepVerifier.create(result).verifyComplete();
     assertThat(skipFlag.get()).isFalse();
-    verify(taskTracker).emitWorkflowStatusEvent(executionId, "NODE_UNSKIPPED");
+    verify(taskTracker).emitControlStateEvent(executionId, ControlState.NODE_UNSKIPPED);
   }
 
   @Test

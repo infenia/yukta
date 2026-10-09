@@ -5,6 +5,7 @@ package com.infenia.yukta.service.orchestrator.strategy;
 import com.infenia.yukta.message.Message;
 import com.infenia.yukta.message.channel.NodeMessageChannel;
 import com.infenia.yukta.message.channel.NodeMessageChannelProvider;
+import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.model.workflow.NodeAssembler;
 import com.infenia.yukta.model.workflow.ParentEdgeInfo;
 import com.infenia.yukta.model.workflow.WorkflowNode;
@@ -34,15 +35,6 @@ public class TerminalNodeAssemblerStrategy implements NodeAssemblerStrategy {
 
   /** Default task identifier. */
   private static final String DEFAULT_TASK_ID = "default";
-
-  /** Status value for running execution. */
-  private static final String STATUS_RUNNING = "RUNNING";
-
-  /** Status value for successful execution. */
-  private static final String STATUS_SUCCESS = "SUCCESS";
-
-  /** Status value for failed execution. */
-  private static final String STATUS_FAILURE = "FAILURE";
 
   /** Log key for node ID. */
   private static final String LOG_KEY_NODE_ID = "nodeId";
@@ -156,7 +148,7 @@ public class TerminalNodeAssemblerStrategy implements NodeAssemblerStrategy {
                         context.executionId(),
                         node.nodeId(),
                         DEFAULT_TASK_ID,
-                        STATUS_RUNNING,
+                        TaskStatus.RUNNING,
                         Collections.emptyMap());
                   })
               .doOnSuccess(
@@ -169,7 +161,7 @@ public class TerminalNodeAssemblerStrategy implements NodeAssemblerStrategy {
                         context.executionId(),
                         node.nodeId(),
                         DEFAULT_TASK_ID,
-                        STATUS_SUCCESS,
+                        TaskStatus.SUCCESS,
                         Collections.emptyMap());
                   })
               .doOnError(
@@ -183,7 +175,7 @@ public class TerminalNodeAssemblerStrategy implements NodeAssemblerStrategy {
                         context.executionId(),
                         node.nodeId(),
                         DEFAULT_TASK_ID,
-                        STATUS_FAILURE,
+                        TaskStatus.FAILURE,
                         Collections.emptyMap());
                   });
 

@@ -272,7 +272,8 @@ reliability risk) · **P2** should fix · **P3** clean-up. Effort: S < ½ day, M
 
 ## 3. Suggested roadmap
 
-> **Progress:** Phase 1 done on `fix/core-status-correctness`: C1 stop-gap, C2, C3, C4, C7 (tests T1, T2, T5). C1 full fix is Phase 2.
+> **Progress:** Phase 1 done on `fix/core-status-correctness`: C1 stop-gap, C2, C3, C4, C7 (tests T1, T2, T5). 
+> Phase 2 done on `refactor/core-typed-status`: S1, S4 and the full C1 fix (`ControlState` / `WorkflowProgress.controlState`; the C1 stop-gap is removed).
 
 | Phase | Items | Outcome |
 |---|---|---|
