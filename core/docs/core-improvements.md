@@ -276,6 +276,8 @@ reliability risk) · **P2** should fix · **P3** clean-up. Effort: S < ½ day, M
 > Phase 2 done on `refactor/core-typed-status`: S1, S4 and the full C1 fix (`ControlState` / `WorkflowProgress.controlState`; the C1 stop-gap is removed).
 >
 > Phase 3 done on `refactor/core-dead-code`: S5, P2, P7, C6, C17, S6, and S8 in part. Only the `TerminalNodeAssemblerStrategy` coverage exception could be dropped; the others still fail at 100%.
+>
+> Phase 4 done on `perf/core-backpressure`: C8, P1, P3, P4 (checkpoint ordering only). **Measured:** before, a fast 10k-message source into a node with `bufferSize` 16 (or 256 through 20 nodes) delivered only 16 (or 256) messages and then completed with no error, i.e. silent data loss. After, all 10,000 arrive; a 20-node linear chain of 10k messages takes about 1.0 s in a cold test JVM (`StreamTopologyDecoratorBackpressureTest`). Not done: P4's "checkpoint only the last message" (the decorator does not know a node's children), P5, P6.
 
 | Phase | Items | Outcome |
 |---|---|---|

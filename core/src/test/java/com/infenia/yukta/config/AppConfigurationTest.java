@@ -8,13 +8,18 @@ import static org.mockito.Mockito.mock;
 import com.infenia.yukta.service.control.store.ExecutionControlStore;
 import com.infenia.yukta.service.control.store.InMemoryExecutionControlStore;
 import com.infenia.yukta.service.session.store.SessionConfigStore;
+import java.time.Duration;
+import java.util.concurrent.locks.LockSupport;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Scheduler;
+import reactor.test.StepVerifier;
 import tools.jackson.databind.ObjectMapper;
 
 /** Tests for {@link AppConfiguration}. */
@@ -103,6 +108,44 @@ class AppConfigurationTest {
     @Bean
     /* package */ ObjectMapper customObjectMapper() {
       return new ObjectMapper();
+    }
+  }
+
+  @Test
+  void virtualThreadScheduler_runsMoreBlockingTasksThanCpusConcurrently() {
+    final Scheduler scheduler = new AppConfiguration().virtualThreadScheduler();
+    try {
+      final int tasks = Runtime.getRuntime().availableProcessors() * 4;
+      final long start = System.nanoTime();
+
+      Flux.range(0, tasks)
+          .flatMap(
+              _ ->
+                  Mono.fromRunnable(
+                          () -> {
+                            assertThat(Thread.currentThread().isVirtual()).isTrue();
+                            LockSupport.parkNanos(Duration.ofMillis(300).toNanos());
+                          })
+                      .subscribeOn(scheduler),
+              tasks)
+          .blockLast(Duration.ofSeconds(10));
+
+      // A CPU-sized pool would need four rounds (>= 1.2 s); concurrent execution needs one.
+      assertThat(Duration.ofNanos(System.nanoTime() - start)).isLessThan(Duration.ofMillis(900));
+    } finally {
+      scheduler.dispose();
+    }
+  }
+
+  @Test
+  void virtualThreadScheduler_firesDelayedTasksForTimeouts() {
+    final Scheduler scheduler = new AppConfiguration().virtualThreadScheduler();
+    try {
+      StepVerifier.create(Mono.never().timeout(Duration.ofMillis(100), scheduler))
+          .expectError(java.util.concurrent.TimeoutException.class)
+          .verify(Duration.ofSeconds(5));
+    } finally {
+      scheduler.dispose();
     }
   }
 }

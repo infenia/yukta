@@ -3,6 +3,7 @@
 package com.infenia.yukta.service.orchestrator.stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
@@ -19,13 +20,13 @@ import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 import reactor.core.Disposable;
 import reactor.core.publisher.Flux;
-import reactor.core.publisher.Sinks;
 import reactor.test.StepVerifier;
 
 /** Tests for StreamTopologyDecorator with message stream orchestration. */
@@ -79,6 +80,12 @@ class StreamTopologyDecoratorTest {
 
   /** Decorator instance under test. */
   private StreamTopologyDecorator decorator;
+
+  /** Routes a node output through one outgoing edge, as the compiler does. */
+  @SuppressWarnings(UNCHECKED)
+  private Flux<Message<?>> edge(final Flux<Message<?>> output) {
+    return decorator.applyEdgeRouting(new Flux[] {output}, new ParentEdgeInfo(0, NODE_1, null));
+  }
 
   @BeforeEach
   void setUp() {
@@ -158,12 +165,7 @@ class StreamTopologyDecoratorTest {
     final Flux<Message<?>> output =
         decorator.applyLoggingAndBroadcasting(EXEC_1, NODE_1, input, 1024, disposables, connectors);
 
-    // Execute deferred connector subscriptions
-    for (final Runnable connector : connectors) {
-      connector.run();
-    }
-
-    StepVerifier.create(output).expectNextCount(1).verifyComplete();
+    StepVerifier.create(edge(output)).expectNextCount(1).verifyComplete();
 
     // Cleanup
     disposables.forEach(Disposable::dispose);
@@ -180,12 +182,7 @@ class StreamTopologyDecoratorTest {
     final Flux<Message<?>> output =
         decorator.applyLoggingAndBroadcasting(EXEC_1, NODE_1, input, 1024, disposables, connectors);
 
-    // Execute deferred connector subscriptions
-    for (final Runnable connector : connectors) {
-      connector.run();
-    }
-
-    StepVerifier.create(output).expectNextCount(2).verifyComplete();
+    StepVerifier.create(edge(output)).expectNextCount(2).verifyComplete();
 
     // Cleanup
     disposables.forEach(Disposable::dispose);
@@ -201,12 +198,7 @@ class StreamTopologyDecoratorTest {
     final Flux<Message<?>> output =
         decorator.applyLoggingAndBroadcasting(EXEC_1, NODE_1, input, 1024, disposables, connectors);
 
-    // Execute deferred connector subscriptions
-    for (final Runnable connector : connectors) {
-      connector.run();
-    }
-
-    StepVerifier.create(output).expectError(RuntimeException.class).verify();
+    StepVerifier.create(edge(output)).expectError(RuntimeException.class).verify();
 
     // Cleanup
     disposables.forEach(Disposable::dispose);
@@ -232,18 +224,6 @@ class StreamTopologyDecoratorTest {
   }
 
   @Test
-  void testHandleEmitFailureWithNonSerializedResult() {
-    assertThat(StreamTopologyDecorator.handleEmitFailure(Sinks.EmitResult.FAIL_NON_SERIALIZED))
-        .isTrue();
-  }
-
-  @Test
-  void testHandleEmitFailureWithOtherResult() {
-    assertThat(StreamTopologyDecorator.handleEmitFailure(Sinks.EmitResult.FAIL_OVERFLOW)).isFalse();
-    assertThat(StreamTopologyDecorator.handleEmitFailure(Sinks.EmitResult.OK)).isFalse();
-  }
-
-  @Test
   @SuppressWarnings(UNCHECKED)
   void testApplyEdgeRoutingPortFilterNoMatch() {
     final Message<?> msg1 = DefaultMessage.create(UUID.randomUUID(), DATA).withSourcePort(PORT_A);
@@ -264,12 +244,7 @@ class StreamTopologyDecoratorTest {
     final Flux<Message<?>> output =
         decorator.applyLoggingAndBroadcasting(EXEC_1, NODE_1, input, 1024, disposables, connectors);
 
-    // Execute deferred connector subscriptions
-    for (final Runnable connector : connectors) {
-      connector.run();
-    }
-
-    StepVerifier.create(output)
+    StepVerifier.create(edge(output))
         .assertNext(m -> assertThat(m.getMessageHistory()).contains("node-1"))
         .verifyComplete();
 
@@ -303,65 +278,23 @@ class StreamTopologyDecoratorTest {
   }
 
   @Test
-  void testApplyLoggingAndBroadcastingLargePayloadTruncation() {
-    final StringBuilder largePayload = new StringBuilder();
-    largePayload.repeat("0123456789", 2000);
-    // largePayload is now 20,000 chars (exceeds MAX_LOG_LINE_SIZE of 16,384)
-    final Message<?> msg = DefaultMessage.create(UUID.randomUUID(), largePayload.toString());
-    final Flux<Message<?>> input = Flux.just(msg);
+  void testApplyLoggingAndBroadcastingLargePayloadIsTruncatedInLog() {
+    final String largePayload = "0123456789".repeat(2000);
+    final Message<?> msg = DefaultMessage.create(UUID.randomUUID(), largePayload);
     final List<Disposable> disposables = new ArrayList<>();
     final List<Runnable> connectors = new ArrayList<>();
 
     final Flux<Message<?>> output =
-        decorator.applyLoggingAndBroadcasting(EXEC_1, NODE_1, input, 1024, disposables, connectors);
+        decorator.applyLoggingAndBroadcasting(
+            EXEC_1, NODE_1, Flux.just(msg), 1024, disposables, connectors);
+    StepVerifier.create(edge(output)).expectNextCount(1).verifyComplete();
 
-    // Execute deferred connector subscriptions
-    for (final Runnable connector : connectors) {
-      connector.run();
-    }
-
-    StepVerifier.create(output).expectNextCount(1).verifyComplete();
-
-    // Cleanup
-    disposables.forEach(Disposable::dispose);
-  }
-
-  @Test
-  void testApplyLoggingAndBroadcastingMultiLineChunkOverflow() {
-    // 20 lines of 1000 chars joined by newlines: total length exceeds MAX_LOG_LINE_SIZE
-    // (16,384), but every individual line fits, so chunks accumulate via append rather than
-    // being split character-by-character. After 16 lines the running chunk (16,015 chars)
-    // is one line away from overflow: adding line 17 pushes past the limit, forcing a flush
-    // and starting a fresh chunk with line 17 itself (which still fits on its own).
-    final String line = "A".repeat(1000);
-    final StringBuilder payload = new StringBuilder();
-    for (int i = 0; i < 20; i++) {
-      if (i > 0) {
-        payload.append('\n');
-      }
-      payload.append(line);
-    }
-
-    final Message<?> msg = DefaultMessage.create(UUID.randomUUID(), payload.toString());
-    final Flux<Message<?>> input = Flux.just(msg);
-    final List<Disposable> disposables = new ArrayList<>();
-    final List<Runnable> connectors = new ArrayList<>();
-
-    final Flux<Message<?>> output =
-        decorator.applyLoggingAndBroadcasting(EXEC_1, NODE_1, input, 1024, disposables, connectors);
-
-    for (final Runnable connector : connectors) {
-      connector.run();
-    }
-
-    StepVerifier.create(output).expectNextCount(1).verifyComplete();
-
-    // Payload is split into exactly two chunks: lines 1-16 and lines 17-20.
-    verify(tracker, times(2))
-        .emitLogEvent(
-            org.mockito.ArgumentMatchers.eq(EXEC_1),
-            org.mockito.ArgumentMatchers.eq(NODE_1),
-            org.mockito.ArgumentMatchers.anyString());
+    final ArgumentCaptor<String> line = ArgumentCaptor.forClass(String.class);
+    verify(tracker, times(1)).emitLogEvent(eq(EXEC_1), eq(NODE_1), line.capture());
+    assertThat(line.getValue()).startsWith("0123456789").contains("[truncated 17952 chars]");
+    assertThat(line.getValue().length()).isLessThan(2_100);
+    // the message itself is not altered
+    assertThat(msg.getPayload()).isEqualTo(largePayload);
 
     disposables.forEach(Disposable::dispose);
   }
