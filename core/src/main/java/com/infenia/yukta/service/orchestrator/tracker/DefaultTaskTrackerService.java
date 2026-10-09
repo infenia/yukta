@@ -26,8 +26,9 @@ import jakarta.validation.constraints.Size;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.ArrayDeque;
 import java.util.Collections;
-import java.util.Comparator;
+import java.util.Deque;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -81,6 +82,9 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
 
   /** Map of session ID to workflow states. */
   private final Map<String, Map<String, WorkflowState>> sessionStates = new ConcurrentHashMap<>();
+
+  /** Per session, execution IDs that were cleaned up, oldest first. */
+  private final Map<String, Deque<String>> finishedBySession = new ConcurrentHashMap<>();
 
   /** Map of execution ID to workflow state. */
   private final Map<String, WorkflowState> executionIndex = new ConcurrentHashMap<>();
@@ -599,6 +603,7 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
    */
   @Override
   public void removeSession(@SessionId final String sessionId) {
+    finishedBySession.remove(sessionId);
     final Map<String, WorkflowState> states = sessionStates.remove(sessionId);
     if (states != null) {
       final int executionCount = states.size();
@@ -846,27 +851,26 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
     }
     final WorkflowState state = executionIndex.remove(executionId);
     if (state != null) {
-      trimHistory(state.sessionId);
+      trimHistory(state);
     }
     log.atDebug().addKeyValue("executionId", executionId).log("Completed execution cleanup");
   }
 
-  /**
-   * Drops the oldest cleaned-up executions of a session beyond {@code MAX_FINISHED_PER_SESSION}.
-   */
+  /** Remembers a cleaned-up execution and drops the oldest ones beyond the per-session cap. */
   @SuppressWarnings("PMD.AvoidSynchronizedStatement")
-  private void trimHistory(final String sessionId) {
-    final Map<String, WorkflowState> states = sessionStates.get(sessionId);
-    if (states == null || states.size() <= MAX_FINISHED_PER_SESSION) {
+  private void trimHistory(final WorkflowState state) {
+    final Map<String, WorkflowState> states = sessionStates.get(state.sessionId);
+    if (states == null) {
       return;
     }
-    // Cleanups of one session can run concurrently; serialise so none works from a stale size.
-    synchronized (states) {
-      states.values().stream()
-          .filter(candidate -> !executionIndex.containsKey(candidate.executionId))
-          .sorted(Comparator.comparing(candidate -> candidate.startTime))
-          .limit(Math.max(0, states.size() - (long) MAX_FINISHED_PER_SESSION))
-          .forEach(old -> states.remove(old.executionId));
+    final Deque<String> finished =
+        finishedBySession.computeIfAbsent(state.sessionId, _ -> new ArrayDeque<>());
+    // Cleanups of one session can run concurrently, so the queue is guarded by its own lock.
+    synchronized (finished) {
+      finished.addLast(state.executionId);
+      while (finished.size() > MAX_FINISHED_PER_SESSION) {
+        states.remove(finished.removeFirst());
+      }
     }
   }
 
