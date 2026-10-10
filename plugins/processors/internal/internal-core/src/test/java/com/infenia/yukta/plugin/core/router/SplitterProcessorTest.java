@@ -135,7 +135,7 @@ class SplitterProcessorTest {
             m -> {
               assertEquals("error-out", m.getSourcePort());
               assertNotNull(m.getFailureReason());
-              assertTrue(m.getMessageHistory().contains("split-node"));
+              assertTrue(m.getMessageHistory().isEmpty());
               return true;
             })
         .verifyComplete();
@@ -177,7 +177,7 @@ class SplitterProcessorTest {
     assertEquals(total, child.getSequenceSize(), "Sequence size mismatch");
     assertEquals(isLast, child.isLastInSequence(), "Last in sequence flag mismatch");
     assertEquals("default", child.getSourcePort());
-    assertTrue(child.getMessageHistory().contains(nodeId));
+    assertTrue(child.getMessageHistory().isEmpty());
     assertFalse(child.getMessageId().equals(parent.getMessageId()));
     assertEquals(
         parent.getTimestamp(),

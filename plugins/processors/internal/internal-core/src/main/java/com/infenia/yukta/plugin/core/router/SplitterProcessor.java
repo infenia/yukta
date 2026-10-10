@@ -220,7 +220,7 @@ public class SplitterProcessor implements ProcessorPlugin {
     if (mapping != null) {
       child = applyMappings(parent, child, mapping, config, variables);
     }
-    return child.withAddedHistory(nodeId).withSourcePort("default");
+    return child.withSourcePort("default");
   }
 
   private Message<?> applyMappings(
@@ -276,7 +276,6 @@ public class SplitterProcessor implements ProcessorPlugin {
       return Flux.just(
           parent
               .withSourcePort(errorPort)
-              .withAddedHistory(nodeId)
               .withFailure(null, ERR_FAIL, error.getMessage()));
     }
     if (!strict) {

@@ -162,11 +162,11 @@ public final class FilterProcessor implements ProcessorPlugin {
       final String discardPort) {
     if (isMatch) {
       reporter.incrementFilterCount(nodeId, "MATCH");
-      return Mono.just(message.withSourcePort("default").withAddedHistory(nodeId));
+      return Mono.just(message.withSourcePort("default"));
     } else {
       reporter.incrementFilterCount(nodeId, "DISCARD");
       if (discardPort != null && !discardPort.isBlank()) {
-        return Mono.just(message.withSourcePort(discardPort).withAddedHistory(nodeId));
+        return Mono.just(message.withSourcePort(discardPort));
       }
     }
     return Mono.empty();

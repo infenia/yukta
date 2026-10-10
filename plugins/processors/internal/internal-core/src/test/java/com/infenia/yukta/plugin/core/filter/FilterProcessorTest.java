@@ -45,7 +45,7 @@ class FilterProcessorTest {
             m -> {
               assertEquals(msg.getPayload(), m.getPayload());
               assertEquals("default", m.getSourcePort());
-              assertTrue(m.getMessageHistory().contains("test-node"));
+              assertTrue(m.getMessageHistory().isEmpty());
               return true;
             })
         .verifyComplete();
@@ -95,7 +95,7 @@ class FilterProcessorTest {
             m -> {
               assertEquals(msg.getPayload(), m.getPayload());
               assertEquals("default", m.getSourcePort());
-              assertTrue(m.getMessageHistory().contains("test-node"));
+              assertTrue(m.getMessageHistory().isEmpty());
               return true;
             })
         .verifyComplete();
@@ -116,7 +116,7 @@ class FilterProcessorTest {
         .expectNextMatches(
             m -> {
               assertEquals("dead-letter", m.getSourcePort());
-              assertTrue(m.getMessageHistory().contains("test-node"));
+              assertTrue(m.getMessageHistory().isEmpty());
               return true;
             })
         .verifyComplete();

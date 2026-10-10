@@ -238,7 +238,7 @@ public class ContentFilterProcessor implements ProcessorPlugin {
         finalResult = finalResult.withPayload(MapUtils.flatten(payloadMap));
       }
 
-      return Mono.just(finalResult.withAddedHistory(nodeId).withSourcePort("default"));
+      return Mono.just(finalResult.withSourcePort("default"));
     } catch (final WorkflowExecutionException e) {
       return handleFailure(message, nodeId, config, e);
     } catch (final Exception e) {
@@ -256,11 +256,10 @@ public class ContentFilterProcessor implements ProcessorPlugin {
     if (errorPort != null && !errorPort.isBlank()) {
       return Mono.just(
           msg.withSourcePort(errorPort)
-              .withAddedHistory(nodeId)
               .withFailure(null, ERR_FAIL, err.getMessage()));
     }
     if (!strictMode) {
-      return Mono.just(msg.withAddedHistory(nodeId).withSourcePort("default"));
+      return Mono.just(msg.withSourcePort("default"));
     }
     return Mono.error(err);
   }

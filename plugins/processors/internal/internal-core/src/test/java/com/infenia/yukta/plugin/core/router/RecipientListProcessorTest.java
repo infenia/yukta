@@ -39,9 +39,9 @@ class RecipientListProcessorTest {
                 .process(Flux.just(msg), config)
                 .contextWrite(Context.of("nodeId", "test-node")))
         .expectNextMatches(
-            m -> "port1".equals(m.getSourcePort()) && m.getMessageHistory().contains("test-node"))
+            m -> "port1".equals(m.getSourcePort()) && m.getMessageHistory().isEmpty())
         .expectNextMatches(
-            m -> "port2".equals(m.getSourcePort()) && m.getMessageHistory().contains("test-node"))
+            m -> "port2".equals(m.getSourcePort()) && m.getMessageHistory().isEmpty())
         .verifyComplete();
   }
 

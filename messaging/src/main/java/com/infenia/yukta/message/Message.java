@@ -264,7 +264,8 @@ public interface Message<T> {
   Message<T> withTimestamp(java.time.Instant timestamp);
 
   /**
-   * Add a component to the history list.
+   * Add a component to the history list. Core's stream topology stamps every node itself, so
+   * plugins must not call this.
    *
    * @param nodeId the ID of the node currently processing the message
    * @return a new message instance with the updated history

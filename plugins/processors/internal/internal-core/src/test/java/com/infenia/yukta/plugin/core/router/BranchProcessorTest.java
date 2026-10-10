@@ -50,7 +50,7 @@ class BranchProcessorTest {
         .expectNextMatches(
             m ->
                 "premium_port".equals(m.getSourcePort())
-                    && m.getMessageHistory().contains("test-node"))
+                    && m.getMessageHistory().isEmpty())
         .verifyComplete();
 
     StepVerifier.create(processor.process(Flux.just(msg2), config))
@@ -200,7 +200,7 @@ class BranchProcessorTest {
             m ->
                 "error_port".equals(m.getSourcePort())
                     && m.getFailureReason().contains("evaluation failed")
-                    && m.getMessageHistory().contains("test-node"))
+                    && m.getMessageHistory().isEmpty())
         .verifyComplete();
   }
 

@@ -182,7 +182,7 @@ public class RecipientListProcessor implements ProcessorPlugin {
               return Flux.empty();
             }
             return Flux.fromIterable(recipients)
-                .map(port -> message.withSourcePort(port).withAddedHistory(nodeId));
+                .map(port -> message.withSourcePort(port));
           } catch (final Exception e) {
             if (log.isErrorEnabled()) {
               log.error(
@@ -194,7 +194,6 @@ public class RecipientListProcessor implements ProcessorPlugin {
               return Flux.just(
                   message
                       .withSourcePort(errorPort)
-                      .withAddedHistory(nodeId)
                       .withFailure(null, "Recipient computation failed", e.getMessage()));
             }
             if (!strictMode) {
