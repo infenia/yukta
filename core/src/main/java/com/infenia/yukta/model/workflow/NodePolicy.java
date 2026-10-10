@@ -139,6 +139,9 @@ public record NodePolicy(
     if (value == null) {
       return null;
     }
+    if (value instanceof Number given && given.doubleValue() != Math.rint(given.doubleValue())) {
+      throw new IllegalArgumentException("engine.elementTimeoutMs must be a whole number");
+    }
     final long millis = number(value, "engine.elementTimeoutMs", 0);
     if (millis <= 0) {
       throw new IllegalArgumentException("engine.elementTimeoutMs must be positive");

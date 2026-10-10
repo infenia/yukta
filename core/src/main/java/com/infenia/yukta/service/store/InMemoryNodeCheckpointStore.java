@@ -4,12 +4,15 @@ package com.infenia.yukta.service.store;
 
 import com.infenia.yukta.message.Message;
 import com.infenia.yukta.plugin.store.NodeCheckpointStore;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -25,6 +28,7 @@ import reactor.core.publisher.Mono;
  * NodeCheckpointStore} bean.
  */
 @Component
+@ConditionalOnExpression("'${yukta.restart.dir:}'.isEmpty()")
 @SuppressWarnings({"PMD.AvoidSynchronizedStatement", "PMD.LawOfDemeter", "PMD.OnlyOneReturn"})
 public class InMemoryNodeCheckpointStore implements NodeCheckpointStore {
 
@@ -36,6 +40,9 @@ public class InMemoryNodeCheckpointStore implements NodeCheckpointStore {
 
   /** Size assumed for a payload whose size is not known cheaply. */
   private static final int OTHER_PAYLOAD_BYTES = 1024;
+
+  /** How deep maps and collections are measured before the rest counts as unknown. */
+  private static final int MAX_DEPTH = 4;
 
   /** Map of execution ID to node ID to recorded output. */
   private final Map<String, Map<String, Recorded>> store = new ConcurrentHashMap<>();
@@ -75,9 +82,21 @@ public class InMemoryNodeCheckpointStore implements NodeCheckpointStore {
   }
 
   private static long sizeOf(final Message<?> message) {
-    return switch (message.payload()) {
+    return sizeOf(message.payload(), 0);
+  }
+
+  /** Estimates a payload from its contents; nesting deeper than a few levels counts as unknown. */
+  private static long sizeOf(final Object value, final int depth) {
+    return switch (value) {
       case CharSequence text -> text.length();
       case byte[] bytes -> bytes.length;
+      case ByteBuffer buffer -> buffer.remaining();
+      case Map<?, ?> map when depth < MAX_DEPTH ->
+          map.entrySet().stream()
+              .mapToLong(e -> sizeOf(e.getKey(), depth + 1) + sizeOf(e.getValue(), depth + 1))
+              .sum();
+      case Collection<?> items when depth < MAX_DEPTH ->
+          items.stream().mapToLong(item -> sizeOf(item, depth + 1)).sum();
       case null, default -> OTHER_PAYLOAD_BYTES;
     };
   }

@@ -66,4 +66,29 @@ public record RestartPlan(Set<String> rerun, Set<String> boundary) {
     }
     return new RestartPlan(Set.copyOf(rerun), Set.copyOf(boundary));
   }
+
+  /**
+   * Computes the plan for resuming an aborted run: every node that did not end successfully runs
+   * again, and the finished nodes that feed them replay their recorded output.
+   *
+   * @param prepared the workflow graph
+   * @param finished nodes that ended successfully with a complete recorded output
+   * @return the plan; {@code rerun} is empty when nothing is left to do
+   */
+  public static RestartPlan resuming(final PreparedWorkflow prepared, final Set<String> finished) {
+    final Set<String> rerun = new LinkedHashSet<>();
+    final Set<String> boundary = new LinkedHashSet<>();
+    for (final WorkflowNode node : prepared.topologicalOrder()) {
+      if (!finished.contains(node.nodeId())) {
+        rerun.add(node.nodeId());
+      }
+    }
+    for (final String node : rerun) {
+      prepared.parentsList().getOrDefault(node, List.of()).stream()
+          .map(WorkflowNode::nodeId)
+          .filter(parent -> !rerun.contains(parent))
+          .forEach(boundary::add);
+    }
+    return new RestartPlan(rerun, boundary);
+  }
 }

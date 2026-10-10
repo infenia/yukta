@@ -75,6 +75,12 @@ Malformed policies are rejected by `WorkflowValidator` with the node id and opti
   output that exceeded the cap is refused rather than replayed partially.
 - Restart-from-node re-runs the node and its descendants and replays the recorded output of the
   nodes that feed them (`RestartPlan`); independent branches are left alone.
+- Set `yukta.restart.dir` to keep node outputs on disk (`FileNodeCheckpointStore`, one JSON line per
+  message, no caps; payloads come back as plain JSON values). With it and `yukta.execution-log.dir`,
+  `ExecutionResumer.resume(executionId)` continues a run that a restart aborted: the log holds the
+  payload (`RUN_STARTED`) and each successful node (`NODE_FINISHED`); finished nodes with complete
+  output replay, the rest run again. A run resumes once (`RUN_RESUMED`) and only if its definition
+  is unchanged. There is no REST/MCP endpoint for it yet.
 - Run starts and ends go to an `ExecutionLogStore`. By default it is in memory; set
   `yukta.execution-log.dir` to keep `executions.jsonl` on disk. On startup `ExecutionRecovery`
   marks runs that never finished as `ABORTED`, restores the newest
@@ -103,8 +109,8 @@ Malformed policies are rejected by `WorkflowValidator` with the node id and opti
 Every control command sent to a known run is recorded in the execution log as `CONTROL_APPLIED`
 (status = command name) or `CONTROL_REJECTED` (status = `command: reason`). Commands for unknown
 executions are not recorded. `POST /api/workflow/{session}/{workflow}/stop?mode=DRAIN|CANCEL|KILL`
-selects how a run stops (default `DRAIN`). Restarting a run after a server restart is not supported:
-recovered runs are history only, because the archive and node outputs live in memory.
+selects how a run stops (default `DRAIN`). Restart-from-node after a server restart is not supported (the archive lives in
+memory); use `ExecutionResumer` for aborted runs.
 `yukta.executions.running` and `yukta.executions.queued` gauges report the scheduler.
 
 ### Tracker queue

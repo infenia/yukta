@@ -602,6 +602,7 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
    * @param nodeStatuses final status of each node
    * @param started when it started
    * @param ended when it ended
+   * @param definitionVersion content hash of the graph the run used, or null if not recorded
    */
   @SuppressWarnings("PMD.UseObjectForClearerAPI")
   public void restore(
@@ -611,7 +612,8 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
       final String status,
       final Map<String, String> nodeStatuses,
       final Instant started,
-      final Instant ended) {
+      final Instant ended,
+      final String definitionVersion) {
     final WorkflowState state =
         new WorkflowState(
             executionId,
@@ -623,9 +625,11 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
     nodeStatuses.forEach(
         (nodeId, nodeStatus) -> state.updateTask(nodeId, "", nodeStatus, Map.of()));
     state.setEndTime(LocalDateTime.ofInstant(ended, ZoneId.systemDefault()));
+    state.definitionVersion = definitionVersion;
     sessionStates
         .computeIfAbsent(sessionId, _ -> new ConcurrentHashMap<>())
         .put(executionId, state);
+    executionIndex.put(executionId, state);
   }
 
   /**
@@ -749,11 +753,35 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
       return;
     }
     state.updateTask(event.nodeId(), event.module(), event.status(), event.metadata());
-    traceNode(event);
+    if (state.taskMap.containsKey(event.nodeId())) {
+      traceNode(event);
+    }
     if (isTerminal(event.status())) {
       recordNode(state.taskMap.get(event.nodeId()));
     }
+    if (TaskStatus.SUCCESS.name().equals(event.status())) {
+      executionLog.append(
+          ExecutionLogEvent.nodeFinished(
+              state.executionId, state.sessionId, state.workflowId, event.nodeId()));
+    }
     touched.add(event.executionId());
+  }
+
+  /** Stops observations of nodes that were finalized with the run instead of ending themselves. */
+  private void closeNodeSpans(final String executionId) {
+    final String prefix = executionId + "\0";
+    nodeSpans
+        .keySet()
+        .removeIf(
+            key -> {
+              if (!key.startsWith(prefix)) {
+                return false;
+              }
+              final Observation span = nodeSpans.get(key);
+              span.lowCardinalityKeyValue("status", TaskStatus.CANCELLED.name());
+              span.stop();
+              return true;
+            });
   }
 
   /** Opens an observation when a node starts running and closes it when the node ends. */
@@ -804,6 +832,7 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
     if (isTerminal(event.status())) {
       // Every node event before this one is already applied, so what is still open is final.
       state.finalizeTasks(event.status());
+      closeNodeSpans(event.executionId());
       state.setEndTime(event.timestamp());
       executionLog.append(
           ExecutionLogEvent.finished(
@@ -1065,8 +1094,26 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
             if (old == null) {
               return null;
             }
-            return createUpdatedTask(old, module, status, metadata);
+            // A node only moves forward: a late event never reopens an ended node or steps back,
+            // though what it reports is still merged.
+            return createUpdatedTask(
+                old, module, mayMoveTo(old.status(), status) ? status : old.status(), metadata);
           });
+    }
+
+    /** Whether a node in status {@code current} may be reported as {@code next}. */
+    /* default */ static boolean mayMoveTo(final String current, final String next) {
+      return current.equals(next)
+          || (!TaskStatus.isTerminalName(current) && rank(next) >= rank(current));
+    }
+
+    private static int rank(final String status) {
+      return switch (status) {
+        case "PENDING" -> 0;
+        case "QUEUED" -> 1;
+        case "RUNNING" -> 2;
+        default -> 3;
+      };
     }
 
     /**
