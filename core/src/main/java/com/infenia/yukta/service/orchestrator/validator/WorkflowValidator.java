@@ -151,7 +151,7 @@ public class WorkflowValidator {
     final Duration timeout =
         configured instanceof Number seconds && seconds.longValue() > 0
             ? Duration.ofSeconds(seconds.longValue())
-            : plugin == null ? null : plugin.getDefaultTimeout();
+            : plugin == null ? null : plugin.getDefaultTimeout(node.config());
     if (timeout != null && timeout.isPositive() && retry.maxBackoff().compareTo(timeout) >= 0) {
       return Optional.of(
           "Node '"

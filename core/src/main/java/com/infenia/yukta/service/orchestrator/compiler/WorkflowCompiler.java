@@ -347,8 +347,8 @@ public class WorkflowCompiler {
           .addKeyValue("source", "nodeConfig")
           .log("Using node-specific timeout");
     } else {
-      @SuppressWarnings("PMD.LawOfDemeter")
-      final Duration defaultTimeout = plugin != null ? plugin.getDefaultTimeout() : null;
+      final Duration defaultTimeout =
+          plugin != null ? plugin.getDefaultTimeout(node.config()) : null;
       if (defaultTimeout != null) {
         result = defaultTimeout;
         log.atTrace()

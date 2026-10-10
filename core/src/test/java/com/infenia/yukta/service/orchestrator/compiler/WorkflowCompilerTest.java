@@ -86,7 +86,7 @@ class WorkflowCompilerTest {
     final List<WorkflowNode> order = List.of(node);
 
     final NodeAssembler mockAssembler = mock(NodeAssembler.class);
-    when(plugin.getDefaultTimeout()).thenReturn(Duration.ofSeconds(30));
+    when(plugin.getDefaultTimeout(any())).thenReturn(Duration.ofSeconds(30));
     when(plugin.getDefaultBufferSize()).thenReturn(1024);
     when(assemblerStrategy.supports(plugin, false)).thenReturn(true);
     when(assemblerStrategy.createAssembler(
@@ -110,7 +110,7 @@ class WorkflowCompilerTest {
 
     final NodeAssembler a1 = mock(NodeAssembler.class);
     final NodeAssembler a2 = mock(NodeAssembler.class);
-    when(plugin.getDefaultTimeout()).thenReturn(Duration.ofSeconds(30));
+    when(plugin.getDefaultTimeout(any())).thenReturn(Duration.ofSeconds(30));
     when(plugin.getDefaultBufferSize()).thenReturn(512);
     when(assemblerStrategy.supports(eq(plugin), any(Boolean.class))).thenReturn(true);
     when(assemblerStrategy.createAssembler(eq(n1), eq(plugin), any(), eq(0), eq(512)))
@@ -133,7 +133,7 @@ class WorkflowCompilerTest {
     final Map<String, Plugin> plugins = Map.of("n1", plugin);
     final List<WorkflowNode> order = List.of(node);
 
-    when(plugin.getDefaultTimeout()).thenReturn(Duration.ofSeconds(30));
+    when(plugin.getDefaultTimeout(any())).thenReturn(Duration.ofSeconds(30));
     when(plugin.getDefaultBufferSize()).thenReturn(1024);
     when(assemblerStrategy.supports(any(), any(Boolean.class))).thenReturn(false);
 
@@ -171,7 +171,7 @@ class WorkflowCompilerTest {
     final Map<String, Plugin> plugins = Map.of("n1", plugin);
     final List<WorkflowNode> order = List.of(node);
 
-    when(plugin.getDefaultTimeout()).thenReturn(Duration.ofSeconds(30));
+    when(plugin.getDefaultTimeout(any())).thenReturn(Duration.ofSeconds(30));
     final NodeAssembler mockAssembler = mock(NodeAssembler.class);
     when(assemblerStrategy.supports(plugin, false)).thenReturn(true);
     when(assemblerStrategy.createAssembler(eq(node), eq(plugin), any(), eq(0), eq(256)))
@@ -210,7 +210,7 @@ class WorkflowCompilerTest {
     final Map<String, Plugin> plugins = Map.of("n1", plugin);
     final List<WorkflowNode> order = List.of(node);
 
-    when(plugin.getDefaultTimeout()).thenReturn(null);
+    when(plugin.getDefaultTimeout(any())).thenReturn(null);
     when(plugin.getDefaultBufferSize()).thenReturn(1024);
     final NodeAssembler mockAssembler = mock(NodeAssembler.class);
     when(assemblerStrategy.supports(plugin, false)).thenReturn(true);
@@ -232,7 +232,7 @@ class WorkflowCompilerTest {
     final Map<String, Plugin> plugins = Map.of("n1", plugin);
     final List<WorkflowNode> order = List.of(node);
 
-    when(plugin.getDefaultTimeout()).thenReturn(Duration.ofSeconds(30));
+    when(plugin.getDefaultTimeout(any())).thenReturn(Duration.ofSeconds(30));
     when(plugin.getDefaultBufferSize()).thenReturn(512);
     final NodeAssembler mockAssembler = mock(NodeAssembler.class);
     when(assemblerStrategy.supports(plugin, false)).thenReturn(true);
@@ -252,7 +252,7 @@ class WorkflowCompilerTest {
     final Map<String, Plugin> plugins = Map.of("n1", plugin);
     final List<WorkflowNode> order = List.of(node);
 
-    when(plugin.getDefaultTimeout()).thenReturn(Duration.ofSeconds(45));
+    when(plugin.getDefaultTimeout(any())).thenReturn(Duration.ofSeconds(45));
     when(plugin.getDefaultBufferSize()).thenReturn(1024);
     final NodeAssembler mockAssembler = mock(NodeAssembler.class);
     when(assemblerStrategy.supports(plugin, false)).thenReturn(true);
@@ -275,7 +275,7 @@ class WorkflowCompilerTest {
     final Map<String, Plugin> plugins = Map.of("n1", plugin, "n2", plugin);
     final List<WorkflowNode> order = List.of(n1, n2);
 
-    when(plugin.getDefaultTimeout()).thenReturn(Duration.ofSeconds(30));
+    when(plugin.getDefaultTimeout(any())).thenReturn(Duration.ofSeconds(30));
     when(plugin.getDefaultBufferSize()).thenReturn(1024);
     when(assemblerStrategy.supports(eq(plugin), any(Boolean.class))).thenReturn(true);
     when(assemblerStrategy.createAssembler(
@@ -310,7 +310,7 @@ class WorkflowCompilerTest {
     final Map<String, Plugin> plugins = Map.of("n1", plugin);
     final List<WorkflowNode> order = List.of(node);
 
-    when(plugin.getDefaultTimeout()).thenReturn(Duration.ofSeconds(30));
+    when(plugin.getDefaultTimeout(any())).thenReturn(Duration.ofSeconds(30));
     when(plugin.getDefaultBufferSize()).thenReturn(1024);
     when(assemblerStrategy.supports(plugin, false)).thenReturn(true);
     when(assemblerStrategy.createAssembler(
@@ -330,7 +330,7 @@ class WorkflowCompilerTest {
     final Map<String, Plugin> plugins = Map.of("n1", plugin);
     final List<WorkflowNode> order = List.of(node);
 
-    when(plugin.getDefaultTimeout()).thenReturn(Duration.ofSeconds(30));
+    when(plugin.getDefaultTimeout(any())).thenReturn(Duration.ofSeconds(30));
     when(plugin.getDefaultBufferSize()).thenReturn(1024);
     when(assemblerStrategy.supports(plugin, false)).thenReturn(true);
     when(assemblerStrategy.createAssembler(
@@ -449,7 +449,7 @@ class WorkflowCompilerTest {
     final Map<String, Plugin> plugins = Map.of("n1", plugin);
     final List<WorkflowNode> order = List.of(node);
 
-    when(plugin.getDefaultTimeout()).thenReturn(Duration.ofSeconds(30));
+    when(plugin.getDefaultTimeout(any())).thenReturn(Duration.ofSeconds(30));
     when(plugin.getDefaultBufferSize()).thenReturn(2048);
     final NodeAssembler mockAssembler = mock(NodeAssembler.class);
     when(assemblerStrategy.supports(plugin, false)).thenReturn(true);
@@ -491,7 +491,7 @@ class WorkflowCompilerTest {
     final Map<String, Plugin> plugins = Map.of("n1", plugin);
     final List<WorkflowNode> order = List.of(node);
 
-    when(plugin.getDefaultTimeout()).thenReturn(Duration.ofSeconds(60));
+    when(plugin.getDefaultTimeout(any())).thenReturn(Duration.ofSeconds(60));
     when(plugin.getDefaultBufferSize()).thenReturn(1024);
     final NodeAssembler mockAssembler = mock(NodeAssembler.class);
     when(assemblerStrategy.supports(plugin, false)).thenReturn(true);
@@ -551,7 +551,7 @@ class WorkflowCompilerTest {
     final Map<String, List<WorkflowNode>> parents = Map.of("n1", List.of(), "n2", List.of(n1));
     final Map<String, Plugin> plugins = Map.of("n1", plugin, "n2", plugin);
 
-    when(plugin.getDefaultTimeout()).thenReturn(Duration.ofSeconds(30));
+    when(plugin.getDefaultTimeout(any())).thenReturn(Duration.ofSeconds(30));
     when(plugin.getDefaultBufferSize()).thenReturn(1024);
     when(assemblerStrategy.supports(eq(plugin), any(Boolean.class))).thenReturn(true);
     when(assemblerStrategy.createAssembler(
