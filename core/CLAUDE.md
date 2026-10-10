@@ -24,6 +24,9 @@ All service logic uses **Project Reactor** (`Mono`, `Flux`).
 
 ### Workflow Orchestration
 - `com.infenia.yukta.service.orchestrator.WorkflowOrchestrator`: DAG orchestration logic, split across `assembly/`, `compiler/`, `preparator/`, `strategy/`, `stream/`, `tracker/`, and `validator/` subpackages.
+- `tracker/` keeps the queue and projections in `DefaultTaskTrackerService`, one run's state in
+  `WorkflowState` and the spans and meters in `RunTelemetry`. `DefaultControlBusGateway` delegates
+  starting (admission, shared prepare, idempotency) to `WorkflowStarter`.
 - `com.infenia.yukta.service.plugin.PluginRegistry`: Plugin registration.
 - Executes a Directed Acyclic Graph (DAG) of nodes and edges.
 
@@ -93,6 +96,9 @@ Malformed policies are rejected by `WorkflowValidator` with the node id and opti
   payload (`RUN_STARTED`) and each successful node (`NODE_FINISHED`); finished nodes with complete
   output replay, the rest run again. A run resumes once (`RUN_RESUMED`) and only if its definition
   is unchanged. There is no REST/MCP endpoint for it yet.
+  Only one resume per run is accepted (the claim is kept in memory and dropped on failure). A node's
+  end is queued for the log writer and not fsynced, so a crash right after it can make a resume run
+  that node again; make plugins idempotent on the message `id` (guide finding R40).
 - Run starts and ends go to an `ExecutionLogStore`. By default it is in memory; set
   `yukta.execution-log.dir` to keep `executions.jsonl` on disk. On startup `ExecutionRecovery`
   marks runs that never finished as `ABORTED`, restores the newest
@@ -148,6 +154,13 @@ Gateway commands for a live run (`ControlBusGateway`; REST/MCP endpoints for the
 - `changeLimits(max, perWorkflow)`: the scheduler limits; logged, not in the run log (no run).
 - `changePriority(execution, priority)`: moves a start that is `QUEUED`; recorded in the run log as
   `SetPriority(n)`, rejected if the run is not waiting.
+
+### Node status only moves forward
+`WorkflowState.updateTask` ignores a status that would reopen an ended node or step a node back
+(`PENDING` < `QUEUED` < `RUNNING` < any terminal status); the metadata of such an event is still
+merged. `WorkflowStateTransitionTest` checks this on thousands of random event orders, and
+`StreamTopologyDecoratorBackpressureTest` (a 20-node chain, 10k messages, bounded memory) guards the
+streaming side as part of `check`.
 
 ### Tracker queue
 State and workflow events are never dropped: they go to an unbounded queue. Log lines are best
