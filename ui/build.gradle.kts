@@ -8,10 +8,6 @@ plugins {
     alias(libs.plugins.spring.boot)
 }
 
-coverageConfig {
-    exception("com.infenia.yukta.ui.*", "Thin static-resource wiring; the UI is tested with pnpm/vitest, not JVM tests", mapOf("LINE" to 0.0, "BRANCH" to 0.0))
-}
-
 dependencies {
     implementation(libs.spring.boot.starter.webflux)
     testImplementation(libs.spring.boot.starter.webflux.test)

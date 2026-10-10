@@ -227,6 +227,48 @@ class ExecutionResumerTest {
   }
 
   @Test
+  void runResumedBeforeRestart_isRefusedFromTheLog() {
+    abortedRun(DefinitionVersion.of(prepared), "a");
+    final ExecutionLogEvent started = log.readAll().getFirst();
+    log.append(ExecutionLogEvent.resumed(started, "new-run"));
+
+    StepVerifier.create(resumer.resume("old"))
+        .expectErrorSatisfies(
+            e -> assertThat(e).hasMessageContaining("was already resumed as new-run"))
+        .verify();
+  }
+
+  @Test
+  void rerunThatFails_isLoggedAndDoesNotFailTheResume() {
+    when(orchestrator.rerun(
+            anyString(),
+            anyString(),
+            anyString(),
+            anyString(),
+            any(),
+            any(),
+            anyMap(),
+            anyMap(),
+            anyString()))
+        .thenReturn(Mono.error(new IllegalStateException("rerun broke")));
+    abortedRun(DefinitionVersion.of(prepared), "a");
+
+    StepVerifier.create(resumer.resume("old")).expectNextCount(1).verifyComplete();
+
+    verify(orchestrator, org.mockito.Mockito.timeout(2000))
+        .rerun(
+            anyString(),
+            anyString(),
+            anyString(),
+            anyString(),
+            any(),
+            any(),
+            anyMap(),
+            anyMap(),
+            anyString());
+  }
+
+  @Test
   void nodeEndOnlyInLog_withoutDurableMarker_runsAgain() {
     // the log record of a node end can be lost or arrive without the output being durable; the
     // store's marker is what a resume trusts

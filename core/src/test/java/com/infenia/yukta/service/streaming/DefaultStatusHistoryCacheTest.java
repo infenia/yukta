@@ -283,4 +283,13 @@ class DefaultStatusHistoryCacheTest {
         LocalDateTime.now(ZoneId.systemDefault()),
         null);
   }
+
+  @Test
+  void putOfNullProgress_isSwallowedAndLogged() {
+    final DefaultStatusHistoryCache cache = new DefaultStatusHistoryCache(5);
+
+    cache.put("e1", null);
+
+    assertThat(cache.get("e1")).isEmpty();
+  }
 }

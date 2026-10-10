@@ -57,10 +57,6 @@ tasks.named<org.springframework.boot.gradle.tasks.run.BootRun>("bootRun") {
     mainClass.set("com.infenia.yukta.YuktaApplication")
 }
 
-coverageConfig {
-    exception("com.infenia.yukta.YuktaApplication", "Spring Boot main(); only the context-load path is testable", mapOf("LINE" to 0.70, "BRANCH" to 0.60))
-}
-
 graalvmNative {
     binaries {
         named("main") {

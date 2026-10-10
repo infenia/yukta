@@ -363,4 +363,35 @@ class NodePoliciesTest {
     assertThat(ledger.record()).isFalse();
     assertThat(ledger.record()).isTrue();
   }
+
+  @Test
+  void failureBudget_alsoStopsRoutingOnceExceeded() {
+    final NodePolicy policy =
+        new NodePolicy(
+            null,
+            NodePolicy.OnError.ROUTE,
+            NodePolicy.JoinRule.ALL_SUCCESS,
+            null,
+            null,
+            new NodePolicy.FailureBudget(1, Duration.ofMinutes(1)));
+    final FailureLedger ledger = new FailureLedger(policy.failureBudget());
+    final AtomicInteger calls = new AtomicInteger();
+
+    final Flux<Message<?>> run =
+        Flux.range(0, 3)
+            .concatMap(
+                _ ->
+                    NodePolicies.apply(
+                        policy,
+                        "n",
+                        input,
+                        _ -> failing(calls, new IllegalStateException("x")),
+                        () -> {},
+                        ledger));
+
+    StepVerifier.create(run)
+        .expectNextCount(1)
+        .expectErrorSatisfies(e -> assertThat(e).hasMessageContaining("failed more than 1"))
+        .verify(Duration.ofSeconds(5));
+  }
 }

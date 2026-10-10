@@ -448,4 +448,17 @@ class ExecutionSchedulerTest {
 
     assertThat(scheduler.rejected(ExecutionScheduler.RejectReason.QUEUE_TIMEOUT)).isEqualTo(1);
   }
+
+  @Test
+  void waitingStartsOfLowerPriorityDoNotOvertakeTheBestOne() {
+    final ExecutionScheduler scheduler = scheduler(1, 0, 10, OnLimit.QUEUE);
+    final Permit first = granted(scheduler.acquire("s", "w0"));
+    final var order = new java.util.ArrayList<String>();
+    scheduler.acquire("s", "w1", 5).permit().subscribe(_ -> order.add("high"));
+    scheduler.acquire("s", "w2", 1).permit().subscribe(_ -> order.add("low"));
+
+    first.release();
+
+    assertThat(order).containsExactly("high");
+  }
 }

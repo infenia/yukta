@@ -181,4 +181,42 @@ class NodePolicyTest {
                             Map.of("maxFailures", 1, "windowMs", 5, "x", 1)))))
         .hasMessageContaining("Unknown option 'x'");
   }
+
+  @Test
+  void blankClassNames_areRejected() {
+    assertThatThrownBy(
+            () ->
+                NodePolicy.from(engine(Map.of("retry", Map.of("retryOn", java.util.List.of(" "))))))
+        .hasMessageContaining("list of class names");
+  }
+
+  @Test
+  void elementTimeoutAlone_needsPerMessageProcessing() {
+    assertThat(NodePolicy.from(engine(Map.of("elementTimeoutMs", 100))).perMessage()).isTrue();
+  }
+
+  @Test
+  void nonNumericMillis_areRejected() {
+    assertThatThrownBy(() -> NodePolicy.from(engine(Map.of("deadlineMs", "soon"))))
+        .hasMessageContaining("must be a number");
+  }
+
+  @Test
+  void shouldRetry_followsClassListsThroughCauseChains() {
+    final NodePolicy.Retry onlyIo =
+        new NodePolicy.Retry(
+            3,
+            Duration.ofMillis(1),
+            Duration.ofMillis(1),
+            java.util.Set.of("IOException"),
+            java.util.Set.of());
+    assertThat(onlyIo.shouldRetry(new RuntimeException(new java.io.IOException()))).isTrue();
+    assertThat(onlyIo.shouldRetry(new RuntimeException("no cause"))).isFalse();
+
+    // two exceptions that name each other as cause: the walk must stop on its own
+    final Exception first = new Exception("first");
+    final Exception second = new Exception("second", first);
+    first.initCause(second);
+    assertThat(onlyIo.shouldRetry(first)).isFalse();
+  }
 }

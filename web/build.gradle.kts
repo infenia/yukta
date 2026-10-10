@@ -27,3 +27,11 @@ dependencies {
 // SessionConfigController uses reactive Mono/Flux chains where JaCoCo has difficulty tracking
 // branches in lambdas passed to fromSupplier/map/flatMap. All error paths are tested.
 
+
+coverageConfig {
+    exception(
+        "com.infenia.yukta.mapper.*MapperImpl",
+        "MapStruct null guards for map properties that the request records already normalise to empty maps",
+        mapOf("BRANCH" to 0.9)
+    )
+}
