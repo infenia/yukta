@@ -367,6 +367,7 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
                               .setCause(err)
                               .addKeyValue("executionId", executionId)
                               .log("Async workflow execution failed"))
+                  .onErrorComplete()
                   .subscribe();
               return Mono.just(executionId);
             });

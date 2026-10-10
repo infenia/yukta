@@ -4,7 +4,10 @@ package com.infenia.yukta.service.control.valve;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.infenia.yukta.message.DefaultMessage;
+import com.infenia.yukta.message.Message;
 import java.time.Duration;
+import java.util.UUID;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -181,5 +184,27 @@ class ReactiveControlValveTest {
     valve.disableStepMode();
 
     StepVerifier.create(valve.allowPassage()).expectNext(true).verifyComplete();
+  }
+
+  @Test
+  void testBreakpointHoldsMatchingElementUntilResumed() {
+    final Message<?> plain = DefaultMessage.create(UUID.randomUUID(), "ok");
+    final Message<?> stop = DefaultMessage.create(UUID.randomUUID(), "stop-here");
+    valve.setBreakpoint(m -> "stop-here".equals(m.payload()));
+
+    StepVerifier.create(valve.allowPassage(plain)).expectNext(true).verifyComplete();
+    StepVerifier.create(valve.allowPassage(stop))
+        .expectSubscription()
+        .expectNoEvent(Duration.ofMillis(100))
+        .then(
+            () -> {
+              assertThat(valve.isPaused()).isTrue();
+              valve.resume();
+            })
+        .expectNext(true)
+        .verifyComplete();
+
+    valve.setBreakpoint(null);
+    StepVerifier.create(valve.allowPassage(stop)).expectNext(true).verifyComplete();
   }
 }

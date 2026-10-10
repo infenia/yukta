@@ -21,6 +21,7 @@ import java.time.Duration;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -30,6 +31,7 @@ import reactor.core.publisher.Mono;
 import reactor.core.publisher.Sinks;
 import reactor.core.scheduler.Schedulers;
 import reactor.util.concurrent.Queues;
+import reactor.util.retry.Retry;
 
 /**
  * Service for managing the system's Control Bus.
@@ -39,7 +41,12 @@ import reactor.util.concurrent.Queues;
  */
 @Slf4j
 @Service
-@SuppressWarnings({"PMD.TooManyMethods", "PMD.AvoidCatchingGenericException", "PMD.OnlyOneReturn"})
+@SuppressWarnings({
+  "PMD.TooManyMethods",
+  "PMD.AvoidCatchingGenericException",
+  "PMD.OnlyOneReturn",
+  "PMD.ExcessiveImports"
+})
 public class ControlBusService {
 
   /** Separator used to create composite keys from workflow and node IDs. */
@@ -73,6 +80,15 @@ public class ControlBusService {
   /** Sink for emitting control messages. */
   private Sinks.Many<Message<?>> controlSink =
       Sinks.many().multicast().onBackpressureBuffer(Queues.SMALL_BUFFER_SIZE, false);
+
+  /** First delay before the consumer resubscribes after a failure. */
+  private static final Duration CONSUMER_RETRY_DELAY = Duration.ofMillis(100);
+
+  /** Longest delay between resubscribe attempts. */
+  private static final Duration CONSUMER_MAX_RETRY_DELAY = Duration.ofSeconds(5);
+
+  /** Set once the bus is shutting down, so the consumer is no longer resubscribed. */
+  private final AtomicBoolean stopped = new AtomicBoolean();
 
   /** Handler for retry logic when emitting fails. */
   private static final Sinks.EmitFailureHandler RETRY_HANDLER =
@@ -152,9 +168,18 @@ public class ControlBusService {
                               .log("Error processing control signal batch with {} messages");
                           return Mono.empty();
                         }))
-        .doOnError(
-            e -> log.atError().setCause(e).log("Control bus consumer encountered fatal error"))
-        .subscribe();
+        .retryWhen(
+            Retry.backoff(Long.MAX_VALUE, CONSUMER_RETRY_DELAY)
+                .maxBackoff(CONSUMER_MAX_RETRY_DELAY)
+                .filter(_ -> !stopped.get())
+                .doBeforeRetry(
+                    signal ->
+                        log.atError()
+                            .setCause(signal.failure())
+                            .log("Control bus consumer failed, resubscribing")))
+        .subscribe(
+            _ -> {},
+            e -> log.atError().setCause(e).log("Control bus consumer stopped unexpectedly"));
   }
 
   /**
@@ -408,6 +433,7 @@ public class ControlBusService {
    * subscribers to close cleanly.
    */
   public void shutdown() {
+    stopped.set(true);
     controlSink.emitComplete(RETRY_HANDLER);
   }
 

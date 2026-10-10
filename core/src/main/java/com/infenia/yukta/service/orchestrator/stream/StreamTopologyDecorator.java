@@ -3,16 +3,21 @@
 package com.infenia.yukta.service.orchestrator.stream;
 
 import com.infenia.yukta.message.Message;
+import com.infenia.yukta.model.workflow.NodePolicy;
 import com.infenia.yukta.model.workflow.ParentEdgeInfo;
 import com.infenia.yukta.plugin.store.NodeCheckpointStore;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import reactor.core.Disposable;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 /**
  * Decorates reactive message streams with topology-aware routing, logging, and checkpointing.
@@ -67,29 +72,65 @@ public class StreamTopologyDecorator {
    * @param parentEdges edge metadata describing parent connections
    * @return merged Flux with routed and filtered messages
    */
-  @SuppressWarnings("PMD.OnlyOneReturn")
   public Flux<Message<?>> mergeParentStreams(
       final Flux<Message<?>>[] streams, final ParentEdgeInfo... parentEdges) {
+    return mergeParentStreams(NodePolicy.JoinRule.ALL_SUCCESS, streams, parentEdges);
+  }
+
+  /**
+   * Merges parent node streams under a join rule.
+   *
+   * <p>With {@code ONE_SUCCESS} a failing parent is tolerated, but the merged stream fails with the
+   * first parent error when every parent failed.
+   *
+   * @param rule the node's join rule
+   * @param streams array of all node Flux streams indexed by their topological position
+   * @param parentEdges edge metadata describing parent connections
+   * @return merged Flux with routed and filtered messages
+   */
+  @SuppressWarnings("PMD.OnlyOneReturn")
+  public Flux<Message<?>> mergeParentStreams(
+      final NodePolicy.JoinRule rule,
+      final Flux<Message<?>>[] streams,
+      final ParentEdgeInfo... parentEdges) {
     log.atDebug().setMessage("Merging {} parent streams").addArgument(parentEdges.length).log();
 
     final List<Flux<Message<?>>> parentFluxes = new ArrayList<>(parentEdges.length);
+    final AtomicInteger failed = new AtomicInteger();
+    final AtomicReference<Throwable> firstError = new AtomicReference<>();
+    final boolean oneSuccess = rule == NodePolicy.JoinRule.ONE_SUCCESS;
     for (final ParentEdgeInfo edge : parentEdges) {
-      parentFluxes.add(applyEdgeRouting(streams, edge));
+      parentFluxes.add(
+          applyEdgeRouting(
+              streams,
+              edge,
+              error -> {
+                if (oneSuccess) {
+                  failed.incrementAndGet();
+                  firstError.compareAndSet(null, error);
+                }
+              }));
     }
 
     if (parentFluxes.isEmpty()) {
       log.atDebug().setMessage("No parent streams to merge, returning empty flux").log();
       return Flux.empty();
-    } else if (parentFluxes.size() == SINGLE_PARENT) {
-      log.atDebug().setMessage("Single parent stream, returning without merge").log();
-      return parentFluxes.getFirst();
     }
 
     log.atDebug()
-        .setMessage("Multiple parent streams merged: {} streams")
+        .setMessage("Parent streams merged: {} streams")
         .addArgument(parentFluxes.size())
         .log();
-    return Flux.merge(parentFluxes);
+    final Flux<Message<?>> merged =
+        parentFluxes.size() == SINGLE_PARENT ? parentFluxes.getFirst() : Flux.merge(parentFluxes);
+    return oneSuccess
+        ? merged.concatWith(
+            Mono.defer(
+                () ->
+                    failed.get() == parentFluxes.size()
+                        ? Mono.error(firstError.get())
+                        : Mono.empty()))
+        : merged;
   }
 
   /**
@@ -103,6 +144,13 @@ public class StreamTopologyDecorator {
    */
   public Flux<Message<?>> applyEdgeRouting(
       final Flux<Message<?>>[] streams, final ParentEdgeInfo edge) {
+    return applyEdgeRouting(streams, edge, _ -> {});
+  }
+
+  private Flux<Message<?>> applyEdgeRouting(
+      final Flux<Message<?>>[] streams,
+      final ParentEdgeInfo edge,
+      final Consumer<Throwable> onTolerated) {
     log.atDebug()
         .setMessage("Applying edge routing - parent index: {}, source node: {}, source port: {}")
         .addArgument(edge.parentIndex())
@@ -125,10 +173,11 @@ public class StreamTopologyDecorator {
       stream =
           stream.onErrorResume(
               error -> {
+                onTolerated.accept(error);
                 log.atWarn()
                     .addKeyValue("sourceNodeId", edge.sourceNodeId())
                     .setCause(error)
-                    .log("Parent failed; continuing without it (trigger=ALL_DONE)");
+                    .log("Parent failed; continuing without it (trigger != ALL_SUCCESS)");
                 return Flux.empty();
               });
     }

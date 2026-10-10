@@ -19,6 +19,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 /** Service interface for tracking the progress of workflows and tasks. */
+@SuppressWarnings("PMD.TooManyMethods")
 public interface TaskTrackerService {
 
   /**
@@ -202,6 +203,15 @@ public interface TaskTrackerService {
    * @param state the new control state
    */
   void emitControlStateEvent(@NotBlank String executionId, @NotNull ControlState state);
+
+  /**
+   * Record which version (content hash) of the workflow graph an execution runs, so it is reported
+   * with the execution's progress. Ignored for an unknown execution.
+   *
+   * @param executionId the execution identifier
+   * @param version the definition version
+   */
+  void recordDefinitionVersion(@NotBlank String executionId, @NotBlank String version);
 
   /**
    * Emit a log event for asynchronous processing.

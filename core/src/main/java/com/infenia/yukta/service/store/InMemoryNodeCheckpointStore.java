@@ -17,10 +17,12 @@ import reactor.core.publisher.Mono;
 /**
  * In-memory implementation of {@link NodeCheckpointStore} that records what each node produced.
  *
- * <p>Up to {@code messagesPerNode} messages are kept per node and execution. A node that produced
- * more is marked incomplete, and a restart that would need its output is refused rather than
- * replayed partially. All state is lost on JVM restart. A persistent implementation can be
- * substituted by providing an alternative {@link NodeCheckpointStore} bean.
+ * <p>Up to {@code messagesPerNode} messages and about {@code bytesPerNode} bytes of payload are
+ * kept per node and execution (strings and byte arrays by size, other payloads as {@value
+ * #OTHER_PAYLOAD_BYTES} bytes each). A node that produced more is marked incomplete, and a restart
+ * that would need its output is refused rather than replayed partially. All state is lost on JVM
+ * restart. A persistent implementation can be substituted by providing an alternative {@link
+ * NodeCheckpointStore} bean.
  */
 @Component
 @SuppressWarnings({"PMD.AvoidSynchronizedStatement", "PMD.LawOfDemeter", "PMD.OnlyOneReturn"})
@@ -29,26 +31,55 @@ public class InMemoryNodeCheckpointStore implements NodeCheckpointStore {
   /** Default number of messages kept per node and execution. */
   private static final int DEFAULT_MESSAGES_PER_NODE = 200;
 
+  /** Default payload bytes kept per node and execution. */
+  private static final long DEFAULT_BYTES_PER_NODE = 4L * 1024 * 1024;
+
+  /** Size assumed for a payload whose size is not known cheaply. */
+  private static final int OTHER_PAYLOAD_BYTES = 1024;
+
   /** Map of execution ID to node ID to recorded output. */
   private final Map<String, Map<String, Recorded>> store = new ConcurrentHashMap<>();
 
   /** Maximum number of messages kept per node and execution. */
   private final int messagesPerNode;
 
+  /** Maximum payload bytes kept per node and execution. */
+  private final long bytesPerNode;
+
   /**
-   * Creates a store with the configured cap.
+   * Creates a store with the configured caps.
    *
    * @param messagesPerNode maximum number of messages kept per node and execution
+   * @param bytesPerNode maximum payload bytes kept per node and execution
    */
   @Autowired
   public InMemoryNodeCheckpointStore(
-      @Value("${yukta.restart.messages-per-node:200}") final int messagesPerNode) {
+      @Value("${yukta.restart.messages-per-node:200}") final int messagesPerNode,
+      @Value("${yukta.restart.bytes-per-node:4194304}") final long bytesPerNode) {
     this.messagesPerNode = Math.max(1, messagesPerNode);
+    this.bytesPerNode = Math.max(1, bytesPerNode);
   }
 
-  /** Creates a store with the default cap. */
+  /**
+   * Creates a store with the default byte cap.
+   *
+   * @param messagesPerNode maximum number of messages kept per node and execution
+   */
+  public InMemoryNodeCheckpointStore(final int messagesPerNode) {
+    this(messagesPerNode, DEFAULT_BYTES_PER_NODE);
+  }
+
+  /** Creates a store with the default caps. */
   public InMemoryNodeCheckpointStore() {
-    this(DEFAULT_MESSAGES_PER_NODE);
+    this(DEFAULT_MESSAGES_PER_NODE, DEFAULT_BYTES_PER_NODE);
+  }
+
+  private static long sizeOf(final Message<?> message) {
+    return switch (message.payload()) {
+      case CharSequence text -> text.length();
+      case byte[] bytes -> bytes.length;
+      case null, default -> OTHER_PAYLOAD_BYTES;
+    };
   }
 
   @Override
@@ -59,9 +90,12 @@ public class InMemoryNodeCheckpointStore implements NodeCheckpointStore {
               store
                   .computeIfAbsent(executionId, _ -> new ConcurrentHashMap<>())
                   .computeIfAbsent(nodeId, _ -> new Recorded());
+          final long size = sizeOf(message);
           synchronized (recorded) {
-            if (recorded.messages.size() < messagesPerNode) {
+            if (recorded.messages.size() < messagesPerNode
+                && recorded.bytes + size <= bytesPerNode) {
               recorded.messages.add(message);
+              recorded.bytes += size;
             } else {
               recorded.truncated = true;
             }
@@ -118,6 +152,9 @@ public class InMemoryNodeCheckpointStore implements NodeCheckpointStore {
   private static final class Recorded {
     /** The recorded messages, oldest first. */
     private final List<Message<?>> messages = new ArrayList<>();
+
+    /** Estimated payload bytes recorded. */
+    private long bytes;
 
     /** True once a message had to be dropped. */
     private boolean truncated;

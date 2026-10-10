@@ -130,13 +130,13 @@ public record ExecutionControl(
     if (globalPauseValve == null && nodeValve == null) {
       return flux;
     }
-    return flux.concatMap(message -> passage(nodeValve).thenReturn(message), 1);
+    return flux.concatMap(message -> passage(nodeValve, message).thenReturn(message), 1);
   }
 
-  private Mono<Boolean> passage(final ReactiveControlValve nodeValve) {
+  private Mono<Boolean> passage(final ReactiveControlValve nodeValve, final Message<?> message) {
     final Mono<Boolean> global =
         globalPauseValve == null ? Mono.just(true) : globalPauseValve.allowPassage();
-    return nodeValve == null ? global : global.then(nodeValve.allowPassage());
+    return nodeValve == null ? global : global.then(nodeValve.allowPassage(message));
   }
 
   /**

@@ -240,4 +240,16 @@ class WorkflowProgressTest {
             WorkflowProgress::endTime)
         .containsExactly("exec-1", "session-1", "workflow-1", "COMPLETED", 1, startTime, endTime);
   }
+
+  @Test
+  void definitionVersion_isNullUnlessGiven() {
+    final WorkflowProgress without =
+        new WorkflowProgress("e", "s", "w", "RUNNING", List.of(), null, null, "PAUSED");
+    final WorkflowProgress with =
+        new WorkflowProgress("e", "s", "w", "RUNNING", List.of(), null, null, "PAUSED", "ab12");
+
+    assertThat(without.definitionVersion()).isNull();
+    assertThat(without.controlState()).isEqualTo("PAUSED");
+    assertThat(with.definitionVersion()).isEqualTo("ab12");
+  }
 }

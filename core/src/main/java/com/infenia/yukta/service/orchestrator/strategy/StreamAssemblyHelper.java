@@ -47,6 +47,7 @@ class StreamAssemblyHelper {
             .workflowId(context.workflowId())
             .executionId(context.executionId())
             .nodeId(node.nodeId())
+            .heartbeat(activity::touch)
             .payload(context.payload());
 
     Flux<Message<?>> built =

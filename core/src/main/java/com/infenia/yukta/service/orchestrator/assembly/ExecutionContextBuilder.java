@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.service.orchestrator.assembly;
 
+import com.infenia.yukta.plugin.core.WorkflowContext;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -47,6 +48,9 @@ public class ExecutionContextBuilder {
 
   /** Context key for payload data. */
   public static final String CTX_PAYLOAD = "payload";
+
+  /** The heartbeat callback, or null. */
+  @Nullable private Runnable heartbeatValue;
 
   /** The session ID value. */
   @Nullable private String sessionIdValue;
@@ -122,6 +126,17 @@ public class ExecutionContextBuilder {
   }
 
   /**
+   * Sets the callback plugins use to signal liveness.
+   *
+   * @param heartbeat restarts the node's idle clock
+   * @return this builder for fluent chaining
+   */
+  public ExecutionContextBuilder heartbeat(final Runnable heartbeat) {
+    this.heartbeatValue = heartbeat;
+    return this;
+  }
+
+  /**
    * Builds an immutable Context snapshot from the current builder state.
    *
    * <p>Each call to build() creates a new Context with a snapshot of the current values. This
@@ -143,6 +158,9 @@ public class ExecutionContextBuilder {
     }
     if (nodeIdValue != null) {
       contextMap.put(CTX_NODE_ID, nodeIdValue);
+    }
+    if (heartbeatValue != null) {
+      contextMap.put(WorkflowContext.HEARTBEAT_KEY, heartbeatValue);
     }
     if (payloadValue != null) {
       contextMap.put(CTX_PAYLOAD, Collections.unmodifiableMap(payloadValue));

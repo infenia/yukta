@@ -13,7 +13,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import reactor.test.StepVerifier;
 
-@SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.CommentRequired"})
+@SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.CommentRequired", "PMD.TooManyMethods"})
 @NoArgsConstructor
 class InMemoryNodeCheckpointStoreTest {
 
@@ -137,5 +137,18 @@ class InMemoryNodeCheckpointStoreTest {
     tiny.save("e1", "n1", DefaultMessage.create(UUID.randomUUID(), "b")).block();
 
     StepVerifier.create(tiny.getAll("e1", "n1")).expectNextCount(1).verifyComplete();
+  }
+
+  @Test
+  void bytesCap_marksTheNodeIncompleteInsteadOfKeepingEverything() {
+    final InMemoryNodeCheckpointStore small = new InMemoryNodeCheckpointStore(100, 10);
+
+    small.save("e", "n", DefaultMessage.create(UUID.randomUUID(), "123456")).block();
+    assertThat(small.isComplete("e", "n")).isTrue();
+
+    small.save("e", "n", DefaultMessage.create(UUID.randomUUID(), "123456")).block();
+
+    assertThat(small.isComplete("e", "n")).isFalse();
+    StepVerifier.create(small.getAll("e", "n")).expectNextCount(1).verifyComplete();
   }
 }

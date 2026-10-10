@@ -149,11 +149,20 @@ public class WorkflowCompiler {
       nodeToIndex.put(topologicalOrder.get(i).nodeId(), i);
     }
 
+    final Map<String, List<WorkflowEdge>> inbound =
+        edges.stream().collect(java.util.stream.Collectors.groupingBy(WorkflowEdge::target));
+
     final NodeAssembler[] assemblers = new NodeAssembler[nodeCount];
     int successCount = 0;
     for (int i = 0; i < nodeCount; i++) {
       final WorkflowNode node = topologicalOrder.get(i);
-      assemblers[i] = createNodeAssembler(edges, node, parentsList, pluginCache, nodeToIndex);
+      assemblers[i] =
+          createNodeAssembler(
+              inbound.getOrDefault(node.nodeId(), List.of()),
+              node,
+              parentsList,
+              pluginCache,
+              nodeToIndex);
       if (assemblers[i] != null) {
         successCount++;
       }
@@ -241,7 +250,7 @@ public class WorkflowCompiler {
   /**
    * Creates a NodeAssembler for a specific node.
    *
-   * @param edges the workflow edges
+   * @param edges the edges that end at the node
    * @param node the node to assemble
    * @param parentsList map of nodeId to parent nodes
    * @param pluginCache map of nodeId to initialized plugin instances
@@ -263,10 +272,9 @@ public class WorkflowCompiler {
     final int parentCount = hasParents ? parentsList.get(node.nodeId()).size() : 0;
 
     final boolean tolerateFailure =
-        NodePolicy.from(node.config()).trigger() == NodePolicy.JoinRule.ALL_DONE;
+        NodePolicy.from(node.config()).trigger() != NodePolicy.JoinRule.ALL_SUCCESS;
     final ParentEdgeInfo[] parentEdges =
         edges.stream()
-            .filter(e -> e.target().equals(node.nodeId()))
             .map(
                 e ->
                     new ParentEdgeInfo(

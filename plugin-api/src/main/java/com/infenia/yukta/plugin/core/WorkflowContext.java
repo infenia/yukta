@@ -13,6 +13,13 @@ public record WorkflowContext(
     String nodeId, List<WorkflowEdge> outgoingEdges, List<WorkflowEdge> incomingEdges) {
 
   /**
+   * Reactor context key of a {@link Runnable} a long-running plugin calls to tell the engine it is
+   * alive, which restarts the node's idle timeout: {@code Mono.deferContextual(ctx -> ((Runnable)
+   * ctx.get(HEARTBEAT_KEY)).run())}. Absent outside a workflow run.
+   */
+  public static final String HEARTBEAT_KEY = "yukta.heartbeat";
+
+  /**
    * Compact constructor that copies the edge lists, so later changes by the caller are not seen.
    *
    * @param nodeId the node ID

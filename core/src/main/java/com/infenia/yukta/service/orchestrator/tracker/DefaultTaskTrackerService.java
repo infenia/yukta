@@ -25,6 +25,8 @@ import com.infenia.yukta.validation.WorkflowId;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import io.micrometer.observation.Observation;
+import io.micrometer.observation.ObservationRegistry;
 import jakarta.annotation.PostConstruct;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
@@ -76,7 +78,7 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
   /** Batch timeout duration for event processing. */
   private static final Duration BATCH_TIMEOUT = Duration.ofMillis(50);
 
-  /** Emit failure handler with retry logic. */
+  /** Completes a sink, retrying only while another thread is emitting at the same moment. */
   private static final Sinks.EmitFailureHandler RETRY_HANDLER =
       Sinks.EmitFailureHandler.busyLooping(Duration.ofMillis(100));
 
@@ -94,6 +96,12 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
 
   /** Registry for the node metrics. */
   private final MeterRegistry meters;
+
+  /** Registry that turns node runs into observations (spans, when a tracer is configured). */
+  private final ObservationRegistry observations;
+
+  /** Observations of nodes that are running, by execution and node. */
+  private final Map<String, Observation> nodeSpans = new ConcurrentHashMap<>();
 
   /** Cache for storing recent workflow progress updates per execution. */
   private final StatusHistoryCache statusHistoryCache;
@@ -138,17 +146,37 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
    * @param statusHistoryCache the cache for storing recent workflow progress updates
    * @param executionLog durable log of run starts and ends
    * @param meters registry for the node metrics
+   * @param observations registry for the node observations; each node run is one observation named
+   *     {@code yukta.node}
    */
   @Autowired
   public DefaultTaskTrackerService(
       @Value("${yukta.tracker.cleanup-ttl:10m}") final Duration cleanupTtl,
       final StatusHistoryCache statusHistoryCache,
       final ExecutionLogStore executionLog,
-      final MeterRegistry meters) {
+      final MeterRegistry meters,
+      final ObservationRegistry observations) {
     this.cleanupTtl = cleanupTtl;
     this.statusHistoryCache = statusHistoryCache;
     this.executionLog = executionLog;
     this.meters = meters;
+    this.observations = observations;
+  }
+
+  /**
+   * Create a tracker without node observations.
+   *
+   * @param cleanupTtl the time to live for execution data after terminal status
+   * @param statusHistoryCache the cache for storing recent workflow progress updates
+   * @param executionLog durable log of run starts and ends
+   * @param meters registry for the node metrics
+   */
+  public DefaultTaskTrackerService(
+      final Duration cleanupTtl,
+      final StatusHistoryCache statusHistoryCache,
+      final ExecutionLogStore executionLog,
+      final MeterRegistry meters) {
+    this(cleanupTtl, statusHistoryCache, executionLog, meters, ObservationRegistry.NOOP);
   }
 
   /**
@@ -306,6 +334,15 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
     publish(TaskStatusEvent.create(executionId, nodeId, module, status.name(), metadata));
   }
 
+  @Override
+  public void recordDefinitionVersion(
+      @NotBlank final String executionId, @NotBlank final String version) {
+    final WorkflowState state = findState(executionId);
+    if (state != null) {
+      state.definitionVersion = version;
+    }
+  }
+
   /**
    * Record an operator control state for an execution and notify status subscribers.
    *
@@ -437,7 +474,8 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
                 state.getTasks(),
                 state.startTime,
                 state.endTime,
-                state.controlState);
+                state.controlState,
+                state.definitionVersion);
       }
     }
     return progress;
@@ -465,7 +503,8 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
         state.getTasks(),
         state.startTime,
         state.endTime,
-        state.controlState);
+        state.controlState,
+        state.definitionVersion);
   }
 
   /**
@@ -710,10 +749,33 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
       return;
     }
     state.updateTask(event.nodeId(), event.module(), event.status(), event.metadata());
+    traceNode(event);
     if (isTerminal(event.status())) {
       recordNode(state.taskMap.get(event.nodeId()));
     }
     touched.add(event.executionId());
+  }
+
+  /** Opens an observation when a node starts running and closes it when the node ends. */
+  private void traceNode(final TaskStatusEvent event) {
+    final String key = event.executionId() + "\0" + event.nodeId();
+    if (TaskStatus.RUNNING.name().equals(event.status())) {
+      nodeSpans.computeIfAbsent(
+          key,
+          _ ->
+              Observation.createNotStarted("yukta.node", observations)
+                  .contextualName("node " + event.nodeId())
+                  .lowCardinalityKeyValue("module", String.valueOf(event.module()))
+                  .highCardinalityKeyValue("executionId", event.executionId())
+                  .highCardinalityKeyValue("nodeId", event.nodeId())
+                  .start());
+    } else if (isTerminal(event.status())) {
+      final Observation span = nodeSpans.remove(key);
+      if (span != null) {
+        span.lowCardinalityKeyValue("status", event.status());
+        span.stop();
+      }
+    }
   }
 
   /** Counts the node outcome by plugin and status, and times nodes that actually ran. */
@@ -778,7 +840,7 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
       if (state != null) {
         final WorkflowProgress progress = getProgress(state.sessionId, executionId);
         statusHistoryCache.put(executionId, progress);
-        sink.emitNext(progress, RETRY_HANDLER);
+        SinkEmit.offer(sink, progress);
       }
     }
   }
@@ -959,6 +1021,9 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
 
     /** The latest operator control state, or null. */
     private volatile String controlState;
+
+    /** The definition version (graph hash) this run uses, or null until recorded. */
+    private volatile String definitionVersion;
 
     /** Map of task progress by node ID. */
     private final Map<String, TaskProgress> taskMap;
