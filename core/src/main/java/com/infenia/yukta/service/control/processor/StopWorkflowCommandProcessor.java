@@ -9,6 +9,7 @@ import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.StopWorkflowCommand;
 import com.infenia.yukta.plugin.control.StopMode;
 import com.infenia.yukta.plugin.control.WorkflowDirective;
+import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.control.ExecutionControl;
 import com.infenia.yukta.service.control.store.ExecutionControlRegistry;
 import com.infenia.yukta.service.control.valve.ReactiveControlValve;
@@ -72,9 +73,7 @@ public class StopWorkflowCommandProcessor implements ControlSignalProcessor {
               registry
                   .findByExecutionId(stop.executionId())
                   .orElseThrow(
-                      () ->
-                          new IllegalArgumentException(
-                              "Execution not found: " + stop.executionId()));
+                      () -> new NotFoundException("Execution not found: " + stop.executionId()));
 
           control.stopRequested().set(true);
           log.atDebug()

@@ -31,7 +31,7 @@ const server = setupServer(
   ),
   http.get('/api/sessions/:sessionId/workflows/:workflowId/executions', () =>
     HttpResponse.json({
-      timestamp: 't', status: 200, message: 'ok', data: { executions: executionsPayload() }, path: '/executions',
+      timestamp: 't', status: 200, message: 'ok', data: executionsPayload(), path: '/executions',
     })
   ),
   http.get('/api/workflow/:sessionId/status/:executionId', ({ params }) =>

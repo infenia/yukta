@@ -9,7 +9,7 @@ import (
 )
 
 // GetSessions retrieves all available session identifiers from the API.
-// It makes a GET request to /api/sessions and extracts the sessionIds from the response data.
+// It makes a GET request to /api/sessions and returns the session IDs from the response data.
 func (c *Client) GetSessions() ([]string, error) {
 	req, err := c.newRequest("GET", "/api/sessions")
 	if err != nil {
@@ -21,18 +21,16 @@ func (c *Client) GetSessions() ([]string, error) {
 		return nil, err
 	}
 
-	// Parse the response: {"data": {"sessionIds": [...]}}
+	// Parse the response: {"data": ["session-1", ...]}
 	var response struct {
-		Data struct {
-			SessionIDs []string `json:"sessionIds"`
-		} `json:"data"`
+		Data []string `json:"data"`
 	}
 
 	if err := json.Unmarshal(body, &response); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
 	}
 
-	return response.Data.SessionIDs, nil
+	return response.Data, nil
 }
 
 // GetSessionDetails retrieves details of a specific session.

@@ -186,7 +186,7 @@ test.describe('Session List Page - Mocked API', () => {
             status: 200,
             message: 'ok',
             path: '/api/sessions/summaries',
-            data: { sessions: [] },
+            data: [],
           }),
         });
       });

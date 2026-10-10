@@ -13,13 +13,15 @@ Web layer with REST controllers and UI support.
 ```
 
 ## Patterns
-- Controllers return `Mono<ResponseEntity<T>>` or `Mono<T>`.
+- Controllers return `Mono<ApiResponse<T>>` (or a `Flux` of `ServerSentEvent`). They never catch errors: core throws `NotFoundException`, `GlobalExceptionHandler` maps the status.
+- Execution routes live at `/api/executions/{id}/…`; the `/api/workflow/…` paths are deprecated aliases. Use `ExecutionAccess` for session-ownership checks, `Pagination` for lists and `SseStreams` for SSE.
+- `yukta.api-key` (optional) guards `/api/**`; the server binds to loopback unless `YUKTA_SERVER_ADDRESS` is set.
 - **MapStruct**: Used for DTO mapping (`AppConfigMapper`).
 
 ## Key Files
 - **Controllers**: `src/main/java/com/infenia/yukta/controller/`
 - **Mappers**: `src/main/java/com/infenia/yukta/mapper/`
-- **Module guide (interactive)**: `docs/web-module-guide.html`; review findings: `docs/web-improvements.md`
+- **Module guide (interactive, with the resolved review findings)**: `docs/web-module-guide.html`
 
 ## Imports
 @.claude/rules/coding-standards.md

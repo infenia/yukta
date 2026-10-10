@@ -6,6 +6,7 @@ import com.infenia.yukta.message.Message;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.core.Plugin;
+import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.control.directive.ControlSignalHandler;
 import com.infenia.yukta.service.control.store.ActivePluginRegistry;
 import com.infenia.yukta.service.orchestrator.WorkflowOrchestrator;
@@ -374,8 +375,7 @@ public class ControlBusService {
           .addArgument(nodeId)
           .addArgument(workflowId)
           .log("Command target node not found: {} in workflow: {}");
-      return Mono.error(
-          new IllegalArgumentException("Node not found: " + workflowId + "/" + nodeId));
+      return Mono.error(new NotFoundException("Node not found: " + workflowId + "/" + nodeId));
     }
     final Object payload = command.payload();
     final String commandType = payload != null ? payload.getClass().getSimpleName() : "null";

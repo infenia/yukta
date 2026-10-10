@@ -11,10 +11,6 @@ export interface SessionListItem {
   workflowCount: number;
 }
 
-export interface SessionListItems {
-  sessions: SessionListItem[];
-}
-
 export interface SessionDetails {
   sessionId: string;
   name: string;
@@ -35,6 +31,3 @@ export interface WorkflowSummary {
   status: WorkflowExecutionStatus | null;
 }
 
-export interface WorkflowSummaries {
-  workflows: WorkflowSummary[];
-}

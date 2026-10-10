@@ -7,6 +7,7 @@ import com.infenia.yukta.plugin.control.ControlSignalProcessor;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.StopNodeCommand;
 import com.infenia.yukta.plugin.control.WorkflowDirective;
+import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.control.ExecutionControl;
 import com.infenia.yukta.service.control.store.ExecutionControlRegistry;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
@@ -46,9 +47,7 @@ public class StopNodeCommandProcessor implements ControlSignalProcessor {
               registry
                   .findByExecutionId(stop.executionId())
                   .orElseThrow(
-                      () ->
-                          new IllegalArgumentException(
-                              "Execution not found: " + stop.executionId()));
+                      () -> new NotFoundException("Execution not found: " + stop.executionId()));
 
           final String nodeId = stop.nodeId();
           final Sinks.One<Void> sink =
@@ -57,7 +56,7 @@ public class StopNodeCommandProcessor implements ControlSignalProcessor {
                   : control.nodeSafeStopSinks().get(nodeId);
 
           if (sink == null) {
-            throw new IllegalArgumentException("Node not found or not stoppable: " + nodeId);
+            throw new NotFoundException("Node not found or not stoppable: " + nodeId);
           }
 
           // Already-stopped sinks are terminated; stopping twice is a no-op.

@@ -23,16 +23,14 @@ const server = setupServer(
       timestamp: '2026-07-26T00:00:00Z',
       status: 200,
       message: 'Workflow executions retrieved',
-      data: {
-        executions: [
-          createMockExecution(),
-          createMockExecution({
-            executionId: 'exec-old-1',
-            status: 'SUCCESS',
-            endTime: '2026-07-25T10:00:00',
-          }),
-        ],
-      },
+      data: [
+        createMockExecution(),
+        createMockExecution({
+          executionId: 'exec-old-1',
+          status: 'SUCCESS',
+          endTime: '2026-07-25T10:00:00',
+        }),
+      ],
       path: '/api/sessions/s1/workflows/wf-982-xk-11/executions',
     });
   })
@@ -44,8 +42,8 @@ afterAll(() => server.close());
 describe('getWorkflowExecutions', () => {
   it('fetches the per-workflow execution history', async () => {
     const result = await getWorkflowExecutions('s1', 'wf-982-xk-11');
-    expect(result.executions).toHaveLength(2);
-    expect(result.executions[0].executionId).toBe('exec-091-qp-55');
+    expect(result).toHaveLength(2);
+    expect(result[0].executionId).toBe('exec-091-qp-55');
   });
 
   it('throws ApiError for a missing workflow', async () => {

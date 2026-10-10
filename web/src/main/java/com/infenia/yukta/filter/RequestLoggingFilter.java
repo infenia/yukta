@@ -29,8 +29,6 @@ public class RequestLoggingFilter implements WebFilter {
     final String method = request.getMethod().toString();
     final String path = request.getPath().value();
 
-    log.debug("Incoming request - method: {}, path: {}", method, path);
-
     return chain
         .filter(exchange)
         .doFinally(
@@ -41,12 +39,7 @@ public class RequestLoggingFilter implements WebFilter {
               final var statusCodeObj = response.getStatusCode();
               final int statusCode = statusCodeObj != null ? statusCodeObj.value() : 0;
 
-              log.debug(
-                  "Outgoing response - method: {}, path: {}, statusCode: {}, duration: {}ms",
-                  method,
-                  path,
-                  statusCode,
-                  duration);
+              log.info("{} {} -> {} in {}ms", method, path, statusCode, duration);
             });
   }
 }
