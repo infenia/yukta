@@ -28,3 +28,6 @@ All modules apply these plugins via `plugins { id 'com.infenia.yukta.xxx-convent
 ## Imports
 @.claude/rules/coding-standards.md
 @.claude/rules/git-workflow.md
+
+## Coverage policy
+Defaults are LINE 90% / BRANCH 85%. Lower a class with `coverageConfig { exception(pattern, reason, mapOf("BRANCH" to 0.7)) }`; below 0.80 a reason is required. Stale patterns and disabled `jacocoTestCoverageVerification` fail the build. Trivy is not part of `check` (CI runs it; `./gradlew trivy` on demand).
