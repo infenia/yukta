@@ -8,6 +8,8 @@ import com.infenia.yukta.dto.response.WorkflowStopResponse;
 import com.infenia.yukta.model.api.ApiResponse;
 import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
 import com.infenia.yukta.model.execution.WorkflowProgress;
+import com.infenia.yukta.model.workflow.WorkflowExecution;
+import com.infenia.yukta.service.control.ExecutionRejectedException;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import com.infenia.yukta.service.session.SessionService;
 import com.infenia.yukta.service.workflow.WorkflowService;
@@ -27,6 +29,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -71,6 +74,9 @@ public class WorkflowController {
    * Start a workflow execution for a session.
    *
    * @param request the start request containing sessionId and workflowId
+   * @param idempotencyKey optional key; a repeated start with the same key returns the first
+   *     execution
+   * @param exchange the current exchange
    * @return response entity with acknowledgment and execution ID
    */
   @PostMapping("/workflow/start")
@@ -86,12 +92,22 @@ public class WorkflowController {
   @io.swagger.v3.oas.annotations.responses.ApiResponse(
       responseCode = "404",
       description = "Session or workflow not found")
+  @io.swagger.v3.oas.annotations.responses.ApiResponse(
+      responseCode = "429",
+      description = "Execution limit reached, or the server is shutting down")
   public Mono<ResponseEntity<ApiResponse<WorkflowStartResponse>>> startWorkflow(
-      @Valid @RequestBody final WorkflowStartRequest request, final ServerWebExchange exchange) {
+      @Valid @RequestBody final WorkflowStartRequest request,
+      @RequestHeader(value = "Idempotency-Key", required = false) final String idempotencyKey,
+      final ServerWebExchange exchange) {
     log.atInfo().log(
         "startWorkflow: sessionId={}, workflowId={}", request.sessionId(), request.workflowId());
-    return workflowService
-        .validateAndStartWorkflow(request.sessionId(), request.workflowId(), request.payload())
+    final Mono<WorkflowExecution> started =
+        idempotencyKey == null
+            ? workflowService.validateAndStartWorkflow(
+                request.sessionId(), request.workflowId(), request.payload())
+            : workflowService.validateAndStartWorkflow(
+                request.sessionId(), request.workflowId(), request.payload(), idempotencyKey);
+    return started
         .doOnNext(
             _ ->
                 log.atInfo().log(
@@ -112,7 +128,11 @@ public class WorkflowController {
                     "startWorkflow response sent successfully: sessionId={}, workflowId={}",
                     request.sessionId(),
                     request.workflowId()))
+        // A refused start (limit reached, shutting down) is not "workflow not found": let the
+        // global
+        // handler turn it into 429.
         .onErrorResume(
+            e -> !(e instanceof ExecutionRejectedException),
             e -> {
               log.atError()
                   .log(

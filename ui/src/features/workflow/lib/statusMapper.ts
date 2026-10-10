@@ -44,6 +44,7 @@ const EXEC_STATUS_MAP: Record<string, ExecStatusCategory> = {
   PAUSED: 'paused',
   NODE_PAUSED: 'paused',
   PENDING: 'pending',
+  QUEUED: 'pending',
 };
 
 /** Terminal execution statuses, mirroring the backend LogManagementController vocabulary. */

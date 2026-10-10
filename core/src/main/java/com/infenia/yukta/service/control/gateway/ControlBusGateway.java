@@ -259,6 +259,21 @@ public interface ControlBusGateway {
   Mono<String> startWorkflow(String sessionId, String workflowId, Map<String, Object> payload);
 
   /**
+   * Start a new workflow execution, safely retryable with an idempotency key.
+   *
+   * <p>A repeated key for the same session and workflow within the idempotency window returns the
+   * execution started the first time instead of starting another one.
+   *
+   * @param sessionId the session identifier
+   * @param workflowId the workflow identifier
+   * @param payload the trigger payload, read by the workflow's trigger node
+   * @param idempotencyKey the client's key, or null for a plain start
+   * @return a Mono containing the execution ID
+   */
+  Mono<String> startWorkflow(
+      String sessionId, String workflowId, Map<String, Object> payload, String idempotencyKey);
+
+  /**
    * Safely stop the current execution and restart the entire workflow from the beginning using the
    * original payload.
    *

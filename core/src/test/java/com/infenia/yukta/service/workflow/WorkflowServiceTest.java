@@ -98,4 +98,15 @@ class WorkflowServiceTest {
         .assertNext(execution -> assertThat(execution.executionId()).isEqualTo("exec-p"))
         .verifyComplete();
   }
+
+  @Test
+  void testValidateAndStartWorkflowWithIdempotencyKeyForwardsTheKey() {
+    when(controlBus.startWorkflow("sess-1", "wf-1", Map.of(), "key-1"))
+        .thenReturn(Mono.just("exec-first"));
+
+    StepVerifier.create(
+            workflowService.validateAndStartWorkflow("sess-1", "wf-1", Map.of(), "key-1"))
+        .assertNext(execution -> assertThat(execution.executionId()).isEqualTo("exec-first"))
+        .verifyComplete();
+  }
 }
