@@ -755,6 +755,11 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
     if (isTerminal(event.status())) {
       recordNode(state.taskMap.get(event.nodeId()));
     }
+    if (TaskStatus.SUCCESS.name().equals(event.status())) {
+      executionLog.append(
+          ExecutionLogEvent.nodeFinished(
+              state.executionId, state.sessionId, state.workflowId, event.nodeId()));
+    }
     touched.add(event.executionId());
   }
 

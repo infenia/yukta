@@ -188,13 +188,43 @@ public class WorkflowOrchestrator {
     } catch (final IllegalArgumentException e) {
       return Mono.error(e);
     }
+    return rerun(
+        sessionId,
+        workflowId,
+        previousExecutionId,
+        newExecutionId,
+        prepared,
+        plan,
+        Map.of(),
+        boundaryOutputs,
+        "restartNodeId=" + restartNodeId);
+  }
+
+  /**
+   * Runs the part of a workflow that a plan names as a new execution, replaying the recorded output
+   * of the nodes that feed it. Used by restart from a node and by resuming an aborted run.
+   *
+   * @param payload trigger payload, for triggers inside the re-run part
+   * @param origin what started this, for the log
+   */
+  @SuppressWarnings("PMD.UseObjectForClearerAPI")
+  public Mono<Void> rerun(
+      final String sessionId,
+      final String workflowId,
+      final String previousExecutionId,
+      final String newExecutionId,
+      final PreparedWorkflow prepared,
+      final RestartPlan plan,
+      final Map<String, Object> payload,
+      final Map<String, List<Message<?>>> boundaryOutputs,
+      final String origin) {
 
     log.atInfo()
         .addKeyValue(LOG_KEY_SESSION_ID, sessionId)
         .addKeyValue(LOG_KEY_WORKFLOW_ID, workflowId)
         .addKeyValue("previousExecutionId", previousExecutionId)
         .addKeyValue(LOG_KEY_EXECUTION_ID, newExecutionId)
-        .addKeyValue("restartNodeId", restartNodeId)
+        .addKeyValue("origin", origin)
         .addKeyValue("rerunNodes", plan.rerun().size())
         .addKeyValue("replayedNodes", plan.boundary())
         .log("Starting workflow restart from node");
@@ -224,9 +254,9 @@ public class WorkflowOrchestrator {
     final List<String> nodeIds = topologicalOrder.stream().map(WorkflowNode::nodeId).toList();
 
     final ExecutionControl control =
-        executionControlFactory.create(sessionId, workflowId, newExecutionId, prepared, Map.of());
+        executionControlFactory.create(sessionId, workflowId, newExecutionId, prepared, payload);
     executionControlRegistry.register(control);
-    archive(newExecutionId, sessionId, workflowId, prepared, Map.of());
+    archive(newExecutionId, sessionId, workflowId, prepared, payload);
     log.atDebug()
         .addKeyValue(LOG_KEY_EXECUTION_ID, newExecutionId)
         .log("Registered execution control for restarted workflow");
@@ -251,7 +281,7 @@ public class WorkflowOrchestrator {
         0,
         recordReplayed.then(
             compiler.executeTemplate(
-                newExecutionId, Map.of(), nodeCount, assemblers, sessionId, workflowId, nodeIds)),
+                newExecutionId, payload, nodeCount, assemblers, sessionId, workflowId, nodeIds)),
         "RestartFromNode execution");
   }
 
@@ -283,7 +313,8 @@ public class WorkflowOrchestrator {
       final PreparedWorkflow prepared,
       final Map<String, Object> payload) {
     final String version = DefinitionVersion.of(prepared);
-    executionLog.append(ExecutionLogEvent.started(executionId, sessionId, workflowId, version));
+    executionLog.append(
+        ExecutionLogEvent.started(executionId, sessionId, workflowId, version, payload));
     executionArchive
         .put(new ArchivedExecution(executionId, sessionId, workflowId, prepared, version, payload))
         .forEach(checkpointStore::clear);

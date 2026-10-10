@@ -44,7 +44,16 @@ class ExecutionLogStoreTest {
     assertThat(aborted.executionId()).isEqualTo("e1");
     assertThat(
             new ExecutionLogEvent(
-                    started.type(), "e", "s", "w", null, null, null, started.timestamp())
+                    started.type(),
+                    "e",
+                    "s",
+                    "w",
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    started.timestamp())
                 .nodeStatuses())
         .isEmpty();
   }
@@ -194,5 +203,42 @@ class ExecutionLogStoreTest {
     store.close();
 
     assertThat(store.readAll()).isEmpty();
+  }
+
+  @Test
+  void jsonl_keepsThePayloadAndNodeEvents() {
+    final JsonlExecutionLogStore store = jsonl();
+    final ExecutionLogEvent started =
+        ExecutionLogEvent.started("e1", "s", "w", "v", Map.of("k", "v", "n", 1));
+    final ExecutionLogEvent node = ExecutionLogEvent.nodeFinished("e1", "s", "w", "n1");
+
+    store.append(started);
+    store.append(node);
+
+    assertThat(store.readAll()).containsExactly(started, node);
+    assertThat(store.readAll().getFirst().payload()).containsEntry("k", "v");
+  }
+
+  @Test
+  void jsonl_payloadThatCannotBeWritten_losesOnlyThePayload() {
+    final JsonlExecutionLogStore store = jsonl();
+    final Map<String, Object> payload =
+        Map.of(
+            "bad",
+            new Object() {
+              public String getValue() {
+                throw new IllegalStateException("boom");
+              }
+            });
+
+    store.append(ExecutionLogEvent.started("e1", "s", "w", "v", payload));
+
+    assertThat(store.readAll())
+        .singleElement()
+        .satisfies(
+            e -> {
+              assertThat(e.executionId()).isEqualTo("e1");
+              assertThat(e.payload()).isNull();
+            });
   }
 }

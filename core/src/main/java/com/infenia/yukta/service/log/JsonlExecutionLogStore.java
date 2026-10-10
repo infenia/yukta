@@ -181,7 +181,7 @@ public class JsonlExecutionLogStore implements ExecutionLogStore {
       Files.createDirectories(dir);
       Files.writeString(
           file,
-          mapper.writeValueAsString(event) + "\n",
+          json(event) + "\n",
           StandardCharsets.UTF_8,
           StandardOpenOption.CREATE,
           StandardOpenOption.APPEND);
@@ -195,6 +195,21 @@ public class JsonlExecutionLogStore implements ExecutionLogStore {
     if (sinceCompaction >= compactAfter) {
       sinceCompaction = 0;
       compact();
+    }
+  }
+
+  /** Serialises an event; a payload that cannot be written is left out, not the whole event. */
+  private String json(final ExecutionLogEvent event) {
+    try {
+      return mapper.writeValueAsString(event);
+    } catch (final RuntimeException e) {
+      if (event.payload() == null) {
+        throw e;
+      }
+      log.atWarn()
+          .addKeyValue("executionId", event.executionId())
+          .log("Run payload cannot be serialised, so the run cannot be resumed");
+      return mapper.writeValueAsString(event.withoutPayload());
     }
   }
 
@@ -250,7 +265,7 @@ public class JsonlExecutionLogStore implements ExecutionLogStore {
       try {
         final StringBuilder content = new StringBuilder();
         for (final ExecutionLogEvent event : events) {
-          content.append(mapper.writeValueAsString(event)).append('\n');
+          content.append(json(event)).append('\n');
         }
         Files.writeString(tmp, content, StandardCharsets.UTF_8);
         Files.move(tmp, file, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);

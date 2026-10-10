@@ -12,6 +12,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -27,6 +28,7 @@ import reactor.core.publisher.Mono;
  * NodeCheckpointStore} bean.
  */
 @Component
+@ConditionalOnExpression("'${yukta.restart.dir:}'.isEmpty()")
 @SuppressWarnings({"PMD.AvoidSynchronizedStatement", "PMD.LawOfDemeter", "PMD.OnlyOneReturn"})
 public class InMemoryNodeCheckpointStore implements NodeCheckpointStore {
 

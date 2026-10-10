@@ -1,0 +1,160 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: 2026 Infenia Private Limited
+package com.infenia.yukta.service.orchestrator;
+
+import com.infenia.yukta.message.Message;
+import com.infenia.yukta.model.workflow.PreparedWorkflow;
+import com.infenia.yukta.plugin.store.NodeCheckpointStore;
+import com.infenia.yukta.service.NotFoundException;
+import com.infenia.yukta.service.archive.DefinitionVersion;
+import com.infenia.yukta.service.control.ExecutionScheduler;
+import com.infenia.yukta.service.log.ExecutionLogEvent;
+import com.infenia.yukta.service.log.ExecutionLogStore;
+import com.infenia.yukta.service.workflow.store.WorkflowDefinitionStore;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.UUID;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Component;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
+
+/**
+ * Continues a run that a server restart aborted.
+ *
+ * <p>Nodes that ended successfully (logged as {@code NODE_FINISHED}) with a complete recorded
+ * output are not run again: their output is replayed to the nodes that did not finish. This needs
+ * the file log ({@code yukta.execution-log.dir}) and the file checkpoints ({@code
+ * yukta.restart.dir}). A run can be resumed once, and only if its workflow definition is unchanged.
+ */
+@Slf4j
+@Component
+@RequiredArgsConstructor
+@SuppressWarnings("PMD.OnlyOneReturn")
+public class ExecutionResumer {
+
+  /** The execution log: start, payload, finished nodes, end. */
+  private final ExecutionLogStore executionLog;
+
+  /** The recorded node outputs. */
+  private final NodeCheckpointStore checkpointStore;
+
+  /** The current workflow definitions. */
+  private final WorkflowDefinitionStore workflowDefinitionStore;
+
+  /** Prepares and runs the resumed execution. */
+  private final WorkflowOrchestrator orchestrator;
+
+  /** Admits the resumed execution like any other start. */
+  private final ExecutionScheduler scheduler;
+
+  /**
+   * Resumes an aborted run as a new run.
+   *
+   * @param executionId the aborted run
+   * @return the id of the new run
+   * @throws NotFoundException if the run is unknown
+   * @throws IllegalStateException if it cannot be resumed
+   */
+  public Mono<String> resume(final String executionId) {
+    return Mono.defer(
+        () -> {
+          final List<ExecutionLogEvent> events =
+              executionLog.readAll().stream()
+                  .filter(event -> event.executionId().equals(executionId))
+                  .toList();
+          final ExecutionLogEvent started = first(events, ExecutionLogEvent.Type.RUN_STARTED);
+          if (started == null) {
+            return Mono.error(new NotFoundException("Execution not found: " + executionId));
+          }
+          final ExecutionLogEvent resumed = first(events, ExecutionLogEvent.Type.RUN_RESUMED);
+          if (resumed != null) {
+            return Mono.error(
+                new IllegalStateException(
+                    "Execution " + executionId + " was already resumed as " + resumed.status()));
+          }
+          if (first(events, ExecutionLogEvent.Type.RUN_ABORTED) == null) {
+            return Mono.error(
+                new IllegalStateException("Only an aborted run can be resumed: " + executionId));
+          }
+          if (started.payload() == null) {
+            return Mono.error(
+                new IllegalStateException("The payload of " + executionId + " was not recorded"));
+          }
+          final Set<String> finished = new HashSet<>();
+          events.stream()
+              .filter(event -> event.type() == ExecutionLogEvent.Type.NODE_FINISHED)
+              .map(ExecutionLogEvent::nodeId)
+              .filter(node -> checkpointStore.isComplete(executionId, node))
+              .forEach(finished::add);
+          return workflowDefinitionStore
+              .find(started.sessionId(), started.workflowId())
+              .switchIfEmpty(
+                  Mono.error(new NotFoundException("Workflow no longer exists: " + started)))
+              .flatMap(orchestrator::prepareWorkflow)
+              .flatMap(prepared -> start(started, finished, prepared));
+        });
+  }
+
+  private Mono<String> start(
+      final ExecutionLogEvent started,
+      final Set<String> finished,
+      final PreparedWorkflow prepared) {
+    if (!DefinitionVersion.of(prepared).equals(started.definitionVersion())) {
+      return Mono.error(
+          new IllegalStateException(
+              "The workflow changed since " + started.executionId() + " started"));
+    }
+    final RestartPlan plan = RestartPlan.resuming(prepared, finished);
+    if (plan.rerun().isEmpty()) {
+      return Mono.error(
+          new IllegalStateException("Every node of " + started.executionId() + " had finished"));
+    }
+    scheduler.assertCanAccept(started.sessionId(), started.workflowId());
+    final String newId = UUID.randomUUID().toString();
+    final Map<String, Object> payload = Objects.requireNonNull(started.payload());
+    return Flux.fromIterable(plan.boundary())
+        .concatMap(
+            node ->
+                checkpointStore
+                    .getAll(started.executionId(), node)
+                    .collectList()
+                    .map(messages -> Map.<String, List<Message<?>>>entry(node, messages)))
+        .collectMap(Map.Entry::getKey, Map.Entry::getValue)
+        .doOnNext(
+            outputs -> {
+              executionLog.append(ExecutionLogEvent.resumed(started, newId));
+              orchestrator
+                  .rerun(
+                      started.sessionId(),
+                      started.workflowId(),
+                      started.executionId(),
+                      newId,
+                      prepared,
+                      plan,
+                      payload,
+                      outputs,
+                      "resume of " + started.executionId())
+                  .subscribeOn(Schedulers.boundedElastic())
+                  .doOnError(
+                      err ->
+                          log.atError()
+                              .setCause(err)
+                              .addKeyValue("executionId", newId)
+                              .log("Resumed execution failed"))
+                  .onErrorComplete()
+                  .subscribe();
+            })
+        .thenReturn(newId);
+  }
+
+  private static ExecutionLogEvent first(
+      final List<ExecutionLogEvent> events, final ExecutionLogEvent.Type type) {
+    return events.stream().filter(event -> event.type() == type).findFirst().orElse(null);
+  }
+}
