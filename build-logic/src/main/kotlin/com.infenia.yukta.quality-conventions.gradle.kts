@@ -51,26 +51,21 @@ licensee {
     allow("0BSD")
     // Common open-source licenses compatible with Apache-2.0
     allow("Python-2.0")
-    allow("LGPL-2.1+")
-    allow("LGPL-2.1-only")
-    allow("LGPL-3.0+")
-    allow("LGPL-3.0-only")
     // Java/Spring ecosystem licenses
     allow("EPL-1.0")
     allow("EPL-2.0")
-    allow("CDDL-1.0")
-    allow("CDDL-1.1")
-    allow("GPL-2.0-with-classpath-exception")
     allow("UPL-1.0")
     // Other permissive licenses
-    allow("MPL-2.0")
-    allow("WTFPL")
+    // Per-artifact decisions for weak/strong-copyleft licences (statically linked into the native
+    // image; needs legal sign-off before distribution). Nothing else may use these licences.
+    allowDependency("org.openjdk.nashorn", "nashorn-core", "15.4") {
+        because("GPL-2.0 with Classpath Exception (license URL only); pulled in by GraalVM JS in internal-core")
+    }
     // Allow specific license URLs (non-standard but compatible)
     allowUrl("http://antlr.org/license.html")
     allowUrl("https://www.antlr.org/license.html")
     allowUrl("http://www.antlr.org/license.html")
     allowUrl("https://asm.ow2.io/license.html")
-    allowUrl("https://github.com/openjdk/nashorn/blob/main/LICENSE")
     allowUrl("https://github.com/webjars/webjars-locator-lite/blob/main/LICENSE.md")
     allowUrl("https://raw.githubusercontent.com/unicode-org/icu/main/LICENSE")
     allowUrl("https://repository.jboss.org/licenses/apache-2.0.txt")
@@ -116,7 +111,7 @@ dependencies {
 // regenerated on every build.
 tasks.withType<JavaCompile>().configureEach {
     options.errorprone {
-        excludedPaths.set(".*/build/generated/.*|.*/build/jte-classes/.*")
+        excludedPaths.set(".*/build/generated/.*")
     }
 }
 
@@ -154,70 +149,17 @@ tasks.register<Exec>("opengrep") {
     onlyIf {
         val sourceExists = sourceDir.exists()
         val opengrepExists = try {
-            Runtime.getRuntime().exec(arrayOf("sh", "-c", "which opengrep")).waitFor() == 0
-        } catch (_: Exception) {
+            ProcessBuilder("opengrep", "--version").redirectErrorStream(true).start().let {
+                it.inputStream.readAllBytes()
+                it.waitFor() == 0
+            }
+        } catch (_: java.io.IOException) {
             false
         }
 
         sourceExists && opengrepExists
     }
 }
-
-tasks.register<Exec>("trivy") {
-    description = "Scan for vulnerabilities with Trivy"
-    group = "verification"
-
-    val reportDir = project.layout.buildDirectory.dir("reports/trivy").get().asFile
-    val fsSarifReport = File(reportDir, "trivy-fs-report.sarif")
-
-    doFirst {
-        reportDir.mkdirs()
-    }
-
-    commandLine("sh", "-c", """
-        trivy fs \
-          --format sarif \
-          --output ${fsSarifReport.absolutePath} \
-          --severity HIGH,CRITICAL \
-          --exit-code 0 \
-          ${project.projectDir.absolutePath}
-    """.trimIndent())
-
-    isIgnoreExitValue = true
-
-    doLast {
-        val reportExists = fsSarifReport.exists()
-        if (reportExists) {
-            logger.info("✓ Trivy filesystem scan report: ${fsSarifReport.absolutePath}")
-        }
-
-        // Exit code 1 means vulnerabilities found (not a failure for this task in Gradle)
-        // We report findings but don't fail - that's the CI job's responsibility
-        if (executionResult.get().exitValue > 1) {
-            throw GradleException("Trivy scan failed with exit code ${executionResult.get().exitValue}")
-        }
-    }
-
-    onlyIf {
-        val trivyExists = try {
-            Runtime.getRuntime().exec(arrayOf("sh", "-c", "which trivy")).waitFor() == 0
-        } catch (_: Exception) {
-            false
-        }
-
-        if (!trivyExists) {
-            logger.warn("⚠ Trivy not found. Install with: curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin")
-        }
-
-        trivyExists
-    }
-}
-
-// Make Trivy part of the check task (runs after check completes)
-tasks.named("check") {
-    finalizedBy(tasks.named("trivy"))
-}
-
 
 tasks.withType<Checkstyle>().configureEach {
     reports {
