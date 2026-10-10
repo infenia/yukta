@@ -12,8 +12,6 @@ dependencies {
     implementation(libs.spring.boot.starter.webflux)
     implementation(libs.jackson.databind)
     implementation(libs.handlebars)
-    implementation(libs.graalvm.polyglot)
-    implementation(libs.graalvm.js)
 }
 
 coverageConfig {
