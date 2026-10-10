@@ -126,7 +126,8 @@ public class ProcessorNodeAssemblerStrategy implements NodeAssemblerStrategy {
                             policy,
                             node.nodeId(),
                             message,
-                            processor.process(Flux.just(message), node.config())))
+                            processor.process(Flux.just(message), node.config()),
+                            activity::touch))
                 : processor.process(channelInput, node.config());
         stream = channel.outbound(node.nodeId(), context.executionId(), pluginOutput);
         if (processor.isBlocking()) {

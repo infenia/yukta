@@ -17,6 +17,8 @@ import com.infenia.yukta.plugin.control.ExecutionControlCommand.RestartCommand;
 import com.infenia.yukta.service.archive.ArchivedExecution;
 import com.infenia.yukta.service.archive.ExecutionArchive;
 import com.infenia.yukta.service.control.ExecutionControl;
+import com.infenia.yukta.service.control.ExecutionRejectedException;
+import com.infenia.yukta.service.control.ExecutionScheduler;
 import com.infenia.yukta.service.control.gateway.RestartCompletionSink;
 import com.infenia.yukta.service.control.store.ExecutionControlRegistry;
 import com.infenia.yukta.service.orchestrator.WorkflowOrchestrator;
@@ -34,13 +36,15 @@ import reactor.test.StepVerifier;
   "PMD.CommentRequired",
   "PMD.LinguisticNaming",
   "PMD.AvoidDuplicateLiterals",
-  "PMD.TooManyStaticImports"
+  "PMD.TooManyStaticImports",
+  "PMD.TooManyMethods"
 })
 class RestartCommandProcessorTest {
 
   private final ExecutionControlRegistry registry = mock(ExecutionControlRegistry.class);
   private final WorkflowOrchestrator orchestrator = mock(WorkflowOrchestrator.class);
   private final RestartCompletionSink completionSink = mock(RestartCompletionSink.class);
+  private final ExecutionScheduler scheduler = mock(ExecutionScheduler.class);
   private final PreparedWorkflow prepared = mock(PreparedWorkflow.class);
   private final ExecutionArchive archive = new ExecutionArchive();
 
@@ -48,7 +52,8 @@ class RestartCommandProcessorTest {
 
   @BeforeEach
   void setUp() {
-    processor = new RestartCommandProcessor(registry, archive, orchestrator, completionSink);
+    processor =
+        new RestartCommandProcessor(registry, archive, orchestrator, scheduler, completionSink);
     archive.put(new ArchivedExecution("exec-1", "s1", "w1", prepared, "v1", Map.of("k", "v")));
   }
 
@@ -90,6 +95,33 @@ class RestartCommandProcessorTest {
     assertThat(safeStop.asMono().toFuture()).isDone();
     verify(registry).unregister("exec-1");
     verify(completionSink).completeRestartSuccess("new-1");
+  }
+
+  @Test
+  void finishedExecution_isRefusedWhenTheLimitsAreFull() {
+    when(registry.findByExecutionId("exec-1")).thenReturn(Optional.empty());
+    org.mockito.Mockito.doThrow(new ExecutionRejectedException("Execution limit reached"))
+        .when(scheduler)
+        .assertCanAccept("s1", "w1");
+
+    StepVerifier.create(processor.process(new RestartCommand("exec-1", "new-1"))).verifyComplete();
+
+    verify(completionSink)
+        .completeRestartFailure(eq("new-1"), any(ExecutionRejectedException.class));
+    verify(orchestrator, never()).execute(any(), any(), any(), any(), any());
+  }
+
+  @Test
+  void runningExecution_isNotCheckedAgainstTheLimits() {
+    final ExecutionControl control = mock(ExecutionControl.class);
+    when(control.executionId()).thenReturn("exec-1");
+    when(control.safeStopSink()).thenReturn(Sinks.one());
+    when(registry.findByExecutionId("exec-1")).thenReturn(Optional.of(control));
+    when(orchestrator.execute(any(), any(), any(), any(), any())).thenReturn(Mono.never());
+
+    StepVerifier.create(processor.process(new RestartCommand("exec-1", "new-1"))).verifyComplete();
+
+    verify(scheduler, never()).assertCanAccept(any(), any());
   }
 
   @Test
