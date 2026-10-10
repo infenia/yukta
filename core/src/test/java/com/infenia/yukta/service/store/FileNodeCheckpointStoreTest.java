@@ -18,7 +18,7 @@ import reactor.test.StepVerifier;
 import tools.jackson.databind.json.JsonMapper;
 
 @NoArgsConstructor
-@SuppressWarnings("PMD.CommentRequired")
+@SuppressWarnings({"PMD.CommentRequired", "PMD.TooManyMethods", "PMD.AvoidDuplicateLiterals"})
 class FileNodeCheckpointStoreTest {
 
   @TempDir /* default */ Path dir;
@@ -120,6 +120,41 @@ class FileNodeCheckpointStoreTest {
 
     StepVerifier.create(store().getAll("e1", "n1"))
         .expectError(java.io.UncheckedIOException.class)
+        .verify();
+  }
+
+  @Test
+  void tornLastLine_makesTheNodeIncomplete_soResumeRunsItAgain() throws IOException {
+    final FileNodeCheckpointStore store = store();
+    store.save("e1", "n1", message("a")).block();
+    final Path file = dir.resolve("e-e1").resolve("n1.jsonl");
+    Files.writeString(
+        file,
+        Files.readString(file) + "{\"id\":\"cut",
+        java.nio.file.StandardOpenOption.TRUNCATE_EXISTING);
+
+    assertThat(store.isComplete("e1", "n1")).isFalse();
+  }
+
+  @Test
+  void emptyOutputFile_isComplete() throws IOException {
+    Files.createDirectories(dir.resolve("e-e1"));
+    Files.createFile(dir.resolve("e-e1").resolve("n1.jsonl"));
+
+    assertThat(store().isComplete("e1", "n1")).isTrue();
+  }
+
+  @Test
+  void unparsableLine_failsTheReplayCleanly() throws IOException {
+    Files.createDirectories(dir.resolve("e-e1"));
+    Files.writeString(dir.resolve("e-e1").resolve("n1.jsonl"), "not json\n");
+
+    StepVerifier.create(store().getAll("e1", "n1"))
+        .expectErrorSatisfies(
+            e ->
+                assertThat(e)
+                    .isInstanceOf(java.io.UncheckedIOException.class)
+                    .hasMessageContaining("Unreadable output of node n1"))
         .verify();
   }
 }
