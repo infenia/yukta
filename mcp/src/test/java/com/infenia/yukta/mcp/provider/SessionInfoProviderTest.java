@@ -10,6 +10,7 @@ import static org.mockito.Mockito.when;
 
 import com.infenia.yukta.mcp.dto.PluginReference;
 import com.infenia.yukta.mcp.dto.SessionCreationGuide;
+import com.infenia.yukta.model.session.SessionConfigData;
 import com.infenia.yukta.plugin.core.Plugin;
 import com.infenia.yukta.plugin.core.PluginCategory;
 import com.infenia.yukta.service.plugin.PluginRegistry;
@@ -21,21 +22,18 @@ import org.junit.jupiter.api.Test;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
-import tools.jackson.databind.ObjectMapper;
 
-class DefaultSessionInfoProviderTest {
+class SessionInfoProviderTest {
 
-  private DefaultSessionInfoProvider provider;
+  private SessionInfoProvider provider;
   private SessionService sessionService;
   private PluginRegistry registry;
-  private ObjectMapper objectMapper;
 
   @BeforeEach
   void setUp() {
     sessionService = mock(SessionService.class);
     registry = mock(PluginRegistry.class);
-    objectMapper = new ObjectMapper();
-    provider = new DefaultSessionInfoProvider(sessionService, registry, objectMapper);
+    provider = new SessionInfoProvider(sessionService, registry);
   }
 
   @Test
@@ -167,36 +165,29 @@ class DefaultSessionInfoProviderTest {
                         && p.description().equals("Another plugin")));
   }
 
+  private static SessionConfigData config() {
+    return new SessionConfigData("s1", "n", "d", "i", Map.of(), null, Map.of());
+  }
+
   @Test
   void testCreateSession() {
     when(sessionService.applyConfig(org.mockito.ArgumentMatchers.any())).thenReturn(Mono.empty());
 
-    StepVerifier.create(provider.createSession("{\"sessionId\":\"s1\", \"workflows\":{}}"))
-        .expectNextMatches(res -> res.success() && res.sessionId().equals("s1"))
+    StepVerifier.create(provider.createSession(config()))
+        .expectNextMatches(
+            res ->
+                res.success() && res.sessionId().equals("s1") && res.createdWorkflows().isEmpty())
         .verifyComplete();
   }
 
   @Test
-  void testCreateSessionInvalidJson() {
-    StepVerifier.create(provider.createSession("invalid"))
-        .expectErrorMatches(
-            error ->
-                error instanceof IllegalArgumentException
-                    && error.getMessage().contains("Failed to create session"))
-        .verify();
-  }
-
-  @Test
-  void testCreateSessionApplyConfigError() {
+  void testCreateSessionErrorPassesThroughUnchanged() {
+    final var failure = new IllegalStateException("Config error");
     when(sessionService.applyConfig(org.mockito.ArgumentMatchers.any()))
-        .thenReturn(Mono.error(new RuntimeException("Config error")));
+        .thenReturn(Mono.error(failure));
 
-    StepVerifier.create(provider.createSession("{\"sessionId\":\"s1\", \"workflows\":{}}"))
-        .expectErrorMatches(
-            error ->
-                error instanceof IllegalArgumentException
-                    && error.getMessage().contains("Config error")
-                    && error.getCause() instanceof RuntimeException)
+    StepVerifier.create(provider.createSession(config()))
+        .expectErrorMatches(failure::equals)
         .verify();
   }
 }

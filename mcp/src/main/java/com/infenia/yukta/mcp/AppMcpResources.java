@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.mcp;
 
-import com.infenia.yukta.mcp.provider.DefaultLogProvider;
+import com.infenia.yukta.mcp.provider.LogProvider;
 import lombok.RequiredArgsConstructor;
 import org.springframework.ai.mcp.annotation.McpResource;
 import org.springframework.stereotype.Component;
@@ -14,7 +14,7 @@ import reactor.core.publisher.Mono;
 public class AppMcpResources {
 
   /** Provides log data for MCP resources. */
-  private final DefaultLogProvider logProvider;
+  private final LogProvider logProvider;
 
   /**
    * Provides a high-level overview of Yukta's capabilities and architecture.

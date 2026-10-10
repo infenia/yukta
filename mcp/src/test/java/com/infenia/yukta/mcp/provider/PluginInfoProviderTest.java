@@ -20,15 +20,15 @@ import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-class DefaultPluginInfoProviderTest {
+class PluginInfoProviderTest {
 
-  private DefaultPluginInfoProvider provider;
+  private PluginInfoProvider provider;
   private PluginRegistry registry;
 
   @BeforeEach
   void setUp() {
     registry = mock(PluginRegistry.class);
-    provider = new DefaultPluginInfoProvider(registry);
+    provider = new PluginInfoProvider(registry);
   }
 
   @Test
