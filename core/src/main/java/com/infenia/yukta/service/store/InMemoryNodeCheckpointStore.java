@@ -9,6 +9,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -47,6 +48,9 @@ public class InMemoryNodeCheckpointStore implements NodeCheckpointStore, ByteCou
 
   /** Map of execution ID to node ID to recorded output. */
   private final Map<String, Map<String, Recorded>> store = new ConcurrentHashMap<>();
+
+  /** Nodes that ended normally, as "execution\0node". */
+  private final Set<String> finished = ConcurrentHashMap.newKeySet();
 
   /** Bytes held across all executions. */
   private final AtomicLong held = new AtomicLong();
@@ -153,7 +157,18 @@ public class InMemoryNodeCheckpointStore implements NodeCheckpointStore, ByteCou
   }
 
   @Override
+  public Mono<Void> markComplete(final String executionId, final String nodeId) {
+    return Mono.fromRunnable(() -> finished.add(executionId + "\0" + nodeId));
+  }
+
+  @Override
+  public boolean isFinished(final String executionId, final String nodeId) {
+    return finished.contains(executionId + "\0" + nodeId) && isComplete(executionId, nodeId);
+  }
+
+  @Override
   public void clear(final String executionId) {
+    finished.removeIf(key -> key.startsWith(executionId + "\0"));
     final Map<String, Recorded> removed = store.remove(executionId);
     if (removed != null) {
       removed.values().forEach(recorded -> held.addAndGet(-recorded.bytes));

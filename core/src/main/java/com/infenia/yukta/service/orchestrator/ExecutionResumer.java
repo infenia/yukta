@@ -4,6 +4,7 @@ package com.infenia.yukta.service.orchestrator;
 
 import com.infenia.yukta.message.Message;
 import com.infenia.yukta.model.workflow.PreparedWorkflow;
+import com.infenia.yukta.model.workflow.WorkflowNode;
 import com.infenia.yukta.plugin.store.NodeCheckpointStore;
 import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.archive.DefinitionVersion;
@@ -28,10 +29,11 @@ import reactor.core.scheduler.Schedulers;
 /**
  * Continues a run that a server restart aborted.
  *
- * <p>Nodes that ended successfully (logged as {@code NODE_FINISHED}) with a complete recorded
- * output are not run again: their output is replayed to the nodes that did not finish. This needs
- * the file log ({@code yukta.execution-log.dir}) and the file checkpoints ({@code
- * yukta.restart.dir}). A run can be resumed once, and only if its workflow definition is unchanged.
+ * <p>Nodes that ended successfully (the checkpoint store holds a durable end marker) with a
+ * complete recorded output are not run again: their output is replayed to the nodes that did not
+ * finish. This needs the file log ({@code yukta.execution-log.dir}) and the file checkpoints
+ * ({@code yukta.restart.dir}). A run can be resumed once, and only if its workflow definition is
+ * unchanged.
  */
 @Slf4j
 @Component
@@ -103,30 +105,28 @@ public class ExecutionResumer {
             return Mono.error(
                 new IllegalStateException("The payload of " + executionId + " was not recorded"));
           }
-          final Set<String> finished = new HashSet<>();
-          events.stream()
-              .filter(event -> event.type() == ExecutionLogEvent.Type.NODE_FINISHED)
-              .map(ExecutionLogEvent::nodeId)
-              .filter(node -> checkpointStore.isComplete(executionId, node))
-              .forEach(finished::add);
           return workflowDefinitionStore
               .find(started.sessionId(), started.workflowId())
               .switchIfEmpty(
                   Mono.error(new NotFoundException("Workflow no longer exists: " + started)))
               .flatMap(orchestrator::prepareWorkflow)
-              .flatMap(prepared -> start(started, finished, prepared));
+              .flatMap(prepared -> start(started, prepared));
         });
   }
 
-  private Mono<String> start(
-      final ExecutionLogEvent started,
-      final Set<String> finished,
-      final PreparedWorkflow prepared) {
+  private Mono<String> start(final ExecutionLogEvent started, final PreparedWorkflow prepared) {
     if (!DefinitionVersion.of(prepared).equals(started.definitionVersion())) {
       return Mono.error(
           new IllegalStateException(
               "The workflow changed since " + started.executionId() + " started"));
     }
+    // The store's durable marker decides, not the log: the log record of a node end is only queued
+    // for the writer and can be lost in a crash.
+    final Set<String> finished = new HashSet<>();
+    prepared.topologicalOrder().stream()
+        .map(WorkflowNode::nodeId)
+        .filter(node -> checkpointStore.isFinished(started.executionId(), node))
+        .forEach(finished::add);
     final RestartPlan plan = RestartPlan.resuming(prepared, finished);
     if (plan.rerun().isEmpty()) {
       return Mono.error(

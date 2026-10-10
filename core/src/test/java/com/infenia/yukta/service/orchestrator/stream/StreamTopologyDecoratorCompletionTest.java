@@ -1,0 +1,96 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: 2026 Infenia Private Limited
+package com.infenia.yukta.service.orchestrator.stream;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+import com.infenia.yukta.message.DefaultMessage;
+import com.infenia.yukta.message.Message;
+import com.infenia.yukta.plugin.store.NodeCheckpointStore;
+import com.infenia.yukta.service.orchestrator.tracker.DefaultTaskTrackerService;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
+import java.util.concurrent.atomic.AtomicBoolean;
+import lombok.NoArgsConstructor;
+import org.junit.jupiter.api.Test;
+import org.mockito.InOrder;
+import reactor.core.Disposable;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+import reactor.test.StepVerifier;
+
+/** The end of a node is made durable once, after its output, before the completion goes on. */
+@NoArgsConstructor
+@SuppressWarnings({"PMD.CommentRequired", "PMD.TooManyStaticImports"})
+class StreamTopologyDecoratorCompletionTest {
+
+  private final NodeCheckpointStore store = mock(NodeCheckpointStore.class);
+  private final StreamTopologyDecorator decorator =
+      new StreamTopologyDecorator(mock(DefaultTaskTrackerService.class), store);
+  private final List<Disposable> disposables = new ArrayList<>();
+
+  private Flux<Message<?>> decorate(final Flux<Message<?>> input) {
+    when(store.save(anyString(), anyString(), any())).thenReturn(Mono.empty());
+    final Flux<Message<?>> output =
+        decorator.applyLoggingAndBroadcasting("e", "n", input, 16, disposables, new ArrayList<>());
+    return decorator.applyEdgeRouting(
+        new Flux[] {output}, new com.infenia.yukta.model.workflow.ParentEdgeInfo(0, "n", null));
+  }
+
+  private static Message<?> message() {
+    return DefaultMessage.create(UUID.randomUUID(), "x");
+  }
+
+  @Test
+  void normalCompletion_marksTheNodeAfterItsLastSave_andBeforeCompletionReachesTheSubscriber() {
+    final AtomicBoolean marked = new AtomicBoolean();
+    when(store.markComplete("e", "n")).thenReturn(Mono.fromRunnable(() -> marked.set(true)));
+
+    StepVerifier.create(decorate(Flux.just(message(), message())))
+        .expectNextCount(2)
+        .then(() -> assertThat(marked).isTrue())
+        .verifyComplete();
+
+    final InOrder order = inOrder(store);
+    order.verify(store, org.mockito.Mockito.times(2)).save(anyString(), anyString(), any());
+    order.verify(store).markComplete("e", "n");
+  }
+
+  @Test
+  void failedNode_isNeverMarked() {
+    StepVerifier.create(
+            decorate(
+                Flux.concat(Flux.just(message()), Flux.error(new IllegalStateException("boom")))))
+        .expectNextCount(1)
+        .expectError(IllegalStateException.class)
+        .verify();
+
+    verify(store, never()).markComplete(anyString(), anyString());
+  }
+
+  @Test
+  void cancelledNode_isNeverMarked() {
+    StepVerifier.create(decorate(Flux.concat(Flux.just(message()), Flux.never())))
+        .expectNextCount(1)
+        .thenCancel()
+        .verify();
+
+    verify(store, never()).markComplete(anyString(), anyString());
+  }
+
+  @Test
+  void storeThatCannotMark_doesNotFailTheRun() {
+    when(store.markComplete("e", "n"))
+        .thenReturn(Mono.error(new IllegalStateException("disk full")));
+
+    StepVerifier.create(decorate(Flux.just(message()))).expectNextCount(1).verifyComplete();
+  }
+}

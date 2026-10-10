@@ -39,7 +39,7 @@ import tools.jackson.databind.ObjectMapper;
 @Slf4j
 @Component
 @ConditionalOnExpression("!'${yukta.restart.dir:}'.isEmpty()")
-@SuppressWarnings({"PMD.OnlyOneReturn", "PMD.AvoidCatchingGenericException"})
+@SuppressWarnings({"PMD.OnlyOneReturn", "PMD.AvoidCatchingGenericException", "PMD.TooManyMethods"})
 public class FileNodeCheckpointStore implements NodeCheckpointStore, ByteCounted {
 
   /** Suffix of the file holding a node's messages. */
@@ -48,11 +48,17 @@ public class FileNodeCheckpointStore implements NodeCheckpointStore, ByteCounted
   /** Suffix of the marker left when a node's output could not be recorded completely. */
   private static final String INCOMPLETE = ".incomplete";
 
+  /** Suffix of the marker that says the node ended normally and its output is durable. */
+  private static final String DONE = ".done";
+
   /** Root directory. */
   private final Path root;
 
   /** Bytes written and not yet cleared in this process (earlier runs' files are not counted). */
   private final AtomicLong held = new AtomicLong();
+
+  /** Markers that could not be made durable. */
+  private final AtomicLong failedMarkers = new AtomicLong();
 
   /** Reads and writes messages. */
   private final ObjectMapper mapper;
@@ -86,6 +92,60 @@ public class FileNodeCheckpointStore implements NodeCheckpointStore, ByteCounted
   public Flux<Message<?>> getAll(final String executionId, final String nodeId) {
     return Flux.defer(() -> Flux.fromIterable(read(executionId, nodeId)))
         .subscribeOn(Schedulers.boundedElastic());
+  }
+
+  @Override
+  public Mono<Void> markComplete(final String executionId, final String nodeId) {
+    return Mono.fromRunnable(() -> writeDone(executionId, nodeId))
+        .subscribeOn(Schedulers.boundedElastic())
+        .then();
+  }
+
+  @Override
+  public boolean isFinished(final String executionId, final String nodeId) {
+    return Files.exists(file(executionId, nodeId, DONE)) && isComplete(executionId, nodeId);
+  }
+
+  @Override
+  public long markerFailures() {
+    return failedMarkers.get();
+  }
+
+  /**
+   * Forces the node's output to disk, then writes and forces the marker and the directory entry. If
+   * anything fails the node is marked incomplete, so a resume runs it again instead of trusting a
+   * marker that may not survive a crash.
+   */
+  private void writeDone(final String executionId, final String nodeId) {
+    try {
+      Files.createDirectories(dir(executionId));
+      final Path output = file(executionId, nodeId, MESSAGES);
+      if (Files.exists(output)) {
+        force(output);
+      }
+      final Path done = file(executionId, nodeId, DONE);
+      Files.writeString(done, "");
+      force(done);
+      force(dir(executionId));
+    } catch (final IOException | RuntimeException e) {
+      failedMarkers.incrementAndGet();
+      log.atError()
+          .addKeyValue("executionId", executionId)
+          .addKeyValue("nodeId", nodeId)
+          .setCause(e)
+          .log("Could not make the end of a node durable, a resume will run it again");
+      markIncomplete(executionId, nodeId);
+    }
+  }
+
+  private static void force(final Path path) throws IOException {
+    final var options =
+        Files.isDirectory(path)
+            ? new StandardOpenOption[] {StandardOpenOption.READ}
+            : new StandardOpenOption[] {StandardOpenOption.WRITE};
+    try (var channel = java.nio.channels.FileChannel.open(path, options)) {
+      channel.force(true);
+    }
   }
 
   @Override

@@ -72,4 +72,33 @@ public interface NodeCheckpointStore {
   default boolean isComplete(final String executionId, final String nodeId) {
     return true;
   }
+
+  /**
+   * Records that a node ended normally and everything it produced has been saved.
+   *
+   * <p>A durable store makes the output and this marker survive a crash before the returned Mono
+   * completes, so {@link #isFinished} can be trusted after a restart. The engine calls it once,
+   * when the node's output stream completes (never for a node that failed or was stopped), and
+   * waits for it before the completion goes on downstream. A failure here must not fail the run:
+   * the node is then simply not reported as finished.
+   *
+   * @param executionId the execution
+   * @param nodeId the node
+   * @return a Mono that completes when the marker is durable
+   */
+  default Mono<Void> markComplete(final String executionId, final String nodeId) {
+    return Mono.empty();
+  }
+
+  /**
+   * Whether the node ended normally and all its output is recorded, as {@link #markComplete} left
+   * it. Used to decide which nodes a resume does not run again.
+   *
+   * @param executionId the execution
+   * @param nodeId the node
+   * @return true if the node is known to have finished with a complete, durable output
+   */
+  default boolean isFinished(final String executionId, final String nodeId) {
+    return false;
+  }
 }

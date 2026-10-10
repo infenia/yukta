@@ -93,12 +93,15 @@ Malformed policies are rejected by `WorkflowValidator` with the node id and opti
 - Set `yukta.restart.dir` to keep node outputs on disk (`FileNodeCheckpointStore`, one JSON line per
   message, no caps; payloads come back as plain JSON values). With it and `yukta.execution-log.dir`,
   `ExecutionResumer.resume(executionId)` continues a run that a restart aborted: the log holds the
-  payload (`RUN_STARTED`) and each successful node (`NODE_FINISHED`); finished nodes with complete
-  output replay, the rest run again. A run resumes once (`RUN_RESUMED`) and only if its definition
+  payload (`RUN_STARTED`); nodes that finished (a durable end marker, below) replay their
+  recorded output, the rest run again. `NODE_FINISHED` log events are history only. A run resumes once (`RUN_RESUMED`) and only if its definition
   is unchanged. There is no REST/MCP endpoint for it yet.
-  Only one resume per run is accepted (the claim is kept in memory and dropped on failure). A node's
-  end is queued for the log writer and not fsynced, so a crash right after it can make a resume run
-  that node again; make plugins idempotent on the message `id` (guide finding R40).
+  Only one resume per run is accepted (the claim is kept in memory and dropped on failure). The end
+  of a node is a durable marker kept with its output (`NodeCheckpointStore.markComplete`: the file
+  store forces the output, writes and forces `<node>.done` and the directory before the completion
+  goes on downstream; `yukta.checkpoint.errors` counts markers that failed, and that node then runs
+  again). A resume skips only nodes with such a marker. What remains is the instant between a
+  plugin's side effect and the marker, so make plugins idempotent on the message `id`.
 - Run starts and ends go to an `ExecutionLogStore`. By default it is in memory; set
   `yukta.execution-log.dir` to keep `executions.jsonl` on disk. On startup `ExecutionRecovery`
   marks runs that never finished as `ABORTED`, restores the newest
