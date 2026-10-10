@@ -109,9 +109,7 @@ class PluginControllerTest {
     final Plugin plugin = Mockito.mock(Plugin.class);
     when(plugin.getType()).thenReturn(TEST_PLUGIN);
     when(plugin.getCategory()).thenReturn(PluginCategory.PROCESSOR);
-    when(plugin.describe())
-        .thenReturn(
-            new PluginDescriptor("desc", "pattern", Optional.of(new UiDesign("design", 100, 100))));
+    when(plugin.describe()).thenReturn(new PluginDescriptor("desc", "pattern", Optional.empty()));
     when(plugin.getOutputPorts()).thenReturn(List.of("default"));
     when(registry.get(TEST_PLUGIN)).thenReturn(plugin);
 
