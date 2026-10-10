@@ -1,3 +1,8 @@
+<!--
+SPDX-License-Identifier: Apache-2.0
+SPDX-FileCopyrightText: 2026 Infenia Private Limited
+-->
+
 # 07 Simplicity (4→5)
 
 - Run `ponytail-audit` on core; delete dead code/duplicate helpers found; collapse overlapping `Node*` stream helpers where audit confirms.
