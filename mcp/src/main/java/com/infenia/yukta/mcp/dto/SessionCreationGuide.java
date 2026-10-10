@@ -13,7 +13,7 @@ import java.util.List;
  * @param exampleSessionConfig example session configuration JSON
  * @param workflowDefinitionFormat description of the workflow definition format
  * @param availablePlugins the plugins currently registered and usable in workflows
- * @param commonErrors common configuration errors and their resolutions
+ * @param commonErrors common configuration errors, each with its cause and fix
  */
 public record SessionCreationGuide(
     String namingConventions,
@@ -21,7 +21,7 @@ public record SessionCreationGuide(
     String exampleSessionConfig,
     String workflowDefinitionFormat,
     List<PluginReference> availablePlugins,
-    List<ErrorExample> commonErrors) {
+    List<String> commonErrors) {
 
   /** Compact constructor to ensure immutability. */
   public SessionCreationGuide {

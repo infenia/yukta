@@ -4,6 +4,8 @@ package com.infenia.yukta.mcp.provider;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.infenia.yukta.mcp.dto.ExecutionRecord;
@@ -24,9 +26,9 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
-class DefaultSystemHealthProviderTest {
+class SystemHealthProviderTest {
 
-  private DefaultSystemHealthProvider provider;
+  private SystemHealthProvider provider;
   private PluginRegistry registry;
   private SessionService sessionService;
   private ControlBusGateway controlBus;
@@ -36,7 +38,7 @@ class DefaultSystemHealthProviderTest {
     registry = mock(PluginRegistry.class);
     sessionService = mock(SessionService.class);
     controlBus = mock(ControlBusGateway.class);
-    provider = new DefaultSystemHealthProvider(registry, sessionService, controlBus);
+    provider = new SystemHealthProvider(registry, sessionService, controlBus);
   }
 
   private WorkflowExecutionSummary execution(final String id, final String status) {
@@ -74,6 +76,7 @@ class DefaultSystemHealthProviderTest {
     StepVerifier.create(provider.getControlBusStatus(null))
         .assertNext(
             status -> {
+              verify(controlBus, times(1)).getHistory("s1");
               assertThat(status.activeSessions()).hasSize(1);
               assertThat(status.activeSessions().get(0).sessionId()).isEqualTo("s1");
               assertThat(status.activeSessions().get(0).activeExecutions()).isEqualTo(1);

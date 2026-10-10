@@ -21,7 +21,7 @@ controllers as an agent-friendly MCP tool surface backed directly by `core` serv
   (WorkflowProgress snapshot), `get_workflow_history`, `get_execution_logs`
   (real logs from `PluginLogStore`, regex filter + tail)
 - **Control**: `control_workflow` (PAUSE/RESUME/STOP/STOP_ALL/RESTART/RESTART_FROM_NODE),
-  `control_node` (PAUSE/RESUME/STOP/SKIP/UNSKIP/STEP/STEP_ENABLE/STEP_DISABLE)
+  `control_node` (PAUSE/RESUME/STOP/STEP/STEP_ENABLE/STEP_DISABLE)
 - **Plugins**: `list_plugins`, `get_plugin_details`, `get_plugin_creation_guide`
 - **Monitoring**: `get_control_bus_status`
 
@@ -36,7 +36,7 @@ controllers as an agent-friendly MCP tool surface backed directly by `core` serv
 - `src/main/java/com/infenia/yukta/mcp/dto/`: MCP-owned response records (plain records,
   no swagger annotations). Core records (`WorkflowProgress`, `WorkflowExecutionSummary`,
   `WorkflowDefinition`) are returned directly where already clean.
-- `docs/mcp-module-guide.html` (interactive guide) and `docs/mcp-improvements.md` (review findings).
+- `docs/mcp-module-guide.html` (interactive guide, including the resolved review findings).
 
 ## Conventions & Gotchas
 - Tool params use `@McpToolParam(required, description)`; `@McpArg` is only for
@@ -53,7 +53,8 @@ controllers as an agent-friendly MCP tool surface backed directly by `core` serv
 - Errors surface as `Mono.error(new IllegalArgumentException(...))` with agent-actionable
   messages; the framework converts them to `isError` tool results.
 - Every executionId-scoped tool verifies session ownership via
-  `ControlBusGateway.getCurrentProgress`; a missing execution and a foreign session yield
+  `ControlBusGateway.getProgress(sessionId, executionId)` (`ExecutionOwnership`; survives the
+  tracker's index TTL); a missing execution and a foreign session yield
   the identical "Execution not found" error (mirrors `WorkflowController.executeControlSignal`).
 
 ## Tech Stack

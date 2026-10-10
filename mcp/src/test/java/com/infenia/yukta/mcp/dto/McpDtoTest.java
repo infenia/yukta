@@ -55,7 +55,7 @@ class McpDtoTest {
             "c",
             "d",
             List.of(new PluginReference("t", "PROCESSOR", "d")),
-            List.of(new ErrorExample("e", "c", "r")));
+            List.of("e: c Fix: r"));
     assertThat(filled.availablePlugins()).hasSize(1);
     assertThat(filled.commonErrors()).hasSize(1);
   }
@@ -86,7 +86,7 @@ class McpDtoTest {
         new ControlBusStatus(
             List.of(new SessionExecutionInfo("s1", 1, 2)),
             List.of(new PluginRegistryEntry("t", "PROCESSOR", "ACTIVE")),
-            new SystemHealthMetrics(1.0, 0, "1 MB", "2 MB", "1s"),
+            new SystemHealthMetrics("1 MB", "2 MB", "1s"),
             List.of(new ExecutionRecord("s1", "e1", "RUNNING", "running")));
     assertThat(filled.activeSessions()).hasSize(1);
     assertThat(filled.pluginRegistry()).hasSize(1);
