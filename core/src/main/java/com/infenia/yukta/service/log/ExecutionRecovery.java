@@ -76,11 +76,19 @@ public class ExecutionRecovery implements SmartInitializingSingleton {
   /** Marks interrupted runs aborted, trims the log and restores recent runs into the tracker. */
   public void recover() {
     final Map<String, List<ExecutionLogEvent>> byRun = new LinkedHashMap<>();
+    final List<ExecutionLogEvent> scheduler = new ArrayList<>();
     for (final ExecutionLogEvent event : store.readAll()) {
-      byRun.computeIfAbsent(event.executionId(), _ -> new ArrayList<>()).add(event);
+      if (ExecutionLogEvent.SCHEDULER.equals(event.executionId())) {
+        scheduler.add(event);
+      } else {
+        byRun.computeIfAbsent(event.executionId(), _ -> new ArrayList<>()).add(event);
+      }
     }
 
-    final List<ExecutionLogEvent> kept = new ArrayList<>();
+    // Changes that belong to no run are not runs: they stay, the newest few.
+    final List<ExecutionLogEvent> kept =
+        new ArrayList<>(
+            scheduler.subList(Math.max(0, scheduler.size() - retainedRuns), scheduler.size()));
     final List<List<ExecutionLogEvent>> runs = new ArrayList<>(byRun.values());
     final int skip = Math.max(0, runs.size() - retainedRuns);
     runs.subList(0, skip).forEach(run -> checkpoints.clear(run.getFirst().executionId()));

@@ -2526,7 +2526,9 @@ class DefaultControlBusGatewayTest {
   }
 
   @Test
-  void setLimits_changesTheSchedulerLimits() {
+  void setLimits_changesTheSchedulerLimits_andIsAudited() {
+    final com.infenia.yukta.service.log.InMemoryExecutionLogStore auditLog =
+        new com.infenia.yukta.service.log.InMemoryExecutionLogStore();
     final ExecutionScheduler real =
         new ExecutionScheduler(
             1, 0, 10, ExecutionScheduler.OnLimit.QUEUE, java.time.Duration.ofSeconds(1));
@@ -2541,13 +2543,21 @@ class DefaultControlBusGatewayTest {
             preparedWorkflowCache,
             real,
             new StartIdempotency(java.time.Duration.ofMinutes(1)),
-            new com.infenia.yukta.service.log.InMemoryExecutionLogStore());
+            auditLog);
     real.acquire("s", "w").permit().block();
     final var waiting = real.acquire("s", "w").permit().toFuture();
 
     StepVerifier.create(limited.changeLimits(2, 0)).verifyComplete();
 
     assertThat(waiting).isCompleted();
+    assertThat(auditLog.readAll())
+        .singleElement()
+        .satisfies(
+            e -> {
+              assertThat(e.executionId())
+                  .isEqualTo(com.infenia.yukta.service.log.ExecutionLogEvent.SCHEDULER);
+              assertThat(e.status()).isEqualTo("SetLimits(2, 0)");
+            });
   }
 
   @Test

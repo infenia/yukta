@@ -109,11 +109,21 @@ Malformed policies are rejected by `WorkflowValidator` with the node id and opti
   than `yukta.execution.queue-timeout`, default off, ends `TIMED_OUT`) or is refused with HTTP 429
   (`REJECT`, or queue full). On shutdown nothing new is admitted, queued starts are refused, and
   running ones get `yukta.execution.shutdown-timeout` (default 30s) to finish.
+- `yukta.execution.max-concurrent-per-session` (default none) caps one session. Within a priority a
+  freed slot goes to the session with the fewest running executions (oldest first on a tie), so a
+  busy session cannot starve the others. `yukta.execution.queue-capacity-per-workflow` (default none)
+  caps how many starts of one workflow may wait. Refusals are counted in
+  `yukta.executions.rejected{reason=shutdown|limit|queue_full|workflow_queue_full|queue_timeout}`.
 - `POST /workflow/start` accepts an optional `Idempotency-Key` header: a repeat with the same key for
   the same session and workflow within `yukta.start.idempotency-ttl` (default 10m) returns the first
-  execution id instead of starting another. A failed start is not remembered.
+  execution id instead of starting another. A failed start is not remembered. With the file log
+  (`yukta.execution-log.dir`) the keys are written to it (`IDEMPOTENCY_KEY`) and reloaded on startup,
+  so a client retrying after a restart still gets the first execution; the window restarts at the
+  reload.
 - Waiting starts are admitted by priority: a start payload key `yukta.priority` (number, higher
-  first, default 0), then arrival order. `ExecutionScheduler.setLimits` changes the limits at run time.
+  first, default 0), then arrival order. `ExecutionScheduler.setLimits` changes the limits at run time; through the gateway
+  (`changeLimits`) the change is recorded in the log under run id `scheduler` (the newest
+  `retained-runs` of them are kept). Limits are not restored from the log on startup.
 - Concurrent starts of a workflow that is not prepared yet share one preparation (per definition
   content). A prepared workflow is cached only if its definition is still the stored one.
 - Restarting a finished run goes through the same admission check as a start (HTTP 429 when full).

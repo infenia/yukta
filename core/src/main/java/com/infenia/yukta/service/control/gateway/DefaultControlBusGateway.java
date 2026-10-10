@@ -664,6 +664,12 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
     return Mono.fromRunnable(
         () -> {
           executionScheduler.setLimits(maxConcurrent, maxPerWorkflow);
+          executionLog.append(
+              ExecutionLogEvent.control(
+                  true,
+                  ExecutionLogEvent.SCHEDULER,
+                  "SetLimits(" + maxConcurrent + ", " + maxPerWorkflow + ")",
+                  null));
           log.atInfo()
               .addKeyValue("maxConcurrent", maxConcurrent)
               .addKeyValue("maxPerWorkflow", maxPerWorkflow)
