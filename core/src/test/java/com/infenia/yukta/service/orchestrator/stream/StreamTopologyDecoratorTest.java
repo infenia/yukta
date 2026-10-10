@@ -298,4 +298,42 @@ class StreamTopologyDecoratorTest {
 
     disposables.forEach(Disposable::dispose);
   }
+
+  @Test
+  @SuppressWarnings(UNCHECKED)
+  void edgeRouting_tolerateFailure_swallowsParentErrorAndCompletes() {
+    final Flux<Message<?>>[] streams =
+        new Flux[] {Flux.error(new IllegalStateException("parent failed"))};
+
+    StepVerifier.create(
+            decorator.applyEdgeRouting(streams, new ParentEdgeInfo(0, PARENT_1, null, true)))
+        .verifyComplete();
+  }
+
+  @Test
+  @SuppressWarnings(UNCHECKED)
+  void edgeRouting_default_propagatesParentError() {
+    final Flux<Message<?>>[] streams =
+        new Flux[] {Flux.error(new IllegalStateException("parent failed"))};
+
+    StepVerifier.create(decorator.applyEdgeRouting(streams, new ParentEdgeInfo(0, PARENT_1, null)))
+        .expectError(IllegalStateException.class)
+        .verify();
+  }
+
+  @Test
+  @SuppressWarnings(UNCHECKED)
+  void mergeWithTolerance_keepsTheHealthyParentsMessages() {
+    final Message<?> msg = DefaultMessage.create(UUID.randomUUID(), DATA);
+    final Flux<Message<?>>[] streams =
+        new Flux[] {Flux.error(new IllegalStateException("down")), Flux.just(msg)};
+
+    StepVerifier.create(
+            decorator.mergeParentStreams(
+                streams,
+                new ParentEdgeInfo(0, PARENT_1, null, true),
+                new ParentEdgeInfo(1, PARENT_2, null, true)))
+        .expectNextCount(1)
+        .verifyComplete();
+  }
 }

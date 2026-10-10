@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.service.orchestrator.validator;
 
+import com.infenia.yukta.model.workflow.NodePolicy;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.plugin.core.Plugin;
 import com.infenia.yukta.plugin.core.PluginCategory;
@@ -60,6 +61,32 @@ public class WorkflowValidator {
   }
 
   /**
+   * Finds the first node whose engine policy is malformed or not supported by its plugin category.
+   *
+   * <p>Checked eagerly, like the edge check, so the message names the node and the option.
+   */
+  private Optional<String> findInvalidPolicy(final WorkflowDefinition def) {
+    for (final WorkflowDefinition.Node node : def.nodes()) {
+      final NodePolicy policy;
+      try {
+        policy = NodePolicy.from(node.config());
+      } catch (final IllegalArgumentException e) {
+        return Optional.of("Node '" + node.nodeId() + "': " + e.getMessage());
+      }
+      if (policy.perMessage()) {
+        final var plugin = registry.get(node.type());
+        if (plugin != null && plugin.getCategory() != PluginCategory.PROCESSOR) {
+          return Optional.of(
+              "Node '"
+                  + node.nodeId()
+                  + "': engine.retry and engine.onError are only supported on processor nodes");
+        }
+      }
+    }
+    return Optional.empty();
+  }
+
+  /**
    * Validate the structural integrity of a workflow definition.
    *
    * @param def the workflow definition
@@ -75,6 +102,11 @@ public class WorkflowValidator {
     final Optional<String> unknownEdge = findUnknownEdge(def);
     if (unknownEdge.isPresent()) {
       return Mono.error(new IllegalArgumentException(unknownEdge.get()));
+    }
+
+    final Optional<String> invalidPolicy = findInvalidPolicy(def);
+    if (invalidPolicy.isPresent()) {
+      return Mono.error(new IllegalArgumentException(invalidPolicy.get()));
     }
 
     final Set<String> targetIds =

@@ -486,4 +486,38 @@ class ProcessorNodeAssemblerStrategyTest {
 
     StepVerifier.create(context.streams()[0]).expectNextCount(1).verifyComplete();
   }
+
+  @Test
+  void createAssembler_onErrorContinue_callsThePluginPerMessageAndDropsFailures() {
+    final Message<?> good = DefaultMessage.create(UUID.randomUUID(), "good");
+    final Message<?> bad = DefaultMessage.create(UUID.randomUUID(), "bad");
+    final ProcessorPlugin processor = mock(ProcessorPlugin.class);
+    when(processor.process(any(), any()))
+        .thenAnswer(
+            inv -> {
+              final Flux<Message<?>> messages = inv.getArgument(0);
+              return messages.flatMap(
+                  m ->
+                      "bad".equals(m.getPayload())
+                          ? Flux.<Message<?>>error(new IllegalStateException("boom"))
+                          : Flux.<Message<?>>just(m));
+            });
+    when(processor.isBlocking()).thenReturn(false);
+
+    final WorkflowNode node =
+        new WorkflowNode(NODE_ID, "processor", Map.of("engine", Map.of("onError", "CONTINUE")));
+    final Flux<Message<?>> parentStream = Flux.just(bad, good);
+    final AssemblyContext context = buildContext(NODE_ID, parentStream, null);
+    when(streamTopologyDecorator.mergeParentStreams(any(), any(ParentEdgeInfo[].class)))
+        .thenReturn(parentStream);
+    when(streamTopologyDecorator.applyLoggingAndBroadcasting(
+            anyString(), anyString(), any(), any(int.class), any(), any()))
+        .thenAnswer(inv -> inv.getArgument(2));
+
+    strategy
+        .createAssembler(node, processor, Duration.ofSeconds(5), 0, 1024, new ParentEdgeInfo[0])
+        .assemble(context);
+
+    StepVerifier.create(context.streams()[0]).expectNext(good).verifyComplete();
+  }
 }
