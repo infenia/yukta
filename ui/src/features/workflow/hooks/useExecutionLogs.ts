@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { api } from '@/lib/apiClient';
 import { useEventSourceJson } from '@/hooks/useEventSourceJson';
 import type { LogEntry } from '../types/workflow';
@@ -12,12 +12,12 @@ export const MAX_LOG_ENTRIES = 2000;
 /**
  * Stream structured execution log entries (history first, then live).
  *
- * Entries accumulate in a capped ring buffer that resets when the execution changes.
+ * Entries accumulate in a capped ring buffer that resets when the execution changes. While
+ * `live` the stream reconnects after errors; the server replays history on every connection,
+ * so replayed entries are dropped by (timestamp, plugin, stream, message).
  */
-export function useExecutionLogs(
-  sessionId: string,
-  executionId: string | null
-) {
+export function useExecutionLogs(sessionId: string, executionId: string | null, live = true) {
+  const seen = useRef(new Set<string>());
   const [entries, setEntries] = useState<LogEntry[]>([]);
   const [bufferExecutionId, setBufferExecutionId] = useState(executionId);
 
@@ -25,6 +25,7 @@ export function useExecutionLogs(
   if (bufferExecutionId !== executionId) {
     setBufferExecutionId(executionId);
     setEntries([]);
+    seen.current.clear();
   }
 
   const url =
@@ -33,6 +34,14 @@ export function useExecutionLogs(
       : null;
 
   const onEntry = useCallback((entry: LogEntry) => {
+    const key = `${entry.timestamp}|${entry.pluginId}|${entry.stream}|${entry.message}`;
+    if (seen.current.has(key)) {
+      return;
+    }
+    seen.current.add(key);
+    if (seen.current.size > MAX_LOG_ENTRIES) {
+      seen.current.delete(seen.current.values().next().value as string);
+    }
     setEntries((previous) => {
       const next = [...previous, entry];
       return next.length > MAX_LOG_ENTRIES
@@ -41,7 +50,7 @@ export function useExecutionLogs(
     });
   }, []);
 
-  const { status } = useEventSourceJson<LogEntry>(url, onEntry);
+  const { status } = useEventSourceJson<LogEntry>(url, onEntry, live);
 
   const clear = useCallback(() => setEntries([]), []);
 

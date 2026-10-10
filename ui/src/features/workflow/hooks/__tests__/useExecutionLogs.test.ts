@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { act, renderHook } from '@testing-library/react';
 import { MAX_LOG_ENTRIES, useExecutionLogs } from '../useExecutionLogs';
 import { createMockLogEntry } from '@/test/factories/workflowFactory';
@@ -66,8 +66,8 @@ describe('useExecutionLogs', () => {
     expect(MockEventSource.instances[0].readyState).toBe(MockEventSource.CLOSED);
   });
 
-  it('stops streaming when the server ends the stream', () => {
-    const { result } = renderHook(() => useExecutionLogs('s1', 'exec-091-qp-55'));
+  it('stops streaming when the server ends the stream of a finished execution', () => {
+    const { result } = renderHook(() => useExecutionLogs('s1', 'exec-091-qp-55', false));
 
     act(() => {
       MockEventSource.latest().emit(createMockLogEntry({ message: 'kept' }));
@@ -76,6 +76,27 @@ describe('useExecutionLogs', () => {
 
     expect(result.current.isStreaming).toBe(false);
     expect(result.current.entries).toHaveLength(1);
+  });
+
+  it('reconnects while live and drops the history replayed by the server', () => {
+    vi.useFakeTimers();
+    const { result } = renderHook(() => useExecutionLogs('s1', 'exec-091-qp-55'));
+
+    act(() => {
+      MockEventSource.latest().emit(createMockLogEntry({ message: 'a' }));
+      MockEventSource.latest().emit(createMockLogEntry({ message: 'b' }));
+      MockEventSource.latest().emitError();
+    });
+    act(() => vi.advanceTimersByTime(1000));
+    expect(MockEventSource.instances).toHaveLength(2);
+
+    act(() => {
+      MockEventSource.latest().emit(createMockLogEntry({ message: 'a' }));
+      MockEventSource.latest().emit(createMockLogEntry({ message: 'b' }));
+      MockEventSource.latest().emit(createMockLogEntry({ message: 'c' }));
+    });
+    expect(result.current.entries.map((entry) => entry.message)).toEqual(['a', 'b', 'c']);
+    vi.useRealTimers();
   });
 
   it('clears entries on demand', () => {

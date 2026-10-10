@@ -10,7 +10,7 @@ import { ProgressPanel } from './ProgressPanel';
 import { RunHistoryDropdown } from './RunHistoryDropdown';
 import { WorkflowCanvas } from './WorkflowCanvas';
 import { WorkflowTitleBar } from './WorkflowTitleBar';
-import { toDisplayExecStatus } from '../lib/statusMapper';
+import { isTerminalExecStatus, toDisplayExecStatus } from '../lib/statusMapper';
 import { useExecutionLogs } from '../hooks/useExecutionLogs';
 import { useExecutionProgress } from '../hooks/useExecutionProgress';
 import { useExecutionSelection } from '../hooks/useExecutionSelection';
@@ -30,7 +30,11 @@ export function WorkflowDetailsPage() {
   const executions = useMemo(() => executionsQuery.data ?? [], [executionsQuery.data]);
   const { selectedExecutionId, selectExecution } = useExecutionSelection(executions);
   const { progress, isStreaming } = useExecutionProgress(sessionId, selectedExecutionId);
-  const logs = useExecutionLogs(sessionId, selectedExecutionId);
+  const logs = useExecutionLogs(
+    sessionId,
+    selectedExecutionId,
+    !isTerminalExecStatus(progress?.status)
+  );
 
   const graph = graphQuery.data;
   const displayName = graph?.description || workflowId;
