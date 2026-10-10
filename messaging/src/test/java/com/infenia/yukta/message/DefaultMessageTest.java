@@ -100,6 +100,11 @@ class DefaultMessageTest {
     assertThat(msg.withPayload(10).payload()).isEqualTo(10);
     assertThat(msg.withHeader("k", "v").metadata().get("k")).isEqualTo("v");
     assertThat(msg.withMetadata(Map.of("x", "y")).metadata()).isEqualTo(Map.of("x", "y"));
+
+    final Message<String> sequenced = msg.withSequence("seq", 2, 5);
+    assertThat(sequenced.sequenceId()).isEqualTo("seq");
+    assertThat(sequenced.sequenceNumber()).isEqualTo(2);
+    assertThat(sequenced.sequenceSize()).isEqualTo(5);
   }
 
   @Test

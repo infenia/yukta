@@ -33,7 +33,8 @@ import reactor.core.publisher.Sinks;
   "PMD.LawOfDemeter",
   "PMD.UnitTestShouldIncludeAssert",
   "PMD.AvoidDuplicateLiterals",
-  "PMD.ShortVariable"
+  "PMD.ShortVariable",
+  "PMD.TooManyMethods"
 })
 class LogManagementControllerTest {
 
@@ -172,6 +173,61 @@ class LogManagementControllerTest {
     final String body = String.join("\n", collected.join());
     assertThat(body).contains("old").contains("fresh");
     assertThat(body.split("seam", -1).length - 1).isEqualTo(1);
+  }
+
+  private String logsWithLiveEntries(
+      final java.util.function.Consumer<Sinks.Many<PluginLogEntry>> afterSubscribe) {
+    when(controlBus.getProgress("s1", "e1")).thenReturn(progress("RUNNING"));
+    final Sinks.Many<PluginLogEntry> live = Sinks.many().multicast().directBestEffort();
+    when(tracker.getLogFlux()).thenReturn(live.asFlux());
+    final Sinks.Many<WorkflowProgress> status = Sinks.many().multicast().directBestEffort();
+    when(controlBus.watchExecution("e1", true)).thenReturn(status.asFlux());
+    when(logStore.readExecution("e1"))
+        .thenReturn(Flux.defer(() -> Flux.just(entry("seam", Instant.now()))));
+
+    final var collected =
+        client
+            .get()
+            .uri("/api/sessions/s1/executions/e1/logs")
+            .exchange()
+            .expectStatus()
+            .isOk()
+            .returnResult(String.class)
+            .getResponseBody()
+            .collectList()
+            .toFuture();
+    afterSubscribe.accept(live);
+    status.tryEmitNext(
+        new WorkflowProgress(
+            "e1",
+            "s1",
+            "wf",
+            "SUCCESS",
+            List.of(),
+            LocalDateTime.now(),
+            LocalDateTime.now(),
+            null));
+    return String.join("\n", collected.join());
+  }
+
+  @Test
+  void testLiveRepeatOfHistoryEntryIsDroppedOnceThenSent() {
+    final String body =
+        logsWithLiveEntries(
+            live -> {
+              live.tryEmitNext(entry("seam", Instant.now().minusSeconds(60)));
+              live.tryEmitNext(entry("seam", Instant.now().minusSeconds(60)));
+            });
+
+    assertThat(body.split("seam", -1).length - 1).isEqualTo(2);
+  }
+
+  @Test
+  void testLaterLiveEntryWithSameTextAsHistoryEntryIsStillSent() {
+    final String body =
+        logsWithLiveEntries(live -> live.tryEmitNext(entry("seam", Instant.now().plusSeconds(60))));
+
+    assertThat(body.split("seam", -1).length - 1).isEqualTo(2);
   }
 
   @Test
