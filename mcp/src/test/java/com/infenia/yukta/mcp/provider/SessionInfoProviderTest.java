@@ -13,10 +13,12 @@ import com.infenia.yukta.mcp.dto.SessionCreationGuide;
 import com.infenia.yukta.model.session.SessionConfigData;
 import com.infenia.yukta.plugin.core.Plugin;
 import com.infenia.yukta.plugin.core.PluginCategory;
+import com.infenia.yukta.plugin.core.PluginDescriptor;
 import com.infenia.yukta.service.plugin.PluginRegistry;
 import com.infenia.yukta.service.session.SessionService;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import reactor.core.publisher.Flux;
@@ -133,12 +135,14 @@ class SessionInfoProviderTest {
     Plugin plugin1 = mock(Plugin.class);
     when(plugin1.getType()).thenReturn("test-plugin");
     when(plugin1.getCategory()).thenReturn(PluginCategory.PROCESSOR);
-    when(plugin1.getDescription()).thenReturn("Test plugin description");
+    when(plugin1.describe())
+        .thenReturn(new PluginDescriptor("Test plugin description", "", Optional.empty()));
 
     Plugin plugin2 = mock(Plugin.class);
     when(plugin2.getType()).thenReturn("another-plugin");
     when(plugin2.getCategory()).thenReturn(PluginCategory.TRIGGER);
-    when(plugin2.getDescription()).thenReturn("Another plugin");
+    when(plugin2.describe())
+        .thenReturn(new PluginDescriptor("Another plugin", "", Optional.empty()));
 
     when(registry.listPlugins()).thenReturn(List.of(plugin1, plugin2));
 

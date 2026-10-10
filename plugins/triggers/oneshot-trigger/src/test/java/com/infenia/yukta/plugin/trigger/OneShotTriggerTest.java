@@ -55,7 +55,7 @@ class OneShotTriggerTest {
 
   @Test
   void uiDesign_isPresentAndCorrectDimensions() {
-    final var design = trigger.getUiDesign();
+    final var design = trigger.describe().uiDesign();
     assertThat(design).isPresent();
     assertThat(design.get().width()).isEqualTo(140);
     assertThat(design.get().height()).isEqualTo(80);
@@ -63,14 +63,14 @@ class OneShotTriggerTest {
 
   @Test
   void description_returnsCorrectDescription() {
-    assertThat(trigger.getDescription())
+    assertThat(trigger.describe().description())
         .isEqualTo(
             "Fires a workflow with no input. Emits a single empty message to start execution.");
   }
 
   @Test
   void usagePattern_returnsCorrectUsagePattern() {
-    assertThat(trigger.getUsagePattern())
+    assertThat(trigger.describe().usagePattern())
         .isEqualTo(
             "No configuration required. Call the workflow trigger endpoint to start execution.");
   }

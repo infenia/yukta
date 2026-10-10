@@ -140,11 +140,11 @@ class PluginInterfaceTest {
     StepVerifier.create(plugin.shutdown(Map.of())).verifyComplete();
 
     // Metadata methods
-    assertEquals("", plugin.getDescription());
-    assertEquals("", plugin.getUsagePattern());
+    assertEquals("", plugin.describe().description());
+    assertEquals("", plugin.describe().usagePattern());
     assertEquals(30, plugin.getDefaultTimeout().toSeconds());
     assertEquals(30, plugin.getDefaultTimeout(java.util.Map.of("timeout", 5)).toSeconds());
-    assertFalse(plugin.getUiDesign().isPresent());
+    assertFalse(plugin.describe().uiDesign().isPresent());
 
     // Port methods
     assertEquals(List.of("default"), plugin.getOutputPorts());

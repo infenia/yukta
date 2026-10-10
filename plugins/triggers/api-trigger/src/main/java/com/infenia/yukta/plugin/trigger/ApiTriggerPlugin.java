@@ -4,6 +4,7 @@ package com.infenia.yukta.plugin.trigger;
 
 import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
+import com.infenia.yukta.plugin.core.PluginDescriptor;
 import com.infenia.yukta.plugin.core.UiDesign;
 import com.infenia.yukta.plugin.type.TriggerPlugin;
 import java.util.List;
@@ -26,14 +27,26 @@ public class ApiTriggerPlugin implements TriggerPlugin {
   }
 
   @Override
-  public String getDescription() {
-    return "Emits the payload received from an API trigger.";
-  }
-
-  @Override
-  public String getUsagePattern() {
-    return "This plugin is automatically used when triggering a workflow via the REST API. "
-        + "It passes the 'payload' map from the trigger request to the workflow.";
+  public PluginDescriptor describe() {
+    return new PluginDescriptor(
+        "Emits the payload received from an API trigger.",
+        "This plugin is automatically used when triggering a workflow via the REST API. "
+            + "It passes the 'payload' map from the trigger request to the workflow.",
+        Optional.of(
+            new UiDesign(
+                """
+                <div class="flex items-center w-full h-full bg-blue-50/50 border-2 border-blue-100 rounded-xl px-4 gap-3">
+                    <div class="flex-shrink-0 w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center text-blue-500">
+                        <span class="material-symbols-outlined text-xl">api</span>
+                    </div>
+                    <div class="flex flex-col min-w-0">
+                        <div class="text-[10px] text-blue-600 font-bold uppercase tracking-wider leading-none mb-1">Trigger</div>
+                        <div class="text-xs font-bold text-slate-700 truncate w-full">{{nodeId}}</div>
+                    </div>
+                </div>
+                """,
+                140,
+                80)));
   }
 
   @Override
@@ -44,25 +57,6 @@ public class ApiTriggerPlugin implements TriggerPlugin {
   @Override
   public List<String> getOutputPorts() {
     return List.of("default");
-  }
-
-  @Override
-  public Optional<UiDesign> getUiDesign() {
-    return Optional.of(
-        new UiDesign(
-            """
-            <div class="flex items-center w-full h-full bg-blue-50/50 border-2 border-blue-100 rounded-xl px-4 gap-3">
-                <div class="flex-shrink-0 w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center text-blue-500">
-                    <span class="material-symbols-outlined text-xl">api</span>
-                </div>
-                <div class="flex flex-col min-w-0">
-                    <div class="text-[10px] text-blue-600 font-bold uppercase tracking-wider leading-none mb-1">Trigger</div>
-                    <div class="text-xs font-bold text-slate-700 truncate w-full">{{nodeId}}</div>
-                </div>
-            </div>
-            """,
-            140,
-            80));
   }
 
   @Override

@@ -194,8 +194,8 @@ class SplitterProcessorTest {
 
   @Test
   void testUiDesign() {
-    assertTrue(processor.getUiDesign().isPresent());
-    assertTrue(processor.getUiDesign().get().html().contains("Splitter"));
+    assertTrue(processor.describe().uiDesign().isPresent());
+    assertTrue(processor.describe().uiDesign().get().html().contains("Splitter"));
   }
 
   @Test

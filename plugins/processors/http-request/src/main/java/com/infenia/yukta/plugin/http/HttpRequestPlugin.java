@@ -4,6 +4,7 @@ package com.infenia.yukta.plugin.http;
 
 import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
+import com.infenia.yukta.plugin.core.PluginDescriptor;
 import com.infenia.yukta.plugin.exception.WorkflowExecutionException;
 import com.infenia.yukta.plugin.type.ProcessorPlugin;
 import com.infenia.yukta.util.MapUtils;
@@ -64,18 +65,20 @@ public class HttpRequestPlugin implements ProcessorPlugin {
   private final VariableResolver resolver;
 
   @Override
+  public PluginDescriptor describe() {
+    return new PluginDescriptor(
+        "Performs an HTTP request per message and emits {status, success, headers, body}. "
+            + "Use it to fetch live data for prompts or to call tool endpoints.",
+        usagePattern(),
+        Optional.empty());
+  }
+
+  @Override
   public String getType() {
     return TYPE;
   }
 
-  @Override
-  public String getDescription() {
-    return "Performs an HTTP request per message and emits {status, success, headers, body}. "
-        + "Use it to fetch live data for prompts or to call tool endpoints.";
-  }
-
-  @Override
-  public String getUsagePattern() {
+  private static String usagePattern() {
     // CHECKSTYLE.OFF: Indentation
     // CHECKSTYLE.OFF: TextBlockGoogleStyleFormatting
     return """

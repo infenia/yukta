@@ -29,6 +29,12 @@ class ConfigVariableSourceTest {
   }
 
   @Test
+  void describesItself() {
+    assertTrue(source.describe().description().contains("predefined variables"));
+    assertTrue(source.describe().usagePattern().contains("variables"));
+  }
+
+  @Test
   @SuppressWarnings("unchecked")
   void testStartWithPayloadTarget() {
     when(resolver.isStatic(any())).thenReturn(false);
