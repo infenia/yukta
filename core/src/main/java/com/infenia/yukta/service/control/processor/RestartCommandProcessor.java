@@ -6,7 +6,8 @@ import com.infenia.yukta.plugin.control.ControlSignalProcessor;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.RestartCommand;
 import com.infenia.yukta.plugin.control.WorkflowDirective;
-import com.infenia.yukta.service.control.ExecutionControl;
+import com.infenia.yukta.service.archive.ArchivedExecution;
+import com.infenia.yukta.service.archive.ExecutionArchive;
 import com.infenia.yukta.service.control.gateway.RestartCompletionSink;
 import com.infenia.yukta.service.control.store.ExecutionControlRegistry;
 import com.infenia.yukta.service.orchestrator.WorkflowOrchestrator;
@@ -16,7 +17,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
-import reactor.core.publisher.Sinks;
 import reactor.core.scheduler.Schedulers;
 
 /**
@@ -41,6 +41,9 @@ public class RestartCommandProcessor implements ControlSignalProcessor {
 
   /** The execution control registry for accessing execution control state. */
   private final ExecutionControlRegistry registry;
+
+  /** Keeps recent executions, running or finished, restartable. */
+  private final ExecutionArchive archive;
 
   /** The workflow orchestrator for restarting workflows. */
   private final WorkflowOrchestrator orchestrator;
@@ -85,13 +88,14 @@ public class RestartCommandProcessor implements ControlSignalProcessor {
   private Mono<WorkflowDirective> executeAtomicRestart(final RestartCommand restart) {
     return Mono.fromSupplier(
             () ->
-                registry
-                    .findByExecutionId(restart.executionId())
+                archive
+                    .find(restart.executionId())
                     .orElseThrow(
                         () ->
                             new IllegalArgumentException(
-                                "Execution not found: " + restart.executionId())))
-        .flatMap(control -> performAtomicHandoff(control, restart))
+                                "Execution not found or no longer restartable: "
+                                    + restart.executionId())))
+        .flatMap(archived -> performAtomicHandoff(archived, restart))
         .then(Mono.<WorkflowDirective>empty())
         .onErrorResume(
             e -> {
@@ -105,45 +109,46 @@ public class RestartCommandProcessor implements ControlSignalProcessor {
   }
 
   private Mono<Void> performAtomicHandoff(
-      final ExecutionControl control, final RestartCommand restart) {
-    return Mono.fromCallable(
-            () -> {
-              final Sinks.EmitResult stopResult = control.safeStopSink().tryEmitEmpty();
-              if (stopResult.isFailure()) {
-                throw new IllegalStateException("Failed to emit stop signal: " + stopResult);
-              }
-              return stopResult;
-            })
-        .doOnNext(_ -> registry.unregister(control.executionId()))
-        .flatMap(
-            _ -> {
-              final Mono<Void> newExecution =
-                  orchestrator.execute(
-                      control.sessionId(),
-                      control.workflowId(),
-                      restart.newExecutionId(),
-                      control.prepared(),
-                      control.payload());
+      final ArchivedExecution archived, final RestartCommand restart) {
+    return Mono.fromRunnable(
+            () ->
+                // If the old run is still going it is stopped first, so it cannot repeat effects.
+                registry
+                    .findByExecutionId(restart.executionId())
+                    .ifPresent(
+                        control -> {
+                          control.safeStopSink().tryEmitEmpty();
+                          registry.unregister(control.executionId());
+                        }))
+        .then(
+            Mono.defer(
+                () -> {
+                  orchestrator
+                      .execute(
+                          archived.sessionId(),
+                          archived.workflowId(),
+                          restart.newExecutionId(),
+                          archived.prepared(),
+                          archived.payload())
+                      .subscribeOn(Schedulers.boundedElastic())
+                      .doOnError(
+                          err ->
+                              log.atError()
+                                  .setCause(err)
+                                  .addKeyValue("oldExecutionId", restart.executionId())
+                                  .addKeyValue("newExecutionId", restart.newExecutionId())
+                                  .log("Restarted execution failed"))
+                      .subscribe();
 
-              newExecution
-                  .subscribeOn(Schedulers.boundedElastic())
-                  .doOnError(
-                      err ->
-                          log.atError()
-                              .setCause(err)
-                              .addKeyValue("oldExecutionId", restart.executionId())
-                              .addKeyValue("newExecutionId", restart.newExecutionId())
-                              .log("Restarted execution failed"))
-                  .subscribe();
-
-              log.atInfo()
-                  .addKeyValue("oldExecutionId", restart.executionId())
-                  .addKeyValue("newExecutionId", restart.newExecutionId())
-                  .addKeyValue("workflowId", control.workflowId())
-                  .log("Restarted execution");
-              completionSink.completeRestartSuccess(restart.newExecutionId());
-              return Mono.empty();
-            });
+                  log.atInfo()
+                      .addKeyValue("oldExecutionId", restart.executionId())
+                      .addKeyValue("newExecutionId", restart.newExecutionId())
+                      .addKeyValue("workflowId", archived.workflowId())
+                      .addKeyValue("definitionVersion", archived.definitionVersion())
+                      .log("Restarted execution");
+                  completionSink.completeRestartSuccess(restart.newExecutionId());
+                  return Mono.empty();
+                }));
   }
 
   @Override

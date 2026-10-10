@@ -132,16 +132,17 @@ class TaskStatusTest {
             TaskStatus.CANCELLED,
             TaskStatus.TIMED_OUT,
             TaskStatus.SKIPPED,
-            TaskStatus.UPSTREAM_FAILED);
+            TaskStatus.UPSTREAM_FAILED,
+            TaskStatus.ABORTED);
   }
 
   @Test
-  void values_called_returnsArrayOfTenElements() {
+  void values_called_returnsArrayOfElevenElements() {
     // When
     final TaskStatus[] actualValues = TaskStatus.values();
 
     // Then
-    assertThat(actualValues).hasSize(10);
+    assertThat(actualValues).hasSize(11);
   }
 
   @Test
@@ -150,6 +151,7 @@ class TaskStatusTest {
     assertThat(TaskStatus.TIMED_OUT.isTerminal()).isTrue();
     assertThat(TaskStatus.SKIPPED.isTerminal()).isTrue();
     assertThat(TaskStatus.UPSTREAM_FAILED.isTerminal()).isTrue();
+    assertThat(TaskStatus.ABORTED.isTerminal()).isTrue();
   }
 
   @Test

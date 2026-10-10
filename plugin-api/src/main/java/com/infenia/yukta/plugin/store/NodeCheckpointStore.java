@@ -3,6 +3,7 @@
 package com.infenia.yukta.plugin.store;
 
 import com.infenia.yukta.message.Message;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 /**
@@ -44,4 +45,31 @@ public interface NodeCheckpointStore {
    * @param executionId the execution identifier to clear
    */
   void clear(String executionId);
+
+  /**
+   * Gets every message a node produced in an execution, in the order it produced them.
+   *
+   * <p>The default only knows the last message; stores that keep the full output override it.
+   *
+   * @param executionId the execution
+   * @param nodeId the node
+   * @return the recorded messages, oldest first
+   */
+  default Flux<Message<?>> getAll(final String executionId, final String nodeId) {
+    return get(executionId, nodeId).flux();
+  }
+
+  /**
+   * Whether {@link #getAll} returns everything the node produced.
+   *
+   * <p>A store with a size cap reports false once it had to drop messages, so a restart never
+   * replays a partial output as if it were complete.
+   *
+   * @param executionId the execution
+   * @param nodeId the node
+   * @return true if nothing was dropped
+   */
+  default boolean isComplete(final String executionId, final String nodeId) {
+    return true;
+  }
 }
