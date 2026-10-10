@@ -5,7 +5,8 @@ plugins {
 }
 
 dependencies {
-    api(libs.spring.boot.starter.webflux)
+    api(libs.reactor.core)
+    implementation(libs.spring.boot.starter)
 }
 
 coverageConfig {

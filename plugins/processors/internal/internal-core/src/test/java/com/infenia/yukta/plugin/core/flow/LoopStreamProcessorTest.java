@@ -77,7 +77,7 @@ class LoopStreamProcessorTest {
             "maxIterations",
             2,
             "exitCondition",
-            "#root.payload instanceof T(Integer) && #root.payload == 2");
+            "#root.payload == 2");
 
     final Message<?> inputMsg = DefaultMessage.create(UUID.randomUUID(), 0);
 

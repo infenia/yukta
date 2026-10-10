@@ -6,12 +6,13 @@ plugins {
 }
 
 dependencies {
-    api(libs.spring.boot.starter.webflux)
+    api(libs.reactor.core)
+    api("jakarta.annotation:jakarta.annotation-api")
+    implementation(libs.spring.expression)
     api(project(":messaging"))
 }
 
 coverageConfig {
-    exception("com.infenia.yukta.plugin.control.*", "Control-plane records/enums and signal processor are exercised via core, not in this module", mapOf("LINE" to 0.0, "BRANCH" to 0.0))
 }
 
 // TODO: temporarily disabled — re-enable once test-source PMD violations are addressed.
