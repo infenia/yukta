@@ -18,7 +18,7 @@ import (
 
 func TestStartCmd_successful(t *testing.T) {
 	mockClient := &client.MockClient{
-		StartWorkflowFunc: func(sessionID, workflowID string) (client.WorkflowStartResponse, error) {
+		StartWorkflowFunc: func(sessionID, workflowID string, payload map[string]any) (client.WorkflowStartResponse, error) {
 			return client.WorkflowStartResponse{ExecutionID: "exec-123"}, nil
 		},
 	}
@@ -580,7 +580,7 @@ func TestHistoryCmd_multipleExecutions(t *testing.T) {
 
 func TestStartCmd_error(t *testing.T) {
 	mockClient := &client.MockClient{
-		StartWorkflowFunc: func(sessionID, workflowID string) (client.WorkflowStartResponse, error) {
+		StartWorkflowFunc: func(sessionID, workflowID string, payload map[string]any) (client.WorkflowStartResponse, error) {
 			return client.WorkflowStartResponse{}, fmt.Errorf("start failed")
 		},
 	}
@@ -605,7 +605,7 @@ func TestStartCmd_error(t *testing.T) {
 
 func TestStartCmd_jsonOutput(t *testing.T) {
 	mockClient := &client.MockClient{
-		StartWorkflowFunc: func(sessionID, workflowID string) (client.WorkflowStartResponse, error) {
+		StartWorkflowFunc: func(sessionID, workflowID string, payload map[string]any) (client.WorkflowStartResponse, error) {
 			return client.WorkflowStartResponse{ExecutionID: "exec-123"}, nil
 		},
 	}
@@ -676,5 +676,31 @@ func TestWorkflowCmd_registersSubcommands(t *testing.T) {
 		if !foundCommands[expected] {
 			t.Errorf("expected '%s' subcommand not found", expected)
 		}
+	}
+}
+
+func TestStartCmd_payload(t *testing.T) {
+	var got map[string]any
+	mockClient := &client.MockClient{
+		StartWorkflowFunc: func(_, _ string, payload map[string]any) (client.WorkflowStartResponse, error) {
+			got = payload
+			return client.WorkflowStartResponse{ExecutionID: "e"}, nil
+		},
+	}
+	cmd := StartCmd(mockClient)
+	if err := cmd.Flags().Set("payload", `{"k":"v"}`); err != nil {
+		t.Fatal(err)
+	}
+	if err := cmd.RunE(cmd, []string{"s", "w"}); err != nil {
+		t.Fatal(err)
+	}
+	if got["k"] != "v" {
+		t.Errorf("payload not forwarded: %v", got)
+	}
+
+	bad := StartCmd(mockClient)
+	_ = bad.Flags().Set("payload", `[1]`)
+	if err := bad.RunE(bad, []string{"s", "w"}); err == nil {
+		t.Error("expected error for non-object payload")
 	}
 }

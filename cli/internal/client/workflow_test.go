@@ -60,7 +60,7 @@ func TestStartWorkflow(t *testing.T) {
 			defer server.Close()
 
 			c := NewClient(server.URL)
-			resp, err := c.StartWorkflow(tt.sessionID, tt.workflowID)
+			resp, err := c.StartWorkflow(tt.sessionID, tt.workflowID, nil)
 
 			if tt.expectError && err == nil {
 				t.Fatal("expected error, got nil")
@@ -510,7 +510,7 @@ func TestStartWorkflow_invalidJSON(t *testing.T) {
 	defer server.Close()
 
 	c := NewClient(server.URL)
-	_, err := c.StartWorkflow("session-1", "workflow-1")
+	_, err := c.StartWorkflow("session-1", "workflow-1", nil)
 
 	if err == nil {
 		t.Error("expected error for invalid JSON, got nil")
@@ -529,7 +529,7 @@ func TestStartWorkflow_httpError(t *testing.T) {
 	defer server.Close()
 
 	c := NewClient(server.URL)
-	_, err := c.StartWorkflow("session-1", "workflow-1")
+	_, err := c.StartWorkflow("session-1", "workflow-1", nil)
 
 	if err == nil {
 		t.Error("expected error for 500 status, got nil")
@@ -552,7 +552,7 @@ func TestStartWorkflow_networkError(t *testing.T) {
 		httpDoer:       mockDoer,
 	}
 
-	_, err := c.StartWorkflow("session-1", "workflow-1")
+	_, err := c.StartWorkflow("session-1", "workflow-1", nil)
 	if err == nil {
 		t.Error("expected error for network failure, got nil")
 	}
@@ -1818,7 +1818,7 @@ func TestStartWorkflow_requestFactoryFails_returnsError(t *testing.T) {
 		httpDoer:       &http.Client{},
 	}
 
-	_, err := c.StartWorkflow("session-1", "workflow-1")
+	_, err := c.StartWorkflow("session-1", "workflow-1", nil)
 	if err == nil {
 		t.Error("expected error when factory fails, got nil")
 	}
@@ -2046,5 +2046,28 @@ func TestSkipNode_requestFactoryFails_returnsError(t *testing.T) {
 	_, err := c.SkipNode("session-1", "exec-123", "node-1", true)
 	if err == nil {
 		t.Error("expected error when factory fails, got nil")
+	}
+}
+
+func TestStartWorkflow_sendsPayload(t *testing.T) {
+	var sent map[string]any
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		sent = nil
+		_ = json.NewDecoder(r.Body).Decode(&sent)
+		_, _ = w.Write([]byte(`{"data":{"executionId":"e"}}`))
+	}))
+	defer srv.Close()
+
+	if _, err := NewClient(srv.URL).StartWorkflow("s", "w", map[string]any{"k": "v"}); err != nil {
+		t.Fatal(err)
+	}
+	if sent["payload"].(map[string]any)["k"] != "v" {
+		t.Errorf("payload missing from body: %v", sent)
+	}
+	if _, err := NewClient(srv.URL).StartWorkflow("s", "w", nil); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := sent["payload"]; ok {
+		t.Errorf("empty payload should be omitted: %v", sent)
 	}
 }

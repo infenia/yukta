@@ -14,8 +14,9 @@ import (
 
 // WorkflowStartRequest is the request body for starting a workflow execution.
 type WorkflowStartRequest struct {
-	SessionID  string `json:"sessionId"`
-	WorkflowID string `json:"workflowId"`
+	SessionID  string         `json:"sessionId"`
+	WorkflowID string         `json:"workflowId"`
+	Payload    map[string]any `json:"payload,omitempty"`
 }
 
 // WorkflowStartResponse contains the execution ID of a started workflow.
@@ -59,7 +60,8 @@ type WorkflowExecutionSummary struct {
 }
 
 // StartWorkflow initiates execution of a workflow in a session.
-func (c *Client) StartWorkflow(sessionID, workflowID string) (WorkflowStartResponse, error) {
+// payload is optional and handed to the workflow's trigger node.
+func (c *Client) StartWorkflow(sessionID, workflowID string, payload map[string]any) (WorkflowStartResponse, error) {
 	if sessionID == "" {
 		return WorkflowStartResponse{}, fmt.Errorf("sessionID cannot be empty")
 	}
@@ -67,7 +69,7 @@ func (c *Client) StartWorkflow(sessionID, workflowID string) (WorkflowStartRespo
 		return WorkflowStartResponse{}, fmt.Errorf("workflowID cannot be empty")
 	}
 
-	req := WorkflowStartRequest{SessionID: sessionID, WorkflowID: workflowID}
+	req := WorkflowStartRequest{SessionID: sessionID, WorkflowID: workflowID, Payload: payload}
 	reqBody, _ := json.Marshal(req)
 
 	httpReq, err := c.newRequestWithBody("POST", "/api/workflow/start", reqBody)

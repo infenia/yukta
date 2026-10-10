@@ -18,6 +18,7 @@ var (
 	serverURL    string
 	outputFormat string
 	timeout      time.Duration
+	token        string
 )
 
 // RootCmd creates and returns the root Cobra command with global flags.
@@ -42,6 +43,7 @@ workflow orchestration, and integration with quality check plugins.`,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 			c.BaseURL = strings.TrimRight(serverURL, "/")
 			c.Timeout = timeout
+			c.Token = token
 			return nil
 		},
 		// RunE ensures the root command still runs its PersistentPreRunE even if no subcommand is provided.
@@ -65,6 +67,13 @@ workflow orchestration, and integration with quality check plugins.`,
 		"timeout",
 		client.DefaultTimeout,
 		"Timeout for non-streaming requests (0 disables)",
+	)
+
+	cmd.PersistentFlags().StringVar(
+		&token,
+		"token",
+		os.Getenv("YUKTA_TOKEN"),
+		"Bearer token for authenticated servers (env: YUKTA_TOKEN)",
 	)
 
 	// -o/--output flag for specifying the output format (table or json).

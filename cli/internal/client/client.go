@@ -41,6 +41,7 @@ type HTTPDoer interface {
 // Client provides an HTTP client wrapper for communicating with the Yukta API.
 type Client struct {
 	BaseURL        string
+	Token          string        // optional bearer token sent as Authorization
 	Timeout        time.Duration // per-request limit for non-streaming calls; <= 0 disables
 	HTTPClient     *http.Client
 	RequestFactory RequestFactory
@@ -95,6 +96,9 @@ func (c *Client) newRequestWithBody(method string, path string, body []byte) (*h
 
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
+	if c.Token != "" {
+		req.Header.Set("Authorization", "Bearer "+c.Token)
+	}
 
 	return req, nil
 }

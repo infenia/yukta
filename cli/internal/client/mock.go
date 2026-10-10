@@ -25,7 +25,7 @@ type ClientInterface interface {
 	GetLastHeartbeat(workflowID, nodeID string) (map[string]interface{}, error)
 	SendCommand(workflowID, nodeID string, commandPayloadJSON []byte) (map[string]interface{}, error)
 	StreamExecutionLogs(ctx context.Context, sessionID, executionID string, onLine func(line string) error) error
-	StartWorkflow(sessionID, workflowID string) (WorkflowStartResponse, error)
+	StartWorkflow(sessionID, workflowID string, payload map[string]any) (WorkflowStartResponse, error)
 	StopWorkflow(sessionID, workflowID string) (WorkflowStopResponse, error)
 	StopExecution(executionID string) (WorkflowStartResponse, error)
 	RestartExecution(executionID string) (WorkflowStartResponse, error)
@@ -62,7 +62,7 @@ type MockClient struct {
 	SendCommandFunc              func(workflowID, nodeID string, commandPayloadJSON []byte) (map[string]interface{}, error)
 	StreamExecutionLogsFunc      func(ctx context.Context, sessionID, executionID string, onLine func(line string) error) error
 
-	StartWorkflowFunc        func(sessionID, workflowID string) (WorkflowStartResponse, error)
+	StartWorkflowFunc        func(sessionID, workflowID string, payload map[string]any) (WorkflowStartResponse, error)
 	StopWorkflowFunc         func(sessionID, workflowID string) (WorkflowStopResponse, error)
 	StopExecutionFunc        func(executionID string) (WorkflowStartResponse, error)
 	RestartExecutionFunc     func(executionID string) (WorkflowStartResponse, error)
@@ -279,10 +279,10 @@ func (m *MockClient) StreamExecutionLogs(
 }
 
 // StartWorkflow mocks the StartWorkflow method.
-func (m *MockClient) StartWorkflow(sessionID, workflowID string) (WorkflowStartResponse, error) {
+func (m *MockClient) StartWorkflow(sessionID, workflowID string, payload map[string]any) (WorkflowStartResponse, error) {
 	m.StartWorkflowCalls++
 	if m.StartWorkflowFunc != nil {
-		return m.StartWorkflowFunc(sessionID, workflowID)
+		return m.StartWorkflowFunc(sessionID, workflowID, payload)
 	}
 	if sessionID == "" {
 		return WorkflowStartResponse{}, fmt.Errorf("sessionID cannot be empty")

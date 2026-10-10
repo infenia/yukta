@@ -613,3 +613,16 @@ func TestDoRequestTimesOut(t *testing.T) {
 		t.Fatal("expected timeout error")
 	}
 }
+
+func TestBearerTokenHeader(t *testing.T) {
+	c := NewClient("http://localhost:8080")
+	req, _ := c.newRequest("GET", "/api/sessions")
+	if got := req.Header.Get("Authorization"); got != "" {
+		t.Fatalf("unexpected Authorization %q", got)
+	}
+	c.Token = "s3cret"
+	req, _ = c.newRequest("GET", "/api/sessions")
+	if got := req.Header.Get("Authorization"); got != "Bearer s3cret" {
+		t.Fatalf("got %q", got)
+	}
+}
