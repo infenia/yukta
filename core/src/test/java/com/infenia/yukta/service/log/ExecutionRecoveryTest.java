@@ -101,7 +101,11 @@ class ExecutionRecoveryTest {
   void trackerRecordsRunEndsInTheLog() {
     final InMemoryExecutionLogStore log = new InMemoryExecutionLogStore();
     final DefaultTaskTrackerService live =
-        new DefaultTaskTrackerService(Duration.ofMinutes(10), mock(StatusHistoryCache.class), log);
+        new DefaultTaskTrackerService(
+            Duration.ofMinutes(10),
+            mock(StatusHistoryCache.class),
+            log,
+            new io.micrometer.core.instrument.simple.SimpleMeterRegistry());
     live.init();
     StepVerifier.create(live.startWorkflow("e1", "s1", "w1", List.of("n1"))).verifyComplete();
 

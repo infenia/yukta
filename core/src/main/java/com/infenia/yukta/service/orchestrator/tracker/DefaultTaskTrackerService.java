@@ -22,6 +22,8 @@ import com.infenia.yukta.validation.NodeId;
 import com.infenia.yukta.validation.SessionId;
 import com.infenia.yukta.validation.WorkflowId;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import jakarta.annotation.PostConstruct;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
@@ -83,6 +85,9 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
   /** Time to live for execution data after terminal status. */
   private final Duration cleanupTtl;
 
+  /** Registry for the node metrics. */
+  private final MeterRegistry meters;
+
   /** Cache for storing recent workflow progress updates per execution. */
   private final StatusHistoryCache statusHistoryCache;
 
@@ -122,15 +127,19 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
    *
    * @param cleanupTtl the time to live for execution data after terminal status
    * @param statusHistoryCache the cache for storing recent workflow progress updates
+   * @param executionLog durable log of run starts and ends
+   * @param meters registry for the node metrics
    */
   @Autowired
   public DefaultTaskTrackerService(
       @Value("${yukta.tracker.cleanup-ttl:10m}") final Duration cleanupTtl,
       final StatusHistoryCache statusHistoryCache,
-      final ExecutionLogStore executionLog) {
+      final ExecutionLogStore executionLog,
+      final MeterRegistry meters) {
     this.cleanupTtl = cleanupTtl;
     this.statusHistoryCache = statusHistoryCache;
     this.executionLog = executionLog;
+    this.meters = meters;
   }
 
   /**
@@ -141,7 +150,8 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
    */
   public DefaultTaskTrackerService(
       final Duration cleanupTtl, final StatusHistoryCache statusHistoryCache) {
-    this(cleanupTtl, statusHistoryCache, new InMemoryExecutionLogStore());
+    this(
+        cleanupTtl, statusHistoryCache, new InMemoryExecutionLogStore(), new SimpleMeterRegistry());
   }
 
   /** Initialize background event consumers. */
@@ -674,7 +684,25 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
       return;
     }
     state.updateTask(event.nodeId(), event.module(), event.status(), event.metadata());
+    if (isTerminal(event.status())) {
+      recordNode(state.taskMap.get(event.nodeId()));
+    }
     touched.add(event.executionId());
+  }
+
+  /** Counts the node outcome by plugin and status, and times nodes that actually ran. */
+  private void recordNode(final TaskProgress task) {
+    if (task == null) {
+      return;
+    }
+    meters
+        .counter("yukta.node.executions", "module", task.module(), "status", task.status())
+        .increment();
+    if (task.startTime() != null && task.endTime() != null) {
+      meters
+          .timer("yukta.node.duration", "module", task.module())
+          .record(Duration.between(task.startTime(), task.endTime()));
+    }
   }
 
   private void applyWorkflow(final WorkflowStatusEvent event, final Set<String> touched) {
