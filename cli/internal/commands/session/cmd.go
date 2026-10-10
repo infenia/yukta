@@ -32,6 +32,8 @@ Subcommands allow you to:
 	sessionCmd.AddCommand(ListCmd(c))     // Task 6
 	sessionCmd.AddCommand(GetCmd(c))      // Task 7
 	sessionCmd.AddCommand(WorkflowCmd(c)) // Task 9
+	sessionCmd.AddCommand(dataCmd("summaries", "List all sessions with their workflow summaries", 0,
+		func(_ []string) (any, error) { return c.GetSessionSummaries() }))
 
 	return sessionCmd
 }

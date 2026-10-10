@@ -26,6 +26,10 @@ Use "yukta session workflow <subcommand>" to perform workflow-related operations
 
 	// Add subcommands to the workflow command group
 	cmd.AddCommand(WorkflowGetCmd(c))
+	cmd.AddCommand(dataCmd("graph <session-id> <workflow-id>", "Show the workflow graph (nodes and edges)", 2,
+		func(a []string) (any, error) { return c.GetWorkflowGraph(a[0], a[1]) }))
+	cmd.AddCommand(dataCmd("executions <session-id> <workflow-id>", "List executions of a workflow, most recent first", 2,
+		func(a []string) (any, error) { return c.GetWorkflowExecutions(a[0], a[1]) }))
 
 	return cmd
 }

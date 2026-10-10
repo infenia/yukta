@@ -25,6 +25,10 @@ type ClientInterface interface {
 	GetLastHeartbeat(workflowID, nodeID string) (map[string]interface{}, error)
 	SendCommand(workflowID, nodeID string, commandPayloadJSON []byte) (map[string]interface{}, error)
 	StreamExecutionLogs(ctx context.Context, sessionID, executionID string, onLine func(line string) error) error
+	StreamExecutionLogEntries(ctx context.Context, sessionID, executionID string, onLine func(line string) error) error
+	GetSessionSummaries() (any, error)
+	GetWorkflowGraph(sessionID, workflowID string) (any, error)
+	GetWorkflowExecutions(sessionID, workflowID string) (any, error)
 	StartWorkflow(sessionID, workflowID string, payload map[string]any) (WorkflowStartResponse, error)
 	StopWorkflow(sessionID, workflowID string) (WorkflowStopResponse, error)
 	StopExecution(executionID string) (WorkflowStartResponse, error)
@@ -610,3 +614,12 @@ func (m *MockHTTPDoer) Do(req *http.Request) (*http.Response, error) {
 		Body:       io.NopCloser(strings.NewReader("{}")),
 	}, nil
 }
+
+// The newer read-only endpoints are covered against httptest.Server; these are inert stubs.
+
+func (m *MockClient) StreamExecutionLogEntries(context.Context, string, string, func(string) error) error {
+	return nil
+}
+func (m *MockClient) GetSessionSummaries() (any, error)              { return nil, nil }
+func (m *MockClient) GetWorkflowGraph(_, _ string) (any, error)      { return nil, nil }
+func (m *MockClient) GetWorkflowExecutions(_, _ string) (any, error) { return nil, nil }
