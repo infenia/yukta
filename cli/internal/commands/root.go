@@ -6,6 +6,7 @@ package commands
 import (
 	"os"
 	"strings"
+	"time"
 
 	"com.infenia.yukta/go-cli/internal/client"
 	"github.com/spf13/cobra"
@@ -16,6 +17,7 @@ import (
 var (
 	serverURL    string
 	outputFormat string
+	timeout      time.Duration
 )
 
 // RootCmd creates and returns the root Cobra command with global flags.
@@ -39,6 +41,7 @@ workflow orchestration, and integration with quality check plugins.`,
 		// This hook updates the client's BaseURL with the resolved server URL value.
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 			c.BaseURL = strings.TrimRight(serverURL, "/")
+			c.Timeout = timeout
 			return nil
 		},
 		// RunE ensures the root command still runs its PersistentPreRunE even if no subcommand is provided.
@@ -55,6 +58,13 @@ workflow orchestration, and integration with quality check plugins.`,
 		"url",
 		defaultURL,
 		"Server URL (env: YUKTA_SERVER_URL)",
+	)
+
+	cmd.PersistentFlags().DurationVar(
+		&timeout,
+		"timeout",
+		client.DefaultTimeout,
+		"Timeout for non-streaming requests (0 disables)",
 	)
 
 	// -o/--output flag for specifying the output format (table or json).

@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 )
 
 // TestNewRequest_emptyMethod tests that an empty method returns an error.
@@ -596,5 +597,19 @@ func TestAPIPathEscapesSegments(t *testing.T) {
 	want := "/api/workflow/a%2F..%2Fb/x%3Fy%23z%20w/stop"
 	if got != want {
 		t.Fatalf("got %q, want %q", got, want)
+	}
+}
+
+func TestDoRequestTimesOut(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		<-r.Context().Done()
+	}))
+	defer srv.Close()
+
+	c := NewClient(srv.URL)
+	c.Timeout = 50 * time.Millisecond
+	req, _ := c.newRequest("GET", "/api/sessions")
+	if _, err := c.doRequest(req); err == nil {
+		t.Fatal("expected timeout error")
 	}
 }
