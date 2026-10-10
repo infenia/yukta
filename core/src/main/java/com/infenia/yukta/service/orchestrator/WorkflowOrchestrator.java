@@ -14,6 +14,7 @@ import com.infenia.yukta.service.archive.DefinitionVersion;
 import com.infenia.yukta.service.archive.ExecutionArchive;
 import com.infenia.yukta.service.control.ExecutionControl;
 import com.infenia.yukta.service.control.ExecutionScheduler;
+import com.infenia.yukta.service.control.QueueTimeoutException;
 import com.infenia.yukta.service.control.factory.ExecutionControlFactory;
 import com.infenia.yukta.service.control.store.ExecutionControlRegistry;
 import com.infenia.yukta.service.log.ExecutionLogEvent;
@@ -376,7 +377,11 @@ public class WorkflowOrchestrator {
         .onErrorResume(
             e ->
                 tracker
-                    .finishWorkflow(executionId, TaskStatus.FAILURE)
+                    .finishWorkflow(
+                        executionId,
+                        e instanceof QueueTimeoutException
+                            ? TaskStatus.TIMED_OUT
+                            : TaskStatus.FAILURE)
                     .doOnSuccess(
                         _ ->
                             log.atError()

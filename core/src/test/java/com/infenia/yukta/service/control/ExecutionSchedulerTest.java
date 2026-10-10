@@ -110,6 +110,35 @@ class ExecutionSchedulerTest {
   }
 
   @Test
+  void queuedStart_givesUpAfterTheQueueTimeout_andFreesItsPlace() {
+    final ExecutionScheduler scheduler =
+        new ExecutionScheduler(
+            1, 0, 10, OnLimit.QUEUE, Duration.ofMillis(300), Duration.ofMillis(100));
+    final Permit first = granted(scheduler.acquire("s", "w"));
+
+    StepVerifier.create(scheduler.acquire("s", "w").permit())
+        .expectError(QueueTimeoutException.class)
+        .verify(Duration.ofSeconds(2));
+
+    assertThat(scheduler.queued()).isZero();
+    first.release();
+    assertThat(scheduler.running()).isZero();
+  }
+
+  @Test
+  void queuedStart_thatIsGrantedInTime_isNotTimedOut() {
+    final ExecutionScheduler scheduler =
+        new ExecutionScheduler(
+            1, 0, 10, OnLimit.QUEUE, Duration.ofMillis(300), Duration.ofSeconds(5));
+    final Permit first = granted(scheduler.acquire("s", "w"));
+    final var waiting = scheduler.acquire("s", "w").permit().toFuture();
+
+    first.release();
+
+    assertThat(waiting).succeedsWithin(Duration.ofSeconds(1));
+  }
+
+  @Test
   void waitingStartThatIsCancelled_leavesTheQueue() {
     final ExecutionScheduler scheduler = scheduler(1, 0, 10, OnLimit.QUEUE);
     final Permit first = granted(scheduler.acquire("s", "w"));

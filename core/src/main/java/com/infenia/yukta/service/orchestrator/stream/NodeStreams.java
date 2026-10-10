@@ -12,6 +12,7 @@ import java.util.concurrent.TimeoutException;
 import java.util.function.BooleanSupplier;
 import lombok.experimental.UtilityClass;
 import lombok.extern.slf4j.Slf4j;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.event.Level;
 import reactor.core.publisher.Flux;
 import reactor.core.scheduler.Schedulers;
@@ -33,6 +34,7 @@ public class NodeStreams {
    * @param source the node's output stream
    * @param activity the node's activity clock; the timeout counts idle time since its last touch
    * @param paused tells whether the node or run is paused, which holds the timeout clock
+   * @param deadline the longest the node may run from its first activity, or null for none
    * @return the decorated stream
    */
   public Flux<Message<?>> withTimeoutAndTracking(
@@ -42,10 +44,16 @@ public class NodeStreams {
       final String executionId,
       final Flux<Message<?>> source,
       final NodeActivity activity,
-      final BooleanSupplier paused) {
+      final BooleanSupplier paused,
+      @Nullable final Duration deadline) {
     final String nodeId = node.nodeId();
     return activity
-        .guard(source.doOnNext(_ -> activity.touch()), timeout, Schedulers.parallel(), paused)
+        .guard(
+            source.doOnNext(_ -> activity.touch()),
+            timeout,
+            deadline,
+            Schedulers.parallel(),
+            paused)
         .doOnError(
             TimeoutException.class,
             e ->

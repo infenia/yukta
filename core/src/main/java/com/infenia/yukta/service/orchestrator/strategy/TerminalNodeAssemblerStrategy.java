@@ -17,9 +17,11 @@ import com.infenia.yukta.plugin.type.TerminalPlugin;
 import com.infenia.yukta.service.control.store.ActivePluginRegistry;
 import com.infenia.yukta.service.orchestrator.stream.NodeActivity;
 import com.infenia.yukta.service.orchestrator.stream.NodeStreams;
+import com.infenia.yukta.service.orchestrator.stream.NodeTimeouts;
 import com.infenia.yukta.service.orchestrator.stream.StreamTopologyDecorator;
 import com.infenia.yukta.service.orchestrator.stream.UpstreamFailure;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
+import com.infenia.yukta.util.VariableResolver;
 import java.time.Duration;
 import java.util.Collections;
 import lombok.RequiredArgsConstructor;
@@ -58,6 +60,9 @@ public class TerminalNodeAssemblerStrategy implements NodeAssemblerStrategy {
 
   /** The registry of plugin instances actively servicing workflow nodes. */
   private final ActivePluginRegistry activePluginRegistry;
+
+  /** Resolves expressions in the node config, for a timeout that depends on the first input. */
+  private final VariableResolver variableResolver;
 
   @Override
   public boolean supports(final Plugin plugin, final boolean hasParents) {
@@ -108,8 +113,14 @@ public class TerminalNodeAssemblerStrategy implements NodeAssemblerStrategy {
       final Flux<Message<?>> inputToTerminal =
           activity
               .guard(
-                  safeInput.doOnNext(_ -> activity.touch()).onErrorMap(UpstreamFailure::mark),
+                  NodeTimeouts.retimeOnFirstInput(
+                      safeInput.doOnNext(_ -> activity.touch()).onErrorMap(UpstreamFailure::mark),
+                      node,
+                      plugin,
+                      variableResolver,
+                      activity),
                   timeout,
+                  NodePolicy.from(node.config()).deadline(),
                   virtualThreadScheduler,
                   () -> control.isPaused(node.nodeId()))
               .transformDeferredContextual(

@@ -90,6 +90,17 @@ class NodePolicyTest {
   }
 
   @Test
+  void deadline_isParsed_andRejectedWhenNotPositiveOrFractional() {
+    assertThat(NodePolicy.from(engine(Map.of("deadlineMs", 5000))).deadline())
+        .isEqualTo(Duration.ofSeconds(5));
+    assertThat(NodePolicy.DEFAULT.deadline()).isNull();
+    assertThatThrownBy(() -> NodePolicy.from(engine(Map.of("deadlineMs", 0))))
+        .hasMessageContaining("engine.deadlineMs must be positive");
+    assertThatThrownBy(() -> NodePolicy.from(engine(Map.of("deadlineMs", 1.5))))
+        .hasMessageContaining("engine.deadlineMs must be a whole number");
+  }
+
+  @Test
   void elementTimeout_rejectsFractionalMilliseconds() {
     assertThatThrownBy(() -> NodePolicy.from(engine(Map.of("elementTimeoutMs", 0.5))))
         .isInstanceOf(IllegalArgumentException.class)
