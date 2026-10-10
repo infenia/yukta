@@ -9,12 +9,17 @@ import com.infenia.yukta.message.Message;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 import reactor.core.publisher.Flux;
 import reactor.test.StepVerifier;
 
 /** Tests for SqlQueryPlugin against an in-memory H2 database. */
+@NoArgsConstructor
 class SqlQueryPluginTest {
+
+  /** Config key. */
+  private static final String URL_KEY = "url";
 
   /** The plugin under test. */
   private final SqlQueryPlugin plugin = new SqlQueryPlugin();
@@ -24,7 +29,7 @@ class SqlQueryPluginTest {
 
   private Message<?> run(final String sql, final Map<String, Object> payload, final Object params) {
     final Map<String, Object> config =
-        Map.of("url", URL, "username", "sa", "password", "", "sql", sql, "params", params);
+        Map.of(URL_KEY, URL, "username", "sa", "password", "", "sql", sql, "params", params);
     final Message<?> input = DefaultMessage.create(UUID.randomUUID(), payload);
     return plugin.process(Flux.just(input), config).blockFirst();
   }
@@ -52,9 +57,9 @@ class SqlQueryPluginTest {
 
   @Test
   void validateConfig_requiresUrlAndSql() {
-    StepVerifier.create(plugin.validateConfig(Map.of("url", URL, "sql", "select 1")))
+    StepVerifier.create(plugin.validateConfig(Map.of(URL_KEY, URL, "sql", "select 1")))
         .verifyComplete();
-    StepVerifier.create(plugin.validateConfig(Map.of("url", URL)))
+    StepVerifier.create(plugin.validateConfig(Map.of(URL_KEY, URL)))
         .expectError(IllegalArgumentException.class)
         .verify();
     assertThat(plugin.getType()).isEqualTo("SQL_QUERY");
@@ -68,7 +73,7 @@ class SqlQueryPluginTest {
     run("insert into m values (2)", Map.of(), List.of());
     final Map<String, Object> config =
         Map.of(
-            "url", URL, "username", "sa", "password", "", "sql", "select i from m", "maxRows", 1);
+            URL_KEY, URL, "username", "sa", "password", "", "sql", "select i from m", "maxRows", 1);
     final Message<?> out =
         plugin
             .process(Flux.just(DefaultMessage.create(UUID.randomUUID(), "text")), config)

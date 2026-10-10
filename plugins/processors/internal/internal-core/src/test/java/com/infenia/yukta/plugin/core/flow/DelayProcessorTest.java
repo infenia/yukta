@@ -9,12 +9,17 @@ import com.infenia.yukta.message.Message;
 import java.time.Duration;
 import java.util.Map;
 import java.util.UUID;
+import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 import reactor.core.publisher.Flux;
 import reactor.test.StepVerifier;
 
 /** Tests for DelayProcessor. */
+@NoArgsConstructor
 class DelayProcessorTest {
+
+  /** Literal delayMs. */
+  private static final String DELAYMS = "delayMs";
 
   /** The processor under test. */
   private final DelayProcessor processor = new DelayProcessor();
@@ -24,7 +29,7 @@ class DelayProcessorTest {
     final Message<?> first = DefaultMessage.create(UUID.randomUUID(), Map.of("n", 1));
     final Message<?> second = DefaultMessage.create(UUID.randomUUID(), Map.of("n", 2));
     final long start = System.nanoTime();
-    StepVerifier.create(processor.process(Flux.just(first, second), Map.of("delayMs", 50)))
+    StepVerifier.create(processor.process(Flux.just(first, second), Map.of(DELAYMS, 50)))
         .expectNext(first, second)
         .verifyComplete();
     assertThat(Duration.ofNanos(System.nanoTime() - start))
@@ -34,16 +39,16 @@ class DelayProcessorTest {
   @Test
   void typeAndDescription() {
     assertThat(processor.getType()).isEqualTo("DELAY");
-    assertThat(processor.describe().usagePattern()).contains("delayMs");
+    assertThat(processor.describe().usagePattern()).contains(DELAYMS);
   }
 
   @Test
   void validateConfig_requiresPositiveDelay() {
-    StepVerifier.create(processor.validateConfig(Map.of("delayMs", 5))).verifyComplete();
+    StepVerifier.create(processor.validateConfig(Map.of(DELAYMS, 5))).verifyComplete();
     StepVerifier.create(processor.validateConfig(Map.of()))
         .expectError(IllegalArgumentException.class)
         .verify();
-    StepVerifier.create(processor.validateConfig(Map.of("delayMs", 0)))
+    StepVerifier.create(processor.validateConfig(Map.of(DELAYMS, 0)))
         .expectError(IllegalArgumentException.class)
         .verify();
   }

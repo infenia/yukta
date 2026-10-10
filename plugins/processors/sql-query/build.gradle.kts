@@ -15,8 +15,3 @@ dependencies {
 
 coverageConfig {
 }
-
-// TODO: temporarily disabled — re-enable once violations are addressed.
-tasks.named("pmdTest") {
-    enabled = false
-}

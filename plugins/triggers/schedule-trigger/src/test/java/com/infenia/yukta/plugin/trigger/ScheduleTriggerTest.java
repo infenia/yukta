@@ -6,11 +6,19 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.time.Duration;
 import java.util.Map;
+import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 import reactor.test.StepVerifier;
 
 /** Tests for ScheduleTrigger. */
+@NoArgsConstructor
 class ScheduleTriggerTest {
+
+  /** Config key. */
+  private static final String INTERVAL_MS = "intervalMs";
+
+  /** Config key. */
+  private static final String CRON = "cron";
 
   /** The trigger instance under test. */
   private final ScheduleTrigger trigger = new ScheduleTrigger();
@@ -23,7 +31,7 @@ class ScheduleTriggerTest {
 
   @Test
   void start_interval_emitsTicksUpToMaxRuns() {
-    StepVerifier.create(trigger.start(Map.of("intervalMs", 10, "maxRuns", 2)))
+    StepVerifier.create(trigger.start(Map.of(INTERVAL_MS, 10, "maxRuns", 2)))
         .assertNext(m -> assertThat(((Map<?, ?>) m.payload()).get("tick")).isEqualTo(1L))
         .assertNext(m -> assertThat(((Map<?, ?>) m.payload()).get("tick")).isEqualTo(2L))
         .verifyComplete();
@@ -31,7 +39,7 @@ class ScheduleTriggerTest {
 
   @Test
   void start_cron_firesEverySecond() {
-    StepVerifier.create(trigger.start(Map.of("cron", "* * * * * *", "maxRuns", 1)))
+    StepVerifier.create(trigger.start(Map.of(CRON, "* * * * * *", "maxRuns", 1)))
         .assertNext(m -> assertThat(((Map<?, ?>) m.payload()).get("firedAt")).isNotNull())
         .expectComplete()
         .verify(Duration.ofSeconds(5));
@@ -42,21 +50,21 @@ class ScheduleTriggerTest {
     StepVerifier.create(trigger.validateConfig(Map.of()))
         .expectError(IllegalArgumentException.class)
         .verify();
-    StepVerifier.create(trigger.validateConfig(Map.of("cron", "* * * * * *", "intervalMs", 5)))
+    StepVerifier.create(trigger.validateConfig(Map.of(CRON, "* * * * * *", INTERVAL_MS, 5)))
         .expectError(IllegalArgumentException.class)
         .verify();
-    StepVerifier.create(trigger.validateConfig(Map.of("intervalMs", 0)))
+    StepVerifier.create(trigger.validateConfig(Map.of(INTERVAL_MS, 0)))
         .expectError(IllegalArgumentException.class)
         .verify();
-    StepVerifier.create(trigger.validateConfig(Map.of("cron", "not a cron")))
+    StepVerifier.create(trigger.validateConfig(Map.of(CRON, "not a cron")))
         .expectError(IllegalArgumentException.class)
         .verify();
   }
 
   @Test
   void validateConfig_acceptsValid() {
-    StepVerifier.create(trigger.validateConfig(Map.of("intervalMs", 100))).verifyComplete();
-    StepVerifier.create(trigger.validateConfig(Map.of("cron", "0 0 * * * *", "zone", "UTC")))
+    StepVerifier.create(trigger.validateConfig(Map.of(INTERVAL_MS, 100))).verifyComplete();
+    StepVerifier.create(trigger.validateConfig(Map.of(CRON, "0 0 * * * *", "zone", "UTC")))
         .verifyComplete();
   }
 }

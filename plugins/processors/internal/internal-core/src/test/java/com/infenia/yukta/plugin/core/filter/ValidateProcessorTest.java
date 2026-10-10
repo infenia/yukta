@@ -9,11 +9,13 @@ import com.infenia.yukta.message.Message;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 import reactor.core.publisher.Flux;
 import reactor.test.StepVerifier;
 
 /** Tests for ValidateProcessor. */
+@NoArgsConstructor
 class ValidateProcessorTest {
 
   /** The processor under test. */
@@ -52,7 +54,7 @@ class ValidateProcessorTest {
         Map.of(
             "types",
             Map.of("s", "string", "n", "number", "b", "boolean", "o", "object", "a", "array"));
-    final Message<?> ok =
+    final Message<?> valid =
         processor
             .process(
                 Flux.just(
@@ -61,7 +63,7 @@ class ValidateProcessorTest {
                         Map.of("s", "x", "n", 1, "b", true, "o", Map.of(), "a", List.of()))),
                 all)
             .blockFirst();
-    assertThat(ok.sourcePort()).isEqualTo("default");
+    assertThat(valid.sourcePort()).isEqualTo("default");
   }
 
   @Test

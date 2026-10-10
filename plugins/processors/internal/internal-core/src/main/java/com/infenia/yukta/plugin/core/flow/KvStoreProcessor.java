@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import lombok.NoArgsConstructor;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -18,6 +19,8 @@ import reactor.core.publisher.Mono;
  * get, put, incr, delete.
  */
 @Component
+@SuppressWarnings("PMD.UseConcurrentHashMap")
+@NoArgsConstructor
 public final class KvStoreProcessor implements ProcessorPlugin {
 
   /** Supported operations. */
@@ -27,11 +30,6 @@ public final class KvStoreProcessor implements ProcessorPlugin {
   // or clustering matters.
   /** Values by namespace-qualified key. */
   private final Map<String, Object> store = new ConcurrentHashMap<>();
-
-  /** Default constructor. */
-  public KvStoreProcessor() {
-    super();
-  }
 
   @Override
   public PluginDescriptor describe() {
@@ -63,7 +61,7 @@ public final class KvStoreProcessor implements ProcessorPlugin {
 
   @Override
   public Flux<Message<?>> process(final Flux<Message<?>> input, final Map<String, Object> config) {
-    final String op = String.valueOf(config.get("op"));
+    final String operation = String.valueOf(config.get("op"));
     return input.map(
         message -> {
           final Map<?, ?> payload = message.payload() instanceof Map<?, ?> map ? map : Map.of();
@@ -73,7 +71,7 @@ public final class KvStoreProcessor implements ProcessorPlugin {
           }
           final String full = config.getOrDefault("namespace", "") + ":" + key;
           final Object value =
-              switch (op) {
+              switch (operation) {
                 case "put" -> {
                   final Object stored = payload.get("value");
                   if (stored == null) {

@@ -10,6 +10,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import lombok.NoArgsConstructor;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -19,10 +20,17 @@ import reactor.core.publisher.Mono;
  * valid or to {@code invalid} (with the failure reason set) otherwise.
  */
 @Component
+@SuppressWarnings({"PMD.AvoidFieldNameMatchingMethodName", "PMD.UseConcurrentHashMap"})
+@NoArgsConstructor
 public final class ValidateProcessor implements ProcessorPlugin {
 
+  /** Required. */
   private static final String REQUIRED = "required";
+
+  /** Types. */
   private static final String TYPES = "types";
+
+  /** Invalid. */
   private static final String INVALID = "invalid";
 
   @Override

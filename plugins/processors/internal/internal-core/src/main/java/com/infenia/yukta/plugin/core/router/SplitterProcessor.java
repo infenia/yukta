@@ -18,6 +18,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Stream;
+import lombok.NoArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
@@ -33,23 +34,35 @@ import reactor.core.publisher.Mono;
   "PMD.ExceptionAsFlowControl",
   "PMD.CyclomaticComplexity"
 })
+@NoArgsConstructor
 public class SplitterProcessor implements ProcessorPlugin {
 
+  /** Type. */
   private static final String TYPE = "SPLITTER";
+
+  /** Cfg items. */
   private static final String CFG_ITEMS = "itemsPath";
+
+  /** Cfg mapping. */
   private static final String CFG_MAPPING = "headerMapping";
+
+  /** Cfg parallel. */
   private static final String CFG_PARALLEL = "parallel";
+
+  /** Cfg concurrency. */
   private static final String CFG_CONCURRENCY = "concurrency";
+
+  /** Cfg strict. */
   private static final String CFG_STRICT = "strictMode";
+
+  /** Cfg error port. */
   private static final String CFG_ERROR_PORT = "errorPort";
 
+  /** Def concurrency. */
   private static final int DEF_CONCURRENCY = 1024;
-  private static final String ERR_FAIL = "Splitter failed";
 
-  /** Default constructor. */
-  public SplitterProcessor() {
-    super();
-  }
+  /** Err fail. */
+  private static final String ERR_FAIL = "Splitter failed";
 
   @Override
   public PluginDescriptor describe() {
@@ -125,9 +138,8 @@ public class SplitterProcessor implements ProcessorPlugin {
 
   private Flux<Message<?>> split(
       final Message<?> parent, final String path, final Map<String, Object> config) {
-    return Flux.deferContextual(
-        ctx -> {
-          final String nodeId = ctx.getOrDefault("nodeId", "unknown");
+    return Flux.defer(
+        () -> {
           final boolean strict = (Boolean) config.getOrDefault(CFG_STRICT, true);
           final String errorPort = (String) config.get(CFG_ERROR_PORT);
           try {
@@ -135,7 +147,7 @@ public class SplitterProcessor implements ProcessorPlugin {
                 Map.of("payload", parent.payload(), "metadata", parent.metadata());
             final Object items = SpelUtils.evaluateSync(path, parent, variables);
             if (items == null) {
-              return handleNull(parent, nodeId, errorPort, strict);
+              return handleNull(parent, errorPort, strict);
             }
 
             final Iterator<?> iterator = coerceToIterator(items);
@@ -152,19 +164,18 @@ public class SplitterProcessor implements ProcessorPlugin {
                       final Object item = window.get(0);
                       final boolean isLast = window.size() < 2;
                       final int total = isLast ? (int) idx : totalSize;
-                      return createChild(parent, item, (int) idx, total, config, nodeId, variables);
+                      return createChild(parent, item, (int) idx, total, config, variables);
                     });
           } catch (final Exception e) {
-            return handleError(parent, nodeId, errorPort, strict, e);
+            return handleError(parent, errorPort, strict, e);
           }
         });
   }
 
   private Flux<Message<?>> handleNull(
-      final Message<?> parent, final String nodeId, final String errorPort, final boolean strict) {
+      final Message<?> parent, final String errorPort, final boolean strict) {
     if (strict) {
-      return handleError(
-          parent, nodeId, errorPort, true, new WorkflowExecutionException("itemsPath null"));
+      return handleError(parent, errorPort, true, new WorkflowExecutionException("itemsPath null"));
     }
     return Flux.empty();
   }
@@ -191,7 +202,6 @@ public class SplitterProcessor implements ProcessorPlugin {
       final int index,
       final int total,
       final Map<String, Object> config,
-      final String nodeId,
       final Map<String, Object> variables) {
     Message<?> child =
         DefaultMessage.create(null, item).toBuilder()
@@ -257,7 +267,6 @@ public class SplitterProcessor implements ProcessorPlugin {
 
   private Flux<Message<?>> handleError(
       final Message<?> parent,
-      final String nodeId,
       final String errorPort,
       final boolean strict,
       final Throwable error) {

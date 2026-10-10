@@ -8,14 +8,17 @@ import com.infenia.yukta.plugin.type.ProcessorPlugin;
 import java.time.Duration;
 import java.util.Map;
 import java.util.Optional;
+import lombok.NoArgsConstructor;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 /** Holds each message back for a fixed time, which also rate-limits a stream to one per delay. */
 @Component
+@NoArgsConstructor
 public final class DelayProcessor implements ProcessorPlugin {
 
+  /** Delay ms. */
   private static final String DELAY_MS = "delayMs";
 
   @Override

@@ -9,14 +9,22 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /** High-speed, non-reflective evaluator for simple expressions. Supports: ==, exists, matches. */
-@SuppressWarnings({"PMD.OnlyOneReturn", "PMD.LawOfDemeter"})
+@SuppressWarnings({"PMD.OnlyOneReturn"})
 public final class SimpleExpressionEvaluator {
+  /** Payload prefix. */
   private static final String PAYLOAD_PREFIX = "payload.";
+
+  /** Metadata prefix. */
   private static final String METADATA_PREFIX = "metadata.";
+
+  /** Payload. */
   private static final String PAYLOAD = "payload";
 
+  /** Expr pattern. */
   private static final Pattern EXPR_PATTERN =
       Pattern.compile("^(\\S+)\\s+(==|exists|matches)(?:\\s+(.+))?$");
+
+  /** Cache. */
   private static final Map<String, Expression> CACHE = new ConcurrentHashMap<>();
 
   private SimpleExpressionEvaluator() {
@@ -77,7 +85,9 @@ public final class SimpleExpressionEvaluator {
     return result;
   }
 
+  /** Expression. */
   private abstract static class Expression {
+    /** Path. */
     /* default */ final String path;
 
     /* default */ Expression(final String path) {
@@ -117,7 +127,9 @@ public final class SimpleExpressionEvaluator {
     }
   }
 
+  /** Equals expression. */
   private static class EqualsExpression extends Expression {
+    /** Expected. */
     private final String expected;
 
     /* default */ EqualsExpression(final String path, final String expected) {
@@ -132,6 +144,7 @@ public final class SimpleExpressionEvaluator {
     }
   }
 
+  /** Exists expression. */
   private static class ExistsExpression extends Expression {
     /* default */ ExistsExpression(final String path) {
       super(path);
@@ -143,7 +156,9 @@ public final class SimpleExpressionEvaluator {
     }
   }
 
+  /** Matches expression. */
   private static class MatchesExpression extends Expression {
+    /** Pattern. */
     private final Pattern pattern;
 
     /* default */ MatchesExpression(final String path, final String regex) {

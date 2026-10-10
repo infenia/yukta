@@ -11,15 +11,21 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import lombok.NoArgsConstructor;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 /** Collects messages into batches and emits one message {@code {items:[...], count:n}} each. */
 @Component
+@SuppressWarnings("PMD.AvoidFieldNameMatchingMethodName")
+@NoArgsConstructor
 public final class AggregateProcessor implements ProcessorPlugin {
 
+  /** Size. */
   private static final String SIZE = "size";
+
+  /** Timeout ms. */
   private static final String TIMEOUT_MS = "timeoutMs";
 
   @Override
