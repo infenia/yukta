@@ -6,6 +6,7 @@ import com.infenia.yukta.dto.response.LogEntryResponse;
 import com.infenia.yukta.logging.api.PluginLogEntry;
 import com.infenia.yukta.logging.api.PluginLogStore;
 import com.infenia.yukta.mapper.WorkflowMapper;
+import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import com.infenia.yukta.service.orchestrator.tracker.DefaultTaskTrackerService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -245,9 +246,9 @@ public class LogManagementController {
   }
 
   private boolean isExecutionTerminal(final String status) {
-    return "COMPLETED".equals(status)
+    return TaskStatus.isTerminalName(status)
+        || "COMPLETED".equals(status)
         || "FAILED".equals(status)
-        || "CANCELLED".equals(status)
         || "WORKFLOW_STOPPED".equals(status);
   }
 }

@@ -241,4 +241,32 @@ class DefaultSystemHealthProviderTest {
             })
         .verifyComplete();
   }
+
+  @Test
+  void testOnlyNonTerminalStatusesCountAsActive() {
+    when(registry.listPlugins()).thenReturn(List.of());
+    when(sessionService.getSessionIds()).thenReturn(Flux.just("s1"));
+    final var wf =
+        new com.infenia.yukta.model.workflow.WorkflowDefinition("wf-1", "d", List.of(), List.of());
+    final var config =
+        new com.infenia.yukta.model.session.SessionConfigResponse(
+            "s1", "Test Session", "desc", "initiator", Map.of(), "/path", Map.of("wf-1", wf));
+    when(sessionService.getSessionConfig("s1")).thenReturn(Mono.just(config));
+    when(controlBus.getHistory("s1"))
+        .thenReturn(
+            Mono.just(
+                List.of(
+                    execution("e1", "RUNNING"),
+                    execution("e2", "SUCCESS"),
+                    execution("e3", "TIMED_OUT"),
+                    execution("e4", "COMPLETED"),
+                    execution("e5", "PENDING"))));
+
+    StepVerifier.create(provider.getControlBusStatus(null))
+        .assertNext(
+            status ->
+                // RUNNING and PENDING are active; SUCCESS, TIMED_OUT and legacy COMPLETED are not
+                assertThat(status.activeSessions().get(0).activeExecutions()).isEqualTo(2))
+        .verifyComplete();
+  }
 }

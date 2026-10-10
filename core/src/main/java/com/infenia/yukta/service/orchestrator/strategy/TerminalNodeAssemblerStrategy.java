@@ -14,6 +14,7 @@ import com.infenia.yukta.plugin.gateway.ResultCollector;
 import com.infenia.yukta.plugin.type.TerminalPlugin;
 import com.infenia.yukta.service.control.store.ActivePluginRegistry;
 import com.infenia.yukta.service.orchestrator.stream.NodeActivity;
+import com.infenia.yukta.service.orchestrator.stream.NodeStreams;
 import com.infenia.yukta.service.orchestrator.stream.StreamTopologyDecorator;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import java.time.Duration;
@@ -181,9 +182,17 @@ public class TerminalNodeAssemblerStrategy implements NodeAssemblerStrategy {
                         context.executionId(),
                         node.nodeId(),
                         DEFAULT_TASK_ID,
-                        TaskStatus.FAILURE,
+                        NodeStreams.failureStatus(e),
                         Collections.emptyMap());
-                  });
+                  })
+              .doOnCancel(
+                  () ->
+                      tracker.emitTaskStatusEvent(
+                          context.executionId(),
+                          node.nodeId(),
+                          DEFAULT_TASK_ID,
+                          TaskStatus.CANCELLED,
+                          Collections.emptyMap()));
 
       context.terminals().add(completion);
     };

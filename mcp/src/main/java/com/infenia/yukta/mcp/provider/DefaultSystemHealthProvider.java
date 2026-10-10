@@ -8,6 +8,7 @@ import com.infenia.yukta.mcp.dto.PluginRegistryEntry;
 import com.infenia.yukta.mcp.dto.SessionExecutionInfo;
 import com.infenia.yukta.mcp.dto.SystemHealthMetrics;
 import com.infenia.yukta.mcp.util.UptimeFormatter;
+import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import com.infenia.yukta.service.plugin.PluginRegistry;
@@ -33,9 +34,9 @@ import reactor.core.scheduler.Schedulers;
 @RequiredArgsConstructor
 public class DefaultSystemHealthProvider implements SystemHealthProvider {
 
-  /** Statuses in which an execution no longer runs; mirrors the web log endpoint's set. */
-  private static final Set<String> TERMINAL_STATUSES =
-      Set.of("COMPLETED", "FAILED", "CANCELLED", "WORKFLOW_STOPPED");
+  /** Legacy status names that also mean an execution no longer runs. */
+  private static final Set<String> LEGACY_TERMINAL_STATUSES =
+      Set.of("COMPLETED", "FAILED", "WORKFLOW_STOPPED");
 
   /** Maximum number of recent executions included in the status. */
   private static final int RECENT_EXECUTION_LIMIT = 20;
@@ -152,7 +153,11 @@ public class DefaultSystemHealthProvider implements SystemHealthProvider {
   }
 
   private int countActive(final List<WorkflowExecutionSummary> history) {
-    return (int) history.stream().filter(s -> !TERMINAL_STATUSES.contains(s.status())).count();
+    return (int) history.stream().filter(s -> !isTerminal(s.status())).count();
+  }
+
+  private static boolean isTerminal(final String status) {
+    return TaskStatus.isTerminalName(status) || LEGACY_TERMINAL_STATUSES.contains(status);
   }
 
   private ExecutionRecord toExecutionRecord(

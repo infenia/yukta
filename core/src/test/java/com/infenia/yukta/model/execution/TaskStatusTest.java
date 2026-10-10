@@ -128,15 +128,37 @@ class TaskStatusTest {
             TaskStatus.SUCCESS,
             TaskStatus.FAILURE,
             TaskStatus.ERROR,
-            TaskStatus.STOPPED);
+            TaskStatus.STOPPED,
+            TaskStatus.CANCELLED,
+            TaskStatus.TIMED_OUT,
+            TaskStatus.SKIPPED,
+            TaskStatus.UPSTREAM_FAILED);
   }
 
   @Test
-  void values_called_returnsArrayOfSixElements() {
+  void values_called_returnsArrayOfTenElements() {
     // When
     final TaskStatus[] actualValues = TaskStatus.values();
 
     // Then
-    assertThat(actualValues).hasSize(6);
+    assertThat(actualValues).hasSize(10);
+  }
+
+  @Test
+  void isTerminal_newNodeEndStates_returnTrue() {
+    assertThat(TaskStatus.CANCELLED.isTerminal()).isTrue();
+    assertThat(TaskStatus.TIMED_OUT.isTerminal()).isTrue();
+    assertThat(TaskStatus.SKIPPED.isTerminal()).isTrue();
+    assertThat(TaskStatus.UPSTREAM_FAILED.isTerminal()).isTrue();
+  }
+
+  @Test
+  void isTerminalName_handlesTerminalNonTerminalAndUnknownNames() {
+    assertThat(TaskStatus.isTerminalName("SUCCESS")).isTrue();
+    assertThat(TaskStatus.isTerminalName("TIMED_OUT")).isTrue();
+    assertThat(TaskStatus.isTerminalName("RUNNING")).isFalse();
+    assertThat(TaskStatus.isTerminalName("PENDING")).isFalse();
+    assertThat(TaskStatus.isTerminalName("NODE_PAUSED")).isFalse();
+    assertThat(TaskStatus.isTerminalName(null)).isFalse();
   }
 }
