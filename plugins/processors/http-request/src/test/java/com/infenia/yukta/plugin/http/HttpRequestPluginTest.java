@@ -220,4 +220,13 @@ class HttpRequestPluginTest {
           .verify();
     }
   }
+
+  @Test
+  void defaultTimeout_followsTheRequestTimeoutPlusMargin() {
+    assertThat(plugin.getDefaultTimeout(Map.of())).isEqualTo(Duration.ofSeconds(35));
+    assertThat(plugin.getDefaultTimeout(Map.of("timeout", 120))).isEqualTo(Duration.ofSeconds(125));
+    assertThat(plugin.getDefaultTimeout(Map.of("timeout", 0))).isEqualTo(Duration.ofSeconds(35));
+    assertThat(plugin.getDefaultTimeout(Map.of("timeout", "#{expr}")))
+        .isEqualTo(Duration.ofSeconds(35));
+  }
 }

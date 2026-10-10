@@ -42,6 +42,9 @@ import tools.jackson.databind.ObjectMapper;
 @RequiredArgsConstructor
 public class HttpRequestPlugin implements ProcessorPlugin {
 
+  /** Extra time the node gets beyond the request timeout, in seconds. */
+  private static final long MARGIN_SECONDS = 5L;
+
   private static final String TYPE = "HTTP_REQUEST";
   private static final String URL = "url";
   private static final String METHOD = "method";
@@ -101,6 +104,21 @@ public class HttpRequestPlugin implements ProcessorPlugin {
     - payload = {status, success, headers, body}; body is parsed when the response is JSON
     - Message metadata contains "status"
     """;
+  }
+
+  /**
+   * The node timeout follows the request timeout, plus a margin.
+   *
+   * @param config the node configuration
+   * @return the configured (or default) request timeout plus a margin
+   */
+  @Override
+  public Duration getDefaultTimeout(final Map<String, Object> config) {
+    final long seconds =
+        config.get(TIMEOUT) instanceof final Number number && number.longValue() > 0
+            ? number.longValue()
+            : DEFAULT_TIMEOUT_SECONDS;
+    return Duration.ofSeconds(seconds + MARGIN_SECONDS);
   }
 
   @Override

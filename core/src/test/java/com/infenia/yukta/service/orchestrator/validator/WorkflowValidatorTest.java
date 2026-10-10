@@ -176,7 +176,7 @@ class WorkflowValidatorTest {
   @Test
   void testRetryBackoffUsesThePluginDefaultTimeout() {
     when(registry.get("P")).thenReturn(processorPlugin);
-    when(processorPlugin.getDefaultTimeout()).thenReturn(Duration.ofSeconds(1));
+    when(processorPlugin.getDefaultTimeout(any())).thenReturn(Duration.ofSeconds(1));
     final var node =
         new WorkflowDefinition.Node(
             "p",
