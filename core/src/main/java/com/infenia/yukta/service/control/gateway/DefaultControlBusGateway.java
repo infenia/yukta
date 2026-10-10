@@ -4,6 +4,8 @@ package com.infenia.yukta.service.control.gateway;
 
 import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
+import com.infenia.yukta.model.execution.TaskProgress;
+import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
 import com.infenia.yukta.model.execution.WorkflowProgress;
 import com.infenia.yukta.model.workflow.PreparedWorkflow;
@@ -17,6 +19,7 @@ import com.infenia.yukta.plugin.control.ExecutionControlCommand.RestartCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.RestartFromNodeCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.ResumeNodeCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.ResumeWorkflowCommand;
+import com.infenia.yukta.plugin.control.ExecutionControlCommand.SetBreakpointCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.SkipNodeCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.StepNodeCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.StopNodeCommand;
@@ -29,6 +32,8 @@ import com.infenia.yukta.service.control.ControlBusService;
 import com.infenia.yukta.service.control.ExecutionControl;
 import com.infenia.yukta.service.control.ExecutionScheduler;
 import com.infenia.yukta.service.control.store.ExecutionControlRegistry;
+import com.infenia.yukta.service.log.ExecutionLogEvent;
+import com.infenia.yukta.service.log.ExecutionLogStore;
 import com.infenia.yukta.service.orchestrator.WorkflowOrchestrator;
 import com.infenia.yukta.service.orchestrator.tracker.DefaultTaskTrackerService;
 import com.infenia.yukta.service.workflow.store.PreparedWorkflowCache;
@@ -103,6 +108,9 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
 
   /** Makes starts safe to retry. */
   private final StartIdempotency startIdempotency;
+
+  /** Records changes that do not go through a run's command queue. */
+  private final ExecutionLogStore executionLog;
 
   /** Preparations in flight, so concurrent starts of one workflow prepare it once. */
   private final Map<PrepareKey, Mono<PreparedWorkflow>> preparing = new ConcurrentHashMap<>();
@@ -596,6 +604,89 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
                     .setCause(err)
                     .addKeyValue("executionId", executionId)
                     .log("Failed to stop execution"));
+  }
+
+  @Override
+  @SuppressWarnings("PMD.UseObjectForClearerAPI")
+  public Mono<Void> addBreakpoint(
+      final String executionId, final String nodeId, final String field, final String equalsValue) {
+    return breakpoint(executionId, nodeId, field, equalsValue);
+  }
+
+  @Override
+  public Mono<Void> clearBreakpoint(final String executionId, final String nodeId) {
+    return breakpoint(executionId, nodeId, null, null);
+  }
+
+  private Mono<Void> breakpoint(
+      final String executionId, final String nodeId, final String field, final String equalsValue) {
+    return Mono.fromSupplier(() -> requireNodeControl(executionId, nodeId))
+        .flatMap(
+            control ->
+                executeCommand(
+                    buildCommand(
+                        new SetBreakpointCommand(executionId, nodeId, field, equalsValue),
+                        CONTROL_COMMAND_PRIORITY)));
+  }
+
+  @Override
+  public Mono<String> retryNode(final String executionId, final String nodeId) {
+    return Mono.defer(
+        () -> {
+          final WorkflowProgress progress = taskTracker.getProgressByExecutionId(executionId);
+          if (progress == null) {
+            return Mono.error(new NotFoundException("Execution not found: " + executionId));
+          }
+          final String status =
+              progress.tasks().stream()
+                  .filter(task -> task.nodeId().equals(nodeId))
+                  .map(TaskProgress::status)
+                  .findFirst()
+                  .orElseThrow(() -> new NotFoundException("Node not found: " + nodeId));
+          if (!TaskStatus.FAILURE.name().equals(status)
+              && !TaskStatus.TIMED_OUT.name().equals(status)) {
+            return Mono.error(
+                new IllegalArgumentException(
+                    "Node "
+                        + nodeId
+                        + " did not fail in "
+                        + executionId
+                        + " (status "
+                        + status
+                        + ")"));
+          }
+          return restartFromNode(executionId, nodeId);
+        });
+  }
+
+  @Override
+  public Mono<Void> changeLimits(final int maxConcurrent, final int maxPerWorkflow) {
+    return Mono.fromRunnable(
+        () -> {
+          executionScheduler.setLimits(maxConcurrent, maxPerWorkflow);
+          log.atInfo()
+              .addKeyValue("maxConcurrent", maxConcurrent)
+              .addKeyValue("maxPerWorkflow", maxPerWorkflow)
+              .log("Execution limits changed");
+        });
+  }
+
+  @Override
+  public Mono<Void> changePriority(final String executionId, final int priority) {
+    return Mono.fromRunnable(
+        () -> {
+          final boolean waiting = executionScheduler.changePriority(executionId, priority);
+          executionLog.append(
+              ExecutionLogEvent.control(
+                  waiting,
+                  executionId,
+                  "SetPriority(" + priority + ")",
+                  "the execution is not waiting for a slot"));
+          if (!waiting) {
+            throw new IllegalArgumentException(
+                "Execution " + executionId + " is not waiting for a slot");
+          }
+        });
   }
 
   @Override

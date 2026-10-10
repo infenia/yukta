@@ -126,6 +126,19 @@ selects how a run stops (default `DRAIN`). Restart-from-node after a server rest
 memory); use `ExecutionResumer` for aborted runs.
 `yukta.executions.running` and `yukta.executions.queued` gauges report the scheduler.
 
+Gateway commands for a live run (`ControlBusGateway`; REST/MCP endpoints for them are not built):
+- `skipNode(execution, node, skip)`: a processor node passes elements through without calling the
+  plugin from the next element on (the decision is taken as each element arrives; one already in the
+  plugin finishes). Other node types are rejected. Unskip resumes normal processing.
+- `addBreakpoint` / `clearBreakpoint`: hold a node before the first element whose `payload`,
+  `payload.some.path` or `metadata.key` equals a given text (`SetBreakpointCommand`, so it is
+  ordered and audited like any command).
+- `retryNode(execution, node)`: re-runs a node that ended `FAILURE` or `TIMED_OUT` with the output
+  its parents recorded, plus everything behind it (restart-from-node with a check).
+- `changeLimits(max, perWorkflow)`: the scheduler limits; logged, not in the run log (no run).
+- `changePriority(execution, priority)`: moves a start that is `QUEUED`; recorded in the run log as
+  `SetPriority(n)`, rejected if the run is not waiting.
+
 ### Tracker queue
 State and workflow events are never dropped: they go to an unbounded queue. Log lines are best
 effort: more than 10000 waiting are dropped and counted in `yukta.tracker.dropped{type=log}`
@@ -153,8 +166,8 @@ the run uses (the same value the archive and the execution log store). The contr
 resubscribes with capped backoff if its stream ever fails, until `shutdown()`.
 
 ### Breakpoints and tracing
-`ReactiveControlValve.setBreakpoint(predicate)` (per node, via `ExecutionControl.nodePauseValves()`)
-holds the node on the first element that matches until it is resumed. Each node run is one
+`ReactiveControlValve.setBreakpoint(predicate)` (per node, via `ExecutionControl.nodePauseValves()`;
+remote callers use `ControlBusGateway.addBreakpoint`) holds the node on the first element that matches until it is resumed. Each node run is one
 Micrometer observation `yukta.node` (tags `module`, `status`), which becomes a span when a tracer
 is on the classpath. Re-running a node is `RestartFromNode`.
 

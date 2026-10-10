@@ -59,6 +59,7 @@ import reactor.test.StepVerifier;
   "PMD.TooManyStaticImports",
   "PMD.CommentRequired",
   "PMD.TooManyMethods",
+  "PMD.CouplingBetweenObjects",
   "PMD.AvoidDuplicateLiterals",
   "PMD.UseShortArrayInitializer"
 })
@@ -234,13 +235,15 @@ class ProcessorNodeAssemblerStrategyTest {
         .thenReturn(parentStream);
     when(streamTopologyDecorator.applyLoggingAndBroadcasting(
             anyString(), anyString(), any(), any(int.class), any(), any()))
-        .thenReturn(Flux.just(out));
+        .thenAnswer(call -> call.getArgument(2));
 
     final NodeAssembler assembler =
         strategy.createAssembler(
             node, processor, Duration.ofSeconds(5), 0, 1024, new ParentEdgeInfo[0]);
     assembler.assemble(context);
 
+    // the skip decision is taken per element, so the plugin is reached once the stream runs
+    StepVerifier.create(context.streams()[0]).expectNext(out).verifyComplete();
     verify(processor).process(any(), any());
   }
 
@@ -550,5 +553,51 @@ class ProcessorNodeAssemblerStrategyTest {
     verify(tracker)
         .emitTaskStatusEvent(
             eq(EXECUTION_ID), eq(NODE_ID), anyString(), eq(TaskStatus.UPSTREAM_FAILED), any());
+  }
+
+  @Test
+  void createAssembler_skipFlagFlippedWhileRunning_bypassesFromTheNextElementOn() {
+    final Sinks.Many<Message<?>> parent = Sinks.many().unicast().onBackpressureBuffer();
+    final ProcessorPlugin processor = mock(ProcessorPlugin.class);
+    when(processor.process(any(), any()))
+        .thenAnswer(
+            call ->
+                ((Flux<Message<?>>) call.getArgument(0))
+                    .map(m -> DefaultMessage.create(UUID.randomUUID(), "done:" + m.payload())));
+    final AtomicBoolean skipFlag = new AtomicBoolean(false);
+    final AssemblyContext context = buildContext(NODE_ID, parent.asFlux(), skipFlag);
+    when(streamTopologyDecorator.mergeParentStreams(any(), any(), any(ParentEdgeInfo[].class)))
+        .thenReturn(parent.asFlux());
+    final java.util.concurrent.atomic.AtomicReference<Flux<Message<?>>> built =
+        new java.util.concurrent.atomic.AtomicReference<>();
+    when(streamTopologyDecorator.applyLoggingAndBroadcasting(
+            anyString(), anyString(), any(), any(int.class), any(), any()))
+        .thenAnswer(
+            call -> {
+              built.set(call.getArgument(2));
+              return call.getArgument(2);
+            });
+
+    strategy
+        .createAssembler(
+            new WorkflowNode(NODE_ID, "processor", Map.of()),
+            processor,
+            Duration.ofSeconds(5),
+            0,
+            1024,
+            new ParentEdgeInfo[0])
+        .assemble(context);
+
+    StepVerifier.create(built.get().map(m -> String.valueOf(m.payload())))
+        .then(() -> parent.tryEmitNext(DefaultMessage.create(UUID.randomUUID(), "a")))
+        .expectNext("done:a")
+        .then(() -> skipFlag.set(true))
+        .then(() -> parent.tryEmitNext(DefaultMessage.create(UUID.randomUUID(), "b")))
+        .expectNext("b")
+        .then(() -> skipFlag.set(false))
+        .then(() -> parent.tryEmitNext(DefaultMessage.create(UUID.randomUUID(), "c")))
+        .expectNext("done:c")
+        .then(parent::tryEmitComplete)
+        .verifyComplete();
   }
 }

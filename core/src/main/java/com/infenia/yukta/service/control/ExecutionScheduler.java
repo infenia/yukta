@@ -10,8 +10,10 @@ import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import lombok.extern.slf4j.Slf4j;
+import org.jspecify.annotations.Nullable;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.SmartLifecycle;
@@ -165,6 +167,23 @@ public class ExecutionScheduler implements SmartLifecycle {
    * @return the slot at once if there is room, otherwise a Mono that waits for one
    */
   public Admission acquire(final String sessionId, final String workflowId, final int priority) {
+    return acquire(sessionId, workflowId, priority, null);
+  }
+
+  /**
+   * Asks for an execution slot with a priority, for an execution that can be found later.
+   *
+   * @param sessionId the session
+   * @param workflowId the workflow
+   * @param priority higher is admitted first when starts have to wait
+   * @param executionId the execution asking, so {@link #changePriority} can find it while it waits
+   * @return the slot at once if there is room, otherwise a Mono that waits for one
+   */
+  public Admission acquire(
+      final String sessionId,
+      final String workflowId,
+      final int priority,
+      @Nullable final String executionId) {
     final String key = key(sessionId, workflowId);
     synchronized (lock) {
       if (closed) {
@@ -176,12 +195,10 @@ public class ExecutionScheduler implements SmartLifecycle {
       if (onLimit == OnLimit.REJECT || queue.size() >= queueCapacity) {
         return refused("Execution limit reached");
       }
-      final Waiter waiter = new Waiter(key, priority, Sinks.one(), new AtomicReference<>());
-      int index = queue.size();
-      while (index > 0 && queue.get(index - 1).priority() < priority) {
-        index--;
-      }
-      queue.add(index, waiter);
+      final Waiter waiter =
+          new Waiter(
+              key, executionId, new AtomicInteger(priority), Sinks.one(), new AtomicReference<>());
+      enqueue(waiter);
       final Mono<Permit> grant = waiter.grant().asMono().doOnCancel(() -> abandon(waiter));
       return new Admission(
           false,
@@ -232,6 +249,37 @@ public class ExecutionScheduler implements SmartLifecycle {
       this.maxPerWorkflow = Math.max(0, maxPerWorkflow);
       admitWaiting();
     }
+  }
+
+  /**
+   * Changes the priority of a start that is waiting for a slot; it moves behind the starts of
+   * higher or equal priority that were already waiting.
+   *
+   * @param executionId the waiting execution
+   * @param priority the new priority
+   * @return true if the execution was waiting, false if it is running, finished or unknown
+   */
+  public boolean changePriority(final String executionId, final int priority) {
+    synchronized (lock) {
+      for (final Waiter waiter : queue) {
+        if (executionId.equals(waiter.executionId())) {
+          queue.remove(waiter);
+          waiter.priority().set(priority);
+          enqueue(waiter);
+          return true;
+        }
+      }
+      return false;
+    }
+  }
+
+  /** Inserts a waiter after every waiter of higher or equal priority. */
+  private void enqueue(final Waiter waiter) {
+    int index = queue.size();
+    while (index > 0 && queue.get(index - 1).priority().get() < waiter.priority().get()) {
+      index--;
+    }
+    queue.add(index, waiter);
   }
 
   /**
@@ -398,5 +446,9 @@ public class ExecutionScheduler implements SmartLifecycle {
 
   /** A start waiting for a slot. */
   private record Waiter(
-      String key, int priority, Sinks.One<Permit> grant, AtomicReference<Permit> granted) {}
+      String key,
+      @Nullable String executionId,
+      AtomicInteger priority,
+      Sinks.One<Permit> grant,
+      AtomicReference<Permit> granted) {}
 }

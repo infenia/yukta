@@ -295,7 +295,7 @@ public class WorkflowOrchestrator {
     return Mono.defer(
         () -> {
           final ExecutionScheduler.Admission admission =
-              scheduler.acquire(sessionId, workflowId, priority);
+              scheduler.acquire(sessionId, workflowId, priority, executionId);
           if (admission.immediate()) {
             return admission.permit();
           }

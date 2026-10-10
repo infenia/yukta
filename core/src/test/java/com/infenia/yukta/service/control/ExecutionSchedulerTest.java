@@ -20,6 +20,8 @@ import reactor.test.StepVerifier;
 @SuppressWarnings({"PMD.CommentRequired", "PMD.TooManyMethods"})
 class ExecutionSchedulerTest {
 
+  private static final String LATE = "late";
+
   private static ExecutionScheduler scheduler(
       final int global, final int perWorkflow, final int queue, final OnLimit onLimit) {
     return new ExecutionScheduler(global, perWorkflow, queue, onLimit, Duration.ofMillis(300));
@@ -316,5 +318,33 @@ class ExecutionSchedulerTest {
 
     assertThat(scheduler.running()).isEqualTo(3);
     assertThat(scheduler.queued()).isEqualTo(1);
+  }
+
+  @Test
+  void setPriority_movesWaitingStartAheadOfLowerPriorityOnes() {
+    final ExecutionScheduler scheduler = scheduler(1, 0, 10, OnLimit.QUEUE);
+    final Permit first = granted(scheduler.acquire("s", "w"));
+    final var order = new java.util.ArrayList<String>();
+    scheduler.acquire("s", "w", 0, "low").permit().subscribe(p -> order.add("low"));
+    scheduler.acquire("s", "w", 0, LATE).permit().subscribe(p -> order.add(LATE));
+
+    assertThat(scheduler.changePriority(LATE, 5)).isTrue();
+    first.release();
+
+    assertThat(order).containsExactly(LATE);
+  }
+
+  @Test
+  void setPriority_ofRunningOrUnknownExecution_isFalse_andCancelledMovedWaiterLeavesQueue() {
+    final ExecutionScheduler scheduler = scheduler(1, 0, 10, OnLimit.QUEUE);
+    granted(scheduler.acquire("s", "w", 0, "running"));
+    final var waiting = scheduler.acquire("s", "w", 0, "w1").permit().subscribe();
+
+    assertThat(scheduler.changePriority("running", 9)).isFalse();
+    assertThat(scheduler.changePriority("ghost", 9)).isFalse();
+    assertThat(scheduler.changePriority("w1", 9)).isTrue();
+    waiting.dispose();
+
+    assertThat(scheduler.queued()).isZero();
   }
 }

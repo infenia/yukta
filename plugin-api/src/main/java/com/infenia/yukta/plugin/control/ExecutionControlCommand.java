@@ -32,7 +32,8 @@ public sealed interface ExecutionControlCommand
         ExecutionControlCommand.StepNodeCommand,
         ExecutionControlCommand.StopWorkflowCommand,
         ExecutionControlCommand.RestartCommand,
-        ExecutionControlCommand.RestartFromNodeCommand {
+        ExecutionControlCommand.RestartFromNodeCommand,
+        ExecutionControlCommand.SetBreakpointCommand {
 
   /**
    * Returns the execution identifier this command targets.
@@ -89,8 +90,9 @@ public sealed interface ExecutionControlCommand
   /**
    * Mark a node as skipped or not.
    *
-   * <p>Not supported on a running execution: the built-in processor rejects it with an {@link
-   * IllegalArgumentException}. Skipping is decided when the workflow is compiled.
+   * <p>On a running execution only processor nodes can be skipped. From the next element on, the
+   * node passes elements through without calling the plugin; an element the plugin already has
+   * finishes normally. Any other node type is rejected with an {@link IllegalArgumentException}.
    */
   record SkipNodeCommand(String executionId, String nodeId, boolean skip)
       implements ExecutionControlCommand {}
@@ -175,4 +177,43 @@ public sealed interface ExecutionControlCommand
    */
   record RestartFromNodeCommand(String executionId, String fromNodeId, String newExecutionId)
       implements ExecutionControlCommand {}
+
+  /**
+   * Set or clear a breakpoint on a node: the node holds before the first element that matches, as
+   * if it was paused, until it is resumed. The breakpoint stays set and hits again.
+   *
+   * <p>The condition is declarative, so it can come from a remote caller: {@code field} is {@code
+   * payload.some.path} (nested map access) or {@code metadata.key}, and the element matches when
+   * the value's text equals {@code equalsValue}. A null {@code field} clears the breakpoint.
+   *
+   * @param executionId the execution identifier
+   * @param nodeId the node to hold
+   * @param field what to look at, or null to clear the breakpoint
+   * @param equalsValue the text the value must equal
+   */
+  record SetBreakpointCommand(
+      String executionId, String nodeId, @Nullable String field, @Nullable String equalsValue)
+      implements ExecutionControlCommand {
+
+    /**
+     * Checks that a condition is complete.
+     *
+     * @param executionId the execution identifier
+     * @param nodeId the node to hold
+     * @param field what to look at, or null to clear the breakpoint
+     * @param equalsValue the text the value must equal
+     */
+    public SetBreakpointCommand {
+      if (field != null
+          && !"payload".equals(field)
+          && !field.startsWith("payload.")
+          && !field.startsWith("metadata.")) {
+        throw new IllegalArgumentException(
+            "Breakpoint field must be 'payload', 'payload.<path>' or 'metadata.<key>': " + field);
+      }
+      if (field != null && equalsValue == null) {
+        throw new IllegalArgumentException("A breakpoint needs a value to compare with");
+      }
+    }
+  }
 }
