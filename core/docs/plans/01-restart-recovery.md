@@ -1,3 +1,8 @@
+<!--
+SPDX-License-Identifier: Apache-2.0
+SPDX-FileCopyrightText: 2026 Infenia Private Limited
+-->
+
 # 01 Restart and recovery (3.5→5) — biggest
 
 Gaps: no resume after reboot; checkpoints in memory; oversize output refuses restart; no node outputs in log.
