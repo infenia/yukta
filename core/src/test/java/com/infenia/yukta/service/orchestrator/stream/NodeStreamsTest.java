@@ -38,6 +38,7 @@ class NodeStreamsTest {
   private static final String EXEC = "exec-1";
   private static final String NODE_ID = "node-1";
   private static final String TASK = "type";
+  private static final String BOOM = "boom";
 
   private final TaskTrackerService tracker = mock(TaskTrackerService.class);
   private final WorkflowNode node = new WorkflowNode(NODE_ID, "type", Map.of());
@@ -82,7 +83,7 @@ class NodeStreamsTest {
 
   @Test
   void error_reportsFailureExactlyOnce() {
-    StepVerifier.create(decorate(Flux.error(new IllegalStateException("boom"))))
+    StepVerifier.create(decorate(Flux.error(new IllegalStateException(BOOM))))
         .expectError(IllegalStateException.class)
         .verify();
 
@@ -249,5 +250,40 @@ class NodeStreamsTest {
     }
     // about 2 us per touch before the clock became a volatile write: that would be 10 s
     assertThat(Duration.ofNanos(System.nanoTime() - started)).isLessThan(Duration.ofSeconds(2));
+  }
+
+  @Test
+  void failureStatus_distinguishesUpstreamTimeoutAndOwnFailure() {
+    final Throwable own = new IllegalStateException(BOOM);
+
+    assertThat(NodeStreams.failureStatus(own)).isEqualTo(TaskStatus.FAILURE);
+    assertThat(NodeStreams.failureStatus(new TimeoutException("idle")))
+        .isEqualTo(TaskStatus.TIMED_OUT);
+    assertThat(NodeStreams.failureStatus(UpstreamFailure.mark(own)))
+        .isEqualTo(TaskStatus.UPSTREAM_FAILED);
+  }
+
+  @Test
+  void upstreamFailure_keepsTheCauseAndIsNotWrappedTwice() {
+    final Throwable own = new IllegalStateException(BOOM);
+
+    final Throwable marked = UpstreamFailure.mark(own);
+
+    assertThat(marked).hasCause(own).hasMessage(BOOM);
+    assertThat(UpstreamFailure.mark(marked)).isSameAs(marked);
+  }
+
+  @Test
+  void upstreamError_reportsUpstreamFailed() {
+    StepVerifier.create(
+            decorate(
+                Flux.<Message<?>>error(UpstreamFailure.mark(new IllegalStateException(BOOM))),
+                new NodeActivity(),
+                () -> false,
+                Duration.ofSeconds(1)))
+        .expectError(UpstreamFailure.class)
+        .verify();
+
+    verify(tracker).emitTaskStatusEvent(EXEC, NODE_ID, TASK, TaskStatus.UPSTREAM_FAILED, Map.of());
   }
 }

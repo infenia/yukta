@@ -31,6 +31,7 @@ import com.infenia.yukta.service.control.store.ActivePluginRegistry;
 import com.infenia.yukta.service.control.valve.ReactiveControlValve;
 import com.infenia.yukta.service.orchestrator.assembly.AssemblyContext;
 import com.infenia.yukta.service.orchestrator.stream.StreamTopologyDecorator;
+import com.infenia.yukta.service.orchestrator.stream.UpstreamFailure;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -212,6 +213,27 @@ class TerminalNodeAssemblerStrategyTest {
             eq(EXECUTION_ID), eq(NODE_ID), anyString(), eq(TaskStatus.FAILURE), any());
     verify(activePluginRegistry).register(WORKFLOW_ID, NODE_ID, terminal);
     verify(activePluginRegistry).unregister(WORKFLOW_ID, NODE_ID);
+  }
+
+  @Test
+  void createAssembler_errorFromUpstream_emitsUpstreamFailed() {
+    final TerminalPlugin terminal = mock(TerminalPlugin.class);
+    when(terminal.consume(any(), any())).thenAnswer(inv -> ((Flux<?>) inv.getArgument(0)).then());
+    when(terminal.isBlocking()).thenReturn(false);
+    final WorkflowNode node = new WorkflowNode(NODE_ID, "terminal", Map.of());
+    final Flux<Message<?>> failing = Flux.error(new IllegalStateException("upstream broke"));
+    when(streamTopologyDecorator.mergeParentStreams(any(), any(ParentEdgeInfo[].class)))
+        .thenReturn(failing);
+    final AssemblyContext context = buildContext(failing);
+
+    strategy
+        .createAssembler(node, terminal, Duration.ofSeconds(5), 0, 1024, new ParentEdgeInfo[0])
+        .assemble(context);
+
+    StepVerifier.create(context.terminals().getFirst()).verifyError(UpstreamFailure.class);
+    verify(tracker, atLeastOnce())
+        .emitTaskStatusEvent(
+            eq(EXECUTION_ID), eq(NODE_ID), anyString(), eq(TaskStatus.UPSTREAM_FAILED), any());
   }
 
   @Test

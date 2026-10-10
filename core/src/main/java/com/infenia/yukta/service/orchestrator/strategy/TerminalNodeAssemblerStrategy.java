@@ -16,6 +16,7 @@ import com.infenia.yukta.service.control.store.ActivePluginRegistry;
 import com.infenia.yukta.service.orchestrator.stream.NodeActivity;
 import com.infenia.yukta.service.orchestrator.stream.NodeStreams;
 import com.infenia.yukta.service.orchestrator.stream.StreamTopologyDecorator;
+import com.infenia.yukta.service.orchestrator.stream.UpstreamFailure;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import java.time.Duration;
 import java.util.Collections;
@@ -104,7 +105,7 @@ public class TerminalNodeAssemblerStrategy implements NodeAssemblerStrategy {
       final Flux<Message<?>> inputToTerminal =
           activity
               .guard(
-                  safeInput.doOnNext(_ -> activity.touch()),
+                  safeInput.doOnNext(_ -> activity.touch()).onErrorMap(UpstreamFailure::mark),
                   timeout,
                   virtualThreadScheduler,
                   () -> control.isPaused(node.nodeId()))
