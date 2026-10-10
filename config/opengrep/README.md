@@ -11,9 +11,9 @@ OpenGrep is integrated into the Gradle build via the `quality-conventions` plugi
 
 ## Configuration
 
-- **Config Mode**: `auto` - OpenGrep automatically detects and loads default security rules
+- **Config**: the pinned local ruleset `.semgrep.yml` in this directory (no network access at build time)
 - **Output**: Scan reports are generated in `build/reports/opengrep/opengrep-report.sarif` (SARIF format)
-- **Note**: The `.semgrep.yml` file is kept for reference but not currently used by the auto-config mode
+- **Scope**: `src/main` of each module (Java and resources)
 
 ## Running OpenGrep
 
@@ -27,19 +27,23 @@ OpenGrep is integrated into the Gradle build via the `quality-conventions` plugi
 ./gradlew check
 ```
 
-The `opengrep` task is automatically included in the `check` task and will scan all Java source files in `src/main/java`.
+The `opengrep` task is automatically included in the `check` task and will scan `src/main` of every module.
 
 ## Rules
 
-The default configuration uses OpenGrep's public registry rules (fully compatible with Semgrep's registry):
-- `p/security-audit` - Security vulnerability detection
-- `p/java` - Java best practices and code quality rules
+Custom rules live in `.semgrep.yml`:
+- `yukta-spel-standard-evaluation-context` - `new StandardEvaluationContext(...)`
+- `yukta-graalvm-host-access-all` - `HostAccess.ALL`
+- `yukta-graalvm-allow-host-class-lookup` - `allowHostClassLookup(s -> true)`
+- `yukta-actuator-expose-all` - actuator `include: "*"` in YAML
+
+Suppress a deliberate use with `// nosem: <rule-id> (reason)` on or directly above the flagged line.
 
 ## Behavior
 
 - **Exit Codes**:
   - `0` - No issues found
-  - `1` - Issues found (reported but not a build failure)
+  - `1` - Issues found (build fails, `--error`)
   - `>1` - Scan error (build fails)
 
 - **Excluded Paths**:

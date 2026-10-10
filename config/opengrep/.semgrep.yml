@@ -1,11 +1,37 @@
 # SPDX-License-Identifier: Apache-2.0
 # SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
-# OpenGrep configuration for Yukta quality gates
-# Combines OpenGrep registry rules for Java security and quality
+# Local, pinned OpenGrep ruleset (no network). Suppress a deliberate use with
+# `// nosem: <rule-id> - <reason>` on the flagged line.
+rules:
+  - id: yukta-spel-standard-evaluation-context
+    languages: [java]
+    severity: ERROR
+    message: >-
+      StandardEvaluationContext allows arbitrary type/method access from SpEL. Use
+      SimpleEvaluationContext, or suppress with a justification if the expression source is trusted.
+    pattern: new StandardEvaluationContext(...)
 
-extends:
-  - p/security-audit
-  - p/java
+  - id: yukta-graalvm-host-access-all
+    languages: [java]
+    severity: ERROR
+    message: >-
+      HostAccess.ALL exposes every host method/field to guest scripts. Prefer HostAccess.EXPLICIT
+      or a restricted HostAccess.newBuilder().
+    pattern: HostAccess.ALL
 
-rules: []
+  - id: yukta-graalvm-allow-host-class-lookup
+    languages: [java]
+    severity: ERROR
+    message: >-
+      allowHostClassLookup with an always-true predicate lets scripts load any host class. Restrict
+      the predicate to an allow-list.
+    pattern: $B.allowHostClassLookup($S -> true)
+
+  - id: yukta-actuator-expose-all
+    languages: [generic]
+    paths:
+      include: ["*.yaml", "*.yml"]
+    severity: ERROR
+    message: Exposing every actuator endpoint (include "*") leaks internals. List endpoints explicitly.
+    pattern-regex: 'include:\s*["'']\*["'']'
