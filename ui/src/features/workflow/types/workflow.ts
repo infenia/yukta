@@ -40,10 +40,6 @@ export interface ExecutionSummary {
   endTime: string | null;
 }
 
-export interface WorkflowExecutions {
-  executions: ExecutionSummary[];
-}
-
 export interface TaskProgress {
   nodeId: string;
   module: string;

@@ -20,7 +20,7 @@ const server = setupServer(
       timestamp: new Date().toISOString(),
       status: 200,
       message: 'Session summaries retrieved successfully',
-      data: { sessions: mockSessions },
+      data: mockSessions,
       path: '/api/sessions/summaries',
     });
   })
@@ -96,7 +96,7 @@ describe('useSessionSummaries', () => {
           timestamp: new Date().toISOString(),
           status: 200,
           message: 'Session summaries retrieved successfully',
-          data: { sessions: multipleSessions },
+          data: multipleSessions,
           path: '/api/sessions/summaries',
         });
       })

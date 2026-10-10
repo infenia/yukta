@@ -20,7 +20,7 @@ func TestGetSessions_success_returnsSessionList(t *testing.T) {
 			t.Errorf("expected GET method, got %s", r.Method)
 		}
 		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(`{"data":{"sessionIds":["session-1","session-2","session-3"]}}`))
+		_, _ = w.Write([]byte(`{"data":["session-1","session-2","session-3"]}`))
 	}))
 	defer server.Close()
 
@@ -44,7 +44,7 @@ func TestGetSessions_success_returnsSessionList(t *testing.T) {
 func TestGetSessions_emptyList_returnsEmpty(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(`{"data":{"sessionIds":[]}}`))
+		_, _ = w.Write([]byte(`{"data":[]}`))
 	}))
 	defer server.Close()
 
@@ -100,11 +100,11 @@ func TestGetSessions_malformedJSON_returnsError(t *testing.T) {
 	}
 }
 
-// TestGetSessions_missingSessionIds_returnsEmpty tests response without sessionIds field.
+// TestGetSessions_missingSessionIds_returnsEmpty tests response with no data.
 func TestGetSessions_missingSessionIds_returnsEmpty(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(`{"data":{}}`))
+		_, _ = w.Write([]byte(`{"data":null}`))
 	}))
 	defer server.Close()
 

@@ -12,17 +12,15 @@ const server = setupServer(
       timestamp: '2026-07-25T00:00:00Z',
       status: 200,
       message: 'Workflow summaries retrieved',
-      data: {
-        workflows: [
-          {
-            workflowId: 'wf1',
-            description: 'Workflow 1',
-            nodeCount: 5,
-            edgeCount: 4,
-            status: 'SUCCESS',
-          },
-        ],
-      },
+      data: [
+        {
+          workflowId: 'wf1',
+          description: 'Workflow 1',
+          nodeCount: 5,
+          edgeCount: 4,
+          status: 'SUCCESS',
+        },
+      ],
     });
   })
 );
@@ -33,8 +31,8 @@ afterAll(() => server.close());
 describe('getSessionWorkflows', () => {
   it('fetches workflow summaries successfully', async () => {
     const result = await getSessionWorkflows('sess-123');
-    expect(result.workflows).toHaveLength(1);
-    expect(result.workflows[0].workflowId).toBe('wf1');
-    expect(result.workflows[0].nodeCount).toBe(5);
+    expect(result).toHaveLength(1);
+    expect(result[0].workflowId).toBe('wf1');
+    expect(result[0].nodeCount).toBe(5);
   });
 });
