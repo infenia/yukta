@@ -53,4 +53,13 @@ class NodeCheckpointStoreTest {
   void isComplete_defaultsToTrue() {
     assertTrue(new LastOnlyStore(null).isComplete("e", "n"));
   }
+
+  @Test
+  void markComplete_defaultsToDoingNothing_andNothingIsFinished() {
+    final LastOnlyStore store = new LastOnlyStore(null);
+
+    StepVerifier.create(store.markComplete("e", "n")).verifyComplete();
+
+    org.junit.jupiter.api.Assertions.assertFalse(store.isFinished("e", "n"));
+  }
 }
