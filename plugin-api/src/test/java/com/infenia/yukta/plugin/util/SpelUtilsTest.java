@@ -52,4 +52,15 @@ class SpelUtilsTest {
         .expectError(SpelEvaluationException.class)
         .verify();
   }
+
+  @Test
+  void parseCacheIsBounded() {
+    for (int i = 0; i < SpelUtils.MAX_CACHED + 50; i++) {
+      SpelUtils.preParse("1 + " + i);
+    }
+    SpelUtils.preParse(null);
+    SpelUtils.preParse(" ");
+
+    assertThat(SpelUtils.cacheSize()).isEqualTo(SpelUtils.MAX_CACHED);
+  }
 }

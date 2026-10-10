@@ -2,8 +2,10 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.plugin.util;
 
+import java.io.Serial;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import lombok.experimental.UtilityClass;
 import org.springframework.expression.Expression;
 import org.springframework.expression.ExpressionParser;
@@ -19,8 +21,24 @@ public final class SpelUtils {
   /** SpEL expression parser instance. */
   private static final ExpressionParser PARSER = new SpelExpressionParser();
 
-  /** Cache for parsed SpEL expressions. */
-  private static final Map<String, Expression> CACHE = new ConcurrentHashMap<>();
+  /** Maximum number of parsed expressions kept. */
+  /* default */ static final int MAX_CACHED = 1000;
+
+  /** Cache for parsed SpEL expressions, least recently used evicted. */
+  private static final Map<String, Expression> CACHE =
+      Collections.synchronizedMap(
+          new LinkedHashMap<>(16, 0.75f, true) {
+            @Serial private static final long serialVersionUID = 1L;
+
+            @Override
+            protected boolean removeEldestEntry(final Map.Entry<String, Expression> eldest) {
+              return size() > MAX_CACHED;
+            }
+          });
+
+  /* default */ static int cacheSize() {
+    return CACHE.size();
+  }
 
   /**
    * Evaluate a SpEL expression against a message.
