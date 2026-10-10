@@ -26,7 +26,7 @@ import reactor.core.publisher.Mono;
  */
 @Slf4j
 @UtilityClass
-@SuppressWarnings("PMD.AtLeastOneConstructor")
+@SuppressWarnings({"PMD.AtLeastOneConstructor", "PMD.OnlyOneReturn"})
 public class NodeTimeouts {
 
   /** Node config key that sets the idle timeout in seconds. */
