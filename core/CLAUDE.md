@@ -48,7 +48,8 @@ Any node's config may carry a reserved `engine` object; plugins never see these 
   "onError": "ROUTE",
   "trigger": "ALL_DONE",
   "elementTimeoutMs": 20000,
-  "deadlineMs": 600000
+  "deadlineMs": 600000,
+  "failureBudget": { "maxFailures": 10, "windowMs": 60000 }
 }
 ```
 - `retry` (processors only): re-run the plugin for the failing message with exponential backoff and
@@ -57,7 +58,14 @@ Any node's config may carry a reserved `engine` object; plugins never see these 
   `maxBackoffMs` must be below the node's timeout (checked by the validator).
 - `onError` (processors only): `FAIL` (default), `CONTINUE` (drop the message), or `ROUTE` (send it,
   tagged with its failure, to the node's `error` output port; wire an edge with `sourcePort: "error"`
-  to a dead-letter node).
+  to a dead-letter node). A routed message carries the headers `failure.attempts`,
+  `failure.exception` (class name) and `failure.time` (ISO-8601) next to `origDest`/`failureReason`.
+- `retry.retryOn` / `retry.noRetryOn`: lists of exception class names (simple or fully qualified;
+  subclasses and causes match). `noRetryOn` wins; with `retryOn` only those are retried; otherwise
+  everything except `IllegalArgumentException`. The two must not share a class.
+- `failureBudget {maxFailures, windowMs}` (needs `onError` CONTINUE or ROUTE): when more than
+  `maxFailures` messages fail within the window, the node fails instead of dropping or routing the
+  next one. Counted per run (`FailureLedger`).
 - `trigger` (nodes with several parents): `ALL_SUCCESS` (default, fail with a failing parent),
   `ALL_DONE` (continue on the other parents) or `ONE_SUCCESS` (continue, but fail if every parent
   failed).
