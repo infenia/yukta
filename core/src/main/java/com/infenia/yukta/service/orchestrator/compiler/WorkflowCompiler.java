@@ -8,6 +8,7 @@ import static com.infenia.yukta.service.orchestrator.assembly.ExecutionContextBu
 
 import com.infenia.yukta.message.Message;
 import com.infenia.yukta.model.workflow.NodeAssembler;
+import com.infenia.yukta.model.workflow.NodePolicy;
 import com.infenia.yukta.model.workflow.ParentEdgeInfo;
 import com.infenia.yukta.model.workflow.WorkflowEdge;
 import com.infenia.yukta.model.workflow.WorkflowNode;
@@ -260,10 +261,15 @@ public class WorkflowCompiler {
     final int nodeIndex = nodeToIndex.get(node.nodeId());
     final int parentCount = hasParents ? parentsList.get(node.nodeId()).size() : 0;
 
+    final boolean tolerateFailure =
+        NodePolicy.from(node.config()).trigger() == NodePolicy.JoinRule.ALL_DONE;
     final ParentEdgeInfo[] parentEdges =
         edges.stream()
             .filter(e -> e.target().equals(node.nodeId()))
-            .map(e -> new ParentEdgeInfo(nodeToIndex.get(e.source()), e.source(), e.sourcePort()))
+            .map(
+                e ->
+                    new ParentEdgeInfo(
+                        nodeToIndex.get(e.source()), e.source(), e.sourcePort(), tolerateFailure))
             .toArray(ParentEdgeInfo[]::new);
 
     log.atTrace()

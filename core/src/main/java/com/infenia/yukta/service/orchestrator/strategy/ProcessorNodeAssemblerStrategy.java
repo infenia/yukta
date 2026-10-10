@@ -6,12 +6,14 @@ import com.infenia.yukta.message.Message;
 import com.infenia.yukta.message.channel.NodeMessageChannel;
 import com.infenia.yukta.message.channel.NodeMessageChannelProvider;
 import com.infenia.yukta.model.workflow.NodeAssembler;
+import com.infenia.yukta.model.workflow.NodePolicy;
 import com.infenia.yukta.model.workflow.ParentEdgeInfo;
 import com.infenia.yukta.model.workflow.WorkflowNode;
 import com.infenia.yukta.plugin.core.Plugin;
 import com.infenia.yukta.plugin.type.ProcessorPlugin;
 import com.infenia.yukta.service.control.store.ActivePluginRegistry;
 import com.infenia.yukta.service.orchestrator.stream.NodeActivity;
+import com.infenia.yukta.service.orchestrator.stream.NodePolicies;
 import com.infenia.yukta.service.orchestrator.stream.StreamTopologyDecorator;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import java.time.Duration;
@@ -115,7 +117,17 @@ public class ProcessorNodeAssemblerStrategy implements NodeAssemblerStrategy {
         final NodeMessageChannel channel = channelProvider.channelFor(node.nodeId(), node.config());
         final Flux<Message<?>> channelInput =
             channel.inbound(node.nodeId(), context.executionId(), safeInput);
-        final Flux<Message<?>> pluginOutput = processor.process(channelInput, node.config());
+        final NodePolicy policy = NodePolicy.from(node.config());
+        final Flux<Message<?>> pluginOutput =
+            policy.perMessage()
+                ? channelInput.concatMap(
+                    message ->
+                        NodePolicies.apply(
+                            policy,
+                            node.nodeId(),
+                            message,
+                            processor.process(Flux.just(message), node.config())))
+                : processor.process(channelInput, node.config());
         stream = channel.outbound(node.nodeId(), context.executionId(), pluginOutput);
         if (processor.isBlocking()) {
           log.atDebug()

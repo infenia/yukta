@@ -121,6 +121,17 @@ public class StreamTopologyDecorator {
       log.atDebug().setMessage("Filtering by source port: {}").addArgument(sourcePort).log();
       stream = stream.filter(msg -> sourcePort.equals(msg.getSourcePort()));
     }
+    if (edge.tolerateFailure()) {
+      stream =
+          stream.onErrorResume(
+              error -> {
+                log.atWarn()
+                    .addKeyValue("sourceNodeId", edge.sourceNodeId())
+                    .setCause(error)
+                    .log("Parent failed; continuing without it (trigger=ALL_DONE)");
+                return Flux.empty();
+              });
+    }
     return stream;
   }
 

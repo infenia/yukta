@@ -541,4 +541,37 @@ class WorkflowCompilerTest {
         Map.of(),
         new AtomicBoolean());
   }
+
+  @Test
+  void compileAssemblers_triggerAllDone_marksParentEdgesAsFailureTolerant() {
+    final WorkflowNode n1 = new WorkflowNode("n1", "trigger", Map.of());
+    final WorkflowNode n2 =
+        new WorkflowNode("n2", "processor", Map.of("engine", Map.of("trigger", "ALL_DONE")));
+    final WorkflowEdge edge = new WorkflowEdge("n1", "n2", "out");
+    final Map<String, List<WorkflowNode>> parents = Map.of("n1", List.of(), "n2", List.of(n1));
+    final Map<String, Plugin> plugins = Map.of("n1", plugin, "n2", plugin);
+
+    when(plugin.getDefaultTimeout()).thenReturn(Duration.ofSeconds(30));
+    when(plugin.getDefaultBufferSize()).thenReturn(1024);
+    when(assemblerStrategy.supports(eq(plugin), any(Boolean.class))).thenReturn(true);
+    when(assemblerStrategy.createAssembler(
+            any(),
+            any(),
+            any(),
+            any(Integer.class),
+            any(Integer.class),
+            any(ParentEdgeInfo[].class)))
+        .thenReturn(ctx -> {});
+
+    compiler.compileAssemblers(List.of(edge), parents, plugins, List.of(n1, n2));
+
+    verify(assemblerStrategy)
+        .createAssembler(
+            eq(n2),
+            eq(plugin),
+            any(),
+            eq(1),
+            eq(1024),
+            eq(new ParentEdgeInfo[] {new ParentEdgeInfo(0, "n1", "out", true)}));
+  }
 }
