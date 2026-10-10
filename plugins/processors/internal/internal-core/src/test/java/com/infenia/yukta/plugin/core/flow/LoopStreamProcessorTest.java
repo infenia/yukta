@@ -72,12 +72,7 @@ class LoopStreamProcessorTest {
 
     final Map<String, Object> config =
         Map.of(
-            "targetPluginId",
-            targetId,
-            "maxIterations",
-            2,
-            "exitCondition",
-            "#root.payload instanceof T(Integer) && #root.payload == 2");
+            "targetPluginId", targetId, "maxIterations", 2, "exitCondition", "#root.payload == 2");
 
     final Message<?> inputMsg = DefaultMessage.create(UUID.randomUUID(), 0);
 

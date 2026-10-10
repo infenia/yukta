@@ -48,7 +48,7 @@ public final class FilterProcessor implements ProcessorPlugin {
    * @param reporterProvider the provider for PluginMetricsReporter
    */
   public FilterProcessor(final ObjectProvider<PluginMetricsReporter> reporterProvider) {
-    this.reporter = reporterProvider.getIfAvailable(() -> (nodeId, status) -> {});
+    this.reporter = reporterProvider.getIfAvailable(() -> (nodeId, metric, tag) -> {});
   }
 
   @Override
@@ -161,10 +161,10 @@ public final class FilterProcessor implements ProcessorPlugin {
       final boolean isMatch,
       final String discardPort) {
     if (isMatch) {
-      reporter.incrementFilterCount(nodeId, "MATCH");
+      reporter.increment(nodeId, "filter", "MATCH");
       return Mono.just(message.withSourcePort("default").withAddedHistory(nodeId));
     } else {
-      reporter.incrementFilterCount(nodeId, "DISCARD");
+      reporter.increment(nodeId, "filter", "DISCARD");
       if (discardPort != null && !discardPort.isBlank()) {
         return Mono.just(message.withSourcePort(discardPort).withAddedHistory(nodeId));
       }
@@ -174,7 +174,7 @@ public final class FilterProcessor implements ProcessorPlugin {
 
   private Mono<Message<?>> handleEvaluationError(
       final String nodeId, final String condition, final boolean strictMode, final Exception err) {
-    reporter.incrementFilterCount(nodeId, "ERROR");
+    reporter.increment(nodeId, "filter", "ERROR");
     if (log.isErrorEnabled()) {
       log.error("Filter evaluation failed for condition [{}]: {}", condition, err.getMessage());
     }

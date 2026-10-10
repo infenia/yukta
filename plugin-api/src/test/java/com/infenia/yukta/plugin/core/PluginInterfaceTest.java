@@ -10,7 +10,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
 import com.infenia.yukta.plugin.exception.FilterEvaluationException;
-import com.infenia.yukta.plugin.exception.JoinTimeoutException;
 import com.infenia.yukta.plugin.exception.NoMatchingBranchException;
 import com.infenia.yukta.plugin.gateway.ResultCollector;
 import com.infenia.yukta.plugin.type.ProcessorPlugin;
@@ -180,9 +179,6 @@ class PluginInterfaceTest {
   void testExceptions() {
     FilterEvaluationException fe = new FilterEvaluationException("filter error");
     assertEquals("filter error", fe.getMessage());
-
-    JoinTimeoutException jte = new JoinTimeoutException("join timeout");
-    assertEquals("join timeout", jte.getMessage());
 
     NoMatchingBranchException nme = new NoMatchingBranchException("no branch");
     assertEquals("no branch", nme.getMessage());
