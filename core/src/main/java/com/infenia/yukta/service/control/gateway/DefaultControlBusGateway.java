@@ -23,6 +23,7 @@ import com.infenia.yukta.plugin.control.ExecutionControlCommand.StopNodeCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.StopWorkflowCommand;
 import com.infenia.yukta.plugin.control.StopMode;
 import com.infenia.yukta.plugin.core.Plugin;
+import com.infenia.yukta.service.archive.ExecutionArchive;
 import com.infenia.yukta.service.control.ControlBusService;
 import com.infenia.yukta.service.control.ExecutionControl;
 import com.infenia.yukta.service.control.store.ExecutionControlRegistry;
@@ -82,6 +83,9 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
 
   /** The execution control registry for managing active executions. */
   private final ExecutionControlRegistry executionControlRegistry;
+
+  /** Finished executions that can still be restarted. */
+  private final ExecutionArchive executionArchive;
 
   /** The workflow orchestrator for executing workflows. */
   private final WorkflowOrchestrator orchestrator;
@@ -697,7 +701,9 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
       final java.util.function.Consumer<Throwable> onErrorLogger) {
     return Mono.defer(
             () -> {
-              findExecutionOrThrow(executionId);
+              if (executionArchive.find(executionId).isEmpty()) {
+                findExecutionOrThrow(executionId);
+              }
               final String newExecutionId = UUID.randomUUID().toString();
               final Sinks.One<String> sink = Sinks.one();
               pendingRestarts.put(newExecutionId, sink);

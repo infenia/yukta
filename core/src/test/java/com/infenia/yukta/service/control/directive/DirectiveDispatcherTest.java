@@ -13,6 +13,7 @@ import static org.mockito.Mockito.when;
 import com.infenia.yukta.plugin.control.ControlSignalProcessor;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.control.WorkflowDirective;
+import com.infenia.yukta.service.archive.ExecutionArchive;
 import com.infenia.yukta.service.control.ControlBusService;
 import com.infenia.yukta.service.control.ExecutionControl;
 import com.infenia.yukta.service.control.store.ExecutionControlRegistry;
@@ -40,6 +41,7 @@ class DirectiveDispatcherTest {
   private ExecutionControlRegistry registry;
   private ControlBusService controlBusService;
   private ControlSignalProcessor processor;
+  private ExecutionArchive archive;
   private DirectiveDispatcher dispatcher;
 
   private ExecutionControl createControl(
@@ -62,12 +64,13 @@ class DirectiveDispatcherTest {
   @BeforeEach
   void setUp() {
     registry = new ExecutionControlRegistry(new InMemoryExecutionControlStore());
+    archive = new ExecutionArchive();
     controlBusService = mock(ControlBusService.class);
     processor = mock(ControlSignalProcessor.class);
 
     when(controlBusService.getControlStream()).thenReturn(Flux.never());
 
-    dispatcher = new DirectiveDispatcher(List.of(processor), registry, controlBusService);
+    dispatcher = new DirectiveDispatcher(List.of(processor), registry, controlBusService, archive);
   }
 
   @Test
@@ -162,7 +165,10 @@ class DirectiveDispatcherTest {
 
     final DirectiveDispatcher multiDispatcher =
         new DirectiveDispatcher(
-            List.of(lowPriorityProcessor, highPriorityProcessor), registry, controlBusService);
+            List.of(lowPriorityProcessor, highPriorityProcessor),
+            registry,
+            controlBusService,
+            archive);
 
     final ExecutionControlCommand command =
         new ExecutionControlCommand.StopNodeCommand(executionId, "node-1", false, "test");
@@ -303,5 +309,53 @@ class DirectiveDispatcherTest {
   @Test
   void testDispatchMultipleProcessorsPriority() {
     verifyDispatchWithMultipleProcessorsSelectsByHighestPriority();
+  }
+
+  @Test
+  void dispatchOrdered_restartOfFinishedArchivedExecution_reachesTheProcessor() {
+    archive.put(
+        new com.infenia.yukta.service.archive.ArchivedExecution(
+            "finished",
+            "s",
+            "w",
+            mock(com.infenia.yukta.model.workflow.PreparedWorkflow.class),
+            "v",
+            Map.of()));
+    final ExecutionControlCommand restart =
+        new ExecutionControlCommand.RestartCommand("finished", "new-1");
+    when(processor.canProcess(restart)).thenReturn(true);
+    when(processor.getPriority()).thenReturn(1);
+    when(processor.process(restart)).thenReturn(Mono.empty());
+
+    StepVerifier.create(dispatcher.dispatchOrdered(restart)).verifyComplete();
+
+    verify(processor).process(restart);
+  }
+
+  @Test
+  void dispatchOrdered_otherCommandsForFinishedExecution_stillNeedLiveExecution() {
+    archive.put(
+        new com.infenia.yukta.service.archive.ArchivedExecution(
+            "finished",
+            "s",
+            "w",
+            mock(com.infenia.yukta.model.workflow.PreparedWorkflow.class),
+            "v",
+            Map.of()));
+
+    StepVerifier.create(
+            dispatcher.dispatchOrdered(
+                new ExecutionControlCommand.PauseWorkflowCommand("finished")))
+        .expectErrorMatches(e -> e.getMessage().contains("Execution not found"))
+        .verify();
+  }
+
+  @Test
+  void dispatchOrdered_restartOfAnUnknownExecution_isRejected() {
+    StepVerifier.create(
+            dispatcher.dispatchOrdered(
+                new ExecutionControlCommand.RestartFromNodeCommand("gone", "n", "new")))
+        .expectErrorMatches(e -> e.getMessage().contains("Execution not found: gone"))
+        .verify();
   }
 }

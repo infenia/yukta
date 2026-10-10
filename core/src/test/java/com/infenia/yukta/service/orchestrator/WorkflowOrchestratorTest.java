@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.service.orchestrator;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -20,9 +21,12 @@ import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.model.workflow.WorkflowNode;
 import com.infenia.yukta.model.workflow.WorkflowTemplate;
 import com.infenia.yukta.plugin.store.NodeCheckpointStore;
+import com.infenia.yukta.service.archive.ExecutionArchive;
 import com.infenia.yukta.service.control.ExecutionControl;
 import com.infenia.yukta.service.control.factory.ExecutionControlFactory;
 import com.infenia.yukta.service.control.store.ExecutionControlRegistry;
+import com.infenia.yukta.service.log.ExecutionLogEvent;
+import com.infenia.yukta.service.log.ExecutionLogStore;
 import com.infenia.yukta.service.orchestrator.assembly.AssemblyContext;
 import com.infenia.yukta.service.orchestrator.compiler.WorkflowCompiler;
 import com.infenia.yukta.service.orchestrator.preparator.WorkflowPreparator;
@@ -47,6 +51,7 @@ import reactor.test.StepVerifier;
   "PMD.CommentRequired",
   "PMD.ExcessiveImports",
   "PMD.CouplingBetweenObjects",
+  "PMD.LawOfDemeter",
   "PMD.TooManyStaticImports",
   "PMD.TooManyMethods",
   "PMD.AvoidDuplicateLiterals",
@@ -65,8 +70,12 @@ class WorkflowOrchestratorTest {
 
   private WorkflowOrchestrator orchestrator;
 
+  private final ExecutionArchive executionArchive = new ExecutionArchive();
+  private final ExecutionLogStore executionLog = org.mockito.Mockito.mock(ExecutionLogStore.class);
+
   @BeforeEach
   void setUp() {
+    lenient().when(checkpointStore.save(anyString(), anyString(), any())).thenReturn(Mono.empty());
     lenient()
         .when(tracker.finishWorkflow(anyString(), any(TaskStatus.class)))
         .thenReturn(Mono.empty());
@@ -76,6 +85,8 @@ class WorkflowOrchestratorTest {
             executionControlRegistry,
             executionControlFactory,
             checkpointStore,
+            executionArchive,
+            executionLog,
             compiler,
             preparator);
   }
@@ -128,7 +139,7 @@ class WorkflowOrchestratorTest {
     verify(executionControlRegistry).register(executionControl);
     verify(tracker).startWorkflow(executionId, sessionId, workflowId, List.of("node-a"));
     verify(executionControlRegistry).unregister(executionId);
-    verify(checkpointStore).clear(executionId);
+    verify(checkpointStore, never()).clear(executionId);
   }
 
   @Test
@@ -152,7 +163,7 @@ class WorkflowOrchestratorTest {
         .verify();
 
     verify(executionControlRegistry).unregister(executionId);
-    verify(checkpointStore).clear(executionId);
+    verify(checkpointStore, never()).clear(executionId);
   }
 
   @Test
@@ -201,7 +212,7 @@ class WorkflowOrchestratorTest {
     verify(tracker, never()).finishWorkflow(executionId, TaskStatus.SUCCESS);
 
     verify(executionControlRegistry).unregister(executionId);
-    verify(checkpointStore).clear(executionId);
+    verify(checkpointStore, never()).clear(executionId);
   }
 
   @Test
@@ -262,7 +273,7 @@ class WorkflowOrchestratorTest {
         .executeTemplate(
             eq(newExecId), any(), eq(2), any(), eq(sessionId), eq(workflowId), anyList());
     verify(executionControlRegistry).unregister(newExecId);
-    verify(checkpointStore).clear(newExecId);
+    verify(checkpointStore, never()).clear(newExecId);
   }
 
   @Test
@@ -299,7 +310,7 @@ class WorkflowOrchestratorTest {
                 newExecId,
                 prepared,
                 restartNodeId,
-                Map.of("trigger", checkpoint)))
+                Map.of("trigger", List.of(checkpoint))))
         .verifyComplete();
 
     verify(compiler).compileAssemblers(any(), any(), any(), any());
@@ -341,7 +352,7 @@ class WorkflowOrchestratorTest {
         .verify();
 
     verify(executionControlRegistry).unregister(newExecId);
-    verify(checkpointStore).clear(newExecId);
+    verify(checkpointStore, never()).clear(newExecId);
   }
 
   @Test
@@ -392,7 +403,7 @@ class WorkflowOrchestratorTest {
     verify(tracker, never()).finishWorkflow(newExecId, TaskStatus.SUCCESS);
 
     verify(executionControlRegistry).unregister(newExecId);
-    verify(checkpointStore).clear(newExecId);
+    verify(checkpointStore, never()).clear(newExecId);
   }
 
   @Test
@@ -440,6 +451,105 @@ class WorkflowOrchestratorTest {
     StepVerifier.create(streams[0]).verifyComplete();
   }
 
+  @Test
+  void restartFromNode_rerunsOnlyDescendants_replaysBoundary_andLeavesIndependentBranchesSilent() {
+    final WorkflowNode source = new WorkflowNode("t1", "trigger-type", Map.of());
+    final WorkflowNode worker = new WorkflowNode("p", "proc-type", Map.of());
+    final WorkflowNode independent = new WorkflowNode("t2", "trigger-type", Map.of());
+    final WorkflowTemplate template = org.mockito.Mockito.mock(WorkflowTemplate.class);
+    final PreparedWorkflow prepared =
+        new PreparedWorkflow(
+            List.of(),
+            Map.of("t1", List.of(worker), "p", List.of(), "t2", List.of()),
+            Map.of("t1", List.of(), "p", List.of(source), "t2", List.of()),
+            Map.of(),
+            List.of(source, worker, independent),
+            template);
+
+    final NodeAssembler kept = ctx -> {};
+    final NodeAssembler[] assemblers = new NodeAssembler[] {ctx -> {}, kept, ctx -> {}};
+    when(compiler.compileAssemblers(any(), any(), any(), any())).thenReturn(assemblers);
+    when(tracker.startWorkflow(anyString(), anyString(), anyString(), anyList()))
+        .thenReturn(Mono.empty());
+    when(compiler.executeTemplate(
+            anyString(), any(), eq(3), any(), anyString(), anyString(), anyList()))
+        .thenReturn(Mono.empty());
+    setupRestartControl("s", "w", "new", prepared, Sinks.one());
+    final Message<?> recorded = org.mockito.Mockito.mock(Message.class);
+
+    StepVerifier.create(
+            orchestrator.restartFromNode(
+                "s", "w", "old", "new", prepared, "p", Map.of("t1", List.of(recorded))))
+        .verifyComplete();
+
+    assertThat(assemblers[1]).isSameAs(kept);
+    final AssemblyContext context = org.mockito.Mockito.mock(AssemblyContext.class);
+    @SuppressWarnings("unchecked")
+    final Flux<Message<?>>[] streams = new Flux[3];
+    when(context.streams()).thenReturn(streams);
+    assemblers[0].assemble(context);
+    assemblers[2].assemble(context);
+    StepVerifier.create(streams[0]).expectNext(recorded).verifyComplete();
+    StepVerifier.create(streams[2]).verifyComplete();
+    // the replayed input is recorded under the new execution so it can be restarted in turn
+    verify(checkpointStore).save("new", "t1", recorded);
+    assertThat(executionArchive.find("new")).isPresent();
+  }
+
+  @Test
+  void execute_archivesTheRun_andKeepsItsRecordedOutputsAfterItEnds() {
+    final PreparedWorkflow prepared = buildPreparedWorkflow(List.of("n1"));
+    setupExecutionControl("s", "w", "e1", prepared, Map.of("k", "v"), Sinks.one());
+    when(tracker.startWorkflow(anyString(), anyString(), anyString(), anyList()))
+        .thenReturn(Mono.empty());
+    when(prepared.template().instantiate(anyString(), any())).thenReturn(Mono.empty());
+
+    StepVerifier.create(orchestrator.execute("s", "w", "e1", prepared, Map.of("k", "v")))
+        .verifyComplete();
+
+    final var archived = executionArchive.find("e1").orElseThrow();
+    assertThat(archived.prepared()).isSameAs(prepared);
+    assertThat(archived.payload()).containsEntry("k", "v");
+    assertThat(archived.definitionVersion()).hasSize(16);
+    final org.mockito.ArgumentCaptor<ExecutionLogEvent> logged =
+        org.mockito.ArgumentCaptor.forClass(ExecutionLogEvent.class);
+    verify(executionLog).append(logged.capture());
+    assertThat(logged.getValue().type()).isEqualTo(ExecutionLogEvent.Type.RUN_STARTED);
+    assertThat(logged.getValue().executionId()).isEqualTo("e1");
+    assertThat(logged.getValue().definitionVersion()).isEqualTo(archived.definitionVersion());
+    verify(checkpointStore, never()).clear("e1");
+  }
+
+  @Test
+  void execute_freesTheOutputsOfExecutionsThatFallOutOfTheArchive() {
+    final ExecutionArchive smallArchive = new ExecutionArchive(1);
+    final WorkflowOrchestrator small =
+        new WorkflowOrchestrator(
+            tracker,
+            executionControlRegistry,
+            executionControlFactory,
+            checkpointStore,
+            smallArchive,
+            executionLog,
+            compiler,
+            preparator);
+    final PreparedWorkflow prepared = buildPreparedWorkflow(List.of("n1"));
+    lenient()
+        .when(executionControlFactory.create(anyString(), anyString(), anyString(), any(), any()))
+        .thenReturn(executionControl);
+    lenient().when(executionControl.safeStopSink()).thenAnswer(inv -> Sinks.one());
+    lenient().when(executionControl.stopRequested()).thenAnswer(inv -> new AtomicBoolean());
+    when(tracker.startWorkflow(anyString(), anyString(), anyString(), anyList()))
+        .thenReturn(Mono.empty());
+    when(prepared.template().instantiate(anyString(), any())).thenReturn(Mono.empty());
+
+    StepVerifier.create(small.execute("s", "w", "e1", prepared, Map.of())).verifyComplete();
+    StepVerifier.create(small.execute("s", "w", "e2", prepared, Map.of())).verifyComplete();
+
+    verify(checkpointStore).clear("e1");
+    verify(checkpointStore, never()).clear("e2");
+  }
+
   // --- helpers ---
 
   private WorkflowDefinition buildMinimalDefinition(final String workflowId) {
@@ -456,10 +566,19 @@ class WorkflowOrchestratorTest {
 
   private PreparedWorkflow buildPreparedWorkflowFromNodes(final List<WorkflowNode> nodes) {
     final WorkflowTemplate template = org.mockito.Mockito.mock(WorkflowTemplate.class);
-    final Map<String, List<WorkflowNode>> emptyPerNode =
-        nodes.stream()
-            .collect(java.util.stream.Collectors.toMap(WorkflowNode::nodeId, n -> List.of()));
-    return new PreparedWorkflow(List.of(), emptyPerNode, emptyPerNode, Map.of(), nodes, template);
+    // The nodes form a chain: each one feeds the next.
+    final Map<String, List<WorkflowNode>> children = new java.util.concurrent.ConcurrentHashMap<>();
+    final Map<String, List<WorkflowNode>> parents = new java.util.concurrent.ConcurrentHashMap<>();
+    nodes.forEach(
+        n -> {
+          children.put(n.nodeId(), List.of());
+          parents.put(n.nodeId(), List.of());
+        });
+    for (int i = 0; i + 1 < nodes.size(); i++) {
+      children.put(nodes.get(i).nodeId(), List.of(nodes.get(i + 1)));
+      parents.put(nodes.get(i + 1).nodeId(), List.of(nodes.get(i)));
+    }
+    return new PreparedWorkflow(List.of(), children, parents, Map.of(), nodes, template);
   }
 
   private void setupExecutionControl(
@@ -473,7 +592,6 @@ class WorkflowOrchestratorTest {
         .thenReturn(executionControl);
     doNothing().when(executionControlRegistry).register(executionControl);
     doNothing().when(executionControlRegistry).unregister(executionId);
-    doNothing().when(checkpointStore).clear(executionId);
     when(executionControl.safeStopSink()).thenReturn(safeStop);
     lenient().when(executionControl.stopRequested()).thenReturn(new AtomicBoolean());
   }
@@ -489,7 +607,6 @@ class WorkflowOrchestratorTest {
         .thenReturn(executionControl);
     doNothing().when(executionControlRegistry).register(executionControl);
     doNothing().when(executionControlRegistry).unregister(executionId);
-    doNothing().when(checkpointStore).clear(executionId);
     when(executionControl.safeStopSink()).thenReturn(safeStop);
     lenient().when(executionControl.stopRequested()).thenReturn(new AtomicBoolean());
   }

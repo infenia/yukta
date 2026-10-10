@@ -14,6 +14,9 @@ import com.infenia.yukta.model.execution.TaskProgress;
 import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
 import com.infenia.yukta.model.execution.WorkflowProgress;
+import com.infenia.yukta.service.log.ExecutionLogEvent;
+import com.infenia.yukta.service.log.ExecutionLogStore;
+import com.infenia.yukta.service.log.InMemoryExecutionLogStore;
 import com.infenia.yukta.service.streaming.StatusHistoryCache;
 import com.infenia.yukta.validation.NodeId;
 import com.infenia.yukta.validation.SessionId;
@@ -25,6 +28,7 @@ import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import java.time.Duration;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.ArrayDeque;
@@ -37,6 +41,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.validation.annotation.Validated;
@@ -81,6 +86,9 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
   /** Cache for storing recent workflow progress updates per execution. */
   private final StatusHistoryCache statusHistoryCache;
 
+  /** Durable record of run starts and ends. */
+  private final ExecutionLogStore executionLog;
+
   /** Map of session ID to workflow states. */
   private final Map<String, Map<String, WorkflowState>> sessionStates = new ConcurrentHashMap<>();
 
@@ -115,11 +123,25 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
    * @param cleanupTtl the time to live for execution data after terminal status
    * @param statusHistoryCache the cache for storing recent workflow progress updates
    */
+  @Autowired
   public DefaultTaskTrackerService(
       @Value("${yukta.tracker.cleanup-ttl:10m}") final Duration cleanupTtl,
-      final StatusHistoryCache statusHistoryCache) {
+      final StatusHistoryCache statusHistoryCache,
+      final ExecutionLogStore executionLog) {
     this.cleanupTtl = cleanupTtl;
     this.statusHistoryCache = statusHistoryCache;
+    this.executionLog = executionLog;
+  }
+
+  /**
+   * Create a tracker that keeps its execution log in memory.
+   *
+   * @param cleanupTtl the time to live for execution data after terminal status
+   * @param statusHistoryCache the cache for storing recent workflow progress updates
+   */
+  public DefaultTaskTrackerService(
+      final Duration cleanupTtl, final StatusHistoryCache statusHistoryCache) {
+    this(cleanupTtl, statusHistoryCache, new InMemoryExecutionLogStore());
   }
 
   /** Initialize background event consumers. */
@@ -496,6 +518,42 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
   }
 
   /**
+   * Puts a run that ended before this server started back into history.
+   *
+   * @param executionId the execution
+   * @param sessionId the session that owns it
+   * @param workflowId the workflow it ran
+   * @param status its final status
+   * @param nodeStatuses final status of each node
+   * @param started when it started
+   * @param ended when it ended
+   */
+  @SuppressWarnings("PMD.UseObjectForClearerAPI")
+  public void restore(
+      final String executionId,
+      final String sessionId,
+      final String workflowId,
+      final String status,
+      final Map<String, String> nodeStatuses,
+      final Instant started,
+      final Instant ended) {
+    final WorkflowState state =
+        new WorkflowState(
+            executionId,
+            sessionId,
+            workflowId,
+            status,
+            List.copyOf(nodeStatuses.keySet()),
+            LocalDateTime.ofInstant(started, ZoneId.systemDefault()));
+    nodeStatuses.forEach(
+        (nodeId, nodeStatus) -> state.updateTask(nodeId, "", nodeStatus, Map.of()));
+    state.setEndTime(LocalDateTime.ofInstant(ended, ZoneId.systemDefault()));
+    sessionStates
+        .computeIfAbsent(sessionId, _ -> new ConcurrentHashMap<>())
+        .put(executionId, state);
+  }
+
+  /**
    * Get history of executions for a session.
    *
    * @param sessionId the session identifier
@@ -631,6 +689,13 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
       // Every node event before this one is already applied, so what is still open is final.
       state.finalizeTasks(event.status());
       state.setEndTime(event.timestamp());
+      executionLog.append(
+          ExecutionLogEvent.finished(
+              state.executionId,
+              state.sessionId,
+              state.workflowId,
+              event.status(),
+              state.nodeStatuses()));
     }
     state.setStatus(event.status());
     touched.add(event.executionId());
@@ -916,6 +981,12 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
         case FAILURE, ERROR, TIMED_OUT -> TaskStatus.UPSTREAM_FAILED;
         default -> TaskStatus.CANCELLED;
       };
+    }
+
+    /* default */ Map<String, String> nodeStatuses() {
+      final Map<String, String> statuses = new ConcurrentHashMap<>();
+      taskMap.forEach((nodeId, task) -> statuses.put(nodeId, task.status()));
+      return statuses;
     }
 
     /* default */ List<TaskProgress> getTasks() {

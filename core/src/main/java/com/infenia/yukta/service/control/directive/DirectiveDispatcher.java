@@ -5,6 +5,7 @@ package com.infenia.yukta.service.control.directive;
 import com.infenia.yukta.plugin.control.ControlSignalProcessor;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.control.WorkflowDirective;
+import com.infenia.yukta.service.archive.ExecutionArchive;
 import com.infenia.yukta.service.control.CommandSequencer;
 import com.infenia.yukta.service.control.ControlBusService;
 import com.infenia.yukta.service.control.ExecutionControl;
@@ -29,6 +30,7 @@ import reactor.core.publisher.Mono;
  */
 @Slf4j
 @Component
+@SuppressWarnings({"PMD.ConfusingTernary", "PMD.OnlyOneReturn"})
 public class DirectiveDispatcher {
 
   /** The list of control signal processors ordered by priority. */
@@ -40,6 +42,9 @@ public class DirectiveDispatcher {
   /** The control bus service for subscribing to control signals. */
   private final ControlBusService controlBusService;
 
+  /** Finished executions that can still be restarted. */
+  private final ExecutionArchive archive;
+
   /** Keeps commands of one execution in the order they were sent. */
   private final CommandSequencer sequencer = new CommandSequencer();
 
@@ -49,15 +54,18 @@ public class DirectiveDispatcher {
    * @param processors the registered signal processors, ordered by priority
    * @param registry the live execution registry
    * @param controlBusService the control bus to subscribe to
+   * @param archive finished executions that can still be restarted
    */
   @SuppressFBWarnings("EI_EXPOSE_REP2")
   public DirectiveDispatcher(
       final List<ControlSignalProcessor> processors,
       final ExecutionControlRegistry registry,
-      final ControlBusService controlBusService) {
+      final ControlBusService controlBusService,
+      final ExecutionArchive archive) {
     this.processors = List.copyOf(processors);
     this.registry = registry;
     this.controlBusService = controlBusService;
+    this.archive = archive;
   }
 
   /** Registers this dispatcher as the executor of execution control commands. */
@@ -79,7 +87,7 @@ public class DirectiveDispatcher {
         command.executionId(),
         Mono.defer(
             () ->
-                registry.findByExecutionId(command.executionId()).isEmpty()
+                !isAddressable(command)
                     ? Mono.error(
                         new IllegalArgumentException(
                             "Execution not found: " + command.executionId()))
@@ -96,6 +104,11 @@ public class DirectiveDispatcher {
   public Mono<Void> dispatch(final ExecutionControlCommand command) {
     final Optional<ExecutionControl> controlOpt = registry.findByExecutionId(command.executionId());
 
+    if (controlOpt.isEmpty() && isRestartOfArchived(command)) {
+      // A finished run has no live control, but its restart only needs the archive.
+      return findProcessor(command).flatMap(processor -> processor.process(command)).then();
+    }
+
     if (controlOpt.isEmpty()) {
       log.atWarn()
           .addKeyValue("executionId", command.executionId())
@@ -109,6 +122,17 @@ public class DirectiveDispatcher {
                     .flatMap(processor -> processor.process(command))
                     .flatMap(directive -> applyDirective(control, directive)))
         .orElseGet(Mono::empty);
+  }
+
+  private boolean isAddressable(final ExecutionControlCommand command) {
+    return registry.findByExecutionId(command.executionId()).isPresent()
+        || isRestartOfArchived(command);
+  }
+
+  private boolean isRestartOfArchived(final ExecutionControlCommand command) {
+    return (command instanceof ExecutionControlCommand.RestartCommand
+            || command instanceof ExecutionControlCommand.RestartFromNodeCommand)
+        && archive.find(command.executionId()).isPresent();
   }
 
   private Mono<ControlSignalProcessor> findProcessor(final ExecutionControlCommand command) {

@@ -35,6 +35,7 @@ import com.infenia.yukta.plugin.control.ExecutionControlCommand.StepNodeCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.StopNodeCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.StopWorkflowCommand;
 import com.infenia.yukta.plugin.core.Plugin;
+import com.infenia.yukta.service.archive.ExecutionArchive;
 import com.infenia.yukta.service.control.ControlBusService;
 import com.infenia.yukta.service.control.ExecutionControl;
 import com.infenia.yukta.service.control.factory.ExecutionControlFactory;
@@ -84,6 +85,8 @@ class DefaultControlBusGatewayTest {
 
   private DefaultControlBusGateway gateway;
 
+  private final ExecutionArchive archive = new ExecutionArchive();
+
   @BeforeEach
   void setUp() {
     gateway =
@@ -91,6 +94,7 @@ class DefaultControlBusGatewayTest {
             controlBusService,
             taskTracker,
             executionControlRegistry,
+            archive,
             orchestrator,
             workflowDefinitionStore,
             preparedWorkflowCache);
@@ -438,6 +442,7 @@ class DefaultControlBusGatewayTest {
             controlBusService,
             taskTracker,
             realRegistry,
+            new ExecutionArchive(),
             orchestrator,
             workflowDefinitionStore,
             preparedWorkflowCache);
@@ -2280,5 +2285,33 @@ class DefaultControlBusGatewayTest {
     // Verify both workflows were cached separately
     verify(preparedWorkflowCache).put(sessionId, workflowId1, preparedWorkflow1);
     verify(preparedWorkflowCache).put(sessionId, workflowId2, preparedWorkflow2);
+  }
+
+  @Test
+  void restartWorkflow_ofFinishedArchivedExecution_isAccepted() {
+    archive.put(
+        new com.infenia.yukta.service.archive.ArchivedExecution(
+            "finished", "s", "w", mock(PreparedWorkflow.class), "v", Map.of()));
+    when(controlBusService.emit(any()))
+        .thenAnswer(
+            inv -> {
+              final Message<?> message = inv.getArgument(0);
+              final var command =
+                  (com.infenia.yukta.plugin.control.ExecutionControlCommand.RestartCommand)
+                      message.getPayload();
+              gateway.completeRestartSuccess(command.newExecutionId());
+              return Mono.empty();
+            });
+
+    StepVerifier.create(gateway.restartWorkflow("finished")).expectNextCount(1).verifyComplete();
+  }
+
+  @Test
+  void restartWorkflow_ofAnExecutionThatIsNeitherLiveNorArchived_isRejected() {
+    when(executionControlRegistry.findByExecutionId("gone")).thenReturn(Optional.empty());
+
+    StepVerifier.create(gateway.restartWorkflow("gone"))
+        .expectErrorMatches(e -> e.getMessage().contains("Execution not found: gone"))
+        .verify();
   }
 }

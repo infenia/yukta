@@ -95,4 +95,47 @@ class InMemoryNodeCheckpointStoreTest {
 
     StepVerifier.create(store.get("exec-2", "node-1")).expectNextCount(1).verifyComplete();
   }
+
+  @Test
+  void testGetAllReturnsEveryMessageInOrder_andGetReturnsTheLast() {
+    final Message<?> first = DefaultMessage.create(UUID.randomUUID(), "one");
+    final Message<?> second = DefaultMessage.create(UUID.randomUUID(), "two");
+    store.save("e1", "n1", first).block();
+    store.save("e1", "n1", second).block();
+
+    StepVerifier.create(store.getAll("e1", "n1")).expectNext(first, second).verifyComplete();
+    StepVerifier.create(store.get("e1", "n1")).expectNext(second).verifyComplete();
+    assertThat(store.isComplete("e1", "n1")).isTrue();
+  }
+
+  @Test
+  void testGetAllForUnknownNodeIsEmpty_andCountsAsComplete() {
+    StepVerifier.create(store.getAll("nope", "n1")).verifyComplete();
+    assertThat(store.isComplete("nope", "n1")).isTrue();
+  }
+
+  @Test
+  void testMessagesBeyondTheCapAreDropped_andTheNodeIsMarkedIncomplete() {
+    final InMemoryNodeCheckpointStore small = new InMemoryNodeCheckpointStore(2);
+    for (int i = 0; i < 3; i++) {
+      small.save("e1", "n1", DefaultMessage.create(UUID.randomUUID(), "m" + i)).block();
+    }
+    small.save("e1", "n2", DefaultMessage.create(UUID.randomUUID(), "only")).block();
+
+    StepVerifier.create(small.getAll("e1", "n1")).expectNextCount(2).verifyComplete();
+    assertThat(small.isComplete("e1", "n1")).isFalse();
+    assertThat(small.isComplete("e1", "n2")).isTrue();
+
+    small.clear("e1");
+    assertThat(small.isComplete("e1", "n1")).isTrue();
+  }
+
+  @Test
+  void testNonPositiveCapStillKeepsOneMessage() {
+    final InMemoryNodeCheckpointStore tiny = new InMemoryNodeCheckpointStore(0);
+    tiny.save("e1", "n1", DefaultMessage.create(UUID.randomUUID(), "a")).block();
+    tiny.save("e1", "n1", DefaultMessage.create(UUID.randomUUID(), "b")).block();
+
+    StepVerifier.create(tiny.getAll("e1", "n1")).expectNextCount(1).verifyComplete();
+  }
 }

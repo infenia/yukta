@@ -1,0 +1,122 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: 2026 Infenia Private Limited
+package com.infenia.yukta.service.log;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
+
+import com.infenia.yukta.service.orchestrator.tracker.DefaultTaskTrackerService;
+import com.infenia.yukta.service.streaming.StatusHistoryCache;
+import java.time.Duration;
+import java.util.List;
+import java.util.Map;
+import lombok.NoArgsConstructor;
+import org.junit.jupiter.api.Test;
+import reactor.test.StepVerifier;
+
+@NoArgsConstructor
+@SuppressWarnings({"PMD.CommentRequired", "PMD.AvoidDuplicateLiterals"})
+class ExecutionRecoveryTest {
+
+  private final InMemoryExecutionLogStore store = new InMemoryExecutionLogStore();
+  private final DefaultTaskTrackerService tracker =
+      new DefaultTaskTrackerService(Duration.ofMinutes(10), mock(StatusHistoryCache.class));
+
+  private void finishedRun(final String executionId, final String status) {
+    store.append(ExecutionLogEvent.started(executionId, "s1", "w1", "v1"));
+    store.append(ExecutionLogEvent.finished(executionId, "s1", "w1", status, Map.of("n1", status)));
+  }
+
+  @Test
+  void runThatNeverFinished_isRecordedAsAborted_andShownInHistory() {
+    store.append(ExecutionLogEvent.started("crashed", "s1", "w1", "v1"));
+
+    new ExecutionRecovery(store, tracker, 100).recover();
+
+    assertThat(store.readAll())
+        .extracting(ExecutionLogEvent::type)
+        .containsExactly(ExecutionLogEvent.Type.RUN_STARTED, ExecutionLogEvent.Type.RUN_ABORTED);
+    StepVerifier.create(tracker.getHistory("s1"))
+        .assertNext(
+            history ->
+                assertThat(history)
+                    .singleElement()
+                    .satisfies(
+                        run -> {
+                          assertThat(run.executionId()).isEqualTo("crashed");
+                          assertThat(run.status()).isEqualTo("ABORTED");
+                          assertThat(run.endTime()).isNotNull();
+                        }))
+        .verifyComplete();
+  }
+
+  @Test
+  void finishedRuns_areRestoredWithTheirNodeStatuses() {
+    finishedRun("done", "FAILURE");
+
+    new ExecutionRecovery(store, tracker, 100).recover();
+
+    final var progress = tracker.getProgress("s1", "done");
+    assertThat(progress.status()).isEqualTo("FAILURE");
+    assertThat(progress.tasks())
+        .singleElement()
+        .satisfies(t -> assertThat(t.status()).isEqualTo("FAILURE"));
+    assertThat(progress.endTime()).isNotNull();
+  }
+
+  @Test
+  void onlyTheMostRecentRunsAreKept_andTheLogIsCompacted() {
+    finishedRun("r1", "SUCCESS");
+    finishedRun("r2", "SUCCESS");
+    finishedRun("r3", "SUCCESS");
+
+    new ExecutionRecovery(store, tracker, 2).recover();
+
+    assertThat(store.readAll()).extracting(ExecutionLogEvent::executionId).containsOnly("r2", "r3");
+    assertThat(tracker.getProgress("s1", "r1")).isNull();
+    assertThat(tracker.getProgress("s1", "r3")).isNotNull();
+  }
+
+  @Test
+  void anEmptyLog_isFine_andRecoveryRunsAfterTheSingletonsAreReady() {
+    final ExecutionRecovery recovery = new ExecutionRecovery(store, tracker, 0);
+
+    recovery.afterSingletonsInstantiated();
+
+    assertThat(store.readAll()).isEmpty();
+    assertThat(tracker.getActiveSessions()).isEmpty();
+  }
+
+  @Test
+  void finishEventWithoutStart_isKeptButNotRestored() {
+    store.append(ExecutionLogEvent.finished("orphan", "s1", "w1", "SUCCESS", Map.of()));
+
+    new ExecutionRecovery(store, tracker, 100).recover();
+
+    assertThat(store.readAll()).hasSize(1);
+    assertThat(tracker.getProgress("s1", "orphan")).isNull();
+  }
+
+  @Test
+  void trackerRecordsRunEndsInTheLog() {
+    final InMemoryExecutionLogStore log = new InMemoryExecutionLogStore();
+    final DefaultTaskTrackerService live =
+        new DefaultTaskTrackerService(Duration.ofMinutes(10), mock(StatusHistoryCache.class), log);
+    live.init();
+    StepVerifier.create(live.startWorkflow("e1", "s1", "w1", List.of("n1"))).verifyComplete();
+
+    live.emitWorkflowStatusEvent("e1", com.infenia.yukta.model.execution.TaskStatus.SUCCESS);
+
+    org.awaitility.Awaitility.await()
+        .atMost(5, java.util.concurrent.TimeUnit.SECONDS)
+        .untilAsserted(
+            () ->
+                assertThat(log.readAll())
+                    .singleElement()
+                    .satisfies(
+                        event -> {
+                          assertThat(event.type()).isEqualTo(ExecutionLogEvent.Type.RUN_FINISHED);
+                          assertThat(event.nodeStatuses()).containsEntry("n1", "SKIPPED");
+                        }));
+  }
+}
