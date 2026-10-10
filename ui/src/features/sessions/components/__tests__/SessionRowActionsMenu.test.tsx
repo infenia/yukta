@@ -14,11 +14,11 @@ vi.mock('react-router', async () => {
   };
 });
 import {
-  useReactTable,
+  useLegacyTable,
   getCoreRowModel,
   getPaginationRowModel,
   getFilteredRowModel,
-} from '@tanstack/react-table';
+} from '@tanstack/react-table/legacy';
 import { SessionsPaginationFooter } from '../SessionsPaginationFooter';
 import { SessionRowActionsMenu } from '../SessionRowActionsMenu';
 import { columns } from '../columns';
@@ -30,7 +30,7 @@ describe('User Interactions', () => {
     const mockSessions = createMockSessions(35);
 
     const TableComponent = () => {
-      const table = useReactTable({
+      const table = useLegacyTable({
         data: mockSessions,
         columns,
         getCoreRowModel: getCoreRowModel(),
