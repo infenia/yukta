@@ -36,17 +36,15 @@ const server = setupServer(
   http.get('/api/sessions/sess-123/workflows', () => {
     return HttpResponse.json({
       status: 200,
-      data: {
-        workflows: [
-          {
-            workflowId: 'wf1',
-            description: 'Workflow 1',
-            nodeCount: 5,
-            edgeCount: 4,
-            status: 'SUCCESS',
-          },
-        ],
-      },
+      data: [
+        {
+          workflowId: 'wf1',
+          description: 'Workflow 1',
+          nodeCount: 5,
+          edgeCount: 4,
+          status: 'SUCCESS',
+        },
+      ],
     });
   })
 );

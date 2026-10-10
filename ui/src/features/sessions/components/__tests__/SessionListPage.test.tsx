@@ -22,7 +22,7 @@ const server = setupServer(
       timestamp: new Date().toISOString(),
       status: 200,
       message: 'Session summaries retrieved successfully',
-      data: { sessions: mockSessions },
+      data: mockSessions,
       path: '/api/sessions/summaries',
     });
   })

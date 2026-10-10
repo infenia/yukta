@@ -12,6 +12,7 @@ dependencies {
     implementation(libs.spring.boot.starter.validation)
     implementation(libs.springdoc.openapi)
     implementation(libs.mapstruct)
+    implementation("io.micrometer:context-propagation")
 
     annotationProcessor(libs.spring.boot.configuration.processor)
     annotationProcessor(libs.mapstruct.processor)

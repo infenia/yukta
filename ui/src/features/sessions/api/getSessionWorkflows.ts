@@ -2,8 +2,8 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import { fetchApi } from '@/lib/apiClient';
-import type { WorkflowSummaries } from '../types/session';
+import type { WorkflowSummary } from '../types/session';
 
-export async function getSessionWorkflows(sessionId: string): Promise<WorkflowSummaries> {
-  return fetchApi<WorkflowSummaries>(`/api/sessions/${sessionId}/workflows`);
+export async function getSessionWorkflows(sessionId: string): Promise<WorkflowSummary[]> {
+  return fetchApi<WorkflowSummary[]>(`/api/sessions/${sessionId}/workflows`);
 }

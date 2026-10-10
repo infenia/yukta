@@ -7,9 +7,7 @@ import { setupServer } from 'msw/node';
 import { getSessionSummaries } from '../getSessionSummaries';
 import { createMockSessions } from '@/test/factories/sessionFactory';
 
-const mockSessionData = {
-  sessions: createMockSessions(2),
-};
+const mockSessionData = createMockSessions(2);
 
 const server = setupServer(
   http.get('/api/sessions/summaries', () => {
@@ -31,8 +29,8 @@ describe('getSessionSummaries', () => {
   it('should fetch and return valid session summaries', async () => {
     const result = await getSessionSummaries();
 
-    expect(result.sessions).toHaveLength(2);
-    expect(result.sessions[0]).toMatchObject({
+    expect(result).toHaveLength(2);
+    expect(result[0]).toMatchObject({
       sessionId: expect.any(String),
       name: expect.any(String),
       description: expect.any(String),
@@ -50,20 +48,18 @@ describe('getSessionSummaries', () => {
           timestamp: new Date().toISOString(),
           status: 200,
           message: 'Session summaries retrieved successfully',
-          data: {
-            sessions: createMockSessions(1, { tags: [] }),
-          },
+          data: createMockSessions(1, { tags: [] }),
           path: '/api/sessions/summaries',
         });
       })
     );
 
     const result = await getSessionSummaries();
-    expect(result.sessions[0].tags).toEqual([]);
+    expect(result[0].tags).toEqual([]);
   });
 
   it('should return multiple sessions', async () => {
     const result = await getSessionSummaries();
-    expect(result.sessions.length).toBeGreaterThanOrEqual(1);
+    expect(result.length).toBeGreaterThanOrEqual(1);
   });
 });

@@ -2,16 +2,17 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.controller;
 
+import com.infenia.yukta.dto.request.NodeCommandRequest;
+import com.infenia.yukta.dto.response.NodeCommandResponse;
 import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
 import com.infenia.yukta.model.api.ApiResponse;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import java.util.List;
-import java.util.Map;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -24,7 +25,6 @@ import reactor.core.publisher.Mono;
 @RestController
 @RequestMapping("/api")
 @RequiredArgsConstructor
-@Slf4j
 @Tag(
     name = "Control Bus & Observability API",
     description =
@@ -45,7 +45,6 @@ public class ControlBusController {
       description =
           "Lists all nodes in a specific workflow currently registered on the Control Bus")
   public Mono<ApiResponse<List<String>>> getActiveNodes(@PathVariable final String workflowId) {
-    log.atInfo().log("getActiveNodes reached: workflowId={}", workflowId);
     return Mono.fromCallable(() -> controlBus.getActiveNodes(workflowId))
         .map(nodes -> ApiResponse.success(200, "Active nodes retrieved", nodes));
   }
@@ -63,7 +62,6 @@ public class ControlBusController {
       description = "Retrieves the most recent heartbeat for a specific node in a workflow")
   public Mono<ApiResponse<Message<?>>> getLastHeartbeat(
       @PathVariable final String workflowId, @PathVariable final String nodeId) {
-    log.atInfo().log("getLastHeartbeat reached: workflowId={}, nodeId={}", workflowId, nodeId);
     return Mono.fromCallable(() -> controlBus.getLastHeartbeat(workflowId, nodeId))
         .map(hb -> ApiResponse.success(200, "Node heartbeat retrieved", hb));
   }
@@ -73,26 +71,28 @@ public class ControlBusController {
    *
    * @param workflowId the workflow identifier
    * @param nodeId the target node identifier
-   * @param payload the command payload
+   * @param request the command payload
    * @return a Mono of the response API response
    */
   @PostMapping("/control/workflows/{workflowId}/nodes/{nodeId}/command")
   @Operation(
       summary = "Send command to node in workflow",
       description = "Sends an administrative command to a specific node in a workflow")
-  public Mono<ApiResponse<Message<?>>> sendCommand(
+  public Mono<ApiResponse<NodeCommandResponse>> sendCommand(
       @PathVariable final String workflowId,
       @PathVariable final String nodeId,
-      @RequestBody final Map<String, Object> payload) {
-    log.atInfo().log("sendCommand reached: workflowId={}, nodeId={}", workflowId, nodeId);
+      @Valid @RequestBody final NodeCommandRequest request) {
     final Message<?> command =
-        DefaultMessage.create(null, payload)
+        DefaultMessage.create(null, request.payload())
             .withControl(true)
             .withSourceNodeId("CONSOLE")
             .withWorkflowId(workflowId);
     return controlBus
         .sendCommand(workflowId, nodeId, command)
-        .map(resp -> ApiResponse.success(200, "Command processed", resp));
+        .map(
+            resp ->
+                ApiResponse.success(
+                    200, "Command processed", new NodeCommandResponse(resp.getPayload())));
   }
 
   /**
@@ -105,7 +105,6 @@ public class ControlBusController {
       summary = "Get active nodes (global)",
       description = "Lists all nodes currently registered on the Control Bus across all workflows")
   public Mono<ApiResponse<List<String>>> getAllActiveNodes() {
-    log.atInfo().log("getAllActiveNodes reached");
     return Mono.fromCallable(controlBus::getActiveNodes)
         .map(nodes -> ApiResponse.success(200, "Active nodes retrieved", nodes));
   }
