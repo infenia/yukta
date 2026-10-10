@@ -13,18 +13,13 @@ import com.infenia.yukta.plugin.type.ProcessorPlugin;
 import com.infenia.yukta.plugin.util.SpelUtils;
 import com.infenia.yukta.util.MapUtils;
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import lombok.extern.slf4j.Slf4j;
-import org.graalvm.polyglot.Context;
-import org.graalvm.polyglot.Engine;
-import org.graalvm.polyglot.HostAccess;
-import org.graalvm.polyglot.Source;
-import org.graalvm.polyglot.Value;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -63,18 +58,28 @@ public class MapperProcessor implements ProcessorPlugin {
 
   private static final int SCRIPT_LIMIT = 50;
 
-  private static final Engine JS_ENGINE =
-      Engine.newBuilder().option("engine.WarnInterpreterOnly", "false").build();
+  private static final String ERR_NO_SCRIPT_ENGINE =
+      "SCRIPT mode needs the optional script-js plugin module (add it to yukta.plugins)";
 
   private Handlebars handlebars;
   private final MapMessageMapper mapMapper = new MapMessageMapper();
 
   private final Map<String, Template> templateCache = new ConcurrentHashMap<>();
-  private final Map<String, Source> jsSourceCache = new ConcurrentHashMap<>();
+  private final ObjectProvider<ScriptEngine> scriptEngines;
 
-  /** Default constructor. */
+  /** Constructor without a script engine: SCRIPT mode is rejected. */
   public MapperProcessor() {
-    super();
+    this.scriptEngines = null;
+  }
+
+  /**
+   * Spring constructor.
+   *
+   * @param scriptEngines the optional script engine
+   */
+  @Autowired
+  public MapperProcessor(final ObjectProvider<ScriptEngine> scriptEngines) {
+    this.scriptEngines = scriptEngines;
   }
 
   private Handlebars getHandlebars() {
@@ -138,8 +143,7 @@ public class MapperProcessor implements ProcessorPlugin {
     } else if (MODE_TEMPLATE.equals(mode)) {
       initializeTemplates(mapping);
     } else if (MODE_SCRIPT.equals(mode) && mapping instanceof String script) {
-      jsSourceCache.computeIfAbsent(
-          script, s -> Source.newBuilder("js", s, "mapper.js").buildLiteral());
+      requireScriptEngine().precompile(script);
     }
     return Mono.empty();
   }
@@ -307,23 +311,9 @@ public class MapperProcessor implements ProcessorPlugin {
       final String script,
       final boolean dropOriginal,
       final boolean strictMode) {
-    final Source source = jsSourceCache.get(script);
     Object finalResult;
-    try (Context context =
-        // nosem: yukta-graalvm-allow-host-class-lookup (trusted workflow scripts)
-        Context.newBuilder("js")
-            .engine(JS_ENGINE)
-            // nosem: yukta-graalvm-host-access-all (trusted workflow scripts)
-            .allowHostAccess(HostAccess.ALL)
-            .allowHostClassLookup(s -> true)
-            .build()) {
-      final Value bindings = context.getBindings("js");
-      bindings.putMember("message", message);
-      bindings.putMember("payload", message.payload());
-      bindings.putMember("metadata", message.metadata());
-
-      final Value scriptResult = context.eval(source);
-      final Object resultObj = detachValue(scriptResult);
+    try {
+      final Object resultObj = requireScriptEngine().eval(script, message);
 
       if (dropOriginal) {
         finalResult = resultObj;
@@ -346,34 +336,16 @@ public class MapperProcessor implements ProcessorPlugin {
     return finalResult;
   }
 
-  private Object detachValue(final Value value) {
-    if (value.isNull()) {
-      return null;
+  private ScriptEngine scriptEngine() {
+    return scriptEngines == null ? null : scriptEngines.getIfAvailable();
+  }
+
+  private ScriptEngine requireScriptEngine() {
+    final ScriptEngine scriptEngine = scriptEngine();
+    if (scriptEngine == null) {
+      throw new IllegalStateException(ERR_NO_SCRIPT_ENGINE);
     }
-    if (value.isNumber()) {
-      return value.as(Number.class);
-    }
-    if (value.isString()) {
-      return value.asString();
-    }
-    if (value.isBoolean()) {
-      return value.asBoolean();
-    }
-    if (value.hasArrayElements()) {
-      final List<Object> list = new ArrayList<>((int) value.getArraySize());
-      for (int i = 0; i < value.getArraySize(); i++) {
-        list.add(detachValue(value.getArrayElement(i)));
-      }
-      return list;
-    }
-    if (value.hasMembers()) {
-      final Map<String, Object> map = new HashMap<>();
-      for (final String key : value.getMemberKeys()) {
-        map.put(key, detachValue(value.getMember(key)));
-      }
-      return map;
-    }
-    return value.as(Object.class);
+    return scriptEngine;
   }
 
   @Override
@@ -386,6 +358,9 @@ public class MapperProcessor implements ProcessorPlugin {
       return Mono.error(
           new IllegalArgumentException(
               "Invalid or missing mode. Must be PROJECTION, TEMPLATE, or SCRIPT"));
+    }
+    if (MODE_SCRIPT.equals(mode) && scriptEngine() == null) {
+      return Mono.error(new IllegalArgumentException(ERR_NO_SCRIPT_ENGINE));
     }
     if (config.get(CONFIG_MAPPING) == null) {
       return Mono.error(new IllegalArgumentException("mapping is mandatory"));
