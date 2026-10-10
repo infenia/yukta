@@ -90,6 +90,14 @@ Malformed policies are rejected by `WorkflowValidator` with the node id and opti
   content). A prepared workflow is cached only if its definition is still the stored one.
 - Restarting a finished run goes through the same admission check as a start (HTTP 429 when full).
 
+### Control audit and stop mode
+Every control command sent to a known run is recorded in the execution log as `CONTROL_APPLIED`
+(status = command name) or `CONTROL_REJECTED` (status = `command: reason`). Commands for unknown
+executions are not recorded. `POST /api/workflow/{session}/{workflow}/stop?mode=DRAIN|CANCEL|KILL`
+selects how a run stops (default `DRAIN`). Restarting a run after a server restart is not supported:
+recovered runs are history only, because the archive and node outputs live in memory.
+`yukta.executions.running` and `yukta.executions.queued` gauges report the scheduler.
+
 ### Tracker queue
 State and workflow events are never dropped: they go to an unbounded queue. Log lines are best
 effort: more than 10000 waiting are dropped and counted in `yukta.tracker.dropped{type=log}`

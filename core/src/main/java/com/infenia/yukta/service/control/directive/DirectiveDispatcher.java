@@ -11,6 +11,8 @@ import com.infenia.yukta.service.control.CommandSequencer;
 import com.infenia.yukta.service.control.ControlBusService;
 import com.infenia.yukta.service.control.ExecutionControl;
 import com.infenia.yukta.service.control.store.ExecutionControlRegistry;
+import com.infenia.yukta.service.log.ExecutionLogEvent;
+import com.infenia.yukta.service.log.ExecutionLogStore;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import jakarta.annotation.PostConstruct;
 import java.util.Comparator;
@@ -46,6 +48,9 @@ public class DirectiveDispatcher {
   /** Finished executions that can still be restarted. */
   private final ExecutionArchive archive;
 
+  /** Records applied and rejected commands. */
+  private final ExecutionLogStore executionLog;
+
   /** Keeps commands of one execution in the order they were sent. */
   private final CommandSequencer sequencer = new CommandSequencer();
 
@@ -56,17 +61,20 @@ public class DirectiveDispatcher {
    * @param registry the live execution registry
    * @param controlBusService the control bus to subscribe to
    * @param archive finished executions that can still be restarted
+   * @param executionLog records applied and rejected commands
    */
   @SuppressFBWarnings("EI_EXPOSE_REP2")
   public DirectiveDispatcher(
       final List<ControlSignalProcessor> processors,
       final ExecutionControlRegistry registry,
       final ControlBusService controlBusService,
-      final ExecutionArchive archive) {
+      final ExecutionArchive archive,
+      final ExecutionLogStore executionLog) {
     this.processors = List.copyOf(processors);
     this.registry = registry;
     this.controlBusService = controlBusService;
     this.archive = archive;
+    this.executionLog = executionLog;
   }
 
   /** Registers this dispatcher as the executor of execution control commands. */
@@ -91,7 +99,22 @@ public class DirectiveDispatcher {
                 !isAddressable(command)
                     ? Mono.error(
                         new NotFoundException("Execution not found: " + command.executionId()))
-                    : dispatch(command)));
+                    : audited(command)));
+  }
+
+  /** Applies the command and records the outcome, so every command of a known run is traceable. */
+  private Mono<Void> audited(final ExecutionControlCommand command) {
+    final String name = command.getClass().getSimpleName();
+    return dispatch(command)
+        .doOnSuccess(
+            _ ->
+                executionLog.append(
+                    ExecutionLogEvent.control(true, command.executionId(), name, null)))
+        .doOnError(
+            error ->
+                executionLog.append(
+                    ExecutionLogEvent.control(
+                        false, command.executionId(), name, error.getMessage())));
   }
 
   /**
