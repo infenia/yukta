@@ -5,9 +5,14 @@
 
 > Scope: `ui/src` (React 19 + Vite + Tailwind 4; ≈4k non-test lines) reviewed on 2026-10-09 against `main` @ `8d3161b5`,
 > including a look at the current `dist/` build output.
+> **Status (2026-10-10): all twelve findings (U1–U12) are resolved.** Each finding below keeps its original
+> write-up and adds a **Resolved** note saying what was done.
 > Companion: [`ui-module-guide.html`](ui-module-guide.html) is the interactive guide.
 
 ## 1. Verdict
+
+The text of this section is the state at review time; see the resolution notes in section 2 and the
+updated scorecard.
 
 The UI is a modern, well-tested SPA:
 
@@ -36,14 +41,14 @@ The gaps:
 
 ### Scorecard
 
-| Area | Score | Notes |
-|---|---|---|
-| Architecture | 4.5/5 | Clean feature structure, typed API layer |
-| Tests | 4.5/5 | About 98% unit coverage plus E2E baselines |
-| Performance | 2/5 | 4 MB icon font, 887 KB single JS chunk, O(n) log append per line |
-| Resilience | 2/5 | No SSE reconnect. Error messages lost |
-| Contract alignment | 2.5/5 | Hand-maintained status and response types drift from the server |
-| Security | 4/5 | DOMPurify on plugin HTML. IDs not URL-encoded |
+| Area | At review | Now | Notes |
+|---|---|---|---|
+| Architecture | 4.5/5 | 4.5/5 | Clean feature structure, typed API layer |
+| Tests | 4.5/5 | 4.5/5 | Unit tests plus E2E baselines; new tests for every change |
+| Performance | 2/5 | 4.5/5 | 11 KB icon font, largest JS chunk 273 KB, batched and virtualised logs |
+| Resilience | 2/5 | 4.5/5 | SSE reconnects with backoff, server error messages reach users |
+| Contract alignment | 2.5/5 | 4/5 | Types generated from OpenAPI, drift guard in the build. Statuses stay strings until core S1 |
+| Security | 4/5 | 4.5/5 | CSP on index.html, IDs URL-encoded |
 
 ---
 
@@ -54,6 +59,7 @@ Severity: **P0** fix now · **P1** fix next · **P2** should fix · **P3** clean
 ### 2.1 Performance
 
 #### U1 · P1 · A 3.96 MB icon font for a few dozen icons — Effort S
+- **Resolved:** src/assets/material-symbols-subset.woff2 (11 KB, down from 3.96 MB) holds only the icons the UI and the built-in plugins use, at the one axis setting index.css applies. `pnpm run icons` regenerates it from Google Fonts (scripts/subset-icons.mjs scans src for icon names; plugin icons are listed in PLUGIN_ICONS). lucide-react is removed; the breadcrumb uses Material Symbols. The build fails if the icon font exceeds 100 KB.
 - **Where:** `src/index.css` has `@import 'material-symbols/outlined.css'`. `dist/assets` contains
   `material-symbols-outlined-*.woff2` at **3,960,036 bytes**. `lucide-react` is also a dependency.
 - **Impact:** Every first visit downloads about 4 MB before icons render. That's over 80% of the
@@ -65,6 +71,7 @@ Severity: **P0** fix now · **P1** fix next · **P2** should fix · **P3** clean
   names. Replace those with an icon name that the UI maps (plugin-api A13, plugins G22).
 
 #### U2 · P1 · A single 887 KB JS chunk — Effort S
+- **Resolved:** The session-details and workflow-details routes are lazy (`lazy` in routes/router.tsx), so React Flow and dagre load only on the workflow page. vite.config.ts splits react, tanstack, router and ui-kit vendor chunks. The largest chunk is 273 KB, and `scripts/check-bundle-size.js` (run by `pnpm run build`) fails above 300 KB. First load is about 770 KB uncompressed (about 230 KB gzipped).
 - **Where:** `dist/assets/index-*.js` is 887,435 bytes. The routes aren't lazy.
 - **Fix:** Use `lazy(() => import(...))` per route in `routes/router.tsx` so React Flow and dagre
   only load on the workflow page. Add
@@ -72,6 +79,7 @@ Severity: **P0** fix now · **P1** fix next · **P2** should fix · **P3** clean
   size budget in CI (for example `vite build` plus a check that the largest chunk is under 300 KB).
 
 #### U3 · P2 · Log streaming copies the whole buffer on every line — Effort S
+- **Resolved:** useExecutionLogs buffers incoming lines and flushes once every 100 ms (LOG_FLUSH_MS), so a burst is one state update. LogsPanel renders through @tanstack/react-virtual with fixed 20 px rows, so only the visible window of the 2,000-line buffer is in the DOM.
 - **Where:** `useExecutionLogs` does `setEntries(prev => [...prev, entry])` with up to 2,000
   entries, and re-renders once per line. `LogsPanel` renders every visible entry, with no
   virtualisation.
@@ -84,6 +92,7 @@ Severity: **P0** fix now · **P1** fix next · **P2** should fix · **P3** clean
 ### 2.2 Resilience and correctness
 
 #### U4 · P1 · SSE views never reconnect — Effort S
+- **Resolved:** useEventSourceJson reopens a failed stream with exponential backoff (1 s doubling to 30 s, reset when a connection opens) while its `reconnect` flag is true. The progress stream stops with the execution (its URL becomes null once terminal). The log stream keeps retrying while the execution is not terminal, and drops the history the server replays on each connection by (timestamp, plugin, stream, message). A new EventSource does not send Last-Event-ID, so replay-and-dedupe is used instead of resume.
 - **Where:** `hooks/useEventSourceJson.ts`: `onerror` calls `source.close()` and sets
   `status: 'error'`.
 - **Impact:** A server restart, a proxy idle timeout (the server sends no heartbeat, web W9) or
@@ -93,6 +102,7 @@ Severity: **P0** fix now · **P1** fix next · **P2** should fix · **P3** clean
   replayed history by `(timestamp, nodeId, line)`.
 
 #### U5 · P1 · Stopping one node makes the UI treat the execution as finished — Effort S
+- **Resolved:** NODE_STOPPED is no longer terminal and maps to `running`, because core writes it as the workflow status while the other nodes keep going (a regression test covers it). The other NODE_* values were never in the terminal set. The statuses are free-form strings in the OpenAPI document, so a generated status union is not possible until core S1 adds an enum.
 - **Where:** `statusMapper.ts`: `TERMINAL_EXEC_STATUSES` includes `NODE_STOPPED`, and
   `EXEC_STATUS_MAP` maps it to `stopped`. Core writes `NODE_STOPPED` as the *workflow* status
   when a single node is stopped (core C1).
@@ -101,6 +111,7 @@ Severity: **P0** fix now · **P1** fix next · **P2** should fix · **P3** clean
   server's OpenAPI enum.
 
 #### U6 · P1 · `fetchApi` shows the wrong message, mistypes errors, and can drop headers — Effort S
+- **Resolved:** fetchApi spreads `...options` first and merges headers last, so Content-Type survives. Errors use `json.message` (falling back to the status text when the body is not JSON), `errors` is typed `FieldError[]`, success is decided by `response.ok` (204 returns undefined), and a non-JSON success body is a clear error.
 - **Where:** `lib/apiClient.ts`.
   1. `new ApiError(json.status, json.error, …)`: `error` is the reason phrase, so users see
      "Bad Request" instead of `json.message` ("Validation failed: …").
@@ -118,6 +129,7 @@ Severity: **P0** fix now · **P1** fix next · **P2** should fix · **P3** clean
   ```
 
 #### U7 · P2 · IDs aren't URL-encoded — Effort S
+- **Resolved:** A new `api` tagged template (lib/apiClient.ts) applies encodeURIComponent to every interpolated value. All seven call sites use it.
 - **Where:** `getWorkflowGraph`, `getWorkflowProgress`, `getWorkflowExecutions`,
   `getSessionWorkflows`, `getSessionDetails`, `useExecutionLogs` and `useExecutionProgress` build
   `` `/api/sessions/${sessionId}/…` ``.
@@ -133,13 +145,23 @@ Severity: **P0** fix now · **P1** fix next · **P2** should fix · **P3** clean
 | U11 | The SPA serves `dist/` with a one-year cache for `/assets/**` (correct, hashed) but `index.html` only gets `no-cache`. There's no CSP header for the injected plugin HTML | Add a `Content-Security-Policy` on `index.html` (boot): `default-src 'self'; style-src 'self' 'unsafe-inline'` | S |
 | U12 | `CLAUDE.md` is stale: it lists TanStack Table 8 (now 9.1.2, #248) and Vite "7+" (8.x is installed); it refers to `ui/docs/design/DESIGN.md` and mockups that no longer exist; it calls SSE "future" (it's implemented); and it says `cd frontend` | Update the docs | S |
 
+**Resolutions (U8–U12)**
+
+| ID | Resolved |
+|---|---|
+| U8 | `pnpm run api:types` writes src/types/api.generated.ts from /v3/api-docs (openapi-typescript); `-- --check` fails when the committed file is stale, for CI against a booted server. A compile-time test (types/__tests__/apiContract.test.ts) fails the type check (`tsc -p tsconfig.vitest.json`, part of `pnpm run build`) when a hand-written UI type and its server schema stop having the same fields. The hand-written types stay as the working types because the generated ones mark every field optional. Also fixed on the way: boot's SPA fallback was serving index.html for /v3/** and Swagger UI. |
+| U9 | shadcn, tailwindcss and @tailwindcss/vite moved to devDependencies (material-symbols too, as it is now only read by the icon script). |
+| U10 | package.json is `yukta-ui` at 0.0.1-SNAPSHOT. The `verifyPackageVersion` Gradle task, part of `:ui:check`, fails when it differs from the Gradle project version. |
+| U11 | SpaWebFluxConfig sends `Content-Security-Policy: default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'` with index.html. To make that workable, the inline theme script moved to /theme-init.js and the unused Google Fonts links were removed. |
+| U12 | ui/CLAUDE.md now lists TanStack Table 9 and Vite 8, drops the missing design spec and mockups, describes the implemented SSE hooks, the icon subset and the bundle budget, and says `cd ui`. |
+
 ---
 
 ## 3. Roadmap
 
-| Phase | Items | Outcome |
-|---|---|---|
-| **1. Weight loss** (1 day) | U1, U2 | First load drops from about 4.9 MB to under 1 MB |
-| **2. Live views that survive** (1 day) | U4, U5, U3 | Progress and logs keep updating, smoothly |
-| **3. Honest errors** (½ day) | U6, U7 | Users see the server's real message |
-| **4. Contract** (1–2 days) | U8, U9, U10, U11, U12 | Types generated from the server, tidy dependencies, CSP |
+| Phase | Items | Outcome | Status |
+|---|---|---|---|
+| **1. Weight loss** (1 day) | U1, U2 | First load drops from about 4.9 MB to under 1 MB (now about 770 KB uncompressed) | Done |
+| **2. Live views that survive** (1 day) | U4, U5, U3 | Progress and logs keep updating, smoothly | Done |
+| **3. Honest errors** (½ day) | U6, U7 | Users see the server's real message | Done |
+| **4. Contract** (1–2 days) | U8, U9, U10, U11, U12 | Types generated from the server, tidy dependencies, CSP | Done |
