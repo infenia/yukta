@@ -2356,4 +2356,49 @@ class WorkflowControllerTest {
             .returnResult();
     assertThat(result.getStatus().value()).isEqualTo(500);
   }
+
+  @Test
+  @SuppressWarnings("PMD.UnitTestShouldIncludeAssert")
+  void testTriggerWorkflowWithIdempotencyKeyUsesTheKeyedStart() {
+    final WorkflowExecution execution =
+        new WorkflowExecution("exec-idem", Mono.just(new TaskResponse("PENDING", "ok")));
+    when(workflowService.validateAndStartWorkflow(
+            eq(SESSION_ID_1), eq("w1"), anyMap(), eq("retry-key-1")))
+        .thenReturn(Mono.just(execution));
+
+    webClient
+        .post()
+        .uri(API_WORKFLOW_START)
+        .header("Idempotency-Key", "retry-key-1")
+        .contentType(MediaType.APPLICATION_JSON)
+        .bodyValue(new WorkflowStartRequest(SESSION_ID_1, "w1"))
+        .exchange()
+        .expectStatus()
+        .isAccepted()
+        .expectBody()
+        .jsonPath(DOLLAR_DATA_EXECUTION_ID)
+        .isEqualTo("exec-idem");
+  }
+
+  @Test
+  @SuppressWarnings("PMD.UnitTestShouldIncludeAssert")
+  void testTriggerWorkflowAtTheExecutionLimitIsTooManyRequests() {
+    when(workflowService.validateAndStartWorkflow(anyString(), anyString(), anyMap()))
+        .thenReturn(
+            Mono.error(
+                new com.infenia.yukta.service.control.ExecutionRejectedException(
+                    "Execution limit reached")));
+
+    WebTestClient.bindToController(
+            new WorkflowController(workflowService, controlBusGateway, sessionService))
+        .controllerAdvice(new com.infenia.yukta.exception.GlobalExceptionHandler())
+        .build()
+        .post()
+        .uri(API_WORKFLOW_START)
+        .contentType(MediaType.APPLICATION_JSON)
+        .bodyValue(new WorkflowStartRequest(SESSION_ID_1, "w1"))
+        .exchange()
+        .expectStatus()
+        .isEqualTo(429);
+  }
 }

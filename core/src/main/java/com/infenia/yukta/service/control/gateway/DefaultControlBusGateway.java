@@ -26,6 +26,7 @@ import com.infenia.yukta.plugin.core.Plugin;
 import com.infenia.yukta.service.archive.ExecutionArchive;
 import com.infenia.yukta.service.control.ControlBusService;
 import com.infenia.yukta.service.control.ExecutionControl;
+import com.infenia.yukta.service.control.ExecutionScheduler;
 import com.infenia.yukta.service.control.store.ExecutionControlRegistry;
 import com.infenia.yukta.service.orchestrator.WorkflowOrchestrator;
 import com.infenia.yukta.service.orchestrator.tracker.DefaultTaskTrackerService;
@@ -95,6 +96,15 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
 
   /** The prepared workflow cache for caching compiled workflows. */
   private final PreparedWorkflowCache preparedWorkflowCache;
+
+  /** Limits and queues concurrent executions. */
+  private final ExecutionScheduler executionScheduler;
+
+  /** Makes starts safe to retry. */
+  private final StartIdempotency startIdempotency;
+
+  /** Preparations in flight, so concurrent starts of one workflow prepare it once. */
+  private final Map<String, Mono<PreparedWorkflow>> preparing = new ConcurrentHashMap<>();
 
   private <T extends ExecutionControlCommand> Message<T> buildCommand(
       final T command, final int priority) {
@@ -217,6 +227,23 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
   @Override
   public Mono<String> startWorkflow(
       final String sessionId, final String workflowId, final Map<String, Object> payload) {
+    return startOnce(sessionId, workflowId, payload);
+  }
+
+  @Override
+  public Mono<String> startWorkflow(
+      final String sessionId,
+      final String workflowId,
+      final Map<String, Object> payload,
+      final String idempotencyKey) {
+    return startIdempotency.once(
+        sessionId + "\0" + workflowId,
+        idempotencyKey,
+        () -> startOnce(sessionId, workflowId, payload));
+  }
+
+  private Mono<String> startOnce(
+      final String sessionId, final String workflowId, final Map<String, Object> payload) {
     log.atInfo()
         .addKeyValue("sessionId", sessionId)
         .addKeyValue("workflowId", workflowId)
@@ -247,6 +274,8 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
                   .addKeyValue("edgeCount", def.edges().size())
                   .log("Workflow definition found and loaded");
 
+              // Refuse at once, with a reason, a start that could neither run nor be queued.
+              executionScheduler.assertCanAccept(sessionId, workflowId);
               final String executionId = UUID.randomUUID().toString();
               return prepareAndExecute(sessionId, workflowId, def, executionId, payload);
             })
@@ -264,6 +293,29 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
                     .addKeyValue("sessionId", sessionId)
                     .addKeyValue("workflowId", workflowId)
                     .log("Failed to start workflow execution"));
+  }
+
+  /** Prepares a workflow once even when several starts ask for it at the same time. */
+  private Mono<PreparedWorkflow> prepareShared(
+      final String sessionId,
+      final String workflowId,
+      final WorkflowDefinition def,
+      final String executionId) {
+    final String key = sessionId + "\0" + workflowId;
+    return preparing.computeIfAbsent(
+        key,
+        _ ->
+            orchestrator
+                .prepareWorkflow(def)
+                .doOnNext(
+                    prepared -> {
+                      log.atDebug()
+                          .addKeyValue("executionId", executionId)
+                          .log("Workflow prepared and caching");
+                      preparedWorkflowCache.put(sessionId, workflowId, prepared);
+                    })
+                .doFinally(_ -> preparing.remove(key))
+                .cache());
   }
 
   private Mono<String> prepareAndExecute(
@@ -290,15 +342,7 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
                     .log("Using cached PreparedWorkflow");
                 return Mono.just(cached.get());
               } else {
-                return orchestrator
-                    .prepareWorkflow(def)
-                    .doOnNext(
-                        prepared -> {
-                          log.atDebug()
-                              .addKeyValue("executionId", executionId)
-                              .log("Workflow prepared and caching");
-                          preparedWorkflowCache.put(sessionId, workflowId, prepared);
-                        });
+                return prepareShared(sessionId, workflowId, def, executionId);
               }
             })
         .flatMap(

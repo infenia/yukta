@@ -59,13 +59,34 @@ public class WorkflowService {
       @SessionId final String sessionId,
       @WorkflowId final String workflowId,
       final Map<String, Object> payload) {
+    return validateAndStartWorkflow(sessionId, workflowId, payload, null);
+  }
+
+  /**
+   * Validate and run a workflow, safely retryable with an idempotency key.
+   *
+   * @param sessionId the session identifier
+   * @param workflowId the workflow identifier
+   * @param payload the trigger payload
+   * @param idempotencyKey the client's key; a repeat within the window returns the first execution
+   * @return a Mono containing the WorkflowExecution
+   * @throws IllegalArgumentException if session or workflow not found
+   */
+  public Mono<WorkflowExecution> validateAndStartWorkflow(
+      @SessionId final String sessionId,
+      @WorkflowId final String workflowId,
+      final Map<String, Object> payload,
+      final String idempotencyKey) {
     log.atInfo()
         .addKeyValue(LOG_KEY_SESSION_ID, sessionId)
         .addKeyValue(LOG_KEY_WORKFLOW_ID, workflowId)
         .log("Validating and triggering workflow");
 
-    return controlBus
-        .startWorkflow(sessionId, workflowId, payload)
+    final Mono<String> started =
+        idempotencyKey == null
+            ? controlBus.startWorkflow(sessionId, workflowId, payload)
+            : controlBus.startWorkflow(sessionId, workflowId, payload, idempotencyKey);
+    return started
         .map(
             executionId -> {
               log.atDebug()
