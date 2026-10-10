@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import { useCallback, useState } from 'react';
+import { api } from '@/lib/apiClient';
 import { useEventSourceJson } from '@/hooks/useEventSourceJson';
 import type { LogEntry } from '../types/workflow';
 
@@ -13,7 +14,10 @@ export const MAX_LOG_ENTRIES = 2000;
  *
  * Entries accumulate in a capped ring buffer that resets when the execution changes.
  */
-export function useExecutionLogs(sessionId: string, executionId: string | null) {
+export function useExecutionLogs(
+  sessionId: string,
+  executionId: string | null
+) {
   const [entries, setEntries] = useState<LogEntry[]>([]);
   const [bufferExecutionId, setBufferExecutionId] = useState(executionId);
 
@@ -25,13 +29,15 @@ export function useExecutionLogs(sessionId: string, executionId: string | null) 
 
   const url =
     sessionId && executionId
-      ? `/api/sessions/${sessionId}/executions/${executionId}/logs/entries`
+      ? api`/api/sessions/${sessionId}/executions/${executionId}/logs/entries`
       : null;
 
   const onEntry = useCallback((entry: LogEntry) => {
     setEntries((previous) => {
       const next = [...previous, entry];
-      return next.length > MAX_LOG_ENTRIES ? next.slice(next.length - MAX_LOG_ENTRIES) : next;
+      return next.length > MAX_LOG_ENTRIES
+        ? next.slice(next.length - MAX_LOG_ENTRIES)
+        : next;
     });
   }, []);
 

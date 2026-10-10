@@ -9,24 +9,30 @@ import { ApiError } from '@/lib/apiClient';
 import { createMockGraph } from '@/test/factories/workflowFactory';
 
 const server = setupServer(
-  http.get('/api/sessions/:sessionId/workflows/:workflowId/graph', ({ params }) => {
-    if (params.workflowId === 'missing') {
+  http.get(
+    '/api/sessions/:sessionId/workflows/:workflowId/graph',
+    ({ params }) => {
+      if (params.workflowId === 'missing') {
+        return HttpResponse.json(
+          {
+            timestamp: '2026-07-26T00:00:00Z',
+            status: 404,
+            message: 'Not found',
+            error: 'Workflow not found',
+            path: '/api/sessions/s1/workflows/missing/graph',
+          },
+          { status: 404 }
+        );
+      }
       return HttpResponse.json({
         timestamp: '2026-07-26T00:00:00Z',
-        status: 404,
-        message: 'Not found',
-        error: 'Workflow not found',
-        path: '/api/sessions/s1/workflows/missing/graph',
+        status: 200,
+        message: 'Workflow graph retrieved',
+        data: createMockGraph(),
+        path: '/api/sessions/s1/workflows/wf-982-xk-11/graph',
       });
     }
-    return HttpResponse.json({
-      timestamp: '2026-07-26T00:00:00Z',
-      status: 200,
-      message: 'Workflow graph retrieved',
-      data: createMockGraph(),
-      path: '/api/sessions/s1/workflows/wf-982-xk-11/graph',
-    });
-  })
+  )
 );
 
 beforeAll(() => server.listen());
@@ -42,6 +48,8 @@ describe('getWorkflowGraph', () => {
   });
 
   it('throws ApiError for a missing workflow', async () => {
-    await expect(getWorkflowGraph('s1', 'missing')).rejects.toBeInstanceOf(ApiError);
+    await expect(getWorkflowGraph('s1', 'missing')).rejects.toBeInstanceOf(
+      ApiError
+    );
   });
 });
