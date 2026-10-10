@@ -9,6 +9,9 @@ import com.infenia.yukta.model.workflow.PreparedWorkflow;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.model.workflow.WorkflowNode;
 import com.infenia.yukta.plugin.store.NodeCheckpointStore;
+import com.infenia.yukta.service.archive.ArchivedExecution;
+import com.infenia.yukta.service.archive.DefinitionVersion;
+import com.infenia.yukta.service.archive.ExecutionArchive;
 import com.infenia.yukta.service.control.ExecutionControl;
 import com.infenia.yukta.service.control.factory.ExecutionControlFactory;
 import com.infenia.yukta.service.control.store.ExecutionControlRegistry;
@@ -21,7 +24,6 @@ import com.infenia.yukta.validation.WorkflowId;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
@@ -37,6 +39,7 @@ import reactor.util.context.Context;
 @Service
 @Validated
 @RequiredArgsConstructor
+@SuppressWarnings("PMD.ExcessiveImports")
 public class WorkflowOrchestrator {
 
   /** Log key for session ID. */
@@ -62,6 +65,9 @@ public class WorkflowOrchestrator {
 
   /** The node checkpoint store for persisting node state. */
   private final NodeCheckpointStore checkpointStore;
+
+  /** Keeps recent executions restartable. */
+  private final ExecutionArchive executionArchive;
 
   /** The workflow compiler for compiling workflow definitions. */
   private final WorkflowCompiler compiler;
@@ -124,6 +130,8 @@ public class WorkflowOrchestrator {
         .addKeyValue(LOG_KEY_EXECUTION_ID, executionId)
         .log("Registered execution control");
 
+    archive(executionId, sessionId, workflowId, prepared, payload);
+
     final List<String> nodeIds =
         prepared.topologicalOrder().stream().map(WorkflowNode::nodeId).toList();
 
@@ -151,7 +159,7 @@ public class WorkflowOrchestrator {
    * @param newExecutionId the new execution identifier
    * @param prepared the prepared workflow
    * @param restartNodeId the node from which to resume execution
-   * @param parentCheckpoints map of parentNodeId to the checkpoint message to replay
+   * @param boundaryOutputs recorded output of each node that feeds the re-run part, by node id
    * @return a Mono that completes when the restarted execution finishes
    */
   @SuppressWarnings({"PMD.UseObjectForClearerAPI", "PMD.OnlyOneReturn"})
@@ -162,7 +170,14 @@ public class WorkflowOrchestrator {
       final String newExecutionId,
       final PreparedWorkflow prepared,
       final String restartNodeId,
-      final Map<String, Message<?>> parentCheckpoints) {
+      final Map<String, List<Message<?>>> boundaryOutputs) {
+
+    final RestartPlan plan;
+    try {
+      plan = RestartPlan.compute(prepared, restartNodeId);
+    } catch (final IllegalArgumentException e) {
+      return Mono.error(e);
+    }
 
     log.atInfo()
         .addKeyValue(LOG_KEY_SESSION_ID, sessionId)
@@ -170,37 +185,27 @@ public class WorkflowOrchestrator {
         .addKeyValue("previousExecutionId", previousExecutionId)
         .addKeyValue(LOG_KEY_EXECUTION_ID, newExecutionId)
         .addKeyValue("restartNodeId", restartNodeId)
-        .addKeyValue("checkpointCount", parentCheckpoints.size())
+        .addKeyValue("rerunNodes", plan.rerun().size())
+        .addKeyValue("replayedNodes", plan.boundary())
         .log("Starting workflow restart from node");
 
     final List<WorkflowNode> topologicalOrder = prepared.topologicalOrder();
     final int nodeCount = topologicalOrder.size();
-    @SuppressWarnings("PMD.UseConcurrentHashMap")
-    final Map<String, Integer> nodeToIndex = new HashMap<>(nodeCount);
-    for (int i = 0; i < nodeCount; i++) {
-      nodeToIndex.put(topologicalOrder.get(i).nodeId(), i);
-    }
-
-    final Integer restartIndex = nodeToIndex.get(restartNodeId);
-    if (restartIndex == null) {
-      return Mono.error(new IllegalArgumentException("Unknown restart node: " + restartNodeId));
-    }
-    log.atDebug()
-        .addKeyValue("restartNodeId", restartNodeId)
-        .addKeyValue("restartIndex", restartIndex)
-        .addKeyValue(LOG_KEY_NODE_COUNT, nodeCount)
-        .log("Computed restart index for workflow node");
     final NodeAssembler[] assemblers =
         compiler.compileAssemblers(
             prepared.edges(), prepared.parentsList(), prepared.pluginCache(), topologicalOrder);
 
-    // Replace pre-restart assemblers with bypass or checkpoint-replay variants
-    for (int i = 0; i < restartIndex; i++) {
-      final WorkflowNode node = topologicalOrder.get(i);
+    // Nodes outside the re-run set do not run: the ones feeding it replay what they recorded, the
+    // rest stay silent, so independent branches are not executed again.
+    for (int i = 0; i < nodeCount; i++) {
+      final String nodeId = topologicalOrder.get(i).nodeId();
       final int idx = i;
-      final Message<?> checkpoint = parentCheckpoints.get(node.nodeId());
-      if (checkpoint != null) {
-        assemblers[idx] = context -> context.streams()[idx] = Flux.just(checkpoint);
+      if (plan.rerun().contains(nodeId)) {
+        continue;
+      }
+      if (plan.boundary().contains(nodeId)) {
+        final List<Message<?>> recorded = boundaryOutputs.getOrDefault(nodeId, List.of());
+        assemblers[idx] = context -> context.streams()[idx] = Flux.fromIterable(recorded);
       } else {
         assemblers[idx] = context -> context.streams()[idx] = Flux.empty();
       }
@@ -211,9 +216,21 @@ public class WorkflowOrchestrator {
     final ExecutionControl control =
         executionControlFactory.create(sessionId, workflowId, newExecutionId, prepared, Map.of());
     executionControlRegistry.register(control);
+    archive(newExecutionId, sessionId, workflowId, prepared, Map.of());
     log.atDebug()
         .addKeyValue(LOG_KEY_EXECUTION_ID, newExecutionId)
         .log("Registered execution control for restarted workflow");
+
+    // Record the replayed input under the new execution, so it can be restarted in turn.
+    final Mono<Void> recordReplayed =
+        Flux.fromIterable(boundaryOutputs.entrySet())
+            .concatMap(
+                entry ->
+                    Flux.fromIterable(entry.getValue())
+                        .concatMap(
+                            message ->
+                                checkpointStore.save(newExecutionId, entry.getKey(), message)))
+            .then();
 
     return runTracked(
         control,
@@ -221,9 +238,29 @@ public class WorkflowOrchestrator {
         workflowId,
         newExecutionId,
         nodeIds,
-        compiler.executeTemplate(
-            newExecutionId, Map.of(), nodeCount, assemblers, sessionId, workflowId, nodeIds),
+        recordReplayed.then(
+            compiler.executeTemplate(
+                newExecutionId, Map.of(), nodeCount, assemblers, sessionId, workflowId, nodeIds)),
         "RestartFromNode execution");
+  }
+
+  /** Remembers an execution so it can be restarted, and frees what older ones recorded. */
+  private void archive(
+      final String executionId,
+      final String sessionId,
+      final String workflowId,
+      final PreparedWorkflow prepared,
+      final Map<String, Object> payload) {
+    executionArchive
+        .put(
+            new ArchivedExecution(
+                executionId,
+                sessionId,
+                workflowId,
+                prepared,
+                DefinitionVersion.of(prepared),
+                payload))
+        .forEach(checkpointStore::clear);
   }
 
   /**
@@ -280,7 +317,6 @@ public class WorkflowOrchestrator {
         .doFinally(
             signal -> {
               executionControlRegistry.unregister(executionId);
-              checkpointStore.clear(executionId);
               log.atDebug()
                   .addKeyValue(LOG_KEY_EXECUTION_ID, executionId)
                   .addKeyValue("signal", signal)
