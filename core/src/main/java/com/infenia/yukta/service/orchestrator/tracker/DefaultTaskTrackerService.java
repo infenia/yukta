@@ -598,6 +598,7 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
    * @param nodeStatuses final status of each node
    * @param started when it started
    * @param ended when it ended
+   * @param definitionVersion content hash of the graph the run used, or null if not recorded
    */
   @SuppressWarnings("PMD.UseObjectForClearerAPI")
   public void restore(
@@ -607,7 +608,8 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
       final String status,
       final Map<String, String> nodeStatuses,
       final Instant started,
-      final Instant ended) {
+      final Instant ended,
+      final String definitionVersion) {
     final WorkflowState state =
         new WorkflowState(
             executionId,
@@ -619,9 +621,11 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
     nodeStatuses.forEach(
         (nodeId, nodeStatus) -> state.updateTask(nodeId, "", nodeStatus, Map.of()));
     state.setEndTime(LocalDateTime.ofInstant(ended, ZoneId.systemDefault()));
+    state.definitionVersion = definitionVersion;
     sessionStates
         .computeIfAbsent(sessionId, _ -> new ConcurrentHashMap<>())
         .put(executionId, state);
+    executionIndex.put(executionId, state);
   }
 
   /**

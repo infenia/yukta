@@ -9,6 +9,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -38,6 +39,7 @@ import reactor.test.StepVerifier;
   "PMD.CommentRequired",
   "PMD.AvoidDuplicateLiterals",
   "PMD.TooManyMethods",
+  "PMD.ExcessiveImports",
   "PMD.TooManyStaticImports",
   "PMD.LawOfDemeter"
 })
@@ -130,10 +132,10 @@ class ExecutionResumerTest {
   @Test
   void runCanBeResumedOnlyOnce() {
     abortedRun(DefinitionVersion.of(prepared), "a");
-    final String first = resumer.resume("old").block();
+    assertThat(resumer.resume("old").block()).isNotNull();
 
     StepVerifier.create(resumer.resume("old"))
-        .expectErrorSatisfies(e -> assertThat(e).hasMessageContaining(first))
+        .expectErrorSatisfies(e -> assertThat(e).hasMessageContaining("already resumed"))
         .verify();
   }
 
@@ -197,5 +199,28 @@ class ExecutionResumerTest {
     abortedRun(DefinitionVersion.of(prepared), "a", "b", "c");
 
     StepVerifier.create(resumer.resume("old")).expectError(IllegalStateException.class).verify();
+  }
+
+  @Test
+  void twoResumesAtOnce_startOnlyOneRun() {
+    abortedRun(DefinitionVersion.of(prepared), "a");
+    final Mono<String> first = resumer.resume("old").cache();
+    first.subscribe();
+
+    StepVerifier.create(resumer.resume("old"))
+        .expectErrorSatisfies(e -> assertThat(e).hasMessageContaining("resumed"))
+        .verify();
+
+    assertThat(first.block()).isNotNull();
+    verify(orchestrator, times(1))
+        .rerun(any(), any(), any(), any(), any(), any(), any(), any(), any());
+  }
+
+  @Test
+  void failedResume_releasesTheClaim_soItCanBeRetried() {
+    StepVerifier.create(resumer.resume("nope")).expectError().verify();
+    abortedRun(DefinitionVersion.of(prepared), "a");
+
+    StepVerifier.create(resumer.resume("old")).expectNextCount(1).verifyComplete();
   }
 }

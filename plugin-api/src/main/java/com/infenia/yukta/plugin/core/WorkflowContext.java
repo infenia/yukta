@@ -14,8 +14,8 @@ public record WorkflowContext(
 
   /**
    * Reactor context key of a {@link Runnable} a long-running plugin calls to tell the engine it is
-   * alive, which restarts the node's idle timeout: {@code Mono.deferContextual(ctx -> ((Runnable)
-   * ctx.get(HEARTBEAT_KEY)).run())}. Absent outside a workflow run.
+   * alive, which restarts the node's idle timeout: {@code Mono.deferContextual(ctx ->
+   * Mono.fromRunnable((Runnable) ctx.get(HEARTBEAT_KEY)))}. Absent outside a workflow run.
    */
   public static final String HEARTBEAT_KEY = "yukta.heartbeat";
 

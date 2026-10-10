@@ -17,6 +17,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -53,6 +54,9 @@ public class ExecutionResumer {
   /** Admits the resumed execution like any other start. */
   private final ExecutionScheduler scheduler;
 
+  /** Runs being resumed or already resumed by this process; a claim is kept once it succeeded. */
+  private final Set<String> resuming = ConcurrentHashMap.newKeySet();
+
   /**
    * Resumes an aborted run as a new run.
    *
@@ -62,6 +66,19 @@ public class ExecutionResumer {
    * @throws IllegalStateException if it cannot be resumed
    */
   public Mono<String> resume(final String executionId) {
+    return Mono.defer(
+        () -> {
+          // One resume at a time per run: the log only shows RUN_RESUMED once it has started.
+          if (!resuming.add(executionId)) {
+            return Mono.error(
+                new IllegalStateException(
+                    "Execution " + executionId + " is being resumed or was already resumed"));
+          }
+          return doResume(executionId).doOnError(_ -> resuming.remove(executionId));
+        });
+  }
+
+  private Mono<String> doResume(final String executionId) {
     return Mono.defer(
         () -> {
           final List<ExecutionLogEvent> events =
