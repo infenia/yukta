@@ -6,7 +6,7 @@ plugins {
 
 dependencies {
     api(libs.reactor.core)
-    implementation(libs.spring.boot.starter)
+    api(libs.spring.boot.autoconfigure)
 }
 
 coverageConfig {

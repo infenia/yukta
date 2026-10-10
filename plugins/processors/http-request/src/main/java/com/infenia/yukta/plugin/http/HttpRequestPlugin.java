@@ -143,7 +143,7 @@ public class HttpRequestPlugin implements ProcessorPlugin {
     payload.put("success", result.isSuccess());
     payload.put("headers", result.headers());
     payload.put(BODY, parseBody(result));
-    final Map<String, Object> metadata = new HashMap<>(original.getMetadata());
+    final Map<String, Object> metadata = new HashMap<>(original.metadata());
     metadata.put(STATUS_KEY, result.status());
     final Message<?> output = DefaultMessage.from(original, payload).withMetadata(metadata);
     // from() inherits the upstream port, so always stamp one explicitly

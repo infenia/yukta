@@ -32,9 +32,9 @@ public final class MergeUtils {
             : new ArrayList<>(messages.keySet());
     for (final String sourceId : order) {
       final Message<?> msg = messages.get(sourceId);
-      if (msg != null && msg.getPayload() instanceof Map) {
+      if (msg != null && msg.payload() instanceof Map) {
         @SuppressWarnings("unchecked")
-        final Map<String, Object> payloadMap = (Map<String, Object>) msg.getPayload();
+        final Map<String, Object> payloadMap = (Map<String, Object>) msg.payload();
         deepMerge(result, payloadMap);
       }
     }

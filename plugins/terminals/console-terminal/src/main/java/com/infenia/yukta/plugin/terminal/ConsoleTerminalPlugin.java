@@ -69,6 +69,6 @@ public class ConsoleTerminalPlugin implements TerminalPlugin {
 
   @Override
   public Mono<Void> consume(final Flux<Message<?>> input, final Map<String, Object> config) {
-    return input.doOnNext(msg -> log.info("Consuming message: {}", msg.getPayload())).then();
+    return input.doOnNext(msg -> log.info("Consuming message: {}", msg.payload())).then();
   }
 }

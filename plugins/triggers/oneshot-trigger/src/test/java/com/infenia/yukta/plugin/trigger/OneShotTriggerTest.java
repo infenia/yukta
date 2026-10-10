@@ -26,14 +26,14 @@ class OneShotTriggerTest {
   @Test
   void start_emitsExactlyOneMessage() {
     StepVerifier.create(trigger.start(Map.of()))
-        .assertNext(message -> assertThat(message.getPayload()).isNotNull())
+        .assertNext(message -> assertThat(message.payload()).isNotNull())
         .verifyComplete();
   }
 
   @Test
   void start_emittedMessageHasEmptyMapPayload() {
     StepVerifier.create(trigger.start(Map.of()))
-        .assertNext(message -> assertThat(message.getPayload()).isEqualTo(Map.of()))
+        .assertNext(message -> assertThat(message.payload()).isEqualTo(Map.of()))
         .verifyComplete();
   }
 
@@ -42,7 +42,7 @@ class OneShotTriggerTest {
     StepVerifier.create(trigger.start(Map.of()))
         .assertNext(
             message -> {
-              final var traceId = message.getTraceId();
+              final var traceId = message.traceId();
               assertThat(traceId).isNotNull();
             })
         .verifyComplete();

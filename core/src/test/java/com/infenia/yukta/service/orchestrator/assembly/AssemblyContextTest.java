@@ -152,8 +152,8 @@ class AssemblyContextTest {
     assertThat(context.streams()).hasSize(2);
     final Flux<Message<?>> combined = Flux.concat(context.streams()[0], context.streams()[1]);
     StepVerifier.create(combined)
-        .expectNextMatches(msg -> msg.getPayload().equals("msg1"))
-        .expectNextMatches(msg -> msg.getPayload().equals("msg2"))
+        .expectNextMatches(msg -> msg.payload().equals("msg1"))
+        .expectNextMatches(msg -> msg.payload().equals("msg2"))
         .verifyComplete();
   }
 

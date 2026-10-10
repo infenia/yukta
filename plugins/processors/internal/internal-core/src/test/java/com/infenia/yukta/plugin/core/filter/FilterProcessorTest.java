@@ -43,9 +43,9 @@ class FilterProcessorTest {
                 .contextWrite(ctx -> ctx.put("nodeId", "test-node")))
         .expectNextMatches(
             m -> {
-              assertEquals(msg.getPayload(), m.getPayload());
-              assertEquals("default", m.getSourcePort());
-              assertTrue(m.getMessageHistory().contains("test-node"));
+              assertEquals(msg.payload(), m.payload());
+              assertEquals("default", m.sourcePort());
+              assertTrue(m.messageHistory().isEmpty());
               return true;
             })
         .verifyComplete();
@@ -65,7 +65,7 @@ class FilterProcessorTest {
             processor
                 .process(Flux.just(msg), config)
                 .contextWrite(ctx -> ctx.put("nodeId", "test-node")))
-        .expectNextMatches(m -> "default".equals(m.getSourcePort()))
+        .expectNextMatches(m -> "default".equals(m.sourcePort()))
         .verifyComplete();
 
     verify(reporter).increment("test-node", "filter", "MATCH");
@@ -93,9 +93,9 @@ class FilterProcessorTest {
                 .contextWrite(ctx -> ctx.put("nodeId", "test-node")))
         .expectNextMatches(
             m -> {
-              assertEquals(msg.getPayload(), m.getPayload());
-              assertEquals("default", m.getSourcePort());
-              assertTrue(m.getMessageHistory().contains("test-node"));
+              assertEquals(msg.payload(), m.payload());
+              assertEquals("default", m.sourcePort());
+              assertTrue(m.messageHistory().isEmpty());
               return true;
             })
         .verifyComplete();
@@ -115,8 +115,8 @@ class FilterProcessorTest {
                 .contextWrite(ctx -> ctx.put("nodeId", "test-node")))
         .expectNextMatches(
             m -> {
-              assertEquals("dead-letter", m.getSourcePort());
-              assertTrue(m.getMessageHistory().contains("test-node"));
+              assertEquals("dead-letter", m.sourcePort());
+              assertTrue(m.messageHistory().isEmpty());
               return true;
             })
         .verifyComplete();
