@@ -1,16 +1,23 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { act, renderHook } from '@testing-library/react';
-import { MAX_LOG_ENTRIES, useExecutionLogs } from '../useExecutionLogs';
+import { LOG_FLUSH_MS, MAX_LOG_ENTRIES, useExecutionLogs } from '../useExecutionLogs';
 import { createMockLogEntry } from '@/test/factories/workflowFactory';
 import { installMockEventSource, MockEventSource } from '@/test/mocks/MockEventSource';
 
 describe('useExecutionLogs', () => {
   beforeEach(() => {
     installMockEventSource();
+    vi.useFakeTimers();
   });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  const flush = () => act(() => vi.advanceTimersByTime(LOG_FLUSH_MS));
 
   it('does not subscribe without an execution', () => {
     const { result } = renderHook(() => useExecutionLogs('s1', null));
@@ -33,6 +40,8 @@ describe('useExecutionLogs', () => {
       MockEventSource.latest().emit(createMockLogEntry({ message: 'second', level: 'WARN' }));
     });
 
+    expect(result.current.entries).toEqual([]); // batched until the flush interval
+    flush();
     expect(result.current.isStreaming).toBe(true);
     expect(result.current.entries.map((entry) => entry.message)).toEqual(['first', 'second']);
   });
@@ -47,6 +56,7 @@ describe('useExecutionLogs', () => {
       }
     });
 
+    flush();
     expect(result.current.entries).toHaveLength(MAX_LOG_ENTRIES);
     expect(result.current.entries[0].message).toBe('line 5');
   });
@@ -58,6 +68,7 @@ describe('useExecutionLogs', () => {
     );
 
     act(() => MockEventSource.latest().emit(createMockLogEntry({ message: 'old' })));
+    flush();
     expect(result.current.entries).toHaveLength(1);
 
     rerender({ executionId: 'exec-2' });
@@ -74,12 +85,12 @@ describe('useExecutionLogs', () => {
       MockEventSource.latest().emitError();
     });
 
+    flush();
     expect(result.current.isStreaming).toBe(false);
     expect(result.current.entries).toHaveLength(1);
   });
 
   it('reconnects while live and drops the history replayed by the server', () => {
-    vi.useFakeTimers();
     const { result } = renderHook(() => useExecutionLogs('s1', 'exec-091-qp-55'));
 
     act(() => {
@@ -87,6 +98,7 @@ describe('useExecutionLogs', () => {
       MockEventSource.latest().emit(createMockLogEntry({ message: 'b' }));
       MockEventSource.latest().emitError();
     });
+    flush();
     act(() => vi.advanceTimersByTime(1000));
     expect(MockEventSource.instances).toHaveLength(2);
 
@@ -95,14 +107,15 @@ describe('useExecutionLogs', () => {
       MockEventSource.latest().emit(createMockLogEntry({ message: 'b' }));
       MockEventSource.latest().emit(createMockLogEntry({ message: 'c' }));
     });
+    flush();
     expect(result.current.entries.map((entry) => entry.message)).toEqual(['a', 'b', 'c']);
-    vi.useRealTimers();
   });
 
   it('clears entries on demand', () => {
     const { result } = renderHook(() => useExecutionLogs('s1', 'exec-091-qp-55'));
 
     act(() => MockEventSource.latest().emit(createMockLogEntry()));
+    flush();
     expect(result.current.entries).toHaveLength(1);
 
     act(() => result.current.clear());

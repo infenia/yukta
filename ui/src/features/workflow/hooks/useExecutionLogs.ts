@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '@/lib/apiClient';
 import { useEventSourceJson } from '@/hooks/useEventSourceJson';
 import type { LogEntry } from '../types/workflow';
@@ -9,15 +9,21 @@ import type { LogEntry } from '../types/workflow';
 /** Ring-buffer cap keeping the log panel responsive on long executions. */
 export const MAX_LOG_ENTRIES = 2000;
 
+/** Incoming lines are batched into one state update per interval. */
+export const LOG_FLUSH_MS = 100;
+
 /**
  * Stream structured execution log entries (history first, then live).
  *
  * Entries accumulate in a capped ring buffer that resets when the execution changes. While
  * `live` the stream reconnects after errors; the server replays history on every connection,
- * so replayed entries are dropped by (timestamp, plugin, stream, message).
+ * so replayed entries are dropped by (timestamp, plugin, stream, message). Lines are buffered
+ * and flushed every LOG_FLUSH_MS so a burst costs one re-render, not one per line.
  */
 export function useExecutionLogs(sessionId: string, executionId: string | null, live = true) {
   const seen = useRef(new Set<string>());
+  const pending = useRef<LogEntry[]>([]);
+  const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const [entries, setEntries] = useState<LogEntry[]>([]);
   const [bufferExecutionId, setBufferExecutionId] = useState(executionId);
 
@@ -26,6 +32,7 @@ export function useExecutionLogs(sessionId: string, executionId: string | null, 
     setBufferExecutionId(executionId);
     setEntries([]);
     seen.current.clear();
+    pending.current = [];
   }
 
   const url =
@@ -42,17 +49,23 @@ export function useExecutionLogs(sessionId: string, executionId: string | null, 
     if (seen.current.size > MAX_LOG_ENTRIES) {
       seen.current.delete(seen.current.values().next().value as string);
     }
-    setEntries((previous) => {
-      const next = [...previous, entry];
-      return next.length > MAX_LOG_ENTRIES
-        ? next.slice(next.length - MAX_LOG_ENTRIES)
-        : next;
-    });
+    pending.current.push(entry);
+    timer.current ??= setTimeout(() => {
+      timer.current = undefined;
+      const batch = pending.current;
+      pending.current = [];
+      setEntries((previous) => [...previous, ...batch].slice(-MAX_LOG_ENTRIES));
+    }, LOG_FLUSH_MS);
   }, []);
 
   const { status } = useEventSourceJson<LogEntry>(url, onEntry, live);
 
-  const clear = useCallback(() => setEntries([]), []);
+  useEffect(() => () => clearTimeout(timer.current), []);
+
+  const clear = useCallback(() => {
+    pending.current = [];
+    setEntries([]);
+  }, []);
 
   return {
     entries,

@@ -79,3 +79,7 @@ Object.defineProperty(globalThis, 'EventSource', {
   configurable: true,
   value: NoopEventSource,
 });
+
+// jsdom has no layout; give elements a viewport so @tanstack/react-virtual renders rows
+Object.defineProperty(HTMLElement.prototype, 'offsetHeight', { configurable: true, value: 224 });
+Object.defineProperty(HTMLElement.prototype, 'offsetWidth', { configurable: true, value: 800 });
