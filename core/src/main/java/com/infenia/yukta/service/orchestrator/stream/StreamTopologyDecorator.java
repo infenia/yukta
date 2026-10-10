@@ -232,7 +232,11 @@ public class StreamTopologyDecorator {
         msg -> {
           final String payload = truncateForLog(String.valueOf(msg.payload()));
           log.atTrace().setMessage("Processing message payload: {}").addArgument(payload).log();
-          tracker.emitLogEvent(executionId, nodeId, payload);
+          // A blank payload (the output of a quiet command, an empty body) has nothing to echo, and
+          // the tracker rejects blank lines, which would otherwise fail the node.
+          if (!payload.isBlank()) {
+            tracker.emitLogEvent(executionId, nodeId, payload);
+          }
         });
   }
 }

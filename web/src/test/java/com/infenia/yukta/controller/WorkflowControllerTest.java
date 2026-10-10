@@ -13,6 +13,7 @@ import com.infenia.yukta.exception.GlobalExceptionHandler;
 import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
 import com.infenia.yukta.model.session.SessionConfigResponse;
 import com.infenia.yukta.model.workflow.WorkflowExecution;
+import com.infenia.yukta.plugin.control.StopMode;
 import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.control.ExecutionRejectedException;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
@@ -152,7 +153,7 @@ class WorkflowControllerTest {
 
   @Test
   void testStopWorkflowReturnsStoppedIds() {
-    when(controlBus.stopWorkflow(eq("s1"), eq("wf"), any()))
+    when(controlBus.stopWorkflow(eq("s1"), eq("wf"), any(), eq(StopMode.DRAIN)))
         .thenReturn(Mono.just(List.of("e1", "e2")));
 
     client
@@ -164,6 +165,27 @@ class WorkflowControllerTest {
         .expectBody()
         .jsonPath("$.data.executionIds[1]")
         .isEqualTo("e2");
+  }
+
+  @Test
+  void testStopWorkflowPassesTheRequestedMode() {
+    when(controlBus.stopWorkflow(eq("s1"), eq("wf"), any(), eq(StopMode.KILL)))
+        .thenReturn(Mono.just(List.of("e1")));
+
+    client
+        .post()
+        .uri("/api/workflow/s1/wf/stop?mode=KILL")
+        .exchange()
+        .expectStatus()
+        .isOk()
+        .expectBody()
+        .jsonPath("$.data.executionIds[0]")
+        .isEqualTo("e1");
+  }
+
+  @Test
+  void testStopWorkflowRejectsAnUnknownMode() {
+    client.post().uri("/api/workflow/s1/wf/stop?mode=NOW").exchange().expectStatus().isBadRequest();
   }
 
   private static SessionConfigResponse config() {

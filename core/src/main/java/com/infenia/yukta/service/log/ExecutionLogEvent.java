@@ -33,7 +33,9 @@ public record ExecutionLogEvent(
   public enum Type {
     RUN_STARTED,
     RUN_FINISHED,
-    RUN_ABORTED
+    RUN_ABORTED,
+    CONTROL_APPLIED,
+    CONTROL_REJECTED
   }
 
   /**
@@ -118,6 +120,28 @@ public record ExecutionLogEvent(
         started.workflowId(),
         null,
         "ABORTED",
+        Map.of(),
+        Instant.now());
+  }
+
+  /**
+   * Records what happened to a control command sent to a run.
+   *
+   * @param applied true if the command was applied, false if it was rejected
+   * @param executionId the run the command addressed
+   * @param command the command name, for example {@code PauseWorkflowCommand}
+   * @param reason why it was rejected; ignored when applied
+   * @return the event
+   */
+  public static ExecutionLogEvent control(
+      final boolean applied, final String executionId, final String command, final String reason) {
+    return new ExecutionLogEvent(
+        applied ? Type.CONTROL_APPLIED : Type.CONTROL_REJECTED,
+        executionId,
+        "",
+        "",
+        null,
+        applied ? command : command + ": " + reason,
         Map.of(),
         Instant.now());
   }

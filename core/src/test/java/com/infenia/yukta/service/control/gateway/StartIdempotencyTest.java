@@ -4,11 +4,9 @@ package com.infenia.yukta.service.control.gateway;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import java.time.Clock;
 import java.time.Duration;
-import java.time.Instant;
-import java.time.ZoneOffset;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 import reactor.core.publisher.Mono;
@@ -18,33 +16,10 @@ import reactor.test.StepVerifier;
 @SuppressWarnings({"PMD.CommentRequired", "PMD.AvoidDuplicateLiterals"})
 class StartIdempotencyTest {
 
-  private final MovableClock clock = new MovableClock();
-  private final StartIdempotency idempotency = new StartIdempotency(Duration.ofMinutes(10), clock);
+  private final AtomicLong nanos = new AtomicLong();
+  private final StartIdempotency idempotency =
+      new StartIdempotency(Duration.ofMinutes(10), nanos::get);
   private final AtomicInteger starts = new AtomicInteger();
-
-  /** A clock the test can move. */
-  private static final class MovableClock extends Clock {
-    private Instant now = Instant.parse("2026-10-10T00:00:00Z");
-
-    /* default */ void advance(final Duration amount) {
-      now = now.plus(amount);
-    }
-
-    @Override
-    public java.time.ZoneId getZone() {
-      return ZoneOffset.UTC;
-    }
-
-    @Override
-    public Clock withZone(final java.time.ZoneId zone) {
-      return this;
-    }
-
-    @Override
-    public Instant instant() {
-      return now;
-    }
-  }
 
   private Mono<String> start() {
     return Mono.fromSupplier(() -> "exec-" + starts.incrementAndGet());
@@ -84,7 +59,7 @@ class StartIdempotencyTest {
   void afterTheWindow_theKeyIsForgotten() {
     idempotency.once("s/w", "k1", this::start).block();
 
-    clock.advance(Duration.ofMinutes(11));
+    nanos.addAndGet(Duration.ofMinutes(11).toNanos());
 
     StepVerifier.create(idempotency.once("s/w", "k1", this::start))
         .expectNext("exec-2")
