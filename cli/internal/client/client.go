@@ -125,3 +125,13 @@ func (c *Client) doRequest(req *http.Request) ([]byte, error) {
 
 	return body, nil
 }
+
+// apiPath fills the %s placeholders in format with URL-path-escaped args, so IDs
+// containing "/", "?" or "#" can't redirect the request to another endpoint.
+func apiPath(format string, args ...string) string {
+	escaped := make([]any, len(args))
+	for i, a := range args {
+		escaped[i] = url.PathEscape(a)
+	}
+	return fmt.Sprintf(format, escaped...)
+}

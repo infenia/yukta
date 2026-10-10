@@ -27,7 +27,7 @@ func (c *Client) StreamExecutionLogs(
 		return fmt.Errorf("onLine callback cannot be nil")
 	}
 
-	path := fmt.Sprintf("/api/sessions/%s/executions/%s/logs", sessionID, executionID)
+	path := apiPath("/api/sessions/%s/executions/%s/logs", sessionID, executionID)
 	resp, err := c.streamRequest(ctx, path)
 	if err != nil {
 		return err

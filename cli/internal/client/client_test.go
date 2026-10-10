@@ -590,3 +590,11 @@ func TestNewClient_initializesHTTPDoer(t *testing.T) {
 		t.Error("expected HTTPDoer to be the HTTPClient instance")
 	}
 }
+
+func TestAPIPathEscapesSegments(t *testing.T) {
+	got := apiPath("/api/workflow/%s/%s/stop", "a/../b", "x?y#z w")
+	want := "/api/workflow/a%2F..%2Fb/x%3Fy%23z%20w/stop"
+	if got != want {
+		t.Fatalf("got %q, want %q", got, want)
+	}
+}

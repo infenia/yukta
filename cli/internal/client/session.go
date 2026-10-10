@@ -43,7 +43,7 @@ func (c *Client) GetSessionDetails(sessionID string) (map[string]interface{}, er
 		return nil, fmt.Errorf("sessionID cannot be empty")
 	}
 
-	path := fmt.Sprintf("/api/sessions/%s", sessionID)
+	path := apiPath("/api/sessions/%s", sessionID)
 	req, err := c.newRequest("GET", path)
 	if err != nil {
 		return nil, err
@@ -78,7 +78,7 @@ func (c *Client) GetWorkflow(sessionID, workflowID string) (map[string]interface
 		return nil, fmt.Errorf("workflowID cannot be empty")
 	}
 
-	path := fmt.Sprintf("/api/sessions/%s/workflows/%s", sessionID, workflowID)
+	path := apiPath("/api/sessions/%s/workflows/%s", sessionID, workflowID)
 	req, err := c.newRequest("GET", path)
 	if err != nil {
 		return nil, err
