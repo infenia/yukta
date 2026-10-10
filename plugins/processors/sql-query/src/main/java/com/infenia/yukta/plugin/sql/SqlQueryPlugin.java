@@ -4,6 +4,7 @@ package com.infenia.yukta.plugin.sql;
 
 import com.infenia.yukta.message.Message;
 import com.infenia.yukta.plugin.core.PluginDescriptor;
+import com.infenia.yukta.plugin.core.UiDesign;
 import com.infenia.yukta.plugin.type.ProcessorPlugin;
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -54,7 +55,21 @@ public final class SqlQueryPlugin implements ProcessorPlugin {
             + "- maxRows: cap on returned rows, positive (default 1000).\n"
             + "- timeoutSeconds: statement timeout, positive (default 30).\n"
             + "Emits {rows, count} for queries or {updated} for updates.",
-        Optional.empty());
+        Optional.of(
+            new UiDesign(
+                """
+                <div class="flex items-center w-full h-full bg-slate-50 border-slate-200 border-2 rounded-xl px-4 gap-3">
+                    <div class="flex-shrink-0 w-8 h-8 bg-blue-100 text-blue-500 rounded-lg flex items-center justify-center">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M3 15h18M9 4v16"/></svg>
+                    </div>
+                    <div class="flex flex-col min-w-0">
+                        <div class="text-[10px] text-slate-400 font-bold uppercase tracking-wider leading-none mb-1">SQL Query</div>
+                        <div class="text-xs font-bold text-slate-700 truncate w-full">{{nodeId}}</div>
+                    </div>
+                </div>
+                """,
+                140,
+                80)));
   }
 
   @Override

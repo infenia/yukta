@@ -104,4 +104,15 @@ class SqlQueryPluginTest {
             .blockFirst();
     assertThat(((Map<?, ?>) out.payload()).get("count")).isEqualTo(1);
   }
+
+  @Test
+  void describe_pluginProvidesNodeDesign() {
+    assertThat(plugin.describe().uiDesign())
+        .hasValueSatisfying(
+            design -> {
+              assertThat(design.html()).contains("{{nodeId}}");
+              assertThat(design.width()).isEqualTo(140);
+              assertThat(design.height()).isEqualTo(80);
+            });
+  }
 }

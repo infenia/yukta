@@ -86,4 +86,15 @@ class ScheduleTriggerTest {
     StepVerifier.create(trigger.validateConfig(Map.of(CRON, "0 0 * * * *", "zone", "UTC")))
         .verifyComplete();
   }
+
+  @Test
+  void describe_triggerProvidesNodeDesign() {
+    assertThat(trigger.describe().uiDesign())
+        .hasValueSatisfying(
+            design -> {
+              assertThat(design.html()).contains("{{nodeId}}");
+              assertThat(design.width()).isEqualTo(140);
+              assertThat(design.height()).isEqualTo(80);
+            });
+  }
 }

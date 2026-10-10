@@ -52,4 +52,15 @@ class DelayProcessorTest {
         .expectError(IllegalArgumentException.class)
         .verify();
   }
+
+  @Test
+  void describe_processorProvidesNodeDesign() {
+    assertThat(processor.describe().uiDesign())
+        .hasValueSatisfying(
+            design -> {
+              assertThat(design.html()).contains("{{nodeId}}");
+              assertThat(design.width()).isEqualTo(140);
+              assertThat(design.height()).isEqualTo(80);
+            });
+  }
 }

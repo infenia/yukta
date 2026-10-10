@@ -128,4 +128,15 @@ class NotifyTerminalTest {
     StepVerifier.create(terminal.consume(messages("x"), Map.of(URL_KEY, url, "timeoutMs", 5000)))
         .verifyComplete();
   }
+
+  @Test
+  void describe_terminalProvidesNodeDesign() {
+    assertThat(terminal.describe().uiDesign())
+        .hasValueSatisfying(
+            design -> {
+              assertThat(design.html()).contains("{{nodeId}}");
+              assertThat(design.width()).isEqualTo(140);
+              assertThat(design.height()).isEqualTo(80);
+            });
+  }
 }

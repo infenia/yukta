@@ -4,6 +4,7 @@ package com.infenia.yukta.plugin.core.filter;
 
 import com.infenia.yukta.message.Message;
 import com.infenia.yukta.plugin.core.PluginDescriptor;
+import com.infenia.yukta.plugin.core.UiDesign;
 import com.infenia.yukta.plugin.type.ProcessorPlugin;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -42,7 +43,22 @@ public final class ValidateProcessor implements ProcessorPlugin {
             + "- types: map of field name to string|number|boolean|object|array.\n"
             + "Valid messages leave on 'default'; invalid ones on 'invalid' with the reasons in"
             + " failureReason.",
-        Optional.empty());
+        Optional.of(
+            new UiDesign(
+                """
+                <div class="flex items-center w-full h-full bg-slate-50 border-slate-200 border-2 rounded-xl px-4 gap-3">
+                    <div class="flex-shrink-0 w-8 h-8 bg-blue-100 text-blue-500 rounded-lg flex items-center justify-center">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 12l3 3 5-6"/></svg>
+                    </div>
+                    <div class="flex flex-col min-w-0">
+                        <div class="text-[10px] text-slate-400 font-bold uppercase tracking-wider leading-none mb-1">Validate</div>
+                        <div class="text-xs font-bold text-slate-700 truncate w-full">{{nodeId}}</div>
+                        <div class="text-[9px] text-slate-400 leading-none mt-1">default | invalid</div>
+                    </div>
+                </div>
+                """,
+                140,
+                80)));
   }
 
   @Override

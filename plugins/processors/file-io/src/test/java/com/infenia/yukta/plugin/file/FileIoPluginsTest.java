@@ -111,4 +111,26 @@ class FileIoPluginsTest {
         .expectError(IllegalArgumentException.class)
         .verify();
   }
+
+  @Test
+  void describe_readerProvidesNodeDesign() {
+    assertThat(reader.describe().uiDesign())
+        .hasValueSatisfying(
+            design -> {
+              assertThat(design.html()).contains("{{nodeId}}");
+              assertThat(design.width()).isEqualTo(140);
+              assertThat(design.height()).isEqualTo(80);
+            });
+  }
+
+  @Test
+  void describe_writerProvidesNodeDesign() {
+    assertThat(writer.describe().uiDesign())
+        .hasValueSatisfying(
+            design -> {
+              assertThat(design.html()).contains("{{nodeId}}");
+              assertThat(design.width()).isEqualTo(140);
+              assertThat(design.height()).isEqualTo(80);
+            });
+  }
 }

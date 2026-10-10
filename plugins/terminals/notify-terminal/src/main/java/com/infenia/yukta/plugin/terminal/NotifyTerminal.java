@@ -4,6 +4,7 @@ package com.infenia.yukta.plugin.terminal;
 
 import com.infenia.yukta.message.Message;
 import com.infenia.yukta.plugin.core.PluginDescriptor;
+import com.infenia.yukta.plugin.core.UiDesign;
 import com.infenia.yukta.plugin.type.TerminalPlugin;
 import java.net.URI;
 import java.time.Duration;
@@ -33,7 +34,21 @@ public class NotifyTerminal implements TerminalPlugin {
             + " itself as a string.\n"
             + "- timeoutMs: request timeout (default 10000).\n"
             + "A non-2xx response (including redirects) fails the node.",
-        Optional.empty());
+        Optional.of(
+            new UiDesign(
+                """
+                <div class="flex items-center w-full h-full bg-slate-50 border-slate-200 border-2 rounded-xl px-4 gap-3">
+                    <div class="flex-shrink-0 w-8 h-8 bg-slate-100 text-slate-500 rounded-lg flex items-center justify-center">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 01-3.4 0"/></svg>
+                    </div>
+                    <div class="flex flex-col min-w-0">
+                        <div class="text-[10px] text-slate-400 font-bold uppercase tracking-wider leading-none mb-1">Notify</div>
+                        <div class="text-xs font-bold text-slate-700 truncate w-full">{{nodeId}}</div>
+                    </div>
+                </div>
+                """,
+                140,
+                80)));
   }
 
   @Override
