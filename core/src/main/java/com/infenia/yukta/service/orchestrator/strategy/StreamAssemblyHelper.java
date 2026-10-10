@@ -9,6 +9,7 @@ import com.infenia.yukta.service.control.ExecutionControl;
 import com.infenia.yukta.service.control.store.ActivePluginRegistry;
 import com.infenia.yukta.service.orchestrator.assembly.AssemblyContext;
 import com.infenia.yukta.service.orchestrator.assembly.ExecutionContextBuilder;
+import com.infenia.yukta.service.orchestrator.stream.NodeActivity;
 import com.infenia.yukta.service.orchestrator.stream.NodeStreams;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import java.time.Duration;
@@ -26,6 +27,7 @@ class StreamAssemblyHelper {
       final WorkflowNode node,
       final Flux<Message<?>> stream,
       final Duration timeout,
+      final NodeActivity activity,
       final TaskTrackerService tracker,
       final AssemblyContext context,
       final Plugin plugin,
@@ -48,7 +50,14 @@ class StreamAssemblyHelper {
             .payload(context.payload());
 
     Flux<Message<?>> built =
-        NodeStreams.withTimeoutAndTracking(node, timeout, tracker, context.executionId(), stream);
+        NodeStreams.withTimeoutAndTracking(
+            node,
+            timeout,
+            tracker,
+            context.executionId(),
+            stream,
+            activity,
+            () -> control.isPaused(node.nodeId()));
 
     built =
         withPluginLifecycle(

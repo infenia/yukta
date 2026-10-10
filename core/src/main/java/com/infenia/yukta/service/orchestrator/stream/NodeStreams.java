@@ -9,9 +9,12 @@ import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import java.time.Duration;
 import java.util.Collections;
 import java.util.concurrent.TimeoutException;
+import java.util.function.BooleanSupplier;
 import lombok.experimental.UtilityClass;
 import lombok.extern.slf4j.Slf4j;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
 /** Stream operators every node's output goes through: timeout and task status tracking. */
 @Slf4j
@@ -23,14 +26,16 @@ public class NodeStreams {
   private static final String DEFAULT_TASK_ID = "default";
 
   /**
-   * Applies the node timeout, then reports RUNNING on subscribe and SUCCESS or FAILURE on the
-   * terminal signal. A failing stream reports FAILURE exactly once.
+   * Applies the node's idle timeout, then reports RUNNING on subscribe and SUCCESS or FAILURE on
+   * the terminal signal. A failing stream reports FAILURE exactly once.
    *
    * @param node the node the stream belongs to
-   * @param timeout the maximum time between elements
+   * @param timeout the maximum idle time, counted from the node's first activity
    * @param tracker receives the task status events
    * @param executionId the execution identifier
    * @param source the node's output stream
+   * @param activity the node's activity clock; the timeout counts idle time since its last touch
+   * @param paused tells whether the node or run is paused, which holds the timeout clock
    * @return the decorated stream
    */
   public Flux<Message<?>> withTimeoutAndTracking(
@@ -38,10 +43,14 @@ public class NodeStreams {
       final Duration timeout,
       final TaskTrackerService tracker,
       final String executionId,
-      final Flux<Message<?>> source) {
+      final Flux<Message<?>> source,
+      final NodeActivity activity,
+      final BooleanSupplier paused) {
     final String nodeId = node.nodeId();
+    final Mono<Long> idle = activity.idle(timeout, Schedulers.parallel(), paused);
     return source
-        .timeout(timeout)
+        .doOnNext(_ -> activity.touch())
+        .timeout(idle, _ -> idle)
         .doOnError(
             TimeoutException.class,
             e ->
