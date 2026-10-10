@@ -10,6 +10,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
@@ -30,7 +31,7 @@ import reactor.core.publisher.Mono;
 @Component
 @ConditionalOnExpression("'${yukta.restart.dir:}'.isEmpty()")
 @SuppressWarnings({"PMD.AvoidSynchronizedStatement", "PMD.LawOfDemeter", "PMD.OnlyOneReturn"})
-public class InMemoryNodeCheckpointStore implements NodeCheckpointStore {
+public class InMemoryNodeCheckpointStore implements NodeCheckpointStore, ByteCounted {
 
   /** Default number of messages kept per node and execution. */
   private static final int DEFAULT_MESSAGES_PER_NODE = 200;
@@ -46,6 +47,9 @@ public class InMemoryNodeCheckpointStore implements NodeCheckpointStore {
 
   /** Map of execution ID to node ID to recorded output. */
   private final Map<String, Map<String, Recorded>> store = new ConcurrentHashMap<>();
+
+  /** Bytes held across all executions. */
+  private final AtomicLong held = new AtomicLong();
 
   /** Maximum number of messages kept per node and execution. */
   private final int messagesPerNode;
@@ -115,6 +119,7 @@ public class InMemoryNodeCheckpointStore implements NodeCheckpointStore {
                 && recorded.bytes + size <= bytesPerNode) {
               recorded.messages.add(message);
               recorded.bytes += size;
+              held.addAndGet(size);
             } else {
               recorded.truncated = true;
             }
@@ -149,7 +154,15 @@ public class InMemoryNodeCheckpointStore implements NodeCheckpointStore {
 
   @Override
   public void clear(final String executionId) {
-    store.remove(executionId);
+    final Map<String, Recorded> removed = store.remove(executionId);
+    if (removed != null) {
+      removed.values().forEach(recorded -> held.addAndGet(-recorded.bytes));
+    }
+  }
+
+  @Override
+  public long bytesHeld() {
+    return held.get();
   }
 
   private Recorded recorded(final String executionId, final String nodeId) {

@@ -61,6 +61,7 @@ import reactor.core.scheduler.Schedulers;
 @Service
 @Validated
 @SuppressWarnings({
+  "PMD.CyclomaticComplexity",
   "PMD.ExcessiveImports",
   "PMD.GodClass",
   "PMD.TooManyMethods",
@@ -99,6 +100,9 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
 
   /** Registry that turns node runs into observations (spans, when a tracer is configured). */
   private final ObservationRegistry observations;
+
+  /** Observations of runs that have not ended, by execution; parents of the node observations. */
+  private final Map<String, Observation> runSpans = new ConcurrentHashMap<>();
 
   /** Observations of nodes that are running, by execution and node. */
   private final Map<String, Observation> nodeSpans = new ConcurrentHashMap<>();
@@ -250,6 +254,14 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
               .put(executionId, state);
 
           executionIndex.put(executionId, state);
+          runSpans.put(
+              executionId,
+              Observation.createNotStarted("yukta.run", observations)
+                  .contextualName("run " + workflowId)
+                  .highCardinalityKeyValue("executionId", executionId)
+                  .highCardinalityKeyValue("sessionId", sessionId)
+                  .highCardinalityKeyValue("workflowId", workflowId)
+                  .start());
 
           latestExecs.put(getLatestKey(sessionId, workflowId), executionId);
 
@@ -362,6 +374,11 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
     }
     workflowState.setControlState(state.name());
     notifyStatusChange(executionId);
+  }
+
+  @Override
+  public void recordRetry(final String module) {
+    meters.counter("yukta.node.retries", "module", module).increment();
   }
 
   /**
@@ -788,6 +805,7 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
           key,
           _ ->
               Observation.createNotStarted("yukta.node", observations)
+                  .parentObservation(runSpans.get(event.executionId()))
                   .contextualName("node " + event.nodeId())
                   .lowCardinalityKeyValue("module", String.valueOf(event.module()))
                   .highCardinalityKeyValue("executionId", event.executionId())
@@ -825,11 +843,27 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
           .log("Received workflow status event for unknown execution");
       return;
     }
+    if (TaskStatus.QUEUED.name().equals(event.status())) {
+      state.queuedAt = System.nanoTime();
+    } else if (TaskStatus.RUNNING.name().equals(event.status()) && state.queuedAt != 0) {
+      meters
+          .timer("yukta.execution.queue.wait")
+          .record(Duration.ofNanos(System.nanoTime() - state.queuedAt));
+      state.queuedAt = 0;
+    }
     if (isTerminal(event.status())) {
       // Every node event before this one is already applied, so what is still open is final.
       state.finalizeTasks(event.status());
       closeNodeSpans(event.executionId());
       state.setEndTime(event.timestamp());
+      meters
+          .timer("yukta.execution.duration", "status", event.status())
+          .record(Duration.between(state.startTime, event.timestamp()));
+      final Observation run = runSpans.remove(event.executionId());
+      if (run != null) {
+        run.lowCardinalityKeyValue("status", event.status());
+        run.stop();
+      }
       executionLog.append(
           ExecutionLogEvent.finished(
               state.executionId,
@@ -1058,6 +1092,9 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
 
     /** The end time of the execution. */
     private volatile LocalDateTime endTime;
+
+    /** When the run began waiting for a slot (System.nanoTime), or 0 if it is not waiting. */
+    private volatile long queuedAt;
 
     /* default */ WorkflowState(
         final String executionId,

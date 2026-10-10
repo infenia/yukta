@@ -179,14 +179,20 @@ resubscribes with capped backoff if its stream ever fails, until `shutdown()`.
 `ReactiveControlValve.setBreakpoint(predicate)` (per node, via `ExecutionControl.nodePauseValves()`;
 remote callers use `ControlBusGateway.addBreakpoint`) holds the node on the first element that matches until it is resumed. Each node run is one
 Micrometer observation `yukta.node` (tags `module`, `status`), which becomes a span when a tracer
-is on the classpath. Re-running a node is `RestartFromNode`.
+is on the classpath, as a child of the run's `yukta.run` observation. Re-running a node is
+`RestartFromNode`.
 
 ### Validation limits and metrics
 - `WorkflowValidator` rejects duplicate node ids and edges, an edge `sourcePort` the source plugin
   does not declare (`error` is allowed on nodes with `onError: ROUTE`), and graphs over 500 nodes or
   2000 edges.
 - The tracker records Micrometer `yukta.node.executions` (tags `module`, `status`) and
-  `yukta.node.duration` (tag `module`) when a node reaches a terminal status.
+  `yukta.node.duration` (tag `module`) when a node reaches a terminal status, `yukta.node.retries`
+  (tag `module`) per retried message, `yukta.execution.duration` (tag `status`) per run and
+  `yukta.execution.queue.wait` per start that waited. `yukta.checkpoint.bytes` is the node output the
+  checkpoint store holds. The full list is in the guide ("Metrics and tracing").
+- Tracing: every run is one `yukta.run` observation, the parent of its `yukta.node` observations.
+  Engine log lines carry `executionId`/`nodeId` as structured key-values; there is no MDC.
 
 ## Key File Locations
 - **Services**: `src/main/java/com/infenia/yukta/service/`

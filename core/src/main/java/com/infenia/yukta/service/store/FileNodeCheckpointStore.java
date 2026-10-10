@@ -16,6 +16,7 @@ import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicLong;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
@@ -39,7 +40,7 @@ import tools.jackson.databind.ObjectMapper;
 @Component
 @ConditionalOnExpression("!'${yukta.restart.dir:}'.isEmpty()")
 @SuppressWarnings({"PMD.OnlyOneReturn", "PMD.AvoidCatchingGenericException"})
-public class FileNodeCheckpointStore implements NodeCheckpointStore {
+public class FileNodeCheckpointStore implements NodeCheckpointStore, ByteCounted {
 
   /** Suffix of the file holding a node's messages. */
   private static final String MESSAGES = ".jsonl";
@@ -49,6 +50,9 @@ public class FileNodeCheckpointStore implements NodeCheckpointStore {
 
   /** Root directory. */
   private final Path root;
+
+  /** Bytes written and not yet cleared in this process (earlier runs' files are not counted). */
+  private final AtomicLong held = new AtomicLong();
 
   /** Reads and writes messages. */
   private final ObjectMapper mapper;
@@ -97,6 +101,9 @@ public class FileNodeCheckpointStore implements NodeCheckpointStore {
     }
     try (var paths = Files.walk(dir)) {
       for (final Path path : paths.sorted(Comparator.reverseOrder()).toList()) {
+        if (path.toString().endsWith(MESSAGES)) {
+          held.addAndGet(-Math.min(held.get(), Files.size(path)));
+        }
         Files.deleteIfExists(path);
       }
     } catch (final IOException | UncheckedIOException e) {
@@ -104,15 +111,22 @@ public class FileNodeCheckpointStore implements NodeCheckpointStore {
     }
   }
 
+  @Override
+  public long bytesHeld() {
+    return held.get();
+  }
+
   private void write(final String executionId, final String nodeId, final Message<?> message) {
     try {
       Files.createDirectories(dir(executionId));
+      final String line = mapper.writeValueAsString(message) + "\n";
       Files.writeString(
           file(executionId, nodeId, MESSAGES),
-          mapper.writeValueAsString(message) + "\n",
+          line,
           StandardCharsets.UTF_8,
           StandardOpenOption.CREATE,
           StandardOpenOption.APPEND);
+      held.addAndGet(line.getBytes(StandardCharsets.UTF_8).length);
     } catch (final IOException | RuntimeException e) {
       log.atWarn()
           .addKeyValue("executionId", executionId)
