@@ -133,6 +133,22 @@ class SpaWebFluxConfigTest {
   }
 
   @Test
+  void testSpaRouterSetsContentSecurityPolicy() {
+    final RouterFunction<ServerResponse> router = config.spaRouter();
+    final WebTestClient client = WebTestClient.bindToRouterFunction(router).build();
+
+    client
+        .get()
+        .uri("/sessions/1")
+        .exchange()
+        .expectHeader()
+        .valueEquals("Content-Security-Policy", SpaWebFluxConfig.CONTENT_SECURITY_POLICY);
+    assertThat(SpaWebFluxConfig.CONTENT_SECURITY_POLICY)
+        .contains("default-src 'self'", "style-src 'self' 'unsafe-inline'")
+        .doesNotContain("script-src 'unsafe");
+  }
+
+  @Test
   void testSpaRouterServesIndexHtmlOnUnmatchedRoute() {
     final RouterFunction<ServerResponse> router = config.spaRouter();
     final WebTestClient client = WebTestClient.bindToRouterFunction(router).build();
@@ -222,7 +238,15 @@ class SpaWebFluxConfigTest {
 
   @ParameterizedTest
   @ValueSource(
-      strings = {"/api/sessions/summaries", "/actuator/health", "/mcp/status", "/sse/status"})
+      strings = {
+        "/api/sessions/summaries",
+        "/actuator/health",
+        "/mcp/status",
+        "/sse/status",
+        "/v3/api-docs",
+        "/swagger-ui.html",
+        "/swagger-ui/index.html"
+      })
   void testSpaRouterDoesNotMatchBackendPaths(final String uri) {
     final RouterFunction<ServerResponse> router = config.spaRouter();
     final WebTestClient client = WebTestClient.bindToRouterFunction(router).build();
