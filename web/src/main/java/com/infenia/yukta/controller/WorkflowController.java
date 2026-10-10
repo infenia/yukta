@@ -7,6 +7,7 @@ import com.infenia.yukta.dto.response.WorkflowStartResponse;
 import com.infenia.yukta.dto.response.WorkflowStopResponse;
 import com.infenia.yukta.model.api.ApiResponse;
 import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
+import com.infenia.yukta.plugin.control.StopMode;
 import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import com.infenia.yukta.service.session.SessionService;
@@ -90,6 +91,7 @@ public class WorkflowController {
    *
    * @param sessionId the session
    * @param workflowId the workflow
+   * @param mode how to stop: DRAIN (default), CANCEL or KILL
    * @return the IDs of the executions that were signalled
    */
   @PostMapping("/workflow/{sessionId}/{workflowId}/stop")
@@ -99,9 +101,15 @@ public class WorkflowController {
           "Stops all active executions of a workflow and severs the trigger plugin input stream")
   public Mono<ApiResponse<WorkflowStopResponse>> stopWorkflow(
       @Parameter(description = SESSION_ID) @PathVariable final String sessionId,
-      @Parameter(description = "Workflow ID") @PathVariable final String workflowId) {
+      @Parameter(description = "Workflow ID") @PathVariable final String workflowId,
+      @Parameter(
+              description =
+                  "DRAIN lets in-flight work finish (default), CANCEL cancels it, KILL stops at"
+                      + " once")
+          @RequestParam(defaultValue = "DRAIN")
+          final StopMode mode) {
     return controlBus
-        .stopWorkflow(sessionId, workflowId, "Stopped via REST API")
+        .stopWorkflow(sessionId, workflowId, "Stopped via REST API", mode)
         .map(
             ids ->
                 ApiResponse.success(

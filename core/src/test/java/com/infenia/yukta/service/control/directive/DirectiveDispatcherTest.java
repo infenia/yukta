@@ -18,6 +18,8 @@ import com.infenia.yukta.service.control.ControlBusService;
 import com.infenia.yukta.service.control.ExecutionControl;
 import com.infenia.yukta.service.control.store.ExecutionControlRegistry;
 import com.infenia.yukta.service.control.store.InMemoryExecutionControlStore;
+import com.infenia.yukta.service.log.ExecutionLogEvent;
+import com.infenia.yukta.service.log.InMemoryExecutionLogStore;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -42,6 +44,8 @@ class DirectiveDispatcherTest {
   private ControlBusService controlBusService;
   private ControlSignalProcessor processor;
   private ExecutionArchive archive;
+
+  private final InMemoryExecutionLogStore log = new InMemoryExecutionLogStore();
   private DirectiveDispatcher dispatcher;
 
   private ExecutionControl createControl(
@@ -70,7 +74,8 @@ class DirectiveDispatcherTest {
 
     when(controlBusService.getControlStream()).thenReturn(Flux.never());
 
-    dispatcher = new DirectiveDispatcher(List.of(processor), registry, controlBusService, archive);
+    dispatcher =
+        new DirectiveDispatcher(List.of(processor), registry, controlBusService, archive, log);
   }
 
   @Test
@@ -168,7 +173,8 @@ class DirectiveDispatcherTest {
             List.of(lowPriorityProcessor, highPriorityProcessor),
             registry,
             controlBusService,
-            archive);
+            archive,
+            log);
 
     final ExecutionControlCommand command =
         new ExecutionControlCommand.StopNodeCommand(executionId, "node-1", false, "test");
@@ -242,6 +248,43 @@ class DirectiveDispatcherTest {
                 e instanceof IllegalArgumentException
                     && e.getMessage().contains("Execution not found: nope"))
         .verify();
+  }
+
+  @Test
+  void dispatchOrdered_recordsAppliedAndRejectedCommandsOfKnownRuns() {
+    registry.register(createControl("s", "w", "exec-audit"));
+    final ExecutionControlCommand pause =
+        new ExecutionControlCommand.PauseWorkflowCommand("exec-audit");
+    final ExecutionControlCommand resume =
+        new ExecutionControlCommand.ResumeWorkflowCommand("exec-audit");
+    when(processor.canProcess(any())).thenReturn(true);
+    when(processor.getPriority()).thenReturn(1);
+    when(processor.process(pause)).thenReturn(Mono.empty());
+    when(processor.process(resume)).thenReturn(Mono.error(new IllegalStateException("not paused")));
+
+    StepVerifier.create(dispatcher.dispatchOrdered(pause)).verifyComplete();
+    StepVerifier.create(dispatcher.dispatchOrdered(resume)).expectError().verify();
+
+    assertThat(log.readAll())
+        .extracting(
+            ExecutionLogEvent::type, ExecutionLogEvent::executionId, ExecutionLogEvent::status)
+        .containsExactly(
+            org.assertj.core.api.Assertions.tuple(
+                ExecutionLogEvent.Type.CONTROL_APPLIED, "exec-audit", "PauseWorkflowCommand"),
+            org.assertj.core.api.Assertions.tuple(
+                ExecutionLogEvent.Type.CONTROL_REJECTED,
+                "exec-audit",
+                "ResumeWorkflowCommand: not paused"));
+  }
+
+  @Test
+  void dispatchOrdered_unknownRunsAreNotRecorded() {
+    StepVerifier.create(
+            dispatcher.dispatchOrdered(new ExecutionControlCommand.PauseWorkflowCommand("ghost")))
+        .expectError()
+        .verify();
+
+    assertThat(log.readAll()).isEmpty();
   }
 
   @Test
