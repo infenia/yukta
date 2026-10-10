@@ -286,6 +286,21 @@ public class StreamTopologyDecorator {
         .log();
     logStream =
         logStream.concatMap(msg -> checkpointStore.save(executionId, nodeId, msg).thenReturn(msg));
+    // Only a node that completed normally is marked, and its completion goes on downstream once the
+    // marker is durable. A store that cannot write it must not fail the run.
+    logStream =
+        logStream.concatWith(
+            Mono.defer(() -> checkpointStore.markComplete(executionId, nodeId))
+                .onErrorResume(
+                    error -> {
+                      log.atError()
+                          .addKeyValue("executionId", executionId)
+                          .addKeyValue("nodeId", nodeId)
+                          .setCause(error)
+                          .log("Could not mark the node as complete");
+                      return Mono.empty();
+                    })
+                .then(Mono.empty()));
 
     return logStream.doOnNext(
         msg -> {

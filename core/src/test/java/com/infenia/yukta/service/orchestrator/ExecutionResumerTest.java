@@ -95,6 +95,7 @@ class ExecutionResumerTest {
     for (final String node : finishedNodes) {
       log.append(ExecutionLogEvent.nodeFinished("old", "s", "w", node));
       checkpoints.save("old", node, DefaultMessage.create(UUID.randomUUID(), node)).block();
+      checkpoints.markComplete("old", node).block();
     }
     log.append(ExecutionLogEvent.aborted(started));
   }
@@ -148,6 +149,7 @@ class ExecutionResumerTest {
     log.append(ExecutionLogEvent.nodeFinished("old", "s", "w", "a"));
     small.save("old", "a", DefaultMessage.create(UUID.randomUUID(), 1)).block();
     small.save("old", "a", DefaultMessage.create(UUID.randomUUID(), 2)).block();
+    small.markComplete("old", "a").block();
 
     StepVerifier.create(strict.resume("old")).expectNextCount(1).verifyComplete();
 
@@ -222,5 +224,21 @@ class ExecutionResumerTest {
     abortedRun(DefinitionVersion.of(prepared), "a");
 
     StepVerifier.create(resumer.resume("old")).expectNextCount(1).verifyComplete();
+  }
+
+  @Test
+  void nodeEndOnlyInLog_withoutDurableMarker_runsAgain() {
+    // the log record of a node end can be lost or arrive without the output being durable; the
+    // store's marker is what a resume trusts
+    abortedRun(DefinitionVersion.of(prepared));
+    log.append(ExecutionLogEvent.nodeFinished("old", "s", "w", "a"));
+    checkpoints.save("old", "a", DefaultMessage.create(UUID.randomUUID(), "a")).block();
+
+    StepVerifier.create(resumer.resume("old")).expectNextCount(1).verifyComplete();
+
+    final ArgumentCaptor<RestartPlan> plan = ArgumentCaptor.forClass(RestartPlan.class);
+    verify(orchestrator)
+        .rerun(any(), any(), any(), any(), any(), plan.capture(), any(), any(), any());
+    assertThat(plan.getValue().rerun()).containsExactlyInAnyOrder("a", "b", "c");
   }
 }
