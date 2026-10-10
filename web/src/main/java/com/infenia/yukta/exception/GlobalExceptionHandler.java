@@ -4,6 +4,7 @@ package com.infenia.yukta.exception;
 
 import com.fasterxml.jackson.databind.exc.UnrecognizedPropertyException;
 import com.infenia.yukta.model.api.ApiResponse;
+import com.infenia.yukta.service.control.ExecutionRejectedException;
 import jakarta.validation.ConstraintViolationException;
 import java.util.List;
 import java.util.Locale;
@@ -233,6 +234,19 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
   public ResponseEntity<ApiResponse<Object>> handleIllegalArgument(
       final IllegalArgumentException exception, final ServerHttpRequest request) {
     return buildErrorResponse(HttpStatus.BAD_REQUEST, exception.getMessage(), request);
+  }
+
+  /**
+   * Handle a start refused because of the execution limit or a shutdown.
+   *
+   * @param exception the exception
+   * @param request the current request
+   * @return structured error response
+   */
+  @ExceptionHandler(ExecutionRejectedException.class)
+  public ResponseEntity<ApiResponse<Object>> handleExecutionRejected(
+      final ExecutionRejectedException exception, final ServerHttpRequest request) {
+    return buildErrorResponse(HttpStatus.TOO_MANY_REQUESTS, exception.getMessage(), request);
   }
 
   /**
