@@ -8,6 +8,7 @@ import static org.awaitility.Awaitility.await;
 import com.infenia.yukta.logging.api.LogLevel;
 import com.infenia.yukta.logging.api.LogStream;
 import com.infenia.yukta.model.execution.ControlState;
+import com.infenia.yukta.model.execution.TaskProgress;
 import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.model.execution.WorkflowProgress;
 import com.infenia.yukta.service.streaming.StatusHistoryCache;
@@ -2502,5 +2503,93 @@ class DefaultTaskTrackerServiceTest {
         .expectNextCount(1)
         .thenCancel()
         .verify();
+  }
+
+  private Map<String, String> finishAndReadNodeStatuses(
+      final String executionId, final TaskStatus runStatus, final Map<String, TaskStatus> before) {
+    final List<String> nodes = List.of("a", "b", "c");
+    StepVerifier.create(tracker.startWorkflow(executionId, "sess-sweep", "wf", nodes))
+        .verifyComplete();
+    before.forEach(
+        (node, status) -> tracker.emitTaskStatusEvent(executionId, node, "m", status, Map.of()));
+    tracker.emitWorkflowStatusEvent(executionId, runStatus);
+
+    await()
+        .atMost(5, TimeUnit.SECONDS)
+        .until(() -> tracker.getProgress("sess-sweep", executionId).endTime() != null);
+    final Map<String, String> result = new ConcurrentHashMap<>();
+    tracker
+        .getProgress("sess-sweep", executionId)
+        .tasks()
+        .forEach(t -> result.put(t.nodeId(), t.status()));
+    return result;
+  }
+
+  @Test
+  void finish_success_sweepsRunningToCancelledAndUnstartedToSkipped() {
+    final var statuses =
+        finishAndReadNodeStatuses(
+            "exec-sweep-ok",
+            TaskStatus.SUCCESS,
+            Map.of("a", TaskStatus.SUCCESS, "b", TaskStatus.RUNNING));
+
+    assertThat(statuses)
+        .containsEntry("a", "SUCCESS")
+        .containsEntry("b", "CANCELLED")
+        .containsEntry("c", "SKIPPED");
+  }
+
+  @Test
+  void finish_failure_marksUnstartedNodesUpstreamFailed() {
+    final var statuses =
+        finishAndReadNodeStatuses(
+            "exec-sweep-fail",
+            TaskStatus.FAILURE,
+            Map.of("a", TaskStatus.TIMED_OUT, "b", TaskStatus.RUNNING));
+
+    assertThat(statuses)
+        .containsEntry("a", "TIMED_OUT")
+        .containsEntry("b", "CANCELLED")
+        .containsEntry("c", "UPSTREAM_FAILED");
+  }
+
+  @Test
+  void finish_stopped_cancelsEverythingThatWasNotFinished() {
+    final var statuses =
+        finishAndReadNodeStatuses(
+            "exec-sweep-stop", TaskStatus.STOPPED, Map.of("a", TaskStatus.SUCCESS));
+
+    assertThat(statuses)
+        .containsEntry("a", "SUCCESS")
+        .containsEntry("b", "CANCELLED")
+        .containsEntry("c", "CANCELLED");
+  }
+
+  @Test
+  void statusStream_lastElementShowsEveryNodeFinished_whenEventsArriveBackToBack() {
+    final String executionId = "exec-order";
+    final List<String> nodes = new java.util.ArrayList<>();
+    for (int i = 0; i < 50; i++) {
+      nodes.add("n" + i);
+    }
+    StepVerifier.create(tracker.startWorkflow(executionId, "sess-order", "wf", nodes))
+        .verifyComplete();
+
+    final java.util.concurrent.atomic.AtomicReference<WorkflowProgress> last =
+        new java.util.concurrent.atomic.AtomicReference<>();
+    final var done = new java.util.concurrent.CountDownLatch(1);
+    tracker
+        .getStatusStream(executionId)
+        .subscribe(last::set, e -> done.countDown(), done::countDown);
+
+    for (final String node : nodes) {
+      tracker.emitTaskStatusEvent(executionId, node, "m", TaskStatus.RUNNING, Map.of());
+      tracker.emitTaskStatusEvent(executionId, node, "m", TaskStatus.SUCCESS, Map.of());
+    }
+    tracker.emitWorkflowStatusEvent(executionId, TaskStatus.SUCCESS);
+
+    await().atMost(5, TimeUnit.SECONDS).until(() -> done.getCount() == 0);
+    assertThat(last.get().status()).isEqualTo("SUCCESS");
+    assertThat(last.get().tasks()).extracting(TaskProgress::status).containsOnly("SUCCESS");
   }
 }

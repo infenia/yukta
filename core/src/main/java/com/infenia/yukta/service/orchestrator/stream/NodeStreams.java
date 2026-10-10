@@ -62,16 +62,27 @@ public class NodeStreams {
                     .log())
         .doOnSubscribe(_ -> emit(tracker, executionId, nodeId, TaskStatus.RUNNING))
         .doOnComplete(() -> emit(tracker, executionId, nodeId, TaskStatus.SUCCESS))
+        .doOnCancel(() -> emit(tracker, executionId, nodeId, TaskStatus.CANCELLED))
         .doOnError(
             error -> {
               log.atError()
-                  .setMessage("Task FAILURE - execution: {}, node: {}")
+                  .setMessage("Task failed - execution: {}, node: {}")
                   .addArgument(executionId)
                   .addArgument(nodeId)
                   .setCause(error)
                   .log();
-              emit(tracker, executionId, nodeId, TaskStatus.FAILURE);
+              emit(tracker, executionId, nodeId, failureStatus(error));
             });
+  }
+
+  /**
+   * Maps a stream error to the node's final status.
+   *
+   * @param error the error that ended the stream
+   * @return TIMED_OUT for an idle timeout, otherwise FAILURE
+   */
+  public TaskStatus failureStatus(final Throwable error) {
+    return error instanceof TimeoutException ? TaskStatus.TIMED_OUT : TaskStatus.FAILURE;
   }
 
   private void emit(

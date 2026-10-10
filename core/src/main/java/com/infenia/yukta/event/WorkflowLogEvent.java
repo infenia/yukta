@@ -7,7 +7,8 @@ import java.time.ZoneId;
 
 /** Event representing a workflow log entry. */
 public record WorkflowLogEvent(
-    String executionId, String nodeId, String line, LocalDateTime timestamp) {
+    String executionId, String nodeId, String line, LocalDateTime timestamp)
+    implements TrackerEvent {
   /**
    * Creates a new WorkflowLogEvent with the current timestamp.
    *

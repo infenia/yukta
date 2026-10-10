@@ -99,7 +99,8 @@ class NodeStreamsTest {
         .expectError(TimeoutException.class)
         .verify();
 
-    expectStatus(TaskStatus.FAILURE, 1);
+    expectStatus(TaskStatus.TIMED_OUT, 1);
+    expectStatus(TaskStatus.FAILURE, 0);
   }
 
   @Test
@@ -180,5 +181,22 @@ class NodeStreamsTest {
         .thenAwait(Duration.ofMillis(119_600))
         .expectNext(msg)
         .verifyComplete();
+  }
+
+  @Test
+  void cancelledBeforeCompletion_reportsCancelledOnce() {
+    StepVerifier.create(decorate(Flux.never())).expectSubscription().thenCancel().verify();
+
+    expectStatus(TaskStatus.RUNNING, 1);
+    expectStatus(TaskStatus.CANCELLED, 1);
+    expectStatus(TaskStatus.SUCCESS, 0);
+  }
+
+  @Test
+  void completedStream_isNotReportedCancelledWhenTheSubscriberLaterCancels() {
+    StepVerifier.create(decorate(Flux.empty())).verifyComplete();
+
+    expectStatus(TaskStatus.SUCCESS, 1);
+    expectStatus(TaskStatus.CANCELLED, 0);
   }
 }

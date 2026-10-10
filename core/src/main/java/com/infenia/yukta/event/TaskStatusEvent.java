@@ -13,7 +13,8 @@ public record TaskStatusEvent(
     String module,
     String status,
     Map<String, Object> metadata,
-    LocalDateTime timestamp) {
+    LocalDateTime timestamp)
+    implements TrackerEvent {
 
   /**
    * Canonical constructor for TaskStatusEvent.

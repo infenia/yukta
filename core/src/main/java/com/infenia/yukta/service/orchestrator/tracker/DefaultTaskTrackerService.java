@@ -3,6 +3,7 @@
 package com.infenia.yukta.service.orchestrator.tracker;
 
 import com.infenia.yukta.event.TaskStatusEvent;
+import com.infenia.yukta.event.TrackerEvent;
 import com.infenia.yukta.event.WorkflowLogEvent;
 import com.infenia.yukta.event.WorkflowStatusEvent;
 import com.infenia.yukta.logging.api.LogLevel;
@@ -29,8 +30,8 @@ import java.time.ZoneId;
 import java.util.ArrayDeque;
 import java.util.Collections;
 import java.util.Deque;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -98,17 +99,15 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
   /** Map of workflow ID to status sinks. */
   private final Map<String, Sinks.Many<WorkflowProgress>> statusSinks = new ConcurrentHashMap<>();
 
-  /** Sink for task status events. */
-  private final Sinks.Many<TaskStatusEvent> taskStatusSink =
-      Sinks.many().multicast().onBackpressureBuffer(Queues.SMALL_BUFFER_SIZE, false);
+  /**
+   * Sink for every tracker event. A single ordered stream guarantees that a node's last status is
+   * applied before the workflow's terminal status, and that log lines keep their place.
+   */
+  private final Sinks.Many<TrackerEvent> eventSink =
+      Sinks.many().multicast().onBackpressureBuffer(Queues.SMALL_BUFFER_SIZE * 16, false);
 
-  /** Sink for workflow log events. */
-  private final Sinks.Many<WorkflowLogEvent> logSink =
-      Sinks.many().multicast().onBackpressureBuffer(Queues.SMALL_BUFFER_SIZE * 4, false);
-
-  /** Sink for workflow status events. */
-  private final Sinks.Many<WorkflowStatusEvent> wfStatusSink =
-      Sinks.many().multicast().onBackpressureBuffer(Queues.SMALL_BUFFER_SIZE, false);
+  /** Best-effort feed of log events for {@link #getLogFlux()}; slow readers never block events. */
+  private final Sinks.Many<WorkflowLogEvent> logFeed = Sinks.many().multicast().directBestEffort();
 
   /**
    * Create a new DefaultTaskTrackerService with configurable cleanup TTL.
@@ -132,53 +131,18 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
         .addKeyValue("batchTimeoutMs", BATCH_TIMEOUT.toMillis())
         .log("Initialized DefaultTaskTrackerService with event consumers");
 
-    // Status Event Consumer
-    taskStatusSink
+    eventSink
         .asFlux()
         .publishOn(Schedulers.parallel())
         .bufferTimeout(BATCH_SIZE, BATCH_TIMEOUT)
         .concatMap(
             batch ->
-                Mono.fromRunnable(() -> handleTaskStatusEvents(batch))
+                Mono.fromRunnable(() -> handleEvents(batch))
                     .onErrorResume(
                         e -> {
                           log.atError()
                               .addKeyValue("batchSize", batch.size())
-                              .log("Error processing task status event batch", e);
-                          return Mono.empty();
-                        }))
-        .subscribe();
-
-    // Workflow Status Event Consumer
-    wfStatusSink
-        .asFlux()
-        .publishOn(Schedulers.parallel())
-        .bufferTimeout(BATCH_SIZE, BATCH_TIMEOUT)
-        .concatMap(
-            batch ->
-                Mono.fromRunnable(() -> handleWorkflowStatusEvents(batch))
-                    .onErrorResume(
-                        e -> {
-                          log.atError()
-                              .addKeyValue("batchSize", batch.size())
-                              .log("Error processing workflow status event batch", e);
-                          return Mono.empty();
-                        }))
-        .subscribe();
-
-    // Log Event Consumer
-    logSink
-        .asFlux()
-        .publishOn(Schedulers.parallel())
-        .bufferTimeout(BATCH_SIZE, BATCH_TIMEOUT)
-        .concatMap(
-            batch ->
-                Mono.fromRunnable(() -> handleLogEvents(batch))
-                    .onErrorResume(
-                        e -> {
-                          log.atError()
-                              .addKeyValue("batchSize", batch.size())
-                              .log("Error processing log event batch", e);
+                              .log("Error processing tracker event batch", e);
                           return Mono.empty();
                         }))
         .subscribe();
@@ -296,7 +260,7 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
         .addKeyValue("status", status)
         .addKeyValue("metadataSize", metadata.size())
         .log("Emitting task status event");
-    taskStatusSink.emitNext(
+    eventSink.emitNext(
         TaskStatusEvent.create(executionId, nodeId, module, status.name(), metadata),
         RETRY_HANDLER);
   }
@@ -335,7 +299,7 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
         .addKeyValue("executionId", executionId)
         .addKeyValue("status", status)
         .log("Emitting workflow status event");
-    wfStatusSink.emitNext(WorkflowStatusEvent.create(executionId, status.name()), RETRY_HANDLER);
+    eventSink.emitNext(WorkflowStatusEvent.create(executionId, status.name()), RETRY_HANDLER);
   }
 
   /**
@@ -355,7 +319,7 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
         .addKeyValue("nodeId", nodeId)
         .addKeyValue("lineLength", line.length())
         .log("Emitting workflow log event");
-    logSink.emitNext(WorkflowLogEvent.create(executionId, nodeId, line), RETRY_HANDLER);
+    eventSink.emitNext(WorkflowLogEvent.create(executionId, nodeId, line), RETRY_HANDLER);
   }
 
   /**
@@ -506,7 +470,7 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
    * @return flux of plugin log entries
    */
   public Flux<PluginLogEntry> getLogFlux() {
-    return logSink
+    return logFeed
         .asFlux()
         .map(
             event -> {
@@ -625,81 +589,65 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
     }
   }
 
-  private void handleTaskStatusEvents(final List<TaskStatusEvent> events) {
-    final Set<String> execIds = new HashSet<>();
-    for (final TaskStatusEvent event : events) {
-      final WorkflowState state = findState(event.executionId());
-      if (state != null) {
-        state.updateTask(event.nodeId(), event.module(), event.status(), event.metadata());
-        execIds.add(event.executionId());
-      } else {
-        log.atDebug()
-            .addKeyValue("executionId", event.executionId())
-            .addKeyValue("nodeId", event.nodeId())
-            .log("Received task status event for unknown execution");
+  /** Applies a batch of events strictly in the order in which they were emitted. */
+  private void handleEvents(final List<TrackerEvent> events) {
+    final Set<String> touched = new LinkedHashSet<>();
+    for (final TrackerEvent event : events) {
+      switch (event) {
+        case TaskStatusEvent task -> applyTask(task, touched);
+        case WorkflowStatusEvent workflow -> applyWorkflow(workflow, touched);
+        case WorkflowLogEvent logEvent -> applyLog(logEvent);
       }
     }
-    if (!execIds.isEmpty()) {
-      log.atDebug()
-          .addKeyValue("eventsProcessed", events.size())
-          .addKeyValue("executionsUpdated", execIds.size())
-          .log("Processed task status event batch");
-    }
-    execIds.forEach(this::notifyStatusChange);
+    log.atDebug()
+        .addKeyValue("eventsProcessed", events.size())
+        .addKeyValue("executionsUpdated", touched.size())
+        .log("Processed tracker event batch");
+    touched.forEach(this::notifyStatusChange);
   }
 
-  private void handleWorkflowStatusEvents(final List<WorkflowStatusEvent> events) {
-    final Set<String> execIds = new HashSet<>();
-    int terminalCount = 0;
-    for (final WorkflowStatusEvent event : events) {
-      final WorkflowState state = findState(event.executionId());
-      if (state != null) {
-        state.setStatus(event.status());
-        execIds.add(event.executionId());
-
-        if (isTerminal(event.status())) {
-          state.setEndTime(event.timestamp());
-          scheduleCleanup(event.executionId());
-          terminalCount++;
-          log.atDebug()
-              .addKeyValue("executionId", event.executionId())
-              .addKeyValue("finalStatus", event.status())
-              .log("Workflow reached terminal status, scheduled cleanup");
-        }
-      } else {
-        log.atWarn()
-            .addKeyValue("executionId", event.executionId())
-            .log("Received workflow status event for unknown execution");
-      }
-    }
-    if (!execIds.isEmpty()) {
+  private void applyTask(final TaskStatusEvent event, final Set<String> touched) {
+    final WorkflowState state = findState(event.executionId());
+    if (state == null) {
       log.atDebug()
-          .addKeyValue("eventsProcessed", events.size())
-          .addKeyValue("executionsUpdated", execIds.size())
-          .addKeyValue("terminalTransitions", terminalCount)
-          .log("Processed workflow status event batch");
+          .addKeyValue("executionId", event.executionId())
+          .addKeyValue("nodeId", event.nodeId())
+          .log("Received task status event for unknown execution");
+      return;
     }
-    execIds.forEach(this::notifyStatusChange);
+    state.updateTask(event.nodeId(), event.module(), event.status(), event.metadata());
+    touched.add(event.executionId());
   }
 
-  private void handleLogEvents(final List<WorkflowLogEvent> events) {
-    int emittedCount = 0;
-    int missedCount = 0;
-    for (final WorkflowLogEvent event : events) {
-      final Sinks.Many<String> sink = logSinks.get(event.executionId());
-      if (sink != null) {
-        sink.tryEmitNext(event.line());
-        emittedCount++;
-      } else {
-        missedCount++;
-      }
+  private void applyWorkflow(final WorkflowStatusEvent event, final Set<String> touched) {
+    final WorkflowState state = findState(event.executionId());
+    if (state == null) {
+      log.atWarn()
+          .addKeyValue("executionId", event.executionId())
+          .log("Received workflow status event for unknown execution");
+      return;
     }
-    if (!events.isEmpty()) {
+    if (isTerminal(event.status())) {
+      // Every node event before this one is already applied, so what is still open is final.
+      state.finalizeTasks(event.status());
+      state.setEndTime(event.timestamp());
+    }
+    state.setStatus(event.status());
+    touched.add(event.executionId());
+    if (isTerminal(event.status())) {
+      scheduleCleanup(event.executionId());
       log.atDebug()
-          .addKeyValue("eventsProcessed", events.size())
-          .addKeyValue("emittedCount", emittedCount)
-          .addKeyValue("missedCount", missedCount)
-          .log("Processed workflow log event batch");
+          .addKeyValue("executionId", event.executionId())
+          .addKeyValue("finalStatus", event.status())
+          .log("Workflow reached terminal status, scheduled cleanup");
+    }
+  }
+
+  private void applyLog(final WorkflowLogEvent event) {
+    logFeed.tryEmitNext(event);
+    final Sinks.Many<String> sink = logSinks.get(event.executionId());
+    if (sink != null) {
+      sink.tryEmitNext(event.line());
     }
   }
 
@@ -796,7 +744,7 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
   }
 
   private static boolean isTerminalStatus(final String status) {
-    return TaskStatus.valueOf(status).isTerminal();
+    return TaskStatus.isTerminalName(status);
   }
 
   /**
@@ -934,6 +882,40 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
             }
             return createUpdatedTask(old, module, status, metadata);
           });
+    }
+
+    /**
+     * Gives every node that has not reached a terminal status its final one, once the run has
+     * ended. A running node was cancelled; a node that never started was skipped when the run
+     * succeeded, never reached when it failed, and cancelled otherwise.
+     */
+    /* default */ void finalizeTasks(final String runStatus) {
+      final LocalDateTime now = LocalDateTime.now(ZoneId.systemDefault());
+      taskMap.replaceAll(
+          (_, task) -> {
+            if (isTerminalStatus(task.status())) {
+              return task;
+            }
+            final TaskStatus finalStatus = finalStatusFor(task.status(), runStatus);
+            return new TaskProgress(
+                task.nodeId(),
+                task.module(),
+                finalStatus.name(),
+                task.startTime(),
+                now,
+                task.metadata());
+          });
+    }
+
+    private static TaskStatus finalStatusFor(final String taskStatus, final String runStatus) {
+      if (!TaskStatus.PENDING.name().equals(taskStatus)) {
+        return TaskStatus.CANCELLED;
+      }
+      return switch (TaskStatus.valueOf(runStatus)) {
+        case SUCCESS -> TaskStatus.SKIPPED;
+        case FAILURE, ERROR, TIMED_OUT -> TaskStatus.UPSTREAM_FAILED;
+        default -> TaskStatus.CANCELLED;
+      };
     }
 
     /* default */ List<TaskProgress> getTasks() {
