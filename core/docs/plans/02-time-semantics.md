@@ -1,3 +1,8 @@
+<!--
+SPDX-License-Identifier: Apache-2.0
+SPDX-FileCopyrightText: 2026 Infenia Private Limited
+-->
+
 # 02 Time semantics (3.5→5)
 
 Gap: no node wall-clock deadline; expression timeouts unknown at compile time.
