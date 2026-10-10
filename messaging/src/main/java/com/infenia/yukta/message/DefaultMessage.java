@@ -56,7 +56,7 @@ public record DefaultMessage<T>(
     @With String origDest,
     @With String failureReason,
     @With String exceptionDetail,
-    @With int retryCount,
+    int retryCount,
     T payload,
     @With Instant timestamp,
     @With String sourcePort,
@@ -95,6 +95,11 @@ public record DefaultMessage<T>(
   @Override
   public Message<T> withSequence(final String sid, final int pos, final int total) {
     return toBuilder().sequenceId(sid).sequenceNumber(pos).sequenceSize(total).build();
+  }
+
+  @Override
+  public Message<T> withRetryCount(final int count) {
+    return toBuilder().retryCount(count).build();
   }
 
   @Override
