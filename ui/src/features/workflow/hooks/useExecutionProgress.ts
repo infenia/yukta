@@ -5,11 +5,16 @@ import { useCallback, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getWorkflowProgress } from '../api/getWorkflowProgress';
 import { isTerminalExecStatus } from '../lib/statusMapper';
+import { api } from '@/lib/apiClient';
 import { useEventSourceJson } from '@/hooks/useEventSourceJson';
 import type { WorkflowProgress } from '../types/workflow';
 
 function isFinished(progress: WorkflowProgress | null): boolean {
-  return progress != null && isTerminalExecStatus(progress.status) && progress.endTime != null;
+  return (
+    progress != null &&
+    isTerminalExecStatus(progress.status) &&
+    progress.endTime != null
+  );
 }
 
 /**
@@ -18,9 +23,14 @@ function isFinished(progress: WorkflowProgress | null): boolean {
  * The SSE stream is only open while the execution is running; once a terminal update
  * arrives the stream closes and the executions list is invalidated so status chips refresh.
  */
-export function useExecutionProgress(sessionId: string, executionId: string | null) {
+export function useExecutionProgress(
+  sessionId: string,
+  executionId: string | null
+) {
   const queryClient = useQueryClient();
-  const [liveProgress, setLiveProgress] = useState<WorkflowProgress | null>(null);
+  const [liveProgress, setLiveProgress] = useState<WorkflowProgress | null>(
+    null
+  );
   const [liveExecutionId, setLiveExecutionId] = useState(executionId);
 
   // Render-phase reset: live progress belongs to one execution and clears when it changes
@@ -38,7 +48,7 @@ export function useExecutionProgress(sessionId: string, executionId: string | nu
   const progress = liveProgress ?? query.data ?? null;
   const streamUrl =
     sessionId && executionId && progress && !isFinished(progress)
-      ? `/api/workflow/${sessionId}/status/${executionId}/stream?includeHistory=true`
+      ? api`/api/workflow/${sessionId}/status/${executionId}/stream?includeHistory=true`
       : null;
 
   const onUpdate = useCallback(
@@ -56,7 +66,10 @@ export function useExecutionProgress(sessionId: string, executionId: string | nu
     [executionId, queryClient, sessionId]
   );
 
-  const { status: streamStatus } = useEventSourceJson<WorkflowProgress>(streamUrl, onUpdate);
+  const { status: streamStatus } = useEventSourceJson<WorkflowProgress>(
+    streamUrl,
+    onUpdate
+  );
 
   return {
     progress,

@@ -55,7 +55,7 @@ describe('toExecStatusCategory', () => {
     ['ERROR', 'failure'],
     ['CANCELLED', 'stopped'],
     ['WORKFLOW_STOPPED', 'stopped'],
-    ['NODE_STOPPED', 'stopped'],
+    ['NODE_STOPPED', 'running'],
     ['PAUSED', 'paused'],
     ['NODE_PAUSED', 'paused'],
     ['PENDING', 'pending'],
@@ -82,6 +82,7 @@ describe('isTerminalExecStatus', () => {
   it('treats non-terminal and missing statuses as not terminal', () => {
     expect(isTerminalExecStatus('RUNNING')).toBe(false);
     expect(isTerminalExecStatus('PAUSED')).toBe(false);
+    expect(isTerminalExecStatus('NODE_STOPPED')).toBe(false);
     expect(isTerminalExecStatus(null)).toBe(false);
     expect(isTerminalExecStatus(undefined)).toBe(false);
   });

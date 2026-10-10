@@ -37,7 +37,8 @@ const EXEC_STATUS_MAP: Record<string, ExecStatusCategory> = {
   ERROR: 'failure',
   CANCELLED: 'stopped',
   WORKFLOW_STOPPED: 'stopped',
-  NODE_STOPPED: 'stopped',
+  // Core writes NODE_STOPPED as the workflow status when one node is stopped; the run goes on.
+  NODE_STOPPED: 'running',
   STOPPED: 'stopped',
   TIMED_OUT: 'failure',
   ABORTED: 'failure',
@@ -53,7 +54,6 @@ const TERMINAL_EXEC_STATUSES = new Set([
   'FAILED',
   'CANCELLED',
   'WORKFLOW_STOPPED',
-  'NODE_STOPPED',
   'STOPPED',
   'TIMED_OUT',
   'ABORTED',

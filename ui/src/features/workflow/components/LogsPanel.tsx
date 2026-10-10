@@ -2,10 +2,14 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import { Input } from '@/components/ui/input';
 import { formatLogTimestamp } from '../lib/timeFormat';
 import { cn } from '@/lib/utils';
 import type { LogEntry } from '../types/workflow';
+
+/** Fixed row height (leading-5) so only the visible window of up to 2,000 lines is in the DOM. */
+const ROW_HEIGHT = 20;
 
 function levelClass(level: string | null): string {
   switch (level) {
@@ -41,6 +45,14 @@ export function LogsPanel({ entries, isStreaming }: { entries: LogEntry[]; isStr
     }
     return entries.filter((entry) => formatLine(entry).toLowerCase().includes(needle));
   }, [entries, filter]);
+
+  const virtualizer = useVirtualizer({
+    count: visibleEntries.length,
+    getScrollElement: () => bodyRef.current,
+    estimateSize: () => ROW_HEIGHT,
+    overscan: 20,
+    initialRect: { width: 0, height: 224 },
+  });
 
   useEffect(() => {
     if (autoScroll && !collapsed && bodyRef.current) {
@@ -121,11 +133,17 @@ export function LogsPanel({ entries, isStreaming }: { entries: LogEntry[]; isStr
           {visibleEntries.length === 0 ? (
             <p className="text-neutral-500">No log output.</p>
           ) : (
-            visibleEntries.map((entry, index) => (
-              <p key={`${entry.timestamp}-${index}`} className={levelClass(entry.level)}>
-                {formatLine(entry)}
-              </p>
-            ))
+            <div className="relative" style={{ height: virtualizer.getTotalSize() }}>
+              {virtualizer.getVirtualItems().map((row) => (
+                <p
+                  key={row.key}
+                  className={cn('absolute left-0 w-full whitespace-pre', levelClass(visibleEntries[row.index].level))}
+                  style={{ top: row.start, height: ROW_HEIGHT }}
+                >
+                  {formatLine(visibleEntries[row.index])}
+                </p>
+              ))}
+            </div>
           )}
         </div>
       )}

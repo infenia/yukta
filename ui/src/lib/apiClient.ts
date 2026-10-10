@@ -1,6 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
+export interface FieldError {
+  field: string;
+  message: string;
+}
+
 export interface ApiResponse<T> {
   timestamp: string;
   status: number;
@@ -8,18 +13,32 @@ export interface ApiResponse<T> {
   data: T;
   error?: string;
   path: string;
-  errors?: Record<string, string[]>;
+  errors?: FieldError[];
 }
 
 export class ApiError extends Error {
   constructor(
     public status: number,
     public error?: string,
-    public fieldErrors?: Record<string, string[]>
+    public fieldErrors?: FieldError[]
   ) {
     super(error || `API error: ${status}`);
     this.name = 'ApiError';
   }
+}
+
+/** Tagged template that URL-encodes every interpolated value: api`/api/sessions/${id}`. */
+export function api(
+  strings: TemplateStringsArray,
+  ...values: unknown[]
+): string {
+  return strings.reduce(
+    (path, part, i) =>
+      path +
+      part +
+      (i < values.length ? encodeURIComponent(String(values[i])) : ''),
+    ''
+  );
 }
 
 export async function fetchApi<T>(
@@ -27,34 +46,24 @@ export async function fetchApi<T>(
   options?: RequestInit
 ): Promise<T> {
   const response = await fetch(path, {
-    headers: {
-      'Content-Type': 'application/json',
-      ...options?.headers,
-    },
     ...options,
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
   });
 
-  let json: ApiResponse<T>;
-  try {
-    json = (await response.json()) as ApiResponse<T>;
-  } catch (e) {
-    throw new ApiError(
-      response.status,
-      `Failed to parse JSON: ${e instanceof Error ? e.message : String(e)}`
-    );
-  }
-
-  if (json.status !== 200 && json.status !== 201 && json.status !== 202) {
-    throw new ApiError(json.status, json.error, json.errors);
-  }
+  // Error bodies from proxies (502 pages) are not JSON; fall back to the status text.
+  const json = (await response
+    .json()
+    .catch(() => null)) as ApiResponse<T> | null;
 
   if (!response.ok) {
     throw new ApiError(
       response.status,
-      json.error || `HTTP ${response.status}`,
-      json.errors
+      json?.message || response.statusText,
+      json?.errors
     );
   }
-
-  return json.data;
+  if (json === null && response.status !== 204) {
+    throw new ApiError(response.status, 'Failed to parse JSON response');
+  }
+  return json?.data as T;
 }

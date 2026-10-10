@@ -16,6 +16,15 @@ const entries = [
 ];
 
 describe('LogsPanel', () => {
+  it('virtualises long logs so only the visible window is in the DOM', () => {
+    const many = Array.from({ length: 2000 }, (_, i) => createMockLogEntry({ message: `line ${i}` }));
+    render(<LogsPanel entries={many} isStreaming={false} />);
+
+    const rows = screen.getByTestId('logs-body').querySelectorAll('p');
+    expect(rows.length).toBeGreaterThan(0);
+    expect(rows.length).toBeLessThan(100);
+  });
+
   it('renders log lines with timestamp, level and plugin id', () => {
     render(<LogsPanel entries={entries.slice(0, 1)} isStreaming={false} />);
 
