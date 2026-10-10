@@ -52,7 +52,6 @@ graalvm-polyglot = { group = "org.graalvm.polyglot", name = "polyglot", version.
 graalvm-js = { group = "org.graalvm.polyglot", name = "js", version.ref = "graalvmPolyglot" }
 lombok = { group = "org.projectlombok", name = "lombok", version = "1.18.48" }
 spring-boot-devtools = { group = "org.springframework.boot", name = "spring-boot-devtools" }
-spring-boot-docker-compose = { group = "org.springframework.boot", name = "spring-boot-docker-compose" }
 picocli = { group = "info.picocli", name = "picocli", version.ref = "picocli" }
 picocli-codegen = { group = "info.picocli", name = "picocli-codegen", version.ref = "picocli" }
 caffeine = { group = "com.github.ben-manes.caffeine", name = "caffeine", version.ref = "caffeine" }
