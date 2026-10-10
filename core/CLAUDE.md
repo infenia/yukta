@@ -47,7 +47,8 @@ Any node's config may carry a reserved `engine` object; plugins never see these 
   "retry":   { "maxAttempts": 3, "backoffMs": 200, "maxBackoffMs": 5000 },
   "onError": "ROUTE",
   "trigger": "ALL_DONE",
-  "elementTimeoutMs": 20000
+  "elementTimeoutMs": 20000,
+  "deadlineMs": 600000
 }
 ```
 - `retry` (processors only): re-run the plugin for the failing message with exponential backoff and
@@ -62,6 +63,9 @@ Any node's config may carry a reserved `engine` object; plugins never see these 
   failed).
 - `elementTimeoutMs` (processors): longest time the plugin may stay silent for one message; it fails
   that attempt, so `retry` and `onError` apply. It is only useful below the node timeout.
+- `deadlineMs` (any node): longest the node may run, from its first activity. Not restarted by
+  output or heartbeats; paused time does not count; must be above `elementTimeoutMs`. The node ends
+  `TIMED_OUT`.
 - With `retry`/`onError`/`elementTimeoutMs` the plugin is called once per message and the message
   carries an `attempt` header (1, 2, ...) next to its `id`, so a plugin can de-duplicate side effects.
 Malformed policies are rejected by `WorkflowValidator` with the node id and option. Parsing lives in
@@ -93,7 +97,8 @@ Malformed policies are rejected by `WorkflowValidator` with the node id and opti
 - `ExecutionScheduler` admits executions. By default there is no limit. Set
   `yukta.execution.max-concurrent` and/or `yukta.execution.max-concurrent-per-workflow` to limit;
   a start that does not fit waits (`yukta.execution.on-limit=QUEUE`, at most
-  `yukta.execution.queue-capacity`, default 100, shown as status `QUEUED`) or is refused with HTTP 429
+  `yukta.execution.queue-capacity`, default 100, shown as status `QUEUED`; a start that waits longer
+  than `yukta.execution.queue-timeout`, default off, ends `TIMED_OUT`) or is refused with HTTP 429
   (`REJECT`, or queue full). On shutdown nothing new is admitted, queued starts are refused, and
   running ones get `yukta.execution.shutdown-timeout` (default 30s) to finish.
 - `POST /workflow/start` accepts an optional `Idempotency-Key` header: a repeat with the same key for
@@ -124,12 +129,16 @@ A node's idle timeout is `timeoutSeconds` from its config, else the plugin's
 `getDefaultTimeout(config)`. `PROCESS_EXECUTOR` uses its `timeout` (default 300 s) plus 10 % (at least
 5 s), `LLM_CALL` covers every attempt (`timeout` and `retries`) plus the backoff, `HTTP_REQUEST` uses
 its `timeout` plus 5 s; other plugins keep 30 s. A timeout given as an expression is not known when the
-workflow is compiled, so the default is used: set `timeoutSeconds` on the node in that case.
+workflow is compiled, so the node starts with the default and is re-timed when its first message
+arrives: the node config is resolved against that message (`NodeTimeouts`) and `timeoutSeconds`, else
+the plugin's `getDefaultTimeout(config)`, is applied. Write a plugin's own number option as a typed
+expression (`${payload.secs:int}`); an untyped one resolves to text. Triggers have no input, so they
+keep the default.
 
 A long-running plugin can keep its node alive by calling the `Runnable` found under
 `WorkflowContext.HEARTBEAT_KEY` in the Reactor context (`Mono.deferContextual`); every call restarts
-the idle clock. There is no node-level wall-clock deadline: the idle timeout, `elementTimeoutMs` and
-the run deadline cover it.
+the idle clock. `engine.deadlineMs` adds a node-level wall-clock limit on top of the idle timeout, `elementTimeoutMs`
+and the run deadline.
 
 Every progress snapshot (REST, SSE, MCP) carries `definitionVersion`, the content hash of the graph
 the run uses (the same value the archive and the execution log store). The control-bus consumer

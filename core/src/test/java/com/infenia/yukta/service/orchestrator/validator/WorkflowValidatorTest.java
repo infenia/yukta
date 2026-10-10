@@ -184,6 +184,21 @@ class WorkflowValidatorTest {
   }
 
   @Test
+  void testElementTimeoutNotBelowTheDeadlineRejected() {
+    final var node =
+        new WorkflowDefinition.Node(
+            "p",
+            "P",
+            Map.of(
+                "timeoutSeconds",
+                60,
+                "engine",
+                Map.of("elementTimeoutMs", 5_000, "deadlineMs", 5_000)));
+    assertRejected(
+        new WorkflowDefinition(WORKFLOW_NAME, "d", List.of(node), List.of()), "engine.deadlineMs");
+  }
+
+  @Test
   void testRetryBackoffUsesThePluginDefaultTimeout() {
     when(registry.get("P")).thenReturn(processorPlugin);
     when(processorPlugin.getDefaultTimeout(any())).thenReturn(Duration.ofSeconds(1));

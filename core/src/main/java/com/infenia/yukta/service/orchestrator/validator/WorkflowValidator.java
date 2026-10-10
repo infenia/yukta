@@ -164,6 +164,16 @@ public class WorkflowValidator {
    */
   private Optional<String> findLongBackoff(
       final WorkflowDefinition.Node node, final NodePolicy policy) {
+    final Duration element = policy.elementTimeout();
+    final Duration deadline = policy.deadline();
+    if (deadline != null && element != null && element.compareTo(deadline) >= 0) {
+      return Optional.of(
+          "Node '"
+              + node.nodeId()
+              + "': engine.elementTimeoutMs must be below engine.deadlineMs ("
+              + deadline.toMillis()
+              + " ms), which would end the node first");
+    }
     final Duration timeout = nodeTimeout(node);
     if (timeout == null) {
       return Optional.empty();
@@ -174,7 +184,6 @@ public class WorkflowValidator {
           tooLong(
               node, "engine.retry.maxBackoffMs", timeout, "or the node times out while retrying"));
     }
-    final Duration element = policy.elementTimeout();
     if (element != null && element.compareTo(timeout) >= 0) {
       return Optional.of(
           tooLong(node, "engine.elementTimeoutMs", timeout, "which would end the node first"));

@@ -14,9 +14,11 @@ import com.infenia.yukta.plugin.type.ProcessorPlugin;
 import com.infenia.yukta.service.control.store.ActivePluginRegistry;
 import com.infenia.yukta.service.orchestrator.stream.NodeActivity;
 import com.infenia.yukta.service.orchestrator.stream.NodePolicies;
+import com.infenia.yukta.service.orchestrator.stream.NodeTimeouts;
 import com.infenia.yukta.service.orchestrator.stream.StreamTopologyDecorator;
 import com.infenia.yukta.service.orchestrator.stream.UpstreamFailure;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
+import com.infenia.yukta.util.VariableResolver;
 import java.time.Duration;
 import java.util.concurrent.atomic.AtomicBoolean;
 import lombok.RequiredArgsConstructor;
@@ -47,6 +49,9 @@ public class ProcessorNodeAssemblerStrategy implements NodeAssemblerStrategy {
 
   /** The registry of plugin instances actively servicing workflow nodes. */
   private final ActivePluginRegistry activePluginRegistry;
+
+  /** Resolves expressions in the node config, for a timeout that depends on the first input. */
+  private final VariableResolver variableResolver;
 
   /** Log key for node ID. */
   private static final String LOG_KEY_NODE_ID = "nodeId";
@@ -103,6 +108,8 @@ public class ProcessorNodeAssemblerStrategy implements NodeAssemblerStrategy {
               .applyPreProcessingControls(node.nodeId(), mergedInput)
               .doOnNext(_ -> activity.touch())
               .onErrorMap(UpstreamFailure::mark);
+      final Flux<Message<?>> timedInput =
+          NodeTimeouts.retimeOnFirstInput(safeInput, node, plugin, variableResolver, activity);
 
       Flux<Message<?>> stream;
       final AtomicBoolean skipFlag = control.nodeSkipFlags().get(node.nodeId());
@@ -112,14 +119,14 @@ public class ProcessorNodeAssemblerStrategy implements NodeAssemblerStrategy {
             .addKeyValue(LOG_KEY_NODE_ID, node.nodeId())
             .addKeyValue("executionId", context.executionId())
             .log("Node marked for skip, bypassing processor");
-        stream = safeInput;
+        stream = timedInput;
       } else {
         log.atDebug()
             .addKeyValue(LOG_KEY_NODE_ID, node.nodeId())
             .log("Processing stream with processor plugin");
         final NodeMessageChannel channel = channelProvider.channelFor(node.nodeId(), node.config());
         final Flux<Message<?>> channelInput =
-            channel.inbound(node.nodeId(), context.executionId(), safeInput);
+            channel.inbound(node.nodeId(), context.executionId(), timedInput);
         final NodePolicy policy = NodePolicy.from(node.config());
         final Flux<Message<?>> pluginOutput =
             policy.perMessage()

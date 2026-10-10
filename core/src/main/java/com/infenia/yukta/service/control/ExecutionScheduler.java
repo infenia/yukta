@@ -8,9 +8,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.SmartLifecycle;
 import org.springframework.stereotype.Component;
@@ -52,6 +54,9 @@ public class ExecutionScheduler implements SmartLifecycle {
   /** How long running executions are given on shutdown. */
   private final Duration shutdownTimeout;
 
+  /** Longest a start may wait in the queue; zero or negative means as long as it takes. */
+  private final Duration queueTimeout;
+
   /** Guards all state below. */
   private final Object lock = new Object();
 
@@ -81,18 +86,40 @@ public class ExecutionScheduler implements SmartLifecycle {
    * @param queueCapacity how many starts may wait
    * @param onLimit what to do with a start that does not fit
    * @param shutdownTimeout how long running executions are given on shutdown
+   * @param queueTimeout longest a start may wait for a slot, zero for no limit
    */
+  @Autowired
   public ExecutionScheduler(
       @Value("${yukta.execution.max-concurrent:0}") final int maxConcurrent,
       @Value("${yukta.execution.max-concurrent-per-workflow:0}") final int maxPerWorkflow,
       @Value("${yukta.execution.queue-capacity:100}") final int queueCapacity,
       @Value("${yukta.execution.on-limit:QUEUE}") final OnLimit onLimit,
-      @Value("${yukta.execution.shutdown-timeout:30s}") final Duration shutdownTimeout) {
+      @Value("${yukta.execution.shutdown-timeout:30s}") final Duration shutdownTimeout,
+      @Value("${yukta.execution.queue-timeout:0}") final Duration queueTimeout) {
     this.maxConcurrent = Math.max(0, maxConcurrent);
     this.maxPerWorkflow = Math.max(0, maxPerWorkflow);
     this.queueCapacity = Math.max(0, queueCapacity);
     this.onLimit = onLimit;
     this.shutdownTimeout = shutdownTimeout;
+    this.queueTimeout = queueTimeout;
+  }
+
+  /**
+   * Creates a scheduler whose queued starts wait as long as it takes.
+   *
+   * @param maxConcurrent global limit, 0 for none
+   * @param maxPerWorkflow per-workflow limit, 0 for none
+   * @param queueCapacity how many starts may wait
+   * @param onLimit what to do with a start that does not fit
+   * @param shutdownTimeout how long running executions are given on shutdown
+   */
+  public ExecutionScheduler(
+      final int maxConcurrent,
+      final int maxPerWorkflow,
+      final int queueCapacity,
+      final OnLimit onLimit,
+      final Duration shutdownTimeout) {
+    this(maxConcurrent, maxPerWorkflow, queueCapacity, onLimit, shutdownTimeout, Duration.ZERO);
   }
 
   /**
@@ -155,7 +182,18 @@ public class ExecutionScheduler implements SmartLifecycle {
         index--;
       }
       queue.add(index, waiter);
-      return new Admission(false, waiter.grant().asMono().doOnCancel(() -> abandon(waiter)));
+      final Mono<Permit> grant = waiter.grant().asMono().doOnCancel(() -> abandon(waiter));
+      return new Admission(
+          false,
+          queueTimeout.isPositive()
+              ? grant
+                  .timeout(queueTimeout)
+                  .onErrorMap(
+                      TimeoutException.class,
+                      _ ->
+                          new QueueTimeoutException(
+                              "Waited " + queueTimeout + " for an execution slot"))
+              : grant);
     }
   }
 

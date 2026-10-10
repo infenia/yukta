@@ -21,6 +21,7 @@ import com.infenia.yukta.model.workflow.NodeAssembler;
 import com.infenia.yukta.model.workflow.ParentEdgeInfo;
 import com.infenia.yukta.model.workflow.WorkflowNode;
 import com.infenia.yukta.plugin.core.Plugin;
+import com.infenia.yukta.plugin.store.SecretProvider;
 import com.infenia.yukta.plugin.type.ProcessorPlugin;
 import com.infenia.yukta.plugin.type.TerminalPlugin;
 import com.infenia.yukta.plugin.type.TriggerPlugin;
@@ -31,6 +32,7 @@ import com.infenia.yukta.service.orchestrator.assembly.AssemblyContext;
 import com.infenia.yukta.service.orchestrator.stream.StreamTopologyDecorator;
 import com.infenia.yukta.service.orchestrator.stream.UpstreamFailure;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
+import com.infenia.yukta.util.VariableResolver;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Map;
@@ -83,7 +85,8 @@ class ProcessorNodeAssemblerStrategyTest {
             Schedulers.boundedElastic(),
             streamTopologyDecorator,
             channelProvider,
-            activePluginRegistry);
+            activePluginRegistry,
+            new VariableResolver(mock(SecretProvider.class)));
   }
 
   // ── supports() ────────────────────────────────────────────────────────────
