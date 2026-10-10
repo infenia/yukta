@@ -59,4 +59,22 @@ class CheckpointMetricsTest {
 
     assertThat(registry.getMeters()).isEmpty();
   }
+
+  @Test
+  void fileStore_publishesMarkerFailures() throws java.io.IOException {
+    java.nio.file.Files.createFile(dir.resolve("e-e1"));
+    final FileNodeCheckpointStore store =
+        new FileNodeCheckpointStore(dir.toString(), JsonMapper.builder().build());
+    final SimpleMeterRegistry registry = new SimpleMeterRegistry();
+    new CheckpointMetrics(store).bindTo(registry);
+
+    store.markComplete("e1", "n1").block();
+
+    assertThat(registry.get("yukta.checkpoint.errors").functionCounter().count()).isEqualTo(1.0);
+  }
+
+  @Test
+  void inMemoryStore_reportsNoMarkerFailures() {
+    assertThat(new InMemoryNodeCheckpointStore().markerFailures()).isZero();
+  }
 }

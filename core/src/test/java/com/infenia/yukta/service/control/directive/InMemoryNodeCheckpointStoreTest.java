@@ -188,4 +188,27 @@ class InMemoryNodeCheckpointStoreTest {
     assertThat(small.isComplete("d", "n")).isFalse();
     assertThat(small.isComplete("e", "n")).isFalse();
   }
+
+  @Test
+  void markComplete_makesTheNodeFinished_untilTheExecutionIsCleared() {
+    store.save("exec-9", "node-9", DefaultMessage.create(UUID.randomUUID(), "x")).block();
+    assertThat(store.isFinished("exec-9", "node-9")).isFalse();
+
+    store.markComplete("exec-9", "node-9").block();
+
+    assertThat(store.isFinished("exec-9", "node-9")).isTrue();
+    assertThat(store.isFinished("exec-9", "other")).isFalse();
+    store.clear("exec-9");
+    assertThat(store.isFinished("exec-9", "node-9")).isFalse();
+  }
+
+  @Test
+  void truncatedOutput_isNeverFinished() {
+    final InMemoryNodeCheckpointStore small = new InMemoryNodeCheckpointStore(1);
+    small.save("e", "n", DefaultMessage.create(UUID.randomUUID(), 1)).block();
+    small.save("e", "n", DefaultMessage.create(UUID.randomUUID(), 2)).block();
+    small.markComplete("e", "n").block();
+
+    assertThat(small.isFinished("e", "n")).isFalse();
+  }
 }

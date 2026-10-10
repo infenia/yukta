@@ -12,4 +12,13 @@ public interface ByteCounted {
    * @return the byte count
    */
   long bytesHeld();
+
+  /**
+   * Node-end markers that could not be made durable since startup.
+   *
+   * @return the failure count
+   */
+  default long markerFailures() {
+    return 0;
+  }
 }
