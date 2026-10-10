@@ -96,6 +96,9 @@ Malformed policies are rejected by `WorkflowValidator` with the node id and opti
   payload (`RUN_STARTED`) and each successful node (`NODE_FINISHED`); finished nodes with complete
   output replay, the rest run again. A run resumes once (`RUN_RESUMED`) and only if its definition
   is unchanged. There is no REST/MCP endpoint for it yet.
+  Only one resume per run is accepted (the claim is kept in memory and dropped on failure). A node's
+  end is queued for the log writer and not fsynced, so a crash right after it can make a resume run
+  that node again; make plugins idempotent on the message `id` (guide finding R40).
 - Run starts and ends go to an `ExecutionLogStore`. By default it is in memory; set
   `yukta.execution-log.dir` to keep `executions.jsonl` on disk. On startup `ExecutionRecovery`
   marks runs that never finished as `ABORTED`, restores the newest
