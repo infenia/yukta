@@ -144,7 +144,7 @@ class ProcessorNodeAssemblerStrategyTest {
     final Flux<Message<?>> parentStream = Flux.just(msg);
     final AssemblyContext context = buildContext(NODE_ID, parentStream, null);
 
-    when(streamTopologyDecorator.mergeParentStreams(any(), any(ParentEdgeInfo[].class)))
+    when(streamTopologyDecorator.mergeParentStreams(any(), any(), any(ParentEdgeInfo[].class)))
         .thenReturn(parentStream);
     final Flux<Message<?>> broadcast = Flux.just(out);
     when(streamTopologyDecorator.applyLoggingAndBroadcasting(
@@ -172,7 +172,7 @@ class ProcessorNodeAssemblerStrategyTest {
     final Flux<Message<?>> parentStream = Flux.just(msg);
     final AssemblyContext context = buildContext(NODE_ID, parentStream, null);
 
-    when(streamTopologyDecorator.mergeParentStreams(any(), any(ParentEdgeInfo[].class)))
+    when(streamTopologyDecorator.mergeParentStreams(any(), any(), any(ParentEdgeInfo[].class)))
         .thenReturn(parentStream);
     when(streamTopologyDecorator.applyLoggingAndBroadcasting(
             anyString(), anyString(), any(), any(int.class), any(), any()))
@@ -199,7 +199,7 @@ class ProcessorNodeAssemblerStrategyTest {
     final Flux<Message<?>> parentStream = Flux.just(msg);
     final AssemblyContext context = buildContext(NODE_ID, parentStream, skipFlag);
 
-    when(streamTopologyDecorator.mergeParentStreams(any(), any(ParentEdgeInfo[].class)))
+    when(streamTopologyDecorator.mergeParentStreams(any(), any(), any(ParentEdgeInfo[].class)))
         .thenReturn(parentStream);
     when(streamTopologyDecorator.applyLoggingAndBroadcasting(
             anyString(), anyString(), any(), any(int.class), any(), any()))
@@ -227,7 +227,7 @@ class ProcessorNodeAssemblerStrategyTest {
     final Flux<Message<?>> parentStream = Flux.just(msg);
     final AssemblyContext context = buildContext(NODE_ID, parentStream, skipFlag);
 
-    when(streamTopologyDecorator.mergeParentStreams(any(), any(ParentEdgeInfo[].class)))
+    when(streamTopologyDecorator.mergeParentStreams(any(), any(), any(ParentEdgeInfo[].class)))
         .thenReturn(parentStream);
     when(streamTopologyDecorator.applyLoggingAndBroadcasting(
             anyString(), anyString(), any(), any(int.class), any(), any()))
@@ -254,7 +254,7 @@ class ProcessorNodeAssemblerStrategyTest {
     final Flux<Message<?>> parentStream = Flux.just(msg);
     final AssemblyContext context = buildContextNoSkipFlag(NODE_ID, parentStream);
 
-    when(streamTopologyDecorator.mergeParentStreams(any(), any(ParentEdgeInfo[].class)))
+    when(streamTopologyDecorator.mergeParentStreams(any(), any(), any(ParentEdgeInfo[].class)))
         .thenReturn(parentStream);
     when(streamTopologyDecorator.applyLoggingAndBroadcasting(
             anyString(), anyString(), any(), any(int.class), any(), any()))
@@ -280,7 +280,7 @@ class ProcessorNodeAssemblerStrategyTest {
     final Flux<Message<?>> parentStream = Flux.just(msg);
     final AssemblyContext context = buildContextNoSkipFlag(NODE_ID, parentStream);
 
-    when(streamTopologyDecorator.mergeParentStreams(any(), any(ParentEdgeInfo[].class)))
+    when(streamTopologyDecorator.mergeParentStreams(any(), any(), any(ParentEdgeInfo[].class)))
         .thenReturn(parentStream);
     when(streamTopologyDecorator.applyLoggingAndBroadcasting(
             anyString(), anyString(), any(), any(int.class), any(), any()))
@@ -311,7 +311,7 @@ class ProcessorNodeAssemblerStrategyTest {
     final AssemblyContext context = buildContextWithStreams(NODE_ID, streams, null);
 
     final Flux<Message<?>> merged = Flux.just(msg1, msg2);
-    when(streamTopologyDecorator.mergeParentStreams(any(), any(ParentEdgeInfo[].class)))
+    when(streamTopologyDecorator.mergeParentStreams(any(), any(), any(ParentEdgeInfo[].class)))
         .thenReturn(merged);
     when(streamTopologyDecorator.applyLoggingAndBroadcasting(
             anyString(), anyString(), any(), any(int.class), any(), any()))
@@ -321,7 +321,7 @@ class ProcessorNodeAssemblerStrategyTest {
         strategy.createAssembler(node, processor, Duration.ofSeconds(5), 2, 1024, parentEdges);
     assembler.assemble(context);
 
-    verify(streamTopologyDecorator).mergeParentStreams(any(), any(ParentEdgeInfo[].class));
+    verify(streamTopologyDecorator).mergeParentStreams(any(), any(), any(ParentEdgeInfo[].class));
     assertThat(context.streams()[2]).isNotNull();
   }
 
@@ -339,7 +339,7 @@ class ProcessorNodeAssemblerStrategyTest {
     final Flux<Message<?>>[] streams = new Flux[5];
     final AssemblyContext context = buildContextWithStreams(NODE_ID, streams, null);
 
-    when(streamTopologyDecorator.mergeParentStreams(any(), any(ParentEdgeInfo[].class)))
+    when(streamTopologyDecorator.mergeParentStreams(any(), any(), any(ParentEdgeInfo[].class)))
         .thenReturn(Flux.just(msg));
     final Flux<Message<?>> broadcast = Flux.just(out);
     when(streamTopologyDecorator.applyLoggingAndBroadcasting(
@@ -371,7 +371,7 @@ class ProcessorNodeAssemblerStrategyTest {
     final Flux<Message<?>> parentStream = Flux.just(msg);
     final AssemblyContext context = buildContextNoSkipFlag(NODE_ID, parentStream);
 
-    when(streamTopologyDecorator.mergeParentStreams(any(), any(ParentEdgeInfo[].class)))
+    when(streamTopologyDecorator.mergeParentStreams(any(), any(), any(ParentEdgeInfo[].class)))
         .thenReturn(parentStream);
     when(streamTopologyDecorator.applyLoggingAndBroadcasting(
             anyString(), anyString(), any(), any(int.class), any(), any()))
@@ -400,7 +400,7 @@ class ProcessorNodeAssemblerStrategyTest {
     final Flux<Message<?>> parentStream = Flux.just(msg);
     final AssemblyContext context = buildContext(NODE_ID, parentStream, skipFlag);
 
-    when(streamTopologyDecorator.mergeParentStreams(any(), any(ParentEdgeInfo[].class)))
+    when(streamTopologyDecorator.mergeParentStreams(any(), any(), any(ParentEdgeInfo[].class)))
         .thenReturn(parentStream);
     when(streamTopologyDecorator.applyLoggingAndBroadcasting(
             anyString(), anyString(), any(), any(int.class), any(), any()))
@@ -476,7 +476,7 @@ class ProcessorNodeAssemblerStrategyTest {
     final WorkflowNode node = new WorkflowNode(NODE_ID, "processor", Map.of());
     final Flux<Message<?>> parentStream = Flux.just(msg);
     final AssemblyContext context = buildContext(NODE_ID, parentStream, null);
-    when(streamTopologyDecorator.mergeParentStreams(any(), any(ParentEdgeInfo[].class)))
+    when(streamTopologyDecorator.mergeParentStreams(any(), any(), any(ParentEdgeInfo[].class)))
         .thenReturn(parentStream);
     when(streamTopologyDecorator.applyLoggingAndBroadcasting(
             anyString(), anyString(), any(), any(int.class), any(), any()))
@@ -510,7 +510,7 @@ class ProcessorNodeAssemblerStrategyTest {
         new WorkflowNode(NODE_ID, "processor", Map.of("engine", Map.of("onError", "CONTINUE")));
     final Flux<Message<?>> parentStream = Flux.just(bad, good);
     final AssemblyContext context = buildContext(NODE_ID, parentStream, null);
-    when(streamTopologyDecorator.mergeParentStreams(any(), any(ParentEdgeInfo[].class)))
+    when(streamTopologyDecorator.mergeParentStreams(any(), any(), any(ParentEdgeInfo[].class)))
         .thenReturn(parentStream);
     when(streamTopologyDecorator.applyLoggingAndBroadcasting(
             anyString(), anyString(), any(), any(int.class), any(), any()))
@@ -520,7 +520,9 @@ class ProcessorNodeAssemblerStrategyTest {
         .createAssembler(node, processor, Duration.ofSeconds(5), 0, 1024, new ParentEdgeInfo[0])
         .assemble(context);
 
-    StepVerifier.create(context.streams()[0]).expectNext(good).verifyComplete();
+    StepVerifier.create(context.streams()[0])
+        .assertNext(m -> assertThat(m.payload()).isEqualTo("good"))
+        .verifyComplete();
   }
 
   @Test
@@ -531,7 +533,7 @@ class ProcessorNodeAssemblerStrategyTest {
     final WorkflowNode node = new WorkflowNode(NODE_ID, "processor", Map.of());
     final Flux<Message<?>> failing = Flux.error(new IllegalStateException("upstream broke"));
     final AssemblyContext context = buildContext(NODE_ID, failing, null);
-    when(streamTopologyDecorator.mergeParentStreams(any(), any(ParentEdgeInfo[].class)))
+    when(streamTopologyDecorator.mergeParentStreams(any(), any(), any(ParentEdgeInfo[].class)))
         .thenReturn(failing);
     when(streamTopologyDecorator.applyLoggingAndBroadcasting(
             anyString(), anyString(), any(), any(int.class), any(), any()))

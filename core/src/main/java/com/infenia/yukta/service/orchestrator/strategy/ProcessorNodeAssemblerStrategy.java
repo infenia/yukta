@@ -93,7 +93,8 @@ public class ProcessorNodeAssemblerStrategy implements NodeAssemblerStrategy {
           .log("Merging input from parent streams");
 
       final Flux<Message<?>> mergedInput =
-          streamTopologyDecorator.mergeParentStreams(context.streams(), parentEdges);
+          streamTopologyDecorator.mergeParentStreams(
+              NodePolicy.from(node.config()).trigger(), context.streams(), parentEdges);
 
       // The idle clock starts when this node first gets work, not when the run starts.
       final NodeActivity activity = new NodeActivity();
@@ -122,14 +123,16 @@ public class ProcessorNodeAssemblerStrategy implements NodeAssemblerStrategy {
         final NodePolicy policy = NodePolicy.from(node.config());
         final Flux<Message<?>> pluginOutput =
             policy.perMessage()
+                // prefetch 1: a paused node must not have 32 elements already past the gate
                 ? channelInput.concatMap(
                     message ->
                         NodePolicies.apply(
                             policy,
                             node.nodeId(),
                             message,
-                            processor.process(Flux.just(message), node.config()),
-                            activity::touch))
+                            attempt -> processor.process(Flux.just(attempt), node.config()),
+                            activity::touch),
+                    1)
                 : processor.process(channelInput, node.config());
         stream = channel.outbound(node.nodeId(), context.executionId(), pluginOutput);
         if (processor.isBlocking()) {

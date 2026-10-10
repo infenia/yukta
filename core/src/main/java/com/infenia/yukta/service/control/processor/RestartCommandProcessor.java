@@ -150,6 +150,7 @@ public class RestartCommandProcessor implements ControlSignalProcessor {
                                   .addKeyValue("oldExecutionId", restart.executionId())
                                   .addKeyValue("newExecutionId", restart.newExecutionId())
                                   .log("Restarted execution failed"))
+                      .onErrorComplete()
                       .subscribe();
 
                   log.atInfo()

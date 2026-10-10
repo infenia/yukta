@@ -39,7 +39,8 @@ import reactor.core.publisher.Mono;
   "PMD.OnlyOneReturn",
   "PMD.AvoidDuplicateLiterals",
   "PMD.AvoidInstantiatingObjectsInLoops",
-  "PMD.TooManyMethods"
+  "PMD.TooManyMethods",
+  "PMD.GodClass"
 })
 public class WorkflowValidator {
 
@@ -99,14 +100,20 @@ public class WorkflowValidator {
   }
 
   /** True if the node's plugin declares the port, or it is the error port of a ROUTE policy. */
+  @SuppressWarnings("PMD.AvoidCatchingGenericException")
   private boolean hasPort(final WorkflowDefinition.Node node, final String port) {
     final Plugin plugin = registry.get(node.type());
     if (plugin == null) {
       return true; // reported by validatePluginsRegistered
     }
-    return plugin.getOutputPorts(node.config()).contains(port)
-        || NodePolicy.ERROR_PORT.equals(port)
-            && NodePolicy.from(node.config()).onError() == NodePolicy.OnError.ROUTE;
+    try {
+      return plugin.getOutputPorts(node.config()).contains(port)
+          || NodePolicy.ERROR_PORT.equals(port)
+              && NodePolicy.from(node.config()).onError() == NodePolicy.OnError.ROUTE;
+    } catch (RuntimeException e) {
+      // Invalid config or policy: findInvalidPolicy / validatePluginConfigs report it cleanly.
+      return true;
+    }
   }
 
   /**
@@ -132,35 +139,62 @@ public class WorkflowValidator {
           return Optional.of(
               "Node '"
                   + node.nodeId()
-                  + "': engine.retry and engine.onError are only supported on processor nodes");
+                  + "': engine.retry, engine.onError and engine.elementTimeoutMs are only supported"
+                  + " on processor nodes");
         }
       }
     }
     return Optional.empty();
   }
 
-  /** A retry delay as long as the node timeout would make the node time out while it waits. */
-  private Optional<String> findLongBackoff(
-      final WorkflowDefinition.Node node, final NodePolicy policy) {
-    final NodePolicy.Retry retry = policy.retry();
-    if (retry == null) {
-      return Optional.empty();
-    }
+  /** The node's idle timeout, or null if it is unknown or not positive. */
+  private Duration nodeTimeout(final WorkflowDefinition.Node node) {
     final Object configured = node.config().get("timeoutSeconds");
     final Plugin plugin = registry.get(node.type());
     final Duration timeout =
         configured instanceof Number seconds && seconds.longValue() > 0
             ? Duration.ofSeconds(seconds.longValue())
             : plugin == null ? null : plugin.getDefaultTimeout(node.config());
-    if (timeout != null && timeout.isPositive() && retry.maxBackoff().compareTo(timeout) >= 0) {
+    return timeout != null && timeout.isPositive() ? timeout : null;
+  }
+
+  /**
+   * A retry delay or element timeout as long as the node timeout makes the node time out first, so
+   * the policy could never work as configured.
+   */
+  private Optional<String> findLongBackoff(
+      final WorkflowDefinition.Node node, final NodePolicy policy) {
+    final Duration timeout = nodeTimeout(node);
+    if (timeout == null) {
+      return Optional.empty();
+    }
+    final NodePolicy.Retry retry = policy.retry();
+    if (retry != null && retry.maxBackoff().compareTo(timeout) >= 0) {
       return Optional.of(
-          "Node '"
-              + node.nodeId()
-              + "': engine.retry.maxBackoffMs must be below the node timeout ("
-              + timeout.toSeconds()
-              + " s), or the node times out while waiting to retry");
+          tooLong(
+              node, "engine.retry.maxBackoffMs", timeout, "or the node times out while retrying"));
+    }
+    final Duration element = policy.elementTimeout();
+    if (element != null && element.compareTo(timeout) >= 0) {
+      return Optional.of(
+          tooLong(node, "engine.elementTimeoutMs", timeout, "which would end the node first"));
     }
     return Optional.empty();
+  }
+
+  private static String tooLong(
+      final WorkflowDefinition.Node node,
+      final String option,
+      final Duration timeout,
+      final String consequence) {
+    return "Node '"
+        + node.nodeId()
+        + "': "
+        + option
+        + " must be below the node timeout ("
+        + timeout.toSeconds()
+        + " s), "
+        + consequence;
   }
 
   /**

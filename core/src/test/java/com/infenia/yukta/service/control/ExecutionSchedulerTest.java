@@ -236,4 +236,43 @@ class ExecutionSchedulerTest {
     assertThat(scheduler.queued()).isZero();
     assertThat(scheduler.running()).isEqualTo(1);
   }
+
+  @Test
+  void higherPriorityWaitingStartIsAdmittedFirst() {
+    final ExecutionScheduler scheduler = scheduler(1, 0, 10, OnLimit.QUEUE);
+    final Permit first = granted(scheduler.acquire("s", "w0"));
+    final Admission low = scheduler.acquire("s", "w1", 0);
+    final Admission high = scheduler.acquire("s", "w2", 5);
+    final AtomicBoolean lowGranted = new AtomicBoolean();
+    final AtomicBoolean highGranted = new AtomicBoolean();
+    low.permit().subscribe(_ -> lowGranted.set(true));
+    high.permit().subscribe(_ -> highGranted.set(true));
+
+    first.release();
+
+    assertThat(highGranted).isTrue();
+    assertThat(lowGranted).isFalse();
+  }
+
+  @Test
+  void raisingTheLimitAtRunTimeAdmitsWaitingStarts() {
+    final ExecutionScheduler scheduler = scheduler(1, 0, 10, OnLimit.QUEUE);
+    granted(scheduler.acquire("s", "w0"));
+    final AtomicBoolean granted = new AtomicBoolean();
+    scheduler.acquire("s", "w1").permit().subscribe(_ -> granted.set(true));
+    assertThat(granted).isFalse();
+
+    scheduler.setLimits(2, 0);
+
+    assertThat(granted).isTrue();
+    assertThat(scheduler.running()).isEqualTo(2);
+  }
+
+  @Test
+  void priorityIsReadFromThePayload() {
+    assertThat(ExecutionScheduler.priorityOf(java.util.Map.of(ExecutionScheduler.PRIORITY_KEY, 7)))
+        .isEqualTo(7);
+    assertThat(ExecutionScheduler.priorityOf(java.util.Map.of("yukta.priority", "x"))).isZero();
+    assertThat(ExecutionScheduler.priorityOf(null)).isZero();
+  }
 }

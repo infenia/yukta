@@ -7,9 +7,11 @@ import com.infenia.yukta.message.channel.NodeMessageChannel;
 import com.infenia.yukta.message.channel.NodeMessageChannelProvider;
 import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.model.workflow.NodeAssembler;
+import com.infenia.yukta.model.workflow.NodePolicy;
 import com.infenia.yukta.model.workflow.ParentEdgeInfo;
 import com.infenia.yukta.model.workflow.WorkflowNode;
 import com.infenia.yukta.plugin.core.Plugin;
+import com.infenia.yukta.plugin.core.WorkflowContext;
 import com.infenia.yukta.plugin.gateway.ResultCollector;
 import com.infenia.yukta.plugin.type.TerminalPlugin;
 import com.infenia.yukta.service.control.store.ActivePluginRegistry;
@@ -95,7 +97,8 @@ public class TerminalNodeAssemblerStrategy implements NodeAssemblerStrategy {
           .log("Merging input from parent streams for terminal node");
 
       final Flux<Message<?>> mergedInput =
-          streamTopologyDecorator.mergeParentStreams(context.streams(), parentEdges);
+          streamTopologyDecorator.mergeParentStreams(
+              NodePolicy.from(node.config()).trigger(), context.streams(), parentEdges);
 
       final Flux<Message<?>> safeInput =
           control.applyPreProcessingControls(node.nodeId(), mergedInput);
@@ -131,6 +134,10 @@ public class TerminalNodeAssemblerStrategy implements NodeAssemblerStrategy {
           terminal.consume(
               channel.inbound(node.nodeId(), context.executionId(), inputToTerminal),
               node.config());
+      // A long-running terminal tells the engine it is alive (see WorkflowContext.HEARTBEAT_KEY).
+      final Runnable heartbeat = activity::touch;
+      completion =
+          completion.contextWrite(ctx -> ctx.put(WorkflowContext.HEARTBEAT_KEY, heartbeat));
       if (terminal.isBlocking()) {
         log.atDebug()
             .addKeyValue(LOG_KEY_NODE_ID, node.nodeId())
