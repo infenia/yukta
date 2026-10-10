@@ -14,7 +14,7 @@ import (
 
 // HeartbeatCmd creates and returns the "controlbus heartbeat" subcommand.
 // It retrieves and displays the last heartbeat for a specific node.
-func HeartbeatCmd(c client.ClientInterface) *cobra.Command {
+func HeartbeatCmd(c *client.Client) *cobra.Command {
 	return &cobra.Command{
 		Use:   "heartbeat <workflow-id> <node-id>",
 		Short: "Get node heartbeat",

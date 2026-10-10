@@ -42,7 +42,7 @@ func PrintTable(headers []string, rows [][]string) {
 	}
 
 	// Flush the tabwriter to output the formatted table
-	w.Flush()
+	_ = w.Flush()
 }
 
 // PrintJSON formats and prints data as JSON to stdout.

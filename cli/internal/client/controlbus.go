@@ -14,7 +14,7 @@ func (c *Client) GetActiveNodesInWorkflow(workflowID string) ([]string, error) {
 		return nil, fmt.Errorf("workflowID cannot be empty")
 	}
 
-	path := fmt.Sprintf("/api/control/workflows/%s/nodes", workflowID)
+	path := apiPath("/api/control/workflows/%s/nodes", workflowID)
 	req, err := c.newRequest("GET", path)
 	if err != nil {
 		return nil, err
@@ -71,7 +71,7 @@ func (c *Client) GetLastHeartbeat(workflowID, nodeID string) (map[string]interfa
 		return nil, fmt.Errorf("nodeID cannot be empty")
 	}
 
-	path := fmt.Sprintf("/api/control/workflows/%s/nodes/%s/heartbeat", workflowID, nodeID)
+	path := apiPath("/api/control/workflows/%s/nodes/%s/heartbeat", workflowID, nodeID)
 	req, err := c.newRequest("GET", path)
 	if err != nil {
 		return nil, err
@@ -108,7 +108,7 @@ func (c *Client) SendCommand(workflowID, nodeID string, commandPayloadJSON []byt
 		return nil, fmt.Errorf("commandPayloadJSON cannot be empty")
 	}
 
-	path := fmt.Sprintf("/api/control/workflows/%s/nodes/%s/command", workflowID, nodeID)
+	path := apiPath("/api/control/workflows/%s/nodes/%s/command", workflowID, nodeID)
 	req, err := c.newRequestWithBody("POST", path, commandPayloadJSON)
 	if err != nil {
 		return nil, err

@@ -66,6 +66,7 @@ class WorkflowPreparatorTest {
     when(registry.get("plugin-type")).thenReturn(plugin);
     when(validator.validate(def)).thenReturn(Mono.empty());
     when(plugin.initialize(Map.of())).thenReturn(Mono.empty());
+    when(plugin.prepare(Map.of())).thenReturn(Mono.empty());
     when(topologicalSortService.computeTopologicalOrder(anyList(), anyMap(), anyMap()))
         .thenReturn(List.of(workflowNode));
     when(compiler.compileTemplate(anyList(), anyMap(), anyMap(), anyList())).thenReturn(template);
@@ -101,6 +102,7 @@ class WorkflowPreparatorTest {
     when(registry.get("type-b")).thenReturn(plugin);
     when(validator.validate(def)).thenReturn(Mono.empty());
     when(plugin.initialize(any())).thenReturn(Mono.empty());
+    when(plugin.prepare(any())).thenReturn(Mono.empty());
     when(topologicalSortService.computeTopologicalOrder(anyList(), anyMap(), anyMap()))
         .thenReturn(List.of(wn1, wn2));
     when(compiler.compileTemplate(anyList(), anyMap(), anyMap(), anyList())).thenReturn(template);
@@ -186,6 +188,7 @@ class WorkflowPreparatorTest {
     when(registry.get("missing-type")).thenReturn(null);
     when(validator.validate(def)).thenReturn(Mono.empty());
     when(plugin.initialize(any())).thenReturn(Mono.empty());
+    when(plugin.prepare(any())).thenReturn(Mono.empty());
 
     StepVerifier.create(preparator.prepareWorkflow(def))
         .expectErrorMatches(
@@ -205,6 +208,7 @@ class WorkflowPreparatorTest {
     when(registry.get("plugin-type")).thenReturn(plugin);
     when(validator.validate(def)).thenReturn(Mono.empty());
     when(plugin.initialize(config)).thenReturn(Mono.empty());
+    when(plugin.prepare(config)).thenReturn(Mono.empty());
     when(topologicalSortService.computeTopologicalOrder(anyList(), anyMap(), anyMap()))
         .thenReturn(List.of(workflowNode));
     when(compiler.compileTemplate(anyList(), anyMap(), anyMap(), anyList())).thenReturn(template);
@@ -224,6 +228,7 @@ class WorkflowPreparatorTest {
     when(registry.get("plugin-type")).thenReturn(plugin);
     when(validator.validate(def)).thenReturn(Mono.empty());
     when(plugin.initialize(any())).thenReturn(Mono.empty());
+    when(plugin.prepare(any())).thenReturn(Mono.empty());
     when(topologicalSortService.computeTopologicalOrder(anyList(), anyMap(), anyMap()))
         .thenThrow(new IllegalArgumentException("cycle detected"));
 
@@ -244,6 +249,7 @@ class WorkflowPreparatorTest {
     when(registry.get("plugin-type")).thenReturn(plugin);
     when(validator.validate(def)).thenReturn(Mono.empty());
     when(plugin.initialize(any())).thenReturn(Mono.empty());
+    when(plugin.prepare(any())).thenReturn(Mono.empty());
     when(topologicalSortService.computeTopologicalOrder(anyList(), anyMap(), anyMap()))
         .thenReturn(List.of(wn));
     when(compiler.compileTemplate(anyList(), anyMap(), anyMap(), anyList())).thenReturn(template);
@@ -267,6 +273,7 @@ class WorkflowPreparatorTest {
     when(registry.get("plugin-type")).thenReturn(plugin);
     when(validator.validate(def)).thenReturn(Mono.empty());
     when(plugin.initialize(any())).thenReturn(Mono.empty());
+    when(plugin.prepare(any())).thenReturn(Mono.empty());
     when(topologicalSortService.computeTopologicalOrder(anyList(), anyMap(), anyMap()))
         .thenReturn(List.of());
     when(compiler.compileTemplate(anyList(), anyMap(), anyMap(), anyList())).thenReturn(template);
@@ -297,6 +304,7 @@ class WorkflowPreparatorTest {
     when(registry.get("type-c")).thenReturn(plugin);
     when(validator.validate(def)).thenReturn(Mono.empty());
     when(plugin.initialize(any())).thenReturn(Mono.empty());
+    when(plugin.prepare(any())).thenReturn(Mono.empty());
     when(topologicalSortService.computeTopologicalOrder(anyList(), anyMap(), anyMap()))
         .thenReturn(List.of(wn1, wn2, wn3));
     when(compiler.compileTemplate(anyList(), anyMap(), anyMap(), anyList())).thenReturn(template);

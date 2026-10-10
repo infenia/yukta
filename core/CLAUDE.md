@@ -96,6 +96,12 @@ effort: more than 10000 waiting are dropped and counted in `yukta.tracker.droppe
 (`type=state` counts events lost because the tracker itself had ended). Use `SinkEmit.offer`, not
 `Sinks.Many#emitNext`, for any bounded sink: `emitNext` terminates the sink on overflow.
 
+### Tracker queue
+State and workflow events are never dropped: they go to an unbounded queue. Log lines are best
+effort: more than 10000 waiting are dropped and counted in `yukta.tracker.dropped{type=log}`
+(`type=state` counts events lost because the tracker itself had ended). Use `SinkEmit.offer`, not
+`Sinks.Many#emitNext`, for any bounded sink: `emitNext` terminates the sink on overflow.
+
 ### Validation limits and metrics
 - `WorkflowValidator` rejects duplicate node ids and edges, an edge `sourcePort` the source plugin
   does not declare (`error` is allowed on nodes with `onError: ROUTE`), and graphs over 500 nodes or

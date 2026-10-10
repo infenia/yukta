@@ -22,12 +22,12 @@ import org.junit.jupiter.api.Test;
 import reactor.core.publisher.Flux;
 import reactor.test.StepVerifier;
 
-class DefaultLogProviderTest {
+class LogProviderTest {
 
   private static final String SESSION = "sess-1";
   private static final String EXECUTION = "exec-1";
 
-  private DefaultLogProvider provider;
+  private LogProvider provider;
   private PluginLogStore logStore;
   private ControlBusGateway controlBus;
 
@@ -35,8 +35,8 @@ class DefaultLogProviderTest {
   void setUp() {
     logStore = mock(PluginLogStore.class);
     controlBus = mock(ControlBusGateway.class);
-    provider = new DefaultLogProvider(logStore, controlBus);
-    when(controlBus.getCurrentProgress(EXECUTION))
+    provider = new LogProvider(logStore, controlBus);
+    when(controlBus.getProgress(SESSION, EXECUTION))
         .thenReturn(
             new WorkflowProgress(
                 EXECUTION,
@@ -145,7 +145,7 @@ class DefaultLogProviderTest {
 
   @Test
   void testUnknownExecutionRejected() {
-    when(controlBus.getCurrentProgress("missing")).thenReturn(null);
+    when(controlBus.getProgress(SESSION, "missing")).thenReturn(null);
 
     StepVerifier.create(provider.getExecutionLogs(SESSION, "missing", null, null))
         .expectErrorMatches(
@@ -163,5 +163,44 @@ class DefaultLogProviderTest {
                 error instanceof IllegalArgumentException
                     && error.getMessage().contains("Execution not found: " + EXECUTION))
         .verify();
+  }
+
+  @Test
+  void testTooLongPatternRejected() {
+    StepVerifier.create(provider.getExecutionLogs(SESSION, EXECUTION, null, "a".repeat(201)))
+        .expectErrorMatches(
+            error ->
+                error instanceof IllegalArgumentException
+                    && error.getMessage().contains("too long"))
+        .verify();
+  }
+
+  @Test
+  void testCatastrophicPatternAbortsInsteadOfHanging() {
+    when(logStore.readExecution(EXECUTION)).thenReturn(Flux.just(entry("a".repeat(40) + "!")));
+
+    StepVerifier.create(provider.getExecutionLogs(SESSION, EXECUTION, null, "(.*a){12}$"))
+        .expectErrorMatches(
+            error ->
+                error instanceof IllegalArgumentException
+                    && error.getMessage().contains("too expensive"))
+        .verify(java.time.Duration.ofSeconds(5));
+  }
+
+  @Test
+  void testOutputCappedAtMaxLinesWithFullTotalReported() {
+    final int total = LogProvider.MAX_LINES + 10;
+    when(logStore.readExecution(EXECUTION))
+        .thenReturn(Flux.range(0, total).map(i -> entry("line-" + i)));
+
+    StepVerifier.create(provider.getExecutionLogs(SESSION, EXECUTION, null, null))
+        .assertNext(
+            logs -> {
+              assertThat(logs.totalLines()).isEqualTo(total);
+              assertThat(logs.returnedLines()).isEqualTo(LogProvider.MAX_LINES);
+              assertThat(logs.lines().get(LogProvider.MAX_LINES - 1))
+                  .contains("line-" + (total - 1));
+            })
+        .verifyComplete();
   }
 }

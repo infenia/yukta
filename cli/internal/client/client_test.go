@@ -4,12 +4,11 @@
 package client
 
 import (
-	"errors"
-	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 )
 
 // TestNewRequest_emptyMethod tests that an empty method returns an error.
@@ -394,199 +393,53 @@ func TestDoRequest_bodyNotReadable_returnsError(t *testing.T) {
 }
 
 // TestNewRequest_requestFactoryFails_returnsWrappedError tests error handling when RequestFactory fails.
-func TestNewRequest_requestFactoryFails_returnsWrappedError(t *testing.T) {
-	mockFactory := &MockRequestFactory{
-		Err: errors.New("simulated request creation failure"),
-	}
-
-	c := &Client{
-		BaseURL:        "http://localhost:8080",
-		HTTPClient:     &http.Client{},
-		RequestFactory: mockFactory,
-	}
-
-	_, err := c.newRequest("GET", "/api/sessions")
-	if err == nil {
-		t.Error("expected error when factory fails, got nil")
-	}
-	if !strings.Contains(err.Error(), "failed to create request") {
-		t.Errorf("expected 'failed to create request' in error message, got: %v", err)
-	}
-	if mockFactory.CallCount != 1 {
-		t.Errorf("expected factory to be called once, got %d calls", mockFactory.CallCount)
-	}
-}
-
 // TestNewRequest_requestFactoryFails_wrapsError tests that the error is properly wrapped.
-func TestNewRequest_requestFactoryFails_wrapsError(t *testing.T) {
-	originalErr := errors.New("original factory error")
-	mockFactory := &MockRequestFactory{
-		Err: originalErr,
-	}
-
-	c := &Client{
-		BaseURL:        "http://localhost:8080",
-		HTTPClient:     &http.Client{},
-		RequestFactory: mockFactory,
-	}
-
-	_, err := c.newRequest("POST", "/api/test")
-	if err == nil {
-		t.Fatal("expected error, got nil")
-	}
-
-	errorMsg := err.Error()
-	if !strings.Contains(errorMsg, "failed to create request") {
-		t.Errorf("expected 'failed to create request' in error, got: %v", errorMsg)
-	}
-	if !strings.Contains(errorMsg, "original factory error") {
-		t.Errorf("expected original error details in message, got: %v", errorMsg)
-	}
-}
-
 // TestNewRequest_requestFactorySuccess_callsFactory tests that factory is called correctly.
-func TestNewRequest_requestFactorySuccess_callsFactory(t *testing.T) {
-	mockFactory := &MockRequestFactory{}
-
-	c := &Client{
-		BaseURL:        "http://localhost:8080",
-		HTTPClient:     &http.Client{},
-		RequestFactory: mockFactory,
-	}
-
-	req, err := c.newRequest("GET", "/api/sessions")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if req == nil {
-		t.Fatal("expected request, got nil")
-	}
-	if mockFactory.CallCount != 1 {
-		t.Errorf("expected factory to be called once, got %d calls", mockFactory.CallCount)
-	}
-}
-
 // TestNewClient_initializesRequestFactory tests that NewClient initializes the factory.
-func TestNewClient_initializesRequestFactory(t *testing.T) {
-	c := NewClient("http://localhost:8080")
-	if c.RequestFactory == nil {
-		t.Error("expected RequestFactory to be initialized, got nil")
-	}
-	_, ok := c.RequestFactory.(*DefaultRequestFactory)
-	if !ok {
-		t.Errorf("expected DefaultRequestFactory, got %T", c.RequestFactory)
-	}
-}
-
 // TestDoRequest_httpDoerFails_returnsWrappedError tests error handling when HTTPDoer.Do fails.
-func TestDoRequest_httpDoerFails_returnsWrappedError(t *testing.T) {
-	mockDoer := &MockHTTPDoer{
-		Err: errors.New("network error: connection refused"),
-	}
-
-	c := &Client{
-		BaseURL:        "http://localhost:8080",
-		HTTPClient:     &http.Client{},
-		RequestFactory: &DefaultRequestFactory{},
-		httpDoer:       mockDoer,
-	}
-
-	req, err := c.newRequest("GET", "/api/sessions")
-	if err != nil {
-		t.Fatalf("unexpected error creating request: %v", err)
-	}
-
-	_, err = c.doRequest(req)
-	if err == nil {
-		t.Error("expected error when HTTPDoer fails, got nil")
-	}
-	if !strings.Contains(err.Error(), "request failed") {
-		t.Errorf("expected 'request failed' in error message, got: %v", err)
-	}
-	if mockDoer.CallCount != 1 {
-		t.Errorf("expected HTTPDoer to be called once, got %d calls", mockDoer.CallCount)
-	}
-}
-
 // TestDoRequest_httpDoerFails_wrapsError tests that HTTPDoer error is properly wrapped.
-func TestDoRequest_httpDoerFails_wrapsError(t *testing.T) {
-	originalErr := errors.New("connection timeout")
-	mockDoer := &MockHTTPDoer{
-		Err: originalErr,
-	}
-
-	c := &Client{
-		BaseURL:        "http://localhost:8080",
-		HTTPClient:     &http.Client{},
-		RequestFactory: &DefaultRequestFactory{},
-		httpDoer:       mockDoer,
-	}
-
-	req, err := c.newRequest("POST", "/api/test")
-	if err != nil {
-		t.Fatalf("unexpected error creating request: %v", err)
-	}
-
-	_, err = c.doRequest(req)
-	if err == nil {
-		t.Fatal("expected error, got nil")
-	}
-
-	errorMsg := err.Error()
-	if !strings.Contains(errorMsg, "request failed") {
-		t.Errorf("expected 'request failed' in error, got: %v", errorMsg)
-	}
-	if !strings.Contains(errorMsg, "connection timeout") {
-		t.Errorf("expected original error 'connection timeout' in message, got: %v", errorMsg)
-	}
-}
-
 // TestDoRequest_httpDoerSuccess_callsDoer tests that HTTPDoer.Do is called correctly on success.
-func TestDoRequest_httpDoerSuccess_callsDoer(t *testing.T) {
-	responseBody := `{"data": {"sessionIds": ["session-1"]}}`
-	mockDoer := &MockHTTPDoer{
-		DoFunc: func(req *http.Request) (*http.Response, error) {
-			return &http.Response{
-				StatusCode: 200,
-				Status:     "200 OK",
-				Header:     make(http.Header),
-				Body:       io.NopCloser(strings.NewReader(responseBody)),
-			}, nil
-		},
-	}
-
-	c := &Client{
-		BaseURL:        "http://localhost:8080",
-		HTTPClient:     &http.Client{},
-		RequestFactory: &DefaultRequestFactory{},
-		httpDoer:       mockDoer,
-	}
-
-	req, err := c.newRequest("GET", "/api/sessions")
-	if err != nil {
-		t.Fatalf("unexpected error creating request: %v", err)
-	}
-
-	body, err := c.doRequest(req)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	if string(body) != responseBody {
-		t.Errorf("expected body %q, got %q", responseBody, string(body))
-	}
-	if mockDoer.CallCount != 1 {
-		t.Errorf("expected HTTPDoer to be called once, got %d calls", mockDoer.CallCount)
+// TestNewClient_initializesHTTPDoer tests that NewClient initializes the HTTPDoer.
+func TestAPIPathEscapesSegments(t *testing.T) {
+	got := apiPath("/api/workflow/%s/%s/stop", "a/../b", "x?y#z w")
+	want := "/api/workflow/a%2F..%2Fb/x%3Fy%23z%20w/stop"
+	if got != want {
+		t.Fatalf("got %q, want %q", got, want)
 	}
 }
 
-// TestNewClient_initializesHTTPDoer tests that NewClient initializes the HTTPDoer.
-func TestNewClient_initializesHTTPDoer(t *testing.T) {
-	c := NewClient("http://localhost:8080")
-	if c.httpDoer == nil {
-		t.Error("expected HTTPDoer to be initialized, got nil")
+func TestDoRequestTimesOut(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		<-r.Context().Done()
+	}))
+	defer srv.Close()
+
+	c := NewClient(srv.URL)
+	c.Timeout = 50 * time.Millisecond
+	req, _ := c.newRequest("GET", "/api/sessions")
+	if _, err := c.doRequest(req); err == nil {
+		t.Fatal("expected timeout error")
 	}
-	if c.httpDoer != c.HTTPClient {
-		t.Error("expected HTTPDoer to be the HTTPClient instance")
+}
+
+func TestBearerTokenHeader(t *testing.T) {
+	c := NewClient("http://localhost:8080")
+	req, _ := c.newRequest("GET", "/api/sessions")
+	if got := req.Header.Get("Authorization"); got != "" {
+		t.Fatalf("unexpected Authorization %q", got)
+	}
+	c.Token = "s3cret"
+	req, _ = c.newRequest("GET", "/api/sessions")
+	if got := req.Header.Get("Authorization"); got != "Bearer s3cret" {
+		t.Fatalf("got %q", got)
+	}
+}
+
+func TestNewRequestTrimsTrailingSlashes(t *testing.T) {
+	c := NewClient("http://example.com")
+	c.BaseURL = "http://example.com///"
+	req, err := c.newRequest("GET", "/api/sessions")
+	if err != nil || req.URL.String() != "http://example.com/api/sessions" {
+		t.Fatalf("got %v, %v", req.URL, err)
 	}
 }

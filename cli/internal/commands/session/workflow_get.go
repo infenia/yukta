@@ -15,7 +15,7 @@ import (
 // WorkflowCmd creates and returns the "workflow" command group.
 // It serves as a parent command for workflow-related subcommands (e.g., "get").
 // The command is not meant to be executed directly; it acts as a container for subcommands.
-func WorkflowCmd(c client.ClientInterface) *cobra.Command {
+func WorkflowCmd(c *client.Client) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "workflow",
 		Short: "Workflow commands",
@@ -26,6 +26,10 @@ Use "yukta session workflow <subcommand>" to perform workflow-related operations
 
 	// Add subcommands to the workflow command group
 	cmd.AddCommand(WorkflowGetCmd(c))
+	cmd.AddCommand(dataCmd("graph <session-id> <workflow-id>", "Show the workflow graph (nodes and edges)", 2,
+		func(a []string) (any, error) { return c.GetWorkflowGraph(a[0], a[1]) }))
+	cmd.AddCommand(dataCmd("executions <session-id> <workflow-id>", "List executions of a workflow, most recent first", 2,
+		func(a []string) (any, error) { return c.GetWorkflowExecutions(a[0], a[1]) }))
 
 	return cmd
 }
@@ -35,7 +39,7 @@ Use "yukta session workflow <subcommand>" to perform workflow-related operations
 // The command requires exactly two arguments: session ID and workflow ID.
 // Output format is controlled by the global -o/--output flag (json or table).
 // For complex structures like workflows, output is formatted as JSON in both cases.
-func WorkflowGetCmd(c client.ClientInterface) *cobra.Command {
+func WorkflowGetCmd(c *client.Client) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "get <session-id> <workflow-id>",
 		Short: "Get workflow definition",

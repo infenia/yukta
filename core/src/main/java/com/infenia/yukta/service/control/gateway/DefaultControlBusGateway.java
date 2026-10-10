@@ -860,6 +860,11 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
   }
 
   @Override
+  public WorkflowProgress getProgress(final String sessionId, final String executionId) {
+    return taskTracker.getProgress(sessionId, executionId);
+  }
+
+  @Override
   public WorkflowProgress getCurrentProgress(final String executionId) {
     log.atDebug()
         .addKeyValue("executionId", executionId)
