@@ -5,8 +5,10 @@ plugins {
     jacoco
 }
 
+val libs = extensions.getByType<VersionCatalogsExtension>().named("libs")
+
 jacoco {
-    toolVersion = "0.8.14"
+    toolVersion = libs.findVersion("jacoco").get().requiredVersion
 }
 
 abstract class CoverageExtension {
