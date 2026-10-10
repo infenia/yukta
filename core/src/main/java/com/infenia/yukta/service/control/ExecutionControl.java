@@ -89,6 +89,26 @@ public record ExecutionControl(
   }
 
   /**
+   * Whether a node is currently held by a pause, either its own or the whole run's.
+   *
+   * @param nodeId the node
+   * @return true while the node or the run is paused (step mode counts as paused)
+   */
+  public boolean isPaused(final String nodeId) {
+    final ReactiveControlValve nodeValve = nodePauseValves.get(nodeId);
+    return isRunPaused() || (nodeValve != null && nodeValve.isPaused());
+  }
+
+  /**
+   * Whether the whole run is paused.
+   *
+   * @return true while the global pause valve is closed
+   */
+  public boolean isRunPaused() {
+    return globalPauseValve != null && globalPauseValve.isPaused();
+  }
+
+  /**
    * Applies pre-processing controls (safe stop) to input stream.
    *
    * <p>Applied before stream enters Processor or Terminal plugin. Severs upstream connection but

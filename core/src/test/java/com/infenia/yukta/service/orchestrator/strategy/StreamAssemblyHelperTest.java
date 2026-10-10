@@ -15,6 +15,7 @@ import com.infenia.yukta.service.control.store.ActivePluginRegistry;
 import com.infenia.yukta.service.control.valve.ReactiveControlValve;
 import com.infenia.yukta.service.orchestrator.assembly.AssemblyContext;
 import com.infenia.yukta.service.orchestrator.assembly.ExecutionContextBuilder;
+import com.infenia.yukta.service.orchestrator.stream.NodeActivity;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -70,6 +71,7 @@ class StreamAssemblyHelperTest {
             node,
             Flux.just(msg),
             Duration.ofSeconds(5),
+            new NodeActivity(),
             tracker,
             context,
             plugin,
@@ -88,6 +90,7 @@ class StreamAssemblyHelperTest {
             node,
             Flux.empty(),
             Duration.ofSeconds(5),
+            new NodeActivity(),
             tracker,
             context,
             plugin,
@@ -107,6 +110,7 @@ class StreamAssemblyHelperTest {
             node,
             Flux.just(msg),
             Duration.ofSeconds(5),
+            new NodeActivity(),
             tracker,
             context,
             plugin,
@@ -131,6 +135,7 @@ class StreamAssemblyHelperTest {
             node,
             Flux.just(msg),
             Duration.ofSeconds(5),
+            new NodeActivity(),
             tracker,
             context,
             plugin,
@@ -155,6 +160,7 @@ class StreamAssemblyHelperTest {
             node,
             Flux.just(msg),
             Duration.ofSeconds(5),
+            new NodeActivity(),
             tracker,
             context,
             plugin,
@@ -179,6 +185,7 @@ class StreamAssemblyHelperTest {
             node,
             Flux.just(msg),
             Duration.ofSeconds(5),
+            new NodeActivity(),
             tracker,
             context,
             plugin,
@@ -205,6 +212,7 @@ class StreamAssemblyHelperTest {
             node,
             Flux.just(msg1, msg2, msg3),
             Duration.ofSeconds(5),
+            new NodeActivity(),
             tracker,
             context,
             plugin,
@@ -230,6 +238,7 @@ class StreamAssemblyHelperTest {
             node,
             Flux.just(msg),
             Duration.ofSeconds(5),
+            new NodeActivity(),
             tracker,
             context,
             plugin,
@@ -250,6 +259,7 @@ class StreamAssemblyHelperTest {
             node,
             Flux.error(cause),
             Duration.ofSeconds(5),
+            new NodeActivity(),
             tracker,
             context,
             plugin,
@@ -270,6 +280,7 @@ class StreamAssemblyHelperTest {
             node,
             Flux.just(msg),
             Duration.ofSeconds(5),
+            new NodeActivity(),
             tracker,
             context,
             plugin,
@@ -294,6 +305,7 @@ class StreamAssemblyHelperTest {
             node,
             Flux.just(msg),
             Duration.ofSeconds(5),
+            new NodeActivity(),
             tracker,
             context,
             plugin,
@@ -316,6 +328,7 @@ class StreamAssemblyHelperTest {
             node,
             Flux.error(cause),
             Duration.ofSeconds(5),
+            new NodeActivity(),
             tracker,
             context,
             plugin,
@@ -337,6 +350,7 @@ class StreamAssemblyHelperTest {
             node,
             Flux.<Message<?>>never(),
             Duration.ofSeconds(5),
+            new NodeActivity(),
             tracker,
             context,
             plugin,
@@ -409,5 +423,28 @@ class StreamAssemblyHelperTest {
         new ArrayList<>(),
         new ArrayList<>(),
         new ArrayList<>());
+  }
+
+  @Test
+  void buildStreamWithContext_stalledAfterFirstMessage_timesOut() {
+    final Message<?> msg = DefaultMessage.create(UUID.randomUUID(), "hello");
+    final WorkflowNode node = new WorkflowNode(NODE_ID, "processor", Map.of());
+    final AssemblyContext context = buildContext();
+
+    final Flux<Message<?>> result =
+        StreamAssemblyHelper.buildStreamWithContext(
+            node,
+            Flux.concat(Flux.just(msg), Flux.never()),
+            Duration.ofMillis(100),
+            new NodeActivity(),
+            tracker,
+            context,
+            plugin,
+            activePluginRegistry);
+
+    StepVerifier.create(result)
+        .expectNextCount(1)
+        .expectError(java.util.concurrent.TimeoutException.class)
+        .verify(Duration.ofSeconds(5));
   }
 }

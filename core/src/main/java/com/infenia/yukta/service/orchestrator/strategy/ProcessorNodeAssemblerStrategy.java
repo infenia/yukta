@@ -11,6 +11,7 @@ import com.infenia.yukta.model.workflow.WorkflowNode;
 import com.infenia.yukta.plugin.core.Plugin;
 import com.infenia.yukta.plugin.type.ProcessorPlugin;
 import com.infenia.yukta.service.control.store.ActivePluginRegistry;
+import com.infenia.yukta.service.orchestrator.stream.NodeActivity;
 import com.infenia.yukta.service.orchestrator.stream.StreamTopologyDecorator;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import java.time.Duration;
@@ -91,8 +92,12 @@ public class ProcessorNodeAssemblerStrategy implements NodeAssemblerStrategy {
       final Flux<Message<?>> mergedInput =
           streamTopologyDecorator.mergeParentStreams(context.streams(), parentEdges);
 
+      // The idle clock starts when this node first gets work, not when the run starts.
+      final NodeActivity activity = new NodeActivity();
       final Flux<Message<?>> safeInput =
-          control.applyPreProcessingControls(node.nodeId(), mergedInput);
+          control
+              .applyPreProcessingControls(node.nodeId(), mergedInput)
+              .doOnNext(_ -> activity.touch());
 
       Flux<Message<?>> stream;
       final AtomicBoolean skipFlag = control.nodeSkipFlags().get(node.nodeId());
@@ -122,7 +127,7 @@ public class ProcessorNodeAssemblerStrategy implements NodeAssemblerStrategy {
 
       final Flux<Message<?>> built =
           StreamAssemblyHelper.buildStreamWithContext(
-              node, stream, timeout, tracker, context, plugin, activePluginRegistry);
+              node, stream, timeout, activity, tracker, context, plugin, activePluginRegistry);
       context.streams()[index] =
           streamTopologyDecorator.applyLoggingAndBroadcasting(
               context.executionId(),

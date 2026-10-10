@@ -45,6 +45,7 @@ import org.mockito.quality.Strictness;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Sinks;
 import reactor.core.scheduler.Schedulers;
+import reactor.test.StepVerifier;
 
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
@@ -180,7 +181,7 @@ class ProcessorNodeAssemblerStrategyTest {
             node, processor, Duration.ofSeconds(5), 0, 1024, new ParentEdgeInfo[0]);
     assembler.assemble(context);
 
-    reactor.test.StepVerifier.create(context.streams()[0]).expectNextCount(1).verifyComplete();
+    StepVerifier.create(context.streams()[0]).expectNextCount(1).verifyComplete();
 
     verify(activePluginRegistry).register(WORKFLOW_ID, NODE_ID, processor);
     verify(activePluginRegistry).unregister(WORKFLOW_ID, NODE_ID);
@@ -460,5 +461,28 @@ class ProcessorNodeAssemblerStrategyTest {
         new ArrayList<>(),
         new ArrayList<>(),
         new ArrayList<>());
+  }
+
+  @Test
+  void createAssembler_inputReachesPlugin_touchesTheNodeClock() {
+    final Message<?> msg = DefaultMessage.create(UUID.randomUUID(), "input");
+    final ProcessorPlugin processor = mock(ProcessorPlugin.class);
+    when(processor.process(any(), any())).thenAnswer(inv -> inv.getArgument(0));
+    when(processor.isBlocking()).thenReturn(false);
+
+    final WorkflowNode node = new WorkflowNode(NODE_ID, "processor", Map.of());
+    final Flux<Message<?>> parentStream = Flux.just(msg);
+    final AssemblyContext context = buildContext(NODE_ID, parentStream, null);
+    when(streamTopologyDecorator.mergeParentStreams(any(), any(ParentEdgeInfo[].class)))
+        .thenReturn(parentStream);
+    when(streamTopologyDecorator.applyLoggingAndBroadcasting(
+            anyString(), anyString(), any(), any(int.class), any(), any()))
+        .thenAnswer(inv -> inv.getArgument(2));
+
+    strategy
+        .createAssembler(node, processor, Duration.ofSeconds(5), 0, 1024, new ParentEdgeInfo[0])
+        .assemble(context);
+
+    StepVerifier.create(context.streams()[0]).expectNextCount(1).verifyComplete();
   }
 }

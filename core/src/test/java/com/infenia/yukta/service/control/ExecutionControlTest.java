@@ -425,4 +425,49 @@ class ExecutionControlTest {
     assertThat(ctrl.payload()).containsEntry("b", 1).containsKey("a");
     assertThat(ctrl.payload()).isUnmodifiable();
   }
+
+  private static ExecutionControl controlWith(
+      final ReactiveControlValve global, final Map<String, ReactiveControlValve> nodeValves) {
+    return new ExecutionControl(
+        "s",
+        "w",
+        "e",
+        null,
+        Map.of(),
+        Sinks.one(),
+        global,
+        Map.of(),
+        Map.of(),
+        nodeValves,
+        Map.of());
+  }
+
+  @Test
+  void isPaused_reflectsNodeValveAndGlobalValve() {
+    final ReactiveControlValve global = new ReactiveControlValve();
+    final ReactiveControlValve node = new ReactiveControlValve();
+    final ExecutionControl ctrl = controlWith(global, Map.of("n1", node));
+
+    assertThat(ctrl.isPaused("n1")).isFalse();
+    assertThat(ctrl.isRunPaused()).isFalse();
+
+    node.pause();
+    assertThat(ctrl.isPaused("n1")).isTrue();
+    assertThat(ctrl.isRunPaused()).isFalse();
+    assertThat(ctrl.isPaused("other")).isFalse();
+
+    node.resume();
+    global.pause();
+    assertThat(ctrl.isRunPaused()).isTrue();
+    assertThat(ctrl.isPaused("n1")).isTrue();
+    assertThat(ctrl.isPaused("other")).isTrue();
+  }
+
+  @Test
+  void isPaused_withoutGlobalValveIsNotPaused() {
+    final ExecutionControl ctrl = controlWith(null, Map.of());
+
+    assertThat(ctrl.isRunPaused()).isFalse();
+    assertThat(ctrl.isPaused("n1")).isFalse();
+  }
 }
