@@ -21,8 +21,8 @@ import reactor.core.publisher.Mono;
  * known when the workflow is compiled, so the node starts with the default. When the node gets its
  * first message, the node config is resolved against it and the timeout is worked out again the
  * same way as at compile time: {@code timeoutSeconds}, else the plugin's default for that config.
- * Write a plugin's own number option as a typed expression ({@code "${payload.secs:int}"}); a
- * plain one resolves to text.
+ * Write a plugin's own number option as a typed expression ({@code "${payload.secs:int}"}); a plain
+ * one resolves to text.
  */
 @Slf4j
 @UtilityClass
