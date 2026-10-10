@@ -73,7 +73,10 @@ final class WorkflowState {
           if (old == null) {
             return null;
           }
-          return createUpdatedTask(old, module, status, metadata);
+          // A node only moves forward: a late event never reopens an ended node or steps back,
+          // though what it reports is still merged.
+          return createUpdatedTask(
+              old, module, mayMoveTo(old.status(), status) ? status : old.status(), metadata);
         });
   }
 
@@ -119,6 +122,21 @@ final class WorkflowState {
 
   /* default */ List<TaskProgress> getTasks() {
     return List.copyOf(taskMap.values());
+  }
+
+  /** Whether a node in status {@code current} may be reported as {@code next}. */
+  /* default */ static boolean mayMoveTo(final String current, final String next) {
+    return current.equals(next)
+        || (!TaskStatus.isTerminalName(current) && rank(next) >= rank(current));
+  }
+
+  private static int rank(final String status) {
+    return switch (status) {
+      case "PENDING" -> 0;
+      case "QUEUED" -> 1;
+      case "RUNNING" -> 2;
+      default -> 3;
+    };
   }
 
   private TaskProgress createUpdatedTask(

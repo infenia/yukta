@@ -152,6 +152,13 @@ Gateway commands for a live run (`ControlBusGateway`; REST/MCP endpoints for the
 - `changePriority(execution, priority)`: moves a start that is `QUEUED`; recorded in the run log as
   `SetPriority(n)`, rejected if the run is not waiting.
 
+### Node status only moves forward
+`WorkflowState.updateTask` ignores a status that would reopen an ended node or step a node back
+(`PENDING` < `QUEUED` < `RUNNING` < any terminal status); the metadata of such an event is still
+merged. `WorkflowStateTransitionTest` checks this on thousands of random event orders, and
+`StreamTopologyDecoratorBackpressureTest` (a 20-node chain, 10k messages, bounded memory) guards the
+streaming side as part of `check`.
+
 ### Tracker queue
 State and workflow events are never dropped: they go to an unbounded queue. Log lines are best
 effort: more than 10000 waiting are dropped and counted in `yukta.tracker.dropped{type=log}`
