@@ -223,3 +223,14 @@ func TestStreamExecutionLogEntries_usesEntriesEndpoint(t *testing.T) {
 		t.Errorf("path %q", path)
 	}
 }
+
+func TestStreamExecutionLogEntries_validation(t *testing.T) {
+	c := NewClient("http://localhost:0")
+	noop := func(string) error { return nil }
+	if err := c.StreamExecutionLogEntries(context.Background(), "", "e", noop); err == nil {
+		t.Error("expected error for empty sessionID")
+	}
+	if err := c.StreamExecutionLogEntries(context.Background(), "s", "e", nil); err == nil {
+		t.Error("expected error for nil callback")
+	}
+}

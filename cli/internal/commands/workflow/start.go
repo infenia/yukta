@@ -64,7 +64,7 @@ object) or --payload-file to pass input to the workflow's trigger node.`,
 // payloadBytes returns the raw payload from the inline flag or file, or nil if neither is set.
 func payloadBytes(inline, file string) ([]byte, error) {
 	if file != "" {
-		return os.ReadFile(file)
+		return os.ReadFile(file) // #nosec G304 -- the user names this file on purpose
 	}
 	if inline != "" {
 		return []byte(inline), nil

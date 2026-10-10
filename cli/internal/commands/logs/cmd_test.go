@@ -8,6 +8,8 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"strings"
 	"testing"
@@ -156,4 +158,25 @@ func TestLogsCmd_callbackError(t *testing.T) {
 
 	// Just verify the command runs without panicking
 	// Context.Canceled is treated as a clean exit
+}
+
+func TestLogsCmd_entriesFlagUsesEntriesEndpoint(t *testing.T) {
+	var path string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		path = r.URL.Path
+		w.Header().Set("Content-Type", "text/event-stream")
+		_, _ = w.Write([]byte("data: {\"message\":\"hi\"}\n\n"))
+	}))
+	defer srv.Close()
+
+	cmd := LogsCmd(client.NewClient(srv.URL))
+	if err := cmd.Flags().Set("entries", "true"); err != nil {
+		t.Fatal(err)
+	}
+	if err := cmd.RunE(cmd, []string{"s", "e"}); err != nil {
+		t.Fatal(err)
+	}
+	if path != "/api/sessions/s/executions/e/logs/entries" {
+		t.Errorf("path %q", path)
+	}
 }

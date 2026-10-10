@@ -79,7 +79,7 @@ func readConfigInput(input string) ([]byte, error) {
 	// Check if the input is a file
 	if fileInfo, err := os.Stat(input); err == nil && !fileInfo.IsDir() {
 		// File exists and is not a directory, so read it
-		return os.ReadFile(input)
+		return os.ReadFile(input) // #nosec G304 -- the user names this file on purpose
 	}
 
 	// File doesn't exist or is a directory, treat as inline JSON

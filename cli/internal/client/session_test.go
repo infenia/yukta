@@ -804,3 +804,54 @@ func TestApplyConfig_doRequestFails_withRealFactory(t *testing.T) {
 		t.Error("expected error from doRequest failure")
 	}
 }
+
+func TestGetData_endpoints(t *testing.T) {
+	var path string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		path = r.URL.Path
+		_, _ = w.Write([]byte(`{"data":{"ok":true}}`))
+	}))
+	defer srv.Close()
+	c := NewClient(srv.URL)
+
+	calls := map[string]func() (any, error){
+		"/api/sessions/summaries":           c.GetSessionSummaries,
+		"/api/sessions/s/workflows/w/graph": func() (any, error) { return c.GetWorkflowGraph("s", "w") },
+		"/api/sessions/s/workflows/w/executions": func() (any, error) {
+			return c.GetWorkflowExecutions("s", "w")
+		},
+	}
+	for want, call := range calls {
+		data, err := call()
+		if err != nil || path != want {
+			t.Errorf("%s: err=%v path=%q", want, err, path)
+		}
+		if m, _ := data.(map[string]any); m["ok"] != true {
+			t.Errorf("%s: unexpected data %v", want, data)
+		}
+	}
+}
+
+func TestGetData_errors(t *testing.T) {
+	c := NewClient("http://localhost:0")
+	if _, err := c.GetWorkflowGraph("", "w"); err == nil {
+		t.Error("expected error for empty sessionID")
+	}
+	if _, err := c.GetWorkflowExecutions("s", ""); err == nil {
+		t.Error("expected error for empty workflowID")
+	}
+	if _, err := c.getData("no-leading-slash"); err == nil {
+		t.Error("expected error for bad path")
+	}
+	if _, err := c.getData("/api/x"); err == nil {
+		t.Error("expected error for unreachable server")
+	}
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`not json`))
+	}))
+	defer srv.Close()
+	if _, err := NewClient(srv.URL).GetSessionSummaries(); err == nil {
+		t.Error("expected unmarshal error")
+	}
+}

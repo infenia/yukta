@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -702,5 +703,30 @@ func TestStartCmd_payload(t *testing.T) {
 	_ = bad.Flags().Set("payload", `[1]`)
 	if err := bad.RunE(bad, []string{"s", "w"}); err == nil {
 		t.Error("expected error for non-object payload")
+	}
+}
+
+func TestStartCmd_payloadFile(t *testing.T) {
+	var got map[string]any
+	mockClient := &client.MockClient{
+		StartWorkflowFunc: func(_, _ string, payload map[string]any) (client.WorkflowStartResponse, error) {
+			got = payload
+			return client.WorkflowStartResponse{}, nil
+		},
+	}
+	file := filepath.Join(t.TempDir(), "p.json")
+	if err := os.WriteFile(file, []byte(`{"a":1}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	cmd := StartCmd(mockClient)
+	_ = cmd.Flags().Set("payload-file", file)
+	if err := cmd.RunE(cmd, []string{"s", "w"}); err != nil || got["a"] != float64(1) {
+		t.Fatalf("err=%v got=%v", err, got)
+	}
+
+	missing := StartCmd(mockClient)
+	_ = missing.Flags().Set("payload-file", filepath.Join(t.TempDir(), "nope.json"))
+	if err := missing.RunE(missing, []string{"s", "w"}); err == nil {
+		t.Error("expected error for missing payload file")
 	}
 }

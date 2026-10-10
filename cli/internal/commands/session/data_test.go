@@ -4,6 +4,7 @@
 package session
 
 import (
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -38,5 +39,12 @@ func TestDataCommandsHitExpectedPaths(t *testing.T) {
 		if path != tt.want {
 			t.Errorf("%v: got path %q, want %q", tt.args, path, tt.want)
 		}
+	}
+}
+
+func TestDataCmd_propagatesError(t *testing.T) {
+	cmd := dataCmd("x", "x", 0, func([]string) (any, error) { return nil, errors.New("boom") })
+	if err := cmd.RunE(cmd, nil); err == nil {
+		t.Fatal("expected error")
 	}
 }

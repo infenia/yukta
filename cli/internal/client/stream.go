@@ -45,7 +45,7 @@ func (c *Client) streamRequest(ctx context.Context, path string) (*http.Response
 
 	mediaType, _, err := mime.ParseMediaType(resp.Header.Get("Content-Type"))
 	if err != nil || mediaType != "text/event-stream" {
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		return nil, fmt.Errorf("unexpected content type %q, expected text/event-stream", resp.Header.Get("Content-Type"))
 	}
 
