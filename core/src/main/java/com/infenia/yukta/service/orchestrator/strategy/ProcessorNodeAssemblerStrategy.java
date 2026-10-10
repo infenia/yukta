@@ -15,6 +15,7 @@ import com.infenia.yukta.service.control.store.ActivePluginRegistry;
 import com.infenia.yukta.service.orchestrator.stream.NodeActivity;
 import com.infenia.yukta.service.orchestrator.stream.NodePolicies;
 import com.infenia.yukta.service.orchestrator.stream.StreamTopologyDecorator;
+import com.infenia.yukta.service.orchestrator.stream.UpstreamFailure;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import java.time.Duration;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -99,7 +100,8 @@ public class ProcessorNodeAssemblerStrategy implements NodeAssemblerStrategy {
       final Flux<Message<?>> safeInput =
           control
               .applyPreProcessingControls(node.nodeId(), mergedInput)
-              .doOnNext(_ -> activity.touch());
+              .doOnNext(_ -> activity.touch())
+              .onErrorMap(UpstreamFailure::mark);
 
       Flux<Message<?>> stream;
       final AtomicBoolean skipFlag = control.nodeSkipFlags().get(node.nodeId());
