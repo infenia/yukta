@@ -20,6 +20,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -1271,5 +1272,51 @@ class ControlBusServiceTest {
 
       verify(preparedWorkflowCache).invalidate(SESSION_ID, WORKFLOW_ID);
     }
+  }
+
+  @Test
+  void emit_executionCommand_isAppliedByTheExecutorAndCompletesWhenDone() {
+    final AtomicBoolean applied = new AtomicBoolean();
+    controlBusService.setCommandExecutor(
+        command -> reactor.core.publisher.Mono.fromRunnable(() -> applied.set(true)));
+    final Message<?> signal =
+        com.infenia.yukta.message.DefaultMessage.create(
+                null,
+                new com.infenia.yukta.plugin.control.ExecutionControlCommand.PauseWorkflowCommand(
+                    "e1"))
+            .withSourceNodeId("CONTROL_BUS");
+
+    reactor.test.StepVerifier.create(controlBusService.emit(signal)).verifyComplete();
+
+    org.assertj.core.api.Assertions.assertThat(applied).isTrue();
+  }
+
+  @Test
+  void emit_executionCommand_surfacesTheReasonItWasRejected() {
+    controlBusService.setCommandExecutor(
+        command ->
+            reactor.core.publisher.Mono.error(new IllegalArgumentException("Node not pausable")));
+    final Message<?> signal =
+        com.infenia.yukta.message.DefaultMessage.create(
+                null,
+                new com.infenia.yukta.plugin.control.ExecutionControlCommand.PauseWorkflowCommand(
+                    "e1"))
+            .withSourceNodeId("CONTROL_BUS");
+
+    reactor.test.StepVerifier.create(controlBusService.emit(signal))
+        .expectErrorMessage("Node not pausable")
+        .verify();
+  }
+
+  @Test
+  void emit_nonCommandSignal_stillGoesToTheBusWhenAnExecutorIsSet() {
+    controlBusService.setCommandExecutor(
+        command -> reactor.core.publisher.Mono.error(new IllegalStateException("not for this")));
+    final Message<?> signal =
+        com.infenia.yukta.message.DefaultMessage.create(null, "just a heartbeat")
+            .withSourceNodeId("n1")
+            .withWorkflowId("w1");
+
+    reactor.test.StepVerifier.create(controlBusService.emit(signal)).verifyComplete();
   }
 }

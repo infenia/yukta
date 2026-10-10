@@ -71,6 +71,7 @@ public class ExecutionControlFactory {
         nodeImmediateStopSinks,
         nodeSafeStopSinks,
         nodePauseValves,
-        nodeSkipFlags);
+        nodeSkipFlags,
+        new AtomicBoolean(false));
   }
 }

@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.infenia.yukta.service.control.ExecutionControl;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -36,7 +37,8 @@ class ExecutionControlRegistryTest {
         Map.of(),
         Map.of(),
         Map.of(),
-        Map.of());
+        Map.of(),
+        new AtomicBoolean());
   }
 
   @Test

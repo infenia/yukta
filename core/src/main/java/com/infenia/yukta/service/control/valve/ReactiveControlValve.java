@@ -2,119 +2,135 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.service.control.valve;
 
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.time.Duration;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 import lombok.NoArgsConstructor;
 import reactor.core.publisher.Mono;
 import reactor.core.publisher.Sinks;
-import reactor.core.publisher.Sinks.Many;
 
 /**
- * Reactive flow control valve for pause/resume via backpressure.
+ * Permit-based flow control for pause, resume and step-through.
  *
- * <p>Uses {@code delayUntil} to halt downstream items when paused. Fast path when flowing; blocks
- * when paused until explicit resume.
+ * <p>The valve is in one of three modes:
  *
- * <p>Supports step-through mode: when enabled, each element must be explicitly stepped via the
- * stepSink signal, allowing one element through at a time.
+ * <ul>
+ *   <li><b>flowing</b>: every element passes;
+ *   <li><b>held</b>: no element passes until {@link #resume()};
+ *   <li><b>stepping</b>: an element passes only against a credit; {@link #step()} adds one credit,
+ *       and credits requested before an element arrives are kept.
+ * </ul>
+ *
+ * <p>Place it in front of a node's input (see {@code ExecutionControl#applyPassageGate}), so that a
+ * pause stops the node from pulling more work instead of merely hiding its output.
  */
 @NoArgsConstructor
+@SuppressWarnings("PMD.OnlyOneReturn")
 public final class ReactiveControlValve {
 
-  /** Flag indicating whether the valve is paused. */
-  private final AtomicBoolean paused = new AtomicBoolean(false);
+  /** Flow mode of the valve. */
+  private enum Mode {
+    FLOWING,
+    HELD,
+    STEPPING
+  }
 
-  /** Flag indicating whether step mode is enabled. */
-  private final AtomicBoolean stepMode = new AtomicBoolean(false);
+  /** Current mode. */
+  private final AtomicReference<Mode> mode = new AtomicReference<>(Mode.FLOWING);
 
-  /** Sink for resume signals. */
-  private final Many<Boolean> resumeSink = Sinks.many().replay().latestOrDefault(true);
+  /** Credits available in stepping mode. */
+  private final AtomicLong credits = new AtomicLong();
 
-  /** Sink for step signals. */
-  private final Many<Long> stepSignal = Sinks.many().replay().latestOrDefault(0L);
+  /** Counts state changes; replayed so a late waiter re-checks the latest state. */
+  private final AtomicLong version = new AtomicLong();
 
-  /** Counter for tracking steps in step mode. */
-  private final AtomicLong stepCounter = new AtomicLong(0);
+  /** Signals waiters that the mode or the credits changed. */
+  private final Sinks.Many<Long> changes = Sinks.many().replay().latest();
 
   /**
-   * Checks if passage is allowed. Returns immediately if flowing; blocks if paused.
+   * Waits until one element may pass and takes its permit.
    *
-   * <p>In step mode, waits for next step signal via stepSink rather than permanent resume.
-   *
-   * @return Mono that emits true when passage is allowed
+   * @return a Mono that emits true when passage is granted
    */
-  @SuppressWarnings("PMD.OnlyOneReturn")
   public Mono<Boolean> allowPassage() {
-    if (!paused.get()) {
-      return Mono.just(true);
-    }
-
-    if (stepMode.get()) {
-      final long currentStep = stepCounter.get();
-      return stepSignal.asFlux().filter(s -> s > currentStep).next().thenReturn(true);
-    }
-
-    return resumeSink.asFlux().filter(Boolean::booleanValue).next().thenReturn(true);
+    return Mono.defer(
+        () ->
+            tryAcquire()
+                ? Mono.just(true)
+                : changes.asFlux().filter(_ -> tryAcquire()).next().thenReturn(true));
   }
 
-  /** Pauses the valve, causing downstream to block until resumed. */
+  private boolean tryAcquire() {
+    return switch (mode.get()) {
+      case FLOWING -> true;
+      case HELD -> false;
+      case STEPPING -> takeCredit();
+    };
+  }
+
+  private boolean takeCredit() {
+    return credits.getAndUpdate(current -> current > 0 ? current - 1 : 0) > 0;
+  }
+
+  private void changed() {
+    changes.emitNext(
+        version.incrementAndGet(), Sinks.EmitFailureHandler.busyLooping(Duration.ofMillis(100)));
+  }
+
+  /** Holds the valve: no element passes until {@link #resume()}. */
   public void pause() {
-    paused.set(true);
-    resumeSink.tryEmitNext(false);
+    mode.set(Mode.HELD);
+    changed();
   }
 
-  /** Resumes the valve, unblocking downstream. */
+  /** Lets every element pass again and drops unused step credits. */
   public void resume() {
-    paused.set(false);
-    resumeSink.tryEmitNext(true);
+    mode.set(Mode.FLOWING);
+    credits.set(0);
+    changed();
   }
 
   /**
-   * Checks current pause state without blocking.
+   * Whether elements are currently held back, including step mode.
    *
-   * @return true if paused, false if flowing
+   * @return true unless the valve is flowing
    */
   public boolean isPaused() {
-    return paused.get();
+    return mode.get() != Mode.FLOWING;
   }
 
-  /**
-   * Enables step-through mode. Each element must be explicitly stepped via {@code step()}.
-   *
-   * <p>Automatically pauses the valve.
-   */
+  /** Enters step mode with no credits: nothing passes until {@link #step()} is called. */
   public void enableStepMode() {
-    stepMode.set(true);
-    paused.set(true);
+    credits.set(0);
+    mode.set(Mode.STEPPING);
+    changed();
   }
 
-  /** Disables step-through mode and resumes normal pause/resume. */
+  /** Leaves step mode and lets every element pass. */
   public void disableStepMode() {
-    stepMode.set(false);
     resume();
   }
 
   /**
-   * Signals the next step in step-through mode. Allows exactly one element through.
+   * Adds one credit, letting exactly one more element pass. Credits are kept until used.
    *
-   * @return true if step signal was emitted, false if step mode not active
+   * @return true if the credit was added, false if the valve is not in step mode
    */
-  @SuppressWarnings("PMD.OnlyOneReturn")
   public boolean step() {
-    if (!stepMode.get()) {
+    if (mode.get() != Mode.STEPPING) {
       return false;
     }
-    final long nextStep = stepCounter.incrementAndGet();
-    stepSignal.tryEmitNext(nextStep);
+    credits.incrementAndGet();
+    changed();
     return true;
   }
 
   /**
-   * Checks current step-mode state.
+   * Whether the valve is in step mode.
    *
-   * @return true if step mode is active, false otherwise
+   * @return true while stepping
    */
   public boolean isStepMode() {
-    return stepMode.get();
+    return mode.get() == Mode.STEPPING;
   }
 }

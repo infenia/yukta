@@ -449,7 +449,8 @@ class ProcessorNodeAssemblerStrategyTest {
             Map.of(),
             Map.of(),
             Map.of(),
-            skipFlags);
+            skipFlags,
+            new AtomicBoolean());
 
     return new AssemblyContext(
         EXECUTION_ID,
