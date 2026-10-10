@@ -121,12 +121,16 @@ tasks.withType<JavaCompile>().configureEach {
 }
 
 tasks.register<Exec>("opengrep") {
-    description = "Run OpenGrep static analysis"
+    description = "Run OpenGrep static analysis with the pinned local ruleset"
     group = "verification"
 
-    val sourceDir = project.file("src/main/java")
+    val sourceDir = project.file("src/main")
+    val ruleFile = rootProject.file("config/opengrep/.semgrep.yml")
     val reportDir = project.layout.buildDirectory.dir("reports/opengrep").get()
     val reportFile = reportDir.file("opengrep-report.sarif").asFile
+
+    inputs.file(ruleFile)
+    inputs.dir(sourceDir).optional()
 
     doFirst {
         reportDir.asFile.mkdirs()
@@ -136,23 +140,16 @@ tasks.register<Exec>("opengrep") {
     val tempDir = System.getProperty("java.io.tmpdir")
     environment("HOME", tempDir)
 
+    // --error: any finding exits non-zero, which fails the build.
+    // Run from the repo root with relative paths so rule ids stay short (`nosem: <id>` matches).
+    workingDir = rootProject.projectDir
     commandLine("opengrep", "scan",
-        "--config=auto",
-        "--output=${reportFile.absolutePath}",
-        "--json",
+        "--config=config/opengrep/.semgrep.yml",
+        "--error",
+        "--sarif-output=${reportFile.absolutePath}",
         "--quiet",
-        sourceDir.absolutePath
+        sourceDir.relativeTo(rootProject.projectDir).path
     )
-
-    isIgnoreExitValue = true
-
-    doLast {
-        // Exit code 1 means findings were reported, which is not a failure
-        // Exit code 0 means no findings
-        if (executionResult.get().exitValue > 1) {
-            throw GradleException("OpenGrep scan failed with exit code ${executionResult.get().exitValue}")
-        }
-    }
 
     onlyIf {
         val sourceExists = sourceDir.exists()

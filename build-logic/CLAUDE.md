@@ -19,7 +19,7 @@ All modules apply these plugins via `plugins { id 'com.infenia.yukta.xxx-convent
 ## Quality Configuration
 - **Checkstyle**: `config/checkstyle/checkstyle.xml`
 - **PMD**: `config/pmd/ruleset.xml`
-- **OpenGrep**: runs with `--config=auto` in `check` only if the `opengrep` CLI is installed; findings don't fail the build and `config/opengrep/` doesn't exist yet (see `docs/build-logic-improvements.md` L1)
+- **OpenGrep**: runs in `check` only if the `opengrep` CLI is installed, with the local ruleset `config/opengrep/.semgrep.yml`; any finding fails the build (`--error`)
 - **License**: `config/license/`
 
 ## Docs
