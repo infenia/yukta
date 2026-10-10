@@ -12,7 +12,9 @@ import com.infenia.yukta.plugin.type.TriggerPlugin;
 import com.infenia.yukta.service.plugin.PluginRegistry;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Deque;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -40,24 +42,70 @@ import reactor.core.publisher.Mono;
 })
 public class WorkflowValidator {
 
+  /** Largest accepted number of nodes. */
+  private static final int MAX_NODES = 500;
+
+  /** Largest accepted number of edges. */
+  private static final int MAX_EDGES = 2000;
+
   /** The plugin registry for resolving plugin types. */
   private final PluginRegistry registry;
 
   /**
-   * Finds the first edge pointing from or to a node that is not part of the definition.
+   * Finds the first structural problem: graph too large, duplicate node id or edge, an edge to an
+   * unknown node, or an edge from an output port the source plugin does not have.
    *
    * <p>Checked eagerly, before the other validations are assembled, because they assume every edge
-   * endpoint exists.
+   * endpoint exists and ids are unique.
    */
-  private static Optional<String> findUnknownEdge(final WorkflowDefinition def) {
-    final Set<String> nodeIds =
-        def.nodes().stream().map(WorkflowDefinition.Node::nodeId).collect(Collectors.toSet());
-    return def.edges().stream()
-        .filter(edge -> !nodeIds.contains(edge.source()) || !nodeIds.contains(edge.target()))
-        .map(
-            edge ->
-                "Edge " + edge.source() + " -> " + edge.target() + " references an unknown node")
-        .findFirst();
+  private Optional<String> findStructuralProblem(final WorkflowDefinition def) {
+    if (def.nodes().size() > MAX_NODES || def.edges().size() > MAX_EDGES) {
+      return Optional.of(
+          "Workflow is too large: at most " + MAX_NODES + " nodes and " + MAX_EDGES + " edges");
+    }
+    final Map<String, WorkflowDefinition.Node> nodes = new ConcurrentHashMap<>();
+    for (final WorkflowDefinition.Node node : def.nodes()) {
+      if (nodes.put(node.nodeId(), node) != null) {
+        return Optional.of("Duplicate node id '" + node.nodeId() + "'");
+      }
+    }
+    final Set<WorkflowDefinition.Edge> seen = new HashSet<>();
+    for (final WorkflowDefinition.Edge edge : def.edges()) {
+      final Optional<String> problem = findEdgeProblem(edge, nodes, seen);
+      if (problem.isPresent()) {
+        return problem;
+      }
+    }
+    return Optional.empty();
+  }
+
+  private Optional<String> findEdgeProblem(
+      final WorkflowDefinition.Edge edge,
+      final Map<String, WorkflowDefinition.Node> nodes,
+      final Set<WorkflowDefinition.Edge> seen) {
+    final String label = "Edge " + edge.source() + " -> " + edge.target();
+    if (!nodes.containsKey(edge.source()) || !nodes.containsKey(edge.target())) {
+      return Optional.of(label + " references an unknown node");
+    }
+    if (!seen.add(edge)) {
+      return Optional.of(label + " is defined more than once");
+    }
+    if (edge.sourcePort() != null && !hasPort(nodes.get(edge.source()), edge.sourcePort())) {
+      return Optional.of(
+          label + " uses output port '" + edge.sourcePort() + "' that the source does not have");
+    }
+    return Optional.empty();
+  }
+
+  /** True if the node's plugin declares the port, or it is the error port of a ROUTE policy. */
+  private boolean hasPort(final WorkflowDefinition.Node node, final String port) {
+    final Plugin plugin = registry.get(node.type());
+    if (plugin == null) {
+      return true; // reported by validatePluginsRegistered
+    }
+    return plugin.getOutputPorts(node.config()).contains(port)
+        || NodePolicy.ERROR_PORT.equals(port)
+            && NodePolicy.from(node.config()).onError() == NodePolicy.OnError.ROUTE;
   }
 
   /**
@@ -99,14 +147,14 @@ public class WorkflowValidator {
         .addKeyValue("edgeCount", def.edges().size())
         .log("Starting workflow validation");
 
-    final Optional<String> unknownEdge = findUnknownEdge(def);
-    if (unknownEdge.isPresent()) {
-      return Mono.error(new IllegalArgumentException(unknownEdge.get()));
-    }
-
     final Optional<String> invalidPolicy = findInvalidPolicy(def);
     if (invalidPolicy.isPresent()) {
       return Mono.error(new IllegalArgumentException(invalidPolicy.get()));
+    }
+
+    final Optional<String> structural = findStructuralProblem(def);
+    if (structural.isPresent()) {
+      return Mono.error(new IllegalArgumentException(structural.get()));
     }
 
     final Set<String> targetIds =
@@ -368,57 +416,37 @@ public class WorkflowValidator {
                     .log("All plugin configurations validated successfully"));
   }
 
+  /** Kahn's algorithm: the graph has a cycle if not every node can be taken off in order. */
   private boolean hasCycles(final WorkflowDefinition def) {
+    final Map<String, Integer> inDegree = new ConcurrentHashMap<>();
     final Map<String, List<String>> adj = new ConcurrentHashMap<>();
-    def.nodes().forEach(node -> adj.put(node.nodeId(), new ArrayList<>()));
+    def.nodes()
+        .forEach(
+            node -> {
+              inDegree.put(node.nodeId(), 0);
+              adj.put(node.nodeId(), new ArrayList<>());
+            });
     def.edges()
         .forEach(
             edge -> {
-              // sourceAdj is guaranteed non-null (all nodes initialized above)
               adj.get(edge.source()).add(edge.target());
+              inDegree.merge(edge.target(), 1, Integer::sum);
             });
-
-    final Set<String> visited = new HashSet<>();
-    final Set<String> recStack = new HashSet<>();
-
-    for (final String nodeId : adj.keySet()) {
-      if (isCyclicUtil(nodeId, visited, recStack, adj)) {
-        return true;
+    final Deque<String> ready = new ArrayDeque<>();
+    inDegree.forEach((nodeId, degree) -> addIfZero(ready, nodeId, degree));
+    int removed = 0;
+    while (!ready.isEmpty()) {
+      removed++;
+      for (final String child : adj.get(ready.poll())) {
+        addIfZero(ready, child, inDegree.merge(child, -1, Integer::sum));
       }
     }
-    return false;
+    return removed != inDegree.size();
   }
 
-  private boolean isCyclicUtil(
-      final String nodeId,
-      final Set<String> visited,
-      final Set<String> recStack,
-      final Map<String, List<String>> adj) {
-    boolean found = false;
-    if (recStack.contains(nodeId)) {
-      found = true;
-    } else if (!visited.contains(nodeId)) {
-      visited.add(nodeId);
-      recStack.add(nodeId);
-
-      found = checkChildrenForCycles(adj.get(nodeId), visited, recStack, adj);
-
-      recStack.remove(nodeId);
+  private static void addIfZero(final Deque<String> ready, final String nodeId, final int degree) {
+    if (degree == 0) {
+      ready.add(nodeId);
     }
-    return found;
-  }
-
-  private boolean checkChildrenForCycles(
-      final List<String> children,
-      final Set<String> visited,
-      final Set<String> recStack,
-      final Map<String, List<String>> adj) {
-    // children is guaranteed non-null (all nodes initialized in hasCycles)
-    for (final String child : children) {
-      if (isCyclicUtil(child, visited, recStack, adj)) {
-        return true;
-      }
-    }
-    return false;
   }
 }

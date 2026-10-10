@@ -84,6 +84,13 @@ Malformed policies are rejected by `WorkflowValidator` with the node id and opti
   execution id instead of starting another. A failed start is not remembered.
 - Concurrent starts of a workflow that is not prepared yet share one preparation.
 
+### Validation limits and metrics
+- `WorkflowValidator` rejects duplicate node ids and edges, an edge `sourcePort` the source plugin
+  does not declare (`error` is allowed on nodes with `onError: ROUTE`), and graphs over 500 nodes or
+  2000 edges.
+- The tracker records Micrometer `yukta.node.executions` (tags `module`, `status`) and
+  `yukta.node.duration` (tag `module`) when a node reaches a terminal status.
+
 ## Key File Locations
 - **Services**: `src/main/java/com/infenia/yukta/service/`
 - **Validation**: `src/main/java/com/infenia/yukta/validation/`

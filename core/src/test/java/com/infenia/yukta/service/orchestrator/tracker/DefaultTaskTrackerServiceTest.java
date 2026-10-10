@@ -11,7 +11,9 @@ import com.infenia.yukta.model.execution.ControlState;
 import com.infenia.yukta.model.execution.TaskProgress;
 import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.model.execution.WorkflowProgress;
+import com.infenia.yukta.service.log.InMemoryExecutionLogStore;
 import com.infenia.yukta.service.streaming.StatusHistoryCache;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.lang.reflect.Field;
 import java.time.Duration;
 import java.util.Collections;
@@ -49,6 +51,37 @@ class DefaultTaskTrackerServiceTest {
   void setUp() {
     tracker = new DefaultTaskTrackerService(Duration.ofMillis(200), statusHistoryCache);
     tracker.init();
+  }
+
+  @Test
+  void testNodeMetricsCountOutcomesAndTimeRunNodes() {
+    final SimpleMeterRegistry meters = new SimpleMeterRegistry();
+    final DefaultTaskTrackerService metered =
+        new DefaultTaskTrackerService(
+            Duration.ofMillis(200), statusHistoryCache, new InMemoryExecutionLogStore(), meters);
+    metered.init();
+    StepVerifier.create(metered.startWorkflow("m-exec", "m-sess", "m-wf", List.of("a", "b")))
+        .verifyComplete();
+
+    metered.emitTaskStatusEvent("m-exec", "a", "echo", TaskStatus.RUNNING, Map.of());
+    metered.emitTaskStatusEvent("m-exec", "a", "echo", TaskStatus.SUCCESS, Map.of());
+    metered.emitTaskStatusEvent("m-exec", "b", "echo", TaskStatus.SUCCESS, Map.of());
+    metered.emitTaskStatusEvent("m-exec", "ghost", "echo", TaskStatus.SUCCESS, Map.of());
+
+    await()
+        .atMost(2, TimeUnit.SECONDS)
+        .untilAsserted(
+            () -> {
+              assertThat(
+                      meters
+                          .get("yukta.node.executions")
+                          .tags("module", "echo", "status", "SUCCESS")
+                          .counter()
+                          .count())
+                  .isEqualTo(2.0);
+              // only the node that actually ran has a duration
+              assertThat(meters.get("yukta.node.duration").timer().count()).isEqualTo(1);
+            });
   }
 
   @Test

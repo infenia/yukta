@@ -2,7 +2,9 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.service.orchestrator.validator;
 
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
 
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
@@ -11,6 +13,7 @@ import com.infenia.yukta.plugin.type.ProcessorPlugin;
 import com.infenia.yukta.plugin.type.TerminalPlugin;
 import com.infenia.yukta.plugin.type.TriggerPlugin;
 import com.infenia.yukta.service.plugin.PluginRegistry;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import lombok.NoArgsConstructor;
@@ -84,6 +87,99 @@ class WorkflowValidatorTest {
   @BeforeEach
   void setUp() {
     validator = new WorkflowValidator(registry);
+    for (final var plugin : List.of(triggerPlugin, processorPlugin, terminalPlugin)) {
+      lenient().when(plugin.getOutputPorts(any())).thenReturn(List.of(DEFAULT_EDGE_LABEL));
+    }
+  }
+
+  private void assertRejected(final WorkflowDefinition def, final String message) {
+    assertThatThrownBy(() -> validator.validate(def).block())
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining(message);
+  }
+
+  private static WorkflowDefinition.Node node(final String nodeId, final String type) {
+    return new WorkflowDefinition.Node(nodeId, type, Map.of());
+  }
+
+  @Test
+  void testDuplicateNodeIdRejected() {
+    assertRejected(
+        new WorkflowDefinition(
+            WORKFLOW_NAME, "d", List.of(node("a", "T"), node("a", "P")), List.of()),
+        "Duplicate node id 'a'");
+  }
+
+  @Test
+  void testDuplicateEdgeRejected() {
+    final var edge = new WorkflowDefinition.Edge("a", "b", null);
+    assertRejected(
+        new WorkflowDefinition(
+            WORKFLOW_NAME, "d", List.of(node("a", "T"), node("b", "P")), List.of(edge, edge)),
+        "more than once");
+  }
+
+  @Test
+  void testUnknownSourcePortRejected() {
+    when(registry.get("T")).thenReturn(triggerPlugin);
+    assertRejected(
+        new WorkflowDefinition(
+            WORKFLOW_NAME,
+            "d",
+            List.of(node("a", "T"), node("b", "P")),
+            List.of(new WorkflowDefinition.Edge("a", "b", "nope"))),
+        "output port 'nope'");
+  }
+
+  @Test
+  void testErrorPortRejectedWithoutRoutePolicy() {
+    when(registry.get("T")).thenReturn(triggerPlugin);
+    assertRejected(
+        new WorkflowDefinition(
+            WORKFLOW_NAME,
+            "d",
+            List.of(node("a", "T"), node("b", "P")),
+            List.of(new WorkflowDefinition.Edge("a", "b", "error"))),
+        "output port 'error'");
+  }
+
+  @Test
+  void testPortOfUnregisteredPluginLeftToRegistryCheck() {
+    final var def =
+        new WorkflowDefinition(
+            WORKFLOW_NAME,
+            "d",
+            List.of(node("a", "T"), node("b", "P")),
+            List.of(new WorkflowDefinition.Edge("a", "b", "x")));
+    StepVerifier.create(validator.validate(def))
+        .expectErrorMatches(e -> !e.getMessage().contains("output port"))
+        .verify();
+  }
+
+  @Test
+  void testTooManyNodesRejected() {
+    final var nodes = new ArrayList<WorkflowDefinition.Node>();
+    for (int i = 0; i < 501; i++) {
+      nodes.add(node("n" + i, "P"));
+    }
+    assertRejected(new WorkflowDefinition(WORKFLOW_NAME, "d", nodes, List.of()), "too large");
+  }
+
+  @Test
+  void testErrorPortAllowedWhenRouted() {
+    when(registry.get("P")).thenReturn(processorPlugin);
+    when(processorPlugin.getCategory()).thenReturn(PluginCategory.PROCESSOR);
+    final var routed =
+        new WorkflowDefinition.Node("p", "P", Map.of("engine", Map.of("onError", "ROUTE")));
+    final var def =
+        new WorkflowDefinition(
+            WORKFLOW_NAME,
+            "d",
+            List.of(routed, node("d", "D")),
+            List.of(new WorkflowDefinition.Edge("p", "d", "error")));
+    StepVerifier.create(validator.validate(def))
+        .expectErrorMatches(e -> !e.getMessage().contains("output port"))
+        .verify();
   }
 
   @Test
