@@ -240,6 +240,60 @@ class TerminalNodeAssemblerStrategyTest {
   }
 
   @Test
+  void createAssembler_cancelledTerminal_reportsCancelled() {
+    final TerminalPlugin terminal = mock(TerminalPlugin.class);
+    when(terminal.consume(any(), any()))
+        .thenAnswer(
+            inv -> {
+              final Flux<Message<?>> input = inv.getArgument(0);
+              return input.then();
+            });
+    when(terminal.isBlocking()).thenReturn(false);
+    final WorkflowNode node = new WorkflowNode(NODE_ID, "terminal", Map.of());
+    final Flux<Message<?>> waiting = Flux.never();
+    final AssemblyContext context = buildContext(waiting);
+    when(streamTopologyDecorator.mergeParentStreams(any(), any(ParentEdgeInfo[].class)))
+        .thenReturn(waiting);
+    strategy
+        .createAssembler(node, terminal, Duration.ofSeconds(5), 0, 1024, new ParentEdgeInfo[0])
+        .assemble(context);
+
+    StepVerifier.create(context.terminals().getFirst()).expectSubscription().thenCancel().verify();
+
+    verify(tracker)
+        .emitTaskStatusEvent(
+            eq(EXECUTION_ID), eq(NODE_ID), anyString(), eq(TaskStatus.CANCELLED), any());
+  }
+
+  @Test
+  void createAssembler_stalledAfterFirstInput_reportsTimedOut() {
+    final TerminalPlugin terminal = mock(TerminalPlugin.class);
+    when(terminal.consume(any(), any()))
+        .thenAnswer(
+            inv -> {
+              final Flux<Message<?>> input = inv.getArgument(0);
+              return input.then();
+            });
+    when(terminal.isBlocking()).thenReturn(false);
+    final WorkflowNode node = new WorkflowNode(NODE_ID, "terminal", Map.of());
+    final Message<?> first = DefaultMessage.create(UUID.randomUUID(), "data");
+    final Flux<Message<?>> stalled = Flux.concat(Flux.just(first), Flux.never());
+    final AssemblyContext context = buildContext(stalled);
+    when(streamTopologyDecorator.mergeParentStreams(any(), any(ParentEdgeInfo[].class)))
+        .thenReturn(stalled);
+    strategy
+        .createAssembler(node, terminal, Duration.ofMillis(100), 0, 1024, new ParentEdgeInfo[0])
+        .assemble(context);
+
+    StepVerifier.create(context.terminals().getFirst())
+        .verifyError(java.util.concurrent.TimeoutException.class);
+
+    verify(tracker)
+        .emitTaskStatusEvent(
+            eq(EXECUTION_ID), eq(NODE_ID), anyString(), eq(TaskStatus.TIMED_OUT), any());
+  }
+
+  @Test
   void createAssembler_noInputYet_doesNotTimeOut() {
     final TerminalPlugin terminal = mock(TerminalPlugin.class);
     when(terminal.consume(any(), any()))

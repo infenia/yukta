@@ -6,7 +6,8 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 
 /** Event representing a change in workflow status. */
-public record WorkflowStatusEvent(String executionId, String status, LocalDateTime timestamp) {
+public record WorkflowStatusEvent(String executionId, String status, LocalDateTime timestamp)
+    implements TrackerEvent {
   /**
    * Creates a new WorkflowStatusEvent with the current timestamp.
    *
