@@ -34,6 +34,7 @@ class ExecutionControlCommandTest {
           case StopWorkflowCommand c -> "stop-workflow";
           case ExecutionControlCommand.RestartCommand c -> "restart";
           case ExecutionControlCommand.RestartFromNodeCommand c -> "restart-from-node";
+          case ExecutionControlCommand.SetBreakpointCommand c -> "set-breakpoint";
         };
 
     assertThat(kind).isEqualTo("pause-node");
@@ -54,7 +55,8 @@ class ExecutionControlCommandTest {
             new ExecutionControlCommand.StepNodeCommand("e", "n"),
             new StopWorkflowCommand("e", null),
             new ExecutionControlCommand.RestartCommand("e", "e2"),
-            new ExecutionControlCommand.RestartFromNodeCommand("e", "n", "e2"));
+            new ExecutionControlCommand.RestartFromNodeCommand("e", "n", "e2"),
+            new ExecutionControlCommand.SetBreakpointCommand("e", "n", "payload.x", "1"));
 
     assertThat(all).extracting(ExecutionControlCommand::executionId).containsOnly("e");
   }
@@ -78,5 +80,25 @@ class ExecutionControlCommandTest {
     assertThat(processor.getPriority()).isZero();
     assertThat(processor.process(new StopWorkflowCommand("e", null)).block())
         .isEqualTo(new WorkflowDirective.Stop("done"));
+  }
+
+  @Test
+  void setBreakpoint_acceptsPayloadAndMetadataFields_andRejectsOthers() {
+    assertThat(new ExecutionControlCommand.SetBreakpointCommand("e", "n", "payload", "x").field())
+        .isEqualTo("payload");
+    assertThat(new ExecutionControlCommand.SetBreakpointCommand("e", "n", "payload.a.b", "x"))
+        .isNotNull();
+    assertThat(new ExecutionControlCommand.SetBreakpointCommand("e", "n", "metadata.k", "x"))
+        .isNotNull();
+    assertThat(new ExecutionControlCommand.SetBreakpointCommand("e", "n", null, null).field())
+        .isNull();
+    org.assertj.core.api.Assertions.assertThatThrownBy(
+            () -> new ExecutionControlCommand.SetBreakpointCommand("e", "n", "payloadX", "x"))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("Breakpoint field");
+    org.assertj.core.api.Assertions.assertThatThrownBy(
+            () -> new ExecutionControlCommand.SetBreakpointCommand("e", "n", "payload", null))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("value to compare");
   }
 }

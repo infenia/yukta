@@ -20,6 +20,8 @@ import reactor.test.StepVerifier;
 @SuppressWarnings({"PMD.CommentRequired", "PMD.TooManyMethods"})
 class ExecutionSchedulerTest {
 
+  private static final String LATE = "late";
+
   private static ExecutionScheduler scheduler(
       final int global, final int perWorkflow, final int queue, final OnLimit onLimit) {
     return new ExecutionScheduler(global, perWorkflow, queue, onLimit, Duration.ofMillis(300));
@@ -316,5 +318,134 @@ class ExecutionSchedulerTest {
 
     assertThat(scheduler.running()).isEqualTo(3);
     assertThat(scheduler.queued()).isEqualTo(1);
+  }
+
+  @Test
+  void setPriority_movesWaitingStartAheadOfLowerPriorityOnes() {
+    final ExecutionScheduler scheduler = scheduler(1, 0, 10, OnLimit.QUEUE);
+    final Permit first = granted(scheduler.acquire("s", "w"));
+    final var order = new java.util.ArrayList<String>();
+    scheduler.acquire("s", "w", 0, "low").permit().subscribe(p -> order.add("low"));
+    scheduler.acquire("s", "w", 0, LATE).permit().subscribe(p -> order.add(LATE));
+
+    assertThat(scheduler.changePriority(LATE, 5)).isTrue();
+    first.release();
+
+    assertThat(order).containsExactly(LATE);
+  }
+
+  @Test
+  void setPriority_ofRunningOrUnknownExecution_isFalse_andCancelledMovedWaiterLeavesQueue() {
+    final ExecutionScheduler scheduler = scheduler(1, 0, 10, OnLimit.QUEUE);
+    granted(scheduler.acquire("s", "w", 0, "running"));
+    final var waiting = scheduler.acquire("s", "w", 0, "w1").permit().subscribe();
+
+    assertThat(scheduler.changePriority("running", 9)).isFalse();
+    assertThat(scheduler.changePriority("ghost", 9)).isFalse();
+    assertThat(scheduler.changePriority("w1", 9)).isTrue();
+    waiting.dispose();
+
+    assertThat(scheduler.queued()).isZero();
+  }
+
+  private static ExecutionScheduler governed(
+      final int global, final int perSession, final int workflowQueue, final int queue) {
+    return new ExecutionScheduler(
+        global,
+        0,
+        queue,
+        OnLimit.QUEUE,
+        Duration.ofMillis(300),
+        Duration.ZERO,
+        perSession,
+        workflowQueue);
+  }
+
+  @Test
+  void perSessionLimit_holdsBackOneSession_whileOthersStillRun() {
+    final ExecutionScheduler scheduler = governed(0, 1, 0, 10);
+    granted(scheduler.acquire("a", "w1"));
+
+    final Admission second = scheduler.acquire("a", "w2");
+    final Admission other = scheduler.acquire("b", "w1");
+
+    assertThat(second.immediate()).isFalse();
+    assertThat(other.immediate()).isTrue();
+    assertThat(scheduler.queued()).isEqualTo(1);
+  }
+
+  @Test
+  void freedSlot_goesToSessionWithFewestRunning_beforeOldestWaiter() {
+    final ExecutionScheduler scheduler = governed(2, 0, 0, 10);
+    final Permit firstOfA = granted(scheduler.acquire("a", "w"));
+    granted(scheduler.acquire("a", "w"));
+    final var order = new java.util.ArrayList<String>();
+    scheduler.acquire("a", "w").permit().subscribe(p -> order.add("a"));
+    scheduler.acquire("b", "w").permit().subscribe(p -> order.add("b"));
+
+    firstOfA.release();
+
+    assertThat(order).containsExactly("b");
+  }
+
+  @Test
+  void priority_stillBeatsFairness() {
+    final ExecutionScheduler scheduler = governed(1, 0, 0, 10);
+    final Permit first = granted(scheduler.acquire("a", "w"));
+    final var order = new java.util.ArrayList<String>();
+    scheduler.acquire("b", "w", 0).permit().subscribe(p -> order.add("b-low"));
+    scheduler.acquire("a", "w", 5).permit().subscribe(p -> order.add("a-high"));
+
+    first.release();
+
+    assertThat(order).containsExactly("a-high");
+  }
+
+  @Test
+  void workflowQueueCapacity_refusesOnlyThatWorkflow_andCountsTheReason() {
+    final ExecutionScheduler scheduler = governed(1, 0, 1, 10);
+    granted(scheduler.acquire("s", "w"));
+    scheduler.acquire("s", "w");
+
+    assertThatThrownBy(() -> scheduler.assertCanAccept("s", "w"))
+        .isInstanceOf(ExecutionRejectedException.class)
+        .hasMessageContaining("queue of this workflow is full");
+    StepVerifier.create(scheduler.acquire("s", "w").permit())
+        .expectError(ExecutionRejectedException.class)
+        .verify();
+    scheduler.assertCanAccept("s", "other");
+
+    assertThat(scheduler.rejected(ExecutionScheduler.RejectReason.WORKFLOW_QUEUE_FULL))
+        .isEqualTo(2);
+  }
+
+  @Test
+  void rejections_areCountedByReason() {
+    final ExecutionScheduler reject = scheduler(1, 0, 10, OnLimit.REJECT);
+    granted(reject.acquire("s", "w"));
+    reject.acquire("s", "w").permit().subscribe(p -> {}, e -> {});
+    final ExecutionScheduler full = scheduler(1, 0, 0, OnLimit.QUEUE);
+    granted(full.acquire("s", "w"));
+    full.acquire("s", "w").permit().subscribe(p -> {}, e -> {});
+    full.stop();
+    full.acquire("s", "w").permit().subscribe(p -> {}, e -> {});
+
+    assertThat(reject.rejected(ExecutionScheduler.RejectReason.LIMIT)).isEqualTo(1);
+    assertThat(full.rejected(ExecutionScheduler.RejectReason.QUEUE_FULL)).isEqualTo(1);
+    assertThat(full.rejected(ExecutionScheduler.RejectReason.SHUTDOWN)).isEqualTo(1);
+  }
+
+  @Test
+  void queueTimeout_isCounted() {
+    final ExecutionScheduler scheduler =
+        new ExecutionScheduler(
+            1, 0, 10, OnLimit.QUEUE, Duration.ofMillis(300), Duration.ofMillis(50));
+    granted(scheduler.acquire("s", "w"));
+
+    StepVerifier.create(scheduler.acquire("s", "w").permit())
+        .expectError(QueueTimeoutException.class)
+        .verify(Duration.ofSeconds(2));
+
+    assertThat(scheduler.rejected(ExecutionScheduler.RejectReason.QUEUE_TIMEOUT)).isEqualTo(1);
   }
 }

@@ -95,4 +95,49 @@ class StartIdempotencyTest {
     assertThat(real.once("s/w", "k", () -> Mono.just("a")).block()).isEqualTo("a");
     assertThat(real.once("s/w", "k", () -> Mono.just("b")).block()).isEqualTo("a");
   }
+
+  @Test
+  void keys_surviveRestart_whenLogIsKept() {
+    final com.infenia.yukta.service.log.InMemoryExecutionLogStore log =
+        new com.infenia.yukta.service.log.InMemoryExecutionLogStore();
+    final StartIdempotency before = new StartIdempotency(Duration.ofMinutes(10), log);
+    before.afterSingletonsInstantiated();
+    assertThat(before.once("s/w", "k1", this::start).block()).isEqualTo("exec-1");
+
+    final StartIdempotency after = new StartIdempotency(Duration.ofMinutes(10), log);
+    after.afterSingletonsInstantiated();
+
+    assertThat(after.once("s/w", "k1", this::start).block()).isEqualTo("exec-1");
+    assertThat(after.once("s/w", "k2", this::start).block()).isEqualTo("exec-2");
+    assertThat(starts).hasValue(2);
+  }
+
+  @Test
+  void expiredKeys_areNotReloaded_andFailedStartIsNotLogged() {
+    final com.infenia.yukta.service.log.InMemoryExecutionLogStore log =
+        new com.infenia.yukta.service.log.InMemoryExecutionLogStore();
+    final StartIdempotency first = new StartIdempotency(Duration.ofMinutes(10), log);
+    first
+        .once("s/w", "failed", () -> Mono.<String>error(new IllegalStateException("no")))
+        .onErrorResume(e -> Mono.empty())
+        .block();
+    first.once("s/w", "old", this::start).block();
+
+    final StartIdempotency tiny = new StartIdempotency(Duration.ofNanos(1), log);
+    tiny.afterSingletonsInstantiated();
+    final StartIdempotency normal = new StartIdempotency(Duration.ofMinutes(10), log);
+    normal.afterSingletonsInstantiated();
+
+    assertThat(log.readAll()).hasSize(1);
+    assertThat(tiny.once("s/w", "old", this::start).block()).isEqualTo("exec-2");
+    assertThat(normal.once("s/w", "failed", this::start).block()).isEqualTo("exec-3");
+  }
+
+  @Test
+  void withoutLog_reloadingDoesNothing() {
+    final StartIdempotency idle = new StartIdempotency(Duration.ofMinutes(1));
+    idle.afterSingletonsInstantiated();
+
+    assertThat(idle.once("s/w", "k", this::start).block()).isEqualTo("exec-1");
+  }
 }

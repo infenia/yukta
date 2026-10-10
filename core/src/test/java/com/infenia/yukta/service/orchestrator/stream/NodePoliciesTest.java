@@ -210,4 +210,157 @@ class NodePoliciesTest {
         .assertNext(routed -> assertThat(routed.sourcePort()).isEqualTo("error"))
         .verifyComplete();
   }
+
+  private static NodePolicy.Retry retryOnly(
+      final java.util.Set<String> listed, final java.util.Set<String> excluded) {
+    return new NodePolicy.Retry(3, Duration.ofMillis(10), Duration.ofMillis(10), listed, excluded);
+  }
+
+  private Flux<Message<?>> failing(final AtomicInteger calls, final Throwable error) {
+    return Flux.defer(
+        () -> {
+          calls.incrementAndGet();
+          return Flux.<Message<?>>error(error);
+        });
+  }
+
+  @Test
+  void retryOn_retriesOnlyListedExceptions_bySimpleOrFullName() {
+    final AtomicInteger ioCalls = new AtomicInteger();
+    final AtomicInteger other = new AtomicInteger();
+    final NodePolicy policy =
+        new NodePolicy(
+            retryOnly(java.util.Set.of("java.io.IOException"), java.util.Set.of()),
+            NodePolicy.OnError.FAIL,
+            NodePolicy.JoinRule.ALL_SUCCESS);
+
+    StepVerifier.create(
+            NodePolicies.apply(
+                policy,
+                "n",
+                input,
+                _ -> failing(ioCalls, new java.io.FileNotFoundException("x")),
+                () -> {}))
+        .expectError(java.io.FileNotFoundException.class)
+        .verify(Duration.ofSeconds(5));
+    StepVerifier.create(
+            NodePolicies.apply(
+                policy, "n", input, _ -> failing(other, new IllegalStateException("x")), () -> {}))
+        .expectError(IllegalStateException.class)
+        .verify(Duration.ofSeconds(5));
+
+    assertThat(ioCalls).hasValue(3); // a subclass of a listed type counts
+    assertThat(other).hasValue(1);
+  }
+
+  @Test
+  void noRetryOn_stopsRetryingThatException_evenWhenItIsCause() {
+    final AtomicInteger calls = new AtomicInteger();
+    final NodePolicy policy =
+        new NodePolicy(
+            retryOnly(java.util.Set.of(), java.util.Set.of("SecurityException")),
+            NodePolicy.OnError.FAIL,
+            NodePolicy.JoinRule.ALL_SUCCESS);
+    final Throwable wrapped = new RuntimeException("wrapper", new SecurityException("denied"));
+
+    StepVerifier.create(
+            NodePolicies.apply(policy, "n", input, _ -> failing(calls, wrapped), () -> {}))
+        .expectError(RuntimeException.class)
+        .verify(Duration.ofSeconds(5));
+
+    assertThat(calls).hasValue(1);
+  }
+
+  @Test
+  void illegalArgument_isRetriedOnlyWhenListedInRetryOn() {
+    final AtomicInteger calls = new AtomicInteger();
+    final NodePolicy policy =
+        new NodePolicy(
+            retryOnly(java.util.Set.of("IllegalArgumentException"), java.util.Set.of()),
+            NodePolicy.OnError.FAIL,
+            NodePolicy.JoinRule.ALL_SUCCESS);
+
+    StepVerifier.create(
+            NodePolicies.apply(
+                policy,
+                "n",
+                input,
+                _ -> failing(calls, new IllegalArgumentException("x")),
+                () -> {}))
+        .expectError(IllegalArgumentException.class)
+        .verify(Duration.ofSeconds(5));
+
+    assertThat(calls).hasValue(3);
+  }
+
+  @Test
+  void routedMessage_carriesAttemptsExceptionAndTime() {
+    final AtomicInteger calls = new AtomicInteger();
+    final NodePolicy policy =
+        new NodePolicy(
+            retryOnly(java.util.Set.of(), java.util.Set.of()),
+            NodePolicy.OnError.ROUTE,
+            NodePolicy.JoinRule.ALL_SUCCESS);
+
+    StepVerifier.create(
+            NodePolicies.apply(
+                policy, "n1", input, _ -> failing(calls, new IllegalStateException("x")), () -> {}))
+        .assertNext(
+            routed -> {
+              assertThat(routed.sourcePort()).isEqualTo("error");
+              assertThat(routed.origDest()).isEqualTo("n1");
+              assertThat(routed.metadata())
+                  .containsEntry(NodePolicies.FAILURE_ATTEMPTS_HEADER, 3)
+                  .containsEntry(
+                      NodePolicies.FAILURE_EXCEPTION_HEADER, "java.lang.IllegalStateException");
+              assertThat(
+                      java.time.Instant.parse(
+                          (String) routed.metadata().get(NodePolicies.FAILURE_TIME_HEADER)))
+                  .isNotNull();
+            })
+        .verifyComplete();
+  }
+
+  @Test
+  void failureBudget_failsTheNodeOnceTooManyMessagesFailed() {
+    final NodePolicy policy =
+        new NodePolicy(
+            null,
+            NodePolicy.OnError.CONTINUE,
+            NodePolicy.JoinRule.ALL_SUCCESS,
+            null,
+            null,
+            new NodePolicy.FailureBudget(2, Duration.ofMinutes(1)));
+    final FailureLedger ledger = new FailureLedger(policy.failureBudget());
+    final AtomicInteger calls = new AtomicInteger();
+
+    final Flux<Message<?>> run =
+        Flux.range(0, 5)
+            .concatMap(
+                _ ->
+                    NodePolicies.apply(
+                        policy,
+                        "n",
+                        input,
+                        _ -> failing(calls, new IllegalStateException("x")),
+                        () -> {},
+                        ledger));
+
+    StepVerifier.create(run)
+        .expectErrorSatisfies(e -> assertThat(e).hasMessageContaining("failed more than 2 times"))
+        .verify(Duration.ofSeconds(5));
+
+    assertThat(calls).hasValue(3); // the third failure is the one over budget
+  }
+
+  @Test
+  void failureBudget_doesNotCountFailuresOutsideTheWindow() throws InterruptedException {
+    final FailureLedger ledger =
+        new FailureLedger(new NodePolicy.FailureBudget(1, Duration.ofMillis(50)));
+
+    assertThat(ledger.record()).isFalse();
+    Thread.sleep(120);
+    assertThat(ledger.record()).isFalse();
+    assertThat(ledger.record()).isTrue();
+  }
 }

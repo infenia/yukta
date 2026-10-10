@@ -236,4 +236,23 @@ class ExecutionLogStoreTest {
               assertThat(e.payload()).isNull();
             });
   }
+
+  @Test
+  void jsonl_compaction_keepsRecentSchedulerChangesButNotOldOnes() {
+    final JsonlExecutionLogStore store = new JsonlExecutionLogStore(dir.toString(), mapper, 2, 6);
+    for (int i = 0; i < 3; i++) {
+      store.append(
+          ExecutionLogEvent.control(
+              true, ExecutionLogEvent.SCHEDULER, "SetLimits(" + i + ")", null));
+    }
+    for (final String run : List.of("r1", "r2", "r3")) {
+      store.append(ExecutionLogEvent.started(run, "s", "w", "v"));
+    }
+
+    assertThat(store.readAll())
+        .filteredOn(e -> ExecutionLogEvent.SCHEDULER.equals(e.executionId()))
+        .extracting(ExecutionLogEvent::status)
+        .containsExactly("SetLimits(1)", "SetLimits(2)");
+    assertThat(store.readAll()).extracting(ExecutionLogEvent::executionId).doesNotContain("r1");
+  }
 }
