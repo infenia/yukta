@@ -10,6 +10,7 @@ import com.infenia.yukta.plugin.control.WorkflowDirective;
 import com.infenia.yukta.plugin.store.NodeCheckpointStore;
 import com.infenia.yukta.service.archive.ArchivedExecution;
 import com.infenia.yukta.service.archive.ExecutionArchive;
+import com.infenia.yukta.service.control.ExecutionScheduler;
 import com.infenia.yukta.service.control.gateway.RestartCompletionSink;
 import com.infenia.yukta.service.control.store.ExecutionControlRegistry;
 import com.infenia.yukta.service.orchestrator.RestartPlan;
@@ -48,6 +49,9 @@ public class RestartFromNodeCommandProcessor implements ControlSignalProcessor {
   /** The recorded output of every node of the old execution. */
   private final NodeCheckpointStore checkpointStore;
 
+  /** Refuses a restart of a finished run that could neither run nor be queued. */
+  private final ExecutionScheduler scheduler;
+
   /** Receives the outcome of the restart. */
   private final RestartCompletionSink completionSink;
 
@@ -82,6 +86,10 @@ public class RestartFromNodeCommandProcessor implements ControlSignalProcessor {
                 () ->
                     new IllegalArgumentException(
                         "Execution not found or no longer restartable: " + restart.executionId()));
+    if (registry.findByExecutionId(restart.executionId()).isEmpty()) {
+      // A running run gives up its slot when stopped, so only a finished one is checked.
+      scheduler.assertCanAccept(archived.sessionId(), archived.workflowId());
+    }
     final RestartPlan plan = RestartPlan.compute(archived.prepared(), restart.fromNodeId());
     for (final String nodeId : plan.boundary()) {
       if (!checkpointStore.isComplete(restart.executionId(), nodeId)) {

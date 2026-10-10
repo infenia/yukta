@@ -38,12 +38,7 @@ import reactor.util.concurrent.Queues;
  */
 @Slf4j
 @Service
-@SuppressWarnings({
-  "PMD.TooManyMethods",
-  "PMD.AvoidCatchingGenericException",
-  "PMD.LawOfDemeter",
-  "PMD.OnlyOneReturn"
-})
+@SuppressWarnings({"PMD.TooManyMethods", "PMD.AvoidCatchingGenericException", "PMD.OnlyOneReturn"})
 public class ControlBusService {
 
   /** Separator used to create composite keys from workflow and node IDs. */
@@ -184,7 +179,7 @@ public class ControlBusService {
    */
   @SuppressWarnings("PMD.GuardLogStatement")
   public Mono<Void> emit(final Message<?> signal) {
-    final Object payload = signal.getPayload();
+    final Object payload = signal.payload();
     final Function<ExecutionControlCommand, Mono<Void>> executor = commandExecutor;
     if (executor != null && payload instanceof ExecutionControlCommand command) {
       return executor.apply(command);
@@ -199,8 +194,8 @@ public class ControlBusService {
               return;
             }
             log.atDebug()
-                .addArgument(signal.getSourceNodeId())
-                .addArgument(signal.getWorkflowId())
+                .addArgument(signal.sourceNodeId())
+                .addArgument(signal.workflowId())
                 .log("Control signal emitted from node: {} in workflow: {}");
             sink.success();
           } catch (final Exception e) {
@@ -382,7 +377,7 @@ public class ControlBusService {
       return Mono.error(
           new IllegalArgumentException("Node not found: " + workflowId + "/" + nodeId));
     }
-    final Object payload = command.getPayload();
+    final Object payload = command.payload();
     final String commandType = payload != null ? payload.getClass().getSimpleName() : "null";
     log.atDebug()
         .addArgument(commandType)
@@ -420,7 +415,7 @@ public class ControlBusService {
     log.atTrace().addArgument(batch.size()).log("Processing control signal batch of size: {}");
     final List<Message<?>> prioritized =
         batch.stream()
-            .sorted(Comparator.comparingInt((final Message<?> m) -> m.getPriority()).reversed())
+            .sorted(Comparator.comparingInt((final Message<?> m) -> m.priority()).reversed())
             .toList();
 
     int handledCount = 0;
@@ -441,9 +436,9 @@ public class ControlBusService {
   }
 
   private boolean processMessage(final Message<?> msg) {
-    final Object payload = msg.getPayload();
-    final String nodeId = msg.getSourceNodeId();
-    final String workflowId = msg.getWorkflowId();
+    final Object payload = msg.payload();
+    final String nodeId = msg.sourceNodeId();
+    final String workflowId = msg.workflowId();
 
     if (nodeId == null || payload == null || workflowId == null) {
       final String payloadStatus = payload != null ? "present" : "null";

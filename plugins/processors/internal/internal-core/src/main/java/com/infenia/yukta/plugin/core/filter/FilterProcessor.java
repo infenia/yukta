@@ -156,11 +156,11 @@ public final class FilterProcessor implements ProcessorPlugin {
       final String discardPort) {
     if (isMatch) {
       reporter.increment(nodeId, "filter", "MATCH");
-      return Mono.just(message.withSourcePort("default").withAddedHistory(nodeId));
+      return Mono.just(message.withSourcePort("default"));
     } else {
       reporter.increment(nodeId, "filter", "DISCARD");
       if (discardPort != null && !discardPort.isBlank()) {
-        return Mono.just(message.withSourcePort(discardPort).withAddedHistory(nodeId));
+        return Mono.just(message.withSourcePort(discardPort));
       }
     }
     return Mono.empty();
@@ -183,8 +183,8 @@ public final class FilterProcessor implements ProcessorPlugin {
     if (ENGINE_SPEL.equalsIgnoreCase(engine)) {
       final Map<String, Object> variables =
           Map.of(
-              "payload", message.getPayload(),
-              "metadata", message.getMetadata());
+              "payload", message.payload(),
+              "metadata", message.metadata());
       final Boolean result = SpelUtils.evaluateSync(condition, message, variables);
       return result != null && result;
     } else if (ENGINE_SIMPLE.equalsIgnoreCase(engine)) {

@@ -61,8 +61,8 @@ class LoopPredicateProcessorTest {
               Flux<Message> input = invocation.getArgument(0);
               return input.map(
                   msg -> {
-                    int val = (int) msg.getPayload();
-                    return DefaultMessage.create(UUID.fromString(msg.getTraceId()), val + 1);
+                    int val = (int) msg.payload();
+                    return DefaultMessage.create(UUID.fromString(msg.traceId()), val + 1);
                   });
             });
 
@@ -83,7 +83,7 @@ class LoopPredicateProcessorTest {
             processor
                 .process(Flux.just(inputMsg), config)
                 .contextWrite(Context.of("executionId", "e1", "nodeId", "n1")))
-        .expectNextMatches(msg -> (int) msg.getPayload() == 3)
+        .expectNextMatches(msg -> (int) msg.payload() == 3)
         .verifyComplete();
 
     verify(tracker, atLeastOnce()).appendLog(eq("e1"), anyString());
@@ -101,8 +101,8 @@ class LoopPredicateProcessorTest {
               Flux<Message> input = invocation.getArgument(0);
               return input.map(
                   msg -> {
-                    int val = (int) msg.getPayload();
-                    return DefaultMessage.create(UUID.fromString(msg.getTraceId()), val + 1);
+                    int val = (int) msg.payload();
+                    return DefaultMessage.create(UUID.fromString(msg.traceId()), val + 1);
                   });
             });
 
@@ -122,7 +122,7 @@ class LoopPredicateProcessorTest {
             processor
                 .process(Flux.just(inputMsg), config)
                 .contextWrite(Context.of("executionId", "e1", "nodeId", "n1")))
-        .expectNextMatches(msg -> (int) msg.getPayload() == 2)
+        .expectNextMatches(msg -> (int) msg.payload() == 2)
         .verifyComplete();
 
     verify(tracker).appendLog(eq("e1"), eq("[Loop] Node: n1 - Max iterations (2)"));
@@ -199,7 +199,7 @@ class LoopPredicateProcessorTest {
     StepVerifier.create(
             processor.process(
                 Flux.just(DefaultMessage.create(UUID.randomUUID(), "test")), configSkip))
-        .expectNextMatches(m -> "test".equals(m.getPayload()))
+        .expectNextMatches(m -> "test".equals(m.payload()))
         .verifyComplete();
 
     // RETRY (only once for test)
@@ -208,7 +208,7 @@ class LoopPredicateProcessorTest {
     StepVerifier.create(
             processor.process(
                 Flux.just(DefaultMessage.create(UUID.randomUUID(), "test")), configRetry))
-        .expectNextMatches(m -> "test".equals(m.getPayload()))
+        .expectNextMatches(m -> "test".equals(m.payload()))
         .verifyComplete();
 
     // ABORT
@@ -241,8 +241,7 @@ class LoopPredicateProcessorTest {
             "false");
     StepVerifier.create(
             processor.process(Flux.just(DefaultMessage.create(UUID.randomUUID(), 0)), config))
-        .expectNextMatches(
-            m -> Integer.valueOf(1).equals(m.getPayload()) || "val".equals(m.getPayload()))
+        .expectNextMatches(m -> Integer.valueOf(1).equals(m.payload()) || "val".equals(m.payload()))
         .verifyComplete();
   }
 
@@ -257,7 +256,7 @@ class LoopPredicateProcessorTest {
     final Map<String, Object> config = Map.of("targetPluginId", targetId, "exitCondition", "");
     StepVerifier.create(
             processor.process(Flux.just(DefaultMessage.create(UUID.randomUUID(), "test")), config))
-        .expectNextMatches(m -> "val".equals(m.getPayload()))
+        .expectNextMatches(m -> "val".equals(m.payload()))
         .verifyComplete();
   }
 

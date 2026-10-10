@@ -179,20 +179,16 @@ public class RecipientListProcessor implements ProcessorPlugin {
             if (recipients == null || recipients.isEmpty()) {
               return Flux.empty();
             }
-            return Flux.fromIterable(recipients)
-                .map(port -> message.withSourcePort(port).withAddedHistory(nodeId));
+            return Flux.fromIterable(recipients).map(port -> message.withSourcePort(port));
           } catch (final Exception e) {
             if (log.isErrorEnabled()) {
               log.error(
-                  "Recipient computation failed for message {}: {}",
-                  message.getMessageId(),
-                  e.getMessage());
+                  "Recipient computation failed for message {}: {}", message.id(), e.getMessage());
             }
             if (errorPort != null && !errorPort.isBlank()) {
               return Flux.just(
                   message
                       .withSourcePort(errorPort)
-                      .withAddedHistory(nodeId)
                       .withFailure(null, "Recipient computation failed", e.getMessage()));
             }
             if (!strictMode) {
@@ -217,9 +213,9 @@ public class RecipientListProcessor implements ProcessorPlugin {
   private List<String> evaluateExpression(final Message<?> message, final String expression) {
     final Map<String, Object> variables =
         Map.of(
-            "payload", message.getPayload(),
-            "metadata", message.getMetadata(),
-            "headers", message.getMetadata());
+            "payload", message.payload(),
+            "metadata", message.metadata(),
+            "headers", message.metadata());
     final Object result = SpelUtils.evaluateSync(expression, message, variables);
     return coerceToList(result);
   }

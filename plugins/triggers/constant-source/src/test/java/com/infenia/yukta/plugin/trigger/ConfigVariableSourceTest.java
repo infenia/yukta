@@ -48,10 +48,10 @@ class ConfigVariableSourceTest {
     StepVerifier.create(source.start(config).contextWrite(ctx -> ctx.put("payload", Map.of())))
         .assertNext(
             message -> {
-              assertTrue(message.getPayload() instanceof Map);
-              Map<String, Object> payload = (Map<String, Object>) message.getPayload();
+              assertTrue(message.payload() instanceof Map);
+              Map<String, Object> payload = (Map<String, Object>) message.payload();
               assertEquals("resolved-val", payload.get("key"));
-              assertTrue(message.getMetadata().isEmpty());
+              assertTrue(message.metadata().isEmpty());
             })
         .verifyComplete();
   }
@@ -70,8 +70,8 @@ class ConfigVariableSourceTest {
     StepVerifier.create(source.start(config).contextWrite(ctx -> ctx.put("payload", Map.of())))
         .assertNext(
             message -> {
-              assertEquals("resolved-val", message.getMetadata().get("key"));
-              assertTrue(((Map) message.getPayload()).isEmpty());
+              assertEquals("resolved-val", message.metadata().get("key"));
+              assertTrue(((Map) message.payload()).isEmpty());
             })
         .verifyComplete();
   }

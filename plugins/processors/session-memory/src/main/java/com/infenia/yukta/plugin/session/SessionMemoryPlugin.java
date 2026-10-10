@@ -103,14 +103,14 @@ public class SessionMemoryPlugin implements ProcessorPlugin {
               final String sessionId = t.getT1();
               final int maxTurns = maxTurns(config);
               final Map<String, Object> payload = new LinkedHashMap<>();
-              if (message.getPayload() instanceof final Map<?, ?> map) {
+              if (message.payload() instanceof final Map<?, ?> map) {
                 map.forEach((key, value) -> payload.put(String.valueOf(key), value));
               } else {
-                payload.put("input", message.getPayload());
+                payload.put("input", message.payload());
               }
               payload.put(HISTORY, store.history(sessionId, maxTurns));
               store.append(sessionId, "user", t.getT2(), maxTurns);
-              final Map<String, Object> metadata = new HashMap<>(message.getMetadata());
+              final Map<String, Object> metadata = new HashMap<>(message.metadata());
               metadata.put(SESSION_ID, sessionId);
               return DefaultMessage.from(message, payload)
                   .withMetadata(metadata)

@@ -25,14 +25,17 @@ public class NodePolicies {
    * @param nodeId the node, used in logs and in the failure tag
    * @param message the message being processed
    * @param processing the plugin's output for that message
+   * @param onAttempt called at the start of every attempt, so the node is not seen as idle
    * @return the output, retried on failure and then failed, dropped or routed per the policy
    */
   public Flux<Message<?>> apply(
       final NodePolicy policy,
       final String nodeId,
       final Message<?> message,
-      final Flux<Message<?>> processing) {
-    Flux<Message<?>> result = processing;
+      final Flux<Message<?>> processing,
+      final Runnable onAttempt) {
+    // Every attempt counts as activity, so a retrying node is not seen as idle.
+    Flux<Message<?>> result = processing.doOnSubscribe(_ -> onAttempt.run());
     final NodePolicy.Retry retry = policy.retry();
     if (retry != null && retry.maxAttempts() > 1) {
       result =
@@ -40,6 +43,7 @@ public class NodePolicies {
               Retry.backoff(retry.maxAttempts() - 1L, retry.backoff())
                   .maxBackoff(retry.maxBackoff())
                   .jitter(JITTER)
+                  .filter(error -> !(error instanceof IllegalArgumentException))
                   .doBeforeRetry(
                       signal ->
                           log.atWarn()

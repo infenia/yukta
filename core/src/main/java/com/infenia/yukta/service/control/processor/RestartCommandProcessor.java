@@ -8,10 +8,13 @@ import com.infenia.yukta.plugin.control.ExecutionControlCommand.RestartCommand;
 import com.infenia.yukta.plugin.control.WorkflowDirective;
 import com.infenia.yukta.service.archive.ArchivedExecution;
 import com.infenia.yukta.service.archive.ExecutionArchive;
+import com.infenia.yukta.service.control.ExecutionControl;
+import com.infenia.yukta.service.control.ExecutionScheduler;
 import com.infenia.yukta.service.control.gateway.RestartCompletionSink;
 import com.infenia.yukta.service.control.store.ExecutionControlRegistry;
 import com.infenia.yukta.service.orchestrator.WorkflowOrchestrator;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -47,6 +50,9 @@ public class RestartCommandProcessor implements ControlSignalProcessor {
 
   /** The workflow orchestrator for restarting workflows. */
   private final WorkflowOrchestrator orchestrator;
+
+  /** Refuses a restart of a finished run that could neither run nor be queued. */
+  private final ExecutionScheduler scheduler;
 
   /** Reports the outcome of a restart back to the awaiting gateway caller. */
   private final RestartCompletionSink completionSink;
@@ -111,15 +117,20 @@ public class RestartCommandProcessor implements ControlSignalProcessor {
   private Mono<Void> performAtomicHandoff(
       final ArchivedExecution archived, final RestartCommand restart) {
     return Mono.fromRunnable(
-            () ->
-                // If the old run is still going it is stopped first, so it cannot repeat effects.
-                registry
-                    .findByExecutionId(restart.executionId())
-                    .ifPresent(
-                        control -> {
-                          control.safeStopSink().tryEmitEmpty();
-                          registry.unregister(control.executionId());
-                        }))
+            () -> {
+              final Optional<ExecutionControl> running =
+                  registry.findByExecutionId(restart.executionId());
+              if (running.isEmpty()) {
+                // A running run gives up its slot when stopped, so only a finished one is checked.
+                scheduler.assertCanAccept(archived.sessionId(), archived.workflowId());
+              }
+              // If the old run is still going it is stopped first, so it cannot repeat effects.
+              running.ifPresent(
+                  control -> {
+                    control.safeStopSink().tryEmitEmpty();
+                    registry.unregister(control.executionId());
+                  });
+            })
         .then(
             Mono.defer(
                 () -> {
