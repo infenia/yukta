@@ -18,6 +18,9 @@ import reactor.test.StepVerifier;
 @NoArgsConstructor
 class SqlQueryPluginTest {
 
+  /** Test literal sql. */
+  private static final String SQL_KEY = "sql";
+
   /** Config key. */
   private static final String URL_KEY = "url";
 
@@ -29,7 +32,7 @@ class SqlQueryPluginTest {
 
   private Message<?> run(final String sql, final Map<String, Object> payload, final Object params) {
     final Map<String, Object> config =
-        Map.of(URL_KEY, URL, "username", "sa", "password", "", "sql", sql, "params", params);
+        Map.of(URL_KEY, URL, "username", "sa", "password", "", SQL_KEY, sql, "params", params);
     final Message<?> input = DefaultMessage.create(UUID.randomUUID(), payload);
     return plugin.process(Flux.just(input), config).blockFirst();
   }
@@ -57,7 +60,7 @@ class SqlQueryPluginTest {
 
   @Test
   void validateConfig_requiresUrlAndSql() {
-    StepVerifier.create(plugin.validateConfig(Map.of(URL_KEY, URL, "sql", "select 1")))
+    StepVerifier.create(plugin.validateConfig(Map.of(URL_KEY, URL, SQL_KEY, "select 1")))
         .verifyComplete();
     StepVerifier.create(plugin.validateConfig(Map.of(URL_KEY, URL)))
         .expectError(IllegalArgumentException.class)
@@ -67,13 +70,34 @@ class SqlQueryPluginTest {
   }
 
   @Test
+  void nonPositiveLimitsAreRejected() {
+    for (final String key : List.of("maxRows", "timeoutSeconds")) {
+      for (final Object bad : List.of(0, -1, 1.5, "x")) {
+        StepVerifier.create(
+                plugin.validateConfig(Map.of(URL_KEY, URL, SQL_KEY, "select 1", key, bad)))
+            .expectError(IllegalArgumentException.class)
+            .verify();
+      }
+    }
+  }
+
+  @Test
   void maxRowsAndNonMapPayload() {
     run("create table if not exists m(i int)", Map.of(), List.of());
     run("insert into m values (1)", Map.of(), List.of());
     run("insert into m values (2)", Map.of(), List.of());
     final Map<String, Object> config =
         Map.of(
-            URL_KEY, URL, "username", "sa", "password", "", "sql", "select i from m", "maxRows", 1);
+            URL_KEY,
+            URL,
+            "username",
+            "sa",
+            "password",
+            "",
+            SQL_KEY,
+            "select i from m",
+            "maxRows",
+            1);
     final Message<?> out =
         plugin
             .process(Flux.just(DefaultMessage.create(UUID.randomUUID(), "text")), config)

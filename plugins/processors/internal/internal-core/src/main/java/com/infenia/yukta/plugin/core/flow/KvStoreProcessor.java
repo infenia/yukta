@@ -23,6 +23,9 @@ import reactor.core.publisher.Mono;
 @NoArgsConstructor
 public final class KvStoreProcessor implements ProcessorPlugin {
 
+  /** Default cap on distinct keys. */
+  private static final int MAX_ENTRIES = 10_000;
+
   /** Supported operations. */
   private static final List<String> OPS = List.of("get", "put", "incr", "delete");
 
@@ -39,6 +42,7 @@ public final class KvStoreProcessor implements ProcessorPlugin {
             + "- op: get | put | incr | delete (required).\n"
             + "- key: key to use; defaults to the payload's 'key' field.\n"
             + "- namespace: optional prefix isolating keys (default none).\n"
+            + "- maxEntries: cap on distinct keys (default 10000); new keys beyond it fail.\n"
             + "- put stores payload.value; incr adds payload.value (default 1) to a number.\n"
             + "Emits {key, value} (value is null when absent).",
         Optional.empty());
@@ -77,12 +81,15 @@ public final class KvStoreProcessor implements ProcessorPlugin {
                   if (stored == null) {
                     throw new IllegalArgumentException("put requires payload.value");
                   }
+                  checkCapacity(full, config);
                   store.put(full, stored);
                   yield stored;
                 }
-                case "incr" ->
-                    store.merge(
-                        full, delta(payload), (old, add) -> sum((Number) old, (Number) add));
+                case "incr" -> {
+                  final Number add = delta(payload);
+                  checkCapacity(full, config);
+                  yield store.merge(full, add, KvStoreProcessor::sum);
+                }
                 case "delete" -> store.remove(full);
                 default -> store.get(full);
               };
@@ -93,11 +100,31 @@ public final class KvStoreProcessor implements ProcessorPlugin {
         });
   }
 
-  private static Number delta(final Map<?, ?> payload) {
-    return payload.get("value") instanceof Number number ? number : 1L;
+  // ponytail: size check is not atomic with the insert, so the cap can be overshot slightly under
+  // heavy concurrency.
+  private void checkCapacity(final String fullKey, final Map<String, Object> config) {
+    final int max = config.get("maxEntries") instanceof Number cap ? cap.intValue() : MAX_ENTRIES;
+    if (!store.containsKey(fullKey) && store.size() >= max) {
+      throw new IllegalStateException("KV store is full (" + max + " entries)");
+    }
   }
 
-  private static Number sum(final Number left, final Number right) {
-    return left.longValue() + right.longValue();
+  private static Number delta(final Map<?, ?> payload) {
+    final Object value = payload.get("value");
+    if (value != null && !isWhole(value)) {
+      throw new IllegalArgumentException("incr requires a whole-number payload.value");
+    }
+    return value == null ? 1L : (Number) value;
+  }
+
+  private static Number sum(final Object old, final Object add) {
+    if (!isWhole(old)) {
+      throw new IllegalArgumentException("incr requires the stored value to be a whole number");
+    }
+    return ((Number) old).longValue() + ((Number) add).longValue();
+  }
+
+  private static boolean isWhole(final Object value) {
+    return value instanceof Long || value instanceof Integer;
   }
 }

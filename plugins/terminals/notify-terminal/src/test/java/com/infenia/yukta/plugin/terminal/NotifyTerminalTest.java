@@ -57,7 +57,13 @@ class NotifyTerminalTest {
           exchange.close();
         });
     server.start();
-    url = "http://localhost:" + server.getAddress().getPort() + "/hook";
+    final String host = server.getAddress().getAddress().getHostAddress();
+    url =
+        "http://"
+            + (host.contains(":") ? "[" + host + "]" : host)
+            + ":"
+            + server.getAddress().getPort()
+            + "/hook";
   }
 
   @AfterEach
@@ -89,13 +95,32 @@ class NotifyTerminalTest {
   }
 
   @Test
+  void consume_redirectFailsTheNode() {
+    status = 302;
+    StepVerifier.create(terminal.consume(messages("x"), Map.of(URL_KEY, url)))
+        .expectError()
+        .verify();
+  }
+
+  @Test
+  void consume_insecureUrlIsRejectedBeforeSending() {
+    org.junit.jupiter.api.Assertions.assertThrows(
+        IllegalArgumentException.class,
+        () -> terminal.consume(messages("x"), Map.of(URL_KEY, "http://hooks.example/x")));
+  }
+
+  @Test
   void metadataAndValidation() {
     assertThat(terminal.getType()).isEqualTo("NOTIFY_TERMINAL");
     assertThat(terminal.describe().usagePattern()).contains(URL_KEY);
     StepVerifier.create(terminal.validateConfig(Map.of(URL_KEY, url))).verifyComplete();
-    StepVerifier.create(terminal.validateConfig(Map.of(URL_KEY, "ftp://x")))
-        .expectError(IllegalArgumentException.class)
-        .verify();
+    StepVerifier.create(terminal.validateConfig(Map.of(URL_KEY, "https://hooks.example/x")))
+        .verifyComplete();
+    for (final String bad : List.of("ftp://x", "http://hooks.example/x", "not a url")) {
+      StepVerifier.create(terminal.validateConfig(Map.of(URL_KEY, bad)))
+          .expectError(IllegalArgumentException.class)
+          .verify();
+    }
   }
 
   @Test

@@ -67,10 +67,22 @@ public class ScheduleTrigger implements TriggerPlugin {
   public Flux<Message<?>> start(final Map<String, Object> config) {
     final Flux<Message<?>> messages =
         schedule(config).index().map(t -> message(t.getT1() + 1, Instant.now()));
-    return config.get(MAX_RUNS) instanceof Number max ? messages.take(max.longValue()) : messages;
+    return config.get(MAX_RUNS) == null ? messages : messages.take(maxRuns(config));
+  }
+
+  private static long maxRuns(final Map<String, Object> config) {
+    if (config.get(MAX_RUNS) instanceof Number max
+        && max.doubleValue() == max.longValue()
+        && max.longValue() > 0) {
+      return max.longValue();
+    }
+    throw new IllegalArgumentException("'maxRuns' must be a positive whole number");
   }
 
   private static Flux<?> schedule(final Map<String, Object> config) {
+    if (config.get(MAX_RUNS) != null) {
+      maxRuns(config);
+    }
     final Object cron = config.get(CRON);
     final Object interval = config.get(INTERVAL_MS);
     if ((cron != null) == (interval != null)) {
@@ -86,10 +98,18 @@ public class ScheduleTrigger implements TriggerPlugin {
       final CronExpression expr = CronExpression.parse(String.valueOf(cron));
       final ZoneId zone =
           ZoneId.of(String.valueOf(config.getOrDefault("zone", ZoneId.systemDefault())));
+      if (expr.next(ZonedDateTime.now(zone)) == null) {
+        throw new IllegalArgumentException("cron has no future execution: " + cron);
+      }
+      // Repeats only while the expression still has a next execution, so it ends instead of
+      // spinning.
       result =
-          Flux.defer(() -> Mono.justOrEmpty(expr.next(ZonedDateTime.now(zone))))
-              .flatMap(next -> Mono.delay(Duration.between(ZonedDateTime.now(zone), next)))
-              .repeat();
+          Mono.defer(
+                  () -> {
+                    final ZonedDateTime now = ZonedDateTime.now(zone);
+                    return Mono.delay(Duration.between(now, expr.next(now)));
+                  })
+              .repeat(() -> expr.next(ZonedDateTime.now(zone)) != null);
     }
     return result;
   }

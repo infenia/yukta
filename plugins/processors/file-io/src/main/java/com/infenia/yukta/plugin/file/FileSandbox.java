@@ -2,6 +2,9 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.plugin.file;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.util.Map;
 
@@ -16,8 +19,10 @@ public final class FileSandbox {
    * @param config plugin config; {@code baseDir} is required
    * @param payload the message payload
    * @return the normalized absolute path inside {@code baseDir}
+   * @throws IOException if the path cannot be resolved on disk
    */
-  public static Path resolve(final Map<String, Object> config, final Object payload) {
+  public static Path resolve(final Map<String, Object> config, final Object payload)
+      throws IOException {
     final Path base = baseDir(config);
     Object requested = config.get("path");
     if (requested == null && payload instanceof Map<?, ?> map) {
@@ -30,7 +35,20 @@ public final class FileSandbox {
     if (!file.startsWith(base)) {
       throw new IllegalArgumentException("path escapes baseDir: " + requested);
     }
+    // Symbolic links must not lead out of baseDir either.
+    // ponytail: check-then-use, a link swapped in between check and open is not caught.
+    if (!realOfNearestExisting(file).startsWith(realOfNearestExisting(base))) {
+      throw new IllegalArgumentException("path escapes baseDir via symlink: " + requested);
+    }
     return file;
+  }
+
+  private static Path realOfNearestExisting(final Path path) throws IOException {
+    Path probe = path;
+    while (!Files.exists(probe, LinkOption.NOFOLLOW_LINKS)) {
+      probe = java.util.Objects.requireNonNull(probe.getParent(), "no existing ancestor");
+    }
+    return probe.toRealPath();
   }
 
   /**

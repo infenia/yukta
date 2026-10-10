@@ -20,6 +20,9 @@ import reactor.test.StepVerifier;
 @NoArgsConstructor
 class FileIoPluginsTest {
 
+  /** Test literal content. */
+  private static final String CONTENT = "content";
+
   /** Config key. */
   private static final String BASE_DIR = "baseDir";
 
@@ -42,19 +45,19 @@ class FileIoPluginsTest {
   @Test
   void write_thenRead_roundTrips() throws Exception {
     final Map<String, Object> config = Map.of(BASE_DIR, dir.toString(), PATH, "sub/a.txt");
-    StepVerifier.create(writer.process(messages(Map.of("content", "hello")), config))
+    StepVerifier.create(writer.process(messages(Map.of(CONTENT, "hello")), config))
         .expectNextCount(1)
         .verifyComplete();
     assertThat(Files.readString(dir.resolve("sub/a.txt"))).isEqualTo("hello");
     StepVerifier.create(reader.process(messages(Map.of()), config))
-        .assertNext(m -> assertThat(((Map<?, ?>) m.payload()).get("content")).isEqualTo("hello"))
+        .assertNext(m -> assertThat(((Map<?, ?>) m.payload()).get(CONTENT)).isEqualTo("hello"))
         .verifyComplete();
   }
 
   @Test
   void write_append_andStringPayloadAndPayloadPath() throws Exception {
     final Map<String, Object> config = Map.of(BASE_DIR, dir.toString(), "append", true);
-    StepVerifier.create(writer.process(messages(Map.of(PATH, "l.log", "content", "one")), config))
+    StepVerifier.create(writer.process(messages(Map.of(PATH, "l.log", CONTENT, "one")), config))
         .expectNextCount(1)
         .verifyComplete();
     final Map<String, Object> fixed =
@@ -75,6 +78,19 @@ class FileIoPluginsTest {
     StepVerifier.create(
             writer.process(
                 messages(Map.of("other", 1)), Map.of(BASE_DIR, dir.toString(), PATH, "a")))
+        .expectError(IllegalArgumentException.class)
+        .verify();
+  }
+
+  @Test
+  void symlinkOutOfSandboxIsRejected(@TempDir /* default */ final Path outside) throws Exception {
+    Files.writeString(outside.resolve("secret.txt"), "secret");
+    Files.createSymbolicLink(dir.resolve("link"), outside);
+    final Map<String, Object> config = Map.of(BASE_DIR, dir.toString(), PATH, "link/secret.txt");
+    StepVerifier.create(reader.process(messages(Map.of()), config))
+        .expectError(IllegalArgumentException.class)
+        .verify();
+    StepVerifier.create(writer.process(messages(Map.of(CONTENT, "x")), config))
         .expectError(IllegalArgumentException.class)
         .verify();
   }

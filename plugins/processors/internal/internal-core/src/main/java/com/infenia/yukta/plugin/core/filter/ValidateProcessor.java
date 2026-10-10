@@ -62,6 +62,12 @@ public final class ValidateProcessor implements ProcessorPlugin {
           if (config.get(REQUIRED) == null && config.get(TYPES) == null) {
             throw new IllegalArgumentException("'required' or 'types' must be configured");
           }
+          if (config.get(REQUIRED) != null && !(config.get(REQUIRED) instanceof Collection)) {
+            throw new IllegalArgumentException("'required' must be a list of field names");
+          }
+          if (config.get(TYPES) != null && !(config.get(TYPES) instanceof Map)) {
+            throw new IllegalArgumentException("'types' must be a map of field name to type");
+          }
           types(config).values().forEach(ValidateProcessor::checkType);
         });
   }

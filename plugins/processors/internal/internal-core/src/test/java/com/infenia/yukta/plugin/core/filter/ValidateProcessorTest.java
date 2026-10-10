@@ -18,12 +18,15 @@ import reactor.test.StepVerifier;
 @NoArgsConstructor
 class ValidateProcessorTest {
 
+  /** Test literal types. */
+  private static final String TYPES = "types";
+
   /** The processor under test. */
   private final ValidateProcessor processor = new ValidateProcessor();
 
   /** Shared config: name required, age numeric, tags an array. */
   private final Map<String, Object> config =
-      Map.of("required", List.of("name"), "types", Map.of("age", "number", "tags", "array"));
+      Map.of("required", List.of("name"), TYPES, Map.of("age", "number", "tags", "array"));
 
   private Message<?> run(final Object payload) {
     final Message<?> input = DefaultMessage.create(UUID.randomUUID(), payload);
@@ -52,7 +55,7 @@ class ValidateProcessorTest {
   void typeChecks_coverAllTypes() {
     final Map<String, Object> all =
         Map.of(
-            "types",
+            TYPES,
             Map.of("s", "string", "n", "number", "b", "boolean", "o", "object", "a", "array"));
     final Message<?> valid =
         processor
@@ -75,7 +78,13 @@ class ValidateProcessorTest {
     StepVerifier.create(processor.validateConfig(Map.of()))
         .expectError(IllegalArgumentException.class)
         .verify();
-    StepVerifier.create(processor.validateConfig(Map.of("types", Map.of("a", "date"))))
+    StepVerifier.create(processor.validateConfig(Map.of("required", "name")))
+        .expectError(IllegalArgumentException.class)
+        .verify();
+    StepVerifier.create(processor.validateConfig(Map.of(TYPES, "string")))
+        .expectError(IllegalArgumentException.class)
+        .verify();
+    StepVerifier.create(processor.validateConfig(Map.of(TYPES, Map.of("a", "date"))))
         .expectError(IllegalArgumentException.class)
         .verify();
   }

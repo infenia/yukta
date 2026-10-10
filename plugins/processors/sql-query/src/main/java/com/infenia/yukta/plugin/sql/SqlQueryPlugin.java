@@ -35,6 +35,9 @@ public final class SqlQueryPlugin implements ProcessorPlugin {
   /** Rows returned at most per statement unless {@code maxRows} says otherwise. */
   private static final int DEFAULT_MAX_ROWS = 1000;
 
+  /** Seconds a statement may run unless {@code timeoutSeconds} says otherwise. */
+  private static final int DEFAULT_TIMEOUT_SECONDS = 30;
+
   /** Default constructor. */
   public SqlQueryPlugin() {
     super();
@@ -48,7 +51,8 @@ public final class SqlQueryPlugin implements ProcessorPlugin {
             + "- url, username, password: JDBC connection (driver must be on the classpath).\n"
             + "- sql: statement using '?' placeholders (required).\n"
             + "- params: payload field names bound to the placeholders, in order.\n"
-            + "- maxRows: cap on returned rows (default 1000).\n"
+            + "- maxRows: cap on returned rows, positive (default 1000).\n"
+            + "- timeoutSeconds: statement timeout, positive (default 30).\n"
             + "Emits {rows, count} for queries or {updated} for updates.",
         Optional.empty());
   }
@@ -67,6 +71,8 @@ public final class SqlQueryPlugin implements ProcessorPlugin {
               throw new IllegalArgumentException(key + " is required");
             }
           }
+          positiveInt(config, "maxRows", DEFAULT_MAX_ROWS);
+          positiveInt(config, "timeoutSeconds", DEFAULT_TIMEOUT_SECONDS);
         });
   }
 
@@ -89,8 +95,8 @@ public final class SqlQueryPlugin implements ProcessorPlugin {
                 (String) config.get("password"));
         PreparedStatement statement =
             connection.prepareStatement(String.valueOf(config.get("sql")))) {
-      statement.setMaxRows(
-          config.get("maxRows") instanceof Number max ? max.intValue() : DEFAULT_MAX_ROWS);
+      statement.setMaxRows(positiveInt(config, "maxRows", DEFAULT_MAX_ROWS));
+      statement.setQueryTimeout(positiveInt(config, "timeoutSeconds", DEFAULT_TIMEOUT_SECONDS));
       final List<?> params = config.get("params") instanceof List<?> list ? list : List.of();
       for (int i = 0; i < params.size(); i++) {
         statement.setObject(i + 1, payload.get(String.valueOf(params.get(i))));
@@ -105,6 +111,22 @@ public final class SqlQueryPlugin implements ProcessorPlugin {
       }
       return message.withPayload(result).withSourcePort("default");
     }
+  }
+
+  private static int positiveInt(
+      final Map<String, Object> config, final String key, final int fallback) {
+    final Object value = config.get(key);
+    int result = fallback;
+    if (value != null) {
+      if (value instanceof Number number
+          && number.doubleValue() == number.intValue()
+          && number.intValue() > 0) {
+        result = number.intValue();
+      } else {
+        throw new IllegalArgumentException(key + " must be a positive whole number");
+      }
+    }
+    return result;
   }
 
   private static List<Map<String, Object>> rows(final ResultSet resultSet) throws SQLException {
