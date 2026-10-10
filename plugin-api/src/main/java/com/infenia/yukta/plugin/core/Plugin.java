@@ -50,6 +50,18 @@ public interface Plugin {
   }
 
   /**
+   * Get the default timeout for a node with the given configuration. Plugins whose run time depends
+   * on their configuration (a process timeout, an LLM call with retries) override this, so a long
+   * step is not cut off by the generic default.
+   *
+   * @param config the node configuration
+   * @return the default timeout
+   */
+  default Duration getDefaultTimeout(final Map<String, Object> config) {
+    return getDefaultTimeout();
+  }
+
+  /**
    * Get the default buffer size for this plugin.
    *
    * @return the default buffer size

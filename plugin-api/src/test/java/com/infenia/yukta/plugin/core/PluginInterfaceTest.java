@@ -143,6 +143,7 @@ class PluginInterfaceTest {
     assertEquals("", plugin.getDescription());
     assertEquals("", plugin.getUsagePattern());
     assertEquals(30, plugin.getDefaultTimeout().toSeconds());
+    assertEquals(30, plugin.getDefaultTimeout(java.util.Map.of("timeout", 5)).toSeconds());
     assertFalse(plugin.getUiDesign().isPresent());
 
     // Port methods

@@ -102,6 +102,13 @@ effort: more than 10000 waiting are dropped and counted in `yukta.tracker.droppe
 (`type=state` counts events lost because the tracker itself had ended). Use `SinkEmit.offer`, not
 `Sinks.Many#emitNext`, for any bounded sink: `emitNext` terminates the sink on overflow.
 
+### Node timeouts
+A node's idle timeout is `timeoutSeconds` from its config, else the plugin's
+`getDefaultTimeout(config)`. `PROCESS_EXECUTOR` uses its `timeout` (default 300 s) plus 10 % (at least
+5 s), `LLM_CALL` covers every attempt (`timeout` and `retries`) plus the backoff, `HTTP_REQUEST` uses
+its `timeout` plus 5 s; other plugins keep 30 s. A timeout given as an expression is not known when the
+workflow is compiled, so the default is used: set `timeoutSeconds` on the node in that case.
+
 ### Validation limits and metrics
 - `WorkflowValidator` rejects duplicate node ids and edges, an edge `sourcePort` the source plugin
   does not declare (`error` is allowed on nodes with `onError: ROUTE`), and graphs over 500 nodes or
