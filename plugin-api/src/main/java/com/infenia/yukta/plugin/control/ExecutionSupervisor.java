@@ -20,6 +20,7 @@ public interface ExecutionSupervisor {
    *
    * @return the id
    */
+  @SuppressWarnings("PMD.ShortMethodName")
   String id();
 
   /**

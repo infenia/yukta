@@ -36,6 +36,7 @@ dependencies {
     implementation(project(":plugins:triggers:constant-source"))
     implementation(project(":plugins:triggers:oneshot-trigger"))
     implementation(project(":plugins:terminals:console-terminal"))
+    implementation(project(":plugins:supervisors:rule-supervisor"))
 
     selectedPlugins.forEach { implementation(project(optionalPlugins.getValue(it))) }
 
