@@ -227,7 +227,13 @@ public class WorkflowCompiler {
         .log("Node assembly complete");
 
     return ExecutionResources.run(
-        configService, virtualThreadScheduler, sessionId, terminals, connectors, disposables);
+        configService,
+        virtualThreadScheduler,
+        sessionId,
+        terminals,
+        connectors,
+        disposables,
+        control::isRunPaused);
   }
 
   /**

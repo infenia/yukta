@@ -32,7 +32,13 @@ class ExecutionResourcesTest {
       final List<Runnable> connectors,
       final List<Disposable> disposables) {
     return ExecutionResources.run(
-        configStore, Schedulers.boundedElastic(), sessionId, terminals, connectors, disposables);
+        configStore,
+        Schedulers.boundedElastic(),
+        sessionId,
+        terminals,
+        connectors,
+        disposables,
+        () -> false);
   }
 
   @Test
@@ -97,5 +103,29 @@ class ExecutionResourcesTest {
     StepVerifier.create(run(null, List.of(), List.of(), new ArrayList<>())).verifyComplete();
 
     verify(configStore, never()).getExecutionTimeout(org.mockito.ArgumentMatchers.any());
+  }
+
+  @Test
+  void runDeadline_doesNotFireWhilePaused_butFiresAfterResume() {
+    when(configStore.getExecutionTimeout("s")).thenReturn(Mono.just(60L));
+    final java.util.concurrent.atomic.AtomicBoolean paused =
+        new java.util.concurrent.atomic.AtomicBoolean(true);
+
+    StepVerifier.withVirtualTime(
+            () ->
+                ExecutionResources.run(
+                    configStore,
+                    Schedulers.parallel(),
+                    "s",
+                    List.of(Mono.never()),
+                    List.of(),
+                    new ArrayList<>(),
+                    paused::get))
+        .expectSubscription()
+        .expectNoEvent(Duration.ofMinutes(10))
+        .then(() -> paused.set(false))
+        .thenAwait(Duration.ofSeconds(60))
+        .expectError(TimeoutException.class)
+        .verify();
   }
 }

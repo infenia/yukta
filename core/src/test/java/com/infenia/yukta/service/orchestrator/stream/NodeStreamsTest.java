@@ -18,15 +18,20 @@ import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import java.time.Duration;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.BooleanSupplier;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 import org.mockito.InOrder;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 import reactor.test.StepVerifier;
 
 @NoArgsConstructor
-@SuppressWarnings({"PMD.CommentRequired", "PMD.TooManyStaticImports"})
+@SuppressWarnings({"PMD.CommentRequired", "PMD.TooManyStaticImports", "PMD.TooManyMethods"})
 class NodeStreamsTest {
 
   private static final String EXEC = "exec-1";
@@ -36,8 +41,21 @@ class NodeStreamsTest {
   private final TaskTrackerService tracker = mock(TaskTrackerService.class);
   private final WorkflowNode node = new WorkflowNode(NODE_ID, "type", Map.of());
 
+  private static Flux<Message<?>> emitAfter(final Duration delay, final Message<?> msg) {
+    return Mono.delay(delay).flatMapMany(_ -> Flux.<Message<?>>just(msg));
+  }
+
   private Flux<Message<?>> decorate(final Flux<Message<?>> source) {
-    return NodeStreams.withTimeoutAndTracking(node, Duration.ofMillis(200), tracker, EXEC, source);
+    return decorate(source, new NodeActivity(), () -> false, Duration.ofMillis(200));
+  }
+
+  private Flux<Message<?>> decorate(
+      final Flux<Message<?>> source,
+      final NodeActivity activity,
+      final BooleanSupplier paused,
+      final Duration timeout) {
+    return NodeStreams.withTimeoutAndTracking(
+        node, timeout, tracker, EXEC, source, activity, paused);
   }
 
   private void expectStatus(final TaskStatus status, final int times) {
@@ -73,8 +91,13 @@ class NodeStreamsTest {
   }
 
   @Test
-  void stalledStream_timesOutAndReportsFailure() {
-    StepVerifier.create(decorate(Flux.never())).expectError(TimeoutException.class).verify();
+  void stalledStream_timesOutAfterItsLastOutputAndReportsFailure() {
+    final Message<?> msg = DefaultMessage.create(UUID.randomUUID(), "x");
+
+    StepVerifier.create(decorate(Flux.concat(Flux.just(msg), Flux.never())))
+        .expectNext(msg)
+        .expectError(TimeoutException.class)
+        .verify();
 
     expectStatus(TaskStatus.FAILURE, 1);
   }
@@ -85,5 +108,77 @@ class NodeStreamsTest {
 
     verify(tracker, never())
         .emitTaskStatusEvent(eq(EXEC), eq(NODE_ID), eq(TASK), eq(TaskStatus.RUNNING), anyMap());
+  }
+
+  @Test
+  void waitingForUpstream_doesNotCountTowardsTheTimeout() {
+    final Message<?> msg = DefaultMessage.create(UUID.randomUUID(), "x");
+    final AtomicBoolean never = new AtomicBoolean();
+
+    StepVerifier.withVirtualTime(
+            () -> {
+              final NodeActivity activity = new NodeActivity();
+              // input reaches this node only after 2 s; its 1 s timeout must not have run meanwhile
+              Schedulers.parallel().schedule(activity::touch, 2, TimeUnit.SECONDS);
+              final Flux<Message<?>> output = emitAfter(Duration.ofMillis(2500), msg);
+              return decorate(output, activity, never::get, Duration.ofSeconds(1));
+            })
+        .expectSubscription()
+        .thenAwait(Duration.ofMillis(2500))
+        .expectNext(msg)
+        .verifyComplete();
+  }
+
+  @Test
+  void idleAfterFirstActivity_timesOutOnTime() {
+    StepVerifier.withVirtualTime(
+            () -> {
+              final NodeActivity activity = new NodeActivity();
+              activity.touch();
+              return decorate(Flux.never(), activity, () -> false, Duration.ofSeconds(1));
+            })
+        .expectSubscription()
+        .expectNoEvent(Duration.ofMillis(900))
+        .thenAwait(Duration.ofMillis(100))
+        .expectError(TimeoutException.class)
+        .verify();
+  }
+
+  @Test
+  void pause_holdsTheClock_andAnIdleNodeStillTimesOutAfterResume() {
+    final AtomicBoolean paused = new AtomicBoolean(true);
+
+    StepVerifier.withVirtualTime(
+            () -> {
+              final NodeActivity activity = new NodeActivity();
+              activity.touch();
+              return decorate(Flux.never(), activity, paused::get, Duration.ofSeconds(1));
+            })
+        .expectSubscription()
+        .expectNoEvent(Duration.ofMinutes(2))
+        .then(() -> paused.set(false))
+        .thenAwait(Duration.ofSeconds(1))
+        .expectError(TimeoutException.class)
+        .verify();
+  }
+
+  @Test
+  void pauseLongerThanTheTimeout_doesNotFailAnActiveNode() {
+    final Message<?> msg = DefaultMessage.create(UUID.randomUUID(), "x");
+    final AtomicBoolean paused = new AtomicBoolean(true);
+
+    StepVerifier.withVirtualTime(
+            () -> {
+              final NodeActivity activity = new NodeActivity();
+              activity.touch();
+              Schedulers.parallel()
+                  .schedule(() -> paused.set(false), 119_500, TimeUnit.MILLISECONDS);
+              final Flux<Message<?>> output = emitAfter(Duration.ofMillis(119_600), msg);
+              return decorate(output, activity, paused::get, Duration.ofSeconds(1));
+            })
+        .expectSubscription()
+        .thenAwait(Duration.ofMillis(119_600))
+        .expectNext(msg)
+        .verifyComplete();
   }
 }

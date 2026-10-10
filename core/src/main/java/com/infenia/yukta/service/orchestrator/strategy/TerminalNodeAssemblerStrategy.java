@@ -13,6 +13,7 @@ import com.infenia.yukta.plugin.core.Plugin;
 import com.infenia.yukta.plugin.gateway.ResultCollector;
 import com.infenia.yukta.plugin.type.TerminalPlugin;
 import com.infenia.yukta.service.control.store.ActivePluginRegistry;
+import com.infenia.yukta.service.orchestrator.stream.NodeActivity;
 import com.infenia.yukta.service.orchestrator.stream.StreamTopologyDecorator;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import java.time.Duration;
@@ -100,9 +101,14 @@ public class TerminalNodeAssemblerStrategy implements NodeAssemblerStrategy {
       final Flux<Message<?>> safeInput =
           control.applyPreProcessingControls(node.nodeId(), mergedInput);
 
+      // The idle clock starts at the terminal's first input and holds while paused.
+      final NodeActivity activity = new NodeActivity();
+      final Mono<Long> idle =
+          activity.idle(timeout, virtualThreadScheduler, () -> control.isPaused(node.nodeId()));
       final Flux<Message<?>> inputToTerminal =
           safeInput
-              .timeout(timeout, virtualThreadScheduler)
+              .doOnNext(_ -> activity.touch())
+              .timeout(idle, _ -> idle)
               .transformDeferredContextual(
                   (flux, ctx) -> {
                     final ResultCollector collector = ctx.getOrDefault("resultCollector", null);
