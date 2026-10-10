@@ -144,7 +144,7 @@ public class SessionInfoProvider {
             .map(
                 p ->
                     new PluginReference(
-                        p.getType(), p.getCategory().toString(), p.getDescription()))
+                        p.getType(), p.getCategory().toString(), p.describe().description()))
             .toList();
 
     final List<String> commonErrors =

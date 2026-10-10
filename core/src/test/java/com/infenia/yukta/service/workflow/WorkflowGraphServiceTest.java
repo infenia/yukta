@@ -12,6 +12,7 @@ import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.model.workflow.WorkflowNode;
 import com.infenia.yukta.plugin.core.Plugin;
 import com.infenia.yukta.plugin.core.PluginCategory;
+import com.infenia.yukta.plugin.core.PluginDescriptor;
 import com.infenia.yukta.plugin.core.UiDesign;
 import com.infenia.yukta.service.orchestrator.preparator.TopologicalSortService;
 import com.infenia.yukta.service.plugin.PluginRegistry;
@@ -265,8 +266,8 @@ class WorkflowGraphServiceTest {
       final List<String> outputPorts) {
     final Plugin plugin = mock(Plugin.class);
     when(plugin.getCategory()).thenReturn(category);
-    when(plugin.getDescription()).thenReturn(description);
-    when(plugin.getUiDesign()).thenReturn(Optional.ofNullable(uiDesign));
+    when(plugin.describe())
+        .thenReturn(new PluginDescriptor(description, "", Optional.ofNullable(uiDesign)));
     when(plugin.getOutputPorts(anyMap())).thenReturn(outputPorts);
     return plugin;
   }

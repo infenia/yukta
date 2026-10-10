@@ -206,7 +206,7 @@ class RecipientListProcessorTest {
 
   @Test
   void testUiDesign() {
-    final Optional<UiDesign> design = processor.getUiDesign();
+    final Optional<UiDesign> design = processor.describe().uiDesign();
     assertTrue(design.isPresent());
     assertTrue(design.get().html().contains("Recipient List"));
   }

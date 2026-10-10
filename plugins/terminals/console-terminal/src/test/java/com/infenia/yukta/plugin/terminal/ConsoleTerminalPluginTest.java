@@ -30,16 +30,16 @@ class ConsoleTerminalPluginTest {
   @Test
   void testMetadata() {
     ConsoleTerminalPlugin plugin = new ConsoleTerminalPlugin();
-    assertEquals("Logs message payloads to the console/logger.", plugin.getDescription());
+    assertEquals("Logs message payloads to the console/logger.", plugin.describe().description());
     assertEquals(
         "Consumes messages and prints their payload to the application logs. No configuration"
             + " required.",
-        plugin.getUsagePattern());
-    org.junit.jupiter.api.Assertions.assertTrue(plugin.getUiDesign().isPresent());
-    assertEquals(140, plugin.getUiDesign().get().width());
-    assertEquals(80, plugin.getUiDesign().get().height());
+        plugin.describe().usagePattern());
+    org.junit.jupiter.api.Assertions.assertTrue(plugin.describe().uiDesign().isPresent());
+    assertEquals(140, plugin.describe().uiDesign().get().width());
+    assertEquals(80, plugin.describe().uiDesign().get().height());
     org.junit.jupiter.api.Assertions.assertTrue(
-        plugin.getUiDesign().get().html().contains("terminal"));
+        plugin.describe().uiDesign().get().html().contains("terminal"));
   }
 
   @Test
