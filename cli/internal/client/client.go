@@ -76,7 +76,7 @@ func (c *Client) newRequestWithBody(method string, path string, body []byte) (*h
 		return nil, errors.New("path must start with /")
 	}
 
-	urlStr := c.BaseURL + path
+	urlStr := strings.TrimRight(c.BaseURL, "/") + path
 
 	// Validate that the URL is properly formed
 	_, err := url.Parse(urlStr)

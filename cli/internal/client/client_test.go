@@ -626,3 +626,12 @@ func TestBearerTokenHeader(t *testing.T) {
 		t.Fatalf("got %q", got)
 	}
 }
+
+func TestNewRequestTrimsTrailingSlashes(t *testing.T) {
+	c := NewClient("http://example.com")
+	c.BaseURL = "http://example.com///"
+	req, err := c.newRequest("GET", "/api/sessions")
+	if err != nil || req.URL.String() != "http://example.com/api/sessions" {
+		t.Fatalf("got %v, %v", req.URL, err)
+	}
+}

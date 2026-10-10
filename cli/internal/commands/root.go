@@ -5,26 +5,17 @@ package commands
 
 import (
 	"os"
-	"strings"
-	"time"
 
 	"com.infenia.yukta/go-cli/internal/client"
 	"github.com/spf13/cobra"
 )
 
-// Package-level variables to store global flag values.
-// These are set by the root command's persistent flags and accessed by subcommands.
-var (
-	serverURL    string
-	outputFormat string
-	timeout      time.Duration
-	token        string
-)
+// outputFormat holds the -o/--output value, read by subcommands via GetOutputFormat.
+var outputFormat string
 
 // RootCmd creates and returns the root Cobra command with global flags.
-// The root command is configured with --url and -o/--output flags that are
-// inherited by all subcommands. The provided client's BaseURL is updated
-// based on the resolved server URL during command execution.
+// The --url, --timeout and --token flags are bound straight to the client's fields, so
+// there is no separate sync step after parsing; -o/--output is inherited by all subcommands.
 func RootCmd(c *client.Client) *cobra.Command {
 	// Determine the default server URL: env var takes precedence, then hardcoded default.
 	defaultURL := os.Getenv("YUKTA_SERVER_URL")
@@ -38,16 +29,7 @@ func RootCmd(c *client.Client) *cobra.Command {
 		Long: `Yukta is a high-performance CLI tool for enforcing code quality gates
 through AI-driven development workflows. It provides session management,
 workflow orchestration, and integration with quality check plugins.`,
-		// PersistentPreRunE is executed before the command runs, after all flags are parsed.
-		// This hook updates the client's BaseURL with the resolved server URL value.
-		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-			c.BaseURL = strings.TrimRight(serverURL, "/")
-			c.Timeout = timeout
-			c.Token = token
-			return nil
-		},
-		// RunE ensures the root command still runs its PersistentPreRunE even if no subcommand is provided.
-		// Without this, Cobra would return "Error: no subcommands" before calling the PersistentPreRunE hook.
+		// With no subcommand, show help instead of Cobra's "no subcommands" error.
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return cmd.Help()
 		},
@@ -56,21 +38,21 @@ workflow orchestration, and integration with quality check plugins.`,
 	// Define persistent flags that are inherited by all subcommands.
 	// --url flag for specifying the server URL.
 	cmd.PersistentFlags().StringVar(
-		&serverURL,
+		&c.BaseURL,
 		"url",
 		defaultURL,
 		"Server URL (env: YUKTA_SERVER_URL)",
 	)
 
 	cmd.PersistentFlags().DurationVar(
-		&timeout,
+		&c.Timeout,
 		"timeout",
 		client.DefaultTimeout,
 		"Timeout for non-streaming requests (0 disables)",
 	)
 
 	cmd.PersistentFlags().StringVar(
-		&token,
+		&c.Token,
 		"token",
 		os.Getenv("YUKTA_TOKEN"),
 		"Bearer token for authenticated servers (env: YUKTA_TOKEN)",
