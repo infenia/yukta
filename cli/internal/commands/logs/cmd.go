@@ -19,7 +19,7 @@ import (
 // It streams execution logs for a given session and execution ID.
 // The command prints logs in real-time, one per line, as they arrive from the server.
 // It supports graceful cancellation via Ctrl-C.
-func LogsCmd(c client.ClientInterface) *cobra.Command {
+func LogsCmd(c *client.Client) *cobra.Command {
 	var entries bool
 	cmd := &cobra.Command{
 		Use:   "logs <session-id> <execution-id>",

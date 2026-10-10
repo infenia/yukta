@@ -15,7 +15,7 @@ import (
 )
 
 // StartCmd creates the "workflow start" command.
-func StartCmd(c client.ClientInterface) *cobra.Command {
+func StartCmd(c *client.Client) *cobra.Command {
 	var payload, payloadFile string
 	cmd := &cobra.Command{
 		Use:   "start <session-id> <workflow-id>",

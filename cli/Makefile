@@ -29,7 +29,7 @@ GOVULNCHECK := golang.org/x/vuln/cmd/govulncheck@v1.8.0
 
 # Minimum per-function coverage (%), with per-file overrides as path=min.
 COVER_MIN := 100
-COVER_OVERRIDES := cmd/yukta/main.go=0 internal/client/mock.go=0 test/integration_test.go=0
+COVER_OVERRIDES := cmd/yukta/main.go=0 internal/testutil/testutil.go=0 test/integration_test.go=0
 
 # Build targets for build-all
 TARGETS := \

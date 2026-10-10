@@ -14,7 +14,7 @@ import (
 
 // NodesCmd creates and returns the "controlbus nodes" subcommand.
 // It retrieves and displays active nodes in a specific workflow.
-func NodesCmd(c client.ClientInterface) *cobra.Command {
+func NodesCmd(c *client.Client) *cobra.Command {
 	return &cobra.Command{
 		Use:   "nodes <workflow-id>",
 		Short: "Get active nodes in a workflow",

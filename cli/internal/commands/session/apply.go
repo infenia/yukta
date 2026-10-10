@@ -17,7 +17,7 @@ import (
 // It reads configuration from a file or inline JSON string and applies it to the server.
 // The command accepts exactly one argument: either a file path or a JSON string.
 // It supports output formatting via the -o/--output flag (table or json).
-func ApplyCmd(c client.ClientInterface) *cobra.Command {
+func ApplyCmd(c *client.Client) *cobra.Command {
 	var outputFormat string
 
 	cmd := &cobra.Command{

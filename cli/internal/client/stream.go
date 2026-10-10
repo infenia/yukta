@@ -32,7 +32,7 @@ func (c *Client) streamRequest(ctx context.Context, path string) (*http.Response
 	req.Header.Set("Accept", "text/event-stream")
 	req = req.WithContext(ctx)
 
-	resp, err := c.httpDoer.Do(req)
+	resp, err := c.HTTPClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("request failed: %w", err)
 	}

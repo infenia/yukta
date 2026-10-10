@@ -13,7 +13,7 @@ import (
 )
 
 // StatusCmd creates the "workflow status" command.
-func StatusCmd(c client.ClientInterface) *cobra.Command {
+func StatusCmd(c *client.Client) *cobra.Command {
 	return &cobra.Command{
 		Use:   "status <session-id> <execution-id>",
 		Short: "Get the current status of a workflow execution",

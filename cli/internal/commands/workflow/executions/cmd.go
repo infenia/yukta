@@ -4,20 +4,54 @@
 package executions
 
 import (
+	"fmt"
+
 	"com.infenia.yukta/go-cli/internal/client"
+	"com.infenia.yukta/go-cli/internal/commands"
 	"github.com/spf13/cobra"
 )
 
-// ExecutionsCmd creates and returns the "workflow executions" parent command.
-func ExecutionsCmd(c client.ClientInterface) *cobra.Command {
+// ExecutionsCmd creates the "workflow executions" command group.
+func ExecutionsCmd(c *client.Client) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "executions",
 		Short: "Manage workflow executions",
 		Long:  `Manage individual workflow executions, including stopping and restarting them.`,
 	}
 
-	cmd.AddCommand(StopCmd(c))
-	cmd.AddCommand(RestartCmd(c))
+	cmd.AddCommand(commands.Action(commands.ActionSpec[client.WorkflowStartResponse]{
+		Use:   "stop <execution-id>",
+		Short: "Stop a workflow execution",
+		Long: `Stop a specific workflow execution by its execution ID.
+
+Returns the execution ID of the stopped execution.`,
+		Args: cobra.ExactArgs(1),
+		Run:  func(a []string) (client.WorkflowStartResponse, error) { return c.StopExecution(a[0]) },
+		Msg: func(r client.WorkflowStartResponse, _ []string) string {
+			return fmt.Sprintf("Execution stopped: %s", r.ExecutionID)
+		},
+	}))
+
+	cmd.AddCommand(commands.Action(commands.ActionSpec[client.WorkflowStartResponse]{
+		Use:   "restart <execution-id> [from-node-id]",
+		Short: "Restart a workflow execution",
+		Long: `Restart a workflow execution, optionally from a specific node.
+
+If from-node-id is provided, the execution will restart from that node.
+Otherwise, it will restart from the beginning.
+
+Returns the execution ID of the new execution.`,
+		Args: cobra.RangeArgs(1, 2),
+		Run: func(a []string) (client.WorkflowStartResponse, error) {
+			if len(a) == 2 {
+				return c.RestartFromNode(a[0], a[1])
+			}
+			return c.RestartExecution(a[0])
+		},
+		Msg: func(r client.WorkflowStartResponse, _ []string) string {
+			return fmt.Sprintf("Execution restarted with ID: %s", r.ExecutionID)
+		},
+	}))
 
 	return cmd
 }

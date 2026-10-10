@@ -18,34 +18,12 @@ import (
 // DefaultTimeout bounds each non-streaming request. Streams are cancelled by their context.
 const DefaultTimeout = 30 * time.Second
 
-// RequestFactory abstracts HTTP request creation for testability.
-// It allows injecting mock implementations to simulate request creation failures.
-type RequestFactory interface {
-	NewRequest(method, urlStr string, body io.Reader) (*http.Request, error)
-}
-
-// DefaultRequestFactory uses the standard http.NewRequest function.
-type DefaultRequestFactory struct{}
-
-// NewRequest creates an HTTP request using the standard library.
-func (f *DefaultRequestFactory) NewRequest(method, urlStr string, body io.Reader) (*http.Request, error) {
-	return http.NewRequest(method, urlStr, body)
-}
-
-// HTTPDoer abstracts the http.Client.Do method for testability.
-// It allows injecting mock implementations to simulate HTTP execution failures.
-type HTTPDoer interface {
-	Do(req *http.Request) (*http.Response, error)
-}
-
 // Client provides an HTTP client wrapper for communicating with the Yukta API.
 type Client struct {
-	BaseURL        string
-	Token          string        // optional bearer token sent as Authorization
-	Timeout        time.Duration // per-request limit for non-streaming calls; <= 0 disables
-	HTTPClient     *http.Client
-	RequestFactory RequestFactory
-	httpDoer       HTTPDoer
+	BaseURL    string
+	Token      string        // optional bearer token sent as Authorization
+	Timeout    time.Duration // per-request limit for non-streaming calls; <= 0 disables
+	HTTPClient *http.Client
 }
 
 // NewClient creates a new HTTP client with the given base URL.
@@ -54,13 +32,11 @@ func NewClient(baseURL string) *Client {
 	if baseURL == "" {
 		baseURL = "http://localhost:8080"
 	}
-	httpClient := &http.Client{} // no client-wide Timeout: it would also cut SSE streams
 	return &Client{
-		BaseURL:        strings.TrimRight(baseURL, "/"),
-		Timeout:        DefaultTimeout,
-		HTTPClient:     httpClient,
-		RequestFactory: &DefaultRequestFactory{},
-		httpDoer:       httpClient,
+		BaseURL: strings.TrimRight(baseURL, "/"),
+		Timeout: DefaultTimeout,
+		// No client-wide Timeout: it would also cut SSE streams.
+		HTTPClient: &http.Client{},
 	}
 }
 
@@ -89,7 +65,7 @@ func (c *Client) newRequestWithBody(method string, path string, body []byte) (*h
 		bodyReader = bytes.NewReader(body)
 	}
 
-	req, err := c.RequestFactory.NewRequest(method, urlStr, bodyReader)
+	req, err := http.NewRequest(method, urlStr, bodyReader)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
@@ -122,7 +98,7 @@ func (c *Client) doRequest(req *http.Request) ([]byte, error) {
 		req = req.WithContext(ctx)
 	}
 
-	resp, err := c.httpDoer.Do(req)
+	resp, err := c.HTTPClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("request failed: %w", err)
 	}

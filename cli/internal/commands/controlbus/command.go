@@ -18,7 +18,7 @@ import (
 // CommandCmd creates and returns the "controlbus command" subcommand.
 // It sends a command to a specific node in a workflow.
 // The command payload can be provided as either a file path or inline JSON.
-func CommandCmd(c client.ClientInterface) *cobra.Command {
+func CommandCmd(c *client.Client) *cobra.Command {
 	return &cobra.Command{
 		Use:   "command <workflow-id> <node-id> <json-or-file>",
 		Short: "Send command to a node",
