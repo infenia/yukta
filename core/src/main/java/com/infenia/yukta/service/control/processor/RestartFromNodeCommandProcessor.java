@@ -8,6 +8,7 @@ import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.RestartFromNodeCommand;
 import com.infenia.yukta.plugin.control.WorkflowDirective;
 import com.infenia.yukta.plugin.store.NodeCheckpointStore;
+import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.archive.ArchivedExecution;
 import com.infenia.yukta.service.archive.ExecutionArchive;
 import com.infenia.yukta.service.control.ExecutionScheduler;
@@ -84,7 +85,7 @@ public class RestartFromNodeCommandProcessor implements ControlSignalProcessor {
             .find(restart.executionId())
             .orElseThrow(
                 () ->
-                    new IllegalArgumentException(
+                    new NotFoundException(
                         "Execution not found or no longer restartable: " + restart.executionId()));
     if (registry.findByExecutionId(restart.executionId()).isEmpty()) {
       // A running run gives up its slot when stopped, so only a finished one is checked.

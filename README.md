@@ -31,7 +31,7 @@
 | Area                                                                                       | Status                        | Notes                                                                                          |
 |--------------------------------------------------------------------------------------------|-------------------------------|------------------------------------------------------------------------------------------------|
 | DAG orchestration engine (`core`)                                                          | Working                       | Reactive compiler/validator/executor; requires each workflow to have at least one trigger node |
-| REST API (`web`)                                                                           | Working                       | 5 controllers, 23 endpoints; see [REST API](#rest-api)                                         |
+| REST API (`web`)                                                                           | Working                       | 8 controllers, 34 operations; see [REST API](#rest-api)                                        |
 | MCP server (`mcp`)                                                                         | Working                       | 13 tools, 2 prompts, 3 resources over `/mcp` (always on, no flag needed)                       |
 | Built-in plugins (`plugins`)                                                               | Working                       | 13 plugins across trigger/processor/terminal; see [Plugins](#plugins)                          |
 | Web UI (`ui`)                                                                              | Working                       | JTE + Tailwind + Alpine.js dashboard at `/ui`                                                  |
@@ -157,10 +157,24 @@ Point any MCP-compatible client at `http://localhost:8080/mcp` (streamable HTTP 
 
 ## REST API
 
-Base path `/api`, 5 controllers, 23 endpoints. Full interactive docs at `http://localhost:8080/swagger-ui.html` once running.
+Base path `/api`, 8 controllers, 34 operations. Full interactive docs at `http://localhost:8080/swagger-ui.html` once running.
 
-| Controller                | Base path       | Handles                                                                   |
-|---------------------------|-----------------|---------------------------------------------------------------------------|
+| Controller                   | Base path                           | Handles                                                                      |
+|------------------------------|-------------------------------------|------------------------------------------------------------------------------|
+| `SessionConfigController`    | `/api/sessions`                     | Create/update session config, list sessions (paged), read workflow definitions |
+| `WorkflowDetailsController`  | `/api/sessions/{sid}/workflows/{wid}` | Workflow graph and per-workflow executions                                 |
+| `WorkflowController`         | `/api/workflow`                     | Start a workflow, stop all its runs, session history                         |
+| `ExecutionController`        | `/api/executions`                   | Stop/restart an execution, poll or stream (SSE) its status                   |
+| `ExecutionControlController` | `/api/executions`                   | Pause/resume an execution, control single nodes                              |
+| `LogManagementController`    | `/api/sessions/{sid}/executions/{eid}/logs` | Execution log streams (SSE)                                          |
+| `ControlBusController`       | `/api/control`                      | Live node/heartbeat introspection and admin commands                         |
+| `PluginController`           | `/api/plugins`                      | List plugins and get plugin details                                          |
+
+The older `/api/workflow/{sid}/{eid}/…` execution paths still work as deprecated aliases. List endpoints take `?limit=&cursor=` and announce the next page in the `X-Next-Cursor` header.
+
+**Access control.** The server listens on `127.0.0.1` by default. To expose it, set `YUKTA_SERVER_ADDRESS=0.0.0.0` and `yukta.api-key`; clients then send `Authorization: Bearer <key>` (or `X-API-Key`) on every `/api/**` call.
+
+---------------------------|-----------------|---------------------------------------------------------------------------|
 | `SessionConfigController` | `/api/sessions` | Create/update session config, list sessions, read workflow definitions    |
 | `WorkflowController`      | `/api/workflow` | Start/stop executions, poll or stream (SSE) status, history               |
 | `ControlBusController`    | `/api/control`  | Live node/heartbeat introspection, execution progress + log streams (SSE) |

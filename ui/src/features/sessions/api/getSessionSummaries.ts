@@ -2,8 +2,8 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import { fetchApi } from '@/lib/apiClient';
-import type { SessionListItems } from '../types/session';
+import type { SessionListItem } from '../types/session';
 
-export async function getSessionSummaries(): Promise<SessionListItems> {
-  return fetchApi<SessionListItems>('/api/sessions/summaries');
+export async function getSessionSummaries(): Promise<SessionListItem[]> {
+  return fetchApi<SessionListItem[]>('/api/sessions/summaries');
 }

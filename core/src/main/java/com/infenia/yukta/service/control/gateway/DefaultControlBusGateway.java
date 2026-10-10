@@ -23,6 +23,7 @@ import com.infenia.yukta.plugin.control.ExecutionControlCommand.StopNodeCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.StopWorkflowCommand;
 import com.infenia.yukta.plugin.control.StopMode;
 import com.infenia.yukta.plugin.core.Plugin;
+import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.archive.ExecutionArchive;
 import com.infenia.yukta.service.control.ControlBusService;
 import com.infenia.yukta.service.control.ExecutionControl;
@@ -259,7 +260,7 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
                       .addKeyValue("workflowId", workflowId)
                       .log("Workflow definition not found");
                   return Mono.error(
-                      new IllegalArgumentException(
+                      new NotFoundException(
                           "Workflow not found for session: "
                               + sessionId
                               + ", workflow: "
@@ -381,7 +382,7 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
   private ExecutionControl findExecutionOrThrow(final String executionId) {
     return executionControlRegistry
         .findByExecutionId(executionId)
-        .orElseThrow(() -> new IllegalArgumentException("Execution not found: " + executionId));
+        .orElseThrow(() -> new NotFoundException("Execution not found: " + executionId));
   }
 
   @Override
@@ -481,7 +482,7 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
   private ExecutionControl requireNodeControl(final String executionId, final String nodeId) {
     final ExecutionControl control = findExecutionOrThrow(executionId);
     if (!control.nodePauseValves().containsKey(nodeId)) {
-      throw new IllegalArgumentException("Node not found: " + nodeId);
+      throw new NotFoundException("Node not found: " + nodeId);
     }
     return control;
   }

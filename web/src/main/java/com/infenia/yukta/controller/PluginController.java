@@ -12,7 +12,6 @@ import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
@@ -28,7 +27,6 @@ import reactor.core.publisher.Mono;
 @RestController
 @RequestMapping("/api/plugins")
 @RequiredArgsConstructor
-@Slf4j
 @Tag(name = "Plugin API", description = "Endpoints for discovering workflow plugins")
 public class PluginController {
   /** Content type constant for JSON responses. */
@@ -57,7 +55,6 @@ public class PluginController {
       description = "Internal server error",
       content = @Content(mediaType = APPLICATION_JSON))
   public Mono<ResponseEntity<ApiResponse<List<PluginSummary>>>> listPlugins() {
-    log.atInfo().log("listPlugins reached");
     return Mono.fromCallable(registry::listPlugins)
         .map(
             plugins ->
@@ -109,7 +106,6 @@ public class PluginController {
       @Parameter(description = "The unique identifier of the plugin type") @PathVariable
           final String type,
       final ServerWebExchange exchange) {
-    log.atInfo().log("getPluginDetails reached: type={}", type);
     return Mono.fromCallable(() -> registry.get(type))
         .flatMap(Mono::justOrEmpty)
         .map(

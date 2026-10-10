@@ -7,10 +7,7 @@ import { getSessionWorkflows } from '../api/getSessionWorkflows';
 export function useSessionWorkflows(sessionId: string) {
   return useQuery({
     queryKey: ['sessions', sessionId, 'workflows'],
-    queryFn: async () => {
-      const data = await getSessionWorkflows(sessionId);
-      return data.workflows;
-    },
+    queryFn: () => getSessionWorkflows(sessionId),
     enabled: Boolean(sessionId),
   });
 }

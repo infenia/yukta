@@ -2,9 +2,11 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.controller;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import com.infenia.yukta.exception.GlobalExceptionHandler;
 import com.infenia.yukta.logging.api.LogLevel;
 import com.infenia.yukta.logging.api.LogStream;
 import com.infenia.yukta.logging.api.PluginLogEntry;
@@ -15,191 +17,210 @@ import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import com.infenia.yukta.service.orchestrator.tracker.DefaultTaskTrackerService;
 import java.time.Instant;
 import java.time.LocalDateTime;
-import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Map;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mapstruct.factory.Mappers;
+import org.springframework.test.web.reactive.server.WebTestClient;
 import reactor.core.publisher.Flux;
-import reactor.test.StepVerifier;
+import reactor.core.publisher.Sinks;
 
-/** Unit tests for {@link LogManagementController}'s reactive log-streaming behavior. */
-@SuppressWarnings({"PMD.TooManyMethods", "PMD.AvoidDuplicateLiterals"})
+/** Tests for the behaviour described by {@link LogManagementController}. */
 @NoArgsConstructor
+@SuppressWarnings({
+  "PMD.LawOfDemeter",
+  "PMD.UnitTestShouldIncludeAssert",
+  "PMD.AvoidDuplicateLiterals",
+  "PMD.ShortVariable"
+})
 class LogManagementControllerTest {
 
-  /** Test execution ID. */
-  private static final String EXEC_ID = "exec-123";
+  /** The control bus. */
+  private ControlBusGateway controlBus;
 
-  /** Test session ID. */
-  private static final String SESSION_ID = "session-456";
+  /** The log store. */
+  private PluginLogStore logStore;
 
-  /** Other execution ID used for live-entry filtering. */
-  private static final String OTHER_EXEC_ID = "exec-other";
+  /** The tracker. */
+  private DefaultTaskTrackerService tracker;
 
-  /** Mock control bus gateway for testing. */
-  private ControlBusGateway mockControlBus;
+  /** The client. */
+  private WebTestClient client;
 
-  /** Mock plugin log store for testing. */
-  private PluginLogStore mockLogStore;
+  private static PluginLogEntry entry(final String message, final Instant at) {
+    return new PluginLogEntry(
+        "e1", "s1", "p1", "Plugin", LogStream.STDOUT, message, LogLevel.INFO, at, null, Map.of());
+  }
 
-  /** Mock task tracker for the structured live log stream. */
-  private DefaultTaskTrackerService mockTaskTracker;
-
-  /** Controller under test. */
-  private LogManagementController controller;
+  private static WorkflowProgress progress(final String status) {
+    return new WorkflowProgress(
+        "e1", "s1", "wf", status, List.of(), LocalDateTime.now(), null, null);
+  }
 
   @BeforeEach
   void setUp() {
-    mockControlBus = mock(ControlBusGateway.class);
-    mockLogStore = mock(PluginLogStore.class);
-    mockTaskTracker = mock(DefaultTaskTrackerService.class);
-    controller =
-        new LogManagementController(
-            mockControlBus, mockLogStore, mockTaskTracker, Mappers.getMapper(WorkflowMapper.class));
+    controlBus = mock(ControlBusGateway.class);
+    logStore = mock(PluginLogStore.class);
+    tracker = mock(DefaultTaskTrackerService.class);
+    client =
+        WebTestClient.bindToController(
+                new LogManagementController(
+                    controlBus,
+                    logStore,
+                    tracker,
+                    Mappers.getMapper(WorkflowMapper.class),
+                    new ExecutionAccess(controlBus)))
+            .controllerAdvice(new GlobalExceptionHandler())
+            .build();
   }
 
-  private static WorkflowProgress progressWithStatus(final String status, final Instant endTime) {
-    return new WorkflowProgress(
-        EXEC_ID,
-        SESSION_ID,
-        "workflow-1",
-        status,
-        List.of(),
-        LocalDateTime.now(ZoneOffset.UTC),
-        endTime == null ? null : LocalDateTime.ofInstant(endTime, ZoneOffset.UTC));
-  }
-
-  private static PluginLogEntry historicalEntry(final String message) {
-    return logEntry(EXEC_ID, message);
-  }
-
-  private static PluginLogEntry logEntry(final String executionId, final String message) {
-    return new PluginLogEntry(
-        executionId,
-        SESSION_ID,
-        "processor-1",
-        "Processor",
-        LogStream.STDOUT,
-        message,
-        LogLevel.INFO,
-        Instant.now(),
-        null,
-        null);
+  private String lines(final String uri) {
+    return String.join(
+        "\n",
+        client
+            .get()
+            .uri(uri)
+            .exchange()
+            .expectStatus()
+            .isOk()
+            .returnResult(String.class)
+            .getResponseBody()
+            .collectList()
+            .block());
   }
 
   @Test
-  void streamsHistoricalLogsOnlyWhenExecutionAlreadyTerminal() {
-    when(mockControlBus.getCurrentProgress(EXEC_ID))
-        .thenReturn(progressWithStatus("COMPLETED", Instant.now()));
-    when(mockLogStore.readExecution(EXEC_ID))
-        .thenReturn(Flux.just(historicalEntry("line 1"), historicalEntry("line 2")));
+  void testFinishedExecutionStreamsStoredHistoryWithIds() {
+    when(controlBus.getProgress("s1", "e1")).thenReturn(progress("SUCCESS"));
+    final Instant now = Instant.now();
+    when(logStore.readExecution("e1")).thenReturn(Flux.just(entry("one", now), entry("two", now)));
 
-    StepVerifier.create(controller.streamExecutionLogs(SESSION_ID, EXEC_ID))
-        .expectNextMatches(line -> line.contains("line 1"))
-        .expectNextMatches(line -> line.contains("line 2"))
-        .verifyComplete();
+    final String body = lines("/api/sessions/s1/executions/e1/logs");
+
+    assertThat(body).contains("one").contains("two");
   }
 
   @Test
-  void streamsHistoricalThenLiveLogsWhenExecutionInProgress() {
-    when(mockControlBus.getCurrentProgress(EXEC_ID))
-        .thenReturn(progressWithStatus("RUNNING", null));
-    when(mockLogStore.readExecution(EXEC_ID)).thenReturn(Flux.just(historicalEntry("history 1")));
-    when(mockControlBus.watchExecution(EXEC_ID, true)).thenReturn(Flux.never());
-    when(mockControlBus.watchLogs(SESSION_ID, EXEC_ID)).thenReturn(Flux.just("live 1", "live 2"));
+  void testLastEventIdResumesAfterTheLastSeenLine() {
+    when(controlBus.getProgress("s1", "e1")).thenReturn(progress("SUCCESS"));
+    final Instant now = Instant.now();
+    when(logStore.readExecution("e1"))
+        .thenReturn(Flux.just(entry("one", now), entry("two", now), entry("three", now)));
 
-    StepVerifier.create(controller.streamExecutionLogs(SESSION_ID, EXEC_ID))
-        .expectNextMatches(line -> line.contains("history 1"))
-        .expectNext("live 1", "live 2")
-        .verifyComplete();
+    final String body =
+        String.join(
+            "\n",
+            client
+                .get()
+                .uri("/api/sessions/s1/executions/e1/logs")
+                .header("Last-Event-ID", "1")
+                .exchange()
+                .expectStatus()
+                .isOk()
+                .returnResult(String.class)
+                .getResponseBody()
+                .collectList()
+                .block());
+
+    assertThat(body).contains("three").doesNotContain("one").doesNotContain("two");
   }
 
   @Test
-  void stopsLiveLogsWhenExecutionReachesTerminalStateMidStream() {
-    when(mockControlBus.getCurrentProgress(EXEC_ID))
-        .thenReturn(progressWithStatus("RUNNING", null));
-    when(mockLogStore.readExecution(EXEC_ID)).thenReturn(Flux.empty());
-    when(mockControlBus.watchExecution(EXEC_ID, true))
+  void testRunningExecutionGetsHistoryThenLiveWithoutDuplicatesOrGaps() {
+    when(controlBus.getProgress("s1", "e1")).thenReturn(progress("RUNNING"));
+    final Sinks.Many<PluginLogEntry> live = Sinks.many().multicast().directBestEffort();
+    when(tracker.getLogFlux()).thenReturn(live.asFlux());
+    final Sinks.Many<WorkflowProgress> status = Sinks.many().multicast().directBestEffort();
+    when(controlBus.watchExecution("e1", true)).thenReturn(status.asFlux());
+    final Instant before = Instant.now().minusSeconds(60);
+    // "seam" is written during the history read: it appears in the store and on the live feed.
+    when(logStore.readExecution("e1"))
         .thenReturn(
-            Flux.just(
-                progressWithStatus("RUNNING", null),
-                progressWithStatus("FAILED", null),
-                progressWithStatus("CANCELLED", Instant.now()),
-                progressWithStatus("WORKFLOW_STOPPED", Instant.now())));
-    when(mockControlBus.watchLogs(SESSION_ID, EXEC_ID)).thenReturn(Flux.never());
+            Flux.defer(
+                () -> {
+                  final Instant seamAt = Instant.now();
+                  live.tryEmitNext(entry("seam", seamAt));
+                  return Flux.just(entry("old", before), entry("seam", seamAt));
+                }));
 
-    StepVerifier.create(controller.streamExecutionLogs(SESSION_ID, EXEC_ID)).verifyComplete();
+    final var result =
+        client
+            .get()
+            .uri("/api/sessions/s1/executions/e1/logs")
+            .exchange()
+            .expectStatus()
+            .isOk()
+            .returnResult(String.class)
+            .getResponseBody();
+    final var collected = result.collectList().toFuture();
+    live.tryEmitNext(entry("fresh", Instant.now().plusSeconds(5)));
+    status.tryEmitNext(progress("RUNNING"));
+    status.tryEmitNext(progress("SUCCESS"));
+    status.tryEmitNext(
+        new WorkflowProgress(
+            "e1",
+            "s1",
+            "wf",
+            "SUCCESS",
+            List.of(),
+            LocalDateTime.now(),
+            LocalDateTime.now(),
+            null));
+
+    final String body = String.join("\n", collected.join());
+    assertThat(body).contains("old").contains("fresh");
+    assertThat(body.split("seam", -1).length - 1).isEqualTo(1);
   }
 
   @Test
-  void streamsStructuredHistoricalEntriesOnlyWhenExecutionAlreadyTerminal() {
-    when(mockControlBus.getCurrentProgress(EXEC_ID))
-        .thenReturn(progressWithStatus("COMPLETED", Instant.now()));
-    when(mockLogStore.readExecution(EXEC_ID))
-        .thenReturn(Flux.just(historicalEntry("entry 1"), historicalEntry("entry 2")));
-
-    StepVerifier.create(controller.streamExecutionLogEntries(SESSION_ID, EXEC_ID))
-        .expectNextMatches(
-            entry -> "entry 1".equals(entry.message()) && "INFO".equals(entry.level()))
-        .expectNextMatches(entry -> "entry 2".equals(entry.message()))
-        .verifyComplete();
+  void testForeignOrUnknownExecutionIs404() {
+    client
+        .get()
+        .uri("/api/sessions/s1/executions/ghost/logs")
+        .exchange()
+        .expectStatus()
+        .isNotFound();
+    client
+        .get()
+        .uri("/api/sessions/s1/executions/ghost/logs/entries")
+        .exchange()
+        .expectStatus()
+        .isNotFound();
   }
 
   @Test
-  void streamsStructuredHistoryThenLiveEntriesWhenExecutionInProgress() {
-    when(mockControlBus.getCurrentProgress(EXEC_ID))
-        .thenReturn(progressWithStatus("RUNNING", null));
-    when(mockLogStore.readExecution(EXEC_ID)).thenReturn(Flux.just(historicalEntry("history 1")));
-    when(mockControlBus.watchExecution(EXEC_ID, true)).thenReturn(Flux.never());
-    when(mockTaskTracker.getLogFlux())
-        .thenReturn(Flux.just(logEntry(EXEC_ID, "live 1"), logEntry(EXEC_ID, "live 2")));
+  void testStructuredEntries() {
+    when(controlBus.getProgress("s1", "e1")).thenReturn(progress("FAILURE"));
+    when(logStore.readExecution("e1")).thenReturn(Flux.just(entry("boom", Instant.now())));
 
-    StepVerifier.create(controller.streamExecutionLogEntries(SESSION_ID, EXEC_ID))
-        .expectNextMatches(entry -> "history 1".equals(entry.message()))
-        .expectNextMatches(entry -> "live 1".equals(entry.message()))
-        .expectNextMatches(entry -> "live 2".equals(entry.message()))
-        .verifyComplete();
+    assertThat(lines("/api/sessions/s1/executions/e1/logs/entries")).contains("boom");
   }
 
   @Test
-  void filtersLiveEntriesFromOtherExecutions() {
-    when(mockControlBus.getCurrentProgress(EXEC_ID))
-        .thenReturn(progressWithStatus("RUNNING", null));
-    when(mockLogStore.readExecution(EXEC_ID)).thenReturn(Flux.empty());
-    when(mockControlBus.watchExecution(EXEC_ID, true)).thenReturn(Flux.never());
-    when(mockTaskTracker.getLogFlux())
-        .thenReturn(
-            Flux.just(
-                logEntry(OTHER_EXEC_ID, "foreign"),
-                logEntry(EXEC_ID, "mine"),
-                logEntry(OTHER_EXEC_ID, "foreign 2")));
+  void testRepeatedLineAfterTheSnapshotIsNotSuppressedAndCancelDisposesLiveFeed() {
+    when(controlBus.getProgress("s1", "e1")).thenReturn(progress("RUNNING"));
+    final Sinks.Many<PluginLogEntry> live = Sinks.many().replay().all();
+    when(tracker.getLogFlux()).thenReturn(live.asFlux());
+    when(controlBus.watchExecution("e1", true)).thenReturn(Flux.never());
+    final Instant now = Instant.now();
+    when(logStore.readExecution("e1")).thenReturn(Flux.just(entry("tick", now)));
+    live.tryEmitNext(entry("tick", Instant.now().plusSeconds(30)));
 
-    StepVerifier.create(controller.streamExecutionLogEntries(SESSION_ID, EXEC_ID))
-        .expectNextMatches(entry -> "mine".equals(entry.message()))
-        .verifyComplete();
-  }
+    final var lines =
+        client
+            .get()
+            .uri("/api/sessions/s1/executions/e1/logs")
+            .exchange()
+            .expectStatus()
+            .isOk()
+            .returnResult(String.class)
+            .getResponseBody()
+            .take(2)
+            .collectList()
+            .block();
 
-  @Test
-  void stopsStructuredLiveEntriesWhenExecutionReachesTerminalState() {
-    when(mockControlBus.getCurrentProgress(EXEC_ID))
-        .thenReturn(progressWithStatus("RUNNING", null));
-    when(mockLogStore.readExecution(EXEC_ID)).thenReturn(Flux.empty());
-    when(mockControlBus.watchExecution(EXEC_ID, true))
-        .thenReturn(Flux.just(progressWithStatus("COMPLETED", Instant.now())));
-    when(mockTaskTracker.getLogFlux()).thenReturn(Flux.never());
-
-    StepVerifier.create(controller.streamExecutionLogEntries(SESSION_ID, EXEC_ID)).verifyComplete();
-  }
-
-  @Test
-  void streamsHistoricalEntriesOnlyWhenExecutionIsUnknown() {
-    when(mockControlBus.getCurrentProgress(EXEC_ID)).thenReturn(null);
-    when(mockLogStore.readExecution(EXEC_ID)).thenReturn(Flux.just(historicalEntry("stored")));
-
-    StepVerifier.create(controller.streamExecutionLogEntries(SESSION_ID, EXEC_ID))
-        .expectNextMatches(entry -> "stored".equals(entry.message()))
-        .verifyComplete();
+    assertThat(lines).hasSize(2);
   }
 }

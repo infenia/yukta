@@ -84,7 +84,7 @@ async function mockSessionsApi(
         status: 200,
         message: 'Sessions retrieved successfully',
         path: '/api/sessions/summaries',
-        data: { sessions },
+        data: sessions,
       }),
     });
   });
@@ -254,7 +254,7 @@ async function mockWorkflowApi(page: Page, data: MockWorkflowData = {}): Promise
     route.fulfill(envelope('/graph', graph))
   );
   await page.route('**/api/sessions/*/workflows/*/executions', (route) =>
-    route.fulfill(envelope('/executions', { executions }))
+    route.fulfill(envelope('/executions', executions))
   );
   await page.route('**/api/workflow/*/status/*/stream*', (route) =>
     route.fulfill({

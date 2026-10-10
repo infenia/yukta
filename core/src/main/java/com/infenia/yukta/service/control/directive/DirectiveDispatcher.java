@@ -5,6 +5,7 @@ package com.infenia.yukta.service.control.directive;
 import com.infenia.yukta.plugin.control.ControlSignalProcessor;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.control.WorkflowDirective;
+import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.archive.ExecutionArchive;
 import com.infenia.yukta.service.control.CommandSequencer;
 import com.infenia.yukta.service.control.ControlBusService;
@@ -89,8 +90,7 @@ public class DirectiveDispatcher {
             () ->
                 !isAddressable(command)
                     ? Mono.error(
-                        new IllegalArgumentException(
-                            "Execution not found: " + command.executionId()))
+                        new NotFoundException("Execution not found: " + command.executionId()))
                     : dispatch(command)));
   }
 

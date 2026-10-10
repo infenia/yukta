@@ -103,8 +103,28 @@ class ControlBusControllerTest {
             .expectBody()
             .jsonPath(MESSAGE_PATH)
             .isEqualTo("Command processed")
+            .jsonPath("$.data.payload")
+            .isEqualTo("done")
             .returnResult();
     assertThat(result.getStatus().value()).isEqualTo(200);
+  }
+
+  @Test
+  @SuppressWarnings("PMD.UnitTestShouldIncludeAssert")
+  void testEmptyCommandPayloadIsRejected() {
+    webClient
+        .post()
+        .uri("/api/control/workflows/wf1/nodes/n1/command")
+        .contentType(MediaType.APPLICATION_JSON)
+        .bodyValue("{}")
+        .exchange()
+        .expectStatus()
+        .isBadRequest();
+  }
+
+  @Test
+  void testNullCommandPayloadBecomesEmpty() {
+    assertThat(new com.infenia.yukta.dto.request.NodeCommandRequest(null).payload()).isEmpty();
   }
 
   @Test
