@@ -44,6 +44,15 @@ public class SpaWebFluxConfig implements WebFluxConfigurer {
   private static final List<String> STATIC_ASSET_PATTERNS =
       Stream.concat(Stream.of("/assets/**"), TOP_LEVEL_ASSET_PATTERNS.stream()).toList();
 
+  /**
+   * Content-Security-Policy for index.html: same-origin scripts and connections only, so HTML
+   * injected from plugin node designs cannot load or run anything external. Inline styles are
+   * allowed because React Flow positions nodes with style attributes.
+   */
+  public static final String CONTENT_SECURITY_POLICY =
+      "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; "
+          + "font-src 'self' data:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'";
+
   /** Default constructor for Spring. */
   public SpaWebFluxConfig() {
     // Intentionally empty
@@ -69,9 +78,10 @@ public class SpaWebFluxConfig implements WebFluxConfigurer {
 
   /**
    * SPA fallback router: serves index.html for all unmatched routes to enable client-side routing.
-   * Excludes API routes (/api/**, /actuator/**, /mcp/**, /sse/**) and static asset paths so the
-   * resource handler mapping (registered in {@link #addResourceHandlers}) can serve them — the
-   * router mapping is otherwise consulted before the resource handler mapping and would shadow it.
+   * Excludes API routes (/api/**, /actuator/**, /mcp/**, /sse/**, OpenAPI /v3/** and Swagger UI)
+   * and static asset paths so the resource handler mapping (registered in {@link
+   * #addResourceHandlers}) can serve them — the router mapping is otherwise consulted before the
+   * resource handler mapping and would shadow it.
    */
   @Bean
   public RouterFunction<ServerResponse> spaRouter() {
@@ -81,7 +91,10 @@ public class SpaWebFluxConfig implements WebFluxConfigurer {
             .and(RequestPredicates.path("/api/**").negate())
             .and(RequestPredicates.path("/actuator/**").negate())
             .and(RequestPredicates.path("/mcp/**").negate())
-            .and(RequestPredicates.path("/mcp/**").negate())
+            .and(RequestPredicates.path("/v3/**").negate())
+            .and(RequestPredicates.path("/swagger-ui/**").negate())
+            .and(RequestPredicates.path("/swagger-ui.html").negate())
+            .and(RequestPredicates.path("/webjars/**").negate())
             .and(RequestPredicates.path("/sse/**").negate());
     for (final String pattern : STATIC_ASSET_PATTERNS) {
       predicate = predicate.and(RequestPredicates.path(pattern).negate());
@@ -92,6 +105,7 @@ public class SpaWebFluxConfig implements WebFluxConfigurer {
             ServerResponse.ok()
                 .contentType(MediaType.TEXT_HTML)
                 .cacheControl(CacheControl.noCache().mustRevalidate())
+                .header("Content-Security-Policy", CONTENT_SECURITY_POLICY)
                 .body(Mono.just(indexHtml), Resource.class));
   }
 }

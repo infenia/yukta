@@ -11,13 +11,16 @@ import { createMockProgress } from '@/test/factories/workflowFactory';
 const server = setupServer(
   http.get('/api/workflow/:sessionId/status/:executionId', ({ params }) => {
     if (params.executionId === 'missing') {
-      return HttpResponse.json({
-        timestamp: '2026-07-26T00:00:00Z',
-        status: 404,
-        message: 'Not found',
-        error: 'Execution not found',
-        path: '/api/workflow/s1/status/missing',
-      });
+      return HttpResponse.json(
+        {
+          timestamp: '2026-07-26T00:00:00Z',
+          status: 404,
+          message: 'Not found',
+          error: 'Execution not found',
+          path: '/api/workflow/s1/status/missing',
+        },
+        { status: 404 }
+      );
     }
     return HttpResponse.json({
       timestamp: '2026-07-26T00:00:00Z',
@@ -41,6 +44,8 @@ describe('getWorkflowProgress', () => {
   });
 
   it('throws ApiError for a missing execution', async () => {
-    await expect(getWorkflowProgress('s1', 'missing')).rejects.toBeInstanceOf(ApiError);
+    await expect(getWorkflowProgress('s1', 'missing')).rejects.toBeInstanceOf(
+      ApiError
+    );
   });
 });

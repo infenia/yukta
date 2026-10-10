@@ -4,7 +4,34 @@
 @import 'tw-animate-css';
 @import 'shadcn/tailwind.css';
 @import '@fontsource-variable/geist';
-@import 'material-symbols/outlined.css';
+
+/* Subset of Material Symbols Outlined; regenerate with `pnpm run icons` after adding an icon */
+@font-face {
+  font-family: 'Material Symbols Outlined';
+  font-style: normal;
+  font-weight: 100 700;
+  font-display: block;
+  src: url('./assets/material-symbols-subset.woff2') format('woff2');
+}
+
+/* Unlayered like the package CSS it replaces, so it keeps the same precedence over Tailwind utilities */
+.material-symbols-outlined {
+  font-family: 'Material Symbols Outlined';
+  font-weight: normal;
+  font-style: normal;
+  font-size: 24px;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  display: inline-block;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  font-feature-settings: 'liga';
+  -moz-osx-font-smoothing: grayscale;
+}
 
 @custom-variant dark (&:where(.dark, .dark *));
 

@@ -5,8 +5,6 @@ import { createBrowserRouter } from 'react-router';
 import App from '@/App';
 import ComingSoonPage from '@/components/layout/ComingSoonPage';
 import { SessionListPage } from '@/features/sessions/components/SessionListPage';
-import { SessionDetailsPage } from '@/features/sessions/components/SessionDetailsPage';
-import { WorkflowDetailsPage } from '@/features/workflow/components/WorkflowDetailsPage';
 
 const router = createBrowserRouter([
   {
@@ -19,11 +17,18 @@ const router = createBrowserRouter([
       },
       {
         path: 'sessions/:sessionId',
-        element: <SessionDetailsPage />,
+        lazy: async () => ({
+          Component: (await import('@/features/sessions/components/SessionDetailsPage'))
+            .SessionDetailsPage,
+        }),
       },
       {
         path: 'sessions/:sessionId/workflow/:workflowId',
-        element: <WorkflowDetailsPage />,
+        // Keeps React Flow and dagre out of the initial bundle
+        lazy: async () => ({
+          Component: (await import('@/features/workflow/components/WorkflowDetailsPage'))
+            .WorkflowDetailsPage,
+        }),
       },
       {
         path: 'control',

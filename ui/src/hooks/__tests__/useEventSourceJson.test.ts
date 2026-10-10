@@ -48,12 +48,47 @@ describe('useEventSourceJson', () => {
     expect(onMessage).toHaveBeenCalledWith({ ok: true });
   });
 
-  it('closes permanently on error', () => {
-    const { result } = renderHook(() => useEventSourceJson('/api/stream', vi.fn()));
+  it('ends the stream on error when reconnect is disabled', () => {
+    vi.useFakeTimers();
+    const { result } = renderHook(() => useEventSourceJson('/api/stream', vi.fn(), false));
 
     act(() => MockEventSource.latest().emitError());
     expect(result.current.status).toBe('error');
     expect(MockEventSource.latest().readyState).toBe(MockEventSource.CLOSED);
+    act(() => vi.advanceTimersByTime(60_000));
+    expect(MockEventSource.instances).toHaveLength(1);
+    vi.useRealTimers();
+  });
+
+  it('reconnects with exponential backoff capped at 30 s, resetting after open', () => {
+    vi.useFakeTimers();
+    renderHook(() => useEventSourceJson('/api/stream', vi.fn()));
+
+    for (const delay of [1000, 2000, 4000, 8000, 16_000, 30_000, 30_000]) {
+      const before = MockEventSource.instances.length;
+      act(() => MockEventSource.latest().emitError());
+      act(() => vi.advanceTimersByTime(delay - 1));
+      expect(MockEventSource.instances).toHaveLength(before);
+      act(() => vi.advanceTimersByTime(1));
+      expect(MockEventSource.instances).toHaveLength(before + 1);
+    }
+
+    act(() => MockEventSource.latest().open());
+    const before = MockEventSource.instances.length;
+    act(() => MockEventSource.latest().emitError());
+    act(() => vi.advanceTimersByTime(1000));
+    expect(MockEventSource.instances).toHaveLength(before + 1);
+    vi.useRealTimers();
+  });
+
+  it('cancels a pending reconnect on unmount', () => {
+    vi.useFakeTimers();
+    const { unmount } = renderHook(() => useEventSourceJson('/api/stream', vi.fn()));
+    act(() => MockEventSource.latest().emitError());
+    unmount();
+    act(() => vi.advanceTimersByTime(60_000));
+    expect(MockEventSource.instances).toHaveLength(1);
+    vi.useRealTimers();
   });
 
   it('closes the previous stream when the url changes', () => {
