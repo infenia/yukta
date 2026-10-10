@@ -315,8 +315,10 @@ public class MapperProcessor implements ProcessorPlugin {
     final Source source = jsSourceCache.get(script);
     Object finalResult;
     try (Context context =
+        // nosem: yukta-graalvm-allow-host-class-lookup (trusted workflow scripts)
         Context.newBuilder("js")
             .engine(JS_ENGINE)
+            // nosem: yukta-graalvm-host-access-all (trusted workflow scripts)
             .allowHostAccess(HostAccess.ALL)
             .allowHostClassLookup(s -> true)
             .build()) {

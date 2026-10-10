@@ -26,6 +26,7 @@ public final class SpelUtils {
   private static final ThreadLocal<StandardEvaluationContext> CONTEXT_HOLDER =
       ThreadLocal.withInitial(
           () -> {
+            // nosem: yukta-spel-standard-evaluation-context (trusted workflow input)
             final StandardEvaluationContext context = new StandardEvaluationContext();
             context.addPropertyAccessor(new MapAccessor());
             return context;
@@ -46,6 +47,7 @@ public final class SpelUtils {
             () -> {
               final Expression expression =
                   CACHE.computeIfAbsent(expressionStr, PARSER::parseExpression);
+              // nosem: yukta-spel-standard-evaluation-context (trusted workflow input)
               final StandardEvaluationContext context = new StandardEvaluationContext(root);
               context.addPropertyAccessor(new MapAccessor());
               if (variables != null) {

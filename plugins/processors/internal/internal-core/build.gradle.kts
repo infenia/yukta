@@ -4,7 +4,6 @@ plugins {
     id("com.infenia.yukta.library-conventions")
 }
 
-version = "1.0.0"
 
 dependencies {
     api(project(":messaging"))
@@ -18,113 +17,14 @@ dependencies {
 }
 
 coverageConfig {
-    val lowCoverage = mapOf(
-        "LINE" to 0.0,
-        "BRANCH" to 0.0,
-        "CLASS" to 0.0,
-        "INSTRUCTION" to 0.0,
-        "METHOD" to 0.0
-    )
-
-    exceptions.put("com.infenia.yukta.plugin.core.router.AggregatorProcessor", mapOf(
-        "LINE" to 0.8,
-        "BRANCH" to 0.7,
-        "CLASS" to 0.8,
-        "INSTRUCTION" to 0.7,
-        "METHOD" to 0.6
-    ))
-    exceptions.put("com.infenia.yukta.plugin.core.router.RecipientListProcessor", mapOf(
-        "LINE" to 0.7,
-        "BRANCH" to 0.5,
-        "CLASS" to 0.8,
-        "INSTRUCTION" to 0.7,
-        "METHOD" to 0.7
-    ))
-    exceptions.put("com.infenia.yukta.plugin.core.router.BranchProcessor", mapOf(
-        "LINE" to 0.8,
-        "BRANCH" to 0.6,
-        "CLASS" to 0.8,
-        "INSTRUCTION" to 0.8,
-        "METHOD" to 0.8
-    ))
-    exceptions.put("com.infenia.yukta.plugin.core.router.ResequencerProcessor", mapOf(
-        "LINE" to 0.8,
-        "BRANCH" to 0.6,
-        "CLASS" to 0.8,
-        "INSTRUCTION" to 0.8,
-        "METHOD" to 0.7
-    ))
-    exceptions.put("com.infenia.yukta.plugin.core.router.SplitterProcessor", mapOf(
-        "LINE" to 0.8,
-        "BRANCH" to 0.7,
-        "CLASS" to 0.8,
-        "INSTRUCTION" to 0.9,
-        "METHOD" to 0.8
-    ))
-    exceptions.put("com.infenia.yukta.plugin.core.util.MergeUtils", lowCoverage)
-    exceptions.put("com.infenia.yukta.plugin.core.util.SimpleExpressionEvaluator*", mapOf(
-        "LINE" to 0.5,
-        "BRANCH" to 0.2,
-        "CLASS" to 0.8,
-        "INSTRUCTION" to 0.5,
-        "METHOD" to 0.8
-    ))
-    exceptions.put("com.infenia.yukta.plugin.core.util.MapMessageMapper", mapOf(
-        "LINE" to 0.0,
-        "BRANCH" to 0.0,
-        "CLASS" to 0.0,
-        "INSTRUCTION" to 0.0,
-        "METHOD" to 0.0
-    ))
-    exceptions.put("com.infenia.yukta.plugin.core.flow.LoopPredicateProcessor*", mapOf(
-        "LINE" to 0.7,
-        "BRANCH" to 0.5,
-        "CLASS" to 0.8,
-        "INSTRUCTION" to 0.7,
-        "METHOD" to 0.7
-    ))
-    exceptions.put("com.infenia.yukta.plugin.core.flow.SubWorkflowProcessor", mapOf(
-        "LINE" to 0.5,
-        "BRANCH" to 0.4,
-        "CLASS" to 0.8,
-        "INSTRUCTION" to 0.6,
-        "METHOD" to 0.6
-    ))
-    exceptions.put("com.infenia.yukta.plugin.core.flow.LoopStreamProcessor", mapOf(
-        "LINE" to 0.6,
-        "BRANCH" to 0.5,
-        "CLASS" to 0.8,
-        "INSTRUCTION" to 0.6,
-        "METHOD" to 0.6
-    ))
-    exceptions.put("com.infenia.yukta.plugin.core.filter.FilterProcessor", mapOf(
-        "LINE" to 0.8,
-        "BRANCH" to 0.6,
-        "CLASS" to 0.8,
-        "INSTRUCTION" to 0.8,
-        "METHOD" to 0.7
-    ))
-    exceptions.put("com.infenia.yukta.plugin.core.transformer.MapperProcessor", mapOf(
-        "LINE" to 0.0,
-        "BRANCH" to 0.0,
-        "CLASS" to 0.0,
-        "INSTRUCTION" to 0.0,
-        "METHOD" to 0.0
-    ))
-    exceptions.put("com.infenia.yukta.plugin.core.transformer.ContentFilterProcessor*", mapOf(
-        "LINE" to 0.8,
-        "BRANCH" to 0.6,
-        "CLASS" to 0.8,
-        "INSTRUCTION" to 0.8,
-        "METHOD" to 0.8
-    ))
-    exceptions.put("com.infenia.yukta.plugin.core.transformer.EnricherProcessor", mapOf(
-        "LINE" to 0.7,
-        "BRANCH" to 0.5,
-        "CLASS" to 0.8,
-        "INSTRUCTION" to 0.7,
-        "METHOD" to 0.7
-    ))
+    exception("com.infenia.yukta.plugin.core.router.RecipientListProcessor", "Routing fan-out edge cases not yet unit tested", mapOf("LINE" to 0.7, "BRANCH" to 0.55))
+    exception("com.infenia.yukta.plugin.core.router.SplitterProcessor", "Error branches not yet unit tested", mapOf("LINE" to 0.89, "BRANCH" to 0.75))
+    exception("com.infenia.yukta.plugin.core.util.SimpleExpressionEvaluator*", "Expression types not yet unit tested", mapOf("LINE" to 0.0, "BRANCH" to 0.0))
+    exception("com.infenia.yukta.plugin.core.util.MergeUtils", "Not yet unit tested", mapOf("LINE" to 0.0, "BRANCH" to 0.0))
+    exception("com.infenia.yukta.plugin.core.filter.FilterProcessor", "Branches not yet unit tested", mapOf("BRANCH" to 0.82))
+    exception("com.infenia.yukta.plugin.core.transformer.ContentFilterProcessor*", "Branches not yet unit tested", mapOf("LINE" to 0.82, "BRANCH" to 0.69))
+    exception("com.infenia.yukta.plugin.core.transformer.MapMessageMapper", "Not yet unit tested", mapOf("LINE" to 0.0, "BRANCH" to 0.0))
+    exception("com.infenia.yukta.plugin.core.transformer.MapperProcessor", "GraalVM JS path needs a polyglot test setup", mapOf("LINE" to 0.0, "BRANCH" to 0.0))
 }
 
 // TODO: temporarily disabled — re-enable once violations are addressed.
@@ -137,10 +37,6 @@ tasks.named("pmdTest") {
 }
 
 tasks.named("checkstyleTest") {
-    enabled = false
-}
-
-tasks.named("jacocoTestCoverageVerification") {
     enabled = false
 }
 

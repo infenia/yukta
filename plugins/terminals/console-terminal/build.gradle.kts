@@ -4,7 +4,6 @@ plugins {
     id("com.infenia.yukta.library-conventions")
 }
 
-version = "1.0.0"
 
 dependencies {
     api(project(":messaging"))
