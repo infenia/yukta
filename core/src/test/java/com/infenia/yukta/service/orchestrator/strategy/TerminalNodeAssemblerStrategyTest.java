@@ -36,6 +36,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicBoolean;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -508,7 +509,8 @@ class TerminalNodeAssemblerStrategyTest {
             Map.of(),
             Map.of(),
             Map.of(),
-            Map.of());
+            Map.of(),
+            new AtomicBoolean());
 
     return new AssemblyContext(
         EXECUTION_ID,

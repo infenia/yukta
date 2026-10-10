@@ -104,6 +104,9 @@ public class TriggerNodeAssemblerStrategy implements NodeAssemblerStrategy {
           StreamAssemblyHelper.buildStreamWithContext(
               node, stream, timeout, activity, tracker, context, plugin, activePluginRegistry);
 
+      // A trigger has no input to gate, so pause and step hold its output instead.
+      built = control.applyPassageGate(node.nodeId(), built);
+
       final var nodeSafeSink = control.nodeSafeStopSinks().get(node.nodeId());
       if (nodeSafeSink != null) {
         log.atDebug()

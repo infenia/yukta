@@ -3,137 +3,227 @@
 package com.infenia.yukta.service.control.processor;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.infenia.yukta.model.execution.ControlState;
+import com.infenia.yukta.model.workflow.PreparedWorkflow;
+import com.infenia.yukta.model.workflow.WorkflowNode;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.PauseWorkflowCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.StopWorkflowCommand;
+import com.infenia.yukta.plugin.control.StopMode;
+import com.infenia.yukta.plugin.control.WorkflowDirective;
 import com.infenia.yukta.service.control.ExecutionControl;
 import com.infenia.yukta.service.control.store.ExecutionControlRegistry;
+import com.infenia.yukta.service.control.valve.ReactiveControlValve;
+import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
+import java.time.Duration;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import lombok.NoArgsConstructor;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
 import reactor.core.publisher.Sinks;
 import reactor.test.StepVerifier;
 
-@ExtendWith(MockitoExtension.class)
 @NoArgsConstructor
-@SuppressWarnings({"PMD.CommentRequired", "PMD.LinguisticNaming"})
+@SuppressWarnings({
+  "PMD.CommentRequired",
+  "PMD.LinguisticNaming",
+  "PMD.TooManyMethods",
+  "PMD.TooManyStaticImports",
+  "PMD.AvoidDuplicateLiterals"
+})
 class StopWorkflowCommandProcessorTest {
 
-  /** Registry for execution control. */
-  @Mock private ExecutionControlRegistry registry;
+  private static final String EXEC = "exec-1";
 
-  /** Execution control instance. */
-  @Mock private ExecutionControl executionControl;
+  private final ExecutionControlRegistry registry = mock(ExecutionControlRegistry.class);
+  private final TaskTrackerService tracker = mock(TaskTrackerService.class);
 
-  /** Safe stop sink. */
-  @Mock private Sinks.One<Void> safeStopSink;
+  private StopWorkflowCommandProcessor processor;
+  private Sinks.One<Void> safeStop;
+  private Sinks.One<Void> triggerSafeStop;
+  private Sinks.One<Void> processorSafeStop;
+  private ReactiveControlValve nodeValve;
+  private ReactiveControlValve globalValve;
+  private ExecutionControl control;
 
-  @InjectMocks private StopWorkflowCommandProcessor processor;
+  @BeforeEach
+  void setUp() {
+    processor = new StopWorkflowCommandProcessor(registry, tracker, Duration.ofMillis(300));
+    safeStop = Sinks.one();
+    triggerSafeStop = Sinks.one();
+    processorSafeStop = Sinks.one();
+    nodeValve = new ReactiveControlValve();
+    globalValve = new ReactiveControlValve();
+
+    final PreparedWorkflow prepared = mock(PreparedWorkflow.class);
+    final WorkflowNode trigger = new WorkflowNode("t", "trigger", Map.of());
+    when(prepared.parentsList())
+        .thenReturn(Map.of("t", List.of(), "p", List.of(trigger), "orphan", List.of()));
+
+    control =
+        new ExecutionControl(
+            "s",
+            "w",
+            EXEC,
+            prepared,
+            Map.of(),
+            safeStop,
+            globalValve,
+            Map.of(),
+            Map.of("t", triggerSafeStop, "p", processorSafeStop),
+            Map.of("p", nodeValve),
+            Map.of(),
+            new AtomicBoolean());
+    when(registry.findByExecutionId(EXEC)).thenReturn(Optional.of(control));
+  }
+
+  private static boolean completed(final Sinks.One<Void> sink) {
+    return sink.asMono().toFuture().isDone();
+  }
 
   @Test
   void canProcess_stopWorkflowCommand_returnsTrue() {
-    // Given
-    final ExecutionControlCommand command =
-        new StopWorkflowCommand("exec-1", "User initiated stop");
+    final ExecutionControlCommand command = new StopWorkflowCommand(EXEC, "User initiated stop");
 
-    // When
-    final boolean actualResult = processor.canProcess(command);
-
-    // Then
-    assertThat(actualResult).isTrue();
+    assertThat(processor.canProcess(command)).isTrue();
   }
 
   @Test
   void canProcess_otherCommand_returnsFalse() {
-    // Given
-    final ExecutionControlCommand command = new PauseWorkflowCommand("exec-1");
-
-    // When
-    final boolean actualResult = processor.canProcess(command);
-
-    // Then
-    assertThat(actualResult).isFalse();
+    assertThat(processor.canProcess(new PauseWorkflowCommand(EXEC))).isFalse();
   }
 
   @Test
-  void process_executionFound_emitsSafeStopAndStatusEvent() {
-    // Given
-    final String executionId = "exec-stop-workflow";
-    final String reason = "User initiated stop";
-    final StopWorkflowCommand command = new StopWorkflowCommand(executionId, reason);
-    when(registry.findByExecutionId(executionId)).thenReturn(Optional.of(executionControl));
-    when(executionControl.safeStopSink()).thenReturn(safeStopSink);
-
-    // When
-    final var result = processor.process(command);
-
-    // Then
-    StepVerifier.create(result).verifyComplete();
-    verify(safeStopSink).tryEmitEmpty();
+  void commandDefaultsToDrain() {
+    assertThat(new StopWorkflowCommand(EXEC, "r").mode()).isEqualTo(StopMode.DRAIN);
+    assertThat(new StopWorkflowCommand(EXEC, "r", null).mode()).isEqualTo(StopMode.DRAIN);
   }
 
   @Test
-  void process_stoppedTwice_doesNotThrow() {
-    // Given
-    final String executionId = "exec-stop-twice";
-    final Sinks.One<Void> realSink = Sinks.one();
-    when(registry.findByExecutionId(executionId)).thenReturn(Optional.of(executionControl));
-    when(executionControl.safeStopSink()).thenReturn(realSink);
-    final StopWorkflowCommand command = new StopWorkflowCommand(executionId, "again");
+  void drain_stopsOnlyTheTriggers_marksStopRequested_andReportsStopping() {
+    StepVerifier.create(processor.process(new StopWorkflowCommand(EXEC, "r", StopMode.DRAIN)))
+        .verifyComplete();
 
-    // When-Then
-    StepVerifier.create(processor.process(command)).verifyComplete();
-    StepVerifier.create(processor.process(command)).verifyComplete();
+    assertThat(completed(triggerSafeStop)).isTrue();
+    assertThat(completed(processorSafeStop)).isFalse();
+    assertThat(completed(safeStop)).isFalse();
+    assertThat(control.stopRequested()).isTrue();
+    verify(tracker).emitControlStateEvent(EXEC, ControlState.STOPPING);
   }
 
   @Test
-  void process_executionNotFound_throwsIllegalArgumentException() {
-    // Given
-    final String executionId = "exec-not-found";
-    final StopWorkflowCommand command = new StopWorkflowCommand(executionId, "Test reason");
-    when(registry.findByExecutionId(executionId)).thenReturn(Optional.empty());
+  void drain_resumesPausedValvesSoInFlightWorkCanFinish() {
+    nodeValve.pause();
+    globalValve.pause();
 
-    // When
-    final var result = processor.process(command);
+    StepVerifier.create(processor.process(new StopWorkflowCommand(EXEC, "r"))).verifyComplete();
 
-    // Then
-    StepVerifier.create(result)
+    assertThat(nodeValve.isPaused()).isFalse();
+    assertThat(globalValve.isPaused()).isFalse();
+  }
+
+  @Test
+  void drain_withoutGlobalValve_stillStopsTheTriggers() {
+    final ExecutionControl noGlobal =
+        new ExecutionControl(
+            "s",
+            "w",
+            "no-global",
+            control.prepared(),
+            Map.of(),
+            safeStop,
+            null,
+            Map.of(),
+            Map.of("t", triggerSafeStop),
+            Map.of(),
+            Map.of(),
+            new AtomicBoolean());
+    when(registry.findByExecutionId("no-global")).thenReturn(Optional.of(noGlobal));
+
+    StepVerifier.create(processor.process(new StopWorkflowCommand("no-global", "r")))
+        .verifyComplete();
+
+    assertThat(completed(triggerSafeStop)).isTrue();
+  }
+
+  @Test
+  void drain_cancelsAfterTheDeadlineIfTheRunIsStillGoing() {
+    StepVerifier.create(processor.process(new StopWorkflowCommand(EXEC, "r"))).verifyComplete();
+    assertThat(completed(safeStop)).isFalse();
+
+    await().atMost(5, TimeUnit.SECONDS).until(() -> completed(safeStop));
+  }
+
+  @Test
+  void drain_withoutPreparedWorkflow_fallsBackToCancel() {
+    final ExecutionControl bare =
+        new ExecutionControl(
+            "s",
+            "w",
+            "bare",
+            null,
+            Map.of(),
+            safeStop,
+            null,
+            Map.of(),
+            Map.of(),
+            Map.of(),
+            Map.of(),
+            new AtomicBoolean());
+    when(registry.findByExecutionId("bare")).thenReturn(Optional.of(bare));
+
+    StepVerifier.create(processor.process(new StopWorkflowCommand("bare", "r"))).verifyComplete();
+
+    assertThat(completed(safeStop)).isTrue();
+    verify(tracker, never()).emitControlStateEvent("bare", ControlState.STOPPING);
+  }
+
+  @Test
+  void cancel_cancelsAtOnce_andStoppingTwiceIsNoOp() {
+    final StopWorkflowCommand cancel = new StopWorkflowCommand(EXEC, "r", StopMode.CANCEL);
+
+    StepVerifier.create(processor.process(cancel)).verifyComplete();
+    StepVerifier.create(processor.process(cancel)).verifyComplete();
+
+    assertThat(completed(safeStop)).isTrue();
+    assertThat(completed(triggerSafeStop)).isFalse();
+    assertThat(control.stopRequested()).isTrue();
+  }
+
+  @Test
+  void kill_returnsStopDirectiveSoTheExecutionIsRemoved() {
+    StepVerifier.create(processor.process(new StopWorkflowCommand(EXEC, "boom", StopMode.KILL)))
+        .assertNext(
+            directive -> assertThat(directive).isEqualTo(new WorkflowDirective.Stop("boom")))
+        .verifyComplete();
+
+    assertThat(control.stopRequested()).isTrue();
+  }
+
+  @Test
+  void unknownExecution_isRejected() {
+    when(registry.findByExecutionId("nope")).thenReturn(Optional.empty());
+
+    StepVerifier.create(processor.process(new StopWorkflowCommand("nope", "r")))
         .expectErrorMatches(
             e ->
                 e instanceof IllegalArgumentException
-                    && e.getMessage().contains("Execution not found: " + executionId))
+                    && e.getMessage().contains("Execution not found: nope"))
         .verify();
   }
 
   @Test
-  void process_withNullReason_emitsSafeStopAndStatusEvent() {
-    // Given
-    final String executionId = "exec-stop-null-reason";
-    final StopWorkflowCommand command = new StopWorkflowCommand(executionId, null);
-    when(registry.findByExecutionId(executionId)).thenReturn(Optional.of(executionControl));
-    when(executionControl.safeStopSink()).thenReturn(safeStopSink);
-
-    // When
-    final var result = processor.process(command);
-
-    // Then
-    StepVerifier.create(result).verifyComplete();
-    verify(safeStopSink).tryEmitEmpty();
-  }
-
-  @Test
   void getPriority_returnsCorrectValue() {
-    // When
-    final int actualPriority = processor.getPriority();
-
-    // Then
-    assertThat(actualPriority).isEqualTo(20);
+    assertThat(processor.getPriority()).isEqualTo(20);
   }
 }

@@ -21,6 +21,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicBoolean;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -36,7 +37,12 @@ import reactor.test.StepVerifier;
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
 @NoArgsConstructor
-@SuppressWarnings({"PMD.CommentRequired", "PMD.TooManyMethods", "PMD.AvoidDuplicateLiterals"})
+@SuppressWarnings({
+  "PMD.CommentRequired",
+  "PMD.TooManyMethods",
+  "PMD.AvoidDuplicateLiterals",
+  "PMD.ExcessiveImports"
+})
 class StreamAssemblyHelperTest {
 
   @Mock private TaskTrackerService tracker;
@@ -383,7 +389,8 @@ class StreamAssemblyHelperTest {
             Map.of(),
             Map.of(),
             Map.of(),
-            Map.of());
+            Map.of(),
+            new AtomicBoolean());
 
     return new AssemblyContext(
         EXECUTION_ID,
@@ -411,7 +418,8 @@ class StreamAssemblyHelperTest {
             Map.of(NODE_ID, immediateStopSink),
             Map.of(),
             Map.of(),
-            Map.of());
+            Map.of(),
+            new AtomicBoolean());
 
     return new AssemblyContext(
         EXECUTION_ID,

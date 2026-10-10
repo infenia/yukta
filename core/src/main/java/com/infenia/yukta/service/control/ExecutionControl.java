@@ -5,6 +5,7 @@ package com.infenia.yukta.service.control;
 import com.infenia.yukta.message.Message;
 import com.infenia.yukta.model.workflow.PreparedWorkflow;
 import com.infenia.yukta.service.control.valve.ReactiveControlValve;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -44,8 +45,11 @@ import reactor.core.publisher.Sinks;
  * @param nodeSafeStopSinks per-node drain & stop (keyed by nodeId)
  * @param nodePauseValves per-node pause (keyed by nodeId)
  * @param nodeSkipFlags per-node bypass flags (keyed by nodeId)
+ * @param stopRequested set when a stop was requested, so a run that ends after a drain is reported
+ *     as stopped rather than successful
  */
 @Slf4j
+@SuppressFBWarnings("EI_EXPOSE_REP")
 public record ExecutionControl(
     String sessionId,
     String workflowId,
@@ -57,7 +61,8 @@ public record ExecutionControl(
     Map<String, Sinks.One<Void>> nodeImmediateStopSinks,
     Map<String, Sinks.One<Void>> nodeSafeStopSinks,
     Map<String, ReactiveControlValve> nodePauseValves,
-    Map<String, AtomicBoolean> nodeSkipFlags) {
+    Map<String, AtomicBoolean> nodeSkipFlags,
+    AtomicBoolean stopRequested) {
 
   /** Compact constructor: makes all maps immutable and enforces field consistency. */
   public ExecutionControl {
@@ -109,7 +114,33 @@ public record ExecutionControl(
   }
 
   /**
-   * Applies pre-processing controls (safe stop) to input stream.
+   * Holds elements back while the run or the node is paused, one element at a time.
+   *
+   * <p>Because it asks for a single element at a time, a pause stops the flow upstream
+   * (backpressure) instead of letting a prefetch buffer drain, and each step releases exactly one
+   * element.
+   *
+   * @param nodeId the target node
+   * @param flux the stream to gate
+   * @return the gated stream, or {@code flux} itself when the node has no valves
+   */
+  @SuppressWarnings("PMD.OnlyOneReturn")
+  public Flux<Message<?>> applyPassageGate(final String nodeId, final Flux<Message<?>> flux) {
+    final ReactiveControlValve nodeValve = nodePauseValves.get(nodeId);
+    if (globalPauseValve == null && nodeValve == null) {
+      return flux;
+    }
+    return flux.concatMap(message -> passage(nodeValve).thenReturn(message), 1);
+  }
+
+  private Mono<Boolean> passage(final ReactiveControlValve nodeValve) {
+    final Mono<Boolean> global =
+        globalPauseValve == null ? Mono.just(true) : globalPauseValve.allowPassage();
+    return nodeValve == null ? global : global.then(nodeValve.allowPassage());
+  }
+
+  /**
+   * Applies pre-processing controls (pause/step gate, then safe stop) to input stream.
    *
    * <p>Applied before stream enters Processor or Terminal plugin. Severs upstream connection but
    * allows inflight work to finish.
@@ -122,7 +153,7 @@ public record ExecutionControl(
       final String nodeId, final Flux<Message<?>> inputFlux) {
     final Sinks.One<Void> safeSink = nodeSafeStopSinks.get(nodeId);
 
-    Flux<Message<?>> result = inputFlux;
+    Flux<Message<?>> result = applyPassageGate(nodeId, inputFlux);
 
     if (safeSink != null) {
       result = result.takeUntilOther(safeSink.asMono());
@@ -132,53 +163,19 @@ public record ExecutionControl(
   }
 
   /**
-   * Applies post-processing controls (immediate stop + pause) to output stream.
+   * Applies post-processing controls (immediate stop) to output stream.
    *
-   * <p>Applied after plugin generates/processes data. Applies backpressure up the chain via pause
-   * valves and immediate stop.
+   * <p>Applied after the plugin generates or processes data. Pause and step are not applied here:
+   * they gate a node's input (see {@link #applyPassageGate}).
    *
    * @param nodeId the target node
    * @param outputFlux the outgoing flux
-   * @return flux with immediate-stop and pause logic applied
+   * @return flux with immediate-stop logic applied
    */
   public Flux<Message<?>> applyPostProcessingControls(
       final String nodeId, final Flux<Message<?>> outputFlux) {
     final Sinks.One<Void> immediateSink = nodeImmediateStopSinks.get(nodeId);
-    final ReactiveControlValve nodeValve = nodePauseValves.get(nodeId);
-
     Flux<Message<?>> result = outputFlux;
-
-    if (nodeValve != null) {
-      result =
-          result.filterWhen(
-              msg ->
-                  nodeValve
-                      .allowPassage()
-                      .onErrorResume(
-                          e -> {
-                            log.atError()
-                                .addKeyValue("nodeId", nodeId)
-                                .setCause(e)
-                                .log("Error in node pause valve");
-                            return Mono.just(true);
-                          }));
-    }
-
-    if (globalPauseValve != null) {
-      result =
-          result.filterWhen(
-              msg ->
-                  globalPauseValve
-                      .allowPassage()
-                      .onErrorResume(
-                          e -> {
-                            log.atError()
-                                .addKeyValue("nodeId", nodeId)
-                                .setCause(e)
-                                .log("Error in global pause valve");
-                            return Mono.just(true);
-                          }));
-    }
 
     if (immediateSink != null) {
       result = result.takeUntilOther(immediateSink.asMono());

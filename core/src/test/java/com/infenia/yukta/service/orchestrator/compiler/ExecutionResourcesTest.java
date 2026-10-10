@@ -13,6 +13,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 import reactor.core.Disposable;
@@ -108,8 +109,7 @@ class ExecutionResourcesTest {
   @Test
   void runDeadline_doesNotFireWhilePaused_butFiresAfterResume() {
     when(configStore.getExecutionTimeout("s")).thenReturn(Mono.just(60L));
-    final java.util.concurrent.atomic.AtomicBoolean paused =
-        new java.util.concurrent.atomic.AtomicBoolean(true);
+    final AtomicBoolean paused = new AtomicBoolean(true);
 
     StepVerifier.withVirtualTime(
             () ->

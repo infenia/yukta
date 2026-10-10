@@ -5,6 +5,7 @@ package com.infenia.yukta.service.control.gateway;
 import com.infenia.yukta.message.Message;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand;
+import com.infenia.yukta.plugin.control.StopMode;
 import com.infenia.yukta.plugin.core.Plugin;
 import java.util.List;
 import java.util.Map;
@@ -208,7 +209,22 @@ public interface ControlBusGateway {
    * @return a Mono containing a list of stopped execution IDs, or an error if no active executions
    *     exist
    */
-  Mono<List<String>> stopWorkflow(String sessionId, String workflowId, String reason);
+  default Mono<List<String>> stopWorkflow(
+      final String sessionId, final String workflowId, final String reason) {
+    return stopWorkflow(sessionId, workflowId, reason, StopMode.DRAIN);
+  }
+
+  /**
+   * Stops every active execution of a workflow in the given way.
+   *
+   * @param sessionId the session identifier
+   * @param workflowId the workflow identifier
+   * @param reason human-readable explanation for logging
+   * @param mode how to stop
+   * @return the stopped execution IDs, emitted once every stop command has been applied
+   */
+  Mono<List<String>> stopWorkflow(
+      String sessionId, String workflowId, String reason, StopMode mode);
 
   /**
    * Safely stop a specific workflow execution by execution ID.

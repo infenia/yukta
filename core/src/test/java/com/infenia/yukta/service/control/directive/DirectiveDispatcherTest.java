@@ -10,7 +10,6 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.infenia.yukta.message.Message;
 import com.infenia.yukta.plugin.control.ControlSignalProcessor;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.control.WorkflowDirective;
@@ -20,6 +19,7 @@ import com.infenia.yukta.service.control.store.ExecutionControlRegistry;
 import com.infenia.yukta.service.control.store.InMemoryExecutionControlStore;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -55,7 +55,8 @@ class DirectiveDispatcherTest {
         Map.of(),
         Map.of(),
         Map.of(),
-        Map.of());
+        Map.of(),
+        new AtomicBoolean());
   }
 
   @BeforeEach
@@ -218,51 +219,69 @@ class DirectiveDispatcherTest {
   }
 
   @Test
-  void init_subscribesToControlStream_filtersExecutionControlCommands() {
-    // Given - mock control stream with a mix of command and non-command messages
-    final Message<ExecutionControlCommand> commandMessage = mock(Message.class);
-    final Message<String> nonCommandMessage = mock(Message.class);
+  void init_registersItselfAsTheCommandExecutor() {
+    dispatcher.init();
 
-    when(commandMessage.getPayload())
-        .thenReturn(new ExecutionControlCommand.RestartCommand("exec-1", "new-exec-1"));
-    when(nonCommandMessage.getPayload()).thenReturn("not a command");
-
-    when(controlBusService.getControlStream())
-        .thenReturn(Flux.just(commandMessage, nonCommandMessage));
-
-    when(processor.canProcess(any())).thenReturn(false);
-
-    // When - initialize dispatcher (triggers @PostConstruct)
-    final DirectiveDispatcher newDispatcher =
-        new DirectiveDispatcher(List.of(processor), registry, controlBusService);
-
-    newDispatcher.init();
-
-    // Then - verify control stream was subscribed
-    verify(controlBusService, times(1)).getControlStream();
+    verify(controlBusService).setCommandExecutor(any());
   }
 
   @Test
-  void init_dispatchErrorHandling_logsAndContinues() {
-    // Given - mock control stream that will trigger dispatch error
+  void dispatchOrdered_unknownExecution_isRejectedWithReason() {
     final ExecutionControlCommand command =
-        new ExecutionControlCommand.RestartCommand("exec-no-exist", "new-exec-no-exist");
-    final Message<ExecutionControlCommand> errorMessage = mock(Message.class);
-    when(errorMessage.getPayload()).thenReturn(command);
+        new ExecutionControlCommand.PauseWorkflowCommand("nope");
 
-    when(controlBusService.getControlStream()).thenReturn(Flux.just(errorMessage));
+    StepVerifier.create(dispatcher.dispatchOrdered(command))
+        .expectErrorMatches(
+            e ->
+                e instanceof IllegalArgumentException
+                    && e.getMessage().contains("Execution not found: nope"))
+        .verify();
+  }
 
-    when(processor.canProcess(command)).thenReturn(false);
+  @Test
+  void dispatchOrdered_completesOnlyAfterTheProcessorHasApplied_andPropagatesRejections() {
+    registry.register(createControl("s", "w", "exec-ack"));
+    final ExecutionControlCommand command =
+        new ExecutionControlCommand.PauseWorkflowCommand("exec-ack");
+    when(processor.canProcess(command)).thenReturn(true);
+    when(processor.getPriority()).thenReturn(1);
+    final AtomicBoolean applied = new AtomicBoolean();
+    when(processor.process(command))
+        .thenReturn(
+            Mono.fromRunnable(() -> applied.set(true))
+                .then(Mono.error(new IllegalArgumentException("not pausable"))));
 
-    // When - initialize dispatcher with processor that throws
-    final DirectiveDispatcher newDispatcher =
-        new DirectiveDispatcher(List.of(processor), registry, controlBusService);
+    StepVerifier.create(dispatcher.dispatchOrdered(command))
+        .expectErrorMatches(e -> "not pausable".equals(e.getMessage()))
+        .verify();
+    assertThat(applied).isTrue();
+  }
 
-    // This should not throw; error should be handled with onErrorResume
-    newDispatcher.init();
+  @Test
+  void dispatchOrdered_appliesCommandsOfOneExecutionInSubmissionOrder() {
+    registry.register(createControl("s", "w", "exec-order"));
+    final ExecutionControlCommand first =
+        new ExecutionControlCommand.PauseWorkflowCommand("exec-order");
+    final ExecutionControlCommand second =
+        new ExecutionControlCommand.ResumeWorkflowCommand("exec-order");
+    final List<String> applied = new java.util.concurrent.CopyOnWriteArrayList<>();
+    when(processor.canProcess(any())).thenReturn(true);
+    when(processor.getPriority()).thenReturn(1);
+    // the first command is slow; the second must still be applied after it
+    when(processor.process(first))
+        .thenReturn(
+            Mono.delay(java.time.Duration.ofMillis(150))
+                .doOnNext(_ -> applied.add("pause"))
+                .then(Mono.empty()));
+    when(processor.process(second))
+        .thenReturn(Mono.fromRunnable(() -> applied.add("resume")).then(Mono.empty()));
 
-    // Then - verify control stream was subscribed and error was handled gracefully
-    verify(controlBusService, times(1)).getControlStream();
+    final Mono<Void> firstAck = dispatcher.dispatchOrdered(first);
+    final Mono<Void> secondAck = dispatcher.dispatchOrdered(second);
+    StepVerifier.create(Mono.zip(firstAck.materialize(), secondAck.materialize()).then())
+        .verifyComplete();
+
+    assertThat(applied).containsExactly("pause", "resume");
   }
 
   // Legacy test names for backward compatibility
