@@ -224,7 +224,9 @@ class GlobalExceptionHandlerTest {
     assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
     final ApiResponse<Object> body = resp.getBody();
     assertThat(body).isNotNull();
-    assertThat(body.message()).isEqualTo("bad state");
+    assertThat(body.message())
+        .startsWith("An unexpected error occurred")
+        .doesNotContain("bad state");
   }
 
   @Test
@@ -238,7 +240,7 @@ class GlobalExceptionHandlerTest {
     assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
     final ApiResponse<Object> body = resp.getBody();
     assertThat(body).isNotNull();
-    assertThat(body.message()).isEqualTo("An unexpected error occurred: fatal");
+    assertThat(body.message()).startsWith("An unexpected error occurred").doesNotContain("fatal");
     assertThat(body.path()).isEqualTo("/fatal");
   }
 
@@ -556,7 +558,7 @@ class GlobalExceptionHandlerTest {
     final ApiResponse<Object> body = resp.getBody();
     assertThat(body).isNotNull();
     assertThat(body.status()).isEqualTo(500);
-    assertThat(body.message()).isEqualTo("system in invalid state");
+    assertThat(body.message()).doesNotContain("system in invalid state");
   }
 
   @Test
@@ -598,7 +600,7 @@ class GlobalExceptionHandlerTest {
     final ApiResponse<Object> body = resp.getBody();
     assertThat(body).isNotNull();
     assertThat(body.status()).isEqualTo(500);
-    assertThat(body.message()).isEqualTo("An unexpected error occurred: null");
+    assertThat(body.message()).startsWith("An unexpected error occurred");
   }
 
   @Test
@@ -637,7 +639,8 @@ class GlobalExceptionHandlerTest {
         .expectNextMatches(
             resp -> {
               final ApiResponse<Object> body = (ApiResponse<Object>) resp.getBody();
-              assertThat(body.errors().get(0).field()).isEqualTo("unknown");
+              assertThat(body.errors()).isEmpty();
+              assertThat(body.message()).doesNotContain("Unknown field");
               return true;
             })
         .verifyComplete();

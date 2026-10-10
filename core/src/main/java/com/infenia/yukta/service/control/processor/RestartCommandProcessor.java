@@ -6,6 +6,7 @@ import com.infenia.yukta.plugin.control.ControlSignalProcessor;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.RestartCommand;
 import com.infenia.yukta.plugin.control.WorkflowDirective;
+import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.archive.ArchivedExecution;
 import com.infenia.yukta.service.archive.ExecutionArchive;
 import com.infenia.yukta.service.control.ExecutionControl;
@@ -98,7 +99,7 @@ public class RestartCommandProcessor implements ControlSignalProcessor {
                     .find(restart.executionId())
                     .orElseThrow(
                         () ->
-                            new IllegalArgumentException(
+                            new NotFoundException(
                                 "Execution not found or no longer restartable: "
                                     + restart.executionId())))
         .flatMap(archived -> performAtomicHandoff(archived, restart))

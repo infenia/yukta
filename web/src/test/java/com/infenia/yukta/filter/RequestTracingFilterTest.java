@@ -3,163 +3,108 @@
 package com.infenia.yukta.filter;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
+import io.micrometer.context.ContextSnapshotFactory;
+import java.util.concurrent.atomic.AtomicReference;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.server.reactive.ServerHttpRequest;
-import org.springframework.http.server.reactive.ServerHttpResponse;
+import org.slf4j.MDC;
+import org.springframework.mock.http.server.reactive.MockServerHttpRequest;
+import org.springframework.mock.web.server.MockServerWebExchange;
 import org.springframework.web.server.ServerWebExchange;
-import org.springframework.web.server.WebFilterChain;
 import reactor.core.publisher.Mono;
-import reactor.test.StepVerifier;
+import reactor.util.context.Context;
 
-/** Tests for RequestTracingFilter. */
+/** Tests for the behaviour described by {@link RequestTracingFilter}. */
 @NoArgsConstructor
+@SuppressWarnings({"PMD.LawOfDemeter", "PMD.ShortVariable"})
 class RequestTracingFilterTest {
 
-  /** HTTP header name for request ID. */
+  /** The x r e q u e s t i d. */
   private static final String X_REQUEST_ID = "X-Request-ID";
 
-  /** HTTP header name for correlation ID. */
+  /** The x c o r r e l a t i o n i d. */
   private static final String X_CORRELATION_ID = "X-Correlation-ID";
 
-  /** Example existing request ID. */
-  private static final String EXISTING_REQUEST_ID = "existing-request-id";
-
-  /** Example existing correlation ID. */
-  private static final String EXISTING_CORRELATION_ID = "existing-correlation-id";
-
-  /** Filter instance for testing. */
+  /** The filter. */
   private final RequestTracingFilter filter = new RequestTracingFilter();
 
-  @Test
-  void testConstructor() {
-    final RequestTracingFilter instance = new RequestTracingFilter();
-    assertThat(instance).isNotNull();
+  /** The seen. */
+  private final AtomicReference<ServerWebExchange> seen = new AtomicReference<>();
+
+  /** The context id. */
+  private final AtomicReference<String> contextId = new AtomicReference<>();
+
+  private MockServerWebExchange run(final MockServerHttpRequest.BaseBuilder<?> request) {
+    final MockServerWebExchange exchange = MockServerWebExchange.from(request);
+    filter
+        .filter(
+            exchange,
+            e -> {
+              seen.set(e);
+              return Mono.deferContextual(
+                  ctx -> {
+                    contextId.set(ctx.getOrDefault(RequestTracingFilter.REQUEST_ID_KEY, null));
+                    return Mono.empty();
+                  });
+            })
+        .block();
+    return exchange;
   }
 
   @Test
-  void testFilterGeneratesNewRequestIdWhenMissing() {
-    final ServerWebExchange exchange = mock(ServerWebExchange.class);
-    final ServerHttpRequest request = mock(ServerHttpRequest.class);
-    final ServerHttpResponse response = mock(ServerHttpResponse.class);
-    final WebFilterChain chain = mock(WebFilterChain.class);
+  void testGeneratesIdWhenMissingAndPropagatesItEverywhere() {
+    final var exchange = run(MockServerHttpRequest.get("/api/x"));
 
-    final HttpHeaders requestHeaders = new HttpHeaders();
-    final HttpHeaders responseHeaders = new HttpHeaders();
-
-    when(exchange.getRequest()).thenReturn(request);
-    when(exchange.getResponse()).thenReturn(response);
-    when(request.getHeaders()).thenReturn(requestHeaders);
-    when(response.getHeaders()).thenReturn(responseHeaders);
-    when(chain.filter(exchange)).thenReturn(Mono.empty());
-
-    StepVerifier.create(filter.filter(exchange, chain)).verifyComplete();
-
-    verify(chain).filter(exchange);
-    assertThat(responseHeaders.get(X_REQUEST_ID)).isNotNull();
-    assertThat(responseHeaders.get(X_REQUEST_ID)).hasSize(1);
-    assertThat(responseHeaders.get(X_CORRELATION_ID)).isNotNull();
-    assertThat(responseHeaders.get(X_CORRELATION_ID)).hasSize(1);
+    final String id = exchange.getResponse().getHeaders().getFirst(X_REQUEST_ID);
+    assertThat(id).isNotBlank();
+    assertThat(exchange.getResponse().getHeaders().getFirst(X_CORRELATION_ID)).isEqualTo(id);
+    assertThat(seen.get().getRequest().getHeaders().getFirst(X_REQUEST_ID)).isEqualTo(id);
+    assertThat(contextId.get()).isEqualTo(id);
   }
 
   @Test
-  void testFilterUsesExistingRequestId() {
-    final ServerWebExchange exchange = mock(ServerWebExchange.class);
-    final ServerHttpRequest request = mock(ServerHttpRequest.class);
-    final ServerHttpResponse response = mock(ServerHttpResponse.class);
-    final WebFilterChain chain = mock(WebFilterChain.class);
+  void testKeepsSafeClientSuppliedIds() {
+    final var exchange =
+        run(
+            MockServerHttpRequest.get("/api/x")
+                .header(X_REQUEST_ID, "req-1")
+                .header(X_CORRELATION_ID, "corr-1"));
 
-    final HttpHeaders requestHeaders = new HttpHeaders();
-    requestHeaders.add(X_REQUEST_ID, EXISTING_REQUEST_ID);
-    final HttpHeaders responseHeaders = new HttpHeaders();
-
-    when(exchange.getRequest()).thenReturn(request);
-    when(exchange.getResponse()).thenReturn(response);
-    when(request.getHeaders()).thenReturn(requestHeaders);
-    when(response.getHeaders()).thenReturn(responseHeaders);
-    when(chain.filter(exchange)).thenReturn(Mono.empty());
-
-    StepVerifier.create(filter.filter(exchange, chain)).verifyComplete();
-
-    verify(chain).filter(exchange);
-    assertThat(responseHeaders.getFirst(X_REQUEST_ID)).isEqualTo(EXISTING_REQUEST_ID);
-    assertThat(responseHeaders.getFirst(X_CORRELATION_ID)).isEqualTo(EXISTING_REQUEST_ID);
+    assertThat(exchange.getResponse().getHeaders().getFirst(X_REQUEST_ID)).isEqualTo("req-1");
+    assertThat(exchange.getResponse().getHeaders().getFirst(X_CORRELATION_ID)).isEqualTo("corr-1");
+    assertThat(contextId.get()).isEqualTo("req-1");
   }
 
   @Test
-  void testFilterUsesExistingCorrelationId() {
-    final ServerWebExchange exchange = mock(ServerWebExchange.class);
-    final ServerHttpRequest request = mock(ServerHttpRequest.class);
-    final ServerHttpResponse response = mock(ServerHttpResponse.class);
-    final WebFilterChain chain = mock(WebFilterChain.class);
+  void testReplacesUnsafeClientSuppliedIds() {
+    final var exchange =
+        run(
+            MockServerHttpRequest.get("/api/x")
+                .header(X_REQUEST_ID, "bad id\twith spaces and a very long tail ".repeat(5))
+                .header(X_CORRELATION_ID, "<script>"));
 
-    final HttpHeaders requestHeaders = new HttpHeaders();
-    requestHeaders.add(X_CORRELATION_ID, EXISTING_CORRELATION_ID);
-    final HttpHeaders responseHeaders = new HttpHeaders();
-
-    when(exchange.getRequest()).thenReturn(request);
-    when(exchange.getResponse()).thenReturn(response);
-    when(request.getHeaders()).thenReturn(requestHeaders);
-    when(response.getHeaders()).thenReturn(responseHeaders);
-    when(chain.filter(exchange)).thenReturn(Mono.empty());
-
-    StepVerifier.create(filter.filter(exchange, chain)).verifyComplete();
-
-    verify(chain).filter(exchange);
-    assertThat(responseHeaders.getFirst(X_REQUEST_ID)).isNotNull();
-    assertThat(responseHeaders.getFirst(X_CORRELATION_ID)).isEqualTo(EXISTING_CORRELATION_ID);
+    final String id = exchange.getResponse().getHeaders().getFirst(X_REQUEST_ID);
+    assertThat(id).matches("[A-Za-z0-9-]{1,64}");
+    assertThat(exchange.getResponse().getHeaders().getFirst(X_CORRELATION_ID)).isEqualTo(id);
   }
 
   @Test
-  void testFilterUsesBothExistingHeaders() {
-    final ServerWebExchange exchange = mock(ServerWebExchange.class);
-    final ServerHttpRequest request = mock(ServerHttpRequest.class);
-    final ServerHttpResponse response = mock(ServerHttpResponse.class);
-    final WebFilterChain chain = mock(WebFilterChain.class);
-
-    final HttpHeaders requestHeaders = new HttpHeaders();
-    requestHeaders.add(X_REQUEST_ID, EXISTING_REQUEST_ID);
-    requestHeaders.add(X_CORRELATION_ID, EXISTING_CORRELATION_ID);
-    final HttpHeaders responseHeaders = new HttpHeaders();
-
-    when(exchange.getRequest()).thenReturn(request);
-    when(exchange.getResponse()).thenReturn(response);
-    when(request.getHeaders()).thenReturn(requestHeaders);
-    when(response.getHeaders()).thenReturn(responseHeaders);
-    when(chain.filter(exchange)).thenReturn(Mono.empty());
-
-    StepVerifier.create(filter.filter(exchange, chain)).verifyComplete();
-
-    verify(chain).filter(exchange);
-    assertThat(responseHeaders.getFirst(X_REQUEST_ID)).isEqualTo(EXISTING_REQUEST_ID);
-    assertThat(responseHeaders.getFirst(X_CORRELATION_ID)).isEqualTo(EXISTING_CORRELATION_ID);
+  void testMdcIsRegisteredAsContextAccessorKey() {
+    MDC.put(RequestTracingFilter.REQUEST_ID_KEY, "x");
+    assertThat(MDC.get(RequestTracingFilter.REQUEST_ID_KEY)).isEqualTo("x");
+    MDC.remove(RequestTracingFilter.REQUEST_ID_KEY);
   }
 
   @Test
-  void testFilterContinuesChain() {
-    final ServerWebExchange exchange = mock(ServerWebExchange.class);
-    final ServerHttpRequest request = mock(ServerHttpRequest.class);
-    final ServerHttpResponse response = mock(ServerHttpResponse.class);
-    final WebFilterChain chain = mock(WebFilterChain.class);
-
-    final HttpHeaders requestHeaders = new HttpHeaders();
-    final HttpHeaders responseHeaders = new HttpHeaders();
-
-    when(exchange.getRequest()).thenReturn(request);
-    when(exchange.getResponse()).thenReturn(response);
-    when(request.getHeaders()).thenReturn(requestHeaders);
-    when(response.getHeaders()).thenReturn(responseHeaders);
-    when(chain.filter(exchange)).thenReturn(Mono.error(new RuntimeException("test error")));
-
-    StepVerifier.create(filter.filter(exchange, chain))
-        .expectError(RuntimeException.class)
-        .verify();
-
-    verify(chain).filter(exchange);
+  @SuppressWarnings("PMD.UnusedLocalVariable")
+  void testRequestIdIsRestoredIntoMdcFromReactorContext() {
+    try (var scope =
+        ContextSnapshotFactory.builder()
+            .build()
+            .setThreadLocalsFrom(Context.of(RequestTracingFilter.REQUEST_ID_KEY, "abc-1"))) {
+      assertThat(MDC.get(RequestTracingFilter.REQUEST_ID_KEY)).isEqualTo("abc-1");
+    }
+    assertThat(MDC.get(RequestTracingFilter.REQUEST_ID_KEY)).isNull();
   }
 }

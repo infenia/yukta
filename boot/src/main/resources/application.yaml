@@ -1,6 +1,11 @@
 # SPDX-License-Identifier: Apache-2.0
 # SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
+server:
+  # Loopback by default so a fresh install is not reachable from the network. Set
+  # YUKTA_SERVER_ADDRESS=0.0.0.0 (and yukta.api-key) to opt in to remote access.
+  address: ${YUKTA_SERVER_ADDRESS:127.0.0.1}
+
 spring:
   profiles:
     default: dev
@@ -29,7 +34,7 @@ spring:
 
 logging:
   pattern:
-    console: "%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX} %-5level %logger{36} : %msg %kvp%n"
+    console: "%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX} %-5level %logger{36} : [%X{requestId:-}] %msg %kvp%n"
   level:
     root: INFO
     com.infenia.yukta: INFO

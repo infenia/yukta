@@ -7,6 +7,7 @@ import com.infenia.yukta.plugin.control.ControlSignalProcessor;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.ResumeNodeCommand;
 import com.infenia.yukta.plugin.control.WorkflowDirective;
+import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.control.ExecutionControl;
 import com.infenia.yukta.service.control.store.ExecutionControlRegistry;
 import com.infenia.yukta.service.control.valve.ReactiveControlValve;
@@ -47,14 +48,11 @@ public class ResumeNodeCommandProcessor implements ControlSignalProcessor {
               registry
                   .findByExecutionId(resume.executionId())
                   .orElseThrow(
-                      () ->
-                          new IllegalArgumentException(
-                              "Execution not found: " + resume.executionId()));
+                      () -> new NotFoundException("Execution not found: " + resume.executionId()));
 
           final ReactiveControlValve valve = control.nodePauseValves().get(resume.nodeId());
           if (valve == null) {
-            throw new IllegalArgumentException(
-                "Node not found or not pausable: " + resume.nodeId());
+            throw new NotFoundException("Node not found or not pausable: " + resume.nodeId());
           }
 
           valve.resume();
