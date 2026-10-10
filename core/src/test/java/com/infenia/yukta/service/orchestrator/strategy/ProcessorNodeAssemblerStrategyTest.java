@@ -548,4 +548,28 @@ class ProcessorNodeAssemblerStrategyTest {
         .emitTaskStatusEvent(
             eq(EXECUTION_ID), eq(NODE_ID), anyString(), eq(TaskStatus.UPSTREAM_FAILED), any());
   }
+
+  @Test
+  void createAssembler_errorFromUpstream_reachesTheNodeAsUpstreamFailure() {
+    final ProcessorPlugin processor = mock(ProcessorPlugin.class);
+    when(processor.process(any(), any())).thenAnswer(inv -> inv.getArgument(0));
+    when(processor.isBlocking()).thenReturn(false);
+    final WorkflowNode node = new WorkflowNode(NODE_ID, "processor", Map.of());
+    final Flux<Message<?>> failing = Flux.error(new IllegalStateException("upstream broke"));
+    final AssemblyContext context = buildContext(NODE_ID, failing, null);
+    when(streamTopologyDecorator.mergeParentStreams(any(), any(ParentEdgeInfo[].class)))
+        .thenReturn(failing);
+    when(streamTopologyDecorator.applyLoggingAndBroadcasting(
+            anyString(), anyString(), any(), any(int.class), any(), any()))
+        .thenAnswer(inv -> inv.getArgument(2));
+
+    strategy
+        .createAssembler(node, processor, Duration.ofSeconds(5), 0, 1024, new ParentEdgeInfo[0])
+        .assemble(context);
+
+    StepVerifier.create(context.streams()[0]).verifyError(UpstreamFailure.class);
+    verify(tracker)
+        .emitTaskStatusEvent(
+            eq(EXECUTION_ID), eq(NODE_ID), anyString(), eq(TaskStatus.UPSTREAM_FAILED), any());
+  }
 }

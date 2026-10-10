@@ -203,7 +203,9 @@ public class ExecutionScheduler implements SmartLifecycle {
    * @return the priority, 0 if absent or not a number
    */
   public static int priorityOf(final Map<String, Object> payload) {
-    return payload != null && payload.get(PRIORITY_KEY) instanceof Number number ? number.intValue() : 0;
+    return payload != null && payload.get(PRIORITY_KEY) instanceof Number number
+        ? number.intValue()
+        : 0;
   }
 
   private static String key(final String sessionId, final String workflowId) {
