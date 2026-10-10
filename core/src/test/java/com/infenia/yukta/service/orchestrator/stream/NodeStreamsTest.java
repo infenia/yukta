@@ -37,7 +37,7 @@ class NodeStreamsTest {
 
   private static final String EXEC = "exec-1";
   private static final String NODE_ID = "node-1";
-  private static final String TASK = "default";
+  private static final String TASK = "type";
 
   private final TaskTrackerService tracker = mock(TaskTrackerService.class);
   private final WorkflowNode node = new WorkflowNode(NODE_ID, "type", Map.of());

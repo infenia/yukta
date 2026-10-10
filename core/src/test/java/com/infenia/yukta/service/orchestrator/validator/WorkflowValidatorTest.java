@@ -13,6 +13,7 @@ import com.infenia.yukta.plugin.type.ProcessorPlugin;
 import com.infenia.yukta.plugin.type.TerminalPlugin;
 import com.infenia.yukta.plugin.type.TriggerPlugin;
 import com.infenia.yukta.service.plugin.PluginRegistry;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -153,6 +154,49 @@ class WorkflowValidatorTest {
             List.of(new WorkflowDefinition.Edge("a", "b", "x")));
     StepVerifier.create(validator.validate(def))
         .expectErrorMatches(e -> !e.getMessage().contains("output port"))
+        .verify();
+  }
+
+  @Test
+  void testRetryBackoffLongerThanTheNodeTimeoutRejected() {
+    when(registry.get("P")).thenReturn(processorPlugin);
+    final var node =
+        new WorkflowDefinition.Node(
+            "p",
+            "P",
+            Map.of(
+                "timeoutSeconds",
+                10,
+                "engine",
+                Map.of("retry", Map.of("maxAttempts", 3, "maxBackoffMs", 10_000))));
+    assertRejected(
+        new WorkflowDefinition(WORKFLOW_NAME, "d", List.of(node), List.of()), "maxBackoffMs");
+  }
+
+  @Test
+  void testRetryBackoffUsesThePluginDefaultTimeout() {
+    when(registry.get("P")).thenReturn(processorPlugin);
+    when(processorPlugin.getDefaultTimeout()).thenReturn(Duration.ofSeconds(1));
+    final var node =
+        new WorkflowDefinition.Node(
+            "p",
+            "P",
+            Map.of("engine", Map.of("retry", Map.of("maxAttempts", 3, "maxBackoffMs", 5_000))));
+    assertRejected(
+        new WorkflowDefinition(WORKFLOW_NAME, "d", List.of(node), List.of()), "node timeout (1 s)");
+  }
+
+  @Test
+  void testRetryBackoffWithUnknownPluginIsLeftToThePluginCheck() {
+    final var node =
+        new WorkflowDefinition.Node(
+            "p",
+            "P",
+            Map.of("engine", Map.of("retry", Map.of("maxAttempts", 3, "maxBackoffMs", 5_000))));
+    StepVerifier.create(
+            validator.validate(
+                new WorkflowDefinition(WORKFLOW_NAME, "d", List.of(node), List.of())))
+        .expectErrorMatches(e -> !e.getMessage().contains("maxBackoffMs"))
         .verify();
   }
 
