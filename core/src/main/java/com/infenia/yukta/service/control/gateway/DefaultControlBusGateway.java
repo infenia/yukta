@@ -104,7 +104,7 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
   private final StartIdempotency startIdempotency;
 
   /** Preparations in flight, so concurrent starts of one workflow prepare it once. */
-  private final Map<String, Mono<PreparedWorkflow>> preparing = new ConcurrentHashMap<>();
+  private final Map<PrepareKey, Mono<PreparedWorkflow>> preparing = new ConcurrentHashMap<>();
 
   private <T extends ExecutionControlCommand> Message<T> buildCommand(
       final T command, final int priority) {
@@ -301,19 +301,29 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
       final String workflowId,
       final WorkflowDefinition def,
       final String executionId) {
-    final String key = sessionId + "\0" + workflowId;
+    // The key holds the definition itself (a record, compared by content), so a start with a
+    // newer definition never joins the preparation of an older one.
+    final PrepareKey key = new PrepareKey(sessionId, workflowId, def);
     return preparing.computeIfAbsent(
         key,
         _ ->
             orchestrator
                 .prepareWorkflow(def)
-                .doOnNext(
-                    prepared -> {
-                      log.atDebug()
-                          .addKeyValue("executionId", executionId)
-                          .log("Workflow prepared and caching");
-                      preparedWorkflowCache.put(sessionId, workflowId, prepared);
-                    })
+                .flatMap(
+                    prepared ->
+                        // Cache only if the definition is still the current one: a replace that
+                        // happened while preparing has already invalidated the cache.
+                        workflowDefinitionStore
+                            .find(sessionId, workflowId)
+                            .filter(def::equals)
+                            .doOnNext(
+                                _ -> {
+                                  log.atDebug()
+                                      .addKeyValue("executionId", executionId)
+                                      .log("Workflow prepared and caching");
+                                  preparedWorkflowCache.put(sessionId, workflowId, prepared);
+                                })
+                            .thenReturn(prepared))
                 .doFinally(_ -> preparing.remove(key))
                 .cache());
   }
@@ -962,4 +972,7 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
         .log("All active nodes retrieved");
     return allActiveNodes;
   }
+
+  /** Identifies one preparation: the same workflow with the same definition content. */
+  private record PrepareKey(String sessionId, String workflowId, WorkflowDefinition def) {}
 }

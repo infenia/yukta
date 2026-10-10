@@ -1973,6 +1973,33 @@ class DefaultControlBusGatewayTest {
   // --- startWorkflow Tests ---
 
   @Test
+  void startWorkflow_definitionReplacedWhilePreparing_isNotCached() {
+    final String sessionId = "sess-stale";
+    final String workflowId = "wf-stale";
+    final WorkflowDefinition old = new WorkflowDefinition(workflowId, "old", List.of(), List.of());
+    final WorkflowDefinition replaced =
+        new WorkflowDefinition(workflowId, "new", List.of(), List.of());
+    final PreparedWorkflow preparedWorkflow = mock(PreparedWorkflow.class);
+
+    // loaded as "old"; by the time preparation is done the stored definition is "new"
+    when(workflowDefinitionStore.find(sessionId, workflowId))
+        .thenReturn(Mono.just(old), Mono.just(replaced));
+    when(preparedWorkflowCache.get(sessionId, workflowId)).thenReturn(Optional.empty());
+    when(orchestrator.prepareWorkflow(old)).thenReturn(Mono.just(preparedWorkflow));
+    when(orchestrator.execute(
+            eq(sessionId), eq(workflowId), anyString(), eq(preparedWorkflow), anyMap()))
+        .thenReturn(Mono.empty());
+
+    StepVerifier.create(gateway.startWorkflow(sessionId, workflowId))
+        .expectNextCount(1)
+        .verifyComplete();
+
+    verify(preparedWorkflowCache, never()).put(any(), any(), any());
+    verify(orchestrator)
+        .execute(eq(sessionId), eq(workflowId), anyString(), eq(preparedWorkflow), anyMap());
+  }
+
+  @Test
   void startWorkflow_workflowFound_returnsNewExecutionId() {
     // Given
     final String sessionId = "sess-start";
@@ -2005,7 +2032,8 @@ class DefaultControlBusGatewayTest {
             })
         .verifyComplete();
 
-    verify(workflowDefinitionStore).find(sessionId, workflowId);
+    // once to load the definition, once to check it is still current before caching
+    verify(workflowDefinitionStore, times(2)).find(sessionId, workflowId);
     verify(preparedWorkflowCache).put(eq(sessionId), eq(workflowId), any());
     verify(orchestrator).prepareWorkflow(definition);
     verify(orchestrator)

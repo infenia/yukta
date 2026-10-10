@@ -12,6 +12,7 @@ import com.infenia.yukta.plugin.type.TriggerPlugin;
 import com.infenia.yukta.service.plugin.PluginRegistry;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
+import java.time.Duration;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
@@ -121,6 +122,10 @@ public class WorkflowValidator {
       } catch (final IllegalArgumentException e) {
         return Optional.of("Node '" + node.nodeId() + "': " + e.getMessage());
       }
+      final Optional<String> backoff = findLongBackoff(node, policy);
+      if (backoff.isPresent()) {
+        return backoff;
+      }
       if (policy.perMessage()) {
         final var plugin = registry.get(node.type());
         if (plugin != null && plugin.getCategory() != PluginCategory.PROCESSOR) {
@@ -130,6 +135,30 @@ public class WorkflowValidator {
                   + "': engine.retry and engine.onError are only supported on processor nodes");
         }
       }
+    }
+    return Optional.empty();
+  }
+
+  /** A retry delay as long as the node timeout would make the node time out while it waits. */
+  private Optional<String> findLongBackoff(
+      final WorkflowDefinition.Node node, final NodePolicy policy) {
+    final NodePolicy.Retry retry = policy.retry();
+    if (retry == null) {
+      return Optional.empty();
+    }
+    final Object configured = node.config().get("timeoutSeconds");
+    final Plugin plugin = registry.get(node.type());
+    final Duration timeout =
+        configured instanceof Number seconds && seconds.longValue() > 0
+            ? Duration.ofSeconds(seconds.longValue())
+            : plugin == null ? null : plugin.getDefaultTimeout();
+    if (timeout != null && timeout.isPositive() && retry.maxBackoff().compareTo(timeout) >= 0) {
+      return Optional.of(
+          "Node '"
+              + node.nodeId()
+              + "': engine.retry.maxBackoffMs must be below the node timeout ("
+              + timeout.toSeconds()
+              + " s), or the node times out while waiting to retry");
     }
     return Optional.empty();
   }

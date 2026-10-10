@@ -35,9 +35,6 @@ import reactor.core.scheduler.Scheduler;
 @SuppressWarnings("PMD.AvoidDuplicateLiterals")
 public class TerminalNodeAssemblerStrategy implements NodeAssemblerStrategy {
 
-  /** Default task identifier. */
-  private static final String DEFAULT_TASK_ID = "default";
-
   /** Log key for node ID. */
   private static final String LOG_KEY_NODE_ID = "nodeId";
 
@@ -155,7 +152,7 @@ public class TerminalNodeAssemblerStrategy implements NodeAssemblerStrategy {
                     tracker.emitTaskStatusEvent(
                         context.executionId(),
                         node.nodeId(),
-                        DEFAULT_TASK_ID,
+                        node.type(),
                         TaskStatus.RUNNING,
                         Collections.emptyMap());
                   })
@@ -168,7 +165,7 @@ public class TerminalNodeAssemblerStrategy implements NodeAssemblerStrategy {
                     tracker.emitTaskStatusEvent(
                         context.executionId(),
                         node.nodeId(),
-                        DEFAULT_TASK_ID,
+                        node.type(),
                         TaskStatus.SUCCESS,
                         Collections.emptyMap());
                   })
@@ -182,7 +179,7 @@ public class TerminalNodeAssemblerStrategy implements NodeAssemblerStrategy {
                     tracker.emitTaskStatusEvent(
                         context.executionId(),
                         node.nodeId(),
-                        DEFAULT_TASK_ID,
+                        node.type(),
                         NodeStreams.failureStatus(e),
                         Collections.emptyMap());
                   })
@@ -191,7 +188,7 @@ public class TerminalNodeAssemblerStrategy implements NodeAssemblerStrategy {
                       tracker.emitTaskStatusEvent(
                           context.executionId(),
                           node.nodeId(),
-                          DEFAULT_TASK_ID,
+                          node.type(),
                           TaskStatus.CANCELLED,
                           Collections.emptyMap()));
 

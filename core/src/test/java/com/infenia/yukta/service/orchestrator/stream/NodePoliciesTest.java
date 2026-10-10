@@ -39,7 +39,8 @@ class NodePoliciesTest {
     final NodePolicy policy =
         new NodePolicy(RETRY3, NodePolicy.OnError.FAIL, NodePolicy.JoinRule.ALL_SUCCESS);
 
-    StepVerifier.withVirtualTime(() -> NodePolicies.apply(policy, "n1", input, flaky(calls, 2)))
+    StepVerifier.withVirtualTime(
+            () -> NodePolicies.apply(policy, "n1", input, flaky(calls, 2), () -> {}))
         .expectSubscription()
         .expectNoEvent(Duration.ofMillis(400))
         .thenAwait(Duration.ofSeconds(30))
@@ -50,12 +51,49 @@ class NodePoliciesTest {
   }
 
   @Test
+  void retry_countsEveryAttemptAsActivity() {
+    final AtomicInteger calls = new AtomicInteger();
+    final AtomicInteger attempts = new AtomicInteger();
+    final NodePolicy policy =
+        new NodePolicy(RETRY3, NodePolicy.OnError.FAIL, NodePolicy.JoinRule.ALL_SUCCESS);
+
+    StepVerifier.withVirtualTime(
+            () ->
+                NodePolicies.apply(policy, "n1", input, flaky(calls, 2), attempts::incrementAndGet))
+        .thenAwait(Duration.ofSeconds(30))
+        .expectNext(input)
+        .verifyComplete();
+
+    assertThat(attempts).hasValue(3);
+  }
+
+  @Test
+  void retry_doesNotRepeatAnInvalidInput() {
+    final AtomicInteger calls = new AtomicInteger();
+    final NodePolicy policy =
+        new NodePolicy(RETRY3, NodePolicy.OnError.FAIL, NodePolicy.JoinRule.ALL_SUCCESS);
+    final Flux<Message<?>> invalid =
+        Flux.defer(
+            () -> {
+              calls.incrementAndGet();
+              return Flux.<Message<?>>error(new IllegalArgumentException("bad input"));
+            });
+
+    StepVerifier.create(NodePolicies.apply(policy, "n1", input, invalid, () -> {}))
+        .expectError(IllegalArgumentException.class)
+        .verify();
+
+    assertThat(calls).hasValue(1);
+  }
+
+  @Test
   void retry_exhausted_failsWithTheOriginalError() {
     final AtomicInteger calls = new AtomicInteger();
     final NodePolicy policy =
         new NodePolicy(RETRY3, NodePolicy.OnError.FAIL, NodePolicy.JoinRule.ALL_SUCCESS);
 
-    StepVerifier.withVirtualTime(() -> NodePolicies.apply(policy, "n1", input, flaky(calls, 99)))
+    StepVerifier.withVirtualTime(
+            () -> NodePolicies.apply(policy, "n1", input, flaky(calls, 99), () -> {}))
         .expectSubscription()
         .thenAwait(Duration.ofSeconds(60))
         .expectErrorMatches(
@@ -74,7 +112,7 @@ class NodePoliciesTest {
             NodePolicy.OnError.FAIL,
             NodePolicy.JoinRule.ALL_SUCCESS);
 
-    StepVerifier.create(NodePolicies.apply(policy, "n1", input, flaky(calls, 99)))
+    StepVerifier.create(NodePolicies.apply(policy, "n1", input, flaky(calls, 99), () -> {}))
         .expectError(IllegalStateException.class)
         .verify();
 
@@ -86,7 +124,8 @@ class NodePoliciesTest {
     final NodePolicy policy =
         new NodePolicy(null, NodePolicy.OnError.CONTINUE, NodePolicy.JoinRule.ALL_SUCCESS);
 
-    StepVerifier.create(NodePolicies.apply(policy, "n1", input, flaky(new AtomicInteger(), 99)))
+    StepVerifier.create(
+            NodePolicies.apply(policy, "n1", input, flaky(new AtomicInteger(), 99), () -> {}))
         .verifyComplete();
   }
 
@@ -95,7 +134,8 @@ class NodePoliciesTest {
     final NodePolicy policy =
         new NodePolicy(null, NodePolicy.OnError.ROUTE, NodePolicy.JoinRule.ALL_SUCCESS);
 
-    StepVerifier.create(NodePolicies.apply(policy, "n1", input, flaky(new AtomicInteger(), 99)))
+    StepVerifier.create(
+            NodePolicies.apply(policy, "n1", input, flaky(new AtomicInteger(), 99), () -> {}))
         .assertNext(
             routed -> {
               assertThat(routed.getSourcePort()).isEqualTo(NodePolicy.ERROR_PORT);
@@ -108,7 +148,8 @@ class NodePoliciesTest {
   @Test
   void fail_withoutRetry_passesTheErrorThrough() {
     StepVerifier.create(
-            NodePolicies.apply(NodePolicy.DEFAULT, "n1", input, flaky(new AtomicInteger(), 99)))
+            NodePolicies.apply(
+                NodePolicy.DEFAULT, "n1", input, flaky(new AtomicInteger(), 99), () -> {}))
         .expectError(IllegalStateException.class)
         .verify();
   }
@@ -119,7 +160,8 @@ class NodePoliciesTest {
     final NodePolicy policy =
         new NodePolicy(RETRY3, NodePolicy.OnError.ROUTE, NodePolicy.JoinRule.ALL_SUCCESS);
 
-    StepVerifier.withVirtualTime(() -> NodePolicies.apply(policy, "n1", input, flaky(calls, 99)))
+    StepVerifier.withVirtualTime(
+            () -> NodePolicies.apply(policy, "n1", input, flaky(calls, 99), () -> {}))
         .expectSubscription()
         .thenAwait(Duration.ofSeconds(60))
         .assertNext(routed -> assertThat(routed.getSourcePort()).isEqualTo("error"))

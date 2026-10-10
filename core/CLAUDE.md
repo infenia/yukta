@@ -51,6 +51,8 @@ Any node's config may carry a reserved `engine` object; plugins never see these 
 ```
 - `retry` (processors only): re-run the plugin for the failing message with exponential backoff and
   jitter; the plugin is then called once per message, so use it with per-message processors.
+  Every attempt counts as node activity, `IllegalArgumentException` (bad input) is not retried, and
+  `maxBackoffMs` must be below the node's timeout (checked by the validator).
 - `onError` (processors only): `FAIL` (default), `CONTINUE` (drop the message), or `ROUTE` (send it,
   tagged with its failure, to the node's `error` output port; wire an edge with `sourcePort: "error"`
   to a dead-letter node).
@@ -84,7 +86,9 @@ Malformed policies are rejected by `WorkflowValidator` with the node id and opti
 - `POST /workflow/start` accepts an optional `Idempotency-Key` header: a repeat with the same key for
   the same session and workflow within `yukta.start.idempotency-ttl` (default 10m) returns the first
   execution id instead of starting another. A failed start is not remembered.
-- Concurrent starts of a workflow that is not prepared yet share one preparation.
+- Concurrent starts of a workflow that is not prepared yet share one preparation (per definition
+  content). A prepared workflow is cached only if its definition is still the stored one.
+- Restarting a finished run goes through the same admission check as a start (HTTP 429 when full).
 
 ### Tracker queue
 State and workflow events are never dropped: they go to an unbounded queue. Log lines are best
