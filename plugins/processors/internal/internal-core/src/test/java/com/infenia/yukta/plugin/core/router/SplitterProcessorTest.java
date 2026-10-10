@@ -40,9 +40,9 @@ class SplitterProcessorTest {
             processor
                 .process(Flux.just(parent), config)
                 .contextWrite(ctx -> ctx.put("nodeId", "split-node")))
-        .expectNextMatches(m -> verifyChild(m, parent, "apple", 1, 3, "split-node", false))
-        .expectNextMatches(m -> verifyChild(m, parent, "banana", 2, 3, "split-node", false))
-        .expectNextMatches(m -> verifyChild(m, parent, "cherry", 3, 3, "split-node", true))
+        .expectNextMatches(m -> verifyChild(m, parent, "apple", 1, 3, false))
+        .expectNextMatches(m -> verifyChild(m, parent, "banana", 2, 3, false))
+        .expectNextMatches(m -> verifyChild(m, parent, "cherry", 3, 3, true))
         .verifyComplete();
   }
 
@@ -104,7 +104,6 @@ class SplitterProcessorTest {
             m -> {
               assertEquals(1, m.getPayload());
               assertEquals(0, m.getSequenceSize());
-              assertFalse(m.isLastInSequence());
               assertEquals(1, m.getSequenceNumber());
               return true;
             })
@@ -112,7 +111,6 @@ class SplitterProcessorTest {
             m -> {
               assertEquals(2, m.getPayload());
               assertEquals(2, m.getSequenceSize());
-              assertTrue(m.isLastInSequence());
               assertEquals(2, m.getSequenceNumber());
               return true;
             })
@@ -168,14 +166,16 @@ class SplitterProcessorTest {
       Object expectedPayload,
       int index,
       int total,
-      String nodeId,
       boolean isLast) {
     assertEquals(expectedPayload, child.getPayload());
     assertEquals(parent.getMessageId(), child.getCorrelationId());
     assertEquals(parent.getMessageId(), child.getSequenceId());
     assertEquals(index, child.getSequenceNumber(), "Sequence number mismatch");
     assertEquals(total, child.getSequenceSize(), "Sequence size mismatch");
-    assertEquals(isLast, child.isLastInSequence(), "Last in sequence flag mismatch");
+    assertEquals(
+        isLast,
+        child.getSequenceNumber() == child.getSequenceSize(),
+        "Last in sequence flag mismatch");
     assertEquals("default", child.getSourcePort());
     assertTrue(child.getMessageHistory().isEmpty());
     assertFalse(child.getMessageId().equals(parent.getMessageId()));
@@ -241,7 +241,6 @@ class SplitterProcessorTest {
             m -> {
               assertEquals("only-one", m.getPayload());
               assertEquals(1, m.getSequenceSize());
-              assertTrue(m.isLastInSequence());
               return true;
             })
         .verifyComplete();

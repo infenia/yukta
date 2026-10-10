@@ -254,9 +254,7 @@ public class ContentFilterProcessor implements ProcessorPlugin {
     final String errorPort = (String) config.get(CONFIG_ERROR_PORT);
     final boolean strictMode = (Boolean) config.getOrDefault(CONFIG_STRICT, true);
     if (errorPort != null && !errorPort.isBlank()) {
-      return Mono.just(
-          msg.withSourcePort(errorPort)
-              .withFailure(null, ERR_FAIL, err.getMessage()));
+      return Mono.just(msg.withSourcePort(errorPort).withFailure(null, ERR_FAIL, err.getMessage()));
     }
     if (!strictMode) {
       return Mono.just(msg.withSourcePort("default"));
@@ -493,7 +491,7 @@ public class ContentFilterProcessor implements ProcessorPlugin {
       case "traceId" -> message.getTraceId();
       case "correlationId" -> message.getCorrelationId();
       case "messageId" -> message.getMessageId();
-      case "timestamp" -> message.getTimestamp();
+      case "timestamp" -> message.getTimestamp().toEpochMilli();
       case "sequenceId" -> message.getSequenceId();
       case "sequenceNumber" -> message.getSequenceNumber();
       case "sequenceSize" -> message.getSequenceSize();

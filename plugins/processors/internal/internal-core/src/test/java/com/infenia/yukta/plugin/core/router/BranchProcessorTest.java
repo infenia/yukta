@@ -48,9 +48,7 @@ class BranchProcessorTest {
                 .process(Flux.just(msg1), config)
                 .contextWrite(Context.of("nodeId", "test-node")))
         .expectNextMatches(
-            m ->
-                "premium_port".equals(m.getSourcePort())
-                    && m.getMessageHistory().isEmpty())
+            m -> "premium_port".equals(m.getSourcePort()) && m.getMessageHistory().isEmpty())
         .verifyComplete();
 
     StepVerifier.create(processor.process(Flux.just(msg2), config))

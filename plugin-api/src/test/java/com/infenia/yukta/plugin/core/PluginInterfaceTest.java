@@ -95,10 +95,8 @@ class PluginInterfaceTest {
     assertEquals("seq1", sequenced.getSequenceId());
     assertEquals(1, sequenced.getSequenceNumber());
     assertEquals(5, sequenced.getSequenceSize());
-    assertFalse(sequenced.isLastInSequence());
 
     Message<String> lastSequenced = sequenced.withSequence("seq1", 5, 5);
-    assertTrue(lastSequenced.isLastInSequence());
 
     Message<String> prioritized = lastSequenced.withPriority(10);
     assertEquals(10, prioritized.getPriority());
@@ -114,10 +112,7 @@ class PluginInterfaceTest {
     Message<String> retried = failed.withRetryCount(3);
     assertEquals(3, retried.getRetryCount());
 
-    Message<String> incremented = retried.withIncrementedRetry();
-    assertEquals(4, incremented.getRetryCount());
-
-    Message<Integer> rePayloaded = incremented.withPayload(123);
+    Message<Integer> rePayloaded = retried.withPayload(123);
     assertEquals(123, rePayloaded.getPayload());
     assertEquals("error-port", rePayloaded.getOrigDest());
 
@@ -130,7 +125,7 @@ class PluginInterfaceTest {
             .withFormatIndicator("json-v2");
 
     assertEquals("new-trace", updated.getTraceId());
-    assertEquals(now.toEpochMilli(), updated.getTimestamp());
+    assertEquals(now, updated.getTimestamp());
     assertEquals(123456789L, updated.getExpiration());
     assertEquals("json-v2", updated.getFormatIndicator());
   }

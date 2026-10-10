@@ -3,6 +3,7 @@
 package com.infenia.yukta.message;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.time.Instant;
 import java.util.HashMap;
@@ -69,28 +70,9 @@ class DefaultMessageTest {
     assertThat(msg.getExceptionDetail()).isEqualTo("detail");
     assertThat(msg.getRetryCount()).isEqualTo(2);
     assertThat(msg.getPayload()).isEqualTo(payload);
-    assertThat(msg.getTimestamp()).isEqualTo(now.toEpochMilli());
+    assertThat(msg.getTimestamp()).isEqualTo(now);
     assertThat(msg.getSourcePort()).isEqualTo("port");
     assertThat(msg.getSourceNodeId()).isEqualTo("node");
-    assertThat(msg.isLastInSequence()).isFalse();
-  }
-
-  @Test
-  void testSequenceLogic() {
-    final Message<String> msg = DefaultMessage.create(null, "p").withSequence("s", 5, 5);
-    assertThat(msg.isLastInSequence()).isTrue();
-  }
-
-  @Test
-  void testSequenceLogic2() {
-    final Message<String> msg2 = DefaultMessage.create(null, "p").withSequence("s", 1, 5);
-    assertThat(msg2.isLastInSequence()).isFalse();
-  }
-
-  @Test
-  void testSequenceLogicZeroSize() {
-    final Message<String> msg = DefaultMessage.create(null, "p").withSequence("s", 0, 0);
-    assertThat(msg.isLastInSequence()).isFalse();
   }
 
   @Test
@@ -99,7 +81,7 @@ class DefaultMessageTest {
 
     assertThat(msg.withTraceId("t1").getTraceId()).isEqualTo("t1");
     final Instant now = Instant.now();
-    assertThat(msg.withTimestamp(now).getTimestamp()).isEqualTo(now.toEpochMilli());
+    assertThat(msg.withTimestamp(now).getTimestamp()).isEqualTo(now);
     assertThat(msg.withCorrelationId("c1").getCorrelationId()).isEqualTo("c1");
     assertThat(msg.withReplyTo("r1").getReplyTo()).isEqualTo("r1");
     assertThat(msg.withSourcePort("p1").getSourcePort()).isEqualTo("p1");
@@ -115,7 +97,6 @@ class DefaultMessageTest {
     assertThat(failed.getFailureReason()).isEqualTo("r");
 
     assertThat(msg.withRetryCount(5).getRetryCount()).isEqualTo(5);
-    assertThat(msg.withIncrementedRetry().getRetryCount()).isEqualTo(1);
     assertThat(msg.withPayload(10).getPayload()).isEqualTo(10);
     assertThat(msg.withHeader("k", "v").getMetadata().get("k")).isEqualTo("v");
     assertThat(msg.withMetadata(Map.of("x", "y")).getMetadata()).isEqualTo(Map.of("x", "y"));
@@ -152,7 +133,7 @@ class DefaultMessageTest {
     assertThat(msg.getMetadata()).isNotNull();
     assertThat(msg.getMessageHistory()).isEmpty();
     assertThat(msg.getMessageHistory()).isNotNull();
-    assertThat(msg.getTimestamp()).isGreaterThan(0L);
+    assertThat(msg.getTimestamp()).isNotNull();
   }
 
   @Test
@@ -322,5 +303,45 @@ class DefaultMessageTest {
     assertThat(from.getReplyTo()).isEqualTo("replyTo");
     assertThat(from.getMetadata()).containsEntry("headerKey", "headerValue");
     assertThat(from.getPayload()).isEqualTo(42);
+  }
+
+  @Test
+  void testNullMetadataValuesAreDropped() {
+    final Map<String, Object> raw = new HashMap<>();
+    raw.put("keep", "v");
+    raw.put("drop", null);
+    final DefaultMessage<String> msg = DefaultMessage.create(null, "p").withMetadata(raw);
+    assertThat(msg.getMetadata()).isEqualTo(Map.of("keep", "v"));
+  }
+
+  @Test
+  void testWithHeaderNullValueRemovesKey() {
+    final Message<String> msg = DefaultMessage.create(null, "p").withHeader("k", "v");
+    assertThat(msg.withHeader("k", null).getMetadata()).isEmpty();
+  }
+
+  @Test
+  void testWithHeaderNullKeyRejected() {
+    final Message<String> msg = DefaultMessage.create(null, "p");
+    assertThatThrownBy(() -> msg.withHeader(null, "v")).isInstanceOf(NullPointerException.class);
+  }
+
+  @Test
+  void testHistoryIsCapped() {
+    Message<String> msg = DefaultMessage.create(null, "p");
+    for (int i = 0; i < DefaultMessage.MAX_HISTORY + 10; i++) {
+      msg = msg.withAddedHistory("n" + i);
+    }
+    assertThat(msg.getMessageHistory()).hasSize(DefaultMessage.MAX_HISTORY);
+    assertThat(msg.getMessageHistory().get(DefaultMessage.MAX_HISTORY - 1))
+        .isEqualTo("n" + (DefaultMessage.MAX_HISTORY + 9));
+    assertThat(msg.getMessageHistory().get(0)).isEqualTo("n10");
+  }
+
+  @Test
+  void testFromKeepsTimestampPrecision() {
+    final Instant precise = Instant.parse("2026-01-01T00:00:00.123456789Z");
+    final Message<String> original = DefaultMessage.create(null, "p").withTimestamp(precise);
+    assertThat(DefaultMessage.from(original, 1).getTimestamp()).isEqualTo(precise);
   }
 }

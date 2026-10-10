@@ -8,7 +8,6 @@ import com.infenia.yukta.plugin.core.UiDesign;
 import com.infenia.yukta.plugin.exception.WorkflowExecutionException;
 import com.infenia.yukta.plugin.type.ProcessorPlugin;
 import com.infenia.yukta.plugin.util.SpelUtils;
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -201,20 +200,19 @@ public class SplitterProcessor implements ProcessorPlugin {
       final String nodeId,
       final Map<String, Object> variables) {
     Message<?> child =
-        DefaultMessage.create(null, item)
-            .withTraceId(parent.getTraceId())
-            .withPriority(parent.getPriority())
-            .withCorrelationId(parent.getMessageId())
-            .withSequence(parent.getMessageId(), index, total)
-            .withMetadata(parent.getMetadata())
-            .withReplyTo(parent.getReplyTo())
-            .withTimestamp(Instant.ofEpochMilli(parent.getTimestamp()));
-    if (parent.getExpiration() > 0) {
-      child = child.withExpiration(parent.getExpiration());
-    }
-    if (parent.getFormatIndicator() != null) {
-      child = child.withFormatIndicator(parent.getFormatIndicator());
-    }
+        DefaultMessage.create(null, item).toBuilder()
+            .traceId(parent.getTraceId())
+            .priority(parent.getPriority())
+            .correlationId(parent.getMessageId())
+            .sequenceId(parent.getMessageId())
+            .sequenceNumber(index)
+            .sequenceSize(total)
+            .metadata(parent.getMetadata())
+            .replyTo(parent.getReplyTo())
+            .timestamp(parent.getTimestamp())
+            .expiration(Math.max(0L, parent.getExpiration()))
+            .formatIndicator(parent.getFormatIndicator())
+            .build();
     @SuppressWarnings("unchecked")
     final Map<String, String> mapping = (Map<String, String>) config.get(CFG_MAPPING);
     if (mapping != null) {
@@ -274,9 +272,7 @@ public class SplitterProcessor implements ProcessorPlugin {
     }
     if (errorPort != null && !errorPort.isBlank()) {
       return Flux.just(
-          parent
-              .withSourcePort(errorPort)
-              .withFailure(null, ERR_FAIL, error.getMessage()));
+          parent.withSourcePort(errorPort).withFailure(null, ERR_FAIL, error.getMessage()));
     }
     if (!strict) {
       return Flux.empty();

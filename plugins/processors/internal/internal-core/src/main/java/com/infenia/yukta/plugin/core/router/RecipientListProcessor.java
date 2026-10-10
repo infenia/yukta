@@ -181,8 +181,7 @@ public class RecipientListProcessor implements ProcessorPlugin {
             if (recipients == null || recipients.isEmpty()) {
               return Flux.empty();
             }
-            return Flux.fromIterable(recipients)
-                .map(port -> message.withSourcePort(port));
+            return Flux.fromIterable(recipients).map(port -> message.withSourcePort(port));
           } catch (final Exception e) {
             if (log.isErrorEnabled()) {
               log.error(

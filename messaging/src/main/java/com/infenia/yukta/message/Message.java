@@ -19,7 +19,9 @@ public interface Message<T> {
   // --- Header / Metadata Accessors ---
 
   /**
-   * Unique identifier for this message instance.
+   * Logical identifier of this message. It is kept across {@link #withPayload} and the other {@code
+   * with*} copies, so it is not unique per node output. A store must key entries by (executionId,
+   * nodeId, messageId).
    *
    * @return the message ID
    */
@@ -47,11 +49,11 @@ public interface Message<T> {
   String getTraceId();
 
   /**
-   * The time when the message was created (epoch milliseconds).
+   * The time when the message was created.
    *
    * @return the timestamp
    */
-  long getTimestamp();
+  java.time.Instant getTimestamp();
 
   /**
    * The "use-by" timestamp after which the message is discarded (epoch milliseconds).
@@ -126,13 +128,6 @@ public interface Message<T> {
    * @return the sequence size
    */
   int getSequenceSize();
-
-  /**
-   * Flag indicating if this is the final message in a stream.
-   *
-   * @return true if last in sequence
-   */
-  boolean isLastInSequence();
 
   // --- Control Bus & Quality of Service ---
 
@@ -264,8 +259,9 @@ public interface Message<T> {
   Message<T> withTimestamp(java.time.Instant timestamp);
 
   /**
-   * Add a component to the history list. Core's stream topology stamps every node itself, so
-   * plugins must not call this.
+   * Add a component to the history list, keeping at most {@link DefaultMessage#MAX_HISTORY} entries
+   * (the oldest are dropped). Core's stream topology stamps every node itself, so plugins must not
+   * call this.
    *
    * @param nodeId the ID of the node currently processing the message
    * @return a new message instance with the updated history
@@ -315,13 +311,6 @@ public interface Message<T> {
    * @return a new message instance
    */
   Message<T> withRetryCount(int count);
-
-  /**
-   * Create a copy of this message with an incremented retry count.
-   *
-   * @return a new message instance
-   */
-  Message<T> withIncrementedRetry();
 
   /**
    * Create a copy of this message with a new payload, preserving all headers.

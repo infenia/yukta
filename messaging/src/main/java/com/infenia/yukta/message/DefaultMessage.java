@@ -3,12 +3,12 @@
 package com.infenia.yukta.message;
 
 import java.time.Instant;
-import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
+import lombok.Builder;
 import lombok.With;
 
 /**
@@ -38,24 +38,25 @@ import lombok.With;
  * @param workflowId the ID of the workflow context
  * @param <T> the type of the payload
  */
+@Builder(toBuilder = true)
 public record DefaultMessage<T>(
-    @SuppressWarnings("PMD.ShortVariable") String id,
+    @SuppressWarnings("PMD.ShortVariable") @With String id,
     @With String traceId,
     @With String correlationId,
     @With String replyTo,
     @With long expiration,
     @With String formatIndicator,
     @With Map<String, Object> metadata,
-    List<String> messageHistory,
-    String sequenceId,
-    int sequenceNumber,
-    int sequenceSize,
+    @With List<String> messageHistory,
+    @With String sequenceId,
+    @With int sequenceNumber,
+    @With int sequenceSize,
     @With int priority,
-    boolean controlMessage,
-    String origDest,
-    String failureReason,
-    String exceptionDetail,
-    int retryCount,
+    @With boolean controlMessage,
+    @With String origDest,
+    @With String failureReason,
+    @With String exceptionDetail,
+    @With int retryCount,
     T payload,
     @With Instant timestamp,
     @With String sourcePort,
@@ -63,9 +64,15 @@ public record DefaultMessage<T>(
     @With String workflowId)
     implements Message<T> {
 
-  /** Compact constructor to ensure metadata and history are immutable. */
+  /** Maximum number of node IDs kept in {@code messageHistory}; the oldest are dropped first. */
+  public static final int MAX_HISTORY = 64;
+
+  /**
+   * Compact constructor to ensure metadata and history are immutable. Metadata entries with a null
+   * value are dropped; a null key is rejected.
+   */
   public DefaultMessage {
-    metadata = metadata != null ? Map.copyOf(metadata) : Map.of();
+    metadata = copyWithoutNulls(metadata);
     messageHistory = messageHistory != null ? List.copyOf(messageHistory) : List.of();
     timestamp = Objects.requireNonNullElseGet(timestamp, Instant::now);
   }
@@ -91,8 +98,8 @@ public record DefaultMessage<T>(
   }
 
   @Override
-  public long getTimestamp() {
-    return timestamp.toEpochMilli();
+  public Instant getTimestamp() {
+    return timestamp;
   }
 
   @Override
@@ -146,11 +153,6 @@ public record DefaultMessage<T>(
   }
 
   @Override
-  public boolean isLastInSequence() {
-    return sequenceSize > 0 && sequenceNumber == sequenceSize;
-  }
-
-  @Override
   public int getPriority() {
     return priority;
   }
@@ -187,178 +189,78 @@ public record DefaultMessage<T>(
 
   @Override
   public Message<T> withAddedHistory(final String nodeId) {
-    final List<String> newHistory = new ArrayList<>(messageHistory);
-    newHistory.add(nodeId);
-    return new DefaultMessage<>(
-        id,
-        traceId,
-        correlationId,
-        replyTo,
-        expiration,
-        formatIndicator,
-        metadata,
-        newHistory,
-        sequenceId,
-        sequenceNumber,
-        sequenceSize,
-        priority,
-        controlMessage,
-        origDest,
-        failureReason,
-        exceptionDetail,
-        retryCount,
-        payload,
-        timestamp,
-        sourcePort,
-        sourceNodeId,
-        workflowId);
+    final int size = messageHistory.size();
+    final List<String> tail = messageHistory.subList(Math.max(0, size - (MAX_HISTORY - 1)), size);
+    final String[] history = tail.toArray(new String[tail.size() + 1]);
+    history[tail.size()] = nodeId;
+    return withMessageHistory(List.of(history));
   }
 
   @Override
   public Message<T> withSequence(final String sid, final int pos, final int total) {
-    return new DefaultMessage<>(
-        id,
-        traceId,
-        correlationId,
-        replyTo,
-        expiration,
-        formatIndicator,
-        metadata,
-        messageHistory,
-        sid,
-        pos,
-        total,
-        priority,
-        controlMessage,
-        origDest,
-        failureReason,
-        exceptionDetail,
-        retryCount,
-        payload,
-        timestamp,
-        sourcePort,
-        sourceNodeId,
-        workflowId);
+    return toBuilder().sequenceId(sid).sequenceNumber(pos).sequenceSize(total).build();
   }
 
   @Override
   public Message<T> withControl(final boolean control) {
-    return new DefaultMessage<>(
-        id,
-        traceId,
-        correlationId,
-        replyTo,
-        expiration,
-        formatIndicator,
-        metadata,
-        messageHistory,
-        sequenceId,
-        sequenceNumber,
-        sequenceSize,
-        priority,
-        control,
-        origDest,
-        failureReason,
-        exceptionDetail,
-        retryCount,
-        payload,
-        timestamp,
-        sourcePort,
-        sourceNodeId,
-        workflowId);
+    return withControlMessage(control);
   }
 
   @Override
   public Message<T> withFailure(final String origDest, final String reason, final String detail) {
-    return new DefaultMessage<>(
-        id,
-        traceId,
-        correlationId,
-        replyTo,
-        expiration,
-        formatIndicator,
-        metadata,
-        messageHistory,
-        sequenceId,
-        sequenceNumber,
-        sequenceSize,
-        priority,
-        controlMessage,
-        origDest,
-        reason,
-        detail,
-        retryCount,
-        payload,
-        timestamp,
-        sourcePort,
-        sourceNodeId,
-        workflowId);
-  }
-
-  @Override
-  public Message<T> withRetryCount(final int count) {
-    return new DefaultMessage<>(
-        id,
-        traceId,
-        correlationId,
-        replyTo,
-        expiration,
-        formatIndicator,
-        metadata,
-        messageHistory,
-        sequenceId,
-        sequenceNumber,
-        sequenceSize,
-        priority,
-        controlMessage,
-        origDest,
-        failureReason,
-        exceptionDetail,
-        count,
-        payload,
-        timestamp,
-        sourcePort,
-        sourceNodeId,
-        workflowId);
-  }
-
-  @Override
-  public Message<T> withIncrementedRetry() {
-    return withRetryCount(retryCount + 1);
+    return toBuilder().origDest(origDest).failureReason(reason).exceptionDetail(detail).build();
   }
 
   @Override
   public <R> Message<R> withPayload(final R newPayload) {
-    return new DefaultMessage<>(
-        id,
-        traceId,
-        correlationId,
-        replyTo,
-        expiration,
-        formatIndicator,
-        metadata,
-        messageHistory,
-        sequenceId,
-        sequenceNumber,
-        sequenceSize,
-        priority,
-        controlMessage,
-        origDest,
-        failureReason,
-        exceptionDetail,
-        retryCount,
-        newPayload,
-        timestamp,
-        sourcePort,
-        sourceNodeId,
-        workflowId);
+    return DefaultMessage.<R>builder()
+        .id(id)
+        .traceId(traceId)
+        .correlationId(correlationId)
+        .replyTo(replyTo)
+        .expiration(expiration)
+        .formatIndicator(formatIndicator)
+        .metadata(metadata)
+        .messageHistory(messageHistory)
+        .sequenceId(sequenceId)
+        .sequenceNumber(sequenceNumber)
+        .sequenceSize(sequenceSize)
+        .priority(priority)
+        .controlMessage(controlMessage)
+        .origDest(origDest)
+        .failureReason(failureReason)
+        .exceptionDetail(exceptionDetail)
+        .retryCount(retryCount)
+        .payload(newPayload)
+        .timestamp(timestamp)
+        .sourcePort(sourcePort)
+        .sourceNodeId(sourceNodeId)
+        .workflowId(workflowId)
+        .build();
   }
 
   @Override
   public Message<T> withHeader(final String key, final Object value) {
-    final Map<String, Object> newMetadata = new ConcurrentHashMap<>(metadata);
-    newMetadata.put(key, value);
+    Objects.requireNonNull(key, "header key must not be null");
+    final Map<String, Object> newMetadata = new HashMap<>(metadata);
+    if (value == null) {
+      newMetadata.remove(key);
+    } else {
+      newMetadata.put(key, value);
+    }
     return withMetadata(newMetadata);
+  }
+
+  private static Map<String, Object> copyWithoutNulls(final Map<String, Object> source) {
+    if (source == null || source.isEmpty()) {
+      return Map.of();
+    }
+    if (source.values().stream().noneMatch(Objects::isNull)) {
+      return Map.copyOf(source);
+    }
+    final Map<String, Object> copy = new HashMap<>(source);
+    copy.values().removeIf(Objects::isNull);
+    return Map.copyOf(copy);
   }
 
   /**
@@ -370,29 +272,30 @@ public record DefaultMessage<T>(
    * @return a new message
    */
   public static <T> DefaultMessage<T> from(final Message<?> original, final T newPayload) {
-    return new DefaultMessage<>(
-        original.getMessageId(),
-        original.getTraceId(),
-        original.getCorrelationId(),
-        original.getReplyTo(),
-        original.getExpiration(),
-        original.getFormatIndicator(),
-        original.getMetadata(),
-        original.getMessageHistory(),
-        original.getSequenceId(),
-        original.getSequenceNumber(),
-        original.getSequenceSize(),
-        original.getPriority(),
-        original.isControlMessage(),
-        original.getOrigDest(),
-        original.getFailureReason(),
-        original.getExceptionDetail(),
-        original.getRetryCount(),
-        newPayload,
-        Instant.ofEpochMilli(original.getTimestamp()),
-        original.getSourcePort(),
-        original.getSourceNodeId(),
-        original.getWorkflowId());
+    return DefaultMessage.<T>builder()
+        .id(original.getMessageId())
+        .traceId(original.getTraceId())
+        .correlationId(original.getCorrelationId())
+        .replyTo(original.getReplyTo())
+        .expiration(original.getExpiration())
+        .formatIndicator(original.getFormatIndicator())
+        .metadata(original.getMetadata())
+        .messageHistory(original.getMessageHistory())
+        .sequenceId(original.getSequenceId())
+        .sequenceNumber(original.getSequenceNumber())
+        .sequenceSize(original.getSequenceSize())
+        .priority(original.getPriority())
+        .controlMessage(original.isControlMessage())
+        .origDest(original.getOrigDest())
+        .failureReason(original.getFailureReason())
+        .exceptionDetail(original.getExceptionDetail())
+        .retryCount(original.getRetryCount())
+        .payload(newPayload)
+        .timestamp(original.getTimestamp())
+        .sourcePort(original.getSourcePort())
+        .sourceNodeId(original.getSourceNodeId())
+        .workflowId(original.getWorkflowId())
+        .build();
   }
 
   /**
