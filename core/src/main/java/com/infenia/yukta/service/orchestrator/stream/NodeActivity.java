@@ -5,8 +5,9 @@ package com.infenia.yukta.service.orchestrator.stream;
 import java.time.Duration;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BooleanSupplier;
+import org.jspecify.annotations.Nullable;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Scheduler;
@@ -42,6 +43,12 @@ public final class NodeActivity {
   /** Clock reading of the latest activity, or {@link #NONE}. */
   private volatile long lastTouch = NONE;
 
+  /** Clock reading of the first activity, or {@link #NONE}. Starts the node deadline. */
+  private volatile long firstTouch = NONE;
+
+  /** Idle timeout set once the first input is known, in nanoseconds; 0 keeps the one given. */
+  private volatile long retimed;
+
   /** Creates a clock that reads time from the parallel scheduler. */
   public NodeActivity() {
     this(Schedulers.parallel());
@@ -53,7 +60,21 @@ public final class NodeActivity {
 
   /** Records activity: restarts the idle clock. Safe to call from any thread. */
   public void touch() {
-    lastTouch = clock.now(TimeUnit.NANOSECONDS);
+    final long now = clock.now(TimeUnit.NANOSECONDS);
+    if (firstTouch == NONE) {
+      firstTouch = now;
+    }
+    lastTouch = now;
+  }
+
+  /**
+   * Replaces the idle timeout once the first input is known, for a timeout that depends on it. The
+   * time already counted is kept.
+   *
+   * @param timeout the new idle timeout
+   */
+  public void retime(final Duration timeout) {
+    retimed = timeout.toNanos();
   }
 
   /**
@@ -72,17 +93,77 @@ public final class NodeActivity {
       final Duration timeout,
       final Scheduler scheduler,
       final BooleanSupplier paused) {
+    return guard(source, timeout, null, scheduler, paused);
+  }
+
+  /**
+   * Guards a stream with the idle timeout and, if given, a deadline: it fails with a {@link
+   * TimeoutException} once the node has run for {@code deadline} since its first activity. Unlike
+   * the idle timeout the deadline is not restarted by activity or heartbeats; paused time does not
+   * count towards it.
+   *
+   * @param source the stream to guard
+   * @param timeout the idle time that triggers the timeout
+   * @param deadline the longest the node may run, or null for no deadline
+   * @param scheduler the scheduler that runs the periodic checks
+   * @param paused tells whether the clocks must hold
+   * @param <T> the element type
+   * @return {@code source}, failing with a TimeoutException when idle or out of time
+   */
+  public <T> Flux<T> guard(
+      final Flux<T> source,
+      final Duration timeout,
+      @Nullable final Duration deadline,
+      final Scheduler scheduler,
+      final BooleanSupplier paused) {
     return Flux.defer(
         () -> {
-          final AtomicBoolean expired = new AtomicBoolean();
+          final AtomicReference<String> expired = new AtomicReference<>();
+          final Mono<Long> idle =
+              idle(timeout, scheduler, paused)
+                  .doOnNext(_ -> expired.set("Node idle for " + Duration.ofNanos(limit(timeout))));
+          final Mono<Long> stop =
+              deadline == null
+                  ? idle
+                  : Mono.firstWithSignal(
+                      idle,
+                      deadline(deadline, scheduler, paused)
+                          .doOnNext(_ -> expired.set("Node exceeded its deadline of " + deadline)));
           return source
-              .takeUntilOther(idle(timeout, scheduler, paused).doOnNext(_ -> expired.set(true)))
+              .takeUntilOther(stop)
               .concatWith(
                   Mono.defer(
                       () ->
-                          expired.get()
-                              ? Mono.error(new TimeoutException("Node idle for " + timeout))
-                              : Mono.empty()));
+                          expired.get() == null
+                              ? Mono.empty()
+                              : Mono.error(new TimeoutException(expired.get()))));
+        });
+  }
+
+  private long limit(final Duration timeout) {
+    final long override = retimed;
+    return override > 0 ? override : timeout.toNanos();
+  }
+
+  /**
+   * Emits once the node has run for {@code deadline} outside pauses, counted from its first touch.
+   */
+  /* default */ Mono<Long> deadline(
+      final Duration deadline, final Scheduler scheduler, final BooleanSupplier paused) {
+    return Mono.defer(
+        () -> {
+          final long limit = deadline.toNanos();
+          final long tick = Math.max(MIN_TICK_NANOS, limit / TICKS);
+          final long[] running = {0};
+          return Flux.interval(Duration.ofNanos(tick), scheduler)
+              .filter(
+                  _ -> {
+                    if (firstTouch != NONE && !paused.getAsBoolean()) {
+                      running[0] += tick;
+                    }
+                    return running[0] >= limit;
+                  })
+              .next();
         });
   }
 
@@ -94,12 +175,11 @@ public final class NodeActivity {
       final Duration timeout, final Scheduler scheduler, final BooleanSupplier paused) {
     return Mono.defer(
         () -> {
-          final long limit = timeout.toNanos();
-          final long tick = Math.max(MIN_TICK_NANOS, limit / TICKS);
+          final long tick = Math.max(MIN_TICK_NANOS, timeout.toNanos() / TICKS);
           // [0] the activity stamp already counted, [1] idle nanoseconds counted so far
           final long[] counted = {NONE, 0};
           return Flux.interval(Duration.ofNanos(tick), scheduler)
-              .filter(_ -> expired(counted, tick, limit, paused))
+              .filter(_ -> expired(counted, tick, limit(timeout), paused))
               .next();
         });
   }

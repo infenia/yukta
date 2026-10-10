@@ -57,7 +57,7 @@ class NodeStreamsTest {
       final BooleanSupplier paused,
       final Duration timeout) {
     return NodeStreams.withTimeoutAndTracking(
-        node, timeout, tracker, EXEC, source, activity, paused);
+        node, timeout, tracker, EXEC, source, activity, paused, null);
   }
 
   private void expectStatus(final TaskStatus status, final int times) {

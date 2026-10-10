@@ -24,6 +24,7 @@ import com.infenia.yukta.plugin.store.NodeCheckpointStore;
 import com.infenia.yukta.service.archive.ExecutionArchive;
 import com.infenia.yukta.service.control.ExecutionControl;
 import com.infenia.yukta.service.control.ExecutionScheduler;
+import com.infenia.yukta.service.control.QueueTimeoutException;
 import com.infenia.yukta.service.control.factory.ExecutionControlFactory;
 import com.infenia.yukta.service.control.store.ExecutionControlRegistry;
 import com.infenia.yukta.service.log.ExecutionLogEvent;
@@ -594,6 +595,45 @@ class WorkflowOrchestratorTest {
 
     verify(tracker).emitWorkflowStatusEvent("e-queued", TaskStatus.RUNNING);
     assertThat(limited.running()).isZero();
+  }
+
+  @Test
+  void execute_endsTimedOutWhenItWaitedTooLongInTheQueue() {
+    final ExecutionScheduler limited =
+        new ExecutionScheduler(
+            1,
+            0,
+            10,
+            ExecutionScheduler.OnLimit.QUEUE,
+            Duration.ofSeconds(30),
+            Duration.ofMillis(50));
+    final WorkflowOrchestrator queued =
+        new WorkflowOrchestrator(
+            tracker,
+            executionControlRegistry,
+            executionControlFactory,
+            checkpointStore,
+            executionArchive,
+            executionLog,
+            limited,
+            compiler,
+            preparator);
+    limited.acquire("s", "w").permit().block();
+    final PreparedWorkflow prepared = buildPreparedWorkflow(List.of("n1"));
+    lenient()
+        .when(executionControlFactory.create(anyString(), anyString(), anyString(), any(), any()))
+        .thenReturn(executionControl);
+    lenient().when(executionControl.safeStopSink()).thenAnswer(inv -> Sinks.one());
+    lenient().when(executionControl.stopRequested()).thenAnswer(inv -> new AtomicBoolean());
+    when(tracker.startWorkflow(anyString(), anyString(), anyString(), anyList()))
+        .thenReturn(Mono.empty());
+    when(tracker.finishWorkflow(anyString(), any())).thenReturn(Mono.empty());
+
+    StepVerifier.create(queued.execute("s", "w", "e-late", prepared, Map.of()))
+        .expectError(QueueTimeoutException.class)
+        .verify(Duration.ofSeconds(5));
+
+    verify(tracker).finishWorkflow("e-late", TaskStatus.TIMED_OUT);
   }
 
   @Test

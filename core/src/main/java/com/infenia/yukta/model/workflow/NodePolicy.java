@@ -17,7 +17,8 @@ import java.util.Set;
  *   "retry":   { "maxAttempts": 3, "backoffMs": 200, "maxBackoffMs": 5000 },
  *   "onError": "ROUTE",
  *   "trigger": "ALL_DONE",
- *   "elementTimeoutMs": 20000
+ *   "elementTimeoutMs": 20000,
+ *   "deadlineMs": 600000
  * }
  * }</pre>
  *
@@ -34,16 +35,24 @@ import java.util.Set;
  *   <li>{@code elementTimeoutMs} (processors): longest time the plugin may take to answer for one
  *       message; it counts as a failure, so {@code retry} and {@code onError} apply. Off by
  *       default.
+ *   <li>{@code deadlineMs} (any node): longest the node may run, counted from its first activity.
+ *       Unlike the idle timeout it is not restarted by output or heartbeats; paused time does not
+ *       count. Off by default.
  * </ul>
  *
  * @param retry the retry policy, or null for none
  * @param onError what to do with a message that still fails
  * @param trigger how a failing parent affects this node
  * @param elementTimeout longest time for one message, or null for none
+ * @param deadline longest time the node may run, or null for none
  */
 @SuppressWarnings({"PMD.OnlyOneReturn", "PMD.AvoidDuplicateLiterals"})
 public record NodePolicy(
-    @Nullable Retry retry, OnError onError, JoinRule trigger, @Nullable Duration elementTimeout) {
+    @Nullable Retry retry,
+    OnError onError,
+    JoinRule trigger,
+    @Nullable Duration elementTimeout,
+    @Nullable Duration deadline) {
 
   /** Config key that holds the policy. */
   public static final String CONFIG_KEY = "engine";
@@ -53,10 +62,11 @@ public record NodePolicy(
 
   /** No retry, fail on error, fail when a parent fails. */
   public static final NodePolicy DEFAULT =
-      new NodePolicy(null, OnError.FAIL, JoinRule.ALL_SUCCESS, null);
+      new NodePolicy(null, OnError.FAIL, JoinRule.ALL_SUCCESS, null, null);
 
   /** Options accepted in the {@code engine} object. */
-  private static final Set<String> KEYS = Set.of("retry", "onError", "trigger", "elementTimeoutMs");
+  private static final Set<String> KEYS =
+      Set.of("retry", "onError", "trigger", "elementTimeoutMs", "deadlineMs");
 
   /** Options accepted in the {@code retry} object. */
   private static final Set<String> RETRY_KEYS = Set.of("maxAttempts", "backoffMs", "maxBackoffMs");
@@ -69,6 +79,22 @@ public record NodePolicy(
 
   /** Default upper bound for the retry delay. */
   private static final long DEFAULT_MAX_BACKOFF_MS = 10_000;
+
+  /**
+   * Creates a policy without a deadline.
+   *
+   * @param retry the retry policy, or null for none
+   * @param onError what to do with a message that still fails
+   * @param trigger how a failing parent affects this node
+   * @param elementTimeout longest time for one message, or null for none
+   */
+  public NodePolicy(
+      @Nullable final Retry retry,
+      final OnError onError,
+      final JoinRule trigger,
+      @Nullable final Duration elementTimeout) {
+    this(retry, onError, trigger, elementTimeout, null);
+  }
 
   /**
    * Creates a policy without an element timeout.
@@ -131,20 +157,21 @@ public record NodePolicy(
         engine.containsKey("retry") ? parseRetry(asMap(engine.get("retry"), "retry")) : null,
         parseEnum(engine.get("onError"), OnError.class, "onError", OnError.FAIL),
         parseEnum(engine.get("trigger"), JoinRule.class, "trigger", JoinRule.ALL_SUCCESS),
-        parseElementTimeout(engine.get("elementTimeoutMs")));
+        parseMillis(engine.get("elementTimeoutMs"), "engine.elementTimeoutMs"),
+        parseMillis(engine.get("deadlineMs"), "engine.deadlineMs"));
   }
 
   @Nullable
-  private static Duration parseElementTimeout(@Nullable final Object value) {
+  private static Duration parseMillis(@Nullable final Object value, final String name) {
     if (value == null) {
       return null;
     }
     if (value instanceof Number given && given.doubleValue() != Math.rint(given.doubleValue())) {
-      throw new IllegalArgumentException("engine.elementTimeoutMs must be a whole number");
+      throw new IllegalArgumentException(name + " must be a whole number");
     }
-    final long millis = number(value, "engine.elementTimeoutMs", 0);
+    final long millis = number(value, name, 0);
     if (millis <= 0) {
-      throw new IllegalArgumentException("engine.elementTimeoutMs must be positive");
+      throw new IllegalArgumentException(name + " must be positive");
     }
     return Duration.ofMillis(millis);
   }

@@ -3,6 +3,7 @@
 package com.infenia.yukta.service.orchestrator.strategy;
 
 import com.infenia.yukta.message.Message;
+import com.infenia.yukta.model.workflow.NodePolicy;
 import com.infenia.yukta.model.workflow.WorkflowNode;
 import com.infenia.yukta.plugin.core.Plugin;
 import com.infenia.yukta.service.control.ExecutionControl;
@@ -58,7 +59,8 @@ class StreamAssemblyHelper {
             context.executionId(),
             stream,
             activity,
-            () -> control.isPaused(node.nodeId()));
+            () -> control.isPaused(node.nodeId()),
+            NodePolicy.from(node.config()).deadline());
 
     built =
         withPluginLifecycle(
