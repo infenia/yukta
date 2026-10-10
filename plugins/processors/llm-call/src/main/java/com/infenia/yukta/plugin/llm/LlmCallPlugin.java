@@ -43,6 +43,12 @@ import reactor.util.retry.Retry;
 @RequiredArgsConstructor
 public class LlmCallPlugin implements ProcessorPlugin {
 
+  /** Extra time the node gets beyond the attempts, in seconds. */
+  private static final long MARGIN_SECONDS = 5L;
+
+  /** Retries counted when sizing the node timeout, which keeps the backoff term bounded. */
+  private static final long MAX_RETRIES_COUNTED = 10L;
+
   private static final String TYPE = "LLM_CALL";
   private static final String PROVIDER = "provider";
   private static final String MODEL = "model";
@@ -111,6 +117,27 @@ public class LlmCallPlugin implements ProcessorPlugin {
     - on failure (CONTINUE): the input payload passes through; metadata llmSuccess=false and
       llmError hold the failure
     """;
+  }
+
+  /**
+   * The node timeout covers every attempt: each may take the call timeout, with the retry backoff
+   * between them.
+   *
+   * @param config the node configuration
+   * @return the time all attempts may take, plus a margin
+   */
+  @Override
+  public Duration getDefaultTimeout(final Map<String, Object> config) {
+    final long seconds =
+        config.get(TIMEOUT) instanceof final Number number && number.longValue() > 0
+            ? number.longValue()
+            : DEFAULT_TIMEOUT_SECONDS;
+    final long retries =
+        config.get(RETRIES_KEY) instanceof final Number number && number.longValue() > 0
+            ? Math.min(number.longValue(), MAX_RETRIES_COUNTED)
+            : 0;
+    return Duration.ofSeconds((seconds + 1) * (retries + 1) + MARGIN_SECONDS)
+        .plus(RETRY_BACKOFF.multipliedBy(1L << retries));
   }
 
   @Override

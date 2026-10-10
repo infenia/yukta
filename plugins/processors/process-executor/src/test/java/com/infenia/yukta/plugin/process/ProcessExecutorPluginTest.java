@@ -14,6 +14,7 @@ import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
 import com.infenia.yukta.plugin.exception.WorkflowExecutionException;
 import com.infenia.yukta.util.VariableResolver;
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -939,5 +940,20 @@ class ProcessExecutorPluginTest {
     public String getValue() {
       throw new IllegalStateException("boom");
     }
+  }
+
+  @Test
+  void defaultTimeout_followsTheProcessTimeoutPlusMargin() {
+    assertThat(plugin.getDefaultTimeout(Map.of())).isEqualTo(Duration.ofSeconds(330));
+    assertThat(plugin.getDefaultTimeout(Map.of("timeout", 600L)))
+        .isEqualTo(Duration.ofSeconds(660));
+    assertThat(plugin.getDefaultTimeout(Map.of("timeout", 2))).isEqualTo(Duration.ofSeconds(7));
+  }
+
+  @Test
+  void defaultTimeout_ignoresUnusableTimeout() {
+    assertThat(plugin.getDefaultTimeout(Map.of("timeout", -1))).isEqualTo(Duration.ofSeconds(330));
+    assertThat(plugin.getDefaultTimeout(Map.of("timeout", "#{expr}")))
+        .isEqualTo(Duration.ofSeconds(330));
   }
 }
