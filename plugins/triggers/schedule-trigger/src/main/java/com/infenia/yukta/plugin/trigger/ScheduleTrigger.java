@@ -1,0 +1,102 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: 2026 Infenia Private Limited
+package com.infenia.yukta.plugin.trigger;
+
+import com.infenia.yukta.message.DefaultMessage;
+import com.infenia.yukta.message.Message;
+import com.infenia.yukta.plugin.core.PluginDescriptor;
+import com.infenia.yukta.plugin.type.TriggerPlugin;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
+import org.springframework.scheduling.support.CronExpression;
+import org.springframework.stereotype.Component;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+
+/**
+ * Emits a message on a fixed interval or a cron schedule. Config: {@code intervalMs} or {@code
+ * cron} (Spring 6-field cron, optional {@code zone}), plus optional {@code maxRuns}.
+ */
+@Component
+public class ScheduleTrigger implements TriggerPlugin {
+
+  /** Config key: cron expression. */
+  private static final String CRON = "cron";
+
+  /** Config key: fixed interval. */
+  private static final String INTERVAL_MS = "intervalMs";
+
+  /** Config key: emission cap. */
+  private static final String MAX_RUNS = "maxRuns";
+
+  /** Default constructor. */
+  public ScheduleTrigger() {
+    super();
+  }
+
+  @Override
+  public PluginDescriptor describe() {
+    return new PluginDescriptor(
+        "Emits a message repeatedly on a fixed interval or a cron schedule.",
+        "Configure with:\n"
+            + "- intervalMs: fixed delay between runs in milliseconds (first run after one"
+            + " interval).\n"
+            + "- cron: Spring 6-field cron expression (alternative to intervalMs).\n"
+            + "- zone: time zone for cron, default system zone.\n"
+            + "- maxRuns: stop after this many emissions (default unbounded).\n"
+            + "Payload: {tick, firedAt}.",
+        Optional.empty());
+  }
+
+  @Override
+  public String getType() {
+    return "SCHEDULE_TRIGGER";
+  }
+
+  @Override
+  public Mono<Void> validateConfig(final Map<String, Object> config) {
+    return Mono.fromRunnable(() -> schedule(config));
+  }
+
+  @Override
+  public Flux<Message<?>> start(final Map<String, Object> config) {
+    final Flux<Message<?>> messages =
+        schedule(config).index().map(t -> message(t.getT1() + 1, Instant.now()));
+    return config.get(MAX_RUNS) instanceof Number max ? messages.take(max.longValue()) : messages;
+  }
+
+  private static Flux<?> schedule(final Map<String, Object> config) {
+    final Object cron = config.get(CRON);
+    final Object interval = config.get(INTERVAL_MS);
+    if ((cron != null) == (interval != null)) {
+      throw new IllegalArgumentException("Exactly one of 'cron' or 'intervalMs' is required");
+    }
+    final Flux<?> result;
+    if (interval instanceof Number millis) {
+      if (millis.longValue() <= 0) {
+        throw new IllegalArgumentException("'intervalMs' must be positive");
+      }
+      result = Flux.interval(Duration.ofMillis(millis.longValue()));
+    } else {
+      final CronExpression expr = CronExpression.parse(String.valueOf(cron));
+      final ZoneId zone =
+          ZoneId.of(String.valueOf(config.getOrDefault("zone", ZoneId.systemDefault())));
+      result =
+          Flux.defer(() -> Mono.justOrEmpty(expr.next(ZonedDateTime.now(zone))))
+              .flatMap(next -> Mono.delay(Duration.between(ZonedDateTime.now(zone), next)))
+              .repeat();
+    }
+    return result;
+  }
+
+  private static Message<?> message(final long tick, final Instant firedAt) {
+    return DefaultMessage.create(
+            UUID.randomUUID(), Map.of("tick", tick, "firedAt", firedAt.toString()))
+        .withSourcePort("default");
+  }
+}
