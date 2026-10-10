@@ -1,445 +1,301 @@
 # SPDX-License-Identifier: Apache-2.0
 # SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
-# Core Module — Re-review, DAG Pitfall Analysis & Target Design
+# Core Module — Round 3 Review: Verification of Rounds 1–2 and Remaining Findings
 
-> **Round 2** re-review on 2026-10-10 against `main` @ `a26f3dbd` (≈13.3k main lines, 93 test classes).
-> Round 1 (2026-10-09, @ `8d3161b5`) found 36 issues, and most were fixed in commits `4f09c98f` through `c733a3f4`.
-> The full round-1 write-up is in git history: `git show a26f3dbd:core/docs/core-improvements.md`.
-> Companion: [`core-module-guide.html`](core-module-guide.html) is the interactive guide: pitfall matrix,
-> control model, node state machine, and a filterable improvement board.
+> **Round 3** review on 2026-10-10 against `main` @ `813796d8` (≈15.5k main lines, 103 test classes).
+> Round 1 (36 findings) and round 2 (R1–R17, seven phases) are merged. This round verifies each
+> item against the code, then looks again for bugs, efficiency problems and missing best practices.
+> Earlier write-ups are in git history: `git log --follow core/docs/core-improvements.md` (round 1 is also at
+> `git show a26f3dbd:core/docs/core-improvements.md`; round 2 is the revision before this one).
+> Companion: [`core-module-guide.html`](core-module-guide.html), the interactive guide (pipeline,
+> package explorer, control model, state machine, filterable improvement board).
 
-**Goal this document serves:** a DAG-based orchestrator that is *efficient* (streaming, backpressured,
-low overhead), *resilient* (survives slow nodes, failures and restarts, with no silent loss), and
-*controllable* (rich, precise, acknowledged controls that don't fight the engine).
+**How findings were checked.** Every finding below was confirmed by reading the code on `main`.
+Three were also reproduced with throwaway probe tests (since deleted): R18 (event-sink overflow),
+R21 (cost of the activity clock) and the effect of R20 (the `module` tag). Findings marked
+*not reproduced* rest on code reading alone.
 
 ---
 
 ## 1. Verdict
 
-Round 1 fixes landed well:
-- The status model is typed, and control state is separate from lifecycle status.
-- A stop is reported as `STOPPED`.
-- Node broadcast uses `publish()` with real backpressure.
-- The virtual-thread scheduler is fixed, and dead control code is gone.
-- Validation, restart lookup, the plugin registry, history caps and atomic config writes are hardened.
+The round-2 phases landed and the engine is much closer to the goal: streaming is backpressured,
+timeouts are anchored and pause-aware, node outcomes are final and ordered, control is acknowledged
+and FIFO, failures can be retried or routed, runs are durable at start/end and restartable, and
+admission is governed.
 
-The streaming core is now sound.
+This review found **no data-corrupting bug**, but it did find **one reliability bug that can silently
+stop all run tracking (R18)**, **one acceptance criterion from round 2 that is not actually met
+(R19)**, and **one defect in the metrics added in the last phase (R20)**. The rest are efficiency,
+consistency and hardening items.
 
-The second pass looked at **time, failure and control semantics**, which a streaming DAG gets wrong
-most easily. It found five problems, each reproduced against the real classes with a throwaway probe
-test (see §3):
-
-1. **Timeouts are measured from subscription, not from work.** Every node subscribes at start, so a
-   node's 30 s default idle timeout includes the time spent *waiting for its upstream*. Any workflow
-   with a step longer than 30 s fails, including `PROCESS_EXECUTOR` (its own default is 300 s) and
-   `LLM_CALL` (120 s), unless every downstream node sets `timeoutSeconds`. Pausing has the same
-   effect: a pause longer than a downstream node's timeout fails the run.
-2. **Node outcomes are incomplete.** Nodes cancelled by a stop or a sibling failure stay `RUNNING`.
-   Nodes that never ran stay `PENDING`. There's no `CANCELLED`, `SKIPPED`, `UPSTREAM_FAILED` or
-   `TIMED_OUT`.
-3. **Restart-from-node is broken in four ways.**
-   - Checkpoints are keyed by the wrong id, so the restart node receives no input.
-   - It only works while the original run is *still running*, so a failed run can't be restarted.
-   - Only the last message per node is kept.
-   - The cut uses the topological index, so independent branches are re-run with empty input.
-4. **Step mode loses credits.** Two `step` commands sent before an element arrives let **0**
-   elements through. Pause gates the plugin's *output*, so up to 256 in-flight elements are still
-   processed after a pause.
-5. **Control is fire-and-forget.** REST returns 200 when a command is queued, not when it's applied.
-   Commands in the same 50 ms batch are re-sorted by priority, and failures are only logged.
-
-Structurally, the engine still lacks what mature orchestrators treat as basics:
-- per-node retry policies;
-- error-routing and join trigger rules;
-- a durable, ordered execution event log, needed for crash recovery, replay and an exact audit trail;
-- admission control and concurrency limits;
-- graceful drain;
-- definition versioning;
-- metrics and tracing.
-
-### Scorecard (round 1 → round 2)
-
-| Area | R1 | R2 | Notes |
+| Area | R2 score | R3 score | Notes |
 |---|---|---|---|
-| Streaming and backpressure | 3 | **4.5** | `publish()` broadcast connects once all edges subscribe. Fan-out and fan-in are correct |
-| Status model | 2 | **3.5** | Typed and split from control state. Node terminal states are still missing (R3) |
-| Time semantics | — | **1.5** | Timeouts count upstream wait and pause time (R1, R2) |
-| Failure semantics | 2.5 | **2.5** | Fail-fast only. No retry, error port or trigger rules (R8) |
-| Control plane | 2 | **2.5** | Step is wired but loses credits. Skip rejected at runtime. No acks, reordering (R5, R9) |
-| Restart and recovery | 2 | **1.5** | Restart-from-node is broken (R4). Nothing durable (R10) |
-| Resource governance | 2 | **2.5** | Bounded scheduler. No admission or concurrency limits (R11) |
-| Simplicity | 2.5 | **4** | Builders and dead code removed |
-| Observability | 2 | **2** | Logs only (R16) |
+| Streaming and backpressure | 4.5 | **4.5** | Unchanged. Pause still leaks the downstream prefetch (R24) |
+| Status model | 3.5 | **4.5** | Every node ends terminal; ordered events. Event sink can overflow (R18) |
+| Time semantics | 1.5 | **3.5** | Anchored and exactly pause-aware. Plugin defaults and per-element timeouts missing (R19) |
+| Failure semantics | 2.5 | **4** | Retry, error port, join rule. Retry vs idle clock interplay (R26) |
+| Control plane | 2.5 | **4** | Exact step, FIFO, acks, drain. No command id or audit (R25) |
+| Restart and recovery | 1.5 | **3.5** | Correct restart for finished runs. In-memory archive, no resume (R25) |
+| Resource governance | 2.5 | **4** | Limits, queue, idempotent start, graceful stop. Restart bypasses limits (R23) |
+| Simplicity | 4 | **4** | |
+| Observability | 2 | **2.5** | Counters and timers exist but the `module` tag is wrong (R20); no tracing |
 
 ---
 
-## 2. Round-1 findings: status
+## 2. Verification of rounds 1 and 2
 
-All entries were checked in code at `a26f3dbd`.
+### 2.1 Round 2 (R1–R17)
+
+| ID | Finding | Status | Evidence / what is left |
+|---|---|---|---|
+| R1 | Timeouts count upstream wait | ⚠️ **Partly fixed** | Clock is anchored at first input (`NodeActivity`). A single step that is silent for longer than the node timeout (default 30 s) **still fails**; no plugin declares a default (→ R19) |
+| R2 | Pause counts against timeouts | ✅ Fixed | `NodeActivity.delayUnlessPaused` counts unpaused ticks only (exact to 1/20 of the timeout); also used for the run deadline |
+| R3 | Node outcomes never finalised | ✅ Fixed | `CANCELLED`, `TIMED_OUT`, `SKIPPED`, `UPSTREAM_FAILED`, `ABORTED`; `WorkflowState.finalizeTasks` sweeps at run end |
+| R4 | Restart-from-node broken | ✅ Fixed | `ExecutionArchive`, `RestartPlan` (descendants + replayed boundary), all messages per node up to a cap, works for finished and failed runs. A truncated output refuses the restart |
+| R5 | Step loses credits; pause leaks | ⚠️ **Mostly fixed** | Permit-counter valve on the input gate, exact step. Pause still lets the downstream prefetch (32 per-message elements) through (→ R24) |
+| R6 | Events not ordered | ✅ Fixed | One ordered `TrackerEvent` sink with one batched consumer. **But the sink can overflow and die (→ R18)** |
+| R7 | "Safe stop" is a hard cancel | ✅ Fixed | `StopMode` `DRAIN` (default, 30 s) → `CANCEL` → `KILL`. The mode is not selectable from REST/MCP yet (→ R28) |
+| R8 | Fail-fast only | ✅ Fixed | `engine.retry`, `engine.onError` `FAIL/CONTINUE/ROUTE`, `engine.trigger` `ALL_SUCCESS/ALL_DONE`. `ONE_SUCCESS`/`NONE_FAILED_MIN_ONE_SUCCESS` and a dead-letter terminal plugin are not provided |
+| R9 | Control not acked/ordered/idempotent | ⚠️ **Mostly fixed** | Per-execution FIFO (`CommandSequencer`) and an ack that completes when applied. No `commandId` idempotency key and no audit record (→ R25) |
+| R10 | Nothing durable | ⚠️ **Partly fixed** | Run start/end in an `ExecutionLogStore` (memory or JSONL); crash recovery marks `ABORTED`. No node/control events, no resume, archive is in memory (→ R22, R25) |
+| R11 | No admission control (C15) | ✅ Fixed | `ExecutionScheduler` (limits, bounded queue, `QUEUED`, `SmartLifecycle` drain), shared prepare. No priority or `REPLACE` policy. Restart bypasses it (→ R23) |
+| R12 | Validator gaps | ✅ Fixed | Duplicate ids/edges, unknown ports (`error` allowed with `ROUTE`), size limits, Kahn cycle check |
+| R13 | Disposables not thread-safe | ✅ Fixed | `CopyOnWriteArrayList` (chosen over `Disposables.composite()` to avoid changing six signatures) |
+| R14 | No definition versioning | ✅ Fixed | `DefinitionVersion` hash stored per run and logged; restart uses the archived graph. Not exposed in the API (→ R28) |
+| R15 | Starts not idempotent | ✅ Fixed | `Idempotency-Key` with a TTL |
+| R16 | No metrics | ⚠️ **Defective** | Micrometer counters/timers exist but are tagged with the wrong `module` (→ R20); no gauges or tracing |
+| R17 | Remaining round-1 items | ⚠️ Open | See §2.2 and R29 |
+
+### 2.2 Round 1 leftovers
 
 | ID | Finding | Status |
 |---|---|---|
-| C1 | Control status strings crash the tracker | ✅ Fixed: typed `TaskStatus`, separate `ControlState` |
-| C2 | Stop reported as SUCCESS | ✅ Fixed: `STOPPED` |
-| C3 | Two owners of terminal status | ✅ Fixed: orchestrator only |
-| C4 | Duplicate FAILURE | ✅ Fixed: `NodeStreams` |
-| C5 | Runtime skip no-op | ⚠️ Rejected at runtime with a clear error. Skip is now *unavailable* (see R5 and the control model) |
-| C6 | Step mode no-op | ⚠️ Wired to the valve, but credits are lost (R5) |
-| C7 | Terminal timeout no-op | ⚠️ Applied, but with the wrong clock (R1) |
-| C8 | Broadcast bypasses backpressure | ✅ Fixed: `NodeBroadcast` uses `publish(bufferSize)` |
-| C9 | Shared plugin init/shutdown | ✅ Mitigated: no shutdown fan-out; stateless contract documented |
-| C10 | NPE on a bad edge | ✅ Fixed |
-| C11 | Unknown restart node restarts from 0 | ✅ Fixed (but see R4) |
-| C12 | Duplicate plugin types | ✅ Fixed: fail fast |
-| C13 | Tracker memory unbounded | ✅ Fixed: 100 finished runs per session |
-| C14 | Unsafe publication | ✅ Fixed: `volatile` |
-| C15 | Fire-and-forget execution, no graceful shutdown | ❌ **Open** (→ R11) |
-| C16 | Non-atomic config writes | ✅ Fixed: temp file and `ATOMIC_MOVE` |
-| C17 | Stopping twice throws | ✅ Fixed: `tryEmitEmpty` |
-| C18 | Secret blacklist | ✅ Fixed: env/sys only, plus `EnvSecretProvider` |
-| P1 | Fixed virtual pool | ✅ Fixed: `newBoundedElastic` on virtual threads (task queue is unbounded, see R11) |
-| P2 | Idle heartbeat timers | ✅ Deleted |
-| P3 | Payload log echo | ✅ Capped at 2 KB |
-| P4 | Checkpoint per message (`flatMap`) | ⚠️ `concatMap` (ordered). Still only the last message is kept (R4) |
-| P5 | Busy-loop sinks | ❌ Open: `busyLooping(100ms)` is still in the tracker and control bus |
-| P6 | O(N·E) compile scan | ❌ Open (low) |
-| S1–S6, S8–S10 | Typing, dedupe, builders, dead code, docs | ✅ Fixed |
-| S7 | Logging volume | ❌ Open (low) |
-| T1–T3, T5 | Tests | ✅ Added (backpressure and status tests) |
-| T4, T6 | Step/skip end-to-end, concurrent same-type plugins | ❌ Open |
+| C15 | Fire-and-forget execution | ✅ Fixed by `ExecutionScheduler` (graceful stop waits for running permits) |
+| P5 | Busy-loop sinks | ❌ Open: `busyLooping(100 ms)` remains in the tracker, control bus, valve and `NodeActivity` (→ R18, R21) |
+| P6 | O(N·E) compile scan | ❌ Open (low): `WorkflowCompiler` filters all edges per node |
+| S7 | Logging volume | ❌ Open (low): 55 `INFO` call sites in `core/src/main` |
+| T4 | Step/skip end-to-end test | ❌ Open |
+| T6 | Concurrent same-type plugin test | ❌ Open |
 
 ---
 
-## 3. New findings (round 2)
+## 3. New findings (round 3)
 
-Severity: **P0** breaks normal workflows · **P1** wrong results or feature broken · **P2** should fix ·
-**P3** clean-up. ✔ means it was reproduced against the real classes with a throwaway probe test (since
-deleted). The probe printed the results quoted below.
+Severity: **P0** breaks normal workflows · **P1** wrong results, feature broken, or silent failure ·
+**P2** should fix · **P3** clean-up. ✔ means reproduced with a probe test.
 
-### R1 · P0 · Node timeouts include upstream wait time ✔
-- **Where:** `NodeStreams.withTimeoutAndTracking` → `source.timeout(timeout)` on every processor's
-  output. `TerminalNodeAssemblerStrategy` → `safeInput.timeout(timeout)`. The default is
-  `Plugin.getDefaultTimeout()` = 30 s, and **no plugin overrides it**.
-- **Mechanism:** Every node subscribes when the run starts (the connectors run before any data
-  flows). `Flux.timeout(d)` also limits the wait for the *first* element. A downstream node's first
-  output can't appear before its upstream finishes, so its clock is running the whole time.
-- **Probe:** a node with a 1 s timeout over an upstream that takes 2 s → `TimeoutException` at 1 s.
-- **Impact:** Any workflow with a step longer than 30 s fails, even though `PROCESS_EXECUTOR`
-  advertises a 300 s timeout and `LLM_CALL` 120 s. The run is reported as `FAILURE` with a
-  misleading timeout on the wrong node.
-- **Fix (timer model, see §5.3):**
-  - **Processing timeout:** time from receiving an input element to the matching output (or
-    completion). Use `flatMap`/`concatMap` per element with `.timeout(...)` for per-message plugins.
-    For stream-shaped plugins, start the clock on the *first input*.
-  - **Idle timeout:** off by default. When set, it starts after the first input.
-  - **Node deadline:** the total wall-clock limit for a node, counted from its first input.
-  - Plugins declare realistic defaults: process-executor uses its configured `timeout` + 10 %;
-    llm-call uses its `timeout × retries`.
-
-### R2 · P1 · Pause counts against timeouts ✔
-- **Where:** Pause (`ReactiveControlValve`, `filterWhen`) holds elements. Downstream `.timeout()` and
-  the run-level `ExecutionResources` `timeout(sessionTimeout)` keep counting.
-- **Probe:** a paused parent made its child time out after 1 s.
-- **Impact:** Any pause longer than the smallest downstream timeout fails the workflow, so pause is
-  unsafe to use.
-- **Fix:** Pause-aware clocks. Timeouts subtract time spent paused, or are suspended while
-  `globalPauseValve` or an upstream valve is closed. Simplest: the run's `ControlState` exposes
-  `pausedNanos`, and timeout operators use a custom `Mono.delay` that waits again while paused.
-
-### R3 · P1 · Node outcomes are never finalised ✔
-- **Where:** `NodeStreams` emits `RUNNING` (subscribe), `SUCCESS` (complete) and `FAILURE` (error)
-  only. There's no `doOnCancel`. `finishWorkflow` doesn't sweep node states. `TaskStatus` has
-  `PENDING, RUNNING, SUCCESS, FAILURE, ERROR, STOPPED`.
-- **Probe:** after the subscription was cancelled, the only status emitted was `RUNNING`.
-- **Impact:** After a stop, a timeout or a sibling failure, the UI shows nodes running forever.
-  Nodes that never received input stay `PENDING` (they should be `SKIPPED`/`UPSTREAM_FAILED`).
-- **Fix:** A node state machine (§5.2): `doOnCancel` → `CANCELLED`, timeout → `TIMED_OUT`, upstream
-  failure → `UPSTREAM_FAILED`, no input on any edge → `SKIPPED`. A final sweep in `runTracked`
-  marks any non-terminal node from the run's outcome.
-
-### R4 · P1 · Restart-from-node is broken in four ways ✔ (keying)
-1. **Wrong checkpoint key.** `RestartFromNodeCommandProcessor` does
-   `collectMap(Message::getSourceNodeId, …)`. A checkpoint saved by node B has
-   `sourceNodeId = B's parent`, because edge routing stamps the *incoming* edge's source and
-   plugins keep it. The orchestrator looks the checkpoint up by B's id, finds nothing, and replays
-   `Flux.empty()`.
-   - **Probe:** the checkpoint saved by B had `sourceNodeId=A`.
-   - The unit test mocks `getSourceNodeId()` to return the parent id, which hides the bug.
-   - **Fix:** key by the `parentNodeId` already in scope.
-2. **Only running executions can be restarted.** The processor looks up
-   `registry.findByExecutionId(...)`, but finished runs are unregistered. `runTracked.doFinally`
-   also clears their checkpoints. The most common reason to restart, *a failed run*, is
-   impossible.
-3. **Only the last message per node is kept.** `NodeCheckpointStore` overwrites the entry, so a
-   splitter's or trigger's earlier messages are lost on restart.
-4. **The cut uses topological index, not ancestry.** Every node before the restart index is
-   bypassed and every node after it is re-run. Independent branches after the index run again
-   (repeating side effects) and get `Flux.empty()` from their bypassed parents.
-- **Fix:** see §5.4: a durable per-edge output log kept for N days, and a restart plan computed as
-  *descendants(restartNode)* plus boundary edges replayed from the log. This is how Airflow's
-  "clear downstream" and Temporal's reset work.
-
-### R5 · P1 · Step mode loses credits; pause leaks in-flight work ✔ (step)
-- **Where:** `ReactiveControlValve.allowPassage` captures `stepCounter` when each element arrives
-  and waits for a *greater* value. Steps sent earlier are not banked.
-- **Probe:** with steps requested = 2, elements passed = 0.
-- **Also:** Valves run in `applyPostProcessingControls` (after the plugin) with `filterWhen`, which
-  prefetches 256 elements. So "pause" lets the plugin keep processing, with its side effects, until
-  the prefetch is used up. Skip is rejected at runtime, so there's no way left to bypass a node.
-- **Fix:** The valve becomes a **permit counter** (`AtomicLong credits`; `step(n)` adds n, `resume`
-  sets it to unbounded). Gate the **input** with a demand-limited operator (`limitRate(1)` plus a
-  `Mono` that waits for a permit). Pause then stops *pulling* (true backpressure), and step `n`
-  releases exactly n elements.
-
-### R6 · P1 · Task and workflow events are not ordered relative to each other
-- **Where:** `DefaultTaskTrackerService` has separate `taskStatusSink`, `wfStatusSink` and `logSink`,
-  each batching independently (`bufferTimeout(100, 50ms)` on `Schedulers.parallel()`).
-  `getStatusStream` ends at the first terminal workflow event (`takeUntil`).
-- **Impact:** The terminal workflow event can be processed before the last node's `SUCCESS`, so
-  the SSE stream closes and clients never see the final node state. The run then looks finished
-  with a node still running. Log lines can also arrive after the stream closes.
-- **Fix:** A single per-execution **ordered event log** (`seq`, `type`, `nodeId`, `status`, `ts`)
-  that every producer appends to, with one consumer. Streams end only after the `RUN_FINISHED` event
-  *and* everything before it have been delivered. This is also the basis for R10.
-
-### R7 · P1 · "Safe stop" is a hard cancel
-- **Where:** `runTracked` → `Mono.firstWithSignal(execution, safeStopSink → STOPPED)`. When the stop
-  wins, the whole execution subscription is cancelled at once. `StopWorkflowCommand` documents "safe
-  stop: inflight work drains".
-- **Impact:** In-flight work (a running process, an HTTP call) is killed mid-way, and there's no
-  drain option.
-- **Fix:** Three explicit modes (§5.1):
-  - `DRAIN`: stop the triggers, let in-flight elements finish, with a deadline;
-  - `CANCEL`: cancel subscriptions, letting plugins clean up;
-  - `KILL`: dispose immediately.
-  The default is `DRAIN` with a 30 s deadline, then `CANCEL`.
-
-### R8 · P1 · Failure handling is fail-fast only
-- **Where:** `Flux.merge` in `mergeParentStreams` errors (and cancels siblings) on the first parent
-  error. There's no engine-level retry. Retries exist only inside individual plugins. There's no
-  error port, no join trigger rules, and no compensation.
-- **Impact:** One flaky HTTP call fails a 40-node run. Fan-in can't express "continue if one branch
-  fails". A branch failure can't be handled downstream.
-- **Fix (§4 pitfalls 7–9):** Per-node `retry` policy (max attempts, exponential backoff with jitter,
-  retryable error classes; `Retry.backoff(...)`), plus per-node `onError` of
-  `FAIL | CONTINUE | ROUTE(port "error")`, plus per-join `trigger` of
-  `ALL_SUCCESS | NONE_FAILED_MIN_ONE_SUCCESS | ALL_DONE | ONE_SUCCESS`. Use `Flux.mergeDelayError`
-  where the trigger rule tolerates failures.
-
-### R9 · P1 · Control commands aren't acknowledged, ordered or idempotent
-- **Where:** `ControlBusService.emit` succeeds when the command is queued, so REST returns 200
-  before anything is applied. `handleControlBatch` **sorts each batch by priority**, which reorders
-  commands sent within 50 ms of each other, for example `pause` and then `resume`. Processor errors
-  (such as "node not pausable") are logged and swallowed. The gateway's "execution exists" check
-  happens before the command is queued and isn't re-checked when it's applied.
-- **Fix:** A per-execution serialised command queue (`groupBy(executionId).concatMap(...)`, keeping
-  the order in which commands arrived). Requests carry a `commandId` (idempotency key). The caller
-  gets a `CommandResult` (`APPLIED | REJECTED(reason) | NOOP`) once the command is applied, with a
-  timeout. Every command and result is appended to the execution event log (R6) for audit.
-
-### R10 · P1 · Nothing is durable, so a crash loses every running and finished run
-- **Where:** The tracker, `ExecutionControlRegistry`, checkpoints, status history and (by default)
-  definitions and sessions are all in memory.
-- **Impact:** After a JVM restart, running executions vanish with no record, and history is gone.
-  You can't resume, audit or debug.
-- **Fix:** An append-only execution event log (§5.5). Start with an embedded store (SQLite or H2 in
-  file mode, or JSONL per execution). On boot, recovery marks orphaned runs `ABORTED`. Phase 2 adds
-  optional resume from the last checkpoint.
-
-### R11 · P2 · No admission control, concurrency limits or graceful shutdown (round-1 C15)
-- **Where:** `DefaultControlBusGateway.prepareAndExecute` does `execute(...).subscribe()` and drops
-  the `Disposable`. The virtual scheduler's task queue is `Integer.MAX_VALUE`. There's no limit per
-  workflow, session or server, no queue, and no priority. Concurrent starts of an uncached workflow
-  prepare it twice (cache stampede).
+### R18 · P1 · The tracker's event sink can overflow and permanently stop all tracking ✔
+- **Where:** `DefaultTaskTrackerService.eventSink` is `Sinks.many().multicast().onBackpressureBuffer(4096, false)`
+  and receives **every** task, workflow *and log* event through
+  `emitNext(…, busyLooping(100 ms))`. `ControlBusService.controlSink` is the same pattern with a
+  256-slot buffer.
+- **Mechanism:** If producers outrun the single consumer, the buffer fills. `emitNext` then spins
+  for up to 100 ms on the producer thread and, on overflow, **terminates the sink with
+  `OverflowException`**. The consumer chain ends with `.subscribe()` and no error handler, so the
+  error is dropped. After that every `tryEmitNext` returns `FAIL_TERMINATED`.
+- **Probe:** a consumer blocked while 20 000 events were emitted → the consumer received
+  `OverflowException: Backpressure overflow during Sinks.Many#emitNext`, and the next
+  `tryEmitNext` returned `FAIL_TERMINATED`.
+- **Impact:** A chatty plugin (for example a process printing thousands of lines per second) can
+  kill progress, status and SSE for **every** run until the JVM restarts, with no error visible to
+  callers. Log lines (low value) share the queue with state transitions (critical).
 - **Fix:**
-  - An `ExecutionScheduler` with a global semaphore plus per-workflow `maxConcurrentRuns` and a
-    `QUEUE | REJECT | REPLACE` policy;
-  - `PENDING → QUEUED → RUNNING` statuses;
-  - keep the `Disposable` and drain in-flight runs in a `SmartLifecycle.stop()`;
-  - `Mono.cache()` the prepare per key to stop the stampede.
+  - Send log lines through a separate bounded path with `tryEmitNext` and a counted drop; never let
+    them compete with state events.
+  - Give state events an unbounded queue (`Queues.unbounded()`) or a bounded one that applies
+    back-pressure to the *caller*, not the sink.
+  - Add an error handler to every long-lived `subscribe()` that logs and resubscribes.
+  - Expose a `yukta.tracker.dropped` counter and a queue-depth gauge.
 
-### R12 · P2 · Validator gaps
-- **Duplicate `nodeId`s** pass validation, then fail in the topological sort with the misleading
-  message "contains cycles or is invalid".
-- **Duplicate edges** (A→B twice) are accepted, and B then receives every message twice.
-- **Edge `sourcePort`** isn't checked against the source plugin's `getOutputPorts(config)`. A typo
-  creates a silently dead edge: the downstream node completes with no input.
-- There are no limits on graph size (nodes, edges, fan-out), which is a denial-of-service risk.
-- `hasCycles` uses recursive DFS (a `StackOverflowError` on deep graphs) and duplicates Kahn's
-  algorithm in `TopologicalSortService`.
-- **Fix:** Add explicit checks with precise messages. Use the Kahn result for the cycle check.
+### R19 · P1 · A single long step still hits the 30 s timeout; no plugin declares its own default
+- **Where:** `WorkflowCompiler.getNodeTimeout` uses `timeoutSeconds` or `plugin.getDefaultTimeout()`;
+  a grep shows **no plugin overrides** `getDefaultTimeout()` (`process-executor` advertises 300 s
+  in its own config, `llm-call` 120 s). The idle clock is `touch()`ed on input and output only.
+- **Impact:** Round 2's acceptance test "a 60 s process step followed by a terminal succeeds with
+  default config" is **not met** for a process that stays silent for more than 30 s. Round 2 only
+  stopped counting the *upstream wait*. *Not reproduced.*
+- **Fix (in this order):**
+  1. Plugins declare realistic defaults: `process-executor` = configured `timeout` + margin;
+     `llm-call` = `timeout × (retries + 1)`; `http-request` = its `timeout`.
+  2. A per-element processing timeout for per-message nodes, separate from idle.
+  3. A `heartbeat()` call on the plugin context that resets the idle clock (long streams, progress).
+  4. A node `deadline` (wall clock from first input), off by default.
 
-### R13 · P2 · The disposables list isn't thread-safe
-- **Where:** The `disposables` list is an `ArrayList`. `NodeBroadcast.subscribe` adds to it on the
-  subscriber's thread (possibly a virtual thread from `subscribeOn`), while
-  `ExecutionResources.dispose` copies it.
-- **Impact:** A rare `ConcurrentModificationException` or leaked connections on cancel.
-- **Fix:** `Disposables.composite()` (thread-safe, and disposes late additions).
+### R20 · P2 · The `module` tag on node metrics (and in the UI) is always `"default"`
+- **Where:** `NodeStreams` and `TerminalNodeAssemblerStrategy` emit task events with
+  `DEFAULT_TASK_ID = "default"` as the *module*. `DefaultTaskTrackerService.recordNode` (added in
+  round 2, phase 7) tags `yukta.node.executions` and `yukta.node.duration` with that value.
+- **Impact:** All nodes land in one time series, so per-plugin latency and failure rates cannot be
+  read, which defeats R16. `TaskProgress.module` is equally uninformative in the UI.
+- **Fix:** Emit the plugin type (`node.type()`) as the module. Tag metrics with plugin type and
+  status only. Do not tag with `nodeId` or `executionId` (unbounded cardinality).
 
-### R14 · P2 · No definition versioning
-- Executions don't record which definition they ran. `PreparedWorkflowCache` replaces definitions
-  in place, so history, restart and debugging can silently use a different graph.
-- **Fix:** Store a content hash or version on each execution, and restart against the same version.
+### R21 · P2 · The activity clock costs about 2–3 µs per message per call site ✔
+- **Where:** `NodeActivity.touch()` emits into a `replay().latest()` sink with a spin handler, and
+  every emission makes `switchMap` cancel and re-create a `Flux.interval` (a scheduler task). It is
+  called twice per message per node (input side and output side).
+- **Probe:** 200 000 `touch()` calls took ≈ 410–430 ms once warm (≈ 2 µs each), single-threaded.
+  Two calls per node per message is ≈ 4 µs; a 20-node chain adds ≈ 80 µs per message of pure
+  bookkeeping and a timer churn of 40 scheduler tasks per message.
+- **Impact:** Caps throughput at roughly 12 k messages/s for a 20-node DAG, against the §5.6 budget
+  of "≤ 2 allocations beyond the plugin's".
+- **Fix:** Make `touch()` a single `AtomicLong` write of `System.nanoTime()` and run **one** periodic
+  check per node (every `timeout/20`) that compares against it and honours pause. No sink, no
+  per-message timer. Keep the exact pause behaviour by counting only unpaused ticks.
 
-### R15 · P2 · Starts aren't idempotent
-- A client that retries `POST /workflow/start` gets two runs.
-- **Fix:** Accept an `Idempotency-Key` and return the existing `executionId` for a repeated key
-  within a time window.
+### R22 · P2 · The JSONL execution log grows without bound and writes on the wrong threads
+- **Where:** `JsonlExecutionLogStore.append` opens, appends and closes the file for every event
+  (`Files.writeString`, `createDirectories`). It is trimmed only at startup (`ExecutionRecovery`).
+  It is called from `WorkflowOrchestrator.execute` (the subscriber thread, possibly a Netty event
+  loop) and from the tracker's batch consumer, which runs on `Schedulers.parallel()`.
+- **Impact:**
+  - A long-running server grows `executions.jsonl` forever.
+  - Blocking file I/O on the event loop and on the shared parallel scheduler delays every
+    `NodeActivity` tick and timer in the process.
+  - No `fsync`: a power loss can lose the last records (acceptable, but undocumented).
+- **Fix:** One writer thread (or `boundedElastic`) with batched appends; compact or rotate when the
+  file passes N runs or M MB; document the durability level; keep `replaceAll` atomic as it is.
 
-### R16 · P3 · No metrics or tracing
-- There are no Micrometer timers or counters per node (latency, throughput, queue depth,
-  backpressure wait) and no OpenTelemetry spans. Reactor context propagation is already enabled, so
-  wiring this is cheap.
+### R23 · P2 · Restart paths bypass admission control
+- **Where:** `RestartCommandProcessor` and `RestartFromNodeCommandProcessor` call
+  `orchestrator.execute/restartFromNode(...).subscribe()` and report success at once. Only
+  `DefaultControlBusGateway.startWorkflow` calls `ExecutionScheduler.assertCanAccept`.
+- **Impact:** With `on-limit=REJECT` (or a full queue) a restart is acknowledged as started, then the
+  new run fails with "Execution limit reached". With `QUEUE` it is queued silently.
+- **Fix:** Call `assertCanAccept` in both processors before creating the new execution id, so the
+  caller gets the 429, as for a start.
 
-### R17 · P3 · Remaining round-1 items
-- P5: busy-loop sinks. Moot after R6, which uses a single ordered log with `tryEmitNext` and
-  counted drops.
-- P6: O(N·E) compile.
-- S7: log volume.
-- 11 coverage exceptions remain.
+### R24 · P2 · Pause still lets a prefetch of elements through
+- **Where:** `ExecutionControl.applyPassageGate` is `concatMap(…, 1)`, but the next operator in a
+  per-message processor is `channelInput.concatMap(…)` with the default prefetch of 32, so up to 32
+  already-passed elements are processed after a pause. Stream-shaped plugins buffer as they like.
+  *Not reproduced.*
+- **Impact:** "Pause stops pulling" is true only to within the downstream prefetch; side effects of
+  those elements happen after the pause.
+- **Fix:** `concatMap(fn, 1)` in `ProcessorNodeAssemblerStrategy` for the per-message path; document
+  the residual for stream-shaped plugins.
+
+### R25 · P2 · Durability and audit gaps
+- **Control audit:** round 2 (R9) promised that every command and result is recorded. Only run
+  start/end are logged; commands are not, and there is no `commandId`.
+- **Restart after a JVM restart is impossible:** `ExecutionArchive` and the checkpoint store are in
+  memory, so recovered runs are history only (`ABORTED`), never restartable.
+- **Checkpoints are bounded by count, not size:** `yukta.restart.messages-per-node` (200) ×
+  `retained-executions` (10) × nodes × payload size can be very large for big payloads
+  (pitfall 19, the unused `ClaimCheckStore`).
+- **Fix:** Log `CONTROL_REQUESTED/APPLIED/REJECTED` with an optional `commandId` (deduplicate on it);
+  bound checkpoint memory by bytes and spill to the claim-check store above a threshold; decide
+  explicitly whether restart-after-reboot is a goal and, if so, persist the archive.
+
+### R26 · P2 · Engine retry and the idle clock interact badly
+- **Where:** `NodePolicies.apply` retries a single message with exponential backoff while
+  `NodeStreams` measures idle time from the last input or output. A retrying node emits nothing
+  during attempts and backoff.
+- **Impact:** With a 30 s timeout, `maxAttempts=3` and a plugin that takes 20 s per attempt, the node
+  times out during the second attempt even though the policy allows it. `retry` also retries every
+  exception, including non-transient ones (a validation error).
+- **Fix:** Touch the activity clock before each retry and on each attempt; add a `retryOn` /
+  `noRetryOn` class list (default: everything except `IllegalArgumentException`); validate that
+  `maxBackoffMs` is below the node timeout or warn.
+
+### R27 · P2 · A prepare in flight can re-populate the cache with a stale definition
+- **Where:** `DefaultControlBusGateway.prepareShared` shares one prepare per `(session, workflow)` and
+  then `preparedWorkflowCache.put(...)`. `ControlBusService.compileAndCacheWorkflow` and
+  `SessionService` invalidate the cache when a definition changes, but not the `preparing` map.
+- **Impact:** A start that began preparing the old definition just before it was replaced writes
+  the old graph back into the cache for the cache TTL (10 min); later starts run the old definition.
+  Narrow race, silent wrong behaviour. *Not reproduced.*
+- **Fix:** Key the shared prepare and the cache by the definition's content hash
+  (`DefinitionVersion`), or drop the `preparing` entry when invalidating.
+
+### R28 · P3 · Small hardening items
+- `StopWorkflowCommandProcessor.drain` starts `Mono.delay(drainTimeout).subscribe(...)` and never
+  disposes it; the timer and the `ExecutionControl` it captures live 30 s after the run ended.
+- `StartIdempotency.once` scans the whole map (`removeIf`) on every keyed start; use a Caffeine cache
+  with `expireAfterWrite`.
+- `WorkflowValidator.hasPort` calls `plugin.getOutputPorts(config)` before `validateConfig`; a plugin
+  that assumes a valid config could throw instead of returning a clean message. *Not reproduced.*
+- The stop mode is not exposed in REST/MCP; the definition version is not in the API responses; join
+  rules `ONE_SUCCESS` and `NONE_FAILED_MIN_ONE_SUCCESS` and a dead-letter terminal plugin are not
+  provided; `ExecutionScheduler.running()`/`queued()` are not registered as gauges.
+- No message `attempt`/`messageId` header, so plugins cannot dedupe retried side effects (pitfall 8).
+
+### R29 · P3 · Open round-1 items and test gaps
+- P5 (spin-wait sinks), P6 (O(N·E) compile), S7 (55 `INFO` call sites), T4 (end-to-end step/skip),
+  T6 (concurrent same-type plugins).
+- 11 coverage exceptions remain in `core/build.gradle.kts`; the most important class, 
+  `WorkflowOrchestrator` (`runTracked`, `restartFromNode`), has the lowest branch coverage (0.87).
+- There is no test that drives the real orchestrator through the round-2 acceptance scenarios
+  (60 s step, 2-minute pause, `step 2`, stop-during-run, kill and recover). A throughput regression
+  test (20-node chain, 10-way diamond) is still missing (§5.6 of round 2).
 
 ---
 
-## 4. R&D: DAG orchestration pitfalls and how Yukta measures up
+## 4. DAG pitfall scorecard (updated)
 
-This is a survey of the failure modes mature orchestrators design for: Airflow, Temporal, Argo
-Workflows, Flink, Dagster and Prefect. Each row gives the pitfall, the established solution,
-Yukta's state today, and the recommendation.
+✅ handled · ⚠️ partly · ❌ not handled.
 
-| # | Pitfall | How leading systems handle it | Yukta today | Recommendation |
-|---|---|---|---|---|
-| 1 | **Cycles and malformed graphs** | Reject at definition time with precise errors (all) | ✅ Cycles, unknown nodes, categories. ❌ duplicate ids or edges, port names, size limits (R12) | Complete validation (R12) |
-| 2 | **Join after a branch never fires** (the classic dead-path problem: an unchosen branch is *skipped*, so an `all_success` join waits forever or is skipped) | Airflow *trigger rules*; recommends `none_failed_min_one_success` after branches; skip propagation | ✅ No hang: streaming `merge` completes when all parents complete, even if a port filter passed nothing. ❌ No way to say "require at least one success" or "tolerate failure" | Per-join trigger rules (R8); emit `SKIPPED` for nodes that received nothing (R3) |
-| 3 | **Diamond / fan-out to a slow child** (fast child starved or memory blow-up) | Flink credit-based flow control; bounded buffers | ✅ `publish(bufferSize)` limits the parent to the slowest child | Expose per-node queue depth metrics (R16) |
-| 4 | **Late subscriber misses data** (hot streams) | Barrier or "all consumers ready" before the source starts | ✅ `NodeBroadcast` connects when all expected edges have subscribed | Keep it, with a test for fan-out to a processor and a terminal |
-| 5 | **Timeout semantics** (queue wait counted as work; pause counted as time) | Separate schedule-to-start, start-to-close and heartbeat timeouts (Temporal); Argo `activeDeadlineSeconds` per step | ❌ Idle timeout from subscription, counts upstream and pause time (R1, R2) | Processing, idle and deadline timers that start on first input and are pause-aware |
-| 6 | **Long-running work looks dead** (no liveness signal vs a hung task) | Heartbeats with a heartbeat timeout (Temporal activities) | ❌ No plugin heartbeat API (idle timeout is a crude stand-in) | `PluginContext.heartbeat(details)` resets the idle clock; progress is shown in the UI |
-| 7 | **Transient failure fails the whole run** | Retry policy with exponential backoff, cap and jitter (Argo `retryStrategy`, Temporal `RetryPolicy`, Airflow `retries`) | ❌ Engine has no retries | Per-node retry policy (R8) |
-| 8 | **Retries duplicate side effects** | Idempotency keys, at-least-once plus idempotent activities (Temporal), exactly-once via barrier snapshots (Flink) | ❌ No idempotency guidance or keys | Stable `messageId` plus `attempt` header. Plugins dedupe on `(executionId, nodeId, messageId)`. Document at-least-once semantics |
-| 9 | **Fail-fast vs partial results** | Configurable: `fail_fast`, `all_done`, continue-on-failure, error handlers | ❌ Fail-fast only | `onError: FAIL / CONTINUE / ROUTE(error)` per node (R8) |
-| 10 | **Crash loses state** | Event-sourced history replayed on recovery (Temporal); periodic checkpoints (Flink) | ❌ All in memory (R10) | Append-only execution log, recovery marks runs `ABORTED`, then resume (§5.5) |
-| 11 | **Re-running part of a graph** | Airflow "clear task + downstream"; Temporal reset to an event; Dagster re-execute from failure | ❌ Broken (R4) | Descendant-subgraph restart with replayed boundary inputs (§5.4) |
-| 12 | **Definition changes under running or replayed runs** | Versioning and patch markers (Temporal), pinned versions | ❌ None (R14) | Content-hash version per run |
-| 13 | **Unbounded concurrency / noisy neighbour** | Argo `parallelism`, semaphores and mutexes; Airflow pools; Prefect concurrency limits | ❌ None (R11) | Admission scheduler, per-workflow and global limits, resource-tag semaphores |
-| 14 | **Cancellation doesn't reach running work** | Cooperative cancellation plus heartbeat; graceful then forced | ⚠️ Reactive cancel reaches subscribers. Process plugin kills only its direct child (plugins G9). No drain (R7) | Drain, cancel and kill modes; plugins get a cancellation hook |
-| 15 | **Control races and reordering** (pause and resume reordered, double stop) | Signals serialised per workflow (Temporal signals are ordered in history) | ❌ Priority sort reorders, no acks (R9) | Per-execution FIFO command queue with acks and idempotency |
-| 16 | **Observability gaps** (can't tell why something is slow or stuck) | Per-task metrics, traces, UI timelines | ⚠️ Status and logs only (R16) | Micrometer and OpenTelemetry with backpressure-wait metrics |
-| 17 | **Poison message blocks a stream** | Dead-letter queues, error ports | ❌ An error fails the node | `ROUTE(error)` plus a dead-letter terminal, using the existing `withFailure` headers |
-| 18 | **Status/event ordering** (UI shows a finished run with running nodes) | A single ordered history per execution | ❌ Three independent sinks (R6) | One ordered per-run event log |
-| 19 | **Unbounded memory per run** (big payloads in every buffer and checkpoint) | Claim-check pattern; bounded buffers | ⚠️ Bounded buffers; payload echo capped at 2 KB; `ClaimCheckStore` SPI unused | Claim check for payloads over N KB |
-| 20 | **Starvation and priority** | Priority queues and weights (Airflow `priority_weight`) | ❌ None | Priority on queued runs (R11) |
-
----
-
-## 5. Target design
-
-### 5.1 Control model: rich, precise, acknowledged
-
-Every command goes through one per-execution FIFO queue. It's idempotent (keyed by `commandId`),
-returns a `CommandResult`, and is recorded in the execution log.
-
-| Command | Semantics (target) | Mechanism | Today |
+| # | Pitfall | State | Notes |
 |---|---|---|---|
-| **Pause run / node** | Stop *pulling* new input. In-flight elements finish. Timers are suspended | Input-side permit gate (true backpressure); pause-aware timers | Output-side `filterWhen` (256 leak); timers keep running |
-| **Resume** | Release the gate | Permits = ∞ | ✅ |
-| **Step n (node)** | Let exactly n input elements through, then pause | `credits += n` | Credits lost (R5) |
-| **Breakpoint** (new) | Pause automatically when a predicate matches an element at a node | Predicate on the input gate (SpEL, sandboxed) | — |
-| **Skip node** | Pass input through unchanged, *or* mark `SKIPPED` and propagate per trigger rules | Pre-start parameter `skipNodes`; runtime: the gate switches to pass-through *between* elements | Rejected at runtime |
-| **Stop run** | `DRAIN` (default, with a deadline) → `CANCEL` → `KILL` | Stop triggers; `takeUntil(deadline)`; dispose | Hard cancel only (R7) |
-| **Stop node** | `DRAIN` or `CANCEL` a single node; downstream sees completion | ✅ safe and immediate sinks | ✅ |
-| **Retry node** (new) | Re-run a failed node in a *still-running* run with its recorded input | Replay input from the edge log | — |
-| **Restart run** | New run, same definition version and same payload | ✅ | ✅ (pins no version) |
-| **Restart from node** | New run: descendants of X only; boundary inputs replayed | Edge-log replay (§5.4) | Broken (R4) |
-| **Set concurrency / priority** (new) | Change a queued or running run's limits | Admission scheduler | — |
-| **Inject message** (new, debug) | Push a message onto an edge | Edge log append plus a hot source | — |
-
-### 5.2 Node state machine
-
-```
-PENDING ──first input or trigger start──▶ RUNNING ──complete──▶ SUCCESS
-   │                                │ ├─error (retries left)──▶ RETRYING ──▶ RUNNING
-   │                                │ ├─error (exhausted)────▶ FAILURE ──onError=ROUTE──▶ (error port)
-   │                                │ ├─timeout──────────────▶ TIMED_OUT
-   │                                │ ├─pause────────────────▶ PAUSED ──resume──▶ RUNNING
-   │                                │ └─cancel / stop────────▶ CANCELLED
-   ├─all inputs complete, none received──▶ SKIPPED
-   ├─upstream failed and the trigger rule isn't met──▶ UPSTREAM_FAILED
-   └─run finished before the node started──▶ CANCELLED
-```
-
-The run state is derived from the node states plus the stop mode:
-`QUEUED → RUNNING → SUCCESS | FAILURE | STOPPED | TIMED_OUT | ABORTED (crash)`.
-
-### 5.3 Time model
-
-| Timer | Starts | Pauses | Default | Owner |
-|---|---|---|---|---|
-| Queue wait | Admission | — | No limit, but reported | Scheduler |
-| Node processing (per element) | Element received | Yes | Plugin-declared | Engine, per element |
-| Node idle | First input / last output | Yes | **Off** | Engine |
-| Node deadline | First input | Yes | None | Engine |
-| Plugin heartbeat | Each `heartbeat()` call | Yes | Off | Plugin |
-| Run deadline | RUNNING | Yes | Session `execution-timeout-seconds` | Orchestrator |
-
-### 5.4 Restart and replay
-
-- Persist every node's **outputs per edge** (or a claim-check reference for large payloads) to the
-  execution log, keyed by `(executionId, nodeId, seq)`. Keep them for a retention window, not just
-  while the run is alive.
-- **Restart-from-X plan:**
-  - re-run `descendants(X) ∪ {X}`;
-  - for every edge from outside that set into it, replay the recorded messages in their original
-    order;
-  - don't touch nodes outside the set.
-  - This works for finished, failed and running source runs.
-- The new run records `restartOf = (executionId, X, definitionVersion)`.
-
-### 5.5 Durable execution log (the backbone for R6, R9, R10 and R4)
-
-```
-execution_event(seq, execution_id, ts, type, node_id, status, attempt, command_id, data)
-types: RUN_QUEUED, RUN_STARTED, NODE_STARTED, NODE_OUTPUT(ref), NODE_FINISHED(status),
-       NODE_RETRY, CONTROL_REQUESTED, CONTROL_APPLIED, CONTROL_REJECTED, RUN_FINISHED, LOG(ref)
-```
-
-- **Single writer per execution:** one `Sinks.many().unicast()` with one ordered consumer, batched
-  writes.
-- **Projections:** the tracker's `WorkflowProgress`, the SSE streams, history and audit are all
-  *read models* of this log, so ordering is guaranteed and a stream ends after it has delivered
-  `RUN_FINISHED`.
-- **Storage:** a pluggable `ExecutionLogStore`. Start with in-memory and JSONL file implementations,
-  then SQLite or Postgres. The append path stays off the hot path through batching.
-
-### 5.6 Efficiency budget
-
-| Area | Target |
-|---|---|
-| Per-message overhead per node | ≤ 2 allocations beyond the plugin's (history stamp optional, checkpoint by reference) |
-| Broadcast | `publish(bufferSize)` (done) plus `limitRate` on fan-in |
-| Event and log path | Batched append, `tryEmitNext` with counted drops for *log* lines only, never for state |
-| Prepare | Cached per `(definitionHash)` with stampede protection |
-| Benchmark | A JMH or `StepVerifier` throughput test: a 20-node linear DAG and a 10-way diamond with 100k messages, run in CI to catch regressions |
+| 1 | Cycles and malformed graphs | ✅ | Cycles, duplicates, ports, size limits |
+| 2 | Join after a branch never fires | ⚠️ | `ALL_SUCCESS`/`ALL_DONE`; no `ONE_SUCCESS` |
+| 3 | Fan-out to a slow child | ✅ | `publish(bufferSize)` |
+| 4 | Late subscriber misses data | ✅ | `NodeBroadcast` connects after all edges subscribe |
+| 5 | Timeout semantics | ⚠️ | Anchored and pause-aware; plugin defaults missing (R19) |
+| 6 | Long work looks dead | ❌ | No heartbeat API (R19) |
+| 7 | Transient failure fails the run | ✅ | `engine.retry` (see R26) |
+| 8 | Retries duplicate side effects | ❌ | No `attempt`/`messageId` header (R28) |
+| 9 | Fail-fast vs partial results | ✅ | `onError` |
+| 10 | Crash loses state | ⚠️ | Start/end durable, no resume (R22, R25) |
+| 11 | Re-running part of a graph | ✅ | `RestartPlan` |
+| 12 | Definition changes under runs | ✅ | Hash per run (stale prepare race: R27) |
+| 13 | Unbounded concurrency | ✅ | `ExecutionScheduler` (restart bypass: R23) |
+| 14 | Cancellation reaches the work | ✅ | `DRAIN`/`CANCEL`/`KILL` |
+| 15 | Control races | ✅ | FIFO + ack |
+| 16 | Observability | ⚠️ | Metrics tag bug (R20), no tracing |
+| 17 | Poison message | ✅ | `ROUTE` to the `error` port |
+| 18 | Status/event ordering | ⚠️ | Ordered, but the sink can die (R18) |
+| 19 | Unbounded memory per run | ⚠️ | Count-bounded checkpoints only (R25) |
+| 20 | Starvation and priority | ❌ | No priority |
 
 ---
 
-## 6. Roadmap
+## 5. Best practices to adopt
+
+1. **Never mix critical and best-effort traffic in one queue** (R18). State transitions need
+   guaranteed delivery; logs may drop and be counted.
+2. **Every long-lived `subscribe()` needs an error handler** that logs and resubscribes. Silent
+   `onErrorDropped` is how R18 goes unnoticed.
+3. **No blocking I/O on `parallel()` or event-loop threads** (R22). Offload to `boundedElastic` or a
+   dedicated writer, and consider BlockHound in tests to enforce it.
+4. **Keep per-message overhead off timers and sinks** (R21): a volatile timestamp plus one periodic
+   check beats a timer per message.
+5. **Low-cardinality metric tags only** (R20): plugin type and status, never ids.
+6. **One admission path** (R23): every way of creating a run goes through the scheduler.
+7. **Acceptance criteria must be executable** (R29): each phase's criterion becomes an integration
+   test, so "60 s step succeeds" cannot silently stay unmet.
+8. **Make cache keys content-addressed** (R27) instead of invalidating by name.
+
+---
+
+## 6. Roadmap (remaining work)
 
 | Phase | Items | Outcome | Acceptance test |
 |---|---|---|---|
-| **1. Correct time** (1–2 days) | R1, R2 | Long steps and pauses no longer fail runs | A 60 s process step followed by a terminal succeeds with default config; a 2-minute pause, then resume, succeeds |
-| **2. Truthful state** (2 days) | R3, R6 | Every node ends in a terminal state; ordered stream | After a stop, no node is RUNNING; the SSE stream's last node event comes before RUN_FINISHED |
-| **3. Precise control** (2–3 days) | R5, R9, R7 | Pause is backpressure; step is exact; acknowledged FIFO commands; drain stop | `step 2` passes exactly 2; `pause` then `resume` sent within 10 ms ends running; stop drains in-flight work |
-| **4. Failure semantics** (3 days) | R8, pitfalls 8, 9, 17 | Retries, error ports, trigger rules, dead-letter queue | A flaky node retried 3× succeeds; a branch failure routed to an error port while the join completes |
-| **5. Durability and restart** (4–5 days) | R10, R4, R14 | Execution log, crash recovery, correct restart-from-node for finished runs, versions | Kill the JVM mid-run: on restart the run is `ABORTED` with full history; restart-from-node of a FAILED run replays the boundary inputs |
-| **6. Governance** (2 days) | R11, R15, pitfall 20 | Admission, limits, priority, idempotent start, graceful shutdown | 100 starts with a limit of 5 → 5 running, 95 queued; SIGTERM drains |
-| **7. Observability and polish** (2 days) | R16, R12, R13, R17 | Metrics, traces, complete validation | Grafana shows per-node p95 and backpressure; duplicate-id and bad-port errors are precise |
+| **8. Make tracking safe** (1–2 days) | R18, R21, R22 | Tracker cannot die; cheap activity clock; non-blocking log | 100 k log lines in 1 s: run statuses still correct and `yukta.tracker.dropped` > 0; 20-node chain ≥ 50 k msg/s |
+| **9. Correctness of limits and tags** (1–2 days) | R20, R23, R24, R26, R27 | Right metric tags, restart honours limits, tighter pause, safer retry, no stale prepare | Restart with `REJECT` returns 429; paused node processes ≤ 1 more element; retry of a 20 s step under a 30 s timeout succeeds |
+| **10. Plugin-aware time** (2 days) | R19 | Long steps work with default config | A 60 s process step followed by a terminal succeeds with default config |
+| **11. Durability and polish** (2–3 days) | R25, R28, R29 | Audit trail, byte-bounded checkpoints, exposed stop mode and version, end-to-end tests | Control commands appear in the log; every round-2 acceptance scenario is an automated test |
 
 ---
 
 ## 7. Sources (R&D)
 
-- Airflow trigger rules and the branch/join pitfall: [Astronomer — Airflow trigger rules](https://www.astronomer.io/docs/learn/airflow-trigger-rules), [visual guide](https://astronomer.io/blog/understanding-airflow-trigger-rules-comprehensive-visual-guide), [Airflow nested-branch example](https://airflow.apache.org/docs/apache-airflow/3.0.4/_modules/airflow/example_dags/example_nested_branch_dag.html)
-- Durable execution, event history and replay: [Temporal — Event History (Java)](https://docs.temporal.io/encyclopedia/event-history/event-history-java), [Temporal event sourcing architecture](https://www.mintlify.com/temporalio/temporal/architecture/event-sourcing), [replay failures with new code](https://hackernoon.com/when-old-workflows-meet-new-code-preventing-temporal-replay-failures-in-production)
-- Checkpointing under backpressure: [Flink — From aligned to unaligned checkpoints](https://flink.apache.org/2020/10/15/from-aligned-to-unaligned-checkpoints-part-1-checkpoints-alignment-and-backpressure/), [Flink checkpointing docs](https://ci.apache.org/projects/flink/flink-docs-master/docs/dev/datastream/fault-tolerance/checkpointing/)
-- Retries, backoff and concurrency limits: [Argo Workflows — retries](https://argo-workflows.readthedocs.io/en/latest/retries/), [Argo 3.7 new features](https://argo-workflows.readthedocs.io/en/release-3.7/new-features/)
+- Airflow trigger rules and the branch/join pitfall: [Astronomer — Airflow trigger rules](https://www.astronomer.io/docs/learn/airflow-trigger-rules)
+- Durable execution, event history and replay: [Temporal — Event History (Java)](https://docs.temporal.io/encyclopedia/event-history/event-history-java)
+- Checkpointing under backpressure: [Flink — From aligned to unaligned checkpoints](https://flink.apache.org/2020/10/15/from-aligned-to-unaligned-checkpoints-part-1-checkpoints-alignment-and-backpressure/)
+- Retries, backoff and concurrency limits: [Argo Workflows — retries](https://argo-workflows.readthedocs.io/en/latest/retries/)
+- Reactor sink semantics (`Sinks.Many#emitNext`, `EmitFailureHandler`, overflow): [Reactor reference — Sinks](https://projectreactor.io/docs/core/release/reference/coreFeatures/sinks.html)
+- Detecting blocking calls on non-blocking threads: [BlockHound](https://github.com/reactor/BlockHound)
