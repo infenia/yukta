@@ -24,9 +24,9 @@ import org.junit.jupiter.api.Test;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
-class DefaultWorkflowExecutionProviderTest {
+class WorkflowExecutionProviderTest {
 
-  private DefaultWorkflowExecutionProvider provider;
+  private WorkflowExecutionProvider provider;
   private WorkflowService workflowService;
   private SessionService sessionService;
   private ControlBusGateway controlBus;
@@ -36,7 +36,7 @@ class DefaultWorkflowExecutionProviderTest {
     workflowService = mock(WorkflowService.class);
     sessionService = mock(SessionService.class);
     controlBus = mock(ControlBusGateway.class);
-    provider = new DefaultWorkflowExecutionProvider(workflowService, sessionService, controlBus);
+    provider = new WorkflowExecutionProvider(workflowService, sessionService, controlBus);
   }
 
   @Test
@@ -71,7 +71,7 @@ class DefaultWorkflowExecutionProviderTest {
             List.of(),
             LocalDateTime.now(ZoneId.systemDefault()),
             null);
-    when(controlBus.getCurrentProgress("e1")).thenReturn(progress);
+    when(controlBus.getProgress("sess-1", "e1")).thenReturn(progress);
 
     StepVerifier.create(provider.getWorkflowStatus("sess-1", "e1"))
         .expectNext(progress)
@@ -80,7 +80,7 @@ class DefaultWorkflowExecutionProviderTest {
 
   @Test
   void testGetWorkflowStatusNotFound() {
-    when(controlBus.getCurrentProgress("missing")).thenReturn(null);
+    when(controlBus.getProgress("sess-1", "missing")).thenReturn(null);
 
     StepVerifier.create(provider.getWorkflowStatus("sess-1", "missing"))
         .expectErrorMatches(
@@ -92,16 +92,7 @@ class DefaultWorkflowExecutionProviderTest {
 
   @Test
   void testGetWorkflowStatusOtherSessionYieldsNotFound() {
-    WorkflowProgress progress =
-        new WorkflowProgress(
-            "e1",
-            "other-session",
-            "w1",
-            "RUNNING",
-            List.of(),
-            LocalDateTime.now(ZoneId.systemDefault()),
-            null);
-    when(controlBus.getCurrentProgress("e1")).thenReturn(progress);
+    when(controlBus.getProgress("sess-1", "e1")).thenReturn(null);
 
     StepVerifier.create(provider.getWorkflowStatus("sess-1", "e1"))
         .expectErrorMatches(

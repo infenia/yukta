@@ -122,6 +122,7 @@ public class WorkflowPreparator {
                       }
                       return plugin
                           .initialize(node.config())
+                          .then(Mono.defer(() -> plugin.prepare(node.config())))
                           .doOnSuccess(
                               _ ->
                                   log.atDebug()

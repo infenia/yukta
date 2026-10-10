@@ -10,10 +10,6 @@ public enum NodeControlAction {
   RESUME,
   /** Stop a node. */
   STOP,
-  /** Mark a node to be skipped. */
-  SKIP,
-  /** Clear the skip mark on a node. */
-  UNSKIP,
   /** Execute a single step of a node in step mode. */
   STEP,
   /** Enable step-by-step execution mode for a node. */

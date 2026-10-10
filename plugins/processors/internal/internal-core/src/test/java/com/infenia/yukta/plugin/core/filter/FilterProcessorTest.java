@@ -50,7 +50,7 @@ class FilterProcessorTest {
             })
         .verifyComplete();
 
-    verify(reporter).incrementFilterCount("test-node", "MATCH");
+    verify(reporter).increment("test-node", "filter", "MATCH");
   }
 
   @Test
@@ -68,7 +68,7 @@ class FilterProcessorTest {
         .expectNextMatches(m -> "default".equals(m.sourcePort()))
         .verifyComplete();
 
-    verify(reporter).incrementFilterCount("test-node", "MATCH");
+    verify(reporter).increment("test-node", "filter", "MATCH");
   }
 
   @Test
@@ -121,7 +121,7 @@ class FilterProcessorTest {
             })
         .verifyComplete();
 
-    verify(reporter).incrementFilterCount("test-node", "DISCARD");
+    verify(reporter).increment("test-node", "filter", "DISCARD");
   }
 
   @Test
@@ -138,7 +138,7 @@ class FilterProcessorTest {
             e -> e instanceof com.infenia.yukta.plugin.exception.FilterEvaluationException)
         .verify();
 
-    verify(reporter).incrementFilterCount("test-node", "ERROR");
+    verify(reporter).increment("test-node", "filter", "ERROR");
   }
 
   @Test

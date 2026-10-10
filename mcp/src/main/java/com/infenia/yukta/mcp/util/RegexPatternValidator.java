@@ -6,48 +6,82 @@ import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 import lombok.experimental.UtilityClass;
 
-/**
- * Centralized regex pattern validation utility. Eliminates duplication of pattern validation logic
- * across the MCP tools.
- */
+/** Compiles and applies agent-supplied regex filters with bounds on pattern size and match time. */
 @UtilityClass
+@SuppressWarnings({"PMD.OnlyOneReturn", "PMD.CommentDefaultAccessModifier"})
 public class RegexPatternValidator {
 
+  /** Longest accepted pattern; longer ones are rejected. */
+  public static final int MAX_PATTERN_LENGTH = 200;
+
+  /** Time one line may spend in the regex engine before the filter is rejected. */
+  private static final long MATCH_BUDGET_NANOS = 50_000_000L;
+
   /**
-   * Validate and compile a regex pattern.
+   * Compile a filter pattern once so it can be reused for every line.
    *
-   * @param pattern the regex pattern to validate
-   * @throws IllegalArgumentException if pattern is invalid
+   * @param pattern the regex, possibly null or blank
+   * @return the compiled pattern, or null when no filter was given
+   * @throws IllegalArgumentException if the pattern is too long or invalid
    */
-  public static void validatePattern(final String pattern) {
+  public static Pattern compile(final String pattern) {
     if (pattern == null || pattern.isBlank()) {
-      return;
+      return null;
+    }
+    if (pattern.length() > MAX_PATTERN_LENGTH) {
+      throw new IllegalArgumentException(
+          "Regex pattern too long (max " + MAX_PATTERN_LENGTH + " characters).");
     }
     try {
-      Pattern.compile(pattern);
+      return Pattern.compile(pattern);
     } catch (final PatternSyntaxException e) {
       throw new IllegalArgumentException("Invalid regex pattern: " + e.getMessage(), e);
     }
   }
 
   /**
-   * Check if text matches the given regex pattern.
+   * Check whether text matches a compiled pattern within the time budget.
    *
    * @param text the text to match
-   * @param pattern the regex pattern
-   * @return true if matches or pattern is null/blank, false otherwise
-   * @throws IllegalArgumentException if pattern is invalid
+   * @param pattern the compiled pattern, or null to match everything
+   * @return true if the text matches or there is no pattern
+   * @throws IllegalArgumentException if matching exceeds the time budget (catastrophic
+   *     backtracking)
    */
-  @SuppressWarnings("PMD.OnlyOneReturn")
-  public static boolean matches(final String text, final String pattern) {
-    final boolean isBlankPattern = pattern == null || pattern.isBlank();
-    if (isBlankPattern) {
-      return true;
+  public static boolean matches(final String text, final Pattern pattern) {
+    return pattern == null || pattern.matcher(budgeted(text)).find();
+  }
+
+  /** Wrap text so the regex engine aborts once the per-line time budget is spent. */
+  static CharSequence budgeted(final String text) {
+    return new Budgeted(text, System.nanoTime() + MATCH_BUDGET_NANOS);
+  }
+
+  /** Char sequence that aborts the regex engine once its deadline has passed. */
+  private record Budgeted(String text, long deadline) implements CharSequence {
+
+    @Override
+    public char charAt(final int index) {
+      if (System.nanoTime() > deadline) {
+        throw new IllegalArgumentException(
+            "Regex filter is too expensive to evaluate; simplify the pattern.");
+      }
+      return text.charAt(index);
     }
-    try {
-      return Pattern.compile(pattern).matcher(text).find();
-    } catch (final PatternSyntaxException e) {
-      throw new IllegalArgumentException("Invalid regex pattern: " + e.getMessage(), e);
+
+    @Override
+    public int length() {
+      return text.length();
+    }
+
+    @Override
+    public CharSequence subSequence(final int start, final int end) {
+      return new Budgeted(text.substring(start, end), deadline);
+    }
+
+    @Override
+    public String toString() {
+      return text;
     }
   }
 }

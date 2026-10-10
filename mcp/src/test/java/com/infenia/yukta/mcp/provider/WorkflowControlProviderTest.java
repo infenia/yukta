@@ -19,20 +19,20 @@ import org.junit.jupiter.api.Test;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
-class DefaultWorkflowControlProviderTest {
+class WorkflowControlProviderTest {
 
   private static final String SESSION = "sess-1";
   private static final String EXECUTION = "exec-1";
   private static final String NODE = "node-1";
 
-  private DefaultWorkflowControlProvider provider;
+  private WorkflowControlProvider provider;
   private ControlBusGateway controlBus;
 
   @BeforeEach
   void setUp() {
     controlBus = mock(ControlBusGateway.class);
-    provider = new DefaultWorkflowControlProvider(controlBus);
-    when(controlBus.getCurrentProgress(EXECUTION)).thenReturn(progressOwnedBy(SESSION));
+    provider = new WorkflowControlProvider(controlBus);
+    when(controlBus.getProgress(SESSION, EXECUTION)).thenReturn(progressOwnedBy(SESSION));
   }
 
   private WorkflowProgress progressOwnedBy(final String sessionId) {
@@ -230,7 +230,7 @@ class DefaultWorkflowControlProviderTest {
 
   @Test
   void testOwnershipMismatchYieldsExecutionNotFound() {
-    when(controlBus.getCurrentProgress(EXECUTION)).thenReturn(progressOwnedBy("other-session"));
+    when(controlBus.getProgress(SESSION, EXECUTION)).thenReturn(null);
 
     StepVerifier.create(
             provider.controlWorkflow(
@@ -246,7 +246,7 @@ class DefaultWorkflowControlProviderTest {
 
   @Test
   void testUnknownExecutionYieldsExecutionNotFound() {
-    when(controlBus.getCurrentProgress(EXECUTION)).thenReturn(null);
+    when(controlBus.getProgress(SESSION, EXECUTION)).thenReturn(null);
 
     StepVerifier.create(
             provider.controlWorkflow(
@@ -351,30 +351,6 @@ class DefaultWorkflowControlProviderTest {
   }
 
   @Test
-  void testNodeSkip() {
-    when(controlBus.skipNode(EXECUTION, NODE, true)).thenReturn(Mono.empty());
-
-    StepVerifier.create(
-            provider.controlNode(SESSION, EXECUTION, NODE, NodeControlAction.SKIP, null, null))
-        .expectNextCount(1)
-        .verifyComplete();
-
-    verify(controlBus).skipNode(EXECUTION, NODE, true);
-  }
-
-  @Test
-  void testNodeUnskip() {
-    when(controlBus.skipNode(EXECUTION, NODE, false)).thenReturn(Mono.empty());
-
-    StepVerifier.create(
-            provider.controlNode(SESSION, EXECUTION, NODE, NodeControlAction.UNSKIP, null, null))
-        .expectNextCount(1)
-        .verifyComplete();
-
-    verify(controlBus).skipNode(EXECUTION, NODE, false);
-  }
-
-  @Test
   void testNodeStepActions() {
     when(controlBus.stepNode(EXECUTION, NODE)).thenReturn(Mono.empty());
     when(controlBus.enableStepMode(EXECUTION, NODE)).thenReturn(Mono.empty());
@@ -402,7 +378,7 @@ class DefaultWorkflowControlProviderTest {
 
   @Test
   void testNodeControlOwnershipMismatch() {
-    when(controlBus.getCurrentProgress(EXECUTION)).thenReturn(progressOwnedBy("other-session"));
+    when(controlBus.getProgress(SESSION, EXECUTION)).thenReturn(null);
 
     StepVerifier.create(
             provider.controlNode(SESSION, EXECUTION, NODE, NodeControlAction.PAUSE, null, null))

@@ -7,7 +7,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.infenia.yukta.mcp.dto.ExecutionLogs;
-import com.infenia.yukta.mcp.provider.DefaultLogProvider;
+import com.infenia.yukta.mcp.provider.LogProvider;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -17,11 +17,11 @@ import reactor.test.StepVerifier;
 class AppMcpResourcesTest {
 
   private AppMcpResources mcpResources;
-  private DefaultLogProvider logProvider;
+  private LogProvider logProvider;
 
   @BeforeEach
   void setUp() {
-    logProvider = mock(DefaultLogProvider.class);
+    logProvider = mock(LogProvider.class);
     mcpResources = new AppMcpResources(logProvider);
   }
 

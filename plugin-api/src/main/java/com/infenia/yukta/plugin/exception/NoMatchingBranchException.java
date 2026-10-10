@@ -3,7 +3,7 @@
 package com.infenia.yukta.plugin.exception;
 
 /** Exception thrown when no matching branch is found and strict mode is enabled. */
-public class NoMatchingBranchException extends RuntimeException {
+public class NoMatchingBranchException extends WorkflowExecutionException {
   private static final long serialVersionUID = 1L;
 
   /**

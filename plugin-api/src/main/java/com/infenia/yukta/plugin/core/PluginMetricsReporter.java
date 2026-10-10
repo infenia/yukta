@@ -6,10 +6,11 @@ package com.infenia.yukta.plugin.core;
 @FunctionalInterface
 public interface PluginMetricsReporter {
   /**
-   * Increment the count of messages processed by a filter.
+   * Increment a per-node counter.
    *
-   * @param nodeId the ID of the filter node
-   * @param status the filter status (e.g., "MATCH", "DISCARD", "ERROR")
+   * @param nodeId the ID of the node
+   * @param metric the metric name (e.g., "filter")
+   * @param tag the outcome the count is tagged with (e.g., "MATCH", "DISCARD", "ERROR")
    */
-  void incrementFilterCount(String nodeId, String status);
+  void increment(String nodeId, String metric, String tag);
 }

@@ -708,6 +708,35 @@ class ControlBusServiceTest {
     }
 
     @Test
+    @DisplayName("should reject the signal, not kill the bus, when the sink is full")
+    @SuppressWarnings("unchecked")
+    void emit_sinkFull_failsTheCallerOnly() throws Exception {
+      final ControlBusService svc =
+          new ControlBusService(
+              100,
+              50,
+              256,
+              List.of(),
+              preparedWorkflowCache,
+              orchestrator,
+              new ActivePluginRegistry(List.of()));
+      svc.init();
+      final Sinks.Many<Message<?>> fullSink = mock(Sinks.Many.class);
+      when(fullSink.tryEmitNext(any())).thenReturn(Sinks.EmitResult.FAIL_OVERFLOW);
+      final Field sinkField = ControlBusService.class.getDeclaredField("controlSink");
+      sinkField.setAccessible(true);
+      sinkField.set(svc, fullSink);
+
+      StepVerifier.create(svc.emit(message))
+          .expectErrorSatisfies(
+              e ->
+                  assertThat(e)
+                      .isInstanceOf(IllegalStateException.class)
+                      .hasMessageContaining("full or closed"))
+          .verify(Duration.ofSeconds(2));
+    }
+
+    @Test
     @DisplayName("should emit error when sink throws RuntimeException")
     @SuppressWarnings("unchecked")
     void emit_sinkThrowsRuntimeException_propagatesAsIllegalState() throws Exception {
@@ -723,7 +752,7 @@ class ControlBusServiceTest {
       svc.init();
 
       final Sinks.Many<Message<?>> throwingSink = mock(Sinks.Many.class);
-      doThrow(new RuntimeException("sink exploded")).when(throwingSink).emitNext(any(), any());
+      doThrow(new RuntimeException("sink exploded")).when(throwingSink).tryEmitNext(any());
 
       final Field sinkField = ControlBusService.class.getDeclaredField("controlSink");
       sinkField.setAccessible(true);

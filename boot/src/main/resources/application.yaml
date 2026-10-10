@@ -19,7 +19,7 @@ spring:
         protocol: STATELESS
         type: ASYNC
         streamable-http:
-          mcp-endpoint: /sse
+          mcp-endpoint: /mcp
   docker:
     compose:
       enabled: false

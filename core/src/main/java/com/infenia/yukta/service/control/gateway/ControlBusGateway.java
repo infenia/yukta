@@ -331,6 +331,20 @@ public interface ControlBusGateway {
   com.infenia.yukta.model.execution.WorkflowProgress getCurrentProgress(String executionId);
 
   /**
+   * Get the progress of an execution within a session.
+   *
+   * <p>Unlike {@link #getCurrentProgress(String)}, this reads the per-session record, which
+   * outlives the short-lived execution index, so finished executions stay reachable while they are
+   * in the session's history.
+   *
+   * @param sessionId the session that owns the execution
+   * @param executionId the execution to query
+   * @return the progress, or null if the session has no such execution
+   */
+  com.infenia.yukta.model.execution.WorkflowProgress getProgress(
+      String sessionId, String executionId);
+
+  /**
    * Get execution history for a session.
    *
    * <p>Returns all completed and in-progress executions for a session. Useful for listing past

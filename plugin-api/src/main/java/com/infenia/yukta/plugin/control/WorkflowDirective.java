@@ -6,10 +6,9 @@ package com.infenia.yukta.plugin.control;
  * A typed action to be applied to an active workflow execution.
  *
  * <p>{@code WorkflowDirective} is the output side of the control-bus plugin pipeline. A {@link
- * ControlSignalProcessor} converts an inbound {@link
- * com.infenia.yukta.plugin.message.control.ControlCommand} into a concrete directive type. The
- * {@code DirectiveDispatcher} then pattern-matches on the sealed hierarchy to apply the correct
- * runtime behaviour.
+ * ControlSignalProcessor} converts an inbound {@link ExecutionControlCommand} into a concrete
+ * directive type. The {@code DirectiveDispatcher} then pattern-matches on the sealed hierarchy to
+ * apply the correct runtime behaviour.
  *
  * <p>Sealed permits list is exhaustive: the dispatcher can switch without a default branch.
  */

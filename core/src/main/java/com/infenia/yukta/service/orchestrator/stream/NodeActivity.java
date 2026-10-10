@@ -3,61 +3,143 @@
 package com.infenia.yukta.service.orchestrator.stream;
 
 import java.time.Duration;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BooleanSupplier;
-import lombok.NoArgsConstructor;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
-import reactor.core.publisher.Sinks;
 import reactor.core.scheduler.Scheduler;
+import reactor.core.scheduler.Schedulers;
 
 /**
  * Activity clock of one node: the basis of its idle timeout.
  *
  * <p>Every node subscribes when the run starts, so a plain {@code Flux.timeout} would count the
  * time the node spends waiting for its upstream. This clock only starts at the node's first
- * activity (an input or an output element) and restarts on every later one, and it never expires
- * while the node or run is paused.
+ * activity (an input or an output element) and restarts on every later one, and paused time does
+ * not count.
+ *
+ * <p>{@link #touch()} is a single volatile write, so it is cheap enough to call for every message.
+ * One periodic check per node (not one timer per message) compares the last activity with the time
+ * it has already counted.
  */
-@NoArgsConstructor
+@SuppressWarnings({"PMD.AvoidUsingVolatile", "PMD.OnlyOneReturn"})
 public final class NodeActivity {
 
-  /** Replays the latest touch, so a late subscriber still sees the last activity. */
-  private final Sinks.Many<Boolean> touches = Sinks.many().replay().latest();
+  /** How many checks make up a timeout. */
+  private static final int TICKS = 20;
+
+  /** Shortest check interval, in nanoseconds. */
+  private static final long MIN_TICK_NANOS = 1_000_000L;
+
+  /** Marks "no activity yet". */
+  private static final long NONE = Long.MIN_VALUE;
+
+  /** The time source for activity stamps. */
+  private final Scheduler clock;
+
+  /** Clock reading of the latest activity, or {@link #NONE}. */
+  private volatile long lastTouch = NONE;
+
+  /** Creates a clock that reads time from the parallel scheduler. */
+  public NodeActivity() {
+    this(Schedulers.parallel());
+  }
+
+  /* default */ NodeActivity(final Scheduler clock) {
+    this.clock = clock;
+  }
 
   /** Records activity: restarts the idle clock. Safe to call from any thread. */
   public void touch() {
-    touches.emitNext(Boolean.TRUE, Sinks.EmitFailureHandler.busyLooping(Duration.ofMillis(100)));
+    lastTouch = clock.now(TimeUnit.NANOSECONDS);
   }
 
   /**
-   * A publisher that emits once the node has been idle for {@code timeout}.
+   * Guards a stream with the idle timeout: it fails with a {@link TimeoutException} once the node
+   * has been idle for {@code timeout}. The clock stays silent until the first {@link #touch()}.
    *
-   * <p>It stays silent until the first {@link #touch()}. If the node is paused when a period ends,
-   * a fresh period starts instead, so a pause never fails the node; the timeout can therefore fire
-   * up to one extra period after a resume.
-   *
+   * @param source the stream to guard
    * @param timeout the idle time that triggers the timeout
-   * @param scheduler the scheduler that measures time
+   * @param scheduler the scheduler that runs the periodic check
    * @param paused tells whether the clock must hold
-   * @return a Mono that emits when the idle timeout expires
+   * @param <T> the element type
+   * @return {@code source}, failing with a TimeoutException when idle for too long
    */
-  public Mono<Long> idle(
-      final Duration timeout, final Scheduler scheduler, final BooleanSupplier paused) {
-    return touches.asFlux().switchMap(_ -> delayUnlessPaused(timeout, scheduler, paused)).next();
+  public <T> Flux<T> guard(
+      final Flux<T> source,
+      final Duration timeout,
+      final Scheduler scheduler,
+      final BooleanSupplier paused) {
+    return Flux.defer(
+        () -> {
+          final AtomicBoolean expired = new AtomicBoolean();
+          return source
+              .takeUntilOther(idle(timeout, scheduler, paused).doOnNext(_ -> expired.set(true)))
+              .concatWith(
+                  Mono.defer(
+                      () ->
+                          expired.get()
+                              ? Mono.error(new TimeoutException("Node idle for " + timeout))
+                              : Mono.empty()));
+        });
   }
 
   /**
-   * A delay that does not expire while {@code paused} holds: if the period ends during a pause, a
-   * new full period begins.
+   * A publisher that emits once the node has been idle for {@code timeout}, counting only time
+   * outside pauses (to within one twentieth of the timeout, and never early).
+   */
+  /* default */ Mono<Long> idle(
+      final Duration timeout, final Scheduler scheduler, final BooleanSupplier paused) {
+    return Mono.defer(
+        () -> {
+          final long limit = timeout.toNanos();
+          final long tick = Math.max(MIN_TICK_NANOS, limit / TICKS);
+          // [0] the activity stamp already counted, [1] idle nanoseconds counted so far
+          final long[] counted = {NONE, 0};
+          return Flux.interval(Duration.ofNanos(tick), scheduler)
+              .filter(_ -> expired(counted, tick, limit, paused))
+              .next();
+        });
+  }
+
+  private boolean expired(
+      final long[] counted, final long tick, final long limit, final BooleanSupplier paused) {
+    final long last = lastTouch;
+    if (last == NONE) {
+      return false;
+    }
+    final boolean running = !paused.getAsBoolean();
+    if (last == counted[0]) {
+      if (running) {
+        counted[1] += tick;
+      }
+    } else {
+      // New activity since the previous check: only the time since it counts.
+      counted[0] = last;
+      counted[1] = running ? clock.now(TimeUnit.NANOSECONDS) - last : 0;
+    }
+    return counted[1] >= limit;
+  }
+
+  /**
+   * A delay that only counts time outside a pause: it is measured in ticks of a twentieth of the
+   * delay, and a tick that falls in a pause is not counted. The delay is therefore exact to within
+   * one tick of the unpaused time.
    *
    * @param timeout the delay
    * @param scheduler the scheduler that measures time
    * @param paused tells whether the clock must hold
-   * @return a Mono that emits when the delay expires outside a pause
+   * @return a Mono that emits when the delay has elapsed outside pauses
    */
   public static Mono<Long> delayUnlessPaused(
       final Duration timeout, final Scheduler scheduler, final BooleanSupplier paused) {
-    return Mono.delay(timeout, scheduler)
+    final long tick = Math.max(MIN_TICK_NANOS, timeout.toNanos() / TICKS);
+    final long needed = (timeout.toNanos() + tick - 1) / tick;
+    return Flux.interval(Duration.ofNanos(tick), scheduler)
         .filter(_ -> !paused.getAsBoolean())
-        .repeatWhenEmpty(repeats -> repeats);
+        .take(needed)
+        .then(Mono.just(0L));
   }
 }

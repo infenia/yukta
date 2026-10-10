@@ -2,16 +2,18 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.plugin.util;
 
+import java.io.Serial;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import lombok.experimental.UtilityClass;
 import org.springframework.expression.Expression;
 import org.springframework.expression.ExpressionParser;
 import org.springframework.expression.spel.standard.SpelExpressionParser;
+import org.springframework.expression.spel.support.DataBindingPropertyAccessor;
 import org.springframework.expression.spel.support.MapAccessor;
-import org.springframework.expression.spel.support.StandardEvaluationContext;
+import org.springframework.expression.spel.support.SimpleEvaluationContext;
 import reactor.core.publisher.Mono;
-import reactor.core.scheduler.Schedulers;
 
 /** Utility for SpEL expression evaluation and caching. */
 @UtilityClass
@@ -19,18 +21,24 @@ public final class SpelUtils {
   /** SpEL expression parser instance. */
   private static final ExpressionParser PARSER = new SpelExpressionParser();
 
-  /** Cache for parsed SpEL expressions. */
-  private static final Map<String, Expression> CACHE = new ConcurrentHashMap<>();
+  /** Maximum number of parsed expressions kept. */
+  /* default */ static final int MAX_CACHED = 1000;
 
-  /** Thread-local storage for SpEL evaluation contexts. */
-  private static final ThreadLocal<StandardEvaluationContext> CONTEXT_HOLDER =
-      ThreadLocal.withInitial(
-          () -> {
-            // nosem: yukta-spel-standard-evaluation-context (trusted workflow input)
-            final StandardEvaluationContext context = new StandardEvaluationContext();
-            context.addPropertyAccessor(new MapAccessor());
-            return context;
+  /** Cache for parsed SpEL expressions, least recently used evicted. */
+  private static final Map<String, Expression> CACHE =
+      Collections.synchronizedMap(
+          new LinkedHashMap<>(16, 0.75f, true) {
+            @Serial private static final long serialVersionUID = 1L;
+
+            @Override
+            protected boolean removeEldestEntry(final Map.Entry<String, Expression> eldest) {
+              return size() > MAX_CACHED;
+            }
           });
+
+  /* default */ static int cacheSize() {
+    return CACHE.size();
+  }
 
   /**
    * Evaluate a SpEL expression against a message.
@@ -43,25 +51,11 @@ public final class SpelUtils {
    */
   public static <T> Mono<T> evaluate(
       final String expressionStr, final Object root, final Map<String, Object> variables) {
-    return Mono.fromCallable(
-            () -> {
-              final Expression expression =
-                  CACHE.computeIfAbsent(expressionStr, PARSER::parseExpression);
-              // nosem: yukta-spel-standard-evaluation-context (trusted workflow input)
-              final StandardEvaluationContext context = new StandardEvaluationContext(root);
-              context.addPropertyAccessor(new MapAccessor());
-              if (variables != null) {
-                context.setVariables(variables);
-              }
-              @SuppressWarnings("unchecked")
-              final T result = (T) expression.getValue(context);
-              return result;
-            })
-        .subscribeOn(Schedulers.boundedElastic());
+    return Mono.fromCallable(() -> evaluateSync(expressionStr, root, variables));
   }
 
   /**
-   * Synchronously evaluate a SpEL expression against a root object using a cached context.
+   * Synchronously evaluate a SpEL expression against a root object in a sandboxed context.
    *
    * @param expressionStr the expression string
    * @param root the root object
@@ -88,18 +82,17 @@ public final class SpelUtils {
   public static <T> T evaluateSync(
       final String expressionStr, final Object root, final Map<String, Object> variables) {
     final Expression expression = CACHE.computeIfAbsent(expressionStr, PARSER::parseExpression);
-    final StandardEvaluationContext context = CONTEXT_HOLDER.get();
-    context.setRootObject(root);
-    try {
-      if (variables != null) {
-        variables.forEach(context::setVariable);
-      }
-      return (T) expression.getValue(context);
-    } finally {
-      if (variables != null) {
-        variables.keySet().forEach(key -> context.setVariable(key, null));
-      }
+    // Read-only property access and instance methods only: no T(...), constructors or bean refs.
+    final SimpleEvaluationContext context =
+        SimpleEvaluationContext.forPropertyAccessors(
+                new MapAccessor(), DataBindingPropertyAccessor.forReadOnlyAccess())
+            .withRootObject(root)
+            .withInstanceMethods()
+            .build();
+    if (variables != null) {
+      variables.forEach(context::setVariable);
     }
+    return (T) expression.getValue(context);
   }
 
   /**

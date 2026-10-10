@@ -20,7 +20,19 @@ import jakarta.annotation.Nullable;
  *   <li>No race conditions from multiple access paths
  * </ul>
  */
-public interface ExecutionControlCommand {
+public sealed interface ExecutionControlCommand
+    permits ExecutionControlCommand.PauseWorkflowCommand,
+        ExecutionControlCommand.ResumeWorkflowCommand,
+        ExecutionControlCommand.PauseNodeCommand,
+        ExecutionControlCommand.ResumeNodeCommand,
+        ExecutionControlCommand.StopNodeCommand,
+        ExecutionControlCommand.SkipNodeCommand,
+        ExecutionControlCommand.EnableStepModeCommand,
+        ExecutionControlCommand.DisableStepModeCommand,
+        ExecutionControlCommand.StepNodeCommand,
+        ExecutionControlCommand.StopWorkflowCommand,
+        ExecutionControlCommand.RestartCommand,
+        ExecutionControlCommand.RestartFromNodeCommand {
 
   /**
    * Returns the execution identifier this command targets.
@@ -30,13 +42,6 @@ public interface ExecutionControlCommand {
   String executionId();
 
   /**
-   * Returns the command type identifier.
-   *
-   * @return the command type identifier
-   */
-  String commandType();
-
-  /**
    * Pause all nodes in an execution via global backpressure.
    *
    * <p>Execution continues to process inflight work but no new elements are pulled from input
@@ -44,12 +49,7 @@ public interface ExecutionControlCommand {
    *
    * @param executionId the execution identifier.
    */
-  record PauseWorkflowCommand(String executionId) implements ExecutionControlCommand {
-    @Override
-    public String commandType() {
-      return "execution.pause-workflow";
-    }
-  }
+  record PauseWorkflowCommand(String executionId) implements ExecutionControlCommand {}
 
   /**
    * Resume a paused execution.
@@ -58,36 +58,21 @@ public interface ExecutionControlCommand {
    *
    * @param executionId the execution identifier.
    */
-  record ResumeWorkflowCommand(String executionId) implements ExecutionControlCommand {
-    @Override
-    public String commandType() {
-      return "execution.resume-workflow";
-    }
-  }
+  record ResumeWorkflowCommand(String executionId) implements ExecutionControlCommand {}
 
   /**
    * Pause a single node via backpressure.
    *
    * <p>The target node stops pulling elements but inflight work continues to completion.
    */
-  record PauseNodeCommand(String executionId, String nodeId) implements ExecutionControlCommand {
-    @Override
-    public String commandType() {
-      return "execution.pause-node";
-    }
-  }
+  record PauseNodeCommand(String executionId, String nodeId) implements ExecutionControlCommand {}
 
   /**
    * Resume a paused node.
    *
    * <p>The node resumes pulling elements and normal processing.
    */
-  record ResumeNodeCommand(String executionId, String nodeId) implements ExecutionControlCommand {
-    @Override
-    public String commandType() {
-      return "execution.resume-node";
-    }
-  }
+  record ResumeNodeCommand(String executionId, String nodeId) implements ExecutionControlCommand {}
 
   /**
    * Stop a single node with optional immediate vs. safe semantics.
@@ -99,26 +84,16 @@ public interface ExecutionControlCommand {
    */
   record StopNodeCommand(
       String executionId, String nodeId, boolean immediate, @Nullable String reason)
-      implements ExecutionControlCommand {
-    @Override
-    public String commandType() {
-      return "execution.stop-node";
-    }
-  }
+      implements ExecutionControlCommand {}
 
   /**
    * Mark a node as skipped or not.
    *
-   * <p>When skipped, the node passes messages through without invoking the processor. When not
-   * skipped, normal processing resumes.
+   * <p>Not supported on a running execution: the built-in processor rejects it with an {@link
+   * IllegalArgumentException}. Skipping is decided when the workflow is compiled.
    */
   record SkipNodeCommand(String executionId, String nodeId, boolean skip)
-      implements ExecutionControlCommand {
-    @Override
-    public String commandType() {
-      return "execution.skip-node";
-    }
-  }
+      implements ExecutionControlCommand {}
 
   /**
    * Enable step-through debug mode on a node.
@@ -127,12 +102,7 @@ public interface ExecutionControlCommand {
    * pauses until step signals are sent.
    */
   record EnableStepModeCommand(String executionId, String nodeId)
-      implements ExecutionControlCommand {
-    @Override
-    public String commandType() {
-      return "execution.enable-step-mode";
-    }
-  }
+      implements ExecutionControlCommand {}
 
   /**
    * Disable step-through debug mode on a node.
@@ -140,24 +110,14 @@ public interface ExecutionControlCommand {
    * <p>The node returns to normal pause/resume behaviour.
    */
   record DisableStepModeCommand(String executionId, String nodeId)
-      implements ExecutionControlCommand {
-    @Override
-    public String commandType() {
-      return "execution.disable-step-mode";
-    }
-  }
+      implements ExecutionControlCommand {}
 
   /**
    * Step to the next element when a node is in step-through mode.
    *
    * <p>Allows exactly one element to pass before blocking again. No-op if node is not in step mode.
    */
-  record StepNodeCommand(String executionId, String nodeId) implements ExecutionControlCommand {
-    @Override
-    public String commandType() {
-      return "execution.step-node";
-    }
-  }
+  record StepNodeCommand(String executionId, String nodeId) implements ExecutionControlCommand {}
 
   /**
    * Stop all nodes in an execution and terminate the workflow.
@@ -192,11 +152,6 @@ public interface ExecutionControlCommand {
     public StopWorkflowCommand(final String executionId, @Nullable final String reason) {
       this(executionId, reason, StopMode.DRAIN);
     }
-
-    @Override
-    public String commandType() {
-      return "execution.stop-workflow";
-    }
   }
 
   /**
@@ -206,12 +161,7 @@ public interface ExecutionControlCommand {
    * @param newExecutionId the pre-generated identifier for the restarted execution
    */
   record RestartCommand(String executionId, String newExecutionId)
-      implements ExecutionControlCommand {
-    @Override
-    public String commandType() {
-      return "execution.restart";
-    }
-  }
+      implements ExecutionControlCommand {}
 
   /**
    * Stop the current execution and restart from a specific node.
@@ -224,10 +174,5 @@ public interface ExecutionControlCommand {
    * @param newExecutionId the pre-generated identifier for the restarted execution
    */
   record RestartFromNodeCommand(String executionId, String fromNodeId, String newExecutionId)
-      implements ExecutionControlCommand {
-    @Override
-    public String commandType() {
-      return "execution.restart-from-node";
-    }
-  }
+      implements ExecutionControlCommand {}
 }

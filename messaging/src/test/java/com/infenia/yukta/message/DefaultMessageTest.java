@@ -344,4 +344,24 @@ class DefaultMessageTest {
     final Message<String> original = DefaultMessage.create(null, "p").withTimestamp(precise);
     assertThat(DefaultMessage.from(original, 1).timestamp()).isEqualTo(precise);
   }
+
+  @Test
+  @SuppressWarnings("PMD.UseConcurrentHashMap")
+  void testNullKeyRejectedEvenWithNullValue() {
+    final Map<String, Object> raw = new HashMap<>();
+    raw.put(null, null);
+    final Message<String> msg = DefaultMessage.create(null, "p");
+    assertThatThrownBy(() -> msg.withMetadata(raw)).isInstanceOf(NullPointerException.class);
+  }
+
+  @Test
+  void testConstructorTrimsOversizedHistory() {
+    final List<String> big = new java.util.ArrayList<>();
+    for (int i = 0; i < DefaultMessage.MAX_HISTORY + 5; i++) {
+      big.add("n" + i);
+    }
+    final Message<String> msg = DefaultMessage.create(null, "p").withMessageHistory(big);
+    assertThat(msg.messageHistory()).hasSize(DefaultMessage.MAX_HISTORY);
+    assertThat(msg.messageHistory().get(0)).isEqualTo("n5");
+  }
 }

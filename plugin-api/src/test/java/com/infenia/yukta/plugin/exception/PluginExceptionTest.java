@@ -18,12 +18,6 @@ class PluginExceptionTest {
     assertEquals("m1", e1c.getMessage());
     assertEquals(cause, e1c.getCause());
 
-    JoinTimeoutException e2 = new JoinTimeoutException("m2");
-    assertEquals("m2", e2.getMessage());
-    JoinTimeoutException e2c = new JoinTimeoutException("m2", cause);
-    assertEquals("m2", e2c.getMessage());
-    assertEquals(cause, e2c.getCause());
-
     NoMatchingBranchException e3 = new NoMatchingBranchException("m3");
     assertEquals("m3", e3.getMessage());
 

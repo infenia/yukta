@@ -73,6 +73,7 @@ spring-boot-starter-webclient-test = { group = "org.springframework.boot", name 
 spring-boot-starter-webflux-test = { group = "org.springframework.boot", name = "spring-boot-starter-webflux-test" }
 spring-boot-starter-jackson-test = { group = "org.springframework.boot", name = "spring-boot-starter-jackson-test" }
 reactor-core = { group = "io.projectreactor", name = "reactor-core" }
+spring-expression = { group = "org.springframework", name = "spring-expression" }
 reactor-test = { group = "io.projectreactor", name = "reactor-test" }
 awaitility = { group = "org.awaitility", name = "awaitility", version = "4.3.0" }
 [plugins]

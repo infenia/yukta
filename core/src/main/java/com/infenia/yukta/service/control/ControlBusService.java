@@ -11,6 +11,7 @@ import com.infenia.yukta.service.control.store.ActivePluginRegistry;
 import com.infenia.yukta.service.orchestrator.WorkflowOrchestrator;
 import com.infenia.yukta.service.workflow.store.PreparedWorkflowCache;
 import com.infenia.yukta.service.workflow.store.WorkflowDefinitionStore;
+import com.infenia.yukta.util.SinkEmit;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import jakarta.annotation.Nullable;
 import jakarta.annotation.PostConstruct;
@@ -188,7 +189,10 @@ public class ControlBusService {
     return Mono.create(
         sink -> {
           try {
-            controlSink.emitNext(signal, RETRY_HANDLER);
+            if (!SinkEmit.offer(controlSink, signal)) {
+              sink.error(new IllegalStateException("Control bus is full or closed"));
+              return;
+            }
             log.atDebug()
                 .addArgument(signal.sourceNodeId())
                 .addArgument(signal.workflowId())

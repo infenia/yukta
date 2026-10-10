@@ -73,7 +73,12 @@ public record DefaultMessage<T>(
    */
   public DefaultMessage {
     metadata = copyWithoutNulls(metadata);
-    messageHistory = messageHistory != null ? List.copyOf(messageHistory) : List.of();
+    messageHistory =
+        messageHistory == null
+            ? List.of()
+            : List.copyOf(
+                messageHistory.subList(
+                    Math.max(0, messageHistory.size() - MAX_HISTORY), messageHistory.size()));
     timestamp = Objects.requireNonNullElseGet(timestamp, Instant::now);
   }
 
@@ -154,9 +159,12 @@ public record DefaultMessage<T>(
     return result;
   }
 
-  @SuppressWarnings("PMD.UseConcurrentHashMap") // local, never shared
+  @SuppressWarnings({"PMD.UseConcurrentHashMap", "PMD.AvoidThrowingNullPointerException"})
   private static Map<String, Object> dropNullValues(final Map<String, Object> source) {
     final Map<String, Object> copy = new HashMap<>(source);
+    if (copy.containsKey(null)) {
+      throw new NullPointerException("metadata key must not be null");
+    }
     copy.values().removeIf(Objects::isNull);
     return Map.copyOf(copy);
   }

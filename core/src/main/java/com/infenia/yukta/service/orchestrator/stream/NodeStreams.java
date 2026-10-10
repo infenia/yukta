@@ -13,7 +13,6 @@ import java.util.function.BooleanSupplier;
 import lombok.experimental.UtilityClass;
 import lombok.extern.slf4j.Slf4j;
 import reactor.core.publisher.Flux;
-import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
 /** Stream operators every node's output goes through: timeout and task status tracking. */
@@ -47,10 +46,8 @@ public class NodeStreams {
       final NodeActivity activity,
       final BooleanSupplier paused) {
     final String nodeId = node.nodeId();
-    final Mono<Long> idle = activity.idle(timeout, Schedulers.parallel(), paused);
-    return source
-        .doOnNext(_ -> activity.touch())
-        .timeout(idle, _ -> idle)
+    return activity
+        .guard(source.doOnNext(_ -> activity.touch()), timeout, Schedulers.parallel(), paused)
         .doOnError(
             TimeoutException.class,
             e ->

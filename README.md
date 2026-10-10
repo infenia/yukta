@@ -32,7 +32,7 @@
 |--------------------------------------------------------------------------------------------|-------------------------------|------------------------------------------------------------------------------------------------|
 | DAG orchestration engine (`core`)                                                          | Working                       | Reactive compiler/validator/executor; requires each workflow to have at least one trigger node |
 | REST API (`web`)                                                                           | Working                       | 5 controllers, 23 endpoints; see [REST API](#rest-api)                                         |
-| MCP server (`mcp`)                                                                         | Working                       | 13 tools, 2 prompts, 3 resources over `/sse` (always on, no flag needed)                       |
+| MCP server (`mcp`)                                                                         | Working                       | 13 tools, 2 prompts, 3 resources over `/mcp` (always on, no flag needed)                       |
 | Built-in plugins (`plugins`)                                                               | Working                       | 13 plugins across trigger/processor/terminal; see [Plugins](#plugins)                          |
 | Web UI (`ui`)                                                                              | Working                       | JTE + Tailwind + Alpine.js dashboard at `/ui`                                                  |
 | Native image (GraalVM)                                                                     | Configured, not yet published | `./gradlew nativeCompile` builds a `yukta` binary; no released artifacts                       |
@@ -144,14 +144,14 @@ Custom plugins implement `TriggerPlugin`, `ProcessorPlugin`, or `TerminalPlugin`
 
 ## MCP Server
 
-Yukta runs an MCP server (Spring AI MCP, WebFlux) on the same process, always on at `/sse` (protocol `STATELESS`, type `ASYNC` — no separate flag or profile required).
+Yukta runs an MCP server (Spring AI MCP, WebFlux) on the same process, always on at `/mcp` (`/sse` still works as an alias; protocol `STATELESS`, type `ASYNC` — no separate flag or profile required).
 
 **13 tools**: `list_sessions`, `get_session_details`, `create_session`, `get_session_creation_instructions`, `get_workflow_details`, `trigger_workflow`, `get_workflow_status`, `stream_session_logs`, `get_workflow_execution_logs`, `list_plugins`, `get_plugin_details`, `get_plugin_creation_guide`, `get_control_bus_status`
 
 **2 prompts**: `debug-workflow`, `create-session-config`
 **3 resources**: `yukta://overview`, `yukta://architecture`, `yukta://sessions/{sessionId}/logs`
 
-Point any MCP-compatible client at `http://localhost:8080/sse` (SSE transport, `STATELESS`/`ASYNC` protocol). Check your client's own docs for the exact config key names it expects for a remote SSE server.
+Point any MCP-compatible client at `http://localhost:8080/mcp` (streamable HTTP transport, `STATELESS`/`ASYNC` protocol). Set `yukta.mcp.api-key` to require `Authorization: Bearer <key>` (or `X-API-Key`) on that endpoint; it is open by default, like the REST API.
 
 ---
 
