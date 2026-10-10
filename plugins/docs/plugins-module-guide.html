@@ -232,17 +232,17 @@ function render(){var t=q.value.trim().toLowerCase();
   document.getElementById("progBar").style.width=(k/F.length*100)+"%";
   document.getElementById("statFindings").textContent=F.length-k;
   document.querySelector("#roadTable tbody").innerHTML=D.road.map(function(r){var d=r[1].filter(function(id){return done[id]}).length;
-    return '<tr><td><b>'+esc(r[0])+'</b></td><td>'+r[1].map(pillFor).join(" ")+'</td><td>'+esc(r[2])+'</td><td class="mono">'+d+'/'+r[1].length+'</td></tr>'}).join("")}
+    return '<tr><td><b>'+esc(r[0])+'</b></td><td>'+r[1].map(pillFor).join(" ")+'</td><td>'+esc(r[2])+'</td><td class="mono">'+d+'/'+r[1].length+'</td></tr>';}).join("");}
 render();
 document.addEventListener("click",function(e){var a=e.target.closest&&e.target.closest("[data-jump]");if(!a)return;e.preventDefault();
   var id=a.getAttribute("data-jump");SEVS.forEach(function(s){sevOn[s]=true});AREAS.forEach(function(x){areaOn[x]=true});hideDone=false;q.value="";
   [].forEach.call(document.querySelectorAll("#sevFilters button,#areaFilters button"),function(b){b.setAttribute("aria-pressed","true")});
-  hd.setAttribute("aria-pressed","false");render();var d=document.getElementById("f-"+id);if(d){d.open=true;d.scrollIntoView({behavior:"smooth",block:"center"})}});
+  hd.setAttribute("aria-pressed","false");render();var d=document.getElementById("f-"+id);if(d){d.open=true;d.scrollIntoView({behavior:"smooth",block:"center"})};});
 var links=document.querySelectorAll("nav.side a");
 [].forEach.call(links,function(l){l.addEventListener("click",function(e){var t=document.querySelector(l.getAttribute("href"));if(t){e.preventDefault();t.scrollIntoView({behavior:"smooth"})}})});
 if("IntersectionObserver" in window){var io=new IntersectionObserver(function(es){es.forEach(function(en){if(en.isIntersecting)
   [].forEach.call(links,function(l){l.classList.toggle("active",l.getAttribute("href")==="#"+en.target.id)})})},{rootMargin:"-40% 0px -55% 0px"});
-  [].forEach.call(document.querySelectorAll("main section"),function(s){io.observe(s)})}
+  [].forEach.call(document.querySelectorAll("main section"),function(s){io.observe(s)});}
 })();
 </script>
 </body>

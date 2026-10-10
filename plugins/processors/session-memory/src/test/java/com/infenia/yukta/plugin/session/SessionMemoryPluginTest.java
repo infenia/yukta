@@ -53,7 +53,7 @@ class SessionMemoryPluginTest {
     config.put("mode", "load");
     config.put("sessionId", "s1");
     config.put("message", "hi");
-    for (int i = 0; i < extra.length; i += 2) {
+    for (int i = 0; i + 1 < extra.length; i += 2) {
       config.put((String) extra[i], extra[i + 1]);
     }
     return config;

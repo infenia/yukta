@@ -14,6 +14,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -170,14 +171,16 @@ public class HttpRequestPlugin implements ProcessorPlugin {
             resolve(config.getOrDefault(METHOD, "GET"), message).map(Object::toString),
             resolveHeaders(config.get(HEADERS), message),
             resolve(config.getOrDefault(TIMEOUT, DEFAULT_TIMEOUT_SECONDS), message),
-            resolve(config.get(BODY), message).map(Object.class::cast).defaultIfEmpty(""))
+            resolve(config.get(BODY), message)
+                .map(Optional::<Object>of)
+                .defaultIfEmpty(Optional.empty()))
         .map(
             tuple -> {
               final long timeout = MapUtils.convert(tuple.getT4(), Long.class);
               if (timeout <= 0) {
                 throw new IllegalArgumentException("timeout must be positive, got: " + timeout);
               }
-              final Object body = "".equals(tuple.getT5()) ? null : tuple.getT5();
+              final Object body = tuple.getT5().orElse(null);
               return new HttpRequestSpec(
                   tuple.getT2().toUpperCase(Locale.ROOT),
                   tuple.getT1(),
