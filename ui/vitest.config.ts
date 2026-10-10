@@ -25,16 +25,10 @@ export default defineConfig({
         'src/lib/theme.ts', // Internal hook closures untestable outside React components
       ],
       thresholds: {
-        lines: 98,
-        functions: 95,
-        branches: 96,
-        statements: 98,
-        'src/lib/apiClient.ts': {
-          lines: 100,
-          functions: 100,
-          branches: 92,
-          statements: 100,
-        },
+        lines: 100,
+        functions: 100,
+        branches: 100,
+        statements: 100,
       },
     },
   },

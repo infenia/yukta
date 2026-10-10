@@ -121,6 +121,31 @@ class WorkflowOrchestratorTest {
         .verify();
   }
 
+  @Test
+  void prepareWorkflow_thatEmitsNothing_completesEmpty() {
+    final WorkflowDefinition def = buildMinimalDefinition("wf-empty");
+    when(preparator.prepareWorkflow(def)).thenReturn(Mono.empty());
+
+    StepVerifier.create(orchestrator.prepareWorkflow(def)).verifyComplete();
+  }
+
+  @Test
+  void execute_recordsTheDefinitionVersionOfThePreparedWorkflow() {
+    final PreparedWorkflow prepared = buildPreparedWorkflow(List.of("node-a"));
+    final Map<String, Object> payload = Map.of();
+    setupExecutionControl("s", "w", "exec-v", prepared, payload, Sinks.one());
+    when(executionControl.prepared()).thenReturn(prepared);
+    when(tracker.startWorkflow(eq("exec-v"), eq("s"), eq("w"), anyList())).thenReturn(Mono.empty());
+    when(prepared.template().instantiate(eq("exec-v"), eq(payload))).thenReturn(Mono.empty());
+
+    StepVerifier.create(orchestrator.execute("s", "w", "exec-v", prepared, payload))
+        .verifyComplete();
+
+    verify(tracker)
+        .recordDefinitionVersion(
+            "exec-v", com.infenia.yukta.service.archive.DefinitionVersion.of(prepared));
+  }
+
   // --- execute ---
 
   @Test

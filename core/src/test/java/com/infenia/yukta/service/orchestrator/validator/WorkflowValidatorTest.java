@@ -1589,4 +1589,139 @@ class WorkflowValidatorTest {
             e -> e instanceof IllegalArgumentException && !e.getMessage().contains("engine"))
         .verify();
   }
+
+  private WorkflowDefinition singleProcessor(final Map<String, Object> config) {
+    return new WorkflowDefinition(
+        WORKFLOW_NAME, "d", List.of(new WorkflowDefinition.Node("p", "P", config)), List.of());
+  }
+
+  private void assertNotRejectedFor(final WorkflowDefinition def, final String text) {
+    StepVerifier.create(validator.validate(def))
+        .expectErrorMatches(e -> !e.getMessage().contains(text))
+        .verify();
+  }
+
+  private void assertNoLimitViolation(final WorkflowDefinition def) {
+    StepVerifier.create(validator.validate(def))
+        .expectErrorMatches(
+            e ->
+                !e.getMessage().contains("node timeout")
+                    && !e.getMessage().contains("must be below"))
+        .verify();
+  }
+
+  @Test
+  void testTooManyEdgesRejected() {
+    final var edges = new ArrayList<WorkflowDefinition.Edge>();
+    for (int i = 0; i < 2001; i++) {
+      edges.add(new WorkflowDefinition.Edge("a", "b", "p" + i));
+    }
+    assertRejected(
+        new WorkflowDefinition(WORKFLOW_NAME, "d", List.of(node("a", "T"), node("b", "P")), edges),
+        "too large");
+  }
+
+  @Test
+  void testOutputPortLookupFailureIsLeftToOtherChecks() {
+    when(registry.get("T")).thenReturn(triggerPlugin);
+    when(triggerPlugin.getOutputPorts(any())).thenThrow(new IllegalStateException("bad config"));
+    assertRejectedNotForPort(
+        new WorkflowDefinition(
+            WORKFLOW_NAME,
+            "d",
+            List.of(node("a", "T"), node("b", "P")),
+            List.of(new WorkflowDefinition.Edge("a", "b", "x"))));
+  }
+
+  private void assertRejectedNotForPort(final WorkflowDefinition def) {
+    assertNotRejectedFor(def, "output port");
+  }
+
+  @Test
+  void testNonPositiveConfiguredTimeoutFallsBackToThePluginDefault() {
+    when(registry.get("P")).thenReturn(processorPlugin);
+    when(processorPlugin.getDefaultTimeout(any())).thenReturn(Duration.ofSeconds(1));
+    assertRejected(
+        singleProcessor(
+            Map.of(
+                "timeoutSeconds",
+                0,
+                "engine",
+                Map.of("retry", Map.of("maxAttempts", 3, "maxBackoffMs", 5_000)))),
+        "node timeout (1 s)");
+  }
+
+  @Test
+  void testPoliciesBelowTheLimitsAreAccepted() {
+    when(registry.get("P")).thenReturn(processorPlugin);
+    when(processorPlugin.getCategory()).thenReturn(PluginCategory.PROCESSOR);
+    // retry backoff and element timeout both below timeout and deadline
+    assertNoLimitViolation(
+        singleProcessor(
+            Map.of(
+                "timeoutSeconds",
+                60,
+                "engine",
+                Map.of(
+                    "retry", Map.of("maxAttempts", 3, "maxBackoffMs", 1_000),
+                    "elementTimeoutMs", 2_000,
+                    "deadlineMs", 30_000))));
+  }
+
+  @Test
+  void testRetryWithoutElementTimeoutAndElementTimeoutWithoutRetry() {
+    when(registry.get("P")).thenReturn(processorPlugin);
+    when(processorPlugin.getCategory()).thenReturn(PluginCategory.PROCESSOR);
+    assertNoLimitViolation(
+        singleProcessor(
+            Map.of(
+                "timeoutSeconds",
+                60,
+                "engine",
+                Map.of("retry", Map.of("maxAttempts", 3, "maxBackoffMs", 1_000)))));
+    assertNoLimitViolation(
+        singleProcessor(Map.of("timeoutSeconds", 60, "engine", Map.of("elementTimeoutMs", 1_000))));
+    // deadline without an element timeout
+    assertNoLimitViolation(
+        singleProcessor(Map.of("timeoutSeconds", 60, "engine", Map.of("deadlineMs", 1_000))));
+  }
+
+  @Test
+  void testNoKnownNodeTimeoutSkipsTheBackoffCheck() {
+    when(registry.get("P")).thenReturn(processorPlugin);
+    assertNotRejectedFor(
+        singleProcessor(
+            Map.of("engine", Map.of("retry", Map.of("maxAttempts", 3, "maxBackoffMs", 5_000)))),
+        "maxBackoffMs");
+  }
+
+  @Test
+  void testPluginConfigValidationFailureIsReported() {
+    when(triggerPlugin.getCategory()).thenReturn(PluginCategory.TRIGGER);
+    lenient().when(triggerPlugin.validateConfig(any())).thenReturn(Mono.empty());
+    when(triggerPlugin.validateInContext(any(), any())).thenReturn(Mono.empty());
+    when(registry.get(TRIGGER_ID)).thenReturn(triggerPlugin);
+    when(processorPlugin.getCategory()).thenReturn(PluginCategory.PROCESSOR);
+    when(processorPlugin.validateInContext(any(), any())).thenReturn(Mono.empty());
+    when(processorPlugin.validateConfig(any()))
+        .thenReturn(Mono.error(new IllegalArgumentException("bad plugin config")));
+    when(registry.get(PROCESSOR_ID)).thenReturn(processorPlugin);
+    when(terminalPlugin.getCategory()).thenReturn(PluginCategory.TERMINAL);
+    lenient().when(terminalPlugin.validateConfig(any())).thenReturn(Mono.empty());
+    when(terminalPlugin.validateInContext(any(), any())).thenReturn(Mono.empty());
+    when(registry.get(TERMINAL_ID)).thenReturn(terminalPlugin);
+
+    final WorkflowDefinition def =
+        new WorkflowDefinition(
+            WORKFLOW_NAME,
+            "d",
+            List.of(node("t", TRIGGER_ID), node("p", PROCESSOR_ID), node("term", TERMINAL_ID)),
+            List.of(
+                new WorkflowDefinition.Edge("t", "p", DEFAULT_EDGE_LABEL),
+                new WorkflowDefinition.Edge("p", "term", DEFAULT_EDGE_LABEL)));
+
+    StepVerifier.create(validator.validate(def))
+        .expectErrorMatches(e -> e.getMessage().contains("bad plugin config"))
+        .verify();
+  }
 }

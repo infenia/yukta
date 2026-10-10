@@ -467,8 +467,8 @@ public class ExecutionScheduler implements SmartLifecycle {
         continue;
       }
       final int running = runningPerSession.getOrDefault(sessionOf(waiter.key()), 0);
+      // the queue is ordered by priority, so a later waiter is never above the best so far
       if (best == null
-          || waiter.priority().get() > best.priority().get()
           || (waiter.priority().get() == best.priority().get() && running < bestRunning)) {
         best = waiter;
         bestRunning = running;

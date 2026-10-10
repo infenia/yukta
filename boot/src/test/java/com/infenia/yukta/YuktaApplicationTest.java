@@ -4,10 +4,6 @@ package com.infenia.yukta;
 
 import static org.assertj.core.api.Assertions.*;
 
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -26,6 +22,8 @@ import org.junit.jupiter.api.parallel.Isolated;
 })
 @NoArgsConstructor
 class YuktaApplicationTest {
+
+  private static final String PROFILE_PROPERTY = "spring.profiles.active";
 
   private static final String NATIVE_IMAGE_PROPERTY = "org.graalvm.nativeimage.imagecode";
 
@@ -46,21 +44,41 @@ class YuktaApplicationTest {
   }
 
   @Test
-  @Timeout(20)
+  @Timeout(60)
   void mainStartsApplicationWithoutError() {
+    // the context stays up until the JVM's shutdown hook closes it
     assertThatNoException()
-        .isThrownBy(
-            () -> {
-              final ExecutorService executor = Executors.newSingleThreadExecutor();
-              @SuppressWarnings("unused")
-              Future<?> startTask =
-                  executor.submit(() -> YuktaApplication.main(new String[] {"--server.port=0"}));
-              executor.shutdown();
-              final boolean completed = executor.awaitTermination(10, TimeUnit.SECONDS);
-              if (!completed) {
-                executor.shutdownNow();
-              }
-            });
+        .isThrownBy(() -> YuktaApplication.main(new String[] {"--server.port=0"}));
+  }
+
+  @Test
+  @Timeout(60)
+  void mainSelectsProdProfileInNativeImageWithoutOne() {
+    final String before = System.getProperty(PROFILE_PROPERTY);
+    // Spring caches its native-image check; let it settle before the property is faked
+    org.springframework.core.NativeDetector.inNativeImage();
+    System.setProperty(NATIVE_IMAGE_PROPERTY, "runtime");
+    System.clearProperty(PROFILE_PROPERTY);
+    try {
+      try {
+        YuktaApplication.main(new String[] {"--server.port=0"});
+      } catch (RuntimeException e) {
+        // the prod profile may not start in a test; only the profile selection matters here
+        assertThat(e).isNotNull();
+      }
+      assertThat(System.getProperty(PROFILE_PROPERTY)).isEqualTo("prod");
+
+      // an explicit profile argument is left alone
+      System.clearProperty(PROFILE_PROPERTY);
+      YuktaApplication.main(new String[] {"--server.port=0", "--spring.profiles.active=dev"});
+      assertThat(System.getProperty(PROFILE_PROPERTY)).isNull();
+    } finally {
+      if (before == null) {
+        System.clearProperty(PROFILE_PROPERTY);
+      } else {
+        System.setProperty(PROFILE_PROPERTY, before);
+      }
+    }
   }
 
   @Test

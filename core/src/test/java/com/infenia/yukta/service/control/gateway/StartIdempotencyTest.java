@@ -13,7 +13,7 @@ import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
 @NoArgsConstructor
-@SuppressWarnings({"PMD.CommentRequired", "PMD.AvoidDuplicateLiterals"})
+@SuppressWarnings({"PMD.CommentRequired", "PMD.AvoidDuplicateLiterals", "PMD.TooManyMethods"})
 class StartIdempotencyTest {
 
   private final AtomicLong nanos = new AtomicLong();
@@ -139,5 +139,18 @@ class StartIdempotencyTest {
     idle.afterSingletonsInstantiated();
 
     assertThat(idle.once("s/w", "k", this::start).block()).isEqualTo("exec-1");
+  }
+
+  @Test
+  void otherLogEvents_areIgnoredWhenReloading() {
+    final com.infenia.yukta.service.log.InMemoryExecutionLogStore log =
+        new com.infenia.yukta.service.log.InMemoryExecutionLogStore();
+    log.append(
+        com.infenia.yukta.service.log.ExecutionLogEvent.started(
+            "e", "s", "w", "v", java.util.Map.of()));
+    final StartIdempotency reloaded = new StartIdempotency(Duration.ofMinutes(10), log);
+    reloaded.afterSingletonsInstantiated();
+
+    assertThat(reloaded.once("s/w", "k", this::start).block()).isEqualTo("exec-1");
   }
 }
