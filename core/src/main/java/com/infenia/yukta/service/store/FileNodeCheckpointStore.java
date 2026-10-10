@@ -90,7 +90,26 @@ public class FileNodeCheckpointStore implements NodeCheckpointStore, ByteCounted
 
   @Override
   public boolean isComplete(final String executionId, final String nodeId) {
-    return !Files.exists(file(executionId, nodeId, INCOMPLETE));
+    return !Files.exists(file(executionId, nodeId, INCOMPLETE))
+        && endsWithNewline(executionId, nodeId);
+  }
+
+  /** A write that was cut short by a crash leaves a last line without its newline. */
+  private boolean endsWithNewline(final String executionId, final String nodeId) {
+    final Path file = file(executionId, nodeId, MESSAGES);
+    if (!Files.exists(file)) {
+      return true;
+    }
+    try (var channel = java.nio.channels.FileChannel.open(file, StandardOpenOption.READ)) {
+      if (channel.size() == 0) {
+        return true;
+      }
+      final java.nio.ByteBuffer last = java.nio.ByteBuffer.allocate(1);
+      channel.read(last, channel.size() - 1);
+      return last.get(0) == '\n';
+    } catch (final IOException e) {
+      return false;
+    }
   }
 
   @Override
@@ -161,6 +180,9 @@ public class FileNodeCheckpointStore implements NodeCheckpointStore, ByteCounted
       return messages;
     } catch (final IOException e) {
       throw new UncheckedIOException(e);
+    } catch (final RuntimeException e) {
+      throw new UncheckedIOException(
+          new IOException("Unreadable output of node " + nodeId + " in " + executionId, e));
     }
   }
 
