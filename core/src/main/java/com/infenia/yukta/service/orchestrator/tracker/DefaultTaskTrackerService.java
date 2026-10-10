@@ -18,6 +18,7 @@ import com.infenia.yukta.service.log.ExecutionLogEvent;
 import com.infenia.yukta.service.log.ExecutionLogStore;
 import com.infenia.yukta.service.log.InMemoryExecutionLogStore;
 import com.infenia.yukta.service.streaming.StatusHistoryCache;
+import com.infenia.yukta.util.SinkEmit;
 import com.infenia.yukta.validation.NodeId;
 import com.infenia.yukta.validation.SessionId;
 import com.infenia.yukta.validation.WorkflowId;
@@ -42,6 +43,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -51,7 +53,6 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.publisher.Sinks;
 import reactor.core.scheduler.Schedulers;
-import reactor.util.concurrent.Queues;
 
 /** Service for tracking the progress of workflows and tasks. */
 @Slf4j
@@ -81,6 +82,12 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
 
   /** Finished executions kept per session for history; older ones are dropped on cleanup. */
   /* default */ static final int MAX_FINISHED_PER_SESSION = 100;
+
+  /** Most log events that may wait to be applied before further ones are dropped. */
+  private static final int MAX_PENDING_LOGS = 10_000;
+
+  /** Metric counting events the tracker could not queue. */
+  private static final String DROPPED_METRIC = "yukta.tracker.dropped";
 
   /** Time to live for execution data after terminal status. */
   private final Duration cleanupTtl;
@@ -116,8 +123,10 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
    * Sink for every tracker event. A single ordered stream guarantees that a node's last status is
    * applied before the workflow's terminal status, and that log lines keep their place.
    */
-  private final Sinks.Many<TrackerEvent> eventSink =
-      Sinks.many().multicast().onBackpressureBuffer(Queues.SMALL_BUFFER_SIZE * 16, false);
+  private final Sinks.Many<TrackerEvent> eventSink = Sinks.many().unicast().onBackpressureBuffer();
+
+  /** Log events accepted but not yet consumed; bounds how much a chatty plugin can queue. */
+  private final AtomicInteger pendingLogs = new AtomicInteger();
 
   /** Best-effort feed of log events for {@link #getLogFlux()}; slow readers never block events. */
   private final Sinks.Many<WorkflowLogEvent> logFeed = Sinks.many().multicast().directBestEffort();
@@ -177,7 +186,9 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
                               .log("Error processing tracker event batch", e);
                           return Mono.empty();
                         }))
-        .subscribe();
+        .subscribe(
+            _ -> {},
+            e -> log.atError().setCause(e).log("Tracker event consumer stopped unexpectedly"));
   }
 
   /**
@@ -292,9 +303,7 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
         .addKeyValue("status", status)
         .addKeyValue("metadataSize", metadata.size())
         .log("Emitting task status event");
-    eventSink.emitNext(
-        TaskStatusEvent.create(executionId, nodeId, module, status.name(), metadata),
-        RETRY_HANDLER);
+    publish(TaskStatusEvent.create(executionId, nodeId, module, status.name(), metadata));
   }
 
   /**
@@ -331,7 +340,7 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
         .addKeyValue("executionId", executionId)
         .addKeyValue("status", status)
         .log("Emitting workflow status event");
-    eventSink.emitNext(WorkflowStatusEvent.create(executionId, status.name()), RETRY_HANDLER);
+    publish(WorkflowStatusEvent.create(executionId, status.name()));
   }
 
   /**
@@ -351,7 +360,24 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
         .addKeyValue("nodeId", nodeId)
         .addKeyValue("lineLength", line.length())
         .log("Emitting workflow log event");
-    eventSink.emitNext(WorkflowLogEvent.create(executionId, nodeId, line), RETRY_HANDLER);
+    // Log lines are best effort: when too many are waiting they are dropped and counted, so they
+    // can never delay or displace a state change.
+    if (pendingLogs.incrementAndGet() > MAX_PENDING_LOGS) {
+      pendingLogs.decrementAndGet();
+      meters.counter(DROPPED_METRIC, "type", "log").increment();
+      return;
+    }
+    publish(WorkflowLogEvent.create(executionId, nodeId, line));
+  }
+
+  /** Queues a state or log event; the queue is unbounded, so this only fails once terminated. */
+  private void publish(final TrackerEvent event) {
+    if (!SinkEmit.offer(eventSink, event)) {
+      meters.counter(DROPPED_METRIC, "type", "state").increment();
+      log.atError()
+          .addKeyValue("event", event.getClass().getSimpleName())
+          .log("Tracker event lost");
+    }
   }
 
   /**
@@ -737,6 +763,7 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
   }
 
   private void applyLog(final WorkflowLogEvent event) {
+    pendingLogs.decrementAndGet();
     logFeed.tryEmitNext(event);
     final Sinks.Many<String> sink = logSinks.get(event.executionId());
     if (sink != null) {

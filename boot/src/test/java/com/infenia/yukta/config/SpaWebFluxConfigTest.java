@@ -221,7 +221,8 @@ class SpaWebFluxConfigTest {
   }
 
   @ParameterizedTest
-  @ValueSource(strings = {"/api/sessions/summaries", "/actuator/health", "/sse/status"})
+  @ValueSource(
+      strings = {"/api/sessions/summaries", "/actuator/health", "/mcp/status", "/sse/status"})
   void testSpaRouterDoesNotMatchBackendPaths(final String uri) {
     final RouterFunction<ServerResponse> router = config.spaRouter();
     final WebTestClient client = WebTestClient.bindToRouterFunction(router).build();

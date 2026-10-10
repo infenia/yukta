@@ -1068,6 +1068,15 @@ class DefaultControlBusGatewayTest {
   }
 
   @Test
+  void getProgress_sessionAndExecution_delegatesToSessionScopedTrackerLookup() {
+    final WorkflowProgress progress = mock(WorkflowProgress.class);
+    when(taskTracker.getProgress("session-1", "exec-17")).thenReturn(progress);
+
+    assertThat(gateway.getProgress("session-1", "exec-17")).isEqualTo(progress);
+    verify(taskTracker).getProgress("session-1", "exec-17");
+  }
+
+  @Test
   void getHistory_validSessionId_delegatesToTaskTracker() {
     // Given
     final String sessionId = "session-2";
