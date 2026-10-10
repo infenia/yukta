@@ -344,6 +344,8 @@ public class WorkflowOrchestrator {
         .doFinally(
             signal -> {
               executionControlRegistry.unregister(executionId);
+              // Ends the run: lets a pending drain deadline timer go instead of living on.
+              control.safeStopSink().tryEmitEmpty();
               log.atDebug()
                   .addKeyValue(LOG_KEY_EXECUTION_ID, executionId)
                   .addKeyValue("signal", signal)

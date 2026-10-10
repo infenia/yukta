@@ -16,7 +16,8 @@ import java.util.Set;
  * "engine": {
  *   "retry":   { "maxAttempts": 3, "backoffMs": 200, "maxBackoffMs": 5000 },
  *   "onError": "ROUTE",
- *   "trigger": "ALL_DONE"
+ *   "trigger": "ALL_DONE",
+ *   "elementTimeoutMs": 20000
  * }
  * }</pre>
  *
@@ -28,15 +29,21 @@ import java.util.Set;
  *       the failing message and carries on; {@code ROUTE} sends the failing message, tagged with
  *       its failure, to the node's {@code "error"} output port.
  *   <li>{@code trigger} (any node with several parents): {@code ALL_SUCCESS} (default) fails as
- *       soon as one parent fails; {@code ALL_DONE} keeps going on the other parents when one fails.
+ *       soon as one parent fails; {@code ALL_DONE} keeps going on the other parents when one fails;
+ *       {@code ONE_SUCCESS} keeps going too, but fails when every parent failed.
+ *   <li>{@code elementTimeoutMs} (processors): longest time the plugin may take to answer for one
+ *       message; it counts as a failure, so {@code retry} and {@code onError} apply. Off by
+ *       default.
  * </ul>
  *
  * @param retry the retry policy, or null for none
  * @param onError what to do with a message that still fails
  * @param trigger how a failing parent affects this node
+ * @param elementTimeout longest time for one message, or null for none
  */
 @SuppressWarnings({"PMD.OnlyOneReturn", "PMD.AvoidDuplicateLiterals"})
-public record NodePolicy(@Nullable Retry retry, OnError onError, JoinRule trigger) {
+public record NodePolicy(
+    @Nullable Retry retry, OnError onError, JoinRule trigger, @Nullable Duration elementTimeout) {
 
   /** Config key that holds the policy. */
   public static final String CONFIG_KEY = "engine";
@@ -45,10 +52,11 @@ public record NodePolicy(@Nullable Retry retry, OnError onError, JoinRule trigge
   public static final String ERROR_PORT = "error";
 
   /** No retry, fail on error, fail when a parent fails. */
-  public static final NodePolicy DEFAULT = new NodePolicy(null, OnError.FAIL, JoinRule.ALL_SUCCESS);
+  public static final NodePolicy DEFAULT =
+      new NodePolicy(null, OnError.FAIL, JoinRule.ALL_SUCCESS, null);
 
   /** Options accepted in the {@code engine} object. */
-  private static final Set<String> KEYS = Set.of("retry", "onError", "trigger");
+  private static final Set<String> KEYS = Set.of("retry", "onError", "trigger", "elementTimeoutMs");
 
   /** Options accepted in the {@code retry} object. */
   private static final Set<String> RETRY_KEYS = Set.of("maxAttempts", "backoffMs", "maxBackoffMs");
@@ -62,6 +70,17 @@ public record NodePolicy(@Nullable Retry retry, OnError onError, JoinRule trigge
   /** Default upper bound for the retry delay. */
   private static final long DEFAULT_MAX_BACKOFF_MS = 10_000;
 
+  /**
+   * Creates a policy without an element timeout.
+   *
+   * @param retry the retry policy, or null for none
+   * @param onError what to do with a message that still fails
+   * @param trigger how a failing parent affects this node
+   */
+  public NodePolicy(@Nullable final Retry retry, final OnError onError, final JoinRule trigger) {
+    this(retry, onError, trigger, null);
+  }
+
   /** What to do with a message the plugin could not process. */
   public enum OnError {
     FAIL,
@@ -72,7 +91,8 @@ public record NodePolicy(@Nullable Retry retry, OnError onError, JoinRule trigge
   /** How a failing parent affects a node that has several parents. */
   public enum JoinRule {
     ALL_SUCCESS,
-    ALL_DONE
+    ALL_DONE,
+    ONE_SUCCESS
   }
 
   /**
@@ -87,10 +107,10 @@ public record NodePolicy(@Nullable Retry retry, OnError onError, JoinRule trigge
   /**
    * Whether the plugin must be called once per message, which retry and onError need.
    *
-   * @return true if retry or a non-default onError is set
+   * @return true if retry, an element timeout or a non-default onError is set
    */
   public boolean perMessage() {
-    return retry != null || onError != OnError.FAIL;
+    return retry != null || elementTimeout != null || onError != OnError.FAIL;
   }
 
   /**
@@ -110,7 +130,20 @@ public record NodePolicy(@Nullable Retry retry, OnError onError, JoinRule trigge
     return new NodePolicy(
         engine.containsKey("retry") ? parseRetry(asMap(engine.get("retry"), "retry")) : null,
         parseEnum(engine.get("onError"), OnError.class, "onError", OnError.FAIL),
-        parseEnum(engine.get("trigger"), JoinRule.class, "trigger", JoinRule.ALL_SUCCESS));
+        parseEnum(engine.get("trigger"), JoinRule.class, "trigger", JoinRule.ALL_SUCCESS),
+        parseElementTimeout(engine.get("elementTimeoutMs")));
+  }
+
+  @Nullable
+  private static Duration parseElementTimeout(@Nullable final Object value) {
+    if (value == null) {
+      return null;
+    }
+    final long millis = number(value, "engine.elementTimeoutMs", 0);
+    if (millis <= 0) {
+      throw new IllegalArgumentException("engine.elementTimeoutMs must be positive");
+    }
+    return Duration.ofMillis(millis);
   }
 
   private static Retry parseRetry(final Map<String, Object> retry) {

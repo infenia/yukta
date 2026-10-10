@@ -21,6 +21,17 @@ import reactor.util.context.Context;
 class ExecutionContextBuilderTest {
 
   @Test
+  void heartbeat_isAvailableToPluginsUnderThePublishedKey() {
+    final java.util.concurrent.atomic.AtomicInteger beats =
+        new java.util.concurrent.atomic.AtomicInteger();
+    final Context context = new ExecutionContextBuilder().heartbeat(beats::incrementAndGet).build();
+
+    context.<Runnable>get(com.infenia.yukta.plugin.core.WorkflowContext.HEARTBEAT_KEY).run();
+
+    assertThat(beats).hasValue(1);
+  }
+
+  @Test
   void testBuildContextWithAllFields() {
     final ExecutionContextBuilder builder = new ExecutionContextBuilder();
     final Context context =

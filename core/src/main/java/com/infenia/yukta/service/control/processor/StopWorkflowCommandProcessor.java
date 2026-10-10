@@ -112,7 +112,9 @@ public class StopWorkflowCommandProcessor implements ControlSignalProcessor {
       control.globalPauseValve().resume();
     }
     prepared.parentsList().forEach((nodeId, parents) -> stopIfTrigger(control, nodeId, parents));
+    // The orchestrator completes the safe-stop sink when the run ends, which cancels this timer.
     Mono.delay(drainTimeout)
+        .takeUntilOther(control.safeStopSink().asMono())
         .subscribe(
             _ -> {
               log.atWarn()

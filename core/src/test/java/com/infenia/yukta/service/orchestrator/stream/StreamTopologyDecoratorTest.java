@@ -11,6 +11,7 @@ import static org.mockito.Mockito.verify;
 
 import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
+import com.infenia.yukta.model.workflow.NodePolicy;
 import com.infenia.yukta.model.workflow.ParentEdgeInfo;
 import com.infenia.yukta.plugin.store.NodeCheckpointStore;
 import com.infenia.yukta.service.orchestrator.tracker.DefaultTaskTrackerService;
@@ -353,6 +354,41 @@ class StreamTopologyDecoratorTest {
 
     StepVerifier.create(
             decorator.mergeParentStreams(
+                streams,
+                new ParentEdgeInfo(0, PARENT_1, null, true),
+                new ParentEdgeInfo(1, PARENT_2, null, true)))
+        .expectNextCount(1)
+        .verifyComplete();
+  }
+
+  @Test
+  @SuppressWarnings(UNCHECKED)
+  void oneSuccess_failsWhenEveryParentFailed() {
+    final Flux<Message<?>>[] streams =
+        new Flux[] {
+          Flux.error(new IllegalStateException("down")), Flux.error(new IllegalStateException("x"))
+        };
+
+    StepVerifier.create(
+            decorator.mergeParentStreams(
+                NodePolicy.JoinRule.ONE_SUCCESS,
+                streams,
+                new ParentEdgeInfo(0, PARENT_1, null, true),
+                new ParentEdgeInfo(1, PARENT_2, null, true)))
+        .expectError(IllegalStateException.class)
+        .verify();
+  }
+
+  @Test
+  @SuppressWarnings(UNCHECKED)
+  void oneSuccess_continuesWhenOneParentSucceeded() {
+    final Message<?> msg = DefaultMessage.create(UUID.randomUUID(), DATA);
+    final Flux<Message<?>>[] streams =
+        new Flux[] {Flux.error(new IllegalStateException("down")), Flux.just(msg)};
+
+    StepVerifier.create(
+            decorator.mergeParentStreams(
+                NodePolicy.JoinRule.ONE_SUCCESS,
                 streams,
                 new ParentEdgeInfo(0, PARENT_1, null, true),
                 new ParentEdgeInfo(1, PARENT_2, null, true)))

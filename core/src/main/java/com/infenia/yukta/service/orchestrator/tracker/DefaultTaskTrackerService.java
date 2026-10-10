@@ -76,7 +76,7 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
   /** Batch timeout duration for event processing. */
   private static final Duration BATCH_TIMEOUT = Duration.ofMillis(50);
 
-  /** Emit failure handler with retry logic. */
+  /** Completes a sink, retrying only while another thread is emitting at the same moment. */
   private static final Sinks.EmitFailureHandler RETRY_HANDLER =
       Sinks.EmitFailureHandler.busyLooping(Duration.ofMillis(100));
 
@@ -778,7 +778,7 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
       if (state != null) {
         final WorkflowProgress progress = getProgress(state.sessionId, executionId);
         statusHistoryCache.put(executionId, progress);
-        sink.emitNext(progress, RETRY_HANDLER);
+        SinkEmit.offer(sink, progress);
       }
     }
   }

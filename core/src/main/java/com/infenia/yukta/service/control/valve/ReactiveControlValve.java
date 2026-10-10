@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.service.control.valve;
 
-import java.time.Duration;
+import com.infenia.yukta.util.SinkEmit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import lombok.NoArgsConstructor;
@@ -73,8 +73,7 @@ public final class ReactiveControlValve {
   }
 
   private void changed() {
-    changes.emitNext(
-        version.incrementAndGet(), Sinks.EmitFailureHandler.busyLooping(Duration.ofMillis(100)));
+    SinkEmit.offer(changes, version.incrementAndGet());
   }
 
   /** Holds the valve: no element passes until {@link #resume()}. */

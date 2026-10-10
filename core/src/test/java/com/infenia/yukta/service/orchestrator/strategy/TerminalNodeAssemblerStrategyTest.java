@@ -149,7 +149,7 @@ class TerminalNodeAssemblerStrategyTest {
     final Flux<Message<?>> parentStream = Flux.just(msg);
     final AssemblyContext context = buildContext(parentStream);
 
-    when(streamTopologyDecorator.mergeParentStreams(any(), any(ParentEdgeInfo[].class)))
+    when(streamTopologyDecorator.mergeParentStreams(any(), any(), any(ParentEdgeInfo[].class)))
         .thenReturn(parentStream);
 
     final NodeAssembler assembler =
@@ -170,7 +170,7 @@ class TerminalNodeAssemblerStrategyTest {
     final WorkflowNode node = new WorkflowNode(NODE_ID, "terminal", Map.of());
     final AssemblyContext context = buildContext(Flux.just(msg));
 
-    when(streamTopologyDecorator.mergeParentStreams(any(), any(ParentEdgeInfo[].class)))
+    when(streamTopologyDecorator.mergeParentStreams(any(), any(), any(ParentEdgeInfo[].class)))
         .thenReturn(Flux.just(msg));
 
     final NodeAssembler assembler =
@@ -198,7 +198,7 @@ class TerminalNodeAssemblerStrategyTest {
     final Message<?> msg = DefaultMessage.create(UUID.randomUUID(), "data");
     final AssemblyContext context = buildContext(Flux.just(msg));
 
-    when(streamTopologyDecorator.mergeParentStreams(any(), any(ParentEdgeInfo[].class)))
+    when(streamTopologyDecorator.mergeParentStreams(any(), any(), any(ParentEdgeInfo[].class)))
         .thenReturn(Flux.just(msg));
 
     final NodeAssembler assembler =
@@ -222,7 +222,7 @@ class TerminalNodeAssemblerStrategyTest {
     when(terminal.isBlocking()).thenReturn(false);
     final WorkflowNode node = new WorkflowNode(NODE_ID, "terminal", Map.of());
     final Flux<Message<?>> failing = Flux.error(new IllegalStateException("upstream broke"));
-    when(streamTopologyDecorator.mergeParentStreams(any(), any(ParentEdgeInfo[].class)))
+    when(streamTopologyDecorator.mergeParentStreams(any(), any(), any(ParentEdgeInfo[].class)))
         .thenReturn(failing);
     final AssemblyContext context = buildContext(failing);
 
@@ -251,7 +251,7 @@ class TerminalNodeAssemblerStrategyTest {
     final Message<?> first = DefaultMessage.create(UUID.randomUUID(), "data");
     final Flux<Message<?>> stalled = Flux.concat(Flux.just(first), Flux.never());
     final AssemblyContext context = buildContext(stalled);
-    when(streamTopologyDecorator.mergeParentStreams(any(), any(ParentEdgeInfo[].class)))
+    when(streamTopologyDecorator.mergeParentStreams(any(), any(), any(ParentEdgeInfo[].class)))
         .thenReturn(stalled);
 
     strategy
@@ -275,7 +275,7 @@ class TerminalNodeAssemblerStrategyTest {
     final WorkflowNode node = new WorkflowNode(NODE_ID, "terminal", Map.of());
     final Flux<Message<?>> waiting = Flux.never();
     final AssemblyContext context = buildContext(waiting);
-    when(streamTopologyDecorator.mergeParentStreams(any(), any(ParentEdgeInfo[].class)))
+    when(streamTopologyDecorator.mergeParentStreams(any(), any(), any(ParentEdgeInfo[].class)))
         .thenReturn(waiting);
     strategy
         .createAssembler(node, terminal, Duration.ofSeconds(5), 0, 1024, new ParentEdgeInfo[0])
@@ -302,7 +302,7 @@ class TerminalNodeAssemblerStrategyTest {
     final Message<?> first = DefaultMessage.create(UUID.randomUUID(), "data");
     final Flux<Message<?>> stalled = Flux.concat(Flux.just(first), Flux.never());
     final AssemblyContext context = buildContext(stalled);
-    when(streamTopologyDecorator.mergeParentStreams(any(), any(ParentEdgeInfo[].class)))
+    when(streamTopologyDecorator.mergeParentStreams(any(), any(), any(ParentEdgeInfo[].class)))
         .thenReturn(stalled);
     strategy
         .createAssembler(node, terminal, Duration.ofMillis(100), 0, 1024, new ParentEdgeInfo[0])
@@ -330,7 +330,7 @@ class TerminalNodeAssemblerStrategyTest {
     final WorkflowNode node = new WorkflowNode(NODE_ID, "terminal", Map.of());
     final Flux<Message<?>> waiting = Flux.never();
     final AssemblyContext context = buildContext(waiting);
-    when(streamTopologyDecorator.mergeParentStreams(any(), any(ParentEdgeInfo[].class)))
+    when(streamTopologyDecorator.mergeParentStreams(any(), any(), any(ParentEdgeInfo[].class)))
         .thenReturn(waiting);
 
     strategy
@@ -355,7 +355,7 @@ class TerminalNodeAssemblerStrategyTest {
     final WorkflowNode node = new WorkflowNode(NODE_ID, "terminal", Map.of());
     final AssemblyContext context = buildContext(Flux.just(msg));
 
-    when(streamTopologyDecorator.mergeParentStreams(any(), any(ParentEdgeInfo[].class)))
+    when(streamTopologyDecorator.mergeParentStreams(any(), any(), any(ParentEdgeInfo[].class)))
         .thenReturn(Flux.just(msg));
 
     final NodeAssembler assembler =
@@ -384,7 +384,7 @@ class TerminalNodeAssemblerStrategyTest {
     final WorkflowNode node = new WorkflowNode(NODE_ID, "terminal", Map.of());
     final AssemblyContext context = buildContext(Flux.just(msg));
 
-    when(streamTopologyDecorator.mergeParentStreams(any(), any(ParentEdgeInfo[].class)))
+    when(streamTopologyDecorator.mergeParentStreams(any(), any(), any(ParentEdgeInfo[].class)))
         .thenReturn(Flux.just(msg));
 
     final NodeAssembler assembler =
@@ -415,7 +415,7 @@ class TerminalNodeAssemblerStrategyTest {
     final WorkflowNode node = new WorkflowNode(NODE_ID, "terminal", Map.of());
     final AssemblyContext context = buildContext(Flux.just(msg));
 
-    when(streamTopologyDecorator.mergeParentStreams(any(), any(ParentEdgeInfo[].class)))
+    when(streamTopologyDecorator.mergeParentStreams(any(), any(), any(ParentEdgeInfo[].class)))
         .thenReturn(Flux.just(msg));
 
     final NodeAssembler assembler =
@@ -442,14 +442,14 @@ class TerminalNodeAssemblerStrategyTest {
     final Flux<Message<?>>[] streams = new Flux[] {Flux.just(msg1), Flux.just(msg2), null};
     final AssemblyContext context = buildContextWithStreams(streams);
 
-    when(streamTopologyDecorator.mergeParentStreams(any(), any(ParentEdgeInfo[].class)))
+    when(streamTopologyDecorator.mergeParentStreams(any(), any(), any(ParentEdgeInfo[].class)))
         .thenReturn(Flux.just(msg1, msg2));
 
     final NodeAssembler assembler =
         strategy.createAssembler(node, terminal, Duration.ofSeconds(5), 0, 1024, parentEdges);
     assembler.assemble(context);
 
-    verify(streamTopologyDecorator).mergeParentStreams(any(), any(ParentEdgeInfo[].class));
+    verify(streamTopologyDecorator).mergeParentStreams(any(), any(), any(ParentEdgeInfo[].class));
     assertThat(context.terminals()).hasSize(1);
   }
 
@@ -463,7 +463,7 @@ class TerminalNodeAssemblerStrategyTest {
     final WorkflowNode node1 = new WorkflowNode("t1", "terminal", Map.of());
     final WorkflowNode node2 = new WorkflowNode("t2", "terminal", Map.of());
 
-    when(streamTopologyDecorator.mergeParentStreams(any(), any(ParentEdgeInfo[].class)))
+    when(streamTopologyDecorator.mergeParentStreams(any(), any(), any(ParentEdgeInfo[].class)))
         .thenReturn(Flux.just(msg));
 
     @SuppressWarnings("unchecked")
@@ -497,7 +497,7 @@ class TerminalNodeAssemblerStrategyTest {
     final WorkflowNode node = new WorkflowNode(NODE_ID, "terminal", Map.of());
     final AssemblyContext context = buildContext(Flux.just(msg));
 
-    when(streamTopologyDecorator.mergeParentStreams(any(), any(ParentEdgeInfo[].class)))
+    when(streamTopologyDecorator.mergeParentStreams(any(), any(), any(ParentEdgeInfo[].class)))
         .thenReturn(Flux.just(msg));
 
     final NodeAssembler assembler =

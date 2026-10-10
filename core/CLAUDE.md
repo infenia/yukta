@@ -46,7 +46,8 @@ Any node's config may carry a reserved `engine` object; plugins never see these 
 "engine": {
   "retry":   { "maxAttempts": 3, "backoffMs": 200, "maxBackoffMs": 5000 },
   "onError": "ROUTE",
-  "trigger": "ALL_DONE"
+  "trigger": "ALL_DONE",
+  "elementTimeoutMs": 20000
 }
 ```
 - `retry` (processors only): re-run the plugin for the failing message with exponential backoff and
@@ -56,15 +57,21 @@ Any node's config may carry a reserved `engine` object; plugins never see these 
 - `onError` (processors only): `FAIL` (default), `CONTINUE` (drop the message), or `ROUTE` (send it,
   tagged with its failure, to the node's `error` output port; wire an edge with `sourcePort: "error"`
   to a dead-letter node).
-- `trigger` (nodes with several parents): `ALL_SUCCESS` (default, fail with a failing parent) or
-  `ALL_DONE` (continue on the other parents).
+- `trigger` (nodes with several parents): `ALL_SUCCESS` (default, fail with a failing parent),
+  `ALL_DONE` (continue on the other parents) or `ONE_SUCCESS` (continue, but fail if every parent
+  failed).
+- `elementTimeoutMs` (processors): longest time the plugin may stay silent for one message; it fails
+  that attempt, so `retry` and `onError` apply. It is only useful below the node timeout.
+- With `retry`/`onError`/`elementTimeoutMs` the plugin is called once per message and the message
+  carries an `attempt` header (1, 2, ...) next to its `id`, so a plugin can de-duplicate side effects.
 Malformed policies are rejected by `WorkflowValidator` with the node id and option. Parsing lives in
 `com.infenia.yukta.model.workflow.NodePolicy`; behaviour in `service.orchestrator.stream.NodePolicies`.
 
 ### Restart and execution log
 - Recent executions stay restartable after they end (`ExecutionArchive`: graph, payload, recorded
   node outputs). `yukta.restart.retained-executions` (default 10) and
-  `yukta.restart.messages-per-node` (default 200) bound the memory; a restart that needs a node's
+  `yukta.restart.messages-per-node` (default 200) and `yukta.restart.bytes-per-node` (default 4 MiB;
+  strings and byte arrays by size, other payloads count 1 KiB) bound the memory; a restart that needs a node's
   output that exceeded the cap is refused rather than replayed partially.
 - Restart-from-node re-runs the node and its descendants and replays the recorded output of the
   nodes that feed them (`RestartPlan`); independent branches are left alone.
@@ -104,18 +111,17 @@ effort: more than 10000 waiting are dropped and counted in `yukta.tracker.droppe
 (`type=state` counts events lost because the tracker itself had ended). Use `SinkEmit.offer`, not
 `Sinks.Many#emitNext`, for any bounded sink: `emitNext` terminates the sink on overflow.
 
-### Tracker queue
-State and workflow events are never dropped: they go to an unbounded queue. Log lines are best
-effort: more than 10000 waiting are dropped and counted in `yukta.tracker.dropped{type=log}`
-(`type=state` counts events lost because the tracker itself had ended). Use `SinkEmit.offer`, not
-`Sinks.Many#emitNext`, for any bounded sink: `emitNext` terminates the sink on overflow.
-
 ### Node timeouts
 A node's idle timeout is `timeoutSeconds` from its config, else the plugin's
 `getDefaultTimeout(config)`. `PROCESS_EXECUTOR` uses its `timeout` (default 300 s) plus 10 % (at least
 5 s), `LLM_CALL` covers every attempt (`timeout` and `retries`) plus the backoff, `HTTP_REQUEST` uses
 its `timeout` plus 5 s; other plugins keep 30 s. A timeout given as an expression is not known when the
 workflow is compiled, so the default is used: set `timeoutSeconds` on the node in that case.
+
+A long-running plugin can keep its node alive by calling the `Runnable` found under
+`WorkflowContext.HEARTBEAT_KEY` in the Reactor context (`Mono.deferContextual`); every call restarts
+the idle clock. There is no node-level wall-clock deadline: the idle timeout, `elementTimeoutMs` and
+the run deadline cover it.
 
 ### Validation limits and metrics
 - `WorkflowValidator` rejects duplicate node ids and edges, an edge `sourcePort` the source plugin
@@ -128,7 +134,6 @@ workflow is compiled, so the default is used: set `timeoutSeconds` on the node i
 - **Services**: `src/main/java/com/infenia/yukta/service/`
 - **Validation**: `src/main/java/com/infenia/yukta/validation/`
 - **Module guide (interactive)**: `docs/core-module-guide.html`
-- **Review findings & roadmap**: `docs/core-improvements.md`
 
 ## Imports
 @.claude/rules/coding-standards.md

@@ -145,6 +145,7 @@ public class RestartFromNodeCommandProcessor implements ControlSignalProcessor {
                     .addKeyValue("oldExecutionId", restart.executionId())
                     .addKeyValue("newExecutionId", restart.newExecutionId())
                     .log("Restarted execution from node failed"))
+        .onErrorComplete()
         .subscribe();
 
     log.atInfo()
