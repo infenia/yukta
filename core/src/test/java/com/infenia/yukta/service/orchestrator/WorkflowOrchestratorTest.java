@@ -25,6 +25,8 @@ import com.infenia.yukta.service.archive.ExecutionArchive;
 import com.infenia.yukta.service.control.ExecutionControl;
 import com.infenia.yukta.service.control.factory.ExecutionControlFactory;
 import com.infenia.yukta.service.control.store.ExecutionControlRegistry;
+import com.infenia.yukta.service.log.ExecutionLogEvent;
+import com.infenia.yukta.service.log.ExecutionLogStore;
 import com.infenia.yukta.service.orchestrator.assembly.AssemblyContext;
 import com.infenia.yukta.service.orchestrator.compiler.WorkflowCompiler;
 import com.infenia.yukta.service.orchestrator.preparator.WorkflowPreparator;
@@ -49,6 +51,7 @@ import reactor.test.StepVerifier;
   "PMD.CommentRequired",
   "PMD.ExcessiveImports",
   "PMD.CouplingBetweenObjects",
+  "PMD.LawOfDemeter",
   "PMD.TooManyStaticImports",
   "PMD.TooManyMethods",
   "PMD.AvoidDuplicateLiterals",
@@ -68,6 +71,7 @@ class WorkflowOrchestratorTest {
   private WorkflowOrchestrator orchestrator;
 
   private final ExecutionArchive executionArchive = new ExecutionArchive();
+  private final ExecutionLogStore executionLog = org.mockito.Mockito.mock(ExecutionLogStore.class);
 
   @BeforeEach
   void setUp() {
@@ -82,6 +86,7 @@ class WorkflowOrchestratorTest {
             executionControlFactory,
             checkpointStore,
             executionArchive,
+            executionLog,
             compiler,
             preparator);
   }
@@ -506,6 +511,12 @@ class WorkflowOrchestratorTest {
     assertThat(archived.prepared()).isSameAs(prepared);
     assertThat(archived.payload()).containsEntry("k", "v");
     assertThat(archived.definitionVersion()).hasSize(16);
+    final org.mockito.ArgumentCaptor<ExecutionLogEvent> logged =
+        org.mockito.ArgumentCaptor.forClass(ExecutionLogEvent.class);
+    verify(executionLog).append(logged.capture());
+    assertThat(logged.getValue().type()).isEqualTo(ExecutionLogEvent.Type.RUN_STARTED);
+    assertThat(logged.getValue().executionId()).isEqualTo("e1");
+    assertThat(logged.getValue().definitionVersion()).isEqualTo(archived.definitionVersion());
     verify(checkpointStore, never()).clear("e1");
   }
 
@@ -519,6 +530,7 @@ class WorkflowOrchestratorTest {
             executionControlFactory,
             checkpointStore,
             smallArchive,
+            executionLog,
             compiler,
             preparator);
     final PreparedWorkflow prepared = buildPreparedWorkflow(List.of("n1"));

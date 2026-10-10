@@ -19,7 +19,9 @@ public enum TaskStatus {
   /** The node never ran because the run finished without giving it input. */
   SKIPPED,
   /** The node never ran because the run failed before it got input. */
-  UPSTREAM_FAILED;
+  UPSTREAM_FAILED,
+  /** The run was interrupted by a crash or restart of the server and never finished. */
+  ABORTED;
 
   /**
    * Check if this status is a terminal state.

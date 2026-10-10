@@ -59,6 +59,19 @@ Any node's config may carry a reserved `engine` object; plugins never see these 
 Malformed policies are rejected by `WorkflowValidator` with the node id and option. Parsing lives in
 `com.infenia.yukta.model.workflow.NodePolicy`; behaviour in `service.orchestrator.stream.NodePolicies`.
 
+### Restart and execution log
+- Recent executions stay restartable after they end (`ExecutionArchive`: graph, payload, recorded
+  node outputs). `yukta.restart.retained-executions` (default 10) and
+  `yukta.restart.messages-per-node` (default 200) bound the memory; a restart that needs a node's
+  output that exceeded the cap is refused rather than replayed partially.
+- Restart-from-node re-runs the node and its descendants and replays the recorded output of the
+  nodes that feed them (`RestartPlan`); independent branches are left alone.
+- Run starts and ends go to an `ExecutionLogStore`. By default it is in memory; set
+  `yukta.execution-log.dir` to keep `executions.jsonl` on disk. On startup `ExecutionRecovery`
+  marks runs that never finished as `ABORTED`, restores the newest
+  `yukta.execution-log.retained-runs` (default 500) into history, and rewrites the log without
+  older ones.
+
 ## Key File Locations
 - **Services**: `src/main/java/com/infenia/yukta/service/`
 - **Validation**: `src/main/java/com/infenia/yukta/validation/`

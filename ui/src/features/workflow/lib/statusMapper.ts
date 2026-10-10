@@ -22,6 +22,7 @@ const NODE_STATUS_MAP: Record<string, NodeUiStatus> = {
   SKIPPED: 'skipped',
   UPSTREAM_FAILED: 'skipped',
   TIMED_OUT: 'failed',
+  ABORTED: 'failed',
   PENDING: 'pending',
 };
 
@@ -39,6 +40,7 @@ const EXEC_STATUS_MAP: Record<string, ExecStatusCategory> = {
   NODE_STOPPED: 'stopped',
   STOPPED: 'stopped',
   TIMED_OUT: 'failure',
+  ABORTED: 'failure',
   PAUSED: 'paused',
   NODE_PAUSED: 'paused',
   PENDING: 'pending',
@@ -53,6 +55,7 @@ const TERMINAL_EXEC_STATUSES = new Set([
   'NODE_STOPPED',
   'STOPPED',
   'TIMED_OUT',
+  'ABORTED',
   'SKIPPED',
   'UPSTREAM_FAILED',
   'SUCCESS',

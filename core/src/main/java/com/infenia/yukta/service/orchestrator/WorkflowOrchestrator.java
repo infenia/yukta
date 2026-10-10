@@ -15,6 +15,8 @@ import com.infenia.yukta.service.archive.ExecutionArchive;
 import com.infenia.yukta.service.control.ExecutionControl;
 import com.infenia.yukta.service.control.factory.ExecutionControlFactory;
 import com.infenia.yukta.service.control.store.ExecutionControlRegistry;
+import com.infenia.yukta.service.log.ExecutionLogEvent;
+import com.infenia.yukta.service.log.ExecutionLogStore;
 import com.infenia.yukta.service.orchestrator.assembly.ExecutionContextBuilder;
 import com.infenia.yukta.service.orchestrator.compiler.WorkflowCompiler;
 import com.infenia.yukta.service.orchestrator.preparator.WorkflowPreparator;
@@ -68,6 +70,9 @@ public class WorkflowOrchestrator {
 
   /** Keeps recent executions restartable. */
   private final ExecutionArchive executionArchive;
+
+  /** Durable record of run starts. */
+  private final ExecutionLogStore executionLog;
 
   /** The workflow compiler for compiling workflow definitions. */
   private final WorkflowCompiler compiler;
@@ -251,15 +256,10 @@ public class WorkflowOrchestrator {
       final String workflowId,
       final PreparedWorkflow prepared,
       final Map<String, Object> payload) {
+    final String version = DefinitionVersion.of(prepared);
+    executionLog.append(ExecutionLogEvent.started(executionId, sessionId, workflowId, version));
     executionArchive
-        .put(
-            new ArchivedExecution(
-                executionId,
-                sessionId,
-                workflowId,
-                prepared,
-                DefinitionVersion.of(prepared),
-                payload))
+        .put(new ArchivedExecution(executionId, sessionId, workflowId, prepared, version, payload))
         .forEach(checkpointStore::clear);
   }
 
