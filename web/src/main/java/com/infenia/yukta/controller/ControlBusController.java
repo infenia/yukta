@@ -92,7 +92,7 @@ public class ControlBusController {
         .map(
             resp ->
                 ApiResponse.success(
-                    200, "Command processed", new NodeCommandResponse(resp.getPayload())));
+                    200, "Command processed", new NodeCommandResponse(resp.payload())));
   }
 
   /**
