@@ -17,7 +17,8 @@ Spring Boot application entry point and application-level configuration.
 
 ## Configuration
 - `src/main/resources/application.yaml`: Application configuration.
-- `docs/boot-module-guide.html` (interactive guide) and `docs/boot-improvements.md` (review findings).
+- `docs/boot-module-guide.html`: interactive guide, including the resolved review findings.
+- Optional plugins: `./gradlew bootRun -Pyukta.plugins=none|all|http-request,script-js` (see `build.gradle.kts`).
 
 ## Tech Stack
 - **Spring Boot 4.1.0**
