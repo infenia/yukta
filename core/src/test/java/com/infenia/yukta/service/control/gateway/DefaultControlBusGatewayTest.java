@@ -2000,6 +2000,30 @@ class DefaultControlBusGatewayTest {
   }
 
   @Test
+  void startWorkflow_withPayload_forwardsPayloadToOrchestrator() {
+    final String sessionId = "sess-payload";
+    final String workflowId = "wf-payload";
+    final Map<String, Object> payload = Map.of("message", "hello");
+    final WorkflowDefinition definition =
+        new WorkflowDefinition(workflowId, "test workflow", List.of(), List.of());
+    final PreparedWorkflow preparedWorkflow = mock(PreparedWorkflow.class);
+
+    when(workflowDefinitionStore.find(sessionId, workflowId)).thenReturn(Mono.just(definition));
+    when(preparedWorkflowCache.get(sessionId, workflowId)).thenReturn(Optional.empty());
+    when(orchestrator.prepareWorkflow(definition)).thenReturn(Mono.just(preparedWorkflow));
+    when(orchestrator.execute(
+            eq(sessionId), eq(workflowId), anyString(), eq(preparedWorkflow), eq(payload)))
+        .thenReturn(Mono.empty());
+
+    StepVerifier.create(gateway.startWorkflow(sessionId, workflowId, payload))
+        .expectNextCount(1)
+        .verifyComplete();
+
+    verify(orchestrator)
+        .execute(eq(sessionId), eq(workflowId), anyString(), eq(preparedWorkflow), eq(payload));
+  }
+
+  @Test
   void startWorkflow_workflowNotFound_throwsIllegalArgumentException() {
     // Given
     final String sessionId = "sess-not-found";

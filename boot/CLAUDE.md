@@ -17,6 +17,7 @@ Spring Boot application entry point and application-level configuration.
 
 ## Configuration
 - `src/main/resources/application.yaml`: Application configuration.
+- `docs/boot-module-guide.html` (interactive guide) and `docs/boot-improvements.md` (review findings).
 
 ## Tech Stack
 - **Spring Boot 4.1.0**

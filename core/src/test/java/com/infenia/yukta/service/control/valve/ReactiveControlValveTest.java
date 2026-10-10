@@ -16,7 +16,6 @@ import reactor.test.StepVerifier;
   "PMD.CommentRequired",
   "PMD.TooManyMethods",
   "PMD.LambdaCanBeMethodReference",
-  "PMD.AvoidLiteralsInIfCondition",
   "PMD.LawOfDemeter"
 })
 class ReactiveControlValveTest {
@@ -79,40 +78,6 @@ class ReactiveControlValveTest {
       valve.resume();
     }
     assertThat(valve.isPaused()).isFalse();
-  }
-
-  @Test
-  void testAsTransformFlowing() {
-    StepVerifier.create(Flux.range(1, 5).transform(valve.asTransform()))
-        .expectNext(1, 2, 3, 4, 5)
-        .verifyComplete();
-  }
-
-  @Test
-  void testAsTransformPaused() {
-    valve.pause();
-
-    StepVerifier.create(
-            Flux.range(1, 5).transform(valve.asTransform()).timeout(Duration.ofMillis(100)))
-        .expectError()
-        .verify();
-  }
-
-  @Test
-  void testAsTransformPausedThenResumed() {
-    valve.pause();
-
-    final Flux<Integer> flux =
-        Flux.range(1, 5)
-            .transform(valve.asTransform())
-            .doOnNext(
-                v -> {
-                  if (v == 2) {
-                    valve.resume();
-                  }
-                });
-
-    StepVerifier.create(flux).then(() -> valve.resume()).expectNext(1, 2, 3, 4, 5).verifyComplete();
   }
 
   @Test
@@ -189,7 +154,7 @@ class ReactiveControlValveTest {
   void testStepModeAllowsOneElementThenBlocks() {
     valve.enableStepMode();
 
-    final Flux<Integer> source = Flux.range(1, 3).transform(valve.asTransform());
+    final Flux<Integer> source = Flux.range(1, 3).delayUntil(t -> valve.allowPassage().then());
 
     StepVerifier.create(source)
         .expectSubscription()

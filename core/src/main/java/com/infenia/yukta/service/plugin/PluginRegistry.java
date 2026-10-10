@@ -4,6 +4,7 @@ package com.infenia.yukta.service.plugin;
 
 import com.infenia.yukta.plugin.core.Plugin;
 import com.infenia.yukta.validation.PluginName;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import jakarta.validation.constraints.NotEmpty;
 import java.util.List;
 import java.util.Map;
@@ -14,6 +15,9 @@ import org.springframework.validation.annotation.Validated;
 /** Registry for workflow plugins. */
 @Service
 @Validated
+@SuppressFBWarnings(
+    value = "CT_CONSTRUCTOR_THROW",
+    justification = "Fails fast at startup on duplicate plugin types")
 public class PluginRegistry {
   /** Map of plugin type to plugin instances. */
   private final Map<String, Plugin> plugins = new ConcurrentHashMap<>();
@@ -24,7 +28,18 @@ public class PluginRegistry {
    * @param pluginList list of plugins discovered by Spring
    */
   public PluginRegistry(@NotEmpty final List<Plugin> pluginList) {
-    pluginList.forEach(plugin -> plugins.put(plugin.getType(), plugin));
+    for (final Plugin plugin : pluginList) {
+      final Plugin previous = plugins.putIfAbsent(plugin.getType(), plugin);
+      if (previous != null) {
+        throw new IllegalStateException(
+            "Duplicate plugin type '"
+                + plugin.getType()
+                + "': "
+                + previous.getClass().getName()
+                + " and "
+                + plugin.getClass().getName());
+      }
+    }
   }
 
   /**

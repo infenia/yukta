@@ -6,15 +6,16 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.infenia.yukta.model.execution.ControlState;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.DisableStepModeCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.EnableStepModeCommand;
 import com.infenia.yukta.service.control.ExecutionControl;
 import com.infenia.yukta.service.control.store.ExecutionControlRegistry;
-import com.infenia.yukta.service.orchestrator.tracker.DefaultTaskTrackerService;
+import com.infenia.yukta.service.control.valve.ReactiveControlValve;
+import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.atomic.AtomicBoolean;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -29,7 +30,7 @@ import reactor.test.StepVerifier;
 class EnableStepModeCommandProcessorTest {
 
   @Mock private ExecutionControlRegistry registry;
-  @Mock private DefaultTaskTrackerService taskTracker;
+  @Mock private TaskTrackerService taskTracker;
   @Mock private ExecutionControl executionControl;
 
   @InjectMocks private EnableStepModeCommandProcessor processor;
@@ -59,22 +60,23 @@ class EnableStepModeCommandProcessorTest {
   }
 
   @Test
-  void process_nodeFound_setsStepModeTrueAndEmitsEvent() {
+  void process_nodeFound_enablesValveStepModeAndEmitsEvent() {
     // Given
     final String executionId = "exec-enable-step";
     final String nodeId = "node-1";
-    final AtomicBoolean stepModeFlag = new AtomicBoolean(false);
+    final ReactiveControlValve valve = new ReactiveControlValve();
     final EnableStepModeCommand command = new EnableStepModeCommand(executionId, nodeId);
     when(registry.findByExecutionId(executionId)).thenReturn(Optional.of(executionControl));
-    when(executionControl.nodeStepModes()).thenReturn(Map.of(nodeId, stepModeFlag));
+    when(executionControl.nodePauseValves()).thenReturn(Map.of(nodeId, valve));
 
     // When
     final var result = processor.process(command);
 
     // Then
     StepVerifier.create(result).verifyComplete();
-    assertThat(stepModeFlag.get()).isTrue();
-    verify(taskTracker).emitWorkflowStatusEvent(executionId, "STEP_MODE_ENABLED");
+    assertThat(valve.isStepMode()).isTrue();
+    assertThat(valve.isPaused()).isTrue();
+    verify(taskTracker).emitControlStateEvent(executionId, ControlState.STEP_MODE_ENABLED);
   }
 
   @Test
@@ -103,7 +105,7 @@ class EnableStepModeCommandProcessorTest {
     final String nodeId = "unknown-node";
     final EnableStepModeCommand command = new EnableStepModeCommand(executionId, nodeId);
     when(registry.findByExecutionId(executionId)).thenReturn(Optional.of(executionControl));
-    when(executionControl.nodeStepModes()).thenReturn(Map.of());
+    when(executionControl.nodePauseValves()).thenReturn(Map.of());
 
     // When
     final var result = processor.process(command);

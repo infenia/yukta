@@ -8,14 +8,15 @@ public enum TaskStatus {
   RUNNING,
   SUCCESS,
   FAILURE,
-  ERROR;
+  ERROR,
+  STOPPED;
 
   /**
    * Check if this status is a terminal state.
    *
-   * @return true if status is SUCCESS, FAILURE, or ERROR; false otherwise
+   * @return true if status is SUCCESS, FAILURE, ERROR, or STOPPED; false otherwise
    */
   public boolean isTerminal() {
-    return this == SUCCESS || this == FAILURE || this == ERROR;
+    return this == SUCCESS || this == FAILURE || this == ERROR || this == STOPPED;
   }
 }

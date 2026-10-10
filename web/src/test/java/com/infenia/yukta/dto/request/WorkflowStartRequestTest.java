@@ -60,6 +60,26 @@ class WorkflowStartRequestTest {
   }
 
   @Test
+  void constructor_withoutPayload_defaultsToEmpty() {
+    assertThat(new WorkflowStartRequest(SESSION_ID_CONST, WORKFLOW_ID_CONST).payload()).isEmpty();
+    assertThat(new WorkflowStartRequest(SESSION_ID_CONST, WORKFLOW_ID_CONST, null).payload())
+        .isEmpty();
+  }
+
+  @Test
+  void constructor_withPayload_keepsImmutableCopy() {
+    final java.util.Map<String, Object> source = new java.util.concurrent.ConcurrentHashMap<>();
+    source.put("message", "hi");
+
+    final WorkflowStartRequest request =
+        new WorkflowStartRequest(SESSION_ID_CONST, WORKFLOW_ID_CONST, source);
+    source.put("later", "x");
+
+    assertThat(request.payload()).containsOnlyKeys("message");
+    assertThat(request.payload().get("message")).isEqualTo("hi");
+  }
+
+  @Test
   void equals_sameValues_returnsTrue() {
     // Given
     final WorkflowStartRequest req1 = new WorkflowStartRequest(SESSION_ID_CONST, WORKFLOW_ID_CONST);

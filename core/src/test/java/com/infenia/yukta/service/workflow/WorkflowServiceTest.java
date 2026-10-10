@@ -7,6 +7,7 @@ import static org.mockito.Mockito.when;
 
 import com.infenia.yukta.model.workflow.WorkflowExecution;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
+import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -41,7 +42,8 @@ class WorkflowServiceTest {
     final String workflowId = "wf-456";
     final String executionId = "exec-789";
 
-    when(controlBus.startWorkflow(sessionId, workflowId)).thenReturn(Mono.just(executionId));
+    when(controlBus.startWorkflow(sessionId, workflowId, Map.of()))
+        .thenReturn(Mono.just(executionId));
 
     StepVerifier.create(workflowService.validateAndStartWorkflow(sessionId, workflowId))
         .assertNext(
@@ -57,7 +59,7 @@ class WorkflowServiceTest {
     final String sessionId = "sess-missing";
     final String workflowId = "wf-missing";
 
-    when(controlBus.startWorkflow(sessionId, workflowId))
+    when(controlBus.startWorkflow(sessionId, workflowId, Map.of()))
         .thenReturn(
             Mono.error(
                 new IllegalArgumentException(
@@ -77,12 +79,23 @@ class WorkflowServiceTest {
     final String workflowId = "wf-exec";
     final String executionId = "exec-001";
 
-    when(controlBus.startWorkflow(sessionId, workflowId)).thenReturn(Mono.just(executionId));
+    when(controlBus.startWorkflow(sessionId, workflowId, Map.of()))
+        .thenReturn(Mono.just(executionId));
 
     final WorkflowExecution execution =
         workflowService.validateAndStartWorkflow(sessionId, workflowId).block();
 
     assertThat(execution).isNotNull();
     assertThat(execution.executionId()).isEqualTo(executionId);
+  }
+
+  @Test
+  void testValidateAndStartWorkflowForwardsPayload() {
+    final Map<String, Object> payload = Map.of("message", "hi");
+    when(controlBus.startWorkflow("sess-p", "wf-p", payload)).thenReturn(Mono.just("exec-p"));
+
+    StepVerifier.create(workflowService.validateAndStartWorkflow("sess-p", "wf-p", payload))
+        .assertNext(execution -> assertThat(execution.executionId()).isEqualTo("exec-p"))
+        .verifyComplete();
   }
 }

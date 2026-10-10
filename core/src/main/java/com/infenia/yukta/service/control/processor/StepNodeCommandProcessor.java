@@ -2,18 +2,19 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.service.control.processor;
 
+import com.infenia.yukta.model.execution.ControlState;
 import com.infenia.yukta.plugin.control.ControlSignalProcessor;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.StepNodeCommand;
 import com.infenia.yukta.plugin.control.WorkflowDirective;
 import com.infenia.yukta.service.control.ExecutionControl;
 import com.infenia.yukta.service.control.store.ExecutionControlRegistry;
-import com.infenia.yukta.service.orchestrator.tracker.DefaultTaskTrackerService;
+import com.infenia.yukta.service.control.valve.ReactiveControlValve;
+import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
-import reactor.core.publisher.Sinks;
 
 /**
  * Processor for step node commands.
@@ -30,7 +31,7 @@ public class StepNodeCommandProcessor implements ControlSignalProcessor {
   private final ExecutionControlRegistry registry;
 
   /** The task tracker service for tracking task execution. */
-  private final DefaultTaskTrackerService taskTracker;
+  private final TaskTrackerService taskTracker;
 
   @Override
   public boolean canProcess(final ExecutionControlCommand command) {
@@ -50,15 +51,16 @@ public class StepNodeCommandProcessor implements ControlSignalProcessor {
                           new IllegalArgumentException(
                               "Execution not found: " + step.executionId()));
 
-          final Sinks.Many<Void> stepSink = control.nodeStepSinks().get(step.nodeId());
-          if (stepSink == null) {
+          final ReactiveControlValve valve = control.nodePauseValves().get(step.nodeId());
+          if (valve == null) {
             throw new IllegalArgumentException(
                 "Node not found or does not support stepping: " + step.nodeId());
           }
+          if (!valve.step()) {
+            throw new IllegalStateException("Node is not in step mode: " + step.nodeId());
+          }
 
-          stepSink.emitNext(null, Sinks.EmitFailureHandler.FAIL_FAST);
-
-          taskTracker.emitWorkflowStatusEvent(step.executionId(), "NODE_STEPPED");
+          taskTracker.emitControlStateEvent(step.executionId(), ControlState.NODE_STEPPED);
 
           log.atDebug()
               .addKeyValue("executionId", step.executionId())

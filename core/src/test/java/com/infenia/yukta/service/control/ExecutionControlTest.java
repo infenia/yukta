@@ -8,11 +8,14 @@ import static org.mockito.Mockito.when;
 
 import com.infenia.yukta.message.Message;
 import com.infenia.yukta.service.control.valve.ReactiveControlValve;
+import java.time.Duration;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Sinks;
+import reactor.test.StepVerifier;
 
 @SuppressWarnings({
   "PMD.AvoidDuplicateLiterals",
@@ -36,10 +39,7 @@ class ExecutionControlTest {
             null,
             originalPayload,
             Sinks.one(),
-            Sinks.one(),
             new ReactiveControlValve(),
-            Map.of(),
-            Map.of(),
             Map.of(),
             Map.of(),
             Map.of(),
@@ -60,10 +60,7 @@ class ExecutionControlTest {
             null,
             payload,
             Sinks.one(),
-            Sinks.one(),
             new ReactiveControlValve(),
-            Map.of(),
-            Map.of(),
             Map.of(),
             Map.of(),
             Map.of(),
@@ -82,17 +79,13 @@ class ExecutionControlTest {
             null,
             Map.of(),
             Sinks.one(),
-            Sinks.one(),
             new ReactiveControlValve(),
-            Map.of(),
-            Map.of(),
             Map.of(),
             Map.of(),
             Map.of(),
             Map.of());
 
-    final var flux =
-        control.applyPreProcessingControls("unknown", reactor.core.publisher.Flux.empty());
+    final var flux = control.applyPreProcessingControls("unknown", Flux.empty());
     assertThat(flux).isNotNull();
   }
 
@@ -106,20 +99,16 @@ class ExecutionControlTest {
             null,
             Map.of(),
             Sinks.one(),
-            Sinks.one(),
             new ReactiveControlValve(),
             Map.of(),
             Map.of("node1", Sinks.one()),
-            Map.of(),
-            Map.of(),
             Map.of(),
             Map.of());
 
     final Sinks.One<Void> safeSink = control.nodeSafeStopSinks().get("node1");
     safeSink.emitEmpty(Sinks.EmitFailureHandler.FAIL_FAST);
 
-    final var flux =
-        control.applyPreProcessingControls("node1", reactor.core.publisher.Flux.empty());
+    final var flux = control.applyPreProcessingControls("node1", Flux.empty());
     assertThat(flux).isNotNull();
   }
 
@@ -134,19 +123,14 @@ class ExecutionControlTest {
             null,
             Map.of(),
             Sinks.one(),
-            Sinks.one(),
             new ReactiveControlValve(),
             Map.of(),
             Map.of(),
             Map.of(),
-            Map.of("node1", skipFlag),
-            Map.of(),
-            Map.of());
+            Map.of("node1", skipFlag));
 
     final var result =
-        control
-            .applyPreProcessingControls("node1", reactor.core.publisher.Flux.just(TEST_MESSAGE))
-            .blockLast();
+        control.applyPreProcessingControls("node1", Flux.just(TEST_MESSAGE)).blockLast();
     assertThat(result).isNotNull();
   }
 
@@ -161,19 +145,14 @@ class ExecutionControlTest {
             null,
             Map.of(),
             Sinks.one(),
-            Sinks.one(),
             new ReactiveControlValve(),
             Map.of(),
             Map.of(),
             Map.of(),
-            Map.of("node1", skipFlag),
-            Map.of(),
-            Map.of());
+            Map.of("node1", skipFlag));
 
     final var result =
-        control
-            .applyPreProcessingControls("node1", reactor.core.publisher.Flux.just(TEST_MESSAGE))
-            .blockLast();
+        control.applyPreProcessingControls("node1", Flux.just(TEST_MESSAGE)).blockLast();
     assertThat(result).isNotNull();
   }
 
@@ -187,17 +166,13 @@ class ExecutionControlTest {
             null,
             Map.of(),
             Sinks.one(),
-            Sinks.one(),
             new ReactiveControlValve(),
-            Map.of(),
-            Map.of(),
             Map.of(),
             Map.of(),
             Map.of(),
             Map.of());
 
-    final var flux =
-        control.applyPostProcessingControls("unknown", reactor.core.publisher.Flux.empty());
+    final var flux = control.applyPostProcessingControls("unknown", Flux.empty());
     assertThat(flux).isNotNull();
   }
 
@@ -211,19 +186,14 @@ class ExecutionControlTest {
             null,
             Map.of(),
             Sinks.one(),
-            Sinks.one(),
             null,
             Map.of(),
             Map.of(),
             Map.of("node1", new ReactiveControlValve()),
-            Map.of(),
-            Map.of(),
             Map.of());
 
     final var result =
-        control
-            .applyPostProcessingControls("node1", reactor.core.publisher.Flux.just(TEST_MESSAGE))
-            .blockLast();
+        control.applyPostProcessingControls("node1", Flux.just(TEST_MESSAGE)).blockLast();
     assertThat(result).isNotNull();
   }
 
@@ -237,19 +207,14 @@ class ExecutionControlTest {
             null,
             Map.of(),
             Sinks.one(),
-            Sinks.one(),
             new ReactiveControlValve(),
-            Map.of(),
-            Map.of(),
             Map.of(),
             Map.of(),
             Map.of(),
             Map.of());
 
     final var result =
-        control
-            .applyPostProcessingControls("any", reactor.core.publisher.Flux.just(TEST_MESSAGE))
-            .blockLast();
+        control.applyPostProcessingControls("any", Flux.just(TEST_MESSAGE)).blockLast();
     assertThat(result).isNotNull();
   }
 
@@ -263,17 +228,13 @@ class ExecutionControlTest {
             null,
             Map.of(),
             Sinks.one(),
-            Sinks.one(),
             null,
             Map.of("node1", Sinks.one()),
             Map.of(),
             Map.of(),
-            Map.of(),
-            Map.of(),
             Map.of());
 
-    final var flux =
-        control.applyPostProcessingControls("node1", reactor.core.publisher.Flux.empty());
+    final var flux = control.applyPostProcessingControls("node1", Flux.empty());
     assertThat(flux).isNotNull();
   }
 
@@ -287,19 +248,14 @@ class ExecutionControlTest {
             null,
             Map.of(),
             Sinks.one(),
-            Sinks.one(),
             new ReactiveControlValve(),
             Map.of(),
             Map.of(),
             Map.of("node1", new ReactiveControlValve()),
-            Map.of(),
-            Map.of(),
             Map.of());
 
     final var result =
-        control
-            .applyPostProcessingControls("node1", reactor.core.publisher.Flux.just(TEST_MESSAGE))
-            .blockLast();
+        control.applyPostProcessingControls("node1", Flux.just(TEST_MESSAGE)).blockLast();
     assertThat(result).isNotNull();
   }
 
@@ -317,19 +273,14 @@ class ExecutionControlTest {
             null,
             Map.of(),
             Sinks.one(),
-            Sinks.one(),
             new ReactiveControlValve(),
             Map.of(),
             Map.of(),
             Map.of("node1", mockValve),
-            Map.of(),
-            Map.of(),
             Map.of());
 
     final var result =
-        control
-            .applyPostProcessingControls("node1", reactor.core.publisher.Flux.just(TEST_MESSAGE))
-            .blockLast();
+        control.applyPostProcessingControls("node1", Flux.just(TEST_MESSAGE)).blockLast();
     assertThat(result).isNotNull();
   }
 
@@ -347,19 +298,14 @@ class ExecutionControlTest {
             null,
             Map.of(),
             Sinks.one(),
-            Sinks.one(),
             mockValve,
-            Map.of(),
-            Map.of(),
             Map.of(),
             Map.of(),
             Map.of(),
             Map.of());
 
     final var result =
-        control
-            .applyPostProcessingControls("any", reactor.core.publisher.Flux.just(TEST_MESSAGE))
-            .blockLast();
+        control.applyPostProcessingControls("any", Flux.just(TEST_MESSAGE)).blockLast();
     assertThat(result).isNotNull();
   }
 
@@ -373,19 +319,14 @@ class ExecutionControlTest {
             null,
             Map.of(),
             Sinks.one(),
-            Sinks.one(),
             new ReactiveControlValve(),
-            Map.of(),
-            Map.of(),
             Map.of(),
             Map.of(),
             Map.of(),
             Map.of());
 
     final var result =
-        control
-            .applyPostProcessingControls("any", reactor.core.publisher.Flux.just(TEST_MESSAGE))
-            .blockLast();
+        control.applyPostProcessingControls("any", Flux.just(TEST_MESSAGE)).blockLast();
     assertThat(result).isNotNull();
   }
 
@@ -399,19 +340,14 @@ class ExecutionControlTest {
             null,
             Map.of(),
             Sinks.one(),
-            Sinks.one(),
             new ReactiveControlValve(),
             Map.of(),
             Map.of(),
             Map.of("node1", new ReactiveControlValve()),
-            Map.of(),
-            Map.of(),
             Map.of());
 
     final var result =
-        control
-            .applyPostProcessingControls("node1", reactor.core.publisher.Flux.just(TEST_MESSAGE))
-            .blockLast();
+        control.applyPostProcessingControls("node1", Flux.just(TEST_MESSAGE)).blockLast();
     assertThat(result).isNotNull();
   }
 
@@ -425,17 +361,68 @@ class ExecutionControlTest {
             null,
             Map.of(),
             Sinks.one(),
-            Sinks.one(),
             new ReactiveControlValve(),
             Map.of("node1", Sinks.one()),
             Map.of(),
             Map.of("node1", new ReactiveControlValve()),
+            Map.of());
+
+    final var flux = control.applyPostProcessingControls("node1", Flux.empty());
+    assertThat(flux).isNotNull();
+  }
+
+  @Test
+  void stepMode_letsExactlyOneMessagePerStepThrough() {
+    final ReactiveControlValve valve = new ReactiveControlValve();
+    final ExecutionControl ctrl =
+        new ExecutionControl(
+            "s",
+            "w",
+            "e",
+            null,
+            Map.of(),
+            Sinks.one(),
+            new ReactiveControlValve(),
+            Map.of(),
+            Map.of(),
+            Map.of("n1", valve),
+            Map.of());
+    valve.enableStepMode();
+
+    StepVerifier.create(
+            ctrl.applyPostProcessingControls("n1", Flux.just(TEST_MESSAGE, TEST_MESSAGE)))
+        .expectSubscription()
+        .expectNoEvent(Duration.ofMillis(100))
+        .then(valve::step)
+        .expectNext(TEST_MESSAGE)
+        .expectNoEvent(Duration.ofMillis(100))
+        .then(valve::step)
+        .expectNext(TEST_MESSAGE)
+        .verifyComplete();
+  }
+
+  @Test
+  @SuppressWarnings("PMD.UseConcurrentHashMap")
+  void payloadWithNullValueIsAccepted() {
+    final Map<String, Object> payload = new java.util.HashMap<>();
+    payload.put("a", null);
+    payload.put("b", 1);
+
+    final ExecutionControl ctrl =
+        new ExecutionControl(
+            "s",
+            "w",
+            "e",
+            null,
+            payload,
+            Sinks.one(),
+            new ReactiveControlValve(),
+            Map.of(),
             Map.of(),
             Map.of(),
             Map.of());
 
-    final var flux =
-        control.applyPostProcessingControls("node1", reactor.core.publisher.Flux.empty());
-    assertThat(flux).isNotNull();
+    assertThat(ctrl.payload()).containsEntry("b", 1).containsKey("a");
+    assertThat(ctrl.payload()).isUnmodifiable();
   }
 }

@@ -37,7 +37,6 @@ coverageConfig {
     exceptions.put("*WorkflowValidator", mapOf("LINE" to 0.97, "BRANCH" to 0.98, "INSTRUCTION" to 0.98, "METHOD" to 0.96))
     exceptions.put("*FileSessionConfigStore", mapOf("BRANCH" to 0.95, "INSTRUCTION" to 0.99))
     exceptions.put("*WorkflowCompiler", mapOf("BRANCH" to 0.96))
-    exceptions.put("*TerminalNodeAssemblerStrategy", mapOf("INSTRUCTION" to 0.99, "METHOD" to 0.90))
     exceptions.put("*WorkflowOrchestrator", mapOf("BRANCH" to 0.87, "INSTRUCTION" to 0.96, "METHOD" to 0.86))
     exceptions.put("*StreamTopologyDecorator", mapOf("LINE" to 0.98, "INSTRUCTION" to 0.99, "METHOD" to 0.94))
     exceptions.put("*WorkflowState", mapOf("BRANCH" to 0.91))

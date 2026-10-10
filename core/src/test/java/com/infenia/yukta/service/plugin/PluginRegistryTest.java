@@ -154,19 +154,6 @@ class PluginRegistryTest {
   }
 
   @Test
-  void testPluginTypeIsUsedAsKey() {
-    final Plugin firstPlugin = mock(Plugin.class);
-    when(firstPlugin.getType()).thenReturn("same-type");
-    final Plugin secondPlugin = mock(Plugin.class);
-    when(secondPlugin.getType()).thenReturn("same-type");
-
-    final PluginRegistry registry = new PluginRegistry(List.of(firstPlugin, secondPlugin));
-
-    assertThat(registry.listPlugins().size()).isEqualTo(1);
-    assertThat(registry.get("same-type")).isEqualTo(secondPlugin);
-  }
-
-  @Test
   void testRegistry() {
     final Plugin mockPlugin = mock(Plugin.class);
     when(mockPlugin.getType()).thenReturn(TEST_TYPE);
@@ -195,5 +182,17 @@ class PluginRegistryTest {
     assertThat(registry.listPlugins().size()).isEqualTo(2);
     assertThat(registry.contains("type1")).isTrue();
     assertThat(registry.contains("type2")).isTrue();
+  }
+
+  @Test
+  void testDuplicatePluginTypeFailsFast() {
+    final Plugin first = mock(Plugin.class);
+    when(first.getType()).thenReturn("dup");
+    final Plugin second = mock(Plugin.class);
+    when(second.getType()).thenReturn("dup");
+
+    assertThatThrownBy(() -> new PluginRegistry(List.of(first, second)))
+        .isInstanceOf(IllegalStateException.class)
+        .hasMessageContaining("Duplicate plugin type 'dup'");
   }
 }
