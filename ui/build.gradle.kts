@@ -9,14 +9,7 @@ plugins {
 }
 
 coverageConfig {
-    val noCoverage = mapOf(
-        "LINE" to 0.0,
-        "BRANCH" to 0.0,
-        "CLASS" to 0.0,
-        "INSTRUCTION" to 0.0,
-        "METHOD" to 0.0
-    )
-    exceptions.put("com.infenia.yukta.ui.*", noCoverage)
+    exception("com.infenia.yukta.ui.*", "Thin static-resource wiring; the UI is tested with pnpm/vitest, not JVM tests", mapOf("LINE" to 0.0, "BRANCH" to 0.0))
 }
 
 dependencies {

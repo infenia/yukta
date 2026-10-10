@@ -20,15 +20,7 @@ dependencies {
     testImplementation(libs.spring.boot.starter.webflux.test)
 }
 
-coverageConfig {
-    exceptions.put("com.infenia.yukta.mcp.AppMcpTools", mapOf(
-        "LINE" to 0.8,
-        "BRANCH" to 0.5,
-        "CLASS" to 0.8,
-        "INSTRUCTION" to 0.7,
-        "METHOD" to 0.6
-    ))
-}
+
 
 // TODO: temporarily disabled — re-enable once test-source PMD violations are addressed.
 tasks.named("pmdTest") {

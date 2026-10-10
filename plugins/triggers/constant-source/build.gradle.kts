@@ -15,23 +15,11 @@ dependencies {
 }
 
 coverageConfig {
-    val baselineCoverage = mapOf(
-        "LINE" to 0.5,
-        "BRANCH" to 0.5,
-        "CLASS" to 0.5,
-        "INSTRUCTION" to 0.5,
-        "METHOD" to 0.5
-    )
-
-    exceptions.put("com.infenia.yukta.plugin.trigger.ConstantSource", baselineCoverage)
+    exception("com.infenia.yukta.plugin.trigger.ConfigVariableSource", "Config lookup branches not yet unit tested", mapOf("LINE" to 0.6, "BRANCH" to 0.75))
 }
 
 // TODO: temporarily disabled — re-enable once violations are addressed.
 tasks.named("pmdMain") {
-    enabled = false
-}
-
-tasks.named("jacocoTestCoverageVerification") {
     enabled = false
 }
 
