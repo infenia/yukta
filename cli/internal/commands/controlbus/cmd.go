@@ -10,7 +10,7 @@ import (
 
 // ControlBusCmd creates and returns the "controlbus" command group.
 // It serves as the parent command for control bus operations.
-func ControlBusCmd(c client.ClientInterface) *cobra.Command {
+func ControlBusCmd(c *client.Client) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "controlbus",
 		Short: "Control bus and observability operations",

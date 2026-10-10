@@ -43,7 +43,7 @@ func (c *Client) GetSessionDetails(sessionID string) (map[string]interface{}, er
 		return nil, fmt.Errorf("sessionID cannot be empty")
 	}
 
-	path := fmt.Sprintf("/api/sessions/%s", sessionID)
+	path := apiPath("/api/sessions/%s", sessionID)
 	req, err := c.newRequest("GET", path)
 	if err != nil {
 		return nil, err
@@ -78,7 +78,7 @@ func (c *Client) GetWorkflow(sessionID, workflowID string) (map[string]interface
 		return nil, fmt.Errorf("workflowID cannot be empty")
 	}
 
-	path := fmt.Sprintf("/api/sessions/%s/workflows/%s", sessionID, workflowID)
+	path := apiPath("/api/sessions/%s/workflows/%s", sessionID, workflowID)
 	req, err := c.newRequest("GET", path)
 	if err != nil {
 		return nil, err
@@ -115,4 +115,44 @@ func (c *Client) ApplyConfig(configJSON []byte) error {
 
 	_, err = c.doRequest(req)
 	return err
+}
+
+// getData GETs path and returns the decoded ApiResponse "data" field as-is.
+func (c *Client) getData(path string) (any, error) {
+	req, err := c.newRequest("GET", path)
+	if err != nil {
+		return nil, err
+	}
+	body, err := c.doRequest(req)
+	if err != nil {
+		return nil, err
+	}
+	var response struct {
+		Data any `json:"data"`
+	}
+	if err := json.Unmarshal(body, &response); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
+	}
+	return response.Data, nil
+}
+
+// GetSessionSummaries retrieves every session with its workflow summaries.
+func (c *Client) GetSessionSummaries() (any, error) {
+	return c.getData("/api/sessions/summaries")
+}
+
+// GetWorkflowGraph retrieves the node/edge graph of a workflow.
+func (c *Client) GetWorkflowGraph(sessionID, workflowID string) (any, error) {
+	if sessionID == "" || workflowID == "" {
+		return nil, fmt.Errorf("sessionID and workflowID cannot be empty")
+	}
+	return c.getData(apiPath("/api/sessions/%s/workflows/%s/graph", sessionID, workflowID))
+}
+
+// GetWorkflowExecutions retrieves the execution history of one workflow, most recent first.
+func (c *Client) GetWorkflowExecutions(sessionID, workflowID string) (any, error) {
+	if sessionID == "" || workflowID == "" {
+		return nil, fmt.Errorf("sessionID and workflowID cannot be empty")
+	}
+	return c.getData(apiPath("/api/sessions/%s/workflows/%s/executions", sessionID, workflowID))
 }

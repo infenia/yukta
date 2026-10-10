@@ -83,6 +83,16 @@ Apply a session from a file:
 
 ### Workflow Operations
 
+Start a workflow, optionally passing a trigger payload:
+
+```bash
+./yukta workflow start <session-id> <workflow-id> --payload '{"message":"hi"}'
+./yukta workflow start <session-id> <workflow-id> --payload-file payload.json
+```
+
+Read-only views: `yukta session summaries`, `yukta session workflow graph|executions <session-id> <workflow-id>`,
+and `yukta logs <session-id> <execution-id> --entries` for structured log entries.
+
 Get workflow details within a session:
 
 ```bash
@@ -98,9 +108,10 @@ yukta [flags] <resource> <action> [arguments]
 ```
 
 **Global Flags:**
-- `--server-url <url>` - Override the Yukta server URL
-- `--timeout <duration>` - Set request timeout (default: 30s)
-- `--verbose` - Enable verbose logging
+- `--url <url>` - Override the Yukta server URL (env: `YUKTA_SERVER_URL`)
+- `--token <token>` - Bearer token for authenticated servers (env: `YUKTA_TOKEN`)
+- `--timeout <duration>` - Timeout for non-streaming requests (default: 30s, `0` disables)
+- `-o, --output <table|json>` - Output format
 
 ## Configuration
 
@@ -121,7 +132,7 @@ export YUKTA_SERVER_URL=http://production-yukta.example.com:8080
 
 The CLI resolves the server URL using the following priority (highest to lowest):
 
-1. **Command-line flag** (`--server-url`)
+1. **Command-line flag** (`--url`)
 2. **Environment variable** (`YUKTA_SERVER_URL`)
 3. **Default value** (`http://localhost:8080`)
 
@@ -206,23 +217,13 @@ cli/
 └── README.md               # This file
 ```
 
-### API Client Interface
+### API Client
 
-The CLI uses a modular API client pattern. To extend functionality:
+Commands take a `*client.Client` (`internal/client`). To add an endpoint:
 
-1. Extend the `Client` interface in `pkg/api/client.go`
-2. Implement new methods in the HTTP client implementation
-3. Use dependency injection to pass the client to command handlers
-
-```go
-type Client interface {
-    SessionList(ctx context.Context) ([]Session, error)
-    SessionGet(ctx context.Context, id string) (*Session, error)
-    SessionApply(ctx context.Context, session *Session) (*Session, error)
-    WorkflowGet(ctx context.Context, sessionID, workflowID string) (*Workflow, error)
-    // Add new methods here
-}
-```
+1. Add a method on `Client` that builds its path with `apiPath("/api/…/%s", id)` (this escapes IDs).
+2. Add a command; simple "call and print" actions use `commands.Action`.
+3. Test it against `testutil.Server` (an `httptest` server), not a mock.
 
 ## API Reference
 

@@ -14,7 +14,7 @@ import (
 
 // GetCmd creates and returns the "plugin get" subcommand.
 // It retrieves and displays detailed information about a specific plugin.
-func GetCmd(c client.ClientInterface) *cobra.Command {
+func GetCmd(c *client.Client) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <type>",
 		Short: "Get plugin details",

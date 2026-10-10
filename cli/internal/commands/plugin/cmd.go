@@ -10,7 +10,7 @@ import (
 
 // PluginCmd creates and returns the "plugin" command group.
 // It serves as the parent command for plugin-related subcommands.
-func PluginCmd(c client.ClientInterface) *cobra.Command {
+func PluginCmd(c *client.Client) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "plugin",
 		Short: "Manage and discover plugins",

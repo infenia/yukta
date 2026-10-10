@@ -19,14 +19,17 @@ import (
 // It streams execution logs for a given session and execution ID.
 // The command prints logs in real-time, one per line, as they arrive from the server.
 // It supports graceful cancellation via Ctrl-C.
-func LogsCmd(c client.ClientInterface) *cobra.Command {
-	return &cobra.Command{
+func LogsCmd(c *client.Client) *cobra.Command {
+	var entries bool
+	cmd := &cobra.Command{
 		Use:   "logs <session-id> <execution-id>",
 		Short: "Stream execution logs",
 		Long: `Stream execution logs for a workflow execution in real-time.
 
 The logs are displayed as they arrive from the server, one line per log entry.
 The stream continues until the execution reaches a terminal state (completed, failed, cancelled, etc).
+
+Use --entries to receive structured log entries as JSON, one per line.
 
 Press Ctrl-C to stop watching logs at any time.`,
 		Args: cobra.ExactArgs(2),
@@ -44,7 +47,11 @@ Press Ctrl-C to stop watching logs at any time.`,
 			defer stop()
 
 			// Stream logs, printing each line as it arrives
-			err := c.StreamExecutionLogs(ctx, sessionID, executionID, func(line string) error {
+			stream := c.StreamExecutionLogs
+			if entries {
+				stream = c.StreamExecutionLogEntries
+			}
+			err := stream(ctx, sessionID, executionID, func(line string) error {
 				fmt.Println(line)
 				return nil
 			})
@@ -57,4 +64,6 @@ Press Ctrl-C to stop watching logs at any time.`,
 			return err
 		},
 	}
+	cmd.Flags().BoolVar(&entries, "entries", false, "Stream structured log entries as JSON")
+	return cmd
 }
