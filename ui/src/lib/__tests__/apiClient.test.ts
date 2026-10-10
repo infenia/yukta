@@ -2,35 +2,43 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { fetchApi, ApiError, type ApiResponse } from '../apiClient';
+import { api, fetchApi, ApiError, type ApiResponse } from '../apiClient';
 
 describe('ApiError', () => {
-  it('should create error with status and message', () => {
-    const error = new ApiError(404, 'Not found');
-    expect(error.status).toBe(404);
-    expect(error.error).toBe('Not found');
-    expect(error.message).toBe('Not found');
-    expect(error.name).toBe('ApiError');
-  });
-
-  it('should create error with only status', () => {
-    const error = new ApiError(500);
-    expect(error.status).toBe(500);
-    expect(error.error).toBeUndefined();
-    expect(error.message).toBe('API error: 500');
-  });
-
-  it('should include field errors', () => {
-    const fieldErrors = { email: ['Invalid email'], password: ['Too short'] };
-    const error = new ApiError(400, 'Validation failed', fieldErrors);
-    expect(error.fieldErrors).toEqual(fieldErrors);
-  });
-
-  it('should be instanceof Error', () => {
-    const error = new ApiError(400);
-    expect(error).toBeInstanceOf(Error);
+  it('uses the message, falling back to the status', () => {
+    expect(new ApiError(404, 'Not found').message).toBe('Not found');
+    expect(new ApiError(500).message).toBe('API error: 500');
+    expect(new ApiError(400)).toBeInstanceOf(Error);
   });
 });
+
+describe('api', () => {
+  it('encodes interpolated values only', () => {
+    expect(api`/api/sessions/${'a/b?c#d'}/x/${42}`).toBe(
+      '/api/sessions/a%2Fb%3Fc%23d/x/42'
+    );
+    expect(api`/api/sessions`).toBe('/api/sessions');
+  });
+});
+
+function mockFetch(init: {
+  ok: boolean;
+  status: number;
+  statusText?: string;
+  body?: unknown;
+}) {
+  const fetchMock = vi.fn().mockResolvedValueOnce({
+    ok: init.ok,
+    status: init.status,
+    statusText: init.statusText ?? '',
+    json:
+      init.body === undefined
+        ? vi.fn().mockRejectedValueOnce(new SyntaxError('Unexpected token <'))
+        : vi.fn().mockResolvedValueOnce(init.body),
+  });
+  global.fetch = fetchMock;
+  return fetchMock;
+}
 
 describe('fetchApi', () => {
   beforeEach(() => {
@@ -41,344 +49,72 @@ describe('fetchApi', () => {
     vi.clearAllMocks();
   });
 
-  it('should fetch and return data on successful 200 response', async () => {
-    const mockData = { id: 1, name: 'Test' };
-    const mockResponse: ApiResponse<typeof mockData> = {
-      timestamp: '2026-01-01T00:00:00Z',
-      status: 200,
-      message: 'Success',
-      data: mockData,
+  it.each([200, 201, 202])('returns data on %i', async (status) => {
+    const body: ApiResponse<{ id: number }> = {
+      timestamp: 't',
+      status,
+      message: 'ok',
+      data: { id: 1 },
       path: '/api/test',
     };
-
-    global.fetch = vi.fn().mockResolvedValueOnce({
-      ok: true,
-      status: 200,
-      json: vi.fn().mockResolvedValueOnce(mockResponse),
-    });
-
-    const result = await fetchApi<typeof mockData>('/api/test');
-    expect(result).toEqual(mockData);
+    mockFetch({ ok: true, status, body });
+    await expect(fetchApi('/api/test')).resolves.toEqual({ id: 1 });
   });
 
-  it('should fetch and return data on successful 201 response', async () => {
-    const mockData = { id: 2, name: 'Created' };
-    const mockResponse: ApiResponse<typeof mockData> = {
-      timestamp: '2026-01-01T00:00:00Z',
-      status: 201,
-      message: 'Created',
-      data: mockData,
-      path: '/api/test',
-    };
-
-    global.fetch = vi.fn().mockResolvedValueOnce({
-      ok: true,
-      status: 201,
-      json: vi.fn().mockResolvedValueOnce(mockResponse),
-    });
-
-    const result = await fetchApi<typeof mockData>('/api/test');
-    expect(result).toEqual(mockData);
+  it('accepts 204 with no body', async () => {
+    mockFetch({ ok: true, status: 204 });
+    await expect(fetchApi('/api/test')).resolves.toBeUndefined();
   });
 
-  it('should fetch and return data on successful 202 response', async () => {
-    const mockData = { id: 3, name: 'Accepted' };
-    const mockResponse: ApiResponse<typeof mockData> = {
-      timestamp: '2026-01-01T00:00:00Z',
-      status: 202,
-      message: 'Accepted',
-      data: mockData,
-      path: '/api/test',
-    };
-
-    global.fetch = vi.fn().mockResolvedValueOnce({
-      ok: true,
-      status: 202,
-      json: vi.fn().mockResolvedValueOnce(mockResponse),
-    });
-
-    const result = await fetchApi<typeof mockData>('/api/test');
-    expect(result).toEqual(mockData);
-  });
-
-  it('should throw ApiError on non-200/201/202 status code', async () => {
-    const mockResponse: ApiResponse<unknown> = {
-      timestamp: '2026-01-01T00:00:00Z',
-      status: 400,
-      message: 'Bad request',
-      error: 'Invalid input',
-      data: null,
-      path: '/api/test',
-    };
-
-    global.fetch = vi.fn().mockResolvedValueOnce({
+  it('surfaces the server message and typed field errors', async () => {
+    const errors = [{ field: 'name', message: 'must not be blank' }];
+    mockFetch({
       ok: false,
       status: 400,
-      json: vi.fn().mockResolvedValueOnce(mockResponse),
+      body: {
+        status: 400,
+        error: 'Bad Request',
+        message: 'Validation failed: name',
+        errors,
+      },
     });
-
-    try {
-      await fetchApi('/api/test');
-      expect.fail('Expected ApiError to be thrown');
-    } catch (err) {
-      expect(err).toBeInstanceOf(ApiError);
-      expect((err as ApiError).message).toBe('Invalid input');
-    }
+    const err = (await fetchApi('/api/test').catch(
+      (e: unknown) => e
+    )) as ApiError;
+    expect(err).toBeInstanceOf(ApiError);
+    expect(err.status).toBe(400);
+    expect(err.message).toBe('Validation failed: name');
+    expect(err.fieldErrors).toEqual(errors);
   });
 
-  it('should throw ApiError with field errors', async () => {
-    const fieldErrors = { email: ['Invalid email'] };
-    const mockResponse: ApiResponse<unknown> = {
-      timestamp: '2026-01-01T00:00:00Z',
-      status: 422,
-      message: 'Validation error',
-      error: 'Validation failed',
-      data: null,
-      path: '/api/test',
-      errors: fieldErrors,
-    };
-
-    global.fetch = vi.fn().mockResolvedValueOnce({
-      ok: false,
-      status: 422,
-      json: vi.fn().mockResolvedValueOnce(mockResponse),
-    });
-
-    try {
-      await fetchApi('/api/test');
-      expect.fail('Expected ApiError to be thrown');
-    } catch (err) {
-      expect(err).toBeInstanceOf(ApiError);
-      expect((err as ApiError).fieldErrors).toEqual(fieldErrors);
-    }
+  it('falls back to the status text for non-JSON error bodies', async () => {
+    mockFetch({ ok: false, status: 502, statusText: 'Bad Gateway' });
+    const err = (await fetchApi('/api/test').catch(
+      (e: unknown) => e
+    )) as ApiError;
+    expect(err.status).toBe(502);
+    expect(err.message).toBe('Bad Gateway');
   });
 
-  it('should throw ApiError when response.ok is false', async () => {
-    const mockResponse: ApiResponse<unknown> = {
-      timestamp: '2026-01-01T00:00:00Z',
-      status: 500,
-      message: 'Server error',
-      error: 'Internal server error',
-      data: null,
-      path: '/api/test',
-    };
-
-    global.fetch = vi.fn().mockResolvedValueOnce({
-      ok: false,
-      status: 500,
-      json: vi.fn().mockResolvedValueOnce(mockResponse),
-    });
-
-    await expect(fetchApi('/api/test')).rejects.toThrow(ApiError);
+  it('throws on a non-JSON success body', async () => {
+    mockFetch({ ok: true, status: 200 });
+    await expect(fetchApi('/api/test')).rejects.toThrow('Failed to parse JSON');
   });
 
-  it('should throw ApiError on JSON parse failure', async () => {
-    global.fetch = vi.fn().mockResolvedValueOnce({
-      ok: true,
-      status: 200,
-      json: vi.fn().mockRejectedValueOnce(new SyntaxError('Invalid JSON')),
-    });
-
-    try {
-      await fetchApi('/api/test');
-      expect.fail('Expected ApiError to be thrown');
-    } catch (err) {
-      expect(err).toBeInstanceOf(ApiError);
-      expect((err as ApiError).message).toContain('Failed to parse JSON');
-    }
-  });
-
-  it('should merge provided headers with default Content-Type', async () => {
-    const mockData = { id: 1 };
-    const mockResponse: ApiResponse<typeof mockData> = {
-      timestamp: '2026-01-01T00:00:00Z',
-      status: 200,
-      message: 'Success',
-      data: mockData,
-      path: '/api/test',
-    };
-
-    global.fetch = vi.fn().mockResolvedValueOnce({
-      ok: true,
-      status: 200,
-      json: vi.fn().mockResolvedValueOnce(mockResponse),
-    });
-
-    const result = await fetchApi('/api/test', {
-      headers: { 'X-Custom': 'value' },
-    });
-
-    expect(result).toEqual(mockData);
-    expect(global.fetch).toHaveBeenCalled();
-  });
-
-  it('should handle request with method and body', async () => {
-    const mockData = { success: true };
-    const mockResponse: ApiResponse<typeof mockData> = {
-      timestamp: '2026-01-01T00:00:00Z',
-      status: 201,
-      message: 'Created',
-      data: mockData,
-      path: '/api/test',
-    };
-
-    global.fetch = vi.fn().mockResolvedValueOnce({
-      ok: true,
-      status: 201,
-      json: vi.fn().mockResolvedValueOnce(mockResponse),
-    });
-
-    const payload = { name: 'Test' };
-    const result = await fetchApi('/api/test', {
+  it('keeps Content-Type when custom headers are passed', async () => {
+    const fetchMock = mockFetch({ ok: true, status: 200, body: { data: 1 } });
+    await fetchApi('/api/test', {
       method: 'POST',
-      body: JSON.stringify(payload),
+      headers: { 'X-Custom': 'v' },
     });
-
-    expect(result).toEqual(mockData);
+    expect(fetchMock).toHaveBeenCalledWith('/api/test', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Custom': 'v' },
+    });
   });
 
-  it('should handle 404 response with HTTP error', async () => {
-    const mockResponse: ApiResponse<unknown> = {
-      timestamp: '2026-01-01T00:00:00Z',
-      status: 404,
-      message: 'Not found',
-      error: 'Resource not found',
-      data: null,
-      path: '/api/missing',
-    };
-
-    global.fetch = vi.fn().mockResolvedValueOnce({
-      ok: false,
-      status: 404,
-      json: vi.fn().mockResolvedValueOnce(mockResponse),
-    });
-
-    try {
-      await fetchApi('/api/missing');
-      expect.fail('Should have thrown');
-    } catch (err) {
-      expect(err).toBeInstanceOf(ApiError);
-      expect((err as ApiError).status).toBe(404);
-    }
-  });
-
-  it('should throw ApiError when response.ok is false but status is 200', async () => {
-    const mockResponse: ApiResponse<unknown> = {
-      timestamp: '2026-01-01T00:00:00Z',
-      status: 400,
-      message: 'Bad request',
-      error: 'Invalid data',
-      data: null,
-      path: '/api/test',
-    };
-
-    global.fetch = vi.fn().mockResolvedValueOnce({
-      ok: false,
-      status: 400,
-      json: vi.fn().mockResolvedValueOnce(mockResponse),
-    });
-
-    try {
-      await fetchApi('/api/test');
-      expect.fail('Should have thrown');
-    } catch (err) {
-      expect(err).toBeInstanceOf(ApiError);
-      expect((err as ApiError).error).toBe('Invalid data');
-    }
-  });
-
-  it('should handle network errors', async () => {
+  it('propagates network errors', async () => {
     global.fetch = vi.fn().mockRejectedValueOnce(new Error('Network failed'));
-
     await expect(fetchApi('/api/test')).rejects.toThrow('Network failed');
-  });
-
-  it('should handle malformed JSON gracefully', async () => {
-    global.fetch = vi.fn().mockResolvedValueOnce({
-      ok: true,
-      status: 200,
-      json: vi.fn().mockRejectedValueOnce(new SyntaxError('Unexpected token')),
-    });
-
-    try {
-      await fetchApi('/api/test');
-      expect.fail('Should have thrown');
-    } catch (err) {
-      expect(err).toBeInstanceOf(ApiError);
-      expect((err as ApiError).message).toContain('Failed to parse JSON');
-    }
-  });
-
-  it('should handle response.ok false without error message', async () => {
-    const mockResponse: ApiResponse<unknown> = {
-      timestamp: '2026-01-01T00:00:00Z',
-      status: 503,
-      message: 'Service unavailable',
-      data: null,
-      path: '/api/test',
-    };
-
-    global.fetch = vi.fn().mockResolvedValueOnce({
-      ok: false,
-      status: 503,
-      json: vi.fn().mockResolvedValueOnce(mockResponse),
-    });
-
-    try {
-      await fetchApi('/api/test');
-      expect.fail('Should have thrown');
-    } catch (err) {
-      expect(err).toBeInstanceOf(ApiError);
-      expect((err as ApiError).status).toBe(503);
-    }
-  });
-
-  it('should pass through custom headers', async () => {
-    const mockData = { id: 1 };
-    const mockResponse: ApiResponse<typeof mockData> = {
-      timestamp: '2026-01-01T00:00:00Z',
-      status: 200,
-      message: 'Success',
-      data: mockData,
-      path: '/api/test',
-    };
-
-    const fetchMock = vi.fn().mockResolvedValueOnce({
-      ok: true,
-      status: 200,
-      json: vi.fn().mockResolvedValueOnce(mockResponse),
-    });
-
-    global.fetch = fetchMock;
-
-    const result = await fetchApi('/api/test', {
-      headers: { 'Authorization': 'Bearer token' },
-    });
-
-    expect(result).toEqual(mockData);
-    expect(fetchMock).toHaveBeenCalled();
-  });
-
-  it('should throw when response.ok is false despite status 200', async () => {
-    const mockResponse: ApiResponse<unknown> = {
-      timestamp: '2026-01-01T00:00:00Z',
-      status: 200,
-      message: 'OK',
-      data: null,
-      path: '/api/test',
-    };
-
-    global.fetch = vi.fn().mockResolvedValueOnce({
-      ok: false,
-      status: 200,
-      json: vi.fn().mockResolvedValueOnce(mockResponse),
-    });
-
-    try {
-      await fetchApi('/api/test');
-      expect.fail('Should have thrown');
-    } catch (err) {
-      expect(err).toBeInstanceOf(ApiError);
-    }
   });
 });

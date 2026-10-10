@@ -11,30 +11,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="manifest" href="/site.webmanifest" />
     <title>Yukta | Sessions</title>
-    <!-- Google Fonts: IBM Plex Sans -->
-    <link
-      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600&display=swap"
-      rel="stylesheet"
-    />
-    <!-- Google Fonts: IBM Plex Mono -->
-    <link
-      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&display=swap"
-      rel="stylesheet"
-    />
-    <!-- Material Symbols (self-hosted via npm package imported in index.css) -->
-    <!-- Theme detection and application (runs before React hydration to prevent flash) -->
-    <script>
-      (function () {
-        const theme = localStorage.getItem('theme') || 'system';
-        const isDark =
-          theme === 'dark' ||
-          (theme === 'system' &&
-            window.matchMedia('(prefers-color-scheme: dark)').matches);
-        if (isDark) {
-          document.documentElement.classList.add('dark');
-        }
-      })();
-    </script>
+    <!-- Theme detection (an external file so the CSP can forbid inline scripts); runs before React to prevent a flash -->
+    <script src="/theme-init.js"></script>
   </head>
   <body>
     <div id="root"></div>

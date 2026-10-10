@@ -50,6 +50,18 @@ val validateHeaders = tasks.register<PnpmTask>("validateHeaders") {
     pnpmCommand.set(listOf("run", "lint:headers"))
 }
 
+// package.json's version must track the Gradle project version (gradle.properties)
+val verifyPackageVersion = tasks.register("verifyPackageVersion") {
+    description = "Fail when package.json's version differs from the Gradle project version"
+    val packageJson = layout.projectDirectory.file("package.json")
+    val expected = project.version.toString()
+    inputs.file(packageJson)
+    doLast {
+        val actual = Regex("\"version\"\\s*:\\s*\"([^\"]+)\"").find(packageJson.asFile.readText())?.groupValues?.get(1)
+        check(actual == expected) { "ui/package.json version is $actual but the Gradle version is $expected" }
+    }
+}
+
 // Unit & component tests
 val pnpmTest = tasks.register<PnpmTask>("pnpmTest") {
     description = "Run Vitest unit/component tests"
@@ -71,7 +83,7 @@ val pnpmTestE2e = tasks.register<PnpmTask>("pnpmTestE2e") {
 
 // Wire header validation and tests into Gradle's check task
 tasks.named("check") {
-    dependsOn(validateHeaders)
+    dependsOn(validateHeaders, verifyPackageVersion)
     // Uncomment when tests are written:
     // dependsOn(pnpmTest)
 }

@@ -6,6 +6,26 @@ plugins {
     alias(libs.plugins.graalvm.buildtools.native)
 }
 
+// Optional plugins are chosen with -Pyukta.plugins=all (default), none, or a comma-separated list
+// of: process-executor, http-request, llm-call, session-memory, script-js.
+val optionalPlugins = mapOf(
+    "process-executor" to ":plugins:processors:process-executor",
+    "http-request" to ":plugins:processors:http-request",
+    "llm-call" to ":plugins:processors:llm-call",
+    "session-memory" to ":plugins:processors:session-memory",
+    "script-js" to ":plugins:processors:internal:script-js",
+)
+val requested = providers.gradleProperty("yukta.plugins").getOrElse("all").trim()
+val selectedPlugins = when (requested) {
+    "all" -> optionalPlugins.keys
+    "none", "" -> emptySet()
+    else -> requested.split(",").map { it.trim() }.toSet()
+}
+val unknownPlugins = selectedPlugins - optionalPlugins.keys
+require(unknownPlugins.isEmpty()) {
+    "Unknown yukta.plugins entries $unknownPlugins; valid: ${optionalPlugins.keys}"
+}
+
 dependencies {
     implementation(project(":core"))
     implementation(project(":web"))
@@ -16,10 +36,8 @@ dependencies {
     implementation(project(":plugins:triggers:constant-source"))
     implementation(project(":plugins:triggers:oneshot-trigger"))
     implementation(project(":plugins:terminals:console-terminal"))
-    implementation(project(":plugins:processors:process-executor"))
-    implementation(project(":plugins:processors:http-request"))
-    implementation(project(":plugins:processors:llm-call"))
-    implementation(project(":plugins:processors:session-memory"))
+
+    selectedPlugins.forEach { implementation(project(optionalPlugins.getValue(it))) }
 
     implementation(libs.spring.boot.starter.webflux)
     implementation(libs.spring.boot.starter.validation)
@@ -27,7 +45,6 @@ dependencies {
 
     // Dev-only dependencies (automatically excluded from native image but made explicit for clarity)
     developmentOnly(libs.spring.boot.devtools)
-    developmentOnly(libs.spring.boot.docker.compose)
 
     annotationProcessor(libs.spring.boot.configuration.processor)
 
@@ -38,7 +55,6 @@ dependencies {
 
 tasks.named<org.springframework.boot.gradle.tasks.run.BootRun>("bootRun") {
     mainClass.set("com.infenia.yukta.YuktaApplication")
-    args("--spring.profiles.active=dev")
 }
 
 coverageConfig {
@@ -52,8 +68,8 @@ graalvmNative {
             mainClass.set("com.infenia.yukta.YuktaApplication")
             buildArgs.add("--no-fallback")
 
-            // Increase heap for native image compilation (JTE classes need more memory)
-            buildArgs.add("-J-Xmx16g")
+            // Heap for native image compilation
+            buildArgs.add("-J-Xmx8g")
 
             // Size-reduction flags (compatible with GraalVM 25)
             buildArgs.add("-H:+RemoveUnusedSymbols")           // Remove unused symbols
