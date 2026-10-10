@@ -749,11 +749,30 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
       return;
     }
     state.updateTask(event.nodeId(), event.module(), event.status(), event.metadata());
-    traceNode(event);
+    if (state.taskMap.containsKey(event.nodeId())) {
+      traceNode(event);
+    }
     if (isTerminal(event.status())) {
       recordNode(state.taskMap.get(event.nodeId()));
     }
     touched.add(event.executionId());
+  }
+
+  /** Stops observations of nodes that were finalized with the run instead of ending themselves. */
+  private void closeNodeSpans(final String executionId) {
+    final String prefix = executionId + "\0";
+    nodeSpans
+        .keySet()
+        .removeIf(
+            key -> {
+              if (!key.startsWith(prefix)) {
+                return false;
+              }
+              final Observation span = nodeSpans.get(key);
+              span.lowCardinalityKeyValue("status", TaskStatus.CANCELLED.name());
+              span.stop();
+              return true;
+            });
   }
 
   /** Opens an observation when a node starts running and closes it when the node ends. */
@@ -804,6 +823,7 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
     if (isTerminal(event.status())) {
       // Every node event before this one is already applied, so what is still open is final.
       state.finalizeTasks(event.status());
+      closeNodeSpans(event.executionId());
       state.setEndTime(event.timestamp());
       executionLog.append(
           ExecutionLogEvent.finished(

@@ -243,16 +243,18 @@ public class ExecutionScheduler implements SmartLifecycle {
    * limit.
    */
   private void admitWaiting() {
+    final List<Waiter> admitted = new ArrayList<>();
     final var iterator = queue.iterator();
     while (iterator.hasNext()) {
       final Waiter waiter = iterator.next();
       if (fits(waiter.key())) {
         iterator.remove();
-        final Permit permit = take(waiter.key());
-        waiter.granted().set(permit);
-        waiter.grant().tryEmitValue(permit);
+        waiter.granted().set(take(waiter.key()));
+        admitted.add(waiter);
       }
     }
+    // Notify after the walk: a subscriber may start another execution and join the queue.
+    admitted.forEach(waiter -> waiter.grant().tryEmitValue(waiter.granted().get()));
   }
 
   /** Called when a waiting start is cancelled; gives back a slot it was granted in the meantime. */

@@ -7,6 +7,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
 import com.infenia.yukta.service.store.InMemoryNodeCheckpointStore;
+import java.nio.ByteBuffer;
+import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.BeforeEach;
@@ -150,5 +153,39 @@ class InMemoryNodeCheckpointStoreTest {
 
     assertThat(small.isComplete("e", "n")).isFalse();
     StepVerifier.create(small.getAll("e", "n")).expectNextCount(1).verifyComplete();
+  }
+
+  @Test
+  void bytesCap_countsMapAndCollectionContents() {
+    final InMemoryNodeCheckpointStore small = new InMemoryNodeCheckpointStore(100, 100);
+
+    small
+        .save("e", "n", DefaultMessage.create(UUID.randomUUID(), Map.of("k", "x".repeat(500))))
+        .block();
+
+    assertThat(small.isComplete("e", "n")).isFalse();
+  }
+
+  @Test
+  void bytesCap_countsBuffersListsAndBoundedNesting() {
+    final InMemoryNodeCheckpointStore small = new InMemoryNodeCheckpointStore(100, 100);
+    final Object deep = List.of(List.of(List.of(List.of(List.of("x".repeat(500))))));
+
+    small
+        .save("a", "n", DefaultMessage.create(UUID.randomUUID(), ByteBuffer.allocate(500)))
+        .block();
+    small
+        .save("b", "n", DefaultMessage.create(UUID.randomUUID(), List.of("x".repeat(500))))
+        .block();
+    small.save("c", "n", DefaultMessage.create(UUID.randomUUID(), deep)).block();
+    small.save("d", "n", DefaultMessage.create(UUID.randomUUID(), new byte[500])).block();
+    small.save("e", "n", DefaultMessage.create(UUID.randomUUID(), 42)).block();
+
+    assertThat(small.isComplete("a", "n")).isFalse();
+    assertThat(small.isComplete("b", "n")).isFalse();
+    // too deep to measure: counted as one unknown payload (1 KiB), which is over this cap
+    assertThat(small.isComplete("c", "n")).isFalse();
+    assertThat(small.isComplete("d", "n")).isFalse();
+    assertThat(small.isComplete("e", "n")).isFalse();
   }
 }

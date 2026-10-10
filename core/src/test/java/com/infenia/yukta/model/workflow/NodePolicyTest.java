@@ -88,4 +88,11 @@ class NodePolicyTest {
     assertThatThrownBy(() -> NodePolicy.from(engine(Map.of("retry", Map.of("backoffMs", -1)))))
         .hasMessageContaining("backoffMs");
   }
+
+  @Test
+  void elementTimeout_rejectsFractionalMilliseconds() {
+    assertThatThrownBy(() -> NodePolicy.from(engine(Map.of("elementTimeoutMs", 0.5))))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("whole number");
+  }
 }
