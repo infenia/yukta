@@ -13,7 +13,7 @@ import (
 )
 
 // HistoryCmd creates the "workflow history" command.
-func HistoryCmd(c client.ClientInterface) *cobra.Command {
+func HistoryCmd(c *client.Client) *cobra.Command {
 	return &cobra.Command{
 		Use:   "history <session-id>",
 		Short: "Get the execution history of a session",

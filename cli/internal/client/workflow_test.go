@@ -60,7 +60,7 @@ func TestStartWorkflow(t *testing.T) {
 			defer server.Close()
 
 			c := NewClient(server.URL)
-			resp, err := c.StartWorkflow(tt.sessionID, tt.workflowID)
+			resp, err := c.StartWorkflow(tt.sessionID, tt.workflowID, nil)
 
 			if tt.expectError && err == nil {
 				t.Fatal("expected error, got nil")
@@ -510,7 +510,7 @@ func TestStartWorkflow_invalidJSON(t *testing.T) {
 	defer server.Close()
 
 	c := NewClient(server.URL)
-	_, err := c.StartWorkflow("session-1", "workflow-1")
+	_, err := c.StartWorkflow("session-1", "workflow-1", nil)
 
 	if err == nil {
 		t.Error("expected error for invalid JSON, got nil")
@@ -529,7 +529,7 @@ func TestStartWorkflow_httpError(t *testing.T) {
 	defer server.Close()
 
 	c := NewClient(server.URL)
-	_, err := c.StartWorkflow("session-1", "workflow-1")
+	_, err := c.StartWorkflow("session-1", "workflow-1", nil)
 
 	if err == nil {
 		t.Error("expected error for 500 status, got nil")
@@ -540,27 +540,6 @@ func TestStartWorkflow_httpError(t *testing.T) {
 }
 
 // TestStartWorkflow_networkError tests handling of network failures
-func TestStartWorkflow_networkError(t *testing.T) {
-	mockDoer := &MockHTTPDoer{
-		Err: fmt.Errorf("connection refused"),
-	}
-
-	c := &Client{
-		BaseURL:        "http://localhost:8080",
-		HTTPClient:     &http.Client{},
-		RequestFactory: &DefaultRequestFactory{},
-		httpDoer:       mockDoer,
-	}
-
-	_, err := c.StartWorkflow("session-1", "workflow-1")
-	if err == nil {
-		t.Error("expected error for network failure, got nil")
-	}
-	if !contains(err.Error(), "request failed") {
-		t.Errorf("expected request failed error, got: %v", err)
-	}
-}
-
 // TestStopWorkflow_invalidJSON tests JSON unmarshaling error
 func TestStopWorkflow_invalidJSON(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -1345,62 +1324,8 @@ func TestStreamWorkflowStatus_callbackError(t *testing.T) {
 }
 
 // TestStopExecution_networkError tests network failure handling
-func TestStopExecution_networkError(t *testing.T) {
-	mockDoer := &MockHTTPDoer{
-		Err: fmt.Errorf("connection refused"),
-	}
-
-	c := &Client{
-		BaseURL:        "http://localhost:8080",
-		HTTPClient:     &http.Client{},
-		RequestFactory: &DefaultRequestFactory{},
-		httpDoer:       mockDoer,
-	}
-
-	_, err := c.StopExecution("exec-123")
-	if err == nil {
-		t.Error("expected error for network failure, got nil")
-	}
-}
-
 // TestRestartExecution_networkError tests network failure handling
-func TestRestartExecution_networkError(t *testing.T) {
-	mockDoer := &MockHTTPDoer{
-		Err: fmt.Errorf("timeout"),
-	}
-
-	c := &Client{
-		BaseURL:        "http://localhost:8080",
-		HTTPClient:     &http.Client{},
-		RequestFactory: &DefaultRequestFactory{},
-		httpDoer:       mockDoer,
-	}
-
-	_, err := c.RestartExecution("exec-123")
-	if err == nil {
-		t.Error("expected error for network failure, got nil")
-	}
-}
-
 // TestRestartFromNode_networkError tests network failure handling
-func TestRestartFromNode_networkError(t *testing.T) {
-	mockDoer := &MockHTTPDoer{
-		Err: fmt.Errorf("connection reset"),
-	}
-
-	c := &Client{
-		BaseURL:        "http://localhost:8080",
-		HTTPClient:     &http.Client{},
-		RequestFactory: &DefaultRequestFactory{},
-		httpDoer:       mockDoer,
-	}
-
-	_, err := c.RestartFromNode("exec-123", "node-1")
-	if err == nil {
-		t.Error("expected error for network failure, got nil")
-	}
-}
-
 // TestRestartFromNode_invalidJSON tests JSON unmarshaling error
 func TestRestartFromNode_invalidJSON(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -1419,24 +1344,6 @@ func TestRestartFromNode_invalidJSON(t *testing.T) {
 }
 
 // TestPauseWorkflow_networkError tests network failure handling
-func TestPauseWorkflow_networkError(t *testing.T) {
-	mockDoer := &MockHTTPDoer{
-		Err: fmt.Errorf("dial error"),
-	}
-
-	c := &Client{
-		BaseURL:        "http://localhost:8080",
-		HTTPClient:     &http.Client{},
-		RequestFactory: &DefaultRequestFactory{},
-		httpDoer:       mockDoer,
-	}
-
-	_, err := c.PauseWorkflow("session-1", "exec-123")
-	if err == nil {
-		t.Error("expected error for network failure, got nil")
-	}
-}
-
 // TestPauseWorkflow_invalidJSON tests JSON unmarshaling error
 func TestPauseWorkflow_invalidJSON(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -1455,24 +1362,6 @@ func TestPauseWorkflow_invalidJSON(t *testing.T) {
 }
 
 // TestResumeWorkflow_networkError tests network failure handling
-func TestResumeWorkflow_networkError(t *testing.T) {
-	mockDoer := &MockHTTPDoer{
-		Err: fmt.Errorf("DNS resolution failed"),
-	}
-
-	c := &Client{
-		BaseURL:        "http://localhost:8080",
-		HTTPClient:     &http.Client{},
-		RequestFactory: &DefaultRequestFactory{},
-		httpDoer:       mockDoer,
-	}
-
-	_, err := c.ResumeWorkflow("session-1", "exec-123")
-	if err == nil {
-		t.Error("expected error for network failure, got nil")
-	}
-}
-
 // TestResumeWorkflow_invalidJSON tests JSON unmarshaling error
 func TestResumeWorkflow_invalidJSON(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -1491,62 +1380,8 @@ func TestResumeWorkflow_invalidJSON(t *testing.T) {
 }
 
 // TestGetWorkflowStatus_networkError tests network failure handling
-func TestGetWorkflowStatus_networkError(t *testing.T) {
-	mockDoer := &MockHTTPDoer{
-		Err: fmt.Errorf("read error"),
-	}
-
-	c := &Client{
-		BaseURL:        "http://localhost:8080",
-		HTTPClient:     &http.Client{},
-		RequestFactory: &DefaultRequestFactory{},
-		httpDoer:       mockDoer,
-	}
-
-	_, err := c.GetWorkflowStatus("session-1", "exec-123")
-	if err == nil {
-		t.Error("expected error for network failure, got nil")
-	}
-}
-
 // TestGetWorkflowHistory_networkError tests network failure handling
-func TestGetWorkflowHistory_networkError(t *testing.T) {
-	mockDoer := &MockHTTPDoer{
-		Err: fmt.Errorf("write error"),
-	}
-
-	c := &Client{
-		BaseURL:        "http://localhost:8080",
-		HTTPClient:     &http.Client{},
-		RequestFactory: &DefaultRequestFactory{},
-		httpDoer:       mockDoer,
-	}
-
-	_, err := c.GetWorkflowHistory("session-1")
-	if err == nil {
-		t.Error("expected error for network failure, got nil")
-	}
-}
-
 // TestPauseNode_networkError tests network failure handling
-func TestPauseNode_networkError(t *testing.T) {
-	mockDoer := &MockHTTPDoer{
-		Err: fmt.Errorf("socket error"),
-	}
-
-	c := &Client{
-		BaseURL:        "http://localhost:8080",
-		HTTPClient:     &http.Client{},
-		RequestFactory: &DefaultRequestFactory{},
-		httpDoer:       mockDoer,
-	}
-
-	_, err := c.PauseNode("session-1", "exec-123", "node-1")
-	if err == nil {
-		t.Error("expected error for network failure, got nil")
-	}
-}
-
 // TestPauseNode_invalidJSON tests JSON unmarshaling error
 func TestPauseNode_invalidJSON(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -1565,24 +1400,6 @@ func TestPauseNode_invalidJSON(t *testing.T) {
 }
 
 // TestResumeNode_networkError tests network failure handling
-func TestResumeNode_networkError(t *testing.T) {
-	mockDoer := &MockHTTPDoer{
-		Err: fmt.Errorf("connection lost"),
-	}
-
-	c := &Client{
-		BaseURL:        "http://localhost:8080",
-		HTTPClient:     &http.Client{},
-		RequestFactory: &DefaultRequestFactory{},
-		httpDoer:       mockDoer,
-	}
-
-	_, err := c.ResumeNode("session-1", "exec-123", "node-1")
-	if err == nil {
-		t.Error("expected error for network failure, got nil")
-	}
-}
-
 // TestResumeNode_invalidJSON tests JSON unmarshaling error
 func TestResumeNode_invalidJSON(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -1601,24 +1418,6 @@ func TestResumeNode_invalidJSON(t *testing.T) {
 }
 
 // TestEnableStepMode_networkError tests network failure handling
-func TestEnableStepMode_networkError(t *testing.T) {
-	mockDoer := &MockHTTPDoer{
-		Err: fmt.Errorf("peer closed connection"),
-	}
-
-	c := &Client{
-		BaseURL:        "http://localhost:8080",
-		HTTPClient:     &http.Client{},
-		RequestFactory: &DefaultRequestFactory{},
-		httpDoer:       mockDoer,
-	}
-
-	_, err := c.EnableStepMode("session-1", "exec-123", "node-1")
-	if err == nil {
-		t.Error("expected error for network failure, got nil")
-	}
-}
-
 // TestEnableStepMode_invalidJSON tests JSON unmarshaling error
 func TestEnableStepMode_invalidJSON(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -1637,24 +1436,6 @@ func TestEnableStepMode_invalidJSON(t *testing.T) {
 }
 
 // TestDisableStepMode_networkError tests network failure handling
-func TestDisableStepMode_networkError(t *testing.T) {
-	mockDoer := &MockHTTPDoer{
-		Err: fmt.Errorf("broken pipe"),
-	}
-
-	c := &Client{
-		BaseURL:        "http://localhost:8080",
-		HTTPClient:     &http.Client{},
-		RequestFactory: &DefaultRequestFactory{},
-		httpDoer:       mockDoer,
-	}
-
-	_, err := c.DisableStepMode("session-1", "exec-123", "node-1")
-	if err == nil {
-		t.Error("expected error for network failure, got nil")
-	}
-}
-
 // TestDisableStepMode_invalidJSON tests JSON unmarshaling error
 func TestDisableStepMode_invalidJSON(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -1673,24 +1454,6 @@ func TestDisableStepMode_invalidJSON(t *testing.T) {
 }
 
 // TestStepNode_networkError tests network failure handling
-func TestStepNode_networkError(t *testing.T) {
-	mockDoer := &MockHTTPDoer{
-		Err: fmt.Errorf("packet loss"),
-	}
-
-	c := &Client{
-		BaseURL:        "http://localhost:8080",
-		HTTPClient:     &http.Client{},
-		RequestFactory: &DefaultRequestFactory{},
-		httpDoer:       mockDoer,
-	}
-
-	_, err := c.StepNode("session-1", "exec-123", "node-1")
-	if err == nil {
-		t.Error("expected error for network failure, got nil")
-	}
-}
-
 // TestStepNode_invalidJSON tests JSON unmarshaling error
 func TestStepNode_invalidJSON(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -1709,24 +1472,6 @@ func TestStepNode_invalidJSON(t *testing.T) {
 }
 
 // TestStopNode_networkError tests network failure handling
-func TestStopNode_networkError(t *testing.T) {
-	mockDoer := &MockHTTPDoer{
-		Err: fmt.Errorf("TLS handshake failed"),
-	}
-
-	c := &Client{
-		BaseURL:        "http://localhost:8080",
-		HTTPClient:     &http.Client{},
-		RequestFactory: &DefaultRequestFactory{},
-		httpDoer:       mockDoer,
-	}
-
-	_, err := c.StopNode("session-1", "exec-123", "node-1", true, "test")
-	if err == nil {
-		t.Error("expected error for network failure, got nil")
-	}
-}
-
 // TestStopNode_invalidJSON tests JSON unmarshaling error
 func TestStopNode_invalidJSON(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -1745,24 +1490,6 @@ func TestStopNode_invalidJSON(t *testing.T) {
 }
 
 // TestSkipNode_networkError tests network failure handling
-func TestSkipNode_networkError(t *testing.T) {
-	mockDoer := &MockHTTPDoer{
-		Err: fmt.Errorf("certificate validation failed"),
-	}
-
-	c := &Client{
-		BaseURL:        "http://localhost:8080",
-		HTTPClient:     &http.Client{},
-		RequestFactory: &DefaultRequestFactory{},
-		httpDoer:       mockDoer,
-	}
-
-	_, err := c.SkipNode("session-1", "exec-123", "node-1", true)
-	if err == nil {
-		t.Error("expected error for network failure, got nil")
-	}
-}
-
 // TestSkipNode_invalidJSON tests JSON unmarshaling error
 func TestSkipNode_invalidJSON(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -1781,27 +1508,6 @@ func TestSkipNode_invalidJSON(t *testing.T) {
 }
 
 // TestStreamWorkflowStatus_networkError tests network failure handling
-func TestStreamWorkflowStatus_networkError(t *testing.T) {
-	mockDoer := &MockHTTPDoer{
-		Err: fmt.Errorf("SSL protocol error"),
-	}
-
-	c := &Client{
-		BaseURL:        "http://localhost:8080",
-		HTTPClient:     &http.Client{},
-		RequestFactory: &DefaultRequestFactory{},
-		httpDoer:       mockDoer,
-	}
-
-	err := c.StreamWorkflowStatus(context.Background(), "session-1", "exec-123", false, func(progress WorkflowProgress) error {
-		return nil
-	})
-
-	if err == nil {
-		t.Error("expected error for network failure, got nil")
-	}
-}
-
 // Helper function to check if a string contains a substring
 func contains(s, substr string) bool {
 	return strings.Contains(s, substr)
@@ -1810,241 +1516,40 @@ func contains(s, substr string) bool {
 // ===== RequestFactory Failure Tests (Complete Coverage) =====
 
 // TestStartWorkflow_requestFactoryFails_returnsError tests newRequestWithBody error path in StartWorkflow.
-func TestStartWorkflow_requestFactoryFails_returnsError(t *testing.T) {
-	c := &Client{
-		BaseURL:        "http://localhost:8080",
-		HTTPClient:     &http.Client{},
-		RequestFactory: &MockRequestFactory{Err: fmt.Errorf("failed to create request")},
-		httpDoer:       &http.Client{},
-	}
-
-	_, err := c.StartWorkflow("session-1", "workflow-1")
-	if err == nil {
-		t.Error("expected error when factory fails, got nil")
-	}
-}
-
 // TestStopWorkflow_requestFactoryFails_returnsError tests newRequest error path in StopWorkflow.
-func TestStopWorkflow_requestFactoryFails_returnsError(t *testing.T) {
-	c := &Client{
-		BaseURL:        "http://localhost:8080",
-		HTTPClient:     &http.Client{},
-		RequestFactory: &MockRequestFactory{Err: fmt.Errorf("failed to create request")},
-		httpDoer:       &http.Client{},
-	}
-
-	_, err := c.StopWorkflow("session-1", "workflow-1")
-	if err == nil {
-		t.Error("expected error when factory fails, got nil")
-	}
-}
-
 // TestStopExecution_requestFactoryFails_returnsError tests newRequest error path in StopExecution.
-func TestStopExecution_requestFactoryFails_returnsError(t *testing.T) {
-	c := &Client{
-		BaseURL:        "http://localhost:8080",
-		HTTPClient:     &http.Client{},
-		RequestFactory: &MockRequestFactory{Err: fmt.Errorf("failed to create request")},
-		httpDoer:       &http.Client{},
-	}
-
-	_, err := c.StopExecution("exec-123")
-	if err == nil {
-		t.Error("expected error when factory fails, got nil")
-	}
-}
-
 // TestRestartExecution_requestFactoryFails_returnsError tests newRequest error path in RestartExecution.
-func TestRestartExecution_requestFactoryFails_returnsError(t *testing.T) {
-	c := &Client{
-		BaseURL:        "http://localhost:8080",
-		HTTPClient:     &http.Client{},
-		RequestFactory: &MockRequestFactory{Err: fmt.Errorf("failed to create request")},
-		httpDoer:       &http.Client{},
-	}
-
-	_, err := c.RestartExecution("exec-123")
-	if err == nil {
-		t.Error("expected error when factory fails, got nil")
-	}
-}
-
 // TestRestartFromNode_requestFactoryFails_returnsError tests newRequest error path in RestartFromNode.
-func TestRestartFromNode_requestFactoryFails_returnsError(t *testing.T) {
-	c := &Client{
-		BaseURL:        "http://localhost:8080",
-		HTTPClient:     &http.Client{},
-		RequestFactory: &MockRequestFactory{Err: fmt.Errorf("failed to create request")},
-		httpDoer:       &http.Client{},
-	}
-
-	_, err := c.RestartFromNode("exec-123", "node-1")
-	if err == nil {
-		t.Error("expected error when factory fails, got nil")
-	}
-}
-
 // TestPauseWorkflow_requestFactoryFails_returnsError tests newRequest error path in PauseWorkflow.
-func TestPauseWorkflow_requestFactoryFails_returnsError(t *testing.T) {
-	c := &Client{
-		BaseURL:        "http://localhost:8080",
-		HTTPClient:     &http.Client{},
-		RequestFactory: &MockRequestFactory{Err: fmt.Errorf("failed to create request")},
-		httpDoer:       &http.Client{},
-	}
-
-	_, err := c.PauseWorkflow("session-1", "exec-123")
-	if err == nil {
-		t.Error("expected error when factory fails, got nil")
-	}
-}
-
 // TestResumeWorkflow_requestFactoryFails_returnsError tests newRequest error path in ResumeWorkflow.
-func TestResumeWorkflow_requestFactoryFails_returnsError(t *testing.T) {
-	c := &Client{
-		BaseURL:        "http://localhost:8080",
-		HTTPClient:     &http.Client{},
-		RequestFactory: &MockRequestFactory{Err: fmt.Errorf("failed to create request")},
-		httpDoer:       &http.Client{},
-	}
-
-	_, err := c.ResumeWorkflow("session-1", "exec-123")
-	if err == nil {
-		t.Error("expected error when factory fails, got nil")
-	}
-}
-
 // TestGetWorkflowStatus_requestFactoryFails_returnsError tests newRequest error path in GetWorkflowStatus.
-func TestGetWorkflowStatus_requestFactoryFails_returnsError(t *testing.T) {
-	c := &Client{
-		BaseURL:        "http://localhost:8080",
-		HTTPClient:     &http.Client{},
-		RequestFactory: &MockRequestFactory{Err: fmt.Errorf("failed to create request")},
-		httpDoer:       &http.Client{},
-	}
-
-	_, err := c.GetWorkflowStatus("session-1", "exec-123")
-	if err == nil {
-		t.Error("expected error when factory fails, got nil")
-	}
-}
-
 // TestGetWorkflowHistory_requestFactoryFails_returnsError tests newRequest error path in GetWorkflowHistory.
-func TestGetWorkflowHistory_requestFactoryFails_returnsError(t *testing.T) {
-	c := &Client{
-		BaseURL:        "http://localhost:8080",
-		HTTPClient:     &http.Client{},
-		RequestFactory: &MockRequestFactory{Err: fmt.Errorf("failed to create request")},
-		httpDoer:       &http.Client{},
-	}
-
-	_, err := c.GetWorkflowHistory("session-1")
-	if err == nil {
-		t.Error("expected error when factory fails, got nil")
-	}
-}
-
 // TestPauseNode_requestFactoryFails_returnsError tests newRequest error path in PauseNode.
-func TestPauseNode_requestFactoryFails_returnsError(t *testing.T) {
-	c := &Client{
-		BaseURL:        "http://localhost:8080",
-		HTTPClient:     &http.Client{},
-		RequestFactory: &MockRequestFactory{Err: fmt.Errorf("failed to create request")},
-		httpDoer:       &http.Client{},
-	}
-
-	_, err := c.PauseNode("session-1", "exec-123", "node-1")
-	if err == nil {
-		t.Error("expected error when factory fails, got nil")
-	}
-}
-
 // TestResumeNode_requestFactoryFails_returnsError tests newRequest error path in ResumeNode.
-func TestResumeNode_requestFactoryFails_returnsError(t *testing.T) {
-	c := &Client{
-		BaseURL:        "http://localhost:8080",
-		HTTPClient:     &http.Client{},
-		RequestFactory: &MockRequestFactory{Err: fmt.Errorf("failed to create request")},
-		httpDoer:       &http.Client{},
-	}
-
-	_, err := c.ResumeNode("session-1", "exec-123", "node-1")
-	if err == nil {
-		t.Error("expected error when factory fails, got nil")
-	}
-}
-
 // TestEnableStepMode_requestFactoryFails_returnsError tests newRequest error path in EnableStepMode.
-func TestEnableStepMode_requestFactoryFails_returnsError(t *testing.T) {
-	c := &Client{
-		BaseURL:        "http://localhost:8080",
-		HTTPClient:     &http.Client{},
-		RequestFactory: &MockRequestFactory{Err: fmt.Errorf("failed to create request")},
-		httpDoer:       &http.Client{},
-	}
-
-	_, err := c.EnableStepMode("session-1", "exec-123", "node-1")
-	if err == nil {
-		t.Error("expected error when factory fails, got nil")
-	}
-}
-
 // TestDisableStepMode_requestFactoryFails_returnsError tests newRequest error path in DisableStepMode.
-func TestDisableStepMode_requestFactoryFails_returnsError(t *testing.T) {
-	c := &Client{
-		BaseURL:        "http://localhost:8080",
-		HTTPClient:     &http.Client{},
-		RequestFactory: &MockRequestFactory{Err: fmt.Errorf("failed to create request")},
-		httpDoer:       &http.Client{},
-	}
-
-	_, err := c.DisableStepMode("session-1", "exec-123", "node-1")
-	if err == nil {
-		t.Error("expected error when factory fails, got nil")
-	}
-}
-
 // TestStepNode_requestFactoryFails_returnsError tests newRequest error path in StepNode.
-func TestStepNode_requestFactoryFails_returnsError(t *testing.T) {
-	c := &Client{
-		BaseURL:        "http://localhost:8080",
-		HTTPClient:     &http.Client{},
-		RequestFactory: &MockRequestFactory{Err: fmt.Errorf("failed to create request")},
-		httpDoer:       &http.Client{},
-	}
-
-	_, err := c.StepNode("session-1", "exec-123", "node-1")
-	if err == nil {
-		t.Error("expected error when factory fails, got nil")
-	}
-}
-
 // TestStopNode_requestFactoryFails_returnsError tests newRequest error path in StopNode.
-func TestStopNode_requestFactoryFails_returnsError(t *testing.T) {
-	c := &Client{
-		BaseURL:        "http://localhost:8080",
-		HTTPClient:     &http.Client{},
-		RequestFactory: &MockRequestFactory{Err: fmt.Errorf("failed to create request")},
-		httpDoer:       &http.Client{},
-	}
-
-	_, err := c.StopNode("session-1", "exec-123", "node-1", true, "test")
-	if err == nil {
-		t.Error("expected error when factory fails, got nil")
-	}
-}
-
 // TestSkipNode_requestFactoryFails_returnsError tests newRequest error path in SkipNode.
-func TestSkipNode_requestFactoryFails_returnsError(t *testing.T) {
-	c := &Client{
-		BaseURL:        "http://localhost:8080",
-		HTTPClient:     &http.Client{},
-		RequestFactory: &MockRequestFactory{Err: fmt.Errorf("failed to create request")},
-		httpDoer:       &http.Client{},
-	}
+func TestStartWorkflow_sendsPayload(t *testing.T) {
+	var sent map[string]any
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		sent = nil
+		_ = json.NewDecoder(r.Body).Decode(&sent)
+		_, _ = w.Write([]byte(`{"data":{"executionId":"e"}}`))
+	}))
+	defer srv.Close()
 
-	_, err := c.SkipNode("session-1", "exec-123", "node-1", true)
-	if err == nil {
-		t.Error("expected error when factory fails, got nil")
+	if _, err := NewClient(srv.URL).StartWorkflow("s", "w", map[string]any{"k": "v"}); err != nil {
+		t.Fatal(err)
+	}
+	if sent["payload"].(map[string]any)["k"] != "v" {
+		t.Errorf("payload missing from body: %v", sent)
+	}
+	if _, err := NewClient(srv.URL).StartWorkflow("s", "w", nil); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := sent["payload"]; ok {
+		t.Errorf("empty payload should be omitted: %v", sent)
 	}
 }

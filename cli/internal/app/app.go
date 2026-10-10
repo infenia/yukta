@@ -17,7 +17,7 @@ import (
 // It creates the HTTP client, wires up all commands, and executes them.
 // This function is testable and returns an error instead of calling os.Exit().
 func Run() error {
-	// Create a new HTTP client with empty string (uses default URL from environment or hardcoded default)
+	// The root command binds --url, --token and --timeout directly to this client's fields.
 	c := client.NewClient("")
 
 	// Create the root command

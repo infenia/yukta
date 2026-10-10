@@ -18,7 +18,7 @@ import (
 // CommandCmd creates and returns the "controlbus command" subcommand.
 // It sends a command to a specific node in a workflow.
 // The command payload can be provided as either a file path or inline JSON.
-func CommandCmd(c client.ClientInterface) *cobra.Command {
+func CommandCmd(c *client.Client) *cobra.Command {
 	return &cobra.Command{
 		Use:   "command <workflow-id> <node-id> <json-or-file>",
 		Short: "Send command to a node",
@@ -97,7 +97,7 @@ func readCommandInput(input string) ([]byte, error) {
 	// Check if the input is a file
 	if fileInfo, err := os.Stat(input); err == nil && !fileInfo.IsDir() {
 		// File exists and is not a directory, so read it
-		return os.ReadFile(input)
+		return os.ReadFile(input) // #nosec G304 -- the user names this file on purpose
 	}
 
 	// File doesn't exist or is a directory, treat as inline JSON

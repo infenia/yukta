@@ -27,7 +27,27 @@ func (c *Client) StreamExecutionLogs(
 		return fmt.Errorf("onLine callback cannot be nil")
 	}
 
-	path := fmt.Sprintf("/api/sessions/%s/executions/%s/logs", sessionID, executionID)
+	return c.streamLogs(ctx, apiPath("/api/sessions/%s/executions/%s/logs", sessionID, executionID), onLine)
+}
+
+// StreamExecutionLogEntries is like StreamExecutionLogs but emits each structured
+// log entry as a JSON string.
+func (c *Client) StreamExecutionLogEntries(
+	ctx context.Context,
+	sessionID string,
+	executionID string,
+	onLine func(line string) error,
+) error {
+	if sessionID == "" || executionID == "" {
+		return fmt.Errorf("sessionID and executionID cannot be empty")
+	}
+	if onLine == nil {
+		return fmt.Errorf("onLine callback cannot be nil")
+	}
+	return c.streamLogs(ctx, apiPath("/api/sessions/%s/executions/%s/logs/entries", sessionID, executionID), onLine)
+}
+
+func (c *Client) streamLogs(ctx context.Context, path string, onLine func(line string) error) error {
 	resp, err := c.streamRequest(ctx, path)
 	if err != nil {
 		return err
