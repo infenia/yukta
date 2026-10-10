@@ -57,11 +57,12 @@ Report location: `coverage/index.html` (generated, git-ignored)
 
 ## Tech Stack
 - **React 19**: UI framework
-- **Vite 7+**: Fast dev server and production build
+- **Vite 8**: Fast dev server and production build (Rolldown; vendor chunks in `vite.config.ts`)
 - **React Router 8**: Client-side routing (createBrowserRouter, no SSR)
 - **Tailwind CSS 4**: CSS-first `@theme` design tokens (light + dark modes)
 - **TanStack Query 5**: Server state & data fetching
-- **TanStack Table 8**: Headless data table logic
+- **TanStack Table 9**: Headless data table logic
+- **TanStack Virtual**: Windowed rendering of the log panel
 - **shadcn/ui**: Copy-in React component primitives
 - **TypeScript strict mode**: Type safety
 - **Vitest + RTL**: Unit/component testing
@@ -78,28 +79,27 @@ Report location: `coverage/index.html` (generated, git-ignored)
 - SpaWebFluxConfig in boot: Fallback routing (non-existent routes → index.html for SPA)
 
 ### Frontend Architecture
-- **Route-based**: `/` (session-list), `/sessions/:id`, `/control`, `/history`, etc.
+- **Route-based**: `/` (session list), `/sessions/:sessionId`, `/sessions/:sessionId/workflow/:workflowId`, plus `/control` and `/history` placeholders. The two detail pages are lazy-loaded (`lazy` in `routes/router.tsx`)
 - **Feature-based folders**: `src/features/sessions/{api,components,hooks,types}` for scalability
 - **Shared UI**: `src/components/ui/` (shadcn primitives), `src/components/layout/` (AppHeader, AppFooter, etc.)
-- **Lib**: `src/lib/apiClient.ts` (fetch wrapper), `src/lib/queryClient.ts`, `src/lib/theme.ts` (dark mode)
-- **Design tokens**: `src/index.css` Tailwind v4 `@theme` block with full DESIGN.md palette
+- **Lib**: `src/lib/apiClient.ts` (`fetchApi` wrapper and the `api` URL-encoding template tag), `src/lib/queryClient.ts`, `src/lib/theme.ts` (dark mode)
+- **Design tokens**: `src/index.css` Tailwind v4 `@theme` block
 
 ### Data Fetching
 - REST: TanStack Query for session list, plugin metadata, workflow configs
-- SSE (future): Custom EventSource hook for workflow status streaming (`GET /api/workflow/{sessionId}/status/{executionId}/stream`)
-- API client unwraps `ApiResponse<T>` envelope, surfaces errors as typed exceptions
+- SSE: `useEventSourceJson` streams execution status (`GET /api/workflow/{sessionId}/status/{executionId}/stream`) and logs (`GET /api/sessions/{sessionId}/executions/{executionId}/logs/entries`). It reconnects with backoff (1 s to 30 s) while the execution is live; the server replays history, so consumers dedupe
+- API client unwraps the `ApiResponse<T>` envelope and throws `ApiError` carrying the server's `message` and `FieldError[]`. Build URLs with ``api`/api/sessions/${id}` `` so IDs are encoded
+- Server statuses are mapped only in `features/workflow/lib/statusMapper.ts`. `NODE_*` values are node-level, never execution-terminal
 
 ## Design System
-- **Source**: `ui/docs/design/DESIGN.md` (canonical design tokens)
-- **Mockups**: `ui/docs/design/session-list/{light,dark}/code.html` + screenshots
-- **Colors**: ~40 Material Design 3 tokens (surface, on-surface, primary, secondary, error, etc.) with dark mode overrides
-- **Typography**: IBM Plex Sans (UI), JetBrains Mono (code) — via Google Fonts (CDN) or self-hosted
-- **Icons**: Material Symbols Outlined (self-hosted, not lucide-react for mockup pixel-match)
-- **Spacing**: 4px baseline grid (xs/sm/md/lg/xl tokens)
+- **Tokens**: `src/index.css` (`@theme`, light and dark modes, Material Design 3 style palette)
+- **Typography**: Geist Variable (`@fontsource-variable/geist`)
+- **Icons**: Material Symbols Outlined, self-hosted as a subset (`src/assets/material-symbols-subset.woff2`, about 11 KB). After adding an icon name anywhere in `src`, run `pnpm run icons` to regenerate it (needs network). Plugin node HTML may only use icons listed in `PLUGIN_ICONS` in `scripts/subset-icons.mjs`. `lucide-react` is not used
 - **Corners**: Sharp 0px everywhere (no border-radius)
+- **Bundle budget**: `pnpm run build` fails if a JS chunk is over 300 KB or the icon font over 100 KB (`scripts/check-bundle-size.js`)
 
 ## Development Workflow
-1. **Frontend dev**: `cd frontend && pnpm dev` (Vite dev server auto-rebuilds, HMR enabled)
+1. **Frontend dev**: `cd ui && pnpm dev` (Vite dev server auto-rebuilds, HMR enabled)
 2. **Backend dev**: `./gradlew :boot:bootRun -x test` (proxies `/api/**` to Spring via vite.config.ts server.proxy)
 3. **Tests**: `pnpm test` (watch mode) or `pnpm test:e2e` (Playwright against dev server)
 4. **Production**: `./gradlew :ui:build` wires Vite output into JAR; `boot` serves it as static resources
