@@ -42,7 +42,7 @@ describe('router', () => {
         (r) => r.path === 'sessions/:sessionId'
       );
       expect(sessionRoute).toBeDefined();
-      expect(sessionRoute?.element).toBeDefined();
+      expect(sessionRoute?.lazy).toBeDefined();
     });
 
     it('should have workflow route', () => {
@@ -51,7 +51,7 @@ describe('router', () => {
         (r) => r.path === 'sessions/:sessionId/workflow/:workflowId'
       );
       expect(workflowRoute).toBeDefined();
-      expect(workflowRoute?.element).toBeDefined();
+      expect(workflowRoute?.lazy).toBeDefined();
     });
 
     it('should have control bus route', () => {
@@ -118,14 +118,15 @@ describe('router', () => {
       });
     });
 
-    it('should render the workflow details page for the workflow route', () => {
+    it('should lazy-load the detail pages', async () => {
       const rootRoute = router.routes[0];
-      const workflowRoute = rootRoute.children?.find(
-        (r) => r.path === 'sessions/:sessionId/workflow/:workflowId'
-      );
-      expect(workflowRoute?.element).toBeDefined();
-      const element = workflowRoute?.element as { type: { name?: string } };
-      expect(element.type.name).toBe('WorkflowDetailsPage');
+      const load = async (path: string) => {
+        const route = rootRoute.children?.find((r) => r.path === path);
+        const lazyRoute = await (route?.lazy as () => Promise<{ Component: { name: string } }>)();
+        return lazyRoute.Component.name;
+      };
+      expect(await load('sessions/:sessionId/workflow/:workflowId')).toBe('WorkflowDetailsPage');
+      expect(await load('sessions/:sessionId')).toBe('SessionDetailsPage');
     });
   });
 
