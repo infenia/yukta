@@ -95,28 +95,38 @@ public class StreamTopologyDecorator {
       final ParentEdgeInfo... parentEdges) {
     log.atDebug().setMessage("Merging {} parent streams").addArgument(parentEdges.length).log();
 
-    final List<Flux<Message<?>>> parentFluxes = new ArrayList<>(parentEdges.length);
-    final AtomicInteger failed = new AtomicInteger();
-    final AtomicReference<Throwable> firstError = new AtomicReference<>();
-    final boolean oneSuccess = rule == NodePolicy.JoinRule.ONE_SUCCESS;
-    for (final ParentEdgeInfo edge : parentEdges) {
-      parentFluxes.add(
-          applyEdgeRouting(
-              streams,
-              edge,
-              error -> {
-                if (oneSuccess) {
-                  failed.incrementAndGet();
-                  firstError.compareAndSet(null, error);
-                }
-              }));
-    }
-
-    if (parentFluxes.isEmpty()) {
+    if (parentEdges.length == 0) {
       log.atDebug().setMessage("No parent streams to merge, returning empty flux").log();
       return Flux.empty();
     }
+    final boolean oneSuccess = rule == NodePolicy.JoinRule.ONE_SUCCESS;
+    // The failure counts belong to one subscription, so a resubscription starts from zero.
+    return Flux.defer(
+        () -> {
+          final AtomicInteger failed = new AtomicInteger();
+          final AtomicReference<Throwable> firstError = new AtomicReference<>();
+          final List<Flux<Message<?>>> parentFluxes = new ArrayList<>(parentEdges.length);
+          for (final ParentEdgeInfo edge : parentEdges) {
+            parentFluxes.add(
+                applyEdgeRouting(
+                    streams,
+                    edge,
+                    error -> {
+                      if (oneSuccess) {
+                        failed.incrementAndGet();
+                        firstError.compareAndSet(null, error);
+                      }
+                    }));
+          }
+          return mergeRouted(parentFluxes, oneSuccess, failed, firstError);
+        });
+  }
 
+  private Flux<Message<?>> mergeRouted(
+      final List<Flux<Message<?>>> parentFluxes,
+      final boolean oneSuccess,
+      final AtomicInteger failed,
+      final AtomicReference<Throwable> firstError) {
     log.atDebug()
         .setMessage("Parent streams merged: {} streams")
         .addArgument(parentFluxes.size())
