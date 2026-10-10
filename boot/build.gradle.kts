@@ -27,7 +27,6 @@ dependencies {
 
     // Dev-only dependencies (automatically excluded from native image but made explicit for clarity)
     developmentOnly(libs.spring.boot.devtools)
-    developmentOnly(libs.spring.boot.docker.compose)
 
     annotationProcessor(libs.spring.boot.configuration.processor)
 
@@ -38,7 +37,6 @@ dependencies {
 
 tasks.named<org.springframework.boot.gradle.tasks.run.BootRun>("bootRun") {
     mainClass.set("com.infenia.yukta.YuktaApplication")
-    args("--spring.profiles.active=dev")
 }
 
 coverageConfig {
@@ -52,8 +50,8 @@ graalvmNative {
             mainClass.set("com.infenia.yukta.YuktaApplication")
             buildArgs.add("--no-fallback")
 
-            // Increase heap for native image compilation (JTE classes need more memory)
-            buildArgs.add("-J-Xmx16g")
+            // Heap for native image compilation
+            buildArgs.add("-J-Xmx8g")
 
             // Size-reduction flags (compatible with GraalVM 25)
             buildArgs.add("-H:+RemoveUnusedSymbols")           // Remove unused symbols

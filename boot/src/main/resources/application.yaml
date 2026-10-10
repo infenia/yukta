@@ -20,9 +20,6 @@ spring:
         type: ASYNC
         streamable-http:
           mcp-endpoint: /sse
-  docker:
-    compose:
-      enabled: false
   jackson:
     deserialization:
       fail-on-unknown-properties: true
@@ -32,13 +29,11 @@ logging:
     console: "%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX} %-5level %logger{36} : %msg %kvp%n"
   level:
     root: INFO
-    com.infenia.yukta: DEBUG
-    com.infenia.yukta.service.orchestrator.stream: TRACE
+    com.infenia.yukta: INFO
 
 
 yukta:
   session:
-    base-dir: /tmp/.yukta
     file-log-sub-dir: modified-files
     result-log-sub-dir: results
     execution-timeout-seconds: 3600
@@ -47,13 +42,9 @@ yukta:
     cleanup-ttl: 10m
   streaming:
     status-history-ttl-minutes: 5
-  daemon:
-    port: 8080
-    startup-timeout-seconds: 30
-    health-check-interval-ms: 500
   logs:
     store:
-      backend: memory              # memory | file | database (when available)
+      backend: memory              # memory | file
       retention:
         default-period-minutes: 30 # User-configurable retention period
         # Note: Maximum retention is hardcoded to 1440 minutes (24 hours)
@@ -73,3 +64,6 @@ management:
     web:
       exposure:
         include: health,info,metrics
+  endpoint:
+    health:
+      show-details: when-authorized

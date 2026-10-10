@@ -22,28 +22,7 @@ public class YuktaApplication {
   public static void main(final String[] args) {
     Hooks.enableAutomaticContextPropagation();
 
-    if (isNativeImage() && !hasProfileArgument(args)) {
-      System.setProperty("spring.profiles.active", "prod");
-    }
-
     final SpringApplication app = new SpringApplication(YuktaApplication.class);
     app.run(args);
-  }
-
-  private static boolean isNativeImage() {
-    final String nativeImageProp = System.getProperty("org.graalvm.nativeimage.imagecode");
-    return "runtime".equals(nativeImageProp);
-  }
-
-  private static boolean hasProfileArgument(final String... args) {
-    boolean retValue = false;
-    for (final String arg : args) {
-      if (arg.startsWith("--spring.profiles.active=")
-          || arg.startsWith("-Dspring.profiles.active=")) {
-        retValue = true;
-        break;
-      }
-    }
-    return retValue;
   }
 }

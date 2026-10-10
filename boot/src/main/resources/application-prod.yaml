@@ -7,7 +7,6 @@ spring:
       on-profile: prod
   main:
     banner-mode: "off"                  # Disable startup banner
-    lazy-initialization: true           # Lazy-init beans to reduce startup time
   web:
     compression:
       enabled: true                     # Enable gzip compression
