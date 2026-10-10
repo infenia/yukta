@@ -119,7 +119,7 @@ public class StreamTopologyDecorator {
     final String sourcePort = edge.sourcePort();
     if (sourcePort != null) {
       log.atDebug().setMessage("Filtering by source port: {}").addArgument(sourcePort).log();
-      stream = stream.filter(msg -> sourcePort.equals(msg.getSourcePort()));
+      stream = stream.filter(msg -> sourcePort.equals(msg.sourcePort()));
     }
     if (edge.tolerateFailure()) {
       stream =
@@ -230,7 +230,7 @@ public class StreamTopologyDecorator {
 
     return logStream.doOnNext(
         msg -> {
-          final String payload = truncateForLog(String.valueOf(msg.getPayload()));
+          final String payload = truncateForLog(String.valueOf(msg.payload()));
           log.atTrace().setMessage("Processing message payload: {}").addArgument(payload).log();
           tracker.emitLogEvent(executionId, nodeId, payload);
         });

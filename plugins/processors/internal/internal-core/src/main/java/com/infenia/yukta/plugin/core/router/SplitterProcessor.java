@@ -8,7 +8,6 @@ import com.infenia.yukta.plugin.core.UiDesign;
 import com.infenia.yukta.plugin.exception.WorkflowExecutionException;
 import com.infenia.yukta.plugin.type.ProcessorPlugin;
 import com.infenia.yukta.plugin.util.SpelUtils;
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -139,7 +138,7 @@ public class SplitterProcessor implements ProcessorPlugin {
           final String errorPort = (String) config.get(CFG_ERROR_PORT);
           try {
             final Map<String, Object> variables =
-                Map.of("payload", parent.getPayload(), "metadata", parent.getMetadata());
+                Map.of("payload", parent.payload(), "metadata", parent.metadata());
             final Object items = SpelUtils.evaluateSync(path, parent, variables);
             if (items == null) {
               return handleNull(parent, nodeId, errorPort, strict);
@@ -201,26 +200,25 @@ public class SplitterProcessor implements ProcessorPlugin {
       final String nodeId,
       final Map<String, Object> variables) {
     Message<?> child =
-        DefaultMessage.create(null, item)
-            .withTraceId(parent.getTraceId())
-            .withPriority(parent.getPriority())
-            .withCorrelationId(parent.getMessageId())
-            .withSequence(parent.getMessageId(), index, total)
-            .withMetadata(parent.getMetadata())
-            .withReplyTo(parent.getReplyTo())
-            .withTimestamp(Instant.ofEpochMilli(parent.getTimestamp()));
-    if (parent.getExpiration() > 0) {
-      child = child.withExpiration(parent.getExpiration());
-    }
-    if (parent.getFormatIndicator() != null) {
-      child = child.withFormatIndicator(parent.getFormatIndicator());
-    }
+        DefaultMessage.create(null, item).toBuilder()
+            .traceId(parent.traceId())
+            .priority(parent.priority())
+            .correlationId(parent.id())
+            .sequenceId(parent.id())
+            .sequenceNumber(index)
+            .sequenceSize(total)
+            .metadata(parent.metadata())
+            .replyTo(parent.replyTo())
+            .timestamp(parent.timestamp())
+            .expiration(Math.max(0L, parent.expiration()))
+            .formatIndicator(parent.formatIndicator())
+            .build();
     @SuppressWarnings("unchecked")
     final Map<String, String> mapping = (Map<String, String>) config.get(CFG_MAPPING);
     if (mapping != null) {
       child = applyMappings(parent, child, mapping, config, variables);
     }
-    return child.withAddedHistory(nodeId).withSourcePort("default");
+    return child.withSourcePort("default");
   }
 
   private Message<?> applyMappings(
@@ -274,10 +272,7 @@ public class SplitterProcessor implements ProcessorPlugin {
     }
     if (errorPort != null && !errorPort.isBlank()) {
       return Flux.just(
-          parent
-              .withSourcePort(errorPort)
-              .withAddedHistory(nodeId)
-              .withFailure(null, ERR_FAIL, error.getMessage()));
+          parent.withSourcePort(errorPort).withFailure(null, ERR_FAIL, error.getMessage()));
     }
     if (!strict) {
       return Flux.empty();

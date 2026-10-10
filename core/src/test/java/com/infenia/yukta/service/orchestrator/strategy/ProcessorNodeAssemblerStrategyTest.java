@@ -498,7 +498,7 @@ class ProcessorNodeAssemblerStrategyTest {
               final Flux<Message<?>> messages = inv.getArgument(0);
               return messages.flatMap(
                   m ->
-                      "bad".equals(m.getPayload())
+                      "bad".equals(m.payload())
                           ? Flux.<Message<?>>error(new IllegalStateException("boom"))
                           : Flux.<Message<?>>just(m));
             });

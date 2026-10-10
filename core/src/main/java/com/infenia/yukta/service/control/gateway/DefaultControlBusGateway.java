@@ -121,21 +121,21 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
     return Mono.defer(
             () -> {
               log.atTrace()
-                  .addKeyValue("sourceNodeId", signal.getSourceNodeId())
-                  .addKeyValue("priority", signal.getPriority())
+                  .addKeyValue("sourceNodeId", signal.sourceNodeId())
+                  .addKeyValue("priority", signal.priority())
                   .log("Emitting message to control bus");
               return controlBusService.emit(signal);
             })
         .doOnSuccess(
             _ ->
                 log.atDebug()
-                    .addKeyValue("sourceNodeId", signal.getSourceNodeId())
+                    .addKeyValue("sourceNodeId", signal.sourceNodeId())
                     .log("Message emitted successfully"))
         .doOnError(
             err ->
                 log.atError()
                     .setCause(err)
-                    .addKeyValue("sourceNodeId", signal.getSourceNodeId())
+                    .addKeyValue("sourceNodeId", signal.sourceNodeId())
                     .log("Failed to emit message"));
   }
 
@@ -373,8 +373,7 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
 
   @Override
   public <T extends ExecutionControlCommand> Mono<Void> executeCommand(final Message<T> command) {
-    @SuppressWarnings({"PMD.LawOfDemeter"})
-    final var commandType = command.getPayload().getClass().getSimpleName();
+    final var commandType = command.payload().getClass().getSimpleName();
     log.atDebug().addKeyValue("commandType", commandType).log("Executing control command");
     return emit(command);
   }

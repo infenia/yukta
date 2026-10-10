@@ -69,7 +69,7 @@ class LlmCallPluginTest {
   }
 
   private static Map<String, Object> payload(final Message<?> message) {
-    return (Map<String, Object>) message.getPayload();
+    return (Map<String, Object>) message.payload();
   }
 
   @Test
@@ -122,8 +122,8 @@ class LlmCallPluginTest {
                   .isEqualTo(Map.of("inputTokens", 1000L, "outputTokens", 500L));
               assertThat((Double) out.get("cost")).isEqualTo(0.004);
               assertThat((Long) out.get("latencyMs")).isNotNegative();
-              assertThat(m.getMetadata()).containsEntry("llmSuccess", true);
-              assertThat(m.getSourcePort()).isEqualTo("default");
+              assertThat(m.metadata()).containsEntry("llmSuccess", true);
+              assertThat(m.sourcePort()).isEqualTo("default");
             })
         .verifyComplete();
 
@@ -285,9 +285,9 @@ class LlmCallPluginTest {
     StepVerifier.create(run(config))
         .assertNext(
             m -> {
-              assertThat(m.getSourcePort()).isEqualTo("failure");
-              assertThat(m.getPayload()).isEqualTo("in");
-              assertThat(m.getMetadata())
+              assertThat(m.sourcePort()).isEqualTo("failure");
+              assertThat(m.payload()).isEqualTo("in");
+              assertThat(m.metadata())
                   .containsEntry("llmSuccess", false)
                   .containsEntry("llmError", "boom");
             })
@@ -296,7 +296,7 @@ class LlmCallPluginTest {
     org.mockito.Mockito.reset(gateway);
     when(gateway.call(any())).thenReturn(new LlmResponse("ok", 1, 1, "m"));
     StepVerifier.create(run(config))
-        .assertNext(m -> assertThat(m.getSourcePort()).isEqualTo("success"))
+        .assertNext(m -> assertThat(m.sourcePort()).isEqualTo("success"))
         .verifyComplete();
   }
 

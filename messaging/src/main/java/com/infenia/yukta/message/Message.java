@@ -19,81 +19,84 @@ public interface Message<T> {
   // --- Header / Metadata Accessors ---
 
   /**
-   * Unique identifier for this message instance.
+   * Logical identifier of this message. It is kept across {@link #withPayload} and the other {@code
+   * with*} copies, so it is not unique per node output. A store must key entries by (executionId,
+   * nodeId, messageId).
    *
    * @return the message ID
    */
-  String getMessageId();
+  @SuppressWarnings("PMD.ShortMethodName")
+  String id();
 
   /**
    * Used to match replies to requests in Request-Reply scenarios.
    *
    * @return the correlation ID
    */
-  String getCorrelationId();
+  String correlationId();
 
   /**
    * The Return Address specifying where to send responses.
    *
    * @return the reply channel/address
    */
-  String getReplyTo();
+  String replyTo();
 
   /**
    * The identifier for tracing the workflow execution.
    *
    * @return the trace ID
    */
-  String getTraceId();
+  String traceId();
 
   /**
-   * The time when the message was created (epoch milliseconds).
+   * The time when the message was created.
    *
    * @return the timestamp
    */
-  long getTimestamp();
+  java.time.Instant timestamp();
 
   /**
    * The "use-by" timestamp after which the message is discarded (epoch milliseconds).
    *
    * @return the expiration timestamp, or 0 if none
    */
-  long getExpiration();
+  long expiration();
 
   /**
    * Indicates the data format or schema version.
    *
    * @return the format indicator
    */
-  String getFormatIndicator();
+  String formatIndicator();
 
   /**
    * The port from which the message was emitted.
    *
    * @return the source port
    */
-  String getSourcePort();
+  String sourcePort();
 
   /**
    * The ID of the node that emitted the message.
    *
    * @return the source node ID
    */
-  String getSourceNodeId();
+  String sourceNodeId();
 
   /**
    * The ID of the workflow context for this message.
    *
    * @return the workflow ID
    */
-  String getWorkflowId();
+  String workflowId();
 
   /**
    * Extensible metadata associated with the message.
    *
    * @return the metadata map
    */
-  Map<String, Object> getMetadata();
+  Map<String, Object> metadata();
 
   // --- Message History ---
 
@@ -102,7 +105,7 @@ public interface Message<T> {
    *
    * @return the message history list
    */
-  List<String> getMessageHistory();
+  List<String> messageHistory();
 
   // --- Message Sequence ---
 
@@ -111,28 +114,21 @@ public interface Message<T> {
    *
    * @return the sequence ID
    */
-  String getSequenceId();
+  String sequenceId();
 
   /**
    * The index of this message in a sequence (starts at 1).
    *
    * @return the sequence number
    */
-  int getSequenceNumber();
+  int sequenceNumber();
 
   /**
    * Total number of messages in the sequence, or 0 if unknown.
    *
    * @return the sequence size
    */
-  int getSequenceSize();
-
-  /**
-   * Flag indicating if this is the final message in a stream.
-   *
-   * @return true if last in sequence
-   */
-  boolean isLastInSequence();
+  int sequenceSize();
 
   // --- Control Bus & Quality of Service ---
 
@@ -141,14 +137,14 @@ public interface Message<T> {
    *
    * @return the priority level
    */
-  int getPriority();
+  int priority();
 
   /**
    * Indicates if this is a management/control message.
    *
    * @return true if control message
    */
-  boolean isControlMessage();
+  boolean controlMessage();
 
   // --- Dead Letter Channel & Retry Metadata ---
 
@@ -157,28 +153,28 @@ public interface Message<T> {
    *
    * @return the original destination
    */
-  String getOrigDest();
+  String origDest();
 
   /**
    * Describes the reason for failure.
    *
    * @return the failure reason
    */
-  String getFailureReason();
+  String failureReason();
 
   /**
    * Detailed exception message or stack trace.
    *
    * @return the exception detail
    */
-  String getExceptionDetail();
+  String exceptionDetail();
 
   /**
    * Number of times this message has been retried.
    *
    * @return the retry count
    */
-  int getRetryCount();
+  int retryCount();
 
   // --- Body / Payload Accessors ---
 
@@ -187,7 +183,7 @@ public interface Message<T> {
    *
    * @return the payload
    */
-  T getPayload();
+  T payload();
 
   // --- Functional Mutation (Wither style) ---
 
@@ -264,7 +260,9 @@ public interface Message<T> {
   Message<T> withTimestamp(java.time.Instant timestamp);
 
   /**
-   * Add a component to the history list.
+   * Add a component to the history list, keeping at most {@link DefaultMessage#MAX_HISTORY} entries
+   * (the oldest are dropped). Core's stream topology stamps every node itself, so plugins must not
+   * call this.
    *
    * @param nodeId the ID of the node currently processing the message
    * @return a new message instance with the updated history
@@ -314,13 +312,6 @@ public interface Message<T> {
    * @return a new message instance
    */
   Message<T> withRetryCount(int count);
-
-  /**
-   * Create a copy of this message with an incremented retry count.
-   *
-   * @return a new message instance
-   */
-  Message<T> withIncrementedRetry();
 
   /**
    * Create a copy of this message with a new payload, preserving all headers.

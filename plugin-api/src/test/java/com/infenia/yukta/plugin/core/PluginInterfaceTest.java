@@ -55,10 +55,10 @@ class PluginInterfaceTest {
             null,
             null);
 
-    assertEquals("value", msg.getMetadata().get("key"));
+    assertEquals("value", msg.metadata().get("key"));
 
     try {
-      msg.getMetadata().put("new", "val");
+      msg.metadata().put("new", "val");
     } catch (UnsupportedOperationException e) {
       // expected
     }
@@ -68,57 +68,52 @@ class PluginInterfaceTest {
   void testMessageMethods() {
     UUID traceId = UUID.randomUUID();
     Message<String> msg = DefaultMessage.create(traceId, "payload");
-    assertEquals(traceId.toString(), msg.getTraceId());
-    assertEquals("payload", msg.getPayload());
-    assertNull(msg.getCorrelationId());
-    assertNull(msg.getReplyTo());
+    assertEquals(traceId.toString(), msg.traceId());
+    assertEquals("payload", msg.payload());
+    assertNull(msg.correlationId());
+    assertNull(msg.replyTo());
 
     Message<String> correlationMsg = msg.withCorrelationId("corr1");
-    assertEquals("corr1", correlationMsg.getCorrelationId());
+    assertEquals("corr1", correlationMsg.correlationId());
 
     Message<String> replyMsg = correlationMsg.withReplyTo("replyChannel");
-    assertEquals("replyChannel", replyMsg.getReplyTo());
-    assertEquals("corr1", replyMsg.getCorrelationId());
+    assertEquals("replyChannel", replyMsg.replyTo());
+    assertEquals("corr1", replyMsg.correlationId());
 
     Message<String> stamped = replyMsg.withSourceNodeId("node1");
-    assertEquals("node1", stamped.getSourceNodeId());
+    assertEquals("node1", stamped.sourceNodeId());
 
     Message<String> ported = stamped.withSourcePort("port1");
-    assertEquals("port1", ported.getSourcePort());
-    assertEquals("node1", ported.getSourceNodeId());
+    assertEquals("port1", ported.sourcePort());
+    assertEquals("node1", ported.sourceNodeId());
 
     Message<String> historied = ported.withAddedHistory("comp1").withAddedHistory("comp2");
-    assertEquals(List.of("comp1", "comp2"), historied.getMessageHistory());
+    assertEquals(List.of("comp1", "comp2"), historied.messageHistory());
 
     Message<String> sequenced = historied.withSequence("seq1", 1, 5);
-    assertEquals("seq1", sequenced.getSequenceId());
-    assertEquals(1, sequenced.getSequenceNumber());
-    assertEquals(5, sequenced.getSequenceSize());
-    assertFalse(sequenced.isLastInSequence());
+    assertEquals("seq1", sequenced.sequenceId());
+    assertEquals(1, sequenced.sequenceNumber());
+    assertEquals(5, sequenced.sequenceSize());
 
     Message<String> lastSequenced = sequenced.withSequence("seq1", 5, 5);
-    assertTrue(lastSequenced.isLastInSequence());
 
     Message<String> prioritized = lastSequenced.withPriority(10);
-    assertEquals(10, prioritized.getPriority());
+    assertEquals(10, prioritized.priority());
 
     Message<String> controlled = prioritized.withControl(true);
-    assertTrue(controlled.isControlMessage());
+    assertTrue(controlled.controlMessage());
 
     Message<String> failed = controlled.withFailure("error-port", "Bad Data", "Invalid format");
-    assertEquals("error-port", failed.getOrigDest());
-    assertEquals("Bad Data", failed.getFailureReason());
-    assertEquals("Invalid format", failed.getExceptionDetail());
+    assertEquals("error-port", failed.origDest());
+    assertEquals("Bad Data", failed.failureReason());
+    assertEquals("Invalid format", failed.exceptionDetail());
 
     Message<String> retried = failed.withRetryCount(3);
-    assertEquals(3, retried.getRetryCount());
+    assertEquals(3, retried.retryCount());
 
-    Message<String> incremented = retried.withIncrementedRetry();
-    assertEquals(4, incremented.getRetryCount());
-
-    Message<Integer> rePayloaded = incremented.withPayload(123);
-    assertEquals(123, rePayloaded.getPayload());
-    assertEquals("error-port", rePayloaded.getOrigDest());
+    Message<Integer> rePayloaded = retried.withPayload(123);
+    assertEquals(123, rePayloaded.payload());
+    assertEquals("error-port", rePayloaded.origDest());
 
     java.time.Instant now = java.time.Instant.now();
     Message<Integer> updated =
@@ -128,10 +123,10 @@ class PluginInterfaceTest {
             .withExpiration(123456789L)
             .withFormatIndicator("json-v2");
 
-    assertEquals("new-trace", updated.getTraceId());
-    assertEquals(now.toEpochMilli(), updated.getTimestamp());
-    assertEquals(123456789L, updated.getExpiration());
-    assertEquals("json-v2", updated.getFormatIndicator());
+    assertEquals("new-trace", updated.traceId());
+    assertEquals(now, updated.timestamp());
+    assertEquals(123456789L, updated.expiration());
+    assertEquals("json-v2", updated.formatIndicator());
   }
 
   @Test
@@ -248,8 +243,8 @@ class PluginInterfaceTest {
 
     List<Message<?>> results = collector.getResults();
     assertEquals(2, results.size());
-    assertEquals("res1", results.get(0).getPayload());
-    assertEquals("res2", results.get(1).getPayload());
+    assertEquals("res1", results.get(0).payload());
+    assertEquals("res2", results.get(1).payload());
 
     collector.clear();
     assertEquals(0, collector.getResults().size());
