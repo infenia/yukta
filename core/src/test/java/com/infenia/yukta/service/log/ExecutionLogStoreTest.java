@@ -13,10 +13,11 @@ import java.util.Map;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.json.JsonMapper;
 
 @NoArgsConstructor
-@SuppressWarnings({"PMD.CommentRequired", "PMD.AvoidDuplicateLiterals"})
+@SuppressWarnings({"PMD.CommentRequired", "PMD.AvoidDuplicateLiterals", "PMD.TooManyMethods"})
 class ExecutionLogStoreTest {
 
   @TempDir /* default */ Path dir;
@@ -71,6 +72,7 @@ class ExecutionLogStoreTest {
 
     store.append(started);
     store.append(finished);
+    store.close();
 
     assertThat(jsonl().readAll()).containsExactly(started, finished);
   }
@@ -85,6 +87,7 @@ class ExecutionLogStoreTest {
     final JsonlExecutionLogStore store = jsonl();
     final ExecutionLogEvent started = ExecutionLogEvent.started("e1", "s1", "w1", "v1");
     store.append(started);
+    store.readAll();
     Files.writeString(
         dir.resolve("executions.jsonl"),
         "\n{\"type\":\"RUN_FINI",
@@ -126,5 +129,70 @@ class ExecutionLogStoreTest {
     Files.createDirectory(dir.resolve("executions.jsonl"));
 
     assertThat(jsonl().readAll()).isEmpty();
+  }
+
+  @Test
+  void jsonl_compactsToTheNewestRuns() {
+    final JsonlExecutionLogStore store = new JsonlExecutionLogStore(dir.toString(), mapper, 2, 4);
+    for (final String run : List.of("r1", "r2", "r3", "r4")) {
+      store.append(ExecutionLogEvent.started(run, "s", "w", "v"));
+      store.append(ExecutionLogEvent.finished(run, "s", "w", "SUCCESS", Map.of()));
+    }
+
+    assertThat(store.readAll()).extracting(ExecutionLogEvent::executionId).containsOnly("r3", "r4");
+  }
+
+  @Test
+  void jsonl_doesNotCompactWhileWithinTheRetainedRuns() {
+    final JsonlExecutionLogStore store = new JsonlExecutionLogStore(dir.toString(), mapper, 5, 2);
+    store.append(ExecutionLogEvent.started("r1", "s", "w", "v"));
+    store.append(ExecutionLogEvent.started("r2", "s", "w", "v"));
+
+    assertThat(store.readAll()).extracting(ExecutionLogEvent::executionId).contains("r1", "r2");
+  }
+
+  @Test
+  void jsonl_afterClose_dropsAppendsAndReadsAsEmpty() {
+    final JsonlExecutionLogStore store = jsonl();
+    store.append(ExecutionLogEvent.started("e1", "s", "w", "v"));
+    store.close();
+
+    store.append(ExecutionLogEvent.started("e2", "s", "w", "v"));
+
+    assertThat(store.readAll()).isEmpty();
+    assertThat(jsonl().readAll()).extracting(ExecutionLogEvent::executionId).containsExactly("e1");
+  }
+
+  @Test
+  void jsonl_interruptedCallers_getTheFallback() {
+    final JsonlExecutionLogStore store = jsonl();
+    Thread.currentThread().interrupt();
+    try {
+      assertThat(store.readAll()).isEmpty();
+      assertThat(Thread.interrupted()).isTrue();
+      Thread.currentThread().interrupt();
+      store.close();
+      assertThat(Thread.interrupted()).isTrue();
+    } finally {
+      Thread.interrupted();
+    }
+  }
+
+  @Test
+  void jsonl_closeGivesUpOnSlowWriter() {
+    final ObjectMapper slow = org.mockito.Mockito.mock(ObjectMapper.class);
+    org.mockito.Mockito.when(slow.writeValueAsString(org.mockito.ArgumentMatchers.any()))
+        .thenAnswer(
+            call -> {
+              Thread.sleep(300);
+              return "{}";
+            });
+    final JsonlExecutionLogStore store =
+        new JsonlExecutionLogStore(dir.toString(), slow, 5, 100, 20);
+    store.append(ExecutionLogEvent.started("e1", "s", "w", "v"));
+
+    store.close();
+
+    assertThat(store.readAll()).isEmpty();
   }
 }

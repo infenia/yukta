@@ -190,8 +190,7 @@ public class MapperProcessor implements ProcessorPlugin {
             return Flux.just(DefaultMessage.from(message, resultPayload));
           } catch (RuntimeException e) {
             if (log.isErrorEnabled()) {
-              log.error(
-                  "Mapping failed for message {}: {}", message.getMessageId(), e.getMessage());
+              log.error("Mapping failed for message {}: {}", message.id(), e.getMessage());
             }
             return Flux.error(
                 new RuntimeException(ERR_PREFIX + "Mapping failed: " + e.getMessage(), e));
@@ -267,7 +266,7 @@ public class MapperProcessor implements ProcessorPlugin {
       final boolean dropOriginal,
       final boolean strictMode) {
     final Map<String, Object> mapResult =
-        dropOriginal ? new HashMap<>() : MapUtils.asMutableMap(message.getPayload());
+        dropOriginal ? new HashMap<>() : MapUtils.asMutableMap(message.payload());
     for (final Map.Entry<String, String> entry : mapping.entrySet()) {
       try {
         final Template template = templateCache.get(entry.getValue());
@@ -323,7 +322,7 @@ public class MapperProcessor implements ProcessorPlugin {
       if (dropOriginal) {
         finalResult = resultObj;
       } else {
-        final Map<String, Object> original = MapUtils.asMutableMap(message.getPayload());
+        final Map<String, Object> original = MapUtils.asMutableMap(message.payload());
         if (resultObj instanceof Map) {
           original.putAll((Map<String, Object>) resultObj);
         }
@@ -336,7 +335,7 @@ public class MapperProcessor implements ProcessorPlugin {
       if (log.isWarnEnabled()) {
         log.warn("Script execution failed: {}", e.getMessage());
       }
-      finalResult = dropOriginal ? Map.of() : message.getPayload();
+      finalResult = dropOriginal ? Map.of() : message.payload();
     }
     return finalResult;
   }

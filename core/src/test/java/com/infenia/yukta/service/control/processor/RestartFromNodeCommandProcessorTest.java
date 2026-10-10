@@ -21,6 +21,8 @@ import com.infenia.yukta.plugin.control.ExecutionControlCommand.RestartFromNodeC
 import com.infenia.yukta.service.archive.ArchivedExecution;
 import com.infenia.yukta.service.archive.ExecutionArchive;
 import com.infenia.yukta.service.control.ExecutionControl;
+import com.infenia.yukta.service.control.ExecutionRejectedException;
+import com.infenia.yukta.service.control.ExecutionScheduler;
 import com.infenia.yukta.service.control.gateway.RestartCompletionSink;
 import com.infenia.yukta.service.control.store.ExecutionControlRegistry;
 import com.infenia.yukta.service.orchestrator.WorkflowOrchestrator;
@@ -52,6 +54,7 @@ class RestartFromNodeCommandProcessorTest {
 
   private final ExecutionControlRegistry registry = mock(ExecutionControlRegistry.class);
   private final WorkflowOrchestrator orchestrator = mock(WorkflowOrchestrator.class);
+  private final ExecutionScheduler scheduler = mock(ExecutionScheduler.class);
   private final RestartCompletionSink completionSink = mock(RestartCompletionSink.class);
   private final ExecutionArchive archive = new ExecutionArchive();
   private final InMemoryNodeCheckpointStore checkpoints = new InMemoryNodeCheckpointStore(3);
@@ -96,7 +99,7 @@ class RestartFromNodeCommandProcessorTest {
   void setUp() {
     processor =
         new RestartFromNodeCommandProcessor(
-            registry, archive, orchestrator, checkpoints, completionSink);
+            registry, archive, orchestrator, checkpoints, scheduler, completionSink);
     archive.put(new ArchivedExecution(EXEC, "s1", "w1", graph(), "v1", Map.of()));
     when(orchestrator.restartFromNode(any(), any(), any(), any(), any(), any(), any()))
         .thenReturn(Mono.never());
@@ -147,6 +150,21 @@ class RestartFromNodeCommandProcessorTest {
         .verifyComplete();
 
     verify(completionSink).completeRestartSuccess("new-1");
+  }
+
+  @Test
+  void finishedExecution_isRefusedWhenTheLimitsAreFull() {
+    when(registry.findByExecutionId(EXEC)).thenReturn(Optional.empty());
+    org.mockito.Mockito.doThrow(new ExecutionRejectedException("Execution limit reached"))
+        .when(scheduler)
+        .assertCanAccept("s1", "w1");
+
+    StepVerifier.create(processor.process(new RestartFromNodeCommand(EXEC, "mid", "new-1")))
+        .verifyComplete();
+
+    verify(completionSink)
+        .completeRestartFailure(eq("new-1"), any(ExecutionRejectedException.class));
+    verify(orchestrator, never()).restartFromNode(any(), any(), any(), any(), any(), any(), any());
   }
 
   @Test

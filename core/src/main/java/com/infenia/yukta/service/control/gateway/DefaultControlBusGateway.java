@@ -104,7 +104,7 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
   private final StartIdempotency startIdempotency;
 
   /** Preparations in flight, so concurrent starts of one workflow prepare it once. */
-  private final Map<String, Mono<PreparedWorkflow>> preparing = new ConcurrentHashMap<>();
+  private final Map<PrepareKey, Mono<PreparedWorkflow>> preparing = new ConcurrentHashMap<>();
 
   private <T extends ExecutionControlCommand> Message<T> buildCommand(
       final T command, final int priority) {
@@ -121,21 +121,21 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
     return Mono.defer(
             () -> {
               log.atTrace()
-                  .addKeyValue("sourceNodeId", signal.getSourceNodeId())
-                  .addKeyValue("priority", signal.getPriority())
+                  .addKeyValue("sourceNodeId", signal.sourceNodeId())
+                  .addKeyValue("priority", signal.priority())
                   .log("Emitting message to control bus");
               return controlBusService.emit(signal);
             })
         .doOnSuccess(
             _ ->
                 log.atDebug()
-                    .addKeyValue("sourceNodeId", signal.getSourceNodeId())
+                    .addKeyValue("sourceNodeId", signal.sourceNodeId())
                     .log("Message emitted successfully"))
         .doOnError(
             err ->
                 log.atError()
                     .setCause(err)
-                    .addKeyValue("sourceNodeId", signal.getSourceNodeId())
+                    .addKeyValue("sourceNodeId", signal.sourceNodeId())
                     .log("Failed to emit message"));
   }
 
@@ -301,19 +301,29 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
       final String workflowId,
       final WorkflowDefinition def,
       final String executionId) {
-    final String key = sessionId + "\0" + workflowId;
+    // The key holds the definition itself (a record, compared by content), so a start with a
+    // newer definition never joins the preparation of an older one.
+    final PrepareKey key = new PrepareKey(sessionId, workflowId, def);
     return preparing.computeIfAbsent(
         key,
         _ ->
             orchestrator
                 .prepareWorkflow(def)
-                .doOnNext(
-                    prepared -> {
-                      log.atDebug()
-                          .addKeyValue("executionId", executionId)
-                          .log("Workflow prepared and caching");
-                      preparedWorkflowCache.put(sessionId, workflowId, prepared);
-                    })
+                .flatMap(
+                    prepared ->
+                        // Cache only if the definition is still the current one: a replace that
+                        // happened while preparing has already invalidated the cache.
+                        workflowDefinitionStore
+                            .find(sessionId, workflowId)
+                            .filter(def::equals)
+                            .doOnNext(
+                                _ -> {
+                                  log.atDebug()
+                                      .addKeyValue("executionId", executionId)
+                                      .log("Workflow prepared and caching");
+                                  preparedWorkflowCache.put(sessionId, workflowId, prepared);
+                                })
+                            .thenReturn(prepared))
                 .doFinally(_ -> preparing.remove(key))
                 .cache());
   }
@@ -363,8 +373,7 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
 
   @Override
   public <T extends ExecutionControlCommand> Mono<Void> executeCommand(final Message<T> command) {
-    @SuppressWarnings({"PMD.LawOfDemeter"})
-    final var commandType = command.getPayload().getClass().getSimpleName();
+    final var commandType = command.payload().getClass().getSimpleName();
     log.atDebug().addKeyValue("commandType", commandType).log("Executing control command");
     return emit(command);
   }
@@ -850,6 +859,11 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
   }
 
   @Override
+  public WorkflowProgress getProgress(final String sessionId, final String executionId) {
+    return taskTracker.getProgress(sessionId, executionId);
+  }
+
+  @Override
   public WorkflowProgress getCurrentProgress(final String executionId) {
     log.atDebug()
         .addKeyValue("executionId", executionId)
@@ -962,4 +976,7 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
         .log("All active nodes retrieved");
     return allActiveNodes;
   }
+
+  /** Identifies one preparation: the same workflow with the same definition content. */
+  private record PrepareKey(String sessionId, String workflowId, WorkflowDefinition def) {}
 }

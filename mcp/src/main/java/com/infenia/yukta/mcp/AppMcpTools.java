@@ -16,20 +16,20 @@ import com.infenia.yukta.mcp.dto.SessionList;
 import com.infenia.yukta.mcp.dto.WorkflowControlAction;
 import com.infenia.yukta.mcp.dto.WorkflowHistory;
 import com.infenia.yukta.mcp.dto.WorkflowStartResult;
-import com.infenia.yukta.mcp.provider.DefaultLogProvider;
-import com.infenia.yukta.mcp.provider.DefaultPluginInfoProvider;
-import com.infenia.yukta.mcp.provider.DefaultSessionInfoProvider;
-import com.infenia.yukta.mcp.provider.DefaultSystemHealthProvider;
-import com.infenia.yukta.mcp.provider.DefaultWorkflowControlProvider;
-import com.infenia.yukta.mcp.provider.DefaultWorkflowExecutionProvider;
+import com.infenia.yukta.mcp.provider.LogProvider;
+import com.infenia.yukta.mcp.provider.PluginInfoProvider;
+import com.infenia.yukta.mcp.provider.SessionInfoProvider;
+import com.infenia.yukta.mcp.provider.SystemHealthProvider;
+import com.infenia.yukta.mcp.provider.WorkflowControlProvider;
+import com.infenia.yukta.mcp.provider.WorkflowExecutionProvider;
 import com.infenia.yukta.model.execution.WorkflowProgress;
+import com.infenia.yukta.model.session.SessionConfigData;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import lombok.RequiredArgsConstructor;
 import org.springframework.ai.mcp.annotation.McpTool;
 import org.springframework.ai.mcp.annotation.McpToolParam;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
-import reactor.core.scheduler.Schedulers;
 
 /**
  * MCP (Model Context Protocol) tools for Yukta. Provides facade for interacting with workflows,
@@ -44,22 +44,22 @@ public class AppMcpTools {
   private static final String SESSION_ID_DESC = "The unique identifier of the session";
 
   /** Provides session information for MCP tools. */
-  private final DefaultSessionInfoProvider sessionInfoProvider;
+  private final SessionInfoProvider sessionInfoProvider;
 
   /** Provides log data for MCP tools. */
-  private final DefaultLogProvider logProvider;
+  private final LogProvider logProvider;
 
   /** Provides workflow execution information for MCP tools. */
-  private final DefaultWorkflowExecutionProvider workflowExecutionProvider;
+  private final WorkflowExecutionProvider workflowExecutionProvider;
 
   /** Provides workflow and node control operations for MCP tools. */
-  private final DefaultWorkflowControlProvider workflowControlProvider;
+  private final WorkflowControlProvider workflowControlProvider;
 
   /** Provides plugin information for MCP tools. */
-  private final DefaultPluginInfoProvider pluginInfoProvider;
+  private final PluginInfoProvider pluginInfoProvider;
 
   /** Provides system health information for MCP tools. */
-  private final DefaultSystemHealthProvider systemHealthProvider;
+  private final SystemHealthProvider systemHealthProvider;
 
   /**
    * Get details of a specific session.
@@ -283,8 +283,8 @@ public class AppMcpTools {
       title = "Control Node",
       description =
           "Control a single node within a running workflow execution: PAUSE, RESUME, or STOP "
-              + "the node; SKIP/UNSKIP to toggle skipping; STEP_ENABLE/STEP_DISABLE to toggle "
-              + "step-by-step mode and STEP to execute one step.",
+              + "the node; STEP_ENABLE/STEP_DISABLE to toggle step-by-step mode and STEP to "
+              + "execute one step.",
       generateOutputSchema = true,
       annotations =
           @McpTool.McpAnnotations(
@@ -302,8 +302,7 @@ public class AppMcpTools {
       @McpToolParam(
               required = true,
               description =
-                  "The control action: PAUSE, RESUME, STOP, SKIP, UNSKIP, STEP, STEP_ENABLE, "
-                      + "or STEP_DISABLE")
+                  "The control action: PAUSE, RESUME, STOP, STEP, STEP_ENABLE, or STEP_DISABLE")
           final NodeControlAction action,
       @McpToolParam(
               required = false,
@@ -327,9 +326,7 @@ public class AppMcpTools {
       generateOutputSchema = true,
       annotations = @McpTool.McpAnnotations(readOnlyHint = true, openWorldHint = false))
   public Mono<PluginList> listPlugins() {
-    return Mono.fromCallable(pluginInfoProvider::listPlugins)
-        .subscribeOn(Schedulers.boundedElastic())
-        .map(PluginList::new);
+    return Mono.fromCallable(pluginInfoProvider::listPlugins).map(PluginList::new);
   }
 
   /**
@@ -347,8 +344,7 @@ public class AppMcpTools {
   public Mono<PluginDetails> getPluginDetails(
       @McpToolParam(required = true, description = "The unique plugin type/identifier")
           final String type) {
-    return Mono.fromCallable(() -> pluginInfoProvider.getPluginDetails(type))
-        .subscribeOn(Schedulers.boundedElastic());
+    return Mono.fromCallable(() -> pluginInfoProvider.getPluginDetails(type));
   }
 
   /**
@@ -389,30 +385,32 @@ public class AppMcpTools {
   }
 
   /**
-   * Create a new Yukta session with the provided configuration JSON.
+   * Create a new Yukta session, or overwrite an existing one with the same ID.
    *
-   * @param sessionConfigJson JSON string containing session configuration with sessionId,
-   *     workflows, and other configuration details
+   * @param config the session configuration: sessionId, name, description, initiator, workflows
    * @return Mono containing SessionCreationResult with sessionId, created workflows, warnings, and
    *     success status
    */
   @McpTool(
       name = "create_session",
       title = "Create Session",
-      description = "Create a new Yukta session with the provided configuration JSON",
+      description =
+          "Create a Yukta session from a structured configuration, overwriting any existing "
+              + "session with the same sessionId. The workflows it defines can run commands "
+              + "and reach external systems, so confirm with the user first. See "
+              + "get_session_creation_instructions for the format.",
       generateOutputSchema = true,
       annotations =
           @McpTool.McpAnnotations(
               readOnlyHint = false,
-              destructiveHint = false,
-              openWorldHint = false))
+              destructiveHint = true,
+              openWorldHint = true))
   public Mono<SessionCreationResult> createSession(
       @McpToolParam(
               required = true,
-              description =
-                  "JSON string containing session configuration (sessionId, workflows, etc.)")
-          final String sessionConfigJson) {
-    return sessionInfoProvider.createSession(sessionConfigJson);
+              description = "Session configuration (sessionId, name, description, workflows, ...)")
+          final SessionConfigData config) {
+    return sessionInfoProvider.createSession(config);
   }
 
   /**

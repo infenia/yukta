@@ -93,13 +93,13 @@ class HttpRequestPluginTest {
     StepVerifier.create(run(config))
         .assertNext(
             m -> {
-              final Map<String, Object> payload = (Map<String, Object>) m.getPayload();
+              final Map<String, Object> payload = (Map<String, Object>) m.payload();
               assertThat(payload)
                   .containsEntry("status", 200)
                   .containsEntry("success", true)
                   .containsEntry("body", Map.of("a", 1));
-              assertThat(m.getMetadata()).containsEntry("status", 200);
-              assertThat(m.getSourcePort()).isEqualTo("default");
+              assertThat(m.metadata()).containsEntry("status", 200);
+              assertThat(m.sourcePort()).isEqualTo("default");
             })
         .verifyComplete();
 
@@ -118,7 +118,7 @@ class HttpRequestPluginTest {
 
     StepVerifier.create(run(Map.of("url", "http://x")))
         .assertNext(
-            m -> assertThat((Map<String, Object>) m.getPayload()).containsEntry("body", "plain"))
+            m -> assertThat((Map<String, Object>) m.payload()).containsEntry("body", "plain"))
         .verifyComplete();
     final ArgumentCaptor<HttpRequestSpec> spec = ArgumentCaptor.forClass(HttpRequestSpec.class);
     org.mockito.Mockito.verify(gateway).execute(spec.capture());
@@ -133,7 +133,7 @@ class HttpRequestPluginTest {
 
     StepVerifier.create(run(Map.of("url", "http://x")))
         .assertNext(
-            m -> assertThat((Map<String, Object>) m.getPayload()).containsEntry("body", "{oops"))
+            m -> assertThat((Map<String, Object>) m.payload()).containsEntry("body", "{oops"))
         .verifyComplete();
   }
 
@@ -168,12 +168,12 @@ class HttpRequestPluginTest {
     when(gateway.execute(any()))
         .thenReturn(Mono.just(new HttpRequestResult(404, Map.of(), false, "nf")));
     StepVerifier.create(run(config))
-        .assertNext(m -> assertThat(m.getSourcePort()).isEqualTo("failure"))
+        .assertNext(m -> assertThat(m.sourcePort()).isEqualTo("failure"))
         .verifyComplete();
 
     when(gateway.execute(any())).thenReturn(Mono.just(okResult("ok", false)));
     StepVerifier.create(run(config))
-        .assertNext(m -> assertThat(m.getSourcePort()).isEqualTo("success"))
+        .assertNext(m -> assertThat(m.sourcePort()).isEqualTo("success"))
         .verifyComplete();
   }
 
@@ -184,7 +184,7 @@ class HttpRequestPluginTest {
     StepVerifier.create(run(Map.of("url", "http://x", "failureMode", "CONTINUE")))
         .assertNext(
             m -> {
-              final Map<String, Object> payload = (Map<String, Object>) m.getPayload();
+              final Map<String, Object> payload = (Map<String, Object>) m.payload();
               assertThat(payload).containsEntry("status", 0).containsEntry("success", false);
               assertThat((String) payload.get("body")).contains("down");
             })

@@ -53,8 +53,8 @@ public class GraalJsScriptEngine implements ScriptEngine {
             .build()) {
       final Value bindings = context.getBindings(LANG);
       bindings.putMember("message", message);
-      bindings.putMember("payload", message.getPayload());
-      bindings.putMember("metadata", message.getMetadata());
+      bindings.putMember("payload", message.payload());
+      bindings.putMember("metadata", message.metadata());
       return detach(context.eval(source(script)));
     }
   }

@@ -117,7 +117,8 @@ public interface Plugin {
   }
 
   /**
-   * Pre-execution preparation phase, typically for pre-parsing expressions.
+   * Pre-execution preparation phase, typically for pre-parsing expressions. The workflow preparator
+   * calls it for every node right after {@link #initialize}, so the same rules apply.
    *
    * @param config the plugin configuration
    * @return a Mono that completes when preparation is done

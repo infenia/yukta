@@ -58,8 +58,8 @@ class LoopStreamProcessorTest {
               Flux<Message<?>> input = invocation.getArgument(0);
               return input.flatMap(
                   msg -> {
-                    int page = (int) msg.getPayload();
-                    final String traceIdStr = msg.getTraceId();
+                    int page = (int) msg.payload();
+                    final String traceIdStr = msg.traceId();
                     final UUID traceId =
                         traceIdStr != null ? UUID.fromString(traceIdStr) : UUID.randomUUID();
                     return Flux.just(
@@ -72,12 +72,7 @@ class LoopStreamProcessorTest {
 
     final Map<String, Object> config =
         Map.of(
-            "targetPluginId",
-            targetId,
-            "maxIterations",
-            2,
-            "exitCondition",
-            "#root.payload instanceof T(Integer) && #root.payload == 2");
+            "targetPluginId", targetId, "maxIterations", 2, "exitCondition", "#root.payload == 2");
 
     final Message<?> inputMsg = DefaultMessage.create(UUID.randomUUID(), 0);
 
@@ -85,12 +80,12 @@ class LoopStreamProcessorTest {
             processor
                 .process(Flux.just(inputMsg), config)
                 .contextWrite(Context.of("executionId", "e1", "nodeId", "n1")))
-        .expectNextMatches(msg -> "Item 1".equals(msg.getPayload()))
-        .expectNextMatches(msg -> "Item 2".equals(msg.getPayload()))
-        .expectNextMatches(msg -> Integer.valueOf(1).equals(msg.getPayload()))
-        .expectNextMatches(msg -> "Item 3".equals(msg.getPayload()))
-        .expectNextMatches(msg -> "Item 4".equals(msg.getPayload()))
-        .expectNextMatches(msg -> Integer.valueOf(2).equals(msg.getPayload()))
+        .expectNextMatches(msg -> "Item 1".equals(msg.payload()))
+        .expectNextMatches(msg -> "Item 2".equals(msg.payload()))
+        .expectNextMatches(msg -> Integer.valueOf(1).equals(msg.payload()))
+        .expectNextMatches(msg -> "Item 3".equals(msg.payload()))
+        .expectNextMatches(msg -> "Item 4".equals(msg.payload()))
+        .expectNextMatches(msg -> Integer.valueOf(2).equals(msg.payload()))
         .verifyComplete();
   }
 

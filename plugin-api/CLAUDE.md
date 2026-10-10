@@ -21,7 +21,7 @@ Plugin abstraction interfaces and base classes.
 - `com.infenia.yukta.plugin.core.Plugin`: Base interface for all workflow plugins.
 - `com.infenia.yukta.plugin.type.TriggerPlugin`, `.type.ProcessorPlugin`, `.type.TerminalPlugin`: Category-specific plugin interfaces.
 - `com.infenia.yukta.plugin.core.WorkflowContext`, `.core.PluginCategory`: Shared plugin-execution types.
-- `com.infenia.yukta.plugin.store`: `IdempotencyStore`, `NodeCheckpointStore`, `ClaimCheckStore`, `SecretProvider`.
+- `com.infenia.yukta.plugin.store`: `NodeCheckpointStore`, `SecretProvider`.
 - Module guide (interactive): `docs/plugin-api-module-guide.html`; review findings: `docs/plugin-api-improvements.md`.
 
 ## Imports

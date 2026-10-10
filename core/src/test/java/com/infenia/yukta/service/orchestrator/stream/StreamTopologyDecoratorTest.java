@@ -110,7 +110,7 @@ class StreamTopologyDecoratorTest {
     final ParentEdgeInfo[] parentEdges = {new ParentEdgeInfo(0, PARENT_1, null)};
 
     StepVerifier.create(decorator.mergeParentStreams(streams, parentEdges))
-        .assertNext(m -> assertThat(m.getSourceNodeId()).isEqualTo(PARENT_1))
+        .assertNext(m -> assertThat(m.sourceNodeId()).isEqualTo(PARENT_1))
         .verifyComplete();
   }
 
@@ -138,7 +138,7 @@ class StreamTopologyDecoratorTest {
     final ParentEdgeInfo edge = new ParentEdgeInfo(0, PARENT_1, PORT_A);
 
     StepVerifier.create(decorator.applyEdgeRouting(streams, edge))
-        .assertNext(m -> assertThat(m.getSourceNodeId()).isEqualTo("parent-1"))
+        .assertNext(m -> assertThat(m.sourceNodeId()).isEqualTo("parent-1"))
         .verifyComplete();
   }
 
@@ -245,7 +245,7 @@ class StreamTopologyDecoratorTest {
         decorator.applyLoggingAndBroadcasting(EXEC_1, NODE_1, input, 1024, disposables, connectors);
 
     StepVerifier.create(edge(output))
-        .assertNext(m -> assertThat(m.getMessageHistory()).contains("node-1"))
+        .assertNext(m -> assertThat(m.messageHistory()).contains("node-1"))
         .verifyComplete();
 
     // Cleanup
@@ -294,7 +294,7 @@ class StreamTopologyDecoratorTest {
     assertThat(line.getValue()).startsWith("0123456789").contains("[truncated 17952 chars]");
     assertThat(line.getValue().length()).isLessThan(2_100);
     // the message itself is not altered
-    assertThat(msg.getPayload()).isEqualTo(largePayload);
+    assertThat(msg.payload()).isEqualTo(largePayload);
 
     disposables.forEach(Disposable::dispose);
   }

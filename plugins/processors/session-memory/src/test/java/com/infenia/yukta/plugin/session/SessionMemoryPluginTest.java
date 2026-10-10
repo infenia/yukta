@@ -78,15 +78,15 @@ class SessionMemoryPluginTest {
     StepVerifier.create(run(Map.of("message", "hi", "sessionId", "s1"), load()))
         .assertNext(
             m -> {
-              final Map<String, Object> payload = (Map<String, Object>) m.getPayload();
+              final Map<String, Object> payload = (Map<String, Object>) m.payload();
               assertThat(payload).containsEntry("message", "hi");
               assertThat(payload.get("history"))
                   .isEqualTo(
                       List.of(
                           Map.of("role", "user", "content", "old q"),
                           Map.of("role", "assistant", "content", "old a")));
-              assertThat(m.getMetadata()).containsEntry("sessionId", "s1");
-              assertThat(m.getSourcePort()).isEqualTo("default");
+              assertThat(m.metadata()).containsEntry("sessionId", "s1");
+              assertThat(m.sourcePort()).isEqualTo("default");
             })
         .verifyComplete();
 
@@ -98,7 +98,7 @@ class SessionMemoryPluginTest {
     StepVerifier.create(run("raw", load()))
         .assertNext(
             m -> {
-              final Map<String, Object> payload = (Map<String, Object>) m.getPayload();
+              final Map<String, Object> payload = (Map<String, Object>) m.payload();
               assertThat(payload).containsEntry("input", "raw").containsKey("history");
             })
         .verifyComplete();
@@ -113,7 +113,7 @@ class SessionMemoryPluginTest {
     StepVerifier.create(run(Map.of(), load("maxTurns", 2)))
         .assertNext(
             m ->
-                assertThat(((Map<String, Object>) m.getPayload()).get("history"))
+                assertThat(((Map<String, Object>) m.payload()).get("history"))
                     .isEqualTo(
                         List.of(
                             Map.of("role", "user", "content", "q3"),
@@ -132,8 +132,8 @@ class SessionMemoryPluginTest {
                 Map.of("mode", "APPEND", "sessionId", "s9", "assistant", "the answer")))
         .assertNext(
             m -> {
-              assertThat(m.getPayload()).isEqualTo(original.getPayload());
-              assertThat(m.getSourcePort()).isEqualTo("default");
+              assertThat(m.payload()).isEqualTo(original.payload());
+              assertThat(m.sourcePort()).isEqualTo("default");
             })
         .verifyComplete();
 

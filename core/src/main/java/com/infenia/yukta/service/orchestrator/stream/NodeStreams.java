@@ -13,7 +13,6 @@ import java.util.function.BooleanSupplier;
 import lombok.experimental.UtilityClass;
 import lombok.extern.slf4j.Slf4j;
 import reactor.core.publisher.Flux;
-import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
 /** Stream operators every node's output goes through: timeout and task status tracking. */
@@ -21,9 +20,6 @@ import reactor.core.scheduler.Schedulers;
 @UtilityClass
 @SuppressWarnings("PMD.AtLeastOneConstructor")
 public class NodeStreams {
-
-  /** Task identifier used for the node-level status events. */
-  private static final String DEFAULT_TASK_ID = "default";
 
   /**
    * Applies the node's idle timeout, then reports RUNNING on subscribe and SUCCESS or FAILURE on
@@ -47,10 +43,8 @@ public class NodeStreams {
       final NodeActivity activity,
       final BooleanSupplier paused) {
     final String nodeId = node.nodeId();
-    final Mono<Long> idle = activity.idle(timeout, Schedulers.parallel(), paused);
-    return source
-        .doOnNext(_ -> activity.touch())
-        .timeout(idle, _ -> idle)
+    return activity
+        .guard(source.doOnNext(_ -> activity.touch()), timeout, Schedulers.parallel(), paused)
         .doOnError(
             TimeoutException.class,
             e ->
@@ -60,9 +54,9 @@ public class NodeStreams {
                     .addArgument(timeout)
                     .setCause(e)
                     .log())
-        .doOnSubscribe(_ -> emit(tracker, executionId, nodeId, TaskStatus.RUNNING))
-        .doOnComplete(() -> emit(tracker, executionId, nodeId, TaskStatus.SUCCESS))
-        .doOnCancel(() -> emit(tracker, executionId, nodeId, TaskStatus.CANCELLED))
+        .doOnSubscribe(_ -> emit(tracker, executionId, node, TaskStatus.RUNNING))
+        .doOnComplete(() -> emit(tracker, executionId, node, TaskStatus.SUCCESS))
+        .doOnCancel(() -> emit(tracker, executionId, node, TaskStatus.CANCELLED))
         .doOnError(
             error -> {
               log.atError()
@@ -71,7 +65,7 @@ public class NodeStreams {
                   .addArgument(nodeId)
                   .setCause(error)
                   .log();
-              emit(tracker, executionId, nodeId, failureStatus(error));
+              emit(tracker, executionId, node, failureStatus(error));
             });
   }
 
@@ -88,9 +82,9 @@ public class NodeStreams {
   private void emit(
       final TaskTrackerService tracker,
       final String executionId,
-      final String nodeId,
+      final WorkflowNode node,
       final TaskStatus status) {
     tracker.emitTaskStatusEvent(
-        executionId, nodeId, DEFAULT_TASK_ID, status, Collections.emptyMap());
+        executionId, node.nodeId(), node.type(), status, Collections.emptyMap());
   }
 }

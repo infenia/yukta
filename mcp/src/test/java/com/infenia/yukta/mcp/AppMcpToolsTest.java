@@ -21,14 +21,15 @@ import com.infenia.yukta.mcp.dto.SessionSummary;
 import com.infenia.yukta.mcp.dto.WorkflowControlAction;
 import com.infenia.yukta.mcp.dto.WorkflowHistory;
 import com.infenia.yukta.mcp.dto.WorkflowStartResult;
-import com.infenia.yukta.mcp.provider.DefaultLogProvider;
-import com.infenia.yukta.mcp.provider.DefaultPluginInfoProvider;
-import com.infenia.yukta.mcp.provider.DefaultSessionInfoProvider;
-import com.infenia.yukta.mcp.provider.DefaultSystemHealthProvider;
-import com.infenia.yukta.mcp.provider.DefaultWorkflowControlProvider;
-import com.infenia.yukta.mcp.provider.DefaultWorkflowExecutionProvider;
+import com.infenia.yukta.mcp.provider.LogProvider;
+import com.infenia.yukta.mcp.provider.PluginInfoProvider;
+import com.infenia.yukta.mcp.provider.SessionInfoProvider;
+import com.infenia.yukta.mcp.provider.SystemHealthProvider;
+import com.infenia.yukta.mcp.provider.WorkflowControlProvider;
+import com.infenia.yukta.mcp.provider.WorkflowExecutionProvider;
 import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
 import com.infenia.yukta.model.execution.WorkflowProgress;
+import com.infenia.yukta.model.session.SessionConfigData;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
@@ -39,21 +40,21 @@ import reactor.test.StepVerifier;
 class AppMcpToolsTest {
 
   private AppMcpTools mcpTools;
-  private DefaultSessionInfoProvider sessionInfoProvider;
-  private DefaultLogProvider logProvider;
-  private DefaultWorkflowExecutionProvider workflowExecutionProvider;
-  private DefaultWorkflowControlProvider workflowControlProvider;
-  private DefaultPluginInfoProvider pluginInfoProvider;
-  private DefaultSystemHealthProvider systemHealthProvider;
+  private SessionInfoProvider sessionInfoProvider;
+  private LogProvider logProvider;
+  private WorkflowExecutionProvider workflowExecutionProvider;
+  private WorkflowControlProvider workflowControlProvider;
+  private PluginInfoProvider pluginInfoProvider;
+  private SystemHealthProvider systemHealthProvider;
 
   @BeforeEach
   void setUp() {
-    sessionInfoProvider = mock(DefaultSessionInfoProvider.class);
-    logProvider = mock(DefaultLogProvider.class);
-    workflowExecutionProvider = mock(DefaultWorkflowExecutionProvider.class);
-    workflowControlProvider = mock(DefaultWorkflowControlProvider.class);
-    pluginInfoProvider = mock(DefaultPluginInfoProvider.class);
-    systemHealthProvider = mock(DefaultSystemHealthProvider.class);
+    sessionInfoProvider = mock(SessionInfoProvider.class);
+    logProvider = mock(LogProvider.class);
+    workflowExecutionProvider = mock(WorkflowExecutionProvider.class);
+    workflowControlProvider = mock(WorkflowControlProvider.class);
+    pluginInfoProvider = mock(PluginInfoProvider.class);
+    systemHealthProvider = mock(SystemHealthProvider.class);
     mcpTools =
         new AppMcpTools(
             sessionInfoProvider,
@@ -146,11 +147,11 @@ class AppMcpToolsTest {
 
   @Test
   void testControlNode() {
-    var result = new ControlActionResult("SKIP", "e1", "n1", List.of(), "ok");
-    when(workflowControlProvider.controlNode("s1", "e1", "n1", NodeControlAction.SKIP, null, null))
+    var result = new ControlActionResult("STEP", "e1", "n1", List.of(), "ok");
+    when(workflowControlProvider.controlNode("s1", "e1", "n1", NodeControlAction.STEP, null, null))
         .thenReturn(Mono.just(result));
 
-    StepVerifier.create(mcpTools.controlNode("s1", "e1", "n1", NodeControlAction.SKIP, null, null))
+    StepVerifier.create(mcpTools.controlNode("s1", "e1", "n1", NodeControlAction.STEP, null, null))
         .expectNext(result)
         .verifyComplete();
   }
@@ -194,9 +195,10 @@ class AppMcpToolsTest {
   @Test
   void testCreateSession() {
     var response = new SessionCreationResult("s1", List.of("wf-1"), List.of(), true);
-    when(sessionInfoProvider.createSession("{}")).thenReturn(Mono.just(response));
+    var config = new SessionConfigData("s1", "n", "d", "i", null, null, null);
+    when(sessionInfoProvider.createSession(config)).thenReturn(Mono.just(response));
 
-    StepVerifier.create(mcpTools.createSession("{}")).expectNext(response).verifyComplete();
+    StepVerifier.create(mcpTools.createSession(config)).expectNext(response).verifyComplete();
   }
 
   @Test
