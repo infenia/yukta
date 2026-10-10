@@ -4,156 +4,80 @@
 package logs
 
 import (
-	"bytes"
 	"context"
-	"fmt"
 	"io"
-	"os"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 
 	"com.infenia.yukta/go-cli/internal/client"
+	"com.infenia.yukta/go-cli/internal/testutil"
 )
 
-func TestLogsCmd_createsCommand(t *testing.T) {
-	c := client.NewClient("http://localhost:8080")
-	cmd := LogsCmd(c)
-
+func TestLogsCmd_usage(t *testing.T) {
+	cmd := LogsCmd(client.NewClient(""))
 	if !strings.HasPrefix(cmd.Use, "logs") {
-		t.Errorf("expected Use starting with 'logs', got %q", cmd.Use)
+		t.Errorf("unexpected Use %q", cmd.Use)
+	}
+	if _, err := testutil.Run(t, cmd, "only-one-arg"); err == nil {
+		t.Error("expected arg-count error")
 	}
 }
 
-func TestLogsCmd_executesSuccessfully(t *testing.T) {
-	// Mock client that simulates streaming logs
-	mockClient := &client.MockClient{
-		StreamExecutionLogsFunc: func(ctx context.Context, sessionID, executionID string, onLine func(line string) error) error {
-			if err := onLine("Log line 1"); err != nil {
-				return err
+func TestLogsCmd_streams(t *testing.T) {
+	tests := []struct {
+		name     string
+		args     []string
+		wantPath string
+		wantOut  string
+	}{
+		{"lines", []string{"s", "e"}, "/api/sessions/s/executions/e/logs", "line 1\nline 2\n"},
+		{"entries", []string{"s", "e", "--entries"}, "/api/sessions/s/executions/e/logs/entries", "line 1\nline 2\n"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var path string
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				path = r.URL.Path
+				w.Header().Set("Content-Type", "text/event-stream")
+				_, _ = io.WriteString(w, "data: line 1\n\ndata: line 2\n\n")
+			}))
+			defer srv.Close()
+
+			out, err := testutil.Run(t, LogsCmd(client.NewClient(srv.URL)), tt.args...)
+			if err != nil || out != tt.wantOut {
+				t.Errorf("out=%q err=%v", out, err)
 			}
-			if err := onLine("Log line 2"); err != nil {
-				return err
+			if path != tt.wantPath {
+				t.Errorf("path %q, want %q", path, tt.wantPath)
 			}
-			if err := onLine("Log line 3"); err != nil {
-				return err
-			}
-			return nil
-		},
-	}
-
-	cmd := LogsCmd(mockClient)
-
-	// Capture stdout
-	r, w, _ := os.Pipe()
-	defer r.Close()
-	oldStdout := os.Stdout
-	os.Stdout = w
-
-	err := cmd.RunE(cmd, []string{"session-123", "exec-456"})
-
-	w.Close()
-	os.Stdout = oldStdout
-
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	// Read captured output
-	var buf bytes.Buffer
-	_, _ = io.Copy(&buf, r)
-	output := buf.String()
-
-	// Verify all log lines were printed
-	if !strings.Contains(output, "Log line 1") {
-		t.Errorf("expected 'Log line 1' in output, got: %s", output)
-	}
-	if !strings.Contains(output, "Log line 2") {
-		t.Errorf("expected 'Log line 2' in output, got: %s", output)
-	}
-	if !strings.Contains(output, "Log line 3") {
-		t.Errorf("expected 'Log line 3' in output, got: %s", output)
-	}
-
-	// Verify the client was called
-	if mockClient.StreamExecutionLogsCalls != 1 {
-		t.Errorf("expected 1 call to StreamExecutionLogs, got %d", mockClient.StreamExecutionLogsCalls)
+		})
 	}
 }
 
-func TestLogsCmd_handlesError(t *testing.T) {
-	mockClient := &client.MockClient{
-		StreamExecutionLogsFunc: func(ctx context.Context, sessionID, executionID string, onLine func(line string) error) error {
-			return context.Canceled
-		},
-	}
-
-	cmd := LogsCmd(mockClient)
-
-	// Capture stdout to suppress output
-	r, w, _ := os.Pipe()
-	defer r.Close()
-	oldStdout := os.Stdout
-	os.Stdout = w
-
-	err := cmd.RunE(cmd, []string{"session-123", "exec-456"})
-
-	w.Close()
-	os.Stdout = oldStdout
-	_, _ = io.Copy(io.Discard, r)
-
-	// Context.Canceled should be treated as a clean exit
-	if err != nil {
-		t.Errorf("expected nil error for context.Canceled, got: %v", err)
+func TestLogsCmd_apiError(t *testing.T) {
+	c, _ := testutil.Server(t, 500, "boom")
+	if _, err := testutil.Run(t, LogsCmd(c), "s", "e"); err == nil {
+		t.Error("expected API error")
 	}
 }
 
-func TestLogsCmd_handlesWrappedCancellation(t *testing.T) {
-	mockClient := &client.MockClient{
-		StreamExecutionLogsFunc: func(ctx context.Context, sessionID, executionID string, onLine func(line string) error) error {
-			return fmt.Errorf("request failed: %w", context.Canceled)
-		},
-	}
-
-	cmd := LogsCmd(mockClient)
-
-	r, w, _ := os.Pipe()
-	defer r.Close()
-	oldStdout := os.Stdout
-	os.Stdout = w
-
-	err := cmd.RunE(cmd, []string{"session-123", "exec-456"})
-
-	w.Close()
-	os.Stdout = oldStdout
-	_, _ = io.Copy(io.Discard, r)
-
-	// A wrapped context.Canceled should still be treated as a clean exit
-	if err != nil {
-		t.Errorf("expected nil error for wrapped context.Canceled, got: %v", err)
+func TestLogsCmd_cancelIsCleanExit(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	cmd := LogsCmd(testutil.Stream(t, "data: x\n\n"))
+	cmd.SetArgs([]string{"s", "e"})
+	if err := cmd.ExecuteContext(ctx); err != nil {
+		t.Errorf("expected nil on Ctrl-C, got %v", err)
 	}
 }
 
-func TestLogsCmd_callbackError(t *testing.T) {
-	mockClient := &client.MockClient{
-		StreamExecutionLogsFunc: func(ctx context.Context, sessionID, executionID string, onLine func(line string) error) error {
-			// Return an error via context.Canceled to simulate callback error
-			return context.Canceled
-		},
+func TestLogsCmd_withoutCobraContext(t *testing.T) {
+	cmd := LogsCmd(testutil.Stream(t, "data: x\n\n"))
+	var err error
+	out := testutil.Capture(t, func() { err = cmd.RunE(cmd, []string{"s", "e"}) })
+	if err != nil || out != "x\n" {
+		t.Errorf("out=%q err=%v", out, err)
 	}
-
-	cmd := LogsCmd(mockClient)
-
-	r, w, _ := os.Pipe()
-	defer r.Close()
-	oldStdout := os.Stdout
-	os.Stdout = w
-
-	_ = cmd.RunE(cmd, []string{"session-123", "exec-456"})
-
-	w.Close()
-	os.Stdout = oldStdout
-	_, _ = io.Copy(io.Discard, r)
-
-	// Just verify the command runs without panicking
-	// Context.Canceled is treated as a clean exit
 }

@@ -12,7 +12,7 @@ import (
 
 // AllNodesCmd creates and returns the "controlbus all-nodes" subcommand.
 // It retrieves and displays all active nodes across all workflows.
-func AllNodesCmd(c client.ClientInterface) *cobra.Command {
+func AllNodesCmd(c *client.Client) *cobra.Command {
 	return &cobra.Command{
 		Use:   "all-nodes",
 		Short: "Get all active nodes globally",

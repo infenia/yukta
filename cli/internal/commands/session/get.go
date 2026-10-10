@@ -16,7 +16,7 @@ import (
 // GetCmd creates the "session get" subcommand.
 // It retrieves details for a specific session by session ID and displays them
 // in the requested output format (table or JSON).
-func GetCmd(c client.ClientInterface) *cobra.Command {
+func GetCmd(c *client.Client) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <session-id>",
 		Short: "Get details for a specific session",

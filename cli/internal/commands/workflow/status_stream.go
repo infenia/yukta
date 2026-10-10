@@ -16,7 +16,7 @@ import (
 )
 
 // StatusStreamCmd creates the "workflow status-stream" command.
-func StatusStreamCmd(c client.ClientInterface) *cobra.Command {
+func StatusStreamCmd(c *client.Client) *cobra.Command {
 	var includeHistory bool
 
 	cmd := &cobra.Command{

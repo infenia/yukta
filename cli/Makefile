@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-.PHONY: help build build-all test lint fmt clean
+.PHONY: help build build-all test cover cover-check fmt fmt-check mod-tidy mod-verify vet lint sec vuln check clean
 
 # Variables
 BINARY_NAME := yukta
@@ -21,6 +21,15 @@ BUILD_DIR := build
 CMD_DIR := cmd/yukta
 GOOS ?= $(shell go env GOOS)
 GOARCH ?= $(shell go env GOARCH)
+
+# Pinned tool versions (run via `go run`, so builds are reproducible and need no installs).
+GOLANGCI_LINT := github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.14.0
+GOSEC := github.com/securego/gosec/v2/cmd/gosec@v2.29.0
+GOVULNCHECK := golang.org/x/vuln/cmd/govulncheck@v1.8.0
+
+# Minimum per-function coverage (%), with per-file overrides as path=min.
+COVER_MIN := 100
+COVER_OVERRIDES := cmd/yukta/main.go=0 internal/testutil/testutil.go=0 test/integration_test.go=0
 
 # Build targets for build-all
 TARGETS := \
@@ -33,47 +42,57 @@ TARGETS := \
 help: ## Display this help message
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-20s %s\n", $$1, $$2}'
 
-build: ## Build CLI for current OS/arch
-	@echo "Building $(BINARY_NAME) for $(GOOS)/$(GOARCH)..."
+build: ## Build CLI for GOOS/GOARCH (default: current OS/arch)
 	@mkdir -p $(BUILD_DIR)
-	@go build -o $(BUILD_DIR)/$(BINARY_NAME) ./$(CMD_DIR)
-	@echo "Build complete: $(BUILD_DIR)/$(BINARY_NAME)"
+	@out=$(BUILD_DIR)/$(BINARY_NAME)-$(GOOS)-$(GOARCH)$(if $(filter windows,$(GOOS)),.exe); \
+		echo "Building $$out"; \
+		CGO_ENABLED=0 GOOS=$(GOOS) GOARCH=$(GOARCH) go build -ldflags='-s -w' -o $$out ./$(CMD_DIR)
 
-build-all: clean ## Build CLI for all platforms (Linux/macOS/Windows)
-	@echo "Building $(BINARY_NAME) for all platforms..."
-	@mkdir -p $(BUILD_DIR)
+build-all: ## Build CLI for all platforms (Linux/macOS/Windows)
 	@for target in $(TARGETS); do \
-		goos=$${target%/*}; \
-		goarch=$${target#*/}; \
-		output=$(BUILD_DIR)/$(BINARY_NAME)-$$goos-$$goarch; \
-		if [ "$$goos" = "windows" ]; then \
-			output=$${output}.exe; \
-		fi; \
-		echo "  Building for $$goos/$$goarch -> $$output"; \
-		GOOS=$$goos GOARCH=$$goarch go build -o $$output ./$(CMD_DIR); \
+		$(MAKE) --no-print-directory build GOOS=$${target%/*} GOARCH=$${target#*/} || exit 1; \
 	done
-	@echo "All builds complete in $(BUILD_DIR)/"
 
 test: ## Run Go tests
-	@echo "Running tests..."
-	@go test -v ./...
+	@go test ./...
 
-lint: ## Run Go linters (go vet, go fmt)
-	@echo "Running go vet..."
+cover: ## Run tests with a fresh coverage profile
+	@go test -coverprofile=coverage.out ./...
+
+cover-check: cover ## Fail if any function is below its coverage minimum
+	@go tool cover -func=coverage.out | awk -v min=$(COVER_MIN) -v ov="$(COVER_OVERRIDES)" ' \
+		BEGIN { n = split(ov, o, " "); for (i = 1; i <= n; i++) { split(o[i], kv, "="); over[kv[1]] = kv[2] } } \
+		$$1 == "total:" { next } \
+		{ f = $$1; sub(/^[^\/]*\/[^\/]*\//, "", f); sub(/:[0-9]+:$$/, "", f); \
+		  pct = $$NF; sub(/%/, "", pct); need = (f in over) ? over[f] : min; \
+		  if (pct + 0 < need) { print "FAIL " $$1 " " $$2 ": " pct "% (need " need "%)"; bad = 1 } } \
+		END { if (bad) exit 1; print "Coverage OK" }'
+
+fmt: ## Format code with gofmt
+	@gofmt -w .
+
+fmt-check: ## Fail if any file is not gofmt-formatted
+	@out=$$(gofmt -l .); if [ -n "$$out" ]; then echo "Unformatted files:"; echo "$$out"; echo "Run 'make fmt'."; exit 1; fi
+
+mod-tidy: ## Tidy go.mod/go.sum
+	@go mod tidy
+
+mod-verify: ## Verify module checksums
+	@go mod verify
+
+vet: ## Run go vet
 	@go vet ./...
-	@echo "Checking code formatting with go fmt..."
-	@if [ -n "$$(go fmt ./...)" ]; then \
-		echo "Code formatting issues found. Run 'make fmt' to fix."; \
-		exit 1; \
-	fi
-	@echo "Linting complete."
 
-fmt: ## Format code with go fmt
-	@echo "Formatting code..."
-	@go fmt ./...
-	@echo "Formatting complete."
+lint: ## Run golangci-lint (pinned)
+	@go run $(GOLANGCI_LINT) run ./...
+
+sec: ## Run gosec (pinned)
+	@go run $(GOSEC) -quiet ./...
+
+vuln: ## Run govulncheck (pinned)
+	@go run $(GOVULNCHECK) ./...
+
+check: fmt-check mod-verify vet lint sec vuln cover-check ## Everything :cli:check runs
 
 clean: ## Remove build artifacts and temporary files
-	@echo "Cleaning build artifacts..."
-	@rm -rf $(BUILD_DIR)
-	@echo "Clean complete."
+	@rm -rf $(BUILD_DIR) coverage.out
