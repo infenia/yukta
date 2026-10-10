@@ -21,6 +21,7 @@ import com.infenia.yukta.plugin.control.ExecutionControlCommand.SkipNodeCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.StepNodeCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.StopNodeCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.StopWorkflowCommand;
+import com.infenia.yukta.plugin.control.StopMode;
 import com.infenia.yukta.plugin.core.Plugin;
 import com.infenia.yukta.service.control.ControlBusService;
 import com.infenia.yukta.service.control.ExecutionControl;
@@ -459,7 +460,7 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
 
   @Override
   public Mono<List<String>> stopWorkflow(
-      final String sessionId, final String workflowId, final String reason) {
+      final String sessionId, final String workflowId, final String reason, final StopMode mode) {
     return Mono.fromCallable(
             () -> {
               final var allExecutions =
@@ -480,7 +481,8 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
                         control ->
                             executeCommand(
                                     buildCommand(
-                                        new StopWorkflowCommand(control.executionId(), reason),
+                                        new StopWorkflowCommand(
+                                            control.executionId(), reason, mode),
                                         CONTROL_COMMAND_PRIORITY + 20))
                                 .thenReturn(control.executionId())))
         .collectList()
@@ -490,6 +492,7 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
                     .addKeyValue("sessionId", sessionId)
                     .addKeyValue("workflowId", workflowId)
                     .addKeyValue("reason", reason)
+                    .addKeyValue("mode", mode)
                     .log("Stopping all workflow executions"))
         .doOnSuccess(
             stoppedIds ->

@@ -28,6 +28,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicBoolean;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -537,6 +538,7 @@ class WorkflowCompilerTest {
         Map.of(),
         Map.of(),
         Map.of(),
-        Map.of());
+        Map.of(),
+        new AtomicBoolean());
   }
 }

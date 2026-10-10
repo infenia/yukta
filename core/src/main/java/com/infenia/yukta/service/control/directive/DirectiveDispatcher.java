@@ -2,13 +2,14 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.service.control.directive;
 
-import com.infenia.yukta.model.control.ControlCommand;
 import com.infenia.yukta.plugin.control.ControlSignalProcessor;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.control.WorkflowDirective;
+import com.infenia.yukta.service.control.CommandSequencer;
 import com.infenia.yukta.service.control.ControlBusService;
 import com.infenia.yukta.service.control.ExecutionControl;
 import com.infenia.yukta.service.control.store.ExecutionControlRegistry;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import jakarta.annotation.PostConstruct;
 import java.util.Comparator;
 import java.util.List;
@@ -20,10 +21,11 @@ import reactor.core.publisher.Mono;
 /**
  * Bridges the Control Bus to the workflow execution layer.
  *
- * <p>On startup, subscribes to the raw control stream from {@link ControlBusService}. For every
- * message whose payload is a {@link ControlCommand}, finds the first matching {@link
- * ControlSignalProcessor} (by priority), obtains a {@link WorkflowDirective}, and applies it to the
- * active execution found in {@link ExecutionControlRegistry}.
+ * <p>On startup, registers itself with {@link ControlBusService} as the executor of execution
+ * control commands. For each command it finds the matching {@link ControlSignalProcessor} (by
+ * priority), obtains a {@link WorkflowDirective}, and applies it to the active execution found in
+ * {@link ExecutionControlRegistry}. Commands for one execution are applied in the order they were
+ * sent, and the caller is told once a command has been applied or why it was rejected.
  */
 @Slf4j
 @Component
@@ -38,6 +40,9 @@ public class DirectiveDispatcher {
   /** The control bus service for subscribing to control signals. */
   private final ControlBusService controlBusService;
 
+  /** Keeps commands of one execution in the order they were sent. */
+  private final CommandSequencer sequencer = new CommandSequencer();
+
   /**
    * Constructs a DirectiveDispatcher.
    *
@@ -45,6 +50,7 @@ public class DirectiveDispatcher {
    * @param registry the live execution registry
    * @param controlBusService the control bus to subscribe to
    */
+  @SuppressFBWarnings("EI_EXPOSE_REP2")
   public DirectiveDispatcher(
       final List<ControlSignalProcessor> processors,
       final ExecutionControlRegistry registry,
@@ -54,27 +60,30 @@ public class DirectiveDispatcher {
     this.controlBusService = controlBusService;
   }
 
-  /**
-   * Subscribes to the control stream and routes ExecutionControlCommand messages through the
-   * pipeline.
-   */
+  /** Registers this dispatcher as the executor of execution control commands. */
   @PostConstruct
-  @SuppressWarnings("PMD.LawOfDemeter")
   public void init() {
-    controlBusService
-        .getControlStream()
-        .filter(msg -> msg.getPayload() instanceof ExecutionControlCommand)
-        .flatMap(
-            msg -> {
-              final ExecutionControlCommand command = (ExecutionControlCommand) msg.getPayload();
-              return dispatch(command)
-                  .onErrorResume(
-                      e -> {
-                        log.atError().setCause(e).log("Error dispatching command");
-                        return Mono.empty();
-                      });
-            })
-        .subscribe();
+    controlBusService.setCommandExecutor(this::dispatchOrdered);
+  }
+
+  /**
+   * Applies a command after every earlier command for the same execution, and completes once it has
+   * been applied.
+   *
+   * @param command the command
+   * @return completes when applied; errors when the execution is unknown or the processor rejects
+   *     the command
+   */
+  public Mono<Void> dispatchOrdered(final ExecutionControlCommand command) {
+    return sequencer.sequence(
+        command.executionId(),
+        Mono.defer(
+            () ->
+                registry.findByExecutionId(command.executionId()).isEmpty()
+                    ? Mono.error(
+                        new IllegalArgumentException(
+                            "Execution not found: " + command.executionId()))
+                    : dispatch(command)));
   }
 
   /**

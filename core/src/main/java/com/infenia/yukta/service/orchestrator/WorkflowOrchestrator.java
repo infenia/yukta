@@ -251,7 +251,10 @@ public class WorkflowOrchestrator {
         tracker.startWorkflow(executionId, sessionId, workflowId, nodeIds).then(body);
 
     return Mono.firstWithSignal(
-            execution.thenReturn(TaskStatus.SUCCESS),
+            // A run that ended because it was stopped (for example after a drain) is STOPPED.
+            execution.then(
+                Mono.fromSupplier(
+                    () -> control.stopRequested().get() ? TaskStatus.STOPPED : TaskStatus.SUCCESS)),
             control.safeStopSink().asMono().thenReturn(TaskStatus.STOPPED))
         .flatMap(status -> tracker.finishWorkflow(executionId, status))
         .doOnSuccess(

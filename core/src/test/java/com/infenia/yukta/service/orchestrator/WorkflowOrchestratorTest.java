@@ -29,6 +29,7 @@ import com.infenia.yukta.service.orchestrator.preparator.WorkflowPreparator;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -152,6 +153,28 @@ class WorkflowOrchestratorTest {
 
     verify(executionControlRegistry).unregister(executionId);
     verify(checkpointStore).clear(executionId);
+  }
+
+  @Test
+  void execute_runThatEndsAfterStopRequest_isReportedStoppedNotSuccess() {
+    final String sessionId = "sess-drain";
+    final String workflowId = "wf-drain";
+    final String executionId = "exec-drain";
+    final Map<String, Object> payload = Map.of();
+    final PreparedWorkflow prepared = buildPreparedWorkflow(List.of("node-d"));
+
+    setupExecutionControl(sessionId, workflowId, executionId, prepared, payload, Sinks.one());
+    when(executionControl.stopRequested()).thenReturn(new AtomicBoolean(true));
+    when(tracker.startWorkflow(anyString(), anyString(), anyString(), anyList()))
+        .thenReturn(Mono.empty());
+    // the drain lets the template finish on its own
+    when(prepared.template().instantiate(anyString(), any())).thenReturn(Mono.empty());
+
+    StepVerifier.create(orchestrator.execute(sessionId, workflowId, executionId, prepared, payload))
+        .verifyComplete();
+
+    verify(tracker).finishWorkflow(executionId, TaskStatus.STOPPED);
+    verify(tracker, never()).finishWorkflow(executionId, TaskStatus.SUCCESS);
   }
 
   @Test
@@ -452,6 +475,7 @@ class WorkflowOrchestratorTest {
     doNothing().when(executionControlRegistry).unregister(executionId);
     doNothing().when(checkpointStore).clear(executionId);
     when(executionControl.safeStopSink()).thenReturn(safeStop);
+    lenient().when(executionControl.stopRequested()).thenReturn(new AtomicBoolean());
   }
 
   private void setupRestartControl(
@@ -467,5 +491,6 @@ class WorkflowOrchestratorTest {
     doNothing().when(executionControlRegistry).unregister(executionId);
     doNothing().when(checkpointStore).clear(executionId);
     when(executionControl.safeStopSink()).thenReturn(safeStop);
+    lenient().when(executionControl.stopRequested()).thenReturn(new AtomicBoolean());
   }
 }

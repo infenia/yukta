@@ -162,14 +162,37 @@ public interface ExecutionControlCommand {
   /**
    * Stop all nodes in an execution and terminate the workflow.
    *
-   * <p>Uses safe-stop semantics: inflight work drains before the execution terminates. The trigger
-   * plugin's stream is also severed, preventing any new input from being accepted.
+   * <p>The {@link StopMode} decides how: {@code DRAIN} (default) stops the triggers and lets
+   * in-flight work finish, {@code CANCEL} cancels at once, {@code KILL} also removes the execution.
    *
    * @param executionId the execution identifier
    * @param reason human-readable explanation for logging
+   * @param mode how to stop; null means {@link StopMode#DRAIN}
    */
-  record StopWorkflowCommand(String executionId, @Nullable String reason)
+  record StopWorkflowCommand(String executionId, @Nullable String reason, @Nullable StopMode mode)
       implements ExecutionControlCommand {
+
+    /**
+     * Normalises the mode.
+     *
+     * @param executionId the execution identifier
+     * @param reason human-readable explanation for logging
+     * @param mode how to stop; null means DRAIN
+     */
+    public StopWorkflowCommand {
+      mode = mode == null ? StopMode.DRAIN : mode;
+    }
+
+    /**
+     * Creates a drain stop.
+     *
+     * @param executionId the execution identifier
+     * @param reason human-readable explanation for logging
+     */
+    public StopWorkflowCommand(final String executionId, @Nullable final String reason) {
+      this(executionId, reason, StopMode.DRAIN);
+    }
+
     @Override
     public String commandType() {
       return "execution.stop-workflow";

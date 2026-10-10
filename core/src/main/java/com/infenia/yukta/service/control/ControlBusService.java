@@ -4,6 +4,7 @@ package com.infenia.yukta.service.control;
 
 import com.infenia.yukta.message.Message;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
+import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.core.Plugin;
 import com.infenia.yukta.service.control.directive.ControlSignalHandler;
 import com.infenia.yukta.service.control.store.ActivePluginRegistry;
@@ -18,6 +19,7 @@ import java.time.Duration;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
+import java.util.function.Function;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -66,6 +68,10 @@ public class ControlBusService {
 
   /** Registry of plugin instances actively servicing workflow nodes. */
   private final ActivePluginRegistry activePluginRegistry;
+
+  /** Applies execution control commands in order and reports when they were applied. */
+  @SuppressWarnings("PMD.AvoidUsingVolatile")
+  private volatile Function<ExecutionControlCommand, Mono<Void>> commandExecutor;
 
   /** Sink for emitting control messages. */
   private Sinks.Many<Message<?>> controlSink =
@@ -155,7 +161,22 @@ public class ControlBusService {
   }
 
   /**
+   * Registers the component that applies execution control commands.
+   *
+   * <p>Once set, {@link #emit} completes for a command only after it has been applied (or fails
+   * with the reason it was rejected), and commands for one execution are applied in order.
+   *
+   * @param executor applies one command
+   */
+  public void setCommandExecutor(final Function<ExecutionControlCommand, Mono<Void>> executor) {
+    this.commandExecutor = executor;
+  }
+
+  /**
    * Emit a control signal to the bus.
+   *
+   * <p>An execution control command is applied in order and this completes only once it has been
+   * applied (or fails with the reason it was rejected).
    *
    * @param signal the control signal message
    * @return a Mono that completes when the signal is emitted
@@ -163,6 +184,10 @@ public class ControlBusService {
   @SuppressWarnings("PMD.GuardLogStatement")
   public Mono<Void> emit(final Message<?> signal) {
     final Object payload = signal.getPayload();
+    final Function<ExecutionControlCommand, Mono<Void>> executor = commandExecutor;
+    if (executor != null && payload instanceof ExecutionControlCommand command) {
+      return executor.apply(command);
+    }
     final String payloadType = payload != null ? payload.getClass().getSimpleName() : "null";
     log.atTrace().addArgument(payloadType).log("Emitting control signal of type: {}");
     return Mono.create(

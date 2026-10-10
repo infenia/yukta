@@ -43,7 +43,8 @@ class ExecutionControlTest {
             Map.of(),
             Map.of(),
             Map.of(),
-            Map.of());
+            Map.of(),
+            new AtomicBoolean());
 
     assertThat(ctrl.payload()).isUnmodifiable();
     assertThat(ctrl.payload()).containsEntry("data", "value");
@@ -64,7 +65,8 @@ class ExecutionControlTest {
             Map.of(),
             Map.of(),
             Map.of(),
-            Map.of());
+            Map.of(),
+            new AtomicBoolean());
 
     assertThat(ctrl.payload()).containsAllEntriesOf(payload);
   }
@@ -83,7 +85,8 @@ class ExecutionControlTest {
             Map.of(),
             Map.of(),
             Map.of(),
-            Map.of());
+            Map.of(),
+            new AtomicBoolean());
 
     final var flux = control.applyPreProcessingControls("unknown", Flux.empty());
     assertThat(flux).isNotNull();
@@ -103,7 +106,8 @@ class ExecutionControlTest {
             Map.of(),
             Map.of("node1", Sinks.one()),
             Map.of(),
-            Map.of());
+            Map.of(),
+            new AtomicBoolean());
 
     final Sinks.One<Void> safeSink = control.nodeSafeStopSinks().get("node1");
     safeSink.emitEmpty(Sinks.EmitFailureHandler.FAIL_FAST);
@@ -127,7 +131,8 @@ class ExecutionControlTest {
             Map.of(),
             Map.of(),
             Map.of(),
-            Map.of("node1", skipFlag));
+            Map.of("node1", skipFlag),
+            new AtomicBoolean());
 
     final var result =
         control.applyPreProcessingControls("node1", Flux.just(TEST_MESSAGE)).blockLast();
@@ -149,7 +154,8 @@ class ExecutionControlTest {
             Map.of(),
             Map.of(),
             Map.of(),
-            Map.of("node1", skipFlag));
+            Map.of("node1", skipFlag),
+            new AtomicBoolean());
 
     final var result =
         control.applyPreProcessingControls("node1", Flux.just(TEST_MESSAGE)).blockLast();
@@ -170,7 +176,8 @@ class ExecutionControlTest {
             Map.of(),
             Map.of(),
             Map.of(),
-            Map.of());
+            Map.of(),
+            new AtomicBoolean());
 
     final var flux = control.applyPostProcessingControls("unknown", Flux.empty());
     assertThat(flux).isNotNull();
@@ -190,7 +197,8 @@ class ExecutionControlTest {
             Map.of(),
             Map.of(),
             Map.of("node1", new ReactiveControlValve()),
-            Map.of());
+            Map.of(),
+            new AtomicBoolean());
 
     final var result =
         control.applyPostProcessingControls("node1", Flux.just(TEST_MESSAGE)).blockLast();
@@ -211,7 +219,8 @@ class ExecutionControlTest {
             Map.of(),
             Map.of(),
             Map.of(),
-            Map.of());
+            Map.of(),
+            new AtomicBoolean());
 
     final var result =
         control.applyPostProcessingControls("any", Flux.just(TEST_MESSAGE)).blockLast();
@@ -232,7 +241,8 @@ class ExecutionControlTest {
             Map.of("node1", Sinks.one()),
             Map.of(),
             Map.of(),
-            Map.of());
+            Map.of(),
+            new AtomicBoolean());
 
     final var flux = control.applyPostProcessingControls("node1", Flux.empty());
     assertThat(flux).isNotNull();
@@ -252,7 +262,8 @@ class ExecutionControlTest {
             Map.of(),
             Map.of(),
             Map.of("node1", new ReactiveControlValve()),
-            Map.of());
+            Map.of(),
+            new AtomicBoolean());
 
     final var result =
         control.applyPostProcessingControls("node1", Flux.just(TEST_MESSAGE)).blockLast();
@@ -277,7 +288,8 @@ class ExecutionControlTest {
             Map.of(),
             Map.of(),
             Map.of("node1", mockValve),
-            Map.of());
+            Map.of(),
+            new AtomicBoolean());
 
     final var result =
         control.applyPostProcessingControls("node1", Flux.just(TEST_MESSAGE)).blockLast();
@@ -302,7 +314,8 @@ class ExecutionControlTest {
             Map.of(),
             Map.of(),
             Map.of(),
-            Map.of());
+            Map.of(),
+            new AtomicBoolean());
 
     final var result =
         control.applyPostProcessingControls("any", Flux.just(TEST_MESSAGE)).blockLast();
@@ -323,7 +336,8 @@ class ExecutionControlTest {
             Map.of(),
             Map.of(),
             Map.of(),
-            Map.of());
+            Map.of(),
+            new AtomicBoolean());
 
     final var result =
         control.applyPostProcessingControls("any", Flux.just(TEST_MESSAGE)).blockLast();
@@ -344,7 +358,8 @@ class ExecutionControlTest {
             Map.of(),
             Map.of(),
             Map.of("node1", new ReactiveControlValve()),
-            Map.of());
+            Map.of(),
+            new AtomicBoolean());
 
     final var result =
         control.applyPostProcessingControls("node1", Flux.just(TEST_MESSAGE)).blockLast();
@@ -365,7 +380,8 @@ class ExecutionControlTest {
             Map.of("node1", Sinks.one()),
             Map.of(),
             Map.of("node1", new ReactiveControlValve()),
-            Map.of());
+            Map.of(),
+            new AtomicBoolean());
 
     final var flux = control.applyPostProcessingControls("node1", Flux.empty());
     assertThat(flux).isNotNull();
@@ -386,11 +402,11 @@ class ExecutionControlTest {
             Map.of(),
             Map.of(),
             Map.of("n1", valve),
-            Map.of());
+            Map.of(),
+            new AtomicBoolean());
     valve.enableStepMode();
 
-    StepVerifier.create(
-            ctrl.applyPostProcessingControls("n1", Flux.just(TEST_MESSAGE, TEST_MESSAGE)))
+    StepVerifier.create(ctrl.applyPassageGate("n1", Flux.just(TEST_MESSAGE, TEST_MESSAGE)))
         .expectSubscription()
         .expectNoEvent(Duration.ofMillis(100))
         .then(valve::step)
@@ -420,7 +436,8 @@ class ExecutionControlTest {
             Map.of(),
             Map.of(),
             Map.of(),
-            Map.of());
+            Map.of(),
+            new AtomicBoolean());
 
     assertThat(ctrl.payload()).containsEntry("b", 1).containsKey("a");
     assertThat(ctrl.payload()).isUnmodifiable();
@@ -439,7 +456,8 @@ class ExecutionControlTest {
         Map.of(),
         Map.of(),
         nodeValves,
-        Map.of());
+        Map.of(),
+        new AtomicBoolean());
   }
 
   @Test
@@ -469,5 +487,80 @@ class ExecutionControlTest {
 
     assertThat(ctrl.isRunPaused()).isFalse();
     assertThat(ctrl.isPaused("n1")).isFalse();
+  }
+
+  @Test
+  void stepsRequestedBeforeElementsArrive_areKept() {
+    final ReactiveControlValve valve = new ReactiveControlValve();
+    final ExecutionControl ctrl = controlWith(new ReactiveControlValve(), Map.of("n1", valve));
+    valve.enableStepMode();
+    valve.step();
+    valve.step();
+
+    StepVerifier.create(
+            ctrl.applyPassageGate("n1", Flux.just(TEST_MESSAGE, TEST_MESSAGE, TEST_MESSAGE)))
+        .expectNext(TEST_MESSAGE, TEST_MESSAGE)
+        .expectNoEvent(Duration.ofMillis(100))
+        .then(valve::step)
+        .expectNext(TEST_MESSAGE)
+        .verifyComplete();
+  }
+
+  @Test
+  void pause_stopsPullingUpstream_insteadOfDrainingPrefetchBuffer() {
+    final ReactiveControlValve valve = new ReactiveControlValve();
+    final ExecutionControl ctrl = controlWith(new ReactiveControlValve(), Map.of("n1", valve));
+    valve.pause();
+    final java.util.concurrent.atomic.AtomicLong requested =
+        new java.util.concurrent.atomic.AtomicLong();
+    final Flux<Message<?>> upstream =
+        Flux.range(0, 1000).<Message<?>>map(_ -> TEST_MESSAGE).doOnRequest(requested::addAndGet);
+
+    StepVerifier.create(ctrl.applyPassageGate("n1", upstream), 0)
+        .expectSubscription()
+        .thenRequest(100)
+        .expectNoEvent(Duration.ofMillis(200))
+        // at most one element waits at the gate and one is prefetched; the old filterWhen took 256
+        .then(() -> assertThat(requested.get()).isLessThanOrEqualTo(2))
+        .then(valve::resume)
+        .expectNextCount(100)
+        .thenCancel()
+        .verify();
+  }
+
+  @Test
+  void globalPause_holdsEveryNodeUntilResumed() {
+    final ReactiveControlValve global = new ReactiveControlValve();
+    final ExecutionControl ctrl = controlWith(global, Map.of());
+    global.pause();
+
+    StepVerifier.create(ctrl.applyPassageGate("any", Flux.just(TEST_MESSAGE)))
+        .expectSubscription()
+        .expectNoEvent(Duration.ofMillis(100))
+        .then(global::resume)
+        .expectNext(TEST_MESSAGE)
+        .verifyComplete();
+  }
+
+  @Test
+  void passageGate_withoutValves_returnsTheSameFlux() {
+    final ExecutionControl ctrl = controlWith(null, Map.of());
+    final Flux<Message<?>> flux = Flux.empty();
+
+    assertThat(ctrl.applyPassageGate("n1", flux)).isSameAs(flux);
+  }
+
+  @Test
+  void passageGate_withOnlyNodeValve_gatesThatNode() {
+    final ReactiveControlValve valve = new ReactiveControlValve();
+    final ExecutionControl ctrl = controlWith(null, Map.of("n1", valve));
+    valve.pause();
+
+    StepVerifier.create(ctrl.applyPassageGate("n1", Flux.just(TEST_MESSAGE)))
+        .expectSubscription()
+        .expectNoEvent(Duration.ofMillis(100))
+        .then(valve::resume)
+        .expectNext(TEST_MESSAGE)
+        .verifyComplete();
   }
 }
