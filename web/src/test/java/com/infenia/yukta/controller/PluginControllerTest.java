@@ -7,6 +7,7 @@ import static org.mockito.Mockito.when;
 
 import com.infenia.yukta.plugin.core.Plugin;
 import com.infenia.yukta.plugin.core.PluginCategory;
+import com.infenia.yukta.plugin.core.PluginDescriptor;
 import com.infenia.yukta.plugin.core.UiDesign;
 import com.infenia.yukta.service.plugin.PluginRegistry;
 import java.util.List;
@@ -64,9 +65,9 @@ class PluginControllerTest {
     final Plugin plugin = Mockito.mock(Plugin.class);
     when(plugin.getType()).thenReturn(TEST_PLUGIN);
     when(plugin.getCategory()).thenReturn(PluginCategory.PROCESSOR);
-    when(plugin.getDescription()).thenReturn("desc");
-    when(plugin.getUsagePattern()).thenReturn("pattern");
-    when(plugin.getUiDesign()).thenReturn(Optional.of(new UiDesign("design", 100, 100)));
+    when(plugin.describe())
+        .thenReturn(
+            new PluginDescriptor("desc", "pattern", Optional.of(new UiDesign("design", 100, 100))));
     when(plugin.getOutputPorts()).thenReturn(List.of("default"));
     when(registry.get(TEST_PLUGIN)).thenReturn(plugin);
 
@@ -108,9 +109,7 @@ class PluginControllerTest {
     final Plugin plugin = Mockito.mock(Plugin.class);
     when(plugin.getType()).thenReturn(TEST_PLUGIN);
     when(plugin.getCategory()).thenReturn(PluginCategory.PROCESSOR);
-    when(plugin.getDescription()).thenReturn("desc");
-    when(plugin.getUsagePattern()).thenReturn("pattern");
-    when(plugin.getUiDesign()).thenReturn(Optional.empty());
+    when(plugin.describe()).thenReturn(new PluginDescriptor("desc", "pattern", Optional.empty()));
     when(plugin.getOutputPorts()).thenReturn(List.of("default"));
     when(registry.get(TEST_PLUGIN)).thenReturn(plugin);
 

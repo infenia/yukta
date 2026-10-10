@@ -4,12 +4,14 @@ package com.infenia.yukta.plugin.session;
 
 import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
+import com.infenia.yukta.plugin.core.PluginDescriptor;
 import com.infenia.yukta.plugin.type.ProcessorPlugin;
 import com.infenia.yukta.util.MapUtils;
 import com.infenia.yukta.util.VariableResolver;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -44,18 +46,20 @@ public class SessionMemoryPlugin implements ProcessorPlugin {
   private final VariableResolver resolver;
 
   @Override
+  public PluginDescriptor describe() {
+    return new PluginDescriptor(
+        "Chat memory per session id: 'load' attaches history to the payload and records the "
+            + "user turn, 'append' records the assistant turn.",
+        usagePattern(),
+        Optional.empty());
+  }
+
+  @Override
   public String getType() {
     return TYPE;
   }
 
-  @Override
-  public String getDescription() {
-    return "Chat memory per session id: 'load' attaches history to the payload and records the "
-        + "user turn, 'append' records the assistant turn.";
-  }
-
-  @Override
-  public String getUsagePattern() {
+  private static String usagePattern() {
     // CHECKSTYLE.OFF: Indentation
     // CHECKSTYLE.OFF: TextBlockGoogleStyleFormatting
     return """

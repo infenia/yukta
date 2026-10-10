@@ -3,6 +3,7 @@
 package com.infenia.yukta.plugin.core.router;
 
 import com.infenia.yukta.message.Message;
+import com.infenia.yukta.plugin.core.PluginDescriptor;
 import com.infenia.yukta.plugin.core.UiDesign;
 import com.infenia.yukta.plugin.core.WorkflowContext;
 import com.infenia.yukta.plugin.exception.NoMatchingBranchException;
@@ -58,52 +59,45 @@ public class BranchProcessor implements ProcessorPlugin {
   }
 
   @Override
-  public String getDescription() {
-    return "Routes messages to different ports based on conditions or selectors. Supports exact"
-        + " match and SpEL predicate modes.";
-  }
-
-  @Override
-  public String getUsagePattern() {
-    return "Configure with:\n"
-        + "- mode: 'SELECT_KEY' (evaluates selector and looks up in cases) or 'EXPRESSION' "
-        + "(evaluates each case key as a predicate).\n"
-        + "- selector: SpEL expression used in 'SELECT_KEY' mode.\n"
-        + "- cases: Map where keys are match values (SELECT_KEY) or SpEL predicates (EXPRESSION), "
-        + "and values are output port names.\n"
-        + "- defaultPort: Optional port name if no matches are found.\n"
-        + "- allowMultipleMatches: Boolean. If true, message can be routed to multiple ports. "
-        + "Default is false.\n"
-        + "- strictMode: Boolean. If true (default), throws exception if no branch matches and "
-        + "no defaultPort is set.\n"
-        + "- errorPort: Optional port name to route messages when evaluation fails. Adds "
-        + "failure metadata to the message.";
+  public PluginDescriptor describe() {
+    return new PluginDescriptor(
+        "Routes messages to different ports based on conditions or selectors. Supports exact"
+            + " match and SpEL predicate modes.",
+        "Configure with:\n"
+            + "- mode: 'SELECT_KEY' (evaluates selector and looks up in cases) or 'EXPRESSION'"
+            + " (evaluates each case key as a predicate).\n"
+            + "- selector: SpEL expression used in 'SELECT_KEY' mode.\n"
+            + "- cases: Map where keys are match values (SELECT_KEY) or SpEL predicates"
+            + " (EXPRESSION), and values are output port names.\n"
+            + "- defaultPort: Optional port name if no matches are found.\n"
+            + "- allowMultipleMatches: Boolean. If true, message can be routed to multiple ports."
+            + " Default is false.\n"
+            + "- strictMode: Boolean. If true (default), throws exception if no branch matches and"
+            + " no defaultPort is set.\n"
+            + "- errorPort: Optional port name to route messages when evaluation fails. Adds"
+            + " failure metadata to the message.",
+        Optional.of(
+            new UiDesign(
+                """
+                <div class="flex items-center w-full h-full bg-slate-50 border-2 border-slate-200 rounded-xl px-4 gap-3">
+                    <div class="flex-shrink-0 w-8 h-8 bg-indigo-100 rounded-lg flex items-center justify-center text-indigo-500">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h8a2 2 0 012 2v10M8 17H6a2 2 0 01-2-2V5a2 2 0 012-2h8a2 2 0 012 2v2M21 21l-3-3m0 0l-3 3m3-3v-8"/>
+                        </svg>
+                    </div>
+                    <div class="flex flex-col min-w-0">
+                        <div class="text-[10px] text-slate-400 font-bold uppercase tracking-wider leading-none mb-1">Branch</div>
+                        <div class="text-xs font-bold text-slate-700 truncate w-full">{{nodeId}}</div>
+                    </div>
+                </div>
+                """,
+                140,
+                80)));
   }
 
   @Override
   public String getType() {
     return TYPE;
-  }
-
-  @Override
-  public Optional<UiDesign> getUiDesign() {
-    return Optional.of(
-        new UiDesign(
-            """
-            <div class="flex items-center w-full h-full bg-slate-50 border-2 border-slate-200 rounded-xl px-4 gap-3">
-                <div class="flex-shrink-0 w-8 h-8 bg-indigo-100 rounded-lg flex items-center justify-center text-indigo-500">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h8a2 2 0 012 2v10M8 17H6a2 2 0 01-2-2V5a2 2 0 012-2h8a2 2 0 012 2v2M21 21l-3-3m0 0l-3 3m3-3v-8"/>
-                    </svg>
-                </div>
-                <div class="flex flex-col min-w-0">
-                    <div class="text-[10px] text-slate-400 font-bold uppercase tracking-wider leading-none mb-1">Branch</div>
-                    <div class="text-xs font-bold text-slate-700 truncate w-full">{{nodeId}}</div>
-                </div>
-            </div>
-            """,
-            140,
-            80));
   }
 
   @Override

@@ -4,6 +4,7 @@ package com.infenia.yukta.plugin.process;
 
 import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
+import com.infenia.yukta.plugin.core.PluginDescriptor;
 import com.infenia.yukta.plugin.exception.WorkflowExecutionException;
 import com.infenia.yukta.plugin.type.ProcessorPlugin;
 import com.infenia.yukta.util.MapUtils;
@@ -14,6 +15,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -76,19 +78,21 @@ public class ProcessExecutorPlugin implements ProcessorPlugin {
   private final VariableResolver resolver;
 
   @Override
+  public PluginDescriptor describe() {
+    return new PluginDescriptor(
+        "Executes external processes and emits a configurable result (exit code, output, "
+            + "duration). Supports multi-OS (Linux, macOS, Windows) with shell wrapping, stderr "
+            + "capture, output caps, and proper cleanup on timeout/error.",
+        usagePattern(),
+        Optional.empty());
+  }
+
+  @Override
   public String getType() {
     return TYPE;
   }
 
-  @Override
-  public String getDescription() {
-    return "Executes external processes and emits a configurable result (exit code, output, "
-        + "duration). Supports multi-OS (Linux, macOS, Windows) with shell wrapping, stderr "
-        + "capture, output caps, and proper cleanup on timeout/error.";
-  }
-
-  @Override
-  public String getUsagePattern() {
+  private static String usagePattern() {
     // CHECKSTYLE.OFF: Indentation
     // CHECKSTYLE.OFF: TextBlockGoogleStyleFormatting
     return """

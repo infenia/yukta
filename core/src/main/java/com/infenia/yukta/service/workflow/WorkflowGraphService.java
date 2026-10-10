@@ -68,8 +68,8 @@ public class WorkflowGraphService {
               node.nodeId(),
               node.type(),
               plugin.getCategory(),
-              plugin.getDescription(),
-              plugin.getUiDesign().orElse(null),
+              plugin.describe().description(),
+              plugin.describe().uiDesign().orElse(null),
               plugin.getOutputPorts(node.config()));
     }
     return enriched;

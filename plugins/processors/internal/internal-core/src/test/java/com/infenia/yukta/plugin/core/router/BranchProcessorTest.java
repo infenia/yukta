@@ -221,7 +221,7 @@ class BranchProcessorTest {
 
   @Test
   void testGetUiDesign() {
-    final Optional<UiDesign> design = processor.getUiDesign();
+    final Optional<UiDesign> design = processor.describe().uiDesign();
     assertTrue(design.isPresent());
     assertEquals(140, design.get().width());
     assertEquals(80, design.get().height());
@@ -230,8 +230,8 @@ class BranchProcessorTest {
 
   @Test
   void testMetadata() {
-    assertTrue(processor.getDescription().contains("Routes"));
-    assertTrue(processor.getUsagePattern().contains("mode"));
+    assertTrue(processor.describe().description().contains("Routes"));
+    assertTrue(processor.describe().usagePattern().contains("mode"));
   }
 
   @Test
