@@ -10,7 +10,6 @@ import com.infenia.yukta.logging.api.LogLevel;
 import com.infenia.yukta.logging.api.LogStream;
 import com.infenia.yukta.logging.api.PluginLogEntry;
 import com.infenia.yukta.model.execution.ControlState;
-import com.infenia.yukta.model.execution.TaskProgress;
 import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
 import com.infenia.yukta.model.execution.WorkflowProgress;
@@ -25,7 +24,6 @@ import com.infenia.yukta.validation.WorkflowId;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
-import io.micrometer.observation.Observation;
 import io.micrometer.observation.ObservationRegistry;
 import jakarta.annotation.PostConstruct;
 import jakarta.validation.constraints.NotBlank;
@@ -39,7 +37,6 @@ import java.time.ZoneId;
 import java.util.ArrayDeque;
 import java.util.Collections;
 import java.util.Deque;
-import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -94,14 +91,8 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
   /** Time to live for execution data after terminal status. */
   private final Duration cleanupTtl;
 
-  /** Registry for the node metrics. */
-  private final MeterRegistry meters;
-
-  /** Registry that turns node runs into observations (spans, when a tracer is configured). */
-  private final ObservationRegistry observations;
-
-  /** Observations of nodes that are running, by execution and node. */
-  private final Map<String, Observation> nodeSpans = new ConcurrentHashMap<>();
+  /** Metrics and observations of runs and nodes. */
+  private final RunTelemetry telemetry;
 
   /** Cache for storing recent workflow progress updates per execution. */
   private final StatusHistoryCache statusHistoryCache;
@@ -159,8 +150,7 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
     this.cleanupTtl = cleanupTtl;
     this.statusHistoryCache = statusHistoryCache;
     this.executionLog = executionLog;
-    this.meters = meters;
-    this.observations = observations;
+    this.telemetry = new RunTelemetry(meters, observations);
   }
 
   /**
@@ -250,6 +240,7 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
               .put(executionId, state);
 
           executionIndex.put(executionId, state);
+          telemetry.runStarted(executionId, sessionId, workflowId);
 
           latestExecs.put(getLatestKey(sessionId, workflowId), executionId);
 
@@ -364,6 +355,11 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
     notifyStatusChange(executionId);
   }
 
+  @Override
+  public void recordRetry(final String module) {
+    telemetry.retried(module);
+  }
+
   /**
    * Emit a workflow status event for asynchronous processing.
    *
@@ -401,7 +397,7 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
     // can never delay or displace a state change.
     if (pendingLogs.incrementAndGet() > MAX_PENDING_LOGS) {
       pendingLogs.decrementAndGet();
-      meters.counter(DROPPED_METRIC, "type", "log").increment();
+      telemetry.dropped(DROPPED_METRIC, "log");
       return;
     }
     publish(WorkflowLogEvent.create(executionId, nodeId, line));
@@ -410,7 +406,7 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
   /** Queues a state or log event; the queue is unbounded, so this only fails once terminated. */
   private void publish(final TrackerEvent event) {
     if (!SinkEmit.offer(eventSink, event)) {
-      meters.counter(DROPPED_METRIC, "type", "state").increment();
+      telemetry.dropped(DROPPED_METRIC, "state");
       log.atError()
           .addKeyValue("event", event.getClass().getSimpleName())
           .log("Tracker event lost");
@@ -754,10 +750,10 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
     }
     state.updateTask(event.nodeId(), event.module(), event.status(), event.metadata());
     if (state.taskMap.containsKey(event.nodeId())) {
-      traceNode(event);
+      telemetry.traceNode(event, isTerminal(event.status()));
     }
     if (isTerminal(event.status())) {
-      recordNode(state.taskMap.get(event.nodeId()));
+      telemetry.nodeEnded(state.taskMap.get(event.nodeId()));
     }
     if (TaskStatus.SUCCESS.name().equals(event.status())) {
       executionLog.append(
@@ -765,60 +761,6 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
               state.executionId, state.sessionId, state.workflowId, event.nodeId()));
     }
     touched.add(event.executionId());
-  }
-
-  /** Stops observations of nodes that were finalized with the run instead of ending themselves. */
-  private void closeNodeSpans(final String executionId) {
-    final String prefix = executionId + "\0";
-    nodeSpans
-        .keySet()
-        .removeIf(
-            key -> {
-              if (!key.startsWith(prefix)) {
-                return false;
-              }
-              final Observation span = nodeSpans.get(key);
-              span.lowCardinalityKeyValue("status", TaskStatus.CANCELLED.name());
-              span.stop();
-              return true;
-            });
-  }
-
-  /** Opens an observation when a node starts running and closes it when the node ends. */
-  private void traceNode(final TaskStatusEvent event) {
-    final String key = event.executionId() + "\0" + event.nodeId();
-    if (TaskStatus.RUNNING.name().equals(event.status())) {
-      nodeSpans.computeIfAbsent(
-          key,
-          _ ->
-              Observation.createNotStarted("yukta.node", observations)
-                  .contextualName("node " + event.nodeId())
-                  .lowCardinalityKeyValue("module", String.valueOf(event.module()))
-                  .highCardinalityKeyValue("executionId", event.executionId())
-                  .highCardinalityKeyValue("nodeId", event.nodeId())
-                  .start());
-    } else if (isTerminal(event.status())) {
-      final Observation span = nodeSpans.remove(key);
-      if (span != null) {
-        span.lowCardinalityKeyValue("status", event.status());
-        span.stop();
-      }
-    }
-  }
-
-  /** Counts the node outcome by plugin and status, and times nodes that actually ran. */
-  private void recordNode(final TaskProgress task) {
-    if (task == null) {
-      return;
-    }
-    meters
-        .counter("yukta.node.executions", "module", task.module(), "status", task.status())
-        .increment();
-    if (task.startTime() != null && task.endTime() != null) {
-      meters
-          .timer("yukta.node.duration", "module", task.module())
-          .record(Duration.between(task.startTime(), task.endTime()));
-    }
   }
 
   private void applyWorkflow(final WorkflowStatusEvent event, final Set<String> touched) {
@@ -829,11 +771,15 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
           .log("Received workflow status event for unknown execution");
       return;
     }
-    if (isTerminal(event.status())) {
+    final boolean terminal = isTerminal(event.status());
+    if (terminal) {
       // Every node event before this one is already applied, so what is still open is final.
       state.finalizeTasks(event.status());
-      closeNodeSpans(event.executionId());
       state.setEndTime(event.timestamp());
+    }
+    telemetry.runStatus(
+        event.executionId(), event.status(), terminal, state.startTime, event.timestamp());
+    if (terminal) {
       executionLog.append(
           ExecutionLogEvent.finished(
               state.executionId,
@@ -1030,180 +976,6 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
       while (finished.size() > MAX_FINISHED_PER_SESSION) {
         states.remove(finished.removeFirst());
       }
-    }
-  }
-
-  /** Tracks the state of a workflow execution; written by the event thread, read by requests. */
-  @SuppressWarnings("PMD.AvoidUsingVolatile")
-  private static final class WorkflowState {
-    /** The execution identifier. */
-    private final String executionId;
-
-    /** The session identifier. */
-    private final String sessionId;
-
-    /** The workflow identifier. */
-    private final String workflowId;
-
-    /** The current execution status. */
-    private volatile String status;
-
-    /** The latest operator control state, or null. */
-    private volatile String controlState;
-
-    /** The definition version (graph hash) this run uses, or null until recorded. */
-    private volatile String definitionVersion;
-
-    /** Map of task progress by node ID. */
-    private final Map<String, TaskProgress> taskMap;
-
-    /** The start time of the execution. */
-    private final LocalDateTime startTime;
-
-    /** The end time of the execution. */
-    private volatile LocalDateTime endTime;
-
-    /* default */ WorkflowState(
-        final String executionId,
-        final String sessionId,
-        final String workflowId,
-        final String status,
-        final List<String> nodeIds,
-        final LocalDateTime startTime) {
-      this.executionId = executionId;
-      this.sessionId = sessionId;
-      this.workflowId = workflowId;
-      this.status = status;
-      this.taskMap = Collections.synchronizedMap(new LinkedHashMap<>(nodeIds.size()));
-      nodeIds.forEach(
-          nodeId ->
-              taskMap.put(
-                  nodeId,
-                  new TaskProgress(nodeId, "", "PENDING", null, null, Collections.emptyMap())));
-      this.startTime = startTime;
-    }
-
-    /* default */ void updateTask(
-        final String nodeId,
-        final String module,
-        final String status,
-        final Map<String, Object> metadata) {
-      taskMap.compute(
-          nodeId,
-          (_, old) -> {
-            if (old == null) {
-              return null;
-            }
-            // A node only moves forward: a late event never reopens an ended node or steps back,
-            // though what it reports is still merged.
-            return createUpdatedTask(
-                old, module, mayMoveTo(old.status(), status) ? status : old.status(), metadata);
-          });
-    }
-
-    /** Whether a node in status {@code current} may be reported as {@code next}. */
-    /* default */ static boolean mayMoveTo(final String current, final String next) {
-      return current.equals(next)
-          || (!TaskStatus.isTerminalName(current) && rank(next) >= rank(current));
-    }
-
-    private static int rank(final String status) {
-      return switch (status) {
-        case "PENDING" -> 0;
-        case "QUEUED" -> 1;
-        case "RUNNING" -> 2;
-        default -> 3;
-      };
-    }
-
-    /**
-     * Gives every node that has not reached a terminal status its final one, once the run has
-     * ended. A running node was cancelled; a node that never started was skipped when the run
-     * succeeded, never reached when it failed, and cancelled otherwise.
-     */
-    /* default */ void finalizeTasks(final String runStatus) {
-      final LocalDateTime now = LocalDateTime.now(ZoneId.systemDefault());
-      taskMap.replaceAll(
-          (_, task) -> {
-            if (isTerminalStatus(task.status())) {
-              return task;
-            }
-            final TaskStatus finalStatus = finalStatusFor(task.status(), runStatus);
-            return new TaskProgress(
-                task.nodeId(),
-                task.module(),
-                finalStatus.name(),
-                task.startTime(),
-                now,
-                task.metadata());
-          });
-    }
-
-    private static TaskStatus finalStatusFor(final String taskStatus, final String runStatus) {
-      if (!TaskStatus.PENDING.name().equals(taskStatus)) {
-        return TaskStatus.CANCELLED;
-      }
-      return switch (TaskStatus.valueOf(runStatus)) {
-        case SUCCESS -> TaskStatus.SKIPPED;
-        case FAILURE, ERROR, TIMED_OUT -> TaskStatus.UPSTREAM_FAILED;
-        default -> TaskStatus.CANCELLED;
-      };
-    }
-
-    /* default */ Map<String, String> nodeStatuses() {
-      final Map<String, String> statuses = new ConcurrentHashMap<>();
-      taskMap.forEach((nodeId, task) -> statuses.put(nodeId, task.status()));
-      return statuses;
-    }
-
-    /* default */ List<TaskProgress> getTasks() {
-      return List.copyOf(taskMap.values());
-    }
-
-    private TaskProgress createUpdatedTask(
-        final TaskProgress current,
-        final String module,
-        final String status,
-        final Map<String, Object> metadata) {
-      final LocalDateTime taskStartTime = determineStartTime(current.startTime(), status);
-      final LocalDateTime taskEndTime = determineEndTime(current.endTime(), status);
-      final Map<String, Object> newMetadata = mergeMetadata(current.metadata(), metadata);
-
-      return new TaskProgress(
-          current.nodeId(), module, status, taskStartTime, taskEndTime, Map.copyOf(newMetadata));
-    }
-
-    private LocalDateTime determineStartTime(final LocalDateTime current, final String status) {
-      return ("RUNNING".equals(status) && current == null)
-          ? LocalDateTime.now(ZoneId.systemDefault())
-          : current;
-    }
-
-    private LocalDateTime determineEndTime(final LocalDateTime current, final String status) {
-      return (isTerminalStatus(status) && current == null)
-          ? LocalDateTime.now(ZoneId.systemDefault())
-          : current;
-    }
-
-    private Map<String, Object> mergeMetadata(
-        final Map<String, Object> current, final Map<String, Object> additional) {
-      final Map<String, Object> merged = new ConcurrentHashMap<>(current);
-      if (additional != null) {
-        merged.putAll(additional);
-      }
-      return merged;
-    }
-
-    /* default */ void setStatus(final String status) {
-      this.status = status;
-    }
-
-    /* default */ void setControlState(final String controlState) {
-      this.controlState = controlState;
-    }
-
-    /* default */ void setEndTime(final LocalDateTime endTime) {
-      this.endTime = endTime;
     }
   }
 }

@@ -217,12 +217,22 @@ public class JsonlExecutionLogStore implements ExecutionLogStore {
   private void compact() {
     final List<ExecutionLogEvent> events = read();
     final List<String> runs = new ArrayList<>(new LinkedHashSet<>(ids(events)));
+    runs.remove(ExecutionLogEvent.SCHEDULER);
     if (runs.size() <= retainedRuns) {
       return;
     }
     final Set<String> keep =
         new LinkedHashSet<>(runs.subList(runs.size() - retainedRuns, runs.size()));
-    rewrite(events.stream().filter(event -> keep.contains(event.executionId())).toList());
+    // scheduler changes belong to no run: keep the newest few
+    final List<ExecutionLogEvent> scheduler =
+        events.stream().filter(e -> ExecutionLogEvent.SCHEDULER.equals(e.executionId())).toList();
+    final Set<ExecutionLogEvent> keepScheduler =
+        Set.copyOf(
+            scheduler.subList(Math.max(0, scheduler.size() - retainedRuns), scheduler.size()));
+    rewrite(
+        events.stream()
+            .filter(event -> keep.contains(event.executionId()) || keepScheduler.contains(event))
+            .toList());
     log.atInfo()
         .addKeyValue("dropped", runs.size() - retainedRuns)
         .log("Compacted the execution log");

@@ -12,6 +12,7 @@ import com.infenia.yukta.model.workflow.WorkflowNode;
 import com.infenia.yukta.plugin.core.Plugin;
 import com.infenia.yukta.plugin.type.ProcessorPlugin;
 import com.infenia.yukta.service.control.store.ActivePluginRegistry;
+import com.infenia.yukta.service.orchestrator.stream.FailureLedger;
 import com.infenia.yukta.service.orchestrator.stream.NodeActivity;
 import com.infenia.yukta.service.orchestrator.stream.NodePolicies;
 import com.infenia.yukta.service.orchestrator.stream.NodeTimeouts;
@@ -20,7 +21,9 @@ import com.infenia.yukta.service.orchestrator.stream.UpstreamFailure;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import com.infenia.yukta.util.VariableResolver;
 import java.time.Duration;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Function;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.annotation.Order;
@@ -70,7 +73,34 @@ public class ProcessorNodeAssemblerStrategy implements NodeAssemblerStrategy {
     return isSupported;
   }
 
+  /** Whether this is a repeat of a message the plugin already failed on. */
+  private static boolean retried(final Message<?> attempt) {
+    return attempt.metadata().get(NodePolicies.ATTEMPT_HEADER) instanceof Integer number
+        && number > 1;
+  }
+
+  /**
+   * Lets elements skip the plugin while the node's skip flag is set. The decision is taken once per
+   * element, when it arrives, so a skip applies from the next element on; an element the plugin
+   * already has finishes normally. Skipped elements go straight to the output.
+   */
+  private static Flux<Message<?>> bypassWhileSkipped(
+      final Flux<Message<?>> input,
+      final AtomicBoolean skipFlag,
+      final Function<Flux<Message<?>>, Flux<Message<?>>> run) {
+    return input
+        .map(message -> Map.entry(skipFlag.get(), message))
+        // prefetch 1 keeps a paused node from running ahead of its gate
+        .publish(
+            routed ->
+                Flux.merge(
+                    run.apply(routed.filter(entry -> !entry.getKey()).map(Map.Entry::getValue)),
+                    routed.filter(Map.Entry::getKey).map(Map.Entry::getValue)),
+            1);
+  }
+
   @Override
+  @SuppressWarnings("PMD.CognitiveComplexity")
   public NodeAssembler createAssembler(
       final WorkflowNode node,
       final Plugin plugin,
@@ -128,19 +158,33 @@ public class ProcessorNodeAssemblerStrategy implements NodeAssemblerStrategy {
         final Flux<Message<?>> channelInput =
             channel.inbound(node.nodeId(), context.executionId(), timedInput);
         final NodePolicy policy = NodePolicy.from(node.config());
-        final Flux<Message<?>> pluginOutput =
+        // failures are counted per run, so the ledger belongs to this assembly, not to the node
+        final FailureLedger ledger =
+            policy.failureBudget() == null ? null : new FailureLedger(policy.failureBudget());
+        final Function<Flux<Message<?>>, Flux<Message<?>>> run =
             policy.perMessage()
                 // prefetch 1: a paused node must not have 32 elements already past the gate
-                ? channelInput.concatMap(
-                    message ->
-                        NodePolicies.apply(
-                            policy,
-                            node.nodeId(),
-                            message,
-                            attempt -> processor.process(Flux.just(attempt), node.config()),
-                            activity::touch),
-                    1)
-                : processor.process(channelInput, node.config());
+                ? input ->
+                    input.concatMap(
+                        message ->
+                            NodePolicies.apply(
+                                policy,
+                                node.nodeId(),
+                                message,
+                                attempt -> {
+                                  if (retried(attempt)) {
+                                    tracker.recordRetry(node.type());
+                                  }
+                                  return processor.process(Flux.just(attempt), node.config());
+                                },
+                                activity::touch,
+                                ledger),
+                        1)
+                : input -> processor.process(input, node.config());
+        final Flux<Message<?>> pluginOutput =
+            skipFlag == null
+                ? run.apply(channelInput)
+                : bypassWhileSkipped(channelInput, skipFlag, run);
         stream = channel.outbound(node.nodeId(), context.executionId(), pluginOutput);
         if (processor.isBlocking()) {
           log.atDebug()

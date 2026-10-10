@@ -4,9 +4,10 @@ package com.infenia.yukta.service.control.gateway;
 
 import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
+import com.infenia.yukta.model.execution.TaskProgress;
+import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
 import com.infenia.yukta.model.execution.WorkflowProgress;
-import com.infenia.yukta.model.workflow.PreparedWorkflow;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.DisableStepModeCommand;
@@ -17,6 +18,7 @@ import com.infenia.yukta.plugin.control.ExecutionControlCommand.RestartCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.RestartFromNodeCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.ResumeNodeCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.ResumeWorkflowCommand;
+import com.infenia.yukta.plugin.control.ExecutionControlCommand.SetBreakpointCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.SkipNodeCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.StepNodeCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.StopNodeCommand;
@@ -29,23 +31,24 @@ import com.infenia.yukta.service.control.ControlBusService;
 import com.infenia.yukta.service.control.ExecutionControl;
 import com.infenia.yukta.service.control.ExecutionScheduler;
 import com.infenia.yukta.service.control.store.ExecutionControlRegistry;
+import com.infenia.yukta.service.log.ExecutionLogEvent;
+import com.infenia.yukta.service.log.ExecutionLogStore;
 import com.infenia.yukta.service.orchestrator.WorkflowOrchestrator;
 import com.infenia.yukta.service.orchestrator.tracker.DefaultTaskTrackerService;
 import com.infenia.yukta.service.workflow.store.PreparedWorkflowCache;
 import com.infenia.yukta.service.workflow.store.WorkflowDefinitionStore;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.publisher.Sinks;
-import reactor.core.scheduler.Schedulers;
 
 /**
  * Default implementation of the {@link ControlBusGateway}.
@@ -56,7 +59,6 @@ import reactor.core.scheduler.Schedulers;
 @Slf4j
 @Service
 @Primary
-@RequiredArgsConstructor
 @SuppressWarnings({
   "PMD.ExcessiveImports",
   "PMD.CouplingBetweenObjects",
@@ -89,23 +91,56 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
   /** Finished executions that can still be restarted. */
   private final ExecutionArchive executionArchive;
 
-  /** The workflow orchestrator for executing workflows. */
-  private final WorkflowOrchestrator orchestrator;
-
-  /** The workflow definition store for accessing workflow definitions. */
-  private final WorkflowDefinitionStore workflowDefinitionStore;
-
-  /** The prepared workflow cache for caching compiled workflows. */
-  private final PreparedWorkflowCache preparedWorkflowCache;
-
   /** Limits and queues concurrent executions. */
   private final ExecutionScheduler executionScheduler;
 
-  /** Makes starts safe to retry. */
-  private final StartIdempotency startIdempotency;
+  /** Records changes that do not go through a run's command queue. */
+  private final ExecutionLogStore executionLog;
 
-  /** Preparations in flight, so concurrent starts of one workflow prepare it once. */
-  private final Map<PrepareKey, Mono<PreparedWorkflow>> preparing = new ConcurrentHashMap<>();
+  /** Starts executions. */
+  private final WorkflowStarter starter;
+
+  /**
+   * Creates the gateway.
+   *
+   * @param controlBusService delivers the control commands
+   * @param taskTracker tracks runs
+   * @param executionControlRegistry finds live runs
+   * @param executionArchive finished runs that can be restarted
+   * @param orchestrator prepares and runs workflows
+   * @param workflowDefinitionStore the stored definitions
+   * @param preparedWorkflowCache prepared workflows
+   * @param executionScheduler limits and queues executions
+   * @param startIdempotency makes starts safe to retry
+   * @param executionLog records changes that belong to no run's command queue
+   */
+  @SuppressWarnings("PMD.ExcessiveParameterList")
+  @SuppressFBWarnings("EI_EXPOSE_REP2")
+  public DefaultControlBusGateway(
+      final ControlBusService controlBusService,
+      final DefaultTaskTrackerService taskTracker,
+      final ExecutionControlRegistry executionControlRegistry,
+      final ExecutionArchive executionArchive,
+      final WorkflowOrchestrator orchestrator,
+      final WorkflowDefinitionStore workflowDefinitionStore,
+      final PreparedWorkflowCache preparedWorkflowCache,
+      final ExecutionScheduler executionScheduler,
+      final StartIdempotency startIdempotency,
+      final ExecutionLogStore executionLog) {
+    this.controlBusService = controlBusService;
+    this.taskTracker = taskTracker;
+    this.executionControlRegistry = executionControlRegistry;
+    this.executionArchive = executionArchive;
+    this.executionScheduler = executionScheduler;
+    this.executionLog = executionLog;
+    this.starter =
+        new WorkflowStarter(
+            workflowDefinitionStore,
+            preparedWorkflowCache,
+            orchestrator,
+            executionScheduler,
+            startIdempotency);
+  }
 
   private <T extends ExecutionControlCommand> Message<T> buildCommand(
       final T command, final int priority) {
@@ -228,7 +263,7 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
   @Override
   public Mono<String> startWorkflow(
       final String sessionId, final String workflowId, final Map<String, Object> payload) {
-    return startOnce(sessionId, workflowId, payload);
+    return starter.start(sessionId, workflowId, payload);
   }
 
   @Override
@@ -237,140 +272,7 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
       final String workflowId,
       final Map<String, Object> payload,
       final String idempotencyKey) {
-    return startIdempotency.once(
-        sessionId + "\0" + workflowId,
-        idempotencyKey,
-        () -> startOnce(sessionId, workflowId, payload));
-  }
-
-  private Mono<String> startOnce(
-      final String sessionId, final String workflowId, final Map<String, Object> payload) {
-    log.atInfo()
-        .addKeyValue("sessionId", sessionId)
-        .addKeyValue("workflowId", workflowId)
-        .log("Starting workflow execution");
-
-    return workflowDefinitionStore
-        .find(sessionId, workflowId)
-        .switchIfEmpty(
-            Mono.defer(
-                () -> {
-                  log.atWarn()
-                      .addKeyValue("sessionId", sessionId)
-                      .addKeyValue("workflowId", workflowId)
-                      .log("Workflow definition not found");
-                  return Mono.error(
-                      new NotFoundException(
-                          "Workflow not found for session: "
-                              + sessionId
-                              + ", workflow: "
-                              + workflowId));
-                }))
-        .flatMap(
-            def -> {
-              log.atDebug()
-                  .addKeyValue("sessionId", sessionId)
-                  .addKeyValue("workflowId", workflowId)
-                  .addKeyValue("nodeCount", def.nodes().size())
-                  .addKeyValue("edgeCount", def.edges().size())
-                  .log("Workflow definition found and loaded");
-
-              // Refuse at once, with a reason, a start that could neither run nor be queued.
-              executionScheduler.assertCanAccept(sessionId, workflowId);
-              final String executionId = UUID.randomUUID().toString();
-              return prepareAndExecute(sessionId, workflowId, def, executionId, payload);
-            })
-        .doOnSuccess(
-            executionId ->
-                log.atInfo()
-                    .addKeyValue("sessionId", sessionId)
-                    .addKeyValue("workflowId", workflowId)
-                    .addKeyValue("executionId", executionId)
-                    .log("Workflow execution started successfully"))
-        .doOnError(
-            err ->
-                log.atError()
-                    .setCause(err)
-                    .addKeyValue("sessionId", sessionId)
-                    .addKeyValue("workflowId", workflowId)
-                    .log("Failed to start workflow execution"));
-  }
-
-  /** Prepares a workflow once even when several starts ask for it at the same time. */
-  private Mono<PreparedWorkflow> prepareShared(
-      final String sessionId,
-      final String workflowId,
-      final WorkflowDefinition def,
-      final String executionId) {
-    // The key holds the definition itself (a record, compared by content), so a start with a
-    // newer definition never joins the preparation of an older one.
-    final PrepareKey key = new PrepareKey(sessionId, workflowId, def);
-    return preparing.computeIfAbsent(
-        key,
-        _ ->
-            orchestrator
-                .prepareWorkflow(def)
-                .flatMap(
-                    prepared ->
-                        // Cache only if the definition is still the current one: a replace that
-                        // happened while preparing has already invalidated the cache.
-                        workflowDefinitionStore
-                            .find(sessionId, workflowId)
-                            .filter(def::equals)
-                            .doOnNext(
-                                _ -> {
-                                  log.atDebug()
-                                      .addKeyValue("executionId", executionId)
-                                      .log("Workflow prepared and caching");
-                                  preparedWorkflowCache.put(sessionId, workflowId, prepared);
-                                })
-                            .thenReturn(prepared))
-                .doFinally(_ -> preparing.remove(key))
-                .cache());
-  }
-
-  private Mono<String> prepareAndExecute(
-      final String sessionId,
-      final String workflowId,
-      final WorkflowDefinition def,
-      final String executionId,
-      final Map<String, Object> payload) {
-    return Mono.defer(
-            () -> {
-              log.atDebug()
-                  .addKeyValue("sessionId", sessionId)
-                  .addKeyValue("workflowId", workflowId)
-                  .addKeyValue("executionId", executionId)
-                  .log("Preparing workflow for execution");
-
-              final java.util.Optional<PreparedWorkflow> cached =
-                  preparedWorkflowCache.get(sessionId, workflowId);
-              if (cached.isPresent()) {
-                log.atDebug()
-                    .addKeyValue("sessionId", sessionId)
-                    .addKeyValue("workflowId", workflowId)
-                    .addKeyValue("executionId", executionId)
-                    .log("Using cached PreparedWorkflow");
-                return Mono.just(cached.get());
-              } else {
-                return prepareShared(sessionId, workflowId, def, executionId);
-              }
-            })
-        .flatMap(
-            prepared -> {
-              orchestrator
-                  .execute(sessionId, workflowId, executionId, prepared, payload)
-                  .subscribeOn(Schedulers.boundedElastic())
-                  .doOnError(
-                      err ->
-                          log.atError()
-                              .setCause(err)
-                              .addKeyValue("executionId", executionId)
-                              .log("Async workflow execution failed"))
-                  .onErrorComplete()
-                  .subscribe();
-              return Mono.just(executionId);
-            });
+    return starter.start(sessionId, workflowId, payload, idempotencyKey);
   }
 
   @Override
@@ -596,6 +498,95 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
                     .setCause(err)
                     .addKeyValue("executionId", executionId)
                     .log("Failed to stop execution"));
+  }
+
+  @Override
+  @SuppressWarnings("PMD.UseObjectForClearerAPI")
+  public Mono<Void> addBreakpoint(
+      final String executionId, final String nodeId, final String field, final String equalsValue) {
+    return breakpoint(executionId, nodeId, field, equalsValue);
+  }
+
+  @Override
+  public Mono<Void> clearBreakpoint(final String executionId, final String nodeId) {
+    return breakpoint(executionId, nodeId, null, null);
+  }
+
+  private Mono<Void> breakpoint(
+      final String executionId, final String nodeId, final String field, final String equalsValue) {
+    return Mono.fromSupplier(() -> requireNodeControl(executionId, nodeId))
+        .flatMap(
+            control ->
+                executeCommand(
+                    buildCommand(
+                        new SetBreakpointCommand(executionId, nodeId, field, equalsValue),
+                        CONTROL_COMMAND_PRIORITY)));
+  }
+
+  @Override
+  public Mono<String> retryNode(final String executionId, final String nodeId) {
+    return Mono.defer(
+        () -> {
+          final WorkflowProgress progress = taskTracker.getProgressByExecutionId(executionId);
+          if (progress == null) {
+            return Mono.error(new NotFoundException("Execution not found: " + executionId));
+          }
+          final String status =
+              progress.tasks().stream()
+                  .filter(task -> task.nodeId().equals(nodeId))
+                  .map(TaskProgress::status)
+                  .findFirst()
+                  .orElseThrow(() -> new NotFoundException("Node not found: " + nodeId));
+          if (!TaskStatus.FAILURE.name().equals(status)
+              && !TaskStatus.TIMED_OUT.name().equals(status)) {
+            return Mono.error(
+                new IllegalArgumentException(
+                    "Node "
+                        + nodeId
+                        + " did not fail in "
+                        + executionId
+                        + " (status "
+                        + status
+                        + ")"));
+          }
+          return restartFromNode(executionId, nodeId);
+        });
+  }
+
+  @Override
+  public Mono<Void> changeLimits(final int maxConcurrent, final int maxPerWorkflow) {
+    return Mono.fromRunnable(
+        () -> {
+          executionScheduler.setLimits(maxConcurrent, maxPerWorkflow);
+          executionLog.append(
+              ExecutionLogEvent.control(
+                  true,
+                  ExecutionLogEvent.SCHEDULER,
+                  "SetLimits(" + maxConcurrent + ", " + maxPerWorkflow + ")",
+                  null));
+          log.atInfo()
+              .addKeyValue("maxConcurrent", maxConcurrent)
+              .addKeyValue("maxPerWorkflow", maxPerWorkflow)
+              .log("Execution limits changed");
+        });
+  }
+
+  @Override
+  public Mono<Void> changePriority(final String executionId, final int priority) {
+    return Mono.fromRunnable(
+        () -> {
+          final boolean waiting = executionScheduler.changePriority(executionId, priority);
+          executionLog.append(
+              ExecutionLogEvent.control(
+                  waiting,
+                  executionId,
+                  "SetPriority(" + priority + ")",
+                  "the execution is not waiting for a slot"));
+          if (!waiting) {
+            throw new IllegalArgumentException(
+                "Execution " + executionId + " is not waiting for a slot");
+          }
+        });
   }
 
   @Override
@@ -978,7 +969,4 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
         .log("All active nodes retrieved");
     return allActiveNodes;
   }
-
-  /** Identifies one preparation: the same workflow with the same definition content. */
-  private record PrepareKey(String sessionId, String workflowId, WorkflowDefinition def) {}
 }

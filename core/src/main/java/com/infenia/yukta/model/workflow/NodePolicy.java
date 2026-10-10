@@ -14,11 +14,13 @@ import java.util.Set;
  *
  * <pre>{@code
  * "engine": {
- *   "retry":   { "maxAttempts": 3, "backoffMs": 200, "maxBackoffMs": 5000 },
+ *   "retry":   { "maxAttempts": 3, "backoffMs": 200, "maxBackoffMs": 5000,
+ *                "retryOn": ["IOException"], "noRetryOn": ["IllegalStateException"] },
  *   "onError": "ROUTE",
  *   "trigger": "ALL_DONE",
  *   "elementTimeoutMs": 20000,
- *   "deadlineMs": 600000
+ *   "deadlineMs": 600000,
+ *   "failureBudget": { "maxFailures": 10, "windowMs": 60000 }
  * }
  * }</pre>
  *
@@ -28,7 +30,8 @@ import java.util.Set;
  *       processors, not with ones that aggregate over the stream.
  *   <li>{@code onError} (processors): {@code FAIL} (default) fails the node; {@code CONTINUE} drops
  *       the failing message and carries on; {@code ROUTE} sends the failing message, tagged with
- *       its failure, to the node's {@code "error"} output port.
+ *       its failure, to the node's {@code "error"} output port. The tag holds the node, the reason,
+ *       the exception class, the number of attempts and the time of the failure.
  *   <li>{@code trigger} (any node with several parents): {@code ALL_SUCCESS} (default) fails as
  *       soon as one parent fails; {@code ALL_DONE} keeps going on the other parents when one fails;
  *       {@code ONE_SUCCESS} keeps going too, but fails when every parent failed.
@@ -38,6 +41,12 @@ import java.util.Set;
  *   <li>{@code deadlineMs} (any node): longest the node may run, counted from its first activity.
  *       Unlike the idle timeout it is not restarted by output or heartbeats; paused time does not
  *       count. Off by default.
+ *   <li>{@code failureBudget} (with {@code onError} CONTINUE or ROUTE): when more than {@code
+ *       maxFailures} messages fail within {@code windowMs}, the node fails instead of dropping or
+ *       routing yet another one, so a poisoned stream does not run on unnoticed.
+ *   <li>{@code retry.retryOn} / {@code retry.noRetryOn}: class names (simple or fully qualified,
+ *       matched against the exception and its causes' types) that are, or are not, retried. {@code
+ *       IllegalArgumentException} is never retried unless it is listed in {@code retryOn}.
  * </ul>
  *
  * @param retry the retry policy, or null for none
@@ -45,6 +54,7 @@ import java.util.Set;
  * @param trigger how a failing parent affects this node
  * @param elementTimeout longest time for one message, or null for none
  * @param deadline longest time the node may run, or null for none
+ * @param failureBudget how many failures the node tolerates, or null for no limit
  */
 @SuppressWarnings({"PMD.OnlyOneReturn", "PMD.AvoidDuplicateLiterals"})
 public record NodePolicy(
@@ -52,7 +62,8 @@ public record NodePolicy(
     OnError onError,
     JoinRule trigger,
     @Nullable Duration elementTimeout,
-    @Nullable Duration deadline) {
+    @Nullable Duration deadline,
+    @Nullable FailureBudget failureBudget) {
 
   /** Config key that holds the policy. */
   public static final String CONFIG_KEY = "engine";
@@ -62,14 +73,21 @@ public record NodePolicy(
 
   /** No retry, fail on error, fail when a parent fails. */
   public static final NodePolicy DEFAULT =
-      new NodePolicy(null, OnError.FAIL, JoinRule.ALL_SUCCESS, null, null);
+      new NodePolicy(null, OnError.FAIL, JoinRule.ALL_SUCCESS, null, null, null);
 
   /** Options accepted in the {@code engine} object. */
   private static final Set<String> KEYS =
-      Set.of("retry", "onError", "trigger", "elementTimeoutMs", "deadlineMs");
+      Set.of("retry", "onError", "trigger", "elementTimeoutMs", "deadlineMs", "failureBudget");
 
   /** Options accepted in the {@code retry} object. */
-  private static final Set<String> RETRY_KEYS = Set.of("maxAttempts", "backoffMs", "maxBackoffMs");
+  private static final Set<String> RETRY_KEYS =
+      Set.of("maxAttempts", "backoffMs", "maxBackoffMs", "retryOn", "noRetryOn");
+
+  /** Options accepted in the {@code failureBudget} object. */
+  private static final Set<String> BUDGET_KEYS = Set.of("maxFailures", "windowMs");
+
+  /** How many causes of a failure are looked at when matching retry class names. */
+  private static final int MAX_CAUSES = 10;
 
   /** Upper bound for {@code maxAttempts}, so a typo cannot hammer a dependency. */
   private static final int MAX_ATTEMPTS_LIMIT = 10;
@@ -93,7 +111,7 @@ public record NodePolicy(
       final OnError onError,
       final JoinRule trigger,
       @Nullable final Duration elementTimeout) {
-    this(retry, onError, trigger, elementTimeout, null);
+    this(retry, onError, trigger, elementTimeout, null, null);
   }
 
   /**
@@ -128,7 +146,71 @@ public record NodePolicy(
    * @param backoff delay before the first retry; doubles on each retry
    * @param maxBackoff upper bound for the delay
    */
-  public record Retry(int maxAttempts, Duration backoff, Duration maxBackoff) {}
+  public record Retry(
+      int maxAttempts,
+      Duration backoff,
+      Duration maxBackoff,
+      Set<String> retryOn,
+      Set<String> noRetryOn) {
+
+    /** Keeps immutable copies of the class name sets. */
+    public Retry {
+      retryOn = Set.copyOf(retryOn);
+      noRetryOn = Set.copyOf(noRetryOn);
+    }
+
+    /**
+     * Retry settings without class filters.
+     *
+     * @param maxAttempts total attempts including the first one
+     * @param backoff delay before the first retry
+     * @param maxBackoff upper bound for the delay
+     */
+    public Retry(final int maxAttempts, final Duration backoff, final Duration maxBackoff) {
+      this(maxAttempts, backoff, maxBackoff, Set.of(), Set.of());
+    }
+
+    /**
+     * Whether a failure is worth another attempt.
+     *
+     * @param error what the attempt failed with
+     * @return true if it should be retried
+     */
+    public boolean shouldRetry(final Throwable error) {
+      if (matches(noRetryOn, error)) {
+        return false;
+      }
+      if (!retryOn.isEmpty()) {
+        return matches(retryOn, error);
+      }
+      return !(error instanceof IllegalArgumentException);
+    }
+
+    private static boolean matches(final Set<String> names, final Throwable error) {
+      if (names.isEmpty()) {
+        return false;
+      }
+      Throwable cause = error;
+      // bounded, so a cause chain that loops back on itself cannot spin forever
+      for (int depth = 0; cause != null && depth < MAX_CAUSES; depth++) {
+        for (Class<?> type = cause.getClass(); type != null; type = type.getSuperclass()) {
+          if (names.contains(type.getName()) || names.contains(type.getSimpleName())) {
+            return true;
+          }
+        }
+        cause = cause.getCause();
+      }
+      return false;
+    }
+  }
+
+  /**
+   * How many failures a node tolerates when it drops or routes failing messages.
+   *
+   * @param maxFailures failures allowed within the window; one more fails the node
+   * @param window the sliding window
+   */
+  public record FailureBudget(int maxFailures, Duration window) {}
 
   /**
    * Whether the plugin must be called once per message, which retry and onError need.
@@ -153,12 +235,36 @@ public record NodePolicy(
     }
     final Map<String, Object> engine = asMap(raw, CONFIG_KEY);
     rejectUnknown(engine, KEYS, CONFIG_KEY);
-    return new NodePolicy(
-        engine.containsKey("retry") ? parseRetry(asMap(engine.get("retry"), "retry")) : null,
-        parseEnum(engine.get("onError"), OnError.class, "onError", OnError.FAIL),
-        parseEnum(engine.get("trigger"), JoinRule.class, "trigger", JoinRule.ALL_SUCCESS),
-        parseMillis(engine.get("elementTimeoutMs"), "engine.elementTimeoutMs"),
-        parseMillis(engine.get("deadlineMs"), "engine.deadlineMs"));
+    final NodePolicy policy =
+        new NodePolicy(
+            engine.containsKey("retry") ? parseRetry(asMap(engine.get("retry"), "retry")) : null,
+            parseEnum(engine.get("onError"), OnError.class, "onError", OnError.FAIL),
+            parseEnum(engine.get("trigger"), JoinRule.class, "trigger", JoinRule.ALL_SUCCESS),
+            parseMillis(engine.get("elementTimeoutMs"), "engine.elementTimeoutMs"),
+            parseMillis(engine.get("deadlineMs"), "engine.deadlineMs"),
+            engine.containsKey("failureBudget")
+                ? parseBudget(asMap(engine.get("failureBudget"), "failureBudget"))
+                : null);
+    if (policy.failureBudget() != null && policy.onError() == OnError.FAIL) {
+      throw new IllegalArgumentException(
+          "engine.failureBudget needs engine.onError CONTINUE or ROUTE; with FAIL the first"
+              + " failure already fails the node");
+    }
+    return policy;
+  }
+
+  private static FailureBudget parseBudget(final Map<String, Object> budget) {
+    rejectUnknown(budget, BUDGET_KEYS, "engine.failureBudget");
+    final long max = number(budget.get("maxFailures"), "engine.failureBudget.maxFailures", -1);
+    final long window = number(budget.get("windowMs"), "engine.failureBudget.windowMs", 0);
+    if (max < 0) {
+      throw new IllegalArgumentException(
+          "engine.failureBudget.maxFailures is required and must be >= 0");
+    }
+    if (window <= 0) {
+      throw new IllegalArgumentException("engine.failureBudget.windowMs must be positive");
+    }
+    return new FailureBudget((int) Math.min(max, Integer.MAX_VALUE), Duration.ofMillis(window));
   }
 
   @Nullable
@@ -191,7 +297,25 @@ public record NodePolicy(
       throw new IllegalArgumentException(
           "engine.retry.backoffMs must be >= 0 and <= engine.retry.maxBackoffMs");
     }
-    return new Retry((int) attempts, Duration.ofMillis(backoff), Duration.ofMillis(max));
+    final Set<String> retryOn = names(retry.get("retryOn"), "engine.retry.retryOn");
+    final Set<String> noRetryOn = names(retry.get("noRetryOn"), "engine.retry.noRetryOn");
+    if (!java.util.Collections.disjoint(retryOn, noRetryOn)) {
+      throw new IllegalArgumentException(
+          "engine.retry.retryOn and engine.retry.noRetryOn must not share a class");
+    }
+    return new Retry(
+        (int) attempts, Duration.ofMillis(backoff), Duration.ofMillis(max), retryOn, noRetryOn);
+  }
+
+  private static Set<String> names(@Nullable final Object value, final String name) {
+    if (value == null) {
+      return Set.of();
+    }
+    if (value instanceof java.util.Collection<?> items
+        && items.stream().allMatch(item -> item instanceof String text && !text.isBlank())) {
+      return items.stream().map(String::valueOf).collect(java.util.stream.Collectors.toSet());
+    }
+    throw new IllegalArgumentException("'" + name + "' must be a list of class names");
   }
 
   @SuppressWarnings("unchecked")

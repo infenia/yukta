@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.service.control;
 
+import io.micrometer.core.instrument.FunctionCounter;
 import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.binder.MeterBinder;
@@ -24,5 +25,12 @@ public class SchedulerMetrics implements MeterBinder {
     Gauge.builder("yukta.executions.queued", scheduler, ExecutionScheduler::queued)
         .description("Executions waiting for a slot")
         .register(registry);
+    for (final ExecutionScheduler.RejectReason reason : ExecutionScheduler.RejectReason.values()) {
+      FunctionCounter.builder(
+              "yukta.executions.rejected", scheduler, current -> current.rejected(reason))
+          .tag("reason", reason.name().toLowerCase(java.util.Locale.ROOT))
+          .description("Starts refused")
+          .register(registry);
+    }
   }
 }
