@@ -1367,4 +1367,61 @@ class WorkflowValidatorTest {
                     && e.getMessage().contains("unknown node"))
         .verify();
   }
+
+  private WorkflowDefinition singleNodeWithEngine(final Map<String, Object> engine) {
+    return new WorkflowDefinition(
+        WORKFLOW_NAME,
+        "d",
+        List.of(new WorkflowDefinition.Node("n1", PROCESSOR_ID, Map.of("engine", engine))),
+        List.of());
+  }
+
+  @Test
+  void testMalformedEnginePolicyIsRejectedNamingTheNode() {
+    StepVerifier.create(validator.validate(singleNodeWithEngine(Map.of("onError", "EXPLODE"))))
+        .expectErrorMatches(
+            e ->
+                e instanceof IllegalArgumentException
+                    && e.getMessage().startsWith("Node 'n1': ")
+                    && e.getMessage().contains("engine.onError"))
+        .verify();
+  }
+
+  @Test
+  void testRetryOnNonProcessorNodeIsRejected() {
+    when(registry.get(TRIGGER_ID)).thenReturn(triggerPlugin);
+    when(triggerPlugin.getCategory()).thenReturn(PluginCategory.TRIGGER);
+    final WorkflowDefinition def =
+        new WorkflowDefinition(
+            WORKFLOW_NAME,
+            "d",
+            List.of(
+                new WorkflowDefinition.Node(
+                    "n1", TRIGGER_ID, Map.of("engine", Map.of("retry", Map.of("maxAttempts", 2))))),
+            List.of());
+
+    StepVerifier.create(validator.validate(def))
+        .expectErrorMatches(e -> e.getMessage().contains("only supported on processor nodes"))
+        .verify();
+  }
+
+  @Test
+  void testRetryOnAnUnknownPluginTypeLeavesTheReportToThePluginCheck() {
+    when(registry.get(PROCESSOR_ID)).thenReturn(null);
+
+    StepVerifier.create(validator.validate(singleNodeWithEngine(Map.of("onError", "CONTINUE"))))
+        .expectErrorMatches(e -> !e.getMessage().contains("only supported on processor"))
+        .verify();
+  }
+
+  @Test
+  void testPolicyOnProcessorPassesThePolicyCheck() {
+    when(registry.get(PROCESSOR_ID)).thenReturn(processorPlugin);
+    when(processorPlugin.getCategory()).thenReturn(PluginCategory.PROCESSOR);
+
+    StepVerifier.create(validator.validate(singleNodeWithEngine(Map.of("onError", "CONTINUE"))))
+        .expectErrorMatches(
+            e -> e instanceof IllegalArgumentException && !e.getMessage().contains("engine"))
+        .verify();
+  }
 }

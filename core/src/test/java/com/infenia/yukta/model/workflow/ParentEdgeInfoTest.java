@@ -62,8 +62,12 @@ class ParentEdgeInfoTest {
 
     // toString should contain all field values
     assertThat(toStringWithNull)
-        .isEqualTo("ParentEdgeInfo[parentIndex=0, sourceNodeId=source, sourcePort=null]");
+        .isEqualTo(
+            "ParentEdgeInfo[parentIndex=0, sourceNodeId=source, sourcePort=null,"
+                + " tolerateFailure=false]");
     assertThat(toStringWithPort)
-        .isEqualTo("ParentEdgeInfo[parentIndex=1, sourceNodeId=source, sourcePort=port]");
+        .isEqualTo(
+            "ParentEdgeInfo[parentIndex=1, sourceNodeId=source, sourcePort=port,"
+                + " tolerateFailure=false]");
   }
 }
