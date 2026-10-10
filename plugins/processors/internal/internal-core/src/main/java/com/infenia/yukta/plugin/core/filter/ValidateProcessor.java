@@ -53,7 +53,7 @@ public final class ValidateProcessor implements ProcessorPlugin {
                     <div class="flex flex-col min-w-0">
                         <div class="text-[10px] text-slate-400 font-bold uppercase tracking-wider leading-none mb-1">Validate</div>
                         <div class="text-xs font-bold text-slate-700 truncate w-full">{{nodeId}}</div>
-                        <div class="text-[9px] text-slate-400 leading-none mt-1">default | invalid</div>
+                        <div class="text-[10px] text-slate-400 leading-none mt-1">default | invalid</div>
                     </div>
                 </div>
                 """,
