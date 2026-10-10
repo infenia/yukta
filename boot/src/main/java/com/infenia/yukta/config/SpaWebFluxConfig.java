@@ -49,7 +49,7 @@ public class SpaWebFluxConfig implements WebFluxConfigurer {
    * injected from plugin node designs cannot load or run anything external. Inline styles are
    * allowed because React Flow positions nodes with style attributes.
    */
-  static final String CONTENT_SECURITY_POLICY =
+  public static final String CONTENT_SECURITY_POLICY =
       "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; "
           + "font-src 'self' data:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'";
 

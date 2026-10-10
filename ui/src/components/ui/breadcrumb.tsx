@@ -87,7 +87,7 @@ function BreadcrumbSeparator({
       className={cn('flex items-center', className)}
       {...props}
     >
-      {children ?? <span className="material-symbols-outlined text-sm">chevron_right</span>}
+      {children ?? <span className="material-symbols-outlined !text-sm">chevron_right</span>}
     </li>
   );
 }
@@ -107,7 +107,7 @@ function BreadcrumbEllipsis({
       )}
       {...props}
     >
-      <span className="material-symbols-outlined text-base">more_horiz</span>
+      <span className="material-symbols-outlined !text-base">more_horiz</span>
       <span className="sr-only">More</span>
     </span>
   );
