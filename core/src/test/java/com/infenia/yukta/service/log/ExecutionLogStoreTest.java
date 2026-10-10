@@ -222,14 +222,9 @@ class ExecutionLogStoreTest {
   @Test
   void jsonl_payloadThatCannotBeWritten_losesOnlyThePayload() {
     final JsonlExecutionLogStore store = jsonl();
-    final Map<String, Object> payload =
-        Map.of(
-            "bad",
-            new Object() {
-              public String getValue() {
-                throw new IllegalStateException("boom");
-              }
-            });
+    // a map that contains itself cannot be written as JSON
+    final Map<String, Object> payload = new java.util.HashMap<>();
+    payload.put("self", payload);
 
     store.append(ExecutionLogEvent.started("e1", "s", "w", "v", payload));
 

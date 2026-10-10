@@ -54,8 +54,8 @@ class ExecutionResumerTest {
   private final ExecutionResumer resumer =
       new ExecutionResumer(log, checkpoints, definitions, orchestrator, scheduler);
 
-  private static WorkflowNode node(final String id) {
-    return new WorkflowNode(id, "t", Map.of());
+  private static WorkflowNode node(final String nodeId) {
+    return new WorkflowNode(nodeId, "t", Map.of());
   }
 
   // a -> b -> c

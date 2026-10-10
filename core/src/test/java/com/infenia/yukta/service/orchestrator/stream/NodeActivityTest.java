@@ -15,7 +15,7 @@ import reactor.test.StepVerifier;
 import reactor.test.scheduler.VirtualTimeScheduler;
 
 @NoArgsConstructor
-@SuppressWarnings({"PMD.CommentRequired", "PMD.AvoidDuplicateLiterals"})
+@SuppressWarnings("PMD.CommentRequired")
 class NodeActivityTest {
 
   private final VirtualTimeScheduler time = VirtualTimeScheduler.create();

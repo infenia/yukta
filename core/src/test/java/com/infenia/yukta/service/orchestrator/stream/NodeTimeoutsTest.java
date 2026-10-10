@@ -25,7 +25,7 @@ import reactor.test.StepVerifier;
 import reactor.test.scheduler.VirtualTimeScheduler;
 
 @NoArgsConstructor
-@SuppressWarnings({"PMD.CommentRequired", "PMD.AvoidDuplicateLiterals", "PMD.LawOfDemeter"})
+@SuppressWarnings({"PMD.CommentRequired", "PMD.AvoidDuplicateLiterals", "PMD.TooManyStaticImports"})
 class NodeTimeoutsTest {
 
   private final VariableResolver resolver = new VariableResolver(mock(SecretProvider.class));
@@ -109,5 +109,20 @@ class NodeTimeoutsTest {
                 resolver,
                 activity))
         .verifyComplete();
+  }
+
+  @Test
+  void nonNumericTimeoutSeconds_fallsBackToThePluginDefault() {
+    when(plugin.getDefaultTimeout(anyMap())).thenReturn(Duration.ofSeconds(90));
+
+    StepVerifier.create(
+            retime(Map.of("timeoutSeconds", "${payload.word}"), message(Map.of("word", "soon"))))
+        .expectNextCount(1)
+        .verifyComplete();
+    StepVerifier.create(retime(Map.of("timeoutSeconds", "${payload.none}"), message(Map.of())))
+        .expectNextCount(1)
+        .verifyComplete();
+
+    verify(plugin, org.mockito.Mockito.times(2)).getDefaultTimeout(anyMap());
   }
 }

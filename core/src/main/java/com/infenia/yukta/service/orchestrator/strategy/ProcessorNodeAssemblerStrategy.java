@@ -12,6 +12,7 @@ import com.infenia.yukta.model.workflow.WorkflowNode;
 import com.infenia.yukta.plugin.core.Plugin;
 import com.infenia.yukta.plugin.type.ProcessorPlugin;
 import com.infenia.yukta.service.control.store.ActivePluginRegistry;
+import com.infenia.yukta.service.orchestrator.stream.FailureLedger;
 import com.infenia.yukta.service.orchestrator.stream.NodeActivity;
 import com.infenia.yukta.service.orchestrator.stream.NodePolicies;
 import com.infenia.yukta.service.orchestrator.stream.NodeTimeouts;
@@ -128,6 +129,9 @@ public class ProcessorNodeAssemblerStrategy implements NodeAssemblerStrategy {
         final Flux<Message<?>> channelInput =
             channel.inbound(node.nodeId(), context.executionId(), timedInput);
         final NodePolicy policy = NodePolicy.from(node.config());
+        // failures are counted per run, so the ledger belongs to this assembly, not to the node
+        final FailureLedger ledger =
+            policy.failureBudget() == null ? null : new FailureLedger(policy.failureBudget());
         final Flux<Message<?>> pluginOutput =
             policy.perMessage()
                 // prefetch 1: a paused node must not have 32 elements already past the gate
@@ -138,7 +142,8 @@ public class ProcessorNodeAssemblerStrategy implements NodeAssemblerStrategy {
                             node.nodeId(),
                             message,
                             attempt -> processor.process(Flux.just(attempt), node.config()),
-                            activity::touch),
+                            activity::touch,
+                            ledger),
                     1)
                 : processor.process(channelInput, node.config());
         stream = channel.outbound(node.nodeId(), context.executionId(), pluginOutput);

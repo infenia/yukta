@@ -5,13 +5,13 @@ package com.infenia.yukta.model.workflow;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import java.time.Duration;
+import Duration;
 import java.util.Map;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 
 @NoArgsConstructor
-@SuppressWarnings({"PMD.CommentRequired", "PMD.AvoidDuplicateLiterals"})
+@SuppressWarnings({"PMD.CommentRequired", "PMD.AvoidDuplicateLiterals", "PMD.TooManyMethods"})
 class NodePolicyTest {
 
   private static Map<String, Object> engine(final Map<String, Object> engine) {
@@ -92,7 +92,7 @@ class NodePolicyTest {
   @Test
   void deadline_isParsed_andRejectedWhenNotPositiveOrFractional() {
     assertThat(NodePolicy.from(engine(Map.of("deadlineMs", 5000))).deadline())
-        .isEqualTo(java.time.Duration.ofSeconds(5));
+        .isEqualTo(Duration.ofSeconds(5));
     assertThat(NodePolicy.DEFAULT.deadline()).isNull();
     assertThatThrownBy(() -> NodePolicy.from(engine(Map.of("deadlineMs", 0))))
         .hasMessageContaining("engine.deadlineMs must be positive");
@@ -105,5 +105,80 @@ class NodePolicyTest {
     assertThatThrownBy(() -> NodePolicy.from(engine(Map.of("elementTimeoutMs", 0.5))))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining("whole number");
+  }
+
+  @Test
+  void retryClassLists_andFailureBudget_areParsed() {
+    final NodePolicy policy =
+        NodePolicy.from(
+            engine(
+                Map.of(
+                    "onError", "ROUTE",
+                    "retry",
+                        Map.of(
+                            "maxAttempts", 2,
+                            "retryOn", java.util.List.of("IOException"),
+                            "noRetryOn", java.util.List.of("SecurityException")),
+                    "failureBudget", Map.of("maxFailures", 5, "windowMs", 60_000))));
+
+    assertThat(policy.retry().retryOn()).containsExactly("IOException");
+    assertThat(policy.retry().noRetryOn()).containsExactly("SecurityException");
+    assertThat(policy.failureBudget())
+        .isEqualTo(new NodePolicy.FailureBudget(5, Duration.ofMinutes(1)));
+  }
+
+  @Test
+  void invalidRetryClassLists_areRejected() {
+    assertThatThrownBy(
+            () ->
+                NodePolicy.from(
+                    engine(
+                        Map.of(
+                            "retry",
+                            Map.of(
+                                "retryOn",
+                                java.util.List.of("A"),
+                                "noRetryOn",
+                                java.util.List.of("A"))))))
+        .hasMessageContaining("must not share");
+    assertThatThrownBy(
+            () -> NodePolicy.from(engine(Map.of("retry", Map.of("retryOn", "IOException")))))
+        .hasMessageContaining("list of class names");
+    assertThatThrownBy(
+            () ->
+                NodePolicy.from(engine(Map.of("retry", Map.of("noRetryOn", java.util.List.of(1))))))
+        .hasMessageContaining("list of class names");
+  }
+
+  @Test
+  void failureBudget_needsAnOnErrorThatKeepsTheNodeGoing_andValidNumbers() {
+    final Map<String, Object> budget = Map.of("maxFailures", 1, "windowMs", 1000);
+    assertThatThrownBy(() -> NodePolicy.from(engine(Map.of("failureBudget", budget))))
+        .hasMessageContaining("CONTINUE or ROUTE");
+    assertThatThrownBy(
+            () ->
+                NodePolicy.from(
+                    engine(Map.of("onError", "CONTINUE", "failureBudget", Map.of("windowMs", 5)))))
+        .hasMessageContaining("maxFailures is required");
+    assertThatThrownBy(
+            () ->
+                NodePolicy.from(
+                    engine(
+                        Map.of(
+                            "onError",
+                            "CONTINUE",
+                            "failureBudget",
+                            Map.of("maxFailures", 1, "windowMs", 0)))))
+        .hasMessageContaining("windowMs must be positive");
+    assertThatThrownBy(
+            () ->
+                NodePolicy.from(
+                    engine(
+                        Map.of(
+                            "onError",
+                            "CONTINUE",
+                            "failureBudget",
+                            Map.of("maxFailures", 1, "windowMs", 5, "x", 1)))))
+        .hasMessageContaining("Unknown option 'x'");
   }
 }

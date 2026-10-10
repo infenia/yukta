@@ -99,6 +99,8 @@ class FileNodeCheckpointStoreTest {
   @Test
   void clearOfAnUnknownExecution_isHarmless() {
     store().clear("never-seen");
+
+    assertThat(dir).isEmptyDirectory();
   }
 
   @Test
