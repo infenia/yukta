@@ -52,64 +52,63 @@ class DefaultMessageTest {
             "node",
             "wf1");
 
-    assertThat(msg.getMessageId()).isEqualTo(id);
-    assertThat(msg.getTraceId()).isEqualTo(traceId);
-    assertThat(msg.getCorrelationId()).isEqualTo(correlationId);
-    assertThat(msg.getReplyTo()).isEqualTo(replyTo);
-    assertThat(msg.getExpiration()).isEqualTo(1000L);
-    assertThat(msg.getFormatIndicator()).isEqualTo("fmt");
-    assertThat(msg.getMetadata()).isEqualTo(Map.of("k", "v"));
-    assertThat(msg.getMessageHistory()).isEqualTo(List.of("h1"));
-    assertThat(msg.getSequenceId()).isEqualTo("s1");
-    assertThat(msg.getSequenceNumber()).isEqualTo(1);
-    assertThat(msg.getSequenceSize()).isEqualTo(10);
-    assertThat(msg.getPriority()).isEqualTo(5);
-    assertThat(msg.isControlMessage()).isTrue();
-    assertThat(msg.getOrigDest()).isEqualTo("orig");
-    assertThat(msg.getFailureReason()).isEqualTo("fail");
-    assertThat(msg.getExceptionDetail()).isEqualTo("detail");
-    assertThat(msg.getRetryCount()).isEqualTo(2);
-    assertThat(msg.getPayload()).isEqualTo(payload);
-    assertThat(msg.getTimestamp()).isEqualTo(now);
-    assertThat(msg.getSourcePort()).isEqualTo("port");
-    assertThat(msg.getSourceNodeId()).isEqualTo("node");
+    assertThat(msg.id()).isEqualTo(id);
+    assertThat(msg.traceId()).isEqualTo(traceId);
+    assertThat(msg.correlationId()).isEqualTo(correlationId);
+    assertThat(msg.replyTo()).isEqualTo(replyTo);
+    assertThat(msg.expiration()).isEqualTo(1000L);
+    assertThat(msg.formatIndicator()).isEqualTo("fmt");
+    assertThat(msg.metadata()).isEqualTo(Map.of("k", "v"));
+    assertThat(msg.messageHistory()).isEqualTo(List.of("h1"));
+    assertThat(msg.sequenceId()).isEqualTo("s1");
+    assertThat(msg.sequenceNumber()).isEqualTo(1);
+    assertThat(msg.sequenceSize()).isEqualTo(10);
+    assertThat(msg.priority()).isEqualTo(5);
+    assertThat(msg.controlMessage()).isTrue();
+    assertThat(msg.origDest()).isEqualTo("orig");
+    assertThat(msg.failureReason()).isEqualTo("fail");
+    assertThat(msg.exceptionDetail()).isEqualTo("detail");
+    assertThat(msg.retryCount()).isEqualTo(2);
+    assertThat(msg.payload()).isEqualTo(payload);
+    assertThat(msg.timestamp()).isEqualTo(now);
+    assertThat(msg.sourcePort()).isEqualTo("port");
+    assertThat(msg.sourceNodeId()).isEqualTo("node");
   }
 
   @Test
   void testFluentWitherMethods() {
     final DefaultMessage<String> msg = DefaultMessage.create(UUID.randomUUID(), "p");
 
-    assertThat(msg.withTraceId("t1").getTraceId()).isEqualTo("t1");
+    assertThat(msg.withTraceId("t1").traceId()).isEqualTo("t1");
     final Instant now = Instant.now();
-    assertThat(msg.withTimestamp(now).getTimestamp()).isEqualTo(now);
-    assertThat(msg.withCorrelationId("c1").getCorrelationId()).isEqualTo("c1");
-    assertThat(msg.withReplyTo("r1").getReplyTo()).isEqualTo("r1");
-    assertThat(msg.withSourcePort("p1").getSourcePort()).isEqualTo("p1");
-    assertThat(msg.withSourceNodeId("n1").getSourceNodeId()).isEqualTo("n1");
-    assertThat(msg.withExpiration(500L).getExpiration()).isEqualTo(500L);
-    assertThat(msg.withFormatIndicator("fmt").getFormatIndicator()).isEqualTo("fmt");
-    assertThat(msg.withAddedHistory("node").getMessageHistory()).contains("node");
-    assertThat(msg.withPriority(9).getPriority()).isEqualTo(9);
-    assertThat(msg.withControl(true).isControlMessage()).isTrue();
+    assertThat(msg.withTimestamp(now).timestamp()).isEqualTo(now);
+    assertThat(msg.withCorrelationId("c1").correlationId()).isEqualTo("c1");
+    assertThat(msg.withReplyTo("r1").replyTo()).isEqualTo("r1");
+    assertThat(msg.withSourcePort("p1").sourcePort()).isEqualTo("p1");
+    assertThat(msg.withSourceNodeId("n1").sourceNodeId()).isEqualTo("n1");
+    assertThat(msg.withExpiration(500L).expiration()).isEqualTo(500L);
+    assertThat(msg.withFormatIndicator("fmt").formatIndicator()).isEqualTo("fmt");
+    assertThat(msg.withAddedHistory("node").messageHistory()).contains("node");
+    assertThat(msg.withPriority(9).priority()).isEqualTo(9);
+    assertThat(msg.withControl(true).controlMessage()).isTrue();
 
     final Message<String> failed = msg.withFailure("o", "r", "d");
-    assertThat(failed.getOrigDest()).isEqualTo("o");
-    assertThat(failed.getFailureReason()).isEqualTo("r");
+    assertThat(failed.origDest()).isEqualTo("o");
+    assertThat(failed.failureReason()).isEqualTo("r");
 
-    assertThat(msg.withRetryCount(5).getRetryCount()).isEqualTo(5);
-    assertThat(msg.withPayload(10).getPayload()).isEqualTo(10);
-    assertThat(msg.withHeader("k", "v").getMetadata().get("k")).isEqualTo("v");
-    assertThat(msg.withMetadata(Map.of("x", "y")).getMetadata()).isEqualTo(Map.of("x", "y"));
+    assertThat(msg.withRetryCount(5).retryCount()).isEqualTo(5);
+    assertThat(msg.withPayload(10).payload()).isEqualTo(10);
+    assertThat(msg.withHeader("k", "v").metadata().get("k")).isEqualTo("v");
+    assertThat(msg.withMetadata(Map.of("x", "y")).metadata()).isEqualTo(Map.of("x", "y"));
   }
 
   @Test
   void testStaticFactories() {
     final String msg = "msg";
-    assertThat(DefaultMessage.create(null, msg).getPayload()).isEqualTo(msg);
+    assertThat(DefaultMessage.create(null, msg).payload()).isEqualTo(msg);
 
     final String from = "from";
-    assertThat(DefaultMessage.from(DefaultMessage.create(null, from), 10).getPayload())
-        .isEqualTo(10);
+    assertThat(DefaultMessage.from(DefaultMessage.create(null, from), 10).payload()).isEqualTo(10);
   }
 
   @Test
@@ -118,8 +117,8 @@ class DefaultMessageTest {
         new DefaultMessage<>(
             "id", null, null, null, 0, null, null, null, null, 0, 0, 0, false, null, null, null, 0,
             "p", null, null, null, null);
-    assertThat(msg.getMetadata()).isNotNull();
-    assertThat(msg.getMessageHistory()).isNotNull();
+    assertThat(msg.metadata()).isNotNull();
+    assertThat(msg.messageHistory()).isNotNull();
   }
 
   @Test
@@ -129,11 +128,11 @@ class DefaultMessageTest {
             "id1", "trace1", "corr1", "reply1", 1000L, "format", null, null, "seq1", 1, 5, 2, false,
             "orig", "reason", "detail", 0, "payload", null, "port1", "node1", "wf1");
 
-    assertThat(msg.getMetadata()).isEmpty();
-    assertThat(msg.getMetadata()).isNotNull();
-    assertThat(msg.getMessageHistory()).isEmpty();
-    assertThat(msg.getMessageHistory()).isNotNull();
-    assertThat(msg.getTimestamp()).isNotNull();
+    assertThat(msg.metadata()).isEmpty();
+    assertThat(msg.metadata()).isNotNull();
+    assertThat(msg.messageHistory()).isEmpty();
+    assertThat(msg.messageHistory()).isNotNull();
+    assertThat(msg.timestamp()).isNotNull();
   }
 
   @Test
@@ -143,10 +142,10 @@ class DefaultMessageTest {
 
     final Message<String> updated = original.withTraceId(newTraceId);
 
-    assertThat(updated.getTraceId()).isEqualTo(newTraceId);
-    assertThat(updated.getMessageId()).isEqualTo(original.getMessageId());
-    assertThat(updated.getPayload()).isEqualTo(original.getPayload());
-    assertThat(updated.getCorrelationId()).isEqualTo(original.getCorrelationId());
+    assertThat(updated.traceId()).isEqualTo(newTraceId);
+    assertThat(updated.id()).isEqualTo(original.id());
+    assertThat(updated.payload()).isEqualTo(original.payload());
+    assertThat(updated.correlationId()).isEqualTo(original.correlationId());
   }
 
   @Test
@@ -178,8 +177,8 @@ class DefaultMessageTest {
 
     final Message<String> updated = original.withAddedHistory("node2");
 
-    assertThat(updated.getMessageHistory()).containsExactly("node1", "node2");
-    assertThat(updated.getMessageHistory()).hasSize(2);
+    assertThat(updated.messageHistory()).containsExactly("node1", "node2");
+    assertThat(updated.messageHistory()).hasSize(2);
   }
 
   @Test
@@ -217,10 +216,10 @@ class DefaultMessageTest {
     originalMetadata.put("key3", "malicious");
     originalMetadata.remove("key1");
 
-    assertThat(msg.getMetadata()).containsEntry("key1", "value1");
-    assertThat(msg.getMetadata()).containsEntry("key2", 42);
-    assertThat(msg.getMetadata()).doesNotContainKey("key3");
-    assertThat(msg.getMetadata()).hasSize(2);
+    assertThat(msg.metadata()).containsEntry("key1", "value1");
+    assertThat(msg.metadata()).containsEntry("key2", 42);
+    assertThat(msg.metadata()).doesNotContainKey("key3");
+    assertThat(msg.metadata()).hasSize(2);
   }
 
   @Test
@@ -257,8 +256,8 @@ class DefaultMessageTest {
     originalHistory.add("node3");
     originalHistory.removeFirst();
 
-    assertThat(msg.getMessageHistory()).containsExactly("node1", "node2");
-    assertThat(msg.getMessageHistory()).hasSize(2);
+    assertThat(msg.messageHistory()).containsExactly("node1", "node2");
+    assertThat(msg.messageHistory()).hasSize(2);
   }
 
   @Test
@@ -269,17 +268,17 @@ class DefaultMessageTest {
 
     final DefaultMessage<String> msg = DefaultMessage.create(traceId, payload);
 
-    assertThat(msg.getMessageId()).isNotNull().isNotEmpty();
-    assertThat(msg.getTraceId()).isEqualTo(traceId.toString());
-    assertThat(msg.getPayload()).isEqualTo(payload);
-    assertThat(msg.getCorrelationId()).isNull();
-    assertThat(msg.getReplyTo()).isNull();
-    assertThat(msg.getExpiration()).isZero();
-    assertThat(msg.getFormatIndicator()).isNull();
-    assertThat(msg.getMetadata()).isEmpty();
-    assertThat(msg.getMessageHistory()).isEmpty();
-    assertThat(msg.getPriority()).isZero();
-    assertThat(msg.isControlMessage()).isFalse();
+    assertThat(msg.id()).isNotNull().isNotEmpty();
+    assertThat(msg.traceId()).isEqualTo(traceId.toString());
+    assertThat(msg.payload()).isEqualTo(payload);
+    assertThat(msg.correlationId()).isNull();
+    assertThat(msg.replyTo()).isNull();
+    assertThat(msg.expiration()).isZero();
+    assertThat(msg.formatIndicator()).isNull();
+    assertThat(msg.metadata()).isEmpty();
+    assertThat(msg.messageHistory()).isEmpty();
+    assertThat(msg.priority()).isZero();
+    assertThat(msg.controlMessage()).isFalse();
   }
 
   @Test
@@ -297,12 +296,12 @@ class DefaultMessageTest {
     final Integer newPayload = 42;
     final DefaultMessage<Integer> from = DefaultMessage.from(withHeaders, newPayload);
 
-    assertThat(from.getMessageId()).isEqualTo(withHeaders.getMessageId());
-    assertThat(from.getTraceId()).isEqualTo(withHeaders.getTraceId());
-    assertThat(from.getCorrelationId()).isEqualTo("corrId");
-    assertThat(from.getReplyTo()).isEqualTo("replyTo");
-    assertThat(from.getMetadata()).containsEntry("headerKey", "headerValue");
-    assertThat(from.getPayload()).isEqualTo(42);
+    assertThat(from.id()).isEqualTo(withHeaders.id());
+    assertThat(from.traceId()).isEqualTo(withHeaders.traceId());
+    assertThat(from.correlationId()).isEqualTo("corrId");
+    assertThat(from.replyTo()).isEqualTo("replyTo");
+    assertThat(from.metadata()).containsEntry("headerKey", "headerValue");
+    assertThat(from.payload()).isEqualTo(42);
   }
 
   @Test
@@ -311,13 +310,13 @@ class DefaultMessageTest {
     raw.put("keep", "v");
     raw.put("drop", null);
     final DefaultMessage<String> msg = DefaultMessage.create(null, "p").withMetadata(raw);
-    assertThat(msg.getMetadata()).isEqualTo(Map.of("keep", "v"));
+    assertThat(msg.metadata()).isEqualTo(Map.of("keep", "v"));
   }
 
   @Test
   void testWithHeaderNullValueRemovesKey() {
     final Message<String> msg = DefaultMessage.create(null, "p").withHeader("k", "v");
-    assertThat(msg.withHeader("k", null).getMetadata()).isEmpty();
+    assertThat(msg.withHeader("k", null).metadata()).isEmpty();
   }
 
   @Test
@@ -332,16 +331,16 @@ class DefaultMessageTest {
     for (int i = 0; i < DefaultMessage.MAX_HISTORY + 10; i++) {
       msg = msg.withAddedHistory("n" + i);
     }
-    assertThat(msg.getMessageHistory()).hasSize(DefaultMessage.MAX_HISTORY);
-    assertThat(msg.getMessageHistory().get(DefaultMessage.MAX_HISTORY - 1))
+    assertThat(msg.messageHistory()).hasSize(DefaultMessage.MAX_HISTORY);
+    assertThat(msg.messageHistory().get(DefaultMessage.MAX_HISTORY - 1))
         .isEqualTo("n" + (DefaultMessage.MAX_HISTORY + 9));
-    assertThat(msg.getMessageHistory().get(0)).isEqualTo("n10");
+    assertThat(msg.messageHistory().get(0)).isEqualTo("n10");
   }
 
   @Test
   void testFromKeepsTimestampPrecision() {
     final Instant precise = Instant.parse("2026-01-01T00:00:00.123456789Z");
     final Message<String> original = DefaultMessage.create(null, "p").withTimestamp(precise);
-    assertThat(DefaultMessage.from(original, 1).getTimestamp()).isEqualTo(precise);
+    assertThat(DefaultMessage.from(original, 1).timestamp()).isEqualTo(precise);
   }
 }

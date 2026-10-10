@@ -138,7 +138,7 @@ public class SplitterProcessor implements ProcessorPlugin {
           final String errorPort = (String) config.get(CFG_ERROR_PORT);
           try {
             final Map<String, Object> variables =
-                Map.of("payload", parent.getPayload(), "metadata", parent.getMetadata());
+                Map.of("payload", parent.payload(), "metadata", parent.metadata());
             final Object items = SpelUtils.evaluateSync(path, parent, variables);
             if (items == null) {
               return handleNull(parent, nodeId, errorPort, strict);
@@ -201,17 +201,17 @@ public class SplitterProcessor implements ProcessorPlugin {
       final Map<String, Object> variables) {
     Message<?> child =
         DefaultMessage.create(null, item).toBuilder()
-            .traceId(parent.getTraceId())
-            .priority(parent.getPriority())
-            .correlationId(parent.getMessageId())
-            .sequenceId(parent.getMessageId())
+            .traceId(parent.traceId())
+            .priority(parent.priority())
+            .correlationId(parent.id())
+            .sequenceId(parent.id())
             .sequenceNumber(index)
             .sequenceSize(total)
-            .metadata(parent.getMetadata())
-            .replyTo(parent.getReplyTo())
-            .timestamp(parent.getTimestamp())
-            .expiration(Math.max(0L, parent.getExpiration()))
-            .formatIndicator(parent.getFormatIndicator())
+            .metadata(parent.metadata())
+            .replyTo(parent.replyTo())
+            .timestamp(parent.timestamp())
+            .expiration(Math.max(0L, parent.expiration()))
+            .formatIndicator(parent.formatIndicator())
             .build();
     @SuppressWarnings("unchecked")
     final Map<String, String> mapping = (Map<String, String>) config.get(CFG_MAPPING);

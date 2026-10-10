@@ -38,10 +38,8 @@ class RecipientListProcessorTest {
             processor
                 .process(Flux.just(msg), config)
                 .contextWrite(Context.of("nodeId", "test-node")))
-        .expectNextMatches(
-            m -> "port1".equals(m.getSourcePort()) && m.getMessageHistory().isEmpty())
-        .expectNextMatches(
-            m -> "port2".equals(m.getSourcePort()) && m.getMessageHistory().isEmpty())
+        .expectNextMatches(m -> "port1".equals(m.sourcePort()) && m.messageHistory().isEmpty())
+        .expectNextMatches(m -> "port2".equals(m.sourcePort()) && m.messageHistory().isEmpty())
         .verifyComplete();
   }
 
@@ -56,8 +54,8 @@ class RecipientListProcessorTest {
         DefaultMessage.create(UUID.randomUUID(), Map.of("destinations", List.of("p1", "p2")));
 
     StepVerifier.create(processor.process(Flux.just(msg), config))
-        .expectNextMatches(m -> "p1".equals(m.getSourcePort()))
-        .expectNextMatches(m -> "p2".equals(m.getSourcePort()))
+        .expectNextMatches(m -> "p1".equals(m.sourcePort()))
+        .expectNextMatches(m -> "p2".equals(m.sourcePort()))
         .verifyComplete();
   }
 
@@ -71,7 +69,7 @@ class RecipientListProcessorTest {
     final Message msg = DefaultMessage.create(UUID.randomUUID(), Map.of("target", "p1"));
 
     StepVerifier.create(processor.process(Flux.just(msg), config))
-        .expectNextMatches(m -> "p1".equals(m.getSourcePort()))
+        .expectNextMatches(m -> "p1".equals(m.sourcePort()))
         .verifyComplete();
   }
 
@@ -86,7 +84,7 @@ class RecipientListProcessorTest {
         DefaultMessage.create(UUID.randomUUID(), Map.of("user", Map.of("groups", List.of("g1"))));
 
     StepVerifier.create(processor.process(Flux.just(msg), config))
-        .expectNextMatches(m -> "g1".equals(m.getSourcePort()))
+        .expectNextMatches(m -> "g1".equals(m.sourcePort()))
         .verifyComplete();
   }
 
@@ -102,7 +100,7 @@ class RecipientListProcessorTest {
             .withMetadata(Map.of("recipients", List.of("m1")));
 
     StepVerifier.create(processor.process(Flux.just(msg), config))
-        .expectNextMatches(m -> "m1".equals(m.getSourcePort()))
+        .expectNextMatches(m -> "m1".equals(m.sourcePort()))
         .verifyComplete();
   }
 
@@ -135,8 +133,8 @@ class RecipientListProcessorTest {
     final Message msg = DefaultMessage.create(UUID.randomUUID(), "data");
 
     StepVerifier.create(processor.process(Flux.just(msg), config))
-        .expectNextMatches(m -> "p1".equals(m.getSourcePort()))
-        .expectNextMatches(m -> "p2".equals(m.getSourcePort()))
+        .expectNextMatches(m -> "p1".equals(m.sourcePort()))
+        .expectNextMatches(m -> "p2".equals(m.sourcePort()))
         .verifyComplete();
   }
 
@@ -153,8 +151,8 @@ class RecipientListProcessorTest {
     StepVerifier.create(processor.process(Flux.just(msg), config))
         .expectNextMatches(
             m ->
-                "error_port".equals(m.getSourcePort())
-                    && m.getFailureReason().contains("Recipient computation failed"))
+                "error_port".equals(m.sourcePort())
+                    && m.failureReason().contains("Recipient computation failed"))
         .verifyComplete();
   }
 

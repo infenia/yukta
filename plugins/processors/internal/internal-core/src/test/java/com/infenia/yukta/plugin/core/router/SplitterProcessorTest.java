@@ -61,7 +61,7 @@ class SplitterProcessorTest {
     StepVerifier.create(processor.process(Flux.just(parent), config))
         .expectNextMatches(
             m -> {
-              assertEquals("ORD-123", m.getMetadata().get("parentOrder"));
+              assertEquals("ORD-123", m.metadata().get("parentOrder"));
               return true;
             })
         .verifyComplete();
@@ -82,11 +82,11 @@ class SplitterProcessorTest {
     StepVerifier.create(processor.process(Flux.just(parent), config))
         .expectNextMatches(
             m -> {
-              assertEquals(parent.getTraceId(), m.getTraceId());
-              assertEquals(9, m.getPriority());
-              assertEquals(parent.getExpiration(), m.getExpiration());
-              assertEquals("v2", m.getFormatIndicator());
-              assertEquals("val", m.getMetadata().get("custom-tech"));
+              assertEquals(parent.traceId(), m.traceId());
+              assertEquals(9, m.priority());
+              assertEquals(parent.expiration(), m.expiration());
+              assertEquals("v2", m.formatIndicator());
+              assertEquals("val", m.metadata().get("custom-tech"));
               return true;
             })
         .verifyComplete();
@@ -102,16 +102,16 @@ class SplitterProcessorTest {
     StepVerifier.create(processor.process(Flux.just(parent), config))
         .expectNextMatches(
             m -> {
-              assertEquals(1, m.getPayload());
-              assertEquals(0, m.getSequenceSize());
-              assertEquals(1, m.getSequenceNumber());
+              assertEquals(1, m.payload());
+              assertEquals(0, m.sequenceSize());
+              assertEquals(1, m.sequenceNumber());
               return true;
             })
         .expectNextMatches(
             m -> {
-              assertEquals(2, m.getPayload());
-              assertEquals(2, m.getSequenceSize());
-              assertEquals(2, m.getSequenceNumber());
+              assertEquals(2, m.payload());
+              assertEquals(2, m.sequenceSize());
+              assertEquals(2, m.sequenceNumber());
               return true;
             })
         .verifyComplete();
@@ -131,9 +131,9 @@ class SplitterProcessorTest {
                 .contextWrite(ctx -> ctx.put("nodeId", "split-node")))
         .expectNextMatches(
             m -> {
-              assertEquals("error-out", m.getSourcePort());
-              assertNotNull(m.getFailureReason());
-              assertTrue(m.getMessageHistory().isEmpty());
+              assertEquals("error-out", m.sourcePort());
+              assertNotNull(m.failureReason());
+              assertTrue(m.messageHistory().isEmpty());
               return true;
             })
         .verifyComplete();
@@ -167,25 +167,23 @@ class SplitterProcessorTest {
       int index,
       int total,
       boolean isLast) {
-    assertEquals(expectedPayload, child.getPayload());
-    assertEquals(parent.getMessageId(), child.getCorrelationId());
-    assertEquals(parent.getMessageId(), child.getSequenceId());
-    assertEquals(index, child.getSequenceNumber(), "Sequence number mismatch");
-    assertEquals(total, child.getSequenceSize(), "Sequence size mismatch");
+    assertEquals(expectedPayload, child.payload());
+    assertEquals(parent.id(), child.correlationId());
+    assertEquals(parent.id(), child.sequenceId());
+    assertEquals(index, child.sequenceNumber(), "Sequence number mismatch");
+    assertEquals(total, child.sequenceSize(), "Sequence size mismatch");
     assertEquals(
-        isLast,
-        child.getSequenceNumber() == child.getSequenceSize(),
-        "Last in sequence flag mismatch");
-    assertEquals("default", child.getSourcePort());
-    assertTrue(child.getMessageHistory().isEmpty());
-    assertFalse(child.getMessageId().equals(parent.getMessageId()));
+        isLast, child.sequenceNumber() == child.sequenceSize(), "Last in sequence flag mismatch");
+    assertEquals("default", child.sourcePort());
+    assertTrue(child.messageHistory().isEmpty());
+    assertFalse(child.id().equals(parent.id()));
     assertEquals(
-        parent.getTimestamp(),
-        child.getTimestamp(),
+        parent.timestamp(),
+        child.timestamp(),
         "Timestamp must be propagated from parent: "
-            + parent.getTimestamp()
+            + parent.timestamp()
             + " vs "
-            + child.getTimestamp());
+            + child.timestamp());
     return true;
   }
 
@@ -213,8 +211,8 @@ class SplitterProcessorTest {
     final Map<String, Object> config = Map.of("itemsPath", "payload.it");
 
     StepVerifier.create(processor.process(Flux.just(parent), config))
-        .expectNextMatches(m -> m.getPayload().equals(1))
-        .expectNextMatches(m -> m.getPayload().equals(2))
+        .expectNextMatches(m -> m.payload().equals(1))
+        .expectNextMatches(m -> m.payload().equals(2))
         .verifyComplete();
   }
 
@@ -225,8 +223,8 @@ class SplitterProcessorTest {
     final Map<String, Object> config = Map.of("itemsPath", "payload.arr");
 
     StepVerifier.create(processor.process(Flux.just(parent), config))
-        .expectNextMatches(m -> m.getPayload().equals("a"))
-        .expectNextMatches(m -> m.getPayload().equals("b"))
+        .expectNextMatches(m -> m.payload().equals("a"))
+        .expectNextMatches(m -> m.payload().equals("b"))
         .verifyComplete();
   }
 
@@ -239,8 +237,8 @@ class SplitterProcessorTest {
     StepVerifier.create(processor.process(Flux.just(parent), config))
         .expectNextMatches(
             m -> {
-              assertEquals("only-one", m.getPayload());
-              assertEquals(1, m.getSequenceSize());
+              assertEquals("only-one", m.payload());
+              assertEquals(1, m.sequenceSize());
               return true;
             })
         .verifyComplete();
@@ -304,7 +302,7 @@ class SplitterProcessorTest {
             false);
 
     StepVerifier.create(processor.process(Flux.just(parent), config))
-        .expectNextMatches(m -> !m.getMetadata().containsKey("err"))
+        .expectNextMatches(m -> !m.metadata().containsKey("err"))
         .verifyComplete();
   }
 

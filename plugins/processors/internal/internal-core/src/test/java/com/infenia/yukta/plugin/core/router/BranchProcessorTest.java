@@ -48,11 +48,11 @@ class BranchProcessorTest {
                 .process(Flux.just(msg1), config)
                 .contextWrite(Context.of("nodeId", "test-node")))
         .expectNextMatches(
-            m -> "premium_port".equals(m.getSourcePort()) && m.getMessageHistory().isEmpty())
+            m -> "premium_port".equals(m.sourcePort()) && m.messageHistory().isEmpty())
         .verifyComplete();
 
     StepVerifier.create(processor.process(Flux.just(msg2), config))
-        .expectNextMatches(m -> "guest_port".equals(m.getSourcePort()))
+        .expectNextMatches(m -> "guest_port".equals(m.sourcePort()))
         .verifyComplete();
   }
 
@@ -70,7 +70,7 @@ class BranchProcessorTest {
     final Message msg = DefaultMessage.create(UUID.randomUUID(), Map.of("code", 1));
 
     StepVerifier.create(processor.process(Flux.just(msg), config))
-        .expectNextMatches(m -> "port_1".equals(m.getSourcePort()))
+        .expectNextMatches(m -> "port_1".equals(m.sourcePort()))
         .verifyComplete();
   }
 
@@ -85,7 +85,7 @@ class BranchProcessorTest {
     final Message msg = DefaultMessage.create(UUID.randomUUID(), Map.of("score", 95));
 
     StepVerifier.create(processor.process(Flux.just(msg), config))
-        .expectNextMatches(m -> "high_score".equals(m.getSourcePort()))
+        .expectNextMatches(m -> "high_score".equals(m.sourcePort()))
         .verifyComplete();
   }
 
@@ -101,8 +101,8 @@ class BranchProcessorTest {
     final Message msg = DefaultMessage.create(UUID.randomUUID(), Map.of("score", 95));
 
     StepVerifier.create(processor.process(Flux.just(msg), config))
-        .expectNextMatches(m -> "pass".equals(m.getSourcePort()))
-        .expectNextMatches(m -> "excellent".equals(m.getSourcePort()))
+        .expectNextMatches(m -> "pass".equals(m.sourcePort()))
+        .expectNextMatches(m -> "excellent".equals(m.sourcePort()))
         .verifyComplete();
   }
 
@@ -118,7 +118,7 @@ class BranchProcessorTest {
     final Message msg = DefaultMessage.create(UUID.randomUUID(), Map.of("userType", "UNKNOWN"));
 
     StepVerifier.create(processor.process(Flux.just(msg), config))
-        .expectNextMatches(m -> "default_port".equals(m.getSourcePort()))
+        .expectNextMatches(m -> "default_port".equals(m.sourcePort()))
         .verifyComplete();
   }
 
@@ -196,9 +196,9 @@ class BranchProcessorTest {
                 .contextWrite(Context.of("nodeId", "test-node")))
         .expectNextMatches(
             m ->
-                "error_port".equals(m.getSourcePort())
-                    && m.getFailureReason().contains("evaluation failed")
-                    && m.getMessageHistory().isEmpty())
+                "error_port".equals(m.sourcePort())
+                    && m.failureReason().contains("evaluation failed")
+                    && m.messageHistory().isEmpty())
         .verifyComplete();
   }
 
@@ -384,7 +384,7 @@ class BranchProcessorTest {
     final Message<Map<String, Object>> msg = DefaultMessage.create(UUID.randomUUID(), Map.of());
 
     StepVerifier.create(processor.process(Flux.just(msg), config))
-        .expectNextMatches(m -> "def".equals(m.getSourcePort()))
+        .expectNextMatches(m -> "def".equals(m.sourcePort()))
         .verifyComplete();
   }
 
@@ -399,7 +399,7 @@ class BranchProcessorTest {
     final Message msg = DefaultMessage.create(UUID.randomUUID(), Map.of("val", "B"));
 
     StepVerifier.create(processor.process(Flux.just(msg), config))
-        .expectNextMatches(m -> "def".equals(m.getSourcePort()))
+        .expectNextMatches(m -> "def".equals(m.sourcePort()))
         .verifyComplete();
   }
 

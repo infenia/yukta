@@ -39,7 +39,7 @@ class ContentFilterProcessorTest {
     StepVerifier.create(processor.process(Flux.just(msg), config))
         .expectNextMatches(
             m -> {
-              Map<String, Object> result = (Map<String, Object>) m.getPayload();
+              Map<String, Object> result = (Map<String, Object>) m.payload();
               assertEquals(1, result.size());
               Map<String, Object> user = (Map<String, Object>) result.get("user");
               assertEquals(2, user.size());
@@ -62,7 +62,7 @@ class ContentFilterProcessorTest {
     StepVerifier.create(processor.process(Flux.just(msg), config))
         .expectNextMatches(
             m -> {
-              Map<String, Object> result = (Map<String, Object>) m.getPayload();
+              Map<String, Object> result = (Map<String, Object>) m.payload();
               Map<String, Object> user = (Map<String, Object>) result.get("user");
               assertEquals("John", user.get("name"));
               return true;
@@ -83,7 +83,7 @@ class ContentFilterProcessorTest {
     StepVerifier.create(processor.process(Flux.just(msg), config))
         .expectNextMatches(
             m -> {
-              Map<String, Object> result = (Map<String, Object>) m.getPayload();
+              Map<String, Object> result = (Map<String, Object>) m.payload();
               Map<String, Object> user = (Map<String, Object>) result.get("user");
               assertEquals("John", user.get("name"));
               assertFalse(user.containsKey("age"));
@@ -107,9 +107,9 @@ class ContentFilterProcessorTest {
     StepVerifier.create(processor.process(Flux.just(msg), config))
         .expectNextMatches(
             m -> {
-              assertEquals("YUKTA", m.getMetadata().get("appId"));
-              assertFalse(m.getMetadata().containsKey("secret"));
-              assertTrue(m.getMetadata().containsKey("traceId")); // Technical header preserved
+              assertEquals("YUKTA", m.metadata().get("appId"));
+              assertFalse(m.metadata().containsKey("secret"));
+              assertTrue(m.metadata().containsKey("traceId")); // Technical header preserved
               return true;
             })
         .verifyComplete();
@@ -127,8 +127,8 @@ class ContentFilterProcessorTest {
     StepVerifier.create(processor.process(Flux.just(msg), config))
         .expectNextMatches(
             m -> {
-              assertEquals("YUKTA", m.getMetadata().get("appId"));
-              assertFalse(m.getMetadata().containsKey("secret"));
+              assertEquals("YUKTA", m.metadata().get("appId"));
+              assertFalse(m.metadata().containsKey("secret"));
               return true;
             })
         .verifyComplete();
@@ -147,7 +147,7 @@ class ContentFilterProcessorTest {
     StepVerifier.create(processor.process(Flux.just(msg), config))
         .expectNextMatches(
             m -> {
-              Map<String, Object> result = (Map<String, Object>) m.getPayload();
+              Map<String, Object> result = (Map<String, Object>) m.payload();
               assertEquals("John", result.get("user.name"));
               assertEquals("New York", result.get("user.address.city"));
               assertEquals(2, result.size());
@@ -186,8 +186,8 @@ class ContentFilterProcessorTest {
     StepVerifier.create(processor.process(Flux.just(msg), config))
         .expectNextMatches(
             m -> {
-              assertEquals("error-out", m.getSourcePort());
-              assertEquals("Content Filter failed", m.getFailureReason());
+              assertEquals("error-out", m.sourcePort());
+              assertEquals("Content Filter failed", m.failureReason());
               return true;
             })
         .verifyComplete();
@@ -203,13 +203,13 @@ class ContentFilterProcessorTest {
     StepVerifier.create(processor.process(Flux.just(msg), config))
         .expectNextMatches(
             m -> {
-              assertEquals("John", ((Map) m.getPayload()).get("name"));
-              assertFalse(((Map) m.getPayload()).containsKey("age"));
+              assertEquals("John", ((Map) m.payload()).get("name"));
+              assertFalse(((Map) m.payload()).containsKey("age"));
               return true;
             })
         .expectNextMatches(
             m -> {
-              assertEquals("Jane", ((Map) m.getPayload()).get("name"));
+              assertEquals("Jane", ((Map) m.payload()).get("name"));
               return true;
             })
         .verifyComplete();
@@ -225,12 +225,12 @@ class ContentFilterProcessorTest {
     StepVerifier.create(processor.process(Flux.just(msg), config))
         .expectNextMatches(
             m -> {
-              assertEquals("John", ((Map) m.getPayload()).get("name"));
+              assertEquals("John", ((Map) m.payload()).get("name"));
               return true;
             })
         .expectNextMatches(
             m -> {
-              assertEquals("Jane", ((Map) m.getPayload()).get("name"));
+              assertEquals("Jane", ((Map) m.payload()).get("name"));
               return true;
             })
         .verifyComplete();
@@ -246,7 +246,7 @@ class ContentFilterProcessorTest {
     StepVerifier.create(processor.process(Flux.just(msg), config))
         .expectNextMatches(
             m -> {
-              System.out.println("Item: " + m.getPayload());
+              System.out.println("Item: " + m.payload());
               return true;
             })
         .expectNextMatches(m -> true)
@@ -263,7 +263,7 @@ class ContentFilterProcessorTest {
     StepVerifier.create(processor.process(Flux.just(msg), config))
         .expectNextMatches(
             m -> {
-              System.out.println("Null result: " + m.getPayload());
+              System.out.println("Null result: " + m.payload());
               return true;
             })
         .verifyComplete();

@@ -225,7 +225,7 @@ public class ProcessExecutorPlugin implements ProcessorPlugin {
       final ProcessExecutionResult result) {
     return switch (config.outputFormat()) {
       case RAW -> result.stdout();
-      case PASSTHROUGH -> message.getPayload();
+      case PASSTHROUGH -> message.payload();
       case STRUCTURED -> structuredPayload(message, config, result);
       case JSON -> jsonPayload(message, config, result);
     };
@@ -246,7 +246,7 @@ public class ProcessExecutorPlugin implements ProcessorPlugin {
       payload.put("stderr", result.stderr());
     }
     if (config.includeInput()) {
-      payload.put("input", message.getPayload());
+      payload.put("input", message.payload());
     }
     return payload;
   }
@@ -284,7 +284,7 @@ public class ProcessExecutorPlugin implements ProcessorPlugin {
     }
     final Map<String, String> env = new HashMap<>();
     message
-        .getMetadata()
+        .metadata()
         .forEach(
             (key, value) -> {
               if (value != null) {
@@ -293,8 +293,8 @@ public class ProcessExecutorPlugin implements ProcessorPlugin {
                 env.put(envKey, value.toString());
               }
             });
-    if (message.getPayload() != null) {
-      env.put(PAYLOAD_ENV_KEY, payloadAsString(message.getPayload()));
+    if (message.payload() != null) {
+      env.put(PAYLOAD_ENV_KEY, payloadAsString(message.payload()));
     }
     // Explicitly configured env entries take precedence over exported message values
     env.putAll(config.env());
@@ -303,10 +303,10 @@ public class ProcessExecutorPlugin implements ProcessorPlugin {
   }
 
   private String buildStdin(final Message<?> message, final ProcessExecutorConfig config) {
-    if (config.inputMode() != InputMode.STDIN || message.getPayload() == null) {
+    if (config.inputMode() != InputMode.STDIN || message.payload() == null) {
       return null;
     }
-    return payloadAsString(message.getPayload());
+    return payloadAsString(message.payload());
   }
 
   private String payloadAsString(final Object payload) {
@@ -326,7 +326,7 @@ public class ProcessExecutorPlugin implements ProcessorPlugin {
       final ProcessExecutorConfig config,
       final ProcessExecutionResult result,
       final Object payload) {
-    final Map<String, Object> newMetadata = new HashMap<>(original.getMetadata());
+    final Map<String, Object> newMetadata = new HashMap<>(original.metadata());
     newMetadata.put(EXIT_CODE_KEY, result.exitCode());
     log.atDebug().log("Exit code stored in metadata: {}", result.exitCode());
     final Message<?> output = DefaultMessage.from(original, payload).withMetadata(newMetadata);

@@ -220,12 +220,12 @@ class DefaultControlBusGatewayTest {
     final ArgumentCaptor<Message<?>> captor = ArgumentCaptor.forClass(Message.class);
     verify(controlBusService).emit(captor.capture());
     final Message<?> emittedMessage = captor.getValue();
-    assertThat(emittedMessage.getPayload()).isInstanceOf(PauseWorkflowCommand.class);
-    final PauseWorkflowCommand cmd = (PauseWorkflowCommand) emittedMessage.getPayload();
+    assertThat(emittedMessage.payload()).isInstanceOf(PauseWorkflowCommand.class);
+    final PauseWorkflowCommand cmd = (PauseWorkflowCommand) emittedMessage.payload();
     assertThat(cmd.executionId()).isEqualTo(executionId);
-    assertThat(emittedMessage.getPriority()).isEqualTo(100);
-    assertThat(emittedMessage.getSourceNodeId()).isEqualTo("CONTROL_BUS");
-    assertThat(emittedMessage.isControlMessage()).isTrue();
+    assertThat(emittedMessage.priority()).isEqualTo(100);
+    assertThat(emittedMessage.sourceNodeId()).isEqualTo("CONTROL_BUS");
+    assertThat(emittedMessage.controlMessage()).isTrue();
   }
 
   @Test
@@ -245,8 +245,8 @@ class DefaultControlBusGatewayTest {
     final ArgumentCaptor<Message<?>> captor = ArgumentCaptor.forClass(Message.class);
     verify(controlBusService).emit(captor.capture());
     final Message<?> emittedMessage = captor.getValue();
-    assertThat(emittedMessage.getPayload()).isInstanceOf(ResumeWorkflowCommand.class);
-    final ResumeWorkflowCommand cmd = (ResumeWorkflowCommand) emittedMessage.getPayload();
+    assertThat(emittedMessage.payload()).isInstanceOf(ResumeWorkflowCommand.class);
+    final ResumeWorkflowCommand cmd = (ResumeWorkflowCommand) emittedMessage.payload();
     assertThat(cmd.executionId()).isEqualTo(executionId);
   }
 
@@ -307,8 +307,8 @@ class DefaultControlBusGatewayTest {
     final ArgumentCaptor<Message<?>> captor = ArgumentCaptor.forClass(Message.class);
     verify(controlBusService).emit(captor.capture());
     final Message<?> emittedMessage = captor.getValue();
-    assertThat(emittedMessage.getPayload()).isInstanceOf(PauseNodeCommand.class);
-    final PauseNodeCommand cmd = (PauseNodeCommand) emittedMessage.getPayload();
+    assertThat(emittedMessage.payload()).isInstanceOf(PauseNodeCommand.class);
+    final PauseNodeCommand cmd = (PauseNodeCommand) emittedMessage.payload();
     assertThat(cmd.executionId()).isEqualTo(executionId);
     assertThat(cmd.nodeId()).isEqualTo(nodeId);
   }
@@ -330,8 +330,8 @@ class DefaultControlBusGatewayTest {
     final ArgumentCaptor<Message<?>> captor = ArgumentCaptor.forClass(Message.class);
     verify(controlBusService).emit(captor.capture());
     final Message<?> emittedMessage = captor.getValue();
-    assertThat(emittedMessage.getPayload()).isInstanceOf(ResumeNodeCommand.class);
-    final ResumeNodeCommand cmd = (ResumeNodeCommand) emittedMessage.getPayload();
+    assertThat(emittedMessage.payload()).isInstanceOf(ResumeNodeCommand.class);
+    final ResumeNodeCommand cmd = (ResumeNodeCommand) emittedMessage.payload();
     assertThat(cmd.executionId()).isEqualTo(executionId);
     assertThat(cmd.nodeId()).isEqualTo(nodeId);
   }
@@ -490,13 +490,13 @@ class DefaultControlBusGatewayTest {
     final ArgumentCaptor<Message<?>> captor = ArgumentCaptor.forClass(Message.class);
     verify(controlBusService).emit(captor.capture());
     final Message<?> emittedMessage = captor.getValue();
-    assertThat(emittedMessage.getPayload()).isInstanceOf(StopNodeCommand.class);
-    final StopNodeCommand cmd = (StopNodeCommand) emittedMessage.getPayload();
+    assertThat(emittedMessage.payload()).isInstanceOf(StopNodeCommand.class);
+    final StopNodeCommand cmd = (StopNodeCommand) emittedMessage.payload();
     assertThat(cmd.executionId()).isEqualTo(executionId);
     assertThat(cmd.nodeId()).isEqualTo(nodeId);
     assertThat(cmd.immediate()).isEqualTo(immediate);
     assertThat(cmd.reason()).isEqualTo(reason);
-    assertThat(emittedMessage.getPriority()).isEqualTo(110); // CONTROL_COMMAND_PRIORITY + 10
+    assertThat(emittedMessage.priority()).isEqualTo(110); // CONTROL_COMMAND_PRIORITY + 10
   }
 
   @Test
@@ -518,7 +518,7 @@ class DefaultControlBusGatewayTest {
     final ArgumentCaptor<Message<?>> captor = ArgumentCaptor.forClass(Message.class);
     verify(controlBusService).emit(captor.capture());
     final Message<?> emittedMessage = captor.getValue();
-    final StopNodeCommand cmd = (StopNodeCommand) emittedMessage.getPayload();
+    final StopNodeCommand cmd = (StopNodeCommand) emittedMessage.payload();
     assertThat(cmd.immediate()).isTrue();
   }
 
@@ -645,13 +645,13 @@ class DefaultControlBusGatewayTest {
     verify(controlBusService).emit(captor.capture());
     final Message<?> emittedMessage = captor.getValue();
 
-    assertThat(emittedMessage.getPayload()).isInstanceOf(StopWorkflowCommand.class);
-    final StopWorkflowCommand cmd = (StopWorkflowCommand) emittedMessage.getPayload();
+    assertThat(emittedMessage.payload()).isInstanceOf(StopWorkflowCommand.class);
+    final StopWorkflowCommand cmd = (StopWorkflowCommand) emittedMessage.payload();
     assertThat(cmd.executionId()).isEqualTo(executionId);
     assertThat(cmd.reason()).isEqualTo(reason);
-    assertThat(emittedMessage.getPriority()).isEqualTo(120); // CONTROL_COMMAND_PRIORITY + 20
-    assertThat(emittedMessage.getSourceNodeId()).isEqualTo("CONTROL_BUS");
-    assertThat(emittedMessage.isControlMessage()).isTrue();
+    assertThat(emittedMessage.priority()).isEqualTo(120); // CONTROL_COMMAND_PRIORITY + 20
+    assertThat(emittedMessage.sourceNodeId()).isEqualTo("CONTROL_BUS");
+    assertThat(emittedMessage.controlMessage()).isTrue();
   }
 
   @Test
@@ -688,7 +688,7 @@ class DefaultControlBusGatewayTest {
     verify(controlBusService, times(2)).emit(captor.capture());
     final List<Message<?>> allMessages = captor.getAllValues();
     for (final Message<?> msg : allMessages) {
-      final StopWorkflowCommand cmd = (StopWorkflowCommand) msg.getPayload();
+      final StopWorkflowCommand cmd = (StopWorkflowCommand) msg.payload();
       assertThat(cmd.reason()).isEqualTo(reason);
     }
   }
@@ -757,8 +757,8 @@ class DefaultControlBusGatewayTest {
     final ArgumentCaptor<Message<?>> captor = ArgumentCaptor.forClass(Message.class);
     verify(controlBusService).emit(captor.capture());
     final Message<?> emittedMessage = captor.getValue();
-    assertThat(emittedMessage.getPayload()).isInstanceOf(SkipNodeCommand.class);
-    final SkipNodeCommand cmd = (SkipNodeCommand) emittedMessage.getPayload();
+    assertThat(emittedMessage.payload()).isInstanceOf(SkipNodeCommand.class);
+    final SkipNodeCommand cmd = (SkipNodeCommand) emittedMessage.payload();
     assertThat(cmd.skip()).isTrue();
   }
 
@@ -780,7 +780,7 @@ class DefaultControlBusGatewayTest {
     final ArgumentCaptor<Message<?>> captor = ArgumentCaptor.forClass(Message.class);
     verify(controlBusService).emit(captor.capture());
     final Message<?> emittedMessage = captor.getValue();
-    final SkipNodeCommand cmd = (SkipNodeCommand) emittedMessage.getPayload();
+    final SkipNodeCommand cmd = (SkipNodeCommand) emittedMessage.payload();
     assertThat(cmd.skip()).isFalse();
   }
 
@@ -801,8 +801,8 @@ class DefaultControlBusGatewayTest {
     final ArgumentCaptor<Message<?>> captor = ArgumentCaptor.forClass(Message.class);
     verify(controlBusService).emit(captor.capture());
     final Message<?> emittedMessage = captor.getValue();
-    assertThat(emittedMessage.getPayload()).isInstanceOf(EnableStepModeCommand.class);
-    final EnableStepModeCommand cmd = (EnableStepModeCommand) emittedMessage.getPayload();
+    assertThat(emittedMessage.payload()).isInstanceOf(EnableStepModeCommand.class);
+    final EnableStepModeCommand cmd = (EnableStepModeCommand) emittedMessage.payload();
     assertThat(cmd.executionId()).isEqualTo(executionId);
     assertThat(cmd.nodeId()).isEqualTo(nodeId);
   }
@@ -824,8 +824,8 @@ class DefaultControlBusGatewayTest {
     final ArgumentCaptor<Message<?>> captor = ArgumentCaptor.forClass(Message.class);
     verify(controlBusService).emit(captor.capture());
     final Message<?> emittedMessage = captor.getValue();
-    assertThat(emittedMessage.getPayload()).isInstanceOf(DisableStepModeCommand.class);
-    final DisableStepModeCommand cmd = (DisableStepModeCommand) emittedMessage.getPayload();
+    assertThat(emittedMessage.payload()).isInstanceOf(DisableStepModeCommand.class);
+    final DisableStepModeCommand cmd = (DisableStepModeCommand) emittedMessage.payload();
     assertThat(cmd.executionId()).isEqualTo(executionId);
     assertThat(cmd.nodeId()).isEqualTo(nodeId);
   }
@@ -847,8 +847,8 @@ class DefaultControlBusGatewayTest {
     final ArgumentCaptor<Message<?>> captor = ArgumentCaptor.forClass(Message.class);
     verify(controlBusService).emit(captor.capture());
     final Message<?> emittedMessage = captor.getValue();
-    assertThat(emittedMessage.getPayload()).isInstanceOf(StepNodeCommand.class);
-    final StepNodeCommand cmd = (StepNodeCommand) emittedMessage.getPayload();
+    assertThat(emittedMessage.payload()).isInstanceOf(StepNodeCommand.class);
+    final StepNodeCommand cmd = (StepNodeCommand) emittedMessage.payload();
     assertThat(cmd.executionId()).isEqualTo(executionId);
     assertThat(cmd.nodeId()).isEqualTo(nodeId);
   }
@@ -870,7 +870,7 @@ class DefaultControlBusGatewayTest {
         .then(
             () -> {
               verify(controlBusService).emit(captor.capture());
-              final RestartCommand cmd = (RestartCommand) captor.getValue().getPayload();
+              final RestartCommand cmd = (RestartCommand) captor.getValue().payload();
               assertThat(cmd.executionId()).isEqualTo(executionId);
               gateway.completeRestartSuccess(cmd.newExecutionId());
             })
@@ -903,7 +903,7 @@ class DefaultControlBusGatewayTest {
             () -> {
               verify(controlBusService).emit(captor.capture());
               final RestartFromNodeCommand cmd =
-                  (RestartFromNodeCommand) captor.getValue().getPayload();
+                  (RestartFromNodeCommand) captor.getValue().payload();
               assertThat(cmd.executionId()).isEqualTo(executionId);
               assertThat(cmd.fromNodeId()).isEqualTo(fromNodeId);
               expectedNewExecutionId.set(cmd.newExecutionId());
@@ -935,7 +935,7 @@ class DefaultControlBusGatewayTest {
         .then(
             () -> {
               verify(controlBusService).emit(captor.capture());
-              final RestartCommand cmd = (RestartCommand) captor.getValue().getPayload();
+              final RestartCommand cmd = (RestartCommand) captor.getValue().payload();
               gateway.completeRestartFailure(cmd.newExecutionId(), notFound);
             })
         .expectErrorMatches(err -> err.equals(notFound))
@@ -1198,8 +1198,8 @@ class DefaultControlBusGatewayTest {
     final ArgumentCaptor<Message<?>> captor = ArgumentCaptor.forClass(Message.class);
     verify(controlBusService).emit(captor.capture());
     final Message<?> emittedMessage = captor.getValue();
-    assertThat(emittedMessage.isControlMessage()).isTrue();
-    assertThat(emittedMessage.getSourceNodeId()).isEqualTo("CONTROL_BUS");
+    assertThat(emittedMessage.controlMessage()).isTrue();
+    assertThat(emittedMessage.sourceNodeId()).isEqualTo("CONTROL_BUS");
   }
 
   @Test
@@ -2306,7 +2306,7 @@ class DefaultControlBusGatewayTest {
               final Message<?> message = inv.getArgument(0);
               final var command =
                   (com.infenia.yukta.plugin.control.ExecutionControlCommand.RestartCommand)
-                      message.getPayload();
+                      message.payload();
               gateway.completeRestartSuccess(command.newExecutionId());
               return Mono.empty();
             });

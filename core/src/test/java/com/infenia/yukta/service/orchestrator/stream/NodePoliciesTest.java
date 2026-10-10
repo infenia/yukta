@@ -98,9 +98,9 @@ class NodePoliciesTest {
     StepVerifier.create(NodePolicies.apply(policy, "n1", input, flaky(new AtomicInteger(), 99)))
         .assertNext(
             routed -> {
-              assertThat(routed.getSourcePort()).isEqualTo(NodePolicy.ERROR_PORT);
-              assertThat(routed.getFailureReason()).isEqualTo("PROCESSING_FAILED");
-              assertThat(routed.getPayload()).isEqualTo(input.getPayload());
+              assertThat(routed.sourcePort()).isEqualTo(NodePolicy.ERROR_PORT);
+              assertThat(routed.failureReason()).isEqualTo("PROCESSING_FAILED");
+              assertThat(routed.payload()).isEqualTo(input.payload());
             })
         .verifyComplete();
   }
@@ -122,7 +122,7 @@ class NodePoliciesTest {
     StepVerifier.withVirtualTime(() -> NodePolicies.apply(policy, "n1", input, flaky(calls, 99)))
         .expectSubscription()
         .thenAwait(Duration.ofSeconds(60))
-        .assertNext(routed -> assertThat(routed.getSourcePort()).isEqualTo("error"))
+        .assertNext(routed -> assertThat(routed.sourcePort()).isEqualTo("error"))
         .verifyComplete();
 
     assertThat(calls).hasValue(3);

@@ -189,8 +189,8 @@ public final class FilterProcessor implements ProcessorPlugin {
     if (ENGINE_SPEL.equalsIgnoreCase(engine)) {
       final Map<String, Object> variables =
           Map.of(
-              "payload", message.getPayload(),
-              "metadata", message.getMetadata());
+              "payload", message.payload(),
+              "metadata", message.metadata());
       final Boolean result = SpelUtils.evaluateSync(condition, message, variables);
       return result != null && result;
     } else if (ENGINE_SIMPLE.equalsIgnoreCase(engine)) {

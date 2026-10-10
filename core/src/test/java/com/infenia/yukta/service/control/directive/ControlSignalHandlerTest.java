@@ -39,11 +39,11 @@ class ControlSignalHandlerTest {
         DefaultMessage.create(null, new ControlStatistics("node1", 100.0, 50.0))
             .withSourceNodeId("node1");
 
-    assertThat(heartbeatHandler.canHandle(hb.getPayload())).isTrue();
-    assertThat(statisticsHandler.canHandle(hb.getPayload())).isFalse();
+    assertThat(heartbeatHandler.canHandle(hb.payload())).isTrue();
+    assertThat(statisticsHandler.canHandle(hb.payload())).isFalse();
 
-    assertThat(statisticsHandler.canHandle(stats.getPayload())).isTrue();
-    assertThat(heartbeatHandler.canHandle(stats.getPayload())).isFalse();
+    assertThat(statisticsHandler.canHandle(stats.payload())).isTrue();
+    assertThat(heartbeatHandler.canHandle(stats.payload())).isFalse();
   }
 
   @Test
@@ -51,7 +51,7 @@ class ControlSignalHandlerTest {
     final Message<?> msg =
         DefaultMessage.create(null, new ControlHeartbeat("node1", 1000L)).withSourceNodeId("node1");
 
-    heartbeatHandler.handle("node1", msg, msg.getPayload());
+    heartbeatHandler.handle("node1", msg, msg.payload());
 
     assertThat(heartbeatHandler.getLastHeartbeat("node1")).isEqualTo(msg);
     assertThat(heartbeatHandler.getActiveNodes()).isEqualTo(List.of("node1"));
@@ -62,7 +62,7 @@ class ControlSignalHandlerTest {
     final Message<?> msg =
         DefaultMessage.create(null, new ControlHeartbeat("node1", 1000L)).withSourceNodeId("node1");
 
-    heartbeatHandler.handle("node1", msg, msg.getPayload());
+    heartbeatHandler.handle("node1", msg, msg.payload());
     assertThat(heartbeatHandler.getLastHeartbeat("node1")).isEqualTo(msg);
 
     heartbeatHandler.removeNode("node1");
@@ -77,7 +77,7 @@ class ControlSignalHandlerTest {
         DefaultMessage.create(null, new ControlStatistics("node1", 100.0, 50.0))
             .withSourceNodeId("node1");
 
-    statisticsHandler.handle("node1", msg, msg.getPayload());
+    statisticsHandler.handle("node1", msg, msg.payload());
 
     assertThat(statisticsHandler.getLastStatistics("node1")).isEqualTo(msg);
   }
@@ -88,7 +88,7 @@ class ControlSignalHandlerTest {
         DefaultMessage.create(null, new ControlStatistics("node1", 100.0, 50.0))
             .withSourceNodeId("node1");
 
-    statisticsHandler.handle("node1", msg, msg.getPayload());
+    statisticsHandler.handle("node1", msg, msg.payload());
     assertThat(statisticsHandler.getLastStatistics("node1")).isEqualTo(msg);
 
     statisticsHandler.removeNode("node1");

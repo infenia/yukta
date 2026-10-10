@@ -25,77 +25,77 @@ public interface Message<T> {
    *
    * @return the message ID
    */
-  String getMessageId();
+  String id();
 
   /**
    * Used to match replies to requests in Request-Reply scenarios.
    *
    * @return the correlation ID
    */
-  String getCorrelationId();
+  String correlationId();
 
   /**
    * The Return Address specifying where to send responses.
    *
    * @return the reply channel/address
    */
-  String getReplyTo();
+  String replyTo();
 
   /**
    * The identifier for tracing the workflow execution.
    *
    * @return the trace ID
    */
-  String getTraceId();
+  String traceId();
 
   /**
    * The time when the message was created.
    *
    * @return the timestamp
    */
-  java.time.Instant getTimestamp();
+  java.time.Instant timestamp();
 
   /**
    * The "use-by" timestamp after which the message is discarded (epoch milliseconds).
    *
    * @return the expiration timestamp, or 0 if none
    */
-  long getExpiration();
+  long expiration();
 
   /**
    * Indicates the data format or schema version.
    *
    * @return the format indicator
    */
-  String getFormatIndicator();
+  String formatIndicator();
 
   /**
    * The port from which the message was emitted.
    *
    * @return the source port
    */
-  String getSourcePort();
+  String sourcePort();
 
   /**
    * The ID of the node that emitted the message.
    *
    * @return the source node ID
    */
-  String getSourceNodeId();
+  String sourceNodeId();
 
   /**
    * The ID of the workflow context for this message.
    *
    * @return the workflow ID
    */
-  String getWorkflowId();
+  String workflowId();
 
   /**
    * Extensible metadata associated with the message.
    *
    * @return the metadata map
    */
-  Map<String, Object> getMetadata();
+  Map<String, Object> metadata();
 
   // --- Message History ---
 
@@ -104,7 +104,7 @@ public interface Message<T> {
    *
    * @return the message history list
    */
-  List<String> getMessageHistory();
+  List<String> messageHistory();
 
   // --- Message Sequence ---
 
@@ -113,21 +113,21 @@ public interface Message<T> {
    *
    * @return the sequence ID
    */
-  String getSequenceId();
+  String sequenceId();
 
   /**
    * The index of this message in a sequence (starts at 1).
    *
    * @return the sequence number
    */
-  int getSequenceNumber();
+  int sequenceNumber();
 
   /**
    * Total number of messages in the sequence, or 0 if unknown.
    *
    * @return the sequence size
    */
-  int getSequenceSize();
+  int sequenceSize();
 
   // --- Control Bus & Quality of Service ---
 
@@ -136,14 +136,14 @@ public interface Message<T> {
    *
    * @return the priority level
    */
-  int getPriority();
+  int priority();
 
   /**
    * Indicates if this is a management/control message.
    *
    * @return true if control message
    */
-  boolean isControlMessage();
+  boolean controlMessage();
 
   // --- Dead Letter Channel & Retry Metadata ---
 
@@ -152,28 +152,28 @@ public interface Message<T> {
    *
    * @return the original destination
    */
-  String getOrigDest();
+  String origDest();
 
   /**
    * Describes the reason for failure.
    *
    * @return the failure reason
    */
-  String getFailureReason();
+  String failureReason();
 
   /**
    * Detailed exception message or stack trace.
    *
    * @return the exception detail
    */
-  String getExceptionDetail();
+  String exceptionDetail();
 
   /**
    * Number of times this message has been retried.
    *
    * @return the retry count
    */
-  int getRetryCount();
+  int retryCount();
 
   // --- Body / Payload Accessors ---
 
@@ -182,7 +182,7 @@ public interface Message<T> {
    *
    * @return the payload
    */
-  T getPayload();
+  T payload();
 
   // --- Functional Mutation (Wither style) ---
 

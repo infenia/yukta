@@ -78,116 +78,6 @@ public record DefaultMessage<T>(
   }
 
   @Override
-  public String getMessageId() {
-    return id;
-  }
-
-  @Override
-  public String getCorrelationId() {
-    return correlationId;
-  }
-
-  @Override
-  public String getReplyTo() {
-    return replyTo;
-  }
-
-  @Override
-  public String getTraceId() {
-    return traceId;
-  }
-
-  @Override
-  public Instant getTimestamp() {
-    return timestamp;
-  }
-
-  @Override
-  public long getExpiration() {
-    return expiration;
-  }
-
-  @Override
-  public String getFormatIndicator() {
-    return formatIndicator;
-  }
-
-  @Override
-  public String getSourcePort() {
-    return sourcePort;
-  }
-
-  @Override
-  public String getSourceNodeId() {
-    return sourceNodeId;
-  }
-
-  @Override
-  public String getWorkflowId() {
-    return workflowId;
-  }
-
-  @Override
-  public Map<String, Object> getMetadata() {
-    return metadata;
-  }
-
-  @Override
-  public List<String> getMessageHistory() {
-    return messageHistory;
-  }
-
-  @Override
-  public String getSequenceId() {
-    return sequenceId;
-  }
-
-  @Override
-  public int getSequenceNumber() {
-    return sequenceNumber;
-  }
-
-  @Override
-  public int getSequenceSize() {
-    return sequenceSize;
-  }
-
-  @Override
-  public int getPriority() {
-    return priority;
-  }
-
-  @Override
-  public boolean isControlMessage() {
-    return controlMessage;
-  }
-
-  @Override
-  public String getOrigDest() {
-    return origDest;
-  }
-
-  @Override
-  public String getFailureReason() {
-    return failureReason;
-  }
-
-  @Override
-  public String getExceptionDetail() {
-    return exceptionDetail;
-  }
-
-  @Override
-  public int getRetryCount() {
-    return retryCount;
-  }
-
-  @Override
-  public T getPayload() {
-    return payload;
-  }
-
-  @Override
   public Message<T> withAddedHistory(final String nodeId) {
     final int size = messageHistory.size();
     final List<String> tail = messageHistory.subList(Math.max(0, size - (MAX_HISTORY - 1)), size);
@@ -273,28 +163,28 @@ public record DefaultMessage<T>(
    */
   public static <T> DefaultMessage<T> from(final Message<?> original, final T newPayload) {
     return DefaultMessage.<T>builder()
-        .id(original.getMessageId())
-        .traceId(original.getTraceId())
-        .correlationId(original.getCorrelationId())
-        .replyTo(original.getReplyTo())
-        .expiration(original.getExpiration())
-        .formatIndicator(original.getFormatIndicator())
-        .metadata(original.getMetadata())
-        .messageHistory(original.getMessageHistory())
-        .sequenceId(original.getSequenceId())
-        .sequenceNumber(original.getSequenceNumber())
-        .sequenceSize(original.getSequenceSize())
-        .priority(original.getPriority())
-        .controlMessage(original.isControlMessage())
-        .origDest(original.getOrigDest())
-        .failureReason(original.getFailureReason())
-        .exceptionDetail(original.getExceptionDetail())
-        .retryCount(original.getRetryCount())
+        .id(original.id())
+        .traceId(original.traceId())
+        .correlationId(original.correlationId())
+        .replyTo(original.replyTo())
+        .expiration(original.expiration())
+        .formatIndicator(original.formatIndicator())
+        .metadata(original.metadata())
+        .messageHistory(original.messageHistory())
+        .sequenceId(original.sequenceId())
+        .sequenceNumber(original.sequenceNumber())
+        .sequenceSize(original.sequenceSize())
+        .priority(original.priority())
+        .controlMessage(original.controlMessage())
+        .origDest(original.origDest())
+        .failureReason(original.failureReason())
+        .exceptionDetail(original.exceptionDetail())
+        .retryCount(original.retryCount())
         .payload(newPayload)
-        .timestamp(original.getTimestamp())
-        .sourcePort(original.getSourcePort())
-        .sourceNodeId(original.getSourceNodeId())
-        .workflowId(original.getWorkflowId())
+        .timestamp(original.timestamp())
+        .sourcePort(original.sourcePort())
+        .sourceNodeId(original.sourceNodeId())
+        .workflowId(original.workflowId())
         .build();
   }
 

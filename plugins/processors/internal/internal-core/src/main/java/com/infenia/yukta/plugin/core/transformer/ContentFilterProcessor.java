@@ -154,7 +154,7 @@ public class ContentFilterProcessor implements ProcessorPlugin {
 
   private Flux<Message<?>> executeFilter(
       final Message<?> message, final String nodeId, final Map<String, Object> config) {
-    final Object payload = message.getPayload();
+    final Object payload = message.payload();
     if (payload instanceof Flux<?> flux) {
       return flux.flatMap(item -> applyFilterToItem(message.withPayload(item), nodeId, config));
     }
@@ -232,9 +232,9 @@ public class ContentFilterProcessor implements ProcessorPlugin {
       }
 
       Message<?> finalResult = result;
-      if (flatten && finalResult.getPayload() instanceof Map) {
+      if (flatten && finalResult.payload() instanceof Map) {
         @SuppressWarnings(UNCHECKED)
-        final Map<String, Object> payloadMap = (Map<String, Object>) finalResult.getPayload();
+        final Map<String, Object> payloadMap = (Map<String, Object>) finalResult.payload();
         finalResult = finalResult.withPayload(MapUtils.flatten(payloadMap));
       }
 
@@ -273,11 +273,11 @@ public class ContentFilterProcessor implements ProcessorPlugin {
     final Map<String, Object> variables =
         Map.of(
             "payload",
-            message.getPayload() != null ? message.getPayload() : Map.of(),
+            message.payload() != null ? message.payload() : Map.of(),
             "metadata",
-            message.getMetadata());
+            message.metadata());
 
-    final Object payload = message.getPayload();
+    final Object payload = message.payload();
     final Object resultPayload;
 
     if (payload instanceof Map || payload == null) {
@@ -320,7 +320,7 @@ public class ContentFilterProcessor implements ProcessorPlugin {
 
   private Object includeNonMapPayload(
       final Message<?> message, final List<String> paths, final Map<String, Object> variables) {
-    Object val = message.getPayload();
+    Object val = message.payload();
     for (final String path : paths) {
       if (!isMetadataTargeted(path)) {
         val = SpelUtils.evaluateSync(path.startsWith("#") ? path : "#payload", message, variables);
@@ -395,8 +395,8 @@ public class ContentFilterProcessor implements ProcessorPlugin {
 
   private Message<?> excludePaths(final Message<?> message, final List<String> paths) {
     final Map<String, Object> payloadMap =
-        new ConcurrentHashMap<>(MapUtils.asMutableMap(message.getPayload()));
-    final Map<String, Object> metadataMap = new ConcurrentHashMap<>(message.getMetadata());
+        new ConcurrentHashMap<>(MapUtils.asMutableMap(message.payload()));
+    final Map<String, Object> metadataMap = new ConcurrentHashMap<>(message.metadata());
 
     for (final String path : paths) {
       if (path.startsWith(META_PFX)) {
@@ -421,7 +421,7 @@ public class ContentFilterProcessor implements ProcessorPlugin {
 
   private boolean pathExists(final Message<?> message, final String path) {
     if (!path.startsWith("#") && !path.startsWith(META_PFX) && !path.startsWith(HEADERS_PFX)) {
-      final Object payload = message.getPayload();
+      final Object payload = message.payload();
       if (payload instanceof Map) {
         @SuppressWarnings(UNCHECKED)
         final Map<String, Object> map = (Map<String, Object>) payload;
@@ -435,7 +435,7 @@ public class ContentFilterProcessor implements ProcessorPlugin {
           path.startsWith(META_PFX)
               ? path.substring(META_PFX.length())
               : path.substring(HEADERS_PFX.length());
-      return hasKey(message.getMetadata(), cleanPath);
+      return hasKey(message.metadata(), cleanPath);
     }
 
     String payloadPath = path;
@@ -443,7 +443,7 @@ public class ContentFilterProcessor implements ProcessorPlugin {
       payloadPath = payloadPath.substring(PAYLOAD_SPEL.length());
     }
     if (!payloadPath.startsWith("#")) {
-      final Object payload = message.getPayload();
+      final Object payload = message.payload();
       if (payload instanceof Map) {
         @SuppressWarnings(UNCHECKED)
         final Map<String, Object> map = (Map<String, Object>) payload;
@@ -460,9 +460,9 @@ public class ContentFilterProcessor implements ProcessorPlugin {
       final Map<String, Object> variables =
           Map.of(
               "payload",
-              message.getPayload() != null ? message.getPayload() : Map.of(),
+              message.payload() != null ? message.payload() : Map.of(),
               "metadata",
-              message.getMetadata());
+              message.metadata());
       final String effectiveSpel = path.startsWith("#") ? path : PAYLOAD_SPEL + path;
       return SpelUtils.evaluateSync(effectiveSpel, message, variables) != null;
     } catch (Exception e) {
@@ -488,15 +488,15 @@ public class ContentFilterProcessor implements ProcessorPlugin {
 
   private Object getCoreHeader(final Message<?> message, final String header) {
     return switch (header) {
-      case "traceId" -> message.getTraceId();
-      case "correlationId" -> message.getCorrelationId();
-      case "messageId" -> message.getMessageId();
-      case "timestamp" -> message.getTimestamp().toEpochMilli();
-      case "sequenceId" -> message.getSequenceId();
-      case "sequenceNumber" -> message.getSequenceNumber();
-      case "sequenceSize" -> message.getSequenceSize();
-      case "replyTo" -> message.getReplyTo();
-      default -> message.getMetadata().get(header);
+      case "traceId" -> message.traceId();
+      case "correlationId" -> message.correlationId();
+      case "messageId" -> message.id();
+      case "timestamp" -> message.timestamp().toEpochMilli();
+      case "sequenceId" -> message.sequenceId();
+      case "sequenceNumber" -> message.sequenceNumber();
+      case "sequenceSize" -> message.sequenceSize();
+      case "replyTo" -> message.replyTo();
+      default -> message.metadata().get(header);
     };
   }
 }

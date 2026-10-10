@@ -89,11 +89,11 @@ public final class SimpleExpressionEvaluator {
     /* default */ Object getValue(final Message<?> message) {
       Object value = null;
       if (path.startsWith(PAYLOAD_PREFIX)) {
-        value = getNested(message.getPayload(), path.substring(PAYLOAD_PREFIX.length()));
+        value = getNested(message.payload(), path.substring(PAYLOAD_PREFIX.length()));
       } else if (path.startsWith(METADATA_PREFIX)) {
-        value = message.getMetadata().get(path.substring(METADATA_PREFIX.length()));
+        value = message.metadata().get(path.substring(METADATA_PREFIX.length()));
       } else if (PAYLOAD.equals(path)) {
-        value = message.getPayload();
+        value = message.payload();
       }
       return value;
     }
