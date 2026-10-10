@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.service.orchestrator.stream;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.inOrder;
@@ -198,5 +199,55 @@ class NodeStreamsTest {
 
     expectStatus(TaskStatus.SUCCESS, 1);
     expectStatus(TaskStatus.CANCELLED, 0);
+  }
+
+  @Test
+  void guard_activityKeepsTheNodeAlive_butSilenceTimesItOut() {
+    StepVerifier.withVirtualTime(
+            () -> {
+              final NodeActivity activity = new NodeActivity();
+              activity.touch();
+              // emits at 0.5 s, then goes quiet
+              final Flux<Message<?>> source =
+                  emitAfter(Duration.ofMillis(500), DefaultMessage.create(UUID.randomUUID(), "x"))
+                      .concatWith(Flux.never());
+              return decorate(source, activity, () -> false, Duration.ofSeconds(1));
+            })
+        .expectSubscription()
+        .thenAwait(Duration.ofMillis(500))
+        .expectNextCount(1)
+        .expectNoEvent(Duration.ofMillis(900))
+        .thenAwait(Duration.ofMillis(200))
+        .expectError(TimeoutException.class)
+        .verify();
+  }
+
+  @Test
+  void guard_pauseAtTheFirstObservationDoesNotCount() {
+    final AtomicBoolean paused = new AtomicBoolean(true);
+
+    StepVerifier.withVirtualTime(
+            () -> {
+              final NodeActivity activity = new NodeActivity();
+              activity.touch();
+              Schedulers.parallel().schedule(() -> paused.set(false), 3, TimeUnit.SECONDS);
+              return decorate(Flux.never(), activity, paused::get, Duration.ofSeconds(1));
+            })
+        .expectSubscription()
+        .expectNoEvent(Duration.ofMillis(3900))
+        .thenAwait(Duration.ofMillis(200))
+        .expectError(TimeoutException.class)
+        .verify();
+  }
+
+  @Test
+  void touch_isCheapEnoughForEveryMessage() {
+    final NodeActivity activity = new NodeActivity();
+    final long started = System.nanoTime();
+    for (int i = 0; i < 5_000_000; i++) {
+      activity.touch();
+    }
+    // about 2 us per touch before the clock became a volatile write: that would be 10 s
+    assertThat(Duration.ofNanos(System.nanoTime() - started)).isLessThan(Duration.ofSeconds(2));
   }
 }

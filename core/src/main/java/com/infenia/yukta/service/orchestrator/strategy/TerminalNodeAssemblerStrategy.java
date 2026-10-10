@@ -104,12 +104,13 @@ public class TerminalNodeAssemblerStrategy implements NodeAssemblerStrategy {
 
       // The idle clock starts at the terminal's first input and holds while paused.
       final NodeActivity activity = new NodeActivity();
-      final Mono<Long> idle =
-          activity.idle(timeout, virtualThreadScheduler, () -> control.isPaused(node.nodeId()));
       final Flux<Message<?>> inputToTerminal =
-          safeInput
-              .doOnNext(_ -> activity.touch())
-              .timeout(idle, _ -> idle)
+          activity
+              .guard(
+                  safeInput.doOnNext(_ -> activity.touch()),
+                  timeout,
+                  virtualThreadScheduler,
+                  () -> control.isPaused(node.nodeId()))
               .transformDeferredContextual(
                   (flux, ctx) -> {
                     final ResultCollector collector = ctx.getOrDefault("resultCollector", null);

@@ -70,7 +70,9 @@ Malformed policies are rejected by `WorkflowValidator` with the node id and opti
   `yukta.execution-log.dir` to keep `executions.jsonl` on disk. On startup `ExecutionRecovery`
   marks runs that never finished as `ABORTED`, restores the newest
   `yukta.execution-log.retained-runs` (default 500) into history, and rewrites the log without
-  older ones.
+  older ones. File access runs on one background writer thread, and the file is compacted to the
+  newest `retained-runs` runs after every `yukta.execution-log.compact-after` (default 10000) events.
+  Events are not `fsync`ed, so a power loss can lose the last few.
 
 ### Execution limits and idempotent starts
 - `ExecutionScheduler` admits executions. By default there is no limit. Set
@@ -83,6 +85,12 @@ Malformed policies are rejected by `WorkflowValidator` with the node id and opti
   the same session and workflow within `yukta.start.idempotency-ttl` (default 10m) returns the first
   execution id instead of starting another. A failed start is not remembered.
 - Concurrent starts of a workflow that is not prepared yet share one preparation.
+
+### Tracker queue
+State and workflow events are never dropped: they go to an unbounded queue. Log lines are best
+effort: more than 10000 waiting are dropped and counted in `yukta.tracker.dropped{type=log}`
+(`type=state` counts events lost because the tracker itself had ended). Use `SinkEmit.offer`, not
+`Sinks.Many#emitNext`, for any bounded sink: `emitNext` terminates the sink on overflow.
 
 ### Validation limits and metrics
 - `WorkflowValidator` rejects duplicate node ids and edges, an edge `sourcePort` the source plugin
