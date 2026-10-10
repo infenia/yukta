@@ -1,0 +1,187 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: 2026 Infenia Private Limited
+package com.infenia.yukta.service.store;
+
+import com.infenia.yukta.message.DefaultMessage;
+import com.infenia.yukta.message.Message;
+import com.infenia.yukta.plugin.store.NodeCheckpointStore;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
+import org.springframework.stereotype.Component;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
+import tools.jackson.databind.ObjectMapper;
+
+/**
+ * {@link NodeCheckpointStore} that keeps what each node produced on disk, so a run that was
+ * interrupted by a server restart can be resumed.
+ *
+ * <p>Active when {@code yukta.restart.dir} is set. One JSON line per message, in {@code
+ * <dir>/e-<executionId>/<nodeId>.jsonl}. Output is not capped (the disk is the claim check); a
+ * message that cannot be written as JSON marks the node incomplete, so a restart that needs it is
+ * refused instead of replaying part of it. Messages come back as plain JSON values: a payload that
+ * was a Java object is read as a map, and bytes as base64 text.
+ */
+@Slf4j
+@Component
+@ConditionalOnExpression("!'${yukta.restart.dir:}'.isEmpty()")
+@SuppressWarnings({"PMD.OnlyOneReturn", "PMD.AvoidCatchingGenericException"})
+public class FileNodeCheckpointStore implements NodeCheckpointStore {
+
+  /** Suffix of the file holding a node's messages. */
+  private static final String MESSAGES = ".jsonl";
+
+  /** Suffix of the marker left when a node's output could not be recorded completely. */
+  private static final String INCOMPLETE = ".incomplete";
+
+  /** Root directory. */
+  private final Path root;
+
+  /** Reads and writes messages. */
+  private final ObjectMapper mapper;
+
+  /**
+   * Creates the store.
+   *
+   * @param dir root directory
+   * @param mapper reads and writes messages
+   */
+  @SuppressFBWarnings("EI_EXPOSE_REP2")
+  public FileNodeCheckpointStore(
+      @Value("${yukta.restart.dir}") final String dir, final ObjectMapper mapper) {
+    this.root = Path.of(dir);
+    this.mapper = mapper;
+  }
+
+  @Override
+  public Mono<Void> save(final String executionId, final String nodeId, final Message<?> message) {
+    return Mono.fromRunnable(() -> write(executionId, nodeId, message))
+        .subscribeOn(Schedulers.boundedElastic())
+        .then();
+  }
+
+  @Override
+  public Mono<Message<?>> get(final String executionId, final String nodeId) {
+    return getAll(executionId, nodeId).takeLast(1).next();
+  }
+
+  @Override
+  public Flux<Message<?>> getAll(final String executionId, final String nodeId) {
+    return Flux.defer(() -> Flux.fromIterable(read(executionId, nodeId)))
+        .subscribeOn(Schedulers.boundedElastic());
+  }
+
+  @Override
+  public boolean isComplete(final String executionId, final String nodeId) {
+    return !Files.exists(file(executionId, nodeId, INCOMPLETE))
+        && endsWithNewline(executionId, nodeId);
+  }
+
+  /** A write that was cut short by a crash leaves a last line without its newline. */
+  private boolean endsWithNewline(final String executionId, final String nodeId) {
+    final Path file = file(executionId, nodeId, MESSAGES);
+    if (!Files.exists(file)) {
+      return true;
+    }
+    try (var channel = java.nio.channels.FileChannel.open(file, StandardOpenOption.READ)) {
+      if (channel.size() == 0) {
+        return true;
+      }
+      final java.nio.ByteBuffer last = java.nio.ByteBuffer.allocate(1);
+      channel.read(last, channel.size() - 1);
+      return last.get(0) == '\n';
+    } catch (final IOException e) {
+      return false;
+    }
+  }
+
+  @Override
+  public void clear(final String executionId) {
+    final Path dir = dir(executionId);
+    if (!Files.exists(dir)) {
+      return;
+    }
+    try (var paths = Files.walk(dir)) {
+      for (final Path path : paths.sorted(Comparator.reverseOrder()).toList()) {
+        Files.deleteIfExists(path);
+      }
+    } catch (final IOException | UncheckedIOException e) {
+      log.atWarn().addKeyValue("executionId", executionId).setCause(e).log("Could not clear");
+    }
+  }
+
+  private void write(final String executionId, final String nodeId, final Message<?> message) {
+    try {
+      Files.createDirectories(dir(executionId));
+      Files.writeString(
+          file(executionId, nodeId, MESSAGES),
+          mapper.writeValueAsString(message) + "\n",
+          StandardCharsets.UTF_8,
+          StandardOpenOption.CREATE,
+          StandardOpenOption.APPEND);
+    } catch (final IOException | RuntimeException e) {
+      log.atWarn()
+          .addKeyValue("executionId", executionId)
+          .addKeyValue("nodeId", nodeId)
+          .setCause(e)
+          .log("Could not record node output, the node cannot be restarted from");
+      markIncomplete(executionId, nodeId);
+    }
+  }
+
+  private void markIncomplete(final String executionId, final String nodeId) {
+    try {
+      Files.createDirectories(dir(executionId));
+      Files.writeString(file(executionId, nodeId, INCOMPLETE), "");
+    } catch (final IOException e) {
+      log.atError().setCause(e).log("Could not mark node output incomplete");
+    }
+  }
+
+  private List<Message<?>> read(final String executionId, final String nodeId) {
+    final Path file = file(executionId, nodeId, MESSAGES);
+    if (!Files.exists(file)) {
+      return List.of();
+    }
+    try {
+      final List<Message<?>> messages = new ArrayList<>();
+      for (final String line : Files.readAllLines(file, StandardCharsets.UTF_8)) {
+        if (!line.isBlank()) {
+          messages.add(mapper.readValue(line, DefaultMessage.class));
+        }
+      }
+      return messages;
+    } catch (final IOException e) {
+      throw new UncheckedIOException(e);
+    } catch (final RuntimeException e) {
+      throw new UncheckedIOException(
+          new IOException("Unreadable output of node " + nodeId + " in " + executionId, e));
+    }
+  }
+
+  private Path dir(final String executionId) {
+    return root.resolve("e-" + encode(executionId));
+  }
+
+  private Path file(final String executionId, final String nodeId, final String suffix) {
+    return dir(executionId).resolve(encode(nodeId) + suffix);
+  }
+
+  /** Ids come from user definitions, so they never become path segments as they are. */
+  private static String encode(final String value) {
+    return URLEncoder.encode(value, StandardCharsets.UTF_8);
+  }
+}

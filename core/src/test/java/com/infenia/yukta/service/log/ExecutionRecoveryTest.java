@@ -123,4 +123,57 @@ class ExecutionRecoveryTest {
                           assertThat(event.nodeStatuses()).containsEntry("n1", "SKIPPED");
                         }));
   }
+
+  @Test
+  void trackerLogsEachSuccessfulNode_andAbortedRunsKeepThem() {
+    final InMemoryExecutionLogStore log = new InMemoryExecutionLogStore();
+    final DefaultTaskTrackerService live =
+        new DefaultTaskTrackerService(
+            Duration.ofMinutes(10),
+            mock(StatusHistoryCache.class),
+            log,
+            new io.micrometer.core.instrument.simple.SimpleMeterRegistry());
+    live.init();
+    StepVerifier.create(live.startWorkflow("e1", "s1", "w1", List.of("n1", "n2"))).verifyComplete();
+    live.emitTaskStatusEvent(
+        "e1", "n1", "m", com.infenia.yukta.model.execution.TaskStatus.RUNNING, Map.of());
+    live.emitTaskStatusEvent(
+        "e1", "n1", "m", com.infenia.yukta.model.execution.TaskStatus.SUCCESS, Map.of());
+
+    org.awaitility.Awaitility.await()
+        .atMost(5, java.util.concurrent.TimeUnit.SECONDS)
+        .untilAsserted(
+            () ->
+                assertThat(log.readAll())
+                    .filteredOn(e -> e.type() == ExecutionLogEvent.Type.NODE_FINISHED)
+                    .singleElement()
+                    .satisfies(e -> assertThat(e.nodeId()).isEqualTo("n1")));
+
+    // the server dies here: recovery marks the run aborted and keeps what had finished
+    store.append(ExecutionLogEvent.started("crashed", "s1", "w1", "v1", Map.of("k", "v")));
+    store.append(ExecutionLogEvent.nodeFinished("crashed", "s1", "w1", "n1"));
+    new ExecutionRecovery(store, tracker, 100).recover();
+
+    assertThat(store.readAll())
+        .filteredOn(e -> e.type() == ExecutionLogEvent.Type.RUN_ABORTED)
+        .singleElement()
+        .satisfies(e -> assertThat(e.nodeStatuses()).containsEntry("n1", "SUCCESS"));
+  }
+
+  @Test
+  void droppedRunsLoseTheirRecordedOutput() {
+    final var checkpoints = new com.infenia.yukta.service.store.InMemoryNodeCheckpointStore();
+    checkpoints
+        .save(
+            "r1",
+            "n1",
+            com.infenia.yukta.message.DefaultMessage.create(java.util.UUID.randomUUID(), "x"))
+        .block();
+    finishedRun("r1", "SUCCESS");
+    finishedRun("r2", "SUCCESS");
+
+    new ExecutionRecovery(store, tracker, 1, checkpoints).recover();
+
+    StepVerifier.create(checkpoints.getAll("r1", "n1")).verifyComplete();
+  }
 }

@@ -275,4 +275,17 @@ class ExecutionSchedulerTest {
     assertThat(ExecutionScheduler.priorityOf(java.util.Map.of("yukta.priority", "x"))).isZero();
     assertThat(ExecutionScheduler.priorityOf(null)).isZero();
   }
+
+  @Test
+  void grantSubscriberStartingAnotherRun_doesNotBreakQueue() {
+    final ExecutionScheduler scheduler = scheduler(1, 0, 10, OnLimit.QUEUE);
+    granted(scheduler.acquire("s", "w0"));
+    scheduler.acquire("s", "w1").permit().subscribe(_ -> scheduler.acquire("s", "w2"));
+    scheduler.acquire("s", "w3");
+
+    scheduler.setLimits(3, 0);
+
+    assertThat(scheduler.running()).isEqualTo(3);
+    assertThat(scheduler.queued()).isEqualTo(1);
+  }
 }

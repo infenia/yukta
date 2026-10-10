@@ -15,7 +15,7 @@ import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 
 @NoArgsConstructor
-@SuppressWarnings("PMD.CommentRequired")
+@SuppressWarnings({"PMD.CommentRequired", "PMD.TooManyMethods"})
 class RestartPlanTest {
 
   private static WorkflowNode node(final String nodeId) {
@@ -111,5 +111,32 @@ class RestartPlanTest {
 
     assertThat(plan.rerun()).containsExactlyInAnyOrder("a", "b", "c", "d");
     assertThat(plan.boundary()).isEmpty();
+  }
+
+  @Test
+  void resuming_rerunsEverythingNotFinished_andReplaysFinishedParents() {
+    final RestartPlan plan =
+        RestartPlan.resuming(diamondWithIndependentBranch(), java.util.Set.of("a", "c", "x"));
+
+    assertThat(plan.rerun()).containsExactlyInAnyOrder("b", "d", "e", "y");
+    assertThat(plan.boundary()).containsExactlyInAnyOrder("a", "c", "x");
+  }
+
+  @Test
+  void resuming_withNothingFinished_rerunsAllAndReplaysNothing() {
+    final RestartPlan plan =
+        RestartPlan.resuming(diamondWithIndependentBranch(), java.util.Set.of());
+
+    assertThat(plan.rerun()).hasSize(7);
+    assertThat(plan.boundary()).isEmpty();
+  }
+
+  @Test
+  void resuming_withEverythingFinished_hasNothingToRun() {
+    final RestartPlan plan =
+        RestartPlan.resuming(
+            diamondWithIndependentBranch(), java.util.Set.of("a", "b", "c", "d", "e", "x", "y"));
+
+    assertThat(plan.rerun()).isEmpty();
   }
 }

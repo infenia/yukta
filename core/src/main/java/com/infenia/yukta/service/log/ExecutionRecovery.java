@@ -2,7 +2,9 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.service.log;
 
+import com.infenia.yukta.plugin.store.NodeCheckpointStore;
 import com.infenia.yukta.service.orchestrator.tracker.DefaultTaskTrackerService;
+import com.infenia.yukta.service.store.InMemoryNodeCheckpointStore;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -10,6 +12,7 @@ import java.util.List;
 import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.SmartInitializingSingleton;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -34,21 +37,35 @@ public class ExecutionRecovery implements SmartInitializingSingleton {
   /** Number of most recent runs kept in the log and restored. */
   private final int retainedRuns;
 
+  /** Holds the recorded outputs of runs, which go with the runs that are dropped. */
+  private final NodeCheckpointStore checkpoints;
+
   /**
    * Creates the recovery step.
    *
    * @param store the execution log
    * @param tracker receives the restored runs
    * @param retainedRuns number of most recent runs kept
+   * @param checkpoints recorded outputs, cleared for runs that are dropped
    */
+  @Autowired
   @SuppressFBWarnings("EI_EXPOSE_REP2")
   public ExecutionRecovery(
       final ExecutionLogStore store,
       final DefaultTaskTrackerService tracker,
-      @Value("${yukta.execution-log.retained-runs:500}") final int retainedRuns) {
+      @Value("${yukta.execution-log.retained-runs:500}") final int retainedRuns,
+      final NodeCheckpointStore checkpoints) {
     this.store = store;
     this.tracker = tracker;
     this.retainedRuns = Math.max(1, retainedRuns);
+    this.checkpoints = checkpoints;
+  }
+
+  /* default */ ExecutionRecovery(
+      final ExecutionLogStore store,
+      final DefaultTaskTrackerService tracker,
+      final int retainedRuns) {
+    this(store, tracker, retainedRuns, new InMemoryNodeCheckpointStore());
   }
 
   @Override
@@ -66,12 +83,13 @@ public class ExecutionRecovery implements SmartInitializingSingleton {
     final List<ExecutionLogEvent> kept = new ArrayList<>();
     final List<List<ExecutionLogEvent>> runs = new ArrayList<>(byRun.values());
     final int skip = Math.max(0, runs.size() - retainedRuns);
+    runs.subList(0, skip).forEach(run -> checkpoints.clear(run.getFirst().executionId()));
     int aborted = 0;
     for (final List<ExecutionLogEvent> run : runs.subList(skip, runs.size())) {
       final ExecutionLogEvent started = find(run, ExecutionLogEvent.Type.RUN_STARTED);
       final ExecutionLogEvent ended = end(run);
       if (started != null && ended == null) {
-        run.add(ExecutionLogEvent.aborted(started));
+        run.add(ExecutionLogEvent.aborted(started, finishedNodes(run)));
         aborted++;
       }
       kept.addAll(run);
@@ -95,8 +113,17 @@ public class ExecutionRecovery implements SmartInitializingSingleton {
           ended.status(),
           ended.nodeStatuses(),
           started.timestamp(),
-          ended.timestamp());
+          ended.timestamp(),
+          started.definitionVersion());
     }
+  }
+
+  private static Map<String, String> finishedNodes(final List<ExecutionLogEvent> run) {
+    final Map<String, String> nodes = new LinkedHashMap<>();
+    run.stream()
+        .filter(event -> event.type() == ExecutionLogEvent.Type.NODE_FINISHED)
+        .forEach(event -> nodes.put(event.nodeId(), event.status()));
+    return nodes;
   }
 
   private static ExecutionLogEvent find(
