@@ -5,7 +5,9 @@ package com.infenia.yukta.plugin.core;
 /**
  * Metadata for rendering a plugin node in the UI canvas.
  *
- * @param html the HTML template for the node, can contain placeholders like {{nodeId}}
+ * @param html the HTML template for the node, can contain placeholders like {{nodeId}}. This is
+ *     plugin-author content that the UI sanitises (DOMPurify) before rendering, so scripts and
+ *     event handlers are stripped; use inline styles only
  * @param width the preferred width of the node in pixels
  * @param height the preferred height of the node in pixels
  */
