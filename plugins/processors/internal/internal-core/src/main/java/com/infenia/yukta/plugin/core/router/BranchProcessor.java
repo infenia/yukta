@@ -186,10 +186,7 @@ public class BranchProcessor implements ProcessorPlugin {
       final String errorPort,
       final boolean strictMode,
       final Exception exception) {
-    if (log.isErrorEnabled()) {
-      log.error(
-          "Branch evaluation failed for message {}: {}", message.id(), exception.getMessage());
-    }
+    log.error("Branch evaluation failed for message {}: {}", message.id(), exception.getMessage());
     if (errorPort != null) {
       return Flux.just(
           message

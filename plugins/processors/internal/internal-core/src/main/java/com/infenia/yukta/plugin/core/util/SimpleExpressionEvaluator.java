@@ -60,8 +60,7 @@ public final class SimpleExpressionEvaluator {
     return switch (operator) {
       case "==" -> new EqualsExpression(path, stripQuotes(operand));
       case "exists" -> new ExistsExpression(path);
-      case "matches" -> new MatchesExpression(path, stripQuotes(operand));
-      default -> throw new UnsupportedOperationException("Operator " + operator + " not supported");
+      default -> new MatchesExpression(path, stripQuotes(operand));
     };
   }
 
