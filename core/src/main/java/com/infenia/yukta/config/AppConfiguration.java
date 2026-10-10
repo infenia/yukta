@@ -4,8 +4,6 @@ package com.infenia.yukta.config;
 
 import com.infenia.yukta.service.control.store.ExecutionControlStore;
 import com.infenia.yukta.service.control.store.InMemoryExecutionControlStore;
-import java.time.Duration;
-import java.util.concurrent.Executors;
 import lombok.NoArgsConstructor;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -17,9 +15,15 @@ import tools.jackson.databind.ObjectMapper;
 
 /** Configuration for the application. */
 @Configuration
-@EnableConfigurationProperties({SessionConfigProperties.class, YuktaProperties.class})
+@EnableConfigurationProperties(SessionConfigProperties.class)
 @NoArgsConstructor
 public class AppConfiguration {
+
+  /** Upper bound on concurrently running virtual-thread tasks. */
+  private static final int MAX_VIRTUAL_THREADS = 100_000;
+
+  /** Seconds an idle virtual-thread worker is kept before being released. */
+  private static final int VIRTUAL_THREAD_TTL_SECONDS = 60;
 
   /**
    * Provide an ObjectMapper bean if not already present.
@@ -33,26 +37,21 @@ public class AppConfiguration {
   }
 
   /**
-   * Provide a Scheduler that uses virtual threads.
+   * Provide a Scheduler that runs each task on its own virtual thread.
+   *
+   * <p>Backed by a bounded-elastic scheduler with a virtual-thread factory, so the number of
+   * concurrent blocking plugin calls is not limited by the CPU count. It also schedules delayed
+   * tasks, which node timeouts rely on.
    *
    * @return the virtual thread scheduler
    */
-  @Bean
+  @Bean(destroyMethod = "dispose")
   public Scheduler virtualThreadScheduler() {
-    return Schedulers.fromExecutorService(
-        Executors.newScheduledThreadPool(
-            Runtime.getRuntime().availableProcessors(), Thread.ofVirtual().factory()));
-  }
-
-  /**
-   * Global heartbeat interval for nodes in seconds.
-   *
-   * @param properties the Yukta configuration properties
-   * @return the heartbeat interval duration
-   */
-  @Bean
-  public Duration heartbeatInterval(final YuktaProperties properties) {
-    return Duration.ofSeconds(properties.getHeartbeatIntervalSeconds());
+    return Schedulers.newBoundedElastic(
+        MAX_VIRTUAL_THREADS,
+        Integer.MAX_VALUE,
+        Thread.ofVirtual().name("yukta-virtual-", 0).factory(),
+        VIRTUAL_THREAD_TTL_SECONDS);
   }
 
   /**

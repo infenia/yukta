@@ -15,6 +15,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
@@ -42,6 +43,23 @@ public class WorkflowValidator {
   private final PluginRegistry registry;
 
   /**
+   * Finds the first edge pointing from or to a node that is not part of the definition.
+   *
+   * <p>Checked eagerly, before the other validations are assembled, because they assume every edge
+   * endpoint exists.
+   */
+  private static Optional<String> findUnknownEdge(final WorkflowDefinition def) {
+    final Set<String> nodeIds =
+        def.nodes().stream().map(WorkflowDefinition.Node::nodeId).collect(Collectors.toSet());
+    return def.edges().stream()
+        .filter(edge -> !nodeIds.contains(edge.source()) || !nodeIds.contains(edge.target()))
+        .map(
+            edge ->
+                "Edge " + edge.source() + " -> " + edge.target() + " references an unknown node")
+        .findFirst();
+  }
+
+  /**
    * Validate the structural integrity of a workflow definition.
    *
    * @param def the workflow definition
@@ -53,6 +71,11 @@ public class WorkflowValidator {
         .addKeyValue("nodeCount", def.nodes().size())
         .addKeyValue("edgeCount", def.edges().size())
         .log("Starting workflow validation");
+
+    final Optional<String> unknownEdge = findUnknownEdge(def);
+    if (unknownEdge.isPresent()) {
+      return Mono.error(new IllegalArgumentException(unknownEdge.get()));
+    }
 
     final Set<String> targetIds =
         def.edges().stream().map(WorkflowDefinition.Edge::target).collect(Collectors.toSet());

@@ -17,6 +17,7 @@ import com.infenia.yukta.message.Message;
 import com.infenia.yukta.message.channel.DirectNodeMessageChannel;
 import com.infenia.yukta.message.channel.NodeMessageChannel;
 import com.infenia.yukta.message.channel.NodeMessageChannelProvider;
+import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.model.workflow.NodeAssembler;
 import com.infenia.yukta.model.workflow.ParentEdgeInfo;
 import com.infenia.yukta.model.workflow.WorkflowNode;
@@ -178,7 +179,8 @@ class TerminalNodeAssemblerStrategyTest {
     StepVerifier.create(context.terminals().getFirst()).verifyComplete();
 
     verify(tracker, atLeastOnce())
-        .emitTaskStatusEvent(eq(EXECUTION_ID), eq(NODE_ID), anyString(), anyString(), any());
+        .emitTaskStatusEvent(
+            eq(EXECUTION_ID), eq(NODE_ID), anyString(), any(TaskStatus.class), any());
     verify(activePluginRegistry).register(WORKFLOW_ID, NODE_ID, terminal);
     verify(activePluginRegistry).unregister(WORKFLOW_ID, NODE_ID);
   }
@@ -205,9 +207,35 @@ class TerminalNodeAssemblerStrategyTest {
     StepVerifier.create(context.terminals().getFirst()).verifyError(RuntimeException.class);
 
     verify(tracker, atLeastOnce())
-        .emitTaskStatusEvent(eq(EXECUTION_ID), eq(NODE_ID), anyString(), eq("FAILURE"), any());
+        .emitTaskStatusEvent(
+            eq(EXECUTION_ID), eq(NODE_ID), anyString(), eq(TaskStatus.FAILURE), any());
     verify(activePluginRegistry).register(WORKFLOW_ID, NODE_ID, terminal);
     verify(activePluginRegistry).unregister(WORKFLOW_ID, NODE_ID);
+  }
+
+  @Test
+  void createAssembler_stalledInput_timesOut() {
+    final TerminalPlugin terminal = mock(TerminalPlugin.class);
+    when(terminal.consume(any(), any()))
+        .thenAnswer(
+            inv -> {
+              final Flux<Message<?>> input = inv.getArgument(0);
+              return input.then();
+            });
+    when(terminal.isBlocking()).thenReturn(false);
+
+    final WorkflowNode node = new WorkflowNode(NODE_ID, "terminal", Map.of());
+    final Flux<Message<?>> stalled = Flux.never();
+    final AssemblyContext context = buildContext(stalled);
+    when(streamTopologyDecorator.mergeParentStreams(any(), any(ParentEdgeInfo[].class)))
+        .thenReturn(stalled);
+
+    strategy
+        .createAssembler(node, terminal, Duration.ofMillis(100), 0, 1024, new ParentEdgeInfo[0])
+        .assemble(context);
+
+    StepVerifier.create(context.terminals().getFirst())
+        .verifyError(java.util.concurrent.TimeoutException.class);
   }
 
   @Test
@@ -392,10 +420,7 @@ class TerminalNodeAssemblerStrategyTest {
             null,
             Map.of(),
             Sinks.one(),
-            Sinks.one(),
             new ReactiveControlValve(),
-            Map.of(),
-            Map.of(),
             Map.of(),
             Map.of(),
             Map.of(),

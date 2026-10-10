@@ -2,13 +2,14 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.service.control.processor;
 
+import com.infenia.yukta.model.execution.ControlState;
 import com.infenia.yukta.plugin.control.ControlSignalProcessor;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.StopNodeCommand;
 import com.infenia.yukta.plugin.control.WorkflowDirective;
 import com.infenia.yukta.service.control.ExecutionControl;
 import com.infenia.yukta.service.control.store.ExecutionControlRegistry;
-import com.infenia.yukta.service.orchestrator.tracker.DefaultTaskTrackerService;
+import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -29,7 +30,7 @@ public class StopNodeCommandProcessor implements ControlSignalProcessor {
   private final ExecutionControlRegistry registry;
 
   /** The task tracker service for tracking task execution. */
-  private final DefaultTaskTrackerService taskTracker;
+  private final TaskTrackerService taskTracker;
 
   @Override
   public boolean canProcess(final ExecutionControlCommand command) {
@@ -59,9 +60,10 @@ public class StopNodeCommandProcessor implements ControlSignalProcessor {
             throw new IllegalArgumentException("Node not found or not stoppable: " + nodeId);
           }
 
-          sink.emitEmpty(Sinks.EmitFailureHandler.FAIL_FAST);
+          // Already-stopped sinks are terminated; stopping twice is a no-op.
+          sink.tryEmitEmpty();
 
-          taskTracker.emitWorkflowStatusEvent(stop.executionId(), "NODE_STOPPED");
+          taskTracker.emitControlStateEvent(stop.executionId(), ControlState.NODE_STOPPED);
 
           log.atDebug()
               .addKeyValue("executionId", stop.executionId())

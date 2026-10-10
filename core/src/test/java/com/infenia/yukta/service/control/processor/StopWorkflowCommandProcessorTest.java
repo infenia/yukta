@@ -3,7 +3,6 @@
 package com.infenia.yukta.service.control.processor;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -12,7 +11,6 @@ import com.infenia.yukta.plugin.control.ExecutionControlCommand.PauseWorkflowCom
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.StopWorkflowCommand;
 import com.infenia.yukta.service.control.ExecutionControl;
 import com.infenia.yukta.service.control.store.ExecutionControlRegistry;
-import com.infenia.yukta.service.orchestrator.tracker.DefaultTaskTrackerService;
 import java.util.Optional;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
@@ -30,9 +28,6 @@ class StopWorkflowCommandProcessorTest {
 
   /** Registry for execution control. */
   @Mock private ExecutionControlRegistry registry;
-
-  /** Task tracker service. */
-  @Mock private DefaultTaskTrackerService taskTracker;
 
   /** Execution control instance. */
   @Mock private ExecutionControl executionControl;
@@ -81,8 +76,21 @@ class StopWorkflowCommandProcessorTest {
 
     // Then
     StepVerifier.create(result).verifyComplete();
-    verify(safeStopSink).emitEmpty(Sinks.EmitFailureHandler.FAIL_FAST);
-    verify(taskTracker).emitWorkflowStatusEvent(executionId, "WORKFLOW_STOPPED");
+    verify(safeStopSink).tryEmitEmpty();
+  }
+
+  @Test
+  void process_stoppedTwice_doesNotThrow() {
+    // Given
+    final String executionId = "exec-stop-twice";
+    final Sinks.One<Void> realSink = Sinks.one();
+    when(registry.findByExecutionId(executionId)).thenReturn(Optional.of(executionControl));
+    when(executionControl.safeStopSink()).thenReturn(realSink);
+    final StopWorkflowCommand command = new StopWorkflowCommand(executionId, "again");
+
+    // When-Then
+    StepVerifier.create(processor.process(command)).verifyComplete();
+    StepVerifier.create(processor.process(command)).verifyComplete();
   }
 
   @Test
@@ -102,7 +110,6 @@ class StopWorkflowCommandProcessorTest {
                 e instanceof IllegalArgumentException
                     && e.getMessage().contains("Execution not found: " + executionId))
         .verify();
-    verify(taskTracker, never()).emitWorkflowStatusEvent(executionId, "WORKFLOW_STOPPED");
   }
 
   @Test
@@ -118,8 +125,7 @@ class StopWorkflowCommandProcessorTest {
 
     // Then
     StepVerifier.create(result).verifyComplete();
-    verify(safeStopSink).emitEmpty(Sinks.EmitFailureHandler.FAIL_FAST);
-    verify(taskTracker).emitWorkflowStatusEvent(executionId, "WORKFLOW_STOPPED");
+    verify(safeStopSink).tryEmitEmpty();
   }
 
   @Test

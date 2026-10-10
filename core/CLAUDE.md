@@ -42,8 +42,9 @@ Use **Java records** for data models (preferred) or **Lombok** (`@RequiredArgsCo
 
 ## Key File Locations
 - **Services**: `src/main/java/com/infenia/yukta/service/`
-- **MCP Tools**: `src/main/java/com/infenia/yukta/mcp/`
 - **Validation**: `src/main/java/com/infenia/yukta/validation/`
+- **Module guide (interactive)**: `docs/core-module-guide.html`
+- **Review findings & roadmap**: `docs/core-improvements.md`
 
 ## Imports
 @.claude/rules/coding-standards.md

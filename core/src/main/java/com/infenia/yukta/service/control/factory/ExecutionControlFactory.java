@@ -17,7 +17,7 @@ import reactor.core.publisher.Sinks;
 /**
  * Factory for creating ExecutionControl instances.
  *
- * <p>Initializes all per-node control structures (pause valves, skip flags, step mode, etc.) and
+ * <p>Initializes all per-node control structures (pause/step valves, skip flags, stop sinks) and
  * global control handles for a workflow execution.
  */
 @Component
@@ -28,7 +28,7 @@ public class ExecutionControlFactory {
    * Creates an ExecutionControl for a workflow execution.
    *
    * <p>Initializes per-node control maps for every node in the workflow's topological order. Each
-   * node gets its own pause valve, skip flag, stop sinks, and step-through controls.
+   * node gets its own pause valve, skip flag, stop sinks,.
    *
    * @param sessionId the session identifier
    * @param workflowId the workflow identifier
@@ -51,8 +51,6 @@ public class ExecutionControlFactory {
     final Map<String, Sinks.One<Void>> nodeSafeStopSinks = new ConcurrentHashMap<>();
     final Map<String, ReactiveControlValve> nodePauseValves = new ConcurrentHashMap<>();
     final Map<String, AtomicBoolean> nodeSkipFlags = new ConcurrentHashMap<>();
-    final Map<String, AtomicBoolean> nodeStepModes = new ConcurrentHashMap<>();
-    final Map<String, Sinks.Many<Void>> nodeStepSinks = new ConcurrentHashMap<>();
 
     nodeIds.forEach(
         nodeId -> {
@@ -60,8 +58,6 @@ public class ExecutionControlFactory {
           nodeSafeStopSinks.put(nodeId, Sinks.one());
           nodePauseValves.put(nodeId, new ReactiveControlValve());
           nodeSkipFlags.put(nodeId, new AtomicBoolean(false));
-          nodeStepModes.put(nodeId, new AtomicBoolean(false));
-          nodeStepSinks.put(nodeId, Sinks.many().multicast().onBackpressureBuffer());
         });
 
     return new ExecutionControl(
@@ -71,13 +67,10 @@ public class ExecutionControlFactory {
         prepared,
         payload,
         Sinks.one(),
-        Sinks.one(),
         new ReactiveControlValve(),
         nodeImmediateStopSinks,
         nodeSafeStopSinks,
         nodePauseValves,
-        nodeSkipFlags,
-        nodeStepModes,
-        nodeStepSinks);
+        nodeSkipFlags);
   }
 }

@@ -91,7 +91,7 @@ public class WorkflowController {
     log.atInfo().log(
         "startWorkflow: sessionId={}, workflowId={}", request.sessionId(), request.workflowId());
     return workflowService
-        .validateAndStartWorkflow(request.sessionId(), request.workflowId())
+        .validateAndStartWorkflow(request.sessionId(), request.workflowId(), request.payload())
         .doOnNext(
             _ ->
                 log.atInfo().log(

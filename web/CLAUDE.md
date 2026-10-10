@@ -19,6 +19,7 @@ Web layer with REST controllers and UI support.
 ## Key Files
 - **Controllers**: `src/main/java/com/infenia/yukta/controller/`
 - **Mappers**: `src/main/java/com/infenia/yukta/mapper/`
+- **Module guide (interactive)**: `docs/web-module-guide.html`; review findings: `docs/web-improvements.md`
 
 ## Imports
 @.claude/rules/coding-standards.md

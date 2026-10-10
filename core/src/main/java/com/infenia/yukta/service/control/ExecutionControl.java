@@ -6,6 +6,7 @@ import com.infenia.yukta.message.Message;
 import com.infenia.yukta.model.workflow.PreparedWorkflow;
 import com.infenia.yukta.service.control.valve.ReactiveControlValve;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 import lombok.extern.slf4j.Slf4j;
@@ -24,15 +25,12 @@ import reactor.core.publisher.Sinks;
  * <p>Control hierarchy:
  *
  * <ul>
- *   <li><strong>immediateStopSink:</strong> Hard stop; cancels upstream immediately
  *   <li><strong>safeStopSink:</strong> Drain & stop; completes streams after inflight work
  *   <li><strong>globalPauseValve:</strong> Pauses all nodes via backpressure
  *   <li><strong>nodeImmediateStopSinks:</strong> Per-node hard stop
  *   <li><strong>nodeSafeStopSinks:</strong> Per-node drain & stop
  *   <li><strong>nodePauseValves:</strong> Per-node pause via backpressure
  *   <li><strong>nodeSkipFlags:</strong> Per-node bypass (skip processing, pass through)
- *   <li><strong>nodeStepModes:</strong> Per-node debug step-through (one element at a time)
- *   <li><strong>nodeStepSinks:</strong> Per-node step signal sink (signals next step)
  * </ul>
  *
  * @param sessionId the session that owns this execution
@@ -40,43 +38,34 @@ import reactor.core.publisher.Sinks;
  * @param executionId the unique execution identifier
  * @param prepared the prepared workflow (definition, plugin cache, topology)
  * @param payload the original trigger payload used to start the execution
- * @param immediateStopSink hard stop cancels upstream immediately
  * @param safeStopSink drain & stop completes streams after inflight work
  * @param globalPauseValve pauses all nodes via backpressure
  * @param nodeImmediateStopSinks per-node hard stop (keyed by nodeId)
  * @param nodeSafeStopSinks per-node drain & stop (keyed by nodeId)
  * @param nodePauseValves per-node pause (keyed by nodeId)
  * @param nodeSkipFlags per-node bypass flags (keyed by nodeId)
- * @param nodeStepModes per-node step-through debug mode flags (keyed by nodeId)
- * @param nodeStepSinks per-node step signal sinks (keyed by nodeId)
  */
 @Slf4j
-@SuppressWarnings("PMD.DataClass")
 public record ExecutionControl(
     String sessionId,
     String workflowId,
     String executionId,
     PreparedWorkflow prepared,
     Map<String, Object> payload,
-    Sinks.One<Void> immediateStopSink,
     Sinks.One<Void> safeStopSink,
     ReactiveControlValve globalPauseValve,
     Map<String, Sinks.One<Void>> nodeImmediateStopSinks,
     Map<String, Sinks.One<Void>> nodeSafeStopSinks,
     Map<String, ReactiveControlValve> nodePauseValves,
-    Map<String, AtomicBoolean> nodeSkipFlags,
-    Map<String, AtomicBoolean> nodeStepModes,
-    Map<String, Sinks.Many<Void>> nodeStepSinks) {
+    Map<String, AtomicBoolean> nodeSkipFlags) {
 
   /** Compact constructor: makes all maps immutable and enforces field consistency. */
   public ExecutionControl {
-    payload = Map.copyOf(payload);
+    payload = Collections.unmodifiableMap(new HashMap<>(payload));
     nodeImmediateStopSinks = Map.copyOf(nodeImmediateStopSinks);
     nodeSafeStopSinks = Map.copyOf(nodeSafeStopSinks);
     nodePauseValves = Map.copyOf(nodePauseValves);
     nodeSkipFlags = Map.copyOf(nodeSkipFlags);
-    nodeStepModes = Map.copyOf(nodeStepModes);
-    nodeStepSinks = Map.copyOf(nodeStepSinks);
   }
 
   @Override
@@ -99,42 +88,21 @@ public record ExecutionControl(
     return Collections.unmodifiableMap(nodeSkipFlags);
   }
 
-  @Override
-  public Map<String, AtomicBoolean> nodeStepModes() {
-    return Collections.unmodifiableMap(nodeStepModes);
-  }
-
-  @Override
-  public Map<String, Sinks.Many<Void>> nodeStepSinks() {
-    return Collections.unmodifiableMap(nodeStepSinks);
-  }
-
   /**
-   * Applies pre-processing controls (safe stop + skip) to input stream.
+   * Applies pre-processing controls (safe stop) to input stream.
    *
    * <p>Applied before stream enters Processor or Terminal plugin. Severs upstream connection but
    * allows inflight work to finish.
    *
    * @param nodeId the target node
    * @param inputFlux the incoming flux
-   * @return flux with safe-stop and skip logic applied
+   * @return flux with safe-stop logic applied
    */
   public Flux<Message<?>> applyPreProcessingControls(
       final String nodeId, final Flux<Message<?>> inputFlux) {
-    final AtomicBoolean skip = nodeSkipFlags.get(nodeId);
     final Sinks.One<Void> safeSink = nodeSafeStopSinks.get(nodeId);
 
     Flux<Message<?>> result = inputFlux;
-
-    if (skip != null) {
-      result =
-          result.doOnNext(
-              msg -> {
-                if (skip.get()) {
-                  log.atDebug().addKeyValue("nodeId", nodeId).log("Node marked for skip");
-                }
-              });
-    }
 
     if (safeSink != null) {
       result = result.takeUntilOther(safeSink.asMono());

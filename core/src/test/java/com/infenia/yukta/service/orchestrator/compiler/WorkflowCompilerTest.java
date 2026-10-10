@@ -69,7 +69,6 @@ class WorkflowCompilerTest {
         new WorkflowCompiler(
             tracker,
             Schedulers.boundedElastic(),
-            Duration.ofMillis(200),
             configService,
             executionControlRegistry,
             List.of(assemblerStrategy));
@@ -126,7 +125,7 @@ class WorkflowCompilerTest {
   }
 
   @Test
-  void compileAssemblers_noMatchingStrategy_returnsNoOpAssembler() {
+  void compileAssemblers_noMatchingStrategy_throws() {
     final WorkflowNode node = new WorkflowNode("n1", "unknown", Map.of());
     final List<WorkflowEdge> edges = List.of();
     final Map<String, List<WorkflowNode>> parents = Map.of("n1", List.of());
@@ -137,11 +136,9 @@ class WorkflowCompilerTest {
     when(plugin.getDefaultBufferSize()).thenReturn(1024);
     when(assemblerStrategy.supports(any(), any(Boolean.class))).thenReturn(false);
 
-    final NodeAssembler[] assemblers = compiler.compileAssemblers(edges, parents, plugins, order);
-
-    assertThat(assemblers).hasSize(1);
-    // No-op assembler should not throw when invoked with a null context
-    assemblers[0].assemble(null);
+    assertThatThrownBy(() -> compiler.compileAssemblers(edges, parents, plugins, order))
+        .isInstanceOf(IllegalStateException.class)
+        .hasMessageContaining("unknown");
   }
 
   @Test
@@ -281,7 +278,12 @@ class WorkflowCompilerTest {
     when(plugin.getDefaultBufferSize()).thenReturn(1024);
     when(assemblerStrategy.supports(eq(plugin), any(Boolean.class))).thenReturn(true);
     when(assemblerStrategy.createAssembler(
-            any(), any(), any(), any(Integer.class), any(Integer.class)))
+            any(),
+            any(),
+            any(),
+            any(Integer.class),
+            any(Integer.class),
+            any(ParentEdgeInfo[].class)))
         .thenReturn(ctx -> {});
 
     compiler.compileAssemblers(edges, parents, plugins, order);
@@ -403,7 +405,7 @@ class WorkflowCompilerTest {
   }
 
   @Test
-  void executeTemplate_emitsSuccessStatusOnCompletion() {
+  void executeTemplate_doesNotEmitWorkflowStatus_orchestratorOwnsIt() {
     when(executionControlRegistry.findByExecutionId(EXECUTION_ID))
         .thenReturn(Optional.of(buildMinimalExecutionControl()));
     when(configService.getExecutionTimeout(SESSION_ID)).thenReturn(Mono.just(60L));
@@ -416,7 +418,7 @@ class WorkflowCompilerTest {
 
     StepVerifier.create(execution).verifyComplete();
 
-    verify(tracker).emitWorkflowStatusEvent(EXECUTION_ID, "SUCCESS");
+    verify(tracker, never()).emitWorkflowStatusEvent(any(), any());
   }
 
   @Test
@@ -531,10 +533,7 @@ class WorkflowCompilerTest {
         null,
         Map.of(),
         Sinks.one(),
-        Sinks.one(),
         null,
-        Map.of(),
-        Map.of(),
         Map.of(),
         Map.of(),
         Map.of(),

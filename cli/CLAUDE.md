@@ -37,6 +37,7 @@ make fmt       # Format code
 - `internal/commands/`: Command definitions (Cobra).
 - `internal/client/`: HTTP client and types.
 - `internal/app/`: Application configuration.
+- `docs/cli-module-guide.html` (interactive guide) and `docs/cli-improvements.md` (review findings).
 
 ## Tech Stack
 - **Go 1.26**

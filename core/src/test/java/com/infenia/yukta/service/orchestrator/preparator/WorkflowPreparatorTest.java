@@ -159,54 +159,20 @@ class WorkflowPreparatorTest {
   }
 
   @Test
-  void prepareWorkflow_pluginInitializeFails_shutdownIsInvokedAndErrorPropagated() {
+  void prepareWorkflow_pluginInitializeFails_errorPropagatedAndSharedPluginNotShutDown() {
     final Node node = new Node("n1", "plugin-type", Map.of());
     final WorkflowDefinition def = new WorkflowDefinition("wf5", "desc", List.of(node), List.of());
 
     when(registry.get("plugin-type")).thenReturn(plugin);
     when(validator.validate(def)).thenReturn(Mono.empty());
     when(plugin.initialize(any())).thenReturn(Mono.error(new RuntimeException("init failed")));
-    when(plugin.shutdown(any())).thenReturn(Mono.empty());
 
     StepVerifier.create(preparator.prepareWorkflow(def))
         .expectErrorMatches(
             e -> e instanceof RuntimeException && "init failed".equals(e.getMessage()))
         .verify();
 
-    verify(plugin).shutdown(Map.of());
-  }
-
-  @Test
-  void prepareWorkflow_pluginShutdownFailsDuringCleanup_originalErrorStillPropagated() {
-    final Node node = new Node("n1", "plugin-type", Map.of());
-    final WorkflowDefinition def = new WorkflowDefinition("wf6", "desc", List.of(node), List.of());
-
-    when(registry.get("plugin-type")).thenReturn(plugin);
-    when(validator.validate(def)).thenReturn(Mono.empty());
-    when(plugin.initialize(any())).thenReturn(Mono.error(new RuntimeException("init failed")));
-    when(plugin.shutdown(any()))
-        .thenReturn(Mono.error(new RuntimeException("shutdown also failed")));
-
-    StepVerifier.create(preparator.prepareWorkflow(def))
-        .expectErrorMatches(
-            e -> e instanceof RuntimeException && "init failed".equals(e.getMessage()))
-        .verify();
-  }
-
-  @Test
-  void prepareWorkflow_pluginShutdownReturnsNull_handledGracefully() {
-    final Node node = new Node("n1", "plugin-type", Map.of());
-    final WorkflowDefinition def = new WorkflowDefinition("wf7", "desc", List.of(node), List.of());
-
-    when(registry.get("plugin-type")).thenReturn(plugin);
-    when(validator.validate(def)).thenReturn(Mono.empty());
-    when(plugin.initialize(any())).thenReturn(Mono.error(new RuntimeException("init failed")));
-    when(plugin.shutdown(any())).thenReturn(null);
-
-    StepVerifier.create(preparator.prepareWorkflow(def))
-        .expectErrorMatches(
-            e -> e instanceof RuntimeException && "init failed".equals(e.getMessage()))
-        .verify();
+    verify(plugin, never()).shutdown(any());
   }
 
   @Test
@@ -220,7 +186,6 @@ class WorkflowPreparatorTest {
     when(registry.get("missing-type")).thenReturn(null);
     when(validator.validate(def)).thenReturn(Mono.empty());
     when(plugin.initialize(any())).thenReturn(Mono.empty());
-    when(plugin.shutdown(any())).thenReturn(Mono.empty());
 
     StepVerifier.create(preparator.prepareWorkflow(def))
         .expectErrorMatches(
@@ -252,7 +217,7 @@ class WorkflowPreparatorTest {
   }
 
   @Test
-  void prepareWorkflow_topologicalSortThrows_errorPropagatedAndShutdownInvoked() {
+  void prepareWorkflow_topologicalSortThrows_errorPropagatedAndSharedPluginNotShutDown() {
     final Node node = new Node("n1", "plugin-type", Map.of());
     final WorkflowDefinition def = new WorkflowDefinition("wf10", "desc", List.of(node), List.of());
 
@@ -261,14 +226,13 @@ class WorkflowPreparatorTest {
     when(plugin.initialize(any())).thenReturn(Mono.empty());
     when(topologicalSortService.computeTopologicalOrder(anyList(), anyMap(), anyMap()))
         .thenThrow(new IllegalArgumentException("cycle detected"));
-    when(plugin.shutdown(any())).thenReturn(Mono.empty());
 
     StepVerifier.create(preparator.prepareWorkflow(def))
         .expectErrorMatches(
             e -> e instanceof IllegalArgumentException && "cycle detected".equals(e.getMessage()))
         .verify();
 
-    verify(plugin).shutdown(Map.of());
+    verify(plugin, never()).shutdown(any());
   }
 
   @Test
@@ -287,6 +251,31 @@ class WorkflowPreparatorTest {
     StepVerifier.create(preparator.prepareWorkflow(def))
         .assertNext(pw -> assertThat(pw.template()).isSameAs(template))
         .verifyComplete();
+  }
+
+  @Test
+  void prepareWorkflow_sameTypeTwice_initializesWithEachNodesOwnConfig() {
+    final Map<String, Object> cfgA = Map.of("mode", "a");
+    final Map<String, Object> cfgB = Map.of("mode", "b");
+    final WorkflowDefinition def =
+        new WorkflowDefinition(
+            "wf-same",
+            "desc",
+            List.of(new Node("n1", "plugin-type", cfgA), new Node("n2", "plugin-type", cfgB)),
+            List.of());
+
+    when(registry.get("plugin-type")).thenReturn(plugin);
+    when(validator.validate(def)).thenReturn(Mono.empty());
+    when(plugin.initialize(any())).thenReturn(Mono.empty());
+    when(topologicalSortService.computeTopologicalOrder(anyList(), anyMap(), anyMap()))
+        .thenReturn(List.of());
+    when(compiler.compileTemplate(anyList(), anyMap(), anyMap(), anyList())).thenReturn(template);
+
+    StepVerifier.create(preparator.prepareWorkflow(def)).expectNextCount(1).verifyComplete();
+
+    verify(plugin).initialize(cfgA);
+    verify(plugin).initialize(cfgB);
+    verify(plugin, never()).shutdown(any());
   }
 
   @Test

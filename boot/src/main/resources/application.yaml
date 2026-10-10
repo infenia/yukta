@@ -37,7 +37,6 @@ logging:
 
 
 yukta:
-  heartbeat-interval-seconds: 10
   session:
     base-dir: /tmp/.yukta
     file-log-sub-dir: modified-files

@@ -367,12 +367,9 @@ class TriggerNodeAssemblerStrategyTest {
             null,
             Map.of(),
             Sinks.one(),
-            Sinks.one(),
             new ReactiveControlValve(),
             Map.of(),
             nodeSafeStopSinks,
-            Map.of(),
-            Map.of(),
             Map.of(),
             Map.of());
 

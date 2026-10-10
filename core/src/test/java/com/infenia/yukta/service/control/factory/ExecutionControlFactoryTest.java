@@ -53,7 +53,6 @@ class ExecutionControlFactoryTest {
     assertThat(control.prepared()).isSameAs(prepared);
 
     // Verify global controls are initialized
-    assertThat(control.immediateStopSink()).isNotNull();
     assertThat(control.safeStopSink()).isNotNull();
     assertThat(control.globalPauseValve()).isInstanceOf(ReactiveControlValve.class);
 
@@ -62,20 +61,14 @@ class ExecutionControlFactoryTest {
     assertThat(control.nodeSafeStopSinks()).containsKey("node-1");
     assertThat(control.nodePauseValves()).containsKey("node-1");
     assertThat(control.nodeSkipFlags()).containsKey("node-1");
-    assertThat(control.nodeStepModes()).containsKey("node-1");
-    assertThat(control.nodeStepSinks()).containsKey("node-1");
 
     // Verify node control types
     assertThat(control.nodePauseValves().get("node-1")).isInstanceOf(ReactiveControlValve.class);
     assertThat(control.nodeSkipFlags().get("node-1"))
         .isInstanceOf(java.util.concurrent.atomic.AtomicBoolean.class);
-    assertThat(control.nodeStepModes().get("node-1"))
-        .isInstanceOf(java.util.concurrent.atomic.AtomicBoolean.class);
-    assertThat(control.nodeStepSinks().get("node-1")).isNotNull();
 
     // Verify initial state of node controls
     assertThat(control.nodeSkipFlags().get("node-1").get()).isFalse();
-    assertThat(control.nodeStepModes().get("node-1").get()).isFalse();
   }
 
   @Test
@@ -106,25 +99,17 @@ class ExecutionControlFactoryTest {
     assertThat(control.nodeSafeStopSinks()).hasSize(3);
     assertThat(control.nodePauseValves()).hasSize(3);
     assertThat(control.nodeSkipFlags()).hasSize(3);
-    assertThat(control.nodeStepModes()).hasSize(3);
-    assertThat(control.nodeStepSinks()).hasSize(3);
 
     // Verify all node IDs are present
     assertThat(control.nodeImmediateStopSinks()).containsKeys("node-1", "node-2", "node-3");
     assertThat(control.nodeSafeStopSinks()).containsKeys("node-1", "node-2", "node-3");
     assertThat(control.nodePauseValves()).containsKeys("node-1", "node-2", "node-3");
     assertThat(control.nodeSkipFlags()).containsKeys("node-1", "node-2", "node-3");
-    assertThat(control.nodeStepModes()).containsKeys("node-1", "node-2", "node-3");
-    assertThat(control.nodeStepSinks()).containsKeys("node-1", "node-2", "node-3");
 
     // Verify initial state
     assertThat(control.nodeSkipFlags().get("node-1").get()).isFalse();
     assertThat(control.nodeSkipFlags().get("node-2").get()).isFalse();
     assertThat(control.nodeSkipFlags().get("node-3").get()).isFalse();
-
-    assertThat(control.nodeStepModes().get("node-1").get()).isFalse();
-    assertThat(control.nodeStepModes().get("node-2").get()).isFalse();
-    assertThat(control.nodeStepModes().get("node-3").get()).isFalse();
   }
 
   @Test
@@ -152,7 +137,6 @@ class ExecutionControlFactoryTest {
     assertThat(control.prepared()).isSameAs(prepared);
 
     // Global controls should still be initialized
-    assertThat(control.immediateStopSink()).isNotNull();
     assertThat(control.safeStopSink()).isNotNull();
     assertThat(control.globalPauseValve()).isInstanceOf(ReactiveControlValve.class);
 
@@ -161,8 +145,6 @@ class ExecutionControlFactoryTest {
     assertThat(control.nodeSafeStopSinks()).isEmpty();
     assertThat(control.nodePauseValves()).isEmpty();
     assertThat(control.nodeSkipFlags()).isEmpty();
-    assertThat(control.nodeStepModes()).isEmpty();
-    assertThat(control.nodeStepSinks()).isEmpty();
   }
 
   @Test

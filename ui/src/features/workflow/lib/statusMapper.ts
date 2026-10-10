@@ -17,6 +17,7 @@ const NODE_STATUS_MAP: Record<string, NodeUiStatus> = {
   NODE_PAUSED: 'paused',
   NODE_SKIPPED: 'skipped',
   NODE_STOPPED: 'skipped',
+  STOPPED: 'skipped',
   PENDING: 'pending',
 };
 
@@ -32,6 +33,7 @@ const EXEC_STATUS_MAP: Record<string, ExecStatusCategory> = {
   CANCELLED: 'stopped',
   WORKFLOW_STOPPED: 'stopped',
   NODE_STOPPED: 'stopped',
+  STOPPED: 'stopped',
   PAUSED: 'paused',
   NODE_PAUSED: 'paused',
   PENDING: 'pending',
@@ -44,6 +46,7 @@ const TERMINAL_EXEC_STATUSES = new Set([
   'CANCELLED',
   'WORKFLOW_STOPPED',
   'NODE_STOPPED',
+  'STOPPED',
   'SUCCESS',
   'FAILURE',
   'ERROR',
@@ -68,6 +71,15 @@ export function toExecStatusCategory(raw: string | null | undefined): ExecStatus
 /** Whether a raw execution status means the execution has finished. */
 export function isTerminalExecStatus(raw: string | null | undefined): boolean {
   return raw != null && TERMINAL_EXEC_STATUSES.has(raw);
+}
+
+/** Status to display for an execution: a live pause control state overrides a non-terminal status. */
+export function toDisplayExecStatus(
+  status: string | null | undefined,
+  controlState: string | null | undefined
+): string | null {
+  const paused = controlState === 'PAUSED' || controlState === 'NODE_PAUSED';
+  return paused && !isTerminalExecStatus(status) ? controlState : (status ?? null);
 }
 
 /** Mockup-style node status label, e.g. "Done", "Active", "Waiting". */

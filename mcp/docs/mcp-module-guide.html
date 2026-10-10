@@ -1,0 +1,249 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+<!-- SPDX-FileCopyrightText: 2026 Infenia Private Limited -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Yukta MCP Server Guide</title>
+<style>
+:root{
+  --bg:#f7f7f5;--surface:#ffffff;--surface-2:#f0efec;--text:#1d1d1b;--muted:#5f5e5a;--line:#dcdad4;
+  --accent:#2f5bd3;--accent-soft:#e6ecfb;
+  --p0:#b42318;--p0-soft:#fde8e6;--p1:#b54708;--p1-soft:#fdf0e1;--p2:#6941c6;--p2-soft:#efe9fb;--p3:#475467;--p3-soft:#eceef1;
+  --ok:#067647;--ok-soft:#e3f5ec;
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#141413;--surface:#1d1d1b;--surface-2:#262624;--text:#ecebe6;--muted:#a3a29c;--line:#383835;
+  --accent:#8aa8ff;--accent-soft:#232c45;
+  --p0:#ff8a80;--p0-soft:#3b1d1a;--p1:#ffb35c;--p1-soft:#3a2915;--p2:#c3a6ff;--p2-soft:#2b2240;--p3:#b8c0cc;--p3-soft:#2a2d31;
+  --ok:#5fd39b;--ok-soft:#173226;
+}}
+:root[data-theme="dark"]{
+  --bg:#141413;--surface:#1d1d1b;--surface-2:#262624;--text:#ecebe6;--muted:#a3a29c;--line:#383835;
+  --accent:#8aa8ff;--accent-soft:#232c45;
+  --p0:#ff8a80;--p0-soft:#3b1d1a;--p1:#ffb35c;--p1-soft:#3a2915;--p2:#c3a6ff;--p2-soft:#2b2240;--p3:#b8c0cc;--p3-soft:#2a2d31;
+  --ok:#5fd39b;--ok-soft:#173226;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.6 var(--sans)}
+code,.mono{font-family:var(--mono);font-size:.88em}
+code{background:var(--surface-2);padding:.1em .35em;border-radius:4px}
+pre{background:var(--surface-2);padding:10px 12px;border-radius:8px;overflow-x:auto;font-family:var(--mono);font-size:13px;margin:8px 0}
+pre code{background:none;padding:0}
+a{color:var(--accent)}
+.layout{display:grid;grid-template-columns:230px minmax(0,1fr);max-width:1240px;margin:0 auto}
+nav.side{position:sticky;top:0;height:100vh;overflow:auto;padding:28px 18px;border-right:1px solid var(--line)}
+nav.side .brand{font-weight:700;font-size:17px;margin-bottom:2px}
+nav.side .sub{color:var(--muted);font-size:13px;margin-bottom:22px}
+nav.side a{display:block;color:var(--muted);text-decoration:none;padding:5px 10px;border-radius:6px;font-size:14px}
+nav.side a:hover,nav.side a.active{background:var(--accent-soft);color:var(--text)}
+nav.side .theme{margin-top:22px}
+main{padding:32px 40px 80px;min-width:0}
+section{margin-bottom:56px;scroll-margin-top:16px}
+h1{font-size:30px;line-height:1.2;margin:0 0 8px}
+h2{font-size:22px;margin:0 0 6px}
+h3{font-size:16px;margin:18px 0 6px}
+.lede{color:var(--muted);max-width:760px;margin:0 0 18px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:18px;min-width:0}
+.card>h3:first-child{margin-top:0}
+.card ul,.card ol{padding-left:18px;margin:6px 0}
+.grid{display:grid;gap:12px}
+.g4{grid-template-columns:repeat(4,minmax(0,1fr))}
+.g2{grid-template-columns:repeat(2,minmax(0,1fr))}
+.stat .n{font-size:26px;font-weight:700}
+.stat .l{color:var(--muted);font-size:13px}
+.pill{display:inline-block;font-size:12px;font-weight:600;padding:1px 8px;border-radius:999px;white-space:nowrap;text-decoration:none}
+.P0{background:var(--p0-soft);color:var(--p0)}.P1{background:var(--p1-soft);color:var(--p1)}
+.P2{background:var(--p2-soft);color:var(--p2)}.P3{background:var(--p3-soft);color:var(--p3)}
+.okp{background:var(--ok-soft);color:var(--ok)}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{color:var(--muted);font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.04em}
+.tablewrap{overflow-x:auto}
+button{font:inherit;font-size:13px;border:1px solid var(--line);background:var(--surface);color:var(--text);padding:5px 12px;border-radius:7px;cursor:pointer}
+button:hover{border-color:var(--accent)}
+button[aria-pressed="true"]{background:var(--accent);color:#fff;border-color:var(--accent)}
+:root[data-theme="dark"] button[aria-pressed="true"]{color:#111}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) button[aria-pressed="true"]{color:#111}}
+input[type=search]{font:inherit;font-size:14px;padding:6px 10px;border:1px solid var(--line);border-radius:7px;background:var(--surface);color:var(--text);min-width:220px}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.pipe{width:100%;height:auto;display:block}
+.pipe .box rect{fill:var(--surface);stroke:var(--line);stroke-width:1.2;transition:fill .15s,stroke .15s}
+.pipe .box text{fill:var(--text);font:600 13px var(--sans)}
+.pipe .box .s{fill:var(--muted);font:12px var(--mono)}
+.pipe .box.on rect{fill:var(--accent-soft);stroke:var(--accent);stroke-width:2}
+.pipe .arrow{stroke:var(--muted);stroke-width:1.4;fill:none}
+.pipe .box{cursor:pointer}
+.steps{display:flex;gap:6px;flex-wrap:wrap;margin:14px 0}
+.stepbody h3{margin-top:0}
+.refs{font-size:13px;color:var(--muted)}
+.flag{border-left:3px solid var(--p1);background:var(--p1-soft);padding:8px 12px;border-radius:0 6px 6px 0;margin-top:10px;font-size:14px}
+.flag.p0{border-color:var(--p0);background:var(--p0-soft)}
+.pkgs{display:grid;grid-template-columns:280px minmax(0,1fr);gap:14px}
+.pkglist button{display:flex;justify-content:space-between;width:100%;text-align:left;border:0;border-radius:6px;padding:7px 10px;background:transparent;font-family:var(--mono);font-size:12.5px}
+.pkglist button[aria-pressed="true"]{background:var(--accent-soft);color:var(--text)}
+.bar{height:6px;background:var(--surface-2);border-radius:3px;overflow:hidden;margin-top:6px}
+.bar>i{display:block;height:100%;background:var(--accent)}
+.filters{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+.filters .lbl{color:var(--muted);font-size:13px;margin-right:2px}
+.finding{border:1px solid var(--line);border-radius:10px;background:var(--surface);margin-bottom:10px}
+.finding summary{list-style:none;cursor:pointer;display:grid;grid-template-columns:auto auto minmax(0,1fr) auto;gap:10px;align-items:center;padding:12px 14px}
+.finding summary::-webkit-details-marker{display:none}
+.finding .id{font-family:var(--mono);font-size:12px;color:var(--muted);min-width:30px}
+.finding .t{font-weight:600}
+.finding .meta{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.finding .body{padding:0 14px 14px 14px;border-top:1px solid var(--line)}
+.finding .body dl{display:grid;grid-template-columns:90px minmax(0,1fr);gap:6px 12px;margin:12px 0 0}
+.finding .body dt{color:var(--muted);font-size:13px}
+.finding .body dd{margin:0;min-width:0;overflow-wrap:anywhere}
+.finding.done{opacity:.55}
+.finding.done .t{text-decoration:line-through}
+.progress{display:flex;align-items:center;gap:10px;margin-bottom:12px;font-size:14px;color:var(--muted)}
+.progress .bar{flex:1;height:8px;margin:0}
+.progress .bar>i{background:var(--ok)}
+.empty{color:var(--muted);padding:20px;text-align:center}
+.score td:nth-child(2){font-family:var(--mono);white-space:nowrap}
+@media (max-width:860px){
+  .layout{grid-template-columns:1fr}
+  nav.side{position:static;height:auto;border-right:0;border-bottom:1px solid var(--line);padding:16px}
+  nav.side .links{display:flex;flex-wrap:wrap;gap:4px}
+  main{padding:20px 16px 60px}
+  .g4{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .g2,.pkgs{grid-template-columns:1fr}
+  .finding summary{grid-template-columns:auto minmax(0,1fr)}
+  .finding .meta{grid-column:1/-1}
+  .finding .body dl{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+<div class="layout">
+<nav class="side" aria-label="Sections">
+  <div class="brand" id="brand"></div>
+  <div class="sub" id="sub"></div>
+  <div class="links" id="navLinks"></div>
+  <div class="theme"><button id="themeBtn" type="button">Toggle theme</button></div>
+</nav>
+<main id="main"></main>
+</div>
+<script>
+var DATA = {"module": "mcp", "htmlTitle": "Yukta MCP Server Guide", "title": "mcp module guide", "date": "2026-10-09", "lede": "Yukta's Model Context Protocol server. It gives AI agents 14 tools, 2 prompts and 3 resources for creating sessions, running and controlling workflows, reading logs, and discovering plugins, all backed directly by <code>core<\/code>.", "stats": [["40", "main files"], ["≈2.3k", "main lines"], ["14", "MCP tools"]], "overviewHtml": "<h3>Design in one paragraph<\/h3><p>Spring AI 2.0's MCP server runs <b>ASYNC + STATELESS<\/b> over streamable HTTP at <code>/sse<\/code>. <code>AppMcpTools<\/code> is a thin <code>@McpTool<\/code> façade. Each method delegates to a <code>Default*Provider<\/code>, which calls core (<code>SessionService<\/code>, <code>WorkflowService<\/code>, <code>ControlBusGateway<\/code>, <code>PluginRegistry<\/code>, <code>PluginLogStore<\/code>). Tools return <code>Mono&lt;Record&gt;<\/code>. List-shaped results are wrapped in records (<code>SessionList<\/code>, <code>WorkflowHistory<\/code>, <code>PluginList<\/code>) to avoid two Spring AI bugs. Errors are <code>IllegalArgumentException<\/code>s with agent-actionable text, which the framework turns into <code>isError<\/code> results. Every execution-scoped tool checks that the execution belongs to the given session.<\/p>", "score": [["Tool design", "4/5", "Clear, hinted, actionable"], ["Correctness", "2.5/5", "Wrong terminal set; TTL-bound ownership check"], ["Security", "2/5", "No auth; regex denial-of-service"], ["Performance", "3/5", "Per-line regex compile; full log read"], ["Simplicity", "3/5", "Unused interfaces; DTO duplication"], ["Tests", "4/5", "Includes a JSON-RPC integration test"]], "flowTitle": "Tool call lifecycle", "steps": [{"k": "Client", "cls": "MCP host (Claude, IDE agent)", "d": "Sends a JSON-RPC <code>tools/call<\/code> to <code>/sse<\/code> (streamable HTTP, stateless: no session affinity).", "f": ["P-5", "P-12"]}, {"k": "Dispatch", "cls": "Spring AI AsyncStatelessMcpToolProvider", "d": "Matches the tool name, binds the arguments from the JSON schema generated from <code>@McpToolParam<\/code>, and invokes the <code>AppMcpTools<\/code> method.", "f": ["P-13"]}, {"k": "Facade", "cls": "AppMcpTools", "d": "A one-line delegation to a provider. Some calls are wrapped in <code>fromCallable().subscribeOn(boundedElastic)<\/code>.", "f": ["P-8", "P-10"]}, {"k": "Ownership", "cls": "requireOwnership → ControlBusGateway.getCurrentProgress", "d": "For execution-scoped tools, look up the progress and check <code>sessionId<\/code>. Unknown and foreign executions give the same \"Execution not found\" error. This fails after the tracker's 10-minute TTL.", "f": ["P-2"]}, {"k": "Core call", "cls": "Default*Provider → core", "d": "Runs the operation: start, control, history, log read (with optional regex and tail), plugin info, or health aggregation.", "f": ["P-1", "P-3", "P-4", "P-6", "P-7", "P-14"]}, {"k": "Result", "cls": "Mono<Record> → CallToolResult", "d": "The record is serialised as structured content, validated against the generated output schema. <code>Mono.error<\/code> becomes <code>isError=true<\/code>.", "f": []}], "pkgTitle": "Code explorer", "pkgs": [["AppMcpTools", 1, 437, "The 14 <code>@McpTool<\/code> methods with descriptions and hints.", "mcp/AppMcpTools"], ["AppMcpResources", 1, 108, "<code>yukta://overview<\/code>, <code>yukta://architecture<\/code>, and <code>yukta://sessions/{sid}/executions/{eid}/logs<\/code>.", "mcp/AppMcpResources"], ["AppMcpPrompts", 1, 59, "<code>@McpPrompt<\/code> templates.", "mcp/AppMcpPrompts"], ["provider/Default*", 6, 879, "Implementations: sessions (216), control (200), health (187), plugins (123), execution (81), logs (72).", "mcp/provider"], ["provider/*Provider", 6, 238, "Single-implementation interfaces. AppMcpTools doesn't inject them.", "mcp/provider"], ["dto", 22, 433, "MCP-owned response records, mostly mirroring web DTOs.", "mcp/dto"], ["util", 3, 183, "<code>PluginTemplateBuilder<\/code>, <code>RegexPatternValidator<\/code>, <code>UptimeFormatter<\/code>.", "mcp/util"]], "sections": [{"id": "tools", "title": "Tool catalogue", "lede": "What an agent can call. Hints are as declared on <code>@McpTool<\/code>.", "html": "<div class=\"card tablewrap\"><table><tr><th>Tool<\/th><th>Purpose<\/th><th>Hints<\/th><th>Notes<\/th><\/tr><tr><td class=\"mono\">list_sessions<\/td><td>Sessions with workflow counts<\/td><td>read-only<\/td><td><\/td><\/tr><tr><td class=\"mono\">get_session_details<\/td><td>One session and its workflow IDs<\/td><td>read-only<\/td><td><\/td><\/tr><tr><td class=\"mono\">get_session_creation_instructions<\/td><td>How to write a session config<\/td><td>read-only<\/td><td><\/td><\/tr><tr><td class=\"mono\">create_session<\/td><td>Create or overwrite a session from a JSON string<\/td><td>destructive=false ⚠<\/td><td>P-3, P-5, P-13<\/td><\/tr><tr><td class=\"mono\">get_workflow_details<\/td><td>DAG nodes and edges<\/td><td>read-only<\/td><td><\/td><\/tr><tr><td class=\"mono\">start_workflow<\/td><td>Start an execution, returning its ID<\/td><td>write<\/td><td><\/td><\/tr><tr><td class=\"mono\">get_workflow_status<\/td><td>Progress snapshot<\/td><td>read-only<\/td><td>P-2, fails after the TTL<\/td><\/tr><tr><td class=\"mono\">get_workflow_history<\/td><td>All executions of a session<\/td><td>read-only<\/td><td><\/td><\/tr><tr><td class=\"mono\">get_execution_logs<\/td><td>Stored logs with regex and tail<\/td><td>read-only<\/td><td>P-2, P-4, P-6<\/td><\/tr><tr><td class=\"mono\">control_workflow<\/td><td>PAUSE, RESUME, STOP, STOP_ALL, RESTART, RESTART_FROM_NODE<\/td><td>destructive<\/td><td><\/td><\/tr><tr><td class=\"mono\">control_node<\/td><td>PAUSE, RESUME, STOP, SKIP, UNSKIP, STEP, STEP_ENABLE, STEP_DISABLE<\/td><td>destructive<\/td><td>P-14: skip and step are no-ops in core<\/td><\/tr><tr><td class=\"mono\">list_plugins / get_plugin_details<\/td><td>Plugin catalogue<\/td><td>read-only<\/td><td><\/td><\/tr><tr><td class=\"mono\">get_plugin_creation_guide<\/td><td>Templates for new plugins<\/td><td>read-only<\/td><td><\/td><\/tr><tr><td class=\"mono\">get_control_bus_status<\/td><td>Sessions, executions, plugins, health<\/td><td>read-only<\/td><td>P-1, P-7, P-9<\/td><\/tr><\/table><\/div>"}, {"id": "gotchas", "title": "Spring AI 2.0 gotchas", "html": "<div class=\"grid g2\"><div class=\"card\"><h3>Return types<\/h3><ul><li><b>Never return <code>Flux&lt;T&gt;<\/code><\/b> from a tool. The async callback keeps only <code>.next()<\/code>, the first element.<\/li><li><b>Never return <code>Mono&lt;List&lt;T&gt;&gt;<\/code><\/b> with <code>generateOutputSchema = true<\/code>. Server startup fails (null class in the schema generator).<\/li><li>Wrap lists in records: <code>Mono&lt;SessionList&gt;<\/code>.<\/li><\/ul><\/div><div class=\"card\"><h3>Parameters and errors<\/h3><ul><li>Use <code>@McpToolParam<\/code> for tools and <code>@McpArg<\/code> only for prompts.<\/li><li><code>Mono.error(new IllegalArgumentException(msg))<\/code> becomes <code>isError<\/code> with the text \"Error invoking method: msg\". Write <i>msg<\/i> for the agent, and include the next tool to call.<\/li><li><code>McpEndpointIntegrationTest<\/code> does real JSON-RPC round-trips. It's the only kind of test that catches the startup crash.<\/li><\/ul><\/div><\/div>"}], "findings": [{"id": "P-1", "sev": "P1", "area": "Correctness", "pkg": ["provider/Default*"], "t": "Health status counts finished executions as active", "where": "DefaultSystemHealthProvider.TERMINAL_STATUSES = COMPLETED/FAILED/CANCELLED/WORKFLOW_STOPPED", "impact": "Core emits SUCCESS/FAILURE/ERROR, so every execution is reported as active.", "fix": "Use TaskStatus.isTerminal (tolerant of unknown values). Add a test with real statuses.", "eff": "S"}, {"id": "P-2", "sev": "P1", "area": "Correctness", "pkg": ["provider/Default*"], "t": "Executions become 'not found' 10 minutes after they finish", "where": "requireOwnership → getCurrentProgress → tracker executionIndex (TTL-evicted)", "impact": "Logs and status are unreachable for older runs, even though history lists them.", "fix": "Check ownership with getProgress(session, exec), or against history.", "eff": "S"}, {"id": "P-3", "sev": "P2", "area": "Correctness", "pkg": ["provider/Default*"], "t": "create_session relabels every error as 'Invalid JSON'", "where": "DefaultSessionInfoProvider.createSession onErrorResume", "impact": "Misleading errors that leak internal messages.", "fix": "Only map JsonProcessingException.", "eff": "S"}, {"id": "P-4", "sev": "P1", "area": "Security", "pkg": ["util", "provider/Default*"], "t": "Agent regex is compiled per line, with no denial-of-service guard", "where": "RegexPatternValidator.matches → Pattern.compile per line", "impact": "CPU burn and catastrophic backtracking on long logs.", "fix": "Compile once, cap the length, and make substring matching the default.", "eff": "S"}, {"id": "P-5", "sev": "P1", "area": "Security", "pkg": ["AppMcpTools"], "t": "create_session is unauthenticated workflow submission, hinted as non-destructive", "where": "@McpTool destructiveHint=false; /sse has no auth", "impact": "Any MCP client can install code-running workflows without being asked to confirm.", "fix": "Set destructiveHint=true, protect the endpoint with an API key (web W1).", "eff": "S"}, {"id": "P-6", "sev": "P2", "area": "Performance", "pkg": ["provider/Default*"], "t": "Logs are read fully into memory before tailing", "where": "DefaultLogProvider collectList then subList", "impact": "Large memory use and huge tool outputs.", "fix": "takeLast(n) and a hard line cap.", "eff": "S"}, {"id": "P-7", "sev": "P2", "area": "Performance", "pkg": ["provider/Default*"], "t": "N+1 health aggregation", "where": "buildSessionExecutionInfo / buildRecentExecutions read config and history per session", "impact": "Cost grows linearly with the number of sessions.", "fix": "Add a one-pass core summary, or limit flatMap concurrency.", "eff": "M"}, {"id": "P-8", "sev": "P3", "area": "Performance", "pkg": ["AppMcpTools", "provider/Default*"], "t": "Unneeded boundedElastic hops", "where": "fromCallable().subscribeOn(boundedElastic) on in-memory calls", "impact": "Wasted thread hops.", "fix": "Drop them for non-blocking calls.", "eff": "S"}, {"id": "P-9", "sev": "P3", "area": "Correctness", "pkg": ["provider/Default*"], "t": "The thread-pool utilisation metric is meaningless", "where": "Thread.activeCount()/cpus*100", "impact": "Values over 100% mislead agents.", "fix": "Remove it, or use Micrometer scheduler metrics.", "eff": "S"}, {"id": "P-10", "sev": "P3", "area": "Simplicity", "pkg": ["provider/*Provider"], "t": "Six single-implementation provider interfaces that aren't injected", "where": "provider/*Provider; AppMcpTools injects Default*", "impact": "Dead abstraction.", "fix": "Delete the interfaces and drop the Default prefix.", "eff": "S"}, {"id": "P-11", "sev": "P3", "area": "Simplicity", "pkg": ["dto"], "t": "About 18 DTOs duplicate web's; ErrorExample is unused", "where": "mcp/dto vs web/dto", "impact": "Two copies to keep in sync.", "fix": "Share the read models in core, or delete ErrorExample.", "eff": "M"}, {"id": "P-12", "sev": "P3", "area": "API design", "pkg": ["AppMcpTools"], "t": "The endpoint is named /sse but uses streamable HTTP", "where": "application.yaml mcp-endpoint: /sse", "impact": "Confusing client setup.", "fix": "Rename to /mcp and keep an alias.", "eff": "S"}, {"id": "P-13", "sev": "P2", "area": "API design", "pkg": ["AppMcpTools"], "t": "create_session takes a JSON string", "where": "sessionConfigJson: String", "impact": "Agents must escape nested JSON, and there's no schema guidance.", "fix": "Take a structured SessionConfigData parameter.", "eff": "S"}, {"id": "P-14", "sev": "P2", "area": "Correctness", "pkg": ["AppMcpTools"], "t": "control_node offers SKIP and STEP, which do nothing", "where": "NodeControlAction; core C5/C6", "impact": "Agents believe actions succeeded when they had no effect.", "fix": "Hide them, or return 'not supported', until core fixes them.", "eff": "S"}], "road": [["1 · Correct answers", ["P-1", "P-2", "P-3", "P-14"], "True status, reachable history"], ["2 · Safety", ["P-4", "P-5", "P-6"], "Bounded CPU and output, honest hints"], ["3 · Trim", ["P-10", "P-11", "P-12", "P-13", "P-8"], "Fewer types, structured input"], ["4 · Scale", ["P-7", "P-9"], "Health cost independent of session count"]]};
+(function(){
+"use strict";
+var D=DATA,store={get:function(k){try{return JSON.parse(localStorage.getItem(k))}catch(e){return null}},
+  set:function(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+var root=document.documentElement,saved=store.get("yk-theme");if(saved)root.setAttribute("data-theme",saved);
+document.getElementById("themeBtn").onclick=function(){
+  var dark=root.getAttribute("data-theme")==="dark"||(!root.getAttribute("data-theme")&&matchMedia("(prefers-color-scheme: dark)").matches);
+  var n=dark?"light":"dark";root.setAttribute("data-theme",n);store.set("yk-theme",n)};
+function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
+var F=D.findings,KEY="yk-"+D.module+"-done",done=store.get(KEY)||{};
+function byId(id){for(var i=0;i<F.length;i++)if(F[i].id===id)return F[i]}
+function pillFor(id){var f=byId(id);return f?'<a href="#f-'+id+'" class="pill '+f.sev+'" data-jump="'+id+'" title="'+esc(f.t)+'">'+id+'</a>':""}
+
+document.getElementById("brand").textContent="Yukta · "+D.module;
+document.getElementById("sub").textContent="Module guide & review · "+D.date;
+var secs=[["overview","Overview"]];
+if(D.steps&&D.steps.length)secs.push(["flow",D.flowTitle||"How it works"]);
+if(D.pkgs&&D.pkgs.length)secs.push(["packages",D.pkgTitle||"Package explorer"]);
+(D.sections||[]).forEach(function(s){secs.push([s.id,s.title])});
+secs.push(["findings","Improvement board"],["roadmap","Roadmap"]);
+document.getElementById("navLinks").innerHTML=secs.map(function(s){return '<a href="#'+s[0]+'">'+esc(s[1])+'</a>'}).join("");
+
+var h='<section id="overview"><h1>'+esc(D.title)+'</h1><p class="lede">'+D.lede+'</p><div class="grid g4">'+
+  D.stats.map(function(s){return '<div class="card stat"><div class="n">'+esc(s[0])+'</div><div class="l">'+esc(s[1])+'</div></div>'}).join("")+
+  '<div class="card stat"><div class="n" id="statFindings">–</div><div class="l">open review findings</div></div></div>'+
+  (D.overviewHtml||"")+
+  (D.score?'<h3>Scorecard</h3><div class="card tablewrap"><table class="score"><tr><th>Area</th><th>Score</th><th>Notes</th></tr>'+D.score.map(function(r){return '<tr><td>'+esc(r[0])+'</td><td>'+esc(r[1])+'</td><td>'+r[2]+'</td></tr>'}).join("")+'</table></div>':"")+'</section>';
+if(D.steps&&D.steps.length)h+='<section id="flow"><h2>'+esc(D.flowTitle||"How it works")+'</h2><p class="lede">'+(D.flowLede||"Click a stage or step through with the buttons. Each stage names the classes involved and the review findings that touch it.")+'</p><div class="card"><svg class="pipe" id="pipe" role="img" aria-label="Flow diagram"><g id="pipeBoxes"></g></svg><div class="steps" id="stepBtns" role="tablist"></div><div class="stepbody" id="stepBody" aria-live="polite"></div></div></section>';
+if(D.pkgs&&D.pkgs.length)h+='<section id="packages"><h2>'+esc(D.pkgTitle||"Package explorer")+'</h2><p class="lede">Bar width is lines of code. Select an entry to see what it owns and which findings apply to it.</p><div class="pkgs"><div class="card pkglist" id="pkgList" style="padding:8px"></div><div class="card" id="pkgDetail"></div></div></section>';
+(D.sections||[]).forEach(function(s){h+='<section id="'+s.id+'"><h2>'+esc(s.title)+'</h2>'+(s.lede?'<p class="lede">'+s.lede+'</p>':"")+s.html+'</section>'});
+h+='<section id="findings"><h2>Improvement board</h2><p class="lede">All review findings from <a href="'+D.module+'-improvements.md">'+D.module+'-improvements.md</a>. Filter, search and tick items off. Ticks are saved in this browser only.</p>'+
+ '<div class="progress"><span id="progTxt"></span><div class="bar"><i id="progBar" style="width:0"></i></div><button type="button" id="resetBtn">Reset ticks</button></div>'+
+ '<div class="filters" id="sevFilters"><span class="lbl">Severity</span></div><div class="filters" id="areaFilters"><span class="lbl">Area</span></div>'+
+ '<div class="filters"><input type="search" id="q" placeholder="Search class, keyword…" aria-label="Search findings"><button type="button" id="hideDone" aria-pressed="false">Hide done</button><button type="button" id="expandAll">Expand all</button></div><div id="findingList"></div></section>'+
+ '<section id="roadmap"><h2>Roadmap</h2><div class="card tablewrap"><table id="roadTable"><thead><tr><th>Phase</th><th>Items</th><th>Outcome</th><th>Done</th></tr></thead><tbody></tbody></table></div></section>';
+document.getElementById("main").innerHTML=h;
+
+/* flow */
+if(D.steps&&D.steps.length){
+  var NS="http://www.w3.org/2000/svg",g=document.getElementById("pipeBoxes"),S=D.steps,n=S.length,W=112,gap=Math.max(12,Math.floor((980-n*W)/Math.max(1,n-1)));
+  var total=n*W+(n-1)*gap;document.getElementById("pipe").setAttribute("viewBox","0 30 "+Math.max(total,300)+" 130");
+  S.forEach(function(s,i){var x=i*(W+gap),y=i%2?100:40,grp=document.createElementNS(NS,"g");
+    grp.setAttribute("class","box");grp.setAttribute("data-i",i);grp.setAttribute("tabindex","0");grp.setAttribute("role","button");grp.setAttribute("aria-label",s.k);
+    grp.innerHTML='<rect x="'+x+'" y="'+y+'" width="'+W+'" height="50" rx="8"/><text x="'+(x+W/2)+'" y="'+(y+22)+'" text-anchor="middle">'+esc(s.k)+'</text><text class="s" x="'+(x+W/2)+'" y="'+(y+39)+'" text-anchor="middle">step '+(i+1)+'</text>';
+    g.appendChild(grp);
+    if(i<n-1){var nx=(i+1)*(W+gap),ny=(i+1)%2?100:40,p=document.createElementNS(NS,"path");p.setAttribute("class","arrow");
+      p.setAttribute("d","M"+(x+W)+","+(y+25)+" C"+(x+W+gap/2)+","+(y+25)+" "+(nx-gap/2)+","+(ny+25)+" "+nx+","+(ny+25));g.insertBefore(p,g.firstChild)}
+    grp.addEventListener("click",function(){showStep(i)});
+    grp.addEventListener("keydown",function(e){if(e.key==="Enter"||e.key===" "){e.preventDefault();showStep(i)}})});
+  var sb=document.getElementById("stepBtns");
+  S.forEach(function(s,i){var b=document.createElement("button");b.type="button";b.textContent=(i+1)+". "+s.k;b.setAttribute("role","tab");b.onclick=function(){showStep(i)};sb.appendChild(b)});
+  var showStep=function(i){var s=S[i];
+    [].forEach.call(g.querySelectorAll(".box"),function(el){el.classList.toggle("on",+el.getAttribute("data-i")===i)});
+    [].forEach.call(sb.children,function(b,j){b.setAttribute("aria-pressed",j===i?"true":"false");b.setAttribute("aria-selected",j===i?"true":"false")});
+    var r=(s.f||[]).map(byId).filter(Boolean),p0=r.some(function(f){return f.sev==="P0"});
+    document.getElementById("stepBody").innerHTML='<h3>'+(i+1)+'. '+esc(s.k)+'</h3><div class="refs mono">'+esc(s.cls||"")+'</div><p>'+s.d+'</p>'+
+      (r.length?'<div class="flag'+(p0?" p0":"")+'"><b>Findings here:</b> '+r.map(function(f){return pillFor(f.id)+" "+esc(f.t)}).join(" · ")+'</div>':"")};
+  showStep(0);
+}
+/* packages */
+if(D.pkgs&&D.pkgs.length){
+  var P=D.pkgs,maxL=Math.max.apply(null,P.map(function(p){return p[2]})),pl=document.getElementById("pkgList");
+  P.forEach(function(p,i){var b=document.createElement("button");b.type="button";var c=F.filter(function(f){return (f.pkg||[]).indexOf(p[0])>=0}).length;
+    b.innerHTML='<span style="min-width:0;flex:1"><span>'+esc(p[0])+'</span><span class="bar"><i style="width:'+(p[2]/maxL*100)+'%"></i></span></span><span style="margin-left:8px;color:var(--muted)">'+(c?c+"⚑":"")+'</span>';
+    b.onclick=function(){showPkg(i)};pl.appendChild(b)});
+  var showPkg=function(i){var p=P[i];[].forEach.call(pl.children,function(b,j){b.setAttribute("aria-pressed",j===i?"true":"false")});
+    var fs=F.filter(function(f){return (f.pkg||[]).indexOf(p[0])>=0});
+    document.getElementById("pkgDetail").innerHTML='<h3 class="mono" style="margin-top:0">'+esc(p[4]||p[0])+'</h3><p class="refs">'+p[1]+' files · '+p[2]+' lines</p><p>'+p[3]+'</p>'+
+      (fs.length?'<h3>Findings ('+fs.length+')</h3><ul style="padding-left:18px;margin:0">'+fs.map(function(f){return '<li>'+pillFor(f.id)+' '+esc(f.t)+'</li>'}).join("")+'</ul>':'<p class="refs">No findings.</p>')};
+  showPkg(0);
+}
+/* findings */
+var SEVS=["P0","P1","P2","P3"].filter(function(s){return F.some(function(f){return f.sev===s})}),AREAS=[];
+F.forEach(function(f){if(AREAS.indexOf(f.area)<0)AREAS.push(f.area)});
+var sevOn={},areaOn={},hideDone=false;SEVS.forEach(function(s){sevOn[s]=true;});AREAS.forEach(function(a){areaOn[a]=true});
+function chip(c,label,cb){var b=document.createElement("button");b.type="button";b.textContent=label;b.setAttribute("aria-pressed","true");
+  b.onclick=function(){var v=b.getAttribute("aria-pressed")!=="true";b.setAttribute("aria-pressed",v?"true":"false");cb(v);render()};c.appendChild(b)}
+SEVS.forEach(function(s){chip(document.getElementById("sevFilters"),s,function(v){sevOn[s]=v})});
+AREAS.forEach(function(a){chip(document.getElementById("areaFilters"),a,function(v){areaOn[a]=v})});
+var q=document.getElementById("q");q.oninput=render;
+var hd=document.getElementById("hideDone");hd.onclick=function(){hideDone=!hideDone;hd.setAttribute("aria-pressed",hideDone?"true":"false");render()};
+document.getElementById("expandAll").onclick=function(){var ds=document.querySelectorAll("#findingList details"),o=!(ds[0]&&ds[0].open);[].forEach.call(ds,function(d){d.open=o})};
+document.getElementById("resetBtn").onclick=function(){done={};store.set(KEY,done);render()};
+function render(){var t=q.value.trim().toLowerCase();
+  var list=F.filter(function(f){if(!sevOn[f.sev]||!areaOn[f.area])return false;if(hideDone&&done[f.id])return false;
+    if(t&&(f.id+" "+f.t+" "+f.where+" "+f.impact+" "+f.fix+" "+(f.pkg||[]).join(" ")).toLowerCase().indexOf(t)<0)return false;return true});
+  var el=document.getElementById("findingList");
+  el.innerHTML=list.length?list.map(function(f){return '<details class="finding'+(done[f.id]?" done":"")+'" id="f-'+f.id+'"><summary><span class="id">'+f.id+'</span>'+
+    '<input type="checkbox" aria-label="Mark '+f.id+' done" data-id="'+f.id+'"'+(done[f.id]?" checked":"")+'><span class="t">'+esc(f.t)+'</span>'+
+    '<span class="meta"><span class="pill '+f.sev+'">'+f.sev+'</span><span class="pill P3">'+esc(f.area)+'</span><span class="pill P3">effort '+f.eff+'</span></span></summary>'+
+    '<div class="body"><dl><dt>Where</dt><dd class="mono">'+esc(f.where)+'</dd><dt>Impact</dt><dd>'+esc(f.impact)+'</dd><dt>Fix</dt><dd>'+esc(f.fix)+'</dd>'+
+    ((f.pkg||[]).length?'<dt>Area</dt><dd class="mono">'+esc(f.pkg.join(", "))+'</dd>':"")+'</dl></div></details>'}).join("")
+    :'<div class="empty">No findings match these filters.</div>';
+  [].forEach.call(el.querySelectorAll("input[type=checkbox]"),function(cb){cb.onclick=function(e){e.stopPropagation()};
+    cb.onchange=function(){if(cb.checked)done[cb.dataset.id]=true;else delete done[cb.dataset.id];store.set(KEY,done);render()}});
+  var k=Object.keys(done).filter(byId).length;
+  document.getElementById("progTxt").textContent=k+" / "+F.length+" done";
+  document.getElementById("progBar").style.width=(k/F.length*100)+"%";
+  document.getElementById("statFindings").textContent=F.length-k;
+  document.querySelector("#roadTable tbody").innerHTML=D.road.map(function(r){var d=r[1].filter(function(id){return done[id]}).length;
+    return '<tr><td><b>'+esc(r[0])+'</b></td><td>'+r[1].map(pillFor).join(" ")+'</td><td>'+esc(r[2])+'</td><td class="mono">'+d+'/'+r[1].length+'</td></tr>';}).join("");}
+render();
+document.addEventListener("click",function(e){var a=e.target.closest&&e.target.closest("[data-jump]");if(!a)return;e.preventDefault();
+  var id=a.getAttribute("data-jump");SEVS.forEach(function(s){sevOn[s]=true;});AREAS.forEach(function(x){areaOn[x]=true;});hideDone=false;q.value="";
+  [].forEach.call(document.querySelectorAll("#sevFilters button,#areaFilters button"),function(b){b.setAttribute("aria-pressed","true");});
+  hd.setAttribute("aria-pressed","false");render();var d=document.getElementById("f-"+id);if(d){d.open=true;d.scrollIntoView({behavior:"smooth",block:"center"});}});
+var links=document.querySelectorAll("nav.side a");
+[].forEach.call(links,function(l){l.addEventListener("click",function(e){var t=document.querySelector(l.getAttribute("href"));if(t){e.preventDefault();t.scrollIntoView({behavior:"smooth"})}})});
+if("IntersectionObserver" in window){var io=new IntersectionObserver(function(es){es.forEach(function(en){if(en.isIntersecting)
+  [].forEach.call(links,function(l){l.classList.toggle("active",l.getAttribute("href")==="#"+en.target.id)})})},{rootMargin:"-40% 0px -55% 0px"});
+  [].forEach.call(document.querySelectorAll("main section"),function(s){io.observe(s)});}
+})();
+</script>
+</body>
+</html>

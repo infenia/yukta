@@ -2,6 +2,8 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.service.orchestrator.tracker;
 
+import com.infenia.yukta.model.execution.ControlState;
+import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
 import com.infenia.yukta.model.execution.WorkflowProgress;
 import com.infenia.yukta.validation.NodeId;
@@ -17,7 +19,6 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 /** Service interface for tracking the progress of workflows and tasks. */
-@SuppressWarnings("PMD.UseObjectForClearerAPI")
 public interface TaskTrackerService {
 
   /**
@@ -48,7 +49,7 @@ public interface TaskTrackerService {
       @NotBlank String executionId,
       @NodeId String nodeId,
       @NotBlank @Size(max = 256) String module,
-      @NotBlank @Size(max = 256) String status);
+      @NotNull TaskStatus status);
 
   /**
    * Update the status and metadata of a specific node.
@@ -64,7 +65,7 @@ public interface TaskTrackerService {
       @NotBlank String executionId,
       @NodeId String nodeId,
       @NotBlank @Size(max = 256) String module,
-      @NotBlank @Size(max = 256) String status,
+      @NotNull TaskStatus status,
       @NotNull Map<String, Object> metadata);
 
   /**
@@ -74,7 +75,7 @@ public interface TaskTrackerService {
    * @param status the final status
    * @return a Mono that completes when the workflow is finished
    */
-  Mono<Void> finishWorkflow(@NotBlank String executionId, @NotBlank @Size(max = 256) String status);
+  Mono<Void> finishWorkflow(@NotBlank String executionId, @NotNull TaskStatus status);
 
   /**
    * Append a log line to the live output.
@@ -181,7 +182,7 @@ public interface TaskTrackerService {
       @NotBlank String executionId,
       @NotBlank String nodeId,
       @NotBlank @Size(max = 256) String module,
-      @NotBlank @Size(max = 256) String status,
+      @NotNull TaskStatus status,
       @NotNull Map<String, Object> metadata);
 
   /**
@@ -190,8 +191,17 @@ public interface TaskTrackerService {
    * @param executionId the execution identifier
    * @param status the final status
    */
-  void emitWorkflowStatusEvent(
-      @NotBlank String executionId, @NotBlank @Size(max = 256) String status);
+  void emitWorkflowStatusEvent(@NotBlank String executionId, @NotNull TaskStatus status);
+
+  /**
+   * Record an operator control state (pause, step, skip, ...) for an execution.
+   *
+   * <p>Control state is reported next to, never instead of, the lifecycle status.
+   *
+   * @param executionId the execution identifier
+   * @param state the new control state
+   */
+  void emitControlStateEvent(@NotBlank String executionId, @NotNull ControlState state);
 
   /**
    * Emit a log event for asynchronous processing.

@@ -3,6 +3,7 @@
 package com.infenia.yukta.service.orchestrator.assembly;
 
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import lombok.NoArgsConstructor;
@@ -115,7 +116,7 @@ public class ExecutionContextBuilder {
   public ExecutionContextBuilder payload(final Map<String, Object> payload) {
     // Make a defensive copy to prevent external modifications
     if (payload != null) {
-      this.payloadValue = new ConcurrentHashMap<>(payload);
+      this.payloadValue = new HashMap<>(payload);
     }
     return this;
   }

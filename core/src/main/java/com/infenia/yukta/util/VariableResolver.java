@@ -26,9 +26,14 @@ public class VariableResolver {
   /** Pattern for matching variable expressions like ${varname}. */
   private static final Pattern EXPR_PATTERN = Pattern.compile("\\$\\{([^}]+)\\}");
 
-  /** Pattern for identifying sensitive configuration key names. */
+  /**
+   * Pattern for identifying sensitive environment variable and system property names. Applies only
+   * to {@code env.} and {@code sys.} lookups; message data is the workflow's own and is not
+   * filtered.
+   */
   private static final Pattern SECRET_BLACKLIST =
-      Pattern.compile(".*(PASSWORD|SECRET|KEY).*", Pattern.CASE_INSENSITIVE);
+      Pattern.compile(
+          ".*(PASSWORD|PASSWD|SECRET|TOKEN|CREDENTIAL|PRIVATE|KEY).*", Pattern.CASE_INSENSITIVE);
 
   /** Prefix indicating a value is encrypted and needs decryption. */
   private static final String DECRYPTED_PREFIX = "decrypted:";
@@ -140,14 +145,14 @@ public class VariableResolver {
       return resolveSecret(key.substring(DECRYPTED_PREFIX.length())).map(Object::toString);
     }
 
-    if (SECRET_BLACKLIST.matcher(key).matches()) {
-      return Mono.error(new SecurityException("Access to sensitive key '" + key + "' is blocked"));
-    }
-
-    if (key.startsWith("env.")) {
-      return Mono.justOrEmpty(System.getenv(key.substring(4)));
-    } else if (key.startsWith("sys.")) {
-      return Mono.justOrEmpty(System.getProperty(key.substring(4)));
+    if (key.startsWith("env.") || key.startsWith("sys.")) {
+      final String name = key.substring(4);
+      if (SECRET_BLACKLIST.matcher(name).matches()) {
+        return Mono.error(
+            new SecurityException("Access to sensitive key '" + key + "' is blocked"));
+      }
+      return Mono.justOrEmpty(
+          key.startsWith("env.") ? System.getenv(name) : System.getProperty(name));
     } else if (key.startsWith("context.")) {
       return resolveContextVariable(key.substring(8));
     } else if (message != null && isMessageKey(key)) {

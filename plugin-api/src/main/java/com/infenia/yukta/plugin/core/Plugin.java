@@ -104,6 +104,11 @@ public interface Plugin {
   /**
    * One-time setup for the plugin instance.
    *
+   * <p>Plugin instances are shared singletons: one instance serves every node of its type, in every
+   * workflow and session. Treat the instance as stateless and keep per-node state out of it; the
+   * node configuration is passed to every call. This method may run many times with different
+   * configurations, so it must be idempotent and limited to warming caches.
+   *
    * @param config the plugin configuration
    * @return a Mono that completes when initialization is done
    */
@@ -123,6 +128,9 @@ public interface Plugin {
 
   /**
    * Shutdown and cleanup resources used by the plugin.
+   *
+   * <p>The workflow engine does not call this, because plugin instances are shared. Release
+   * long-lived resources with the owning container's lifecycle (for example {@code @PreDestroy}).
    *
    * @param config the plugin configuration
    * @return a Mono that completes when cleanup is done

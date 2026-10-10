@@ -25,7 +25,7 @@ export interface SessionDetails {
   workflowIds: string[];
 }
 
-export type WorkflowExecutionStatus = 'PENDING' | 'RUNNING' | 'SUCCESS' | 'FAILURE' | 'ERROR';
+export type WorkflowExecutionStatus = 'PENDING' | 'RUNNING' | 'SUCCESS' | 'FAILURE' | 'ERROR' | 'STOPPED';
 
 export interface WorkflowSummary {
   workflowId: string;

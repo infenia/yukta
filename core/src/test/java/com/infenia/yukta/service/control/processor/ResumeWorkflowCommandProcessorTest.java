@@ -6,13 +6,14 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.infenia.yukta.model.execution.ControlState;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.PauseWorkflowCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.ResumeWorkflowCommand;
 import com.infenia.yukta.service.control.ExecutionControl;
 import com.infenia.yukta.service.control.store.ExecutionControlRegistry;
 import com.infenia.yukta.service.control.valve.ReactiveControlValve;
-import com.infenia.yukta.service.orchestrator.tracker.DefaultTaskTrackerService;
+import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import java.util.Optional;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
@@ -31,7 +32,7 @@ class ResumeWorkflowCommandProcessorTest {
   @Mock private ExecutionControlRegistry registry;
 
   /** Task tracker service. */
-  @Mock private DefaultTaskTrackerService taskTracker;
+  @Mock private TaskTrackerService taskTracker;
 
   /** Execution control instance. */
   @Mock private ExecutionControl executionControl;
@@ -79,7 +80,7 @@ class ResumeWorkflowCommandProcessorTest {
     // Then
     StepVerifier.create(result).verifyComplete();
     verify(globalPauseValve).resume();
-    verify(taskTracker).emitWorkflowStatusEvent(executionId, "RUNNING");
+    verify(taskTracker).emitControlStateEvent(executionId, ControlState.RESUMED);
   }
 
   @Test

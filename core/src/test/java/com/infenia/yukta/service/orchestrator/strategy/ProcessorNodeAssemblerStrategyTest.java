@@ -444,14 +444,11 @@ class ProcessorNodeAssemblerStrategyTest {
             null,
             Map.of(),
             Sinks.one(),
-            Sinks.one(),
             new ReactiveControlValve(),
             Map.of(),
             Map.of(),
             Map.of(),
-            skipFlags,
-            Map.of(),
-            Map.of());
+            skipFlags);
 
     return new AssemblyContext(
         EXECUTION_ID,

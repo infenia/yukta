@@ -6,6 +6,7 @@ import {
   isTerminalExecStatus,
   toExecStatusCategory,
   toNodeStatusLabel,
+  toDisplayExecStatus,
   toNodeUiStatus,
   toTaskSequenceLabel,
 } from '../statusMapper';
@@ -99,5 +100,21 @@ describe('status labels', () => {
   it.each(cases)('labels %s as %s / %s', (status, nodeLabel, sequenceLabel) => {
     expect(toNodeStatusLabel(status)).toBe(nodeLabel);
     expect(toTaskSequenceLabel(status)).toBe(sequenceLabel);
+  });
+});
+
+describe('toDisplayExecStatus', () => {
+  it('shows a pause control state over a running status', () => {
+    expect(toDisplayExecStatus('RUNNING', 'NODE_PAUSED')).toBe('NODE_PAUSED');
+    expect(toDisplayExecStatus('RUNNING', 'PAUSED')).toBe('PAUSED');
+  });
+
+  it('never overrides a terminal status', () => {
+    expect(toDisplayExecStatus('STOPPED', 'PAUSED')).toBe('STOPPED');
+  });
+
+  it('ignores non-pause control states and falls back to null', () => {
+    expect(toDisplayExecStatus('RUNNING', 'RESUMED')).toBe('RUNNING');
+    expect(toDisplayExecStatus(undefined, null)).toBeNull();
   });
 });

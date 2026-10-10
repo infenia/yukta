@@ -61,6 +61,8 @@ export interface WorkflowProgress {
   tasks: TaskProgress[];
   startTime: string | null;
   endTime: string | null;
+  /** Latest operator control state (e.g. PAUSED), separate from the lifecycle status. */
+  controlState?: string | null;
 }
 
 export interface LogEntry {

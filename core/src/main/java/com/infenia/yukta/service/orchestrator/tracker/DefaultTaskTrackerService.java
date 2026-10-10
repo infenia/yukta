@@ -8,6 +8,7 @@ import com.infenia.yukta.event.WorkflowStatusEvent;
 import com.infenia.yukta.logging.api.LogLevel;
 import com.infenia.yukta.logging.api.LogStream;
 import com.infenia.yukta.logging.api.PluginLogEntry;
+import com.infenia.yukta.model.execution.ControlState;
 import com.infenia.yukta.model.execution.TaskProgress;
 import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
@@ -25,7 +26,9 @@ import jakarta.validation.constraints.Size;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.ArrayDeque;
 import java.util.Collections;
+import java.util.Deque;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -51,7 +54,6 @@ import reactor.util.concurrent.Queues;
   "PMD.GodClass",
   "PMD.TooManyMethods",
   "PMD.CouplingBetweenObjects",
-  "PMD.UseObjectForClearerAPI",
   "PMD.OnlyOneReturn",
   "PMD.AvoidDuplicateLiterals",
   "PMD.LawOfDemeter"
@@ -69,6 +71,9 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
   private static final Sinks.EmitFailureHandler RETRY_HANDLER =
       Sinks.EmitFailureHandler.busyLooping(Duration.ofMillis(100));
 
+  /** Finished executions kept per session for history; older ones are dropped on cleanup. */
+  /* default */ static final int MAX_FINISHED_PER_SESSION = 100;
+
   /** Time to live for execution data after terminal status. */
   private final Duration cleanupTtl;
 
@@ -77,6 +82,9 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
 
   /** Map of session ID to workflow states. */
   private final Map<String, Map<String, WorkflowState>> sessionStates = new ConcurrentHashMap<>();
+
+  /** Per session, execution IDs that were cleaned up, oldest first. */
+  private final Map<String, Deque<String>> finishedBySession = new ConcurrentHashMap<>();
 
   /** Map of execution ID to workflow state. */
   private final Map<String, WorkflowState> executionIndex = new ConcurrentHashMap<>();
@@ -240,7 +248,7 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
       @NotBlank final String executionId,
       @NodeId final String nodeId,
       @NotBlank @Size(max = 256) final String module,
-      @NotBlank @Size(max = 256) final String status) {
+      @NotNull final TaskStatus status) {
     return updateTaskStatus(executionId, nodeId, module, status, Map.of());
   }
 
@@ -259,7 +267,7 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
       @NotBlank final String executionId,
       @NodeId final String nodeId,
       @NotBlank @Size(max = 256) final String module,
-      @NotBlank @Size(max = 256) final String status,
+      @NotNull final TaskStatus status,
       @NotNull final Map<String, Object> metadata) {
     return Mono.fromRunnable(
         () -> emitTaskStatusEvent(executionId, nodeId, module, status, metadata));
@@ -279,7 +287,7 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
       @NotBlank final String executionId,
       @NotBlank final String nodeId,
       @NotBlank @Size(max = 256) final String module,
-      @NotBlank @Size(max = 256) final String status,
+      @NotNull final TaskStatus status,
       @NotNull final Map<String, Object> metadata) {
     log.atDebug()
         .addKeyValue("executionId", executionId)
@@ -289,7 +297,29 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
         .addKeyValue("metadataSize", metadata.size())
         .log("Emitting task status event");
     taskStatusSink.emitNext(
-        TaskStatusEvent.create(executionId, nodeId, module, status, metadata), RETRY_HANDLER);
+        TaskStatusEvent.create(executionId, nodeId, module, status.name(), metadata),
+        RETRY_HANDLER);
+  }
+
+  /**
+   * Record an operator control state for an execution and notify status subscribers.
+   *
+   * @param executionId the execution identifier
+   * @param state the new control state
+   */
+  @Override
+  public void emitControlStateEvent(
+      @NotBlank final String executionId, @NotNull final ControlState state) {
+    final WorkflowState workflowState = findState(executionId);
+    if (workflowState == null) {
+      log.atWarn()
+          .addKeyValue("executionId", executionId)
+          .addKeyValue("controlState", state)
+          .log("Received control state for unknown execution");
+      return;
+    }
+    workflowState.setControlState(state.name());
+    notifyStatusChange(executionId);
   }
 
   /**
@@ -300,12 +330,12 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
    */
   @Override
   public void emitWorkflowStatusEvent(
-      @NotBlank final String executionId, @NotBlank @Size(max = 256) final String status) {
+      @NotBlank final String executionId, @NotNull final TaskStatus status) {
     log.atDebug()
         .addKeyValue("executionId", executionId)
         .addKeyValue("status", status)
         .log("Emitting workflow status event");
-    wfStatusSink.emitNext(WorkflowStatusEvent.create(executionId, status), RETRY_HANDLER);
+    wfStatusSink.emitNext(WorkflowStatusEvent.create(executionId, status.name()), RETRY_HANDLER);
   }
 
   /**
@@ -337,7 +367,7 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
    */
   @Override
   public Mono<Void> finishWorkflow(
-      @NotBlank final String executionId, @NotBlank @Size(max = 256) final String status) {
+      @NotBlank final String executionId, @NotNull final TaskStatus status) {
     return Mono.fromRunnable(
         () -> {
           log.atInfo()
@@ -384,7 +414,8 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
                 state.status,
                 state.getTasks(),
                 state.startTime,
-                state.endTime);
+                state.endTime,
+                state.controlState);
       }
     }
     return progress;
@@ -411,7 +442,8 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
         state.status,
         state.getTasks(),
         state.startTime,
-        state.endTime);
+        state.endTime,
+        state.controlState);
   }
 
   /**
@@ -571,6 +603,7 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
    */
   @Override
   public void removeSession(@SessionId final String sessionId) {
+    finishedBySession.remove(sessionId);
     final Map<String, WorkflowState> states = sessionStates.remove(sessionId);
     if (states != null) {
       final int executionCount = states.size();
@@ -622,10 +655,10 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
       final WorkflowState state = findState(event.executionId());
       if (state != null) {
         state.setStatus(event.status());
-        state.setEndTime(event.timestamp());
         execIds.add(event.executionId());
 
         if (isTerminal(event.status())) {
+          state.setEndTime(event.timestamp());
           scheduleCleanup(event.executionId());
           terminalCount++;
           log.atDebug()
@@ -759,6 +792,10 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
   }
 
   private boolean isTerminal(final String status) {
+    return isTerminalStatus(status);
+  }
+
+  private static boolean isTerminalStatus(final String status) {
     return TaskStatus.valueOf(status).isTerminal();
   }
 
@@ -812,11 +849,33 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
     if (statusSink != null) {
       statusSink.emitComplete(RETRY_HANDLER);
     }
-    executionIndex.remove(executionId);
+    final WorkflowState state = executionIndex.remove(executionId);
+    if (state != null) {
+      trimHistory(state);
+    }
     log.atDebug().addKeyValue("executionId", executionId).log("Completed execution cleanup");
   }
 
-  /** Tracks the state of a workflow execution. */
+  /** Remembers a cleaned-up execution and drops the oldest ones beyond the per-session cap. */
+  @SuppressWarnings("PMD.AvoidSynchronizedStatement")
+  private void trimHistory(final WorkflowState state) {
+    final Map<String, WorkflowState> states = sessionStates.get(state.sessionId);
+    if (states == null) {
+      return;
+    }
+    final Deque<String> finished =
+        finishedBySession.computeIfAbsent(state.sessionId, _ -> new ArrayDeque<>());
+    // Cleanups of one session can run concurrently, so the queue is guarded by its own lock.
+    synchronized (finished) {
+      finished.addLast(state.executionId);
+      while (finished.size() > MAX_FINISHED_PER_SESSION) {
+        states.remove(finished.removeFirst());
+      }
+    }
+  }
+
+  /** Tracks the state of a workflow execution; written by the event thread, read by requests. */
+  @SuppressWarnings("PMD.AvoidUsingVolatile")
   private static final class WorkflowState {
     /** The execution identifier. */
     private final String executionId;
@@ -828,7 +887,10 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
     private final String workflowId;
 
     /** The current execution status. */
-    private String status;
+    private volatile String status;
+
+    /** The latest operator control state, or null. */
+    private volatile String controlState;
 
     /** Map of task progress by node ID. */
     private final Map<String, TaskProgress> taskMap;
@@ -837,7 +899,7 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
     private final LocalDateTime startTime;
 
     /** The end time of the execution. */
-    private LocalDateTime endTime;
+    private volatile LocalDateTime endTime;
 
     /* default */ WorkflowState(
         final String executionId,
@@ -898,8 +960,7 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
     }
 
     private LocalDateTime determineEndTime(final LocalDateTime current, final String status) {
-      final TaskStatus taskStatus = TaskStatus.valueOf(status);
-      return (taskStatus.isTerminal() && current == null)
+      return (isTerminalStatus(status) && current == null)
           ? LocalDateTime.now(ZoneId.systemDefault())
           : current;
     }
@@ -915,6 +976,10 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
 
     /* default */ void setStatus(final String status) {
       this.status = status;
+    }
+
+    /* default */ void setControlState(final String controlState) {
+      this.controlState = controlState;
     }
 
     /* default */ void setEndTime(final LocalDateTime endTime) {

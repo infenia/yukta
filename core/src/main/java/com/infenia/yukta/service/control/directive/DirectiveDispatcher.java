@@ -16,7 +16,6 @@ import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
-import reactor.core.publisher.Sinks;
 
 /**
  * Bridges the Control Bus to the workflow execution layer.
@@ -29,9 +28,6 @@ import reactor.core.publisher.Sinks;
 @Slf4j
 @Component
 public class DirectiveDispatcher {
-
-  /** Emit failure handler for reactive operations. */
-  private static final Sinks.EmitFailureHandler FAIL_FAST = Sinks.EmitFailureHandler.FAIL_FAST;
 
   /** The list of control signal processors ordered by priority. */
   private final List<ControlSignalProcessor> processors;
@@ -127,7 +123,7 @@ public class DirectiveDispatcher {
     return Mono.fromRunnable(
         () -> {
           registry.unregister(control.executionId());
-          control.safeStopSink().emitEmpty(FAIL_FAST);
+          control.safeStopSink().tryEmitEmpty();
           log.atInfo().log(
               "Stopped execution {} for workflow {}: {}",
               control.executionId(),

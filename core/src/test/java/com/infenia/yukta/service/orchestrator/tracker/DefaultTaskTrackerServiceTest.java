@@ -7,6 +7,8 @@ import static org.awaitility.Awaitility.await;
 
 import com.infenia.yukta.logging.api.LogLevel;
 import com.infenia.yukta.logging.api.LogStream;
+import com.infenia.yukta.model.execution.ControlState;
+import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.model.execution.WorkflowProgress;
 import com.infenia.yukta.service.streaming.StatusHistoryCache;
 import java.lang.reflect.Field;
@@ -65,7 +67,7 @@ class DefaultTaskTrackerServiceTest {
     assertThat(progress.tasks().getFirst().nodeId()).isEqualTo("node1");
     assertThat(progress.tasks().getFirst().status()).isEqualTo("PENDING");
 
-    tracker.emitTaskStatusEvent(executionId, "node1", "moduleA", "SUCCESS", Map.of());
+    tracker.emitTaskStatusEvent(executionId, "node1", "moduleA", TaskStatus.SUCCESS, Map.of());
 
     // Loop to wait for state update
     await()
@@ -80,15 +82,15 @@ class DefaultTaskTrackerServiceTest {
     assertThat(progress.tasks().getFirst().status()).isEqualTo("SUCCESS");
     assertThat(progress.tasks().getFirst().module()).isEqualTo("moduleA");
 
-    tracker.emitWorkflowStatusEvent(executionId, "COMPLETED");
+    tracker.emitWorkflowStatusEvent(executionId, TaskStatus.SUCCESS);
 
     // Loop to wait for state update
     await()
         .atMost(1, TimeUnit.SECONDS)
-        .until(() -> "COMPLETED".equals(tracker.getProgress(sessionId, executionId).status()));
+        .until(() -> "SUCCESS".equals(tracker.getProgress(sessionId, executionId).status()));
 
     progress = tracker.getProgress(sessionId, executionId);
-    assertThat(progress.status()).isEqualTo("COMPLETED");
+    assertThat(progress.status()).isEqualTo("SUCCESS");
     assertThat(progress.endTime()).isNotNull();
 
     // Test getHistory
@@ -113,6 +115,44 @@ class DefaultTaskTrackerServiceTest {
   }
 
   @Test
+  void controlStateEvent_isReportedSeparatelyAndDoesNotTerminateStream() {
+    final String executionId = "exec-ctrl-1";
+    StepVerifier.create(tracker.startWorkflow(executionId, "sess-1", "wf-1", List.of("n1")))
+        .verifyComplete();
+
+    StepVerifier.create(tracker.getStatusStream(executionId))
+        .then(() -> tracker.emitControlStateEvent(executionId, ControlState.NODE_PAUSED))
+        .assertNext(
+            p -> {
+              assertThat(p.status()).isEqualTo("RUNNING");
+              assertThat(p.controlState()).isEqualTo("NODE_PAUSED");
+              assertThat(p.endTime()).isNull();
+            })
+        .then(() -> tracker.emitWorkflowStatusEvent(executionId, TaskStatus.STOPPED))
+        .assertNext(p -> assertThat(p.status()).isEqualTo("STOPPED"))
+        .expectComplete()
+        .verify(Duration.ofSeconds(5));
+  }
+
+  @Test
+  void cleanup_capsFinishedHistoryPerSession() {
+    final int total = DefaultTaskTrackerService.MAX_FINISHED_PER_SESSION + 5;
+    for (int i = 0; i < total; i++) {
+      final String id = "exec-hist-" + i;
+      StepVerifier.create(tracker.startWorkflow(id, "sess-hist", "wf-" + i, List.of("n1")))
+          .verifyComplete();
+      tracker.emitWorkflowStatusEvent(id, TaskStatus.SUCCESS);
+    }
+
+    await()
+        .atMost(10, TimeUnit.SECONDS)
+        .untilAsserted(
+            () ->
+                assertThat(tracker.getHistory("sess-hist").block())
+                    .hasSize(DefaultTaskTrackerService.MAX_FINISHED_PER_SESSION));
+  }
+
+  @Test
   void testStatusStreaming() {
     final String sessionId = "sess-1";
     final String workflowId = "wf-1";
@@ -121,7 +161,9 @@ class DefaultTaskTrackerServiceTest {
         .verifyComplete();
 
     StepVerifier.create(tracker.getStatusStream(executionId))
-        .then(() -> tracker.emitTaskStatusEvent(executionId, "n1", "mod", "SUCCESS", Map.of()))
+        .then(
+            () ->
+                tracker.emitTaskStatusEvent(executionId, "n1", "mod", TaskStatus.SUCCESS, Map.of()))
         .assertNext(progress -> assertThat(progress.workflowId()).isEqualTo("wf-1"))
         .thenCancel()
         .verify();
@@ -146,8 +188,8 @@ class DefaultTaskTrackerServiceTest {
 
   @Test
   void testEventsForUnknownExecution() {
-    tracker.emitTaskStatusEvent("unknown", "n", "m", "s", Map.of());
-    tracker.emitWorkflowStatusEvent("unknown", "s");
+    tracker.emitTaskStatusEvent("unknown", "n", "m", TaskStatus.SUCCESS, Map.of());
+    tracker.emitWorkflowStatusEvent("unknown", TaskStatus.SUCCESS);
     tracker.emitLogEvent("unknown", "system", "log");
     // Should not crash - test passes if no exception is thrown
     assertThat(true).isTrue();
@@ -167,14 +209,15 @@ class DefaultTaskTrackerServiceTest {
     assertThat(tracker.getStatusStream(executionId) != null).isTrue();
 
     // Emit terminal status event
-    tracker.emitWorkflowStatusEvent(executionId, "SUCCESS");
+    tracker.emitWorkflowStatusEvent(executionId, TaskStatus.SUCCESS);
 
     // Wait for async cleanup to complete after CLEANUP_TTL (10 minutes)
     // Use virtual time to avoid waiting 10 minutes in tests
     StepVerifier.create(
             tracker
                 .getStatusStream(executionId)
-                .doOnSubscribe(_ -> tracker.emitWorkflowStatusEvent(executionId, "SUCCESS")))
+                .doOnSubscribe(
+                    _ -> tracker.emitWorkflowStatusEvent(executionId, TaskStatus.SUCCESS)))
         .thenCancel()
         .verify();
 
@@ -194,7 +237,8 @@ class DefaultTaskTrackerServiceTest {
         .verifyComplete();
 
     // Test 4-arg updateTaskStatus
-    StepVerifier.create(tracker.updateTaskStatus(executionId, "node1", "moduleB", "RUNNING"))
+    StepVerifier.create(
+            tracker.updateTaskStatus(executionId, "node1", "moduleB", TaskStatus.RUNNING))
         .verifyComplete();
 
     // Wait for event processing
@@ -230,7 +274,7 @@ class DefaultTaskTrackerServiceTest {
     // Test 5-arg updateTaskStatus with metadata
     final Map<String, Object> metadata = Map.of("key1", "value1", "key2", 42);
     StepVerifier.create(
-            tracker.updateTaskStatus(executionId, "node1", "moduleC", "SUCCESS", metadata))
+            tracker.updateTaskStatus(executionId, "node1", "moduleC", TaskStatus.SUCCESS, metadata))
         .verifyComplete();
 
     // Wait for event processing
@@ -265,7 +309,7 @@ class DefaultTaskTrackerServiceTest {
         .verifyComplete();
 
     // Test finishWorkflow
-    StepVerifier.create(tracker.finishWorkflow(executionId, "SUCCESS")).verifyComplete();
+    StepVerifier.create(tracker.finishWorkflow(executionId, TaskStatus.SUCCESS)).verifyComplete();
 
     // Wait for event processing
     for (int i = 0; i < 20; i++) {
@@ -386,7 +430,8 @@ class DefaultTaskTrackerServiceTest {
         .verifyComplete();
 
     // Emit event for unknown node (should be silently ignored)
-    tracker.emitTaskStatusEvent(executionId, "unknown-node", "module", "RUNNING", Map.of());
+    tracker.emitTaskStatusEvent(
+        executionId, "unknown-node", "module", TaskStatus.RUNNING, Map.of());
 
     // Wait and verify workflow is still intact
     for (int i = 0; i < 20; i++) {
@@ -412,7 +457,7 @@ class DefaultTaskTrackerServiceTest {
         .verifyComplete();
 
     // Emit ERROR status (should set endTime)
-    tracker.emitTaskStatusEvent(executionId, "node1", "module", "ERROR", Map.of());
+    tracker.emitTaskStatusEvent(executionId, "node1", "module", TaskStatus.ERROR, Map.of());
 
     // Wait for event processing
     for (int i = 0; i < 20; i++) {
@@ -450,7 +495,7 @@ class DefaultTaskTrackerServiceTest {
     assertThat(progress1.tasks().getFirst().startTime()).isNull();
 
     // Emit RUNNING status (should set startTime)
-    tracker.emitTaskStatusEvent(executionId, "node1", "module", "RUNNING", Map.of());
+    tracker.emitTaskStatusEvent(executionId, "node1", "module", TaskStatus.RUNNING, Map.of());
 
     // Wait for event processing
     for (int i = 0; i < 20; i++) {
@@ -483,7 +528,7 @@ class DefaultTaskTrackerServiceTest {
         .verifyComplete();
 
     // Emit first terminal status (SUCCESS)
-    tracker.emitTaskStatusEvent(executionId, "node1", "module", "SUCCESS", Map.of());
+    tracker.emitTaskStatusEvent(executionId, "node1", "module", TaskStatus.SUCCESS, Map.of());
 
     // Wait for event processing
     for (int i = 0; i < 20; i++) {
@@ -510,7 +555,7 @@ class DefaultTaskTrackerServiceTest {
     } catch (final InterruptedException e) {
       Thread.currentThread().interrupt();
     }
-    tracker.emitTaskStatusEvent(executionId, "node1", "module", "FAILURE", Map.of());
+    tracker.emitTaskStatusEvent(executionId, "node1", "module", TaskStatus.FAILURE, Map.of());
 
     // Wait again
     for (int i = 0; i < 20; i++) {
@@ -541,7 +586,7 @@ class DefaultTaskTrackerServiceTest {
         .verifyComplete();
 
     // Emit terminal status
-    shortTtlTracker.emitWorkflowStatusEvent(executionId, "SUCCESS");
+    shortTtlTracker.emitWorkflowStatusEvent(executionId, TaskStatus.SUCCESS);
 
     // Wait for cleanup to occur (TTL + some buffer)
     Thread.sleep(300);
@@ -579,7 +624,8 @@ class DefaultTaskTrackerServiceTest {
     trackerWithError.init();
 
     // Emit a task status event — should not crash despite the error
-    trackerWithError.emitTaskStatusEvent("exec-id", "node-id", "module", "SUCCESS", Map.of());
+    trackerWithError.emitTaskStatusEvent(
+        "exec-id", "node-id", "module", TaskStatus.SUCCESS, Map.of());
 
     // Wait for async processing
     Thread.sleep(200);
@@ -615,7 +661,7 @@ class DefaultTaskTrackerServiceTest {
     trackerWithError.init();
 
     // Emit a workflow status event — should not crash
-    trackerWithError.emitWorkflowStatusEvent("exec-id", "SUCCESS");
+    trackerWithError.emitWorkflowStatusEvent("exec-id", TaskStatus.SUCCESS);
 
     // Wait for async processing
     Thread.sleep(200);
@@ -667,7 +713,7 @@ class DefaultTaskTrackerServiceTest {
         .verifyComplete();
 
     // Emit terminal status to trigger cleanup scheduling
-    tracker.emitWorkflowStatusEvent(executionId, "SUCCESS");
+    tracker.emitWorkflowStatusEvent(executionId, TaskStatus.SUCCESS);
 
     // Wait for cleanup to complete (use short TTL from setUp)
     Thread.sleep(300);
@@ -688,7 +734,7 @@ class DefaultTaskTrackerServiceTest {
         .verifyComplete();
 
     // Emit task update
-    tracker.emitTaskStatusEvent(executionId, "node1", "module", "RUNNING", Map.of());
+    tracker.emitTaskStatusEvent(executionId, "node1", "module", TaskStatus.RUNNING, Map.of());
 
     // Wait for processing
     for (int i = 0; i < 20; i++) {
@@ -706,7 +752,7 @@ class DefaultTaskTrackerServiceTest {
     }
 
     // Now emit workflow status with terminal status — should set endTime
-    tracker.emitWorkflowStatusEvent(executionId, "FAILURE");
+    tracker.emitWorkflowStatusEvent(executionId, TaskStatus.FAILURE);
 
     // Wait for processing
     for (int i = 0; i < 20; i++) {
@@ -739,7 +785,9 @@ class DefaultTaskTrackerServiceTest {
     // Subscribe to status changes and emit a task status update
     StepVerifier.create(tracker.getStatusStream(executionId).take(1))
         .then(
-            () -> tracker.emitTaskStatusEvent(executionId, "node1", "module", "SUCCESS", Map.of()))
+            () ->
+                tracker.emitTaskStatusEvent(
+                    executionId, "node1", "module", TaskStatus.SUCCESS, Map.of()))
         .assertNext(progress -> assertThat(progress.workflowId()).isEqualTo(workflowId))
         .verifyComplete();
   }
@@ -780,7 +828,7 @@ class DefaultTaskTrackerServiceTest {
 
     // First update with metadata
     tracker.emitTaskStatusEvent(
-        executionId, "node1", "module1", "RUNNING", Map.of("key1", "value1"));
+        executionId, "node1", "module1", TaskStatus.RUNNING, Map.of("key1", "value1"));
 
     // Wait for processing
     for (int i = 0; i < 20; i++) {
@@ -799,7 +847,7 @@ class DefaultTaskTrackerServiceTest {
 
     // Second update with additional metadata
     tracker.emitTaskStatusEvent(
-        executionId, "node1", "module2", "SUCCESS", Map.of("key2", "value2"));
+        executionId, "node1", "module2", TaskStatus.SUCCESS, Map.of("key2", "value2"));
 
     // Wait for processing
     for (int i = 0; i < 20; i++) {
@@ -834,7 +882,8 @@ class DefaultTaskTrackerServiceTest {
         .verifyComplete();
 
     // Update with empty metadata Map
-    tracker.emitTaskStatusEvent(executionId, "node1", "module", "RUNNING", Collections.emptyMap());
+    tracker.emitTaskStatusEvent(
+        executionId, "node1", "module", TaskStatus.RUNNING, Collections.emptyMap());
 
     // Wait for processing
     for (int i = 0; i < 20; i++) {
@@ -867,9 +916,12 @@ class DefaultTaskTrackerServiceTest {
         .verifyComplete();
 
     // Update multiple tasks
-    tracker.emitTaskStatusEvent(executionId, "node1", "mod1", "SUCCESS", Map.of("task", "1"));
-    tracker.emitTaskStatusEvent(executionId, "node2", "mod2", "RUNNING", Map.of("task", "2"));
-    tracker.emitTaskStatusEvent(executionId, "node3", "mod3", "FAILURE", Map.of("task", "3"));
+    tracker.emitTaskStatusEvent(
+        executionId, "node1", "mod1", TaskStatus.SUCCESS, Map.of("task", "1"));
+    tracker.emitTaskStatusEvent(
+        executionId, "node2", "mod2", TaskStatus.RUNNING, Map.of("task", "2"));
+    tracker.emitTaskStatusEvent(
+        executionId, "node3", "mod3", TaskStatus.FAILURE, Map.of("task", "3"));
 
     // Wait for processing
     for (int i = 0; i < 30; i++) {
@@ -906,7 +958,7 @@ class DefaultTaskTrackerServiceTest {
         .verifyComplete();
 
     // First update with one module
-    tracker.emitTaskStatusEvent(executionId, "node1", "module-a", "RUNNING", Map.of());
+    tracker.emitTaskStatusEvent(executionId, "node1", "module-a", TaskStatus.RUNNING, Map.of());
 
     // Wait for processing
     for (int i = 0; i < 20; i++) {
@@ -924,7 +976,7 @@ class DefaultTaskTrackerServiceTest {
     }
 
     // Update with different module
-    tracker.emitTaskStatusEvent(executionId, "node1", "module-b", "SUCCESS", Map.of());
+    tracker.emitTaskStatusEvent(executionId, "node1", "module-b", TaskStatus.SUCCESS, Map.of());
 
     // Wait for processing
     for (int i = 0; i < 20; i++) {
@@ -997,7 +1049,7 @@ class DefaultTaskTrackerServiceTest {
         .verifyComplete();
 
     // Emit task event — notifyStatusChange will be called but sink might be removed
-    tracker.emitTaskStatusEvent(executionId, "node1", "module", "RUNNING", Map.of());
+    tracker.emitTaskStatusEvent(executionId, "node1", "module", TaskStatus.RUNNING, Map.of());
 
     // Wait for async processing
     for (int i = 0; i < 20; i++) {
@@ -1046,7 +1098,7 @@ class DefaultTaskTrackerServiceTest {
         .verifyComplete();
 
     // Emit with valid status first
-    tracker.emitTaskStatusEvent(executionId, "node1", "module", "RUNNING", Map.of());
+    tracker.emitTaskStatusEvent(executionId, "node1", "module", TaskStatus.RUNNING, Map.of());
 
     // Wait for processing
     for (int i = 0; i < 20; i++) {
@@ -1078,7 +1130,7 @@ class DefaultTaskTrackerServiceTest {
         .verifyComplete();
 
     // PENDING -> RUNNING
-    tracker.emitTaskStatusEvent(executionId, "node1", "module", "RUNNING", Map.of());
+    tracker.emitTaskStatusEvent(executionId, "node1", "module", TaskStatus.RUNNING, Map.of());
     for (int i = 0; i < 20; i++) {
       final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
       if (progress != null
@@ -1097,7 +1149,7 @@ class DefaultTaskTrackerServiceTest {
     assertThat(prog1.tasks().getFirst().startTime()).isNotNull();
 
     // RUNNING -> FAILURE
-    tracker.emitTaskStatusEvent(executionId, "node1", "module", "FAILURE", Map.of());
+    tracker.emitTaskStatusEvent(executionId, "node1", "module", TaskStatus.FAILURE, Map.of());
     for (int i = 0; i < 20; i++) {
       final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
       if (progress != null
@@ -1128,7 +1180,7 @@ class DefaultTaskTrackerServiceTest {
 
     // First update with metadata
     tracker.emitTaskStatusEvent(
-        executionId, "node1", "module1", "RUNNING", Map.of("key1", "value1"));
+        executionId, "node1", "module1", TaskStatus.RUNNING, Map.of("key1", "value1"));
 
     // Wait for processing
     for (int i = 0; i < 20; i++) {
@@ -1146,7 +1198,7 @@ class DefaultTaskTrackerServiceTest {
     }
 
     // Second update with empty Map (tests mergeMetadata null branch)
-    tracker.emitTaskStatusEvent(executionId, "node1", "module2", "SUCCESS", Map.of());
+    tracker.emitTaskStatusEvent(executionId, "node1", "module2", TaskStatus.SUCCESS, Map.of());
 
     // Wait for processing
     for (int i = 0; i < 20; i++) {
@@ -1178,7 +1230,7 @@ class DefaultTaskTrackerServiceTest {
         .verifyComplete();
 
     // Emit terminal status to trigger cleanup scheduling
-    tracker.emitWorkflowStatusEvent(executionId, "SUCCESS");
+    tracker.emitWorkflowStatusEvent(executionId, TaskStatus.SUCCESS);
 
     // Wait for async processing
     for (int i = 0; i < 20; i++) {
@@ -1205,7 +1257,7 @@ class DefaultTaskTrackerServiceTest {
         .verifyComplete();
 
     // First update to RUNNING
-    tracker.emitTaskStatusEvent(executionId, "node1", "module1", "RUNNING", Map.of());
+    tracker.emitTaskStatusEvent(executionId, "node1", "module1", TaskStatus.RUNNING, Map.of());
 
     // Wait for processing
     for (int i = 0; i < 20; i++) {
@@ -1234,7 +1286,7 @@ class DefaultTaskTrackerServiceTest {
     }
 
     // Second update to RUNNING again — startTime should NOT change
-    tracker.emitTaskStatusEvent(executionId, "node1", "module2", "RUNNING", Map.of());
+    tracker.emitTaskStatusEvent(executionId, "node1", "module2", TaskStatus.RUNNING, Map.of());
 
     // Wait for processing
     for (int i = 0; i < 20; i++) {
@@ -1260,7 +1312,7 @@ class DefaultTaskTrackerServiceTest {
         .verifyComplete();
 
     // Emit SUCCESS
-    tracker.emitTaskStatusEvent(executionId, "node1", "module", "SUCCESS", Map.of());
+    tracker.emitTaskStatusEvent(executionId, "node1", "module", TaskStatus.SUCCESS, Map.of());
 
     // Wait for processing
     for (int i = 0; i < 20; i++) {
@@ -1289,7 +1341,7 @@ class DefaultTaskTrackerServiceTest {
     }
 
     // Emit ERROR — endTime should NOT change (already terminal)
-    tracker.emitTaskStatusEvent(executionId, "node1", "module", "ERROR", Map.of());
+    tracker.emitTaskStatusEvent(executionId, "node1", "module", TaskStatus.ERROR, Map.of());
 
     // Wait for processing
     for (int i = 0; i < 20; i++) {
@@ -1315,7 +1367,7 @@ class DefaultTaskTrackerServiceTest {
         .verifyComplete();
 
     // Emit an event - notifyStatusChange will be called
-    tracker.emitTaskStatusEvent(executionId, "node1", "module", "RUNNING", Map.of());
+    tracker.emitTaskStatusEvent(executionId, "node1", "module", TaskStatus.RUNNING, Map.of());
 
     // Wait for processing
     for (int i = 0; i < 20; i++) {
@@ -1349,7 +1401,8 @@ class DefaultTaskTrackerServiceTest {
 
     // Emit PENDING (no action expected on start times)
     // Then RUNNING to set startTime
-    tracker.emitTaskStatusEvent(executionId, "node1", "mod1", "RUNNING", Map.of("k1", "v1"));
+    tracker.emitTaskStatusEvent(
+        executionId, "node1", "mod1", TaskStatus.RUNNING, Map.of("k1", "v1"));
 
     for (int i = 0; i < 20; i++) {
       final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
@@ -1366,7 +1419,8 @@ class DefaultTaskTrackerServiceTest {
     }
 
     // Then emit non-terminal to test that path
-    tracker.emitTaskStatusEvent(executionId, "node1", "mod2", "PENDING", Map.of("k2", "v2"));
+    tracker.emitTaskStatusEvent(
+        executionId, "node1", "mod2", TaskStatus.PENDING, Map.of("k2", "v2"));
 
     // Wait for processing
     for (int i = 0; i < 20; i++) {
@@ -1378,7 +1432,7 @@ class DefaultTaskTrackerServiceTest {
     }
 
     // Then emit ERROR to set endTime
-    tracker.emitTaskStatusEvent(executionId, "node1", "mod3", "ERROR", Map.of("k3", "v3"));
+    tracker.emitTaskStatusEvent(executionId, "node1", "mod3", TaskStatus.ERROR, Map.of("k3", "v3"));
 
     // Wait for processing
     for (int i = 0; i < 20; i++) {
@@ -1414,7 +1468,8 @@ class DefaultTaskTrackerServiceTest {
         .verifyComplete();
 
     // Directly emit without going through updateTaskStatus Mono
-    tracker.emitTaskStatusEvent(executionId, "node1", "module", "SUCCESS", Map.of("test", "value"));
+    tracker.emitTaskStatusEvent(
+        executionId, "node1", "module", TaskStatus.SUCCESS, Map.of("test", "value"));
 
     // Wait for async processing
     for (int i = 0; i < 20; i++) {
@@ -1448,7 +1503,9 @@ class DefaultTaskTrackerServiceTest {
     // Subscribe to status stream and emit event
     StepVerifier.create(tracker.getStatusStream(executionId).take(1))
         .then(
-            () -> tracker.emitTaskStatusEvent(executionId, "node1", "module", "RUNNING", Map.of()))
+            () ->
+                tracker.emitTaskStatusEvent(
+                    executionId, "node1", "module", TaskStatus.RUNNING, Map.of()))
         .assertNext(
             progress -> {
               assertThat(progress.executionId()).isEqualTo(executionId);
@@ -1488,7 +1545,7 @@ class DefaultTaskTrackerServiceTest {
         .verifyComplete();
 
     // Emit non-terminal workflow status (RUNNING is not in SUCCESS/FAILURE/ERROR)
-    tracker.emitWorkflowStatusEvent(executionId, "RUNNING");
+    tracker.emitWorkflowStatusEvent(executionId, TaskStatus.RUNNING);
 
     // Wait for processing
     for (int i = 0; i < 20; i++) {
@@ -1511,7 +1568,8 @@ class DefaultTaskTrackerServiceTest {
   @Test
   void testNotifyStatusChangeWhenSinkIsNullAndStateIsNull() {
     // Emit event for non-existent execution - notifyStatusChange will be called with null sink
-    tracker.emitTaskStatusEvent("non-existent-exec", "node1", "module", "SUCCESS", Map.of());
+    tracker.emitTaskStatusEvent(
+        "non-existent-exec", "node1", "module", TaskStatus.SUCCESS, Map.of());
 
     // Wait for async processing
     for (int i = 0; i < 20; i++) {
@@ -1537,7 +1595,8 @@ class DefaultTaskTrackerServiceTest {
         .verifyComplete();
 
     // First emit with metadata
-    tracker.emitTaskStatusEvent(executionId, "node1", "mod1", "RUNNING", Map.of("key1", "val1"));
+    tracker.emitTaskStatusEvent(
+        executionId, "node1", "mod1", TaskStatus.RUNNING, Map.of("key1", "val1"));
 
     for (int i = 0; i < 20; i++) {
       final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
@@ -1554,7 +1613,7 @@ class DefaultTaskTrackerServiceTest {
     }
 
     // Now emit with empty map to test mergeMetadata preserves existing metadata
-    tracker.emitTaskStatusEvent(executionId, "node1", "mod2", "SUCCESS", Map.of());
+    tracker.emitTaskStatusEvent(executionId, "node1", "mod2", TaskStatus.SUCCESS, Map.of());
 
     for (int i = 0; i < 20; i++) {
       final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
@@ -1585,7 +1644,7 @@ class DefaultTaskTrackerServiceTest {
         .verifyComplete();
 
     // Emit terminal status to trigger cleanup scheduling
-    tracker.emitWorkflowStatusEvent(executionId, "SUCCESS");
+    tracker.emitWorkflowStatusEvent(executionId, TaskStatus.SUCCESS);
 
     // Wait for async processing and cleanup
     for (int i = 0; i < 50; i++) {
@@ -1615,7 +1674,7 @@ class DefaultTaskTrackerServiceTest {
     assertThat(tracker.getStatusStream(executionId) != null).isTrue();
 
     // Emit terminal status to trigger cleanup
-    tracker.emitWorkflowStatusEvent(executionId, "ERROR");
+    tracker.emitWorkflowStatusEvent(executionId, TaskStatus.ERROR);
 
     // Wait for cleanup (using short TTL from setUp)
     for (int i = 0; i < 50; i++) {
@@ -1642,7 +1701,8 @@ class DefaultTaskTrackerServiceTest {
         .verifyComplete();
 
     // Emit with metadata first
-    tracker.emitTaskStatusEvent(executionId, "node1", "mod1", "RUNNING", Map.of("key1", "val1"));
+    tracker.emitTaskStatusEvent(
+        executionId, "node1", "mod1", TaskStatus.RUNNING, Map.of("key1", "val1"));
 
     for (int i = 0; i < 20; i++) {
       final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
@@ -1661,7 +1721,8 @@ class DefaultTaskTrackerServiceTest {
     // Emit with no additional metadata to trigger the null branch in mergeMetadata
     // The null branch happens when additional == null, but API requires @NotNull
     // So we test with empty map which exercises the "if (additional != null)" path being false
-    tracker.emitTaskStatusEvent(executionId, "node1", "mod2", "SUCCESS", Collections.emptyMap());
+    tracker.emitTaskStatusEvent(
+        executionId, "node1", "mod2", TaskStatus.SUCCESS, Collections.emptyMap());
 
     for (int i = 0; i < 20; i++) {
       final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
@@ -1693,7 +1754,8 @@ class DefaultTaskTrackerServiceTest {
         .verifyComplete();
 
     // Try updating a non-existent node (old == null branch in updateTask)
-    tracker.emitTaskStatusEvent(executionId, "non-existent-node", "module", "SUCCESS", Map.of());
+    tracker.emitTaskStatusEvent(
+        executionId, "non-existent-node", "module", TaskStatus.SUCCESS, Map.of());
 
     // Wait for async processing
     for (int i = 0; i < 20; i++) {
@@ -1721,7 +1783,7 @@ class DefaultTaskTrackerServiceTest {
         .verifyComplete();
 
     // Case 1: Empty metadata initially
-    tracker.emitTaskStatusEvent(executionId, "node1", "mod1", "RUNNING", Map.of());
+    tracker.emitTaskStatusEvent(executionId, "node1", "mod1", TaskStatus.RUNNING, Map.of());
     for (int i = 0; i < 20; i++) {
       final WorkflowProgress p = tracker.getProgress(sessionId, executionId);
       if (p != null && !p.tasks().isEmpty() && "RUNNING".equals(p.tasks().getFirst().status())) {
@@ -1735,7 +1797,8 @@ class DefaultTaskTrackerServiceTest {
     }
 
     // Case 2: Add some metadata
-    tracker.emitTaskStatusEvent(executionId, "node1", "mod2", "SUCCESS", Map.of("a", 1, "b", 2));
+    tracker.emitTaskStatusEvent(
+        executionId, "node1", "mod2", TaskStatus.SUCCESS, Map.of("a", 1, "b", 2));
     for (int i = 0; i < 20; i++) {
       final WorkflowProgress p = tracker.getProgress(sessionId, executionId);
       if (p != null && !p.tasks().isEmpty() && p.tasks().getFirst().metadata().containsKey("a")) {
@@ -1749,7 +1812,7 @@ class DefaultTaskTrackerServiceTest {
     }
 
     // Case 3: Update with additional metadata (tests putAll in mergeMetadata)
-    tracker.emitTaskStatusEvent(executionId, "node1", "mod3", "SUCCESS", Map.of("c", 3));
+    tracker.emitTaskStatusEvent(executionId, "node1", "mod3", TaskStatus.SUCCESS, Map.of("c", 3));
     for (int i = 0; i < 20; i++) {
       final WorkflowProgress p = tracker.getProgress(sessionId, executionId);
       if (p != null && !p.tasks().isEmpty() && p.tasks().getFirst().metadata().containsKey("c")) {
@@ -1780,7 +1843,7 @@ class DefaultTaskTrackerServiceTest {
     StepVerifier.create(tracker.startWorkflow(executionId1, sessionId, workflowId, List.of()))
         .verifyComplete();
 
-    tracker.emitWorkflowStatusEvent(executionId1, "PENDING");
+    tracker.emitWorkflowStatusEvent(executionId1, TaskStatus.PENDING);
     for (int i = 0; i < 20; i++) {
       final WorkflowProgress p = tracker.getProgress(sessionId, executionId1);
       if (p != null && "PENDING".equals(p.status())) {
@@ -1797,7 +1860,7 @@ class DefaultTaskTrackerServiceTest {
     StepVerifier.create(tracker.startWorkflow(executionId2, sessionId, workflowId, List.of()))
         .verifyComplete();
 
-    tracker.emitWorkflowStatusEvent(executionId2, "SUCCESS");
+    tracker.emitWorkflowStatusEvent(executionId2, TaskStatus.SUCCESS);
     for (int i = 0; i < 20; i++) {
       final WorkflowProgress p = tracker.getProgress(sessionId, executionId2);
       if (p != null && "SUCCESS".equals(p.status())) {
@@ -1833,7 +1896,7 @@ class DefaultTaskTrackerServiceTest {
         .verifyComplete();
 
     // Emit terminal status to trigger cleanup with short TTL
-    shortTtlTracker.emitWorkflowStatusEvent(executionId, "SUCCESS");
+    shortTtlTracker.emitWorkflowStatusEvent(executionId, TaskStatus.SUCCESS);
 
     // Wait for cleanup to happen
     try {
@@ -1844,7 +1907,8 @@ class DefaultTaskTrackerServiceTest {
 
     // Now try to emit task status for the cleaned-up execution
     // notifyStatusChange will be called but state should be null
-    shortTtlTracker.emitTaskStatusEvent(executionId, "node1", "module", "SUCCESS", Map.of());
+    shortTtlTracker.emitTaskStatusEvent(
+        executionId, "node1", "module", TaskStatus.SUCCESS, Map.of());
 
     // Wait for processing
     try {
@@ -1868,7 +1932,8 @@ class DefaultTaskTrackerServiceTest {
         .verifyComplete();
 
     // Emit with initial metadata
-    tracker.emitTaskStatusEvent(executionId, "node1", "mod1", "RUNNING", Map.of("key1", "val1"));
+    tracker.emitTaskStatusEvent(
+        executionId, "node1", "mod1", TaskStatus.RUNNING, Map.of("key1", "val1"));
 
     for (int i = 0; i < 20; i++) {
       final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
@@ -1885,7 +1950,7 @@ class DefaultTaskTrackerServiceTest {
     }
 
     // Now emit with empty metadata to test the "additional != null" false branch
-    tracker.emitTaskStatusEvent(executionId, "node1", "mod2", "SUCCESS", Map.of());
+    tracker.emitTaskStatusEvent(executionId, "node1", "mod2", TaskStatus.SUCCESS, Map.of());
 
     for (int i = 0; i < 20; i++) {
       final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
@@ -1930,7 +1995,7 @@ class DefaultTaskTrackerServiceTest {
     assertThat(tracker.getActiveSessions().contains(sessionId)).isTrue();
 
     // updateTaskStatus 4-arg
-    StepVerifier.create(tracker.updateTaskStatus(executionId, "node1", "mod", "SUCCESS"))
+    StepVerifier.create(tracker.updateTaskStatus(executionId, "node1", "mod", TaskStatus.SUCCESS))
         .verifyComplete();
 
     for (int i = 0; i < 20; i++) {
@@ -1946,7 +2011,8 @@ class DefaultTaskTrackerServiceTest {
     }
 
     // updateTaskStatus 5-arg
-    StepVerifier.create(tracker.updateTaskStatus(executionId, "node2", "mod", "FAILURE", Map.of()))
+    StepVerifier.create(
+            tracker.updateTaskStatus(executionId, "node2", "mod", TaskStatus.FAILURE, Map.of()))
         .verifyComplete();
 
     for (int i = 0; i < 20; i++) {
@@ -1965,7 +2031,7 @@ class DefaultTaskTrackerServiceTest {
     StepVerifier.create(tracker.appendLog(executionId, "log")).verifyComplete();
 
     // finishWorkflow
-    StepVerifier.create(tracker.finishWorkflow(executionId, "SUCCESS")).verifyComplete();
+    StepVerifier.create(tracker.finishWorkflow(executionId, TaskStatus.SUCCESS)).verifyComplete();
 
     for (int i = 0; i < 20; i++) {
       final WorkflowProgress p = tracker.getProgress(sessionId, executionId);
@@ -2019,7 +2085,7 @@ class DefaultTaskTrackerServiceTest {
     assertThat(tracker.getActiveSessions().contains(sessionId)).isTrue();
 
     // updateTaskStatus (4-arg)
-    StepVerifier.create(tracker.updateTaskStatus(executionId, "n1", "mod1", "SUCCESS"))
+    StepVerifier.create(tracker.updateTaskStatus(executionId, "n1", "mod1", TaskStatus.SUCCESS))
         .verifyComplete();
 
     for (int i = 0; i < 20; i++) {
@@ -2036,7 +2102,8 @@ class DefaultTaskTrackerServiceTest {
 
     // updateTaskStatus (5-arg with metadata)
     StepVerifier.create(
-            tracker.updateTaskStatus(executionId, "n2", "mod2", "FAILURE", Map.of("error", "test")))
+            tracker.updateTaskStatus(
+                executionId, "n2", "mod2", TaskStatus.FAILURE, Map.of("error", "test")))
         .verifyComplete();
 
     for (int i = 0; i < 20; i++) {
@@ -2055,11 +2122,11 @@ class DefaultTaskTrackerServiceTest {
     StepVerifier.create(tracker.appendLog(executionId, "test log")).verifyComplete();
 
     // finishWorkflow
-    StepVerifier.create(tracker.finishWorkflow(executionId, "COMPLETED")).verifyComplete();
+    StepVerifier.create(tracker.finishWorkflow(executionId, TaskStatus.SUCCESS)).verifyComplete();
 
     for (int i = 0; i < 20; i++) {
       final WorkflowProgress p = tracker.getProgress(sessionId, executionId);
-      if (p != null && "COMPLETED".equals(p.status())) {
+      if (p != null && "SUCCESS".equals(p.status())) {
         break;
       }
       try {
@@ -2081,21 +2148,21 @@ class DefaultTaskTrackerServiceTest {
         .verifyComplete();
 
     // 1. status == "RUNNING", current != null (already set)
-    tracker.emitTaskStatusEvent(executionId, "node1", "mod", "RUNNING", Map.of());
+    tracker.emitTaskStatusEvent(executionId, "node1", "mod", TaskStatus.RUNNING, Map.of());
     Thread.sleep(100);
     final java.time.LocalDateTime firstStart =
         tracker.getProgress(sessionId, executionId).tasks().getFirst().startTime();
-    tracker.emitTaskStatusEvent(executionId, "node1", "mod", "RUNNING", Map.of());
+    tracker.emitTaskStatusEvent(executionId, "node1", "mod", TaskStatus.RUNNING, Map.of());
     Thread.sleep(100);
     assertThat(tracker.getProgress(sessionId, executionId).tasks().getFirst().startTime())
         .isEqualTo(firstStart);
 
     // 2. Terminal status, current != null (already terminal)
-    tracker.emitTaskStatusEvent(executionId, "node1", "mod", "SUCCESS", Map.of());
+    tracker.emitTaskStatusEvent(executionId, "node1", "mod", TaskStatus.SUCCESS, Map.of());
     Thread.sleep(100);
     final java.time.LocalDateTime firstEnd =
         tracker.getProgress(sessionId, executionId).tasks().getFirst().endTime();
-    tracker.emitTaskStatusEvent(executionId, "node1", "mod", "FAILURE", Map.of());
+    tracker.emitTaskStatusEvent(executionId, "node1", "mod", TaskStatus.FAILURE, Map.of());
     Thread.sleep(100);
     assertThat(tracker.getProgress(sessionId, executionId).tasks().getFirst().endTime())
         .isEqualTo(firstEnd);
@@ -2146,7 +2213,7 @@ class DefaultTaskTrackerServiceTest {
         .verifyComplete();
 
     // Update task status
-    tracker.emitTaskStatusEvent(executionId, "node1", "module", "SUCCESS", Map.of());
+    tracker.emitTaskStatusEvent(executionId, "node1", "module", TaskStatus.SUCCESS, Map.of());
 
     // Wait for processing
     for (int i = 0; i < 20; i++) {
@@ -2203,7 +2270,9 @@ class DefaultTaskTrackerServiceTest {
     // Subscribe to status stream to ensure sink exists
     StepVerifier.create(tracker.getStatusStream(executionId).take(1))
         .then(
-            () -> tracker.emitTaskStatusEvent(executionId, "node1", "module", "SUCCESS", Map.of()))
+            () ->
+                tracker.emitTaskStatusEvent(
+                    executionId, "node1", "module", TaskStatus.SUCCESS, Map.of()))
         .assertNext(
             progress -> {
               assertThat(progress).isNotNull();
@@ -2225,7 +2294,7 @@ class DefaultTaskTrackerServiceTest {
 
     // Don't subscribe to getStatusStream, so the sink is removed or never created
     // Emit task status event which will call notifyStatusChange with null sink
-    tracker.emitTaskStatusEvent(executionId, "node1", "module", "SUCCESS", Map.of());
+    tracker.emitTaskStatusEvent(executionId, "node1", "module", TaskStatus.SUCCESS, Map.of());
 
     // Wait for async processing
     for (int i = 0; i < 20; i++) {
@@ -2247,7 +2316,7 @@ class DefaultTaskTrackerServiceTest {
     final String executionId = "exec-notify-null-state";
 
     // Try to emit event for execution that doesn't exist (state will be null)
-    tracker.emitTaskStatusEvent(executionId, "node1", "module", "SUCCESS", Map.of());
+    tracker.emitTaskStatusEvent(executionId, "node1", "module", TaskStatus.SUCCESS, Map.of());
 
     // Wait for async processing
     for (int i = 0; i < 20; i++) {
@@ -2284,7 +2353,7 @@ class DefaultTaskTrackerServiceTest {
     tracker.removeSession(sessionId);
 
     // Emit status event - sink exists but state is null
-    tracker.emitWorkflowStatusEvent(executionId, "SUCCESS");
+    tracker.emitWorkflowStatusEvent(executionId, TaskStatus.SUCCESS);
 
     // Wait for async processing
     for (int i = 0; i < 20; i++) {
@@ -2377,7 +2446,7 @@ class DefaultTaskTrackerServiceTest {
         .expectNext("line before terminal")
         .then(
             () -> {
-              longTtlTracker.emitWorkflowStatusEvent(executionId, "SUCCESS");
+              longTtlTracker.emitWorkflowStatusEvent(executionId, TaskStatus.SUCCESS);
               await()
                   .atMost(2, TimeUnit.SECONDS)
                   .until(
@@ -2410,7 +2479,7 @@ class DefaultTaskTrackerServiceTest {
         .verifyComplete();
 
     StepVerifier.create(longTtlTracker.getStatusStream(executionId))
-        .then(() -> longTtlTracker.emitWorkflowStatusEvent(executionId, "SUCCESS"))
+        .then(() -> longTtlTracker.emitWorkflowStatusEvent(executionId, TaskStatus.SUCCESS))
         .assertNext(progress -> assertThat(progress.status()).isEqualTo("SUCCESS"))
         .expectComplete()
         .verify(Duration.ofSeconds(5));
@@ -2427,7 +2496,9 @@ class DefaultTaskTrackerServiceTest {
         .verifyComplete();
 
     StepVerifier.create(tracker.getStatusStream(executionId, false))
-        .then(() -> tracker.emitTaskStatusEvent(executionId, "n1", "mod", "RUNNING", Map.of()))
+        .then(
+            () ->
+                tracker.emitTaskStatusEvent(executionId, "n1", "mod", TaskStatus.RUNNING, Map.of()))
         .expectNextCount(1)
         .thenCancel()
         .verify();

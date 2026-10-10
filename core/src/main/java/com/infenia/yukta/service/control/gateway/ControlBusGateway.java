@@ -7,6 +7,7 @@ import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.core.Plugin;
 import java.util.List;
+import java.util.Map;
 import reactor.core.publisher.Mono;
 
 /**
@@ -221,13 +222,25 @@ public interface ControlBusGateway {
   Mono<String> stopExecution(String executionId, String reason);
 
   /**
-   * Start a new workflow execution for a session.
+   * Start a new workflow execution for a session with an empty trigger payload.
    *
    * @param sessionId the session identifier
    * @param workflowId the workflow identifier
    * @return a Mono containing the execution ID
    */
-  Mono<String> startWorkflow(String sessionId, String workflowId);
+  default Mono<String> startWorkflow(final String sessionId, final String workflowId) {
+    return startWorkflow(sessionId, workflowId, Map.of());
+  }
+
+  /**
+   * Start a new workflow execution for a session.
+   *
+   * @param sessionId the session identifier
+   * @param workflowId the workflow identifier
+   * @param payload the trigger payload, read by the workflow's trigger node
+   * @return a Mono containing the execution ID
+   */
+  Mono<String> startWorkflow(String sessionId, String workflowId, Map<String, Object> payload);
 
   /**
    * Safely stop the current execution and restart the entire workflow from the beginning using the
