@@ -24,6 +24,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -195,7 +196,7 @@ public class WorkflowCompiler {
     @SuppressWarnings("unchecked")
     final Flux<Message<?>>[] streams = new Flux[nodeCount];
     final List<Mono<Void>> terminals = new ArrayList<>(nodeCount);
-    final List<Disposable> disposables = new ArrayList<>(nodeCount);
+    final List<Disposable> disposables = new CopyOnWriteArrayList<>();
     final List<Runnable> connectors = new ArrayList<>(nodeCount);
 
     final var control =
