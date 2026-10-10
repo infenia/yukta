@@ -3,7 +3,9 @@
 package com.infenia.yukta.service.orchestrator.stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
@@ -33,7 +35,11 @@ import reactor.test.StepVerifier;
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
 @NoArgsConstructor
-@SuppressWarnings({"PMD.TooManyMethods", "PMD.UseShortArrayInitializer"})
+@SuppressWarnings({
+  "PMD.TooManyMethods",
+  "PMD.UseShortArrayInitializer",
+  "PMD.TooManyStaticImports"
+})
 class StreamTopologyDecoratorTest {
 
   /** Test data payload. */
@@ -274,6 +280,23 @@ class StreamTopologyDecoratorTest {
     assertThat(disposables).isNotEmpty();
 
     // Cleanup
+    disposables.forEach(Disposable::dispose);
+  }
+
+  @Test
+  void testApplyLoggingAndBroadcastingBlankPayloadIsPassedOnWithoutLogLine() {
+    final Message<?> msg = DefaultMessage.create(UUID.randomUUID(), "");
+    final List<Disposable> disposables = new ArrayList<>();
+
+    final Flux<Message<?>> output =
+        decorator.applyLoggingAndBroadcasting(
+            EXEC_1, NODE_1, Flux.just(msg), 1024, disposables, new ArrayList<>());
+    StepVerifier.create(edge(output))
+        .assertNext(out -> assertThat(out.payload()).isEqualTo(""))
+        .verifyComplete();
+
+    verify(tracker, never()).emitLogEvent(any(), any(), any());
+
     disposables.forEach(Disposable::dispose);
   }
 
