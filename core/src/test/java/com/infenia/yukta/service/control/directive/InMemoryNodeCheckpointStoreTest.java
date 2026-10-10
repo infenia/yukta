@@ -188,4 +188,14 @@ class InMemoryNodeCheckpointStoreTest {
     assertThat(small.isComplete("d", "n")).isFalse();
     assertThat(small.isComplete("e", "n")).isFalse();
   }
+
+  @Test
+  void deeplyNestedMapsCountAsOneUnknownPayload() {
+    final InMemoryNodeCheckpointStore small = new InMemoryNodeCheckpointStore(10, 100);
+    final Object deep = Map.of("a", Map.of("a", Map.of("a", Map.of("a", Map.of("a", "x")))));
+
+    small.save("e", "n", DefaultMessage.create(UUID.randomUUID(), deep)).block();
+
+    assertThat(small.isComplete("e", "n")).isFalse();
+  }
 }

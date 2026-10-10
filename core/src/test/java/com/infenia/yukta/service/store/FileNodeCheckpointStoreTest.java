@@ -157,4 +157,38 @@ class FileNodeCheckpointStoreTest {
                     .hasMessageContaining("Unreadable output of node n1"))
         .verify();
   }
+
+  @Test
+  void outputThatCannotBeInspected_countsAsIncomplete() throws IOException {
+    Files.createDirectories(dir.resolve("e-e1").resolve("n1.jsonl")); // a directory, not a file
+
+    assertThat(store().isComplete("e1", "n1")).isFalse();
+  }
+
+  @Test
+  void blankLinesInTheOutputAreSkipped() throws IOException {
+    final FileNodeCheckpointStore store = store();
+    store.save("e1", "n1", message("a")).block();
+    final Path file = dir.resolve("e-e1").resolve("n1.jsonl");
+    Files.writeString(file, "\n" + Files.readString(file) + "\n");
+
+    StepVerifier.create(store.getAll("e1", "n1"))
+        .assertNext(m -> assertThat(m.payload()).isEqualTo("a"))
+        .verifyComplete();
+  }
+
+  @Test
+  void clearThatCannotWalkTheDirectory_isLoggedNotThrown() throws IOException {
+    final FileNodeCheckpointStore store = store();
+    store.save("e1", "n1", message("a")).block();
+    final java.io.File executionDir = dir.resolve("e-e1").toFile();
+    org.junit.jupiter.api.Assumptions.assumeTrue(executionDir.setReadable(false));
+    try {
+      org.junit.jupiter.api.Assumptions.assumeFalse(Files.isReadable(executionDir.toPath()));
+      store.clear("e1");
+      assertThat(store.bytesHeld()).isPositive();
+    } finally {
+      executionDir.setReadable(true);
+    }
+  }
 }

@@ -500,6 +500,54 @@ class ControlBusServiceTest {
   }
 
   @Nested
+  @DisplayName("consumer failure")
+  @NoArgsConstructor
+  class ConsumerFailureTests {
+
+    @Test
+    @DisplayName("should resubscribe after a failure and give up once stopped")
+    void consumerFailure_isRetriedUntilShutdown() throws Exception {
+      final ControlBusService failing =
+          new ControlBusService(
+              100,
+              50,
+              256,
+              List.of(),
+              preparedWorkflowCache,
+              orchestrator,
+              new ActivePluginRegistry(List.of()));
+      failing.init();
+      final Sinks.Many<?> sink =
+          java.util.Objects.requireNonNull(
+              (Sinks.Many<?>)
+                  org.springframework.test.util.ReflectionTestUtils.getField(
+                      failing, "controlSink"));
+
+      sink.tryEmitError(new IllegalStateException("upstream broke"));
+      Thread.sleep(350); // at least one resubscribe attempt
+      failing.shutdown();
+      Thread.sleep(500); // the next failure is no longer retried
+
+      StepVerifier.create(failing.getControlStream())
+          .expectErrorMatches(e -> e instanceof IllegalStateException)
+          .verify(Duration.ofSeconds(2));
+    }
+
+    @Test
+    @DisplayName("should send a command with a payload")
+    void sendCommand_withPayload_delegates() {
+      final Message<?> command = mock(Message.class);
+      when(command.payload()).thenReturn("a command");
+      when(plugin.onControlSignal(command)).thenReturn(Mono.just(command));
+      controlBusService.registerPlugin(WORKFLOW_ID, NODE_ID, plugin);
+
+      StepVerifier.create(controlBusService.sendCommand(WORKFLOW_ID, NODE_ID, command))
+          .expectNext(command)
+          .verifyComplete();
+    }
+  }
+
+  @Nested
   @DisplayName("init")
   @NoArgsConstructor
   class InitTests {

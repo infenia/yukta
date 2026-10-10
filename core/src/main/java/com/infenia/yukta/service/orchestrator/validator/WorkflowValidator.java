@@ -238,7 +238,7 @@ public class WorkflowValidator {
         .then(validateTriggerNodeExists(def))
         .then(validateTerminalNodeExists(def))
         .then(validateEntryPoints(def, targetIds))
-        .then(validateProcessors(def, targetIds, sourceIds))
+        .then(validateProcessors(def, sourceIds))
         .then(validateEndpoints(def, sourceIds))
         .then(validateNoCycles(def))
         .then(validateNoOrphans())
@@ -355,23 +355,20 @@ public class WorkflowValidator {
         .then();
   }
 
-  private Mono<Void> validateProcessors(
-      final WorkflowDefinition def, final Set<String> targetIds, final Set<String> sourceIds) {
+  private Mono<Void> validateProcessors(final WorkflowDefinition def, final Set<String> sourceIds) {
     return Flux.fromIterable(def.nodes())
         .flatMap(
             node -> {
               final Plugin plugin = registry.get(node.type());
               // Plugin is guaranteed non-null by validatePluginsRegistered (runs first)
               final boolean isProcessor = plugin.getCategory() == PluginCategory.PROCESSOR;
-              final boolean isEntryPoint = !targetIds.contains(node.nodeId());
               final boolean hasOutgoing = sourceIds.contains(node.nodeId());
 
-              // Processor nodes must have both incoming and outgoing edges
-              // (unless it's an entry-point trigger, which is caught by validateEntryPoints)
-              if (isProcessor && !isEntryPoint && !hasOutgoing) {
+              // A processor without incoming edges is already rejected by validateEntryPoints, so
+              // only the outgoing side is left to check here.
+              if (isProcessor && !hasOutgoing) {
                 log.atWarn()
                     .addKeyValue("nodeId", node.nodeId())
-                    .addKeyValue("isEntryPoint", false)
                     .addKeyValue("hasOutgoing", false)
                     .log("PROCESSOR node missing required edges");
                 return Mono.error(

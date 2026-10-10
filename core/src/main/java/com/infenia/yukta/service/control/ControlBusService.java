@@ -177,9 +177,9 @@ public class ControlBusService {
                         log.atError()
                             .setCause(signal.failure())
                             .log("Control bus consumer failed, resubscribing")))
+        .then()
         .subscribe(
-            _ -> {},
-            e -> log.atError().setCause(e).log("Control bus consumer stopped unexpectedly"));
+            null, e -> log.atError().setCause(e).log("Control bus consumer stopped unexpectedly"));
   }
 
   /**

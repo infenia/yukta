@@ -91,4 +91,14 @@ class WorkflowStateTransitionTest {
 
     assertThat(state.getTasks().getFirst().metadata()).containsEntry("a", 1).containsEntry("b", 2);
   }
+
+  @Test
+  void updateWithoutMetadata_keepsTheExistingMetadata() {
+    final WorkflowState state =
+        new WorkflowState("e", "s", "w", "RUNNING", List.of("n"), LocalDateTime.now());
+    state.updateTask("n", "m", "RUNNING", Map.of("k", "v"));
+    state.updateTask("n", "m", "RUNNING", null);
+
+    assertThat(state.getTasks().getFirst().metadata()).containsEntry("k", "v");
+  }
 }

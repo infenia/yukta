@@ -255,4 +255,18 @@ class ExecutionLogStoreTest {
         .containsExactly("SetLimits(1)", "SetLimits(2)");
     assertThat(store.readAll()).extracting(ExecutionLogEvent::executionId).doesNotContain("r1");
   }
+
+  @Test
+  void jsonl_eventThatFailsWithoutPayload_isLoggedNotThrown() {
+    final ObjectMapper broken = org.mockito.Mockito.mock(ObjectMapper.class);
+    org.mockito.Mockito.when(broken.writeValueAsString(org.mockito.ArgumentMatchers.any()))
+        .thenThrow(new IllegalStateException("cannot write"));
+    final JsonlExecutionLogStore store =
+        new JsonlExecutionLogStore(dir.toString(), broken, 5, 100, 1000);
+
+    store.append(ExecutionLogEvent.started("e1", "s", "w", "v"));
+    store.close();
+
+    assertThat(store.readAll()).isEmpty();
+  }
 }

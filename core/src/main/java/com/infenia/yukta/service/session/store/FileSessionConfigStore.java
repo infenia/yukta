@@ -256,9 +256,7 @@ public class FileSessionConfigStore implements SessionConfigStore {
 
   @Override
   public Mono<Map<String, String>> getTags(@SessionId final String sessionId) {
-    return loadSessionConfig(sessionId)
-        .map(config -> config.tags() != null ? config.tags() : Map.<String, String>of())
-        .defaultIfEmpty(Map.of());
+    return loadSessionConfig(sessionId).map(SessionConfig::tags).defaultIfEmpty(Map.of());
   }
 
   @Override
@@ -268,7 +266,7 @@ public class FileSessionConfigStore implements SessionConfigStore {
     }
     return loadSessionConfig(sessionId)
         .switchIfEmpty(Mono.just(new SessionConfig("", "", "", Map.of(), "", "")))
-        .filter(config -> config.tags() == null || config.tags().isEmpty())
+        .filter(config -> config.tags().isEmpty())
         .flatMap(
             config ->
                 saveSessionConfig(

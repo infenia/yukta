@@ -97,4 +97,9 @@ class SetBreakpointCommandProcessorTest {
         .expectError(NotFoundException.class)
         .verify();
   }
+
+  @Test
+  void priority_isTen() {
+    assertThat(processor.getPriority()).isEqualTo(10);
+  }
 }
