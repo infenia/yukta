@@ -26,6 +26,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoSettings;
+import reactor.core.publisher.Sinks;
 import reactor.test.StepVerifier;
 
 /** Unit tests for {@link DefaultTaskTrackerService}. */
@@ -82,6 +83,59 @@ class DefaultTaskTrackerServiceTest {
               // only the node that actually ran has a duration
               assertThat(meters.get("yukta.node.duration").timer().count()).isEqualTo(1);
             });
+  }
+
+  @Test
+  void testLogBurstIsDroppedAndCounted_andStateEventsAreNeverLost() {
+    final SimpleMeterRegistry meters = new SimpleMeterRegistry();
+    final DefaultTaskTrackerService burst =
+        new DefaultTaskTrackerService(
+            Duration.ofMillis(200), statusHistoryCache, new InMemoryExecutionLogStore(), meters);
+    StepVerifier.create(burst.startWorkflow("b-exec", "b-sess", "b-wf", List.of("n")))
+        .verifyComplete();
+
+    // no consumer yet, so everything queues: more log lines than allowed, and more state
+    // events than the old 4096-slot buffer could hold
+    for (int i = 0; i < 10_050; i++) {
+      burst.emitLogEvent("b-exec", "n", "line " + i);
+    }
+    for (int i = 0; i < 6_000; i++) {
+      burst.emitTaskStatusEvent("b-exec", "n", "echo", TaskStatus.RUNNING, Map.of());
+    }
+    burst.emitTaskStatusEvent("b-exec", "n", "echo", TaskStatus.SUCCESS, Map.of());
+    burst.init();
+
+    await()
+        .atMost(10, TimeUnit.SECONDS)
+        .untilAsserted(
+            () ->
+                assertThat(burst.getProgress("b-sess", "b-exec").tasks().getFirst().status())
+                    .isEqualTo("SUCCESS"));
+    assertThat(meters.get("yukta.tracker.dropped").tag("type", "log").counter().count())
+        .isEqualTo(50.0);
+
+    // the budget is released as lines are applied, so later lines are accepted again
+    burst.emitLogEvent("b-exec", "n", "later");
+    assertThat(meters.get("yukta.tracker.dropped").tag("type", "log").counter().count())
+        .isEqualTo(50.0);
+  }
+
+  @Test
+  void testEventsAfterTheSinkEndsAreCountedNotThrown() {
+    final SimpleMeterRegistry meters = new SimpleMeterRegistry();
+    final DefaultTaskTrackerService ended =
+        new DefaultTaskTrackerService(
+            Duration.ofMillis(200), statusHistoryCache, new InMemoryExecutionLogStore(), meters);
+    final Sinks.Many<?> sink =
+        (Sinks.Many<?>)
+            java.util.Objects.requireNonNull(
+                org.springframework.test.util.ReflectionTestUtils.getField(ended, "eventSink"));
+    sink.tryEmitComplete();
+
+    ended.emitTaskStatusEvent("x", "n", "echo", TaskStatus.RUNNING, Map.of());
+
+    assertThat(meters.get("yukta.tracker.dropped").tag("type", "state").counter().count())
+        .isEqualTo(1.0);
   }
 
   @Test
