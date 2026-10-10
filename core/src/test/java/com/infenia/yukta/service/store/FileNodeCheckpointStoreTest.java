@@ -157,4 +157,50 @@ class FileNodeCheckpointStoreTest {
                     .hasMessageContaining("Unreadable output of node n1"))
         .verify();
   }
+
+  @Test
+  void markComplete_makesTheNodeFinished_andClearForgetsIt() {
+    final FileNodeCheckpointStore store = store();
+    store.save("e1", "n1", message("a")).block();
+    assertThat(store.isFinished("e1", "n1")).isFalse();
+
+    StepVerifier.create(store.markComplete("e1", "n1")).verifyComplete();
+
+    assertThat(store.isFinished("e1", "n1")).isTrue();
+    assertThat(store.isFinished("e1", "other")).isFalse();
+    assertThat(store.markerFailures()).isZero();
+    store.clear("e1");
+    assertThat(store.isFinished("e1", "n1")).isFalse();
+  }
+
+  @Test
+  void nodeWithoutOutput_canStillBeMarkedFinished() {
+    final FileNodeCheckpointStore store = store();
+
+    store.markComplete("e1", "quiet").block();
+
+    assertThat(store.isFinished("e1", "quiet")).isTrue();
+  }
+
+  @Test
+  void tornOutput_isNeverFinished_evenWithMarker() throws IOException {
+    final FileNodeCheckpointStore store = store();
+    store.save("e1", "n1", message("a")).block();
+    store.markComplete("e1", "n1").block();
+    final Path file = dir.resolve("e-e1").resolve("n1.jsonl");
+    Files.writeString(file, Files.readString(file) + "{\"id\":\"cut");
+
+    assertThat(store.isFinished("e1", "n1")).isFalse();
+  }
+
+  @Test
+  void markerThatCannotBeWritten_isCounted_andLeavesTheNodeUnfinished() throws IOException {
+    Files.createFile(dir.resolve("e-e1")); // a file where the execution directory should be
+    final FileNodeCheckpointStore store = store();
+
+    StepVerifier.create(store.markComplete("e1", "n1")).verifyComplete();
+
+    assertThat(store.markerFailures()).isEqualTo(1);
+    assertThat(store.isFinished("e1", "n1")).isFalse();
+  }
 }
