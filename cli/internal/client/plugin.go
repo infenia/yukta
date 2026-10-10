@@ -70,7 +70,7 @@ func (c *Client) GetPluginDetails(pluginType string) (PluginDetails, error) {
 		return PluginDetails{}, fmt.Errorf("pluginType cannot be empty")
 	}
 
-	path := fmt.Sprintf("/api/plugins/%s", pluginType)
+	path := apiPath("/api/plugins/%s", pluginType)
 	req, err := c.newRequest("GET", path)
 	if err != nil {
 		return PluginDetails{}, err

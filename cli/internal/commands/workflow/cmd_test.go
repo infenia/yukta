@@ -4,677 +4,174 @@
 package workflow
 
 import (
-	"bytes"
-	"fmt"
+	"context"
+	"encoding/json"
 	"io"
+	"net/http"
+	"net/http/httptest"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 
 	"com.infenia.yukta/go-cli/internal/client"
 	"com.infenia.yukta/go-cli/internal/commands"
+	"com.infenia.yukta/go-cli/internal/testutil"
 )
 
-func TestStartCmd_successful(t *testing.T) {
-	mockClient := &client.MockClient{
-		StartWorkflowFunc: func(sessionID, workflowID string) (client.WorkflowStartResponse, error) {
-			return client.WorkflowStartResponse{ExecutionID: "exec-123"}, nil
-		},
+const execOK = `{"data":{"executionId":"exec-1"}}`
+
+func TestExecutionCommands(t *testing.T) {
+	tests := []struct {
+		name    string
+		body    string
+		args    []string
+		wantReq string
+		wantOut string
+	}{
+		{"pause", execOK, []string{"pause", "s", "e"}, "POST /api/workflow/s/e/pause", "Execution paused: exec-1"},
+		{"resume", execOK, []string{"resume", "s", "e"}, "POST /api/workflow/s/e/resume", "Execution resumed: exec-1"},
+		{"stop", `{"data":{"executionIds":["a","b"]}}`, []string{"stop", "s", "w"}, "POST /api/workflow/s/w/stop", "Stopped 2 execution(s)\n  - a\n  - b"},
+		{"status", `{"data":{"executionId":"exec-1","workflowId":"w","status":"RUNNING","tasks":[{}]}}`,
+			[]string{"status", "s", "e"}, "GET /api/workflow/s/status/e", "Tasks:    1"},
+		{"history", `{"data":[{"executionId":"exec-1","workflowId":"w","status":"DONE"}]}`,
+			[]string{"history", "s"}, "GET /api/workflow/s/history", "Total Executions: 1"},
 	}
-
-	cmd := StartCmd(mockClient)
-
-	r, w, _ := os.Pipe()
-	defer r.Close()
-	oldStdout := os.Stdout
-	os.Stdout = w
-
-	err := cmd.RunE(cmd, []string{"session-1", "workflow-1"})
-
-	w.Close()
-	os.Stdout = oldStdout
-
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if mockClient.StartWorkflowCalls != 1 {
-		t.Errorf("expected 1 call, got %d", mockClient.StartWorkflowCalls)
-	}
-
-	var buf bytes.Buffer
-	_, _ = io.Copy(&buf, r)
-	output := buf.String()
-	if !strings.Contains(output, "exec-123") {
-		t.Errorf("expected execution ID in output, got: %s", output)
-	}
-}
-
-func TestStopCmd_successful(t *testing.T) {
-	mockClient := &client.MockClient{
-		StopWorkflowFunc: func(sessionID, workflowID string) (client.WorkflowStopResponse, error) {
-			return client.WorkflowStopResponse{ExecutionIDs: []string{"exec-1", "exec-2"}}, nil
-		},
-	}
-
-	cmd := StopCmd(mockClient)
-
-	r, w, _ := os.Pipe()
-	defer r.Close()
-	oldStdout := os.Stdout
-	os.Stdout = w
-
-	err := cmd.RunE(cmd, []string{"session-1", "workflow-1"})
-
-	w.Close()
-	os.Stdout = oldStdout
-
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if mockClient.StopWorkflowCalls != 1 {
-		t.Errorf("expected 1 call, got %d", mockClient.StopWorkflowCalls)
-	}
-
-	var buf bytes.Buffer
-	_, _ = io.Copy(&buf, r)
-	output := buf.String()
-	if !strings.Contains(output, "2") {
-		t.Errorf("expected execution count in output, got: %s", output)
-	}
-}
-
-func TestPauseCmd_successful(t *testing.T) {
-	mockClient := &client.MockClient{
-		PauseWorkflowFunc: func(sessionID, executionID string) (client.WorkflowStartResponse, error) {
-			return client.WorkflowStartResponse{ExecutionID: "exec-123"}, nil
-		},
-	}
-
-	cmd := PauseCmd(mockClient)
-
-	r, w, _ := os.Pipe()
-	defer r.Close()
-	oldStdout := os.Stdout
-	os.Stdout = w
-
-	err := cmd.RunE(cmd, []string{"session-1", "exec-123"})
-
-	w.Close()
-	os.Stdout = oldStdout
-
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if mockClient.PauseWorkflowCalls != 1 {
-		t.Errorf("expected 1 call, got %d", mockClient.PauseWorkflowCalls)
-	}
-
-	var buf bytes.Buffer
-	_, _ = io.Copy(&buf, r)
-	output := buf.String()
-	if !strings.Contains(output, "paused") {
-		t.Errorf("expected 'paused' in output, got: %s", output)
-	}
-}
-
-func TestResumeCmd_successful(t *testing.T) {
-	mockClient := &client.MockClient{
-		ResumeWorkflowFunc: func(sessionID, executionID string) (client.WorkflowStartResponse, error) {
-			return client.WorkflowStartResponse{ExecutionID: "exec-123"}, nil
-		},
-	}
-
-	cmd := ResumeCmd(mockClient)
-
-	r, w, _ := os.Pipe()
-	defer r.Close()
-	oldStdout := os.Stdout
-	os.Stdout = w
-
-	err := cmd.RunE(cmd, []string{"session-1", "exec-123"})
-
-	w.Close()
-	os.Stdout = oldStdout
-
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if mockClient.ResumeWorkflowCalls != 1 {
-		t.Errorf("expected 1 call, got %d", mockClient.ResumeWorkflowCalls)
-	}
-
-	var buf bytes.Buffer
-	_, _ = io.Copy(&buf, r)
-	output := buf.String()
-	if !strings.Contains(output, "resumed") {
-		t.Errorf("expected 'resumed' in output, got: %s", output)
-	}
-}
-
-func TestPauseCmd_error(t *testing.T) {
-	mockClient := &client.MockClient{
-		PauseWorkflowFunc: func(sessionID, executionID string) (client.WorkflowStartResponse, error) {
-			return client.WorkflowStartResponse{}, fmt.Errorf("pause failed")
-		},
-	}
-
-	cmd := PauseCmd(mockClient)
-
-	r, w, _ := os.Pipe()
-	defer r.Close()
-	oldStdout := os.Stdout
-	os.Stdout = w
-
-	err := cmd.RunE(cmd, []string{"session-1", "exec-123"})
-
-	w.Close()
-	os.Stdout = oldStdout
-	_, _ = io.Copy(io.Discard, r)
-
-	if err == nil {
-		t.Fatal("expected error from PauseWorkflow")
-	}
-}
-
-func TestPauseCmd_jsonOutput(t *testing.T) {
-	mockClient := &client.MockClient{
-		PauseWorkflowFunc: func(sessionID, executionID string) (client.WorkflowStartResponse, error) {
-			return client.WorkflowStartResponse{ExecutionID: "exec-123"}, nil
-		},
-	}
-
-	// Set output format to JSON
-	oldFormat := commands.GetOutputFormat()
-	commands.SetTestOutputFormat("json")
-	defer commands.SetTestOutputFormat(oldFormat)
-
-	cmd := PauseCmd(mockClient)
-
-	r, w, _ := os.Pipe()
-	defer r.Close()
-	oldStdout := os.Stdout
-	os.Stdout = w
-
-	err := cmd.RunE(cmd, []string{"session-1", "exec-123"})
-
-	w.Close()
-	os.Stdout = oldStdout
-
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	var buf bytes.Buffer
-	_, _ = io.Copy(&buf, r)
-	output := buf.String()
-	if !strings.Contains(output, "executionId") {
-		t.Errorf("expected JSON output, got: %s", output)
-	}
-}
-
-func TestResumeCmd_error(t *testing.T) {
-	mockClient := &client.MockClient{
-		ResumeWorkflowFunc: func(sessionID, executionID string) (client.WorkflowStartResponse, error) {
-			return client.WorkflowStartResponse{}, fmt.Errorf("resume failed")
-		},
-	}
-
-	cmd := ResumeCmd(mockClient)
-
-	r, w, _ := os.Pipe()
-	defer r.Close()
-	oldStdout := os.Stdout
-	os.Stdout = w
-
-	err := cmd.RunE(cmd, []string{"session-1", "exec-123"})
-
-	w.Close()
-	os.Stdout = oldStdout
-	_, _ = io.Copy(io.Discard, r)
-
-	if err == nil {
-		t.Fatal("expected error from ResumeWorkflow")
-	}
-}
-
-func TestResumeCmd_jsonOutput(t *testing.T) {
-	mockClient := &client.MockClient{
-		ResumeWorkflowFunc: func(sessionID, executionID string) (client.WorkflowStartResponse, error) {
-			return client.WorkflowStartResponse{ExecutionID: "exec-123"}, nil
-		},
-	}
-
-	// Set output format to JSON
-	oldFormat := commands.GetOutputFormat()
-	commands.SetTestOutputFormat("json")
-	defer commands.SetTestOutputFormat(oldFormat)
-
-	cmd := ResumeCmd(mockClient)
-
-	r, w, _ := os.Pipe()
-	defer r.Close()
-	oldStdout := os.Stdout
-	os.Stdout = w
-
-	err := cmd.RunE(cmd, []string{"session-1", "exec-123"})
-
-	w.Close()
-	os.Stdout = oldStdout
-
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	var buf bytes.Buffer
-	_, _ = io.Copy(&buf, r)
-	output := buf.String()
-	if !strings.Contains(output, "executionId") {
-		t.Errorf("expected JSON output, got: %s", output)
-	}
-}
-
-func TestStatusCmd_successful(t *testing.T) {
-	mockClient := &client.MockClient{
-		GetWorkflowStatusFunc: func(sessionID, executionID string) (client.WorkflowProgress, error) {
-			return client.WorkflowProgress{
-				ExecutionID: "exec-123",
-				Status:      "RUNNING",
-				Tasks:       []client.TaskProgress{},
-			}, nil
-		},
-	}
-
-	cmd := StatusCmd(mockClient)
-
-	r, w, _ := os.Pipe()
-	defer r.Close()
-	oldStdout := os.Stdout
-	os.Stdout = w
-
-	err := cmd.RunE(cmd, []string{"session-1", "exec-123"})
-
-	w.Close()
-	os.Stdout = oldStdout
-
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if mockClient.GetWorkflowStatusCalls != 1 {
-		t.Errorf("expected 1 call, got %d", mockClient.GetWorkflowStatusCalls)
-	}
-
-	var buf bytes.Buffer
-	_, _ = io.Copy(&buf, r)
-	output := buf.String()
-	if !strings.Contains(output, "RUNNING") {
-		t.Errorf("expected status in output, got: %s", output)
-	}
-}
-
-func TestHistoryCmd_successful(t *testing.T) {
-	mockClient := &client.MockClient{
-		GetWorkflowHistoryFunc: func(sessionID string) ([]client.WorkflowExecutionSummary, error) {
-			return []client.WorkflowExecutionSummary{
-				{ExecutionID: "exec-1", WorkflowID: "wf-1", Status: "COMPLETED"},
-			}, nil
-		},
-	}
-
-	cmd := HistoryCmd(mockClient)
-
-	r, w, _ := os.Pipe()
-	defer r.Close()
-	oldStdout := os.Stdout
-	os.Stdout = w
-
-	err := cmd.RunE(cmd, []string{"session-1"})
-
-	w.Close()
-	os.Stdout = oldStdout
-
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if mockClient.GetWorkflowHistoryCalls != 1 {
-		t.Errorf("expected 1 call, got %d", mockClient.GetWorkflowHistoryCalls)
-	}
-
-	var buf bytes.Buffer
-	_, _ = io.Copy(&buf, r)
-	output := buf.String()
-	if !strings.Contains(output, "exec-1") {
-		t.Errorf("expected execution in output, got: %s", output)
-	}
-}
-
-func TestStopCmd_error(t *testing.T) {
-	mockClient := &client.MockClient{
-		StopWorkflowFunc: func(sessionID, workflowID string) (client.WorkflowStopResponse, error) {
-			return client.WorkflowStopResponse{}, fmt.Errorf("stop failed")
-		},
-	}
-
-	cmd := StopCmd(mockClient)
-
-	r, w, _ := os.Pipe()
-	defer r.Close()
-	oldStdout := os.Stdout
-	os.Stdout = w
-
-	err := cmd.RunE(cmd, []string{"session-1", "workflow-1"})
-
-	w.Close()
-	os.Stdout = oldStdout
-	_, _ = io.Copy(io.Discard, r)
-
-	if err == nil {
-		t.Fatal("expected error from StopWorkflow")
-	}
-}
-
-func TestStopCmd_jsonOutput(t *testing.T) {
-	mockClient := &client.MockClient{
-		StopWorkflowFunc: func(sessionID, workflowID string) (client.WorkflowStopResponse, error) {
-			return client.WorkflowStopResponse{ExecutionIDs: []string{"exec-1", "exec-2"}}, nil
-		},
-	}
-
-	// Set output format to JSON
-	oldFormat := commands.GetOutputFormat()
-	commands.SetTestOutputFormat("json")
-	defer commands.SetTestOutputFormat(oldFormat)
-
-	cmd := StopCmd(mockClient)
-
-	r, w, _ := os.Pipe()
-	defer r.Close()
-	oldStdout := os.Stdout
-	os.Stdout = w
-
-	err := cmd.RunE(cmd, []string{"session-1", "workflow-1"})
-
-	w.Close()
-	os.Stdout = oldStdout
-
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	var buf bytes.Buffer
-	_, _ = io.Copy(&buf, r)
-	output := buf.String()
-	if !strings.Contains(output, "executionIds") {
-		t.Errorf("expected JSON output, got: %s", output)
-	}
-}
-
-func TestStatusCmd_error(t *testing.T) {
-	mockClient := &client.MockClient{
-		GetWorkflowStatusFunc: func(sessionID, executionID string) (client.WorkflowProgress, error) {
-			return client.WorkflowProgress{}, fmt.Errorf("status failed")
-		},
-	}
-
-	cmd := StatusCmd(mockClient)
-
-	r, w, _ := os.Pipe()
-	defer r.Close()
-	oldStdout := os.Stdout
-	os.Stdout = w
-
-	err := cmd.RunE(cmd, []string{"session-1", "exec-123"})
-
-	w.Close()
-	os.Stdout = oldStdout
-	_, _ = io.Copy(io.Discard, r)
-
-	if err == nil {
-		t.Fatal("expected error from GetWorkflowStatus")
-	}
-}
-
-func TestStatusCmd_jsonOutput(t *testing.T) {
-	mockClient := &client.MockClient{
-		GetWorkflowStatusFunc: func(sessionID, executionID string) (client.WorkflowProgress, error) {
-			return client.WorkflowProgress{
-				ExecutionID: "exec-123",
-				Status:      "COMPLETED",
-				Tasks:       []client.TaskProgress{},
-			}, nil
-		},
-	}
-
-	// Set output format to JSON
-	oldFormat := commands.GetOutputFormat()
-	commands.SetTestOutputFormat("json")
-	defer commands.SetTestOutputFormat(oldFormat)
-
-	cmd := StatusCmd(mockClient)
-
-	r, w, _ := os.Pipe()
-	defer r.Close()
-	oldStdout := os.Stdout
-	os.Stdout = w
-
-	err := cmd.RunE(cmd, []string{"session-1", "exec-123"})
-
-	w.Close()
-	os.Stdout = oldStdout
-
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	var buf bytes.Buffer
-	_, _ = io.Copy(&buf, r)
-	output := buf.String()
-	if !strings.Contains(output, "executionId") {
-		t.Errorf("expected JSON output, got: %s", output)
-	}
-}
-
-func TestHistoryCmd_jsonOutput(t *testing.T) {
-	mockClient := &client.MockClient{
-		GetWorkflowHistoryFunc: func(sessionID string) ([]client.WorkflowExecutionSummary, error) {
-			return []client.WorkflowExecutionSummary{
-				{ExecutionID: "exec-1", WorkflowID: "wf-1", Status: "COMPLETED"},
-			}, nil
-		},
-	}
-
-	// Set output format to JSON
-	oldFormat := commands.GetOutputFormat()
-	commands.SetTestOutputFormat("json")
-	defer commands.SetTestOutputFormat(oldFormat)
-
-	cmd := HistoryCmd(mockClient)
-
-	r, w, _ := os.Pipe()
-	defer r.Close()
-	oldStdout := os.Stdout
-	os.Stdout = w
-
-	err := cmd.RunE(cmd, []string{"session-1"})
-
-	w.Close()
-	os.Stdout = oldStdout
-
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	var buf bytes.Buffer
-	_, _ = io.Copy(&buf, r)
-	output := buf.String()
-	if !strings.Contains(output, "executionId") {
-		t.Errorf("expected JSON output, got: %s", output)
-	}
-}
-
-func TestHistoryCmd_error(t *testing.T) {
-	mockClient := &client.MockClient{
-		GetWorkflowHistoryFunc: func(sessionID string) ([]client.WorkflowExecutionSummary, error) {
-			return nil, fmt.Errorf("history failed")
-		},
-	}
-
-	cmd := HistoryCmd(mockClient)
-
-	r, w, _ := os.Pipe()
-	defer r.Close()
-	oldStdout := os.Stdout
-	os.Stdout = w
-
-	err := cmd.RunE(cmd, []string{"session-1"})
-
-	w.Close()
-	os.Stdout = oldStdout
-	_, _ = io.Copy(io.Discard, r)
-
-	if err == nil {
-		t.Fatal("expected error from GetWorkflowHistory")
-	}
-}
-
-func TestHistoryCmd_multipleExecutions(t *testing.T) {
-	mockClient := &client.MockClient{
-		GetWorkflowHistoryFunc: func(sessionID string) ([]client.WorkflowExecutionSummary, error) {
-			startTime, _ := time.Parse(time.RFC3339, "2026-07-17T10:00:00Z")
-			endTime, _ := time.Parse(time.RFC3339, "2026-07-17T10:05:00Z")
-			startTime2, _ := time.Parse(time.RFC3339, "2026-07-17T10:10:00Z")
-			endTime2, _ := time.Parse(time.RFC3339, "2026-07-17T10:15:00Z")
-			return []client.WorkflowExecutionSummary{
-				{ExecutionID: "exec-1", WorkflowID: "wf-1", Status: "COMPLETED", StartTime: startTime, EndTime: endTime},
-				{ExecutionID: "exec-2", WorkflowID: "wf-1", Status: "FAILED", StartTime: startTime2, EndTime: endTime2},
-			}, nil
-		},
-	}
-
-	cmd := HistoryCmd(mockClient)
-
-	r, w, _ := os.Pipe()
-	defer r.Close()
-	oldStdout := os.Stdout
-	os.Stdout = w
-
-	err := cmd.RunE(cmd, []string{"session-1"})
-
-	w.Close()
-	os.Stdout = oldStdout
-
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	var buf bytes.Buffer
-	_, _ = io.Copy(&buf, r)
-	output := buf.String()
-	if !strings.Contains(output, "Total Executions: 2") {
-		t.Errorf("expected 2 executions in output, got: %s", output)
-	}
-	if !strings.Contains(output, "exec-1") || !strings.Contains(output, "exec-2") {
-		t.Errorf("expected both executions in output, got: %s", output)
-	}
-}
-
-func TestStartCmd_error(t *testing.T) {
-	mockClient := &client.MockClient{
-		StartWorkflowFunc: func(sessionID, workflowID string) (client.WorkflowStartResponse, error) {
-			return client.WorkflowStartResponse{}, fmt.Errorf("start failed")
-		},
-	}
-
-	cmd := StartCmd(mockClient)
-
-	r, w, _ := os.Pipe()
-	defer r.Close()
-	oldStdout := os.Stdout
-	os.Stdout = w
-
-	err := cmd.RunE(cmd, []string{"session-1", "workflow-1"})
-
-	w.Close()
-	os.Stdout = oldStdout
-	_, _ = io.Copy(io.Discard, r)
-
-	if err == nil {
-		t.Fatal("expected error from StartWorkflow")
-	}
-}
-
-func TestStartCmd_jsonOutput(t *testing.T) {
-	mockClient := &client.MockClient{
-		StartWorkflowFunc: func(sessionID, workflowID string) (client.WorkflowStartResponse, error) {
-			return client.WorkflowStartResponse{ExecutionID: "exec-123"}, nil
-		},
-	}
-
-	// Set output format to JSON
-	oldFormat := commands.GetOutputFormat()
-	commands.SetTestOutputFormat("json")
-	defer commands.SetTestOutputFormat(oldFormat)
-
-	cmd := StartCmd(mockClient)
-
-	r, w, _ := os.Pipe()
-	defer r.Close()
-	oldStdout := os.Stdout
-	os.Stdout = w
-
-	err := cmd.RunE(cmd, []string{"session-1", "workflow-1"})
-
-	w.Close()
-	os.Stdout = oldStdout
-
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	var buf bytes.Buffer
-	_, _ = io.Copy(&buf, r)
-	output := buf.String()
-	if !strings.Contains(output, "executionId") {
-		t.Errorf("expected JSON output, got: %s", output)
-	}
-}
-
-func TestWorkflowCmd_createsCommand(t *testing.T) {
-	c := client.NewClient("http://localhost:8080")
-	cmd := WorkflowCmd(c)
-
-	if cmd.Use != "workflow" {
-		t.Errorf("expected Use 'workflow', got %q", cmd.Use)
-	}
-}
-
-func TestWorkflowCmd_registersSubcommands(t *testing.T) {
-	c := client.NewClient("http://localhost:8080")
-	cmd := WorkflowCmd(c)
-
-	subcommands := cmd.Commands()
-	// workflow should have: start, stop, pause, resume, status, status-stream, history, executions, node
-	expectedCount := 9
-	if len(subcommands) != expectedCount {
-		t.Errorf("expected %d subcommands, got %d", expectedCount, len(subcommands))
-	}
-
-	// Verify key subcommands are present by checking if their Use starts with the expected name
-	expectedCommands := []string{"start", "stop", "pause", "resume", "status", "status-stream", "history", "executions", "node"}
-	foundCommands := make(map[string]bool)
-
-	for _, sub := range subcommands {
-		name := strings.Fields(sub.Use)[0]
-		for _, expected := range expectedCommands {
-			if name == expected {
-				foundCommands[expected] = true
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c, seen := testutil.Server(t, 200, tt.body)
+			out, err := testutil.Run(t, WorkflowCmd(c), tt.args...)
+			if err != nil {
+				t.Fatal(err)
 			}
+			if len(*seen) != 1 || (*seen)[0] != tt.wantReq {
+				t.Errorf("requests %v, want %q", *seen, tt.wantReq)
+			}
+			if !strings.Contains(out, tt.wantOut) {
+				t.Errorf("output %q does not contain %q", out, tt.wantOut)
+			}
+		})
+	}
+}
+
+func TestExecutionCommands_jsonOutput(t *testing.T) {
+	commands.SetTestOutputFormat("json")
+	defer commands.SetTestOutputFormat("table")
+
+	for _, args := range [][]string{{"status", "s", "e"}, {"history", "s"}, {"start", "s", "w"}} {
+		c, _ := testutil.Server(t, 200, `{"data":{"executionId":"exec-1"}}`)
+		if args[0] == "history" {
+			c, _ = testutil.Server(t, 200, `{"data":[{"executionId":"exec-1"}]}`)
+		}
+		out, err := testutil.Run(t, WorkflowCmd(c), args...)
+		if err != nil || !strings.Contains(out, "exec-1") {
+			t.Errorf("%v: out=%q err=%v", args, out, err)
 		}
 	}
+}
 
-	for _, expected := range expectedCommands {
-		if !foundCommands[expected] {
-			t.Errorf("expected '%s' subcommand not found", expected)
+func TestWorkflowCommands_errors(t *testing.T) {
+	c, _ := testutil.Server(t, 500, "boom")
+	for _, args := range [][]string{
+		{"start", "s", "w"}, {"stop", "s", "w"}, {"pause", "s", "e"}, {"resume", "s", "e"},
+		{"status", "s", "e"}, {"history", "s"},
+	} {
+		if _, err := testutil.Run(t, WorkflowCmd(c), args...); err == nil || !strings.Contains(err.Error(), "500") {
+			t.Errorf("%v: expected API error, got %v", args, err)
 		}
+	}
+}
+
+func startBody(t *testing.T, args ...string) (map[string]any, string, error) {
+	t.Helper()
+	var got map[string]any
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewDecoder(r.Body).Decode(&got)
+		_, _ = io.WriteString(w, execOK)
+	}))
+	defer srv.Close()
+	out, err := testutil.Run(t, WorkflowCmd(client.NewClient(srv.URL)), append([]string{"start", "s", "w"}, args...)...)
+	return got, out, err
+}
+
+func TestStartCmd(t *testing.T) {
+	got, out, err := startBody(t)
+	if err != nil || !strings.Contains(out, "Workflow started with execution ID: exec-1") {
+		t.Fatalf("out=%q err=%v", out, err)
+	}
+	if _, has := got["payload"]; has || got["sessionId"] != "s" || got["workflowId"] != "w" {
+		t.Errorf("unexpected body %v", got)
+	}
+
+	got, _, err = startBody(t, "--payload", `{"k":"v"}`)
+	if err != nil || got["payload"].(map[string]any)["k"] != "v" {
+		t.Errorf("inline payload: %v %v", got, err)
+	}
+
+	file := filepath.Join(t.TempDir(), "p.json")
+	if err := os.WriteFile(file, []byte(`{"a":1}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	got, _, err = startBody(t, "--payload-file", file)
+	if err != nil || got["payload"].(map[string]any)["a"] != float64(1) {
+		t.Errorf("file payload: %v %v", got, err)
+	}
+}
+
+func TestStartCmd_invalidPayload(t *testing.T) {
+	missing := filepath.Join(t.TempDir(), "nope.json")
+	for name, args := range map[string][]string{
+		"not an object": {"--payload", "[1]"},
+		"missing file":  {"--payload-file", missing},
+		"both flags":    {"--payload", "{}", "--payload-file", missing},
+	} {
+		if _, _, err := startBody(t, args...); err == nil {
+			t.Errorf("%s: expected error", name)
+		}
+	}
+}
+
+const progress = "data: {\"executionId\":\"exec-1\",\"status\":\"COMPLETED\"}\n\n"
+
+func TestStatusStreamCmd(t *testing.T) {
+	var query string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		query = r.URL.RawQuery
+		w.Header().Set("Content-Type", "text/event-stream")
+		_, _ = io.WriteString(w, progress)
+	}))
+	defer srv.Close()
+
+	out, err := testutil.Run(t, WorkflowCmd(client.NewClient(srv.URL)), "status-stream", "s", "e", "--include-history")
+	if err != nil || !strings.Contains(out, "COMPLETED") {
+		t.Fatalf("out=%q err=%v", out, err)
+	}
+	if query != "includeHistory=true" {
+		t.Errorf("query %q", query)
+	}
+}
+
+func TestStatusStreamCmd_errorsAndCancel(t *testing.T) {
+	c, _ := testutil.Server(t, 500, "boom")
+	if _, err := testutil.Run(t, WorkflowCmd(c), "status-stream", "s", "e"); err == nil {
+		t.Error("expected API error")
+	}
+
+	// A cancelled context (Ctrl-C) is a clean exit.
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	cmd := WorkflowCmd(testutil.Stream(t, progress))
+	cmd.SetArgs([]string{"status-stream", "s", "e"})
+	if err := cmd.ExecuteContext(ctx); err != nil {
+		t.Errorf("expected nil on cancel, got %v", err)
+	}
+}
+
+func TestStatusStreamCmd_withoutCobraContext(t *testing.T) {
+	cmd := StatusStreamCmd(testutil.Stream(t, progress))
+	var err error
+	out := testutil.Capture(t, func() { err = cmd.RunE(cmd, []string{"s", "e"}) })
+	if err != nil || !strings.Contains(out, "COMPLETED") {
+		t.Errorf("out=%q err=%v", out, err)
 	}
 }

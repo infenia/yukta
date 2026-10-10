@@ -201,3 +201,36 @@ func TestStreamExecutionLogs_contextCancellation(t *testing.T) {
 		t.Errorf("expected 1 line before cancellation, got %d", lineCount)
 	}
 }
+
+func TestStreamExecutionLogEntries_usesEntriesEndpoint(t *testing.T) {
+	var path string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		path = r.URL.Path
+		w.Header().Set("Content-Type", "text/event-stream")
+		_, _ = w.Write([]byte("data: {\"message\":\"hi\"}\n\n"))
+	}))
+	defer srv.Close()
+
+	var got []string
+	err := NewClient(srv.URL).StreamExecutionLogEntries(context.Background(), "s", "e", func(l string) error {
+		got = append(got, l)
+		return nil
+	})
+	if err != nil || len(got) != 1 || got[0] != `{"message":"hi"}` {
+		t.Fatalf("err=%v got=%v", err, got)
+	}
+	if path != "/api/sessions/s/executions/e/logs/entries" {
+		t.Errorf("path %q", path)
+	}
+}
+
+func TestStreamExecutionLogEntries_validation(t *testing.T) {
+	c := NewClient("http://localhost:0")
+	noop := func(string) error { return nil }
+	if err := c.StreamExecutionLogEntries(context.Background(), "", "e", noop); err == nil {
+		t.Error("expected error for empty sessionID")
+	}
+	if err := c.StreamExecutionLogEntries(context.Background(), "s", "e", nil); err == nil {
+		t.Error("expected error for nil callback")
+	}
+}

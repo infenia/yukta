@@ -3,7 +3,8 @@
 
 # build-logic — Review, Improvements & Optimisations
 
-> Scope: `build-logic/` (6 precompiled convention plugins, 465 lines) reviewed on 2026-10-09 against `main` @ `8d3161b5`.
+> Scope: `build-logic/` (6 precompiled convention plugins, 432 lines after the fixes) reviewed on 2026-10-09 against `main` @ `8d3161b5`.
+> **Status (2026-10-10): all findings L1–L14 are fixed** on branch `chore/build-logic-improvements`. Each finding below has a **Resolution** line. The text of each finding is kept as the original review record.
 > Companion: [`build-logic-module-guide.html`](build-logic-module-guide.html) is the interactive guide, including the plugin hierarchy and quality-gate matrix.
 
 ## 1. Verdict
@@ -13,22 +14,20 @@ The convention plugins are well layered:
 - `java` → `spring` → `library`, with `quality` and `jacoco` mixed in.
 - The version catalog is shared with the main build.
 - Quality tooling is unusually thorough: Spotless (google-java-format), Checkstyle, PMD,
-  SpotBugs, Error Prone, a licence allow-list (licensee), OpenGrep, Trivy, and JaCoCo with a
+  SpotBugs, Error Prone, a licence allow-list (licensee), OpenGrep, and JaCoCo with a
   per-class exception DSL.
 
-The weak points are policy and enforcement:
+The review found weak points in policy and enforcement; all are now fixed:
 
-- **Two "gates" never fail.**
-  - OpenGrep treats findings (exit 1) as success and uses `--config=auto`, pulling rules from the
-    network. The `config/opengrep/.semgrep.yml` that `coding-standards.md` refers to doesn't exist.
-  - Trivy runs as `finalizedBy(check)` in **every** project with `--exit-code 0`.
-- **The 100%-everything coverage default breeds exceptions.** core has 12 exception entries,
-  internal-core 13 (five for classes that no longer exist), plus several 0% entries, and some
-  modules simply turn `jacocoTestCoverageVerification` off. Nothing detects stale patterns.
-- **The licence allow-list includes LGPL-3.0, GPL-2.0-with-CPE, CDDL, MPL and WTFPL.** Those need a
-  legal check for a **statically linked GraalVM native image** distributed under Apache-2.0.
-- **Leftovers:** the Spring milestone repository (Spring AI 2.0.0 is GA), Error Prone excludes
-  `jte-classes`, and the hard-coded JaCoCo version.
+- **Gates now fail.** OpenGrep runs a pinned local ruleset with `--error`. Trivy no longer runs
+  inside `check` (CI owns it; an on-demand root task remains).
+- **Coverage is realistic and honest.** Default is LINE 90% / BRANCH 85%. Anything below 80% needs a
+  written reason, stale exception patterns fail the build, and disabling verification fails the build.
+- **The licence list is deliberate.** Blanket LGPL/GPL-CPE/CDDL/MPL/WTFPL allows are gone; the one
+  artifact that needs a copyleft exception (`nashorn-core`) is allowed individually. Legal sign-off
+  for native-image distribution is still a human task.
+- **Leftovers removed:** milestone repository, `jte-classes`, hard-coded JaCoCo version, duplicate
+  test starter, annotation-processor leak, redundant compatibility settings, double version source.
 
 ### Scorecard
 
@@ -36,9 +35,9 @@ The weak points are policy and enforcement:
 |---|---|---|
 | Structure | 4.5/5 | Clean precompiled-plugin hierarchy |
 | Tool coverage | 4.5/5 | Unusually complete toolchain |
-| Enforcement | 2/5 | OpenGrep and Trivy never fail. Coverage is bypassed by exceptions or by disabling it |
-| Supply chain | 3/5 | Milestone repo, OpenGrep `--config=auto` over the network, broad licence list |
-| Build speed | 3/5 | Trivy per project on every `check`, `which` probes |
+| Enforcement | 2/5 → 4.5/5 | OpenGrep fails the build. Coverage floor, stale and disabled-verification checks are enforced |
+| Supply chain | 3/5 → 4.5/5 | Milestone repo gone, rules are local, licences are per artifact (legal sign-off pending) |
+| Build speed | 3/5 → 4/5 | No per-project Trivy, no shell probes |
 
 ---
 
@@ -58,12 +57,14 @@ Severity: **P0** fix now · **P1** fix next · **P2** should fix · **P3** clean
   `--severity ERROR`), and fail on findings. Point the docs at the real file. Add rules for the
   issues found in this review: `StandardEvaluationContext`, `HostAccess.ALL`,
   `allowHostClassLookup`, `include: "*"`.
+- **Resolution (fixed):** `config/opengrep/.semgrep.yml` now holds four real rules (SpEL `StandardEvaluationContext`, `HostAccess.ALL`, `allowHostClassLookup(s -> true)`, actuator `include: "*"`). The task uses `--config=<file> --error`, scans all of `src/main`, and fails on any finding. Note: the config file did exist on `main`, but only extended registry packs with `rules: []`. Existing hits were suppressed with `nosem` plus a reason, and the actuator exposure was narrowed to `health,info,metrics`. Docs corrected.
 
 #### L2 · P2 · Trivy runs per project on every `check`, never fails, and duplicates CI — Effort S
 - **Where:** `tasks.named("check") { finalizedBy("trivy") }` in every module, with `--exit-code 0`.
   `security.yml` in CI also runs Trivy.
 - **Fix:** Remove it from the conventions (CI owns it), or register one root-level task that's
   run on demand.
+- **Resolution (fixed):** The per-project `trivy` task and `finalizedBy(check)` are gone. The root project has one on-demand `trivy` task (exit code 1 on HIGH/CRITICAL, not wired into `check`); CI `security.yml` keeps scanning.
 
 #### L3 · P1 · The coverage policy produces exception sprawl and disabled verification — Effort M
 - **Where:** `jacoco-conventions` defaults to 100% across LINE, BRANCH, CLASS, INSTRUCTION and
@@ -77,6 +78,7 @@ Severity: **P0** fix now · **P1** fix next · **P2** should fix · **P3** clean
   2. Make the floor a hard failure (`< 0.80` → throw) unless the entry has a `reason` string.
   3. Fail the build when an exception pattern matches no compiled class (stale-entry check).
   4. Forbid `enabled = false` on verification tasks with a convention-level check.
+- **Resolution (fixed):** Defaults are LINE 90% and BRANCH 85% (other counters dropped). `coverageConfig.exception(pattern, reason, thresholds)` is the way to lower a class; any ratio below the 80% floor without a reason throws. A stale-pattern check fails verification when a pattern matches no class, and a convention-level check fails when verification is disabled. Stale entries were deleted, entries for classes that already meet the defaults were removed (core, web, mcp), the rest now carry reasons, and verification is re-enabled in `internal-core` and `constant-source`.
 
 ### 2.2 Supply chain and licensing
 
@@ -101,10 +103,28 @@ Severity: **P0** fix now · **P1** fix next · **P2** should fix · **P3** clean
 
 ---
 
+### 2.4 Resolutions for the table findings
+
+| ID | Resolution |
+|---|---|
+| L4 | `repo.spring.io/milestone` removed from `java-conventions`. |
+| L5 | **Resolution (fixed in code, legal review still open):** LGPL, GPL-CPE, CDDL, MPL, WTFPL and the Nashorn URL were removed from the allow-list. Running `licensee` showed only one artifact needs a copyleft exception: `org.openjdk.nashorn:nashorn-core:15.4` (GPL-2.0 + Classpath Exception), allowed via `allowDependency(...)` with a reason. **Action for a human:** confirm that is acceptable for the statically linked native image. |
+| L6 | Covered by L1: rules are a pinned local file, no network at build time. |
+| L7 | The OpenGrep probe uses `ProcessBuilder("opengrep", "--version")`; the Trivy probe was removed with L2. |
+| L8 | `build/jte-classes` removed from the Error Prone excluded paths. |
+| L9 | JaCoCo version moved to `libs.versions.toml` (`jacoco`). |
+| L10 | `spring-boot-starter-test` is only in `spring-conventions`. |
+| L11 | The `compileOnly extendsFrom annotationProcessor` block was removed; all modules still compile. |
+| L12 | `sourceCompatibility` and `targetCompatibility` replaced by `options.release = 25`. |
+| L13 | `version` lives only in `gradle.properties`; the root script and the plugin modules no longer set it. |
+| L14 | Root `CLAUDE.md` points at `gradle/libs.versions.toml` for the Spring Boot version. |
+
+---
+
 ## 3. Roadmap
 
-| Phase | Items | Outcome |
-|---|---|---|
-| **1. Make gates real** (1 day) | L1, L3, L6 | Static analysis and coverage actually block merges |
-| **2. Supply chain** (½ day plus legal) | L4, L5, L7 | Fewer repositories, deliberate licence exceptions |
-| **3. Speed and tidy** (½ day) | L2, L8–L14 | Faster `check`, no stale config |
+| Phase | Items | Outcome | Status |
+|---|---|---|---|
+| **1. Make gates real** (1 day) | L1, L3, L6 | Static analysis and coverage actually block merges | Done |
+| **2. Supply chain** (½ day plus legal) | L4, L5, L7 | Fewer repositories, deliberate licence exceptions | Done (legal sign-off pending) |
+| **3. Speed and tidy** (½ day) | L2, L8–L14 | Faster `check`, no stale config | Done |

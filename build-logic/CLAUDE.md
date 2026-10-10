@@ -19,7 +19,7 @@ All modules apply these plugins via `plugins { id 'com.infenia.yukta.xxx-convent
 ## Quality Configuration
 - **Checkstyle**: `config/checkstyle/checkstyle.xml`
 - **PMD**: `config/pmd/ruleset.xml`
-- **OpenGrep**: runs with `--config=auto` in `check` only if the `opengrep` CLI is installed; findings don't fail the build and `config/opengrep/` doesn't exist yet (see `docs/build-logic-improvements.md` L1)
+- **OpenGrep**: runs in `check` only if the `opengrep` CLI is installed, with the local ruleset `config/opengrep/.semgrep.yml`; any finding fails the build (`--error`)
 - **License**: `config/license/`
 
 ## Docs
@@ -28,3 +28,6 @@ All modules apply these plugins via `plugins { id 'com.infenia.yukta.xxx-convent
 ## Imports
 @.claude/rules/coding-standards.md
 @.claude/rules/git-workflow.md
+
+## Coverage policy
+Defaults are LINE 90% / BRANCH 85%. Lower a class with `coverageConfig { exception(pattern, reason, mapOf("BRANCH" to 0.7)) }`; below 0.80 a reason is required. Stale patterns and disabled `jacocoTestCoverageVerification` fail the build. Trivy is not part of `check` (CI runs it; `./gradlew trivy` on demand).

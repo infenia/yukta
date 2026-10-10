@@ -5,16 +5,28 @@ plugins {
     jacoco
 }
 
+val libs = extensions.getByType<VersionCatalogsExtension>().named("libs")
+
 jacoco {
-    toolVersion = "0.8.14"
+    toolVersion = libs.findVersion("jacoco").get().requiredVersion
 }
 
-interface CoverageExtension {
-    val exceptions: MapProperty<String, Map<String, Double>>
+abstract class CoverageExtension {
+    /** Class-name pattern -> {LINE|BRANCH -> minimum ratio}. Other counters are ignored. */
+    abstract val exceptions: MapProperty<String, Map<String, Double>>
+
+    /** Class-name pattern -> why it is allowed below the floor. Required when a ratio is < 0.80. */
+    abstract val reasons: MapProperty<String, String>
+
+    fun exception(pattern: String, reason: String, thresholds: Map<String, Double>) {
+        exceptions.put(pattern, thresholds)
+        reasons.put(pattern, reason)
+    }
 }
 
 val extension = extensions.create<CoverageExtension>("coverageConfig")
 extension.exceptions.convention(emptyMap())
+extension.reasons.convention(emptyMap())
 
 /*
  * Configure test tasks
@@ -55,6 +67,13 @@ tasks.withType<JacocoReport>().configureEach {
 /*
  * Coverage verification
  */
+val minFloor = 0.80.toBigDecimal()
+// Only LINE and BRANCH are enforced; CLASS/INSTRUCTION/METHOD mostly duplicate them.
+val defaults = mapOf("LINE" to 0.90.toBigDecimal(), "BRANCH" to 0.85.toBigDecimal())
+
+fun globToRegex(glob: String) =
+    Regex(glob.split("*").joinToString(".*") { part -> part.split("?").joinToString(".") { Regex.escape(it) } })
+
 tasks.named<JacocoCoverageVerification>("jacocoTestCoverageVerification") {
 
     dependsOn(tasks.withType<JacocoReport>())
@@ -63,48 +82,67 @@ tasks.named<JacocoCoverageVerification>("jacocoTestCoverageVerification") {
         executionData.files.any { it.exists() }
     }
 
+    val patterns = extension.exceptions.get()
+    val reasons = extension.reasons.get()
+    val projectPath = project.path
+
     violationRules {
-        val MIN_FLOOR = 0.80.toBigDecimal()
-        val TARGET_DEFAULT = 1.00.toBigDecimal()
-        val counters = listOf("LINE", "BRANCH", "CLASS", "INSTRUCTION", "METHOD")
-
-        val fileCoverageRules = extension.exceptions.get()
-
-        // 1. Global Rule (100% for everything else)
+        // 1. Global rule for everything not listed as an exception
         rule {
             element = "CLASS"
-            excludes = fileCoverageRules.keys.toList()
-            counters.forEach { metric ->
+            excludes = patterns.keys.toList()
+            defaults.forEach { (metric, ratio) ->
                 limit {
                     counter = metric
                     value = "COVEREDRATIO"
-                    minimum = TARGET_DEFAULT
+                    minimum = ratio
                 }
             }
         }
 
-        // 2. Exception Rules
-        fileCoverageRules.forEach { (filePattern, thresholds) ->
+        // 2. Exception rules
+        patterns.forEach { (filePattern, thresholds) ->
             rule {
                 element = "CLASS"
                 includes = listOf(filePattern)
 
-                counters.forEach { metric ->
-                    val override = thresholds[metric]
-                    val effectiveRatio = override?.toBigDecimal() ?: TARGET_DEFAULT
-
-                    if (effectiveRatio < MIN_FLOOR) {
-                        logger.warn("🚨 [Coverage] $filePattern: $metric ($effectiveRatio) is below 80% floor!")
+                defaults.forEach { (metric, default) ->
+                    val effective = thresholds[metric]?.toBigDecimal() ?: default
+                    if (effective < minFloor && reasons[filePattern].isNullOrBlank()) {
+                        throw GradleException(
+                            "$projectPath: coverage exception '$filePattern' sets $metric to $effective " +
+                                "(< $minFloor) without a reason; use coverageConfig.exception(pattern, reason, thresholds)"
+                        )
                     }
-
                     limit {
                         counter = metric
                         value = "COVEREDRATIO"
-                        minimum = effectiveRatio
+                        minimum = effective
                     }
                 }
             }
         }
+    }
+
+    // Stale-entry check: every exception pattern must match a compiled class.
+    doFirst {
+        val classNames = classDirectories.asFileTree.files
+            .filter { it.name.endsWith(".class") }
+            .map { f ->
+                classDirectories.files.first { f.startsWith(it) }
+                    .let { root -> f.relativeTo(root).path.removeSuffix(".class").replace(File.separatorChar, '.') }
+            }
+        val stale = patterns.keys.filter { p -> val re = globToRegex(p); classNames.none { re.matches(it) } }
+        if (stale.isNotEmpty()) {
+            throw GradleException("$projectPath: coverage exceptions match no class (stale, delete them): $stale")
+        }
+    }
+}
+
+// Verification must not be switched off: fix the code or add a narrow, reasoned exception.
+afterEvaluate {
+    if (!tasks.named("jacocoTestCoverageVerification").get().enabled) {
+        throw GradleException("$path: jacocoTestCoverageVerification must not be disabled; add a narrow coverageConfig exception instead")
     }
 }
 

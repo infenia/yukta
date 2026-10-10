@@ -13,7 +13,7 @@ import (
 // ListCmd creates and returns the "session list" subcommand.
 // It retrieves all available sessions from the API and displays them
 // in the format specified by the global output flag (table or json).
-func ListCmd(c client.ClientInterface) *cobra.Command {
+func ListCmd(c *client.Client) *cobra.Command {
 	return &cobra.Command{
 		Use:   "list",
 		Short: "List all sessions",
