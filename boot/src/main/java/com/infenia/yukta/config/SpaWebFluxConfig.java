@@ -69,7 +69,7 @@ public class SpaWebFluxConfig implements WebFluxConfigurer {
 
   /**
    * SPA fallback router: serves index.html for all unmatched routes to enable client-side routing.
-   * Excludes API routes (/api/**, /actuator/**, /mcp/**, /sse/**) and static asset paths so that the
+   * Excludes API routes (/api/**, /actuator/**, /mcp/**, /sse/**) and static asset paths so the
    * resource handler mapping (registered in {@link #addResourceHandlers}) can serve them — the
    * router mapping is otherwise consulted before the resource handler mapping and would shadow it.
    */
