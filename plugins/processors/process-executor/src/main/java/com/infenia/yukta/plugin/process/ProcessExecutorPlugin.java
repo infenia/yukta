@@ -8,6 +8,7 @@ import com.infenia.yukta.plugin.exception.WorkflowExecutionException;
 import com.infenia.yukta.plugin.type.ProcessorPlugin;
 import com.infenia.yukta.util.MapUtils;
 import com.infenia.yukta.util.VariableResolver;
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -44,6 +45,9 @@ import tools.jackson.databind.ObjectMapper;
 @Component
 @RequiredArgsConstructor
 public class ProcessExecutorPlugin implements ProcessorPlugin {
+
+  /** Extra time the node gets beyond the process timeout, in seconds. */
+  private static final long MARGIN_SECONDS = 5L;
 
   private static final String TYPE = "PROCESS_EXECUTOR";
 
@@ -146,6 +150,21 @@ public class ProcessExecutorPlugin implements ProcessorPlugin {
     - Message metadata always contains "exitCode" (real exit code; -1 on timeout)
     - JSON parse failures follow failureMode (ERROR: node fails; CONTINUE: "parseError" is set)
     """;
+  }
+
+  /**
+   * The node timeout follows the process timeout, plus a margin for starting and collecting it.
+   *
+   * @param config the node configuration
+   * @return the configured (or default) process timeout plus a margin
+   */
+  @Override
+  public Duration getDefaultTimeout(final Map<String, Object> config) {
+    final long seconds =
+        config.get(TIMEOUT) instanceof final Number number && number.longValue() > 0
+            ? number.longValue()
+            : DEFAULT_TIMEOUT_SECONDS;
+    return Duration.ofSeconds(seconds + Math.max(MARGIN_SECONDS, seconds / 10));
   }
 
   @Override

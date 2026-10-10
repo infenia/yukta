@@ -362,4 +362,24 @@ class LlmCallPluginTest {
           .verify();
     }
   }
+
+  @Test
+  void defaultTimeout_coversEveryAttemptAndTheBackoff() {
+    // one attempt: (120 + 1) s + 5 s margin + 0.5 s backoff allowance
+    assertThat(plugin.getDefaultTimeout(Map.of())).isEqualTo(Duration.ofMillis(126_500));
+    // three attempts of 10 s: 3 * 11 + 5 s margin + 0.5 s * 4
+    assertThat(plugin.getDefaultTimeout(Map.of("timeout", 10, "retries", 2)))
+        .isEqualTo(Duration.ofSeconds(40));
+  }
+
+  @Test
+  void defaultTimeout_ignoresUnusableValuesAndBoundsTheRetries() {
+    assertThat(plugin.getDefaultTimeout(Map.of("timeout", -5, "retries", -1)))
+        .isEqualTo(Duration.ofMillis(126_500));
+    assertThat(plugin.getDefaultTimeout(Map.of("timeout", "#{x}", "retries", "#{y}")))
+        .isEqualTo(Duration.ofMillis(126_500));
+    // retries above 10 count as 10: 11 * 121 + 5 s + 0.5 s * 1024
+    assertThat(plugin.getDefaultTimeout(Map.of("retries", 500)))
+        .isEqualTo(Duration.ofSeconds(11 * 121 + 5 + 512));
+  }
 }
