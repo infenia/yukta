@@ -14,6 +14,8 @@ dependencyManagement {
     imports {
         mavenBom("org.springframework.boot:spring-boot-dependencies:${libs.findVersion("springBoot").get().requiredVersion}")
         mavenBom("org.springframework.ai:spring-ai-bom:${libs.findVersion("springAi").get().requiredVersion}")
+        // Spring Boot pins Netty older than the CVE fixes; import the patched BOM after it so it wins
+        mavenBom("io.netty:netty-bom:${libs.findVersion("netty").get().requiredVersion}")
     }
 }
 
