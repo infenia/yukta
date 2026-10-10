@@ -10,8 +10,11 @@ import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.atomic.LongAdder;
 import lombok.extern.slf4j.Slf4j;
+import org.jspecify.annotations.Nullable;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.SmartLifecycle;
@@ -57,6 +60,15 @@ public class ExecutionScheduler implements SmartLifecycle {
   /** Longest a start may wait in the queue; zero or negative means as long as it takes. */
   private final Duration queueTimeout;
 
+  /** Limit per session; 0 means unlimited. */
+  private final int maxPerSession;
+
+  /** How many starts of one workflow may wait; 0 means only the overall capacity applies. */
+  private final int workflowQueueCapacity;
+
+  /** Starts refused, by reason. */
+  private final Map<RejectReason, LongAdder> rejections = new ConcurrentHashMap<>();
+
   /** Guards all state below. */
   private final Object lock = new Object();
 
@@ -65,6 +77,9 @@ public class ExecutionScheduler implements SmartLifecycle {
 
   /** Running executions per workflow. */
   private final Map<String, Integer> runningPerKey = new ConcurrentHashMap<>();
+
+  /** Running executions per session. */
+  private final Map<String, Integer> runningPerSession = new ConcurrentHashMap<>();
 
   /** Signals that the last running execution has finished. */
   private final Sinks.Empty<Void> drained = Sinks.empty();
@@ -87,6 +102,8 @@ public class ExecutionScheduler implements SmartLifecycle {
    * @param onLimit what to do with a start that does not fit
    * @param shutdownTimeout how long running executions are given on shutdown
    * @param queueTimeout longest a start may wait for a slot, zero for no limit
+   * @param maxPerSession per-session limit, 0 for none
+   * @param workflowQueueCapacity how many starts of one workflow may wait, 0 for no extra limit
    */
   @Autowired
   public ExecutionScheduler(
@@ -95,13 +112,38 @@ public class ExecutionScheduler implements SmartLifecycle {
       @Value("${yukta.execution.queue-capacity:100}") final int queueCapacity,
       @Value("${yukta.execution.on-limit:QUEUE}") final OnLimit onLimit,
       @Value("${yukta.execution.shutdown-timeout:30s}") final Duration shutdownTimeout,
-      @Value("${yukta.execution.queue-timeout:0}") final Duration queueTimeout) {
+      @Value("${yukta.execution.queue-timeout:0}") final Duration queueTimeout,
+      @Value("${yukta.execution.max-concurrent-per-session:0}") final int maxPerSession,
+      @Value("${yukta.execution.queue-capacity-per-workflow:0}") final int workflowQueueCapacity) {
+    this.maxPerSession = Math.max(0, maxPerSession);
+    this.workflowQueueCapacity = Math.max(0, workflowQueueCapacity);
     this.maxConcurrent = Math.max(0, maxConcurrent);
     this.maxPerWorkflow = Math.max(0, maxPerWorkflow);
     this.queueCapacity = Math.max(0, queueCapacity);
     this.onLimit = onLimit;
     this.shutdownTimeout = shutdownTimeout;
     this.queueTimeout = queueTimeout;
+  }
+
+  /**
+   * Creates a scheduler without per-session or per-workflow queue limits.
+   *
+   * @param maxConcurrent global limit, 0 for none
+   * @param maxPerWorkflow per-workflow limit, 0 for none
+   * @param queueCapacity how many starts may wait
+   * @param onLimit what to do with a start that does not fit
+   * @param shutdownTimeout how long running executions are given on shutdown
+   * @param queueTimeout longest a start may wait for a slot, zero for no limit
+   */
+  public ExecutionScheduler(
+      final int maxConcurrent,
+      final int maxPerWorkflow,
+      final int queueCapacity,
+      final OnLimit onLimit,
+      final Duration shutdownTimeout,
+      final Duration queueTimeout) {
+    this(
+        maxConcurrent, maxPerWorkflow, queueCapacity, onLimit, shutdownTimeout, queueTimeout, 0, 0);
   }
 
   /**
@@ -132,14 +174,21 @@ public class ExecutionScheduler implements SmartLifecycle {
   public void assertCanAccept(final String sessionId, final String workflowId) {
     synchronized (lock) {
       if (closed) {
-        throw new ExecutionRejectedException("The server is shutting down");
+        throw refusal(RejectReason.SHUTDOWN, "The server is shutting down");
       }
-      if (!fits(key(sessionId, workflowId))
-          && (onLimit == OnLimit.REJECT || queue.size() >= queueCapacity)) {
-        throw new ExecutionRejectedException(
-            onLimit == OnLimit.REJECT
-                ? "Execution limit reached"
-                : "Execution limit reached and the queue is full");
+      final String key = key(sessionId, workflowId);
+      if (!fits(key)) {
+        final RejectReason reason = cannotQueue(key);
+        if (reason != null) {
+          throw refusal(
+              reason,
+              switch (reason) {
+                case LIMIT -> "Execution limit reached";
+                case WORKFLOW_QUEUE_FULL ->
+                    "Execution limit reached and the queue of this workflow is full";
+                default -> "Execution limit reached and the queue is full";
+              });
+        }
       }
     }
   }
@@ -165,23 +214,39 @@ public class ExecutionScheduler implements SmartLifecycle {
    * @return the slot at once if there is room, otherwise a Mono that waits for one
    */
   public Admission acquire(final String sessionId, final String workflowId, final int priority) {
+    return acquire(sessionId, workflowId, priority, null);
+  }
+
+  /**
+   * Asks for an execution slot with a priority, for an execution that can be found later.
+   *
+   * @param sessionId the session
+   * @param workflowId the workflow
+   * @param priority higher is admitted first when starts have to wait
+   * @param executionId the execution asking, so {@link #changePriority} can find it while it waits
+   * @return the slot at once if there is room, otherwise a Mono that waits for one
+   */
+  public Admission acquire(
+      final String sessionId,
+      final String workflowId,
+      final int priority,
+      @Nullable final String executionId) {
     final String key = key(sessionId, workflowId);
     synchronized (lock) {
       if (closed) {
-        return refused("The server is shutting down");
+        return refused(refusal(RejectReason.SHUTDOWN, "The server is shutting down"));
       }
       if (fits(key)) {
         return new Admission(true, Mono.just(take(key)));
       }
-      if (onLimit == OnLimit.REJECT || queue.size() >= queueCapacity) {
-        return refused("Execution limit reached");
+      final RejectReason reason = cannotQueue(key);
+      if (reason != null) {
+        return refused(refusal(reason, "Execution limit reached"));
       }
-      final Waiter waiter = new Waiter(key, priority, Sinks.one(), new AtomicReference<>());
-      int index = queue.size();
-      while (index > 0 && queue.get(index - 1).priority() < priority) {
-        index--;
-      }
-      queue.add(index, waiter);
+      final Waiter waiter =
+          new Waiter(
+              key, executionId, new AtomicInteger(priority), Sinks.one(), new AtomicReference<>());
+      enqueue(waiter);
       final Mono<Permit> grant = waiter.grant().asMono().doOnCancel(() -> abandon(waiter));
       return new Admission(
           false,
@@ -190,9 +255,11 @@ public class ExecutionScheduler implements SmartLifecycle {
                   .timeout(queueTimeout)
                   .onErrorMap(
                       TimeoutException.class,
-                      _ ->
-                          new QueueTimeoutException(
-                              "Waited " + queueTimeout + " for an execution slot"))
+                      _ -> {
+                        count(RejectReason.QUEUE_TIMEOUT);
+                        return new QueueTimeoutException(
+                            "Waited " + queueTimeout + " for an execution slot");
+                      })
               : grant);
     }
   }
@@ -237,6 +304,37 @@ public class ExecutionScheduler implements SmartLifecycle {
   }
 
   /**
+   * Changes the priority of a start that is waiting for a slot; it moves behind the starts of
+   * higher or equal priority that were already waiting.
+   *
+   * @param executionId the waiting execution
+   * @param priority the new priority
+   * @return true if the execution was waiting, false if it is running, finished or unknown
+   */
+  public boolean changePriority(final String executionId, final int priority) {
+    synchronized (lock) {
+      for (final Waiter waiter : queue) {
+        if (executionId.equals(waiter.executionId())) {
+          queue.remove(waiter);
+          waiter.priority().set(priority);
+          enqueue(waiter);
+          return true;
+        }
+      }
+      return false;
+    }
+  }
+
+  /** Inserts a waiter after every waiter of higher or equal priority. */
+  private void enqueue(final Waiter waiter) {
+    int index = queue.size();
+    while (index > 0 && queue.get(index - 1).priority().get() < waiter.priority().get()) {
+      index--;
+    }
+    queue.add(index, waiter);
+  }
+
+  /**
    * Reads the priority of a start from its payload.
    *
    * @param payload the start payload
@@ -252,18 +350,67 @@ public class ExecutionScheduler implements SmartLifecycle {
     return sessionId + "\0" + workflowId;
   }
 
-  private Admission refused(final String reason) {
-    return new Admission(true, Mono.error(new ExecutionRejectedException(reason)));
+  private static Admission refused(final ExecutionRejectedException error) {
+    return new Admission(true, Mono.error(error));
+  }
+
+  /** Counts a refusal and builds its exception. */
+  private ExecutionRejectedException refusal(final RejectReason reason, final String message) {
+    count(reason);
+    return new ExecutionRejectedException(message);
+  }
+
+  private void count(final RejectReason reason) {
+    rejections.computeIfAbsent(reason, _ -> new LongAdder()).increment();
+  }
+
+  /**
+   * Why a start that does not fit cannot wait either, or null if it can join the queue.
+   *
+   * @param key the workflow of the start
+   */
+  @Nullable
+  private RejectReason cannotQueue(final String key) {
+    if (onLimit == OnLimit.REJECT) {
+      return RejectReason.LIMIT;
+    }
+    if (queue.size() >= queueCapacity) {
+      return RejectReason.QUEUE_FULL;
+    }
+    if (workflowQueueCapacity > 0
+        && queue.stream().filter(waiter -> waiter.key().equals(key)).count()
+            >= workflowQueueCapacity) {
+      return RejectReason.WORKFLOW_QUEUE_FULL;
+    }
+    return null;
+  }
+
+  /**
+   * How many starts were refused for a reason.
+   *
+   * @param reason why they were refused
+   * @return the count since startup
+   */
+  public long rejected(final RejectReason reason) {
+    final LongAdder count = rejections.get(reason);
+    return count == null ? 0 : count.sum();
+  }
+
+  private static String sessionOf(final String key) {
+    return key.substring(0, key.indexOf('\0'));
   }
 
   private boolean fits(final String key) {
     return (maxConcurrent == 0 || runningTotal < maxConcurrent)
-        && (maxPerWorkflow == 0 || runningPerKey.getOrDefault(key, 0) < maxPerWorkflow);
+        && (maxPerWorkflow == 0 || runningPerKey.getOrDefault(key, 0) < maxPerWorkflow)
+        && (maxPerSession == 0
+            || runningPerSession.getOrDefault(sessionOf(key), 0) < maxPerSession);
   }
 
   private Permit take(final String key) {
     runningTotal++;
     runningPerKey.merge(key, 1, Integer::sum);
+    runningPerSession.merge(sessionOf(key), 1, Integer::sum);
     return new Permit(key);
   }
 
@@ -272,6 +419,8 @@ public class ExecutionScheduler implements SmartLifecycle {
     synchronized (lock) {
       runningTotal--;
       runningPerKey.computeIfPresent(key, (_, count) -> count > 1 ? count - 1 : null);
+      runningPerSession.computeIfPresent(
+          sessionOf(key), (_, count) -> count > 1 ? count - 1 : null);
       admitted = admitWaiting();
       if (closed && runningTotal == 0) {
         drained.tryEmitEmpty();
@@ -281,22 +430,21 @@ public class ExecutionScheduler implements SmartLifecycle {
   }
 
   /**
-   * Grants slots to waiting starts, highest priority first, skipping ones whose workflow is at its
-   * limit. Called with the lock held; the caller hands the slots over with {@link #grant} once it
-   * has let go of the lock.
+   * Grants slots to waiting starts that fit: highest priority first, and within a priority the
+   * session with the fewest running executions first (oldest first on a tie), so one busy session
+   * cannot starve the others. Called with the lock held; the caller hands the slots over with
+   * {@link #grant} once it has let go of the lock.
    *
    * @return the starts that now hold a slot
    */
   private List<Waiter> admitWaiting() {
     final List<Waiter> admitted = new ArrayList<>();
-    final var iterator = queue.iterator();
-    while (iterator.hasNext()) {
-      final Waiter waiter = iterator.next();
-      if (fits(waiter.key())) {
-        iterator.remove();
-        waiter.granted().set(take(waiter.key()));
-        admitted.add(waiter);
-      }
+    Waiter next = nextToAdmit();
+    while (next != null) {
+      queue.remove(next);
+      next.granted().set(take(next.key()));
+      admitted.add(next);
+      next = nextToAdmit();
     }
     return admitted;
   }
@@ -307,6 +455,26 @@ public class ExecutionScheduler implements SmartLifecycle {
    */
   private static void grant(final List<Waiter> admitted) {
     admitted.forEach(waiter -> waiter.grant().tryEmitValue(waiter.granted().get()));
+  }
+
+  /** The waiting start that fits and goes first, or null if none fits. */
+  @Nullable
+  private Waiter nextToAdmit() {
+    Waiter best = null;
+    int bestRunning = 0;
+    for (final Waiter waiter : queue) {
+      if (!fits(waiter.key())) {
+        continue;
+      }
+      final int running = runningPerSession.getOrDefault(sessionOf(waiter.key()), 0);
+      if (best == null
+          || waiter.priority().get() > best.priority().get()
+          || (waiter.priority().get() == best.priority().get() && running < bestRunning)) {
+        best = waiter;
+        bestRunning = running;
+      }
+    }
+    return best;
   }
 
   /** Called when a waiting start is cancelled; gives back a slot it was granted in the meantime. */
@@ -376,6 +544,15 @@ public class ExecutionScheduler implements SmartLifecycle {
     return Integer.MAX_VALUE - 100;
   }
 
+  /** Why a start was refused. */
+  public enum RejectReason {
+    SHUTDOWN,
+    LIMIT,
+    QUEUE_FULL,
+    WORKFLOW_QUEUE_FULL,
+    QUEUE_TIMEOUT
+  }
+
   /** What to do with a start that does not fit within the limits. */
   public enum OnLimit {
     QUEUE,
@@ -412,5 +589,9 @@ public class ExecutionScheduler implements SmartLifecycle {
 
   /** A start waiting for a slot. */
   private record Waiter(
-      String key, int priority, Sinks.One<Permit> grant, AtomicReference<Permit> granted) {}
+      String key,
+      @Nullable String executionId,
+      AtomicInteger priority,
+      Sinks.One<Permit> grant,
+      AtomicReference<Permit> granted) {}
 }

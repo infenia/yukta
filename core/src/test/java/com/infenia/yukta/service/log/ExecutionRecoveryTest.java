@@ -176,4 +176,21 @@ class ExecutionRecoveryTest {
 
     StepVerifier.create(checkpoints.getAll("r1", "n1")).verifyComplete();
   }
+
+  @Test
+  void schedulerChanges_areNotRuns_theyStayAndAreTrimmedSeparately() {
+    store.append(
+        ExecutionLogEvent.control(true, ExecutionLogEvent.SCHEDULER, "SetLimits(1)", null));
+    store.append(
+        ExecutionLogEvent.control(true, ExecutionLogEvent.SCHEDULER, "SetLimits(2)", null));
+    finishedRun("r1", "SUCCESS");
+
+    new ExecutionRecovery(store, tracker, 1).recover();
+
+    assertThat(store.readAll())
+        .extracting(ExecutionLogEvent::executionId)
+        .containsExactly("scheduler", "r1", "r1");
+    assertThat(store.readAll().getFirst().status()).isEqualTo("SetLimits(2)");
+    assertThat(tracker.getProgress("s1", "r1")).isNotNull();
+  }
 }

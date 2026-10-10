@@ -35,6 +35,9 @@ public record ExecutionLogEvent(
     @Nullable Map<String, Object> payload,
     Instant timestamp) {
 
+  /** Run id under which changes that belong to no run (scheduler limits) are recorded. */
+  public static final String SCHEDULER = "scheduler";
+
   /** Kind of log entry. */
   public enum Type {
     RUN_STARTED,
@@ -45,7 +48,9 @@ public record ExecutionLogEvent(
     /** A node ended successfully, so its recorded output is a safe place to resume from. */
     NODE_FINISHED,
     /** An aborted run was resumed; its status holds the id of the new run. */
-    RUN_RESUMED
+    RUN_RESUMED,
+    /** A start with an idempotency key succeeded; its status holds the scope and the key. */
+    IDEMPOTENCY_KEY
   }
 
   /**
@@ -136,6 +141,27 @@ public record ExecutionLogEvent(
         "SUCCESS",
         Map.of(),
         nodeId,
+        null,
+        Instant.now());
+  }
+
+  /**
+   * A start with an idempotency key created an execution.
+   *
+   * @param executionId the execution it created
+   * @param scopedKey the scope and the client's key
+   * @return the event
+   */
+  public static ExecutionLogEvent idempotencyKey(final String executionId, final String scopedKey) {
+    return new ExecutionLogEvent(
+        Type.IDEMPOTENCY_KEY,
+        executionId,
+        "",
+        "",
+        null,
+        scopedKey,
+        Map.of(),
+        null,
         null,
         Instant.now());
   }

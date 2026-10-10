@@ -163,6 +163,28 @@ public interface ControlBusGateway {
   Mono<Void> skipNode(String executionId, String nodeId, boolean skip);
 
   /**
+   * Set a breakpoint on a node: it holds before the first element that matches, as if paused, until
+   * resumed. The breakpoint stays set and hits again.
+   *
+   * @param executionId the execution to target
+   * @param nodeId the node to hold
+   * @param field {@code payload}, {@code payload.some.path} or {@code metadata.key}
+   * @param equalsValue the text the value at {@code field} must equal
+   * @return a Mono that completes when the breakpoint is set
+   */
+  @SuppressWarnings("PMD.UseObjectForClearerAPI")
+  Mono<Void> addBreakpoint(String executionId, String nodeId, String field, String equalsValue);
+
+  /**
+   * Clear the breakpoint of a node.
+   *
+   * @param executionId the execution to target
+   * @param nodeId the node
+   * @return a Mono that completes when the breakpoint is cleared
+   */
+  Mono<Void> clearBreakpoint(String executionId, String nodeId);
+
+  /**
    * Enable step-through debug mode on a node.
    *
    * <p>Each element must be explicitly stepped via {@link #stepNode}. The node automatically pauses
@@ -291,6 +313,36 @@ public interface ControlBusGateway {
    * @return a Mono containing the newly generated execution ID
    */
   Mono<String> restartFromNode(String executionId, String fromNodeId);
+
+  /**
+   * Re-run a node that failed, with the output its parents recorded, together with everything
+   * behind it. Fails if the node did not fail in that execution.
+   *
+   * @param executionId the execution the node failed in
+   * @param nodeId the failed node
+   * @return a Mono containing the newly generated execution ID
+   */
+  Mono<String> retryNode(String executionId, String nodeId);
+
+  /**
+   * Change how many executions may run at once; raising a limit admits waiting starts at once.
+   *
+   * @param maxConcurrent global limit, 0 for none
+   * @param maxPerWorkflow per-workflow limit, 0 for none
+   * @return a Mono that completes when the limits are changed
+   */
+  Mono<Void> changeLimits(int maxConcurrent, int maxPerWorkflow);
+
+  /**
+   * Change the priority of an execution that is waiting for a slot. It is recorded in the execution
+   * log like any control command.
+   *
+   * @param executionId the waiting execution
+   * @param priority higher is admitted first
+   * @return a Mono that completes when the priority is changed; errors if the execution is not
+   *     waiting
+   */
+  Mono<Void> changePriority(String executionId, int priority);
 
   // --- Observability ---
 

@@ -195,6 +195,13 @@ public interface TaskTrackerService {
   void emitWorkflowStatusEvent(@NotBlank String executionId, @NotNull TaskStatus status);
 
   /**
+   * Counts a retry of a node's processing of a message.
+   *
+   * @param module the node's plugin type
+   */
+  void recordRetry(String module);
+
+  /**
    * Record an operator control state (pause, step, skip, ...) for an execution.
    *
    * <p>Control state is reported next to, never instead of, the lifecycle status.

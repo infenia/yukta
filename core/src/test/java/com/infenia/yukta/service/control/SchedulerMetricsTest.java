@@ -29,4 +29,29 @@ class SchedulerMetricsTest {
     java.util.Objects.requireNonNull(running.permit().block()).release();
     assertThat(registry.get("yukta.executions.queued").gauge().value()).isZero();
   }
+
+  @Test
+  void bindTo_reportsRejectionsByReason() {
+    final ExecutionScheduler scheduler =
+        new ExecutionScheduler(1, 0, 10, ExecutionScheduler.OnLimit.REJECT, Duration.ofSeconds(1));
+    final SimpleMeterRegistry registry = new SimpleMeterRegistry();
+    new SchedulerMetrics(scheduler).bindTo(registry);
+    scheduler.acquire("s", "w");
+    scheduler.acquire("s", "w").permit().subscribe(p -> {}, e -> {});
+
+    assertThat(
+            registry
+                .get("yukta.executions.rejected")
+                .tag("reason", "limit")
+                .functionCounter()
+                .count())
+        .isEqualTo(1.0);
+    assertThat(
+            registry
+                .get("yukta.executions.rejected")
+                .tag("reason", "queue_timeout")
+                .functionCounter()
+                .count())
+        .isZero();
+  }
 }

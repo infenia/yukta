@@ -24,6 +24,9 @@ All service logic uses **Project Reactor** (`Mono`, `Flux`).
 
 ### Workflow Orchestration
 - `com.infenia.yukta.service.orchestrator.WorkflowOrchestrator`: DAG orchestration logic, split across `assembly/`, `compiler/`, `preparator/`, `strategy/`, `stream/`, `tracker/`, and `validator/` subpackages.
+- `tracker/` keeps the queue and projections in `DefaultTaskTrackerService`, one run's state in
+  `WorkflowState` and the spans and meters in `RunTelemetry`. `DefaultControlBusGateway` delegates
+  starting (admission, shared prepare, idempotency) to `WorkflowStarter`.
 - `com.infenia.yukta.service.plugin.PluginRegistry`: Plugin registration.
 - Executes a Directed Acyclic Graph (DAG) of nodes and edges.
 
@@ -93,6 +96,9 @@ Malformed policies are rejected by `WorkflowValidator` with the node id and opti
   payload (`RUN_STARTED`) and each successful node (`NODE_FINISHED`); finished nodes with complete
   output replay, the rest run again. A run resumes once (`RUN_RESUMED`) and only if its definition
   is unchanged. There is no REST/MCP endpoint for it yet.
+  Only one resume per run is accepted (the claim is kept in memory and dropped on failure). A node's
+  end is queued for the log writer and not fsynced, so a crash right after it can make a resume run
+  that node again; make plugins idempotent on the message `id` (guide finding R40).
 - Run starts and ends go to an `ExecutionLogStore`. By default it is in memory; set
   `yukta.execution-log.dir` to keep `executions.jsonl` on disk. On startup `ExecutionRecovery`
   marks runs that never finished as `ABORTED`, restores the newest
@@ -109,11 +115,21 @@ Malformed policies are rejected by `WorkflowValidator` with the node id and opti
   than `yukta.execution.queue-timeout`, default off, ends `TIMED_OUT`) or is refused with HTTP 429
   (`REJECT`, or queue full). On shutdown nothing new is admitted, queued starts are refused, and
   running ones get `yukta.execution.shutdown-timeout` (default 30s) to finish.
+- `yukta.execution.max-concurrent-per-session` (default none) caps one session. Within a priority a
+  freed slot goes to the session with the fewest running executions (oldest first on a tie), so a
+  busy session cannot starve the others. `yukta.execution.queue-capacity-per-workflow` (default none)
+  caps how many starts of one workflow may wait. Refusals are counted in
+  `yukta.executions.rejected{reason=shutdown|limit|queue_full|workflow_queue_full|queue_timeout}`.
 - `POST /workflow/start` accepts an optional `Idempotency-Key` header: a repeat with the same key for
   the same session and workflow within `yukta.start.idempotency-ttl` (default 10m) returns the first
-  execution id instead of starting another. A failed start is not remembered.
+  execution id instead of starting another. A failed start is not remembered. With the file log
+  (`yukta.execution-log.dir`) the keys are written to it (`IDEMPOTENCY_KEY`) and reloaded on startup,
+  so a client retrying after a restart still gets the first execution; the window restarts at the
+  reload.
 - Waiting starts are admitted by priority: a start payload key `yukta.priority` (number, higher
-  first, default 0), then arrival order. `ExecutionScheduler.setLimits` changes the limits at run time.
+  first, default 0), then arrival order. `ExecutionScheduler.setLimits` changes the limits at run time; through the gateway
+  (`changeLimits`) the change is recorded in the log under run id `scheduler` (the newest
+  `retained-runs` of them are kept). Limits are not restored from the log on startup.
 - Concurrent starts of a workflow that is not prepared yet share one preparation (per definition
   content). A prepared workflow is cached only if its definition is still the stored one.
 - Restarting a finished run goes through the same admission check as a start (HTTP 429 when full).
@@ -125,6 +141,26 @@ executions are not recorded. `POST /api/workflow/{session}/{workflow}/stop?mode=
 selects how a run stops (default `DRAIN`). Restart-from-node after a server restart is not supported (the archive lives in
 memory); use `ExecutionResumer` for aborted runs.
 `yukta.executions.running` and `yukta.executions.queued` gauges report the scheduler.
+
+Gateway commands for a live run (`ControlBusGateway`; REST/MCP endpoints for them are not built):
+- `skipNode(execution, node, skip)`: a processor node passes elements through without calling the
+  plugin from the next element on (the decision is taken as each element arrives; one already in the
+  plugin finishes). Other node types are rejected. Unskip resumes normal processing.
+- `addBreakpoint` / `clearBreakpoint`: hold a node before the first element whose `payload`,
+  `payload.some.path` or `metadata.key` equals a given text (`SetBreakpointCommand`, so it is
+  ordered and audited like any command).
+- `retryNode(execution, node)`: re-runs a node that ended `FAILURE` or `TIMED_OUT` with the output
+  its parents recorded, plus everything behind it (restart-from-node with a check).
+- `changeLimits(max, perWorkflow)`: the scheduler limits; logged, not in the run log (no run).
+- `changePriority(execution, priority)`: moves a start that is `QUEUED`; recorded in the run log as
+  `SetPriority(n)`, rejected if the run is not waiting.
+
+### Node status only moves forward
+`WorkflowState.updateTask` ignores a status that would reopen an ended node or step a node back
+(`PENDING` < `QUEUED` < `RUNNING` < any terminal status); the metadata of such an event is still
+merged. `WorkflowStateTransitionTest` checks this on thousands of random event orders, and
+`StreamTopologyDecoratorBackpressureTest` (a 20-node chain, 10k messages, bounded memory) guards the
+streaming side as part of `check`.
 
 ### Tracker queue
 State and workflow events are never dropped: they go to an unbounded queue. Log lines are best
@@ -153,17 +189,23 @@ the run uses (the same value the archive and the execution log store). The contr
 resubscribes with capped backoff if its stream ever fails, until `shutdown()`.
 
 ### Breakpoints and tracing
-`ReactiveControlValve.setBreakpoint(predicate)` (per node, via `ExecutionControl.nodePauseValves()`)
-holds the node on the first element that matches until it is resumed. Each node run is one
+`ReactiveControlValve.setBreakpoint(predicate)` (per node, via `ExecutionControl.nodePauseValves()`;
+remote callers use `ControlBusGateway.addBreakpoint`) holds the node on the first element that matches until it is resumed. Each node run is one
 Micrometer observation `yukta.node` (tags `module`, `status`), which becomes a span when a tracer
-is on the classpath. Re-running a node is `RestartFromNode`.
+is on the classpath, as a child of the run's `yukta.run` observation. Re-running a node is
+`RestartFromNode`.
 
 ### Validation limits and metrics
 - `WorkflowValidator` rejects duplicate node ids and edges, an edge `sourcePort` the source plugin
   does not declare (`error` is allowed on nodes with `onError: ROUTE`), and graphs over 500 nodes or
   2000 edges.
 - The tracker records Micrometer `yukta.node.executions` (tags `module`, `status`) and
-  `yukta.node.duration` (tag `module`) when a node reaches a terminal status.
+  `yukta.node.duration` (tag `module`) when a node reaches a terminal status, `yukta.node.retries`
+  (tag `module`) per retried message, `yukta.execution.duration` (tag `status`) per run and
+  `yukta.execution.queue.wait` per start that waited. `yukta.checkpoint.bytes` is the node output the
+  checkpoint store holds. The full list is in the guide ("Metrics and tracing").
+- Tracing: every run is one `yukta.run` observation, the parent of its `yukta.node` observations.
+  Engine log lines carry `executionId`/`nodeId` as structured key-values; there is no MDC.
 
 ## Key File Locations
 - **Services**: `src/main/java/com/infenia/yukta/service/`

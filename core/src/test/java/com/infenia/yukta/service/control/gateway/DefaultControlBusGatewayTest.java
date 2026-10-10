@@ -102,7 +102,8 @@ class DefaultControlBusGatewayTest {
             preparedWorkflowCache,
             new ExecutionScheduler(
                 0, 0, 100, ExecutionScheduler.OnLimit.QUEUE, java.time.Duration.ofSeconds(30)),
-            new StartIdempotency(java.time.Duration.ofMinutes(10)));
+            new StartIdempotency(java.time.Duration.ofMinutes(10)),
+            new com.infenia.yukta.service.log.InMemoryExecutionLogStore());
   }
 
   // --- Plugin & Message Management Tests ---
@@ -453,7 +454,8 @@ class DefaultControlBusGatewayTest {
             preparedWorkflowCache,
             new ExecutionScheduler(
                 0, 0, 100, ExecutionScheduler.OnLimit.QUEUE, java.time.Duration.ofSeconds(30)),
-            new StartIdempotency(java.time.Duration.ofMinutes(10)));
+            new StartIdempotency(java.time.Duration.ofMinutes(10)),
+            new com.infenia.yukta.service.log.InMemoryExecutionLogStore());
     when(controlBusService.emit(any())).thenReturn(Mono.empty());
 
     // When / Then - a real, existing node succeeds
@@ -2405,7 +2407,8 @@ class DefaultControlBusGatewayTest {
             workflowDefinitionStore,
             preparedWorkflowCache,
             scheduler,
-            new StartIdempotency(java.time.Duration.ofMinutes(1)));
+            new StartIdempotency(java.time.Duration.ofMinutes(1)),
+            new com.infenia.yukta.service.log.InMemoryExecutionLogStore());
 
     StepVerifier.create(full.startWorkflow("s", "wf-full", Map.of()))
         .expectError(ExecutionRejectedException.class)
@@ -2442,5 +2445,158 @@ class DefaultControlBusGatewayTest {
         .verifyComplete();
 
     assertThat(prepares).hasValue(1);
+  }
+
+  // --- Breakpoint, retry, limits, priority ---
+
+  private WorkflowProgress progressWith(final String nodeId, final String status) {
+    return new WorkflowProgress(
+        "e1",
+        "s",
+        "w",
+        "FAILURE",
+        List.of(
+            new com.infenia.yukta.model.execution.TaskProgress(
+                nodeId, "m", status, null, null, Map.of())),
+        null,
+        null,
+        null,
+        null);
+  }
+
+  @Test
+  void setBreakpoint_emitsCommand_andClearEmitsEmptyOne() {
+    final ExecutionControl control = mock(ExecutionControl.class);
+    when(control.nodePauseValves()).thenReturn(Map.of("n1", new ReactiveControlValve()));
+    when(executionControlRegistry.findByExecutionId("e1")).thenReturn(Optional.of(control));
+    when(controlBusService.emit(any())).thenReturn(Mono.empty());
+
+    StepVerifier.create(gateway.addBreakpoint("e1", "n1", "payload.x", "1")).verifyComplete();
+    StepVerifier.create(gateway.clearBreakpoint("e1", "n1")).verifyComplete();
+
+    final ArgumentCaptor<Message<?>> captor = ArgumentCaptor.forClass(Message.class);
+    verify(controlBusService, times(2)).emit(captor.capture());
+    assertThat(captor.getAllValues().get(0).payload())
+        .isEqualTo(
+            new com.infenia.yukta.plugin.control.ExecutionControlCommand.SetBreakpointCommand(
+                "e1", "n1", "payload.x", "1"));
+    assertThat(captor.getAllValues().get(1).payload())
+        .isEqualTo(
+            new com.infenia.yukta.plugin.control.ExecutionControlCommand.SetBreakpointCommand(
+                "e1", "n1", null, null));
+  }
+
+  @Test
+  void retryNode_ofFailedNode_restartsFromIt() {
+    when(taskTracker.getProgressByExecutionId("e1")).thenReturn(progressWith("n1", "FAILURE"));
+    when(executionControlRegistry.findByExecutionId("e1"))
+        .thenReturn(Optional.of(mock(ExecutionControl.class)));
+    when(controlBusService.emit(any())).thenReturn(Mono.empty());
+
+    StepVerifier.create(gateway.retryNode("e1", "n1"))
+        .then(
+            () -> {
+              final ArgumentCaptor<Message<?>> captor = ArgumentCaptor.forClass(Message.class);
+              verify(controlBusService).emit(captor.capture());
+              final RestartFromNodeCommand cmd =
+                  (RestartFromNodeCommand) captor.getValue().payload();
+              assertThat(cmd.fromNodeId()).isEqualTo("n1");
+              gateway.completeRestartSuccess(cmd.newExecutionId());
+            })
+        .expectNextCount(1)
+        .verifyComplete();
+  }
+
+  @Test
+  void retryNode_ofNodeThatDidNotFail_unknownNodeOrExecution_isRefused() {
+    when(taskTracker.getProgressByExecutionId("e1")).thenReturn(progressWith("n1", "SUCCESS"));
+    when(taskTracker.getProgressByExecutionId("nope")).thenReturn(null);
+
+    StepVerifier.create(gateway.retryNode("e1", "n1"))
+        .expectErrorMatches(
+            e -> e instanceof IllegalArgumentException && e.getMessage().contains("did not fail"))
+        .verify();
+    StepVerifier.create(gateway.retryNode("e1", "ghost"))
+        .expectError(com.infenia.yukta.service.NotFoundException.class)
+        .verify();
+    StepVerifier.create(gateway.retryNode("nope", "n1"))
+        .expectError(com.infenia.yukta.service.NotFoundException.class)
+        .verify();
+    verify(controlBusService, never()).emit(any());
+  }
+
+  @Test
+  void setLimits_changesTheSchedulerLimits_andIsAudited() {
+    final com.infenia.yukta.service.log.InMemoryExecutionLogStore auditLog =
+        new com.infenia.yukta.service.log.InMemoryExecutionLogStore();
+    final ExecutionScheduler real =
+        new ExecutionScheduler(
+            1, 0, 10, ExecutionScheduler.OnLimit.QUEUE, java.time.Duration.ofSeconds(1));
+    final DefaultControlBusGateway limited =
+        new DefaultControlBusGateway(
+            controlBusService,
+            taskTracker,
+            executionControlRegistry,
+            archive,
+            orchestrator,
+            workflowDefinitionStore,
+            preparedWorkflowCache,
+            real,
+            new StartIdempotency(java.time.Duration.ofMinutes(1)),
+            auditLog);
+    real.acquire("s", "w").permit().block();
+    final var waiting = real.acquire("s", "w").permit().toFuture();
+
+    StepVerifier.create(limited.changeLimits(2, 0)).verifyComplete();
+
+    assertThat(waiting).isCompleted();
+    assertThat(auditLog.readAll())
+        .singleElement()
+        .satisfies(
+            e -> {
+              assertThat(e.executionId())
+                  .isEqualTo(com.infenia.yukta.service.log.ExecutionLogEvent.SCHEDULER);
+              assertThat(e.status()).isEqualTo("SetLimits(2, 0)");
+            });
+  }
+
+  @Test
+  void setPriority_isAuditedWhetherItWorkedOrNot() {
+    final ExecutionScheduler real =
+        new ExecutionScheduler(
+            1, 0, 10, ExecutionScheduler.OnLimit.QUEUE, java.time.Duration.ofSeconds(1));
+    final com.infenia.yukta.service.log.InMemoryExecutionLogStore log =
+        new com.infenia.yukta.service.log.InMemoryExecutionLogStore();
+    final DefaultControlBusGateway limited =
+        new DefaultControlBusGateway(
+            controlBusService,
+            taskTracker,
+            executionControlRegistry,
+            archive,
+            orchestrator,
+            workflowDefinitionStore,
+            preparedWorkflowCache,
+            real,
+            new StartIdempotency(java.time.Duration.ofMinutes(1)),
+            log);
+    real.acquire("s", "w").permit().block();
+    real.acquire("s", "w", 0, "waiting").permit().subscribe();
+
+    StepVerifier.create(limited.changePriority("waiting", 5)).verifyComplete();
+    StepVerifier.create(limited.changePriority("running", 5))
+        .expectError(IllegalArgumentException.class)
+        .verify();
+
+    assertThat(log.readAll())
+        .extracting(
+            com.infenia.yukta.service.log.ExecutionLogEvent::type,
+            com.infenia.yukta.service.log.ExecutionLogEvent::status)
+        .containsExactly(
+            org.assertj.core.groups.Tuple.tuple(
+                com.infenia.yukta.service.log.ExecutionLogEvent.Type.CONTROL_APPLIED,
+                "SetPriority(5)"),
+            org.assertj.core.groups.Tuple.tuple(
+                com.infenia.yukta.service.log.ExecutionLogEvent.Type.CONTROL_REJECTED,
+                "SetPriority(5): the execution is not waiting for a slot"));
   }
 }
