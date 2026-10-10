@@ -25,6 +25,7 @@ public interface Message<T> {
    *
    * @return the message ID
    */
+  @SuppressWarnings("PMD.ShortMethodName")
   String id();
 
   /**

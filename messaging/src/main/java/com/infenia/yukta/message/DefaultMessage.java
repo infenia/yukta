@@ -78,6 +78,7 @@ public record DefaultMessage<T>(
   }
 
   @Override
+  @SuppressWarnings("PMD.OptimizableToArrayCall") // one extra slot is filled below
   public Message<T> withAddedHistory(final String nodeId) {
     final int size = messageHistory.size();
     final List<String> tail = messageHistory.subList(Math.max(0, size - (MAX_HISTORY - 1)), size);
@@ -130,6 +131,7 @@ public record DefaultMessage<T>(
   }
 
   @Override
+  @SuppressWarnings("PMD.UseConcurrentHashMap") // local, never shared
   public Message<T> withHeader(final String key, final Object value) {
     Objects.requireNonNull(key, "header key must not be null");
     final Map<String, Object> newMetadata = new HashMap<>(metadata);
@@ -142,12 +144,18 @@ public record DefaultMessage<T>(
   }
 
   private static Map<String, Object> copyWithoutNulls(final Map<String, Object> source) {
-    if (source == null || source.isEmpty()) {
-      return Map.of();
+    Map<String, Object> result = Map.of();
+    if (source != null && !source.isEmpty()) {
+      result =
+          source.values().stream().noneMatch(Objects::isNull)
+              ? Map.copyOf(source)
+              : dropNullValues(source);
     }
-    if (source.values().stream().noneMatch(Objects::isNull)) {
-      return Map.copyOf(source);
-    }
+    return result;
+  }
+
+  @SuppressWarnings("PMD.UseConcurrentHashMap") // local, never shared
+  private static Map<String, Object> dropNullValues(final Map<String, Object> source) {
     final Map<String, Object> copy = new HashMap<>(source);
     copy.values().removeIf(Objects::isNull);
     return Map.copyOf(copy);

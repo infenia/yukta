@@ -363,7 +363,6 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
 
   @Override
   public <T extends ExecutionControlCommand> Mono<Void> executeCommand(final Message<T> command) {
-    @SuppressWarnings({"PMD.LawOfDemeter"})
     final var commandType = command.payload().getClass().getSimpleName();
     log.atDebug().addKeyValue("commandType", commandType).log("Executing control command");
     return emit(command);

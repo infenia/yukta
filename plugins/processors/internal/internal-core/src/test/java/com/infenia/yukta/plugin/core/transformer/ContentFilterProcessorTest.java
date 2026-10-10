@@ -279,4 +279,25 @@ class ContentFilterProcessorTest {
     assertTrue(processor.getUiDesign().isPresent());
     assertTrue(processor.getUiDesign().get().html().contains("C-Filter"));
   }
+
+  @Test
+  void testOutputPorts() {
+    assertEquals(List.of("default"), processor.getOutputPorts(Map.of()));
+    assertEquals(List.of("default", "err"), processor.getOutputPorts(Map.of("errorPort", "err")));
+  }
+
+  @Test
+  void testValidateConfig() {
+    StepVerifier.create(processor.validateConfig(Map.of())).expectError().verify();
+    StepVerifier.create(processor.validateConfig(Map.of("paths", "a"))).expectError().verify();
+    StepVerifier.create(processor.validateConfig(Map.of("paths", List.of("a"), "mode", "X")))
+        .expectError()
+        .verify();
+    StepVerifier.create(processor.validateConfig(Map.of("paths", List.of("a")))).verifyComplete();
+  }
+
+  @Test
+  void testPrepare() {
+    StepVerifier.create(processor.prepare(Map.of("paths", List.of("#payload.a")))).verifyComplete();
+  }
 }

@@ -339,4 +339,49 @@ class SplitterProcessorTest {
         .expectErrorMatches(e -> e.getMessage().contains("Splitter failed"))
         .verify();
   }
+
+  @Test
+  void testExpirationAndFormatPropagateToChildren() {
+    final Message<?> parent =
+        DefaultMessage.create(UUID.randomUUID(), Map.of("items", List.of("a")))
+            .withExpiration(500L)
+            .withFormatIndicator("json-v2");
+
+    StepVerifier.create(processor.process(Flux.just(parent), Map.of("itemsPath", "payload.items")))
+        .expectNextMatches(m -> m.expiration() == 500L && "json-v2".equals(m.formatIndicator()))
+        .verifyComplete();
+  }
+
+  @Test
+  void testNullItemsRoutedToErrorPort() {
+    final Message<?> parent = DefaultMessage.create(UUID.randomUUID(), Map.of());
+    final Map<String, Object> config = Map.of("itemsPath", "payload.missing", "errorPort", "err");
+
+    assertEquals(List.of("default", "err"), processor.getOutputPorts(config));
+    StepVerifier.create(processor.process(Flux.just(parent), config))
+        .expectNextMatches(m -> "err".equals(m.sourcePort()) && m.failureReason() != null)
+        .verifyComplete();
+  }
+
+  @Test
+  void testPrepareIgnoresNonStringMappingValues() {
+    final Map<String, Object> config =
+        Map.of("itemsPath", "payload.items", "headerMapping", Map.of("a", 1, "b", "payload.x"));
+
+    StepVerifier.create(processor.prepare(config)).verifyComplete();
+  }
+
+  @Test
+  void testExplicitNullItemsStrictAndNonStrict() {
+    final Message<?> parent =
+        DefaultMessage.create(UUID.randomUUID(), Collections.singletonMap("items", null));
+
+    StepVerifier.create(processor.process(Flux.just(parent), Map.of("itemsPath", "payload.items")))
+        .expectErrorMatches(e -> e.getMessage().contains("itemsPath null"))
+        .verify();
+    StepVerifier.create(
+            processor.process(
+                Flux.just(parent), Map.of("itemsPath", "payload.items", "strictMode", false)))
+        .verifyComplete();
+  }
 }

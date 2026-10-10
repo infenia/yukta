@@ -305,6 +305,7 @@ class DefaultMessageTest {
   }
 
   @Test
+  @SuppressWarnings("PMD.UseConcurrentHashMap")
   void testNullMetadataValuesAreDropped() {
     final Map<String, Object> raw = new HashMap<>();
     raw.put("keep", "v");

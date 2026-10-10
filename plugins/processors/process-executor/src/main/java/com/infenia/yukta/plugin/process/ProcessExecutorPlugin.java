@@ -36,7 +36,6 @@ import tools.jackson.databind.ObjectMapper;
   "PMD.TooManyMethods",
   "PMD.CommentRequired",
   "PMD.OnlyOneReturn",
-  "PMD.LawOfDemeter",
   "PMD.UseConcurrentHashMap",
   "PMD.InsufficientStringBufferDeclaration",
   "PMD.ExceptionAsFlowControl"

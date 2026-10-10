@@ -37,12 +37,7 @@ import reactor.util.concurrent.Queues;
  */
 @Slf4j
 @Service
-@SuppressWarnings({
-  "PMD.TooManyMethods",
-  "PMD.AvoidCatchingGenericException",
-  "PMD.LawOfDemeter",
-  "PMD.OnlyOneReturn"
-})
+@SuppressWarnings({"PMD.TooManyMethods", "PMD.AvoidCatchingGenericException", "PMD.OnlyOneReturn"})
 public class ControlBusService {
 
   /** Separator used to create composite keys from workflow and node IDs. */
