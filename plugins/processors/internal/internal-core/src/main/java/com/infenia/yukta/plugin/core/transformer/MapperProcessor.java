@@ -6,6 +6,7 @@ import com.github.jknack.handlebars.Handlebars;
 import com.github.jknack.handlebars.Template;
 import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
+import com.infenia.yukta.plugin.core.PluginDescriptor;
 import com.infenia.yukta.plugin.core.UiDesign;
 import com.infenia.yukta.plugin.core.WorkflowContext;
 import com.infenia.yukta.plugin.type.ProcessorPlugin;
@@ -92,48 +93,43 @@ public class MapperProcessor implements ProcessorPlugin {
   }
 
   @Override
-  public String getDescription() {
-    return "Transforms message payloads using PROJECTION (SpEL), TEMPLATE (Handlebars), or SCRIPT"
-        + " (GraalVM JS) modes.";
-  }
-
-  @Override
-  public String getUsagePattern() {
-    return "Configure with:\n"
-        + "- mode: 'PROJECTION', 'TEMPLATE', or 'SCRIPT'.\n"
-        + "- mapping:\n"
-        + "    - For PROJECTION: Map of target field (supports dot notation) to SpEL expression.\n"
-        + "    - For TEMPLATE: Map of target field to Handlebars template, or a single string "
-        + "template.\n"
-        + "    - For SCRIPT: A JavaScript string returning the new payload.\n"
-        + "- dropOriginal: Boolean. If true (default), original payload is discarded.\n"
-        + "- strictMode: Boolean. If true (default), throws exception on transformation errors.";
+  public PluginDescriptor describe() {
+    return new PluginDescriptor(
+        "Transforms message payloads using PROJECTION (SpEL), TEMPLATE (Handlebars), or SCRIPT"
+            + " (GraalVM JS) modes.",
+        "Configure with:\n"
+            + "- mode: 'PROJECTION', 'TEMPLATE', or 'SCRIPT'.\n"
+            + "- mapping:\n"
+            + "    - For PROJECTION: Map of target field (supports dot notation) to SpEL"
+            + " expression.\n"
+            + "    - For TEMPLATE: Map of target field to Handlebars template, or a single string"
+            + " template.\n"
+            + "    - For SCRIPT: A JavaScript string returning the new payload.\n"
+            + "- dropOriginal: Boolean. If true (default), original payload is discarded.\n"
+            + "- strictMode: Boolean. If true (default), throws exception on transformation"
+            + " errors.",
+        Optional.of(
+            new UiDesign(
+                """
+                <div class="flex items-center w-full h-full bg-slate-50 border-2 border-slate-200 rounded-xl px-4 gap-3">
+                    <div class="flex-shrink-0 w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center text-slate-500">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                        </svg>
+                    </div>
+                    <div class="flex flex-col min-w-0">
+                        <div class="text-[10px] text-slate-400 font-bold uppercase tracking-wider leading-none mb-1">Mapper</div>
+                        <div class="text-xs font-bold text-slate-700 truncate w-full">{{nodeId}}</div>
+                    </div>
+                </div>
+                """,
+                140,
+                80)));
   }
 
   @Override
   public String getType() {
     return TYPE;
-  }
-
-  @Override
-  public Optional<UiDesign> getUiDesign() {
-    return Optional.of(
-        new UiDesign(
-            """
-            <div class="flex items-center w-full h-full bg-slate-50 border-2 border-slate-200 rounded-xl px-4 gap-3">
-                <div class="flex-shrink-0 w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center text-slate-500">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
-                    </svg>
-                </div>
-                <div class="flex flex-col min-w-0">
-                    <div class="text-[10px] text-slate-400 font-bold uppercase tracking-wider leading-none mb-1">Mapper</div>
-                    <div class="text-xs font-bold text-slate-700 truncate w-full">{{nodeId}}</div>
-                </div>
-            </div>
-            """,
-            140,
-            80));
   }
 
   @Override
