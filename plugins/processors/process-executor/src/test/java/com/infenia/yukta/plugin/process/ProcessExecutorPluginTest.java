@@ -92,12 +92,12 @@ class ProcessExecutorPluginTest {
 
   @Test
   void testGetDescription() {
-    assertThat(plugin.getDescription()).isNotEmpty();
+    assertThat(plugin.describe().description()).isNotEmpty();
   }
 
   @Test
   void getUsagePattern_documentsAllConfigurationKeys() {
-    assertThat(plugin.getUsagePattern())
+    assertThat(plugin.describe().usagePattern())
         .contains("REQUIRED")
         .contains("command")
         .contains("workingDir")

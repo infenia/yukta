@@ -4,6 +4,7 @@ package com.infenia.yukta.plugin.llm;
 
 import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
+import com.infenia.yukta.plugin.core.PluginDescriptor;
 import com.infenia.yukta.plugin.exception.WorkflowExecutionException;
 import com.infenia.yukta.plugin.type.ProcessorPlugin;
 import com.infenia.yukta.plugin.util.SpelUtils;
@@ -16,6 +17,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -63,19 +65,21 @@ public class LlmCallPlugin implements ProcessorPlugin {
   private final VariableResolver resolver;
 
   @Override
+  public PluginDescriptor describe() {
+    return new PluginDescriptor(
+        "Calls an LLM (OpenAI-compatible, Anthropic, Ollama) and emits {success, content, "
+            + "actions, usage, latencyMs, model, cost?}. <agent_action> blocks are extracted. "
+            + "On failure with failureMode CONTINUE the input payload passes through.",
+        usagePattern(),
+        Optional.empty());
+  }
+
+  @Override
   public String getType() {
     return TYPE;
   }
 
-  @Override
-  public String getDescription() {
-    return "Calls an LLM (OpenAI-compatible, Anthropic, Ollama) and emits {success, content, "
-        + "actions, usage, latencyMs, model, cost?}. <agent_action> blocks are extracted. "
-        + "On failure with failureMode CONTINUE the input payload passes through.";
-  }
-
-  @Override
-  public String getUsagePattern() {
+  private static String usagePattern() {
     // CHECKSTYLE.OFF: Indentation
     // CHECKSTYLE.OFF: TextBlockGoogleStyleFormatting
     return """

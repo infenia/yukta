@@ -121,9 +121,9 @@ public class PluginController {
                         new PluginDetails(
                             p.getType(),
                             p.getCategory(),
-                            p.getDescription(),
-                            p.getUsagePattern(),
-                            p.getUiDesign().orElse(null),
+                            p.describe().description(),
+                            p.describe().usagePattern(),
+                            p.describe().uiDesign().orElse(null),
                             p.getOutputPorts()))))
         .switchIfEmpty(
             Mono.fromSupplier(

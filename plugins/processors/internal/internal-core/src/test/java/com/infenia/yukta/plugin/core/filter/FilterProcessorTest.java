@@ -157,10 +157,10 @@ class FilterProcessorTest {
 
   @Test
   void testUiDesign() {
-    assertTrue(processor.getUiDesign().isPresent());
-    assertEquals(140, processor.getUiDesign().get().width());
-    assertEquals(80, processor.getUiDesign().get().height());
-    assertTrue(processor.getUiDesign().get().html().contains("svg"));
+    assertTrue(processor.describe().uiDesign().isPresent());
+    assertEquals(140, processor.describe().uiDesign().get().width());
+    assertEquals(80, processor.describe().uiDesign().get().height());
+    assertTrue(processor.describe().uiDesign().get().html().contains("svg"));
   }
 
   @Test
@@ -205,8 +205,8 @@ class FilterProcessorTest {
 
   @Test
   void testMetadata() {
-    assertTrue(processor.getDescription().contains("predicate"));
-    assertTrue(processor.getUsagePattern().contains("condition"));
+    assertTrue(processor.describe().description().contains("predicate"));
+    assertTrue(processor.describe().usagePattern().contains("condition"));
   }
 
   @Test

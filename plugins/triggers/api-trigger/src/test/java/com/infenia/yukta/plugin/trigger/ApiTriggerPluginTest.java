@@ -31,15 +31,17 @@ class ApiTriggerPluginTest {
   @Test
   void testMetadata() {
     ApiTriggerPlugin plugin = new ApiTriggerPlugin();
-    assertEquals("Emits the payload received from an API trigger.", plugin.getDescription());
-    org.junit.jupiter.api.Assertions.assertTrue(plugin.getUsagePattern().contains("REST API"));
+    assertEquals(
+        "Emits the payload received from an API trigger.", plugin.describe().description());
+    org.junit.jupiter.api.Assertions.assertTrue(
+        plugin.describe().usagePattern().contains("REST API"));
     assertEquals(1, plugin.getOutputPorts().size());
     assertEquals("default", plugin.getOutputPorts().get(0));
-    org.junit.jupiter.api.Assertions.assertTrue(plugin.getUiDesign().isPresent());
-    assertEquals(140, plugin.getUiDesign().get().width());
-    assertEquals(80, plugin.getUiDesign().get().height());
+    org.junit.jupiter.api.Assertions.assertTrue(plugin.describe().uiDesign().isPresent());
+    assertEquals(140, plugin.describe().uiDesign().get().width());
+    assertEquals(80, plugin.describe().uiDesign().get().height());
     org.junit.jupiter.api.Assertions.assertTrue(
-        plugin.getUiDesign().get().html().contains("material-symbols-outlined"));
+        plugin.describe().uiDesign().get().html().contains("material-symbols-outlined"));
   }
 
   @Test

@@ -75,8 +75,8 @@ class LlmCallPluginTest {
   @Test
   void metadataDescribesPlugin() {
     assertThat(plugin.getType()).isEqualTo("LLM_CALL");
-    assertThat(plugin.getDescription()).isNotBlank();
-    assertThat(plugin.getUsagePattern()).contains("provider");
+    assertThat(plugin.describe().description()).isNotBlank();
+    assertThat(plugin.describe().usagePattern()).contains("provider");
     assertThat(plugin.isBlocking()).isTrue();
   }
 

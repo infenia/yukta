@@ -48,9 +48,9 @@ public class PluginInfoProvider {
     return new PluginDetails(
         plugin.getType(),
         plugin.getCategory(),
-        plugin.getDescription(),
-        plugin.getUsagePattern(),
-        plugin.getUiDesign().orElse(null),
+        plugin.describe().description(),
+        plugin.describe().usagePattern(),
+        plugin.describe().uiDesign().orElse(null),
         plugin.getOutputPorts());
   }
 

@@ -14,6 +14,7 @@ import com.infenia.yukta.mcp.dto.PluginDetails;
 import com.infenia.yukta.mcp.dto.PluginSummary;
 import com.infenia.yukta.plugin.core.Plugin;
 import com.infenia.yukta.plugin.core.PluginCategory;
+import com.infenia.yukta.plugin.core.PluginDescriptor;
 import com.infenia.yukta.service.plugin.PluginRegistry;
 import java.util.List;
 import java.util.Optional;
@@ -48,9 +49,7 @@ class PluginInfoProviderTest {
     Plugin plugin = mock(Plugin.class);
     when(plugin.getType()).thenReturn("test-plugin");
     when(plugin.getCategory()).thenReturn(PluginCategory.PROCESSOR);
-    when(plugin.getDescription()).thenReturn("desc");
-    when(plugin.getUsagePattern()).thenReturn("pattern");
-    when(plugin.getUiDesign()).thenReturn(Optional.empty());
+    when(plugin.describe()).thenReturn(new PluginDescriptor("desc", "pattern", Optional.empty()));
     when(plugin.getOutputPorts()).thenReturn(List.of());
     when(registry.get("test-plugin")).thenReturn(plugin);
 

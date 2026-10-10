@@ -66,8 +66,8 @@ class SessionMemoryPluginTest {
   @Test
   void metadataDescribesPlugin() {
     assertThat(plugin.getType()).isEqualTo("SESSION_MEMORY");
-    assertThat(plugin.getDescription()).isNotBlank();
-    assertThat(plugin.getUsagePattern()).contains("load").contains("append");
+    assertThat(plugin.describe().description()).isNotBlank();
+    assertThat(plugin.describe().usagePattern()).contains("load").contains("append");
   }
 
   @Test

@@ -3,6 +3,7 @@
 package com.infenia.yukta.plugin.core.filter;
 
 import com.infenia.yukta.message.Message;
+import com.infenia.yukta.plugin.core.PluginDescriptor;
 import com.infenia.yukta.plugin.core.PluginMetricsReporter;
 import com.infenia.yukta.plugin.core.UiDesign;
 import com.infenia.yukta.plugin.core.WorkflowContext;
@@ -52,47 +53,40 @@ public final class FilterProcessor implements ProcessorPlugin {
   }
 
   @Override
-  public String getDescription() {
-    return "Evaluates a boolean predicate against a message. If true, the message passes through; "
-        + "if false, it is dropped or rerouted.";
-  }
-
-  @Override
-  public String getUsagePattern() {
-    return "Configure with:\n"
-        + "- condition: The boolean expression to evaluate.\n"
-        + "- engine: 'SpEL' (default) or 'SIMPLE'.\n"
-        + "- strictMode: Boolean. If true (default), throws exception on evaluation error.\n"
-        + "- discardPort: Optional port name to route messages that do not match the"
-        + " condition.\n"
-        + "- allowAfterHeavy: Boolean. If true, allows this filter to be placed after heavy"
-        + " computation without validation warnings (default: false).";
+  public PluginDescriptor describe() {
+    return new PluginDescriptor(
+        "Evaluates a boolean predicate against a message. If true, the message passes through; "
+            + "if false, it is dropped or rerouted.",
+        "Configure with:\n"
+            + "- condition: The boolean expression to evaluate.\n"
+            + "- engine: 'SpEL' (default) or 'SIMPLE'.\n"
+            + "- strictMode: Boolean. If true (default), throws exception on evaluation error.\n"
+            + "- discardPort: Optional port name to route messages that do not match the"
+            + " condition.\n"
+            + "- allowAfterHeavy: Boolean. If true, allows this filter to be placed after heavy"
+            + " computation without validation warnings (default: false).",
+        Optional.of(
+            new UiDesign(
+                """
+                <div class="flex items-center w-full h-full bg-slate-50 border-2 border-slate-200 rounded-xl px-4 gap-3">
+                    <div class="flex-shrink-0 w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center text-blue-500">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"/>
+                        </svg>
+                    </div>
+                    <div class="flex flex-col min-w-0">
+                        <div class="text-[10px] text-slate-400 font-bold uppercase tracking-wider leading-none mb-1">Filter</div>
+                        <div class="text-xs font-bold text-slate-700 truncate w-full">{{nodeId}}</div>
+                    </div>
+                </div>
+                """,
+                140,
+                80)));
   }
 
   @Override
   public String getType() {
     return TYPE;
-  }
-
-  @Override
-  public Optional<UiDesign> getUiDesign() {
-    return Optional.of(
-        new UiDesign(
-            """
-            <div class="flex items-center w-full h-full bg-slate-50 border-2 border-slate-200 rounded-xl px-4 gap-3">
-                <div class="flex-shrink-0 w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center text-blue-500">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"/>
-                    </svg>
-                </div>
-                <div class="flex flex-col min-w-0">
-                    <div class="text-[10px] text-slate-400 font-bold uppercase tracking-wider leading-none mb-1">Filter</div>
-                    <div class="text-xs font-bold text-slate-700 truncate w-full">{{nodeId}}</div>
-                </div>
-            </div>
-            """,
-            140,
-            80));
   }
 
   @Override

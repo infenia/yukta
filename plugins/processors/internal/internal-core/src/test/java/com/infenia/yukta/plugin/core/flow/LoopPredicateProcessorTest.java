@@ -153,9 +153,9 @@ class LoopPredicateProcessorTest {
   @Test
   void testMetadata() {
     org.junit.jupiter.api.Assertions.assertEquals("LOOP_PREDICATE", processor.getType());
-    org.junit.jupiter.api.Assertions.assertNotNull(processor.getDescription());
-    org.junit.jupiter.api.Assertions.assertNotNull(processor.getUsagePattern());
-    org.junit.jupiter.api.Assertions.assertTrue(processor.getUiDesign().isPresent());
+    org.junit.jupiter.api.Assertions.assertNotNull(processor.describe().description());
+    org.junit.jupiter.api.Assertions.assertNotNull(processor.describe().usagePattern());
+    org.junit.jupiter.api.Assertions.assertTrue(processor.describe().uiDesign().isPresent());
   }
 
   @Test

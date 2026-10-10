@@ -6,19 +6,18 @@ import com.infenia.yukta.message.Message;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import reactor.core.publisher.Mono;
 
 /** Base interface for all workflow plugins. */
 public interface Plugin {
 
   /**
-   * Get the UI design metadata for this plugin.
+   * Get the human-facing metadata of this plugin: description, usage pattern and UI design.
    *
-   * @return the UI design, or empty if using the default design
+   * @return the descriptor; {@link PluginDescriptor#EMPTY} by default
    */
-  default Optional<UiDesign> getUiDesign() {
-    return Optional.empty();
+  default PluginDescriptor describe() {
+    return PluginDescriptor.EMPTY;
   }
 
   /**
@@ -71,25 +70,6 @@ public interface Plugin {
    * @return the plugin category
    */
   PluginCategory getCategory();
-
-  /**
-   * Get a human-readable description of what this plugin does.
-   *
-   * @return the plugin description
-   */
-  default String getDescription() {
-    return "";
-  }
-
-  /**
-   * Get a human-readable description of the usage pattern for this plugin, including expected
-   * configuration fields and input/output message structures.
-   *
-   * @return the plugin usage pattern
-   */
-  default String getUsagePattern() {
-    return "";
-  }
 
   /**
    * Validate the plugin configuration.

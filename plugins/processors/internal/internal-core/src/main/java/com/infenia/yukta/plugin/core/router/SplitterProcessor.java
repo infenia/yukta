@@ -4,6 +4,7 @@ package com.infenia.yukta.plugin.core.router;
 
 import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
+import com.infenia.yukta.plugin.core.PluginDescriptor;
 import com.infenia.yukta.plugin.core.UiDesign;
 import com.infenia.yukta.plugin.exception.WorkflowExecutionException;
 import com.infenia.yukta.plugin.type.ProcessorPlugin;
@@ -52,39 +53,32 @@ public class SplitterProcessor implements ProcessorPlugin {
   }
 
   @Override
-  public String getDescription() {
-    return "Splits composite message into individual items.";
-  }
-
-  @Override
-  public String getUsagePattern() {
-    return "Configure itemsPath, parallel, concurrency.";
+  public PluginDescriptor describe() {
+    return new PluginDescriptor(
+        "Splits composite message into individual items.",
+        "Configure itemsPath, parallel, concurrency.",
+        Optional.of(
+            new UiDesign(
+                """
+                <div class="flex items-center w-full h-full bg-slate-50 border-2 border-slate-200 rounded-xl px-4 gap-3">
+                    <div class="flex-shrink-0 w-8 h-8 bg-indigo-100 rounded-lg flex items-center justify-center text-indigo-500">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h8M8 12h8m-8 5h8M4 4h16v16H4z"/>
+                        </svg>
+                    </div>
+                    <div class="flex flex-col min-w-0">
+                        <div class="text-[10px] text-slate-400 font-bold uppercase tracking-wider leading-none mb-1">Splitter</div>
+                        <div class="text-xs font-bold text-slate-700 truncate w-full">{{nodeId}}</div>
+                    </div>
+                </div>
+                """,
+                140,
+                80)));
   }
 
   @Override
   public String getType() {
     return TYPE;
-  }
-
-  @Override
-  public Optional<UiDesign> getUiDesign() {
-    return Optional.of(
-        new UiDesign(
-            """
-            <div class="flex items-center w-full h-full bg-slate-50 border-2 border-slate-200 rounded-xl px-4 gap-3">
-                <div class="flex-shrink-0 w-8 h-8 bg-indigo-100 rounded-lg flex items-center justify-center text-indigo-500">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h8M8 12h8m-8 5h8M4 4h16v16H4z"/>
-                    </svg>
-                </div>
-                <div class="flex flex-col min-w-0">
-                    <div class="text-[10px] text-slate-400 font-bold uppercase tracking-wider leading-none mb-1">Splitter</div>
-                    <div class="text-xs font-bold text-slate-700 truncate w-full">{{nodeId}}</div>
-                </div>
-            </div>
-            """,
-            140,
-            80));
   }
 
   @Override

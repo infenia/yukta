@@ -63,8 +63,8 @@ class HttpRequestPluginTest {
   @Test
   void metadataDescribesPlugin() {
     assertThat(plugin.getType()).isEqualTo("HTTP_REQUEST");
-    assertThat(plugin.getDescription()).isNotBlank();
-    assertThat(plugin.getUsagePattern()).contains("url");
+    assertThat(plugin.describe().description()).isNotBlank();
+    assertThat(plugin.describe().usagePattern()).contains("url");
   }
 
   @Test

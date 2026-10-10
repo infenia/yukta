@@ -4,11 +4,13 @@ package com.infenia.yukta.plugin.trigger;
 
 import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
+import com.infenia.yukta.plugin.core.PluginDescriptor;
 import com.infenia.yukta.plugin.type.TriggerPlugin;
 import com.infenia.yukta.util.MapUtils;
 import com.infenia.yukta.util.VariableResolver;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -32,22 +34,24 @@ public class ConfigVariableSource implements TriggerPlugin {
       new java.util.concurrent.ConcurrentHashMap<>();
 
   @Override
+  public PluginDescriptor describe() {
+    return new PluginDescriptor(
+        "Emits a message with predefined variables at workflow startup.",
+        usagePattern(),
+        Optional.empty());
+  }
+
+  @Override
   public String getType() {
     return TYPE;
   }
 
-  @Override
-  public String getDescription() {
-    return "Emits a message with predefined variables at workflow startup.";
-  }
-
-  @Override
   // A bare "return """ text block collides with this project's checkstyle
   // TextBlockGoogleStyleFormatting rule, which google-java-format's own formatting of `return`
   // statements can never satisfy (spotlessApply keeps re-collapsing it); string concatenation
   // stays.
   @SuppressWarnings("StringConcatToTextBlock")
-  public String getUsagePattern() {
+  private static String usagePattern() {
     return "Configure with:\n"
         + "- variables: Map of key-value pairs to emit. Supports SpEL expressions.\n"
         + "- target: 'PAYLOAD' or 'METADATA'. Default is 'PAYLOAD'.";

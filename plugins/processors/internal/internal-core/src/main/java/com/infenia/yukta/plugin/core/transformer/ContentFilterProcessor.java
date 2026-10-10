@@ -3,6 +3,7 @@
 package com.infenia.yukta.plugin.core.transformer;
 
 import com.infenia.yukta.message.Message;
+import com.infenia.yukta.plugin.core.PluginDescriptor;
 import com.infenia.yukta.plugin.core.UiDesign;
 import com.infenia.yukta.plugin.exception.WorkflowExecutionException;
 import com.infenia.yukta.plugin.type.ProcessorPlugin;
@@ -64,45 +65,38 @@ public class ContentFilterProcessor implements ProcessorPlugin {
   }
 
   @Override
-  public String getDescription() {
-    return "Simplifies a message by removing unimportant, redundant, or sensitive data items.";
-  }
-
-  @Override
-  public String getUsagePattern() {
-    return "Configure with:\n"
-        + "- mode: 'INCLUDE' (whitelist) or 'EXCLUDE' (blacklist).\n"
-        + "- paths: List of SpEL expressions (INCLUDE) or dot-notation paths (EXCLUDE).\n"
-        + "- flatten: Boolean. If true, simplifies nested structures into flat maps.\n"
-        + "- strictMode: Boolean. If true (default), throws exception if a mandatory path is"
-        + " missing.\n"
-        + "- errorPort: Optional port to route messages that fail transformation.";
+  public PluginDescriptor describe() {
+    return new PluginDescriptor(
+        "Simplifies a message by removing unimportant, redundant, or sensitive data items.",
+        "Configure with:\n"
+            + "- mode: 'INCLUDE' (whitelist) or 'EXCLUDE' (blacklist).\n"
+            + "- paths: List of SpEL expressions (INCLUDE) or dot-notation paths (EXCLUDE).\n"
+            + "- flatten: Boolean. If true, simplifies nested structures into flat maps.\n"
+            + "- strictMode: Boolean. If true (default), throws exception if a mandatory path is"
+            + " missing.\n"
+            + "- errorPort: Optional port to route messages that fail transformation.",
+        Optional.of(
+            new UiDesign(
+                """
+                <div class="flex items-center w-full h-full bg-slate-50 border-2 border-slate-200 rounded-xl px-4 gap-3">
+                    <div class="flex-shrink-0 w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center text-slate-500">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                        </svg>
+                    </div>
+                    <div class="flex flex-col min-w-0">
+                        <div class="text-[10px] text-slate-400 font-bold uppercase tracking-wider leading-none mb-1">C-Filter</div>
+                        <div class="text-xs font-bold text-slate-700 truncate w-full">{{nodeId}}</div>
+                    </div>
+                </div>
+                """,
+                140,
+                80)));
   }
 
   @Override
   public String getType() {
     return TYPE;
-  }
-
-  @Override
-  public Optional<UiDesign> getUiDesign() {
-    return Optional.of(
-        new UiDesign(
-            """
-            <div class="flex items-center w-full h-full bg-slate-50 border-2 border-slate-200 rounded-xl px-4 gap-3">
-                <div class="flex-shrink-0 w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center text-slate-500">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                    </svg>
-                </div>
-                <div class="flex flex-col min-w-0">
-                    <div class="text-[10px] text-slate-400 font-bold uppercase tracking-wider leading-none mb-1">C-Filter</div>
-                    <div class="text-xs font-bold text-slate-700 truncate w-full">{{nodeId}}</div>
-                </div>
-            </div>
-            """,
-            140,
-            80));
   }
 
   @Override
