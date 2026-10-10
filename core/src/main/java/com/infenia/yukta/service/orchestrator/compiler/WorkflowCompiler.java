@@ -17,7 +17,6 @@ import com.infenia.yukta.plugin.core.Plugin;
 import com.infenia.yukta.service.control.store.ExecutionControlRegistry;
 import com.infenia.yukta.service.orchestrator.assembly.AssemblyContext;
 import com.infenia.yukta.service.orchestrator.strategy.NodeAssemblerStrategy;
-import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import com.infenia.yukta.service.session.store.SessionConfigStore;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -63,9 +62,6 @@ public class WorkflowCompiler {
 
   /** Log key for plugin type. */
   private static final String LOG_KEY_PLUGIN_TYPE = "pluginType";
-
-  /** The task tracker service for tracking workflow execution. */
-  private final TaskTrackerService tracker;
 
   /** The virtual thread scheduler for non-blocking execution. */
   private final Scheduler virtualThreadScheduler;

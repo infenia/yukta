@@ -73,6 +73,12 @@ public class ProcessorNodeAssemblerStrategy implements NodeAssemblerStrategy {
     return isSupported;
   }
 
+  /** Whether this is a repeat of a message the plugin already failed on. */
+  private static boolean retried(final Message<?> attempt) {
+    return attempt.metadata().get(NodePolicies.ATTEMPT_HEADER) instanceof Integer number
+        && number > 1;
+  }
+
   /**
    * Lets elements skip the plugin while the node's skip flag is set. The decision is taken once per
    * element, when it arrives, so a skip applies from the next element on; an element the plugin
@@ -165,7 +171,12 @@ public class ProcessorNodeAssemblerStrategy implements NodeAssemblerStrategy {
                                 policy,
                                 node.nodeId(),
                                 message,
-                                attempt -> processor.process(Flux.just(attempt), node.config()),
+                                attempt -> {
+                                  if (retried(attempt)) {
+                                    tracker.recordRetry(node.type());
+                                  }
+                                  return processor.process(Flux.just(attempt), node.config());
+                                },
                                 activity::touch,
                                 ledger),
                         1)

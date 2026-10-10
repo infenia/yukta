@@ -33,6 +33,7 @@ import reactor.test.StepVerifier;
 @MockitoSettings
 @NoArgsConstructor
 @SuppressWarnings({
+  "PMD.LawOfDemeter",
   "PMD.TooManyMethods",
   "PMD.CyclomaticComplexity",
   "PMD.AvoidDuplicateLiterals",
@@ -2728,5 +2729,92 @@ class DefaultTaskTrackerServiceTest {
     await().atMost(5, TimeUnit.SECONDS).until(() -> done.getCount() == 0);
     assertThat(last.get().status()).isEqualTo("SUCCESS");
     assertThat(last.get().tasks()).extracting(TaskProgress::status).containsOnly("SUCCESS");
+  }
+
+  @Test
+  void testRunObservationIsTheParentOfItsNodeObservations_andCarriesTheStatus() {
+    final var observations = io.micrometer.observation.ObservationRegistry.create();
+    final var stopped = new java.util.concurrent.CopyOnWriteArrayList<String>();
+    final var parents = new ConcurrentHashMap<String, String>();
+    observations
+        .observationConfig()
+        .observationHandler(
+            new io.micrometer.observation.ObservationHandler<>() {
+              @Override
+              public boolean supportsContext(
+                  final io.micrometer.observation.Observation.Context context) {
+                return true;
+              }
+
+              @Override
+              public void onStart(final io.micrometer.observation.Observation.Context context) {
+                final var parent = context.getParentObservation();
+                if (parent != null) {
+                  parents.put(
+                      String.valueOf(context.getName()),
+                      String.valueOf(
+                          java.util.Objects.requireNonNull(parent.getContextView()).getName()));
+                }
+              }
+
+              @Override
+              public void onStop(final io.micrometer.observation.Observation.Context context) {
+                final var status = context.getLowCardinalityKeyValue("status");
+                stopped.add(context.getName() + ":" + (status == null ? "?" : status.getValue()));
+              }
+            });
+    final DefaultTaskTrackerService traced =
+        new DefaultTaskTrackerService(
+            Duration.ofMillis(200),
+            statusHistoryCache,
+            new InMemoryExecutionLogStore(),
+            new SimpleMeterRegistry(),
+            observations);
+    traced.init();
+    StepVerifier.create(traced.startWorkflow("r-exec", "r-sess", "r-wf", List.of("a")))
+        .verifyComplete();
+
+    traced.emitTaskStatusEvent("r-exec", "a", "echo", TaskStatus.RUNNING, Map.of());
+    traced.emitTaskStatusEvent("r-exec", "a", "echo", TaskStatus.SUCCESS, Map.of());
+    traced.emitWorkflowStatusEvent("r-exec", TaskStatus.SUCCESS);
+
+    await()
+        .atMost(2, TimeUnit.SECONDS)
+        .untilAsserted(
+            () -> assertThat(stopped).containsExactly("yukta.node:SUCCESS", "yukta.run:SUCCESS"));
+    assertThat(parents).containsEntry("yukta.node", "yukta.run");
+  }
+
+  @Test
+  void testRunDurationQueueWaitAndRetriesAreMeasured() {
+    final SimpleMeterRegistry meters = new SimpleMeterRegistry();
+    final DefaultTaskTrackerService metered =
+        new DefaultTaskTrackerService(
+            Duration.ofMillis(200), statusHistoryCache, new InMemoryExecutionLogStore(), meters);
+    metered.init();
+    StepVerifier.create(metered.startWorkflow("q-exec", "q-sess", "q-wf", List.of("a")))
+        .verifyComplete();
+
+    metered.emitWorkflowStatusEvent("q-exec", TaskStatus.QUEUED);
+    metered.emitWorkflowStatusEvent("q-exec", TaskStatus.RUNNING);
+    metered.recordRetry("echo");
+    metered.recordRetry("echo");
+    metered.emitWorkflowStatusEvent("q-exec", TaskStatus.FAILURE);
+
+    await()
+        .atMost(2, TimeUnit.SECONDS)
+        .untilAsserted(
+            () -> {
+              assertThat(meters.get("yukta.execution.queue.wait").timer().count()).isEqualTo(1);
+              assertThat(
+                      meters
+                          .get("yukta.execution.duration")
+                          .tag("status", "FAILURE")
+                          .timer()
+                          .count())
+                  .isEqualTo(1);
+              assertThat(meters.get("yukta.node.retries").tag("module", "echo").counter().count())
+                  .isEqualTo(2.0);
+            });
   }
 }

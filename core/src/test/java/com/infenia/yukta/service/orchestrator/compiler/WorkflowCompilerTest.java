@@ -68,7 +68,6 @@ class WorkflowCompilerTest {
   void setUp() {
     compiler =
         new WorkflowCompiler(
-            tracker,
             Schedulers.boundedElastic(),
             configService,
             executionControlRegistry,
