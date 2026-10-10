@@ -30,12 +30,22 @@ class ProfileConfigTest {
               assertThat(ctx.getEnvironment().getProperty(STREAM)).isNull();
               assertThat(ctx.getEnvironment().getProperty("logging.level.com.infenia.yukta"))
                   .isEqualTo("INFO");
-              assertThat(ctx.getEnvironment().getProperty(EXPOSURE)).doesNotContain("*");
+              assertThat(ctx.getEnvironment().getProperty(EXPOSURE))
+                  .isEqualTo("health,info,metrics");
               assertThat(
                       ctx.getEnvironment()
                           .getProperty("spring.main.lazy-initialization", Boolean.class, false))
                   .isFalse();
             });
+  }
+
+  @Test
+  void defaultProfileIsDevWithTraceAndFullActuator() {
+    runner.run(
+        ctx -> {
+          assertThat(ctx.getEnvironment().getProperty(STREAM)).isEqualTo("TRACE");
+          assertThat(ctx.getEnvironment().getProperty(EXPOSURE)).isEqualTo("*");
+        });
   }
 
   @Test
