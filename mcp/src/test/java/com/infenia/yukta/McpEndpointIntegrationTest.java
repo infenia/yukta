@@ -23,7 +23,7 @@ import org.springframework.boot.test.web.server.LocalServerPort;
       "spring.ai.mcp.server.name=yukta",
       "spring.ai.mcp.server.protocol=STATELESS",
       "spring.ai.mcp.server.type=ASYNC",
-      "spring.ai.mcp.server.streamable-http.mcp-endpoint=/sse"
+      "spring.ai.mcp.server.streamable-http.mcp-endpoint=/mcp"
     })
 class McpEndpointIntegrationTest {
 
@@ -31,10 +31,15 @@ class McpEndpointIntegrationTest {
 
   @SneakyThrows
   private String callMcp(final String jsonRpcBody) {
+    return callMcp("/mcp", jsonRpcBody);
+  }
+
+  @SneakyThrows
+  private String callMcp(final String path, final String jsonRpcBody) {
     try (HttpClient client = HttpClient.newHttpClient()) {
       final HttpRequest request =
           HttpRequest.newBuilder()
-              .uri(URI.create("http://localhost:" + port + "/sse"))
+              .uri(URI.create("http://localhost:" + port + path))
               .header("Content-Type", "application/json")
               .header("Accept", "application/json, text/event-stream")
               .POST(HttpRequest.BodyPublishers.ofString(jsonRpcBody))
@@ -94,5 +99,13 @@ class McpEndpointIntegrationTest {
 
     assertThat(response).doesNotContain("\"isError\":true");
     assertThat(response).contains("\"result\"").contains("sessions");
+  }
+
+  @Test
+  void testLegacySseEndpointStillServes() {
+    final String response =
+        callMcp("/sse", "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/list\",\"params\":{}}");
+
+    assertThat(response).contains("list_sessions");
   }
 }
