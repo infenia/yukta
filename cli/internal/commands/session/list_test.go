@@ -45,7 +45,7 @@ func TestListCmd_executesSuccessfully_tableFormat(t *testing.T) {
 	// Set up test server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(`{"data":{"sessionIds":["session-1","session-2"]}}`))
+		_, _ = w.Write([]byte(`{"data":["session-1","session-2"]}`))
 	}))
 	defer server.Close()
 
@@ -93,7 +93,7 @@ func TestListCmd_executesSuccessfully_tableFormat(t *testing.T) {
 func TestListCmd_executesSuccessfully_jsonFormat(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(`{"data":{"sessionIds":["session-1","session-2"]}}`))
+		_, _ = w.Write([]byte(`{"data":["session-1","session-2"]}`))
 	}))
 	defer server.Close()
 
@@ -133,7 +133,7 @@ func TestListCmd_executesSuccessfully_jsonFormat(t *testing.T) {
 func TestListCmd_emptySessionList_displaysEmpty(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(`{"data":{"sessionIds":[]}}`))
+		_, _ = w.Write([]byte(`{"data":[]}`))
 	}))
 	defer server.Close()
 
@@ -195,7 +195,7 @@ func TestListCmd_apiError_returnsError(t *testing.T) {
 func TestListCmd_multipleRows_displaysAllSessions(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(`{"data":{"sessionIds":["s1","s2","s3","s4","s5"]}}`))
+		_, _ = w.Write([]byte(`{"data":["s1","s2","s3","s4","s5"]}`))
 	}))
 	defer server.Close()
 

@@ -3,7 +3,9 @@
 package com.infenia.yukta.exception;
 
 import com.fasterxml.jackson.databind.exc.UnrecognizedPropertyException;
+import com.infenia.yukta.filter.RequestTracingFilter;
 import com.infenia.yukta.model.api.ApiResponse;
+import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.control.ExecutionRejectedException;
 import jakarta.validation.ConstraintViolationException;
 import java.util.List;
@@ -66,23 +68,26 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
       final HttpStatusCode status,
       final ServerWebExchange exchange) {
     final UnrecognizedPropertyException unrecognized = findUnrecognizedPropertyException(exception);
-    final Mono<ResponseEntity<Object>> result;
-    final String fieldName =
-        (unrecognized != null && unrecognized.getPropertyName() != null)
-            ? unrecognized.getPropertyName()
-            : "unknown";
     final String path = getRequestPath(exchange.getRequest());
-    final List<ApiResponse.FieldError> errors =
-        List.of(new ApiResponse.FieldError(fieldName, "Unknown field: '" + fieldName + "'"));
+    final List<ApiResponse.FieldError> errors;
+    final String message;
+    if (unrecognized != null) {
+      final String fieldName =
+          unrecognized.getPropertyName() != null ? unrecognized.getPropertyName() : "unknown";
+      errors = List.of(new ApiResponse.FieldError(fieldName, "Unknown field: '" + fieldName + "'"));
+      message = "Invalid request body";
+    } else {
+      errors = List.of();
+      message = exception.getReason() != null ? exception.getReason() : "Invalid request";
+    }
     final ApiResponse<Object> errorResponse =
         ApiResponse.error(
             HttpStatus.BAD_REQUEST.value(),
             HttpStatus.BAD_REQUEST.getReasonPhrase(),
-            "Invalid request body",
+            message,
             path,
             errors);
-    result = Mono.just(ResponseEntity.badRequest().headers(headers).body(errorResponse));
-    return result;
+    return Mono.just(ResponseEntity.badRequest().headers(headers).body(errorResponse));
   }
 
   @Override
@@ -224,11 +229,24 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
   }
 
   /**
-   * Handle illegal argument exceptions.
+   * Handle missing sessions, workflows, executions and nodes reported by core.
    *
    * @param exception the exception
    * @param request the current request
-   * @return structured error response
+   * @return structured 404 response
+   */
+  @ExceptionHandler(NotFoundException.class)
+  public ResponseEntity<ApiResponse<Object>> handleNotFound(
+      final NotFoundException exception, final ServerHttpRequest request) {
+    return buildErrorResponse(HttpStatus.NOT_FOUND, exception.getMessage(), request);
+  }
+
+  /**
+   * Handles illegal-argument errors as bad requests.
+   *
+   * @param exception the exception
+   * @param request the request
+   * @return the 400 response
    */
   @ExceptionHandler(IllegalArgumentException.class)
   public ResponseEntity<ApiResponse<Object>> handleIllegalArgument(
@@ -259,7 +277,8 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
   @ExceptionHandler(IllegalStateException.class)
   public ResponseEntity<ApiResponse<Object>> handleIllegalState(
       final IllegalStateException exception, final ServerHttpRequest request) {
-    return buildErrorResponse(HttpStatus.INTERNAL_SERVER_ERROR, exception.getMessage(), request);
+    log.atError().setCause(exception).log("Illegal state");
+    return buildErrorResponse(HttpStatus.INTERNAL_SERVER_ERROR, null, request);
   }
 
   /**
@@ -273,18 +292,28 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
   public ResponseEntity<ApiResponse<Object>> handleGenericException(
       final Exception exception, final ServerHttpRequest request) {
     log.atError().setCause(exception).log("Unhandled exception occurred");
-    return buildErrorResponse(
-        HttpStatus.INTERNAL_SERVER_ERROR,
-        "An unexpected error occurred: " + exception.getMessage(),
-        request);
+    return buildErrorResponse(HttpStatus.INTERNAL_SERVER_ERROR, null, request);
   }
 
   private ResponseEntity<ApiResponse<Object>> buildErrorResponse(
       final HttpStatus status, final String message, final ServerHttpRequest request) {
     final String path = getRequestPath(request);
+    // Server errors never echo exception text; the request ID lets support find the logged cause.
+    final String body =
+        status.is5xxServerError()
+            ? "An unexpected error occurred. Reference: " + requestId(request)
+            : message;
     final ApiResponse<Object> errorResponse =
-        ApiResponse.error(status.value(), status.getReasonPhrase(), message, path, List.of());
+        ApiResponse.error(status.value(), status.getReasonPhrase(), body, path, List.of());
     return ResponseEntity.status(status).body(errorResponse);
+  }
+
+  @SuppressWarnings("PMD.LawOfDemeter")
+  private static String requestId(final ServerHttpRequest request) {
+    final HttpHeaders headers = request.getHeaders();
+    final String value =
+        headers == null ? null : headers.getFirst(RequestTracingFilter.X_REQUEST_ID);
+    return value == null ? "unavailable" : value;
   }
 
   @SuppressWarnings("PMD.LawOfDemeter")

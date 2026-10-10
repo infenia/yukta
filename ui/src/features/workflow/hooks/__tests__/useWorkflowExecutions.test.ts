@@ -15,7 +15,7 @@ const server = setupServer(
       timestamp: '2026-07-26T00:00:00Z',
       status: 200,
       message: 'Workflow executions retrieved',
-      data: { executions: [createMockExecution()] },
+      data: [createMockExecution()],
       path: '/api/sessions/s1/workflows/wf-982-xk-11/executions',
     })
   )

@@ -7,6 +7,7 @@ import com.infenia.yukta.plugin.control.ControlSignalProcessor;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.EnableStepModeCommand;
 import com.infenia.yukta.plugin.control.WorkflowDirective;
+import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.control.ExecutionControl;
 import com.infenia.yukta.service.control.store.ExecutionControlRegistry;
 import com.infenia.yukta.service.control.valve.ReactiveControlValve;
@@ -47,13 +48,11 @@ public class EnableStepModeCommandProcessor implements ControlSignalProcessor {
               registry
                   .findByExecutionId(enable.executionId())
                   .orElseThrow(
-                      () ->
-                          new IllegalArgumentException(
-                              "Execution not found: " + enable.executionId()));
+                      () -> new NotFoundException("Execution not found: " + enable.executionId()));
 
           final ReactiveControlValve valve = control.nodePauseValves().get(enable.nodeId());
           if (valve == null) {
-            throw new IllegalArgumentException(
+            throw new NotFoundException(
                 "Node not found or does not support step mode: " + enable.nodeId());
           }
 

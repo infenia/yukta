@@ -7,6 +7,7 @@ import com.infenia.yukta.plugin.control.ControlSignalProcessor;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.ResumeWorkflowCommand;
 import com.infenia.yukta.plugin.control.WorkflowDirective;
+import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.control.ExecutionControl;
 import com.infenia.yukta.service.control.store.ExecutionControlRegistry;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
@@ -46,9 +47,7 @@ public class ResumeWorkflowCommandProcessor implements ControlSignalProcessor {
               registry
                   .findByExecutionId(resume.executionId())
                   .orElseThrow(
-                      () ->
-                          new IllegalArgumentException(
-                              "Execution not found: " + resume.executionId()));
+                      () -> new NotFoundException("Execution not found: " + resume.executionId()));
 
           if (control.globalPauseValve() == null) {
             throw new IllegalStateException("Global pause valve not initialized");
