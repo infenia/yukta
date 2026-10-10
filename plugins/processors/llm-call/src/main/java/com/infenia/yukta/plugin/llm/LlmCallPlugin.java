@@ -149,7 +149,7 @@ public class LlmCallPlugin implements ProcessorPlugin {
                       error ->
                           failureMode == FailureMode.CONTINUE
                               ? Mono.<Message<?>>just(
-                                  output(message, config, message.getPayload(), failureText(error)))
+                                  output(message, config, message.payload(), failureText(error)))
                               : Mono.error(
                                   new WorkflowExecutionException(
                                       "LLM call failed: " + error.getMessage(), error)))
@@ -209,7 +209,7 @@ public class LlmCallPlugin implements ProcessorPlugin {
       final Object payload,
       final String error) {
     final boolean success = error == null;
-    final Map<String, Object> metadata = new HashMap<>(original.getMetadata());
+    final Map<String, Object> metadata = new HashMap<>(original.metadata());
     metadata.put("llmSuccess", success);
     if (!success) {
       metadata.put("llmError", error);

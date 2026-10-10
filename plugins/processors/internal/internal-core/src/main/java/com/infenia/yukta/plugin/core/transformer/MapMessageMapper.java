@@ -13,10 +13,10 @@ public class MapMessageMapper implements MessageMapper<Object, Map<String, Objec
   @Override
   @SuppressWarnings("unchecked")
   public Map<String, Object> toDomain(final Message<Object> message) {
-    if (message.getPayload() instanceof Map) {
-      return (Map<String, Object>) message.getPayload();
+    if (message.payload() instanceof Map) {
+      return (Map<String, Object>) message.payload();
     }
-    return Map.of("value", message.getPayload());
+    return Map.of("value", message.payload());
   }
 
   @Override

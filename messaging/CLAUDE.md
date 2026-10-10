@@ -7,16 +7,14 @@
 Shared messaging abstractions and implementations.
 
 ## Architecture
-Message-based inter-node communication framework with optional persistence:
+Message-based inter-node communication framework:
 - **`Message`**: Generic interface for an atomic data packet (header + payload).
-- **`NodeMessageChannel`**: Transport abstraction between workflow nodes — `DirectNodeMessageChannel` (in-memory) or `PersistingNodeMessageChannel` (persisted).
-- **`MessageStore`**: Central repository for message auditing/history reconstruction.
+- **`NodeMessageChannel`**: Transport abstraction between workflow nodes — `DirectNodeMessageChannel` (in-memory pass-through) is the only implementation. Register your own `NodeMessageChannelProvider` bean to override it.
 
 ## Key Files
 - `src/main/java/com/infenia/yukta/message/Message.java`
-- `src/main/java/com/infenia/yukta/message/channel/NodeMessageChannel.java` (+ `DirectNodeMessageChannel`, `PersistingNodeMessageChannel`)
-- `src/main/java/com/infenia/yukta/message/store/MessageStore.java`
-- Module guide (interactive): `docs/messaging-module-guide.html`; review findings: `docs/messaging-improvements.md`
+- `src/main/java/com/infenia/yukta/message/channel/NodeMessageChannel.java` (+ `DirectNodeMessageChannel`)
+- Module guide (interactive): `docs/messaging-module-guide.html`
 
 ## Build & Development Commands
 ```bash

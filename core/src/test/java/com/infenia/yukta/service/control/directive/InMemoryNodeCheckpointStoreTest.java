@@ -33,7 +33,7 @@ class InMemoryNodeCheckpointStoreTest {
     StepVerifier.create(store.save(executionId, nodeId, message)).verifyComplete();
 
     StepVerifier.create(store.get(executionId, nodeId))
-        .assertNext(msg -> assertThat(msg.getPayload()).isEqualTo("test-data"))
+        .assertNext(msg -> assertThat(msg.payload()).isEqualTo("test-data"))
         .verifyComplete();
   }
 
@@ -76,11 +76,11 @@ class InMemoryNodeCheckpointStoreTest {
     StepVerifier.create(store.save(executionId, "node-2", msg2)).verifyComplete();
 
     StepVerifier.create(store.get(executionId, "node-1"))
-        .assertNext(msg -> assertThat(msg.getPayload()).isEqualTo("data-1"))
+        .assertNext(msg -> assertThat(msg.payload()).isEqualTo("data-1"))
         .verifyComplete();
 
     StepVerifier.create(store.get(executionId, "node-2"))
-        .assertNext(msg -> assertThat(msg.getPayload()).isEqualTo("data-2"))
+        .assertNext(msg -> assertThat(msg.payload()).isEqualTo("data-2"))
         .verifyComplete();
   }
 

@@ -172,13 +172,13 @@ public class BranchProcessor implements ProcessorPlugin {
                         throw new NoMatchingBranchException(
                             ERR_PREFIX
                                 + "No matching branch found for message "
-                                + message.getMessageId()
+                                + message.id()
                                 + " and no default port configured");
                       }
                     }
 
                     return Flux.fromIterable(matchedPorts)
-                        .map(port -> message.withSourcePort(port).withAddedHistory(nodeId));
+                        .map(port -> message.withSourcePort(port));
 
                   } catch (final Exception exception) {
                     return handleException(message, nodeId, errorPort, strictMode, exception);
@@ -194,15 +194,12 @@ public class BranchProcessor implements ProcessorPlugin {
       final Exception exception) {
     if (log.isErrorEnabled()) {
       log.error(
-          "Branch evaluation failed for message {}: {}",
-          message.getMessageId(),
-          exception.getMessage());
+          "Branch evaluation failed for message {}: {}", message.id(), exception.getMessage());
     }
     if (errorPort != null) {
       return Flux.just(
           message
               .withSourcePort(errorPort)
-              .withAddedHistory(nodeId)
               .withFailure(null, "Branch evaluation failed", exception.getMessage()));
     }
     if (!strictMode) {

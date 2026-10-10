@@ -120,7 +120,7 @@ class ControlBusServiceTest {
     @DisplayName("should handle message with null payload")
     void emit_nullPayload_completesSuccessfully() {
       final Message<?> nullPayloadMessage = mock(Message.class);
-      when(nullPayloadMessage.getPayload()).thenReturn(null);
+      when(nullPayloadMessage.payload()).thenReturn(null);
 
       StepVerifier.create(controlBusService.emit(nullPayloadMessage))
           .expectComplete()
@@ -460,7 +460,7 @@ class ControlBusServiceTest {
     @DisplayName("should handle sendCommand with null payload message")
     void sendCommand_nullPayload_logsAndDelegates() {
       final Message<?> nullPayloadMessage = mock(Message.class);
-      when(nullPayloadMessage.getPayload()).thenReturn(null);
+      when(nullPayloadMessage.payload()).thenReturn(null);
       when(plugin.onControlSignal(nullPayloadMessage)).thenReturn(Mono.just(nullPayloadMessage));
       controlBusService.registerPlugin(WORKFLOW_ID, NODE_ID, plugin);
 
@@ -776,10 +776,10 @@ class ControlBusServiceTest {
 
     private Message<?> makeMessage(final Object payload, final int priority) {
       final Message<?> msg = mock(Message.class);
-      when(msg.getWorkflowId()).thenReturn(ControlBusServiceTest.WORKFLOW_ID);
-      when(msg.getSourceNodeId()).thenReturn(ControlBusServiceTest.NODE_ID);
-      doReturn(payload).when(msg).getPayload();
-      when(msg.getPriority()).thenReturn(priority);
+      when(msg.workflowId()).thenReturn(ControlBusServiceTest.WORKFLOW_ID);
+      when(msg.sourceNodeId()).thenReturn(ControlBusServiceTest.NODE_ID);
+      doReturn(payload).when(msg).payload();
+      when(msg.priority()).thenReturn(priority);
       return msg;
     }
 
@@ -830,10 +830,10 @@ class ControlBusServiceTest {
       final Object payload = new Object();
 
       final Message<?> msg = mock(Message.class);
-      when(msg.getWorkflowId()).thenReturn(WORKFLOW_ID);
-      when(msg.getSourceNodeId()).thenReturn(null);
-      doReturn(payload).when(msg).getPayload();
-      when(msg.getPriority()).thenReturn(0);
+      when(msg.workflowId()).thenReturn(WORKFLOW_ID);
+      when(msg.sourceNodeId()).thenReturn(null);
+      doReturn(payload).when(msg).payload();
+      when(msg.priority()).thenReturn(0);
 
       final ControlBusService svc =
           new ControlBusService(
@@ -856,10 +856,10 @@ class ControlBusServiceTest {
     @DisplayName("should skip dispatch when payload is null")
     void handleControlBatch_nullPayload_skipsDispatch() throws InterruptedException {
       final Message<?> msg = mock(Message.class);
-      when(msg.getWorkflowId()).thenReturn(WORKFLOW_ID);
-      when(msg.getSourceNodeId()).thenReturn(NODE_ID);
-      when(msg.getPayload()).thenReturn(null);
-      when(msg.getPriority()).thenReturn(0);
+      when(msg.workflowId()).thenReturn(WORKFLOW_ID);
+      when(msg.sourceNodeId()).thenReturn(NODE_ID);
+      when(msg.payload()).thenReturn(null);
+      when(msg.priority()).thenReturn(0);
 
       final ControlBusService svc =
           new ControlBusService(
@@ -884,10 +884,10 @@ class ControlBusServiceTest {
       final Object payload = new Object();
 
       final Message<?> msg = mock(Message.class);
-      when(msg.getWorkflowId()).thenReturn(null);
-      when(msg.getSourceNodeId()).thenReturn(NODE_ID);
-      doReturn(payload).when(msg).getPayload();
-      when(msg.getPriority()).thenReturn(0);
+      when(msg.workflowId()).thenReturn(null);
+      when(msg.sourceNodeId()).thenReturn(NODE_ID);
+      doReturn(payload).when(msg).payload();
+      when(msg.priority()).thenReturn(0);
 
       final ControlBusService svc =
           new ControlBusService(
@@ -981,7 +981,7 @@ class ControlBusServiceTest {
       when(handler1.canHandle(payload)).thenReturn(true);
       doAnswer(
               inv -> {
-                dispatchOrder.add(((Message<?>) inv.getArgument(1)).getPriority());
+                dispatchOrder.add(((Message<?>) inv.getArgument(1)).priority());
                 latch.countDown();
                 return null;
               })
@@ -1200,7 +1200,7 @@ class ControlBusServiceTest {
       @SuppressWarnings("unchecked")
       final Message<String> msgWithPayload = mock(Message.class);
       final String testPayload = "testPayload";
-      when(msgWithPayload.getPayload()).thenReturn(testPayload);
+      when(msgWithPayload.payload()).thenReturn(testPayload);
 
       StepVerifier.create(controlBusService.emit(msgWithPayload))
           .expectComplete()
@@ -1239,17 +1239,17 @@ class ControlBusServiceTest {
 
       @SuppressWarnings("unchecked")
       final Message<String> msg1 = mock(Message.class);
-      when(msg1.getWorkflowId()).thenReturn(WORKFLOW_ID);
-      when(msg1.getSourceNodeId()).thenReturn(NODE_ID);
-      when(msg1.getPayload()).thenReturn(payload1);
-      when(msg1.getPriority()).thenReturn(5);
+      when(msg1.workflowId()).thenReturn(WORKFLOW_ID);
+      when(msg1.sourceNodeId()).thenReturn(NODE_ID);
+      when(msg1.payload()).thenReturn(payload1);
+      when(msg1.priority()).thenReturn(5);
 
       @SuppressWarnings("unchecked")
       final Message<String> msg2 = mock(Message.class);
-      when(msg2.getWorkflowId()).thenReturn(WORKFLOW_ID);
-      when(msg2.getSourceNodeId()).thenReturn(NODE_ID);
-      when(msg2.getPayload()).thenReturn(payload2);
-      when(msg2.getPriority()).thenReturn(3);
+      when(msg2.workflowId()).thenReturn(WORKFLOW_ID);
+      when(msg2.sourceNodeId()).thenReturn(NODE_ID);
+      when(msg2.payload()).thenReturn(payload2);
+      when(msg2.priority()).thenReturn(3);
 
       svc.emit(msg1).subscribe();
       svc.emit(msg2).subscribe();
@@ -1281,7 +1281,7 @@ class ControlBusServiceTest {
       sinkField.set(svc, throwingSink);
 
       final Message<?> testMessage = mock(Message.class);
-      doReturn("test").when(testMessage).getPayload();
+      doReturn("test").when(testMessage).payload();
 
       StepVerifier.create(svc.emit(testMessage))
           .expectErrorMatches(e -> e instanceof IllegalStateException)

@@ -168,13 +168,12 @@ public class VariableResolver {
 
   private Mono<Object> resolveMessageValue(final String key, final Message<?> message) {
     if (PAYLOAD.equals(key)) {
-      return Mono.justOrEmpty(message.getPayload());
+      return Mono.justOrEmpty(message.payload());
     }
     if (key.startsWith(PAYLOAD_PREFIX)) {
-      return Mono.justOrEmpty(
-          getNested(message.getPayload(), key.substring(PAYLOAD_PREFIX.length())));
+      return Mono.justOrEmpty(getNested(message.payload(), key.substring(PAYLOAD_PREFIX.length())));
     }
-    return Mono.justOrEmpty(message.getMetadata().get(key.substring(METADATA_PREFIX.length())));
+    return Mono.justOrEmpty(message.metadata().get(key.substring(METADATA_PREFIX.length())));
   }
 
   private Object getNested(final Object obj, final String path) {
