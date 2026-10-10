@@ -68,6 +68,43 @@ class DefaultTaskTrackerServiceTest {
   }
 
   @Test
+  void testEachNodeRunIsOneObservation() {
+    final var observations = io.micrometer.observation.ObservationRegistry.create();
+    final var seen = new java.util.concurrent.CopyOnWriteArrayList<String>();
+    observations
+        .observationConfig()
+        .observationHandler(
+            new io.micrometer.observation.ObservationHandler<>() {
+              @Override
+              public boolean supportsContext(
+                  final io.micrometer.observation.Observation.Context context) {
+                return true;
+              }
+
+              @Override
+              public void onStop(final io.micrometer.observation.Observation.Context context) {
+                seen.add(context.getName() + ":" + context.getContextualName());
+              }
+            });
+    final DefaultTaskTrackerService traced =
+        new DefaultTaskTrackerService(
+            Duration.ofMillis(200),
+            statusHistoryCache,
+            new InMemoryExecutionLogStore(),
+            new SimpleMeterRegistry(),
+            observations);
+    traced.init();
+    StepVerifier.create(traced.startWorkflow("o-exec", "o-sess", "o-wf", List.of("a")))
+        .verifyComplete();
+
+    traced.emitTaskStatusEvent("o-exec", "a", "echo", TaskStatus.RUNNING, Map.of());
+    traced.emitTaskStatusEvent("o-exec", "a", "echo", TaskStatus.SUCCESS, Map.of());
+
+    await().atMost(2, TimeUnit.SECONDS).untilAsserted(() -> assertThat(seen).hasSize(1));
+    assertThat(seen.get(0)).isEqualTo("yukta.node:node a");
+  }
+
+  @Test
   void testNodeMetricsCountOutcomesAndTimeRunNodes() {
     final SimpleMeterRegistry meters = new SimpleMeterRegistry();
     final DefaultTaskTrackerService metered =

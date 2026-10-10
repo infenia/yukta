@@ -150,6 +150,7 @@ public class WorkflowOrchestrator {
         workflowId,
         executionId,
         nodeIds,
+        ExecutionScheduler.priorityOf(payload),
         prepared.template().instantiate(executionId, payload),
         "Workflow execution");
   }
@@ -247,6 +248,7 @@ public class WorkflowOrchestrator {
         workflowId,
         newExecutionId,
         nodeIds,
+        0,
         recordReplayed.then(
             compiler.executeTemplate(
                 newExecutionId, Map.of(), nodeCount, assemblers, sessionId, workflowId, nodeIds)),
@@ -255,10 +257,14 @@ public class WorkflowOrchestrator {
 
   /** Waits for an execution slot, showing the run as QUEUED while it has to wait. */
   private Mono<ExecutionScheduler.Permit> awaitSlot(
-      final String sessionId, final String workflowId, final String executionId) {
+      final String sessionId,
+      final String workflowId,
+      final String executionId,
+      final int priority) {
     return Mono.defer(
         () -> {
-          final ExecutionScheduler.Admission admission = scheduler.acquire(sessionId, workflowId);
+          final ExecutionScheduler.Admission admission =
+              scheduler.acquire(sessionId, workflowId, priority);
           if (admission.immediate()) {
             return admission.permit();
           }
@@ -302,6 +308,7 @@ public class WorkflowOrchestrator {
       final String workflowId,
       final String executionId,
       final List<String> nodeIds,
+      final int priority,
       final Mono<Void> body,
       final String label) {
     // The body runs once the scheduler grants a slot, which is released however the run ends.
@@ -317,7 +324,7 @@ public class WorkflowOrchestrator {
                 })
             .then(
                 Mono.usingWhen(
-                    awaitSlot(sessionId, workflowId, executionId),
+                    awaitSlot(sessionId, workflowId, executionId, priority),
                     _ -> body,
                     permit -> Mono.fromRunnable(permit::release)));
 

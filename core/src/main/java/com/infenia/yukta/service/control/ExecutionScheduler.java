@@ -3,8 +3,8 @@
 package com.infenia.yukta.service.control;
 
 import java.time.Duration;
-import java.util.ArrayDeque;
-import java.util.Deque;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
@@ -24,17 +24,24 @@ import reactor.core.publisher.Sinks;
  * not fit either waits in a bounded queue ({@code QUEUE}) or is refused ({@code REJECT}). With no
  * limit configured (the default) every start is admitted at once. On shutdown no new execution is
  * admitted, queued ones are refused, and running ones are given time to finish.
+ *
+ * <p>Waiting starts are admitted by priority (a payload key {@value #PRIORITY_KEY}, higher first,
+ * default 0), then in arrival order. The limits can be changed while running with {@link
+ * #setLimits}; raising them admits waiting starts at once.
  */
 @Slf4j
 @Component
 @SuppressWarnings({"PMD.AvoidSynchronizedStatement", "PMD.TooManyMethods", "PMD.OnlyOneReturn"})
 public class ExecutionScheduler implements SmartLifecycle {
 
-  /** Global limit; 0 means unlimited. */
-  private final int maxConcurrent;
+  /** Start payload key that sets the priority of a start. */
+  public static final String PRIORITY_KEY = "yukta.priority";
 
-  /** Limit per workflow; 0 means unlimited. */
-  private final int maxPerWorkflow;
+  /** Global limit; 0 means unlimited. Changed at run time by {@link #setLimits}. */
+  private int maxConcurrent;
+
+  /** Limit per workflow; 0 means unlimited. Changed at run time by {@link #setLimits}. */
+  private int maxPerWorkflow;
 
   /** How many starts may wait. */
   private final int queueCapacity;
@@ -48,8 +55,8 @@ public class ExecutionScheduler implements SmartLifecycle {
   /** Guards all state below. */
   private final Object lock = new Object();
 
-  /** Starts waiting for a slot, oldest first. */
-  private final Deque<Waiter> queue = new ArrayDeque<>();
+  /** Starts waiting for a slot: highest priority first, oldest first within a priority. */
+  private final List<Waiter> queue = new ArrayList<>();
 
   /** Running executions per workflow. */
   private final Map<String, Integer> runningPerKey = new ConcurrentHashMap<>();
@@ -119,6 +126,18 @@ public class ExecutionScheduler implements SmartLifecycle {
    *     {@link ExecutionRejectedException} if the start has to be refused
    */
   public Admission acquire(final String sessionId, final String workflowId) {
+    return acquire(sessionId, workflowId, 0);
+  }
+
+  /**
+   * Asks for an execution slot with a priority.
+   *
+   * @param sessionId the session
+   * @param workflowId the workflow
+   * @param priority higher is admitted first when starts have to wait
+   * @return the slot at once if there is room, otherwise a Mono that waits for one
+   */
+  public Admission acquire(final String sessionId, final String workflowId, final int priority) {
     final String key = key(sessionId, workflowId);
     synchronized (lock) {
       if (closed) {
@@ -130,8 +149,12 @@ public class ExecutionScheduler implements SmartLifecycle {
       if (onLimit == OnLimit.REJECT || queue.size() >= queueCapacity) {
         return refused("Execution limit reached");
       }
-      final Waiter waiter = new Waiter(key, Sinks.one(), new AtomicReference<>());
-      queue.addLast(waiter);
+      final Waiter waiter = new Waiter(key, priority, Sinks.one(), new AtomicReference<>());
+      int index = queue.size();
+      while (index > 0 && queue.get(index - 1).priority() < priority) {
+        index--;
+      }
+      queue.add(index, waiter);
       return new Admission(false, waiter.grant().asMono().doOnCancel(() -> abandon(waiter)));
     }
   }
@@ -156,6 +179,31 @@ public class ExecutionScheduler implements SmartLifecycle {
     synchronized (lock) {
       return queue.size();
     }
+  }
+
+  /**
+   * Changes the limits while running. Raising them admits waiting starts at once; lowering them
+   * lets running executions finish.
+   *
+   * @param maxConcurrent global limit, 0 for none
+   * @param maxPerWorkflow per-workflow limit, 0 for none
+   */
+  public void setLimits(final int maxConcurrent, final int maxPerWorkflow) {
+    synchronized (lock) {
+      this.maxConcurrent = Math.max(0, maxConcurrent);
+      this.maxPerWorkflow = Math.max(0, maxPerWorkflow);
+      admitWaiting();
+    }
+  }
+
+  /**
+   * Reads the priority of a start from its payload.
+   *
+   * @param payload the start payload
+   * @return the priority, 0 if absent or not a number
+   */
+  public static int priorityOf(final Map<String, Object> payload) {
+    return payload != null && payload.get(PRIORITY_KEY) instanceof Number number ? number.intValue() : 0;
   }
 
   private static String key(final String sessionId, final String workflowId) {
@@ -188,7 +236,10 @@ public class ExecutionScheduler implements SmartLifecycle {
     }
   }
 
-  /** Grants slots to waiting starts, oldest first, skipping ones whose workflow is at its limit. */
+  /**
+   * Grants slots to waiting starts, highest priority first, skipping ones whose workflow is at its
+   * limit.
+   */
   private void admitWaiting() {
     final var iterator = queue.iterator();
     while (iterator.hasNext()) {
@@ -304,5 +355,6 @@ public class ExecutionScheduler implements SmartLifecycle {
   public record Admission(boolean immediate, Mono<Permit> permit) {}
 
   /** A start waiting for a slot. */
-  private record Waiter(String key, Sinks.One<Permit> grant, AtomicReference<Permit> granted) {}
+  private record Waiter(
+      String key, int priority, Sinks.One<Permit> grant, AtomicReference<Permit> granted) {}
 }

@@ -2,9 +2,11 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.service.control.valve;
 
+import com.infenia.yukta.message.Message;
 import com.infenia.yukta.util.SinkEmit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Predicate;
 import lombok.NoArgsConstructor;
 import reactor.core.publisher.Mono;
 import reactor.core.publisher.Sinks;
@@ -46,6 +48,37 @@ public final class ReactiveControlValve {
 
   /** Signals waiters that the mode or the credits changed. */
   private final Sinks.Many<Long> changes = Sinks.many().replay().latest();
+
+  /** Holds the valve when an element matches; null when no breakpoint is set. */
+  private final AtomicReference<Predicate<Message<?>>> breakpoint = new AtomicReference<>();
+
+  /**
+   * Sets a breakpoint: the first element that matches holds the valve before it passes, as if
+   * {@link #pause()} was called; {@link #resume()} lets it through. The breakpoint stays set and
+   * hits again after a resume.
+   *
+   * @param condition the element test, or null to clear the breakpoint
+   */
+  public void setBreakpoint(final Predicate<Message<?>> condition) {
+    breakpoint.set(condition);
+  }
+
+  /**
+   * Waits until the given element may pass, holding the valve first if it hits the breakpoint.
+   *
+   * @param message the element about to pass
+   * @return a Mono that emits true when passage is granted
+   */
+  public Mono<Boolean> allowPassage(final Message<?> message) {
+    return Mono.defer(
+        () -> {
+          final Predicate<Message<?>> condition = breakpoint.get();
+          if (condition != null && condition.test(message)) {
+            pause();
+          }
+          return allowPassage();
+        });
+  }
 
   /**
    * Waits until one element may pass and takes its permit.

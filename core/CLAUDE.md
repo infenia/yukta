@@ -93,6 +93,8 @@ Malformed policies are rejected by `WorkflowValidator` with the node id and opti
 - `POST /workflow/start` accepts an optional `Idempotency-Key` header: a repeat with the same key for
   the same session and workflow within `yukta.start.idempotency-ttl` (default 10m) returns the first
   execution id instead of starting another. A failed start is not remembered.
+- Waiting starts are admitted by priority: a start payload key `yukta.priority` (number, higher
+  first, default 0), then arrival order. `ExecutionScheduler.setLimits` changes the limits at run time.
 - Concurrent starts of a workflow that is not prepared yet share one preparation (per definition
   content). A prepared workflow is cached only if its definition is still the stored one.
 - Restarting a finished run goes through the same admission check as a start (HTTP 429 when full).
@@ -126,6 +128,12 @@ the run deadline cover it.
 Every progress snapshot (REST, SSE, MCP) carries `definitionVersion`, the content hash of the graph
 the run uses (the same value the archive and the execution log store). The control-bus consumer
 resubscribes with capped backoff if its stream ever fails, until `shutdown()`.
+
+### Breakpoints and tracing
+`ReactiveControlValve.setBreakpoint(predicate)` (per node, via `ExecutionControl.nodePauseValves()`)
+holds the node on the first element that matches until it is resumed. Each node run is one
+Micrometer observation `yukta.node` (tags `module`, `status`), which becomes a span when a tracer
+is on the classpath. Re-running a node is `RestartFromNode`.
 
 ### Validation limits and metrics
 - `WorkflowValidator` rejects duplicate node ids and edges, an edge `sourcePort` the source plugin
