@@ -161,6 +161,10 @@ class WorkflowAcceptanceTest {
     assertThat(progress.tasks())
         .filteredOn(task -> "p".equals(task.nodeId()))
         .allMatch(task -> "FAILURE".equals(task.status()));
+    // only the node that failed reports FAILURE; the one behind it shows why it did not finish
+    assertThat(progress.tasks())
+        .filteredOn(task -> "end".equals(task.nodeId()))
+        .allMatch(task -> "UPSTREAM_FAILED".equals(task.status()));
   }
 
   @Test

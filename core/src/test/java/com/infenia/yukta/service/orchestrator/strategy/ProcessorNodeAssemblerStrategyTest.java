@@ -16,6 +16,7 @@ import com.infenia.yukta.message.Message;
 import com.infenia.yukta.message.channel.DirectNodeMessageChannel;
 import com.infenia.yukta.message.channel.NodeMessageChannel;
 import com.infenia.yukta.message.channel.NodeMessageChannelProvider;
+import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.model.workflow.NodeAssembler;
 import com.infenia.yukta.model.workflow.ParentEdgeInfo;
 import com.infenia.yukta.model.workflow.WorkflowNode;
@@ -28,6 +29,7 @@ import com.infenia.yukta.service.control.store.ActivePluginRegistry;
 import com.infenia.yukta.service.control.valve.ReactiveControlValve;
 import com.infenia.yukta.service.orchestrator.assembly.AssemblyContext;
 import com.infenia.yukta.service.orchestrator.stream.StreamTopologyDecorator;
+import com.infenia.yukta.service.orchestrator.stream.UpstreamFailure;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -519,5 +521,29 @@ class ProcessorNodeAssemblerStrategyTest {
         .assemble(context);
 
     StepVerifier.create(context.streams()[0]).expectNext(good).verifyComplete();
+  }
+
+  @Test
+  void createAssembler_errorFromUpstream_reachesTheNodeAsUpstreamFailure() {
+    final ProcessorPlugin processor = mock(ProcessorPlugin.class);
+    when(processor.process(any(), any())).thenAnswer(inv -> inv.getArgument(0));
+    when(processor.isBlocking()).thenReturn(false);
+    final WorkflowNode node = new WorkflowNode(NODE_ID, "processor", Map.of());
+    final Flux<Message<?>> failing = Flux.error(new IllegalStateException("upstream broke"));
+    final AssemblyContext context = buildContext(NODE_ID, failing, null);
+    when(streamTopologyDecorator.mergeParentStreams(any(), any(ParentEdgeInfo[].class)))
+        .thenReturn(failing);
+    when(streamTopologyDecorator.applyLoggingAndBroadcasting(
+            anyString(), anyString(), any(), any(int.class), any(), any()))
+        .thenAnswer(inv -> inv.getArgument(2));
+
+    strategy
+        .createAssembler(node, processor, Duration.ofSeconds(5), 0, 1024, new ParentEdgeInfo[0])
+        .assemble(context);
+
+    StepVerifier.create(context.streams()[0]).verifyError(UpstreamFailure.class);
+    verify(tracker)
+        .emitTaskStatusEvent(
+            eq(EXECUTION_ID), eq(NODE_ID), anyString(), eq(TaskStatus.UPSTREAM_FAILED), any());
   }
 }

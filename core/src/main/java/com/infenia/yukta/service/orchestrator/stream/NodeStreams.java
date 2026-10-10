@@ -12,13 +12,14 @@ import java.util.concurrent.TimeoutException;
 import java.util.function.BooleanSupplier;
 import lombok.experimental.UtilityClass;
 import lombok.extern.slf4j.Slf4j;
+import org.slf4j.event.Level;
 import reactor.core.publisher.Flux;
 import reactor.core.scheduler.Schedulers;
 
 /** Stream operators every node's output goes through: timeout and task status tracking. */
 @Slf4j
 @UtilityClass
-@SuppressWarnings("PMD.AtLeastOneConstructor")
+@SuppressWarnings({"PMD.AtLeastOneConstructor", "PMD.OnlyOneReturn"})
 public class NodeStreams {
 
   /**
@@ -59,7 +60,8 @@ public class NodeStreams {
         .doOnCancel(() -> emit(tracker, executionId, node, TaskStatus.CANCELLED))
         .doOnError(
             error -> {
-              log.atError()
+              // the node that failed logs the error; the ones behind it only note the consequence
+              log.atLevel(error instanceof UpstreamFailure ? Level.DEBUG : Level.ERROR)
                   .setMessage("Task failed - execution: {}, node: {}")
                   .addArgument(executionId)
                   .addArgument(nodeId)
@@ -73,9 +75,13 @@ public class NodeStreams {
    * Maps a stream error to the node's final status.
    *
    * @param error the error that ended the stream
-   * @return TIMED_OUT for an idle timeout, otherwise FAILURE
+   * @return UPSTREAM_FAILED for an error that came from a node before this one, TIMED_OUT for an
+   *     idle timeout, otherwise FAILURE
    */
   public TaskStatus failureStatus(final Throwable error) {
+    if (error instanceof UpstreamFailure) {
+      return TaskStatus.UPSTREAM_FAILED;
+    }
     return error instanceof TimeoutException ? TaskStatus.TIMED_OUT : TaskStatus.FAILURE;
   }
 
