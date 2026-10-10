@@ -12,7 +12,7 @@ import (
 
 // ListCmd creates and returns the "plugin list" subcommand.
 // It retrieves all available plugins and displays them in table or JSON format.
-func ListCmd(c client.ClientInterface) *cobra.Command {
+func ListCmd(c *client.Client) *cobra.Command {
 	return &cobra.Command{
 		Use:   "list",
 		Short: "List all plugins",

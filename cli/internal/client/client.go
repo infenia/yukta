@@ -5,40 +5,25 @@ package client
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 )
 
-// RequestFactory abstracts HTTP request creation for testability.
-// It allows injecting mock implementations to simulate request creation failures.
-type RequestFactory interface {
-	NewRequest(method, urlStr string, body io.Reader) (*http.Request, error)
-}
-
-// DefaultRequestFactory uses the standard http.NewRequest function.
-type DefaultRequestFactory struct{}
-
-// NewRequest creates an HTTP request using the standard library.
-func (f *DefaultRequestFactory) NewRequest(method, urlStr string, body io.Reader) (*http.Request, error) {
-	return http.NewRequest(method, urlStr, body)
-}
-
-// HTTPDoer abstracts the http.Client.Do method for testability.
-// It allows injecting mock implementations to simulate HTTP execution failures.
-type HTTPDoer interface {
-	Do(req *http.Request) (*http.Response, error)
-}
+// DefaultTimeout bounds each non-streaming request. Streams are cancelled by their context.
+const DefaultTimeout = 30 * time.Second
 
 // Client provides an HTTP client wrapper for communicating with the Yukta API.
 type Client struct {
-	BaseURL        string
-	HTTPClient     *http.Client
-	RequestFactory RequestFactory
-	httpDoer       HTTPDoer
+	BaseURL    string
+	Token      string        // optional bearer token sent as Authorization
+	Timeout    time.Duration // per-request limit for non-streaming calls; <= 0 disables
+	HTTPClient *http.Client
 }
 
 // NewClient creates a new HTTP client with the given base URL.
@@ -47,14 +32,11 @@ func NewClient(baseURL string) *Client {
 	if baseURL == "" {
 		baseURL = "http://localhost:8080"
 	}
-	httpClient := &http.Client{
-		Timeout: 0, // No timeout by default; can be customized later
-	}
 	return &Client{
-		BaseURL:        strings.TrimRight(baseURL, "/"),
-		HTTPClient:     httpClient,
-		RequestFactory: &DefaultRequestFactory{},
-		httpDoer:       httpClient,
+		BaseURL: strings.TrimRight(baseURL, "/"),
+		Timeout: DefaultTimeout,
+		// No client-wide Timeout: it would also cut SSE streams.
+		HTTPClient: &http.Client{},
 	}
 }
 
@@ -70,7 +52,7 @@ func (c *Client) newRequestWithBody(method string, path string, body []byte) (*h
 		return nil, errors.New("path must start with /")
 	}
 
-	urlStr := c.BaseURL + path
+	urlStr := strings.TrimRight(c.BaseURL, "/") + path
 
 	// Validate that the URL is properly formed
 	_, err := url.Parse(urlStr)
@@ -83,13 +65,16 @@ func (c *Client) newRequestWithBody(method string, path string, body []byte) (*h
 		bodyReader = bytes.NewReader(body)
 	}
 
-	req, err := c.RequestFactory.NewRequest(method, urlStr, bodyReader)
+	req, err := http.NewRequest(method, urlStr, bodyReader)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
+	if c.Token != "" {
+		req.Header.Set("Authorization", "Bearer "+c.Token)
+	}
 
 	return req, nil
 }
@@ -107,7 +92,13 @@ func (c *Client) doRequest(req *http.Request) ([]byte, error) {
 		return nil, errors.New("request cannot be nil")
 	}
 
-	resp, err := c.httpDoer.Do(req)
+	if c.Timeout > 0 {
+		ctx, cancel := context.WithTimeout(req.Context(), c.Timeout)
+		defer cancel()
+		req = req.WithContext(ctx)
+	}
+
+	resp, err := c.HTTPClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("request failed: %w", err)
 	}
@@ -124,4 +115,14 @@ func (c *Client) doRequest(req *http.Request) ([]byte, error) {
 	}
 
 	return body, nil
+}
+
+// apiPath fills the %s placeholders in format with URL-path-escaped args, so IDs
+// containing "/", "?" or "#" can't redirect the request to another endpoint.
+func apiPath(format string, args ...string) string {
+	escaped := make([]any, len(args))
+	for i, a := range args {
+		escaped[i] = url.PathEscape(a)
+	}
+	return fmt.Sprintf(format, escaped...)
 }

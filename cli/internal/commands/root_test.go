@@ -8,6 +8,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"com.infenia.yukta/go-cli/internal/client"
 	"github.com/spf13/cobra"
@@ -119,13 +120,13 @@ func TestRootCmd_defaultURLWithoutEnv(t *testing.T) {
 	}
 }
 
-// TestPersistentPreRunE_updatesClientBaseURL tests that client BaseURL is updated.
-func TestPersistentPreRunE_updatesClientBaseURL(t *testing.T) {
+// TestRootCmd_flagsBindToClient tests that --url, --token and --timeout are written straight to the client.
+func TestRootCmd_flagsBindToClient(t *testing.T) {
 	c := client.NewClient("http://localhost:8080")
 	cmd := RootCmd(c)
 
 	// Set the URL flag
-	cmd.SetArgs([]string{"--url", "http://example.com:9090"})
+	cmd.SetArgs([]string{"--url", "http://example.com:9090", "--token", "t", "--timeout", "5s"})
 	cmd.SetOut(io.Discard)
 	cmd.SetErr(io.Discard)
 
@@ -139,37 +140,8 @@ func TestPersistentPreRunE_updatesClientBaseURL(t *testing.T) {
 	if c.BaseURL != "http://example.com:9090" {
 		t.Errorf("expected client BaseURL to be updated, got %q", c.BaseURL)
 	}
-}
-
-// TestPersistentPreRunE_trimsTrailingSlash tests that trailing slash is trimmed.
-func TestPersistentPreRunE_trimsTrailingSlash(t *testing.T) {
-	c := client.NewClient("http://localhost:8080")
-	cmd := RootCmd(c)
-
-	cmd.SetArgs([]string{"--url", "http://example.com/"})
-	cmd.SetOut(io.Discard)
-	cmd.SetErr(io.Discard)
-
-	_ = cmd.Execute()
-
-	if c.BaseURL != "http://example.com" {
-		t.Errorf("expected trailing slash to be trimmed, got %q", c.BaseURL)
-	}
-}
-
-// TestPersistentPreRunE_multipleTrailingSlashes tests that multiple trailing slashes are trimmed.
-func TestPersistentPreRunE_multipleTrailingSlashes(t *testing.T) {
-	c := client.NewClient("http://localhost:8080")
-	cmd := RootCmd(c)
-
-	cmd.SetArgs([]string{"--url", "http://example.com///"})
-	cmd.SetOut(io.Discard)
-	cmd.SetErr(io.Discard)
-
-	_ = cmd.Execute()
-
-	if c.BaseURL != "http://example.com" {
-		t.Errorf("expected all trailing slashes to be trimmed, got %q", c.BaseURL)
+	if c.Token != "t" || c.Timeout != 5*time.Second {
+		t.Errorf("expected token and timeout to be bound, got %q %v", c.Token, c.Timeout)
 	}
 }
 
@@ -234,18 +206,8 @@ func TestRootCmd_hasNoRunFunction(t *testing.T) {
 	}
 }
 
-// TestRootCmd_hasPersistentPreRunE tests that PersistentPreRunE is set.
-func TestRootCmd_hasPersistentPreRunE(t *testing.T) {
-	c := client.NewClient("http://localhost:8080")
-	cmd := RootCmd(c)
-
-	if cmd.PersistentPreRunE == nil {
-		t.Error("expected PersistentPreRunE to be set")
-	}
-}
-
-// TestPersistentPreRunE_withoutURL tests PersistentPreRunE without setting URL flag.
-func TestPersistentPreRunE_withoutURL(t *testing.T) {
+// TestRootCmd_withoutURL tests root command without setting URL flag.
+func TestRootCmd_withoutURL(t *testing.T) {
 	oldEnv := os.Getenv("YUKTA_SERVER_URL")
 	defer os.Setenv("YUKTA_SERVER_URL", oldEnv)
 	os.Unsetenv("YUKTA_SERVER_URL")
@@ -262,18 +224,6 @@ func TestPersistentPreRunE_withoutURL(t *testing.T) {
 	// Should use default from flag definition
 	if c.BaseURL != "http://localhost:8080" {
 		t.Errorf("expected default URL to be set, got %q", c.BaseURL)
-	}
-}
-
-// TestServerURLPackageVariable tests that serverURL package variable exists.
-func TestServerURLPackageVariable(t *testing.T) {
-	// This test verifies the package variable exists by creating a root command
-	c := client.NewClient("http://localhost:8080")
-	cmd := RootCmd(c)
-
-	// If the variable didn't exist, the command creation would fail
-	if cmd == nil {
-		t.Error("expected command to be created")
 	}
 }
 
