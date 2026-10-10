@@ -7,6 +7,8 @@ import java.util.Arrays;
 /** Status enumeration for workflow and node execution states. */
 public enum TaskStatus {
   PENDING,
+  /** The run waits for a free execution slot (see the execution scheduler). */
+  QUEUED,
   RUNNING,
   SUCCESS,
   FAILURE,
@@ -29,7 +31,7 @@ public enum TaskStatus {
    * @return true for every status except PENDING and RUNNING
    */
   public boolean isTerminal() {
-    return this != PENDING && this != RUNNING;
+    return this != PENDING && this != QUEUED && this != RUNNING;
   }
 
   /**

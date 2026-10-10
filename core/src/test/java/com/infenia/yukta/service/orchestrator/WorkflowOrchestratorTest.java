@@ -23,6 +23,7 @@ import com.infenia.yukta.model.workflow.WorkflowTemplate;
 import com.infenia.yukta.plugin.store.NodeCheckpointStore;
 import com.infenia.yukta.service.archive.ExecutionArchive;
 import com.infenia.yukta.service.control.ExecutionControl;
+import com.infenia.yukta.service.control.ExecutionScheduler;
 import com.infenia.yukta.service.control.factory.ExecutionControlFactory;
 import com.infenia.yukta.service.control.store.ExecutionControlRegistry;
 import com.infenia.yukta.service.log.ExecutionLogEvent;
@@ -31,6 +32,7 @@ import com.infenia.yukta.service.orchestrator.assembly.AssemblyContext;
 import com.infenia.yukta.service.orchestrator.compiler.WorkflowCompiler;
 import com.infenia.yukta.service.orchestrator.preparator.WorkflowPreparator;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -71,6 +73,8 @@ class WorkflowOrchestratorTest {
   private WorkflowOrchestrator orchestrator;
 
   private final ExecutionArchive executionArchive = new ExecutionArchive();
+  private final ExecutionScheduler scheduler =
+      new ExecutionScheduler(0, 0, 100, ExecutionScheduler.OnLimit.QUEUE, Duration.ofSeconds(30));
   private final ExecutionLogStore executionLog = org.mockito.Mockito.mock(ExecutionLogStore.class);
 
   @BeforeEach
@@ -87,6 +91,7 @@ class WorkflowOrchestratorTest {
             checkpointStore,
             executionArchive,
             executionLog,
+            scheduler,
             compiler,
             preparator);
   }
@@ -531,6 +536,7 @@ class WorkflowOrchestratorTest {
             checkpointStore,
             smallArchive,
             executionLog,
+            scheduler,
             compiler,
             preparator);
     final PreparedWorkflow prepared = buildPreparedWorkflow(List.of("n1"));
@@ -548,6 +554,75 @@ class WorkflowOrchestratorTest {
 
     verify(checkpointStore).clear("e1");
     verify(checkpointStore, never()).clear("e2");
+  }
+
+  @Test
+  void execute_waitsInQueueWhenTheLimitIsReached_andReportsQueuedThenRunning() {
+    final ExecutionScheduler limited =
+        new ExecutionScheduler(1, 0, 10, ExecutionScheduler.OnLimit.QUEUE, Duration.ofSeconds(30));
+    final WorkflowOrchestrator queued =
+        new WorkflowOrchestrator(
+            tracker,
+            executionControlRegistry,
+            executionControlFactory,
+            checkpointStore,
+            executionArchive,
+            executionLog,
+            limited,
+            compiler,
+            preparator);
+    final ExecutionScheduler.Permit holder = limited.acquire("s", "w").permit().block();
+    final PreparedWorkflow prepared = buildPreparedWorkflow(List.of("n1"));
+    lenient()
+        .when(executionControlFactory.create(anyString(), anyString(), anyString(), any(), any()))
+        .thenReturn(executionControl);
+    lenient().when(executionControl.safeStopSink()).thenAnswer(inv -> Sinks.one());
+    lenient().when(executionControl.stopRequested()).thenAnswer(inv -> new AtomicBoolean());
+    when(tracker.startWorkflow(anyString(), anyString(), anyString(), anyList()))
+        .thenReturn(Mono.empty());
+    when(prepared.template().instantiate(anyString(), any())).thenReturn(Mono.empty());
+
+    StepVerifier.create(queued.execute("s", "w", "e-queued", prepared, Map.of()))
+        .expectSubscription()
+        .then(
+            () -> {
+              verify(tracker).emitWorkflowStatusEvent("e-queued", TaskStatus.QUEUED);
+              verify(tracker, never()).emitWorkflowStatusEvent("e-queued", TaskStatus.RUNNING);
+              holder.release();
+            })
+        .verifyComplete();
+
+    verify(tracker).emitWorkflowStatusEvent("e-queued", TaskStatus.RUNNING);
+    assertThat(limited.running()).isZero();
+  }
+
+  @Test
+  void execute_releasesItsSlotWhenTheBodyFails() {
+    final ExecutionScheduler limited =
+        new ExecutionScheduler(1, 0, 10, ExecutionScheduler.OnLimit.QUEUE, Duration.ofSeconds(30));
+    final WorkflowOrchestrator single =
+        new WorkflowOrchestrator(
+            tracker,
+            executionControlRegistry,
+            executionControlFactory,
+            checkpointStore,
+            executionArchive,
+            executionLog,
+            limited,
+            compiler,
+            preparator);
+    final PreparedWorkflow prepared = buildPreparedWorkflow(List.of("n1"));
+    setupExecutionControl("s", "w", "e-fail", prepared, Map.of(), Sinks.one());
+    when(tracker.startWorkflow(anyString(), anyString(), anyString(), anyList()))
+        .thenReturn(Mono.empty());
+    when(prepared.template().instantiate(anyString(), any()))
+        .thenReturn(Mono.error(new IllegalStateException("boom")));
+
+    StepVerifier.create(single.execute("s", "w", "e-fail", prepared, Map.of()))
+        .expectError(IllegalStateException.class)
+        .verify();
+
+    assertThat(limited.running()).isZero();
   }
 
   // --- helpers ---

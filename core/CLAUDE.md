@@ -72,6 +72,25 @@ Malformed policies are rejected by `WorkflowValidator` with the node id and opti
   `yukta.execution-log.retained-runs` (default 500) into history, and rewrites the log without
   older ones.
 
+### Execution limits and idempotent starts
+- `ExecutionScheduler` admits executions. By default there is no limit. Set
+  `yukta.execution.max-concurrent` and/or `yukta.execution.max-concurrent-per-workflow` to limit;
+  a start that does not fit waits (`yukta.execution.on-limit=QUEUE`, at most
+  `yukta.execution.queue-capacity`, default 100, shown as status `QUEUED`) or is refused with HTTP 429
+  (`REJECT`, or queue full). On shutdown nothing new is admitted, queued starts are refused, and
+  running ones get `yukta.execution.shutdown-timeout` (default 30s) to finish.
+- `POST /workflow/start` accepts an optional `Idempotency-Key` header: a repeat with the same key for
+  the same session and workflow within `yukta.start.idempotency-ttl` (default 10m) returns the first
+  execution id instead of starting another. A failed start is not remembered.
+- Concurrent starts of a workflow that is not prepared yet share one preparation.
+
+### Validation limits and metrics
+- `WorkflowValidator` rejects duplicate node ids and edges, an edge `sourcePort` the source plugin
+  does not declare (`error` is allowed on nodes with `onError: ROUTE`), and graphs over 500 nodes or
+  2000 edges.
+- The tracker records Micrometer `yukta.node.executions` (tags `module`, `status`) and
+  `yukta.node.duration` (tag `module`) when a node reaches a terminal status.
+
 ## Key File Locations
 - **Services**: `src/main/java/com/infenia/yukta/service/`
 - **Validation**: `src/main/java/com/infenia/yukta/validation/`

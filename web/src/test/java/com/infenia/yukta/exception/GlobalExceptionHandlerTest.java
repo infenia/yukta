@@ -668,4 +668,19 @@ class GlobalExceptionHandlerTest {
             })
         .verifyComplete();
   }
+
+  @Test
+  void testHandleExecutionRejectedIsTooManyRequests() {
+    final var exception =
+        new com.infenia.yukta.service.control.ExecutionRejectedException("Execution limit reached");
+    final ServerHttpRequest request = mock(ServerHttpRequest.class);
+    when(request.getPath()).thenReturn(RequestPath.parse("/workflow/start", "/"));
+
+    final ResponseEntity<ApiResponse<Object>> resp =
+        handler.handleExecutionRejected(exception, request);
+
+    assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.TOO_MANY_REQUESTS);
+    assertThat(resp.getBody()).isNotNull();
+    assertThat(resp.getBody().message()).isEqualTo("Execution limit reached");
+  }
 }

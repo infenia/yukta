@@ -38,6 +38,8 @@ import com.infenia.yukta.plugin.core.Plugin;
 import com.infenia.yukta.service.archive.ExecutionArchive;
 import com.infenia.yukta.service.control.ControlBusService;
 import com.infenia.yukta.service.control.ExecutionControl;
+import com.infenia.yukta.service.control.ExecutionRejectedException;
+import com.infenia.yukta.service.control.ExecutionScheduler;
 import com.infenia.yukta.service.control.factory.ExecutionControlFactory;
 import com.infenia.yukta.service.control.store.ExecutionControlRegistry;
 import com.infenia.yukta.service.control.store.InMemoryExecutionControlStore;
@@ -97,7 +99,10 @@ class DefaultControlBusGatewayTest {
             archive,
             orchestrator,
             workflowDefinitionStore,
-            preparedWorkflowCache);
+            preparedWorkflowCache,
+            new ExecutionScheduler(
+                0, 0, 100, ExecutionScheduler.OnLimit.QUEUE, java.time.Duration.ofSeconds(30)),
+            new StartIdempotency(java.time.Duration.ofMinutes(10)));
   }
 
   // --- Plugin & Message Management Tests ---
@@ -445,7 +450,10 @@ class DefaultControlBusGatewayTest {
             new ExecutionArchive(),
             orchestrator,
             workflowDefinitionStore,
-            preparedWorkflowCache);
+            preparedWorkflowCache,
+            new ExecutionScheduler(
+                0, 0, 100, ExecutionScheduler.OnLimit.QUEUE, java.time.Duration.ofSeconds(30)),
+            new StartIdempotency(java.time.Duration.ofMinutes(10)));
     when(controlBusService.emit(any())).thenReturn(Mono.empty());
 
     // When / Then - a real, existing node succeeds
@@ -2313,5 +2321,89 @@ class DefaultControlBusGatewayTest {
     StepVerifier.create(gateway.restartWorkflow("gone"))
         .expectErrorMatches(e -> e.getMessage().contains("Execution not found: gone"))
         .verify();
+  }
+
+  private void stubStart(final String sessionId, final String workflowId) {
+    final WorkflowDefinition definition =
+        new WorkflowDefinition(workflowId, "test workflow", List.of(), List.of());
+    final PreparedWorkflow preparedWorkflow = mock(PreparedWorkflow.class);
+    when(workflowDefinitionStore.find(sessionId, workflowId)).thenReturn(Mono.just(definition));
+    when(preparedWorkflowCache.get(sessionId, workflowId)).thenReturn(Optional.empty());
+    when(orchestrator.prepareWorkflow(definition)).thenReturn(Mono.just(preparedWorkflow));
+    when(orchestrator.execute(
+            eq(sessionId), eq(workflowId), anyString(), eq(preparedWorkflow), anyMap()))
+        .thenReturn(Mono.empty());
+  }
+
+  @Test
+  void startWorkflow_withTheSameIdempotencyKey_startsOnceAndReturnsTheFirstExecution() {
+    stubStart("sess-idem", "wf-idem");
+
+    final String first = gateway.startWorkflow("sess-idem", "wf-idem", Map.of(), "key-1").block();
+    final String second = gateway.startWorkflow("sess-idem", "wf-idem", Map.of(), "key-1").block();
+    final String other = gateway.startWorkflow("sess-idem", "wf-idem", Map.of(), "key-2").block();
+
+    assertThat(second).isEqualTo(first);
+    assertThat(other).isNotEqualTo(first);
+    verify(orchestrator, times(2))
+        .execute(eq("sess-idem"), eq("wf-idem"), anyString(), any(), anyMap());
+  }
+
+  @Test
+  void startWorkflow_whenTheServerIsAtItsLimit_isRefusedBeforeAnExecutionIsCreated() {
+    final WorkflowDefinition definition =
+        new WorkflowDefinition("wf-full", "d", List.of(), List.of());
+    when(workflowDefinitionStore.find("s", "wf-full")).thenReturn(Mono.just(definition));
+    final var scheduler =
+        new ExecutionScheduler(
+            1, 0, 0, ExecutionScheduler.OnLimit.REJECT, java.time.Duration.ofSeconds(30));
+    scheduler.acquire("s", "wf-full").permit().block();
+    final DefaultControlBusGateway full =
+        new DefaultControlBusGateway(
+            controlBusService,
+            taskTracker,
+            executionControlRegistry,
+            archive,
+            orchestrator,
+            workflowDefinitionStore,
+            preparedWorkflowCache,
+            scheduler,
+            new StartIdempotency(java.time.Duration.ofMinutes(1)));
+
+    StepVerifier.create(full.startWorkflow("s", "wf-full", Map.of()))
+        .expectError(ExecutionRejectedException.class)
+        .verify();
+
+    verify(orchestrator, never()).prepareWorkflow(any());
+  }
+
+  @Test
+  void startWorkflow_concurrentStartsOfAnUnpreparedWorkflow_prepareItOnce() {
+    final WorkflowDefinition definition =
+        new WorkflowDefinition("wf-shared", "d", List.of(), List.of());
+    final PreparedWorkflow preparedWorkflow = mock(PreparedWorkflow.class);
+    final java.util.concurrent.atomic.AtomicInteger prepares =
+        new java.util.concurrent.atomic.AtomicInteger();
+    when(workflowDefinitionStore.find("s", "wf-shared")).thenReturn(Mono.just(definition));
+    when(preparedWorkflowCache.get("s", "wf-shared")).thenReturn(Optional.empty());
+    when(orchestrator.prepareWorkflow(definition))
+        .thenReturn(
+            Mono.defer(
+                () -> {
+                  prepares.incrementAndGet();
+                  return Mono.just(preparedWorkflow).delayElement(java.time.Duration.ofMillis(200));
+                }));
+    when(orchestrator.execute(any(), any(), anyString(), any(), anyMap())).thenReturn(Mono.empty());
+
+    StepVerifier.create(
+            Flux.merge(
+                    gateway.startWorkflow("s", "wf-shared"),
+                    gateway.startWorkflow("s", "wf-shared"),
+                    gateway.startWorkflow("s", "wf-shared"))
+                .collectList())
+        .assertNext(ids -> assertThat(ids).hasSize(3).doesNotHaveDuplicates())
+        .verifyComplete();
+
+    assertThat(prepares).hasValue(1);
   }
 }

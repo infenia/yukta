@@ -124,6 +124,7 @@ class TaskStatusTest {
     assertThat(actualValues)
         .containsExactly(
             TaskStatus.PENDING,
+            TaskStatus.QUEUED,
             TaskStatus.RUNNING,
             TaskStatus.SUCCESS,
             TaskStatus.FAILURE,
@@ -137,12 +138,12 @@ class TaskStatusTest {
   }
 
   @Test
-  void values_called_returnsArrayOfElevenElements() {
+  void values_called_returnsArrayOfTwelveElements() {
     // When
     final TaskStatus[] actualValues = TaskStatus.values();
 
     // Then
-    assertThat(actualValues).hasSize(11);
+    assertThat(actualValues).hasSize(12);
   }
 
   @Test
@@ -152,6 +153,7 @@ class TaskStatusTest {
     assertThat(TaskStatus.SKIPPED.isTerminal()).isTrue();
     assertThat(TaskStatus.UPSTREAM_FAILED.isTerminal()).isTrue();
     assertThat(TaskStatus.ABORTED.isTerminal()).isTrue();
+    assertThat(TaskStatus.QUEUED.isTerminal()).isFalse();
   }
 
   @Test

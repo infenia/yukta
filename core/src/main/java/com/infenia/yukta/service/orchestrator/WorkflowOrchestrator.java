@@ -13,6 +13,7 @@ import com.infenia.yukta.service.archive.ArchivedExecution;
 import com.infenia.yukta.service.archive.DefinitionVersion;
 import com.infenia.yukta.service.archive.ExecutionArchive;
 import com.infenia.yukta.service.control.ExecutionControl;
+import com.infenia.yukta.service.control.ExecutionScheduler;
 import com.infenia.yukta.service.control.factory.ExecutionControlFactory;
 import com.infenia.yukta.service.control.store.ExecutionControlRegistry;
 import com.infenia.yukta.service.log.ExecutionLogEvent;
@@ -41,7 +42,7 @@ import reactor.util.context.Context;
 @Service
 @Validated
 @RequiredArgsConstructor
-@SuppressWarnings("PMD.ExcessiveImports")
+@SuppressWarnings({"PMD.ExcessiveImports", "PMD.CouplingBetweenObjects"})
 public class WorkflowOrchestrator {
 
   /** Log key for session ID. */
@@ -73,6 +74,9 @@ public class WorkflowOrchestrator {
 
   /** Durable record of run starts. */
   private final ExecutionLogStore executionLog;
+
+  /** Limits and queues concurrent executions. */
+  private final ExecutionScheduler scheduler;
 
   /** The workflow compiler for compiling workflow definitions. */
   private final WorkflowCompiler compiler;
@@ -249,6 +253,22 @@ public class WorkflowOrchestrator {
         "RestartFromNode execution");
   }
 
+  /** Waits for an execution slot, showing the run as QUEUED while it has to wait. */
+  private Mono<ExecutionScheduler.Permit> awaitSlot(
+      final String sessionId, final String workflowId, final String executionId) {
+    return Mono.defer(
+        () -> {
+          final ExecutionScheduler.Admission admission = scheduler.acquire(sessionId, workflowId);
+          if (admission.immediate()) {
+            return admission.permit();
+          }
+          tracker.emitWorkflowStatusEvent(executionId, TaskStatus.QUEUED);
+          return admission
+              .permit()
+              .doOnNext(_ -> tracker.emitWorkflowStatusEvent(executionId, TaskStatus.RUNNING));
+        });
+  }
+
   /** Remembers an execution so it can be restarted, and frees what older ones recorded. */
   private void archive(
       final String executionId,
@@ -284,8 +304,15 @@ public class WorkflowOrchestrator {
       final List<String> nodeIds,
       final Mono<Void> body,
       final String label) {
+    // The body runs once the scheduler grants a slot, which is released however the run ends.
     final Mono<Void> execution =
-        tracker.startWorkflow(executionId, sessionId, workflowId, nodeIds).then(body);
+        tracker
+            .startWorkflow(executionId, sessionId, workflowId, nodeIds)
+            .then(
+                Mono.usingWhen(
+                    awaitSlot(sessionId, workflowId, executionId),
+                    _ -> body,
+                    permit -> Mono.fromRunnable(permit::release)));
 
     return Mono.firstWithSignal(
             // A run that ended because it was stopped (for example after a drain) is STOPPED.
