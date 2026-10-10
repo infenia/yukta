@@ -123,6 +123,10 @@ A long-running plugin can keep its node alive by calling the `Runnable` found un
 the idle clock. There is no node-level wall-clock deadline: the idle timeout, `elementTimeoutMs` and
 the run deadline cover it.
 
+Every progress snapshot (REST, SSE, MCP) carries `definitionVersion`, the content hash of the graph
+the run uses (the same value the archive and the execution log store). The control-bus consumer
+resubscribes with capped backoff if its stream ever fails, until `shutdown()`.
+
 ### Validation limits and metrics
 - `WorkflowValidator` rejects duplicate node ids and edges, an edge `sourcePort` the source plugin
   does not declare (`error` is allowed on nodes with `onError: ROUTE`), and graphs over 500 nodes or

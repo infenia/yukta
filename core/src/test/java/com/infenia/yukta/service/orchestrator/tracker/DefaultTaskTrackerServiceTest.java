@@ -55,6 +55,19 @@ class DefaultTaskTrackerServiceTest {
   }
 
   @Test
+  void testDefinitionVersionIsReportedWithTheProgress() {
+    StepVerifier.create(tracker.startWorkflow("v-exec", "v-sess", "v-wf", List.of("a")))
+        .verifyComplete();
+    assertThat(tracker.getProgressByExecutionId("v-exec").definitionVersion()).isNull();
+
+    tracker.recordDefinitionVersion("v-exec", "abc123");
+    tracker.recordDefinitionVersion("unknown", "ignored");
+
+    assertThat(tracker.getProgressByExecutionId("v-exec").definitionVersion()).isEqualTo("abc123");
+    assertThat(tracker.getProgress("v-sess", "v-exec").definitionVersion()).isEqualTo("abc123");
+  }
+
+  @Test
   void testNodeMetricsCountOutcomesAndTimeRunNodes() {
     final SimpleMeterRegistry meters = new SimpleMeterRegistry();
     final DefaultTaskTrackerService metered =

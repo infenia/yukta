@@ -308,6 +308,13 @@ public class WorkflowOrchestrator {
     final Mono<Void> execution =
         tracker
             .startWorkflow(executionId, sessionId, workflowId, nodeIds)
+            .doOnSuccess(
+                _ -> {
+                  if (control.prepared() != null) {
+                    tracker.recordDefinitionVersion(
+                        executionId, DefinitionVersion.of(control.prepared()));
+                  }
+                })
             .then(
                 Mono.usingWhen(
                     awaitSlot(sessionId, workflowId, executionId),

@@ -306,6 +306,15 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
     publish(TaskStatusEvent.create(executionId, nodeId, module, status.name(), metadata));
   }
 
+  @Override
+  public void recordDefinitionVersion(
+      @NotBlank final String executionId, @NotBlank final String version) {
+    final WorkflowState state = findState(executionId);
+    if (state != null) {
+      state.definitionVersion = version;
+    }
+  }
+
   /**
    * Record an operator control state for an execution and notify status subscribers.
    *
@@ -437,7 +446,8 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
                 state.getTasks(),
                 state.startTime,
                 state.endTime,
-                state.controlState);
+                state.controlState,
+                state.definitionVersion);
       }
     }
     return progress;
@@ -465,7 +475,8 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
         state.getTasks(),
         state.startTime,
         state.endTime,
-        state.controlState);
+        state.controlState,
+        state.definitionVersion);
   }
 
   /**
@@ -959,6 +970,9 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
 
     /** The latest operator control state, or null. */
     private volatile String controlState;
+
+    /** The definition version (graph hash) this run uses, or null until recorded. */
+    private volatile String definitionVersion;
 
     /** Map of task progress by node ID. */
     private final Map<String, TaskProgress> taskMap;
