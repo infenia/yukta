@@ -189,11 +189,13 @@ public class ExecutionScheduler implements SmartLifecycle {
    * @param maxPerWorkflow per-workflow limit, 0 for none
    */
   public void setLimits(final int maxConcurrent, final int maxPerWorkflow) {
+    final List<Waiter> admitted;
     synchronized (lock) {
       this.maxConcurrent = Math.max(0, maxConcurrent);
       this.maxPerWorkflow = Math.max(0, maxPerWorkflow);
-      admitWaiting();
+      admitted = admitWaiting();
     }
+    grant(admitted);
   }
 
   /**
@@ -228,21 +230,26 @@ public class ExecutionScheduler implements SmartLifecycle {
   }
 
   private void free(final String key) {
+    final List<Waiter> admitted;
     synchronized (lock) {
       runningTotal--;
       runningPerKey.computeIfPresent(key, (_, count) -> count > 1 ? count - 1 : null);
-      admitWaiting();
+      admitted = admitWaiting();
       if (closed && runningTotal == 0) {
         drained.tryEmitEmpty();
       }
     }
+    grant(admitted);
   }
 
   /**
    * Grants slots to waiting starts, highest priority first, skipping ones whose workflow is at its
-   * limit.
+   * limit. Called with the lock held; the caller hands the slots over with {@link #grant} once it
+   * has let go of the lock.
+   *
+   * @return the starts that now hold a slot
    */
-  private void admitWaiting() {
+  private List<Waiter> admitWaiting() {
     final List<Waiter> admitted = new ArrayList<>();
     final var iterator = queue.iterator();
     while (iterator.hasNext()) {
@@ -253,7 +260,14 @@ public class ExecutionScheduler implements SmartLifecycle {
         admitted.add(waiter);
       }
     }
-    // Notify after the walk: a subscriber may start another execution and join the queue.
+    return admitted;
+  }
+
+  /**
+   * Tells the starts that were admitted. A subscriber runs here, on the caller's thread, and may
+   * start another execution, so this must happen outside the lock.
+   */
+  private static void grant(final List<Waiter> admitted) {
     admitted.forEach(waiter -> waiter.grant().tryEmitValue(waiter.granted().get()));
   }
 

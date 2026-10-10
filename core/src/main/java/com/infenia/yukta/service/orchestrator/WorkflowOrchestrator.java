@@ -278,7 +278,7 @@ public class WorkflowOrchestrator {
         workflowId,
         newExecutionId,
         nodeIds,
-        0,
+        ExecutionScheduler.priorityOf(payload),
         recordReplayed.then(
             compiler.executeTemplate(
                 newExecutionId, payload, nodeCount, assemblers, sessionId, workflowId, nodeIds)),
