@@ -343,4 +343,11 @@ class FilterProcessorTest {
     assertEquals(List.of("default"), processor.getOutputPorts(Map.of("discardPort", " ")));
     assertEquals(List.of("default"), processor.getOutputPorts(Map.of()));
   }
+
+  @org.junit.jupiter.api.Test
+  void declaresConfigSchema() {
+    final var schema = processor.getConfigSchema();
+    org.junit.jupiter.api.Assertions.assertTrue(
+        schema.stream().anyMatch(f -> f.required() && "condition".equals(f.name())));
+  }
 }

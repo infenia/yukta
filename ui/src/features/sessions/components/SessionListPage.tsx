@@ -2,7 +2,8 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import { useState } from 'react';
-import { useNavigate } from 'react-router';
+import { Link, useNavigate } from 'react-router';
+import HeaderPortal from '@/components/layout/HeaderPortal';
 import {
   useLegacyTable,
   getCoreRowModel,
@@ -80,6 +81,14 @@ export function SessionListPage() {
   return (
     <div className="flex flex-1 flex-col gap-0 bg-background">
       <div className="w-full">
+        <HeaderPortal targetId="header-actions">
+          <Link
+            to="/sessions/new"
+            className="flex h-8 items-center gap-1 border border-outline-variant px-3 text-xs font-semibold text-on-surface no-underline hover:bg-surface-container"
+          >
+            <span className="material-symbols-outlined text-base">add</span>New session
+          </Link>
+        </HeaderPortal>
         <SessionsHeader sessionCount={sessions.length} />
 
         <SessionsFilterBar

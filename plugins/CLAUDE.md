@@ -14,6 +14,9 @@ Implementations of various Yukta plugins.
 
 Note: `triggers/manual-trigger/` exists on disk but has no source and isn't in `settings.gradle.kts` — it's a retired/unwired module, not a live plugin.
 
+## Config schema
+Declare `getConfigSchema()` (see `ConfigField`) on a plugin to get a generated config form in the UI. Every plugin that takes configuration declares one (`api-trigger`, `ONE_SHOT` and `CONSOLE_TERMINAL` take none); a new plugin without a schema falls back to the JSON editor and the usage pattern. Keep field names equal to the keys the plugin reads, and add a test pinning the names and which are required.
+
 ## Build Commands
 ```bash
 # Build a specific plugin

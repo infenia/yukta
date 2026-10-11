@@ -4,6 +4,7 @@ package com.infenia.yukta.plugin.trigger;
 
 import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
+import com.infenia.yukta.plugin.core.ConfigField;
 import com.infenia.yukta.plugin.core.PluginDescriptor;
 import com.infenia.yukta.plugin.core.UiDesign;
 import com.infenia.yukta.plugin.type.TriggerPlugin;
@@ -11,6 +12,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -66,6 +68,19 @@ public class ScheduleTrigger implements TriggerPlugin {
                 """,
                 140,
                 80)));
+  }
+
+  @Override
+  public List<ConfigField> getConfigSchema() {
+    return List.of(
+        ConfigField.optional(
+            "intervalMs", ConfigField.Type.NUMBER, null, "Fixed delay in ms; set this or cron"),
+        ConfigField.optional(
+            "cron", ConfigField.Type.STRING, null, "Spring 6-field cron; set this or intervalMs"),
+        ConfigField.optional(
+            "zone", ConfigField.Type.STRING, null, "Time zone for cron (default: system zone)"),
+        ConfigField.optional(
+            "maxRuns", ConfigField.Type.NUMBER, null, "Stop after this many emissions"));
   }
 
   @Override

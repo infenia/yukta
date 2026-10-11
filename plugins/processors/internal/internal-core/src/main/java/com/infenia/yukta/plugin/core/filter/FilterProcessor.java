@@ -3,6 +3,7 @@
 package com.infenia.yukta.plugin.core.filter;
 
 import com.infenia.yukta.message.Message;
+import com.infenia.yukta.plugin.core.ConfigField;
 import com.infenia.yukta.plugin.core.PluginDescriptor;
 import com.infenia.yukta.plugin.core.PluginMetricsReporter;
 import com.infenia.yukta.plugin.core.UiDesign;
@@ -99,6 +100,16 @@ public final class FilterProcessor implements ProcessorPlugin {
                 """,
                 140,
                 80)));
+  }
+
+  @Override
+  public List<ConfigField> getConfigSchema() {
+    return List.of(
+        ConfigField.required("condition", ConfigField.Type.EXPRESSION, "Keep messages where true"),
+        ConfigField.choice("engine", false, "SpEL", "Expression engine", "SpEL", "SIMPLE"),
+        ConfigField.optional("strictMode", ConfigField.Type.BOOLEAN, true, "Fail on eval errors"),
+        ConfigField.optional(
+            "discardPort", ConfigField.Type.STRING, null, "Port for rejected messages"));
   }
 
   @Override

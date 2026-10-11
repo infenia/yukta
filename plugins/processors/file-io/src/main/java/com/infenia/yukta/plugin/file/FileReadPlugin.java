@@ -3,10 +3,12 @@
 package com.infenia.yukta.plugin.file;
 
 import com.infenia.yukta.message.Message;
+import com.infenia.yukta.plugin.core.ConfigField;
 import com.infenia.yukta.plugin.core.PluginDescriptor;
 import com.infenia.yukta.plugin.core.UiDesign;
 import com.infenia.yukta.plugin.type.ProcessorPlugin;
 import java.nio.file.Files;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import org.springframework.stereotype.Component;
@@ -46,6 +48,18 @@ public final class FileReadPlugin implements ProcessorPlugin {
                 """,
                 140,
                 80)));
+  }
+
+  @Override
+  public List<ConfigField> getConfigSchema() {
+    return List.of(
+        ConfigField.required(
+            "baseDir", ConfigField.Type.STRING, "Sandbox directory; paths outside it are rejected"),
+        ConfigField.optional(
+            "path",
+            ConfigField.Type.STRING,
+            null,
+            "File relative to baseDir (default: payload path)"));
   }
 
   @Override

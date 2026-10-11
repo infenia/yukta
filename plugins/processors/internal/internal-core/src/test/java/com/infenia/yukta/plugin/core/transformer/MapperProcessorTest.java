@@ -331,4 +331,11 @@ class MapperProcessorTest {
                 "p"))
         .isEqualTo("p");
   }
+
+  @org.junit.jupiter.api.Test
+  void declaresConfigSchema() {
+    final var schema = withEngine.getConfigSchema();
+    org.junit.jupiter.api.Assertions.assertTrue(
+        schema.stream().anyMatch(f -> f.required() && "mapping".equals(f.name())));
+  }
 }
