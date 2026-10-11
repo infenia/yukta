@@ -31,6 +31,12 @@ const router = createBrowserRouter([
         }),
       },
       {
+        path: 'plugins',
+        lazy: async () => ({
+          Component: (await import('@/features/plugins/components/PluginsPage')).PluginsPage,
+        }),
+      },
+      {
         path: 'control',
         element: <ComingSoonPage title="Control Bus" />,
       },
