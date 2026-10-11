@@ -31,4 +31,7 @@ tasks.withType<JavaCompile>().configureEach {
 
 tasks.withType<Test>().configureEach {
     useJUnitPlatform()
+    maxParallelForks = (Runtime.getRuntime().availableProcessors() / 2).coerceAtLeast(1)
+    jvmArgs("-XX:+UseParallelGC", "-XX:TieredStopAtLevel=1")
+    failFast = providers.gradleProperty("failFast").isPresent
 }

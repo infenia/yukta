@@ -1,6 +1,3 @@
-# SPDX-License-Identifier: Apache-2.0
-# SPDX-FileCopyrightText: 2026 Infenia Private Limited
-
 # Core Module CLAUDE.md
 
 ## Overview
@@ -236,3 +233,6 @@ is on the classpath, as a child of the run's `yukta.run` observation. Re-running
 ## Imports
 @.claude/rules/coding-standards.md
 @.claude/rules/git-workflow.md
+
+## Testing speed
+Follow the tiered "Test Execution Policy (speed)" in the root `CLAUDE.md`: run `--tests` for the classes you changed first; full `:core:test` only when many files changed.

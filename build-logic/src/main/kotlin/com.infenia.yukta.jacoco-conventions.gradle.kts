@@ -32,7 +32,10 @@ extension.reasons.convention(emptyMap())
  * Configure test tasks
  */
 tasks.withType<Test>().configureEach {
-    finalizedBy(tasks.withType<JacocoReport>())
+    // Report only on request (-Pcoverage); `check` still builds it via jacocoTestCoverageVerification.
+    if (providers.gradleProperty("coverage").isPresent) {
+        finalizedBy(tasks.withType<JacocoReport>())
+    }
 
     extensions.configure<JacocoTaskExtension> {
         excludes = listOf(
@@ -69,7 +72,7 @@ tasks.withType<JacocoReport>().configureEach {
  */
 val minFloor = 0.80.toBigDecimal()
 // Only LINE and BRANCH are enforced; CLASS/INSTRUCTION/METHOD mostly duplicate them.
-val defaults = mapOf("LINE" to 0.90.toBigDecimal(), "BRANCH" to 0.85.toBigDecimal())
+val defaults = mapOf("LINE" to 1.00.toBigDecimal(), "BRANCH" to 1.00.toBigDecimal())
 
 fun globToRegex(glob: String) =
     Regex(glob.split("*").joinToString(".*") { part -> part.split("?").joinToString(".") { Regex.escape(it) } })

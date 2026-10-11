@@ -116,6 +116,13 @@ class NotifyTerminalTest {
     StepVerifier.create(terminal.validateConfig(Map.of(URL_KEY, url))).verifyComplete();
     StepVerifier.create(terminal.validateConfig(Map.of(URL_KEY, "https://hooks.example/x")))
         .verifyComplete();
+    for (final String local :
+        List.of("http://[::1]:9/x", "http://127.0.0.1:9/x", "http://LOCALHOST/x")) {
+      StepVerifier.create(terminal.validateConfig(Map.of(URL_KEY, local))).verifyComplete();
+    }
+    StepVerifier.create(terminal.validateConfig(Map.of(URL_KEY, "mailto:a@b.c")))
+        .expectError(IllegalArgumentException.class)
+        .verify();
     for (final String bad : List.of("ftp://x", "http://hooks.example/x", "not a url")) {
       StepVerifier.create(terminal.validateConfig(Map.of(URL_KEY, bad)))
           .expectError(IllegalArgumentException.class)

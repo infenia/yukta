@@ -65,6 +65,9 @@ class SqlQueryPluginTest {
     StepVerifier.create(plugin.validateConfig(Map.of(URL_KEY, URL)))
         .expectError(IllegalArgumentException.class)
         .verify();
+    StepVerifier.create(plugin.validateConfig(Map.of(URL_KEY, URL, SQL_KEY, " ")))
+        .expectError(IllegalArgumentException.class)
+        .verify();
     assertThat(plugin.getType()).isEqualTo("SQL_QUERY");
     assertThat(plugin.describe().usagePattern()).contains("params");
   }

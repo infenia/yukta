@@ -1,58 +1,78 @@
-<div style="text-align: center;">
-  <img src="ui/public/logo.svg" alt="Yukta" width="120" height="120" style="border-radius: 64px; padding: 4px; background-color: #fff;" />
+<div align="center">
+  <img src="ui/public/logo.svg" alt="Yukta" width="120" height="120" />
   <h1>Yukta</h1>
-  <p><strong>A reactive, DAG-based workflow orchestration server.</strong> Define workflows once as JSON, run them via REST, a web UI, or MCP.</p>
-</div>
+  <p><strong>A reactive, DAG-based workflow orchestration server.</strong><br />
+  Define a workflow once as JSON. Run it from a script, a CI pipeline, a web UI or an AI agent.</p>
 
-[![License: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-blue?style=flat-square)](LICENSE)
-[![Java 25](https://img.shields.io/badge/java-25-orange?style=flat-square)](https://www.oracle.com/java/)
-[![Spring Boot 4.1.1](https://img.shields.io/badge/spring--boot-4.1.1-6db33f?style=flat-square)](https://spring.io/projects/spring-boot)
-[![Gradle 9.8](https://img.shields.io/badge/gradle-9.8-02303a?style=flat-square)](https://gradle.org/)
-[![MCP Native](https://img.shields.io/badge/MCP-native-blueviolet?style=flat-square)](https://modelcontextprotocol.io/)
-[![GraalVM](https://img.shields.io/badge/GraalVM-native%20image-red?style=flat-square)](https://www.graalvm.org/)
-[![Status: Pre-Beta](https://img.shields.io/badge/status-pre--beta-yellow?style=flat-square)](#project-status)
+  <p>
+    <a href="#quick-start">Quick start</a> ·
+    <a href="examples/README.md">Examples</a> ·
+    <a href="#plugins">Plugins</a> ·
+    <a href="#mcp-server">MCP</a> ·
+    <a href="#rest-api">REST API</a> ·
+    <a href="CONTRIBUTING.md">Contributing</a>
+  </p>
+</div>
 
 [![CI](https://github.com/infenia/yukta/actions/workflows/ci.yml/badge.svg)](https://github.com/infenia/yukta/actions/workflows/ci.yml)
 [![CodeQL](https://github.com/infenia/yukta/actions/workflows/codeql.yml/badge.svg)](https://github.com/infenia/yukta/actions/workflows/codeql.yml)
-[![Security Scan](https://github.com/infenia/yukta/actions/workflows/security.yml/badge.svg)](https://github.com/infenia/yukta/actions/workflows/security.yml)
-[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/infenia/yukta/badge)](https://scorecard.dev/viewer/?uri=github.com/infenia/yukta)
 [![codecov](https://codecov.io/gh/infenia/yukta/branch/main/graph/badge.svg)](https://codecov.io/gh/infenia/yukta)
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/infenia/yukta/badge)](https://scorecard.dev/viewer/?uri=github.com/infenia/yukta)
 [![REUSE status](https://api.reuse.software/badge/github.com/infenia/yukta)](https://api.reuse.software/info/github.com/infenia/yukta)
+[![License: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-blue)](LICENSE)
+[![Status: pre-beta](https://img.shields.io/badge/status-pre--beta-yellow)](#project-status)
 
 ---
 
-## Project Status
+## Why Yukta
 
-> **Yukta is pre-beta (`0.0.1-SNAPSHOT`).** The engine, plugins, REST API, and MCP server all run and are exercised by the test suite, but there are no tagged releases or downloadable binaries yet, and no changelog. Expect breaking changes to the JSON workflow schema and APIs before v0.1.0. This section is the source of truth for "what actually works today" — update it whenever a module's status changes, rather than scattering status claims through the rest of the doc.
+Most workflow engines make you pick: a heavy platform you have to operate, or a script you cannot observe. Yukta is a small server that sits between the two.
 
-| Area                                                                                       | Status                        | Notes                                                                                          |
-|--------------------------------------------------------------------------------------------|-------------------------------|------------------------------------------------------------------------------------------------|
-| DAG orchestration engine (`core`)                                                          | Working                       | Reactive compiler/validator/executor; requires each workflow to have at least one trigger node |
-| REST API (`web`)                                                                           | Working                       | 9 controllers, 39 operations; see [REST API](#rest-api)                                        |
-| MCP server (`mcp`)                                                                         | Working                       | 16 tools, 2 prompts, 3 resources over `/mcp` (always on, no flag needed)                       |
-| Built-in plugins (`plugins`)                                                               | Working                       | 25 plugins across trigger/processor/terminal; see [Plugins](#plugins)                          |
-| Rule supervisor (`plugins/supervisors`)                                                    | Working, opt-in               | Declarative rules over the control bus; enabled by `yukta.supervisor.rules.file`               |
-| Web UI (`ui`)                                                                              | Working                       | React 19 + Vite + Tailwind CSS single-page app served at `/`                                   |
-| Native image (GraalVM)                                                                     | Configured, not yet published | `./gradlew nativeCompile` builds a `yukta` binary; no released artifacts                       |
-| Go CLI (`cli`)                                                                             | In progress                   | See `cli/CLAUDE.md`                                                                            |
-| CI                                                                                         | Working                       | `.github/workflows/ci.yml`, runs on pushes and PRs to `main` plus a nightly run                |
-| Tagged releases / downloads                                                                | Not yet                       | `release.yml` publishes on `v*` tags, but no tags, CHANGELOG.md, or GitHub Releases exist yet |
-| User-facing docs (getting-started, architecture, api-reference, plugin-development guides) | Not yet                       | `docs/` currently only has internal notes; use module-level `CLAUDE.md` files in the meantime  |
+- **Workflows are data.** A workflow is a JSON graph of nodes and edges. There is no DSL to learn, and a graph is easy for people, tools and AI agents to generate and review.
+- **One definition, many callers.** Start the same workflow from REST, the web UI, the Go CLI or an [MCP](https://modelcontextprotocol.io/) client such as Claude.
+- **Reactive end to end.** Built on Spring WebFlux and Project Reactor. Nodes are non-blocking streams, and I/O runs on virtual threads.
+- **Observable and controllable.** Live DAG view, SSE log and status streams, and run controls: pause, resume, stop, restart, skip, retry, step and breakpoints.
+- **Extensible.** Plugins are Spring beans implementing a small interface from `plugin-api`. Adding one does not touch `core`.
+- **Safe to start with.** It binds to loopback by default, and an API key guards `/api/**` and `/mcp` when you expose it.
 
-**Path to beta** (rough, update as items land):
-- [ ] Publish a first tagged release with native-image binaries
-- [ ] Add CHANGELOG.md
-- [ ] Write the user-facing docs referenced above
-- [ ] Stabilize the JSON workflow schema and REST/MCP contracts
+## Project status
+
+> **Yukta is pre-beta (`0.0.1-SNAPSHOT`).** The engine, plugins, REST API and MCP server run and are covered by tests, but there are no tagged releases or binaries yet. Expect breaking changes to the workflow JSON schema and the APIs before v0.1.0.
+
+| Area | Status | Notes |
+|------|--------|-------|
+| DAG engine (`core`) | Working | Reactive compiler, validator and executor |
+| REST API (`web`) | Working | 9 controllers, 39 operations, Swagger UI |
+| MCP server (`mcp`) | Working | 16 tools, 2 prompts, 3 resources at `/mcp` |
+| Plugins | Working | 25 built-in triggers, processors and terminals |
+| Rule supervisor | Working, opt-in | Declarative rules over the control bus |
+| Web UI (`ui`) | Working | React 19 + Vite + Tailwind CSS 4 |
+| Go CLI (`cli`) | In progress | See [`cli/README.md`](cli/README.md) |
+| Native image (GraalVM) | Configured | `./gradlew nativeCompile`; nothing published yet |
+| Releases and downloads | Not yet | `release.yml` publishes on `v*` tags; none exist |
+| User-facing docs | Partial | [`examples/`](examples/README.md) plus per-module `CLAUDE.md` guides |
+
+**Path to beta:** first tagged release with native binaries · `CHANGELOG.md` · user-facing docs · stable workflow schema and REST/MCP contracts.
 
 ---
 
-## What Yukta Does
+## Quick start
 
-Define a workflow once as a DAG of nodes and edges, then run it the same way from a script, a CI pipeline, or an AI agent:
+You need **JDK 25** and `curl`. There are no releases yet, so run from source:
 
-```json
-{
+```bash
+git clone https://github.com/infenia/yukta.git
+cd yukta
+./gradlew bootRun
+```
+
+Then open the web UI at <http://localhost:8080/> or the API docs at <http://localhost:8080/swagger-ui.html>.
+
+Create a session with one workflow, start it and read the result:
+
+```bash
+# 1. Create a session containing a workflow
+curl -X POST http://localhost:8080/api/sessions -H "Content-Type: application/json" -d '{
   "sessionId": "demo",
   "name": "Quick demo",
   "description": "Quick demo",
@@ -64,251 +84,205 @@ Define a workflow once as a DAG of nodes and edges, then run it the same way fro
       "description": "Echo a greeting",
       "nodes": [
         { "nodeId": "start", "type": "ONE_SHOT", "config": {} },
-        { "nodeId": "echo", "type": "PROCESS_EXECUTOR", "config": { "command": ["echo", "Hello from Yukta!"] } },
-        { "nodeId": "done", "type": "CONSOLE_TERMINAL", "config": {} }
+        { "nodeId": "echo",  "type": "PROCESS_EXECUTOR", "config": { "command": ["echo", "Hello from Yukta!"] } },
+        { "nodeId": "done",  "type": "CONSOLE_TERMINAL", "config": {} }
       ],
       "edges": [
         { "source": "start", "target": "echo" },
-        { "source": "echo", "target": "done" }
+        { "source": "echo",  "target": "done" }
       ]
     }
   }
-}
+}'
+
+# 2. Start it (returns 202 with data.executionId)
+curl -X POST http://localhost:8080/api/workflow/start -H "Content-Type: application/json" \
+  -d '{ "sessionId": "demo", "workflowId": "hello" }'
+
+# 3. Check the status, or follow it live over SSE
+curl http://localhost:8080/api/executions/{executionId}
+curl -N http://localhost:8080/api/executions/{executionId}/status/stream
 ```
 
-Every workflow needs at least one **trigger** node (an entry point implementing `TriggerPlugin`), feeding into **processor** nodes, and at least one **terminal** node (a `TerminalPlugin`) to end a branch. The orchestrator validates the DAG (reachability, cycles, entry points) before it will run.
+Sessions are held in memory, so apply them again after a restart.
+
+### More examples
+
+[`examples/`](examples/README.md) has ten ready-to-run workflows, each with a config, a trigger and a test script:
+
+| Use case | Shape |
+|----------|-------|
+| CI pipeline that stops on failure | build → test → report, routed by exit code |
+| Quality gate | `BRANCH` on coverage and lint numbers |
+| Data pipeline | split → filter → map → load |
+| HTTP health check with an alert path | `HTTP_REQUEST` routed by status |
+| Fan-out notifications | `RECIPIENT_LIST` to several channels |
+| Retry until ready | `LOOP_PREDICATE` |
+| LLM chat agent with memory | `SESSION_MEMORY` + `LLM_CALL` |
+| Drive Yukta from an AI agent | MCP `tools/call` |
+
+Run them all against a local server with `examples/run-all.sh`.
 
 ---
 
-## Architecture
+## How it works
+
+A **session** groups workflows. A **workflow** is a DAG of nodes and edges. Each node is a plugin instance with its own `config`. A run is an **execution** that you can watch, pause, stop and restart.
 
 ```
-┌─────────────────────────────────────┐
-│ Transport Layer                     │
-│ REST API (web) + MCP server (mcp)   │
-│ + Web UI (ui)                       │
-└──────────────┬──────────────────────┘
-               ↓
-┌─────────────────────────────────────┐
-│ Orchestration Layer (core)          │
-│ DAG validator, compiler, executor   │
-│ Reactive (Project Reactor), no      │
-│ blocking, virtual threads for I/O   │
-└──────────────┬──────────────────────┘
-               ↓
-┌─────────────────────────────────────┐
-│ Plugin Layer (plugin-api, plugins)  │
-│ TriggerPlugin / ProcessorPlugin /   │
-│ TerminalPlugin implementations,     │
-│ ExecutionSupervisor (control bus)   │
-└─────────────────────────────────────┘
+ Transport      REST API (web) · MCP server (mcp) · Web UI (ui) · CLI (cli)
+                                    │
+ Orchestration  core: DAG validator → compiler → reactive executor (Project Reactor)
+                                    │
+ Plugins        plugin-api + plugins: Trigger → Processor → Terminal
+                ExecutionSupervisor (control bus)
 ```
 
-Each layer is independent — plugins are Spring `@Component` beans implementing an interface from `plugin-api`, so custom plugins don't require touching `core` or `web`.
+Every workflow needs at least one **trigger** (no inbound edges) and at least one **terminal** (no outbound edges), with **processors** in between. The orchestrator checks reachability, cycles and entry points before it runs anything.
+
+Processors can expose named output ports (for example `success` and `failure`, or one port per `BRANCH` case), so one node can route messages down different paths.
 
 ---
 
 ## Plugins
 
-25 built-in plugins across 15 Gradle modules under `plugins/` (`processors`, `triggers`, `terminals`, `supervisors`). Plugin type strings are used as-is from the code (case and separator are inconsistent between plugins — that's the current state, not a typo).
+25 built-in plugins. Type strings are used exactly as written below; their case and separators are not consistent yet.
 
-**Triggers** (entry points — start a workflow)
+**Triggers** start a workflow
 
-| Type              | Class                  | Description                                                                |
-|-------------------|------------------------|----------------------------------------------------------------------------|
-| `ONE_SHOT`        | `OneShotTrigger`       | Emits a single empty message to start a workflow with no input             |
-| `CONSTANT_SOURCE` | `ConfigVariableSource` | Emits a message with predefined variables at workflow startup              |
-| `api-trigger`     | `ApiTriggerPlugin`     | Passes the payload received from an API trigger directly into the workflow |
-| `SCHEDULE_TRIGGER` | `ScheduleTrigger`     | Emits a message repeatedly on a fixed interval or a cron schedule          |
+| Type | Description |
+|------|-------------|
+| `ONE_SHOT` | Emits one empty message |
+| `api-trigger` | Passes the payload from the start request into the workflow |
+| `CONSTANT_SOURCE` | Emits predefined variables at startup |
+| `SCHEDULE_TRIGGER` | Emits on a fixed interval or a cron schedule |
 
-**Processors** (transform / route messages)
+**Processors** transform, route and call out
 
-| Type               | Class                    | Description                                                                              |
-|--------------------|--------------------------|------------------------------------------------------------------------------------------|
-| `FILE_READ`        | `FileReadPlugin`         | Reads a UTF-8 text file from a sandbox directory                                         |
-| `FILE_WRITE`       | `FileWritePlugin`        | Writes or appends text to a file in a sandbox directory; passes the message through      |
-| `HTTP_REQUEST`     | `HttpRequestPlugin`      | Performs an HTTP request per message and emits status, success, headers, and body       |
-| `SQL_QUERY`        | `SqlQueryPlugin`         | Runs a parameterized SQL statement over JDBC for each message                            |
-| `LLM_CALL`         | `LlmCallPlugin`          | Calls an LLM (OpenAI-compatible, Anthropic, Ollama) and extracts `<agent_action>` blocks |
-| `SESSION_MEMORY`   | `SessionMemoryPlugin`    | Per-session chat memory: `load` attaches history, `append` records the assistant turn   |
-| `PROCESS_EXECUTOR` | `ProcessExecutorPlugin`  | Runs an external OS process and emits a configurable result (exit code, output)          |
-| `FILTER`           | `FilterProcessor`        | Evaluates a boolean predicate; matching messages pass through                            |
-| `VALIDATE`         | `ValidateProcessor`      | Checks required fields and types; failures are routed to the `invalid` port              |
-| `BRANCH`           | `BranchProcessor`        | Routes messages to different ports based on exact-match selectors or conditions          |
-| `SPLITTER`         | `SplitterProcessor`      | Splits a composite message into individual items                                         |
-| `RECIPIENT_LIST`   | `RecipientListProcessor` | Propagates a single message to a dynamically specified set of recipients                 |
-| `CONTENT-FILTER`   | `ContentFilterProcessor` | Removes unimportant, redundant, or sensitive data items                                  |
-| `MAPPER`           | `MapperProcessor`        | Transforms payloads via PROJECTION (SpEL), TEMPLATE (Handlebars), or SCRIPT (GraalVM JS) |
-| `LOOP_PREDICATE`   | `LoopPredicateProcessor` | Repeats a target plugin until an exit condition is met; emits the final result           |
-| `LOOP_STREAM`      | `LoopStreamProcessor`    | Repeats a target plugin and flattens all produced messages into one stream               |
-| `AGGREGATE`        | `AggregateProcessor`     | Batches incoming messages into one message holding the list of their payloads           |
-| `DELAY`            | `DelayProcessor`         | Delays each message by a fixed time, releasing messages one at a time, in order          |
-| `KV_STORE`         | `KvStoreProcessor`       | Shared in-memory key-value store for state across workflow runs                          |
+| Type | Description |
+|------|-------------|
+| `PROCESS_EXECUTOR` | Runs an OS process; routes by exit code |
+| `HTTP_REQUEST` | Makes an HTTP request; routes by status |
+| `SQL_QUERY` | Runs a parameterized JDBC statement |
+| `FILE_READ` / `FILE_WRITE` | Reads or writes text files in a sandbox directory |
+| `LLM_CALL` | Calls an LLM (OpenAI-compatible, Anthropic, Ollama) |
+| `SESSION_MEMORY` | Per-session chat memory for LLM workflows |
+| `FILTER` | Passes messages matching a predicate |
+| `VALIDATE` | Checks required fields and types; failures go to `invalid` |
+| `BRANCH` | Routes by exact match or expression |
+| `SPLITTER` | Splits one message into many |
+| `AGGREGATE` | Batches messages into a single list |
+| `RECIPIENT_LIST` | Fans one message out to several recipients |
+| `MAPPER` | Transforms payloads with SpEL projection, Handlebars or GraalVM JS |
+| `CONTENT-FILTER` | Removes redundant or sensitive fields |
+| `LOOP_PREDICATE` / `LOOP_STREAM` | Repeats a target plugin until a condition holds, or streams every result |
+| `DELAY` | Delays messages by a fixed time, in order |
+| `KV_STORE` | Shared in-memory key-value state |
 
-**Terminals** (end a workflow branch)
+**Terminals** end a branch
 
-| Type               | Class                   | Description                                                      |
-|--------------------|-------------------------|------------------------------------------------------------------|
-| `CONSOLE_TERMINAL` | `ConsoleTerminalPlugin` | Logs the message payload to console/logger                       |
-| `NOTIFY_TERMINAL`  | `NotifyTerminal`        | Sends each message as a JSON webhook notification (Slack-compatible) |
+| Type | Description |
+|------|-------------|
+| `CONSOLE_TERMINAL` | Logs the payload |
+| `NOTIFY_TERMINAL` | Sends a JSON webhook notification (Slack-compatible) |
 
-**Supervisors** (observe and gate control-bus commands)
+**Supervisors** observe and gate control-bus commands. `plugins/supervisors/rule-supervisor` runs declarative rules from a JSON file; enable it with `yukta.supervisor.rules.file`.
 
-`ExecutionSupervisor` is an SPI in `plugin-api`. `plugins/supervisors/rule-supervisor` ships a declarative implementation driven by a JSON rules file, enabled by setting `yukta.supervisor.rules.file`.
+### Write your own
 
-Custom plugins implement `TriggerPlugin`, `ProcessorPlugin`, or `TerminalPlugin` from `plugin-api` and register as a Spring bean — no changes to `core` needed. See `plugin-api/CLAUDE.md` and `plugins/CLAUDE.md` for the interfaces and conventions, or ask the MCP server's `get_plugin_creation_guide` tool for a template.
+Implement `TriggerPlugin`, `ProcessorPlugin` or `TerminalPlugin` from `plugin-api` and register it as a Spring bean. See [`plugin-api/CLAUDE.md`](plugin-api/CLAUDE.md) and [`plugins/CLAUDE.md`](plugins/CLAUDE.md), or ask the MCP tool `get_plugin_creation_guide` for a template. `GET /api/plugins/{type}` shows the configuration schema of any installed plugin.
 
 ---
 
-## MCP Server
+## MCP server
 
-Yukta runs an MCP server (Spring AI MCP, WebFlux) on the same process, always on at `/mcp` (`/sse` still works as an alias; protocol `STATELESS`, type `ASYNC` — no separate flag or profile required).
+Yukta runs an MCP server in the same process, always on at `http://localhost:8080/mcp` (streamable HTTP; `/sse` is an alias). Point any MCP client at it so an agent can create sessions, start workflows and read logs.
 
-**16 tools**: `list_sessions`, `get_session_details`, `create_session`, `get_session_creation_instructions`, `get_workflow_details`, `start_workflow`, `get_workflow_status`, `get_workflow_history`, `control_workflow`, `control_node`, `set_node_breakpoint`, `get_execution_logs`, `list_plugins`, `get_plugin_details`, `get_plugin_creation_guide`, `get_control_bus_status`
+```bash
+claude mcp add --transport http yukta http://localhost:8080/mcp
+```
 
-**2 prompts**: `debug-workflow`, `create-session-config`
-**3 resources**: `yukta://overview`, `yukta://architecture`, `yukta://sessions/{sessionId}/executions/{executionId}/logs`
+- **16 tools:** `list_sessions`, `get_session_details`, `create_session`, `get_session_creation_instructions`, `get_workflow_details`, `start_workflow`, `get_workflow_status`, `get_workflow_history`, `control_workflow`, `control_node`, `set_node_breakpoint`, `get_execution_logs`, `list_plugins`, `get_plugin_details`, `get_plugin_creation_guide`, `get_control_bus_status`
+- **2 prompts:** `debug-workflow`, `create-session-config`
+- **3 resources:** `yukta://overview`, `yukta://architecture`, `yukta://sessions/{sessionId}/executions/{executionId}/logs`
 
-Point any MCP-compatible client at `http://localhost:8080/mcp` (streamable HTTP transport, `STATELESS`/`ASYNC` protocol). Set `yukta.mcp.api-key` to require `Authorization: Bearer <key>` (or `X-API-Key`) on that endpoint; it is open by default, like the REST API.
+Set `yukta.mcp.api-key` to require `Authorization: Bearer <key>` (or `X-API-Key`). It is open by default.
 
 ---
 
 ## REST API
 
-Base path `/api`, 9 controllers, 39 operations. Full interactive docs at `http://localhost:8080/swagger-ui.html` once running.
+Base path `/api`. Interactive docs are at `/swagger-ui.html`.
 
-| Controller                   | Base path                                   | Handles                                                                                  |
-|------------------------------|---------------------------------------------|------------------------------------------------------------------------------------------|
-| `SessionConfigController`    | `/api/sessions`                             | Apply (create/update) session config, list sessions (paged), session summaries, read workflow definitions |
-| `WorkflowDetailsController`  | `/api/sessions/{sessionId}/workflows/{workflowId}` | Workflow graph and per-workflow executions                                        |
-| `WorkflowController`         | `/api/workflow`                             | Start a workflow, stop its runs, session execution history                               |
-| `ExecutionController`        | `/api/executions`                           | Execution status (poll or SSE stream), stop, restart (optionally from a node)            |
-| `ExecutionControlController` | `/api/executions`                           | Pause/resume an execution; per-node stop, skip, retry, step, breakpoints; priority; scheduler limits |
-| `LogManagementController`    | `/api/sessions/{sessionId}/executions/{executionId}/logs` | Execution log streams (SSE)                                        |
-| `ControlBusController`       | `/api/control`                              | Live node introspection, heartbeats, and node commands                                   |
-| `EventsController`           | `/api/events`                               | Live event stream (SSE)                                                                  |
-| `PluginController`           | `/api/plugins`                              | List plugins and get plugin details                                                      |
+| Area | Base path | Handles |
+|------|-----------|---------|
+| Sessions | `/api/sessions` | Apply session config, list sessions (paged), read workflow definitions |
+| Workflow details | `/api/sessions/{sessionId}/workflows/{workflowId}` | Workflow graph and its executions |
+| Workflow | `/api/workflow` | Start a workflow, stop its runs, session history |
+| Executions | `/api/executions` | Status (poll or SSE), stop, restart, pause, resume, per-node control, breakpoints |
+| Logs | `/api/sessions/{sessionId}/executions/{executionId}/logs` | Execution log stream (SSE) |
+| Control bus | `/api/control` | Live node introspection, heartbeats, node commands |
+| Events | `/api/events` | Live event stream (SSE) |
+| Plugins | `/api/plugins` | List plugins and their schemas |
 
-The older `/api/workflow/{sid}/{eid}/…` execution paths still work as deprecated aliases. List endpoints take `?limit=&cursor=` and announce the next page in the `X-Next-Cursor` header.
+List endpoints take `?limit=&cursor=` and return the next page in the `X-Next-Cursor` header. The older `/api/workflow/{sid}/{eid}/…` paths still work as deprecated aliases.
 
-**Access control.** The server listens on `127.0.0.1` by default. To expose it, set `YUKTA_SERVER_ADDRESS=0.0.0.0` and `yukta.api-key`; clients then send `Authorization: Bearer <key>` (or `X-API-Key`) on every `/api/**` call.
+### Security
 
----
-
-## Web UI
-
-A React 19 single-page app built with Vite and Tailwind CSS 4, served by the Spring Boot app at the root path `/`. Routes include `/` (sessions), `/sessions/:sessionId/workflow/:workflowId` (live DAG visualization), `/history` (execution history), and `/control` (control console). See `ui/CLAUDE.md`.
+The server listens on `127.0.0.1` by default. To expose it, set `YUKTA_SERVER_ADDRESS=0.0.0.0` **and** `yukta.api-key`; clients then send `Authorization: Bearer <key>` (or `X-API-Key`) on every `/api/**` call. Some plugins run processes, scripts and SQL, so treat workflow authorship as a trusted operation. Report vulnerabilities as described in [`SECURITY.md`](SECURITY.md).
 
 ---
 
-## Getting Started
+## Web UI and CLI
 
-There are no tagged releases yet, so the only way to run Yukta today is from source.
+- **Web UI:** a React 19 + Vite + Tailwind CSS 4 app served at `/`. Browse sessions, watch a live DAG view of a run, see execution history, use the control console and build workflows with a form-based editor.
+- **CLI:** a Go + Cobra client for a remote Yukta server, in [`cli/`](cli/README.md).
+
+## Building from source
 
 ```bash
-git clone https://github.com/infenia/yukta.git
-cd yukta
-
-# Run (Spring Boot, JVM)
-./gradlew bootRun
-# → http://localhost:8080/swagger-ui.html
-# → http://localhost:8080/
-
-# Optional: build a GraalVM native image (requires a GraalVM JDK)
-./gradlew nativeCompile
-# → boot/build/native/nativeCompile/yukta
+./gradlew bootRun          # run the server
+./gradlew nativeCompile    # optional GraalVM native image (needs a GraalVM JDK)
+./gradlew check            # tests + Checkstyle + PMD + SpotBugs + JaCoCo (+ OpenGrep if installed)
+./gradlew spotlessApply    # format before committing
 ```
 
-### Try it
+Built with Java 25, Spring Boot 4.1 (WebFlux), Gradle 9.8, Project Reactor, Spring AI MCP, GraalVM, React 19 and Go.
 
-```bash
-# 1. Create a session with a workflow
-curl -X POST http://localhost:8080/api/sessions \
-  -H "Content-Type: application/json" \
-  -d '{
-    "sessionId": "demo",
-    "name": "Quick demo",
-    "description": "Quick demo",
-    "initiator": "me",
-    "projectPath": "/tmp/demo",
-    "workflows": {
-      "hello": {
-        "workflowId": "hello",
-        "description": "Echo a greeting",
-        "nodes": [
-          { "nodeId": "start", "type": "ONE_SHOT", "config": {} },
-          { "nodeId": "echo", "type": "PROCESS_EXECUTOR", "config": { "command": ["echo", "Hello from Yukta!"] } },
-          { "nodeId": "done", "type": "CONSOLE_TERMINAL", "config": {} }
-        ],
-        "edges": [
-          { "source": "start", "target": "echo" },
-          { "source": "echo", "target": "done" }
-        ]
-      }
-    }
-  }'
+### Repository layout
 
-# 2. Start it
-curl -X POST http://localhost:8080/api/workflow/start \
-  -H "Content-Type: application/json" \
-  -d '{ "sessionId": "demo", "workflowId": "hello" }'
-# → { "data": { "executionId": "..." }, ... }
+| Module | Purpose |
+|--------|---------|
+| `boot` | Spring Boot entry point, native image config |
+| `core` | DAG orchestration engine, plugin registry |
+| `plugin-api` | Plugin interfaces and store abstractions |
+| `plugins` | Built-in processors, triggers, terminals, supervisors |
+| `web` | REST controllers |
+| `mcp` | MCP server |
+| `messaging` | Shared messaging abstractions |
+| `ui` | React frontend |
+| `cli` | Go command-line client |
+| `build-logic` | Gradle conventions: Java, quality gates, JaCoCo |
+| `examples` | Ready-to-run workflows and test scripts |
 
-# 3. Check status (or stream live SSE updates from the /status/stream variant)
-curl http://localhost:8080/api/executions/{executionId}
-curl -N http://localhost:8080/api/executions/{executionId}/status/stream
-```
-
-### Contributing / building custom plugins
-
-```bash
-./gradlew check          # tests + Checkstyle + PMD + SpotBugs (+ OpenGrep if installed)
-./gradlew spotlessApply  # format before committing
-```
-
-See the root [`CLAUDE.md`](CLAUDE.md) and each module's own `CLAUDE.md` for module-specific build commands and architecture notes, and [`CONTRIBUTING.md`](CONTRIBUTING.md) for the PR workflow.
+Each module has its own `CLAUDE.md` with build commands and architecture notes.
 
 ---
 
-## Tech Stack
+## Contributing
 
-- **Java 25** (Gradle toolchain)
-- **Spring Boot 4.1.1** (WebFlux)
-- **Gradle 9.8**
-- **Project Reactor** (non-blocking, `Mono`/`Flux`)
-- **GraalVM** (native image target)
-- **Spring AI MCP Server**
-- **React 19 + Vite + Tailwind CSS 4 + React Router** (web UI)
-- **Go + Cobra** (CLI, `cli` module)
+Contributions are welcome: bug reports, plugins, docs and tests.
 
-## Repository Layout
+1. Read [`CONTRIBUTING.md`](CONTRIBUTING.md) and the [Code of Conduct](CODE_OF_CONDUCT.md).
+2. Branch from `main`, run `./gradlew spotlessApply`, and make sure `./gradlew check` passes.
+3. Use [Conventional Commits](https://www.conventionalcommits.org/) and open a pull request.
 
-Multi-module Gradle monorepo. Each module has its own `CLAUDE.md` with module-specific commands and notes.
+Open an [issue](https://github.com/infenia/yukta/issues/new/choose) for bugs and feature requests.
 
-- **`boot`** — Spring Boot entry point, GraalVM native image config
-- **`build-logic`** — Gradle build conventions (Java, quality gates, JaCoCo)
-- **`cli`** — Go CLI for remote server interaction
-- **`core`** — DAG orchestration engine, plugin registry
-- **`mcp`** — MCP server implementation
-- **`messaging`** — Shared messaging abstractions
-- **`plugin-api`** — Plugin interfaces (`TriggerPlugin`, `ProcessorPlugin`, `TerminalPlugin`, `ExecutionSupervisor`) and store abstractions
-- **`plugins`** — Plugin implementations (`processors`, `triggers`, `terminals`, `supervisors`)
-- **`ui`** — React/Vite/Tailwind frontend
-- **`web`** — REST controllers and DTO mapping
+## License
+
+Apache License 2.0. See [`LICENSE`](LICENSE). The repository follows the [REUSE](https://reuse.software/) specification.
 
 ---
 
-## Security & License
-
-- Input validation at API boundaries (session IDs, project paths, workflow schema)
-- Apache 2.0 licensed — see [LICENSE](LICENSE)
-- Report vulnerabilities per [SECURITY.md](SECURITY.md)
-
----
-
-## Made With ❤️
-
-Developed by **[Infenia Private Limited](https://infenia.com)**.
-Creator: Arun Cherthedath Somanathan ([arun@infenia.com](mailto:arun@infenia.com))
-
-*Yukta* (युक्त) is Sanskrit for "united" or "joined."
+Developed by **[Infenia Private Limited](https://infenia.com)**. *Yukta* (युक्त) is Sanskrit for "united" or "joined."

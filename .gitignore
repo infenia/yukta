@@ -50,3 +50,4 @@ jte-classes/
 /.junie/memory/memory.version
 /.junie/memory/tasks.md
 /cli/coverage.out
+.playwright-mcp/

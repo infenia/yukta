@@ -1,8 +1,3 @@
-<!--
-SPDX-License-Identifier: Apache-2.0
-SPDX-FileCopyrightText: 2026 Infenia Private Limited
--->
-
 # 03 Failure semantics (4→5)
 
 Gaps: no circuit/fail-budget, retry is per-message only, no retry-on-condition.

@@ -454,4 +454,27 @@ class WorkflowControlProviderTest {
     }
     verify(controlBus, never()).addBreakpoint(any(), any(), any(), any());
   }
+
+  @Test
+  void testSetBreakpointRejectsBlankArguments() {
+    for (final String[] args :
+        new String[][] {
+          {" ", NODE, "f", "v"},
+          {EXECUTION, null, "f", "v"},
+          {EXECUTION, NODE, " ", "v"}
+        }) {
+      StepVerifier.create(provider.addBreakpoint(SESSION, args[0], args[1], args[2], args[3]))
+          .expectError(IllegalArgumentException.class)
+          .verify();
+    }
+  }
+
+  @Test
+  void testActionsThatAreNotSignalsAreRefusedByTheSignalSwitch() {
+    // RETRY is answered before the signal switch, so only a direct call can reach its default.
+    final Mono<?> result =
+        org.springframework.test.util.ReflectionTestUtils.invokeMethod(
+            provider, "executeOtherNodeAction", NodeControlAction.RETRY, EXECUTION, NODE);
+    StepVerifier.create(result).expectError(IllegalStateException.class).verify();
+  }
 }

@@ -380,4 +380,25 @@ class RuleSupervisorTest {
 
     assertThat(run(new RuleSupervisor(file), node("e1", "FAILURE", null))).hasSize(1);
   }
+
+  @Test
+  void constructor_ruleWithOnlyThen_failsAsNeedingBoth() {
+    assertThatThrownBy(
+            () ->
+                supervisor("{\"rules\":[{\"id\":\"r\",\"then\":{\"command\":\"PauseWorkflow\"}}]}"))
+        .hasMessageContaining("Rule 'r' needs both");
+  }
+
+  @Test
+  void supervise_windowAlreadyOver_neverReachesTheCount() {
+    final var rules =
+        supervisor(
+            """
+            {"rules":[{"id":"r","when":{"status":"FAILURE","count":2,"withinSeconds":-5},
+              "then":{"command":"PauseWorkflow"}}]}
+            """);
+    final var failure = node("e1", "FAILURE", null);
+
+    assertThat(run(rules, failure, failure, failure)).isEmpty();
+  }
 }

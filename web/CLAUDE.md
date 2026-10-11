@@ -1,6 +1,3 @@
-# SPDX-License-Identifier: Apache-2.0
-# SPDX-FileCopyrightText: 2026 Infenia Private Limited
-
 # Web Module CLAUDE.md
 
 ## Overview
@@ -27,3 +24,6 @@ Web layer with REST controllers and UI support.
 ## Imports
 @.claude/rules/coding-standards.md
 @.claude/rules/git-workflow.md
+
+## Testing speed
+Follow the tiered "Test Execution Policy (speed)" in the root `CLAUDE.md`: run `--tests` for the classes you changed first; full `:web:test` only when many files changed.

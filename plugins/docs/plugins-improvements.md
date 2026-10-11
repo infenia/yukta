@@ -1,6 +1,3 @@
-# SPDX-License-Identifier: Apache-2.0
-# SPDX-FileCopyrightText: 2026 Infenia Private Limited
-
 # plugins — Review, Improvements & Optimisations
 
 > Scope: all 9 plugin modules under `plugins/` (≈6.3k main lines) reviewed on 2026-10-09 against `main` @ `8d3161b5`.

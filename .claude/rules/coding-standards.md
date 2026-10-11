@@ -17,6 +17,7 @@
 ### Formatting & License Headers
 - **Spotless** enforces **Google Java Style Guide** (2-space indentation, 100-char line limit)
 - Every Java file MUST have an Apache License 2.0 header (managed by Spotless)
+- Do NOT add SPDX headers to Markdown (`.md`) files; they are licensed via the `**/*.md` annotation in `REUSE.toml`. Remove any that appear.
 - Always run `./gradlew spotlessApply` before committing
 
 ### Static Analysis

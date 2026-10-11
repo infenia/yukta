@@ -131,17 +131,22 @@ public class ScheduleTrigger implements TriggerPlugin {
       if (expr.next(ZonedDateTime.now(zone)) == null) {
         throw new IllegalArgumentException("cron has no future execution: " + cron);
       }
-      // Repeats only while the expression still has a next execution, so it ends instead of
-      // spinning.
-      result =
-          Mono.defer(
-                  () -> {
-                    final ZonedDateTime now = ZonedDateTime.now(zone);
-                    return Mono.delay(Duration.between(now, expr.next(now)));
-                  })
-              .repeat(() -> expr.next(ZonedDateTime.now(zone)) != null);
+      result = repeatWhileScheduled(expr::next, zone);
     }
     return result;
+  }
+
+  /**
+   * Fires after each delay to the next execution, and ends instead of spinning once there is none.
+   */
+  /* default */ static Flux<?> repeatWhileScheduled(
+      final java.util.function.Function<ZonedDateTime, ZonedDateTime> next, final ZoneId zone) {
+    return Mono.defer(
+            () -> {
+              final ZonedDateTime now = ZonedDateTime.now(zone);
+              return Mono.delay(Duration.between(now, next.apply(now)));
+            })
+        .repeat(() -> next.apply(ZonedDateTime.now(zone)) != null);
   }
 
   private static Message<?> message(final long tick, final Instant firedAt) {

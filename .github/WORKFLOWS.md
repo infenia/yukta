@@ -1,6 +1,3 @@
-# SPDX-License-Identifier: Apache-2.0
-# SPDX-FileCopyrightText: 2026 Infenia Private Limited
-
 # GitHub Workflows Reference
 
 Quick guide to the automated workflows in this repository.
