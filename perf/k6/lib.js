@@ -3,11 +3,17 @@
 
 import http from 'k6/http';
 import { check, sleep } from 'k6';
+import exec from 'k6/execution';
 import { Counter, Rate, Trend } from 'k6/metrics';
 import { CATALOG, selected, sessionBody, sessionId } from './workflows.js';
 
 export const BASE_URL = __ENV.BASE_URL || 'http://localhost:8080';
 const API_KEY = __ENV.API_KEY || '';
+// Never send the key in clear text to a remote host.
+if (API_KEY && BASE_URL.startsWith('http://') && !/^http:\/\/(localhost|127\.0\.0\.1|\[::1\])[:/]?/.test(BASE_URL)) {
+  throw new Error('API_KEY requires an https BASE_URL (or localhost)');
+}
+const START_OK = http.expectedStatuses(202, 429); // 429 is admission control, judged by workflow_rejected
 // Known issue (perf/KNOWN-ISSUES.md #1): CONSOLE_TERMINAL never leaves RUNNING, so a run never
 // ends. LENIENT=true (default) treats a run as done once every non-terminal node has ended.
 // Set -e LENIENT=false once that is fixed, to require the run itself to reach a final status.
@@ -17,7 +23,7 @@ const FINAL = ['SUCCESS', 'FAILURE', 'ERROR', 'STOPPED', 'CANCELLED', 'TIMED_OUT
 
 export const e2e = new Trend('workflow_e2e', true);
 export const success = new Rate('workflow_success');
-export const rejected = new Counter('workflow_rejected');
+export const rejected = new Rate('workflow_rejected'); // share of starts refused with HTTP 429
 export const lenientDone = new Counter('workflow_lenient_done');
 
 const headers = { 'Content-Type': 'application/json' };
@@ -44,13 +50,15 @@ function outcome(data) {
 }
 
 export function runOnce(ctx) {
-  const name = ctx.names[Math.floor(Math.random() * ctx.names.length)];
+  // round-robin: deterministic and even across VUs
+  const name = ctx.names[exec.scenario.iterationInTest % ctx.names.length];
   const tags = { wf: name };
   const start = Date.now();
   const body = { sessionId: sessionId(name), workflowId: 'wf' };
   if (CATALOG[name].payload) body.payload = CATALOG[name].payload;
-  const r = http.post(`${BASE_URL}/api/workflow/start`, JSON.stringify(body), { headers, tags });
-  if (r.status === 429) { rejected.add(1, tags); return; }
+  const r = http.post(`${BASE_URL}/api/workflow/start`, JSON.stringify(body), { headers, tags, responseCallback: START_OK });
+  rejected.add(r.status === 429, tags);
+  if (r.status === 429) return;
   if (!check(r, { 'start 202': (x) => x.status === 202 }, tags)) { success.add(false, tags); return; }
   const id = r.json('data.executionId');
   for (let i = 0; i < 100; i++) {
@@ -71,6 +79,8 @@ export const thresholds = {
   http_req_duration: ['p(95)<500'],
   workflow_e2e: ['p(95)<2000'],
   workflow_success: ['rate>0.99'],
+  workflow_rejected: [`rate<${__ENV.MAX_REJECTED || 0.01}`],
+  dropped_iterations: ['count==0'], // generator ran out of VUs: results understate the load
 };
 // Per-workflow breakdown in the summary, so a failing plugin is named.
 for (const n of selected()) {
