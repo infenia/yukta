@@ -134,6 +134,8 @@ jobs:
               - 'plugins/processors/session-memory/**'
             script-js:
               - 'plugins/processors/internal/script-js/**'
+            rule-supervisor:
+              - 'plugins/supervisors/rule-supervisor/**'
 
             # Container image inputs (Docker build job)
             docker:
@@ -301,6 +303,8 @@ jobs:
                 TASKS="$TASKS :plugins:processors:session-memory:buildDependents" ;;
               "script-js")
                 TASKS="$TASKS :plugins:processors:internal:script-js:buildDependents" ;;
+              "rule-supervisor")
+                TASKS="$TASKS :plugins:supervisors:rule-supervisor:buildDependents" ;;
               "docker")
                 ;; # handled by the docker-build job
               "boot")
