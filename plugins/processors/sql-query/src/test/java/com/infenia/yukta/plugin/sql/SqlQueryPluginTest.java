@@ -6,20 +6,31 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
+import com.infenia.yukta.plugin.core.PluginMetricsReporter;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.support.StaticListableBeanFactory;
 import reactor.core.publisher.Flux;
 import reactor.test.StepVerifier;
 
 /** Tests for SqlQueryPlugin against an in-memory H2 database. */
 @NoArgsConstructor
+@SuppressWarnings("PMD.TooManyMethods")
 class SqlQueryPluginTest {
 
   /** Test literal sql. */
   private static final String SQL_KEY = "sql";
+
+  /** Config key. */
+  private static final String USER_KEY = "username";
+
+  /** Config key. */
+  private static final String PASS_KEY = "password";
 
   /** Config key. */
   private static final String URL_KEY = "url";
@@ -32,7 +43,7 @@ class SqlQueryPluginTest {
 
   private Message<?> run(final String sql, final Map<String, Object> payload, final Object params) {
     final Map<String, Object> config =
-        Map.of(URL_KEY, URL, "username", "sa", "password", "", SQL_KEY, sql, "params", params);
+        Map.of(URL_KEY, URL, USER_KEY, "sa", PASS_KEY, "", SQL_KEY, sql, "params", params);
     final Message<?> input = DefaultMessage.create(UUID.randomUUID(), payload);
     return plugin.process(Flux.just(input), config).blockFirst();
   }
@@ -91,16 +102,7 @@ class SqlQueryPluginTest {
     run("insert into m values (2)", Map.of(), List.of());
     final Map<String, Object> config =
         Map.of(
-            URL_KEY,
-            URL,
-            "username",
-            "sa",
-            "password",
-            "",
-            SQL_KEY,
-            "select i from m",
-            "maxRows",
-            1);
+            URL_KEY, URL, USER_KEY, "sa", PASS_KEY, "", SQL_KEY, "select i from m", "maxRows", 1);
     final Message<?> out =
         plugin
             .process(Flux.just(DefaultMessage.create(UUID.randomUUID(), "text")), config)
@@ -117,5 +119,60 @@ class SqlQueryPluginTest {
               assertThat(design.width()).isEqualTo(140);
               assertThat(design.height()).isEqualTo(80);
             });
+  }
+
+  @Test
+  void continueModeRoutesSqlErrorsToErrorPort() {
+    final Map<String, Object> config =
+        Map.of(
+            URL_KEY,
+            URL,
+            USER_KEY,
+            "sa",
+            PASS_KEY,
+            "",
+            SQL_KEY,
+            "select * from missing_tbl",
+            "failureMode",
+            "CONTINUE");
+    final Message<?> out =
+        plugin
+            .process(Flux.just(DefaultMessage.create(UUID.randomUUID(), Map.of())), config)
+            .blockFirst();
+    assertThat(out.sourcePort()).isEqualTo("error");
+    assertThat(out.failureReason()).isEqualTo("JdbcSQLSyntaxErrorException");
+    assertThat(plugin.getOutputPorts(config)).containsExactly("default", "error");
+  }
+
+  @Test
+  void errorModeStillFails() {
+    final Map<String, Object> config =
+        Map.of(URL_KEY, URL, USER_KEY, "sa", PASS_KEY, "", SQL_KEY, "select * from missing_tbl");
+    StepVerifier.create(
+            plugin.process(Flux.just(DefaultMessage.create(UUID.randomUUID(), Map.of())), config))
+        .expectError()
+        .verify();
+    assertThat(plugin.isBlocking()).isTrue();
+  }
+
+  private static ObjectProvider<PluginMetricsReporter> provider(final PluginMetricsReporter value) {
+    final StaticListableBeanFactory factory = new StaticListableBeanFactory();
+    factory.addBean("reporter", value);
+    return factory.getBeanProvider(PluginMetricsReporter.class);
+  }
+
+  @Test
+  void springConstructorReportsMetrics() {
+    final List<String> counts = new ArrayList<>();
+    final SqlQueryPlugin reporting =
+        new SqlQueryPlugin(provider((node, metric, tag) -> counts.add(metric + ":" + tag)));
+    final Map<String, Object> config =
+        Map.of(URL_KEY, URL, USER_KEY, "sa", PASS_KEY, "", SQL_KEY, "select 1");
+    reporting
+        .process(Flux.just(DefaultMessage.create(UUID.randomUUID(), Map.of())), config)
+        .blockFirst();
+    assertThat(counts).containsExactly("sql:OK");
+    final var empty = new StaticListableBeanFactory().getBeanProvider(PluginMetricsReporter.class);
+    assertThat(new SqlQueryPlugin(empty).getOutputPorts(Map.of())).containsExactly("default");
   }
 }

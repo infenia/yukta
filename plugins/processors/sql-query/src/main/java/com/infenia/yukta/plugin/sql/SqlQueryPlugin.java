@@ -4,9 +4,13 @@ package com.infenia.yukta.plugin.sql;
 
 import com.infenia.yukta.message.Message;
 import com.infenia.yukta.plugin.core.ConfigField;
+import com.infenia.yukta.plugin.core.FailureMode;
 import com.infenia.yukta.plugin.core.PluginDescriptor;
+import com.infenia.yukta.plugin.core.PluginGuard;
+import com.infenia.yukta.plugin.core.PluginMetricsReporter;
 import com.infenia.yukta.plugin.core.UiDesign;
 import com.infenia.yukta.plugin.type.ProcessorPlugin;
+import com.infenia.yukta.plugin.util.ConfigValidation;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
@@ -18,6 +22,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -40,9 +46,28 @@ public final class SqlQueryPlugin implements ProcessorPlugin {
   /** Seconds a statement may run unless {@code timeoutSeconds} says otherwise. */
   private static final int DEFAULT_TIMEOUT_SECONDS = 30;
 
-  /** Default constructor. */
+  /** Config key. */
+  private static final String SQL = "sql";
+
+  /** Config key. */
+  private static final String FAILURE_MODE = "failureMode";
+
+  /** Metrics reporter. */
+  private final PluginMetricsReporter reporter;
+
+  /** Default constructor without metrics. */
   public SqlQueryPlugin() {
-    super();
+    this.reporter = PluginMetricsReporter.NOOP;
+  }
+
+  /**
+   * Spring constructor.
+   *
+   * @param reporterProvider optional metrics reporter
+   */
+  @Autowired
+  public SqlQueryPlugin(final ObjectProvider<PluginMetricsReporter> reporterProvider) {
+    this.reporter = reporterProvider.getIfAvailable(() -> PluginMetricsReporter.NOOP);
   }
 
   @Override
@@ -55,6 +80,7 @@ public final class SqlQueryPlugin implements ProcessorPlugin {
             + "- params: payload field names bound to the placeholders, in order.\n"
             + "- maxRows: cap on returned rows, positive (default 1000).\n"
             + "- timeoutSeconds: statement timeout, positive (default 30).\n"
+            + "- failureMode: ERROR (default) fails the node; CONTINUE routes to the error port.\n"
             + "Emits {rows, count} for queries or {updated} for updates.",
         Optional.of(
             new UiDesign(
@@ -81,7 +107,9 @@ public final class SqlQueryPlugin implements ProcessorPlugin {
         ConfigField.optional("username", ConfigField.Type.STRING, null, "Database user"),
         ConfigField.optional(
             "password", ConfigField.Type.SECRET, null, "Database password (decrypted:<key>)"),
-        ConfigField.required("sql", ConfigField.Type.EXPRESSION, "Statement with ? placeholders"),
+        ConfigField.required(SQL, ConfigField.Type.STRING, "Statement with ? placeholders"),
+        ConfigField.choice(
+            FAILURE_MODE, false, "ERROR", "What to do on a SQL error", "ERROR", "CONTINUE"),
         ConfigField.optional(
             "params",
             ConfigField.Type.LIST,
@@ -98,26 +126,42 @@ public final class SqlQueryPlugin implements ProcessorPlugin {
   }
 
   @Override
+  public List<String> getOutputPorts(final Map<String, Object> config) {
+    return FailureMode.from(config.get(FAILURE_MODE)) == FailureMode.CONTINUE
+        ? List.of("default", PluginGuard.ERROR_PORT)
+        : getOutputPorts();
+  }
+
+  @Override
+  public boolean isBlocking() {
+    return true;
+  }
+
+  @Override
   public Mono<Void> validateConfig(final Map<String, Object> config) {
     return Mono.fromRunnable(
         () -> {
-          for (final String key : List.of("url", "sql")) {
-            if (config.get(key) == null || String.valueOf(config.get(key)).isBlank()) {
-              throw new IllegalArgumentException(key + " is required");
-            }
-          }
-          positiveInt(config, "maxRows", DEFAULT_MAX_ROWS);
-          positiveInt(config, "timeoutSeconds", DEFAULT_TIMEOUT_SECONDS);
+          ConfigValidation.requiredString(config, "url");
+          ConfigValidation.requiredString(config, SQL);
+          ConfigValidation.positiveInt(config, "maxRows", DEFAULT_MAX_ROWS);
+          ConfigValidation.positiveInt(config, "timeoutSeconds", DEFAULT_TIMEOUT_SECONDS);
+          FailureMode.from(config.get(FAILURE_MODE));
         });
   }
 
   @Override
   public Flux<Message<?>> process(final Flux<Message<?>> input, final Map<String, Object> config) {
     // ponytail: one connection per message, add a pool (HikariCP) when throughput matters.
+    final FailureMode mode = FailureMode.from(config.get(FAILURE_MODE));
     return input.concatMap(
         message ->
-            Mono.fromCallable(() -> execute(message, config))
-                .subscribeOn(Schedulers.boundedElastic()));
+            PluginGuard.guard(
+                Mono.<Message<?>>fromCallable(() -> execute(message, config))
+                    .subscribeOn(Schedulers.boundedElastic()),
+                message,
+                mode,
+                reporter,
+                SQL));
   }
 
   private static Message<?> execute(final Message<?> message, final Map<String, Object> config)
@@ -129,9 +173,10 @@ public final class SqlQueryPlugin implements ProcessorPlugin {
                 (String) config.get("username"),
                 (String) config.get("password"));
         PreparedStatement statement =
-            connection.prepareStatement(String.valueOf(config.get("sql")))) {
-      statement.setMaxRows(positiveInt(config, "maxRows", DEFAULT_MAX_ROWS));
-      statement.setQueryTimeout(positiveInt(config, "timeoutSeconds", DEFAULT_TIMEOUT_SECONDS));
+            connection.prepareStatement(String.valueOf(config.get(SQL)))) {
+      statement.setMaxRows(ConfigValidation.positiveInt(config, "maxRows", DEFAULT_MAX_ROWS));
+      statement.setQueryTimeout(
+          ConfigValidation.positiveInt(config, "timeoutSeconds", DEFAULT_TIMEOUT_SECONDS));
       final List<?> params = config.get("params") instanceof List<?> list ? list : List.of();
       for (int i = 0; i < params.size(); i++) {
         statement.setObject(i + 1, payload.get(String.valueOf(params.get(i))));
@@ -146,22 +191,6 @@ public final class SqlQueryPlugin implements ProcessorPlugin {
       }
       return message.withPayload(result).withSourcePort("default");
     }
-  }
-
-  private static int positiveInt(
-      final Map<String, Object> config, final String key, final int fallback) {
-    final Object value = config.get(key);
-    int result = fallback;
-    if (value != null) {
-      if (value instanceof Number number
-          && number.doubleValue() == number.intValue()
-          && number.intValue() > 0) {
-        result = number.intValue();
-      } else {
-        throw new IllegalArgumentException(key + " must be a positive whole number");
-      }
-    }
-    return result;
   }
 
   private static List<Map<String, Object>> rows(final ResultSet resultSet) throws SQLException {

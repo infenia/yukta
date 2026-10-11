@@ -8,6 +8,7 @@ import com.infenia.yukta.plugin.core.ConfigField;
 import com.infenia.yukta.plugin.core.PluginDescriptor;
 import com.infenia.yukta.plugin.core.UiDesign;
 import com.infenia.yukta.plugin.type.TriggerPlugin;
+import com.infenia.yukta.plugin.util.ConfigValidation;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneId;
@@ -97,21 +98,14 @@ public class ScheduleTrigger implements TriggerPlugin {
   public Flux<Message<?>> start(final Map<String, Object> config) {
     final Flux<Message<?>> messages =
         schedule(config).index().map(t -> message(t.getT1() + 1, Instant.now()));
-    return config.get(MAX_RUNS) == null ? messages : messages.take(maxRuns(config));
-  }
-
-  private static long maxRuns(final Map<String, Object> config) {
-    if (config.get(MAX_RUNS) instanceof Number max
-        && max.doubleValue() == max.longValue()
-        && max.longValue() > 0) {
-      return max.longValue();
-    }
-    throw new IllegalArgumentException("'maxRuns' must be a positive whole number");
+    return config.get(MAX_RUNS) == null
+        ? messages
+        : messages.take(ConfigValidation.positiveLong(config, MAX_RUNS, 1));
   }
 
   private static Flux<?> schedule(final Map<String, Object> config) {
     if (config.get(MAX_RUNS) != null) {
-      maxRuns(config);
+      ConfigValidation.positiveLong(config, MAX_RUNS, 1);
     }
     final Object cron = config.get(CRON);
     final Object interval = config.get(INTERVAL_MS);

@@ -5,6 +5,10 @@ package com.infenia.yukta.plugin.core;
 /** Interface for reporting plugin execution metrics. */
 @FunctionalInterface
 public interface PluginMetricsReporter {
+
+  /** Reporter that drops every count; used when no metrics backend is configured. */
+  PluginMetricsReporter NOOP = (nodeId, metric, tag) -> {};
+
   /**
    * Increment a per-node counter.
    *

@@ -52,6 +52,13 @@ class ApiTriggerPluginTest {
   }
 
   @Test
+  void missingPayloadStartsWithEmptyPayload() {
+    StepVerifier.create(new ApiTriggerPlugin().start(Map.of()))
+        .assertNext(message -> assertEquals(Map.of(), message.payload(), "Empty payload"))
+        .verifyComplete();
+  }
+
+  @Test
   void testLifecycle() {
     final ApiTriggerPlugin plugin = new ApiTriggerPlugin();
     StepVerifier.create(plugin.validateConfig(Map.of())).verifyComplete();
