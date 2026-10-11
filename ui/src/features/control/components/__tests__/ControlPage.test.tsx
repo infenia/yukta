@@ -17,6 +17,7 @@ let nodesFail = false;
 let heartbeatFail = false;
 
 const server = setupServer(
+  http.get('/api/supervisors', () => ok([])),
   http.get('/api/control/nodes', () =>
     nodesFail ? HttpResponse.json({ message: 'x' }, { status: 500 }) : ok(nodes)
   ),
