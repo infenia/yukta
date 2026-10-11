@@ -110,6 +110,12 @@ describe('toDisplayExecStatus', () => {
     expect(toDisplayExecStatus('RUNNING', 'PAUSED')).toBe('PAUSED');
   });
 
+  it('shows STOPPING while a stop drains, as a stopped bucket', () => {
+    expect(toDisplayExecStatus('RUNNING', 'STOPPING')).toBe('STOPPING');
+    expect(toExecStatusCategory('STOPPING')).toBe('stopped');
+    expect(toDisplayExecStatus('STOPPED', 'STOPPING')).toBe('STOPPED');
+  });
+
   it('never overrides a terminal status', () => {
     expect(toDisplayExecStatus('STOPPED', 'PAUSED')).toBe('STOPPED');
   });
