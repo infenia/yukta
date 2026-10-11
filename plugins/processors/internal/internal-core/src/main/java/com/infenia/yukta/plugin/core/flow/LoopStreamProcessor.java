@@ -15,6 +15,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import lombok.NoArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -27,18 +28,17 @@ import reactor.core.scheduler.Schedulers;
 @Slf4j
 @Component
 @SuppressWarnings({"PMD.OnlyOneReturn", "PMD.LawOfDemeter"})
+@NoArgsConstructor
 public class LoopStreamProcessor implements ProcessorPlugin {
 
+  /** Type. */
   private static final String TYPE = "LOOP_STREAM";
 
+  /** Registry provider. */
   @Autowired private ObjectProvider<PluginRegistry> registryProvider;
 
+  /** Tracker provider. */
   @Autowired private ObjectProvider<DefaultTaskTrackerService> trackerProvider;
-
-  /** Default constructor. */
-  public LoopStreamProcessor() {
-    super();
-  }
 
   @Override
   public PluginDescriptor describe() {

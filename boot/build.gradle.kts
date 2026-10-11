@@ -7,10 +7,12 @@ plugins {
 }
 
 // Optional plugins are chosen with -Pyukta.plugins=all (default), none, or a comma-separated list
-// of: process-executor, http-request, llm-call, session-memory, script-js.
+// of: process-executor, http-request, file-io, sql-query, llm-call, session-memory, script-js.
 val optionalPlugins = mapOf(
     "process-executor" to ":plugins:processors:process-executor",
     "http-request" to ":plugins:processors:http-request",
+    "file-io" to ":plugins:processors:file-io",
+    "sql-query" to ":plugins:processors:sql-query",
     "llm-call" to ":plugins:processors:llm-call",
     "session-memory" to ":plugins:processors:session-memory",
     "script-js" to ":plugins:processors:internal:script-js",
@@ -35,6 +37,8 @@ dependencies {
     implementation(project(":plugins:triggers:api-trigger"))
     implementation(project(":plugins:triggers:constant-source"))
     implementation(project(":plugins:triggers:oneshot-trigger"))
+    implementation(project(":plugins:triggers:schedule-trigger"))
+    implementation(project(":plugins:terminals:notify-terminal"))
     implementation(project(":plugins:terminals:console-terminal"))
     implementation(project(":plugins:supervisors:rule-supervisor"))
 
