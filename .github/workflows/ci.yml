@@ -146,11 +146,6 @@ jobs:
             notify-terminal:
               - 'plugins/terminals/notify-terminal/**'
 
-            # Container image inputs (Docker build job)
-            docker:
-              - 'Dockerfile'
-              - '.dockerignore'
-
   # ─────────────────────────────────────────────
   # Job 2: Build and quality-gate changed modules.
   #
@@ -322,8 +317,6 @@ jobs:
                 TASKS="$TASKS :plugins:triggers:schedule-trigger:buildDependents" ;;
               "notify-terminal")
                 TASKS="$TASKS :plugins:terminals:notify-terminal:buildDependents" ;;
-              "docker")
-                ;; # handled by the docker-build job
               "boot")
                 TASKS="$TASKS :boot:build" ;;
               "cli")
@@ -567,45 +560,13 @@ jobs:
         continue-on-error: true
 
   # ─────────────────────────────────────────────
-  # Job: Build the production container image (GraalVM native image)
-  # without pushing, so Dockerfile / native-image breakage is caught
-  # before main. Runs on push/schedule, and on PRs touching the
-  # Dockerfile, boot, or root build files.
-  # ─────────────────────────────────────────────
-  docker-build:
-    name: Docker Build
-    needs: changes
-    runs-on: ubuntu-latest
-    timeout-minutes: 45
-    if: |
-      github.event_name != 'pull_request' ||
-      needs.changes.outputs.root == 'true' ||
-      contains(fromJson(needs.changes.outputs.modules), 'docker') ||
-      contains(fromJson(needs.changes.outputs.modules), 'boot')
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-        with:
-          persist-credentials: false
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
-
-      - name: Build image (no push)
-        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
-        with:
-          context: .
-          push: false
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-  # ─────────────────────────────────────────────
   # Single required check for branch protection. Jobs skipped by path
   # filtering count as success; failures or cancellations fail the gate.
   # ─────────────────────────────────────────────
   ci-gate:
     name: CI Gate
     if: always()
-    needs: [lint-workflows, changes, build, docker-build, dependency-submission, dependency-review, e2e-tests]
+    needs: [lint-workflows, changes, build, dependency-submission, dependency-review, e2e-tests]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
