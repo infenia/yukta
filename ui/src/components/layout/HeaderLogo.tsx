@@ -12,11 +12,11 @@ export default function HeaderLogo() {
         size="default"
         className="gap-spacing-sm flex items-center hover:bg-surface-container-low"
       >
-        {/* Yukta Logo Icon from public/favicon.svg */}
+        {/* Yukta mark: public/favicon.svg is generated from public/logo.svg (pnpm run favicons) */}
         <img
           src="/favicon.svg"
           alt="Yukta"
-          className="size-7 rounded-3xl object-contain"
+          className="size-8 object-contain"
         />
         <span className="font-headline text-lg font-semibold tracking-tight text-on-surface dark:text-on-surface">
           YUKTA

@@ -10,7 +10,7 @@
       "workflowId": "health-ok",
       "description": "Target answers 2xx: success port",
       "nodes": [
-        { "nodeId": "start", "type": "ONE_SHOT", "config": {} },
+        { "nodeId": "start", "type": "CONSTANT_SOURCE", "config": {} },
         {
           "nodeId": "probe",
           "type": "HTTP_REQUEST",
@@ -32,7 +32,7 @@
       "workflowId": "health-down",
       "description": "Target refuses connections: failure port",
       "nodes": [
-        { "nodeId": "start", "type": "ONE_SHOT", "config": {} },
+        { "nodeId": "start", "type": "CONSTANT_SOURCE", "config": {} },
         {
           "nodeId": "probe",
           "type": "HTTP_REQUEST",

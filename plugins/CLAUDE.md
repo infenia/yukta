@@ -4,8 +4,8 @@
 Implementations of various Yukta plugins.
 
 ## Plugin Types
-- **Processors**: Located in `processors/`. Modules: `process-executor`, `internal/internal-core`, `http-request` (`HTTP_REQUEST`), `file-io` (`FILE_READ`/`FILE_WRITE`, sandboxed to `baseDir`), `sql-query` (`SQL_QUERY`, parameterized JDBC; driver supplied by deployer), internal-core also has `DELAY`, `VALIDATE`, `AGGREGATE`, `KV_STORE` (in-memory, capped), `llm-call` (`LLM_CALL`, Spring AI: OpenAI-compatible/Anthropic/Ollama), `session-memory` (`SESSION_MEMORY`, in-memory chat history). Sample chat-agent workflow: `bruno/SessionConfigController/Apply Chat Agent Session.bru`.
-- **Triggers**: Located in `triggers/`. Modules: `api-trigger`, `constant-source`, `oneshot-trigger`, `schedule-trigger` (`SCHEDULE_TRIGGER`, interval/cron).
+- **Processors**: Located in `processors/`. Modules: `process-executor`, `internal/internal-core`, `http-request` (`HTTP_REQUEST`), `file-io` (`FILE_READ`/`FILE_WRITE`, sandboxed to `baseDir`), `sql-query` (`SQL_QUERY`, parameterized JDBC; driver supplied by deployer), internal-core also has `DELAY`, `VALIDATE`, `AGGREGATE`, `KV_STORE` (in-memory, capped), `llm-call` (`LLM_CALL`, Spring AI: OpenAI-compatible/Anthropic/Ollama), `session-memory` (`SESSION_MEMORY`, in-memory chat history).  `mcp-tool-call` (`MCP_TOOL_CALL`, MCP client over streamable HTTP; session cache, SSE progress heartbeat, cancel, idempotency `_meta`). Sample chat-agent workflow: `bruno/SessionConfigController/Apply Chat Agent Session.bru`.
+- **Triggers**: Located in `triggers/`. Modules: `api-trigger`, `constant-source`, `schedule-trigger` (`SCHEDULE_TRIGGER`, interval/cron).
 - **Terminals**: Located in `terminals/`. Modules: `console-terminal`, `notify-terminal` (`NOTIFY_TERMINAL`, Slack-compatible JSON webhook).
 - **Supervisors**: Located in `supervisors/`. Module: `rule-supervisor` (declarative JSON/SpEL rules implementing `ExecutionSupervisor`; enabled by `yukta.supervisor.rules.file`). Example rule file: `supervisors/rule-supervisor/rules.example.json`.
 
@@ -14,7 +14,7 @@ Implementations of various Yukta plugins.
 Note: `triggers/manual-trigger/` exists on disk but has no source and isn't in `settings.gradle.kts` — it's a retired/unwired module, not a live plugin.
 
 ## Config schema
-Declare `getConfigSchema()` (see `ConfigField`) on a plugin to get a generated config form in the UI. Every plugin that takes configuration declares one (`api-trigger`, `ONE_SHOT` and `CONSOLE_TERMINAL` take none); a new plugin without a schema falls back to the JSON editor and the usage pattern. Keep field names equal to the keys the plugin reads, and add a test pinning the names and which are required.
+Declare `getConfigSchema()` (see `ConfigField`) on a plugin to get a generated config form in the UI. Every plugin that takes configuration declares one (`API_TRIGGER` and `CONSOLE_TERMINAL` take none); a new plugin without a schema falls back to the JSON editor and the usage pattern. Keep field names equal to the keys the plugin reads, and add a test pinning the names and which are required.
 
 ## Build Commands
 ```bash

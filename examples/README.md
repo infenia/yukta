@@ -26,10 +26,10 @@ its session again each time.
 
 | # | Use case | Graph | Trigger |
 |---|---|---|---|
-| [01](01-hello-world/) | Smallest workflow, end-to-end check | ONE_SHOT → PROCESS_EXECUTOR → terminal | REST |
-| [02](02-api-payload/) | External system passes data over REST | api-trigger → MAPPER → terminal | REST + payload |
+| [01](01-hello-world/) | Smallest workflow, end-to-end check | CONSTANT_SOURCE → PROCESS_EXECUTOR → terminal | REST |
+| [02](02-api-payload/) | External system passes data over REST | API_TRIGGER → MAPPER → terminal | REST + payload |
 | [03](03-ci-pipeline/) | CI gate: pass/fail by exit code | PROCESS_EXECUTOR `routeByExitCode` → two reports | REST |
-| [04](04-quality-gate/) | AI-agent quality gate on metrics | api-trigger → BRANCH → two reports | REST + payload |
+| [04](04-quality-gate/) | AI-agent quality gate on metrics | API_TRIGGER → BRANCH → two reports | REST + payload |
 | [05](05-data-pipeline/) | Batch ETL: split, filter, map | CONSTANT_SOURCE → SPLITTER → FILTER → MAPPER | REST |
 | [06](06-http-health-check/) | Monitoring with an alert path | HTTP_REQUEST `routeByStatus` → two reports | REST |
 | [07](07-fan-out-notify/) | One event to several channels | RECIPIENT_LIST → three notifications | REST |

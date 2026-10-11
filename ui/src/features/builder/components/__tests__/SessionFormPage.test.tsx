@@ -50,7 +50,7 @@ describe('starterSession', () => {
       projectPath: '/p',
     });
     expect(session.workflows.main.nodes.map((n) => n.type)).toEqual([
-      'api-trigger',
+      'API_TRIGGER',
       'CONSOLE_TERMINAL',
     ]);
     expect(session.workflows.main.edges).toEqual([

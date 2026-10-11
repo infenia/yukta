@@ -10,7 +10,7 @@
       "workflowId": "greet-user",
       "description": "Map the request payload into a greeting record",
       "nodes": [
-        { "nodeId": "trigger", "type": "api-trigger", "config": {} },
+        { "nodeId": "trigger", "type": "API_TRIGGER", "config": {} },
         {
           "nodeId": "map",
           "type": "MAPPER",

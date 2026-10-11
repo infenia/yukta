@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
+import { buttonVariants } from '@/components/ui/button';
 import { useState } from 'react';
 import { InlineError } from '@/components/common/InlineError';
 import { Modal } from '@/components/common/Modal';
@@ -14,8 +15,7 @@ import type { StopMode } from '../api/executionControl';
 import { controlErrorMessage, useExecutionControl } from '../hooks/useExecutionControl';
 import { isTerminalExecStatus, toExecStatusCategory } from '../lib/statusMapper';
 
-const BUTTON =
-  'flex h-8 items-center gap-1 border border-outline-variant px-3 text-xs font-semibold text-on-surface transition-colors hover:bg-surface-container disabled:opacity-40 disabled:hover:bg-transparent';
+const BUTTON = buttonVariants({ variant: 'outline' });
 
 /** Parses the payload editor text; empty means no payload. */
 export function parsePayload(text: string): Record<string, unknown> {
@@ -62,7 +62,7 @@ function RunDialog({
         rows={8}
         spellCheck={false}
         placeholder='{"key": "value"}'
-        className="mb-3 w-full border border-outline-variant bg-surface-container-low p-2 font-mono text-xs text-on-surface"
+        className="mb-3 w-full rounded-lg border border-outline-variant bg-surface-container-low p-2 font-mono text-xs text-on-surface"
       />
       <InlineError message={parseError ?? error} />
       <div className="mt-4 flex justify-end gap-2">

@@ -11,9 +11,11 @@ import static org.mockito.Mockito.when;
 
 import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
+import com.infenia.yukta.plugin.core.PluginMetricsReporter;
 import com.infenia.yukta.plugin.exception.WorkflowExecutionException;
 import com.infenia.yukta.util.VariableResolver;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -22,6 +24,8 @@ import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.support.StaticListableBeanFactory;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
@@ -381,5 +385,27 @@ class LlmCallPluginTest {
     // retries above 10 count as 10: 11 * 121 + 5 s + 0.5 s * 1024
     assertThat(plugin.getDefaultTimeout(Map.of("retries", 500)))
         .isEqualTo(Duration.ofSeconds(11 * 121 + 5 + 512));
+  }
+
+  private static ObjectProvider<PluginMetricsReporter> provider(final List<String> counts) {
+    final StaticListableBeanFactory factory = new StaticListableBeanFactory();
+    factory.addBean(
+        "reporter", (PluginMetricsReporter) (node, metric, tag) -> counts.add(metric + ":" + tag));
+    return factory.getBeanProvider(PluginMetricsReporter.class);
+  }
+
+  @Test
+  void springConstructorReportsMetrics() {
+    final List<String> counts = new ArrayList<>();
+    plugin = new LlmCallPlugin(gateway, resolver, provider(counts));
+    when(gateway.call(any())).thenReturn(new LlmResponse("ok", 0, 0, "m"));
+    StepVerifier.create(run(config())).expectNextCount(1).verifyComplete();
+    assertThat(counts).containsExactly("llm:OK");
+    assertThat(
+            new LlmCallPlugin(
+                gateway,
+                resolver,
+                new StaticListableBeanFactory().getBeanProvider(PluginMetricsReporter.class)))
+        .isNotNull();
   }
 }

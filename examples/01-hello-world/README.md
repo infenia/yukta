@@ -3,7 +3,7 @@
 **Use case:** the smallest useful workflow, to check that a server, a session and a run work end to end.
 
 ```
-ONE_SHOT ──► PROCESS_EXECUTOR (echo) ──► CONSOLE_TERMINAL
+CONSTANT_SOURCE ──► PROCESS_EXECUTOR (echo) ──► CONSOLE_TERMINAL
 ```
 
 **Trigger**
@@ -17,4 +17,4 @@ curl -X POST localhost:8080/api/workflow/start -H 'Content-Type: application/jso
 
 **Expected:** status `SUCCESS`, and the log line `stdout=Hello from Yukta!`.
 
-**Notes:** every workflow needs one trigger and one terminal. `ONE_SHOT` emits a single empty message and is the usual trigger for scheduled-style or manual runs.
+**Notes:** every workflow needs one trigger and one terminal. `CONSTANT_SOURCE` emits a single empty message and is the usual trigger for scheduled-style or manual runs.

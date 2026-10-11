@@ -17,7 +17,8 @@ class NotifyTerminalConfigSchemaTest {
   void requiresTheWebhookUrl() {
     final var schema = new NotifyTerminal(WebClient.builder()).getConfigSchema();
 
-    assertThat(schema.stream().map(ConfigField::name)).containsExactly("url", "text", "timeoutMs");
+    assertThat(schema.stream().map(ConfigField::name))
+        .containsExactly("url", "text", "timeoutMs", "failureMode");
     assertThat(schema.getFirst().required()).isTrue();
   }
 }

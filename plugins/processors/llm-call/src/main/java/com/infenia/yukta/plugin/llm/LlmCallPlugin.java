@@ -5,7 +5,10 @@ package com.infenia.yukta.plugin.llm;
 import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
 import com.infenia.yukta.plugin.core.ConfigField;
+import com.infenia.yukta.plugin.core.FailureMode;
 import com.infenia.yukta.plugin.core.PluginDescriptor;
+import com.infenia.yukta.plugin.core.PluginGuard;
+import com.infenia.yukta.plugin.core.PluginMetricsReporter;
 import com.infenia.yukta.plugin.exception.WorkflowExecutionException;
 import com.infenia.yukta.plugin.type.ProcessorPlugin;
 import com.infenia.yukta.plugin.util.SpelUtils;
@@ -19,8 +22,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -37,14 +41,14 @@ import reactor.util.retry.Retry;
 @SuppressWarnings({
   "PMD.CommentRequired",
   "PMD.GodClass",
+  "PMD.CouplingBetweenObjects",
   "PMD.OnlyOneReturn",
   "PMD.TooManyMethods",
   "PMD.UseConcurrentHashMap"
 })
 @Slf4j
 @Component
-@RequiredArgsConstructor
-public class LlmCallPlugin implements ProcessorPlugin {
+public final class LlmCallPlugin implements ProcessorPlugin {
 
   /** Extra time the node gets beyond the attempts, in seconds. */
   private static final long MARGIN_SECONDS = 5L;
@@ -70,6 +74,36 @@ public class LlmCallPlugin implements ProcessorPlugin {
 
   private final LlmGateway gateway;
   private final VariableResolver resolver;
+  private final PluginMetricsReporter reporter;
+
+  /**
+   * Creates the plugin without metrics.
+   *
+   * @param gateway the gateway
+   * @param resolver resolves config expressions
+   */
+  public LlmCallPlugin(final LlmGateway gateway, final VariableResolver resolver) {
+    this.gateway = gateway;
+    this.resolver = resolver;
+    this.reporter = PluginMetricsReporter.NOOP;
+  }
+
+  /**
+   * Spring constructor.
+   *
+   * @param gateway the gateway
+   * @param resolver resolves config expressions
+   * @param reporterProvider optional metrics reporter
+   */
+  @Autowired
+  public LlmCallPlugin(
+      final LlmGateway gateway,
+      final VariableResolver resolver,
+      final ObjectProvider<PluginMetricsReporter> reporterProvider) {
+    this.gateway = gateway;
+    this.resolver = resolver;
+    this.reporter = reporterProvider.getIfAvailable(() -> PluginMetricsReporter.NOOP);
+  }
 
   @Override
   public PluginDescriptor describe() {
@@ -195,7 +229,8 @@ public class LlmCallPlugin implements ProcessorPlugin {
 
   @Override
   public Flux<Message<?>> process(final Flux<Message<?>> input, final Map<String, Object> config) {
-    return input.flatMapSequential(message -> call(message, config));
+    return PluginGuard.counted(
+        input.flatMapSequential(message -> call(message, config)), reporter, "llm");
   }
 
   private Flux<Message<?>> call(final Message<?> message, final Map<String, Object> config) {

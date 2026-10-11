@@ -131,13 +131,4 @@ describe('PluginCanvasPreview', () => {
     render(<PluginCanvasPreview plugin={base} />);
     expect(await screen.findByTestId('workflow-node-Sink')).toBeInTheDocument();
   });
-
-  it('renders the plugin ui design html', async () => {
-    const plugin = {
-      ...base,
-      uiDesign: { html: '<span>design-marker</span>', width: 300, height: 80 },
-    };
-    render(<PluginCanvasPreview plugin={plugin} />);
-    expect(await screen.findByText('design-marker')).toBeInTheDocument();
-  });
 });

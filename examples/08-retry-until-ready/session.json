@@ -10,7 +10,7 @@
       "workflowId": "wait-ready",
       "description": "Repeat a check up to 5 times, 1s apart, stopping after 3 attempts",
       "nodes": [
-        { "nodeId": "start", "type": "ONE_SHOT", "config": {} },
+        { "nodeId": "start", "type": "CONSTANT_SOURCE", "config": {} },
         {
           "nodeId": "poll",
           "type": "LOOP_PREDICATE",

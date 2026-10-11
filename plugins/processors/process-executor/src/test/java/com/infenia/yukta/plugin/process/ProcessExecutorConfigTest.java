@@ -5,6 +5,7 @@ package com.infenia.yukta.plugin.process;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.infenia.yukta.plugin.core.FailureMode;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;

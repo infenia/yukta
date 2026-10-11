@@ -134,8 +134,6 @@ jobs:
               - 'plugins/triggers/api-trigger/**'
             constant-source:
               - 'plugins/triggers/constant-source/**'
-            oneshot-trigger:
-              - 'plugins/triggers/oneshot-trigger/**'
             console-terminal:
               - 'plugins/terminals/console-terminal/**'
             internal-core:
@@ -146,6 +144,8 @@ jobs:
               - 'plugins/processors/http-request/**'
             llm-call:
               - 'plugins/processors/llm-call/**'
+            mcp-tool-call:
+              - 'plugins/processors/mcp-tool-call/**'
             session-memory:
               - 'plugins/processors/session-memory/**'
             script-js:
@@ -315,8 +315,6 @@ jobs:
                 TASKS="$TASKS :plugins:triggers:api-trigger:buildDependents" ;;
               "constant-source")
                 TASKS="$TASKS :plugins:triggers:constant-source:buildDependents" ;;
-              "oneshot-trigger")
-                TASKS="$TASKS :plugins:triggers:oneshot-trigger:buildDependents" ;;
               "console-terminal")
                 TASKS="$TASKS :plugins:terminals:console-terminal:buildDependents" ;;
               "internal-core")
@@ -327,6 +325,8 @@ jobs:
                 TASKS="$TASKS :plugins:processors:http-request:buildDependents" ;;
               "llm-call")
                 TASKS="$TASKS :plugins:processors:llm-call:buildDependents" ;;
+              "mcp-tool-call")
+                TASKS="$TASKS :plugins:processors:mcp-tool-call:buildDependents" ;;
               "session-memory")
                 TASKS="$TASKS :plugins:processors:session-memory:buildDependents" ;;
               "script-js")

@@ -10,7 +10,7 @@
       "workflowId": "ci-pass",
       "description": "Checks succeed: the success port is taken",
       "nodes": [
-        { "nodeId": "start", "type": "ONE_SHOT", "config": {} },
+        { "nodeId": "start", "type": "CONSTANT_SOURCE", "config": {} },
         {
           "nodeId": "tests",
           "type": "PROCESS_EXECUTOR",
@@ -37,7 +37,7 @@
       "workflowId": "ci-fail",
       "description": "A check fails: the failure port is taken",
       "nodes": [
-        { "nodeId": "start", "type": "ONE_SHOT", "config": {} },
+        { "nodeId": "start", "type": "CONSTANT_SOURCE", "config": {} },
         {
           "nodeId": "tests",
           "type": "PROCESS_EXECUTOR",

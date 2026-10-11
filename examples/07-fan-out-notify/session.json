@@ -10,7 +10,7 @@
       "workflowId": "notify",
       "description": "Send the same event to slack, email and pager",
       "nodes": [
-        { "nodeId": "start", "type": "ONE_SHOT", "config": {} },
+        { "nodeId": "start", "type": "CONSTANT_SOURCE", "config": {} },
         { "nodeId": "fan-out", "type": "RECIPIENT_LIST", "config": { "mode": "STATIC", "recipients": ["slack", "email", "pager"], "parallel": true } },
         { "nodeId": "slack", "type": "PROCESS_EXECUTOR", "config": { "command": ["echo", "notified: slack"] } },
         { "nodeId": "email", "type": "PROCESS_EXECUTOR", "config": { "command": ["echo", "notified: email"] } },
