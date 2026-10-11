@@ -81,4 +81,21 @@ class AggregateProcessorTest {
               assertThat(design.height()).isEqualTo(80);
             });
   }
+
+  @Test
+  void process_zeroSizeIsRejected() {
+    org.junit.jupiter.api.Assertions.assertThrows(
+        IllegalArgumentException.class,
+        () -> processor.process(Flux.just(msg(1)), Map.of(SIZE, 0)).blockFirst());
+  }
+
+  @Test
+  void process_missingOrNonNumericSizeIsRejected() {
+    for (final Object size : new Object[] {"2", ""}) {
+      final Map<String, Object> config = Map.of(SIZE, size);
+      org.junit.jupiter.api.Assertions.assertThrows(
+          IllegalArgumentException.class,
+          () -> processor.process(Flux.just(msg(1)), config).blockFirst());
+    }
+  }
 }

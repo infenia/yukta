@@ -99,4 +99,16 @@ class ValidateProcessorTest {
               assertThat(design.height()).isEqualTo(80);
             });
   }
+
+  @Test
+  void requiredOnlyConfig_isValidAndChecksPresence() {
+    final Map<String, Object> requiredOnly = Map.of("required", List.of("a"));
+    StepVerifier.create(processor.validateConfig(requiredOnly)).verifyComplete();
+    final Message<?> out =
+        processor
+            .process(
+                Flux.just(DefaultMessage.create(UUID.randomUUID(), Map.of("a", 1))), requiredOnly)
+            .blockFirst();
+    assertThat(out.sourcePort()).isEqualTo("default");
+  }
 }
