@@ -42,14 +42,14 @@ example waits over REST and reads the result through MCP only after the run fini
 
 ## How workflows are triggered
 
-Yukta has no webhook or cron trigger. A run starts from one of these:
+Yukta has no webhook trigger. The examples are started by hand; a run starts from one of these:
 
 - **REST:** `POST /api/workflow/start` with `{"sessionId", "workflowId", "payload"?}`. Returns `202` and `data.executionId`.
 - **MCP:** the `start_workflow` tool at `http://localhost:8080/mcp` (see example 10).
 - **CLI:** `cli/build/yukta-linux-amd64 workflow start <session> <workflow>`.
 - **UI:** the web console.
 
-Schedule it yourself with cron, a CI job or any scheduler that can make the REST call.
+To run on a timer, use the built-in `SCHEDULE_TRIGGER` (interval or cron) as the workflow's trigger, or call the REST endpoint from cron or CI.
 
 ## Running
 
