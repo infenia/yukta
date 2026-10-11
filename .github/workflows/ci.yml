@@ -238,7 +238,9 @@ jobs:
         run: |
           echo "▶ Verifying lock files match resolved dependencies..."
           ./gradlew boot:compileAotJava --write-locks --no-configuration-cache
-          if ! git diff --exit-code -- '**/gradle.lockfile' 'gradle.lockfile'; then
+          # git status (not git diff) so a new module's uncommitted lockfile is caught too
+          if [ -n "$(git status --porcelain -- '**/gradle.lockfile' 'gradle.lockfile')" ]; then
+            git status --porcelain -- '**/gradle.lockfile' 'gradle.lockfile'
             echo "❌ Lock files are out of date."
             echo "Run locally: ./gradlew boot:compileAotJava --write-locks --no-configuration-cache"
             echo "Then commit the updated gradle.lockfile files."
