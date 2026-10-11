@@ -79,7 +79,7 @@ Report location: `coverage/index.html` (generated, git-ignored)
 - SpaWebFluxConfig in boot: Fallback routing (non-existent routes → index.html for SPA)
 
 ### Frontend Architecture
-- **Route-based**: `/` (session list), `/sessions/:sessionId`, `/sessions/:sessionId/workflow/:workflowId`, plus `/control` and `/history` placeholders. The two detail pages are lazy-loaded (`lazy` in `routes/router.tsx`)
+- **Route-based**: `/` (session list), `/sessions/:sessionId`, `/sessions/:sessionId/workflow/:workflowId`, `/plugins` (plugin catalog with a canvas-node preview), plus `/control` and `/history` placeholders. The two detail pages are lazy-loaded (`lazy` in `routes/router.tsx`)
 - **Feature-based folders**: `src/features/sessions/{api,components,hooks,types}` for scalability
 - **Shared UI**: `src/components/ui/` (shadcn primitives), `src/components/layout/` (AppHeader, AppFooter, etc.)
 - **Lib**: `src/lib/apiClient.ts` (`fetchApi` wrapper and the `api` URL-encoding template tag), `src/lib/queryClient.ts`, `src/lib/theme.ts` (dark mode)
