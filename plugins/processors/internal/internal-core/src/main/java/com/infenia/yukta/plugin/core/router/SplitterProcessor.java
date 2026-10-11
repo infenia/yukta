@@ -4,6 +4,7 @@ package com.infenia.yukta.plugin.core.router;
 
 import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
+import com.infenia.yukta.plugin.core.ConfigField;
 import com.infenia.yukta.plugin.core.PluginDescriptor;
 import com.infenia.yukta.plugin.core.UiDesign;
 import com.infenia.yukta.plugin.exception.WorkflowExecutionException;
@@ -86,6 +87,20 @@ public class SplitterProcessor implements ProcessorPlugin {
                 """,
                 140,
                 80)));
+  }
+
+  @Override
+  public List<ConfigField> getConfigSchema() {
+    return List.of(
+        ConfigField.required(
+            "itemsPath", ConfigField.Type.EXPRESSION, "SpEL path to the items to split"),
+        ConfigField.optional(
+            "headerMapping", ConfigField.Type.MAP, null, "Header name to SpEL for each item"),
+        ConfigField.optional("parallel", ConfigField.Type.BOOLEAN, true, "Emit concurrently"),
+        ConfigField.optional("concurrency", ConfigField.Type.NUMBER, 1024, "Concurrent items"),
+        ConfigField.optional(
+            "strictMode", ConfigField.Type.BOOLEAN, true, "Fail on evaluation errors"),
+        ConfigField.optional("errorPort", ConfigField.Type.STRING, null, "Port for failures"));
   }
 
   @Override

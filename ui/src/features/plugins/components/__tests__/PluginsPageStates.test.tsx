@@ -53,6 +53,70 @@ describe('PluginsPage states', () => {
   });
 });
 
+describe('PluginsPage details', () => {
+  const serve = (details: object) =>
+    server.use(
+      http.get('/api/plugins', () =>
+        HttpResponse.json(envelope([{ type: 'Sink', category: 'TERMINAL' }]))
+      ),
+      http.get('/api/plugins/:type', () =>
+        HttpResponse.json(
+          envelope({
+            type: 'Sink',
+            category: 'TERMINAL',
+            description: null,
+            usagePattern: null,
+            uiDesign: null,
+            outputPorts: [],
+            ...details,
+          })
+        )
+      )
+    );
+
+  it('says a terminal has no output ports', async () => {
+    serve({});
+    renderPage();
+    expect(await screen.findByText('None (terminal)')).toBeInTheDocument();
+  });
+
+  it('lists declared output ports and the configuration fields', async () => {
+    serve({
+      outputPorts: ['ok', 'error'],
+      configSchema: [
+        {
+          name: 'url',
+          type: 'STRING',
+          required: true,
+          defaultValue: null,
+          options: [],
+          description: 'where to call',
+        },
+        {
+          name: 'retries',
+          type: 'NUMBER',
+          required: false,
+          defaultValue: 0,
+          options: [],
+          description: '',
+        },
+      ],
+    });
+    renderPage();
+    expect(await screen.findByText('ok, error')).toBeInTheDocument();
+    expect(screen.getByText('where to call')).toBeInTheDocument();
+    expect(screen.getByText('NUMBER')).toBeInTheDocument();
+    expect(screen.getAllByText('*')).toHaveLength(1);
+  });
+
+  it('omits the configuration section when the schema is empty', async () => {
+    serve({ configSchema: [] });
+    renderPage();
+    await screen.findByText('None (terminal)');
+    expect(screen.queryByText('Configuration')).not.toBeInTheDocument();
+  });
+});
+
 describe('PluginCanvasPreview', () => {
   const base: PluginDetails = {
     type: 'Sink',

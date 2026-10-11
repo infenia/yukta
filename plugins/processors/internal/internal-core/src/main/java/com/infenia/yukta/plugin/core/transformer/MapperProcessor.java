@@ -6,6 +6,7 @@ import com.github.jknack.handlebars.Handlebars;
 import com.github.jknack.handlebars.Template;
 import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
+import com.infenia.yukta.plugin.core.ConfigField;
 import com.infenia.yukta.plugin.core.PluginDescriptor;
 import com.infenia.yukta.plugin.core.UiDesign;
 import com.infenia.yukta.plugin.core.WorkflowContext;
@@ -14,6 +15,7 @@ import com.infenia.yukta.plugin.util.SpelUtils;
 import com.infenia.yukta.util.MapUtils;
 import java.io.IOException;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
@@ -147,6 +149,24 @@ public class MapperProcessor implements ProcessorPlugin {
                 """,
                 140,
                 80)));
+  }
+
+  @Override
+  public List<ConfigField> getConfigSchema() {
+    return List.of(
+        ConfigField.choice(
+            "mode",
+            true,
+            "PROJECTION",
+            "How the mapping is applied",
+            "PROJECTION",
+            "TEMPLATE",
+            "SCRIPT"),
+        ConfigField.required(
+            "mapping", ConfigField.Type.EXPRESSION, "Field to SpEL map, Handlebars template or JS"),
+        ConfigField.optional(
+            "dropOriginal", ConfigField.Type.BOOLEAN, true, "Drop the input payload"),
+        ConfigField.optional("strictMode", ConfigField.Type.BOOLEAN, true, "Fail on eval errors"));
   }
 
   @Override

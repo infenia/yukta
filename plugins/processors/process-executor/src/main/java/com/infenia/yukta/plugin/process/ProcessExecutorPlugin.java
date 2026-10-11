@@ -4,6 +4,7 @@ package com.infenia.yukta.plugin.process;
 
 import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
+import com.infenia.yukta.plugin.core.ConfigField;
 import com.infenia.yukta.plugin.core.PluginDescriptor;
 import com.infenia.yukta.plugin.exception.WorkflowExecutionException;
 import com.infenia.yukta.plugin.type.ProcessorPlugin;
@@ -85,6 +86,41 @@ public class ProcessExecutorPlugin implements ProcessorPlugin {
             + "capture, output caps, and proper cleanup on timeout/error.",
         usagePattern(),
         Optional.empty());
+  }
+
+  @Override
+  public List<ConfigField> getConfigSchema() {
+    return List.of(
+        ConfigField.required("command", ConfigField.Type.LIST, "Command and arguments"),
+        ConfigField.choice(
+            "inputMode",
+            false,
+            "NONE",
+            "How the message reaches the process",
+            "NONE",
+            "ENV",
+            "STDIN"),
+        ConfigField.optional("workingDir", ConfigField.Type.STRING, null, "Working directory"),
+        ConfigField.optional("timeout", ConfigField.Type.NUMBER, 300, "Timeout in seconds"),
+        ConfigField.optional("env", ConfigField.Type.MAP, null, "Extra environment variables"),
+        ConfigField.optional("useShell", ConfigField.Type.BOOLEAN, false, "Run through a shell"),
+        ConfigField.optional("captureStderr", ConfigField.Type.BOOLEAN, null, "Capture stderr"),
+        ConfigField.choice(
+            "outputFormat",
+            false,
+            "STRUCTURED",
+            "Shape of the emitted payload",
+            "STRUCTURED",
+            "RAW",
+            "JSON",
+            "PASSTHROUGH"),
+        ConfigField.choice(
+            "failureMode", false, "ERROR", "What to do on a non-zero exit", "ERROR", "CONTINUE"),
+        ConfigField.optional(
+            "routeByExitCode",
+            ConfigField.Type.BOOLEAN,
+            false,
+            "Emit on success/failure ports (needs failureMode CONTINUE)"));
   }
 
   @Override

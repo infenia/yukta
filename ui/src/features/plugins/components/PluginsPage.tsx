@@ -45,6 +45,25 @@ function PluginDetail({ type }: { type: string }) {
         <h3 className="mb-1 text-sm font-semibold text-on-surface">Output ports</h3>
         <p className="text-sm text-on-surface-variant">{ports}</p>
       </section>
+      {plugin.configSchema && plugin.configSchema.length > 0 && (
+        <section>
+          <h3 className="mb-1 text-sm font-semibold text-on-surface">Configuration</h3>
+          <table className="w-full text-left text-sm">
+            <tbody>
+              {plugin.configSchema.map((field) => (
+                <tr key={field.name} className="border-b border-outline-variant align-top">
+                  <td className="py-1 pr-3 font-mono text-xs">
+                    {field.name}
+                    {field.required && <span className="text-error"> *</span>}
+                  </td>
+                  <td className="pr-3 text-xs text-on-surface-variant">{field.type}</td>
+                  <td className="text-xs text-on-surface-variant">{field.description}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
+      )}
       {plugin.usagePattern && (
         <section>
           <h3 className="mb-1 text-sm font-semibold text-on-surface">Usage</h3>
