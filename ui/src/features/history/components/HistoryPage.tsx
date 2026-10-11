@@ -59,7 +59,9 @@ export function HistoryPage() {
         <StateMessage
           tone="error"
           title="Failed to load history"
-          onRetry={() => void history.refetch()}
+          onRetry={() =>
+            void (sessions.error ? sessions.refetch() : history.refetch())
+          }
         />
       ) : history.isPending && sessionId ? (
         <p className="text-body-md text-on-surface-variant">Loading…</p>

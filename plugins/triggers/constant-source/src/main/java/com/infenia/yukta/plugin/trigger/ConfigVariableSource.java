@@ -45,7 +45,7 @@ public class ConfigVariableSource implements TriggerPlugin {
               <span class="material-symbols-outlined text-xl">touch_app</span>
           </div>
           <div class="flex flex-col min-w-0">
-              <div class="text-[10px] text-green-600 font-bold uppercase tracking-wider leading-none mb-1">Constant Source</div>
+              <div class="text-xs text-green-600 font-bold uppercase tracking-wider leading-none mb-1">Constant Source</div>
               <div class="text-xs font-bold text-slate-700 truncate w-full">{{nodeId}}</div>
           </div>
       </div>
