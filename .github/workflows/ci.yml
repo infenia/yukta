@@ -21,8 +21,7 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   # Pinned OpenGrep version — bump deliberately, keep builds reproducible
   OPENGREP_VERSION: v1.25.0
-  # Keep in sync with the trivy version pinned in security.yml
-  TRIVY_VERSION: v0.72.0
+  OPENGREP_SHA256: 9ac4aebb47ba3f7b0d8fc641ac8749cb6c2f253f616131a67d9631e00d4bea33
 
 # Least privilege by default; jobs elevate only what they need.
 permissions:
@@ -44,6 +43,14 @@ jobs:
         run: |
           pip install yamllint
           yamllint .github/workflows/
+
+      - name: Lint workflows (actionlint)
+        run: docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:1.7.12 -color
+
+      - name: Audit workflows (zizmor)
+        uses: zizmorcore/zizmor-action@cc914d7f3750a2d13d75c7f184a1060aa0e9d482 # v0.6.4
+        with:
+          advanced-security: false
 
   # ─────────────────────────────────────────────
   # Job 1: Detect which modules were changed.
@@ -154,7 +161,7 @@ jobs:
           cache-dependency-path: 'cli/go.sum'
 
       - name: Set up Node.js
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: '24'
 
@@ -179,80 +186,32 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
-      - name: Cache OpenGrep
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
-        id: cache-opengrep
-        with:
-          path: ~/.opengrep
-          key: opengrep-${{ runner.os }}-${{ runner.arch }}-${{ env.OPENGREP_VERSION }}
-
+      # Pinned binary + sha256 (bump both together with OPENGREP_VERSION)
       - name: Install OpenGrep
-        if: steps.cache-opengrep.outputs.cache-hit != 'true'
         run: |
-          echo "▶ Installing OpenGrep $OPENGREP_VERSION (not found in cache)..."
-          curl -fsSL https://raw.githubusercontent.com/opengrep/opengrep/$OPENGREP_VERSION/install.sh \
-            | bash -s -- -v "$OPENGREP_VERSION"
-          echo "▶ OpenGrep installation complete"
-
-      - name: Setup OpenGrep PATH
-        run: |
-          # Add to PATH for this step and export for subsequent steps
-          export PATH="$HOME/.opengrep/cli/latest:$HOME/.local/bin:$PATH"
-
-          # Verify opengrep is available
-          which opengrep
-          opengrep --version
-
-          # Persist PATH for all subsequent steps in this job
-          echo "$HOME/.opengrep/cli/latest" >> $GITHUB_PATH
-          echo "$HOME/.local/bin" >> $GITHUB_PATH
-          echo "▶ OpenGrep PATH configured and verified"
-
-      - name: Cache Trivy
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
-        id: cache-trivy
-        with:
-          path: ~/.local/bin/trivy
-          key: trivy-${{ runner.os }}-${{ runner.arch }}-${{ env.TRIVY_VERSION }}
+          mkdir -p "$HOME/.local/bin"
+          curl -fsSL -o "$HOME/.local/bin/opengrep" \
+            "https://github.com/opengrep/opengrep/releases/download/$OPENGREP_VERSION/opengrep_manylinux_x86"
+          echo "$OPENGREP_SHA256  $HOME/.local/bin/opengrep" | sha256sum -c -
+          chmod +x "$HOME/.local/bin/opengrep"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          "$HOME/.local/bin/opengrep" --version
 
       - name: Install Trivy
-        if: steps.cache-trivy.outputs.cache-hit != 'true'
-        run: |
-          echo "▶ Installing Trivy $TRIVY_VERSION (not found in cache)..."
-          curl -fsSL https://raw.githubusercontent.com/aquasecurity/trivy/$TRIVY_VERSION/contrib/install.sh \
-            | sh -s -- -b ~/.local/bin "$TRIVY_VERSION"
-          echo "▶ Trivy installation complete"
-
-      - name: Verify Trivy is available
-        run: |
-          # ~/.local/bin was already added to GITHUB_PATH by the OpenGrep PATH step
-          which trivy
-          trivy --version
+        uses: aquasecurity/setup-trivy@81e514348e19b6112ce2a7e3ecbafe19c1e1f567 # v0.3.1
+        with:
+          version: v0.72.0 # keep in sync with security.yml
+          cache: true
 
       - name: Verify dependency lock files are up-to-date
         run: |
           echo "▶ Verifying lock files match resolved dependencies..."
-          # Create a temporary directory to write fresh locks
-          mkdir -p /tmp/fresh-locks
-
-          # Resolve dependencies and write locks to temp (this will fail if locks are violated)
-          # We use boot:compileAotJava which exercises the full Spring Boot AOT compilation path
-          set +e
-          ./gradlew boot:compileAotJava --write-locks --no-configuration-cache 2>&1 | tee /tmp/gradle-verify.log
-          GRADLE_EXIT=$?
-          set -e
-
-          # Check for "which is not part of the dependency lock state" errors
-          if grep -q "which is not part of the dependency lock state" /tmp/gradle-verify.log; then
-            echo "❌ Lock files are out of date - new dependencies detected."
+          ./gradlew boot:compileAotJava --write-locks --no-configuration-cache
+          if ! git diff --exit-code -- '**/gradle.lockfile' 'gradle.lockfile'; then
+            echo "❌ Lock files are out of date."
             echo "Run locally: ./gradlew boot:compileAotJava --write-locks --no-configuration-cache"
             echo "Then commit the updated gradle.lockfile files."
             exit 1
-          fi
-
-          if [ $GRADLE_EXIT -ne 0 ]; then
-            echo "⚠ Gradle verification failed with exit code $GRADLE_EXIT"
-            exit $GRADLE_EXIT
           fi
 
           echo "✓ Lock files are current and valid"
@@ -323,6 +282,7 @@ jobs:
 
           if [ -n "$TASKS" ]; then
             echo "▶ Executing: ./gradlew $TASKS jacocoTestReport -x trivy"
+            # shellcheck disable=SC2086 # TASKS is intentionally word-split
             ./gradlew $TASKS jacocoTestReport -x trivy
           else
             echo "▶ No module tasks matched — nothing to build"
@@ -395,7 +355,7 @@ jobs:
           cache-dependency-path: 'cli/go.sum'
 
       - name: Set up Node.js
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: '24'
 
@@ -464,12 +424,12 @@ jobs:
           persist-credentials: false
 
       - name: Setup Node.js
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: '24'
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v6
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
         with:
           version: 10
 
@@ -496,7 +456,7 @@ jobs:
 
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: playwright-report
           path: ui/playwright-report/
@@ -505,7 +465,7 @@ jobs:
 
       - name: Upload test videos
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: playwright-videos
           path: ui/test-results/
@@ -547,3 +507,21 @@ jobs:
               body: comment
             });
         continue-on-error: true
+
+  # ─────────────────────────────────────────────
+  # Single required check for branch protection. Jobs skipped by path
+  # filtering count as success; failures or cancellations fail the gate.
+  # ─────────────────────────────────────────────
+  ci-gate:
+    name: CI Gate
+    if: always()
+    needs: [lint-workflows, changes, build, dependency-submission, dependency-review, e2e-tests]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Fail if any required job failed or was cancelled
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+        run: |
+          echo "$NEEDS" | jq -r 'to_entries[] | "\(.key): \(.value.result)"'
+          echo "$NEEDS" | jq -e 'all(.[]; .result == "success" or .result == "skipped")' > /dev/null
