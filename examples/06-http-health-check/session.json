@@ -1,0 +1,54 @@
+{
+  "sessionId": "example-06-health-check",
+  "name": "HTTP health check",
+  "description": "Call a service endpoint and route to an OK or an alert report based on the HTTP status.",
+  "initiator": "examples",
+  "projectPath": "/tmp",
+  "tags": { "example": "06-http-health-check" },
+  "workflows": {
+    "health-ok": {
+      "workflowId": "health-ok",
+      "description": "Target answers 2xx: success port",
+      "nodes": [
+        { "nodeId": "start", "type": "ONE_SHOT", "config": {} },
+        {
+          "nodeId": "probe",
+          "type": "HTTP_REQUEST",
+          "config": { "url": "http://localhost:8080/api/plugins", "method": "GET", "timeout": 5, "failureMode": "CONTINUE", "routeByStatus": true }
+        },
+        { "nodeId": "ok", "type": "PROCESS_EXECUTOR", "config": { "command": ["echo", "HEALTH OK"] } },
+        { "nodeId": "alert", "type": "PROCESS_EXECUTOR", "config": { "command": ["echo", "HEALTH ALERT: service down"] } },
+        { "nodeId": "end", "type": "CONSOLE_TERMINAL", "config": {} }
+      ],
+      "edges": [
+        { "source": "start", "target": "probe" },
+        { "source": "probe", "target": "ok", "sourcePort": "success" },
+        { "source": "probe", "target": "alert", "sourcePort": "failure" },
+        { "source": "ok", "target": "end" },
+        { "source": "alert", "target": "end" }
+      ]
+    },
+    "health-down": {
+      "workflowId": "health-down",
+      "description": "Target refuses connections: failure port",
+      "nodes": [
+        { "nodeId": "start", "type": "ONE_SHOT", "config": {} },
+        {
+          "nodeId": "probe",
+          "type": "HTTP_REQUEST",
+          "config": { "url": "http://127.0.0.1:9/health", "method": "GET", "timeout": 3, "failureMode": "CONTINUE", "routeByStatus": true }
+        },
+        { "nodeId": "ok", "type": "PROCESS_EXECUTOR", "config": { "command": ["echo", "HEALTH OK"] } },
+        { "nodeId": "alert", "type": "PROCESS_EXECUTOR", "config": { "command": ["echo", "HEALTH ALERT: service down"] } },
+        { "nodeId": "end", "type": "CONSOLE_TERMINAL", "config": {} }
+      ],
+      "edges": [
+        { "source": "start", "target": "probe" },
+        { "source": "probe", "target": "ok", "sourcePort": "success" },
+        { "source": "probe", "target": "alert", "sourcePort": "failure" },
+        { "source": "ok", "target": "end" },
+        { "source": "alert", "target": "end" }
+      ]
+    }
+  }
+}

@@ -1,5 +1,5 @@
 <div style="text-align: center;">
-  <img src="ui/src/main/resources/static/images/favicon.svg" alt="Yukta" width="120" height="120" style="border-radius: 64px; padding: 4px; background-color: #fff;" />
+  <img src="ui/public/logo.svg" alt="Yukta" width="120" height="120" style="border-radius: 64px; padding: 4px; background-color: #fff;" />
   <h1>Yukta</h1>
   <p><strong>A reactive, DAG-based workflow orchestration server.</strong> Define workflows once as JSON, run them via REST, a web UI, or MCP.</p>
 </div>
@@ -187,6 +187,8 @@ JTE templates + Tailwind CSS + Alpine.js, served at `/ui` (e.g. `/ui`, `/ui/hist
 ---
 
 ## Getting Started
+
+Ready-to-run workflow examples, with trigger and test scripts, are in [`examples/`](examples/README.md).
 
 There are no tagged releases yet, so the only way to run Yukta today is from source.
 

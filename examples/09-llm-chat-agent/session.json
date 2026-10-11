@@ -1,0 +1,70 @@
+{
+  "sessionId": "example-09-chat-agent",
+  "name": "LLM chat agent",
+  "description": "Two chat turns for one user: the second turn sees the first through SESSION_MEMORY.",
+  "initiator": "examples",
+  "projectPath": "/tmp",
+  "tags": { "example": "09-llm-chat-agent" },
+  "workflows": {
+    "turn-1": {
+      "workflowId": "turn-1",
+      "description": "First message from the user",
+      "nodes": [
+        { "nodeId": "trigger", "type": "CONSTANT_SOURCE", "config": { "variables": { "sessionId": "user-42", "message": "My name is Ada. Remember it." } } },
+        { "nodeId": "memory-load", "type": "SESSION_MEMORY", "config": { "mode": "load", "sessionId": "${payload.sessionId}", "message": "${payload.message}", "maxTurns": 20 } },
+        {
+          "nodeId": "llm",
+          "type": "LLM_CALL",
+          "config": {
+            "provider": "openai",
+            "baseUrl": "http://localhost:11434/v1",
+            "apiKey": "ollama",
+            "model": "llama3.2",
+            "system": "You are a concise, helpful assistant.",
+            "messages": "payload['history']",
+            "prompt": "${payload.message}",
+            "timeout": 60
+          }
+        },
+        { "nodeId": "memory-append", "type": "SESSION_MEMORY", "config": { "mode": "append", "maxTurns": 20 } },
+        { "nodeId": "end", "type": "CONSOLE_TERMINAL", "config": {} }
+      ],
+      "edges": [
+        { "source": "trigger", "target": "memory-load" },
+        { "source": "memory-load", "target": "llm" },
+        { "source": "llm", "target": "memory-append" },
+        { "source": "memory-append", "target": "end" }
+      ]
+    },
+    "turn-2": {
+      "workflowId": "turn-2",
+      "description": "Follow-up question that depends on turn 1",
+      "nodes": [
+        { "nodeId": "trigger", "type": "CONSTANT_SOURCE", "config": { "variables": { "sessionId": "user-42", "message": "What is my name?" } } },
+        { "nodeId": "memory-load", "type": "SESSION_MEMORY", "config": { "mode": "load", "sessionId": "${payload.sessionId}", "message": "${payload.message}", "maxTurns": 20 } },
+        {
+          "nodeId": "llm",
+          "type": "LLM_CALL",
+          "config": {
+            "provider": "openai",
+            "baseUrl": "http://localhost:11434/v1",
+            "apiKey": "ollama",
+            "model": "llama3.2",
+            "system": "You are a concise, helpful assistant.",
+            "messages": "payload['history']",
+            "prompt": "${payload.message}",
+            "timeout": 60
+          }
+        },
+        { "nodeId": "memory-append", "type": "SESSION_MEMORY", "config": { "mode": "append", "maxTurns": 20 } },
+        { "nodeId": "end", "type": "CONSOLE_TERMINAL", "config": {} }
+      ],
+      "edges": [
+        { "source": "trigger", "target": "memory-load" },
+        { "source": "memory-load", "target": "llm" },
+        { "source": "llm", "target": "memory-append" },
+        { "source": "memory-append", "target": "end" }
+      ]
+    }
+  }
+}
