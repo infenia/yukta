@@ -3,6 +3,7 @@
 package com.infenia.yukta.plugin.core.router;
 
 import com.infenia.yukta.message.Message;
+import com.infenia.yukta.plugin.core.ConfigField;
 import com.infenia.yukta.plugin.core.PluginDescriptor;
 import com.infenia.yukta.plugin.core.UiDesign;
 import com.infenia.yukta.plugin.type.ProcessorPlugin;
@@ -108,6 +109,26 @@ public class RecipientListProcessor implements ProcessorPlugin {
                 """,
                 140,
                 80)));
+  }
+
+  @Override
+  public List<ConfigField> getConfigSchema() {
+    return List.of(
+        ConfigField.choice(
+            "mode", false, "DYNAMIC", "How recipients are chosen", "STATIC", "DYNAMIC", "EXTERNAL"),
+        ConfigField.optional("recipients", ConfigField.Type.LIST, null, "Port names (STATIC)"),
+        ConfigField.optional(
+            "expression", ConfigField.Type.EXPRESSION, null, "SpEL computing port names (DYNAMIC)"),
+        ConfigField.optional(
+            "sourceField",
+            ConfigField.Type.STRING,
+            null,
+            "Header or payload path holding the list (EXTERNAL)"),
+        ConfigField.optional("parallel", ConfigField.Type.BOOLEAN, true, "Dispatch concurrently"),
+        ConfigField.optional(
+            "errorPort", ConfigField.Type.STRING, null, "Port for evaluation failures"),
+        ConfigField.optional(
+            "strictMode", ConfigField.Type.BOOLEAN, true, "Fail on evaluation errors"));
   }
 
   @Override

@@ -44,6 +44,8 @@ const EXEC_STATUS_MAP: Record<string, ExecStatusCategory> = {
   ABORTED: 'failure',
   PAUSED: 'paused',
   NODE_PAUSED: 'paused',
+  // Control state while a stop drains in-flight work; the run is not terminal yet.
+  STOPPING: 'stopped',
   PENDING: 'pending',
   QUEUED: 'pending',
 };
@@ -85,13 +87,14 @@ export function isTerminalExecStatus(raw: string | null | undefined): boolean {
   return raw != null && TERMINAL_EXEC_STATUSES.has(raw);
 }
 
-/** Status to display for an execution: a live pause control state overrides a non-terminal status. */
+/** Status to display for an execution: a live pause or stop control state overrides a non-terminal status. */
 export function toDisplayExecStatus(
   status: string | null | undefined,
   controlState: string | null | undefined
 ): string | null {
-  const paused = controlState === 'PAUSED' || controlState === 'NODE_PAUSED';
-  return paused && !isTerminalExecStatus(status) ? controlState : (status ?? null);
+  const shown =
+    controlState === 'PAUSED' || controlState === 'NODE_PAUSED' || controlState === 'STOPPING';
+  return shown && !isTerminalExecStatus(status) ? controlState : (status ?? null);
 }
 
 /** Mockup-style node status label, e.g. "Done", "Active", "Waiting". */

@@ -4,11 +4,13 @@ package com.infenia.yukta.plugin.trigger;
 
 import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
+import com.infenia.yukta.plugin.core.ConfigField;
 import com.infenia.yukta.plugin.core.PluginDescriptor;
 import com.infenia.yukta.plugin.type.TriggerPlugin;
 import com.infenia.yukta.util.MapUtils;
 import com.infenia.yukta.util.VariableResolver;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -47,6 +49,14 @@ public class ConfigVariableSource implements TriggerPlugin {
         "Emits a message with predefined variables at workflow startup.",
         usagePattern(),
         Optional.empty());
+  }
+
+  @Override
+  public List<ConfigField> getConfigSchema() {
+    return List.of(
+        ConfigField.required("variables", ConfigField.Type.MAP, "Key to value; dots nest"),
+        ConfigField.choice(
+            "target", false, "PAYLOAD", "Where the variables go", "PAYLOAD", "METADATA"));
   }
 
   @Override

@@ -3,6 +3,7 @@
 package com.infenia.yukta.plugin.core.router;
 
 import com.infenia.yukta.message.Message;
+import com.infenia.yukta.plugin.core.ConfigField;
 import com.infenia.yukta.plugin.core.PluginDescriptor;
 import com.infenia.yukta.plugin.core.UiDesign;
 import com.infenia.yukta.plugin.core.WorkflowContext;
@@ -110,6 +111,21 @@ public class BranchProcessor implements ProcessorPlugin {
                 """,
                 140,
                 80)));
+  }
+
+  @Override
+  public List<ConfigField> getConfigSchema() {
+    return List.of(
+        ConfigField.choice(
+            "mode", true, "SELECT_KEY", "How the branch is chosen", "SELECT_KEY", "EXPRESSION"),
+        ConfigField.required("selector", ConfigField.Type.EXPRESSION, "Key or expression to match"),
+        ConfigField.required("cases", ConfigField.Type.MAP, "Match value (or predicate) to port"),
+        ConfigField.optional(
+            "defaultPort", ConfigField.Type.STRING, null, "Port when nothing matches"),
+        ConfigField.optional(
+            "allowMultipleMatches", ConfigField.Type.BOOLEAN, false, "Emit on every matching case"),
+        ConfigField.optional("strictMode", ConfigField.Type.BOOLEAN, true, "Fail on eval errors"),
+        ConfigField.optional("errorPort", ConfigField.Type.STRING, null, "Port for errors"));
   }
 
   @Override

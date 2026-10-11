@@ -3,10 +3,12 @@
 package com.infenia.yukta.plugin.core.flow;
 
 import com.infenia.yukta.message.Message;
+import com.infenia.yukta.plugin.core.ConfigField;
 import com.infenia.yukta.plugin.core.PluginDescriptor;
 import com.infenia.yukta.plugin.core.UiDesign;
 import com.infenia.yukta.plugin.type.ProcessorPlugin;
 import java.time.Duration;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import lombok.NoArgsConstructor;
@@ -42,6 +44,13 @@ public final class DelayProcessor implements ProcessorPlugin {
                 """,
                 140,
                 80)));
+  }
+
+  @Override
+  public List<ConfigField> getConfigSchema() {
+    return List.of(
+        ConfigField.required(
+            "delayMs", ConfigField.Type.NUMBER, "Positive delay per message in ms"));
   }
 
   @Override

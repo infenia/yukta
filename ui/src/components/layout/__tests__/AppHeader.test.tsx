@@ -35,6 +35,21 @@ describe('AppHeader', () => {
     expect(themeToggle).toBeInTheDocument();
   });
 
+  it('should link the primary sections', () => {
+    renderWithRouter(<AppHeader />);
+    const nav = screen.getByRole('navigation', { name: 'Primary' });
+    const links = Array.from(nav.querySelectorAll('a')).map((a) => [
+      a.textContent?.replace(/^[a-z_]+/, ''),
+      a.getAttribute('href'),
+    ]);
+    expect(links).toEqual([
+      ['Sessions', '/'],
+      ['Plugins', '/plugins'],
+      ['History', '/history'],
+      ['Control', '/control'],
+    ]);
+  });
+
   it('should render BreadcrumbNav', () => {
     const { container } = renderWithRouter(<AppHeader />);
     const nav = container.querySelector('nav');

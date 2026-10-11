@@ -3,11 +3,13 @@
 package com.infenia.yukta.plugin.terminal;
 
 import com.infenia.yukta.message.Message;
+import com.infenia.yukta.plugin.core.ConfigField;
 import com.infenia.yukta.plugin.core.PluginDescriptor;
 import com.infenia.yukta.plugin.core.UiDesign;
 import com.infenia.yukta.plugin.type.TerminalPlugin;
 import java.net.URI;
 import java.time.Duration;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
@@ -20,6 +22,9 @@ import reactor.core.publisher.Mono;
 @Component
 @RequiredArgsConstructor
 public class NotifyTerminal implements TerminalPlugin {
+
+  /** Config key and webhook body field holding the notification text. */
+  private static final String TEXT_KEY = "text";
 
   /** Builder used to create the WebClient. */
   private final WebClient.Builder webClientBuilder;
@@ -52,6 +57,17 @@ public class NotifyTerminal implements TerminalPlugin {
   }
 
   @Override
+  public List<ConfigField> getConfigSchema() {
+    return List.of(
+        ConfigField.required(
+            "url", ConfigField.Type.STRING, "Webhook URL (https; http only for localhost)"),
+        ConfigField.optional(
+            TEXT_KEY, ConfigField.Type.EXPRESSION, null, "Fixed text; otherwise the payload text"),
+        ConfigField.optional(
+            "timeoutMs", ConfigField.Type.NUMBER, 10_000, "Request timeout in ms"));
+  }
+
+  @Override
   public String getType() {
     return "NOTIFY_TERMINAL";
   }
@@ -75,7 +91,7 @@ public class NotifyTerminal implements TerminalPlugin {
                     .build()
                     .post()
                     .uri(url)
-                    .bodyValue(Map.of("text", text(message, config)))
+                    .bodyValue(Map.of(TEXT_KEY, text(message, config)))
                     .exchangeToMono(
                         response ->
                             response
@@ -108,8 +124,8 @@ public class NotifyTerminal implements TerminalPlugin {
 
   private static String text(final Message<?> message, final Map<String, Object> config) {
     final Object payload = message.payload();
-    final Object fixed = config.get("text");
-    final Object field = payload instanceof Map<?, ?> map ? map.get("text") : null;
+    final Object fixed = config.get(TEXT_KEY);
+    final Object field = payload instanceof Map<?, ?> map ? map.get(TEXT_KEY) : null;
     return String.valueOf(fixed != null ? fixed : field != null ? field : payload);
   }
 }

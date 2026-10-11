@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import { ExecutionSummaryBlock } from './ExecutionSummaryBlock';
+import type { NodeCommand } from './NodeControlsMenu';
 import { TaskSequenceList } from './TaskSequenceList';
 import type { TaskProgress, WorkflowGraph, WorkflowProgress } from '../types/workflow';
 
@@ -12,12 +13,14 @@ export function ProgressPanel({
   tasksByNode,
   sessionId,
   onClose,
+  onNodeCommand,
 }: {
   graph: WorkflowGraph;
   progress: WorkflowProgress | null;
   tasksByNode: Record<string, TaskProgress | undefined>;
   sessionId: string;
   onClose: () => void;
+  onNodeCommand?: (nodeId: string, command: NodeCommand) => void;
 }) {
   return (
     <aside
@@ -38,7 +41,7 @@ export function ProgressPanel({
       </div>
       <div className="flex flex-col gap-6 p-4">
         <ExecutionSummaryBlock progress={progress} sessionId={sessionId} />
-        <TaskSequenceList graph={graph} tasksByNode={tasksByNode} />
+        <TaskSequenceList graph={graph} tasksByNode={tasksByNode} onNodeCommand={onNodeCommand} />
       </div>
     </aside>
   );
