@@ -170,6 +170,7 @@ A supervisor implements `ExecutionSupervisor` (plugin-api) and is registered as 
 - Commands sent by a supervisor are logged as `PauseWorkflowCommand [by <id>]`.
 - The feed is exposed at `GET /api/events/stream` (SSE; filters `executionId`, `type`). External
   agents can supervise through it and the REST/MCP control endpoints without JVM code.
+- `SupervisorHost.status()` (REST `GET /api/supervisors`, shown on the UI Control page) reports each supervisor's kind (`CONTROL_PLANE` or `SUPERVISOR`), order, dry-run flag and command counts from `yukta.supervisor.commands`.
 - Reference implementation: `plugins/supervisors/rule-supervisor` (JSON rules + SpEL, enabled with
   `yukta.supervisor.rules.file`). Metrics: `yukta.supervisor.commands{id,outcome}`.
 

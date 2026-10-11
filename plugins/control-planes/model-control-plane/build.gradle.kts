@@ -6,6 +6,6 @@ plugins {
 
 dependencies {
     api(project(":plugin-api"))
+    api(project(":plugins:processors:decision"))
     implementation(libs.spring.boot.starter.webflux)
-    implementation(libs.jackson.databind)
 }

@@ -12,6 +12,8 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.infenia.yukta.plugin.control.ControlActor;
+import com.infenia.yukta.plugin.control.ControlDecision;
+import com.infenia.yukta.plugin.control.ControlPlanePlugin;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.control.ExecutionEvent;
 import com.infenia.yukta.plugin.control.ExecutionSupervisor;
@@ -36,6 +38,7 @@ import reactor.core.publisher.Mono;
 @SuppressWarnings({
   "PMD.CommentRequired",
   "PMD.AvoidDuplicateLiterals",
+  "PMD.ExcessiveImports",
   "PMD.TooManyMethods",
   "PMD.TooManyStaticImports",
   "PMD.ShortVariable",
@@ -282,5 +285,51 @@ class SupervisorHostTest {
               assertThat(meters.counter("yukta.tracker.dropped", "kind", "supervisor").count())
                   .isPositive();
             });
+  }
+
+  /** A control plane with a class name, as real ones have. */
+  private static final class NamedPlane implements ControlPlanePlugin {
+    @Override
+    public String id() {
+      return "plane";
+    }
+
+    @Override
+    public int order() {
+      return 5;
+    }
+
+    @Override
+    public Mono<ControlDecision> decide(final ExecutionEvent event) {
+      return Mono.just(ControlDecision.none(ControlDecision.Source.MODEL));
+    }
+  }
+
+  @Test
+  void status_describesEachSupervisorWithItsCommandCounts() {
+    final ControlPlanePlugin plane = new NamedPlane();
+    final ExecutionSupervisor plain = supervisor("rules", SupervisorHostTest::pauseOnFailure);
+    host = new SupervisorHost(providerOf(plane, plain), feed, dispatcher, log, meters, true, 7);
+    meters.counter("yukta.supervisor.commands", "id", "rules", "outcome", "applied").increment(3);
+    meters.counter("yukta.supervisor.commands", "id", "rules", "outcome", "rejected").increment();
+    meters.counter("yukta.supervisor.commands", "id", "rules", "outcome", "dry-run").increment(2);
+    meters
+        .counter("yukta.supervisor.commands", "id", "rules", "outcome", "rate-limited")
+        .increment(4);
+
+    final List<SupervisorInfo> status = host.status();
+
+    assertThat(status)
+        .extracting(SupervisorInfo::id, SupervisorInfo::kind, SupervisorInfo::order)
+        .containsExactly(
+            org.assertj.core.groups.Tuple.tuple("rules", "SUPERVISOR", 0),
+            org.assertj.core.groups.Tuple.tuple("plane", "CONTROL_PLANE", 5));
+    assertThat(status.getFirst())
+        .isEqualTo(
+            new SupervisorInfo(
+                "rules", "SUPERVISOR", status.getFirst().type(), 0, true, 7, 3, 1, 2, 4));
+    assertThat(status.get(1).applied()).isZero();
+    assertThat(status.getFirst().type()).contains("SupervisorHostTest");
+    assertThat(status.get(1).type()).isEqualTo("NamedPlane");
   }
 }

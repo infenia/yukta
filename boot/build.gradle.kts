@@ -43,7 +43,7 @@ dependencies {
     implementation(project(":plugins:terminals:console-terminal"))
     implementation(project(":plugins:supervisors:rule-supervisor"))
     implementation(project(":plugins:control-planes:rule-control-plane"))
-    implementation(project(":plugins:control-planes:systemone-control-plane"))
+    implementation(project(":plugins:control-planes:model-control-plane"))
     implementation(project(":plugins:control-planes:rules-first-control-plane"))
 
     selectedPlugins.forEach { implementation(project(optionalPlugins.getValue(it))) }
