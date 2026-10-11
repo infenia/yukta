@@ -68,6 +68,22 @@ class RulesFirstControlPlaneTest {
     }
   }
 
+  /** A plugin whose decision is whatever Mono it is given, such as an error or nothing. */
+  private static ControlPlanePlugin replying(final Mono<ControlDecision> reply) {
+    return new ControlPlanePlugin() {
+      @Override
+      @SuppressWarnings("PMD.ShortMethodName")
+      public String id() {
+        return "broken";
+      }
+
+      @Override
+      public Mono<ControlDecision> decide(final ExecutionEvent event) {
+        return reply;
+      }
+    };
+  }
+
   private static Fixed answering(final ExecutionControlCommand command, final Source source) {
     final List<ExecutionControlCommand> commands = command == null ? List.of() : List.of(command);
     return new Fixed(new ControlDecision(commands, 1, source), Decision.ALLOW);
@@ -94,6 +110,26 @@ class RulesFirstControlPlaneTest {
 
     assertThat(decision.commands()).containsExactly(STOP);
     assertThat(decision.source()).isEqualTo(Source.MODEL);
+  }
+
+  private static void assertModelDecidesWhenRulesReply(final Mono<ControlDecision> rulesReply) {
+    final Fixed model = answering(STOP, Source.MODEL);
+
+    final ControlDecision decision =
+        new RulesFirstControlPlane(replying(rulesReply), model).decide(EVENT).block();
+
+    assertThat(decision.commands()).containsExactly(STOP);
+    assertThat(model.asked).hasValue(1);
+  }
+
+  @Test
+  void decide_rulesFail_countAsNoOpinionAndModelDecides() {
+    assertModelDecidesWhenRulesReply(Mono.error(new IllegalStateException("bad rule")));
+  }
+
+  @Test
+  void decide_rulesCompleteEmpty_countAsNoOpinionAndModelDecides() {
+    assertModelDecidesWhenRulesReply(Mono.empty());
   }
 
   @Test

@@ -169,7 +169,14 @@ public final class SystemOneControlPlane implements ControlPlanePlugin {
               "The workflow run changed status to " + workflow.status() + ".";
           default -> null;
         };
-    return text == null || text.length() <= MAX_STATE ? text : text.substring(0, MAX_STATE);
+    String state = text;
+    if (text != null && text.length() > MAX_STATE) {
+      // do not cut a supplementary character in half
+      final int end =
+          Character.isHighSurrogate(text.charAt(MAX_STATE - 1)) ? MAX_STATE - 1 : MAX_STATE;
+      state = text.substring(0, end);
+    }
+    return state;
   }
 
   private ControlDecision toDecision(final ExecutionEvent event, final JsonNode reply) {

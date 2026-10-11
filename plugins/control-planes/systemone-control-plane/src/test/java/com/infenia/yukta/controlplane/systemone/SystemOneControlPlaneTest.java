@@ -27,7 +27,7 @@ import org.springframework.web.reactive.function.client.WebClient;
 
 /** Tests for SystemOneControlPlane against a local JDK HTTP server posing as Ollama. */
 @NoArgsConstructor
-@SuppressWarnings({"PMD.TooManyMethods", "PMD.LawOfDemeter"})
+@SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.LawOfDemeter", "PMD.TooManyMethods"})
 class SystemOneControlPlaneTest {
 
   /** The answer that pauses. */
@@ -216,5 +216,24 @@ class SystemOneControlPlaneTest {
     plane().decide(event).block();
 
     assertThat(received.get()).hasSizeLessThan(12_000);
+  }
+
+  @Test
+  void decide_cutMidEmoji_dropsTheHalf() {
+    reply.set(answer("continue", 0.9));
+    final String prefix =
+        "Step HTTP_REQUEST changed status to FAILURE. Details reported by the step: body=";
+    // the high surrogate of the emoji would be the last character kept (index 7999)
+    final String body =
+        "x".repeat(7_999 - prefix.length())
+            + new String(Character.toChars(0x1F600))
+            + "zzzz".repeat(50);
+    final var event =
+        new ExecutionEvent.NodeStatusChanged(
+            "e1", "wf", "n1", "HTTP_REQUEST", "FAILURE", Map.of("body", body), Instant.now());
+
+    plane().decide(event).block();
+
+    assertThat(received.get()).doesNotContain("ud83d", Character.toString(0xFFFD), "zzzz");
   }
 }

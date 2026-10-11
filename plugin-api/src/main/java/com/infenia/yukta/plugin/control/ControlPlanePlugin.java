@@ -14,6 +14,10 @@ public interface ControlPlanePlugin extends ExecutionSupervisor {
   /**
    * Decides what to do about an event.
    *
+   * <p>The returned {@code Mono} must complete in bounded time: the host handles one event at a
+   * time per plugin, so one that never ends stalls all later events. External calls must apply
+   * their own timeout.
+   *
    * @param event the event
    * @return the decision; an error counts as no opinion
    */

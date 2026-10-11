@@ -160,6 +160,12 @@ jobs:
               - 'plugins/triggers/schedule-trigger/**'
             notify-terminal:
               - 'plugins/terminals/notify-terminal/**'
+            rule-control-plane:
+              - 'plugins/control-planes/rule-control-plane/**'
+            systemone-control-plane:
+              - 'plugins/control-planes/systemone-control-plane/**'
+            rules-first-control-plane:
+              - 'plugins/control-planes/rules-first-control-plane/**'
 
   # ─────────────────────────────────────────────
   # Job 2: Build and quality-gate changed modules.
@@ -341,6 +347,12 @@ jobs:
                 TASKS="$TASKS :plugins:triggers:schedule-trigger:buildDependents" ;;
               "notify-terminal")
                 TASKS="$TASKS :plugins:terminals:notify-terminal:buildDependents" ;;
+              "rule-control-plane")
+                TASKS="$TASKS :plugins:control-planes:rule-control-plane:buildDependents" ;;
+              "systemone-control-plane")
+                TASKS="$TASKS :plugins:control-planes:systemone-control-plane:buildDependents" ;;
+              "rules-first-control-plane")
+                TASKS="$TASKS :plugins:control-planes:rules-first-control-plane:buildDependents" ;;
               "boot")
                 TASKS="$TASKS :boot:build" ;;
               "cli")
