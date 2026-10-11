@@ -1,0 +1,32 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: 2026 Infenia Private Limited
+
+name: Bug report
+description: Something is broken or behaves unexpectedly
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: Include expected vs. actual behavior and logs.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: A minimal workflow JSON or request helps most.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Yukta version / commit
+    validations:
+      required: true
+  - type: input
+    id: env
+    attributes:
+      label: Environment
+      description: OS, Java version, run mode (native image, Docker, bootRun)

@@ -21,8 +21,7 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   # Pinned OpenGrep version — bump deliberately, keep builds reproducible
   OPENGREP_VERSION: v1.25.0
-  # Keep in sync with the trivy version pinned in security.yml
-  TRIVY_VERSION: v0.72.0
+  OPENGREP_SHA256: 9ac4aebb47ba3f7b0d8fc641ac8749cb6c2f253f616131a67d9631e00d4bea33
 
 # Least privilege by default; jobs elevate only what they need.
 permissions:
@@ -42,8 +41,44 @@ jobs:
           persist-credentials: false
       - name: Lint YAML workflows
         run: |
-          pip install yamllint
+          pip install --require-hashes -r .github/requirements/yamllint.txt
           yamllint .github/workflows/
+
+      - name: Check every Gradle module has a CI path filter
+        run: |
+          status=0
+          while read -r mod; do
+            path="${mod//://}"
+            if ! grep -qF "'$path/**'" .github/workflows/ci.yml; then
+              echo "::error::Module '$mod' has no path filter in ci.yml (changes job)"
+              status=1
+            fi
+          done < <(sed -n 's/^include("\(.*\)")/\1/p' settings.gradle.kts)
+          exit $status
+
+      - name: Lint workflows (actionlint)
+        run: |
+          docker run --rm -v "$PWD:/repo" -w /repo \
+            rhysd/actionlint:1.7.12@sha256:b1934ee5f1c509618f2508e6eb47ee0d3520686341fec936f3b79331f9315667 -color
+
+      - name: Audit workflows (zizmor)
+        uses: zizmorcore/zizmor-action@cc914d7f3750a2d13d75c7f184a1060aa0e9d482 # v0.6.4
+        with:
+          advanced-security: false
+          min-severity: high   # medium findings are mostly pin-comment style; tighten later
+
+  # ─────────────────────────────────────────────
+  # Verify gradle-wrapper.jar is an official Gradle release (supply-chain guard)
+  # ─────────────────────────────────────────────
+  wrapper-validation:
+    name: Validate Gradle Wrapper
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: gradle/actions/wrapper-validation@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
 
   # ─────────────────────────────────────────────
   # Job 1: Detect which modules were changed.
@@ -107,6 +142,24 @@ jobs:
               - 'plugins/processors/internal/internal-core/**'
             process-executor:
               - 'plugins/processors/process-executor/**'
+            http-request:
+              - 'plugins/processors/http-request/**'
+            llm-call:
+              - 'plugins/processors/llm-call/**'
+            session-memory:
+              - 'plugins/processors/session-memory/**'
+            script-js:
+              - 'plugins/processors/internal/script-js/**'
+            rule-supervisor:
+              - 'plugins/supervisors/rule-supervisor/**'
+            file-io:
+              - 'plugins/processors/file-io/**'
+            sql-query:
+              - 'plugins/processors/sql-query/**'
+            schedule-trigger:
+              - 'plugins/triggers/schedule-trigger/**'
+            notify-terminal:
+              - 'plugins/terminals/notify-terminal/**'
 
   # ─────────────────────────────────────────────
   # Job 2: Build and quality-gate changed modules.
@@ -154,12 +207,14 @@ jobs:
           cache-dependency-path: 'cli/go.sum'
 
       - name: Set up Node.js
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: '24'
 
-      - name: Install pnpm globally
-        run: npm install -g pnpm@10.30.1
+      - name: Set up pnpm
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+        with:
+          version: 10.30.1
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6
@@ -179,80 +234,39 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
-      - name: Cache OpenGrep
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
-        id: cache-opengrep
-        with:
-          path: ~/.opengrep
-          key: opengrep-${{ runner.os }}-${{ runner.arch }}-${{ env.OPENGREP_VERSION }}
-
+      # Pinned binary + sha256 (bump both together with OPENGREP_VERSION)
       - name: Install OpenGrep
-        if: steps.cache-opengrep.outputs.cache-hit != 'true'
         run: |
-          echo "▶ Installing OpenGrep $OPENGREP_VERSION (not found in cache)..."
-          curl -fsSL https://raw.githubusercontent.com/opengrep/opengrep/$OPENGREP_VERSION/install.sh \
-            | bash -s -- -v "$OPENGREP_VERSION"
-          echo "▶ OpenGrep installation complete"
-
-      - name: Setup OpenGrep PATH
-        run: |
-          # Add to PATH for this step and export for subsequent steps
-          export PATH="$HOME/.opengrep/cli/latest:$HOME/.local/bin:$PATH"
-
-          # Verify opengrep is available
-          which opengrep
-          opengrep --version
-
-          # Persist PATH for all subsequent steps in this job
-          echo "$HOME/.opengrep/cli/latest" >> $GITHUB_PATH
-          echo "$HOME/.local/bin" >> $GITHUB_PATH
-          echo "▶ OpenGrep PATH configured and verified"
-
-      - name: Cache Trivy
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
-        id: cache-trivy
-        with:
-          path: ~/.local/bin/trivy
-          key: trivy-${{ runner.os }}-${{ runner.arch }}-${{ env.TRIVY_VERSION }}
+          mkdir -p "$HOME/.local/bin"
+          curl -fsSL -o "$HOME/.local/bin/opengrep" \
+            "https://github.com/opengrep/opengrep/releases/download/$OPENGREP_VERSION/opengrep_manylinux_x86"
+          echo "$OPENGREP_SHA256  $HOME/.local/bin/opengrep" | sha256sum -c -
+          chmod +x "$HOME/.local/bin/opengrep"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          "$HOME/.local/bin/opengrep" --version
 
       - name: Install Trivy
-        if: steps.cache-trivy.outputs.cache-hit != 'true'
-        run: |
-          echo "▶ Installing Trivy $TRIVY_VERSION (not found in cache)..."
-          curl -fsSL https://raw.githubusercontent.com/aquasecurity/trivy/$TRIVY_VERSION/contrib/install.sh \
-            | sh -s -- -b ~/.local/bin "$TRIVY_VERSION"
-          echo "▶ Trivy installation complete"
-
-      - name: Verify Trivy is available
-        run: |
-          # ~/.local/bin was already added to GITHUB_PATH by the OpenGrep PATH step
-          which trivy
-          trivy --version
+        uses: aquasecurity/setup-trivy@81e514348e19b6112ce2a7e3ecbafe19c1e1f567 # v0.3.1
+        with:
+          version: v0.72.0 # keep in sync with security.yml
+          cache: true
 
       - name: Verify dependency lock files are up-to-date
         run: |
+          # Lockfiles are only enforced once they are committed; with none tracked there is nothing to drift.
+          if [ -z "$(git ls-files '*gradle.lockfile')" ]; then
+            echo "No gradle.lockfile files are committed; skipping lock verification"
+            exit 0
+          fi
           echo "▶ Verifying lock files match resolved dependencies..."
-          # Create a temporary directory to write fresh locks
-          mkdir -p /tmp/fresh-locks
-
-          # Resolve dependencies and write locks to temp (this will fail if locks are violated)
-          # We use boot:compileAotJava which exercises the full Spring Boot AOT compilation path
-          set +e
-          ./gradlew boot:compileAotJava --write-locks --no-configuration-cache 2>&1 | tee /tmp/gradle-verify.log
-          GRADLE_EXIT=$?
-          set -e
-
-          # Check for "which is not part of the dependency lock state" errors
-          if grep -q "which is not part of the dependency lock state" /tmp/gradle-verify.log; then
-            echo "❌ Lock files are out of date - new dependencies detected."
+          ./gradlew boot:compileAotJava --write-locks --no-configuration-cache
+          # git status (not git diff) so a new module's uncommitted lockfile is caught too
+          if [ -n "$(git status --porcelain -- '**/gradle.lockfile' 'gradle.lockfile')" ]; then
+            git status --porcelain -- '**/gradle.lockfile' 'gradle.lockfile'
+            echo "❌ Lock files are out of date."
             echo "Run locally: ./gradlew boot:compileAotJava --write-locks --no-configuration-cache"
             echo "Then commit the updated gradle.lockfile files."
             exit 1
-          fi
-
-          if [ $GRADLE_EXIT -ne 0 ]; then
-            echo "⚠ Gradle verification failed with exit code $GRADLE_EXIT"
-            exit $GRADLE_EXIT
           fi
 
           echo "✓ Lock files are current and valid"
@@ -309,6 +323,24 @@ jobs:
                 TASKS="$TASKS :plugins:processors:internal:internal-core:buildDependents" ;;
               "process-executor")
                 TASKS="$TASKS :plugins:processors:process-executor:buildDependents" ;;
+              "http-request")
+                TASKS="$TASKS :plugins:processors:http-request:buildDependents" ;;
+              "llm-call")
+                TASKS="$TASKS :plugins:processors:llm-call:buildDependents" ;;
+              "session-memory")
+                TASKS="$TASKS :plugins:processors:session-memory:buildDependents" ;;
+              "script-js")
+                TASKS="$TASKS :plugins:processors:internal:script-js:buildDependents" ;;
+              "rule-supervisor")
+                TASKS="$TASKS :plugins:supervisors:rule-supervisor:buildDependents" ;;
+              "file-io")
+                TASKS="$TASKS :plugins:processors:file-io:buildDependents" ;;
+              "sql-query")
+                TASKS="$TASKS :plugins:processors:sql-query:buildDependents" ;;
+              "schedule-trigger")
+                TASKS="$TASKS :plugins:triggers:schedule-trigger:buildDependents" ;;
+              "notify-terminal")
+                TASKS="$TASKS :plugins:terminals:notify-terminal:buildDependents" ;;
               "boot")
                 TASKS="$TASKS :boot:build" ;;
               "cli")
@@ -323,6 +355,7 @@ jobs:
 
           if [ -n "$TASKS" ]; then
             echo "▶ Executing: ./gradlew $TASKS jacocoTestReport -x trivy"
+            # shellcheck disable=SC2086 # TASKS is intentionally word-split
             ./gradlew $TASKS jacocoTestReport -x trivy
           else
             echo "▶ No module tasks matched — nothing to build"
@@ -341,7 +374,9 @@ jobs:
       # Coverage tracking on main (Codecov is free for open source).
       # Requires the CODECOV_TOKEN repository secret; harmless until it is set.
       - name: Upload coverage to Codecov
-        if: github.event_name != 'pull_request'
+        if: |
+          github.event_name != 'pull_request' ||
+          github.event.pull_request.head.repo.full_name == github.repository
         continue-on-error: true
         uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
         with:
@@ -395,12 +430,14 @@ jobs:
           cache-dependency-path: 'cli/go.sum'
 
       - name: Set up Node.js
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: '24'
 
-      - name: Install pnpm globally
-        run: npm install -g pnpm@10.30.1
+      - name: Set up pnpm
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+        with:
+          version: 10.30.1
 
       - name: Generate and submit dependency graph
         uses: gradle/actions/dependency-submission@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6
@@ -464,12 +501,12 @@ jobs:
           persist-credentials: false
 
       - name: Setup Node.js
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: '24'
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v6
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
         with:
           version: 10
 
@@ -496,7 +533,7 @@ jobs:
 
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: playwright-report
           path: ui/playwright-report/
@@ -505,7 +542,7 @@ jobs:
 
       - name: Upload test videos
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: playwright-videos
           path: ui/test-results/
@@ -547,3 +584,21 @@ jobs:
               body: comment
             });
         continue-on-error: true
+
+  # ─────────────────────────────────────────────
+  # Single required check for branch protection. Jobs skipped by path
+  # filtering count as success; failures or cancellations fail the gate.
+  # ─────────────────────────────────────────────
+  ci-gate:
+    name: CI Gate
+    if: always()
+    needs: [lint-workflows, wrapper-validation, changes, build, dependency-submission, dependency-review, e2e-tests]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Fail if any required job failed or was cancelled
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+        run: |
+          echo "$NEEDS" | jq -r 'to_entries[] | "\(.key): \(.value.result)"'
+          echo "$NEEDS" | jq -e 'all(.[]; .result == "success" or .result == "skipped")' > /dev/null
