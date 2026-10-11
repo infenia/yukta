@@ -68,4 +68,15 @@ class ApiKeyFilterTest {
 
     assertThat(passed).isTrue();
   }
+
+  @Test
+  void testNonBearerAuthorizationFallsBackToTheApiKeyHeader() {
+    run(
+        "secret",
+        MockServerHttpRequest.get("/api/sessions")
+            .header("Authorization", "Basic abc")
+            .header("X-API-Key", "secret"));
+
+    assertThat(passed).isTrue();
+  }
 }

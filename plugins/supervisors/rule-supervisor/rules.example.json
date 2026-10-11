@@ -1,0 +1,24 @@
+{
+  "rules": [
+    {
+      "id": "pause-on-repeated-http-failure",
+      "when": {
+        "event": "NodeStatusChanged",
+        "status": "FAILURE",
+        "module": "HTTP_REQUEST",
+        "count": 3,
+        "withinSeconds": 60
+      },
+      "then": { "command": "PauseWorkflow" }
+    },
+    {
+      "id": "stop-node-on-server-error",
+      "when": { "event": "NodeStatusChanged", "status": "FAILURE", "if": "metadata['code'] == 500" },
+      "then": { "command": "StopNode", "immediate": true, "reason": "server error" }
+    },
+    {
+      "id": "no-kill",
+      "deny": { "command": "StopWorkflow", "if": "mode == 'KILL'", "reason": "use DRAIN or CANCEL" }
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: 2026 Infenia Private Limited
+
+rules:
+  dangerous-triggers:
+    ignore:
+      # Only reads run metadata via the API and posts a comment; never checks out PR code.
+      - compliance-summary.yml

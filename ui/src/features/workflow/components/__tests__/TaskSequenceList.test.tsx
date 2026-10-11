@@ -79,7 +79,7 @@ describe('TaskSequenceList', () => {
       expect(running).toHaveTextContent('Dur: 2s');
 
       act(() => {
-        vi.setSystemTime(new Date('2026-07-26T14:22:21'));
+        vi.setSystemTime(new Date('2026-07-26T14:22:20'));
         vi.advanceTimersByTime(1000);
       });
 

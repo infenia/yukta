@@ -160,13 +160,13 @@ public class FileNodeCheckpointStore implements NodeCheckpointStore, ByteCounted
     if (!Files.exists(file)) {
       return true;
     }
-    try (var channel = java.nio.channels.FileChannel.open(file, StandardOpenOption.READ)) {
-      if (channel.size() == 0) {
+    try (var tail = new java.io.RandomAccessFile(file.toFile(), "r")) {
+      final long length = tail.length();
+      if (length == 0) {
         return true;
       }
-      final java.nio.ByteBuffer last = java.nio.ByteBuffer.allocate(1);
-      channel.read(last, channel.size() - 1);
-      return last.get(0) == '\n';
+      tail.seek(length - 1);
+      return tail.read() == '\n';
     } catch (final IOException e) {
       return false;
     }

@@ -1,0 +1,61 @@
+meta {
+  name: Apply New Plugins Session
+  type: http
+  seq: 6
+}
+
+post {
+  url: {{base_url}}/api/sessions
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "sessionId": "new-plugins-demo",
+    "name": "new-plugins-demo",
+    "description": "Schedule -> validate -> (kv, aggregate, notify) / (file write+read) demo of the generic plugins",
+    "initiator": "bruno",
+    "projectPath": "{{projectPath}}",
+    "tags": {},
+    "workflows": {
+      "new-plugins": {
+        "workflowId": "new-plugins",
+        "description": "Exercises SCHEDULE_TRIGGER, VALIDATE (two ports), KV_STORE, DELAY, AGGREGATE, NOTIFY_TERMINAL, FILE_WRITE, FILE_READ, SQL_QUERY",
+        "nodes": [
+          { "nodeId": "every-2s", "type": "SCHEDULE_TRIGGER", "config": { "intervalMs": 2000, "maxRuns": 4 } },
+          { "nodeId": "check-tick", "type": "VALIDATE", "config": { "required": ["tick"], "types": { "tick": "number" } } },
+          { "nodeId": "count-runs", "type": "KV_STORE", "config": { "op": "incr", "key": "runs", "namespace": "demo" } },
+          { "nodeId": "pause", "type": "DELAY", "config": { "delayMs": 300 } },
+          { "nodeId": "batch-2", "type": "AGGREGATE", "config": { "size": 2, "timeoutMs": 5000 } },
+          { "nodeId": "query-db", "type": "SQL_QUERY", "config": { "url": "jdbc:h2:mem:demo", "username": "sa", "password": "", "sql": "select 1 as one" } },
+          { "nodeId": "notify", "type": "NOTIFY_TERMINAL", "config": { "url": "http://localhost:9/hook", "text": "batch complete" } },
+          { "nodeId": "log-invalid", "type": "FILE_WRITE", "config": { "baseDir": "/tmp/yukta-demo", "path": "invalid.log", "append": true, "contentField": "tick" } },
+          { "nodeId": "read-log", "type": "FILE_READ", "config": { "baseDir": "/tmp/yukta-demo", "path": "invalid.log" } },
+          { "nodeId": "console", "type": "CONSOLE_TERMINAL", "config": {} }
+        ],
+        "edges": [
+          { "source": "every-2s", "target": "check-tick" },
+          { "source": "check-tick", "target": "count-runs", "sourcePort": "default" },
+          { "source": "count-runs", "target": "pause" },
+          { "source": "pause", "target": "batch-2" },
+          { "source": "batch-2", "target": "query-db" },
+          { "source": "query-db", "target": "notify" },
+          { "source": "check-tick", "target": "log-invalid", "sourcePort": "invalid" },
+          { "source": "log-invalid", "target": "read-log" },
+          { "source": "read-log", "target": "console" }
+        ]
+      }
+    }
+  }
+}
+
+tests {
+  test("Status code should be 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+}

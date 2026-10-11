@@ -5,7 +5,7 @@ name: Mark stale issues and pull requests
 
 on:
   schedule:
-    - cron: '0 0 * * *' # 5:30 AM IST (00:00 UTC)
+    - cron: '30 0 * * *' # 6:00 AM IST (00:30 UTC)
   workflow_dispatch: # Allow manual trigger
 
 permissions:

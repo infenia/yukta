@@ -32,7 +32,3 @@ dependencies {
     testImplementation(libs.awaitility)
 }
 
-// Coverage exceptions for modified/new components in this refactoring
-coverageConfig {
-    exception("*DefaultStatusHistoryCache", "Eviction/expiry paths are timing-dependent; covered by integration tests", mapOf("LINE" to 0.86))
-}

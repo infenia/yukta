@@ -99,6 +99,18 @@ export function WorkflowNodeCard({ data }: NodeProps<WorkflowFlowNode>) {
           aria-label={`${node.nodeId} output ${port ?? 'default'}`}
         />
       ))}
+      {outputPorts.length > 1 &&
+        outputPorts.map((port, index) => (
+          <span
+            key={`label-${port}`}
+            data-testid="port-label"
+            aria-hidden="true"
+            style={{ top: outputHandleTop(index, outputPorts.length) }}
+            className="pointer-events-none absolute right-3 -translate-y-1/2 text-[10px] text-on-surface-variant"
+          >
+            {port}
+          </span>
+        ))}
 
       <div className="flex items-center gap-2 px-3 pt-2.5">
         <span

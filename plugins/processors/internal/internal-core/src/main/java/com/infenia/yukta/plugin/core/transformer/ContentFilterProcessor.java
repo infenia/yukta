@@ -11,14 +11,14 @@ import com.infenia.yukta.plugin.util.SpelUtils;
 import com.infenia.yukta.util.MapUtils;
 import java.lang.reflect.Array;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
+import lombok.NoArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
@@ -34,35 +34,55 @@ import reactor.core.publisher.Mono;
   "PMD.AvoidCatchingGenericException",
   "PMD.TooManyMethods",
   "PMD.CyclomaticComplexity",
-  "PMD.LawOfDemeter",
   "PMD.GodClass"
 })
+@NoArgsConstructor
 public class ContentFilterProcessor implements ProcessorPlugin {
 
+  /** Type. */
   private static final String TYPE = "CONTENT-FILTER";
 
+  /** Mode include. */
   private static final String MODE_INCLUDE = "INCLUDE";
+
+  /** Mode exclude. */
   private static final String MODE_EXCLUDE = "EXCLUDE";
 
+  /** Config mode. */
   private static final String CONFIG_MODE = "mode";
+
+  /** Config paths. */
   private static final String CONFIG_PATHS = "paths";
+
+  /** Config flatten. */
   private static final String CONFIG_FLATTEN = "flatten";
+
+  /** Config strict. */
   private static final String CONFIG_STRICT = "strictMode";
+
+  /** Config error port. */
   private static final String CONFIG_ERROR_PORT = "errorPort";
 
+  /** Meta pfx. */
   private static final String META_PFX = "metadata.";
+
+  /** Headers pfx. */
   private static final String HEADERS_PFX = "headers.";
+
+  /** Spel meta pfx. */
   private static final String SPEL_META_PFX = "#metadata.";
+
+  /** Spel headers pfx. */
   private static final String SPEL_HEADERS_PFX = "#headers.";
 
+  /** Unchecked. */
   private static final String UNCHECKED = "unchecked";
-  private static final String PAYLOAD_SPEL = "#payload.";
-  private static final String ERR_FAIL = "Content Filter failed";
 
-  /** Default constructor. */
-  public ContentFilterProcessor() {
-    super();
-  }
+  /** Payload spel. */
+  private static final String PAYLOAD_SPEL = "#payload.";
+
+  /** Err fail. */
+  private static final String ERR_FAIL = "Content Filter failed";
 
   @Override
   public PluginDescriptor describe() {
@@ -137,27 +157,21 @@ public class ContentFilterProcessor implements ProcessorPlugin {
 
   @Override
   public Flux<Message<?>> process(final Flux<Message<?>> input, final Map<String, Object> config) {
-    return input.flatMap(
-        message ->
-            Flux.deferContextual(
-                ctx -> {
-                  final String nodeId = ctx.getOrDefault("nodeId", "unknown");
-                  return executeFilter(message, nodeId, config);
-                }));
+    return input.flatMap(message -> executeFilter(message, config));
   }
 
   private Flux<Message<?>> executeFilter(
-      final Message<?> message, final String nodeId, final Map<String, Object> config) {
+      final Message<?> message, final Map<String, Object> config) {
     final Object payload = message.payload();
     if (payload instanceof Flux<?> flux) {
-      return flux.flatMap(item -> applyFilterToItem(message.withPayload(item), nodeId, config));
+      return flux.flatMap(item -> applyFilterToItem(message.withPayload(item), config));
     }
     if (isIterable(payload)) {
       final Iterator<?> iterator = coerceToIterator(payload);
       return Flux.fromIterable(() -> iterator)
-          .flatMap(item -> applyFilterToItem(message.withPayload(item), nodeId, config));
+          .flatMap(item -> applyFilterToItem(message.withPayload(item), config));
     } else {
-      return applyFilterToItem(message, nodeId, config).flux();
+      return applyFilterToItem(message, config).flux();
     }
   }
 
@@ -174,43 +188,11 @@ public class ContentFilterProcessor implements ProcessorPlugin {
     if (items instanceof Stream) {
       return ((Stream<?>) items).iterator();
     }
-    if (items instanceof Iterator) {
-      return (Iterator<?>) items;
-    }
-    if (items != null && items.getClass().isArray()) {
-      return new ArrayIterator(items, Array.getLength(items));
-    }
-    return Collections.singletonList(items).iterator();
-  }
-
-  private static final class ArrayIterator implements Iterator<Object> {
-    private final Object array;
-    private final int length;
-    private int index;
-
-    /* default */ ArrayIterator(final Object array, final int length) {
-      this.array = array;
-      this.length = length;
-    }
-
-    @Override
-    public boolean hasNext() {
-      return index < length;
-    }
-
-    @Override
-    public Object next() {
-      if (!hasNext()) {
-        throw new NoSuchElementException();
-      }
-      final Object item = Array.get(array, index);
-      index++;
-      return item;
-    }
+    return IntStream.range(0, Array.getLength(items)).mapToObj(i -> Array.get(items, i)).iterator();
   }
 
   private Mono<Message<?>> applyFilterToItem(
-      final Message<?> message, final String nodeId, final Map<String, Object> config) {
+      final Message<?> message, final Map<String, Object> config) {
     try {
       final String mode = (String) config.getOrDefault(CONFIG_MODE, MODE_INCLUDE);
       @SuppressWarnings(UNCHECKED)
@@ -234,15 +216,14 @@ public class ContentFilterProcessor implements ProcessorPlugin {
 
       return Mono.just(finalResult.withSourcePort("default"));
     } catch (final WorkflowExecutionException e) {
-      return handleFailure(message, nodeId, config, e);
+      return handleFailure(message, config, e);
     } catch (final Exception e) {
-      return handleFailure(message, nodeId, config, new WorkflowExecutionException(ERR_FAIL, e));
+      return handleFailure(message, config, new WorkflowExecutionException(ERR_FAIL, e));
     }
   }
 
   private Mono<Message<?>> handleFailure(
       final Message<?> msg,
-      final String nodeId,
       final Map<String, Object> config,
       final WorkflowExecutionException err) {
     final String errorPort = (String) config.get(CONFIG_ERROR_PORT);
@@ -269,6 +250,8 @@ public class ContentFilterProcessor implements ProcessorPlugin {
             "payload",
             message.payload() != null ? message.payload() : Map.of(),
             "metadata",
+            message.metadata(),
+            "headers",
             message.metadata());
 
     final Object payload = message.payload();
@@ -324,23 +307,21 @@ public class ContentFilterProcessor implements ProcessorPlugin {
   }
 
   private void copyCoreHeaders(final Message<?> message, final Map<String, Object> whiteMeta) {
-    final List<String> coreHeaders =
-        List.of(
-            "traceId",
-            "correlationId",
-            "messageId",
-            "timestamp",
-            "sequenceId",
-            "sequenceNumber",
-            "sequenceSize",
-            "replyTo");
-    coreHeaders.forEach(
-        h -> {
-          final Object val = getCoreHeader(message, h);
-          if (val != null) {
-            whiteMeta.put(h, val);
-          }
-        });
+    putIfPresent(whiteMeta, "traceId", message.traceId());
+    putIfPresent(whiteMeta, "correlationId", message.correlationId());
+    putIfPresent(whiteMeta, "messageId", message.id());
+    putIfPresent(whiteMeta, "timestamp", message.timestamp().toEpochMilli());
+    putIfPresent(whiteMeta, "sequenceId", message.sequenceId());
+    putIfPresent(whiteMeta, "sequenceNumber", message.sequenceNumber());
+    putIfPresent(whiteMeta, "sequenceSize", message.sequenceSize());
+    putIfPresent(whiteMeta, "replyTo", message.replyTo());
+  }
+
+  private static void putIfPresent(
+      final Map<String, Object> target, final String key, final Object value) {
+    if (value != null) {
+      target.put(key, value);
+    }
   }
 
   private String getEffectiveSpel(final String path) {
@@ -414,39 +395,25 @@ public class ContentFilterProcessor implements ProcessorPlugin {
   }
 
   private boolean pathExists(final Message<?> message, final String path) {
-    if (!path.startsWith("#") && !path.startsWith(META_PFX) && !path.startsWith(HEADERS_PFX)) {
-      final Object payload = message.payload();
-      if (payload instanceof Map) {
-        @SuppressWarnings(UNCHECKED)
-        final Map<String, Object> map = (Map<String, Object>) payload;
-        return hasKey(map, path);
-      }
-      return payload != null;
+    if (path.startsWith(META_PFX)) {
+      return hasKey(message.metadata(), path.substring(META_PFX.length()));
     }
-
-    if (path.startsWith(META_PFX) || path.startsWith(HEADERS_PFX)) {
-      final String cleanPath =
-          path.startsWith(META_PFX)
-              ? path.substring(META_PFX.length())
-              : path.substring(HEADERS_PFX.length());
-      return hasKey(message.metadata(), cleanPath);
+    if (path.startsWith(HEADERS_PFX)) {
+      return hasKey(message.metadata(), path.substring(HEADERS_PFX.length()));
     }
-
-    String payloadPath = path;
-    if (payloadPath.startsWith(PAYLOAD_SPEL)) {
-      payloadPath = payloadPath.substring(PAYLOAD_SPEL.length());
+    final String payloadPath =
+        path.startsWith(PAYLOAD_SPEL) ? path.substring(PAYLOAD_SPEL.length()) : path;
+    if (payloadPath.startsWith("#")) {
+      return evaluateExists(message, path);
     }
-    if (!payloadPath.startsWith("#")) {
-      final Object payload = message.payload();
-      if (payload instanceof Map) {
-        @SuppressWarnings(UNCHECKED)
-        final Map<String, Object> map = (Map<String, Object>) payload;
-        return hasKey(map, payloadPath);
-      }
-      return payload != null;
+    final Object payload = message.payload();
+    if (payload instanceof Map) {
+      @SuppressWarnings(UNCHECKED)
+      final Map<String, Object> map = (Map<String, Object>) payload;
+      return hasKey(map, payloadPath);
     }
-
-    return evaluateExists(message, path);
+    // Non-map payloads never reach here: includePaths routes them to includeNonMapPayload.
+    return false;
   }
 
   private boolean evaluateExists(final Message<?> message, final String path) {
@@ -456,9 +423,10 @@ public class ContentFilterProcessor implements ProcessorPlugin {
               "payload",
               message.payload() != null ? message.payload() : Map.of(),
               "metadata",
+              message.metadata(),
+              "headers",
               message.metadata());
-      final String effectiveSpel = path.startsWith("#") ? path : PAYLOAD_SPEL + path;
-      return SpelUtils.evaluateSync(effectiveSpel, message, variables) != null;
+      return SpelUtils.evaluateSync(path, message, variables) != null;
     } catch (Exception e) {
       return false;
     }
@@ -477,20 +445,6 @@ public class ContentFilterProcessor implements ProcessorPlugin {
         return false;
       }
     }
-    return current != null && current.containsKey(parts[parts.length - 1]);
-  }
-
-  private Object getCoreHeader(final Message<?> message, final String header) {
-    return switch (header) {
-      case "traceId" -> message.traceId();
-      case "correlationId" -> message.correlationId();
-      case "messageId" -> message.id();
-      case "timestamp" -> message.timestamp().toEpochMilli();
-      case "sequenceId" -> message.sequenceId();
-      case "sequenceNumber" -> message.sequenceNumber();
-      case "sequenceSize" -> message.sequenceSize();
-      case "replyTo" -> message.replyTo();
-      default -> message.metadata().get(header);
-    };
+    return current.containsKey(parts[parts.length - 1]);
   }
 }

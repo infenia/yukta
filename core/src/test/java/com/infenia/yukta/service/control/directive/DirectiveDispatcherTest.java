@@ -12,6 +12,7 @@ import static org.mockito.Mockito.when;
 
 import com.infenia.yukta.plugin.control.ControlSignalProcessor;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand;
+import com.infenia.yukta.plugin.control.ExecutionSupervisor;
 import com.infenia.yukta.plugin.control.WorkflowDirective;
 import com.infenia.yukta.service.archive.ExecutionArchive;
 import com.infenia.yukta.service.control.ControlBusService;
@@ -20,12 +21,15 @@ import com.infenia.yukta.service.control.store.ExecutionControlRegistry;
 import com.infenia.yukta.service.control.store.InMemoryExecutionControlStore;
 import com.infenia.yukta.service.log.ExecutionLogEvent;
 import com.infenia.yukta.service.log.InMemoryExecutionLogStore;
+import com.infenia.yukta.service.supervisor.ControlReviewer;
+import com.infenia.yukta.service.supervisor.ExecutionEventFeed;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.support.StaticListableBeanFactory;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.publisher.Sinks;
@@ -34,6 +38,7 @@ import reactor.test.StepVerifier;
 @SuppressWarnings({
   "PMD.AvoidDuplicateLiterals",
   "PMD.CommentRequired",
+  "PMD.ExcessiveImports",
   "PMD.TooManyMethods",
   "PMD.TooManyStaticImports"
 })
@@ -75,7 +80,15 @@ class DirectiveDispatcherTest {
     when(controlBusService.getControlStream()).thenReturn(Flux.never());
 
     dispatcher =
-        new DirectiveDispatcher(List.of(processor), registry, controlBusService, archive, log);
+        new DirectiveDispatcher(
+            List.of(processor),
+            registry,
+            controlBusService,
+            archive,
+            log,
+            new ControlReviewer(
+                new StaticListableBeanFactory().getBeanProvider(ExecutionSupervisor.class)),
+            new ExecutionEventFeed());
   }
 
   @Test
@@ -174,7 +187,10 @@ class DirectiveDispatcherTest {
             registry,
             controlBusService,
             archive,
-            log);
+            log,
+            new ControlReviewer(
+                new StaticListableBeanFactory().getBeanProvider(ExecutionSupervisor.class)),
+            new ExecutionEventFeed());
 
     final ExecutionControlCommand command =
         new ExecutionControlCommand.StopNodeCommand(executionId, "node-1", false, "test");

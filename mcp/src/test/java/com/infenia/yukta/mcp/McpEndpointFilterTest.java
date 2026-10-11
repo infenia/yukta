@@ -70,4 +70,15 @@ class McpEndpointFilterTest {
     run("secret", MockServerHttpRequest.post("/mcp").header("X-API-Key", "secret"));
     assertThat(seenPath.get()).isEqualTo("/mcp");
   }
+
+  @Test
+  void testNonBearerAuthorizationFallsBackToTheApiKeyHeader() {
+    run(
+        "secret",
+        MockServerHttpRequest.post("/mcp")
+            .header("Authorization", "Basic abc")
+            .header("X-API-Key", "secret"));
+
+    assertThat(seenPath.get()).isEqualTo("/mcp");
+  }
 }

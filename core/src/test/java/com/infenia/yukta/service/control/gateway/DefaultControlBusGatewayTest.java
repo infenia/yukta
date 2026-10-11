@@ -2508,6 +2508,27 @@ class DefaultControlBusGatewayTest {
   }
 
   @Test
+  void retryNode_ofTimedOutNode_restartsFromIt() {
+    when(taskTracker.getProgressByExecutionId("e1")).thenReturn(progressWith("n1", "TIMED_OUT"));
+    when(executionControlRegistry.findByExecutionId("e1"))
+        .thenReturn(Optional.of(mock(ExecutionControl.class)));
+    when(controlBusService.emit(any())).thenReturn(Mono.empty());
+
+    StepVerifier.create(gateway.retryNode("e1", "n1"))
+        .then(
+            () -> {
+              final ArgumentCaptor<Message<?>> captor = ArgumentCaptor.forClass(Message.class);
+              verify(controlBusService).emit(captor.capture());
+              final RestartFromNodeCommand cmd =
+                  (RestartFromNodeCommand) captor.getValue().payload();
+              assertThat(cmd.fromNodeId()).isEqualTo("n1");
+              gateway.completeRestartSuccess(cmd.newExecutionId());
+            })
+        .expectNextCount(1)
+        .verifyComplete();
+  }
+
+  @Test
   void retryNode_ofNodeThatDidNotFail_unknownNodeOrExecution_isRefused() {
     when(taskTracker.getProgressByExecutionId("e1")).thenReturn(progressWith("n1", "SUCCESS"));
     when(taskTracker.getProgressByExecutionId("nope")).thenReturn(null);

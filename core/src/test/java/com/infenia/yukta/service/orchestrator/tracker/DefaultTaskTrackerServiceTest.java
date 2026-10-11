@@ -2817,4 +2817,95 @@ class DefaultTaskTrackerServiceTest {
                   .isEqualTo(2.0);
             });
   }
+
+  @SuppressWarnings("unchecked")
+  private static <T> T field(final Object target, final String name) {
+    return (T) org.springframework.test.util.ReflectionTestUtils.getField(target, name);
+  }
+
+  @Test
+  void testConsumerFailureIsLoggedNotThrown() {
+    final Sinks.Many<?> events = field(tracker, "eventSink");
+
+    events.tryEmitError(new IllegalStateException("consumer broke"));
+
+    // the tracker keeps answering queries after its consumer ended
+    assertThat(tracker.getActiveSessions()).isEmpty();
+  }
+
+  @Test
+  void testControlStateForUnknownExecutionIsIgnored() {
+    tracker.emitControlStateEvent("nobody", ControlState.PAUSED);
+
+    assertThat(tracker.getActiveSessions()).isEmpty();
+  }
+
+  @Test
+  void testLogStreamKeepsGoingUntilTheRunIsReallyOver() {
+    StepVerifier.create(tracker.startWorkflow("ls-exec", "ls-sess", "ls-wf", List.of("a")))
+        .verifyComplete();
+    final Map<String, WorkflowState> index = field(tracker, "executionIndex");
+    final WorkflowState state = index.get("ls-exec");
+
+    StepVerifier.create(tracker.getLogStream("ls-exec"))
+        .then(
+            () -> {
+              index.remove("ls-exec"); // state unknown: keep streaming
+              tracker.appendLog("ls-exec", "no state").block();
+            })
+        .expectNext("no state")
+        .then(
+            () -> {
+              index.put("ls-exec", state);
+              state.setStatus("SUCCESS"); // ended status but no end time yet: keep streaming
+              tracker.appendLog("ls-exec", "no end time").block();
+            })
+        .expectNext("no end time")
+        .thenCancel()
+        .verify(Duration.ofSeconds(5));
+  }
+
+  @Test
+  void testStatusStreamIgnoresTerminalProgressWithoutEndTime() {
+    StepVerifier.create(tracker.startWorkflow("ss-exec", "ss-sess", "ss-wf", List.of("a")))
+        .verifyComplete();
+    final Map<String, WorkflowState> index = field(tracker, "executionIndex");
+    final WorkflowState state = index.get("ss-exec");
+
+    StepVerifier.create(tracker.getStatusStream("ss-exec", false))
+        .then(
+            () -> {
+              state.setStatus("SUCCESS"); // terminal status, endTime still null
+              tracker.emitControlStateEvent("ss-exec", ControlState.PAUSED);
+            })
+        .assertNext(progress -> assertThat(progress.status()).isEqualTo("SUCCESS"))
+        .thenCancel()
+        .verify(Duration.ofSeconds(5));
+  }
+
+  @Test
+  void testStatusChangeOfAnExecutionWithoutStatusSinkIsNotPublished() {
+    StepVerifier.create(tracker.startWorkflow("ns-exec", "ns-sess", "ns-wf", List.of("a")))
+        .verifyComplete();
+    final Map<String, Sinks.Many<WorkflowProgress>> sinks = field(tracker, "statusSinks");
+    sinks.remove("ns-exec");
+
+    tracker.emitControlStateEvent("ns-exec", ControlState.PAUSED);
+
+    assertThat(tracker.getProgressByExecutionId("ns-exec").controlState()).isEqualTo("PAUSED");
+  }
+
+  @Test
+  void testCleanupOfRemovedSessionLeavesNoTrace() {
+    StepVerifier.create(tracker.startWorkflow("cl-exec", "cl-sess", "cl-wf", List.of("a")))
+        .verifyComplete();
+    final Map<String, Map<String, WorkflowState>> sessions = field(tracker, "sessionStates");
+    sessions.remove("cl-sess");
+    final Map<String, WorkflowState> index = field(tracker, "executionIndex");
+
+    tracker.emitWorkflowStatusEvent("cl-exec", TaskStatus.SUCCESS);
+
+    await().atMost(3, TimeUnit.SECONDS).untilAsserted(() -> assertThat(index).isEmpty());
+    assertThat(tracker.getActiveSessions()).isEmpty();
+  }
 }

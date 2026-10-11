@@ -8,8 +8,10 @@ import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import java.util.Map;
 import java.util.function.Supplier;
 import lombok.RequiredArgsConstructor;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -26,6 +28,7 @@ import reactor.core.publisher.Mono;
 @RequestMapping("/api")
 @RequiredArgsConstructor
 @Tag(name = "Execution Control API", description = "Pause, resume, step and stop nodes")
+@SuppressWarnings("PMD.TooManyMethods")
 public class ExecutionControlController {
 
   /** Session ID parameter description. */
@@ -232,6 +235,90 @@ public class ExecutionControlController {
         executionId,
         "Node step signal accepted",
         () -> controlBus.stepNode(executionId, nodeId));
+  }
+
+  /** Retry a failed node. */
+  @PostMapping("/executions/{executionId}/nodes/{nodeId}/retry")
+  @Operation(
+      summary = "Retry a failed node",
+      description = "Restarts the execution from a node that failed. Returns the new execution.")
+  public Mono<ApiResponse<WorkflowStartResponse>> retryNode(
+      @Parameter(description = EXECUTION_ID) @PathVariable final String executionId,
+      @Parameter(description = NODE_ID) @PathVariable final String nodeId) {
+    return access
+        .require(null, executionId)
+        .then(Mono.defer(() -> controlBus.retryNode(executionId, nodeId)))
+        .map(
+            newId ->
+                ApiResponse.success(200, "Node retry accepted", new WorkflowStartResponse(newId)));
+  }
+
+  /** Set a breakpoint on a node. */
+  @PostMapping("/executions/{executionId}/nodes/{nodeId}/breakpoint")
+  @Operation(
+      summary = "Set a breakpoint on a node",
+      description =
+          "Pauses the node when the given payload field equals the given value, for example"
+              + " field=payload.status&equals=error")
+  @SuppressWarnings("PMD.UseObjectForClearerAPI")
+  public Mono<ApiResponse<WorkflowStartResponse>> addBreakpoint(
+      @Parameter(description = EXECUTION_ID) @PathVariable final String executionId,
+      @Parameter(description = NODE_ID) @PathVariable final String nodeId,
+      @Parameter(description = "Field to compare, for example payload.status") @RequestParam
+          final String field,
+      @Parameter(description = "Value that triggers the breakpoint") @RequestParam("equals")
+          final String equalsValue) {
+    return signal(
+        null,
+        executionId,
+        "Breakpoint accepted",
+        () -> controlBus.addBreakpoint(executionId, nodeId, field, equalsValue));
+  }
+
+  /** Clear a node's breakpoint. */
+  @DeleteMapping("/executions/{executionId}/nodes/{nodeId}/breakpoint")
+  @Operation(summary = "Clear a breakpoint on a node")
+  public Mono<ApiResponse<WorkflowStartResponse>> clearBreakpoint(
+      @Parameter(description = EXECUTION_ID) @PathVariable final String executionId,
+      @Parameter(description = NODE_ID) @PathVariable final String nodeId) {
+    return signal(
+        null,
+        executionId,
+        "Breakpoint cleared",
+        () -> controlBus.clearBreakpoint(executionId, nodeId));
+  }
+
+  /** Change the priority of an execution that waits for a slot. */
+  @PostMapping("/executions/{executionId}/priority")
+  @Operation(
+      summary = "Change the priority of a queued execution",
+      description = "Rejected unless the execution is waiting for a slot")
+  public Mono<ApiResponse<WorkflowStartResponse>> changePriority(
+      @Parameter(description = EXECUTION_ID) @PathVariable final String executionId,
+      @Parameter(description = "New priority; higher runs first") @RequestParam
+          final int priority) {
+    return signal(
+        null,
+        executionId,
+        "Priority change accepted",
+        () -> controlBus.changePriority(executionId, priority));
+  }
+
+  /** Change how many executions may run at once. */
+  @PostMapping("/scheduler/limits")
+  @Operation(summary = "Change the execution limits")
+  public Mono<ApiResponse<Map<String, Integer>>> changeLimits(
+      @Parameter(description = "Most executions running at once") @RequestParam
+          final int maxConcurrent,
+      @Parameter(description = "Most executions of one workflow running at once") @RequestParam
+          final int maxPerWorkflow) {
+    return controlBus
+        .changeLimits(maxConcurrent, maxPerWorkflow)
+        .thenReturn(
+            ApiResponse.success(
+                200,
+                "Limits changed",
+                Map.of("maxConcurrent", maxConcurrent, "maxPerWorkflow", maxPerWorkflow)));
   }
 
   private Mono<ApiResponse<WorkflowStartResponse>> signal(

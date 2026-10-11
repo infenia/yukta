@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { act, render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { SessionInfoPanel } from '../SessionInfoPanel';
 import type { SessionDetails } from '../../types/session';
 
@@ -78,5 +78,43 @@ describe('SessionInfoPanel', () => {
     render(<SessionInfoPanel session={mockSession} />);
     const codeBlock = screen.getByText('/path/to/project');
     expect(codeBlock.tagName).toBe('CODE');
+  });
+
+  it('logs and keeps going when the clipboard is not available', async () => {
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+    Object.assign(navigator, {
+      clipboard: { writeText: vi.fn().mockRejectedValue(new Error('denied')) },
+    });
+
+    render(<SessionInfoPanel session={mockSession} />);
+    fireEvent.click(screen.getByRole('button'));
+
+    await waitFor(() => {
+      expect(error).toHaveBeenCalledWith('Failed to copy to clipboard:', expect.any(Error));
+    });
+    error.mockRestore();
+  });
+
+  it('resets the copied state after two seconds', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      Object.assign(navigator, {
+        clipboard: { writeText: vi.fn().mockResolvedValue(undefined) },
+      });
+      render(<SessionInfoPanel session={mockSession} />);
+      const button = screen.getByRole('button');
+
+      fireEvent.click(button);
+      await waitFor(() => {
+        expect(navigator.clipboard.writeText).toHaveBeenCalled();
+      });
+      await act(async () => {
+        vi.advanceTimersByTime(2000);
+      });
+
+      expect(button).toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

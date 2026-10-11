@@ -13,10 +13,12 @@ import com.infenia.yukta.model.execution.ControlState;
 import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
 import com.infenia.yukta.model.execution.WorkflowProgress;
+import com.infenia.yukta.plugin.control.ExecutionEvent;
 import com.infenia.yukta.service.log.ExecutionLogEvent;
 import com.infenia.yukta.service.log.ExecutionLogStore;
 import com.infenia.yukta.service.log.InMemoryExecutionLogStore;
 import com.infenia.yukta.service.streaming.StatusHistoryCache;
+import com.infenia.yukta.service.supervisor.ExecutionEventFeed;
 import com.infenia.yukta.util.SinkEmit;
 import com.infenia.yukta.validation.NodeId;
 import com.infenia.yukta.validation.SessionId;
@@ -130,6 +132,9 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
   /** Best-effort feed of log events for {@link #getLogFlux()}; slow readers never block events. */
   private final Sinks.Many<WorkflowLogEvent> logFeed = Sinks.many().multicast().directBestEffort();
 
+  /** Feed of what happens to every execution, for supervisors and the monitoring API. */
+  private final ExecutionEventFeed eventFeed;
+
   /**
    * Create a new DefaultTaskTrackerService with configurable cleanup TTL.
    *
@@ -139,6 +144,7 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
    * @param meters registry for the node metrics
    * @param observations registry for the node observations; each node run is one observation named
    *     {@code yukta.node}
+   * @param eventFeed receives what happens to every execution
    */
   @Autowired
   public DefaultTaskTrackerService(
@@ -146,11 +152,37 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
       final StatusHistoryCache statusHistoryCache,
       final ExecutionLogStore executionLog,
       final MeterRegistry meters,
-      final ObservationRegistry observations) {
+      final ObservationRegistry observations,
+      final ExecutionEventFeed eventFeed) {
+    this.eventFeed = eventFeed;
     this.cleanupTtl = cleanupTtl;
     this.statusHistoryCache = statusHistoryCache;
     this.executionLog = executionLog;
     this.telemetry = new RunTelemetry(meters, observations);
+  }
+
+  /**
+   * Create a tracker whose events nobody listens to.
+   *
+   * @param cleanupTtl the time to live for execution data after terminal status
+   * @param statusHistoryCache the cache for storing recent workflow progress updates
+   * @param executionLog durable log of run starts and ends
+   * @param meters registry for the node metrics
+   * @param observations registry for the node observations
+   */
+  public DefaultTaskTrackerService(
+      final Duration cleanupTtl,
+      final StatusHistoryCache statusHistoryCache,
+      final ExecutionLogStore executionLog,
+      final MeterRegistry meters,
+      final ObservationRegistry observations) {
+    this(
+        cleanupTtl,
+        statusHistoryCache,
+        executionLog,
+        meters,
+        observations,
+        new ExecutionEventFeed());
   }
 
   /**
@@ -204,8 +236,9 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
                               .log("Error processing tracker event batch", e);
                           return Mono.empty();
                         }))
+        .then()
         .subscribe(
-            _ -> {},
+            null,
             e -> log.atError().setCause(e).log("Tracker event consumer stopped unexpectedly"));
   }
 
@@ -352,7 +385,7 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
       return;
     }
     workflowState.setControlState(state.name());
-    notifyStatusChange(executionId);
+    notifyStatusChange(workflowState);
   }
 
   @Override
@@ -724,7 +757,7 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
 
   /** Applies a batch of events strictly in the order in which they were emitted. */
   private void handleEvents(final List<TrackerEvent> events) {
-    final Set<String> touched = new LinkedHashSet<>();
+    final Set<WorkflowState> touched = new LinkedHashSet<>();
     for (final TrackerEvent event : events) {
       switch (event) {
         case TaskStatusEvent task -> applyTask(task, touched);
@@ -739,7 +772,7 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
     touched.forEach(this::notifyStatusChange);
   }
 
-  private void applyTask(final TaskStatusEvent event, final Set<String> touched) {
+  private void applyTask(final TaskStatusEvent event, final Set<WorkflowState> touched) {
     final WorkflowState state = findState(event.executionId());
     if (state == null) {
       log.atDebug()
@@ -749,6 +782,15 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
       return;
     }
     state.updateTask(event.nodeId(), event.module(), event.status(), event.metadata());
+    eventFeed.publish(
+        new ExecutionEvent.NodeStatusChanged(
+            event.executionId(),
+            state.workflowId,
+            event.nodeId(),
+            event.module(),
+            event.status(),
+            event.metadata(),
+            Instant.now()));
     if (state.taskMap.containsKey(event.nodeId())) {
       telemetry.traceNode(event, isTerminal(event.status()));
     }
@@ -760,10 +802,10 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
           ExecutionLogEvent.nodeFinished(
               state.executionId, state.sessionId, state.workflowId, event.nodeId()));
     }
-    touched.add(event.executionId());
+    touched.add(state);
   }
 
-  private void applyWorkflow(final WorkflowStatusEvent event, final Set<String> touched) {
+  private void applyWorkflow(final WorkflowStatusEvent event, final Set<WorkflowState> touched) {
     final WorkflowState state = findState(event.executionId());
     if (state == null) {
       log.atWarn()
@@ -789,7 +831,10 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
               state.nodeStatuses()));
     }
     state.setStatus(event.status());
-    touched.add(event.executionId());
+    eventFeed.publish(
+        new ExecutionEvent.WorkflowStatusChanged(
+            event.executionId(), state.workflowId, event.status(), Instant.now()));
+    touched.add(state);
     if (isTerminal(event.status())) {
       scheduleCleanup(event.executionId());
       log.atDebug()
@@ -802,21 +847,21 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
   private void applyLog(final WorkflowLogEvent event) {
     pendingLogs.decrementAndGet();
     logFeed.tryEmitNext(event);
+    eventFeed.publish(
+        new ExecutionEvent.LogLine(
+            event.executionId(), event.nodeId(), event.line(), Instant.now()));
     final Sinks.Many<String> sink = logSinks.get(event.executionId());
     if (sink != null) {
       sink.tryEmitNext(event.line());
     }
   }
 
-  private void notifyStatusChange(final String executionId) {
-    final Sinks.Many<WorkflowProgress> sink = statusSinks.get(executionId);
+  private void notifyStatusChange(final WorkflowState state) {
+    final Sinks.Many<WorkflowProgress> sink = statusSinks.get(state.executionId);
     if (sink != null) {
-      final WorkflowState state = findState(executionId);
-      if (state != null) {
-        final WorkflowProgress progress = getProgress(state.sessionId, executionId);
-        statusHistoryCache.put(executionId, progress);
-        SinkEmit.offer(sink, progress);
-      }
+      final WorkflowProgress progress = getProgress(state.sessionId, state.executionId);
+      statusHistoryCache.put(state.executionId, progress);
+      SinkEmit.offer(sink, progress);
     }
   }
 
@@ -935,13 +980,7 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
         .addKeyValue("executionId", executionId)
         .addKeyValue("delayMs", cleanupTtl.toMillis())
         .log("Scheduled execution cleanup");
-    Mono.delay(cleanupTtl)
-        .subscribe(
-            ignored -> cleanupExecution(executionId),
-            error ->
-                log.atError()
-                    .addKeyValue("executionId", executionId)
-                    .log("Error during cleanup scheduling", error));
+    Mono.delay(cleanupTtl).subscribe(_ -> cleanupExecution(executionId));
   }
 
   private void cleanupExecution(final String executionId) {
