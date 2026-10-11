@@ -9,7 +9,6 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /** Utility for merging messages and payloads. */
-@SuppressWarnings("PMD.LawOfDemeter")
 public final class MergeUtils {
 
   private MergeUtils() {

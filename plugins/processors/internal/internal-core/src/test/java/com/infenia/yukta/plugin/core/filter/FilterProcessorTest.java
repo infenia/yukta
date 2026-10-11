@@ -13,89 +13,123 @@ import com.infenia.yukta.plugin.core.PluginMetricsReporter;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.support.StaticListableBeanFactory;
 import reactor.core.publisher.Flux;
 import reactor.test.StepVerifier;
 
+/** Filter processor test. */
+@SuppressWarnings("PMD.TooManyMethods")
+@NoArgsConstructor
 class FilterProcessorTest {
 
+  /** Literal ACTIVE. */
+  private static final String ACTIVE_2 = "ACTIVE";
+
+  /** Literal condition. */
+  private static final String CONDITION = "condition";
+
+  /** Literal default. */
+  private static final String DEFAULT = "default";
+
+  /** Literal engine. */
+  private static final String ENGINE = "engine";
+
+  /** Literal filter. */
+  private static final String FILTER_2 = "filter";
+
+  /** Literal nodeId. */
+  private static final String NODEID = "nodeId";
+
+  /** Literal payload.status == 'ACTIVE'. */
+  private static final String PAYLOAD_STATUS_ACTIVE = "payload.status == 'ACTIVE'";
+
+  /** Literal status. */
+  private static final String STATUS = "status";
+
+  /** Literal test-node. */
+  private static final String TEST_NODE = "test-node";
+
+  /** Literal true. */
+  private static final String TRUE = "true";
+
+  /** Processor. */
   private FilterProcessor processor;
+
+  /** Reporter. */
   private PluginMetricsReporter reporter;
 
   @BeforeEach
   void setUp() {
     reporter = mock(PluginMetricsReporter.class);
-    StaticListableBeanFactory beanFactory = new StaticListableBeanFactory();
+    final StaticListableBeanFactory beanFactory = new StaticListableBeanFactory();
     beanFactory.addBean("reporter", reporter);
     processor = new FilterProcessor(beanFactory.getBeanProvider(PluginMetricsReporter.class));
   }
 
   @Test
   void testSpelMatch() {
-    final Map<String, Object> config = Map.of("condition", "payload.status == 'ACTIVE'");
-    final Message<?> msg = DefaultMessage.create(UUID.randomUUID(), Map.of("status", "ACTIVE"));
+    final Map<String, Object> config = Map.of(CONDITION, PAYLOAD_STATUS_ACTIVE);
+    final Message<?> msg = DefaultMessage.create(UUID.randomUUID(), Map.of(STATUS, ACTIVE_2));
 
     StepVerifier.create(
             processor
                 .process(Flux.just(msg), config)
-                .contextWrite(ctx -> ctx.put("nodeId", "test-node")))
+                .contextWrite(ctx -> ctx.put(NODEID, TEST_NODE)))
         .expectNextMatches(
             m -> {
-              assertEquals(msg.payload(), m.payload());
-              assertEquals("default", m.sourcePort());
-              assertTrue(m.messageHistory().isEmpty());
+              assertEquals(msg.payload(), m.payload(), "Test spel match");
+              assertEquals(DEFAULT, m.sourcePort(), "Test spel match (2)");
+              assertTrue(m.messageHistory().isEmpty(), "Test spel match (3)");
               return true;
             })
         .verifyComplete();
 
-    verify(reporter).increment("test-node", "filter", "MATCH");
+    verify(reporter).increment(TEST_NODE, FILTER_2, "MATCH");
   }
 
   @Test
   void testSpelVariablesMatch() {
     final Map<String, Object> config =
-        Map.of("condition", "#payload.status == 'ACTIVE' && #metadata.source == 'REST'");
+        Map.of(CONDITION, "#payload.status == 'ACTIVE' && #metadata.source == 'REST'");
     final Message<?> msg =
-        DefaultMessage.create(UUID.randomUUID(), Map.of("status", "ACTIVE"))
+        DefaultMessage.create(UUID.randomUUID(), Map.of(STATUS, ACTIVE_2))
             .withMetadata(Map.of("source", "REST"));
 
     StepVerifier.create(
             processor
                 .process(Flux.just(msg), config)
-                .contextWrite(ctx -> ctx.put("nodeId", "test-node")))
-        .expectNextMatches(m -> "default".equals(m.sourcePort()))
+                .contextWrite(ctx -> ctx.put(NODEID, TEST_NODE)))
+        .expectNextMatches(m -> DEFAULT.equals(m.sourcePort()))
         .verifyComplete();
 
-    verify(reporter).increment("test-node", "filter", "MATCH");
+    verify(reporter).increment(TEST_NODE, FILTER_2, "MATCH");
   }
 
   @Test
   void testSpelNoMatch() {
-    final Map<String, Object> config = Map.of("condition", "payload.status == 'ACTIVE'");
-    final Message<?> msg = DefaultMessage.create(UUID.randomUUID(), Map.of("status", "INACTIVE"));
+    final Map<String, Object> config = Map.of(CONDITION, PAYLOAD_STATUS_ACTIVE);
+    final Message<?> msg = DefaultMessage.create(UUID.randomUUID(), Map.of(STATUS, "INACTIVE"));
 
     StepVerifier.create(processor.process(Flux.just(msg), config)).verifyComplete();
   }
 
   @Test
   void testSimpleEngineMatch() {
-    final Map<String, Object> config =
-        Map.of(
-            "condition", "payload.status == 'ACTIVE'",
-            "engine", "SIMPLE");
-    final Message<?> msg = DefaultMessage.create(UUID.randomUUID(), Map.of("status", "ACTIVE"));
+    final Map<String, Object> config = Map.of(CONDITION, PAYLOAD_STATUS_ACTIVE, ENGINE, "SIMPLE");
+    final Message<?> msg = DefaultMessage.create(UUID.randomUUID(), Map.of(STATUS, ACTIVE_2));
 
     StepVerifier.create(
             processor
                 .process(Flux.just(msg), config)
-                .contextWrite(ctx -> ctx.put("nodeId", "test-node")))
+                .contextWrite(ctx -> ctx.put(NODEID, TEST_NODE)))
         .expectNextMatches(
             m -> {
-              assertEquals(msg.payload(), m.payload());
-              assertEquals("default", m.sourcePort());
-              assertTrue(m.messageHistory().isEmpty());
+              assertEquals(msg.payload(), m.payload(), "Test simple engine match");
+              assertEquals(DEFAULT, m.sourcePort(), "Test simple engine match (2)");
+              assertTrue(m.messageHistory().isEmpty(), "Test simple engine match (3)");
               return true;
             })
         .verifyComplete();
@@ -104,85 +138,85 @@ class FilterProcessorTest {
   @Test
   void testDiscardPort() {
     final Map<String, Object> config =
-        Map.of(
-            "condition", "payload.status == 'ACTIVE'",
-            "discardPort", "dead-letter");
-    final Message<?> msg = DefaultMessage.create(UUID.randomUUID(), Map.of("status", "INACTIVE"));
+        Map.of(CONDITION, PAYLOAD_STATUS_ACTIVE, "discardPort", "dead-letter");
+    final Message<?> msg = DefaultMessage.create(UUID.randomUUID(), Map.of(STATUS, "INACTIVE"));
 
     StepVerifier.create(
             processor
                 .process(Flux.just(msg), config)
-                .contextWrite(ctx -> ctx.put("nodeId", "test-node")))
+                .contextWrite(ctx -> ctx.put(NODEID, TEST_NODE)))
         .expectNextMatches(
             m -> {
-              assertEquals("dead-letter", m.sourcePort());
-              assertTrue(m.messageHistory().isEmpty());
+              assertEquals("dead-letter", m.sourcePort(), "Test discard port");
+              assertTrue(m.messageHistory().isEmpty(), "Test discard port (2)");
               return true;
             })
         .verifyComplete();
 
-    verify(reporter).increment("test-node", "filter", "DISCARD");
+    verify(reporter).increment(TEST_NODE, FILTER_2, "DISCARD");
   }
 
   @Test
   void testStrictModeError() {
     final Map<String, Object> config =
-        Map.of("condition", "payload.invalidField > 100", "strictMode", true);
-    final Message<?> msg = DefaultMessage.create(UUID.randomUUID(), Map.of("status", "ACTIVE"));
+        Map.of(CONDITION, "payload.invalidField > 100", "strictMode", true);
+    final Message<?> msg = DefaultMessage.create(UUID.randomUUID(), Map.of(STATUS, ACTIVE_2));
 
     StepVerifier.create(
             processor
                 .process(Flux.just(msg), config)
-                .contextWrite(ctx -> ctx.put("nodeId", "test-node")))
+                .contextWrite(ctx -> ctx.put(NODEID, TEST_NODE)))
         .expectErrorMatches(
             e -> e instanceof com.infenia.yukta.plugin.exception.FilterEvaluationException)
         .verify();
 
-    verify(reporter).increment("test-node", "filter", "ERROR");
+    verify(reporter).increment(TEST_NODE, FILTER_2, "ERROR");
   }
 
   @Test
   void testNonStrictModeError() {
     final Map<String, Object> config =
-        Map.of("condition", "payload.invalidField > 100", "strictMode", false);
-    final Message<?> msg = DefaultMessage.create(UUID.randomUUID(), Map.of("status", "ACTIVE"));
+        Map.of(CONDITION, "payload.invalidField > 100", "strictMode", false);
+    final Message<?> msg = DefaultMessage.create(UUID.randomUUID(), Map.of(STATUS, ACTIVE_2));
 
     StepVerifier.create(processor.process(Flux.just(msg), config)).verifyComplete();
   }
 
   @Test
   void testType() {
-    assertEquals("FILTER", processor.getType());
+    assertEquals("FILTER", processor.getType(), "Test type");
   }
 
   @Test
   void testUiDesign() {
-    assertTrue(processor.describe().uiDesign().isPresent());
-    assertEquals(140, processor.describe().uiDesign().get().width());
-    assertEquals(80, processor.describe().uiDesign().get().height());
-    assertTrue(processor.describe().uiDesign().get().html().contains("svg"));
+    assertTrue(processor.describe().uiDesign().isPresent(), "Test ui design");
+    assertEquals(140, processor.describe().uiDesign().get().width(), "Test ui design (2)");
+    assertEquals(80, processor.describe().uiDesign().get().height(), "Test ui design (3)");
+    assertTrue(processor.describe().uiDesign().get().html().contains("svg"), "Test ui design (4)");
   }
 
   @Test
   void testOutputPorts() {
-    assertEquals(List.of("default"), processor.getOutputPorts(Map.of()));
+    assertEquals(List.of(DEFAULT), processor.getOutputPorts(Map.of()), "Test output ports");
     assertEquals(
-        List.of("default", "discard"), processor.getOutputPorts(Map.of("discardPort", "discard")));
+        List.of(DEFAULT, "discard"),
+        processor.getOutputPorts(Map.of("discardPort", "discard")),
+        "Test output ports (2)");
   }
 
   @Test
   void testValidateConfig() {
-    StepVerifier.create(processor.validateConfig(Map.of("condition", "true"))).verifyComplete();
+    StepVerifier.create(processor.validateConfig(Map.of(CONDITION, TRUE))).verifyComplete();
 
     StepVerifier.create(processor.validateConfig(Map.of()))
         .expectError(IllegalArgumentException.class)
         .verify();
 
-    StepVerifier.create(processor.validateConfig(Map.of("condition", "true", "engine", "INVALID")))
+    StepVerifier.create(processor.validateConfig(Map.of(CONDITION, TRUE, ENGINE, "INVALID")))
         .expectError(IllegalArgumentException.class)
         .verify();
 
-    StepVerifier.create(processor.validateConfig(Map.of("condition", "true", "engine", "REGO")))
+    StepVerifier.create(processor.validateConfig(Map.of(CONDITION, TRUE, ENGINE, "REGO")))
         .expectErrorMatches(e -> e.getMessage().contains("reserved"))
         .verify();
   }
@@ -190,12 +224,11 @@ class FilterProcessorTest {
   @Test
   void testInitialize() {
     // SpEL
-    StepVerifier.create(processor.initialize(Map.of("condition", "true", "engine", "SpEL")))
+    StepVerifier.create(processor.initialize(Map.of(CONDITION, TRUE, ENGINE, "SpEL")))
         .verifyComplete();
     // SIMPLE
     StepVerifier.create(
-            processor.initialize(
-                Map.of("condition", "payload.status == 'ACTIVE'", "engine", "SIMPLE")))
+            processor.initialize(Map.of(CONDITION, PAYLOAD_STATUS_ACTIVE, ENGINE, "SIMPLE")))
         .verifyComplete();
     // Error
     StepVerifier.create(processor.initialize(Map.of()))
@@ -205,14 +238,17 @@ class FilterProcessorTest {
 
   @Test
   void testMetadata() {
-    assertTrue(processor.describe().description().contains("predicate"));
-    assertTrue(processor.describe().usagePattern().contains("condition"));
+    assertTrue(processor.describe().description().contains("predicate"), "Test metadata");
+    assertTrue(processor.describe().usagePattern().contains(CONDITION), "Test metadata (2)");
   }
 
   @Test
   void testOptimizationHints() {
-    assertTrue(processor.suppressOptimizationHint(Map.of("allowAfterHeavy", true)));
-    assertEquals(false, processor.suppressOptimizationHint(Map.of()));
+    assertTrue(
+        processor.suppressOptimizationHint(Map.of("allowAfterHeavy", true)),
+        "Test optimization hints");
+    assertEquals(
+        false, processor.suppressOptimizationHint(Map.of()), "Test optimization hints (2)");
   }
 
   @Test
@@ -224,6 +260,8 @@ class FilterProcessorTest {
             List.of(new com.infenia.yukta.plugin.core.WorkflowContext.WorkflowEdge("s", "t", "p")));
 
     // Should log warning but complete
+    org.junit.jupiter.api.Assertions.assertNull(
+        processor.validateInContext(context, Map.of()).block(), "Completes empty");
     processor.validateInContext(context, Map.of()).block();
 
     // Should skip warning
@@ -241,19 +279,18 @@ class FilterProcessorTest {
   void testDefaultLifecycleMethods() {
     processor.prepare(Map.of()).block();
     processor.shutdown(Map.of()).block();
-    processor.onControlSignal(null).block();
+    org.junit.jupiter.api.Assertions.assertNull(
+        processor.onControlSignal(null).block(), "Completes empty");
   }
 
   @Test
   void testEvaluateUnsupportedEngine() {
-    final Map<String, Object> config = Map.of("condition", "true", "engine", "UNKNOWN");
+    final Map<String, Object> config = Map.of(CONDITION, TRUE, ENGINE, "UNKNOWN");
     final Message<?> msg = DefaultMessage.create(UUID.randomUUID(), Map.of());
 
     // Switch to manual initialization if needed, but here we just test process with bad engine
     StepVerifier.create(
-            processor
-                .process(Flux.just(msg), config)
-                .contextWrite(ctx -> ctx.put("nodeId", "test")))
+            processor.process(Flux.just(msg), config).contextWrite(ctx -> ctx.put(NODEID, "test")))
         .expectErrorMatches(
             e ->
                 e instanceof com.infenia.yukta.plugin.exception.FilterEvaluationException

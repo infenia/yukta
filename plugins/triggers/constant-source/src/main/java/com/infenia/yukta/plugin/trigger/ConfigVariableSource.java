@@ -25,11 +25,19 @@ import reactor.core.publisher.Mono;
 @SuppressWarnings({"PMD.UseConcurrentHashMap"})
 public class ConfigVariableSource implements TriggerPlugin {
 
+  /** Type. */
   private static final String TYPE = "CONSTANT_SOURCE";
+
+  /** Target metadata. */
   private static final String TARGET_METADATA = "METADATA";
+
+  /** Target payload. */
   private static final String TARGET_PAYLOAD = "PAYLOAD";
 
+  /** Resolver. */
   private final VariableResolver resolver;
+
+  /** Static value cache. */
   private final Map<Object, Object> staticValueCache =
       new java.util.concurrent.ConcurrentHashMap<>();
 
