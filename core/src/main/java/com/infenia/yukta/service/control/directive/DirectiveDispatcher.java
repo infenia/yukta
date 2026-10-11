@@ -2,8 +2,11 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.service.control.directive;
 
+import com.infenia.yukta.plugin.control.ControlActor;
+import com.infenia.yukta.plugin.control.ControlRequest;
 import com.infenia.yukta.plugin.control.ControlSignalProcessor;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand;
+import com.infenia.yukta.plugin.control.ExecutionEvent;
 import com.infenia.yukta.plugin.control.WorkflowDirective;
 import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.archive.ExecutionArchive;
@@ -13,8 +16,11 @@ import com.infenia.yukta.service.control.ExecutionControl;
 import com.infenia.yukta.service.control.store.ExecutionControlRegistry;
 import com.infenia.yukta.service.log.ExecutionLogEvent;
 import com.infenia.yukta.service.log.ExecutionLogStore;
+import com.infenia.yukta.service.supervisor.ControlReviewer;
+import com.infenia.yukta.service.supervisor.ExecutionEventFeed;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import jakarta.annotation.PostConstruct;
+import java.time.Instant;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
@@ -51,6 +57,12 @@ public class DirectiveDispatcher {
   /** Records applied and rejected commands. */
   private final ExecutionLogStore executionLog;
 
+  /** Lets supervisors refuse a command before it runs. */
+  private final ControlReviewer reviewer;
+
+  /** Receives the outcome of every command. */
+  private final ExecutionEventFeed eventFeed;
+
   /** Keeps commands of one execution in the order they were sent. */
   private final CommandSequencer sequencer = new CommandSequencer();
 
@@ -62,6 +74,8 @@ public class DirectiveDispatcher {
    * @param controlBusService the control bus to subscribe to
    * @param archive finished executions that can still be restarted
    * @param executionLog records applied and rejected commands
+   * @param reviewer lets supervisors refuse a command before it runs
+   * @param eventFeed receives the outcome of every command
    */
   @SuppressFBWarnings("EI_EXPOSE_REP2")
   public DirectiveDispatcher(
@@ -69,12 +83,16 @@ public class DirectiveDispatcher {
       final ExecutionControlRegistry registry,
       final ControlBusService controlBusService,
       final ExecutionArchive archive,
-      final ExecutionLogStore executionLog) {
+      final ExecutionLogStore executionLog,
+      final ControlReviewer reviewer,
+      final ExecutionEventFeed eventFeed) {
     this.processors = List.copyOf(processors);
     this.registry = registry;
     this.controlBusService = controlBusService;
     this.archive = archive;
     this.executionLog = executionLog;
+    this.reviewer = reviewer;
+    this.eventFeed = eventFeed;
   }
 
   /** Registers this dispatcher as the executor of execution control commands. */
@@ -92,29 +110,52 @@ public class DirectiveDispatcher {
    *     the command
    */
   public Mono<Void> dispatchOrdered(final ExecutionControlCommand command) {
-    return sequencer.sequence(
-        command.executionId(),
-        Mono.defer(
-            () ->
-                !isAddressable(command)
-                    ? Mono.error(
-                        new NotFoundException("Execution not found: " + command.executionId()))
-                    : audited(command)));
+    return Mono.deferContextual(
+        context -> {
+          final String actor = context.getOrDefault(ControlActor.CONTEXT_KEY, null);
+          return sequencer.sequence(
+              command.executionId(),
+              Mono.defer(
+                  () ->
+                      !isAddressable(command)
+                          ? Mono.error(
+                              new NotFoundException(
+                                  "Execution not found: " + command.executionId()))
+                          : audited(command, actor)));
+        });
   }
 
-  /** Applies the command and records the outcome, so every command of a known run is traceable. */
-  private Mono<Void> audited(final ExecutionControlCommand command) {
+  /**
+   * Asks the supervisors, applies the command and records the outcome, so every command of a known
+   * run is traceable.
+   */
+  private Mono<Void> audited(final ExecutionControlCommand command, final String actor) {
     final String name = command.getClass().getSimpleName();
-    return dispatch(command)
+    final String logged = actor == null ? name : name + " [by " + actor + "]";
+    return reviewer
+        .review(new ControlRequest(command, actor))
+        .then(Mono.defer(() -> dispatch(command)))
+        .doOnSuccess(_ -> outcome(command, name, actor, null))
+        .doOnError(error -> outcome(command, name, actor, error.getMessage()))
         .doOnSuccess(
             _ ->
                 executionLog.append(
-                    ExecutionLogEvent.control(true, command.executionId(), name, null)))
+                    ExecutionLogEvent.control(true, command.executionId(), logged, null)))
         .doOnError(
             error ->
                 executionLog.append(
                     ExecutionLogEvent.control(
-                        false, command.executionId(), name, error.getMessage())));
+                        false, command.executionId(), logged, error.getMessage())));
+  }
+
+  private void outcome(
+      final ExecutionControlCommand command,
+      final String name,
+      final String actor,
+      final String reason) {
+    eventFeed.publish(
+        new ExecutionEvent.ControlOutcome(
+            command.executionId(), name, actor, reason == null, reason, Instant.now()));
   }
 
   /**

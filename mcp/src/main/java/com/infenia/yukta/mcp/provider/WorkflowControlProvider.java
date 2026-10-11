@@ -19,7 +19,7 @@ import reactor.core.publisher.Mono;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-@SuppressWarnings("PMD.UseObjectForClearerAPI")
+@SuppressWarnings({"PMD.UseObjectForClearerAPI", "PMD.OnlyOneReturn"})
 public class WorkflowControlProvider {
 
   /** Reason recorded for stop actions when the caller does not provide one. */
@@ -39,7 +39,6 @@ public class WorkflowControlProvider {
    * @param reason optional reason recorded with stop actions
    * @return Mono containing the action result
    */
-  @SuppressWarnings("PMD.OnlyOneReturn")
   public Mono<ControlActionResult> controlWorkflow(
       final String sessionId,
       final WorkflowControlAction action,
@@ -74,7 +73,6 @@ public class WorkflowControlProvider {
    * @param reason optional reason recorded with stop actions
    * @return Mono containing the action result
    */
-  @SuppressWarnings("PMD.OnlyOneReturn")
   public Mono<ControlActionResult> controlNode(
       final String sessionId,
       final String executionId,
@@ -93,17 +91,68 @@ public class WorkflowControlProvider {
     return ExecutionOwnership.require(controlBus, sessionId, executionId)
         .flatMap(
             ignored ->
-                executeNodeAction(action, executionId, nodeId, immediate, reason)
+                action == NodeControlAction.RETRY
+                    ? controlBus
+                        .retryNode(executionId, nodeId)
+                        .map(
+                            newId ->
+                                new ControlActionResult(
+                                    action.name(),
+                                    executionId,
+                                    nodeId,
+                                    List.of(newId),
+                                    "Retried from node " + nodeId + " as execution " + newId + "."))
+                    : executeNodeAction(action, executionId, nodeId, immediate, reason)
+                        .thenReturn(
+                            new ControlActionResult(
+                                action.name(),
+                                executionId,
+                                nodeId,
+                                List.of(),
+                                action + " signal sent to node " + nodeId + ".")));
+  }
+
+  /**
+   * Pause a node when a payload field has a given value.
+   *
+   * @param sessionId the session that owns the execution
+   * @param executionId the target execution
+   * @param nodeId the target node
+   * @param field the field to compare, for example {@code payload.status}
+   * @param equalsValue the value that triggers the breakpoint
+   * @return Mono containing the action result
+   */
+  public Mono<ControlActionResult> addBreakpoint(
+      final String sessionId,
+      final String executionId,
+      final String nodeId,
+      final String field,
+      final String equalsValue) {
+    if (executionId == null
+        || executionId.isBlank()
+        || nodeId == null
+        || nodeId.isBlank()
+        || field == null
+        || field.isBlank()
+        || equalsValue == null) {
+      return Mono.error(
+          new IllegalArgumentException(
+              "executionId, nodeId, field and equalsValue are required to set a breakpoint."));
+    }
+    return ExecutionOwnership.require(controlBus, sessionId, executionId)
+        .flatMap(
+            ignored ->
+                controlBus
+                    .addBreakpoint(executionId, nodeId, field, equalsValue)
                     .thenReturn(
                         new ControlActionResult(
-                            action.name(),
+                            "BREAKPOINT_SET",
                             executionId,
                             nodeId,
                             List.of(),
-                            action + " signal sent to node " + nodeId + ".")));
+                            "Breakpoint set on node " + nodeId + ".")));
   }
 
-  @SuppressWarnings("PMD.OnlyOneReturn")
   private Mono<ControlActionResult> stopAllExecutions(
       final String sessionId, final String workflowId, final String reason) {
     if (workflowId == null || workflowId.isBlank()) {
@@ -179,6 +228,18 @@ public class WorkflowControlProvider {
       case STEP -> controlBus.stepNode(executionId, nodeId);
       case STEP_ENABLE -> controlBus.enableStepMode(executionId, nodeId);
       case STEP_DISABLE -> controlBus.disableStepMode(executionId, nodeId);
+      default -> executeOtherNodeAction(action, executionId, nodeId);
+    };
+  }
+
+  private Mono<Void> executeOtherNodeAction(
+      final NodeControlAction action, final String executionId, final String nodeId) {
+    return switch (action) {
+      case SKIP -> controlBus.skipNode(executionId, nodeId, true);
+      case UNSKIP -> controlBus.skipNode(executionId, nodeId, false);
+      case BREAKPOINT_CLEAR -> controlBus.clearBreakpoint(executionId, nodeId);
+      // RETRY is answered before this point because it creates a new execution.
+      default -> Mono.error(new IllegalStateException(action + " is not a signal"));
     };
   }
 

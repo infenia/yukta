@@ -11,6 +11,7 @@ import com.infenia.yukta.exception.GlobalExceptionHandler;
 import com.infenia.yukta.model.execution.WorkflowProgress;
 import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
+import com.infenia.yukta.service.supervisor.ControlRejectedException;
 import java.time.LocalDateTime;
 import java.util.List;
 import lombok.NoArgsConstructor;
@@ -22,6 +23,8 @@ import reactor.core.publisher.Mono;
 /** Tests for the behaviour described by {@link ExecutionControlController}. */
 @NoArgsConstructor
 @SuppressWarnings({
+  "PMD.LawOfDemeter",
+  "PMD.TooManyMethods",
   "PMD.UnitTestShouldIncludeAssert",
 })
 class ExecutionControlControllerTest {
@@ -113,5 +116,70 @@ class ExecutionControlControllerTest {
         .thenReturn(Mono.error(new IllegalArgumentException("Skipping is not supported")));
 
     client.post().uri("/api/executions/e1/nodes/n1/skip").exchange().expectStatus().isBadRequest();
+  }
+
+  @Test
+  void testRetryReturnsNewExecution() {
+    when(controlBus.retryNode("e1", "n1")).thenReturn(Mono.just("e2"));
+
+    client
+        .post()
+        .uri("/api/executions/e1/nodes/n1/retry")
+        .exchange()
+        .expectStatus()
+        .isOk()
+        .expectBody()
+        .jsonPath("$.data.executionId")
+        .isEqualTo("e2");
+  }
+
+  @Test
+  void testBreakpointSetAndClear() {
+    when(controlBus.addBreakpoint("e1", "n1", "payload.status", "error")).thenReturn(Mono.empty());
+    when(controlBus.clearBreakpoint("e1", "n1")).thenReturn(Mono.empty());
+
+    client
+        .post()
+        .uri("/api/executions/e1/nodes/n1/breakpoint?field=payload.status&equals=error")
+        .exchange()
+        .expectStatus()
+        .isOk();
+    client.delete().uri("/api/executions/e1/nodes/n1/breakpoint").exchange().expectStatus().isOk();
+    verify(controlBus).addBreakpoint("e1", "n1", "payload.status", "error");
+    verify(controlBus).clearBreakpoint("e1", "n1");
+  }
+
+  @Test
+  void testChangePriorityAndLimits() {
+    when(controlBus.changePriority("e1", 7)).thenReturn(Mono.empty());
+    when(controlBus.changeLimits(4, 2)).thenReturn(Mono.empty());
+
+    client.post().uri("/api/executions/e1/priority?priority=7").exchange().expectStatus().isOk();
+    client
+        .post()
+        .uri("/api/scheduler/limits?maxConcurrent=4&maxPerWorkflow=2")
+        .exchange()
+        .expectStatus()
+        .isOk()
+        .expectBody()
+        .jsonPath("$.data.maxConcurrent")
+        .isEqualTo(4);
+    verify(controlBus).changePriority("e1", 7);
+  }
+
+  @Test
+  void testCommandRefusedBySupervisorIs403() {
+    when(controlBus.pauseWorkflow("e1"))
+        .thenReturn(Mono.error(new ControlRejectedException("rules: maintenance window")));
+
+    client
+        .post()
+        .uri("/api/executions/e1/pause")
+        .exchange()
+        .expectStatus()
+        .isForbidden()
+        .expectBody()
+        .jsonPath("$.message")
+        .value(org.hamcrest.Matchers.containsString("maintenance window"));
   }
 }
