@@ -31,7 +31,7 @@ const STATUS_CARD_CLASSES: Record<NodeUiStatus, string> = {
 
 const STATUS_DOT_CLASSES: Record<NodeUiStatus, string> = {
   completed: 'bg-success',
-  running: 'bg-(--accent) animate-pulse',
+  running: 'bg-(--node-accent) animate-pulse',
   pending: 'border border-outline',
   failed: 'bg-error',
   paused: 'bg-warning',
@@ -70,7 +70,7 @@ function outputHandleTop(index: number, count: number): string {
   return `${((index + 1) / (count + 1)) * 100}%`;
 }
 
-const HANDLE_CLASSES = 'size-2.5! border-2! border-(--accent)! bg-surface!';
+const HANDLE_CLASSES = 'size-2.5! border-2! border-(--node-accent)! bg-surface!';
 
 /**
  * The canvas node placeholder shell.
@@ -109,9 +109,9 @@ export function WorkflowNodeCard({
       data-testid={`workflow-node-${node.nodeId}`}
       data-status={status}
       data-selected={selected ? 'true' : undefined}
-      style={{ '--accent': accent } as React.CSSProperties}
+      style={{ '--node-accent': accent } as React.CSSProperties}
       className={cn(
-        'yukta-node bg-surface relative flex size-full flex-col rounded-xl border border-t-[3px] border-t-(--accent) outline-none focus-visible:ring-2 focus-visible:ring-(--accent)',
+        'yukta-node bg-surface relative flex size-full flex-col rounded-xl border border-t-[3px] border-t-(--node-accent) outline-none focus-visible:ring-2 focus-visible:ring-(--node-accent)',
         STATUS_CARD_CLASSES[status]
       )}
     >
@@ -150,7 +150,7 @@ export function WorkflowNodeCard({
 
       <div className="flex items-center gap-2.5 px-3 pt-2.5">
         <span
-          className="flex size-8 shrink-0 items-center justify-center rounded-lg text-(--accent)"
+          className="flex size-8 shrink-0 items-center justify-center rounded-lg text-(--node-accent)"
           style={{ background: categoryTint(node.category) }}
         >
           <span
@@ -206,7 +206,7 @@ export function WorkflowNodeCard({
           aria-hidden="true"
         >
           <div
-            className="h-full bg-(--accent)"
+            className="h-full bg-(--node-accent)"
             style={{ width: `${percent}%` }}
           />
         </div>

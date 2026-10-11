@@ -58,7 +58,9 @@ export function LogsPanel({
   const [filter, setFilter] = useState('');
   const [autoScroll, setAutoScroll] = useState(true);
   const [wrap, setWrap] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const [copyStatus, setCopyStatus] = useState<'copied' | 'failed' | null>(
+    null
+  );
   const bodyRef = useRef<HTMLDivElement>(null);
 
   const visibleEntries = useMemo(() => {
@@ -85,12 +87,20 @@ export function LogsPanel({
   }, [wrap, virtualizer]);
 
   const copyLogs = () => {
-    void navigator.clipboard
-      ?.writeText(visibleEntries.map(formatLine).join('\n'))
-      .then(() => {
-        setCopied(true);
-        setTimeout(() => setCopied(false), 1500);
-      });
+    const done = (next: 'copied' | 'failed') => {
+      setCopyStatus(next);
+      setTimeout(() => setCopyStatus(null), 1500);
+    };
+    if (!navigator.clipboard) {
+      done('failed');
+      return;
+    }
+    navigator.clipboard
+      .writeText(visibleEntries.map(formatLine).join('\n'))
+      .then(
+        () => done('copied'),
+        () => done('failed')
+      );
   };
 
   const jumpToLatest = () => {
@@ -170,7 +180,11 @@ export function LogsPanel({
             onClick={copyLogs}
             className="text-label-sm transition-standard border-outline-variant text-on-surface-variant hover:bg-surface-container-high rounded-lg border px-2 py-1 tracking-wider"
           >
-            {copied ? 'COPIED' : 'COPY'}
+            {copyStatus === 'copied'
+              ? 'COPIED'
+              : copyStatus === 'failed'
+                ? 'FAILED'
+                : 'COPY'}
           </button>
           <label className="text-label-sm text-on-surface-variant flex cursor-pointer items-center gap-2 tracking-wider">
             AUTO-SCROLL

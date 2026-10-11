@@ -401,13 +401,13 @@
 
 .yukta-node:hover {
   transform: translateY(-1px);
-  border-color: var(--accent);
+  border-color: var(--node-accent);
 }
 
 .yukta-node[data-selected='true'] {
   box-shadow:
-    0 0 0 2px var(--accent),
-    0 0 0 6px color-mix(in oklab, var(--accent) 18%, transparent);
+    0 0 0 2px var(--node-accent),
+    0 0 0 6px color-mix(in oklab, var(--node-accent) 18%, transparent);
 }
 
 .yukta-node[data-status='running'] {
@@ -418,13 +418,13 @@
   0%,
   100% {
     box-shadow:
-      0 0 0 1px var(--accent),
-      0 0 10px 0 color-mix(in oklab, var(--accent) 25%, transparent);
+      0 0 0 1px var(--node-accent),
+      0 0 10px 0 color-mix(in oklab, var(--node-accent) 25%, transparent);
   }
   50% {
     box-shadow:
-      0 0 0 1px var(--accent),
-      0 0 24px 3px color-mix(in oklab, var(--accent) 45%, transparent);
+      0 0 0 1px var(--node-accent),
+      0 0 24px 3px color-mix(in oklab, var(--node-accent) 45%, transparent);
   }
 }
 
