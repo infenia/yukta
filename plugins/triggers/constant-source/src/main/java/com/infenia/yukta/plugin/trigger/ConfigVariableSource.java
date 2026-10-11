@@ -6,6 +6,7 @@ import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
 import com.infenia.yukta.plugin.core.ConfigField;
 import com.infenia.yukta.plugin.core.PluginDescriptor;
+import com.infenia.yukta.plugin.core.UiDesign;
 import com.infenia.yukta.plugin.type.TriggerPlugin;
 import com.infenia.yukta.util.MapUtils;
 import com.infenia.yukta.util.VariableResolver;
@@ -36,6 +37,20 @@ public class ConfigVariableSource implements TriggerPlugin {
   /** Target payload. */
   private static final String TARGET_PAYLOAD = "PAYLOAD";
 
+  /** Canvas card. */
+  private static final String CARD =
+      """
+      <div class="flex items-center w-full h-full bg-green-50/50 border-2 border-green-100 rounded-xl px-4 gap-3">
+          <div class="flex-shrink-0 w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center text-green-500">
+              <span class="material-symbols-outlined text-xl">touch_app</span>
+          </div>
+          <div class="flex flex-col min-w-0">
+              <div class="text-xs text-green-600 font-bold uppercase tracking-wider leading-none mb-1">Constant Source</div>
+              <div class="text-xs font-bold text-slate-700 truncate w-full">{{nodeId}}</div>
+          </div>
+      </div>
+      """;
+
   /** Resolver. */
   private final VariableResolver resolver;
 
@@ -48,13 +63,17 @@ public class ConfigVariableSource implements TriggerPlugin {
     return new PluginDescriptor(
         "Emits a message with predefined variables at workflow startup.",
         usagePattern(),
-        Optional.empty());
+        Optional.of(new UiDesign(CARD, 140, 80)));
   }
 
   @Override
   public List<ConfigField> getConfigSchema() {
     return List.of(
-        ConfigField.required("variables", ConfigField.Type.MAP, "Key to value; dots nest"),
+        ConfigField.optional(
+            "variables",
+            ConfigField.Type.MAP,
+            Map.of(),
+            "Key to value; dots nest; empty emits one empty message"),
         ConfigField.choice(
             "target", false, "PAYLOAD", "Where the variables go", "PAYLOAD", "METADATA"));
   }

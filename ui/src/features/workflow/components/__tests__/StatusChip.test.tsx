@@ -9,23 +9,27 @@ describe('StatusChip', () => {
   it('renders the raw status uppercased', () => {
     render(<StatusChip status="RUNNING" />);
     expect(screen.getByTestId('status-chip')).toHaveTextContent('RUNNING');
-    expect(screen.getByTestId('status-chip')).toHaveClass('border-primary');
+    expect(screen.getByTestId('status-chip')).toHaveClass('text-primary');
   });
 
   it('renders success statuses with the tertiary color', () => {
     render(<StatusChip status="COMPLETED" />);
-    expect(screen.getByTestId('status-chip')).toHaveClass('border-tertiary');
+    expect(screen.getByTestId('status-chip')).toHaveClass('text-success');
   });
 
   it('renders failure statuses with the error color', () => {
     render(<StatusChip status="FAILED" />);
-    expect(screen.getByTestId('status-chip')).toHaveClass('border-error');
+    expect(screen.getByTestId('status-chip')).toHaveClass('text-error');
   });
 
   it('humanizes underscored statuses', () => {
     render(<StatusChip status="WORKFLOW_STOPPED" />);
-    expect(screen.getByTestId('status-chip')).toHaveTextContent('WORKFLOW STOPPED');
-    expect(screen.getByTestId('status-chip')).toHaveClass('border-outline');
+    expect(screen.getByTestId('status-chip')).toHaveTextContent(
+      'WORKFLOW STOPPED'
+    );
+    expect(screen.getByTestId('status-chip')).toHaveClass(
+      'text-on-surface-variant'
+    );
   });
 
   it('renders NOT RUN for a null status', () => {

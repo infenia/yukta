@@ -3,7 +3,8 @@
 
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router';
-import HeaderPortal from '@/components/layout/HeaderPortal';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { useSessionDetails } from '../hooks/useSessionDetails';
 import { useSessionWorkflows } from '../hooks/useSessionWorkflows';
 import { SessionInfoPanel } from './SessionInfoPanel';
@@ -46,35 +47,35 @@ export function SessionDetailsPage() {
 
   return (
     <div className="flex flex-1 flex-col gap-0 bg-background">
-      <div className="w-full">
-        <HeaderPortal targetId="header-actions">
-          <form
-            className="flex items-center gap-1"
-            onSubmit={(event) => {
-              event.preventDefault();
-              const id = new FormData(event.currentTarget).get('workflowId');
-              if (typeof id === 'string' && id.trim()) {
-                navigate(
-                  `/sessions/${encodeURIComponent(session.sessionId)}/workflow/${encodeURIComponent(id.trim())}/edit`
-                );
-              }
-            }}
-          >
-            <input
-              name="workflowId"
-              aria-label="New workflow id"
-              placeholder="new-workflow-id"
-              className="h-8 w-40 border border-outline-variant bg-surface px-2 text-xs text-on-surface"
-            />
-            <button
-              type="submit"
-              className="flex h-8 items-center gap-1 border border-outline-variant px-3 text-xs font-semibold text-on-surface hover:bg-surface-container"
+      <div>
+        <SessionInfoPanel
+          session={session}
+          actions={
+            <form
+              className="flex items-center gap-2"
+              onSubmit={(event) => {
+                event.preventDefault();
+                const id = new FormData(event.currentTarget).get('workflowId');
+                if (typeof id === 'string' && id.trim()) {
+                  navigate(
+                    `/sessions/${encodeURIComponent(session.sessionId)}/workflow/${encodeURIComponent(id.trim())}/edit`
+                  );
+                }
+              }}
             >
-              <span className="material-symbols-outlined text-base">add</span>New workflow
-            </button>
-          </form>
-        </HeaderPortal>
-        <SessionInfoPanel session={session} />
+              <Input
+                name="workflowId"
+                aria-label="New workflow id"
+                placeholder="new-workflow-id"
+                className="w-48"
+              />
+              <Button type="submit" variant="outline">
+                <span className="material-symbols-outlined text-base">add</span>
+                New workflow
+              </Button>
+            </form>
+          }
+        />
         <WorkflowGrid
           sessionId={session.sessionId}
           workflows={workflows}

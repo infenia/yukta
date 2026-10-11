@@ -134,8 +134,6 @@ jobs:
               - 'plugins/triggers/api-trigger/**'
             constant-source:
               - 'plugins/triggers/constant-source/**'
-            oneshot-trigger:
-              - 'plugins/triggers/oneshot-trigger/**'
             console-terminal:
               - 'plugins/terminals/console-terminal/**'
             internal-core:
@@ -315,8 +313,6 @@ jobs:
                 TASKS="$TASKS :plugins:triggers:api-trigger:buildDependents" ;;
               "constant-source")
                 TASKS="$TASKS :plugins:triggers:constant-source:buildDependents" ;;
-              "oneshot-trigger")
-                TASKS="$TASKS :plugins:triggers:oneshot-trigger:buildDependents" ;;
               "console-terminal")
                 TASKS="$TASKS :plugins:terminals:console-terminal:buildDependents" ;;
               "internal-core")

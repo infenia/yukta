@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
+import { buttonVariants } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
@@ -9,12 +11,18 @@ import { usePlugins } from '@/features/plugins/hooks/usePlugins';
 import { WorkflowCanvas } from '@/features/workflow/components/WorkflowCanvas';
 import type { WorkflowGraph } from '@/features/workflow/types/workflow';
 import { getSessionDraft, saveSession, validateWorkflow } from '../api';
-import type { DraftEdge, DraftNode, DraftWorkflow, SessionDraft, ValidationResult } from '../types';
+import type {
+  DraftEdge,
+  DraftNode,
+  DraftWorkflow,
+  SessionDraft,
+  ValidationResult,
+} from '../types';
 import { NodeInspector } from './NodeInspector';
 
-const BUTTON =
-  'flex h-8 items-center gap-1 border border-outline-variant px-3 text-xs font-semibold text-on-surface hover:bg-surface-container disabled:opacity-40';
-const SELECT = 'h-8 border border-outline-variant bg-surface px-2 text-sm text-on-surface';
+const BUTTON = buttonVariants({ variant: 'outline' });
+const SELECT =
+  'h-8 rounded-lg border border-outline-variant bg-surface px-2 text-sm text-on-surface';
 const NO_TASKS = {};
 
 // fetchApi only throws Error subclasses
@@ -32,7 +40,9 @@ export function toPreviewGraph(
     nodes: workflow.nodes.map((node) => ({
       nodeId: node.nodeId,
       type: node.type,
-      category: (categories[node.type] as WorkflowGraph['nodes'][number]['category']) ?? null,
+      category:
+        (categories[node.type] as WorkflowGraph['nodes'][number]['category']) ??
+        null,
       description: null,
       uiDesign: null,
       outputPorts: ports[node.nodeId] ?? ['default'],
@@ -49,22 +59,35 @@ function uniqueNodeId(type: string, nodes: DraftNode[]): string {
   return `${base}-${n}`;
 }
 
-function Editor({ session, initial }: { session: SessionDraft; initial: DraftWorkflow }) {
+function Editor({
+  session,
+  initial,
+}: {
+  session: SessionDraft;
+  initial: DraftWorkflow;
+}) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const plugins = usePlugins();
   const [workflow, setWorkflow] = useState(initial);
-  const [selected, setSelected] = useState<string | null>(initial.nodes[0]?.nodeId ?? null);
+  const [selected, setSelected] = useState<string | null>(
+    initial.nodes[0]?.nodeId ?? null
+  );
   const [result, setResult] = useState<ValidationResult | null>(null);
   // Ports depend on node config and survive edits until the next validation refreshes them.
   const [ports, setPorts] = useState<Record<string, string[]>>({});
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [newType, setNewType] = useState('');
-  const [edge, setEdge] = useState<DraftEdge>({ source: '', target: '', sourcePort: null });
+  const [edge, setEdge] = useState<DraftEdge>({
+    source: '',
+    target: '',
+    sourcePort: null,
+  });
 
   const categories = useMemo(
-    () => Object.fromEntries((plugins.data ?? []).map((p) => [p.type, p.category])),
+    () =>
+      Object.fromEntries((plugins.data ?? []).map((p) => [p.type, p.category])),
     [plugins.data]
   );
   const graph = useMemo(
@@ -89,7 +112,9 @@ function Editor({ session, initial }: { session: SessionDraft; initial: DraftWor
   const removeNode = (nodeId: string) => {
     update({
       nodes: workflow.nodes.filter((n) => n.nodeId !== nodeId),
-      edges: workflow.edges.filter((e) => e.source !== nodeId && e.target !== nodeId),
+      edges: workflow.edges.filter(
+        (e) => e.source !== nodeId && e.target !== nodeId
+      ),
     });
     setSelected(null);
   };
@@ -137,32 +162,48 @@ function Editor({ session, initial }: { session: SessionDraft; initial: DraftWor
 
   return (
     <div className="flex flex-1 flex-col" data-testid="workflow-editor">
-      <div className="flex flex-wrap items-center gap-3 border-b border-outline-variant px-6 py-3">
-        <h1 className="text-xl font-bold text-on-surface">Edit {workflow.workflowId}</h1>
-        <input
+      <div className="border-outline-variant flex flex-wrap items-center gap-3 border-b px-4 py-3 sm:px-6">
+        <h1 className="text-on-surface text-headline-md">
+          Edit {workflow.workflowId}
+        </h1>
+        <Input
           aria-label="Description"
           placeholder="Description"
           value={workflow.description}
           maxLength={256}
           onChange={(event) => update({ description: event.target.value })}
-          className="h-8 w-72 border border-outline-variant bg-surface px-2 text-sm text-on-surface"
+          className="w-72"
         />
         <div className="ml-auto flex items-center gap-2">
-          <button type="button" className={BUTTON} disabled={busy} onClick={check}>
+          <button
+            type="button"
+            className={BUTTON}
+            disabled={busy}
+            onClick={check}
+          >
             Validate
           </button>
-          <button type="button" className={BUTTON} disabled={busy} onClick={save}>
+          <button
+            type="button"
+            className={BUTTON}
+            disabled={busy}
+            onClick={save}
+          >
             Save
           </button>
         </div>
       </div>
-      <div className="px-6 py-2">
-        <InlineError message={error ?? (result && !result.valid ? result.message : null)} />
-        {result?.valid && <p className="text-sm text-tertiary">Workflow is valid.</p>}
+      <div className="px-4 py-2 sm:px-6">
+        <InlineError
+          message={error ?? (result && !result.valid ? result.message : null)}
+        />
+        {result?.valid && (
+          <p className="text-success text-sm">Workflow is valid.</p>
+        )}
       </div>
 
       <div className="flex min-h-100 flex-1">
-        <aside className="flex w-80 shrink-0 flex-col gap-4 overflow-y-auto border-r border-outline-variant p-4">
+        <aside className="border-outline-variant flex w-80 shrink-0 flex-col gap-4 overflow-y-auto border-r p-4">
           <div className="flex gap-2">
             <select
               aria-label="Plugin type"
@@ -170,17 +211,19 @@ function Editor({ session, initial }: { session: SessionDraft; initial: DraftWor
               value={newType}
               onChange={(event) => setNewType(event.target.value)}
             >
-              {(['TRIGGER', 'PROCESSOR', 'TERMINAL'] as const).map((category) => (
-                <optgroup key={category} label={category}>
-                  {plugins.data
-                    ?.filter((p) => p.category === category)
-                    .map((p) => (
-                      <option key={p.type} value={p.type}>
-                        {p.type}
-                      </option>
-                    ))}
-                </optgroup>
-              ))}
+              {(['TRIGGER', 'PROCESSOR', 'TERMINAL'] as const).map(
+                (category) => (
+                  <optgroup key={category} label={category}>
+                    {plugins.data
+                      ?.filter((p) => p.category === category)
+                      .map((p) => (
+                        <option key={p.type} value={p.type}>
+                          {p.type}
+                        </option>
+                      ))}
+                  </optgroup>
+                )
+              )}
             </select>
             <button type="button" className={BUTTON} onClick={addNode}>
               Add node
@@ -201,17 +244,24 @@ function Editor({ session, initial }: { session: SessionDraft; initial: DraftWor
                   }`}
                 >
                   {n.nodeId}
-                  <span className="font-mono text-xs text-on-surface-variant">{n.type}</span>
+                  <span className="text-on-surface-variant font-mono text-xs">
+                    {n.type}
+                  </span>
                 </button>
               </li>
             ))}
           </ul>
 
           <div className="flex flex-col gap-2">
-            <h2 className="text-xs font-semibold tracking-wider text-on-surface">EDGES</h2>
+            <h2 className="text-on-surface text-xs font-semibold tracking-wider">
+              EDGES
+            </h2>
             <ul aria-label="Edges" className="flex flex-col gap-1 text-sm">
               {workflow.edges.map((e, index) => (
-                <li key={`${e.source}-${e.target}-${e.sourcePort}`} className="flex items-center">
+                <li
+                  key={`${e.source}-${e.target}-${e.sourcePort}`}
+                  className="flex items-center"
+                >
                   <span className="font-mono text-xs">
                     {e.source}
                     {e.sourcePort ? `:${e.sourcePort}` : ''} → {e.target}
@@ -219,8 +269,12 @@ function Editor({ session, initial }: { session: SessionDraft; initial: DraftWor
                   <button
                     type="button"
                     aria-label={`Remove edge ${e.source} to ${e.target}`}
-                    className="ml-auto text-xs text-error"
-                    onClick={() => update({ edges: workflow.edges.filter((_, i) => i !== index) })}
+                    className="text-error ml-auto text-xs"
+                    onClick={() =>
+                      update({
+                        edges: workflow.edges.filter((_, i) => i !== index),
+                      })
+                    }
                   >
                     ×
                   </button>
@@ -233,7 +287,11 @@ function Editor({ session, initial }: { session: SessionDraft; initial: DraftWor
                 className={SELECT}
                 value={edge.source}
                 onChange={(event) =>
-                  setEdge({ ...edge, source: event.target.value, sourcePort: null })
+                  setEdge({
+                    ...edge,
+                    source: event.target.value,
+                    sourcePort: null,
+                  })
                 }
               >
                 <option value="">from…</option>
@@ -245,7 +303,9 @@ function Editor({ session, initial }: { session: SessionDraft; initial: DraftWor
                 aria-label="Edge port"
                 className={SELECT}
                 value={edge.sourcePort ?? ''}
-                onChange={(event) => setEdge({ ...edge, sourcePort: event.target.value || null })}
+                onChange={(event) =>
+                  setEdge({ ...edge, sourcePort: event.target.value || null })
+                }
               >
                 <option value="">all ports</option>
                 {(ports[edge.source] ?? []).map((port) => (
@@ -256,7 +316,9 @@ function Editor({ session, initial }: { session: SessionDraft; initial: DraftWor
                 aria-label="Edge target"
                 className={SELECT}
                 value={edge.target}
-                onChange={(event) => setEdge({ ...edge, target: event.target.value })}
+                onChange={(event) =>
+                  setEdge({ ...edge, target: event.target.value })
+                }
               >
                 <option value="">to…</option>
                 {workflow.nodes.map((n) => (
@@ -267,17 +329,21 @@ function Editor({ session, initial }: { session: SessionDraft; initial: DraftWor
                 Add edge
               </button>
             </div>
-            <p className="text-xs text-on-surface-variant">
+            <p className="text-on-surface-variant text-xs">
               Validate to list a node&apos;s ports for its configuration.
             </p>
           </div>
         </aside>
 
         <div className="min-w-0 flex-1">
-          <WorkflowCanvas key={workflow.nodes.length} graph={graph} tasksByNode={NO_TASKS} />
+          <WorkflowCanvas
+            key={workflow.nodes.length}
+            graph={graph}
+            tasksByNode={NO_TASKS}
+          />
         </div>
 
-        <aside className="w-96 shrink-0 overflow-y-auto border-l border-outline-variant p-4">
+        <aside className="border-outline-variant w-96 shrink-0 overflow-y-auto border-l p-4">
           {node ? (
             <NodeInspector
               key={node.nodeId}
@@ -285,12 +351,16 @@ function Editor({ session, initial }: { session: SessionDraft; initial: DraftWor
               onRemove={() => removeNode(node.nodeId)}
               onChange={(config) =>
                 update({
-                  nodes: workflow.nodes.map((n) => (n.nodeId === node.nodeId ? { ...n, config } : n)),
+                  nodes: workflow.nodes.map((n) =>
+                    n.nodeId === node.nodeId ? { ...n, config } : n
+                  ),
                 })
               }
             />
           ) : (
-            <p className="text-on-surface-variant">Select a node to configure it.</p>
+            <p className="text-on-surface-variant">
+              Select a node to configure it.
+            </p>
           )}
         </aside>
       </div>
@@ -311,11 +381,11 @@ export function WorkflowEditorPage() {
   });
 
   if (session.isPending) {
-    return <p className="p-6 text-on-surface-variant">Loading…</p>;
+    return <p className="text-on-surface-variant p-6">Loading…</p>;
   }
   if (session.error) {
     return (
-      <p role="alert" className="p-6 text-error">
+      <p role="alert" className="text-error p-6">
         Failed to load session
       </p>
     );

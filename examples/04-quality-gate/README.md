@@ -3,7 +3,7 @@
 **Use case:** an AI agent (or a CI job) submits change metrics and gets a pass or fail decision. Good for "do not merge unless coverage is at least 80% and lint is clean".
 
 ```
-api-trigger ──► BRANCH (EXPRESSION)
+API_TRIGGER ──► BRANCH (EXPRESSION)
                  ├── pass ──► echo QUALITY GATE PASSED ──┐
                  └── fail ──► echo QUALITY GATE FAILED ──┴──► CONSOLE_TERMINAL
 ```

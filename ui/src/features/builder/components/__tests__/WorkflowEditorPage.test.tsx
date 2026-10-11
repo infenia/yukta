@@ -34,7 +34,7 @@ const session = (): SessionDraft => ({
       workflowId: 'wf',
       description: 'first',
       nodes: [
-        { nodeId: 'start', type: 'api-trigger', config: {} },
+        { nodeId: 'start', type: 'API_TRIGGER', config: {} },
         { nodeId: 'out', type: 'CONSOLE_TERMINAL', config: {} },
       ],
       edges: [{ source: 'start', target: 'out', sourcePort: null }],
@@ -59,7 +59,7 @@ const server = setupServer(
   ),
   http.get('/api/plugins', () =>
     ok([
-      { type: 'api-trigger', category: 'TRIGGER' },
+      { type: 'API_TRIGGER', category: 'TRIGGER' },
       { type: 'BRANCH', category: 'PROCESSOR' },
       { type: 'CONSOLE_TERMINAL', category: 'TERMINAL' },
     ])

@@ -15,7 +15,7 @@ headers {
 }
 
 docs {
-  Chat-agent workflow: api-trigger -> SESSION_MEMORY(load) -> LLM_CALL (primary)
+  Chat-agent workflow: API_TRIGGER -> SESSION_MEMORY(load) -> LLM_CALL (primary)
   -failure-> LLM_CALL (fallback) -> SESSION_MEMORY(append) -> CONSOLE_TERMINAL.
   Start it with "Start Chat Agent Turn". Set llm_base_url / llm_fallback_base_url / llm_model
   in the environment. For real keys use "apiKey": "decrypted:<key>" with a SecretProvider.
@@ -34,7 +34,7 @@ body:json {
         "workflowId": "chat",
         "description": "One chat turn",
         "nodes": [
-          { "nodeId": "trigger", "type": "api-trigger", "config": {} },
+          { "nodeId": "trigger", "type": "API_TRIGGER", "config": {} },
           {
             "nodeId": "memory_load",
             "type": "SESSION_MEMORY",

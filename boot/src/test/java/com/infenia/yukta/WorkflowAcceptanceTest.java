@@ -60,7 +60,7 @@ class WorkflowAcceptanceTest {
                 workflowId,
                 "acceptance",
                 List.of(
-                    new Node("t", "ONE_SHOT", Map.of()),
+                    new Node("t", "CONSTANT_SOURCE", Map.of()),
                     step,
                     new Node("end", "CONSOLE_TERMINAL", Map.of())),
                 List.of(new Edge("t", step.nodeId(), null), new Edge(step.nodeId(), "end", null))))
