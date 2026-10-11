@@ -44,6 +44,18 @@ jobs:
           pip install yamllint
           yamllint .github/workflows/
 
+      - name: Check every Gradle module has a CI path filter
+        run: |
+          status=0
+          while read -r mod; do
+            path="${mod//://}"
+            if ! grep -qF "'$path/**'" .github/workflows/ci.yml; then
+              echo "::error::Module '$mod' has no path filter in ci.yml (changes job)"
+              status=1
+            fi
+          done < <(sed -n 's/^include("\(.*\)")/\1/p' settings.gradle.kts)
+          exit $status
+
       - name: Lint workflows (actionlint)
         run: docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:1.7.12 -color
 
@@ -114,6 +126,19 @@ jobs:
               - 'plugins/processors/internal/internal-core/**'
             process-executor:
               - 'plugins/processors/process-executor/**'
+            http-request:
+              - 'plugins/processors/http-request/**'
+            llm-call:
+              - 'plugins/processors/llm-call/**'
+            session-memory:
+              - 'plugins/processors/session-memory/**'
+            script-js:
+              - 'plugins/processors/internal/script-js/**'
+
+            # Container image inputs (Docker build job)
+            docker:
+              - 'Dockerfile'
+              - '.dockerignore'
 
   # ─────────────────────────────────────────────
   # Job 2: Build and quality-gate changed modules.
@@ -268,6 +293,16 @@ jobs:
                 TASKS="$TASKS :plugins:processors:internal:internal-core:buildDependents" ;;
               "process-executor")
                 TASKS="$TASKS :plugins:processors:process-executor:buildDependents" ;;
+              "http-request")
+                TASKS="$TASKS :plugins:processors:http-request:buildDependents" ;;
+              "llm-call")
+                TASKS="$TASKS :plugins:processors:llm-call:buildDependents" ;;
+              "session-memory")
+                TASKS="$TASKS :plugins:processors:session-memory:buildDependents" ;;
+              "script-js")
+                TASKS="$TASKS :plugins:processors:internal:script-js:buildDependents" ;;
+              "docker")
+                ;; # handled by the docker-build job
               "boot")
                 TASKS="$TASKS :boot:build" ;;
               "cli")
@@ -511,13 +546,45 @@ jobs:
         continue-on-error: true
 
   # ─────────────────────────────────────────────
+  # Job: Build the production container image (GraalVM native image)
+  # without pushing, so Dockerfile / native-image breakage is caught
+  # before main. Runs on push/schedule, and on PRs touching the
+  # Dockerfile, boot, or root build files.
+  # ─────────────────────────────────────────────
+  docker-build:
+    name: Docker Build
+    needs: changes
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    if: |
+      github.event_name != 'pull_request' ||
+      needs.changes.outputs.root == 'true' ||
+      contains(fromJson(needs.changes.outputs.modules), 'docker') ||
+      contains(fromJson(needs.changes.outputs.modules), 'boot')
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - name: Build image (no push)
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          push: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ─────────────────────────────────────────────
   # Single required check for branch protection. Jobs skipped by path
   # filtering count as success; failures or cancellations fail the gate.
   # ─────────────────────────────────────────────
   ci-gate:
     name: CI Gate
     if: always()
-    needs: [lint-workflows, changes, build, dependency-submission, dependency-review, e2e-tests]
+    needs: [lint-workflows, changes, build, docker-build, dependency-submission, dependency-review, e2e-tests]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
