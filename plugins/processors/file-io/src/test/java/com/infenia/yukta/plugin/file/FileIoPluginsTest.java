@@ -133,4 +133,11 @@ class FileIoPluginsTest {
               assertThat(design.height()).isEqualTo(80);
             });
   }
+
+  @Test
+  void nonObjectPayloadWithoutConfiguredPath_isRejected() {
+    StepVerifier.create(reader.process(messages("text"), Map.of(BASE_DIR, dir.toString())))
+        .expectError(IllegalArgumentException.class)
+        .verify();
+  }
 }

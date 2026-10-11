@@ -97,4 +97,24 @@ class ScheduleTriggerTest {
               assertThat(design.height()).isEqualTo(80);
             });
   }
+
+  @Test
+  void start_withoutMaxRuns_keepsEmitting() {
+    StepVerifier.create(trigger.start(Map.of(INTERVAL_MS, 10)).take(2))
+        .expectNextCount(2)
+        .verifyComplete();
+  }
+
+  @Test
+  void repeatWhileScheduled_endsOnceThereIsNoNextExecution() {
+    final java.util.concurrent.atomic.AtomicInteger calls =
+        new java.util.concurrent.atomic.AtomicInteger();
+    final java.time.ZoneId zone = java.time.ZoneId.of("UTC");
+
+    StepVerifier.create(
+            ScheduleTrigger.repeatWhileScheduled(
+                now -> calls.getAndIncrement() < 3 ? now.plus(Duration.ofMillis(10)) : null, zone))
+        .expectNextCount(2)
+        .verifyComplete();
+  }
 }
