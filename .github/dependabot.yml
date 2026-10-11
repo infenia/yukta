@@ -73,3 +73,13 @@ updates:
     labels:
       - "dependencies"
       - "docker"
+
+  - package-ecosystem: "pip"
+    directory: "/.github/requirements"
+    schedule:
+      interval: "weekly"
+    cooldown:
+      default-days: 7
+    labels:
+      - "dependencies"
+      - "python"
