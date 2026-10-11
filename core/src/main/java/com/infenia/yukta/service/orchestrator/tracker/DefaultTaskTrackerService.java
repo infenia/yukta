@@ -13,10 +13,12 @@ import com.infenia.yukta.model.execution.ControlState;
 import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
 import com.infenia.yukta.model.execution.WorkflowProgress;
+import com.infenia.yukta.plugin.control.ExecutionEvent;
 import com.infenia.yukta.service.log.ExecutionLogEvent;
 import com.infenia.yukta.service.log.ExecutionLogStore;
 import com.infenia.yukta.service.log.InMemoryExecutionLogStore;
 import com.infenia.yukta.service.streaming.StatusHistoryCache;
+import com.infenia.yukta.service.supervisor.ExecutionEventFeed;
 import com.infenia.yukta.util.SinkEmit;
 import com.infenia.yukta.validation.NodeId;
 import com.infenia.yukta.validation.SessionId;
@@ -130,6 +132,9 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
   /** Best-effort feed of log events for {@link #getLogFlux()}; slow readers never block events. */
   private final Sinks.Many<WorkflowLogEvent> logFeed = Sinks.many().multicast().directBestEffort();
 
+  /** Feed of what happens to every execution, for supervisors and the monitoring API. */
+  private final ExecutionEventFeed eventFeed;
+
   /**
    * Create a new DefaultTaskTrackerService with configurable cleanup TTL.
    *
@@ -139,6 +144,7 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
    * @param meters registry for the node metrics
    * @param observations registry for the node observations; each node run is one observation named
    *     {@code yukta.node}
+   * @param eventFeed receives what happens to every execution
    */
   @Autowired
   public DefaultTaskTrackerService(
@@ -146,11 +152,37 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
       final StatusHistoryCache statusHistoryCache,
       final ExecutionLogStore executionLog,
       final MeterRegistry meters,
-      final ObservationRegistry observations) {
+      final ObservationRegistry observations,
+      final ExecutionEventFeed eventFeed) {
+    this.eventFeed = eventFeed;
     this.cleanupTtl = cleanupTtl;
     this.statusHistoryCache = statusHistoryCache;
     this.executionLog = executionLog;
     this.telemetry = new RunTelemetry(meters, observations);
+  }
+
+  /**
+   * Create a tracker whose events nobody listens to.
+   *
+   * @param cleanupTtl the time to live for execution data after terminal status
+   * @param statusHistoryCache the cache for storing recent workflow progress updates
+   * @param executionLog durable log of run starts and ends
+   * @param meters registry for the node metrics
+   * @param observations registry for the node observations
+   */
+  public DefaultTaskTrackerService(
+      final Duration cleanupTtl,
+      final StatusHistoryCache statusHistoryCache,
+      final ExecutionLogStore executionLog,
+      final MeterRegistry meters,
+      final ObservationRegistry observations) {
+    this(
+        cleanupTtl,
+        statusHistoryCache,
+        executionLog,
+        meters,
+        observations,
+        new ExecutionEventFeed());
   }
 
   /**
@@ -750,6 +782,15 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
       return;
     }
     state.updateTask(event.nodeId(), event.module(), event.status(), event.metadata());
+    eventFeed.publish(
+        new ExecutionEvent.NodeStatusChanged(
+            event.executionId(),
+            state.workflowId,
+            event.nodeId(),
+            event.module(),
+            event.status(),
+            event.metadata(),
+            Instant.now()));
     if (state.taskMap.containsKey(event.nodeId())) {
       telemetry.traceNode(event, isTerminal(event.status()));
     }
@@ -790,6 +831,9 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
               state.nodeStatuses()));
     }
     state.setStatus(event.status());
+    eventFeed.publish(
+        new ExecutionEvent.WorkflowStatusChanged(
+            event.executionId(), state.workflowId, event.status(), Instant.now()));
     touched.add(state);
     if (isTerminal(event.status())) {
       scheduleCleanup(event.executionId());
@@ -803,6 +847,9 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
   private void applyLog(final WorkflowLogEvent event) {
     pendingLogs.decrementAndGet();
     logFeed.tryEmitNext(event);
+    eventFeed.publish(
+        new ExecutionEvent.LogLine(
+            event.executionId(), event.nodeId(), event.line(), Instant.now()));
     final Sinks.Many<String> sink = logSinks.get(event.executionId());
     if (sink != null) {
       sink.tryEmitNext(event.line());
