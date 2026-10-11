@@ -11,13 +11,12 @@ import com.infenia.yukta.plugin.util.SpelUtils;
 import com.infenia.yukta.util.MapUtils;
 import java.lang.reflect.Array;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import lombok.NoArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -189,45 +188,7 @@ public class ContentFilterProcessor implements ProcessorPlugin {
     if (items instanceof Stream) {
       return ((Stream<?>) items).iterator();
     }
-    if (items instanceof Iterator) {
-      return (Iterator<?>) items;
-    }
-    if (items != null && items.getClass().isArray()) {
-      return new ArrayIterator(items, Array.getLength(items));
-    }
-    return Collections.singletonList(items).iterator();
-  }
-
-  /** Array iterator. */
-  private static final class ArrayIterator implements Iterator<Object> {
-    /** Array. */
-    private final Object array;
-
-    /** Length. */
-    private final int length;
-
-    /** Index. */
-    private int index;
-
-    /* default */ ArrayIterator(final Object array, final int length) {
-      this.array = array;
-      this.length = length;
-    }
-
-    @Override
-    public boolean hasNext() {
-      return index < length;
-    }
-
-    @Override
-    public Object next() {
-      if (!hasNext()) {
-        throw new NoSuchElementException();
-      }
-      final Object item = Array.get(array, index);
-      index++;
-      return item;
-    }
+    return IntStream.range(0, Array.getLength(items)).mapToObj(i -> Array.get(items, i)).iterator();
   }
 
   private Mono<Message<?>> applyFilterToItem(
@@ -289,6 +250,8 @@ public class ContentFilterProcessor implements ProcessorPlugin {
             "payload",
             message.payload() != null ? message.payload() : Map.of(),
             "metadata",
+            message.metadata(),
+            "headers",
             message.metadata());
 
     final Object payload = message.payload();
@@ -344,23 +307,21 @@ public class ContentFilterProcessor implements ProcessorPlugin {
   }
 
   private void copyCoreHeaders(final Message<?> message, final Map<String, Object> whiteMeta) {
-    final List<String> coreHeaders =
-        List.of(
-            "traceId",
-            "correlationId",
-            "messageId",
-            "timestamp",
-            "sequenceId",
-            "sequenceNumber",
-            "sequenceSize",
-            "replyTo");
-    coreHeaders.forEach(
-        h -> {
-          final Object val = getCoreHeader(message, h);
-          if (val != null) {
-            whiteMeta.put(h, val);
-          }
-        });
+    putIfPresent(whiteMeta, "traceId", message.traceId());
+    putIfPresent(whiteMeta, "correlationId", message.correlationId());
+    putIfPresent(whiteMeta, "messageId", message.id());
+    putIfPresent(whiteMeta, "timestamp", message.timestamp().toEpochMilli());
+    putIfPresent(whiteMeta, "sequenceId", message.sequenceId());
+    putIfPresent(whiteMeta, "sequenceNumber", message.sequenceNumber());
+    putIfPresent(whiteMeta, "sequenceSize", message.sequenceSize());
+    putIfPresent(whiteMeta, "replyTo", message.replyTo());
+  }
+
+  private static void putIfPresent(
+      final Map<String, Object> target, final String key, final Object value) {
+    if (value != null) {
+      target.put(key, value);
+    }
   }
 
   private String getEffectiveSpel(final String path) {
@@ -434,39 +395,25 @@ public class ContentFilterProcessor implements ProcessorPlugin {
   }
 
   private boolean pathExists(final Message<?> message, final String path) {
-    if (!path.startsWith("#") && !path.startsWith(META_PFX) && !path.startsWith(HEADERS_PFX)) {
-      final Object payload = message.payload();
-      if (payload instanceof Map) {
-        @SuppressWarnings(UNCHECKED)
-        final Map<String, Object> map = (Map<String, Object>) payload;
-        return hasKey(map, path);
-      }
-      return payload != null;
+    if (path.startsWith(META_PFX)) {
+      return hasKey(message.metadata(), path.substring(META_PFX.length()));
     }
-
-    if (path.startsWith(META_PFX) || path.startsWith(HEADERS_PFX)) {
-      final String cleanPath =
-          path.startsWith(META_PFX)
-              ? path.substring(META_PFX.length())
-              : path.substring(HEADERS_PFX.length());
-      return hasKey(message.metadata(), cleanPath);
+    if (path.startsWith(HEADERS_PFX)) {
+      return hasKey(message.metadata(), path.substring(HEADERS_PFX.length()));
     }
-
-    String payloadPath = path;
-    if (payloadPath.startsWith(PAYLOAD_SPEL)) {
-      payloadPath = payloadPath.substring(PAYLOAD_SPEL.length());
+    final String payloadPath =
+        path.startsWith(PAYLOAD_SPEL) ? path.substring(PAYLOAD_SPEL.length()) : path;
+    if (payloadPath.startsWith("#")) {
+      return evaluateExists(message, path);
     }
-    if (!payloadPath.startsWith("#")) {
-      final Object payload = message.payload();
-      if (payload instanceof Map) {
-        @SuppressWarnings(UNCHECKED)
-        final Map<String, Object> map = (Map<String, Object>) payload;
-        return hasKey(map, payloadPath);
-      }
-      return payload != null;
+    final Object payload = message.payload();
+    if (payload instanceof Map) {
+      @SuppressWarnings(UNCHECKED)
+      final Map<String, Object> map = (Map<String, Object>) payload;
+      return hasKey(map, payloadPath);
     }
-
-    return evaluateExists(message, path);
+    // Non-map payloads never reach here: includePaths routes them to includeNonMapPayload.
+    return false;
   }
 
   private boolean evaluateExists(final Message<?> message, final String path) {
@@ -476,9 +423,10 @@ public class ContentFilterProcessor implements ProcessorPlugin {
               "payload",
               message.payload() != null ? message.payload() : Map.of(),
               "metadata",
+              message.metadata(),
+              "headers",
               message.metadata());
-      final String effectiveSpel = path.startsWith("#") ? path : PAYLOAD_SPEL + path;
-      return SpelUtils.evaluateSync(effectiveSpel, message, variables) != null;
+      return SpelUtils.evaluateSync(path, message, variables) != null;
     } catch (Exception e) {
       return false;
     }
@@ -497,20 +445,6 @@ public class ContentFilterProcessor implements ProcessorPlugin {
         return false;
       }
     }
-    return current != null && current.containsKey(parts[parts.length - 1]);
-  }
-
-  private Object getCoreHeader(final Message<?> message, final String header) {
-    return switch (header) {
-      case "traceId" -> message.traceId();
-      case "correlationId" -> message.correlationId();
-      case "messageId" -> message.id();
-      case "timestamp" -> message.timestamp().toEpochMilli();
-      case "sequenceId" -> message.sequenceId();
-      case "sequenceNumber" -> message.sequenceNumber();
-      case "sequenceSize" -> message.sequenceSize();
-      case "replyTo" -> message.replyTo();
-      default -> message.metadata().get(header);
-    };
+    return current.containsKey(parts[parts.length - 1]);
   }
 }

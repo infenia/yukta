@@ -245,22 +245,19 @@ public class SplitterProcessor implements ProcessorPlugin {
       final Map.Entry<String, String> entry,
       final Map<String, Object> vars,
       final boolean strict) {
+    Object value = null;
     try {
-      final Object value = SpelUtils.evaluateSync(entry.getValue(), parentMessage, vars);
-      if (value == null && strict) {
-        throw new WorkflowExecutionException("Mapping null");
-      }
-      if (value != null) {
-        return childMessage.withHeader(entry.getKey(), value);
-      }
-    } catch (final WorkflowExecutionException e) {
-      if (strict) {
-        throw e;
-      }
+      value = SpelUtils.evaluateSync(entry.getValue(), parentMessage, vars);
     } catch (final Exception e) {
       if (strict) {
         throw new WorkflowExecutionException("Mapping failed", e);
       }
+    }
+    if (value == null && strict) {
+      throw new WorkflowExecutionException("Mapping null");
+    }
+    if (value != null) {
+      return childMessage.withHeader(entry.getKey(), value);
     }
     return childMessage;
   }
@@ -270,9 +267,7 @@ public class SplitterProcessor implements ProcessorPlugin {
       final String errorPort,
       final boolean strict,
       final Throwable error) {
-    if (log.isErrorEnabled()) {
-      log.error("Splitter failed: {}", error.getMessage());
-    }
+    log.error("Splitter failed: {}", error.getMessage());
     if (errorPort != null && !errorPort.isBlank()) {
       return Flux.just(
           parent.withSourcePort(errorPort).withFailure(null, ERR_FAIL, error.getMessage()));

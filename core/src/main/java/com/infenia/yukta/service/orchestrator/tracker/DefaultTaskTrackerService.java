@@ -204,8 +204,9 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
                               .log("Error processing tracker event batch", e);
                           return Mono.empty();
                         }))
+        .then()
         .subscribe(
-            _ -> {},
+            null,
             e -> log.atError().setCause(e).log("Tracker event consumer stopped unexpectedly"));
   }
 
@@ -352,7 +353,7 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
       return;
     }
     workflowState.setControlState(state.name());
-    notifyStatusChange(executionId);
+    notifyStatusChange(workflowState);
   }
 
   @Override
@@ -724,7 +725,7 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
 
   /** Applies a batch of events strictly in the order in which they were emitted. */
   private void handleEvents(final List<TrackerEvent> events) {
-    final Set<String> touched = new LinkedHashSet<>();
+    final Set<WorkflowState> touched = new LinkedHashSet<>();
     for (final TrackerEvent event : events) {
       switch (event) {
         case TaskStatusEvent task -> applyTask(task, touched);
@@ -739,7 +740,7 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
     touched.forEach(this::notifyStatusChange);
   }
 
-  private void applyTask(final TaskStatusEvent event, final Set<String> touched) {
+  private void applyTask(final TaskStatusEvent event, final Set<WorkflowState> touched) {
     final WorkflowState state = findState(event.executionId());
     if (state == null) {
       log.atDebug()
@@ -760,10 +761,10 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
           ExecutionLogEvent.nodeFinished(
               state.executionId, state.sessionId, state.workflowId, event.nodeId()));
     }
-    touched.add(event.executionId());
+    touched.add(state);
   }
 
-  private void applyWorkflow(final WorkflowStatusEvent event, final Set<String> touched) {
+  private void applyWorkflow(final WorkflowStatusEvent event, final Set<WorkflowState> touched) {
     final WorkflowState state = findState(event.executionId());
     if (state == null) {
       log.atWarn()
@@ -789,7 +790,7 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
               state.nodeStatuses()));
     }
     state.setStatus(event.status());
-    touched.add(event.executionId());
+    touched.add(state);
     if (isTerminal(event.status())) {
       scheduleCleanup(event.executionId());
       log.atDebug()
@@ -808,15 +809,12 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
     }
   }
 
-  private void notifyStatusChange(final String executionId) {
-    final Sinks.Many<WorkflowProgress> sink = statusSinks.get(executionId);
+  private void notifyStatusChange(final WorkflowState state) {
+    final Sinks.Many<WorkflowProgress> sink = statusSinks.get(state.executionId);
     if (sink != null) {
-      final WorkflowState state = findState(executionId);
-      if (state != null) {
-        final WorkflowProgress progress = getProgress(state.sessionId, executionId);
-        statusHistoryCache.put(executionId, progress);
-        SinkEmit.offer(sink, progress);
-      }
+      final WorkflowProgress progress = getProgress(state.sessionId, state.executionId);
+      statusHistoryCache.put(state.executionId, progress);
+      SinkEmit.offer(sink, progress);
     }
   }
 
@@ -935,13 +933,7 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
         .addKeyValue("executionId", executionId)
         .addKeyValue("delayMs", cleanupTtl.toMillis())
         .log("Scheduled execution cleanup");
-    Mono.delay(cleanupTtl)
-        .subscribe(
-            ignored -> cleanupExecution(executionId),
-            error ->
-                log.atError()
-                    .addKeyValue("executionId", executionId)
-                    .log("Error during cleanup scheduling", error));
+    Mono.delay(cleanupTtl).subscribe(_ -> cleanupExecution(executionId));
   }
 
   private void cleanupExecution(final String executionId) {

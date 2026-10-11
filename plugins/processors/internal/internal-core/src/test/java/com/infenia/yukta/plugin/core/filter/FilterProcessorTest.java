@@ -297,4 +297,50 @@ class FilterProcessorTest {
                     && e.getCause().getMessage().contains("Unsupported engine"))
         .verify();
   }
+
+  private Flux<Message<?>> run(final Map<String, Object> config, final Object payload) {
+    return processor
+        .process(Flux.just(DefaultMessage.create(UUID.randomUUID(), payload)), config)
+        .contextWrite(ctx -> ctx.put("nodeId", "n"));
+  }
+
+  @Test
+  void testMismatchWithBlankOrNoDiscardPortDropsMessage() {
+    StepVerifier.create(run(Map.of("condition", "false", "discardPort", " "), "x"))
+        .verifyComplete();
+    StepVerifier.create(run(Map.of("condition", "false"), "x")).verifyComplete();
+  }
+
+  @Test
+  void testNullResultIsTreatedAsNoMatch() {
+    StepVerifier.create(run(Map.of("condition", "null"), "x")).verifyComplete();
+  }
+
+  @Test
+  void testInitializeBlankConditionAndUnknownEngine() {
+    StepVerifier.create(processor.initialize(Map.of("condition", " "))).expectError().verify();
+    StepVerifier.create(processor.initialize(Map.of("condition", "x", "engine", "OTHER")))
+        .verifyComplete();
+    StepVerifier.create(processor.initialize(Map.of("condition", "a exists", "engine", "SIMPLE")))
+        .verifyComplete();
+  }
+
+  @Test
+  void testValidateConfigBranches() {
+    StepVerifier.create(processor.validateConfig(Map.of("condition", " "))).expectError().verify();
+    StepVerifier.create(processor.validateConfig(Map.of("condition", "x", "engine", "SIMPLE")))
+        .verifyComplete();
+    StepVerifier.create(processor.validateConfig(Map.of("condition", "x", "engine", "REGO")))
+        .expectError()
+        .verify();
+    StepVerifier.create(processor.validateConfig(Map.of("condition", "x", "engine", "NOPE")))
+        .expectError()
+        .verify();
+  }
+
+  @Test
+  void testOutputPortsBlankDiscardPort() {
+    assertEquals(List.of("default"), processor.getOutputPorts(Map.of("discardPort", " ")));
+    assertEquals(List.of("default"), processor.getOutputPorts(Map.of()));
+  }
 }

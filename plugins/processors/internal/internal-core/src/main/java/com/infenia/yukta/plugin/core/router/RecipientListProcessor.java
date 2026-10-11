@@ -197,10 +197,8 @@ public class RecipientListProcessor implements ProcessorPlugin {
             }
             return Flux.fromIterable(recipients).map(message::withSourcePort);
           } catch (final Exception e) {
-            if (log.isErrorEnabled()) {
-              log.error(
-                  "Recipient computation failed for message {}: {}", message.id(), e.getMessage());
-            }
+            log.error(
+                "Recipient computation failed for message {}: {}", message.id(), e.getMessage());
             if (errorPort != null && !errorPort.isBlank()) {
               return Flux.just(
                   message

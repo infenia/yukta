@@ -277,4 +277,30 @@ class LoopStreamProcessorTest {
         .expectNextCount(1)
         .verifyComplete();
   }
+
+  @Test
+  void testNullRegistryIsRejected() {
+    when(registryProvider.getIfAvailable()).thenReturn(null);
+    StepVerifier.create(
+            processor.process(
+                Flux.just(DefaultMessage.create(UUID.randomUUID(), "x")),
+                Map.of("targetPluginId", "t")))
+        .expectError(IllegalArgumentException.class)
+        .verify();
+  }
+
+  @Test
+  void testTargetProducingNothingKeepsLastMessage() {
+    when(registry.contains("quiet")).thenReturn(true);
+    when(registry.get("quiet")).thenReturn(targetPlugin);
+    when(targetPlugin.process(any(), any())).thenReturn(Flux.empty());
+
+    StepVerifier.create(
+            processor
+                .process(
+                    Flux.just(DefaultMessage.create(UUID.randomUUID(), 0)),
+                    Map.of("targetPluginId", "quiet", "maxIterations", 1))
+                .contextWrite(Context.of("executionId", "e1", "nodeId", "n1")))
+        .verifyComplete();
+  }
 }

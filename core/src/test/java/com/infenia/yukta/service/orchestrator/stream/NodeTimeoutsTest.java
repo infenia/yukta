@@ -125,4 +125,18 @@ class NodeTimeoutsTest {
 
     verify(plugin, org.mockito.Mockito.times(2)).getDefaultTimeout(anyMap());
   }
+
+  @Test
+  void numericTimeoutSeconds_isUsedAsIs() {
+    StepVerifier.create(
+            retime(Map.of("timeoutSeconds", 120, "other", "${payload.x}"), message(Map.of("x", 1))))
+        .expectNextCount(1)
+        .verifyComplete();
+
+    activity.touch();
+    StepVerifier.create(activity.guard(Flux.never(), Duration.ofSeconds(30), time, () -> false))
+        .then(() -> time.advanceTimeBy(Duration.ofSeconds(100)))
+        .thenCancel()
+        .verify(Duration.ofSeconds(1));
+  }
 }

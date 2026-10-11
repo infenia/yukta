@@ -643,4 +643,41 @@ class ProcessorNodeAssemblerStrategyTest {
 
     verify(tracker).recordRetry("processor");
   }
+
+  @Test
+  void createAssembler_failureBudget_failsTheNodeOnceExceeded() {
+    final ProcessorPlugin processor = mock(ProcessorPlugin.class);
+    when(processor.process(any(), any()))
+        .thenAnswer(inv -> Flux.<Message<?>>error(new IllegalStateException("boom")));
+    when(processor.isBlocking()).thenReturn(false);
+    final WorkflowNode node =
+        new WorkflowNode(
+            NODE_ID,
+            "processor",
+            Map.of(
+                "engine",
+                Map.of(
+                    "onError",
+                    "CONTINUE",
+                    "failureBudget",
+                    Map.of("maxFailures", 1, "windowMs", 60_000))));
+    final Flux<Message<?>> parentStream =
+        Flux.just(
+            DefaultMessage.create(UUID.randomUUID(), "a"),
+            DefaultMessage.create(UUID.randomUUID(), "b"));
+    final AssemblyContext context = buildContext(NODE_ID, parentStream, null);
+    when(streamTopologyDecorator.mergeParentStreams(any(), any(), any(ParentEdgeInfo[].class)))
+        .thenReturn(parentStream);
+    when(streamTopologyDecorator.applyLoggingAndBroadcasting(
+            anyString(), anyString(), any(), any(int.class), any(), any()))
+        .thenAnswer(inv -> inv.getArgument(2));
+
+    strategy
+        .createAssembler(node, processor, Duration.ofSeconds(5), 0, 1024, new ParentEdgeInfo[0])
+        .assemble(context);
+
+    StepVerifier.create(context.streams()[0])
+        .expectErrorSatisfies(e -> assertThat(e).hasMessageContaining("failed more than 1"))
+        .verify(Duration.ofSeconds(5));
+  }
 }

@@ -31,7 +31,7 @@ import reactor.test.StepVerifier;
 
 /** Tests for GlobalExceptionHandler. */
 @NoArgsConstructor
-@SuppressWarnings({"PMD.LawOfDemeter", "PMD.TooManyMethods"})
+@SuppressWarnings({"PMD.LawOfDemeter", "PMD.TooManyMethods", "PMD.AvoidDuplicateLiterals"})
 class GlobalExceptionHandlerTest {
 
   /** Validation failed message constant. */
@@ -685,5 +685,40 @@ class GlobalExceptionHandlerTest {
     assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.TOO_MANY_REQUESTS);
     assertThat(resp.getBody()).isNotNull();
     assertThat(resp.getBody().message()).isEqualTo("Execution limit reached");
+  }
+
+  @Test
+  @SuppressWarnings(UNCHECKED_SUPPRESSION)
+  void testHandleServerWebInputException_withoutReasonUsesDefaultMessage() {
+    final ServerWebInputException exception = new ServerWebInputException((String) null);
+    final ServerWebExchange exchange = mock(ServerWebExchange.class);
+    final ServerHttpRequest request = mock(ServerHttpRequest.class);
+    when(exchange.getRequest()).thenReturn(request);
+    when(request.getPath()).thenReturn(RequestPath.parse("/api/input", "/"));
+
+    StepVerifier.create(
+            handler.handleServerWebInputException(
+                exception, new HttpHeaders(), HttpStatus.BAD_REQUEST, exchange))
+        .assertNext(
+            resp -> {
+              final ApiResponse<Object> body = (ApiResponse<Object>) resp.getBody();
+              assertThat(body).isNotNull();
+              assertThat(body.message()).isEqualTo("Invalid request");
+            })
+        .verifyComplete();
+  }
+
+  @Test
+  void testHandleGenericException_quotesTheRequestId() {
+    final ServerHttpRequest request =
+        org.springframework.mock.http.server.reactive.MockServerHttpRequest.get("/fatal")
+            .header(com.infenia.yukta.filter.RequestTracingFilter.X_REQUEST_ID, "rid-42")
+            .build();
+
+    final ResponseEntity<ApiResponse<Object>> resp =
+        handler.handleGenericException(new IllegalStateException("x"), request);
+
+    assertThat(resp.getBody()).isNotNull();
+    assertThat(resp.getBody().message()).endsWith("Reference: rid-42");
   }
 }

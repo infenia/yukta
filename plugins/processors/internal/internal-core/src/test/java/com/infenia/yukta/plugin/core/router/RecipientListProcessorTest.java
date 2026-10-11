@@ -11,6 +11,7 @@ import com.infenia.yukta.plugin.core.UiDesign;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.BeforeEach;
@@ -216,5 +217,74 @@ class RecipientListProcessorTest {
     final Optional<UiDesign> design = processor.describe().uiDesign();
     assertTrue(design.isPresent(), "Test ui design");
     assertTrue(design.get().html().contains("Recipient List"), "Test ui design (2)");
+  }
+
+  private List<Object> run(final Map<String, Object> config, final Object payload) {
+    final Message<?> msg = DefaultMessage.create(UUID.randomUUID(), payload);
+    return processor
+        .process(Flux.just(msg), config)
+        .map(m -> (Object) m.sourcePort())
+        .collectList()
+        .block();
+  }
+
+  @Test
+  void testGetType() {
+    assertEquals("RECIPIENT_LIST", processor.getType());
+  }
+
+  @Test
+  void testOutputPortsStaticVariants() {
+    assertEquals(List.of("default"), processor.getOutputPorts(Map.of("mode", "STATIC")));
+    assertEquals(
+        List.of("default"), processor.getOutputPorts(Map.of("mode", "STATIC", "errorPort", "  ")));
+  }
+
+  @Test
+  void testValidateConfigExternalAndInvalid() {
+    StepVerifier.create(processor.validateConfig(Map.of("mode", "EXTERNAL", "sourceField", "x")))
+        .verifyComplete();
+    StepVerifier.create(processor.validateConfig(Map.of("mode", "EXTERNAL")))
+        .expectError()
+        .verify();
+    StepVerifier.create(processor.validateConfig(Map.of("mode", "BOGUS"))).expectError().verify();
+    StepVerifier.create(processor.validateConfig(Map.of("mode", "STATIC", "recipients", List.of())))
+        .verifyComplete();
+  }
+
+  @Test
+  void testPrepareAllModes() {
+    StepVerifier.create(processor.prepare(Map.of("mode", "DYNAMIC", "expression", "payload.a")))
+        .verifyComplete();
+    StepVerifier.create(processor.prepare(Map.of("mode", "EXTERNAL", "sourceField", "payload.a")))
+        .verifyComplete();
+    StepVerifier.create(processor.prepare(Map.of("mode", "STATIC"))).verifyComplete();
+  }
+
+  @Test
+  void testCollectionAndArrayResults() {
+    final Map<String, Object> cfg = Map.of("mode", "DYNAMIC", "expression", "payload.v");
+    assertEquals(List.of("a"), run(cfg, Map.of("v", Set.of("a"))));
+    assertEquals(List.of("a", "b"), run(cfg, Map.of("v", new String[] {"a", "b"})));
+    assertEquals(List.of("1"), run(cfg, Map.of("v", new int[] {1})));
+    assertEquals(List.of("7"), run(cfg, Map.of("v", 7)));
+    assertEquals(List.of(), run(Map.of("mode", "DYNAMIC", "expression", "null"), "x"));
+  }
+
+  @Test
+  void testNonStrictSwallowsFailure() {
+    final Map<String, Object> cfg =
+        Map.of("mode", "DYNAMIC", "expression", "1 / 0", "strictMode", false, "errorPort", " ");
+    assertEquals(List.of(), run(cfg, "x"));
+  }
+
+  @Test
+  void testUnknownModeYieldsNoRecipients() {
+    assertEquals(List.of(), run(Map.of("mode", "BOGUS"), "x"));
+  }
+
+  @Test
+  void testStaticModeWithoutRecipientsYieldsNothing() {
+    assertEquals(List.of(), run(Map.of("mode", "STATIC"), "x"));
   }
 }

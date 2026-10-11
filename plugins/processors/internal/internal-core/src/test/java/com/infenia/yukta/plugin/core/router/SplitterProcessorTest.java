@@ -406,4 +406,46 @@ class SplitterProcessorTest {
                 Flux.just(parent), Map.of(ITEMSPATH, PAYLOAD_ITEMS, STRICTMODE, false)))
         .verifyComplete();
   }
+
+  private Flux<Message<?>> splitWith(final Map<String, Object> extra) {
+    final Message<?> parent =
+        DefaultMessage.create(UUID.randomUUID(), Map.of("items", Collections.singletonList(1)));
+    final Map<String, Object> config = new java.util.HashMap<>(extra);
+    config.putIfAbsent("itemsPath", "payload.items");
+    return processor.process(Flux.just(parent), config);
+  }
+
+  @Test
+  void testNullValuedMappingStrictFails() {
+    StepVerifier.create(splitWith(Map.of("headerMapping", Map.of("h", "null"), "strictMode", true)))
+        .expectErrorMatches(e -> e.getMessage().contains("Mapping null"))
+        .verify();
+  }
+
+  @Test
+  void testNullValuedMappingNonStrictSkipsHeader() {
+    StepVerifier.create(
+            splitWith(Map.of("headerMapping", Map.of("h", "null"), "strictMode", false)))
+        .expectNextMatches(m -> !m.metadata().containsKey("h"))
+        .verifyComplete();
+  }
+
+  @Test
+  void testOutputPortsBlankAndNamedErrorPort() {
+    assertEquals(List.of("default"), processor.getOutputPorts(Map.of("errorPort", " ")));
+    assertEquals(List.of("default", "e"), processor.getOutputPorts(Map.of("errorPort", "e")));
+  }
+
+  @Test
+  void testPrepareWithNonMapMapping() {
+    StepVerifier.create(processor.prepare(Map.of("itemsPath", "x", "headerMapping", "oops")))
+        .verifyComplete();
+  }
+
+  @Test
+  void testBlankErrorPortFallsBackToStrictFailure() {
+    StepVerifier.create(splitWith(Map.of("itemsPath", "1/0", "errorPort", " ")))
+        .expectError()
+        .verify();
+  }
 }

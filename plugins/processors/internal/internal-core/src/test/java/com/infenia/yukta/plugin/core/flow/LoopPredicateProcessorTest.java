@@ -314,4 +314,15 @@ class LoopPredicateProcessorTest {
         .expectNextCount(1)
         .verifyComplete();
   }
+
+  @Test
+  void testNullRegistryIsRejected() {
+    when(registryProvider.getIfAvailable()).thenReturn(null);
+    StepVerifier.create(
+            processor.process(
+                Flux.just(DefaultMessage.create(UUID.randomUUID(), "x")),
+                Map.of("targetPluginId", "t")))
+        .expectError(IllegalArgumentException.class)
+        .verify();
+  }
 }

@@ -508,4 +508,64 @@ class BranchProcessorTest {
         .expectError(RuntimeException.class)
         .verify();
   }
+
+  @Test
+  void testSelectKeyNullResultMatchesNothing() {
+    final Map<String, Object> config =
+        Map.of("mode", "SELECT_KEY", "selector", "payload.none", "cases", Map.of("A", "pa"));
+    final Message<?> msg = DefaultMessage.create(UUID.randomUUID(), Map.of("x", 1));
+    StepVerifier.create(processor.process(Flux.just(msg), config).onErrorResume(e -> Flux.empty()))
+        .verifyComplete();
+  }
+
+  @Test
+  void testSelectKeyLiteralNullMatchesNothing() {
+    final Map<String, Object> config =
+        Map.of("mode", "SELECT_KEY", "selector", "null", "cases", Map.of("A", "pa"));
+    final Message<?> msg = DefaultMessage.create(UUID.randomUUID(), "x");
+    StepVerifier.create(processor.process(Flux.just(msg), config).onErrorResume(e -> Flux.empty()))
+        .verifyComplete();
+  }
+
+  @Test
+  void testValidateConfigCasesNullOrEmpty() {
+    StepVerifier.create(processor.validateConfig(Map.of("mode", "EXPRESSION", "cases", Map.of())))
+        .expectError()
+        .verify();
+    StepVerifier.create(processor.validateConfig(Map.of("mode", "EXPRESSION")))
+        .expectError()
+        .verify();
+    StepVerifier.create(processor.validateConfig(Map.of("mode", "SELECT_KEY", "selector", "s")))
+        .expectError()
+        .verify();
+  }
+
+  @Test
+  void testValidateInContextWithExplicitNullCases() {
+    final java.util.HashMap<String, Object> config = new java.util.HashMap<>();
+    config.put("cases", null);
+    final com.infenia.yukta.plugin.core.WorkflowContext ctx =
+        new com.infenia.yukta.plugin.core.WorkflowContext("n", List.of(), List.of());
+    StepVerifier.create(processor.validateInContext(ctx, config)).verifyComplete();
+  }
+
+  @Test
+  void testExpressionModeNoMatchNoCasesEvaluateToTrue() {
+    final Map<String, String> cases = new LinkedHashMap<>();
+    cases.put("payload.v == 1", "p1");
+    cases.put("payload.v == 2", "p2");
+    final Map<String, Object> config = Map.of("mode", "EXPRESSION", "cases", cases);
+    final Message<?> msg = DefaultMessage.create(UUID.randomUUID(), Map.of("v", 2));
+    StepVerifier.create(processor.process(Flux.just(msg), config))
+        .expectNextMatches(m -> "p2".equals(m.sourcePort()))
+        .verifyComplete();
+  }
+
+  @Test
+  void testUnknownModeMatchesNothing() {
+    final Map<String, Object> config =
+        Map.of("mode", "BOGUS", "cases", Map.of("A", "pa"), "strictMode", false);
+    final Message<?> msg = DefaultMessage.create(UUID.randomUUID(), "x");
+    StepVerifier.create(processor.process(Flux.just(msg), config)).verifyComplete();
+  }
 }
