@@ -14,6 +14,9 @@ Implementations of various Yukta plugins.
 
 Note: `triggers/manual-trigger/` exists on disk but has no source and isn't in `settings.gradle.kts` — it's a retired/unwired module, not a live plugin.
 
+## Config schema
+Declare `getConfigSchema()` (see `ConfigField`) on a plugin to get a generated config form in the UI. Declared so far: `HTTP_REQUEST`, `LLM_CALL`, `PROCESS_EXECUTOR`, `FILTER`, `BRANCH`, `MAPPER`, `CONSTANT_SOURCE`; the others fall back to the JSON editor and the usage pattern. Add a one-line test that the required field is present.
+
 ## Build Commands
 ```bash
 # Build a specific plugin
