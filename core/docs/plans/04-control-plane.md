@@ -1,8 +1,3 @@
-<!--
-SPDX-License-Identifier: Apache-2.0
-SPDX-FileCopyrightText: 2026 Infenia Private Limited
--->
-
 # 04 Control plane (4→5)
 
 Gaps: runtime skip rejected; breakpoints/limits/priority only Java API; retry-node = restart.

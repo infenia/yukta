@@ -1,8 +1,3 @@
-<!--
-SPDX-License-Identifier: Apache-2.0
-SPDX-FileCopyrightText: 2026 Infenia Private Limited
--->
-
 ## Summary
 
 <!-- What and why. Link issues: Fixes #123 -->

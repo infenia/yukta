@@ -1,6 +1,3 @@
-# SPDX-License-Identifier: Apache-2.0
-# SPDX-FileCopyrightText: 2026 Infenia Private Limited
-
 # Compliance & Quality Reporting
 
 This document explains how Yukta reports on license compliance and code quality checks.

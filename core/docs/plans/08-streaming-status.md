@@ -1,8 +1,3 @@
-<!--
-SPDX-License-Identifier: Apache-2.0
-SPDX-FileCopyrightText: 2026 Infenia Private Limited
--->
-
 # 08 Streaming & Status (already 5)
 
 - Regression guards only: keep benchmark test (20-node chain, 10k msgs) in `check`; add status-transition property-style test (no illegal transitions). Quick final PR.
