@@ -100,6 +100,12 @@ public class StreamTopologyDecorator {
       return Flux.empty();
     }
     final boolean oneSuccess = rule == NodePolicy.JoinRule.ONE_SUCCESS;
+    // Registered now, at assembly, so every node knows its subscriber count before any connector
+    // runs. Counting per subscription would let a connector drain a node whose child has not
+    // subscribed yet.
+    for (final ParentEdgeInfo edge : parentEdges) {
+      registerSubscriber(streams, edge);
+    }
     // The failure counts belong to one subscription, so a resubscription starts from zero.
     return Flux.defer(
         () -> {
@@ -108,7 +114,7 @@ public class StreamTopologyDecorator {
           final List<Flux<Message<?>>> parentFluxes = new ArrayList<>(parentEdges.length);
           for (final ParentEdgeInfo edge : parentEdges) {
             parentFluxes.add(
-                applyEdgeRouting(
+                routeEdge(
                     streams,
                     edge,
                     error -> {
@@ -154,10 +160,19 @@ public class StreamTopologyDecorator {
    */
   public Flux<Message<?>> applyEdgeRouting(
       final Flux<Message<?>>[] streams, final ParentEdgeInfo edge) {
-    return applyEdgeRouting(streams, edge, _ -> {});
+    registerSubscriber(streams, edge);
+    return routeEdge(streams, edge, _ -> {});
   }
 
-  private Flux<Message<?>> applyEdgeRouting(
+  /** Counts the edge as a future subscriber of its parent's shared output. */
+  private static void registerSubscriber(
+      final Flux<Message<?>>[] streams, final ParentEdgeInfo edge) {
+    if (streams[edge.parentIndex()] instanceof NodeBroadcast broadcast) {
+      broadcast.expectSubscriber();
+    }
+  }
+
+  private Flux<Message<?>> routeEdge(
       final Flux<Message<?>>[] streams,
       final ParentEdgeInfo edge,
       final Consumer<Throwable> onTolerated) {
@@ -168,9 +183,6 @@ public class StreamTopologyDecorator {
         .addArgument(edge.sourcePort())
         .log();
 
-    if (streams[edge.parentIndex()] instanceof NodeBroadcast broadcast) {
-      broadcast.expectSubscriber();
-    }
     Flux<Message<?>> stream =
         streams[edge.parentIndex()].map(msg -> msg.withSourceNodeId(edge.sourceNodeId()));
 
