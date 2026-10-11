@@ -55,4 +55,6 @@ ENV YUKTA_SERVER_ADDRESS=0.0.0.0 \
     HOME=/home/nonroot \
     PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
+USER nonroot
+
 ENTRYPOINT ["/app/yukta"]
