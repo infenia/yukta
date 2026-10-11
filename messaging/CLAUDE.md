@@ -22,3 +22,6 @@ Message-based inter-node communication framework:
 ## Imports
 @.claude/rules/coding-standards.md
 @.claude/rules/git-workflow.md
+
+## Testing speed
+Follow the tiered "Test Execution Policy (speed)" in the root `CLAUDE.md`: run `--tests` for the classes you changed first; full `:messaging:test` only when many files changed.

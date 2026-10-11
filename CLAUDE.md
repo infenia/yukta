@@ -57,6 +57,25 @@ All commits follow **Conventional Commits** format. See `.gitmessage` template (
 - Quality gates (Checkstyle, PMD, SpotBugs, OpenGrep) are enforced via `build-logic` — see `.claude/rules/coding-standards.md` for details.
 - Minimum coverage thresholds are module-specific.
 
+### Test Execution Policy (speed)
+Waiting on tests is the main development bottleneck. **Run the smallest scope that covers your change**; escalate only when the blast radius justifies it.
+
+| Tier | When | Command |
+|---|---|---|
+| 0 | Quick compile feedback after an edit | `./gradlew :<mod>:compileJava :<mod>:compileTestJava -q` |
+| 1 (default) | Changed a few classes | `./gradlew :<mod>:test --tests '<FQCN>'` (repeat `--tests` per class; `Class.method` while iterating) — tests of the modified classes only |
+| 2 | Changed a public contract or many classes in a package | `./gradlew :<mod>:test --tests 'com.infenia.yukta.<package>.*'` |
+| 3 | Many files changed across a module, or shared code (`plugin-api`, `messaging`, config, `build-logic`) | `./gradlew :<mod>:test` |
+| 4 | Final gate, once, before commit/PR, or cross-module impact | `./gradlew spotlessApply check` |
+
+- Never start at Tier 3/4. When you escalate, state the reason in one line (e.g. "14 files changed across orchestrator + store").
+- Run `spotlessApply` and `check` **once at the end**, not after every edit.
+- Don't use `clean` or `--rerun-tasks`; Gradle's up-to-date/build cache already skips unchanged work.
+- Run Tier 3/4 with `run_in_background` and keep working; don't block on them.
+- Use `-q --console=plain`; on failure read only the failing test's report in `build/test-results`, not the full log.
+- Add `--continue` on multi-module runs to see all failures in one pass; `-PfailFast` to stop at the first failing test; `-Pcoverage` to produce a JaCoCo report on a scoped run.
+- Locate tests via `<Class>Test` naming or CodeGraph, not repo-wide grep.
+
 ### Test Skill
 Load the below skill for test generation and test improvement.
 - **Name**: tests
