@@ -43,7 +43,7 @@ class MapperProcessorTest {
 
   private static Map<String, Object> cfg(final Object... kv) {
     final Map<String, Object> m = new HashMap<>();
-    for (int i = 0; i < kv.length; i += 2) {
+    for (int i = 0; i + 1 < kv.length; i += 2) {
       m.put((String) kv[i], kv[i + 1]);
     }
     return m;

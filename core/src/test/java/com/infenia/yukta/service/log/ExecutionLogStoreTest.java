@@ -178,7 +178,7 @@ class ExecutionLogStoreTest {
     final ObjectMapper slow = org.mockito.Mockito.mock(ObjectMapper.class);
     org.mockito.Mockito.when(slow.writeValueAsString(org.mockito.ArgumentMatchers.any()))
         .thenAnswer(
-            call -> {
+            _ -> {
               Thread.sleep(500);
               return "{}";
             });
@@ -202,7 +202,7 @@ class ExecutionLogStoreTest {
     final ObjectMapper slow = org.mockito.Mockito.mock(ObjectMapper.class);
     org.mockito.Mockito.when(slow.writeValueAsString(org.mockito.ArgumentMatchers.any()))
         .thenAnswer(
-            call -> {
+            _ -> {
               Thread.sleep(300);
               return "{}";
             });
