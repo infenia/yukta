@@ -51,7 +51,7 @@ public class ApiTriggerPlugin implements TriggerPlugin {
 
   @Override
   public String getType() {
-    return "api-trigger";
+    return "API_TRIGGER";
   }
 
   @Override

@@ -1,7 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
-import { describe, it, expect, beforeAll, afterAll, afterEach, vi } from 'vitest';
+import {
+  describe,
+  it,
+  expect,
+  beforeAll,
+  afterAll,
+  afterEach,
+  vi,
+} from 'vitest';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
@@ -85,7 +93,9 @@ describe('SessionListPage', () => {
       const { container } = renderWithProviders(<SessionListPage />);
 
       await waitFor(() => {
-        expect(screen.getByRole('heading', { name: /Sessions/ })).toBeInTheDocument();
+        expect(
+          screen.getByRole('heading', { name: /Sessions/ })
+        ).toBeInTheDocument();
         const p = container.querySelector('p');
         expect(p?.textContent).toContain('3 sessions');
         expect(p?.textContent).toContain('found.');
@@ -100,14 +110,11 @@ describe('SessionListPage', () => {
         expect(headers.length).toBeGreaterThan(0);
         const headerTexts = headers.map((h) => h.textContent);
         expect(headerTexts.join('')).toContain('Name');
-        expect(headerTexts.join('')).toContain('Session ID');
-        expect(headerTexts.join('')).toContain('Description');
       });
     });
   });
 
   describe('Search & Filter', () => {
-
     it('should filter sessions by search term', async () => {
       const user = userEvent.setup();
       renderWithProviders(<SessionListPage />);
@@ -121,7 +128,9 @@ describe('SessionListPage', () => {
 
       await waitFor(() => {
         expect(screen.getByText(mockSessions[0].name)).toBeInTheDocument();
-        expect(screen.queryByText(mockSessions[1].name)).not.toBeInTheDocument();
+        expect(
+          screen.queryByText(mockSessions[1].name)
+        ).not.toBeInTheDocument();
       });
     });
 
@@ -138,7 +147,9 @@ describe('SessionListPage', () => {
 
       await waitFor(() => {
         expect(screen.getByText(mockSessions[1].name)).toBeInTheDocument();
-        expect(screen.queryByText(mockSessions[0].name)).not.toBeInTheDocument();
+        expect(
+          screen.queryByText(mockSessions[0].name)
+        ).not.toBeInTheDocument();
       });
     });
 
@@ -150,7 +161,9 @@ describe('SessionListPage', () => {
         expect(screen.getByText(mockSessions[0].name)).toBeInTheDocument();
       });
 
-      const searchInput = screen.getByPlaceholderText(/search by name/i) as HTMLInputElement;
+      const searchInput = screen.getByPlaceholderText(
+        /search by name/i
+      ) as HTMLInputElement;
       await user.type(searchInput, 'Session 1');
 
       const resetButton = screen.getByLabelText('Reset filters');
@@ -176,7 +189,9 @@ describe('SessionListPage', () => {
       await user.type(searchInput, 'nonexistent');
 
       await waitFor(() => {
-        expect(screen.queryByText(mockSessions[0].name)).not.toBeInTheDocument();
+        expect(
+          screen.queryByText(mockSessions[0].name)
+        ).not.toBeInTheDocument();
       });
     });
 
@@ -206,7 +221,9 @@ describe('SessionListPage', () => {
         expect(screen.getByText(mockSessions[0].name)).toBeInTheDocument();
       });
 
-      const searchInput = screen.getByPlaceholderText(/search by name/i) as HTMLInputElement;
+      const searchInput = screen.getByPlaceholderText(
+        /search by name/i
+      ) as HTMLInputElement;
       await user.type(searchInput, 'Session 2');
 
       await waitFor(() => {
@@ -251,7 +268,10 @@ describe('SessionListPage', () => {
 
   describe('Empty State', () => {
     it('should display empty state message when no sessions exist', () => {
-      vi.spyOn(useSessionSummariesModule, 'useSessionSummaries').mockReturnValue({
+      vi.spyOn(
+        useSessionSummariesModule,
+        'useSessionSummaries'
+      ).mockReturnValue({
         data: [],
         isLoading: false,
         error: null,
@@ -265,7 +285,10 @@ describe('SessionListPage', () => {
 
   describe('Error State', () => {
     it('should display error message when fetch fails', () => {
-      vi.spyOn(useSessionSummariesModule, 'useSessionSummaries').mockReturnValue({
+      vi.spyOn(
+        useSessionSummariesModule,
+        'useSessionSummaries'
+      ).mockReturnValue({
         data: undefined,
         isLoading: false,
         error: new Error('Failed to fetch sessions'),

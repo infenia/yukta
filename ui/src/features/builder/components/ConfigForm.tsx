@@ -7,7 +7,7 @@ import type { ConfigField } from '@/features/plugins/types';
 type Values = Record<string, unknown>;
 
 const INPUT =
-  'w-full border border-outline-variant bg-surface px-2 py-1 text-sm text-on-surface';
+  'w-full rounded-lg border border-outline-variant bg-surface px-2 py-1 text-sm text-on-surface';
 
 /** LIST and MAP values are edited as JSON; the draft text is kept until it parses. */
 export function JsonField({

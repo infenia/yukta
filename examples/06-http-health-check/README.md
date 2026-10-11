@@ -3,7 +3,7 @@
 **Use case:** a monitoring or smoke check. The workflow calls an endpoint and routes to an OK report or an alert, based on the HTTP result.
 
 ```
-ONE_SHOT ──► HTTP_REQUEST (routeByStatus)
+CONSTANT_SOURCE ──► HTTP_REQUEST (routeByStatus)
                  ├── success ──► echo HEALTH OK ──────────┐
                  └── failure ──► echo HEALTH ALERT ───────┴──► CONSOLE_TERMINAL
 ```

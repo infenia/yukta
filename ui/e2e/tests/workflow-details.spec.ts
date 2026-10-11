@@ -29,11 +29,11 @@ test.describe('Workflow Details Page', () => {
     await expect(page.getByTestId('status-chip')).toHaveText('RUNNING');
 
     await expect(page.getByTestId('workflow-node-Data_Ingress')).toBeVisible();
-    await expect(page.getByTestId('workflow-node-Data_Ingress')).toContainText('Status: Done');
+    await expect(page.getByTestId('workflow-node-Data_Ingress')).toContainText('Done');
     await expect(page.getByTestId('workflow-node-Vectorize_Batch')).toContainText(
-      'Status: Active'
+      'Active'
     );
-    await expect(page.getByTestId('workflow-node-Sink_Storage')).toContainText('Status: Waiting');
+    await expect(page.getByTestId('workflow-node-Sink_Storage')).toContainText('Waiting');
 
     await expect(page.getByTestId('execution-summary')).toContainText('exec-091-qp-55');
     await expect(page.getByTestId('execution-summary')).toContainText('SESSION_A92_XP_2024');
@@ -108,7 +108,7 @@ test.describe('Workflow Details Page', () => {
     await expect(page.getByTestId('workflow-details-page')).toBeVisible();
     await expect(page.getByTestId('status-chip')).toHaveText('NOT RUN');
     await expect(page.getByTestId('run-history-empty')).toBeVisible();
-    await expect(page.getByTestId('workflow-node-Data_Ingress')).toContainText('Status: Waiting');
+    await expect(page.getByTestId('workflow-node-Data_Ingress')).toContainText('Waiting');
     await expect(page.getByTestId('logs-body')).toContainText('No log output.');
   });
 

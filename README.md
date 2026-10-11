@@ -83,7 +83,7 @@ curl -X POST http://localhost:8080/api/sessions -H "Content-Type: application/js
       "workflowId": "hello",
       "description": "Echo a greeting",
       "nodes": [
-        { "nodeId": "start", "type": "ONE_SHOT", "config": {} },
+        { "nodeId": "start", "type": "CONSTANT_SOURCE", "config": {} },
         { "nodeId": "echo",  "type": "PROCESS_EXECUTOR", "config": { "command": ["echo", "Hello from Yukta!"] } },
         { "nodeId": "done",  "type": "CONSOLE_TERMINAL", "config": {} }
       ],
@@ -152,9 +152,8 @@ Processors can expose named output ports (for example `success` and `failure`, o
 
 | Type | Description |
 |------|-------------|
-| `ONE_SHOT` | Emits one empty message |
-| `api-trigger` | Passes the payload from the start request into the workflow |
-| `CONSTANT_SOURCE` | Emits predefined variables at startup |
+| `API_TRIGGER` | Passes the payload from the start request into the workflow |
+| `CONSTANT_SOURCE` | Emits predefined variables at startup (none = one empty message) |
 | `SCHEDULE_TRIGGER` | Emits on a fixed interval or a cron schedule |
 
 **Processors** transform, route and call out

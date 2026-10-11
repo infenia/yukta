@@ -17,9 +17,9 @@ export function WorkflowTitleBar({
   actions?: ReactNode;
 }) {
   return (
-    <div className="flex flex-wrap items-center gap-4 border-b border-outline-variant bg-surface px-6 py-4">
-      <h1 className="text-2xl font-bold text-on-surface">{displayName}</h1>
-      <span className="font-mono text-xs text-on-surface-variant">ID: {workflowId}</span>
+    <div className="flex flex-wrap items-center gap-4 border-b border-outline-variant bg-surface px-4 py-4 sm:px-6">
+      <h1 className="text-headline-lg text-on-surface">{displayName}</h1>
+      <span className="text-code-sm text-on-surface-variant">ID: {workflowId}</span>
       <div className="ml-auto flex items-center gap-4">
         {actions}
         <StatusChip status={status} />

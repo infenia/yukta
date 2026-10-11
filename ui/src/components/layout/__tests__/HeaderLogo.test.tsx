@@ -39,7 +39,7 @@ describe('HeaderLogo', () => {
   it('should have correct image sizing', () => {
     renderWithRouter(<HeaderLogo />);
     const image = screen.getByAltText('Yukta');
-    expect(image).toHaveClass('size-7', 'rounded-3xl', 'object-contain');
+    expect(image).toHaveClass('size-8', 'object-contain');
   });
 
   it('should render YUKTA text', () => {

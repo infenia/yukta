@@ -8,7 +8,7 @@ CONSTANT_SOURCE ──► SESSION_MEMORY (load) ──► LLM_CALL ──► SES
 
 The example runs two turns for the same user (`user-42`): "My name is Ada", then "What is my name?". Turn 2 answers from memory.
 
-In production, replace `CONSTANT_SOURCE` with `api-trigger` once that path completes on your build (see example 02), so each chat message arrives as a request.
+In production, replace `CONSTANT_SOURCE` with `API_TRIGGER` once that path completes on your build (see example 02), so each chat message arrives as a request.
 
 **Requirements:** an OpenAI-compatible endpoint. Defaults to a local Ollama.
 
