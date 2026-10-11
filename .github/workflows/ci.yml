@@ -301,7 +301,9 @@ jobs:
       # Coverage tracking on main (Codecov is free for open source).
       # Requires the CODECOV_TOKEN repository secret; harmless until it is set.
       - name: Upload coverage to Codecov
-        if: github.event_name != 'pull_request'
+        if: |
+          github.event_name != 'pull_request' ||
+          github.event.pull_request.head.repo.full_name == github.repository
         continue-on-error: true
         uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
         with:
