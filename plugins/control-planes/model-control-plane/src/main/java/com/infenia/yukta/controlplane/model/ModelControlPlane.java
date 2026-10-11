@@ -13,6 +13,7 @@ import com.infenia.yukta.plugin.decision.Answer;
 import com.infenia.yukta.plugin.decision.DecisionModel;
 import com.infenia.yukta.plugin.decision.ModelSpec;
 import com.infenia.yukta.plugin.decision.Question;
+import com.infenia.yukta.plugin.decision.StateText;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -102,29 +103,31 @@ public final class ModelControlPlane implements ControlPlanePlugin {
 
   /** Plain words work better than JSON for a small model. */
   private static String describe(final ExecutionEvent event) {
-    return switch (event) {
-      case ExecutionEvent.NodeStatusChanged node ->
-          "Step "
-              + node.module()
-              + " changed status to "
-              + node.status()
-              + ". Details reported by the step: "
-              + (node.metadata().isEmpty()
-                  ? "none"
-                  : node.metadata().entrySet().stream()
-                      .map(entry -> entry.getKey() + "=" + entry.getValue())
-                      .collect(Collectors.joining(", ")))
-              + ".";
-      case ExecutionEvent.WorkflowStatusChanged workflow ->
-          "The workflow run changed status to " + workflow.status() + ".";
-      case ExecutionEvent.LogLine line ->
-          "Step " + line.nodeId() + " wrote the log line: " + line.line();
-      case ExecutionEvent.ControlOutcome outcome ->
-          "The command "
-              + outcome.command()
-              + (outcome.applied() ? " was applied" : " was rejected: " + outcome.reason())
-              + (outcome.actor() == null ? "." : ", sent by " + outcome.actor() + ".");
-    };
+    final String text =
+        switch (event) {
+          case ExecutionEvent.NodeStatusChanged node ->
+              "Step "
+                  + node.module()
+                  + " changed status to "
+                  + node.status()
+                  + ". Details reported by the step: "
+                  + (node.metadata().isEmpty()
+                      ? "none"
+                      : node.metadata().entrySet().stream()
+                          .map(entry -> entry.getKey() + "=" + entry.getValue())
+                          .collect(Collectors.joining(", ")))
+                  + ".";
+          case ExecutionEvent.WorkflowStatusChanged workflow ->
+              "The workflow run changed status to " + workflow.status() + ".";
+          case ExecutionEvent.LogLine line ->
+              "Step " + line.nodeId() + " wrote the log line: " + line.line();
+          case ExecutionEvent.ControlOutcome outcome ->
+              "The command "
+                  + outcome.command()
+                  + (outcome.applied() ? " was applied" : " was rejected: " + outcome.reason())
+                  + (outcome.actor() == null ? "." : ", sent by " + outcome.actor() + ".");
+        };
+    return StateText.truncate(text);
   }
 
   private ControlDecision toDecision(final ExecutionEvent event, final Answer answer) {

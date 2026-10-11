@@ -4,25 +4,46 @@ package com.infenia.yukta.plugin.file;
 
 import com.infenia.yukta.message.Message;
 import com.infenia.yukta.plugin.core.ConfigField;
+import com.infenia.yukta.plugin.core.FailureMode;
 import com.infenia.yukta.plugin.core.PluginDescriptor;
+import com.infenia.yukta.plugin.core.PluginMetricsReporter;
 import com.infenia.yukta.plugin.core.UiDesign;
-import com.infenia.yukta.plugin.type.ProcessorPlugin;
+import com.infenia.yukta.plugin.util.ConfigValidation;
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
-import reactor.core.scheduler.Schedulers;
 
 /** Reads a UTF-8 text file inside a sandbox directory and emits {@code {path, content}}. */
 @Component
-public final class FileReadPlugin implements ProcessorPlugin {
+public final class FileReadPlugin extends AbstractFilePlugin {
 
-  /** Default constructor. */
+  /** Largest file read unless {@code maxBytes} says otherwise (10 MiB). */
+  private static final long DEFAULT_MAX_BYTES = 10L * 1024 * 1024;
+
+  /** Default constructor without metrics. */
   public FileReadPlugin() {
-    super();
+    super(PluginMetricsReporter.NOOP);
+  }
+
+  /**
+   * Spring constructor.
+   *
+   * @param reporterProvider optional metrics reporter
+   */
+  @Autowired
+  public FileReadPlugin(final ObjectProvider<PluginMetricsReporter> reporterProvider) {
+    super(reporterProvider.getIfAvailable(() -> PluginMetricsReporter.NOOP));
   }
 
   @Override
@@ -32,6 +53,8 @@ public final class FileReadPlugin implements ProcessorPlugin {
         "Configure with:\n"
             + "- baseDir: sandbox directory (required); paths outside it are rejected.\n"
             + "- path: file relative to baseDir; defaults to the payload's 'path' field.\n"
+            + "- maxBytes: largest readable file (default 10 MiB).\n"
+            + "- failureMode: ERROR (default) or CONTINUE (routes to the error port).\n"
             + "Emits {path, content}.",
         Optional.of(
             new UiDesign(
@@ -59,7 +82,10 @@ public final class FileReadPlugin implements ProcessorPlugin {
             "path",
             ConfigField.Type.STRING,
             null,
-            "File relative to baseDir (default: payload path)"));
+            "File relative to baseDir (default: payload path)"),
+        ConfigField.optional(
+            "maxBytes", ConfigField.Type.NUMBER, DEFAULT_MAX_BYTES, "Largest file read, in bytes"),
+        failureModeField());
   }
 
   @Override
@@ -69,22 +95,37 @@ public final class FileReadPlugin implements ProcessorPlugin {
 
   @Override
   public Mono<Void> validateConfig(final Map<String, Object> config) {
-    return Mono.fromRunnable(() -> FileSandbox.baseDir(config));
+    return Mono.fromRunnable(
+        () -> {
+          FileSandbox.baseDir(config);
+          ConfigValidation.positiveLong(config, "maxBytes", DEFAULT_MAX_BYTES);
+          FailureMode.from(config.get(FAILURE_MODE));
+        });
   }
 
   @Override
   public Flux<Message<?>> process(final Flux<Message<?>> input, final Map<String, Object> config) {
-    return input.concatMap(
-        message ->
-            Mono.fromCallable(
-                    () -> {
-                      final var file = FileSandbox.resolve(config, message.payload());
-                      final String content = Files.readString(file);
-                      return (Message<?>)
-                          message
-                              .withPayload(Map.of("path", file.toString(), "content", content))
-                              .withSourcePort("default");
-                    })
-                .subscribeOn(Schedulers.boundedElastic()));
+    final long maxBytes = ConfigValidation.positiveLong(config, "maxBytes", DEFAULT_MAX_BYTES);
+    return perMessage(
+        input,
+        config,
+        "file_read",
+        message -> {
+          final var file = FileSandbox.resolve(config, message.payload());
+          return message
+              .withPayload(Map.of("path", file.toString(), "content", readBounded(file, maxBytes)))
+              .withSourcePort("default");
+        });
+  }
+
+  /** Reads at most maxBytes + 1 bytes, so a file that grows mid-read still can't exceed the cap. */
+  private static String readBounded(final Path file, final long maxBytes) throws IOException {
+    try (InputStream stream = Files.newInputStream(file)) {
+      final byte[] bytes = stream.readNBytes((int) Math.min(maxBytes + 1, Integer.MAX_VALUE - 8));
+      if (bytes.length > maxBytes) {
+        throw new IllegalArgumentException("file larger than maxBytes (" + maxBytes + "): " + file);
+      }
+      return StandardCharsets.UTF_8.newDecoder().decode(ByteBuffer.wrap(bytes)).toString();
+    }
   }
 }

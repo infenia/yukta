@@ -30,8 +30,8 @@ describe('WorkflowNodeCard', () => {
     const card = screen.getByTestId('workflow-node-data-ingress');
     expect(card).toHaveAttribute('aria-label', 'data-ingress: Done');
     expect(screen.getByTestId('node-icon')).toHaveTextContent('input');
-    expect(card).toHaveTextContent('Status: Done');
-    expect(card).toHaveTextContent('100%');
+    expect(card).toHaveTextContent('Done');
+    expect(card).not.toHaveTextContent('100%');
     expect(card.querySelector('.target')).toBeNull();
     expect(card.querySelector('.source')).not.toBeNull();
   });
@@ -88,7 +88,7 @@ describe('WorkflowNodeCard', () => {
     const card = screen.getByTestId('workflow-node-sink-storage');
     expect(card.querySelectorAll('.source')).toHaveLength(0);
     expect(card.querySelector('.target')).not.toBeNull();
-    expect(screen.getByTestId('node-icon')).toHaveTextContent('save');
+    expect(screen.getByTestId('node-icon')).toHaveTextContent('flag');
   });
 
   it('falls back to a default output handle when a non-terminal has no ports', () => {
@@ -114,23 +114,42 @@ describe('WorkflowNodeCard', () => {
     expect(screen.getByTestId('workflow-node-vectorize-batch')).toHaveTextContent('42%');
   });
 
-  it('shows Processing... while running without a progress metric', () => {
+  it('shows no progress text while running without a progress metric', () => {
     renderCard({
       node: createMockGraphNode({ nodeId: 'p2', category: 'PROCESSOR' }),
       status: 'running',
       task: createMockTask({ status: 'RUNNING', metadata: {} }),
     });
 
-    expect(screen.getByTestId('workflow-node-p2')).toHaveTextContent('Processing...');
+    expect(screen.getByTestId('workflow-node-p2')).not.toHaveTextContent('%');
   });
 
-  it('shows Processing... while running without task data', () => {
+  it('gives a terminal no output handle even if it declares ports', () => {
     renderCard({
-      node: createMockGraphNode({ nodeId: 'p5', category: 'PROCESSOR' }),
-      status: 'running',
+      node: createMockGraphNode({ nodeId: 'sink-2', category: 'TERMINAL', outputPorts: ['default'] }),
+      status: 'pending',
     });
 
-    expect(screen.getByTestId('workflow-node-p5')).toHaveTextContent('Processing...');
+    expect(screen.getByTestId('workflow-node-sink-2').querySelectorAll('.source')).toHaveLength(0);
+  });
+
+  it('uses a plugin-specific icon and shows the plugin name only when the id differs', () => {
+    renderCard({
+      node: createMockGraphNode({ nodeId: 'my-step', type: 'HTTP_REQUEST', category: 'PROCESSOR' }),
+      status: 'pending',
+    });
+
+    expect(screen.getByTestId('node-icon')).toHaveTextContent('http');
+    expect(screen.getByTestId('workflow-node-my-step')).toHaveTextContent('Http Request');
+  });
+
+  it('does not repeat the plugin name for default ids', () => {
+    renderCard({
+      node: createMockGraphNode({ nodeId: 'HTTP_REQUEST-1', type: 'HTTP_REQUEST', category: 'PROCESSOR' }),
+      status: 'pending',
+    });
+
+    expect(screen.getByTestId('workflow-node-HTTP_REQUEST-1')).not.toHaveTextContent('Http Request');
   });
 
   it('renders percent from the percent metadata key', () => {
@@ -151,20 +170,8 @@ describe('WorkflowNodeCard', () => {
     });
 
     expect(screen.getByTestId('node-icon')).toHaveTextContent('error');
-    expect(screen.getByTestId('workflow-node-p4')).toHaveTextContent('Status: Failed');
+    expect(screen.getByTestId('workflow-node-p4')).toHaveTextContent('Failed');
     expect(screen.getByTestId('workflow-node-p4')).toHaveClass('border-error');
-  });
-
-  it('renders the backend details HTML slot when uiDesign is present', () => {
-    renderCard({
-      node: createMockGraphNode({
-        nodeId: 'branch-1',
-        uiDesign: { html: '<b>{{nodeId}}</b>', width: 140, height: 30 },
-      }),
-      status: 'pending',
-    });
-
-    expect(screen.getByTestId('node-details-html')).toHaveTextContent('branch-1');
   });
 
   it('uses a generic icon for nodes with unknown plugin category', () => {
@@ -174,7 +181,7 @@ describe('WorkflowNodeCard', () => {
     });
 
     expect(screen.getByTestId('node-icon')).toHaveTextContent('extension');
-    expect(screen.getByTestId('workflow-node-mystery')).toHaveTextContent('Status: Waiting');
+    expect(screen.getByTestId('workflow-node-mystery')).toHaveTextContent('Waiting');
   });
 
   it('is keyboard focusable', () => {

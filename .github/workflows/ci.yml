@@ -134,8 +134,6 @@ jobs:
               - 'plugins/triggers/api-trigger/**'
             constant-source:
               - 'plugins/triggers/constant-source/**'
-            oneshot-trigger:
-              - 'plugins/triggers/oneshot-trigger/**'
             console-terminal:
               - 'plugins/terminals/console-terminal/**'
             internal-core:
@@ -146,8 +144,12 @@ jobs:
               - 'plugins/processors/http-request/**'
             llm-call:
               - 'plugins/processors/llm-call/**'
+            mcp-tool-call:
+              - 'plugins/processors/mcp-tool-call/**'
             session-memory:
               - 'plugins/processors/session-memory/**'
+            decision:
+              - 'plugins/processors/decision/**'
             script-js:
               - 'plugins/processors/internal/script-js/**'
             rule-supervisor:
@@ -160,6 +162,12 @@ jobs:
               - 'plugins/triggers/schedule-trigger/**'
             notify-terminal:
               - 'plugins/terminals/notify-terminal/**'
+            rule-control-plane:
+              - 'plugins/control-planes/rule-control-plane/**'
+            model-control-plane:
+              - 'plugins/control-planes/model-control-plane/**'
+            rules-first-control-plane:
+              - 'plugins/control-planes/rules-first-control-plane/**'
 
   # ─────────────────────────────────────────────
   # Job 2: Build and quality-gate changed modules.
@@ -315,8 +323,6 @@ jobs:
                 TASKS="$TASKS :plugins:triggers:api-trigger:buildDependents" ;;
               "constant-source")
                 TASKS="$TASKS :plugins:triggers:constant-source:buildDependents" ;;
-              "oneshot-trigger")
-                TASKS="$TASKS :plugins:triggers:oneshot-trigger:buildDependents" ;;
               "console-terminal")
                 TASKS="$TASKS :plugins:terminals:console-terminal:buildDependents" ;;
               "internal-core")
@@ -327,8 +333,12 @@ jobs:
                 TASKS="$TASKS :plugins:processors:http-request:buildDependents" ;;
               "llm-call")
                 TASKS="$TASKS :plugins:processors:llm-call:buildDependents" ;;
+              "mcp-tool-call")
+                TASKS="$TASKS :plugins:processors:mcp-tool-call:buildDependents" ;;
               "session-memory")
                 TASKS="$TASKS :plugins:processors:session-memory:buildDependents" ;;
+              "decision")
+                TASKS="$TASKS :plugins:processors:decision:buildDependents" ;;
               "script-js")
                 TASKS="$TASKS :plugins:processors:internal:script-js:buildDependents" ;;
               "rule-supervisor")
@@ -341,6 +351,12 @@ jobs:
                 TASKS="$TASKS :plugins:triggers:schedule-trigger:buildDependents" ;;
               "notify-terminal")
                 TASKS="$TASKS :plugins:terminals:notify-terminal:buildDependents" ;;
+              "rule-control-plane")
+                TASKS="$TASKS :plugins:control-planes:rule-control-plane:buildDependents" ;;
+              "model-control-plane")
+                TASKS="$TASKS :plugins:control-planes:model-control-plane:buildDependents" ;;
+              "rules-first-control-plane")
+                TASKS="$TASKS :plugins:control-planes:rules-first-control-plane:buildDependents" ;;
               "boot")
                 TASKS="$TASKS :boot:build" ;;
               "cli")

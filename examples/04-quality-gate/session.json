@@ -10,7 +10,7 @@
       "workflowId": "gate",
       "description": "Route to pass or fail based on coverage and lint errors",
       "nodes": [
-        { "nodeId": "trigger", "type": "api-trigger", "config": {} },
+        { "nodeId": "trigger", "type": "API_TRIGGER", "config": {} },
         {
           "nodeId": "decide",
           "type": "BRANCH",

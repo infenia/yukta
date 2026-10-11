@@ -79,6 +79,8 @@ public final class RulesFirstControlPlane implements ControlPlanePlugin {
   public Mono<ControlDecision> decide(final ExecutionEvent event) {
     return rules
         .decide(event)
+        .onErrorResume(_ -> Mono.empty())
+        .defaultIfEmpty(ControlDecision.none(ControlDecision.Source.RULE))
         .flatMap(
             decision -> decision.commands().isEmpty() ? model.decide(event) : Mono.just(decision));
   }

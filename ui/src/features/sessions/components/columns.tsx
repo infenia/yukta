@@ -11,21 +11,17 @@ export const columns: LegacyColumnDef<SessionListItem>[] = [
     accessorKey: 'name',
     header: 'Name',
     cell: ({ row }: any) => (
-      <div className="text-primary dark:text-primary">{row.getValue('name')}</div>
-    ),
-  },
-  {
-    accessorKey: 'sessionId',
-    header: 'Session ID',
-    cell: ({ row }: any) => (
-      <div className="text-body-sm font-mono">{row.getValue('sessionId')}</div>
-    ),
-  },
-  {
-    accessorKey: 'description',
-    header: 'Description',
-    cell: ({ row }: any) => (
-      <div className="max-w-xs truncate">{row.getValue('description')}</div>
+      <div className="min-w-56">
+        <div className="text-label-md text-primary">{row.getValue('name')}</div>
+        <div className="text-code-sm text-on-surface-variant">
+          {row.original.sessionId}
+        </div>
+        {row.original.description && (
+          <div className="text-body-sm text-on-surface-variant mt-0.5 max-w-md truncate">
+            {row.original.description}
+          </div>
+        )}
+      </div>
     ),
   },
   {
@@ -38,11 +34,11 @@ export const columns: LegacyColumnDef<SessionListItem>[] = [
     cell: ({ row }) => {
       const tags = row.getValue('tags') as string[];
       return (
-        <div className="flex flex-row gap-1.5">
+        <div className="flex flex-row flex-wrap gap-1.5">
           {tags.map((tag, index) => (
             <Badge
               key={`${tag}-${index}`}
-              className="bg-secondary-container text-[10px] font-bold tracking-tighter text-on-surface uppercase"
+              className="text-label-sm bg-secondary-container text-on-surface px-2"
             >
               {tag}
             </Badge>
@@ -55,7 +51,9 @@ export const columns: LegacyColumnDef<SessionListItem>[] = [
     accessorKey: 'projectPath',
     header: 'Project Path',
     cell: ({ row }: any) => (
-      <div className="text-body-sm font-mono">{row.getValue('projectPath')}</div>
+      <div className="text-body-sm font-mono">
+        {row.getValue('projectPath')}
+      </div>
     ),
   },
   {

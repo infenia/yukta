@@ -99,7 +99,7 @@ describe('WorkflowDetailsPage', () => {
     expect(screen.getByTestId('logs-panel')).toBeInTheDocument();
 
     await waitFor(() => expect(screen.getByTestId('status-chip')).toHaveTextContent('RUNNING'));
-    expect(screen.getByTestId('workflow-node-data-ingress')).toHaveTextContent('Status: Done');
+    expect(screen.getByTestId('workflow-node-data-ingress')).toHaveTextContent('Done');
   });
 
   it('portals the progress toggle into the header and the run history into the breadcrumb bar', async () => {
@@ -157,7 +157,7 @@ describe('WorkflowDetailsPage', () => {
     expect(screen.getByTestId('status-chip')).toHaveTextContent('NOT RUN');
     expect(screen.getByTestId('run-history-empty')).toBeInTheDocument();
     expect(screen.getByTestId('execution-summary')).toHaveTextContent('NOT RUN');
-    expect(screen.getByTestId('workflow-node-data-ingress')).toHaveTextContent('Status: Waiting');
+    expect(screen.getByTestId('workflow-node-data-ingress')).toHaveTextContent('Waiting');
     expect(screen.getByTestId('logs-body')).toHaveTextContent('No log output.');
     expect(MockEventSource.instances).toHaveLength(0);
   });

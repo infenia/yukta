@@ -25,7 +25,7 @@ export function Modal({
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className="w-full max-w-lg border border-outline-variant bg-surface p-6 shadow-lg"
+        className="w-full max-w-lg rounded-2xl border border-outline-variant bg-surface p-6 shadow-lg"
       >
         <h2 className="mb-4 text-lg font-semibold text-on-surface">{title}</h2>
         {children}

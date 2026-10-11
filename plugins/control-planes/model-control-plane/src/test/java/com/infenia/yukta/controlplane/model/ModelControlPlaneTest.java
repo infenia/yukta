@@ -233,4 +233,39 @@ class ModelControlPlaneTest {
     assertThat(((Question.Choice) spy.asked.get().questions().get("action")).instructions())
         .isEqualTo("Act?");
   }
+
+  @Test
+  void decide_hugeMetadata_stateIsCutBelowTheRequestLimit() {
+    final ChoiceStub stub = choosing("continue", 1);
+    final var event =
+        new ExecutionEvent.NodeStatusChanged(
+            "e1",
+            "wf",
+            "n1",
+            "HTTP_REQUEST",
+            "FAILURE",
+            Map.of("body", "x".repeat(70_000)),
+            Instant.now());
+
+    new ModelControlPlane(stub, defaults()).decide(event).block();
+
+    assertThat(stub.asked.get().state()).hasSize(15_000);
+  }
+
+  @Test
+  void decide_cutMidEmoji_dropsTheHalf() {
+    final ChoiceStub stub = choosing("continue", 1);
+    final String prefix =
+        "Step HTTP_REQUEST changed status to FAILURE. Details reported by the step: body=";
+    final String emoji = new String(Character.toChars(0x1F600));
+    // the high surrogate of the emoji would be the last character kept
+    final String body = "x".repeat(14_999 - prefix.length()) + emoji + "zzzz".repeat(50);
+    final var event =
+        new ExecutionEvent.NodeStatusChanged(
+            "e1", "wf", "n1", "HTTP_REQUEST", "FAILURE", Map.of("body", body), Instant.now());
+
+    new ModelControlPlane(stub, defaults()).decide(event).block();
+
+    assertThat(stub.asked.get().state()).hasSize(14_999).doesNotContain(emoji, "zzzz");
+  }
 }

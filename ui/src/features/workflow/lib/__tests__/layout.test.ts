@@ -43,25 +43,12 @@ describe('layoutGraph', () => {
     expect(pending.data.status).toBe('pending');
   });
 
-  it('sizes nodes from uiDesign with chrome, and defaults otherwise', () => {
+  it('gives every node the default size', () => {
     const { nodes } = layoutGraph(createMockGraph(), {});
-    const withDesign = must(nodes.find((node) => node.id === 'vectorize-batch'));
-    const withoutDesign = must(nodes.find((node) => node.id === 'data-ingress'));
-
-    expect(withDesign.width).toBe(DEFAULT_NODE_WIDTH);
-    expect(withDesign.height).toBe(96);
-    expect(withoutDesign.width).toBe(DEFAULT_NODE_WIDTH);
-    expect(withoutDesign.height).toBe(DEFAULT_NODE_HEIGHT);
-  });
-
-  it('widens nodes whose uiDesign is wider than the default', () => {
-    const graph = createMockGraph();
-    graph.nodes[1] = {
-      ...graph.nodes[1],
-      uiDesign: { html: '<div/>', width: 400, height: 100 },
-    };
-    const { nodes } = layoutGraph(graph, {});
-    expect(must(nodes.find((node) => node.id === 'vectorize-batch')).width).toBe(400);
+    for (const n of nodes) {
+      expect(n.width).toBe(DEFAULT_NODE_WIDTH);
+      expect(n.height).toBe(DEFAULT_NODE_HEIGHT);
+    }
   });
 
   it('wires sourceHandle from the edge sourcePort when the port exists', () => {
@@ -101,13 +88,14 @@ describe('layoutGraph', () => {
     const traversed = must(edges.find(
       (edge) => edge.source === 'data-ingress' && edge.target === 'vectorize-batch'
     ));
-    expect(traversed.style?.stroke).toBe('var(--color-primary)');
+    expect(traversed.style?.stroke).toBe('var(--color-cat-trigger)');
+    expect(traversed.markerEnd).toMatchObject({ color: 'var(--color-cat-trigger)' });
     expect(traversed.animated).toBe(true);
 
     const traversedToPending = must(edges.find(
       (edge) => edge.source === 'data-ingress' && edge.target === 'anomaly-detection'
     ));
-    expect(traversedToPending.style?.stroke).toBe('var(--color-primary)');
+    expect(traversedToPending.style?.stroke).toBe('var(--color-cat-trigger)');
     expect(traversedToPending.animated).toBe(false);
 
     const inactive = must(edges.find((edge) => edge.source === 'vectorize-batch'));

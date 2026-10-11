@@ -6,6 +6,8 @@ import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
 import com.infenia.yukta.plugin.core.ConfigField;
 import com.infenia.yukta.plugin.core.PluginDescriptor;
+import com.infenia.yukta.plugin.core.PluginGuard;
+import com.infenia.yukta.plugin.core.PluginMetricsReporter;
 import com.infenia.yukta.plugin.core.UiDesign;
 import com.infenia.yukta.plugin.exception.WorkflowExecutionException;
 import com.infenia.yukta.plugin.type.ProcessorPlugin;
@@ -19,8 +21,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Stream;
-import lombok.NoArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -35,8 +38,25 @@ import reactor.core.publisher.Mono;
   "PMD.ExceptionAsFlowControl",
   "PMD.CyclomaticComplexity"
 })
-@NoArgsConstructor
-public class SplitterProcessor implements ProcessorPlugin {
+public final class SplitterProcessor implements ProcessorPlugin {
+
+  /** Metrics reporter. */
+  private final PluginMetricsReporter reporter;
+
+  /** Creates the plugin without metrics. */
+  public SplitterProcessor() {
+    this.reporter = PluginMetricsReporter.NOOP;
+  }
+
+  /**
+   * Spring constructor.
+   *
+   * @param reporterProvider optional metrics reporter
+   */
+  @Autowired
+  public SplitterProcessor(final ObjectProvider<PluginMetricsReporter> reporterProvider) {
+    this.reporter = reporterProvider.getIfAvailable(() -> PluginMetricsReporter.NOOP);
+  }
 
   /** Type. */
   private static final String TYPE = "SPLITTER";
@@ -141,6 +161,11 @@ public class SplitterProcessor implements ProcessorPlugin {
 
   @Override
   public Flux<Message<?>> process(final Flux<Message<?>> input, final Map<String, Object> config) {
+    return PluginGuard.counted(doProcess(input, config), reporter, "splitter");
+  }
+
+  private Flux<Message<?>> doProcess(
+      final Flux<Message<?>> input, final Map<String, Object> config) {
     final String path = (String) config.get(CFG_ITEMS);
     final boolean parallel = (Boolean) config.getOrDefault(CFG_PARALLEL, true);
     final int concurrency =

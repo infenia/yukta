@@ -1,30 +1,45 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
+import { Input } from '@/components/ui/input';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { api, fetchApi } from '@/lib/apiClient';
+import { CodeBlock } from '@/components/common/CodeBlock';
+import { PageHeader } from '@/components/layout/PageHeader';
+import { StateMessage } from '@/components/common/StateMessage';
 import { SupervisorsPanel } from './SupervisorsPanel';
 
 const getNodes = (workflowId: string) =>
   fetchApi<string[]>(
-    workflowId ? api`/api/control/workflows/${workflowId}/nodes` : '/api/control/nodes'
+    workflowId
+      ? api`/api/control/workflows/${workflowId}/nodes`
+      : '/api/control/nodes'
   );
 
 const getHeartbeat = (workflowId: string, nodeId: string) =>
-  fetchApi<unknown>(api`/api/control/workflows/${workflowId}/nodes/${nodeId}/heartbeat`);
+  fetchApi<unknown>(
+    api`/api/control/workflows/${workflowId}/nodes/${nodeId}/heartbeat`
+  );
 
-function Heartbeat({ workflowId, nodeId }: { workflowId: string; nodeId: string }) {
+function Heartbeat({
+  workflowId,
+  nodeId,
+}: {
+  workflowId: string;
+  nodeId: string;
+}) {
   const beat = useQuery({
     queryKey: ['control', workflowId, nodeId, 'heartbeat'],
     queryFn: () => getHeartbeat(workflowId, nodeId),
   });
-  if (beat.isPending) return <span className="text-on-surface-variant">Loading…</span>;
+  if (beat.isPending)
+    return <span className="text-on-surface-variant">Loading…</span>;
   if (beat.error) return <span className="text-error">No heartbeat</span>;
   return (
-    <pre className="mt-1 max-h-48 overflow-auto border border-outline-variant bg-surface-container-low p-2 text-xs">
-      {JSON.stringify(beat.data, null, 2)}
-    </pre>
+    <div className="mt-2">
+      <CodeBlock code={JSON.stringify(beat.data, null, 2)} label="heartbeat" />
+    </div>
   );
 }
 
@@ -39,47 +54,56 @@ export function ControlPage() {
   });
 
   return (
-    <div className="flex flex-1 flex-col gap-6 p-6">
+    <div className="flex flex-1 flex-col gap-4 px-4 py-6 sm:px-6">
+      <PageHeader
+        title="Control Bus"
+        description="Nodes registered on the control bus. Filter by workflow id to inspect heartbeats."
+        actions={
+          <Input
+            aria-label="Workflow id"
+            placeholder="Filter by workflow id (enables heartbeats)"
+            value={workflowId}
+            onChange={(event) => {
+              setWorkflowId(event.target.value.trim());
+              setOpened(null);
+            }}
+            className="w-80 max-w-full"
+          />
+        }
+      />
       <SupervisorsPanel />
-      <div className="flex items-center gap-3">
-        <h1 className="text-2xl font-bold text-on-surface">Control Bus</h1>
-        <input
-          aria-label="Workflow id"
-          placeholder="Filter by workflow id (enables heartbeats)"
-          value={workflowId}
-          onChange={(event) => {
-            setWorkflowId(event.target.value.trim());
-            setOpened(null);
-          }}
-          className="ml-auto h-8 w-80 border border-outline-variant bg-surface px-2 text-sm text-on-surface"
-        />
-      </div>
 
       {nodes.error ? (
-        <p role="alert" className="text-error">
-          Failed to load nodes
-        </p>
+        <StateMessage
+          tone="error"
+          title="Failed to load nodes"
+          onRetry={() => void nodes.refetch()}
+        />
       ) : nodes.isPending ? (
         <p className="text-on-surface-variant">Loading…</p>
       ) : nodes.data.length === 0 ? (
-        <p className="text-on-surface-variant">No active nodes.</p>
+        <StateMessage title="No active nodes.">
+          Nodes appear here once a workflow is running.
+        </StateMessage>
       ) : (
-        <ul className="flex flex-col divide-y divide-outline-variant border border-outline-variant">
+        <ul className="divide-outline-variant border-outline-variant flex flex-col divide-y overflow-hidden rounded-xl border">
           {nodes.data.map((node) => (
             <li key={node} className="p-3">
               <div className="flex items-center gap-3">
-                <span className="font-mono text-sm text-on-surface">{node}</span>
+                <span className="text-code-sm text-on-surface">{node}</span>
                 {workflowId && (
                   <button
                     type="button"
                     onClick={() => setOpened(opened === node ? null : node)}
-                    className="ml-auto text-xs font-semibold text-primary"
+                    className="text-label-sm text-primary ml-auto hover:underline"
                   >
                     {opened === node ? 'Hide heartbeat' : 'Heartbeat'}
                   </button>
                 )}
               </div>
-              {workflowId && opened === node && <Heartbeat workflowId={workflowId} nodeId={node} />}
+              {workflowId && opened === node && (
+                <Heartbeat workflowId={workflowId} nodeId={node} />
+              )}
             </li>
           ))}
         </ul>

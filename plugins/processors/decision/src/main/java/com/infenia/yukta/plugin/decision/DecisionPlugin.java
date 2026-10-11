@@ -52,9 +52,6 @@ public abstract class DecisionPlugin implements ProcessorPlugin {
   /** Seconds to wait for the model by default. */
   private static final long DEFAULT_TIMEOUT_SECONDS = 30;
 
-  /** State is cut to this many characters; System One refuses requests above 64 KiB. */
-  private static final int MAX_STATE = 15_000;
-
   /** Shared JSON mapper. */
   private static final JsonMapper JSON = JsonMapper.builder().build();
 
@@ -201,7 +198,7 @@ public abstract class DecisionPlugin implements ProcessorPlugin {
             : SpelUtils.evaluateSync(expression.toString(), message);
     final String text =
         value instanceof final String string ? string : JSON.writeValueAsString(value);
-    return text.length() > MAX_STATE ? text.substring(0, MAX_STATE) : text;
+    return StateText.truncate(text);
   }
 
   /**

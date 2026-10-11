@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
+import { buttonVariants } from '@/components/ui/button';
 import { useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router';
 import { InlineError } from '@/components/common/InlineError';
@@ -98,7 +99,7 @@ export function WorkflowDetailsPage() {
           type="button"
           onClick={() => setPanelOpen((value) => !value)}
           aria-pressed={panelOpen}
-          className="flex h-8 items-center gap-2 border border-outline-variant px-3 text-xs font-semibold tracking-wider text-on-surface transition-colors hover:bg-surface-container"
+          className={buttonVariants({ variant: 'outline' })}
         >
           <span className="material-symbols-outlined text-base">right_panel_open</span>
           WORKFLOW PROGRESS
@@ -120,7 +121,7 @@ export function WorkflowDetailsPage() {
           <>
             <Link
               to={`/sessions/${encodeURIComponent(sessionId)}/workflow/${encodeURIComponent(workflowId)}/edit`}
-              className="flex h-8 items-center gap-1 border border-outline-variant px-3 text-xs font-semibold text-on-surface no-underline hover:bg-surface-container"
+              className={buttonVariants({ variant: 'outline' })}
             >
               <span className="material-symbols-outlined text-base">edit</span>Edit
             </Link>

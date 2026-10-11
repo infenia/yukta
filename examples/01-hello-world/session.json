@@ -10,7 +10,7 @@
       "workflowId": "hello",
       "description": "Echo a greeting",
       "nodes": [
-        { "nodeId": "start", "type": "ONE_SHOT", "config": {} },
+        { "nodeId": "start", "type": "CONSTANT_SOURCE", "config": {} },
         { "nodeId": "greet", "type": "PROCESS_EXECUTOR", "config": { "command": ["echo", "Hello from Yukta!"] } },
         { "nodeId": "end", "type": "CONSOLE_TERMINAL", "config": {} }
       ],

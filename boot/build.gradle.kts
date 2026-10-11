@@ -7,7 +7,7 @@ plugins {
 }
 
 // Optional plugins are chosen with -Pyukta.plugins=all (default), none, or a comma-separated list
-// of: process-executor, http-request, file-io, sql-query, llm-call, session-memory, decision, script-js.
+// of: process-executor, http-request, file-io, sql-query, llm-call, session-memory, mcp-tool-call, decision, script-js.
 val optionalPlugins = mapOf(
     "process-executor" to ":plugins:processors:process-executor",
     "http-request" to ":plugins:processors:http-request",
@@ -16,6 +16,7 @@ val optionalPlugins = mapOf(
     "llm-call" to ":plugins:processors:llm-call",
     "session-memory" to ":plugins:processors:session-memory",
     "decision" to ":plugins:processors:decision",
+    "mcp-tool-call" to ":plugins:processors:mcp-tool-call",
     "script-js" to ":plugins:processors:internal:script-js",
 )
 val requested = providers.gradleProperty("yukta.plugins").getOrElse("all").trim()
@@ -37,7 +38,6 @@ dependencies {
     implementation(project(":plugins:processors:internal:internal-core"))
     implementation(project(":plugins:triggers:api-trigger"))
     implementation(project(":plugins:triggers:constant-source"))
-    implementation(project(":plugins:triggers:oneshot-trigger"))
     implementation(project(":plugins:triggers:schedule-trigger"))
     implementation(project(":plugins:terminals:notify-terminal"))
     implementation(project(":plugins:terminals:console-terminal"))
