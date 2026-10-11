@@ -230,10 +230,11 @@ class HttpRequestPluginTest {
         .isEqualTo(Duration.ofSeconds(35));
   }
 
-  @org.junit.jupiter.api.Test
+  @Test
   void declaresConfigSchema() {
     final var schema = plugin.getConfigSchema();
     org.junit.jupiter.api.Assertions.assertTrue(
-        schema.stream().anyMatch(f -> f.required() && "url".equals(f.name())));
+        schema.stream().anyMatch(f -> f.required() && "url".equals(f.name())),
+        "url must be a required field");
   }
 }

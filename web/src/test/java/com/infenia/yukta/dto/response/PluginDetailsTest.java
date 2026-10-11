@@ -5,6 +5,7 @@ package com.infenia.yukta.dto.response;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.infenia.yukta.plugin.core.ConfigField;
 import com.infenia.yukta.plugin.core.PluginCategory;
 import com.infenia.yukta.plugin.core.UiDesign;
 import java.util.List;
@@ -151,5 +152,25 @@ class PluginDetailsTest {
 
     // Then
     assertThat(actual).contains("PluginDetails").contains(GRADLE);
+  }
+
+  @Test
+  void configSchema_isEmptyWithoutOneAndCopiedWithOne() {
+    final List<ConfigField> schema =
+        List.of(ConfigField.required("url", ConfigField.Type.STRING, "the url"));
+
+    assertThat(
+            new PluginDetails(GRADLE, PluginCategory.PROCESSOR, DESC, USAGE, null, List.of())
+                .configSchema())
+        .isEmpty();
+    assertThat(
+            new PluginDetails(GRADLE, PluginCategory.PROCESSOR, DESC, USAGE, null, List.of(), null)
+                .configSchema())
+        .isEmpty();
+    assertThat(
+            new PluginDetails(
+                    GRADLE, PluginCategory.PROCESSOR, DESC, USAGE, null, List.of(), schema)
+                .configSchema())
+        .containsExactlyElementsOf(schema);
   }
 }
