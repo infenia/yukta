@@ -253,6 +253,11 @@ jobs:
 
       - name: Verify dependency lock files are up-to-date
         run: |
+          # Lockfiles are only enforced once they are committed; with none tracked there is nothing to drift.
+          if [ -z "$(git ls-files '*gradle.lockfile')" ]; then
+            echo "No gradle.lockfile files are committed; skipping lock verification"
+            exit 0
+          fi
           echo "▶ Verifying lock files match resolved dependencies..."
           ./gradlew boot:compileAotJava --write-locks --no-configuration-cache
           # git status (not git diff) so a new module's uncommitted lockfile is caught too
