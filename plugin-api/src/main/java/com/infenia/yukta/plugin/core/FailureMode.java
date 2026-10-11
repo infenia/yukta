@@ -1,19 +1,16 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
-package com.infenia.yukta.plugin.process;
+package com.infenia.yukta.plugin.core;
 
 import java.util.Arrays;
 import java.util.Locale;
 
-/** How the process executor plugin reacts to a failed process (non-zero exit or timeout). */
+/** How a plugin reacts to a failed operation (failed request, non-zero exit, SQL error, ...). */
 @SuppressWarnings("PMD.OnlyOneReturn")
 public enum FailureMode {
-  /** Fail the workflow node with a WorkflowExecutionException (default). */
+  /** Fail the workflow node (default). */
   ERROR,
-  /**
-   * Emit the result message with the real exit code so downstream nodes can route on it (e.g.
-   * {@code payload.exitCode == 0}).
-   */
+  /** Emit a result so downstream nodes can route on it. */
   CONTINUE;
 
   /**

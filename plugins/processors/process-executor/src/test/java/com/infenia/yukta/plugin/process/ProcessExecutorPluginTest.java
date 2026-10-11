@@ -12,9 +12,11 @@ import static org.mockito.Mockito.when;
 
 import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
+import com.infenia.yukta.plugin.core.PluginMetricsReporter;
 import com.infenia.yukta.plugin.exception.WorkflowExecutionException;
 import com.infenia.yukta.util.VariableResolver;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -28,12 +30,15 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.support.StaticListableBeanFactory;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
 @SuppressWarnings({
   "PMD.TooManyMethods",
+  "PMD.ExcessiveImports",
   "PMD.CommentRequired",
   "PMD.TooManyStaticImports",
   "PMD.LinguisticNaming",
@@ -955,5 +960,31 @@ class ProcessExecutorPluginTest {
     assertThat(plugin.getDefaultTimeout(Map.of("timeout", -1))).isEqualTo(Duration.ofSeconds(330));
     assertThat(plugin.getDefaultTimeout(Map.of("timeout", "#{expr}")))
         .isEqualTo(Duration.ofSeconds(330));
+  }
+
+  private static ObjectProvider<PluginMetricsReporter> provider(final List<String> counts) {
+    final StaticListableBeanFactory factory = new StaticListableBeanFactory();
+    factory.addBean(
+        "reporter", (PluginMetricsReporter) (node, metric, tag) -> counts.add(metric + ":" + tag));
+    return factory.getBeanProvider(PluginMetricsReporter.class);
+  }
+
+  @Test
+  void springConstructorReportsMetrics() {
+    final List<String> counts = new ArrayList<>();
+    plugin = new ProcessExecutorPlugin(gateway, resolver, provider(counts));
+    gatewayReturns(successResult("hello"));
+    StepVerifier.create(
+            plugin.process(
+                Flux.just(message("input")), Map.of("command", List.of("echo", "hello"))))
+        .expectNextCount(1)
+        .verifyComplete();
+    assertThat(counts).containsExactly("process:OK");
+    assertThat(
+            new ProcessExecutorPlugin(
+                gateway,
+                resolver,
+                new StaticListableBeanFactory().getBeanProvider(PluginMetricsReporter.class)))
+        .isNotNull();
   }
 }

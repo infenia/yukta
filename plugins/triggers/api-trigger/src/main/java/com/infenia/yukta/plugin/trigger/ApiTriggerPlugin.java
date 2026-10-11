@@ -7,14 +7,12 @@ import com.infenia.yukta.message.Message;
 import com.infenia.yukta.plugin.core.PluginDescriptor;
 import com.infenia.yukta.plugin.core.UiDesign;
 import com.infenia.yukta.plugin.type.TriggerPlugin;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
-import reactor.core.publisher.Mono;
 
 /** A TriggerPlugin that emits the payload received from an API trigger. */
 @Slf4j
@@ -55,25 +53,10 @@ public class ApiTriggerPlugin implements TriggerPlugin {
   }
 
   @Override
-  public List<String> getOutputPorts() {
-    return List.of("default");
-  }
-
-  @Override
-  public Mono<Void> validateConfig(final Map<String, Object> config) {
-    return Mono.empty();
-  }
-
-  @Override
-  public Mono<Void> initialize(final Map<String, Object> config) {
-    return Mono.empty();
-  }
-
-  @Override
   public Flux<Message<?>> start(final Map<String, Object> config) {
     return Flux.deferContextual(
         ctx -> {
-          final Map<String, Object> payload = ctx.get("payload");
+          final Map<String, Object> payload = ctx.getOrDefault("payload", Map.of());
           return Flux.just(
               DefaultMessage.create(UUID.randomUUID(), payload).withSourcePort("default"));
         });

@@ -6,18 +6,24 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
+import com.infenia.yukta.plugin.core.PluginMetricsReporter;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.support.StaticListableBeanFactory;
 import reactor.core.publisher.Flux;
 import reactor.test.StepVerifier;
 
 /** Tests for FileReadPlugin and FileWritePlugin. */
 @NoArgsConstructor
+@SuppressWarnings("PMD.TooManyMethods")
 class FileIoPluginsTest {
 
   /** Test literal content. */
@@ -139,5 +145,55 @@ class FileIoPluginsTest {
     StepVerifier.create(reader.process(messages("text"), Map.of(BASE_DIR, dir.toString())))
         .expectError(IllegalArgumentException.class)
         .verify();
+  }
+
+  @Test
+  void read_overMaxBytesFails() throws Exception {
+    Files.writeString(dir.resolve("big.txt"), "0123456789");
+    final Map<String, Object> config =
+        Map.of(BASE_DIR, dir.toString(), PATH, "big.txt", "maxBytes", 5);
+    StepVerifier.create(reader.process(messages(Map.of()), config))
+        .expectError(IllegalArgumentException.class)
+        .verify();
+    StepVerifier.create(reader.validateConfig(Map.of(BASE_DIR, dir.toString(), "maxBytes", 0)))
+        .expectError(IllegalArgumentException.class)
+        .verify();
+  }
+
+  @Test
+  void read_continueModeRoutesMissingFileToErrorPort() {
+    final Map<String, Object> config =
+        Map.of(BASE_DIR, dir.toString(), PATH, "nope.txt", "failureMode", "CONTINUE");
+    StepVerifier.create(reader.process(messages(Map.of()), config))
+        .assertNext(m -> assertThat(m.sourcePort()).isEqualTo("error"))
+        .verifyComplete();
+    assertThat(reader.getOutputPorts(config)).containsExactly("default", "error");
+    assertThat(reader.isBlocking()).isTrue();
+  }
+
+  private static ObjectProvider<PluginMetricsReporter> provider(final PluginMetricsReporter value) {
+    final StaticListableBeanFactory factory = new StaticListableBeanFactory();
+    factory.addBean("reporter", value);
+    return factory.getBeanProvider(PluginMetricsReporter.class);
+  }
+
+  @Test
+  void springConstructorsReportMetricsForReadAndWrite() throws Exception {
+    final List<String> counts = new ArrayList<>();
+    final var provider = provider((node, metric, tag) -> counts.add(metric + ":" + tag));
+    final Map<String, Object> config = Map.of(BASE_DIR, dir.toString(), PATH, "m.txt");
+    StepVerifier.create(
+            new FileWritePlugin(provider).process(messages(Map.of(CONTENT, "x")), config))
+        .expectNextCount(1)
+        .verifyComplete();
+    StepVerifier.create(new FileReadPlugin(provider).process(messages(Map.of()), config))
+        .expectNextCount(1)
+        .verifyComplete();
+    assertThat(counts).containsExactly("file_write:OK", "file_read:OK");
+    final var empty = new StaticListableBeanFactory().getBeanProvider(PluginMetricsReporter.class);
+    assertThat(new FileReadPlugin(empty).isBlocking()).isTrue();
+    assertThat(new FileWritePlugin(empty).isBlocking()).isTrue();
+    assertThat(writer.getOutputPorts(Map.of())).containsExactly("default");
+    StepVerifier.create(writer.validateConfig(Map.of(BASE_DIR, dir.toString()))).verifyComplete();
   }
 }
