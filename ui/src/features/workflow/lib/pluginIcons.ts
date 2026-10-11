@@ -23,6 +23,7 @@ const PLUGIN_ICONS: Record<string, string> = {
   SESSION_MEMORY: 'memory',
   HTTP_REQUEST: 'http',
   LLM_CALL: 'smart_toy',
+  MCP_TOOL_CALL: 'hub',
   PROCESS_EXECUTOR: 'terminal',
   SQL_QUERY: 'table_chart',
   FILE_READ: 'file_open',
