@@ -208,3 +208,14 @@ first with `./gradlew check`.
 - **Compliance reporting guide**: `.github/COMPLIANCE_REPORTING.md`
 - **Security scanning docs**: `.github/SECURITY_SCANNING.md`
 - **Trivy ignore list**: `.trivyignore`
+
+## Release (`release.yml`)
+
+Pushing a `v*` tag builds the CLI for all platforms (with `SHA256SUMS`), attaches build-provenance
+attestations, and creates a GitHub release. Running it via `workflow_dispatch` is a dry run: nothing
+is published. The container image (GraalVM native compile) is built locally, not in CI.
+
+## CI additions
+
+- `CI Gate` is the single check to require in branch protection.
+- `Lint Workflows` fails if a Gradle module in `settings.gradle.kts` has no path filter in `ci.yml`.
