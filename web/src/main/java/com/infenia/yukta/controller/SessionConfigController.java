@@ -3,19 +3,27 @@
 package com.infenia.yukta.controller;
 
 import com.infenia.yukta.dto.request.ConfigRequest;
+import com.infenia.yukta.dto.request.WorkflowDefinitionRequest;
 import com.infenia.yukta.dto.response.SessionDetails;
 import com.infenia.yukta.dto.response.SessionListItem;
 import com.infenia.yukta.dto.response.WorkflowSummary;
+import com.infenia.yukta.dto.response.WorkflowValidationResult;
+import com.infenia.yukta.mapper.AppConfigMapper;
 import com.infenia.yukta.mapper.SessionMapper;
 import com.infenia.yukta.model.api.ApiResponse;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
+import com.infenia.yukta.plugin.core.Plugin;
 import com.infenia.yukta.service.NotFoundException;
+import com.infenia.yukta.service.orchestrator.validator.WorkflowValidator;
+import com.infenia.yukta.service.plugin.PluginRegistry;
 import com.infenia.yukta.service.session.SessionService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -56,6 +64,15 @@ public class SessionConfigController {
 
   /** The session mapper. */
   private final SessionMapper sessionMapper;
+
+  /** Maps draft workflow requests to the domain model. */
+  private final AppConfigMapper appConfigMapper;
+
+  /** Resolves node types to plugins, for port lookup. */
+  private final PluginRegistry pluginRegistry;
+
+  /** The same validator execution uses. */
+  private final WorkflowValidator workflowValidator;
 
   /**
    * Get one session.
@@ -226,6 +243,39 @@ public class SessionConfigController {
     return sessionService
         .applyConfig(sessionMapper.configRequestToSessionConfigData(request))
         .thenReturn(ApiResponse.success(200, "Configuration applied successfully", null));
+  }
+
+  /**
+   * Dry-run validation of a draft workflow.
+   *
+   * @param request the draft workflow
+   * @return whether it would be accepted, the first problem, and each node's output ports
+   */
+  @PostMapping("/validate")
+  @Operation(
+      summary = "Validate a workflow",
+      description =
+          "Checks a draft workflow with the same rules as execution, without saving it. A"
+              + " failing draft is a 200 with valid=false. Also returns each node's output ports"
+              + " for its configuration, so an editor can offer the right edge ports.")
+  public Mono<ApiResponse<WorkflowValidationResult>> validateWorkflow(
+      @Valid @RequestBody final WorkflowDefinitionRequest request) {
+    final WorkflowDefinition definition = appConfigMapper.toWorkflowDefinition(request);
+    final Map<String, List<String>> ports = new LinkedHashMap<>();
+    definition
+        .nodes()
+        .forEach(
+            node -> {
+              final Plugin plugin = pluginRegistry.get(node.type());
+              if (plugin != null) {
+                ports.put(node.nodeId(), plugin.getOutputPorts(node.config()));
+              }
+            });
+    return workflowValidator
+        .validate(definition)
+        .thenReturn(new WorkflowValidationResult(true, null, ports))
+        .onErrorResume(e -> Mono.just(new WorkflowValidationResult(false, e.getMessage(), ports)))
+        .map(result -> ApiResponse.success(200, "Workflow validated", result));
   }
 
   private static <T> Mono<T> sessionNotFound(final String sessionId) {

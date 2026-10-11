@@ -5,6 +5,7 @@ package com.infenia.yukta.controller;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.when;
 
+import com.infenia.yukta.plugin.core.ConfigField;
 import com.infenia.yukta.plugin.core.Plugin;
 import com.infenia.yukta.plugin.core.PluginCategory;
 import com.infenia.yukta.plugin.core.PluginDescriptor;
@@ -69,6 +70,8 @@ class PluginControllerTest {
         .thenReturn(
             new PluginDescriptor("desc", "pattern", Optional.of(new UiDesign("design", 100, 100))));
     when(plugin.getOutputPorts()).thenReturn(List.of("default"));
+    when(plugin.getConfigSchema())
+        .thenReturn(List.of(ConfigField.required("url", ConfigField.Type.STRING, "the url")));
     when(registry.get(TEST_PLUGIN)).thenReturn(plugin);
 
     final var result =
@@ -85,6 +88,10 @@ class PluginControllerTest {
             .isEqualTo("desc")
             .jsonPath("$.data.uiDesign.html")
             .isEqualTo("design")
+            .jsonPath("$.data.configSchema[0].name")
+            .isEqualTo("url")
+            .jsonPath("$.data.configSchema[0].required")
+            .isEqualTo(true)
             .returnResult();
     assertThat(result.getStatus().value()).isEqualTo(200);
   }

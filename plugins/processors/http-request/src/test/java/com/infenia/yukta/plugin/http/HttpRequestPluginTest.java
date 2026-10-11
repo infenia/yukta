@@ -229,4 +229,11 @@ class HttpRequestPluginTest {
     assertThat(plugin.getDefaultTimeout(Map.of("timeout", "#{expr}")))
         .isEqualTo(Duration.ofSeconds(35));
   }
+
+  @org.junit.jupiter.api.Test
+  void declaresConfigSchema() {
+    final var schema = plugin.getConfigSchema();
+    org.junit.jupiter.api.Assertions.assertTrue(
+        schema.stream().anyMatch(f -> f.required() && "url".equals(f.name())));
+  }
 }

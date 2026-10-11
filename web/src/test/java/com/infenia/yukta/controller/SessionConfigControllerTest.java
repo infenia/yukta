@@ -9,10 +9,14 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.infenia.yukta.exception.GlobalExceptionHandler;
+import com.infenia.yukta.mapper.AppConfigMapper;
 import com.infenia.yukta.mapper.SessionMapper;
 import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
 import com.infenia.yukta.model.session.SessionConfigResponse;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
+import com.infenia.yukta.plugin.core.Plugin;
+import com.infenia.yukta.service.orchestrator.validator.WorkflowValidator;
+import com.infenia.yukta.service.plugin.PluginRegistry;
 import com.infenia.yukta.service.session.SessionService;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -42,6 +46,12 @@ class SessionConfigControllerTest {
   /** The client. */
   private WebTestClient client;
 
+  /** The plugin registry. */
+  private PluginRegistry pluginRegistry;
+
+  /** The workflow validator. */
+  private WorkflowValidator workflowValidator;
+
   private static WorkflowDefinition workflow(final String id) {
     return new WorkflowDefinition(id, "desc", List.of(), List.of());
   }
@@ -54,9 +64,16 @@ class SessionConfigControllerTest {
   @BeforeEach
   void setUp() {
     sessionService = mock(SessionService.class);
+    pluginRegistry = mock(PluginRegistry.class);
+    workflowValidator = mock(WorkflowValidator.class);
     client =
         WebTestClient.bindToController(
-                new SessionConfigController(sessionService, Mappers.getMapper(SessionMapper.class)))
+                new SessionConfigController(
+                    sessionService,
+                    Mappers.getMapper(SessionMapper.class),
+                    Mappers.getMapper(AppConfigMapper.class),
+                    pluginRegistry,
+                    workflowValidator))
             .controllerAdvice(new GlobalExceptionHandler())
             .build();
   }
@@ -235,5 +252,55 @@ class SessionConfigControllerTest {
         .isOk()
         .expectHeader()
         .doesNotExist("X-Next-Cursor");
+  }
+
+  private static final String DRAFT =
+      """
+      {"workflowId":"wf","description":"d",
+       "nodes":[{"nodeId":"n1","type":"BRANCH","config":{}}],"edges":[]}
+      """;
+
+  @Test
+  void testValidateReportsValidAndPorts() {
+    final Plugin plugin = mock(Plugin.class);
+    when(plugin.getOutputPorts(any())).thenReturn(List.of("a", "b"));
+    when(pluginRegistry.get("BRANCH")).thenReturn(plugin);
+    when(workflowValidator.validate(any())).thenReturn(Mono.empty());
+
+    client
+        .post()
+        .uri("/api/sessions/validate")
+        .header("Content-Type", "application/json")
+        .bodyValue(DRAFT)
+        .exchange()
+        .expectStatus()
+        .isOk()
+        .expectBody()
+        .jsonPath("$.data.valid")
+        .isEqualTo(true)
+        .jsonPath("$.data.outputPorts.n1[1]")
+        .isEqualTo("b");
+  }
+
+  @Test
+  void testValidateReturnsTheProblemWithoutFailing() {
+    when(workflowValidator.validate(any()))
+        .thenReturn(Mono.error(new IllegalArgumentException("no trigger")));
+
+    client
+        .post()
+        .uri("/api/sessions/validate")
+        .header("Content-Type", "application/json")
+        .bodyValue(DRAFT)
+        .exchange()
+        .expectStatus()
+        .isOk()
+        .expectBody()
+        .jsonPath("$.data.valid")
+        .isEqualTo(false)
+        .jsonPath("$.data.message")
+        .isEqualTo("no trigger")
+        .jsonPath("$.data.outputPorts.length()")
+        .isEqualTo(0);
   }
 }

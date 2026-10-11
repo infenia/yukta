@@ -4,6 +4,7 @@ package com.infenia.yukta.plugin.llm;
 
 import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
+import com.infenia.yukta.plugin.core.ConfigField;
 import com.infenia.yukta.plugin.core.PluginDescriptor;
 import com.infenia.yukta.plugin.exception.WorkflowExecutionException;
 import com.infenia.yukta.plugin.type.ProcessorPlugin;
@@ -78,6 +79,41 @@ public class LlmCallPlugin implements ProcessorPlugin {
             + "On failure with failureMode CONTINUE the input payload passes through.",
         usagePattern(),
         Optional.empty());
+  }
+
+  @Override
+  public List<ConfigField> getConfigSchema() {
+    return List.of(
+        ConfigField.choice(
+            "provider",
+            true,
+            null,
+            "LLM provider",
+            "openai",
+            "openai-compatible",
+            "anthropic",
+            "ollama"),
+        ConfigField.required("model", ConfigField.Type.STRING, "Model name"),
+        ConfigField.optional("prompt", ConfigField.Type.EXPRESSION, null, "Last user turn"),
+        ConfigField.optional(
+            "messages",
+            ConfigField.Type.LIST,
+            null,
+            "Chat turns [{role, content}] or an expression"),
+        ConfigField.optional("system", ConfigField.Type.EXPRESSION, null, "System prompt"),
+        ConfigField.optional("baseUrl", ConfigField.Type.STRING, null, "Endpoint override"),
+        ConfigField.optional("apiKey", ConfigField.Type.SECRET, null, "API key (decrypted:<key>)"),
+        ConfigField.optional("temperature", ConfigField.Type.NUMBER, null, "Sampling temperature"),
+        ConfigField.optional("maxTokens", ConfigField.Type.NUMBER, null, "Max output tokens"),
+        ConfigField.optional("timeout", ConfigField.Type.NUMBER, 120, "Timeout in seconds"),
+        ConfigField.optional("retries", ConfigField.Type.NUMBER, 0, "Retries with backoff"),
+        ConfigField.choice(
+            "failureMode", false, "ERROR", "What to do on a failed call", "ERROR", "CONTINUE"),
+        ConfigField.optional(
+            "routeByStatus",
+            ConfigField.Type.BOOLEAN,
+            false,
+            "Emit on success/failure ports (needs failureMode CONTINUE)"));
   }
 
   @Override
