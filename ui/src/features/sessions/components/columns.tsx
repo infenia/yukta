@@ -11,7 +11,7 @@ export const columns: LegacyColumnDef<SessionListItem>[] = [
     accessorKey: 'name',
     header: 'Name',
     cell: ({ row }: any) => (
-      <div>
+      <div className="min-w-56">
         <div className="text-label-md text-primary">{row.getValue('name')}</div>
         <div className="text-code-sm text-on-surface-variant">
           {row.original.sessionId}

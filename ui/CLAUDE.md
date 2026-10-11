@@ -60,7 +60,7 @@ Report location: `coverage/index.html` (generated, git-ignored)
 - **TanStack Query 5**: Server state & data fetching
 - **TanStack Table 9**: Headless data table logic
 - **TanStack Virtual**: Windowed rendering of the log panel
-- **shadcn/ui**: Copy-in React component primitives
+- **shadcn/ui**: Copy-in primitives, style `base-lyra`. Re-adding one with `pnpm dlx shadcn@latest add <name> -o` needs three fixes: the `cn` import (`@/lib/utils`), Material Symbols instead of `lucide-react`, and the SPDX header
 - **TypeScript strict mode**: Type safety
 - **Vitest + RTL**: Unit/component testing
 - **Playwright**: E2E browser testing
@@ -90,8 +90,8 @@ Report location: `coverage/index.html` (generated, git-ignored)
 - Server statuses are mapped only in `features/workflow/lib/statusMapper.ts`. `NODE_*` values are node-level, never execution-terminal
 
 ## Design System
-- **Tokens**: `src/index.css` (`@theme`, light and dark modes, Material Design 3 style palette)
-- **Typography**: Geist Variable (`@fontsource-variable/geist`)
+- **Tokens**: `src/index.css`. The shadcn preset `buFywKm` (`base-lyra`, neutral, monochrome) is the source of truth: `:root` / `.dark` hold the shadcn variables (oklch), and the Material-style names (`on-surface`, `surface-container`, `outline-variant`, ...) are aliases in `@theme inline`. Primary is near-black/white, so state is shown by weight, underline and dots rather than a hue; only success, warning and error carry color
+- **Typography**: Inter Variable (`@fontsource-variable/inter`), JetBrains Mono for code
 - **Icons**: Material Symbols Outlined, self-hosted as a subset (`src/assets/material-symbols-subset.woff2`, about 11 KB). After adding an icon name anywhere in `src`, run `pnpm run icons` to regenerate it (needs network). Plugin node HTML may only use icons listed in `PLUGIN_ICONS` in `scripts/subset-icons.mjs`. `lucide-react` is not used
 - **Corners**: Sharp 0px for Tailwind `rounded-*` (`--radius-*` in `@theme`); status dots are the only round shapes
 - **Semantic tokens**: `success`/`warning` for status, `terminal`/`log-*` for the logs panel (never hardcode black or `neutral-*`). Use the named type utilities (`text-headline-md`, `text-body-*`, `text-label-*`, `text-code-sm`); minimum text size is 12px
