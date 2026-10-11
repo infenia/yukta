@@ -33,33 +33,41 @@ export function SessionInfoPanel({ session }: SessionInfoPanelProps) {
   const initials = getInitials(session.initiator);
 
   return (
-    <header className="border-b border-outline-variant bg-surface-container p-8 py-12">
+    <header className="border-outline-variant bg-surface-container border-b p-8 py-12">
       <div className="mx-auto max-w-6xl">
         <div className="mb-6 flex items-start justify-between">
           <div className="space-y-1">
-            <h1 className="text-3xl font-bold tracking-tight text-on-surface">{session.name}</h1>
-            <p className="font-mono text-sm text-on-surface-variant">Session ID: {session.sessionId}</p>
+            <h1 className="text-on-surface text-3xl font-bold tracking-tight">
+              {session.name}
+            </h1>
+            <p className="text-on-surface-variant font-mono text-sm">
+              Session ID: {session.sessionId}
+            </p>
           </div>
         </div>
 
         <div className="grid grid-cols-1 gap-12 md:grid-cols-3">
           <div className="space-y-6 md:col-span-2">
             <div className="mb-4 space-y-1">
-              <h3 className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">
+              <h3 className="text-on-surface-variant text-xs font-bold tracking-widest uppercase">
                 Description
               </h3>
-              <p className="max-w-2xl text-sm leading-relaxed text-on-surface">
+              <p className="text-on-surface max-w-2xl text-sm leading-relaxed">
                 {session.description}
               </p>
             </div>
 
             <div className="space-y-2">
-              <h3 className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">
+              <h3 className="text-on-surface-variant text-xs font-bold tracking-widest uppercase">
                 Tags
               </h3>
               <div className="flex flex-wrap gap-2">
                 {session.tags.map((tag) => (
-                  <Badge key={tag} variant="outline" className="bg-secondary-container text-on-secondary-container text-[11px] font-semibold uppercase">
+                  <Badge
+                    key={tag}
+                    variant="outline"
+                    className="bg-secondary-container text-on-secondary-container text-xs font-semibold uppercase"
+                  >
                     {tag}
                   </Badge>
                 ))}
@@ -67,31 +75,40 @@ export function SessionInfoPanel({ session }: SessionInfoPanelProps) {
             </div>
           </div>
 
-          <div className="space-y-6 bg-surface-container-high p-6">
+          <div className="bg-surface-container-high space-y-6 p-6">
             <div className="space-y-1">
-              <h3 className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">
+              <h3 className="text-on-surface-variant text-xs font-bold tracking-widest uppercase">
                 Initiator
               </h3>
               <div className="flex items-center gap-2">
-                <div className="flex h-6 w-6 items-center justify-center bg-primary-container text-[10px] font-bold text-on-primary-container">
+                <div className="bg-primary-container text-on-primary-container flex h-6 w-6 items-center justify-center text-xs font-bold">
                   {initials}
                 </div>
-                <p className="text-sm font-medium text-on-surface">{session.initiator}</p>
+                <p className="text-on-surface text-sm font-medium">
+                  {session.initiator}
+                </p>
               </div>
             </div>
 
             <div className="space-y-1">
-              <h3 className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">
+              <h3 className="text-on-surface-variant text-xs font-bold tracking-widest uppercase">
                 Project Path
               </h3>
               <button
                 onClick={handleCopyPath}
-                aria-label={copied ? "Project path copied" : "Copy project path"}
-                className="group flex items-center justify-between border border-outline-variant bg-surface p-2 hover:bg-surface-variant"
+                aria-label={
+                  copied ? 'Project path copied' : 'Copy project path'
+                }
+                className="group border-outline-variant bg-surface hover:bg-surface-variant flex items-center justify-between border p-2"
               >
-                <code className="truncate pr-4 text-xs text-on-surface">{session.projectPath}</code>
-                <span className="material-symbols-outlined text-sm transition-colors group-hover:text-primary" aria-hidden="true"
-                  style={{ color: copied ? 'var(--color-primary)' : undefined }}>
+                <code className="text-on-surface truncate pr-4 text-xs">
+                  {session.projectPath}
+                </code>
+                <span
+                  className="material-symbols-outlined group-hover:text-primary text-sm transition-colors"
+                  aria-hidden="true"
+                  style={{ color: copied ? 'var(--color-primary)' : undefined }}
+                >
                   {copied ? 'check' : 'content_copy'}
                 </span>
               </button>

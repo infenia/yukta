@@ -15,12 +15,15 @@ const NAV = [
 
 export default function AppHeader() {
   return (
-    <header className="fixed inset-x-0 top-0 z-50 border-b border-outline-variant bg-surface">
+    <header className="border-outline-variant bg-surface fixed inset-x-0 top-0 z-50 border-b">
       {/* Top row: Logo + page actions + Theme Toggle */}
       <div className="px-spacing-md flex h-12 w-full items-center justify-between pr-2">
         <HeaderLogo />
         <div className="flex items-center">
-          <div id="header-actions" className="mr-2 flex items-center gap-2 empty:mr-0" />
+          <div
+            id="header-actions"
+            className="mr-2 flex items-center gap-2 empty:mr-0"
+          />
           <nav aria-label="Primary" className="mr-2 flex items-center">
             {NAV.map(({ to, label, icon, end }) => (
               <NavLink
@@ -28,10 +31,12 @@ export default function AppHeader() {
                 to={to}
                 end={end}
                 className={({ isActive }) =>
-                  `flex items-center gap-1 px-2 py-1 text-sm text-on-surface no-underline hover:bg-surface-container-low ${isActive ? 'font-semibold' : ''}`
+                  `transition-standard hover:bg-surface-container-low flex items-center gap-1 border-b-2 px-2 py-1 text-sm no-underline ${isActive ? 'border-primary text-primary font-semibold' : 'text-on-surface border-transparent'}`
                 }
               >
-                <span className="material-symbols-outlined text-base">{icon}</span>
+                <span className="material-symbols-outlined text-base">
+                  {icon}
+                </span>
                 {label}
               </NavLink>
             ))}

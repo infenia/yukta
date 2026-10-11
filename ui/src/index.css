@@ -4,6 +4,7 @@
 @import 'tw-animate-css';
 @import 'shadcn/tailwind.css';
 @import '@fontsource-variable/geist';
+@import '@fontsource-variable/jetbrains-mono';
 
 /* Subset of Material Symbols Outlined; regenerate with `pnpm run icons` after adding an icon */
 @font-face {
@@ -49,7 +50,7 @@
   --color-on-primary-fixed: #001d6c;
   --color-inverse-primary: #78a9ff;
   --color-on-primary-container: #161616;
-  --color-outline: #8d8d8d;
+  --color-outline: #6f6f6f;
   --color-on-tertiary-fixed-variant: #044317;
   --color-surface-bright: #ffffff;
   --color-surface-container: #f4f4f4;
@@ -60,7 +61,7 @@
   --color-tertiary: #198038;
   --color-secondary-fixed: #e0e0e0;
   --color-on-error: #ffffff;
-  --color-on-surface-variant: #525252;
+  --color-on-surface-variant: #464646;
   --color-on-secondary-fixed: #161616;
   --color-surface-dim: #e0e0e0;
   --color-on-secondary-fixed-variant: #525252;
@@ -85,9 +86,18 @@
   --color-on-tertiary-fixed: #022d0d;
   --color-on-tertiary: #ffffff;
 
+  /* Semantic status + log tokens (success is green in both themes) */
+  --color-success: #198038;
+  --color-warning: #8e6a00;
+  --color-terminal: #f4f4f4;
+  --color-terminal-fg: #161616;
+  --color-log-debug: #6f6f6f;
+  --color-log-info: #0043ce;
+  --color-log-warn: #8e6a00;
+  --color-log-error: #da1e28;
+
   /* Typography */
-  --font-sans: 'IBM Plex Sans', sans-serif;
-  --font-mono: 'JetBrains Mono', monospace;
+  --font-mono: 'JetBrains Mono Variable', ui-monospace, monospace;
 
   /* Spacing — 4px grid */
   --spacing-xs: 4px;
@@ -159,6 +169,14 @@
   --color-on-primary-fixed: #00174c;
   --color-primary-fixed: #dbe1ff;
   --color-secondary-fixed-dim: #c8c6c6;
+  --color-success: #42be65;
+  --color-warning: #f1c21b;
+  --color-terminal: #0e0e0e;
+  --color-terminal-fg: #e5e2e1;
+  --color-log-debug: #a8a8a8;
+  --color-log-info: #78a9ff;
+  --color-log-warn: #f1c21b;
+  --color-log-error: #ff8389;
 }
 
 /* Named typography utilities */
@@ -232,6 +250,14 @@
   font-weight: 400;
   line-height: 16px;
   letter-spacing: 0px;
+}
+
+@utility transition-standard {
+  transition:
+    color 150ms,
+    background-color 150ms,
+    border-color 150ms,
+    opacity 150ms;
 }
 
 @layer base {

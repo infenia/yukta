@@ -14,13 +14,13 @@ const ROW_HEIGHT = 20;
 function levelClass(level: string | null): string {
   switch (level) {
     case 'WARN':
-      return 'text-amber-400 font-semibold';
+      return 'text-log-warn font-semibold';
     case 'ERROR':
-      return 'text-red-400 font-semibold';
+      return 'text-log-error font-semibold';
     case 'DEBUG':
-      return 'text-neutral-500';
+      return 'text-log-debug';
     default:
-      return 'text-neutral-200';
+      return 'text-terminal-fg';
   }
 }
 
@@ -28,14 +28,37 @@ function formatLine(entry: LogEntry): string {
   return `${formatLogTimestamp(entry.timestamp)} ${entry.level ?? 'INFO'} [${entry.pluginId}] ${entry.message}`;
 }
 
+function LogLine({ entry }: { entry: LogEntry }) {
+  return (
+    <>
+      <span className="text-log-debug">
+        {formatLogTimestamp(entry.timestamp)}
+      </span>{' '}
+      <span className="inline-block w-12 font-semibold">
+        {entry.level ?? 'INFO'}
+      </span>{' '}
+      <span className="text-log-info">[{entry.pluginId}]</span>{' '}
+      <span className={levelClass(entry.level)}>{entry.message}</span>
+    </>
+  );
+}
+
 /**
  * The collapsible EXECUTION LOGS terminal: streamed log lines with level colouring,
  * client-side filtering and toggleable auto-scroll.
  */
-export function LogsPanel({ entries, isStreaming }: { entries: LogEntry[]; isStreaming: boolean }) {
+export function LogsPanel({
+  entries,
+  isStreaming,
+}: {
+  entries: LogEntry[];
+  isStreaming: boolean;
+}) {
   const [collapsed, setCollapsed] = useState(false);
   const [filter, setFilter] = useState('');
   const [autoScroll, setAutoScroll] = useState(true);
+  const [wrap, setWrap] = useState(false);
+  const [copied, setCopied] = useState(false);
   const bodyRef = useRef<HTMLDivElement>(null);
 
   const visibleEntries = useMemo(() => {
@@ -43,16 +66,38 @@ export function LogsPanel({ entries, isStreaming }: { entries: LogEntry[]; isStr
     if (!needle) {
       return entries;
     }
-    return entries.filter((entry) => formatLine(entry).toLowerCase().includes(needle));
+    return entries.filter((entry) =>
+      formatLine(entry).toLowerCase().includes(needle)
+    );
   }, [entries, filter]);
 
   const virtualizer = useVirtualizer({
     count: visibleEntries.length,
     getScrollElement: () => bodyRef.current,
+    measureElement: (el) => el.getBoundingClientRect().height || ROW_HEIGHT,
     estimateSize: () => ROW_HEIGHT,
     overscan: 20,
     initialRect: { width: 0, height: 224 },
   });
+
+  useEffect(() => {
+    virtualizer.measure();
+  }, [wrap, virtualizer]);
+
+  const copyLogs = () => {
+    void navigator.clipboard
+      ?.writeText(visibleEntries.map(formatLine).join('\n'))
+      .then(() => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1500);
+      });
+  };
+
+  const jumpToLatest = () => {
+    setAutoScroll(true);
+    if (bodyRef.current)
+      bodyRef.current.scrollTop = bodyRef.current.scrollHeight;
+  };
 
   useEffect(() => {
     if (autoScroll && !collapsed && bodyRef.current) {
@@ -62,7 +107,7 @@ export function LogsPanel({ entries, isStreaming }: { entries: LogEntry[]; isStr
 
   return (
     <section
-      className="border-t border-outline-variant bg-surface"
+      className="border-outline-variant bg-surface border-t"
       data-testid="logs-panel"
       aria-label="Execution logs"
     >
@@ -70,19 +115,25 @@ export function LogsPanel({ entries, isStreaming }: { entries: LogEntry[]; isStr
         <button
           type="button"
           onClick={() => setCollapsed((value) => !value)}
-          aria-label={collapsed ? 'Expand execution logs' : 'Collapse execution logs'}
+          aria-label={
+            collapsed ? 'Expand execution logs' : 'Collapse execution logs'
+          }
           aria-expanded={!collapsed}
-          className="flex size-6 items-center justify-center text-on-surface-variant transition-colors hover:text-on-surface"
+          className="text-on-surface-variant hover:text-on-surface flex size-6 items-center justify-center transition-colors"
         >
           <span className="material-symbols-outlined text-lg">
             {collapsed ? 'expand_less' : 'expand_more'}
           </span>
         </button>
-        <span className="material-symbols-outlined text-base text-on-surface-variant">terminal</span>
-        <h2 className="text-xs font-semibold tracking-wider text-on-surface">EXECUTION LOGS</h2>
+        <span className="material-symbols-outlined text-on-surface-variant text-base">
+          terminal
+        </span>
+        <h2 className="text-label-sm text-on-surface tracking-wider">
+          EXECUTION LOGS
+        </h2>
         {isStreaming && (
           <span
-            className="border border-primary px-2 py-0.5 text-[10px] font-semibold tracking-wider text-primary"
+            className="border-primary text-label-sm text-primary border px-2 py-0.5 tracking-wider"
             data-testid="streaming-pill"
           >
             STREAMING
@@ -90,7 +141,7 @@ export function LogsPanel({ entries, isStreaming }: { entries: LogEntry[]; isStr
         )}
         <div className="flex w-full flex-col gap-2 sm:ml-auto sm:w-auto sm:flex-row sm:items-center sm:gap-4">
           <div className="relative w-full sm:w-56">
-            <span className="material-symbols-outlined pointer-events-none absolute top-1/2 left-2 -translate-y-1/2 text-sm text-on-surface-variant">
+            <span className="material-symbols-outlined text-on-surface-variant pointer-events-none absolute top-1/2 left-2 -translate-y-1/2 text-sm">
               search
             </span>
             <Input
@@ -101,7 +152,27 @@ export function LogsPanel({ entries, isStreaming }: { entries: LogEntry[]; isStr
               className="h-7 w-full pl-8 text-xs"
             />
           </div>
-          <label className="flex cursor-pointer items-center gap-2 text-[10px] font-semibold tracking-wider text-on-surface-variant">
+          <button
+            type="button"
+            onClick={() => setWrap((value) => !value)}
+            aria-pressed={wrap}
+            className={cn(
+              'text-label-sm transition-standard border px-2 py-1 tracking-wider',
+              wrap
+                ? 'border-primary text-primary'
+                : 'border-outline-variant text-on-surface-variant hover:bg-surface-container-high'
+            )}
+          >
+            WRAP
+          </button>
+          <button
+            type="button"
+            onClick={copyLogs}
+            className="text-label-sm transition-standard border-outline-variant text-on-surface-variant hover:bg-surface-container-high border px-2 py-1 tracking-wider"
+          >
+            {copied ? 'COPIED' : 'COPY'}
+          </button>
+          <label className="text-label-sm text-on-surface-variant flex cursor-pointer items-center gap-2 tracking-wider">
             AUTO-SCROLL
             <button
               type="button"
@@ -111,12 +182,14 @@ export function LogsPanel({ entries, isStreaming }: { entries: LogEntry[]; isStr
               onClick={() => setAutoScroll((value) => !value)}
               className={cn(
                 'h-4 w-8 border transition-colors',
-                autoScroll ? 'border-primary bg-primary' : 'border-outline bg-surface-container'
+                autoScroll
+                  ? 'border-primary bg-primary'
+                  : 'border-outline bg-surface-container'
               )}
             >
               <span
                 className={cn(
-                  'block size-3 bg-surface transition-transform',
+                  'bg-surface block size-3 transition-transform',
                   autoScroll ? 'translate-x-4' : 'translate-x-0.5'
                 )}
               />
@@ -125,25 +198,44 @@ export function LogsPanel({ entries, isStreaming }: { entries: LogEntry[]; isStr
         </div>
       </div>
       {!collapsed && (
-        <div
-          ref={bodyRef}
-          className="h-56 overflow-y-auto bg-black px-4 py-2 font-mono text-xs leading-5"
-          data-testid="logs-body"
-        >
-          {visibleEntries.length === 0 ? (
-            <p className="text-neutral-500">No log output.</p>
-          ) : (
-            <div className="relative" style={{ height: virtualizer.getTotalSize() }}>
-              {virtualizer.getVirtualItems().map((row) => (
-                <p
-                  key={row.key}
-                  className={cn('absolute left-0 w-full whitespace-pre', levelClass(visibleEntries[row.index].level))}
-                  style={{ top: row.start, height: ROW_HEIGHT }}
-                >
-                  {formatLine(visibleEntries[row.index])}
-                </p>
-              ))}
-            </div>
+        <div className="relative">
+          <div
+            ref={bodyRef}
+            className="bg-terminal h-56 overflow-y-auto px-4 py-2 font-mono text-xs leading-5"
+            data-testid="logs-body"
+          >
+            {visibleEntries.length === 0 ? (
+              <p className="text-log-debug">No log output.</p>
+            ) : (
+              <div
+                className="relative"
+                style={{ height: virtualizer.getTotalSize() }}
+              >
+                {virtualizer.getVirtualItems().map((row) => (
+                  <p
+                    key={row.key}
+                    ref={virtualizer.measureElement}
+                    data-index={row.index}
+                    className={cn(
+                      'text-terminal-fg absolute left-0 w-full',
+                      wrap ? 'break-all whitespace-pre-wrap' : 'whitespace-pre'
+                    )}
+                    style={{ top: row.start, minHeight: ROW_HEIGHT }}
+                  >
+                    <LogLine entry={visibleEntries[row.index]} />
+                  </p>
+                ))}
+              </div>
+            )}
+          </div>
+          {!autoScroll && visibleEntries.length > 0 && (
+            <button
+              type="button"
+              onClick={jumpToLatest}
+              className="text-label-sm bg-primary text-on-primary absolute right-4 bottom-3 px-3 py-1"
+            >
+              Jump to latest
+            </button>
           )}
         </div>
       )}

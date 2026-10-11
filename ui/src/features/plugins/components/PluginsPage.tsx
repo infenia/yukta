@@ -4,6 +4,9 @@
 import { useState } from 'react';
 import { useSearchParams } from 'react-router';
 import { cn } from '@/lib/utils';
+import { CodeBlock } from '@/components/common/CodeBlock';
+import { StateMessage } from '@/components/common/StateMessage';
+import { Input } from '@/components/ui/input';
 import type { PluginCategory } from '@/features/workflow/types/workflow';
 import { usePlugin, usePlugins } from '../hooks/usePlugins';
 import { PluginCanvasPreview } from './PluginCanvasPreview';
@@ -18,11 +21,7 @@ function PluginDetail({ type }: { type: string }) {
   const { data: plugin, isPending, error } = usePlugin(type);
   if (isPending) return <p className="text-on-surface-variant">Loading…</p>;
   if (error || !plugin) {
-    return (
-      <p role="alert" className="text-error">
-        Failed to load {type}.
-      </p>
-    );
+    return <StateMessage tone="error" title={`Failed to load ${type}.`} />;
   }
 
   const ports =
@@ -35,29 +34,42 @@ function PluginDetail({ type }: { type: string }) {
   return (
     <article className="flex flex-col gap-4">
       <header>
-        <h2 className="text-xl font-semibold text-on-surface">{plugin.type}</h2>
-        <span className="text-xs tracking-wide text-on-surface-variant uppercase">
+        <h2 className="text-headline-md text-on-surface">{plugin.type}</h2>
+        <span className="text-on-surface-variant text-xs tracking-wide uppercase">
           {plugin.category}
         </span>
       </header>
-      {plugin.description && <p className="text-on-surface">{plugin.description}</p>}
+      {plugin.description && (
+        <p className="text-on-surface">{plugin.description}</p>
+      )}
       <section>
-        <h3 className="mb-1 text-sm font-semibold text-on-surface">Output ports</h3>
-        <p className="text-sm text-on-surface-variant">{ports}</p>
+        <h3 className="text-on-surface mb-1 text-sm font-semibold">
+          Output ports
+        </h3>
+        <p className="text-on-surface-variant text-sm">{ports}</p>
       </section>
       {plugin.configSchema && plugin.configSchema.length > 0 && (
         <section>
-          <h3 className="mb-1 text-sm font-semibold text-on-surface">Configuration</h3>
-          <table className="w-full text-left text-sm">
+          <h3 className="text-on-surface mb-1 text-sm font-semibold">
+            Configuration
+          </h3>
+          <table className="border-outline-variant w-full border text-left text-sm">
             <tbody>
               {plugin.configSchema.map((field) => (
-                <tr key={field.name} className="border-b border-outline-variant align-top">
-                  <td className="py-1 pr-3 font-mono text-xs">
+                <tr
+                  key={field.name}
+                  className="border-outline-variant border-b align-top"
+                >
+                  <td className="text-code-sm px-3 py-2">
                     {field.name}
                     {field.required && <span className="text-error"> *</span>}
                   </td>
-                  <td className="pr-3 text-xs text-on-surface-variant">{field.type}</td>
-                  <td className="text-xs text-on-surface-variant">{field.description}</td>
+                  <td className="text-body-sm text-on-surface-variant pr-3">
+                    {field.type}
+                  </td>
+                  <td className="text-body-sm text-on-surface-variant pr-3">
+                    {field.description}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -66,14 +78,14 @@ function PluginDetail({ type }: { type: string }) {
       )}
       {plugin.usagePattern && (
         <section>
-          <h3 className="mb-1 text-sm font-semibold text-on-surface">Usage</h3>
-          <pre className="overflow-x-auto border border-outline-variant bg-surface-container-low p-3 text-xs whitespace-pre-wrap">
-            {plugin.usagePattern}
-          </pre>
+          <h3 className="text-on-surface mb-1 text-sm font-semibold">Usage</h3>
+          <CodeBlock code={plugin.usagePattern} label="usage" />
         </section>
       )}
       <section>
-        <h3 className="mb-1 text-sm font-semibold text-on-surface">On the canvas</h3>
+        <h3 className="text-on-surface mb-1 text-sm font-semibold">
+          On the canvas
+        </h3>
         <PluginCanvasPreview plugin={plugin} />
       </section>
     </article>
@@ -85,12 +97,13 @@ export function PluginsPage() {
   const [params, setParams] = useSearchParams();
   const [filter, setFilter] = useState('');
 
-  if (isPending) return <p className="p-6 text-on-surface-variant">Loading plugins…</p>;
+  if (isPending)
+    return <p className="text-on-surface-variant p-6">Loading plugins…</p>;
   if (error) {
     return (
-      <p role="alert" className="p-6 text-error">
-        Failed to load plugins.
-      </p>
+      <div className="p-6">
+        <StateMessage tone="error" title="Failed to load plugins." />
+      </div>
     );
   }
 
@@ -99,14 +112,16 @@ export function PluginsPage() {
 
   return (
     <div className="flex flex-col gap-6 p-6 md:flex-row">
-      <nav aria-label="Plugins" className="flex shrink-0 flex-col gap-4 md:w-72">
-        <input
+      <nav
+        aria-label="Plugins"
+        className="flex shrink-0 flex-col gap-4 md:w-72"
+      >
+        <Input
           type="search"
           aria-label="Filter plugins"
           placeholder="Filter plugins"
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
-          className="border border-outline-variant bg-surface px-3 py-2 text-sm text-on-surface"
         />
         {CATEGORIES.map(({ key, label }) => {
           const items = plugins.filter(
@@ -115,7 +130,7 @@ export function PluginsPage() {
           if (items.length === 0) return null;
           return (
             <section key={key}>
-              <h2 className="mb-1 text-xs font-semibold tracking-wide text-on-surface-variant uppercase">
+              <h2 className="text-on-surface-variant mb-1 text-xs font-semibold tracking-wide uppercase">
                 {label}
               </h2>
               <ul>
@@ -126,8 +141,9 @@ export function PluginsPage() {
                       aria-current={p.type === selected}
                       onClick={() => setParams({ type: p.type })}
                       className={cn(
-                        'w-full px-3 py-1.5 text-left text-sm text-on-surface hover:bg-surface-container-low',
-                        p.type === selected && 'bg-surface-container font-semibold'
+                        'text-on-surface hover:bg-surface-container-low w-full px-3 py-1.5 text-left text-sm',
+                        p.type === selected &&
+                          'bg-surface-container font-semibold'
                       )}
                     >
                       {p.type}
@@ -140,7 +156,11 @@ export function PluginsPage() {
         })}
       </nav>
       <div className="min-w-0 flex-1">
-        {selected ? <PluginDetail type={selected} /> : <p>No plugins available.</p>}
+        {selected ? (
+          <PluginDetail type={selected} />
+        ) : (
+          <p>No plugins available.</p>
+        )}
       </div>
     </div>
   );

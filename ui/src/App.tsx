@@ -9,9 +9,9 @@ import { BreadcrumbOverridesProvider } from '@/lib/breadcrumbOverrides';
 export default function App() {
   return (
     <BreadcrumbOverridesProvider>
-      <div className="flex min-h-screen flex-col bg-background text-on-surface">
+      <div className="bg-background text-on-surface flex min-h-screen flex-col">
         <AppHeader />
-        <main className="mt-20 flex flex-1 flex-col">
+        <main className="mx-auto mt-20 flex w-full max-w-7xl flex-1 flex-col">
           <Outlet />
         </main>
         <AppFooter />

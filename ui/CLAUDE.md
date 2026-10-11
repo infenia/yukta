@@ -93,7 +93,9 @@ Report location: `coverage/index.html` (generated, git-ignored)
 - **Tokens**: `src/index.css` (`@theme`, light and dark modes, Material Design 3 style palette)
 - **Typography**: Geist Variable (`@fontsource-variable/geist`)
 - **Icons**: Material Symbols Outlined, self-hosted as a subset (`src/assets/material-symbols-subset.woff2`, about 11 KB). After adding an icon name anywhere in `src`, run `pnpm run icons` to regenerate it (needs network). Plugin node HTML may only use icons listed in `PLUGIN_ICONS` in `scripts/subset-icons.mjs`. `lucide-react` is not used
-- **Corners**: Sharp 0px everywhere (no border-radius)
+- **Corners**: Sharp 0px for Tailwind `rounded-*` (`--radius-*` in `@theme`); status dots are the only round shapes
+- **Semantic tokens**: `success`/`warning` for status, `terminal`/`log-*` for the logs panel (never hardcode black or `neutral-*`). Use the named type utilities (`text-headline-md`, `text-body-*`, `text-label-*`, `text-code-sm`); minimum text size is 12px
+- **Shared pieces**: `PageHeader` (one h1 per page), `StateMessage` (loading/empty/error with retry), `CodeBlock` (mono JSON with copy), `StatusChip` (dot + label)
 - **Bundle budget**: `pnpm run build` fails if a JS chunk is over 300 KB or the icon font over 100 KB (`scripts/check-bundle-size.js`)
 
 ## Development Workflow

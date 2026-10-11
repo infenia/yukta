@@ -7,7 +7,11 @@ import { NodeDetailsHtml } from './NodeDetailsHtml';
 import { toNodeStatusLabel } from '../../lib/statusMapper';
 import { cn } from '@/lib/utils';
 import type { WorkflowFlowNode } from '../../lib/layout';
-import type { NodeUiStatus, PluginCategory, TaskProgress } from '../../types/workflow';
+import type {
+  NodeUiStatus,
+  PluginCategory,
+  TaskProgress,
+} from '../../types/workflow';
 
 const CATEGORY_ICONS: Record<PluginCategory, string> = {
   TRIGGER: 'input',
@@ -24,14 +28,18 @@ const STATUS_ICONS: Partial<Record<NodeUiStatus, string>> = {
 
 const STATUS_CARD_CLASSES: Record<NodeUiStatus, string> = {
   completed: 'border-outline-variant',
-  running: 'border-primary shadow-[0_0_0_1px_var(--color-primary),0_4px_12px_rgba(15,98,254,0.25)]',
+  running:
+    'border-primary shadow-[0_0_0_1px_var(--color-primary),0_4px_12px_rgba(15,98,254,0.25)]',
   pending: 'border-outline-variant opacity-70',
   failed: 'border-error',
   paused: 'border-outline',
   skipped: 'border-outline-variant opacity-50',
 };
 
-function progressDetail(status: NodeUiStatus, task?: TaskProgress): string | null {
+function progressDetail(
+  status: NodeUiStatus,
+  task?: TaskProgress
+): string | null {
   if (status === 'completed') {
     return '100%';
   }
@@ -64,9 +72,11 @@ export function WorkflowNodeCard({ data }: NodeProps<WorkflowFlowNode>) {
   const isTrigger = node.category === 'TRIGGER';
   const isTerminal = node.category === 'TERMINAL';
   const icon =
-    STATUS_ICONS[status] ?? (node.category ? CATEGORY_ICONS[node.category] : 'extension');
+    STATUS_ICONS[status] ??
+    (node.category ? CATEGORY_ICONS[node.category] : 'extension');
   const detail = progressDetail(status, task);
-  const outputPorts = node.outputPorts.length > 0 ? node.outputPorts : isTerminal ? [] : [null];
+  const outputPorts =
+    node.outputPorts.length > 0 ? node.outputPorts : isTerminal ? [] : [null];
 
   return (
     <div
@@ -75,7 +85,7 @@ export function WorkflowNodeCard({ data }: NodeProps<WorkflowFlowNode>) {
       aria-label={`${node.nodeId}: ${toNodeStatusLabel(status)}`}
       data-testid={`workflow-node-${node.nodeId}`}
       className={cn(
-        'flex size-full flex-col border bg-surface outline-none focus-visible:ring-2 focus-visible:ring-primary',
+        'bg-surface focus-visible:ring-primary flex size-full flex-col border outline-none focus-visible:ring-2',
         STATUS_CARD_CLASSES[status]
       )}
     >
@@ -106,7 +116,7 @@ export function WorkflowNodeCard({ data }: NodeProps<WorkflowFlowNode>) {
             data-testid="port-label"
             aria-hidden="true"
             style={{ top: outputHandleTop(index, outputPorts.length) }}
-            className="pointer-events-none absolute right-3 -translate-y-1/2 text-[10px] text-on-surface-variant"
+            className="text-on-surface-variant pointer-events-none absolute right-3 -translate-y-1/2 text-xs"
           >
             {port}
           </span>
@@ -116,14 +126,16 @@ export function WorkflowNodeCard({ data }: NodeProps<WorkflowFlowNode>) {
         <span
           className={cn(
             'material-symbols-outlined text-base',
-            status === 'running' && 'animate-spin text-primary',
+            status === 'running' && 'text-primary animate-spin',
             status === 'failed' && 'text-error'
           )}
           data-testid="node-icon"
         >
           {icon}
         </span>
-        <span className="truncate text-sm font-semibold text-on-surface">{node.nodeId}</span>
+        <span className="text-on-surface truncate text-sm font-semibold">
+          {node.nodeId}
+        </span>
       </div>
 
       {node.uiDesign && (
@@ -134,11 +146,16 @@ export function WorkflowNodeCard({ data }: NodeProps<WorkflowFlowNode>) {
 
       <div className="mt-auto flex items-center justify-between px-3 pt-1 pb-2.5">
         <span
-          className={cn('text-xs text-on-surface-variant', status === 'failed' && 'text-error')}
+          className={cn(
+            'text-on-surface-variant text-xs',
+            status === 'failed' && 'text-error'
+          )}
         >
           Status: {toNodeStatusLabel(status)}
         </span>
-        {detail && <span className="text-xs text-on-surface-variant">{detail}</span>}
+        {detail && (
+          <span className="text-on-surface-variant text-xs">{detail}</span>
+        )}
       </div>
     </div>
   );
