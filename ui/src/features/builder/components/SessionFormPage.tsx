@@ -22,7 +22,7 @@ export function starterSession(fields: Omit<SessionDraft, 'workflows' | 'tags'>)
         workflowId: 'main',
         description: 'Starter workflow',
         nodes: [
-          { nodeId: 'start', type: 'api-trigger', config: {} },
+          { nodeId: 'start', type: 'API_TRIGGER', config: {} },
           { nodeId: 'out', type: 'CONSOLE_TERMINAL', config: {} },
         ],
         edges: [{ source: 'start', target: 'out', sourcePort: null }],

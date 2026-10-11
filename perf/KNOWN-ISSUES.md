@@ -10,8 +10,8 @@ Logged, not fixed. Found 2026-10-11 on `main` at `6070249e`.
 - **Symptom:** `GET /api/executions/{id}` returns `status: RUNNING` and `endTime: null` forever. Every
   upstream node is `SUCCESS`; only the terminal node is `RUNNING`. `/api/workflow/{session}/history` also
   shows the run as `RUNNING`.
-- **Repro:** `POST /api/sessions` with `ONE_SHOT -> CONSOLE_TERMINAL` (config `{}`), `POST /api/workflow/start`,
-  poll the execution for 30 s. Same with `ONE_SHOT -> MAPPER -> CONSOLE_TERMINAL`, with `api-trigger` as the
+- **Repro:** `POST /api/sessions` with `CONSTANT_SOURCE -> CONSOLE_TERMINAL` (config `{}`), `POST /api/workflow/start`,
+  poll the execution for 30 s. Same with `CONSTANT_SOURCE -> MAPPER -> CONSOLE_TERMINAL`, with `API_TRIGGER` as the
   trigger, and with `displayOutput: true`. Profile `prod`, in-memory stores, default limits.
 - **Evidence:** the log has "Starting workflow execution" and "Started tracking" for the run but no
   "Consuming message" line (`ConsoleTerminalPlugin.consume`) and no "Terminal node execution completed
@@ -23,7 +23,7 @@ Logged, not fixed. Found 2026-10-11 on `main` at `6070249e`.
 
 ## 2. Fan-out: one of two children of the same trigger never finishes
 
-- **Symptom:** workflow `ONE_SHOT -> MAPPER a`, `ONE_SHOT -> MAPPER b`, both `-> CONSOLE_TERMINAL`. After
+- **Symptom:** workflow `CONSTANT_SOURCE -> MAPPER a`, `CONSTANT_SOURCE -> MAPPER b`, both `-> CONSOLE_TERMINAL`. After
   3 s node `b` is `SUCCESS` but node `a` stays `RUNNING`, so the run never ends. 0 of 53 runs completed in the
   load test, while single-path chains of the same nodes (including 10 in a row) always complete.
 - **Repro:** `WORKFLOWS=fanout k6 run perf/k6/load.js` (this is not in the default set), or start the

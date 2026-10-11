@@ -3,7 +3,7 @@
 **Use case:** one event must reach several channels at once (Slack, email, pager). `RECIPIENT_LIST` sends a copy to each named port, and the channels run in parallel.
 
 ```
-ONE_SHOT ──► RECIPIENT_LIST (STATIC: slack, email, pager)
+CONSTANT_SOURCE ──► RECIPIENT_LIST (STATIC: slack, email, pager)
                  ├── slack ──► notify ──┐
                  ├── email ──► notify ──┼──► CONSOLE_TERMINAL
                  └── pager ──► notify ──┘

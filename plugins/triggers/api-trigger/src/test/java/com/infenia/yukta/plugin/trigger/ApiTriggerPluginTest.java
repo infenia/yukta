@@ -28,7 +28,7 @@ class ApiTriggerPluginTest {
 
   @Test
   void testGetType() {
-    assertEquals("api-trigger", new ApiTriggerPlugin().getType(), "Test get type");
+    assertEquals("API_TRIGGER", new ApiTriggerPlugin().getType(), "Test get type");
   }
 
   @Test
