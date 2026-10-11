@@ -8,8 +8,14 @@ import { LogsPanel } from '../LogsPanel';
 import { createMockLogEntry } from '@/test/factories/workflowFactory';
 
 const entries = [
-  createMockLogEntry({ message: 'Initializing workflow engine...', level: 'INFO' }),
-  createMockLogEntry({ message: 'High memory pressure detected', level: 'WARN' }),
+  createMockLogEntry({
+    message: 'Initializing workflow engine...',
+    level: 'INFO',
+  }),
+  createMockLogEntry({
+    message: 'High memory pressure detected',
+    level: 'WARN',
+  }),
   createMockLogEntry({ message: 'Connection lost', level: 'ERROR' }),
   createMockLogEntry({ message: 'verbose detail', level: 'DEBUG' }),
   createMockLogEntry({ message: 'no level line', level: null }),
@@ -17,7 +23,9 @@ const entries = [
 
 describe('LogsPanel', () => {
   it('virtualises long logs so only the visible window is in the DOM', () => {
-    const many = Array.from({ length: 2000 }, (_, i) => createMockLogEntry({ message: `line ${i}` }));
+    const many = Array.from({ length: 2000 }, (_, i) =>
+      createMockLogEntry({ message: `line ${i}` })
+    );
     render(<LogsPanel entries={many} isStreaming={false} />);
 
     const rows = screen.getByTestId('logs-body').querySelectorAll('p');
@@ -29,16 +37,26 @@ describe('LogsPanel', () => {
     render(<LogsPanel entries={entries.slice(0, 1)} isStreaming={false} />);
 
     const body = screen.getByTestId('logs-body');
-    expect(body).toHaveTextContent('INFO [vectorize-batch] Initializing workflow engine...');
+    expect(body).toHaveTextContent(
+      'INFO [vectorize-batch] Initializing workflow engine...'
+    );
   });
 
   it('colours WARN and ERROR lines', () => {
     render(<LogsPanel entries={entries} isStreaming={false} />);
 
-    expect(screen.getByText(/High memory pressure/).className).toContain('text-amber-400');
-    expect(screen.getByText(/Connection lost/).className).toContain('text-red-400');
-    expect(screen.getByText(/verbose detail/).className).toContain('text-neutral-500');
-    expect(screen.getByText(/no level line/).className).toContain('text-neutral-200');
+    expect(screen.getByText(/High memory pressure/).className).toContain(
+      'text-log-warn'
+    );
+    expect(screen.getByText(/Connection lost/).className).toContain(
+      'text-log-error'
+    );
+    expect(screen.getByText(/verbose detail/).className).toContain(
+      'text-log-debug'
+    );
+    expect(screen.getByText(/no level line/).className).toContain(
+      'text-terminal-fg'
+    );
   });
 
   it('shows the STREAMING pill only while streaming', () => {
@@ -72,10 +90,14 @@ describe('LogsPanel', () => {
     const user = userEvent.setup();
     render(<LogsPanel entries={entries} isStreaming={false} />);
 
-    await user.click(screen.getByRole('button', { name: /collapse execution logs/i }));
+    await user.click(
+      screen.getByRole('button', { name: /collapse execution logs/i })
+    );
     expect(screen.queryByTestId('logs-body')).toBeNull();
 
-    await user.click(screen.getByRole('button', { name: /expand execution logs/i }));
+    await user.click(
+      screen.getByRole('button', { name: /expand execution logs/i })
+    );
     expect(screen.getByTestId('logs-body')).toBeInTheDocument();
   });
 

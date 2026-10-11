@@ -20,14 +20,15 @@ class FileIoConfigSchemaTest {
   @Test
   void readNeedsBaseDirectory() {
     final var schema = new FileReadPlugin().getConfigSchema();
-    assertThat(names(schema)).containsExactly("baseDir", "path");
+    assertThat(names(schema)).containsExactly("baseDir", "path", "maxBytes", "failureMode");
     assertThat(schema.getFirst().required()).isTrue();
   }
 
   @Test
   void writeAddsContentFieldAndAppend() {
     final var schema = new FileWritePlugin().getConfigSchema();
-    assertThat(names(schema)).containsExactly("baseDir", "path", "contentField", "append");
+    assertThat(names(schema))
+        .containsExactly("baseDir", "path", "contentField", "append", "failureMode");
     assertThat(schema.getFirst().required()).isTrue();
   }
 }

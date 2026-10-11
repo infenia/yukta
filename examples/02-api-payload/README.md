@@ -3,7 +3,7 @@
 **Use case:** another system (a script, a CI job, a service) starts a workflow and passes its own data in the request. The workflow maps that data into a result.
 
 ```
-api-trigger ──► MAPPER (PROJECTION) ──► CONSOLE_TERMINAL
+API_TRIGGER ──► MAPPER (PROJECTION) ──► CONSOLE_TERMINAL
 ```
 
 **Trigger**

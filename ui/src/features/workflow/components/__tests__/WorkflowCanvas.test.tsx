@@ -25,10 +25,10 @@ describe('WorkflowCanvas', () => {
   it('reflects task statuses on the node placeholders', () => {
     render(<WorkflowCanvas graph={createMockGraph()} tasksByNode={tasksByNode()} />);
 
-    expect(screen.getByTestId('workflow-node-data-ingress')).toHaveTextContent('Status: Done');
+    expect(screen.getByTestId('workflow-node-data-ingress')).toHaveTextContent('Done');
     expect(screen.getByTestId('workflow-node-vectorize-batch')).toHaveTextContent(
-      'Status: Active'
+      'Active'
     );
-    expect(screen.getByTestId('workflow-node-sink-storage')).toHaveTextContent('Status: Waiting');
+    expect(screen.getByTestId('workflow-node-sink-storage')).toHaveTextContent('Waiting');
   });
 });

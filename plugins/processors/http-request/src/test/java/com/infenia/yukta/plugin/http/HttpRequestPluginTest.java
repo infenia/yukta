@@ -9,9 +9,11 @@ import static org.mockito.Mockito.when;
 
 import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
+import com.infenia.yukta.plugin.core.PluginMetricsReporter;
 import com.infenia.yukta.plugin.exception.WorkflowExecutionException;
 import com.infenia.yukta.util.VariableResolver;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -19,6 +21,8 @@ import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.support.StaticListableBeanFactory;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
@@ -236,5 +240,27 @@ class HttpRequestPluginTest {
     org.junit.jupiter.api.Assertions.assertTrue(
         schema.stream().anyMatch(f -> f.required() && "url".equals(f.name())),
         "url must be a required field");
+  }
+
+  private static ObjectProvider<PluginMetricsReporter> provider(final List<String> counts) {
+    final StaticListableBeanFactory factory = new StaticListableBeanFactory();
+    factory.addBean(
+        "reporter", (PluginMetricsReporter) (node, metric, tag) -> counts.add(metric + ":" + tag));
+    return factory.getBeanProvider(PluginMetricsReporter.class);
+  }
+
+  @Test
+  void springConstructorReportsMetrics() {
+    final List<String> counts = new ArrayList<>();
+    plugin = new HttpRequestPlugin(gateway, resolver, provider(counts));
+    when(gateway.execute(any())).thenReturn(Mono.just(okResult("{}", true)));
+    StepVerifier.create(run(Map.of("url", "http://x/y"))).expectNextCount(1).verifyComplete();
+    assertThat(counts).containsExactly("http:OK");
+    assertThat(
+            new HttpRequestPlugin(
+                gateway,
+                resolver,
+                new StaticListableBeanFactory().getBeanProvider(PluginMetricsReporter.class)))
+        .isNotNull();
   }
 }

@@ -25,7 +25,7 @@ describe('BreadcrumbNav', () => {
 
     it('should render navigation div', () => {
       const { container } = renderWithRouter(<BreadcrumbNav />);
-      const nav = container.querySelector('.flex.h-8');
+      const nav = container.querySelector('.flex.h-10');
       expect(nav).toBeInTheDocument();
     });
 
@@ -122,13 +122,13 @@ describe('BreadcrumbNav', () => {
 
     it('should have correct container styling', () => {
       const { container } = renderWithRouter(<BreadcrumbNav />);
-      const nav = container.querySelector('.flex.h-8');
+      const nav = container.querySelector('.flex.h-10');
       expect(nav).toHaveClass('px-spacing-md', 'w-full', 'items-center');
     });
 
     it('should have correct background styling', () => {
       const { container } = renderWithRouter(<BreadcrumbNav />);
-      const nav = container.querySelector('.flex.h-8');
+      const nav = container.querySelector('.flex.h-10');
       expect(nav).toHaveClass('border-t', 'border-outline-variant', 'bg-surface-container-low');
     });
 
@@ -141,7 +141,7 @@ describe('BreadcrumbNav', () => {
     it('should render text with correct size', () => {
       renderWithRouter(<BreadcrumbNav />);
       const item = screen.getByText('Sessions').closest('span');
-      expect(item).toHaveClass('text-xs');
+      expect(item).toHaveClass('text-body-sm');
     });
   });
 

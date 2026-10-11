@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.plugin.process;
 
+import com.infenia.yukta.plugin.core.FailureMode;
 import java.util.List;
 import java.util.Map;
 

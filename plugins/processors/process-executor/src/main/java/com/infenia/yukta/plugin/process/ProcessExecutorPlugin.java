@@ -5,11 +5,15 @@ package com.infenia.yukta.plugin.process;
 import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
 import com.infenia.yukta.plugin.core.ConfigField;
+import com.infenia.yukta.plugin.core.FailureMode;
 import com.infenia.yukta.plugin.core.PluginDescriptor;
+import com.infenia.yukta.plugin.core.PluginGuard;
+import com.infenia.yukta.plugin.core.PluginMetricsReporter;
 import com.infenia.yukta.plugin.exception.WorkflowExecutionException;
 import com.infenia.yukta.plugin.type.ProcessorPlugin;
 import com.infenia.yukta.util.MapUtils;
 import com.infenia.yukta.util.VariableResolver;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -17,8 +21,9 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -44,10 +49,10 @@ import tools.jackson.databind.ObjectMapper;
   "PMD.InsufficientStringBufferDeclaration",
   "PMD.ExceptionAsFlowControl"
 })
+@SuppressFBWarnings(value = "EI_EXPOSE_REP2", justification = "injected collaborator")
 @Slf4j
 @Component
-@RequiredArgsConstructor
-public class ProcessExecutorPlugin implements ProcessorPlugin {
+public final class ProcessExecutorPlugin implements ProcessorPlugin {
 
   /** Extra time the node gets beyond the process timeout, in seconds. */
   private static final long MARGIN_SECONDS = 5L;
@@ -77,6 +82,37 @@ public class ProcessExecutorPlugin implements ProcessorPlugin {
 
   private final ProcessExecutorGateway gateway;
   private final VariableResolver resolver;
+  private final PluginMetricsReporter reporter;
+
+  /**
+   * Creates the plugin without metrics.
+   *
+   * @param gateway the gateway
+   * @param resolver resolves config expressions
+   */
+  public ProcessExecutorPlugin(
+      final ProcessExecutorGateway gateway, final VariableResolver resolver) {
+    this.gateway = gateway;
+    this.resolver = resolver;
+    this.reporter = PluginMetricsReporter.NOOP;
+  }
+
+  /**
+   * Spring constructor.
+   *
+   * @param gateway the gateway
+   * @param resolver resolves config expressions
+   * @param reporterProvider optional metrics reporter
+   */
+  @Autowired
+  public ProcessExecutorPlugin(
+      final ProcessExecutorGateway gateway,
+      final VariableResolver resolver,
+      final ObjectProvider<PluginMetricsReporter> reporterProvider) {
+    this.gateway = gateway;
+    this.resolver = resolver;
+    this.reporter = reporterProvider.getIfAvailable(() -> PluginMetricsReporter.NOOP);
+  }
 
   @Override
   public PluginDescriptor describe() {
@@ -218,7 +254,8 @@ public class ProcessExecutorPlugin implements ProcessorPlugin {
   @Override
   public Flux<Message<?>> process(final Flux<Message<?>> input, final Map<String, Object> config) {
     log.atDebug().log("Process executor starting: processing input stream");
-    return input.flatMapSequential(message -> executeProcess(message, config));
+    return PluginGuard.counted(
+        input.flatMapSequential(message -> executeProcess(message, config)), reporter, "process");
   }
 
   private Flux<Message<?>> executeProcess(

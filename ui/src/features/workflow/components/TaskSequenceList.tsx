@@ -6,7 +6,11 @@ import { toNodeUiStatus, toTaskSequenceLabel } from '../lib/statusMapper';
 import { formatClockTime, formatDuration } from '../lib/timeFormat';
 import { cn } from '@/lib/utils';
 import { NodeControlsMenu, type NodeCommand } from './NodeControlsMenu';
-import type { NodeUiStatus, TaskProgress, WorkflowGraph } from '../types/workflow';
+import type {
+  NodeUiStatus,
+  TaskProgress,
+  WorkflowGraph,
+} from '../types/workflow';
 
 /** How often the running-duration display refreshes between SSE updates. */
 const DURATION_REFRESH_MS = 1000;
@@ -21,7 +25,7 @@ const STATUS_ICONS: Record<NodeUiStatus, string> = {
 };
 
 const LABEL_CLASSES: Record<NodeUiStatus, string> = {
-  completed: 'text-tertiary',
+  completed: 'text-success',
   running: 'text-primary',
   pending: 'text-on-surface-variant',
   failed: 'text-error',
@@ -29,20 +33,26 @@ const LABEL_CLASSES: Record<NodeUiStatus, string> = {
   skipped: 'text-on-surface-variant',
 };
 
-function TimingLine({ task, status }: { task: TaskProgress; status: NodeUiStatus }) {
+function TimingLine({
+  task,
+  status,
+}: {
+  task: TaskProgress;
+  status: NodeUiStatus;
+}) {
   if (!task.startTime) {
     return null;
   }
   if (status === 'running') {
     return (
-      <p className="font-mono text-[11px] text-on-surface-variant">
+      <p className="text-on-surface-variant font-mono text-xs">
         Start: {formatClockTime(task.startTime)}
         {'  '}Dur: {formatDuration(task.startTime, new Date().toISOString())}
       </p>
     );
   }
   return (
-    <p className="font-mono text-[11px] text-on-surface-variant">
+    <p className="text-on-surface-variant font-mono text-xs">
       Start: {formatClockTime(task.startTime)}
       {'  '}End: {formatClockTime(task.endTime)}
     </p>
@@ -60,29 +70,45 @@ function TaskSequenceItem({
   const dimmed = status === 'pending' || status === 'skipped';
   return (
     <li
-      className={cn('border-l-2 py-2 pl-4', dimmed ? 'border-outline-variant opacity-60' : 'border-primary')}
+      className={cn(
+        'border-l-2 py-2 pl-4',
+        dimmed ? 'border-outline-variant opacity-60' : 'border-primary'
+      )}
       data-testid={`task-item-${task.nodeId}`}
     >
       <div className="flex items-center gap-2">
         <span
           className={cn(
             'material-symbols-outlined text-base',
-            status === 'running' && 'animate-spin text-primary',
-            status === 'completed' && 'text-tertiary',
+            status === 'running' && 'text-primary animate-spin',
+            status === 'completed' && 'text-success',
             status === 'failed' && 'text-error'
           )}
         >
           {STATUS_ICONS[status]}
         </span>
-        <span className="text-sm font-semibold text-on-surface">{task.nodeId}</span>
-        <span className={cn('ml-auto text-[11px] font-semibold tracking-wider', LABEL_CLASSES[status])}>
+        <span className="text-on-surface text-sm font-semibold">
+          {task.nodeId}
+        </span>
+        <span
+          className={cn(
+            'ml-auto text-xs font-semibold tracking-wider',
+            LABEL_CLASSES[status]
+          )}
+        >
           {toTaskSequenceLabel(status)}
         </span>
         {onNodeCommand && (
-          <NodeControlsMenu nodeId={task.nodeId} status={status} onCommand={onNodeCommand} />
+          <NodeControlsMenu
+            nodeId={task.nodeId}
+            status={status}
+            onCommand={onNodeCommand}
+          />
         )}
       </div>
-      <p className="pl-6 text-xs text-on-surface-variant">module: {task.module}</p>
+      <p className="text-on-surface-variant pl-6 text-xs">
+        module: {task.module}
+      </p>
       <div className="pl-6">
         <TimingLine task={task} status={status} />
       </div>
@@ -111,14 +137,17 @@ export function TaskSequenceList({
     (nodeId) =>
       tasksByNode[nodeId] ?? {
         nodeId,
-        module: graph.nodes.find((node) => node.nodeId === nodeId)?.type ?? 'unknown',
+        module:
+          graph.nodes.find((node) => node.nodeId === nodeId)?.type ?? 'unknown',
         status: 'PENDING',
         startTime: null,
         endTime: null,
       }
   );
 
-  const hasRunningTask = tasks.some((task) => toNodeUiStatus(task.status) === 'running');
+  const hasRunningTask = tasks.some(
+    (task) => toNodeUiStatus(task.status) === 'running'
+  );
 
   // Re-render on a fixed interval so running durations keep advancing between SSE updates;
   // the interval only exists while a task is actually running.
@@ -127,16 +156,25 @@ export function TaskSequenceList({
     if (!hasRunningTask) {
       return undefined;
     }
-    const id = setInterval(() => setTick((value) => value + 1), DURATION_REFRESH_MS);
+    const id = setInterval(
+      () => setTick((value) => value + 1),
+      DURATION_REFRESH_MS
+    );
     return () => clearInterval(id);
   }, [hasRunningTask]);
 
   return (
     <div data-testid="task-sequence">
-      <h3 className="mb-2 text-xs font-semibold tracking-wider text-on-surface">TASK SEQUENCE</h3>
+      <h3 className="text-on-surface mb-2 text-xs font-semibold tracking-wider">
+        TASK SEQUENCE
+      </h3>
       <ul className="flex flex-col">
         {tasks.map((task) => (
-          <TaskSequenceItem key={task.nodeId} task={task} onNodeCommand={onNodeCommand} />
+          <TaskSequenceItem
+            key={task.nodeId}
+            task={task}
+            onNodeCommand={onNodeCommand}
+          />
         ))}
       </ul>
     </div>

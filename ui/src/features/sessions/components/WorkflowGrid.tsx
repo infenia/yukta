@@ -19,12 +19,12 @@ export function WorkflowGrid({ sessionId, workflows, filter, onFilterChange }: W
   );
 
   return (
-    <section className="mx-auto mt-12 max-w-6xl px-8 pb-12">
+    <section className="px-4 py-6 sm:px-6">
       <div className="mb-6 flex items-center justify-between">
-        <h2 className="text-xl font-bold text-on-surface">
+        <h2 className="text-headline-md text-on-surface">
           Associated Workflows ({workflows.length})
         </h2>
-        <div className="flex items-center gap-2 border border-outline-variant bg-surface-container px-3 py-1.5">
+        <div className="flex items-center gap-2 rounded-lg border border-outline-variant bg-surface-container px-3 py-1.5">
           <span className="material-symbols-outlined text-sm text-on-surface-variant" aria-hidden="true">
             search
           </span>
@@ -33,19 +33,19 @@ export function WorkflowGrid({ sessionId, workflows, filter, onFilterChange }: W
             placeholder="Filter workflows..."
             value={filter}
             onChange={(e) => onFilterChange(e.target.value)}
-            className="border-none bg-transparent p-0 text-xs focus:ring-0"
+            className="text-body-md border-none bg-transparent p-0 outline-none focus:ring-0"
           />
         </div>
       </div>
 
       {filteredWorkflows.length === 0 ? (
-        <div className="border border-outline-variant bg-surface-container py-12 text-center">
+        <div className="rounded-xl border border-outline-variant bg-surface-container py-12 text-center">
           <p className="text-body-md text-on-surface-variant">
             {workflows.length === 0 ? 'No workflows' : 'No workflows match your filter'}
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-px border border-outline-variant bg-outline-variant md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(18rem,1fr))] gap-px overflow-hidden rounded-xl border border-outline-variant bg-outline-variant">
           {filteredWorkflows.map((workflow) => (
             <WorkflowCard
               key={workflow.workflowId}

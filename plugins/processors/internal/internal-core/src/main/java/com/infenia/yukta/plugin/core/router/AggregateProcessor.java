@@ -6,6 +6,8 @@ import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
 import com.infenia.yukta.plugin.core.ConfigField;
 import com.infenia.yukta.plugin.core.PluginDescriptor;
+import com.infenia.yukta.plugin.core.PluginGuard;
+import com.infenia.yukta.plugin.core.PluginMetricsReporter;
 import com.infenia.yukta.plugin.core.UiDesign;
 import com.infenia.yukta.plugin.type.ProcessorPlugin;
 import java.time.Duration;
@@ -13,7 +15,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
-import lombok.NoArgsConstructor;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -21,8 +24,25 @@ import reactor.core.publisher.Mono;
 /** Collects messages into batches and emits one message {@code {items:[...], count:n}} each. */
 @Component
 @SuppressWarnings("PMD.AvoidFieldNameMatchingMethodName")
-@NoArgsConstructor
 public final class AggregateProcessor implements ProcessorPlugin {
+
+  /** Metrics reporter. */
+  private final PluginMetricsReporter reporter;
+
+  /** Creates the plugin without metrics. */
+  public AggregateProcessor() {
+    this.reporter = PluginMetricsReporter.NOOP;
+  }
+
+  /**
+   * Spring constructor.
+   *
+   * @param reporterProvider optional metrics reporter
+   */
+  @Autowired
+  public AggregateProcessor(final ObjectProvider<PluginMetricsReporter> reporterProvider) {
+    this.reporter = reporterProvider.getIfAvailable(() -> PluginMetricsReporter.NOOP);
+  }
 
   /** Size. */
   private static final String SIZE = "size";
@@ -78,6 +98,11 @@ public final class AggregateProcessor implements ProcessorPlugin {
 
   @Override
   public Flux<Message<?>> process(final Flux<Message<?>> input, final Map<String, Object> config) {
+    return PluginGuard.counted(doProcess(input, config), reporter, "aggregate");
+  }
+
+  private Flux<Message<?>> doProcess(
+      final Flux<Message<?>> input, final Map<String, Object> config) {
     final int size = size(config);
     final Flux<List<Message<?>>> batches =
         config.get(TIMEOUT_MS) instanceof Number millis && millis.longValue() > 0

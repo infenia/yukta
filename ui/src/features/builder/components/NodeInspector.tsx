@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
+import { CodeBlock } from '@/components/common/CodeBlock';
 import type { ConfigField } from '@/features/plugins/types';
 import { usePlugin } from '@/features/plugins/hooks/usePlugins';
 import type { DraftNode } from '../types';
@@ -14,7 +15,8 @@ export const ENGINE_FIELDS: ConfigField[] = [
     required: false,
     defaultValue: 'FAIL',
     options: ['FAIL', 'CONTINUE', 'ROUTE'],
-    description: 'What a failing message does (processors). ROUTE sends it to the error port.',
+    description:
+      'What a failing message does (processors). ROUTE sends it to the error port.',
   },
   {
     name: 'trigger',
@@ -30,7 +32,8 @@ export const ENGINE_FIELDS: ConfigField[] = [
     required: false,
     defaultValue: null,
     options: [],
-    description: '{"maxAttempts": 3, "backoffMs": 200, "maxBackoffMs": 5000} (processors).',
+    description:
+      '{"maxAttempts": 3, "backoffMs": 200, "maxBackoffMs": 5000} (processors).',
   },
   {
     name: 'elementTimeoutMs',
@@ -54,7 +57,8 @@ export const ENGINE_FIELDS: ConfigField[] = [
     required: false,
     defaultValue: null,
     options: [],
-    description: '{"maxFailures": 10, "windowMs": 60000}; needs onError CONTINUE or ROUTE.',
+    description:
+      '{"maxFailures": 10, "windowMs": 60000}; needs onError CONTINUE or ROUTE.',
   },
 ];
 
@@ -75,16 +79,24 @@ export function NodeInspector({
   const engineValues = (engine ?? {}) as Config;
 
   const join = (nextPlugin: Config, nextEngine: Config): Config =>
-    Object.keys(nextEngine).length > 0 ? { ...nextPlugin, engine: nextEngine } : nextPlugin;
+    Object.keys(nextEngine).length > 0
+      ? { ...nextPlugin, engine: nextEngine }
+      : nextPlugin;
 
   const schema = plugin.data?.configSchema ?? [];
 
   return (
     <section className="flex flex-col gap-4" aria-label={`Node ${node.nodeId}`}>
       <header className="flex items-center gap-2">
-        <h2 className="text-lg font-semibold text-on-surface">{node.nodeId}</h2>
-        <span className="font-mono text-xs text-on-surface-variant">{node.type}</span>
-        <button type="button" onClick={onRemove} className="ml-auto text-xs font-semibold text-error">
+        <h2 className="text-on-surface text-lg font-semibold">{node.nodeId}</h2>
+        <span className="text-on-surface-variant font-mono text-xs">
+          {node.type}
+        </span>
+        <button
+          type="button"
+          onClick={onRemove}
+          className="text-error ml-auto text-xs font-semibold"
+        >
           Remove node
         </button>
       </header>
@@ -99,26 +111,35 @@ export function NodeInspector({
         />
       ) : (
         <div className="flex flex-col gap-1">
-          <label htmlFor="cfg-json" className="text-xs font-semibold text-on-surface">
+          <label
+            htmlFor="cfg-json"
+            className="text-on-surface text-xs font-semibold"
+          >
             Configuration (JSON)
           </label>
           <JsonField
             key={node.nodeId}
             id="cfg-json"
-            value={Object.keys(pluginConfig).length > 0 ? pluginConfig : undefined}
-            onChange={(next) => onChange(join((next ?? {}) as Config, engineValues))}
+            value={
+              Object.keys(pluginConfig).length > 0 ? pluginConfig : undefined
+            }
+            onChange={(next) =>
+              onChange(join((next ?? {}) as Config, engineValues))
+            }
           />
           {plugin.data?.usagePattern && (
-            <details className="text-xs text-on-surface-variant">
+            <details className="text-on-surface-variant text-xs">
               <summary className="cursor-pointer">Usage</summary>
-              <pre className="mt-1 whitespace-pre-wrap">{plugin.data.usagePattern}</pre>
+              <div className="mt-1">
+                <CodeBlock code={plugin.data.usagePattern} label="usage" />
+              </div>
             </details>
           )}
         </div>
       )}
 
       <details>
-        <summary className="cursor-pointer text-sm font-semibold text-on-surface">
+        <summary className="text-on-surface cursor-pointer text-sm font-semibold">
           Error handling &amp; retries
         </summary>
         <div className="mt-3">

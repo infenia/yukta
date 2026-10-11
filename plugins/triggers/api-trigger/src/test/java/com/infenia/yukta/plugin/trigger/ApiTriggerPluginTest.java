@@ -28,7 +28,7 @@ class ApiTriggerPluginTest {
 
   @Test
   void testGetType() {
-    assertEquals("api-trigger", new ApiTriggerPlugin().getType(), "Test get type");
+    assertEquals("API_TRIGGER", new ApiTriggerPlugin().getType(), "Test get type");
   }
 
   @Test
@@ -49,6 +49,13 @@ class ApiTriggerPluginTest {
     org.junit.jupiter.api.Assertions.assertTrue(
         plugin.describe().uiDesign().get().html().contains("material-symbols-outlined"),
         "Test metadata (8)");
+  }
+
+  @Test
+  void missingPayloadStartsWithEmptyPayload() {
+    StepVerifier.create(new ApiTriggerPlugin().start(Map.of()))
+        .assertNext(message -> assertEquals(Map.of(), message.payload(), "Empty payload"))
+        .verifyComplete();
   }
 
   @Test

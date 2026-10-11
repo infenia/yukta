@@ -28,7 +28,7 @@ export function ExecutionSummaryBlock({
   sessionId: string;
 }) {
   return (
-    <div className="border border-outline-variant p-4" data-testid="execution-summary">
+    <div className="rounded-xl border border-outline-variant p-4" data-testid="execution-summary">
       <h3 className="mb-2 text-xs font-semibold tracking-wider text-on-surface">
         EXECUTION SUMMARY
       </h3>

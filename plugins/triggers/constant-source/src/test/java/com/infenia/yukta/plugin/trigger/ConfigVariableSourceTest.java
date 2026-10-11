@@ -150,6 +150,13 @@ class ConfigVariableSourceTest {
   void declaresConfigSchema() {
     final var schema = source.getConfigSchema();
     org.junit.jupiter.api.Assertions.assertTrue(
-        schema.stream().anyMatch(f -> f.required() && "variables".equals(f.name())));
+        schema.stream().anyMatch(f -> !f.required() && "variables".equals(f.name())));
+  }
+
+  @Test
+  void emptyConfigEmitsOneEmptyMessage() {
+    StepVerifier.create(source.start(Map.of()))
+        .assertNext(m -> assertEquals(Map.of(), m.payload()))
+        .verifyComplete();
   }
 }

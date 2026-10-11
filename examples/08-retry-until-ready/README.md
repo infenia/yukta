@@ -3,7 +3,7 @@
 **Use case:** wait for a dependency to become ready (a service starting up, a lock to free, an artifact to appear). The check repeats until an exit condition holds, with hard limits so it cannot run forever.
 
 ```
-ONE_SHOT ──► LOOP_PREDICATE (target: PROCESS_EXECUTOR, every 1s) ──► CONSOLE_TERMINAL
+CONSTANT_SOURCE ──► LOOP_PREDICATE (target: PROCESS_EXECUTOR, every 1s) ──► CONSOLE_TERMINAL
 ```
 
 Key settings:

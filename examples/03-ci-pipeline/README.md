@@ -3,7 +3,7 @@
 **Use case:** a CI-style gate. A check command runs; its exit code decides whether the merge is reported as allowed or blocked.
 
 ```
-ONE_SHOT ──► PROCESS_EXECUTOR (routeByExitCode)
+CONSTANT_SOURCE ──► PROCESS_EXECUTOR (routeByExitCode)
                  ├── success ──► report: PIPELINE PASSED ──┐
                  └── failure ──► report: PIPELINE FAILED ──┴──► CONSOLE_TERMINAL
 ```
