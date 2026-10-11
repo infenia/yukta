@@ -3,6 +3,7 @@
 package com.infenia.yukta.plugin.core.flow;
 
 import com.infenia.yukta.message.Message;
+import com.infenia.yukta.plugin.core.ConfigField;
 import com.infenia.yukta.plugin.core.Plugin;
 import com.infenia.yukta.plugin.core.PluginDescriptor;
 import com.infenia.yukta.plugin.core.UiDesign;
@@ -15,6 +16,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import lombok.NoArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -27,18 +29,17 @@ import reactor.core.scheduler.Schedulers;
 @Slf4j
 @Component
 @SuppressWarnings({"PMD.OnlyOneReturn", "PMD.LawOfDemeter"})
+@NoArgsConstructor
 public class LoopStreamProcessor implements ProcessorPlugin {
 
+  /** Type. */
   private static final String TYPE = "LOOP_STREAM";
 
+  /** Registry provider. */
   @Autowired private ObjectProvider<PluginRegistry> registryProvider;
 
+  /** Tracker provider. */
   @Autowired private ObjectProvider<DefaultTaskTrackerService> trackerProvider;
-
-  /** Default constructor. */
-  public LoopStreamProcessor() {
-    super();
-  }
 
   @Override
   public PluginDescriptor describe() {
@@ -72,6 +73,34 @@ public class LoopStreamProcessor implements ProcessorPlugin {
                 """,
                 140,
                 80)));
+  }
+
+  @Override
+  public List<ConfigField> getConfigSchema() {
+    return List.of(
+        ConfigField.required(
+            "targetPluginId", ConfigField.Type.STRING, "Processor to run in each iteration"),
+        ConfigField.optional(
+            "targetConfig", ConfigField.Type.MAP, null, "Configuration for the target processor"),
+        ConfigField.optional(
+            "exitCondition",
+            ConfigField.Type.EXPRESSION,
+            null,
+            "SpEL; ends the loop (#iterationCount, #elapsedTimeMs)"),
+        ConfigField.optional("maxIterations", ConfigField.Type.NUMBER, 10, "Most iterations"),
+        ConfigField.optional(
+            "maxDuration", ConfigField.Type.STRING, "PT1M", "ISO-8601 duration limit"),
+        ConfigField.optional(
+            "delayInterval", ConfigField.Type.STRING, "PT0S", "ISO-8601 wait between iterations"),
+        ConfigField.choice(
+            "failureStrategy",
+            false,
+            "ABORT",
+            "What a failing iteration does",
+            "ABORT",
+            "RETRY",
+            "SKIP",
+            "ESCALATE"));
   }
 
   @Override

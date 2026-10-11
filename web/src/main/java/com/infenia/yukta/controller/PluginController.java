@@ -120,7 +120,8 @@ public class PluginController {
                             p.describe().description(),
                             p.describe().usagePattern(),
                             p.describe().uiDesign().orElse(null),
-                            p.getOutputPorts()))))
+                            p.getOutputPorts(),
+                            p.getConfigSchema()))))
         .switchIfEmpty(
             Mono.fromSupplier(
                 () -> {

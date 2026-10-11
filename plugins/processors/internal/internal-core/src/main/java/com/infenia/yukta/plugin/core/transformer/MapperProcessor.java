@@ -6,6 +6,7 @@ import com.github.jknack.handlebars.Handlebars;
 import com.github.jknack.handlebars.Template;
 import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
+import com.infenia.yukta.plugin.core.ConfigField;
 import com.infenia.yukta.plugin.core.PluginDescriptor;
 import com.infenia.yukta.plugin.core.UiDesign;
 import com.infenia.yukta.plugin.core.WorkflowContext;
@@ -14,6 +15,7 @@ import com.infenia.yukta.plugin.util.SpelUtils;
 import com.infenia.yukta.util.MapUtils;
 import java.io.IOException;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
@@ -34,37 +36,59 @@ import reactor.core.publisher.Mono;
   "PMD.AvoidCatchingGenericException",
   "PMD.ExceptionAsFlowControl",
   "PMD.CyclomaticComplexity",
-  "PMD.UseConcurrentHashMap",
   "PMD.GodClass",
   "PMD.LawOfDemeter",
-  "PMD.CouplingBetweenObjects",
   "PMD.CollapsibleIfStatements"
 })
 public class MapperProcessor implements ProcessorPlugin {
 
+  /** Type. */
   private static final String TYPE = "MAPPER";
+
+  /** Unchecked. */
   private static final String UNCHECKED = "unchecked";
 
+  /** Mode projection. */
   private static final String MODE_PROJECTION = "PROJECTION";
+
+  /** Mode template. */
   private static final String MODE_TEMPLATE = "TEMPLATE";
+
+  /** Mode script. */
   private static final String MODE_SCRIPT = "SCRIPT";
 
+  /** Config mode. */
   private static final String CONFIG_MODE = "mode";
+
+  /** Config mapping. */
   private static final String CONFIG_MAPPING = "mapping";
+
+  /** Drop orig. */
   private static final String DROP_ORIG = "dropOriginal";
+
+  /** Strict. */
   private static final String STRICT = "strictMode";
 
+  /** Err prefix. */
   private static final String ERR_PREFIX = "WorkflowExecutionException: ";
 
+  /** Script limit. */
   private static final int SCRIPT_LIMIT = 50;
 
+  /** Err no script engine. */
   private static final String ERR_NO_SCRIPT_ENGINE =
       "SCRIPT mode needs the optional script-js plugin module (add it to yukta.plugins)";
 
+  /** Handlebars. */
   private Handlebars handlebars;
+
+  /** Map mapper. */
   private final MapMessageMapper mapMapper = new MapMessageMapper();
 
+  /** Template cache. */
   private final Map<String, Template> templateCache = new ConcurrentHashMap<>();
+
+  /** Script engines. */
   private final ObjectProvider<ScriptEngine> scriptEngines;
 
   /** Constructor without a script engine: SCRIPT mode is rejected. */
@@ -128,6 +152,24 @@ public class MapperProcessor implements ProcessorPlugin {
   }
 
   @Override
+  public List<ConfigField> getConfigSchema() {
+    return List.of(
+        ConfigField.choice(
+            "mode",
+            true,
+            "PROJECTION",
+            "How the mapping is applied",
+            "PROJECTION",
+            "TEMPLATE",
+            "SCRIPT"),
+        ConfigField.required(
+            "mapping", ConfigField.Type.EXPRESSION, "Field to SpEL map, Handlebars template or JS"),
+        ConfigField.optional(
+            "dropOriginal", ConfigField.Type.BOOLEAN, true, "Drop the input payload"),
+        ConfigField.optional("strictMode", ConfigField.Type.BOOLEAN, true, "Fail on eval errors"));
+  }
+
+  @Override
   public String getType() {
     return TYPE;
   }
@@ -185,9 +227,7 @@ public class MapperProcessor implements ProcessorPlugin {
 
             return Flux.just(DefaultMessage.from(message, resultPayload));
           } catch (RuntimeException e) {
-            if (log.isErrorEnabled()) {
-              log.error("Mapping failed for message {}: {}", message.id(), e.getMessage());
-            }
+            log.error("Mapping failed for message {}: {}", message.id(), e.getMessage());
             return Flux.error(
                 new RuntimeException(ERR_PREFIX + "Mapping failed: " + e.getMessage(), e));
           }
@@ -231,9 +271,7 @@ public class MapperProcessor implements ProcessorPlugin {
         if (strictMode) {
           throw e;
         }
-        if (log.isWarnEnabled()) {
-          log.warn("Projection failed for {}: {}", entry.getKey(), e.getMessage());
-        }
+        log.warn("Projection failed for {}: {}", entry.getKey(), e.getMessage());
       }
     }
     return result;
@@ -328,9 +366,7 @@ public class MapperProcessor implements ProcessorPlugin {
       if (strictMode) {
         throw e;
       }
-      if (log.isWarnEnabled()) {
-        log.warn("Script execution failed: {}", e.getMessage());
-      }
+      log.warn("Script execution failed: {}", e.getMessage());
       finalResult = dropOriginal ? Map.of() : message.payload();
     }
     return finalResult;

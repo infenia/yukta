@@ -4,11 +4,11 @@
 import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import {
-  useReactTable,
+  useLegacyTable,
   getCoreRowModel,
   getPaginationRowModel,
   getFilteredRowModel,
-} from '@tanstack/react-table';
+} from '@tanstack/react-table/legacy';
 import { SessionsPaginationFooter } from '../SessionsPaginationFooter';
 import { columns } from '../columns';
 import { createMockSessions } from '@/test/factories/sessionFactory';
@@ -22,7 +22,7 @@ describe('SessionsPaginationFooter', () => {
     sessions: SessionListItem[];
     pageSize?: number;
   }) => {
-    const table = useReactTable({
+    const table = useLegacyTable({
       data: sessions,
       columns,
       getCoreRowModel: getCoreRowModel(),

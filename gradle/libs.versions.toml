@@ -6,7 +6,7 @@ springBoot = "4.1.1"
 springDependencyManagement = "1.1.7"
 graalvmBuildtools = "1.1.14"
 spotless = "8.10.3"
-lombok = "9.7.0"
+lombok = "9.8.0"
 mapstruct = "1.6.3"
 springAi = "2.0.0"
 springdoc = "3.1.1"
@@ -16,7 +16,7 @@ pmd = "7.21.0"
 spotbugs = "6.5.12"
 errorprone = "2.50.0"
 errorpronePlugin = "5.1.1"
-cyclonedx = "3.4.1"
+cyclonedx = "3.5.0"
 handlebars = "4.5.5"
 graalvmPolyglot = "25.4.4.1.1"
 nodeGradle = "7.1.0"
@@ -29,6 +29,7 @@ jacoco = "0.8.14"
 netty = "4.2.18.Final"
 
 [libraries]
+h2 = { group = "com.h2database", name = "h2", version = "2.5.252" }
 spring-boot-starter = { group = "org.springframework.boot", name = "spring-boot-starter" }
 spring-boot-autoconfigure = { group = "org.springframework.boot", name = "spring-boot-autoconfigure" }
 spring-boot-starter-webflux = { group = "org.springframework.boot", name = "spring-boot-starter-webflux" }

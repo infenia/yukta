@@ -4,7 +4,6 @@ plugins {
     id("com.infenia.yukta.library-conventions")
 }
 
-
 dependencies {
     api(project(":messaging"))
     implementation(project(":plugin-api"))
@@ -24,7 +23,6 @@ coverageConfig {
     exception("com.infenia.yukta.plugin.core.transformer.MapMessageMapper", "Not yet unit tested", mapOf("LINE" to 0.0, "BRANCH" to 0.0))
     exception("com.infenia.yukta.plugin.core.transformer.MapperProcessor", "GraalVM JS path needs a polyglot test setup", mapOf("LINE" to 0.0, "BRANCH" to 0.0))
 }
-
 // TODO: temporarily disabled — re-enable once violations are addressed.
 tasks.named("pmdMain") {
     enabled = false

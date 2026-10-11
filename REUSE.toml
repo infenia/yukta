@@ -37,7 +37,7 @@ SPDX-FileCopyrightText = "none"
 SPDX-License-Identifier = "CC0-1.0"
 
 [[annotations]]
-path = ["bruno/**", "config/license/**", "docs/superpowers/plans/**"]
+path = ["bruno/**", "plugins/supervisors/rule-supervisor/rules.example.json", "config/license/**", "docs/superpowers/plans/**"]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "none"
 SPDX-License-Identifier = "CC0-1.0"
@@ -60,3 +60,10 @@ path = ["ui/src/components/ui/**"]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "shadcn"
 SPDX-License-Identifier = "MIT"
+
+# Markdown is covered here rather than with in-file headers, so no SPDX block is ever needed in .md files
+[[annotations]]
+path = ["**/*.md"]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2026 Infenia Private Limited"
+SPDX-License-Identifier = "Apache-2.0"

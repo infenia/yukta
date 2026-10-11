@@ -1,5 +1,5 @@
-// SPDX-License-Identifier: Apache-2.0
-// SPDX-FileCopyrightText: 2026 Infenia Private Limited
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 # Copyright 2026 Infenia Private Limited
 #
@@ -16,10 +16,10 @@
 # limitations under the License.
 
 # Stage 1: Build native image with GraalVM
-FROM ghcr.io/graalvm/native-image:latest AS builder
+FROM ghcr.io/graalvm/native-image-community:25@sha256:0d936f32bb8acb5bc60c41b33e05f064d7a6aaf36b726538296c54949bd4a3c0 AS builder
 
-# Install xargs, findutils, and Java 21 for build-logic toolchain requirements
-RUN microdnf install -y util-linux findutils java-21-openjdk-devel && microdnf clean all
+# The base image ships GraalVM CE for JDK 25 (matches the build-logic toolchain),
+# plus xargs and findutils, which the Gradle wrapper needs.
 
 WORKDIR /build
 COPY . .
@@ -28,7 +28,7 @@ COPY . .
 RUN ./gradlew nativeCompile -x test --no-daemon
 
 # Stage 2: Copy binary (UPX compression attempted but not critical for image size)
-FROM alpine:latest AS compressor
+FROM alpine:3.24@sha256:294b683cb724975bec92580e1e685676bd4b50bda910ddb8c51d4cabeaec77e6 AS compressor
 
 RUN apk add --no-cache upx || echo "UPX not available, skipping compression"
 
@@ -38,7 +38,7 @@ COPY --from=builder /build/boot/build/native/nativeCompile/yukta /tmp/yukta
 RUN upx --best --lzma -o /tmp/yukta.compressed /tmp/yukta 2>/dev/null || cp /tmp/yukta /tmp/yukta.compressed
 
 # Stage 3: Final production image with distroless base (minimal footprint)
-FROM gcr.io/distroless/cc-debian12:nonroot
+FROM gcr.io/distroless/cc-debian12:nonroot@sha256:9dac0a79194e45a7da0158a9c6da57b217585af0786db3845d1f0ec1a0dd182f
 
 # Distroless images: no shell, no package manager, no unnecessary files
 # Only libc6 + dynamic loader + application binary
@@ -54,5 +54,7 @@ EXPOSE 8080
 ENV YUKTA_SERVER_ADDRESS=0.0.0.0 \
     HOME=/home/nonroot \
     PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+USER nonroot
 
 ENTRYPOINT ["/app/yukta"]

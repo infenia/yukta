@@ -14,6 +14,7 @@ import com.infenia.yukta.service.orchestrator.tracker.DefaultTaskTrackerService;
 import com.infenia.yukta.service.plugin.PluginRegistry;
 import java.util.Map;
 import java.util.UUID;
+import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -26,15 +27,49 @@ import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 import reactor.util.context.Context;
 
+/** Loop stream processor test. */
 @ExtendWith(MockitoExtension.class)
+@SuppressWarnings("PMD.TooManyMethods")
+@NoArgsConstructor
 class LoopStreamProcessorTest {
 
+  /** Literal exitCondition. */
+  private static final String EXITCONDITION = "exitCondition";
+
+  /** Literal failureStrategy. */
+  private static final String FAILURESTRATEGY = "failureStrategy";
+
+  /** Literal maxIterations. */
+  private static final String MAXITERATIONS = "maxIterations";
+
+  /** Literal target. */
+  private static final String TARGET = "target";
+
+  /** Literal targetPluginId. */
+  private static final String TARGETPLUGINID = "targetPluginId";
+
+  /** Literal test. */
+  private static final String TEST = "test";
+
+  /** Literal val. */
+  private static final String VAL = "val";
+
+  /** Registry provider. */
   @Mock private ObjectProvider<PluginRegistry> registryProvider;
+
+  /** Tracker provider. */
   @Mock private ObjectProvider<DefaultTaskTrackerService> trackerProvider;
+
+  /** Registry. */
   @Mock private PluginRegistry registry;
+
+  /** Tracker. */
   @Mock private DefaultTaskTrackerService tracker;
+
+  /** Target plugin. */
   @Mock private ProcessorPlugin targetPlugin;
 
+  /** Processor. */
   @InjectMocks private LoopStreamProcessor processor;
 
   @BeforeEach
@@ -55,10 +90,10 @@ class LoopStreamProcessorTest {
     when(targetPlugin.process(any(), any()))
         .thenAnswer(
             invocation -> {
-              Flux<Message<?>> input = invocation.getArgument(0);
+              final Flux<Message<?>> input = invocation.getArgument(0);
               return input.flatMap(
                   msg -> {
-                    int page = (int) msg.payload();
+                    final int page = (int) msg.payload();
                     final String traceIdStr = msg.traceId();
                     final UUID traceId =
                         traceIdStr != null ? UUID.fromString(traceIdStr) : UUID.randomUUID();
@@ -71,8 +106,7 @@ class LoopStreamProcessorTest {
             });
 
     final Map<String, Object> config =
-        Map.of(
-            "targetPluginId", targetId, "maxIterations", 2, "exitCondition", "#root.payload == 2");
+        Map.of(TARGETPLUGINID, targetId, MAXITERATIONS, 2, EXITCONDITION, "#root.payload == 2");
 
     final Message<?> inputMsg = DefaultMessage.create(UUID.randomUUID(), 0);
 
@@ -91,15 +125,19 @@ class LoopStreamProcessorTest {
 
   @Test
   void testMetadata() {
-    org.junit.jupiter.api.Assertions.assertEquals("LOOP_STREAM", processor.getType());
-    org.junit.jupiter.api.Assertions.assertNotNull(processor.describe().description());
-    org.junit.jupiter.api.Assertions.assertNotNull(processor.describe().usagePattern());
-    org.junit.jupiter.api.Assertions.assertTrue(processor.describe().uiDesign().isPresent());
+    org.junit.jupiter.api.Assertions.assertEquals(
+        "LOOP_STREAM", processor.getType(), "Test metadata");
+    org.junit.jupiter.api.Assertions.assertNotNull(
+        processor.describe().description(), "Test metadata (2)");
+    org.junit.jupiter.api.Assertions.assertNotNull(
+        processor.describe().usagePattern(), "Test metadata (3)");
+    org.junit.jupiter.api.Assertions.assertTrue(
+        processor.describe().uiDesign().isPresent(), "Test metadata (4)");
   }
 
   @Test
   void testPrepare() {
-    StepVerifier.create(processor.prepare(Map.of("exitCondition", "true"))).verifyComplete();
+    StepVerifier.create(processor.prepare(Map.of(EXITCONDITION, "true"))).verifyComplete();
   }
 
   @Test
@@ -107,119 +145,119 @@ class LoopStreamProcessorTest {
     when(registry.contains("missing")).thenReturn(false);
     StepVerifier.create(
             processor.process(
-                Flux.just(DefaultMessage.create(UUID.randomUUID(), "test")),
-                Map.of("targetPluginId", "missing")))
+                Flux.just(DefaultMessage.create(UUID.randomUUID(), TEST)),
+                Map.of(TARGETPLUGINID, "missing")))
         .expectError(IllegalArgumentException.class)
         .verify();
   }
 
   @Test
-  void testNotAProcessor() {
+  void testNotProcessor() {
     when(registry.contains("trigger")).thenReturn(true);
     when(registry.get("trigger")).thenReturn(org.mockito.Mockito.mock(Plugin.class));
     StepVerifier.create(
             processor.process(
-                Flux.just(DefaultMessage.create(UUID.randomUUID(), "test")),
-                Map.of("targetPluginId", "trigger")))
+                Flux.just(DefaultMessage.create(UUID.randomUUID(), TEST)),
+                Map.of(TARGETPLUGINID, "trigger")))
         .expectError(IllegalArgumentException.class)
         .verify();
   }
 
   @Test
   void testMaxIterations() {
-    final String targetId = "target";
+    final String targetId = TARGET;
     when(registry.contains(targetId)).thenReturn(true);
     when(registry.get(targetId)).thenReturn(targetPlugin);
     when(targetPlugin.process(any(), any()))
-        .thenReturn(Flux.just(DefaultMessage.create(UUID.randomUUID(), "val")));
+        .thenReturn(Flux.just(DefaultMessage.create(UUID.randomUUID(), VAL)));
 
     final Map<String, Object> config =
-        Map.of("targetPluginId", targetId, "maxIterations", 1, "exitCondition", "false");
+        Map.of(TARGETPLUGINID, targetId, MAXITERATIONS, 1, EXITCONDITION, "false");
     StepVerifier.create(
-            processor.process(Flux.just(DefaultMessage.create(UUID.randomUUID(), "test")), config))
+            processor.process(Flux.just(DefaultMessage.create(UUID.randomUUID(), TEST)), config))
         .expectNextCount(1)
         .verifyComplete();
   }
 
   @Test
   void testFailureStrategies() {
-    final String targetId = "target";
+    final String targetId = TARGET;
     when(registry.contains(targetId)).thenReturn(true);
     when(registry.get(targetId)).thenReturn(targetPlugin);
     when(targetPlugin.process(any(), any())).thenReturn(Flux.error(new RuntimeException("fail")));
 
     // SKIP
     final Map<String, Object> configSkip =
-        Map.of("targetPluginId", targetId, "failureStrategy", "SKIP", "maxIterations", 1);
+        Map.of(TARGETPLUGINID, targetId, FAILURESTRATEGY, "SKIP", MAXITERATIONS, 1);
     StepVerifier.create(
             processor.process(
-                Flux.just(DefaultMessage.create(UUID.randomUUID(), "test")), configSkip))
+                Flux.just(DefaultMessage.create(UUID.randomUUID(), TEST)), configSkip))
         .expectNextCount(0)
         .verifyComplete();
 
     // ESCALATE
     final Map<String, Object> configEscalate =
-        Map.of("targetPluginId", targetId, "failureStrategy", "ESCALATE");
+        Map.of(TARGETPLUGINID, targetId, FAILURESTRATEGY, "ESCALATE");
     StepVerifier.create(
             processor.process(
-                Flux.just(DefaultMessage.create(UUID.randomUUID(), "test")), configEscalate))
+                Flux.just(DefaultMessage.create(UUID.randomUUID(), TEST)), configEscalate))
         .expectErrorMatches(e -> e.getMessage().contains("Loop execution failed"))
         .verify();
 
     // RETRY (only once for test)
     final Map<String, Object> configRetry =
-        Map.of("targetPluginId", targetId, "failureStrategy", "RETRY", "maxIterations", 1);
+        Map.of(TARGETPLUGINID, targetId, FAILURESTRATEGY, "RETRY", MAXITERATIONS, 1);
     StepVerifier.create(
             processor.process(
-                Flux.just(DefaultMessage.create(UUID.randomUUID(), "test")), configRetry))
+                Flux.just(DefaultMessage.create(UUID.randomUUID(), TEST)), configRetry))
         .expectNextCount(0)
         .verifyComplete();
 
     // ABORT
     final Map<String, Object> configAbort =
-        Map.of("targetPluginId", targetId, "failureStrategy", "ABORT");
+        Map.of(TARGETPLUGINID, targetId, FAILURESTRATEGY, "ABORT");
     StepVerifier.create(
             processor.process(
-                Flux.just(DefaultMessage.create(UUID.randomUUID(), "test")), configAbort))
+                Flux.just(DefaultMessage.create(UUID.randomUUID(), TEST)), configAbort))
         .expectError(RuntimeException.class)
         .verify();
   }
 
   @Test
   void testMaxDuration() {
-    final String targetId = "target";
+    final String targetId = TARGET;
     when(registry.contains(targetId)).thenReturn(true);
     when(registry.get(targetId)).thenReturn(targetPlugin);
     when(targetPlugin.process(any(), any()))
-        .thenReturn(Flux.just(DefaultMessage.create(UUID.randomUUID(), "val")));
+        .thenReturn(Flux.just(DefaultMessage.create(UUID.randomUUID(), VAL)));
 
     final Map<String, Object> config =
         Map.of(
-            "targetPluginId",
+            TARGETPLUGINID,
             targetId,
             "maxDuration",
             "PT0.1S",
             "delayInterval",
             "PT0.2S",
-            "exitCondition",
+            EXITCONDITION,
             "false");
     StepVerifier.create(
-            processor.process(Flux.just(DefaultMessage.create(UUID.randomUUID(), "test")), config))
+            processor.process(Flux.just(DefaultMessage.create(UUID.randomUUID(), TEST)), config))
         .expectNextCount(1) // gets the first iteration results before checking duration for next
         .verifyComplete();
   }
 
   @Test
   void testEmptyExitCondition() {
-    final String targetId = "target";
+    final String targetId = TARGET;
     when(registry.contains(targetId)).thenReturn(true);
     when(registry.get(targetId)).thenReturn(targetPlugin);
     when(targetPlugin.process(any(), any()))
-        .thenReturn(Flux.just(DefaultMessage.create(UUID.randomUUID(), "val")));
+        .thenReturn(Flux.just(DefaultMessage.create(UUID.randomUUID(), VAL)));
 
-    final Map<String, Object> config = Map.of("targetPluginId", targetId, "exitCondition", "");
+    final Map<String, Object> config = Map.of(TARGETPLUGINID, targetId, EXITCONDITION, "");
     StepVerifier.create(
-            processor.process(Flux.just(DefaultMessage.create(UUID.randomUUID(), "test")), config))
+            processor.process(Flux.just(DefaultMessage.create(UUID.randomUUID(), TEST)), config))
         .expectNextCount(1)
         .verifyComplete();
   }
@@ -227,16 +265,42 @@ class LoopStreamProcessorTest {
   @Test
   void testMissingTracker() {
     org.mockito.Mockito.lenient().when(trackerProvider.getIfAvailable()).thenReturn(null);
-    final String targetId = "target";
+    final String targetId = TARGET;
     when(registry.contains(targetId)).thenReturn(true);
     when(registry.get(targetId)).thenReturn(targetPlugin);
     when(targetPlugin.process(any(), any()))
-        .thenReturn(Flux.just(DefaultMessage.create(UUID.randomUUID(), "val")));
+        .thenReturn(Flux.just(DefaultMessage.create(UUID.randomUUID(), VAL)));
 
-    final Map<String, Object> config = Map.of("targetPluginId", targetId, "maxIterations", 1);
+    final Map<String, Object> config = Map.of(TARGETPLUGINID, targetId, MAXITERATIONS, 1);
     StepVerifier.create(
-            processor.process(Flux.just(DefaultMessage.create(UUID.randomUUID(), "test")), config))
+            processor.process(Flux.just(DefaultMessage.create(UUID.randomUUID(), TEST)), config))
         .expectNextCount(1)
+        .verifyComplete();
+  }
+
+  @Test
+  void testNullRegistryIsRejected() {
+    when(registryProvider.getIfAvailable()).thenReturn(null);
+    StepVerifier.create(
+            processor.process(
+                Flux.just(DefaultMessage.create(UUID.randomUUID(), "x")),
+                Map.of("targetPluginId", "t")))
+        .expectError(IllegalArgumentException.class)
+        .verify();
+  }
+
+  @Test
+  void testTargetProducingNothingKeepsLastMessage() {
+    when(registry.contains("quiet")).thenReturn(true);
+    when(registry.get("quiet")).thenReturn(targetPlugin);
+    when(targetPlugin.process(any(), any())).thenReturn(Flux.empty());
+
+    StepVerifier.create(
+            processor
+                .process(
+                    Flux.just(DefaultMessage.create(UUID.randomUUID(), 0)),
+                    Map.of("targetPluginId", "quiet", "maxIterations", 1))
+                .contextWrite(Context.of("executionId", "e1", "nodeId", "n1")))
         .verifyComplete();
   }
 }

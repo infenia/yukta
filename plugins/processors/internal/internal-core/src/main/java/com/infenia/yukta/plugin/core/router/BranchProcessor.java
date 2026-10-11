@@ -3,6 +3,7 @@
 package com.infenia.yukta.plugin.core.router;
 
 import com.infenia.yukta.message.Message;
+import com.infenia.yukta.plugin.core.ConfigField;
 import com.infenia.yukta.plugin.core.PluginDescriptor;
 import com.infenia.yukta.plugin.core.UiDesign;
 import com.infenia.yukta.plugin.core.WorkflowContext;
@@ -16,6 +17,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
+import lombok.NoArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
@@ -35,28 +37,44 @@ import reactor.core.publisher.Mono;
   "PMD.AvoidCatchingGenericException",
   "PMD.UselessParentheses"
 })
+@NoArgsConstructor
 public class BranchProcessor implements ProcessorPlugin {
 
+  /** Type. */
   private static final String TYPE = "BRANCH";
 
+  /** Config mode. */
   private static final String CONFIG_MODE = "mode";
+
+  /** Config selector. */
   private static final String CONFIG_SELECTOR = "selector";
+
+  /** Config cases. */
   private static final String CONFIG_CASES = "cases";
+
+  /** Def port. */
   private static final String DEF_PORT = "defaultPort";
+
+  /** Allow mult. */
   private static final String ALLOW_MULT = "allowMultipleMatches";
+
+  /** Strict. */
   private static final String STRICT = "strictMode";
+
+  /** Error port. */
   private static final String ERROR_PORT = "errorPort";
 
+  /** Mode select key. */
   private static final String MODE_SELECT_KEY = "SELECT_KEY";
+
+  /** Mode expression. */
   private static final String MODE_EXPRESSION = "EXPRESSION";
 
+  /** Err prefix. */
   private static final String ERR_PREFIX = "WorkflowExecutionException: ";
-  private static final String UNCHECKED = "unchecked";
 
-  /** Default constructor. */
-  public BranchProcessor() {
-    super();
-  }
+  /** Unchecked. */
+  private static final String UNCHECKED = "unchecked";
 
   @Override
   public PluginDescriptor describe() {
@@ -93,6 +111,21 @@ public class BranchProcessor implements ProcessorPlugin {
                 """,
                 140,
                 80)));
+  }
+
+  @Override
+  public List<ConfigField> getConfigSchema() {
+    return List.of(
+        ConfigField.choice(
+            "mode", true, "SELECT_KEY", "How the branch is chosen", "SELECT_KEY", "EXPRESSION"),
+        ConfigField.required("selector", ConfigField.Type.EXPRESSION, "Key or expression to match"),
+        ConfigField.required("cases", ConfigField.Type.MAP, "Match value (or predicate) to port"),
+        ConfigField.optional(
+            "defaultPort", ConfigField.Type.STRING, null, "Port when nothing matches"),
+        ConfigField.optional(
+            "allowMultipleMatches", ConfigField.Type.BOOLEAN, false, "Emit on every matching case"),
+        ConfigField.optional("strictMode", ConfigField.Type.BOOLEAN, true, "Fail on eval errors"),
+        ConfigField.optional("errorPort", ConfigField.Type.STRING, null, "Port for errors"));
   }
 
   @Override
@@ -151,9 +184,8 @@ public class BranchProcessor implements ProcessorPlugin {
 
     return input.flatMap(
         message ->
-            Flux.deferContextual(
-                ctx -> {
-                  final String nodeId = ctx.getOrDefault("nodeId", "unknown");
+            Flux.defer(
+                () -> {
                   final List<String> matchedPorts = new ArrayList<>();
 
                   try {
@@ -171,25 +203,20 @@ public class BranchProcessor implements ProcessorPlugin {
                       }
                     }
 
-                    return Flux.fromIterable(matchedPorts)
-                        .map(port -> message.withSourcePort(port));
+                    return Flux.fromIterable(matchedPorts).map(message::withSourcePort);
 
                   } catch (final Exception exception) {
-                    return handleException(message, nodeId, errorPort, strictMode, exception);
+                    return handleException(message, errorPort, strictMode, exception);
                   }
                 }));
   }
 
   private Flux<Message<?>> handleException(
       final Message<?> message,
-      final String nodeId,
       final String errorPort,
       final boolean strictMode,
       final Exception exception) {
-    if (log.isErrorEnabled()) {
-      log.error(
-          "Branch evaluation failed for message {}: {}", message.id(), exception.getMessage());
-    }
+    log.error("Branch evaluation failed for message {}: {}", message.id(), exception.getMessage());
     if (errorPort != null) {
       return Flux.just(
           message
