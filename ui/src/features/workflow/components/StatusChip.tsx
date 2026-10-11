@@ -11,7 +11,7 @@ const CATEGORY_CLASSES: Record<
 > = {
   running: {
     chip: 'border-primary/40 bg-primary/10 text-primary',
-    dot: 'bg-primary animate-pulse',
+    dot: 'bg-attention animate-pulse',
   },
   success: {
     chip: 'border-success/40 bg-success/10 text-success',
@@ -45,7 +45,7 @@ export function StatusChip({ status }: { status: string | null }) {
     <span
       data-testid="status-chip"
       className={cn(
-        'text-label-sm inline-flex items-center gap-2 border px-3 py-1 tracking-wider',
+        'text-label-sm inline-flex items-center gap-2 rounded-full border px-3 py-1 tracking-wider',
         chip
       )}
     >

@@ -61,27 +61,31 @@ function PluginDetail({ type }: { type: string }) {
             <h3 className="text-on-surface text-label-md mb-1.5">
               Configuration
             </h3>
-            <table className="border-outline-variant w-full border text-left text-sm">
-              <tbody>
-                {plugin.configSchema.map((field) => (
-                  <tr
-                    key={field.name}
-                    className="border-outline-variant border-b align-top"
-                  >
-                    <td className="text-code-sm px-3 py-2">
-                      {field.name}
-                      {field.required && <span className="text-error"> *</span>}
-                    </td>
-                    <td className="text-body-sm text-on-surface-variant pr-3">
-                      {field.type}
-                    </td>
-                    <td className="text-body-sm text-on-surface-variant pr-3">
-                      {field.description}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <div className="border-outline-variant overflow-hidden rounded-xl border">
+              <table className="w-full text-left text-sm">
+                <tbody>
+                  {plugin.configSchema.map((field) => (
+                    <tr
+                      key={field.name}
+                      className="border-outline-variant border-b align-top"
+                    >
+                      <td className="text-code-sm px-3 py-2">
+                        {field.name}
+                        {field.required && (
+                          <span className="text-error"> *</span>
+                        )}
+                      </td>
+                      <td className="text-body-sm text-on-surface-variant pr-3">
+                        {field.type}
+                      </td>
+                      <td className="text-body-sm text-on-surface-variant pr-3">
+                        {field.description}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </section>
         )}
         {plugin.usagePattern && (

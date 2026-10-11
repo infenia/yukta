@@ -13,7 +13,8 @@
     "lint:headers": "node scripts/validate-headers.js",
     "test": "vitest",
     "test:e2e": "playwright test",
-    "coverage": "vitest run --coverage && node scripts/open-coverage.js"
+    "coverage": "vitest run --coverage && node scripts/open-coverage.js",
+    "favicons": "bash scripts/generate-favicons.sh"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

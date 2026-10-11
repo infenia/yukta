@@ -13,7 +13,7 @@ export function CodeBlock({ code, label }: { code: string; label?: string }) {
     });
   };
   return (
-    <div className="border-outline-variant bg-surface-container-low relative border">
+    <div className="border-outline-variant bg-surface-container-low relative overflow-hidden rounded-lg border">
       <button
         type="button"
         onClick={copy}

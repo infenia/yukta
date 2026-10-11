@@ -62,7 +62,7 @@ function RunDialog({
         rows={8}
         spellCheck={false}
         placeholder='{"key": "value"}'
-        className="mb-3 w-full border border-outline-variant bg-surface-container-low p-2 font-mono text-xs text-on-surface"
+        className="mb-3 w-full rounded-lg border border-outline-variant bg-surface-container-low p-2 font-mono text-xs text-on-surface"
       />
       <InlineError message={parseError ?? error} />
       <div className="mt-4 flex justify-end gap-2">

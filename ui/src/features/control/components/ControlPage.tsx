@@ -84,7 +84,7 @@ export function ControlPage() {
           Nodes appear here once a workflow is running.
         </StateMessage>
       ) : (
-        <ul className="divide-outline-variant border-outline-variant flex flex-col divide-y border">
+        <ul className="divide-outline-variant border-outline-variant flex flex-col divide-y overflow-hidden rounded-xl border">
           {nodes.data.map((node) => (
             <li key={node} className="p-3">
               <div className="flex items-center gap-3">

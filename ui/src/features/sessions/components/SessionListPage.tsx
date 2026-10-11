@@ -120,7 +120,7 @@ export function SessionListPage() {
         />
 
         <div className="px-4 pb-8 sm:px-6">
-          <div className="border-outline-variant bg-surface-container border">
+          <div className="border-outline-variant bg-surface-container overflow-hidden rounded-xl border">
             <Table>
               <TableHeader>
                 {table.getHeaderGroups().map((headerGroup: any) => (

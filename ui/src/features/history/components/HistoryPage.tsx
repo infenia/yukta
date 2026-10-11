@@ -44,7 +44,7 @@ export function HistoryPage() {
             aria-label="Session"
             value={sessionId}
             onChange={(event) => setChosen(event.target.value)}
-            className="border-outline-variant bg-surface text-on-surface h-8 border px-2 text-sm"
+            className="border-outline-variant bg-surface text-on-surface h-8 rounded-lg border px-2 text-sm"
           >
             {sessions.data?.map((session) => (
               <option key={session.sessionId} value={session.sessionId}>
@@ -68,44 +68,46 @@ export function HistoryPage() {
           Run a workflow and it will show up here.
         </StateMessage>
       ) : (
-        <table className="border-outline-variant w-full border text-left text-sm">
-          <thead className="border-outline-variant text-on-surface-variant bg-surface-container-high text-label-sm border-b tracking-wider uppercase">
-            <tr>
-              <th className="px-4 py-2">Execution</th>
-              <th className="px-4">Workflow</th>
-              <th className="px-4">Status</th>
-              <th className="px-4">Started</th>
-              <th className="px-4">Ended</th>
-            </tr>
-          </thead>
-          <tbody>
-            {history.data.map((run, index) => (
-              <tr
-                key={run.executionId}
-                className={`transition-standard hover:bg-surface-container-high ${index % 2 ? 'bg-surface-container-low' : ''}`}
-              >
-                <td className="text-code-sm px-4 py-3">
-                  <Link
-                    className="text-primary"
-                    to={`/sessions/${encodeURIComponent(sessionId)}/workflow/${encodeURIComponent(run.workflowId)}?exec=${encodeURIComponent(run.executionId)}`}
-                  >
-                    {run.executionId}
-                  </Link>
-                </td>
-                <td className="px-4">{run.workflowId}</td>
-                <td className="px-4">
-                  <StatusChip status={run.status} />
-                </td>
-                <td className="text-code-sm px-4">
-                  {formatClockTime(run.startTime)}
-                </td>
-                <td className="text-code-sm px-4">
-                  {formatClockTime(run.endTime)}
-                </td>
+        <div className="border-outline-variant overflow-hidden rounded-xl border">
+          <table className="w-full text-left text-sm">
+            <thead className="border-outline-variant text-on-surface-variant bg-surface-container-high text-label-sm border-b tracking-wider uppercase">
+              <tr>
+                <th className="px-4 py-2">Execution</th>
+                <th className="px-4">Workflow</th>
+                <th className="px-4">Status</th>
+                <th className="px-4">Started</th>
+                <th className="px-4">Ended</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {history.data.map((run, index) => (
+                <tr
+                  key={run.executionId}
+                  className={`transition-standard hover:bg-surface-container-high ${index % 2 ? 'bg-surface-container-low' : ''}`}
+                >
+                  <td className="text-code-sm px-4 py-3">
+                    <Link
+                      className="text-primary"
+                      to={`/sessions/${encodeURIComponent(sessionId)}/workflow/${encodeURIComponent(run.workflowId)}?exec=${encodeURIComponent(run.executionId)}`}
+                    >
+                      {run.executionId}
+                    </Link>
+                  </td>
+                  <td className="px-4">{run.workflowId}</td>
+                  <td className="px-4">
+                    <StatusChip status={run.status} />
+                  </td>
+                  <td className="text-code-sm px-4">
+                    {formatClockTime(run.startTime)}
+                  </td>
+                  <td className="text-code-sm px-4">
+                    {formatClockTime(run.endTime)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </div>
   );

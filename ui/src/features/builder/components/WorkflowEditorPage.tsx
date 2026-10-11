@@ -22,7 +22,7 @@ import { NodeInspector } from './NodeInspector';
 
 const BUTTON = buttonVariants({ variant: 'outline' });
 const SELECT =
-  'h-8 border border-outline-variant bg-surface px-2 text-sm text-on-surface';
+  'h-8 rounded-lg border border-outline-variant bg-surface px-2 text-sm text-on-surface';
 const NO_TASKS = {};
 
 // fetchApi only throws Error subclasses

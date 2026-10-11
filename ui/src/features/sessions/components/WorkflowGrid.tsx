@@ -24,7 +24,7 @@ export function WorkflowGrid({ sessionId, workflows, filter, onFilterChange }: W
         <h2 className="text-headline-md text-on-surface">
           Associated Workflows ({workflows.length})
         </h2>
-        <div className="flex items-center gap-2 border border-outline-variant bg-surface-container px-3 py-1.5">
+        <div className="flex items-center gap-2 rounded-lg border border-outline-variant bg-surface-container px-3 py-1.5">
           <span className="material-symbols-outlined text-sm text-on-surface-variant" aria-hidden="true">
             search
           </span>
@@ -39,13 +39,13 @@ export function WorkflowGrid({ sessionId, workflows, filter, onFilterChange }: W
       </div>
 
       {filteredWorkflows.length === 0 ? (
-        <div className="border border-outline-variant bg-surface-container py-12 text-center">
+        <div className="rounded-xl border border-outline-variant bg-surface-container py-12 text-center">
           <p className="text-body-md text-on-surface-variant">
             {workflows.length === 0 ? 'No workflows' : 'No workflows match your filter'}
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(18rem,1fr))] gap-px border border-outline-variant bg-outline-variant">
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(18rem,1fr))] gap-px overflow-hidden rounded-xl border border-outline-variant bg-outline-variant">
           {filteredWorkflows.map((workflow) => (
             <WorkflowCard
               key={workflow.workflowId}

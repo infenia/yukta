@@ -19,7 +19,7 @@ export function StateMessage({
   return (
     <div
       role={tone === 'error' ? 'alert' : undefined}
-      className="border-outline-variant flex flex-col items-center gap-2 border border-dashed px-6 py-12 text-center"
+      className="border-outline-variant flex flex-col items-center gap-2 rounded-xl border border-dashed px-6 py-12 text-center"
     >
       <p
         className={`text-label-md ${tone === 'error' ? 'text-error' : 'text-on-surface'}`}

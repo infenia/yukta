@@ -17,7 +17,7 @@ export function SessionsFilterBar({
 }: SessionsFilterBarProps) {
   return (
     <div className="px-4 pb-4 sm:px-6">
-      <div className="flex flex-wrap items-center gap-px border border-outline-variant bg-surface-container">
+      <div className="flex flex-wrap items-center gap-px overflow-hidden rounded-xl border border-outline-variant bg-surface-container">
         <div className="ring-primary flex h-10 min-w-[300px] flex-1 items-center bg-surface-container px-4 focus-within:ring-1 focus-within:ring-inset">
           <span className="material-symbols-outlined mr-3 text-on-surface-variant">
             search

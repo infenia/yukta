@@ -60,7 +60,7 @@ Report location: `coverage/index.html` (generated, git-ignored)
 - **TanStack Query 5**: Server state & data fetching
 - **TanStack Table 9**: Headless data table logic
 - **TanStack Virtual**: Windowed rendering of the log panel
-- **shadcn/ui**: Copy-in primitives, style `base-lyra`. Re-adding one with `pnpm dlx shadcn@latest add <name> -o` needs three fixes: the `cn` import (`@/lib/utils`), Material Symbols instead of `lucide-react`, and the SPDX header
+- **shadcn/ui**: Copy-in primitives, style `base-rhea`. Re-adding one with `pnpm dlx shadcn@latest add <name> -o` needs three fixes: the `cn` import (`@/lib/utils`), Material Symbols instead of `lucide-react`, and the SPDX header
 - **TypeScript strict mode**: Type safety
 - **Vitest + RTL**: Unit/component testing
 - **Playwright**: E2E browser testing
@@ -90,14 +90,15 @@ Report location: `coverage/index.html` (generated, git-ignored)
 - Server statuses are mapped only in `features/workflow/lib/statusMapper.ts`. `NODE_*` values are node-level, never execution-terminal
 
 ## Design System
-- **Tokens**: `src/index.css`. The shadcn preset `buFywKm` (`base-lyra`, neutral, monochrome) is the source of truth: `:root` / `.dark` hold the shadcn variables (oklch), and the Material-style names (`on-surface`, `surface-container`, `outline-variant`, ...) are aliases in `@theme inline`. Primary is near-black/white, so state is shown by weight, underline and dots rather than a hue; only success, warning and error carry color
+- **Tokens**: `src/index.css`. shadcn preset `b27GcrRo` (`base-rhea`: soft, rounded, Inter) sets the structure and shape. The colours come from `public/logo.svg`: blue `#2F6BFF` (primary), slate `#6A7A9B` (cool-tinted neutrals) and orange `#E85D0C` (`--attention`, used for the running pulse). `:root` / `.dark` hold the shadcn variables (oklch); the Material-style names (`on-surface`, `surface-container`, `outline-variant`, ...) are aliases in `@theme inline`. Success, warning and error keep their own colours
 - **Typography**: Inter Variable (`@fontsource-variable/inter`), JetBrains Mono for code
+- **Logo and favicons**: `public/logo.svg` is the source (untouched, it embeds C2PA metadata). `pnpm run favicons` (needs Inkscape and ImageMagick) regenerates `favicon.svg` (drawing only), `favicon.ico`, `favicon-96x96.png`, `apple-touch-icon.png` and the manifest PNGs. The header shows `/favicon.svg`
 - **Icons**: Material Symbols Outlined, self-hosted as a subset (`src/assets/material-symbols-subset.woff2`, about 11 KB). After adding an icon name anywhere in `src`, run `pnpm run icons` to regenerate it (needs network). Plugin node HTML may only use icons listed in `PLUGIN_ICONS` in `scripts/subset-icons.mjs`. `lucide-react` is not used
-- **Corners**: Sharp 0px for Tailwind `rounded-*` (`--radius-*` in `@theme`); status dots are the only round shapes
+- **Corners**: the preset's radius scale (`--radius: 0.625rem`). Components from `shadcn add` are rounded; give custom containers `rounded-xl` (panels, tables, cards) or `rounded-lg` (inputs, small controls) and chips `rounded-full`
 - **Semantic tokens**: `success`/`warning` for status, `terminal`/`log-*` for the logs panel (never hardcode black or `neutral-*`). Use the named type utilities (`text-headline-md`, `text-body-*`, `text-label-*`, `text-code-sm`); minimum text size is 12px
 - **Shared pieces**: `PageHeader` (one h1 per page), `StateMessage` (loading/empty/error with retry), `CodeBlock` (mono JSON with copy), `StatusChip` (dot + label)
 - **Layout**: pages are full width (no `max-w-*` on `<main>`); the header, breadcrumb, pages and footer share one gutter (`px-4 sm:px-6`). Only prose (`max-w-prose`) and forms (`max-w-xl`) keep a readable measure. Spacing tokens are `--spacing-spacing-*` (class `px-spacing-md`) so they do not override Tailwind's `max-w-md`/`w-lg` named sizes
-- **Plugin categories**: `--cat-trigger|processor|terminal` (teal, indigo, amber) are used only on the canvas, the plugin catalog and edges (`features/workflow/lib/categoryAccent.ts`). Node effects (running glow, edge flow, hover, selected ring, graph fade-in) live in `index.css` under "Workflow canvas" and are disabled by `prefers-reduced-motion`
+- **Plugin categories**: `--cat-trigger|processor|terminal` (the logo's orange, blue and slate) are used only on the canvas, the plugin catalog and edges (`features/workflow/lib/categoryAccent.ts`). Node effects (running glow, edge flow, hover, selected ring, graph fade-in) live in `index.css` under "Workflow canvas" and are disabled by `prefers-reduced-motion`
 - **Icon names missing from `material-symbols`** (`expand_more`, `expand_less`) are listed in `PLUGIN_ICONS` in `scripts/subset-icons.mjs`
 - **Bundle budget**: `pnpm run build` fails if a JS chunk is over 300 KB or the icon font over 100 KB (`scripts/check-bundle-size.js`)
 

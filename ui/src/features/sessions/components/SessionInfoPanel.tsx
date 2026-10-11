@@ -85,7 +85,7 @@ export function SessionInfoPanel({ session, actions }: SessionInfoPanelProps) {
           <button
             onClick={handleCopyPath}
             aria-label={copied ? 'Project path copied' : 'Copy project path'}
-            className="group border-outline-variant bg-surface hover:bg-surface-variant flex w-full items-center justify-between border p-2"
+            className="group border-outline-variant bg-surface hover:bg-surface-variant flex w-full items-center justify-between rounded-lg border p-2"
           >
             <code className="text-code-sm text-on-surface truncate pr-4">
               {session.projectPath}

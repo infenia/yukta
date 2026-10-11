@@ -115,7 +115,7 @@ export function WorkflowNodeCard({
       data-selected={selected ? 'true' : undefined}
       style={{ '--accent': accent } as React.CSSProperties}
       className={cn(
-        'yukta-node bg-surface relative flex size-full flex-col border border-t-[3px] border-t-(--accent) outline-none focus-visible:ring-2 focus-visible:ring-(--accent)',
+        'yukta-node bg-surface relative flex size-full flex-col rounded-xl border border-t-[3px] border-t-(--accent) outline-none focus-visible:ring-2 focus-visible:ring-(--accent)',
         STATUS_CARD_CLASSES[status]
       )}
     >
@@ -154,7 +154,7 @@ export function WorkflowNodeCard({
 
       <div className="flex items-center gap-2.5 px-3 pt-2.5">
         <span
-          className="flex size-8 shrink-0 items-center justify-center text-(--accent)"
+          className="flex size-8 shrink-0 items-center justify-center rounded-lg text-(--accent)"
           style={{ background: categoryTint(node.category) }}
         >
           <span

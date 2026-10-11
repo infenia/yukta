@@ -29,7 +29,7 @@ export function PluginCanvasPreview({ plugin }: { plugin: PluginDetails }) {
   };
 
   return (
-    <div className="h-80 border border-outline-variant" data-testid="plugin-canvas-preview">
+    <div className="h-80 overflow-hidden rounded-xl border border-outline-variant" data-testid="plugin-canvas-preview">
       <ReactFlowProvider>
         <ReactFlow
           key={plugin.type}

@@ -157,7 +157,7 @@ export function LogsPanel({
             onClick={() => setWrap((value) => !value)}
             aria-pressed={wrap}
             className={cn(
-              'text-label-sm transition-standard border px-2 py-1 tracking-wider',
+              'text-label-sm transition-standard rounded-lg border px-2 py-1 tracking-wider',
               wrap
                 ? 'border-primary text-primary'
                 : 'border-outline-variant text-on-surface-variant hover:bg-surface-container-high'
@@ -168,7 +168,7 @@ export function LogsPanel({
           <button
             type="button"
             onClick={copyLogs}
-            className="text-label-sm transition-standard border-outline-variant text-on-surface-variant hover:bg-surface-container-high border px-2 py-1 tracking-wider"
+            className="text-label-sm transition-standard border-outline-variant text-on-surface-variant hover:bg-surface-container-high rounded-lg border px-2 py-1 tracking-wider"
           >
             {copied ? 'COPIED' : 'COPY'}
           </button>
@@ -232,7 +232,7 @@ export function LogsPanel({
             <button
               type="button"
               onClick={jumpToLatest}
-              className="text-label-sm bg-primary text-on-primary absolute right-4 bottom-3 px-3 py-1"
+              className="text-label-sm bg-primary text-on-primary absolute right-4 bottom-3 rounded-lg px-3 py-1"
             >
               Jump to latest
             </button>
