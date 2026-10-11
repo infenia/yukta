@@ -4,6 +4,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { api, fetchApi } from '@/lib/apiClient';
+import { SupervisorsPanel } from './SupervisorsPanel';
 
 const getNodes = (workflowId: string) =>
   fetchApi<string[]>(
@@ -38,7 +39,8 @@ export function ControlPage() {
   });
 
   return (
-    <div className="flex flex-1 flex-col gap-4 p-6">
+    <div className="flex flex-1 flex-col gap-6 p-6">
+      <SupervisorsPanel />
       <div className="flex items-center gap-3">
         <h1 className="text-2xl font-bold text-on-surface">Control Bus</h1>
         <input
