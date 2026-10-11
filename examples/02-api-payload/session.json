@@ -1,0 +1,33 @@
+{
+  "sessionId": "example-02-api-payload",
+  "name": "API payload",
+  "description": "Trigger a workflow over REST with input data and map it into a result.",
+  "initiator": "examples",
+  "projectPath": "/tmp",
+  "tags": { "example": "02-api-payload" },
+  "workflows": {
+    "greet-user": {
+      "workflowId": "greet-user",
+      "description": "Map the request payload into a greeting record",
+      "nodes": [
+        { "nodeId": "trigger", "type": "api-trigger", "config": {} },
+        {
+          "nodeId": "map",
+          "type": "MAPPER",
+          "config": {
+            "mode": "PROJECTION",
+            "mapping": {
+              "greeting": "'Hello, ' + payload.name",
+              "priority": "payload.priority"
+            }
+          }
+        },
+        { "nodeId": "end", "type": "CONSOLE_TERMINAL", "config": {} }
+      ],
+      "edges": [
+        { "source": "trigger", "target": "map" },
+        { "source": "map", "target": "end" }
+      ]
+    }
+  }
+}

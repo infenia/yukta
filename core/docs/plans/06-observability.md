@@ -1,8 +1,3 @@
-<!--
-SPDX-License-Identifier: Apache-2.0
-SPDX-FileCopyrightText: 2026 Infenia Private Limited
--->
-
 # 06 Observability (2.5→5, but guide says 3.5 — tracing already exists)
 
 Gaps: stale "No tracing" cell; metrics lack run-level and queue timings; no correlation in logs.

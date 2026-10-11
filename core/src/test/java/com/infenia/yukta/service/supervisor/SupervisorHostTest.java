@@ -19,6 +19,7 @@ import com.infenia.yukta.service.control.directive.DirectiveDispatcher;
 import com.infenia.yukta.service.log.ExecutionLogEvent;
 import com.infenia.yukta.service.log.InMemoryExecutionLogStore;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -256,5 +257,30 @@ class SupervisorHostTest {
     await()
         .atMost(2, TimeUnit.SECONDS)
         .untilAsserted(() -> assertThat(cancelled.get()).isEqualTo(1));
+  }
+
+  @Test
+  void start_slowSupervisor_dropsEventsAndCountsThem() {
+    start(
+        supervisor(
+            "slow",
+            events ->
+                events
+                    .limitRate(1)
+                    .concatMap(_ -> Mono.delay(Duration.ofSeconds(30)))
+                    .thenMany(Flux.empty())),
+        false,
+        10);
+
+    await()
+        .atMost(5, TimeUnit.SECONDS)
+        .untilAsserted(
+            () -> {
+              for (int i = 0; i < 200; i++) {
+                feed.publish(failed("e" + i));
+              }
+              assertThat(meters.counter("yukta.tracker.dropped", "kind", "supervisor").count())
+                  .isPositive();
+            });
   }
 }

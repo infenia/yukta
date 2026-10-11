@@ -1,6 +1,3 @@
-# SPDX-License-Identifier: Apache-2.0
-# SPDX-FileCopyrightText: 2026 Infenia Private Limited
-
 # MCP Module CLAUDE.md
 
 ## Overview
@@ -63,3 +60,6 @@ controllers as an agent-friendly MCP tool surface backed directly by `core` serv
 ## Imports
 @.claude/rules/coding-standards.md
 @.claude/rules/git-workflow.md
+
+## Testing speed
+Follow the tiered "Test Execution Policy (speed)" in the root `CLAUDE.md`: run `--tests` for the classes you changed first; full `:mcp:test` only when many files changed.

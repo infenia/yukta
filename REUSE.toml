@@ -37,6 +37,12 @@ SPDX-FileCopyrightText = "none"
 SPDX-License-Identifier = "CC0-1.0"
 
 [[annotations]]
+path = ["examples/**/*.json", "examples/**/*.sh"]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "none"
+SPDX-License-Identifier = "CC0-1.0"
+
+[[annotations]]
 path = ["bruno/**", "plugins/supervisors/rule-supervisor/rules.example.json", "config/license/**", "docs/superpowers/plans/**"]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "none"

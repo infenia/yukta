@@ -1,0 +1,23 @@
+{
+  "sessionId": "example-01-hello",
+  "name": "Hello world",
+  "description": "Smallest possible Yukta workflow: a trigger, one command, a terminal.",
+  "initiator": "examples",
+  "projectPath": "/tmp",
+  "tags": { "example": "01-hello-world" },
+  "workflows": {
+    "hello": {
+      "workflowId": "hello",
+      "description": "Echo a greeting",
+      "nodes": [
+        { "nodeId": "start", "type": "ONE_SHOT", "config": {} },
+        { "nodeId": "greet", "type": "PROCESS_EXECUTOR", "config": { "command": ["echo", "Hello from Yukta!"] } },
+        { "nodeId": "end", "type": "CONSOLE_TERMINAL", "config": {} }
+      ],
+      "edges": [
+        { "source": "start", "target": "greet" },
+        { "source": "greet", "target": "end" }
+      ]
+    }
+  }
+}

@@ -1,8 +1,3 @@
-<!--
-SPDX-License-Identifier: Apache-2.0
-SPDX-FileCopyrightText: 2026 Infenia Private Limited
--->
-
 # 05 Governance (4→5)
 
 Gaps: limits global/per-workflow only; no per-session quota; setLimits not persisted/audited.

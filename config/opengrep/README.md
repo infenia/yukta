@@ -1,6 +1,3 @@
-# SPDX-License-Identifier: Apache-2.0
-# SPDX-FileCopyrightText: 2026 Infenia Private Limited
-
 # OpenGrep Configuration
 
 This directory contains the OpenGrep static analysis configuration for the Yukta project.

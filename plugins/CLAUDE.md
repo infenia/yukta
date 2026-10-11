@@ -1,6 +1,3 @@
-# SPDX-License-Identifier: Apache-2.0
-# SPDX-FileCopyrightText: 2026 Infenia Private Limited
-
 # Plugins CLAUDE.md
 
 ## Overview
@@ -30,3 +27,6 @@ Guide (interactive): `docs/plugins-module-guide.html`; review findings: `docs/pl
 ## Imports
 @.claude/rules/coding-standards.md
 @.claude/rules/git-workflow.md
+
+## Testing speed
+Follow the tiered "Test Execution Policy (speed)" in the root `CLAUDE.md`: run `--tests` for the classes you changed first; full `:plugins:test` only when many files changed.

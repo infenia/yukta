@@ -132,4 +132,13 @@ class KvStoreProcessorTest {
               assertThat(design.height()).isEqualTo(80);
             });
   }
+
+  @Test
+  void unknownOperationWithPutsHashCode_fallsBackToGet() {
+    // "pvU" has the same hashCode as "put", so it reaches the switch's equals check and misses it
+    assertThat(run("pvU", Map.of(KEY, "a"))).isNull();
+    // likewise "jOcr" collides with "incr" and "demFte" with "delete"
+    assertThat(run("jOcr", Map.of(KEY, "a"))).isNull();
+    assertThat(run("demFte", Map.of(KEY, "a"))).isNull();
+  }
 }

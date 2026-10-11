@@ -361,7 +361,7 @@ class ContentFilterProcessorTest {
     final Map<String, Object> config = new java.util.HashMap<>();
     config.put("mode", mode);
     config.put("paths", paths);
-    for (int i = 0; i < extra.length; i += 2) {
+    for (int i = 0; i + 1 < extra.length; i += 2) {
       config.put((String) extra[i], extra[i + 1]);
     }
     return processor.process(Flux.just(msg), config).collectList().block();
