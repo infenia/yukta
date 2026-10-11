@@ -11,6 +11,7 @@ import com.infenia.yukta.dto.response.WorkflowValidationResult;
 import com.infenia.yukta.mapper.AppConfigMapper;
 import com.infenia.yukta.mapper.SessionMapper;
 import com.infenia.yukta.model.api.ApiResponse;
+import com.infenia.yukta.model.session.SessionConfigResponse;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.plugin.core.Plugin;
 import com.infenia.yukta.service.NotFoundException;
@@ -95,6 +96,26 @@ public class SessionConfigController {
                     200,
                     "Session details retrieved",
                     sessionMapper.sessionConfigResponseToSessionDetails(config)));
+  }
+
+  /**
+   * Get one session's complete configuration, the shape {@code POST /api/sessions} accepts.
+   *
+   * @param sessionId the session
+   * @return its metadata, tags with values, and every workflow definition
+   */
+  @GetMapping("/{sessionId}/config")
+  @Operation(
+      summary = "Get session configuration",
+      description =
+          "The full configuration of a session including tag values and workflow definitions,"
+              + " so an editor can change it and send it back with POST /api/sessions")
+  public Mono<ApiResponse<SessionConfigResponse>> getSessionConfig(
+      @Parameter(description = SESSION_ID) @PathVariable final String sessionId) {
+    return sessionService
+        .getSessionConfig(sessionId)
+        .switchIfEmpty(sessionNotFound(sessionId))
+        .map(config -> ApiResponse.success(200, "Session configuration retrieved", config));
   }
 
   /**

@@ -303,4 +303,23 @@ class SessionConfigControllerTest {
         .jsonPath("$.data.outputPorts.length()")
         .isEqualTo(0);
   }
+
+  @Test
+  void testSessionConfigKeepsTagValuesAndWorkflows() {
+    when(sessionService.getSessionConfig("s1")).thenReturn(Mono.just(config("s1")));
+    when(sessionService.getSessionConfig("nope")).thenReturn(Mono.empty());
+
+    client
+        .get()
+        .uri("/api/sessions/s1/config")
+        .exchange()
+        .expectStatus()
+        .isOk()
+        .expectBody()
+        .jsonPath("$.data.tags.t")
+        .isEqualTo("v")
+        .jsonPath("$.data.workflows.wf.workflowId")
+        .isEqualTo("wf");
+    client.get().uri("/api/sessions/nope/config").exchange().expectStatus().isNotFound();
+  }
 }
