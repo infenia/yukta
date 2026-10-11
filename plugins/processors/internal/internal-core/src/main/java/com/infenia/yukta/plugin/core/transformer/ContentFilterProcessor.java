@@ -3,6 +3,7 @@
 package com.infenia.yukta.plugin.core.transformer;
 
 import com.infenia.yukta.message.Message;
+import com.infenia.yukta.plugin.core.ConfigField;
 import com.infenia.yukta.plugin.core.PluginDescriptor;
 import com.infenia.yukta.plugin.core.UiDesign;
 import com.infenia.yukta.plugin.exception.WorkflowExecutionException;
@@ -112,6 +113,25 @@ public class ContentFilterProcessor implements ProcessorPlugin {
                 """,
                 140,
                 80)));
+  }
+
+  @Override
+  public List<ConfigField> getConfigSchema() {
+    return List.of(
+        ConfigField.choice(
+            "mode",
+            true,
+            null,
+            "Keep (INCLUDE) or drop (EXCLUDE) the listed paths",
+            "INCLUDE",
+            "EXCLUDE"),
+        ConfigField.required(
+            "paths", ConfigField.Type.LIST, "SpEL expressions (INCLUDE) or dot paths (EXCLUDE)"),
+        ConfigField.optional(
+            "flatten", ConfigField.Type.BOOLEAN, false, "Flatten nested structures"),
+        ConfigField.optional(
+            "strictMode", ConfigField.Type.BOOLEAN, true, "Fail when a path is missing"),
+        ConfigField.optional("errorPort", ConfigField.Type.STRING, null, "Port for failures"));
   }
 
   @Override

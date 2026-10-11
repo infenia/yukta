@@ -3,6 +3,7 @@
 package com.infenia.yukta.plugin.sql;
 
 import com.infenia.yukta.message.Message;
+import com.infenia.yukta.plugin.core.ConfigField;
 import com.infenia.yukta.plugin.core.PluginDescriptor;
 import com.infenia.yukta.plugin.core.UiDesign;
 import com.infenia.yukta.plugin.type.ProcessorPlugin;
@@ -70,6 +71,25 @@ public final class SqlQueryPlugin implements ProcessorPlugin {
                 """,
                 140,
                 80)));
+  }
+
+  @Override
+  public List<ConfigField> getConfigSchema() {
+    return List.of(
+        ConfigField.required(
+            "url", ConfigField.Type.STRING, "JDBC URL (the driver must be on the classpath)"),
+        ConfigField.optional("username", ConfigField.Type.STRING, null, "Database user"),
+        ConfigField.optional(
+            "password", ConfigField.Type.SECRET, null, "Database password (decrypted:<key>)"),
+        ConfigField.required("sql", ConfigField.Type.EXPRESSION, "Statement with ? placeholders"),
+        ConfigField.optional(
+            "params",
+            ConfigField.Type.LIST,
+            null,
+            "Payload fields bound to the placeholders, in order"),
+        ConfigField.optional("maxRows", ConfigField.Type.NUMBER, 1000, "Most rows returned"),
+        ConfigField.optional(
+            "timeoutSeconds", ConfigField.Type.NUMBER, 30, "Statement timeout in seconds"));
   }
 
   @Override
