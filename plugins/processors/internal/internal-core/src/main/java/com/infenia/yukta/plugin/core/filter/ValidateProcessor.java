@@ -5,6 +5,8 @@ package com.infenia.yukta.plugin.core.filter;
 import com.infenia.yukta.message.Message;
 import com.infenia.yukta.plugin.core.ConfigField;
 import com.infenia.yukta.plugin.core.PluginDescriptor;
+import com.infenia.yukta.plugin.core.PluginGuard;
+import com.infenia.yukta.plugin.core.PluginMetricsReporter;
 import com.infenia.yukta.plugin.core.UiDesign;
 import com.infenia.yukta.plugin.type.ProcessorPlugin;
 import java.util.ArrayList;
@@ -12,7 +14,8 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import lombok.NoArgsConstructor;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -23,8 +26,25 @@ import reactor.core.publisher.Mono;
  */
 @Component
 @SuppressWarnings({"PMD.AvoidFieldNameMatchingMethodName", "PMD.UseConcurrentHashMap"})
-@NoArgsConstructor
 public final class ValidateProcessor implements ProcessorPlugin {
+
+  /** Metrics reporter. */
+  private final PluginMetricsReporter reporter;
+
+  /** Creates the plugin without metrics. */
+  public ValidateProcessor() {
+    this.reporter = PluginMetricsReporter.NOOP;
+  }
+
+  /**
+   * Spring constructor.
+   *
+   * @param reporterProvider optional metrics reporter
+   */
+  @Autowired
+  public ValidateProcessor(final ObjectProvider<PluginMetricsReporter> reporterProvider) {
+    this.reporter = reporterProvider.getIfAvailable(() -> PluginMetricsReporter.NOOP);
+  }
 
   /** Required. */
   private static final String REQUIRED = "required";
@@ -100,6 +120,11 @@ public final class ValidateProcessor implements ProcessorPlugin {
 
   @Override
   public Flux<Message<?>> process(final Flux<Message<?>> input, final Map<String, Object> config) {
+    return PluginGuard.counted(doProcess(input, config), reporter, "validate");
+  }
+
+  private Flux<Message<?>> doProcess(
+      final Flux<Message<?>> input, final Map<String, Object> config) {
     return input.map(message -> route(message, config));
   }
 

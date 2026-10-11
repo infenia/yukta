@@ -6,11 +6,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
+import com.infenia.yukta.plugin.core.PluginMetricsReporter;
 import com.sun.net.httpserver.HttpServer;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -19,12 +21,15 @@ import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.support.StaticListableBeanFactory;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Flux;
 import reactor.test.StepVerifier;
 
 /** Tests for NotifyTerminal against a local JDK HTTP server. */
 @NoArgsConstructor
+@SuppressWarnings("PMD.TooManyMethods")
 class NotifyTerminalTest {
 
   /** Config key. */
@@ -95,6 +100,17 @@ class NotifyTerminalTest {
   }
 
   @Test
+  void consume_continueModeKeepsSending() {
+    status = 500;
+    StepVerifier.create(
+            terminal.consume(
+                Flux.concat(messages("x"), messages("y")),
+                Map.of(URL_KEY, url, "failureMode", "CONTINUE")))
+        .verifyComplete();
+    assertThat(bodies).hasSize(2);
+  }
+
+  @Test
   void consume_redirectFailsTheNode() {
     status = 302;
     StepVerifier.create(terminal.consume(messages("x"), Map.of(URL_KEY, url)))
@@ -145,5 +161,24 @@ class NotifyTerminalTest {
               assertThat(design.width()).isEqualTo(140);
               assertThat(design.height()).isEqualTo(80);
             });
+  }
+
+  private static ObjectProvider<PluginMetricsReporter> provider(final PluginMetricsReporter value) {
+    final StaticListableBeanFactory factory = new StaticListableBeanFactory();
+    factory.addBean("reporter", value);
+    return factory.getBeanProvider(PluginMetricsReporter.class);
+  }
+
+  @Test
+  void springConstructorReportsMetrics() {
+    final List<String> counts = new ArrayList<>();
+    final NotifyTerminal reporting =
+        new NotifyTerminal(
+            WebClient.builder(), provider((node, metric, tag) -> counts.add(metric + ":" + tag)));
+    StepVerifier.create(reporting.consume(messages("x"), Map.of(URL_KEY, url))).verifyComplete();
+    assertThat(counts).containsExactly("notify:OK");
+    final var empty = new StaticListableBeanFactory().getBeanProvider(PluginMetricsReporter.class);
+    assertThat(new NotifyTerminal(WebClient.builder(), empty).getType())
+        .isEqualTo("NOTIFY_TERMINAL");
   }
 }

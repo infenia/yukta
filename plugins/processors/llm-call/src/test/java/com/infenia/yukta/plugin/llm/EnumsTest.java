@@ -5,6 +5,7 @@ package com.infenia.yukta.plugin.llm;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.infenia.yukta.plugin.core.FailureMode;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 
