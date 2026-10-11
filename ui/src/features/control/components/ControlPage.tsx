@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
+import { Input } from '@/components/ui/input';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { api, fetchApi } from '@/lib/apiClient';
@@ -52,12 +53,12 @@ export function ControlPage() {
   });
 
   return (
-    <div className="flex flex-1 flex-col gap-4 p-6">
+    <div className="flex flex-1 flex-col gap-4 px-4 py-6 sm:px-6">
       <PageHeader
         title="Control Bus"
         description="Nodes registered on the control bus. Filter by workflow id to inspect heartbeats."
         actions={
-          <input
+          <Input
             aria-label="Workflow id"
             placeholder="Filter by workflow id (enables heartbeats)"
             value={workflowId}
@@ -65,7 +66,7 @@ export function ControlPage() {
               setWorkflowId(event.target.value.trim());
               setOpened(null);
             }}
-            className="border-outline-variant bg-surface text-on-surface h-8 w-80 max-w-full border px-2 text-sm"
+            className="w-80 max-w-full"
           />
         }
       />

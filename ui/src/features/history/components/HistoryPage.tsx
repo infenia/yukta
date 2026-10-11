@@ -35,7 +35,7 @@ export function HistoryPage() {
   });
 
   return (
-    <div className="flex flex-1 flex-col gap-4 p-6">
+    <div className="flex flex-1 flex-col gap-4 px-4 py-6 sm:px-6">
       <PageHeader
         title="History"
         description="Recent runs of a session, newest first."

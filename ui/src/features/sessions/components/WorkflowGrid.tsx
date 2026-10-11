@@ -19,9 +19,9 @@ export function WorkflowGrid({ sessionId, workflows, filter, onFilterChange }: W
   );
 
   return (
-    <section className="mx-auto mt-12 max-w-6xl px-8 pb-12">
+    <section className="px-4 py-6 sm:px-6">
       <div className="mb-6 flex items-center justify-between">
-        <h2 className="text-xl font-bold text-on-surface">
+        <h2 className="text-headline-md text-on-surface">
           Associated Workflows ({workflows.length})
         </h2>
         <div className="flex items-center gap-2 border border-outline-variant bg-surface-container px-3 py-1.5">
@@ -33,7 +33,7 @@ export function WorkflowGrid({ sessionId, workflows, filter, onFilterChange }: W
             placeholder="Filter workflows..."
             value={filter}
             onChange={(e) => onFilterChange(e.target.value)}
-            className="border-none bg-transparent p-0 text-xs focus:ring-0"
+            className="text-body-md border-none bg-transparent p-0 outline-none focus:ring-0"
           />
         </div>
       </div>
@@ -45,7 +45,7 @@ export function WorkflowGrid({ sessionId, workflows, filter, onFilterChange }: W
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-px border border-outline-variant bg-outline-variant md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(18rem,1fr))] gap-px border border-outline-variant bg-outline-variant">
           {filteredWorkflows.map((workflow) => (
             <WorkflowCard
               key={workflow.workflowId}

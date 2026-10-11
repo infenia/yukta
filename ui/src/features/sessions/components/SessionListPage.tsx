@@ -3,7 +3,7 @@
 
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router';
-import HeaderPortal from '@/components/layout/HeaderPortal';
+import { buttonVariants } from '@/components/ui/button';
 import {
   useLegacyTable,
   getCoreRowModel,
@@ -98,17 +98,19 @@ export function SessionListPage() {
 
   return (
     <div className="bg-background flex flex-1 flex-col gap-0">
-      <div className="w-full">
-        <HeaderPortal targetId="header-actions">
-          <Link
-            to="/sessions/new"
-            className="border-outline-variant text-on-surface hover:bg-surface-container flex h-8 items-center gap-1 border px-3 text-xs font-semibold no-underline"
-          >
-            <span className="material-symbols-outlined text-base">add</span>New
-            session
-          </Link>
-        </HeaderPortal>
-        <SessionsHeader sessionCount={sessions.length} />
+      <div>
+        <SessionsHeader
+          sessionCount={sessions.length}
+          actions={
+            <Link
+              to="/sessions/new"
+              className={buttonVariants({ variant: 'outline', size: 'default' })}
+            >
+              <span className="material-symbols-outlined text-base">add</span>
+              New session
+            </Link>
+          }
+        />
 
         <SessionsFilterBar
           data={sessions}
@@ -117,7 +119,7 @@ export function SessionListPage() {
           onReset={handleReset}
         />
 
-        <div className="px-6 pb-12">
+        <div className="px-4 pb-8 sm:px-6">
           <div className="border-outline-variant bg-surface-container border">
             <Table>
               <TableHeader>

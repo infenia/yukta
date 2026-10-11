@@ -2,7 +2,8 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import dagre from '@dagrejs/dagre';
-import type { Edge, Node } from '@xyflow/react';
+import { MarkerType, type Edge, type Node } from '@xyflow/react';
+import { categoryAccent } from './categoryAccent';
 import { toNodeUiStatus } from './statusMapper';
 import type {
   NodeUiStatus,
@@ -16,16 +17,18 @@ export interface WorkflowNodeData extends Record<string, unknown> {
   node: WorkflowGraphNode;
   status: NodeUiStatus;
   task?: TaskProgress;
+  /** Hide the description line (the plugin page already shows it next to the preview). */
+  hideDescription?: boolean;
 }
 
 export type WorkflowFlowNode = Node<WorkflowNodeData, 'workflowNode'>;
 
 /** Default placeholder size when a plugin declares no UI design. */
 export const DEFAULT_NODE_WIDTH = 240;
-export const DEFAULT_NODE_HEIGHT = 88;
+export const DEFAULT_NODE_HEIGHT = 116;
 
 /** Vertical chrome (header + status row) added around plugin-provided details HTML. */
-const NODE_CHROME_HEIGHT = 56;
+export const NODE_CHROME_HEIGHT = 80;
 
 function nodeSize(node: WorkflowGraphNode): { width: number; height: number } {
   if (!node.uiDesign) {
@@ -79,10 +82,14 @@ export function layoutGraph(
   dagre.layout(dagreGraph);
 
   const statusByNode = new Map<string, NodeUiStatus>(
-    graph.nodes.map((node) => [node.nodeId, toNodeUiStatus(tasksByNode[node.nodeId]?.status)])
+    graph.nodes.map((node) => [
+      node.nodeId,
+      toNodeUiStatus(tasksByNode[node.nodeId]?.status),
+    ])
   );
   // Every graph node has an entry, so lookups by known node id cannot miss
-  const statusOf = (nodeId: string): NodeUiStatus => statusByNode.get(nodeId) as NodeUiStatus;
+  const statusOf = (nodeId: string): NodeUiStatus =>
+    statusByNode.get(nodeId) as NodeUiStatus;
 
   const nodes: WorkflowFlowNode[] = graph.nodes.map((node) => {
     const { width, height } = nodeSize(node);
@@ -109,16 +116,30 @@ export function layoutGraph(
       const sourceStatus = statusOf(edge.source);
       const targetStatus = statusOf(edge.target);
       const traversed = sourceStatus === 'completed';
+      const sourceCategory = (nodeById.get(edge.source) as WorkflowGraphNode)
+        .category;
+      const stroke = traversed
+        ? sourceCategory
+          ? categoryAccent(sourceCategory)
+          : 'var(--color-primary)'
+        : 'var(--color-outline)';
       return {
         id: `${edge.source}__${edge.sourcePort ?? 'all'}__${edge.target}`,
         source: edge.source,
         target: edge.target,
-        sourceHandle: resolveSourceHandle(nodeById.get(edge.source) as WorkflowGraphNode, edge.sourcePort),
+        sourceHandle: resolveSourceHandle(
+          nodeById.get(edge.source) as WorkflowGraphNode,
+          edge.sourcePort
+        ),
         type: 'default',
         animated: traversed && targetStatus === 'running',
-        style: traversed
-          ? { stroke: 'var(--color-primary)', strokeWidth: 2 }
-          : { stroke: 'var(--color-outline)', strokeWidth: 1.5 },
+        markerEnd: {
+          type: MarkerType.ArrowClosed,
+          width: 16,
+          height: 16,
+          color: stroke,
+        },
+        style: { stroke, strokeWidth: traversed ? 2 : 1.5 },
       };
     });
 

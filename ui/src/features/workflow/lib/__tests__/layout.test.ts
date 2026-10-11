@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import { describe, it, expect } from 'vitest';
-import { DEFAULT_NODE_HEIGHT, DEFAULT_NODE_WIDTH, layoutGraph } from '../layout';
+import { DEFAULT_NODE_HEIGHT, DEFAULT_NODE_WIDTH, NODE_CHROME_HEIGHT, layoutGraph } from '../layout';
 import { createMockGraph, createMockProgress, createMockTask } from '@/test/factories/workflowFactory';
 import { must } from '@/test/utils/testUtils';
 import type { TaskProgress } from '../../types/workflow';
@@ -49,7 +49,7 @@ describe('layoutGraph', () => {
     const withoutDesign = must(nodes.find((node) => node.id === 'data-ingress'));
 
     expect(withDesign.width).toBe(DEFAULT_NODE_WIDTH);
-    expect(withDesign.height).toBe(96);
+    expect(withDesign.height).toBe(40 + NODE_CHROME_HEIGHT);
     expect(withoutDesign.width).toBe(DEFAULT_NODE_WIDTH);
     expect(withoutDesign.height).toBe(DEFAULT_NODE_HEIGHT);
   });
@@ -101,13 +101,14 @@ describe('layoutGraph', () => {
     const traversed = must(edges.find(
       (edge) => edge.source === 'data-ingress' && edge.target === 'vectorize-batch'
     ));
-    expect(traversed.style?.stroke).toBe('var(--color-primary)');
+    expect(traversed.style?.stroke).toBe('var(--color-cat-trigger)');
+    expect(traversed.markerEnd).toMatchObject({ color: 'var(--color-cat-trigger)' });
     expect(traversed.animated).toBe(true);
 
     const traversedToPending = must(edges.find(
       (edge) => edge.source === 'data-ingress' && edge.target === 'anomaly-detection'
     ));
-    expect(traversedToPending.style?.stroke).toBe('var(--color-primary)');
+    expect(traversedToPending.style?.stroke).toBe('var(--color-cat-trigger)');
     expect(traversedToPending.animated).toBe(false);
 
     const inactive = must(edges.find((edge) => edge.source === 'vectorize-batch'));

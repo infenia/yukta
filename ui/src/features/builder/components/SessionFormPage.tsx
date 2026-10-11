@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
@@ -9,7 +11,6 @@ import { ApiError } from '@/lib/apiClient';
 import { saveSession } from '../api';
 import type { SessionDraft } from '../types';
 
-const INPUT = 'h-8 w-full border border-outline-variant bg-surface px-2 text-sm text-on-surface';
 
 /** A session needs a workflow, so a new one starts with a trigger wired to a console terminal. */
 export function starterSession(fields: Omit<SessionDraft, 'workflows' | 'tags'>): SessionDraft {
@@ -65,23 +66,22 @@ export function SessionFormPage() {
 
   const field = (key: keyof typeof fields, label: string, hint?: string) => (
     <div className="flex flex-col gap-1">
-      <label htmlFor={`s-${key}`} className="text-xs font-semibold text-on-surface">
+      <label htmlFor={`s-${key}`} className="text-label-md text-on-surface">
         {label}
       </label>
-      <input
+      <Input
         id={`s-${key}`}
         required
-        className={INPUT}
         value={fields[key]}
         onChange={(event) => setFields({ ...fields, [key]: event.target.value })}
       />
-      {hint && <span className="text-xs text-on-surface-variant">{hint}</span>}
+      {hint && <span className="text-body-sm text-on-surface-variant">{hint}</span>}
     </div>
   );
 
   return (
-    <form onSubmit={submit} className="mx-auto flex w-full max-w-xl flex-col gap-4 p-6">
-      <h1 className="text-2xl font-bold text-on-surface">New session</h1>
+    <form onSubmit={submit} className="mx-auto flex w-full max-w-xl flex-col gap-4 px-4 py-6 sm:px-6">
+      <h1 className="text-headline-lg text-on-surface">New session</h1>
       {field('sessionId', 'Session ID')}
       {field('name', 'Name')}
       {field('description', 'Description')}
@@ -89,13 +89,9 @@ export function SessionFormPage() {
       {field('projectPath', 'Project path', 'Absolute path on the server')}
       <InlineError message={error} />
       <div>
-        <button
-          type="submit"
-          disabled={busy}
-          className="h-8 border border-outline-variant px-4 text-xs font-semibold text-on-surface hover:bg-surface-container disabled:opacity-40"
-        >
+        <Button type="submit" variant="outline" disabled={busy}>
           Create
-        </button>
+        </Button>
       </div>
     </form>
   );

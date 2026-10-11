@@ -17,7 +17,7 @@ export default function AppHeader() {
   return (
     <header className="border-outline-variant bg-surface fixed inset-x-0 top-0 z-50 border-b">
       {/* Top row: Logo + page actions + Theme Toggle */}
-      <div className="px-spacing-md flex h-12 w-full items-center justify-between pr-2">
+      <div className="px-spacing-md flex h-12 w-full items-center justify-between pr-2 sm:px-6">
         <HeaderLogo />
         <div className="flex items-center">
           <div

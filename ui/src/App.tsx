@@ -11,7 +11,7 @@ export default function App() {
     <BreadcrumbOverridesProvider>
       <div className="bg-background text-on-surface flex min-h-screen flex-col">
         <AppHeader />
-        <main className="mx-auto mt-20 flex w-full max-w-7xl flex-1 flex-col">
+        <main className="mt-20 flex w-full flex-1 flex-col">
           <Outlet />
         </main>
         <AppFooter />

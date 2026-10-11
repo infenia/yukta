@@ -84,6 +84,11 @@
   --log-info: oklch(0.4 0.05 250);
   --log-warn: oklch(0.5 0.12 80);
   --log-error: oklch(0.577 0.245 27.325);
+
+  /* Plugin categories: used on the canvas, plugin catalog and nothing else */
+  --cat-trigger: oklch(0.55 0.11 190);
+  --cat-processor: oklch(0.5 0.17 270);
+  --cat-terminal: oklch(0.6 0.14 70);
 }
 
 .dark {
@@ -125,6 +130,10 @@
   --log-info: oklch(0.75 0.1 250);
   --log-warn: oklch(0.82 0.16 85);
   --log-error: oklch(0.75 0.17 22);
+
+  --cat-trigger: oklch(0.78 0.12 190);
+  --cat-processor: oklch(0.75 0.13 275);
+  --cat-terminal: oklch(0.82 0.14 80);
 }
 
 @theme inline {
@@ -207,6 +216,14 @@
   --color-log-warn: var(--log-warn);
   --color-log-error: var(--log-error);
 
+  /* Plugin category accents (canvas) with soft tints for tiles */
+  --color-cat-trigger: var(--cat-trigger);
+  --color-cat-processor: var(--cat-processor);
+  --color-cat-terminal: var(--cat-terminal);
+  --color-cat-trigger-soft: color-mix(in oklab, var(--cat-trigger) 14%, var(--background));
+  --color-cat-processor-soft: color-mix(in oklab, var(--cat-processor) 14%, var(--background));
+  --color-cat-terminal-soft: color-mix(in oklab, var(--cat-terminal) 14%, var(--background));
+
   /* Radius: Yukta stays sharp (lyra); only status dots are round */
   --radius-sm: 0px;
   --radius-md: 0px;
@@ -219,12 +236,13 @@
 }
 
 @theme {
-  /* Spacing: 4px grid */
-  --spacing-xs: 4px;
-  --spacing-sm: 8px;
-  --spacing-md: 16px;
-  --spacing-lg: 24px;
-  --spacing-xl: 32px;
+  /* Spacing: 4px grid. Prefixed 'spacing-' so px-spacing-md works and
+     --spacing-md does not hijack Tailwind's max-w-md / w-lg named sizes. */
+  --spacing-spacing-xs: 4px;
+  --spacing-spacing-sm: 8px;
+  --spacing-spacing-md: 16px;
+  --spacing-spacing-lg: 24px;
+  --spacing-spacing-xl: 32px;
   --spacing-gutter: 1px;
   --spacing-margin-compact: 16px;
 }
@@ -240,9 +258,9 @@
 
 @utility text-headline-lg {
   font-family: var(--font-sans);
-  font-size: 32px;
-  font-weight: 400;
-  line-height: 40px;
+  font-size: 24px;
+  font-weight: 600;
+  line-height: 32px;
   letter-spacing: 0px;
 }
 
@@ -331,5 +349,97 @@
   }
   * {
     @apply border-border outline-ring/50;
+  }
+}
+
+/* ---- Workflow canvas (xyflow) ---- */
+.react-flow {
+  --xy-background-color: var(--background);
+  --xy-background-pattern-color: var(--border);
+  --xy-edge-stroke: var(--outline);
+  --xy-edge-stroke-width: 1.5;
+  --xy-connectionline-stroke: var(--outline);
+  --xy-handle-background-color: var(--background);
+  --xy-handle-border-color: var(--outline);
+  --xy-controls-button-background-color: var(--card);
+  --xy-controls-button-background-color-hover: var(--muted);
+  --xy-controls-button-color: var(--foreground);
+  --xy-controls-button-color-hover: var(--foreground);
+  --xy-controls-button-border-color: var(--border);
+  --xy-controls-box-shadow: none;
+  --xy-minimap-background-color: var(--card);
+  --xy-minimap-mask-background-color: color-mix(in oklch, var(--background) 70%, transparent);
+  --xy-minimap-mask-stroke-color: var(--outline);
+  --xy-minimap-node-background-color: var(--muted);
+  --xy-minimap-node-stroke-color: transparent;
+}
+
+.react-flow__controls,
+.react-flow__minimap {
+  border: 1px solid var(--border);
+}
+
+.react-flow__viewport {
+  animation: graph-in 0.45s ease-out both;
+}
+
+/* Edges feeding a running node: brighter, with flowing dashes (xyflow adds the dash) */
+.react-flow__edge.animated path {
+  stroke-width: 2.5;
+  animation-duration: 0.8s;
+}
+
+.yukta-node {
+  transition:
+    transform 150ms ease,
+    box-shadow 150ms ease,
+    border-color 150ms ease;
+}
+
+.yukta-node:hover {
+  transform: translateY(-1px);
+  border-color: var(--accent);
+}
+
+.yukta-node[data-selected='true'] {
+  box-shadow:
+    0 0 0 2px var(--accent),
+    0 0 0 6px color-mix(in oklab, var(--accent) 18%, transparent);
+}
+
+.yukta-node[data-status='running'] {
+  animation: node-breathe 2.4s ease-in-out infinite;
+}
+
+@keyframes node-breathe {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 1px var(--accent),
+      0 0 10px 0 color-mix(in oklab, var(--accent) 25%, transparent);
+  }
+  50% {
+    box-shadow:
+      0 0 0 1px var(--accent),
+      0 0 24px 3px color-mix(in oklab, var(--accent) 45%, transparent);
+  }
+}
+
+@keyframes graph-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .react-flow__viewport,
+  .yukta-node,
+  .yukta-node[data-status='running'],
+  .react-flow__edge.animated path {
+    animation: none;
+    transition: none;
+  }
+  .yukta-node:hover {
+    transform: none;
   }
 }

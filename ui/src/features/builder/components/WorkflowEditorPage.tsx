@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
+import { buttonVariants } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
@@ -18,8 +20,7 @@ import type {
 } from '../types';
 import { NodeInspector } from './NodeInspector';
 
-const BUTTON =
-  'flex h-8 items-center gap-1 border border-outline-variant px-3 text-xs font-semibold text-on-surface hover:bg-surface-container disabled:opacity-40';
+const BUTTON = buttonVariants({ variant: 'outline' });
 const SELECT =
   'h-8 border border-outline-variant bg-surface px-2 text-sm text-on-surface';
 const NO_TASKS = {};
@@ -161,17 +162,17 @@ function Editor({
 
   return (
     <div className="flex flex-1 flex-col" data-testid="workflow-editor">
-      <div className="border-outline-variant flex flex-wrap items-center gap-3 border-b px-6 py-3">
-        <h1 className="text-on-surface text-xl font-bold">
+      <div className="border-outline-variant flex flex-wrap items-center gap-3 border-b px-4 py-3 sm:px-6">
+        <h1 className="text-on-surface text-headline-md">
           Edit {workflow.workflowId}
         </h1>
-        <input
+        <Input
           aria-label="Description"
           placeholder="Description"
           value={workflow.description}
           maxLength={256}
           onChange={(event) => update({ description: event.target.value })}
-          className="border-outline-variant bg-surface text-on-surface h-8 w-72 border px-2 text-sm"
+          className="w-72"
         />
         <div className="ml-auto flex items-center gap-2">
           <button
@@ -192,7 +193,7 @@ function Editor({
           </button>
         </div>
       </div>
-      <div className="px-6 py-2">
+      <div className="px-4 py-2 sm:px-6">
         <InlineError
           message={error ?? (result && !result.valid ? result.message : null)}
         />

@@ -96,6 +96,9 @@ Report location: `coverage/index.html` (generated, git-ignored)
 - **Corners**: Sharp 0px for Tailwind `rounded-*` (`--radius-*` in `@theme`); status dots are the only round shapes
 - **Semantic tokens**: `success`/`warning` for status, `terminal`/`log-*` for the logs panel (never hardcode black or `neutral-*`). Use the named type utilities (`text-headline-md`, `text-body-*`, `text-label-*`, `text-code-sm`); minimum text size is 12px
 - **Shared pieces**: `PageHeader` (one h1 per page), `StateMessage` (loading/empty/error with retry), `CodeBlock` (mono JSON with copy), `StatusChip` (dot + label)
+- **Layout**: pages are full width (no `max-w-*` on `<main>`); the header, breadcrumb, pages and footer share one gutter (`px-4 sm:px-6`). Only prose (`max-w-prose`) and forms (`max-w-xl`) keep a readable measure. Spacing tokens are `--spacing-spacing-*` (class `px-spacing-md`) so they do not override Tailwind's `max-w-md`/`w-lg` named sizes
+- **Plugin categories**: `--cat-trigger|processor|terminal` (teal, indigo, amber) are used only on the canvas, the plugin catalog and edges (`features/workflow/lib/categoryAccent.ts`). Node effects (running glow, edge flow, hover, selected ring, graph fade-in) live in `index.css` under "Workflow canvas" and are disabled by `prefers-reduced-motion`
+- **Icon names missing from `material-symbols`** (`expand_more`, `expand_less`) are listed in `PLUGIN_ICONS` in `scripts/subset-icons.mjs`
 - **Bundle budget**: `pnpm run build` fails if a JS chunk is over 300 KB or the icon font over 100 KB (`scripts/check-bundle-size.js`)
 
 ## Development Workflow
