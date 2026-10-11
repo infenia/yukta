@@ -25,7 +25,7 @@ import reactor.core.publisher.Mono;
  * overruled by the model.
  *
  * <p>Enabled by {@code yukta.control-plane.rules-first.rules-file} and {@code
- * yukta.control-plane.rules-first.model} (optional: {@code base-url}, {@code min-confidence},
+ * yukta.control-plane.rules-first.model} (optional: {@code base-url}, {@code min-probability},
  * {@code timeout}, as for {@link SystemOneControlPlane}). It builds both plugins itself, so leave
  * their own properties unset, or they would also run on their own.
  */
@@ -49,7 +49,7 @@ public final class RulesFirstControlPlane implements ControlPlanePlugin {
    * @param rulesFile the JSON rules file
    * @param baseUrl the Ollama server
    * @param modelName a local System One model
-   * @param minConfidence answers below this confidence are ignored
+   * @param minProbability answers whose chosen option is less probable than this are ignored
    * @param timeout how long to wait for the model
    * @throws IOException if the rules file cannot be read
    */
@@ -60,12 +60,12 @@ public final class RulesFirstControlPlane implements ControlPlanePlugin {
       @Value("${yukta.control-plane.rules-first.base-url:http://localhost:11434}")
           final String baseUrl,
       @Value("${yukta.control-plane.rules-first.model}") final String modelName,
-      @Value("${yukta.control-plane.rules-first.min-confidence:0.8}") final double minConfidence,
+      @Value("${yukta.control-plane.rules-first.min-probability:0.6}") final double minProbability,
       @Value("${yukta.control-plane.rules-first.timeout:PT2S}") final Duration timeout)
       throws IOException {
     this(
         new RuleControlPlane(rulesFile),
-        new SystemOneControlPlane(builder, baseUrl, modelName, minConfidence, timeout));
+        new SystemOneControlPlane(builder, baseUrl, modelName, minProbability, timeout));
   }
 
   /**

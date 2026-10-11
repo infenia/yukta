@@ -30,6 +30,9 @@ import org.springframework.web.reactive.function.client.WebClient;
 @SuppressWarnings({"PMD.TooManyMethods", "PMD.LawOfDemeter"})
 class SystemOneControlPlaneTest {
 
+  /** The answer that pauses. */
+  private static final String PAUSE = "pause";
+
   /** Last request body the stub received. */
   private final AtomicReference<String> received = new AtomicReference<>();
 
@@ -82,16 +85,18 @@ class SystemOneControlPlaneTest {
         WebClient.builder(),
         "http://" + server.getAddress().getHostString() + ":" + server.getAddress().getPort(),
         "nimble",
-        0.8,
+        0.6,
         timeout);
   }
 
-  private static String answer(final String choice, final double confidence) {
+  private static String answer(final String choice, final double probability) {
     return "{\"model\":\"nimble\",\"answers\":{\"action\":{\"type\":\"choice\",\"choice\":\""
         + choice
-        + "\",\"probabilities\":{},\"confidence\":"
-        + confidence
-        + "}}}";
+        + "\",\"probabilities\":{\""
+        + choice
+        + "\":"
+        + probability
+        + "},\"confidence\":0.01}}}";
   }
 
   private static ExecutionEvent failure() {
@@ -105,8 +110,8 @@ class SystemOneControlPlaneTest {
   }
 
   @Test
-  void decide_pause_confident_pausesAndSendsEventAsState() {
-    reply.set(answer("pause", 0.93));
+  void decide_pause_probable_pausesAndDescribesEventInWords() {
+    reply.set(answer(PAUSE, 0.93));
 
     final ControlDecision decision = plane().decide(failure()).block();
 
@@ -115,18 +120,16 @@ class SystemOneControlPlaneTest {
     assertThat(decision.commands())
         .containsExactly(new ExecutionControlCommand.PauseWorkflowCommand("e1"));
     assertThat(received.get())
-        .contains("\"model\":\"nimble\"", "\"type\":\"choice\"", "\"event\":\"NodeStatusChanged\"")
-        .contains("\"status\":\"FAILURE\"");
+        .contains("\"model\":\"nimble\"", "\"type\":\"choice\"")
+        .contains(
+            "Step HTTP_REQUEST changed status to FAILURE. Details reported by the step: code=500.");
   }
 
   @Test
-  void decide_stop_confident_drainsWorkflow() {
-    reply.set(answer("stop", 0.95));
+  void decide_stop_neverStops() {
+    reply.set(answer("stop", 0.99));
 
-    assertThat(plane().decide(failure()).block().commands())
-        .hasSize(1)
-        .first()
-        .isInstanceOf(ExecutionControlCommand.StopWorkflowCommand.class);
+    assertThat(plane().decide(failure()).block().commands()).isEmpty();
   }
 
   @Test
@@ -137,8 +140,8 @@ class SystemOneControlPlaneTest {
   }
 
   @Test
-  void decide_lowConfidence_noCommands() {
-    reply.set(answer("stop", 0.5));
+  void decide_improbablePause_noCommands() {
+    reply.set(answer(PAUSE, 0.5));
 
     assertThat(plane().decide(failure()).block().commands()).isEmpty();
   }
@@ -160,7 +163,7 @@ class SystemOneControlPlaneTest {
 
   @Test
   void decide_slowServer_noOpinion() {
-    reply.set(answer("stop", 0.99));
+    reply.set(answer(PAUSE, 0.99));
     delayMillis.set(1500);
     timeout = Duration.ofMillis(300);
 
@@ -177,10 +180,41 @@ class SystemOneControlPlaneTest {
 
   @Test
   void decide_workflowStatus_asksModel() {
-    reply.set(answer("pause", 0.9));
+    reply.set(answer(PAUSE, 0.9));
     final var event =
         new ExecutionEvent.WorkflowStatusChanged("e1", "wf", "RUNNING", Instant.now());
 
     assertThat(plane().decide(event).block().commands()).hasSize(1);
+    assertThat(received.get()).contains("The workflow run changed status to RUNNING.");
+  }
+
+  @Test
+  void decide_noMetadata_saysNone() {
+    reply.set(answer("continue", 0.9));
+    final var event =
+        new ExecutionEvent.NodeStatusChanged(
+            "e1", "wf", "n1", "HTTP_REQUEST", "RUNNING", Map.of(), Instant.now());
+
+    plane().decide(event).block();
+
+    assertThat(received.get()).contains("Details reported by the step: none.");
+  }
+
+  @Test
+  void decide_hugeMetadata_stateIsCut() {
+    reply.set(answer("continue", 0.9));
+    final var event =
+        new ExecutionEvent.NodeStatusChanged(
+            "e1",
+            "wf",
+            "n1",
+            "HTTP_REQUEST",
+            "FAILURE",
+            Map.of("body", "x".repeat(70_000)),
+            Instant.now());
+
+    plane().decide(event).block();
+
+    assertThat(received.get()).hasSizeLessThan(12_000);
   }
 }

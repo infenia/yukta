@@ -10,8 +10,9 @@ import com.infenia.yukta.plugin.control.ExecutionEvent;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
+import org.jspecify.annotations.Nullable;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -25,11 +26,13 @@ import tools.jackson.databind.json.JsonMapper;
 /**
  * The model-based control plane: asks a local Ollama System One model (<a
  * href="https://docs.ollama.com/api/systemone">{@code POST /v1/systemone}</a>) whether the
- * execution should {@code continue}, {@code pause} or {@code stop} after each workflow or node
- * status change. Enabled by setting {@code yukta.control-plane.systemone.model}.
+ * execution should {@code continue} or {@code pause} after each workflow or node status change. It
+ * never stops an execution; that stays with rules and people. Enabled by setting {@code
+ * yukta.control-plane.systemone.model}.
  *
- * <p>It only advises when it is sure: an answer below {@code min-confidence}, a failing or slow
- * server and an unreadable reply all count as no opinion, so the model can never hold up the bus.
+ * <p>It only advises when it is sure: an answer whose probability is below {@code min-probability},
+ * a failing or slow server and an unreadable reply all count as no opinion, so the model can never
+ * hold up the bus.
  */
 @Slf4j
 @Component
@@ -48,15 +51,18 @@ public final class SystemOneControlPlane implements ControlPlanePlugin {
   /** Shared JSON mapper. */
   private static final JsonMapper JSON = JsonMapper.builder().build();
 
-  /** The options offered to the model. */
+  /** The options offered to the model; the descriptions matter, a small model needs them. */
   private static final Map<String, String> CRITERIA =
       Map.of(
           CONTINUE,
-          "Healthy or recoverable; leave the execution alone",
+          "Normal operation, a success, a retry that may still succeed, or an execution that"
+              + " already finished. Nothing to do.",
           "pause",
-          "Something is going wrong; hold the execution so a person can look",
-          "stop",
-          "The execution cannot succeed; drain and stop it");
+          "Repeated failures, exhausted retries, authentication errors or resource exhaustion that"
+              + " will not fix themselves. A person must look.");
+
+  /** The state is cut to this many characters; System One refuses requests above 64 KiB. */
+  private static final int MAX_STATE = 8000;
 
   /** Client for the Ollama server. */
   private final WebClient client;
@@ -64,8 +70,8 @@ public final class SystemOneControlPlane implements ControlPlanePlugin {
   /** The System One model. */
   private final String model;
 
-  /** Answers below this confidence are ignored. */
-  private final double minConfidence;
+  /** Answers whose chosen option is less probable than this are ignored. */
+  private final double minProbability;
 
   /** How long to wait for the model. */
   private final Duration timeout;
@@ -76,7 +82,7 @@ public final class SystemOneControlPlane implements ControlPlanePlugin {
    * @param builder the web client builder
    * @param baseUrl the Ollama server
    * @param model a local System One model
-   * @param minConfidence answers below this confidence are ignored
+   * @param minProbability answers whose chosen option is less probable than this are ignored
    * @param timeout how long to wait for the model
    */
   @Autowired
@@ -85,11 +91,11 @@ public final class SystemOneControlPlane implements ControlPlanePlugin {
       @Value("${yukta.control-plane.systemone.base-url:http://localhost:11434}")
           final String baseUrl,
       @Value("${yukta.control-plane.systemone.model}") final String model,
-      @Value("${yukta.control-plane.systemone.min-confidence:0.8}") final double minConfidence,
+      @Value("${yukta.control-plane.systemone.min-probability:0.6}") final double minProbability,
       @Value("${yukta.control-plane.systemone.timeout:PT2S}") final Duration timeout) {
     this.client = builder.baseUrl(baseUrl).build();
     this.model = model;
-    this.minConfidence = minConfidence;
+    this.minProbability = minProbability;
     this.timeout = timeout;
   }
 
@@ -102,14 +108,14 @@ public final class SystemOneControlPlane implements ControlPlanePlugin {
   @Override
   public Mono<ControlDecision> decide(final ExecutionEvent event) {
     final Mono<ControlDecision> decision;
-    if (event instanceof ExecutionEvent.NodeStatusChanged
-        || event instanceof ExecutionEvent.WorkflowStatusChanged) {
+    final String state = describe(event);
+    if (state != null) {
       decision =
           client
               .post()
               .uri("/v1/systemone")
               .contentType(MediaType.APPLICATION_JSON)
-              .bodyValue(JSON.writeValueAsString(request(event)))
+              .bodyValue(JSON.writeValueAsString(request(state)))
               .retrieve()
               .bodyToMono(String.class)
               .timeout(timeout)
@@ -125,10 +131,7 @@ public final class SystemOneControlPlane implements ControlPlanePlugin {
     return decision;
   }
 
-  private Map<String, Object> request(final ExecutionEvent event) {
-    final Map<String, Object> state =
-        new ConcurrentHashMap<>(JSON.convertValue(event, new MapType()));
-    state.put("event", event.getClass().getSimpleName());
+  private Map<String, Object> request(final String state) {
     return Map.of(
         "model",
         model,
@@ -141,34 +144,42 @@ public final class SystemOneControlPlane implements ControlPlanePlugin {
                 "type",
                 "choice",
                 "instructions",
-                "A workflow engine reports this event. What should its supervisor do?",
+                "What should the person supervising this workflow do about this event?",
                 "criteria",
                 CRITERIA)));
   }
 
-  private ControlDecision toDecision(final ExecutionEvent event, final JsonNode reply) {
-    final JsonNode answer = reply.path("answers").path(QUESTION);
-    final double confidence = answer.path("confidence").asDouble(0);
-    final String choice = answer.path("choice").asString("");
-    final String executionId = event.executionId();
-    final List<ExecutionControlCommand> commands;
-    if (confidence < minConfidence) {
-      commands = List.of();
-    } else {
-      commands =
-          switch (choice) {
-            case "pause" -> List.of(new ExecutionControlCommand.PauseWorkflowCommand(executionId));
-            case "stop" ->
-                List.of(
-                    new ExecutionControlCommand.StopWorkflowCommand(
-                        executionId, "Stopped by System One model " + model));
-            default -> List.of();
-          };
-    }
-    return new ControlDecision(commands, confidence, Source.MODEL);
+  /** Plain words work better than JSON for a small model. */
+  private static @Nullable String describe(final ExecutionEvent event) {
+    final String text =
+        switch (event) {
+          case ExecutionEvent.NodeStatusChanged node ->
+              "Step "
+                  + node.module()
+                  + " changed status to "
+                  + node.status()
+                  + ". Details reported by the step: "
+                  + (node.metadata().isEmpty()
+                      ? "none"
+                      : node.metadata().entrySet().stream()
+                          .map(entry -> entry.getKey() + "=" + entry.getValue())
+                          .collect(Collectors.joining(", ")))
+                  + ".";
+          case ExecutionEvent.WorkflowStatusChanged workflow ->
+              "The workflow run changed status to " + workflow.status() + ".";
+          default -> null;
+        };
+    return text == null || text.length() <= MAX_STATE ? text : text.substring(0, MAX_STATE);
   }
 
-  /** Type token for a JSON object. */
-  private static final class MapType
-      extends tools.jackson.core.type.TypeReference<Map<String, Object>> {}
+  private ControlDecision toDecision(final ExecutionEvent event, final JsonNode reply) {
+    final JsonNode answer = reply.path("answers").path(QUESTION);
+    final String choice = answer.path("choice").asString("");
+    final double probability = answer.path("probabilities").path(choice).asDouble(0);
+    final List<ExecutionControlCommand> commands =
+        "pause".equals(choice) && probability >= minProbability
+            ? List.of(new ExecutionControlCommand.PauseWorkflowCommand(event.executionId()))
+            : List.of();
+    return new ControlDecision(commands, probability, Source.MODEL);
+  }
 }
