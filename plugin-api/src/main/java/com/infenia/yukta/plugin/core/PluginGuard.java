@@ -4,6 +4,7 @@ package com.infenia.yukta.plugin.core;
 
 import com.infenia.yukta.message.Message;
 import lombok.experimental.UtilityClass;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 /**
@@ -50,6 +51,26 @@ public class PluginGuard {
                             .withFailure(nodeId, e.getClass().getSimpleName(), e.getMessage())
                             .withSourcePort(ERROR_PORT));
                   });
+        });
+  }
+
+  /**
+   * Counts each emitted element as {@code OK} and a terminal error as {@code ERROR}, for plugins
+   * that handle their own failures but still want to report them.
+   *
+   * @param <T> the element type
+   * @param flux the plugin output
+   * @param reporter receives the counts
+   * @param metric the metric name, usually the plugin type
+   * @return the same elements and signals
+   */
+  public static <T> Flux<T> counted(
+      final Flux<T> flux, final PluginMetricsReporter reporter, final String metric) {
+    return Flux.deferContextual(
+        ctx -> {
+          final String nodeId = ctx.getOrDefault("nodeId", "unknown");
+          return flux.doOnNext(m -> reporter.increment(nodeId, metric, "OK"))
+              .doOnError(e -> reporter.increment(nodeId, metric, "ERROR"));
         });
   }
 }

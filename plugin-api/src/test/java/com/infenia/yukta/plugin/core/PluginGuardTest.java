@@ -61,4 +61,22 @@ class PluginGuardTest {
     PluginMetricsReporter.NOOP.increment("n", "m", "OK");
     assertThat(PluginMetricsReporter.NOOP).isNotNull();
   }
+
+  @Test
+  void countedReportsOkPerElementAndErrorOnFailure() {
+    StepVerifier.create(
+            PluginGuard.counted(reactor.core.publisher.Flux.just(1, 2), reporter, "M")
+                .contextWrite(c -> c.put("nodeId", "n1")))
+        .expectNext(1, 2)
+        .verifyComplete();
+    StepVerifier.create(
+            PluginGuard.counted(
+                    reactor.core.publisher.Flux.<Integer>error(new IllegalStateException()),
+                    reporter,
+                    "M")
+                .contextWrite(c -> c.put("nodeId", "n1")))
+        .expectError()
+        .verify();
+    assertThat(counts).containsExactly("n1:M:OK", "n1:M:OK", "n1:M:ERROR");
+  }
 }
