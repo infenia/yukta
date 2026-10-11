@@ -68,6 +68,19 @@ jobs:
           min-severity: high   # medium findings are mostly pin-comment style; tighten later
 
   # ─────────────────────────────────────────────
+  # Verify gradle-wrapper.jar is an official Gradle release (supply-chain guard)
+  # ─────────────────────────────────────────────
+  wrapper-validation:
+    name: Validate Gradle Wrapper
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: gradle/actions/wrapper-validation@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
+
+  # ─────────────────────────────────────────────
   # Job 1: Detect which modules were changed.
   # This is always fast (~5s) and only does file-diff analysis.
   # ─────────────────────────────────────────────
@@ -574,7 +587,7 @@ jobs:
   ci-gate:
     name: CI Gate
     if: always()
-    needs: [lint-workflows, changes, build, dependency-submission, dependency-review, e2e-tests]
+    needs: [lint-workflows, wrapper-validation, changes, build, dependency-submission, dependency-review, e2e-tests]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
