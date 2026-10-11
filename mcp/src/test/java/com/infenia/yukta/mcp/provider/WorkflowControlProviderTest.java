@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.mcp.provider;
 
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -389,5 +390,68 @@ class WorkflowControlProviderTest {
         .verify();
 
     verify(controlBus, never()).pauseNode(EXECUTION, NODE);
+  }
+
+  @Test
+  void testNodeSkipUnskipAndClearBreakpoint() {
+    when(controlBus.skipNode(EXECUTION, NODE, true)).thenReturn(Mono.empty());
+    when(controlBus.skipNode(EXECUTION, NODE, false)).thenReturn(Mono.empty());
+    when(controlBus.clearBreakpoint(EXECUTION, NODE)).thenReturn(Mono.empty());
+
+    for (final NodeControlAction action :
+        List.of(
+            NodeControlAction.SKIP, NodeControlAction.UNSKIP, NodeControlAction.BREAKPOINT_CLEAR)) {
+      StepVerifier.create(provider.controlNode(SESSION, EXECUTION, NODE, action, null, null))
+          .expectNextCount(1)
+          .verifyComplete();
+    }
+
+    verify(controlBus).skipNode(EXECUTION, NODE, true);
+    verify(controlBus).skipNode(EXECUTION, NODE, false);
+    verify(controlBus).clearBreakpoint(EXECUTION, NODE);
+  }
+
+  @Test
+  void testNodeRetryReturnsNewExecution() {
+    when(controlBus.retryNode(EXECUTION, NODE)).thenReturn(Mono.just("exec-2"));
+
+    StepVerifier.create(
+            provider.controlNode(SESSION, EXECUTION, NODE, NodeControlAction.RETRY, null, null))
+        .assertNext(
+            result -> {
+              org.assertj.core.api.Assertions.assertThat(result.action()).isEqualTo("RETRY");
+              org.assertj.core.api.Assertions.assertThat(result.resultExecutionIds())
+                  .containsExactly("exec-2");
+            })
+        .verifyComplete();
+  }
+
+  @Test
+  void testSetBreakpoint() {
+    when(controlBus.addBreakpoint(EXECUTION, NODE, "payload.status", "error"))
+        .thenReturn(Mono.empty());
+
+    StepVerifier.create(provider.addBreakpoint(SESSION, EXECUTION, NODE, "payload.status", "error"))
+        .assertNext(
+            result ->
+                org.assertj.core.api.Assertions.assertThat(result.action())
+                    .isEqualTo("BREAKPOINT_SET"))
+        .verifyComplete();
+  }
+
+  @Test
+  void testSetBreakpointRequiresAllArguments() {
+    for (final String[] args :
+        new String[][] {
+          {null, NODE, "f", "v"},
+          {EXECUTION, " ", "f", "v"},
+          {EXECUTION, NODE, null, "v"},
+          {EXECUTION, NODE, "f", null}
+        }) {
+      StepVerifier.create(provider.addBreakpoint(SESSION, args[0], args[1], args[2], args[3]))
+          .expectError(IllegalArgumentException.class)
+          .verify();
+    }
+    verify(controlBus, never()).addBreakpoint(any(), any(), any(), any());
   }
 }

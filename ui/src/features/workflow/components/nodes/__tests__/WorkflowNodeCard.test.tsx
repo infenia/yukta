@@ -52,6 +52,29 @@ describe('WorkflowNodeCard', () => {
     expect(card.querySelector('[data-handleid="error"]')).not.toBeNull();
   });
 
+  it('labels each port only when a node has several outputs', () => {
+    renderCard({
+      node: createMockGraphNode({
+        nodeId: 'check',
+        category: 'PROCESSOR',
+        outputPorts: ['default', 'invalid'],
+      }),
+      status: 'pending',
+    });
+    expect(screen.getAllByTestId('port-label').map((label) => label.textContent)).toEqual([
+      'default',
+      'invalid',
+    ]);
+  });
+
+  it('shows no port label for a single output', () => {
+    renderCard({
+      node: createMockGraphNode({ nodeId: 'one', category: 'PROCESSOR', outputPorts: ['default'] }),
+      status: 'pending',
+    });
+    expect(screen.queryByTestId('port-label')).toBeNull();
+  });
+
   it('renders no output ports for terminals', () => {
     renderCard({
       node: createMockGraphNode({

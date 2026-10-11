@@ -18,6 +18,7 @@ Plugin abstraction interfaces and base classes.
 - `com.infenia.yukta.plugin.core.Plugin`: Base interface for all workflow plugins.
 - `com.infenia.yukta.plugin.type.TriggerPlugin`, `.type.ProcessorPlugin`, `.type.TerminalPlugin`: Category-specific plugin interfaces.
 - `com.infenia.yukta.plugin.core.WorkflowContext`, `.core.PluginCategory`, `.core.PluginDescriptor`: Shared plugin-execution types.
+- `com.infenia.yukta.plugin.core.ConfigField` and `Plugin#getConfigSchema()`: optional per-plugin config parameters (name, type, required, default, options) that the UI renders as a form. Default is empty, in which case the UI shows a raw JSON editor. Keep names in step with the keys the plugin reads from `config`.
 - `com.infenia.yukta.plugin.store`: `NodeCheckpointStore`, `SecretProvider`.
 - Module guide (interactive): `docs/plugin-api-module-guide.html`.
 

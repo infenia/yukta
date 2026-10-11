@@ -2,8 +2,12 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import { useMemo, useState } from 'react';
-import { useParams } from 'react-router';
+import { Link, useParams } from 'react-router';
+import { InlineError } from '@/components/common/InlineError';
 import HeaderPortal from '@/components/layout/HeaderPortal';
+import { controlErrorMessage, useExecutionControl } from '../hooks/useExecutionControl';
+import type { NodeCommand } from './NodeControlsMenu';
+import { RunControls } from './RunControls';
 import { useBreadcrumbOverride } from '@/lib/breadcrumbOverrides';
 import { LogsPanel } from './LogsPanel';
 import { ProgressPanel } from './ProgressPanel';
@@ -39,6 +43,21 @@ export function WorkflowDetailsPage() {
   const graph = graphQuery.data;
   const displayName = graph?.description || workflowId;
   useBreadcrumbOverride(workflowId, displayName);
+
+  const nodeControl = useExecutionControl(sessionId, workflowId);
+  // Only handed to the progress panel while an execution is selected.
+  const onNodeCommand = (nodeId: string, command: NodeCommand) => {
+    const executionId = selectedExecutionId as string;
+    if (command === 'restart-from') {
+      nodeControl.restartFromNode.mutate(
+        { executionId, nodeId },
+        { onSuccess: (result) => selectExecution(result.executionId) }
+      );
+    } else {
+      nodeControl.nodeAction.mutate({ executionId, nodeId, action: command });
+    }
+  };
+  const nodeError = nodeControl.nodeAction.error ?? nodeControl.restartFromNode.error;
 
   const tasksByNode = useMemo(() => {
     const byNode: Record<string, TaskProgress | undefined> = {};
@@ -97,7 +116,30 @@ export function WorkflowDetailsPage() {
         displayName={displayName}
         workflowId={workflowId}
         status={executionStatus}
+        actions={
+          <>
+            <Link
+              to={`/sessions/${encodeURIComponent(sessionId)}/workflow/${encodeURIComponent(workflowId)}/edit`}
+              className="flex h-8 items-center gap-1 border border-outline-variant px-3 text-xs font-semibold text-on-surface no-underline hover:bg-surface-container"
+            >
+              <span className="material-symbols-outlined text-base">edit</span>Edit
+            </Link>
+            <RunControls
+              sessionId={sessionId}
+              workflowId={workflowId}
+              executionId={selectedExecutionId}
+              status={executionStatus}
+              onStarted={selectExecution}
+            />
+          </>
+        }
       />
+
+      {nodeError && (
+        <div className="px-6 py-2">
+          <InlineError message={controlErrorMessage(nodeError)} />
+        </div>
+      )}
 
       <div className="flex min-h-100 flex-1">
         <div className="min-w-0 flex-1">
@@ -110,6 +152,7 @@ export function WorkflowDetailsPage() {
             tasksByNode={tasksByNode}
             sessionId={sessionId}
             onClose={() => setPanelOpen(false)}
+            onNodeCommand={selectedExecutionId ? onNodeCommand : undefined}
           />
         )}
       </div>

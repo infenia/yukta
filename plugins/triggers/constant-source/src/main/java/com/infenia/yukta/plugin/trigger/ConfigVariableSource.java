@@ -4,11 +4,13 @@ package com.infenia.yukta.plugin.trigger;
 
 import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
+import com.infenia.yukta.plugin.core.ConfigField;
 import com.infenia.yukta.plugin.core.PluginDescriptor;
 import com.infenia.yukta.plugin.type.TriggerPlugin;
 import com.infenia.yukta.util.MapUtils;
 import com.infenia.yukta.util.VariableResolver;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -25,11 +27,19 @@ import reactor.core.publisher.Mono;
 @SuppressWarnings({"PMD.UseConcurrentHashMap"})
 public class ConfigVariableSource implements TriggerPlugin {
 
+  /** Type. */
   private static final String TYPE = "CONSTANT_SOURCE";
+
+  /** Target metadata. */
   private static final String TARGET_METADATA = "METADATA";
+
+  /** Target payload. */
   private static final String TARGET_PAYLOAD = "PAYLOAD";
 
+  /** Resolver. */
   private final VariableResolver resolver;
+
+  /** Static value cache. */
   private final Map<Object, Object> staticValueCache =
       new java.util.concurrent.ConcurrentHashMap<>();
 
@@ -39,6 +49,14 @@ public class ConfigVariableSource implements TriggerPlugin {
         "Emits a message with predefined variables at workflow startup.",
         usagePattern(),
         Optional.empty());
+  }
+
+  @Override
+  public List<ConfigField> getConfigSchema() {
+    return List.of(
+        ConfigField.required("variables", ConfigField.Type.MAP, "Key to value; dots nest"),
+        ConfigField.choice(
+            "target", false, "PAYLOAD", "Where the variables go", "PAYLOAD", "METADATA"));
   }
 
   @Override

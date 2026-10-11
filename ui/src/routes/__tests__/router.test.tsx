@@ -58,21 +58,21 @@ describe('router', () => {
       const rootRoute = router.routes[0];
       const controlRoute = rootRoute.children?.find((r) => r.path === 'control');
       expect(controlRoute).toBeDefined();
-      expect(controlRoute?.element).toBeDefined();
+      expect(controlRoute?.lazy).toBeDefined();
     });
 
     it('should have history route', () => {
       const rootRoute = router.routes[0];
       const historyRoute = rootRoute.children?.find((r) => r.path === 'history');
       expect(historyRoute).toBeDefined();
-      expect(historyRoute?.element).toBeDefined();
+      expect(historyRoute?.lazy).toBeDefined();
     });
   });
 
   describe('route paths', () => {
-    it('should have 5 child routes', () => {
+    it('should have 9 child routes', () => {
       const rootRoute = router.routes[0];
-      expect(rootRoute.children?.length).toBe(5);
+      expect(rootRoute.children?.length).toBe(9);
     });
 
     it('should have correct number of parameterized routes', () => {
@@ -80,7 +80,7 @@ describe('router', () => {
       const parameterizedRoutes = rootRoute.children?.filter((r) =>
         r.path?.includes(':')
       );
-      expect(parameterizedRoutes?.length).toBe(2);
+      expect(parameterizedRoutes?.length).toBe(3);
     });
 
     it('should have correct session ID parameter', () => {
@@ -108,14 +108,10 @@ describe('router', () => {
       expect(indexRoute?.element).not.toBeNull();
     });
 
-    it('should have Coming Soon pages for unimplemented routes', () => {
+    it('should redirect /sessions to the list at the root', () => {
       const rootRoute = router.routes[0];
-      const comingSoonRoutes = ['control', 'history'];
-
-      comingSoonRoutes.forEach((path) => {
-        const route = rootRoute.children?.find((r) => r.path === path);
-        expect(route?.element).toBeDefined();
-      });
+      const route = rootRoute.children?.find((r) => r.path === 'sessions');
+      expect(route?.element).toBeDefined();
     });
 
     it('should lazy-load the detail pages', async () => {
@@ -127,6 +123,13 @@ describe('router', () => {
       };
       expect(await load('sessions/:sessionId/workflow/:workflowId')).toBe('WorkflowDetailsPage');
       expect(await load('sessions/:sessionId')).toBe('SessionDetailsPage');
+      expect(await load('sessions/:sessionId/workflow/:workflowId/edit')).toBe(
+        'WorkflowEditorPage'
+      );
+      expect(await load('sessions/new')).toBe('SessionFormPage');
+      expect(await load('plugins')).toBe('PluginsPage');
+      expect(await load('control')).toBe('ControlPage');
+      expect(await load('history')).toBe('HistoryPage');
     });
   });
 

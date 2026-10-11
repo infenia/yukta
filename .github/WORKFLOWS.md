@@ -208,13 +208,11 @@ first with `./gradlew check`.
 
 ## Release (`release.yml`)
 
-Pushing a `v*` tag builds the CLI for all platforms (with `SHA256SUMS`), builds and pushes
-`ghcr.io/infenia/yukta` (linux/amd64), attaches build-provenance attestations to both, and
-creates a GitHub release. Running it via `workflow_dispatch` is a dry run: nothing is pushed
-or published.
+Pushing a `v*` tag builds the CLI for all platforms (with `SHA256SUMS`), attaches build-provenance
+attestations, and creates a GitHub release. Running it via `workflow_dispatch` is a dry run: nothing
+is published. The container image (GraalVM native compile) is built locally, not in CI.
 
 ## CI additions
 
-- `Docker Build` builds the production image without pushing (Dockerfile, `boot`, or root changes).
 - `CI Gate` is the single check to require in branch protection.
 - `Lint Workflows` fails if a Gradle module in `settings.gradle.kts` has no path filter in `ci.yml`.

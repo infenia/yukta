@@ -8,7 +8,7 @@ updates:
     schedule:
       interval: "weekly"
     cooldown:
-      default-days: 3
+      default-days: 7
     open-pull-requests-limit: 10
     labels:
       - "dependencies"
@@ -25,7 +25,7 @@ updates:
     schedule:
       interval: "weekly"
     cooldown:
-      default-days: 3
+      default-days: 7
     labels:
       - "dependencies"
       - "github-actions"
@@ -39,7 +39,7 @@ updates:
     schedule:
       interval: "weekly"
     cooldown:
-      default-days: 3
+      default-days: 7
     labels:
       - "dependencies"
       - "go"
@@ -54,7 +54,7 @@ updates:
     schedule:
       interval: "weekly"
     cooldown:
-      default-days: 3
+      default-days: 7
     labels:
       - "dependencies"
       - "javascript"
@@ -69,7 +69,17 @@ updates:
     schedule:
       interval: "weekly"
     cooldown:
-      default-days: 3
+      default-days: 7
     labels:
       - "dependencies"
       - "docker"
+
+  - package-ecosystem: "pip"
+    directory: "/.github/requirements"
+    schedule:
+      interval: "weekly"
+    cooldown:
+      default-days: 7
+    labels:
+      - "dependencies"
+      - "python"

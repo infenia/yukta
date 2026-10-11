@@ -15,5 +15,13 @@ public enum NodeControlAction {
   /** Enable step-by-step execution mode for a node. */
   STEP_ENABLE,
   /** Disable step-by-step execution mode for a node. */
-  STEP_DISABLE
+  STEP_DISABLE,
+  /** Skip a node: it passes its input through. */
+  SKIP,
+  /** Stop skipping a node. */
+  UNSKIP,
+  /** Restart the execution from a node that failed, as a new execution. */
+  RETRY,
+  /** Remove a node's breakpoint. */
+  BREAKPOINT_CLEAR
 }

@@ -3,6 +3,7 @@
 package com.infenia.yukta.plugin.core.filter;
 
 import com.infenia.yukta.message.Message;
+import com.infenia.yukta.plugin.core.ConfigField;
 import com.infenia.yukta.plugin.core.PluginDescriptor;
 import com.infenia.yukta.plugin.core.PluginMetricsReporter;
 import com.infenia.yukta.plugin.core.UiDesign;
@@ -27,20 +28,37 @@ import reactor.core.publisher.Mono;
  */
 @Slf4j
 @Component
-@SuppressWarnings({"PMD.OnlyOneReturn", "PMD.AvoidCatchingGenericException", "PMD.LongVariable"})
+@SuppressWarnings({"PMD.OnlyOneReturn", "PMD.AvoidCatchingGenericException", "PMD.TooManyMethods"})
 public final class FilterProcessor implements ProcessorPlugin {
 
+  /** Type. */
   private static final String TYPE = "FILTER";
+
+  /** Engine spel. */
   private static final String ENGINE_SPEL = "SpEL";
+
+  /** Engine simple. */
   private static final String ENGINE_SIMPLE = "SIMPLE";
+
+  /** Engine rego. */
   private static final String ENGINE_REGO = "REGO";
 
+  /** Config condition. */
   private static final String CONFIG_CONDITION = "condition";
+
+  /** Config engine. */
   private static final String CONFIG_ENGINE = "engine";
+
+  /** Config strict. */
   private static final String CONFIG_STRICT = "strictMode";
+
+  /** Discard port. */
   private static final String DISCARD_PORT = "discardPort";
+
+  /** Config allow after heavy. */
   private static final String CONFIG_ALLOW_AFTER_HEAVY = "allowAfterHeavy";
 
+  /** Reporter. */
   private final PluginMetricsReporter reporter;
 
   /**
@@ -82,6 +100,16 @@ public final class FilterProcessor implements ProcessorPlugin {
                 """,
                 140,
                 80)));
+  }
+
+  @Override
+  public List<ConfigField> getConfigSchema() {
+    return List.of(
+        ConfigField.required("condition", ConfigField.Type.EXPRESSION, "Keep messages where true"),
+        ConfigField.choice("engine", false, "SpEL", "Expression engine", "SpEL", "SIMPLE"),
+        ConfigField.optional("strictMode", ConfigField.Type.BOOLEAN, true, "Fail on eval errors"),
+        ConfigField.optional(
+            "discardPort", ConfigField.Type.STRING, null, "Port for rejected messages"));
   }
 
   @Override

@@ -43,6 +43,9 @@ public class AppMcpTools {
   /** Description for session ID parameter. */
   private static final String SESSION_ID_DESC = "The unique identifier of the session";
 
+  /** Description of the execution id parameter. */
+  private static final String EXECUTION_ID_DESC = "The unique identifier of the workflow execution";
+
   /** Provides session information for MCP tools. */
   private final SessionInfoProvider sessionInfoProvider;
 
@@ -113,10 +116,7 @@ public class AppMcpTools {
       annotations = @McpTool.McpAnnotations(readOnlyHint = true, openWorldHint = false))
   public Mono<ExecutionLogs> getExecutionLogs(
       @McpToolParam(required = true, description = SESSION_ID_DESC) final String sessionId,
-      @McpToolParam(
-              required = true,
-              description = "The unique identifier of the workflow execution")
-          final String executionId,
+      @McpToolParam(required = true, description = EXECUTION_ID_DESC) final String executionId,
       @McpToolParam(required = false, description = "Return only the last N matching log lines")
           final Integer tailLines,
       @McpToolParam(required = false, description = "Optional regex pattern to filter log lines")
@@ -188,10 +188,7 @@ public class AppMcpTools {
       annotations = @McpTool.McpAnnotations(readOnlyHint = true, openWorldHint = false))
   public Mono<WorkflowProgress> getWorkflowStatus(
       @McpToolParam(required = true, description = SESSION_ID_DESC) final String sessionId,
-      @McpToolParam(
-              required = true,
-              description = "The unique identifier of the workflow execution")
-          final String executionId) {
+      @McpToolParam(required = true, description = EXECUTION_ID_DESC) final String executionId) {
     return workflowExecutionProvider.getWorkflowStatus(sessionId, executionId);
   }
 
@@ -284,7 +281,8 @@ public class AppMcpTools {
       description =
           "Control a single node within a running workflow execution: PAUSE, RESUME, or STOP "
               + "the node; STEP_ENABLE/STEP_DISABLE to toggle step-by-step mode and STEP to "
-              + "execute one step.",
+              + "execute one step; SKIP/UNSKIP to pass its input through; RETRY to restart from "
+              + "a failed node as a new execution; BREAKPOINT_CLEAR to remove its breakpoint.",
       generateOutputSchema = true,
       annotations =
           @McpTool.McpAnnotations(
@@ -293,16 +291,14 @@ public class AppMcpTools {
               openWorldHint = false))
   public Mono<ControlActionResult> controlNode(
       @McpToolParam(required = true, description = SESSION_ID_DESC) final String sessionId,
-      @McpToolParam(
-              required = true,
-              description = "The unique identifier of the workflow execution")
-          final String executionId,
+      @McpToolParam(required = true, description = EXECUTION_ID_DESC) final String executionId,
       @McpToolParam(required = true, description = "The unique identifier of the node")
           final String nodeId,
       @McpToolParam(
               required = true,
               description =
-                  "The control action: PAUSE, RESUME, STOP, STEP, STEP_ENABLE, or STEP_DISABLE")
+                  "The control action: PAUSE, RESUME, STOP, STEP, STEP_ENABLE, STEP_DISABLE, SKIP,"
+                      + " UNSKIP, RETRY, or BREAKPOINT_CLEAR")
           final NodeControlAction action,
       @McpToolParam(
               required = false,
@@ -312,6 +308,41 @@ public class AppMcpTools {
           final String reason) {
     return workflowControlProvider.controlNode(
         sessionId, executionId, nodeId, action, immediate, reason);
+  }
+
+  /**
+   * Set a breakpoint on a node.
+   *
+   * @param sessionId the session that owns the execution
+   * @param executionId the unique identifier of the workflow execution
+   * @param nodeId the unique identifier of the node
+   * @param field the payload field to compare
+   * @param equalsValue the value that pauses the node
+   * @return Mono containing the action result
+   */
+  @McpTool(
+      name = "set_node_breakpoint",
+      title = "Set Node Breakpoint",
+      description =
+          "Pause a node when a payload field equals a value, for example field=payload.status "
+              + "and equalsValue=error. Remove it with control_node BREAKPOINT_CLEAR.",
+      generateOutputSchema = true,
+      annotations =
+          @McpTool.McpAnnotations(
+              readOnlyHint = false,
+              destructiveHint = false,
+              openWorldHint = false))
+  public Mono<ControlActionResult> addNodeBreakpoint(
+      @McpToolParam(required = true, description = SESSION_ID_DESC) final String sessionId,
+      @McpToolParam(required = true, description = EXECUTION_ID_DESC) final String executionId,
+      @McpToolParam(required = true, description = "The unique identifier of the node")
+          final String nodeId,
+      @McpToolParam(required = true, description = "The field to compare, e.g. payload.status")
+          final String field,
+      @McpToolParam(required = true, description = "The value that pauses the node")
+          final String equalsValue) {
+    return workflowControlProvider.addBreakpoint(
+        sessionId, executionId, nodeId, field, equalsValue);
   }
 
   /**

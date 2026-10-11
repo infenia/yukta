@@ -4,6 +4,7 @@ package com.infenia.yukta.plugin.http;
 
 import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
+import com.infenia.yukta.plugin.core.ConfigField;
 import com.infenia.yukta.plugin.core.PluginDescriptor;
 import com.infenia.yukta.plugin.exception.WorkflowExecutionException;
 import com.infenia.yukta.plugin.type.ProcessorPlugin;
@@ -71,6 +72,24 @@ public class HttpRequestPlugin implements ProcessorPlugin {
             + "Use it to fetch live data for prompts or to call tool endpoints.",
         usagePattern(),
         Optional.empty());
+  }
+
+  @Override
+  public List<ConfigField> getConfigSchema() {
+    return List.of(
+        ConfigField.required("url", ConfigField.Type.STRING, "Request URL; ${...} supported"),
+        ConfigField.choice(
+            "method", false, "GET", "HTTP method", "GET", "POST", "PUT", "PATCH", "DELETE", "HEAD"),
+        ConfigField.optional("headers", ConfigField.Type.MAP, null, "Request headers"),
+        ConfigField.optional("body", ConfigField.Type.EXPRESSION, null, "Request body"),
+        ConfigField.optional("timeout", ConfigField.Type.NUMBER, 30, "Timeout in seconds"),
+        ConfigField.choice(
+            "failureMode", false, "ERROR", "What to do on a failed call", "ERROR", "CONTINUE"),
+        ConfigField.optional(
+            "routeByStatus",
+            ConfigField.Type.BOOLEAN,
+            false,
+            "Emit on success/failure ports (needs failureMode CONTINUE)"));
   }
 
   @Override

@@ -3,6 +3,7 @@
 package com.infenia.yukta.plugin.core.transformer;
 
 import com.infenia.yukta.message.Message;
+import com.infenia.yukta.plugin.core.ConfigField;
 import com.infenia.yukta.plugin.core.PluginDescriptor;
 import com.infenia.yukta.plugin.core.UiDesign;
 import com.infenia.yukta.plugin.exception.WorkflowExecutionException;
@@ -18,6 +19,7 @@ import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
+import lombok.NoArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
@@ -33,35 +35,55 @@ import reactor.core.publisher.Mono;
   "PMD.AvoidCatchingGenericException",
   "PMD.TooManyMethods",
   "PMD.CyclomaticComplexity",
-  "PMD.LawOfDemeter",
   "PMD.GodClass"
 })
+@NoArgsConstructor
 public class ContentFilterProcessor implements ProcessorPlugin {
 
+  /** Type. */
   private static final String TYPE = "CONTENT-FILTER";
 
+  /** Mode include. */
   private static final String MODE_INCLUDE = "INCLUDE";
+
+  /** Mode exclude. */
   private static final String MODE_EXCLUDE = "EXCLUDE";
 
+  /** Config mode. */
   private static final String CONFIG_MODE = "mode";
+
+  /** Config paths. */
   private static final String CONFIG_PATHS = "paths";
+
+  /** Config flatten. */
   private static final String CONFIG_FLATTEN = "flatten";
+
+  /** Config strict. */
   private static final String CONFIG_STRICT = "strictMode";
+
+  /** Config error port. */
   private static final String CONFIG_ERROR_PORT = "errorPort";
 
+  /** Meta pfx. */
   private static final String META_PFX = "metadata.";
+
+  /** Headers pfx. */
   private static final String HEADERS_PFX = "headers.";
+
+  /** Spel meta pfx. */
   private static final String SPEL_META_PFX = "#metadata.";
+
+  /** Spel headers pfx. */
   private static final String SPEL_HEADERS_PFX = "#headers.";
 
+  /** Unchecked. */
   private static final String UNCHECKED = "unchecked";
-  private static final String PAYLOAD_SPEL = "#payload.";
-  private static final String ERR_FAIL = "Content Filter failed";
 
-  /** Default constructor. */
-  public ContentFilterProcessor() {
-    super();
-  }
+  /** Payload spel. */
+  private static final String PAYLOAD_SPEL = "#payload.";
+
+  /** Err fail. */
+  private static final String ERR_FAIL = "Content Filter failed";
 
   @Override
   public PluginDescriptor describe() {
@@ -91,6 +113,25 @@ public class ContentFilterProcessor implements ProcessorPlugin {
                 """,
                 140,
                 80)));
+  }
+
+  @Override
+  public List<ConfigField> getConfigSchema() {
+    return List.of(
+        ConfigField.choice(
+            "mode",
+            true,
+            null,
+            "Keep (INCLUDE) or drop (EXCLUDE) the listed paths",
+            "INCLUDE",
+            "EXCLUDE"),
+        ConfigField.required(
+            "paths", ConfigField.Type.LIST, "SpEL expressions (INCLUDE) or dot paths (EXCLUDE)"),
+        ConfigField.optional(
+            "flatten", ConfigField.Type.BOOLEAN, false, "Flatten nested structures"),
+        ConfigField.optional(
+            "strictMode", ConfigField.Type.BOOLEAN, true, "Fail when a path is missing"),
+        ConfigField.optional("errorPort", ConfigField.Type.STRING, null, "Port for failures"));
   }
 
   @Override
@@ -136,27 +177,21 @@ public class ContentFilterProcessor implements ProcessorPlugin {
 
   @Override
   public Flux<Message<?>> process(final Flux<Message<?>> input, final Map<String, Object> config) {
-    return input.flatMap(
-        message ->
-            Flux.deferContextual(
-                ctx -> {
-                  final String nodeId = ctx.getOrDefault("nodeId", "unknown");
-                  return executeFilter(message, nodeId, config);
-                }));
+    return input.flatMap(message -> executeFilter(message, config));
   }
 
   private Flux<Message<?>> executeFilter(
-      final Message<?> message, final String nodeId, final Map<String, Object> config) {
+      final Message<?> message, final Map<String, Object> config) {
     final Object payload = message.payload();
     if (payload instanceof Flux<?> flux) {
-      return flux.flatMap(item -> applyFilterToItem(message.withPayload(item), nodeId, config));
+      return flux.flatMap(item -> applyFilterToItem(message.withPayload(item), config));
     }
     if (isIterable(payload)) {
       final Iterator<?> iterator = coerceToIterator(payload);
       return Flux.fromIterable(() -> iterator)
-          .flatMap(item -> applyFilterToItem(message.withPayload(item), nodeId, config));
+          .flatMap(item -> applyFilterToItem(message.withPayload(item), config));
     } else {
-      return applyFilterToItem(message, nodeId, config).flux();
+      return applyFilterToItem(message, config).flux();
     }
   }
 
@@ -177,7 +212,7 @@ public class ContentFilterProcessor implements ProcessorPlugin {
   }
 
   private Mono<Message<?>> applyFilterToItem(
-      final Message<?> message, final String nodeId, final Map<String, Object> config) {
+      final Message<?> message, final Map<String, Object> config) {
     try {
       final String mode = (String) config.getOrDefault(CONFIG_MODE, MODE_INCLUDE);
       @SuppressWarnings(UNCHECKED)
@@ -201,15 +236,14 @@ public class ContentFilterProcessor implements ProcessorPlugin {
 
       return Mono.just(finalResult.withSourcePort("default"));
     } catch (final WorkflowExecutionException e) {
-      return handleFailure(message, nodeId, config, e);
+      return handleFailure(message, config, e);
     } catch (final Exception e) {
-      return handleFailure(message, nodeId, config, new WorkflowExecutionException(ERR_FAIL, e));
+      return handleFailure(message, config, new WorkflowExecutionException(ERR_FAIL, e));
     }
   }
 
   private Mono<Message<?>> handleFailure(
       final Message<?> msg,
-      final String nodeId,
       final Map<String, Object> config,
       final WorkflowExecutionException err) {
     final String errorPort = (String) config.get(CONFIG_ERROR_PORT);

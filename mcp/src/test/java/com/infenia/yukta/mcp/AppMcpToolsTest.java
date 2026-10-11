@@ -157,6 +157,17 @@ class AppMcpToolsTest {
   }
 
   @Test
+  void testSetNodeBreakpoint() {
+    var result = new ControlActionResult("BREAKPOINT_SET", "e1", "n1", List.of(), "ok");
+    when(workflowControlProvider.addBreakpoint("s1", "e1", "n1", "payload.status", "error"))
+        .thenReturn(Mono.just(result));
+
+    StepVerifier.create(mcpTools.addNodeBreakpoint("s1", "e1", "n1", "payload.status", "error"))
+        .expectNext(result)
+        .verifyComplete();
+  }
+
+  @Test
   void testListPlugins() {
     var summary = mock(PluginSummary.class);
     when(pluginInfoProvider.listPlugins()).thenReturn(List.of(summary));
