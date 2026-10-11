@@ -7,6 +7,7 @@ import com.infenia.yukta.filter.RequestTracingFilter;
 import com.infenia.yukta.model.api.ApiResponse;
 import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.control.ExecutionRejectedException;
+import com.infenia.yukta.service.supervisor.ControlRejectedException;
 import jakarta.validation.ConstraintViolationException;
 import java.util.List;
 import java.util.Locale;
@@ -239,6 +240,19 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
   public ResponseEntity<ApiResponse<Object>> handleNotFound(
       final NotFoundException exception, final ServerHttpRequest request) {
     return buildErrorResponse(HttpStatus.NOT_FOUND, exception.getMessage(), request);
+  }
+
+  /**
+   * Handles a command refused by a supervisor as forbidden.
+   *
+   * @param exception the refusal
+   * @param request the request
+   * @return the error response
+   */
+  @ExceptionHandler(ControlRejectedException.class)
+  public ResponseEntity<ApiResponse<Object>> handleControlRejected(
+      final ControlRejectedException exception, final ServerHttpRequest request) {
+    return buildErrorResponse(HttpStatus.FORBIDDEN, exception.getMessage(), request);
   }
 
   /**

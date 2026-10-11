@@ -40,6 +40,7 @@ dependencies {
     implementation(project(":plugins:triggers:schedule-trigger"))
     implementation(project(":plugins:terminals:notify-terminal"))
     implementation(project(":plugins:terminals:console-terminal"))
+    implementation(project(":plugins:supervisors:rule-supervisor"))
 
     selectedPlugins.forEach { implementation(project(optionalPlugins.getValue(it))) }
 

@@ -10,6 +10,7 @@ Implementations of various Yukta plugins.
 - **Processors**: Located in `processors/`. Modules: `process-executor`, `internal/internal-core`, `http-request` (`HTTP_REQUEST`), `file-io` (`FILE_READ`/`FILE_WRITE`, sandboxed to `baseDir`), `sql-query` (`SQL_QUERY`, parameterized JDBC; driver supplied by deployer), internal-core also has `DELAY`, `VALIDATE`, `AGGREGATE`, `KV_STORE` (in-memory, capped), `llm-call` (`LLM_CALL`, Spring AI: OpenAI-compatible/Anthropic/Ollama), `session-memory` (`SESSION_MEMORY`, in-memory chat history). Sample chat-agent workflow: `bruno/SessionConfigController/Apply Chat Agent Session.bru`.
 - **Triggers**: Located in `triggers/`. Modules: `api-trigger`, `constant-source`, `oneshot-trigger`, `schedule-trigger` (`SCHEDULE_TRIGGER`, interval/cron).
 - **Terminals**: Located in `terminals/`. Modules: `console-terminal`, `notify-terminal` (`NOTIFY_TERMINAL`, Slack-compatible JSON webhook).
+- **Supervisors**: Located in `supervisors/`. Module: `rule-supervisor` (declarative JSON/SpEL rules implementing `ExecutionSupervisor`; enabled by `yukta.supervisor.rules.file`). Example rule file: `supervisors/rule-supervisor/rules.example.json`.
 
 Note: `triggers/manual-trigger/` exists on disk but has no source and isn't in `settings.gradle.kts` — it's a retired/unwired module, not a live plugin.
 

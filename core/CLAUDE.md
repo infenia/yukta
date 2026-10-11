@@ -145,7 +145,7 @@ selects how a run stops (default `DRAIN`). Restart-from-node after a server rest
 memory); use `ExecutionResumer` for aborted runs.
 `yukta.executions.running` and `yukta.executions.queued` gauges report the scheduler.
 
-Gateway commands for a live run (`ControlBusGateway`; REST/MCP endpoints for them are not built):
+Gateway commands for a live run (`ControlBusGateway`). REST: `POST /api/executions/{id}/nodes/{node}/skip|retry|breakpoint` (`DELETE` clears), `/executions/{id}/priority`, `/scheduler/limits`; MCP: `control_node` `SKIP|UNSKIP|RETRY|BREAKPOINT_CLEAR` and `set_node_breakpoint`:
 - `skipNode(execution, node, skip)`: a processor node passes elements through without calling the
   plugin from the next element on (the decision is taken as each element arrives; one already in the
   plugin finishes). Other node types are rejected. Unskip resumes normal processing.
@@ -157,6 +157,24 @@ Gateway commands for a live run (`ControlBusGateway`; REST/MCP endpoints for the
 - `changeLimits(max, perWorkflow)`: the scheduler limits; logged, not in the run log (no run).
 - `changePriority(execution, priority)`: moves a start that is `QUEUED`; recorded in the run log as
   `SetPriority(n)`, rejected if the run is not waiting.
+
+### Supervisors (rule engine / AI / custom code on the control bus)
+A supervisor implements `ExecutionSupervisor` (plugin-api) and is registered as a Spring bean:
+- `supervise(Flux<ExecutionEvent>)` receives the global event feed (`ExecutionEventFeed`, fed by the
+  tracker and by command outcomes; best effort, never blocks a run) and returns the
+  `ExecutionControlCommand`s to apply. `SupervisorHost` subscribes each supervisor once, applies its
+  commands through `DirectiveDispatcher` with the supervisor id as actor (Reactor context key
+  `ControlActor.CONTEXT_KEY`), and isolates it: failures resubscribe with backoff, commands are
+  limited to `yukta.supervisor.max-commands-per-second` (default 20), `yukta.supervisor.dry-run=true`
+  only records them, and a supervisor never sees the outcome of its own commands.
+- `review(ControlRequest)` can refuse any command, human or automated, before it runs
+  (`ControlReviewer`; first refusal wins in `order()`; an erroring reviewer refuses). The caller gets
+  `ControlRejectedException` (HTTP 403) and the log gets `CONTROL_REJECTED`.
+- Commands sent by a supervisor are logged as `PauseWorkflowCommand [by <id>]`.
+- The feed is exposed at `GET /api/events/stream` (SSE; filters `executionId`, `type`). External
+  agents can supervise through it and the REST/MCP control endpoints without JVM code.
+- Reference implementation: `plugins/supervisors/rule-supervisor` (JSON rules + SpEL, enabled with
+  `yukta.supervisor.rules.file`). Metrics: `yukta.supervisor.commands{id,outcome}`.
 
 ### Node status only moves forward
 `WorkflowState.updateTask` ignores a status that would reopen an ended node or step a node back
