@@ -9,7 +9,12 @@ import com.infenia.yukta.plugin.core.PluginDescriptor;
 import com.infenia.yukta.plugin.core.PluginMetricsReporter;
 import com.infenia.yukta.plugin.core.UiDesign;
 import com.infenia.yukta.plugin.util.ConfigValidation;
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -107,13 +112,20 @@ public final class FileReadPlugin extends AbstractFilePlugin {
         "file_read",
         message -> {
           final var file = FileSandbox.resolve(config, message.payload());
-          if (Files.size(file) > maxBytes) {
-            throw new IllegalArgumentException(
-                "file larger than maxBytes (" + maxBytes + "): " + file);
-          }
           return message
-              .withPayload(Map.of("path", file.toString(), "content", Files.readString(file)))
+              .withPayload(Map.of("path", file.toString(), "content", readBounded(file, maxBytes)))
               .withSourcePort("default");
         });
+  }
+
+  /** Reads at most maxBytes + 1 bytes, so a file that grows mid-read still can't exceed the cap. */
+  private static String readBounded(final Path file, final long maxBytes) throws IOException {
+    try (InputStream stream = Files.newInputStream(file)) {
+      final byte[] bytes = stream.readNBytes((int) Math.min(maxBytes + 1, Integer.MAX_VALUE - 8));
+      if (bytes.length > maxBytes) {
+        throw new IllegalArgumentException("file larger than maxBytes (" + maxBytes + "): " + file);
+      }
+      return StandardCharsets.UTF_8.newDecoder().decode(ByteBuffer.wrap(bytes)).toString();
+    }
   }
 }

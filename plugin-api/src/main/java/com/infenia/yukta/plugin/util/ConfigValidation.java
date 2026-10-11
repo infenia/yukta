@@ -23,15 +23,18 @@ public class ConfigValidation {
     final Object raw = config.get(key);
     long result = defaultValue;
     if (raw != null) {
-      if (raw instanceof Number num
-          && num.doubleValue() == Math.rint(num.doubleValue())
-          && num.longValue() > 0) {
+      if (raw instanceof Number num && isPositiveWhole(num.doubleValue())) {
         result = num.longValue();
       } else {
         throw new IllegalArgumentException(key + " must be a positive whole number, got: " + raw);
       }
     }
     return result;
+  }
+
+  /** Finite, whole, above zero and below 2^63, so {@code longValue()} cannot saturate. */
+  private static boolean isPositiveWhole(final double value) {
+    return Double.isFinite(value) && value == Math.rint(value) && value > 0 && value < 0x1p63;
   }
 
   /**

@@ -26,6 +26,13 @@ class ConfigValidationTest {
         .isInstanceOf(IllegalArgumentException.class);
     assertThatThrownBy(() -> ConfigValidation.positiveLong(Map.of("n", "x"), "n", 1))
         .isInstanceOf(IllegalArgumentException.class);
+    assertThatThrownBy(
+            () -> ConfigValidation.positiveLong(Map.of("n", Double.POSITIVE_INFINITY), "n", 1))
+        .isInstanceOf(IllegalArgumentException.class);
+    assertThatThrownBy(() -> ConfigValidation.positiveLong(Map.of("n", Double.NaN), "n", 1))
+        .isInstanceOf(IllegalArgumentException.class);
+    assertThatThrownBy(() -> ConfigValidation.positiveLong(Map.of("n", 1e30), "n", 1))
+        .isInstanceOf(IllegalArgumentException.class);
     assertThatThrownBy(() -> ConfigValidation.positiveInt(Map.of("n", 1L << 40), "n", 1))
         .isInstanceOf(IllegalArgumentException.class);
   }
