@@ -137,6 +137,14 @@ jobs:
               - 'plugins/processors/internal/script-js/**'
             rule-supervisor:
               - 'plugins/supervisors/rule-supervisor/**'
+            file-io:
+              - 'plugins/processors/file-io/**'
+            sql-query:
+              - 'plugins/processors/sql-query/**'
+            schedule-trigger:
+              - 'plugins/triggers/schedule-trigger/**'
+            notify-terminal:
+              - 'plugins/terminals/notify-terminal/**'
 
             # Container image inputs (Docker build job)
             docker:
@@ -306,6 +314,14 @@ jobs:
                 TASKS="$TASKS :plugins:processors:internal:script-js:buildDependents" ;;
               "rule-supervisor")
                 TASKS="$TASKS :plugins:supervisors:rule-supervisor:buildDependents" ;;
+              "file-io")
+                TASKS="$TASKS :plugins:processors:file-io:buildDependents" ;;
+              "sql-query")
+                TASKS="$TASKS :plugins:processors:sql-query:buildDependents" ;;
+              "schedule-trigger")
+                TASKS="$TASKS :plugins:triggers:schedule-trigger:buildDependents" ;;
+              "notify-terminal")
+                TASKS="$TASKS :plugins:terminals:notify-terminal:buildDependents" ;;
               "docker")
                 ;; # handled by the docker-build job
               "boot")
