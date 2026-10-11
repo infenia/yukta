@@ -7,7 +7,6 @@ import { WorkflowNodeCard } from '@/features/workflow/components/nodes/WorkflowN
 import {
   DEFAULT_NODE_HEIGHT,
   DEFAULT_NODE_WIDTH,
-  NODE_CHROME_HEIGHT,
   type WorkflowFlowNode,
 } from '@/features/workflow/lib/layout';
 import type { PluginDetails } from '../types';
@@ -16,15 +15,12 @@ const NODE_TYPES = { workflowNode: WorkflowNodeCard };
 
 /** Renders the real canvas node card for a plugin, so the preview can't drift from the canvas. */
 export function PluginCanvasPreview({ plugin }: { plugin: PluginDetails }) {
-  const { uiDesign } = plugin;
-  const width = uiDesign ? Math.max(uiDesign.width, DEFAULT_NODE_WIDTH) : DEFAULT_NODE_WIDTH;
-  const height = uiDesign ? uiDesign.height + NODE_CHROME_HEIGHT : DEFAULT_NODE_HEIGHT;
   const node: WorkflowFlowNode = {
     id: plugin.type,
     type: 'workflowNode',
     position: { x: 0, y: 0 },
-    width,
-    height,
+    width: DEFAULT_NODE_WIDTH,
+    height: DEFAULT_NODE_HEIGHT,
     data: { status: 'completed', hideDescription: true, node: { ...plugin, nodeId: plugin.type } },
   };
 

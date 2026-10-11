@@ -3,22 +3,15 @@
 
 import { Handle, Position } from '@xyflow/react';
 import type { NodeProps } from '@xyflow/react';
-import { NodeDetailsHtml } from './NodeDetailsHtml';
 import { toNodeStatusLabel } from '../../lib/statusMapper';
 import { cn } from '@/lib/utils';
 import { categoryAccent, categoryTint } from '../../lib/categoryAccent';
+import { pluginIcon, pluginLabel } from '../../lib/pluginIcons';
 import type { WorkflowFlowNode } from '../../lib/layout';
 import type {
   NodeUiStatus,
-  PluginCategory,
   TaskProgress,
 } from '../../types/workflow';
-
-const CATEGORY_ICONS: Record<PluginCategory, string> = {
-  TRIGGER: 'input',
-  PROCESSOR: 'filter_alt',
-  TERMINAL: 'save',
-};
 
 const STATUS_ICONS: Partial<Record<NodeUiStatus, string>> = {
   running: 'sync',
@@ -62,9 +55,6 @@ function progressDetail(
   status: NodeUiStatus,
   task?: TaskProgress
 ): string | null {
-  if (status === 'completed') {
-    return '100%';
-  }
   if (status !== 'running') {
     return null;
   }
@@ -73,7 +63,7 @@ function progressDetail(
   if (typeof raw === 'number' && Number.isFinite(raw)) {
     return `${Math.round(raw)}%`;
   }
-  return 'Processing...';
+  return null;
 }
 
 function outputHandleTop(index: number, count: number): string {
@@ -98,12 +88,18 @@ export function WorkflowNodeCard({
   const isTerminal = node.category === 'TERMINAL';
   const icon =
     STATUS_ICONS[status] ??
-    (node.category ? CATEGORY_ICONS[node.category] : 'extension');
+    pluginIcon(node.type, node.category);
+  // The default node id is "<type>-N"; only show the plugin name when the id doesn't already say it.
+  const norm = (v: string) => v.toLowerCase().replace(/[^a-z0-9]/g, '');
+  const showType = !norm(node.nodeId).startsWith(norm(node.type));
   const detail = progressDetail(status, task);
   const percent = progressPercent(status, task);
   const accent = categoryAccent(node.category);
-  const outputPorts =
-    node.outputPorts.length > 0 ? node.outputPorts : isTerminal ? [] : [null];
+  const outputPorts = isTerminal
+    ? []
+    : node.outputPorts.length > 0
+      ? node.outputPorts
+      : [null];
 
   return (
     <div
@@ -172,25 +168,20 @@ export function WorkflowNodeCard({
           <p className="text-on-surface text-label-md truncate">
             {node.nodeId}
           </p>
-          {node.type !== node.nodeId && (
+          {showType && (
             <p className="text-on-surface-variant text-body-sm truncate">
-              {node.type}
+              {pluginLabel(node.type)}
             </p>
           )}
         </div>
       </div>
 
-      {node.description && !node.uiDesign && !hideDescription && (
+      {node.description && !hideDescription && (
         <p className="text-on-surface-variant text-body-sm line-clamp-2 px-3 pt-1.5">
           {node.description}
         </p>
       )}
 
-      {node.uiDesign && (
-        <div className="px-3 pt-1">
-          <NodeDetailsHtml uiDesign={node.uiDesign} nodeId={node.nodeId} />
-        </div>
-      )}
 
       <div className="mt-auto flex items-center justify-between px-3 pt-1 pb-2">
         <span
@@ -203,7 +194,7 @@ export function WorkflowNodeCard({
             aria-hidden="true"
             className={cn('size-2 rounded-full', STATUS_DOT_CLASSES[status])}
           />
-          Status: {toNodeStatusLabel(status)}
+          {toNodeStatusLabel(status)}
         </span>
         {detail && (
           <span className="text-on-surface-variant text-body-sm">{detail}</span>

@@ -15,7 +15,7 @@ import path from 'path';
 import { glob } from 'glob';
 
 // expand_more/expand_less are valid icons that material-symbols' name list omits, so list them here.
-const PLUGIN_ICONS = ['api', 'terminal', 'touch_app', 'expand_more', 'expand_less'];
+const PLUGIN_ICONS = ['expand_more', 'expand_less'];
 
 const root = path.resolve(import.meta.dirname, '..');
 const dts = fs.readFileSync(path.join(root, 'node_modules/material-symbols/index.d.ts'), 'utf8');

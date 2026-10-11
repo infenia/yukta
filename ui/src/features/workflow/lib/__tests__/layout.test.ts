@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import { describe, it, expect } from 'vitest';
-import { DEFAULT_NODE_HEIGHT, DEFAULT_NODE_WIDTH, NODE_CHROME_HEIGHT, layoutGraph } from '../layout';
+import { DEFAULT_NODE_HEIGHT, DEFAULT_NODE_WIDTH, layoutGraph } from '../layout';
 import { createMockGraph, createMockProgress, createMockTask } from '@/test/factories/workflowFactory';
 import { must } from '@/test/utils/testUtils';
 import type { TaskProgress } from '../../types/workflow';
@@ -43,25 +43,12 @@ describe('layoutGraph', () => {
     expect(pending.data.status).toBe('pending');
   });
 
-  it('sizes nodes from uiDesign with chrome, and defaults otherwise', () => {
+  it('gives every node the default size', () => {
     const { nodes } = layoutGraph(createMockGraph(), {});
-    const withDesign = must(nodes.find((node) => node.id === 'vectorize-batch'));
-    const withoutDesign = must(nodes.find((node) => node.id === 'data-ingress'));
-
-    expect(withDesign.width).toBe(DEFAULT_NODE_WIDTH);
-    expect(withDesign.height).toBe(40 + NODE_CHROME_HEIGHT);
-    expect(withoutDesign.width).toBe(DEFAULT_NODE_WIDTH);
-    expect(withoutDesign.height).toBe(DEFAULT_NODE_HEIGHT);
-  });
-
-  it('widens nodes whose uiDesign is wider than the default', () => {
-    const graph = createMockGraph();
-    graph.nodes[1] = {
-      ...graph.nodes[1],
-      uiDesign: { html: '<div/>', width: 400, height: 100 },
-    };
-    const { nodes } = layoutGraph(graph, {});
-    expect(must(nodes.find((node) => node.id === 'vectorize-batch')).width).toBe(400);
+    for (const n of nodes) {
+      expect(n.width).toBe(DEFAULT_NODE_WIDTH);
+      expect(n.height).toBe(DEFAULT_NODE_HEIGHT);
+    }
   });
 
   it('wires sourceHandle from the edge sourcePort when the port exists', () => {

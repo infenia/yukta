@@ -23,22 +23,11 @@ export interface WorkflowNodeData extends Record<string, unknown> {
 
 export type WorkflowFlowNode = Node<WorkflowNodeData, 'workflowNode'>;
 
-/** Default placeholder size when a plugin declares no UI design. */
+/** Uniform canvas node size. */
 export const DEFAULT_NODE_WIDTH = 240;
-export const DEFAULT_NODE_HEIGHT = 116;
+export const DEFAULT_NODE_HEIGHT = 96;
+const NODE_SIZE = { width: DEFAULT_NODE_WIDTH, height: DEFAULT_NODE_HEIGHT };
 
-/** Vertical chrome (header + status row) added around plugin-provided details HTML. */
-export const NODE_CHROME_HEIGHT = 80;
-
-function nodeSize(node: WorkflowGraphNode): { width: number; height: number } {
-  if (!node.uiDesign) {
-    return { width: DEFAULT_NODE_WIDTH, height: DEFAULT_NODE_HEIGHT };
-  }
-  return {
-    width: Math.max(node.uiDesign.width, DEFAULT_NODE_WIDTH),
-    height: node.uiDesign.height + NODE_CHROME_HEIGHT,
-  };
-}
 
 function resolveSourceHandle(
   sourceNode: WorkflowGraphNode,
@@ -71,7 +60,7 @@ export function layoutGraph(
   const nodeById = new Map(graph.nodes.map((node) => [node.nodeId, node]));
 
   graph.nodes.forEach((node) => {
-    dagreGraph.setNode(node.nodeId, nodeSize(node));
+    dagreGraph.setNode(node.nodeId, { ...NODE_SIZE }) // dagre writes x/y into the label;
   });
   graph.edges.forEach((edge) => {
     if (nodeById.has(edge.source) && nodeById.has(edge.target)) {
@@ -92,7 +81,7 @@ export function layoutGraph(
     statusByNode.get(nodeId) as NodeUiStatus;
 
   const nodes: WorkflowFlowNode[] = graph.nodes.map((node) => {
-    const { width, height } = nodeSize(node);
+    const { width, height } = NODE_SIZE;
     const position = dagreGraph.node(node.nodeId);
     return {
       id: node.nodeId,
