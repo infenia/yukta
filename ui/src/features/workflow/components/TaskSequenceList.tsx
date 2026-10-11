@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { toNodeUiStatus, toTaskSequenceLabel } from '../lib/statusMapper';
 import { formatClockTime, formatDuration } from '../lib/timeFormat';
 import { cn } from '@/lib/utils';
+import { NodeControlsMenu, type NodeCommand } from './NodeControlsMenu';
 import type { NodeUiStatus, TaskProgress, WorkflowGraph } from '../types/workflow';
 
 /** How often the running-duration display refreshes between SSE updates. */
@@ -48,7 +49,13 @@ function TimingLine({ task, status }: { task: TaskProgress; status: NodeUiStatus
   );
 }
 
-function TaskSequenceItem({ task }: { task: TaskProgress }) {
+function TaskSequenceItem({
+  task,
+  onNodeCommand,
+}: {
+  task: TaskProgress;
+  onNodeCommand?: (nodeId: string, command: NodeCommand) => void;
+}) {
   const status = toNodeUiStatus(task.status);
   const dimmed = status === 'pending' || status === 'skipped';
   return (
@@ -71,6 +78,9 @@ function TaskSequenceItem({ task }: { task: TaskProgress }) {
         <span className={cn('ml-auto text-[11px] font-semibold tracking-wider', LABEL_CLASSES[status])}>
           {toTaskSequenceLabel(status)}
         </span>
+        {onNodeCommand && (
+          <NodeControlsMenu nodeId={task.nodeId} status={status} onCommand={onNodeCommand} />
+        )}
       </div>
       <p className="pl-6 text-xs text-on-surface-variant">module: {task.module}</p>
       <div className="pl-6">
@@ -87,9 +97,11 @@ function TaskSequenceItem({ task }: { task: TaskProgress }) {
 export function TaskSequenceList({
   graph,
   tasksByNode,
+  onNodeCommand,
 }: {
   graph: WorkflowGraph;
   tasksByNode: Record<string, TaskProgress | undefined>;
+  onNodeCommand?: (nodeId: string, command: NodeCommand) => void;
 }) {
   const order =
     graph.topologicalOrder.length > 0
@@ -124,7 +136,7 @@ export function TaskSequenceList({
       <h3 className="mb-2 text-xs font-semibold tracking-wider text-on-surface">TASK SEQUENCE</h3>
       <ul className="flex flex-col">
         {tasks.map((task) => (
-          <TaskSequenceItem key={task.nodeId} task={task} />
+          <TaskSequenceItem key={task.nodeId} task={task} onNodeCommand={onNodeCommand} />
         ))}
       </ul>
     </div>

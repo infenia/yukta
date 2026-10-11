@@ -145,4 +145,11 @@ class ConfigVariableSourceTest {
         .assertNext(m -> assertEquals(Map.of("y", "r"), m.metadata().get("x")))
         .verifyComplete();
   }
+
+  @org.junit.jupiter.api.Test
+  void declaresConfigSchema() {
+    final var schema = source.getConfigSchema();
+    org.junit.jupiter.api.Assertions.assertTrue(
+        schema.stream().anyMatch(f -> f.required() && "variables".equals(f.name())));
+  }
 }

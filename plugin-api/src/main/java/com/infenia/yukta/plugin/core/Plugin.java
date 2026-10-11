@@ -21,6 +21,16 @@ public interface Plugin {
   }
 
   /**
+   * Get the configuration parameters of this plugin, so a UI can render a form.
+   *
+   * @return the declared fields; empty by default, in which case a UI falls back to a raw JSON
+   *     editor and the {@link #describe() usage pattern}
+   */
+  default List<ConfigField> getConfigSchema() {
+    return List.of();
+  }
+
+  /**
    * Get the list of available output ports for this plugin.
    *
    * @return the list of output port names

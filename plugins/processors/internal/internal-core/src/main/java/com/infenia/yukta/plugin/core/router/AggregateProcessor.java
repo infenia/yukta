@@ -4,6 +4,7 @@ package com.infenia.yukta.plugin.core.router;
 
 import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
+import com.infenia.yukta.plugin.core.ConfigField;
 import com.infenia.yukta.plugin.core.PluginDescriptor;
 import com.infenia.yukta.plugin.core.UiDesign;
 import com.infenia.yukta.plugin.type.ProcessorPlugin;
@@ -52,6 +53,17 @@ public final class AggregateProcessor implements ProcessorPlugin {
                 """,
                 140,
                 80)));
+  }
+
+  @Override
+  public List<ConfigField> getConfigSchema() {
+    return List.of(
+        ConfigField.required("size", ConfigField.Type.NUMBER, "Most messages per batch (positive)"),
+        ConfigField.optional(
+            "timeoutMs",
+            ConfigField.Type.NUMBER,
+            null,
+            "Flush a partial batch after this many ms"));
   }
 
   @Override

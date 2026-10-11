@@ -3,6 +3,7 @@
 package com.infenia.yukta.plugin.core.flow;
 
 import com.infenia.yukta.message.Message;
+import com.infenia.yukta.plugin.core.ConfigField;
 import com.infenia.yukta.plugin.core.PluginDescriptor;
 import com.infenia.yukta.plugin.core.UiDesign;
 import com.infenia.yukta.plugin.type.ProcessorPlugin;
@@ -61,6 +62,19 @@ public final class KvStoreProcessor implements ProcessorPlugin {
                 """,
                 140,
                 80)));
+  }
+
+  @Override
+  public List<ConfigField> getConfigSchema() {
+    return List.of(
+        ConfigField.choice("op", true, null, "Operation", "get", "put", "incr", "delete"),
+        ConfigField.optional("key", ConfigField.Type.STRING, null, "Key (default: payload key)"),
+        ConfigField.optional("namespace", ConfigField.Type.STRING, null, "Prefix isolating keys"),
+        ConfigField.optional(
+            "maxEntries",
+            ConfigField.Type.NUMBER,
+            10000,
+            "Most distinct keys; new keys beyond it fail"));
   }
 
   @Override

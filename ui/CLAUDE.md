@@ -79,7 +79,8 @@ Report location: `coverage/index.html` (generated, git-ignored)
 - SpaWebFluxConfig in boot: Fallback routing (non-existent routes → index.html for SPA)
 
 ### Frontend Architecture
-- **Route-based**: `/` (session list), `/sessions/:sessionId`, `/sessions/:sessionId/workflow/:workflowId`, `/plugins` (plugin catalog with a canvas-node preview), plus `/control` and `/history` placeholders. The two detail pages are lazy-loaded (`lazy` in `routes/router.tsx`)
+- **Route-based** (`routes/router.tsx`, all but the list are `lazy`): `/` (session list; `/sessions` redirects here), `/sessions/new`, `/sessions/:sessionId`, `/sessions/:sessionId/workflow/:workflowId` (run view with `RunControls` and per-node menus), `.../workflow/:workflowId/edit` (builder), `/plugins` (catalog with config-field table and canvas preview), `/history` (recent runs per session), `/control` (control-bus nodes and heartbeats). The header links Sessions, Plugins, History and Control
+- **Builder** (`features/builder`): form-based, not drag-and-drop. `WorkflowEditorPage` edits one workflow draft (add node, edges via selects, live canvas preview), `NodeInspector` renders the plugin's `configSchema` through `ConfigForm` (raw JSON editor when a plugin declares none) plus the shared `engine` policy panel. Save validates with `POST /api/sessions/validate`, then sends the whole session (`GET /api/sessions/{id}/config` keeps tag values) to `POST /api/sessions`
 - **Feature-based folders**: `src/features/sessions/{api,components,hooks,types}` for scalability
 - **Shared UI**: `src/components/ui/` (shadcn primitives), `src/components/layout/` (AppHeader, AppFooter, etc.)
 - **Lib**: `src/lib/apiClient.ts` (`fetchApi` wrapper and the `api` URL-encoding template tag), `src/lib/queryClient.ts`, `src/lib/theme.ts` (dark mode)

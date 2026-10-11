@@ -4,12 +4,14 @@ package com.infenia.yukta.plugin.session;
 
 import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
+import com.infenia.yukta.plugin.core.ConfigField;
 import com.infenia.yukta.plugin.core.PluginDescriptor;
 import com.infenia.yukta.plugin.type.ProcessorPlugin;
 import com.infenia.yukta.util.MapUtils;
 import com.infenia.yukta.util.VariableResolver;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
@@ -52,6 +54,31 @@ public class SessionMemoryPlugin implements ProcessorPlugin {
             + "user turn, 'append' records the assistant turn.",
         usagePattern(),
         Optional.empty());
+  }
+
+  @Override
+  public List<ConfigField> getConfigSchema() {
+    return List.of(
+        ConfigField.choice(
+            "mode",
+            true,
+            null,
+            "load adds history and records the user turn; append records the reply",
+            "load",
+            "append"),
+        ConfigField.optional(
+            "sessionId",
+            ConfigField.Type.STRING,
+            null,
+            "Conversation id (append defaults to ${metadata.sessionId})"),
+        ConfigField.optional(
+            "message", ConfigField.Type.EXPRESSION, null, "The user turn to record (load)"),
+        ConfigField.optional(
+            "assistant",
+            ConfigField.Type.EXPRESSION,
+            null,
+            "The reply to record (append; default ${payload.content})"),
+        ConfigField.optional("maxTurns", ConfigField.Type.NUMBER, 20, "Turns of history kept"));
   }
 
   @Override

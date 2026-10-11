@@ -568,4 +568,11 @@ class BranchProcessorTest {
     final Message<?> msg = DefaultMessage.create(UUID.randomUUID(), "x");
     StepVerifier.create(processor.process(Flux.just(msg), config)).verifyComplete();
   }
+
+  @org.junit.jupiter.api.Test
+  void declaresConfigSchema() {
+    final var schema = processor.getConfigSchema();
+    org.junit.jupiter.api.Assertions.assertTrue(
+        schema.stream().anyMatch(f -> f.required() && "cases".equals(f.name())));
+  }
 }
