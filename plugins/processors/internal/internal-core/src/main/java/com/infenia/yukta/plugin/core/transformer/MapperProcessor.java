@@ -34,37 +34,59 @@ import reactor.core.publisher.Mono;
   "PMD.AvoidCatchingGenericException",
   "PMD.ExceptionAsFlowControl",
   "PMD.CyclomaticComplexity",
-  "PMD.UseConcurrentHashMap",
   "PMD.GodClass",
   "PMD.LawOfDemeter",
-  "PMD.CouplingBetweenObjects",
   "PMD.CollapsibleIfStatements"
 })
 public class MapperProcessor implements ProcessorPlugin {
 
+  /** Type. */
   private static final String TYPE = "MAPPER";
+
+  /** Unchecked. */
   private static final String UNCHECKED = "unchecked";
 
+  /** Mode projection. */
   private static final String MODE_PROJECTION = "PROJECTION";
+
+  /** Mode template. */
   private static final String MODE_TEMPLATE = "TEMPLATE";
+
+  /** Mode script. */
   private static final String MODE_SCRIPT = "SCRIPT";
 
+  /** Config mode. */
   private static final String CONFIG_MODE = "mode";
+
+  /** Config mapping. */
   private static final String CONFIG_MAPPING = "mapping";
+
+  /** Drop orig. */
   private static final String DROP_ORIG = "dropOriginal";
+
+  /** Strict. */
   private static final String STRICT = "strictMode";
 
+  /** Err prefix. */
   private static final String ERR_PREFIX = "WorkflowExecutionException: ";
 
+  /** Script limit. */
   private static final int SCRIPT_LIMIT = 50;
 
+  /** Err no script engine. */
   private static final String ERR_NO_SCRIPT_ENGINE =
       "SCRIPT mode needs the optional script-js plugin module (add it to yukta.plugins)";
 
+  /** Handlebars. */
   private Handlebars handlebars;
+
+  /** Map mapper. */
   private final MapMessageMapper mapMapper = new MapMessageMapper();
 
+  /** Template cache. */
   private final Map<String, Template> templateCache = new ConcurrentHashMap<>();
+
+  /** Script engines. */
   private final ObjectProvider<ScriptEngine> scriptEngines;
 
   /** Constructor without a script engine: SCRIPT mode is rejected. */

@@ -13,6 +13,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import lombok.NoArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
@@ -29,28 +30,44 @@ import reactor.core.publisher.Mono;
   "PMD.AvoidCatchingGenericException",
   "PMD.CognitiveComplexity"
 })
+@NoArgsConstructor
 public class RecipientListProcessor implements ProcessorPlugin {
 
+  /** Type. */
   private static final String TYPE = "RECIPIENT_LIST";
 
+  /** Config mode. */
   private static final String CONFIG_MODE = "mode";
+
+  /** Config recipients. */
   private static final String CONFIG_RECIPIENTS = "recipients";
+
+  /** Config expression. */
   private static final String CONFIG_EXPRESSION = "expression";
+
+  /** Config src field. */
   private static final String CONFIG_SRC_FIELD = "sourceField";
+
+  /** Config parallel. */
   private static final String CONFIG_PARALLEL = "parallel";
+
+  /** Config strict. */
   private static final String CONFIG_STRICT = "strictMode";
+
+  /** Config error port. */
   private static final String CONFIG_ERROR_PORT = "errorPort";
 
+  /** Mode static. */
   private static final String MODE_STATIC = "STATIC";
+
+  /** Mode dynamic. */
   private static final String MODE_DYNAMIC = "DYNAMIC";
+
+  /** Mode external. */
   private static final String MODE_EXTERNAL = "EXTERNAL";
 
+  /** Err prefix. */
   private static final String ERR_PREFIX = "WorkflowExecutionException: ";
-
-  /** Default constructor. */
-  public RecipientListProcessor() {
-    super();
-  }
 
   // A bare "return """ text block collides with this project's checkstyle
   // TextBlockGoogleStyleFormatting rule, which google-java-format's own formatting of `return`
@@ -178,7 +195,7 @@ public class RecipientListProcessor implements ProcessorPlugin {
             if (recipients == null || recipients.isEmpty()) {
               return Flux.empty();
             }
-            return Flux.fromIterable(recipients).map(port -> message.withSourcePort(port));
+            return Flux.fromIterable(recipients).map(message::withSourcePort);
           } catch (final Exception e) {
             log.error(
                 "Recipient computation failed for message {}: {}", message.id(), e.getMessage());
