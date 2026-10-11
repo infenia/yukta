@@ -13,10 +13,6 @@ dependencies {
     implementation(libs.jackson.databind)
 }
 
-coverageConfig {
-    exception("com.infenia.yukta.plugin.trigger.ConfigVariableSource", "Config lookup branches not yet unit tested", mapOf("LINE" to 0.6, "BRANCH" to 0.75))
-}
-
 // TODO: temporarily disabled — re-enable once violations are addressed.
 tasks.named("pmdMain") {
     enabled = false

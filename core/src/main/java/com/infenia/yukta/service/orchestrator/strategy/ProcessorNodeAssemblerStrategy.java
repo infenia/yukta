@@ -75,8 +75,8 @@ public class ProcessorNodeAssemblerStrategy implements NodeAssemblerStrategy {
 
   /** Whether this is a repeat of a message the plugin already failed on. */
   private static boolean retried(final Message<?> attempt) {
-    return attempt.metadata().get(NodePolicies.ATTEMPT_HEADER) instanceof Integer number
-        && number > 1;
+    // NodePolicies.apply sets the header on every attempt
+    return (Integer) attempt.metadata().get(NodePolicies.ATTEMPT_HEADER) > 1;
   }
 
   /**

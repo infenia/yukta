@@ -174,7 +174,17 @@ class ExecutionLogStoreTest {
 
   @Test
   void jsonl_interruptedCallers_getTheFallback() {
-    final JsonlExecutionLogStore store = jsonl();
+    // a busy writer, so neither call can finish before the interrupt is noticed
+    final ObjectMapper slow = org.mockito.Mockito.mock(ObjectMapper.class);
+    org.mockito.Mockito.when(slow.writeValueAsString(org.mockito.ArgumentMatchers.any()))
+        .thenAnswer(
+            call -> {
+              Thread.sleep(500);
+              return "{}";
+            });
+    final JsonlExecutionLogStore store =
+        new JsonlExecutionLogStore(dir.toString(), slow, 5, 100, 5_000);
+    store.append(ExecutionLogEvent.started("e1", "s", "w", "v"));
     Thread.currentThread().interrupt();
     try {
       assertThat(store.readAll()).isEmpty();
@@ -254,5 +264,19 @@ class ExecutionLogStoreTest {
         .extracting(ExecutionLogEvent::status)
         .containsExactly("SetLimits(1)", "SetLimits(2)");
     assertThat(store.readAll()).extracting(ExecutionLogEvent::executionId).doesNotContain("r1");
+  }
+
+  @Test
+  void jsonl_eventThatFailsWithoutPayload_isLoggedNotThrown() {
+    final ObjectMapper broken = org.mockito.Mockito.mock(ObjectMapper.class);
+    org.mockito.Mockito.when(broken.writeValueAsString(org.mockito.ArgumentMatchers.any()))
+        .thenThrow(new IllegalStateException("cannot write"));
+    final JsonlExecutionLogStore store =
+        new JsonlExecutionLogStore(dir.toString(), broken, 5, 100, 1000);
+
+    store.append(ExecutionLogEvent.started("e1", "s", "w", "v"));
+    store.close();
+
+    assertThat(store.readAll()).isEmpty();
   }
 }

@@ -171,9 +171,8 @@ public class RecipientListProcessor implements ProcessorPlugin {
       final boolean strictMode,
       final String errorPort) {
 
-    return Flux.deferContextual(
-        ctx -> {
-          final String nodeId = ctx.getOrDefault("nodeId", "unknown");
+    return Flux.defer(
+        () -> {
           try {
             final List<String> recipients = computeRecipients(message, mode, config);
             if (recipients == null || recipients.isEmpty()) {
@@ -181,10 +180,8 @@ public class RecipientListProcessor implements ProcessorPlugin {
             }
             return Flux.fromIterable(recipients).map(port -> message.withSourcePort(port));
           } catch (final Exception e) {
-            if (log.isErrorEnabled()) {
-              log.error(
-                  "Recipient computation failed for message {}: {}", message.id(), e.getMessage());
-            }
+            log.error(
+                "Recipient computation failed for message {}: {}", message.id(), e.getMessage());
             if (errorPort != null && !errorPort.isBlank()) {
               return Flux.just(
                   message

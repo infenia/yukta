@@ -149,7 +149,6 @@ public class WorkflowCompiler {
         edges.stream().collect(java.util.stream.Collectors.groupingBy(WorkflowEdge::target));
 
     final NodeAssembler[] assemblers = new NodeAssembler[nodeCount];
-    int successCount = 0;
     for (int i = 0; i < nodeCount; i++) {
       final WorkflowNode node = topologicalOrder.get(i);
       assemblers[i] =
@@ -159,14 +158,11 @@ public class WorkflowCompiler {
               parentsList,
               pluginCache,
               nodeToIndex);
-      if (assemblers[i] != null) {
-        successCount++;
-      }
     }
 
     log.atDebug()
         .addKeyValue(LOG_KEY_NODE_COUNT, nodeCount)
-        .addKeyValue("assemblersCreated", successCount)
+        .addKeyValue("assemblersCreated", nodeCount)
         .log("Completed assembler compilation");
     return assemblers;
   }

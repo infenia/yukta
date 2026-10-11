@@ -185,9 +185,7 @@ public class MapperProcessor implements ProcessorPlugin {
 
             return Flux.just(DefaultMessage.from(message, resultPayload));
           } catch (RuntimeException e) {
-            if (log.isErrorEnabled()) {
-              log.error("Mapping failed for message {}: {}", message.id(), e.getMessage());
-            }
+            log.error("Mapping failed for message {}: {}", message.id(), e.getMessage());
             return Flux.error(
                 new RuntimeException(ERR_PREFIX + "Mapping failed: " + e.getMessage(), e));
           }
@@ -231,9 +229,7 @@ public class MapperProcessor implements ProcessorPlugin {
         if (strictMode) {
           throw e;
         }
-        if (log.isWarnEnabled()) {
-          log.warn("Projection failed for {}: {}", entry.getKey(), e.getMessage());
-        }
+        log.warn("Projection failed for {}: {}", entry.getKey(), e.getMessage());
       }
     }
     return result;
@@ -328,9 +324,7 @@ public class MapperProcessor implements ProcessorPlugin {
       if (strictMode) {
         throw e;
       }
-      if (log.isWarnEnabled()) {
-        log.warn("Script execution failed: {}", e.getMessage());
-      }
+      log.warn("Script execution failed: {}", e.getMessage());
       finalResult = dropOriginal ? Map.of() : message.payload();
     }
     return finalResult;
