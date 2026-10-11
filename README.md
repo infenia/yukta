@@ -44,7 +44,7 @@ Most workflow engines make you pick: a heavy platform you have to operate, or a 
 | DAG engine (`core`) | Working | Reactive compiler, validator and executor |
 | REST API (`web`) | Working | 9 controllers, 39 operations, Swagger UI |
 | MCP server (`mcp`) | Working | 16 tools, 2 prompts, 3 resources at `/mcp` |
-| Plugins | Working | 25 built-in triggers, processors and terminals |
+| Plugins | Working | 26 built-in triggers, processors and terminals |
 | Rule supervisor | Working, opt-in | Declarative rules over the control bus |
 | Web UI (`ui`) | Working | React 19 + Vite + Tailwind CSS 4 |
 | Go CLI (`cli`) | In progress | See [`cli/README.md`](cli/README.md) |
@@ -146,7 +146,7 @@ Processors can expose named output ports (for example `success` and `failure`, o
 
 ## Plugins
 
-25 built-in plugins. Type strings are used exactly as written below; their case and separators are not consistent yet.
+26 built-in plugins. Type strings are used exactly as written below; their case and separators are not consistent yet.
 
 **Triggers** start a workflow
 
@@ -165,6 +165,7 @@ Processors can expose named output ports (for example `success` and `failure`, o
 | `SQL_QUERY` | Runs a parameterized JDBC statement |
 | `FILE_READ` / `FILE_WRITE` | Reads or writes text files in a sandbox directory |
 | `LLM_CALL` | Calls an LLM (OpenAI-compatible, Anthropic, Ollama) |
+| `MCP_TOOL_CALL` | Calls a tool on a remote MCP server; the "act" step of an agent loop |
 | `SESSION_MEMORY` | Per-session chat memory for LLM workflows |
 | `FILTER` | Passes messages matching a predicate |
 | `VALIDATE` | Checks required fields and types; failures go to `invalid` |
