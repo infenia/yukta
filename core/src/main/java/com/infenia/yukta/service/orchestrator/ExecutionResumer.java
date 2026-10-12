@@ -76,7 +76,11 @@ public class ExecutionResumer {
                 new IllegalStateException(
                     "Execution " + executionId + " is being resumed or was already resumed"));
           }
-          return doResume(executionId).doOnError(_ -> resuming.remove(executionId));
+          // A claim is dropped when the resume fails or is cancelled (for example a client that
+          // gave up while the workflow was being prepared); the log keeps the real record.
+          return doResume(executionId)
+              .doOnError(_ -> resuming.remove(executionId))
+              .doOnCancel(() -> resuming.remove(executionId));
         });
   }
 

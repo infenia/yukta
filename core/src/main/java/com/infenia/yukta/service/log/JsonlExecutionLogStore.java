@@ -4,6 +4,7 @@ package com.infenia.yukta.service.log;
 
 import jakarta.annotation.PreDestroy;
 import java.io.IOException;
+import java.nio.channels.FileChannel;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -216,13 +217,15 @@ public class JsonlExecutionLogStore implements ExecutionLogStore {
   /** Drops the events of all but the newest runs. */
   private void compact() {
     final List<ExecutionLogEvent> events = read();
-    final List<String> runs = new ArrayList<>(new LinkedHashSet<>(ids(events)));
-    runs.remove(ExecutionLogEvent.SCHEDULER);
+    // Newest by last activity, so a long run that is still going is not "old"; a run without an
+    // end is never dropped.
+    final List<String> runs = runsByLastActivity(events);
     if (runs.size() <= retainedRuns) {
       return;
     }
     final Set<String> keep =
         new LinkedHashSet<>(runs.subList(runs.size() - retainedRuns, runs.size()));
+    keep.addAll(openRuns(events));
     // scheduler changes belong to no run: keep the newest few
     final List<ExecutionLogEvent> scheduler =
         events.stream().filter(e -> ExecutionLogEvent.SCHEDULER.equals(e.executionId())).toList();
@@ -234,12 +237,35 @@ public class JsonlExecutionLogStore implements ExecutionLogStore {
             .filter(event -> keep.contains(event.executionId()) || keepScheduler.contains(event))
             .toList());
     log.atInfo()
-        .addKeyValue("dropped", runs.size() - retainedRuns)
+        .addKeyValue("dropped", runs.size() - keep.size())
         .log("Compacted the execution log");
   }
 
-  private static List<String> ids(final List<ExecutionLogEvent> events) {
-    return events.stream().map(ExecutionLogEvent::executionId).toList();
+  /** Run ids, the one with the oldest last event first; scheduler changes are not runs. */
+  private static List<String> runsByLastActivity(final List<ExecutionLogEvent> events) {
+    final Set<String> runs = new LinkedHashSet<>();
+    for (final ExecutionLogEvent event : events) {
+      if (!ExecutionLogEvent.SCHEDULER.equals(event.executionId())) {
+        runs.remove(event.executionId());
+        runs.add(event.executionId());
+      }
+    }
+    return new ArrayList<>(runs);
+  }
+
+  /** Runs that started and have neither finished nor been marked aborted. */
+  private static Set<String> openRuns(final List<ExecutionLogEvent> events) {
+    final Set<String> open = new LinkedHashSet<>();
+    for (final ExecutionLogEvent event : events) {
+      switch (event.type()) {
+        case RUN_STARTED -> open.add(event.executionId());
+        case RUN_FINISHED, RUN_ABORTED -> open.remove(event.executionId());
+        default -> {
+          // not a start or an end
+        }
+      }
+    }
+    return open;
   }
 
   private List<ExecutionLogEvent> read() {
@@ -278,6 +304,10 @@ public class JsonlExecutionLogStore implements ExecutionLogStore {
           content.append(json(event)).append('\n');
         }
         Files.writeString(tmp, content, StandardCharsets.UTF_8);
+        // On disk before it replaces the log, or a power loss could leave an empty history.
+        try (FileChannel channel = FileChannel.open(tmp, StandardOpenOption.WRITE)) {
+          channel.force(true);
+        }
         Files.move(tmp, file, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
       } finally {
         Files.deleteIfExists(tmp);

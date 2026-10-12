@@ -101,13 +101,18 @@ Malformed policies are rejected by `WorkflowValidator` with the node id and opti
   goes on downstream; `yukta.checkpoint.errors` counts markers that failed, and that node then runs
   again). A resume skips only nodes with such a marker. What remains is the instant between a
   plugin's side effect and the marker, so make plugins idempotent on the message `id`.
+- Restart-from-node on a run that is still going replays only parents that have finished (the
+  durable end marker); a replayed output is marked finished under the new run, so a second resume
+  does not run those nodes again. A resume claim is dropped if the caller cancels.
 - Run starts and ends go to an `ExecutionLogStore`. By default it is in memory; set
   `yukta.execution-log.dir` to keep `executions.jsonl` on disk. On startup `ExecutionRecovery`
   marks runs that never finished as `ABORTED`, restores the newest
   `yukta.execution-log.retained-runs` (default 500) into history, and rewrites the log without
   older ones. File access runs on one background writer thread, and the file is compacted to the
   newest `retained-runs` runs after every `yukta.execution-log.compact-after` (default 10000) events.
-  Events are not `fsync`ed, so a power loss can lose the last few.
+  Compaction and recovery keep the newest runs by their last event, and compaction never drops a
+  run without an end. Events are not `fsync`ed, so a power loss can lose the last few; a rewritten
+  file (compaction, session config) is forced to disk before it replaces the old one.
 
 ### Execution limits and idempotent starts
 - `ExecutionScheduler` admits executions. By default there is no limit. Set
