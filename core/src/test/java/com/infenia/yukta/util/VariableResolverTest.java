@@ -63,12 +63,12 @@ class VariableResolverTest {
 
   @Test
   void testResolveExpression() {
-    System.setProperty("yukta.test", "prop-val");
-    StepVerifier.create(resolver.resolve("${sys.yukta.test}"))
+    System.setProperty("yukta.var.yukta.test", "prop-val");
+    StepVerifier.create(resolver.resolve("${sys.yukta.var.yukta.test}"))
         .expectNext("prop-val")
         .verifyComplete();
 
-    StepVerifier.create(resolver.resolve("${sys.yukta.test:string}"))
+    StepVerifier.create(resolver.resolve("${sys.yukta.var.yukta.test:string}"))
         .expectNext("prop-val")
         .verifyComplete();
 
@@ -79,45 +79,55 @@ class VariableResolverTest {
     StepVerifier.create(resolver.resolve("${nonexistent:}"))
         .expectNext("nonexistent:")
         .verifyComplete();
-    StepVerifier.create(resolver.resolve("${sys.yukta.test:unknownType}"))
+    StepVerifier.create(resolver.resolve("${sys.yukta.var.yukta.test:unknownType}"))
         .expectComplete()
         .verify();
   }
 
   @Test
   void testResolveTypes() {
-    System.setProperty("t.int", "123");
-    System.setProperty("t.bool", "true");
-    System.setProperty("t.long", "456");
-    System.setProperty("t.double", "1.23");
+    System.setProperty("yukta.var.t.int", "123");
+    System.setProperty("yukta.var.t.bool", "true");
+    System.setProperty("yukta.var.t.long", "456");
+    System.setProperty("yukta.var.t.double", "1.23");
 
-    StepVerifier.create(resolver.resolve("${sys.t.int:int}")).expectNext(123).verifyComplete();
-    StepVerifier.create(resolver.resolve("${sys.t.bool:bool}")).expectNext(true).verifyComplete();
-    StepVerifier.create(resolver.resolve("${sys.t.long:long}")).expectNext(456L).verifyComplete();
-    StepVerifier.create(resolver.resolve("${sys.t.double:double}"))
+    StepVerifier.create(resolver.resolve("${sys.yukta.var.t.int:int}"))
+        .expectNext(123)
+        .verifyComplete();
+    StepVerifier.create(resolver.resolve("${sys.yukta.var.t.bool:bool}"))
+        .expectNext(true)
+        .verifyComplete();
+    StepVerifier.create(resolver.resolve("${sys.yukta.var.t.long:long}"))
+        .expectNext(456L)
+        .verifyComplete();
+    StepVerifier.create(resolver.resolve("${sys.yukta.var.t.double:double}"))
         .expectNext(1.23)
         .verifyComplete();
 
-    System.setProperty("t.float", "4.56");
-    StepVerifier.create(resolver.resolve("${sys.t.float:float}")).expectNext(4.56).verifyComplete();
-    StepVerifier.create(resolver.resolve("${sys.t.int:integer}")).expectNext(123).verifyComplete();
-    StepVerifier.create(resolver.resolve("${sys.t.bool:boolean}"))
+    System.setProperty("yukta.var.t.float", "4.56");
+    StepVerifier.create(resolver.resolve("${sys.yukta.var.t.float:float}"))
+        .expectNext(4.56)
+        .verifyComplete();
+    StepVerifier.create(resolver.resolve("${sys.yukta.var.t.int:integer}"))
+        .expectNext(123)
+        .verifyComplete();
+    StepVerifier.create(resolver.resolve("${sys.yukta.var.t.bool:boolean}"))
         .expectNext(true)
         .verifyComplete();
   }
 
   @Test
   void testResolveInterpolation() {
-    System.setProperty("p1", "v1");
-    StepVerifier.create(resolver.resolve("prefix-${sys.p1}-suffix"))
+    System.setProperty("yukta.var.p1", "v1");
+    StepVerifier.create(resolver.resolve("prefix-${sys.yukta.var.p1}-suffix"))
         .expectNext("prefix-v1-suffix")
         .verifyComplete();
 
-    StepVerifier.create(resolver.resolve("${sys.p1}-suffix"))
+    StepVerifier.create(resolver.resolve("${sys.yukta.var.p1}-suffix"))
         .expectNext("v1-suffix")
         .verifyComplete();
 
-    StepVerifier.create(resolver.resolve("prefix-${sys.p1}"))
+    StepVerifier.create(resolver.resolve("prefix-${sys.yukta.var.p1}"))
         .expectNext("prefix-v1")
         .verifyComplete();
   }
@@ -140,6 +150,28 @@ class VariableResolverTest {
     StepVerifier.create(resolver.resolve("${DB_PASSWORD}"))
         .expectNext("DB_PASSWORD")
         .verifyComplete();
+  }
+
+  @Test
+  void testEnvAndSysAreAllowlisted() {
+    StepVerifier.create(resolver.resolve("${env.DATABASE_URL}"))
+        .expectError(SecurityException.class)
+        .verify();
+    StepVerifier.create(resolver.resolve("${sys.os.name}")).expectNextCount(1).verifyComplete();
+    StepVerifier.create(resolver.resolve("${sys.java.class.path}"))
+        .expectError(SecurityException.class)
+        .verify();
+    System.setProperty("app.region", "eu");
+    StepVerifier.create(resolver.resolve("${sys.app.region}"))
+        .expectError(SecurityException.class)
+        .verify();
+    System.setProperty("yukta.variables.allowed", "other, app.region");
+    try {
+      StepVerifier.create(resolver.resolve("${sys.app.region}")).expectNext("eu").verifyComplete();
+    } finally {
+      System.clearProperty("yukta.variables.allowed");
+      System.clearProperty("app.region");
+    }
   }
 
   @Test
@@ -171,12 +203,12 @@ class VariableResolverTest {
 
   @Test
   void testResolveMissingSysProp() {
-    StepVerifier.create(resolver.resolve("${sys.nonexistent.prop}")).expectComplete().verify();
+    StepVerifier.create(resolver.resolve("${sys.yukta.var.nonexistent}")).expectComplete().verify();
   }
 
   @Test
   void testResolveMissingEnv() {
-    StepVerifier.create(resolver.resolve("${env.NONEXISTENT_VAR}")).expectComplete().verify();
+    StepVerifier.create(resolver.resolve("${env.YUKTA_VAR_NONEXISTENT}")).expectComplete().verify();
   }
 
   @Test

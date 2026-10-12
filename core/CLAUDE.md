@@ -228,6 +228,15 @@ Micrometer observation `yukta.node` (tags `module`, `status`), which becomes a s
 is on the classpath, as a child of the run's `yukta.run` observation. Re-running a node is
 `RestartFromNode`.
 
+### Reading the environment from a workflow
+`${env.X}` and `${sys.x}` read only an allowlist: `YUKTA_VAR_*` environment variables, `yukta.var.*`
+system properties, a short list of harmless ones (`HOME`, `USER`, `PATH`, `user.name`, `os.name`,
+...), and names listed in `yukta.variables.allowed` (system property) or `YUKTA_VARIABLES_ALLOWED`
+(env), comma separated. Names that look like secrets stay blocked even if listed. Use `decrypted:`
+for secrets. `GraalJsScriptEngine` lets scripts `Java.type` only `java.time.*` and a few value
+classes and denies reflection on `Class`. `yukta.process.allowed-commands` (comma separated,
+default empty = any) limits `PROCESS_EXECUTOR` to those executables and refuses `useShell`.
+
 ### Validation limits and metrics
 - `WorkflowValidator` rejects duplicate node ids and edges, an edge `sourcePort` the source plugin
   does not declare (`error` is allowed on nodes with `onError: ROUTE`), and graphs over 500 nodes or
