@@ -96,7 +96,7 @@ class SubWorkflowAcceptanceTest {
   }
 
   @Test
-  void parentWithSubWorkflowNode_succeeds_andAFailingChildFailsTheParent() {
+  void parentWithSubWorkflowNode_succeeds_andOneFailingChildFailsTheParent() {
     final String session = "sub-" + UUID.randomUUID();
     define(session, "child", echo("ok"));
     define(

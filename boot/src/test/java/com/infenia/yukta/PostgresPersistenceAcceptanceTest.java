@@ -74,7 +74,7 @@ class PostgresPersistenceAcceptanceTest {
   @Autowired private ExecutionLogStore executionLog;
 
   @Test
-  void aRun_isStoredInPostgres_withItsDefinitionAndVersions() throws SQLException {
+  void run_isStoredInPostgres_withItsDefinitionAndVersions() throws SQLException {
     final String session = "pg-" + UUID.randomUUID();
     definitions
         .save(
