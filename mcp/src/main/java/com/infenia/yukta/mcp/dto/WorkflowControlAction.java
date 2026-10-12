@@ -15,5 +15,7 @@ public enum WorkflowControlAction {
   /** Restart an execution from the beginning. */
   RESTART,
   /** Restart an execution from a specific node. */
-  RESTART_FROM_NODE
+  RESTART_FROM_NODE,
+  /** Continue an execution that a server restart aborted, as a new run. */
+  RECOVER
 }

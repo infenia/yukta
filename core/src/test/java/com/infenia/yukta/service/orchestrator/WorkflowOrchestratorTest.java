@@ -332,6 +332,7 @@ class WorkflowOrchestratorTest {
 
     @SuppressWarnings("unchecked")
     final Message<String> checkpoint = (Message<String>) org.mockito.Mockito.mock(Message.class);
+    when(checkpointStore.markComplete(newExecId, "trigger")).thenReturn(Mono.empty());
 
     StepVerifier.create(
             orchestrator.restartFromNode(
@@ -345,6 +346,8 @@ class WorkflowOrchestratorTest {
         .verifyComplete();
 
     verify(compiler).compileAssemblers(any(), any(), any(), any());
+    // the replayed output is recorded as finished, so resuming this run does not repeat the node
+    verify(checkpointStore).markComplete(newExecId, "trigger");
 
     // the pre-restart assembler now replays the parent's checkpoint
     final AssemblyContext context = org.mockito.Mockito.mock(AssemblyContext.class);

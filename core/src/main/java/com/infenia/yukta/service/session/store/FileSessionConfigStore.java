@@ -11,15 +11,19 @@ import com.infenia.yukta.validation.SessionId;
 import jakarta.annotation.PostConstruct;
 import jakarta.validation.Valid;
 import java.io.IOException;
+import java.nio.channels.FileChannel;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.nio.file.StandardOpenOption;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.UnaryOperator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -45,8 +49,10 @@ import tools.jackson.databind.ObjectMapper;
 @SuppressWarnings({
   "PMD.OnlyOneReturn",
   "PMD.TooManyMethods",
-  "PMD.AvoidDuplicateLiterals",
-  "PMD.UseConcurrentHashMap"
+  "PMD.ExcessiveImports",
+  "PMD.UseConcurrentHashMap",
+  "PMD.CompareObjectsWithEquals",
+  "PMD.CouplingBetweenObjects"
 })
 public class FileSessionConfigStore implements SessionConfigStore {
 
@@ -61,6 +67,9 @@ public class FileSessionConfigStore implements SessionConfigStore {
 
   /** Cache of session configurations by session ID. */
   private final Map<String, SessionConfig> sessionCache = new ConcurrentHashMap<>();
+
+  /** One lock per session, so a load-change-write of its file is never interleaved. */
+  private final Map<String, ReentrantLock> locks = new ConcurrentHashMap<>();
 
   @PostConstruct
   /* default */ void logInitialization() {
@@ -113,25 +122,16 @@ public class FileSessionConfigStore implements SessionConfigStore {
   @Override
   public Mono<Void> setProjectPath(
       @SessionId final String sessionId, @ProjectPath final String path) {
-    return loadSessionConfig(sessionId)
-        .defaultIfEmpty(new SessionConfig("", "", "", Map.of(), "", ""))
-        .flatMap(
-            config ->
-                saveSessionConfig(
-                    sessionId,
-                    new SessionConfig(
-                        path,
-                        config.initiator(),
-                        config.initiatedTime(),
-                        config.tags(),
-                        config.description(),
-                        config.name())))
-        .doOnSuccess(
-            _ ->
-                log.atDebug()
-                    .addKeyValue("sessionId", sessionId)
-                    .addKeyValue("projectPath", path)
-                    .log("Set project path for session"));
+    return update(
+        sessionId,
+        config ->
+            new SessionConfig(
+                path,
+                config.initiator(),
+                config.initiatedTime(),
+                config.tags(),
+                config.description(),
+                config.name()));
   }
 
   @Override
@@ -161,27 +161,18 @@ public class FileSessionConfigStore implements SessionConfigStore {
     if (description == null) {
       return Mono.empty();
     }
-    return loadSessionConfig(sessionId)
-        .switchIfEmpty(Mono.just(new SessionConfig("", "", "", Map.of(), "", "")))
-        .filter(config -> config.description() == null || config.description().isEmpty())
-        .flatMap(
-            config ->
-                saveSessionConfig(
-                    sessionId,
-                    new SessionConfig(
-                        config.projectPath(),
-                        config.initiator(),
-                        config.initiatedTime(),
-                        config.tags(),
-                        description,
-                        config.name())))
-        .doOnSuccess(
-            _ ->
-                log.atDebug()
-                    .addKeyValue("sessionId", sessionId)
-                    .addKeyValue("description", description)
-                    .log("Set description for session"))
-        .then();
+    return update(
+        sessionId,
+        config ->
+            config.description() == null || config.description().isEmpty()
+                ? new SessionConfig(
+                    config.projectPath(),
+                    config.initiator(),
+                    config.initiatedTime(),
+                    config.tags(),
+                    description,
+                    config.name())
+                : config);
   }
 
   @Override
@@ -196,27 +187,18 @@ public class FileSessionConfigStore implements SessionConfigStore {
     if (initiator == null) {
       return Mono.empty();
     }
-    return loadSessionConfig(sessionId)
-        .switchIfEmpty(Mono.just(new SessionConfig("", "", "", Map.of(), "", "")))
-        .filter(config -> config.initiator() == null || config.initiator().isEmpty())
-        .flatMap(
-            config ->
-                saveSessionConfig(
-                    sessionId,
-                    new SessionConfig(
-                        config.projectPath(),
-                        initiator,
-                        config.initiatedTime(),
-                        config.tags(),
-                        config.description(),
-                        config.name())))
-        .doOnSuccess(
-            _ ->
-                log.atDebug()
-                    .addKeyValue("sessionId", sessionId)
-                    .addKeyValue("initiator", initiator)
-                    .log("Set initiator for session"))
-        .then();
+    return update(
+        sessionId,
+        config ->
+            config.initiator() == null || config.initiator().isEmpty()
+                ? new SessionConfig(
+                    config.projectPath(),
+                    initiator,
+                    config.initiatedTime(),
+                    config.tags(),
+                    config.description(),
+                    config.name())
+                : config);
   }
 
   @Override
@@ -232,26 +214,18 @@ public class FileSessionConfigStore implements SessionConfigStore {
     if (initiatedTime == null) {
       return Mono.empty();
     }
-    return loadSessionConfig(sessionId)
-        .switchIfEmpty(Mono.just(new SessionConfig("", "", "", Map.of(), "", "")))
-        .filter(config -> config.initiatedTime() == null || config.initiatedTime().isEmpty())
-        .flatMap(
-            config ->
-                saveSessionConfig(
-                    sessionId,
-                    new SessionConfig(
-                        config.projectPath(),
-                        config.initiator(),
-                        initiatedTime,
-                        config.tags(),
-                        config.description(),
-                        config.name())))
-        .doOnSuccess(
-            _ ->
-                log.atDebug()
-                    .addKeyValue("sessionId", sessionId)
-                    .log("Set initiated time for session"))
-        .then();
+    return update(
+        sessionId,
+        config ->
+            config.initiatedTime() == null || config.initiatedTime().isEmpty()
+                ? new SessionConfig(
+                    config.projectPath(),
+                    config.initiator(),
+                    initiatedTime,
+                    config.tags(),
+                    config.description(),
+                    config.name())
+                : config);
   }
 
   @Override
@@ -264,27 +238,18 @@ public class FileSessionConfigStore implements SessionConfigStore {
     if (tags == null) {
       return Mono.empty();
     }
-    return loadSessionConfig(sessionId)
-        .switchIfEmpty(Mono.just(new SessionConfig("", "", "", Map.of(), "", "")))
-        .filter(config -> config.tags().isEmpty())
-        .flatMap(
-            config ->
-                saveSessionConfig(
-                    sessionId,
-                    new SessionConfig(
-                        config.projectPath(),
-                        config.initiator(),
-                        config.initiatedTime(),
-                        tags,
-                        config.description(),
-                        config.name())))
-        .doOnSuccess(
-            _ ->
-                log.atDebug()
-                    .addKeyValue("sessionId", sessionId)
-                    .addKeyValue("tagCount", tags.size())
-                    .log("Set tags for session"))
-        .then();
+    return update(
+        sessionId,
+        config ->
+            config.tags().isEmpty()
+                ? new SessionConfig(
+                    config.projectPath(),
+                    config.initiator(),
+                    config.initiatedTime(),
+                    tags,
+                    config.description(),
+                    config.name())
+                : config);
   }
 
   @Override
@@ -337,27 +302,63 @@ public class FileSessionConfigStore implements SessionConfigStore {
     if (sessionCache.containsKey(sessionId)) {
       return Mono.just(sessionCache.get(sessionId));
     }
+    return Mono.fromCallable(() -> readConfig(sessionId)).subscribeOn(Schedulers.boundedElastic());
+  }
 
+  /** Reads a session's configuration from the cache or the file; null if there is none. */
+  private SessionConfig readConfig(final String sessionId) throws IOException {
+    final SessionConfig cached = sessionCache.get(sessionId);
+    if (cached != null) {
+      return cached;
+    }
+    final Path configPath = getSessionConfigPath(sessionId);
+    if (!Files.exists(configPath)) {
+      return null;
+    }
+    final String json = Files.readString(configPath, StandardCharsets.UTF_8);
+    final SessionConfigFile fileConfig = objectMapper.readValue(json, SessionConfigFile.class);
+    final SessionConfig config =
+        new SessionConfig(
+            fileConfig.projectPath(),
+            fileConfig.initiator(),
+            fileConfig.initiatedTime(),
+            fileConfig.tags(),
+            fileConfig.description(),
+            fileConfig.name());
+    sessionCache.put(sessionId, config);
+    return config;
+  }
+
+  /**
+   * Changes one session's configuration as a single step: load, change, write. Changes to the same
+   * session are applied one after the other, so none is lost; the lock is held only on a blocking
+   * thread.
+   *
+   * @param sessionId the session
+   * @param change gets the current configuration and returns the new one, or the same instance for
+   *     no change
+   * @return completes when the change is stored
+   */
+  private Mono<Void> update(final String sessionId, final UnaryOperator<SessionConfig> change) {
     return Mono.fromCallable(
             () -> {
-              final Path configPath = getSessionConfigPath(sessionId);
-              if (!Files.exists(configPath)) {
-                return null;
+              final ReentrantLock lock = locks.computeIfAbsent(sessionId, _ -> new ReentrantLock());
+              lock.lock();
+              try {
+                final SessionConfig current = readConfig(sessionId);
+                final SessionConfig base =
+                    current != null ? current : new SessionConfig("", "", "", Map.of(), "", "");
+                final SessionConfig next = change.apply(base);
+                if (next != current) {
+                  writeConfig(sessionId, next);
+                }
+              } finally {
+                lock.unlock();
               }
-              final String json = Files.readString(configPath, StandardCharsets.UTF_8);
-              final SessionConfigFile fileConfig =
-                  objectMapper.readValue(json, SessionConfigFile.class);
-              return new SessionConfig(
-                  fileConfig.projectPath(),
-                  fileConfig.initiator(),
-                  fileConfig.initiatedTime(),
-                  fileConfig.tags(),
-                  fileConfig.description(),
-                  fileConfig.name());
+              return sessionId;
             })
-        .doOnNext(config -> sessionCache.put(sessionId, config))
-        .flatMap(Mono::just)
-        .subscribeOn(Schedulers.boundedElastic());
+        .subscribeOn(Schedulers.boundedElastic())
+        .then();
   }
 
   /**
@@ -370,40 +371,48 @@ public class FileSessionConfigStore implements SessionConfigStore {
   private Mono<Void> saveSessionConfig(final String sessionId, final SessionConfig config) {
     return Mono.fromCallable(
             () -> {
-              ensureSessionDir();
-              final Path configPath = getSessionConfigPath(sessionId);
-              final SessionConfigFile fileConfig =
-                  new SessionConfigFile(
-                      config.projectPath(),
-                      config.initiator(),
-                      config.initiatedTime(),
-                      config.tags(),
-                      config.description(),
-                      config.name());
-              final String json = objectMapper.writeValueAsString(fileConfig);
-              // Write beside the target, then move: a crash mid-write never leaves a torn file.
-              final Path tmp =
-                  Files.createTempFile(
-                      Objects.requireNonNull(configPath.getParent()), sessionId + ".", ".tmp");
+              final ReentrantLock lock = locks.computeIfAbsent(sessionId, _ -> new ReentrantLock());
+              lock.lock();
               try {
-                Files.writeString(tmp, json, StandardCharsets.UTF_8);
-                Files.move(
-                    tmp,
-                    configPath,
-                    StandardCopyOption.ATOMIC_MOVE,
-                    StandardCopyOption.REPLACE_EXISTING);
+                writeConfig(sessionId, config);
               } finally {
-                Files.deleteIfExists(tmp);
+                lock.unlock();
               }
               return config;
             })
-        .doOnNext(
-            savedConfig -> {
-              sessionCache.put(sessionId, savedConfig);
-              log.debug("Session config saved for sessionId: {}", sessionId);
-            })
         .subscribeOn(Schedulers.boundedElastic())
         .then();
+  }
+
+  private void writeConfig(final String sessionId, final SessionConfig config) throws IOException {
+    ensureSessionDir();
+    final Path configPath = getSessionConfigPath(sessionId);
+    final SessionConfigFile fileConfig =
+        new SessionConfigFile(
+            config.projectPath(),
+            config.initiator(),
+            config.initiatedTime(),
+            config.tags(),
+            config.description(),
+            config.name());
+    final String json = objectMapper.writeValueAsString(fileConfig);
+    // Write beside the target, force it to disk, then move: a crash mid-write or just after the
+    // move never leaves a torn or empty file.
+    final Path tmp =
+        Files.createTempFile(
+            Objects.requireNonNull(configPath.getParent()), sessionId + ".", ".tmp");
+    try {
+      Files.writeString(tmp, json, StandardCharsets.UTF_8);
+      try (FileChannel channel = FileChannel.open(tmp, StandardOpenOption.WRITE)) {
+        channel.force(true);
+      }
+      Files.move(
+          tmp, configPath, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+    } finally {
+      Files.deleteIfExists(tmp);
+    }
+    sessionCache.put(sessionId, config);
+    log.debug("Session config saved for sessionId: {}", sessionId);
   }
 
   /**

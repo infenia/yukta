@@ -21,6 +21,10 @@ public class MicrometerPluginMetricsReporter implements PluginMetricsReporter {
 
   @Override
   public void increment(final String nodeId, final String metric, final String tag) {
-    meters.counter("yukta.plugin.events", "plugin", metric, "outcome", tag).increment();
+    // A plugin that passes null must not fail inside its own stream: Micrometer rejects null tags.
+    meters
+        .counter(
+            "yukta.plugin.events", "plugin", String.valueOf(metric), "outcome", String.valueOf(tag))
+        .increment();
   }
 }

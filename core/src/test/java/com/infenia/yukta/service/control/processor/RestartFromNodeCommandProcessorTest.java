@@ -174,12 +174,31 @@ class RestartFromNodeCommandProcessorTest {
     when(control.executionId()).thenReturn(EXEC);
     when(control.safeStopSink()).thenReturn(safeStop);
     when(registry.findByExecutionId(EXEC)).thenReturn(Optional.of(control));
+    checkpoints.save(EXEC, "trigger", message("a")).block();
+    checkpoints.markComplete(EXEC, "trigger").block();
 
     StepVerifier.create(processor.process(new RestartFromNodeCommand(EXEC, "mid", "new-1")))
         .verifyComplete();
 
     assertThat(safeStop.asMono().toFuture()).isDone();
     verify(registry).unregister(EXEC);
+  }
+
+  @Test
+  void runningExecution_whoseParentHasNotFinished_isNotReplayedPartially() {
+    final ExecutionControl control = mock(ExecutionControl.class);
+    when(registry.findByExecutionId(EXEC)).thenReturn(Optional.of(control));
+    checkpoints.save(EXEC, "trigger", message("still streaming")).block();
+
+    StepVerifier.create(processor.process(new RestartFromNodeCommand(EXEC, "mid", "new-1")))
+        .verifyError(IllegalArgumentException.class);
+
+    verify(completionSink)
+        .completeRestartFailure(
+            eq("new-1"),
+            org.mockito.ArgumentMatchers.argThat(e -> e.getMessage().contains("not finished")));
+    verify(registry, never()).unregister(any());
+    verify(orchestrator, never()).restartFromNode(any(), any(), any(), any(), any(), any(), any());
   }
 
   @Test
