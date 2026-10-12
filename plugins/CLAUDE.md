@@ -9,6 +9,8 @@ Implementations of various Yukta plugins.
 - **Terminals**: Located in `terminals/`. Modules: `console-terminal`, `notify-terminal` (`NOTIFY_TERMINAL`, Slack-compatible JSON webhook).
 - **Supervisors**: Located in `supervisors/`. Module: `rule-supervisor` (declarative JSON/SpEL rules implementing `ExecutionSupervisor`; enabled by `yukta.supervisor.rules.file`). Example rule file: `supervisors/rule-supervisor/rules.example.json`.
 
+- **Control planes**: Located in `control-planes/`. Implement `ControlPlanePlugin` (one `decide(event)` per event, hosted like a supervisor). Module: `rule-control-plane` (the `rule-supervisor` rules behind that contract; enabled by `yukta.control-plane.rules.file`), `systemone-control-plane` (asks a local Ollama System One model, `POST /v1/systemone`, to continue or pause on node and workflow status events, never stop; enabled by `yukta.control-plane.systemone.model`, plus optional `base-url`, `min-probability` (0.6, the chosen option's probability), `timeout` (PT2S); fails open), `rules-first-control-plane` (rules decide; the model is asked only when no rule fired; rule deny verdicts stay authoritative; it builds both plugins itself from `yukta.control-plane.rules-first.{rules-file,model,base-url,min-probability,timeout}`, so leave the individual plugins' properties unset).
+
 Note: `triggers/manual-trigger/` exists on disk but has no source and isn't in `settings.gradle.kts` — it's a retired/unwired module, not a live plugin.
 
 ## Config schema
