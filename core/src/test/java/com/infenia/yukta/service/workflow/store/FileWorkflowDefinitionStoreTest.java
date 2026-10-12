@@ -1,0 +1,146 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: 2026 Infenia Private Limited
+package com.infenia.yukta.service.workflow.store;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+import com.infenia.yukta.config.SessionConfigProperties;
+import com.infenia.yukta.model.workflow.WorkflowDefinition;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.List;
+import java.util.Map;
+import lombok.NoArgsConstructor;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+import tools.jackson.databind.ObjectMapper;
+
+@NoArgsConstructor
+@SuppressWarnings({"PMD.CommentRequired", "PMD.AvoidDuplicateLiterals"})
+class FileWorkflowDefinitionStoreTest {
+
+  @TempDir private Path dir;
+
+  private SessionConfigProperties props;
+  private FileWorkflowDefinitionStore store;
+
+  private static WorkflowDefinition definition(final String workflowId, final String description) {
+    return new WorkflowDefinition(
+        workflowId,
+        description,
+        List.of(new WorkflowDefinition.Node("n1", "CONSTANT_SOURCE", Map.of("k", "v"))),
+        List.of());
+  }
+
+  @BeforeEach
+  void setUp() {
+    props = new SessionConfigProperties();
+    props.setBaseDir(dir.toString());
+    store = new FileWorkflowDefinitionStore(props, new ObjectMapper());
+  }
+
+  @Test
+  void definitionsSurviveRestart_andCanBeFoundListedAndRemoved() {
+    store.save("s", definition("w1", "one")).block();
+    store.save("s", definition("w2", "two")).block();
+    store.save("other", definition("w1", "elsewhere")).block();
+
+    final FileWorkflowDefinitionStore restarted =
+        new FileWorkflowDefinitionStore(props, new ObjectMapper());
+
+    assertThat(restarted.find("s", "w1").block()).isEqualTo(definition("w1", "one"));
+    assertThat(restarted.find("s", "nope").block()).isNull();
+    assertThat(restarted.findAll("s").block()).containsOnlyKeys("w1", "w2");
+    assertThat(restarted.findAll("nobody").block()).isEmpty();
+
+    restarted.remove("s", "w1").block();
+    restarted.remove("s", "never-there").block();
+    assertThat(restarted.findAll("s").block()).containsOnlyKeys("w2");
+    restarted.removeAll("s").block();
+    restarted.removeAll("s").block();
+    assertThat(restarted.findAll("s").block()).isEmpty();
+    assertThat(restarted.find("other", "w1").block()).isNotNull();
+  }
+
+  @Test
+  void versionsAreListedNewestFirst_andRestorable_butIdenticalSavesAddNone()
+      throws InterruptedException {
+    store.save("s", definition("w", "one")).block();
+    store.save("s", definition("w", "one")).block();
+    Thread.sleep(2);
+    store.save("s", definition("w", "two")).block();
+
+    final List<DefinitionRevision> revisions = store.revisions("s", "w").collectList().block();
+
+    assertThat(revisions).hasSize(2);
+    assertThat(revisions.get(0).savedAt()).isAfterOrEqualTo(revisions.get(1).savedAt());
+    assertThat(store.findRevision("s", "w", revisions.get(0).id()).block())
+        .isEqualTo(definition("w", "two"));
+    assertThat(store.findRevision("s", "w", revisions.get(1).id()).block())
+        .isEqualTo(definition("w", "one"));
+    assertThat(store.findRevision("s", "w", "nope").block()).isNull();
+    assertThat(store.revisions("s", "unknown").collectList().block()).isEmpty();
+  }
+
+  @Test
+  void onlyTheNewestVersionsAreKept() throws InterruptedException {
+    for (int i = 0; i < FileWorkflowDefinitionStore.MAX_REVISIONS + 3; i++) {
+      store.save("s", definition("w", "v" + i)).block();
+      Thread.sleep(1);
+    }
+
+    final List<DefinitionRevision> revisions = store.revisions("s", "w").collectList().block();
+
+    assertThat(revisions).hasSize(FileWorkflowDefinitionStore.MAX_REVISIONS);
+    assertThat(store.findRevision("s", "w", revisions.get(0).id()).block().description())
+        .isEqualTo("v" + (FileWorkflowDefinitionStore.MAX_REVISIONS + 2));
+  }
+
+  @Test
+  void idsCannotNamePathOutsideDirectory() throws IOException {
+    store.save("../../evil", definition("../w", "x")).block();
+
+    assertThat(dir.getParent().resolve("evil")).doesNotExist();
+    try (var files = Files.list(dir.resolve("workflows"))) {
+      assertThat(files.map(f -> dir.relativize(f).toString()).toList())
+          .containsExactly("workflows/..%2F..%2Fevil");
+    }
+    assertThat(store.findRevision("../../evil", "../w", "../../../etc/passwd").block()).isNull();
+  }
+
+  @Test
+  void workflowDirectoryWithoutCurrentFile_isSkippedWhenListing() throws IOException {
+    store.save("s", definition("w1", "one")).block();
+    Files.createDirectories(dir.resolve("workflows").resolve("s").resolve("empty"));
+
+    assertThat(store.findAll("s").block()).containsOnlyKeys("w1");
+  }
+
+  @Test
+  void savingBeneathFile_failsTheSave() throws IOException {
+    final Path blocker = Files.createFile(dir.resolve("blocker"));
+    props.setBaseDir(blocker.toString());
+
+    org.assertj.core.api.Assertions.assertThatThrownBy(
+            () -> store.save("s", definition("w", "x")).block())
+        .isInstanceOf(RuntimeException.class);
+  }
+
+  @Test
+  void logsItsLocationOnStartup() {
+    store.logInitialization();
+
+    assertThat(store.find("s", "none").block()).isNull();
+  }
+
+  @Test
+  void revisionIdsSortInSaveOrder() {
+    final WorkflowDefinition one = definition("w", "one");
+    final String early = DefinitionRevisions.idOf(java.time.Instant.ofEpochMilli(1_000), one);
+    final String late = DefinitionRevisions.idOf(java.time.Instant.ofEpochMilli(2_000), one);
+
+    assertThat(early).hasSize(22).isLessThan(late);
+  }
+}

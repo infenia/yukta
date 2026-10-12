@@ -136,6 +136,59 @@ class LlmCallPluginTest {
   }
 
   @Test
+  void tools_areSentToTheModel_andItsToolCallsComeBackAsActions() {
+    when(gateway.call(any()))
+        .thenReturn(
+            new LlmResponse(
+                "Looking.<agent_action>{\"x\":1}</agent_action>",
+                10,
+                5,
+                "m",
+                List.of(new ToolCallRequest("c1", "weather", "{\"city\":\"Pune\"}"))));
+
+    StepVerifier.create(
+            run(config("tools", List.of(Map.of("name", "weather", "description", "Weather")))))
+        .assertNext(
+            m ->
+                assertThat((List<Object>) payload(m).get("actions"))
+                    .containsExactly(
+                        Map.of("x", 1),
+                        Map.of("tool", "weather", "arguments", Map.of("city", "Pune"), "id", "c1")))
+        .verifyComplete();
+
+    final ArgumentCaptor<LlmRequest> captor = ArgumentCaptor.forClass(LlmRequest.class);
+    verify(gateway).call(captor.capture());
+    assertThat(captor.getValue().tools()).extracting(ToolSpec::name).containsExactly("weather");
+  }
+
+  @Test
+  void tools_canBeAnExpressionOverTheMessage() {
+    when(gateway.call(any())).thenReturn(new LlmResponse("ok", 1, 1, "m"));
+    final Message<?> message =
+        DefaultMessage.create(
+            UUID.randomUUID(), Map.of("tools", List.of(Map.of("name", "from-payload"))));
+
+    StepVerifier.create(plugin.process(Flux.just(message), config("tools", "payload['tools']")))
+        .expectNextCount(1)
+        .verifyComplete();
+
+    final ArgumentCaptor<LlmRequest> captor = ArgumentCaptor.forClass(LlmRequest.class);
+    verify(gateway).call(captor.capture());
+    assertThat(captor.getValue().tools())
+        .extracting(ToolSpec::name)
+        .containsExactly("from-payload");
+  }
+
+  @Test
+  void toolsAreValidated() {
+    StepVerifier.create(plugin.validateConfig(config("tools", List.of(Map.of("name", "ok")))))
+        .verifyComplete();
+    StepVerifier.create(plugin.validateConfig(config("tools", List.of(Map.of()))))
+        .expectError(IllegalArgumentException.class)
+        .verify();
+  }
+
+  @Test
   void metadataDescribesPlugin() {
     assertThat(plugin.getType()).isEqualTo("LLM_CALL");
     assertThat(plugin.describe().description()).isNotBlank();

@@ -4,6 +4,7 @@ package com.infenia.yukta.service.workflow.store;
 
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import java.util.Map;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 /** Persistent store for workflow definitions, keyed by sessionId and workflowId. */
@@ -51,4 +52,28 @@ public interface WorkflowDefinitionStore {
    * @return Mono that completes when all removed
    */
   Mono<Void> removeAll(String sessionId);
+
+  /**
+   * The saved versions of a workflow, newest first. A store that keeps no history returns none.
+   *
+   * @param sessionId the session identifier
+   * @param workflowId the workflow identifier
+   * @return the versions, newest first
+   */
+  default Flux<DefinitionRevision> revisions(String sessionId, String workflowId) {
+    return Flux.empty();
+  }
+
+  /**
+   * Find one saved version of a workflow.
+   *
+   * @param sessionId the session identifier
+   * @param workflowId the workflow identifier
+   * @param revisionId the version, as listed by {@link #revisions}
+   * @return Mono containing the definition, or empty if there is no such version
+   */
+  default Mono<WorkflowDefinition> findRevision(
+      String sessionId, String workflowId, String revisionId) {
+    return Mono.empty();
+  }
 }

@@ -28,3 +28,5 @@ Web layer with REST controllers and UI support.
 
 ## Testing speed
 Follow the tiered "Test Execution Policy (speed)" in the root `CLAUDE.md`: run `--tests` for the classes you changed first; full `:web:test` only when many files changed.
+
+- `GET /api/sessions/{s}/workflows/{w}/versions` lists the saved versions of a workflow (newest 20, newest first); `POST .../rollback?version=<id>` makes one current again (saved as a new version, workflow prepared again).
