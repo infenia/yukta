@@ -32,6 +32,13 @@ class LlmGatewayTest {
           + "\"choices\":[{\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"hi\"},"
           + "\"finish_reason\":\"stop\"}],"
           + "\"usage\":{\"prompt_tokens\":3,\"completion_tokens\":2,\"total_tokens\":5}}";
+  private static final String TOOL_CALL_BODY =
+      "{\"id\":\"c2\",\"object\":\"chat.completion\",\"created\":1,\"model\":\"m-served\","
+          + "\"choices\":[{\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":null,"
+          + "\"tool_calls\":[{\"id\":\"call_1\",\"type\":\"function\",\"function\":"
+          + "{\"name\":\"weather\",\"arguments\":\"{\\\"city\\\":\\\"Pune\\\"}\"}}]},"
+          + "\"finish_reason\":\"tool_calls\"}],"
+          + "\"usage\":{\"prompt_tokens\":7,\"completion_tokens\":4,\"total_tokens\":11}}";
   private static final String ANTHROPIC_BODY =
       "{\"id\":\"msg_1\",\"type\":\"message\",\"role\":\"assistant\",\"model\":\"m-served\","
           + "\"content\":[{\"type\":\"text\",\"text\":\"hi\"}],\"stop_reason\":\"end_turn\","
@@ -52,6 +59,7 @@ class LlmGatewayTest {
     reply("/v1/chat/completions", OPENAI_BODY);
     reply("/v1/messages", ANTHROPIC_BODY);
     reply("/api/chat", OLLAMA_BODY);
+    reply("/tools/v1/chat/completions", TOOL_CALL_BODY);
     reply(
         "/empty/v1/chat/completions",
         "{\"id\":\"c\",\"object\":\"chat.completion\",\"created\":1,"
@@ -104,6 +112,69 @@ class LlmGatewayTest {
 
     assertThat(response).isEqualTo(new LlmResponse("hi", 3, 2, "m-served"));
     assertThat(bodies.getFirst()).contains("be brief", "q1", "a1", "q2");
+  }
+
+  @Test
+  void toolsAreSentToTheModel_andItsToolCallsComeBackWithoutBeingRun() {
+    final LlmRequest request =
+        new LlmRequest(
+            Provider.OPENAI,
+            base + "/tools/v1",
+            "key",
+            "m",
+            null,
+            null,
+            Duration.ofSeconds(10),
+            null,
+            List.of(new ChatTurn("user", "weather in Pune?")),
+            List.of(
+                new ToolSpec(
+                    "weather",
+                    "Current weather",
+                    java.util.Map.of(
+                        "type",
+                        "object",
+                        "properties",
+                        java.util.Map.of("city", java.util.Map.of("type", "string"))))));
+
+    final LlmResponse response = gateway.call(request);
+
+    assertThat(response.toolCalls())
+        .containsExactly(new ToolCallRequest("call_1", "weather", "{\"city\":\"Pune\"}"));
+    assertThat(response.inputTokens()).isEqualTo(7);
+    assertThat(bodies.getFirst()).contains("\"tools\"", "weather", "Current weather", "city");
+  }
+
+  private LlmRequest withTool(final Provider provider, final String path) {
+    return new LlmRequest(
+        provider,
+        base + path,
+        "key",
+        "m",
+        null,
+        null,
+        Duration.ofSeconds(10),
+        null,
+        List.of(new ChatTurn("user", "q")),
+        List.of(new ToolSpec("lookup", "Look something up", java.util.Map.of())));
+  }
+
+  @Test
+  void toolsAreSentToAnthropicAndOllamaToo() {
+    assertThat(gateway.call(withTool(Provider.ANTHROPIC, "")).text()).isEqualTo("hi");
+    assertThat(gateway.call(withTool(Provider.OLLAMA, "")).text()).isEqualTo("hi");
+
+    assertThat(bodies).hasSize(2).allSatisfy(body -> assertThat(body).contains("lookup"));
+  }
+
+  @Test
+  void definitionOnlyTool_isDescribedButNeverRun() {
+    final LlmGateway.DefinitionOnlyTool tool =
+        new LlmGateway.DefinitionOnlyTool(new ToolSpec("t", "d", java.util.Map.of("k", "v")));
+
+    assertThat(tool.getToolDefinition().name()).isEqualTo("t");
+    assertThat(tool.getToolDefinition().inputSchema()).contains("k");
+    assertThatThrownBy(() -> tool.call("{}")).isInstanceOf(UnsupportedOperationException.class);
   }
 
   @Test

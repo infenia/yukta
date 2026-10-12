@@ -3,6 +3,7 @@
 package com.infenia.yukta.plugin.control;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.StopWorkflowCommand;
 import org.junit.jupiter.api.Test;
@@ -35,6 +36,7 @@ class ExecutionControlCommandTest {
           case ExecutionControlCommand.RestartCommand c -> "restart";
           case ExecutionControlCommand.RestartFromNodeCommand c -> "restart-from-node";
           case ExecutionControlCommand.SetBreakpointCommand c -> "set-breakpoint";
+          case ExecutionControlCommand.SignalNodeCommand c -> "signal";
         };
 
     assertThat(kind).isEqualTo("pause-node");
@@ -56,9 +58,28 @@ class ExecutionControlCommandTest {
             new StopWorkflowCommand("e", null),
             new ExecutionControlCommand.RestartCommand("e", "e2"),
             new ExecutionControlCommand.RestartFromNodeCommand("e", "n", "e2"),
-            new ExecutionControlCommand.SetBreakpointCommand("e", "n", "payload.x", "1"));
+            new ExecutionControlCommand.SetBreakpointCommand("e", "n", "payload.x", "1"),
+            new ExecutionControlCommand.SignalNodeCommand("e", "n", "approval", "approve", null));
 
     assertThat(all).extracting(ExecutionControlCommand::executionId).containsOnly("e");
+  }
+
+  @Test
+  void signalNeedsNameAndDecision() {
+    assertThat(new ExecutionControlCommand.SignalNodeCommand("e", "n", "ok", "approve", "x").data())
+        .isEqualTo("x");
+    assertThatThrownBy(
+            () -> new ExecutionControlCommand.SignalNodeCommand("e", "n", " ", "a", null))
+        .isInstanceOf(IllegalArgumentException.class);
+    assertThatThrownBy(
+            () -> new ExecutionControlCommand.SignalNodeCommand("e", "n", "ok", null, null))
+        .isInstanceOf(IllegalArgumentException.class);
+    assertThatThrownBy(
+            () -> new ExecutionControlCommand.SignalNodeCommand("e", "n", null, "a", null))
+        .isInstanceOf(IllegalArgumentException.class);
+    assertThatThrownBy(
+            () -> new ExecutionControlCommand.SignalNodeCommand("e", "n", "ok", " ", null))
+        .isInstanceOf(IllegalArgumentException.class);
   }
 
   @Test

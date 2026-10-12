@@ -75,3 +75,24 @@ management:
   endpoint:
     health:
       show-details: when-authorized
+
+# R2DBC and Flyway are only on the class path in a build made with -Pyukta.persistence=postgres;
+# they are left out unless the postgres profile is active (SPRING_PROFILES_ACTIVE=prod,postgres).
+---
+spring:
+  config:
+    activate:
+      on-profile: "!postgres"
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.r2dbc.autoconfigure.R2dbcAutoConfiguration
+      - org.springframework.boot.r2dbc.autoconfigure.R2dbcInitializationAutoConfiguration
+      - org.springframework.boot.r2dbc.autoconfigure.R2dbcProxyAutoConfiguration
+      - org.springframework.boot.r2dbc.autoconfigure.R2dbcTransactionManagerAutoConfiguration
+      - org.springframework.boot.r2dbc.autoconfigure.health.ConnectionFactoryHealthContributorAutoConfiguration
+      - org.springframework.boot.r2dbc.autoconfigure.metrics.ConnectionPoolMetricsAutoConfiguration
+      - org.springframework.boot.r2dbc.autoconfigure.observation.R2dbcObservationAutoConfiguration
+      - org.springframework.boot.data.r2dbc.autoconfigure.DataR2dbcAutoConfiguration
+      - org.springframework.boot.data.r2dbc.autoconfigure.DataR2dbcRepositoriesAutoConfiguration
+      - org.springframework.boot.flyway.autoconfigure.FlywayAutoConfiguration
+      - org.springframework.boot.flyway.autoconfigure.FlywayEndpointAutoConfiguration
