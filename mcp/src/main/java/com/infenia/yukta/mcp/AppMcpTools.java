@@ -348,6 +348,45 @@ public class AppMcpTools {
   }
 
   /**
+   * Send a signal to a node that waits for one.
+   *
+   * @param sessionId the session that owns the execution
+   * @param executionId the unique identifier of the workflow execution
+   * @param nodeId the unique identifier of the waiting node
+   * @param signalName the signal the node waits for
+   * @param decision what was decided, for example approve or reject
+   * @param data optional text that goes with the decision
+   * @return Mono containing the action result
+   */
+  @McpTool(
+      name = "signal_node",
+      title = "Signal Node",
+      description =
+          "Send a named signal to a node that waits for one (a WAIT_FOR_SIGNAL approval step): "
+              + "decision approve lets its message through, reject fails or drops it, any other "
+              + "value is passed on as signal.decision. Fails if the node is not waiting.",
+      generateOutputSchema = true,
+      annotations =
+          @McpTool.McpAnnotations(
+              readOnlyHint = false,
+              destructiveHint = false,
+              openWorldHint = false))
+  public Mono<ControlActionResult> signalNode(
+      @McpToolParam(required = true, description = SESSION_ID_DESC) final String sessionId,
+      @McpToolParam(required = true, description = EXECUTION_ID_DESC) final String executionId,
+      @McpToolParam(required = true, description = "The unique identifier of the waiting node")
+          final String nodeId,
+      @McpToolParam(required = true, description = "The signal the node waits for")
+          final String signalName,
+      @McpToolParam(required = true, description = "The decision, e.g. approve or reject")
+          final String decision,
+      @McpToolParam(required = false, description = "Optional text that goes with the decision")
+          final String data) {
+    return workflowControlProvider.signalNode(
+        sessionId, executionId, nodeId, signalName, decision, data);
+  }
+
+  /**
    * List available plugins.
    *
    * @return Mono containing the list of plugin summaries

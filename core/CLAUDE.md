@@ -179,6 +179,15 @@ Gateway commands for a live run (`ControlBusGateway`). REST: `POST /api/executio
 - `changePriority(execution, priority)`: moves a start that is `QUEUED`; recorded in the run log as
   `SetPriority(n)`, rejected if the run is not waiting.
 
+### Signals and approval steps
+`SignalNodeCommand` (REST `POST /api/executions/{id}/nodes/{node}/signal?name=&decision=&data=`, MCP
+`signal_node`, gateway `signalNode`) hands a named signal to the plugin of a node through the same
+review, ordering and audit as other commands (`SignalNodeCommandProcessor`). The plugin must answer
+`ACCEPTED`; a node that is not waiting for it gives HTTP 409. `WAIT_FOR_SIGNAL` (internal-core) holds
+each message until its signal arrives (`signal`, `timeoutSeconds` default 3600, `onTimeout`,
+`onReject`) and tags it with `signal.name/decision/data`; the engine timeout for the node is the wait
+plus 30 s. The wait is in memory: a resumed run waits again.
+
 ### Supervisors (rule engine / AI / custom code on the control bus)
 A supervisor implements `ExecutionSupervisor` (plugin-api) and is registered as a Spring bean:
 - `supervise(Flux<ExecutionEvent>)` receives the global event feed (`ExecutionEventFeed`, fed by the

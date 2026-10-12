@@ -300,6 +300,31 @@ public class ExecutionControlController {
         () -> controlBus.addBreakpoint(executionId, nodeId, field, equalsValue));
   }
 
+  /** Send a signal (an approval or decision) to a node that waits for one. */
+  @PostMapping("/executions/{executionId}/nodes/{nodeId}/signal")
+  @Operation(
+      summary = "Send a signal to a waiting node",
+      description =
+          "Releases or rejects a node that waits for the named signal, for example a"
+              + " WAIT_FOR_SIGNAL approval step. Answers 409 if the node is not waiting for it.")
+  @SuppressWarnings("PMD.UseObjectForClearerAPI")
+  public Mono<ApiResponse<WorkflowStartResponse>> signalNode(
+      @Parameter(description = EXECUTION_ID) @PathVariable final String executionId,
+      @Parameter(description = NODE_ID) @PathVariable final String nodeId,
+      @Parameter(description = "Name of the signal the node waits for") @RequestParam
+          final String name,
+      @Parameter(description = "Decision, for example approve or reject") @RequestParam
+          final String decision,
+      @Parameter(description = "Optional text that goes with the decision")
+          @RequestParam(required = false)
+          final String data) {
+    return signal(
+        null,
+        executionId,
+        "Signal accepted",
+        () -> controlBus.signalNode(executionId, nodeId, name, decision, data));
+  }
+
   /** Clear a node's breakpoint. */
   @DeleteMapping("/executions/{executionId}/nodes/{nodeId}/breakpoint")
   @Operation(summary = "Clear a breakpoint on a node")

@@ -24,7 +24,7 @@ IDs: `B` bug, `S` security, `F` feature. Status: **open**, **needs decision**, *
 
 | ID | Status | Feature | Module | Notes |
 |---|---|---|---|---|
-| F2 | open | Durable wait-for-signal / human-approval node with timeout; `POST /executions/{id}/signals/{name}` | core, plugins, web, mcp | The HITL gate for agent workflows. Today only an in-memory `DELAY` and breakpoints exist |
+| F2 | partly done | `WAIT_FOR_SIGNAL` node + `SignalNodeCommand` (REST/MCP) are done. **Open:** the wait is in memory (a resumed run waits again; make it durable with the checkpoint store), a signal sent before the node waits is refused (no queued signals), no UI for pending approvals | core, plugins, web, mcp | See core/CLAUDE.md "Signals and approval steps" |
 | F3 | open | Roles per API key (viewer/operator/admin); actor recorded in `CONTROL_*` audit | web, mcp, core | Today one shared key can kill runs or run processes |
 | F4 | open | Per-run token/cost budget (`engine.budget`) and per-provider rate limit for `LLM_CALL` | core, llm-call | `usage`/`cost` are per call only |
 | F5 | open | Tool guardrails: `allowedTools` per `MCP_TOOL_CALL`/`LLM_CALL` node; approval for risky tools (needs F2) | plugins | |
