@@ -177,6 +177,7 @@ Processors can expose named output ports (for example `success` and `failure`, o
 | `CONTENT-FILTER` | Removes redundant or sensitive fields |
 | `LOOP_PREDICATE` / `LOOP_STREAM` | Repeats a target plugin until a condition holds, or streams every result |
 | `DELAY` | Delays messages by a fixed time, in order |
+| `SUB_WORKFLOW` | Runs another workflow of the same session per message and emits its results |
 | `WAIT_FOR_SIGNAL` | Holds a message until a named signal (approval, decision) arrives or a timeout passes |
 | `KV_STORE` | Shared in-memory key-value state |
 

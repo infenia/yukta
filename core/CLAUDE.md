@@ -188,6 +188,14 @@ each message until its signal arrives (`signal`, `timeoutSeconds` default 3600, 
 `onReject`) and tags it with `signal.name/decision/data`; the engine timeout for the node is the wait
 plus 30 s. The wait is in memory: a resumed run waits again.
 
+### Sub-workflows
+`SUB_WORKFLOW` (internal-core) runs another stored workflow of the same session per message through
+`SubWorkflowGateway` (`SubWorkflowRunner`): a normal run with its own execution id, tracked and
+limited like any other, whose terminal nodes feed a `ResultCollector` in the Reactor context. The
+node emits `{executionId, results[]}`; a failing child fails the node. The child start payload
+carries `yukta.depth` and `yukta.parentExecutionId`; nesting is limited to 5. With
+`yukta.execution.max-concurrent` the limit must allow parent and children together.
+
 ### LLM budgets
 `LLM_CALL` takes `budget: {maxTokens, maxCost}` (tokens are input plus output; `maxCost` needs
 `prices`). Use is counted per run across all `LLM_CALL` nodes (the plugin keeps the newest 10000
