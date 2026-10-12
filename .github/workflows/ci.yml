@@ -148,6 +148,8 @@ jobs:
               - 'plugins/processors/mcp-tool-call/**'
             session-memory:
               - 'plugins/processors/session-memory/**'
+            decision:
+              - 'plugins/processors/decision/**'
             script-js:
               - 'plugins/processors/internal/script-js/**'
             rule-supervisor:
@@ -162,8 +164,8 @@ jobs:
               - 'plugins/terminals/notify-terminal/**'
             rule-control-plane:
               - 'plugins/control-planes/rule-control-plane/**'
-            systemone-control-plane:
-              - 'plugins/control-planes/systemone-control-plane/**'
+            model-control-plane:
+              - 'plugins/control-planes/model-control-plane/**'
             rules-first-control-plane:
               - 'plugins/control-planes/rules-first-control-plane/**'
 
@@ -335,6 +337,8 @@ jobs:
                 TASKS="$TASKS :plugins:processors:mcp-tool-call:buildDependents" ;;
               "session-memory")
                 TASKS="$TASKS :plugins:processors:session-memory:buildDependents" ;;
+              "decision")
+                TASKS="$TASKS :plugins:processors:decision:buildDependents" ;;
               "script-js")
                 TASKS="$TASKS :plugins:processors:internal:script-js:buildDependents" ;;
               "rule-supervisor")
@@ -349,8 +353,8 @@ jobs:
                 TASKS="$TASKS :plugins:terminals:notify-terminal:buildDependents" ;;
               "rule-control-plane")
                 TASKS="$TASKS :plugins:control-planes:rule-control-plane:buildDependents" ;;
-              "systemone-control-plane")
-                TASKS="$TASKS :plugins:control-planes:systemone-control-plane:buildDependents" ;;
+              "model-control-plane")
+                TASKS="$TASKS :plugins:control-planes:model-control-plane:buildDependents" ;;
               "rules-first-control-plane")
                 TASKS="$TASKS :plugins:control-planes:rules-first-control-plane:buildDependents" ;;
               "boot")

@@ -3,6 +3,7 @@
 package com.infenia.yukta.service.supervisor;
 
 import com.infenia.yukta.plugin.control.ControlActor;
+import com.infenia.yukta.plugin.control.ControlPlanePlugin;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.control.ExecutionEvent;
 import com.infenia.yukta.plugin.control.ExecutionSupervisor;
@@ -10,10 +11,12 @@ import com.infenia.yukta.service.control.directive.DirectiveDispatcher;
 import com.infenia.yukta.service.log.ExecutionLogEvent;
 import com.infenia.yukta.service.log.ExecutionLogStore;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import java.time.Duration;
+import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicLong;
@@ -38,6 +41,7 @@ import reactor.util.retry.Retry;
  */
 @Slf4j
 @Component
+@SuppressWarnings("PMD.TooManyMethods")
 public class SupervisorHost {
 
   /** Counter of supervisor commands by outcome. */
@@ -110,6 +114,42 @@ public class SupervisorHost {
   public void stop() {
     subscriptions.forEach(Disposable::dispose);
     subscriptions.clear();
+  }
+
+  /**
+   * Describes the supervisors that run and what they have done since startup.
+   *
+   * @return one entry per supervisor, in review order
+   */
+  public List<SupervisorInfo> status() {
+    return supervisors
+        .orderedStream()
+        .sorted(Comparator.comparingInt(ExecutionSupervisor::order))
+        .map(
+            supervisor ->
+                new SupervisorInfo(
+                    supervisor.id(),
+                    supervisor instanceof ControlPlanePlugin ? "CONTROL_PLANE" : "SUPERVISOR",
+                    typeName(supervisor.getClass()),
+                    supervisor.order(),
+                    dryRun,
+                    maxCommandsPerSecond,
+                    commands(supervisor.id(), "applied"),
+                    commands(supervisor.id(), "rejected"),
+                    commands(supervisor.id(), "dry-run"),
+                    commands(supervisor.id(), "rate-limited")))
+        .toList();
+  }
+
+  /** An anonymous class has no simple name. */
+  private static String typeName(final Class<?> type) {
+    return type.getSimpleName().isEmpty() ? type.getName() : type.getSimpleName();
+  }
+
+  private long commands(final String supervisorId, final String outcome) {
+    final Counter counter =
+        meters.find(COMMANDS_METRIC).tags("id", supervisorId, "outcome", outcome).counter();
+    return counter == null ? 0 : (long) counter.count();
   }
 
   private void launch(final ExecutionSupervisor supervisor) {
