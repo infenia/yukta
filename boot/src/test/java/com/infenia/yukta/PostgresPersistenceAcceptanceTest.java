@@ -43,7 +43,7 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 @DisabledInAotMode
 @EnabledIfSystemProperty(named = "yukta.persistence", matches = "postgres")
 @Testcontainers(disabledWithoutDocker = true)
-@SuppressWarnings({"PMD.CommentRequired", "PMD.ExcessiveImports", "PMD.LawOfDemeter"})
+@SuppressWarnings({"PMD.CommentRequired", "PMD.ExcessiveImports"})
 @NoArgsConstructor
 class PostgresPersistenceAcceptanceTest {
 

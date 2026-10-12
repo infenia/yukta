@@ -27,7 +27,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 
 /** Runs sub-workflows through the real application: results, failure and the nesting limit. */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.MOCK)
-@SuppressWarnings({"PMD.CommentRequired", "PMD.AvoidDuplicateLiterals", "PMD.LawOfDemeter"})
+@SuppressWarnings({"PMD.CommentRequired", "PMD.AvoidDuplicateLiterals"})
 @NoArgsConstructor
 class SubWorkflowAcceptanceTest {
 
