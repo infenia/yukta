@@ -17,12 +17,13 @@ class ProfileConfigTest {
   private static final String STREAM =
       "logging.level.com.infenia.yukta.service.orchestrator.stream";
   private static final String EXPOSURE = "management.endpoints.web.exposure.include";
+  private static final String DEV_EXPOSURE = "health,info,metrics,loggers,mappings,threaddump";
 
   private final ApplicationContextRunner runner =
       new ApplicationContextRunner().withInitializer(new ConfigDataApplicationContextInitializer());
 
   @Test
-  void prodHasNoPayloadLoggingOrFullActuator() {
+  void prodHasNoPayloadLoggingOrDebugActuator() {
     runner
         .withPropertyValues("spring.profiles.active=prod")
         .run(
@@ -40,22 +41,22 @@ class ProfileConfigTest {
   }
 
   @Test
-  void defaultProfileIsDevWithTraceAndFullActuator() {
+  void defaultProfileIsDevWithTraceAndDebugActuator() {
     runner.run(
         ctx -> {
           assertThat(ctx.getEnvironment().getProperty(STREAM)).isEqualTo("TRACE");
-          assertThat(ctx.getEnvironment().getProperty(EXPOSURE)).isEqualTo("*");
+          assertThat(ctx.getEnvironment().getProperty(EXPOSURE)).isEqualTo(DEV_EXPOSURE);
         });
   }
 
   @Test
-  void devKeepsTraceAndFullActuator() {
+  void devKeepsTraceAndDebugActuator() {
     runner
         .withPropertyValues("spring.profiles.active=dev")
         .run(
             ctx -> {
               assertThat(ctx.getEnvironment().getProperty(STREAM)).isEqualTo("TRACE");
-              assertThat(ctx.getEnvironment().getProperty(EXPOSURE)).isEqualTo("*");
+              assertThat(ctx.getEnvironment().getProperty(EXPOSURE)).isEqualTo(DEV_EXPOSURE);
             });
   }
 }

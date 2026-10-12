@@ -5,6 +5,8 @@ package com.infenia.yukta.service.orchestrator.tracker;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
+import com.infenia.yukta.event.TaskStatusEvent;
+import com.infenia.yukta.event.WorkflowStatusEvent;
 import com.infenia.yukta.logging.api.LogLevel;
 import com.infenia.yukta.logging.api.LogStream;
 import com.infenia.yukta.model.execution.ControlState;
@@ -69,7 +71,11 @@ class DefaultTaskTrackerServiceTest {
     StepVerifier.create(failing.startWorkflow("b-exec", "b-sess", "b-wf", List.of("a")))
         .verifyComplete();
 
-    StepVerifier.create(failing.finishWorkflow("b-exec", TaskStatus.SUCCESS)).verifyComplete();
+    // one batch, so the test fails if a failing event aborted the rest of its batch
+    failing.handleEvents(
+        List.of(
+            TaskStatusEvent.create("b-exec", "a", "echo", TaskStatus.SUCCESS.name(), Map.of()),
+            WorkflowStatusEvent.create("b-exec", TaskStatus.SUCCESS.name())));
 
     await()
         .atMost(2, TimeUnit.SECONDS)
@@ -77,6 +83,39 @@ class DefaultTaskTrackerServiceTest {
             () ->
                 assertThat(failing.getProgressByExecutionId("b-exec").status())
                     .isEqualTo(TaskStatus.SUCCESS.name()));
+  }
+
+  @Test
+  void testTaskUpdateIsStillDeliveredWhenTheExecutionLogCannotBeWritten() {
+    final com.infenia.yukta.service.log.ExecutionLogStore broken =
+        org.mockito.Mockito.mock(com.infenia.yukta.service.log.ExecutionLogStore.class);
+    org.mockito.Mockito.doThrow(new IllegalStateException("disk full"))
+        .when(broken)
+        .append(org.mockito.ArgumentMatchers.any());
+    final SimpleMeterRegistry meters = new SimpleMeterRegistry();
+    final DefaultTaskTrackerService failing =
+        new DefaultTaskTrackerService(Duration.ofSeconds(30), statusHistoryCache, broken, meters);
+    failing.init();
+    StepVerifier.create(failing.startWorkflow("n-exec", "n-sess", "n-wf", List.of("a")))
+        .verifyComplete();
+    StepVerifier.create(failing.getStatusStream("n-exec", false).take(1))
+        .then(
+            () ->
+                failing.handleEvents(
+                    List.of(
+                        TaskStatusEvent.create(
+                            "n-exec", "a", "echo", TaskStatus.SUCCESS.name(), Map.of()))))
+        .expectNextCount(1)
+        .verifyComplete();
+
+    assertThat(meters.get("yukta.tracker.log.append.failed").tag("type", "node").counter().count())
+        .isEqualTo(1);
+
+    failing.handleEvents(List.of(WorkflowStatusEvent.create("n-exec", TaskStatus.SUCCESS.name())));
+
+    assertThat(meters.get("yukta.tracker.log.append.failed").tag("type", "run").counter().count())
+        .isEqualTo(1);
+    assertThat(meters.find("yukta.tracker.dropped").counter()).isNull();
   }
 
   @Test

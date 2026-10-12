@@ -174,6 +174,19 @@ class WorkflowOrchestratorTest {
   }
 
   @Test
+  void execute_registersNothingUntilTheResultIsSubscribed() {
+    final PreparedWorkflow prepared = buildPreparedWorkflow(List.of("node-a"));
+
+    final Mono<Void> neverSubscribed =
+        orchestrator.execute("sess-1", "wf-1", "exec-1", prepared, Map.of());
+
+    assertThat(neverSubscribed).isNotNull();
+    verify(executionControlFactory, never()).create(any(), any(), any(), any(), any());
+    verify(executionControlRegistry, never()).register(any());
+    verify(tracker, never()).startWorkflow(any(), any(), any(), anyList());
+  }
+
+  @Test
   void execute_unregistersAndClearsCheckpointOnError() {
     final String sessionId = "sess-err";
     final String workflowId = "wf-err";

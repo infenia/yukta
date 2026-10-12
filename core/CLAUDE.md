@@ -194,6 +194,10 @@ State and workflow events are never dropped: they go to an unbounded queue. Log 
 effort: more than 10000 waiting are dropped and counted in `yukta.tracker.dropped{type=log}`
 (`type=state` counts events lost because the tracker itself had ended). Use `SinkEmit.offer`, not
 `Sinks.Many#emitNext`, for any bounded sink: `emitNext` terminates the sink on overflow.
+An execution-log write that fails (the end of a node or of a run) is logged and counted in
+`yukta.tracker.log.append.failed{type=node|run}`; it never blocks the status update or the run's end.
+`WorkflowOrchestrator.execute`/`rerun` register the run's control and archive it only when the
+returned `Mono` is subscribed.
 
 ### Node timeouts
 A node's idle timeout is `timeoutSeconds` from its config, else the plugin's

@@ -2,6 +2,8 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import net.ltgt.gradle.errorprone.errorprone
+import org.gradle.api.services.BuildService
+import org.gradle.api.services.BuildServiceParameters
 
 plugins {
     id("com.diffplug.spotless")
@@ -115,9 +117,21 @@ tasks.withType<JavaCompile>().configureEach {
     }
 }
 
+// Serializes OpenGrep runs across modules: parallel `execvp` of the opengrep wrapper can fail with
+// "Text file busy" (ETXTBSY) while the binary is being prepared, which flakes the build.
+abstract class OpengrepExecutionService : BuildService<BuildServiceParameters.None>
+
+val opengrepExecution = gradle.sharedServices.registerIfAbsent(
+    "opengrepExecution",
+    OpengrepExecutionService::class.java
+) {
+    maxParallelUsages.set(1)
+}
+
 tasks.register<Exec>("opengrep") {
     description = "Run OpenGrep static analysis with the pinned local ruleset"
     group = "verification"
+    usesService(opengrepExecution)
 
     val sourceDir = project.file("src/main")
     val ruleFile = rootProject.file("config/opengrep/.semgrep.yml")

@@ -12,7 +12,8 @@ import jakarta.annotation.Nullable;
  *
  * @param parentIndex the index of the parent node's stream in the Flux array
  * @param sourceNodeId the ID of the source node
- * @param sourcePort optional output port filter; null means no port filtering
+ * @param sourcePort optional output port filter; null routes every port except the error port
+ *     ({@code NodePolicy.ERROR_PORT}), which only an edge naming it receives
  * @param tolerateFailure true if the receiving node keeps going when this parent fails (join rule
  *     ALL_DONE) instead of failing with it
  */
