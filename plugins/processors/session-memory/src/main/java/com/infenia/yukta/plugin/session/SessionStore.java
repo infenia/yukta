@@ -2,27 +2,69 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.plugin.session;
 
+import java.io.IOException;
+import java.net.URLEncoder;
+import java.nio.channels.FileChannel;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
+import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import lombok.NoArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.jspecify.annotations.Nullable;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 
 /**
- * In-memory chat history per session id.
+ * Chat history per session id, in memory and, when {@code yukta.session-memory.dir} is set, also on
+ * disk (one small JSON file per session, replaced atomically on every turn), so history survives a
+ * restart.
  *
- * <p>Turns are {@code {role, content}} maps, the shape the llm-call plugin accepts. To persist
- * history, replace this bean with a subclass backed by a database or file store.
+ * <p>Turns are {@code {role, content}} maps, the shape the llm-call plugin accepts. A session that
+ * was read once stays in memory until restart. A file that cannot be read is logged and treated as
+ * an empty history.
  */
+@Slf4j
 @Service
-@NoArgsConstructor
+@SuppressWarnings("PMD.AvoidCatchingGenericException")
 public class SessionStore {
+
+  /** Reads and writes the session files. */
+  private static final ObjectMapper MAPPER = JsonMapper.builder().build();
+
+  /** The stored turns of one session. */
+  private static final TypeReference<List<Map<String, String>>> TURNS = new TypeReference<>() {};
 
   /** Turns by session id, oldest first. */
   // ponytail: no eviction, so abandoned sessions stay until restart; add a TTL (e.g. caffeine)
   // if sessions are not bounded
   private final Map<String, List<Map<String, String>>> sessions = new ConcurrentHashMap<>();
+
+  /** Directory of the session files, or null to keep history in memory only. */
+  private final @Nullable Path dir;
+
+  /** Creates a store that keeps history in memory only. */
+  public SessionStore() {
+    this("");
+  }
+
+  /**
+   * Creates the store.
+   *
+   * @param dir directory for the session files, or empty to keep history in memory only
+   */
+  @Autowired
+  public SessionStore(@Value("${yukta.session-memory.dir:}") final String dir) {
+    this.dir = dir.isBlank() ? null : Path.of(dir);
+  }
 
   /**
    * Return the most recent turns of a session.
@@ -32,7 +74,8 @@ public class SessionStore {
    * @return a copy of the last {@code maxTurns} turns, oldest first; empty for an unknown session
    */
   public List<Map<String, String>> history(final String sessionId, final int maxTurns) {
-    final List<Map<String, String>> turns = sessions.getOrDefault(sessionId, List.of());
+    final List<Map<String, String>> turns =
+        sessions.computeIfAbsent(sessionId, id -> load(id).orElse(List.of()));
     return List.copyOf(turns.subList(Math.max(0, turns.size() - maxTurns), turns.size()));
   }
 
@@ -50,9 +93,55 @@ public class SessionStore {
         sessionId,
         (id, existing) -> {
           final List<Map<String, String>> turns =
-              existing == null ? new ArrayList<>() : new ArrayList<>(existing);
+              new ArrayList<>(existing == null ? load(id).orElse(List.of()) : existing);
           turns.add(Map.of("role", role, "content", content));
-          return List.copyOf(turns.subList(Math.max(0, turns.size() - maxTurns), turns.size()));
+          final List<Map<String, String>> kept =
+              List.copyOf(turns.subList(Math.max(0, turns.size() - maxTurns), turns.size()));
+          save(id, kept);
+          return kept;
         });
+  }
+
+  private java.util.Optional<List<Map<String, String>>> load(final String sessionId) {
+    java.util.Optional<List<Map<String, String>>> turns = java.util.Optional.empty();
+    if (dir != null) {
+      final Path file = file(dir, sessionId);
+      if (Files.exists(file)) {
+        try {
+          turns = java.util.Optional.of(MAPPER.readValue(Files.readString(file), TURNS));
+        } catch (final IOException | RuntimeException e) {
+          log.atWarn().setCause(e).log("Could not read the history of a session; starting empty");
+        }
+      }
+    }
+    return turns;
+  }
+
+  private void save(final String sessionId, final List<Map<String, String>> turns) {
+    if (dir == null) {
+      return;
+    }
+    try {
+      Files.createDirectories(dir);
+      final Path file = file(dir, sessionId);
+      final Path tmp = Files.createTempFile(dir, "session", ".tmp");
+      try {
+        Files.writeString(tmp, MAPPER.writeValueAsString(turns), StandardCharsets.UTF_8);
+        try (FileChannel channel = FileChannel.open(tmp, StandardOpenOption.WRITE)) {
+          channel.force(true);
+        }
+        Files.move(tmp, file, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+      } finally {
+        Files.deleteIfExists(tmp);
+      }
+    } catch (final IOException | RuntimeException e) {
+      // history stays in memory; losing durability must not fail the chat
+      log.atError().setCause(e).log("Could not store the history of a session");
+    }
+  }
+
+  /** The session id is encoded, so it cannot name a path outside the directory. */
+  private static Path file(final Path dir, final String sessionId) {
+    return dir.resolve(URLEncoder.encode(sessionId, StandardCharsets.UTF_8) + ".json");
   }
 }
