@@ -98,14 +98,16 @@ class DefaultTaskTrackerServiceTest {
     failing.init();
     StepVerifier.create(failing.startWorkflow("n-exec", "n-sess", "n-wf", List.of("a")))
         .verifyComplete();
-    final List<Object> delivered = new java.util.concurrent.CopyOnWriteArrayList<>();
-    failing.getStatusStream("n-exec", false).subscribe(delivered::add);
+    StepVerifier.create(failing.getStatusStream("n-exec", false).take(1))
+        .then(
+            () ->
+                failing.handleEvents(
+                    List.of(
+                        TaskStatusEvent.create(
+                            "n-exec", "a", "echo", TaskStatus.SUCCESS.name(), Map.of()))))
+        .expectNextCount(1)
+        .verifyComplete();
 
-    failing.handleEvents(
-        List.of(
-            TaskStatusEvent.create("n-exec", "a", "echo", TaskStatus.SUCCESS.name(), Map.of())));
-
-    assertThat(delivered).hasSize(1);
     assertThat(meters.get("yukta.tracker.log.append.failed").tag("type", "node").counter().count())
         .isEqualTo(1);
 

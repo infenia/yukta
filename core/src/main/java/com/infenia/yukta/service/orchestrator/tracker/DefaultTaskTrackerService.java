@@ -93,7 +93,10 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
   /** Counts execution-log writes that failed, by what was being recorded. */
   private static final String LOG_APPEND_FAILED_METRIC = "yukta.tracker.log.append.failed";
 
+  /** Tag value for a failed write of the end of a node. */
   private static final String LOG_APPEND_NODE = "node";
+
+  /** Tag value for a failed write of the end of a run. */
   private static final String LOG_APPEND_RUN = "run";
 
   /** Time to live for execution data after terminal status. */
