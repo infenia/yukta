@@ -79,6 +79,56 @@ class McpToolCallPluginTest {
   }
 
   @Test
+  void allowedTools_refuseOtherTools_withoutCallingTheServer() {
+    when(gateway.call(any(), any())).thenReturn(Mono.just(success()));
+
+    StepVerifier.create(
+            plugin.process(Flux.just(input()), config("allowedTools", List.of("weather"))))
+        .expectNextCount(1)
+        .verifyComplete();
+
+    StepVerifier.create(
+            plugin.process(Flux.just(input()), config("allowedTools", List.of("search", "read"))))
+        .verifyErrorSatisfies(
+            e ->
+                assertThat(e)
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("'weather' is not in allowedTools"));
+    verify(gateway, org.mockito.Mockito.times(1)).call(any(), any());
+
+    // an empty list restricts nothing
+    StepVerifier.create(plugin.process(Flux.just(input()), config("allowedTools", List.of())))
+        .expectNextCount(1)
+        .verifyComplete();
+  }
+
+  @Test
+  void allowedTools_continueMode_emitsFailure() {
+    StepVerifier.create(
+            plugin.process(
+                Flux.just(input()),
+                config("allowedTools", List.of("search"), "failureMode", "CONTINUE")))
+        .assertNext(out -> assertThat(out.metadata()).containsEntry("mcpSuccess", false))
+        .verifyComplete();
+  }
+
+  @Test
+  void allowedTools_isValidated() {
+    StepVerifier.create(plugin.validateConfig(config("allowedTools", "weather")))
+        .expectError(IllegalArgumentException.class)
+        .verify();
+    StepVerifier.create(plugin.validateConfig(config("allowedTools", List.of("a", " "))))
+        .expectError(IllegalArgumentException.class)
+        .verify();
+    StepVerifier.create(plugin.validateConfig(config("allowedTools", List.of(5))))
+        .expectError(IllegalArgumentException.class)
+        .verify();
+    StepVerifier.create(plugin.validateConfig(config("allowedTools", List.of("a", "b"))))
+        .verifyComplete();
+    StepVerifier.create(plugin.validateConfig(config("allowedTools", List.of()))).verifyComplete();
+  }
+
+  @Test
   void metadataDescribesPlugin() {
     assertThat(plugin.getType()).isEqualTo("MCP_TOOL_CALL");
     assertThat(plugin.describe().usagePattern()).contains("url", "tool");
