@@ -5,6 +5,7 @@ package com.infenia.yukta.service.session.store;
 import com.infenia.yukta.config.SessionConfigProperties;
 import com.infenia.yukta.service.workflow.store.WorkflowDefinitionStore;
 import lombok.NoArgsConstructor;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -24,6 +25,7 @@ public class SessionConfigStoreConfiguration {
    */
   @Bean
   @ConditionalOnMissingBean(SessionConfigStore.class)
+  @ConditionalOnExpression("!'postgres'.equals('${yukta.session.store-type:in-memory}')")
   public SessionConfigStore inMemorySessionConfigStore(
       final SessionConfigProperties properties,
       final WorkflowDefinitionStore workflowDefinitionStore) {

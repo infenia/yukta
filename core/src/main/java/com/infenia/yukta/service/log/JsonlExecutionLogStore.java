@@ -42,7 +42,9 @@ import tools.jackson.databind.ObjectMapper;
  */
 @Slf4j
 @Component
-@ConditionalOnExpression("!'${yukta.execution-log.dir:}'.isEmpty()")
+@ConditionalOnExpression(
+    "!'${yukta.execution-log.dir:}'.isEmpty()"
+        + " && !'postgres'.equals('${yukta.session.store-type:in-memory}')")
 @SuppressWarnings({"PMD.AvoidCatchingGenericException", "PMD.OnlyOneReturn", "PMD.TooManyMethods"})
 public class JsonlExecutionLogStore implements ExecutionLogStore {
 

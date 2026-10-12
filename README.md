@@ -250,6 +250,14 @@ The server listens on `127.0.0.1` by default. To expose it, set `YUKTA_SERVER_AD
 ./gradlew spotlessApply    # format before committing
 ```
 
+**Persistence.** By default sessions, workflow definitions and the execution log live in memory;
+`yukta.session.store-type=file` and `yukta.execution-log.dir` keep them on disk. For PostgreSQL build
+with `./gradlew bootJar -Pyukta.persistence=postgres` and run with `SPRING_PROFILES_ACTIVE=prod,postgres`,
+`SPRING_R2DBC_URL=r2dbc:postgresql://host:5432/yukta` (run time, reactive) and
+`SPRING_FLYWAY_URL=jdbc:postgresql://host:5432/yukta` (schema migrations only, since Flyway has no
+R2DBC support), with the matching `*_USERNAME`/`*_PASSWORD` (`SPRING_FLYWAY_USER`/`SPRING_FLYWAY_PASSWORD`).
+Tests of this module need Docker.
+
 Built with Java 25, Spring Boot 4.1 (WebFlux), Gradle 9.8, Project Reactor, Spring AI MCP, GraalVM, React 19 and Go.
 
 ### Repository layout
@@ -258,6 +266,7 @@ Built with Java 25, Spring Boot 4.1 (WebFlux), Gradle 9.8, Project Reactor, Spri
 |--------|---------|
 | `boot` | Spring Boot entry point, native image config |
 | `core` | DAG orchestration engine, plugin registry |
+| `persistence-postgres` | Optional PostgreSQL stores (R2DBC + Flyway) for sessions, workflows and the execution log |
 | `plugin-api` | Plugin interfaces and store abstractions |
 | `plugins` | Built-in processors, triggers, terminals, supervisors |
 | `web` | REST controllers |
