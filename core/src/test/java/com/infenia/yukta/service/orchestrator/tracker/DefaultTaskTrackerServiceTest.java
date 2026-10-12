@@ -5,6 +5,8 @@ package com.infenia.yukta.service.orchestrator.tracker;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
+import com.infenia.yukta.event.TaskStatusEvent;
+import com.infenia.yukta.event.WorkflowStatusEvent;
 import com.infenia.yukta.logging.api.LogLevel;
 import com.infenia.yukta.logging.api.LogStream;
 import com.infenia.yukta.model.execution.ControlState;
@@ -69,7 +71,11 @@ class DefaultTaskTrackerServiceTest {
     StepVerifier.create(failing.startWorkflow("b-exec", "b-sess", "b-wf", List.of("a")))
         .verifyComplete();
 
-    StepVerifier.create(failing.finishWorkflow("b-exec", TaskStatus.SUCCESS)).verifyComplete();
+    // one batch, so the test fails if a failing event aborted the rest of its batch
+    failing.handleEvents(
+        List.of(
+            TaskStatusEvent.create("b-exec", "a", "echo", TaskStatus.SUCCESS.name(), Map.of()),
+            WorkflowStatusEvent.create("b-exec", TaskStatus.SUCCESS.name())));
 
     await()
         .atMost(2, TimeUnit.SECONDS)

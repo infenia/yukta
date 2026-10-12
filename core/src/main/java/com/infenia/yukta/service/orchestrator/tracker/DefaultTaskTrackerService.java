@@ -756,7 +756,7 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
   }
 
   /** Applies a batch of events strictly in the order in which they were emitted. */
-  private void handleEvents(final List<TrackerEvent> events) {
+  /* default */ void handleEvents(final List<TrackerEvent> events) {
     final Set<WorkflowState> touched = new LinkedHashSet<>();
     for (final TrackerEvent event : events) {
       applyIsolated(event, touched);
