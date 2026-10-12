@@ -5,6 +5,7 @@ package com.infenia.yukta.controller;
 import com.infenia.yukta.dto.response.WorkflowStartResponse;
 import com.infenia.yukta.model.api.ApiResponse;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
+import com.infenia.yukta.service.orchestrator.ExecutionResumer;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -46,6 +47,9 @@ public class ExecutionControlController {
   /** The access. */
   private final ExecutionAccess access;
 
+  /** Continues runs that a server restart aborted. */
+  private final ExecutionResumer resumer;
+
   /** Pause a workflow execution. */
   @PostMapping({"/executions/{executionId}/pause", "/workflow/{sessionId}/{executionId}/pause"})
   @Operation(
@@ -78,6 +82,27 @@ public class ExecutionControlController {
         executionId,
         "Workflow resume signal accepted",
         () -> controlBus.resumeWorkflow(executionId));
+  }
+
+  /** Continue a run that a server restart aborted, as a new run. */
+  @PostMapping({"/executions/{executionId}/recover", "/workflow/{sessionId}/{executionId}/recover"})
+  @Operation(
+      summary = "Recover an aborted workflow execution",
+      description =
+          "Continues a run that a server restart aborted as a new run: nodes that finished are"
+              + " replayed from their recorded output, the rest run again. Needs the file"
+              + " execution log and checkpoint directories. Answers 409 if the run was not"
+              + " aborted, was already resumed or its workflow changed.")
+  public Mono<ApiResponse<WorkflowStartResponse>> recoverExecution(
+      @Parameter(description = SESSION_ID) @PathVariable(required = false) final String sessionId,
+      @Parameter(description = EXECUTION_ID) @PathVariable final String executionId) {
+    return access
+        .require(sessionId, executionId)
+        .then(Mono.defer(() -> resumer.resume(executionId)))
+        .map(
+            newId ->
+                ApiResponse.success(
+                    200, "Execution recovered as a new run", new WorkflowStartResponse(newId)));
   }
 
   /** Pause a node. */
@@ -273,6 +298,31 @@ public class ExecutionControlController {
         executionId,
         "Breakpoint accepted",
         () -> controlBus.addBreakpoint(executionId, nodeId, field, equalsValue));
+  }
+
+  /** Send a signal (an approval or decision) to a node that waits for one. */
+  @PostMapping("/executions/{executionId}/nodes/{nodeId}/signal")
+  @Operation(
+      summary = "Send a signal to a waiting node",
+      description =
+          "Releases or rejects a node that waits for the named signal, for example a"
+              + " WAIT_FOR_SIGNAL approval step. Answers 409 if the node is not waiting for it.")
+  @SuppressWarnings("PMD.UseObjectForClearerAPI")
+  public Mono<ApiResponse<WorkflowStartResponse>> signalNode(
+      @Parameter(description = EXECUTION_ID) @PathVariable final String executionId,
+      @Parameter(description = NODE_ID) @PathVariable final String nodeId,
+      @Parameter(description = "Name of the signal the node waits for") @RequestParam
+          final String name,
+      @Parameter(description = "Decision, for example approve or reject") @RequestParam
+          final String decision,
+      @Parameter(description = "Optional text that goes with the decision")
+          @RequestParam(required = false)
+          final String data) {
+    return signal(
+        null,
+        executionId,
+        "Signal accepted",
+        () -> controlBus.signalNode(executionId, nodeId, name, decision, data));
   }
 
   /** Clear a node's breakpoint. */

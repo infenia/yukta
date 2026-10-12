@@ -39,7 +39,8 @@ import reactor.test.StepVerifier;
   "PMD.AvoidDuplicateLiterals",
   "PMD.AvoidAccessibilityAlteration",
   "PMD.CognitiveComplexity",
-  "PMD.ShortVariable"
+  "PMD.ShortVariable",
+  "PMD.CouplingBetweenObjects"
 })
 class DefaultTaskTrackerServiceTest {
 
@@ -127,6 +128,52 @@ class DefaultTaskTrackerServiceTest {
 
     await().atMost(2, TimeUnit.SECONDS).untilAsserted(() -> assertThat(seen).hasSize(1));
     assertThat(seen.get(0)).isEqualTo("yukta.node:node a");
+  }
+
+  @Test
+  void testLateRunningEventForAnEndedNodeOpensNoSpan() {
+    final var observations = io.micrometer.observation.ObservationRegistry.create();
+    final java.util.concurrent.atomic.AtomicInteger started =
+        new java.util.concurrent.atomic.AtomicInteger();
+    observations
+        .observationConfig()
+        .observationHandler(
+            new io.micrometer.observation.ObservationHandler<>() {
+              @Override
+              public boolean supportsContext(
+                  final io.micrometer.observation.Observation.Context context) {
+                return "yukta.node".equals(context.getName());
+              }
+
+              @Override
+              public void onStart(final io.micrometer.observation.Observation.Context context) {
+                started.incrementAndGet();
+              }
+            });
+    final DefaultTaskTrackerService traced =
+        new DefaultTaskTrackerService(
+            Duration.ofSeconds(30),
+            statusHistoryCache,
+            new InMemoryExecutionLogStore(),
+            new SimpleMeterRegistry(),
+            observations);
+    traced.init();
+    StepVerifier.create(traced.startWorkflow("l-exec", "l-sess", "l-wf", List.of("a")))
+        .verifyComplete();
+    StepVerifier.create(traced.finishWorkflow("l-exec", TaskStatus.SUCCESS)).verifyComplete();
+    await()
+        .atMost(2, TimeUnit.SECONDS)
+        .untilAsserted(
+            () ->
+                assertThat(traced.getProgressByExecutionId("l-exec").status())
+                    .isEqualTo(TaskStatus.SUCCESS.name()));
+
+    traced.emitTaskStatusEvent("l-exec", "a", "echo", TaskStatus.RUNNING, Map.of());
+    traced.emitTaskStatusEvent("l-exec", "a", "echo", TaskStatus.SUCCESS, Map.of());
+
+    // let the event batch run, then check that no node span was opened
+    await().during(300, TimeUnit.MILLISECONDS).atMost(2, TimeUnit.SECONDS).until(() -> true);
+    assertThat(started).hasValue(0);
   }
 
   @Test

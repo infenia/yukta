@@ -14,6 +14,8 @@ import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import reactor.core.publisher.Flux;
+import reactor.core.scheduler.Schedulers;
 import reactor.test.StepVerifier;
 
 /**
@@ -53,6 +55,34 @@ class InMemoryPluginLogStoreTest {
     final var retention = config.getRetention();
     retention.setDefaultPeriodMinutes(DEFAULT_RETENTION_MINUTES);
     store = new InMemoryPluginLogStore(config);
+  }
+
+  @Test
+  void testConcurrentWritesAreAllKept() {
+    final String executionId = "exec-concurrent";
+    final int count = 2000;
+    Flux.range(0, count)
+        .flatMap(
+            i ->
+                store
+                    .write(
+                        new PluginLogEntry(
+                            executionId,
+                            SESSION_ID,
+                            PROCESSOR_ID,
+                            PROCESSOR_NAME,
+                            LogStream.STDOUT,
+                            "line " + i,
+                            LogLevel.INFO,
+                            Instant.now(),
+                            null,
+                            null))
+                    .subscribeOn(Schedulers.parallel()))
+        .blockLast();
+
+    StepVerifier.create(store.readExecution(executionId).map(PluginLogEntry::message).distinct())
+        .expectNextCount(count)
+        .verifyComplete();
   }
 
   @Test

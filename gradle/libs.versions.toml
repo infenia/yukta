@@ -64,7 +64,16 @@ netty-codec-compression = { group = "io.netty", name = "netty-codec-compression"
 netty-codec-http = { group = "io.netty", name = "netty-codec-http", version.ref = "netty" }
 netty-codec-http3 = { group = "io.netty", name = "netty-codec-http3", version.ref = "netty" }
 
+# PostgreSQL persistence (versions managed by the Spring Boot BOM)
+spring-boot-starter-data-r2dbc = { group = "org.springframework.boot", name = "spring-boot-starter-data-r2dbc" }
+spring-boot-starter-flyway = { group = "org.springframework.boot", name = "spring-boot-starter-flyway" }
+flyway-postgresql = { group = "org.flywaydb", name = "flyway-database-postgresql" }
+postgresql-jdbc = { group = "org.postgresql", name = "postgresql" }
+r2dbc-postgresql = { group = "org.postgresql", name = "r2dbc-postgresql" }
+
 # Testing
+testcontainers-postgresql = { group = "org.testcontainers", name = "testcontainers-postgresql" }
+testcontainers-junit = { group = "org.testcontainers", name = "testcontainers-junit-jupiter" }
 junit-platform-launcher = { group = "org.junit.platform", name = "junit-platform-launcher" }
 spring-boot-starter-test = { group = "org.springframework.boot", name = "spring-boot-starter-test" }
 spring-boot-starter-actuator-test = { group = "org.springframework.boot", name = "spring-boot-starter-actuator-test" }

@@ -74,6 +74,13 @@ Any node's config may carry a reserved `engine` object; plugins never see these 
 - `deadlineMs` (any node): longest the node may run, from its first activity. Not restarted by
   output or heartbeats; paused time does not count; must be above `elementTimeoutMs`. The node ends
   `TIMED_OUT`.
+- With `retry` or `onError` CONTINUE/ROUTE a message produces all of its output or none: what an
+  attempt emitted before it failed is held back and dropped, so a retry or a dead letter never
+  comes on top of a partial result. The output of one message is therefore buffered until its
+  attempt ends.
+- A processor skipped from the start (queued run, supervisor) can be unskipped later; a terminal's
+  idle timeout and `deadlineMs` also cover what it does after its last input. Applying a
+  configuration drops the cached prepared workflow if the stored definition has moved on.
 - With `retry`/`onError`/`elementTimeoutMs` the plugin is called once per message and the message
   carries an `attempt` header (1, 2, ...) next to its `id`, so a plugin can de-duplicate side effects.
 Malformed policies are rejected by `WorkflowValidator` with the node id and option. Parsing lives in
@@ -94,7 +101,8 @@ Malformed policies are rejected by `WorkflowValidator` with the node id and opti
   `ExecutionResumer.resume(executionId)` continues a run that a restart aborted: the log holds the
   payload (`RUN_STARTED`); nodes that finished (a durable end marker, below) replay their
   recorded output, the rest run again. `NODE_FINISHED` log events are history only. A run resumes once (`RUN_RESUMED`) and only if its definition
-  is unchanged. There is no REST/MCP endpoint for it yet.
+  is unchanged. REST: `POST /api/executions/{id}/recover` (409 `ConflictException` if the run was not
+  aborted, was already resumed or its workflow changed); MCP: `control_workflow` action `RECOVER`.
   Only one resume per run is accepted (the claim is kept in memory and dropped on failure). The end
   of a node is a durable marker kept with its output (`NodeCheckpointStore.markComplete`: the file
   store forces the output, writes and forces `<node>.done` and the directory before the completion
@@ -171,6 +179,46 @@ Gateway commands for a live run (`ControlBusGateway`). REST: `POST /api/executio
 - `changePriority(execution, priority)`: moves a start that is `QUEUED`; recorded in the run log as
   `SetPriority(n)`, rejected if the run is not waiting.
 
+### Signals and approval steps
+`SignalNodeCommand` (REST `POST /api/executions/{id}/nodes/{node}/signal?name=&decision=&data=`, MCP
+`signal_node`, gateway `signalNode`) hands a named signal to the plugin of a node through the same
+review, ordering and audit as other commands (`SignalNodeCommandProcessor`). The plugin must answer
+`ACCEPTED`; a node that is not waiting for it gives HTTP 409. `WAIT_FOR_SIGNAL` (internal-core) holds
+each message until its signal arrives (`signal`, `timeoutSeconds` default 3600, `onTimeout`,
+`onReject`) and tags it with `signal.name/decision/data`; the engine timeout for the node is the wait
+plus 30 s. The wait is in memory: a resumed run waits again.
+
+### Workflow definitions and their versions
+With `yukta.session.store-type=file`, `FileWorkflowDefinitionStore` keeps definitions under
+`<baseDir>/workflows/<session>/<workflow>/` (`current.json`, `history/<version>.json`; ids are
+URL-encoded, writes are atomic and fsynced) so they survive a restart; `in-memory` keeps them in
+memory. Both keep the newest 20 saved versions of a workflow (identical saves add none).
+`WorkflowDefinitionStore.revisions/findRevision` and the web rollback endpoint use them.
+
+### PostgreSQL stores (`persistence-postgres`, optional)
+`yukta.session.store-type=postgres` (profile `postgres`, build with `-Pyukta.persistence=postgres`)
+selects `R2dbcSessionConfigStore`, `R2dbcWorkflowDefinitionStore` (definitions plus the newest 20
+versions) and `R2dbcExecutionLogStore` (blocking interface, so one writer thread; trims to the newest
+`retained-runs` runs and never drops a run without an end). Schema: Flyway migrations in
+`persistence-postgres/src/main/resources/db/migration` (applied over JDBC from `spring.flyway.url`);
+run time uses R2DBC (`spring.r2dbc.url`). The in-memory/file defaults step aside when the type is
+`postgres`. Node checkpoints (`yukta.restart.dir`) still use files or memory.
+
+### Sub-workflows
+`SUB_WORKFLOW` (internal-core) runs another stored workflow of the same session per message through
+`SubWorkflowGateway` (`SubWorkflowRunner`): a normal run with its own execution id, tracked and
+limited like any other, whose terminal nodes feed a `ResultCollector` in the Reactor context. The
+node emits `{executionId, results[]}`; a failing child fails the node. The child start payload
+carries `yukta.depth` and `yukta.parentExecutionId`; nesting is limited to 5. With
+`yukta.execution.max-concurrent` the limit must allow parent and children together.
+
+### LLM budgets
+`LLM_CALL` takes `budget: {maxTokens, maxCost}` (tokens are input plus output; `maxCost` needs
+`prices`). Use is counted per run across all `LLM_CALL` nodes (the plugin keeps the newest 10000
+runs); once a limit is reached the next call fails like a failed call (`failureMode` and
+`routeByStatus` apply, so a workflow can fall back). One call may overshoot the limit. Not yet:
+limits per agent or per provider, or a rate limit per provider (see the backlog).
+
 ### Supervisors (rule engine / AI / custom code on the control bus)
 A supervisor implements `ExecutionSupervisor` (plugin-api) and is registered as a Spring bean:
 - `supervise(Flux<ExecutionEvent>)` receives the global event feed (`ExecutionEventFeed`, fed by the
@@ -199,6 +247,9 @@ A supervisor implements `ExecutionSupervisor` (plugin-api) and is registered as 
 merged. `WorkflowStateTransitionTest` checks this on thousands of random event orders, and
 `StreamTopologyDecoratorBackpressureTest` (a 20-node chain, 10k messages, bounded memory) guards the
 streaming side as part of `check`.
+
+Node spans are opened only for a status the run state accepted, so a late `RUNNING` for an ended
+node leaves no open span. `resume` reads the log and checkpoint files on `boundedElastic`.
 
 ### Tracker queue
 State and workflow events are never dropped: they go to an unbounded queue. Log lines are best
