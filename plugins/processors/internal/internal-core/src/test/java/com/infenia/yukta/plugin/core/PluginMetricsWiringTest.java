@@ -23,7 +23,7 @@ import org.springframework.beans.factory.support.StaticListableBeanFactory;
 class PluginMetricsWiringTest {
 
   @Test
-  void processorsBuildWithAndWithoutAReporterBean() {
+  void processorsBuildWithAndWithoutReporterBean() {
     final StaticListableBeanFactory with = new StaticListableBeanFactory();
     with.addBean("reporter", (PluginMetricsReporter) (node, metric, tag) -> {});
     final ObjectProvider<PluginMetricsReporter> present =

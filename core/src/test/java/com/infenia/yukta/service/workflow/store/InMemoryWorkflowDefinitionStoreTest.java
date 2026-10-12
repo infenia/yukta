@@ -16,6 +16,7 @@ import reactor.test.StepVerifier;
 
 /** Tests for {@link InMemoryWorkflowDefinitionStore}. */
 @NoArgsConstructor
+@SuppressWarnings("PMD.TooManyMethods")
 class InMemoryWorkflowDefinitionStoreTest {
 
   /** Constant for workflow ID 1. */
@@ -131,5 +132,49 @@ class InMemoryWorkflowDefinitionStoreTest {
     logInitMethod.invoke(newStore);
 
     assertThat(newStore).isNotNull();
+  }
+
+  private static WorkflowDefinition version(final String description) {
+    return new WorkflowDefinition(
+        WORKFLOW_ID_1,
+        description,
+        List.of(new WorkflowDefinition.Node("n1", "trigger", Map.of())),
+        List.of());
+  }
+
+  @Test
+  void distinctSavesAreVersions_newestFirst_andFetchable() throws InterruptedException {
+    store.save(SESSION_ID_1, version("one")).block();
+    store.save(SESSION_ID_1, version("one")).block();
+    Thread.sleep(2);
+    store.save(SESSION_ID_1, version("two")).block();
+
+    final List<DefinitionRevision> revisions =
+        store.revisions(SESSION_ID_1, WORKFLOW_ID_1).collectList().block();
+
+    assertThat(revisions).hasSize(2);
+    assertThat(store.findRevision(SESSION_ID_1, WORKFLOW_ID_1, revisions.get(0).id()).block())
+        .isEqualTo(version("two"));
+    assertThat(store.findRevision(SESSION_ID_1, WORKFLOW_ID_1, revisions.get(1).id()).block())
+        .isEqualTo(version("one"));
+    assertThat(store.findRevision(SESSION_ID_1, WORKFLOW_ID_1, "nope").block()).isNull();
+    assertThat(store.revisions(SESSION_ID_2, WORKFLOW_ID_1).collectList().block()).isEmpty();
+  }
+
+  @Test
+  void onlyTheNewestVersionsAreKept_andRemovingDropsTheHistory() throws InterruptedException {
+    for (int i = 0; i < InMemoryWorkflowDefinitionStore.MAX_REVISIONS + 5; i++) {
+      store.save(SESSION_ID_1, version("v" + i)).block();
+      Thread.sleep(1);
+    }
+    assertThat(store.revisions(SESSION_ID_1, WORKFLOW_ID_1).collectList().block())
+        .hasSize(InMemoryWorkflowDefinitionStore.MAX_REVISIONS);
+
+    store.remove(SESSION_ID_1, WORKFLOW_ID_1).block();
+    assertThat(store.revisions(SESSION_ID_1, WORKFLOW_ID_1).collectList().block()).isEmpty();
+
+    store.save(SESSION_ID_1, version("again")).block();
+    store.removeAll(SESSION_ID_1).block();
+    assertThat(store.revisions(SESSION_ID_1, WORKFLOW_ID_1).collectList().block()).isEmpty();
   }
 }

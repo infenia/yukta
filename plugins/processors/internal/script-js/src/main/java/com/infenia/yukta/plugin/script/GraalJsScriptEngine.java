@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import org.graalvm.polyglot.Context;
 import org.graalvm.polyglot.Engine;
@@ -23,6 +24,22 @@ public class GraalJsScriptEngine implements ScriptEngine {
 
   /** Polyglot language id. */
   private static final String LANG = "js";
+
+  /** Classes a script may load with {@code Java.type}, besides {@code java.time.*}. */
+  private static final Set<String> SAFE_CLASSES =
+      Set.of(
+          "java.lang.Math",
+          "java.lang.String",
+          "java.lang.Integer",
+          "java.lang.Long",
+          "java.lang.Double",
+          "java.lang.Boolean",
+          "java.util.UUID",
+          "java.util.Base64",
+          "java.util.ArrayList",
+          "java.util.HashMap",
+          "java.util.List",
+          "java.util.Map");
 
   /** Shared engine so compiled code is reused across contexts. */
   private static final Engine JS_ENGINE =
@@ -44,12 +61,12 @@ public class GraalJsScriptEngine implements ScriptEngine {
   @Override
   public Object eval(final String script, final Message<?> message) {
     try (Context context =
-        // nosem: yukta-graalvm-allow-host-class-lookup (trusted workflow scripts)
+        // nosem: yukta-graalvm-allow-host-class-lookup (only the harmless classes listed above)
         Context.newBuilder(LANG)
             .engine(JS_ENGINE)
-            // nosem: yukta-graalvm-host-access-all (trusted workflow scripts)
-            .allowHostAccess(HostAccess.ALL)
-            .allowHostClassLookup(s -> true)
+            // nosem: yukta-graalvm-host-access-all (no reflection: Class objects are denied)
+            .allowHostAccess(HostAccess.newBuilder(HostAccess.ALL).denyAccess(Class.class).build())
+            .allowHostClassLookup(GraalJsScriptEngine::isSafeClass)
             .build()) {
       final Value bindings = context.getBindings(LANG);
       bindings.putMember("message", message);
@@ -57,6 +74,11 @@ public class GraalJsScriptEngine implements ScriptEngine {
       bindings.putMember("metadata", message.metadata());
       return detach(context.eval(source(script)));
     }
+  }
+
+  /** Scripts may use value classes, never ones that reach the process, files or the network. */
+  private static boolean isSafeClass(final String name) {
+    return name.startsWith("java.time.") || SAFE_CLASSES.contains(name);
   }
 
   private Source source(final String script) {

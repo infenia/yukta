@@ -44,6 +44,9 @@ import reactor.util.retry.Retry;
 @SuppressWarnings("PMD.TooManyMethods")
 public class SupervisorHost {
 
+  /** Events a supervisor may have waiting before the feed starts dropping them for it. */
+  private static final int SUPERVISOR_PREFETCH = 256;
+
   /** Counter of supervisor commands by outcome. */
   private static final String COMMANDS_METRIC = "yukta.supervisor.commands";
 
@@ -183,7 +186,10 @@ public class SupervisorHost {
                 !(event instanceof ExecutionEvent.ControlOutcome outcome
                     && supervisorId.equals(outcome.actor())))
         .onBackpressureDrop(
-            _ -> meters.counter("yukta.tracker.dropped", "kind", "supervisor").increment());
+            _ -> meters.counter("yukta.tracker.dropped", "kind", "supervisor").increment())
+        // The feed delivers on the publisher's thread (the tracker's); a supervisor that blocks,
+        // for example on a model call, must not hold the runs up.
+        .publishOn(Schedulers.boundedElastic(), SUPERVISOR_PREFETCH);
   }
 
   private Mono<Void> apply(

@@ -4,12 +4,18 @@ package com.infenia.yukta.service.workflow.store;
 
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import jakarta.annotation.PostConstruct;
+import java.time.Instant;
+import java.util.Comparator;
+import java.util.Deque;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedDeque;
 import lombok.NoArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 /**
@@ -26,6 +32,15 @@ public class InMemoryWorkflowDefinitionStore implements WorkflowDefinitionStore 
   /** Map of session ID to workflow ID to workflow definition. */
   private final Map<String, Map<String, WorkflowDefinition>> store = new ConcurrentHashMap<>();
 
+  /** Saved versions by session and workflow, oldest first; the newest {@value #MAX_REVISIONS}. */
+  private final Map<String, Deque<Revision>> history = new ConcurrentHashMap<>();
+
+  /** Most versions kept per workflow. */
+  public static final int MAX_REVISIONS = 20;
+
+  /** A saved version. */
+  private record Revision(DefinitionRevision info, WorkflowDefinition definition) {}
+
   @PostConstruct
   /* default */ void logInitialization() {
     log.info("Using WorkflowDefinitionStore with type: in-memory");
@@ -35,14 +50,60 @@ public class InMemoryWorkflowDefinitionStore implements WorkflowDefinitionStore 
   public Mono<Void> save(final String sessionId, final WorkflowDefinition definition) {
     return Mono.fromRunnable(
         () -> {
-          store
-              .computeIfAbsent(sessionId, k -> new ConcurrentHashMap<>())
-              .put(definition.workflowId(), definition);
+          final WorkflowDefinition previous =
+              store
+                  .computeIfAbsent(sessionId, k -> new ConcurrentHashMap<>())
+                  .put(definition.workflowId(), definition);
+          if (!definition.equals(previous)) {
+            remember(sessionId, definition);
+          }
           log.atDebug()
               .addKeyValue("sessionId", sessionId)
               .addKeyValue("workflowId", definition.workflowId())
               .log("Saved workflow definition");
         });
+  }
+
+  private void remember(final String sessionId, final WorkflowDefinition definition) {
+    final Deque<Revision> revisions =
+        history.computeIfAbsent(
+            sessionId + "\0" + definition.workflowId(), _ -> new ConcurrentLinkedDeque<>());
+    final Instant now = Instant.now();
+    revisions.addLast(
+        new Revision(
+            new DefinitionRevision(DefinitionRevisions.idOf(now, definition), now), definition));
+    while (revisions.size() > MAX_REVISIONS) {
+      revisions.pollFirst();
+    }
+  }
+
+  @Override
+  public Flux<DefinitionRevision> revisions(final String sessionId, final String workflowId) {
+    return Flux.defer(
+        () -> {
+          final List<DefinitionRevision> newestFirst =
+              history
+                  .getOrDefault(sessionId + "\0" + workflowId, new ConcurrentLinkedDeque<>())
+                  .stream()
+                  .map(Revision::info)
+                  .sorted(Comparator.comparing(DefinitionRevision::id).reversed())
+                  .toList();
+          return Flux.fromIterable(newestFirst);
+        });
+  }
+
+  @Override
+  public Mono<WorkflowDefinition> findRevision(
+      final String sessionId, final String workflowId, final String revisionId) {
+    return Mono.defer(
+        () ->
+            Mono.justOrEmpty(
+                history
+                    .getOrDefault(sessionId + "\0" + workflowId, new ConcurrentLinkedDeque<>())
+                    .stream()
+                    .filter(revision -> revision.info().id().equals(revisionId))
+                    .map(Revision::definition)
+                    .findFirst()));
   }
 
   @Override
@@ -75,11 +136,16 @@ public class InMemoryWorkflowDefinitionStore implements WorkflowDefinitionStore 
           if (session != null) {
             session.remove(workflowId);
           }
+          history.remove(sessionId + "\0" + workflowId);
         });
   }
 
   @Override
   public Mono<Void> removeAll(final String sessionId) {
-    return Mono.fromRunnable(() -> store.remove(sessionId));
+    return Mono.fromRunnable(
+        () -> {
+          store.remove(sessionId);
+          history.keySet().removeIf(key -> key.startsWith(sessionId + "\0"));
+        });
   }
 }

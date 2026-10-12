@@ -266,6 +266,31 @@ class TerminalNodeAssemblerStrategyTest {
   }
 
   @Test
+  void createAssembler_hangsAfterItsLastInput_timesOut() {
+    final TerminalPlugin terminal = mock(TerminalPlugin.class);
+    when(terminal.consume(any(), any()))
+        .thenAnswer(
+            inv -> {
+              final Flux<Message<?>> input = inv.getArgument(0);
+              // takes all its input, then never finishes (a flush that hangs)
+              return input.then(Mono.never());
+            });
+    when(terminal.isBlocking()).thenReturn(false);
+    final WorkflowNode node = new WorkflowNode(NODE_ID, "terminal", Map.of());
+    final Flux<Message<?>> one = Flux.just(DefaultMessage.create(UUID.randomUUID(), "data"));
+    final AssemblyContext context = buildContext(one);
+    when(streamTopologyDecorator.mergeParentStreams(any(), any(), any(ParentEdgeInfo[].class)))
+        .thenReturn(one);
+
+    strategy
+        .createAssembler(node, terminal, Duration.ofMillis(100), 0, 1024, new ParentEdgeInfo[0])
+        .assemble(context);
+
+    StepVerifier.create(context.terminals().getFirst())
+        .verifyError(java.util.concurrent.TimeoutException.class);
+  }
+
+  @Test
   void createAssembler_cancelledTerminal_reportsCancelled() {
     final TerminalPlugin terminal = mock(TerminalPlugin.class);
     when(terminal.consume(any(), any()))
