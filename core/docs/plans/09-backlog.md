@@ -4,6 +4,13 @@ Source: the core review of 2026-10-12 (plan `review-the-curret-implementation-ch
 are in PRs #339-#346 and later; this file lists what is still open, with enough detail to pick it up.
 IDs: `B` bug, `S` security, `F` feature. Status: **open**, **needs decision**, **dropped**.
 
+Re-verified on 2026-10-13 against `main@e8d62722`; new findings and the prioritized order are in
+[11-remediation-plan.md](11-remediation-plan.md). Corrections since the first write-up: B4 is partly
+done (limits and priority are logged, still not reviewed), B19 is fixed for starts and restarts (open
+only for sub-workflow starts), B21 is partly done (finished runs capped at 100 per session, session
+entries never removed), B25 is partly done (a supervisor's own command outcomes are filtered, status
+events are not). B32 and S9 are fixed (see plan 01).
+
 ## Bugs and hardening
 
 | ID | Status | What | Where | Why not done / what is needed |

@@ -4,7 +4,7 @@ Context: `core/docs/core-module-guide.html` (DATA.score) rates 9 areas. At the s
 
 Implement in order; one branch/PR per plan. Each ends by updating the guide score row.
 
-- [01 Restart and recovery (3.5→5) — biggest](01-restart-recovery.md)
+- [01 Restart and recovery (3.5→5) — biggest](01-restart-recovery.md) (done except checkpoints in PostgreSQL, see F10)
 - [02 Time semantics (3.5→5)](02-time-semantics.md)
 - [03 Failure semantics (4→5)](03-failure-semantics.md)
 - [04 Control plane (4→5)](04-control-plane.md)
@@ -12,3 +12,4 @@ Implement in order; one branch/PR per plan. Each ends by updating the guide scor
 - [06 Observability (2.5→5, but guide says 3.5 — tracing already exists)](06-observability.md)
 - [07 Simplicity (4→5)](07-simplicity.md)
 - [08 Streaming & Status (already 5)](08-streaming-status.md)
+- [09 Backlog](09-backlog.md), [10 Remote workers design](10-remote-workers.md) and [11 Remediation plan (prioritized fixes, security, enhancements)](11-remediation-plan.md)
