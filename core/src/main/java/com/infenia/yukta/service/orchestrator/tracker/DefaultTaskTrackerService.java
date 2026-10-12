@@ -91,6 +91,15 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
   /** Metric counting events the tracker could not queue. */
   private static final String DROPPED_METRIC = "yukta.tracker.dropped";
 
+  /** Counts execution-log writes that failed, by what was being recorded. */
+  private static final String LOG_APPEND_FAILED_METRIC = "yukta.tracker.log.append.failed";
+
+  /** Tag value for a failed write of the end of a node. */
+  private static final String LOG_APPEND_NODE = "node";
+
+  /** Tag value for a failed write of the end of a run. */
+  private static final String LOG_APPEND_RUN = "run";
+
   /** Time to live for execution data after terminal status. */
   private final Duration cleanupTtl;
 
@@ -757,7 +766,7 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
   }
 
   /** Applies a batch of events strictly in the order in which they were emitted. */
-  private void handleEvents(final List<TrackerEvent> events) {
+  /* default */ void handleEvents(final List<TrackerEvent> events) {
     final Set<WorkflowState> touched = new LinkedHashSet<>();
     for (final TrackerEvent event : events) {
       applyIsolated(event, touched);
@@ -794,6 +803,8 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
       return;
     }
     state.updateTask(event.nodeId(), event.module(), event.status(), event.metadata());
+    // The state has changed, so subscribers hear about it however the rest of this event goes.
+    touched.add(state);
     eventFeed.publish(
         new ExecutionEvent.NodeStatusChanged(
             event.executionId(),
@@ -813,11 +824,12 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
       telemetry.nodeEnded(task);
     }
     if (TaskStatus.SUCCESS.name().equals(event.status())) {
-      executionLog.append(
+      appendToLog(
           ExecutionLogEvent.nodeFinished(
-              state.executionId, state.sessionId, state.workflowId, event.nodeId()));
+              state.executionId, state.sessionId, state.workflowId, event.nodeId()),
+          LOG_APPEND_NODE,
+          "Could not record the end of a node in the execution log");
     }
-    touched.add(state);
   }
 
   private void applyWorkflow(final WorkflowStatusEvent event, final Set<WorkflowState> touched) {
@@ -837,7 +849,15 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
     telemetry.runStatus(
         event.executionId(), event.status(), terminal, state.startTime, event.timestamp());
     if (terminal) {
-      appendFinished(state, event.status());
+      appendToLog(
+          ExecutionLogEvent.finished(
+              state.executionId,
+              state.sessionId,
+              state.workflowId,
+              event.status(),
+              state.nodeStatuses()),
+          LOG_APPEND_RUN,
+          "Could not record the end of the run in the execution log");
     }
     state.setStatus(event.status());
     eventFeed.publish(
@@ -853,19 +873,20 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
     }
   }
 
-  /** A log that cannot be written must not keep the run from ending. */
-  private void appendFinished(final WorkflowState state, final String status) {
+  /**
+   * A log that cannot be written must not keep the run from ending or its status from being
+   * delivered. The failure is logged and counted, apart from dropped tracker events, so an operator
+   * can alert on runs that lack a durable record.
+   */
+  private void appendToLog(
+      final ExecutionLogEvent logEvent, final String type, final String message) {
     try {
-      executionLog.append(
-          ExecutionLogEvent.finished(
-              state.executionId, state.sessionId, state.workflowId, status, state.nodeStatuses()));
+      executionLog.append(logEvent);
     } catch (
         @SuppressWarnings("PMD.AvoidCatchingGenericException")
         final RuntimeException e) {
-      log.atError()
-          .setCause(e)
-          .addKeyValue("executionId", state.executionId)
-          .log("Could not record the end of the run in the execution log");
+      telemetry.logAppendFailed(LOG_APPEND_FAILED_METRIC, type);
+      log.atError().setCause(e).addKeyValue("executionId", logEvent.executionId()).log(message);
     }
   }
 
