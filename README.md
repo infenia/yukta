@@ -166,6 +166,7 @@ Processors can expose named output ports (for example `success` and `failure`, o
 | `FILE_READ` / `FILE_WRITE` | Reads or writes text files in a sandbox directory |
 | `LLM_CALL` | Calls an LLM (OpenAI-compatible, Anthropic, Ollama) |
 | `MCP_TOOL_CALL` | Calls a tool on a remote MCP server; the "act" step of an agent loop |
+| `MCP_LIST_TOOLS` | Lists the tools of an MCP server so an `LLM_CALL` node can offer them to the model (`tools` option) |
 | `SESSION_MEMORY` | Per-session chat memory for LLM workflows |
 | `FILTER` | Passes messages matching a predicate |
 | `VALIDATE` | Checks required fields and types; failures go to `invalid` |
