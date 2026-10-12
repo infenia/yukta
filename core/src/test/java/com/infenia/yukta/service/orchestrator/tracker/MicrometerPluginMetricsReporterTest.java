@@ -28,4 +28,14 @@ class MicrometerPluginMetricsReporterTest {
     assertThat(registry.counter("yukta.plugin.events", "plugin", SQL, "outcome", "ERROR").count())
         .isEqualTo(1.0);
   }
+
+  @Test
+  void nullMetricOrTag_isCountedNotThrown() {
+    final SimpleMeterRegistry meters = new SimpleMeterRegistry();
+
+    new MicrometerPluginMetricsReporter(meters).increment("n1", null, null);
+
+    assertThat(meters.counter("yukta.plugin.events", "plugin", "null", "outcome", "null").count())
+        .isEqualTo(1.0);
+  }
 }

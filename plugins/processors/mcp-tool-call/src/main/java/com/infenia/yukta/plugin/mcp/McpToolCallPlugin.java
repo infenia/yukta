@@ -58,6 +58,7 @@ public final class McpToolCallPlugin implements ProcessorPlugin {
   private static final String TOOL = "tool";
   private static final String ARGUMENTS = "arguments";
   private static final String HEADERS = "headers";
+  private static final String ALLOWED_TOOLS = "allowedTools";
   private static final String AUTH_TOKEN = "authToken";
   private static final String TIMEOUT = "timeout";
   private static final String RESULT_KEY = "resultKey";
@@ -132,6 +133,11 @@ public final class McpToolCallPlugin implements ProcessorPlugin {
                 + " (default: the payload)"),
         ConfigField.optional(HEADERS, ConfigField.Type.MAP, null, "Extra request headers"),
         ConfigField.optional(
+            ALLOWED_TOOLS,
+            ConfigField.Type.LIST,
+            null,
+            "Tools this node may call; any other tool (even one chosen by ${...}) is refused"),
+        ConfigField.optional(
             AUTH_TOKEN, ConfigField.Type.SECRET, null, "Bearer token (decrypted:<key>)"),
         ConfigField.optional(TIMEOUT, ConfigField.Type.NUMBER, 60, "Timeout in seconds"),
         ConfigField.optional(
@@ -168,6 +174,9 @@ public final class McpToolCallPlugin implements ProcessorPlugin {
       evaluated against the message that returns a map, e.g. "payload.toolCall.args".
       Default: the payload if it is a map, else {"input": payload}
     - headers: Map<String, String> (variable expressions and decrypted:<key> supported)
+    - allowedTools: list of tool names this node may call; any other tool is refused (use it when
+      the tool is chosen by a model). To require a human OK for a tool, put a WAIT_FOR_SIGNAL
+      node in front of this one.
     - authToken: bearer token, e.g. "decrypted:github-mcp"
     - timeout: seconds, positive (default: 60)
     - resultKey: also copy the tool text result into this metadata key
@@ -272,8 +281,8 @@ public final class McpToolCallPlugin implements ProcessorPlugin {
               return resolveSpec(message, config)
                   .flatMap(
                       spec ->
-                          gateway
-                              .call(spec, heartbeat)
+                          allowed(config, spec.tool())
+                              .then(Mono.defer(() -> gateway.call(spec, heartbeat)))
                               .onErrorResume(
                                   error ->
                                       failureMode == FailureMode.CONTINUE
@@ -283,6 +292,19 @@ public final class McpToolCallPlugin implements ProcessorPlugin {
                               .map(result -> new Outcome(nodeId, spec.tool(), result)));
             })
         .flatMapMany(outcome -> toMessage(message, config, failureMode, outcome, started));
+  }
+
+  /**
+   * Refuses a tool that is not in {@code allowedTools}. The tool name may come from the message
+   * (for example chosen by a model), so this is the node's guardrail. Not retried: it is a policy.
+   */
+  private static Mono<Void> allowed(final Map<String, Object> config, final String tool) {
+    return config.get(ALLOWED_TOOLS) instanceof final List<?> tools
+            && !tools.isEmpty()
+            && !tools.contains(tool)
+        ? Mono.error(
+            new IllegalArgumentException("MCP tool '" + tool + "' is not in allowedTools " + tools))
+        : Mono.empty();
   }
 
   /** A finished call, with the node that made it. */
@@ -441,6 +463,11 @@ public final class McpToolCallPlugin implements ProcessorPlugin {
     }
     if (config.get(TIMEOUT) instanceof final Number number && number.longValue() <= 0) {
       throw new IllegalArgumentException("timeout must be positive, got: " + number);
+    }
+    if (config.get(ALLOWED_TOOLS) != null
+        && !(config.get(ALLOWED_TOOLS) instanceof final List<?> tools
+            && tools.stream().allMatch(t -> t instanceof final String name && !name.isBlank()))) {
+      throw new IllegalArgumentException("allowedTools must be a list of tool names");
     }
     final FailureMode failureMode = FailureMode.from(config.get(FAILURE_MODE));
     if (routeByStatus(config) && failureMode != FailureMode.CONTINUE) {

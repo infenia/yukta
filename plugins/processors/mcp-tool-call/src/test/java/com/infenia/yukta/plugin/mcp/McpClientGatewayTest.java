@@ -46,6 +46,7 @@ class McpClientGatewayTest {
   private final AtomicInteger expireNext = new AtomicInteger();
   private volatile boolean sse;
   private volatile boolean initFail;
+  private volatile boolean listError;
   private volatile boolean stateless;
   private HttpServer server;
   private McpClientGateway gateway;
@@ -71,7 +72,11 @@ class McpClientGatewayTest {
     String method = "";
     for (final String m :
         List.of(
-            "initialize", "notifications/initialized", "tools/call", "notifications/cancelled")) {
+            "initialize",
+            "notifications/initialized",
+            "tools/call",
+            "tools/list",
+            "notifications/cancelled")) {
       if (body.contains("\"" + m + "\"")) {
         method = m;
       }
@@ -86,6 +91,20 @@ class McpClientGatewayTest {
           initFail
               ? "{\"jsonrpc\":\"2.0\",\"id\":\"" + id + "\",\"error\":{\"message\":\"no\"}}"
               : "{\"jsonrpc\":\"2.0\",\"id\":\"" + id + "\",\"result\":{}}";
+    } else if ("tools/list".equals(method)) {
+      if (expireNext.getAndSet(0) == 1) {
+        exchange.sendResponseHeaders(404, -1);
+        exchange.close();
+        return;
+      }
+      reply =
+          listError
+              ? rpc(id, "\"error\":{\"message\":\"nope\"}")
+              : "{\"jsonrpc\":\"2.0\",\"id\":\""
+                  + id
+                  + "\",\"result\":{\"tools\":[{\"name\":\"weather\",\"description\":\"Weather\","
+                  + "\"inputSchema\":{\"type\":\"object\"}},{\"name\":\"bare\"},\"junk\"]}}";
+      exchange.getResponseHeaders().add("Content-Type", "application/json");
     } else if ("tools/call".equals(method)) {
       if (body.contains("slow")) {
         try {
@@ -161,6 +180,39 @@ class McpClientGatewayTest {
             })
         .verifyComplete();
     assertThat(methods).containsExactly("initialize", "notifications/initialized", "tools/call");
+  }
+
+  @Test
+  void listTools_handshakesThenListsWithDefaults() {
+    StepVerifier.create(gateway.listTools(spec("tools/list"), () -> {}))
+        .assertNext(
+            tools ->
+                assertThat(tools)
+                    .containsExactly(
+                        Map.of(
+                            "name",
+                            "weather",
+                            "description",
+                            "Weather",
+                            "inputSchema",
+                            Map.of("type", "object")),
+                        Map.of("name", "bare", "description", "", "inputSchema", Map.of())))
+        .verifyComplete();
+    assertThat(methods).containsExactly("initialize", "notifications/initialized", "tools/list");
+  }
+
+  @Test
+  void listTools_reinitializesWhenSessionExpires_andReportsRpcErrors() {
+    gateway.listTools(spec("tools/list"), () -> {}).block();
+    expireNext.set(1);
+    StepVerifier.create(gateway.listTools(spec("tools/list"), () -> {}))
+        .expectNextCount(1)
+        .verifyComplete();
+    assertThat(methods).filteredOn("initialize"::equals).hasSize(2);
+
+    listError = true;
+    StepVerifier.create(gateway.listTools(spec("tools/list"), () -> {}))
+        .verifyErrorSatisfies(e -> assertThat(e).hasMessageContaining("nope"));
   }
 
   @Test

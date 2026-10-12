@@ -76,6 +76,118 @@ class LlmCallPluginTest {
     return (Map<String, Object>) message.payload();
   }
 
+  private Flux<Message<?>> runInRun(final Map<String, Object> config, final String executionId) {
+    return run(config).contextWrite(reactor.util.context.Context.of("executionId", executionId));
+  }
+
+  @Test
+  void tokenBudget_stopsTheRunOnceUsed_andOtherRunsAreNotAffected() {
+    when(gateway.call(any())).thenReturn(new LlmResponse("ok", 60, 40, "m"));
+    final Map<String, Object> config = config("budget", Map.of("maxTokens", 150));
+
+    StepVerifier.create(runInRun(config, "r1")).expectNextCount(1).verifyComplete();
+    StepVerifier.create(runInRun(config, "r1")).expectNextCount(1).verifyComplete();
+    // 200 tokens used now, over the 150 limit: the next call is refused
+    StepVerifier.create(runInRun(config, "r1"))
+        .verifyErrorSatisfies(
+            e -> assertThat(e).hasMessageContaining("budget exceeded").hasMessageContaining("150"));
+    StepVerifier.create(runInRun(config, "r2")).expectNextCount(1).verifyComplete();
+  }
+
+  @Test
+  void costBudget_usesPrices_continueModeEmitsFailure() {
+    when(gateway.call(any())).thenReturn(new LlmResponse("ok", 1_000_000, 0, "m"));
+    final Map<String, Object> config =
+        config(
+            "budget", Map.of("maxCost", 1.5),
+            "prices", Map.of("input", 2.0, "output", 4.0),
+            "failureMode", "CONTINUE");
+
+    StepVerifier.create(runInRun(config, "r1")).expectNextCount(1).verifyComplete();
+    StepVerifier.create(runInRun(config, "r1"))
+        .assertNext(
+            m -> {
+              assertThat(m.metadata()).containsEntry("llmSuccess", false);
+              assertThat(String.valueOf(m.metadata().get("llmError"))).contains("cost budget");
+            })
+        .verifyComplete();
+  }
+
+  @Test
+  void budgetIsValidated() {
+    StepVerifier.create(plugin.validateConfig(config("budget", Map.of("maxTokens", 0))))
+        .expectError(IllegalArgumentException.class)
+        .verify();
+    StepVerifier.create(plugin.validateConfig(config("budget", Map.of("maxTokens", "lots"))))
+        .expectError(IllegalArgumentException.class)
+        .verify();
+    StepVerifier.create(plugin.validateConfig(config("budget", Map.of("maxCost", 2.0))))
+        .expectErrorMessage("budget.maxCost needs prices to measure cost")
+        .verify();
+    StepVerifier.create(
+            plugin.validateConfig(
+                config(
+                    "budget",
+                    Map.of("maxTokens", 10, "maxCost", 2.0),
+                    "prices",
+                    Map.of("input", 1.0))))
+        .verifyComplete();
+    StepVerifier.create(plugin.validateConfig(config("budget", Map.of()))).verifyComplete();
+  }
+
+  @Test
+  void tools_areSentToTheModel_andItsToolCallsComeBackAsActions() {
+    when(gateway.call(any()))
+        .thenReturn(
+            new LlmResponse(
+                "Looking.<agent_action>{\"x\":1}</agent_action>",
+                10,
+                5,
+                "m",
+                List.of(new ToolCallRequest("c1", "weather", "{\"city\":\"Pune\"}"))));
+
+    StepVerifier.create(
+            run(config("tools", List.of(Map.of("name", "weather", "description", "Weather")))))
+        .assertNext(
+            m ->
+                assertThat((List<Object>) payload(m).get("actions"))
+                    .containsExactly(
+                        Map.of("x", 1),
+                        Map.of("tool", "weather", "arguments", Map.of("city", "Pune"), "id", "c1")))
+        .verifyComplete();
+
+    final ArgumentCaptor<LlmRequest> captor = ArgumentCaptor.forClass(LlmRequest.class);
+    verify(gateway).call(captor.capture());
+    assertThat(captor.getValue().tools()).extracting(ToolSpec::name).containsExactly("weather");
+  }
+
+  @Test
+  void tools_canBeAnExpressionOverTheMessage() {
+    when(gateway.call(any())).thenReturn(new LlmResponse("ok", 1, 1, "m"));
+    final Message<?> message =
+        DefaultMessage.create(
+            UUID.randomUUID(), Map.of("tools", List.of(Map.of("name", "from-payload"))));
+
+    StepVerifier.create(plugin.process(Flux.just(message), config("tools", "payload['tools']")))
+        .expectNextCount(1)
+        .verifyComplete();
+
+    final ArgumentCaptor<LlmRequest> captor = ArgumentCaptor.forClass(LlmRequest.class);
+    verify(gateway).call(captor.capture());
+    assertThat(captor.getValue().tools())
+        .extracting(ToolSpec::name)
+        .containsExactly("from-payload");
+  }
+
+  @Test
+  void toolsAreValidated() {
+    StepVerifier.create(plugin.validateConfig(config("tools", List.of(Map.of("name", "ok")))))
+        .verifyComplete();
+    StepVerifier.create(plugin.validateConfig(config("tools", List.of(Map.of()))))
+        .expectError(IllegalArgumentException.class)
+        .verify();
+  }
+
   @Test
   void metadataDescribesPlugin() {
     assertThat(plugin.getType()).isEqualTo("LLM_CALL");

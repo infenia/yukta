@@ -6,6 +6,7 @@ import com.infenia.yukta.message.Message;
 import com.infenia.yukta.model.workflow.PreparedWorkflow;
 import com.infenia.yukta.model.workflow.WorkflowNode;
 import com.infenia.yukta.plugin.store.NodeCheckpointStore;
+import com.infenia.yukta.service.ConflictException;
 import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.archive.DefinitionVersion;
 import com.infenia.yukta.service.control.ExecutionScheduler;
@@ -65,7 +66,7 @@ public class ExecutionResumer {
    * @param executionId the aborted run
    * @return the id of the new run
    * @throws NotFoundException if the run is unknown
-   * @throws IllegalStateException if it cannot be resumed
+   * @throws ConflictException if it cannot be resumed
    */
   public Mono<String> resume(final String executionId) {
     return Mono.defer(
@@ -73,12 +74,15 @@ public class ExecutionResumer {
           // One resume at a time per run: the log only shows RUN_RESUMED once it has started.
           if (!resuming.add(executionId)) {
             return Mono.error(
-                new IllegalStateException(
+                new ConflictException(
                     "Execution " + executionId + " is being resumed or was already resumed"));
           }
           // A claim is dropped when the resume fails or is cancelled (for example a client that
           // gave up while the workflow was being prepared); the log keeps the real record.
+          // reads the whole log and the checkpoint files, so not on the caller's (event loop)
+          // thread
           return doResume(executionId)
+              .subscribeOn(Schedulers.boundedElastic())
               .doOnError(_ -> resuming.remove(executionId))
               .doOnCancel(() -> resuming.remove(executionId));
         });
@@ -98,16 +102,16 @@ public class ExecutionResumer {
           final ExecutionLogEvent resumed = first(events, ExecutionLogEvent.Type.RUN_RESUMED);
           if (resumed != null) {
             return Mono.error(
-                new IllegalStateException(
+                new ConflictException(
                     "Execution " + executionId + " was already resumed as " + resumed.status()));
           }
           if (first(events, ExecutionLogEvent.Type.RUN_ABORTED) == null) {
             return Mono.error(
-                new IllegalStateException("Only an aborted run can be resumed: " + executionId));
+                new ConflictException("Only an aborted run can be resumed: " + executionId));
           }
           if (started.payload() == null) {
             return Mono.error(
-                new IllegalStateException("The payload of " + executionId + " was not recorded"));
+                new ConflictException("The payload of " + executionId + " was not recorded"));
           }
           return workflowDefinitionStore
               .find(started.sessionId(), started.workflowId())
@@ -121,7 +125,7 @@ public class ExecutionResumer {
   private Mono<String> start(final ExecutionLogEvent started, final PreparedWorkflow prepared) {
     if (!DefinitionVersion.of(prepared).equals(started.definitionVersion())) {
       return Mono.error(
-          new IllegalStateException(
+          new ConflictException(
               "The workflow changed since " + started.executionId() + " started"));
     }
     // The store's durable marker decides, not the log: the log record of a node end is only queued
@@ -134,7 +138,7 @@ public class ExecutionResumer {
     final RestartPlan plan = RestartPlan.resuming(prepared, finished);
     if (plan.rerun().isEmpty()) {
       return Mono.error(
-          new IllegalStateException("Every node of " + started.executionId() + " had finished"));
+          new ConflictException("Every node of " + started.executionId() + " had finished"));
     }
     scheduler.assertCanAccept(started.sessionId(), started.workflowId());
     final String newId = UUID.randomUUID().toString();
