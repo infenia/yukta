@@ -62,7 +62,7 @@ class WaitForSignalProcessorTest {
   }
 
   @Test
-  void signalWithoutAWait_isNotAccepted() {
+  void signalWithoutWaiting_isNotAccepted() {
     assertThat(answer(signal("approve", null))).isEqualTo("NOT_WAITING");
     assertThat(processor.onControlSignal(DefaultMessage.create(UUID.randomUUID(), "text")).block())
         .isNull();

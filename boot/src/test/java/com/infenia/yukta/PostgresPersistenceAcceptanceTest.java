@@ -43,15 +43,20 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 @DisabledInAotMode
 @EnabledIfSystemProperty(named = "yukta.persistence", matches = "postgres")
 @Testcontainers(disabledWithoutDocker = true)
-@SuppressWarnings({"PMD.CommentRequired", "PMD.AvoidDuplicateLiterals", "PMD.LawOfDemeter"})
+@SuppressWarnings({"PMD.CommentRequired", "PMD.ExcessiveImports", "PMD.LawOfDemeter"})
 @NoArgsConstructor
 class PostgresPersistenceAcceptanceTest {
 
   @Container
   private static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer("postgres:18-alpine");
 
+  @Autowired private WorkflowDefinitionStore definitions;
+  @Autowired private ControlBusGateway gateway;
+  @Autowired private TaskTrackerService tracker;
+  @Autowired private ExecutionLogStore executionLog;
+
   @DynamicPropertySource
-  static void database(final DynamicPropertyRegistry registry) {
+  /* default */ static void database(final DynamicPropertyRegistry registry) {
     registry.add(
         "spring.r2dbc.url",
         () ->
@@ -67,11 +72,6 @@ class PostgresPersistenceAcceptanceTest {
     registry.add("spring.flyway.user", POSTGRES::getUsername);
     registry.add("spring.flyway.password", POSTGRES::getPassword);
   }
-
-  @Autowired private WorkflowDefinitionStore definitions;
-  @Autowired private ControlBusGateway gateway;
-  @Autowired private TaskTrackerService tracker;
-  @Autowired private ExecutionLogStore executionLog;
 
   @Test
   void run_isStoredInPostgres_withItsDefinitionAndVersions() throws SQLException {
@@ -115,7 +115,8 @@ class PostgresPersistenceAcceptanceTest {
                 "SELECT count(*) FROM execution_log WHERE execution_id = ?")) {
       count.setString(1, executionId);
       try (ResultSet rows = count.executeQuery()) {
-        assertThat(rows.next()).isTrue();
+        final boolean hasRow = rows.next();
+        assertThat(hasRow).isTrue();
         assertThat(rows.getLong(1)).isGreaterThanOrEqualTo(2);
       }
     }

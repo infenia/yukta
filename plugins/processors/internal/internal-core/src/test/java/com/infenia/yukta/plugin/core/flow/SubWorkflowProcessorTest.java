@@ -72,7 +72,7 @@ class SubWorkflowProcessorTest {
   }
 
   @Test
-  void aNonMapPayloadBecomesInput_andAConfiguredPayloadWins() {
+  void nonMapPayloadBecomesInput_andConfiguredPayloadWins() {
     available();
     when(runner.run(anyString(), anyString(), anyMap(), anyString(), anyInt()))
         .thenReturn(Mono.just(new SubWorkflowGateway.Result("c", List.of())));
@@ -109,7 +109,7 @@ class SubWorkflowProcessorTest {
   }
 
   @Test
-  void aSlowChild_timesOut() {
+  void slowChild_timesOut() {
     available();
     when(runner.run(anyString(), anyString(), anyMap(), anyString(), anyInt()))
         .thenReturn(Mono.never());

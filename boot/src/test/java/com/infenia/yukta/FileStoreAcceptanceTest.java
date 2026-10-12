@@ -27,13 +27,13 @@ import org.springframework.test.context.DynamicPropertySource;
 @NoArgsConstructor
 class FileStoreAcceptanceTest {
 
+  @Autowired private WorkflowDefinitionStore definitions;
+
   @DynamicPropertySource
-  static void baseDir(final DynamicPropertyRegistry registry) throws IOException {
+  /* default */ static void baseDir(final DynamicPropertyRegistry registry) throws IOException {
     final String dir = Files.createTempDirectory("yukta-store").toString();
     registry.add("yukta.session.base-dir", () -> dir);
   }
-
-  @Autowired private WorkflowDefinitionStore definitions;
 
   @Test
   void definitionsAreKeptOnDisk_withTheirVersions() {
