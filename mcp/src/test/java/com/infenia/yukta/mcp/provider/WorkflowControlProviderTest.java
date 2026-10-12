@@ -12,6 +12,7 @@ import com.infenia.yukta.mcp.dto.NodeControlAction;
 import com.infenia.yukta.mcp.dto.WorkflowControlAction;
 import com.infenia.yukta.model.execution.WorkflowProgress;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
+import com.infenia.yukta.service.orchestrator.ExecutionResumer;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.List;
@@ -28,11 +29,13 @@ class WorkflowControlProviderTest {
 
   private WorkflowControlProvider provider;
   private ControlBusGateway controlBus;
+  private ExecutionResumer resumer;
 
   @BeforeEach
   void setUp() {
     controlBus = mock(ControlBusGateway.class);
-    provider = new WorkflowControlProvider(controlBus);
+    resumer = mock(ExecutionResumer.class);
+    provider = new WorkflowControlProvider(controlBus, resumer);
     when(controlBus.getProgress(SESSION, EXECUTION)).thenReturn(progressOwnedBy(SESSION));
   }
 
@@ -114,6 +117,20 @@ class WorkflowControlProviderTest {
             result ->
                 org.assertj.core.api.Assertions.assertThat(result.resultExecutionIds())
                     .containsExactly("e1", "e2"))
+        .verifyComplete();
+  }
+
+  @Test
+  void testRecoverReturnsNewExecutionId() {
+    when(resumer.resume(EXECUTION)).thenReturn(Mono.just("exec-9"));
+
+    StepVerifier.create(
+            provider.controlWorkflow(
+                SESSION, WorkflowControlAction.RECOVER, EXECUTION, null, null, null))
+        .assertNext(
+            result ->
+                org.assertj.core.api.Assertions.assertThat(result.resultExecutionIds())
+                    .containsExactly("exec-9"))
         .verifyComplete();
   }
 

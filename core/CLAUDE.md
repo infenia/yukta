@@ -101,7 +101,8 @@ Malformed policies are rejected by `WorkflowValidator` with the node id and opti
   `ExecutionResumer.resume(executionId)` continues a run that a restart aborted: the log holds the
   payload (`RUN_STARTED`); nodes that finished (a durable end marker, below) replay their
   recorded output, the rest run again. `NODE_FINISHED` log events are history only. A run resumes once (`RUN_RESUMED`) and only if its definition
-  is unchanged. There is no REST/MCP endpoint for it yet.
+  is unchanged. REST: `POST /api/executions/{id}/recover` (409 `ConflictException` if the run was not
+  aborted, was already resumed or its workflow changed); MCP: `control_workflow` action `RECOVER`.
   Only one resume per run is accepted (the claim is kept in memory and dropped on failure). The end
   of a node is a durable marker kept with its output (`NodeCheckpointStore.markComplete`: the file
   store forces the output, writes and forces `<node>.done` and the directory before the completion

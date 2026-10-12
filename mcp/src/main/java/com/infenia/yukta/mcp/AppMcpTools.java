@@ -226,9 +226,11 @@ public class AppMcpTools {
       title = "Control Workflow",
       description =
           "Control a workflow execution: PAUSE, RESUME, STOP, or RESTART an execution; "
+              + "RECOVER to continue a run that a server restart aborted (finished nodes are not "
+              + "run again); "
               + "RESTART_FROM_NODE to restart from a specific node (requires fromNodeId); "
               + "STOP_ALL to stop every active execution of a workflow (requires workflowId, "
-              + "no executionId). Restart actions return the new execution ID in "
+              + "no executionId). Restart and recover actions return the new execution ID in "
               + "resultExecutionIds.",
       generateOutputSchema = true,
       annotations =
@@ -241,8 +243,8 @@ public class AppMcpTools {
       @McpToolParam(
               required = true,
               description =
-                  "The control action: PAUSE, RESUME, STOP, STOP_ALL, RESTART, or "
-                      + "RESTART_FROM_NODE")
+                  "The control action: PAUSE, RESUME, STOP, STOP_ALL, RESTART, "
+                      + "RESTART_FROM_NODE, or RECOVER")
           final WorkflowControlAction action,
       @McpToolParam(
               required = false,

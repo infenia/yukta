@@ -11,6 +11,7 @@ import com.infenia.yukta.exception.GlobalExceptionHandler;
 import com.infenia.yukta.model.execution.WorkflowProgress;
 import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
+import com.infenia.yukta.service.orchestrator.ExecutionResumer;
 import com.infenia.yukta.service.supervisor.ControlRejectedException;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -32,12 +33,16 @@ class ExecutionControlControllerTest {
   /** The control bus. */
   private ControlBusGateway controlBus;
 
+  /** The resumer. */
+  private ExecutionResumer resumer;
+
   /** The client. */
   private WebTestClient client;
 
   @BeforeEach
   void setUp() {
     controlBus = mock(ControlBusGateway.class);
+    resumer = mock(ExecutionResumer.class);
     final WorkflowProgress running =
         new WorkflowProgress(
             "e1", "s1", "wf", "RUNNING", List.of(), LocalDateTime.now(), null, null);
@@ -45,9 +50,35 @@ class ExecutionControlControllerTest {
     when(controlBus.getProgress("s1", "e1")).thenReturn(running);
     client =
         WebTestClient.bindToController(
-                new ExecutionControlController(controlBus, new ExecutionAccess(controlBus)))
+                new ExecutionControlController(
+                    controlBus, new ExecutionAccess(controlBus), resumer))
             .controllerAdvice(new GlobalExceptionHandler())
             .build();
+  }
+
+  @Test
+  void testRecoverAtNewAndLegacyPaths() {
+    when(resumer.resume("e1")).thenReturn(Mono.just("e2"));
+
+    client
+        .post()
+        .uri("/api/executions/e1/recover")
+        .exchange()
+        .expectStatus()
+        .isOk()
+        .expectBody()
+        .jsonPath("$.data.executionId")
+        .isEqualTo("e2");
+    client.post().uri("/api/workflow/s1/e1/recover").exchange().expectStatus().isOk();
+  }
+
+  @Test
+  void testRecoverRefusedRunAnswersConflict_andUnknownRunNotFound() {
+    when(resumer.resume("e1"))
+        .thenReturn(Mono.error(new com.infenia.yukta.service.ConflictException("already resumed")));
+
+    client.post().uri("/api/executions/e1/recover").exchange().expectStatus().isEqualTo(409);
+    client.post().uri("/api/executions/nope/recover").exchange().expectStatus().isNotFound();
   }
 
   @Test

@@ -6,6 +6,7 @@ import com.infenia.yukta.mcp.dto.ControlActionResult;
 import com.infenia.yukta.mcp.dto.NodeControlAction;
 import com.infenia.yukta.mcp.dto.WorkflowControlAction;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
+import com.infenia.yukta.service.orchestrator.ExecutionResumer;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -27,6 +28,9 @@ public class WorkflowControlProvider {
 
   /** Gateway for workflow control operations. */
   private final ControlBusGateway controlBus;
+
+  /** Continues runs that a server restart aborted. */
+  private final ExecutionResumer resumer;
 
   /**
    * Execute a workflow-level control action.
@@ -205,6 +209,16 @@ public class WorkflowControlProvider {
                           executionId,
                           List.of(newId),
                           "Restarted from node " + fromNodeId + " as execution " + newId + "."));
+      case RECOVER ->
+          resumer
+              .resume(executionId)
+              .map(
+                  newId ->
+                      result(
+                          action,
+                          executionId,
+                          List.of(newId),
+                          "Recovered as execution " + newId + "."));
       // STOP_ALL is dispatched before the ownership check; PAUSE is the remaining action.
       default ->
           controlBus
