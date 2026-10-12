@@ -74,6 +74,13 @@ Any node's config may carry a reserved `engine` object; plugins never see these 
 - `deadlineMs` (any node): longest the node may run, from its first activity. Not restarted by
   output or heartbeats; paused time does not count; must be above `elementTimeoutMs`. The node ends
   `TIMED_OUT`.
+- With `retry` or `onError` CONTINUE/ROUTE a message produces all of its output or none: what an
+  attempt emitted before it failed is held back and dropped, so a retry or a dead letter never
+  comes on top of a partial result. The output of one message is therefore buffered until its
+  attempt ends.
+- A processor skipped from the start (queued run, supervisor) can be unskipped later; a terminal's
+  idle timeout and `deadlineMs` also cover what it does after its last input. Applying a
+  configuration drops the cached prepared workflow if the stored definition has moved on.
 - With `retry`/`onError`/`elementTimeoutMs` the plugin is called once per message and the message
   carries an `attempt` header (1, 2, ...) next to its `id`, so a plugin can de-duplicate side effects.
 Malformed policies are rejected by `WorkflowValidator` with the node id and option. Parsing lives in

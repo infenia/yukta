@@ -87,7 +87,13 @@ public class NodePolicies {
       result = result.timeout(policy.elementTimeout());
     }
     final NodePolicy.Retry retry = policy.retry();
-    if (retry != null && retry.maxAttempts() > 1) {
+    final boolean retries = retry != null && retry.maxAttempts() > 1;
+    if (retries || policy.onError() != NodePolicy.OnError.FAIL) {
+      // A message either produces all its output or none: what an attempt emitted before it
+      // failed is not sent on, so a retry or a dead letter never comes on top of a partial result.
+      result = result.collectList().flatMapMany(Flux::fromIterable);
+    }
+    if (retries) {
       result =
           result.retryWhen(
               Retry.backoff(retry.maxAttempts() - 1L, retry.backoff())

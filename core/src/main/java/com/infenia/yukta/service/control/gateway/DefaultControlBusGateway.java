@@ -243,6 +243,7 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
                   .log("Compiling and caching workflow");
               return controlBusService.compileAndCacheWorkflow(sessionId, workflowDefinition);
             })
+        .then(Mono.defer(() -> starter.dropCacheIfStale(sessionId, workflowDefinition)))
         .doOnSuccess(
             _ ->
                 log.atInfo()

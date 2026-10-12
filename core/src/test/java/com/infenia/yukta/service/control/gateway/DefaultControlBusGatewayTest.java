@@ -174,6 +174,7 @@ class DefaultControlBusGatewayTest {
     final WorkflowDefinition definition =
         new WorkflowDefinition("workflow-1", "description", List.of(), List.of());
     when(controlBusService.compileAndCacheWorkflow(sessionId, definition)).thenReturn(Mono.empty());
+    when(workflowDefinitionStore.find(sessionId, "workflow-1")).thenReturn(Mono.just(definition));
 
     // When
     final Mono<Void> result = gateway.compileAndCacheWorkflow(sessionId, definition);
@@ -181,6 +182,34 @@ class DefaultControlBusGatewayTest {
     // Then
     StepVerifier.create(result).verifyComplete();
     verify(controlBusService).compileAndCacheWorkflow(sessionId, definition);
+    verify(preparedWorkflowCache, never()).invalidate(any(), any());
+  }
+
+  @Test
+  void compileAndCacheWorkflow_whenTheStoredDefinitionMovedOn_dropsTheCachedEntry() {
+    final WorkflowDefinition older =
+        new WorkflowDefinition("workflow-1", "older", List.of(), List.of());
+    final WorkflowDefinition newer =
+        new WorkflowDefinition("workflow-1", "newer", List.of(), List.of());
+    when(controlBusService.compileAndCacheWorkflow("session-1", older)).thenReturn(Mono.empty());
+    when(workflowDefinitionStore.find("session-1", "workflow-1")).thenReturn(Mono.just(newer));
+
+    StepVerifier.create(gateway.compileAndCacheWorkflow("session-1", older)).verifyComplete();
+
+    verify(preparedWorkflowCache).invalidate("session-1", "workflow-1");
+  }
+
+  @Test
+  void compileAndCacheWorkflow_whenTheDefinitionWasRemoved_dropsTheCachedEntry() {
+    final WorkflowDefinition definition =
+        new WorkflowDefinition("workflow-1", "gone", List.of(), List.of());
+    when(controlBusService.compileAndCacheWorkflow("session-1", definition))
+        .thenReturn(Mono.empty());
+    when(workflowDefinitionStore.find("session-1", "workflow-1")).thenReturn(Mono.empty());
+
+    StepVerifier.create(gateway.compileAndCacheWorkflow("session-1", definition)).verifyComplete();
+
+    verify(preparedWorkflowCache).invalidate("session-1", "workflow-1");
   }
 
   /**
@@ -1761,6 +1790,7 @@ class DefaultControlBusGatewayTest {
     final WorkflowDefinition definition =
         new WorkflowDefinition("wf-compile", "desc", List.of(), List.of());
     when(controlBusService.compileAndCacheWorkflow(sessionId, definition)).thenReturn(Mono.empty());
+    when(workflowDefinitionStore.find(sessionId, "wf-compile")).thenReturn(Mono.just(definition));
 
     // When
     final Mono<Void> result = gateway.compileAndCacheWorkflow(sessionId, definition);
