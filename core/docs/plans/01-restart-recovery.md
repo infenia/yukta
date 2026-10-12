@@ -10,3 +10,9 @@ Gaps: no resume after reboot; checkpoints in memory; oversize output refuses res
 
 ## Done when
 `./gradlew spotlessApply :core:check` is green, the guide row for this area reads 5 with no "partial"/"not built" cells, and core/CLAUDE.md is updated.
+
+## Status
+Landed earlier: `NodeCheckpointStore` SPI with memory and file stores, durable end marker, `ExecutionResumer` (REST/MCP recover), `NODE_FINISHED` log events, boot recovery to `ABORTED`.
+Landed here: `yukta.restart.spill-dir` (an over-cap node moves to files instead of refusing the restart; removed on eviction and at startup), restart-from-node keeps the start payload (B32), resume 404 no longer echoes the payload (S9).
+Skipped on purpose: a `RESUMABLE` status (`ABORTED` is the resume candidate; a new value would spread into web/UI status vocab).
+Still open: checkpoints in PostgreSQL (F10), so the guide still shows a "part" cell there.
