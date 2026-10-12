@@ -771,6 +771,22 @@ class DefaultControlBusGatewayTest {
   }
 
   @Test
+  void signalNode_emitsSignalCommand() {
+    stubNodeExists("exec-sig", "node-sig");
+    when(controlBusService.emit(any())).thenReturn(Mono.empty());
+
+    StepVerifier.create(gateway.signalNode("exec-sig", "node-sig", "approval", "approve", "ok"))
+        .verifyComplete();
+
+    final ArgumentCaptor<Message<?>> captor = ArgumentCaptor.forClass(Message.class);
+    verify(controlBusService).emit(captor.capture());
+    assertThat(captor.getValue().payload())
+        .isEqualTo(
+            new com.infenia.yukta.plugin.control.ExecutionControlCommand.SignalNodeCommand(
+                "exec-sig", "node-sig", "approval", "approve", "ok"));
+  }
+
+  @Test
   void skipNode_skipTrue_emitsSkipCommand() {
     // Given
     final String executionId = "exec-7";

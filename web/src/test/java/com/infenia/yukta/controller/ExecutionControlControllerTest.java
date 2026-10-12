@@ -57,6 +57,26 @@ class ExecutionControlControllerTest {
   }
 
   @Test
+  void testSignalNodeAnswersOk_andConflictWhenNobodyWaits() {
+    when(controlBus.signalNode("e1", "n1", "approval", "approve", "fine")).thenReturn(Mono.empty());
+    when(controlBus.signalNode("e1", "n2", "approval", "approve", null))
+        .thenReturn(Mono.error(new com.infenia.yukta.service.ConflictException("not waiting")));
+
+    client
+        .post()
+        .uri("/api/executions/e1/nodes/n1/signal?name=approval&decision=approve&data=fine")
+        .exchange()
+        .expectStatus()
+        .isOk();
+    client
+        .post()
+        .uri("/api/executions/e1/nodes/n2/signal?name=approval&decision=approve")
+        .exchange()
+        .expectStatus()
+        .isEqualTo(409);
+  }
+
+  @Test
   void testRecoverAtNewAndLegacyPaths() {
     when(resumer.resume("e1")).thenReturn(Mono.just("e2"));
 

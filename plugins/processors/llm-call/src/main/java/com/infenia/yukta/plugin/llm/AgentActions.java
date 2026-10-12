@@ -4,6 +4,8 @@ package com.infenia.yukta.plugin.llm;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.regex.Pattern;
 import lombok.experimental.UtilityClass;
 import tools.jackson.core.JacksonException;
@@ -33,6 +35,29 @@ public class AgentActions {
     public Parsed {
       actions = List.copyOf(actions);
     }
+  }
+
+  /**
+   * Turns a tool call that the model asked for natively into the action shape used for the tags:
+   * {@code {tool, arguments, id}}, with the arguments parsed when they are JSON.
+   *
+   * @param call the tool call
+   * @return the action
+   */
+  public static Object fromToolCall(final ToolCallRequest call) {
+    Object arguments;
+    try {
+      arguments = JSON_MAPPER.readValue(call.arguments(), Object.class);
+    } catch (JacksonException e) {
+      arguments = call.arguments();
+    }
+    return Map.of(
+        "tool",
+        call.name(),
+        "arguments",
+        Objects.requireNonNullElse(arguments, ""),
+        "id",
+        Objects.toString(call.id(), ""));
   }
 
   /**

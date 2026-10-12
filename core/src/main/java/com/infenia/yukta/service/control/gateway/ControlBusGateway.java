@@ -176,6 +176,22 @@ public interface ControlBusGateway {
   Mono<Void> addBreakpoint(String executionId, String nodeId, String field, String equalsValue);
 
   /**
+   * Send a named signal (an approval, a decision) to a node that waits for it. The command is
+   * reviewed, ordered and audited like every other control command.
+   *
+   * @param executionId the execution to target
+   * @param nodeId the node that waits
+   * @param name the signal the node waits for
+   * @param decision what was decided, such as {@code approve} or {@code reject}
+   * @param data optional text that goes along with the decision
+   * @return a Mono that completes when the node took the signal; errors with a conflict if the node
+   *     is not waiting for it
+   */
+  @SuppressWarnings("PMD.UseObjectForClearerAPI")
+  Mono<Void> signalNode(
+      String executionId, String nodeId, String name, String decision, String data);
+
+  /**
    * Clear the breakpoint of a node.
    *
    * @param executionId the execution to target

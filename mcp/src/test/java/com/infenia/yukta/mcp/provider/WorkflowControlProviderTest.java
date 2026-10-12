@@ -121,6 +121,47 @@ class WorkflowControlProviderTest {
   }
 
   @Test
+  void testSignalSendsTheDecisionToTheNode() {
+    when(controlBus.signalNode(EXECUTION, NODE, "approval", "approve", "ok"))
+        .thenReturn(Mono.empty());
+
+    StepVerifier.create(provider.signalNode(SESSION, EXECUTION, NODE, "approval", "approve", "ok"))
+        .assertNext(
+            result ->
+                org.assertj.core.api.Assertions.assertThat(result.action()).isEqualTo("SIGNAL"))
+        .verifyComplete();
+    verify(controlBus).signalNode(EXECUTION, NODE, "approval", "approve", "ok");
+  }
+
+  @Test
+  void testSignalRequiresItsArguments() {
+    StepVerifier.create(provider.signalNode(SESSION, EXECUTION, NODE, "approval", " ", null))
+        .expectError(IllegalArgumentException.class)
+        .verify();
+    StepVerifier.create(provider.signalNode(SESSION, null, NODE, "approval", "approve", null))
+        .expectError(IllegalArgumentException.class)
+        .verify();
+    StepVerifier.create(provider.signalNode(SESSION, EXECUTION, " ", "approval", "approve", null))
+        .expectError(IllegalArgumentException.class)
+        .verify();
+    StepVerifier.create(provider.signalNode(SESSION, EXECUTION, NODE, null, "approve", null))
+        .expectError(IllegalArgumentException.class)
+        .verify();
+    StepVerifier.create(provider.signalNode(SESSION, " ", NODE, "approval", "approve", null))
+        .expectError(IllegalArgumentException.class)
+        .verify();
+    StepVerifier.create(provider.signalNode(SESSION, EXECUTION, null, "approval", "approve", null))
+        .expectError(IllegalArgumentException.class)
+        .verify();
+    StepVerifier.create(provider.signalNode(SESSION, EXECUTION, NODE, " ", "approve", null))
+        .expectError(IllegalArgumentException.class)
+        .verify();
+    StepVerifier.create(provider.signalNode(SESSION, EXECUTION, NODE, "approval", null, null))
+        .expectError(IllegalArgumentException.class)
+        .verify();
+  }
+
+  @Test
   void testRecoverReturnsNewExecutionId() {
     when(resumer.resume(EXECUTION)).thenReturn(Mono.just("exec-9"));
 

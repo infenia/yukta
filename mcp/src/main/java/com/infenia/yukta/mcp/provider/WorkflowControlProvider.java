@@ -157,6 +157,56 @@ public class WorkflowControlProvider {
                             "Breakpoint set on node " + nodeId + ".")));
   }
 
+  /**
+   * Send a named signal (an approval or decision) to a node that waits for it.
+   *
+   * @param sessionId the session that owns the execution
+   * @param executionId the target execution
+   * @param nodeId the node that waits
+   * @param signalName the signal the node waits for
+   * @param decision what was decided, for example {@code approve} or {@code reject}
+   * @param data optional text that goes with the decision
+   * @return Mono containing the action result
+   */
+  public Mono<ControlActionResult> signalNode(
+      final String sessionId,
+      final String executionId,
+      final String nodeId,
+      final String signalName,
+      final String decision,
+      final String data) {
+    if (executionId == null
+        || executionId.isBlank()
+        || nodeId == null
+        || nodeId.isBlank()
+        || signalName == null
+        || signalName.isBlank()
+        || decision == null
+        || decision.isBlank()) {
+      return Mono.error(
+          new IllegalArgumentException(
+              "executionId, nodeId, signalName and decision are required to send a signal."));
+    }
+    return ExecutionOwnership.require(controlBus, sessionId, executionId)
+        .flatMap(
+            ignored ->
+                controlBus
+                    .signalNode(executionId, nodeId, signalName, decision, data)
+                    .thenReturn(
+                        new ControlActionResult(
+                            "SIGNAL",
+                            executionId,
+                            nodeId,
+                            List.of(),
+                            "Signal "
+                                + signalName
+                                + "="
+                                + decision
+                                + " sent to node "
+                                + nodeId
+                                + ".")));
+  }
+
   private Mono<ControlActionResult> stopAllExecutions(
       final String sessionId, final String workflowId, final String reason) {
     if (workflowId == null || workflowId.isBlank()) {
