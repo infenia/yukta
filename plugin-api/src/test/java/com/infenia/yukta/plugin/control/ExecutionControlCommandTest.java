@@ -36,7 +36,7 @@ class ExecutionControlCommandTest {
           case ExecutionControlCommand.RestartCommand c -> "restart";
           case ExecutionControlCommand.RestartFromNodeCommand c -> "restart-from-node";
           case ExecutionControlCommand.SetBreakpointCommand c -> "set-breakpoint";
-          case ExecutionControlCommand.SignalNodeCommand c -> "signal";
+          case ExecutionControlCommand.SignalNodeCommand _ -> "signal";
         };
 
     assertThat(kind).isEqualTo("pause-node");

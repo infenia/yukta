@@ -20,6 +20,15 @@ dependencies {
     testImplementation(libs.postgresql.jdbc)
     testImplementation(libs.testcontainers.postgresql)
     testImplementation(libs.testcontainers.junit)
+
+    // The R2DBC PostgreSQL driver pulls in scram-client 3.2, which has a high-severity advisory
+    // (GHSA-p9jg-fcr6-3mhf); 3.3 is the first patched release. scram-common moves with it.
+    constraints {
+        runtimeOnly("com.ongres.scram:scram-client:3.3")
+        runtimeOnly("com.ongres.scram:scram-common:3.3")
+        testRuntimeOnly("com.ongres.scram:scram-client:3.3")
+        testRuntimeOnly("com.ongres.scram:scram-common:3.3")
+    }
 }
 
 coverageConfig {

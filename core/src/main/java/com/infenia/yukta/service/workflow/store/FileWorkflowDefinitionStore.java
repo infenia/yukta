@@ -165,6 +165,7 @@ public class FileWorkflowDefinitionStore implements WorkflowDefinitionStore {
                 .map(file -> history.relativize(file).toString())
                 .filter(name -> name.endsWith(".json"))
                 .map(name -> name.substring(0, name.length() - ".json".length()))
+                .filter(FileWorkflowDefinitionStore::isRevisionId)
                 .sorted(Comparator.reverseOrder())
                 .map(
                     id ->
@@ -237,9 +238,21 @@ public class FileWorkflowDefinitionStore implements WorkflowDefinitionStore {
     return sessionDir(sessionId).resolve(encode(workflowId));
   }
 
-  /** Ids become file names, so anything that could name another path is encoded. */
+  /**
+   * Ids become file names, so anything that could name another path is encoded. URL encoding
+   * leaves dots alone, so the names that would walk up a directory are refused outright.
+   */
   private static String encode(final String value) {
-    return URLEncoder.encode(value, StandardCharsets.UTF_8);
+    final String encoded = URLEncoder.encode(value, StandardCharsets.UTF_8);
+    if (encoded.isEmpty() || ".".equals(encoded) || "..".equals(encoded)) {
+      throw new IllegalArgumentException("Not a usable id: '" + value + "'");
+    }
+    return encoded;
+  }
+
+  /** A revision id starts with its 13-digit timestamp; other files in history are skipped. */
+  private static boolean isRevisionId(final String id) {
+    return id.length() >= 13 && id.substring(0, 13).chars().allMatch(Character::isDigit);
   }
 
   private static String fileOf(final String revisionId) {

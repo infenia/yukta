@@ -2,8 +2,6 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.plugin.gateway;
 
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import reactor.core.publisher.Mono;
@@ -29,9 +27,9 @@ public interface SubWorkflowGateway {
    */
   record Result(String executionId, List<Object> results) {
 
-    /** Keeps an unmodifiable copy of the results. */
+    /** Keeps an immutable copy of the results. */
     public Result {
-      results = Collections.unmodifiableList(new ArrayList<>(results));
+      results = List.copyOf(results);
     }
   }
 
