@@ -18,7 +18,7 @@ import org.junit.jupiter.api.io.TempDir;
 import tools.jackson.databind.ObjectMapper;
 
 @NoArgsConstructor
-@SuppressWarnings({"PMD.CommentRequired", "PMD.AvoidDuplicateLiterals"})
+@SuppressWarnings({"PMD.CommentRequired", "PMD.AvoidDuplicateLiterals", "PMD.TooManyMethods"})
 class FileWorkflowDefinitionStoreTest {
 
   @TempDir private Path dir;
@@ -108,6 +108,27 @@ class FileWorkflowDefinitionStoreTest {
           .containsExactly("workflows/..%2F..%2Fevil");
     }
     assertThat(store.findRevision("../../evil", "../w", "../../../etc/passwd").block()).isNull();
+  }
+
+  @Test
+  void idsThatWouldWalkUpADirectory_areRefused() {
+    for (final String bad : List.of("", ".", "..")) {
+      org.assertj.core.api.Assertions.assertThatThrownBy(() -> store.find("s", bad).block())
+          .isInstanceOf(IllegalArgumentException.class);
+      org.assertj.core.api.Assertions.assertThatThrownBy(() -> store.findAll(bad).block())
+          .isInstanceOf(IllegalArgumentException.class);
+    }
+  }
+
+  @Test
+  void strayFilesInHistory_areSkippedWhenListingRevisions() throws IOException {
+    store.save("s", definition("w", "one")).block();
+    final Path history = dir.resolve("workflows").resolve("s").resolve("w").resolve("history");
+    Files.writeString(history.resolve("notes.json"), "{}");
+    Files.writeString(history.resolve("not-a-timestamp-at-all.json"), "{}");
+    Files.writeString(history.resolve("readme.txt"), "x");
+
+    assertThat(store.revisions("s", "w").collectList().block()).hasSize(1);
   }
 
   @Test

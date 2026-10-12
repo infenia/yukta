@@ -251,8 +251,8 @@ public class FileWorkflowDefinitionStore implements WorkflowDefinitionStore {
   }
 
   /** A revision id starts with its 13-digit timestamp; other files in history are skipped. */
-  private static boolean isRevisionId(final String id) {
-    return id.length() >= 13 && id.substring(0, 13).chars().allMatch(Character::isDigit);
+  private static boolean isRevisionId(final String name) {
+    return name.length() >= 13 && name.substring(0, 13).chars().allMatch(Character::isDigit);
   }
 
   private static String fileOf(final String revisionId) {
