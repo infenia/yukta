@@ -134,6 +134,9 @@ Malformed policies are rejected by `WorkflowValidator` with the node id and opti
   `retained-runs` of them are kept). Limits are not restored from the log on startup.
 - Concurrent starts of a workflow that is not prepared yet share one preparation (per definition
   content). A prepared workflow is cached only if its definition is still the stored one.
+- A start asks the scheduler for its slot after the workflow is prepared and before the execution id
+  is handed out (`WorkflowOrchestrator.execute(..., admission)`), so two starts racing for the last
+  slot cannot both get an id: the loser gets HTTP 429 and no run is created.
 - Restarting a finished run goes through the same admission check as a start (HTTP 429 when full).
 
 ### Control audit and stop mode
