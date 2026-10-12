@@ -40,6 +40,12 @@ its session again each time.
 Example 10 note: MCP output validation rejects executions that are still running, so that
 example waits over REST and reads the result through MCP only after the run finishes.
 
+### Dogfood: develop Yukta with Yukta
+
+[`dogfood/`](dogfood/) is not part of the numbered series and `run-all.sh` skips it (a full run
+takes minutes). It runs this repo's own `gradle check` as a staged Yukta workflow, driven through
+the `yukta` CLI against a server started from a git worktree. See [dogfood/README.md](dogfood/README.md).
+
 ## How workflows are triggered
 
 Yukta has no webhook trigger. The examples are started by hand; a run starts from one of these:
