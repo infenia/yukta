@@ -48,6 +48,11 @@ dependencies {
 
     selectedPlugins.forEach { implementation(project(optionalPlugins.getValue(it))) }
 
+    // PostgreSQL stores for sessions, workflows and the execution log: -Pyukta.persistence=postgres
+    if (providers.gradleProperty("yukta.persistence").orNull == "postgres") {
+        implementation(project(":persistence-postgres"))
+    }
+
     implementation(libs.spring.boot.starter.webflux)
     implementation(libs.spring.boot.starter.validation)
     implementation(libs.spring.boot.starter.actuator)
@@ -60,6 +65,13 @@ dependencies {
     testImplementation(libs.spring.boot.starter.webflux.test)
     testImplementation(libs.spring.boot.starter.validation.test)
     testImplementation(libs.spring.boot.starter.actuator.test)
+    testImplementation(libs.testcontainers.postgresql)
+    testImplementation(libs.testcontainers.junit)
+}
+
+// Tells the tests whether the PostgreSQL stores are part of this build.
+tasks.withType<Test>().configureEach {
+    providers.gradleProperty("yukta.persistence").orNull?.let { systemProperty("yukta.persistence", it) }
 }
 
 tasks.named<org.springframework.boot.gradle.tasks.run.BootRun>("bootRun") {
