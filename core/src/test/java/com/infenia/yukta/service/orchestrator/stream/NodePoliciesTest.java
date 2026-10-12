@@ -33,6 +33,46 @@ class NodePoliciesTest {
                 : Flux.<Message<?>>just(input));
   }
 
+  /** Emits {@code partial} messages and then fails on the first {@code failures} calls. */
+  private Flux<Message<?>> failsAfterPartialOutput(
+      final AtomicInteger calls, final int failures, final int partial) {
+    return Flux.defer(
+        () -> {
+          final Flux<Message<?>> some = Flux.range(0, partial).map(_ -> input);
+          return calls.incrementAndGet() <= failures
+              ? some.concatWith(Flux.error(new IllegalStateException("boom")))
+              : some;
+        });
+  }
+
+  @Test
+  void retry_dropsOutputOfFailedAttempt() {
+    final AtomicInteger calls = new AtomicInteger();
+    final NodePolicy policy =
+        new NodePolicy(RETRY3, NodePolicy.OnError.FAIL, NodePolicy.JoinRule.ALL_SUCCESS);
+
+    StepVerifier.withVirtualTime(
+            () ->
+                NodePolicies.apply(
+                    policy, "n1", input, _ -> failsAfterPartialOutput(calls, 1, 2), () -> {}))
+        .thenAwait(Duration.ofSeconds(30))
+        .expectNext(input, input)
+        .verifyComplete();
+  }
+
+  @Test
+  void route_sendsOnlyTheDeadLetter_notTheOutputOfTheFailedAttempt() {
+    final AtomicInteger calls = new AtomicInteger();
+    final NodePolicy policy =
+        new NodePolicy(null, NodePolicy.OnError.ROUTE, NodePolicy.JoinRule.ALL_SUCCESS);
+
+    StepVerifier.create(
+            NodePolicies.apply(
+                policy, "n1", input, _ -> failsAfterPartialOutput(calls, 1, 2), () -> {}))
+        .assertNext(dead -> assertThat(dead.sourcePort()).isEqualTo(NodePolicy.ERROR_PORT))
+        .verifyComplete();
+  }
+
   @Test
   void retry_succeedsOnLaterAttempt_afterBackoff() {
     final AtomicInteger calls = new AtomicInteger();

@@ -101,6 +101,23 @@ class ExecutionResumerTest {
   }
 
   @Test
+  void cancelledResume_doesNotBlockTheNextOne() {
+    abortedRun(DefinitionVersion.of(prepared), "a");
+    final WorkflowDefinition slowDef = mock(WorkflowDefinition.class);
+    when(definitions.find("s", "w")).thenReturn(Mono.just(slowDef));
+    when(orchestrator.prepareWorkflow(slowDef)).thenReturn(Mono.never());
+
+    resumer.resume("old").subscribe().dispose();
+    final WorkflowDefinition def = mock(WorkflowDefinition.class);
+    when(definitions.find("s", "w")).thenReturn(Mono.just(def));
+    when(orchestrator.prepareWorkflow(def)).thenReturn(Mono.just(prepared));
+
+    StepVerifier.create(resumer.resume("old"))
+        .assertNext(newRun -> assertThat(newRun).isNotEqualTo("old"))
+        .verifyComplete();
+  }
+
+  @Test
   void rerunsOnlyUnfinishedNodes_replayingTheOutputThatFeedsThem() {
     abortedRun(DefinitionVersion.of(prepared), "a");
 

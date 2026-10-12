@@ -8,8 +8,11 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Stream;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -34,6 +37,35 @@ public class VariableResolver {
   private static final Pattern SECRET_BLACKLIST =
       Pattern.compile(
           ".*(PASSWORD|PASSWD|SECRET|TOKEN|CREDENTIAL|PRIVATE|KEY).*", Pattern.CASE_INSENSITIVE);
+
+  /** Environment variables that workflows may read besides the {@code YUKTA_VAR_} ones. */
+  private static final Set<String> SAFE_ENV =
+      Set.of("HOME", "USER", "LANG", "TZ", "HOSTNAME", "PWD", "PATH");
+
+  /** System properties that workflows may read besides the {@code yukta.var.} ones. */
+  private static final Set<String> SAFE_SYS =
+      Set.of(
+          "user.name",
+          "user.home",
+          "user.dir",
+          "user.timezone",
+          "os.name",
+          "java.version",
+          "file.separator",
+          "path.separator",
+          "line.separator");
+
+  /** Environment variables with this prefix are readable by workflows. */
+  private static final String ENV_PREFIX = "YUKTA_VAR_";
+
+  /** System properties with this prefix are readable by workflows. */
+  private static final String SYS_PREFIX = "yukta.var.";
+
+  /** System property listing more readable names, separated by commas. */
+  private static final String ALLOWED_PROPERTY = "yukta.variables.allowed";
+
+  /** Environment variable listing more readable names, separated by commas. */
+  private static final String ALLOWED_ENV = "YUKTA_VARIABLES_ALLOWED";
 
   /** Prefix indicating a value is encrypted and needs decryption. */
   private static final String DECRYPTED_PREFIX = "decrypted:";
@@ -146,13 +178,7 @@ public class VariableResolver {
     }
 
     if (key.startsWith("env.") || key.startsWith("sys.")) {
-      final String name = key.substring(4);
-      if (SECRET_BLACKLIST.matcher(name).matches()) {
-        return Mono.error(
-            new SecurityException("Access to sensitive key '" + key + "' is blocked"));
-      }
-      return Mono.justOrEmpty(
-          key.startsWith("env.") ? System.getenv(name) : System.getProperty(name));
+      return resolveHostValue(key);
     } else if (key.startsWith("context.")) {
       return resolveContextVariable(key.substring(8));
     } else if (message != null && isMessageKey(key)) {
@@ -160,6 +186,39 @@ public class VariableResolver {
     }
 
     return Mono.just(key);
+  }
+
+  /** Only a short list and the prefixed names are readable: the process holds more than secrets. */
+  private static boolean isAllowed(final String name, final boolean env) {
+    return name.startsWith(env ? ENV_PREFIX : SYS_PREFIX)
+        || (env ? SAFE_ENV : SAFE_SYS).contains(name)
+        || Stream.of(System.getProperty(ALLOWED_PROPERTY), System.getenv(ALLOWED_ENV))
+            .filter(Objects::nonNull)
+            .flatMap(list -> Stream.of(list.split(",")))
+            .map(String::trim)
+            .anyMatch(name::equals);
+  }
+
+  private static Mono<Object> resolveHostValue(final String key) {
+
+    final String name = key.substring(4);
+    final boolean env = key.startsWith("env.");
+    if (SECRET_BLACKLIST.matcher(name).matches()) {
+      return Mono.error(new SecurityException("Access to sensitive key '" + key + "' is blocked"));
+    }
+    if (!isAllowed(name, env)) {
+      return Mono.error(
+          new SecurityException(
+              "Access to '"
+                  + key
+                  + "' is not allowed: name it "
+                  + (env ? ENV_PREFIX : SYS_PREFIX)
+                  + "* or list it in "
+                  + ALLOWED_PROPERTY
+                  + " / "
+                  + ALLOWED_ENV));
+    }
+    return Mono.justOrEmpty(env ? System.getenv(name) : System.getProperty(name));
   }
 
   private boolean isMessageKey(final String key) {

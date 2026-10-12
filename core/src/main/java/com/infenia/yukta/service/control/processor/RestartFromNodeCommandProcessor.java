@@ -92,7 +92,16 @@ public class RestartFromNodeCommandProcessor implements ControlSignalProcessor {
       scheduler.assertCanAccept(archived.sessionId(), archived.workflowId());
     }
     final RestartPlan plan = RestartPlan.compute(archived.prepared(), restart.fromNodeId());
+    final boolean live = registry.findByExecutionId(restart.executionId()).isPresent();
     for (final String nodeId : plan.boundary()) {
+      if (live && !checkpointStore.isFinished(restart.executionId(), nodeId)) {
+        throw new IllegalArgumentException(
+            "Cannot restart from '"
+                + restart.fromNodeId()
+                + "': node '"
+                + nodeId
+                + "' has not finished yet, so its output is still being recorded");
+      }
       if (!checkpointStore.isComplete(restart.executionId(), nodeId)) {
         throw new IllegalArgumentException(
             "Cannot restart from '"

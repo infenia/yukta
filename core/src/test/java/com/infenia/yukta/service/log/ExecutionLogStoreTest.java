@@ -152,6 +152,37 @@ class ExecutionLogStoreTest {
   }
 
   @Test
+  void jsonl_compaction_keepsRunThatIsStillOpen() {
+    final JsonlExecutionLogStore store = new JsonlExecutionLogStore(dir.toString(), mapper, 2, 8);
+    store.append(ExecutionLogEvent.started("long", "s", "w", "v"));
+    for (final String run : List.of("r2", "r3", "r4")) {
+      store.append(ExecutionLogEvent.started(run, "s", "w", "v"));
+      store.append(ExecutionLogEvent.finished(run, "s", "w", "SUCCESS", Map.of()));
+    }
+    store.append(ExecutionLogEvent.started("r5", "s", "w", "v"));
+
+    assertThat(store.readAll())
+        .extracting(ExecutionLogEvent::executionId)
+        .contains("long", "r4", "r5")
+        .doesNotContain("r2");
+  }
+
+  @Test
+  void jsonl_compaction_ranksRunsByTheirLastEvent() {
+    final JsonlExecutionLogStore store = new JsonlExecutionLogStore(dir.toString(), mapper, 2, 6);
+    store.append(ExecutionLogEvent.started("long", "s", "w", "v"));
+    store.append(ExecutionLogEvent.started("a", "s", "w", "v"));
+    store.append(ExecutionLogEvent.finished("a", "s", "w", "SUCCESS", Map.of()));
+    store.append(ExecutionLogEvent.started("b", "s", "w", "v"));
+    store.append(ExecutionLogEvent.finished("b", "s", "w", "SUCCESS", Map.of()));
+    store.append(ExecutionLogEvent.finished("long", "s", "w", "SUCCESS", Map.of()));
+
+    assertThat(store.readAll())
+        .extracting(ExecutionLogEvent::executionId)
+        .containsOnly("b", "long");
+  }
+
+  @Test
   void jsonl_doesNotCompactWhileWithinTheRetainedRuns() {
     final JsonlExecutionLogStore store = new JsonlExecutionLogStore(dir.toString(), mapper, 5, 2);
     store.append(ExecutionLogEvent.started("r1", "s", "w", "v"));
@@ -249,7 +280,7 @@ class ExecutionLogStoreTest {
 
   @Test
   void jsonl_compaction_keepsRecentSchedulerChangesButNotOldOnes() {
-    final JsonlExecutionLogStore store = new JsonlExecutionLogStore(dir.toString(), mapper, 2, 6);
+    final JsonlExecutionLogStore store = new JsonlExecutionLogStore(dir.toString(), mapper, 2, 9);
     for (int i = 0; i < 3; i++) {
       store.append(
           ExecutionLogEvent.control(
@@ -257,6 +288,7 @@ class ExecutionLogStoreTest {
     }
     for (final String run : List.of("r1", "r2", "r3")) {
       store.append(ExecutionLogEvent.started(run, "s", "w", "v"));
+      store.append(ExecutionLogEvent.finished(run, "s", "w", "SUCCESS", Map.of()));
     }
 
     assertThat(store.readAll())

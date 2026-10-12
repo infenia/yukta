@@ -6,6 +6,7 @@ import com.infenia.yukta.mcp.dto.ControlActionResult;
 import com.infenia.yukta.mcp.dto.NodeControlAction;
 import com.infenia.yukta.mcp.dto.WorkflowControlAction;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
+import com.infenia.yukta.service.orchestrator.ExecutionResumer;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -27,6 +28,9 @@ public class WorkflowControlProvider {
 
   /** Gateway for workflow control operations. */
   private final ControlBusGateway controlBus;
+
+  /** Continues runs that a server restart aborted. */
+  private final ExecutionResumer resumer;
 
   /**
    * Execute a workflow-level control action.
@@ -153,6 +157,56 @@ public class WorkflowControlProvider {
                             "Breakpoint set on node " + nodeId + ".")));
   }
 
+  /**
+   * Send a named signal (an approval or decision) to a node that waits for it.
+   *
+   * @param sessionId the session that owns the execution
+   * @param executionId the target execution
+   * @param nodeId the node that waits
+   * @param signalName the signal the node waits for
+   * @param decision what was decided, for example {@code approve} or {@code reject}
+   * @param data optional text that goes with the decision
+   * @return Mono containing the action result
+   */
+  public Mono<ControlActionResult> signalNode(
+      final String sessionId,
+      final String executionId,
+      final String nodeId,
+      final String signalName,
+      final String decision,
+      final String data) {
+    if (executionId == null
+        || executionId.isBlank()
+        || nodeId == null
+        || nodeId.isBlank()
+        || signalName == null
+        || signalName.isBlank()
+        || decision == null
+        || decision.isBlank()) {
+      return Mono.error(
+          new IllegalArgumentException(
+              "executionId, nodeId, signalName and decision are required to send a signal."));
+    }
+    return ExecutionOwnership.require(controlBus, sessionId, executionId)
+        .flatMap(
+            ignored ->
+                controlBus
+                    .signalNode(executionId, nodeId, signalName, decision, data)
+                    .thenReturn(
+                        new ControlActionResult(
+                            "SIGNAL",
+                            executionId,
+                            nodeId,
+                            List.of(),
+                            "Signal "
+                                + signalName
+                                + "="
+                                + decision
+                                + " sent to node "
+                                + nodeId
+                                + ".")));
+  }
+
   private Mono<ControlActionResult> stopAllExecutions(
       final String sessionId, final String workflowId, final String reason) {
     if (workflowId == null || workflowId.isBlank()) {
@@ -205,6 +259,16 @@ public class WorkflowControlProvider {
                           executionId,
                           List.of(newId),
                           "Restarted from node " + fromNodeId + " as execution " + newId + "."));
+      case RECOVER ->
+          resumer
+              .resume(executionId)
+              .map(
+                  newId ->
+                      result(
+                          action,
+                          executionId,
+                          List.of(newId),
+                          "Recovered as execution " + newId + "."));
       // STOP_ALL is dispatched before the ownership check; PAUSE is the remaining action.
       default ->
           controlBus
