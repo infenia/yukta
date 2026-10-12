@@ -190,6 +190,9 @@ public class StreamTopologyDecorator {
     if (sourcePort != null) {
       log.atDebug().setMessage("Filtering by source port: {}").addArgument(sourcePort).log();
       stream = stream.filter(msg -> sourcePort.equals(msg.sourcePort()));
+    } else {
+      // Dead letters (onError: ROUTE) belong to the error port only, not to the normal edges.
+      stream = stream.filter(msg -> !NodePolicy.ERROR_PORT.equals(msg.sourcePort()));
     }
     if (edge.tolerateFailure()) {
       stream =
