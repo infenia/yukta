@@ -86,6 +86,37 @@ class DefaultTaskTrackerServiceTest {
   }
 
   @Test
+  void testTaskUpdateIsStillDeliveredWhenTheExecutionLogCannotBeWritten() {
+    final com.infenia.yukta.service.log.ExecutionLogStore broken =
+        org.mockito.Mockito.mock(com.infenia.yukta.service.log.ExecutionLogStore.class);
+    org.mockito.Mockito.doThrow(new IllegalStateException("disk full"))
+        .when(broken)
+        .append(org.mockito.ArgumentMatchers.any());
+    final SimpleMeterRegistry meters = new SimpleMeterRegistry();
+    final DefaultTaskTrackerService failing =
+        new DefaultTaskTrackerService(Duration.ofSeconds(30), statusHistoryCache, broken, meters);
+    failing.init();
+    StepVerifier.create(failing.startWorkflow("n-exec", "n-sess", "n-wf", List.of("a")))
+        .verifyComplete();
+    final List<Object> delivered = new java.util.concurrent.CopyOnWriteArrayList<>();
+    failing.getStatusStream("n-exec", false).subscribe(delivered::add);
+
+    failing.handleEvents(
+        List.of(
+            TaskStatusEvent.create("n-exec", "a", "echo", TaskStatus.SUCCESS.name(), Map.of())));
+
+    assertThat(delivered).hasSize(1);
+    assertThat(meters.get("yukta.tracker.log.append.failed").tag("type", "node").counter().count())
+        .isEqualTo(1);
+
+    failing.handleEvents(List.of(WorkflowStatusEvent.create("n-exec", TaskStatus.SUCCESS.name())));
+
+    assertThat(meters.get("yukta.tracker.log.append.failed").tag("type", "run").counter().count())
+        .isEqualTo(1);
+    assertThat(meters.find("yukta.tracker.dropped").counter()).isNull();
+  }
+
+  @Test
   void testDefinitionVersionIsReportedWithTheProgress() {
     StepVerifier.create(tracker.startWorkflow("v-exec", "v-sess", "v-wf", List.of("a")))
         .verifyComplete();
