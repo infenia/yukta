@@ -230,7 +230,7 @@ List endpoints take `?limit=&cursor=` and return the next page in the `X-Next-Cu
 
 ### Security
 
-The server listens on `127.0.0.1` by default. To expose it, set `YUKTA_SERVER_ADDRESS=0.0.0.0` **and** `yukta.api-key`; clients then send `Authorization: Bearer <key>` (or `X-API-Key`) on every `/api/**` call. Some plugins run processes, scripts and SQL, so treat workflow authorship as a trusted operation. Report vulnerabilities as described in [`SECURITY.md`](SECURITY.md).
+The server listens on `127.0.0.1` by default. To expose it, set `YUKTA_SERVER_ADDRESS=0.0.0.0` **and** `yukta.api-key`; clients then send `Authorization: Bearer <key>` (or `X-API-Key`) on every `/api/**` call. For several people or agents use `yukta.api-keys[i].name/key/role` with `VIEWER` (read), `OPERATOR` (also start and control executions) or `ADMIN` (everything); control commands are then audited as `key:<name>`. Some plugins run processes, scripts and SQL, so treat workflow authorship as a trusted operation. Report vulnerabilities as described in [`SECURITY.md`](SECURITY.md).
 
 ---
 
