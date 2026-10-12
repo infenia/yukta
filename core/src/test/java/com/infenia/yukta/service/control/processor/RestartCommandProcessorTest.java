@@ -104,7 +104,8 @@ class RestartCommandProcessorTest {
         .when(scheduler)
         .assertCanAccept("s1", "w1");
 
-    StepVerifier.create(processor.process(new RestartCommand("exec-1", "new-1"))).verifyComplete();
+    StepVerifier.create(processor.process(new RestartCommand("exec-1", "new-1")))
+        .verifyError(ExecutionRejectedException.class);
 
     verify(completionSink)
         .completeRestartFailure(eq("new-1"), any(ExecutionRejectedException.class));
@@ -126,7 +127,8 @@ class RestartCommandProcessorTest {
 
   @Test
   void unknownExecution_reportsFailure_andStartsNothing() {
-    StepVerifier.create(processor.process(new RestartCommand("gone", "new-2"))).verifyComplete();
+    StepVerifier.create(processor.process(new RestartCommand("gone", "new-2")))
+        .verifyError(IllegalArgumentException.class);
 
     verify(completionSink).completeRestartFailure(eq("new-2"), any(IllegalArgumentException.class));
     verify(orchestrator, never()).execute(any(), any(), any(), any(), any());
@@ -164,7 +166,7 @@ class RestartCommandProcessorTest {
     final var first = processor.process(new RestartCommand("exec-1", "new-1"));
     final var second = processor.process(new RestartCommand("exec-1", "new-2"));
 
-    StepVerifier.create(second).verifyComplete();
+    StepVerifier.create(second).verifyError(IllegalStateException.class);
     verify(completionSink).completeRestartFailure(eq("new-2"), any(IllegalStateException.class));
     StepVerifier.create(first).verifyComplete();
     verify(completionSink).completeRestartSuccess("new-1");

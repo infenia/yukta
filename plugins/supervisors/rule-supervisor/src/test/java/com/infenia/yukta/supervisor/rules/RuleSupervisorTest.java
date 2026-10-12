@@ -298,6 +298,7 @@ class RuleSupervisorTest {
             new ExecutionControlCommand.StepNodeCommand("e", "n1"),
             new ExecutionControlCommand.RestartFromNodeCommand("e", "n1", "e2"),
             new ExecutionControlCommand.SetBreakpointCommand("e", "n1", "payload.f", "v"),
+            new ExecutionControlCommand.SignalNodeCommand("e", "n1", "approval", "approve", null),
             new ExecutionControlCommand.StopWorkflowCommand("e", "r", StopMode.DRAIN),
             new ExecutionControlCommand.RestartCommand("e", "e2"));
     for (final ExecutionControlCommand command : commands) {

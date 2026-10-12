@@ -244,12 +244,20 @@ class NodeStreamsTest {
   @Test
   void touch_isCheapEnoughForEveryMessage() {
     final NodeActivity activity = new NodeActivity();
-    final long started = System.nanoTime();
-    for (int i = 0; i < 5_000_000; i++) {
-      activity.touch();
+    Duration best = Duration.ofDays(1);
+    // best of three rounds, so one slow round on a busy build machine does not fail the test
+    for (int round = 0; round < 3; round++) {
+      final long started = System.nanoTime();
+      for (int i = 0; i < 5_000_000; i++) {
+        activity.touch();
+      }
+      final Duration took = Duration.ofNanos(System.nanoTime() - started);
+      if (took.compareTo(best) < 0) {
+        best = took;
+      }
     }
     // about 2 us per touch before the clock became a volatile write: that would be 10 s
-    assertThat(Duration.ofNanos(System.nanoTime() - started)).isLessThan(Duration.ofSeconds(2));
+    assertThat(best).isLessThan(Duration.ofSeconds(2));
   }
 
   @Test

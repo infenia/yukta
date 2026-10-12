@@ -10,6 +10,7 @@ import com.infenia.yukta.logging.api.LogLevel;
 import com.infenia.yukta.logging.api.LogStream;
 import com.infenia.yukta.logging.api.PluginLogEntry;
 import com.infenia.yukta.model.execution.ControlState;
+import com.infenia.yukta.model.execution.TaskProgress;
 import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
 import com.infenia.yukta.model.execution.WorkflowProgress;
@@ -813,11 +814,14 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
             event.status(),
             event.metadata(),
             Instant.now()));
-    if (state.taskMap.containsKey(event.nodeId())) {
+    final TaskProgress task = state.taskMap.get(event.nodeId());
+    // An event the state refused (a late RUNNING for an ended node) must not open a span that
+    // nothing will ever close.
+    if (task != null && (isTerminal(event.status()) || task.status().equals(event.status()))) {
       telemetry.traceNode(event, isTerminal(event.status()));
     }
     if (isTerminal(event.status())) {
-      telemetry.nodeEnded(state.taskMap.get(event.nodeId()));
+      telemetry.nodeEnded(task);
     }
     if (TaskStatus.SUCCESS.name().equals(event.status())) {
       appendToLog(

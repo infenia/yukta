@@ -10,7 +10,6 @@ import com.infenia.yukta.logging.api.PluginLogStoreConfig;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.CopyOnWriteArrayList;
 import lombok.extern.slf4j.Slf4j;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -24,6 +23,7 @@ import reactor.core.scheduler.Schedulers;
  * internal synchronization.
  */
 @Slf4j
+@SuppressWarnings("PMD.AvoidSynchronizedStatement")
 public class InMemoryPluginLogStore implements PluginLogStore {
 
   /** Caffeine cache storing log entries per execution ID. */
@@ -57,10 +57,12 @@ public class InMemoryPluginLogStore implements PluginLogStore {
     return Mono.fromRunnable(
             () -> {
               final String executionId = entry.executionId();
-              cache
-                  .asMap()
-                  .computeIfAbsent(executionId, k -> new CopyOnWriteArrayList<>())
-                  .add(entry);
+              // A plain list under its own lock: a copy-on-write list copied itself on every line.
+              final List<PluginLogEntry> entries =
+                  cache.asMap().computeIfAbsent(executionId, k -> new ArrayList<>());
+              synchronized (entries) {
+                entries.add(entry);
+              }
               log.atTrace()
                   .log(
                       "Log written for execution {}: [{}] {}",
@@ -75,8 +77,12 @@ public class InMemoryPluginLogStore implements PluginLogStore {
   @Override
   public Flux<PluginLogEntry> readExecution(final String executionId) {
     final List<PluginLogEntry> entries = cache.getIfPresent(executionId);
-    final List<PluginLogEntry> copy =
-        entries != null ? new ArrayList<>(entries) : new ArrayList<>();
+    final List<PluginLogEntry> copy = new ArrayList<>();
+    if (entries != null) {
+      synchronized (entries) {
+        copy.addAll(entries);
+      }
+    }
     return Flux.fromIterable(copy).subscribeOn(Schedulers.boundedElastic());
   }
 
