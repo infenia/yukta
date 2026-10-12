@@ -1,3 +1,6 @@
+-- SPDX-FileCopyrightText: 2026 Infenia Private Limited
+-- SPDX-License-Identifier: Apache-2.0
+
 -- Workflow definitions, their saved versions, session configuration and the execution log.
 
 CREATE TABLE workflow_definition (
