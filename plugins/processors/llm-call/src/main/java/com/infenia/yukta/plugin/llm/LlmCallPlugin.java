@@ -64,6 +64,7 @@ public final class LlmCallPlugin implements ProcessorPlugin {
   private static final String FAILURE_MODE = "failureMode";
   private static final String ROUTE_BY_STATUS = "routeByStatus";
   private static final String PRICES = "prices";
+  private static final String BUDGET = "budget";
   private static final String PORT_SUCCESS = "success";
   private static final String PORT_FAILURE = "failure";
   private static final String PORT_DEFAULT = "default";
@@ -75,6 +76,7 @@ public final class LlmCallPlugin implements ProcessorPlugin {
   private final LlmGateway gateway;
   private final VariableResolver resolver;
   private final PluginMetricsReporter reporter;
+  private final RunBudgets budgets = new RunBudgets();
 
   /**
    * Creates the plugin without metrics.
@@ -141,6 +143,11 @@ public final class LlmCallPlugin implements ProcessorPlugin {
         ConfigField.optional("maxTokens", ConfigField.Type.NUMBER, null, "Max output tokens"),
         ConfigField.optional("timeout", ConfigField.Type.NUMBER, 120, "Timeout in seconds"),
         ConfigField.optional("retries", ConfigField.Type.NUMBER, 0, "Retries with backoff"),
+        ConfigField.optional(
+            "budget",
+            ConfigField.Type.MAP,
+            null,
+            "Limits for all calls of one run: {maxTokens, maxCost}; cost needs prices"),
         ConfigField.choice(
             "failureMode", false, "ERROR", "What to do on a failed call", "ERROR", "CONTINUE"),
         ConfigField.optional(
@@ -177,6 +184,8 @@ public final class LlmCallPlugin implements ProcessorPlugin {
     - timeout: seconds per attempt, positive (default: 120)
     - retries: extra attempts with exponential backoff (default: 0)
     - prices: {input, output} price per 1M tokens; adds "cost" to the output
+    - budget: {maxTokens, maxCost} for all calls of one run (maxCost needs prices); once used up
+      the next call fails like a failed call (failureMode applies). One call may overshoot.
     - failureMode: ERROR | CONTINUE (default: ERROR)
       ERROR: a failed call fails the node
       CONTINUE: emit the ORIGINAL payload unchanged with metadata llmSuccess=false and
@@ -235,28 +244,48 @@ public final class LlmCallPlugin implements ProcessorPlugin {
 
   private Flux<Message<?>> call(final Message<?> message, final Map<String, Object> config) {
     final FailureMode failureMode = FailureMode.from(config.get(FAILURE_MODE));
-    return resolveRequest(message, config)
-        .flatMapMany(
-            request -> {
-              final long start = System.nanoTime();
-              return attempt(request, retries(config))
-                  .<Message<?>>map(
-                      response ->
-                          output(
-                              message,
-                              config,
-                              success(config, response, elapsedMillis(start)),
-                              null))
-                  .onErrorResume(
-                      error ->
-                          failureMode == FailureMode.CONTINUE
-                              ? Mono.<Message<?>>just(
-                                  output(message, config, message.payload(), failureText(error)))
-                              : Mono.error(
-                                  new WorkflowExecutionException(
-                                      "LLM call failed: " + error.getMessage(), error)))
-                  .flux();
-            });
+    return Flux.deferContextual(
+        ctx -> {
+          final String runId = String.valueOf(ctx.getOrDefault("executionId", "unknown"));
+          return resolveRequest(message, config)
+              .flatMapMany(
+                  request -> {
+                    final long start = System.nanoTime();
+                    return budgeted(runId, config, attempt(request, retries(config)))
+                        .<Message<?>>map(
+                            response -> {
+                              final Map<String, Object> payload =
+                                  success(config, response, elapsedMillis(start));
+                              budgets.add(
+                                  runId,
+                                  response.inputTokens() + response.outputTokens(),
+                                  payload.get("cost") instanceof final Double cost ? cost : 0.0);
+                              return output(message, config, payload, null);
+                            })
+                        .onErrorResume(
+                            error ->
+                                failureMode == FailureMode.CONTINUE
+                                    ? Mono.<Message<?>>just(
+                                        output(
+                                            message, config, message.payload(), failureText(error)))
+                                    : Mono.error(
+                                        new WorkflowExecutionException(
+                                            "LLM call failed: " + error.getMessage(), error)))
+                        .flux();
+                  });
+        });
+  }
+
+  /** Refuses the call if the run has used up its {@code budget}. */
+  private Mono<LlmResponse> budgeted(
+      final String runId, final Map<String, Object> config, final Mono<LlmResponse> call) {
+    return config.get(BUDGET) instanceof final Map<?, ?> budget
+        ? budgets
+            .exceeded(runId, budget)
+            .<Mono<LlmResponse>>map(
+                why -> Mono.error(new IllegalStateException("LLM budget exceeded: " + why)))
+            .orElse(call)
+        : call;
   }
 
   private Mono<LlmResponse> attempt(final LlmRequest request, final long retries) {
@@ -427,6 +456,7 @@ public final class LlmCallPlugin implements ProcessorPlugin {
       Provider.from(provider);
     }
     checkNumbers(config);
+    RunBudgets.validate(config);
     final FailureMode failureMode = FailureMode.from(config.get(FAILURE_MODE));
     if (routeByStatus(config) && failureMode != FailureMode.CONTINUE) {
       throw new IllegalArgumentException("routeByStatus requires failureMode: CONTINUE");

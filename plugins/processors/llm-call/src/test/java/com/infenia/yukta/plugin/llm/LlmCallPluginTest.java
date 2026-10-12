@@ -76,6 +76,65 @@ class LlmCallPluginTest {
     return (Map<String, Object>) message.payload();
   }
 
+  private Flux<Message<?>> runInRun(final Map<String, Object> config, final String executionId) {
+    return run(config).contextWrite(reactor.util.context.Context.of("executionId", executionId));
+  }
+
+  @Test
+  void tokenBudget_stopsTheRunOnceUsed_andOtherRunsAreNotAffected() {
+    when(gateway.call(any())).thenReturn(new LlmResponse("ok", 60, 40, "m"));
+    final Map<String, Object> config = config("budget", Map.of("maxTokens", 150));
+
+    StepVerifier.create(runInRun(config, "r1")).expectNextCount(1).verifyComplete();
+    StepVerifier.create(runInRun(config, "r1")).expectNextCount(1).verifyComplete();
+    // 200 tokens used now, over the 150 limit: the next call is refused
+    StepVerifier.create(runInRun(config, "r1"))
+        .verifyErrorSatisfies(
+            e -> assertThat(e).hasMessageContaining("budget exceeded").hasMessageContaining("150"));
+    StepVerifier.create(runInRun(config, "r2")).expectNextCount(1).verifyComplete();
+  }
+
+  @Test
+  void costBudget_usesPrices_continueModeEmitsFailure() {
+    when(gateway.call(any())).thenReturn(new LlmResponse("ok", 1_000_000, 0, "m"));
+    final Map<String, Object> config =
+        config(
+            "budget", Map.of("maxCost", 1.5),
+            "prices", Map.of("input", 2.0, "output", 4.0),
+            "failureMode", "CONTINUE");
+
+    StepVerifier.create(runInRun(config, "r1")).expectNextCount(1).verifyComplete();
+    StepVerifier.create(runInRun(config, "r1"))
+        .assertNext(
+            m -> {
+              assertThat(m.metadata()).containsEntry("llmSuccess", false);
+              assertThat(String.valueOf(m.metadata().get("llmError"))).contains("cost budget");
+            })
+        .verifyComplete();
+  }
+
+  @Test
+  void budgetIsValidated() {
+    StepVerifier.create(plugin.validateConfig(config("budget", Map.of("maxTokens", 0))))
+        .expectError(IllegalArgumentException.class)
+        .verify();
+    StepVerifier.create(plugin.validateConfig(config("budget", Map.of("maxTokens", "lots"))))
+        .expectError(IllegalArgumentException.class)
+        .verify();
+    StepVerifier.create(plugin.validateConfig(config("budget", Map.of("maxCost", 2.0))))
+        .expectErrorMessage("budget.maxCost needs prices to measure cost")
+        .verify();
+    StepVerifier.create(
+            plugin.validateConfig(
+                config(
+                    "budget",
+                    Map.of("maxTokens", 10, "maxCost", 2.0),
+                    "prices",
+                    Map.of("input", 1.0))))
+        .verifyComplete();
+    StepVerifier.create(plugin.validateConfig(config("budget", Map.of()))).verifyComplete();
+  }
+
   @Test
   void metadataDescribesPlugin() {
     assertThat(plugin.getType()).isEqualTo("LLM_CALL");

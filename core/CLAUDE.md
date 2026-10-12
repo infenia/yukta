@@ -188,6 +188,13 @@ each message until its signal arrives (`signal`, `timeoutSeconds` default 3600, 
 `onReject`) and tags it with `signal.name/decision/data`; the engine timeout for the node is the wait
 plus 30 s. The wait is in memory: a resumed run waits again.
 
+### LLM budgets
+`LLM_CALL` takes `budget: {maxTokens, maxCost}` (tokens are input plus output; `maxCost` needs
+`prices`). Use is counted per run across all `LLM_CALL` nodes (the plugin keeps the newest 10000
+runs); once a limit is reached the next call fails like a failed call (`failureMode` and
+`routeByStatus` apply, so a workflow can fall back). One call may overshoot the limit. Not yet:
+limits per agent or per provider, or a rate limit per provider (see the backlog).
+
 ### Supervisors (rule engine / AI / custom code on the control bus)
 A supervisor implements `ExecutionSupervisor` (plugin-api) and is registered as a Spring bean:
 - `supervise(Flux<ExecutionEvent>)` receives the global event feed (`ExecutionEventFeed`, fed by the

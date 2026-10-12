@@ -26,7 +26,7 @@ IDs: `B` bug, `S` security, `F` feature. Status: **open**, **needs decision**, *
 |---|---|---|---|---|
 | F2 | partly done | `WAIT_FOR_SIGNAL` node + `SignalNodeCommand` (REST/MCP) are done. **Open:** the wait is in memory (a resumed run waits again; make it durable with the checkpoint store), a signal sent before the node waits is refused (no queued signals), no UI for pending approvals | core, plugins, web, mcp | See core/CLAUDE.md "Signals and approval steps" |
 | F3 | partly done | REST roles per API key (`yukta.api-keys`, VIEWER/OPERATOR/ADMIN) and actor `key:<name>` in the control audit are done. **Open:** roles for MCP (`yukta.mcp.api-key` is one key), per-session/tenant scoping, key rotation or hashing, a way to see who did what in the UI | web, mcp, core | See web/CLAUDE.md |
-| F4 | open | Per-run token/cost budget (`engine.budget`) and per-provider rate limit for `LLM_CALL` | core, llm-call | `usage`/`cost` are per call only |
+| F4 | partly done | Per-run token/cost `budget` on `LLM_CALL` is done (see core/CLAUDE.md). **Open:** per-provider rate limit (calls per minute shared by nodes), budgets across other plugins (MCP tool calls), budget visible in run progress/metrics, hard stop of the whole run instead of a failed call | llm-call, core | |
 | F5 | open | Tool guardrails: `allowedTools` per `MCP_TOOL_CALL`/`LLM_CALL` node; approval for risky tools (needs F2) | plugins | |
 | F6 | open | `SUB_WORKFLOW` node (child run via `WorkflowStarter`, linked ids) | core, plugins | Basis for runtime plans |
 | F7 | open | Durable session memory / KV store (file backend) | plugins | `SessionStore` and `KV_STORE` are in memory |
