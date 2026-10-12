@@ -5,6 +5,7 @@
 #   <name>      worktree/branch suffix; creates branch yukta-dev/<name> and ../yukta-dev-<name>
 #   [base-ref]  ref to branch from (default: main)
 #
+# Waits up to $YUKTA_STARTUP_TIMEOUT seconds (default 120) for the server to become healthy.
 # Writes .yukta-dev/<name>.env (and .yukta-dev/current.env) with YUKTA_SERVER_URL etc.
 set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"
@@ -19,6 +20,12 @@ mkdir -p "$STATE_DIR"
 
 if [[ ! -d "$wt" ]]; then
   git -C "$REPO_ROOT" worktree add -b "$branch" "$wt" "$base"
+fi
+
+# The ui build needs the node/pnpm toolchain it downloaded into ui/.gradle; reuse it instead of
+# failing in a fresh worktree.
+if [[ -d "$REPO_ROOT/ui/.gradle" && ! -d "$wt/ui/.gradle" ]]; then
+  cp -r --reflink=auto "$REPO_ROOT/ui/.gradle" "$wt/ui/.gradle"
 fi
 
 # First free port from 9101 upward.
@@ -43,11 +50,13 @@ ENV
 cp "$STATE_DIR/$name.env" "$STATE_DIR/current.env"
 
 echo "waiting for Yukta at $url (log: $log) ..."
-for _ in $(seq 1 120); do
+timeout_s="${YUKTA_STARTUP_TIMEOUT:-120}"
+for _ in $(seq 1 $((timeout_s / 2))); do
+  kill -0 "$(cat "$STATE_DIR/$name.pid")" 2>/dev/null || die "server exited early; see $log"
   if curl -fsS "$url/actuator/health" >/dev/null 2>&1; then
     echo "ready: export YUKTA_SERVER_URL=$url"
     exit 0
   fi
-  sleep 5
+  sleep 2
 done
-die "server did not become healthy in 10 minutes; see $log"
+die "server did not become healthy in ${timeout_s}s; see $log"
