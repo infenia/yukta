@@ -3,7 +3,7 @@
 #
 # Usage: yukta-worktree.sh <name> [base-ref]
 #   <name>      worktree/branch suffix; creates branch yukta-dev/<name> and ../yukta-dev-<name>
-#   [base-ref]  ref to branch from (default: main)
+#   [base-ref]  ref to branch from (default: origin/main, fetched first; a local main can be stale)
 #
 # Waits up to $YUKTA_STARTUP_TIMEOUT seconds (default 120) for the server to become healthy.
 # Writes .yukta-dev/<name>.env (and .yukta-dev/current.env) with YUKTA_SERVER_URL etc.
@@ -11,7 +11,7 @@ set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"
 
 name="${1:?usage: yukta-worktree.sh <name> [base-ref]}"
-base="${2:-main}"
+base="${2:-origin/main}"
 need curl
 
 wt="$(dirname "$REPO_ROOT")/yukta-dev-$name"
@@ -19,6 +19,7 @@ branch="yukta-dev/$name"
 mkdir -p "$STATE_DIR"
 
 if [[ ! -d "$wt" ]]; then
+  [[ "$base" == origin/* ]] && git -C "$REPO_ROOT" fetch -q origin "${base#origin/}"
   git -C "$REPO_ROOT" worktree add -b "$branch" "$wt" "$base"
 fi
 

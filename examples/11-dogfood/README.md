@@ -39,7 +39,7 @@ feature branch ──CLI──────┘   yukta session apply → workflow
 ```bash
 ./gradlew :cli:goBuild                                        # builds cli/build/yukta-<os>-<arch>
 
-examples/11-dogfood/scripts/yukta-worktree.sh dev                # worktree from main + server on a free port
+examples/11-dogfood/scripts/yukta-worktree.sh dev                # worktree from origin/main + server on a free port
 examples/11-dogfood/scripts/yukta-check.sh                       # check the current checkout
 examples/11-dogfood/scripts/yukta-stop.sh dev                    # stop server, remove worktree
 ```
