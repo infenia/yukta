@@ -26,7 +26,7 @@ tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
 
 # Point the template at this checkout and give the session a per-branch id.
-sed "s|__PROJECT_PATH__|$project|g" "$REPO_ROOT/examples/dogfood/workflows/check.session.json" \
+sed "s|__PROJECT_PATH__|$project|g" "$REPO_ROOT/examples/11-dogfood/session.json" \
   | jq --arg s "$session" '.sessionId=$s | .name=$s' >"$tmp/session.json"
 
 echo ">> server $YUKTA_SERVER_URL, session $session, project $project"

@@ -56,7 +56,7 @@ All commits follow **Conventional Commits** format. See `.gitmessage` template (
 - Use `StepVerifier` for testing reactive streams.
 - Quality gates (Checkstyle, PMD, SpotBugs, OpenGrep) are enforced via `build-logic` — see `.claude/rules/coding-standards.md` for details.
 - Minimum coverage thresholds are module-specific.
-- The full `check` gate can run as a staged Yukta workflow with a single `RESULT` line: `examples/dogfood/scripts/yukta-check.sh` (see the `yukta` skill and `examples/dogfood/README.md`).
+- The full `check` gate can run as a staged Yukta workflow with a single `RESULT` line: `examples/11-dogfood/scripts/yukta-check.sh` (see the `yukta` skill and `examples/11-dogfood/README.md`).
 
 ### Test Execution Policy (speed)
 Waiting on tests is the main development bottleneck. **Run the smallest scope that covers your change**; escalate only when the blast radius justifies it.

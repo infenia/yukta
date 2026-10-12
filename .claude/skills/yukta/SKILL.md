@@ -6,17 +6,17 @@ allowed-tools: Bash, Read
 
 # Using Yukta to develop Yukta
 
-The full `gradle check` is encoded as a Yukta workflow (`examples/dogfood/workflows/check.session.json`).
+The full `gradle check` is encoded as a Yukta workflow (`examples/11-dogfood/session.json`).
 Do not decide which checks to run: run the workflow and act on its result.
 
 ## Run the checks
 ```bash
-examples/dogfood/scripts/yukta-check.sh        # checks the current checkout; exit 0 = SUCCESS
+examples/11-dogfood/scripts/yukta-check.sh        # checks the current checkout; exit 0 = SUCCESS
 ```
 1. Read the final line: `RESULT status=<S> failed_node=<node> execution=<id> session=<id>`.
 2. If `SUCCESS`: done. Otherwise fix only what `failed_node` reports (stages are fail-fast, in order:
    spotless, compile, tests, coverage, style, spotbugs, licenses, security, cli).
-3. Read that stage's report (see `examples/dogfood/README.md` table), fix, rerun the script.
+3. Read that stage's report (see `examples/11-dogfood/README.md` table), fix, rerun the script.
 4. Formatting failures: run `./gradlew spotlessApply`, then rerun.
 
 For quick inner-loop feedback keep using the scoped tiers in CLAUDE.md; use this for the final gate.
@@ -25,8 +25,8 @@ For quick inner-loop feedback keep using the scoped tiers in CLAUDE.md; use this
 If the script cannot reach a server (no `YUKTA_SERVER_URL`, no `.yukta-dev/current.env`):
 ```bash
 ./gradlew :cli:goBuild                                   # once
-examples/dogfood/scripts/yukta-worktree.sh <name>        # worktree from main + server on a free port
-examples/dogfood/scripts/yukta-stop.sh <name>            # when finished
+examples/11-dogfood/scripts/yukta-worktree.sh <name>        # worktree from main + server on a free port
+examples/11-dogfood/scripts/yukta-stop.sh <name>            # when finished
 ```
 Starting a server is slow (Gradle build); run it in the background and wait for "ready".
 

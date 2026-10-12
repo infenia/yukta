@@ -1,10 +1,12 @@
 {
-  "sessionId": "dev-check",
-  "name": "dev-check",
-  "description": "Runs the gradle check pipeline stage by stage, failing fast",
-  "initiator": "dogfood",
+  "sessionId": "example-11-dogfood",
+  "name": "Dogfood: gradle check",
+  "description": "Run the repo quality gates as a staged, fail-fast Yukta workflow.",
+  "initiator": "examples",
   "projectPath": "__PROJECT_PATH__",
-  "tags": {},
+  "tags": {
+    "example": "11-dogfood"
+  },
   "workflows": {
     "gradle-check": {
       "workflowId": "gradle-check",
@@ -12,7 +14,7 @@
       "nodes": [
         {
           "nodeId": "trigger",
-          "type": "ONE_SHOT",
+          "type": "CONSTANT_SOURCE",
           "config": {}
         },
         {
@@ -213,6 +215,70 @@
         },
         {
           "source": "cli",
+          "target": "done"
+        }
+      ]
+    },
+    "quick-check": {
+      "workflowId": "quick-check",
+      "description": "Fast subset (formatting + Go vet) for a smoke test",
+      "nodes": [
+        {
+          "nodeId": "trigger",
+          "type": "CONSTANT_SOURCE",
+          "config": {}
+        },
+        {
+          "nodeId": "spotless",
+          "type": "PROCESS_EXECUTOR",
+          "config": {
+            "command": [
+              "./gradlew",
+              "spotlessCheck",
+              "-q",
+              "--console=plain"
+            ],
+            "workingDir": "__PROJECT_PATH__",
+            "timeout": 3600,
+            "failureMode": "ERROR",
+            "timeoutSeconds": 3600
+          }
+        },
+        {
+          "nodeId": "vet",
+          "type": "PROCESS_EXECUTOR",
+          "config": {
+            "command": [
+              "./gradlew",
+              ":cli:goVet",
+              "-q",
+              "--console=plain"
+            ],
+            "workingDir": "__PROJECT_PATH__",
+            "timeoutSeconds": 600,
+            "timeout": 600,
+            "failureMode": "ERROR"
+          }
+        },
+        {
+          "nodeId": "done",
+          "type": "CONSOLE_TERMINAL",
+          "config": {
+            "displayOutput": true
+          }
+        }
+      ],
+      "edges": [
+        {
+          "source": "trigger",
+          "target": "spotless"
+        },
+        {
+          "source": "spotless",
+          "target": "vet"
+        },
+        {
+          "source": "vet",
           "target": "done"
         }
       ]
