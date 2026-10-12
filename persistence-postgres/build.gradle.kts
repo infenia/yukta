@@ -25,8 +25,8 @@ dependencies {
     // (GHSA-p9jg-fcr6-3mhf); 3.3 is the first patched release. scram-common moves with it. Declared
     // on implementation so the test configurations, which extend it, get the same versions.
     constraints {
-        implementation("com.ongres.scram:scram-client:3.3")
-        implementation("com.ongres.scram:scram-common:3.3")
+        implementation("com.ongres.scram:scram-client:3.4")
+        implementation("com.ongres.scram:scram-common:3.4")
     }
 }
 
