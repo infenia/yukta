@@ -121,6 +121,22 @@ class FileWorkflowDefinitionStoreTest {
   }
 
   @Test
+  void pathsOutsideTheRoot_areRefused() {
+    final Path root = dir.resolve("workflows").toAbsolutePath().normalize();
+    final Path inside = root.resolve("s").resolve("w");
+
+    assertThat(FileWorkflowDefinitionStore.inside(root, inside)).isEqualTo(inside);
+    assertThat(
+            FileWorkflowDefinitionStore.inside(root, root.resolve("s").resolve("..").resolve("w")))
+        .isEqualTo(root.resolve("w"));
+    for (final Path bad : List.of(root, root.resolve("..").resolve("evil"), root.getParent())) {
+      org.assertj.core.api.Assertions.assertThatThrownBy(
+              () -> FileWorkflowDefinitionStore.inside(root, bad))
+          .isInstanceOf(IllegalArgumentException.class);
+    }
+  }
+
+  @Test
   void strayFilesInHistory_areSkippedWhenListingRevisions() throws IOException {
     store.save("s", definition("w", "one")).block();
     final Path history = dir.resolve("workflows").resolve("s").resolve("w").resolve("history");

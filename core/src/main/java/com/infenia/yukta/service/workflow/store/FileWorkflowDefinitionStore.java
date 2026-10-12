@@ -137,7 +137,10 @@ public class FileWorkflowDefinitionStore implements WorkflowDefinitionStore {
   public Mono<WorkflowDefinition> findRevision(
       final String sessionId, final String workflowId, final String revisionId) {
     return Mono.fromCallable(
-            () -> read(dir(sessionId, workflowId).resolve(HISTORY).resolve(fileOf(revisionId))))
+            () ->
+                read(
+                    inside(
+                        dir(sessionId, workflowId).resolve(HISTORY).resolve(fileOf(revisionId)))))
         .subscribeOn(Schedulers.boundedElastic());
   }
 
@@ -231,11 +234,28 @@ public class FileWorkflowDefinitionStore implements WorkflowDefinitionStore {
   }
 
   private Path sessionDir(final String sessionId) {
-    return root().resolve(encode(sessionId));
+    return inside(root().resolve(encode(sessionId)));
   }
 
   private Path dir(final String sessionId, final String workflowId) {
-    return sessionDir(sessionId).resolve(encode(workflowId));
+    return inside(sessionDir(sessionId).resolve(encode(workflowId)));
+  }
+
+  private Path inside(final Path path) {
+    return inside(root(), path);
+  }
+
+  /**
+   * Returns the normalised path, or refuses it unless it lies strictly beneath the root. Ids are
+   * encoded and refused when they are dots, so this should never trigger; it keeps the store from
+   * reading, writing or deleting anything outside its directory should that ever change.
+   */
+  /* default */ static Path inside(final Path root, final Path path) {
+    final Path normalized = path.toAbsolutePath().normalize();
+    if (!normalized.startsWith(root) || normalized.equals(root)) {
+      throw new IllegalArgumentException("Path is outside the workflows directory: " + path);
+    }
+    return normalized;
   }
 
   /**
