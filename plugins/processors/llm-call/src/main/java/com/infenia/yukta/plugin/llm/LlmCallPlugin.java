@@ -144,6 +144,12 @@ public final class LlmCallPlugin implements ProcessorPlugin {
         ConfigField.optional("timeout", ConfigField.Type.NUMBER, 120, "Timeout in seconds"),
         ConfigField.optional("retries", ConfigField.Type.NUMBER, 0, "Retries with backoff"),
         ConfigField.optional(
+            "tools",
+            ConfigField.Type.LIST,
+            null,
+            "Tools the model may call: [{name, description, inputSchema}] or an expression, e.g."
+                + " the tools of an MCP_LIST_TOOLS node; calls come back in actions"),
+        ConfigField.optional(
             "budget",
             ConfigField.Type.MAP,
             null,
@@ -184,6 +190,10 @@ public final class LlmCallPlugin implements ProcessorPlugin {
     - timeout: seconds per attempt, positive (default: 120)
     - retries: extra attempts with exponential backoff (default: 0)
     - prices: {input, output} price per 1M tokens; adds "cost" to the output
+    - tools: [{name, description, inputSchema}] or an expression (e.g. payload.tools from an
+      MCP_LIST_TOOLS node). The model may answer with calls to them; they are returned in
+      "actions" as {tool, arguments, id}, like <agent_action> blocks, and are not run here: wire
+      the actions to an MCP_TOOL_CALL node and feed its result back as the next user turn.
     - budget: {maxTokens, maxCost} for all calls of one run (maxCost needs prices); once used up
       the next call fails like a failed call (failureMode applies). One call may overshoot.
     - failureMode: ERROR | CONTINUE (default: ERROR)
@@ -304,10 +314,12 @@ public final class LlmCallPlugin implements ProcessorPlugin {
   private Map<String, Object> success(
       final Map<String, Object> config, final LlmResponse response, final long latencyMs) {
     final AgentActions.Parsed parsed = AgentActions.parse(response.text());
+    final List<Object> actions = new ArrayList<>(parsed.actions());
+    response.toolCalls().forEach(call -> actions.add(AgentActions.fromToolCall(call)));
     final Map<String, Object> payload = new LinkedHashMap<>();
     payload.put(SUCCESS_KEY, true);
     payload.put("content", parsed.content());
-    payload.put("actions", parsed.actions());
+    payload.put("actions", actions);
     payload.put(
         "usage",
         Map.of("inputTokens", response.inputTokens(), "outputTokens", response.outputTokens()));
@@ -364,7 +376,8 @@ public final class LlmCallPlugin implements ProcessorPlugin {
                 Mono.fromSupplier(() -> messages(config.get("messages"), message)),
                 resolve(config.get("prompt"), message),
                 resolve(config.get("temperature"), message),
-                resolve(config.get("maxTokens"), message)),
+                resolve(config.get("maxTokens"), message),
+                Mono.fromSupplier(() -> messages(config.get("tools"), message))),
             resolve(config.getOrDefault(TIMEOUT, DEFAULT_TIMEOUT_SECONDS), message))
         .map(
             t -> {
@@ -382,7 +395,8 @@ public final class LlmCallPlugin implements ProcessorPlugin {
                   number(t.getT5().getT5(), Integer.class),
                   Duration.ofSeconds(timeout),
                   text(t.getT5().getT1()),
-                  turns(t.getT5().getT2(), t.getT5().getT3()));
+                  turns(t.getT5().getT2(), t.getT5().getT3()),
+                  ToolSpecs.parse(t.getT5().getT6()));
             });
   }
 
@@ -457,6 +471,7 @@ public final class LlmCallPlugin implements ProcessorPlugin {
     }
     checkNumbers(config);
     RunBudgets.validate(config);
+    ToolSpecs.validate(config.get("tools"));
     final FailureMode failureMode = FailureMode.from(config.get(FAILURE_MODE));
     if (routeByStatus(config) && failureMode != FailureMode.CONTINUE) {
       throw new IllegalArgumentException("routeByStatus requires failureMode: CONTINUE");
