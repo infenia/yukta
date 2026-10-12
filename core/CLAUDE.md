@@ -188,6 +188,30 @@ each message until its signal arrives (`signal`, `timeoutSeconds` default 3600, 
 `onReject`) and tags it with `signal.name/decision/data`; the engine timeout for the node is the wait
 plus 30 s. The wait is in memory: a resumed run waits again.
 
+### Workflow definitions and their versions
+With `yukta.session.store-type=file`, `FileWorkflowDefinitionStore` keeps definitions under
+`<baseDir>/workflows/<session>/<workflow>/` (`current.json`, `history/<version>.json`; ids are
+URL-encoded, writes are atomic and fsynced) so they survive a restart; `in-memory` keeps them in
+memory. Both keep the newest 20 saved versions of a workflow (identical saves add none).
+`WorkflowDefinitionStore.revisions/findRevision` and the web rollback endpoint use them.
+
+### PostgreSQL stores (`persistence-postgres`, optional)
+`yukta.session.store-type=postgres` (profile `postgres`, build with `-Pyukta.persistence=postgres`)
+selects `R2dbcSessionConfigStore`, `R2dbcWorkflowDefinitionStore` (definitions plus the newest 20
+versions) and `R2dbcExecutionLogStore` (blocking interface, so one writer thread; trims to the newest
+`retained-runs` runs and never drops a run without an end). Schema: Flyway migrations in
+`persistence-postgres/src/main/resources/db/migration` (applied over JDBC from `spring.flyway.url`);
+run time uses R2DBC (`spring.r2dbc.url`). The in-memory/file defaults step aside when the type is
+`postgres`. Node checkpoints (`yukta.restart.dir`) still use files or memory.
+
+### Sub-workflows
+`SUB_WORKFLOW` (internal-core) runs another stored workflow of the same session per message through
+`SubWorkflowGateway` (`SubWorkflowRunner`): a normal run with its own execution id, tracked and
+limited like any other, whose terminal nodes feed a `ResultCollector` in the Reactor context. The
+node emits `{executionId, results[]}`; a failing child fails the node. The child start payload
+carries `yukta.depth` and `yukta.parentExecutionId`; nesting is limited to 5. With
+`yukta.execution.max-concurrent` the limit must allow parent and children together.
+
 ### LLM budgets
 `LLM_CALL` takes `budget: {maxTokens, maxCost}` (tokens are input plus output; `maxCost` needs
 `prices`). Use is counted per run across all `LLM_CALL` nodes (the plugin keeps the newest 10000
