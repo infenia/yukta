@@ -163,6 +163,20 @@ class StreamTopologyDecoratorTest {
   }
 
   @Test
+  @SuppressWarnings(UNCHECKED)
+  void testApplyEdgeRoutingNoPortDropsDeadLetters() {
+    final Message<?> normal = DefaultMessage.create(UUID.randomUUID(), DATA);
+    final Message<?> dead =
+        DefaultMessage.create(UUID.randomUUID(), DATA).withSourcePort(NodePolicy.ERROR_PORT);
+    final Flux<Message<?>>[] streams = new Flux[] {Flux.just(normal, dead)};
+    final ParentEdgeInfo edge = new ParentEdgeInfo(0, PARENT_1, null);
+
+    StepVerifier.create(decorator.applyEdgeRouting(streams, edge))
+        .assertNext(m -> assertThat(m.sourcePort()).isNull())
+        .verifyComplete();
+  }
+
+  @Test
   void testApplyLoggingAndBroadcasting() {
     final Message<?> msg = DefaultMessage.create(UUID.randomUUID(), DATA);
     final Flux<Message<?>> input = Flux.just(msg);

@@ -11,7 +11,7 @@
   --bg:#f7f7f5;--surface:#ffffff;--surface-2:#f0efec;--text:#1d1d1b;--muted:#5f5e5a;--line:#dcdad4;
   --accent:#2f5bd3;--accent-soft:#e6ecfb;
   --p0:#b42318;--p0-soft:#fde8e6;--p1:#b54708;--p1-soft:#fdf0e1;--p2:#6941c6;--p2-soft:#efe9fb;--p3:#475467;--p3-soft:#eceef1;
-  --ok:#067647;--ok-soft:#e3f5ec;
+  --ok:#067647;--ok-soft:#e3f5ec;--mem:#b54708;
   --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
   --sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
 }
@@ -19,23 +19,21 @@
   --bg:#141413;--surface:#1d1d1b;--surface-2:#262624;--text:#ecebe6;--muted:#a3a29c;--line:#383835;
   --accent:#8aa8ff;--accent-soft:#232c45;
   --p0:#ff8a80;--p0-soft:#3b1d1a;--p1:#ffb35c;--p1-soft:#3a2915;--p2:#c3a6ff;--p2-soft:#2b2240;--p3:#b8c0cc;--p3-soft:#2a2d31;
-  --ok:#5fd39b;--ok-soft:#173226;
+  --ok:#5fd39b;--ok-soft:#173226;--mem:#ffb35c;
 }}
 :root[data-theme="dark"]{
   --bg:#141413;--surface:#1d1d1b;--surface-2:#262624;--text:#ecebe6;--muted:#a3a29c;--line:#383835;
   --accent:#8aa8ff;--accent-soft:#232c45;
   --p0:#ff8a80;--p0-soft:#3b1d1a;--p1:#ffb35c;--p1-soft:#3a2915;--p2:#c3a6ff;--p2-soft:#2b2240;--p3:#b8c0cc;--p3-soft:#2a2d31;
-  --ok:#5fd39b;--ok-soft:#173226;
+  --ok:#5fd39b;--ok-soft:#173226;--mem:#ffb35c;
 }
 *{box-sizing:border-box}
 html{scroll-behavior:smooth}
 body{margin:0;background:var(--bg);color:var(--text);font:15px/1.6 var(--sans)}
 code,.mono{font-family:var(--mono);font-size:.88em}
 code{background:var(--surface-2);padding:.1em .35em;border-radius:4px}
-pre{background:var(--surface-2);padding:10px 12px;border-radius:8px;overflow-x:auto;font-family:var(--mono);font-size:13px;margin:8px 0}
-pre code{background:none;padding:0}
 a{color:var(--accent)}
-.layout{display:grid;grid-template-columns:230px minmax(0,1fr);max-width:1240px;margin:0 auto}
+.layout{display:grid;grid-template-columns:230px minmax(0,1fr);max-width:1280px;margin:0 auto}
 nav.side{position:sticky;top:0;height:100vh;overflow:auto;padding:28px 18px;border-right:1px solid var(--line)}
 nav.side .brand{font-weight:700;font-size:17px;margin-bottom:2px}
 nav.side .sub{color:var(--muted);font-size:13px;margin-bottom:22px}
@@ -43,207 +41,552 @@ nav.side a{display:block;color:var(--muted);text-decoration:none;padding:5px 10p
 nav.side a:hover,nav.side a.active{background:var(--accent-soft);color:var(--text)}
 nav.side .theme{margin-top:22px}
 main{padding:32px 40px 80px;min-width:0}
-section{margin-bottom:56px;scroll-margin-top:16px}
+section{margin-bottom:60px;scroll-margin-top:16px}
 h1{font-size:30px;line-height:1.2;margin:0 0 8px}
 h2{font-size:22px;margin:0 0 6px}
 h3{font-size:16px;margin:18px 0 6px}
-.lede{color:var(--muted);max-width:760px;margin:0 0 18px}
-.card{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:18px;min-width:0}
+h4{font-size:12px;margin:14px 0 4px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.lede{color:var(--muted);max-width:780px;margin:0 0 16px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px;min-width:0}
 .card>h3:first-child{margin-top:0}
-.card ul,.card ol{padding-left:18px;margin:6px 0}
+.card ul{padding-left:18px;margin:4px 0}
 .grid{display:grid;gap:12px}
 .g4{grid-template-columns:repeat(4,minmax(0,1fr))}
+.g3{grid-template-columns:repeat(3,minmax(0,1fr))}
 .g2{grid-template-columns:repeat(2,minmax(0,1fr))}
-.stat .n{font-size:26px;font-weight:700}
-.stat .l{color:var(--muted);font-size:13px}
-.pill{display:inline-block;font-size:12px;font-weight:600;padding:1px 8px;border-radius:999px;white-space:nowrap;text-decoration:none}
+.pill{display:inline-block;font-size:12px;font-weight:600;padding:1px 8px;border-radius:999px;white-space:nowrap}
 .P0{background:var(--p0-soft);color:var(--p0)}.P1{background:var(--p1-soft);color:var(--p1)}
 .P2{background:var(--p2-soft);color:var(--p2)}.P3{background:var(--p3-soft);color:var(--p3)}
 .okp{background:var(--ok-soft);color:var(--ok)}
+.chip{display:inline-block;font-size:12px;font-weight:600;padding:1px 9px;border-radius:999px;background:var(--p2-soft);color:var(--p2);text-decoration:none;cursor:pointer;margin:2px 3px 2px 0}
+.chip.comp{background:var(--accent-soft);color:var(--accent)}
 table{width:100%;border-collapse:collapse;font-size:14px}
 th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
 th{color:var(--muted);font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.04em}
 .tablewrap{overflow-x:auto}
 button{font:inherit;font-size:13px;border:1px solid var(--line);background:var(--surface);color:var(--text);padding:5px 12px;border-radius:7px;cursor:pointer}
 button:hover{border-color:var(--accent)}
-button[aria-pressed="true"]{background:var(--accent);color:#fff;border-color:var(--accent)}
-:root[data-theme="dark"] button[aria-pressed="true"]{color:#111}
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) button[aria-pressed="true"]{color:#111}}
-input[type=search]{font:inherit;font-size:14px;padding:6px 10px;border:1px solid var(--line);border-radius:7px;background:var(--surface);color:var(--text);min-width:220px}
+button[aria-pressed="true"],button.sel{background:var(--accent);color:#fff;border-color:var(--accent)}
+:root[data-theme="dark"] button[aria-pressed="true"],:root[data-theme="dark"] button.sel{color:#111}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) button[aria-pressed="true"],:root:not([data-theme="light"]) button.sel{color:#111}}
+button:disabled{opacity:.45;cursor:default}
+input[type=search],select,textarea{font:inherit;font-size:14px;padding:6px 10px;border:1px solid var(--line);border-radius:7px;background:var(--surface);color:var(--text);max-width:100%}
+textarea{width:100%;min-height:60px;resize:vertical}
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-.pipe{width:100%;height:auto;display:block}
-.pipe .box rect{fill:var(--surface);stroke:var(--line);stroke-width:1.2;transition:fill .15s,stroke .15s}
-.pipe .box text{fill:var(--text);font:600 13px var(--sans)}
-.pipe .box .s{fill:var(--muted);font:12px var(--mono)}
-.pipe .box.on rect{fill:var(--accent-soft);stroke:var(--accent);stroke-width:2}
-.pipe .arrow{stroke:var(--muted);stroke-width:1.4;fill:none}
-.pipe .box{cursor:pointer}
-.steps{display:flex;gap:6px;flex-wrap:wrap;margin:14px 0}
-.stepbody h3{margin-top:0}
+.bar{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:0 0 12px}
+.bar .lbl{color:var(--muted);font-size:13px;margin-right:2px}
 .refs{font-size:13px;color:var(--muted)}
-.flag{border-left:3px solid var(--p1);background:var(--p1-soft);padding:8px 12px;border-radius:0 6px 6px 0;margin-top:10px;font-size:14px}
-.flag.p0{border-color:var(--p0);background:var(--p0-soft)}
-.pkgs{display:grid;grid-template-columns:280px minmax(0,1fr);gap:14px}
-.pkglist button{display:flex;justify-content:space-between;width:100%;text-align:left;border:0;border-radius:6px;padding:7px 10px;background:transparent;font-family:var(--mono);font-size:12.5px}
-.pkglist button[aria-pressed="true"]{background:var(--accent-soft);color:var(--text)}
-.bar{height:6px;background:var(--surface-2);border-radius:3px;overflow:hidden;margin-top:6px}
-.bar>i{display:block;height:100%;background:var(--accent)}
-.filters{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
-.filters .lbl{color:var(--muted);font-size:13px;margin-right:2px}
-.finding{border:1px solid var(--line);border-radius:10px;background:var(--surface);margin-bottom:10px}
-.finding summary{list-style:none;cursor:pointer;display:grid;grid-template-columns:auto auto minmax(0,1fr) auto;gap:10px;align-items:center;padding:12px 14px}
-.finding summary::-webkit-details-marker{display:none}
-.finding .id{font-family:var(--mono);font-size:12px;color:var(--muted);min-width:30px}
-.finding .t{font-weight:600}
-.finding .meta{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
-.finding .body{padding:0 14px 14px 14px;border-top:1px solid var(--line)}
-.finding .body dl{display:grid;grid-template-columns:90px minmax(0,1fr);gap:6px 12px;margin:12px 0 0}
-.finding .body dt{color:var(--muted);font-size:13px}
-.finding .body dd{margin:0;min-width:0;overflow-wrap:anywhere}
-.finding.done{opacity:.55}
-.finding.done .t{text-decoration:line-through}
-.progress{display:flex;align-items:center;gap:10px;margin-bottom:12px;font-size:14px;color:var(--muted)}
-.progress .bar{flex:1;height:8px;margin:0}
-.progress .bar>i{background:var(--ok)}
-.empty{color:var(--muted);padding:20px;text-align:center}
-.score td:nth-child(2){font-family:var(--mono);white-space:nowrap}
+.callout{border-left:3px solid var(--accent);background:var(--accent-soft);padding:8px 12px;border-radius:0 6px 6px 0;margin:10px 0;font-size:14px}
+.callout.warn{border-color:var(--p1);background:var(--p1-soft)}
+.callout.q{border-color:var(--p2);background:var(--p2-soft)}
+.start a{display:block;text-decoration:none;color:var(--text);cursor:pointer}
+.start a:hover{border-color:var(--accent)}
+.start b{display:block;color:var(--accent)}
+/* map */
+.mapwrap{display:grid;grid-template-columns:minmax(0,1fr);gap:14px;align-items:start}
+.panel .cols{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 28px}
+@media (max-width:860px){.panel .cols{grid-template-columns:1fr}}
+.map{width:100%;height:auto;display:block}
+.map .box rect{fill:var(--surface);stroke:var(--line);stroke-width:1.3;transition:fill .15s,stroke .15s}
+.map .box text.n{fill:var(--text);font:600 14px var(--sans)}
+.map .box text.s{fill:var(--muted);font:11.5px var(--sans)}
+.map .box{cursor:pointer}
+.map .box.act rect{fill:var(--accent-soft);stroke:var(--accent);stroke-width:2}
+.map .box.on rect{stroke:var(--accent);stroke-width:3}
+.map .box .ram{display:none;fill:var(--mem);font:700 10px var(--mono)}
+.map.showmem .box.mem rect{stroke:var(--mem);stroke-dasharray:6 4;stroke-width:2.2}
+.map.showmem .box.mem .ram{display:block}
+.map .edge{fill:none;stroke:var(--muted);stroke-width:1.5;opacity:.7}
+.map .edge.ctrl{stroke-dasharray:5 4}
+.map .edge.act{stroke:var(--accent);stroke-width:2.6;opacity:1}
+.map .el{fill:var(--muted);font:11px var(--sans);paint-order:stroke;stroke:var(--bg);stroke-width:4px}
+.map .leg{fill:var(--muted);font:12px var(--sans)}
+.panel h3{margin-top:0}
+.panel dl{margin:8px 0 0;display:grid;grid-template-columns:96px minmax(0,1fr);gap:6px 10px;font-size:14px}
+.panel dt{color:var(--muted);font-size:13px}
+.panel dd{margin:0;overflow-wrap:anywhere}
+.stepnav{display:flex;gap:8px;align-items:center;margin-top:12px}
+.dots{display:flex;gap:4px;flex:1}
+.dots i{height:5px;flex:1;background:var(--surface-2);border-radius:3px}
+.dots i.d{background:var(--accent)}
+/* cards */
+.cap h3{font-size:15px;margin:0 0 4px}
+.cap .grp{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--accent);font-weight:700}
+.cap p{margin:4px 0;font-size:14px}
+.cap .g{color:var(--ok)}.cap .l{color:var(--p1)}
+details.fold{border:1px solid var(--line);border-radius:10px;background:var(--surface);margin-top:14px}
+details.fold>summary{cursor:pointer;padding:12px 16px;font-weight:600}
+details.fold>.in{padding:0 16px 16px}
+/* durability */
+.cell{display:flex;gap:8px;align-items:flex-start}
+.cell .pill{flex:none;margin-top:1px}
+.clock{display:grid;grid-template-columns:150px minmax(0,1fr);gap:4px 12px;align-items:center;font-size:13px}
+.clock .track{position:relative;height:16px;background:var(--surface-2);border-radius:4px}
+.clock .track i{position:absolute;top:0;height:100%;border-radius:4px;background:var(--accent);opacity:.75}
+.clock .track i.b{background:var(--p1)}
+.clock .track i.c{background:var(--ok)}
+.clock .note{grid-column:2;color:var(--muted);font-size:12px;margin-bottom:6px}
+/* quality */
+.tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+.rng{display:grid;grid-template-columns:150px minmax(0,1fr) 90px;gap:8px;align-items:center;font-size:13px;margin:6px 0}
+.rng input{width:100%}
+/* board */
+.item{border:1px solid var(--line);border-radius:10px;background:var(--surface);margin-bottom:8px}
+.item summary{list-style:none;cursor:pointer;display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;align-items:center;padding:11px 14px}
+.item summary::-webkit-details-marker{display:none}
+.item .id{font-family:var(--mono);font-size:12px;color:var(--muted)}
+.item .t{font-weight:600}
+.item .meta{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.item .body{padding:2px 14px 14px;border-top:1px solid var(--line)}
+.item .body dl{display:grid;grid-template-columns:100px minmax(0,1fr);gap:6px 12px;margin:10px 0}
+.item .body dt{color:var(--muted);font-size:13px}.item .body dd{margin:0;overflow-wrap:anywhere}
+.item.hl{outline:2px solid var(--accent)}
+.matrix{width:100%;height:auto;display:block;max-width:640px}
+.matrix .q{fill:var(--surface-2);stroke:var(--line)}
+.matrix .ql{fill:var(--muted);font:600 12px var(--sans)}
+.matrix .dot{cursor:pointer}
+.matrix .dot circle{stroke:var(--surface);stroke-width:2}
+.matrix .dot text{fill:#fff;font:700 10px var(--mono);pointer-events:none}
+/* adr / evolution / prompts */
+.adr dl{display:grid;grid-template-columns:110px minmax(0,1fr);gap:6px 12px;margin:8px 0 0}
+.adr dt{color:var(--muted);font-size:13px}.adr dd{margin:0}
+.evo{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(190px,1fr);gap:10px;overflow-x:auto;padding-bottom:8px}
+.evo .card{border-top:3px solid var(--accent)}
+.evo .card.now{border-top-color:var(--ok)}
+.deck .q{font-size:17px;line-height:1.45;margin:6px 0 10px}
 @media (max-width:860px){
   .layout{grid-template-columns:1fr}
   nav.side{position:static;height:auto;border-right:0;border-bottom:1px solid var(--line);padding:16px}
   nav.side .links{display:flex;flex-wrap:wrap;gap:4px}
   main{padding:20px 16px 60px}
-  .g4{grid-template-columns:repeat(2,minmax(0,1fr))}
-  .g2,.pkgs{grid-template-columns:1fr}
-  .finding summary{grid-template-columns:auto minmax(0,1fr)}
-  .finding .meta{grid-column:1/-1}
-  .finding .body dl{grid-template-columns:1fr}
+  .g4,.g3{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .g2,.mapwrap{grid-template-columns:1fr}
+  .item summary{grid-template-columns:auto minmax(0,1fr)}
+  .item .meta{grid-column:1/-1}
+  .item .body dl,.panel dl,.adr dl{grid-template-columns:1fr}
+  .rng{grid-template-columns:1fr}
+  .clock{grid-template-columns:1fr}.clock .note{grid-column:1}
 }
+@media (max-width:520px){.g4,.g3{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
 <div class="layout">
 <nav class="side" aria-label="Sections">
-  <div class="brand" id="brand"></div>
-  <div class="sub" id="sub"></div>
+  <div class="brand">Yukta · core</div>
+  <div class="sub">Architecture explorer · 2026-10-12</div>
   <div class="links" id="navLinks"></div>
   <div class="theme"><button id="themeBtn" type="button">Toggle theme</button></div>
 </nav>
 <main id="main"></main>
 </div>
 <script>
-var DATA = {"module": "core", "htmlTitle": "Yukta Core Guide", "title": "Core module guide", "date": "2026-10-11", "lede": "Yukta's DAG engine and control plane: the execution pipeline as built, the 20 classic DAG pitfalls compared with Airflow, Temporal, Argo and Flink, the control model, node state machine and time model, a plugin author guide, the configuration reference, the threading map, and the <b>review board<\/b> with every finding from rounds 1 to 4 and what fixed it.", "stats": [["18.6k", "main lines"], ["113", "test classes"], ["27/27", "findings resolved"]], "overviewHtml": "<h3>Where the engine stands<\/h3><p>Every row of the score card is a 5. Eight plans got it there: durable checkpoints and resume after a reboot; a node deadline, timeouts settled on the first input and a queue timeout; retry by exception class, a failure budget and detailed dead letters; runtime skip, breakpoints, retry-node, limit and priority changes; per-session limits with fair queueing, rejection metrics and durable idempotency; run and node spans with queue, duration, retry and checkpoint meters; the tracker and the start path split into smaller classes; and a node status that only moves forward. A review of the first plan then found ten more points, and a follow-up made the end of a node durable (R40), so all of them are fixed in code and tests.<\/p><div class=\"flag\"><b>Nothing is open.<\/b> Resume, breakpoints, retry-node and the limit and priority changes are on the core gateway only; there is no REST or MCP endpoint for them yet. Exactly-once cannot be had: a plugin side effect in the instant before a node's end marker is written can repeat after a crash, so plugins should be idempotent on the message id.<\/div>", "score": [["Streaming and backpressure", "5", "Was 4.5. Publish backpressure; pause holds to one element on per-message nodes"], ["Status model", "5", "Was 4.5. Final, ordered states (a late event cannot reopen an ended node or step it back; checked on random event orders); tracker cannot overflow; upstream failures reported as UPSTREAM_FAILED"], ["Time semantics", "5", "Was 3.5. Anchored, exact pause; plugin defaults, element timeout, heartbeat, node deadline, expression timeouts settled on first input, queue-wait timeout"], ["Failure semantics", "5", "Was 4. Retry (clock-aware, by exception class), element timeout, error port with failure details, failure budget, ALL_DONE / ONE_SUCCESS, attempt header"], ["Control plane", "5", "Was 4. Exact step, FIFO, acks, audit, drain, stop mode; runtime skip, breakpoints, retry-node, limits and priority on the gateway (REST/MCP wiring is a follow-up)"], ["Restart and recovery", "5", "Was 3.5. Restart under admission control; file checkpoints and log keep payload; a node end is a durable marker fsynced with its output, which a resume trusts; an aborted run resumes once after a reboot. Limit: a plugin side effect in the instant before the marker is written can repeat, so plugins should be idempotent on the message id"], ["Governance", "5", "Was 4. Global, per-workflow and per-session limits, fair queue across sessions, queue caps, rejection metrics, audited limit changes, idempotent start that survives a restart"], ["Simplicity", "5", "Was 4. One scheduler, one tracker queue, one activity clock; tracker split into state, telemetry and queue; start path split out of the gateway; no unused fields"], ["Observability", "5", "Was 2.5. Run and node spans, per-plugin metrics, run duration, queue wait, retries, rejections, checkpoint size, drop counters; one reference table"]], "flowTitle": "Execution pipeline (as built)", "steps": [{"k": "Admit", "cls": "DefaultControlBusGateway.startWorkflow", "d": "Loads the definition, refuses with 429 when the <code>ExecutionScheduler<\/code> cannot admit or queue it, de-duplicates by <code>Idempotency-Key<\/code>, shares one prepare per definition content, then runs the execution asynchronously. Restart paths use the same check.", "f": []}, {"k": "Prepare", "cls": "WorkflowPreparator · WorkflowValidator", "d": "Validates (duplicate ids/edges, ports, size limits, Kahn cycle check, engine policies incl. backoff and element timeout against the node timeout), initialises plugins, sorts and compiles one assembler per node (edges grouped per target once).", "f": []}, {"k": "Register", "cls": "ExecutionControlFactory · ExecutionArchive", "d": "Per-run stop sinks, pause valves and the archive entry (graph, payload, definition hash) that keeps the run restartable; the start is written to the execution log.", "f": []}, {"k": "Assemble", "cls": "*AssemblerStrategy · NodeStreams · NodePolicies", "d": "Each node: merge parents (join rule: ALL_SUCCESS / ALL_DONE / ONE_SUCCESS) → input gate (permit valve) → plugin, per message with attempt header, element timeout, retry and error routing when configured → idle clock (heartbeat in the Reactor context) and status → broadcast.", "f": []}, {"k": "Connect", "cls": "NodeBroadcast · ExecutionResources", "d": "Every edge subscribes, then <code>publish()<\/code> connects, so the slowest child sets the pace. The connector disposables are kept in a thread-safe list.", "f": []}, {"k": "Admit slot", "cls": "ExecutionScheduler · WorkflowOrchestrator.runTracked", "d": "The run waits (status <code>QUEUED<\/code>) for a slot, then runs the body racing the stop signal; the permit is released however the run ends.", "f": []}, {"k": "Control", "cls": "ControlBusService → CommandSequencer → Processor", "d": "Commands are applied in per-execution FIFO order and the caller is acknowledged once applied; each is recorded as CONTROL_APPLIED or CONTROL_REJECTED. Stop is <code>DRAIN<\/code> (default, fallback timer cancelled when the run ends), <code>CANCEL<\/code> or <code>KILL<\/code>.", "f": []}, {"k": "Track", "cls": "DefaultTaskTrackerService", "d": "One ordered <code>TrackerEvent<\/code> queue: state events are never dropped, log lines are bounded and counted; one batched consumer feeds progress, SSE and per-plugin metrics; terminal sweep finalises open nodes; the run end goes to the execution log through one writer thread.", "f": []}, {"k": "Finish", "cls": "runTracked doFinally · ExecutionRecovery", "d": "Unregisters the control and completes the safe-stop signal (cancels a pending drain timer); the archive keeps the run restartable. After a crash <code>ExecutionRecovery<\/code> marks unfinished runs <code>ABORTED<\/code> (history only).", "f": []}], "pkgs": [["service/orchestrator", 3, 664, "WorkflowOrchestrator (execute, restartFromNode, runTracked with scheduler permit) and RestartPlan.", "com.infenia.yukta.service.orchestrator"], ["service/orchestrator/preparator", 2, 308, "WorkflowPreparator (validate → build maps → init plugins → Kahn sort → compile) and TopologicalSortService.", "com.infenia.yukta.service.orchestrator.preparator"], ["service/orchestrator/validator", 1, 524, "WorkflowValidator: unknown/duplicate nodes and edges, ports, size limits, categories, entry/end points, Kahn cycle check, engine policies, plugin configs.", "com.infenia.yukta.service.orchestrator.validator"], ["service/orchestrator/compiler", 2, 461, "WorkflowCompiler (assemblers, template) and ExecutionResources (Mono.using, pause-aware run deadline, connectors).", "com.infenia.yukta.service.orchestrator.compiler"], ["service/orchestrator/strategy", 5, 729, "Trigger, Processor and Terminal assembler strategies plus StreamAssemblyHelper (context, lifecycle, controls).", "com.infenia.yukta.service.orchestrator.strategy"], ["service/orchestrator/stream", 8, 1023, "NodeStreams (idle timeout and status), NodeActivity (cheap idle clock), NodePolicies (attempt header, element timeout, retry, onError), NodeBroadcast, StreamTopologyDecorator (join rules), UpstreamFailure.", "com.infenia.yukta.service.orchestrator.stream"], ["service/orchestrator/assembly", 2, 269, "AssemblyContext and ExecutionContextBuilder (Reactor context keys incl. the plugin heartbeat).", "com.infenia.yukta.service.orchestrator.assembly"], ["service/orchestrator/tracker", 4, 1535, "TaskTrackerService and DefaultTaskTrackerService (unbounded state queue, bounded log path, terminal sweep, SSE projections), WorkflowState (one run) and RunTelemetry (spans and meters).", "com.infenia.yukta.service.orchestrator.tracker"], ["service/control", 8, 1440, "ControlBusService, CommandSequencer (per-execution FIFO + ack), ExecutionControl (stop sinks, valves, stopRequested), ExecutionScheduler (limits, queue, graceful stop).", "com.infenia.yukta.service.control"], ["service/control/gateway", 5, 1767, "ControlBusGateway façade, WorkflowStarter (shared prepare, admission), StartIdempotency: start, stop (with mode), pause, step, restart, watch, history.", "com.infenia.yukta.service.control.gateway"], ["service/control/processor", 13, 1245, "One processor per command; stop supports DRAIN/CANCEL/KILL; restart reads the archive.", "com.infenia.yukta.service.control.processor"], ["service/control/directive", 4, 378, "DirectiveDispatcher (dispatchOrdered) plus heartbeat, statistics and signal handlers.", "com.infenia.yukta.service.control.directive"], ["service/control/valve", 1, 168, "ReactiveControlValve: permit counter (FLOWING / HELD / STEPPING with banked credits).", "com.infenia.yukta.service.control.valve"], ["service/control/store", 4, 329, "ExecutionControlRegistry/Store and ActivePluginRegistry.", "com.infenia.yukta.service.control.store"], ["service/control/factory", 1, 77, "ExecutionControlFactory: per-node sinks, valves and skip flags.", "com.infenia.yukta.service.control.factory"], ["service/store", 4, 417, "InMemoryNodeCheckpointStore (count and byte caps, completeness flag), FileNodeCheckpointStore (on disk, no caps), CheckpointMetrics.", "com.infenia.yukta.service.store"], ["service/archive", 3, 192, "ExecutionArchive (last N executions: graph, payload), ArchivedExecution, DefinitionVersion (content hash).", "com.infenia.yukta.service.archive"], ["service/log", 5, 800, "ExecutionLogStore SPI, in-memory and JSONL stores (single writer thread, compaction), ExecutionRecovery.", "com.infenia.yukta.service.log"], ["service/workflow/store", 4, 331, "WorkflowDefinitionStore and PreparedWorkflowCache (Caffeine).", "com.infenia.yukta.service.workflow.store"], ["service/session/store", 4, 999, "Session config: file (atomic writes) or in-memory.", "com.infenia.yukta.service.session.store"], ["model/execution", 6, 236, "TaskStatus (incl. QUEUED, CANCELLED, TIMED_OUT, SKIPPED, UPSTREAM_FAILED, ABORTED), ControlState, TaskProgress, WorkflowProgress.", "com.infenia.yukta.model.execution"], ["model/workflow", 9, 617, "Workflow definition and prepared-workflow model, NodePolicy (engine config).", "com.infenia.yukta.model.workflow"], ["event", 4, 106, "TrackerEvent (sealed): task, workflow and log events.", "com.infenia.yukta.event"], ["config", 2, 101, "AppConfiguration: virtual-thread bounded-elastic scheduler, control store.", "com.infenia.yukta.config"], ["util", 3, 450, "VariableResolver (env/sys allow-listing) and MapUtils.", "com.infenia.yukta.util"]], "sections": [{"id": "pitfalls", "title": "DAG pitfalls: R&D matrix", "html": "<div class=\"card tablewrap\"><table><tr><th>#<\/th><th>Pitfall<\/th><th>Established solution<\/th><th>Yukta<\/th><th>Notes<\/th><\/tr><tr><td>1<\/td><td><b>Cycles and malformed graphs<\/b><\/td><td>Reject at definition time with precise errors<\/td><td><span class=\"pill okp\">✓<\/span><\/td><td>Cycles, duplicates, ports, size limits, policy checks<\/td><\/tr><tr><td>2<\/td><td><b>Join after a branch never fires (dead path)<\/b><\/td><td>Airflow trigger rules<\/td><td><span class=\"pill okp\">✓<\/span><\/td><td>ALL_SUCCESS / ALL_DONE / ONE_SUCCESS<\/td><\/tr><tr><td>3<\/td><td><b>Fan-out to a slow child<\/b><\/td><td>Credit-based flow control (Flink)<\/td><td><span class=\"pill okp\">✓<\/span><\/td><td>publish(bufferSize)<\/td><\/tr><tr><td>4<\/td><td><b>Late subscriber misses data<\/b><\/td><td>Start the source only when consumers are ready<\/td><td><span class=\"pill okp\">✓<\/span><\/td><td>NodeBroadcast connects after every edge subscribes<\/td><\/tr><tr><td>5<\/td><td><b>Timeouts count queue wait and pause time<\/b><\/td><td>Separate schedule-to-start, start-to-close, heartbeat (Temporal)<\/td><td><span class=\"pill okp\">✓<\/span><\/td><td>Anchored idle clock, pause-aware, plugin defaults, element timeout, node deadline, queue-timeout<\/td><\/tr><tr><td>6<\/td><td><b>Long-running work looks dead<\/b><\/td><td>Activity heartbeats<\/td><td><span class=\"pill okp\">✓<\/span><\/td><td>Heartbeat Runnable in the Reactor context (processors, terminals, triggers)<\/td><\/tr><tr><td>7<\/td><td><b>A transient failure fails the run<\/b><\/td><td>Retry with backoff and jitter<\/td><td><span class=\"pill okp\">✓<\/span><\/td><td>engine.retry; every attempt counts as activity<\/td><\/tr><tr><td>8<\/td><td><b>Retries duplicate side effects<\/b><\/td><td>Idempotency keys; at-least-once<\/td><td><span class=\"pill okp\">✓<\/span><\/td><td>stable message id as the key; attempt header only to tell retries apart<\/td><\/tr><tr><td>9<\/td><td><b>Fail-fast vs partial results<\/b><\/td><td>fail_fast / all_done / error handlers<\/td><td><span class=\"pill okp\">✓<\/span><\/td><td>engine.onError<\/td><\/tr><tr><td>10<\/td><td><b>A crash loses state<\/b><\/td><td>Event-sourced history; checkpoints<\/td><td><span class=\"pill okp\">✓<\/span><\/td><td>Start (with payload), finished nodes, end and control are durable; ExecutionResumer continues an aborted run<\/td><\/tr><tr><td>11<\/td><td><b>Re-running part of a graph<\/b><\/td><td>Clear downstream; reset<\/td><td><span class=\"pill okp\">✓<\/span><\/td><td>RestartPlan<\/td><\/tr><tr><td>12<\/td><td><b>Definition changes under running runs<\/b><\/td><td>Versioning<\/td><td><span class=\"pill okp\">✓<\/span><\/td><td>Hash per run; shared prepare keyed by content<\/td><\/tr><tr><td>13<\/td><td><b>Unbounded concurrency<\/b><\/td><td>Parallelism limits, pools<\/td><td><span class=\"pill okp\">✓<\/span><\/td><td>ExecutionScheduler; restarts use it too<\/td><\/tr><tr><td>14<\/td><td><b>Cancellation doesn't reach the work<\/b><\/td><td>Cooperative cancel, then forced<\/td><td><span class=\"pill okp\">✓<\/span><\/td><td>DRAIN / CANCEL / KILL<\/td><\/tr><tr><td>15<\/td><td><b>Control commands race or reorder<\/b><\/td><td>Signals serialised per workflow<\/td><td><span class=\"pill okp\">✓<\/span><\/td><td>FIFO + ack + audit<\/td><\/tr><tr><td>16<\/td><td><b>Can't see why it's slow or stuck<\/b><\/td><td>Per-task metrics and traces<\/td><td><span class=\"pill okp\">✓<\/span><\/td><td>Per-plugin metrics and gauges; one yukta.node observation per node (span with a tracer)<\/td><\/tr><tr><td>17<\/td><td><b>A poison message blocks the stream<\/b><\/td><td>Dead-letter queue, error ports<\/td><td><span class=\"pill okp\">✓<\/span><\/td><td>ROUTE to the error port (wire any terminal)<\/td><\/tr><tr><td>18<\/td><td><b>UI shows a finished run with running nodes<\/b><\/td><td>One ordered history<\/td><td><span class=\"pill okp\">✓<\/span><\/td><td>Ordered, never-dropped state events<\/td><\/tr><tr><td>19<\/td><td><b>Large payloads in every buffer<\/b><\/td><td>Claim-check pattern<\/td><td><span class=\"pill okp\">✓<\/span><\/td><td>Count and byte caps; oversize output refuses restart<\/td><\/tr><tr><td>20<\/td><td><b>Starvation and priority<\/b><\/td><td>Priority queues and weights<\/td><td><span class=\"pill okp\">✓<\/span><\/td><td>Priority (yukta.priority) then arrival order<\/td><\/tr><\/table><\/div>", "lede": "Twenty failure modes that mature orchestrators design for, how they solve them, and where Yukta stands. Sources: Astronomer (Airflow trigger rules), Temporal event history, Flink unaligned checkpoints, Argo retries, Reactor Sinks, BlockHound."}, {"id": "control", "title": "Control model", "html": "<div class=\"card tablewrap\"><table><tr><th>Command<\/th><th>Target semantics<\/th><th>Today<\/th><th><\/th><\/tr><tr><td><b>Pause run / node<\/b><\/td><td>Stop pulling input; in-flight elements finish; timers suspended<\/td><td>Input-side permit gate; prefetch 1 on per-message nodes; pause-aware timers<\/td><td><span class=\"pill okp\">✓<\/span><\/td><\/tr><tr><td><b>Resume<\/b><\/td><td>Release the gate<\/td><td>Works<\/td><td><span class=\"pill okp\">✓<\/span><\/td><\/tr><tr><td><b>Step n<\/b><\/td><td>Exactly n input elements, then pause<\/td><td>Exact (banked credits)<\/td><td><span class=\"pill okp\">✓<\/span><\/td><\/tr><tr><td><b>Breakpoint<\/b><\/td><td>Pause when a predicate matches<\/td><td>Gateway addBreakpoint / clearBreakpoint (payload or metadata equals a value), ordered and audited; no REST yet<\/td><td><span class=\"pill okp\">✓<\/span><\/td><\/tr><tr><td><b>Skip node<\/b><\/td><td>Pass-through or SKIPPED<\/td><td>Processors, also at run time: elements bypass the plugin from the next one on; other node types are rejected with a reason<\/td><td><span class=\"pill okp\">✓<\/span><\/td><\/tr><tr><td><b>Stop run<\/b><\/td><td>DRAIN → CANCEL → KILL with a deadline<\/td><td>Done; mode selectable with ?mode=<\/td><td><span class=\"pill okp\">✓<\/span><\/td><\/tr><tr><td><b>Stop node<\/b><\/td><td>DRAIN or CANCEL a single node<\/td><td>Works<\/td><td><span class=\"pill okp\">✓<\/span><\/td><\/tr><tr><td><b>Retry node<\/b><\/td><td>Re-run a failed node with its recorded input<\/td><td>Gateway retryNode: only for a node that ended FAILURE or TIMED_OUT; re-runs it and what is behind it<\/td><td><span class=\"pill okp\">✓<\/span><\/td><\/tr><tr><td><b>Restart run<\/b><\/td><td>New run, same version and payload<\/td><td>Works; admission-checked (429 when full)<\/td><td><span class=\"pill okp\">✓<\/span><\/td><\/tr><tr><td><b>Restart from node<\/b><\/td><td>Descendants only; boundary inputs replayed<\/td><td>Works for finished and failed runs while the archive holds them<\/td><td><span class=\"pill okp\">✓<\/span><\/td><\/tr><tr><td><b>Command ack / audit<\/b><\/td><td>APPLIED, REJECTED; recorded in the log<\/td><td>FIFO, ack, CONTROL_APPLIED / CONTROL_REJECTED in the log<\/td><td><span class=\"pill okp\">✓<\/span><\/td><\/tr><tr><td><b>Set concurrency / priority<\/b><\/td><td>Adjust limits on queued or running runs<\/td><td>Gateway changeLimits and changePriority (queued runs; audited in the log); no REST yet<\/td><td><span class=\"pill okp\">✓<\/span><\/td><\/tr><\/table><\/div>", "lede": "Every command goes through one per-execution FIFO queue, is acknowledged (APPLIED, REJECTED or NOOP) and recorded in the execution log."}, {"id": "states", "title": "Node state machine", "html": "<div class=\"card\"><pre><code>PENDING ──QUEUED (waiting for a slot)──▶ PENDING\nPENDING ──first input / trigger start──▶ RUNNING ──complete──▶ SUCCESS\n   │                                 │ ├─error (after retries)─▶ FAILURE ──onError=ROUTE──▶ error port\n   │                                 │ ├─timeout──────────────▶ TIMED_OUT\n   │                                 │ └─cancel / stop────────▶ CANCELLED\n   ├─run succeeded, node never ran────────────────▶ SKIPPED\n   ├─run failed, node never ran───────────────────▶ UPSTREAM_FAILED\n   └─run stopped before the node started──────────▶ CANCELLED\n\nRun: QUEUED → RUNNING → SUCCESS | FAILURE | STOPPED | TIMED_OUT | ABORTED (after a crash)<\/code><\/pre>\n<p class=\"refs\">Control state (PAUSED, STEPPING, STOPPING) is separate from status. Retries do not show as a separate node status. A node behind a failed node ends UPSTREAM_FAILED, not FAILURE (only the node that failed reports FAILURE).<\/p><\/div>"}, {"id": "time", "title": "Time model", "html": "<div class=\"card tablewrap\"><table><tr><th>Timer<\/th><th>Starts<\/th><th>Pauses<\/th><th>Default<\/th><th>Today<\/th><\/tr><tr><td>Queue wait<\/td><td>Admission<\/td><td>—<\/td><td>Reported (QUEUED)<\/td><td>Done<\/td><\/tr><tr><td>Node idle<\/td><td>First input / last output / heartbeat<\/td><td>Yes (exact)<\/td><td>30 s, or plugin default<\/td><td>Done; process, LLM and HTTP plugins declare theirs; one volatile write per touch<\/td><\/tr><tr><td>Node element timeout<\/td><td>Each attempt<\/td><td>No<\/td><td>Off; engine.elementTimeoutMs<\/td><td>Done; must be below the node timeout<\/td><\/tr><tr><td>Plugin heartbeat<\/td><td>Runnable at WorkflowContext.HEARTBEAT_KEY<\/td><td>—<\/td><td>Off<\/td><td>Done for processors, terminals and triggers<\/td><\/tr><tr><td>Node wall-clock deadline<\/td><td>First input<\/td><td>Yes (exact)<\/td><td>Off; engine.deadlineMs<\/td><td>Done; engine.deadlineMs, not restarted by activity, pause-aware<\/td><\/tr><tr><td>Run deadline<\/td><td>RUNNING<\/td><td>Yes (exact)<\/td><td>Session timeout<\/td><td>Done<\/td><\/tr><\/table><\/div>", "lede": "Clocks start when work starts, not when the graph is wired, and every clock is pause-aware."}, {"id": "plugin", "title": "Plugin author guide", "html": "<div class=\"grid g2\"><div class=\"card\"><h3>Timeouts<\/h3><ul><li>Declare <code>getDefaultTimeout(config)<\/code>; otherwise the node gets 30 s of idle time.<\/li><li>Idle time restarts on every input, output, attempt and heartbeat.<\/li><li>Long silent work: call the heartbeat.<\/li><\/ul><pre><code>Mono.deferContextual(ctx -&gt; {\n  ((Runnable) ctx.get(WorkflowContext.HEARTBEAT_KEY)).run();\n  return next;\n})<\/code><\/pre><\/div><div class=\"card\"><h3>Retries and side effects<\/h3><ul><li>With <code>engine.retry<\/code>, <code>onError<\/code> or <code>elementTimeoutMs<\/code> the plugin is called once per message.<\/li><li>The message carries an <code>attempt<\/code> header (1, 2, ...) and a stable <code>id<\/code>: use the <code>id<\/code> as the idempotency key (it is the same on every attempt) and the <code>attempt<\/code> only to tell retries apart or to report them.<\/li><li><code>IllegalArgumentException<\/code> is not retried: throw it for bad input.<\/li><\/ul><pre><code>\"engine\": {\n  \"retry\": {\"maxAttempts\": 3, \"backoffMs\": 200, \"maxBackoffMs\": 5000},\n  \"onError\": \"ROUTE\",\n  \"trigger\": \"ONE_SUCCESS\",\n  \"elementTimeoutMs\": 20000\n}<\/code><\/pre><\/div><\/div>", "lede": "What a plugin gets from the engine and what it should do in return."}, {"id": "config", "title": "Configuration reference", "html": "<div class=\"card tablewrap\"><table><tr><th>Property<\/th><th>Default<\/th><th>Meaning<\/th><\/tr><tr><td><code>yukta.execution.max-concurrent / max-concurrent-per-workflow<\/code><\/td><td>none<\/td><td>Run limits<\/td><\/tr><tr><td><code>yukta.execution.on-limit<\/code><\/td><td>QUEUE<\/td><td>QUEUE or REJECT (HTTP 429)<\/td><\/tr><tr><td><code>yukta.execution.queue-timeout<\/code><\/td><td>off<\/td><td>Longest a queued start waits; then the run ends TIMED_OUT<\/td><\/tr><tr><td><code>yukta.execution.max-concurrent-per-session<\/code><\/td><td>none<\/td><td>Run limit per session; a freed slot goes to the session with the fewest runs<\/td><\/tr><tr><td><code>yukta.execution.queue-capacity-per-workflow<\/code><\/td><td>none<\/td><td>Queued starts per workflow before refusing<\/td><\/tr><tr><td><code>yukta.execution.queue-capacity<\/code><\/td><td>100<\/td><td>Queued starts before refusing<\/td><\/tr><tr><td><code>yukta.execution.shutdown-timeout<\/code><\/td><td>30s<\/td><td>Time running executions get on shutdown<\/td><\/tr><tr><td><code>yukta.start.idempotency-ttl<\/code><\/td><td>10m<\/td><td>Idempotency-Key memory; kept in the file log when there is one<\/td><\/tr><tr><td><code>yukta.restart.retained-executions<\/code><\/td><td>10<\/td><td>Restartable finished runs<\/td><\/tr><tr><td><code>yukta.restart.messages-per-node<\/code><\/td><td>200<\/td><td>Recorded messages per node<\/td><\/tr><tr><td><code>yukta.restart.bytes-per-node<\/code><\/td><td>4194304<\/td><td>Recorded payload bytes per node (other payload types count 1 KiB)<\/td><\/tr><tr><td><code>yukta.restart.dir<\/code><\/td><td>memory<\/td><td>Set to keep node outputs on disk (no caps) so aborted runs can be resumed; needs <code>yukta.execution-log.dir<\/code><\/td><\/tr><tr><td><code>yukta.execution-log.dir<\/code><\/td><td>memory<\/td><td>Set to keep executions.jsonl on disk<\/td><\/tr><tr><td><code>yukta.execution-log.retained-runs<\/code><\/td><td>500<\/td><td>Runs restored and kept after compaction<\/td><\/tr><tr><td><code>yukta.execution-log.compact-after<\/code><\/td><td>10000<\/td><td>Events between compactions<\/td><\/tr><\/table><\/div>", "lede": "Properties read by the core module."}, {"id": "metrics", "title": "Metrics and tracing", "html": "<div class=\"card tablewrap\"><table><tr><th>Meter<\/th><th>Type<\/th><th>Tags<\/th><th>Meaning<\/th><\/tr><tr><td><code>yukta.node.executions<\/code><\/td><td>counter<\/td><td>module, status<\/td><td>Nodes that reached a terminal status<\/td><\/tr><tr><td><code>yukta.node.duration<\/code><\/td><td>timer<\/td><td>module<\/td><td>Run time of nodes that actually ran<\/td><\/tr><tr><td><code>yukta.node.retries<\/code><\/td><td>counter<\/td><td>module<\/td><td>Retries of a message after a failed attempt (engine.retry)<\/td><\/tr><tr><td><code>yukta.execution.duration<\/code><\/td><td>timer<\/td><td>status<\/td><td>Start to end of a run<\/td><\/tr><tr><td><code>yukta.execution.queue.wait<\/code><\/td><td>timer<\/td><td>—<\/td><td>Time a start waited in the queue (QUEUED to RUNNING)<\/td><\/tr><tr><td><code>yukta.executions.running / queued<\/code><\/td><td>gauge<\/td><td>—<\/td><td>Executions holding a slot / waiting for one<\/td><\/tr><tr><td><code>yukta.executions.rejected<\/code><\/td><td>counter<\/td><td>reason<\/td><td>Starts refused: shutdown, limit, queue_full, workflow_queue_full, queue_timeout<\/td><\/tr><tr><td><code>yukta.checkpoint.bytes<\/code><\/td><td>gauge<\/td><td>—<\/td><td>Node output held for restart and resume<\/td><\/tr><tr><td><code>yukta.tracker.dropped<\/code><\/td><td>counter<\/td><td>type<\/td><td>Log lines dropped (log) or events lost after the tracker ended (state)<\/td><\/tr><\/table><\/div><div class=\"card\"><h3>Tracing<\/h3><p>Each run is one observation <code>yukta.run<\/code> (tags <code>status<\/code>; executionId, sessionId and workflowId as high-cardinality values) and each node run is a child <code>yukta.node<\/code> (<code>module<\/code>, <code>status<\/code>). With a Micrometer tracer on the classpath they become a trace of the run. Engine log lines carry <code>executionId<\/code> and <code>nodeId<\/code> as structured key-values.<\/p><\/div>"}, {"id": "threads", "title": "Threading map", "html": "<div class=\"card tablewrap\"><table><tr><th>Work<\/th><th>Runs on<\/th><th>Note<\/th><\/tr><tr><td>Run body, async start and restart<\/td><td><code>boundedElastic<\/code><\/td><td>Fire-and-forget subscribers log failures and complete<\/td><\/tr><tr><td>Blocking plugins<\/td><td><code>Virtual-thread scheduler<\/code><\/td><td>isBlocking() plugins are subscribed there<\/td><\/tr><tr><td>Tracker batch consumer<\/td><td><code>parallel<\/code><\/td><td>Only in-memory work; no file I/O<\/td><\/tr><tr><td>Control bus batch consumer<\/td><td><code>parallel<\/code><\/td><td>Commands then run through the per-execution FIFO<\/td><\/tr><tr><td>Idle checks and pause-aware delays<\/td><td><code>parallel<\/code><\/td><td>One periodic check per node, not per message<\/td><\/tr><tr><td>Execution log file I/O<\/td><td><code>One writer thread<\/code><\/td><td>Appends, compaction, atomic replace<\/td><\/tr><\/table><p class=\"refs\">Rule: no blocking calls on parallel or event-loop threads; use <code>SinkEmit.offer<\/code> for bounded sinks.<\/p><\/div>", "lede": "Which scheduler runs which work."}, {"id": "architecture", "title": "Execution log", "html": "<div class=\"grid g2\"><div class=\"card\"><h3>Built<\/h3><ul><li><code>ExecutionLogStore<\/code> SPI with in-memory and JSONL stores.<\/li><li>RUN_STARTED (with definition hash), RUN_FINISHED / RUN_ABORTED and CONTROL_APPLIED / CONTROL_REJECTED records.<\/li><li>One writer thread, batched appends, compaction to the newest N runs; replace stays atomic. No fsync: a power loss can lose the last events.<\/li><li><code>ExecutionRecovery<\/code> on boot: marks unfinished runs ABORTED, trims, restores history.<\/li><li>Checkpoints per node capped by messages and bytes; a node over the cap refuses restart instead of replaying part of its output (in memory only; the file store keeps everything).<\/li><li>With <code>yukta.restart.dir<\/code> outputs are written to disk, so a run aborted by a restart resumes: finished nodes replay, the rest run again (<code>ExecutionResumer<\/code>).<\/li><\/ul><\/div><div class=\"card\"><h3>By design not built<\/h3><ul><li>Resume of a run whose workflow definition changed (refused on purpose).<\/li><li>Node output inside the log: outputs go to the checkpoint files, the log only marks nodes finished.<\/li><li>Resume without the file stores: with the in-memory defaults nothing survives a reboot.<\/li><\/ul><p class=\"refs\">Storage options after JSONL: SQLite or Postgres behind the same SPI.<\/p><\/div><\/div>"}, {"id": "round1", "title": "Rounds 1 and 2: verification", "html": "<div class=\"card tablewrap\"><table><tr><th>ID<\/th><th>Finding<\/th><th>Status<\/th><\/tr><tr><td>R1<\/td><td>Timeouts count upstream wait<\/td><td><span class=\"pill okp\">fixed<\/span><\/td><\/tr><tr><td>R2<\/td><td>Pause counts against timeouts<\/td><td><span class=\"pill okp\">fixed<\/span><\/td><\/tr><tr><td>R3<\/td><td>Node outcomes never finalised<\/td><td><span class=\"pill okp\">fixed<\/span><\/td><\/tr><tr><td>R4<\/td><td>Restart-from-node broken<\/td><td><span class=\"pill okp\">fixed<\/span><\/td><\/tr><tr><td>R5<\/td><td>Step loses credits; pause leaks<\/td><td><span class=\"pill okp\">fixed<\/span><\/td><\/tr><tr><td>R6<\/td><td>Events not ordered<\/td><td><span class=\"pill okp\">fixed<\/span><\/td><\/tr><tr><td>R7<\/td><td>Safe stop is a hard cancel<\/td><td><span class=\"pill okp\">fixed<\/span><\/td><\/tr><tr><td>R8<\/td><td>Fail-fast only<\/td><td><span class=\"pill okp\">fixed<\/span><\/td><\/tr><tr><td>R9<\/td><td>Control not acked or idempotent<\/td><td><span class=\"pill okp\">fixed<\/span><\/td><\/tr><tr><td>R10<\/td><td>Nothing durable<\/td><td><span class=\"pill okp\">fixed<\/span><\/td><\/tr><tr><td>R11<\/td><td>No admission control<\/td><td><span class=\"pill okp\">fixed<\/span><\/td><\/tr><tr><td>R12<\/td><td>Validator gaps<\/td><td><span class=\"pill okp\">fixed<\/span><\/td><\/tr><tr><td>R13<\/td><td>Disposables not thread-safe<\/td><td><span class=\"pill okp\">fixed<\/span><\/td><\/tr><tr><td>R14<\/td><td>No definition versioning<\/td><td><span class=\"pill okp\">fixed<\/span><\/td><\/tr><tr><td>R15<\/td><td>Starts not idempotent<\/td><td><span class=\"pill okp\">fixed<\/span><\/td><\/tr><tr><td>R16<\/td><td>No metrics<\/td><td><span class=\"pill okp\">fixed<\/span><\/td><\/tr><tr><td>R17<\/td><td>Round-1 leftovers<\/td><td><span class=\"pill okp\">fixed<\/span><\/td><\/tr><tr><td>C15<\/td><td>Fire-and-forget execution<\/td><td><span class=\"pill okp\">fixed<\/span><\/td><\/tr><tr><td>P5<\/td><td>Busy-loop sinks<\/td><td><span class=\"pill okp\">fixed<\/span><\/td><\/tr><tr><td>P6<\/td><td>O(N·E) compile scan<\/td><td><span class=\"pill okp\">fixed<\/span><\/td><\/tr><tr><td>S7<\/td><td>Logging volume<\/td><td><span class=\"pill okp\">fixed<\/span><\/td><\/tr><tr><td>T4, T6<\/td><td>Step/skip E2E; concurrent same-type plugins<\/td><td><span class=\"pill okp\">fixed<\/span><\/td><\/tr><\/table><\/div>", "lede": "Every earlier item, re-checked against the code."}], "findings": [{"id": "R18", "sev": "P1", "area": "Tracking", "pkg": ["service/orchestrator/tracker", "service/control"], "t": "Tracker event sink can overflow and permanently stop all tracking", "how": "Unbounded state queue, bounded counted log path, SinkEmit.offer instead of emitNext, error handler on consumers, yukta.tracker.dropped.", "st": "fixed", "where": "", "impact": "", "fix": "", "eff": "—"}, {"id": "R19", "sev": "P1", "area": "Time", "pkg": ["service/orchestrator/compiler", "plugins"], "t": "A single long step hit the 30 s timeout", "how": "Plugin-declared defaults (process, LLM, HTTP), engine.elementTimeoutMs, heartbeat in the Reactor context for processors, terminals and triggers. A node wall-clock deadline was left out on purpose.", "st": "fixed", "where": "", "impact": "", "fix": "", "eff": "—"}, {"id": "R20", "sev": "P2", "area": "Observability", "pkg": ["service/orchestrator/stream", "service/orchestrator/tracker"], "t": "Node metrics 'module' was always 'default'", "how": "Module is the plugin type; metrics tagged by plugin type and status only.", "st": "fixed", "where": "", "impact": "", "fix": "", "eff": "—"}, {"id": "R21", "sev": "P2", "area": "Efficiency", "pkg": ["service/orchestrator/stream"], "t": "Activity clock cost 2–3 µs per message", "how": "touch() is one volatile write; one periodic check per node.", "st": "fixed", "where": "", "impact": "", "fix": "", "eff": "—"}, {"id": "R22", "sev": "P2", "area": "Durability", "pkg": ["service/log"], "t": "JSONL log unbounded and blocking on shared threads", "how": "Single writer thread, batching, compaction, documented durability.", "st": "fixed", "where": "", "impact": "", "fix": "", "eff": "—"}, {"id": "R23", "sev": "P2", "area": "Governance", "pkg": ["service/control/processor"], "t": "Restart paths bypassed admission control", "how": "Both restart processors call assertCanAccept first (HTTP 429).", "st": "fixed", "where": "", "impact": "", "fix": "", "eff": "—"}, {"id": "R24", "sev": "P2", "area": "Control", "pkg": ["service/orchestrator/strategy"], "t": "Pause let a prefetch of 32 elements through", "how": "concatMap prefetch 1 on the per-message path; stream-shaped plugins keep their own buffering.", "st": "fixed", "where": "", "impact": "", "fix": "", "eff": "—"}, {"id": "R25", "sev": "P2", "area": "Durability", "pkg": ["service/archive", "service/store", "service/control"], "t": "No command audit; checkpoints bounded by count only", "how": "CONTROL_APPLIED / CONTROL_REJECTED in the log; byte cap per node (yukta.restart.bytes-per-node); after a reboot an aborted run can be resumed (ExecutionResumer).", "st": "fixed", "where": "", "impact": "", "fix": "", "eff": "—"}, {"id": "R26", "sev": "P2", "area": "Failure", "pkg": ["service/orchestrator/stream"], "t": "Engine retry interacted badly with the idle clock", "how": "Every attempt touches the clock; IllegalArgumentException not retried; validator checks backoff (and element timeout) against the node timeout.", "st": "fixed", "where": "", "impact": "", "fix": "", "eff": "—"}, {"id": "R27", "sev": "P2", "area": "Governance", "pkg": ["service/control/gateway", "service/workflow/store"], "t": "Stale prepare could repopulate the cache", "how": "Shared prepare keyed by definition content; cache put only if the definition is still current.", "st": "fixed", "where": "", "impact": "", "fix": "", "eff": "—"}, {"id": "R28", "sev": "P3", "area": "Hardening", "pkg": ["service/control", "service/control/gateway", "service/orchestrator/validator"], "t": "Small hardening items", "how": "Drain timer cancelled at run end; Caffeine idempotency; hasPort tolerates invalid config; stop mode in REST; ONE_SUCCESS join rule; attempt header; scheduler gauges. A dead-letter plugin is unnecessary: wire any terminal to the error port.", "st": "fixed", "where": "", "impact": "", "fix": "", "eff": "—"}, {"id": "R29", "sev": "P3", "area": "Clean-up", "pkg": ["service/orchestrator", "build"], "t": "Round-1 leftovers and test gaps", "how": "Spin-wait sinks replaced, compile scan grouped per target, 7 INFO call sites left, end-to-end acceptance tests in boot, throughput test for a 20-node chain, one coverage exception left.", "st": "fixed", "where": "", "impact": "", "fix": "", "eff": "—"}, {"id": "R30", "sev": "P2", "area": "Status", "pkg": ["service/orchestrator/stream", "service/orchestrator/strategy"], "t": "Nodes behind a failed node ended FAILURE instead of UPSTREAM_FAILED", "how": "UpstreamFailure marker on input errors; NodeStreams maps it to UPSTREAM_FAILED (PR #307).", "st": "fixed", "where": "", "impact": "", "fix": "", "eff": "—"}, {"id": "R31", "sev": "P3", "area": "Hardening", "pkg": ["service/control"], "t": "Control-bus consumer did not resubscribe after a fatal error", "st": "fixed", "where": "ControlBusService init(): the batch consumer ends with subscribe() after doOnError", "impact": "If the upstream flux ever failed, commands would stop being processed until restart. The sink itself can no longer overflow, so this is defensive.", "fix": "Resubscribe with retryWhen and a counter, as for the tracker consumer.", "eff": "S", "how": "The control-bus consumer resubscribes with capped backoff and logs each failure; it stops retrying once shutdown() is called."}, {"id": "R32", "sev": "P3", "area": "API", "pkg": ["service/archive"], "t": "Definition version was stored and logged but not returned by the API", "st": "fixed", "where": "DefinitionVersion lives in ArchivedExecution and RUN_STARTED; WorkflowProgress has no field for it", "impact": "Clients cannot tell which version of a workflow a run used without reading the log.", "fix": "Add the hash to WorkflowProgress and the web DTO (needs a web-module change).", "eff": "S", "how": "WorkflowProgress carries definitionVersion (graph content hash); the orchestrator records it when tracking starts, so REST, SSE and MCP responses include it."}, {"id": "R33", "sev": "P3", "area": "Features", "pkg": ["service/control", "service/orchestrator"], "t": "Design gaps: priority queue, breakpoints, retry node, live concurrency changes, tracing", "st": "fixed", "where": "ExecutionScheduler was FIFO; no predicate pause; no OpenTelemetry spans", "impact": "None were bugs. They limited large multi-tenant use and debugging.", "fix": "Priority in the scheduler, breakpoint on the valve, observation per node, live limits.", "eff": "L", "how": "Waiting starts are admitted by payload priority (yukta.priority, higher first, then arrival order); ExecutionScheduler.setLimits changes the limits at run time and admits waiters; ReactiveControlValve.setBreakpoint holds a node on the first element that matches; each node run is one yukta.node observation (a span when a tracer is configured). A per-node retry command is not added: restart-from-node already re-runs a node and its descendants. REST/MCP endpoints for breakpoints and limits are not added."}, {"id": "R34", "sev": "P3", "area": "Docs", "pkg": ["docs"], "t": "Plan 06 claimed spans could be verified without a tracer", "st": "fixed", "where": "", "impact": "", "fix": "", "eff": "S", "how": "The plan now says an ObservationRegistry handler covers the no-tracer case and a span-level assertion belongs to an application that adds a tracer."}, {"id": "R35", "sev": "P3", "area": "Docs", "pkg": ["docs"], "t": "Plans index said only two areas scored 5", "st": "fixed", "where": "", "impact": "", "fix": "", "eff": "S", "how": "The index describes the starting point and says each plan raises its own row."}, {"id": "R36", "sev": "P2", "area": "Governance", "pkg": ["service/control"], "t": "Slots were granted while the scheduler lock was held", "st": "fixed", "where": "", "impact": "", "fix": "", "eff": "M", "how": "admitWaiting only collects the admitted starts; free and setLimits hand them over after the lock is released, so a subscriber that starts a workflow no longer blocks acquire, running and queued."}, {"id": "R37", "sev": "P2", "area": "Restart", "pkg": ["service/orchestrator"], "t": "Two resumes of one run could both start a new run", "st": "fixed", "where": "", "impact": "", "fix": "", "eff": "S", "how": "ExecutionResumer claims the run id before reading the log; the claim is kept after a success, so a later resume is refused, and dropped after a failure so it can be retried."}, {"id": "R38", "sev": "P3", "area": "Failure", "pkg": ["service/orchestrator/stream"], "t": "ONE_SUCCESS failure counts were shared by every subscription of the merged parents", "st": "fixed", "where": "", "impact": "", "fix": "", "eff": "S", "how": "The counters are created per subscription (Flux.defer), so a resubscription starts from zero."}, {"id": "R39", "sev": "P2", "area": "Status", "pkg": ["service/orchestrator/tracker"], "t": "A transient SUCCESS could be logged as finished and a late event could reopen an ended node", "st": "fixed", "where": "", "impact": "", "fix": "", "eff": "M", "how": "A node only moves forward (PENDING < QUEUED < RUNNING < any end); a backward or post-end status is ignored, its metadata is still merged. A random-order test checks it."}, {"id": "R40", "sev": "P2", "area": "Restart", "pkg": ["service/log", "service/orchestrator/tracker"], "t": "A node end was queued for the log writer and not fsynced", "st": "fixed", "where": "", "impact": "", "fix": "", "eff": "L", "how": "The end of a node is now a durable marker kept with its output: when a node completes normally, the checkpoint store forces the output file, writes and forces a .done marker and the directory entry before the completion goes on downstream (never for a failed or stopped node). A resume trusts that marker, not the log. If the marker cannot be written the error is logged and counted (yukta.checkpoint.errors) and the node is treated as unfinished, so it runs again."}, {"id": "R41", "sev": "P3", "area": "Restart", "pkg": ["service/orchestrator"], "t": "A resumed or restarted run lost its priority in the queue", "st": "fixed", "where": "", "impact": "", "fix": "", "eff": "S", "how": "rerun passes ExecutionScheduler.priorityOf(payload) to the scheduler."}, {"id": "R42", "sev": "P3", "area": "Restart", "pkg": ["service/store"], "t": "A torn last line in a checkpoint file counted as complete and failed the whole resume", "st": "fixed", "where": "", "impact": "", "fix": "", "eff": "S", "how": "isComplete is false when the output file does not end in a newline, so resume runs that node again; an unreadable line fails the replay with a clear message."}, {"id": "R43", "sev": "P3", "area": "Docs", "pkg": ["plugin-api"], "t": "The heartbeat example did not compile", "st": "fixed", "where": "", "impact": "", "fix": "", "eff": "S", "how": "The example returns a Mono (Mono.fromRunnable)."}, {"id": "R44", "sev": "P3", "area": "Recovery", "pkg": ["service/orchestrator/tracker", "service/log"], "t": "Recovered runs had no definition version and were not found by execution id", "st": "fixed", "where": "", "impact": "", "fix": "", "eff": "S", "how": "restore takes the version recorded at run start and indexes the run by execution id."}], "road": [["8 · Make tracking safe", ["R18", "R21", "R22"], "Tracker cannot die; cheap activity clock; non-blocking log"], ["9 · Limits and tags", ["R20", "R23", "R24", "R26", "R27"], "Right metric tags, restart honours limits, tighter pause, safer retry"], ["10 · Plugin-aware time", ["R19"], "Long steps work with default config; heartbeat; element timeout"], ["11 · Durability and polish", ["R25", "R28", "R29", "R30"], "Audit trail, bounded checkpoints, end-to-end tests, upstream-failed status"], ["12 · Follow-ups", ["R31", "R32", "R33"], "Resubscribing consumer, version in the API, feature gaps"], ["13 · Score-card plans and review", ["R34", "R35", "R36", "R37", "R38", "R39", "R41", "R42", "R43", "R44", "R40"], "Eight plans to 5/5, then a review round: lock-free grants, one resume per run, forward-only node status, torn checkpoints and a durable node end"]]};
+var DATA = {
+glance:{
+ lede:"Core is Yukta's engine and control plane: it takes a workflow definition (a DAG of trigger, processor and terminal nodes), runs it as a live stream of messages, lets people and programs steer it while it runs, and remembers enough to explain or resume it afterwards. This page is for thinking about it, not documenting it: open a component, play a scenario, then challenge the weak spots.",
+ props:[
+  ["Streaming DAG","Each edge is a Reactor stream. A slow consumer slows its producers (back-pressure), so memory stays bounded without queues between nodes."],
+  ["One JVM brain","Admission, command ordering, run state and signal waits live in one process. Plugins may block on virtual threads, but nothing is shared across servers yet."],
+  ["At-least-once","A node's end is durable, a side effect before it can repeat after a crash. Exactly-once is impossible; plugins de-duplicate on the message id."],
+  ["Pluggable durability","Memory by default; files or PostgreSQL by configuration. What survives a restart depends on the profile (see Guarantees)."]
+ ],
+ start:[["map","System map","Ten components and how data and commands flow between them"],["map","Replay a run","Seven scenarios: overload, failure, crash, supervisor..."],["guarantees","What survives a crash","Switch deployment profile and watch the table change"],["quality","Stress it","Scalability, performance, availability, security lenses"],["board","Challenge it","28 open risks, an impact x effort grid, your own notes"],["adrs","Decisions","Eight ADRs, each with a 'revisit when' trigger"]]
+},
+comps:[
+{id:"entry",name:"Entry & Admission",tag:"front door, slots, queue",c:0,r:0,mem:true,
+ resp:"Receives start, restart and recover requests and decides whether, when and in what order a run may begin.",
+ how:["A start loads the definition, prepares it (shared across concurrent starts), then asks the scheduler for a slot before an execution id is handed out. Two starts racing for the last slot cannot both succeed.","The scheduler enforces global, per-workflow and per-session limits. A start that does not fit either waits (QUEUE) or is refused with HTTP 429 (REJECT or queue full).","Waiting starts are ordered by payload priority, then by the session with the fewest running runs, so one busy session cannot starve others.","An Idempotency-Key makes a retried start return the first execution id (default 10 min window; survives restart with the file log).","Shutdown stops admitting, refuses the queue and gives running runs 30 s."],
+ guar:"No run id without a slot; a repeated start with the same key never doubles; refusals are counted by reason.",
+ state:"Slots and the queue are in memory. Idempotency keys ride the execution log when one is configured. Limits changed at run time are logged but not restored on startup.",
+ ceil:"One scheduler in one JVM; the queue defaults to 100 entries; no limits at all by default.",
+ fail:"Crash: queued starts vanish, running ones become ABORTED on the next boot.",
+ set:["yukta.execution.max-concurrent / -per-workflow / -per-session","yukta.execution.on-limit (QUEUE|REJECT)","yukta.execution.queue-capacity (100), queue-timeout","yukta.start.idempotency-ttl (10m)"],
+ risks:["spof","restartRace","limits28","blockStart","reviewBypass"]},
+{id:"def",name:"Definition & Preparation",tag:"store, validate, compile",c:1,r:0,mem:false,
+ resp:"Keeps workflow definitions and versions, and turns one into a runnable, validated graph.",
+ how:["Definitions live in memory, files (atomic, fsynced) or PostgreSQL, with the newest 20 versions per workflow and rollback.","The validator rejects cycles, duplicate nodes/edges, unknown output ports, graphs over 500 nodes or 2000 edges and malformed failure policies, naming node and option.","The compiler builds one assembler per node; the result is cached by definition content, and only cached if the definition is still the stored one.","Every run records a content hash of its graph (definitionVersion) so progress, archive and log agree on which version ran."],
+ guar:"A bad graph fails before any plugin runs; a run is pinned to the content it started with.",
+ state:"Durable with file or PostgreSQL stores; the prepared cache is memory only and can be rebuilt.",
+ ceil:"Preparation cost grows with graph size; capped at 500 nodes and 2000 edges.",
+ fail:"Editing a definition while runs are live does not affect them; a resume is refused if the definition changed.",
+ set:["yukta.session.store-type = in-memory | file | postgres"],
+ risks:["prepAlign","versions21"]},
+{id:"engine",name:"Stream Engine",tag:"node runtime and policies",c:2,r:0,mem:true,
+ resp:"Runs every node as a pipeline: merge parents, gate input, call the plugin, apply failure and time policy, fan out to children.",
+ how:["Join rule per node: ALL_SUCCESS, ALL_DONE or ONE_SUCCESS decides what a failed parent means.","A valve in front of each node implements pause, step n, breakpoint and skip. Pause holds at one element on per-message nodes.","Failure policy ('engine' config): retry with backoff and jitter, retry by exception class, element timeout, onError FAIL/CONTINUE/ROUTE to an error port, failure budget, node deadline. A message produces all of its output or none.","Time: an idle clock that restarts on every input, output, attempt or heartbeat; pause-aware; plugin-declared defaults; expression timeouts settled on the first message.","Every child subscribes before the source connects, and the slowest child sets the pace."],
+ guar:"Back-pressure end to end; node status only moves forward (PENDING < QUEUED < RUNNING < an end state); a late event cannot reopen a finished node.",
+ state:"Run state, valves, failure ledger and activity clocks are in memory per run.",
+ ceil:"A fan-out is paced by its slowest branch; a subtree that stops reading stalls siblings until the idle timeout; per-message nodes buffer one message's output when retry or ROUTE is on.",
+ fail:"A node failure marks its descendants UPSTREAM_FAILED, not FAILURE; only the node that failed reports FAILURE.",
+ set:["engine.retry / onError / trigger / elementTimeoutMs / deadlineMs / failureBudget (per node)","timeoutSeconds (per node)"],
+ risks:["spof","failfast","backpressure25","payload23","remote"]},
+{id:"plugin",name:"Plugin Boundary",tag:"the extension seam",c:3,r:0,mem:true,
+ resp:"The contract between the engine and the work a node does: triggers produce, processors transform, terminals consume.",
+ how:["A plugin sees a stream of messages and a Reactor context (executionId, nodeId, heartbeat, result collector). It never sees the engine policy options.","Long silent work calls the heartbeat to keep its node alive; blocking plugins run on a virtual-thread scheduler.","Signals and approvals: a plugin can be handed a named signal through the same ordered, audited path as other commands (e.g. WAIT_FOR_SIGNAL).","Safety rails at the edge: environment reads are allow-listed, scripts get a restricted Java surface, process execution can be limited to an allow-list of commands."],
+ guar:"With retry or onError the plugin is called once per message and gets a stable id plus an attempt header, so it can de-duplicate side effects.",
+ state:"Plugin-local state is the plugin's business; signal waits, KV_STORE and similar are in memory.",
+ ceil:"Plugins run in the engine JVM today: a heavy or untrusted plugin competes with the control plane.",
+ fail:"IllegalArgumentException means bad input and is never retried.",
+ set:["yukta.process.allowed-commands","yukta.variables.allowed"],
+ risks:["procDefault","logPath","signals14","toolGuard","memStore","llmBudget","remote"]},
+{id:"super",name:"Supervisors",tag:"rules, AI, custom code",c:0,r:1,mem:false,
+ resp:"Programs that watch every run and steer it: a rule engine, an AI agent or your own bean, in or out of process.",
+ how:["Each supervisor gets the global event feed through a bounded buffer (256) and returns control commands; a slow supervisor drops events and never slows the tracker.","Commands are rate limited (20/s), can be dry-run, are applied with the supervisor id as actor, and a supervisor never sees the outcome of its own commands.","Reviewers can refuse any command, human or automated; first refusal wins and the caller gets 403.","External agents use the SSE event stream plus REST/MCP control endpoints, with no JVM code."],
+ guar:"A misbehaving supervisor is isolated: failures resubscribe with backoff and never block a run.",
+ state:"Stateless apart from its own logic; command counts are metrics.",
+ ceil:"Events are best effort, so a supervisor can miss a transition under load.",
+ fail:"A supervisor can react to the events caused by its own commands and loop, capped only by the rate limit.",
+ set:["yukta.supervisor.max-commands-per-second (20)","yukta.supervisor.dry-run","yukta.supervisor.rules.file"],
+ risks:["supLoop","rbac15"]},
+{id:"control",name:"Control Plane",tag:"commands, order, audit",c:1,r:1,mem:true,
+ resp:"The ordered, acknowledged way to change a run that is already going.",
+ how:["Commands (pause, resume, step, breakpoint, skip, retry node, stop DRAIN/CANCEL/KILL, restart, restart from node, signal, priority, limits) go through one FIFO queue per run.","The caller is acknowledged once the command is applied; each is recorded as CONTROL_APPLIED or CONTROL_REJECTED.","Stop is cooperative first: DRAIN lets in-flight work finish, CANCEL cuts, KILL is immediate.","Restart-from-node re-runs a node and its descendants and replays the recorded output of the nodes feeding it."],
+ guar:"Per-run ordering, ack and audit for every command on a known run.",
+ state:"Pending commands and valves in memory; the audit trail goes to the execution log.",
+ ceil:"A single batched consumer; fine for human and supervisor rates, not designed as a high-volume API.",
+ fail:"Limit and priority changes and one node command endpoint skip the reviewer chain today.",
+ set:["yukta.supervisor.* (reviewers)"],
+ risks:["reviewBypass","rbac15","restartRace"]},
+{id:"obs",name:"Observation",tag:"tracker, progress, telemetry",c:2,r:1,mem:true,
+ resp:"Turns what happens in a run into ordered state, live progress streams and metrics.",
+ how:["One ordered event queue: state events are never dropped; log lines are best effort (over 10 000 waiting are dropped and counted).","A batched consumer feeds progress snapshots (REST, SSE, MCP), per-plugin meters and the run history the UI shows.","Each run is one trace observation with a child per node; a terminal sweep closes anything left open.","Key meters: node executions and duration, retries, run duration, queue wait, running/queued gauges, rejections by reason, checkpoint bytes, dropped events."],
+ guar:"Ordered, complete state events; run and node timelines that agree with the log.",
+ state:"All in memory; the newest runs are restored from the log after a restart.",
+ ceil:"Unbounded state queue and per-session state that is never evicted: memory grows with sessions and event storms.",
+ fail:"Tracker overflow cannot stop tracking (bounded sinks use offer, not emit).",
+ set:["tracing: add a Micrometer tracer to the classpath"],
+ risks:["evict21","trackerQ26","trackerSize27","spof"]},
+{id:"dur",name:"Durability",tag:"log, checkpoints, recovery",c:2,r:2,mem:false,
+ resp:"Makes a run explainable and resumable after the process dies.",
+ how:["Execution log: run start (with payload), end, control audit and idempotency keys, written by one writer thread with compaction to the newest runs.","Checkpoints: each node's output, with a durable end marker written and forced before completion moves downstream. Memory store is capped by messages and bytes; the file store keeps everything.","Recovery on boot marks unfinished runs ABORTED and restores history. A resume claims the run once, replays nodes with an end marker and re-runs the rest.","The archive keeps the last N finished runs restartable (graph, payload, outputs)."],
+ guar:"Resume trusts the end marker, never the log; a node over its cap refuses restart rather than replaying part of its output.",
+ state:"Durable only if directories (or PostgreSQL for the log) are configured.",
+ ceil:"Checkpoints are files or memory, not PostgreSQL; file I/O is on a single writer thread; log events are not fsynced.",
+ fail:"A side effect in the instant before the end marker can repeat after a crash.",
+ set:["yukta.execution-log.dir, retained-runs (500), compact-after (10000)","yukta.restart.dir, retained-executions (10), messages-per-node (200), bytes-per-node (4 MiB)"],
+ risks:["cpstore","exactlyOnce22","logDur24","payload23"]},
+{id:"persist",name:"Persistence Backends",tag:"memory, files, PostgreSQL",c:3,r:2,mem:false,
+ resp:"The storage behind sessions, definitions and the log; chosen by one property.",
+ how:["In-memory (default), file (atomic, fsynced) or PostgreSQL via R2DBC at run time with Flyway migrations over JDBC.","PostgreSQL backs session config, definitions with versions and the execution log; build it in with -Pyukta.persistence=postgres.","The log store interface is blocking, so the PostgreSQL log uses one writer thread and trims to the newest runs."],
+ guar:"Same behaviour behind each store; the choice only changes what survives.",
+ state:"Durable by definition (except the memory option).",
+ ceil:"Connection pool, health checks and native-image metadata for R2DBC/Flyway are still to be tuned.",
+ fail:"Node checkpoints still use files or memory even with PostgreSQL.",
+ set:["yukta.session.store-type","spring.r2dbc.url / spring.flyway.url"],
+ risks:["cpstore","writerThread27"]},
+{id:"sub",name:"Sub-workflows",tag:"runs that start runs",c:3,r:1,mem:true,
+ resp:"Lets one workflow call another stored workflow per message, enabling composition and agent-style plans.",
+ how:["SUB_WORKFLOW starts a normal child run (own execution id, same limits and tracking) through the start path and collects the results of its terminal nodes.","The child payload carries the depth and the parent id; nesting stops at depth 5.","A failing child fails the node, so the parent's failure policy applies."],
+ guar:"A child is an ordinary run: tracked, limited, audited.",
+ state:"Parent and child links are in the start payload; no run-history link yet.",
+ ceil:"Needs a slot per child plus the parent's; with a small max-concurrent the parent can wait for a slot it is blocking.",
+ fail:"Stopping the parent does not stop its children yet.",
+ set:["yukta.execution.max-concurrent must cover parent + children"],
+ risks:["subDeadlock","spof"]}
+],
+edges:[["entry","def","data","load"],["def","engine","data","graph"],["engine","plugin","data","stream"],["plugin","sub","data","child run"],["control","engine","ctrl","commands"],["super","control","ctrl","commands"],["engine","obs","data","events"],["obs","super","ctrl","event feed",[370,322]],["obs","dur","data","log"],["engine","dur","data","outputs",[835,190]],["dur","persist","data","store"]],
+scen:[
+{id:"happy",name:"Happy path",steps:[
+ {t:"A start request arrives",d:"The caller posts a start, optionally with an Idempotency-Key. The gateway loads the stored definition; a repeated key returns the first execution id.",c:["entry","def"],r:[]},
+ {t:"Prepare once, share it",d:"The graph is validated (cycles, ports, size limits, policies) and compiled. Concurrent starts of the same content share one preparation, and the result is cached only if the definition is still current.",c:["def"],r:["prepAlign"]},
+ {t:"Admission",d:"After preparing and before an id exists, the scheduler grants a slot or queues or refuses the start. No slot, no run.",c:["entry"],r:["restartRace"]},
+ {t:"Wire the graph",d:"Each node gets merge, input valve, plugin, idle clock and broadcast. Every edge subscribes before the source connects so nothing is missed.",c:["engine"],r:[]},
+ {t:"Messages flow",d:"Triggers produce, processors transform per message with the Reactor context (execution, node, heartbeat), terminals consume. The slowest child paces the whole fan-out.",c:["engine","plugin"],r:["backpressure25","payload23"]},
+ {t:"Observe and record",d:"Ordered state events feed progress, SSE and meters. Each node's output is checkpointed and, when the node completes, a durable end marker is written before completion moves on.",c:["engine","obs","dur"],r:["trackerQ26","cpstore"]},
+ {t:"Finish",d:"Terminals complete, the run ends SUCCESS, the slot is released, the end is logged and the archive keeps the run restartable.",c:["entry","obs","dur"],r:["logDur24"]}]},
+{id:"overload",name:"Overload",steps:[
+ {t:"A burst of starts",d:"Many starts arrive at once. With no limits configured (the default) all of them run; the only brake is the JVM.",c:["entry"],r:["spof"]},
+ {t:"Limits kick in",d:"Global, per-workflow and per-session caps decide who runs. A start that does not fit waits (status QUEUED) or is refused with 429.",c:["entry"],r:["limits28"]},
+ {t:"Fair, prioritised queue",d:"Waiting starts are ordered by payload priority, then by the session with the fewest running runs, then arrival. An operator can change a queued run's priority or the limits live.",c:["entry","control"],r:["reviewBypass"]},
+ {t:"Queue full or too old",d:"Beyond the queue capacity (default 100) or a queue timeout the start ends refused or TIMED_OUT, counted by reason in a rejection metric.",c:["entry","obs"],r:[]},
+ {t:"Shutdown under load",d:"Nothing new is admitted, queued starts are refused, running ones get 30 s to finish; the rest are ABORTED on next boot.",c:["entry","dur"],r:["spof"]}]},
+{id:"failure",name:"Node failure",steps:[
+ {t:"A message fails in a processor",d:"The plugin throws for one message. Nothing it emitted for that message is released yet: a message yields all of its output or none.",c:["engine","plugin"],r:["exactlyOnce22"]},
+ {t:"Retry with backoff",d:"Exponential backoff with jitter re-runs the plugin for that message, by exception class if configured. Bad input (IllegalArgumentException) is not retried. Every attempt counts as activity.",c:["engine"],r:[]},
+ {t:"Route the poison message",d:"With onError ROUTE the message, tagged with attempts, exception and time, goes to the error port and on to any dead-letter terminal. CONTINUE drops it; FAIL ends the node.",c:["engine"],r:[]},
+ {t:"Failure budget",d:"If more than N messages fail in a window, the node fails instead of dropping or routing the next one, so a broken dependency cannot turn into silent data loss.",c:["engine","obs"],r:[]},
+ {t:"Joins decide what a failed parent means",d:"ALL_SUCCESS fails the join, ALL_DONE continues with the others, ONE_SUCCESS fails only if every parent failed. Descendants of a failed node end UPSTREAM_FAILED.",c:["engine"],r:[]},
+ {t:"The weak spot: a terminal that dies",d:"If a subtree stops reading because its terminal failed, siblings stall through back-pressure and the run only fails at the idle timeout.",c:["engine"],r:["failfast"]}]},
+{id:"operator",name:"Operator steers",steps:[
+ {t:"Pause",d:"The command enters the run's FIFO; the valve stops pulling input, in-flight elements finish, and all timers freeze so a pause never causes a timeout.",c:["control","engine"],r:[]},
+ {t:"Step and breakpoint",d:"Step n lets exactly n elements through then pauses. A breakpoint holds a node at the first element whose payload or metadata matches.",c:["control","engine"],r:[]},
+ {t:"Skip or retry a node",d:"A processor can be skipped at run time (messages bypass the plugin); a node that ended FAILURE or TIMED_OUT can be re-run with its recorded input plus everything behind it.",c:["control","engine","dur"],r:["restartRace"]},
+ {t:"Review and audit",d:"Reviewers may refuse any command (403). Every command on a known run is logged as applied or rejected, with the actor.",c:["control","dur"],r:["reviewBypass","rbac15"]},
+ {t:"Stop",d:"DRAIN lets work finish with a deadline, CANCEL cancels, KILL is immediate. The run ends STOPPED and its slot is released.",c:["control","engine","entry"],r:[]}]},
+{id:"supervisor",name:"Supervisor intervenes",steps:[
+ {t:"Events are published",d:"The tracker and command outcomes feed one global event stream. Delivery is best effort and never blocks a run.",c:["obs"],r:["trackerQ26"]},
+ {t:"A supervisor receives them",d:"Each supervisor reads through a bounded buffer of 256 on its own scheduler. If it is slow, events are dropped and counted, not queued.",c:["obs","super"],r:[]},
+ {t:"It answers with commands",d:"A rule (JSON + SpEL), an AI agent or a bean returns control commands; they are rate limited to 20/s, can be dry-run and carry the supervisor id as actor.",c:["super","control"],r:["rbac15"]},
+ {t:"Reviewers and the loop",d:"Reviewers can still refuse. But a supervisor sees the status events its own command causes (pause becomes PAUSED) and can chase its own tail, limited only by the rate cap.",c:["control","engine","super"],r:["supLoop"]}]},
+{id:"crash",name:"Crash and resume",steps:[
+ {t:"The JVM dies mid-run",d:"Memory is gone: tracker, scheduler slots, queued starts, signal waits. On disk (if configured): the log with the start payload, and checkpoint outputs with end markers.",c:["engine","obs","dur"],r:["spof","logDur24"]},
+ {t:"Boot recovery",d:"Unfinished runs are marked ABORTED, the newest runs are restored into history, idempotency keys are reloaded so a retrying client still gets its first id.",c:["dur","persist","entry"],r:[]},
+ {t:"Someone asks to resume",d:"The resumer claims the run exactly once; it is refused if the run was not aborted, was already resumed or its definition changed. It is a core call today: there is no REST or MCP endpoint for it yet.",c:["entry","control"],r:[]},
+ {t:"Replay what finished, re-run the rest",d:"Nodes with a durable end marker replay their recorded output; the others run again from their inputs. Without file stores nothing is resumable.",c:["dur","engine"],r:["cpstore"]},
+ {t:"The at-least-once window",d:"A side effect executed between the plugin acting and the marker being written can happen twice. Only plugin-side idempotency on the message id closes it.",c:["plugin","dur"],r:["exactlyOnce22"]}]},
+{id:"sub",name:"Sub-workflow fan-out",steps:[
+ {t:"A node starts a child per message",d:"SUB_WORKFLOW calls the start path with the child id as a normal run; it carries depth and the parent id, and nesting stops at 5.",c:["plugin","sub","entry"],r:[]},
+ {t:"Children need slots",d:"Each child is admitted like any run. With max-concurrent too small the parent holds a slot while its children wait for one: a deadlock until a timeout.",c:["entry","sub"],r:["subDeadlock"]},
+ {t:"Results flow back",d:"Terminal nodes of the child feed a collector; the parent node emits executionId and results[]. A failing child fails the node and the parent's failure policy applies.",c:["sub","engine"],r:[]},
+ {t:"Stopping the parent",d:"The children keep running: no cascading cancel yet, and run history does not link parent and child.",c:["control","sub"],r:["subDeadlock"]}]}
+],
+caps:[
+["Execution","Streaming back-pressure","Messages move as streams between nodes.","Every edge subscribes before the source connects; the slowest child sets the pace.","Bounded memory per edge.","One slow branch slows the fan-out."],
+["Execution","Join rules","What a node with several parents does when one fails.","ALL_SUCCESS, ALL_DONE, ONE_SUCCESS.","No dead path after a branch.","Rule is per node, not per edge."],
+["Execution","Sub-workflows","One workflow calls another.","Child is a normal run with its own id; depth max 5.","Children are tracked, limited, audited.","Slot deadlock when limits are tight."],
+["Failure","Retry & error routing","Handle transient and poison failures.","Backoff with jitter, by exception class; ROUTE sends the failed message to an error port; failure budget; all-or-nothing output.","A poison message never blocks the stream.","Retried per message, so only for per-message processors."],
+["Failure","Fail-fast vs partial","Choose between stopping and carrying on.","onError FAIL / CONTINUE / ROUTE and join rules.","Explicit behaviour per node.","Silent drops possible with CONTINUE; the budget is the guard."],
+["Time","Five clocks","Timeouts that mean what you expect.","Idle, element, node deadline, run deadline and queue wait; pause-aware; plugin heartbeats.","Pause and queue time never cause a timeout.","Expression timeouts are known only at the first message."],
+["Control","Live steering","Pause, step, breakpoint, skip, retry, stop.","Ordered per run, acknowledged, audited.","No races between commands.","Some endpoints bypass the reviewer."],
+["Control","Supervisors & reviewers","Automation on the control bus.","Event feed in, commands out; reviewers can veto any command.","Isolated, rate limited, auditable.","Event delivery is best effort."],
+["Governance","Admission control","Decide who may run.","Global / workflow / session caps, priority, fair queue, 429, queue timeout.","No id without a slot.","In-memory scheduler."],
+["Governance","Idempotent start","Safe client retries.","Idempotency-Key per session and workflow; durable with the file log.","Duplicate start returns the first id.","Window is 10 minutes by default."],
+["Durability","Checkpoints & resume","Continue after a reboot.","Per-node outputs with a durable end marker; resume claims once.","A finished node is never re-run on resume.","Needs directories; not in PostgreSQL yet."],
+["Durability","Restart from a node","Re-run part of a finished or failed run.","Descendants re-run, boundary outputs replayed; admission-checked.","Independent branches untouched.","Bounded by retained runs and caps."],
+["Durability","Definition versions","Safe edits and rollback.","Newest 20 versions per workflow; runs pinned by content hash.","A run never changes under you.","No diff or pinning in the API yet."],
+["Observability","Metrics & traces","See why it is slow or stuck.","Run and node observations; counters, timers, gauges.","One reference of meters.","Needs a tracer on the classpath for spans."],
+["Observability","Live progress","Follow a run as it happens.","Ordered events to REST, SSE and MCP.","State never dropped.","Log lines are best effort."],
+["Extensibility","Plugin API","Add new node types.","Triggers, processors, terminals; defaults for timeouts; heartbeats.","Engine options hidden from plugins.","Runs in the engine JVM."],
+["Extensibility","LLM & MCP nodes","Agent-style workflows.","Tool calling, tool discovery, per-run token and cost budget, allowed tools.","A budget stops runaway cost.","One call may overshoot; no per-provider rate limit."],
+["Extensibility","Approval steps","Human in the loop.","WAIT_FOR_SIGNAL holds each message until a signal arrives.","Ordered and audited like any command.","The wait is in memory."],
+["Security","Safe-by-default reads","Limit what a workflow can reach.","Allow-listed env and system variables, restricted script surface, optional command allow-list.","Secrets by name stay blocked.","Command allow-list is opt-in."],
+["Security","Roles and actors","Know who did what.","REST roles VIEWER / OPERATOR / ADMIN; actor key in the audit.","Attribution of control actions.","MCP has one key; no tenant scoping."]
+],
+pit:[
+["Cycles and malformed graphs","Reject at definition time"],["Join after a branch never fires","Trigger rules"],["Fan-out to a slow child","Credit-based flow control"],["Late subscriber misses data","Start source when consumers are ready"],["Timeouts count queue and pause","Separate clocks"],["Long work looks dead","Heartbeats"],["Transient failure fails the run","Retry with backoff"],["Retries duplicate side effects","Idempotency keys"],["Fail-fast vs partial results","Error handlers"],["Crash loses state","Event history and checkpoints"],["Re-running part of a graph","Clear downstream"],["Definition changes under a run","Versioning"],["Unbounded concurrency","Limits and pools"],["Cancellation does not reach work","Cooperative then forced"],["Commands race","Serialised signals"],["Cannot see why it is slow","Metrics and traces"],["Poison message","Dead-letter ports"],["UI shows finished run with running nodes","One ordered history"],["Large payloads in buffers","Claim check"],["Starvation and priority","Priority queues"]],
+dprofiles:[["mem","In-memory (default)"],["file","File (directories set)"],["pg","PostgreSQL + checkpoint dir"]],
+dur:[
+["Workflow definitions and versions",["lost","Gone on restart"],["ok","Kept, newest 20 versions, atomic writes"],["ok","Kept, newest 20 versions"]],
+["Session config",["lost","Gone"],["ok","Kept"],["ok","Kept"]],
+["Run history and audit",["lost","Gone; nothing to mark ABORTED"],["part","Kept in JSONL; last events can be lost on power loss (no fsync)"],["ok","Kept; trimmed to newest runs"]],
+["Runs in flight at the crash",["lost","Vanish"],["ok","Marked ABORTED on boot"],["ok","Marked ABORTED on boot"]],
+["Idempotency keys",["lost","Gone"],["ok","Reloaded from the log"],["ok","Ride the log"]],
+["Node outputs (checkpoints)",["lost","Memory only, capped"],["ok","On disk if restart dir is set; no caps"],["part","Still files or memory, not PostgreSQL"]],
+["Resume an aborted run",["lost","Not possible"],["ok","Needs log dir and restart dir"],["part","Log in PostgreSQL, outputs on files"]],
+["Queued starts and slots",["lost","Lost"],["lost","Lost"],["lost","Lost"]],
+["Signal waits (approvals)",["lost","Lost"],["lost","Lost; a resumed run waits again"],["lost","Lost; a resumed run waits again"]],
+["Session memory (chat history)",["lost","Gone"],["ok","Durable with its own directory"],["part","Not in PostgreSQL yet"]],
+["Limits changed at run time",["lost","Reset"],["lost","Logged, not restored"],["lost","Logged, not restored"]],
+["Live progress and metrics",["part","Rebuilt; newest 500 runs from log"],["part","Newest 500 runs restored"],["part","Newest 500 runs restored"]]],
+sem:[["Delivery","At-least-once. A side effect between plugin action and end marker can repeat after a crash; retries repeat per message. Plugins de-duplicate on the stable message id."],["Command order","FIFO per run, acknowledged, audited; commands for different runs are independent."],["Status order","Node status only moves forward; a late event cannot reopen an ended node."],["Output atomicity","With retry or onError, a message yields all of its output or none."],["Start","Exactly one execution id per slot; same Idempotency-Key returns the first id."],["Resume","Once per run, only with an unchanged definition."]],
+clocks:[["Queue wait",0,18,"b","Until a slot is granted. Optional timeout ends the run TIMED_OUT."],["Run deadline",18,82,"","Whole run, pause-aware."],["Node deadline",30,50,"b","From first activity; not restarted by output; pause-aware."],["Node idle",30,26,"c","Restarts on every input, output, attempt, heartbeat."],["Element timeout",40,14,"c","Per message attempt; retry and onError apply."]],
+quality:[
+{n:"Scalability",pos:"Vertical on one JVM. Streams are efficient, but every run's state, the scheduler and the tracker share the process. Horizontal scale-out is designed (remote workers) but not built.",ceil:["All admission, ordering and run state in one process","Unbounded tracker state queue; per-session state never evicted","Fan-out paced by the slowest child","Checkpoint memory bound = retained runs x nodes x bytes-per-node"],have:["Global, per-workflow and per-session limits and fair queue","Byte and message caps on checkpoints","Virtual threads for blocking plugins"],need:["Remote workers (F11 phases 1-5)","Eviction policy for finished sessions","Shared control state (phase 6)"]},
+{n:"Performance",pos:"Low per-message overhead: one volatile write per activity touch, one periodic idle check per node, batched tracker consumer.",ceil:["Per-message retry or ROUTE buffers a message's output","Large payloads copy through memory and checkpoints","Single writer thread for the log","Compile cost grows with graph size (cap 500 nodes)"],have:["Back-pressure instead of queues","Prepared-workflow cache and shared prepare","Batching in tracker and log"],need:["Claim-check for large payloads","Defer blocking archive on the start path","Performance budget per node type"]},
+{n:"Availability",pos:"A crash is recoverable, not invisible: runs are ABORTED and resumable only with file stores. There is no standby.",ceil:["Control state in memory is a single point of failure","Checkpoints not in PostgreSQL","Signal waits and queued starts are lost","Log events not fsynced"],have:["Durable node end marker","Boot recovery and one-shot resume","Idempotent start surviving restarts"],need:["Checkpoint store in PostgreSQL","Active/standby with a database lease (phase 6)","Durable signal waits"]},
+{n:"Security",pos:"Controls exist at the edges (roles, allow-lists, reviewers) but several are opt-in.",ceil:["Command allow-list is opt-in","MCP has a single key; no tenant scoping","Plugins run in the engine JVM","Path-traversal bug in a log reader that is not wired yet"],have:["REST roles and actors in the audit","Allow-listed env, script and process surface","Reviewers on every command path"],need:["Deny-by-default process execution","Per-tenant scoping and key rotation","Worker mTLS and plugin allow-lists (remote design)"]},
+{n:"Operability",pos:"Good visibility, thin lifecycle tooling.",ceil:["Limits changes are not restored","No UI for pending approvals or version history","Session state never evicted"],have:["Meters for every governance decision","Run and node spans","SSE feed and supervisors"],need:["Health and pool metrics for PostgreSQL","Run history search","Parent/child links in history"]},
+{n:"Evolvability",pos:"Sealed command types and a plugin API keep the surface small, but adding a command type is an API change.",ceil:["Sealed ExecutionControlCommand in plugin-api","Large tracker class","Validator and assembler disagree on what a terminal is"],have:["Records and small processors per command","Property-based tests on status order","Coverage and static-analysis gates"],need:["Extension point for new command types","Split tracker projections"]}],
+what:{
+ runs:["Concurrent runs",1,500,10],nodes:["Nodes per run",2,500,20],kb:["Payload per message (KiB)",1,8192,16]},
+risks:[
+{id:"spof",t:"Control state lives in one process",a:"Availability",i:5,e:5,c:["entry","engine","obs","control"],why:"Tracker, scheduler slots, queued starts and signal waits vanish with the JVM. Durable files let you resume, not stay up.",o:"Active/standby with a PostgreSQL lease and a checkpoint store in PostgreSQL (F11 phase 6); or accept downtime and document the recovery time.",q:"What outage duration can your users tolerate, and is resume-after-restart enough for that?",ph:"p6"},
+{id:"cpstore",t:"Checkpoints are not in PostgreSQL",a:"Availability",i:4,e:4,c:["dur","persist"],why:"Resume needs a local directory even when the rest is in PostgreSQL, which blocks stateless deployment and standby.",o:"Move the store behind the same interface; decide large payloads (claim check or TOAST); the store has blocking completeness checks to rework.",q:"Is a pod restart on another node a supported scenario?",ph:"f10"},
+{id:"remote",t:"No scale-out of node execution",a:"Scalability",i:5,e:5,c:["engine","plugin"],why:"CPU and IO heavy plugins compete with the control plane in one JVM.",o:"Remote workers (design written): control plane keeps the DAG and policies, workers run processor nodes over a bidirectional stream.",q:"Transport, packaging, secrets, first plugins and payload limit are still undecided. Which has the highest cost to reverse?",ph:"p2"},
+{id:"exactlyOnce22",t:"Exactly-once is impossible",a:"Reliability",i:4,e:5,c:["dur","plugin"],why:"A side effect between the plugin acting and the end marker can repeat; remote workers widen the window.",o:"Keep at-least-once, publish idempotency patterns, add result caching keyed by message id (F12).",q:"Which of your plugins can safely run twice, and which cannot?",ph:""},
+{id:"payload23",t:"Large payloads are carried through the engine",a:"Performance",i:4,e:4,c:["engine","dur"],why:"Every message is in memory and in checkpoints; over the cap a restart is refused. Remote workers make the control plane a data hop.",o:"Claim-check references to an object store or large objects; a frame size limit.",q:"What is the largest message you expect in a year?",ph:"f10"},
+{id:"failfast",t:"A dead branch stalls its siblings (B16)",a:"Reliability",i:3,e:3,c:["engine"],why:"If a subtree stops reading, back-pressure stops siblings and the run fails only at the idle timeout.",o:"On a downstream cancel-with-error, propagate failure to the run immediately.",q:"Should one failed terminal always fail the whole run?",ph:""},
+{id:"backpressure25",t:"Slowest child paces every fan-out",a:"Performance",i:3,e:3,c:["engine"],why:"By design: safe, but a slow audit sink can throttle the main path.",o:"A per-edge buffer or drop policy for non-critical branches, chosen explicitly.",q:"Which consumers are allowed to fall behind?",ph:""},
+{id:"evict21",t:"Finished sessions are never evicted (B21)",a:"Scalability",i:3,e:2,c:["obs"],why:"Memory grows with the number of sessions; evicting would drop history the UI shows.",o:"Max-sessions or TTL with history served from the log.",q:"What is the retention promise for run history?",ph:""},
+{id:"trackerQ26",t:"State event queue is unbounded",a:"Scalability",i:3,e:2,c:["obs"],why:"State events are never dropped, so an event storm becomes memory growth rather than data loss.",o:"Alert on queue depth; consider coalescing progress events.",q:"Would you rather lose events or run out of memory?",ph:""},
+{id:"trackerSize27",t:"Tracker is large; run status has no forward-only guard (B27)",a:"Evolvability",i:2,e:2,c:["obs"],why:"Node status is guarded, run status is not; the class is about 1000 lines.",o:"Extract history and cleanup projections; add the same guard to run status.",q:"",ph:""},
+{id:"supLoop",t:"Supervisors can loop on their own effects (B25)",a:"Reliability",i:2,e:2,c:["super"],why:"Pause causes a PAUSED event the supervisor sees again; capped only by the rate limit.",o:"Tag events caused by a command with its actor and let the host filter them.",q:"",ph:""},
+{id:"blockStart",t:"Blocking file work on the start path (B19)",a:"Performance",i:2,e:1,c:["entry"],why:"Archive cleanup clears checkpoint files before the run's scheduler hop.",o:"Defer the whole execute call.",q:"",ph:""},
+{id:"prepAlign",t:"Validator and assembler disagree in corners (B26)",a:"Correctness",i:2,e:2,c:["def"],why:"What counts as a terminal differs; a failed checkpoint save fails a node while a failed end marker does not.",o:"Align the checks; no caller triggers it today.",q:"",ph:""},
+{id:"restartRace",t:"Restart has the start-time slot race (R1)",a:"Correctness",i:3,e:2,c:["entry","control"],why:"Check-then-acquire on restart can exceed a limit by one.",o:"Reserve the slot before returning the new id, as starts do.",q:"",ph:""},
+{id:"reviewBypass",t:"Limit/priority commands skip reviewers and audit (B4)",a:"Security",i:3,e:3,c:["control","entry"],why:"Some commands do not pass the reviewer chain; one node command is keyed by workflow, not run.",o:"New sealed command types in the plugin API with processors.",q:"Is the reviewer chain a security boundary or a convenience?",ph:""},
+{id:"limits28",t:"Runtime limit changes are not restored",a:"Operability",i:2,e:1,c:["entry"],why:"After a restart the limits revert to configuration.",o:"Reload the latest limit change from the log, or treat configuration as the source of truth and say so.",q:"",ph:""},
+{id:"logPath",t:"Path traversal in a log reader (S3)",a:"Security",i:3,e:1,c:["plugin"],why:"Execution id is not validated; the reader is not wired yet.",o:"Fix before wiring.",q:"",ph:""},
+{id:"procDefault",t:"Command allow-list is opt-in (S4)",a:"Security",i:4,e:2,c:["plugin"],why:"With the list unset any executable can run from a workflow.",o:"Deny by default in the next major release; keep a migration switch.",q:"Who can author workflows today, and are they trusted?",ph:""},
+{id:"rbac15",t:"Roles stop at REST (F3)",a:"Security",i:4,e:3,c:["control","super"],why:"MCP has one key; no tenant scoping or key rotation; no who-did-what view.",o:"Roles for MCP, hashed rotating keys, per-session scoping, audit view in the UI.",q:"Is this multi-tenant, and if so where is the isolation boundary?",ph:""},
+{id:"signals14",t:"Approval waits are in memory (F2)",a:"Reliability",i:3,e:3,c:["plugin","dur"],why:"A resumed run waits again; a signal before the wait is refused; no UI for pending approvals.",o:"Durable waits in the checkpoint store, queued signals, an approvals page.",q:"How long do your approvals take, hours or days?",ph:""},
+{id:"llmBudget",t:"Budgets stop at one plugin (F4)",a:"Governance",i:3,e:3,c:["plugin"],why:"No per-provider rate limit, no budget across MCP calls, no hard stop of the run.",o:"A shared budget service keyed by run and provider.",q:"",ph:""},
+{id:"toolGuard",t:"Tool and prompt guards are thin (F5)",a:"Security",i:3,e:3,c:["plugin"],why:"Allow-lists exist per node; no gateway-level allowlist, argument rules or prompt-injection filters.",o:"Gateway-level policy plus input/output filters.",q:"",ph:""},
+{id:"subDeadlock",t:"Sub-workflow slot deadlock (F6)",a:"Reliability",i:4,e:3,c:["sub","entry"],why:"Parent waits on children that wait for the parent's slot; no cascade cancel; no parent/child history.",o:"Let a child borrow its parent's slot; cascade stop; link runs in history.",q:"",ph:""},
+{id:"memStore",t:"Agent memory is partly volatile (F7)",a:"Reliability",i:3,e:3,c:["plugin"],why:"KV_STORE is memory; chat history has no TTL and loads whole files; no shared or vector memory.",o:"Database backend after F10, eviction policy.",q:"",ph:"f10"},
+{id:"agentLoop",t:"Agent loop is incomplete (F8)",a:"Functionality",i:2,e:2,c:["plugin"],why:"Tool results return as a plain user turn; tools/list is first page only; no streaming.",o:"Proper tool-role turns, pagination, an example loop workflow.",q:"",ph:""},
+{id:"versions21",t:"Version history lacks diff and pinning (F9)",a:"Functionality",i:2,e:2,c:["def"],why:"No MCP tools, no diff, no notes, no UI.",o:"Expose versions through MCP and UI; pin a run to a version.",q:"",ph:""},
+{id:"logDur24",t:"Log events are not fsynced",a:"Reliability",i:2,e:2,c:["dur"],why:"A power loss can lose the last few events (the node end marker is separate and forced).",o:"Optional fsync per batch; or document as accepted.",q:"Is losing the last second of audit acceptable?",ph:""},
+{id:"writerThread27",t:"Single writer thread for the log",a:"Performance",i:2,e:2,c:["persist"],why:"The store interface is blocking; PostgreSQL goes through one thread.",o:"Batch inserts or make the interface reactive.",q:"",ph:""},
+{id:"gaps12",t:"Capability gaps (F12)",a:"Functionality",i:2,e:4,c:["engine"],why:"Saga compensation, node result caching, A2A agent card, eval node, backfill, run search, secrets manager, auto-resume.",o:"Pull in on demand.",q:"Which one would a design partner ask for first?",ph:""}
+],
+adrs:[
+{t:"Reactor stream per edge with back-pressure",ctx:"Fan-out and slow consumers must not blow memory or reorder data.",dec:"Each edge is a Reactor stream, subscribed before the source connects; no queue between nodes.",con:"Bounded memory and simple semantics; slowest child paces the fan-out; stalls propagate.",rev:"a non-critical branch must not slow the main path, or streams must cross machines."},
+{t:"Single JVM with in-memory control state",ctx:"Fast to build, easy to reason about ordering.",dec:"Scheduler, tracker, valves and command queues are memory structures; durability is added behind interfaces.",con:"Low latency and simple code; crash loses live state; no standby.",rev:"availability needs exceed restart plus resume."},
+{t:"At-least-once with idempotent plugins",ctx:"Exactly-once across plugin side effects cannot be guaranteed.",dec:"Retries and resumes may repeat work; message id is stable and an attempt header is supplied.",con:"Honest guarantee; plugin authors carry the burden.",rev:"a node type needs transactions with its target."},
+{t:"Durable node end marker, not log fsync",ctx:"A resume must not trust events that were queued but never forced.",dec:"The end marker is written and forced together with the output before completion moves downstream.",con:"Resume skips only truly finished nodes; small window remains before the marker.",rev:"checkpoints move to a database with its own commit semantics."},
+{t:"Forward-only node status",ctx:"Events arrive late and out of order.",dec:"Status only moves PENDING < QUEUED < RUNNING < an end state; metadata is still merged.",con:"UIs never show a finished run with running nodes; some late information is ignored.",rev:"re-opening a node becomes a feature (e.g. retry shown as the same node)."},
+{t:"Supervisors and reviewers on one control bus",ctx:"Humans, rules and AI should steer runs through the same safe path.",dec:"Every command is ordered, reviewable and audited; supervisors are isolated and rate limited.",con:"One enforcement point; commands that bypass it are bugs.",rev:"commands need per-tenant policy outside the JVM."},
+{t:"PostgreSQL through R2DBC, schema by Flyway",ctx:"The engine is reactive; schema needs to be versioned.",dec:"R2DBC at run time, Flyway over JDBC for migrations, one module, selected by property.",con:"Non-blocking access; two connection styles to configure; native-image metadata needed.",rev:"a second database or sharding is needed."},
+{t:"Remote workers as node invocation (proposed)",ctx:"Scale-out is needed without moving the DAG.",dec:"The control plane keeps graph and policy and calls workers per node attempt over a bidirectional stream; workers connect out.",con:"All policies carry over; control plane remains a data hop and a single point of failure until phase 6.",rev:"payloads grow beyond the frame limit, or latency to workers matters."}],
+evo:[
+ {id:"now",n:"Today",d:"One JVM. Files or PostgreSQL for definitions, sessions and log. Resume with file checkpoints.",r:[]},
+ {id:"f10",n:"Finish PostgreSQL (F10)",d:"Checkpoint store in PostgreSQL, claim-check for large payloads, CI job, native metadata.",r:["cpstore","payload23","memStore"]},
+ {id:"p1",n:"Workers phase 1-2",d:"Registry, agent, mTLS, remote processor over a stream, happy path with cancel and heartbeat.",r:[]},
+ {id:"p2",n:"Placement and failure",d:"Pools, free-slot choice, local-only plugins, lost-worker retry, chaos tests.",r:["remote"]},
+ {id:"p5",n:"Operations",d:"Worker UI, slot accounting, native image for workers.",r:[]},
+ {id:"p6",n:"Control plane HA",d:"Active/standby with a database lease, workers reconnect, in-flight runs resume from checkpoints.",r:["spof"]}],
+prompts:[
+ ["Failure","One terminal in a branch fails. How long until the run notices, and who pays for the wait?","engine","failfast"],
+ ["Scale","Your largest customer starts 5,000 runs in a minute with no limits set. What happens first, and what is the first graph you look at?","entry","spof"],
+ ["Durability","You pull the power. Which approvals, queued starts and limit changes are gone, and do users find out?","dur","signals14"],
+ ["Security","A workflow author is not trusted. Which three plugins must be unavailable to them?","plugin","procDefault"],
+ ["Evolution","The remote-workers design needs one decision reversed in a year. Which, and what does it cost?","engine","remote"],
+ ["Performance","A message becomes 50 MiB. Which components copy it, how many times?","dur","payload23"],
+ ["Control","An AI supervisor pauses a run you are debugging. How do you tell, and how do you stop it?","control","supLoop"],
+ ["Data","A run was resumed after the definition was edited. Why is that refused, and is it the right call?","def","exactlyOnce22"],
+ ["Operability","Which three signals would page you at 3 a.m. today? Which are missing?","obs","trackerQ26"],
+ ["Product","If sub-workflows power agents that plan their own DAGs, which limit breaks first?","sub","subDeadlock"]]
+};
 (function(){
 "use strict";
-var D=DATA,store={get:function(k){try{return JSON.parse(localStorage.getItem(k))}catch(e){return null}},
-  set:function(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+var D=DATA,$=function(s,r){return (r||document).querySelector(s)},$$=function(s,r){return [].slice.call((r||document).querySelectorAll(s))};
+var store={get:function(k){try{return JSON.parse(localStorage.getItem(k))}catch(e){return null}},set:function(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
 var root=document.documentElement,saved=store.get("yk-theme");if(saved)root.setAttribute("data-theme",saved);
-document.getElementById("themeBtn").onclick=function(){
-  var dark=root.getAttribute("data-theme")==="dark"||(!root.getAttribute("data-theme")&&matchMedia("(prefers-color-scheme: dark)").matches);
-  var n=dark?"light":"dark";root.setAttribute("data-theme",n);store.set("yk-theme",n)};
-function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
-var F=D.findings,KEY="yk-"+D.module+"-done",done=store.get(KEY)||{};
-function isDone(f){return f.st==="fixed"||!!done[f.id]}
-function byId(id){for(var i=0;i<F.length;i++)if(F[i].id===id)return F[i]}
-function pillFor(id){var f=byId(id);return f?'<a href="#f-'+id+'" class="pill '+f.sev+'" data-jump="'+id+'" title="'+esc(f.t)+'">'+id+'</a>':""}
+$("#themeBtn").onclick=function(){var dark=root.getAttribute("data-theme")==="dark"||(!root.getAttribute("data-theme")&&matchMedia("(prefers-color-scheme: dark)").matches);var n=dark?"light":"dark";root.setAttribute("data-theme",n);store.set("yk-theme",n)};
+var C={},R={};D.comps.forEach(function(c){C[c.id]=c});D.risks.forEach(function(r){R[r.id]=r});
+function compChip(id){return C[id]?'<a class="chip comp" data-comp="'+id+'" tabindex="0" role="button">'+esc(C[id].name)+'</a>':""}
+function riskChip(id){return R[id]?'<a class="chip" data-risk="'+id+'" tabindex="0" role="button" title="'+esc(R[id].t)+'">'+esc(R[id].t)+'</a>':""}
 
-document.getElementById("brand").textContent="Yukta · "+D.module;
-document.getElementById("sub").textContent="Module guide & review · "+D.date;
-var secs=[["overview","Overview"]];
-if(D.steps&&D.steps.length)secs.push(["flow",D.flowTitle||"How it works"]);
-if(D.pkgs&&D.pkgs.length)secs.push(["packages",D.pkgTitle||"Package explorer"]);
-(D.sections||[]).forEach(function(s){secs.push([s.id,s.title])});
-secs.push(["findings","Improvement board"],["roadmap","Roadmap"]);
-document.getElementById("navLinks").innerHTML=secs.map(function(s){return '<a href="#'+s[0]+'">'+esc(s[1])+'</a>'}).join("");
+var secs=[["glance","At a glance"],["map","Map & walkthroughs"],["caps","Capabilities"],["guarantees","Guarantees"],["quality","Quality lenses"],["board","Risks & ideas"],["adrs","Decisions"],["evolution","Evolution path"],["prompts","Think about"]];
+$("#navLinks").innerHTML=secs.map(function(s){return '<a href="#'+s[0]+'">'+s[1]+'</a>'}).join("");
 
-var h='<section id="overview"><h1>'+esc(D.title)+'</h1><p class="lede">'+D.lede+'</p><div class="grid g4">'+
-  D.stats.map(function(s){return '<div class="card stat"><div class="n">'+esc(s[0])+'</div><div class="l">'+esc(s[1])+'</div></div>'}).join("")+
-  '<div class="card stat"><div class="n" id="statFindings">–</div><div class="l">open findings</div></div></div>'+
-  (D.overviewHtml||"")+
-  (D.score?'<h3>Scorecard</h3><div class="card tablewrap"><table class="score"><tr><th>Area</th><th>Score</th><th>Notes</th></tr>'+D.score.map(function(r){return '<tr><td>'+esc(r[0])+'</td><td>'+esc(r[1])+'</td><td>'+r[2]+'</td></tr>'}).join("")+'</table></div>':"")+'</section>';
-if(D.steps&&D.steps.length)h+='<section id="flow"><h2>'+esc(D.flowTitle||"How it works")+'</h2><p class="lede">'+(D.flowLede||"Click a stage or step through with the buttons. Each stage names the classes involved and the review findings that touch it.")+'</p><div class="card"><svg class="pipe" id="pipe" role="img" aria-label="Flow diagram"><g id="pipeBoxes"></g></svg><div class="steps" id="stepBtns" role="tablist"></div><div class="stepbody" id="stepBody" aria-live="polite"></div></div></section>';
-if(D.pkgs&&D.pkgs.length)h+='<section id="packages"><h2>'+esc(D.pkgTitle||"Package explorer")+'</h2><p class="lede">Bar width is lines of code. Select an entry to see what it owns and which findings apply to it.</p><div class="pkgs"><div class="card pkglist" id="pkgList" style="padding:8px"></div><div class="card" id="pkgDetail"></div></div></section>';
-(D.sections||[]).forEach(function(s){h+='<section id="'+s.id+'"><h2>'+esc(s.title)+'</h2>'+(s.lede?'<p class="lede">'+s.lede+'</p>':"")+s.html+'</section>'});
-h+='<section id="findings"><h2>Improvement board</h2><p class="lede">Every review finding with the fix that closed it. Resolved items are hidden by default; open items can be ticked off (saved in this browser only).</p>'+
- '<div class="progress"><span id="progTxt"></span><div class="bar"><i id="progBar" style="width:0"></i></div><button type="button" id="resetBtn">Reset ticks</button></div>'+
- '<div class="filters" id="sevFilters"><span class="lbl">Severity</span></div><div class="filters" id="areaFilters"><span class="lbl">Area</span></div>'+
- '<div class="filters"><input type="search" id="q" placeholder="Search class, keyword…" aria-label="Search findings"><button type="button" id="hideDone" aria-pressed="true">Hide resolved</button><button type="button" id="expandAll">Expand all</button></div><div id="findingList"></div></section>'+
- '<section id="roadmap"><h2>Roadmap</h2><div class="card tablewrap"><table id="roadTable"><thead><tr><th>Phase</th><th>Items</th><th>Outcome</th><th>Done</th></tr></thead><tbody></tbody></table></div></section>';
-document.getElementById("main").innerHTML=h;
+var h="";
+/* glance */
+h+='<section id="glance"><h1>How Yukta core works, and where it can break</h1><p class="lede">'+D.glance.lede+'</p><div class="grid g4">'+D.glance.props.map(function(p){return '<div class="card"><h3>'+p[0]+'</h3><p class="refs" style="margin:0">'+p[1]+'</p></div>'}).join("")+'</div><h3>Where to start</h3><div class="grid g3 start">'+D.glance.start.map(function(s){return '<a class="card" href="#'+s[0]+'"><b>'+s[1]+'</b><span class="refs">'+s[2]+'</span></a>'}).join("")+'</div></section>';
+/* map */
+h+='<section id="map"><h2>System map</h2><p class="lede">Ten components, solid lines carry data, dashed lines carry commands and events. Click a component to see how it works, what it guarantees and where it is weak, or replay a scenario to watch a run move through the system.</p><div class="bar" id="modeBar"></div><div class="bar"><button type="button" id="memBtn" aria-pressed="false">Highlight in-memory state</button><span class="refs">Dashed amber = state lost on a crash (single point of failure view)</span></div><div class="mapwrap"><div class="card"><svg class="map" id="map-svg" viewBox="0 -10 990 380" role="group" aria-label="Component map"></svg><div class="bar" id="compChips" style="margin-top:8px"></div></div><div class="card panel" id="panel" aria-live="polite"></div></div></section>';
+/* caps */
+h+='<section id="caps"><h2>Capabilities</h2><p class="lede">What the engine does for you, how, what it guarantees and where the guarantee stops.</p><div class="bar" id="capFilters"><span class="lbl">Group</span></div><div class="grid g3" id="capGrid"></div><details class="fold"><summary>20 classic DAG pitfalls this design addresses (vs Airflow, Temporal, Flink, Argo)</summary><div class="in tablewrap"><table><tr><th>#</th><th>Pitfall</th><th>Established answer</th><th>Yukta</th></tr>'+D.pit.map(function(p,i){return '<tr><td>'+(i+1)+'</td><td>'+p[0]+'</td><td>'+p[1]+'</td><td><span class="pill okp">covered</span></td></tr>'}).join("")+'</table></div></details></section>';
+/* guarantees */
+h+='<section id="guarantees"><h2>Guarantees and durability</h2><p class="lede">Pick a deployment profile and see what is still there after the process dies.</p><div class="bar" id="profBar"><span class="lbl">Profile</span></div><div class="card tablewrap"><table id="durTable"></table></div><div class="grid g2" style="margin-top:12px"><div class="card"><h3>Semantics</h3><table>'+D.sem.map(function(s){return '<tr><td><b>'+s[0]+'</b></td><td>'+s[1]+'</td></tr>'}).join("")+'</table></div><div class="card"><h3>The five clocks</h3><p class="refs">Indicative layout of one run. Bars show when each clock is counting.</p><div class="clock">'+D.clocks.map(function(c){return '<div>'+c[0]+'</div><div class="track"><i class="'+c[3]+'" style="left:'+c[1]+'%;width:'+c[2]+'%"></i></div><div class="note">'+c[4]+'</div>'}).join("")+'</div></div></div></section>';
+/* quality */
+h+='<section id="quality"><h2>Quality lenses</h2><p class="lede">Look at the system through one attribute at a time: where it stands, where it saturates, what you can turn today, and what needs design work.</p><div class="tabs" id="qTabs" role="tablist"></div><div id="qBody"></div><div class="card" style="margin-top:12px"><h3>Load what-if (indicative, not measured)</h3><div id="whatif"></div><div id="whatOut"></div></div></section>';
+/* board */
+h+='<section id="board"><h2>Risks and improvement ideas</h2><p class="lede">Everything still open, in impact and effort terms. Set a status, jot a note (kept in this browser only) and copy your notes as Markdown to share.</p><div class="bar"><span class="lbl">View</span><button type="button" id="vList" aria-pressed="true">List</button><button type="button" id="vGrid" aria-pressed="false">Impact x effort</button><button type="button" id="copyBtn">Copy my notes</button><span class="refs" id="copyMsg"></span></div><div class="bar" id="attrFilters"><span class="lbl">Attribute</span></div><div class="bar"><span class="lbl">Status</span><select id="statFilter" aria-label="Filter by status"><option value="">All</option><option>Idea</option><option>Investigating</option><option>Planned</option><option value="none">Unset</option></select><input type="search" id="rq" placeholder="Search risks" aria-label="Search risks"></div><div id="boardBody"></div><textarea id="copyArea" hidden readonly aria-label="Notes as Markdown"></textarea></section>';
+/* adrs */
+h+='<section id="adrs"><h2>Decision records</h2><p class="lede">The load-bearing decisions, reconstructed from the code and plans. Each says when to revisit it.</p><div class="grid g2">'+D.adrs.map(function(a,i){return '<div class="card adr"><h3>ADR-'+(i+1)+' · '+a.t+'</h3><dl><dt>Context</dt><dd>'+a.ctx+'</dd><dt>Decision</dt><dd>'+a.dec+'</dd><dt>Consequences</dt><dd>'+a.con+'</dd><dt>Revisit when</dt><dd><b>'+a.rev+'</b></dd></dl></div>'}).join("")+'</div></section>';
+/* evolution */
+h+='<section id="evolution"><h2>Evolution path</h2><p class="lede">From today to a scaled-out, highly available control plane, and which risks each step retires.</p><div class="evo">'+D.evo.map(function(e){return '<div class="card'+(e.id==="now"?" now":"")+'"><h3>'+e.n+'</h3><p class="refs">'+e.d+'</p>'+(e.r.length?'<h4>Retires</h4>'+e.r.map(riskChip).join(""):"")+'</div>'}).join("")+'</div></section>';
+/* prompts */
+h+='<section id="prompts"><h2>Questions to think about</h2><p class="lede">Open questions without a right answer, each tied to a component and a risk.</p><div class="card deck" id="deck"></div></section>';
+$("#main").innerHTML=h;
 
-/* flow */
-if(D.steps&&D.steps.length){
-  var NS="http://www.w3.org/2000/svg",g=document.getElementById("pipeBoxes"),S=D.steps,n=S.length,W=112,gap=Math.max(12,Math.floor((980-n*W)/Math.max(1,n-1)));
-  var total=n*W+(n-1)*gap;document.getElementById("pipe").setAttribute("viewBox","0 30 "+Math.max(total,300)+" 130");
-  S.forEach(function(s,i){var x=i*(W+gap),y=i%2?100:40,grp=document.createElementNS(NS,"g");
-    grp.setAttribute("class","box");grp.setAttribute("data-i",i);grp.setAttribute("tabindex","0");grp.setAttribute("role","button");grp.setAttribute("aria-label",s.k);
-    grp.innerHTML='<rect x="'+x+'" y="'+y+'" width="'+W+'" height="50" rx="8"/><text x="'+(x+W/2)+'" y="'+(y+22)+'" text-anchor="middle">'+esc(s.k)+'</text><text class="s" x="'+(x+W/2)+'" y="'+(y+39)+'" text-anchor="middle">step '+(i+1)+'</text>';
-    g.appendChild(grp);
-    if(i<n-1){var nx=(i+1)*(W+gap),ny=(i+1)%2?100:40,p=document.createElementNS(NS,"path");p.setAttribute("class","arrow");
-      p.setAttribute("d","M"+(x+W)+","+(y+25)+" C"+(x+W+gap/2)+","+(y+25)+" "+(nx-gap/2)+","+(ny+25)+" "+nx+","+(ny+25));g.insertBefore(p,g.firstChild)}
-    grp.addEventListener("click",function(){showStep(i)});
-    grp.addEventListener("keydown",function(e){if(e.key==="Enter"||e.key===" "){e.preventDefault();showStep(i)}})});
-  var sb=document.getElementById("stepBtns");
-  S.forEach(function(s,i){var b=document.createElement("button");b.type="button";b.textContent=(i+1)+". "+s.k;b.setAttribute("role","tab");b.onclick=function(){showStep(i)};sb.appendChild(b)});
-  var showStep=function(i){var s=S[i];
-    [].forEach.call(g.querySelectorAll(".box"),function(el){el.classList.toggle("on",+el.getAttribute("data-i")===i)});
-    [].forEach.call(sb.children,function(b,j){b.setAttribute("aria-pressed",j===i?"true":"false");b.setAttribute("aria-selected",j===i?"true":"false")});
-    var r=(s.f||[]).map(byId).filter(Boolean),p0=r.some(function(f){return f.sev==="P0"});
-    document.getElementById("stepBody").innerHTML='<h3>'+(i+1)+'. '+esc(s.k)+'</h3><div class="refs mono">'+esc(s.cls||"")+'</div><p>'+s.d+'</p>'+
-      (r.length?'<div class="flag'+(p0?" p0":"")+'"><b>Findings here:</b> '+r.map(function(f){return pillFor(f.id)+" "+esc(f.t)}).join(" · ")+'</div>':"")};
-  showStep(0);
+/* ---- map ---- */
+var NS="http://www.w3.org/2000/svg",svg=$("#map-svg"),W=184,H=76,pos=function(c){return{x:20+c.c*250,y:20+c.r*130}};
+var mode="explore",sel="entry",step=0,active=[];
+function ctr(id){var p=pos(C[id]);return[p.x+W/2,p.y+H/2]}
+var sv="";
+D.edges.forEach(function(e,i){var a=ctr(e[0]),b=ctr(e[1]),via=e[4]||[(a[0]+b[0])/2,(a[1]+b[1])/2],mx=0.25*a[0]+0.5*via[0]+0.25*b[0],my=0.25*a[1]+0.5*via[1]+0.25*b[1];
+ sv+='<path class="edge '+e[2]+'" data-e="'+e[0]+'>'+e[1]+'" d="M'+a[0]+','+a[1]+' Q'+via[0]+','+via[1]+' '+b[0]+','+b[1]+'"/>'+'<text class="el" x="'+mx+'" y="'+(my-4)+'" text-anchor="middle">'+e[3]+'</text>'});
+D.comps.forEach(function(c){var p=pos(c);sv+='<g class="box'+(c.mem?" mem":"")+'" data-c="'+c.id+'" tabindex="0" role="button" aria-label="'+esc(c.name)+'"><rect x="'+p.x+'" y="'+p.y+'" width="'+W+'" height="'+H+'" rx="10"/><text class="n" x="'+(p.x+W/2)+'" y="'+(p.y+33)+'" text-anchor="middle">'+esc(c.name)+'</text><text class="s" x="'+(p.x+W/2)+'" y="'+(p.y+53)+'" text-anchor="middle">'+esc(c.tag)+'</text><text class="ram" x="'+(p.x+W-8)+'" y="'+(p.y+15)+'" text-anchor="end">RAM</text></g>'});
+sv+='<text class="leg" x="20" y="340">Solid = data path · Dashed = control and event path</text>';
+svg.innerHTML=sv;
+$("#compChips").innerHTML=D.comps.map(function(c){return '<button type="button" data-cb="'+c.id+'">'+esc(c.name)+'</button>'}).join("");
+$("#modeBar").innerHTML='<span class="lbl">Mode</span><button type="button" data-m="explore">Explore components</button>'+D.scen.map(function(s){return '<button type="button" data-m="'+s.id+'">'+esc(s.name)+'</button>'}).join("");
+$("#memBtn").onclick=function(){var on=$("#memBtn").getAttribute("aria-pressed")!=="true";$("#memBtn").setAttribute("aria-pressed",on);svg.classList.toggle("showmem",on)};
+function scenOf(id){for(var i=0;i<D.scen.length;i++)if(D.scen[i].id===id)return D.scen[i]}
+function dl(c){var o=[["Guarantees",c.guar],["State",c.state],["Ceiling",c.ceil],["On failure",c.fail]];return '<dl>'+o.map(function(x){return '<dt>'+x[0]+'</dt><dd>'+x[1]+'</dd>'}).join("")+'<dt>Settings</dt><dd>'+c.set.map(function(s){return '<code>'+s+'</code>'}).join("<br>")+'</dd></dl>'}
+function paint(){
+ $$("#modeBar button").forEach(function(b){b.setAttribute("aria-pressed",b.getAttribute("data-m")===mode?"true":"false")});
+ $$(".box",svg).forEach(function(g){var id=g.getAttribute("data-c");g.classList.toggle("on",mode==="explore"&&id===sel);g.classList.toggle("act",mode!=="explore"&&active.indexOf(id)>=0)});
+ $$(".edge",svg).forEach(function(p){var e=p.getAttribute("data-e").split(">");p.classList.toggle("act",mode!=="explore"&&active.indexOf(e[0])>=0&&active.indexOf(e[1])>=0)});
+ $$("#compChips button").forEach(function(b){b.classList.toggle("sel",mode==="explore"&&b.getAttribute("data-cb")===sel)});
+ var el=$("#panel");
+ if(mode==="explore"){var c=C[sel];el.innerHTML='<h3>'+esc(c.name)+'</h3><p class="refs">'+esc(c.tag)+'</p><p>'+c.resp+'</p><div class="cols"><div><h4>How it works</h4><ul>'+c.how.map(function(x){return '<li>'+x+'</li>'}).join("")+'</ul></div><div>'+dl(c)+'<h4>Risks here</h4>'+(c.risks.map(riskChip).join("")||'<span class="refs">None recorded.</span>')+'</div></div>'}
+ else{var s=scenOf(mode),st=s.steps[step];el.innerHTML='<h3>'+esc(s.name)+' · step '+(step+1)+' of '+s.steps.length+'</h3><h4>'+esc(st.t)+'</h4><p>'+st.d+'</p><h4>Components</h4>'+st.c.map(compChip).join("")+(st.r.length?'<h4>What could go wrong</h4>'+st.r.map(riskChip).join(""):"")+'<div class="stepnav"><button type="button" id="prevS"'+(step===0?" disabled":"")+'>Back</button><div class="dots">'+s.steps.map(function(_,i){return '<i class="'+(i<=step?"d":"")+'"></i>'}).join("")+'</div><button type="button" id="nextS"'+(step===s.steps.length-1?" disabled":"")+'>Next</button></div>';
+  $("#prevS").onclick=function(){step--;active=s.steps[step].c;paint()};$("#nextS").onclick=function(){step++;active=s.steps[step].c;paint()}}
 }
-/* packages */
-if(D.pkgs&&D.pkgs.length){
-  var P=D.pkgs,maxL=Math.max.apply(null,P.map(function(p){return p[2]})),pl=document.getElementById("pkgList");
-  P.forEach(function(p,i){var b=document.createElement("button");b.type="button";var c=F.filter(function(f){return (f.pkg||[]).indexOf(p[0])>=0}).length;
-    b.innerHTML='<span style="min-width:0;flex:1"><span>'+esc(p[0])+'</span><span class="bar"><i style="width:'+(p[2]/maxL*100)+'%"></i></span></span><span style="margin-left:8px;color:var(--muted)">'+(c?c+"⚑":"")+'</span>';
-    b.onclick=function(){showPkg(i)};pl.appendChild(b)});
-  var showPkg=function(i){var p=P[i];[].forEach.call(pl.children,function(b,j){b.setAttribute("aria-pressed",j===i?"true":"false")});
-    var fs=F.filter(function(f){return (f.pkg||[]).indexOf(p[0])>=0});
-    document.getElementById("pkgDetail").innerHTML='<h3 class="mono" style="margin-top:0">'+esc(p[4]||p[0])+'</h3><p class="refs">'+p[1]+' files · '+p[2]+' lines</p><p>'+p[3]+'</p>'+
-      (fs.length?'<h3>Findings ('+fs.length+')</h3><ul style="padding-left:18px;margin:0">'+fs.map(function(f){return '<li>'+pillFor(f.id)+' '+esc(f.t)+'</li>'}).join("")+'</ul>':'<p class="refs">No findings.</p>')};
-  showPkg(0);
-}
-/* findings */
-var SEVS=["P0","P1","P2","P3"].filter(function(s){return F.some(function(f){return f.sev===s})}),AREAS=[];
-F.forEach(function(f){if(AREAS.indexOf(f.area)<0)AREAS.push(f.area)});
-var sevOn={},areaOn={},hideDone=true;SEVS.forEach(function(s){sevOn[s]=true;});AREAS.forEach(function(a){areaOn[a]=true});
-function chip(c,label,cb){var b=document.createElement("button");b.type="button";b.textContent=label;b.setAttribute("aria-pressed","true");
-  b.onclick=function(){var v=b.getAttribute("aria-pressed")!=="true";b.setAttribute("aria-pressed",v?"true":"false");cb(v);render()};c.appendChild(b)}
-SEVS.forEach(function(s){chip(document.getElementById("sevFilters"),s,function(v){sevOn[s]=v})});
-AREAS.forEach(function(a){chip(document.getElementById("areaFilters"),a,function(v){areaOn[a]=v})});
-var q=document.getElementById("q");q.oninput=render;
-var hd=document.getElementById("hideDone");hd.onclick=function(){hideDone=!hideDone;hd.setAttribute("aria-pressed",hideDone?"true":"false");render()};
-document.getElementById("expandAll").onclick=function(){var ds=document.querySelectorAll("#findingList details"),o=!(ds[0]&&ds[0].open);[].forEach.call(ds,function(d){d.open=o})};
-document.getElementById("resetBtn").onclick=function(){done={};store.set(KEY,done);render()};
-function render(){var t=q.value.trim().toLowerCase();
-  var list=F.filter(function(f){if(!sevOn[f.sev]||!areaOn[f.area])return false;if(hideDone&&isDone(f))return false;
-    if(t&&(f.id+" "+f.t+" "+f.where+" "+f.impact+" "+f.fix+" "+(f.pkg||[]).join(" ")).toLowerCase().indexOf(t)<0)return false;return true});
-  var el=document.getElementById("findingList");
-  el.innerHTML=list.length?list.map(function(f){return '<details class="finding'+(isDone(f)?" done":"")+'" id="f-'+f.id+'"><summary><span class="id">'+f.id+'</span>'+
-    '<input type="checkbox" aria-label="Mark '+f.id+' done" data-id="'+f.id+'"'+(isDone(f)?" checked":"")+(f.st==="fixed"?" disabled":"")+'><span class="t">'+esc(f.t)+'</span>'+
-    '<span class="meta"><span class="pill '+f.sev+'">'+f.sev+'</span><span class="pill P3">'+esc(f.area)+'</span><span class="pill P3">effort '+f.eff+'</span></span></summary>'+
-    '<div class="body"><dl>'+(f.st==="fixed"?'<dt>Resolved</dt><dd>'+esc(f.how)+'</dd>':'<dt>Where</dt><dd class="mono">'+esc(f.where)+'</dd><dt>Impact</dt><dd>'+esc(f.impact)+'</dd><dt>Fix</dt><dd>'+esc(f.fix)+'</dd>')+
-    ((f.pkg||[]).length?'<dt>Area</dt><dd class="mono">'+esc(f.pkg.join(", "))+'</dd>':"")+'</dl></div></details>'}).join("")
-    :'<div class="empty">No findings match these filters.</div>';
-  [].forEach.call(el.querySelectorAll("input[type=checkbox]"),function(cb){cb.onclick=function(e){e.stopPropagation()};
-    cb.onchange=function(){if(cb.checked)done[cb.dataset.id]=true;else delete done[cb.dataset.id];store.set(KEY,done);render()}});
-  var k=F.filter(isDone).length;
-  document.getElementById("progTxt").textContent=k+" / "+F.length+" done";
-  document.getElementById("progBar").style.width=(k/F.length*100)+"%";
-  document.getElementById("statFindings").textContent=F.length-k;
-  document.querySelector("#roadTable tbody").innerHTML=D.road.map(function(r){var d=r[1].filter(function(id){return isDone(byId(id))}).length;
-    return '<tr><td><b>'+esc(r[0])+'</b></td><td>'+r[1].map(pillFor).join(" ")+'</td><td>'+esc(r[2])+'</td><td class="mono">'+d+'/'+r[1].length+'</td></tr>';}).join("");}
-render();
-document.addEventListener("click",function(e){var a=e.target.closest&&e.target.closest("[data-jump]");if(!a)return;e.preventDefault();
-  var id=a.getAttribute("data-jump");SEVS.forEach(function(s){sevOn[s]=true;});AREAS.forEach(function(x){areaOn[x]=true;});hideDone=false;q.value="";
-  [].forEach.call(document.querySelectorAll("#sevFilters button,#areaFilters button"),function(b){b.setAttribute("aria-pressed","true");});
-  hd.setAttribute("aria-pressed","false");hideDone=false;render();var d=document.getElementById("f-"+id);if(d){d.open=true;d.scrollIntoView({behavior:"smooth",block:"center"});}});
-var links=document.querySelectorAll("nav.side a");
-[].forEach.call(links,function(l){l.addEventListener("click",function(e){var t=document.querySelector(l.getAttribute("href"));if(t){e.preventDefault();t.scrollIntoView({behavior:"smooth"})}})});
-if("IntersectionObserver" in window){var io=new IntersectionObserver(function(es){es.forEach(function(en){if(en.isIntersecting)
-  [].forEach.call(links,function(l){l.classList.toggle("active",l.getAttribute("href")==="#"+en.target.id)})})},{rootMargin:"-40% 0px -55% 0px"});
-  [].forEach.call(document.querySelectorAll("main section"),function(s){io.observe(s)});}
+function setMode(m){mode=m;step=0;active=m==="explore"?[]:scenOf(m).steps[0].c;paint()}
+function pick(id){sel=id;mode="explore";active=[];paint()}
+$("#modeBar").addEventListener("click",function(e){var b=e.target.closest("[data-m]");if(b)setMode(b.getAttribute("data-m"))});
+$("#compChips").addEventListener("click",function(e){var b=e.target.closest("[data-cb]");if(b)pick(b.getAttribute("data-cb"))});
+svg.addEventListener("click",function(e){var g=e.target.closest("[data-c]");if(g)pick(g.getAttribute("data-c"))});
+svg.addEventListener("keydown",function(e){var g=e.target.closest&&e.target.closest("[data-c]");if(g&&(e.key==="Enter"||e.key===" ")){e.preventDefault();pick(g.getAttribute("data-c"))}});
+paint();
+
+/* ---- caps ---- */
+var groups=[];D.caps.forEach(function(c){if(groups.indexOf(c[0])<0)groups.push(c[0])});var gOn="";
+function capRender(){$("#capGrid").innerHTML=D.caps.filter(function(c){return !gOn||c[0]===gOn}).map(function(c){return '<div class="card cap"><div class="grp">'+c[0]+'</div><h3>'+c[1]+'</h3><p>'+c[2]+'</p><p class="refs">'+c[3]+'</p><p class="g">Guarantee: '+c[4]+'</p><p class="l">Limit: '+c[5]+'</p></div>'}).join("")}
+function capFilters(){var bar=$("#capFilters");$$("button",bar).forEach(function(b){b.remove()});["All"].concat(groups).forEach(function(g){var b=document.createElement("button");b.type="button";b.textContent=g;b.setAttribute("aria-pressed",(g==="All"&&!gOn)||g===gOn?"true":"false");b.onclick=function(){gOn=g==="All"?"":g;capFilters();capRender()};bar.appendChild(b)})}
+capFilters();capRender();
+
+/* ---- durability ---- */
+var prof=store.get("yk-prof");if(typeof prof!=="number"||prof<0||prof>2)prof=1;
+function durRender(){var pb=$("#profBar");$$("button",pb).forEach(function(b){b.remove()});D.dprofiles.forEach(function(p,i){var b=document.createElement("button");b.type="button";b.textContent=p[1];b.setAttribute("aria-pressed",i===prof?"true":"false");b.onclick=function(){prof=i;store.set("yk-prof",i);durRender()};pb.appendChild(b)});
+ var cls={ok:"okp",part:"P1",lost:"P0"},lab={ok:"survives",part:"partly",lost:"lost"};
+ $("#durTable").innerHTML='<tr><th>State</th><th>After a crash with this profile</th></tr>'+D.dur.map(function(r){var c=r[1+prof];return '<tr><td>'+r[0]+'</td><td><div class="cell"><span class="pill '+cls[c[0]]+'">'+lab[c[0]]+'</span><span>'+c[1]+'</span></div></td></tr>'}).join("")}
+durRender();
+
+/* ---- quality ---- */
+var qi=0;
+function qRender(){var tb=$("#qTabs");tb.innerHTML=D.quality.map(function(q,i){return '<button type="button" role="tab" data-q="'+i+'" aria-pressed="'+(i===qi)+'">'+q.n+'</button>'}).join("");
+ var q=D.quality[qi],li=function(a){return '<ul>'+a.map(function(x){return '<li>'+x+'</li>'}).join("")+'</ul>'};
+ $("#qBody").innerHTML='<div class="card"><p style="margin-top:0">'+q.pos+'</p></div><div class="grid g3" style="margin-top:12px"><div class="card"><h3>Ceilings</h3>'+li(q.ceil)+'</div><div class="card"><h3>Levers today</h3>'+li(q.have)+'</div><div class="card"><h3>Needs design work</h3>'+li(q.need)+'</div></div>'}
+$("#qTabs").addEventListener("click",function(e){var b=e.target.closest("[data-q]");if(b){qi=+b.getAttribute("data-q");qRender()}});qRender();
+var wv={};Object.keys(D.what).forEach(function(k){wv[k]=D.what[k][3]});
+$("#whatif").innerHTML=Object.keys(D.what).map(function(k){var w=D.what[k];return '<div class="rng"><label for="w-'+k+'">'+w[0]+'</label><input type="range" id="w-'+k+'" min="'+w[1]+'" max="'+w[2]+'" value="'+w[3]+'" data-w="'+k+'"><b id="wv-'+k+'">'+w[3]+'</b></div>'}).join("");
+function whatRender(){var runs=wv.runs,n=wv.nodes,kb=wv.kb,f=[];
+ var ckMax=10*n*Math.min(4096,200*kb);
+ f.push(["Entry & Admission",runs>100?"P1":"okp",runs+" concurrent runs and no default limit: every start runs at once in one JVM. Set max-concurrent and per-session caps before this."]);
+ if(n>400)f.push(["Definition & Preparation","P0",n+" nodes is close to the 500 node and 2000 edge validation caps."]);
+ f.push(["Durability",ckMax>512*1024?"P1":"okp","Checkpoint memory worst case about "+(ckMax>=1024?(ckMax/1024).toFixed(0)+" MiB":ckMax+" KiB")+" (10 retained runs x "+n+" nodes, capped at 200 messages or 4 MiB per node). Over the cap a restart is refused."]);
+ if(kb>1024)f.push(["Stream Engine","P0","Messages over 1 MiB are copied through memory and checkpoints on every node; consider a claim-check before this."]);
+ if(runs*n>5000)f.push(["Observation","P1",(runs*n)+" live nodes produce a high event rate into one unbounded state queue; watch the tracker queue and drop counters."]);
+ f.push(["Stream Engine",kb>256?"P1":"okp","Fan-out is paced by the slowest child, so throughput is that of the slowest branch, not the average."]);
+ $("#whatOut").innerHTML='<table>'+f.map(function(x){return '<tr><td style="width:190px"><span class="pill '+x[1]+'">'+x[0]+'</span></td><td>'+x[2]+'</td></tr>'}).join("")+'</table><p class="refs">Rule-based hints from the documented defaults and caps; load test before trusting any number.</p>'}
+$("#whatif").addEventListener("input",function(e){var k=e.target.getAttribute("data-w");if(!k)return;wv[k]=+e.target.value;$("#wv-"+k).textContent=e.target.value;whatRender()});whatRender();
+
+/* ---- board ---- */
+var notes=store.get("yk-arch-notes")||{},view="list",aOn={},stF="",rq="",attrs=[];
+D.risks.forEach(function(r){if(attrs.indexOf(r.a)<0)attrs.push(r.a)});attrs.forEach(function(a){aOn[a]=true});
+var ab=$("#attrFilters");attrs.forEach(function(a){var b=document.createElement("button");b.type="button";b.textContent=a;b.setAttribute("aria-pressed","true");b.onclick=function(){aOn[a]=b.getAttribute("aria-pressed")!=="true";b.setAttribute("aria-pressed",aOn[a]);board()};ab.appendChild(b)});
+function sortR(a,b){return b.i-a.i||a.e-b.e}
+function visible(){return D.risks.filter(function(r){var n=notes[r.id]||{};if(!aOn[r.a])return false;if(stF==="none"?!!n.s:(stF&&n.s!==stF))return false;if(rq&&(r.t+" "+r.why+" "+r.o+" "+r.id).toLowerCase().indexOf(rq)<0)return false;return true}).sort(sortR)}
+function saveN(id,k,v){var n=notes[id]||{};n[k]=v;if(!n.s&&!n.n)delete notes[id];else notes[id]=n;store.set("yk-arch-notes",notes)}
+function board(){var vis=visible(),b=$("#boardBody");
+ if(!vis.length){b.innerHTML='<div class="card refs" style="text-align:center">No risks match these filters.</div>';return}
+ if(view==="grid"){var cell=100,m=40,s="",cnt={};
+  [1,2,3,4,5].forEach(function(){});
+  s+='<rect class="q" x="'+m+'" y="10" width="'+cell*2.5+'" height="'+cell*2.5+'"/><rect class="q" x="'+(m+cell*2.5)+'" y="10" width="'+cell*2.5+'" height="'+cell*2.5+'" style="fill:var(--accent-soft)"/><rect class="q" x="'+m+'" y="'+(10+cell*2.5)+'" width="'+cell*2.5+'" height="'+cell*2.5+'"/><rect class="q" x="'+(m+cell*2.5)+'" y="'+(10+cell*2.5)+'" width="'+cell*2.5+'" height="'+cell*2.5+'"/>';
+  s+='<text class="ql" x="'+(m+8)+'" y="28">High impact, low effort: do first</text><text class="ql" x="'+(m+cell*2.5+8)+'" y="28">High impact, high effort: plan</text><text class="ql" x="'+(m+8)+'" y="'+(10+cell*5-8)+'">Low impact, low effort: fill in</text><text class="ql" x="'+(m+cell*2.5+8)+'" y="'+(10+cell*5-8)+'">Low impact, high effort: question</text>';
+  s+='<text class="ql" x="'+(m+cell*2.5)+'" y="'+(cell*5+36)+'" text-anchor="middle">Effort →</text><text class="ql" transform="translate(12 '+(10+cell*2.5)+') rotate(-90)" text-anchor="middle">Impact →</text>';
+  vis.forEach(function(r){var k=r.i+"-"+r.e,j=cnt[k]=(cnt[k]||0),dx=(j%3-1)*22,dy=(Math.floor(j/3)-0.5)*22;cnt[k]++;var x=m+(r.e-0.5)*cell+dx,y=10+(5-r.i+0.5)*cell+dy;
+   s+='<g class="dot" data-open="'+r.id+'" tabindex="0" role="button" aria-label="'+esc(r.t)+'"><circle cx="'+x+'" cy="'+y+'" r="11" fill="'+(r.i>=4?"var(--p0)":r.i===3?"var(--p1)":"var(--p3)")+'"/><text x="'+x+'" y="'+(y+3)+'" text-anchor="middle">'+(D.risks.indexOf(r)+1)+'</text></g>'});
+  b.innerHTML='<div class="card"><svg class="matrix" viewBox="0 0 '+(m+cell*5+10)+' '+(cell*5+50)+'" role="img" aria-label="Impact versus effort">'+s+'</svg><p class="refs">Dots are numbered by their order in the list view; click one to open it. Red = impact 4-5, amber = 3, grey = lower.</p></div>';return}
+ b.innerHTML=vis.map(function(r){var n=notes[r.id]||{};return '<details class="item" id="r-'+r.id+'"><summary><span class="id">'+(D.risks.indexOf(r)+1)+'</span><span class="t">'+esc(r.t)+'</span><span class="meta"><span class="pill '+(r.i>=4?"P0":r.i===3?"P1":"P3")+'">impact '+r.i+'</span><span class="pill P3">effort '+r.e+'</span><span class="pill P2">'+r.a+'</span>'+(n.s?'<span class="pill okp">'+n.s+'</span>':"")+'</span></summary><div class="body"><dl><dt>Why it matters</dt><dd>'+r.why+'</dd><dt>Options</dt><dd>'+r.o+'</dd>'+(r.q?'<dt>Think about</dt><dd><div class="callout q" style="margin:0">'+r.q+'</div></dd>':"")+'<dt>Components</dt><dd>'+r.c.map(compChip).join("")+'</dd><dt>Your status</dt><dd><select data-st="'+r.id+'" aria-label="Status"><option value="">Unset</option>'+["Idea","Investigating","Planned"].map(function(s){return '<option'+(n.s===s?" selected":"")+'>'+s+'</option>'}).join("")+'</select></dd><dt>Your note</dt><dd><textarea data-nt="'+r.id+'" placeholder="Your thinking...">'+esc(n.n||"")+'</textarea></dd></dl></div></details>'}).join("")}
+$("#boardBody").addEventListener("change",function(e){var id=e.target.getAttribute("data-st");if(id){saveN(id,"s",e.target.value)}});
+$("#boardBody").addEventListener("input",function(e){var id=e.target.getAttribute("data-nt");if(id)saveN(id,"n",e.target.value)});
+$("#boardBody").addEventListener("click",function(e){var d=e.target.closest("[data-open]");if(d)openRisk(d.getAttribute("data-open"))});
+$("#vList").onclick=function(){view="list";$("#vList").setAttribute("aria-pressed","true");$("#vGrid").setAttribute("aria-pressed","false");board()};
+$("#vGrid").onclick=function(){view="grid";$("#vGrid").setAttribute("aria-pressed","true");$("#vList").setAttribute("aria-pressed","false");board()};
+$("#statFilter").onchange=function(e){stF=e.target.value;board()};
+$("#rq").oninput=function(e){rq=e.target.value.trim().toLowerCase();board()};
+function openRisk(id){view="list";$("#vList").setAttribute("aria-pressed","true");$("#vGrid").setAttribute("aria-pressed","false");aOn={};attrs.forEach(function(a){aOn[a]=true});$$("#attrFilters button").forEach(function(b){b.setAttribute("aria-pressed","true")});stF="";rq="";$("#statFilter").value="";$("#rq").value="";board();
+ var d=$("#r-"+id);if(d){d.open=true;d.classList.add("hl");d.scrollIntoView({behavior:"smooth",block:"center"});setTimeout(function(){d.classList.remove("hl")},2000)}}
+$("#copyBtn").onclick=function(){var md="# Yukta core: my architecture notes\n\n";var any=false;D.risks.forEach(function(r){var n=notes[r.id];if(!n)return;any=true;md+="## "+r.t+"\n- Attribute: "+r.a+" · impact "+r.i+" · effort "+r.e+"\n"+(n.s?"- Status: "+n.s+"\n":"")+(n.n?"- Note: "+n.n.replace(/\n/g,"\n  ")+"\n":"")+"\n"});
+ var msg=$("#copyMsg"),ta=$("#copyArea");if(!any){msg.textContent="Nothing to copy yet. Set a status or note first.";return}
+ ta.hidden=false;ta.value=md;ta.rows=10;
+ var done=function(){msg.textContent="Copied."},fail=function(){msg.textContent="Select the text below and copy it."};
+ try{navigator.clipboard.writeText(md).then(done,fail)}catch(e){fail()}};
+board();
+
+/* ---- risk and component jumps ---- */
+document.addEventListener("click",function(e){var r=e.target.closest("[data-risk]");if(r&&!r.closest("#boardBody")||(r&&r.closest("#boardBody")&&false)){e.preventDefault();openRisk(r.getAttribute("data-risk"));return}
+ var c=e.target.closest("[data-comp]");if(c){e.preventDefault();pick(c.getAttribute("data-comp"));$("#map").scrollIntoView({behavior:"smooth"})}});
+document.addEventListener("keydown",function(e){if(e.key!=="Enter"&&e.key!==" ")return;var t=e.target;if(t.matches&&t.matches("a.chip,.dot")){e.preventDefault();t.click?t.click():0}});
+
+/* ---- prompts ---- */
+var pi=0;
+function deck(){var p=D.prompts[pi];$("#deck").innerHTML='<span class="pill P2">'+p[0]+'</span> <span class="refs">'+(pi+1)+' of '+D.prompts.length+'</span><p class="q">'+p[1]+'</p><div>'+compChip(p[2])+riskChip(p[3])+'</div><div class="stepnav"><button type="button" id="pPrev">Previous</button><button type="button" id="pNext">Next</button><button type="button" id="pRand">Surprise me</button></div>';
+ $("#pPrev").onclick=function(){pi=(pi+D.prompts.length-1)%D.prompts.length;deck()};$("#pNext").onclick=function(){pi=(pi+1)%D.prompts.length;deck()};$("#pRand").onclick=function(){pi=Math.floor(Math.random()*D.prompts.length);deck()}}
+deck();
+
+/* ---- nav ---- */
+var links=$$("nav.side a");
+links.forEach(function(l){l.addEventListener("click",function(e){var t=$(l.getAttribute("href"));if(t){e.preventDefault();t.scrollIntoView({behavior:"smooth"})}})});
+if("IntersectionObserver" in window){var io=new IntersectionObserver(function(es){es.forEach(function(en){if(en.isIntersecting)links.forEach(function(l){l.classList.toggle("active",l.getAttribute("href")==="#"+en.target.id)})})},{rootMargin:"-40% 0px -55% 0px"});$$("main section").forEach(function(s){io.observe(s)})}
 })();
 </script>
 </body>
