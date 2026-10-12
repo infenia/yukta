@@ -111,7 +111,7 @@ class FileWorkflowDefinitionStoreTest {
   }
 
   @Test
-  void idsThatWouldWalkUpADirectory_areRefused() {
+  void dotDotAndEmptyIds_areRefused() {
     for (final String bad : List.of("", ".", "..")) {
       org.assertj.core.api.Assertions.assertThatThrownBy(() -> store.find("s", bad).block())
           .isInstanceOf(IllegalArgumentException.class);
