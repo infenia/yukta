@@ -263,6 +263,31 @@ class SupervisorHostTest {
   }
 
   @Test
+  void start_supervisorRunsOffThePublishingThread() throws InterruptedException {
+    final AtomicReference<String> seenOn = new AtomicReference<>();
+    start(
+        supervisor(
+            "off-thread",
+            events ->
+                events
+                    .doOnNext(_ -> seenOn.set(Thread.currentThread().getName()))
+                    .thenMany(Flux.empty())),
+        false,
+        10);
+
+    await()
+        .atMost(3, TimeUnit.SECONDS)
+        .untilAsserted(
+            () -> {
+              final Thread publisher =
+                  new Thread(() -> feed.publish(failed("e1")), "tracker-like-thread");
+              publisher.start();
+              publisher.join();
+              assertThat(seenOn.get()).isNotNull().isNotEqualTo("tracker-like-thread");
+            });
+  }
+
+  @Test
   void start_slowSupervisor_dropsEventsAndCountsThem() {
     start(
         supervisor(

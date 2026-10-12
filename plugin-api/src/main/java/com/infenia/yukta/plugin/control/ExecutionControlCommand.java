@@ -33,7 +33,8 @@ public sealed interface ExecutionControlCommand
         ExecutionControlCommand.StopWorkflowCommand,
         ExecutionControlCommand.RestartCommand,
         ExecutionControlCommand.RestartFromNodeCommand,
-        ExecutionControlCommand.SetBreakpointCommand {
+        ExecutionControlCommand.SetBreakpointCommand,
+        ExecutionControlCommand.SignalNodeCommand {
 
   /**
    * Returns the execution identifier this command targets.
@@ -213,6 +214,40 @@ public sealed interface ExecutionControlCommand
       }
       if (field != null && equalsValue == null) {
         throw new IllegalArgumentException("A breakpoint needs a value to compare with");
+      }
+    }
+  }
+
+  /**
+   * Delivers a named signal to a node that waits for one (for example an approval), so a person or
+   * an agent can release or reject the work it holds. It goes through the same review, ordering and
+   * audit as every other command.
+   *
+   * @param executionId the execution identifier
+   * @param nodeId the node that waits
+   * @param name the signal the node waits for
+   * @param decision what the sender decided, such as {@code approve} or {@code reject}
+   * @param data optional text that goes along with the decision
+   */
+  record SignalNodeCommand(
+      String executionId, String nodeId, String name, String decision, @Nullable String data)
+      implements ExecutionControlCommand {
+
+    /**
+     * Checks that the signal is named and carries a decision.
+     *
+     * @param executionId the execution identifier
+     * @param nodeId the node that waits
+     * @param name the signal the node waits for
+     * @param decision what the sender decided
+     * @param data optional text that goes along with the decision
+     */
+    public SignalNodeCommand {
+      if (name == null || name.isBlank()) {
+        throw new IllegalArgumentException("A signal needs a name");
+      }
+      if (decision == null || decision.isBlank()) {
+        throw new IllegalArgumentException("A signal needs a decision");
       }
     }
   }

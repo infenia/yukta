@@ -23,13 +23,18 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 import reactor.test.StepVerifier;
 import tools.jackson.databind.ObjectMapper;
 
 /** Unit tests for {@link FileSessionConfigStore}. */
 @MockitoSettings(strictness = Strictness.LENIENT)
 @NoArgsConstructor
-@SuppressWarnings({"PMD.TooManyMethods", "PMD.AvoidDuplicateLiterals"})
+@SuppressWarnings({
+  "PMD.TooManyMethods",
+  "PMD.AvoidDuplicateLiterals",
+  "PMD.AvoidInstantiatingObjectsInLoops"
+})
 class FileSessionConfigStoreTest {
 
   /** The sessions directory name. */
@@ -76,6 +81,26 @@ class FileSessionConfigStoreTest {
     when(workflowDefinitionStore.findAll(org.mockito.ArgumentMatchers.anyString()))
         .thenReturn(Mono.just(Map.of()));
     configStore = new FileSessionConfigStore(props, objectMapper, workflowDefinitionStore);
+  }
+
+  @Test
+  void concurrentUpdatesOfDifferentFields_areNotLost() {
+    for (int i = 0; i < 100; i++) {
+      final String sessionId = "sess-race-" + i;
+      Mono.when(
+              configStore.setInitiator(sessionId, "alice").subscribeOn(Schedulers.parallel()),
+              configStore.setDescription(sessionId, "desc").subscribeOn(Schedulers.parallel()),
+              configStore.setTags(sessionId, Map.of("k", "v")).subscribeOn(Schedulers.parallel()),
+              configStore.setProjectPath(sessionId, "/p").subscribeOn(Schedulers.parallel()))
+          .block();
+
+      final FileSessionConfigStore reloaded =
+          new FileSessionConfigStore(props, new ObjectMapper(), workflowDefinitionStore);
+      assertThat(reloaded.getInitiator(sessionId).block()).isEqualTo("alice");
+      assertThat(reloaded.getDescription(sessionId).block()).isEqualTo("desc");
+      assertThat(reloaded.getTags(sessionId).block()).containsEntry("k", "v");
+      assertThat(reloaded.getProjectPath(sessionId).block()).isEqualTo("/p");
+    }
   }
 
   @Test

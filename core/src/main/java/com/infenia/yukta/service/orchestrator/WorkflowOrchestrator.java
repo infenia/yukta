@@ -35,6 +35,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Service;
 import org.springframework.validation.annotation.Validated;
 import reactor.core.publisher.Flux;
@@ -46,7 +47,7 @@ import reactor.util.context.Context;
 @Service
 @Validated
 @RequiredArgsConstructor
-@SuppressWarnings({"PMD.ExcessiveImports", "PMD.CouplingBetweenObjects"})
+@SuppressWarnings({"PMD.ExcessiveImports", "PMD.CouplingBetweenObjects", "PMD.TooManyMethods"})
 public class WorkflowOrchestrator {
 
   /** Log key for session ID. */
@@ -131,6 +132,29 @@ public class WorkflowOrchestrator {
       @NotBlank final String executionId,
       @NotNull @Valid final PreparedWorkflow prepared,
       final Map<String, Object> payload) {
+    return execute(sessionId, workflowId, executionId, prepared, payload, null);
+  }
+
+  /**
+   * Executes a workflow with a slot that the caller has already asked the scheduler for, so a
+   * refused start is known before the execution id is handed out. The execution must be subscribed
+   * to: the slot is given back when it ends, or when it is cancelled.
+   *
+   * @param sessionId the session ID
+   * @param workflowId the workflow ID
+   * @param executionId the execution ID
+   * @param prepared the prepared workflow
+   * @param payload the initial payload
+   * @param admission the slot asked for, or null to ask when the run starts
+   * @return a Mono that completes when the workflow execution is finished
+   */
+  public Mono<Void> execute(
+      @SessionId final String sessionId,
+      @WorkflowId final String workflowId,
+      @NotBlank final String executionId,
+      @NotNull @Valid final PreparedWorkflow prepared,
+      final Map<String, Object> payload,
+      final ExecutionScheduler.@Nullable Admission admission) {
 
     // Registering, archiving and logging the start happen on subscription: a Mono that is never
     // subscribed leaves no registered control and no checkpoints to clear behind it.
@@ -162,6 +186,7 @@ public class WorkflowOrchestrator {
               executionId,
               nodeIds,
               ExecutionScheduler.priorityOf(payload),
+              admission,
               prepared.template().instantiate(executionId, payload),
               "Workflow execution");
         });
@@ -285,8 +310,15 @@ public class WorkflowOrchestrator {
                           Flux.fromIterable(entry.getValue())
                               .concatMap(
                                   message ->
-                                      checkpointStore.save(
-                                          newExecutionId, entry.getKey(), message)))
+                                      checkpointStore.save(newExecutionId, entry.getKey(), message))
+                              // The replayed output is complete, so a resume of this run need not
+                              // run the node again.
+                              .then(
+                                  Mono.defer(
+                                          () ->
+                                              checkpointStore.markComplete(
+                                                  newExecutionId, entry.getKey()))
+                                      .onErrorResume(_ -> Mono.empty())))
                   .then();
 
           return runTracked(
@@ -296,6 +328,7 @@ public class WorkflowOrchestrator {
               newExecutionId,
               nodeIds,
               ExecutionScheduler.priorityOf(payload),
+              null,
               recordReplayed.then(
                   compiler.executeTemplate(
                       newExecutionId,
@@ -314,11 +347,14 @@ public class WorkflowOrchestrator {
       final String sessionId,
       final String workflowId,
       final String executionId,
-      final int priority) {
+      final int priority,
+      final ExecutionScheduler.@Nullable Admission reserved) {
     return Mono.defer(
         () -> {
           final ExecutionScheduler.Admission admission =
-              scheduler.acquire(sessionId, workflowId, priority, executionId);
+              reserved != null
+                  ? reserved
+                  : scheduler.acquire(sessionId, workflowId, priority, executionId);
           if (admission.immediate()) {
             return admission.permit();
           }
@@ -352,6 +388,13 @@ public class WorkflowOrchestrator {
     }
   }
 
+  /** A slot asked for in advance is released when the run fails before it could use it. */
+  private static void giveBack(final ExecutionScheduler.@Nullable Admission reserved) {
+    if (reserved != null) {
+      reserved.permit().subscribe(ExecutionScheduler.Permit::release, _ -> {});
+    }
+  }
+
   private void clearIfPending(final String executionId) {
     if (clearWhenDone.remove(executionId)) {
       checkpointStore.clear(executionId);
@@ -378,12 +421,14 @@ public class WorkflowOrchestrator {
       final String executionId,
       final List<String> nodeIds,
       final int priority,
+      final ExecutionScheduler.@Nullable Admission reserved,
       final Mono<Void> body,
       final String label) {
     // The body runs once the scheduler grants a slot, which is released however the run ends.
     final Mono<Void> execution =
         tracker
             .startWorkflow(executionId, sessionId, workflowId, nodeIds)
+            .doOnError(_ -> giveBack(reserved))
             .doOnSuccess(
                 _ -> {
                   if (control.prepared() != null) {
@@ -393,7 +438,7 @@ public class WorkflowOrchestrator {
                 })
             .then(
                 Mono.usingWhen(
-                    awaitSlot(sessionId, workflowId, executionId, priority),
+                    awaitSlot(sessionId, workflowId, executionId, priority, reserved),
                     _ -> body,
                     permit -> Mono.fromRunnable(permit::release)));
 

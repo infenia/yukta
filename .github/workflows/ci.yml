@@ -120,6 +120,8 @@ jobs:
               - 'web/**'
             boot:
               - 'boot/**'
+            persistence-postgres:
+              - 'persistence-postgres/**'
             messaging:
               - 'messaging/**'
             plugin-api:

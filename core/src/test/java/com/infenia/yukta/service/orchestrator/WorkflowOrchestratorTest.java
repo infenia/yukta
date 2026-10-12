@@ -345,6 +345,7 @@ class WorkflowOrchestratorTest {
 
     @SuppressWarnings("unchecked")
     final Message<String> checkpoint = (Message<String>) org.mockito.Mockito.mock(Message.class);
+    when(checkpointStore.markComplete(newExecId, "trigger")).thenReturn(Mono.empty());
 
     StepVerifier.create(
             orchestrator.restartFromNode(
@@ -358,6 +359,8 @@ class WorkflowOrchestratorTest {
         .verifyComplete();
 
     verify(compiler).compileAssemblers(any(), any(), any(), any());
+    // the replayed output is recorded as finished, so resuming this run does not repeat the node
+    verify(checkpointStore).markComplete(newExecId, "trigger");
 
     // the pre-restart assembler now replays the parent's checkpoint
     final AssemblyContext context = org.mockito.Mockito.mock(AssemblyContext.class);
@@ -776,6 +779,90 @@ class WorkflowOrchestratorTest {
     StepVerifier.create(small.execute("s", "w", "new", prepared, Map.of())).verifyComplete();
 
     verify(checkpointStore).clear("old");
+  }
+
+  private PreparedWorkflow reservedSetUp() {
+    final PreparedWorkflow prepared = buildPreparedWorkflow(List.of("n1"));
+    lenient()
+        .when(executionControlFactory.create(anyString(), anyString(), anyString(), any(), any()))
+        .thenReturn(executionControl);
+    lenient().when(executionControl.safeStopSink()).thenAnswer(inv -> Sinks.one());
+    lenient().when(executionControl.stopRequested()).thenAnswer(inv -> new AtomicBoolean());
+    lenient()
+        .when(tracker.startWorkflow(anyString(), anyString(), anyString(), anyList()))
+        .thenReturn(Mono.empty());
+    lenient().when(prepared.template().instantiate(anyString(), any())).thenReturn(Mono.empty());
+    return prepared;
+  }
+
+  private WorkflowOrchestrator orchestratorWith(final ExecutionScheduler limited) {
+    return new WorkflowOrchestrator(
+        tracker,
+        executionControlRegistry,
+        executionControlFactory,
+        checkpointStore,
+        executionArchive,
+        executionLog,
+        limited,
+        compiler,
+        preparator);
+  }
+
+  @Test
+  void execute_reservedSlot_isUsedAndReleased() {
+    final ExecutionScheduler limited =
+        new ExecutionScheduler(1, 0, 10, ExecutionScheduler.OnLimit.QUEUE, Duration.ofSeconds(30));
+    final PreparedWorkflow prepared = reservedSetUp();
+    final ExecutionScheduler.Admission admission = limited.acquire("s", "w", 0, "e-res");
+    assertThat(limited.running()).isEqualTo(1);
+
+    StepVerifier.create(
+            orchestratorWith(limited).execute("s", "w", "e-res", prepared, Map.of(), admission))
+        .verifyComplete();
+
+    assertThat(limited.running()).isZero();
+  }
+
+  @Test
+  void execute_reservedQueuedSlot_waitsAndShowsQueued() {
+    final ExecutionScheduler limited =
+        new ExecutionScheduler(1, 0, 10, ExecutionScheduler.OnLimit.QUEUE, Duration.ofSeconds(30));
+    final PreparedWorkflow prepared = reservedSetUp();
+    final ExecutionScheduler.Permit held = limited.acquire("s", "w").permit().block();
+    final ExecutionScheduler.Admission admission = limited.acquire("s", "w", 0, "e-wait");
+    assertThat(admission.immediate()).isFalse();
+
+    final var done =
+        orchestratorWith(limited)
+            .execute("s", "w", "e-wait", prepared, Map.of(), admission)
+            .toFuture();
+    assertThat(done.isDone()).isFalse();
+    held.release();
+
+    assertThat(done.isDone()).isTrue();
+    verify(tracker).emitWorkflowStatusEvent("e-wait", TaskStatus.QUEUED);
+    assertThat(limited.running()).isZero();
+  }
+
+  @Test
+  void execute_whenTrackingCannotStart_givesTheReservedSlotBack() {
+    final ExecutionScheduler limited =
+        new ExecutionScheduler(1, 0, 10, ExecutionScheduler.OnLimit.QUEUE, Duration.ofSeconds(30));
+    final PreparedWorkflow prepared = reservedSetUp();
+    when(tracker.startWorkflow(anyString(), anyString(), anyString(), anyList()))
+        .thenReturn(Mono.error(new IllegalStateException("no tracker")));
+    final ExecutionScheduler.Admission admission = limited.acquire("s", "w", 0, "e-bad");
+
+    StepVerifier.create(
+            orchestratorWith(limited).execute("s", "w", "e-bad", prepared, Map.of(), admission))
+        .expectError(IllegalStateException.class)
+        .verify();
+    // Without a reserved slot there is nothing to give back.
+    StepVerifier.create(orchestratorWith(limited).execute("s", "w", "e-bad2", prepared, Map.of()))
+        .expectError(IllegalStateException.class)
+        .verify();
+
+    assertThat(limited.running()).isZero();
   }
 
   @Test
