@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: 2026 Infenia Private Limited
+
+# Sessions, workflow definitions (with their versions) and the execution log in PostgreSQL.
+# Needs a build made with -Pyukta.persistence=postgres. Set the connection through the environment:
+#   SPRING_R2DBC_URL=r2dbc:postgresql://host:5432/yukta  (run time, reactive)
+#   SPRING_R2DBC_USERNAME / SPRING_R2DBC_PASSWORD
+#   SPRING_FLYWAY_URL=jdbc:postgresql://host:5432/yukta   (schema migrations only; Flyway has no
+#   SPRING_FLYWAY_USER / SPRING_FLYWAY_PASSWORD            R2DBC support)
+yukta:
+  session:
+    store-type: postgres
