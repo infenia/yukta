@@ -23,6 +23,11 @@ if [[ ! -d "$wt" ]]; then
   git -C "$REPO_ROOT" worktree add -b "$branch" "$wt" "$base"
 fi
 
+# A leftover worktree from an older run keeps its old commit; refuse to start a stale server.
+if [[ -d "$wt" ]] && ! git -C "$wt" merge-base --is-ancestor "$base" HEAD 2>/dev/null; then
+  die "worktree $wt is at $(git -C "$wt" rev-parse --short HEAD) and lacks $base; run yukta-stop.sh $name first"
+fi
+
 # The ui build needs the node/pnpm toolchain it downloaded into ui/.gradle; reuse it instead of
 # failing in a fresh worktree.
 if [[ -d "$REPO_ROOT/ui/.gradle" && ! -d "$wt/ui/.gradle" ]]; then
