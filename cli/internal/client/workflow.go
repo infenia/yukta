@@ -12,6 +12,36 @@ import (
 	"time"
 )
 
+// timestampLayout is the zone-less layout the server emits for java.time.LocalDateTime values.
+const timestampLayout = "2006-01-02T15:04:05.999999999"
+
+// Timestamp is a time.Time that also accepts the zone-less timestamps the server returns.
+type Timestamp struct {
+	time.Time
+}
+
+// UnmarshalJSON parses RFC 3339 timestamps, or zone-less ones (interpreted as local time).
+func (t *Timestamp) UnmarshalJSON(data []byte) error {
+	var raw *string
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+	if raw == nil || *raw == "" {
+		t.Time = time.Time{}
+		return nil
+	}
+	if parsed, err := time.Parse(time.RFC3339Nano, *raw); err == nil {
+		t.Time = parsed
+		return nil
+	}
+	parsed, err := time.ParseInLocation(timestampLayout, *raw, time.Local)
+	if err != nil {
+		return err
+	}
+	t.Time = parsed
+	return nil
+}
+
 // WorkflowStartRequest is the request body for starting a workflow execution.
 type WorkflowStartRequest struct {
 	SessionID  string         `json:"sessionId"`
@@ -34,8 +64,8 @@ type TaskProgress struct {
 	NodeID    string                 `json:"nodeId"`
 	Module    string                 `json:"module"`
 	Status    string                 `json:"status"`
-	StartTime time.Time              `json:"startTime"`
-	EndTime   time.Time              `json:"endTime"`
+	StartTime Timestamp              `json:"startTime"`
+	EndTime   Timestamp              `json:"endTime"`
 	Metadata  map[string]interface{} `json:"metadata"`
 }
 
@@ -46,8 +76,8 @@ type WorkflowProgress struct {
 	WorkflowID  string         `json:"workflowId"`
 	Status      string         `json:"status"`
 	Tasks       []TaskProgress `json:"tasks"`
-	StartTime   time.Time      `json:"startTime"`
-	EndTime     time.Time      `json:"endTime"`
+	StartTime   Timestamp      `json:"startTime"`
+	EndTime     Timestamp      `json:"endTime"`
 }
 
 // WorkflowExecutionSummary is a brief summary of a workflow execution.
@@ -55,8 +85,8 @@ type WorkflowExecutionSummary struct {
 	ExecutionID string    `json:"executionId"`
 	WorkflowID  string    `json:"workflowId"`
 	Status      string    `json:"status"`
-	StartTime   time.Time `json:"startTime"`
-	EndTime     time.Time `json:"endTime"`
+	StartTime   Timestamp `json:"startTime"`
+	EndTime     Timestamp `json:"endTime"`
 }
 
 // StartWorkflow initiates execution of a workflow in a session.

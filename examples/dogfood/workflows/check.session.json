@@ -1,0 +1,221 @@
+{
+  "sessionId": "dev-check",
+  "name": "dev-check",
+  "description": "Runs the gradle check pipeline stage by stage, failing fast",
+  "initiator": "dogfood",
+  "projectPath": "__PROJECT_PATH__",
+  "tags": {},
+  "workflows": {
+    "gradle-check": {
+      "workflowId": "gradle-check",
+      "description": "gradle check, split into fail-fast stages",
+      "nodes": [
+        {
+          "nodeId": "trigger",
+          "type": "ONE_SHOT",
+          "config": {}
+        },
+        {
+          "nodeId": "spotless",
+          "type": "PROCESS_EXECUTOR",
+          "config": {
+            "command": [
+              "./gradlew",
+              "spotlessCheck",
+              "-q",
+              "--console=plain"
+            ],
+            "workingDir": "__PROJECT_PATH__",
+            "timeout": 3600,
+            "failureMode": "ERROR",
+            "timeoutSeconds": 3600
+          }
+        },
+        {
+          "nodeId": "compile",
+          "type": "PROCESS_EXECUTOR",
+          "config": {
+            "command": [
+              "./gradlew",
+              "compileJava",
+              "compileTestJava",
+              "-q",
+              "--console=plain"
+            ],
+            "workingDir": "__PROJECT_PATH__",
+            "timeout": 3600,
+            "failureMode": "ERROR",
+            "timeoutSeconds": 3600
+          }
+        },
+        {
+          "nodeId": "tests",
+          "type": "PROCESS_EXECUTOR",
+          "config": {
+            "command": [
+              "./gradlew",
+              "test",
+              "jacocoTestReport",
+              "-q",
+              "--console=plain"
+            ],
+            "workingDir": "__PROJECT_PATH__",
+            "timeout": 3600,
+            "failureMode": "ERROR",
+            "timeoutSeconds": 3600
+          }
+        },
+        {
+          "nodeId": "coverage",
+          "type": "PROCESS_EXECUTOR",
+          "config": {
+            "command": [
+              "./gradlew",
+              "jacocoTestCoverageVerification",
+              "-q",
+              "--console=plain"
+            ],
+            "workingDir": "__PROJECT_PATH__",
+            "timeout": 3600,
+            "failureMode": "ERROR",
+            "timeoutSeconds": 3600
+          }
+        },
+        {
+          "nodeId": "style",
+          "type": "PROCESS_EXECUTOR",
+          "config": {
+            "command": [
+              "./gradlew",
+              "checkstyleMain",
+              "checkstyleTest",
+              "pmdMain",
+              "pmdTest",
+              "-q",
+              "--console=plain"
+            ],
+            "workingDir": "__PROJECT_PATH__",
+            "timeout": 3600,
+            "failureMode": "ERROR",
+            "timeoutSeconds": 3600
+          }
+        },
+        {
+          "nodeId": "spotbugs",
+          "type": "PROCESS_EXECUTOR",
+          "config": {
+            "command": [
+              "./gradlew",
+              "spotbugsMain",
+              "spotbugsTest",
+              "-q",
+              "--console=plain"
+            ],
+            "workingDir": "__PROJECT_PATH__",
+            "timeout": 3600,
+            "failureMode": "ERROR",
+            "timeoutSeconds": 3600
+          }
+        },
+        {
+          "nodeId": "licenses",
+          "type": "PROCESS_EXECUTOR",
+          "config": {
+            "command": [
+              "./gradlew",
+              "licensee",
+              "-q",
+              "--console=plain"
+            ],
+            "workingDir": "__PROJECT_PATH__",
+            "timeout": 3600,
+            "failureMode": "ERROR",
+            "timeoutSeconds": 3600
+          }
+        },
+        {
+          "nodeId": "security",
+          "type": "PROCESS_EXECUTOR",
+          "config": {
+            "command": [
+              "./gradlew",
+              "opengrep",
+              "trivy",
+              "-q",
+              "--console=plain"
+            ],
+            "workingDir": "__PROJECT_PATH__",
+            "timeout": 3600,
+            "failureMode": "ERROR",
+            "timeoutSeconds": 3600
+          }
+        },
+        {
+          "nodeId": "cli",
+          "type": "PROCESS_EXECUTOR",
+          "config": {
+            "command": [
+              "./gradlew",
+              ":cli:check",
+              "-q",
+              "--console=plain"
+            ],
+            "workingDir": "__PROJECT_PATH__",
+            "timeout": 3600,
+            "failureMode": "ERROR",
+            "timeoutSeconds": 3600
+          }
+        },
+        {
+          "nodeId": "done",
+          "type": "CONSOLE_TERMINAL",
+          "config": {
+            "displayOutput": true
+          }
+        }
+      ],
+      "edges": [
+        {
+          "source": "trigger",
+          "target": "spotless"
+        },
+        {
+          "source": "spotless",
+          "target": "compile"
+        },
+        {
+          "source": "compile",
+          "target": "tests"
+        },
+        {
+          "source": "tests",
+          "target": "coverage"
+        },
+        {
+          "source": "coverage",
+          "target": "style"
+        },
+        {
+          "source": "style",
+          "target": "spotbugs"
+        },
+        {
+          "source": "spotbugs",
+          "target": "licenses"
+        },
+        {
+          "source": "licenses",
+          "target": "security"
+        },
+        {
+          "source": "security",
+          "target": "cli"
+        },
+        {
+          "source": "cli",
+          "target": "done"
+        }
+      ]
+    }
+  }
+}
