@@ -188,6 +188,13 @@ each message until its signal arrives (`signal`, `timeoutSeconds` default 3600, 
 `onReject`) and tags it with `signal.name/decision/data`; the engine timeout for the node is the wait
 plus 30 s. The wait is in memory: a resumed run waits again.
 
+### Workflow definitions and their versions
+With `yukta.session.store-type=file`, `FileWorkflowDefinitionStore` keeps definitions under
+`<baseDir>/workflows/<session>/<workflow>/` (`current.json`, `history/<version>.json`; ids are
+URL-encoded, writes are atomic and fsynced) so they survive a restart; `in-memory` keeps them in
+memory. Both keep the newest 20 saved versions of a workflow (identical saves add none).
+`WorkflowDefinitionStore.revisions/findRevision` and the web rollback endpoint use them.
+
 ### Sub-workflows
 `SUB_WORKFLOW` (internal-core) runs another stored workflow of the same session per message through
 `SubWorkflowGateway` (`SubWorkflowRunner`): a normal run with its own execution id, tracked and
