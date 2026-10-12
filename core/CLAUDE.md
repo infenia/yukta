@@ -195,6 +195,15 @@ URL-encoded, writes are atomic and fsynced) so they survive a restart; `in-memor
 memory. Both keep the newest 20 saved versions of a workflow (identical saves add none).
 `WorkflowDefinitionStore.revisions/findRevision` and the web rollback endpoint use them.
 
+### PostgreSQL stores (`persistence-postgres`, optional)
+`yukta.session.store-type=postgres` (profile `postgres`, build with `-Pyukta.persistence=postgres`)
+selects `R2dbcSessionConfigStore`, `R2dbcWorkflowDefinitionStore` (definitions plus the newest 20
+versions) and `R2dbcExecutionLogStore` (blocking interface, so one writer thread; trims to the newest
+`retained-runs` runs and never drops a run without an end). Schema: Flyway migrations in
+`persistence-postgres/src/main/resources/db/migration` (applied over JDBC from `spring.flyway.url`);
+run time uses R2DBC (`spring.r2dbc.url`). The in-memory/file defaults step aside when the type is
+`postgres`. Node checkpoints (`yukta.restart.dir`) still use files or memory.
+
 ### Sub-workflows
 `SUB_WORKFLOW` (internal-core) runs another stored workflow of the same session per message through
 `SubWorkflowGateway` (`SubWorkflowRunner`): a normal run with its own execution id, tracked and
