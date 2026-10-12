@@ -78,7 +78,10 @@ public class ExecutionResumer {
           }
           // A claim is dropped when the resume fails or is cancelled (for example a client that
           // gave up while the workflow was being prepared); the log keeps the real record.
+          // reads the whole log and the checkpoint files, so not on the caller's (event loop)
+          // thread
           return doResume(executionId)
+              .subscribeOn(Schedulers.boundedElastic())
               .doOnError(_ -> resuming.remove(executionId))
               .doOnCancel(() -> resuming.remove(executionId));
         });

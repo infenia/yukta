@@ -207,6 +207,9 @@ merged. `WorkflowStateTransitionTest` checks this on thousands of random event o
 `StreamTopologyDecoratorBackpressureTest` (a 20-node chain, 10k messages, bounded memory) guards the
 streaming side as part of `check`.
 
+Node spans are opened only for a status the run state accepted, so a late `RUNNING` for an ended
+node leaves no open span. `resume` reads the log and checkpoint files on `boundedElastic`.
+
 ### Tracker queue
 State and workflow events are never dropped: they go to an unbounded queue. Log lines are best
 effort: more than 10000 waiting are dropped and counted in `yukta.tracker.dropped{type=log}`
