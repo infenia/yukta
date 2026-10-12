@@ -56,6 +56,30 @@ class DefaultTaskTrackerServiceTest {
   }
 
   @Test
+  void testRunStillEndsWhenTheExecutionLogCannotBeWritten() {
+    final com.infenia.yukta.service.log.ExecutionLogStore broken =
+        org.mockito.Mockito.mock(com.infenia.yukta.service.log.ExecutionLogStore.class);
+    org.mockito.Mockito.doThrow(new IllegalStateException("disk full"))
+        .when(broken)
+        .append(org.mockito.ArgumentMatchers.any());
+    final DefaultTaskTrackerService failing =
+        new DefaultTaskTrackerService(
+            Duration.ofSeconds(30), statusHistoryCache, broken, new SimpleMeterRegistry());
+    failing.init();
+    StepVerifier.create(failing.startWorkflow("b-exec", "b-sess", "b-wf", List.of("a")))
+        .verifyComplete();
+
+    StepVerifier.create(failing.finishWorkflow("b-exec", TaskStatus.SUCCESS)).verifyComplete();
+
+    await()
+        .atMost(2, TimeUnit.SECONDS)
+        .untilAsserted(
+            () ->
+                assertThat(failing.getProgressByExecutionId("b-exec").status())
+                    .isEqualTo(TaskStatus.SUCCESS.name()));
+  }
+
+  @Test
   void testDefinitionVersionIsReportedWithTheProgress() {
     StepVerifier.create(tracker.startWorkflow("v-exec", "v-sess", "v-wf", List.of("a")))
         .verifyComplete();

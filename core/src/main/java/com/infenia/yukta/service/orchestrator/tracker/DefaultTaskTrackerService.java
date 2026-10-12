@@ -759,17 +759,28 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
   private void handleEvents(final List<TrackerEvent> events) {
     final Set<WorkflowState> touched = new LinkedHashSet<>();
     for (final TrackerEvent event : events) {
-      switch (event) {
-        case TaskStatusEvent task -> applyTask(task, touched);
-        case WorkflowStatusEvent workflow -> applyWorkflow(workflow, touched);
-        case WorkflowLogEvent logEvent -> applyLog(logEvent);
-      }
+      applyIsolated(event, touched);
     }
     log.atDebug()
         .addKeyValue("eventsProcessed", events.size())
         .addKeyValue("executionsUpdated", touched.size())
         .log("Processed tracker event batch");
     touched.forEach(this::notifyStatusChange);
+  }
+
+  /** One bad event must not cost the rest of its batch, such as a run's final status. */
+  private void applyIsolated(final TrackerEvent event, final Set<WorkflowState> touched) {
+    try {
+      switch (event) {
+        case TaskStatusEvent task -> applyTask(task, touched);
+        case WorkflowStatusEvent workflow -> applyWorkflow(workflow, touched);
+        case WorkflowLogEvent logEvent -> applyLog(logEvent);
+      }
+    } catch (
+        @SuppressWarnings("PMD.AvoidCatchingGenericException")
+        final RuntimeException e) {
+      log.atError().setCause(e).addKeyValue("event", event).log("Failed to apply tracker event");
+    }
   }
 
   private void applyTask(final TaskStatusEvent event, final Set<WorkflowState> touched) {
@@ -822,13 +833,7 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
     telemetry.runStatus(
         event.executionId(), event.status(), terminal, state.startTime, event.timestamp());
     if (terminal) {
-      executionLog.append(
-          ExecutionLogEvent.finished(
-              state.executionId,
-              state.sessionId,
-              state.workflowId,
-              event.status(),
-              state.nodeStatuses()));
+      appendFinished(state, event.status());
     }
     state.setStatus(event.status());
     eventFeed.publish(
@@ -841,6 +846,22 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
           .addKeyValue("executionId", event.executionId())
           .addKeyValue("finalStatus", event.status())
           .log("Workflow reached terminal status, scheduled cleanup");
+    }
+  }
+
+  /** A log that cannot be written must not keep the run from ending. */
+  private void appendFinished(final WorkflowState state, final String status) {
+    try {
+      executionLog.append(
+          ExecutionLogEvent.finished(
+              state.executionId, state.sessionId, state.workflowId, status, state.nodeStatuses()));
+    } catch (
+        @SuppressWarnings("PMD.AvoidCatchingGenericException")
+        final RuntimeException e) {
+      log.atError()
+          .setCause(e)
+          .addKeyValue("executionId", state.executionId)
+          .log("Could not record the end of the run in the execution log");
     }
   }
 

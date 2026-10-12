@@ -698,6 +698,91 @@ class WorkflowOrchestratorTest {
     return new WorkflowDefinition(workflowId, "Test workflow", List.of(node), List.of(edge));
   }
 
+  @Test
+  void execute_keepsCheckpointsOfEvictedRunningRunUntilItEnds() {
+    final WorkflowOrchestrator small =
+        new WorkflowOrchestrator(
+            tracker,
+            executionControlRegistry,
+            executionControlFactory,
+            checkpointStore,
+            new ExecutionArchive(1),
+            executionLog,
+            scheduler,
+            compiler,
+            preparator);
+    final PreparedWorkflow prepared = buildPreparedWorkflow(List.of("n1"));
+    lenient()
+        .when(executionControlFactory.create(anyString(), anyString(), anyString(), any(), any()))
+        .thenReturn(executionControl);
+    lenient().when(executionControl.safeStopSink()).thenAnswer(inv -> Sinks.one());
+    lenient().when(executionControl.stopRequested()).thenAnswer(inv -> new AtomicBoolean());
+    when(tracker.startWorkflow(anyString(), anyString(), anyString(), anyList()))
+        .thenReturn(Mono.empty());
+    final Sinks.Empty<Void> e1Body = Sinks.empty();
+    when(prepared.template().instantiate(eq("e1"), any())).thenReturn(e1Body.asMono());
+    when(prepared.template().instantiate(eq("e2"), any())).thenReturn(Mono.empty());
+    when(executionControlRegistry.findByExecutionId("e1"))
+        .thenReturn(java.util.Optional.of(executionControl));
+
+    small.execute("s", "w", "e1", prepared, Map.of()).subscribe();
+    StepVerifier.create(small.execute("s", "w", "e2", prepared, Map.of())).verifyComplete();
+
+    // e1 fell out of the archive while still running: its checkpoints must stay.
+    verify(checkpointStore, never()).clear("e1");
+
+    e1Body.tryEmitEmpty();
+
+    verify(checkpointStore).clear("e1");
+  }
+
+  @Test
+  void execute_clearsCheckpointsOfFinishedRunOnEviction() {
+    final WorkflowOrchestrator small =
+        new WorkflowOrchestrator(
+            tracker,
+            executionControlRegistry,
+            executionControlFactory,
+            checkpointStore,
+            new ExecutionArchive(1),
+            executionLog,
+            scheduler,
+            compiler,
+            preparator);
+    final PreparedWorkflow prepared = buildPreparedWorkflow(List.of("n1"));
+    lenient()
+        .when(executionControlFactory.create(anyString(), anyString(), anyString(), any(), any()))
+        .thenReturn(executionControl);
+    lenient().when(executionControl.safeStopSink()).thenAnswer(inv -> Sinks.one());
+    lenient().when(executionControl.stopRequested()).thenAnswer(inv -> new AtomicBoolean());
+    when(tracker.startWorkflow(anyString(), anyString(), anyString(), anyList()))
+        .thenReturn(Mono.empty());
+    when(prepared.template().instantiate(anyString(), any())).thenReturn(Mono.empty());
+
+    StepVerifier.create(small.execute("s", "w", "old", prepared, Map.of())).verifyComplete();
+    StepVerifier.create(small.execute("s", "w", "new", prepared, Map.of())).verifyComplete();
+
+    verify(checkpointStore).clear("old");
+  }
+
+  @Test
+  void execute_endsTimedOutWhenTheSessionExecutionTimeoutFires() {
+    final PreparedWorkflow prepared = buildPreparedWorkflow(List.of("n1"));
+    setupExecutionControl("s", "w", "e-slow", prepared, Map.of(), Sinks.one());
+    when(tracker.startWorkflow(anyString(), anyString(), anyString(), anyList()))
+        .thenReturn(Mono.empty());
+    when(prepared.template().instantiate(eq("e-slow"), any()))
+        .thenReturn(
+            Mono.error(
+                new com.infenia.yukta.service.orchestrator.compiler.ExecutionTimeoutException(5)));
+
+    StepVerifier.create(orchestrator.execute("s", "w", "e-slow", prepared, Map.of()))
+        .expectError(java.util.concurrent.TimeoutException.class)
+        .verify();
+
+    verify(tracker).finishWorkflow("e-slow", TaskStatus.TIMED_OUT);
+  }
+
   private PreparedWorkflow buildPreparedWorkflow(final List<String> nodeIds) {
     final List<WorkflowNode> nodes =
         nodeIds.stream().map(id -> new WorkflowNode(id, "type", Map.of())).toList();

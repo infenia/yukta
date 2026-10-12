@@ -58,7 +58,7 @@ Any node's config may carry a reserved `engine` object; plugins never see these 
   `maxBackoffMs` must be below the node's timeout (checked by the validator).
 - `onError` (processors only): `FAIL` (default), `CONTINUE` (drop the message), or `ROUTE` (send it,
   tagged with its failure, to the node's `error` output port; wire an edge with `sourcePort: "error"`
-  to a dead-letter node). A routed message carries the headers `failure.attempts`,
+  to a dead-letter node; an edge without a `sourcePort` never carries a dead letter). A routed message carries the headers `failure.attempts`,
   `failure.exception` (class name) and `failure.time` (ISO-8601) next to `origDest`/`failureReason`.
 - `retry.retryOn` / `retry.noRetryOn`: lists of exception class names (simple or fully qualified;
   subclasses and causes match). `noRetryOn` wins; with `retryOn` only those are retried; otherwise
@@ -80,6 +80,8 @@ Malformed policies are rejected by `WorkflowValidator` with the node id and opti
 `com.infenia.yukta.model.workflow.NodePolicy`; behaviour in `service.orchestrator.stream.NodePolicies`.
 
 ### Restart and execution log
+- A run that falls out of the archive while it is still running keeps its recorded outputs until it
+  ends (they are cleared then).
 - Recent executions stay restartable after they end (`ExecutionArchive`: graph, payload, recorded
   node outputs). `yukta.restart.retained-executions` (default 10) and
   `yukta.restart.messages-per-node` (default 200) and `yukta.restart.bytes-per-node` (default 4 MiB;
@@ -141,6 +143,9 @@ executions are not recorded. `POST /api/workflow/{session}/{workflow}/stop?mode=
 selects how a run stops (default `DRAIN`). Restart-from-node after a server restart is not supported (the archive lives in
 memory); use `ExecutionResumer` for aborted runs.
 `yukta.executions.running` and `yukta.executions.queued` gauges report the scheduler.
+A run that outlives the session execution timeout ends `TIMED_OUT` (`ExecutionTimeoutException`); a
+node that times out keeps its own status. A failure to write the end of a run to the execution log
+no longer keeps the run from ending.
 
 Gateway commands for a live run (`ControlBusGateway`). REST: `POST /api/executions/{id}/nodes/{node}/skip|retry|breakpoint` (`DELETE` clears), `/executions/{id}/priority`, `/scheduler/limits`; MCP: `control_node` `SKIP|UNSKIP|RETRY|BREAKPOINT_CLEAR` and `set_node_breakpoint`:
 - `skipNode(execution, node, skip)`: a processor node passes elements through without calling the

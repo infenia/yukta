@@ -20,6 +20,7 @@ import com.infenia.yukta.service.control.store.ExecutionControlRegistry;
 import com.infenia.yukta.service.log.ExecutionLogEvent;
 import com.infenia.yukta.service.log.ExecutionLogStore;
 import com.infenia.yukta.service.orchestrator.assembly.ExecutionContextBuilder;
+import com.infenia.yukta.service.orchestrator.compiler.ExecutionTimeoutException;
 import com.infenia.yukta.service.orchestrator.compiler.WorkflowCompiler;
 import com.infenia.yukta.service.orchestrator.preparator.WorkflowPreparator;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
@@ -30,6 +31,8 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -84,6 +87,9 @@ public class WorkflowOrchestrator {
 
   /** The workflow preparator for preparing workflows for execution. */
   private final WorkflowPreparator preparator;
+
+  /** Evicted from the archive while still running: their checkpoints go when they end. */
+  private final Set<String> clearWhenDone = ConcurrentHashMap.newKeySet();
 
   /**
    * Prepares a workflow for execution.
@@ -318,7 +324,21 @@ public class WorkflowOrchestrator {
         ExecutionLogEvent.started(executionId, sessionId, workflowId, version, payload));
     executionArchive
         .put(new ArchivedExecution(executionId, sessionId, workflowId, prepared, version, payload))
-        .forEach(checkpointStore::clear);
+        .forEach(this::releaseCheckpoints);
+  }
+
+  /** Drops the recorded outputs of an evicted run, or at its end if it is still running. */
+  private void releaseCheckpoints(final String executionId) {
+    clearWhenDone.add(executionId);
+    if (executionControlRegistry.findByExecutionId(executionId).isEmpty()) {
+      clearIfPending(executionId);
+    }
+  }
+
+  private void clearIfPending(final String executionId) {
+    if (clearWhenDone.remove(executionId)) {
+      checkpointStore.clear(executionId);
+    }
   }
 
   /**
@@ -379,7 +399,7 @@ public class WorkflowOrchestrator {
                 tracker
                     .finishWorkflow(
                         executionId,
-                        e instanceof QueueTimeoutException
+                        e instanceof QueueTimeoutException || e instanceof ExecutionTimeoutException
                             ? TaskStatus.TIMED_OUT
                             : TaskStatus.FAILURE)
                     .doOnSuccess(
@@ -394,6 +414,7 @@ public class WorkflowOrchestrator {
         .doFinally(
             signal -> {
               executionControlRegistry.unregister(executionId);
+              clearIfPending(executionId);
               // Ends the run: lets a pending drain deadline timer go instead of living on.
               control.safeStopSink().tryEmitEmpty();
               log.atDebug()
