@@ -75,7 +75,7 @@ Create or update a session using JSON:
 Apply a session from a file:
 
 ```bash
-./yukta session apply --file session.json
+./yukta session apply session.json
 ```
 
 ### Workflow Operations

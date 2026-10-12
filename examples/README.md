@@ -36,6 +36,7 @@ its session again each time.
 | [08](08-retry-until-ready/) | Retry a check until ready, bounded | LOOP_PREDICATE | REST |
 | [09](09-llm-chat-agent/) | Chat agent with per-user memory | SESSION_MEMORY → LLM_CALL → SESSION_MEMORY | REST |
 | [10](10-mcp-agent/) | AI agent drives Yukta over MCP | MCP `create_session` / `start_workflow` | MCP |
+| [11](11-dogfood/) | Run this repo's `gradle check` as a staged workflow | CONSTANT_SOURCE → PROCESS_EXECUTOR stages → terminal | REST / CLI |
 
 Example 10 note: MCP output validation rejects executions that are still running, so that
 example waits over REST and reads the result through MCP only after the run finishes.
