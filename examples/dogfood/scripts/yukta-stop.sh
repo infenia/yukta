@@ -17,11 +17,19 @@ if [[ -f "$pidfile" ]]; then
   # bootRun spawns children; stop the whole group, then the leader.
   pkill -P "$pid" 2>/dev/null || true
   kill "$pid" 2>/dev/null || true
+  # Let the JVM and Gradle release the worktree before it is removed.
+  for _ in $(seq 1 15); do
+    pgrep -f "$YUKTA_DEV_WORKTREE" >/dev/null || break
+    sleep 1
+  done
+  pkill -f "$YUKTA_DEV_WORKTREE" 2>/dev/null || true
   rm -f "$pidfile"
 fi
 
 if [[ "${2:-}" != --keep-worktree ]]; then
-  git -C "$REPO_ROOT" worktree remove --force "$YUKTA_DEV_WORKTREE"
+  git -C "$REPO_ROOT" worktree remove --force "$YUKTA_DEV_WORKTREE" 2>/dev/null || true
+  rm -rf "$YUKTA_DEV_WORKTREE"
+  git -C "$REPO_ROOT" worktree prune
   git -C "$REPO_ROOT" branch -D "yukta-dev/$name" 2>/dev/null || true
 fi
 rm -f "$envfile"
