@@ -23,7 +23,9 @@ All service logic uses **Project Reactor** (`Mono`, `Flux`).
 - `com.infenia.yukta.service.orchestrator.WorkflowOrchestrator`: DAG orchestration logic, split across `assembly/`, `compiler/`, `preparator/`, `strategy/`, `stream/`, `tracker/`, and `validator/` subpackages.
 - `tracker/` keeps the queue and projections in `DefaultTaskTrackerService`, one run's state in
   `WorkflowState` and the spans and meters in `RunTelemetry`. `DefaultControlBusGateway` delegates
-  starting (admission, shared prepare, idempotency) to `WorkflowStarter`.
+  starting (admission, shared prepare, idempotency) to `WorkflowStarter`. It also delegates node commands to
+  `NodeCommands`, restarts to `RestartCoordinator` and read-only views to `ExecutionQueries`
+  (`ControlDispatch` is their shared base).
 - `com.infenia.yukta.service.plugin.PluginRegistry`: Plugin registration.
 - Executes a Directed Acyclic Graph (DAG) of nodes and edges.
 
