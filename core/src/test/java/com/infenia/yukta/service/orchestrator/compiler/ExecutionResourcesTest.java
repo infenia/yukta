@@ -93,7 +93,7 @@ class ExecutionResourcesTest {
 
     StepVerifier.create(
             run("s", List.of(Mono.never()), List.of(), new ArrayList<>(List.of(resource))))
-        .expectError(TimeoutException.class)
+        .expectError(ExecutionTimeoutException.class)
         .verify(Duration.ofSeconds(5));
 
     verify(resource).dispose();

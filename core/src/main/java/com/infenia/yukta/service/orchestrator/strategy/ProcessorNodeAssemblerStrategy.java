@@ -100,7 +100,6 @@ public class ProcessorNodeAssemblerStrategy implements NodeAssemblerStrategy {
   }
 
   @Override
-  @SuppressWarnings("PMD.CognitiveComplexity")
   public NodeAssembler createAssembler(
       final WorkflowNode node,
       final Plugin plugin,
@@ -143,55 +142,48 @@ public class ProcessorNodeAssemblerStrategy implements NodeAssemblerStrategy {
 
       Flux<Message<?>> stream;
       final AtomicBoolean skipFlag = control.nodeSkipFlags().get(node.nodeId());
-
-      if (skipFlag != null && skipFlag.get()) {
-        log.atInfo()
-            .addKeyValue(LOG_KEY_NODE_ID, node.nodeId())
-            .addKeyValue("executionId", context.executionId())
-            .log("Node marked for skip, bypassing processor");
-        stream = timedInput;
-      } else {
+      // The pipeline is always built, even for a node that starts out skipped: the skip flag is
+      // read per element (bypassWhileSkipped), so an unskip later takes effect.
+      log.atDebug()
+          .addKeyValue(LOG_KEY_NODE_ID, node.nodeId())
+          .log("Processing stream with processor plugin");
+      final NodeMessageChannel channel = channelProvider.channelFor(node.nodeId(), node.config());
+      final Flux<Message<?>> channelInput =
+          channel.inbound(node.nodeId(), context.executionId(), timedInput);
+      final NodePolicy policy = NodePolicy.from(node.config());
+      // failures are counted per run, so the ledger belongs to this assembly, not to the node
+      final FailureLedger ledger =
+          policy.failureBudget() == null ? null : new FailureLedger(policy.failureBudget());
+      final Function<Flux<Message<?>>, Flux<Message<?>>> run =
+          policy.perMessage()
+              // prefetch 1: a paused node must not have 32 elements already past the gate
+              ? input ->
+                  input.concatMap(
+                      message ->
+                          NodePolicies.apply(
+                              policy,
+                              node.nodeId(),
+                              message,
+                              attempt -> {
+                                if (retried(attempt)) {
+                                  tracker.recordRetry(node.type());
+                                }
+                                return processor.process(Flux.just(attempt), node.config());
+                              },
+                              activity::touch,
+                              ledger),
+                      1)
+              : input -> processor.process(input, node.config());
+      final Flux<Message<?>> pluginOutput =
+          skipFlag == null
+              ? run.apply(channelInput)
+              : bypassWhileSkipped(channelInput, skipFlag, run);
+      stream = channel.outbound(node.nodeId(), context.executionId(), pluginOutput);
+      if (processor.isBlocking()) {
         log.atDebug()
             .addKeyValue(LOG_KEY_NODE_ID, node.nodeId())
-            .log("Processing stream with processor plugin");
-        final NodeMessageChannel channel = channelProvider.channelFor(node.nodeId(), node.config());
-        final Flux<Message<?>> channelInput =
-            channel.inbound(node.nodeId(), context.executionId(), timedInput);
-        final NodePolicy policy = NodePolicy.from(node.config());
-        // failures are counted per run, so the ledger belongs to this assembly, not to the node
-        final FailureLedger ledger =
-            policy.failureBudget() == null ? null : new FailureLedger(policy.failureBudget());
-        final Function<Flux<Message<?>>, Flux<Message<?>>> run =
-            policy.perMessage()
-                // prefetch 1: a paused node must not have 32 elements already past the gate
-                ? input ->
-                    input.concatMap(
-                        message ->
-                            NodePolicies.apply(
-                                policy,
-                                node.nodeId(),
-                                message,
-                                attempt -> {
-                                  if (retried(attempt)) {
-                                    tracker.recordRetry(node.type());
-                                  }
-                                  return processor.process(Flux.just(attempt), node.config());
-                                },
-                                activity::touch,
-                                ledger),
-                        1)
-                : input -> processor.process(input, node.config());
-        final Flux<Message<?>> pluginOutput =
-            skipFlag == null
-                ? run.apply(channelInput)
-                : bypassWhileSkipped(channelInput, skipFlag, run);
-        stream = channel.outbound(node.nodeId(), context.executionId(), pluginOutput);
-        if (processor.isBlocking()) {
-          log.atDebug()
-              .addKeyValue(LOG_KEY_NODE_ID, node.nodeId())
-              .log("Subscribing blocking processor to virtual thread scheduler");
-          stream = stream.subscribeOn(virtualThreadScheduler);
-        }
+            .log("Subscribing blocking processor to virtual thread scheduler");
+        stream = stream.subscribeOn(virtualThreadScheduler);
       }
 
       final Flux<Message<?>> built =

@@ -54,6 +54,9 @@ public class McpClientGateway {
   /** Heartbeat for requests that cannot report progress. */
   private static final Runnable NO_OP = Thread::onSpinWait;
 
+  /** Key of a tool name. */
+  private static final String NAME = "name";
+
   private static final ObjectMapper JSON_MAPPER = new ObjectMapper();
   private static final ParameterizedTypeReference<ServerSentEvent<String>> SSE =
       new ParameterizedTypeReference<>() {};
@@ -116,13 +119,42 @@ public class McpClientGateway {
         .doOnCancel(() -> cancelRemote(spec, requestId));
   }
 
+  /**
+   * List the tools the server offers (first page).
+   *
+   * @param spec the endpoint, headers and time limit; {@code tool} and {@code arguments} are unused
+   * @param heartbeat run whenever the server reports progress
+   * @return a Mono emitting {@code {name, description, inputSchema}} per tool
+   */
+  public Mono<List<Map<String, Object>>> listTools(
+      final McpCallSpec spec, final Runnable heartbeat) {
+    final String requestId = UUID.randomUUID().toString();
+    return Mono.defer(() -> listOnce(spec, requestId, heartbeat))
+        .onErrorResume(
+            SessionExpiredException.class,
+            e -> {
+              sessions.remove(spec.sessionKey());
+              return listOnce(spec, requestId, heartbeat);
+            })
+        .timeout(spec.timeout());
+  }
+
+  private Mono<List<Map<String, Object>>> listOnce(
+      final McpCallSpec spec, final String requestId, final Runnable heartbeat) {
+    return session(spec)
+        .flatMap(
+            sessionId ->
+                post(spec, sessionId, request(requestId, "tools/list", Map.of()), heartbeat))
+        .map(reply -> toTools(reply, requestId));
+  }
+
   private Mono<McpCallResult> callOnce(
       final McpCallSpec spec, final String requestId, final Runnable heartbeat) {
     return session(spec)
         .flatMap(
             sessionId -> {
               final Map<String, Object> params = new LinkedHashMap<>();
-              params.put("name", spec.tool());
+              params.put(NAME, spec.tool());
               params.put("arguments", spec.arguments());
               final Map<String, Object> meta = new LinkedHashMap<>(spec.meta());
               meta.put("progressToken", requestId);
@@ -148,7 +180,7 @@ public class McpClientGateway {
             "capabilities",
             Map.of(),
             "clientInfo",
-            Map.of("name", "yukta", "version", "1"));
+            Map.of(NAME, "yukta", "version", "1"));
     return post(spec, "", request(UUID.randomUUID().toString(), "initialize", params), NO_OP)
         .flatMap(
             reply -> {
@@ -283,13 +315,39 @@ public class McpClientGateway {
     }
   }
 
+  private static Map<String, Object> answerFor(final Reply reply, final String requestId) {
+    return reply.messages().stream()
+        .filter(m -> requestId.equals(m.get("id")))
+        .findFirst()
+        .orElseThrow(() -> new McpHttpException(200, "no reply for request " + requestId));
+  }
+
+  @SuppressWarnings("unchecked")
+  private static List<Map<String, Object>> toTools(final Reply reply, final String requestId) {
+    final Map<String, Object> answer = answerFor(reply, requestId);
+    if (answer.get("error") instanceof final Map<?, ?> error) {
+      throw new McpHttpException(200, "tools/list failed: " + error.get("message"));
+    }
+    final Map<String, Object> result = (Map<String, Object>) answer.getOrDefault(RESULT, Map.of());
+    return ((List<Object>) result.getOrDefault("tools", List.of()))
+        .stream()
+            .filter(Map.class::isInstance)
+            .map(item -> (Map<String, Object>) item)
+            .map(
+                tool ->
+                    Map.<String, Object>of(
+                        NAME,
+                        String.valueOf(tool.get(NAME)),
+                        "description",
+                        String.valueOf(tool.getOrDefault("description", "")),
+                        "inputSchema",
+                        tool.getOrDefault("inputSchema", Map.of())))
+            .toList();
+  }
+
   @SuppressWarnings("unchecked")
   private static McpCallResult toResult(final Reply reply, final String requestId) {
-    final Map<String, Object> answer =
-        reply.messages().stream()
-            .filter(m -> requestId.equals(m.get("id")))
-            .findFirst()
-            .orElseThrow(() -> new McpHttpException(200, "no reply for request " + requestId));
+    final Map<String, Object> answer = answerFor(reply, requestId);
     if (answer.get("error") instanceof final Map<?, ?> error) {
       return McpCallResult.transportFailure(String.valueOf(error.get("message")));
     }

@@ -174,6 +174,19 @@ class WorkflowOrchestratorTest {
   }
 
   @Test
+  void execute_registersNothingUntilTheResultIsSubscribed() {
+    final PreparedWorkflow prepared = buildPreparedWorkflow(List.of("node-a"));
+
+    final Mono<Void> neverSubscribed =
+        orchestrator.execute("sess-1", "wf-1", "exec-1", prepared, Map.of());
+
+    assertThat(neverSubscribed).isNotNull();
+    verify(executionControlFactory, never()).create(any(), any(), any(), any(), any());
+    verify(executionControlRegistry, never()).register(any());
+    verify(tracker, never()).startWorkflow(any(), any(), any(), anyList());
+  }
+
+  @Test
   void execute_unregistersAndClearsCheckpointOnError() {
     final String sessionId = "sess-err";
     final String workflowId = "wf-err";
@@ -332,6 +345,7 @@ class WorkflowOrchestratorTest {
 
     @SuppressWarnings("unchecked")
     final Message<String> checkpoint = (Message<String>) org.mockito.Mockito.mock(Message.class);
+    when(checkpointStore.markComplete(newExecId, "trigger")).thenReturn(Mono.empty());
 
     StepVerifier.create(
             orchestrator.restartFromNode(
@@ -345,6 +359,8 @@ class WorkflowOrchestratorTest {
         .verifyComplete();
 
     verify(compiler).compileAssemblers(any(), any(), any(), any());
+    // the replayed output is recorded as finished, so resuming this run does not repeat the node
+    verify(checkpointStore).markComplete(newExecId, "trigger");
 
     // the pre-restart assembler now replays the parent's checkpoint
     final AssemblyContext context = org.mockito.Mockito.mock(AssemblyContext.class);
@@ -696,6 +712,175 @@ class WorkflowOrchestratorTest {
     final var node = new WorkflowDefinition.Node("node-a", "trigger-type", Map.of());
     final var edge = new WorkflowDefinition.Edge("node-a", "node-a", "default");
     return new WorkflowDefinition(workflowId, "Test workflow", List.of(node), List.of(edge));
+  }
+
+  @Test
+  void execute_keepsCheckpointsOfEvictedRunningRunUntilItEnds() {
+    final WorkflowOrchestrator small =
+        new WorkflowOrchestrator(
+            tracker,
+            executionControlRegistry,
+            executionControlFactory,
+            checkpointStore,
+            new ExecutionArchive(1),
+            executionLog,
+            scheduler,
+            compiler,
+            preparator);
+    final PreparedWorkflow prepared = buildPreparedWorkflow(List.of("n1"));
+    lenient()
+        .when(executionControlFactory.create(anyString(), anyString(), anyString(), any(), any()))
+        .thenReturn(executionControl);
+    lenient().when(executionControl.safeStopSink()).thenAnswer(inv -> Sinks.one());
+    lenient().when(executionControl.stopRequested()).thenAnswer(inv -> new AtomicBoolean());
+    when(tracker.startWorkflow(anyString(), anyString(), anyString(), anyList()))
+        .thenReturn(Mono.empty());
+    final Sinks.Empty<Void> e1Body = Sinks.empty();
+    when(prepared.template().instantiate(eq("e1"), any())).thenReturn(e1Body.asMono());
+    when(prepared.template().instantiate(eq("e2"), any())).thenReturn(Mono.empty());
+    when(executionControlRegistry.findByExecutionId("e1"))
+        .thenReturn(java.util.Optional.of(executionControl));
+
+    small.execute("s", "w", "e1", prepared, Map.of()).subscribe();
+    StepVerifier.create(small.execute("s", "w", "e2", prepared, Map.of())).verifyComplete();
+
+    // e1 fell out of the archive while still running: its checkpoints must stay.
+    verify(checkpointStore, never()).clear("e1");
+
+    e1Body.tryEmitEmpty();
+
+    verify(checkpointStore).clear("e1");
+  }
+
+  @Test
+  void execute_clearsCheckpointsOfFinishedRunOnEviction() {
+    final WorkflowOrchestrator small =
+        new WorkflowOrchestrator(
+            tracker,
+            executionControlRegistry,
+            executionControlFactory,
+            checkpointStore,
+            new ExecutionArchive(1),
+            executionLog,
+            scheduler,
+            compiler,
+            preparator);
+    final PreparedWorkflow prepared = buildPreparedWorkflow(List.of("n1"));
+    lenient()
+        .when(executionControlFactory.create(anyString(), anyString(), anyString(), any(), any()))
+        .thenReturn(executionControl);
+    lenient().when(executionControl.safeStopSink()).thenAnswer(inv -> Sinks.one());
+    lenient().when(executionControl.stopRequested()).thenAnswer(inv -> new AtomicBoolean());
+    when(tracker.startWorkflow(anyString(), anyString(), anyString(), anyList()))
+        .thenReturn(Mono.empty());
+    when(prepared.template().instantiate(anyString(), any())).thenReturn(Mono.empty());
+
+    StepVerifier.create(small.execute("s", "w", "old", prepared, Map.of())).verifyComplete();
+    StepVerifier.create(small.execute("s", "w", "new", prepared, Map.of())).verifyComplete();
+
+    verify(checkpointStore).clear("old");
+  }
+
+  private PreparedWorkflow reservedSetUp() {
+    final PreparedWorkflow prepared = buildPreparedWorkflow(List.of("n1"));
+    lenient()
+        .when(executionControlFactory.create(anyString(), anyString(), anyString(), any(), any()))
+        .thenReturn(executionControl);
+    lenient().when(executionControl.safeStopSink()).thenAnswer(inv -> Sinks.one());
+    lenient().when(executionControl.stopRequested()).thenAnswer(inv -> new AtomicBoolean());
+    lenient()
+        .when(tracker.startWorkflow(anyString(), anyString(), anyString(), anyList()))
+        .thenReturn(Mono.empty());
+    lenient().when(prepared.template().instantiate(anyString(), any())).thenReturn(Mono.empty());
+    return prepared;
+  }
+
+  private WorkflowOrchestrator orchestratorWith(final ExecutionScheduler limited) {
+    return new WorkflowOrchestrator(
+        tracker,
+        executionControlRegistry,
+        executionControlFactory,
+        checkpointStore,
+        executionArchive,
+        executionLog,
+        limited,
+        compiler,
+        preparator);
+  }
+
+  @Test
+  void execute_reservedSlot_isUsedAndReleased() {
+    final ExecutionScheduler limited =
+        new ExecutionScheduler(1, 0, 10, ExecutionScheduler.OnLimit.QUEUE, Duration.ofSeconds(30));
+    final PreparedWorkflow prepared = reservedSetUp();
+    final ExecutionScheduler.Admission admission = limited.acquire("s", "w", 0, "e-res");
+    assertThat(limited.running()).isEqualTo(1);
+
+    StepVerifier.create(
+            orchestratorWith(limited).execute("s", "w", "e-res", prepared, Map.of(), admission))
+        .verifyComplete();
+
+    assertThat(limited.running()).isZero();
+  }
+
+  @Test
+  void execute_reservedQueuedSlot_waitsAndShowsQueued() {
+    final ExecutionScheduler limited =
+        new ExecutionScheduler(1, 0, 10, ExecutionScheduler.OnLimit.QUEUE, Duration.ofSeconds(30));
+    final PreparedWorkflow prepared = reservedSetUp();
+    final ExecutionScheduler.Permit held = limited.acquire("s", "w").permit().block();
+    final ExecutionScheduler.Admission admission = limited.acquire("s", "w", 0, "e-wait");
+    assertThat(admission.immediate()).isFalse();
+
+    final var done =
+        orchestratorWith(limited)
+            .execute("s", "w", "e-wait", prepared, Map.of(), admission)
+            .toFuture();
+    assertThat(done.isDone()).isFalse();
+    held.release();
+
+    assertThat(done.isDone()).isTrue();
+    verify(tracker).emitWorkflowStatusEvent("e-wait", TaskStatus.QUEUED);
+    assertThat(limited.running()).isZero();
+  }
+
+  @Test
+  void execute_whenTrackingCannotStart_givesTheReservedSlotBack() {
+    final ExecutionScheduler limited =
+        new ExecutionScheduler(1, 0, 10, ExecutionScheduler.OnLimit.QUEUE, Duration.ofSeconds(30));
+    final PreparedWorkflow prepared = reservedSetUp();
+    when(tracker.startWorkflow(anyString(), anyString(), anyString(), anyList()))
+        .thenReturn(Mono.error(new IllegalStateException("no tracker")));
+    final ExecutionScheduler.Admission admission = limited.acquire("s", "w", 0, "e-bad");
+
+    StepVerifier.create(
+            orchestratorWith(limited).execute("s", "w", "e-bad", prepared, Map.of(), admission))
+        .expectError(IllegalStateException.class)
+        .verify();
+    // Without a reserved slot there is nothing to give back.
+    StepVerifier.create(orchestratorWith(limited).execute("s", "w", "e-bad2", prepared, Map.of()))
+        .expectError(IllegalStateException.class)
+        .verify();
+
+    assertThat(limited.running()).isZero();
+  }
+
+  @Test
+  void execute_endsTimedOutWhenTheSessionExecutionTimeoutFires() {
+    final PreparedWorkflow prepared = buildPreparedWorkflow(List.of("n1"));
+    setupExecutionControl("s", "w", "e-slow", prepared, Map.of(), Sinks.one());
+    when(tracker.startWorkflow(anyString(), anyString(), anyString(), anyList()))
+        .thenReturn(Mono.empty());
+    when(prepared.template().instantiate(eq("e-slow"), any()))
+        .thenReturn(
+            Mono.error(
+                new com.infenia.yukta.service.orchestrator.compiler.ExecutionTimeoutException(5)));
+
+    StepVerifier.create(orchestrator.execute("s", "w", "e-slow", prepared, Map.of()))
+        .expectError(java.util.concurrent.TimeoutException.class)
+        .verify();
+
+    verify(tracker).finishWorkflow("e-slow", TaskStatus.TIMED_OUT);
   }
 
   private PreparedWorkflow buildPreparedWorkflow(final List<String> nodeIds) {

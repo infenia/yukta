@@ -5,6 +5,8 @@ package com.infenia.yukta.service.orchestrator.tracker;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
+import com.infenia.yukta.event.TaskStatusEvent;
+import com.infenia.yukta.event.WorkflowStatusEvent;
 import com.infenia.yukta.logging.api.LogLevel;
 import com.infenia.yukta.logging.api.LogStream;
 import com.infenia.yukta.model.execution.ControlState;
@@ -39,7 +41,8 @@ import reactor.test.StepVerifier;
   "PMD.AvoidDuplicateLiterals",
   "PMD.AvoidAccessibilityAlteration",
   "PMD.CognitiveComplexity",
-  "PMD.ShortVariable"
+  "PMD.ShortVariable",
+  "PMD.CouplingBetweenObjects"
 })
 class DefaultTaskTrackerServiceTest {
 
@@ -53,6 +56,67 @@ class DefaultTaskTrackerServiceTest {
   void setUp() {
     tracker = new DefaultTaskTrackerService(Duration.ofMillis(200), statusHistoryCache);
     tracker.init();
+  }
+
+  @Test
+  void testRunStillEndsWhenTheExecutionLogCannotBeWritten() {
+    final com.infenia.yukta.service.log.ExecutionLogStore broken =
+        org.mockito.Mockito.mock(com.infenia.yukta.service.log.ExecutionLogStore.class);
+    org.mockito.Mockito.doThrow(new IllegalStateException("disk full"))
+        .when(broken)
+        .append(org.mockito.ArgumentMatchers.any());
+    final DefaultTaskTrackerService failing =
+        new DefaultTaskTrackerService(
+            Duration.ofSeconds(30), statusHistoryCache, broken, new SimpleMeterRegistry());
+    failing.init();
+    StepVerifier.create(failing.startWorkflow("b-exec", "b-sess", "b-wf", List.of("a")))
+        .verifyComplete();
+
+    // one batch, so the test fails if a failing event aborted the rest of its batch
+    failing.handleEvents(
+        List.of(
+            TaskStatusEvent.create("b-exec", "a", "echo", TaskStatus.SUCCESS.name(), Map.of()),
+            WorkflowStatusEvent.create("b-exec", TaskStatus.SUCCESS.name())));
+
+    await()
+        .atMost(2, TimeUnit.SECONDS)
+        .untilAsserted(
+            () ->
+                assertThat(failing.getProgressByExecutionId("b-exec").status())
+                    .isEqualTo(TaskStatus.SUCCESS.name()));
+  }
+
+  @Test
+  void testTaskUpdateIsStillDeliveredWhenTheExecutionLogCannotBeWritten() {
+    final com.infenia.yukta.service.log.ExecutionLogStore broken =
+        org.mockito.Mockito.mock(com.infenia.yukta.service.log.ExecutionLogStore.class);
+    org.mockito.Mockito.doThrow(new IllegalStateException("disk full"))
+        .when(broken)
+        .append(org.mockito.ArgumentMatchers.any());
+    final SimpleMeterRegistry meters = new SimpleMeterRegistry();
+    final DefaultTaskTrackerService failing =
+        new DefaultTaskTrackerService(Duration.ofSeconds(30), statusHistoryCache, broken, meters);
+    failing.init();
+    StepVerifier.create(failing.startWorkflow("n-exec", "n-sess", "n-wf", List.of("a")))
+        .verifyComplete();
+    StepVerifier.create(failing.getStatusStream("n-exec", false).take(1))
+        .then(
+            () ->
+                failing.handleEvents(
+                    List.of(
+                        TaskStatusEvent.create(
+                            "n-exec", "a", "echo", TaskStatus.SUCCESS.name(), Map.of()))))
+        .expectNextCount(1)
+        .verifyComplete();
+
+    assertThat(meters.get("yukta.tracker.log.append.failed").tag("type", "node").counter().count())
+        .isEqualTo(1);
+
+    failing.handleEvents(List.of(WorkflowStatusEvent.create("n-exec", TaskStatus.SUCCESS.name())));
+
+    assertThat(meters.get("yukta.tracker.log.append.failed").tag("type", "run").counter().count())
+        .isEqualTo(1);
+    assertThat(meters.find("yukta.tracker.dropped").counter()).isNull();
   }
 
   @Test
@@ -103,6 +167,52 @@ class DefaultTaskTrackerServiceTest {
 
     await().atMost(2, TimeUnit.SECONDS).untilAsserted(() -> assertThat(seen).hasSize(1));
     assertThat(seen.get(0)).isEqualTo("yukta.node:node a");
+  }
+
+  @Test
+  void testLateRunningEventForAnEndedNodeOpensNoSpan() {
+    final var observations = io.micrometer.observation.ObservationRegistry.create();
+    final java.util.concurrent.atomic.AtomicInteger started =
+        new java.util.concurrent.atomic.AtomicInteger();
+    observations
+        .observationConfig()
+        .observationHandler(
+            new io.micrometer.observation.ObservationHandler<>() {
+              @Override
+              public boolean supportsContext(
+                  final io.micrometer.observation.Observation.Context context) {
+                return "yukta.node".equals(context.getName());
+              }
+
+              @Override
+              public void onStart(final io.micrometer.observation.Observation.Context context) {
+                started.incrementAndGet();
+              }
+            });
+    final DefaultTaskTrackerService traced =
+        new DefaultTaskTrackerService(
+            Duration.ofSeconds(30),
+            statusHistoryCache,
+            new InMemoryExecutionLogStore(),
+            new SimpleMeterRegistry(),
+            observations);
+    traced.init();
+    StepVerifier.create(traced.startWorkflow("l-exec", "l-sess", "l-wf", List.of("a")))
+        .verifyComplete();
+    StepVerifier.create(traced.finishWorkflow("l-exec", TaskStatus.SUCCESS)).verifyComplete();
+    await()
+        .atMost(2, TimeUnit.SECONDS)
+        .untilAsserted(
+            () ->
+                assertThat(traced.getProgressByExecutionId("l-exec").status())
+                    .isEqualTo(TaskStatus.SUCCESS.name()));
+
+    traced.emitTaskStatusEvent("l-exec", "a", "echo", TaskStatus.RUNNING, Map.of());
+    traced.emitTaskStatusEvent("l-exec", "a", "echo", TaskStatus.SUCCESS, Map.of());
+
+    // let the event batch run, then check that no node span was opened
+    await().during(300, TimeUnit.MILLISECONDS).atMost(2, TimeUnit.SECONDS).until(() -> true);
+    assertThat(started).hasValue(0);
   }
 
   @Test

@@ -53,7 +53,8 @@ public class ExecutionResources {
               terminals.isEmpty() ? Mono.empty() : Mono.whenDelayError(terminals);
           final Mono<Void> timed =
               all.timeout(
-                  NodeActivity.delayUnlessPaused(Duration.ofSeconds(timeout), scheduler, paused));
+                  NodeActivity.delayUnlessPaused(Duration.ofSeconds(timeout), scheduler, paused),
+                  Mono.error(() -> new ExecutionTimeoutException(timeout)));
           return Mono.using(
               () -> disposables,
               _ -> timed.doOnSubscribe(_ -> runConnectors(connectors)),

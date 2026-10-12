@@ -152,4 +152,8 @@ final class RunTelemetry {
   /* default */ void dropped(final String name, final String type) {
     meters.counter(name, "type", type).increment();
   }
+
+  /* default */ void logAppendFailed(final String name, final String type) {
+    meters.counter(name, "type", type).increment();
+  }
 }

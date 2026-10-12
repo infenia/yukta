@@ -5,7 +5,7 @@ management:
   endpoints:
     web:
       exposure:
-        include: "*" # nosem: yukta-actuator-expose-all (dev profile only)
+        include: health,info,metrics,loggers,mappings,threaddump
 
 logging:
   level:

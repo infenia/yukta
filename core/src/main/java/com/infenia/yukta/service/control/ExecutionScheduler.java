@@ -351,7 +351,7 @@ public class ExecutionScheduler implements SmartLifecycle {
   }
 
   private static Admission refused(final ExecutionRejectedException error) {
-    return new Admission(true, Mono.error(error));
+    return new Admission(true, Mono.error(error), true);
   }
 
   /** Counts a refusal and builds its exception. */
@@ -584,8 +584,20 @@ public class ExecutionScheduler implements SmartLifecycle {
    *
    * @param immediate true if the slot was granted without waiting
    * @param permit emits the permit, once granted
+   * @param refused true if the start was refused, in which case {@code permit} errors with why
    */
-  public record Admission(boolean immediate, Mono<Permit> permit) {}
+  public record Admission(boolean immediate, Mono<Permit> permit, boolean refused) {
+
+    /**
+     * An admission that was not refused.
+     *
+     * @param immediate true if the slot was granted without waiting
+     * @param permit emits the permit, once granted
+     */
+    public Admission(final boolean immediate, final Mono<Permit> permit) {
+      this(immediate, permit, false);
+    }
+  }
 
   /** A start waiting for a slot. */
   private record Waiter(

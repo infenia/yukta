@@ -174,8 +174,16 @@ class WorkflowStarter {
             })
         .flatMap(
             prepared -> {
+              // The slot is asked for here, not inside the run, so a refusal reaches the caller
+              // as an error and no execution id is handed out for a run that cannot start.
+              final ExecutionScheduler.Admission admission =
+                  scheduler.acquire(
+                      sessionId, workflowId, ExecutionScheduler.priorityOf(payload), executionId);
+              if (admission.refused()) {
+                return admission.permit().thenReturn(executionId);
+              }
               orchestrator
-                  .execute(sessionId, workflowId, executionId, prepared, payload)
+                  .execute(sessionId, workflowId, executionId, prepared, payload, admission)
                   .subscribeOn(Schedulers.boundedElastic())
                   .doOnError(
                       err ->
@@ -187,6 +195,26 @@ class WorkflowStarter {
                   .subscribe();
               return Mono.just(executionId);
             });
+  }
+
+  /**
+   * Two overlapping applies can finish out of order and leave the older one cached: if the stored
+   * definition is no longer {@code applied}, the cached entry is dropped so the next start prepares
+   * anew.
+   */
+  /* default */ Mono<Void> dropCacheIfStale(
+      final String sessionId, final WorkflowDefinition applied) {
+    return definitions
+        .find(sessionId, applied.workflowId())
+        .filter(applied::equals)
+        .hasElement()
+        .doOnNext(
+            current -> {
+              if (!current) {
+                cache.invalidate(sessionId, applied.workflowId());
+              }
+            })
+        .then();
   }
 
   /** A workflow definition being prepared; compared by content, so a newer one never joins. */

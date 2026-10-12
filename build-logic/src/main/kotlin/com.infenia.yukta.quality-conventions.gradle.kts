@@ -2,6 +2,8 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import net.ltgt.gradle.errorprone.errorprone
+import org.gradle.api.services.BuildService
+import org.gradle.api.services.BuildServiceParameters
 
 plugins {
     id("com.diffplug.spotless")
@@ -61,7 +63,17 @@ licensee {
     allowDependency("org.openjdk.nashorn", "nashorn-core", "15.4") {
         because("GPL-2.0 with Classpath Exception (license URL only); pulled in by GraalVM JS in internal-core")
     }
+    // Flyway Community Edition is Apache-2.0 (its POM only links the README); needs a legal check
+    // before it ships in a distribution.
+    allowDependency("org.flywaydb", "flyway-core", "12.4.0") {
+        because("Apache-2.0 (Flyway Community Edition; POM links the README); used by persistence-postgres")
+    }
+    allowDependency("org.flywaydb", "flyway-database-postgresql", "12.4.0") {
+        because("Apache-2.0 (Flyway Community Edition; POM links the README); used by persistence-postgres")
+    }
     // Allow specific license URLs (non-standard but compatible)
+    allowUrl("https://spdx.org/licenses/BSD-2-Clause")
+    allowUrl("https://jdbc.postgresql.org/about/license.html")
     allowUrl("http://antlr.org/license.html")
     allowUrl("https://www.antlr.org/license.html")
     allowUrl("http://www.antlr.org/license.html")
@@ -115,9 +127,21 @@ tasks.withType<JavaCompile>().configureEach {
     }
 }
 
+// Serializes OpenGrep runs across modules: parallel `execvp` of the opengrep wrapper can fail with
+// "Text file busy" (ETXTBSY) while the binary is being prepared, which flakes the build.
+abstract class OpengrepExecutionService : BuildService<BuildServiceParameters.None>
+
+val opengrepExecution = gradle.sharedServices.registerIfAbsent(
+    "opengrepExecution",
+    OpengrepExecutionService::class.java
+) {
+    maxParallelUsages.set(1)
+}
+
 tasks.register<Exec>("opengrep") {
     description = "Run OpenGrep static analysis with the pinned local ruleset"
     group = "verification"
+    usesService(opengrepExecution)
 
     val sourceDir = project.file("src/main")
     val ruleFile = rootProject.file("config/opengrep/.semgrep.yml")
