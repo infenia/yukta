@@ -7,7 +7,7 @@ plugins {
 }
 
 // Optional plugins are chosen with -Pyukta.plugins=all (default), none, or a comma-separated list
-// of: process-executor, http-request, file-io, sql-query, llm-call, session-memory, mcp-tool-call, script-js.
+// of: process-executor, http-request, file-io, sql-query, llm-call, session-memory, mcp-tool-call, decision, script-js.
 val optionalPlugins = mapOf(
     "process-executor" to ":plugins:processors:process-executor",
     "http-request" to ":plugins:processors:http-request",
@@ -15,6 +15,7 @@ val optionalPlugins = mapOf(
     "sql-query" to ":plugins:processors:sql-query",
     "llm-call" to ":plugins:processors:llm-call",
     "session-memory" to ":plugins:processors:session-memory",
+    "decision" to ":plugins:processors:decision",
     "mcp-tool-call" to ":plugins:processors:mcp-tool-call",
     "script-js" to ":plugins:processors:internal:script-js",
 )
@@ -42,7 +43,7 @@ dependencies {
     implementation(project(":plugins:terminals:console-terminal"))
     implementation(project(":plugins:supervisors:rule-supervisor"))
     implementation(project(":plugins:control-planes:rule-control-plane"))
-    implementation(project(":plugins:control-planes:systemone-control-plane"))
+    implementation(project(":plugins:control-planes:model-control-plane"))
     implementation(project(":plugins:control-planes:rules-first-control-plane"))
 
     selectedPlugins.forEach { implementation(project(optionalPlugins.getValue(it))) }
