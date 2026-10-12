@@ -4,7 +4,6 @@ Context: `core/docs/core-module-guide.html` (DATA.score) rates 9 areas. At the s
 
 Implement in order; one branch/PR per plan. Each ends by updating the guide score row.
 
-- [02 Time semantics (3.5→5)](02-time-semantics.md)
 - [03 Failure semantics (4→5)](03-failure-semantics.md)
 - [04 Control plane (4→5)](04-control-plane.md)
 - [05 Governance (4→5)](05-governance.md)
