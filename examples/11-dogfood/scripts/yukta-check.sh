@@ -22,12 +22,13 @@ export YUKTA_SERVER_URL="${YUKTA_SERVER_URL:-http://localhost:8080}"
 cli="$(find_cli)"
 
 branch="$(git -C "$project" rev-parse --abbrev-ref HEAD | tr -c 'A-Za-z0-9\n' '-')"
-session="check-$branch"
+# The path hash keeps checkouts apart on a shared server (feature/a vs feature-a, two clones).
+session="check-$branch-$(printf '%s' "$project" | sha1sum | cut -c1-8)"
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
 
-# Point the template at this checkout and give the session a per-branch id.
-sed "s|__PROJECT_PATH__|$project|g" "$REPO_ROOT/examples/11-dogfood/session.json" \
+# Point the template at this checkout and give the session its own id.
+render_session "$REPO_ROOT/examples/11-dogfood/session.json" "$project" \
   | jq --arg s "$session" '.sessionId=$s | .name=$s' >"$tmp/session.json"
 
 echo ">> server $YUKTA_SERVER_URL, session $session, project $project"

@@ -41,7 +41,7 @@ feature branch ──CLI──────┘   yukta session apply → workflow
 
 examples/11-dogfood/scripts/yukta-worktree.sh dev                # worktree from origin/main + server on a free port
 examples/11-dogfood/scripts/yukta-check.sh                       # check the current checkout
-examples/11-dogfood/scripts/yukta-stop.sh dev                    # stop server, remove worktree
+examples/11-dogfood/scripts/yukta-stop.sh dev                    # stop server, remove worktree (refuses if it has unmerged work; --force overrides)
 ```
 
 `yukta-check.sh [project-path]` exits 0 only when the execution ends `SUCCESS` (or `COMPLETED`); its last line is:

@@ -20,7 +20,11 @@ type Timestamp struct {
 	time.Time
 }
 
-// UnmarshalJSON parses RFC 3339 timestamps, or zone-less ones (interpreted as local time).
+// UnmarshalJSON parses RFC 3339 timestamps, or zone-less ones.
+//
+// Zone-less values (java.time.LocalDateTime on the server) are parsed with time.Local, which
+// assumes the server and the CLI share a timezone. Differences between two zone-less values are
+// always correct; mixing one with an RFC 3339 value is only correct under that assumption.
 func (t *Timestamp) UnmarshalJSON(data []byte) error {
 	var raw *string
 	if err := json.Unmarshal(data, &raw); err != nil {

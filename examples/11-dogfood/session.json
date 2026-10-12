@@ -239,9 +239,9 @@
               "--console=plain"
             ],
             "workingDir": "__PROJECT_PATH__",
-            "timeout": 3600,
+            "timeout": 150,
             "failureMode": "ERROR",
-            "timeoutSeconds": 3600
+            "timeoutSeconds": 150
           }
         },
         {
@@ -255,8 +255,8 @@
               "--console=plain"
             ],
             "workingDir": "__PROJECT_PATH__",
-            "timeoutSeconds": 600,
-            "timeout": 600,
+            "timeoutSeconds": 150,
+            "timeout": 150,
             "failureMode": "ERROR"
           }
         },

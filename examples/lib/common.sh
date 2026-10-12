@@ -63,7 +63,8 @@ run_workflow() {
 
   status=""
   for ((i = 0; i < ${WAIT_SECONDS:-60}; i++)); do
-    status=$(api GET "/api/executions/$eid" | jq -r .data.status)
+    # The execution can 404 for a moment right after start; keep polling.
+    status=$(api GET "/api/executions/$eid" 2>/dev/null | jq -r .data.status || true)
     [[ $status =~ $TERMINAL_STATUSES ]] && break
     sleep 1
   done
