@@ -160,7 +160,7 @@ class RestartFromNodeCommandProcessorTest {
         .assertCanAccept("s1", "w1");
 
     StepVerifier.create(processor.process(new RestartFromNodeCommand(EXEC, "mid", "new-1")))
-        .verifyComplete();
+        .verifyError(ExecutionRejectedException.class);
 
     verify(completionSink)
         .completeRestartFailure(eq("new-1"), any(ExecutionRejectedException.class));
@@ -189,7 +189,7 @@ class RestartFromNodeCommandProcessorTest {
     }
 
     StepVerifier.create(processor.process(new RestartFromNodeCommand(EXEC, "mid", "new-1")))
-        .verifyComplete();
+        .verifyError(IllegalArgumentException.class);
 
     verify(completionSink)
         .completeRestartFailure(
@@ -205,9 +205,9 @@ class RestartFromNodeCommandProcessorTest {
   @Test
   void unknownNode_andUnknownExecution_reportFailures() {
     StepVerifier.create(processor.process(new RestartFromNodeCommand(EXEC, "ghost", "new-1")))
-        .verifyComplete();
+        .verifyError(IllegalArgumentException.class);
     StepVerifier.create(processor.process(new RestartFromNodeCommand("gone", "mid", "new-2")))
-        .verifyComplete();
+        .verifyError(IllegalArgumentException.class);
 
     verify(completionSink).completeRestartFailure(eq("new-1"), any(IllegalArgumentException.class));
     verify(completionSink).completeRestartFailure(eq("new-2"), any(IllegalArgumentException.class));

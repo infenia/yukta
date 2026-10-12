@@ -82,10 +82,10 @@ public class RestartCommandProcessor implements ControlSignalProcessor {
       log.atWarn()
           .addKeyValue("executionId", restart.executionId())
           .log("Restart already in progress, rejecting duplicate");
-      completionSink.completeRestartFailure(
-          restart.newExecutionId(),
-          new IllegalStateException("Restart already in progress for this execution"));
-      return Mono.empty();
+      final IllegalStateException busy =
+          new IllegalStateException("Restart already in progress for this execution");
+      completionSink.completeRestartFailure(restart.newExecutionId(), busy);
+      return Mono.error(busy);
     }
 
     return executeAtomicRestart(restart)
@@ -111,7 +111,8 @@ public class RestartCommandProcessor implements ControlSignalProcessor {
                   .setCause(e)
                   .log("Restart failed");
               completionSink.completeRestartFailure(restart.newExecutionId(), e);
-              return Mono.empty();
+              // Failing the command, not only the caller's wait, is what the audit records.
+              return Mono.error(e);
             });
   }
 

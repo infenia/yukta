@@ -75,7 +75,7 @@ public class RestartFromNodeCommandProcessor implements ControlSignalProcessor {
                   .setCause(e)
                   .log("Restart from node failed");
               completionSink.completeRestartFailure(restart.newExecutionId(), e);
-              return Mono.empty();
+              return Mono.error(e);
             });
   }
 

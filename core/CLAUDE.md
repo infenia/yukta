@@ -150,6 +150,9 @@ A run that outlives the session execution timeout ends `TIMED_OUT` (`ExecutionTi
 node that times out keeps its own status. A failure to write the end of a run to the execution log
 no longer keeps the run from ending.
 
+A restart that fails (unknown run, limits full, output incomplete, one already in progress) fails
+its command, so it is audited as `CONTROL_REJECTED` and not as applied.
+
 Gateway commands for a live run (`ControlBusGateway`). REST: `POST /api/executions/{id}/nodes/{node}/skip|retry|breakpoint` (`DELETE` clears), `/executions/{id}/priority`, `/scheduler/limits`; MCP: `control_node` `SKIP|UNSKIP|RETRY|BREAKPOINT_CLEAR` and `set_node_breakpoint`:
 - `skipNode(execution, node, skip)`: a processor node passes elements through without calling the
   plugin from the next element on (the decision is taken as each element arrives; one already in the
@@ -176,6 +179,9 @@ A supervisor implements `ExecutionSupervisor` (plugin-api) and is registered as 
   (`ControlReviewer`; first refusal wins in `order()`; an erroring reviewer refuses). The caller gets
   `ControlRejectedException` (HTTP 403) and the log gets `CONTROL_REJECTED`.
 - Commands sent by a supervisor are logged as `PauseWorkflowCommand [by <id>]`.
+- The feed delivers on the publisher's thread, so each supervisor gets its events through a
+  bounded buffer (256) on `boundedElastic`; a slow or blocking supervisor drops events (counted in
+  `yukta.tracker.dropped{kind=supervisor}`) and never holds the tracker up.
 - The feed is exposed at `GET /api/events/stream` (SSE; filters `executionId`, `type`). External
   agents can supervise through it and the REST/MCP control endpoints without JVM code.
 - `SupervisorHost.status()` (REST `GET /api/supervisors`, shown on the UI Control page) reports each supervisor's kind (`CONTROL_PLANE` or `SUPERVISOR`), order, dry-run flag and command counts from `yukta.supervisor.commands`.
