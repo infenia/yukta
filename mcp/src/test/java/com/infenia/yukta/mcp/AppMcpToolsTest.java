@@ -168,6 +168,17 @@ class AppMcpToolsTest {
   }
 
   @Test
+  void testSignalNode() {
+    var result = new ControlActionResult("SIGNAL", "e1", "n1", List.of(), "ok");
+    when(workflowControlProvider.signalNode("s1", "e1", "n1", "approval", "approve", "fine"))
+        .thenReturn(Mono.just(result));
+
+    StepVerifier.create(mcpTools.signalNode("s1", "e1", "n1", "approval", "approve", "fine"))
+        .expectNext(result)
+        .verifyComplete();
+  }
+
+  @Test
   void testListPlugins() {
     var summary = mock(PluginSummary.class);
     when(pluginInfoProvider.listPlugins()).thenReturn(List.of(summary));

@@ -15,10 +15,12 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 import lombok.NoArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -30,6 +32,9 @@ import reactor.core.scheduler.Schedulers;
 @SuppressWarnings({"PMD.OnlyOneReturn", "PMD.TooManyMethods"})
 @NoArgsConstructor
 public class ProcessExecutorGateway {
+
+  /** Executables workflows may run; empty means any. Set once while the context is built. */
+  private Set<String> allowedCommands = Set.of();
 
   /** Conversion factor from nanoseconds to milliseconds. */
   private static final long NANOS_PER_MILLI = 1_000_000L;
@@ -61,11 +66,39 @@ public class ProcessExecutorGateway {
     if (spec.command().isEmpty()) {
       return Mono.error(new IllegalArgumentException("command must not be empty"));
     }
+    final String refusal = refusalFor(spec);
+    if (refusal != null) {
+      return Mono.error(new IllegalArgumentException(refusal));
+    }
     final List<String> actualCommand =
         spec.useShell() ? wrapInShell(spec.command()) : spec.command();
 
     return Mono.fromSupplier(System::nanoTime)
         .flatMap(startNanos -> runProcess(spec, actualCommand, startNanos));
+  }
+
+  /**
+   * Sets the executables workflows may run; empty (the default) allows any. With a list, a shell is
+   * refused too, since it could run anything.
+   *
+   * @param allowed executable names exactly as they appear in the command
+   */
+  @Value("${yukta.process.allowed-commands:}")
+  /* default */ void setAllowedCommands(final List<String> allowed) {
+    this.allowedCommands = allowed == null ? Set.of() : Set.copyOf(allowed);
+  }
+
+  private String refusalFor(final ProcessExecutionSpec spec) {
+    if (allowedCommands.isEmpty()) {
+      return null;
+    }
+    if (spec.useShell()) {
+      return "useShell is not allowed while yukta.process.allowed-commands is set";
+    }
+    final String executable = spec.command().get(0);
+    return allowedCommands.contains(executable)
+        ? null
+        : "Command '" + executable + "' is not in yukta.process.allowed-commands";
   }
 
   /**

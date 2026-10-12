@@ -197,6 +197,26 @@ class WorkflowStarter {
             });
   }
 
+  /**
+   * Two overlapping applies can finish out of order and leave the older one cached: if the stored
+   * definition is no longer {@code applied}, the cached entry is dropped so the next start prepares
+   * anew.
+   */
+  /* default */ Mono<Void> dropCacheIfStale(
+      final String sessionId, final WorkflowDefinition applied) {
+    return definitions
+        .find(sessionId, applied.workflowId())
+        .filter(applied::equals)
+        .hasElement()
+        .doOnNext(
+            current -> {
+              if (!current) {
+                cache.invalidate(sessionId, applied.workflowId());
+              }
+            })
+        .then();
+  }
+
   /** A workflow definition being prepared; compared by content, so a newer one never joins. */
   private record PrepareKey(String sessionId, String workflowId, WorkflowDefinition def) {}
 }

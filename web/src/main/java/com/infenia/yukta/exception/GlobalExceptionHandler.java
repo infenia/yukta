@@ -5,6 +5,7 @@ package com.infenia.yukta.exception;
 import com.fasterxml.jackson.databind.exc.UnrecognizedPropertyException;
 import com.infenia.yukta.filter.RequestTracingFilter;
 import com.infenia.yukta.model.api.ApiResponse;
+import com.infenia.yukta.service.ConflictException;
 import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.control.ExecutionRejectedException;
 import com.infenia.yukta.service.supervisor.ControlRejectedException;
@@ -279,6 +280,19 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
   public ResponseEntity<ApiResponse<Object>> handleExecutionRejected(
       final ExecutionRejectedException exception, final ServerHttpRequest request) {
     return buildErrorResponse(HttpStatus.TOO_MANY_REQUESTS, exception.getMessage(), request);
+  }
+
+  /**
+   * Handle requests that the target's current state does not allow.
+   *
+   * @param exception the exception
+   * @param request the current request
+   * @return structured 409 response
+   */
+  @ExceptionHandler(ConflictException.class)
+  public ResponseEntity<ApiResponse<Object>> handleConflict(
+      final ConflictException exception, final ServerHttpRequest request) {
+    return buildErrorResponse(HttpStatus.CONFLICT, exception.getMessage(), request);
   }
 
   /**

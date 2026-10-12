@@ -15,7 +15,7 @@ import org.junit.jupiter.api.Test;
 import reactor.test.StepVerifier;
 
 @NoArgsConstructor
-@SuppressWarnings({"PMD.CommentRequired", "PMD.AvoidDuplicateLiterals"})
+@SuppressWarnings({"PMD.CommentRequired", "PMD.AvoidDuplicateLiterals", "PMD.TooManyMethods"})
 class ExecutionRecoveryTest {
 
   private final InMemoryExecutionLogStore store = new InMemoryExecutionLogStore();
@@ -62,6 +62,21 @@ class ExecutionRecoveryTest {
         .singleElement()
         .satisfies(t -> assertThat(t.status()).isEqualTo("FAILURE"));
     assertThat(progress.endTime()).isNotNull();
+  }
+
+  @Test
+  void runThatEndedLast_isNewerThanOnesStartedAfterIt() {
+    store.append(ExecutionLogEvent.started("long", "s1", "w1", "v1"));
+    finishedRun("r2", "SUCCESS");
+    finishedRun("r3", "SUCCESS");
+    store.append(
+        ExecutionLogEvent.finished("long", "s1", "w1", "SUCCESS", Map.of("n1", "SUCCESS")));
+
+    new ExecutionRecovery(store, tracker, 2).recover();
+
+    assertThat(store.readAll())
+        .extracting(ExecutionLogEvent::executionId)
+        .containsOnly("r3", "long");
   }
 
   @Test

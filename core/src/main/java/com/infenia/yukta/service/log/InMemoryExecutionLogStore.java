@@ -14,7 +14,9 @@ import org.springframework.stereotype.Component;
  */
 @Component
 @NoArgsConstructor
-@ConditionalOnExpression("'${yukta.execution-log.dir:}'.isEmpty()")
+@ConditionalOnExpression(
+    "'${yukta.execution-log.dir:}'.isEmpty()"
+        + " && !'postgres'.equals('${yukta.session.store-type:in-memory}')")
 public class InMemoryExecutionLogStore implements ExecutionLogStore {
 
   /** The events, oldest first. */

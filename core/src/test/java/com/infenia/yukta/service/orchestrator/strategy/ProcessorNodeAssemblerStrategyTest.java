@@ -394,32 +394,37 @@ class ProcessorNodeAssemblerStrategyTest {
   }
 
   @Test
-  void createAssembler_skipFlagTrue_doesNotCallChannelInboundOrOutbound() {
-    final Message<?> msg = DefaultMessage.create(UUID.randomUUID(), "input");
-    final NodeMessageChannel channel = mock(NodeMessageChannel.class);
-    when(channelProvider.channelFor(any(), any())).thenReturn(channel);
-
+  void createAssembler_nodeSkippedAtAssembly_canBeUnskippedLater() {
+    final Message<?> first = DefaultMessage.create(UUID.randomUUID(), "while-skipped");
+    final Message<?> second = DefaultMessage.create(UUID.randomUUID(), "after-unskip");
+    final Message<?> processed = DefaultMessage.create(UUID.randomUUID(), "processed");
     final ProcessorPlugin processor = mock(ProcessorPlugin.class);
+    when(processor.process(any(), any()))
+        .thenAnswer(call -> call.<Flux<Message<?>>>getArgument(0).map(_ -> processed));
+    when(processor.isBlocking()).thenReturn(false);
     final AtomicBoolean skipFlag = new AtomicBoolean(true);
-
     final WorkflowNode node = new WorkflowNode(NODE_ID, "processor", Map.of());
-    final Flux<Message<?>> parentStream = Flux.just(msg);
-    final AssemblyContext context = buildContext(NODE_ID, parentStream, skipFlag);
-
+    final Sinks.Many<Message<?>> parent = Sinks.many().unicast().onBackpressureBuffer();
+    final AssemblyContext context = buildContext(NODE_ID, parent.asFlux(), skipFlag);
     when(streamTopologyDecorator.mergeParentStreams(any(), any(), any(ParentEdgeInfo[].class)))
-        .thenReturn(parentStream);
+        .thenReturn(parent.asFlux());
     when(streamTopologyDecorator.applyLoggingAndBroadcasting(
             anyString(), anyString(), any(), any(int.class), any(), any()))
-        .thenReturn(Flux.just(msg));
+        .thenAnswer(call -> call.getArgument(2));
 
-    final NodeAssembler assembler =
-        strategy.createAssembler(
-            node, processor, Duration.ofSeconds(5), 0, 1024, new ParentEdgeInfo[0]);
-    assembler.assemble(context);
+    strategy
+        .createAssembler(node, processor, Duration.ofSeconds(5), 0, 1024, new ParentEdgeInfo[0])
+        .assemble(context);
 
-    verify(channel, never()).inbound(any(), any(), any());
-    verify(channel, never()).outbound(any(), any(), any());
-    verify(channelProvider, never()).channelFor(any(), any());
+    StepVerifier.create(context.streams()[0])
+        .then(() -> parent.tryEmitNext(first))
+        .expectNext(first)
+        .then(() -> skipFlag.set(false))
+        .then(() -> parent.tryEmitNext(second))
+        .expectNext(processed)
+        .then(parent::tryEmitComplete)
+        .verifyComplete();
+    verify(processor).process(any(), any());
   }
 
   // ── helpers ───────────────────────────────────────────────────────────────

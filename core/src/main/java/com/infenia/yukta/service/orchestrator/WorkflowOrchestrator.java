@@ -311,7 +311,15 @@ public class WorkflowOrchestrator {
                               .concatMap(
                                   message ->
                                       checkpointStore.save(
-                                          newExecutionId, entry.getKey(), message)))
+                                          newExecutionId, entry.getKey(), message))
+                              // The replayed output is complete, so a resume of this run need not
+                              // run the node again.
+                              .then(
+                                  Mono.defer(
+                                          () ->
+                                              checkpointStore.markComplete(
+                                                  newExecutionId, entry.getKey()))
+                                      .onErrorResume(_ -> Mono.empty())))
                   .then();
 
           return runTracked(

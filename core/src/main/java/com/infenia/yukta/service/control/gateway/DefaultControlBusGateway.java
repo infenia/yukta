@@ -19,6 +19,7 @@ import com.infenia.yukta.plugin.control.ExecutionControlCommand.RestartFromNodeC
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.ResumeNodeCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.ResumeWorkflowCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.SetBreakpointCommand;
+import com.infenia.yukta.plugin.control.ExecutionControlCommand.SignalNodeCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.SkipNodeCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.StepNodeCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.StopNodeCommand;
@@ -243,6 +244,7 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
                   .log("Compiling and caching workflow");
               return controlBusService.compileAndCacheWorkflow(sessionId, workflowDefinition);
             })
+        .then(Mono.defer(() -> starter.dropCacheIfStale(sessionId, workflowDefinition)))
         .doOnSuccess(
             _ ->
                 log.atInfo()
@@ -505,6 +507,23 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
   public Mono<Void> addBreakpoint(
       final String executionId, final String nodeId, final String field, final String equalsValue) {
     return breakpoint(executionId, nodeId, field, equalsValue);
+  }
+
+  @Override
+  @SuppressWarnings("PMD.UseObjectForClearerAPI")
+  public Mono<Void> signalNode(
+      final String executionId,
+      final String nodeId,
+      final String name,
+      final String decision,
+      final String data) {
+    return Mono.fromSupplier(() -> requireNodeControl(executionId, nodeId))
+        .flatMap(
+            control ->
+                executeCommand(
+                    buildCommand(
+                        new SignalNodeCommand(executionId, nodeId, name, decision, data),
+                        CONTROL_COMMAND_PRIORITY)));
   }
 
   @Override

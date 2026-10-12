@@ -782,6 +782,36 @@ class ProcessExecutorGatewayTest {
   // --- executeForResult: non-throwing result-based API ---
 
   @Test
+  void allowedCommands_refuseOtherExecutablesAndShells_butRunListedOnes() {
+    gateway.setAllowedCommands(List.of("echo"));
+    final ProcessExecutionSpec allowed =
+        ProcessExecutionSpec.builder().command(List.of("echo", "hi")).timeoutSeconds(10L).build();
+    final ProcessExecutionSpec other =
+        ProcessExecutionSpec.builder().command(List.of("ls")).timeoutSeconds(10L).build();
+    final ProcessExecutionSpec shell =
+        ProcessExecutionSpec.builder()
+            .command(List.of("echo", "hi"))
+            .useShell(true)
+            .timeoutSeconds(10L)
+            .build();
+
+    StepVerifier.create(gateway.executeForResult(allowed))
+        .assertNext(result -> assertThat(result.stdout()).isEqualTo("hi"))
+        .verifyComplete();
+    StepVerifier.create(gateway.executeForResult(other))
+        .expectErrorMessage("Command 'ls' is not in yukta.process.allowed-commands")
+        .verify();
+    StepVerifier.create(gateway.executeForResult(shell))
+        .expectError(IllegalArgumentException.class)
+        .verify();
+
+    gateway.setAllowedCommands(null);
+    StepVerifier.create(gateway.executeForResult(other))
+        .expectNextMatches(result -> result.exitCode() == 0)
+        .verifyComplete();
+  }
+
+  @Test
   void executeForResult_successfulProcess_returnsZeroExitCodeAndOutput() {
     final ProcessExecutionSpec spec =
         ProcessExecutionSpec.builder()

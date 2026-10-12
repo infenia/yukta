@@ -81,7 +81,12 @@ public class ExecutionRecovery implements SmartInitializingSingleton {
       if (ExecutionLogEvent.SCHEDULER.equals(event.executionId())) {
         scheduler.add(event);
       } else {
-        byRun.computeIfAbsent(event.executionId(), _ -> new ArrayList<>()).add(event);
+        // Re-inserted on every event, so runs are ordered by their last activity: a long run
+        // that was still going is newer than the short ones that started after it.
+        final List<ExecutionLogEvent> run = byRun.remove(event.executionId());
+        final List<ExecutionLogEvent> events = run == null ? new ArrayList<>() : run;
+        events.add(event);
+        byRun.put(event.executionId(), events);
       }
     }
 

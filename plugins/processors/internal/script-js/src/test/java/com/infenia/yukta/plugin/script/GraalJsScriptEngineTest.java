@@ -48,5 +48,19 @@ class GraalJsScriptEngineTest {
   void fallsBackToHostObjectForOpaqueValues() {
     assertThat(run("Symbol('x')")).isNotNull();
     assertThat(run("Java.type('java.lang.Math').abs(-3)")).isEqualTo(3);
+    assertThat(run("Java.type('java.time.Duration').ofSeconds(2).getSeconds()")).isEqualTo(2L);
+  }
+
+  @Test
+  void scriptsCannotReachTheProcessOrReflection() {
+    org.assertj.core.api.Assertions.assertThatThrownBy(
+            () -> run("Java.type('java.lang.Runtime').getRuntime().exec('true')"))
+        .isInstanceOf(RuntimeException.class);
+    org.assertj.core.api.Assertions.assertThatThrownBy(
+            () -> run("Java.type('java.lang.ProcessBuilder')"))
+        .isInstanceOf(RuntimeException.class);
+    org.assertj.core.api.Assertions.assertThatThrownBy(
+            () -> run("payload.getClass().forName('java.lang.Runtime')"))
+        .isInstanceOf(RuntimeException.class);
   }
 }

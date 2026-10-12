@@ -149,6 +149,16 @@ public class TerminalNodeAssemblerStrategy implements NodeAssemblerStrategy {
       final Runnable heartbeat = activity::touch;
       completion =
           completion.contextWrite(ctx -> ctx.put(WorkflowContext.HEARTBEAT_KEY, heartbeat));
+      // The input guard above ends with the input; the idle timeout and the deadline must also
+      // cover what the terminal does after its last element (a flush, a call that never returns).
+      completion =
+          Mono.from(
+              activity.guard(
+                  completion.flux(),
+                  timeout,
+                  NodePolicy.from(node.config()).deadline(),
+                  virtualThreadScheduler,
+                  () -> control.isPaused(node.nodeId())));
       if (terminal.isBlocking()) {
         log.atDebug()
             .addKeyValue(LOG_KEY_NODE_ID, node.nodeId())
