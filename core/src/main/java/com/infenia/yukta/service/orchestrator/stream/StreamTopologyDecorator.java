@@ -11,6 +11,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -238,6 +239,31 @@ public class StreamTopologyDecorator {
       final int bufferSize,
       final List<Disposable> disposables,
       final List<Runnable> connectors) {
+    return applyLoggingAndBroadcasting(
+        executionId, nodeId, stream, bufferSize, disposables, connectors, () -> false);
+  }
+
+  /**
+   * Like {@link #applyLoggingAndBroadcasting(String, String, Flux, int, List, List)}, for a node
+   * that may write its log lines live. Its output message is then not echoed to the log again.
+   *
+   * @param executionId the execution identifier
+   * @param nodeId the node identifier
+   * @param stream the incoming message stream
+   * @param bufferSize prefetch used by the shared upstream subscription
+   * @param disposables lifecycle management for subscriptions
+   * @param connectors deferred subscription tasks (executed during assembly finalization)
+   * @param loggedLive tells whether the node has written its output to the log live
+   * @return shared Flux for downstream consumption; connected by the registered connector
+   */
+  public Flux<Message<?>> applyLoggingAndBroadcasting(
+      final String executionId,
+      final String nodeId,
+      final Flux<Message<?>> stream,
+      final int bufferSize,
+      final List<Disposable> disposables,
+      final List<Runnable> connectors,
+      final BooleanSupplier loggedLive) {
     log.atDebug()
         .setMessage("Applying logging and broadcasting - execution: {}, node: {}, buffer size: {}")
         .addArgument(executionId)
@@ -246,7 +272,8 @@ public class StreamTopologyDecorator {
         .log();
 
     final Flux<Message<?>> historiedStream = stream.map(msg -> msg.withAddedHistory(nodeId));
-    final Flux<Message<?>> processedStream = getMessageFlux(executionId, nodeId, historiedStream);
+    final Flux<Message<?>> processedStream =
+        getMessageFlux(executionId, nodeId, historiedStream, loggedLive);
 
     // publish() requests only what the slowest subscriber can take, so a slow child slows its
     // parent instead of overflowing a buffer. NodeBroadcast connects it once all edges subscribed.
@@ -283,7 +310,10 @@ public class StreamTopologyDecorator {
    * @return decorated Flux with logging, checkpoint, and tracking operators
    */
   private Flux<Message<?>> getMessageFlux(
-      final String executionId, final String nodeId, final Flux<Message<?>> stream) {
+      final String executionId,
+      final String nodeId,
+      final Flux<Message<?>> stream,
+      final BooleanSupplier loggedLive) {
     log.atDebug()
         .setMessage("Building message flux for execution: {}, node: {}")
         .addArgument(executionId)
@@ -323,7 +353,7 @@ public class StreamTopologyDecorator {
           log.atTrace().setMessage("Processing message payload: {}").addArgument(payload).log();
           // A blank payload (the output of a quiet command, an empty body) has nothing to echo, and
           // the tracker rejects blank lines, which would otherwise fail the node.
-          if (!payload.isBlank()) {
+          if (!payload.isBlank() && !loggedLive.getAsBoolean()) {
             tracker.emitLogEvent(executionId, nodeId, payload);
           }
         });

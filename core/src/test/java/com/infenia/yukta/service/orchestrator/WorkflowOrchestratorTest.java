@@ -33,6 +33,7 @@ import com.infenia.yukta.service.orchestrator.assembly.AssemblyContext;
 import com.infenia.yukta.service.orchestrator.compiler.WorkflowCompiler;
 import com.infenia.yukta.service.orchestrator.preparator.WorkflowPreparator;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
+import com.infenia.yukta.service.result.ExecutionResultService;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
@@ -94,7 +95,8 @@ class WorkflowOrchestratorTest {
             executionLog,
             scheduler,
             compiler,
-            preparator);
+            preparator,
+            new ExecutionResultService(100, Duration.ofMinutes(5), 10));
   }
 
   // --- prepareWorkflow ---
@@ -580,7 +582,8 @@ class WorkflowOrchestratorTest {
             executionLog,
             scheduler,
             compiler,
-            preparator);
+            preparator,
+            new ExecutionResultService(100, Duration.ofMinutes(5), 10));
     final PreparedWorkflow prepared = buildPreparedWorkflow(List.of("n1"));
     lenient()
         .when(executionControlFactory.create(anyString(), anyString(), anyString(), any(), any()))
@@ -612,7 +615,8 @@ class WorkflowOrchestratorTest {
             executionLog,
             limited,
             compiler,
-            preparator);
+            preparator,
+            new ExecutionResultService(100, Duration.ofMinutes(5), 10));
     final ExecutionScheduler.Permit holder = limited.acquire("s", "w").permit().block();
     final PreparedWorkflow prepared = buildPreparedWorkflow(List.of("n1"));
     lenient()
@@ -658,7 +662,8 @@ class WorkflowOrchestratorTest {
             executionLog,
             limited,
             compiler,
-            preparator);
+            preparator,
+            new ExecutionResultService(100, Duration.ofMinutes(5), 10));
     limited.acquire("s", "w").permit().block();
     final PreparedWorkflow prepared = buildPreparedWorkflow(List.of("n1"));
     lenient()
@@ -691,7 +696,8 @@ class WorkflowOrchestratorTest {
             executionLog,
             limited,
             compiler,
-            preparator);
+            preparator,
+            new ExecutionResultService(100, Duration.ofMinutes(5), 10));
     final PreparedWorkflow prepared = buildPreparedWorkflow(List.of("n1"));
     setupExecutionControl("s", "w", "e-fail", prepared, Map.of(), Sinks.one());
     when(tracker.startWorkflow(anyString(), anyString(), anyString(), anyList()))
@@ -726,7 +732,8 @@ class WorkflowOrchestratorTest {
             executionLog,
             scheduler,
             compiler,
-            preparator);
+            preparator,
+            new ExecutionResultService(100, Duration.ofMinutes(5), 10));
     final PreparedWorkflow prepared = buildPreparedWorkflow(List.of("n1"));
     lenient()
         .when(executionControlFactory.create(anyString(), anyString(), anyString(), any(), any()))
@@ -764,7 +771,8 @@ class WorkflowOrchestratorTest {
             executionLog,
             scheduler,
             compiler,
-            preparator);
+            preparator,
+            new ExecutionResultService(100, Duration.ofMinutes(5), 10));
     final PreparedWorkflow prepared = buildPreparedWorkflow(List.of("n1"));
     lenient()
         .when(executionControlFactory.create(anyString(), anyString(), anyString(), any(), any()))
@@ -805,7 +813,8 @@ class WorkflowOrchestratorTest {
         executionLog,
         limited,
         compiler,
-        preparator);
+        preparator,
+        new ExecutionResultService(100, Duration.ofMinutes(5), 10));
   }
 
   @Test

@@ -25,7 +25,7 @@ import reactor.core.scheduler.Schedulers;
  * One periodic check per node (not one timer per message) compares the last activity with the time
  * it has already counted.
  */
-@SuppressWarnings({"PMD.AvoidUsingVolatile", "PMD.OnlyOneReturn"})
+@SuppressWarnings({"PMD.AvoidUsingVolatile", "PMD.OnlyOneReturn", "PMD.TooManyMethods"})
 public final class NodeActivity {
 
   /** How many checks make up a timeout. */
@@ -36,6 +36,9 @@ public final class NodeActivity {
 
   /** Marks "no activity yet". */
   private static final long NONE = Long.MIN_VALUE;
+
+  /** True once the node has written log lines live, so its output need not be echoed again. */
+  private volatile boolean loggedLive;
 
   /** The time source for activity stamps. */
   private final Scheduler clock;
@@ -56,6 +59,20 @@ public final class NodeActivity {
 
   /* default */ NodeActivity(final Scheduler clock) {
     this.clock = clock;
+  }
+
+  /** Notes that the node writes its log lines live. Safe to call from any thread. */
+  public void markLoggedLive() {
+    loggedLive = true;
+  }
+
+  /**
+   * Tells whether the node has written log lines live.
+   *
+   * @return true if {@link #markLoggedLive()} was called
+   */
+  public boolean hasLoggedLive() {
+    return loggedLive;
   }
 
   /** Records activity: restarts the idle clock. Safe to call from any thread. */

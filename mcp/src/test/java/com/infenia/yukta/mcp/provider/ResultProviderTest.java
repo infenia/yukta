@@ -1,0 +1,73 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: 2026 Infenia Private Limited
+package com.infenia.yukta.mcp.provider;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
+import com.infenia.yukta.model.execution.WorkflowProgress;
+import com.infenia.yukta.service.control.gateway.ControlBusGateway;
+import com.infenia.yukta.service.result.ExecutionResultService;
+import java.time.Duration;
+import java.time.LocalDateTime;
+import java.util.List;
+import lombok.NoArgsConstructor;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import reactor.test.StepVerifier;
+
+@NoArgsConstructor
+@SuppressWarnings({"PMD.CommentRequired", "PMD.AvoidDuplicateLiterals"})
+class ResultProviderTest {
+
+  private ExecutionResultService results;
+  private ControlBusGateway controlBus;
+  private ResultProvider provider;
+
+  @BeforeEach
+  void setUp() {
+    results = new ExecutionResultService(100, Duration.ofMinutes(5), 10);
+    controlBus = mock(ControlBusGateway.class);
+    provider = new ResultProvider(results, controlBus);
+    when(controlBus.getProgress("s1", "e1"))
+        .thenReturn(
+            new WorkflowProgress(
+                "e1", "s1", "wf", "RUNNING", List.of(), LocalDateTime.now(), null, null));
+  }
+
+  @Test
+  void returnsRecordedResultsAndCursorThatSkipsThemNextTime() {
+    results.publish("e1", "t1", "one");
+    results.publish("e1", "t1", "two");
+
+    StepVerifier.create(provider.getExecutionResult("s1", "e1", null))
+        .assertNext(
+            read -> {
+              assertThat(read.events()).hasSize(2);
+              assertThat(read.complete()).isFalse();
+              assertThat(read.nextCursor()).isEqualTo(2);
+            })
+        .verifyComplete();
+
+    results.publish("e1", "t1", "three");
+    results.complete("e1", "SUCCESS");
+
+    StepVerifier.create(provider.getExecutionResult("s1", "e1", 2L))
+        .assertNext(
+            read -> {
+              assertThat(read.events()).hasSize(2);
+              assertThat(read.events().getFirst().payload()).isEqualTo("three");
+              assertThat(read.complete()).isTrue();
+              assertThat(read.status()).isEqualTo("SUCCESS");
+            })
+        .verifyComplete();
+  }
+
+  @Test
+  void unknownOrForeignExecutionIsAnError() {
+    StepVerifier.create(provider.getExecutionResult("other", "e1", null))
+        .expectError(IllegalArgumentException.class)
+        .verify();
+  }
+}

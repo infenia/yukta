@@ -12,7 +12,9 @@ import static org.mockito.Mockito.when;
 
 import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
+import com.infenia.yukta.plugin.core.PluginLogSink;
 import com.infenia.yukta.plugin.core.PluginMetricsReporter;
+import com.infenia.yukta.plugin.core.WorkflowContext;
 import com.infenia.yukta.plugin.exception.WorkflowExecutionException;
 import com.infenia.yukta.util.VariableResolver;
 import java.time.Duration;
@@ -35,6 +37,7 @@ import org.springframework.beans.factory.support.StaticListableBeanFactory;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
+import reactor.util.context.Context;
 
 @SuppressWarnings({
   "PMD.TooManyMethods",
@@ -87,6 +90,21 @@ class ProcessExecutorPluginTest {
 
   private static Message<?> message(final Object payload) {
     return DefaultMessage.create(UUID.randomUUID(), payload);
+  }
+
+  @Test
+  void process_withLogSinkInContext_passesTheSinkToTheGateway() {
+    final PluginLogSink sink = (stream, line) -> {};
+    when(gateway.executeForResult(any(), any())).thenReturn(Mono.just(successResult("ok")));
+
+    StepVerifier.create(
+            plugin
+                .process(Flux.just(message("in")), Map.of("command", List.of("echo", "ok")))
+                .contextWrite(Context.of(WorkflowContext.LOG_SINK_KEY, sink)))
+        .expectNextCount(1)
+        .verifyComplete();
+
+    verify(gateway).executeForResult(any(), eq(sink));
   }
 
   // --- plugin identity ---

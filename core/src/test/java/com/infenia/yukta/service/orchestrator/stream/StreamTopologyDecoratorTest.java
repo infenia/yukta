@@ -316,6 +316,21 @@ class StreamTopologyDecoratorTest {
   }
 
   @Test
+  void testApplyLoggingAndBroadcastingSkipsEchoForNodeThatLoggedLive() {
+    final Message<?> msg = DefaultMessage.create(UUID.randomUUID(), "x".repeat(5_000));
+    final List<Disposable> disposables = new ArrayList<>();
+
+    final Flux<Message<?>> output =
+        decorator.applyLoggingAndBroadcasting(
+            EXEC_1, NODE_1, Flux.just(msg), 1024, disposables, new ArrayList<>(), () -> true);
+    StepVerifier.create(edge(output)).expectNextCount(1).verifyComplete();
+
+    verify(tracker, never()).emitLogEvent(any(), any(), any());
+
+    disposables.forEach(Disposable::dispose);
+  }
+
+  @Test
   void testApplyLoggingAndBroadcastingLargePayloadIsTruncatedInLog() {
     final String largePayload = "0123456789".repeat(2000);
     final Message<?> msg = DefaultMessage.create(UUID.randomUUID(), largePayload);
