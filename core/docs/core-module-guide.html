@@ -154,6 +154,30 @@ details.fold>.in{padding:0 16px 16px}
 .evo .card{border-top:3px solid var(--accent)}
 .evo .card.now{border-top-color:var(--ok)}
 .deck .q{font-size:17px;line-height:1.45;margin:6px 0 10px}
+/* primer */
+.plain{border-left:3px solid var(--ok);background:var(--ok-soft);padding:8px 12px;border-radius:0 6px 6px 0;margin:8px 0;font-size:14px}
+.plain b{color:var(--ok)}
+.layers{display:flex;gap:8px;flex-wrap:wrap;align-items:stretch;margin:8px 0}
+.layers>div{flex:1 1 120px;border:1px solid var(--line);border-radius:8px;padding:8px 10px;background:var(--surface);font-size:13px}
+.layers>div.me{border-color:var(--accent);background:var(--accent-soft)}
+.layers b{display:block}
+.ex{width:100%;height:auto;display:block}
+.ex .nd rect{fill:var(--surface);stroke:var(--line);stroke-width:1.4}
+.ex .nd.t rect{stroke:var(--ok)}.ex .nd.p rect{stroke:var(--accent)}.ex .nd.e rect{stroke:var(--p3)}
+.ex .nd.on rect{fill:var(--accent-soft);stroke-width:3}
+.ex .nd{cursor:pointer}
+.ex .nd text.n{fill:var(--text);font:600 13px var(--sans)}
+.ex .nd text.s{fill:var(--muted);font:11px var(--mono)}
+.ex .ed{fill:none;stroke:var(--muted);stroke-width:1.5}
+.ex .ed.err{stroke:var(--p0);stroke-dasharray:5 4}
+.ex .el{fill:var(--muted);font:11px var(--sans)}
+.wrap{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:8px 0}
+.wrap span.s{border:1px solid var(--accent);background:var(--accent-soft);border-radius:8px;padding:3px 10px;font-size:13px}
+.wrap span.a{color:var(--muted)}
+.gl dt{font-weight:700;margin-top:12px}
+.gl dd{margin:2px 0 0}
+.gl .why{color:var(--muted);font-size:13px}
+.paths a{text-decoration:none;color:var(--text);cursor:pointer}
 @media (max-width:860px){
   .layout{grid-template-columns:1fr}
   nav.side{position:static;height:auto;border-right:0;border-bottom:1px solid var(--line);padding:16px}
@@ -182,6 +206,103 @@ details.fold>.in{padding:0 16px 16px}
 </div>
 <script>
 var DATA = {
+plain:{
+entry:["The front desk. Every request to start a workflow arrives here. It checks the request is not a duplicate, makes sure there is room, and only then lets the run begin.","Without it a burst of requests would start everything at once and swamp the server, and a client that retries after a network glitch would run the job twice."],
+def:["The library and the inspector. It stores each workflow's definition with its history and, before a run, checks the graph makes sense and turns it into something runnable.","Catching a broken workflow (a loop, a connection to nowhere) before it starts is far cheaper than finding out halfway through."],
+engine:["The factory floor. It connects the nodes with streams of messages and wraps every node with the rules for retries, timeouts, pausing and what to do when something fails.","Plugin authors should write only business logic. The hard behaviour (back-pressure, failure handling, clocks) lives here once instead of in every plugin."],
+plugin:["The sockets where the real work plugs in: calling an API, asking an LLM, running a script, waiting for a human. The engine treats them all the same way.","New capabilities can be added without touching the engine, and engine policy stays out of plugin code."],
+super:["Automated watchers. Small programs (a rule file, an AI agent, your own code) watch everything that happens and can press the same buttons an operator can.","Operations can be automated, for example pause everything when errors spike, without hard-coding it into the engine."],
+control:["The control room's switchboard. Every instruction to a live run (pause, step, skip, stop) goes through here in order, is confirmed to the caller and is written to an audit trail.","Steering a running stream is full of races. One ordered, acknowledged channel makes it predictable and auditable."],
+obs:["The dashboard feed. It watches what every node is doing and turns it into live progress, history and metrics.","You cannot operate what you cannot see, and the UI, SSE and MCP clients all need the same consistent, ordered view."],
+dur:["The black-box recorder. It records each run and each node's output so that after a crash you can see what happened and continue from where it stopped.","Long or expensive runs (LLM calls, paid APIs) should not have to start over after a restart."],
+persist:["Where things are physically kept: in memory, in files, or in PostgreSQL. One setting chooses.","Different deployments need different durability, and this keeps the engine independent of the choice."],
+sub:["A workflow step that is itself another workflow, like calling a function.","Reuse and composition, and the building block for agents that plan their own steps."]
+},
+intro:{
+happy:"One start request travels from the front door to a finished run. Use it first to learn the vocabulary.",
+overload:"What happens when more work arrives than the server should run at once.",
+failure:"How a failing step is retried, quarantined or allowed to fail the run, and one place where that design is weak.",
+operator:"How a person steers a run that is already going, using the same channel automation uses.",
+supervisor:"How an automated watcher (rules or AI) observes runs and intervenes, and how it is kept from hurting them.",
+crash:"What is lost and what is kept when the server dies mid-run, and how a run is continued afterwards.",
+sub:"How one workflow calls another and why that needs care with limits."
+},
+adrAlt:[
+"Queues or a message broker between nodes: decouples speeds but needs sizing and persistence, and loses end-to-end back-pressure.",
+"Put state in a database or cluster framework from day one: more resilient, but adds latency and operational weight early on.",
+"Aim for exactly-once with a transactional outbox per node: only works where the target system supports it.",
+"fsync every log event: slower, and still does not tell you a node's output is complete.",
+"Accept any order and reconcile later: UI glitches such as a finished run with running nodes.",
+"Hard-coded alert rules in the engine, or separate APIs for people and automation: two paths to keep safe.",
+"JDBC with a thread pool, or a document database: simpler to start, blocks threads or loses relational history.",
+"Run whole workflows on workers (loses per-node isolation, control must be proxied) or active/standby only (does not scale out)."
+],
+primer:{
+ problem:"Teams automate multi-step jobs: receive an event, ask an LLM, call an API, wait for a person, notify someone. Written as ad-hoc scripts, these have no retries, no visibility, no way to pause or stop them, and no way to continue after a crash. Yukta lets you describe the steps once, as a graph, and runs them reliably. <b>Core</b> is the engine inside the Yukta server that executes those graphs and lets you steer them while they run.",
+ analogy:"Think of a factory line with a control room. Stations (<b>nodes</b>) are joined by conveyor belts (<b>streams</b>) that stop when the next station is busy. A foreman (the <b>control plane</b>) can pause the line, step it one item at a time, or stop it. Cameras and monitors (<b>observation</b>) show what is happening, automated watchers (<b>supervisors</b>) can press the foreman's buttons, and a logbook (the <b>execution log</b> and <b>checkpoints</b>) lets you work out after a power cut where the line had got to.",
+ layers:[["Clients","REST, web UI, MCP agents, CLI",""],["web / mcp / ui","Translate requests into calls on core",""],["core","The engine and control plane. This page.","me"],["plugin-api + plugins","The contract and the actual node types",""],["boot","Wires it into one Spring Boot app",""]],
+ concepts:[
+  ["Workflow","A graph written as JSON: nodes and the edges between them. It is stored once and can be run many times.","Example: triage a support ticket."],
+  ["Node","One step. Three kinds: a <b>trigger</b> starts the flow (no input), a <b>processor</b> transforms messages, a <b>terminal</b> ends a branch (saves, sends, notifies).","Example: an LLM call is a processor."],
+  ["Edge and port","A connection from one node's output to another's input. A node can also have an <b>error port</b> that carries failed messages.","Edge from classify with sourcePort error goes to a dead-letter terminal."],
+  ["Message","The unit of data flowing along edges: a payload, headers and a stable id. A trigger may emit many messages in one run.","One ticket = one message."],
+  ["Run (execution)","One live execution of a workflow, with its own execution id, status (QUEUED, RUNNING, SUCCESS...) and per-node status.","Started by a REST call; ends when every terminal completes or the run fails or is stopped."],
+  ["Session","A tenant-like scope that groups workflows, runs and configuration. Limits and fairness apply per session.","One team or one user's workspace."],
+  ["Plugin","Code that gives a node its behaviour. The engine never needs to know what a plugin does, only the contract.","LLM_CALL, HTTP_REQUEST, PROCESS_EXECUTOR."],
+  ["Engine policy","An optional block inside any node's config that the engine reads and plugins never see: retry, onError, timeouts, failure budget.","See the example workflow below."]
+ ],
+ exMeta:"Simplified: the field names of the node and edge JSON are illustrative; the engine block is real.",
+ exJson:"{ \"nodes\": [\n    { \"id\": \"ticket\",   \"kind\": \"trigger\",   \"type\": \"(a webhook trigger)\" },\n    { \"id\": \"classify\", \"kind\": \"processor\", \"type\": \"LLM_CALL\",\n      \"config\": { \"engine\": {\n         \"retry\":   { \"maxAttempts\": 3, \"backoffMs\": 200 },\n         \"onError\": \"ROUTE\" } } },\n    { \"id\": \"approve\",  \"kind\": \"processor\", \"type\": \"WAIT_FOR_SIGNAL\" },\n    { \"id\": \"update\",   \"kind\": \"processor\", \"type\": \"HTTP_REQUEST\" },\n    { \"id\": \"done\",     \"kind\": \"terminal\" },\n    { \"id\": \"deadletter\", \"kind\": \"terminal\" } ],\n  \"edges\": [\n    { \"from\": \"ticket\",   \"to\": \"classify\" },\n    { \"from\": \"classify\", \"to\": \"approve\" },\n    { \"from\": \"approve\",  \"to\": \"update\" },\n    { \"from\": \"update\",   \"to\": \"done\" },\n    { \"from\": \"classify\", \"sourcePort\": \"error\", \"to\": \"deadletter\" } ] }",
+ ex:[
+  {id:"ticket",n:"Ticket arrives",s:"trigger",k:"t",x:10,y:40,does:"Waits for something to happen (here a new support ticket) and emits one message carrying the ticket data.",adds:"Starts the node's clocks and records its status. A trigger has no input, so it keeps the default 30 s idle timeout unless the plugin declares another.",wrong:"A source that is quiet for a long time looks dead. Long silent work should call the heartbeat or use a longer timeout."},
+  {id:"classify",n:"Classify",s:"LLM_CALL",k:"p",x:190,y:40,does:"Sends the ticket text to a language model and returns a category.",adds:"Retries a failed call up to 3 times with growing delay (not for bad input), enforces a per-attempt timeout and the run's token budget, and sends a message that still fails to the error port tagged with attempts, exception and time. A message yields all of its output or none.",wrong:"One call may overshoot the budget; there is no rate limit shared across nodes (F4); retries mean the plugin can see the same message twice."},
+  {id:"approve",n:"Approve",s:"WAIT_FOR_SIGNAL",k:"p",x:370,y:40,does:"Holds each message until a person or a supervisor sends an approve or reject signal (default wait one hour).",adds:"Delivers the signal through the same ordered, audited command path as pause or stop, extends the node timeout by the wait plus 30 s, and freezes the clocks while the run is paused.",wrong:"The wait lives in memory: after a restart a resumed run waits again, and a signal sent before the node waits is refused (F2)."},
+  {id:"update",n:"Update ticket",s:"HTTP_REQUEST",k:"p",x:550,y:40,does:"Calls the ticketing system to set the category.",adds:"Timeout is the request timeout plus 5 s, checkpoints the output, and the message id stays the same on every attempt.",wrong:"A crash between the request and the node's end marker can repeat the call. The plugin or the target must de-duplicate on the message id."},
+  {id:"done",n:"Done",s:"terminal",k:"e",x:730,y:40,does:"Ends the branch, for example by logging or notifying. The run succeeds when all terminals complete.",adds:"Marks the run finished, releases the run's slot, writes the end to the log and keeps the run restartable.",wrong:"If this terminal fails, siblings that still produce output stall through back-pressure and the run fails only at the idle timeout (B16)."},
+  {id:"deadletter",n:"Dead letters",s:"terminal",k:"e",x:190,y:150,does:"Receives messages that failed in Classify after all retries, with headers failure.attempts, failure.exception and failure.time.",adds:"Nothing special: it is wired like any terminal, but only an edge with sourcePort error from a node with onError ROUTE carries dead letters.",wrong:"Forgetting the sourcePort means failed messages are dropped or fail the run, not quarantined."}
+ ],
+ wrapper:["Merge parents (join rule)","Valve: pause, step, skip, breakpoint","Call the plugin (attempt, timeout, retry)","Clocks and status","Broadcast to every child"],
+ paths:[["New to the module","Primer, then Map & walkthroughs (Happy path), then Guarantees, then pick one risk and read its components.","primer"],["Reviewing for improvements","Quality lenses, then Risks & ideas (impact x effort grid), then Decisions for what you would revisit.","quality"],["Planning scale-out or HA","Map (in-memory view), Guarantees (profiles), Evolution path, Decisions 2 and 8.","guarantees"]]
+},
+gloss:[
+["DAG","Directed acyclic graph: nodes joined by one-way edges with no loops. The shape of every workflow.","Loops are rejected at definition time."],
+["Trigger / Processor / Terminal","The three node kinds: start, transform, end.","Only processors can have retry and onError policy."],
+["Error port and dead letter","A separate output of a node that carries messages that failed, so they can be saved instead of lost.","Needs onError ROUTE and an edge with sourcePort error."],
+["Message and message id","The unit of data on an edge. The id is stable across retries.","Use it as the idempotency key in plugins."],
+["Run / execution / execution id","One live execution of a workflow and its identifier.","Everything (control, audit, logs) is keyed by it."],
+["Session","A scope grouping workflows, runs and limits.","Fair queueing is per session."],
+["Reactive stream (Reactor, Flux)","A pipeline of data that moves as the consumer asks for it. Yukta is built on Project Reactor.","The reason slow consumers slow producers instead of filling memory."],
+["Back-pressure","A slow consumer making upstream producers wait.","Keeps memory bounded; also means one slow branch can slow a fan-out."],
+["Fan-out","One node feeding several children.","Paced by the slowest child."],
+["Join rule","What a node with several parents does when a parent fails: ALL_SUCCESS, ALL_DONE or ONE_SUCCESS.","Avoids a join that never fires."],
+["Valve","A gate in front of a node that implements pause, step, skip and breakpoints.","Why pausing is exact and cheap."],
+["Idle timeout and heartbeat","A node fails if silent too long; a plugin doing long silent work calls a heartbeat to say it is alive.","The most common cause of surprising TIMED_OUT."],
+["Deadline","The longest a node (or the run) may take in total, whatever its activity.","Not restarted by output or heartbeat."],
+["Retry, backoff, jitter","Re-run a failed message after a growing, slightly random delay.","Jitter stops many retries hitting a service together."],
+["Failure budget","If too many messages fail in a time window, fail the node instead of quietly dropping more.","Guards against silent data loss with CONTINUE or ROUTE."],
+["Admission / scheduler","The gate that decides whether a start may run now, wait or be refused (HTTP 429).","Limits are off by default."],
+["Idempotency key","A caller-supplied key that makes a repeated start return the first run instead of starting another.","Safe client retries."],
+["Idempotent plugin","A plugin whose repeated execution for the same message has the same effect as one.","How at-least-once delivery stays correct."],
+["At-least-once","A step may run more than once but never zero times (after it was started). Exactly-once is not achievable here.","Plugins must tolerate duplicates."],
+["Control plane","The part that manages runs (admit, order commands, steer) as opposed to the data plane that moves messages.","Today lives in one JVM."],
+["Command and FIFO","An instruction to a live run, applied in first-in-first-out order per run and acknowledged.","No command races."],
+["Reviewer","A hook that can refuse any command before it runs; the caller gets HTTP 403.","A policy point for humans and automation alike."],
+["Supervisor","A program that watches the event feed and returns commands, in or out of the JVM.","Rate limited, isolated, can be dry-run."],
+["Execution log","An append-only record of run starts, ends, control commands and idempotency keys.","Memory by default; file or PostgreSQL if configured."],
+["Checkpoint","A node's recorded output, kept so it can be replayed instead of recomputed.","Memory is capped; file keeps everything."],
+["Durable end marker","A small file written and forced to disk with a node's output when the node completes.","What a resume trusts to skip a node."],
+["ABORTED","The status given on boot to a run that never finished because the process died.","Candidates for resume."],
+["Restart vs resume","Restart starts a new run (optionally from one node) using recorded outputs; resume continues an aborted run after a crash.","Resume needs file stores and an unchanged definition."],
+["Definition version (content hash)","A fingerprint of the graph a run used, stored with the run.","Lets you tell which version ran."],
+["Claim check","Passing a reference to big data instead of the data itself.","Planned for large payloads."],
+["Virtual threads","Cheap threads used so blocking plugins do not tie up the event loop.","Why blocking plugins are allowed."],
+["Observation / span","A timed record of work (one for the run, one per node) that becomes a trace when a tracer is present.","Needs a Micrometer tracer on the classpath."],
+["SSE","Server-sent events: a one-way live stream to browsers and agents.","How progress and the event feed are delivered."],
+["MCP","Model Context Protocol: how AI agents call tools; Yukta exposes control through it.","Another client of the same gateway."],
+["R2DBC and Flyway","Non-blocking database access at run time, and versioned schema migrations.","How PostgreSQL support is built."],
+["Remote worker","A separate process that runs a node on the control plane's behalf (designed, not built).","The planned scale-out path."],
+["B16, S4, F6 ...","IDs in core/docs/plans/09-backlog.md: B = bug, S = security, F = feature.","Used in the Risks section."]
+],
 glance:{
  lede:"Core is Yukta's engine and control plane: it takes a workflow definition (a DAG of trigger, processor and terminal nodes), runs it as a live stream of messages, lets people and programs steer it while it runs, and remembers enough to explain or resume it afterwards. This page is for thinking about it, not documenting it: open a component, play a scenario, then challenge the weak spots.",
  props:[
@@ -190,7 +311,7 @@ glance:{
   ["At-least-once","A node's end is durable, a side effect before it can repeat after a crash. Exactly-once is impossible; plugins de-duplicate on the message id."],
   ["Pluggable durability","Memory by default; files or PostgreSQL by configuration. What survives a restart depends on the profile (see Guarantees)."]
  ],
- start:[["map","System map","Ten components and how data and commands flow between them"],["map","Replay a run","Seven scenarios: overload, failure, crash, supervisor..."],["guarantees","What survives a crash","Switch deployment profile and watch the table change"],["quality","Stress it","Scalability, performance, availability, security lenses"],["board","Challenge it","28 open risks, an impact x effort grid, your own notes"],["adrs","Decisions","Eight ADRs, each with a 'revisit when' trigger"]]
+ start:[["primer","Primer","New here? Start with the problem, the vocabulary and one worked example"],["map","System map","Ten components and how data and commands flow between them"],["map","Replay a run","Seven scenarios: overload, failure, crash, supervisor..."],["guarantees","What survives a crash","Switch deployment profile and watch the table change"],["quality","Stress it","Scalability, performance, availability, security lenses"],["board","Challenge it","28 open risks, an impact x effort grid, your own notes"],["adrs","Decisions","Eight ADRs, each with a 'revisit when' trigger"],["glossary","Glossary","Plain definitions of every term used here"]]
 },
 comps:[
 {id:"entry",name:"Entry & Admission",tag:"front door, slots, queue",c:0,r:0,mem:true,
@@ -449,12 +570,24 @@ var C={},R={};D.comps.forEach(function(c){C[c.id]=c});D.risks.forEach(function(r
 function compChip(id){return C[id]?'<a class="chip comp" data-comp="'+id+'" tabindex="0" role="button">'+esc(C[id].name)+'</a>':""}
 function riskChip(id){return R[id]?'<a class="chip" data-risk="'+id+'" tabindex="0" role="button" title="'+esc(R[id].t)+'">'+esc(R[id].t)+'</a>':""}
 
-var secs=[["glance","At a glance"],["map","Map & walkthroughs"],["caps","Capabilities"],["guarantees","Guarantees"],["quality","Quality lenses"],["board","Risks & ideas"],["adrs","Decisions"],["evolution","Evolution path"],["prompts","Think about"]];
+var secs=[["glance","At a glance"],["primer","Primer: start here"],["map","Map & walkthroughs"],["caps","Capabilities"],["guarantees","Guarantees"],["quality","Quality lenses"],["board","Risks & ideas"],["adrs","Decisions"],["evolution","Evolution path"],["prompts","Think about"],["glossary","Glossary"]];
 $("#navLinks").innerHTML=secs.map(function(s){return '<a href="#'+s[0]+'">'+s[1]+'</a>'}).join("");
 
 var h="";
 /* glance */
 h+='<section id="glance"><h1>How Yukta core works, and where it can break</h1><p class="lede">'+D.glance.lede+'</p><div class="grid g4">'+D.glance.props.map(function(p){return '<div class="card"><h3>'+p[0]+'</h3><p class="refs" style="margin:0">'+p[1]+'</p></div>'}).join("")+'</div><h3>Where to start</h3><div class="grid g3 start">'+D.glance.start.map(function(s){return '<a class="card" href="#'+s[0]+'"><b>'+s[1]+'</b><span class="refs">'+s[2]+'</span></a>'}).join("")+'</div></section>';
+/* primer */
+var PR=D.primer;
+h+='<section id="primer"><h2>Primer: the ten-minute version</h2><p class="lede">No prior knowledge of Yukta needed. Read this section, then the rest of the page will make sense. Unfamiliar word? See the <a href="#glossary">glossary</a>.</p>'+
+'<div class="grid g3 paths">'+PR.paths.map(function(p){return '<a class="card" href="#'+p[2]+'"><b>'+p[0]+'</b><span class="refs" style="display:block">'+p[1]+'</span></a>'}).join("")+'</div>'+
+'<h3>The problem it solves</h3><p style="max-width:820px">'+PR.problem+'</p><div class="plain"><b>Analogy.</b> '+PR.analogy+'</div>'+
+'<h3>Where core sits</h3><div class="layers">'+PR.layers.map(function(l){return '<div'+(l[2]?' class="me"':'')+'><b>'+l[0]+'</b>'+l[1]+'</div>'}).join("")+'</div><p class="refs">Core knows nothing about HTTP, screens or the individual plugins. It receives calls, runs graphs and reports what happened.</p>'+
+'<h3>The vocabulary in eight cards</h3><div class="grid g4">'+PR.concepts.map(function(c){return '<div class="card"><h3 style="margin-top:0">'+c[0]+'</h3><p style="margin:0 0 6px;font-size:14px">'+c[1]+'</p><p class="refs" style="margin:0">'+c[2]+'</p></div>'}).join("")+'</div>'+
+'<h3>One example, end to end</h3><p class="lede">A support-ticket workflow. Click a node to see what the plugin does, what the engine adds around it for free, and where it can go wrong.</p>'+
+'<div class="card"><svg class="ex" id="exSvg" viewBox="0 0 880 230" role="group" aria-label="Example workflow"></svg><div class="panel" id="exPanel" aria-live="polite" style="margin-top:8px"></div></div>'+
+'<details class="fold"><summary>See the definition as JSON</summary><div class="in"><p class="refs">'+PR.exMeta+'</p><pre class="mono" style="overflow-x:auto;background:var(--surface-2);padding:10px;border-radius:8px;font-size:12.5px">'+esc(PR.exJson)+'</pre></div></details>'+
+'<h3>What the engine wraps around every node</h3><p class="refs">This is the part plugin authors get for free. It is the same for every processor.</p><div class="wrap">'+PR.wrapper.map(function(w,i){return (i?'<span class="a">→</span>':'')+'<span class="s">'+w+'</span>'}).join("")+'</div>'+
+'<h3>A run in plain words</h3><ol style="max-width:820px;padding-left:20px"><li><b>Start:</b> a request names a workflow. The front desk checks it is not a duplicate and that there is room.</li><li><b>Prepare:</b> the graph is checked and compiled; a bad graph is refused here.</li><li><b>Wire:</b> every node gets its wrapper and every edge becomes a stream; the source starts only when all consumers are listening.</li><li><b>Flow:</b> messages move. A slow node makes upstream wait. Failures follow the policy set on the node.</li><li><b>Steer:</b> people and supervisors pause, step, skip or stop through one ordered channel.</li><li><b>Record:</b> state, outputs and node ends are tracked and, if configured, written durably.</li><li><b>Finish or recover:</b> the run ends and frees its slot, or after a crash it is marked ABORTED and can be resumed.</li></ol></section>';
 /* map */
 h+='<section id="map"><h2>System map</h2><p class="lede">Ten components, solid lines carry data, dashed lines carry commands and events. Click a component to see how it works, what it guarantees and where it is weak, or replay a scenario to watch a run move through the system.</p><div class="bar" id="modeBar"></div><div class="bar"><button type="button" id="memBtn" aria-pressed="false">Highlight in-memory state</button><span class="refs">Dashed amber = state lost on a crash (single point of failure view)</span></div><div class="mapwrap"><div class="card"><svg class="map" id="map-svg" viewBox="0 -10 990 380" role="group" aria-label="Component map"></svg><div class="bar" id="compChips" style="margin-top:8px"></div></div><div class="card panel" id="panel" aria-live="polite"></div></div></section>';
 /* caps */
@@ -464,13 +597,14 @@ h+='<section id="guarantees"><h2>Guarantees and durability</h2><p class="lede">P
 /* quality */
 h+='<section id="quality"><h2>Quality lenses</h2><p class="lede">Look at the system through one attribute at a time: where it stands, where it saturates, what you can turn today, and what needs design work.</p><div class="tabs" id="qTabs" role="tablist"></div><div id="qBody"></div><div class="card" style="margin-top:12px"><h3>Load what-if (indicative, not measured)</h3><div id="whatif"></div><div id="whatOut"></div></div></section>';
 /* board */
-h+='<section id="board"><h2>Risks and improvement ideas</h2><p class="lede">Everything still open, in impact and effort terms. Set a status, jot a note (kept in this browser only) and copy your notes as Markdown to share.</p><div class="bar"><span class="lbl">View</span><button type="button" id="vList" aria-pressed="true">List</button><button type="button" id="vGrid" aria-pressed="false">Impact x effort</button><button type="button" id="copyBtn">Copy my notes</button><span class="refs" id="copyMsg"></span></div><div class="bar" id="attrFilters"><span class="lbl">Attribute</span></div><div class="bar"><span class="lbl">Status</span><select id="statFilter" aria-label="Filter by status"><option value="">All</option><option>Idea</option><option>Investigating</option><option>Planned</option><option value="none">Unset</option></select><input type="search" id="rq" placeholder="Search risks" aria-label="Search risks"></div><div id="boardBody"></div><textarea id="copyArea" hidden readonly aria-label="Notes as Markdown"></textarea></section>';
+h+='<section id="board"><h2>Risks and improvement ideas</h2><p class="lede">Everything still open, in impact and effort terms. IDs in brackets such as B16, S4 or F6 point to the backlog in <code>core/docs/plans/09-backlog.md</code> (bug, security, feature). Effort and impact are 1 to 5 judgements, not estimates. Set a status, jot a note (kept in this browser only) and copy your notes as Markdown to share.</p><div class="bar"><span class="lbl">View</span><button type="button" id="vList" aria-pressed="true">List</button><button type="button" id="vGrid" aria-pressed="false">Impact x effort</button><button type="button" id="copyBtn">Copy my notes</button><span class="refs" id="copyMsg"></span></div><div class="bar" id="attrFilters"><span class="lbl">Attribute</span></div><div class="bar"><span class="lbl">Status</span><select id="statFilter" aria-label="Filter by status"><option value="">All</option><option>Idea</option><option>Investigating</option><option>Planned</option><option value="none">Unset</option></select><input type="search" id="rq" placeholder="Search risks" aria-label="Search risks"></div><div id="boardBody"></div><textarea id="copyArea" hidden readonly aria-label="Notes as Markdown"></textarea></section>';
 /* adrs */
-h+='<section id="adrs"><h2>Decision records</h2><p class="lede">The load-bearing decisions, reconstructed from the code and plans. Each says when to revisit it.</p><div class="grid g2">'+D.adrs.map(function(a,i){return '<div class="card adr"><h3>ADR-'+(i+1)+' · '+a.t+'</h3><dl><dt>Context</dt><dd>'+a.ctx+'</dd><dt>Decision</dt><dd>'+a.dec+'</dd><dt>Consequences</dt><dd>'+a.con+'</dd><dt>Revisit when</dt><dd><b>'+a.rev+'</b></dd></dl></div>'}).join("")+'</div></section>';
+h+='<section id="adrs"><h2>Decision records</h2><p class="lede">The load-bearing decisions, reconstructed from the code and plans. Each says when to revisit it.</p><div class="grid g2">'+D.adrs.map(function(a,i){return '<div class="card adr"><h3>ADR-'+(i+1)+' · '+a.t+'</h3><dl><dt>Context</dt><dd>'+a.ctx+'</dd><dt>Decision</dt><dd>'+a.dec+'</dd><dt>Consequences</dt><dd>'+a.con+'</dd><dt>Alternatives</dt><dd>'+D.adrAlt[i]+'</dd><dt>Revisit when</dt><dd><b>'+a.rev+'</b></dd></dl></div>'}).join("")+'</div></section>';
 /* evolution */
 h+='<section id="evolution"><h2>Evolution path</h2><p class="lede">From today to a scaled-out, highly available control plane, and which risks each step retires.</p><div class="evo">'+D.evo.map(function(e){return '<div class="card'+(e.id==="now"?" now":"")+'"><h3>'+e.n+'</h3><p class="refs">'+e.d+'</p>'+(e.r.length?'<h4>Retires</h4>'+e.r.map(riskChip).join(""):"")+'</div>'}).join("")+'</div></section>';
 /* prompts */
 h+='<section id="prompts"><h2>Questions to think about</h2><p class="lede">Open questions without a right answer, each tied to a component and a risk.</p><div class="card deck" id="deck"></div></section>';
+h+='<section id="glossary"><h2>Glossary</h2><p class="lede">Plain definitions of the terms used on this page, with why each one matters.</p><div class="bar"><input type="search" id="glq" placeholder="Search terms" aria-label="Search glossary"></div><div class="card"><dl class="gl" id="glList" style="margin:0"></dl></div></section>';
 $("#main").innerHTML=h;
 
 /* ---- map ---- */
@@ -494,8 +628,8 @@ function paint(){
  $$(".edge",svg).forEach(function(p){var e=p.getAttribute("data-e").split(">");p.classList.toggle("act",mode!=="explore"&&active.indexOf(e[0])>=0&&active.indexOf(e[1])>=0)});
  $$("#compChips button").forEach(function(b){b.classList.toggle("sel",mode==="explore"&&b.getAttribute("data-cb")===sel)});
  var el=$("#panel");
- if(mode==="explore"){var c=C[sel];el.innerHTML='<h3>'+esc(c.name)+'</h3><p class="refs">'+esc(c.tag)+'</p><p>'+c.resp+'</p><div class="cols"><div><h4>How it works</h4><ul>'+c.how.map(function(x){return '<li>'+x+'</li>'}).join("")+'</ul></div><div>'+dl(c)+'<h4>Risks here</h4>'+(c.risks.map(riskChip).join("")||'<span class="refs">None recorded.</span>')+'</div></div>'}
- else{var s=scenOf(mode),st=s.steps[step];el.innerHTML='<h3>'+esc(s.name)+' · step '+(step+1)+' of '+s.steps.length+'</h3><h4>'+esc(st.t)+'</h4><p>'+st.d+'</p><h4>Components</h4>'+st.c.map(compChip).join("")+(st.r.length?'<h4>What could go wrong</h4>'+st.r.map(riskChip).join(""):"")+'<div class="stepnav"><button type="button" id="prevS"'+(step===0?" disabled":"")+'>Back</button><div class="dots">'+s.steps.map(function(_,i){return '<i class="'+(i<=step?"d":"")+'"></i>'}).join("")+'</div><button type="button" id="nextS"'+(step===s.steps.length-1?" disabled":"")+'>Next</button></div>';
+ if(mode==="explore"){var c=C[sel];el.innerHTML='<h3>'+esc(c.name)+'</h3><p class="refs">'+esc(c.tag)+'</p><div class="plain"><b>In plain words.</b> '+D.plain[c.id][0]+'<br><span class="refs"><b>Why it exists:</b> '+D.plain[c.id][1]+'</span></div><p>'+c.resp+'</p><div class="cols"><div><h4>How it works</h4><ul>'+c.how.map(function(x){return '<li>'+x+'</li>'}).join("")+'</ul></div><div>'+dl(c)+'<h4>Risks here</h4>'+(c.risks.map(riskChip).join("")||'<span class="refs">None recorded.</span>')+'</div></div>'}
+ else{var s=scenOf(mode),st=s.steps[step];el.innerHTML='<h3>'+esc(s.name)+' · step '+(step+1)+' of '+s.steps.length+'</h3><p class="refs">'+(D.intro[s.id]||"")+'</p><h4>'+esc(st.t)+'</h4><p>'+st.d+'</p><h4>Components</h4>'+st.c.map(compChip).join("")+(st.r.length?'<h4>What could go wrong</h4>'+st.r.map(riskChip).join(""):"")+'<div class="stepnav"><button type="button" id="prevS"'+(step===0?" disabled":"")+'>Back</button><div class="dots">'+s.steps.map(function(_,i){return '<i class="'+(i<=step?"d":"")+'"></i>'}).join("")+'</div><button type="button" id="nextS"'+(step===s.steps.length-1?" disabled":"")+'>Next</button></div>';
   $("#prevS").onclick=function(){step--;active=s.steps[step].c;paint()};$("#nextS").onclick=function(){step++;active=s.steps[step].c;paint()}}
 }
 function setMode(m){mode=m;step=0;active=m==="explore"?[]:scenOf(m).steps[0].c;paint()}
@@ -583,6 +717,24 @@ function deck(){var p=D.prompts[pi];$("#deck").innerHTML='<span class="pill P2">
  $("#pPrev").onclick=function(){pi=(pi+D.prompts.length-1)%D.prompts.length;deck()};$("#pNext").onclick=function(){pi=(pi+1)%D.prompts.length;deck()};$("#pRand").onclick=function(){pi=Math.floor(Math.random()*D.prompts.length);deck()}}
 deck();
 
+/* ---- primer example ---- */
+(function(){var ex=PR.ex,sv=document.getElementById("exSvg"),EW=140,EH=60,o="",byId={};
+ ex.forEach(function(n){byId[n.id]=n});
+ function edge(a,b,cls,label){var A=byId[a],B=byId[b],x1,y1,x2,y2;if(A.y===B.y){x1=A.x+EW;y1=A.y+EH/2;x2=B.x;y2=B.y+EH/2}else{x1=A.x+EW/2;y1=A.y+EH;x2=B.x+EW/2;y2=B.y}
+  o+='<path class="ed '+(cls||"")+'" d="M'+x1+','+y1+' L'+x2+','+y2+'"/>';if(label)o+='<text class="el" x="'+((x1+x2)/2+6)+'" y="'+((y1+y2)/2+(A.y===B.y?-6:4))+'">'+label+'</text>'}
+ edge("ticket","classify");edge("classify","approve");edge("approve","update");edge("update","done");edge("classify","deadletter","err","error port");
+ ex.forEach(function(n){o+='<g class="nd '+n.k+'" data-n="'+n.id+'" tabindex="0" role="button" aria-label="'+esc(n.n)+'"><rect x="'+n.x+'" y="'+n.y+'" width="'+EW+'" height="'+EH+'" rx="9"/><text class="n" x="'+(n.x+EW/2)+'" y="'+(n.y+27)+'" text-anchor="middle">'+esc(n.n)+'</text><text class="s" x="'+(n.x+EW/2)+'" y="'+(n.y+45)+'" text-anchor="middle">'+esc(n.s)+'</text></g>'});
+ o+='<text class="el" x="10" y="222">Green = trigger · Blue = processor · Grey = terminal · Dashed red = error port</text>';
+ sv.innerHTML=o;
+ function show(id){var n=byId[id];$$(".nd",sv).forEach(function(g){g.classList.toggle("on",g.getAttribute("data-n")===id)});
+  document.getElementById("exPanel").innerHTML='<h3>'+esc(n.n)+' <span class="refs mono">'+esc(n.s)+'</span></h3><dl><dt>Plugin does</dt><dd>'+n.does+'</dd><dt>Engine adds</dt><dd>'+n.adds+'</dd><dt>Can go wrong</dt><dd>'+n.wrong+'</dd></dl>'}
+ sv.addEventListener("click",function(e){var g=e.target.closest("[data-n]");if(g)show(g.getAttribute("data-n"))});
+ sv.addEventListener("keydown",function(e){var g=e.target.closest&&e.target.closest("[data-n]");if(g&&(e.key==="Enter"||e.key===" ")){e.preventDefault();show(g.getAttribute("data-n"))}});
+ show("classify")})();
+/* ---- glossary ---- */
+function glRender(){var t=($("#glq").value||"").trim().toLowerCase();var l=D.gloss.filter(function(g){return !t||(g[0]+" "+g[1]+" "+g[2]).toLowerCase().indexOf(t)>=0});
+ $("#glList").innerHTML=l.length?l.map(function(g){return '<dt>'+g[0]+'</dt><dd>'+g[1]+'</dd><dd class="why">Why it matters: '+g[2]+'</dd>'}).join(""):'<dd class="refs">No term matches.</dd>'}
+$("#glq").oninput=glRender;glRender();
 /* ---- nav ---- */
 var links=$$("nav.side a");
 links.forEach(function(l){l.addEventListener("click",function(e){var t=$(l.getAttribute("href"));if(t){e.preventDefault();t.scrollIntoView({behavior:"smooth"})}})});
