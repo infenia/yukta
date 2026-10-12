@@ -310,8 +310,7 @@ public class WorkflowOrchestrator {
                           Flux.fromIterable(entry.getValue())
                               .concatMap(
                                   message ->
-                                      checkpointStore.save(
-                                          newExecutionId, entry.getKey(), message))
+                                      checkpointStore.save(newExecutionId, entry.getKey(), message))
                               // The replayed output is complete, so a resume of this run need not
                               // run the node again.
                               .then(

@@ -239,8 +239,8 @@ public class FileWorkflowDefinitionStore implements WorkflowDefinitionStore {
   }
 
   /**
-   * Ids become file names, so anything that could name another path is encoded. URL encoding
-   * leaves dots alone, so the names that would walk up a directory are refused outright.
+   * Ids become file names, so anything that could name another path is encoded. URL encoding leaves
+   * dots alone, so the names that would walk up a directory are refused outright.
    */
   private static String encode(final String value) {
     final String encoded = URLEncoder.encode(value, StandardCharsets.UTF_8);
