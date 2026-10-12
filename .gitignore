@@ -51,3 +51,6 @@ jte-classes/
 /.junie/memory/tasks.md
 /cli/coverage.out
 .playwright-mcp/
+
+# Yukta dogfood state
+.yukta-dev/

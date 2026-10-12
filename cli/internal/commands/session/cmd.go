@@ -10,7 +10,7 @@ import (
 
 // SessionCmd creates and returns the "session" command group.
 // This is a parent command that organizes session-related operations.
-// Subcommands (list, get, apply, workflow) will be added by later tasks.
+// Subcommands: list, get, apply, workflow, summaries.
 func SessionCmd(c *client.Client) *cobra.Command {
 	sessionCmd := &cobra.Command{
 		Use:   "session",
@@ -25,13 +25,10 @@ Subcommands allow you to:
 		// This is a command group; no Run action needed. Subcommands are added separately.
 	}
 
-	// Subcommands are registered as they are implemented in later tasks:
-	// - sessionCmd.AddCommand(ListCmd(c))     // Task 6
-	// - sessionCmd.AddCommand(GetCmd(c))      // Task 7
-	// - sessionCmd.AddCommand(ApplyCmd(c))    // Task 8
-	sessionCmd.AddCommand(ListCmd(c))     // Task 6
-	sessionCmd.AddCommand(GetCmd(c))      // Task 7
-	sessionCmd.AddCommand(WorkflowCmd(c)) // Task 9
+	sessionCmd.AddCommand(ListCmd(c))
+	sessionCmd.AddCommand(GetCmd(c))
+	sessionCmd.AddCommand(ApplyCmd(c))
+	sessionCmd.AddCommand(WorkflowCmd(c))
 	sessionCmd.AddCommand(dataCmd("summaries", "List all sessions with their workflow summaries", 0,
 		func(_ []string) (any, error) { return c.GetSessionSummaries() }))
 

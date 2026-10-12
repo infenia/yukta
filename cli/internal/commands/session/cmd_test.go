@@ -181,3 +181,20 @@ func TestSessionCmd_workflowHasCorrectUse(t *testing.T) {
 		t.Error("expected 'workflow' subcommand with correct Use")
 	}
 }
+
+// TestSessionCmd_addsApplySubcommand tests that apply subcommand is registered.
+func TestSessionCmd_addsApplySubcommand(t *testing.T) {
+	c := client.NewClient("http://localhost:8080")
+	cmd := SessionCmd(c)
+
+	found := false
+	for _, subcmd := range cmd.Commands() {
+		if subcmd.Use == "apply <json-or-file>" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Error("expected 'apply' subcommand to be registered")
+	}
+}
