@@ -4,6 +4,7 @@
 package node
 
 import (
+	"errors"
 	"fmt"
 
 	"com.infenia.yukta/go-cli/internal/client"
@@ -76,6 +77,71 @@ By default, marks the node as skipped. Use --skip=false to unskip the node.`,
 		func(s, e, n string) (client.WorkflowStartResponse, error) { return c.SkipNode(s, e, n, skip) })
 	skipCmd.Flags().BoolVar(&skip, "skip", true, "Whether to skip the node (default true)")
 	cmd.AddCommand(skipCmd)
+
+	cmd.AddCommand(commands.Action(commands.ActionSpec[client.WorkflowStartResponse]{
+		Use:   "retry <execution-id> <node-id>",
+		Short: "Retry a failed node",
+		Long: `Restart an execution from a node that ended FAILURE or TIMED_OUT.
+
+The nodes before it replay their recorded output; the node and everything behind it run again.
+Prints the id of the new execution. Takes no session id.`,
+		Args: cobra.ExactArgs(2),
+		Run:  func(a []string) (client.WorkflowStartResponse, error) { return c.RetryNode(a[0], a[1]) },
+		Msg: func(r client.WorkflowStartResponse, a []string) string {
+			return fmt.Sprintf("Node %s retried; new execution: %s", a[1], r.ExecutionID)
+		},
+	}))
+
+	var sigName, sigDecision, sigData string
+	signalCmd := commands.Action(commands.ActionSpec[client.WorkflowStartResponse]{
+		Use:   "signal <execution-id> <node-id>",
+		Short: "Send a signal to a waiting node",
+		Long: `Release or reject a node that waits for a named signal, for example a WAIT_FOR_SIGNAL
+approval step. Fails with HTTP 409 if the node is not waiting for it. Takes no session id.`,
+		Args: cobra.ExactArgs(2),
+		Run: func(a []string) (client.WorkflowStartResponse, error) {
+			return c.SignalNode(a[0], a[1], sigName, sigDecision, sigData)
+		},
+		Msg: func(_ client.WorkflowStartResponse, a []string) string {
+			return fmt.Sprintf("Signal %s=%s sent to node %s", sigName, sigDecision, a[1])
+		},
+	})
+	signalCmd.Flags().StringVar(&sigName, "name", "", "Name of the signal the node waits for")
+	signalCmd.Flags().StringVar(&sigDecision, "decision", "", "Decision, for example approve or reject")
+	signalCmd.Flags().StringVar(&sigData, "data", "", "Optional text that goes with the decision")
+	_ = signalCmd.MarkFlagRequired("name")
+	_ = signalCmd.MarkFlagRequired("decision")
+	cmd.AddCommand(signalCmd)
+
+	var bpField, bpEquals string
+	var bpClear bool
+	breakpoint := commands.Action(commands.ActionSpec[client.WorkflowStartResponse]{
+		Use:   "breakpoint <execution-id> <node-id>",
+		Short: "Set or clear a breakpoint on a node",
+		Long: `Hold a node before the first element whose field equals a value, for example
+--field payload.status --equals error. Use --clear to remove the node's breakpoint.
+Takes no session id.`,
+		Args: cobra.ExactArgs(2),
+		Run: func(a []string) (client.WorkflowStartResponse, error) {
+			if bpClear {
+				return c.ClearBreakpoint(a[0], a[1])
+			}
+			if bpField == "" {
+				return client.WorkflowStartResponse{}, errors.New("--field and --equals are required unless --clear is given")
+			}
+			return c.SetBreakpoint(a[0], a[1], bpField, bpEquals)
+		},
+		Msg: func(_ client.WorkflowStartResponse, a []string) string {
+			if bpClear {
+				return "Breakpoint cleared on node " + a[1]
+			}
+			return fmt.Sprintf("Breakpoint set on node %s: %s == %s", a[1], bpField, bpEquals)
+		},
+	})
+	breakpoint.Flags().StringVar(&bpField, "field", "", "Field to compare, for example payload.status")
+	breakpoint.Flags().StringVar(&bpEquals, "equals", "", "Value that triggers the breakpoint")
+	breakpoint.Flags().BoolVar(&bpClear, "clear", false, "Remove the node's breakpoint")
+	cmd.AddCommand(breakpoint)
 
 	cmd.AddCommand(step.StepCmd(c))
 	return cmd

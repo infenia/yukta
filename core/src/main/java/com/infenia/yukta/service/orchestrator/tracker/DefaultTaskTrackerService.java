@@ -6,16 +6,11 @@ import com.infenia.yukta.event.TaskStatusEvent;
 import com.infenia.yukta.event.TrackerEvent;
 import com.infenia.yukta.event.WorkflowLogEvent;
 import com.infenia.yukta.event.WorkflowStatusEvent;
-import com.infenia.yukta.logging.api.LogLevel;
-import com.infenia.yukta.logging.api.LogStream;
 import com.infenia.yukta.logging.api.PluginLogEntry;
 import com.infenia.yukta.model.execution.ControlState;
-import com.infenia.yukta.model.execution.TaskProgress;
 import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
 import com.infenia.yukta.model.execution.WorkflowProgress;
-import com.infenia.yukta.plugin.control.ExecutionEvent;
-import com.infenia.yukta.service.log.ExecutionLogEvent;
 import com.infenia.yukta.service.log.ExecutionLogStore;
 import com.infenia.yukta.service.log.InMemoryExecutionLogStore;
 import com.infenia.yukta.service.streaming.StatusHistoryCache;
@@ -24,7 +19,6 @@ import com.infenia.yukta.util.SinkEmit;
 import com.infenia.yukta.validation.NodeId;
 import com.infenia.yukta.validation.SessionId;
 import com.infenia.yukta.validation.WorkflowId;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import io.micrometer.observation.ObservationRegistry;
@@ -37,13 +31,8 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
-import java.util.ArrayDeque;
-import java.util.Collections;
-import java.util.Deque;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import lombok.extern.slf4j.Slf4j;
@@ -62,14 +51,11 @@ import reactor.core.scheduler.Schedulers;
 @Validated
 @SuppressWarnings({
   "PMD.ExcessiveImports",
-  "PMD.GodClass",
   "PMD.TooManyMethods",
   "PMD.CouplingBetweenObjects",
   "PMD.OnlyOneReturn",
-  "PMD.AvoidDuplicateLiterals",
-  "PMD.LawOfDemeter"
+  "PMD.AvoidDuplicateLiterals"
 })
-@SuppressFBWarnings("EI2")
 public class DefaultTaskTrackerService implements TaskTrackerService {
 
   /** Batch size for event processing. */
@@ -78,12 +64,9 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
   /** Batch timeout duration for event processing. */
   private static final Duration BATCH_TIMEOUT = Duration.ofMillis(50);
 
-  /** Completes a sink, retrying only while another thread is emitting at the same moment. */
-  private static final Sinks.EmitFailureHandler RETRY_HANDLER =
-      Sinks.EmitFailureHandler.busyLooping(Duration.ofMillis(100));
-
   /** Finished executions kept per session for history; older ones are dropped on cleanup. */
-  /* default */ static final int MAX_FINISHED_PER_SESSION = 100;
+  /* default */ static final int MAX_FINISHED_PER_SESSION =
+      ExecutionHistory.MAX_FINISHED_PER_SESSION;
 
   /** Most log events that may wait to be applied before further ones are dropped. */
   private static final int MAX_PENDING_LOGS = 10_000;
@@ -91,41 +74,20 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
   /** Metric counting events the tracker could not queue. */
   private static final String DROPPED_METRIC = "yukta.tracker.dropped";
 
-  /** Counts execution-log writes that failed, by what was being recorded. */
-  private static final String LOG_APPEND_FAILED_METRIC = "yukta.tracker.log.append.failed";
-
-  /** Tag value for a failed write of the end of a node. */
-  private static final String LOG_APPEND_NODE = "node";
-
-  /** Tag value for a failed write of the end of a run. */
-  private static final String LOG_APPEND_RUN = "run";
-
   /** Time to live for execution data after terminal status. */
   private final Duration cleanupTtl;
 
   /** Metrics and observations of runs and nodes. */
   private final RunTelemetry telemetry;
 
-  /** Cache for storing recent workflow progress updates per execution. */
-  private final StatusHistoryCache statusHistoryCache;
-
-  /** Durable record of run starts and ends. */
-  private final ExecutionLogStore executionLog;
-
   /** Map of session ID to workflow states. */
   private final Map<String, Map<String, WorkflowState>> sessionStates = new ConcurrentHashMap<>();
-
-  /** Per session, execution IDs that were cleaned up, oldest first. */
-  private final Map<String, Deque<String>> finishedBySession = new ConcurrentHashMap<>();
 
   /** Map of execution ID to workflow state. */
   private final Map<String, WorkflowState> executionIndex = new ConcurrentHashMap<>();
 
   /** Map of workflow ID to latest execution ID. */
   private final Map<String, String> latestExecs = new ConcurrentHashMap<>();
-
-  /** Map of workflow ID to log sinks. */
-  private final Map<String, Sinks.Many<String>> logSinks = new ConcurrentHashMap<>();
 
   /** Map of workflow ID to status sinks. */
   private final Map<String, Sinks.Many<WorkflowProgress>> statusSinks = new ConcurrentHashMap<>();
@@ -139,11 +101,14 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
   /** Log events accepted but not yet consumed; bounds how much a chatty plugin can queue. */
   private final AtomicInteger pendingLogs = new AtomicInteger();
 
-  /** Best-effort feed of log events for {@link #getLogFlux()}; slow readers never block events. */
-  private final Sinks.Many<WorkflowLogEvent> logFeed = Sinks.many().multicast().directBestEffort();
+  /** Live log and status streams of the executions. */
+  private final ExecutionStreams streams;
 
-  /** Feed of what happens to every execution, for supervisors and the monitoring API. */
-  private final ExecutionEventFeed eventFeed;
+  /** Finished executions remembered for each session. */
+  private final ExecutionHistory history;
+
+  /** Applies queued events to the execution states. */
+  private final TrackerEventApplier applier;
 
   /**
    * Create a new DefaultTaskTrackerService with configurable cleanup TTL.
@@ -164,11 +129,24 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
       final MeterRegistry meters,
       final ObservationRegistry observations,
       final ExecutionEventFeed eventFeed) {
-    this.eventFeed = eventFeed;
     this.cleanupTtl = cleanupTtl;
-    this.statusHistoryCache = statusHistoryCache;
-    this.executionLog = executionLog;
     this.telemetry = new RunTelemetry(meters, observations);
+    this.streams =
+        new ExecutionStreams(
+            statusSinks,
+            statusHistoryCache,
+            this::findState,
+            state -> getProgress(state.sessionId, state.executionId));
+    this.history = new ExecutionHistory(sessionStates, executionIndex);
+    this.applier =
+        new TrackerEventApplier(
+            this::findState,
+            telemetry,
+            executionLog,
+            eventFeed,
+            streams,
+            pendingLogs,
+            this::scheduleCleanup);
   }
 
   /**
@@ -287,12 +265,7 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
 
           latestExecs.put(getLatestKey(sessionId, workflowId), executionId);
 
-          final Sinks.Many<String> sink = Sinks.many().multicast().directBestEffort();
-          logSinks.put(executionId, sink);
-
-          final Sinks.Many<WorkflowProgress> statusSink =
-              Sinks.many().multicast().directBestEffort();
-          statusSinks.put(executionId, statusSink);
+          streams.open(executionId);
 
           log.atInfo()
               .addKeyValue("executionId", executionId)
@@ -395,7 +368,7 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
       return;
     }
     workflowState.setControlState(state.name());
-    notifyStatusChange(workflowState);
+    streams.notifyStatusChange(workflowState);
   }
 
   @Override
@@ -587,31 +560,7 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
    */
   @Override
   public Flux<String> getLogStream(@NotBlank final String executionId) {
-    log.atDebug().addKeyValue("executionId", executionId).log("Getting log stream");
-
-    final Sinks.Many<String> sink = logSinks.get(executionId);
-    if (sink == null) {
-      log.atWarn().addKeyValue("executionId", executionId).log("No log sink found for execution");
-      return Flux.empty();
-    }
-
-    final Flux<String> logFlux = sink.asFlux();
-
-    return logFlux
-        .takeUntil(
-            _ -> {
-              final WorkflowState state = findState(executionId);
-              if (state != null && isTerminal(state.status) && state.endTime != null) {
-                log.atDebug()
-                    .addKeyValue("executionId", executionId)
-                    .addKeyValue("status", state.status)
-                    .log("Workflow terminal status detected, terminating log stream");
-                return true;
-              }
-              return false;
-            })
-        .doOnComplete(
-            () -> log.atInfo().addKeyValue("executionId", executionId).log("Log stream completed"));
+    return streams.logStream(executionId);
   }
 
   /**
@@ -623,29 +572,7 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
    * @return flux of plugin log entries
    */
   public Flux<PluginLogEntry> getLogFlux() {
-    return logFeed
-        .asFlux()
-        .map(
-            event -> {
-              final WorkflowState state = findState(event.executionId());
-              final String sessionId = state != null ? state.sessionId : "unknown";
-              final String module =
-                  state != null && state.taskMap.get(event.nodeId()) != null
-                      ? state.taskMap.get(event.nodeId()).module()
-                      : "unknown";
-
-              return new PluginLogEntry(
-                  event.executionId(),
-                  sessionId,
-                  event.nodeId(), // Use nodeId as pluginId
-                  module, // Use module as pluginName
-                  event.stderr() ? LogStream.STDERR : LogStream.STDOUT,
-                  event.line(),
-                  LogLevel.INFO, // Default to INFO
-                  event.timestamp().atZone(ZoneId.systemDefault()).toInstant(),
-                  null,
-                  null);
-            });
+    return streams.logFlux();
   }
 
   /**
@@ -670,22 +597,15 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
       final Instant started,
       final Instant ended,
       final String definitionVersion) {
-    final WorkflowState state =
-        new WorkflowState(
-            executionId,
-            sessionId,
-            workflowId,
-            status,
-            List.copyOf(nodeStatuses.keySet()),
-            LocalDateTime.ofInstant(started, ZoneId.systemDefault()));
-    nodeStatuses.forEach(
-        (nodeId, nodeStatus) -> state.updateTask(nodeId, "", nodeStatus, Map.of()));
-    state.setEndTime(LocalDateTime.ofInstant(ended, ZoneId.systemDefault()));
-    state.definitionVersion = definitionVersion;
-    sessionStates
-        .computeIfAbsent(sessionId, _ -> new ConcurrentHashMap<>())
-        .put(executionId, state);
-    executionIndex.put(executionId, state);
+    history.restore(
+        executionId,
+        sessionId,
+        workflowId,
+        status,
+        nodeStatuses,
+        started,
+        ended,
+        definitionVersion);
   }
 
   /**
@@ -696,22 +616,7 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
    */
   @Override
   public Mono<List<WorkflowExecutionSummary>> getHistory(@SessionId final String sessionId) {
-    return Mono.fromCallable(
-        () -> {
-          final Map<String, WorkflowState> states = sessionStates.get(sessionId);
-          List<WorkflowExecutionSummary> history = Collections.emptyList();
-          if (states != null) {
-            history =
-                states.values().stream()
-                    .map(
-                        s ->
-                            new WorkflowExecutionSummary(
-                                s.executionId, s.workflowId, s.status, s.startTime, s.endTime))
-                    .sorted((a, b) -> b.startTime().compareTo(a.startTime()))
-                    .toList();
-          }
-          return history;
-        });
+    return Mono.fromCallable(() -> history.summaries(sessionId, _ -> true));
   }
 
   /**
@@ -725,22 +630,7 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
   public Mono<List<WorkflowExecutionSummary>> getHistory(
       @SessionId final String sessionId, @WorkflowId final String workflowId) {
     return Mono.fromCallable(
-        () -> {
-          final Map<String, WorkflowState> states = sessionStates.get(sessionId);
-          List<WorkflowExecutionSummary> history = Collections.emptyList();
-          if (states != null) {
-            history =
-                states.values().stream()
-                    .filter(s -> workflowId.equals(s.workflowId))
-                    .map(
-                        s ->
-                            new WorkflowExecutionSummary(
-                                s.executionId, s.workflowId, s.status, s.startTime, s.endTime))
-                    .sorted((a, b) -> b.startTime().compareTo(a.startTime()))
-                    .toList();
-          }
-          return history;
-        });
+        () -> history.summaries(sessionId, state -> workflowId.equals(state.workflowId)));
   }
 
   /**
@@ -760,7 +650,7 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
    */
   @Override
   public void removeSession(@SessionId final String sessionId) {
-    finishedBySession.remove(sessionId);
+    history.forget(sessionId);
     final Map<String, WorkflowState> states = sessionStates.remove(sessionId);
     if (states != null) {
       final int executionCount = states.size();
@@ -769,8 +659,7 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
           .forEach(
               execId -> {
                 executionIndex.remove(execId);
-                logSinks.remove(execId);
-                statusSinks.remove(execId);
+                streams.drop(execId);
               });
       latestExecs.keySet().removeIf(key -> key.startsWith(sessionId + "\0"));
       log.atInfo()
@@ -784,148 +673,7 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
 
   /** Applies a batch of events strictly in the order in which they were emitted. */
   /* default */ void handleEvents(final List<TrackerEvent> events) {
-    final Set<WorkflowState> touched = new LinkedHashSet<>();
-    for (final TrackerEvent event : events) {
-      applyIsolated(event, touched);
-    }
-    log.atDebug()
-        .addKeyValue("eventsProcessed", events.size())
-        .addKeyValue("executionsUpdated", touched.size())
-        .log("Processed tracker event batch");
-    touched.forEach(this::notifyStatusChange);
-  }
-
-  /** One bad event must not cost the rest of its batch, such as a run's final status. */
-  private void applyIsolated(final TrackerEvent event, final Set<WorkflowState> touched) {
-    try {
-      switch (event) {
-        case TaskStatusEvent task -> applyTask(task, touched);
-        case WorkflowStatusEvent workflow -> applyWorkflow(workflow, touched);
-        case WorkflowLogEvent logEvent -> applyLog(logEvent);
-      }
-    } catch (
-        @SuppressWarnings("PMD.AvoidCatchingGenericException")
-        final RuntimeException e) {
-      log.atError().setCause(e).addKeyValue("event", event).log("Failed to apply tracker event");
-    }
-  }
-
-  private void applyTask(final TaskStatusEvent event, final Set<WorkflowState> touched) {
-    final WorkflowState state = findState(event.executionId());
-    if (state == null) {
-      log.atDebug()
-          .addKeyValue("executionId", event.executionId())
-          .addKeyValue("nodeId", event.nodeId())
-          .log("Received task status event for unknown execution");
-      return;
-    }
-    state.updateTask(event.nodeId(), event.module(), event.status(), event.metadata());
-    // The state has changed, so subscribers hear about it however the rest of this event goes.
-    touched.add(state);
-    eventFeed.publish(
-        new ExecutionEvent.NodeStatusChanged(
-            event.executionId(),
-            state.workflowId,
-            event.nodeId(),
-            event.module(),
-            event.status(),
-            event.metadata(),
-            Instant.now()));
-    final TaskProgress task = state.taskMap.get(event.nodeId());
-    // An event the state refused (a late RUNNING for an ended node) must not open a span that
-    // nothing will ever close.
-    if (task != null && (isTerminal(event.status()) || task.status().equals(event.status()))) {
-      telemetry.traceNode(event, isTerminal(event.status()));
-    }
-    if (isTerminal(event.status())) {
-      telemetry.nodeEnded(task);
-    }
-    if (TaskStatus.SUCCESS.name().equals(event.status())) {
-      appendToLog(
-          ExecutionLogEvent.nodeFinished(
-              state.executionId, state.sessionId, state.workflowId, event.nodeId()),
-          LOG_APPEND_NODE,
-          "Could not record the end of a node in the execution log");
-    }
-  }
-
-  private void applyWorkflow(final WorkflowStatusEvent event, final Set<WorkflowState> touched) {
-    final WorkflowState state = findState(event.executionId());
-    if (state == null) {
-      log.atWarn()
-          .addKeyValue("executionId", event.executionId())
-          .log("Received workflow status event for unknown execution");
-      return;
-    }
-    final boolean terminal = isTerminal(event.status());
-    if (terminal) {
-      // Every node event before this one is already applied, so what is still open is final.
-      state.finalizeTasks(event.status());
-      state.setEndTime(event.timestamp());
-    }
-    telemetry.runStatus(
-        event.executionId(), event.status(), terminal, state.startTime, event.timestamp());
-    if (terminal) {
-      appendToLog(
-          ExecutionLogEvent.finished(
-              state.executionId,
-              state.sessionId,
-              state.workflowId,
-              event.status(),
-              state.nodeStatuses()),
-          LOG_APPEND_RUN,
-          "Could not record the end of the run in the execution log");
-    }
-    state.setStatus(event.status());
-    eventFeed.publish(
-        new ExecutionEvent.WorkflowStatusChanged(
-            event.executionId(), state.workflowId, event.status(), Instant.now()));
-    touched.add(state);
-    if (isTerminal(event.status())) {
-      scheduleCleanup(event.executionId());
-      log.atDebug()
-          .addKeyValue("executionId", event.executionId())
-          .addKeyValue("finalStatus", event.status())
-          .log("Workflow reached terminal status, scheduled cleanup");
-    }
-  }
-
-  /**
-   * A log that cannot be written must not keep the run from ending or its status from being
-   * delivered. The failure is logged and counted, apart from dropped tracker events, so an operator
-   * can alert on runs that lack a durable record.
-   */
-  private void appendToLog(
-      final ExecutionLogEvent logEvent, final String type, final String message) {
-    try {
-      executionLog.append(logEvent);
-    } catch (
-        @SuppressWarnings("PMD.AvoidCatchingGenericException")
-        final RuntimeException e) {
-      telemetry.logAppendFailed(LOG_APPEND_FAILED_METRIC, type);
-      log.atError().setCause(e).addKeyValue("executionId", logEvent.executionId()).log(message);
-    }
-  }
-
-  private void applyLog(final WorkflowLogEvent event) {
-    pendingLogs.decrementAndGet();
-    logFeed.tryEmitNext(event);
-    eventFeed.publish(
-        new ExecutionEvent.LogLine(
-            event.executionId(), event.nodeId(), event.line(), Instant.now()));
-    final Sinks.Many<String> sink = logSinks.get(event.executionId());
-    if (sink != null) {
-      sink.tryEmitNext(event.line());
-    }
-  }
-
-  private void notifyStatusChange(final WorkflowState state) {
-    final Sinks.Many<WorkflowProgress> sink = statusSinks.get(state.executionId);
-    if (sink != null) {
-      final WorkflowProgress progress = getProgress(state.sessionId, state.executionId);
-      statusHistoryCache.put(state.executionId, progress);
-      SinkEmit.offer(sink, progress);
-    }
+    applier.apply(events);
   }
 
   /**
@@ -953,47 +701,7 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
   @Override
   public Flux<WorkflowProgress> getStatusStream(
       @NotBlank final String executionId, final boolean includeHistory) {
-    log.atDebug()
-        .addKeyValue("executionId", executionId)
-        .addKeyValue("includeHistory", includeHistory)
-        .log("Getting status stream");
-
-    final Sinks.Many<WorkflowProgress> sink = statusSinks.get(executionId);
-    if (sink == null) {
-      log.atWarn()
-          .addKeyValue("executionId", executionId)
-          .log("No status sink found for execution");
-      return Flux.empty();
-    }
-
-    Flux<WorkflowProgress> statusFlux = sink.asFlux();
-
-    if (includeHistory) {
-      final List<WorkflowProgress> history = statusHistoryCache.get(executionId);
-      log.atDebug()
-          .addKeyValue("executionId", executionId)
-          .addKeyValue("historySize", history.size())
-          .log("Including history in stream");
-      statusFlux = Flux.fromIterable(history).concatWith(statusFlux);
-    }
-
-    return statusFlux
-        .takeUntil(
-            progress -> {
-              final boolean isTerminal = isWorkflowTerminal(progress);
-              if (isTerminal) {
-                log.atDebug()
-                    .addKeyValue("executionId", executionId)
-                    .addKeyValue("status", progress.status())
-                    .log("Workflow terminal status detected, terminating stream");
-              }
-              return isTerminal;
-            })
-        .doOnComplete(
-            () ->
-                log.atInfo()
-                    .addKeyValue("executionId", executionId)
-                    .log("Status stream completed"));
+    return streams.statusStream(executionId, includeHistory);
   }
 
   private WorkflowState findState(final String executionId) {
@@ -1002,40 +710,6 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
 
   private String getLatestKey(final String sessionId, final String workflowId) {
     return sessionId + "\0" + workflowId;
-  }
-
-  private boolean isTerminal(final String status) {
-    return isTerminalStatus(status);
-  }
-
-  private static boolean isTerminalStatus(final String status) {
-    return TaskStatus.isTerminalName(status);
-  }
-
-  /**
-   * Check if a workflow progress represents a terminal state.
-   *
-   * <p>Both conditions must be true: status must be terminal AND endTime must be set.
-   *
-   * @param progress the workflow progress to check
-   * @return true if terminal state detected, false otherwise
-   */
-  private boolean isWorkflowTerminal(final WorkflowProgress progress) {
-    final String status = progress.status();
-    final LocalDateTime endTime = progress.endTime();
-
-    final boolean isTerminalStatus = isTerminal(status);
-    final boolean hasEndTime = endTime != null;
-
-    if (isTerminalStatus && hasEndTime) {
-      log.atDebug()
-          .addKeyValue("status", status)
-          .addKeyValue("endTime", endTime)
-          .log("Workflow reached terminal state");
-      return true;
-    }
-
-    return false;
   }
 
   private void scheduleCleanup(final String executionId) {
@@ -1048,36 +722,11 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
 
   private void cleanupExecution(final String executionId) {
     log.atDebug().addKeyValue("executionId", executionId).log("Cleaning up execution data");
-    final Sinks.Many<String> logSink = logSinks.remove(executionId);
-    if (logSink != null) {
-      logSink.emitComplete(RETRY_HANDLER);
-    }
-    final Sinks.Many<WorkflowProgress> statusSink = statusSinks.remove(executionId);
-    if (statusSink != null) {
-      statusSink.emitComplete(RETRY_HANDLER);
-    }
+    streams.close(executionId);
     final WorkflowState state = executionIndex.remove(executionId);
     if (state != null) {
-      trimHistory(state);
+      history.trim(state);
     }
     log.atDebug().addKeyValue("executionId", executionId).log("Completed execution cleanup");
-  }
-
-  /** Remembers a cleaned-up execution and drops the oldest ones beyond the per-session cap. */
-  @SuppressWarnings("PMD.AvoidSynchronizedStatement")
-  private void trimHistory(final WorkflowState state) {
-    final Map<String, WorkflowState> states = sessionStates.get(state.sessionId);
-    if (states == null) {
-      return;
-    }
-    final Deque<String> finished =
-        finishedBySession.computeIfAbsent(state.sessionId, _ -> new ArrayDeque<>());
-    // Cleanups of one session can run concurrently, so the queue is guarded by its own lock.
-    synchronized (finished) {
-      finished.addLast(state.executionId);
-      while (finished.size() > MAX_FINISHED_PER_SESSION) {
-        states.remove(finished.removeFirst());
-      }
-    }
   }
 }

@@ -929,7 +929,7 @@ class DefaultTaskTrackerServiceTest {
         new DefaultTaskTrackerService(Duration.ofMinutes(10), statusHistoryCache);
 
     // Replace logSinks with a map that throws on get()
-    final Field logSinksField = DefaultTaskTrackerService.class.getDeclaredField("logSinks");
+    final Field logSinksField = ExecutionStreams.class.getDeclaredField("logSinks");
     logSinksField.setAccessible(true);
 
     final Map<String, Object> throwingMap =
@@ -939,7 +939,9 @@ class DefaultTaskTrackerServiceTest {
             throw new IllegalStateException("Simulated error in logSinks");
           }
         };
-    logSinksField.set(trackerWithError, throwingMap);
+    logSinksField.set(
+        org.springframework.test.util.ReflectionTestUtils.getField(trackerWithError, "streams"),
+        throwingMap);
 
     trackerWithError.init();
 

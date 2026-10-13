@@ -21,9 +21,13 @@ All service logic uses **Project Reactor** (`Mono`, `Flux`).
 
 ### Workflow Orchestration
 - `com.infenia.yukta.service.orchestrator.WorkflowOrchestrator`: DAG orchestration logic, split across `assembly/`, `compiler/`, `preparator/`, `strategy/`, `stream/`, `tracker/`, and `validator/` subpackages.
-- `tracker/` keeps the queue and projections in `DefaultTaskTrackerService`, one run's state in
-  `WorkflowState` and the spans and meters in `RunTelemetry`. `DefaultControlBusGateway` delegates
-  starting (admission, shared prepare, idempotency) to `WorkflowStarter`.
+- `tracker/` keeps the queue and the lookup maps in `DefaultTaskTrackerService`, one run's state in
+  `WorkflowState`, the spans and meters in `RunTelemetry`, applying queued events in
+  `TrackerEventApplier`, the live log and status streams in `ExecutionStreams` and the remembered
+  finished runs in `ExecutionHistory`. `DefaultControlBusGateway` delegates
+  starting (admission, shared prepare, idempotency) to `WorkflowStarter`. It also delegates node commands to
+  `NodeCommands`, restarts to `RestartCoordinator` and read-only views to `ExecutionQueries`
+  (`ControlDispatch` is their shared base).
 - `com.infenia.yukta.service.plugin.PluginRegistry`: Plugin registration.
 - Executes a Directed Acyclic Graph (DAG) of nodes and edges.
 
@@ -92,8 +96,11 @@ Malformed policies are rejected by `WorkflowValidator` with the node id and opti
 - Recent executions stay restartable after they end (`ExecutionArchive`: graph, payload, recorded
   node outputs). `yukta.restart.retained-executions` (default 10) and
   `yukta.restart.messages-per-node` (default 200) and `yukta.restart.bytes-per-node` (default 4 MiB;
-  strings and byte arrays by size, other payloads count 1 KiB) bound the memory; a restart that needs a node's
-  output that exceeded the cap is refused rather than replayed partially.
+  strings and byte arrays by size, other payloads count 1 KiB) bound the memory. A node that exceeds
+  them makes a restart that needs its output refused rather than replayed partially, unless
+  `yukta.restart.spill-dir` is set: then the whole output of that node moves to files there
+  (`FileNodeCheckpointStore`, so it replays as plain JSON values), is deleted with the execution,
+  and leftovers of an earlier process are removed at startup. Do not point it at a shared folder.
 - Restart-from-node re-runs the node and its descendants and replays the recorded output of the
   nodes that feed them (`RestartPlan`); independent branches are left alone.
 - Set `yukta.restart.dir` to keep node outputs on disk (`FileNodeCheckpointStore`, one JSON line per
@@ -157,7 +164,8 @@ Every control command sent to a known run is recorded in the execution log as `C
 (status = command name) or `CONTROL_REJECTED` (status = `command: reason`). Commands for unknown
 executions are not recorded. `POST /api/workflow/{session}/{workflow}/stop?mode=DRAIN|CANCEL|KILL`
 selects how a run stops (default `DRAIN`). Restart-from-node after a server restart is not supported (the archive lives in
-memory); use `ExecutionResumer` for aborted runs.
+memory); use `ExecutionResumer` for aborted runs. A restart-from-node keeps the original start
+payload in its archive and log entry.
 `yukta.executions.running` and `yukta.executions.queued` gauges report the scheduler.
 A run that outlives the session execution timeout ends `TIMED_OUT` (`ExecutionTimeoutException`); a
 node that times out keeps its own status. A failure to write the end of a run to the execution log

@@ -236,7 +236,10 @@ public class WorkflowOrchestrator {
         newExecutionId,
         prepared,
         plan,
-        Map.of(),
+        executionArchive
+            .find(previousExecutionId)
+            .<Map<String, Object>>map(ArchivedExecution::payload)
+            .orElse(Map.of()),
         boundaryOutputs,
         "restartNodeId=" + restartNodeId);
   }
