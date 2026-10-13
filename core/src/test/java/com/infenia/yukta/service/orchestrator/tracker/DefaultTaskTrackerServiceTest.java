@@ -2646,6 +2646,17 @@ class DefaultTaskTrackerServiceTest {
   }
 
   @Test
+  void testGetLogFluxKeepsTheStderrStreamOfEachLine() {
+    final String executionId = "exec-logflux-stderr";
+
+    StepVerifier.create(tracker.getLogFlux())
+        .then(() -> tracker.emitLogEvent(executionId, "node1", "oops", true))
+        .assertNext(entry -> assertThat(entry.stream()).isEqualTo(LogStream.STDERR))
+        .thenCancel()
+        .verify();
+  }
+
+  @Test
   void testGetLogFluxForUnknownExecutionDefaultsToUnknown() {
     StepVerifier.create(tracker.getLogFlux())
         .then(() -> tracker.emitLogEvent("unknown-exec-for-flux", "node-x", "orphan log"))

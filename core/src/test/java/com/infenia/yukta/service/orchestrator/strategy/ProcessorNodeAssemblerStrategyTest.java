@@ -152,7 +152,7 @@ class ProcessorNodeAssemblerStrategyTest {
         .thenReturn(parentStream);
     final Flux<Message<?>> broadcast = Flux.just(out);
     when(streamTopologyDecorator.applyLoggingAndBroadcasting(
-            anyString(), anyString(), any(), any(int.class), any(), any()))
+            anyString(), anyString(), any(), any(int.class), any(), any(), any()))
         .thenReturn(broadcast);
 
     final NodeAssembler assembler =
@@ -179,7 +179,7 @@ class ProcessorNodeAssemblerStrategyTest {
     when(streamTopologyDecorator.mergeParentStreams(any(), any(), any(ParentEdgeInfo[].class)))
         .thenReturn(parentStream);
     when(streamTopologyDecorator.applyLoggingAndBroadcasting(
-            anyString(), anyString(), any(), any(int.class), any(), any()))
+            anyString(), anyString(), any(), any(int.class), any(), any(), any()))
         .thenAnswer(invocation -> invocation.getArgument(2));
 
     final NodeAssembler assembler =
@@ -206,7 +206,7 @@ class ProcessorNodeAssemblerStrategyTest {
     when(streamTopologyDecorator.mergeParentStreams(any(), any(), any(ParentEdgeInfo[].class)))
         .thenReturn(parentStream);
     when(streamTopologyDecorator.applyLoggingAndBroadcasting(
-            anyString(), anyString(), any(), any(int.class), any(), any()))
+            anyString(), anyString(), any(), any(int.class), any(), any(), any()))
         .thenReturn(Flux.just(msg));
 
     final NodeAssembler assembler =
@@ -234,7 +234,7 @@ class ProcessorNodeAssemblerStrategyTest {
     when(streamTopologyDecorator.mergeParentStreams(any(), any(), any(ParentEdgeInfo[].class)))
         .thenReturn(parentStream);
     when(streamTopologyDecorator.applyLoggingAndBroadcasting(
-            anyString(), anyString(), any(), any(int.class), any(), any()))
+            anyString(), anyString(), any(), any(int.class), any(), any(), any()))
         .thenAnswer(call -> call.getArgument(2));
 
     final NodeAssembler assembler =
@@ -263,7 +263,7 @@ class ProcessorNodeAssemblerStrategyTest {
     when(streamTopologyDecorator.mergeParentStreams(any(), any(), any(ParentEdgeInfo[].class)))
         .thenReturn(parentStream);
     when(streamTopologyDecorator.applyLoggingAndBroadcasting(
-            anyString(), anyString(), any(), any(int.class), any(), any()))
+            anyString(), anyString(), any(), any(int.class), any(), any(), any()))
         .thenReturn(Flux.just(out));
 
     final NodeAssembler assembler =
@@ -289,7 +289,7 @@ class ProcessorNodeAssemblerStrategyTest {
     when(streamTopologyDecorator.mergeParentStreams(any(), any(), any(ParentEdgeInfo[].class)))
         .thenReturn(parentStream);
     when(streamTopologyDecorator.applyLoggingAndBroadcasting(
-            anyString(), anyString(), any(), any(int.class), any(), any()))
+            anyString(), anyString(), any(), any(int.class), any(), any(), any()))
         .thenReturn(Flux.just(out));
 
     final NodeAssembler assembler =
@@ -320,7 +320,7 @@ class ProcessorNodeAssemblerStrategyTest {
     when(streamTopologyDecorator.mergeParentStreams(any(), any(), any(ParentEdgeInfo[].class)))
         .thenReturn(merged);
     when(streamTopologyDecorator.applyLoggingAndBroadcasting(
-            anyString(), anyString(), any(), any(int.class), any(), any()))
+            anyString(), anyString(), any(), any(int.class), any(), any(), any()))
         .thenReturn(Flux.just(msg1, msg2));
 
     final NodeAssembler assembler =
@@ -349,7 +349,7 @@ class ProcessorNodeAssemblerStrategyTest {
         .thenReturn(Flux.just(msg));
     final Flux<Message<?>> broadcast = Flux.just(out);
     when(streamTopologyDecorator.applyLoggingAndBroadcasting(
-            anyString(), anyString(), any(), any(int.class), any(), any()))
+            anyString(), anyString(), any(), any(int.class), any(), any(), any()))
         .thenReturn(broadcast);
 
     final NodeAssembler assembler =
@@ -380,7 +380,7 @@ class ProcessorNodeAssemblerStrategyTest {
     when(streamTopologyDecorator.mergeParentStreams(any(), any(), any(ParentEdgeInfo[].class)))
         .thenReturn(parentStream);
     when(streamTopologyDecorator.applyLoggingAndBroadcasting(
-            anyString(), anyString(), any(), any(int.class), any(), any()))
+            anyString(), anyString(), any(), any(int.class), any(), any(), any()))
         .thenReturn(Flux.just(out));
 
     final NodeAssembler assembler =
@@ -409,7 +409,7 @@ class ProcessorNodeAssemblerStrategyTest {
     when(streamTopologyDecorator.mergeParentStreams(any(), any(), any(ParentEdgeInfo[].class)))
         .thenReturn(parent.asFlux());
     when(streamTopologyDecorator.applyLoggingAndBroadcasting(
-            anyString(), anyString(), any(), any(int.class), any(), any()))
+            anyString(), anyString(), any(), any(int.class), any(), any(), any()))
         .thenAnswer(call -> call.getArgument(2));
 
     strategy
@@ -490,7 +490,7 @@ class ProcessorNodeAssemblerStrategyTest {
     when(streamTopologyDecorator.mergeParentStreams(any(), any(), any(ParentEdgeInfo[].class)))
         .thenReturn(parentStream);
     when(streamTopologyDecorator.applyLoggingAndBroadcasting(
-            anyString(), anyString(), any(), any(int.class), any(), any()))
+            anyString(), anyString(), any(), any(int.class), any(), any(), any()))
         .thenAnswer(inv -> inv.getArgument(2));
 
     strategy
@@ -524,7 +524,7 @@ class ProcessorNodeAssemblerStrategyTest {
     when(streamTopologyDecorator.mergeParentStreams(any(), any(), any(ParentEdgeInfo[].class)))
         .thenReturn(parentStream);
     when(streamTopologyDecorator.applyLoggingAndBroadcasting(
-            anyString(), anyString(), any(), any(int.class), any(), any()))
+            anyString(), anyString(), any(), any(int.class), any(), any(), any()))
         .thenAnswer(inv -> inv.getArgument(2));
 
     strategy
@@ -547,7 +547,7 @@ class ProcessorNodeAssemblerStrategyTest {
     when(streamTopologyDecorator.mergeParentStreams(any(), any(), any(ParentEdgeInfo[].class)))
         .thenReturn(failing);
     when(streamTopologyDecorator.applyLoggingAndBroadcasting(
-            anyString(), anyString(), any(), any(int.class), any(), any()))
+            anyString(), anyString(), any(), any(int.class), any(), any(), any()))
         .thenAnswer(inv -> inv.getArgument(2));
 
     strategy
@@ -576,7 +576,7 @@ class ProcessorNodeAssemblerStrategyTest {
     final java.util.concurrent.atomic.AtomicReference<Flux<Message<?>>> built =
         new java.util.concurrent.atomic.AtomicReference<>();
     when(streamTopologyDecorator.applyLoggingAndBroadcasting(
-            anyString(), anyString(), any(), any(int.class), any(), any()))
+            anyString(), anyString(), any(), any(int.class), any(), any(), any()))
         .thenAnswer(
             call -> {
               built.set(call.getArgument(2));
@@ -624,7 +624,7 @@ class ProcessorNodeAssemblerStrategyTest {
     final java.util.concurrent.atomic.AtomicReference<Flux<Message<?>>> built =
         new java.util.concurrent.atomic.AtomicReference<>();
     when(streamTopologyDecorator.applyLoggingAndBroadcasting(
-            anyString(), anyString(), any(), any(int.class), any(), any()))
+            anyString(), anyString(), any(), any(int.class), any(), any(), any()))
         .thenAnswer(
             call -> {
               built.set(call.getArgument(2));
@@ -674,7 +674,7 @@ class ProcessorNodeAssemblerStrategyTest {
     when(streamTopologyDecorator.mergeParentStreams(any(), any(), any(ParentEdgeInfo[].class)))
         .thenReturn(parentStream);
     when(streamTopologyDecorator.applyLoggingAndBroadcasting(
-            anyString(), anyString(), any(), any(int.class), any(), any()))
+            anyString(), anyString(), any(), any(int.class), any(), any(), any()))
         .thenAnswer(inv -> inv.getArgument(2));
 
     strategy

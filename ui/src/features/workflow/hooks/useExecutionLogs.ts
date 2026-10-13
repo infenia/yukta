@@ -6,8 +6,16 @@ import { api } from '@/lib/apiClient';
 import { useEventSourceJson } from '@/hooks/useEventSourceJson';
 import type { LogEntry } from '../types/workflow';
 
-/** Ring-buffer cap keeping the log panel responsive on long executions. */
-export const MAX_LOG_ENTRIES = 2000;
+/** Ring-buffer cap; the panel is virtualized, so only the visible rows cost anything. */
+export const MAX_LOG_ENTRIES = 20_000;
+
+interface LogBuffer {
+  entries: LogEntry[];
+  /** Lines that fell off the front of the buffer. */
+  dropped: number;
+}
+
+const EMPTY_BUFFER: LogBuffer = { entries: [], dropped: 0 };
 
 /** Incoming lines are batched into one state update per interval. */
 export const LOG_FLUSH_MS = 100;
@@ -24,13 +32,13 @@ export function useExecutionLogs(sessionId: string, executionId: string | null, 
   const seen = useRef(new Set<string>());
   const pending = useRef<LogEntry[]>([]);
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
-  const [entries, setEntries] = useState<LogEntry[]>([]);
+  const [buffer, setBuffer] = useState<LogBuffer>(EMPTY_BUFFER);
   const [bufferExecutionId, setBufferExecutionId] = useState(executionId);
 
   // Render-phase reset: the buffer belongs to one execution and empties when it changes
   if (bufferExecutionId !== executionId) {
     setBufferExecutionId(executionId);
-    setEntries([]);
+    setBuffer(EMPTY_BUFFER);
     seen.current.clear();
     pending.current = [];
   }
@@ -54,7 +62,13 @@ export function useExecutionLogs(sessionId: string, executionId: string | null, 
       timer.current = undefined;
       const batch = pending.current;
       pending.current = [];
-      setEntries((previous) => [...previous, ...batch].slice(-MAX_LOG_ENTRIES));
+      setBuffer((previous) => {
+        const all = [...previous.entries, ...batch];
+        return {
+          entries: all.slice(-MAX_LOG_ENTRIES),
+          dropped: previous.dropped + Math.max(0, all.length - MAX_LOG_ENTRIES),
+        };
+      });
     }, LOG_FLUSH_MS);
   }, []);
 
@@ -64,11 +78,13 @@ export function useExecutionLogs(sessionId: string, executionId: string | null, 
 
   const clear = useCallback(() => {
     pending.current = [];
-    setEntries([]);
+    setBuffer(EMPTY_BUFFER);
   }, []);
 
   return {
-    entries,
+    entries: buffer.entries,
+    /** Earlier lines that fell off the front of the buffer. */
+    dropped: buffer.dropped,
     isStreaming: status === 'open' || status === 'connecting',
     clear,
   };

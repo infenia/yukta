@@ -2,14 +2,20 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.service.orchestrator.strategy;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 
 import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
 import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.model.workflow.WorkflowNode;
 import com.infenia.yukta.plugin.core.Plugin;
+import com.infenia.yukta.plugin.core.PluginLogSink;
+import com.infenia.yukta.plugin.core.WorkflowContext;
 import com.infenia.yukta.service.control.ExecutionControl;
 import com.infenia.yukta.service.control.store.ActivePluginRegistry;
 import com.infenia.yukta.service.control.valve.ReactiveControlValve;
@@ -26,6 +32,7 @@ import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
@@ -41,7 +48,8 @@ import reactor.test.StepVerifier;
   "PMD.CommentRequired",
   "PMD.TooManyMethods",
   "PMD.AvoidDuplicateLiterals",
-  "PMD.ExcessiveImports"
+  "PMD.ExcessiveImports",
+  "PMD.TooManyStaticImports"
 })
 class StreamAssemblyHelperTest {
 
@@ -84,6 +92,46 @@ class StreamAssemblyHelperTest {
             activePluginRegistry);
 
     StepVerifier.create(result).expectNextCount(1).verifyComplete();
+  }
+
+  @Test
+  void buildStreamWithContext_logSinkEmitsWholeLinesAndMarksNodeActivity() {
+    final WorkflowNode node = new WorkflowNode(NODE_ID, "processor", Map.of());
+    final NodeActivity activity = new NodeActivity();
+    final String longLine = "y".repeat(40_000);
+
+    final Flux<Message<?>> result =
+        StreamAssemblyHelper.buildStreamWithContext(
+            node,
+            Flux.deferContextual(
+                ctx -> {
+                  final PluginLogSink sink = ctx.get(WorkflowContext.LOG_SINK_KEY);
+                  sink.line("stdout", "first");
+                  sink.line("stderr", "  ");
+                  sink.line("stdout", null);
+                  sink.line("stderr", "boom");
+                  sink.line("stdout", longLine);
+                  return Flux.empty();
+                }),
+            Duration.ofSeconds(5),
+            activity,
+            tracker,
+            buildContext(),
+            plugin,
+            activePluginRegistry);
+
+    StepVerifier.create(result).verifyComplete();
+
+    verify(tracker).emitLogEvent(EXECUTION_ID, NODE_ID, "first", false);
+    final ArgumentCaptor<String> pieces = ArgumentCaptor.forClass(String.class);
+    verify(tracker, times(4))
+        .emitLogEvent(eq(EXECUTION_ID), eq(NODE_ID), pieces.capture(), eq(false));
+    verify(tracker).emitLogEvent(EXECUTION_ID, NODE_ID, "boom", true);
+    assertThat(
+            String.join("", pieces.getAllValues().stream().filter(p -> p.startsWith("y")).toList()))
+        .isEqualTo(longLine);
+    assertThat(pieces.getAllValues()).allMatch(piece -> piece.length() <= 16_000);
+    assertThat(activity.hasLoggedLive()).isTrue();
   }
 
   @Test
@@ -319,8 +367,8 @@ class StreamAssemblyHelperTest {
 
     StepVerifier.create(result).expectNextCount(1).verifyComplete();
 
-    org.mockito.Mockito.verify(activePluginRegistry).register(WORKFLOW_ID, NODE_ID, plugin);
-    org.mockito.Mockito.verify(activePluginRegistry).unregister(WORKFLOW_ID, NODE_ID);
+    verify(activePluginRegistry).register(WORKFLOW_ID, NODE_ID, plugin);
+    verify(activePluginRegistry).unregister(WORKFLOW_ID, NODE_ID);
   }
 
   @Test
@@ -342,8 +390,8 @@ class StreamAssemblyHelperTest {
 
     StepVerifier.create(result).expectError().verify();
 
-    org.mockito.Mockito.verify(activePluginRegistry).register(WORKFLOW_ID, NODE_ID, plugin);
-    org.mockito.Mockito.verify(activePluginRegistry).unregister(WORKFLOW_ID, NODE_ID);
+    verify(activePluginRegistry).register(WORKFLOW_ID, NODE_ID, plugin);
+    verify(activePluginRegistry).unregister(WORKFLOW_ID, NODE_ID);
   }
 
   @Test
@@ -364,8 +412,8 @@ class StreamAssemblyHelperTest {
 
     StepVerifier.create(result).thenCancel().verify();
 
-    org.mockito.Mockito.verify(activePluginRegistry).register(WORKFLOW_ID, NODE_ID, plugin);
-    org.mockito.Mockito.verify(activePluginRegistry).unregister(WORKFLOW_ID, NODE_ID);
+    verify(activePluginRegistry).register(WORKFLOW_ID, NODE_ID, plugin);
+    verify(activePluginRegistry).unregister(WORKFLOW_ID, NODE_ID);
   }
 
   // ── helpers ───────────────────────────────────────────────────────────────

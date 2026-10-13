@@ -196,7 +196,8 @@ public class ProcessorNodeAssemblerStrategy implements NodeAssemblerStrategy {
               built,
               bufferSize,
               context.disposables(),
-              context.connectors());
+              context.connectors(),
+              activity::hasLoggedLive);
 
       log.atDebug()
           .addKeyValue(LOG_KEY_NODE_ID, node.nodeId())

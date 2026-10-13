@@ -404,6 +404,23 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
       @NotBlank final String executionId,
       @NotBlank final String nodeId,
       @NotBlank @Size(max = 16_384) final String line) {
+    emitLogEvent(executionId, nodeId, line, false);
+  }
+
+  /**
+   * Emit a log event, remembering which stream the line came from.
+   *
+   * @param executionId the execution identifier
+   * @param nodeId the node identifier (for plugin resolution)
+   * @param line the log line
+   * @param stderr true if the line came from the plugin's error stream
+   */
+  @Override
+  public void emitLogEvent(
+      @NotBlank final String executionId,
+      @NotBlank final String nodeId,
+      @NotBlank @Size(max = 16_384) final String line,
+      final boolean stderr) {
     log.atTrace()
         .addKeyValue("executionId", executionId)
         .addKeyValue("nodeId", nodeId)
@@ -416,7 +433,7 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
       telemetry.dropped(DROPPED_METRIC, "log");
       return;
     }
-    publish(WorkflowLogEvent.create(executionId, nodeId, line));
+    publish(WorkflowLogEvent.create(executionId, nodeId, line, stderr));
   }
 
   /** Queues a state or log event; the queue is unbounded, so this only fails once terminated. */

@@ -12,6 +12,9 @@ import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -20,6 +23,7 @@ import org.junit.jupiter.api.condition.OS;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
+import reactor.core.Disposable;
 import reactor.test.StepVerifier;
 
 /** Tests for ProcessExecutorGateway covering stream execution, timeouts, and error handling. */
@@ -32,6 +36,8 @@ import reactor.test.StepVerifier;
   "PMD.CyclomaticComplexity" // Test methods inherently have multiple code paths
 })
 class ProcessExecutorGatewayTest {
+
+  private static final String EARLY_LINE = "early";
 
   private static final String ECHO = "echo";
   private static final String HELLO = "hello";
@@ -710,7 +716,7 @@ class ProcessExecutorGatewayTest {
     StepVerifier.create(gateway.cleanupProcess(process)).verifyComplete();
 
     // destroyForcibly() is asynchronous; wait briefly for the kill to take effect
-    process.waitFor(5, java.util.concurrent.TimeUnit.SECONDS);
+    process.waitFor(5, TimeUnit.SECONDS);
     assertThat(process.isAlive()).isFalse();
   }
 
@@ -975,6 +981,74 @@ class ProcessExecutorGatewayTest {
               assertThat(result.stdoutLines()).containsExactly("aaaaa");
               assertThat(result.outputTruncated()).isTrue();
             })
+        .verifyComplete();
+  }
+
+  @Test
+  void executeForResult_withSink_publishesEveryLineBeyondTheCapsAndTagsStreams() {
+    final List<String> seen = new CopyOnWriteArrayList<>();
+    final ProcessExecutionSpec spec =
+        ProcessExecutionSpec.builder()
+            .command(List.of("sh", "-c", "echo 1; echo 2; echo 3; echo e1 >&2"))
+            .timeoutSeconds(10L)
+            .captureStderr(true)
+            .maxOutputLines(1)
+            .build();
+
+    StepVerifier.create(
+            gateway.executeForResult(spec, (stream, line) -> seen.add(stream + ":" + line)))
+        .assertNext(
+            result -> {
+              assertThat(result.stdoutLines()).containsExactly("1");
+              assertThat(result.outputTruncated()).isTrue();
+            })
+        .verifyComplete();
+
+    assertThat(seen).containsExactlyInAnyOrder("stdout:1", "stdout:2", "stdout:3", "stderr:e1");
+  }
+
+  @Test
+  void executeForResult_withSink_publishesLinesWhileTheProcessIsStillRunning() throws Exception {
+    final CountDownLatch first = new CountDownLatch(1);
+    final ProcessExecutionSpec spec =
+        ProcessExecutionSpec.builder()
+            .command(List.of("sh", "-c", "echo " + EARLY_LINE + "; sleep 3; echo late"))
+            .timeoutSeconds(10L)
+            .build();
+
+    final Disposable run =
+        gateway
+            .executeForResult(
+                spec,
+                (stream, line) -> {
+                  if (EARLY_LINE.equals(line)) {
+                    first.countDown();
+                  }
+                })
+            .subscribe();
+    try {
+      assertThat(first.await(2, TimeUnit.SECONDS)).isTrue();
+      assertThat(run.isDisposed()).isFalse();
+    } finally {
+      run.dispose();
+    }
+  }
+
+  @Test
+  void executeForResult_withFailingSink_stillCompletes() {
+    final ProcessExecutionSpec spec =
+        ProcessExecutionSpec.builder()
+            .command(List.of("sh", "-c", "echo a; echo b"))
+            .timeoutSeconds(10L)
+            .build();
+
+    StepVerifier.create(
+            gateway.executeForResult(
+                spec,
+                (stream, line) -> {
+                  throw new IllegalStateException("sink down");
+                }))
+        .assertNext(result -> assertThat(result.stdoutLines()).containsExactly("a", "b"))
         .verifyComplete();
   }
 

@@ -23,6 +23,7 @@ import com.infenia.yukta.mcp.dto.WorkflowHistory;
 import com.infenia.yukta.mcp.dto.WorkflowStartResult;
 import com.infenia.yukta.mcp.provider.LogProvider;
 import com.infenia.yukta.mcp.provider.PluginInfoProvider;
+import com.infenia.yukta.mcp.provider.ResultProvider;
 import com.infenia.yukta.mcp.provider.SessionInfoProvider;
 import com.infenia.yukta.mcp.provider.SystemHealthProvider;
 import com.infenia.yukta.mcp.provider.WorkflowControlProvider;
@@ -46,6 +47,7 @@ class AppMcpToolsTest {
   private WorkflowControlProvider workflowControlProvider;
   private PluginInfoProvider pluginInfoProvider;
   private SystemHealthProvider systemHealthProvider;
+  private ResultProvider resultProvider;
 
   @BeforeEach
   void setUp() {
@@ -55,6 +57,7 @@ class AppMcpToolsTest {
     workflowControlProvider = mock(WorkflowControlProvider.class);
     pluginInfoProvider = mock(PluginInfoProvider.class);
     systemHealthProvider = mock(SystemHealthProvider.class);
+    resultProvider = mock(ResultProvider.class);
     mcpTools =
         new AppMcpTools(
             sessionInfoProvider,
@@ -62,7 +65,19 @@ class AppMcpToolsTest {
             workflowExecutionProvider,
             workflowControlProvider,
             pluginInfoProvider,
-            systemHealthProvider);
+            systemHealthProvider,
+            resultProvider);
+  }
+
+  @Test
+  void testGetExecutionResultDelegatesToTheProvider() {
+    var results =
+        new com.infenia.yukta.service.result.ExecutionResults("e1", false, null, false, 0, null);
+    when(resultProvider.getExecutionResult("s1", "e1", 3L)).thenReturn(Mono.just(results));
+
+    StepVerifier.create(mcpTools.getExecutionResult("s1", "e1", 3L))
+        .expectNext(results)
+        .verifyComplete();
   }
 
   @Test
@@ -88,9 +103,9 @@ class AppMcpToolsTest {
   @Test
   void testGetExecutionLogs() {
     var logs = new ExecutionLogs("e1", 1, 1, List.of("line1"));
-    when(logProvider.getExecutionLogs("s1", "e1", null, null)).thenReturn(Mono.just(logs));
+    when(logProvider.getExecutionLogs("s1", "e1", null, null, null)).thenReturn(Mono.just(logs));
 
-    StepVerifier.create(mcpTools.getExecutionLogs("s1", "e1", null, null))
+    StepVerifier.create(mcpTools.getExecutionLogs("s1", "e1", null, null, null))
         .expectNext(logs)
         .verifyComplete();
   }

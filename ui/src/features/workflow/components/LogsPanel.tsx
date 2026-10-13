@@ -8,7 +8,7 @@ import { formatLogTimestamp } from '../lib/timeFormat';
 import { cn } from '@/lib/utils';
 import type { LogEntry } from '../types/workflow';
 
-/** Fixed row height (leading-5) so only the visible window of up to 2,000 lines is in the DOM. */
+/** Fixed row height (leading-5) so only the visible window of the buffered lines is in the DOM. */
 const ROW_HEIGHT = 20;
 
 function levelClass(level: string | null): string {
@@ -50,9 +50,12 @@ function LogLine({ entry }: { entry: LogEntry }) {
 export function LogsPanel({
   entries,
   isStreaming,
+  dropped = 0,
 }: {
   entries: LogEntry[];
   isStreaming: boolean;
+  /** Earlier lines no longer buffered. */
+  dropped?: number;
 }) {
   const [collapsed, setCollapsed] = useState(false);
   const [filter, setFilter] = useState('');
@@ -147,6 +150,14 @@ export function LogsPanel({
             data-testid="streaming-pill"
           >
             STREAMING
+          </span>
+        )}
+        {dropped > 0 && (
+          <span
+            className="border-log-warn text-label-sm text-log-warn border px-2 py-0.5 tracking-wider"
+            data-testid="dropped-pill"
+          >
+            {dropped.toLocaleString()} EARLIER LINES HIDDEN
           </span>
         )}
         <div className="flex w-full flex-col gap-2 sm:ml-auto sm:w-auto sm:flex-row sm:items-center sm:gap-4">

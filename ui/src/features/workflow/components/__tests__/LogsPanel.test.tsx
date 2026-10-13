@@ -33,6 +33,18 @@ describe('LogsPanel', () => {
     expect(rows.length).toBeLessThan(100);
   });
 
+  it('says how many earlier lines are no longer buffered', () => {
+    const { rerender } = render(
+      <LogsPanel entries={entries} isStreaming={false} />
+    );
+    expect(screen.queryByTestId('dropped-pill')).not.toBeInTheDocument();
+
+    rerender(<LogsPanel entries={entries} isStreaming={false} dropped={1234} />);
+    expect(screen.getByTestId('dropped-pill')).toHaveTextContent(
+      '1,234 EARLIER LINES HIDDEN'
+    );
+  });
+
   it('renders log lines with timestamp, level and plugin id', () => {
     render(<LogsPanel entries={entries.slice(0, 1)} isStreaming={false} />);
 

@@ -34,6 +34,7 @@ import com.infenia.yukta.service.orchestrator.assembly.AssemblyContext;
 import com.infenia.yukta.service.orchestrator.stream.StreamTopologyDecorator;
 import com.infenia.yukta.service.orchestrator.stream.UpstreamFailure;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
+import com.infenia.yukta.service.result.ExecutionResultService;
 import com.infenia.yukta.util.VariableResolver;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -59,6 +60,7 @@ import reactor.util.context.Context;
 @MockitoSettings(strictness = Strictness.LENIENT)
 @NoArgsConstructor
 @SuppressWarnings({
+  "PMD.CouplingBetweenObjects",
   "PMD.ExcessiveImports",
   "PMD.TooManyStaticImports",
   "PMD.CommentRequired",
@@ -74,6 +76,9 @@ class TerminalNodeAssemblerStrategyTest {
   @Mock private StreamTopologyDecorator streamTopologyDecorator;
   @Mock private NodeMessageChannelProvider channelProvider;
   @Mock private ActivePluginRegistry activePluginRegistry;
+
+  private final ExecutionResultService resultService =
+      new ExecutionResultService(100, Duration.ofMinutes(5), 10);
 
   private TerminalNodeAssemblerStrategy strategy;
 
@@ -92,7 +97,8 @@ class TerminalNodeAssemblerStrategyTest {
             streamTopologyDecorator,
             channelProvider,
             activePluginRegistry,
-            new VariableResolver(mock(SecretProvider.class)));
+            new VariableResolver(mock(SecretProvider.class)),
+            resultService);
   }
 
   // ── supports() ────────────────────────────────────────────────────────────
@@ -188,6 +194,37 @@ class TerminalNodeAssemblerStrategyTest {
             eq(EXECUTION_ID), eq(NODE_ID), anyString(), any(TaskStatus.class), any());
     verify(activePluginRegistry).register(WORKFLOW_ID, NODE_ID, terminal);
     verify(activePluginRegistry).unregister(WORKFLOW_ID, NODE_ID);
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  void createAssembler_terminalInput_isPublishedAsResultsWithNodeEnd() {
+    final Message<?> msg = DefaultMessage.create(UUID.randomUUID(), "final-answer");
+    final TerminalPlugin terminal = mock(TerminalPlugin.class);
+    when(terminal.consume(any(), any()))
+        .thenAnswer(invocation -> ((Flux<Message<?>>) invocation.getArgument(0)).then());
+    when(terminal.isBlocking()).thenReturn(false);
+
+    final WorkflowNode node = new WorkflowNode(NODE_ID, "terminal", Map.of());
+    final AssemblyContext context = buildContext(Flux.just(msg));
+    when(streamTopologyDecorator.mergeParentStreams(any(), any(), any(ParentEdgeInfo[].class)))
+        .thenReturn(Flux.just(msg));
+
+    strategy
+        .createAssembler(node, terminal, Duration.ofSeconds(5), 0, 1024, new ParentEdgeInfo[0])
+        .assemble(context);
+    StepVerifier.create(context.terminals().getFirst()).verifyComplete();
+    resultService.complete(EXECUTION_ID, "SUCCESS");
+
+    StepVerifier.create(resultService.stream(EXECUTION_ID))
+        .assertNext(
+            event -> {
+              assertThat(event.nodeId()).isEqualTo(NODE_ID);
+              assertThat(event.payload()).isEqualTo("final-answer");
+            })
+        .assertNext(event -> assertThat(event.status()).isEqualTo("SUCCESS"))
+        .assertNext(event -> assertThat(event.kind().name()).isEqualTo("EXECUTION_END"))
+        .verifyComplete();
   }
 
   @Test
