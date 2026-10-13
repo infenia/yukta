@@ -59,6 +59,7 @@ describe('useExecutionLogs', () => {
     flush();
     expect(result.current.entries).toHaveLength(MAX_LOG_ENTRIES);
     expect(result.current.entries[0].message).toBe('line 5');
+    expect(result.current.dropped).toBe(5);
   });
 
   it('resets the buffer and resubscribes when the execution changes', () => {

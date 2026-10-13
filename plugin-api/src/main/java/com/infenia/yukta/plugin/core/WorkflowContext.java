@@ -20,6 +20,12 @@ public record WorkflowContext(
   public static final String HEARTBEAT_KEY = "yukta.heartbeat";
 
   /**
+   * Reactor context key of the {@link PluginLogSink} a plugin writes live log lines to. Absent
+   * outside a workflow run.
+   */
+  public static final String LOG_SINK_KEY = "yukta.log-sink";
+
+  /**
    * Compact constructor that copies the edge lists, so later changes by the caller are not seen.
    *
    * @param nodeId the node ID

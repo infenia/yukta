@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.service.orchestrator.assembly;
 
+import com.infenia.yukta.plugin.core.PluginLogSink;
 import com.infenia.yukta.plugin.core.WorkflowContext;
 import java.util.Collections;
 import java.util.HashMap;
@@ -51,6 +52,9 @@ public class ExecutionContextBuilder {
 
   /** The heartbeat callback, or null. */
   @Nullable private Runnable heartbeatValue;
+
+  /** The sink for live plugin log lines, or null. */
+  @Nullable private PluginLogSink logSinkValue;
 
   /** The session ID value. */
   @Nullable private String sessionIdValue;
@@ -137,6 +141,17 @@ public class ExecutionContextBuilder {
   }
 
   /**
+   * Sets the sink plugins write live log lines to.
+   *
+   * @param logSink receives each line as the plugin produces it
+   * @return this builder for fluent chaining
+   */
+  public ExecutionContextBuilder logSink(final PluginLogSink logSink) {
+    this.logSinkValue = logSink;
+    return this;
+  }
+
+  /**
    * Builds an immutable Context snapshot from the current builder state.
    *
    * <p>Each call to build() creates a new Context with a snapshot of the current values. This
@@ -161,6 +176,9 @@ public class ExecutionContextBuilder {
     }
     if (heartbeatValue != null) {
       contextMap.put(WorkflowContext.HEARTBEAT_KEY, heartbeatValue);
+    }
+    if (logSinkValue != null) {
+      contextMap.put(WorkflowContext.LOG_SINK_KEY, logSinkValue);
     }
     if (payloadValue != null) {
       contextMap.put(CTX_PAYLOAD, Collections.unmodifiableMap(payloadValue));

@@ -162,7 +162,7 @@ final class ExecutionStreams {
                   sessionId,
                   event.nodeId(), // Use nodeId as pluginId
                   module, // Use module as pluginName
-                  LogStream.STDOUT, // Default to STDOUT
+                  event.stderr() ? LogStream.STDERR : LogStream.STDOUT,
                   event.line(),
                   LogLevel.INFO, // Default to INFO
                   event.timestamp().atZone(ZoneId.systemDefault()).toInstant(),

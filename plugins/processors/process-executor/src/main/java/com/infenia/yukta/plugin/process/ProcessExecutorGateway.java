@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.plugin.process;
 
+import com.infenia.yukta.plugin.core.PluginLogSink;
 import com.infenia.yukta.plugin.exception.WorkflowExecutionException;
 import java.io.BufferedReader;
 import java.io.File;
@@ -17,6 +18,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeoutException;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import lombok.NoArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -60,6 +62,20 @@ public class ProcessExecutorGateway {
    * @return a Mono emitting the execution result
    */
   public Mono<ProcessExecutionResult> executeForResult(final ProcessExecutionSpec spec) {
+    return executeForResult(spec, PluginLogSink.NOOP);
+  }
+
+  /**
+   * Like {@link #executeForResult(ProcessExecutionSpec)}, and also hands every output line to
+   * {@code sink} as the process writes it. The sink sees all lines; the retention caps apply only
+   * to the lines kept in the result.
+   *
+   * @param spec the execution specification
+   * @param sink receives each stdout/stderr line live
+   * @return a Mono emitting the execution result
+   */
+  public Mono<ProcessExecutionResult> executeForResult(
+      final ProcessExecutionSpec spec, final PluginLogSink sink) {
     if (spec == null) {
       return Mono.error(new IllegalArgumentException("spec is mandatory"));
     }
@@ -74,7 +90,7 @@ public class ProcessExecutorGateway {
         spec.useShell() ? wrapInShell(spec.command()) : spec.command();
 
     return Mono.fromSupplier(System::nanoTime)
-        .flatMap(startNanos -> runProcess(spec, actualCommand, startNanos));
+        .flatMap(startNanos -> runProcess(spec, actualCommand, startNanos, sink));
   }
 
   /**
@@ -174,10 +190,13 @@ public class ProcessExecutorGateway {
    * @return a Mono emitting the execution result
    */
   private Mono<ProcessExecutionResult> runProcess(
-      final ProcessExecutionSpec spec, final List<String> actualCommand, final long startNanos) {
+      final ProcessExecutionSpec spec,
+      final List<String> actualCommand,
+      final long startNanos,
+      final PluginLogSink sink) {
     return Mono.usingWhen(
             startProcess(spec, actualCommand),
-            process -> collectResult(process, spec, startNanos),
+            process -> collectResult(process, spec, startNanos, sink),
             this::cleanupProcess)
         .timeout(Duration.ofSeconds(spec.timeoutSeconds()))
         .onErrorResume(
@@ -229,7 +248,10 @@ public class ProcessExecutorGateway {
    * @return a Mono emitting the execution result
    */
   private Mono<ProcessExecutionResult> collectResult(
-      final Process process, final ProcessExecutionSpec spec, final long startNanos) {
+      final Process process,
+      final ProcessExecutionSpec spec,
+      final long startNanos,
+      final PluginLogSink sink) {
     final Mono<Boolean> stdinWriter =
         Mono.fromRunnable(() -> writeStdin(process.getOutputStream(), spec.stdin()))
             .subscribeOn(Schedulers.boundedElastic())
@@ -238,14 +260,20 @@ public class ProcessExecutorGateway {
         Mono.fromCallable(
                 () ->
                     readOutput(
-                        process.getInputStream(), spec.maxOutputLines(), spec.maxOutputBytes()))
+                        process.getInputStream(),
+                        spec.maxOutputLines(),
+                        spec.maxOutputBytes(),
+                        line -> sink.line("stdout", line)))
             .subscribeOn(Schedulers.boundedElastic());
     final Mono<OutputCapture> stderrCapture =
         spec.captureStderr()
             ? Mono.fromCallable(
                     () ->
                         readOutput(
-                            process.getErrorStream(), spec.maxOutputLines(), spec.maxOutputBytes()))
+                            process.getErrorStream(),
+                            spec.maxOutputLines(),
+                            spec.maxOutputBytes(),
+                            line -> sink.line("stderr", line)))
                 .subscribeOn(Schedulers.boundedElastic())
             : Mono.just(OutputCapture.EMPTY);
 
@@ -364,9 +392,27 @@ public class ProcessExecutorGateway {
    * @param maxBytes maximum UTF-8 bytes to retain (non-positive for unlimited)
    * @return the captured output with a truncation flag
    */
-  @SuppressWarnings("PMD.UnnecessaryModifier")
   /* package */ OutputCapture readOutput(
       final InputStream stream, final int maxLines, final long maxBytes) {
+    return readOutput(stream, maxLines, maxBytes, line -> {});
+  }
+
+  /**
+   * Like {@link #readOutput(InputStream, int, long)}, and also passes every line read, retained or
+   * not, to {@code onLine} as soon as it is read.
+   *
+   * @param stream the process output stream to read
+   * @param maxLines maximum lines to retain (non-positive for unlimited)
+   * @param maxBytes maximum UTF-8 bytes to retain (non-positive for unlimited)
+   * @param onLine receives each line live; a failure in it is logged and does not stop the read
+   * @return the captured output with a truncation flag
+   */
+  @SuppressWarnings("PMD.UnnecessaryModifier")
+  /* package */ OutputCapture readOutput(
+      final InputStream stream,
+      final int maxLines,
+      final long maxBytes,
+      final Consumer<String> onLine) {
     final List<String> lines = new ArrayList<>();
     boolean truncated = false;
     long bytes = 0;
@@ -374,6 +420,7 @@ public class ProcessExecutorGateway {
         new BufferedReader(new InputStreamReader(stream, StandardCharsets.UTF_8))) {
       String line = reader.readLine();
       while (line != null) {
+        publish(onLine, line);
         if (!truncated) {
           // +1 accounts for the newline separator stripped by readLine()
           final long lineBytes = line.getBytes(StandardCharsets.UTF_8).length + 1L;
@@ -395,6 +442,15 @@ public class ProcessExecutorGateway {
           .log();
     }
     return new OutputCapture(lines, truncated);
+  }
+
+  @SuppressWarnings("PMD.AvoidCatchingGenericException")
+  private static void publish(final Consumer<String> onLine, final String line) {
+    try {
+      onLine.accept(line);
+    } catch (final RuntimeException e) {
+      log.atDebug().setMessage("Live log sink rejected a line").setCause(e).log();
+    }
   }
 
   /**

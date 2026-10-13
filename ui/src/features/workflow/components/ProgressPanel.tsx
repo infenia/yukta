@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
+import { ExecutionResultBlock } from './ExecutionResultBlock';
 import { ExecutionSummaryBlock } from './ExecutionSummaryBlock';
 import type { NodeCommand } from './NodeControlsMenu';
 import { TaskSequenceList } from './TaskSequenceList';
 import type { TaskProgress, WorkflowGraph, WorkflowProgress } from '../types/workflow';
 
-/** The closable WORKFLOW PROGRESS side panel: execution summary + task sequence. */
+/** The closable WORKFLOW PROGRESS side panel: execution summary, result + task sequence. */
 export function ProgressPanel({
   graph,
   progress,
@@ -41,6 +42,7 @@ export function ProgressPanel({
       </div>
       <div className="flex flex-col gap-6 p-4">
         <ExecutionSummaryBlock progress={progress} sessionId={sessionId} />
+        <ExecutionResultBlock sessionId={sessionId} executionId={progress?.executionId ?? null} />
         <TaskSequenceList graph={graph} tasksByNode={tasksByNode} onNodeCommand={onNodeCommand} />
       </div>
     </aside>
