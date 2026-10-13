@@ -116,7 +116,12 @@ public class ExecutionResumer {
           return workflowDefinitionStore
               .find(started.sessionId(), started.workflowId())
               .switchIfEmpty(
-                  Mono.error(new NotFoundException("Workflow no longer exists: " + started)))
+                  Mono.error(
+                      new NotFoundException(
+                          "Workflow no longer exists: "
+                              + started.sessionId()
+                              + "/"
+                              + started.workflowId())))
               .flatMap(orchestrator::prepareWorkflow)
               .flatMap(prepared -> start(started, prepared));
         });

@@ -1,14 +1,6 @@
-# Core score-card plans (target: 5/5 everywhere)
+# Core score-card plans
 
-Context: `core/docs/core-module-guide.html` (DATA.score) rates 9 areas. At the start only Streaming and Status were 5 and the rest 3.5–4.5; each plan below raises its own row to 5 when it lands. Goal: every row 5/5, done as **one plan and one branch/PR per area**, each ending with the guide's score row updated. Scope decisions: Restart gets **durable checkpoints + resume** (reverses the "memory only" non-goal); **core module only** (no web/mcp changes — Java-only features get exposed on the core control gateway, REST/MCP wiring stays a follow-up and is noted in the guide).
+Plans 01-06 and 08 shipped and were removed; their open items live in [09-backlog.md](09-backlog.md). What is left of the original score-card work:
 
-Implement in order; one branch/PR per plan. Each ends by updating the guide score row.
-
-- [01 Restart and recovery (3.5→5) — biggest](01-restart-recovery.md)
-- [02 Time semantics (3.5→5)](02-time-semantics.md)
-- [03 Failure semantics (4→5)](03-failure-semantics.md)
-- [04 Control plane (4→5)](04-control-plane.md)
-- [05 Governance (4→5)](05-governance.md)
-- [06 Observability (2.5→5, but guide says 3.5 — tracing already exists)](06-observability.md)
-- [07 Simplicity (4→5)](07-simplicity.md)
-- [08 Streaming & Status (already 5)](08-streaming-status.md)
+- [07 Simplicity](07-simplicity.md): the tracker and gateway splits are in PRs #365 and #366; delete this plan when they merge
+- [09 Backlog](09-backlog.md), [10 Remote workers design](10-remote-workers.md) and [11 Remediation plan (prioritized fixes, security, enhancements)](11-remediation-plan.md) and [12 Performance plan (memory growth, hot paths, limits)](12-performance-plan.md)
