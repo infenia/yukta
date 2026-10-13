@@ -21,6 +21,7 @@ func ControlBusCmd(c *client.Client) *cobra.Command {
 	cmd.AddCommand(AllNodesCmd(c))
 	cmd.AddCommand(HeartbeatCmd(c))
 	cmd.AddCommand(CommandCmd(c))
+	cmd.AddCommand(WatchCmd(c))
 
 	return cmd
 }

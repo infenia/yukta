@@ -27,6 +27,13 @@ func TestNodeCommands(t *testing.T) {
 		{"skip default", []string{"skip", "s", "e", "n"}, "POST /api/workflow/s/e/node/n/skip?skip=true", "Node n: skipped"},
 		{"unskip", []string{"skip", "s", "e", "n", "--skip=false"}, "POST /api/workflow/s/e/node/n/skip?skip=false", "Node n: unskipped"},
 		{"escapes ids", []string{"pause", "s", "e", "a/b"}, "POST /api/workflow/s/e/node/a%2Fb/pause", "Node paused: a/b"},
+		{"retry", []string{"retry", "e", "n"}, "POST /api/executions/e/nodes/n/retry", "Node n retried; new execution: exec-1"},
+		{"signal", []string{"signal", "e", "n", "--name", "approval", "--decision", "approve", "--data", "ok"},
+			"POST /api/executions/e/nodes/n/signal?data=ok&decision=approve&name=approval", "Signal approval=approve sent to node n"},
+		{"breakpoint set", []string{"breakpoint", "e", "n", "--field", "payload.status", "--equals", "error"},
+			"POST /api/executions/e/nodes/n/breakpoint?equals=error&field=payload.status", "Breakpoint set on node n: payload.status == error"},
+		{"breakpoint clear", []string{"breakpoint", "e", "n", "--clear"},
+			"DELETE /api/executions/e/nodes/n/breakpoint", "Breakpoint cleared on node n"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -69,5 +76,35 @@ func TestNodeCommands_errors(t *testing.T) {
 	// wrong number of arguments is rejected before any request
 	if _, err := testutil.Run(t, NodeCmd(c), "pause", "s", "e"); err == nil {
 		t.Error("expected arg-count error")
+	}
+}
+
+func TestNodeCommands_executionRoutes_errors(t *testing.T) {
+	c, seen := testutil.Server(t, 409, "not waiting")
+	for _, args := range [][]string{
+		{"retry", "e", "n"},
+		{"signal", "e", "n", "--name", "a", "--decision", "b"},
+		{"breakpoint", "e", "n", "--field", "f", "--equals", "v"},
+		{"breakpoint", "e", "n", "--clear"},
+	} {
+		if _, err := testutil.Run(t, NodeCmd(c), args...); err == nil || !strings.Contains(err.Error(), "409") {
+			t.Errorf("%v: expected API error, got %v", args, err)
+		}
+	}
+
+	*seen = nil
+	// missing required flags are rejected before any request
+	for _, args := range [][]string{
+		{"signal", "e", "n", "--name", "a"},
+		{"signal", "e", "n", "--decision", "b"},
+		{"breakpoint", "e", "n"},
+		{"retry", "e"},
+	} {
+		if _, err := testutil.Run(t, NodeCmd(c), args...); err == nil {
+			t.Errorf("%v: expected a usage error", args)
+		}
+	}
+	if len(*seen) != 0 {
+		t.Errorf("unexpected requests %v", *seen)
 	}
 }
