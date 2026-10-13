@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Use case: develop Yukta with Yukta. Runs this repo's quality gates as a Yukta workflow.
 # Default: the quick-check workflow (formatting + Go vet). FULL=1 runs the whole gradle-check.
-# The target server is YUKTA_URL, else the one started by scripts/yukta-worktree.sh.
+# The target server is YUKTA_URL, else the one started by yukta-server.sh, else the running one on localhost:8080.
 set -euo pipefail
 here="$(cd "$(dirname "$0")" && pwd)"
 repo="$(git -C "$here" rev-parse --show-toplevel)"

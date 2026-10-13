@@ -18,8 +18,8 @@ curl -X POST localhost:8080/api/workflow/start -H 'Content-Type: application/jso
 (`projectPath`/`workingDir` in `session.json` is `__PROJECT_PATH__`; `run.sh` fills it in.)
 
 **Run:** `./examples/11-dogfood/run.sh` runs `quick-check`; `FULL=1 ./examples/11-dogfood/run.sh` runs
-the whole `gradle-check` (minutes). It targets `YUKTA_URL`, else the server started by
-`scripts/yukta-worktree.sh`.
+the whole `gradle-check` (minutes). It targets `YUKTA_URL`, else `YUKTA_SERVER_URL`, else the server started by
+`yukta-server.sh`, else the server already running on `http://localhost:8080`.
 
 **Expected:** the run finishes `SUCCESS` and the logs show `success=true` for every stage.
 
@@ -38,8 +38,18 @@ interchangeable. `yukta-server.sh` is the single entry point (see "Server provid
 `git`, `jq`, `curl`, Java 25, Go (for the CLI). Optional: `opengrep`, `trivy` (skipped when absent).
 
 ## Quick start
+**Use the server that is already running** (the default; nothing to start). The scripts pick the server from
+`YUKTA_SERVER_URL`, else `.yukta-dev/current.env`, else `http://localhost:8080`:
 ```bash
-./gradlew :cli:goBuild                                        # builds cli/build/yukta-<os>-<arch>
+./gradlew :cli:goBuild                                        # once, and after CLI changes (a stale binary lacks `session apply`)
+curl -fsS localhost:8080/actuator/health                      # or: export YUKTA_SERVER_URL=http://host:port
+examples/11-dogfood/scripts/yukta-check.sh -m core            # no server start/stop
+```
+Caveat: a **native** server currently cannot stream control-bus events (`--watch`/`yukta-watch.sh` fail with
+`unexpected EOF`, see `docs/dogfood-backlog.md`); the default log mode of `yukta-check.sh` works.
+
+Only when no server is running, start a dedicated one (it gets its own port and state):
+```bash
 
 examples/11-dogfood/scripts/yukta-server.sh start dev            # a server on a free port (worktree provider by default)
 examples/11-dogfood/scripts/yukta-check.sh                       # run the checks (see "Running checks" below)
@@ -60,8 +70,8 @@ fallback in `yukta-server.sh`; to add a provider, add a `yukta-<mode>.sh` that u
 with `YUKTA_SERVER_URL`.
 
 ## Running checks
-`yukta-check.sh [-p project-path] [-m module] [gradle args...]` needs a running server (started by
-`yukta-worktree.sh`, or `YUKTA_SERVER_URL`). It checks the current checkout, or the one given with `-p`.
+`yukta-check.sh [-p project-path] [-m module] [gradle args...]` needs a running server (an existing one via
+`YUKTA_SERVER_URL`/`localhost:8080`, or one started by `yukta-server.sh`). It checks the current checkout, or the one given with `-p`.
 
 ### Entire project
 ```bash
