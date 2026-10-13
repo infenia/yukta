@@ -4,7 +4,13 @@ package com.infenia.yukta.service.store;
 
 import com.infenia.yukta.message.Message;
 import com.infenia.yukta.plugin.store.NodeCheckpointStore;
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.net.URLDecoder;
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -12,12 +18,15 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import tools.jackson.databind.ObjectMapper;
 
 /**
  * In-memory implementation of {@link NodeCheckpointStore} that records what each node produced.
@@ -28,10 +37,21 @@ import reactor.core.publisher.Mono;
  * that would need its output is refused rather than replayed partially. All state is lost on JVM
  * restart. A persistent implementation can be substituted by providing an alternative {@link
  * NodeCheckpointStore} bean.
+ *
+ * <p>With {@code yukta.restart.spill-dir} a node that outgrows the caps moves its whole output to a
+ * {@link FileNodeCheckpointStore} in that directory (claim check) instead of being marked
+ * incomplete, so a restart can still replay it; spilled messages come back as plain JSON values.
+ * Spill files are removed with the execution, and leftovers of an earlier process on startup.
  */
+@Slf4j
 @Component
 @ConditionalOnExpression("'${yukta.restart.dir:}'.isEmpty()")
-@SuppressWarnings({"PMD.AvoidSynchronizedStatement", "PMD.LawOfDemeter", "PMD.OnlyOneReturn"})
+@SuppressWarnings({
+  "PMD.AvoidSynchronizedStatement",
+  "PMD.LawOfDemeter",
+  "PMD.OnlyOneReturn",
+  "PMD.TooManyMethods"
+})
 public class InMemoryNodeCheckpointStore implements NodeCheckpointStore, ByteCounted {
 
   /** Default number of messages kept per node and execution. */
@@ -61,18 +81,41 @@ public class InMemoryNodeCheckpointStore implements NodeCheckpointStore, ByteCou
   /** Maximum payload bytes kept per node and execution. */
   private final long bytesPerNode;
 
+  /** Where output beyond the caps goes, or null to mark such a node incomplete. */
+  private final FileNodeCheckpointStore spill;
+
   /**
    * Creates a store with the configured caps.
    *
    * @param messagesPerNode maximum number of messages kept per node and execution
    * @param bytesPerNode maximum payload bytes kept per node and execution
+   * @param spillDir directory for output beyond the caps; empty to refuse such restarts
+   * @param mapper writes spilled messages
    */
   @Autowired
   public InMemoryNodeCheckpointStore(
       @Value("${yukta.restart.messages-per-node:200}") final int messagesPerNode,
-      @Value("${yukta.restart.bytes-per-node:4194304}") final long bytesPerNode) {
+      @Value("${yukta.restart.bytes-per-node:4194304}") final long bytesPerNode,
+      @Value("${yukta.restart.spill-dir:}") final String spillDir,
+      final ObjectProvider<ObjectMapper> mapper) {
+    this(messagesPerNode, bytesPerNode, openSpill(spillDir, mapper));
+  }
+
+  private InMemoryNodeCheckpointStore(
+      final int messagesPerNode, final long bytesPerNode, final FileNodeCheckpointStore spill) {
     this.messagesPerNode = Math.max(1, messagesPerNode);
     this.bytesPerNode = Math.max(1, bytesPerNode);
+    this.spill = spill;
+  }
+
+  /**
+   * Creates a store without spilling.
+   *
+   * @param messagesPerNode maximum number of messages kept per node and execution
+   * @param bytesPerNode maximum payload bytes kept per node and execution
+   */
+  public InMemoryNodeCheckpointStore(final int messagesPerNode, final long bytesPerNode) {
+    this(messagesPerNode, bytesPerNode, (FileNodeCheckpointStore) null);
   }
 
   /**
@@ -87,6 +130,32 @@ public class InMemoryNodeCheckpointStore implements NodeCheckpointStore, ByteCou
   /** Creates a store with the default caps. */
   public InMemoryNodeCheckpointStore() {
     this(DEFAULT_MESSAGES_PER_NODE, DEFAULT_BYTES_PER_NODE);
+  }
+
+  private static FileNodeCheckpointStore openSpill(
+      final String spillDir, final ObjectProvider<ObjectMapper> mapper) {
+    if (spillDir == null || spillDir.isBlank()) {
+      return null;
+    }
+    final FileNodeCheckpointStore store = new FileNodeCheckpointStore(spillDir, mapper.getObject());
+    removeStaleSpill(Path.of(spillDir), store);
+    return store;
+  }
+
+  /** Nothing in memory survives a restart, so spill files of an earlier process are garbage. */
+  private static void removeStaleSpill(final Path root, final FileNodeCheckpointStore store) {
+    if (!Files.isDirectory(root)) {
+      return;
+    }
+    try (var children = Files.list(root)) {
+      children
+          .map(child -> child.toFile().getName())
+          .filter(name -> name.startsWith("e-"))
+          .forEach(
+              name -> store.clear(URLDecoder.decode(name.substring(2), StandardCharsets.UTF_8)));
+    } catch (final IOException | UncheckedIOException e) {
+      log.atWarn().setCause(e).log("Could not remove old spill files");
+    }
   }
 
   private static long sizeOf(final Message<?> message) {
@@ -111,23 +180,37 @@ public class InMemoryNodeCheckpointStore implements NodeCheckpointStore, ByteCou
 
   @Override
   public Mono<Void> save(final String executionId, final String nodeId, final Message<?> message) {
-    return Mono.fromRunnable(
+    return Mono.defer(
         () -> {
           final Recorded recorded =
               store
                   .computeIfAbsent(executionId, _ -> new ConcurrentHashMap<>())
                   .computeIfAbsent(nodeId, _ -> new Recorded());
           final long size = sizeOf(message);
+          final List<Message<?>> toSpill = new ArrayList<>();
           synchronized (recorded) {
-            if (recorded.messages.size() < messagesPerNode
+            if (recorded.spilled) {
+              toSpill.add(message);
+            } else if (recorded.messages.size() < messagesPerNode
                 && recorded.bytes + size <= bytesPerNode) {
               recorded.messages.add(message);
               recorded.bytes += size;
               held.addAndGet(size);
-            } else {
+            } else if (spill == null) {
               recorded.truncated = true;
+            } else {
+              // The whole output moves, so a replay never mixes Java objects with JSON values.
+              recorded.spilled = true;
+              toSpill.addAll(recorded.messages);
+              toSpill.add(message);
+              held.addAndGet(-recorded.bytes);
+              recorded.messages.clear();
+              recorded.bytes = 0;
             }
           }
+          return Flux.fromIterable(toSpill)
+              .concatMap(m -> spill.save(executionId, nodeId, m))
+              .then();
         });
   }
 
@@ -135,6 +218,10 @@ public class InMemoryNodeCheckpointStore implements NodeCheckpointStore, ByteCou
   public Mono<Message<?>> get(final String executionId, final String nodeId) {
     return Mono.defer(
         () -> {
+          final Recorded recorded = recorded(executionId, nodeId);
+          if (isSpilled(recorded)) {
+            return spill.get(executionId, nodeId);
+          }
           final List<Message<?>> all = snapshot(executionId, nodeId);
           return all.isEmpty() ? Mono.empty() : Mono.just(all.getLast());
         });
@@ -142,7 +229,11 @@ public class InMemoryNodeCheckpointStore implements NodeCheckpointStore, ByteCou
 
   @Override
   public Flux<Message<?>> getAll(final String executionId, final String nodeId) {
-    return Flux.defer(() -> Flux.fromIterable(snapshot(executionId, nodeId)));
+    return Flux.defer(
+        () ->
+            isSpilled(recorded(executionId, nodeId))
+                ? spill.getAll(executionId, nodeId)
+                : Flux.fromIterable(snapshot(executionId, nodeId)));
   }
 
   @Override
@@ -152,7 +243,16 @@ public class InMemoryNodeCheckpointStore implements NodeCheckpointStore, ByteCou
       return true;
     }
     synchronized (recorded) {
-      return !recorded.truncated;
+      return !recorded.truncated && (!recorded.spilled || spill.isComplete(executionId, nodeId));
+    }
+  }
+
+  private static boolean isSpilled(final Recorded recorded) {
+    if (recorded == null) {
+      return false;
+    }
+    synchronized (recorded) {
+      return recorded.spilled;
     }
   }
 
@@ -169,6 +269,9 @@ public class InMemoryNodeCheckpointStore implements NodeCheckpointStore, ByteCou
   @Override
   public void clear(final String executionId) {
     finished.removeIf(key -> key.startsWith(executionId + "\0"));
+    if (spill != null) {
+      spill.clear(executionId);
+    }
     final Map<String, Recorded> removed = store.remove(executionId);
     if (removed != null) {
       removed.values().forEach(recorded -> held.addAndGet(-recorded.bytes));
@@ -205,5 +308,8 @@ public class InMemoryNodeCheckpointStore implements NodeCheckpointStore, ByteCou
 
     /** True once a message had to be dropped. */
     private boolean truncated;
+
+    /** True once the output moved to the spill store. */
+    private boolean spilled;
   }
 }

@@ -10,6 +10,12 @@ plugins {
 
 val libs = extensions.getByType<VersionCatalogsExtension>().named("libs")
 
+// Patch releases of the BOM-managed libraries that fix published CVEs (Dependabot). Boot's BOM reads
+// these properties, so they keep the same minor line; drop each one once Spring Boot ships it.
+extra["jackson-2-bom.version"] = "2.21.7"
+extra["jackson-bom.version"] = "3.1.7"
+extra["netty.version"] = libs.findVersion("netty").get().requiredVersion
+
 dependencyManagement {
     imports {
         mavenBom("org.springframework.boot:spring-boot-dependencies:${libs.findVersion("springBoot").get().requiredVersion}")

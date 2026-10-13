@@ -214,6 +214,20 @@ class ExecutionResumerTest {
   }
 
   @Test
+  void workflowGone_isNotFound_withoutEchoingThePayload() {
+    abortedRun(DefinitionVersion.of(prepared));
+    when(definitions.find("s", "w")).thenReturn(Mono.empty());
+
+    StepVerifier.create(resumer.resume("old"))
+        .expectErrorSatisfies(
+            e ->
+                assertThat(e)
+                    .isInstanceOf(com.infenia.yukta.service.NotFoundException.class)
+                    .hasMessage("Workflow no longer exists: s/w"))
+        .verify();
+  }
+
+  @Test
   void everyNodeFinished_isRefused() {
     abortedRun(DefinitionVersion.of(prepared), "a", "b", "c");
 
