@@ -9,6 +9,7 @@ import (
 	"com.infenia.yukta/go-cli/internal/commands/controlbus"
 	"com.infenia.yukta/go-cli/internal/commands/logs"
 	"com.infenia.yukta/go-cli/internal/commands/plugin"
+	"com.infenia.yukta/go-cli/internal/commands/result"
 	"com.infenia.yukta/go-cli/internal/commands/session"
 	"com.infenia.yukta/go-cli/internal/commands/workflow"
 )
@@ -31,6 +32,7 @@ func Run() error {
 
 	// Add the logs command for streaming execution logs
 	rootCmd.AddCommand(logs.LogsCmd(c))
+	rootCmd.AddCommand(result.ResultCmd(c))
 
 	// Add the workflow command group with all its subcommands
 	rootCmd.AddCommand(workflow.WorkflowCmd(c))

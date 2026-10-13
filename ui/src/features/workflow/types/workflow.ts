@@ -71,6 +71,17 @@ export interface LogEntry {
   timestamp: string;
 }
 
+/** One event of an execution's result stream (what reaches its terminal nodes). */
+export interface ResultEvent {
+  kind: 'RESULT' | 'NODE_END' | 'EXECUTION_END';
+  nodeId: string | null;
+  sequence: number;
+  payload: unknown;
+  status: string | null;
+  truncated: boolean;
+  timestamp: string;
+}
+
 /** Node rendering status derived from a raw backend task status. */
 export type NodeUiStatus = 'completed' | 'running' | 'pending' | 'failed' | 'paused' | 'skipped';
 

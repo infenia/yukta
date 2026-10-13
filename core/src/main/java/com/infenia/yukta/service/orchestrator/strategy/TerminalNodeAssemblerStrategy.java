@@ -21,6 +21,7 @@ import com.infenia.yukta.service.orchestrator.stream.NodeTimeouts;
 import com.infenia.yukta.service.orchestrator.stream.StreamTopologyDecorator;
 import com.infenia.yukta.service.orchestrator.stream.UpstreamFailure;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
+import com.infenia.yukta.service.result.ExecutionResultService;
 import com.infenia.yukta.util.VariableResolver;
 import java.time.Duration;
 import java.util.Collections;
@@ -37,7 +38,7 @@ import reactor.core.scheduler.Scheduler;
 @Component
 @Order(3)
 @RequiredArgsConstructor
-@SuppressWarnings("PMD.AvoidDuplicateLiterals")
+@SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.ExcessiveImports"})
 public class TerminalNodeAssemblerStrategy implements NodeAssemblerStrategy {
 
   /** Log key for node ID. */
@@ -63,6 +64,9 @@ public class TerminalNodeAssemblerStrategy implements NodeAssemblerStrategy {
 
   /** Resolves expressions in the node config, for a timeout that depends on the first input. */
   private final VariableResolver variableResolver;
+
+  /** Follows what reaches each terminal, for clients that stream the execution's result. */
+  private final ExecutionResultService resultService;
 
   @Override
   public boolean supports(final Plugin plugin, final boolean hasParents) {
@@ -126,13 +130,18 @@ public class TerminalNodeAssemblerStrategy implements NodeAssemblerStrategy {
               .transformDeferredContextual(
                   (flux, ctx) -> {
                     final ResultCollector collector = ctx.getOrDefault("resultCollector", null);
+                    final Flux<Message<?>> published =
+                        flux.doOnNext(
+                            message ->
+                                resultService.publish(
+                                    context.executionId(), node.nodeId(), message.payload()));
                     if (collector != null) {
                       log.atDebug()
                           .addKeyValue(LOG_KEY_NODE_ID, node.nodeId())
                           .log("Terminal node is collecting results");
-                      return flux.doOnNext(collector::add);
+                      return published.doOnNext(collector::add);
                     }
-                    return flux;
+                    return published;
                   });
 
       log.atDebug()
@@ -197,6 +206,8 @@ public class TerminalNodeAssemblerStrategy implements NodeAssemblerStrategy {
                         node.type(),
                         TaskStatus.SUCCESS,
                         Collections.emptyMap());
+                    resultService.nodeEnd(
+                        context.executionId(), node.nodeId(), TaskStatus.SUCCESS.name());
                   })
               .doOnError(
                   e -> {
@@ -211,15 +222,20 @@ public class TerminalNodeAssemblerStrategy implements NodeAssemblerStrategy {
                         node.type(),
                         NodeStreams.failureStatus(e),
                         Collections.emptyMap());
+                    resultService.nodeEnd(
+                        context.executionId(), node.nodeId(), NodeStreams.failureStatus(e).name());
                   })
               .doOnCancel(
-                  () ->
-                      tracker.emitTaskStatusEvent(
-                          context.executionId(),
-                          node.nodeId(),
-                          node.type(),
-                          TaskStatus.CANCELLED,
-                          Collections.emptyMap()));
+                  () -> {
+                    tracker.emitTaskStatusEvent(
+                        context.executionId(),
+                        node.nodeId(),
+                        node.type(),
+                        TaskStatus.CANCELLED,
+                        Collections.emptyMap());
+                    resultService.nodeEnd(
+                        context.executionId(), node.nodeId(), TaskStatus.CANCELLED.name());
+                  });
 
       context.terminals().add(completion);
     };

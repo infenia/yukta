@@ -112,6 +112,57 @@ class LogProviderTest {
   }
 
   @Test
+  void testAfterCursorReturnsOnlyNewLinesAndAdvancesTheCursor() {
+    when(logStore.readExecution(EXECUTION))
+        .thenReturn(Flux.just(entry("one"), entry("two"), entry("three")));
+
+    StepVerifier.create(provider.getExecutionLogs(SESSION, EXECUTION, null, null, 1))
+        .assertNext(
+            logs -> {
+              assertThat(logs.lines()).hasSize(2);
+              assertThat(logs.lines().get(0)).contains("two");
+              assertThat(logs.nextCursor()).isEqualTo(3);
+            })
+        .verifyComplete();
+  }
+
+  @Test
+  void testNegativeCursorStartsAtTheBeginning() {
+    when(logStore.readExecution(EXECUTION)).thenReturn(Flux.just(entry("one"), entry("two")));
+
+    StepVerifier.create(provider.getExecutionLogs(SESSION, EXECUTION, null, null, -5))
+        .assertNext(logs -> assertThat(logs.returnedLines()).isEqualTo(2))
+        .verifyComplete();
+  }
+
+  @Test
+  void testAfterCursorAtTheEndReturnsNothingAndKeepsTheCursor() {
+    when(logStore.readExecution(EXECUTION)).thenReturn(Flux.just(entry("one"), entry("two")));
+
+    StepVerifier.create(provider.getExecutionLogs(SESSION, EXECUTION, null, null, 2))
+        .assertNext(
+            logs -> {
+              assertThat(logs.lines()).isEmpty();
+              assertThat(logs.nextCursor()).isEqualTo(2);
+            })
+        .verifyComplete();
+  }
+
+  @Test
+  void testAfterCursorCountsLinesTheFilterHidesTowardsTheNextCursor() {
+    when(logStore.readExecution(EXECUTION))
+        .thenReturn(Flux.just(entry("keep 1"), entry("skip"), entry("keep 2")));
+
+    StepVerifier.create(provider.getExecutionLogs(SESSION, EXECUTION, null, "keep", 0))
+        .assertNext(
+            logs -> {
+              assertThat(logs.returnedLines()).isEqualTo(2);
+              assertThat(logs.nextCursor()).isEqualTo(3);
+            })
+        .verifyComplete();
+  }
+
+  @Test
   void testTailZeroReturnsAllLines() {
     when(logStore.readExecution(EXECUTION)).thenReturn(Flux.just(entry("one"), entry("two")));
 

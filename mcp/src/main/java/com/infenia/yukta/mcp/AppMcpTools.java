@@ -18,6 +18,7 @@ import com.infenia.yukta.mcp.dto.WorkflowHistory;
 import com.infenia.yukta.mcp.dto.WorkflowStartResult;
 import com.infenia.yukta.mcp.provider.LogProvider;
 import com.infenia.yukta.mcp.provider.PluginInfoProvider;
+import com.infenia.yukta.mcp.provider.ResultProvider;
 import com.infenia.yukta.mcp.provider.SessionInfoProvider;
 import com.infenia.yukta.mcp.provider.SystemHealthProvider;
 import com.infenia.yukta.mcp.provider.WorkflowControlProvider;
@@ -25,6 +26,7 @@ import com.infenia.yukta.mcp.provider.WorkflowExecutionProvider;
 import com.infenia.yukta.model.execution.WorkflowProgress;
 import com.infenia.yukta.model.session.SessionConfigData;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
+import com.infenia.yukta.service.result.ExecutionResults;
 import lombok.RequiredArgsConstructor;
 import org.springframework.ai.mcp.annotation.McpTool;
 import org.springframework.ai.mcp.annotation.McpToolParam;
@@ -37,7 +39,11 @@ import reactor.core.publisher.Mono;
  */
 @Component
 @RequiredArgsConstructor
-@SuppressWarnings({"PMD.UseObjectForClearerAPI", "PMD.CouplingBetweenObjects"})
+@SuppressWarnings({
+  "PMD.UseObjectForClearerAPI",
+  "PMD.CouplingBetweenObjects",
+  "PMD.ExcessiveImports"
+})
 public class AppMcpTools {
 
   /** Description for session ID parameter. */
@@ -63,6 +69,9 @@ public class AppMcpTools {
 
   /** Provides system health information for MCP tools. */
   private final SystemHealthProvider systemHealthProvider;
+
+  /** Provides the results of executions for MCP tools. */
+  private final ResultProvider resultProvider;
 
   /**
    * Get details of a specific session.
@@ -103,6 +112,7 @@ public class AppMcpTools {
    * @param executionId the execution identifier
    * @param tailLines optional maximum number of trailing lines to return
    * @param filterPattern optional regex applied to each log line
+   * @param afterCursor optional {@code nextCursor} of a previous call
    * @return Mono containing the execution logs
    */
   @McpTool(
@@ -110,8 +120,9 @@ public class AppMcpTools {
       title = "Get Execution Logs",
       description =
           "Get the persisted plugin logs of a workflow execution. Supports an optional regex "
-              + "filter and tailLines to return only the last N matching lines. Poll together "
-              + "with get_workflow_status while an execution is running.",
+              + "filter and tailLines to return only the last N matching lines. While an "
+              + "execution is running, pass the previous result's nextCursor as afterCursor to "
+              + "get only the lines written since, and poll together with get_workflow_status.",
       generateOutputSchema = true,
       annotations = @McpTool.McpAnnotations(readOnlyHint = true, openWorldHint = false))
   public Mono<ExecutionLogs> getExecutionLogs(
@@ -120,8 +131,42 @@ public class AppMcpTools {
       @McpToolParam(required = false, description = "Return only the last N matching log lines")
           final Integer tailLines,
       @McpToolParam(required = false, description = "Optional regex pattern to filter log lines")
-          final String filterPattern) {
-    return logProvider.getExecutionLogs(sessionId, executionId, tailLines, filterPattern);
+          final String filterPattern,
+      @McpToolParam(
+              required = false,
+              description = "nextCursor of a previous call: return only lines written after it")
+          final Integer afterCursor) {
+    return logProvider.getExecutionLogs(
+        sessionId, executionId, tailLines, filterPattern, afterCursor);
+  }
+
+  /**
+   * Get what reached the terminal nodes of a workflow execution.
+   *
+   * @param sessionId the session that owns the execution
+   * @param executionId the execution identifier
+   * @param afterCursor optional {@code nextCursor} of a previous call
+   * @return Mono containing the results
+   */
+  @McpTool(
+      name = "get_execution_result",
+      title = "Get Execution Result",
+      description =
+          "Get the result of a workflow execution: every message that reached a terminal node, "
+              + "as events (RESULT with the payload, NODE_END per terminal, EXECUTION_END last). "
+              + "complete is true once the execution ended. While it runs, pass the previous "
+              + "result's nextCursor as afterCursor to get only newer events. Use "
+              + "get_workflow_status to see whether it is still running.",
+      generateOutputSchema = false,
+      annotations = @McpTool.McpAnnotations(readOnlyHint = true, openWorldHint = false))
+  public Mono<ExecutionResults> getExecutionResult(
+      @McpToolParam(required = true, description = SESSION_ID_DESC) final String sessionId,
+      @McpToolParam(required = true, description = EXECUTION_ID_DESC) final String executionId,
+      @McpToolParam(
+              required = false,
+              description = "nextCursor of a previous call: return only events after it")
+          final Long afterCursor) {
+    return resultProvider.getExecutionResult(sessionId, executionId, afterCursor);
   }
 
   /**

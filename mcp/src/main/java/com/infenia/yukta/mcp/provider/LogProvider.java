@@ -45,28 +45,65 @@ public class LogProvider {
       final String executionId,
       final Integer tailLines,
       final String filterPattern) {
+    return getExecutionLogs(sessionId, executionId, tailLines, filterPattern, null);
+  }
+
+  /**
+   * Get the logs of a workflow execution written after a cursor, so a caller following a running
+   * execution reads each line once.
+   *
+   * @param sessionId the session that owns the execution
+   * @param executionId the execution identifier
+   * @param tailLines optional maximum number of trailing lines to return
+   * @param filterPattern optional regex applied to each formatted log line
+   * @param afterCursor the {@code nextCursor} of the previous call, or null to start at the
+   *     beginning
+   * @return Mono containing the execution logs; errors if the execution is unknown or the pattern
+   *     is invalid
+   */
+  public Mono<ExecutionLogs> getExecutionLogs(
+      final String sessionId,
+      final String executionId,
+      final Integer tailLines,
+      final String filterPattern,
+      final Integer afterCursor) {
     return Mono.defer(
         () -> {
           final Pattern pattern = RegexPatternValidator.compile(filterPattern);
           return ExecutionOwnership.require(controlBus, sessionId, executionId)
-              .then(readTail(executionId, pattern, limit(tailLines)));
+              .then(readTail(executionId, pattern, limit(tailLines), cursor(afterCursor)));
         });
   }
 
   private Mono<ExecutionLogs> readTail(
-      final String executionId, final Pattern pattern, final int limit) {
+      final String executionId, final Pattern pattern, final int limit, final int after) {
     return Mono.defer(
         () -> {
           final AtomicInteger total = new AtomicInteger();
+          final AtomicInteger stored = new AtomicInteger();
           return logStore
               .readExecution(executionId)
+              .doOnNext(_ -> stored.incrementAndGet())
+              .skip(after)
               .map(PluginLogEntry::format)
               .filter(line -> RegexPatternValidator.matches(line, pattern))
               .doOnNext(_ -> total.incrementAndGet())
               .takeLast(limit)
               .collectList()
-              .map(lines -> new ExecutionLogs(executionId, total.get(), lines.size(), lines));
+              .map(
+                  lines ->
+                      new ExecutionLogs(
+                          executionId,
+                          total.get(),
+                          lines.size(),
+                          lines,
+                          Math.max(stored.get(), after)));
         });
+  }
+
+  /** Entries to skip: a missing or negative cursor starts at the beginning. */
+  private static int cursor(final Integer afterCursor) {
+    return afterCursor == null || afterCursor < 0 ? 0 : afterCursor;
   }
 
   /** Requested tail size, bounded so one call cannot flood an agent's context. */

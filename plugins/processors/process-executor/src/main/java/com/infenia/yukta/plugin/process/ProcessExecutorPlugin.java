@@ -8,7 +8,9 @@ import com.infenia.yukta.plugin.core.ConfigField;
 import com.infenia.yukta.plugin.core.FailureMode;
 import com.infenia.yukta.plugin.core.PluginDescriptor;
 import com.infenia.yukta.plugin.core.PluginGuard;
+import com.infenia.yukta.plugin.core.PluginLogSink;
 import com.infenia.yukta.plugin.core.PluginMetricsReporter;
+import com.infenia.yukta.plugin.core.WorkflowContext;
 import com.infenia.yukta.plugin.exception.WorkflowExecutionException;
 import com.infenia.yukta.plugin.type.ProcessorPlugin;
 import com.infenia.yukta.util.MapUtils;
@@ -47,7 +49,8 @@ import tools.jackson.databind.ObjectMapper;
   "PMD.OnlyOneReturn",
   "PMD.UseConcurrentHashMap",
   "PMD.InsufficientStringBufferDeclaration",
-  "PMD.ExceptionAsFlowControl"
+  "PMD.ExceptionAsFlowControl",
+  "PMD.ExcessiveImports"
 })
 @SuppressFBWarnings(value = "EI_EXPOSE_REP2", justification = "injected collaborator")
 @Slf4j
@@ -290,8 +293,11 @@ public final class ProcessExecutorPlugin implements ProcessorPlugin {
         config.timeout(),
         config.workingDir());
 
-    return gateway
-        .executeForResult(spec)
+    return Mono.deferContextual(
+            ctx ->
+                ctx.<PluginLogSink>getOrEmpty(WorkflowContext.LOG_SINK_KEY)
+                    .map(sink -> gateway.executeForResult(spec, sink))
+                    .orElseGet(() -> gateway.executeForResult(spec)))
         .flatMapMany(result -> mapResult(message, config, result))
         .onErrorMap(error -> handleExecutionError(config, error));
   }
