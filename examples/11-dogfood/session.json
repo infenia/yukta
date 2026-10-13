@@ -282,6 +282,50 @@
           "target": "done"
         }
       ]
+    },
+    "gradle-run": {
+      "workflowId": "gradle-run",
+      "description": "Run arbitrary gradle args (any task, any module) as one fail-fast stage",
+      "nodes": [
+        {
+          "nodeId": "trigger",
+          "type": "CONSTANT_SOURCE",
+          "config": {}
+        },
+        {
+          "nodeId": "gradle",
+          "type": "PROCESS_EXECUTOR",
+          "config": {
+            "command": [
+              "./gradlew",
+              "__GRADLE_ARGS__",
+              "-q",
+              "--console=plain"
+            ],
+            "workingDir": "__PROJECT_PATH__",
+            "timeout": 3600,
+            "failureMode": "ERROR",
+            "timeoutSeconds": 3600
+          }
+        },
+        {
+          "nodeId": "done",
+          "type": "CONSOLE_TERMINAL",
+          "config": {
+            "displayOutput": true
+          }
+        }
+      ],
+      "edges": [
+        {
+          "source": "trigger",
+          "target": "gradle"
+        },
+        {
+          "source": "gradle",
+          "target": "done"
+        }
+      ]
     }
   }
 }
