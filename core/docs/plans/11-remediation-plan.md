@@ -12,6 +12,27 @@ no collisions (checked on `main` only, not on unmerged branches).
 
 Effort: **S** up to half a day, **M** 1-3 days, **L** a week or more. Sev: C/H/M/L.
 
+## Who can exploit what (read before ranking)
+
+| Attacker | Findings that apply |
+|---|---|
+| Anyone who can reach the port (non-loopback bind, as the Docker image does) | S5, S6, S8, S4 through S6 (command execution), B28/B31/B34/B35 (memory growth, see [12](12-performance-plan.md)) |
+| A web page in the operator's browser (loopback bind) | S7, and S5/S6 if no key is set |
+| A holder of a low-role key (VIEWER/OPERATOR) | S10 (raw node command, limits, priority), F3 gaps (no MCP roles, no per-session scoping) |
+| An untrusted workflow author | S4, S11, S12, S13, F5; with such authors treat S11/S12 as **High** and run `PROCESS_EXECUTOR` disabled |
+
+**Decision (2026-10-13): workflow authors are trusted today and may not be later.** Severities in the
+tables assume trusted authors, so S11/S12/S13/F5 stay where they are in the order below. They become
+a release gate for the day untrusted authors are allowed:
+
+- [ ] S4 deny-by-default for `PROCESS_EXECUTOR` shipped (PR-3)
+- [ ] S11 expression method allow-list, S12 script statement limit and watchdog, S13 context key allow-list
+- [ ] F5 gateway-level tool allow-list and prompt filters; F3 per-session scoping (an author must not reach another session)
+- [ ] B35 size limits and B34/B28/B31/B21 memory bounds (an author can otherwise exhaust memory)
+- [ ] Re-rate S11/S12/S13 as High and move them from P2 to P1
+
+Until then do not expose workflow upload to anyone outside the trusted group.
+
 ## Decisions needed from you (they gate effort more than code size does)
 
 1. **S4 deny-by-default for `PROCESS_EXECUTOR`**: breaking for anyone relying on the empty list. Ship in
@@ -22,10 +43,14 @@ Effort: **S** up to half a day, **M** 1-3 days, **L** a week or more. Sev: C/H/M
    API change. Is a break acceptable now, or do they wait for the next major?
 4. **B21 retention policy** for session state: evict (and serve history from the log) or keep everything?
 5. **S3**: fix the unused file plugin-log package, or delete it?
+6. **Workflow authors** (decided: trusted now, untrusted possible later): the gate list above applies before that changes.
+7. **Size limits** (B35 in [12](12-performance-plan.md)): which maximum start payload and definition size?
 
 ## P0: security exposure, small fixes
 
-Suggested as one "edge hardening" PR (S5-S8) plus one core PR (S9, B28, R1, B31, B32).
+Suggested as one "edge hardening" PR (S5-S8) plus one core PR (S9, B28, R1, B31, B32). The memory
+bounds B28, B31, B34 and B35 are also denial-of-service fixes; their performance side is in
+[12-performance-plan.md](12-performance-plan.md).
 
 | ID | Sev | Eff | Conf | Evidence | Issue | Fix | Test to add | Brk |
 |---|---|---|---|---|---|---|---|---|
@@ -83,10 +108,12 @@ Suggested as one "edge hardening" PR (S5-S8) plus one core PR (S9, B28, R1, B31,
 ## Suggested order
 
 1. **PR-1** S5 + S6 + S7 + S8: edge hardening (one theme, web and mcp).
-2. **PR-2** S9 + B28 + R1 + B31 + B32: small core fixes.
+2. **PR-2** S9 + B28 + R1 + B31 + B32 + B34 + B35: small core fixes and memory bounds.
 3. **PR-3** S4 with a release note (decision 1).
 4. **PR-4** S10 + B4: plugin-api command types (decision 3).
 5. **PR-5** B29 + B27 guard + B33 + B26 + S3.
 6. P2 items one at a time, then P3 by product priority.
+
+Performance work: [12-performance-plan.md](12-performance-plan.md).
 
 Run the narrowest tests per `CLAUDE.md` tiers; each PR ends with `spotlessApply check` once.
