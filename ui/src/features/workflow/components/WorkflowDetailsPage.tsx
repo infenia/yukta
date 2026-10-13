@@ -158,7 +158,11 @@ export function WorkflowDetailsPage() {
         )}
       </div>
 
-      <LogsPanel entries={logs.entries} isStreaming={isStreaming || logs.isStreaming} />
+      <LogsPanel
+        entries={logs.entries}
+        dropped={logs.dropped}
+        isStreaming={isStreaming || logs.isStreaming}
+      />
     </div>
   );
 }

@@ -24,6 +24,7 @@ import com.infenia.yukta.service.orchestrator.compiler.ExecutionTimeoutException
 import com.infenia.yukta.service.orchestrator.compiler.WorkflowCompiler;
 import com.infenia.yukta.service.orchestrator.preparator.WorkflowPreparator;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
+import com.infenia.yukta.service.result.ExecutionResultService;
 import com.infenia.yukta.validation.SessionId;
 import com.infenia.yukta.validation.WorkflowId;
 import jakarta.validation.Valid;
@@ -88,6 +89,9 @@ public class WorkflowOrchestrator {
 
   /** The workflow preparator for preparing workflows for execution. */
   private final WorkflowPreparator preparator;
+
+  /** Ends the execution's result stream when the run ends. */
+  private final ExecutionResultService resultService;
 
   /** Evicted from the archive while still running: their checkpoints go when they end. */
   private final Set<String> clearWhenDone = ConcurrentHashMap.newKeySet();
@@ -451,7 +455,11 @@ public class WorkflowOrchestrator {
                 Mono.fromSupplier(
                     () -> control.stopRequested().get() ? TaskStatus.STOPPED : TaskStatus.SUCCESS)),
             control.safeStopSink().asMono().thenReturn(TaskStatus.STOPPED))
-        .flatMap(status -> tracker.finishWorkflow(executionId, status))
+        .flatMap(
+            status ->
+                tracker
+                    .finishWorkflow(executionId, status)
+                    .doFinally(_ -> resultService.complete(executionId, status.name())))
         .doOnSuccess(
             _ ->
                 log.atInfo()
@@ -462,11 +470,8 @@ public class WorkflowOrchestrator {
         .onErrorResume(
             e ->
                 tracker
-                    .finishWorkflow(
-                        executionId,
-                        e instanceof QueueTimeoutException || e instanceof ExecutionTimeoutException
-                            ? TaskStatus.TIMED_OUT
-                            : TaskStatus.FAILURE)
+                    .finishWorkflow(executionId, failureStatus(e))
+                    .doFinally(_ -> resultService.complete(executionId, failureStatus(e).name()))
                     .doOnSuccess(
                         _ ->
                             log.atError()
@@ -492,5 +497,11 @@ public class WorkflowOrchestrator {
                 ExecutionContextBuilder.CTX_SESSION_ID, sessionId,
                 ExecutionContextBuilder.CTX_WORKFLOW_ID, workflowId,
                 ExecutionContextBuilder.CTX_EXECUTION_ID, executionId));
+  }
+
+  private static TaskStatus failureStatus(final Throwable error) {
+    return error instanceof QueueTimeoutException || error instanceof ExecutionTimeoutException
+        ? TaskStatus.TIMED_OUT
+        : TaskStatus.FAILURE;
   }
 }

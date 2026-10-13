@@ -6,6 +6,7 @@ import com.infenia.yukta.message.Message;
 import com.infenia.yukta.model.workflow.NodePolicy;
 import com.infenia.yukta.model.workflow.WorkflowNode;
 import com.infenia.yukta.plugin.core.Plugin;
+import com.infenia.yukta.plugin.core.PluginLogSink;
 import com.infenia.yukta.service.control.ExecutionControl;
 import com.infenia.yukta.service.control.store.ActivePluginRegistry;
 import com.infenia.yukta.service.orchestrator.assembly.AssemblyContext;
@@ -23,6 +24,9 @@ import reactor.core.publisher.Mono;
 @Slf4j
 @UtilityClass
 class StreamAssemblyHelper {
+
+  /** Longest live log line sent in one piece; the tracker accepts 16,384 characters. */
+  private static final int MAX_LIVE_LINE_CHARS = 16_000;
 
   /* default */ static Flux<Message<?>> buildStreamWithContext(
       final WorkflowNode node,
@@ -49,6 +53,7 @@ class StreamAssemblyHelper {
             .executionId(context.executionId())
             .nodeId(node.nodeId())
             .heartbeat(activity::touch)
+            .logSink(liveLogSink(tracker, context.executionId(), node.nodeId(), activity))
             .payload(context.payload());
 
     Flux<Message<?>> built =
@@ -76,6 +81,33 @@ class StreamAssemblyHelper {
                     .addKeyValue("executionId", context.executionId())
                     .setCause(error)
                     .log("Stream assembly failed for node"));
+  }
+
+  /**
+   * Build the sink a plugin writes live log lines to. Each line goes to the execution log whole;
+   * one longer than the tracker accepts is split rather than cut. A line also counts as activity,
+   * so a node that is quietly producing output is not idle.
+   */
+  private static PluginLogSink liveLogSink(
+      final TaskTrackerService tracker,
+      final String executionId,
+      final String nodeId,
+      final NodeActivity activity) {
+    return (stream, line) -> {
+      activity.touch();
+      activity.markLoggedLive();
+      // The tracker rejects blank lines.
+      if (line == null || line.isBlank()) {
+        return;
+      }
+      for (int from = 0; from < line.length(); from += MAX_LIVE_LINE_CHARS) {
+        tracker.emitLogEvent(
+            executionId,
+            nodeId,
+            line.substring(from, Math.min(line.length(), from + MAX_LIVE_LINE_CHARS)),
+            "stderr".equals(stream));
+      }
+    };
   }
 
   /**

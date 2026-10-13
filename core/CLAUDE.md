@@ -259,7 +259,20 @@ streaming side as part of `check`.
 Node spans are opened only for a status the run state accepted, so a late `RUNNING` for an ended
 node leaves no open span. `resume` reads the log and checkpoint files on `boundedElastic`.
 
+### Execution results
+`ExecutionResultService` (`service/result`) records what reaches every terminal node of every run
+(`TerminalNodeAssemblerStrategy` publishes each input message, a `NODE_END` per terminal;
+`WorkflowOrchestrator` publishes `EXECUTION_END` and completes the stream). It is a separate
+channel from logs: payloads are kept whole (not cut to 2,048 characters) and are typed. The live
+stream is complete; only the replay buffer is bounded (`yukta.results.retained-events`, default 1000
+per run; `yukta.results.retention` 1h after last use; `yukta.results.max-executions` 200) and the
+end events carry `truncated` when it dropped anything. Clients: REST `GET
+/api/sessions/{s}/executions/{e}/results` (SSE, or JSON with `Accept: application/json` and
+`afterCursor`), MCP `get_execution_result`, CLI `yukta result`, and the RESULT block of the UI
+progress panel. Results are in memory only; they are gone after a restart.
+
 ### Tracker queue
+A plugin can write log lines while it runs through the `PluginLogSink` in the Reactor context (see plugin-api). Those lines reach the log feed, the stores and `GET .../logs` (SSE) as they are written, with their stdout/stderr label (`emitLogEvent(..., stderr)`). A node that did so (`NodeActivity.hasLoggedLive`) is not echoed again from its output message; other nodes still log that message cut to 2,048 characters. `PROCESS_EXECUTOR` streams every line, so its `maxOutputLines`/`maxOutputBytes` limit only the output kept in its result message. MCP `get_execution_logs` takes `afterCursor` (the previous call's `nextCursor`) to read only new lines.
 State and workflow events are never dropped: they go to an unbounded queue. Log lines are best
 effort: more than 10000 waiting are dropped and counted in `yukta.tracker.dropped{type=log}`
 (`type=state` counts events lost because the tracker itself had ended). Use `SinkEmit.offer`, not
