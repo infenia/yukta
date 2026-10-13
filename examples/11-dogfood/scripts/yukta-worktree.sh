@@ -37,26 +37,29 @@ fi
 
 # The ui build needs the node/pnpm toolchain it downloaded into ui/.gradle; reuse it instead of
 # failing in a fresh worktree.
-if [[ -d "$REPO_ROOT/ui/.gradle" && ! -d "$wt/ui/.gradle" ]]; then
-  cp -r --reflink=auto "$REPO_ROOT/ui/.gradle" "$wt/ui/.gradle"
-fi
+#
+# REPO_ROOT may itself be a fresh worktree without the toolchain, so also try the main checkout
+# (the parent of the common git dir). Copy each entry that is missing: that works when the
+# destination already exists (a failed earlier build leaves a partial one) and never nests
+# ui/.gradle/.gradle.
+main_root="$(dirname "$(git -C "$REPO_ROOT" rev-parse --path-format=absolute --git-common-dir)")"
+for src in "$REPO_ROOT/ui/.gradle" "$main_root/ui/.gradle"; do
+  if [[ -d "$src/pnpm" ]]; then
+    mkdir -p "$wt/ui/.gradle"
+    for d in "$src"/*; do
+      [[ -e "$wt/ui/.gradle/${d##*/}" ]] || cp -r --reflink=auto "$d" "$wt/ui/.gradle/"
+    done
+    break
+  fi
+done
 
-# First free port from 9101 upward.
-port=9101
-while (exec 3<>"/dev/tcp/127.0.0.1/$port") 2>/dev/null; do port=$((port + 1)); done
-
+port="$(free_port)"
 url="http://localhost:$port"
-log="$STATE_DIR/$name.log"
-# Own session/process group (setsid) so yukta-stop.sh can stop the Gradle wrapper and the JVM
-# together. The shell records its own pid, then execs Gradle, so the pid is the group leader.
-(
-  cd "$wt"
-  export SERVER_PORT="$port" YUKTA_SESSION_BASE_DIR="$wt/.yukta" \
-    YUKTA_SESSION_EXECUTION_TIMEOUT_SECONDS=14400
-  setsid bash -c 'echo $$ >"$1"; exec ./gradlew bootRun -q --console=plain' _ \
-    "$STATE_DIR/$name.pid" >"$log" 2>&1 </dev/null &
-)
-for _ in 1 2 3 4 5; do [[ -s "$STATE_DIR/$name.pid" ]] && break; sleep 1; done
+# launch_server gives the server its own process group, so yukta-stop.sh stops the Gradle wrapper
+# and the JVM together.
+export SERVER_PORT="$port" YUKTA_SESSION_BASE_DIR="$wt/.yukta" \
+  YUKTA_SESSION_EXECUTION_TIMEOUT_SECONDS=14400
+launch_server "$name" "$wt" ./gradlew bootRun -q --console=plain
 
 cat >"$STATE_DIR/$name.env" <<ENV
 YUKTA_DEV_NAME=$name
@@ -66,14 +69,4 @@ YUKTA_SERVER_URL=$url
 ENV
 cp "$STATE_DIR/$name.env" "$STATE_DIR/current.env"
 
-echo "waiting for Yukta at $url (log: $log) ..."
-timeout_s="${YUKTA_STARTUP_TIMEOUT:-120}"
-for _ in $(seq 1 $((timeout_s / 2))); do
-  kill -0 "$(cat "$STATE_DIR/$name.pid")" 2>/dev/null || die "server exited early; see $log"
-  if curl -fsS "$url/actuator/health" >/dev/null 2>&1; then
-    echo "ready: export YUKTA_SERVER_URL=$url"
-    exit 0
-  fi
-  sleep 2
-done
-die "server did not become healthy in ${timeout_s}s; see $log"
+wait_healthy "$name" "$url" "${YUKTA_STARTUP_TIMEOUT:-120}"

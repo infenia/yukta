@@ -19,7 +19,6 @@ for a in "$@"; do
   esac
 done
 
-pidfile="$STATE_DIR/$name.pid"
 envfile="$STATE_DIR/$name.env"
 [[ -f "$envfile" ]] || die "no state for '$name' in $STATE_DIR"
 # shellcheck disable=SC1090
@@ -38,24 +37,7 @@ if (( ! keep && ! force )) && [[ -d "$wt" ]]; then
     || die "$branch has commits not in $base; merge or push them, or use --force"
 fi
 
-if [[ -f "$pidfile" ]]; then
-  pid="$(cat "$pidfile")"
-  # The server runs in its own process group (see yukta-worktree.sh): stop the whole group.
-  if [[ "$pid" =~ ^[0-9]+$ ]] && kill -0 -- "-$pid" 2>/dev/null; then
-    kill -TERM -- "-$pid" 2>/dev/null || true
-    for _ in $(seq 1 20); do
-      kill -0 -- "-$pid" 2>/dev/null || break
-      sleep 1
-    done
-    kill -KILL -- "-$pid" 2>/dev/null || true
-  elif [[ "$pid" =~ ^[0-9]+$ ]] && kill -0 "$pid" 2>/dev/null; then
-    # Started by an older version of the script (no own group): stop the process and its children.
-    pkill -TERM -P "$pid" 2>/dev/null || true
-    kill -TERM "$pid" 2>/dev/null || true
-    sleep 5
-  fi
-  rm -f "$pidfile"
-fi
+stop_server "$name"
 
 if (( ! keep )); then
   git -C "$REPO_ROOT" worktree remove --force "$wt" 2>/dev/null || true
@@ -63,8 +45,5 @@ if (( ! keep )); then
   git -C "$REPO_ROOT" worktree prune
   git -C "$REPO_ROOT" branch -D "$branch" 2>/dev/null || true
 fi
-rm -f "$envfile"
-if [[ "$(grep -s YUKTA_DEV_NAME "$STATE_DIR/current.env")" == "YUKTA_DEV_NAME=$name" ]]; then
-  rm -f "$STATE_DIR/current.env"
-fi
+forget_server "$name"
 echo "stopped $name"
