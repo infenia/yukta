@@ -2,7 +2,6 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.service.control.gateway;
 
-import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
 import com.infenia.yukta.model.execution.TaskProgress;
 import com.infenia.yukta.model.execution.TaskStatus;
@@ -10,26 +9,14 @@ import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
 import com.infenia.yukta.model.execution.WorkflowProgress;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand;
-import com.infenia.yukta.plugin.control.ExecutionControlCommand.DisableStepModeCommand;
-import com.infenia.yukta.plugin.control.ExecutionControlCommand.EnableStepModeCommand;
-import com.infenia.yukta.plugin.control.ExecutionControlCommand.PauseNodeCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.PauseWorkflowCommand;
-import com.infenia.yukta.plugin.control.ExecutionControlCommand.RestartCommand;
-import com.infenia.yukta.plugin.control.ExecutionControlCommand.RestartFromNodeCommand;
-import com.infenia.yukta.plugin.control.ExecutionControlCommand.ResumeNodeCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.ResumeWorkflowCommand;
-import com.infenia.yukta.plugin.control.ExecutionControlCommand.SetBreakpointCommand;
-import com.infenia.yukta.plugin.control.ExecutionControlCommand.SignalNodeCommand;
-import com.infenia.yukta.plugin.control.ExecutionControlCommand.SkipNodeCommand;
-import com.infenia.yukta.plugin.control.ExecutionControlCommand.StepNodeCommand;
-import com.infenia.yukta.plugin.control.ExecutionControlCommand.StopNodeCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.StopWorkflowCommand;
 import com.infenia.yukta.plugin.control.StopMode;
 import com.infenia.yukta.plugin.core.Plugin;
 import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.archive.ExecutionArchive;
 import com.infenia.yukta.service.control.ControlBusService;
-import com.infenia.yukta.service.control.ExecutionControl;
 import com.infenia.yukta.service.control.ExecutionScheduler;
 import com.infenia.yukta.service.control.store.ExecutionControlRegistry;
 import com.infenia.yukta.service.log.ExecutionLogEvent;
@@ -39,17 +26,13 @@ import com.infenia.yukta.service.orchestrator.tracker.DefaultTaskTrackerService;
 import com.infenia.yukta.service.workflow.store.PreparedWorkflowCache;
 import com.infenia.yukta.service.workflow.store.WorkflowDefinitionStore;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
-import java.time.Duration;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
-import reactor.core.publisher.Sinks;
 
 /**
  * Default implementation of the {@link ControlBusGateway}.
@@ -68,17 +51,17 @@ import reactor.core.publisher.Sinks;
 })
 public class DefaultControlBusGateway implements ControlBusGateway, RestartCompletionSink {
 
-  /** Source identifier for control bus operations. */
-  private static final String CONTROL_BUS_SOURCE = "CONTROL_BUS";
+  /** What the command-sending parts share. */
+  private final ControlDispatch dispatch;
 
-  /** Priority level for control commands. */
-  private static final int CONTROL_COMMAND_PRIORITY = 100;
+  /** Commands for one node of a live run. */
+  private final NodeCommands nodes;
 
-  /** Timeout for awaiting a restart's real outcome from its command processor. */
-  private static final Duration RESTART_TIMEOUT = Duration.ofSeconds(30);
+  /** Restarts of runs. */
+  private final RestartCoordinator restarts;
 
-  /** Pending restart completions, keyed by the pre-generated new execution ID. */
-  private final Map<String, Sinks.One<String>> pendingRestarts = new ConcurrentHashMap<>();
+  /** Read-only views of executions and node state. */
+  private final ExecutionQueries queries;
 
   /** The control bus service for low-level plugin and message operations. */
   private final ControlBusService controlBusService;
@@ -134,6 +117,10 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
     this.executionArchive = executionArchive;
     this.executionScheduler = executionScheduler;
     this.executionLog = executionLog;
+    this.dispatch = new ControlDispatch(this, executionControlRegistry);
+    this.nodes = new NodeCommands(this, executionControlRegistry);
+    this.restarts = new RestartCoordinator(this, executionControlRegistry, executionArchive);
+    this.queries = new ExecutionQueries(taskTracker, controlBusService);
     this.starter =
         new WorkflowStarter(
             workflowDefinitionStore,
@@ -141,14 +128,6 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
             orchestrator,
             executionScheduler,
             startIdempotency);
-  }
-
-  private <T extends ExecutionControlCommand> Message<T> buildCommand(
-      final T command, final int priority) {
-    return DefaultMessage.create(null, command)
-        .withSourceNodeId(CONTROL_BUS_SOURCE)
-        .withPriority(priority)
-        .withControl(true);
   }
 
   // --- Plugin & Message Management ---
@@ -284,19 +263,15 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
     return emit(command);
   }
 
-  private ExecutionControl findExecutionOrThrow(final String executionId) {
-    return executionControlRegistry
-        .findByExecutionId(executionId)
-        .orElseThrow(() -> new NotFoundException("Execution not found: " + executionId));
-  }
-
   @Override
   public Mono<Void> pauseWorkflow(final String executionId) {
-    return Mono.fromSupplier(() -> findExecutionOrThrow(executionId))
+    return Mono.fromSupplier(() -> dispatch.findExecutionOrThrow(executionId))
         .flatMap(
             control ->
                 executeCommand(
-                    buildCommand(new PauseWorkflowCommand(executionId), CONTROL_COMMAND_PRIORITY)))
+                    ControlDispatch.buildCommand(
+                        new PauseWorkflowCommand(executionId),
+                        ControlDispatch.CONTROL_COMMAND_PRIORITY)))
         .doOnSubscribe(
             _ -> log.atInfo().addKeyValue("executionId", executionId).log("Pausing workflow"))
         .doOnSuccess(
@@ -314,11 +289,13 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
 
   @Override
   public Mono<Void> resumeWorkflow(final String executionId) {
-    return Mono.fromSupplier(() -> findExecutionOrThrow(executionId))
+    return Mono.fromSupplier(() -> dispatch.findExecutionOrThrow(executionId))
         .flatMap(
             control ->
                 executeCommand(
-                    buildCommand(new ResumeWorkflowCommand(executionId), CONTROL_COMMAND_PRIORITY)))
+                    ControlDispatch.buildCommand(
+                        new ResumeWorkflowCommand(executionId),
+                        ControlDispatch.CONTROL_COMMAND_PRIORITY)))
         .doOnSubscribe(
             _ -> log.atInfo().addKeyValue("executionId", executionId).log("Resuming workflow"))
         .doOnSuccess(
@@ -332,93 +309,6 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
                     .setCause(err)
                     .addKeyValue("executionId", executionId)
                     .log("Failed to resume workflow"));
-  }
-
-  @Override
-  public Mono<Void> pauseNode(final String executionId, final String nodeId) {
-    return Mono.fromSupplier(() -> requireNodeControl(executionId, nodeId))
-        .flatMap(
-            control ->
-                executeCommand(
-                    buildCommand(
-                        new PauseNodeCommand(executionId, nodeId), CONTROL_COMMAND_PRIORITY)))
-        .doOnSubscribe(
-            _ ->
-                log.atInfo()
-                    .addKeyValue("executionId", executionId)
-                    .addKeyValue("nodeId", nodeId)
-                    .log("Pausing node"))
-        .doOnSuccess(
-            _ -> log.atDebug().addKeyValue("nodeId", nodeId).log("Node pause command executed"))
-        .doOnError(
-            err ->
-                log.atError()
-                    .setCause(err)
-                    .addKeyValue("executionId", executionId)
-                    .addKeyValue("nodeId", nodeId)
-                    .log("Failed to pause node"));
-  }
-
-  @Override
-  public Mono<Void> resumeNode(final String executionId, final String nodeId) {
-    return Mono.fromSupplier(() -> requireNodeControl(executionId, nodeId))
-        .flatMap(
-            control ->
-                executeCommand(
-                    buildCommand(
-                        new ResumeNodeCommand(executionId, nodeId), CONTROL_COMMAND_PRIORITY)))
-        .doOnSubscribe(
-            _ ->
-                log.atInfo()
-                    .addKeyValue("executionId", executionId)
-                    .addKeyValue("nodeId", nodeId)
-                    .log("Resuming node"))
-        .doOnSuccess(
-            _ -> log.atDebug().addKeyValue("nodeId", nodeId).log("Node resume command executed"))
-        .doOnError(
-            err ->
-                log.atError()
-                    .setCause(err)
-                    .addKeyValue("executionId", executionId)
-                    .addKeyValue("nodeId", nodeId)
-                    .log("Failed to resume node"));
-  }
-
-  private ExecutionControl requireNodeControl(final String executionId, final String nodeId) {
-    final ExecutionControl control = findExecutionOrThrow(executionId);
-    if (!control.nodePauseValves().containsKey(nodeId)) {
-      throw new NotFoundException("Node not found: " + nodeId);
-    }
-    return control;
-  }
-
-  @Override
-  public Mono<Void> stopNode(
-      final String executionId, final String nodeId, final boolean immediate, final String reason) {
-    return Mono.fromSupplier(() -> requireNodeControl(executionId, nodeId))
-        .flatMap(
-            control ->
-                executeCommand(
-                    buildCommand(
-                        new StopNodeCommand(executionId, nodeId, immediate, reason),
-                        CONTROL_COMMAND_PRIORITY + 10)))
-        .doOnSubscribe(
-            _ ->
-                log.atInfo()
-                    .addKeyValue("executionId", executionId)
-                    .addKeyValue("nodeId", nodeId)
-                    .addKeyValue("immediate", immediate)
-                    .addKeyValue("reason", reason)
-                    .log("Stopping node"))
-        .doOnSuccess(
-            _ -> log.atDebug().addKeyValue("nodeId", nodeId).log("Node stop command executed"))
-        .doOnError(
-            err ->
-                log.atError()
-                    .setCause(err)
-                    .addKeyValue("executionId", executionId)
-                    .addKeyValue("nodeId", nodeId)
-                    .log("Failed to stop node"));
   }
 
   @Override
@@ -443,10 +333,10 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
                     .flatMap(
                         control ->
                             executeCommand(
-                                    buildCommand(
+                                    ControlDispatch.buildCommand(
                                         new StopWorkflowCommand(
                                             control.executionId(), reason, mode),
-                                        CONTROL_COMMAND_PRIORITY + 20))
+                                        ControlDispatch.CONTROL_COMMAND_PRIORITY + 20))
                                 .thenReturn(control.executionId())))
         .collectList()
         .doOnSubscribe(
@@ -475,13 +365,13 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
 
   @Override
   public Mono<String> stopExecution(final String executionId, final String reason) {
-    return Mono.fromSupplier(() -> findExecutionOrThrow(executionId))
+    return Mono.fromSupplier(() -> dispatch.findExecutionOrThrow(executionId))
         .flatMap(
             control ->
                 executeCommand(
-                        buildCommand(
+                        ControlDispatch.buildCommand(
                             new StopWorkflowCommand(control.executionId(), reason),
-                            CONTROL_COMMAND_PRIORITY + 20))
+                            ControlDispatch.CONTROL_COMMAND_PRIORITY + 20))
                     .thenReturn(control.executionId()))
         .doOnSubscribe(
             _ ->
@@ -500,46 +390,6 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
                     .setCause(err)
                     .addKeyValue("executionId", executionId)
                     .log("Failed to stop execution"));
-  }
-
-  @Override
-  @SuppressWarnings("PMD.UseObjectForClearerAPI")
-  public Mono<Void> addBreakpoint(
-      final String executionId, final String nodeId, final String field, final String equalsValue) {
-    return breakpoint(executionId, nodeId, field, equalsValue);
-  }
-
-  @Override
-  @SuppressWarnings("PMD.UseObjectForClearerAPI")
-  public Mono<Void> signalNode(
-      final String executionId,
-      final String nodeId,
-      final String name,
-      final String decision,
-      final String data) {
-    return Mono.fromSupplier(() -> requireNodeControl(executionId, nodeId))
-        .flatMap(
-            control ->
-                executeCommand(
-                    buildCommand(
-                        new SignalNodeCommand(executionId, nodeId, name, decision, data),
-                        CONTROL_COMMAND_PRIORITY)));
-  }
-
-  @Override
-  public Mono<Void> clearBreakpoint(final String executionId, final String nodeId) {
-    return breakpoint(executionId, nodeId, null, null);
-  }
-
-  private Mono<Void> breakpoint(
-      final String executionId, final String nodeId, final String field, final String equalsValue) {
-    return Mono.fromSupplier(() -> requireNodeControl(executionId, nodeId))
-        .flatMap(
-            control ->
-                executeCommand(
-                    buildCommand(
-                        new SetBreakpointCommand(executionId, nodeId, field, equalsValue),
-                        CONTROL_COMMAND_PRIORITY)));
   }
 
   @Override
@@ -609,383 +459,133 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
   }
 
   @Override
+  public Mono<Void> pauseNode(final String executionId, final String nodeId) {
+    return nodes.pauseNode(executionId, nodeId);
+  }
+
+  @Override
+  public Mono<Void> resumeNode(final String executionId, final String nodeId) {
+    return nodes.resumeNode(executionId, nodeId);
+  }
+
+  @Override
+  public Mono<Void> stopNode(
+      final String executionId, final String nodeId, final boolean immediate, final String reason) {
+    return nodes.stopNode(executionId, nodeId, immediate, reason);
+  }
+
+  @Override
+  @SuppressWarnings("PMD.UseObjectForClearerAPI")
+  public Mono<Void> addBreakpoint(
+      final String executionId, final String nodeId, final String field, final String equalsValue) {
+    return nodes.addBreakpoint(executionId, nodeId, field, equalsValue);
+  }
+
+  @Override
+  @SuppressWarnings("PMD.UseObjectForClearerAPI")
+  public Mono<Void> signalNode(
+      final String executionId,
+      final String nodeId,
+      final String name,
+      final String decision,
+      final String data) {
+    return nodes.signalNode(executionId, nodeId, name, decision, data);
+  }
+
+  @Override
+  public Mono<Void> clearBreakpoint(final String executionId, final String nodeId) {
+    return nodes.clearBreakpoint(executionId, nodeId);
+  }
+
+  @Override
   public Mono<Void> skipNode(final String executionId, final String nodeId, final boolean skip) {
-    return Mono.fromSupplier(() -> requireNodeControl(executionId, nodeId))
-        .flatMap(
-            control ->
-                executeCommand(
-                    buildCommand(
-                        new SkipNodeCommand(executionId, nodeId, skip), CONTROL_COMMAND_PRIORITY)))
-        .doOnSubscribe(
-            _ ->
-                log.atInfo()
-                    .addKeyValue("executionId", executionId)
-                    .addKeyValue("nodeId", nodeId)
-                    .addKeyValue("skip", skip)
-                    .log("Toggling node skip"))
-        .doOnSuccess(
-            _ ->
-                log.atDebug()
-                    .addKeyValue("nodeId", nodeId)
-                    .addKeyValue("skip", skip)
-                    .log("Node skip command executed"))
-        .doOnError(
-            err ->
-                log.atError()
-                    .setCause(err)
-                    .addKeyValue("executionId", executionId)
-                    .addKeyValue("nodeId", nodeId)
-                    .log("Failed to skip node"));
+    return nodes.skipNode(executionId, nodeId, skip);
   }
 
   @Override
   public Mono<Void> enableStepMode(final String executionId, final String nodeId) {
-    return Mono.fromSupplier(() -> requireNodeControl(executionId, nodeId))
-        .flatMap(
-            control ->
-                executeCommand(
-                    buildCommand(
-                        new EnableStepModeCommand(executionId, nodeId), CONTROL_COMMAND_PRIORITY)))
-        .doOnSubscribe(
-            _ ->
-                log.atInfo()
-                    .addKeyValue("executionId", executionId)
-                    .addKeyValue("nodeId", nodeId)
-                    .log("Enabling step mode"))
-        .doOnSuccess(_ -> log.atDebug().addKeyValue("nodeId", nodeId).log("Step mode enabled"))
-        .doOnError(
-            err ->
-                log.atError()
-                    .setCause(err)
-                    .addKeyValue("executionId", executionId)
-                    .addKeyValue("nodeId", nodeId)
-                    .log("Failed to enable step mode"));
+    return nodes.enableStepMode(executionId, nodeId);
   }
 
   @Override
   public Mono<Void> disableStepMode(final String executionId, final String nodeId) {
-    return Mono.fromSupplier(() -> requireNodeControl(executionId, nodeId))
-        .flatMap(
-            control ->
-                executeCommand(
-                    buildCommand(
-                        new DisableStepModeCommand(executionId, nodeId), CONTROL_COMMAND_PRIORITY)))
-        .doOnSubscribe(
-            _ ->
-                log.atInfo()
-                    .addKeyValue("executionId", executionId)
-                    .addKeyValue("nodeId", nodeId)
-                    .log("Disabling step mode"))
-        .doOnSuccess(_ -> log.atDebug().addKeyValue("nodeId", nodeId).log("Step mode disabled"))
-        .doOnError(
-            err ->
-                log.atError()
-                    .setCause(err)
-                    .addKeyValue("executionId", executionId)
-                    .addKeyValue("nodeId", nodeId)
-                    .log("Failed to disable step mode"));
+    return nodes.disableStepMode(executionId, nodeId);
   }
 
   @Override
   public Mono<Void> stepNode(final String executionId, final String nodeId) {
-    return Mono.fromSupplier(() -> requireNodeControl(executionId, nodeId))
-        .flatMap(
-            control ->
-                executeCommand(
-                    buildCommand(
-                        new StepNodeCommand(executionId, nodeId), CONTROL_COMMAND_PRIORITY)))
-        .doOnSubscribe(
-            _ ->
-                log.atInfo()
-                    .addKeyValue("executionId", executionId)
-                    .addKeyValue("nodeId", nodeId)
-                    .log("Stepping through node"))
-        .doOnSuccess(
-            _ -> log.atDebug().addKeyValue("nodeId", nodeId).log("Node step command executed"))
-        .doOnError(
-            err ->
-                log.atError()
-                    .setCause(err)
-                    .addKeyValue("executionId", executionId)
-                    .addKeyValue("nodeId", nodeId)
-                    .log("Failed to step node"));
+    return nodes.stepNode(executionId, nodeId);
   }
 
   @Override
   public Mono<String> restartWorkflow(final String executionId) {
-    return awaitRestart(
-        executionId,
-        newId -> new RestartCommand(executionId, newId),
-        newExecutionId ->
-            log.atInfo()
-                .addKeyValue("executionId", executionId)
-                .addKeyValue("newExecutionId", newExecutionId)
-                .log("Restarting workflow"),
-        newId ->
-            log.atInfo()
-                .addKeyValue("oldExecutionId", executionId)
-                .addKeyValue("newExecutionId", newId)
-                .log("Workflow restarted successfully"),
-        err ->
-            log.atError()
-                .setCause(err)
-                .addKeyValue("executionId", executionId)
-                .log("Failed to restart workflow"));
+    return restarts.restartWorkflow(executionId);
   }
 
   @Override
   public Mono<String> restartFromNode(final String executionId, final String fromNodeId) {
-    return awaitRestart(
-        executionId,
-        newId -> new RestartFromNodeCommand(executionId, fromNodeId, newId),
-        newExecutionId ->
-            log.atInfo()
-                .addKeyValue("executionId", executionId)
-                .addKeyValue("fromNodeId", fromNodeId)
-                .addKeyValue("newExecutionId", newExecutionId)
-                .log("Restarting workflow from node"),
-        newId ->
-            log.atInfo()
-                .addKeyValue("oldExecutionId", executionId)
-                .addKeyValue("fromNodeId", fromNodeId)
-                .addKeyValue("newExecutionId", newId)
-                .log("Workflow restarted from node successfully"),
-        err ->
-            log.atError()
-                .setCause(err)
-                .addKeyValue("executionId", executionId)
-                .addKeyValue("fromNodeId", fromNodeId)
-                .log("Failed to restart workflow from node"));
+    return restarts.restartFromNode(executionId, fromNodeId);
   }
-
-  private Mono<String> awaitRestart(
-      final String executionId,
-      final java.util.function.Function<String, ExecutionControlCommand> commandFactory,
-      final java.util.function.Consumer<String> onSubscribeLogger,
-      final java.util.function.Consumer<String> onSuccessLogger,
-      final java.util.function.Consumer<Throwable> onErrorLogger) {
-    return Mono.defer(
-            () -> {
-              if (executionArchive.find(executionId).isEmpty()) {
-                findExecutionOrThrow(executionId);
-              }
-              final String newExecutionId = UUID.randomUUID().toString();
-              final Sinks.One<String> sink = Sinks.one();
-              pendingRestarts.put(newExecutionId, sink);
-              return executeCommand(
-                      buildCommand(
-                          commandFactory.apply(newExecutionId), CONTROL_COMMAND_PRIORITY + 20))
-                  .doOnSubscribe(_ -> onSubscribeLogger.accept(newExecutionId))
-                  .then(sink.asMono())
-                  .timeout(RESTART_TIMEOUT)
-                  .doFinally(_ -> pendingRestarts.remove(newExecutionId));
-            })
-        .doOnSuccess(onSuccessLogger)
-        .doOnError(onErrorLogger);
-  }
-
-  @Override
-  public void completeRestartSuccess(final String newExecutionId) {
-    final Sinks.One<String> sink = pendingRestarts.remove(newExecutionId);
-    if (sink == null) {
-      log.atDebug()
-          .addKeyValue("newExecutionId", newExecutionId)
-          .log("Restart completion arrived after caller already timed out");
-      return;
-    }
-    sink.tryEmitValue(newExecutionId);
-  }
-
-  @Override
-  public void completeRestartFailure(final String newExecutionId, final Throwable error) {
-    final Sinks.One<String> sink = pendingRestarts.remove(newExecutionId);
-    if (sink == null) {
-      log.atDebug()
-          .addKeyValue("newExecutionId", newExecutionId)
-          .log("Restart failure arrived after caller already timed out");
-      return;
-    }
-    sink.tryEmitError(error);
-  }
-
-  // --- Observability ---
 
   @Override
   public Flux<WorkflowProgress> watchExecution(
       final String executionId, final boolean includeHistory) {
-    log.atDebug()
-        .addKeyValue("executionId", executionId)
-        .addKeyValue("includeHistory", includeHistory)
-        .log("Starting to watch workflow execution");
-    return taskTracker
-        .getStatusStream(executionId, includeHistory)
-        .doOnSubscribe(
-            _ ->
-                log.atDebug()
-                    .addKeyValue("executionId", executionId)
-                    .log("Subscribed to execution status stream"))
-        .doOnNext(
-            progress ->
-                log.atTrace()
-                    .addKeyValue("executionId", executionId)
-                    .addKeyValue("status", progress.status())
-                    .addKeyValue("taskCount", progress.tasks().size())
-                    .log("Received execution progress update"))
-        .doOnError(
-            err ->
-                log.atError()
-                    .setCause(err)
-                    .addKeyValue("executionId", executionId)
-                    .log("Stream error"))
-        .doOnComplete(
-            () -> log.atInfo().addKeyValue("executionId", executionId).log("Stream completed"));
+    return queries.watchExecution(executionId, includeHistory);
   }
 
   @Override
   public Flux<String> watchLogs(final String sessionId, final String executionId) {
-    log.atDebug()
-        .addKeyValue("sessionId", sessionId)
-        .addKeyValue("executionId", executionId)
-        .log("Starting to watch execution logs");
-    return taskTracker
-        .getLogStream(executionId)
-        .doOnSubscribe(
-            _ ->
-                log.atDebug()
-                    .addKeyValue("sessionId", sessionId)
-                    .addKeyValue("executionId", executionId)
-                    .log("Subscribed to log stream"))
-        .doOnNext(
-            logLine ->
-                log.atTrace()
-                    .addKeyValue("sessionId", sessionId)
-                    .addKeyValue("executionId", executionId)
-                    .log(logLine))
-        .doOnError(
-            err ->
-                log.atError()
-                    .setCause(err)
-                    .addKeyValue("sessionId", sessionId)
-                    .addKeyValue("executionId", executionId)
-                    .log("Log stream error"));
+    return queries.watchLogs(sessionId, executionId);
   }
 
   @Override
   public WorkflowProgress getProgress(final String sessionId, final String executionId) {
-    return taskTracker.getProgress(sessionId, executionId);
+    return queries.getProgress(sessionId, executionId);
   }
 
   @Override
   public WorkflowProgress getCurrentProgress(final String executionId) {
-    log.atDebug()
-        .addKeyValue("executionId", executionId)
-        .log("Fetching current execution progress");
-    final WorkflowProgress progress = taskTracker.getProgressByExecutionId(executionId);
-    if (progress != null) {
-      log.atDebug()
-          .addKeyValue("executionId", executionId)
-          .addKeyValue("status", progress.status())
-          .addKeyValue("taskCount", progress.tasks().size())
-          .log("Current progress retrieved");
-    } else {
-      log.atWarn().addKeyValue("executionId", executionId).log("No progress found for execution");
-    }
-    return progress;
+    return queries.getCurrentProgress(executionId);
   }
 
   @Override
   public Mono<List<WorkflowExecutionSummary>> getHistory(final String sessionId) {
-    log.atDebug().addKeyValue("sessionId", sessionId).log("Fetching execution history");
-    return taskTracker
-        .getHistory(sessionId)
-        .doOnNext(
-            history ->
-                log.atDebug()
-                    .addKeyValue("sessionId", sessionId)
-                    .addKeyValue("executionCount", history.size())
-                    .log("Execution history retrieved"));
+    return queries.getHistory(sessionId);
   }
 
   @Override
   public Mono<List<WorkflowExecutionSummary>> getHistory(
       final String sessionId, final String workflowId) {
-    log.atDebug()
-        .addKeyValue("sessionId", sessionId)
-        .addKeyValue("workflowId", workflowId)
-        .log("Fetching workflow execution history");
-    return taskTracker
-        .getHistory(sessionId, workflowId)
-        .doOnNext(
-            history ->
-                log.atDebug()
-                    .addKeyValue("sessionId", sessionId)
-                    .addKeyValue("workflowId", workflowId)
-                    .addKeyValue("executionCount", history.size())
-                    .log("Workflow execution history retrieved"));
+    return queries.getHistory(sessionId, workflowId);
   }
-
-  // --- State Queries ---
 
   @Override
   public Message<?> getLastHeartbeat(final String workflowId, final String nodeId) {
-    log.atDebug()
-        .addKeyValue("workflowId", workflowId)
-        .addKeyValue("nodeId", nodeId)
-        .log("Fetching last heartbeat");
-    final Message<?> heartbeat = controlBusService.getLastHeartbeat(workflowId, nodeId);
-    if (heartbeat != null) {
-      log.atTrace()
-          .addKeyValue("workflowId", workflowId)
-          .addKeyValue("nodeId", nodeId)
-          .log("Last heartbeat found");
-    } else {
-      log.atDebug()
-          .addKeyValue("workflowId", workflowId)
-          .addKeyValue("nodeId", nodeId)
-          .log("No heartbeat found");
-    }
-    return heartbeat;
+    return queries.getLastHeartbeat(workflowId, nodeId);
   }
 
   @Override
   public Message<?> getLastStatistics(final String workflowId, final String nodeId) {
-    log.atDebug()
-        .addKeyValue("workflowId", workflowId)
-        .addKeyValue("nodeId", nodeId)
-        .log("Fetching last statistics");
-    final Message<?> statistics = controlBusService.getLastStatistics(workflowId, nodeId);
-    if (statistics != null) {
-      log.atTrace()
-          .addKeyValue("workflowId", workflowId)
-          .addKeyValue("nodeId", nodeId)
-          .log("Last statistics found");
-    } else {
-      log.atDebug()
-          .addKeyValue("workflowId", workflowId)
-          .addKeyValue("nodeId", nodeId)
-          .log("No statistics found");
-    }
-    return statistics;
+    return queries.getLastStatistics(workflowId, nodeId);
   }
 
   @Override
   public List<String> getActiveNodes(final String workflowId) {
-    log.atDebug().addKeyValue("workflowId", workflowId).log("Fetching active nodes for workflow");
-    final List<String> activeNodes = controlBusService.getActiveNodes(workflowId);
-    log.atDebug()
-        .addKeyValue("workflowId", workflowId)
-        .addKeyValue("activeNodeCount", activeNodes.size())
-        .log("Active nodes retrieved");
-    return activeNodes;
+    return queries.getActiveNodes(workflowId);
   }
 
   @Override
   public List<String> getActiveNodes() {
-    log.atDebug().log("Fetching all active nodes");
-    final List<String> allActiveNodes = controlBusService.getActiveNodes();
-    log.atDebug()
-        .addKeyValue("totalActiveNodes", allActiveNodes.size())
-        .log("All active nodes retrieved");
-    return allActiveNodes;
+    return queries.getActiveNodes();
+  }
+
+  @Override
+  public void completeRestartSuccess(final String newExecutionId) {
+    restarts.completeRestartSuccess(newExecutionId);
+  }
+
+  @Override
+  public void completeRestartFailure(final String newExecutionId, final Throwable error) {
+    restarts.completeRestartFailure(newExecutionId, error);
   }
 }

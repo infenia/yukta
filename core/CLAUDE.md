@@ -25,7 +25,9 @@ All service logic uses **Project Reactor** (`Mono`, `Flux`).
   `WorkflowState`, the spans and meters in `RunTelemetry`, applying queued events in
   `TrackerEventApplier`, the live log and status streams in `ExecutionStreams` and the remembered
   finished runs in `ExecutionHistory`. `DefaultControlBusGateway` delegates
-  starting (admission, shared prepare, idempotency) to `WorkflowStarter`.
+  starting (admission, shared prepare, idempotency) to `WorkflowStarter`. It also delegates node commands to
+  `NodeCommands`, restarts to `RestartCoordinator` and read-only views to `ExecutionQueries`
+  (`ControlDispatch` is their shared base).
 - `com.infenia.yukta.service.plugin.PluginRegistry`: Plugin registration.
 - Executes a Directed Acyclic Graph (DAG) of nodes and edges.
 
