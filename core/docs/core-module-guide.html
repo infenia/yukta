@@ -216,6 +216,7 @@ control:["The control room's switchboard. Every instruction to a live run (pause
 obs:["The dashboard feed. It watches what every node is doing and turns it into live progress, history and metrics.","You cannot operate what you cannot see, and the UI, SSE and MCP clients all need the same consistent, ordered view."],
 dur:["The black-box recorder. It records each run and each node's output so that after a crash you can see what happened and continue from where it stopped.","Long or expensive runs (LLM calls, paid APIs) should not have to start over after a restart."],
 persist:["Where things are physically kept: in memory, in files, or in PostgreSQL. One setting chooses.","Different deployments need different durability, and this keeps the engine independent of the choice."],
+expr:["The mail room and the safe. Placeholders in a step's settings are filled in with real values just before the step runs, and passwords come from the environment, never from the workflow file.","A workflow can be written once and reused with different data, and secrets stay out of stored definitions."],
 sub:["A workflow step that is itself another workflow, like calling a function.","Reuse and composition, and the building block for agents that plan their own steps."]
 },
 intro:{
@@ -301,7 +302,10 @@ gloss:[
 ["MCP","Model Context Protocol: how AI agents call tools; Yukta exposes control through it.","Another client of the same gateway."],
 ["R2DBC and Flyway","Non-blocking database access at run time, and versioned schema migrations.","How PostgreSQL support is built."],
 ["Remote worker","A separate process that runs a node on the control plane's behalf (designed, not built).","The planned scale-out path."],
-["B16, S4, F6 ...","IDs in core/docs/plans/09-backlog.md: B = bug, S = security, F = feature.","Used in the Risks section."]
+["API key and role","A shared secret that guards the REST API (and, separately, MCP). Named keys carry a role: VIEWER reads, OPERATOR steers runs, ADMIN does everything.","The audit shows the key name as the actor."],
+["Host and Origin check","A server-side test of which website name and page a request came from, so a page in the operator's browser cannot drive a local server (CSRF, DNS rebinding).","Absent today; see the security risks."],
+["Expression (${...})","A placeholder in a node's configuration that is filled from the message, the run or the environment just before the node runs.","See Expressions & Secrets."],
+["B16, S4, F6 ...","IDs in core/docs/plans/09-backlog.md and 11-remediation-plan.md: B = bug, S = security, F = feature, R = restart.","Used in the Risks section."]
 ],
 glance:{
  lede:"Core is Yukta's engine and control plane: it takes a workflow definition (a DAG of trigger, processor and terminal nodes), runs it as a live stream of messages, lets people and programs steer it while it runs, and remembers enough to explain or resume it afterwards. This page is for thinking about it, not documenting it: open a component, play a scenario, then challenge the weak spots.",
@@ -311,7 +315,7 @@ glance:{
   ["At-least-once","A node's end is durable, a side effect before it can repeat after a crash. Exactly-once is impossible; plugins de-duplicate on the message id."],
   ["Pluggable durability","Memory by default; files or PostgreSQL by configuration. What survives a restart depends on the profile (see Guarantees)."]
  ],
- start:[["primer","Primer","New here? Start with the problem, the vocabulary and one worked example"],["map","System map","Ten components and how data and commands flow between them"],["map","Replay a run","Seven scenarios: overload, failure, crash, supervisor..."],["guarantees","What survives a crash","Switch deployment profile and watch the table change"],["quality","Stress it","Scalability, performance, availability, security lenses"],["board","Challenge it","28 open risks, an impact x effort grid, your own notes"],["adrs","Decisions","Eight ADRs, each with a 'revisit when' trigger"],["glossary","Glossary","Plain definitions of every term used here"]]
+ start:[["primer","Primer","New here? Start with the problem, the vocabulary and one worked example"],["map","System map","Eleven components and how data and commands flow between them"],["map","Replay a run","Seven scenarios: overload, failure, crash, supervisor..."],["guarantees","What survives a crash","Switch deployment profile and watch the table change"],["quality","Stress it","Scalability, performance, availability, security lenses"],["board","Challenge it","44 open risks, an impact x effort grid, your own notes"],["adrs","Decisions","Eight ADRs, each with a 'revisit when' trigger"],["glossary","Glossary","Plain definitions of every term used here"]]
 },
 comps:[
  {
@@ -333,7 +337,7 @@ comps:[
   "guar": "No run gets an id without a slot, a repeated start with the same key never starts a second run, and every refusal is counted by reason.",
   "state": "The slots and the queue are held in memory. Idempotency keys are saved in the execution log when one is configured. Limits changed at run time are logged but not restored after a restart.",
   "ceil": "One scheduler in one server process. The queue holds 100 starts by default and there are no limits at all until you set some.",
-  "fail": "If the server crashes, queued starts disappear and runs that were running are marked ABORTED on the next boot.",
+  "fail": "If the server crashes, queued starts lose their place in line. With a file or PostgreSQL log their start was already recorded, so they are marked ABORTED on the next boot together with the running ones, and can be recovered.",
   "set": [
    "yukta.execution.max-concurrent / -per-workflow / -per-session",
    "yukta.execution.on-limit (QUEUE|REJECT)",
@@ -345,7 +349,8 @@ comps:[
    "restartRace",
    "limits28",
    "blockStart",
-   "reviewBypass"
+   "reviewBypass",
+   "idemCap"
   ]
  },
  {
@@ -360,7 +365,8 @@ comps:[
    "Definitions are stored per workflow together with the newest 20 versions, so you can roll back. Storage is memory, files or PostgreSQL.",
    "Before a run, a validator checks the graph and refuses it with a message naming the node and the option at fault. It rejects loops, duplicate nodes or edges, connections to an output port the plugin does not have, graphs over 500 nodes or 2000 edges, and badly formed failure policies (for example a retry delay longer than the node's timeout).",
    "The compiler then turns the graph into a runnable form, one assembler per node. The result is cached by the content of the definition. It is kept only if the stored definition has not changed in the meantime, so an old compile can never overwrite a newer edit.",
-   "Each run records a fingerprint (hash) of the graph it used. Progress, history and the log all carry it, so you can always tell which version a run executed."
+   "Each run records a fingerprint (hash) of the graph it used. Progress, history and the log all carry it, so you can always tell which version a run executed.",
+   "Session, workflow, node and path identifiers are checked by Bean Validation annotations at the orchestrator boundary, which checks the shape of an identifier (for example a session id may not contain path separators) before it is used."
   ],
   "guar": "A broken graph is refused before any plugin runs, and a run always keeps the version it started with.",
   "state": "Definitions are durable with the file or PostgreSQL store. The compiled cache lives in memory and is simply rebuilt.",
@@ -417,7 +423,7 @@ comps:[
    "A plugin receives a stream of messages and a context holding the execution id, the node id, a heartbeat function and, for sub-workflows, a result collector. It never sees the engine's own policy options.",
    "A plugin that does long, silent work (say a ten-minute script) calls the heartbeat now and then to tell the engine it is alive; otherwise the idle timeout would fail it. Blocking plugins run on virtual threads, which are cheap threads that do not tie up the main event loop.",
    "A named signal, for example 'approved', can be sent to a running plugin through the same ordered, audited path as other commands. WAIT_FOR_SIGNAL uses this to hold a message until a person decides.",
-   "Safety rails: workflows may read only allow-listed environment variables, scripts may use only a small set of Java classes, and process execution can be limited to named commands."
+   "Safety rails: workflows may read only allow-listed environment variables, scripts may use only a small set of Java classes, and process execution can be limited to named commands. The expression and script engines are not part of core: expressions run in plugin-api and scripts in the script plugin (see Expressions & Secrets)."
   ],
   "guar": "With retry or error routing on, the plugin is called once per message and receives a stable message id plus an attempt counter (1, 2, 3...). Retries repeat the same id, so a plugin can use it to avoid doing the same side effect twice.",
   "state": "State inside a plugin is the plugin's own business. Signal waits and KV_STORE are held in memory.",
@@ -475,21 +481,29 @@ comps:[
   "resp": "The ordered, acknowledged way to change a run that is already going.",
   "how": [
    "Commands include pause, resume, step, breakpoint, skip, retry node, stop, restart, restart from node, signal, change priority and change limits. All commands for one run enter one queue and are applied one after another in the order sent (first in, first out).",
-   "The caller gets an answer only once the command has actually been applied, and every command is written to the log as applied or rejected, with who sent it.",
+   "The caller gets an answer only once the command has actually been applied, and every run command is written to the log as applied or rejected, with who sent it.",
    "Stop has three strengths: DRAIN lets work already in progress finish (with a deadline), CANCEL cancels it, KILL ends it immediately.",
-   "Restart from node re-runs one node and everything after it, replaying the recorded outputs of the nodes before it, so earlier work is not repeated. Retry node does the same for a node that failed."
+   "Restart from node re-runs one node and everything after it, replaying the recorded outputs of the nodes before it, so earlier work is not repeated. Retry node does the same for a node that failed.",
+   "A second, older channel exists beside run commands: the plugin-level control bus, which carries heartbeats, statistics and raw signals to a node's plugin. It is keyed by workflow and node, bypasses the reviewers and is not audited like run commands. Live control handles and their valves are kept in an execution control store built by a factory per run."
   ],
   "guar": "Commands for one run are applied in order, acknowledged and audited.",
   "state": "Pending commands and the gates are in memory. The audit trail is written to the execution log.",
   "ceil": "One batch consumer handles commands: ample for people and supervisors, not designed as a high-volume API.",
-  "fail": "A few commands (changing limits or priority, and one per-node command endpoint) do not pass through the reviewers today, so a reviewer cannot veto them.",
+  "fail": "Changing limits or priority is written to the log but does not pass the reviewers, and the raw per-node command endpoint is neither reviewed nor audited and is keyed by workflow and node, not by run. Through it an approval wait can be released unseen. Over REST, limits need ADMIN and priority OPERATOR.",
   "set": [
    "yukta.supervisor.* (reviewers)"
   ],
   "risks": [
    "reviewBypass",
    "rbac15",
-   "restartRace"
+   "restartRace",
+   "rawSignal",
+   "cmdCancel",
+   "ctlKey",
+   "apiPath",
+   "mcpOpen",
+   "csrf",
+   "actuator"
   ]
  },
  {
@@ -504,7 +518,8 @@ comps:[
    "Every change (a node started, finished, failed) becomes an event in one ordered queue. State events are never dropped. Log lines are lower priority: if more than 10,000 are waiting, extra ones are dropped and counted.",
    "A single consumer reads the queue in batches and updates progress snapshots, run history and metrics. REST, SSE streams and MCP all read these snapshots.",
    "Each run is recorded as one trace observation with one child per node. When a tracing library is present they become a proper trace of the run.",
-   "Useful meters: node durations and outcomes, retries, run duration, time spent queued, running and queued run counts, rejected starts by reason, checkpoint bytes and dropped events."
+   "Useful meters: node durations and outcomes, retries, run duration, time spent queued, running and queued run counts, rejected starts by reason, checkpoint bytes and dropped events.",
+   "Two helpers sit beside it: a cache of recent progress snapshots per run (30 minutes at most) that lets a late SSE client catch up, and the plugin log store, which copies tracker log lines into memory by default. A file-based plugin log reader and writer exist but are not wired into the application."
   ],
   "guar": "State events are complete and in order, and the run and node timelines agree with the log.",
   "state": "Everything is in memory. After a restart the newest runs are restored from the log.",
@@ -534,19 +549,20 @@ comps:[
    "After a crash, on boot, runs that never finished are marked ABORTED and recent history is restored. Someone can then resume an aborted run: nodes with a done marker replay their recorded output and the others run again.",
    "The archive keeps the last 10 finished runs (graph, input, outputs) so they can be restarted."
   ],
-  "guar": "A resume trusts only the done marker, never the log. A node whose output exceeded the memory cap refuses a restart rather than replaying part of its output.",
+  "guar": "A resume trusts only the done marker, never the log. A node whose output exceeded the memory cap refuses a restart rather than replaying part of its output, unless a spill directory is set: then the node's whole output moves to files and replays complete.",
   "state": "Durable only if you configure directories (or PostgreSQL for the log).",
   "ceil": "Checkpoints are files or memory, not PostgreSQL. All file I/O runs on one writer thread, and log events are not fsynced (forced to disk).",
   "fail": "There is a tiny window: if a plugin performs a side effect and the process dies before the done marker is written, that node runs again after a resume and the side effect can happen twice.",
   "set": [
    "yukta.execution-log.dir, retained-runs (500), compact-after (10000)",
-   "yukta.restart.dir, retained-executions (10), messages-per-node (200), bytes-per-node (4 MiB)"
+   "yukta.restart.dir, retained-executions (10), messages-per-node (200), bytes-per-node (4 MiB), spill-dir (off)"
   ],
   "risks": [
    "cpstore",
    "exactlyOnce22",
    "logDur24",
-   "payload23"
+   "payload23",
+   "logGrow"
   ]
  },
  {
@@ -591,13 +607,43 @@ comps:[
   "guar": "A child is an ordinary run: tracked, limited and audited.",
   "state": "The link between parent and child lives only in the start payload; run history does not show it yet.",
   "ceil": "Each child needs its own slot while the parent keeps its own. If max-concurrent is small, the parent can end up waiting for children that are waiting for the parent's slot.",
-  "fail": "Stopping the parent does not stop its children yet.",
+  "fail": "Stopping the parent does not stop its children yet, and a child cancelled with its parent may never receive a final status.",
   "set": [
    "yukta.execution.max-concurrent must cover parent + children"
   ],
   "risks": [
    "subDeadlock",
+   "childCancel",
    "spof"
+  ]
+ }
+,
+ {
+  "id": "expr",
+  "name": "Expressions & Secrets",
+  "tag": "${...} values, secrets",
+  "c": 0,
+  "r": 2,
+  "mem": false,
+  "resp": "Resolves the ${...} values in a node's configuration against the current message and run, and hands out secrets by name.",
+  "how": [
+   "A node's configuration can contain ${...} placeholders. The resolver in core replaces them for each message: payload fields (${payload.x}), message metadata (${metadata.key}), and typed values such as ${payload.secs:int}; an untyped value stays text. A timeout written as an expression is only known when the first message arrives, so the node starts with the default and is re-timed then.",
+   "Environment and system values are read only from an allow-list: YUKTA_VAR_* variables, yukta.var.* properties, a few harmless names and anything listed in yukta.variables.allowed. Names that look like secrets stay blocked even when listed.",
+   "Secrets are written decrypted:name. The default provider reads the environment variable YUKTA_SECRET_NAME, so values never appear in the workflow definition. ${context.x} reads a value from the run's Reactor context.",
+   "The evaluators are not part of core. Conditions and mappings run through the expression utility in plugin-api, and scripts through a sandboxed JavaScript engine in the script plugin (only java.time and a few value classes are visible to scripts)."
+  ],
+  "guar": "A workflow cannot read an environment variable or system property outside the allow-list, and secret-looking names are never exposed.",
+  "state": "Nothing is stored: values are resolved per message from the message, the run context and the environment.",
+  "ceil": "Expression and script evaluation have no time or size limit of their own, so one expression or script can use a lot of CPU or memory. The context lookup is not restricted to a list of keys.",
+  "fail": "A node whose configuration cannot be resolved fails that message like any other plugin failure, so retry and error routing apply.",
+  "set": [
+   "yukta.variables.allowed / YUKTA_VARIABLES_ALLOWED",
+   "YUKTA_VAR_* and YUKTA_SECRET_* environment variables"
+  ],
+  "risks": [
+   "ctxRead",
+   "spelLimits",
+   "jsLimit"
   ]
  }
 ],
@@ -638,7 +684,7 @@ scen:[
 {id:"crash",name:"Crash and resume",steps:[
  {t:"The JVM dies mid-run",d:"Memory is gone: tracker, scheduler slots, queued starts, signal waits. On disk (if configured): the log with the start payload, and checkpoint outputs with end markers.",c:["engine","obs","dur"],r:["spof","logDur24"]},
  {t:"Boot recovery",d:"Unfinished runs are marked ABORTED, the newest runs are restored into history, idempotency keys are reloaded so a retrying client still gets its first id.",c:["dur","persist","entry"],r:[]},
- {t:"Someone asks to resume",d:"The resumer claims the run exactly once; it is refused if the run was not aborted, was already resumed or its definition changed. It is a core call today: there is no REST or MCP endpoint for it yet.",c:["entry","control"],r:[]},
+ {t:"Someone asks to resume",d:"The resumer claims the run exactly once; it is refused if the run was not aborted, was already resumed or its definition changed. Over REST it is <code>POST /api/executions/{id}/recover</code> (409 when refused), over MCP <code>control_workflow</code> with action RECOVER.",c:["entry","control"],r:[]},
  {t:"Replay what finished, re-run the rest",d:"Nodes with a durable end marker replay their recorded output; the others run again from their inputs. Without file stores nothing is resumable.",c:["dur","engine"],r:["cpstore"]},
  {t:"The at-least-once window",d:"A side effect executed between the plugin acting and the marker being written can happen twice. Only plugin-side idempotency on the message id closes it.",c:["plugin","dur"],r:["exactlyOnce22"]}]},
 {id:"sub",name:"Sub-workflow fan-out",steps:[
@@ -678,21 +724,21 @@ dur:[
 ["Run history and audit",["lost","Gone; nothing to mark ABORTED"],["part","Kept in JSONL; last events can be lost on power loss (no fsync)"],["ok","Kept; trimmed to newest runs"]],
 ["Runs in flight at the crash",["lost","Vanish"],["ok","Marked ABORTED on boot"],["ok","Marked ABORTED on boot"]],
 ["Idempotency keys",["lost","Gone"],["ok","Reloaded from the log"],["ok","Ride the log"]],
-["Node outputs (checkpoints)",["lost","Memory only, capped"],["ok","On disk if restart dir is set; no caps"],["part","Still files or memory, not PostgreSQL"]],
+["Node outputs (checkpoints)",["part","Memory, capped; with a spill directory the overflow goes to files"],["ok","On disk if restart dir is set; no caps"],["part","Still files or memory, not PostgreSQL"]],
 ["Resume an aborted run",["lost","Not possible"],["ok","Needs log dir and restart dir"],["part","Log in PostgreSQL, outputs on files"]],
-["Queued starts and slots",["lost","Lost"],["lost","Lost"],["lost","Lost"]],
+["Queued starts and slots",["lost","Lost"],["part","Place in line and slot lost. The start was logged before the wait, so the run is marked ABORTED on boot and can be recovered"],["part","Place in line and slot lost. The start was logged before the wait, so the run is marked ABORTED on boot and can be recovered"]],
 ["Signal waits (approvals)",["lost","Lost"],["lost","Lost; a resumed run waits again"],["lost","Lost; a resumed run waits again"]],
-["Session memory (chat history)",["lost","Gone"],["ok","Durable with its own directory"],["part","Not in PostgreSQL yet"]],
+["Session memory (chat history)",["lost","Gone"],["ok","Durable with its own directory"],["part","Not in PostgreSQL; durable only if its own directory is set"]],
 ["Limits changed at run time",["lost","Reset"],["lost","Logged, not restored"],["lost","Logged, not restored"]],
-["Live progress and metrics",["part","Rebuilt; newest 500 runs from log"],["part","Newest 500 runs restored"],["part","Newest 500 runs restored"]]],
-sem:[["Delivery","At-least-once. A side effect between plugin action and end marker can repeat after a crash; retries repeat per message. Plugins de-duplicate on the stable message id."],["Command order","FIFO per run, acknowledged, audited; commands for different runs are independent."],["Status order","Node status only moves forward; a late event cannot reopen an ended node."],["Output atomicity","With retry or onError, a message yields all of its output or none."],["Start","Exactly one execution id per slot; same Idempotency-Key returns the first id."],["Resume","Once per run, only with an unchanged definition."]],
+["Live progress and metrics",["lost","Gone: the in-memory log is empty after a restart"],["part","Newest 500 runs restored"],["part","Newest 500 runs restored"]]],
+sem:[["Delivery","At-least-once. A side effect between plugin action and end marker can repeat after a crash; retries repeat per message. Plugins de-duplicate on the stable message id."],["Command order","FIFO per run, acknowledged, audited; commands for different runs are independent."],["Status order","Node status only moves forward; a late event cannot reopen an ended node."],["Output atomicity","With retry or onError, a message yields all of its output or none."],["Start","Exactly one execution id per slot; same Idempotency-Key returns the first id."],["Resume","Once per run, only with an unchanged definition."],["Durability switches","Each backend has its own switch (session.store-type, execution-log.dir, restart.dir, session-memory.dir), so a deployment can be half durable. The profiles above assume the matching ones are set."]],
 clocks:[["Queue wait",0,18,"b","Until a slot is granted. Optional timeout ends the run TIMED_OUT."],["Run deadline",18,82,"","Whole run, pause-aware."],["Node deadline",30,50,"b","From first activity; not restarted by output; pause-aware."],["Node idle",30,26,"c","Restarts on every input, output, attempt, heartbeat."],["Element timeout",40,14,"c","Per message attempt; retry and onError apply."]],
 quality:[
-{n:"Scalability",pos:"Vertical on one JVM. Streams are efficient, but every run's state, the scheduler and the tracker share the process. Horizontal scale-out is designed (remote workers) but not built.",ceil:["All admission, ordering and run state in one process","Unbounded tracker state queue; per-session state never evicted","Fan-out paced by the slowest child","Checkpoint memory bound = retained runs x nodes x bytes-per-node"],have:["Global, per-workflow and per-session limits and fair queue","Byte and message caps on checkpoints","Virtual threads for blocking plugins"],need:["Remote workers (F11 phases 1-5)","Eviction policy for finished sessions","Shared control state (phase 6)"]},
+{n:"Scalability",pos:"Vertical on one JVM. Streams are efficient, but every run's state, the scheduler and the tracker share the process. Horizontal scale-out is designed (remote workers) but not built.",ceil:["All admission, ordering and run state in one process","Unbounded tracker state queue; per-session state never evicted","Fan-out paced by the slowest child","Checkpoint memory bound = retained runs x nodes x bytes-per-node","The default in-memory execution log and the idempotency cache are not size bounded"],have:["Global, per-workflow and per-session limits and fair queue","Byte and message caps on checkpoints","Virtual threads for blocking plugins"],need:["Remote workers (F11 phases 1-5)","Eviction policy for finished sessions","Shared control state (phase 6)"]},
 {n:"Performance",pos:"Low per-message overhead: one volatile write per activity touch, one periodic idle check per node, batched tracker consumer.",ceil:["Per-message retry or ROUTE buffers a message's output","Large payloads copy through memory and checkpoints","Single writer thread for the log","Compile cost grows with graph size (cap 500 nodes)"],have:["Back-pressure instead of queues","Prepared-workflow cache and shared prepare","Batching in tracker and log"],need:["Claim-check for large payloads","Defer blocking archive on the start path","Performance budget per node type"]},
-{n:"Availability",pos:"A crash is recoverable, not invisible: runs are ABORTED and resumable only with file stores. There is no standby.",ceil:["Control state in memory is a single point of failure","Checkpoints not in PostgreSQL","Signal waits and queued starts are lost","Log events not fsynced"],have:["Durable node end marker","Boot recovery and one-shot resume","Idempotent start surviving restarts"],need:["Checkpoint store in PostgreSQL","Active/standby with a database lease (phase 6)","Durable signal waits"]},
-{n:"Security",pos:"Controls exist at the edges (roles, allow-lists, reviewers) but several are opt-in.",ceil:["Command allow-list is opt-in","MCP has a single key; no tenant scoping","Plugins run in the engine JVM","Path-traversal bug in a log reader that is not wired yet"],have:["REST roles and actors in the audit","Allow-listed env, script and process surface","Reviewers on every command path"],need:["Deny-by-default process execution","Per-tenant scoping and key rotation","Worker mTLS and plugin allow-lists (remote design)"]},
-{n:"Operability",pos:"Good visibility, thin lifecycle tooling.",ceil:["Limits changes are not restored","No UI for pending approvals or version history","Session state never evicted"],have:["Meters for every governance decision","Run and node spans","SSE feed and supervisors"],need:["Health and pool metrics for PostgreSQL","Run history search","Parent/child links in history"]},
+{n:"Availability",pos:"A crash is recoverable, not invisible: runs are ABORTED and resumable only with file stores. There is no standby.",ceil:["Control state in memory is a single point of failure","Checkpoints not in PostgreSQL","Signal waits and queue positions are lost","Log events not fsynced"],have:["Durable node end marker","Boot recovery and one-shot resume","Idempotent start surviving restarts"],need:["Checkpoint store in PostgreSQL","Active/standby with a database lease (phase 6)","Durable signal waits"]},
+{n:"Security",pos:"Controls exist at the edges (roles, allow-lists, reviewers) but several are opt-in.",ceil:["Command allow-list is opt-in","MCP has a single key; no tenant scoping","Plugins run in the engine JVM","Path-traversal bug in a log reader that is not wired yet","Key filters match the raw path; the MCP key is separate and empty by default; no Host or Origin check; actuator outside the key filter","Expressions and scripts have no time or size limit"],have:["REST roles and actors in the audit","Allow-listed env, script and process surface","Reviewers on the run command path"],need:["Deny-by-default process execution","Key checks on the decoded path, one key for REST and MCP, a Host and Origin check, a protected actuator","Time and size limits for expressions and scripts","Per-tenant scoping and key rotation","Worker mTLS and plugin allow-lists (remote design)"]},
+{n:"Operability",pos:"Good visibility, thin lifecycle tooling.",ceil:["Limits changes are not restored","No UI for pending approvals or version history","Session state never evicted","Control commands without a reviewer or audit entry (limits, priority, raw node command)"],have:["Meters for every governance decision","Run and node spans","SSE feed and supervisors"],need:["Health and pool metrics for PostgreSQL","Run history search","Parent/child links in history"]},
 {n:"Evolvability",pos:"Sealed command types and a plugin API keep the surface small, but adding a command type is an API change.",ceil:["Sealed ExecutionControlCommand in plugin-api","Large tracker class","Validator and assembler disagree on what a terminal is"],have:["Records and small processors per command","Property-based tests on status order","Coverage and static-analysis gates"],need:["Extension point for new command types","Split tracker projections"]}],
 what:{
  runs:["Concurrent runs",1,500,10],nodes:["Nodes per run",2,500,20],kb:["Payload per message (KiB)",1,8192,16]},
@@ -701,17 +747,17 @@ risks:[
 {id:"cpstore",t:"Checkpoints are not in PostgreSQL",a:"Availability",i:4,e:4,c:["dur","persist"],why:"Resume needs a local directory even when the rest is in PostgreSQL, which blocks stateless deployment and standby.",o:"Move the store behind the same interface; decide large payloads (claim check or TOAST); the store has blocking completeness checks to rework.",q:"Is a pod restart on another node a supported scenario?",ph:"f10"},
 {id:"remote",t:"No scale-out of node execution",a:"Scalability",i:5,e:5,c:["engine","plugin"],why:"CPU and IO heavy plugins compete with the control plane in one JVM.",o:"Remote workers (design written): control plane keeps the DAG and policies, workers run processor nodes over a bidirectional stream.",q:"Transport, packaging, secrets, first plugins and payload limit are still undecided. Which has the highest cost to reverse?",ph:"p2"},
 {id:"exactlyOnce22",t:"Exactly-once is impossible",a:"Reliability",i:4,e:5,c:["dur","plugin"],why:"A side effect between the plugin acting and the end marker can repeat; remote workers widen the window.",o:"Keep at-least-once, publish idempotency patterns, add result caching keyed by message id (F12).",q:"Which of your plugins can safely run twice, and which cannot?",ph:""},
-{id:"payload23",t:"Large payloads are carried through the engine",a:"Performance",i:4,e:4,c:["engine","dur"],why:"Every message is in memory and in checkpoints; over the cap a restart is refused. Remote workers make the control plane a data hop.",o:"Claim-check references to an object store or large objects; a frame size limit.",q:"What is the largest message you expect in a year?",ph:"f10"},
+{id:"payload23",t:"Large payloads are carried through the engine",a:"Performance",i:4,e:4,c:["engine","dur"],why:"Every message is in memory and in checkpoints; over the cap a restart is refused unless a spill directory moves the overflow to files. Remote workers make the control plane a data hop.",o:"Claim-check references to an object store or large objects; a frame size limit.",q:"What is the largest message you expect in a year?",ph:"f10"},
 {id:"failfast",t:"A dead branch stalls its siblings (B16)",a:"Reliability",i:3,e:3,c:["engine"],why:"If a subtree stops reading, back-pressure stops siblings and the run fails only at the idle timeout.",o:"On a downstream cancel-with-error, propagate failure to the run immediately.",q:"Should one failed terminal always fail the whole run?",ph:""},
 {id:"backpressure25",t:"Slowest child paces every fan-out",a:"Performance",i:3,e:3,c:["engine"],why:"By design: safe, but a slow audit sink can throttle the main path.",o:"A per-edge buffer or drop policy for non-critical branches, chosen explicitly.",q:"Which consumers are allowed to fall behind?",ph:""},
-{id:"evict21",t:"Finished sessions are never evicted (B21)",a:"Scalability",i:3,e:2,c:["obs"],why:"Memory grows with the number of sessions; evicting would drop history the UI shows.",o:"Max-sessions or TTL with history served from the log.",q:"What is the retention promise for run history?",ph:""},
+{id:"evict21",t:"Finished sessions are never evicted (B21)",a:"Scalability",i:3,e:2,c:["obs"],why:"Finished runs are capped at 100 per session, but the session entries themselves are never removed (removeSession has no caller), so memory grows with the number of sessions.",o:"Call removeSession when a session is deleted; add a max-sessions or TTL policy with history served from the log.",q:"What is the retention promise for run history?",ph:""},
 {id:"trackerQ26",t:"State event queue is unbounded",a:"Scalability",i:3,e:2,c:["obs"],why:"State events are never dropped, so an event storm becomes memory growth rather than data loss.",o:"Alert on queue depth; consider coalescing progress events.",q:"Would you rather lose events or run out of memory?",ph:""},
-{id:"trackerSize27",t:"Tracker is large; run status has no forward-only guard (B27)",a:"Evolvability",i:2,e:2,c:["obs"],why:"Node status is guarded, run status is not; the class is about 1000 lines.",o:"Extract history and cleanup projections; add the same guard to run status.",q:"",ph:""},
-{id:"supLoop",t:"Supervisors can loop on their own effects (B25)",a:"Reliability",i:2,e:2,c:["super"],why:"Pause causes a PAUSED event the supervisor sees again; capped only by the rate limit.",o:"Tag events caused by a command with its actor and let the host filter them.",q:"",ph:""},
-{id:"blockStart",t:"Blocking file work on the start path (B19)",a:"Performance",i:2,e:1,c:["entry"],why:"Archive cleanup clears checkpoint files before the run's scheduler hop.",o:"Defer the whole execute call.",q:"",ph:""},
+{id:"trackerSize27",t:"Tracker is large; run status has no forward-only guard (B27)",a:"Evolvability",i:2,e:2,c:["obs"],why:"Node status is guarded, run status is not: a second terminal event finalizes the run again and writes a second end to the log. The class is about 1000 lines (split into smaller classes in open PRs #365 and #366).",o:"Return early once a run is terminal; extract history and cleanup projections.",q:"",ph:""},
+{id:"supLoop",t:"Supervisors can loop on their own effects (B25)",a:"Reliability",i:2,e:2,c:["super"],why:"The host hides the supervisor's own command outcomes, but status events carry no actor, so the PAUSED caused by its pause is still delivered; capped only by the rate limit.",o:"Add the causing actor to status events and let the host filter them.",q:"",ph:""},
+{id:"blockStart",t:"Blocking file work on the sub-workflow start path (B19)",a:"Performance",i:1,e:1,c:["entry","sub"],why:"Fixed for starts and restarts (archiving now happens on subscription, off the caller's thread). It remains for sub-workflow starts, which do not hop to another scheduler.",o:"Subscribe the sub-workflow start on boundedElastic.",q:"",ph:""},
 {id:"prepAlign",t:"Validator and assembler disagree in corners (B26)",a:"Correctness",i:2,e:2,c:["def"],why:"What counts as a terminal differs; a failed checkpoint save fails a node while a failed end marker does not.",o:"Align the checks; no caller triggers it today.",q:"",ph:""},
 {id:"restartRace",t:"Restart has the start-time slot race (R1)",a:"Correctness",i:3,e:2,c:["entry","control"],why:"Check-then-acquire on restart can exceed a limit by one.",o:"Reserve the slot before returning the new id, as starts do.",q:"",ph:""},
-{id:"reviewBypass",t:"Limit/priority commands skip reviewers and audit (B4)",a:"Security",i:3,e:3,c:["control","entry"],why:"Some commands do not pass the reviewer chain; one node command is keyed by workflow, not run.",o:"New sealed command types in the plugin API with processors.",q:"Is the reviewer chain a security boundary or a convenience?",ph:""},
+{id:"reviewBypass",t:"Limit/priority commands skip reviewers and audit (B4)",a:"Security",i:3,e:3,c:["control","entry"],why:"Limits and priority changes are logged but not reviewed. The raw node command is not reviewed or audited at all and is keyed by workflow, not run.",o:"New sealed command types in the plugin API with processors; route signals only through the signal command.",q:"Is the reviewer chain a security boundary or a convenience?",ph:""},
 {id:"limits28",t:"Runtime limit changes are not restored",a:"Operability",i:2,e:1,c:["entry"],why:"After a restart the limits revert to configuration.",o:"Reload the latest limit change from the log, or treat configuration as the source of truth and say so.",q:"",ph:""},
 {id:"logPath",t:"Path traversal in a log reader (S3)",a:"Security",i:3,e:1,c:["plugin"],why:"Execution id is not validated; the reader is not wired yet.",o:"Fix before wiring.",q:"",ph:""},
 {id:"procDefault",t:"Command allow-list is opt-in (S4)",a:"Security",i:4,e:2,c:["plugin"],why:"With the list unset any executable can run from a workflow.",o:"Deny by default in the next major release; keep a migration switch.",q:"Who can author workflows today, and are they trusted?",ph:""},
@@ -725,6 +771,22 @@ risks:[
 {id:"versions21",t:"Version history lacks diff and pinning (F9)",a:"Functionality",i:2,e:2,c:["def"],why:"No MCP tools, no diff, no notes, no UI.",o:"Expose versions through MCP and UI; pin a run to a version.",q:"",ph:""},
 {id:"logDur24",t:"Log events are not fsynced",a:"Reliability",i:2,e:2,c:["dur"],why:"A power loss can lose the last few events (the node end marker is separate and forced).",o:"Optional fsync per batch; or document as accepted.",q:"Is losing the last second of audit acceptable?",ph:""},
 {id:"writerThread27",t:"Single writer thread for the log",a:"Performance",i:2,e:2,c:["persist"],why:"The store interface is blocking; PostgreSQL goes through one thread.",o:"Batch inserts or make the interface reactive.",q:"",ph:""},
+{id:"apiPath",t:"Key check can be bypassed by path form (S5, to confirm)",a:"Security",i:4,e:1,c:["control"],why:"The key filters in web and mcp look at the raw request path, while routing uses the decoded path without path parameters. A differently written path may skip the check and still reach the controller. Suspected from the framework's documented matching rules: it needs a failing test before it is treated as confirmed.",o:"Decide on the decoded, parameter-free path, or reject paths containing parameters or encoded characters; add a test per filter.",q:"Would you notice a request that skipped the key check?",ph:""},
+{id:"mcpOpen",t:"MCP endpoint ignores the REST key (S6)",a:"Security",i:4,e:1,c:["control","plugin"],why:"/mcp has its own key, empty by default, while the setup comment says to set only the REST key. Behind a non-loopback bind (the Docker image does this) the start, control and signal tools are open; with the open command allow-list (S4) that is command execution.",o:"Fall back to the REST key; refuse to start on a non-loopback address with no key.",q:"Which deployments bind beyond loopback today?",ph:""},
+{id:"csrf",t:"No Host or Origin check on a loopback server (S7)",a:"Security",i:4,e:1,c:["control"],why:"Several mutating endpoints take only query parameters, so a web page open in the operator's browser can send them to the local server; DNS rebinding can also read the event stream.",o:"A filter that rejects unexpected Host values and foreign Origins on non-GET requests.",q:"Who browses the web on the machine that runs the server?",ph:""},
+{id:"actuator",t:"Actuator sits outside the key filter (S8)",a:"Security",i:3,e:1,c:["control"],why:"The key filter covers /api only. When the dev profile is active, actuator exposes writable log levels, mappings and thread dumps, and production exposes metrics.",o:"Key-check actuator except health, or use a separate management port.",q:"",ph:""},
+{id:"rawSignal",t:"Raw node command releases approvals unseen (S10)",a:"Security",i:3,e:3,c:["control","plugin"],why:"The per-node command endpoint reaches the plugin directly: no reviewer, no audit entry, keyed by workflow and node. A body naming an approval signal releases a WAIT_FOR_SIGNAL.",o:"Route signals only through the signal command, or remove the raw endpoint; part of the B4 work.",q:"Should approvals be possible without an audit entry?",ph:""},
+{id:"spelLimits",t:"Expressions can use unbounded memory (S11)",a:"Security",i:3,e:3,c:["expr"],why:"Expressions may call any public instance method on strings and payload objects, including allocation-heavy ones; spring's size limit does not cover method calls.",o:"A method allow-list in the expression utility.",q:"Who may write expressions: only trusted authors?",ph:""},
+{id:"jsLimit",t:"Scripts have no time limit (S12)",a:"Security",i:3,e:3,c:["expr"],why:"A script that never ends holds its thread. The node timeout cancels the stream but cannot stop the script context.",o:"A statement limit and a watchdog that closes the context on timeout.",q:"",ph:""},
+{id:"ctxRead",t:"Config can read any run context key (S13)",a:"Security",i:2,e:1,c:["expr"],why:"${context.x} is not limited to a list of keys, so a definition can read internal entries such as the control actor.",o:"Allow-list the keys.",q:"",ph:""},
+{id:"logGrow",t:"Default execution log never shrinks (B28)",a:"Scalability",i:3,e:1,c:["dur","persist"],why:"Without a log directory the log is a copy-on-write list that keeps every start payload and event, so memory grows without bound and every append copies the list.",o:"A bounded structure that trims to the newest runs, never dropping a run without an end, as the file log does.",q:"Is anyone running a long-lived server on the default store?",ph:""},
+{id:"cmdCancel",t:"A cancelled command breaks ordering and audit (B29)",a:"Reliability",i:3,e:1,c:["control"],why:"When a queued command's caller disconnects, its place is released at once, so the next command can run beside the one still in progress; the cancelled command is not recorded as applied or rejected.",o:"Release the place only after the previous command ends; record cancellations.",q:"",ph:""},
+{id:"ctlKey",t:"Plugin-level control keyed by workflow and node (B30)",a:"Correctness",i:2,e:2,c:["control"],why:"Heartbeats, statistics and raw node commands use workflow plus node as key, so two sessions or runs with the same ids share state.",o:"Include the session or execution id in the key.",q:"",ph:""},
+{id:"idemCap",t:"Idempotency cache has no size cap (B31)",a:"Scalability",i:2,e:1,c:["entry"],why:"A client sending a new key per request keeps one cached entry per key for the whole window, so memory follows the request rate.",o:"Cap the cache size.",q:"",ph:""},
+{id:"childCancel",t:"A cancelled child may never end (B33, to confirm)",a:"Reliability",i:3,e:2,c:["sub","control"],why:"When a parent node is cancelled, the child's cleanup unregisters it but does not record a final status. Deduced from the code; needs a test first.",o:"Test the cancel path, then finish the child as cancelled.",q:"",ph:""},
+{id:"histCache",t:"Run progress history is unbounded (B34)",a:"Scalability",i:4,e:1,c:["obs"],why:"Every status event stores a full snapshot of all node states for up to 30 minutes, with no count cap on the history or the cache. A large run, or many runs, grows memory with events times nodes.",o:"Cap the history per run (keep the last snapshot), set a maximum cache size, optionally coalesce snapshots.",q:"How many late-joining viewers need every intermediate step?",ph:""},
+{id:"sizeLimit",t:"No byte limit on start payloads or definitions (B35, to confirm)",a:"Security",i:3,e:1,c:["entry","def"],why:"Nodes and edges are capped (500 and 2000) but sizes in bytes are not known to be; a large payload is copied into the log, archive, checkpoints and snapshots. Limits at the web edge still need checking.",o:"Find the current limits, add explicit maximums and answer 413.",q:"What is the largest legitimate start payload?",ph:""},
+{id:"ckptIO",t:"Durable runs pay a file open per message (P1)",a:"Performance",i:3,e:3,c:["dur"],why:"With a restart directory each message is appended by opening the file on another thread, and a resume reads a node's whole output into memory. Not measured yet.",o:"Measure first; keep one appender per node and stream the reads.",q:"What message rate must a durable run sustain?",ph:""},
 {id:"gaps12",t:"Capability gaps (F12)",a:"Functionality",i:2,e:4,c:["engine"],why:"Saga compensation, node result caching, A2A agent card, eval node, backfill, run search, secrets manager, auto-resume.",o:"Pull in on demand.",q:"Which one would a design partner ask for first?",ph:""}
 ],
 adrs:[
@@ -785,7 +847,7 @@ h+='<section id="primer"><h2>Primer: the ten-minute version</h2><p class="lede">
 '<h3>What the engine wraps around every node</h3><p class="refs">This is the part plugin authors get for free. It is the same for every processor.</p><div class="wrap">'+PR.wrapper.map(function(w,i){return (i?'<span class="a">→</span>':'')+'<span class="s">'+w+'</span>'}).join("")+'</div>'+
 '<h3>A run in plain words</h3><ol style="max-width:820px;padding-left:20px"><li><b>Start:</b> a request names a workflow. The front desk checks it is not a duplicate and that there is room.</li><li><b>Prepare:</b> the graph is checked and compiled; a bad graph is refused here.</li><li><b>Wire:</b> every node gets its wrapper and every edge becomes a stream; the source starts only when all consumers are listening.</li><li><b>Flow:</b> messages move. A slow node makes upstream wait. Failures follow the policy set on the node.</li><li><b>Steer:</b> people and supervisors pause, step, skip or stop through one ordered channel.</li><li><b>Record:</b> state, outputs and node ends are tracked and, if configured, written durably.</li><li><b>Finish or recover:</b> the run ends and frees its slot, or after a crash it is marked ABORTED and can be resumed.</li></ol></section>';
 /* map */
-h+='<section id="map"><h2>System map</h2><p class="lede">Ten components, solid lines carry data, dashed lines carry commands and events. Click a component to see how it works, what it guarantees and where it is weak, or replay a scenario to watch a run move through the system.</p><div class="bar" id="modeBar"></div><div class="bar"><button type="button" id="memBtn" aria-pressed="false">Highlight in-memory state</button><span class="refs">Dashed amber = state lost on a crash (single point of failure view)</span></div><div class="mapwrap"><div class="card"><svg class="map" id="map-svg" viewBox="0 -10 990 380" role="group" aria-label="Component map"></svg><div class="bar" id="compChips" style="margin-top:8px"></div></div><div class="card panel" id="panel" aria-live="polite"></div></div></section>';
+h+='<section id="map"><h2>System map</h2><p class="lede">Eleven components, solid lines carry data, dashed lines carry commands and events. Click a component to see how it works, what it guarantees and where it is weak, or replay a scenario to watch a run move through the system.</p><div class="bar" id="modeBar"></div><div class="bar"><button type="button" id="memBtn" aria-pressed="false">Highlight in-memory state</button><span class="refs">Dashed amber = state lost on a crash (single point of failure view)</span></div><div class="mapwrap"><div class="card"><svg class="map" id="map-svg" viewBox="0 -10 990 380" role="group" aria-label="Component map"></svg><div class="bar" id="compChips" style="margin-top:8px"></div></div><div class="card panel" id="panel" aria-live="polite"></div></div></section>';
 /* caps */
 h+='<section id="caps"><h2>Capabilities</h2><p class="lede">What the engine does for you, how, what it guarantees and where the guarantee stops.</p><div class="bar" id="capFilters"><span class="lbl">Group</span></div><div class="grid g3" id="capGrid"></div><details class="fold"><summary>20 classic DAG pitfalls this design addresses (vs Airflow, Temporal, Flink, Argo)</summary><div class="in tablewrap"><table><tr><th>#</th><th>Pitfall</th><th>Established answer</th><th>Yukta</th></tr>'+D.pit.map(function(p,i){return '<tr><td>'+(i+1)+'</td><td>'+p[0]+'</td><td>'+p[1]+'</td><td><span class="pill okp">covered</span></td></tr>'}).join("")+'</table></div></details></section>';
 /* guarantees */
@@ -793,7 +855,7 @@ h+='<section id="guarantees"><h2>Guarantees and durability</h2><p class="lede">P
 /* quality */
 h+='<section id="quality"><h2>Quality lenses</h2><p class="lede">Look at the system through one attribute at a time: where it stands, where it saturates, what you can turn today, and what needs design work.</p><div class="tabs" id="qTabs" role="tablist"></div><div id="qBody"></div><div class="card" style="margin-top:12px"><h3>Load what-if (indicative, not measured)</h3><div id="whatif"></div><div id="whatOut"></div></div></section>';
 /* board */
-h+='<section id="board"><h2>Risks and improvement ideas</h2><p class="lede">Everything still open, in impact and effort terms. IDs in brackets such as B16, S4 or F6 point to the backlog in <code>core/docs/plans/09-backlog.md</code> (bug, security, feature). Effort and impact are 1 to 5 judgements, not estimates. Set a status, jot a note (kept in this browser only) and copy your notes as Markdown to share.</p><div class="bar"><span class="lbl">View</span><button type="button" id="vList" aria-pressed="true">List</button><button type="button" id="vGrid" aria-pressed="false">Impact x effort</button><button type="button" id="copyBtn">Copy my notes</button><span class="refs" id="copyMsg"></span></div><div class="bar" id="attrFilters"><span class="lbl">Attribute</span></div><div class="bar"><span class="lbl">Status</span><select id="statFilter" aria-label="Filter by status"><option value="">All</option><option>Idea</option><option>Investigating</option><option>Planned</option><option value="none">Unset</option></select><input type="search" id="rq" placeholder="Search risks" aria-label="Search risks"></div><div id="boardBody"></div><textarea id="copyArea" hidden readonly aria-label="Notes as Markdown"></textarea></section>';
+h+='<section id="board"><h2>Risks and improvement ideas</h2><p class="lede">Everything still open, in impact and effort terms. IDs in brackets such as B16, S4 or F6 point to the backlog in <code>core/docs/plans/09-backlog.md</code> and <code>core/docs/plans/11-remediation-plan.md</code> and <code>12-performance-plan.md</code> (bug, security, feature; the newer ones are static findings that still need a failing test). Effort and impact are 1 to 5 judgements, not estimates. Set a status, jot a note (kept in this browser only) and copy your notes as Markdown to share.</p><div class="bar"><span class="lbl">View</span><button type="button" id="vList" aria-pressed="true">List</button><button type="button" id="vGrid" aria-pressed="false">Impact x effort</button><button type="button" id="copyBtn">Copy my notes</button><span class="refs" id="copyMsg"></span></div><div class="bar" id="attrFilters"><span class="lbl">Attribute</span></div><div class="bar"><span class="lbl">Status</span><select id="statFilter" aria-label="Filter by status"><option value="">All</option><option>Idea</option><option>Investigating</option><option>Planned</option><option value="none">Unset</option></select><input type="search" id="rq" placeholder="Search risks" aria-label="Search risks"></div><div id="boardBody"></div><textarea id="copyArea" hidden readonly aria-label="Notes as Markdown"></textarea></section>';
 /* adrs */
 h+='<section id="adrs"><h2>Decision records</h2><p class="lede">The load-bearing decisions, reconstructed from the code and plans. Each says when to revisit it.</p><div class="grid g2">'+D.adrs.map(function(a,i){return '<div class="card adr"><h3>ADR-'+(i+1)+' · '+a.t+'</h3><dl><dt>Context</dt><dd>'+a.ctx+'</dd><dt>Decision</dt><dd>'+a.dec+'</dd><dt>Consequences</dt><dd>'+a.con+'</dd><dt>Alternatives</dt><dd>'+D.adrAlt[i]+'</dd><dt>Revisit when</dt><dd><b>'+a.rev+'</b></dd></dl></div>'}).join("")+'</div></section>';
 /* evolution */
@@ -811,7 +873,7 @@ var sv="";
 D.edges.forEach(function(e,i){var a=ctr(e[0]),b=ctr(e[1]),via=e[4]||[(a[0]+b[0])/2,(a[1]+b[1])/2],mx=0.25*a[0]+0.5*via[0]+0.25*b[0],my=0.25*a[1]+0.5*via[1]+0.25*b[1];
  sv+='<path class="edge '+e[2]+'" data-e="'+e[0]+'>'+e[1]+'" d="M'+a[0]+','+a[1]+' Q'+via[0]+','+via[1]+' '+b[0]+','+b[1]+'"/>'+'<text class="el" x="'+mx+'" y="'+(my-4)+'" text-anchor="middle">'+e[3]+'</text>'});
 D.comps.forEach(function(c){var p=pos(c);sv+='<g class="box'+(c.mem?" mem":"")+'" data-c="'+c.id+'" tabindex="0" role="button" aria-label="'+esc(c.name)+'"><rect x="'+p.x+'" y="'+p.y+'" width="'+W+'" height="'+H+'" rx="10"/><text class="n" x="'+(p.x+W/2)+'" y="'+(p.y+33)+'" text-anchor="middle">'+esc(c.name)+'</text><text class="s" x="'+(p.x+W/2)+'" y="'+(p.y+53)+'" text-anchor="middle">'+esc(c.tag)+'</text><text class="ram" x="'+(p.x+W-8)+'" y="'+(p.y+15)+'" text-anchor="end">RAM</text></g>'});
-sv+='<text class="leg" x="20" y="340">Solid = data path · Dashed = control and event path</text>';
+sv+='<text class="leg" x="20" y="366">Solid = data path · Dashed = control and event path</text>';
 svg.innerHTML=sv;
 $("#compChips").innerHTML=D.comps.map(function(c){return '<button type="button" data-cb="'+c.id+'">'+esc(c.name)+'</button>'}).join("");
 $("#modeBar").innerHTML='<span class="lbl">Mode</span><button type="button" data-m="explore">Explore components</button>'+D.scen.map(function(s){return '<button type="button" data-m="'+s.id+'">'+esc(s.name)+'</button>'}).join("");
@@ -861,7 +923,7 @@ function whatRender(){var runs=wv.runs,n=wv.nodes,kb=wv.kb,f=[];
  var ckMax=10*n*Math.min(4096,200*kb);
  f.push(["Entry & Admission",runs>100?"P1":"okp",runs+" concurrent runs and no default limit: every start runs at once in one JVM. Set max-concurrent and per-session caps before this."]);
  if(n>400)f.push(["Definition & Preparation","P0",n+" nodes is close to the 500 node and 2000 edge validation caps."]);
- f.push(["Durability",ckMax>512*1024?"P1":"okp","Checkpoint memory worst case about "+(ckMax>=1024?(ckMax/1024).toFixed(0)+" MiB":ckMax+" KiB")+" (10 retained runs x "+n+" nodes, capped at 200 messages or 4 MiB per node). Over the cap a restart is refused."]);
+ f.push(["Durability",ckMax>512*1024?"P1":"okp","Checkpoint memory worst case about "+(ckMax>=1024?(ckMax/1024).toFixed(0)+" MiB":ckMax+" KiB")+" (10 retained runs x "+n+" nodes, capped at 200 messages or 4 MiB per node). Over the cap a restart is refused unless yukta.restart.spill-dir is set."]);
  if(kb>1024)f.push(["Stream Engine","P0","Messages over 1 MiB are copied through memory and checkpoints on every node; consider a claim-check before this."]);
  if(runs*n>5000)f.push(["Observation","P1",(runs*n)+" live nodes produce a high event rate into one unbounded state queue; watch the tracker queue and drop counters."]);
  f.push(["Stream Engine",kb>256?"P1":"okp","Fan-out is paced by the slowest child, so throughput is that of the slowest branch, not the average."]);
@@ -882,7 +944,7 @@ function board(){var vis=visible(),b=$("#boardBody");
   s+='<rect class="q" x="'+m+'" y="10" width="'+cell*2.5+'" height="'+cell*2.5+'"/><rect class="q" x="'+(m+cell*2.5)+'" y="10" width="'+cell*2.5+'" height="'+cell*2.5+'" style="fill:var(--accent-soft)"/><rect class="q" x="'+m+'" y="'+(10+cell*2.5)+'" width="'+cell*2.5+'" height="'+cell*2.5+'"/><rect class="q" x="'+(m+cell*2.5)+'" y="'+(10+cell*2.5)+'" width="'+cell*2.5+'" height="'+cell*2.5+'"/>';
   s+='<text class="ql" x="'+(m+8)+'" y="28">High impact, low effort: do first</text><text class="ql" x="'+(m+cell*2.5+8)+'" y="28">High impact, high effort: plan</text><text class="ql" x="'+(m+8)+'" y="'+(10+cell*5-8)+'">Low impact, low effort: fill in</text><text class="ql" x="'+(m+cell*2.5+8)+'" y="'+(10+cell*5-8)+'">Low impact, high effort: question</text>';
   s+='<text class="ql" x="'+(m+cell*2.5)+'" y="'+(cell*5+36)+'" text-anchor="middle">Effort →</text><text class="ql" transform="translate(12 '+(10+cell*2.5)+') rotate(-90)" text-anchor="middle">Impact →</text>';
-  vis.forEach(function(r){var k=r.i+"-"+r.e,j=cnt[k]=(cnt[k]||0),dx=(j%3-1)*22,dy=(Math.floor(j/3)-0.5)*22;cnt[k]++;var x=m+(r.e-0.5)*cell+dx,y=10+(5-r.i+0.5)*cell+dy;
+  vis.forEach(function(r){var k=r.i+"-"+r.e,j=cnt[k]=(cnt[k]||0),dx=(j%3-1)*22,dy=(Math.floor(j/3)-1.5)*22;cnt[k]++;var x=m+(r.e-0.5)*cell+dx,y=10+(5-r.i+0.5)*cell+dy;
    s+='<g class="dot" data-open="'+r.id+'" tabindex="0" role="button" aria-label="'+esc(r.t)+'"><circle cx="'+x+'" cy="'+y+'" r="11" fill="'+(r.i>=4?"var(--p0)":r.i===3?"var(--p1)":"var(--p3)")+'"/><text x="'+x+'" y="'+(y+3)+'" text-anchor="middle">'+(D.risks.indexOf(r)+1)+'</text></g>'});
   b.innerHTML='<div class="card"><svg class="matrix" viewBox="0 0 '+(m+cell*5+10)+' '+(cell*5+50)+'" role="img" aria-label="Impact versus effort">'+s+'</svg><p class="refs">Dots are numbered by their order in the list view; click one to open it. Red = impact 4-5, amber = 3, grey = lower.</p></div>';return}
  b.innerHTML=vis.map(function(r){var n=notes[r.id]||{};return '<details class="item" id="r-'+r.id+'"><summary><span class="id">'+(D.risks.indexOf(r)+1)+'</span><span class="t">'+esc(r.t)+'</span><span class="meta"><span class="pill '+(r.i>=4?"P0":r.i===3?"P1":"P3")+'">impact '+r.i+'</span><span class="pill P3">effort '+r.e+'</span><span class="pill P2">'+r.a+'</span>'+(n.s?'<span class="pill okp">'+n.s+'</span>':"")+'</span></summary><div class="body"><dl><dt>Why it matters</dt><dd>'+r.why+'</dd><dt>Options</dt><dd>'+r.o+'</dd>'+(r.q?'<dt>Think about</dt><dd><div class="callout q" style="margin:0">'+r.q+'</div></dd>':"")+'<dt>Components</dt><dd>'+r.c.map(compChip).join("")+'</dd><dt>Your status</dt><dd><select data-st="'+r.id+'" aria-label="Status"><option value="">Unset</option>'+["Idea","Investigating","Planned"].map(function(s){return '<option'+(n.s===s?" selected":"")+'>'+s+'</option>'}).join("")+'</select></dd><dt>Your note</dt><dd><textarea data-nt="'+r.id+'" placeholder="Your thinking...">'+esc(n.n||"")+'</textarea></dd></dl></div></details>'}).join("")}
