@@ -4,6 +4,7 @@
 # Environment:
 #   YUKTA_URL      server base URL (default http://localhost:8080)
 #   YUKTA_API_KEY  optional; sent as X-API-Key when set
+#   WAIT_SECONDS   how long run_workflow waits for a terminal status (default 60)
 
 YUKTA_URL="${YUKTA_URL:-http://localhost:8080}"
 TERMINAL_STATUSES='^(SUCCESS|FAILURE|ERROR|STOPPED|CANCELLED|TIMED_OUT)$'
@@ -61,8 +62,9 @@ run_workflow() {
   eid=$(api POST /api/workflow/start "$body" | jq -r .data.executionId)
 
   status=""
-  for ((i = 0; i < 60; i++)); do
-    status=$(api GET "/api/executions/$eid" | jq -r .data.status)
+  for ((i = 0; i < ${WAIT_SECONDS:-60}; i++)); do
+    # The execution can 404 for a moment right after start; keep polling.
+    status=$(api GET "/api/executions/$eid" 2>/dev/null | jq -r .data.status || true)
     [[ $status =~ $TERMINAL_STATUSES ]] && break
     sleep 1
   done
