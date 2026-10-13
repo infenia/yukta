@@ -6,7 +6,7 @@ plugins {
     alias(libs.plugins.graalvm.buildtools.native)
 }
 
-// Optional plugins are chosen with -Pyukta.plugins=all (default), none, or a comma-separated list
+// Optional plugins are chosen with -Pyukta.plugins=default (all except script-js), all, none, or a comma-separated list
 // of: process-executor, http-request, file-io, sql-query, llm-call, session-memory, mcp-tool-call, decision, script-js.
 val optionalPlugins = mapOf(
     "process-executor" to ":plugins:processors:process-executor",
@@ -19,8 +19,11 @@ val optionalPlugins = mapOf(
     "mcp-tool-call" to ":plugins:processors:mcp-tool-call",
     "script-js" to ":plugins:processors:internal:script-js",
 )
-val requested = providers.gradleProperty("yukta.plugins").getOrElse("all").trim()
+// Default leaves out script-js (GraalJS/Truffle is the largest part of the native image);
+// ask for it with -Pyukta.plugins=all or by name.
+val requested = providers.gradleProperty("yukta.plugins").orNull?.trim() ?: "default"
 val selectedPlugins = when (requested) {
+    "default" -> optionalPlugins.keys - "script-js"
     "all" -> optionalPlugins.keys
     "none", "" -> emptySet()
     else -> requested.split(",").map { it.trim() }.toSet()
@@ -84,14 +87,19 @@ graalvmNative {
             imageName.set("yukta")
             mainClass.set("com.infenia.yukta.YuktaApplication")
             buildArgs.add("--no-fallback")
+            buildArgs.add("--emit=build-report")
 
             // Heap for native image compilation
-            buildArgs.add("-J-Xmx8g")
+            buildArgs.add("-J-Xmx16g")
 
             // Size-reduction flags (compatible with GraalVM 25)
             buildArgs.add("-H:+RemoveUnusedSymbols")           // Remove unused symbols
             buildArgs.add("-H:+StripDebugInfo")                // Remove debug information
             buildArgs.add("-H:-AddAllCharsets")                // Remove unnecessary charsets
+            buildArgs.add("-H:IncludeLocales=en")              // English is the only supported locale
+
+            // Dev builds: -Pnative.quick trades runtime speed for much faster image compilation
+            if (providers.gradleProperty("native.quick").isPresent) buildArgs.add("-Ob")
 
             // Force prod profile + AOT compilation
             buildArgs.add("-Dspring.profiles.active=prod")
