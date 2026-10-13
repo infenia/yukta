@@ -42,10 +42,10 @@ Most workflow engines make you pick: a heavy platform you have to operate, or a 
 | Area | Status | Notes |
 |------|--------|-------|
 | DAG engine (`core`) | Working | Reactive compiler, validator and executor |
-| REST API (`web`) | Working | 9 controllers, 39 operations, Swagger UI |
-| MCP server (`mcp`) | Working | 16 tools, 2 prompts, 3 resources at `/mcp` |
-| Plugins | Working | 26 built-in triggers, processors and terminals |
-| Rule supervisor | Working, opt-in | Declarative rules over the control bus |
+| REST API (`web`) | Working | 12 controllers, 46 operations, Swagger UI |
+| MCP server (`mcp`) | Working | 17 tools, 2 prompts, 3 resources at `/mcp` |
+| Plugins | Working | 34 built-in triggers, processors and terminals |
+| Rule supervisor, control planes | Working, opt-in | Declarative rules, or a model, deciding on control-bus events |
 | Web UI (`ui`) | Working | React 19 + Vite + Tailwind CSS 4 |
 | Go CLI (`cli`) | In progress | See [`cli/README.md`](cli/README.md) |
 | Native image (GraalVM) | Configured | `./gradlew nativeCompile`; nothing published yet |
@@ -146,7 +146,7 @@ Processors can expose named output ports (for example `success` and `failure`, o
 
 ## Plugins
 
-26 built-in plugins. Type strings are used exactly as written below; their case and separators are not consistent yet.
+34 built-in plugins. Type strings are used exactly as written below; their case and separators are not consistent yet.
 
 **Triggers** start a workflow
 
@@ -181,6 +181,9 @@ Processors can expose named output ports (for example `success` and `failure`, o
 | `SUB_WORKFLOW` | Runs another workflow of the same session per message and emits its results |
 | `WAIT_FOR_SIGNAL` | Holds a message until a named signal (approval, decision) arrives or a timeout passes |
 | `KV_STORE` | Shared in-memory key-value state |
+| `CLASSIFY` / `GATE` / `SCORE` | Model decisions: pick a label, pass or reject on yes/no, rate on a scale (optional `decision` plugin) |
+| `ASK` | Several questions about a message in one model call; answers go to the metadata |
+| `ANOMALY` / `DEDUPE` | Compare a message with the last few: `normal`/`anomalous`, `unique`/`duplicate` |
 
 **Terminals** end a branch
 
@@ -189,7 +192,7 @@ Processors can expose named output ports (for example `success` and `failure`, o
 | `CONSOLE_TERMINAL` | Logs the payload |
 | `NOTIFY_TERMINAL` | Sends a JSON webhook notification (Slack-compatible) |
 
-**Supervisors** observe and gate control-bus commands. `plugins/supervisors/rule-supervisor` runs declarative rules from a JSON file; enable it with `yukta.supervisor.rules.file`.
+**Supervisors** observe and gate control-bus commands. `plugins/supervisors/rule-supervisor` runs declarative rules from a JSON file; enable it with `yukta.supervisor.rules.file`. **Control planes** (`plugins/control-planes`) decide one command per event: `rule-control-plane` (the same rules), `model-control-plane` (a small model; `yukta.control-plane.model.name`) and `rules-first-control-plane` (rules first, model only when no rule fired).
 
 ### Write your own
 
@@ -205,7 +208,7 @@ Yukta runs an MCP server in the same process, always on at `http://localhost:808
 claude mcp add --transport http yukta http://localhost:8080/mcp
 ```
 
-- **16 tools:** `list_sessions`, `get_session_details`, `create_session`, `get_session_creation_instructions`, `get_workflow_details`, `start_workflow`, `get_workflow_status`, `get_workflow_history`, `control_workflow`, `control_node`, `set_node_breakpoint`, `get_execution_logs`, `list_plugins`, `get_plugin_details`, `get_plugin_creation_guide`, `get_control_bus_status`
+- **17 tools:** `list_sessions`, `get_session_details`, `create_session`, `get_session_creation_instructions`, `get_workflow_details`, `start_workflow`, `get_workflow_status`, `get_workflow_history`, `control_workflow`, `control_node`, `set_node_breakpoint`, `signal_node`, `get_execution_logs`, `list_plugins`, `get_plugin_details`, `get_plugin_creation_guide`, `get_control_bus_status`
 - **2 prompts:** `debug-workflow`, `create-session-config`
 - **3 resources:** `yukta://overview`, `yukta://architecture`, `yukta://sessions/{sessionId}/executions/{executionId}/logs`
 
@@ -227,6 +230,8 @@ Base path `/api`. Interactive docs are at `/swagger-ui.html`.
 | Control bus | `/api/control` | Live node introspection, heartbeats, node commands |
 | Events | `/api/events` | Live event stream (SSE) |
 | Plugins | `/api/plugins` | List plugins and their schemas |
+| Validation and versions | `/api/sessions/validate`, `/api/sessions/{sessionId}/workflows/{workflowId}` | Validate a session config; list and roll back workflow versions |
+| Supervisors | `/api/supervisors` | Status of the installed supervisors |
 
 List endpoints take `?limit=&cursor=` and return the next page in the `X-Next-Cursor` header. The older `/api/workflow/{sid}/{eid}/…` paths still work as deprecated aliases.
 

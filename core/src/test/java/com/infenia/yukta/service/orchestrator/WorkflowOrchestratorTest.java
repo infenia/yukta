@@ -523,6 +523,9 @@ class WorkflowOrchestratorTest {
         .thenReturn(Mono.empty());
     setupRestartControl("s", "w", "new", prepared, Sinks.one());
     final Message<?> recorded = org.mockito.Mockito.mock(Message.class);
+    executionArchive.put(
+        new com.infenia.yukta.service.archive.ArchivedExecution(
+            "old", "s", "w", prepared, "v", Map.of("k", "v")));
 
     StepVerifier.create(
             orchestrator.restartFromNode(
@@ -541,6 +544,8 @@ class WorkflowOrchestratorTest {
     // the replayed input is recorded under the new execution so it can be restarted in turn
     verify(checkpointStore).save("new", "t1", recorded);
     assertThat(executionArchive.find("new")).isPresent();
+    // the original start payload is kept, so a later resume or restart still has it
+    assertThat(executionArchive.find("new").orElseThrow().payload()).containsEntry("k", "v");
   }
 
   @Test
@@ -928,7 +933,7 @@ class WorkflowOrchestratorTest {
       final PreparedWorkflow prepared,
       final Sinks.One<Void> safeStop) {
     when(executionControlFactory.create(
-            eq(sessionId), eq(workflowId), eq(executionId), eq(prepared), eq(Map.of())))
+            eq(sessionId), eq(workflowId), eq(executionId), eq(prepared), any()))
         .thenReturn(executionControl);
     doNothing().when(executionControlRegistry).register(executionControl);
     doNothing().when(executionControlRegistry).unregister(executionId);

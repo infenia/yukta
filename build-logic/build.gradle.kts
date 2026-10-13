@@ -22,4 +22,13 @@ dependencies {
     implementation("io.spring.dependency-management:io.spring.dependency-management.gradle.plugin:${libs.versions.springDependencyManagement.get()}")
     implementation("net.ltgt.gradle:gradle-errorprone-plugin:${libs.versions.errorpronePlugin.get()}")
     implementation("app.cash.licensee:licensee-gradle-plugin:${libs.versions.licensee.get()}")
+
+    // Build-time transitives of the plugins above with published CVEs (Dependabot); same minor line
+    constraints {
+        implementation("com.fasterxml.jackson.core:jackson-core:2.21.7")
+        implementation("com.fasterxml.jackson.core:jackson-databind:2.21.7")
+        implementation("tools.jackson.core:jackson-core:3.1.7")
+        implementation("tools.jackson.core:jackson-databind:3.1.7")
+        implementation("org.codehaus.plexus:plexus-utils:3.6.1")
+    }
 }
