@@ -9,7 +9,7 @@ Re-verified on 2026-10-13 against `main@e8d62722`; new findings and the prioriti
 done (limits and priority are logged, still not reviewed), B19 is fixed for starts and restarts (open
 only for sub-workflow starts), B21 is partly done (finished runs capped at 100 per session, session
 entries never removed), B25 is partly done (a supervisor's own command outcomes are filtered, status
-events are not). B32 and S9 are fixed. The security items S3-S8, S10-S13, B4 and B35 are fixed in the security hardening PR, and F3 and F5 are partly done (see their rows and [11](11-remediation-plan.md)).
+events are not). B32 and S9 are fixed. The security items S3-S8, S10-S13, B4 and B35 are fixed in the security hardening PR, and F3 and F5 are done (see their rows and [11](11-remediation-plan.md)).
 
 ## Bugs and hardening
 

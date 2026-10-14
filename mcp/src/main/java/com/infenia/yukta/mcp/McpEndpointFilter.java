@@ -11,6 +11,7 @@ import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.core.env.Environment;
 import org.springframework.core.io.buffer.DataBuffer;
+import org.springframework.core.io.buffer.DataBufferLimitException;
 import org.springframework.core.io.buffer.DataBufferUtils;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
@@ -120,7 +121,9 @@ public class McpEndpointFilter implements WebFilter {
             bytes ->
                 bytes.length > 0 && !McpToolAccess.permitted(match, bytes)
                     ? reject(exchange, HttpStatus.FORBIDDEN)
-                    : chain.filter(rewritten(withBody(exchange, bytes), legacy)));
+                    : chain.filter(rewritten(withBody(exchange, bytes), legacy)))
+        .onErrorResume(
+            DataBufferLimitException.class, _ -> reject(exchange, HttpStatus.CONTENT_TOO_LARGE));
   }
 
   private static ServerWebExchange withBody(final ServerWebExchange exchange, final byte[] bytes) {

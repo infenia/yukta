@@ -9,7 +9,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import lombok.NoArgsConstructor;
 import org.springframework.ai.anthropic.AnthropicChatModel;
 import org.springframework.ai.anthropic.AnthropicChatOptions;
@@ -28,7 +28,11 @@ import org.springframework.ai.openai.OpenAiChatModel;
 import org.springframework.ai.openai.OpenAiChatOptions;
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.ai.tool.definition.ToolDefinition;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.context.properties.bind.Bindable;
+import org.springframework.boot.context.properties.bind.Binder;
+import org.springframework.core.env.Environment;
 import org.springframework.core.retry.RetryPolicy;
 import org.springframework.core.retry.RetryTemplate;
 import org.springframework.stereotype.Service;
@@ -69,10 +73,27 @@ public class LlmGateway {
    * @return the model answer
    */
   public LlmResponse call(final LlmRequest request) {
-    refuseIfDenied("prompt", "yukta.llm.deny-input-patterns", inputText(request), denyInput);
+    refuseIfDenied("prompt", "yukta.llm.deny-input-patterns", inputParts(request), denyInput);
     final LlmResponse answer = invoke(request);
-    refuseIfDenied("answer", "yukta.llm.deny-output-patterns", outputText(answer), denyOutput);
+    refuseIfDenied("answer", "yukta.llm.deny-output-patterns", outputParts(answer), denyOutput);
     return answer;
+  }
+
+  /**
+   * Reads both pattern lists. A plain value is split at commas, so write a pattern that has one
+   * (such as {@code a{1,3}}) as an indexed entry: {@code yukta.llm.deny-input-patterns[0]}.
+   *
+   * @param environment the environment
+   */
+  @Autowired
+  /* default */ void readPatterns(final Environment environment) {
+    final Binder binder = Binder.get(environment);
+    setDenyInput(patterns(binder, "yukta.llm.deny-input-patterns"));
+    setDenyOutput(patterns(binder, "yukta.llm.deny-output-patterns"));
+  }
+
+  private static List<String> patterns(final Binder binder, final String name) {
+    return binder.bind(name, Bindable.listOf(String.class)).orElse(List.of());
   }
 
   /**
@@ -81,7 +102,6 @@ public class LlmGateway {
    *
    * @param patterns the expressions
    */
-  @Value("${yukta.llm.deny-input-patterns:}")
   /* default */ void setDenyInput(final List<String> patterns) {
     this.denyInput = patterns.stream().map(Pattern::compile).toList();
   }
@@ -92,7 +112,6 @@ public class LlmGateway {
    *
    * @param patterns the expressions
    */
-  @Value("${yukta.llm.deny-output-patterns:}")
   /* default */ void setDenyOutput(final List<String> patterns) {
     this.denyOutput = patterns.stream().map(Pattern::compile).toList();
   }
@@ -108,26 +127,33 @@ public class LlmGateway {
     this.maxInputChars = maxChars;
   }
 
-  private static String inputText(final LlmRequest request) {
-    return Objects.toString(request.system(), "")
-        + "\n"
-        + request.messages().stream().map(ChatTurn::content).collect(Collectors.joining("\n"));
+  /** Each field on its own, so an anchored pattern cannot be satisfied by a neighbouring field. */
+  private static List<String> inputParts(final LlmRequest request) {
+    return Stream.concat(
+            Stream.of(Objects.toString(request.system(), "")),
+            request.messages().stream().map(ChatTurn::content))
+        .toList();
   }
 
-  private static String outputText(final LlmResponse answer) {
-    return answer.text()
-        + "\n"
-        + answer.toolCalls().stream()
-            .map(call -> Objects.toString(call.arguments(), ""))
-            .collect(Collectors.joining("\n"));
+  private static List<String> outputParts(final LlmResponse answer) {
+    return Stream.concat(
+            Stream.of(answer.text()),
+            answer.toolCalls().stream().map(call -> Objects.toString(call.arguments(), "")))
+        .toList();
   }
 
   private void refuseIfDenied(
-      final String what, final String property, final String text, final List<Pattern> denied) {
-    if (maxInputChars > 0 && "prompt".equals(what) && text.length() > maxInputChars) {
+      final String what,
+      final String property,
+      final List<String> parts,
+      final List<Pattern> denied) {
+    if (maxInputChars > 0
+        && "prompt".equals(what)
+        && parts.stream().mapToInt(String::length).sum() > maxInputChars) {
       throw new IllegalArgumentException("The prompt exceeds yukta.llm.max-input-chars");
     }
-    if (denied.stream().anyMatch(pattern -> pattern.matcher(text).find())) {
+    if (parts.stream()
+        .anyMatch(part -> denied.stream().anyMatch(pattern -> pattern.matcher(part).find()))) {
       throw new IllegalArgumentException("The " + what + " matches " + property);
     }
   }

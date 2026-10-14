@@ -29,7 +29,7 @@ public record ControlAuditEntry(
 
   /** Log text: {@code command [by actor]} then, for a refusal, {@code : reason}. */
   private static final Pattern STATUS =
-      Pattern.compile("^(.*?)(?: \\[by ([^\\]]+)\\])?(?:: (.*))?$");
+      Pattern.compile("^(.*?)(?: \\[by ([^\\]]+)\\])?(?:: (.*))?$", Pattern.DOTALL);
 
   /**
    * Read an entry from a control event of the execution log.
@@ -39,7 +39,7 @@ public record ControlAuditEntry(
    */
   public static ControlAuditEntry from(final ExecutionLogEvent event) {
     final Matcher match = STATUS.matcher(event.status() == null ? "" : event.status());
-    match.matches();
+    match.matches(); // always true: the pattern accepts any text, line breaks included
     return new ControlAuditEntry(
         event.timestamp(),
         event.executionId(),

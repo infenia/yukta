@@ -58,4 +58,18 @@ class SignalWaitsTest {
     StepVerifier.create(new SignalWaits().deliver(DefaultMessage.create(UUID.randomUUID(), "text")))
         .verifyComplete();
   }
+
+  @Test
+  void await_twoWaitsOnOneKey_areAnsweredOneSignalEachOldestFirst() {
+    final SignalWaits waits = new SignalWaits();
+    final var first = waits.await("e", "n", "ok", Duration.ofSeconds(5)).toFuture();
+    final var second = waits.await("e", "n", "ok", Duration.ofSeconds(5)).toFuture();
+
+    assertThat(answer(waits, "one")).isEqualTo(SignalWaits.ACCEPTED);
+    assertThat(first).isCompleted();
+    assertThat(second).isNotDone();
+    assertThat(answer(waits, "two")).isEqualTo(SignalWaits.ACCEPTED);
+    assertThat(second).isCompleted();
+    assertThat(answer(waits, "three")).isEqualTo(SignalWaits.NOT_WAITING);
+  }
 }

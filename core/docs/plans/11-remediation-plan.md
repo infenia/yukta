@@ -29,7 +29,7 @@ a release gate for the day untrusted authors are allowed:
 
 - [x] S4 deny-by-default for `PROCESS_EXECUTOR` shipped (PR-3)
 - [x] S11 expression method allow-list, S12 script statement limit and watchdog, S13 context key allow-list
-- [ ] F5 gateway-level tool allow-list and prompt filters; F3 per-session scoping (an author must not reach another session)
+- [x] F5 gateway-level tool allow-list and prompt filters; F3 per-session scoping (an author must not reach another session)
 - [ ] B35 size limits and B34/B28/B31/B21 memory bounds (an author can otherwise exhaust memory)
 - [ ] Re-rate S11/S12/S13 as High and move them from P2 to P1
 
@@ -71,7 +71,7 @@ bounds B28, B31, B34 and B35 are also denial-of-service fixes; their performance
 
 | ID | Sev | Eff | Conf | Evidence | Issue | Fix | Test to add | Brk | Depends |
 |---|---|---|---|---|---|---|---|---|---|
-| S10 [N6] + B4 (done) | M | M | read (agent) | `DefaultControlBusGateway.java:207-215,576-608`; `ControlBusService.java:395-397`; `ControlBusController.java:77,90-91`; `WaitForSignalProcessor.java:119-137`; review and audit only in `DirectiveDispatcher.java:132-148` | The raw node command is keyed by workflow and node, is neither reviewed nor audited, and can release any approval wait. Limits and priority changes are logged but not reviewed. | New sealed `SetLimits`/`SetPriority` commands through `DirectiveDispatcher`; signals only through `SignalNodeCommand`, or remove the raw endpoint | A reviewer that refuses everything also blocks limits, priority and a raw signal; each leaves a `CONTROL_REJECTED` | **yes** | decision 3 |
+| S10 [N6] + B4 (done) | M | M | read (agent) | `DefaultControlBusGateway.java:207-215,576-608`; `ControlBusService.java:395-397`; `ControlBusController.java:77,90-91`; `WaitForSignalProcessor.java:119-137`; review and audit only in `DirectiveDispatcher.java:132-148` | Before the fix: the raw node command was keyed by workflow and node, neither reviewed nor audited, and could release any approval wait; limits and priority changes were logged but not reviewed. Now all of them are reviewed and audited. | New sealed `SetLimits`/`SetPriority` commands through `DirectiveDispatcher`; signals only through `SignalNodeCommand`, or remove the raw endpoint | A reviewer that refuses everything also blocks limits, priority and a raw signal; each leaves a `CONTROL_REJECTED` | **yes** | decision 3 |
 | B29 [N9] | M | S | read (agent) | `core/.../control/CommandSequencer.java:31-41`; `DirectiveDispatcher.java:132-148` | When a waiting command's caller cancels, its slot is released at once, so a later command can run next to the one still in progress; the cancel is not audited. | Chain the release behind `previous`; record the cancel as an outcome | Three queued commands, cancel the second: third still waits for the first | no | |
 | B27 | M | S (guard), M (split) | read (agent) | `DefaultTaskTrackerService.java:843-862` (1066 lines), `WorkflowState.java:176-178` | No forward-only guard on run status; a second terminal event finalizes again and appends `finished` twice. | Return early when already terminal; extract history and cleanup projection later | Two terminal events: one `finished` log entry | no | |
 | B33 [F6] | M | S-M | inferred | `WorkflowOrchestrator.java:475-485` (`doFinally` unregisters, no final status) | A cancelled sub-workflow child may never get a final status. | Test first; then finish the run as cancelled | Cancel the parent node mid-child: the child ends with a terminal status | no | |
@@ -98,10 +98,10 @@ bounds B28, B31, B34 and B35 are also denial-of-service fixes; their performance
 |---|---|---|---|
 | F10 | L | Node checkpoint store in PostgreSQL; a CI job running the PostgreSQL acceptance test (it is skipped in CI today); native-image hints for R2DBC and Flyway; pool and health | none; unblocks HA and durable waits |
 | F2 | M | Durable signal waits, queued early signals, UI for pending approvals | F10 for a database backend |
-| F3 | M | MCP roles and actor, per-session scoping, hashed and rotated keys, audit view | S5, S6 first |
+| F3 (done) | M | MCP roles and actor, per-session scoping, hashed and rotated keys, audit view | S5, S6 first |
 | F9 | S-M | MCP version/rollback tools, diff, UI history | none |
 | F4 | M | Per-provider rate limit, budget metrics, hard stop of a run | none |
-| F5 | S-M | `deniedTools`, gateway-level allow-list, prompt filters | none |
+| F5 (done) | S-M | `deniedTools`, gateway-level allow-list, prompt filters | none |
 | F7 | M | `KV_STORE` durability, session-memory TTL | F10 |
 | F8 | S | `tools/list` pagination, tool-role turns | none |
 | F11 | L | Remote workers: design only, open decisions in `10-remote-workers.md` | F10 |

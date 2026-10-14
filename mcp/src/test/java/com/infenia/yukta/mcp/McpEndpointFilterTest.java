@@ -266,4 +266,11 @@ class McpEndpointFilterTest {
 
     assertThat(seenPath.get()).isEqualTo("streamed");
   }
+
+  @Test
+  void testBodyOverOneMebibyteIsRefusedWith413() {
+    final var env = limited("OPERATOR", null);
+
+    assertThat(call(env, "/mcp", "x".repeat((1 << 20) + 1))).startsWith("413");
+  }
 }

@@ -66,4 +66,12 @@ class ControlAuditControllerTest {
 
     assertThat(ControlAuditEntry.from(event).command()).isEmpty();
   }
+
+  @Test
+  void entryWithAMultilineReasonIsParsedWhole() {
+    final var event =
+        ExecutionLogEvent.control(false, "e", "StopWorkflowCommand [by rules]", "deny:\nbusy");
+
+    assertThat(ControlAuditEntry.from(event).reason()).isEqualTo("deny:\nbusy");
+  }
 }

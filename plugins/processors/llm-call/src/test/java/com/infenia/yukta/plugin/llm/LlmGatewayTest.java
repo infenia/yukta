@@ -278,4 +278,15 @@ class LlmGatewayTest {
     assertThat(response.text()).isEmpty();
     assertThat(response.inputTokens()).isZero();
   }
+
+  @Test
+  void indexedPatternsKeepTheirCommas_andAnchorsApplyToEachTurn() {
+    gateway.readPatterns(
+        new org.springframework.mock.env.MockEnvironment()
+            .withProperty("yukta.llm.deny-input-patterns[0]", "^q{1,1}2$"));
+
+    assertThatThrownBy(() -> gateway.call(request(Provider.OPENAI, "/v1")))
+        .hasMessageContaining("deny-input-patterns");
+    assertThat(bodies).isEmpty();
+  }
 }

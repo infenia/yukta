@@ -5,10 +5,12 @@ package com.infenia.yukta.plugin.util;
 import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
 import java.time.Duration;
+import java.util.ArrayDeque;
+import java.util.Deque;
 import java.util.Map;
-import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicReference;
 import reactor.core.publisher.Mono;
 import reactor.core.publisher.Sinks;
 
@@ -27,8 +29,8 @@ public final class SignalWaits {
   /** Answer to a signal when the node is not waiting for it. */
   public static final String NOT_WAITING = "NOT_WAITING";
 
-  /** Waits by execution, node and signal name. */
-  private final Map<String, Sinks.One<Decision>> waiting = new ConcurrentHashMap<>();
+  /** Waits by execution, node and signal name; waits on one key are answered oldest first. */
+  private final Map<String, Deque<Sinks.One<Decision>>> waiting = new ConcurrentHashMap<>();
 
   /**
    * What the sender decided.
@@ -54,8 +56,14 @@ public final class SignalWaits {
         () -> {
           final String key = key(executionId, nodeId, name);
           final Sinks.One<Decision> waiter = Sinks.one();
-          waiting.put(key, waiter);
-          return waiter.asMono().timeout(timeout).doFinally(_ -> waiting.remove(key, waiter));
+          waiting.compute(
+              key,
+              (_, queue) -> {
+                final Deque<Sinks.One<Decision>> waits = queue == null ? new ArrayDeque<>() : queue;
+                waits.add(waiter);
+                return waits;
+              });
+          return waiter.asMono().timeout(timeout).doFinally(_ -> forget(key, waiter));
         });
   }
 
@@ -80,12 +88,34 @@ public final class SignalWaits {
         new Decision(
             String.valueOf(body.get("decision")),
             body.get("data") == null ? "" : String.valueOf(body.get("data")));
-    final boolean taken =
-        Optional.ofNullable(waiting.remove(key))
-            .map(waiter -> waiter.tryEmitValue(decision))
-            .filter(Sinks.EmitResult::isSuccess)
-            .isPresent();
+    boolean taken = false;
+    Sinks.One<Decision> waiter = next(key);
+    while (waiter != null && !taken) {
+      taken = waiter.tryEmitValue(decision).isSuccess();
+      waiter = taken ? null : next(key);
+    }
     return Mono.just(DefaultMessage.create(UUID.randomUUID(), taken ? ACCEPTED : NOT_WAITING));
+  }
+
+  /** The oldest wait on the key, taken off its queue, or null. */
+  private Sinks.One<Decision> next(final String key) {
+    final AtomicReference<Sinks.One<Decision>> oldest = new AtomicReference<>();
+    waiting.computeIfPresent(
+        key,
+        (_, queue) -> {
+          oldest.set(queue.poll());
+          return queue.isEmpty() ? null : queue;
+        });
+    return oldest.get();
+  }
+
+  private void forget(final String key, final Sinks.One<Decision> waiter) {
+    waiting.computeIfPresent(
+        key,
+        (_, queue) -> {
+          queue.remove(waiter);
+          return queue.isEmpty() ? null : queue;
+        });
   }
 
   private static String key(final String executionId, final String nodeId, final String name) {

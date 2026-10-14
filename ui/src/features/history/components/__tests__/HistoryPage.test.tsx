@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
-import { screen } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
@@ -89,6 +89,7 @@ describe('HistoryPage', () => {
       .setup()
       .click(screen.getByRole('button', { name: 'Retry' }));
     expect(await screen.findByLabelText('Session')).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 
   it('reports a failure to load a session’s history', async () => {
@@ -101,9 +102,11 @@ describe('HistoryPage', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'Failed to load history'
     );
+    const before = requested.length;
     await userEvent
       .setup()
       .click(screen.getByRole('button', { name: 'Retry' }));
+    await waitFor(() => expect(requested.length).toBe(before + 1));
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'Failed to load history'
     );
