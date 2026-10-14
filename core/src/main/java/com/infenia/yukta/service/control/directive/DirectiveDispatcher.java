@@ -54,6 +54,9 @@ public class DirectiveDispatcher {
   /** Finished executions that can still be restarted. */
   private final ExecutionArchive archive;
 
+  /** Reason recorded for a command whose caller went away before it finished. */
+  private static final String CANCELLED_REASON = "cancelled";
+
   /** Records applied and rejected commands. */
   private final ExecutionLogStore executionLog;
 
@@ -113,15 +116,22 @@ public class DirectiveDispatcher {
     return Mono.deferContextual(
         context -> {
           final String actor = context.getOrDefault(ControlActor.CONTEXT_KEY, null);
-          return sequencer.sequence(
-              command.executionId(),
-              Mono.defer(
-                  () ->
-                      !isAddressable(command)
-                          ? Mono.error(
-                              new NotFoundException(
-                                  "Execution not found: " + command.executionId()))
-                          : audited(command, actor)));
+          return sequencer
+              .sequence(
+                  command.executionId(),
+                  Mono.defer(
+                      () ->
+                          !isAddressable(command)
+                              ? Mono.error(
+                                  new NotFoundException(
+                                      "Execution not found: " + command.executionId()))
+                              : audited(command, actor)))
+              .doOnCancel(
+                  () -> {
+                    if (isAddressable(command)) {
+                      cancelled(command, actor);
+                    }
+                  });
         });
   }
 
@@ -146,6 +156,15 @@ public class DirectiveDispatcher {
                 executionLog.append(
                     ExecutionLogEvent.control(
                         false, command.executionId(), logged, error.getMessage())));
+  }
+
+  /** A command whose caller went away before it finished is neither applied nor lost. */
+  private void cancelled(final ExecutionControlCommand command, final String actor) {
+    final String name = command.getClass().getSimpleName();
+    final String logged = actor == null ? name : name + " [by " + actor + "]";
+    outcome(command, name, actor, CANCELLED_REASON);
+    executionLog.append(
+        ExecutionLogEvent.control(false, command.executionId(), logged, CANCELLED_REASON));
   }
 
   private void outcome(

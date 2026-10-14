@@ -294,6 +294,24 @@ class DirectiveDispatcherTest {
   }
 
   @Test
+  void dispatchOrdered_aCancelledCommandIsRecordedAsRejected() {
+    registry.register(createControl("s", "w", "exec-cancel"));
+    final ExecutionControlCommand pause =
+        new ExecutionControlCommand.PauseWorkflowCommand("exec-cancel");
+    when(processor.canProcess(any())).thenReturn(true);
+    when(processor.getPriority()).thenReturn(1);
+    when(processor.process(pause)).thenReturn(Mono.never());
+
+    dispatcher.dispatchOrdered(pause).subscribe().dispose();
+
+    assertThat(log.readAll())
+        .extracting(ExecutionLogEvent::type, ExecutionLogEvent::status)
+        .containsExactly(
+            org.assertj.core.api.Assertions.tuple(
+                ExecutionLogEvent.Type.CONTROL_REJECTED, "PauseWorkflowCommand: cancelled"));
+  }
+
+  @Test
   void dispatchOrdered_unknownRunsAreNotRecorded() {
     StepVerifier.create(
             dispatcher.dispatchOrdered(new ExecutionControlCommand.PauseWorkflowCommand("ghost")))

@@ -4,6 +4,7 @@ package com.infenia.yukta.service.control;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 import lombok.NoArgsConstructor;
 import reactor.core.publisher.Mono;
 import reactor.core.publisher.Sinks;
@@ -37,13 +38,25 @@ public final class CommandSequencer {
           final Sinks.One<Void> mine = Sinks.one();
           final Sinks.One<Void> previous = tails.put(key, mine);
           final Mono<Void> turn = previous == null ? Mono.empty() : previous.asMono();
-          return turn.then(work)
+          final AtomicBoolean turnReached = new AtomicBoolean();
+          return turn.doOnTerminate(() -> turnReached.set(true))
+              .then(work)
               .doFinally(
                   _ -> {
-                    mine.tryEmitEmpty();
-                    tails.remove(key, mine);
+                    if (turnReached.get()) {
+                      release(key, mine);
+                    } else {
+                      // Cancelled while still waiting: later jobs must keep waiting for the
+                      // predecessor, so hand over only once it is done.
+                      turn.doFinally(__ -> release(key, mine)).subscribe(_ -> {}, _ -> {});
+                    }
                   });
         });
+  }
+
+  private void release(final String key, final Sinks.One<Void> mine) {
+    mine.tryEmitEmpty();
+    tails.remove(key, mine);
   }
 
   /**
