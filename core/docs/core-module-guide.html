@@ -335,7 +335,7 @@ comps:[
    "On shutdown it stops accepting starts, refuses everything still queued and gives running runs 30 seconds to finish."
   ],
   "guar": "No run gets an id without a slot, a repeated start with the same key never starts a second run, and every refusal is counted by reason.",
-  "state": "The slots and the queue are held in memory. Idempotency keys are saved in the execution log when one is configured. Limits changed at run time are logged but not restored after a restart.",
+  "state": "The slots and the queue are held in memory. Idempotency keys are saved in the execution log when one is configured. Limits changed at run time are logged and restored from the log on the next start; the log then wins over the configuration.",
   "ceil": "One scheduler in one server process. The queue holds 100 starts by default and there are no limits at all until you set some.",
   "fail": "If the server crashes, queued starts lose their place in line. With a file or PostgreSQL log their start was already recorded, so they are marked ABORTED on the next boot together with the running ones, and can be recovered.",
   "set": [
@@ -346,9 +346,6 @@ comps:[
   ],
   "risks": [
    "spof",
-   "restartRace",
-   "limits28",
-   "blockStart",
    "idemCap"
   ]
  },
@@ -375,7 +372,6 @@ comps:[
    "yukta.session.store-type = in-memory | file | postgres"
   ],
   "risks": [
-   "prepAlign",
    "versions21"
   ]
  },
@@ -404,7 +400,6 @@ comps:[
   ],
   "risks": [
    "spof",
-   "failfast",
    "backpressure25",
    "payload23",
    "remote"
@@ -470,7 +465,6 @@ comps:[
    "yukta.supervisor.rules.file"
   ],
   "risks": [
-   "supLoop"
   ]
  },
  {
@@ -496,8 +490,6 @@ comps:[
    "yukta.supervisor.* (reviewers)"
   ],
   "risks": [
-   "restartRace",
-   "cmdCancel",
    "ctlKey"
   ]
  },
@@ -518,15 +510,13 @@ comps:[
   ],
   "guar": "State events are complete and in order, and the run and node timelines agree with the log.",
   "state": "Everything is in memory. After a restart the newest runs are restored from the log.",
-  "ceil": "State events are never dropped and their queue has no size limit, and per-session state is never evicted, so memory grows with the number of sessions and during event storms.",
+  "ceil": "State events are never dropped and their queue has no size limit, and per-session state is kept until yukta.tracker.max-sessions evicts the oldest finished session (off by default), so memory can grow with the number of sessions and during event storms.",
   "fail": "The queue cannot overflow and silently stop tracking: bounded channels use a non-terminating 'offer' instead of 'emit'.",
   "set": [
    "tracing: add a Micrometer tracer to the classpath"
   ],
   "risks": [
-   "evict21",
    "trackerQ26",
-   "trackerSize27",
    "spof"
   ]
  },
@@ -546,7 +536,7 @@ comps:[
   ],
   "guar": "A resume trusts only the done marker, never the log. A node whose output exceeded the memory cap refuses a restart rather than replaying part of its output, unless a spill directory is set: then the node's whole output moves to files and replays complete.",
   "state": "Durable only if you configure directories (or PostgreSQL for the log).",
-  "ceil": "Checkpoints are files or memory, not PostgreSQL. All file I/O runs on one writer thread, and log events are not fsynced (forced to disk).",
+  "ceil": "Checkpoints are files or memory, not PostgreSQL. All file I/O runs on one writer thread, and log events are not fsynced unless yukta.execution-log.fsync=true.",
   "fail": "There is a tiny window: if a plugin performs a side effect and the process dies before the done marker is written, that node runs again after a resume and the side effect can happen twice.",
   "set": [
    "yukta.execution-log.dir, retained-runs (500), compact-after (10000)",
@@ -555,7 +545,6 @@ comps:[
   "risks": [
    "cpstore",
    "exactlyOnce22",
-   "logDur24",
    "payload23",
    "logGrow"
   ]
@@ -607,8 +596,6 @@ comps:[
    "yukta.execution.max-concurrent must cover parent + children"
   ],
   "risks": [
-   "subDeadlock",
-   "childCancel",
    "spof"
   ]
  }
@@ -643,15 +630,15 @@ edges:[["entry","def","data","load"],["def","engine","data","graph"],["engine","
 scen:[
 {id:"happy",name:"Happy path",steps:[
  {t:"A start request arrives",d:"The caller posts a start, optionally with an Idempotency-Key. The gateway loads the stored definition; a repeated key returns the first execution id.",c:["entry","def"],r:[]},
- {t:"Prepare once, share it",d:"The graph is validated (cycles, ports, size limits, policies) and compiled. Concurrent starts of the same content share one preparation, and the result is cached only if the definition is still current.",c:["def"],r:["prepAlign"]},
- {t:"Admission",d:"After preparing, and before any execution id exists, the scheduler grants a slot, queues the start or refuses it. Handing out the id only after the slot is granted means two requests arriving together can never both take the last slot.",c:["entry"],r:["restartRace"]},
+ {t:"Prepare once, share it",d:"The graph is validated (cycles, ports, size limits, policies) and compiled. Concurrent starts of the same content share one preparation, and the result is cached only if the definition is still current.",c:["def"],r:[]},
+ {t:"Admission",d:"After preparing, and before any execution id exists, the scheduler grants a slot, queues the start or refuses it. Handing out the id only after the slot is granted means two requests arriving together can never both take the last slot.",c:["entry"],r:[]},
  {t:"Wire the graph",d:"Each node gets its wrapper (merge parents, valve, plugin call, clocks, broadcast; see the primer) and each edge becomes a stream. All consumers subscribe first and the sources start last, so no early message is lost.",c:["engine"],r:[]},
  {t:"Messages flow",d:"Triggers produce, processors transform per message with the Reactor context (execution, node, heartbeat), terminals consume. The slowest child paces the whole fan-out.",c:["engine","plugin"],r:["backpressure25","payload23"]},
  {t:"Observe and record",d:"Ordered state events feed progress, SSE and meters. Each node's output is checkpointed and, when the node completes, a durable end marker is written before completion moves on.",c:["engine","obs","dur"],r:["trackerQ26","cpstore"]},
- {t:"Finish",d:"Terminals complete, the run ends SUCCESS, the slot is released, the end is logged and the archive keeps the run restartable.",c:["entry","obs","dur"],r:["logDur24"]}]},
+ {t:"Finish",d:"Terminals complete, the run ends SUCCESS, the slot is released, the end is logged and the archive keeps the run restartable.",c:["entry","obs","dur"],r:[]}]},
 {id:"overload",name:"Overload",steps:[
  {t:"A burst of starts",d:"Many start requests arrive at once. With no limits configured (the default) all of them run at the same time, and the only brake is the server itself running out of resources.",c:["entry"],r:["spof"]},
- {t:"Limits kick in",d:"Global, per-workflow and per-session caps decide who runs. A start that does not fit waits (status QUEUED) or is refused with 429.",c:["entry"],r:["limits28"]},
+ {t:"Limits kick in",d:"Global, per-workflow and per-session caps decide who runs. A start that does not fit waits (status QUEUED) or is refused with 429.",c:["entry"],r:[]},
  {t:"Fair, prioritised queue",d:"Waiting starts are ordered by payload priority, then by the session with the fewest running runs, then arrival. An operator can change a queued run's priority or the limits live.",c:["entry","control"],r:[]},
  {t:"Queue full or too old",d:"Beyond the queue capacity (default 100) or a queue timeout the start ends refused or TIMED_OUT, counted by reason in a rejection metric.",c:["entry","obs"],r:[]},
  {t:"Shutdown under load",d:"Nothing new is admitted, queued starts are refused, running ones get 30 s to finish; the rest are ABORTED on next boot.",c:["entry","dur"],r:["spof"]}]},
@@ -661,29 +648,29 @@ scen:[
  {t:"Route the poison message",d:"With onError ROUTE the message, tagged with attempts, exception and time, goes to the error port and on to any dead-letter terminal. CONTINUE drops it; FAIL ends the node.",c:["engine"],r:[]},
  {t:"Failure budget",d:"If more than N messages fail in a window, the node fails instead of dropping or routing the next one, so a broken dependency cannot turn into silent data loss.",c:["engine","obs"],r:[]},
  {t:"Joins decide what a failed parent means",d:"ALL_SUCCESS fails the join, ALL_DONE continues with the others, ONE_SUCCESS fails only if every parent failed. Descendants of a failed node end UPSTREAM_FAILED.",c:["engine"],r:[]},
- {t:"The weak spot: a terminal that dies",d:"If a subtree stops reading because its terminal failed, siblings stall through back-pressure and the run only fails at the idle timeout.",c:["engine"],r:["failfast"]}]},
+ {t:"A terminal that dies",d:"The first terminal that fails ends the run at once and cancels the others, so siblings no longer stall on back-pressure until the idle timeout; they end CANCELLED.",c:["engine"],r:[]}]},
 {id:"operator",name:"Operator steers",steps:[
  {t:"Pause",d:"The command enters the run's FIFO; the valve stops pulling input, in-flight elements finish, and all timers freeze so a pause never causes a timeout.",c:["control","engine"],r:[]},
  {t:"Step and breakpoint",d:"Step n lets exactly n elements through then pauses. A breakpoint holds a node at the first element whose payload or metadata matches.",c:["control","engine"],r:[]},
- {t:"Skip or retry a node",d:"A processor can be skipped at run time (messages bypass the plugin); a node that ended FAILURE or TIMED_OUT can be re-run with its recorded input plus everything behind it.",c:["control","engine","dur"],r:["restartRace"]},
+ {t:"Skip or retry a node",d:"A processor can be skipped at run time (messages bypass the plugin); a node that ended FAILURE or TIMED_OUT can be re-run with its recorded input plus everything behind it.",c:["control","engine","dur"],r:[]},
  {t:"Review and audit",d:"Reviewers may refuse any command (403). Every command on a known run is logged as applied or rejected, with the actor.",c:["control","dur"],r:[]},
  {t:"Stop",d:"DRAIN lets work finish with a deadline, CANCEL cancels, KILL is immediate. The run ends STOPPED and its slot is released.",c:["control","engine","entry"],r:[]}]},
 {id:"supervisor",name:"Supervisor intervenes",steps:[
  {t:"Events are published",d:"The tracker and command outcomes feed one global event stream. Delivery is best effort and never blocks a run.",c:["obs"],r:["trackerQ26"]},
  {t:"A supervisor receives them",d:"Each supervisor reads through a bounded buffer of 256 on its own scheduler. If it is slow, events are dropped and counted, not queued.",c:["obs","super"],r:[]},
  {t:"It answers with commands",d:"A rule (JSON + SpEL), an AI agent or a bean returns control commands; they are rate limited to 20/s, can be dry-run and carry the supervisor id as actor.",c:["super","control"],r:[]},
- {t:"Reviewers and the loop",d:"Reviewers can still refuse a command. But a supervisor also sees the status change its own command causes (a pause produces a PAUSED event) and may react to it again, chasing its own tail. Only the rate cap limits this.",c:["control","engine","super"],r:["supLoop"]}]},
+ {t:"Reviewers and the loop",d:"Reviewers can still refuse a command. A supervisor never sees the outcome of its own commands, and a pause or resume publishes no event, so it cannot chase its own tail; the rate cap is a second guard.",c:["control","engine","super"],r:[]}]},
 {id:"crash",name:"Crash and resume",steps:[
- {t:"The JVM dies mid-run",d:"Memory is gone: tracker, scheduler slots, queued starts, signal waits. On disk (if configured): the log with the start payload, and checkpoint outputs with end markers.",c:["engine","obs","dur"],r:["spof","logDur24"]},
+ {t:"The JVM dies mid-run",d:"Memory is gone: tracker, scheduler slots, queued starts, signal waits. On disk (if configured): the log with the start payload, and checkpoint outputs with end markers.",c:["engine","obs","dur"],r:["spof"]},
  {t:"Boot recovery",d:"Unfinished runs are marked ABORTED, the newest runs are restored into history, idempotency keys are reloaded so a retrying client still gets its first id.",c:["dur","persist","entry"],r:[]},
  {t:"Someone asks to resume",d:"The resumer claims the run exactly once; it is refused if the run was not aborted, was already resumed or its definition changed. Over REST it is <code>POST /api/executions/{id}/recover</code> (409 when refused), over MCP <code>control_workflow</code> with action RECOVER.",c:["entry","control"],r:[]},
  {t:"Replay what finished, re-run the rest",d:"Nodes with a durable end marker replay their recorded output; the others run again from their inputs. Without file stores nothing is resumable.",c:["dur","engine"],r:["cpstore"]},
  {t:"The at-least-once window",d:"A side effect executed between the plugin acting and the marker being written can happen twice. Only plugin-side idempotency on the message id closes it.",c:["plugin","dur"],r:["exactlyOnce22"]}]},
 {id:"sub",name:"Sub-workflow fan-out",steps:[
  {t:"A node starts a child per message",d:"SUB_WORKFLOW calls the start path with the child id as a normal run; it carries depth and the parent id, and nesting stops at 5.",c:["plugin","sub","entry"],r:[]},
- {t:"Children need slots",d:"Each child is admitted like any run. With max-concurrent too small the parent holds a slot while its children wait for one: a deadlock until a timeout.",c:["entry","sub"],r:["subDeadlock"]},
+ {t:"Children borrow the slot",d:"A child runs on the slot its parent already holds, so a parent that waits for its children cannot starve them. Children do not count toward the limits or the running gauge; they stay bounded by the parent node and the nesting depth (5).",c:["entry","sub"],r:[]},
  {t:"Results flow back",d:"Terminal nodes of the child feed a collector; the parent node emits executionId and results[]. A failing child fails the node and the parent's failure policy applies.",c:["sub","engine"],r:[]},
- {t:"Stopping the parent",d:"The children keep running: no cascading cancel yet, and run history does not link parent and child.",c:["control","sub"],r:["subDeadlock"]}]}
+ {t:"Stopping the parent",d:"The child runs inside the parent node, so cancelling the node cancels it and the child ends CANCELLED. The start payload of the child (and so its RUN_STARTED log entry) carries yukta.parentExecutionId.",c:["control","sub"],r:[]}]}
 ],
 caps:[
 ["Execution","Streaming back-pressure","Messages move as streams between nodes.","Every edge subscribes before the source connects; the slowest child sets the pace.","Bounded memory per edge.","One slow branch slows the fan-out."],
@@ -713,7 +700,7 @@ dprofiles:[["mem","In-memory (default)"],["file","File (directories set)"],["pg"
 dur:[
 ["Workflow definitions and versions",["lost","Gone on restart"],["ok","Kept, newest 20 versions, atomic writes"],["ok","Kept, newest 20 versions"]],
 ["Session config",["lost","Gone"],["ok","Kept"],["ok","Kept"]],
-["Run history and audit",["lost","Gone; nothing to mark ABORTED"],["part","Kept in JSONL; last events can be lost on power loss (no fsync)"],["ok","Kept; trimmed to newest runs"]],
+["Run history and audit",["lost","Gone; nothing to mark ABORTED"],["part","Kept in JSONL; last events can be lost on power loss unless yukta.execution-log.fsync is on"],["ok","Kept; trimmed to newest runs"]],
 ["Runs in flight at the crash",["lost","Vanish"],["ok","Marked ABORTED on boot"],["ok","Marked ABORTED on boot"]],
 ["Idempotency keys",["lost","Gone"],["ok","Reloaded from the log"],["ok","Ride the log"]],
 ["Node outputs (checkpoints)",["part","Memory, capped; with a spill directory the overflow goes to files"],["ok","On disk if restart dir is set; no caps"],["part","Still files or memory, not PostgreSQL"]],
@@ -721,16 +708,16 @@ dur:[
 ["Queued starts and slots",["lost","Lost"],["part","Place in line and slot lost. The start was logged before the wait, so the run is marked ABORTED on boot and can be recovered"],["part","Place in line and slot lost. The start was logged before the wait, so the run is marked ABORTED on boot and can be recovered"]],
 ["Signal waits (approvals)",["lost","Lost"],["lost","Lost; a resumed run waits again"],["lost","Lost; a resumed run waits again"]],
 ["Session memory (chat history)",["lost","Gone"],["ok","Durable with its own directory"],["part","Not in PostgreSQL; durable only if its own directory is set"]],
-["Limits changed at run time",["lost","Reset"],["lost","Logged, not restored"],["lost","Logged, not restored"]],
+["Limits changed at run time",["lost","Reset"],["ok","Restored from the log"],["ok","Restored from the log"]],
 ["Live progress and metrics",["lost","Gone: the in-memory log is empty after a restart"],["part","Newest 500 runs restored"],["part","Newest 500 runs restored"]]],
 sem:[["Delivery","At-least-once. A side effect between plugin action and end marker can repeat after a crash; retries repeat per message. Plugins de-duplicate on the stable message id."],["Command order","FIFO per run, acknowledged, audited; commands for different runs are independent."],["Status order","Node status only moves forward; a late event cannot reopen an ended node."],["Output atomicity","With retry or onError, a message yields all of its output or none."],["Start","Exactly one execution id per slot; same Idempotency-Key returns the first id."],["Resume","Once per run, only with an unchanged definition."],["Durability switches","Each backend has its own switch (session.store-type, execution-log.dir, restart.dir, session-memory.dir), so a deployment can be half durable. The profiles above assume the matching ones are set."]],
 clocks:[["Queue wait",0,18,"b","Until a slot is granted. Optional timeout ends the run TIMED_OUT."],["Run deadline",18,82,"","Whole run, pause-aware."],["Node deadline",30,50,"b","From first activity; not restarted by output; pause-aware."],["Node idle",30,26,"c","Restarts on every input, output, attempt, heartbeat."],["Element timeout",40,14,"c","Per message attempt; retry and onError apply."]],
 quality:[
-{n:"Scalability",pos:"Vertical on one JVM. Streams are efficient, but every run's state, the scheduler and the tracker share the process. Horizontal scale-out is designed (remote workers) but not built.",ceil:["All admission, ordering and run state in one process","Unbounded tracker state queue; per-session state never evicted","Fan-out paced by the slowest child","Checkpoint memory bound = retained runs x nodes x bytes-per-node","The default in-memory execution log and the idempotency cache are not size bounded"],have:["Global, per-workflow and per-session limits and fair queue","Byte and message caps on checkpoints","Virtual threads for blocking plugins"],need:["Remote workers (F11 phases 1-5)","Eviction policy for finished sessions","Shared control state (phase 6)"]},
+{n:"Scalability",pos:"Vertical on one JVM. Streams are efficient, but every run's state, the scheduler and the tracker share the process. Horizontal scale-out is designed (remote workers) but not built.",ceil:["All admission, ordering and run state in one process","Unbounded tracker state queue; sessions are evicted only if yukta.tracker.max-sessions is set","Fan-out paced by the slowest child","Checkpoint memory bound = retained runs x nodes x bytes-per-node","The default in-memory execution log and the idempotency cache are not size bounded"],have:["Global, per-workflow and per-session limits and fair queue","Byte and message caps on checkpoints","Virtual threads for blocking plugins"],need:["Remote workers (F11 phases 1-5)","A time-based eviction policy for finished sessions","Shared control state (phase 6)"]},
 {n:"Performance",pos:"Low per-message overhead: one volatile write per activity touch, one periodic idle check per node, batched tracker consumer.",ceil:["Per-message retry or ROUTE buffers a message's output","Large payloads copy through memory and checkpoints","Single writer thread for the log","Compile cost grows with graph size (cap 500 nodes)"],have:["Back-pressure instead of queues","Prepared-workflow cache and shared prepare","Batching in tracker and log"],need:["Claim-check for large payloads","Defer blocking archive on the start path","Performance budget per node type"]},
-{n:"Availability",pos:"A crash is recoverable, not invisible: runs are ABORTED and resumable only with file stores. There is no standby.",ceil:["Control state in memory is a single point of failure","Checkpoints not in PostgreSQL","Signal waits and queue positions are lost","Log events not fsynced"],have:["Durable node end marker","Boot recovery and one-shot resume","Idempotent start surviving restarts"],need:["Checkpoint store in PostgreSQL","Active/standby with a database lease (phase 6)","Durable signal waits"]},
+{n:"Availability",pos:"A crash is recoverable, not invisible: runs are ABORTED and resumable only with file stores. There is no standby.",ceil:["Control state in memory is a single point of failure","Checkpoints not in PostgreSQL","Signal waits and queue positions are lost","Log events not fsynced unless the option is on"],have:["Durable node end marker","Boot recovery and one-shot resume","Idempotent start surviving restarts"],need:["Checkpoint store in PostgreSQL","Active/standby with a database lease (phase 6)","Durable signal waits"]},
 {n:"Security",pos:"Keys, roles, session scoping, host and origin checks, command review, tool and prompt filters and expression limits are in place.",ceil:["Plugins run in the engine JVM","Scripts have a time and a statement limit but no memory limit (the runtime has no heap limit option)","Filters are patterns, not a classifier"],have:["REST and MCP roles, hashed, rotating and session-limited keys, actors in the audit","Key checks on the decoded path, one key set for REST and MCP, Host and Origin check, protected actuator","Deny-by-default process execution; allow-listed env, script, expression and tool surface; prompt and answer filters","Reviewers and audit on limit and priority changes"],need:["Worker mTLS and plugin allow-lists (remote design)"]},
-{n:"Operability",pos:"Good visibility, thin lifecycle tooling.",ceil:["Limits changes are not restored","No UI for pending approvals or version history","Session state never evicted","Control commands without a reviewer or audit entry (limits, priority, raw node command)"],have:["Meters for every governance decision","Run and node spans","SSE feed and supervisors"],need:["Health and pool metrics for PostgreSQL","Run history search","Parent/child links in history"]},
+{n:"Operability",pos:"Good visibility, thin lifecycle tooling.",ceil:["No search over run history","Sessions are evicted only by a count, not by age"],have:["Meters for every governance decision","Run and node spans","SSE feed and supervisors","A list of pending approvals (REST, MCP, workflow page) and a versions panel with diff and rollback","Limits changed at run time restored on start"],need:["Health and pool metrics for PostgreSQL (check what Spring Boot already exposes)","Run history search","Parent/child links in history (only the start payload carries them)"]},
 {n:"Evolvability",pos:"Sealed command types and a plugin API keep the surface small, but adding a command type is an API change.",ceil:["Sealed ExecutionControlCommand in plugin-api","Large tracker class","Validator and assembler disagree on what a terminal is"],have:["Records and small processors per command","Property-based tests on status order","Coverage and static-analysis gates"],need:["Extension point for new command types","Split tracker projections"]}],
 what:{
  runs:["Concurrent runs",1,500,10],nodes:["Nodes per run",2,500,20],kb:["Payload per message (KiB)",1,8192,16]},
@@ -740,29 +727,17 @@ risks:[
 {id:"remote",t:"No scale-out of node execution",a:"Scalability",i:5,e:5,c:["engine","plugin"],why:"CPU and IO heavy plugins compete with the control plane in one JVM.",o:"Remote workers (design written): control plane keeps the DAG and policies, workers run processor nodes over a bidirectional stream.",q:"Transport, packaging, secrets, first plugins and payload limit are still undecided. Which has the highest cost to reverse?",ph:"p2"},
 {id:"exactlyOnce22",t:"Exactly-once is impossible",a:"Reliability",i:4,e:5,c:["dur","plugin"],why:"A side effect between the plugin acting and the end marker can repeat; remote workers widen the window.",o:"Keep at-least-once, publish idempotency patterns, add result caching keyed by message id (F12).",q:"Which of your plugins can safely run twice, and which cannot?",ph:""},
 {id:"payload23",t:"Large payloads are carried through the engine",a:"Performance",i:4,e:4,c:["engine","dur"],why:"Every message is in memory and in checkpoints; over the cap a restart is refused unless a spill directory moves the overflow to files. Remote workers make the control plane a data hop.",o:"Claim-check references to an object store or large objects; a frame size limit.",q:"What is the largest message you expect in a year?",ph:"f10"},
-{id:"failfast",t:"A dead branch stalls its siblings (B16)",a:"Reliability",i:3,e:3,c:["engine"],why:"If a subtree stops reading, back-pressure stops siblings and the run fails only at the idle timeout.",o:"On a downstream cancel-with-error, propagate failure to the run immediately.",q:"Should one failed terminal always fail the whole run?",ph:""},
 {id:"backpressure25",t:"Slowest child paces every fan-out",a:"Performance",i:3,e:3,c:["engine"],why:"By design: safe, but a slow audit sink can throttle the main path.",o:"A per-edge buffer or drop policy for non-critical branches, chosen explicitly.",q:"Which consumers are allowed to fall behind?",ph:""},
-{id:"evict21",t:"Finished sessions are never evicted (B21)",a:"Scalability",i:3,e:2,c:["obs"],why:"Finished runs are capped at 100 per session, but the session entries themselves are never removed (removeSession has no caller), so memory grows with the number of sessions.",o:"Call removeSession when a session is deleted; add a max-sessions or TTL policy with history served from the log.",q:"What is the retention promise for run history?",ph:""},
 {id:"trackerQ26",t:"State event queue is unbounded",a:"Scalability",i:3,e:2,c:["obs"],why:"State events are never dropped, so an event storm becomes memory growth rather than data loss.",o:"Alert on queue depth; consider coalescing progress events.",q:"Would you rather lose events or run out of memory?",ph:""},
-{id:"trackerSize27",t:"Tracker is large; run status has no forward-only guard (B27)",a:"Evolvability",i:2,e:2,c:["obs"],why:"Node status is guarded, run status is not: a second terminal event finalizes the run again and writes a second end to the log. The class is about 1000 lines (split into smaller classes in open PRs #365 and #366).",o:"Return early once a run is terminal; extract history and cleanup projections.",q:"",ph:""},
-{id:"supLoop",t:"Supervisors can loop on their own effects (B25)",a:"Reliability",i:2,e:2,c:["super"],why:"The host hides the supervisor's own command outcomes, but status events carry no actor, so the PAUSED caused by its pause is still delivered; capped only by the rate limit.",o:"Add the causing actor to status events and let the host filter them.",q:"",ph:""},
-{id:"blockStart",t:"Blocking file work on the sub-workflow start path (B19)",a:"Performance",i:1,e:1,c:["entry","sub"],why:"Fixed for starts and restarts (archiving now happens on subscription, off the caller's thread). It remains for sub-workflow starts, which do not hop to another scheduler.",o:"Subscribe the sub-workflow start on boundedElastic.",q:"",ph:""},
-{id:"prepAlign",t:"Validator and assembler disagree in corners (B26)",a:"Correctness",i:2,e:2,c:["def"],why:"What counts as a terminal differs; a failed checkpoint save fails a node while a failed end marker does not.",o:"Align the checks; no caller triggers it today.",q:"",ph:""},
-{id:"restartRace",t:"Restart has the start-time slot race (R1)",a:"Correctness",i:3,e:2,c:["entry","control"],why:"Check-then-acquire on restart can exceed a limit by one.",o:"Reserve the slot before returning the new id, as starts do.",q:"",ph:""},
-{id:"limits28",t:"Runtime limit changes are not restored",a:"Operability",i:2,e:1,c:["entry"],why:"After a restart the limits revert to configuration.",o:"Reload the latest limit change from the log, or treat configuration as the source of truth and say so.",q:"",ph:""},
-{id:"signals14",t:"Approval waits are in memory (F2)",a:"Reliability",i:3,e:3,c:["plugin","dur"],why:"A resumed run waits again; a signal before the wait is refused; no UI for pending approvals.",o:"Durable waits in the checkpoint store, queued signals, an approvals page.",q:"How long do your approvals take, hours or days?",ph:""},
-{id:"llmBudget",t:"Budgets stop at one plugin (F4)",a:"Governance",i:3,e:3,c:["plugin"],why:"No per-provider rate limit, no budget across MCP calls, no hard stop of the run.",o:"A shared budget service keyed by run and provider.",q:"",ph:""},
-{id:"subDeadlock",t:"Sub-workflow slot deadlock (F6)",a:"Reliability",i:4,e:3,c:["sub","entry"],why:"Parent waits on children that wait for the parent's slot; no cascade cancel; no parent/child history.",o:"Let a child borrow its parent's slot; cascade stop; link runs in history.",q:"",ph:""},
+{id:"signals14",t:"Approval waits are in memory (F2)",a:"Reliability",i:3,e:3,c:["plugin","dur"],why:"A resumed run waits again, because the waits are in memory. A signal that comes before the wait is now kept for ten minutes (at most 100) and a list of open waits is available over REST, MCP and the workflow page; only durability is missing.",o:"Record the decision in the checkpoint store keyed by message id (needs the message id to survive replay) after F10.",q:"How long do your approvals take, hours or days?",ph:""},
+{id:"llmBudget",t:"Budgets stop at one plugin (F4)",a:"Governance",i:3,e:3,c:["plugin"],why:"Done: a per-provider rate limit (yukta.llm.rate-limit.<provider>), a budget metric and budget.hardStop, which ends the run. Still missing: one budget across LLM_CALL and MCP_TOOL_CALL, per agent or per provider, and token or cost meters.",o:"A shared budget service keyed by run, agent and provider.",q:"",ph:""},
 {id:"memStore",t:"Agent memory is partly volatile (F7)",a:"Reliability",i:3,e:3,c:["plugin"],why:"KV_STORE is memory; chat history has no TTL and loads whole files; no shared or vector memory.",o:"Database backend after F10, eviction policy.",q:"",ph:"f10"},
-{id:"agentLoop",t:"Agent loop is incomplete (F8)",a:"Functionality",i:2,e:2,c:["plugin"],why:"Tool results return as a plain user turn; tools/list is first page only; no streaming.",o:"Proper tool-role turns, pagination, an example loop workflow.",q:"",ph:""},
-{id:"versions21",t:"Version history lacks diff and pinning (F9)",a:"Functionality",i:2,e:2,c:["def"],why:"No MCP tools, no diff, no notes, no UI.",o:"Expose versions through MCP and UI; pin a run to a version.",q:"",ph:""},
-{id:"logDur24",t:"Log events are not fsynced",a:"Reliability",i:2,e:2,c:["dur"],why:"A power loss can lose the last few events (the node end marker is separate and forced).",o:"Optional fsync per batch; or document as accepted.",q:"Is losing the last second of audit acceptable?",ph:""},
+{id:"agentLoop",t:"Agent loop is incomplete (F8)",a:"Functionality",i:2,e:2,c:["plugin"],why:"Done: tool-role turns (assistant tool calls and tool results are sent as such) and tools/list follows nextCursor. Still missing: an example loop workflow and streaming.",o:"An example workflow that loops LLM_CALL and MCP_TOOL_CALL, and streamed answers.",q:"",ph:""},
+{id:"versions21",t:"Version history lacks diff and pinning (F9)",a:"Functionality",i:2,e:2,c:["def"],why:"Done: list, diff and rollback over REST, MCP and the workflow page. Still missing: notes on a version (they need a column in three stores) and pinning a run to a version.",o:"A note per save and a version argument on start.",q:"",ph:""},
 {id:"writerThread27",t:"Single writer thread for the log",a:"Performance",i:2,e:2,c:["persist"],why:"The store interface is blocking; PostgreSQL goes through one thread.",o:"Batch inserts or make the interface reactive.",q:"",ph:""},
 {id:"logGrow",t:"Default execution log never shrinks (B28)",a:"Scalability",i:3,e:1,c:["dur","persist"],why:"Without a log directory the log is a copy-on-write list that keeps every start payload and event, so memory grows without bound and every append copies the list.",o:"A bounded structure that trims to the newest runs, never dropping a run without an end, as the file log does.",q:"Is anyone running a long-lived server on the default store?",ph:""},
-{id:"cmdCancel",t:"A cancelled command breaks ordering and audit (B29)",a:"Reliability",i:3,e:1,c:["control"],why:"When a queued command's caller disconnects, its place is released at once, so the next command can run beside the one still in progress; the cancelled command is not recorded as applied or rejected.",o:"Release the place only after the previous command ends; record cancellations.",q:"",ph:""},
-{id:"ctlKey",t:"Plugin-level control keyed by workflow and node (B30)",a:"Correctness",i:2,e:2,c:["control"],why:"Heartbeats, statistics and raw node commands use workflow plus node as key, so two sessions or runs with the same ids share state.",o:"Include the session or execution id in the key.",q:"",ph:""},
+{id:"ctlKey",t:"Plugin-level control keyed by workflow and node (B30)",a:"Correctness",i:1,e:2,c:["control"],why:"Latent: heartbeat and statistics state is keyed by workflow plus node, so two sessions or runs with equal ids would share it. No code emits heartbeats or statistics today, plugins are shared instances and signals carry the execution id, so nothing is affected yet.",o:"When a plugin starts to emit them, key by the execution id in the message metadata.",q:"",ph:""},
 {id:"idemCap",t:"Idempotency cache has no size cap (B31)",a:"Scalability",i:2,e:1,c:["entry"],why:"A client sending a new key per request keeps one cached entry per key for the whole window, so memory follows the request rate.",o:"Cap the cache size.",q:"",ph:""},
-{id:"childCancel",t:"A cancelled child may never end (B33, to confirm)",a:"Reliability",i:3,e:2,c:["sub","control"],why:"When a parent node is cancelled, the child's cleanup unregisters it but does not record a final status. Deduced from the code; needs a test first.",o:"Test the cancel path, then finish the child as cancelled.",q:"",ph:""},
 {id:"histCache",t:"Run progress history is unbounded (B34)",a:"Scalability",i:4,e:1,c:["obs"],why:"Every status event stores a full snapshot of all node states for up to 30 minutes, with no count cap on the history or the cache. A large run, or many runs, grows memory with events times nodes.",o:"Cap the history per run (keep the last snapshot), set a maximum cache size, optionally coalesce snapshots.",q:"How many late-joining viewers need every intermediate step?",ph:""},
 {id:"ckptIO",t:"Durable runs pay a file open per message (P1)",a:"Performance",i:3,e:3,c:["dur"],why:"With a restart directory each message is appended by opening the file on another thread, and a resume reads a node's whole output into memory. Not measured yet.",o:"Measure first; keep one appender per node and stream the reads.",q:"What message rate must a durable run sustain?",ph:""},
 {id:"gaps12",t:"Capability gaps (F12)",a:"Functionality",i:2,e:4,c:["engine"],why:"Saga compensation, node result caching, A2A agent card, eval node, backfill, run search, secrets manager, auto-resume.",o:"Pull in on demand.",q:"Which one would a design partner ask for first?",ph:""}
@@ -784,16 +759,16 @@ evo:[
  {id:"p5",n:"Operations",d:"Worker UI, slot accounting, native image for workers.",r:[]},
  {id:"p6",n:"Control plane HA",d:"Active/standby with a database lease, workers reconnect, in-flight runs resume from checkpoints.",r:["spof"]}],
 prompts:[
- ["Failure","One terminal in a branch fails. How long until the run notices, and who pays for the wait?","engine","failfast"],
+ ["Failure","One terminal fails while its sibling is slow. What happens to the sibling, and what is the run's final status?","engine","backpressure25"],
  ["Scale","Your largest customer starts 5,000 runs in a minute with no limits set. What happens first, and what is the first graph you look at?","entry","spof"],
  ["Durability","You pull the power. Which approvals, queued starts and limit changes are gone, and do users find out?","dur","signals14"],
  ["Security","A workflow author is not trusted. Which three plugins must be unavailable to them?","plugin","remote"],
  ["Evolution","The remote-workers design needs one decision reversed in a year. Which, and what does it cost?","engine","remote"],
  ["Performance","A message becomes 50 MiB. Which components copy it, how many times?","dur","payload23"],
- ["Control","An AI supervisor pauses a run you are debugging. How do you tell, and how do you stop it?","control","supLoop"],
+ ["Control","An AI supervisor pauses a run you are debugging. How do you tell, and how do you stop it?","control","ctlKey"],
  ["Data","A run was resumed after the definition was edited. Why is that refused, and is it the right call?","def","exactlyOnce22"],
  ["Operability","Which three signals would page you at 3 a.m. today? Which are missing?","obs","trackerQ26"],
- ["Product","If sub-workflows power agents that plan their own DAGs, which limit breaks first?","sub","subDeadlock"]]
+ ["Product","If sub-workflows power agents that plan their own DAGs, which limit breaks first?","sub","llmBudget"]]
 };
 (function(){
 "use strict";
