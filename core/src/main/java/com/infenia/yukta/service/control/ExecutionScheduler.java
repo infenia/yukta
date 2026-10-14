@@ -287,6 +287,17 @@ public class ExecutionScheduler implements SmartLifecycle {
   }
 
   /**
+   * An admission that takes no slot: a child run uses the slot its parent already holds, so a
+   * parent that waits for its children cannot starve them. Children do not count toward the
+   * limits or the running gauge; they stay bounded by the parent node and the nesting depth.
+   *
+   * @return an immediate admission whose permit releases nothing
+   */
+  public Admission borrowed() {
+    return new Admission(true, Mono.just(new Permit(null)));
+  }
+
+  /**
    * The per-workflow limit now in force.
    *
    * @return the limit, 0 for none
@@ -572,19 +583,19 @@ public class ExecutionScheduler implements SmartLifecycle {
 
   /** A claim on one execution slot; release it when the execution ends. */
   public final class Permit {
-    /** The workflow the slot was taken for. */
-    private final String key;
+    /** The workflow the slot was taken for; null for a borrowed one, which holds nothing. */
+    private final @Nullable String key;
 
     /** Makes releasing idempotent. */
     private final AtomicBoolean released = new AtomicBoolean();
 
-    private Permit(final String key) {
+    private Permit(final @Nullable String key) {
       this.key = key;
     }
 
     /** Gives the slot back and admits the next waiting start that fits. */
     public void release() {
-      if (released.compareAndSet(false, true)) {
+      if (key != null && released.compareAndSet(false, true)) {
         free(key);
       }
     }
