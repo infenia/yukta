@@ -9,6 +9,7 @@ import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import java.time.Duration;
 import java.util.Collections;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BooleanSupplier;
 import lombok.experimental.UtilityClass;
 import lombok.extern.slf4j.Slf4j;
@@ -24,8 +25,8 @@ import reactor.core.scheduler.Schedulers;
 public class NodeStreams {
 
   /**
-   * Applies the node's idle timeout, then reports RUNNING on subscribe and SUCCESS or FAILURE on
-   * the terminal signal. A failing stream reports FAILURE exactly once.
+   * Applies the node's idle timeout, then reports RUNNING at the node's first activity and SUCCESS
+   * or FAILURE on the terminal signal. A failing stream reports FAILURE exactly once.
    *
    * @param node the node the stream belongs to
    * @param timeout the maximum idle time, counted from the node's first activity
@@ -47,6 +48,16 @@ public class NodeStreams {
       final BooleanSupplier paused,
       @Nullable final Duration deadline) {
     final String nodeId = node.nodeId();
+    // RUNNING at the node's first activity, not at wiring, so its times are its own; a node that
+    // ends without any activity still passes through RUNNING.
+    final AtomicBoolean running = new AtomicBoolean();
+    final Runnable markRunning =
+        () -> {
+          if (running.compareAndSet(false, true)) {
+            emit(tracker, executionId, node, TaskStatus.RUNNING);
+          }
+        };
+    activity.onFirstTouch(markRunning);
     return activity
         .guard(
             source.doOnNext(_ -> activity.touch()),
@@ -63,9 +74,16 @@ public class NodeStreams {
                     .addArgument(timeout)
                     .setCause(e)
                     .log())
-        .doOnSubscribe(_ -> emit(tracker, executionId, node, TaskStatus.RUNNING))
-        .doOnComplete(() -> emit(tracker, executionId, node, TaskStatus.SUCCESS))
-        .doOnCancel(() -> emit(tracker, executionId, node, TaskStatus.CANCELLED))
+        .doOnComplete(
+            () -> {
+              markRunning.run();
+              emit(tracker, executionId, node, TaskStatus.SUCCESS);
+            })
+        .doOnCancel(
+            () -> {
+              markRunning.run();
+              emit(tracker, executionId, node, TaskStatus.CANCELLED);
+            })
         .doOnError(
             error -> {
               // the node that failed logs the error; the ones behind it only note the consequence
@@ -75,6 +93,7 @@ public class NodeStreams {
                   .addArgument(nodeId)
                   .setCause(error)
                   .log();
+              markRunning.run();
               emit(tracker, executionId, node, failureStatus(error));
             });
   }
