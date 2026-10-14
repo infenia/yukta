@@ -120,6 +120,17 @@ class LlmGatewayTest {
   }
 
   @Test
+  void providerRateLimit_refusesACallThatWouldWaitLongerThanItMayTake() {
+    gateway.setRateLimits(java.util.Map.of("openai", 1)); // one per minute, call timeout is 10 s
+
+    assertThat(gateway.call(request(Provider.OPENAI, "/v1")).text()).isEqualTo("hi");
+    assertThatThrownBy(() -> gateway.call(request(Provider.OPENAI, "/v1")))
+        .hasMessageContaining("Rate limit of OPENAI");
+    // another provider is not held back
+    assertThat(gateway.call(request(Provider.OLLAMA, "")).text()).isNotNull();
+  }
+
+  @Test
   void promptLengthIsLimited() {
     gateway.setMaxInputChars(5);
     assertThatThrownBy(() -> gateway.call(request(Provider.OPENAI, "/v1")))

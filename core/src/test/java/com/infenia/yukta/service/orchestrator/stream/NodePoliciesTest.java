@@ -74,6 +74,36 @@ class NodePoliciesTest {
   }
 
   @Test
+  void runAborted_isNeverRetried_dropped_orRouted() {
+    for (final NodePolicy.OnError onError :
+        new NodePolicy.OnError[] {
+          NodePolicy.OnError.FAIL, NodePolicy.OnError.CONTINUE, NodePolicy.OnError.ROUTE
+        }) {
+      final AtomicInteger calls = new AtomicInteger();
+      final NodePolicy policy = new NodePolicy(RETRY3, onError, NodePolicy.JoinRule.ALL_SUCCESS);
+
+      StepVerifier.create(
+              NodePolicies.apply(
+                  policy,
+                  "n1",
+                  input,
+                  _ ->
+                      Flux.<Message<?>>defer(
+                          () -> {
+                            calls.incrementAndGet();
+                            return Flux.error(
+                                new com.infenia.yukta.plugin.exception.RunAbortedException(
+                                    "budget"));
+                          }),
+                  () -> {}))
+          .expectError(com.infenia.yukta.plugin.exception.RunAbortedException.class)
+          .verify(Duration.ofSeconds(2));
+
+      assertThat(calls).as(onError.name()).hasValue(1);
+    }
+  }
+
+  @Test
   void retry_succeedsOnLaterAttempt_afterBackoff() {
     final AtomicInteger calls = new AtomicInteger();
     final NodePolicy policy =

@@ -114,6 +114,29 @@ class LlmCallPluginTest {
   }
 
   @Test
+  void hardStopBudget_endsTheRun_evenWithFailureModeContinue() {
+    when(gateway.call(any())).thenReturn(new LlmResponse("ok", 100, 100, "m"));
+    final Map<String, Object> config =
+        config("budget", Map.of("maxTokens", 150, "hardStop", true), "failureMode", "CONTINUE");
+
+    StepVerifier.create(runInRun(config, "r1")).expectNextCount(1).verifyComplete();
+    StepVerifier.create(runInRun(config, "r1"))
+        .verifyErrorSatisfies(
+            e ->
+                assertThat(e)
+                    .isInstanceOf(com.infenia.yukta.plugin.exception.RunAbortedException.class)
+                    .hasMessageContaining("budget exceeded"));
+  }
+
+  @Test
+  void hardStopMustBeABoolean() {
+    StepVerifier.create(
+            plugin.validateConfig(config("budget", Map.of("maxTokens", 10, "hardStop", "yes"))))
+        .expectErrorMessage("budget.hardStop must be true or false")
+        .verify();
+  }
+
+  @Test
   void budgetIsValidated() {
     StepVerifier.create(plugin.validateConfig(config("budget", Map.of("maxTokens", 0))))
         .expectError(IllegalArgumentException.class)

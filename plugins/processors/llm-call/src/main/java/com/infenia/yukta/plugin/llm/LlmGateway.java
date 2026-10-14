@@ -8,6 +8,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import lombok.NoArgsConstructor;
@@ -66,6 +67,9 @@ public class LlmGateway {
   // dynamic
   private final Map<LlmRequest, ChatModel> models = new ConcurrentHashMap<>();
 
+  /** Spaces the calls to each provider, when {@code yukta.llm.rate-limit.<provider>} is set. */
+  private final ProviderRateLimits rateLimits = new ProviderRateLimits();
+
   /**
    * Call the model and return its answer.
    *
@@ -74,6 +78,7 @@ public class LlmGateway {
    */
   public LlmResponse call(final LlmRequest request) {
     refuseIfDenied("prompt", "yukta.llm.deny-input-patterns", inputParts(request), denyInput);
+    waitForTurn(request);
     final LlmResponse answer = invoke(request);
     refuseIfDenied("answer", "yukta.llm.deny-output-patterns", outputParts(answer), denyOutput);
     return answer;
@@ -90,6 +95,28 @@ public class LlmGateway {
     final Binder binder = Binder.get(environment);
     setDenyInput(patterns(binder, "yukta.llm.deny-input-patterns"));
     setDenyOutput(patterns(binder, "yukta.llm.deny-output-patterns"));
+    rateLimits.configure(
+        binder
+            .bind("yukta.llm.rate-limit", Bindable.mapOf(String.class, Integer.class))
+            .orElse(Map.of()));
+  }
+
+  /** Sleeps until the provider's rate limit gives this call its turn (the caller is blocking). */
+  private void waitForTurn(final LlmRequest request) {
+    final long wait =
+        rateLimits.reserve(request.provider().name(), System.nanoTime(), request.timeout());
+    if (wait > 0) {
+      try {
+        TimeUnit.NANOSECONDS.sleep(wait);
+      } catch (final InterruptedException e) {
+        Thread.currentThread().interrupt();
+        throw new IllegalStateException("Interrupted while waiting for the rate limit", e);
+      }
+    }
+  }
+
+  /* default */ void setRateLimits(final Map<String, Integer> perMinute) {
+    rateLimits.configure(perMinute);
   }
 
   private static List<String> patterns(final Binder binder, final String name) {

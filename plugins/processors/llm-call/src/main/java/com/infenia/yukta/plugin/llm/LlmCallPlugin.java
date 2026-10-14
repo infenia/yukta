@@ -9,6 +9,7 @@ import com.infenia.yukta.plugin.core.FailureMode;
 import com.infenia.yukta.plugin.core.PluginDescriptor;
 import com.infenia.yukta.plugin.core.PluginGuard;
 import com.infenia.yukta.plugin.core.PluginMetricsReporter;
+import com.infenia.yukta.plugin.exception.RunAbortedException;
 import com.infenia.yukta.plugin.exception.WorkflowExecutionException;
 import com.infenia.yukta.plugin.type.ProcessorPlugin;
 import com.infenia.yukta.plugin.util.SpelUtils;
@@ -62,6 +63,7 @@ public final class LlmCallPlugin implements ProcessorPlugin {
   private static final String MODEL = "model";
   private static final String TIMEOUT = "timeout";
   private static final String RETRIES_KEY = "retries";
+  private static final String HARD_STOP = "hardStop";
   private static final String FAILURE_MODE = "failureMode";
   private static final String ROUTE_BY_STATUS = "routeByStatus";
   private static final String PRICES = "prices";
@@ -199,6 +201,8 @@ public final class LlmCallPlugin implements ProcessorPlugin {
       the actions to an MCP_TOOL_CALL node and feed its result back as the next user turn.
     - budget: {maxTokens, maxCost} for all calls of one run (maxCost needs prices); once used up
       the next call fails like a failed call (failureMode applies). One call may overshoot.
+      With hardStop: true the next call ends the whole run instead: it is not retried, dropped
+      or routed by the node's engine policy, and failureMode does not absorb it.
     - failureMode: ERROR | CONTINUE (default: ERROR)
       ERROR: a failed call fails the node
       CONTINUE: emit the ORIGINAL payload unchanged with metadata llmSuccess=false and
@@ -260,11 +264,12 @@ public final class LlmCallPlugin implements ProcessorPlugin {
     return Flux.deferContextual(
         ctx -> {
           final String runId = String.valueOf(ctx.getOrDefault("executionId", "unknown"));
+          final String nodeId = String.valueOf(ctx.getOrDefault("nodeId", "unknown"));
           return resolveRequest(message, config)
               .flatMapMany(
                   request -> {
                     final long start = System.nanoTime();
-                    return budgeted(runId, config, attempt(request, retries(config)))
+                    return budgeted(runId, nodeId, config, attempt(request, retries(config)))
                         .<Message<?>>map(
                             response -> {
                               final Map<String, Object> payload =
@@ -277,13 +282,18 @@ public final class LlmCallPlugin implements ProcessorPlugin {
                             })
                         .onErrorResume(
                             error ->
-                                failureMode == FailureMode.CONTINUE
-                                    ? Mono.<Message<?>>just(
-                                        output(
-                                            message, config, message.payload(), failureText(error)))
-                                    : Mono.error(
-                                        new WorkflowExecutionException(
-                                            "LLM call failed: " + error.getMessage(), error)))
+                                RunAbortedException.isAbort(error)
+                                    ? Mono.<Message<?>>error(error)
+                                    : failureMode == FailureMode.CONTINUE
+                                        ? Mono.<Message<?>>just(
+                                            output(
+                                                message,
+                                                config,
+                                                message.payload(),
+                                                failureText(error)))
+                                        : Mono.error(
+                                            new WorkflowExecutionException(
+                                                "LLM call failed: " + error.getMessage(), error)))
                         .flux();
                   });
         });
@@ -291,12 +301,23 @@ public final class LlmCallPlugin implements ProcessorPlugin {
 
   /** Refuses the call if the run has used up its {@code budget}. */
   private Mono<LlmResponse> budgeted(
-      final String runId, final Map<String, Object> config, final Mono<LlmResponse> call) {
+      final String runId,
+      final String nodeId,
+      final Map<String, Object> config,
+      final Mono<LlmResponse> call) {
     return config.get(BUDGET) instanceof final Map<?, ?> budget
         ? budgets
             .exceeded(runId, budget)
             .<Mono<LlmResponse>>map(
-                why -> Mono.error(new IllegalStateException("LLM budget exceeded: " + why)))
+                why -> {
+                  reporter.increment(nodeId, "llm.budget.exceeded", "llm");
+                  return Mono.error(
+                      // hardStop ends the whole run; otherwise it is a failed call like any
+                      // other and failureMode / routeByStatus decide what follows
+                      Boolean.TRUE.equals(budget.get(HARD_STOP))
+                          ? new RunAbortedException("LLM budget exceeded: " + why)
+                          : new IllegalStateException("LLM budget exceeded: " + why));
+                })
             .orElse(call)
         : call;
   }

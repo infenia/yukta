@@ -4,6 +4,7 @@ package com.infenia.yukta.service.orchestrator.stream;
 
 import com.infenia.yukta.message.Message;
 import com.infenia.yukta.model.workflow.NodePolicy;
+import com.infenia.yukta.plugin.exception.RunAbortedException;
 import java.time.Instant;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -99,7 +100,7 @@ public class NodePolicies {
               Retry.backoff(retry.maxAttempts() - 1L, retry.backoff())
                   .maxBackoff(retry.maxBackoff())
                   .jitter(JITTER)
-                  .filter(retry::shouldRetry)
+                  .filter(error -> !RunAbortedException.isAbort(error) && retry.shouldRetry(error))
                   .doBeforeRetry(
                       signal ->
                           log.atWarn()
@@ -114,6 +115,9 @@ public class NodePolicies {
       case CONTINUE ->
           result.onErrorResume(
               error -> {
+                if (RunAbortedException.isAbort(error)) {
+                  return Flux.error(error);
+                }
                 log.atWarn()
                     .addKeyValue("nodeId", nodeId)
                     .setCause(error)
@@ -123,9 +127,11 @@ public class NodePolicies {
       case ROUTE ->
           result.onErrorResume(
               error ->
-                  overBudget(ledger)
-                      ? budgetError(nodeId, policy, error)
-                      : Flux.just(deadLetter(message, nodeId, error, attempts.get())));
+                  RunAbortedException.isAbort(error)
+                      ? Flux.error(error)
+                      : overBudget(ledger)
+                          ? budgetError(nodeId, policy, error)
+                          : Flux.just(deadLetter(message, nodeId, error, attempts.get())));
     };
   }
 

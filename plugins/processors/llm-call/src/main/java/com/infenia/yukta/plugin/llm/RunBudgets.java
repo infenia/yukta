@@ -89,6 +89,9 @@ public final class RunBudgets {
           limit(budget, key);
         }
       }
+      if (budget.get("hardStop") != null && !(budget.get("hardStop") instanceof Boolean)) {
+        throw new IllegalArgumentException("budget.hardStop must be true or false");
+      }
       if (budget.get(MAX_COST) != null && !(config.get("prices") instanceof Map<?, ?>)) {
         throw new IllegalArgumentException("budget.maxCost needs prices to measure cost");
       }
