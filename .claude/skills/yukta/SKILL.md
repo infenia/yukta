@@ -29,19 +29,36 @@ For quick inner-loop feedback keep using the scoped tiers in CLAUDE.md; use this
 
 ## Dogfood loop: watch, steer, and log what you find
 Yukta develops Yukta, so a run is also a test of Yukta. Watch it live instead of waiting for the end.
-1. Start detached, then follow with the **Monitor** tool (one notification per event line):
+1. Start detached, then hand the watching to the cheap **`yukta-run-watcher`** subagent (Haiku) so routine
+   events never reach your context. Spawn it with `run_in_background` and the ids; it blocks until the run
+   ends and returns one `RESULT` line, or a ≤12-line L1 triage (failed node, classification, key log lines,
+   suggested next step) that you then act on. Stay silent on routine progress.
    ```bash
    examples/11-dogfood/scripts/yukta-check.sh --detach [-m <module> | <gradle args>]
    #   STARTED execution=<e> session=<s>
-   examples/11-dogfood/scripts/yukta-watch.sh <s> <e> --no-logs     # run under Monitor; drop --no-logs to see LOG lines
    ```
+   Without the subagent, use **Monitor** with failures only (an event only on trouble, plus the end):
+   `yukta-watch.sh <s> <e> --quiet` (only problems, the end, SLOW and RESULT).
+   Drop `--quiet` (use `--no-logs`, then nothing) only when debugging a stage live. Never Monitor unfiltered `LOG` lines (compile
+   warnings alone flood and rate-limit it).
    Lines: `NODE <node> <status>`, `WORKFLOW <status>`, `CONTROL <cmd> applied=<bool>`, `LOG <node>: <line>`,
    `SLOW <node> …`, then the `RESULT` line. (`yukta-check.sh --watch …` does both in one.)
-2. When a stage fails (`NODE <stage> FAILURE`/`TIMED_OUT`), read its report.
-   - **Caused by your change:** fix it, then retry from that stage (earlier stages are not rerun) and
-     Monitor the new execution id:
+   The subagent is read-only: you decide on retry, fixes and backlog entries. It triages at L1 only; when the
+   cause isn't clear quickly (unknown, a Yukta stack trace, security, hang, repeat failure) it returns
+   `ESCALATE:` at once with the evidence so far, and you take over the analysis.
+   If the Go CLI (or a dogfood script) is what you analyse with and it falls short (missing flag, filter or
+   output), improve it in `cli/` as part of the work (tests; `:cli:check` needs 100% function coverage)
+   instead of working around it or only backlogging it.
+2. Every failure or anomaly is analysed (root cause, not symptom) and either fixed or logged; never ignored.
+   When a stage fails (`NODE <stage> FAILURE`/`TIMED_OUT`), read its report, then:
+   - **Related to the current run/change** (your change broke it, or it blocks this run): fix it, then retry
+     from that stage (earlier stages are not rerun) and watch the new execution id:
      `examples/11-dogfood/scripts/yukta-cli.sh workflow node retry <e> <stage>`
-   - **A Yukta defect (not your change):** record it (below); do not fix it unless the user says "fix now".
+   - **Flaky/env** (e.g. JVM crash, port clash): retry once; if it recurs, treat it as a defect and record it.
+   - **Unrelated Yukta issue** (not caused by this change, does not block the run): do not fix it inline;
+     record it (below), then carry on.
+   Also record unrelated things noticed while watching: functionality that doesn't work, monitoring/execution
+   improvements, performance, and security issues.
 3. Other levers, only on executions you started: `yukta-cli.sh workflow pause|resume <s> <e>`,
    `workflow node pause|resume|stop|skip <s> <e> <node>`, `workflow node signal <e> <node> --name N --decision D`,
    `workflow node breakpoint <e> <node> --field F --equals V [--clear]`, `workflow executions stop <e>`.
@@ -50,14 +67,15 @@ Yukta develops Yukta, so a run is also a test of Yukta. Watch it live instead of
    heading if it is missing, use the next free `DF-<n>` in that file, and append:
    ```
    ### DF-<n>: <one-line title>
-   - Status: open        - Severity: P0–P3        - Kind: bug | error | perf | ux
+   - Status: open        - Severity: P0–P3        - Kind: bug | error | perf | ux | security | improvement
    - Found: <date>, workflow <wf>, scope <scope>, execution <e>, stage <node>
    - Evidence: <the log / CONTROL / SLOW / RESULT line>
    - Repro: <command>
    ```
    Record: an unexpected `CONTROL … applied=false`; an exception or stack trace in a `LOG` line; a watcher
    that never ends or a RESULT that contradicts the node statuses; a CLI/server error; a `SLOW` line; a
-   tooling failure (script, worktree, build setup). When fixed later, set `Status: fixed in <sha>`.
+   tooling failure (script, worktree, build setup); a monitoring/execution improvement or a security finding.
+   When fixed later, set `Status: fixed in <sha>`.
    Don't commit backlog edits unless asked; mention new entries in your reply.
 
 ## Server
