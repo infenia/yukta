@@ -18,6 +18,7 @@ import org.graalvm.polyglot.Context;
 import org.graalvm.polyglot.Engine;
 import org.graalvm.polyglot.HostAccess;
 import org.graalvm.polyglot.PolyglotException;
+import org.graalvm.polyglot.ResourceLimits;
 import org.graalvm.polyglot.Source;
 import org.graalvm.polyglot.Value;
 import org.springframework.stereotype.Component;
@@ -65,6 +66,9 @@ public class GraalJsScriptEngine implements ScriptEngine {
   /** Longest a script may run, in milliseconds ({@code -Dyukta.script.timeout-ms}). */
   private final long timeoutMs = Long.getLong("yukta.script.timeout-ms", 10_000L);
 
+  /** Most statements a script may run ({@code -Dyukta.script.max-statements}). */
+  private final long maxStatements = Long.getLong("yukta.script.max-statements", 50_000_000L);
+
   /** Default constructor. */
   public GraalJsScriptEngine() {
     super();
@@ -84,6 +88,7 @@ public class GraalJsScriptEngine implements ScriptEngine {
             // nosem: yukta-graalvm-host-access-all (no reflection: Class objects are denied)
             .allowHostAccess(HostAccess.newBuilder(HostAccess.ALL).denyAccess(Class.class).build())
             .allowHostClassLookup(GraalJsScriptEngine::isSafeClass)
+            .resourceLimits(ResourceLimits.newBuilder().statementLimit(maxStatements, null).build())
             .build()) {
       final Value bindings = context.getBindings(LANG);
       bindings.putMember("message", message);
@@ -95,6 +100,10 @@ public class GraalJsScriptEngine implements ScriptEngine {
       try {
         return detach(context.eval(source(script)));
       } catch (PolyglotException e) {
+        if (e.isResourceExhausted()) {
+          throw new IllegalStateException(
+              "Script stopped after " + maxStatements + " statements", e);
+        }
         if (e.isCancelled()) {
           throw new IllegalStateException("Script cancelled after " + timeoutMs + " ms", e);
         }
