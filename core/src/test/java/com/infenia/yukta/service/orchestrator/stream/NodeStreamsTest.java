@@ -66,6 +66,39 @@ class NodeStreamsTest {
   }
 
   @Test
+  void running_isReportedAtFirstActivity_notAtSubscribe() {
+    final Message<?> msg = DefaultMessage.create(UUID.randomUUID(), "x");
+    final NodeActivity activity = new NodeActivity();
+
+    StepVerifier.create(
+            decorate(Flux.<Message<?>>never(), activity, () -> false, Duration.ofSeconds(5)))
+        .expectSubscription()
+        .then(() -> expectStatus(TaskStatus.RUNNING, 0))
+        .then(activity::touch)
+        .then(activity::touch)
+        .then(() -> expectStatus(TaskStatus.RUNNING, 1))
+        .thenCancel()
+        .verify();
+
+    expectStatus(TaskStatus.RUNNING, 1);
+    expectStatus(TaskStatus.CANCELLED, 1);
+    assertThat(msg).isNotNull();
+  }
+
+  @Test
+  void nodeThatEndsWithoutActivity_stillReportsRunningFirst() {
+    StepVerifier.create(decorate(Flux.empty())).verifyComplete();
+
+    final InOrder order = inOrder(tracker);
+    order
+        .verify(tracker)
+        .emitTaskStatusEvent(eq(EXEC), eq(NODE_ID), eq(TASK), eq(TaskStatus.RUNNING), anyMap());
+    order
+        .verify(tracker)
+        .emitTaskStatusEvent(eq(EXEC), eq(NODE_ID), eq(TASK), eq(TaskStatus.SUCCESS), anyMap());
+  }
+
+  @Test
   void success_reportsRunningThenSuccess_andPassesMessagesThrough() {
     final Message<?> msg = DefaultMessage.create(UUID.randomUUID(), "x");
 

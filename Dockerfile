@@ -51,6 +51,7 @@ EXPOSE 8080
 # Nonroot user: runs as unprivileged user (UID 65532)
 # Set HOME and PATH for application
 # Inside a container the app must listen on all interfaces; publish the port deliberately.
+# The server refuses to start in this mode without an API key: run with -e YUKTA_API_KEY=<key>.
 ENV YUKTA_SERVER_ADDRESS=0.0.0.0 \
     HOME=/home/nonroot \
     PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin

@@ -34,7 +34,7 @@ import reactor.core.scheduler.Schedulers;
  */
 @Slf4j
 @RequiredArgsConstructor
-@SuppressWarnings("PMD.UnnecessaryModifier")
+@SuppressWarnings({"PMD.UnnecessaryModifier", "PMD.TooManyMethods"})
 public class FileSystemPluginLogReader implements PluginLogReader {
 
   /** Log file extension used for plugin log files. */
@@ -75,6 +75,9 @@ public class FileSystemPluginLogReader implements PluginLogReader {
    * @return the matching log file path, or {@code null} if not found
    */
   private Path findExecutionLogFile(final String executionId) {
+    if (executionId.contains("/") || executionId.contains("\\") || executionId.contains("..")) {
+      throw new IllegalArgumentException("Invalid execution ID: path traversal detected");
+    }
     final Path baseDir = Path.of(baseLogDir);
     Path result = null;
 
@@ -84,6 +87,7 @@ public class FileSystemPluginLogReader implements PluginLogReader {
             sessions
                 .map(sessionDir -> sessionDir.resolve(executionId + LOG_FILE_EXTENSION))
                 .filter(Files::exists)
+                .filter(FileSystemPluginLogReader::notLinked)
                 .findFirst()
                 .orElse(null);
       } catch (final IOException e) {
@@ -198,6 +202,11 @@ public class FileSystemPluginLogReader implements PluginLogReader {
         .subscribeOn(Schedulers.boundedElastic());
   }
 
+  /** A log file counts only if neither it nor its session directory is a link. */
+  private static boolean notLinked(final Path file) {
+    return !Files.isSymbolicLink(file.getParent()) && !Files.isSymbolicLink(file);
+  }
+
   /**
    * Get the validated session directory path.
    *
@@ -209,7 +218,7 @@ public class FileSystemPluginLogReader implements PluginLogReader {
     final Path baseDir = Path.of(baseLogDir).normalize().toAbsolutePath();
     final Path sessionDir = baseDir.resolve(sessionId).normalize().toAbsolutePath();
 
-    if (!sessionDir.startsWith(baseDir)) {
+    if (!sessionDir.startsWith(baseDir) || Files.isSymbolicLink(sessionDir)) {
       throw new IllegalArgumentException("Invalid session ID: path traversal detected");
     }
 

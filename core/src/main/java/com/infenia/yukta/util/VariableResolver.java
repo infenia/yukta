@@ -247,8 +247,16 @@ public class VariableResolver {
     return next == null ? null : getNested(next, path.substring(dotIndex + 1));
   }
 
+  /**
+   * Reads a plain text, number or flag the caller put in the Reactor context. Engine entries (keys
+   * starting {@code yukta.}, such as the control actor) and objects (heartbeat, sinks) stay hidden.
+   */
   private Mono<Object> resolveContextVariable(final String varName) {
-    return Mono.deferContextual(ctx -> Mono.justOrEmpty(ctx.getOrEmpty(varName)));
+    if (varName.startsWith("yukta.")) {
+      return Mono.empty();
+    }
+    return Mono.deferContextual(ctx -> Mono.justOrEmpty(ctx.getOrEmpty(varName)))
+        .filter(v -> v instanceof CharSequence || v instanceof Number || v instanceof Boolean);
   }
 
   private Mono<String> resolveSecret(final String key) {

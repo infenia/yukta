@@ -37,6 +37,33 @@ class SpelUtilsTest {
   }
 
   @Test
+  void timeValuesKeepAllTheirMethods() {
+    assertThat(
+            (Object)
+                SpelUtils.evaluateSync(
+                    "#d.plusDays(1)", Map.of(), Map.of("d", java.time.LocalDate.of(2026, 1, 1))))
+        .isEqualTo(java.time.LocalDate.of(2026, 1, 2));
+  }
+
+  @Test
+  void methodsOutsideTheAllowListAreNotFound() {
+    final Map<String, Object> root = Map.of("name", "yukta");
+
+    assertThat((Object) SpelUtils.evaluateSync("name.toUpperCase()", root)).isEqualTo("YUKTA");
+    for (final String expression :
+        new String[] {
+          "name.repeat(1000000000)",
+          "name.replace('y', 'yyyyyyyyyy').replace('y', 'yyyyyyyyyy')",
+          "name.getClass()",
+          "name.getBytes()"
+        }) {
+      org.assertj.core.api.Assertions.assertThatThrownBy(
+              () -> SpelUtils.evaluateSync(expression, root))
+          .isInstanceOf(SpelEvaluationException.class);
+    }
+  }
+
+  @Test
   void variablesDoNotLeakBetweenCalls() {
     SpelUtils.evaluateSync("#n", Map.of(), Map.of("n", 1));
 

@@ -9,6 +9,10 @@ server:
 spring:
   profiles:
     default: dev
+  codec:
+    # Largest request body (start payload, workflow definition, MCP call) the server reads; a bigger
+    # one is answered with 413. The same limit applies to what a request is copied into later.
+    max-in-memory-size: ${YUKTA_LIMITS_MAX_BODY:1MB}
   threads:
     virtual:
       enabled: true

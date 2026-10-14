@@ -32,7 +32,9 @@ import org.springframework.test.context.TestPropertySource;
  * Drives the real application (real plugins, tracker, scheduler and control bus) through the
  * scenarios the round-2 phases promised, so they cannot silently regress.
  */
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.MOCK)
+@SpringBootTest(
+    webEnvironment = SpringBootTest.WebEnvironment.MOCK,
+    properties = "yukta.process.allow-any=true")
 @TestPropertySource(properties = "yukta.stop.drain-timeout=2s")
 @SuppressWarnings({"PMD.CommentRequired", "PMD.TooManyMethods", "PMD.AvoidDuplicateLiterals"})
 @NoArgsConstructor

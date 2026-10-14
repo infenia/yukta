@@ -62,6 +62,19 @@ class ProcessExecutorGatewayTest {
   @BeforeEach
   void setUp() {
     gateway = new ProcessExecutorGateway();
+    gateway.setAllowAny(true);
+  }
+
+  @Test
+  void noListAndNoSwitch_refusesEveryCommand() {
+    final ProcessExecutorGateway fresh = new ProcessExecutorGateway();
+    final ProcessExecutionSpec spec =
+        ProcessExecutionSpec.builder().command(List.of("echo", "hi")).timeoutSeconds(10L).build();
+
+    StepVerifier.create(fresh.executeForResult(spec))
+        .expectErrorMatches(
+            e -> e instanceof IllegalArgumentException && e.getMessage().contains("allow-any"))
+        .verify();
   }
 
   @Test

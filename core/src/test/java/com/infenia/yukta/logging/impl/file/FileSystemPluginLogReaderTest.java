@@ -41,6 +41,37 @@ class FileSystemPluginLogReaderTest {
   }
 
   @Test
+  void testReadExecutionRefusesPathTraversal() throws IOException {
+    Files.writeString(tempDir.resolve("secret.log"), "x | y | z | a | b | c\n");
+    Files.createDirectories(tempDir.resolve(SESSION_ID));
+
+    for (final String id : new String[] {"../secret", "a/b", "a\\b", "x..y"}) {
+      org.assertj.core.api.Assertions.assertThatThrownBy(
+              () -> reader.readExecution(id).collectList().block())
+          .isInstanceOf(IllegalArgumentException.class)
+          .hasMessageContaining("traversal");
+    }
+  }
+
+  @Test
+  void testReadExecutionIgnoresLinksOutOfTheLogDirectory() throws IOException {
+    final Path outside = Files.createDirectories(tempDir.resolve("outside"));
+    Files.writeString(outside.resolve("exec-9.log"), "x | y | z | a | b | c\n");
+    final Path base = Files.createDirectories(tempDir.resolve("logs"));
+    Files.createSymbolicLink(base.resolve("linked-session"), outside);
+    final FileSystemPluginLogReader linked = new FileSystemPluginLogReader(base.toString());
+
+    assertThat(linked.readExecution("exec-9").collectList().block()).isEmpty();
+
+    final Path session = Files.createDirectories(base.resolve("real-session"));
+    Files.createSymbolicLink(session.resolve("exec-8.log"), outside.resolve("exec-9.log"));
+    assertThat(linked.readExecution("exec-8").collectList().block()).isEmpty();
+    org.assertj.core.api.Assertions.assertThatThrownBy(
+            () -> linked.readSession("linked-session").collectList().block())
+        .isInstanceOf(IllegalArgumentException.class);
+  }
+
+  @Test
   void testReadExecution() throws IOException {
     final Path sessionDir = Files.createDirectories(tempDir.resolve(SESSION_ID));
     Files.writeString(

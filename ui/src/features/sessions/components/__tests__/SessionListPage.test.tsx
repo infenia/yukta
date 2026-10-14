@@ -298,5 +298,25 @@ describe('SessionListPage', () => {
 
       expect(screen.getByText(/Failed to load sessions/)).toBeInTheDocument();
     });
+
+    it('should refetch when retry is pressed', async () => {
+      const refetch = vi.fn();
+      vi.spyOn(
+        useSessionSummariesModule,
+        'useSessionSummaries'
+      ).mockReturnValue({
+        data: undefined,
+        isLoading: false,
+        error: new Error('Failed to fetch sessions'),
+        refetch,
+      } as any);
+
+      renderWithProviders(<SessionListPage />);
+      await userEvent
+        .setup()
+        .click(screen.getByRole('button', { name: 'Retry' }));
+
+      expect(refetch).toHaveBeenCalledOnce();
+    });
   });
 });

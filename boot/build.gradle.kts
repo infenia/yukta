@@ -89,8 +89,32 @@ graalvmNative {
             buildArgs.add("--no-fallback")
             buildArgs.add("--emit=build-report")
 
+            // openai-java-core ships agent-recorded proxy/serialization metadata captured from its
+            // own Gradle/ByteBuddy-based tests (classes absent here), so native-image warns
+            // "Cannot register dynamic proxy" / "Could not resolve ... for serialization".
+            buildArgs.add("--exclude-config")
+            buildArgs.add(".*openai-java-core.*\\.jar")
+            buildArgs.add("^/META-INF/native-image/(proxy|serialization)-config\\.json$")
+
+            // micrometer-core's proxy-config.json only covers JMS instrumentation (unused here) and
+            // triggers the deprecated DynamicProxyConfigurationResources warning.
+            buildArgs.add("--exclude-config")
+            buildArgs.add(".*micrometer-core.*\\.jar")
+            buildArgs.add("^/META-INF/native-image/.*/proxy-config\\.json$")
+
+            // json-schema-validator's native-image.properties injects experimental -H: options (its
+            // empty reflect-config and resource patterns live in our own native-image metadata).
+            buildArgs.add("--exclude-config")
+            buildArgs.add(".*json-schema-validator.*\\.jar")
+            buildArgs.add("^/META-INF/native-image/.*/native-image\\.properties$")
+
+            // Our -H:+... flags are experimental in GraalVM 25.
+            buildArgs.add("-H:+UnlockExperimentalVMOptions")
+
             // Heap for native image compilation
             buildArgs.add("-J-Xmx16g")
+            // Builder JVM has slf4j-api but no provider; its NOP fallback warning is harmless
+            buildArgs.add("-J-Dslf4j.internal.verbosity=ERROR")
 
             // Size-reduction flags (compatible with GraalVM 25)
             buildArgs.add("-H:+RemoveUnusedSymbols")           // Remove unused symbols
