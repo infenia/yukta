@@ -7,11 +7,14 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
@@ -61,6 +64,15 @@ public class McpClientGateway {
   private static final ParameterizedTypeReference<ServerSentEvent<String>> SSE =
       new ParameterizedTypeReference<>() {};
 
+  /** Tools workflows may call; empty means any. */
+  private Set<String> allowedTools = Set.of();
+
+  /** The most bytes of tool arguments, as JSON. */
+  private int maxArgumentBytes = 65_536;
+
+  /** Arguments must not match any of these. */
+  private List<Pattern> denyPatterns = List.of();
+
   /** Builder used to create the WebClient for each request. */
   private final WebClient.Builder webClientBuilder;
 
@@ -107,6 +119,10 @@ public class McpClientGateway {
    * @return a Mono emitting the result
    */
   public Mono<McpCallResult> call(final McpCallSpec spec, final Runnable heartbeat) {
+    final String refusal = refusalFor(spec);
+    if (refusal != null) {
+      return Mono.error(new IllegalArgumentException(refusal));
+    }
     final String requestId = UUID.randomUUID().toString();
     return Mono.defer(() -> callOnce(spec, requestId, heartbeat))
         .onErrorResume(
@@ -117,6 +133,51 @@ public class McpClientGateway {
             })
         .timeout(spec.timeout())
         .doOnCancel(() -> cancelRemote(spec, requestId));
+  }
+
+  /**
+   * Sets the policy every tool call must meet, whatever the node says: tools workflows may call
+   * ({@code yukta.mcp-client.allowed-tools}; empty allows any), the most bytes of arguments ({@code
+   * yukta.mcp-client.max-argument-bytes}) and regular expressions the arguments must not match
+   * ({@code yukta.mcp-client.deny-argument-patterns}, e.g. for secrets or injected instructions).
+   *
+   * @param allowed tool names, or empty
+   * @param maxBytes the most bytes of arguments as JSON
+   * @param denyPatterns regular expressions refused in the arguments
+   */
+  @Value("${yukta.mcp-client.allowed-tools:}")
+  /* default */ void setAllowedTools(final List<String> allowed) {
+    this.allowedTools = Set.copyOf(allowed);
+  }
+
+  @Value("${yukta.mcp-client.max-argument-bytes:65536}")
+  /* default */ void setMaxArgumentBytes(final int maxBytes) {
+    this.maxArgumentBytes = maxBytes;
+  }
+
+  @Value("${yukta.mcp-client.deny-argument-patterns:}")
+  /* default */ void setDenyPatterns(final List<String> denyPatterns) {
+    this.denyPatterns = denyPatterns.stream().map(Pattern::compile).toList();
+  }
+
+  private String refusalFor(final McpCallSpec spec) {
+    if (!allowedTools.isEmpty() && !allowedTools.contains(spec.tool())) {
+      return "MCP tool '" + spec.tool() + "' is not in yukta.mcp-client.allowed-tools";
+    }
+    if (spec.arguments().isEmpty()) {
+      return null;
+    }
+    final String json = JSON_MAPPER.writeValueAsString(spec.arguments());
+    if (json.length() > maxArgumentBytes) {
+      return "Arguments of MCP tool '"
+          + spec.tool()
+          + "' exceed yukta.mcp-client.max-argument-bytes";
+    }
+    return denyPatterns.stream().anyMatch(p -> p.matcher(json).find())
+        ? "Arguments of MCP tool '"
+            + spec.tool()
+            + "' match yukta.mcp-client.deny-argument-patterns"
+        : null;
   }
 
   /**
