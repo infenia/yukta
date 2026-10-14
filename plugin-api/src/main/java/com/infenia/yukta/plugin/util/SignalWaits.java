@@ -18,6 +18,7 @@ import reactor.core.publisher.Sinks;
  * onControlSignal}; the signal command ({@code signal_node}, REST, CLI) reaches it through the same
  * review and audit as any other command. The waits are in memory.
  */
+@SuppressWarnings({"PMD.AtLeastOneConstructor", "PMD.OnlyOneReturn"})
 public final class SignalWaits {
 
   /** Answer to a signal that a waiting node took. */

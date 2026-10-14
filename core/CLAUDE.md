@@ -319,7 +319,7 @@ classes and denies reflection on `Class`. `yukta.process.allowed-commands` (comm
 limits `PROCESS_EXECUTOR` to those executables and refuses `useShell`; with it empty, nothing runs unless
 `yukta.process.allow-any=true`. Expressions (`SpelUtils`) may call only a short list of methods
 (`SafeMethodResolver`); `${context.x}` reads plain values outside `yukta.*`; a script is cancelled
-after `yukta.script.timeout-ms` (10 s). Request bodies above `spring.codec.max-in-memory-size`
+after `yukta.script.timeout-ms` (10 s) or `yukta.script.max-statements` (50 million). Request bodies above `spring.codec.max-in-memory-size`
 (`YUKTA_LIMITS_MAX_BODY`, 1 MiB) get 413. Limit and priority changes pass the `ControlReviewer` and are
 audited with the actor (`SetLimitsCommand`, `SetPriorityCommand`); the raw node command refuses signal
 bodies (use the signal command).

@@ -31,4 +31,22 @@ class ToolApprovalTest {
             ToolApproval.wait(Map.of("requireApproval", List.of("a"), "approvalTimeoutSeconds", 9)))
         .isEqualTo(Duration.ofSeconds(9));
   }
+
+  @Test
+  void validate_acceptsGoodOptionsAndRefusesBadOnes() {
+    ToolApproval.validate(Map.of());
+    ToolApproval.validate(Map.of("requireApproval", List.of("a"), "approvalTimeoutSeconds", 5));
+    org.assertj.core.api.Assertions.assertThatThrownBy(
+            () -> ToolApproval.validate(Map.of("approvalTimeoutSeconds", "soon")))
+        .isInstanceOf(IllegalArgumentException.class);
+    org.assertj.core.api.Assertions.assertThatThrownBy(
+            () -> ToolApproval.validate(Map.of("requireApproval", List.of(" "))))
+        .isInstanceOf(IllegalArgumentException.class);
+    org.assertj.core.api.Assertions.assertThatThrownBy(
+            () -> ToolApproval.validate(Map.of("requireApproval", List.of(5))))
+        .isInstanceOf(IllegalArgumentException.class);
+    org.assertj.core.api.Assertions.assertThatThrownBy(
+            () -> ToolApproval.validate(Map.of("approvalTimeoutSeconds", -1)))
+        .isInstanceOf(IllegalArgumentException.class);
+  }
 }

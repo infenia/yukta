@@ -40,6 +40,8 @@ import reactor.util.context.Context;
 @NoArgsConstructor
 class McpToolCallPluginTest {
 
+  private static final String ACCEPTED = "ACCEPTED";
+
   private final McpClientGateway gateway = mock(McpClientGateway.class);
   private final VariableResolver resolver = mock(VariableResolver.class);
   private final PluginMetricsReporter reporter = mock(PluginMetricsReporter.class);
@@ -111,8 +113,9 @@ class McpToolCallPluginTest {
   /** Sends the decision once the node is waiting for it. */
   private void answerWhenWaiting(final String decision) throws InterruptedException {
     for (int i = 0; i < 200; i++) {
-      final Message<?> answer = plugin.onControlSignal(decision(decision)).block();
-      if ("ACCEPTED".equals(String.valueOf(answer.payload()))) {
+      final Message<?> answer =
+          java.util.Objects.requireNonNull(plugin.onControlSignal(decision(decision)).block());
+      if (ACCEPTED.equals(String.valueOf(answer.payload()))) {
         return;
       }
       Thread.sleep(10);

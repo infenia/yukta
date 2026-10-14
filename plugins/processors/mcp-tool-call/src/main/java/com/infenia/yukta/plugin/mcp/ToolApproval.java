@@ -16,20 +16,25 @@ import reactor.core.publisher.Mono;
  * decision or no answer within {@code approvalTimeoutSeconds} refuses the call.
  */
 @UtilityClass
-@SuppressWarnings({"PMD.AtLeastOneConstructor", "PMD.OnlyOneReturn"})
+@SuppressWarnings("PMD.AtLeastOneConstructor")
 class ToolApproval {
 
   /** Config key: tools that need an approval. */
-  static final String REQUIRE = "requireApproval";
+  /* default */ static final String REQUIRE = "requireApproval";
 
   /** Config key: name of the signal that answers. */
-  static final String SIGNAL = "approvalSignal";
+  /* default */ static final String SIGNAL = "approvalSignal";
 
   /** Config key: longest wait in seconds. */
-  static final String TIMEOUT = "approvalTimeoutSeconds";
+  /* default */ static final String TIMEOUT = "approvalTimeoutSeconds";
 
+  /** Tool name that stands for every tool. */
   private static final String ALL = "*";
+
+  /** Signal name used when none is configured. */
   private static final String DEFAULT_SIGNAL = "approve";
+
+  /** Wait used when none is configured. */
   private static final long DEFAULT_SECONDS = 3600;
 
   /**
@@ -39,7 +44,7 @@ class ToolApproval {
    * @param tool the tool about to be called
    * @return true if it is listed (or all tools are)
    */
-  boolean required(final Map<String, Object> config, final String tool) {
+  /* default */ boolean required(final Map<String, Object> config, final String tool) {
     return config.get(REQUIRE) instanceof final List<?> tools
         && (tools.contains(ALL) || tools.contains(tool));
   }
@@ -50,7 +55,7 @@ class ToolApproval {
    * @param config the node config
    * @return zero if no tool needs one
    */
-  Duration wait(final Map<String, Object> config) {
+  /* default */ Duration wait(final Map<String, Object> config) {
     return config.get(REQUIRE) instanceof final List<?> tools && !tools.isEmpty()
         ? Duration.ofSeconds(seconds(config))
         : Duration.ZERO;
@@ -66,7 +71,7 @@ class ToolApproval {
    * @param tool the tool about to be called
    * @return completes when approved; fails when rejected or not answered in time
    */
-  Mono<Void> await(
+  /* default */ Mono<Void> await(
       final SignalWaits waits,
       final Map<String, Object> config,
       final String executionId,
@@ -96,7 +101,7 @@ class ToolApproval {
    * @param config the node config
    * @throws IllegalArgumentException if an option is malformed
    */
-  void validate(final Map<String, Object> config) {
+  /* default */ void validate(final Map<String, Object> config) {
     if (config.get(REQUIRE) != null
         && !(config.get(REQUIRE) instanceof final List<?> tools
             && tools.stream().allMatch(t -> t instanceof final String name && !name.isBlank()))) {

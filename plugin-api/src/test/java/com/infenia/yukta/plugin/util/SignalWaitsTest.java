@@ -28,11 +28,12 @@ class SignalWaitsTest {
   }
 
   private static String answer(final SignalWaits waits, final Object data) {
-    return String.valueOf(waits.deliver(signal(data)).block().payload());
+    return String.valueOf(
+        java.util.Objects.requireNonNull(waits.deliver(signal(data)).block()).payload());
   }
 
   @Test
-  void await_getsTheDecision_andASecondSignalFindsNoOneWaiting() {
+  void await_getsTheDecision_andLaterSignalFindsNoWait() {
     final SignalWaits waits = new SignalWaits();
 
     StepVerifier.create(waits.await("e", "n", "ok", Duration.ofSeconds(5)))

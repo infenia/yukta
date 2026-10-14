@@ -10,7 +10,13 @@ import { renderWithProviders } from '@/test/utils/testUtils';
 import { ControlPage } from '../ControlPage';
 
 const ok = (data: unknown) =>
-  HttpResponse.json({ timestamp: 't', status: 200, message: 'ok', data, path: '/' });
+  HttpResponse.json({
+    timestamp: 't',
+    status: 200,
+    message: 'ok',
+    data,
+    path: '/',
+  });
 
 let nodes: string[] = [];
 let nodesFail = false;
@@ -47,13 +53,17 @@ describe('ControlPage', () => {
     nodes = ['a:n1', 'a:n2'];
     renderWithProviders(<ControlPage />);
     expect(await screen.findByText('a:n1')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /heartbeat/i })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /heartbeat/i })
+    ).not.toBeInTheDocument();
   });
 
   it('reports a failure to load nodes', async () => {
     nodesFail = true;
     renderWithProviders(<ControlPage />);
-    expect(await screen.findByRole('alert')).toHaveTextContent('Failed to load nodes');
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Failed to load nodes'
+    );
   });
 
   it('filters by workflow and toggles a node heartbeat', async () => {
