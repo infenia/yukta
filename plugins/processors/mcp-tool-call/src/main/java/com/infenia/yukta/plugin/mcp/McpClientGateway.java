@@ -40,7 +40,8 @@ import tools.jackson.databind.ObjectMapper;
   "PMD.CommentRequired",
   "PMD.TooManyMethods",
   "PMD.UseConcurrentHashMap",
-  "PMD.OnlyOneReturn"
+  "PMD.OnlyOneReturn",
+  "PMD.CouplingBetweenObjects"
 })
 public class McpClientGateway {
 
@@ -136,28 +137,36 @@ public class McpClientGateway {
   }
 
   /**
-   * Sets the policy every tool call must meet, whatever the node says: tools workflows may call
-   * ({@code yukta.mcp-client.allowed-tools}; empty allows any), the most bytes of arguments ({@code
-   * yukta.mcp-client.max-argument-bytes}) and regular expressions the arguments must not match
-   * ({@code yukta.mcp-client.deny-argument-patterns}, e.g. for secrets or injected instructions).
+   * Sets the tools workflows may call ({@code yukta.mcp-client.allowed-tools}); empty allows any.
+   * This holds whatever a node says, so a model cannot pick a tool outside it.
    *
    * @param allowed tool names, or empty
-   * @param maxBytes the most bytes of arguments as JSON
-   * @param denyPatterns regular expressions refused in the arguments
    */
   @Value("${yukta.mcp-client.allowed-tools:}")
   /* default */ void setAllowedTools(final List<String> allowed) {
     this.allowedTools = Set.copyOf(allowed);
   }
 
+  /**
+   * Sets the most bytes of arguments, as JSON, one call may carry ({@code
+   * yukta.mcp-client.max-argument-bytes}).
+   *
+   * @param maxBytes the limit
+   */
   @Value("${yukta.mcp-client.max-argument-bytes:65536}")
   /* default */ void setMaxArgumentBytes(final int maxBytes) {
     this.maxArgumentBytes = maxBytes;
   }
 
+  /**
+   * Sets regular expressions the arguments must not match ({@code
+   * yukta.mcp-client.deny-argument-patterns}), e.g. for secrets or injected instructions.
+   *
+   * @param patterns the expressions
+   */
   @Value("${yukta.mcp-client.deny-argument-patterns:}")
-  /* default */ void setDenyPatterns(final List<String> denyPatterns) {
-    this.denyPatterns = denyPatterns.stream().map(Pattern::compile).toList();
+  /* default */ void setDenyPatterns(final List<String> patterns) {
+    this.denyPatterns = patterns.stream().map(Pattern::compile).toList();
   }
 
   private String refusalFor(final McpCallSpec spec) {

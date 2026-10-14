@@ -9,13 +9,13 @@ Re-verified on 2026-10-13 against `main@e8d62722`; new findings and the prioriti
 done (limits and priority are logged, still not reviewed), B19 is fixed for starts and restarts (open
 only for sub-workflow starts), B21 is partly done (finished runs capped at 100 per session, session
 entries never removed), B25 is partly done (a supervisor's own command outcomes are filtered, status
-events are not). B32 and S9 are fixed.
+events are not). B32 and S9 are fixed. The security items S3-S8, S10-S13, B4 and B35 are fixed in the security hardening PR, and F3 and F5 are partly done (see their rows and [11](11-remediation-plan.md)).
 
 ## Bugs and hardening
 
 | ID | Status | What | Where | Why not done / what is needed |
 |---|---|---|---|---|
-| B4 | needs decision | `changeLimits`, `changePriority` and `POST /control/workflows/{wf}/nodes/{node}/command` skip the `ControlReviewer` and (for the last) the audit; the node command is keyed by workflow+node, not execution | `DefaultControlBusGateway`, `web/.../ControlBusController` | Needs new command types (`SetLimits`, `SetPriority`) in the sealed `ExecutionControlCommand` of `plugin-api` plus processors, i.e. an API change |
+| B4 | done (limits, priority; raw signals refused) | `changeLimits`, `changePriority` and `POST /control/workflows/{wf}/nodes/{node}/command` skip the `ControlReviewer` and (for the last) the audit; the node command is keyed by workflow+node, not execution | `DefaultControlBusGateway`, `web/.../ControlBusController` | Needs new command types (`SetLimits`, `SetPriority`) in the sealed `ExecutionControlCommand` of `plugin-api` plus processors, i.e. an API change |
 | B16 | open | A subtree that stops reading (its terminal failed) stalls sibling branches through `publish` back-pressure; run only fails at the idle timeout | `stream/NodeBroadcast`, `StreamTopologyDecorator` | Needs a fail-fast design: on a downstream cancel-with-error, propagate to the run |
 | B21 | needs decision | `sessionStates` / `latestExecs` of finished sessions are never evicted | `DefaultTaskTrackerService` | Evicting sessions drops history the UI shows; decide a max-sessions or TTL policy |
 | B25 | open | A supervisor sees the status events its own command causes (pause -> PAUSED) and can loop, capped only by the rate limit | `SupervisorHost` | Needs a way to tag events caused by a command with its actor; no reproducing test yet |
@@ -24,8 +24,8 @@ events are not). B32 and S9 are fixed.
 | B26 | open | Preparator duplicates edges if the prepare `Mono` is subscribed twice; validator and assembler disagree on what a terminal is (`getCategory()` vs `instanceof`); a failed `checkpointStore.save` fails the node while a failed `markComplete` does not | `WorkflowPreparator`, `WorkflowValidator`, `StreamTopologyDecorator` | No caller re-subscribes today; align the checks |
 | B23 | dropped | Live log stream stays open until cleanup | `DefaultTaskTrackerService.getLogStream` | An existing test requires the trailing line after the terminal status |
 | R1 | open | Restarting a finished run has the same check-then-acquire race that #340 fixed for starts | `RestartCommandProcessor`, `RestartFromNodeCommandProcessor` | Reserve the slot before returning the new id |
-| S3 | open | `FileSystemPluginLogReader.findExecutionLogFile` does not validate `executionId` (path traversal); the writer has a create/overwrite race | `logging/impl/file` | Not wired as beans today; fix before wiring |
-| S4 | open | `yukta.process.allowed-commands` is opt-in; with it unset any command can run | `ProcessExecutorGateway` | Making it deny-by-default is a breaking change; decide per release |
+| S3 | done | `FileSystemPluginLogReader.findExecutionLogFile` does not validate `executionId` (path traversal); the writer has a create/overwrite race | `logging/impl/file` | Not wired as beans today; fix before wiring |
+| S4 | done (`yukta.process.allow-any=true` restores the old behaviour) | `yukta.process.allowed-commands` is opt-in; with it unset any command can run | `ProcessExecutorGateway` | Making it deny-by-default is a breaking change; decide per release |
 
 ## Features (priority order)
 

@@ -2679,7 +2679,18 @@ class DefaultControlBusGatewayTest {
   }
 
   @Test
-  void rawNodeCommand_cannotCarryASignal() {
+  void rawNodeCommand_passesOtherMapPayloads() {
+    final Message<?> command = DefaultMessage.create(null, Map.of("action", "ping"));
+    final Message<?> response = DefaultMessage.create(null, "pong");
+    when(controlBusService.sendCommand("wf", "node", command)).thenReturn(Mono.just(response));
+
+    StepVerifier.create(gateway.sendCommand("wf", "node", command))
+        .expectNext(response)
+        .verifyComplete();
+  }
+
+  @Test
+  void rawNodeCommand_refusesSignals() {
     final Message<?> signal =
         DefaultMessage.create(
             null, Map.of("executionId", "e", "name", "ok", "decision", "approve"));
@@ -2687,11 +2698,20 @@ class DefaultControlBusGatewayTest {
     StepVerifier.create(gateway.sendCommand("wf", "node", signal))
         .expectError(com.infenia.yukta.service.supervisor.ControlRejectedException.class)
         .verify();
+    StepVerifier.create(
+            gateway.sendCommand("wf", "node", DefaultMessage.create(null, Map.of("decision", "x"))))
+        .expectError(com.infenia.yukta.service.supervisor.ControlRejectedException.class)
+        .verify();
+    StepVerifier.create(
+            gateway.sendCommand(
+                "wf", "node", DefaultMessage.create(null, Map.of("executionId", "e"))))
+        .expectError(com.infenia.yukta.service.supervisor.ControlRejectedException.class)
+        .verify();
     verify(controlBusService, never()).sendCommand(any(), any(), any());
   }
 
   @Test
-  void setLimits_isRefusedWhenAReviewerSaysNo_andTheRefusalIsAudited() {
+  void setLimits_isRefusedWhenReviewerSaysNo_andTheRefusalIsAudited() {
     final com.infenia.yukta.service.log.InMemoryExecutionLogStore auditLog =
         new com.infenia.yukta.service.log.InMemoryExecutionLogStore();
     final ExecutionScheduler real =
@@ -2710,7 +2730,7 @@ class DefaultControlBusGatewayTest {
             new StartIdempotency(java.time.Duration.ofMinutes(1)),
             auditLog);
     final com.infenia.yukta.service.supervisor.ControlReviewer reviewer =
-        org.mockito.Mockito.mock(com.infenia.yukta.service.supervisor.ControlReviewer.class);
+        mock(com.infenia.yukta.service.supervisor.ControlReviewer.class);
     when(reviewer.review(any()))
         .thenReturn(
             Mono.error(new com.infenia.yukta.service.supervisor.ControlRejectedException("no")));

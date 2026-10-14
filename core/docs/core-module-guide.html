@@ -349,7 +349,6 @@ comps:[
    "restartRace",
    "limits28",
    "blockStart",
-   "reviewBypass",
    "idemCap"
   ]
  },
@@ -434,8 +433,6 @@ comps:[
    "yukta.variables.allowed"
   ],
   "risks": [
-   "procDefault",
-   "logPath",
    "signals14",
    "toolGuard",
    "memStore",
@@ -494,16 +491,10 @@ comps:[
    "yukta.supervisor.* (reviewers)"
   ],
   "risks": [
-   "reviewBypass",
    "rbac15",
    "restartRace",
-   "rawSignal",
    "cmdCancel",
-   "ctlKey",
-   "apiPath",
-   "mcpOpen",
-   "csrf",
-   "actuator"
+   "ctlKey"
   ]
  },
  {
@@ -641,9 +632,6 @@ comps:[
    "YUKTA_VAR_* and YUKTA_SECRET_* environment variables"
   ],
   "risks": [
-   "ctxRead",
-   "spelLimits",
-   "jsLimit"
   ]
  }
 ],
@@ -660,7 +648,7 @@ scen:[
 {id:"overload",name:"Overload",steps:[
  {t:"A burst of starts",d:"Many start requests arrive at once. With no limits configured (the default) all of them run at the same time, and the only brake is the server itself running out of resources.",c:["entry"],r:["spof"]},
  {t:"Limits kick in",d:"Global, per-workflow and per-session caps decide who runs. A start that does not fit waits (status QUEUED) or is refused with 429.",c:["entry"],r:["limits28"]},
- {t:"Fair, prioritised queue",d:"Waiting starts are ordered by payload priority, then by the session with the fewest running runs, then arrival. An operator can change a queued run's priority or the limits live.",c:["entry","control"],r:["reviewBypass"]},
+ {t:"Fair, prioritised queue",d:"Waiting starts are ordered by payload priority, then by the session with the fewest running runs, then arrival. An operator can change a queued run's priority or the limits live.",c:["entry","control"],r:[]},
  {t:"Queue full or too old",d:"Beyond the queue capacity (default 100) or a queue timeout the start ends refused or TIMED_OUT, counted by reason in a rejection metric.",c:["entry","obs"],r:[]},
  {t:"Shutdown under load",d:"Nothing new is admitted, queued starts are refused, running ones get 30 s to finish; the rest are ABORTED on next boot.",c:["entry","dur"],r:["spof"]}]},
 {id:"failure",name:"Node failure",steps:[
@@ -674,7 +662,7 @@ scen:[
  {t:"Pause",d:"The command enters the run's FIFO; the valve stops pulling input, in-flight elements finish, and all timers freeze so a pause never causes a timeout.",c:["control","engine"],r:[]},
  {t:"Step and breakpoint",d:"Step n lets exactly n elements through then pauses. A breakpoint holds a node at the first element whose payload or metadata matches.",c:["control","engine"],r:[]},
  {t:"Skip or retry a node",d:"A processor can be skipped at run time (messages bypass the plugin); a node that ended FAILURE or TIMED_OUT can be re-run with its recorded input plus everything behind it.",c:["control","engine","dur"],r:["restartRace"]},
- {t:"Review and audit",d:"Reviewers may refuse any command (403). Every command on a known run is logged as applied or rejected, with the actor.",c:["control","dur"],r:["reviewBypass","rbac15"]},
+ {t:"Review and audit",d:"Reviewers may refuse any command (403). Every command on a known run is logged as applied or rejected, with the actor.",c:["control","dur"],r:["rbac15"]},
  {t:"Stop",d:"DRAIN lets work finish with a deadline, CANCEL cancels, KILL is immediate. The run ends STOPPED and its slot is released.",c:["control","engine","entry"],r:[]}]},
 {id:"supervisor",name:"Supervisor intervenes",steps:[
  {t:"Events are published",d:"The tracker and command outcomes feed one global event stream. Delivery is best effort and never blocks a run.",c:["obs"],r:["trackerQ26"]},
@@ -712,8 +700,8 @@ caps:[
 ["Extensibility","Plugin API","Add new node types.","Triggers, processors, terminals; defaults for timeouts; heartbeats.","Engine options hidden from plugins.","Runs in the engine JVM."],
 ["Extensibility","LLM & MCP nodes","Agent-style workflows.","Tool calling, tool discovery, per-run token and cost budget, allowed tools.","A budget stops runaway cost.","One call may overshoot; no per-provider rate limit."],
 ["Extensibility","Approval steps","Human in the loop.","WAIT_FOR_SIGNAL holds each message until a signal arrives.","Ordered and audited like any command.","The wait is in memory."],
-["Security","Safe-by-default reads","Limit what a workflow can reach.","Allow-listed env and system variables, restricted script surface, optional command allow-list.","Secrets by name stay blocked.","Command allow-list is opt-in."],
-["Security","Roles and actors","Know who did what.","REST roles VIEWER / OPERATOR / ADMIN; actor key in the audit.","Attribution of control actions.","MCP has one key; no tenant scoping."]
+["Security","Safe-by-default reads","Limit what a workflow can reach.","Allow-listed env and system variables, restricted script and expression surface, process execution off unless a command list (or yukta.process.allow-any) is set.","Secrets by name stay blocked.","Command allow-list is opt-in."],
+["Security","Roles and actors","Know who did what.","REST roles VIEWER / OPERATOR / ADMIN, hashed and session-limited keys; actor in the audit.","Attribution of control actions.","MCP takes admin keys only; no tenant isolation."]
 ],
 pit:[
 ["Cycles and malformed graphs","Reject at definition time"],["Join after a branch never fires","Trigger rules"],["Fan-out to a slow child","Credit-based flow control"],["Late subscriber misses data","Start source when consumers are ready"],["Timeouts count queue and pause","Separate clocks"],["Long work looks dead","Heartbeats"],["Transient failure fails the run","Retry with backoff"],["Retries duplicate side effects","Idempotency keys"],["Fail-fast vs partial results","Error handlers"],["Crash loses state","Event history and checkpoints"],["Re-running part of a graph","Clear downstream"],["Definition changes under a run","Versioning"],["Unbounded concurrency","Limits and pools"],["Cancellation does not reach work","Cooperative then forced"],["Commands race","Serialised signals"],["Cannot see why it is slow","Metrics and traces"],["Poison message","Dead-letter ports"],["UI shows finished run with running nodes","One ordered history"],["Large payloads in buffers","Claim check"],["Starvation and priority","Priority queues"]],
@@ -737,7 +725,7 @@ quality:[
 {n:"Scalability",pos:"Vertical on one JVM. Streams are efficient, but every run's state, the scheduler and the tracker share the process. Horizontal scale-out is designed (remote workers) but not built.",ceil:["All admission, ordering and run state in one process","Unbounded tracker state queue; per-session state never evicted","Fan-out paced by the slowest child","Checkpoint memory bound = retained runs x nodes x bytes-per-node","The default in-memory execution log and the idempotency cache are not size bounded"],have:["Global, per-workflow and per-session limits and fair queue","Byte and message caps on checkpoints","Virtual threads for blocking plugins"],need:["Remote workers (F11 phases 1-5)","Eviction policy for finished sessions","Shared control state (phase 6)"]},
 {n:"Performance",pos:"Low per-message overhead: one volatile write per activity touch, one periodic idle check per node, batched tracker consumer.",ceil:["Per-message retry or ROUTE buffers a message's output","Large payloads copy through memory and checkpoints","Single writer thread for the log","Compile cost grows with graph size (cap 500 nodes)"],have:["Back-pressure instead of queues","Prepared-workflow cache and shared prepare","Batching in tracker and log"],need:["Claim-check for large payloads","Defer blocking archive on the start path","Performance budget per node type"]},
 {n:"Availability",pos:"A crash is recoverable, not invisible: runs are ABORTED and resumable only with file stores. There is no standby.",ceil:["Control state in memory is a single point of failure","Checkpoints not in PostgreSQL","Signal waits and queue positions are lost","Log events not fsynced"],have:["Durable node end marker","Boot recovery and one-shot resume","Idempotent start surviving restarts"],need:["Checkpoint store in PostgreSQL","Active/standby with a database lease (phase 6)","Durable signal waits"]},
-{n:"Security",pos:"Controls exist at the edges (roles, allow-lists, reviewers) but several are opt-in.",ceil:["Command allow-list is opt-in","MCP has a single key; no tenant scoping","Plugins run in the engine JVM","Path-traversal bug in a log reader that is not wired yet","Key filters match the raw path; the MCP key is separate and empty by default; no Host or Origin check; actuator outside the key filter","Expressions and scripts have no time or size limit"],have:["REST roles and actors in the audit","Allow-listed env, script and process surface","Reviewers on the run command path"],need:["Deny-by-default process execution","Key checks on the decoded path, one key for REST and MCP, a Host and Origin check, a protected actuator","Time and size limits for expressions and scripts","Per-tenant scoping and key rotation","Worker mTLS and plugin allow-lists (remote design)"]},
+{n:"Security",pos:"Keys, host and origin checks, command review and expression limits are in place; sessions are not isolated from each other.",ceil:["MCP accepts only unrestricted admin keys","Plugins run in the engine JVM","Scripts have a time limit but no memory limit"],have:["REST roles, hashed and session-limited keys, actors in the audit","Key checks on the decoded path, one key set for REST and MCP, Host and Origin check, protected actuator","Deny-by-default process execution; allow-listed env, script, expression and tool surface","Reviewers and audit on limit and priority changes"],need:["Per-tenant isolation of execution-id routes","Worker mTLS and plugin allow-lists (remote design)"]},
 {n:"Operability",pos:"Good visibility, thin lifecycle tooling.",ceil:["Limits changes are not restored","No UI for pending approvals or version history","Session state never evicted","Control commands without a reviewer or audit entry (limits, priority, raw node command)"],have:["Meters for every governance decision","Run and node spans","SSE feed and supervisors"],need:["Health and pool metrics for PostgreSQL","Run history search","Parent/child links in history"]},
 {n:"Evolvability",pos:"Sealed command types and a plugin API keep the surface small, but adding a command type is an API change.",ceil:["Sealed ExecutionControlCommand in plugin-api","Large tracker class","Validator and assembler disagree on what a terminal is"],have:["Records and small processors per command","Property-based tests on status order","Coverage and static-analysis gates"],need:["Extension point for new command types","Split tracker projections"]}],
 what:{
@@ -757,35 +745,23 @@ risks:[
 {id:"blockStart",t:"Blocking file work on the sub-workflow start path (B19)",a:"Performance",i:1,e:1,c:["entry","sub"],why:"Fixed for starts and restarts (archiving now happens on subscription, off the caller's thread). It remains for sub-workflow starts, which do not hop to another scheduler.",o:"Subscribe the sub-workflow start on boundedElastic.",q:"",ph:""},
 {id:"prepAlign",t:"Validator and assembler disagree in corners (B26)",a:"Correctness",i:2,e:2,c:["def"],why:"What counts as a terminal differs; a failed checkpoint save fails a node while a failed end marker does not.",o:"Align the checks; no caller triggers it today.",q:"",ph:""},
 {id:"restartRace",t:"Restart has the start-time slot race (R1)",a:"Correctness",i:3,e:2,c:["entry","control"],why:"Check-then-acquire on restart can exceed a limit by one.",o:"Reserve the slot before returning the new id, as starts do.",q:"",ph:""},
-{id:"reviewBypass",t:"Limit/priority commands skip reviewers and audit (B4)",a:"Security",i:3,e:3,c:["control","entry"],why:"Limits and priority changes are logged but not reviewed. The raw node command is not reviewed or audited at all and is keyed by workflow, not run.",o:"New sealed command types in the plugin API with processors; route signals only through the signal command.",q:"Is the reviewer chain a security boundary or a convenience?",ph:""},
 {id:"limits28",t:"Runtime limit changes are not restored",a:"Operability",i:2,e:1,c:["entry"],why:"After a restart the limits revert to configuration.",o:"Reload the latest limit change from the log, or treat configuration as the source of truth and say so.",q:"",ph:""},
-{id:"logPath",t:"Path traversal in a log reader (S3)",a:"Security",i:3,e:1,c:["plugin"],why:"Execution id is not validated; the reader is not wired yet.",o:"Fix before wiring.",q:"",ph:""},
-{id:"procDefault",t:"Command allow-list is opt-in (S4)",a:"Security",i:4,e:2,c:["plugin"],why:"With the list unset any executable can run from a workflow.",o:"Deny by default in the next major release; keep a migration switch.",q:"Who can author workflows today, and are they trusted?",ph:""},
-{id:"rbac15",t:"Roles stop at REST (F3)",a:"Security",i:4,e:3,c:["control","super"],why:"MCP has one key; no tenant scoping or key rotation; no who-did-what view.",o:"Roles for MCP, hashed rotating keys, per-session scoping, audit view in the UI.",q:"Is this multi-tenant, and if so where is the isolation boundary?",ph:""},
+{id:"rbac15",t:"MCP is admin-only; no tenant isolation (F3)",a:"Security",i:4,e:3,c:["control","super"],why:"Keys can be hashed, rotated (several at once), limited to sessions and named in the audit, but MCP accepts only unrestricted ADMIN keys and a session-limited key reaches only /api/sessions/{s}/** and /api/workflow/{s}/**. There is no who-did-what view in the UI.",o:"Roles per MCP tool, session scoping of execution-id routes, audit view in the UI.",q:"Is this multi-tenant, and if so where is the isolation boundary?",ph:""},
 {id:"signals14",t:"Approval waits are in memory (F2)",a:"Reliability",i:3,e:3,c:["plugin","dur"],why:"A resumed run waits again; a signal before the wait is refused; no UI for pending approvals.",o:"Durable waits in the checkpoint store, queued signals, an approvals page.",q:"How long do your approvals take, hours or days?",ph:""},
 {id:"llmBudget",t:"Budgets stop at one plugin (F4)",a:"Governance",i:3,e:3,c:["plugin"],why:"No per-provider rate limit, no budget across MCP calls, no hard stop of the run.",o:"A shared budget service keyed by run and provider.",q:"",ph:""},
-{id:"toolGuard",t:"Tool and prompt guards are thin (F5)",a:"Security",i:3,e:3,c:["plugin"],why:"Allow-lists exist per node; no gateway-level allowlist, argument rules or prompt-injection filters.",o:"Gateway-level policy plus input/output filters.",q:"",ph:""},
+{id:"toolGuard",t:"No prompt or output filters (F5)",a:"Security",i:3,e:3,c:["plugin"],why:"Tool calls meet a gateway-level allow-list, an argument size cap and deny patterns (yukta.mcp-client.*); there are no filters for prompts or model output.",o:"Input and output filters on LLM_CALL.",q:"",ph:""},
 {id:"subDeadlock",t:"Sub-workflow slot deadlock (F6)",a:"Reliability",i:4,e:3,c:["sub","entry"],why:"Parent waits on children that wait for the parent's slot; no cascade cancel; no parent/child history.",o:"Let a child borrow its parent's slot; cascade stop; link runs in history.",q:"",ph:""},
 {id:"memStore",t:"Agent memory is partly volatile (F7)",a:"Reliability",i:3,e:3,c:["plugin"],why:"KV_STORE is memory; chat history has no TTL and loads whole files; no shared or vector memory.",o:"Database backend after F10, eviction policy.",q:"",ph:"f10"},
 {id:"agentLoop",t:"Agent loop is incomplete (F8)",a:"Functionality",i:2,e:2,c:["plugin"],why:"Tool results return as a plain user turn; tools/list is first page only; no streaming.",o:"Proper tool-role turns, pagination, an example loop workflow.",q:"",ph:""},
 {id:"versions21",t:"Version history lacks diff and pinning (F9)",a:"Functionality",i:2,e:2,c:["def"],why:"No MCP tools, no diff, no notes, no UI.",o:"Expose versions through MCP and UI; pin a run to a version.",q:"",ph:""},
 {id:"logDur24",t:"Log events are not fsynced",a:"Reliability",i:2,e:2,c:["dur"],why:"A power loss can lose the last few events (the node end marker is separate and forced).",o:"Optional fsync per batch; or document as accepted.",q:"Is losing the last second of audit acceptable?",ph:""},
 {id:"writerThread27",t:"Single writer thread for the log",a:"Performance",i:2,e:2,c:["persist"],why:"The store interface is blocking; PostgreSQL goes through one thread.",o:"Batch inserts or make the interface reactive.",q:"",ph:""},
-{id:"apiPath",t:"Key check can be bypassed by path form (S5, to confirm)",a:"Security",i:4,e:1,c:["control"],why:"The key filters in web and mcp look at the raw request path, while routing uses the decoded path without path parameters. A differently written path may skip the check and still reach the controller. Suspected from the framework's documented matching rules: it needs a failing test before it is treated as confirmed.",o:"Decide on the decoded, parameter-free path, or reject paths containing parameters or encoded characters; add a test per filter.",q:"Would you notice a request that skipped the key check?",ph:""},
-{id:"mcpOpen",t:"MCP endpoint ignores the REST key (S6)",a:"Security",i:4,e:1,c:["control","plugin"],why:"/mcp has its own key, empty by default, while the setup comment says to set only the REST key. Behind a non-loopback bind (the Docker image does this) the start, control and signal tools are open; with the open command allow-list (S4) that is command execution.",o:"Fall back to the REST key; refuse to start on a non-loopback address with no key.",q:"Which deployments bind beyond loopback today?",ph:""},
-{id:"csrf",t:"No Host or Origin check on a loopback server (S7)",a:"Security",i:4,e:1,c:["control"],why:"Several mutating endpoints take only query parameters, so a web page open in the operator's browser can send them to the local server; DNS rebinding can also read the event stream.",o:"A filter that rejects unexpected Host values and foreign Origins on non-GET requests.",q:"Who browses the web on the machine that runs the server?",ph:""},
-{id:"actuator",t:"Actuator sits outside the key filter (S8)",a:"Security",i:3,e:1,c:["control"],why:"The key filter covers /api only. When the dev profile is active, actuator exposes writable log levels, mappings and thread dumps, and production exposes metrics.",o:"Key-check actuator except health, or use a separate management port.",q:"",ph:""},
-{id:"rawSignal",t:"Raw node command releases approvals unseen (S10)",a:"Security",i:3,e:3,c:["control","plugin"],why:"The per-node command endpoint reaches the plugin directly: no reviewer, no audit entry, keyed by workflow and node. A body naming an approval signal releases a WAIT_FOR_SIGNAL.",o:"Route signals only through the signal command, or remove the raw endpoint; part of the B4 work.",q:"Should approvals be possible without an audit entry?",ph:""},
-{id:"spelLimits",t:"Expressions can use unbounded memory (S11)",a:"Security",i:3,e:3,c:["expr"],why:"Expressions may call any public instance method on strings and payload objects, including allocation-heavy ones; spring's size limit does not cover method calls.",o:"A method allow-list in the expression utility.",q:"Who may write expressions: only trusted authors?",ph:""},
-{id:"jsLimit",t:"Scripts have no time limit (S12)",a:"Security",i:3,e:3,c:["expr"],why:"A script that never ends holds its thread. The node timeout cancels the stream but cannot stop the script context.",o:"A statement limit and a watchdog that closes the context on timeout.",q:"",ph:""},
-{id:"ctxRead",t:"Config can read any run context key (S13)",a:"Security",i:2,e:1,c:["expr"],why:"${context.x} is not limited to a list of keys, so a definition can read internal entries such as the control actor.",o:"Allow-list the keys.",q:"",ph:""},
 {id:"logGrow",t:"Default execution log never shrinks (B28)",a:"Scalability",i:3,e:1,c:["dur","persist"],why:"Without a log directory the log is a copy-on-write list that keeps every start payload and event, so memory grows without bound and every append copies the list.",o:"A bounded structure that trims to the newest runs, never dropping a run without an end, as the file log does.",q:"Is anyone running a long-lived server on the default store?",ph:""},
 {id:"cmdCancel",t:"A cancelled command breaks ordering and audit (B29)",a:"Reliability",i:3,e:1,c:["control"],why:"When a queued command's caller disconnects, its place is released at once, so the next command can run beside the one still in progress; the cancelled command is not recorded as applied or rejected.",o:"Release the place only after the previous command ends; record cancellations.",q:"",ph:""},
 {id:"ctlKey",t:"Plugin-level control keyed by workflow and node (B30)",a:"Correctness",i:2,e:2,c:["control"],why:"Heartbeats, statistics and raw node commands use workflow plus node as key, so two sessions or runs with the same ids share state.",o:"Include the session or execution id in the key.",q:"",ph:""},
 {id:"idemCap",t:"Idempotency cache has no size cap (B31)",a:"Scalability",i:2,e:1,c:["entry"],why:"A client sending a new key per request keeps one cached entry per key for the whole window, so memory follows the request rate.",o:"Cap the cache size.",q:"",ph:""},
 {id:"childCancel",t:"A cancelled child may never end (B33, to confirm)",a:"Reliability",i:3,e:2,c:["sub","control"],why:"When a parent node is cancelled, the child's cleanup unregisters it but does not record a final status. Deduced from the code; needs a test first.",o:"Test the cancel path, then finish the child as cancelled.",q:"",ph:""},
 {id:"histCache",t:"Run progress history is unbounded (B34)",a:"Scalability",i:4,e:1,c:["obs"],why:"Every status event stores a full snapshot of all node states for up to 30 minutes, with no count cap on the history or the cache. A large run, or many runs, grows memory with events times nodes.",o:"Cap the history per run (keep the last snapshot), set a maximum cache size, optionally coalesce snapshots.",q:"How many late-joining viewers need every intermediate step?",ph:""},
-{id:"sizeLimit",t:"No byte limit on start payloads or definitions (B35, to confirm)",a:"Security",i:3,e:1,c:["entry","def"],why:"Nodes and edges are capped (500 and 2000) but sizes in bytes are not known to be; a large payload is copied into the log, archive, checkpoints and snapshots. Limits at the web edge still need checking.",o:"Find the current limits, add explicit maximums and answer 413.",q:"What is the largest legitimate start payload?",ph:""},
 {id:"ckptIO",t:"Durable runs pay a file open per message (P1)",a:"Performance",i:3,e:3,c:["dur"],why:"With a restart directory each message is appended by opening the file on another thread, and a resume reads a node's whole output into memory. Not measured yet.",o:"Measure first; keep one appender per node and stream the reads.",q:"What message rate must a durable run sustain?",ph:""},
 {id:"gaps12",t:"Capability gaps (F12)",a:"Functionality",i:2,e:4,c:["engine"],why:"Saga compensation, node result caching, A2A agent card, eval node, backfill, run search, secrets manager, auto-resume.",o:"Pull in on demand.",q:"Which one would a design partner ask for first?",ph:""}
 ],
@@ -809,7 +785,7 @@ prompts:[
  ["Failure","One terminal in a branch fails. How long until the run notices, and who pays for the wait?","engine","failfast"],
  ["Scale","Your largest customer starts 5,000 runs in a minute with no limits set. What happens first, and what is the first graph you look at?","entry","spof"],
  ["Durability","You pull the power. Which approvals, queued starts and limit changes are gone, and do users find out?","dur","signals14"],
- ["Security","A workflow author is not trusted. Which three plugins must be unavailable to them?","plugin","procDefault"],
+ ["Security","A workflow author is not trusted. Which three plugins must be unavailable to them?","plugin","toolGuard"],
  ["Evolution","The remote-workers design needs one decision reversed in a year. Which, and what does it cost?","engine","remote"],
  ["Performance","A message becomes 50 MiB. Which components copy it, how many times?","dur","payload23"],
  ["Control","An AI supervisor pauses a run you are debugging. How do you tell, and how do you stop it?","control","supLoop"],

@@ -3,6 +3,7 @@
 package com.infenia.yukta.config;
 
 import com.infenia.yukta.security.ApiKeys;
+import jakarta.annotation.PostConstruct;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import org.springframework.core.env.Environment;
@@ -17,13 +18,25 @@ import org.springframework.stereotype.Component;
 @Component
 public class ExposureGuard {
 
+  /** The configuration to check. */
+  private final Environment environment;
+
+  /**
+   * Create the guard.
+   *
+   * @param environment holds {@code server.address} and the API keys
+   */
+  public ExposureGuard(final Environment environment) {
+    this.environment = environment;
+  }
+
   /**
    * Check the configuration at startup.
    *
-   * @param environment holds {@code server.address} and the API keys
    * @throws IllegalStateException if the server is reachable from the network without a key
    */
-  public ExposureGuard(final Environment environment) {
+  @PostConstruct
+  public void check() {
     final String address = environment.getProperty("server.address", "");
     if (!loopback(address) && ApiKeys.read(environment, "yukta.mcp.api-key").isEmpty()) {
       throw new IllegalStateException(
@@ -35,13 +48,14 @@ public class ExposureGuard {
   }
 
   private static boolean loopback(final String address) {
-    if (address.isBlank()) {
-      return false;
+    boolean result = false;
+    if (!address.isBlank()) {
+      try {
+        result = InetAddress.getByName(address).isLoopbackAddress();
+      } catch (UnknownHostException e) {
+        result = false;
+      }
     }
-    try {
-      return InetAddress.getByName(address).isLoopbackAddress();
-    } catch (UnknownHostException e) {
-      return false;
-    }
+    return result;
   }
 }

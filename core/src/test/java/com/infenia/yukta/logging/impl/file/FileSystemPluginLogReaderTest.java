@@ -45,10 +45,12 @@ class FileSystemPluginLogReaderTest {
     Files.writeString(tempDir.resolve("secret.log"), "x | y | z | a | b | c\n");
     Files.createDirectories(tempDir.resolve(SESSION_ID));
 
-    org.assertj.core.api.Assertions.assertThatThrownBy(
-            () -> reader.readExecution("../secret").collectList().block())
-        .isInstanceOf(IllegalArgumentException.class)
-        .hasMessageContaining("traversal");
+    for (final String id : new String[] {"../secret", "a/b", "a\\b", "x..y"}) {
+      org.assertj.core.api.Assertions.assertThatThrownBy(
+              () -> reader.readExecution(id).collectList().block())
+          .isInstanceOf(IllegalArgumentException.class)
+          .hasMessageContaining("traversal");
+    }
   }
 
   @Test

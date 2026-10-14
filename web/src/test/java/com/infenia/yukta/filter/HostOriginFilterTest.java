@@ -18,6 +18,7 @@ import reactor.core.publisher.Mono;
 @SuppressWarnings({"PMD.LawOfDemeter", "PMD.AvoidDuplicateLiterals"})
 class HostOriginFilterTest {
 
+  /** Whether the request got through. */
   private final AtomicBoolean passed = new AtomicBoolean();
 
   private HttpStatus run(
@@ -86,13 +87,59 @@ class HostOriginFilterTest {
   }
 
   @Test
-  void testOffWhenAKeyIsConfigured() {
+  void testOffWhenKeyIsConfigured() {
     run(
         new MockEnvironment().withProperty("yukta.api-key", "k"),
         MockServerHttpRequest.post("/api/workflow/start")
             .header("Host", "anything")
             .header("Origin", "https://evil.example"));
 
+    assertThat(passed).isTrue();
+  }
+
+  @Test
+  void testReadsAndIpv6HostsAndMissingHostPass() {
+    run(new MockEnvironment(), MockServerHttpRequest.get("/api/x").header("Host", "[::1]:8080"));
+    assertThat(passed).isTrue();
+    run(
+        new MockEnvironment(),
+        MockServerHttpRequest.head("/api/x")
+            .header("Host", "localhost")
+            .header("Origin", "https://evil.example"));
+    assertThat(passed).isTrue();
+    run(
+        new MockEnvironment(),
+        MockServerHttpRequest.options("/api/x")
+            .header("Host", "localhost")
+            .header("Origin", "https://evil.example"));
+    assertThat(passed).isTrue();
+    run(new MockEnvironment(), MockServerHttpRequest.get("/api/x"));
+    assertThat(passed).isTrue();
+  }
+
+  @Test
+  void testMissingHostCannotPostFromForeignOrNullOrigin() {
+    final MockEnvironment environment = new MockEnvironment();
+    for (final String origin : new String[] {"https://evil.example", "null", "http://[bad"}) {
+      assertThat(run(environment, MockServerHttpRequest.post("/api/x").header("Origin", origin)))
+          .isEqualTo(HttpStatus.FORBIDDEN);
+    }
+  }
+
+  @Test
+  void testPostWithoutOriginPasses() {
+    run(
+        new MockEnvironment(),
+        MockServerHttpRequest.post("/api/x").header("Host", "localhost:8080"));
+
+    assertThat(passed).isTrue();
+  }
+
+  @Test
+  void testConfiguredHostWithPortPasses() {
+    run(
+        new MockEnvironment().withProperty("yukta.allowed-hosts", "yukta.internal:8443"),
+        MockServerHttpRequest.get("/api/x").header("Host", "yukta.internal:8443"));
     assertThat(passed).isTrue();
   }
 }

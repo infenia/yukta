@@ -12,37 +12,50 @@ import org.springframework.mock.env.MockEnvironment;
 
 /** Tests for the behaviour described by {@link ExposureGuard}. */
 @NoArgsConstructor
+@SuppressWarnings("PMD.AvoidUsingHardCodedIP")
 class ExposureGuardTest {
+
+  /** Property that sets the listen address. */
+  private static final String ADDRESS = "server.address";
 
   @Test
   void testLoopbackNeedsNoKey() {
     assertThatCode(
             () ->
-                new ExposureGuard(
-                    new MockEnvironment().withProperty("server.address", "127.0.0.1")))
+                new ExposureGuard(new MockEnvironment().withProperty(ADDRESS, "127.0.0.1")).check())
         .doesNotThrowAnyException();
+  }
+
+  @Test
+  void testUnknownHostWithoutKeyIsRefused() {
+    assertThatThrownBy(
+            () ->
+                new ExposureGuard(
+                        new MockEnvironment().withProperty(ADDRESS, "no-such-host.invalid"))
+                    .check())
+        .isInstanceOf(IllegalStateException.class);
   }
 
   @Test
   void testOpenBindWithoutKeyIsRefused() {
     assertThatThrownBy(
-            () ->
-                new ExposureGuard(new MockEnvironment().withProperty("server.address", "0.0.0.0")))
+            () -> new ExposureGuard(new MockEnvironment().withProperty(ADDRESS, "0.0.0.0")).check())
         .isInstanceOf(IllegalStateException.class)
         .hasMessageContaining("API key");
-    assertThat(new MockEnvironment().getProperty("server.address")).isNull();
-    assertThatThrownBy(() -> new ExposureGuard(new MockEnvironment()))
+    assertThat(new MockEnvironment().getProperty(ADDRESS)).isNull();
+    assertThatThrownBy(() -> new ExposureGuard(new MockEnvironment()).check())
         .isInstanceOf(IllegalStateException.class);
   }
 
   @Test
-  void testOpenBindWithAKeyStarts() {
+  void testOpenBindWithKeyStarts() {
     assertThatCode(
             () ->
                 new ExposureGuard(
-                    new MockEnvironment()
-                        .withProperty("server.address", "0.0.0.0")
-                        .withProperty("yukta.api-key", "k")))
+                        new MockEnvironment()
+                            .withProperty(ADDRESS, "0.0.0.0")
+                            .withProperty("yukta.api-key", "k"))
+                    .check())
         .doesNotThrowAnyException();
   }
 }

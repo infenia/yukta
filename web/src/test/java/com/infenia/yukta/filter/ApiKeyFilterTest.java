@@ -229,7 +229,7 @@ class ApiKeyFilterTest {
   }
 
   @Test
-  void testActuatorNeedsAKeyExceptHealth() {
+  void testActuatorNeedsKeyExceptHealth() {
     assertThat(
             run("secret", MockServerHttpRequest.get("/actuator/metrics"))
                 .getResponse()
@@ -285,5 +285,39 @@ class ApiKeyFilterTest {
                   .header("X-API-Key", "t"));
       assertThat(exchange.getResponse().getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
     }
+  }
+
+  @Test
+  void testOtherPathsAndBareApiAndActuatorRootsAreHandled() {
+    run("secret", MockServerHttpRequest.get("/index.html"));
+    assertThat(passed).isTrue();
+    assertThat(run("secret", MockServerHttpRequest.get("/api")).getResponse().getStatusCode())
+        .isEqualTo(HttpStatus.UNAUTHORIZED);
+    assertThat(run("secret", MockServerHttpRequest.get("/actuator")).getResponse().getStatusCode())
+        .isEqualTo(HttpStatus.UNAUTHORIZED);
+    run("secret", MockServerHttpRequest.get("/actuator/health/liveness"));
+    assertThat(passed).isTrue();
+    assertThat(
+            run("secret", MockServerHttpRequest.get("/actuator/healthz"))
+                .getResponse()
+                .getStatusCode())
+        .isEqualTo(HttpStatus.UNAUTHORIZED);
+  }
+
+  @Test
+  void testSessionLimitedKeyReachesItsWorkflowPaths() {
+    final var env =
+        new MockEnvironment()
+            .withProperty("yukta.api-keys[0].name", "team")
+            .withProperty("yukta.api-keys[0].key", "t")
+            .withProperty("yukta.api-keys[0].role", "ADMIN")
+            .withProperty("yukta.api-keys[0].sessions", "a");
+
+    runWith(env, MockServerHttpRequest.post("/api/workflow/a/w/stop").header("X-API-Key", "t"));
+    assertThat(passed).isTrue();
+    assertThat(actor.get()).isEqualTo("key:team");
+    final var limitedActuator =
+        runWith(env, MockServerHttpRequest.get("/actuator/metrics").header("X-API-Key", "t"));
+    assertThat(limitedActuator.getResponse().getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
   }
 }

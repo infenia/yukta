@@ -18,6 +18,7 @@ import org.springframework.expression.spel.support.DataBindingMethodResolver;
  * or a method of a payload object, is not found, so one expression cannot allocate without bound or
  * reach the JVM.
  */
+@SuppressWarnings({"PMD.AtLeastOneConstructor", "PMD.OnlyOneReturn"})
 final class SafeMethodResolver implements MethodResolver {
 
   /** Methods allowed on any receiver. */
@@ -67,6 +68,7 @@ final class SafeMethodResolver implements MethodResolver {
   /** Packages whose types are all value types without side effects. */
   private static final List<String> VALUE_PACKAGES = List.of("java.time.");
 
+  /** Finds the method once the name has been allowed. */
   private final MethodResolver delegate = DataBindingMethodResolver.forInstanceMethodInvocation();
 
   @Override

@@ -37,6 +37,15 @@ class SpelUtilsTest {
   }
 
   @Test
+  void timeValuesKeepAllTheirMethods() {
+    assertThat(
+            (Object)
+                SpelUtils.evaluateSync(
+                    "#d.plusDays(1)", Map.of(), Map.of("d", java.time.LocalDate.of(2026, 1, 1))))
+        .isEqualTo(java.time.LocalDate.of(2026, 1, 2));
+  }
+
+  @Test
   void methodsOutsideTheAllowListAreNotFound() {
     final Map<String, Object> root = Map.of("name", "yukta");
 

@@ -18,6 +18,13 @@ class ExecutionControlCommandTest {
   }
 
   @Test
+  void schedulerCommandsBelongToNoRun() {
+    assertThat(new ExecutionControlCommand.SetLimitsCommand(2, 1).executionId())
+        .isEqualTo(ExecutionControlCommand.SCHEDULER);
+    assertThat(new ExecutionControlCommand.SetPriorityCommand("e", 3).executionId()).isEqualTo("e");
+  }
+
+  @Test
   void commandsCanBeSwitchedOverExhaustively() {
     final ExecutionControlCommand command = new ExecutionControlCommand.PauseNodeCommand("e", "n");
 
@@ -37,6 +44,8 @@ class ExecutionControlCommandTest {
           case ExecutionControlCommand.RestartFromNodeCommand c -> "restart-from-node";
           case ExecutionControlCommand.SetBreakpointCommand c -> "set-breakpoint";
           case ExecutionControlCommand.SignalNodeCommand _ -> "signal";
+          case ExecutionControlCommand.SetLimitsCommand _ -> "limits";
+          case ExecutionControlCommand.SetPriorityCommand _ -> "priority";
         };
 
     assertThat(kind).isEqualTo("pause-node");

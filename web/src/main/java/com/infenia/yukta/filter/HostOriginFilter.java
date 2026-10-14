@@ -35,10 +35,17 @@ import reactor.core.publisher.Mono;
 @SuppressWarnings({"PMD.LawOfDemeter", "PMD.OnlyOneReturn"})
 public class HostOriginFilter implements WebFilter {
 
+  /** Host names that always reach a loopback server. */
+  @SuppressWarnings("PMD.AvoidUsingHardCodedIP")
   private static final Set<String> LOOPBACK = Set.of("localhost", "127.0.0.1", "[::1]");
 
+  /** Whether the check is on: it is, unless an API key is configured. */
   private final boolean enforced;
+
+  /** Extra host names, lower case ({@code yukta.allowed-hosts}). */
   private final Set<String> hosts;
+
+  /** Extra origins, lower case ({@code yukta.allowed-origins}). */
   private final Set<String> origins;
 
   /**
@@ -86,8 +93,7 @@ public class HostOriginFilter implements WebFilter {
   private boolean knownHost(final String hostHeader) {
     final String lower = hostHeader.toLowerCase(Locale.ROOT);
     final int colon = lower.lastIndexOf(':');
-    final String name =
-        colon > lower.lastIndexOf(']') && colon >= 0 ? lower.substring(0, colon) : lower;
+    final String name = colon > lower.lastIndexOf(']') ? lower.substring(0, colon) : lower;
     return LOOPBACK.contains(name) || hosts.contains(name) || hosts.contains(lower);
   }
 

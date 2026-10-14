@@ -193,13 +193,22 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
   @Override
   public Mono<Message<?>> sendCommand(
       final String workflowId, final String nodeId, final Message<?> command) {
-    if (command.payload() instanceof Map<?, ?> body
-        && (body.containsKey("decision") || body.containsKey("executionId"))) {
-      // a signal reaches a waiting node here without a reviewer or an audit entry; the signal
-      // command has both
-      return Mono.error(
-          new ControlRejectedException("Approvals and signals go through the signal command"));
-    }
+    return carriesSignal(command)
+        ? Mono.error(
+            new ControlRejectedException("Approvals and signals go through the signal command"))
+        : deliver(workflowId, nodeId, command);
+  }
+
+  /**
+   * A signal reaches a waiting node here without reviewer or audit; the signal command has both.
+   */
+  private static boolean carriesSignal(final Message<?> command) {
+    return command.payload() instanceof Map<?, ?> body
+        && (body.containsKey("decision") || body.containsKey("executionId"));
+  }
+
+  private Mono<Message<?>> deliver(
+      final String workflowId, final String nodeId, final Message<?> command) {
     return Mono.defer(
             () -> {
               log.atInfo()

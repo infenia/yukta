@@ -10,11 +10,15 @@ import org.springframework.web.util.UriUtils;
 
 /** Reads request paths the way routing does, so a key check cannot be passed by spelling. */
 @UtilityClass
+@SuppressWarnings({"PMD.AtLeastOneConstructor", "PMD.OnlyOneReturn"})
 public class RequestPaths {
 
-  /** Encoded slash, backslash, dot and percent sign: they change what a path means. */
-  private static final Pattern ENCODED_SEPARATOR =
-      Pattern.compile("%(2f|5c|2e|25)", Pattern.CASE_INSENSITIVE);
+  /**
+   * Path parameters, backslashes, empty and dot segments, and encoded slash, backslash, dot and
+   * percent sign: all of them change what a path means after routing has decoded it.
+   */
+  private static final Pattern UNSAFE_PATH =
+      Pattern.compile(";|\\\\|//|/\\.\\.?(/|$)|%(2f|5c|2e|25)", Pattern.CASE_INSENSITIVE);
 
   /**
    * Whether the raw request path is written in a form the key filters refuse: path parameters
@@ -27,14 +31,7 @@ public class RequestPaths {
    * @return true if the path is not in plain form
    */
   public boolean ambiguous(final String rawPath) {
-    if (rawPath.indexOf(';') >= 0
-        || rawPath.indexOf('\\') >= 0
-        || rawPath.contains("//")
-        || rawPath.contains("/./")
-        || rawPath.contains("/../")
-        || rawPath.endsWith("/..")
-        || rawPath.endsWith("/.")
-        || ENCODED_SEPARATOR.matcher(rawPath).find()) {
+    if (UNSAFE_PATH.matcher(rawPath).find()) {
       return true;
     }
     try {

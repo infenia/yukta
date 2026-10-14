@@ -32,11 +32,20 @@ public final class ApiKeys {
   /** Name the single {@code yukta.api-key} goes by. */
   private static final String DEFAULT_NAME = "default";
 
+  /** The configured keys. */
   private final List<Key> keys;
-  private final boolean named;
+
+  /** Whether named keys exist, so a key name is the actor of a request. */
+  private final boolean namedKeys;
 
   /** A key as written in the configuration. */
-  public record KeyEntry(String name, String key, ApiRole role, List<String> sessions) {}
+  public record KeyEntry(String name, String key, ApiRole role, List<String> sessions) {
+
+    /** Copies the session list. */
+    public KeyEntry {
+      sessions = sessions == null ? List.of() : List.copyOf(sessions);
+    }
+  }
 
   /**
    * A key that matched a request.
@@ -46,6 +55,12 @@ public final class ApiKeys {
    * @param sessions the only sessions the key may reach; empty means all
    */
   public record Match(String name, ApiRole role, Set<String> sessions) {
+
+    /** Copies the session set. */
+    public Match {
+      sessions = Set.copyOf(sessions);
+    }
+
     /**
      * Whether the key may reach the session.
      *
@@ -62,7 +77,7 @@ public final class ApiKeys {
 
   private ApiKeys(final List<Key> keys, final boolean named) {
     this.keys = List.copyOf(keys);
-    this.named = named;
+    this.namedKeys = named;
   }
 
   /**
@@ -89,7 +104,7 @@ public final class ApiKeys {
           Objects.requireNonNullElse(entry.name(), "unnamed"),
           Objects.requireNonNull(entry.key(), "yukta.api-keys[].key is required"),
           Objects.requireNonNullElse(entry.role(), ApiRole.VIEWER),
-          entry.sessions() == null ? Set.of() : Set.copyOf(entry.sessions()));
+          Set.copyOf(entry.sessions()));
     }
     return new ApiKeys(all, !entries.isEmpty());
   }
@@ -152,7 +167,7 @@ public final class ApiKeys {
    * @return true if the key name is the actor
    */
   public boolean named() {
-    return named;
+    return namedKeys;
   }
 
   /**
@@ -175,10 +190,15 @@ public final class ApiKeys {
   }
 
   private static String sha256(final String text) {
+    return hash("SHA-256", text);
+  }
+
+  /** The hex of the hash of a text; every JVM has SHA-256, so that name never fails. */
+  /* default */ static String hash(final String algorithm, final String text) {
     try {
       return HexFormat.of()
           .formatHex(
-              MessageDigest.getInstance("SHA-256").digest(text.getBytes(StandardCharsets.UTF_8)));
+              MessageDigest.getInstance(algorithm).digest(text.getBytes(StandardCharsets.UTF_8)));
     } catch (NoSuchAlgorithmException e) {
       throw new IllegalStateException(e);
     }

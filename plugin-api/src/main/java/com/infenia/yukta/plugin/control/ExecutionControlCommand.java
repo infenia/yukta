@@ -38,6 +38,9 @@ public sealed interface ExecutionControlCommand
         ExecutionControlCommand.SetLimitsCommand,
         ExecutionControlCommand.SetPriorityCommand {
 
+  /** Execution id the commands that belong to no run carry. */
+  String SCHEDULER = "scheduler";
+
   /**
    * Returns the execution identifier this command targets.
    *
@@ -279,7 +282,4 @@ public sealed interface ExecutionControlCommand
    * @param priority the new priority, higher first
    */
   record SetPriorityCommand(String executionId, int priority) implements ExecutionControlCommand {}
-
-  /** Execution id the commands that belong to no run carry. */
-  String SCHEDULER = "scheduler";
 }

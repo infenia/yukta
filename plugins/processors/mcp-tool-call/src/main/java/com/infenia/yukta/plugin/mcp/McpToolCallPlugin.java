@@ -15,6 +15,7 @@ import com.infenia.yukta.plugin.type.ProcessorPlugin;
 import com.infenia.yukta.plugin.util.SpelUtils;
 import com.infenia.yukta.util.MapUtils;
 import com.infenia.yukta.util.VariableResolver;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 import java.net.URI;
@@ -87,6 +88,7 @@ public final class McpToolCallPlugin implements ProcessorPlugin {
    * @param reporterProvider optional per-node counter sink
    * @param meterProvider optional Micrometer registry for call timers
    */
+  @SuppressFBWarnings("EI_EXPOSE_REP2") // the gateway is a shared Spring bean
   public McpToolCallPlugin(
       final McpClientGateway gateway,
       final VariableResolver resolver,

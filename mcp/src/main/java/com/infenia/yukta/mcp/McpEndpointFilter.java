@@ -68,25 +68,36 @@ public class McpEndpointFilter implements WebFilter {
     if (!legacy && !ENDPOINT.equals(path)) {
       return chain.filter(exchange);
     }
-    if (!keys.isEmpty() && RequestPaths.ambiguous(raw)) {
-      return reject(exchange, HttpStatus.BAD_REQUEST);
+    if (keys.isEmpty()) {
+      return chain.filter(rewritten(exchange, legacy));
     }
-    final ApiKeys.Match match =
-        keys.isEmpty() ? null : keys.find(ApiKeys.presented(exchange.getRequest().getHeaders()));
-    if (!keys.isEmpty() && match == null) {
-      return reject(exchange, HttpStatus.UNAUTHORIZED);
+    final ApiKeys.Match match = keys.find(ApiKeys.presented(exchange.getRequest().getHeaders()));
+    final HttpStatus refusal = refusal(raw, match);
+    if (refusal != null) {
+      return reject(exchange, refusal);
     }
-    if (match != null && (match.role() != ApiRole.ADMIN || !match.sessions().isEmpty())) {
-      return reject(exchange, HttpStatus.FORBIDDEN);
+    final Mono<Void> next = chain.filter(rewritten(exchange, legacy));
+    return keys.named()
+        ? next.contextWrite(ctx -> ctx.put(ControlActor.CONTEXT_KEY, "key:" + match.name()))
+        : next;
+  }
+
+  /** Why a request to the endpoint is refused, or null if it may pass. */
+  private static HttpStatus refusal(final String raw, final ApiKeys.Match match) {
+    if (RequestPaths.ambiguous(raw)) {
+      return HttpStatus.BAD_REQUEST;
     }
-    final Mono<Void> next =
-        chain.filter(
-            legacy
-                ? exchange.mutate().request(request -> request.path(ENDPOINT)).build()
-                : exchange);
-    return match == null || !keys.named()
-        ? next
-        : next.contextWrite(ctx -> ctx.put(ControlActor.CONTEXT_KEY, "key:" + match.name()));
+    if (match == null) {
+      return HttpStatus.UNAUTHORIZED;
+    }
+    return match.role() == ApiRole.ADMIN && match.sessions().isEmpty()
+        ? null
+        : HttpStatus.FORBIDDEN;
+  }
+
+  private static ServerWebExchange rewritten(
+      final ServerWebExchange exchange, final boolean legacy) {
+    return legacy ? exchange.mutate().request(request -> request.path(ENDPOINT)).build() : exchange;
   }
 
   private static Mono<Void> reject(final ServerWebExchange exchange, final HttpStatus status) {

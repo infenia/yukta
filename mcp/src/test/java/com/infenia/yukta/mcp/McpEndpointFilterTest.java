@@ -130,4 +130,57 @@ class McpEndpointFilterTest {
 
     assertThat(exchange.getResponse().getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
   }
+
+  @Test
+  void testNamedKeySetsTheActor() {
+    final var env =
+        new org.springframework.mock.env.MockEnvironment()
+            .withProperty("yukta.api-keys[0].name", "bot")
+            .withProperty("yukta.api-keys[0].key", "k")
+            .withProperty("yukta.api-keys[0].role", "ADMIN");
+    final var exchange =
+        MockServerWebExchange.from(MockServerHttpRequest.post("/sse").header("X-API-Key", "k"));
+    final var actor = new AtomicReference<String>();
+    new McpEndpointFilter(env)
+        .filter(
+            exchange,
+            (ServerWebExchange e) ->
+                Mono.deferContextual(
+                    ctx -> {
+                      actor.set(
+                          ctx.getOrDefault(
+                              com.infenia.yukta.plugin.control.ControlActor.CONTEXT_KEY, null));
+                      seenPath.set(e.getRequest().getPath().value());
+                      return Mono.empty();
+                    }))
+        .block();
+
+    assertThat(actor.get()).isEqualTo("key:bot");
+    assertThat(seenPath.get()).isEqualTo("/mcp");
+  }
+
+  @Test
+  void testSessionLimitedKeyIsRefused() {
+    final var env =
+        new org.springframework.mock.env.MockEnvironment()
+            .withProperty("yukta.api-keys[0].key", "k")
+            .withProperty("yukta.api-keys[0].role", "ADMIN")
+            .withProperty("yukta.api-keys[0].sessions", "a");
+    final var exchange =
+        MockServerWebExchange.from(MockServerHttpRequest.post("/mcp").header("X-API-Key", "k"));
+    new McpEndpointFilter(env).filter(exchange, (ServerWebExchange e) -> Mono.empty()).block();
+
+    assertThat(exchange.getResponse().getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+  }
+
+  @Test
+  void testAmbiguousPathIsRefusedBeforeKeyCheck() {
+    final var exchange =
+        MockServerWebExchange.from(
+            MockServerHttpRequest.method(HttpMethod.POST, URI.create("/mcp;x=1"))
+                .header("X-API-Key", "secret"));
+    new McpEndpointFilter("secret").filter(exchange, (ServerWebExchange e) -> Mono.empty()).block();
+
+    assertThat(exchange.getResponse().getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+  }
 }

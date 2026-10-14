@@ -226,6 +226,15 @@ class McpClientGatewayTest {
   }
 
   @Test
+  void call_allowsToolsInTheGatewayPolicy() {
+    gateway.setAllowedTools(List.of("ping"));
+
+    StepVerifier.create(gateway.call(spec("ping"), () -> {}))
+        .assertNext(r -> assertThat(r.text()).isEqualTo("pong"))
+        .verifyComplete();
+  }
+
+  @Test
   void call_refusesOversizedAndDeniedArguments() {
     gateway.setMaxArgumentBytes(5);
     StepVerifier.create(gateway.call(spec("ping"), () -> {}))
@@ -238,6 +247,18 @@ class McpClientGatewayTest {
         .expectErrorMatches(e -> e.getMessage().contains("deny-argument-patterns"))
         .verify();
     assertThat(methods).isEmpty();
+  }
+
+  @Test
+  void call_withoutArgumentsSkipsTheArgumentChecks() {
+    gateway.setMaxArgumentBytes(1);
+    final McpCallSpec bare =
+        new McpCallSpec(
+            spec("ping").url(), "ping", Map.of(), Map.of(), Map.of(), Duration.ofSeconds(5));
+
+    StepVerifier.create(gateway.call(bare, () -> {}))
+        .assertNext(r -> assertThat(r.text()).isEqualTo("pong"))
+        .verifyComplete();
   }
 
   @Test

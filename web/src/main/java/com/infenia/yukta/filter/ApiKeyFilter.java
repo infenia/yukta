@@ -82,17 +82,15 @@ public class ApiKeyFilter implements WebFilter {
 
   @Override
   public Mono<Void> filter(final ServerWebExchange exchange, final WebFilterChain chain) {
+    final String raw = exchange.getRequest().getPath().value();
     if (keys.isEmpty()) {
       return chain.filter(exchange);
     }
-    final String raw = exchange.getRequest().getPath().value();
     if (RequestPaths.ambiguous(raw)) {
       return reject(exchange, HttpStatus.BAD_REQUEST);
     }
     final String path = RequestPaths.decoded(raw);
-    final boolean actuator = path.equals("/actuator") || path.startsWith("/actuator/");
-    final boolean api = path.equals("/api") || path.startsWith("/api/");
-    if ((!api && !actuator) || path.equals(HEALTH) || path.startsWith(HEALTH + "/")) {
+    if (!guarded(path)) {
       return chain.filter(exchange);
     }
     final ApiKeys.Match match = keys.find(ApiKeys.presented(exchange.getRequest().getHeaders()));
@@ -100,7 +98,7 @@ public class ApiKeyFilter implements WebFilter {
       exchange.getResponse().getHeaders().set(HttpHeaders.WWW_AUTHENTICATE, "Bearer");
       return reject(exchange, HttpStatus.UNAUTHORIZED);
     }
-    if (!permitted(match, exchange, path, actuator)) {
+    if (!permitted(match, exchange, path)) {
       return reject(exchange, HttpStatus.FORBIDDEN);
     }
     return keys.named()
@@ -110,12 +108,18 @@ public class ApiKeyFilter implements WebFilter {
         : chain.filter(exchange);
   }
 
+  /** The API and the actuator, except the health probe. */
+  private static boolean guarded(final String path) {
+    return isUnder(path, "/api") || (isUnder(path, "/actuator") && !isUnder(path, HEALTH));
+  }
+
+  private static boolean isUnder(final String path, final String prefix) {
+    return prefix.equals(path) || path.startsWith(prefix + "/");
+  }
+
   private static boolean permitted(
-      final ApiKeys.Match match,
-      final ServerWebExchange exchange,
-      final String path,
-      final boolean actuator) {
-    if (actuator) {
+      final ApiKeys.Match match, final ServerWebExchange exchange, final String path) {
+    if (isUnder(path, "/actuator")) {
       return match.role() == ApiRole.ADMIN && match.sessions().isEmpty();
     }
     if (!match.role().allows(exchange.getRequest().getMethod(), path)) {
