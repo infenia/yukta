@@ -72,6 +72,12 @@ public class WorkflowPreparator {
    * @return a Mono containing the prepared workflow
    */
   public Mono<PreparedWorkflow> prepareWorkflow(@NotNull @Valid final WorkflowDefinition def) {
+    // Deferred, so every subscription builds its own maps; a second one must not add the edges
+    // again.
+    return Mono.defer(() -> prepare(def));
+  }
+
+  private Mono<PreparedWorkflow> prepare(final WorkflowDefinition def) {
     final int numNodes = def.nodes().size();
     log.atDebug()
         .addKeyValue(LOG_KEY_NUM_NODES, numNodes)

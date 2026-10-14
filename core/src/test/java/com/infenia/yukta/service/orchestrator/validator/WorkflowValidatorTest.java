@@ -750,6 +750,28 @@ class WorkflowValidatorTest {
   }
 
   @Test
+  void testCategoryTerminalWithoutTerminalPlugin_isNotATerminal() {
+    // The assembler builds terminals from the type, so the category alone must not pass.
+    when(triggerPlugin.getCategory()).thenReturn(PluginCategory.TRIGGER);
+    when(registry.get(TRIGGER_ID)).thenReturn(triggerPlugin);
+    when(processorPlugin.getCategory()).thenReturn(PluginCategory.TERMINAL);
+    when(registry.get(PROCESSOR_ID)).thenReturn(processorPlugin);
+
+    final WorkflowDefinition def =
+        new WorkflowDefinition(
+            WORKFLOW_NAME,
+            "d",
+            List.of(
+                new WorkflowDefinition.Node("t", "T", Map.of()),
+                new WorkflowDefinition.Node("p", "P", Map.of())),
+            List.of(new WorkflowDefinition.Edge("t", "p", DEFAULT_EDGE_LABEL)));
+
+    StepVerifier.create(validator.validate(def))
+        .expectError(IllegalArgumentException.class)
+        .verify();
+  }
+
+  @Test
   void testComplexValidWorkflow() {
     when(triggerPlugin.getCategory()).thenReturn(PluginCategory.TRIGGER);
     when(triggerPlugin.validateConfig(any())).thenReturn(Mono.empty());

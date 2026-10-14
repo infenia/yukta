@@ -11,6 +11,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.infenia.yukta.model.workflow.PreparedWorkflow;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.model.workflow.WorkflowDefinition.Edge;
 import com.infenia.yukta.model.workflow.WorkflowDefinition.Node;
@@ -85,6 +86,28 @@ class WorkflowPreparatorTest {
     verify(plugin).initialize(Map.of());
     verify(topologicalSortService).computeTopologicalOrder(anyList(), anyMap(), anyMap());
     verify(compiler).compileTemplate(anyList(), anyMap(), anyMap(), anyList());
+  }
+
+  @Test
+  void prepareWorkflow_subscribedTwice_doesNotDuplicateEdges() {
+    final Node n1 = new Node("n1", "type-a", Map.of());
+    final Node n2 = new Node("n2", "type-b", Map.of());
+    final WorkflowDefinition def =
+        new WorkflowDefinition(
+            "wf3", "twice", List.of(n1, n2), List.of(new Edge("n1", "n2", "default")));
+    when(registry.get(any())).thenReturn(plugin);
+    when(validator.validate(def)).thenReturn(Mono.empty());
+    when(plugin.initialize(any())).thenReturn(Mono.empty());
+    when(plugin.prepare(any())).thenReturn(Mono.empty());
+    when(topologicalSortService.computeTopologicalOrder(anyList(), anyMap(), anyMap()))
+        .thenReturn(List.of(new WorkflowNode("n1", "type-a", Map.of())));
+    when(compiler.compileTemplate(anyList(), anyMap(), anyMap(), anyList())).thenReturn(template);
+
+    final Mono<PreparedWorkflow> prepared = preparator.prepareWorkflow(def);
+    StepVerifier.create(prepared).expectNextCount(1).verifyComplete();
+    StepVerifier.create(prepared)
+        .assertNext(pw -> assertThat(pw.adjacencyList().get("n1")).hasSize(1))
+        .verifyComplete();
   }
 
   @Test

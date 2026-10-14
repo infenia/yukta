@@ -93,4 +93,15 @@ class StreamTopologyDecoratorCompletionTest {
 
     StepVerifier.create(decorate(Flux.just(message()))).expectNextCount(1).verifyComplete();
   }
+
+  @Test
+  void storeThatCannotSave_doesNotFailTheRun_butLeavesTheNodeUnmarked() {
+    final Flux<Message<?>> out = decorate(Flux.just(message(), message()));
+    when(store.save(anyString(), anyString(), any()))
+        .thenReturn(Mono.error(new IllegalStateException("disk full")));
+
+    StepVerifier.create(out).expectNextCount(2).verifyComplete();
+
+    verify(store, never()).markComplete(anyString(), anyString());
+  }
 }
