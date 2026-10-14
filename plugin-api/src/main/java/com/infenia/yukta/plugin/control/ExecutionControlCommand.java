@@ -34,7 +34,9 @@ public sealed interface ExecutionControlCommand
         ExecutionControlCommand.RestartCommand,
         ExecutionControlCommand.RestartFromNodeCommand,
         ExecutionControlCommand.SetBreakpointCommand,
-        ExecutionControlCommand.SignalNodeCommand {
+        ExecutionControlCommand.SignalNodeCommand,
+        ExecutionControlCommand.SetLimitsCommand,
+        ExecutionControlCommand.SetPriorityCommand {
 
   /**
    * Returns the execution identifier this command targets.
@@ -251,4 +253,33 @@ public sealed interface ExecutionControlCommand
       }
     }
   }
+
+  /**
+   * Change the scheduler limits. It belongs to no run, so {@link #executionId()} is {@value
+   * #SCHEDULER}. It only passes through {@link ExecutionSupervisor#review}, so a supervisor can
+   * refuse it; the gateway applies it.
+   *
+   * @param maxConcurrent the most executions at once, or 0 for no limit
+   * @param maxPerWorkflow the most executions of one workflow at once, or 0 for no limit
+   */
+  record SetLimitsCommand(int maxConcurrent, int maxPerWorkflow)
+      implements ExecutionControlCommand {
+
+    @Override
+    public String executionId() {
+      return SCHEDULER;
+    }
+  }
+
+  /**
+   * Move a start that waits for a slot. Passes through {@link ExecutionSupervisor#review} like any
+   * other command.
+   *
+   * @param executionId the waiting execution
+   * @param priority the new priority, higher first
+   */
+  record SetPriorityCommand(String executionId, int priority) implements ExecutionControlCommand {}
+
+  /** Execution id the commands that belong to no run carry. */
+  String SCHEDULER = "scheduler";
 }
