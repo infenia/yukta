@@ -303,7 +303,7 @@ gloss:[
 ["R2DBC and Flyway","Non-blocking database access at run time, and versioned schema migrations.","How PostgreSQL support is built."],
 ["Remote worker","A separate process that runs a node on the control plane's behalf (designed, not built).","The planned scale-out path."],
 ["API key and role","A shared secret that guards the REST API (and, separately, MCP). Named keys carry a role: VIEWER reads, OPERATOR steers runs, ADMIN does everything.","The audit shows the key name as the actor."],
-["Host and Origin check","A server-side test of which website name and page a request came from, so a page in the operator's browser cannot drive a local server (CSRF, DNS rebinding).","Absent today; see the security risks."],
+["Host and Origin check","A server-side test of which website name and page a request came from, so a page in the operator's browser cannot drive a local server (CSRF, DNS rebinding).","Done by HostOriginFilter while no API key is set: unknown Host or foreign Origin on a non-GET gets 403 (yukta.allowed-hosts, yukta.allowed-origins)."],
 ["Expression (${...})","A placeholder in a node's configuration that is filled from the message, the run or the environment just before the node runs.","See Expressions & Secrets."],
 ["B16, S4, F6 ...","IDs in core/docs/plans/09-backlog.md and 11-remediation-plan.md: B = bug, S = security, F = feature, R = restart.","Used in the Risks section."]
 ],
@@ -430,6 +430,12 @@ comps:[
   "fail": "Throwing IllegalArgumentException means 'bad input' and is never retried.",
   "set": [
    "yukta.process.allowed-commands",
+   "yukta.process.allow-any (off)",
+   "yukta.script.timeout-ms (10000)",
+   "yukta.mcp-client.allowed-tools, max-argument-bytes, deny-argument-patterns",
+   "YUKTA_LIMITS_MAX_BODY (1MB, 413 above)",
+   "yukta.api-key, yukta.api-keys[].{name,key,role,sessions}; key may be sha256:<hex>",
+   "yukta.allowed-hosts, yukta.allowed-origins",
    "yukta.variables.allowed"
   ],
   "risks": [
@@ -620,7 +626,7 @@ comps:[
   "how": [
    "A node's configuration can contain ${...} placeholders. The resolver in core replaces them for each message: payload fields (${payload.x}), message metadata (${metadata.key}), and typed values such as ${payload.secs:int}; an untyped value stays text. A timeout written as an expression is only known when the first message arrives, so the node starts with the default and is re-timed then.",
    "Environment and system values are read only from an allow-list: YUKTA_VAR_* variables, yukta.var.* properties, a few harmless names and anything listed in yukta.variables.allowed. Names that look like secrets stay blocked even when listed.",
-   "Secrets are written decrypted:name. The default provider reads the environment variable YUKTA_SECRET_NAME, so values never appear in the workflow definition. ${context.x} reads a value from the run's Reactor context.",
+   "Secrets are written decrypted:name. The default provider reads the environment variable YUKTA_SECRET_NAME, so values never appear in the workflow definition. ${context.x} reads a plain text, number or flag from the run's Reactor context; keys starting yukta. and object values are hidden.",
    "The evaluators are not part of core. Conditions and mappings run through the expression utility in plugin-api, and scripts through a sandboxed JavaScript engine in the script plugin (only java.time and a few value classes are visible to scripts)."
   ],
   "guar": "A workflow cannot read an environment variable or system property outside the allow-list, and secret-looking names are never exposed.",
