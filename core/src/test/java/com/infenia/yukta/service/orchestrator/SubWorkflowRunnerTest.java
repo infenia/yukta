@@ -48,7 +48,8 @@ class SubWorkflowRunnerTest {
       new WorkflowDefinition("child", "d", List.of(), List.of());
   private final ExecutionScheduler scheduler =
       new ExecutionScheduler(1, 0, 0, ExecutionScheduler.OnLimit.REJECT, java.time.Duration.ZERO);
-  private final SubWorkflowRunner runner = new SubWorkflowRunner(definitions, cache, orchestrator, scheduler);
+  private final SubWorkflowRunner runner =
+      new SubWorkflowRunner(definitions, cache, orchestrator, scheduler);
 
   /** A child run whose terminal delivers one message to the collector in the context. */
   private Mono<Void> delivering(final Object payload) {
@@ -110,7 +111,8 @@ class SubWorkflowRunnerTest {
     StepVerifier.create(
             runner.run("s", "child", Map.of(), "parent", SubWorkflowGateway.MAX_DEPTH + 1))
         .verifyError(IllegalStateException.class);
-    verify(orchestrator, never()).execute(anyString(), anyString(), anyString(), any(), anyMap(), any());
+    verify(orchestrator, never())
+        .execute(anyString(), anyString(), anyString(), any(), anyMap(), any());
   }
 
   @Test

@@ -56,7 +56,7 @@ import reactor.core.publisher.Mono;
 public final class McpToolCallPlugin implements ProcessorPlugin {
 
   /** The approvals this plugin waits for. */
-  private final SignalWaits waits = new SignalWaits();
+  private final SignalWaits waits = SignalWaits.shared();
 
   private static final String TYPE = "MCP_TOOL_CALL";
   private static final String URL = "url";

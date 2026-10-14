@@ -34,6 +34,9 @@ public class SignalNodeCommandProcessor implements ControlSignalProcessor {
   /** Answer of a plugin that took the signal. */
   private static final String ACCEPTED = "ACCEPTED";
 
+  /** The wait has not begun yet; the signal is kept for it. */
+  private static final String QUEUED = "QUEUED";
+
   /** The execution control registry, to find the run and its workflow. */
   private final ExecutionControlRegistry registry;
 
@@ -68,7 +71,10 @@ public class SignalNodeCommandProcessor implements ControlSignalProcessor {
           final Message<?> message = DefaultMessage.create(null, body).withControl(true);
           return plugin
               .onControlSignal(message)
-              .filter(answer -> ACCEPTED.equals(String.valueOf(answer.payload())))
+              .filter(
+                  answer ->
+                      ACCEPTED.equals(String.valueOf(answer.payload()))
+                          || QUEUED.equals(String.valueOf(answer.payload())))
               .switchIfEmpty(
                   Mono.error(
                       () ->

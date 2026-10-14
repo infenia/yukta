@@ -288,8 +288,8 @@ public class ExecutionScheduler implements SmartLifecycle {
 
   /**
    * An admission that takes no slot: a child run uses the slot its parent already holds, so a
-   * parent that waits for its children cannot starve them. Children do not count toward the
-   * limits or the running gauge; they stay bounded by the parent node and the nesting depth.
+   * parent that waits for its children cannot starve them. Children do not count toward the limits
+   * or the running gauge; they stay bounded by the parent node and the nesting depth.
    *
    * @return an immediate admission whose permit releases nothing
    */

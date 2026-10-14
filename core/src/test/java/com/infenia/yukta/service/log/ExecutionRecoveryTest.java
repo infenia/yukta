@@ -218,7 +218,8 @@ class ExecutionRecoveryTest {
     store.append(
         ExecutionLogEvent.control(true, ExecutionLogEvent.SCHEDULER, "SetLimits(1, 1)", null));
     store.append(
-        ExecutionLogEvent.control(true, ExecutionLogEvent.SCHEDULER, "SetLimits(4, 2) [by key:bob]", null));
+        ExecutionLogEvent.control(
+            true, ExecutionLogEvent.SCHEDULER, "SetLimits(4, 2) [by key:bob]", null));
     store.append(
         ExecutionLogEvent.control(
             false, ExecutionLogEvent.SCHEDULER, "SetLimits(7, 7)", "refused"));
@@ -237,7 +238,8 @@ class ExecutionRecoveryTest {
   @Test
   void legacySingleArgumentChange_keepsThePerWorkflowLimit() {
     final ExecutionScheduler scheduler =
-        new ExecutionScheduler(9, 3, 10, ExecutionScheduler.OnLimit.REJECT, java.time.Duration.ZERO);
+        new ExecutionScheduler(
+            9, 3, 10, ExecutionScheduler.OnLimit.REJECT, java.time.Duration.ZERO);
     store.append(
         ExecutionLogEvent.control(true, ExecutionLogEvent.SCHEDULER, "SetLimits(2)", null));
     final ExecutionRecovery recovery = new ExecutionRecovery(store, tracker, 100);

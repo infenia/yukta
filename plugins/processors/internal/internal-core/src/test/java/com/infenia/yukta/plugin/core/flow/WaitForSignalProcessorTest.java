@@ -22,7 +22,8 @@ import reactor.util.context.Context;
 @SuppressWarnings({"PMD.CommentRequired", "PMD.AvoidDuplicateLiterals", "PMD.TooManyMethods"})
 class WaitForSignalProcessorTest {
 
-  private final WaitForSignalProcessor processor = new WaitForSignalProcessor();
+  private final WaitForSignalProcessor processor =
+      new WaitForSignalProcessor(new com.infenia.yukta.plugin.util.SignalWaits());
   private final Message<?> input = DefaultMessage.create(UUID.randomUUID(), "work");
 
   private static Message<?> signal(final String decision, final String data) {
@@ -62,8 +63,8 @@ class WaitForSignalProcessorTest {
   }
 
   @Test
-  void signalWithoutWaiting_isNotAccepted() {
-    assertThat(answer(signal("approve", null))).isEqualTo("NOT_WAITING");
+  void signalWithoutWaiting_isKeptForTheWait() {
+    assertThat(answer(signal("approve", null))).isEqualTo("QUEUED");
     assertThat(processor.onControlSignal(DefaultMessage.create(UUID.randomUUID(), "text")).block())
         .isNull();
   }
@@ -101,7 +102,7 @@ class WaitForSignalProcessorTest {
         .expectNextCount(1)
         .verifyComplete();
 
-    assertThat(answer(signal("approve", null))).isEqualTo("NOT_WAITING");
+    assertThat(answer(signal("approve", null))).isEqualTo("QUEUED");
   }
 
   @Test

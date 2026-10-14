@@ -11,7 +11,6 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import lombok.NoArgsConstructor;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -28,7 +27,6 @@ import reactor.core.publisher.Mono;
  * wait is in memory: if the server restarts, a resumed run waits again for a new signal.
  */
 @Component
-@NoArgsConstructor
 public final class WaitForSignalProcessor implements ProcessorPlugin {
 
   /** Config key: name of the signal to wait for. */
@@ -60,8 +58,17 @@ public final class WaitForSignalProcessor implements ProcessorPlugin {
   /** Answer to a signal when the node is not waiting for it. */
   public static final String NOT_WAITING = SignalWaits.NOT_WAITING;
 
-  /** The waits of this plugin. */
-  private final SignalWaits waits = new SignalWaits();
+  /** The waits, shared with the other plugins so one list shows them all. */
+  private final SignalWaits waits;
+
+  /** Waits on the instance the engine's plugins share. */
+  public WaitForSignalProcessor() {
+    this(SignalWaits.shared());
+  }
+
+  /* default */ WaitForSignalProcessor(final SignalWaits waits) {
+    this.waits = waits;
+  }
 
   @Override
   public PluginDescriptor describe() {

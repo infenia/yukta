@@ -4,8 +4,8 @@ package com.infenia.yukta.service.log;
 
 import jakarta.annotation.PreDestroy;
 import java.io.IOException;
-import java.nio.channels.FileChannel;
 import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -115,10 +115,7 @@ public class JsonlExecutionLogStore implements ExecutionLogStore {
   }
 
   /* default */ JsonlExecutionLogStore(
-      final String dir,
-      final ObjectMapper mapper,
-      final int retainedRuns,
-      final int compactAfter) {
+      final String dir, final ObjectMapper mapper, final int retainedRuns, final int compactAfter) {
     this(dir, mapper, retainedRuns, compactAfter, SHUTDOWN_WAIT_MILLIS, false);
   }
 
