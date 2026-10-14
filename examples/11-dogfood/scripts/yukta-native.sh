@@ -34,6 +34,7 @@ case "$action" in
 YUKTA_DEV_NAME=$name
 YUKTA_DEV_MODE=native
 YUKTA_SERVER_URL=$url
+YUKTA_SERVER_BIN=$bin
 ENV
     cp "$STATE_DIR/$name.env" "$STATE_DIR/current.env"
     wait_healthy "$name" "$url" "${YUKTA_STARTUP_TIMEOUT:-60}"

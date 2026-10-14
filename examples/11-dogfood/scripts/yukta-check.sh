@@ -60,7 +60,11 @@ fi
 } >"$tmp/session.json"
 
 echo ">> server $YUKTA_SERVER_URL, session $session, project $project" >&2
-"$cli" session apply "$tmp/session.json" >/dev/null
+"$cli" session apply "$tmp/session.json" >"$tmp/apply.out" 2>&1 \
+  || { cat "$tmp/apply.out" >&2; die "session apply failed"; }
+# a CLI built before 'session apply' existed prints the session help and exits 0
+! grep -q "Available Commands" "$tmp/apply.out" \
+  || die "stale CLI (session apply printed help); rebuild it: ./gradlew :cli:goBuild"
 exec_id="$("$cli" -o json workflow start "$session" "$workflow" | jq -r '.data.executionId // .executionId')"
 [[ -n "$exec_id" && "$exec_id" != null ]] || die "could not start workflow"
 

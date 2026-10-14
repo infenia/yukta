@@ -44,6 +44,22 @@ func TestWatchCmd_untilDoneStopsAtTerminalWorkflowEvent(t *testing.T) {
 	}
 }
 
+func TestWatchCmd_quietShowsOnlyProblemsAndTheEnd(t *testing.T) {
+	stream := watchStream +
+		"data: " + `{"type":"NodeStatusChanged","event":{"executionId":"e","nodeId":"tests","status":"RUNNING"}}` + "\n\n" +
+		"data: " + `{"type":"NodeStatusChanged","event":{"executionId":"e","nodeId":"tests","status":"FAILURE"}}` + "\n\n" +
+		"data: " + `{"type":"ControlOutcome","event":{"executionId":"e","command":"Stop","applied":true}}` + "\n\n" +
+		"data: " + `{"type":"Unknown","event":{}}` + "\n\n"
+	out, err := testutil.Run(t, WatchCmd(testutil.Stream(t, stream)), "--quiet")
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := "CONTROL Pause applied=false denied\nWORKFLOW FAILURE\nNODE tests FAILURE\n"
+	if out != want {
+		t.Errorf("output:\n%q\nwant:\n%q", out, want)
+	}
+}
+
 func TestWatchCmd_typeFilter(t *testing.T) {
 	// the server filters by type; this fake sends everything, so the client filter applies too
 	out, err := testutil.Run(t, WatchCmd(testutil.Stream(t, watchStream)), "--type", "controloutcome")
@@ -118,6 +134,60 @@ func TestWatchCmd_untilDoneReportsAlreadyFinishedRun(t *testing.T) {
 		t.Fatal(err)
 	}
 	if out != "WORKFLOW SUCCESS\n" {
+		t.Errorf("output %q", out)
+	}
+}
+
+// A watch that attaches late gets the nodes that already ended from the snapshot, once.
+func TestWatchCmd_untilDoneReplaysEndedNodes(t *testing.T) {
+	defer func(old time.Duration) { snapshotInterval = old }(snapshotInterval)
+	snapshotInterval = 20 * time.Millisecond
+
+	release := make(chan struct{})
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/events/stream":
+			w.Header().Set("Content-Type", "text/event-stream")
+			w.(http.Flusher).Flush()
+			select {
+			case <-release:
+			case <-r.Context().Done():
+			}
+		case "/api/executions/e":
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = io.WriteString(w, `{"data":{"executionId":"e","status":"FAILURE","tasks":[`+
+				`{"nodeId":"spotless","status":"SUCCESS"},{"nodeId":"tests","status":"FAILURE"},{"nodeId":"cli","status":"PENDING"}]}}`)
+		}
+	}))
+	defer srv.Close()
+	defer close(release)
+
+	out, err := testutil.Run(t, WatchCmd(client.NewClient(srv.URL)), "--execution", "e", "--until-done")
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := "NODE spotless SUCCESS\nNODE tests FAILURE\nWORKFLOW FAILURE\n"
+	if out != want {
+		t.Errorf("output %q, want %q", out, want)
+	}
+}
+
+func TestWatcher_dropsRepeatedNodeStatus(t *testing.T) {
+	w := &watcher{}
+	ev := client.ExecutionEvent{Type: client.EventNodeStatusChanged, NodeID: "n", Status: "SUCCESS"}
+	out := testutil.Capture(t, func() { _ = w.handle(ev); _ = w.handle(ev) })
+	if out != "NODE n SUCCESS\n" {
+		t.Errorf("output %q", out)
+	}
+}
+
+func TestWatcher_keepsSameNodeStatusOfDifferentExecutions(t *testing.T) {
+	w := &watcher{}
+	a := client.ExecutionEvent{Type: client.EventNodeStatusChanged, ExecutionID: "e1", NodeID: "n", Status: "FAILED"}
+	b := a
+	b.ExecutionID = "e2"
+	out := testutil.Capture(t, func() { _ = w.handle(a); _ = w.handle(b) })
+	if out != "NODE n FAILED\nNODE n FAILED\n" {
 		t.Errorf("output %q", out)
 	}
 }
