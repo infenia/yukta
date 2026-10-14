@@ -2,13 +2,17 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.filter;
 
+import com.infenia.yukta.model.execution.WorkflowProgress;
 import com.infenia.yukta.plugin.control.ControlActor;
 import com.infenia.yukta.security.ApiKeys;
 import com.infenia.yukta.security.ApiRole;
 import com.infenia.yukta.security.RequestPaths;
+import com.infenia.yukta.service.control.gateway.ControlBusGateway;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.jspecify.annotations.NullMarked;
+import org.jspecify.annotations.Nullable;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
@@ -42,8 +46,9 @@ import reactor.core.publisher.Mono;
  * </pre>
  *
  * <p>A key whose role or sessions do not allow the request gets 403. A session-limited key reaches
- * only {@code /api/sessions/{session}/**} and {@code /api/workflow/{session}/**}. With named keys,
- * the control commands a request sends are recorded with the actor {@code key:<name>}.
+ * {@code /api/sessions/{session}/**}, {@code /api/workflow/{session}/**} and the {@code
+ * /api/executions/{id}/**} of runs in its sessions. With named keys, the control commands a request
+ * sends are recorded with the actor {@code key:<name>}.
  */
 @Component
 @NullMarked
@@ -54,6 +59,10 @@ public class ApiKeyFilter implements WebFilter {
   /** The one actuator endpoint that needs no key (liveness probes). */
   private static final String HEALTH = "/actuator/health";
 
+  /** The execution of an execution-scoped API path. */
+  private static final Pattern EXECUTION_PATH =
+      Pattern.compile("^/api/executions/([^/]+)(?:/.*)?$");
+
   /** The session of a session-scoped API path. */
   private static final Pattern SESSION_PATH =
       Pattern.compile("^/api/(?:sessions|workflow)/([^/]+)(?:/.*)?$");
@@ -61,14 +70,30 @@ public class ApiKeyFilter implements WebFilter {
   /** Keys clients may present; empty disables the check. */
   private final ApiKeys keys;
 
+  /** Finds the session of an execution, or null if unknown. */
+  @Nullable private final ControlBusGateway controlBus;
+
   /**
    * Create the filter from the configuration.
    *
    * @param environment holds {@code yukta.api-key} and {@code yukta.api-keys}
    */
-  @Autowired
   public ApiKeyFilter(final Environment environment) {
+    this(environment, null);
+  }
+
+  /**
+   * Create the filter from the configuration, able to tell which session an execution belongs to.
+   *
+   * @param environment holds {@code yukta.api-key} and {@code yukta.api-keys}
+   * @param controlBus finds the session of an execution; without it a session-limited key cannot
+   *     reach {@code /api/executions/{id}/**}
+   */
+  @Autowired
+  @SuppressFBWarnings("EI_EXPOSE_REP2") // the gateway is a shared Spring bean
+  public ApiKeyFilter(final Environment environment, final ControlBusGateway controlBus) {
     this.keys = ApiKeys.read(environment, null);
+    this.controlBus = controlBus;
   }
 
   /**
@@ -78,6 +103,7 @@ public class ApiKeyFilter implements WebFilter {
    */
   public ApiKeyFilter(final String apiKey) {
     this.keys = ApiKeys.single(apiKey);
+    this.controlBus = null;
   }
 
   @Override
@@ -117,7 +143,7 @@ public class ApiKeyFilter implements WebFilter {
     return prefix.equals(path) || path.startsWith(prefix + "/");
   }
 
-  private static boolean permitted(
+  private boolean permitted(
       final ApiKeys.Match match, final ServerWebExchange exchange, final String path) {
     if (isUnder(path, "/actuator")) {
       return match.role() == ApiRole.ADMIN && match.sessions().isEmpty();
@@ -129,7 +155,18 @@ public class ApiKeyFilter implements WebFilter {
       return true;
     }
     final Matcher session = SESSION_PATH.matcher(path);
-    return session.matches() && match.reaches(session.group(1));
+    if (session.matches()) {
+      return match.reaches(session.group(1));
+    }
+    final Matcher execution = EXECUTION_PATH.matcher(path);
+    return execution.matches() && ownsExecution(match, execution.group(1));
+  }
+
+  /** A session-limited key may control only the executions of its sessions. */
+  private boolean ownsExecution(final ApiKeys.Match match, final String executionId) {
+    final WorkflowProgress progress =
+        controlBus == null ? null : controlBus.getCurrentProgress(executionId);
+    return progress != null && match.reaches(progress.sessionId());
   }
 
   private static Mono<Void> reject(final ServerWebExchange exchange, final HttpStatus status) {

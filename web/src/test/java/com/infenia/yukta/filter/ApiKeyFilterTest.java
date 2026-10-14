@@ -320,4 +320,53 @@ class ApiKeyFilterTest {
         runWith(env, MockServerHttpRequest.get("/actuator/metrics").header("X-API-Key", "t"));
     assertThat(limitedActuator.getResponse().getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
   }
+
+  private static MockEnvironment scoped() {
+    return new MockEnvironment()
+        .withProperty("yukta.api-keys[0].name", "team")
+        .withProperty("yukta.api-keys[0].key", "t")
+        .withProperty("yukta.api-keys[0].role", "ADMIN")
+        .withProperty("yukta.api-keys[0].sessions", "a");
+  }
+
+  private HttpStatus executionRoute(
+      final com.infenia.yukta.service.control.gateway.ControlBusGateway gateway, final String id) {
+    passed.set(false);
+    final var exchange =
+        MockServerWebExchange.from(
+            MockServerHttpRequest.post("/api/executions/" + id + "/priority")
+                .header("X-API-Key", "t"));
+    new ApiKeyFilter(scoped(), gateway)
+        .filter(
+            exchange,
+            _ -> {
+              passed.set(true);
+              return Mono.empty();
+            })
+        .block();
+    return (HttpStatus) exchange.getResponse().getStatusCode();
+  }
+
+  @Test
+  void testSessionLimitedKeyControlsOnlyItsOwnExecutions() {
+    final var gateway =
+        org.mockito.Mockito.mock(com.infenia.yukta.service.control.gateway.ControlBusGateway.class);
+    final var mine = progress("a");
+    final var theirs = progress("b");
+    org.mockito.Mockito.when(gateway.getCurrentProgress("mine")).thenReturn(mine);
+    org.mockito.Mockito.when(gateway.getCurrentProgress("theirs")).thenReturn(theirs);
+
+    executionRoute(gateway, "mine");
+    assertThat(passed).isTrue();
+    assertThat(executionRoute(gateway, "theirs")).isEqualTo(HttpStatus.FORBIDDEN);
+    assertThat(executionRoute(gateway, "unknown")).isEqualTo(HttpStatus.FORBIDDEN);
+    assertThat(executionRoute(null, "mine")).isEqualTo(HttpStatus.FORBIDDEN);
+  }
+
+  private static com.infenia.yukta.model.execution.WorkflowProgress progress(final String session) {
+    final var progress =
+        org.mockito.Mockito.mock(com.infenia.yukta.model.execution.WorkflowProgress.class);
+    org.mockito.Mockito.when(progress.sessionId()).thenReturn(session);
+    return progress;
+  }
 }

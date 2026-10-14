@@ -212,7 +212,7 @@ claude mcp add --transport http yukta http://localhost:8080/mcp
 - **2 prompts:** `debug-workflow`, `create-session-config`
 - **3 resources:** `yukta://overview`, `yukta://architecture`, `yukta://sessions/{sessionId}/executions/{executionId}/logs`
 
-MCP uses the REST keys (`yukta.api-key`, `yukta.api-keys`) plus the optional `yukta.mcp.api-key`, sent as `Authorization: Bearer <key>` (or `X-API-Key`); only an unrestricted `ADMIN` key is accepted. It is open only on loopback with no key.
+MCP uses the REST keys (`yukta.api-key`, `yukta.api-keys`) plus the optional `yukta.mcp.api-key`, sent as `Authorization: Bearer <key>` (or `X-API-Key`); each tool call needs the key's role (`VIEWER` reads, `OPERATOR` also starts and controls, `ADMIN` everything) and, for a session-limited key, its own `sessionId`. It is open only on loopback with no key.
 
 ---
 

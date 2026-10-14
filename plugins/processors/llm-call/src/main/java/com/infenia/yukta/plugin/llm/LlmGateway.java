@@ -8,6 +8,8 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import lombok.NoArgsConstructor;
 import org.springframework.ai.anthropic.AnthropicChatModel;
 import org.springframework.ai.anthropic.AnthropicChatOptions;
@@ -26,6 +28,7 @@ import org.springframework.ai.openai.OpenAiChatModel;
 import org.springframework.ai.openai.OpenAiChatOptions;
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.ai.tool.definition.ToolDefinition;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.retry.RetryPolicy;
 import org.springframework.core.retry.RetryTemplate;
 import org.springframework.stereotype.Service;
@@ -37,13 +40,22 @@ import tools.jackson.databind.ObjectMapper;
  * <p>A {@link ChatModel} owns an HTTP client, so one is built per distinct connection/sampling
  * configuration and reused. Calls are blocking; callers must schedule them accordingly.
  */
-@SuppressWarnings("PMD.LawOfDemeter")
+@SuppressWarnings({"PMD.LawOfDemeter", "PMD.ExcessiveImports"})
 @Service
 @NoArgsConstructor
 public class LlmGateway {
 
   /** Writes tool input schemas. */
   private static final ObjectMapper JSON = new ObjectMapper();
+
+  /** The prompt must not match any of these. */
+  private List<Pattern> denyInput = List.of();
+
+  /** The answer must not match any of these. */
+  private List<Pattern> denyOutput = List.of();
+
+  /** The most characters of prompt, or 0 for no limit. */
+  private int maxInputChars;
 
   /** Models by their connection and sampling configuration. */
   // ponytail: unbounded map; node configs are static so it stays small, evict if configs become
@@ -57,6 +69,70 @@ public class LlmGateway {
    * @return the model answer
    */
   public LlmResponse call(final LlmRequest request) {
+    refuseIfDenied("prompt", "yukta.llm.deny-input-patterns", inputText(request), denyInput);
+    final LlmResponse answer = invoke(request);
+    refuseIfDenied("answer", "yukta.llm.deny-output-patterns", outputText(answer), denyOutput);
+    return answer;
+  }
+
+  /**
+   * Sets regular expressions the prompt must not match ({@code yukta.llm.deny-input-patterns}),
+   * e.g. for secrets or known injection phrases.
+   *
+   * @param patterns the expressions
+   */
+  @Value("${yukta.llm.deny-input-patterns:}")
+  /* default */ void setDenyInput(final List<String> patterns) {
+    this.denyInput = patterns.stream().map(Pattern::compile).toList();
+  }
+
+  /**
+   * Sets regular expressions the answer and its tool-call arguments must not match ({@code
+   * yukta.llm.deny-output-patterns}).
+   *
+   * @param patterns the expressions
+   */
+  @Value("${yukta.llm.deny-output-patterns:}")
+  /* default */ void setDenyOutput(final List<String> patterns) {
+    this.denyOutput = patterns.stream().map(Pattern::compile).toList();
+  }
+
+  /**
+   * Sets the most characters of prompt one call may carry ({@code yukta.llm.max-input-chars}); 0 is
+   * no limit.
+   *
+   * @param maxChars the limit
+   */
+  @Value("${yukta.llm.max-input-chars:0}")
+  /* default */ void setMaxInputChars(final int maxChars) {
+    this.maxInputChars = maxChars;
+  }
+
+  private static String inputText(final LlmRequest request) {
+    return Objects.toString(request.system(), "")
+        + "\n"
+        + request.messages().stream().map(ChatTurn::content).collect(Collectors.joining("\n"));
+  }
+
+  private static String outputText(final LlmResponse answer) {
+    return answer.text()
+        + "\n"
+        + answer.toolCalls().stream()
+            .map(call -> Objects.toString(call.arguments(), ""))
+            .collect(Collectors.joining("\n"));
+  }
+
+  private void refuseIfDenied(
+      final String what, final String property, final String text, final List<Pattern> denied) {
+    if (maxInputChars > 0 && "prompt".equals(what) && text.length() > maxInputChars) {
+      throw new IllegalArgumentException("The prompt exceeds yukta.llm.max-input-chars");
+    }
+    if (denied.stream().anyMatch(pattern -> pattern.matcher(text).find())) {
+      throw new IllegalArgumentException("The " + what + " matches " + property);
+    }
+  }
+
+  private LlmResponse invoke(final LlmRequest request) {
     final ChatResponse response =
         models.computeIfAbsent(cacheKey(request), this::build).call(prompt(request));
     final var result = response.getResult();
