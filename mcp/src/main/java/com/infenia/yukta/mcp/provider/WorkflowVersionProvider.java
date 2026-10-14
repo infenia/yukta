@@ -44,22 +44,27 @@ public class WorkflowVersionProvider {
    *
    * @param sessionId the session
    * @param workflowId the workflow
-   * @param from the older version
-   * @param to the newer version, or null for the current definition
+   * @param olderVersion the older version
+   * @param newerVersion the newer version, or null for the current definition
    * @return the nodes and edges added, removed or changed
    */
+  @SuppressWarnings("PMD.UseObjectForClearerAPI")
   public Mono<WorkflowDiff> diff(
-      final String sessionId, final String workflowId, final String from, final String to) {
-    if (from == null || from.isBlank()) {
-      return Mono.error(new IllegalArgumentException("from is required."));
+      final String sessionId,
+      final String workflowId,
+      final String olderVersion,
+      final String newerVersion) {
+    if (olderVersion == null || olderVersion.isBlank()) {
+      return Mono.error(new IllegalArgumentException("olderVersion is required."));
     }
     final Mono<WorkflowDefinition> newer =
-        to == null || to.isBlank()
+        newerVersion == null || newerVersion.isBlank()
             ? definitions.find(sessionId, workflowId)
-            : definitions.findRevision(sessionId, workflowId, to);
-    return Mono.zip(definitions.findRevision(sessionId, workflowId, from), newer)
+            : definitions.findRevision(sessionId, workflowId, newerVersion);
+    return Mono.zip(definitions.findRevision(sessionId, workflowId, olderVersion), newer)
         .switchIfEmpty(
-            Mono.error(() -> new NotFoundException("Version of workflow " + workflowId + " not found")))
+            Mono.error(
+                () -> new NotFoundException("Version of workflow " + workflowId + " not found")))
         .map(pair -> WorkflowDiff.between(pair.getT1(), pair.getT2()));
   }
 

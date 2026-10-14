@@ -46,7 +46,12 @@ import tools.jackson.databind.ObjectMapper;
  * <p>A {@link ChatModel} owns an HTTP client, so one is built per distinct connection/sampling
  * configuration and reused. Calls are blocking; callers must schedule them accordingly.
  */
-@SuppressWarnings({"PMD.LawOfDemeter", "PMD.ExcessiveImports", "PMD.TooManyMethods"})
+@SuppressWarnings({
+  "PMD.LawOfDemeter",
+  "PMD.ExcessiveImports",
+  "PMD.TooManyMethods",
+  "PMD.CouplingBetweenObjects"
+})
 @Service
 @NoArgsConstructor
 public class LlmGateway {
@@ -96,10 +101,13 @@ public class LlmGateway {
     final Binder binder = Binder.get(environment);
     setDenyInput(patterns(binder, "yukta.llm.deny-input-patterns"));
     setDenyOutput(patterns(binder, "yukta.llm.deny-output-patterns"));
-    rateLimits.configure(
-        binder
-            .bind("yukta.llm.rate-limit", Bindable.mapOf(String.class, Integer.class))
-            .orElse(Map.of()));
+    rateLimits.configure(limits(binder));
+  }
+
+  private static Map<String, Integer> limits(final Binder binder) {
+    return binder
+        .bind("yukta.llm.rate-limit", Bindable.mapOf(String.class, Integer.class))
+        .orElse(Map.of());
   }
 
   /** Sleeps until the provider's rate limit gives this call its turn (the caller is blocking). */

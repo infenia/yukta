@@ -750,7 +750,7 @@ class WorkflowValidatorTest {
   }
 
   @Test
-  void testCategoryTerminalWithoutTerminalPlugin_isNotATerminal() {
+  void testCategoryTerminalWithoutTerminalPlugin_isNotTerminal() {
     // The assembler builds terminals from the type, so the category alone must not pass.
     when(triggerPlugin.getCategory()).thenReturn(PluginCategory.TRIGGER);
     when(registry.get(TRIGGER_ID)).thenReturn(triggerPlugin);

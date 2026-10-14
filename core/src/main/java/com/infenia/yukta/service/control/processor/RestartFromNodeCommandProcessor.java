@@ -22,6 +22,7 @@ import java.util.Map;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -127,20 +128,27 @@ public class RestartFromNodeCommandProcessor implements ControlSignalProcessor {
       final ArchivedExecution archived,
       final Map<String, List<Message<?>>> outputs) {
     final Optional<ExecutionControl> running = registry.findByExecutionId(restart.executionId());
-    ExecutionScheduler.Admission admission = null;
-    if (running.isEmpty()) {
-      // The slot is taken before the new id is reported, so two restarts cannot both use the last
-      // one. A running run gives up its slot when stopped, so it is not asked.
-      admission =
-          scheduler.acquire(
-              archived.sessionId(),
-              archived.workflowId(),
-              ExecutionScheduler.priorityOf(archived.payload()),
-              restart.newExecutionId());
-      if (admission.refused()) {
-        return admission.permit().then();
-      }
-    }
+    // The slot is taken before the new id is reported, so two restarts cannot both use the last
+    // one. A running run gives up its slot when stopped, so it is not asked.
+    final ExecutionScheduler.Admission admission =
+        running.isEmpty()
+            ? scheduler.acquire(
+                archived.sessionId(),
+                archived.workflowId(),
+                ExecutionScheduler.priorityOf(archived.payload()),
+                restart.newExecutionId())
+            : null;
+    return admission != null && admission.refused()
+        ? admission.permit().then()
+        : launch(restart, archived, outputs, running, admission);
+  }
+
+  private Mono<Void> launch(
+      final RestartFromNodeCommand restart,
+      final ArchivedExecution archived,
+      final Map<String, List<Message<?>>> outputs,
+      final Optional<ExecutionControl> running,
+      final ExecutionScheduler.@Nullable Admission admission) {
     // If the old run is still going it is stopped first, so it cannot repeat side effects.
     running.ifPresent(
         control -> {

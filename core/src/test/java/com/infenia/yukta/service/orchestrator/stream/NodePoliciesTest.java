@@ -74,6 +74,7 @@ class NodePoliciesTest {
   }
 
   @Test
+  @SuppressWarnings("PMD.AvoidInstantiatingObjectsInLoops")
   void runAborted_isNeverRetried_dropped_orRouted() {
     for (final NodePolicy.OnError onError :
         new NodePolicy.OnError[] {

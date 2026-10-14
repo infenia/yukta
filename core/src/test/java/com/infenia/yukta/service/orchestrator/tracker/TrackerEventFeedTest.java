@@ -23,7 +23,7 @@ import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 import reactor.test.StepVerifier;
 
-@SuppressWarnings({"PMD.CommentRequired"})
+@SuppressWarnings({"PMD.CommentRequired", "PMD.AvoidDuplicateLiterals"})
 @NoArgsConstructor
 class TrackerEventFeedTest {
 
@@ -69,7 +69,7 @@ class TrackerEventFeedTest {
   }
 
   @Test
-  void aSecondEndOfARun_isIgnored() {
+  void secondEndOfRun_isIgnored() {
     final InMemoryExecutionLogStore log = new InMemoryExecutionLogStore();
     final DefaultTaskTrackerService tracker =
         new DefaultTaskTrackerService(
@@ -96,7 +96,7 @@ class TrackerEventFeedTest {
   }
 
   @Test
-  void pausingARun_publishesNothingToTheFeed_soASupervisorNeverSeesItsOwnPause() {
+  void pausingRun_publishesNothingToTheFeed_soSupervisorNeverSeesItsOwnPause() {
     final ExecutionEventFeed feed = new ExecutionEventFeed();
     final DefaultTaskTrackerService tracker =
         new DefaultTaskTrackerService(

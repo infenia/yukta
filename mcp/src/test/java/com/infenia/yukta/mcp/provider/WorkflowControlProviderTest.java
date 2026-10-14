@@ -551,5 +551,7 @@ class WorkflowControlProviderTest {
                     .containsExactly(approval))
         .verifyComplete();
     StepVerifier.create(provider.pendingApprovals(" ")).verifyError(IllegalArgumentException.class);
+    StepVerifier.create(provider.pendingApprovals(null))
+        .verifyError(IllegalArgumentException.class);
   }
 }

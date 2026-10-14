@@ -29,14 +29,13 @@ public class RunAbortedException extends WorkflowExecutionException {
    * @return true if the run must end
    */
   public static boolean isAbort(final Throwable error) {
+    boolean abort = false;
     Throwable cause = error;
     // bounded, so a cause chain that loops back on itself cannot spin forever
-    for (int depth = 0; cause != null && depth < 8; depth++) {
-      if (cause instanceof RunAbortedException) {
-        return true;
-      }
+    for (int depth = 0; !abort && cause != null && depth < 8; depth++) {
+      abort = cause instanceof RunAbortedException;
       cause = cause.getCause();
     }
-    return false;
+    return abort;
   }
 }

@@ -42,6 +42,7 @@ import reactor.util.retry.Retry;
  */
 @SuppressWarnings({
   "PMD.CommentRequired",
+  "PMD.ExcessiveImports",
   "PMD.GodClass",
   "PMD.CouplingBetweenObjects",
   "PMD.OnlyOneReturn",
@@ -450,17 +451,10 @@ public final class LlmCallPlugin implements ProcessorPlugin {
   private static List<ChatTurn> turns(final Object messages, final Object prompt) {
     final List<ChatTurn> turns = new ArrayList<>();
     if (messages instanceof final List<?> list) {
-      for (final Object item : list) {
-        if (item instanceof final Map<?, ?> turn) {
-          turns.add(
-              new ChatTurn(
-                  String.valueOf(turn.get("role")),
-                  String.valueOf(turn.get("content")),
-                  turn.get("toolCallId") == null ? null : turn.get("toolCallId").toString(),
-                  turn.get("toolName") == null ? null : turn.get("toolName").toString(),
-                  AgentActions.toToolCalls(turn.get("actions"))));
-        }
-      }
+      list.stream()
+          .filter(Map.class::isInstance)
+          .map(item -> turn((Map<?, ?>) item))
+          .forEach(turns::add);
     }
     if (text(prompt) != null) {
       turns.add(new ChatTurn("user", prompt.toString()));
@@ -469,6 +463,15 @@ public final class LlmCallPlugin implements ProcessorPlugin {
       throw new IllegalArgumentException("messages and/or prompt must yield at least one turn");
     }
     return turns;
+  }
+
+  private static ChatTurn turn(final Map<?, ?> turn) {
+    return new ChatTurn(
+        String.valueOf(turn.get("role")),
+        String.valueOf(turn.get("content")),
+        Objects.toString(turn.get("toolCallId"), null),
+        Objects.toString(turn.get("toolName"), null),
+        AgentActions.toToolCalls(turn.get("actions")));
   }
 
   private Mono<Object> resolve(final Object value, final Message<?> message) {

@@ -48,7 +48,12 @@ import reactor.util.context.Context;
 @Service
 @Validated
 @RequiredArgsConstructor
-@SuppressWarnings({"PMD.ExcessiveImports", "PMD.CouplingBetweenObjects", "PMD.TooManyMethods"})
+@SuppressWarnings({
+  "PMD.ExcessiveImports",
+  "PMD.CouplingBetweenObjects",
+  "PMD.TooManyMethods",
+  "PMD.UseObjectForClearerAPI"
+})
 public class WorkflowOrchestrator {
 
   /** Log key for session ID. */
@@ -213,7 +218,6 @@ public class WorkflowOrchestrator {
    * @param boundaryOutputs recorded output of each node that feeds the re-run part, by node id
    * @return a Mono that completes when the restarted execution finishes
    */
-  @SuppressWarnings({"PMD.UseObjectForClearerAPI", "PMD.OnlyOneReturn"})
   public Mono<Void> restartFromNode(
       final String sessionId,
       final String workflowId,
@@ -239,7 +243,7 @@ public class WorkflowOrchestrator {
    *
    * @param admission the slot taken in advance, or null to ask for one when the run starts
    */
-  @SuppressWarnings({"PMD.UseObjectForClearerAPI", "PMD.OnlyOneReturn"})
+  @SuppressWarnings("PMD.OnlyOneReturn")
   public Mono<Void> restartFromNode(
       final String sessionId,
       final String workflowId,
@@ -279,38 +283,14 @@ public class WorkflowOrchestrator {
    *
    * @param payload trigger payload, for triggers inside the re-run part
    * @param origin what started this, for the log
+   * @param admission the slot taken in advance (given back if the run cannot begin), or null to ask
+   *     for one when the run starts
    */
-  @SuppressWarnings("PMD.UseObjectForClearerAPI")
-  public Mono<Void> rerun(
-      final String sessionId,
-      final String workflowId,
-      final String previousExecutionId,
-      final String newExecutionId,
-      final PreparedWorkflow prepared,
-      final RestartPlan plan,
-      final Map<String, Object> payload,
-      final Map<String, List<Message<?>>> boundaryOutputs,
-      final String origin) {
-    return rerun(
-        sessionId,
-        workflowId,
-        previousExecutionId,
-        newExecutionId,
-        prepared,
-        plan,
-        payload,
-        boundaryOutputs,
-        origin,
-        null);
-  }
-
-  /**
-   * As {@link #rerun(String, String, String, String, PreparedWorkflow, RestartPlan, Map, Map,
-   * String)}, with the slot already taken by the caller (given back if the run cannot begin).
-   *
-   * @param admission the slot taken in advance, or null to ask for one when the run starts
-   */
-  @SuppressWarnings("PMD.UseObjectForClearerAPI")
+  @SuppressWarnings({
+    "PMD.ExcessiveParameterList",
+    "PMD.AvoidCatchingGenericException",
+    "PMD.OnlyOneReturn"
+  })
   public Mono<Void> rerun(
       final String sessionId,
       final String workflowId,
@@ -555,7 +535,8 @@ public class WorkflowOrchestrator {
                     .finishWorkflow(executionId, TaskStatus.CANCELLED)
                     .doFinally(
                         _ -> resultService.complete(executionId, TaskStatus.CANCELLED.name()))
-                    .subscribe(_ -> {}, _ -> {}))
+                    .onErrorComplete()
+                    .subscribe())
         .doFinally(
             signal -> {
               executionControlRegistry.unregister(executionId);

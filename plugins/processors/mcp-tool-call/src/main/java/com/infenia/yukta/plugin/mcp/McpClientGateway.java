@@ -58,10 +58,10 @@ public class McpClientGateway {
   /** Heartbeat for requests that cannot report progress. */
   private static final Runnable NO_OP = Thread::onSpinWait;
 
-  /** Key of a tool name. */
   /** Most pages of {@code tools/list} that are followed. */
   private static final int MAX_LIST_PAGES = 50;
 
+  /** Key of a tool name. */
   private static final String NAME = "name";
 
   private static final ObjectMapper JSON_MAPPER = new ObjectMapper();
@@ -202,19 +202,18 @@ public class McpClientGateway {
    */
   public Mono<List<Map<String, Object>>> listTools(
       final McpCallSpec spec, final Runnable heartbeat) {
-    final String requestId = UUID.randomUUID().toString();
-    return Mono.defer(() -> listOnce(spec, requestId, heartbeat))
+    return Mono.defer(() -> listOnce(spec, heartbeat))
         .onErrorResume(
             SessionExpiredException.class,
             e -> {
               sessions.remove(spec.sessionKey());
-              return listOnce(spec, requestId, heartbeat);
+              return listOnce(spec, heartbeat);
             })
         .timeout(spec.timeout());
   }
 
   private Mono<List<Map<String, Object>>> listOnce(
-      final McpCallSpec spec, final String requestId, final Runnable heartbeat) {
+      final McpCallSpec spec, final Runnable heartbeat) {
     return session(spec)
         .flatMap(sessionId -> listPage(spec, sessionId, null, heartbeat, new ArrayList<>(), 1));
   }

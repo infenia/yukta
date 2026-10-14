@@ -7,13 +7,18 @@ import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * Spaces the calls to one provider evenly ({@code yukta.llm.rate-limit.<provider>} requests per
  * minute), across every node and run, so a burst of workflows cannot exceed the provider's quota. A
  * call waits for its turn; if the turn is further away than the call may take, it is refused.
  */
+@SuppressWarnings("PMD.UseConcurrentHashMap") // every access holds the lock
 final class ProviderRateLimits {
+
+  /** Guards both maps. */
+  private final ReentrantLock lock = new ReentrantLock();
 
   /** Nanoseconds between two calls, by provider name in lower case. */
   private Map<String, Long> spacing = Map.of();
@@ -31,7 +36,7 @@ final class ProviderRateLimits {
    *
    * @param perMinute requests per minute by provider name; a value of 0 or less means no limit
    */
-  /* default */ synchronized void configure(final Map<String, Integer> perMinute) {
+  /* default */ void configure(final Map<String, Integer> perMinute) {
     final Map<String, Long> next = new HashMap<>();
     perMinute.forEach(
         (provider, limit) -> {
@@ -39,8 +44,13 @@ final class ProviderRateLimits {
             next.put(provider.toLowerCase(Locale.ROOT), TimeUnit.MINUTES.toNanos(1) / limit);
           }
         });
-    spacing = next;
-    nextFree.clear();
+    lock.lock();
+    try {
+      spacing = next;
+      nextFree.clear();
+    } finally {
+      lock.unlock();
+    }
   }
 
   /**
@@ -52,24 +62,28 @@ final class ProviderRateLimits {
    * @return how long to wait before the call, in nanoseconds (0 if there is no limit or no wait)
    * @throws IllegalStateException if the turn is further away than {@code maxWait}
    */
-  /* default */ synchronized long reserve(
-      final String provider, final long now, final Duration maxWait) {
+  /* default */ long reserve(final String provider, final long now, final Duration maxWait) {
     final String name = provider.toLowerCase(Locale.ROOT);
-    final Long gap = spacing.get(name);
-    if (gap == null) {
-      return 0;
+    long wait = 0;
+    lock.lock();
+    try {
+      final Long gap = spacing.get(name);
+      if (gap != null) {
+        final long start = Math.max(now, nextFree.getOrDefault(name, now));
+        wait = start - now;
+        if (wait > maxWait.toNanos()) {
+          throw new IllegalStateException(
+              "Rate limit of "
+                  + provider
+                  + " reached; the next call would wait "
+                  + wait / 1_000_000L
+                  + " ms");
+        }
+        nextFree.put(name, start + gap);
+      }
+    } finally {
+      lock.unlock();
     }
-    final long start = Math.max(now, nextFree.getOrDefault(name, now));
-    final long wait = start - now;
-    if (wait > maxWait.toNanos()) {
-      throw new IllegalStateException(
-          "Rate limit of "
-              + provider
-              + " reached; the next call would wait "
-              + wait / 1_000_000L
-              + " ms");
-    }
-    nextFree.put(name, start + gap);
     return wait;
   }
 }

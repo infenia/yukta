@@ -18,7 +18,7 @@ import reactor.util.retry.Retry;
 /** Applies a node's {@link NodePolicy} to the processing of one message. */
 @Slf4j
 @UtilityClass
-@SuppressWarnings("PMD.AtLeastOneConstructor")
+@SuppressWarnings({"PMD.AtLeastOneConstructor", "PMD.CognitiveComplexity"})
 public class NodePolicies {
 
   /** Header that tells the plugin which attempt (1, 2, ...) it is processing the message in. */

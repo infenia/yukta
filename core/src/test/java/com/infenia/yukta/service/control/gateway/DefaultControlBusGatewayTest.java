@@ -1121,6 +1121,9 @@ class DefaultControlBusGatewayTest {
         waits.await("exec-pa-1", "gate", "approve", java.time.Duration.ofMinutes(1)).subscribe();
     final var other =
         waits.await("exec-pa-2", "gate", "approve", java.time.Duration.ofMinutes(1)).subscribe();
+    // a wait of a run the tracker does not know (any more) is left out
+    final var unknown =
+        waits.await("exec-pa-3", "gate", "approve", java.time.Duration.ofMinutes(1)).subscribe();
     final WorkflowProgress ours = mock(WorkflowProgress.class);
     when(ours.sessionId()).thenReturn("session-pa");
     when(ours.workflowId()).thenReturn("wf-pa");
@@ -1140,6 +1143,7 @@ class DefaultControlBusGatewayTest {
         .verifyComplete();
     mine.dispose();
     other.dispose();
+    unknown.dispose();
   }
 
   @Test

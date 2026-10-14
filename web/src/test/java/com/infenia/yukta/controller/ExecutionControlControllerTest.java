@@ -27,6 +27,7 @@ import reactor.core.publisher.Mono;
   "PMD.LawOfDemeter",
   "PMD.TooManyMethods",
   "PMD.UnitTestShouldIncludeAssert",
+  "PMD.AvoidDuplicateLiterals",
 })
 class ExecutionControlControllerTest {
 

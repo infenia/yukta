@@ -67,26 +67,28 @@ public class WorkflowVersionController {
    *
    * @param sessionId the session
    * @param workflowId the workflow
-   * @param from the older version, as listed
-   * @param to the newer version, as listed; the current definition when omitted
+   * @param olderVersion the older version, as listed
+   * @param newerVersion the newer version, as listed; the current definition when omitted
    * @return the nodes and edges added, removed or changed
    */
   @GetMapping("/versions/diff")
+  @SuppressWarnings("PMD.UseObjectForClearerAPI")
   @Operation(
       summary = "Compare two versions of a workflow",
       description = "Nodes added, removed or changed, and edges added or removed")
   public Mono<ApiResponse<WorkflowDiff>> diff(
       @Parameter(description = SESSION_ID) @PathVariable final String sessionId,
       @Parameter(description = WORKFLOW_ID) @PathVariable final String workflowId,
-      @Parameter(description = "Older version id from the list") @RequestParam final String from,
+      @Parameter(description = "Older version id from the list") @RequestParam(name = "from")
+          final String olderVersion,
       @Parameter(description = "Newer version id; the current definition if omitted")
-          @RequestParam(required = false)
-          final String to) {
+          @RequestParam(name = "to", required = false)
+          final String newerVersion) {
     final Mono<WorkflowDefinition> newer =
-        to == null || to.isBlank()
+        newerVersion == null || newerVersion.isBlank()
             ? definitions.find(sessionId, workflowId)
-            : definitions.findRevision(sessionId, workflowId, to);
-    return Mono.zip(definitions.findRevision(sessionId, workflowId, from), newer)
+            : definitions.findRevision(sessionId, workflowId, newerVersion);
+    return Mono.zip(definitions.findRevision(sessionId, workflowId, olderVersion), newer)
         .switchIfEmpty(
             Mono.error(
                 () -> new NotFoundException("Version of workflow " + workflowId + " not found")))

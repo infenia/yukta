@@ -324,4 +324,18 @@ class ExecutionLogStoreTest {
 
     assertThat(store.readAll()).isEmpty();
   }
+
+  @Test
+  @SuppressWarnings("PMD.AvoidInstantiatingObjectsInLoops")
+  void theConfiguredConstructor_readsTheFsyncSwitch() {
+    for (final boolean fsync : new boolean[] {false, true}) {
+      final JsonlExecutionLogStore store =
+          new JsonlExecutionLogStore(
+              dir.resolve("f" + fsync).toString(), mapper, 500, 10_000, fsync);
+      store.append(ExecutionLogEvent.started("e1", "s1", "w1", "v1"));
+
+      assertThat(store.readAll()).hasSize(1);
+      store.close();
+    }
+  }
 }

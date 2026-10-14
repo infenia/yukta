@@ -59,6 +59,9 @@ class WorkflowVersionProviderTest {
     StepVerifier.create(provider.diff("s", "w1", "0001-a", null))
         .assertNext(diff -> assertThat(diff.addedNodes()).containsExactly("b"))
         .verifyComplete();
+    StepVerifier.create(provider.diff("s", "w1", "0001-a", " "))
+        .assertNext(diff -> assertThat(diff.addedNodes()).containsExactly("b"))
+        .verifyComplete();
     StepVerifier.create(provider.diff("s", "w1", "0001-a", "0002-b"))
         .assertNext(diff -> assertThat(diff.addedNodes()).containsExactly("c"))
         .verifyComplete();
@@ -68,10 +71,13 @@ class WorkflowVersionProviderTest {
   void diff_needsFrom_andAnUnknownVersionIsNotFound() {
     StepVerifier.create(provider.diff("s", "w1", " ", null))
         .verifyError(IllegalArgumentException.class);
+    StepVerifier.create(provider.diff("s", "w1", null, null))
+        .verifyError(IllegalArgumentException.class);
     when(definitions.findRevision("s", "w1", "nope")).thenReturn(Mono.empty());
     when(definitions.find("s", "w1")).thenReturn(Mono.just(definition("a")));
 
-    StepVerifier.create(provider.diff("s", "w1", "nope", null)).verifyError(NotFoundException.class);
+    StepVerifier.create(provider.diff("s", "w1", "nope", null))
+        .verifyError(NotFoundException.class);
   }
 
   @Test
@@ -88,10 +94,12 @@ class WorkflowVersionProviderTest {
   }
 
   @Test
-  void rollback_needsAKnownVersion() {
+  void rollback_needsKnownVersion() {
     when(definitions.findRevision("s", "w1", "nope")).thenReturn(Mono.empty());
 
     StepVerifier.create(provider.rollback("s", "w1", " "))
+        .verifyError(IllegalArgumentException.class);
+    StepVerifier.create(provider.rollback("s", "w1", null))
         .verifyError(IllegalArgumentException.class);
     StepVerifier.create(provider.rollback("s", "w1", "nope")).verifyError(NotFoundException.class);
   }

@@ -23,7 +23,7 @@ import lombok.extern.slf4j.Slf4j;
 
 /** Applies tracker events to the state of the executions, in the order they were emitted. */
 @Slf4j
-@SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.LawOfDemeter"})
+@SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.LawOfDemeter", "PMD.OnlyOneReturn"})
 final class TrackerEventApplier {
 
   /** Counts execution-log writes that failed, by what was being recorded. */

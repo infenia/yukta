@@ -294,7 +294,7 @@ class DirectiveDispatcherTest {
   }
 
   @Test
-  void dispatchOrdered_aCancelledCommandIsRecordedAsRejected() {
+  void dispatchOrdered_cancelledCommandIsRecordedAsRejected() {
     registry.register(createControl("s", "w", "exec-cancel"));
     final ExecutionControlCommand pause =
         new ExecutionControlCommand.PauseWorkflowCommand("exec-cancel");
@@ -434,5 +434,47 @@ class DirectiveDispatcherTest {
                 new ExecutionControlCommand.RestartFromNodeCommand("gone", "n", "new")))
         .expectErrorMatches(e -> e.getMessage().contains("Execution not found: gone"))
         .verify();
+  }
+
+  @Test
+  void dispatchOrdered_cancelledWaiterOfRunThatIsGone_isNotRecorded() {
+    registry.register(createControl("s", "w", "exec-gone"));
+    when(processor.canProcess(any())).thenReturn(true);
+    when(processor.getPriority()).thenReturn(1);
+    final ExecutionControlCommand running =
+        new ExecutionControlCommand.PauseWorkflowCommand("exec-gone");
+    final ExecutionControlCommand waiting =
+        new ExecutionControlCommand.ResumeWorkflowCommand("exec-gone");
+    when(processor.process(running)).thenReturn(Mono.never());
+    final var first = dispatcher.dispatchOrdered(running).subscribe();
+    final var second = dispatcher.dispatchOrdered(waiting).subscribe();
+    registry.unregister("exec-gone");
+
+    second.dispose();
+
+    assertThat(log.readAll()).isEmpty();
+    first.dispose();
+  }
+
+  @Test
+  void dispatchOrdered_cancelledCommandNamesItsActor() {
+    registry.register(createControl("s", "w", "exec-actor"));
+    final ExecutionControlCommand pause =
+        new ExecutionControlCommand.PauseWorkflowCommand("exec-actor");
+    when(processor.canProcess(any())).thenReturn(true);
+    when(processor.getPriority()).thenReturn(1);
+    when(processor.process(pause)).thenReturn(Mono.never());
+
+    dispatcher
+        .dispatchOrdered(pause)
+        .contextWrite(
+            reactor.util.context.Context.of(
+                com.infenia.yukta.plugin.control.ControlActor.CONTEXT_KEY, "key:bob"))
+        .subscribe()
+        .dispose();
+
+    assertThat(log.readAll())
+        .extracting(ExecutionLogEvent::status)
+        .containsExactly("PauseWorkflowCommand [by key:bob]: cancelled");
   }
 }

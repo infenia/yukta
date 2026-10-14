@@ -4,6 +4,8 @@ package com.infenia.yukta.plugin.util;
 
 import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayDeque;
@@ -27,7 +29,10 @@ import reactor.core.publisher.Sinks;
  * <p>A signal that arrives before its wait is kept for {@link #EARLY_TTL} (at most {@link
  * #EARLY_CAP} at a time) and answered {@link #QUEUED}; the wait that follows takes it at once.
  */
-@SuppressWarnings({"PMD.AtLeastOneConstructor", "PMD.OnlyOneReturn"})
+@SuppressWarnings("PMD.OnlyOneReturn")
+@SuppressFBWarnings(
+    value = "SING_SINGLETON_HAS_NONPRIVATE_CONSTRUCTOR",
+    justification = "shared() is a convenience; tests and plugins may still own an instance")
 public final class SignalWaits {
 
   /** Answer to a signal that a waiting node took. */
@@ -46,7 +51,10 @@ public final class SignalWaits {
   public static final int EARLY_CAP = 100;
 
   /** The instance the engine's plugins share, so one list shows every wait. */
-  private static final SignalWaits SHARED = new SignalWaits();
+  private static final SignalWaits INSTANCE = new SignalWaits();
+
+  /** Tells the time, for the age of a signal that came early. */
+  private final Clock clock;
 
   /** Waits by execution, node and signal name; waits on one key are answered oldest first. */
   private final Map<String, Deque<Waiter>> waiting = new ConcurrentHashMap<>();
@@ -56,7 +64,7 @@ public final class SignalWaits {
 
   private record Waiter(Sinks.One<Decision> sink, Instant since) {}
 
-  private record Early(Decision decision, Instant at) {}
+  private record Early(Decision decision, Instant stored) {}
 
   /**
    * A wait that is open now.
@@ -68,13 +76,22 @@ public final class SignalWaits {
    */
   public record Pending(String executionId, String nodeId, String name, Instant since) {}
 
+  /** Creates waits that tell the time by the system clock. */
+  public SignalWaits() {
+    this(Clock.systemUTC());
+  }
+
+  /* default */ SignalWaits(final Clock clock) {
+    this.clock = clock;
+  }
+
   /**
    * The instance shared by the plugins of the engine.
    *
    * @return the shared waits
    */
   public static SignalWaits shared() {
-    return SHARED;
+    return INSTANCE;
   }
 
   /**
@@ -117,7 +134,7 @@ public final class SignalWaits {
         () -> {
           final String key = key(executionId, nodeId, name);
           final Sinks.One<Decision> sink = Sinks.one();
-          final Waiter waiter = new Waiter(sink, Instant.now());
+          final Waiter waiter = new Waiter(sink, Instant.now(clock));
           waiting.compute(
               key,
               (_, queue) -> {
@@ -167,8 +184,8 @@ public final class SignalWaits {
   }
 
   private boolean keepEarly(final String key, final Decision decision) {
-    final Instant now = Instant.now();
-    early.values().removeIf(e -> e.at().plus(EARLY_TTL).isBefore(now));
+    final Instant now = Instant.now(clock);
+    early.values().removeIf(e -> e.stored().plus(EARLY_TTL).isBefore(now));
     if (early.size() >= EARLY_CAP && !early.containsKey(key)) {
       return false;
     }
@@ -178,7 +195,7 @@ public final class SignalWaits {
 
   private Decision takeEarly(final String key) {
     final Early kept = early.remove(key);
-    return kept == null || kept.at().plus(EARLY_TTL).isBefore(Instant.now())
+    return kept == null || kept.stored().plus(EARLY_TTL).isBefore(Instant.now(clock))
         ? null
         : kept.decision();
   }

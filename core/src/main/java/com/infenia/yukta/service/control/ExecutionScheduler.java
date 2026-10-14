@@ -294,7 +294,7 @@ public class ExecutionScheduler implements SmartLifecycle {
    * @return an immediate admission whose permit releases nothing
    */
   public Admission borrowed() {
-    return new Admission(true, Mono.just(new Permit(null)));
+    return new Admission(true, Mono.just(new Permit("")));
   }
 
   /**
@@ -302,7 +302,7 @@ public class ExecutionScheduler implements SmartLifecycle {
    *
    * @return the limit, 0 for none
    */
-  public int maxPerWorkflow() {
+  public int perWorkflowLimit() {
     synchronized (lock) {
       return maxPerWorkflow;
     }
@@ -583,19 +583,19 @@ public class ExecutionScheduler implements SmartLifecycle {
 
   /** A claim on one execution slot; release it when the execution ends. */
   public final class Permit {
-    /** The workflow the slot was taken for; null for a borrowed one, which holds nothing. */
-    private final @Nullable String key;
+    /** The workflow the slot was taken for; empty for a borrowed one, which holds nothing. */
+    private final String key;
 
     /** Makes releasing idempotent. */
     private final AtomicBoolean released = new AtomicBoolean();
 
-    private Permit(final @Nullable String key) {
+    private Permit(final String key) {
       this.key = key;
     }
 
     /** Gives the slot back and admits the next waiting start that fits. */
     public void release() {
-      if (key != null && released.compareAndSet(false, true)) {
+      if (!key.isEmpty() && released.compareAndSet(false, true)) {
         free(key);
       }
     }

@@ -51,6 +51,7 @@ import reactor.core.scheduler.Schedulers;
 @Service
 @Validated
 @SuppressWarnings({
+  "PMD.GodClass",
   "PMD.ExcessiveImports",
   "PMD.TooManyMethods",
   "PMD.CouplingBetweenObjects",

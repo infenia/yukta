@@ -19,11 +19,13 @@ import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.model.workflow.WorkflowNode;
 import com.infenia.yukta.model.workflow.WorkflowTemplate;
 import com.infenia.yukta.service.archive.DefinitionVersion;
+import com.infenia.yukta.service.control.ExecutionRejectedException;
 import com.infenia.yukta.service.control.ExecutionScheduler;
 import com.infenia.yukta.service.log.ExecutionLogEvent;
 import com.infenia.yukta.service.log.InMemoryExecutionLogStore;
 import com.infenia.yukta.service.store.InMemoryNodeCheckpointStore;
 import com.infenia.yukta.service.workflow.store.WorkflowDefinitionStore;
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -52,8 +54,7 @@ class ExecutionResumerTest {
   private final WorkflowDefinitionStore definitions = mock(WorkflowDefinitionStore.class);
   private final WorkflowOrchestrator orchestrator = mock(WorkflowOrchestrator.class);
   private final ExecutionScheduler scheduler =
-      new ExecutionScheduler(
-          0, 0, 100, ExecutionScheduler.OnLimit.QUEUE, java.time.Duration.ofSeconds(30));
+      new ExecutionScheduler(0, 0, 100, ExecutionScheduler.OnLimit.QUEUE, Duration.ofSeconds(30));
   private final PreparedWorkflow prepared = chain();
   private final ExecutionResumer resumer =
       new ExecutionResumer(log, checkpoints, definitions, orchestrator, scheduler);
@@ -319,5 +320,20 @@ class ExecutionResumerTest {
     verify(orchestrator)
         .rerun(any(), any(), any(), any(), any(), plan.capture(), any(), any(), any(), any());
     assertThat(plan.getValue().rerun()).containsExactlyInAnyOrder("a", "b", "c");
+  }
+
+  @Test
+  void resumeWhenTheSlotsAreFull_isRefusedBeforeAnythingIsLogged() {
+    abortedRun(DefinitionVersion.of(prepared), "a");
+    final ExecutionScheduler full =
+        new ExecutionScheduler(1, 0, 0, ExecutionScheduler.OnLimit.REJECT, Duration.ZERO);
+    full.acquire("s", "w");
+    final ExecutionResumer limited =
+        new ExecutionResumer(log, checkpoints, definitions, orchestrator, full);
+
+    StepVerifier.create(limited.resume("old")).verifyError(ExecutionRejectedException.class);
+
+    assertThat(log.readAll())
+        .noneMatch(event -> event.type() == ExecutionLogEvent.Type.RUN_RESUMED);
   }
 }

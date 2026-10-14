@@ -129,7 +129,7 @@ class LlmCallPluginTest {
   }
 
   @Test
-  void hardStopMustBeABoolean() {
+  void hardStopMustBeBoolean() {
     StepVerifier.create(
             plugin.validateConfig(config("budget", Map.of("maxTokens", 10, "hardStop", "yes"))))
         .expectErrorMessage("budget.hardStop must be true or false")
@@ -142,7 +142,7 @@ class LlmCallPluginTest {
     final Map<String, Object> config =
         config(
             "messages",
-            java.util.List.of(
+            List.of(
                 Map.of("role", "user", "content", "weather?"),
                 Map.of(
                     "role",
@@ -150,15 +150,15 @@ class LlmCallPluginTest {
                     "content",
                     "",
                     "actions",
-                    java.util.List.of(
+                    List.of(
                         Map.of("tool", "weather", "arguments", Map.of("c", "Oslo"), "id", "c1"))),
                 Map.of(
                     "role", "tool", "content", "rain", "toolCallId", "c1", "toolName", "weather")));
 
     StepVerifier.create(run(config)).expectNextCount(1).verifyComplete();
 
-    final var captured = org.mockito.ArgumentCaptor.forClass(LlmRequest.class);
-    org.mockito.Mockito.verify(gateway).call(captured.capture());
+    final var captured = ArgumentCaptor.forClass(LlmRequest.class);
+    verify(gateway).call(captured.capture());
     final var turns = captured.getValue().messages();
     assertThat(turns.get(1).toolCalls())
         .containsExactly(new ToolCallRequest("c1", "weather", "{\"c\":\"Oslo\"}"));
@@ -186,6 +186,9 @@ class LlmCallPluginTest {
                     Map.of("input", 1.0))))
         .verifyComplete();
     StepVerifier.create(plugin.validateConfig(config("budget", Map.of()))).verifyComplete();
+    StepVerifier.create(
+            plugin.validateConfig(config("budget", Map.of("maxTokens", 10, "hardStop", true))))
+        .verifyComplete();
   }
 
   @Test

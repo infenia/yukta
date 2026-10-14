@@ -213,8 +213,7 @@ class ExecutionRecoveryTest {
   @Test
   void newestAppliedLimitChange_isReappliedToTheScheduler() {
     final ExecutionScheduler scheduler =
-        new ExecutionScheduler(
-            9, 9, 10, ExecutionScheduler.OnLimit.REJECT, java.time.Duration.ZERO);
+        new ExecutionScheduler(9, 9, 10, ExecutionScheduler.OnLimit.REJECT, Duration.ZERO);
     store.append(
         ExecutionLogEvent.control(true, ExecutionLogEvent.SCHEDULER, "SetLimits(1, 1)", null));
     store.append(
@@ -228,7 +227,7 @@ class ExecutionRecoveryTest {
 
     recovery.recover();
 
-    assertThat(scheduler.maxPerWorkflow()).isEqualTo(2);
+    assertThat(scheduler.perWorkflowLimit()).isEqualTo(2);
     for (int i = 0; i < 4; i++) {
       assertThat(scheduler.acquire("s", "w" + i).refused()).isFalse();
     }
@@ -238,8 +237,7 @@ class ExecutionRecoveryTest {
   @Test
   void legacySingleArgumentChange_keepsThePerWorkflowLimit() {
     final ExecutionScheduler scheduler =
-        new ExecutionScheduler(
-            9, 3, 10, ExecutionScheduler.OnLimit.REJECT, java.time.Duration.ZERO);
+        new ExecutionScheduler(9, 3, 10, ExecutionScheduler.OnLimit.REJECT, Duration.ZERO);
     store.append(
         ExecutionLogEvent.control(true, ExecutionLogEvent.SCHEDULER, "SetLimits(2)", null));
     final ExecutionRecovery recovery = new ExecutionRecovery(store, tracker, 100);
@@ -247,9 +245,30 @@ class ExecutionRecoveryTest {
 
     recovery.recover();
 
-    assertThat(scheduler.maxPerWorkflow()).isEqualTo(3);
+    assertThat(scheduler.perWorkflowLimit()).isEqualTo(3);
     scheduler.acquire("s", "a");
     scheduler.acquire("s", "b");
     assertThat(scheduler.acquire("s", "c").refused()).isTrue();
+  }
+
+  @Test
+  void onlyAppliedAndReadableLimitChanges_areReapplied() {
+    final ExecutionScheduler scheduler =
+        new ExecutionScheduler(9, 9, 10, ExecutionScheduler.OnLimit.REJECT, Duration.ZERO);
+    store.append(
+        ExecutionLogEvent.control(true, ExecutionLogEvent.SCHEDULER, "SetLimits(3, 1)", null));
+    store.append(
+        ExecutionLogEvent.control(
+            false, ExecutionLogEvent.SCHEDULER, "SetLimits(8, 8)", "refused by a reviewer"));
+    store.append(
+        ExecutionLogEvent.control(true, ExecutionLogEvent.SCHEDULER, "SetLimits(garbled", null));
+    final ExecutionRecovery recovery = new ExecutionRecovery(store, tracker, 100);
+    recovery.setExecutionScheduler(scheduler);
+
+    recovery.recover();
+
+    assertThat(scheduler.perWorkflowLimit()).isEqualTo(1);
+    scheduler.acquire("s", "w");
+    assertThat(scheduler.acquire("s", "w").refused()).isTrue();
   }
 }

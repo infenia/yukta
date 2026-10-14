@@ -76,7 +76,7 @@ class CommandSequencerTest {
   }
 
   @Test
-  void cancelledWaiter_doesNotLetALaterJobOvertakeTheRunningOne() {
+  void cancelledWaiter_doesNotLetLaterJobOvertakeTheRunningOne() {
     final List<String> log = new CopyOnWriteArrayList<>();
     final var running = sequencer.sequence("e1", Mono.never()).subscribe();
     final var waiter = sequencer.sequence("e1", job(log, "b", Duration.ZERO)).subscribe();

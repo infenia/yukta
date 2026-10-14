@@ -126,7 +126,7 @@ class SubWorkflowRunnerTest {
   }
 
   @Test
-  void childTakesNoSlotOfItsOwn_soASingleSlotParentCannotStarveIt() {
+  void childTakesNoSlotOfItsOwn_soSingleSlotParentCannotStarveIt() {
     scheduler.acquire("s", "parent"); // the parent holds the only slot
     when(cache.get("s", "child")).thenReturn(Optional.of(prepared));
     when(orchestrator.execute(anyString(), anyString(), anyString(), any(), anyMap(), any()))
@@ -154,12 +154,13 @@ class SubWorkflowRunnerTest {
     final reactor.core.Disposable run = runner.run("s", "child", Map.of(), "parent", 1).subscribe();
     org.awaitility.Awaitility.await()
         .atMost(2, java.util.concurrent.TimeUnit.SECONDS)
-        .until(() -> mockingInvoked());
+        .until(this::mockingInvoked);
     run.dispose();
 
     org.awaitility.Awaitility.await()
         .atMost(2, java.util.concurrent.TimeUnit.SECONDS)
         .untilTrue(cancelled);
+    assertThat(cancelled).isTrue();
   }
 
   private boolean mockingInvoked() {

@@ -95,4 +95,13 @@ class SignalNodeCommandProcessorTest {
     when(plugins.lookup("wf", "n1")).thenReturn(Optional.empty());
     StepVerifier.create(processor.process(command)).verifyError(NotFoundException.class);
   }
+
+  @Test
+  void signalKeptForWaitThatHasNotBegun_isAccepted() {
+    known();
+    when(plugin.onControlSignal(any()))
+        .thenReturn(Mono.just(DefaultMessage.create(UUID.randomUUID(), "QUEUED")));
+
+    StepVerifier.create(processor.process(command)).verifyComplete();
+  }
 }

@@ -47,7 +47,7 @@ class McpClientGatewayTest {
   private volatile boolean sse;
   private volatile boolean initFail;
   private volatile boolean listError;
-  private volatile boolean paged;
+  private volatile int paged;
   private volatile boolean stateless;
   private HttpServer server;
   private McpClientGateway gateway;
@@ -105,11 +105,15 @@ class McpClientGatewayTest {
                   + id
                   + "\",\"result\":{\"tools\":[{\"name\":\"weather\",\"description\":\"Weather\","
                   + "\"inputSchema\":{\"type\":\"object\"}},{\"name\":\"bare\"},\"junk\"]}}";
-      if (paged) {
+      if (paged == 1) {
         reply =
             body.contains("\"cursor\":\"p2\"")
                 ? rpc(id, "\"result\":{\"tools\":[{\"name\":\"second\"}]}")
                 : rpc(id, "\"result\":{\"tools\":[{\"name\":\"first\"}],\"nextCursor\":\"p2\"}");
+      } else if (paged == 2) {
+        reply = rpc(id, "\"result\":{\"tools\":[{\"name\":\"again\"}],\"nextCursor\":\"more\"}");
+      } else if (paged == 3) {
+        reply = rpc(id, "\"result\":{\"tools\":[{\"name\":\"only\"}],\"nextCursor\":\"\"}");
       }
       exchange.getResponseHeaders().add("Content-Type", "application/json");
     } else if ("tools/call".equals(method)) {
@@ -210,7 +214,7 @@ class McpClientGatewayTest {
 
   @Test
   void listTools_followsNextCursorToTheLastPage() {
-    paged = true;
+    paged = 1;
 
     StepVerifier.create(gateway.listTools(spec("tools/list"), () -> {}))
         .assertNext(
@@ -221,6 +225,19 @@ class McpClientGatewayTest {
         .verifyComplete();
     assertThat(methods)
         .containsExactly("initialize", "notifications/initialized", "tools/list", "tools/list");
+  }
+
+  @Test
+  void listTools_stopsAtThePageLimit_andTreatsAnEmptyCursorAsTheEnd() {
+    paged = 2;
+    StepVerifier.create(gateway.listTools(spec("tools/list"), () -> {}))
+        .assertNext(tools -> assertThat(tools).hasSize(50))
+        .verifyComplete();
+
+    paged = 3;
+    StepVerifier.create(gateway.listTools(spec("tools/list"), () -> {}))
+        .assertNext(tools -> assertThat(tools).hasSize(1))
+        .verifyComplete();
   }
 
   @Test

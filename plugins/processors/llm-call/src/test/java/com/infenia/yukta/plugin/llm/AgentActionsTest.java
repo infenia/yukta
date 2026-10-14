@@ -8,7 +8,7 @@ import java.util.Map;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 
-@SuppressWarnings("PMD.CommentRequired")
+@SuppressWarnings({"PMD.CommentRequired", "PMD.AvoidDuplicateLiterals"})
 @NoArgsConstructor
 class AgentActionsTest {
 
@@ -47,7 +47,7 @@ class AgentActionsTest {
   }
 
   @Test
-  void toToolCalls_turnsActionsBackIntoCalls_withArgumentsAsJson() {
+  void actionsAreTurnedBackIntoToolCalls_withArgumentsAsJson() {
     final var calls =
         AgentActions.toToolCalls(
             java.util.List.of(
@@ -63,5 +63,27 @@ class AgentActionsTest {
             new ToolCallRequest("", "raw", "{\"a\":1}"),
             new ToolCallRequest("", "none", "{}"));
     assertThat(AgentActions.toToolCalls("not a list")).isEmpty();
+  }
+
+  @Test
+  void argumentsThatCannotBeWritten_becomeAnEmptyObject() {
+    final var calls =
+        AgentActions.toToolCalls(
+            java.util.List.of(Map.of("tool", "odd", "arguments", new Unwritable(), "id", "c9")));
+
+    assertThat(calls).containsExactly(new ToolCallRequest("c9", "odd", "{}"));
+  }
+
+  /** A value Jackson cannot write. */
+  @SuppressWarnings("PMD.PublicMemberInNonPublicType")
+  /* default */ static final class Unwritable {
+    /**
+     * Always fails.
+     *
+     * @return never
+     */
+    public String getBoom() {
+      throw new IllegalStateException("cannot be written");
+    }
   }
 }

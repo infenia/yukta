@@ -74,4 +74,14 @@ class RunTelemetryTest {
 
     assertThat(meters.getMeters()).isEmpty();
   }
+
+  @Test
+  void runWithoutSpan_isStillTimedWhenItEnds() {
+    final LocalDateTime now = LocalDateTime.now();
+
+    telemetry.runStatus("ghost", "SUCCESS", true, now.minusSeconds(1), now);
+
+    assertThat(meters.get("yukta.execution.duration").tag("status", "SUCCESS").timer().count())
+        .isEqualTo(1);
+  }
 }

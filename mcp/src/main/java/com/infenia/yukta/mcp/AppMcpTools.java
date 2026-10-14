@@ -2,8 +2,6 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.mcp;
 
-import com.infenia.yukta.mcp.dto.WorkflowRollback;
-import com.infenia.yukta.mcp.dto.WorkflowVersions;
 import com.infenia.yukta.mcp.dto.ControlActionResult;
 import com.infenia.yukta.mcp.dto.ControlBusStatus;
 import com.infenia.yukta.mcp.dto.ExecutionLogs;
@@ -18,7 +16,9 @@ import com.infenia.yukta.mcp.dto.SessionDetails;
 import com.infenia.yukta.mcp.dto.SessionList;
 import com.infenia.yukta.mcp.dto.WorkflowControlAction;
 import com.infenia.yukta.mcp.dto.WorkflowHistory;
+import com.infenia.yukta.mcp.dto.WorkflowRollback;
 import com.infenia.yukta.mcp.dto.WorkflowStartResult;
+import com.infenia.yukta.mcp.dto.WorkflowVersions;
 import com.infenia.yukta.mcp.provider.LogProvider;
 import com.infenia.yukta.mcp.provider.PluginInfoProvider;
 import com.infenia.yukta.mcp.provider.ResultProvider;
@@ -27,11 +27,11 @@ import com.infenia.yukta.mcp.provider.SystemHealthProvider;
 import com.infenia.yukta.mcp.provider.WorkflowControlProvider;
 import com.infenia.yukta.mcp.provider.WorkflowExecutionProvider;
 import com.infenia.yukta.mcp.provider.WorkflowVersionProvider;
-import com.infenia.yukta.service.workflow.store.WorkflowDiff;
 import com.infenia.yukta.model.execution.WorkflowProgress;
 import com.infenia.yukta.model.session.SessionConfigData;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.service.result.ExecutionResults;
+import com.infenia.yukta.service.workflow.store.WorkflowDiff;
 import lombok.RequiredArgsConstructor;
 import org.springframework.ai.mcp.annotation.McpTool;
 import org.springframework.ai.mcp.annotation.McpToolParam;
@@ -47,7 +47,8 @@ import reactor.core.publisher.Mono;
 @SuppressWarnings({
   "PMD.UseObjectForClearerAPI",
   "PMD.CouplingBetweenObjects",
-  "PMD.ExcessiveImports"
+  "PMD.ExcessiveImports",
+  "PMD.TooManyMethods"
 })
 public class AppMcpTools {
 
@@ -494,8 +495,8 @@ public class AppMcpTools {
    *
    * @param sessionId the session
    * @param workflowId the workflow
-   * @param from the older version id
-   * @param to the newer version id, or omit for the current definition
+   * @param olderVersion the older version id
+   * @param newerVersion the newer version id, or omit for the current definition
    * @return Mono containing the nodes and edges added, removed or changed
    */
   @McpTool(
@@ -510,15 +511,16 @@ public class AppMcpTools {
               readOnlyHint = true,
               destructiveHint = false,
               openWorldHint = false))
+  @SuppressWarnings("PMD.UseObjectForClearerAPI")
   public Mono<WorkflowDiff> diffWorkflowVersions(
       @McpToolParam(required = true, description = SESSION_ID_DESC) final String sessionId,
       @McpToolParam(required = true, description = "The workflow identifier")
           final String workflowId,
       @McpToolParam(required = true, description = "The older version id from the list")
-          final String from,
+          final String olderVersion,
       @McpToolParam(required = false, description = "The newer version id; omit for the current")
-          final String to) {
-    return workflowVersionProvider.diff(sessionId, workflowId, from, to);
+          final String newerVersion) {
+    return workflowVersionProvider.diff(sessionId, workflowId, olderVersion, newerVersion);
   }
 
   /**

@@ -143,24 +143,22 @@ public class ExecutionRecovery implements SmartInitializingSingleton {
    * set at run time survive a restart; the log wins over the configuration from then on.
    */
   private void restoreLimits(final List<ExecutionLogEvent> schedulerEvents) {
-    if (executionScheduler == null) {
-      return;
-    }
+    boolean restored = executionScheduler == null;
     for (final ExecutionLogEvent event : schedulerEvents.reversed()) {
-      if (event.type() != ExecutionLogEvent.Type.CONTROL_APPLIED) {
-        continue;
+      if (restored) {
+        break;
       }
       final Matcher match = LIMITS.matcher(event.status());
-      if (match.matches()) {
+      if (event.type() == ExecutionLogEvent.Type.CONTROL_APPLIED && match.matches()) {
         final int perWorkflow =
             match.group(2) == null
-                ? executionScheduler.maxPerWorkflow()
+                ? executionScheduler.perWorkflowLimit()
                 : Integer.parseInt(match.group(2));
         executionScheduler.setLimits(Integer.parseInt(match.group(1)), perWorkflow);
         log.atInfo()
             .addKeyValue("limits", event.status())
             .log("Restored the limits changed at run time");
-        return;
+        restored = true;
       }
     }
   }

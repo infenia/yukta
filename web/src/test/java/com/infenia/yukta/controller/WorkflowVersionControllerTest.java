@@ -56,7 +56,7 @@ class WorkflowVersionControllerTest {
   }
 
   @Test
-  void diffComparesAVersionWithTheCurrentDefinition_orWithAnotherVersion() {
+  void diffComparesVersionWithCurrentDefinition_orWithAnotherVersion() {
     final WorkflowDefinition older =
         new WorkflowDefinition(
             "w1", "d", List.of(new WorkflowDefinition.Node("a", "T", Map.of())), List.of());
@@ -74,7 +74,9 @@ class WorkflowVersionControllerTest {
 
     for (final String uri :
         List.of(
-            BASE + "/versions/diff?from=0001-a", BASE + "/versions/diff?from=0001-a&to=0002-b")) {
+            BASE + "/versions/diff?from=0001-a",
+            BASE + "/versions/diff?from=0001-a&to=",
+            BASE + "/versions/diff?from=0001-a&to=0002-b")) {
       client
           .get()
           .uri(uri)

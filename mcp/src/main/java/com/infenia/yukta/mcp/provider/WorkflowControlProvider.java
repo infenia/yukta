@@ -21,7 +21,7 @@ import reactor.core.publisher.Mono;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-@SuppressWarnings({"PMD.UseObjectForClearerAPI", "PMD.OnlyOneReturn"})
+@SuppressWarnings({"PMD.UseObjectForClearerAPI", "PMD.OnlyOneReturn", "PMD.TooManyMethods"})
 public class WorkflowControlProvider {
 
   /** Reason recorded for stop actions when the caller does not provide one. */

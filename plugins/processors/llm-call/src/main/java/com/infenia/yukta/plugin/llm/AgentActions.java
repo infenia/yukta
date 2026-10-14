@@ -85,14 +85,16 @@ public class AgentActions {
   }
 
   private static String argumentsJson(final Object arguments) {
-    if (arguments instanceof final String text) {
-      return text;
-    }
+    String json;
     try {
-      return JSON_MAPPER.writeValueAsString(Objects.requireNonNullElse(arguments, Map.of()));
+      json =
+          arguments instanceof final String text
+              ? text
+              : JSON_MAPPER.writeValueAsString(Objects.requireNonNullElse(arguments, Map.of()));
     } catch (JacksonException e) {
-      return "{}";
+      json = "{}";
     }
+    return json;
   }
 
   /**

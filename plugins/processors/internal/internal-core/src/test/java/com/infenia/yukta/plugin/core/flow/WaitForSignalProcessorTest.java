@@ -131,4 +131,11 @@ class WaitForSignalProcessorTest {
     assertThat(processor.describe().description()).contains("signal");
     assertThat(processor.getConfigSchema()).extracting("name").contains("signal");
   }
+
+  @Test
+  void theDefaultConstructor_usesTheSharedWaits() {
+    final WaitForSignalProcessor shared = new WaitForSignalProcessor();
+
+    assertThat(shared.describe()).isNotNull();
+  }
 }

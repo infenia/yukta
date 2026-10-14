@@ -120,7 +120,7 @@ class LlmGatewayTest {
   }
 
   @Test
-  void providerRateLimit_refusesACallThatWouldWaitLongerThanItMayTake() {
+  void providerRateLimit_refusesCallThatWouldWaitLongerThanItMayTake() {
     gateway.setRateLimits(java.util.Map.of("openai", 1)); // one per minute, call timeout is 10 s
 
     assertThat(gateway.call(request(Provider.OPENAI, "/v1")).text()).isEqualTo("hi");
@@ -194,7 +194,7 @@ class LlmGatewayTest {
   }
 
   @Test
-  void aToolExchange_isSentAsAssistantToolCallsAndAToolResult() {
+  void toolExchange_isSentAsAssistantToolCallsAndToolResult() {
     final LlmRequest base = request(Provider.OPENAI, "/v1");
     final LlmRequest exchange =
         new LlmRequest(
@@ -329,5 +329,25 @@ class LlmGatewayTest {
     assertThatThrownBy(() -> gateway.call(request(Provider.OPENAI, "/v1")))
         .hasMessageContaining("deny-input-patterns");
     assertThat(bodies).isEmpty();
+  }
+
+  @Test
+  void rateLimitFromTheEnvironment_spacesCalls_andAnInterruptedWaitFails() {
+    gateway.readPatterns(
+        new org.springframework.mock.env.MockEnvironment()
+            .withProperty("yukta.llm.rate-limit.openai", "600"));
+
+    // 600 per minute is 100 ms apart: the second call waits for its turn and still succeeds
+    assertThat(gateway.call(request(Provider.OPENAI, "/v1")).text()).isEqualTo("hi");
+    assertThat(gateway.call(request(Provider.OPENAI, "/v1")).text()).isEqualTo("hi");
+
+    Thread.currentThread().interrupt();
+    try {
+      assertThatThrownBy(() -> gateway.call(request(Provider.OPENAI, "/v1")))
+          .isInstanceOf(IllegalStateException.class)
+          .hasMessageContaining("Interrupted");
+    } finally {
+      assertThat(Thread.interrupted()).isTrue(); // the flag is kept for the caller; clear it here
+    }
   }
 }

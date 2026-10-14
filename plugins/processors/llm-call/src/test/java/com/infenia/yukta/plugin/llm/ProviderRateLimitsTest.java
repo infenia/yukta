@@ -6,19 +6,20 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.time.Duration;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 
 @NoArgsConstructor
-@SuppressWarnings("PMD.CommentRequired")
+@SuppressWarnings({"PMD.CommentRequired", "PMD.AvoidDuplicateLiterals", "PMD.UseConcurrentHashMap"})
 class ProviderRateLimitsTest {
 
   private final ProviderRateLimits limits = new ProviderRateLimits();
 
   @Test
-  void aProviderWithoutALimit_neverWaits() {
+  void providerWithoutLimit_neverWaits() {
     assertThat(limits.reserve("OPENAI", 0, Duration.ZERO)).isZero();
     assertThat(limits.reserve("OPENAI", 0, Duration.ZERO)).isZero();
   }
@@ -38,7 +39,7 @@ class ProviderRateLimitsTest {
   }
 
   @Test
-  void aTurnFurtherAwayThanTheCallMayTake_isRefused_andKeepsNoPlace() {
+  void turnFurtherAwayThanCallMayTake_isRefused_andKeepsNoPlace() {
     limits.configure(Map.of("openai", 1)); // one per minute
     limits.reserve("OPENAI", 0, Duration.ofSeconds(1));
 
@@ -51,8 +52,12 @@ class ProviderRateLimitsTest {
   }
 
   @Test
-  void zeroOrNegativeMeansNoLimit() {
-    limits.configure(Map.of("openai", 0));
+  void zeroOrNegativeOrMissingMeansNoLimit() {
+    final Map<String, Integer> configured = new HashMap<>();
+    configured.put("openai", 0);
+    configured.put("anthropic", null);
+    limits.configure(configured);
+    assertThat(limits.reserve("ANTHROPIC", 0, Duration.ZERO)).isZero();
     assertThat(limits.reserve("OPENAI", 0, Duration.ZERO)).isZero();
   }
 }

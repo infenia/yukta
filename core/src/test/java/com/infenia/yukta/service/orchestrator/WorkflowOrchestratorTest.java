@@ -969,4 +969,22 @@ class WorkflowOrchestratorTest {
     when(executionControl.safeStopSink()).thenReturn(safeStop);
     lenient().when(executionControl.stopRequested()).thenReturn(new AtomicBoolean());
   }
+
+  @Test
+  void restartFromNode_graphThatCannotBeCompiled_givesTheReservedSlotBack() {
+    final WorkflowNode trigger = new WorkflowNode("trigger", "trigger-type", Map.of());
+    final PreparedWorkflow prepared = buildPreparedWorkflowFromNodes(List.of(trigger));
+    when(compiler.compileAssemblers(any(), any(), any(), any()))
+        .thenThrow(new IllegalStateException("cannot compile"));
+    final ExecutionScheduler limited =
+        new ExecutionScheduler(1, 0, 0, ExecutionScheduler.OnLimit.REJECT, Duration.ZERO);
+    final ExecutionScheduler.Admission admission = limited.acquire("s", "w");
+
+    StepVerifier.create(
+            orchestrator.restartFromNode(
+                "s", "w", "prev", "new", prepared, "trigger", Map.of(), admission))
+        .verifyErrorMessage("cannot compile");
+
+    assertThat(limited.running()).isZero();
+  }
 }

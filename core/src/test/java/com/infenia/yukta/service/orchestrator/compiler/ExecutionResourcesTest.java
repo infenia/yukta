@@ -87,20 +87,19 @@ class ExecutionResourcesTest {
   }
 
   @Test
-  void aFailedTerminal_failsTheRunAtOnce_andCancelsTheOthers() {
+  void failedTerminal_failsTheRunAtOnce_andCancelsTheOthers() {
     when(configStore.getExecutionTimeout("s")).thenReturn(Mono.just(60L));
-    final java.util.concurrent.atomic.AtomicBoolean siblingCancelled =
-        new java.util.concurrent.atomic.AtomicBoolean();
+    final AtomicBoolean siblingCancelled = new AtomicBoolean();
     final Mono<Void> stalled = Mono.<Void>never().doOnCancel(() -> siblingCancelled.set(true));
     final Mono<Void> failing =
-        Mono.delay(java.time.Duration.ofMillis(50))
+        Mono.delay(Duration.ofMillis(50))
             .then(Mono.error(new IllegalStateException("terminal failed")));
 
     StepVerifier.create(run("s", List.of(stalled, failing), new ArrayList<>(), new ArrayList<>()))
         .expectError(IllegalStateException.class)
-        .verify(java.time.Duration.ofSeconds(2));
+        .verify(Duration.ofSeconds(2));
 
-    org.assertj.core.api.Assertions.assertThat(siblingCancelled).isTrue();
+    assertThat(siblingCancelled).isTrue();
   }
 
   @Test

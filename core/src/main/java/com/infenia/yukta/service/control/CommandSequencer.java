@@ -48,7 +48,7 @@ public final class CommandSequencer {
                     } else {
                       // Cancelled while still waiting: later jobs must keep waiting for the
                       // predecessor, so hand over only once it is done.
-                      turn.doFinally(__ -> release(key, mine)).subscribe(_ -> {}, _ -> {});
+                      turn.doFinally(_ -> release(key, mine)).subscribe(_ -> {}, _ -> {});
                     }
                   });
         });
