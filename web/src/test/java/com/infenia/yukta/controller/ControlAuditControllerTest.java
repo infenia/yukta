@@ -68,7 +68,7 @@ class ControlAuditControllerTest {
   }
 
   @Test
-  void entryWithAMultilineReasonIsParsedWhole() {
+  void entryWithMultilineReasonIsParsedWhole() {
     final var event =
         ExecutionLogEvent.control(false, "e", "StopWorkflowCommand [by rules]", "deny:\nbusy");
 
