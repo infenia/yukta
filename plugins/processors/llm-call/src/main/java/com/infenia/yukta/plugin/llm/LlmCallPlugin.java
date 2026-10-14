@@ -184,7 +184,9 @@ public final class LlmCallPlugin implements ProcessorPlugin {
     - model: String, e.g. "gpt-4o-mini", "claude-sonnet-5-5", "llama3"
     - messages: List of {role: user|assistant, content}, given as a literal list or as a SpEL
       expression over the message, e.g. "payload['history']" ("${...}" cannot be used here: it
-      turns lists into text)
+      turns lists into text). An assistant turn may carry the "actions" of its answer, and
+      {role: tool, toolCallId, toolName, content} turns give the result of each call, so the model
+      sees a proper tool exchange instead of a user message
       and/or prompt: String, appended as a final user turn (e.g. "${payload.message}")
 
     OPTIONAL:
@@ -451,7 +453,12 @@ public final class LlmCallPlugin implements ProcessorPlugin {
       for (final Object item : list) {
         if (item instanceof final Map<?, ?> turn) {
           turns.add(
-              new ChatTurn(String.valueOf(turn.get("role")), String.valueOf(turn.get("content"))));
+              new ChatTurn(
+                  String.valueOf(turn.get("role")),
+                  String.valueOf(turn.get("content")),
+                  turn.get("toolCallId") == null ? null : turn.get("toolCallId").toString(),
+                  turn.get("toolName") == null ? null : turn.get("toolName").toString(),
+                  AgentActions.toToolCalls(turn.get("actions"))));
         }
       }
     }

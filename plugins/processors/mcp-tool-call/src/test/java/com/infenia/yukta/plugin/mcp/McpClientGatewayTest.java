@@ -47,6 +47,7 @@ class McpClientGatewayTest {
   private volatile boolean sse;
   private volatile boolean initFail;
   private volatile boolean listError;
+  private volatile boolean paged;
   private volatile boolean stateless;
   private HttpServer server;
   private McpClientGateway gateway;
@@ -104,6 +105,12 @@ class McpClientGatewayTest {
                   + id
                   + "\",\"result\":{\"tools\":[{\"name\":\"weather\",\"description\":\"Weather\","
                   + "\"inputSchema\":{\"type\":\"object\"}},{\"name\":\"bare\"},\"junk\"]}}";
+      if (paged) {
+        reply =
+            body.contains("\"cursor\":\"p2\"")
+                ? rpc(id, "\"result\":{\"tools\":[{\"name\":\"second\"}]}")
+                : rpc(id, "\"result\":{\"tools\":[{\"name\":\"first\"}],\"nextCursor\":\"p2\"}");
+      }
       exchange.getResponseHeaders().add("Content-Type", "application/json");
     } else if ("tools/call".equals(method)) {
       if (body.contains("slow")) {
@@ -199,6 +206,21 @@ class McpClientGatewayTest {
                         Map.of("name", "bare", "description", "", "inputSchema", Map.of())))
         .verifyComplete();
     assertThat(methods).containsExactly("initialize", "notifications/initialized", "tools/list");
+  }
+
+  @Test
+  void listTools_followsNextCursorToTheLastPage() {
+    paged = true;
+
+    StepVerifier.create(gateway.listTools(spec("tools/list"), () -> {}))
+        .assertNext(
+            tools ->
+                assertThat(tools)
+                    .extracting(tool -> tool.get("name"))
+                    .containsExactly("first", "second"))
+        .verifyComplete();
+    assertThat(methods)
+        .containsExactly("initialize", "notifications/initialized", "tools/list", "tools/list");
   }
 
   @Test

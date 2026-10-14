@@ -137,6 +137,36 @@ class LlmCallPluginTest {
   }
 
   @Test
+  void toolExchangeInMessages_reachesTheGatewayAsToolTurns() {
+    when(gateway.call(any())).thenReturn(new LlmResponse("ok", 1, 1, "m"));
+    final Map<String, Object> config =
+        config(
+            "messages",
+            java.util.List.of(
+                Map.of("role", "user", "content", "weather?"),
+                Map.of(
+                    "role",
+                    "assistant",
+                    "content",
+                    "",
+                    "actions",
+                    java.util.List.of(
+                        Map.of("tool", "weather", "arguments", Map.of("c", "Oslo"), "id", "c1"))),
+                Map.of(
+                    "role", "tool", "content", "rain", "toolCallId", "c1", "toolName", "weather")));
+
+    StepVerifier.create(run(config)).expectNextCount(1).verifyComplete();
+
+    final var captured = org.mockito.ArgumentCaptor.forClass(LlmRequest.class);
+    org.mockito.Mockito.verify(gateway).call(captured.capture());
+    final var turns = captured.getValue().messages();
+    assertThat(turns.get(1).toolCalls())
+        .containsExactly(new ToolCallRequest("c1", "weather", "{\"c\":\"Oslo\"}"));
+    assertThat(turns.get(2).toolCallId()).isEqualTo("c1");
+    assertThat(turns.get(2).toolName()).isEqualTo("weather");
+  }
+
+  @Test
   void budgetIsValidated() {
     StepVerifier.create(plugin.validateConfig(config("budget", Map.of("maxTokens", 0))))
         .expectError(IllegalArgumentException.class)

@@ -59,6 +59,9 @@ public class McpClientGateway {
   private static final Runnable NO_OP = Thread::onSpinWait;
 
   /** Key of a tool name. */
+  /** Most pages of {@code tools/list} that are followed. */
+  private static final int MAX_LIST_PAGES = 50;
+
   private static final String NAME = "name";
 
   private static final ObjectMapper JSON_MAPPER = new ObjectMapper();
@@ -190,7 +193,8 @@ public class McpClientGateway {
   }
 
   /**
-   * List the tools the server offers (first page).
+   * List the tools the server offers, following {@code nextCursor} for up to {@value
+   * #MAX_LIST_PAGES} pages.
    *
    * @param spec the endpoint, headers and time limit; {@code tool} and {@code arguments} are unused
    * @param heartbeat run whenever the server reports progress
@@ -212,11 +216,32 @@ public class McpClientGateway {
   private Mono<List<Map<String, Object>>> listOnce(
       final McpCallSpec spec, final String requestId, final Runnable heartbeat) {
     return session(spec)
-        .flatMap(
-            sessionId ->
-                post(spec, sessionId, request(requestId, "tools/list", Map.of()), heartbeat))
-        .map(reply -> toTools(reply, requestId));
+        .flatMap(sessionId -> listPage(spec, sessionId, null, heartbeat, new ArrayList<>(), 1));
   }
+
+  /** Reads one page of {@code tools/list} and follows {@code nextCursor} up to the page limit. */
+  private Mono<List<Map<String, Object>>> listPage(
+      final McpCallSpec spec,
+      final String sessionId,
+      final String cursor,
+      final Runnable heartbeat,
+      final List<Map<String, Object>> collected,
+      final int page) {
+    final String requestId = UUID.randomUUID().toString();
+    final Map<String, Object> params = cursor == null ? Map.of() : Map.of("cursor", cursor);
+    return post(spec, sessionId, request(requestId, "tools/list", params), heartbeat)
+        .map(reply -> toTools(reply, requestId))
+        .flatMap(
+            tools -> {
+              collected.addAll(tools.tools());
+              return tools.nextCursor() == null || page >= MAX_LIST_PAGES
+                  ? Mono.just(collected)
+                  : listPage(spec, sessionId, tools.nextCursor(), heartbeat, collected, page + 1);
+            });
+  }
+
+  /** The tools of one page, and where the next page starts (null on the last one). */
+  private record ToolPage(List<Map<String, Object>> tools, String nextCursor) {}
 
   private Mono<McpCallResult> callOnce(
       final McpCallSpec spec, final String requestId, final Runnable heartbeat) {
@@ -393,26 +418,30 @@ public class McpClientGateway {
   }
 
   @SuppressWarnings("unchecked")
-  private static List<Map<String, Object>> toTools(final Reply reply, final String requestId) {
+  private static ToolPage toTools(final Reply reply, final String requestId) {
     final Map<String, Object> answer = answerFor(reply, requestId);
     if (answer.get("error") instanceof final Map<?, ?> error) {
       throw new McpHttpException(200, "tools/list failed: " + error.get("message"));
     }
     final Map<String, Object> result = (Map<String, Object>) answer.getOrDefault(RESULT, Map.of());
-    return ((List<Object>) result.getOrDefault("tools", List.of()))
-        .stream()
-            .filter(Map.class::isInstance)
-            .map(item -> (Map<String, Object>) item)
-            .map(
-                tool ->
-                    Map.<String, Object>of(
-                        NAME,
-                        String.valueOf(tool.get(NAME)),
-                        "description",
-                        String.valueOf(tool.getOrDefault("description", "")),
-                        "inputSchema",
-                        tool.getOrDefault("inputSchema", Map.of())))
-            .toList();
+    final List<Map<String, Object>> tools =
+        ((List<Object>) result.getOrDefault("tools", List.of()))
+            .stream()
+                .filter(Map.class::isInstance)
+                .map(item -> (Map<String, Object>) item)
+                .map(
+                    tool ->
+                        Map.<String, Object>of(
+                            NAME,
+                            String.valueOf(tool.get(NAME)),
+                            "description",
+                            String.valueOf(tool.getOrDefault("description", "")),
+                            "inputSchema",
+                            tool.getOrDefault("inputSchema", Map.of())))
+                .toList();
+    final Object next = result.get("nextCursor");
+    return new ToolPage(
+        tools, next instanceof final String cursor && !cursor.isEmpty() ? cursor : null);
   }
 
   @SuppressWarnings("unchecked")

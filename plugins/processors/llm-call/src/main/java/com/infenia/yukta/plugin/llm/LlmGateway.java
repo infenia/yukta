@@ -17,6 +17,7 @@ import org.springframework.ai.anthropic.AnthropicChatOptions;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.SystemMessage;
+import org.springframework.ai.chat.messages.ToolResponseMessage;
 import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
@@ -262,16 +263,41 @@ public class LlmGateway {
         List.of());
   }
 
+  private static Message message(final ChatTurn turn) {
+    return switch (turn.role().toLowerCase(Locale.ROOT)) {
+      case "assistant" ->
+          turn.toolCalls().isEmpty()
+              ? new AssistantMessage(turn.content())
+              : AssistantMessage.builder()
+                  .content(turn.content())
+                  .toolCalls(
+                      turn.toolCalls().stream()
+                          .map(
+                              call ->
+                                  new AssistantMessage.ToolCall(
+                                      call.id(), "function", call.name(), call.arguments()))
+                          .toList())
+                  .build();
+      case "tool" ->
+          ToolResponseMessage.builder()
+              .responses(
+                  List.of(
+                      new ToolResponseMessage.ToolResponse(
+                          Objects.toString(turn.toolCallId(), ""),
+                          Objects.toString(turn.toolName(), ""),
+                          turn.content())))
+              .build();
+      default -> new UserMessage(turn.content());
+    };
+  }
+
   private static List<Message> messages(final LlmRequest request) {
     final List<Message> messages = new ArrayList<>();
     if (request.system() != null && !request.system().isBlank()) {
       messages.add(new SystemMessage(request.system()));
     }
     for (final ChatTurn turn : request.messages()) {
-      messages.add(
-          "assistant".equals(turn.role().toLowerCase(Locale.ROOT))
-              ? new AssistantMessage(turn.content())
-              : new UserMessage(turn.content()));
+      messages.add(message(turn));
     }
     return messages;
   }

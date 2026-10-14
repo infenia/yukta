@@ -194,6 +194,36 @@ class LlmGatewayTest {
   }
 
   @Test
+  void aToolExchange_isSentAsAssistantToolCallsAndAToolResult() {
+    final LlmRequest base = request(Provider.OPENAI, "/v1");
+    final LlmRequest exchange =
+        new LlmRequest(
+            base.provider(),
+            base.baseUrl(),
+            base.apiKey(),
+            base.model(),
+            base.temperature(),
+            base.maxTokens(),
+            base.timeout(),
+            base.system(),
+            List.of(
+                new ChatTurn("user", "weather in Oslo?"),
+                new ChatTurn(
+                    "assistant",
+                    "",
+                    null,
+                    null,
+                    List.of(new ToolCallRequest("call_1", "weather", "{\"city\":\"Oslo\"}"))),
+                new ChatTurn("tool", "rain", "call_1", "weather", List.of())));
+
+    gateway.call(exchange);
+
+    final String sent = bodies.getLast();
+    assertThat(sent).contains("\"tool_calls\"").contains("call_1").contains("weather");
+    assertThat(sent).contains("\"role\":\"tool\"").contains("\"tool_call_id\":\"call_1\"");
+  }
+
+  @Test
   void toolsAreSentToAnthropicAndOllamaToo() {
     assertThat(gateway.call(withTool(Provider.ANTHROPIC, "")).text()).isEqualTo("hi");
     assertThat(gateway.call(withTool(Provider.OLLAMA, "")).text()).isEqualTo("hi");

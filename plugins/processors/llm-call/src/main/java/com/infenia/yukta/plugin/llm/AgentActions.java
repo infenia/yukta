@@ -61,6 +61,41 @@ public class AgentActions {
   }
 
   /**
+   * Turns the {@code actions} of an earlier answer back into the tool calls the model asked for, so
+   * they can be sent with the assistant turn that carries them.
+   *
+   * @param actions a list of {@code {tool, arguments, id}} maps, as produced by {@link
+   *     #fromToolCall}; anything else yields no calls
+   * @return the calls, arguments as JSON text
+   */
+  public static List<ToolCallRequest> toToolCalls(final Object actions) {
+    final List<ToolCallRequest> calls = new ArrayList<>();
+    if (actions instanceof final List<?> list) {
+      for (final Object item : list) {
+        if (item instanceof final Map<?, ?> action && action.get("tool") != null) {
+          calls.add(
+              new ToolCallRequest(
+                  Objects.toString(action.get("id"), ""),
+                  String.valueOf(action.get("tool")),
+                  argumentsJson(action.get("arguments"))));
+        }
+      }
+    }
+    return calls;
+  }
+
+  private static String argumentsJson(final Object arguments) {
+    if (arguments instanceof final String text) {
+      return text;
+    }
+    try {
+      return JSON_MAPPER.writeValueAsString(Objects.requireNonNullElse(arguments, Map.of()));
+    } catch (JacksonException e) {
+      return "{}";
+    }
+  }
+
+  /**
    * Split a reply into visible text and actions.
    *
    * @param text the raw model reply

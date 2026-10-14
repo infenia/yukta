@@ -45,4 +45,23 @@ class AgentActionsTest {
     assertThat(AgentActions.fromToolCall(new ToolCallRequest("c2", "echo", "not json")))
         .isEqualTo(Map.of("tool", "echo", "arguments", "not json", "id", "c2"));
   }
+
+  @Test
+  void toToolCalls_turnsActionsBackIntoCalls_withArgumentsAsJson() {
+    final var calls =
+        AgentActions.toToolCalls(
+            java.util.List.of(
+                Map.of("tool", "weather", "arguments", Map.of("city", "Oslo"), "id", "c1"),
+                Map.of("tool", "raw", "arguments", "{\"a\":1}"),
+                Map.of("tool", "none"),
+                Map.of("noTool", true),
+                "junk"));
+
+    assertThat(calls)
+        .containsExactly(
+            new ToolCallRequest("c1", "weather", "{\"city\":\"Oslo\"}"),
+            new ToolCallRequest("", "raw", "{\"a\":1}"),
+            new ToolCallRequest("", "none", "{}"));
+    assertThat(AgentActions.toToolCalls("not a list")).isEmpty();
+  }
 }
