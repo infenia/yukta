@@ -4,8 +4,10 @@ package com.infenia.yukta.mcp;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.net.URI;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.mock.http.server.reactive.MockServerHttpRequest;
 import org.springframework.mock.web.server.MockServerWebExchange;
@@ -80,5 +82,52 @@ class McpEndpointFilterTest {
             .header("X-API-Key", "secret"));
 
     assertThat(seenPath.get()).isEqualTo("/mcp");
+  }
+
+  @Test
+  void testDifferentlyWrittenPathsAreRefused() {
+    for (final String path : new String[] {"/mcp;x=1", "/%6dcp", "/./mcp", "/mcp/"}) {
+      seenPath.set(null);
+      final var exchange =
+          run("secret", MockServerHttpRequest.method(HttpMethod.POST, URI.create(path)));
+      assertThat(exchange.getResponse().getStatusCode())
+          .isIn(HttpStatus.BAD_REQUEST, HttpStatus.UNAUTHORIZED);
+      assertThat(seenPath.get()).isNull();
+    }
+  }
+
+  @Test
+  void testRestKeyOpensMcpToo() {
+    final var env =
+        new org.springframework.mock.env.MockEnvironment().withProperty("yukta.api-key", "rest");
+    final var exchange = MockServerWebExchange.from(MockServerHttpRequest.post("/mcp"));
+    new McpEndpointFilter(env).filter(exchange, (ServerWebExchange e) -> Mono.empty()).block();
+    assertThat(exchange.getResponse().getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+
+    seenPath.set(null);
+    final var ok =
+        MockServerWebExchange.from(MockServerHttpRequest.post("/mcp").header("X-API-Key", "rest"));
+    new McpEndpointFilter(env)
+        .filter(
+            ok,
+            (ServerWebExchange e) -> {
+              seenPath.set("passed");
+              return Mono.empty();
+            })
+        .block();
+    assertThat(seenPath.get()).isEqualTo("passed");
+  }
+
+  @Test
+  void testNonAdminKeyIsRefused() {
+    final var env =
+        new org.springframework.mock.env.MockEnvironment()
+            .withProperty("yukta.api-keys[0].key", "v")
+            .withProperty("yukta.api-keys[0].role", "OPERATOR");
+    final var exchange =
+        MockServerWebExchange.from(MockServerHttpRequest.post("/mcp").header("X-API-Key", "v"));
+    new McpEndpointFilter(env).filter(exchange, (ServerWebExchange e) -> Mono.empty()).block();
+
+    assertThat(exchange.getResponse().getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
   }
 }

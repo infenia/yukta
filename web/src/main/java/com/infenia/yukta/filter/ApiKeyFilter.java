@@ -3,16 +3,13 @@
 package com.infenia.yukta.filter;
 
 import com.infenia.yukta.plugin.control.ControlActor;
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Objects;
+import com.infenia.yukta.security.ApiKeys;
+import com.infenia.yukta.security.ApiRole;
+import com.infenia.yukta.security.RequestPaths;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import org.jspecify.annotations.NullMarked;
-import org.jspecify.annotations.Nullable;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.context.properties.bind.Bindable;
-import org.springframework.boot.context.properties.bind.Binder;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.core.env.Environment;
@@ -25,21 +22,28 @@ import org.springframework.web.server.WebFilterChain;
 import reactor.core.publisher.Mono;
 
 /**
- * Requires an API key on every {@code /api/**} request when one is configured, as {@code
- * Authorization: Bearer <key>} or {@code X-API-Key: <key>}. With no key configured the API stays
- * open, which is safe only because the server listens on loopback by default.
+ * Requires an API key on every {@code /api/**} request and on the actuator (except {@code
+ * /actuator/health}) when one is configured, as {@code Authorization: Bearer <key>} or {@code
+ * X-API-Key: <key>}. With no key configured the API stays open, which is safe only because the
+ * server listens on loopback by default (and refuses to start on another address without a key).
+ *
+ * <p>The path is matched after percent-decoding; a path written with parameters, encoded separators
+ * or dot segments is refused with 400, so no spelling of a path skips the check.
  *
  * <p>{@code yukta.api-key} is a single key that may do everything. {@code yukta.api-keys} lists
- * named keys with a role (see {@link ApiRole}):
+ * named keys with a role (see {@link ApiRole}) and optionally the sessions the key is limited to; a
+ * key is plain text or {@code sha256:<hex>}:
  *
  * <pre>
  * yukta.api-keys[0].name=alice
  * yukta.api-keys[0].key=...
  * yukta.api-keys[0].role=OPERATOR
+ * yukta.api-keys[0].sessions=team-a,team-b
  * </pre>
  *
- * <p>A key whose role does not allow the request gets 403. With named keys, the control commands a
- * request sends are recorded with the actor {@code key:<name>}.
+ * <p>A key whose role or sessions do not allow the request gets 403. A session-limited key reaches
+ * only {@code /api/sessions/{session}/**} and {@code /api/workflow/{session}/**}. With named keys,
+ * the control commands a request sends are recorded with the actor {@code key:<name>}.
  */
 @Component
 @NullMarked
@@ -47,26 +51,15 @@ import reactor.core.publisher.Mono;
 @SuppressWarnings({"PMD.LawOfDemeter", "PMD.OnlyOneReturn"})
 public class ApiKeyFilter implements WebFilter {
 
-  /** Header that may carry the key instead of the Authorization header. */
-  private static final String API_KEY_HEADER = "X-API-Key";
+  /** The one actuator endpoint that needs no key (liveness probes). */
+  private static final String HEALTH = "/actuator/health";
 
-  /** Prefix of the Authorization header value. */
-  private static final String BEARER = "Bearer ";
+  /** The session of a session-scoped API path. */
+  private static final Pattern SESSION_PATH =
+      Pattern.compile("^/api/(?:sessions|workflow)/([^/]+)(?:/.*)?$");
 
   /** Keys clients may present; empty disables the check. */
-  private final List<Key> keys;
-
-  /** Whether the actor of a request is recorded (named keys are configured). */
-  private final boolean named;
-
-  /** A key clients may present. */
-  /* default */ record Key(String name, byte[] bytes, ApiRole role) {}
-
-  /** A key as written in the configuration. */
-  public record KeyEntry(String name, String key, ApiRole role) {}
-
-  /** The keys read from the configuration. */
-  private record Config(List<Key> keys, boolean named) {}
+  private final ApiKeys keys;
 
   /**
    * Create the filter from the configuration.
@@ -75,12 +68,7 @@ public class ApiKeyFilter implements WebFilter {
    */
   @Autowired
   public ApiKeyFilter(final Environment environment) {
-    this(read(environment));
-  }
-
-  private ApiKeyFilter(final Config config) {
-    this.keys = config.keys();
-    this.named = config.named();
+    this.keys = ApiKeys.read(environment, null);
   }
 
   /**
@@ -89,74 +77,59 @@ public class ApiKeyFilter implements WebFilter {
    * @param apiKey the required key, or empty to leave the API open
    */
   public ApiKeyFilter(final String apiKey) {
-    this.keys =
-        apiKey.isEmpty()
-            ? List.of()
-            : List.of(new Key("default", apiKey.getBytes(StandardCharsets.UTF_8), ApiRole.ADMIN));
-    this.named = false;
-  }
-
-  private static Config read(final Environment environment) {
-    final List<KeyEntry> entries =
-        Binder.get(environment)
-            .bind("yukta.api-keys", Bindable.listOf(KeyEntry.class))
-            .orElseGet(List::of);
-    final String single = Objects.requireNonNullElse(environment.getProperty("yukta.api-key"), "");
-    final List<Key> all = new ArrayList<>();
-    if (!single.isEmpty()) {
-      all.add(new Key("default", single.getBytes(StandardCharsets.UTF_8), ApiRole.ADMIN));
-    }
-    for (final KeyEntry entry : entries) {
-      final String key = Objects.requireNonNull(entry.key(), "yukta.api-keys[].key is required");
-      all.add(
-          new Key(
-              Objects.requireNonNullElse(entry.name(), "unnamed"),
-              key.getBytes(StandardCharsets.UTF_8),
-              Objects.requireNonNullElse(entry.role(), ApiRole.VIEWER)));
-    }
-    return new Config(List.copyOf(all), !entries.isEmpty());
+    this.keys = ApiKeys.single(apiKey);
   }
 
   @Override
   public Mono<Void> filter(final ServerWebExchange exchange, final WebFilterChain chain) {
-    if (keys.isEmpty() || !exchange.getRequest().getPath().value().startsWith("/api/")) {
+    if (keys.isEmpty()) {
       return chain.filter(exchange);
     }
-    final HttpHeaders headers = exchange.getRequest().getHeaders();
-    final String authorization = headers.getFirst(HttpHeaders.AUTHORIZATION);
-    final String presented =
-        authorization != null && authorization.startsWith(BEARER)
-            ? authorization.substring(BEARER.length())
-            : headers.getFirst(API_KEY_HEADER);
-    final Key match = presented == null ? null : find(presented);
+    final String raw = exchange.getRequest().getPath().value();
+    if (RequestPaths.ambiguous(raw)) {
+      return reject(exchange, HttpStatus.BAD_REQUEST);
+    }
+    final String path = RequestPaths.decoded(raw);
+    final boolean actuator = path.equals("/actuator") || path.startsWith("/actuator/");
+    final boolean api = path.equals("/api") || path.startsWith("/api/");
+    if ((!api && !actuator) || path.equals(HEALTH) || path.startsWith(HEALTH + "/")) {
+      return chain.filter(exchange);
+    }
+    final ApiKeys.Match match = keys.find(ApiKeys.presented(exchange.getRequest().getHeaders()));
     if (match == null) {
-      exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
       exchange.getResponse().getHeaders().set(HttpHeaders.WWW_AUTHENTICATE, "Bearer");
-      return exchange.getResponse().setComplete();
+      return reject(exchange, HttpStatus.UNAUTHORIZED);
     }
-    if (!match
-        .role()
-        .allows(exchange.getRequest().getMethod(), exchange.getRequest().getPath().value())) {
-      exchange.getResponse().setStatusCode(HttpStatus.FORBIDDEN);
-      return exchange.getResponse().setComplete();
+    if (!permitted(match, exchange, path, actuator)) {
+      return reject(exchange, HttpStatus.FORBIDDEN);
     }
-    return named
+    return keys.named()
         ? chain
             .filter(exchange)
             .contextWrite(ctx -> ctx.put(ControlActor.CONTEXT_KEY, "key:" + match.name()))
         : chain.filter(exchange);
   }
 
-  /** Compares against every key, so the time taken does not tell which one is close. */
-  @Nullable
-  private Key find(final String presented) {
-    final byte[] bytes = presented.getBytes(StandardCharsets.UTF_8);
-    Key match = null;
-    for (final Key key : keys) {
-      if (MessageDigest.isEqual(bytes, key.bytes())) {
-        match = key;
-      }
+  private static boolean permitted(
+      final ApiKeys.Match match,
+      final ServerWebExchange exchange,
+      final String path,
+      final boolean actuator) {
+    if (actuator) {
+      return match.role() == ApiRole.ADMIN && match.sessions().isEmpty();
     }
-    return match;
+    if (!match.role().allows(exchange.getRequest().getMethod(), path)) {
+      return false;
+    }
+    if (match.sessions().isEmpty()) {
+      return true;
+    }
+    final Matcher session = SESSION_PATH.matcher(path);
+    return session.matches() && match.reaches(session.group(1));
+  }
+
+  private static Mono<Void> reject(final ServerWebExchange exchange, final HttpStatus status) {
+    exchange.getResponse().setStatusCode(status);
+    return exchange.getResponse().setComplete();
   }
 }

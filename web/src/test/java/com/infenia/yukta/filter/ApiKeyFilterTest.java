@@ -5,10 +5,12 @@ package com.infenia.yukta.filter;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.infenia.yukta.plugin.control.ControlActor;
+import java.net.URI;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.mock.env.MockEnvironment;
 import org.springframework.mock.http.server.reactive.MockServerHttpRequest;
@@ -119,7 +121,7 @@ class ApiKeyFilterTest {
                 "o-key", MockServerHttpRequest.post("/api/control/workflows/w/nodes/n/command")))
         .isEqualTo(HttpStatus.FORBIDDEN);
     assertThat(statusOf("o-key", MockServerHttpRequest.post("/api/executions/../sessions")))
-        .isEqualTo(HttpStatus.FORBIDDEN);
+        .isEqualTo(HttpStatus.BAD_REQUEST);
   }
 
   @Test
@@ -192,5 +194,96 @@ class ApiKeyFilterTest {
             .header("X-API-Key", "secret"));
 
     assertThat(passed).isTrue();
+  }
+
+  @Test
+  void testDifferentlyWrittenPathsAreRefusedNotPassed() {
+    for (final String path :
+        new String[] {
+          "/api;x=1/sessions", "/api/%2e%2e/api/sessions", "/api/sessions/%2Fx", "/api//sessions"
+        }) {
+      final var exchange =
+          run("secret", MockServerHttpRequest.method(HttpMethod.GET, URI.create(path)));
+      assertThat(exchange.getResponse().getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+      assertThat(passed).isFalse();
+    }
+  }
+
+  @Test
+  void testEncodedLettersAreMatchedAfterDecoding() {
+    final var exchange =
+        run("secret", MockServerHttpRequest.method(HttpMethod.GET, URI.create("/%61pi/sessions")));
+
+    assertThat(exchange.getResponse().getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+    assertThat(passed).isFalse();
+  }
+
+  @Test
+  void testPlainEscapeInAnIdStillWorks() {
+    run(
+        "secret",
+        MockServerHttpRequest.method(HttpMethod.GET, URI.create("/api/sessions/my%20s"))
+            .header("X-API-Key", "secret"));
+
+    assertThat(passed).isTrue();
+  }
+
+  @Test
+  void testActuatorNeedsAKeyExceptHealth() {
+    assertThat(
+            run("secret", MockServerHttpRequest.get("/actuator/metrics"))
+                .getResponse()
+                .getStatusCode())
+        .isEqualTo(HttpStatus.UNAUTHORIZED);
+    run("secret", MockServerHttpRequest.get("/actuator/health"));
+    assertThat(passed).isTrue();
+    run("secret", MockServerHttpRequest.get("/actuator/metrics").header("X-API-Key", "secret"));
+    assertThat(passed).isTrue();
+  }
+
+  @Test
+  void testActuatorIsAdminOnly() {
+    final var exchange =
+        runWith(
+            roles(), MockServerHttpRequest.get("/actuator/metrics").header("X-API-Key", "v-key"));
+
+    assertThat(exchange.getResponse().getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+  }
+
+  @Test
+  void testHashedKeyIsAccepted() {
+    final var env =
+        new MockEnvironment()
+            .withProperty("yukta.api-keys[0].name", "h")
+            .withProperty("yukta.api-keys[0].role", "ADMIN")
+            .withProperty(
+                "yukta.api-keys[0].key",
+                "sha256:2bb80d537b1da3e38bd30361aa855686bde0eacd7162fef6a25fe97bf527a25b");
+
+    runWith(env, MockServerHttpRequest.get("/api/sessions").header("X-API-Key", "secret"));
+
+    assertThat(passed).isTrue();
+  }
+
+  @Test
+  void testSessionLimitedKeyReachesOnlyItsSessions() {
+    final var env =
+        new MockEnvironment()
+            .withProperty("yukta.api-keys[0].name", "team")
+            .withProperty("yukta.api-keys[0].key", "t")
+            .withProperty("yukta.api-keys[0].role", "ADMIN")
+            .withProperty("yukta.api-keys[0].sessions", "a");
+
+    runWith(env, MockServerHttpRequest.get("/api/sessions/a/workflows").header("X-API-Key", "t"));
+    assertThat(passed).isTrue();
+    for (final String path :
+        new String[] {"/api/sessions/b/workflows", "/api/sessions", "/api/executions/x"}) {
+      final var exchange =
+          runWith(
+              env,
+              MockServerHttpRequest.method(HttpMethod.GET, URI.create(path))
+                  .header("X-API-Key", "t"));
+      assertThat(exchange.getResponse().getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+    }
   }
 }
