@@ -50,7 +50,7 @@ scope_to_module() {
           else ":" + $m + ":" + . end] as $t
       | if ($t | length) == 0 then null
         else [$cmd[0]] + $t + [$cmd[1:][] | select(startswith("-"))] end;
-    .workflows["gradle-check"] |= (
+    (.workflows["gradle-check"], (.workflows["format"] | select(. != null))) |= (
       .nodes |= [.[] | if .type == "PROCESS_EXECUTOR"
           then (scoped(.config.command) as $c | if $c == null then empty else .config.command = $c end)
           else . end]
@@ -143,6 +143,21 @@ load_server() {
     source "$STATE_DIR/current.env"
   fi
   export YUKTA_SERVER_URL="${YUKTA_SERVER_URL:-http://localhost:8080}"
+  warn_if_stale_native
+}
+
+# warn_if_stale_native: the native server (yukta-native.sh) keeps running the executable it started
+# with, recorded as YUKTA_SERVER_BIN in its state file; say so when that executable has been rebuilt.
+warn_if_stale_native() {
+  local pidfile="$STATE_DIR/${YUKTA_DEV_NAME:-}.pid" envfile="$STATE_DIR/${YUKTA_DEV_NAME:-}.env" bin
+  [[ "${YUKTA_DEV_MODE:-}" == native && -s "$pidfile" ]] || return 0
+  bin="$(sed -n 's/^YUKTA_SERVER_BIN=//p' "$envfile" 2>/dev/null)" || return 0
+  [[ -n "$bin" && -f "$bin" ]] || return 0
+  local started
+  started="$(ps -o lstart= -p "$(cat "$pidfile")" 2>/dev/null | xargs -I{} date -d {} +%s)" || return 0
+  [[ -n "$started" && "$(stat -c %Y "$bin")" -gt "$started" ]] \
+    && echo "STALE: $YUKTA_DEV_NAME predates $bin; restart it: yukta-server.sh stop $YUKTA_DEV_NAME && yukta-server.sh start $YUKTA_DEV_NAME" >&2
+  return 0
 }
 
 # print_result SESSION EXECUTION: prints the machine readable RESULT line; returns 0 only when the
