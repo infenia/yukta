@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
-import { screen } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
@@ -12,7 +12,13 @@ import { createMockSession } from '@/test/factories/sessionFactory';
 import { HistoryPage } from '../HistoryPage';
 
 const ok = (data: unknown) =>
-  HttpResponse.json({ timestamp: 't', status: 200, message: 'ok', data, path: '/' });
+  HttpResponse.json({
+    timestamp: 't',
+    status: 200,
+    message: 'ok',
+    data,
+    path: '/',
+  });
 
 const requested: string[] = [];
 let sessionsFail = false;
@@ -29,10 +35,15 @@ const server = setupServer(
   http.get('/api/workflow/:sid/history', ({ params, request }) => {
     requested.push(`${params.sid}${new URL(request.url).search}`);
     if (params.sid === 's2') return ok([]);
-    if (params.sid === 'broken') return HttpResponse.json({ message: 'x' }, { status: 500 });
+    if (params.sid === 'broken')
+      return HttpResponse.json({ message: 'x' }, { status: 500 });
     return ok([
       createMockExecution({ executionId: 'run-1', workflowId: 'wf a' }),
-      createMockExecution({ executionId: 'run-2', workflowId: 'wf-b', status: 'FAILED' }),
+      createMockExecution({
+        executionId: 'run-2',
+        workflowId: 'wf-b',
+        status: 'FAILED',
+      }),
     ]);
   })
 );
@@ -48,7 +59,10 @@ describe('HistoryPage', () => {
   it('lists the first session’s runs with links to the run on its workflow page', async () => {
     renderWithProviders(<HistoryPage />);
     const link = await screen.findByRole('link', { name: 'run-1' });
-    expect(link).toHaveAttribute('href', '/sessions/s1/workflow/wf%20a?exec=run-1');
+    expect(link).toHaveAttribute(
+      'href',
+      '/sessions/s1/workflow/wf%20a?exec=run-1'
+    );
     expect(screen.getByRole('link', { name: 'run-2' })).toBeInTheDocument();
     expect(requested).toEqual(['s1?limit=50']);
   });
@@ -66,7 +80,16 @@ describe('HistoryPage', () => {
   it('reports a failure to load sessions', async () => {
     sessionsFail = true;
     renderWithProviders(<HistoryPage />);
-    expect(await screen.findByRole('alert')).toHaveTextContent('Failed to load history');
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Failed to load history'
+    );
+
+    sessionsFail = false;
+    await userEvent
+      .setup()
+      .click(screen.getByRole('button', { name: 'Retry' }));
+    expect(await screen.findByLabelText('Session')).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 
   it('reports a failure to load a session’s history', async () => {
@@ -76,7 +99,17 @@ describe('HistoryPage', () => {
       )
     );
     renderWithProviders(<HistoryPage />);
-    expect(await screen.findByRole('alert')).toHaveTextContent('Failed to load history');
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Failed to load history'
+    );
+    const before = requested.length;
+    await userEvent
+      .setup()
+      .click(screen.getByRole('button', { name: 'Retry' }));
+    await waitFor(() => expect(requested.length).toBe(before + 1));
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Failed to load history'
+    );
     server.resetHandlers();
   });
 });

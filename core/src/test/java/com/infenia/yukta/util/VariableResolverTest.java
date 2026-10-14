@@ -334,4 +334,30 @@ class VariableResolverTest {
         .expectNext("m1")
         .verifyComplete();
   }
+
+  @Test
+  void contextVariables_readNumbersAndFlags() {
+    StepVerifier.create(resolver.resolve("${context.n}").contextWrite(ctx -> ctx.put("n", 7)))
+        .expectNext("7")
+        .verifyComplete();
+    StepVerifier.create(resolver.resolve("${context.f}").contextWrite(ctx -> ctx.put("f", true)))
+        .expectNext("true")
+        .verifyComplete();
+  }
+
+  @Test
+  void contextVariables_hideEngineEntriesAndObjects() {
+    StepVerifier.create(
+            resolver
+                .resolve("${context.yukta.control.actor}")
+                .contextWrite(ctx -> ctx.put("yukta.control.actor", "key:admin")))
+        .expectComplete()
+        .verify();
+    StepVerifier.create(
+            resolver
+                .resolve("${context.beat}")
+                .contextWrite(ctx -> ctx.put("beat", (Runnable) () -> {})))
+        .expectComplete()
+        .verify();
+  }
 }

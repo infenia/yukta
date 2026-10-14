@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
-package com.infenia.yukta.filter;
+package com.infenia.yukta.security;
 
 import java.util.List;
 import org.springframework.http.HttpMethod;

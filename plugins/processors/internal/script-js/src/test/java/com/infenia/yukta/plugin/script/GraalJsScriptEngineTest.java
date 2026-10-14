@@ -63,4 +63,37 @@ class GraalJsScriptEngineTest {
             () -> run("payload.getClass().forName('java.lang.Runtime')"))
         .isInstanceOf(RuntimeException.class);
   }
+
+  @Test
+  void scriptThatNeverEndsIsCancelled() {
+    System.setProperty("yukta.script.timeout-ms", "300");
+    try {
+      final GraalJsScriptEngine limited = new GraalJsScriptEngine();
+      org.assertj.core.api.Assertions.assertThatThrownBy(
+              () ->
+                  limited.eval(
+                      "while (true) {}", DefaultMessage.create(UUID.randomUUID(), Map.of())))
+          .isInstanceOf(IllegalStateException.class)
+          .hasMessageContaining("cancelled");
+    } finally {
+      System.clearProperty("yukta.script.timeout-ms");
+    }
+  }
+
+  @Test
+  void scriptThatRunsTooManyStatementsIsStopped() {
+    System.setProperty("yukta.script.max-statements", "10000");
+    try {
+      final GraalJsScriptEngine limited = new GraalJsScriptEngine();
+      org.assertj.core.api.Assertions.assertThatThrownBy(
+              () ->
+                  limited.eval(
+                      "var i = 0; while (i < 1000000) { i++; }",
+                      DefaultMessage.create(UUID.randomUUID(), Map.of())))
+          .isInstanceOf(IllegalStateException.class)
+          .hasMessageContaining("statements");
+    } finally {
+      System.clearProperty("yukta.script.max-statements");
+    }
+  }
 }

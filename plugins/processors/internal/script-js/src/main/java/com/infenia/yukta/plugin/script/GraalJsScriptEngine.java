@@ -10,9 +10,15 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
 import org.graalvm.polyglot.Context;
 import org.graalvm.polyglot.Engine;
 import org.graalvm.polyglot.HostAccess;
+import org.graalvm.polyglot.PolyglotException;
+import org.graalvm.polyglot.ResourceLimits;
 import org.graalvm.polyglot.Source;
 import org.graalvm.polyglot.Value;
 import org.springframework.stereotype.Component;
@@ -45,8 +51,23 @@ public class GraalJsScriptEngine implements ScriptEngine {
   private static final Engine JS_ENGINE =
       Engine.newBuilder().option("engine.WarnInterpreterOnly", "false").build();
 
+  /** Cancels scripts that outlive {@link #timeoutMs}. */
+  private static final ScheduledExecutorService WATCHDOG =
+      Executors.newSingleThreadScheduledExecutor(
+          runnable -> {
+            final Thread thread = new Thread(runnable, "js-script-watchdog");
+            thread.setDaemon(true);
+            return thread;
+          });
+
   /** Parsed sources keyed by script text. */
   private final Map<String, Source> sourceCache = new ConcurrentHashMap<>();
+
+  /** Longest a script may run, in milliseconds ({@code -Dyukta.script.timeout-ms}). */
+  private final long timeoutMs = Long.getLong("yukta.script.timeout-ms", 10_000L);
+
+  /** Most statements a script may run ({@code -Dyukta.script.max-statements}). */
+  private final long maxStatements = Long.getLong("yukta.script.max-statements", 50_000_000L);
 
   /** Default constructor. */
   public GraalJsScriptEngine() {
@@ -67,12 +88,29 @@ public class GraalJsScriptEngine implements ScriptEngine {
             // nosem: yukta-graalvm-host-access-all (no reflection: Class objects are denied)
             .allowHostAccess(HostAccess.newBuilder(HostAccess.ALL).denyAccess(Class.class).build())
             .allowHostClassLookup(GraalJsScriptEngine::isSafeClass)
+            .resourceLimits(ResourceLimits.newBuilder().statementLimit(maxStatements, null).build())
             .build()) {
       final Value bindings = context.getBindings(LANG);
       bindings.putMember("message", message);
       bindings.putMember("payload", message.payload());
       bindings.putMember("metadata", message.metadata());
-      return detach(context.eval(source(script)));
+      // a script that never ends is cancelled; closing the context is the only way to stop it
+      final ScheduledFuture<?> watchdog =
+          WATCHDOG.schedule(() -> context.close(true), timeoutMs, TimeUnit.MILLISECONDS);
+      try {
+        return detach(context.eval(source(script)));
+      } catch (PolyglotException e) {
+        if (e.isResourceExhausted()) {
+          throw new IllegalStateException(
+              "Script stopped after " + maxStatements + " statements", e);
+        }
+        if (e.isCancelled()) {
+          throw new IllegalStateException("Script cancelled after " + timeoutMs + " ms", e);
+        }
+        throw e;
+      } finally {
+        watchdog.cancel(false);
+      }
     }
   }
 

@@ -14,6 +14,7 @@ import com.infenia.yukta.plugin.type.ProcessorPlugin;
 import com.infenia.yukta.plugin.util.SpelUtils;
 import com.infenia.yukta.util.MapUtils;
 import com.infenia.yukta.util.VariableResolver;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -84,6 +85,7 @@ public final class LlmCallPlugin implements ProcessorPlugin {
    * @param gateway the gateway
    * @param resolver resolves config expressions
    */
+  @SuppressFBWarnings("EI_EXPOSE_REP2") // the gateway is a shared Spring bean
   public LlmCallPlugin(final LlmGateway gateway, final VariableResolver resolver) {
     this.gateway = gateway;
     this.resolver = resolver;
@@ -98,6 +100,7 @@ public final class LlmCallPlugin implements ProcessorPlugin {
    * @param reporterProvider optional metrics reporter
    */
   @Autowired
+  @SuppressFBWarnings("EI_EXPOSE_REP2") // the gateway is a shared Spring bean
   public LlmCallPlugin(
       final LlmGateway gateway,
       final VariableResolver resolver,

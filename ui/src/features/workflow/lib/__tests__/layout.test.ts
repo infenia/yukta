@@ -2,8 +2,16 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import { describe, it, expect } from 'vitest';
-import { DEFAULT_NODE_HEIGHT, DEFAULT_NODE_WIDTH, layoutGraph } from '../layout';
-import { createMockGraph, createMockProgress, createMockTask } from '@/test/factories/workflowFactory';
+import {
+  DEFAULT_NODE_HEIGHT,
+  DEFAULT_NODE_WIDTH,
+  layoutGraph,
+} from '../layout';
+import {
+  createMockGraph,
+  createMockProgress,
+  createMockTask,
+} from '@/test/factories/workflowFactory';
 import { must } from '@/test/utils/testUtils';
 import type { TaskProgress } from '../../types/workflow';
 
@@ -53,15 +61,20 @@ describe('layoutGraph', () => {
 
   it('wires sourceHandle from the edge sourcePort when the port exists', () => {
     const { edges } = layoutGraph(createMockGraph(), {});
-    const portEdge = must(edges.find((edge) => edge.source === 'vectorize-batch'));
+    const portEdge = must(
+      edges.find((edge) => edge.source === 'vectorize-batch')
+    );
     expect(portEdge.sourceHandle).toBe('default');
   });
 
   it('falls back to the first output port when the edge has no port', () => {
     const { edges } = layoutGraph(createMockGraph(), {});
-    const fallbackEdge = must(edges.find(
-      (edge) => edge.source === 'data-ingress' && edge.target === 'vectorize-batch'
-    ));
+    const fallbackEdge = must(
+      edges.find(
+        (edge) =>
+          edge.source === 'data-ingress' && edge.target === 'vectorize-batch'
+      )
+    );
     expect(fallbackEdge.sourceHandle).toBe('default');
   });
 
@@ -83,29 +96,45 @@ describe('layoutGraph', () => {
 
   it('marks edges from completed sources as traversed, others as inactive', () => {
     const progress = createMockProgress();
-    const { edges } = layoutGraph(createMockGraph(), tasksByNode(progress.tasks));
+    const { edges } = layoutGraph(
+      createMockGraph(),
+      tasksByNode(progress.tasks)
+    );
 
-    const traversed = must(edges.find(
-      (edge) => edge.source === 'data-ingress' && edge.target === 'vectorize-batch'
-    ));
+    const traversed = must(
+      edges.find(
+        (edge) =>
+          edge.source === 'data-ingress' && edge.target === 'vectorize-batch'
+      )
+    );
     expect(traversed.style?.stroke).toBe('var(--color-cat-trigger)');
-    expect(traversed.markerEnd).toMatchObject({ color: 'var(--color-cat-trigger)' });
+    expect(traversed.markerEnd).toMatchObject({
+      color: 'var(--color-cat-trigger)',
+    });
     expect(traversed.animated).toBe(true);
 
-    const traversedToPending = must(edges.find(
-      (edge) => edge.source === 'data-ingress' && edge.target === 'anomaly-detection'
-    ));
+    const traversedToPending = must(
+      edges.find(
+        (edge) =>
+          edge.source === 'data-ingress' && edge.target === 'anomaly-detection'
+      )
+    );
     expect(traversedToPending.style?.stroke).toBe('var(--color-cat-trigger)');
     expect(traversedToPending.animated).toBe(false);
 
-    const inactive = must(edges.find((edge) => edge.source === 'vectorize-batch'));
+    const inactive = must(
+      edges.find((edge) => edge.source === 'vectorize-batch')
+    );
     expect(inactive.style?.stroke).toBe('var(--color-outline)');
     expect(inactive.animated).toBe(false);
   });
 
   it('drops edges referencing unknown nodes', () => {
     const graph = createMockGraph();
-    graph.edges = [...graph.edges, { source: 'ghost', target: 'sink-storage', sourcePort: null }];
+    graph.edges = [
+      ...graph.edges,
+      { source: 'ghost', target: 'sink-storage', sourcePort: null },
+    ];
     const { edges } = layoutGraph(graph, {});
     expect(edges).toHaveLength(4);
   });
@@ -118,10 +147,27 @@ describe('layoutGraph', () => {
 
   it('treats a failed source edge as inactive', () => {
     const tasks = tasksByNode([
-      createMockTask({ nodeId: 'data-ingress', status: 'FAILURE', endTime: null }),
+      createMockTask({
+        nodeId: 'data-ingress',
+        status: 'FAILURE',
+        endTime: null,
+      }),
     ]);
     const { edges } = layoutGraph(createMockGraph(), tasks);
     const edge = must(edges.find((e) => e.source === 'data-ingress'));
     expect(edge.style?.stroke).toBe('var(--color-outline)');
+  });
+
+  it('colours a traversed edge with the primary colour when the source has no category', () => {
+    const graph = createMockGraph();
+    graph.nodes[0] = {
+      ...graph.nodes[0],
+      category: null,
+    } as (typeof graph.nodes)[0];
+    const progress = createMockProgress();
+    const { edges } = layoutGraph(graph, tasksByNode(progress.tasks));
+
+    const edge = must(edges.find((e) => e.source === 'data-ingress'));
+    expect(edge.style?.stroke).toBe('var(--color-primary)');
   });
 });
