@@ -29,6 +29,19 @@ class ExecutionLogStoreTest {
   }
 
   @Test
+  void withFsync_eventsAreWrittenAndReadBack() {
+    final JsonlExecutionLogStore store =
+        new JsonlExecutionLogStore(dir.toString(), mapper, 500, 10_000, 5_000L, true);
+    store.append(ExecutionLogEvent.started("e1", "s1", "w1", "v1"));
+    store.append(ExecutionLogEvent.finished("e1", "s1", "w1", "SUCCESS", Map.of()));
+
+    assertThat(store.readAll())
+        .extracting(ExecutionLogEvent::type)
+        .containsExactly(ExecutionLogEvent.Type.RUN_STARTED, ExecutionLogEvent.Type.RUN_FINISHED);
+    store.close();
+  }
+
+  @Test
   void eventFactories_fillTheRightFields() {
     final ExecutionLogEvent started = ExecutionLogEvent.started("e1", "s1", "w1", "v1");
     final ExecutionLogEvent finished =

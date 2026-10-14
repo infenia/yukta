@@ -5,6 +5,7 @@ package com.infenia.yukta.service.log;
 import jakarta.annotation.PreDestroy;
 import java.io.IOException;
 import java.nio.channels.FileChannel;
+import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -75,6 +76,9 @@ public class JsonlExecutionLogStore implements ExecutionLogStore {
   /** How long {@link #close()} waits for queued events, in milliseconds. */
   private final long shutdownWaitMillis;
 
+  /** Whether every appended event is forced to disk before the next one is written. */
+  private final boolean fsync;
+
   /** The one thread that touches the file. */
   private final ThreadPoolExecutor writer =
       new ThreadPoolExecutor(
@@ -105,8 +109,17 @@ public class JsonlExecutionLogStore implements ExecutionLogStore {
       @Value("${yukta.execution-log.dir}") final String dir,
       final ObjectMapper mapper,
       @Value("${yukta.execution-log.retained-runs:500}") final int retainedRuns,
-      @Value("${yukta.execution-log.compact-after:10000}") final int compactAfter) {
-    this(dir, mapper, retainedRuns, compactAfter, SHUTDOWN_WAIT_MILLIS);
+      @Value("${yukta.execution-log.compact-after:10000}") final int compactAfter,
+      @Value("${yukta.execution-log.fsync:false}") final boolean fsync) {
+    this(dir, mapper, retainedRuns, compactAfter, SHUTDOWN_WAIT_MILLIS, fsync);
+  }
+
+  /* default */ JsonlExecutionLogStore(
+      final String dir,
+      final ObjectMapper mapper,
+      final int retainedRuns,
+      final int compactAfter) {
+    this(dir, mapper, retainedRuns, compactAfter, SHUTDOWN_WAIT_MILLIS, false);
   }
 
   /* default */ JsonlExecutionLogStore(
@@ -115,6 +128,17 @@ public class JsonlExecutionLogStore implements ExecutionLogStore {
       final int retainedRuns,
       final int compactAfter,
       final long shutdownWaitMillis) {
+    this(dir, mapper, retainedRuns, compactAfter, shutdownWaitMillis, false);
+  }
+
+  /* default */ JsonlExecutionLogStore(
+      final String dir,
+      final ObjectMapper mapper,
+      final int retainedRuns,
+      final int compactAfter,
+      final long shutdownWaitMillis,
+      final boolean fsync) {
+    this.fsync = fsync;
     this.dir = Path.of(dir);
     this.file = this.dir.resolve(FILE_NAME);
     this.mapper = mapper;
@@ -124,7 +148,7 @@ public class JsonlExecutionLogStore implements ExecutionLogStore {
   }
 
   /* default */ JsonlExecutionLogStore(final String dir, final ObjectMapper mapper) {
-    this(dir, mapper, 500, 10_000);
+    this(dir, mapper, 500, 10_000, SHUTDOWN_WAIT_MILLIS);
   }
 
   @Override
@@ -182,12 +206,22 @@ public class JsonlExecutionLogStore implements ExecutionLogStore {
   private void write(final ExecutionLogEvent event) {
     try {
       Files.createDirectories(dir);
-      Files.writeString(
-          file,
-          json(event) + "\n",
-          StandardCharsets.UTF_8,
-          StandardOpenOption.CREATE,
-          StandardOpenOption.APPEND);
+      final String line = json(event) + "\n";
+      if (fsync) {
+        // ponytail: one force per event; batch the forces if the write rate ever matters.
+        try (FileChannel channel =
+            FileChannel.open(file, StandardOpenOption.CREATE, StandardOpenOption.APPEND)) {
+          channel.write(ByteBuffer.wrap(line.getBytes(StandardCharsets.UTF_8)));
+          channel.force(false);
+        }
+      } else {
+        Files.writeString(
+            file,
+            line,
+            StandardCharsets.UTF_8,
+            StandardOpenOption.CREATE,
+            StandardOpenOption.APPEND);
+      }
     } catch (final IOException | RuntimeException e) {
       log.atError()
           .addKeyValue("executionId", event.executionId())
