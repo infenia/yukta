@@ -98,10 +98,10 @@ bounds B28, B31, B34 and B35 are also denial-of-service fixes; their performance
 |---|---|---|---|
 | F10 | L | Node checkpoint store in PostgreSQL; a CI job running the PostgreSQL acceptance test (it is skipped in CI today); native-image hints for R2DBC and Flyway; pool and health | none; unblocks HA and durable waits |
 | F2 | M | Durable signal waits, queued early signals, UI for pending approvals | F10 for a database backend |
-| F3 (done) | M | MCP roles and actor, per-session scoping, hashed and rotated keys, audit view | S5, S6 first |
+| F3 (done) | M | none; shipped: MCP roles and actor, per-session scoping, hashed and rotated keys, audit view | S5, S6 first |
 | F9 | S-M | MCP version/rollback tools, diff, UI history | none |
 | F4 | M | Per-provider rate limit, budget metrics, hard stop of a run | none |
-| F5 (done) | S-M | `deniedTools`, gateway-level allow-list, prompt filters | none |
+| F5 (done) | S-M | none; shipped: `deniedTools`, gateway-level allow-list, prompt filters | none |
 | F7 | M | `KV_STORE` durability, session-memory TTL | F10 |
 | F8 | S | `tools/list` pagination, tool-role turns | none |
 | F11 | L | Remote workers: design only, open decisions in `10-remote-workers.md` | F10 |

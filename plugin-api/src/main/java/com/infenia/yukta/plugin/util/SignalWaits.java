@@ -88,11 +88,10 @@ public final class SignalWaits {
         new Decision(
             String.valueOf(body.get("decision")),
             body.get("data") == null ? "" : String.valueOf(body.get("data")));
-    boolean taken = false;
-    Sinks.One<Decision> waiter = next(key);
-    while (waiter != null && !taken) {
-      taken = waiter.tryEmitValue(decision).isSuccess();
-      waiter = taken ? null : next(key);
+    final Sinks.One<Decision> waiter = next(key);
+    final boolean taken = waiter != null;
+    if (taken) {
+      waiter.tryEmitValue(decision); // a fresh sink; only this call ever emits to it
     }
     return Mono.just(DefaultMessage.create(UUID.randomUUID(), taken ? ACCEPTED : NOT_WAITING));
   }
