@@ -181,6 +181,17 @@ func TestWatcher_dropsRepeatedNodeStatus(t *testing.T) {
 	}
 }
 
+func TestWatcher_keepsSameNodeStatusOfDifferentExecutions(t *testing.T) {
+	w := &watcher{}
+	a := client.ExecutionEvent{Type: client.EventNodeStatusChanged, ExecutionID: "e1", NodeID: "n", Status: "FAILED"}
+	b := a
+	b.ExecutionID = "e2"
+	out := testutil.Capture(t, func() { _ = w.handle(a); _ = w.handle(b) })
+	if out != "NODE n FAILED\nNODE n FAILED\n" {
+		t.Errorf("output %q", out)
+	}
+}
+
 func TestWatchCmd_runsWithoutCommandContext(t *testing.T) {
 	cmd := WatchCmd(testutil.Stream(t, watchStream))
 	var err error

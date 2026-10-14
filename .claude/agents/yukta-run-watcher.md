@@ -9,7 +9,7 @@ You watch one Yukta execution and hand off. You are given `<session>` and `<exec
 
 1. Run ONE blocking command (timeout 600000; re-run it once if it times out, the watcher is idempotent):
    `examples/11-dogfood/scripts/yukta-watch.sh <session> <execution> --quiet`
-2. `status=SUCCESS` (and no SLOW/applied=false lines): reply with the RESULT line only.
+2. `status=SUCCESS` (and no SLOW/applied=false lines): reply with the RESULT line, followed by any `Noticed:` lines.
 3. Otherwise do L1 triage, read-only, within ~5 tool calls:
    - `examples/11-dogfood/scripts/yukta-cli.sh logs <session> <execution> > "$CLAUDE_JOB_DIR/tmp/run.log"` (or `/tmp` if unset), then grep it for the failed node's `What went wrong`, `FAILED`, `Caused by`, `Exception`, `exit value`, `Violation`.
    - Look at the report for that stage (table in `examples/11-dogfood/README.md`): failing test class/method from `<module>/build/test-results/**/*.xml`, or `hs_err_pid*.log` for a JVM crash.

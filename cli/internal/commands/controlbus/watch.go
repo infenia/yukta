@@ -104,7 +104,14 @@ type watcher struct {
 	noLogs    bool
 	quiet     bool
 	json      bool
-	seen      map[string]string // last status printed per node, to drop snapshot/stream duplicates
+	seen      map[nodeKey]string // last status printed per execution node, to drop snapshot/stream duplicates
+}
+
+// nodeKey identifies one node of one execution; without the execution, an unscoped watch would drop
+// the same node's status from a different execution.
+type nodeKey struct {
+	execution string
+	node      string
 }
 
 func (w *watcher) handle(e client.ExecutionEvent) error {
@@ -114,13 +121,14 @@ func (w *watcher) handle(e client.ExecutionEvent) error {
 		return nil
 	}
 	if e.Type == client.EventNodeStatusChanged {
-		if w.seen[e.NodeID] == e.Status {
+		key := nodeKey{execution: e.ExecutionID, node: e.NodeID}
+		if w.seen[key] == e.Status {
 			return nil
 		}
 		if w.seen == nil {
-			w.seen = map[string]string{}
+			w.seen = map[nodeKey]string{}
 		}
-		w.seen[e.NodeID] = e.Status
+		w.seen[key] = e.Status
 	}
 	if w.untilDone && e.Type == client.EventWorkflowStatusChanged && client.IsTerminalStatus(e.Status) {
 		w.finished = true
