@@ -8,6 +8,8 @@ import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
 import com.infenia.yukta.model.execution.WorkflowProgress;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
+import com.infenia.yukta.plugin.control.ControlActor;
+import com.infenia.yukta.plugin.control.ControlRequest;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.PauseWorkflowCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.ResumeWorkflowCommand;
@@ -23,12 +25,15 @@ import com.infenia.yukta.service.log.ExecutionLogEvent;
 import com.infenia.yukta.service.log.ExecutionLogStore;
 import com.infenia.yukta.service.orchestrator.WorkflowOrchestrator;
 import com.infenia.yukta.service.orchestrator.tracker.DefaultTaskTrackerService;
+import com.infenia.yukta.service.supervisor.ControlRejectedException;
+import com.infenia.yukta.service.supervisor.ControlReviewer;
 import com.infenia.yukta.service.workflow.store.PreparedWorkflowCache;
 import com.infenia.yukta.service.workflow.store.WorkflowDefinitionStore;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.List;
 import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
@@ -83,6 +88,9 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
 
   /** Starts executions. */
   private final WorkflowStarter starter;
+
+  /** Asks the supervisors about commands that do not pass through the dispatcher. */
+  private ControlReviewer reviewer;
 
   /**
    * Creates the gateway.
@@ -184,6 +192,22 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
 
   @Override
   public Mono<Message<?>> sendCommand(
+      final String workflowId, final String nodeId, final Message<?> command) {
+    return carriesSignal(command)
+        ? Mono.error(
+            new ControlRejectedException("Approvals and signals go through the signal command"))
+        : deliver(workflowId, nodeId, command);
+  }
+
+  /**
+   * A signal reaches a waiting node here without reviewer or audit; the signal command has both.
+   */
+  private static boolean carriesSignal(final Message<?> command) {
+    return command.payload() instanceof Map<?, ?> body
+        && (body.containsKey("decision") || body.containsKey("executionId"));
+  }
+
+  private Mono<Message<?>> deliver(
       final String workflowId, final String nodeId, final Message<?> command) {
     return Mono.defer(
             () -> {
@@ -424,15 +448,12 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
 
   @Override
   public Mono<Void> changeLimits(final int maxConcurrent, final int maxPerWorkflow) {
-    return Mono.fromRunnable(
+    final String name = "SetLimits(" + maxConcurrent + ", " + maxPerWorkflow + ")";
+    return reviewedAndLogged(
+        new ExecutionControlCommand.SetLimitsCommand(maxConcurrent, maxPerWorkflow),
+        name,
         () -> {
           executionScheduler.setLimits(maxConcurrent, maxPerWorkflow);
-          executionLog.append(
-              ExecutionLogEvent.control(
-                  true,
-                  ExecutionLogEvent.SCHEDULER,
-                  "SetLimits(" + maxConcurrent + ", " + maxPerWorkflow + ")",
-                  null));
           log.atInfo()
               .addKeyValue("maxConcurrent", maxConcurrent)
               .addKeyValue("maxPerWorkflow", maxPerWorkflow)
@@ -442,20 +463,51 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
 
   @Override
   public Mono<Void> changePriority(final String executionId, final int priority) {
-    return Mono.fromRunnable(
+    return reviewedAndLogged(
+        new ExecutionControlCommand.SetPriorityCommand(executionId, priority),
+        "SetPriority(" + priority + ")",
         () -> {
-          final boolean waiting = executionScheduler.changePriority(executionId, priority);
-          executionLog.append(
-              ExecutionLogEvent.control(
-                  waiting,
-                  executionId,
-                  "SetPriority(" + priority + ")",
-                  "the execution is not waiting for a slot"));
-          if (!waiting) {
+          if (!executionScheduler.changePriority(executionId, priority)) {
             throw new IllegalArgumentException(
                 "Execution " + executionId + " is not waiting for a slot");
           }
         });
+  }
+
+  /**
+   * Asks the supervisors, applies a command that has no run queue and records the outcome in the
+   * execution log with the actor, like the commands that go through the dispatcher.
+   */
+  private Mono<Void> reviewedAndLogged(
+      final ExecutionControlCommand command, final String name, final Runnable apply) {
+    return Mono.deferContextual(
+        context -> {
+          final String actor = context.getOrDefault(ControlActor.CONTEXT_KEY, null);
+          final String logged = actor == null ? name : name + " [by " + actor + "]";
+          final Mono<Void> review =
+              reviewer == null ? Mono.empty() : reviewer.review(new ControlRequest(command, actor));
+          return review
+              .then(Mono.<Void>fromRunnable(apply))
+              .doOnSuccess(
+                  _ ->
+                      executionLog.append(
+                          ExecutionLogEvent.control(true, command.executionId(), logged, null)))
+              .doOnError(
+                  error ->
+                      executionLog.append(
+                          ExecutionLogEvent.control(
+                              false, command.executionId(), logged, error.getMessage())));
+        });
+  }
+
+  /**
+   * Lets supervisors refuse limit and priority changes; without one they are applied unreviewed.
+   *
+   * @param controlReviewer the reviewer, if supervisors are enabled
+   */
+  @Autowired(required = false)
+  public void setReviewer(final ControlReviewer controlReviewer) {
+    this.reviewer = controlReviewer;
   }
 
   @Override

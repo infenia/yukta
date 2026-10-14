@@ -107,6 +107,29 @@ class LlmGatewayTest {
   }
 
   @Test
+  void promptAndAnswerFiltersRefuseTheCall() {
+    gateway.setDenyInput(List.of("(?i)ignore previous", "q2"));
+    assertThatThrownBy(() -> gateway.call(request(Provider.OPENAI, "/v1")))
+        .hasMessageContaining("deny-input-patterns");
+    assertThat(bodies).isEmpty();
+
+    gateway.setDenyInput(List.of());
+    gateway.setDenyOutput(List.of("^hi$"));
+    assertThatThrownBy(() -> gateway.call(request(Provider.OPENAI, "/v1")))
+        .hasMessageContaining("deny-output-patterns");
+  }
+
+  @Test
+  void promptLengthIsLimited() {
+    gateway.setMaxInputChars(5);
+    assertThatThrownBy(() -> gateway.call(request(Provider.OPENAI, "/v1")))
+        .hasMessageContaining("max-input-chars");
+
+    gateway.setMaxInputChars(10_000);
+    assertThat(gateway.call(request(Provider.OPENAI, "/v1")).text()).isEqualTo("hi");
+  }
+
+  @Test
   void openAiCompatible() {
     final LlmResponse response = gateway.call(request(Provider.OPENAI, "/v1"));
 
@@ -254,5 +277,16 @@ class LlmGatewayTest {
 
     assertThat(response.text()).isEmpty();
     assertThat(response.inputTokens()).isZero();
+  }
+
+  @Test
+  void indexedPatternsKeepTheirCommas_andAnchorsApplyToEachTurn() {
+    gateway.readPatterns(
+        new org.springframework.mock.env.MockEnvironment()
+            .withProperty("yukta.llm.deny-input-patterns[0]", "^q{1,1}2$"));
+
+    assertThatThrownBy(() -> gateway.call(request(Provider.OPENAI, "/v1")))
+        .hasMessageContaining("deny-input-patterns");
+    assertThat(bodies).isEmpty();
   }
 }

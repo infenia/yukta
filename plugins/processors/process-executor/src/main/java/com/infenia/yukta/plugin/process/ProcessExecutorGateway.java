@@ -35,8 +35,11 @@ import reactor.core.scheduler.Schedulers;
 @NoArgsConstructor
 public class ProcessExecutorGateway {
 
-  /** Executables workflows may run; empty means any. Set once while the context is built. */
+  /** Executables workflows may run; empty means none unless {@link #allowAny}. */
   private Set<String> allowedCommands = Set.of();
+
+  /** Whether any executable may run while the list is empty. */
+  private boolean allowAny;
 
   /** Conversion factor from nanoseconds to milliseconds. */
   private static final long NANOS_PER_MILLI = 1_000_000L;
@@ -94,8 +97,19 @@ public class ProcessExecutorGateway {
   }
 
   /**
-   * Sets the executables workflows may run; empty (the default) allows any. With a list, a shell is
-   * refused too, since it could run anything.
+   * Lets workflows run any executable while no list is set. Off by default: with neither a list nor
+   * this switch, every command is refused.
+   *
+   * @param allowAny true to run any executable when {@code allowed-commands} is empty
+   */
+  @Value("${yukta.process.allow-any:false}")
+  /* default */ void setAllowAny(final boolean allowAny) {
+    this.allowAny = allowAny;
+  }
+
+  /**
+   * Sets the executables workflows may run. With a list, a shell is refused too, since it could run
+   * anything. Without one, nothing runs unless {@code yukta.process.allow-any} is true.
    *
    * @param allowed executable names exactly as they appear in the command
    */
@@ -106,7 +120,10 @@ public class ProcessExecutorGateway {
 
   private String refusalFor(final ProcessExecutionSpec spec) {
     if (allowedCommands.isEmpty()) {
-      return null;
+      return allowAny
+          ? null
+          : "Process execution is off: set yukta.process.allowed-commands (or"
+              + " yukta.process.allow-any=true to run any executable)";
     }
     if (spec.useShell()) {
       return "useShell is not allowed while yukta.process.allowed-commands is set";

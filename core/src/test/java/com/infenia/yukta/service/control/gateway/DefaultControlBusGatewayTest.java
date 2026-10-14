@@ -2679,6 +2679,84 @@ class DefaultControlBusGatewayTest {
   }
 
   @Test
+  void rawNodeCommand_passesOtherMapPayloads() {
+    final Message<?> command = DefaultMessage.create(null, Map.of("action", "ping"));
+    final Message<?> response = DefaultMessage.create(null, "pong");
+    when(controlBusService.sendCommand("wf", "node", command)).thenReturn(Mono.just(response));
+
+    StepVerifier.create(gateway.sendCommand("wf", "node", command))
+        .expectNext(response)
+        .verifyComplete();
+  }
+
+  @Test
+  void rawNodeCommand_refusesSignals() {
+    final Message<?> signal =
+        DefaultMessage.create(
+            null, Map.of("executionId", "e", "name", "ok", "decision", "approve"));
+
+    StepVerifier.create(gateway.sendCommand("wf", "node", signal))
+        .expectError(com.infenia.yukta.service.supervisor.ControlRejectedException.class)
+        .verify();
+    StepVerifier.create(
+            gateway.sendCommand("wf", "node", DefaultMessage.create(null, Map.of("decision", "x"))))
+        .expectError(com.infenia.yukta.service.supervisor.ControlRejectedException.class)
+        .verify();
+    StepVerifier.create(
+            gateway.sendCommand(
+                "wf", "node", DefaultMessage.create(null, Map.of("executionId", "e"))))
+        .expectError(com.infenia.yukta.service.supervisor.ControlRejectedException.class)
+        .verify();
+    verify(controlBusService, never()).sendCommand(any(), any(), any());
+  }
+
+  @Test
+  void setLimits_isRefusedWhenReviewerSaysNo_andTheRefusalIsAudited() {
+    final com.infenia.yukta.service.log.InMemoryExecutionLogStore auditLog =
+        new com.infenia.yukta.service.log.InMemoryExecutionLogStore();
+    final ExecutionScheduler real =
+        new ExecutionScheduler(
+            1, 0, 10, ExecutionScheduler.OnLimit.QUEUE, java.time.Duration.ofSeconds(1));
+    final DefaultControlBusGateway limited =
+        new DefaultControlBusGateway(
+            controlBusService,
+            taskTracker,
+            executionControlRegistry,
+            archive,
+            orchestrator,
+            workflowDefinitionStore,
+            preparedWorkflowCache,
+            real,
+            new StartIdempotency(java.time.Duration.ofMinutes(1)),
+            auditLog);
+    final com.infenia.yukta.service.supervisor.ControlReviewer reviewer =
+        mock(com.infenia.yukta.service.supervisor.ControlReviewer.class);
+    when(reviewer.review(any()))
+        .thenReturn(
+            Mono.error(new com.infenia.yukta.service.supervisor.ControlRejectedException("no")));
+    limited.setReviewer(reviewer);
+
+    StepVerifier.create(
+            limited
+                .changeLimits(5, 0)
+                .contextWrite(
+                    ctx ->
+                        ctx.put(
+                            com.infenia.yukta.plugin.control.ControlActor.CONTEXT_KEY, "key:bob")))
+        .expectError(com.infenia.yukta.service.supervisor.ControlRejectedException.class)
+        .verify();
+
+    assertThat(auditLog.readAll())
+        .singleElement()
+        .satisfies(
+            e -> {
+              assertThat(e.type())
+                  .isEqualTo(com.infenia.yukta.service.log.ExecutionLogEvent.Type.CONTROL_REJECTED);
+              assertThat(e.status()).isEqualTo("SetLimits(5, 0) [by key:bob]: no");
+            });
+  }
+
+  @Test
   void setPriority_isAuditedWhetherItWorkedOrNot() {
     final ExecutionScheduler real =
         new ExecutionScheduler(
@@ -2715,6 +2793,6 @@ class DefaultControlBusGatewayTest {
                 "SetPriority(5)"),
             org.assertj.core.groups.Tuple.tuple(
                 com.infenia.yukta.service.log.ExecutionLogEvent.Type.CONTROL_REJECTED,
-                "SetPriority(5): the execution is not waiting for a slot"));
+                "SetPriority(5): Execution running is not waiting for a slot"));
   }
 }

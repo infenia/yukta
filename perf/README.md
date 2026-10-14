@@ -18,7 +18,7 @@ these tests are in [KNOWN-ISSUES.md](KNOWN-ISSUES.md).
 ## Run
 
 ```bash
-SPRING_PROFILES_ACTIVE=prod YUKTA_SERVER_ADDRESS=0.0.0.0 ./gradlew bootRun   # prod: no DEBUG web logging
+SPRING_PROFILES_ACTIVE=prod ./gradlew bootRun   # prod: no DEBUG web logging
 # offline/API only: add -x :ui:pnpmInstall -x :ui:pnpmBuild -x :ui:pnpmSetup -x :ui:nodeSetup
 
 k6 run perf/k6/load.js                                  # ramp 1m, hold 3m, ramp down 1m @ 100 starts/s

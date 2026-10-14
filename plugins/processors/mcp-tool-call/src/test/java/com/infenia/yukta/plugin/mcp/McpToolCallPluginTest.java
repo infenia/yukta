@@ -40,6 +40,8 @@ import reactor.util.context.Context;
 @NoArgsConstructor
 class McpToolCallPluginTest {
 
+  private static final String ACCEPTED = "ACCEPTED";
+
   private final McpClientGateway gateway = mock(McpClientGateway.class);
   private final VariableResolver resolver = mock(VariableResolver.class);
   private final PluginMetricsReporter reporter = mock(PluginMetricsReporter.class);
@@ -100,6 +102,94 @@ class McpToolCallPluginTest {
     StepVerifier.create(plugin.process(Flux.just(input()), config("allowedTools", List.of())))
         .expectNextCount(1)
         .verifyComplete();
+  }
+
+  private static Message<?> decision(final String decision) {
+    return DefaultMessage.create(
+        UUID.randomUUID(),
+        Map.of("executionId", "e", "nodeId", "n", "name", "approve", "decision", decision));
+  }
+
+  /** Sends the decision once the node is waiting for it. */
+  private void answerWhenWaiting(final String decision) throws InterruptedException {
+    for (int i = 0; i < 200; i++) {
+      final Message<?> answer =
+          java.util.Objects.requireNonNull(plugin.onControlSignal(decision(decision)).block());
+      if (ACCEPTED.equals(String.valueOf(answer.payload()))) {
+        return;
+      }
+      Thread.sleep(10);
+    }
+    throw new AssertionError("the node never waited for an approval");
+  }
+
+  @Test
+  void requireApproval_waitsForTheSignalThenCalls() throws InterruptedException {
+    when(gateway.call(any(), any())).thenReturn(Mono.just(success()));
+    final var result =
+        plugin
+            .process(Flux.just(input()), config("requireApproval", List.of("weather")))
+            .contextWrite(Context.of("executionId", "e", "nodeId", "n"))
+            .collectList()
+            .toFuture();
+
+    answerWhenWaiting("approve");
+
+    assertThat(result.join()).hasSize(1);
+    verify(gateway).call(any(), any());
+  }
+
+  @Test
+  void requireApproval_rejectRefusesTheCall() throws InterruptedException {
+    final var result =
+        plugin
+            .process(Flux.just(input()), config("requireApproval", List.of("*")))
+            .contextWrite(Context.of("executionId", "e", "nodeId", "n"))
+            .collectList()
+            .toFuture();
+
+    answerWhenWaiting("reject");
+
+    assertThat(result)
+        .failsWithin(Duration.ofSeconds(5))
+        .withThrowableThat()
+        .withMessageContaining("was rejected");
+    verify(gateway, org.mockito.Mockito.never()).call(any(), any());
+  }
+
+  @Test
+  void requireApproval_noAnswerRefusesTheCall_andOtherToolsAreNotHeld() {
+    StepVerifier.create(
+            plugin.process(
+                Flux.just(input()),
+                config("requireApproval", List.of("weather"), "approvalTimeoutSeconds", 1)))
+        .verifyErrorSatisfies(e -> assertThat(e).hasMessageContaining("within"));
+
+    when(gateway.call(any(), any())).thenReturn(Mono.just(success()));
+    StepVerifier.create(
+            plugin.process(Flux.just(input()), config("requireApproval", List.of("search"))))
+        .expectNextCount(1)
+        .verifyComplete();
+  }
+
+  @Test
+  void requireApproval_isValidatedAndExtendsTheNodeTimeout() {
+    StepVerifier.create(plugin.validateConfig(config("requireApproval", "weather")))
+        .expectError(IllegalArgumentException.class)
+        .verify();
+    StepVerifier.create(
+            plugin.validateConfig(
+                config("requireApproval", List.of("a"), "approvalTimeoutSeconds", 0)))
+        .expectError(IllegalArgumentException.class)
+        .verify();
+    StepVerifier.create(
+            plugin.validateConfig(
+                config("requireApproval", List.of("a"), "approvalTimeoutSeconds", 30)))
+        .verifyComplete();
+    assertThat(plugin.getDefaultTimeout(config("requireApproval", List.of("a"))))
+        .isEqualTo(Duration.ofSeconds(65 + 3600));
+    assertThat(plugin.getDefaultTimeout(config("requireApproval", List.of())))
+        .isEqualTo(Duration.ofSeconds(65));
   }
 
   @Test

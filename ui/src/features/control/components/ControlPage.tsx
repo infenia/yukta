@@ -9,6 +9,7 @@ import { CodeBlock } from '@/components/common/CodeBlock';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { StateMessage } from '@/components/common/StateMessage';
 import { SupervisorsPanel } from './SupervisorsPanel';
+import { ControlAuditPanel } from './ControlAuditPanel';
 
 const getNodes = (workflowId: string) =>
   fetchApi<string[]>(
@@ -72,6 +73,7 @@ export function ControlPage() {
         }
       />
       <SupervisorsPanel />
+      <ControlAuditPanel />
 
       {nodes.error ? (
         <StateMessage

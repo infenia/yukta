@@ -2,22 +2,19 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.plugin.core.flow;
 
-import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
 import com.infenia.yukta.plugin.core.ConfigField;
 import com.infenia.yukta.plugin.core.PluginDescriptor;
 import com.infenia.yukta.plugin.type.ProcessorPlugin;
+import com.infenia.yukta.plugin.util.SignalWaits;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
 import lombok.NoArgsConstructor;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
-import reactor.core.publisher.Sinks;
 
 /**
  * Holds each message until a named signal arrives, for example a human approval or a decision from
@@ -58,16 +55,13 @@ public final class WaitForSignalProcessor implements ProcessorPlugin {
   private static final String CONTINUE = "CONTINUE";
 
   /** Answer to a signal that a waiting node took. */
-  public static final String ACCEPTED = "ACCEPTED";
+  public static final String ACCEPTED = SignalWaits.ACCEPTED;
 
   /** Answer to a signal when the node is not waiting for it. */
-  public static final String NOT_WAITING = "NOT_WAITING";
+  public static final String NOT_WAITING = SignalWaits.NOT_WAITING;
 
-  /** Waits by execution, node and signal name. */
-  private final Map<String, Sinks.One<Decision>> waiting = new ConcurrentHashMap<>();
-
-  /** What the sender decided. */
-  private record Decision(String decision, String data) {}
+  /** The waits of this plugin. */
+  private final SignalWaits waits = new SignalWaits();
 
   @Override
   public PluginDescriptor describe() {
@@ -117,24 +111,7 @@ public final class WaitForSignalProcessor implements ProcessorPlugin {
 
   @Override
   public Mono<Message<?>> onControlSignal(final Message<?> signal) {
-    if (!(signal.payload() instanceof Map<?, ?> body)) {
-      return Mono.empty();
-    }
-    final String key =
-        key(
-            String.valueOf(body.get("executionId")),
-            String.valueOf(body.get("nodeId")),
-            String.valueOf(body.get("name")));
-    final Decision decision =
-        new Decision(
-            String.valueOf(body.get("decision")),
-            body.get("data") == null ? "" : String.valueOf(body.get("data")));
-    final boolean taken =
-        Optional.ofNullable(waiting.remove(key))
-            .map(waiter -> waiter.tryEmitValue(decision))
-            .filter(Sinks.EmitResult::isSuccess)
-            .isPresent();
-    return Mono.just(DefaultMessage.create(UUID.randomUUID(), taken ? ACCEPTED : NOT_WAITING));
+    return waits.deliver(signal);
   }
 
   @Override
@@ -147,25 +124,20 @@ public final class WaitForSignalProcessor implements ProcessorPlugin {
         message ->
             Mono.deferContextual(
                 ctx -> {
-                  final String key =
-                      key(
+                  return waits
+                      .await(
                           ctx.getOrDefault("executionId", "unknown"),
                           ctx.getOrDefault("nodeId", "unknown"),
-                          name);
-                  final Sinks.One<Decision> waiter = Sinks.one();
-                  waiting.put(key, waiter);
-                  return waiter
-                      .asMono()
-                      .timeout(timeout)
+                          name,
+                          timeout)
                       .onErrorResume(
                           java.util.concurrent.TimeoutException.class,
                           e ->
                               continueOnTimeout
-                                  ? Mono.just(new Decision("timeout", ""))
+                                  ? Mono.just(new SignalWaits.Decision("timeout", ""))
                                   : Mono.error(
                                       new IllegalStateException(
                                           "No '" + name + "' signal within " + timeout, e)))
-                      .doFinally(_ -> waiting.remove(key, waiter))
                       .flatMap(decision -> release(message, name, decision, dropOnReject));
                 }));
   }
@@ -173,7 +145,7 @@ public final class WaitForSignalProcessor implements ProcessorPlugin {
   private static Mono<Message<?>> release(
       final Message<?> message,
       final String name,
-      final Decision decision,
+      final SignalWaits.Decision decision,
       final boolean dropOnReject) {
     if (REJECT.equalsIgnoreCase(decision.decision())) {
       return dropOnReject
@@ -186,10 +158,6 @@ public final class WaitForSignalProcessor implements ProcessorPlugin {
             .withHeader("signal.name", name)
             .withHeader("signal.decision", decision.decision())
             .withHeader("signal.data", decision.data()));
-  }
-
-  private static String key(final String executionId, final String nodeId, final String name) {
-    return executionId + "\0" + nodeId + "\0" + name;
   }
 
   private static String signalName(final Map<String, Object> config) {

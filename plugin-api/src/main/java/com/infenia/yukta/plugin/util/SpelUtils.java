@@ -18,6 +18,9 @@ import reactor.core.publisher.Mono;
 /** Utility for SpEL expression evaluation and caching. */
 @UtilityClass
 public final class SpelUtils {
+  /** Which methods an expression may call. */
+  private static final SafeMethodResolver SAFE_METHODS = new SafeMethodResolver();
+
   /** SpEL expression parser instance. */
   private static final ExpressionParser PARSER = new SpelExpressionParser();
 
@@ -82,12 +85,13 @@ public final class SpelUtils {
   public static <T> T evaluateSync(
       final String expressionStr, final Object root, final Map<String, Object> variables) {
     final Expression expression = CACHE.computeIfAbsent(expressionStr, PARSER::parseExpression);
-    // Read-only property access and instance methods only: no T(...), constructors or bean refs.
+    // Read-only property access and a short list of methods only: no T(...), constructors or bean
+    // refs.
     final SimpleEvaluationContext context =
         SimpleEvaluationContext.forPropertyAccessors(
                 new MapAccessor(), DataBindingPropertyAccessor.forReadOnlyAccess())
             .withRootObject(root)
-            .withInstanceMethods()
+            .withMethodResolvers(SAFE_METHODS)
             .build();
     if (variables != null) {
       variables.forEach(context::setVariable);

@@ -48,4 +48,45 @@ describe('ExecutionResultBlock', () => {
     expect(screen.getByText(/"total": 3/)).toBeInTheDocument();
     expect(screen.getByTestId('result-streaming')).toBeInTheDocument();
   });
+
+  it('says so when the execution ended without a result', () => {
+    render(<ExecutionResultBlock sessionId="s1" executionId="e1" />);
+
+    act(() => {
+      MockEventSource.latest().open();
+      MockEventSource.latest().emit({
+        kind: 'EXECUTION_END',
+        nodeId: null,
+        sequence: 0,
+        payload: null,
+        status: 'SUCCESS',
+        truncated: false,
+        timestamp: '2026-01-01T00:00:02Z',
+      });
+    });
+
+    expect(
+      screen.getByText('The execution produced no result.')
+    ).toBeInTheDocument();
+  });
+
+  it('shows an empty line for a result without a payload', () => {
+    render(<ExecutionResultBlock sessionId="s1" executionId="e1" />);
+
+    act(() => {
+      MockEventSource.latest().open();
+      MockEventSource.latest().emit({
+        kind: 'RESULT',
+        nodeId: 'done',
+        sequence: 0,
+        payload: undefined,
+        status: null,
+        truncated: false,
+        timestamp: '2026-01-01T00:00:00Z',
+      });
+    });
+
+    expect(screen.getByTestId('execution-result')).toBeInTheDocument();
+    expect(screen.queryByText(/Waiting for a result/)).not.toBeInTheDocument();
+  });
 });

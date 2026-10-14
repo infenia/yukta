@@ -6,14 +6,17 @@ import { render, screen } from '@testing-library/react';
 import { ReactFlowProvider } from '@xyflow/react';
 import type { NodeProps } from '@xyflow/react';
 import { WorkflowNodeCard } from '../WorkflowNodeCard';
-import { createMockGraphNode, createMockTask } from '@/test/factories/workflowFactory';
+import {
+  createMockGraphNode,
+  createMockTask,
+} from '@/test/factories/workflowFactory';
 import type { WorkflowFlowNode, WorkflowNodeData } from '../../../lib/layout';
 
-function renderCard(data: WorkflowNodeData) {
+function renderCard(data: WorkflowNodeData, selected = false) {
   const props = {
     id: data.node.nodeId,
     data,
-    selected: false,
+    selected,
     dragging: false,
   } as unknown as NodeProps<WorkflowFlowNode>;
   return render(
@@ -25,7 +28,11 @@ function renderCard(data: WorkflowNodeData) {
 
 describe('WorkflowNodeCard', () => {
   it('renders a trigger placeholder with icon, name, status and no input port', () => {
-    renderCard({ node: createMockGraphNode(), status: 'completed', task: createMockTask() });
+    renderCard({
+      node: createMockGraphNode(),
+      status: 'completed',
+      task: createMockTask(),
+    });
 
     const card = screen.getByTestId('workflow-node-data-ingress');
     expect(card).toHaveAttribute('aria-label', 'data-ingress: Done');
@@ -61,15 +68,18 @@ describe('WorkflowNodeCard', () => {
       }),
       status: 'pending',
     });
-    expect(screen.getAllByTestId('port-label').map((label) => label.textContent)).toEqual([
-      'default',
-      'invalid',
-    ]);
+    expect(
+      screen.getAllByTestId('port-label').map((label) => label.textContent)
+    ).toEqual(['default', 'invalid']);
   });
 
   it('shows no port label for a single output', () => {
     renderCard({
-      node: createMockGraphNode({ nodeId: 'one', category: 'PROCESSOR', outputPorts: ['default'] }),
+      node: createMockGraphNode({
+        nodeId: 'one',
+        category: 'PROCESSOR',
+        outputPorts: ['default'],
+      }),
       status: 'pending',
     });
     expect(screen.queryByTestId('port-label')).toBeNull();
@@ -93,7 +103,11 @@ describe('WorkflowNodeCard', () => {
 
   it('falls back to a default output handle when a non-terminal has no ports', () => {
     renderCard({
-      node: createMockGraphNode({ nodeId: 'p1', category: 'PROCESSOR', outputPorts: [] }),
+      node: createMockGraphNode({
+        nodeId: 'p1',
+        category: 'PROCESSOR',
+        outputPorts: [],
+      }),
       status: 'pending',
     });
 
@@ -104,14 +118,19 @@ describe('WorkflowNodeCard', () => {
 
   it('shows a spinner and metadata progress while running', () => {
     renderCard({
-      node: createMockGraphNode({ nodeId: 'vectorize-batch', category: 'PROCESSOR' }),
+      node: createMockGraphNode({
+        nodeId: 'vectorize-batch',
+        category: 'PROCESSOR',
+      }),
       status: 'running',
       task: createMockTask({ status: 'RUNNING', metadata: { progress: 42 } }),
     });
 
     expect(screen.getByTestId('node-icon')).toHaveTextContent('sync');
     expect(screen.getByTestId('node-icon')).toHaveClass('animate-spin');
-    expect(screen.getByTestId('workflow-node-vectorize-batch')).toHaveTextContent('42%');
+    expect(
+      screen.getByTestId('workflow-node-vectorize-batch')
+    ).toHaveTextContent('42%');
   });
 
   it('shows no progress text while running without a progress metric', () => {
@@ -126,30 +145,48 @@ describe('WorkflowNodeCard', () => {
 
   it('gives a terminal no output handle even if it declares ports', () => {
     renderCard({
-      node: createMockGraphNode({ nodeId: 'sink-2', category: 'TERMINAL', outputPorts: ['default'] }),
+      node: createMockGraphNode({
+        nodeId: 'sink-2',
+        category: 'TERMINAL',
+        outputPorts: ['default'],
+      }),
       status: 'pending',
     });
 
-    expect(screen.getByTestId('workflow-node-sink-2').querySelectorAll('.source')).toHaveLength(0);
+    expect(
+      screen.getByTestId('workflow-node-sink-2').querySelectorAll('.source')
+    ).toHaveLength(0);
   });
 
   it('uses a plugin-specific icon and shows the plugin name only when the id differs', () => {
     renderCard({
-      node: createMockGraphNode({ nodeId: 'my-step', type: 'HTTP_REQUEST', category: 'PROCESSOR' }),
+      node: createMockGraphNode({
+        nodeId: 'my-step',
+        type: 'HTTP_REQUEST',
+        category: 'PROCESSOR',
+      }),
       status: 'pending',
     });
 
     expect(screen.getByTestId('node-icon')).toHaveTextContent('http');
-    expect(screen.getByTestId('workflow-node-my-step')).toHaveTextContent('Http Request');
+    expect(screen.getByTestId('workflow-node-my-step')).toHaveTextContent(
+      'Http Request'
+    );
   });
 
   it('does not repeat the plugin name for default ids', () => {
     renderCard({
-      node: createMockGraphNode({ nodeId: 'HTTP_REQUEST-1', type: 'HTTP_REQUEST', category: 'PROCESSOR' }),
+      node: createMockGraphNode({
+        nodeId: 'HTTP_REQUEST-1',
+        type: 'HTTP_REQUEST',
+        category: 'PROCESSOR',
+      }),
       status: 'pending',
     });
 
-    expect(screen.getByTestId('workflow-node-HTTP_REQUEST-1')).not.toHaveTextContent('Http Request');
+    expect(
+      screen.getByTestId('workflow-node-HTTP_REQUEST-1')
+    ).not.toHaveTextContent('Http Request');
   });
 
   it('renders percent from the percent metadata key', () => {
@@ -181,11 +218,42 @@ describe('WorkflowNodeCard', () => {
     });
 
     expect(screen.getByTestId('node-icon')).toHaveTextContent('extension');
-    expect(screen.getByTestId('workflow-node-mystery')).toHaveTextContent('Waiting');
+    expect(screen.getByTestId('workflow-node-mystery')).toHaveTextContent(
+      'Waiting'
+    );
   });
 
   it('is keyboard focusable', () => {
     renderCard({ node: createMockGraphNode(), status: 'pending' });
-    expect(screen.getByTestId('workflow-node-data-ingress')).toHaveAttribute('tabindex', '0');
+    expect(screen.getByTestId('workflow-node-data-ingress')).toHaveAttribute(
+      'tabindex',
+      '0'
+    );
+  });
+
+  it('marks a selected card and reads progress from the percent metric', () => {
+    renderCard(
+      {
+        node: createMockGraphNode(),
+        status: 'running',
+        task: createMockTask({
+          status: 'RUNNING',
+          metadata: { percent: 61.4 },
+        }),
+      },
+      true
+    );
+
+    const card = screen.getByTestId('workflow-node-data-ingress');
+    expect(card).toHaveAttribute('data-selected', 'true');
+    expect(card).toHaveTextContent('61%');
+  });
+
+  it('shows no progress for a running node without a task', () => {
+    renderCard({ node: createMockGraphNode(), status: 'running' });
+
+    expect(
+      screen.getByTestId('workflow-node-data-ingress')
+    ).not.toHaveTextContent('%');
   });
 });

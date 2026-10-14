@@ -216,6 +216,69 @@ class McpClientGatewayTest {
   }
 
   @Test
+  void call_refusesToolsOutsideTheGatewayPolicy() {
+    gateway.setAllowedTools(List.of("other"));
+
+    StepVerifier.create(gateway.call(spec("ping"), () -> {}))
+        .expectErrorMatches(e -> e.getMessage().contains("allowed-tools"))
+        .verify();
+    assertThat(methods).isEmpty();
+  }
+
+  @Test
+  void call_countsArgumentBytesNotCharacters() {
+    gateway.setMaxArgumentBytes(14);
+    final McpCallSpec accents =
+        new McpCallSpec(
+            spec("ping").url(),
+            "ping",
+            Map.of("q", "éééé"),
+            Map.of(),
+            Map.of(),
+            Duration.ofSeconds(5));
+
+    StepVerifier.create(gateway.call(accents, () -> {}))
+        .expectErrorMatches(e -> e.getMessage().contains("max-argument-bytes"))
+        .verify();
+  }
+
+  @Test
+  void call_allowsToolsInTheGatewayPolicy() {
+    gateway.setAllowedTools(List.of("ping"));
+
+    StepVerifier.create(gateway.call(spec("ping"), () -> {}))
+        .assertNext(r -> assertThat(r.text()).isEqualTo("pong"))
+        .verifyComplete();
+  }
+
+  @Test
+  void call_refusesOversizedAndDeniedArguments() {
+    gateway.setMaxArgumentBytes(5);
+    StepVerifier.create(gateway.call(spec("ping"), () -> {}))
+        .expectErrorMatches(e -> e.getMessage().contains("max-argument-bytes"))
+        .verify();
+
+    gateway.setMaxArgumentBytes(1000);
+    gateway.setDenyPatterns(List.of("(?i)ignore previous|\"q\":\"x\""));
+    StepVerifier.create(gateway.call(spec("ping"), () -> {}))
+        .expectErrorMatches(e -> e.getMessage().contains("deny-argument-patterns"))
+        .verify();
+    assertThat(methods).isEmpty();
+  }
+
+  @Test
+  void call_withoutArgumentsSkipsTheArgumentChecks() {
+    gateway.setMaxArgumentBytes(1);
+    final McpCallSpec bare =
+        new McpCallSpec(
+            spec("ping").url(), "ping", Map.of(), Map.of(), Map.of(), Duration.ofSeconds(5));
+
+    StepVerifier.create(gateway.call(bare, () -> {}))
+        .assertNext(r -> assertThat(r.text()).isEqualTo("pong"))
+        .verifyComplete();
+  }
+
+  @Test
   void call_reusesSession() {
     gateway.call(spec("ping"), () -> {}).block();
     gateway.call(spec("ping"), () -> {}).block();
