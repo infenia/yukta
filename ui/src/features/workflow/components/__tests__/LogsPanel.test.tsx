@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
-import { describe, it, expect } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { afterEach, describe, it, expect, vi } from 'vitest';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { LogsPanel } from '../LogsPanel';
 import { createMockLogEntry } from '@/test/factories/workflowFactory';
@@ -39,7 +39,9 @@ describe('LogsPanel', () => {
     );
     expect(screen.queryByTestId('dropped-pill')).not.toBeInTheDocument();
 
-    rerender(<LogsPanel entries={entries} isStreaming={false} dropped={1234} />);
+    rerender(
+      <LogsPanel entries={entries} isStreaming={false} dropped={1234} />
+    );
     expect(screen.getByTestId('dropped-pill')).toHaveTextContent(
       '1,234 EARLIER LINES HIDDEN'
     );
@@ -127,5 +129,101 @@ describe('LogsPanel', () => {
   it('renders the empty terminal without entries', () => {
     render(<LogsPanel entries={[]} isStreaming={false} />);
     expect(screen.getByTestId('logs-body')).toHaveTextContent('No log output.');
+  });
+
+  describe('copy, wrap and jump to latest', () => {
+    const original = Object.getOwnPropertyDescriptor(navigator, 'clipboard');
+    afterEach(() => {
+      if (original) Object.defineProperty(navigator, 'clipboard', original);
+      else Reflect.deleteProperty(navigator, 'clipboard');
+    });
+
+    const withClipboard = (writeText: (text: string) => Promise<void>) =>
+      Object.defineProperty(navigator, 'clipboard', {
+        configurable: true,
+        value: { writeText },
+      });
+
+    it('copies the visible lines and shows the outcome', async () => {
+      const user = userEvent.setup({ delay: null });
+      const writeText = vi.fn().mockResolvedValue(undefined);
+      withClipboard(writeText);
+      render(<LogsPanel entries={entries} isStreaming={false} />);
+
+      await user.click(screen.getByRole('button', { name: 'COPY' }));
+
+      expect(writeText).toHaveBeenCalledOnce();
+      expect(await screen.findByText('COPIED')).toBeInTheDocument();
+    });
+
+    it('resets the copy label after a moment', async () => {
+      vi.useFakeTimers();
+      try {
+        withClipboard(vi.fn().mockResolvedValue(undefined));
+        render(<LogsPanel entries={entries} isStreaming={false} />);
+
+        fireEvent.click(screen.getByRole('button', { name: 'COPY' }));
+        await act(async () => {
+          await vi.advanceTimersByTimeAsync(1600);
+        });
+
+        expect(
+          screen.getByRole('button', { name: 'COPY' })
+        ).toBeInTheDocument();
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('reports a failed copy', async () => {
+      const user = userEvent.setup({ delay: null });
+      withClipboard(vi.fn().mockRejectedValue(new Error('denied')));
+      render(<LogsPanel entries={entries} isStreaming={false} />);
+
+      await user.click(screen.getByRole('button', { name: 'COPY' }));
+
+      expect(await screen.findByText('FAILED')).toBeInTheDocument();
+    });
+
+    it('reports a failed copy when there is no clipboard', async () => {
+      const user = userEvent.setup({ delay: null });
+      Object.defineProperty(navigator, 'clipboard', {
+        configurable: true,
+        value: undefined,
+      });
+      render(<LogsPanel entries={entries} isStreaming={false} />);
+
+      await user.click(screen.getByRole('button', { name: 'COPY' }));
+
+      expect(await screen.findByText('FAILED')).toBeInTheDocument();
+    });
+
+    it('toggles wrapping', async () => {
+      const user = userEvent.setup({ delay: null });
+      render(<LogsPanel entries={entries} isStreaming={false} />);
+      const wrap = screen.getByRole('button', { name: 'WRAP' });
+      expect(wrap).toHaveAttribute('aria-pressed', 'false');
+
+      await user.click(wrap);
+
+      expect(wrap).toHaveAttribute('aria-pressed', 'true');
+      expect(
+        screen.getByText(/Connection lost/).closest('p')?.className
+      ).toContain('whitespace-pre-wrap');
+    });
+
+    it('jumps back to the latest line after auto-scroll was turned off', async () => {
+      const user = userEvent.setup({ delay: null });
+      render(<LogsPanel entries={entries} isStreaming={false} />);
+      await user.click(
+        screen.getByRole('switch', { name: /toggle auto-scroll/i })
+      );
+
+      await user.click(screen.getByRole('button', { name: 'Jump to latest' }));
+
+      expect(
+        screen.getByRole('switch', { name: /toggle auto-scroll/i })
+      ).toHaveAttribute('aria-checked', 'true');
+    });
   });
 });

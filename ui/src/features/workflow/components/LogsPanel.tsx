@@ -106,11 +106,8 @@ export function LogsPanel({
       );
   };
 
-  const jumpToLatest = () => {
-    setAutoScroll(true);
-    if (bodyRef.current)
-      bodyRef.current.scrollTop = bodyRef.current.scrollHeight;
-  };
+  // turning auto-scroll on scrolls to the end (the effect below)
+  const jumpToLatest = () => setAutoScroll(true);
 
   useEffect(() => {
     if (autoScroll && !collapsed && bodyRef.current) {
