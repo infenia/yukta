@@ -4,6 +4,7 @@ package com.infenia.yukta.mcp.provider;
 
 import com.infenia.yukta.mcp.dto.ControlActionResult;
 import com.infenia.yukta.mcp.dto.NodeControlAction;
+import com.infenia.yukta.mcp.dto.PendingApprovals;
 import com.infenia.yukta.mcp.dto.WorkflowControlAction;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import com.infenia.yukta.service.orchestrator.ExecutionResumer;
@@ -155,6 +156,22 @@ public class WorkflowControlProvider {
                             nodeId,
                             List.of(),
                             "Breakpoint set on node " + nodeId + ".")));
+  }
+
+  /**
+   * List the nodes of a session that wait for a signal.
+   *
+   * @param sessionId the session
+   * @return Mono containing the open waits
+   */
+  public Mono<PendingApprovals> pendingApprovals(final String sessionId) {
+    if (sessionId == null || sessionId.isBlank()) {
+      return Mono.error(new IllegalArgumentException("sessionId is required."));
+    }
+    return controlBus
+        .pendingApprovals(sessionId)
+        .collectList()
+        .map(list -> new PendingApprovals(sessionId, list));
   }
 
   /**

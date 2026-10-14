@@ -535,4 +535,21 @@ class WorkflowControlProviderTest {
             provider, "executeOtherNodeAction", NodeControlAction.RETRY, EXECUTION, NODE);
     StepVerifier.create(result).expectError(IllegalStateException.class).verify();
   }
+
+  @Test
+  void pendingApprovals_listsTheOpenWaitsOfTheSession() {
+    final var approval =
+        new com.infenia.yukta.model.control.PendingApproval(
+            EXECUTION, "wf", NODE, "approval", java.time.Instant.EPOCH);
+    when(controlBus.pendingApprovals(SESSION))
+        .thenReturn(reactor.core.publisher.Flux.just(approval));
+
+    StepVerifier.create(provider.pendingApprovals(SESSION))
+        .assertNext(
+            result ->
+                org.assertj.core.api.Assertions.assertThat(result.approvals())
+                    .containsExactly(approval))
+        .verifyComplete();
+    StepVerifier.create(provider.pendingApprovals(" ")).verifyError(IllegalArgumentException.class);
+  }
 }

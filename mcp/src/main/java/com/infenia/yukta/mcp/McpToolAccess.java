@@ -25,6 +25,7 @@ class McpToolAccess {
           Map.entry("list_sessions", ApiRole.VIEWER),
           Map.entry("get_execution_logs", ApiRole.VIEWER),
           Map.entry("get_execution_result", ApiRole.VIEWER),
+          Map.entry("list_pending_approvals", ApiRole.VIEWER),
           Map.entry("get_workflow_details", ApiRole.VIEWER),
           Map.entry("get_workflow_status", ApiRole.VIEWER),
           Map.entry("get_workflow_history", ApiRole.VIEWER),

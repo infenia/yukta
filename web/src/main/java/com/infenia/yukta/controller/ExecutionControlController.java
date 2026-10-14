@@ -4,15 +4,18 @@ package com.infenia.yukta.controller;
 
 import com.infenia.yukta.dto.response.WorkflowStartResponse;
 import com.infenia.yukta.model.api.ApiResponse;
+import com.infenia.yukta.model.control.PendingApproval;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import com.infenia.yukta.service.orchestrator.ExecutionResumer;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import java.util.List;
 import java.util.Map;
 import java.util.function.Supplier;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -323,6 +326,22 @@ public class ExecutionControlController {
         executionId,
         "Signal accepted",
         () -> controlBus.signalNode(executionId, nodeId, name, decision, data));
+  }
+
+  /** List the nodes of a session that wait for a signal. */
+  @GetMapping("/sessions/{sessionId}/approvals")
+  @Operation(
+      summary = "List pending approvals",
+      description =
+          "Lists the nodes of the session that wait for a signal now (for example WAIT_FOR_SIGNAL"
+              + " approval steps), oldest first. Answer one with the signal endpoint of its"
+              + " execution.")
+  public Mono<ApiResponse<List<PendingApproval>>> pendingApprovals(
+      @Parameter(description = SESSION_ID) @PathVariable final String sessionId) {
+    return controlBus
+        .pendingApprovals(sessionId)
+        .collectList()
+        .map(list -> ApiResponse.success(200, "Pending approvals retrieved", list));
   }
 
   /** Clear a node's breakpoint. */

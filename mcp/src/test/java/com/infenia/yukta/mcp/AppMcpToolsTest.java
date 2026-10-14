@@ -194,6 +194,14 @@ class AppMcpToolsTest {
   }
 
   @Test
+  void testListPendingApprovals() {
+    var result = new com.infenia.yukta.mcp.dto.PendingApprovals("s1", List.of());
+    when(workflowControlProvider.pendingApprovals("s1")).thenReturn(Mono.just(result));
+
+    StepVerifier.create(mcpTools.listPendingApprovals("s1")).expectNext(result).verifyComplete();
+  }
+
+  @Test
   void testListPlugins() {
     var summary = mock(PluginSummary.class);
     when(pluginInfoProvider.listPlugins()).thenReturn(List.of(summary));

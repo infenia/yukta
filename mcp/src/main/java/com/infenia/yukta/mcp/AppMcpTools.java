@@ -6,6 +6,7 @@ import com.infenia.yukta.mcp.dto.ControlActionResult;
 import com.infenia.yukta.mcp.dto.ControlBusStatus;
 import com.infenia.yukta.mcp.dto.ExecutionLogs;
 import com.infenia.yukta.mcp.dto.NodeControlAction;
+import com.infenia.yukta.mcp.dto.PendingApprovals;
 import com.infenia.yukta.mcp.dto.PluginCreationGuide;
 import com.infenia.yukta.mcp.dto.PluginDetails;
 import com.infenia.yukta.mcp.dto.PluginList;
@@ -429,6 +430,30 @@ public class AppMcpTools {
           final String data) {
     return workflowControlProvider.signalNode(
         sessionId, executionId, nodeId, signalName, decision, data);
+  }
+
+  /**
+   * List the nodes of a session that wait for a signal.
+   *
+   * @param sessionId the session
+   * @return Mono containing the open waits
+   */
+  @McpTool(
+      name = "list_pending_approvals",
+      title = "List Pending Approvals",
+      description =
+          "List the nodes of a session that wait for a signal now (for example an approval step),"
+              + " oldest first, with the execution id, node id and signal name to answer with"
+              + " signal_node.",
+      generateOutputSchema = true,
+      annotations =
+          @McpTool.McpAnnotations(
+              readOnlyHint = true,
+              destructiveHint = false,
+              openWorldHint = false))
+  public Mono<PendingApprovals> listPendingApprovals(
+      @McpToolParam(required = true, description = SESSION_ID_DESC) final String sessionId) {
+    return workflowControlProvider.pendingApprovals(sessionId);
   }
 
   /**

@@ -3,6 +3,7 @@
 package com.infenia.yukta.service.control.gateway;
 
 import com.infenia.yukta.message.Message;
+import com.infenia.yukta.model.control.PendingApproval;
 import com.infenia.yukta.model.execution.TaskProgress;
 import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
@@ -583,6 +584,11 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
   public Flux<WorkflowProgress> watchExecution(
       final String executionId, final boolean includeHistory) {
     return queries.watchExecution(executionId, includeHistory);
+  }
+
+  @Override
+  public Flux<PendingApproval> pendingApprovals(final String sessionId) {
+    return queries.pendingApprovals(sessionId);
   }
 
   @Override

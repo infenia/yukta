@@ -1115,6 +1115,34 @@ class DefaultControlBusGatewayTest {
   }
 
   @Test
+  void pendingApprovals_listsOnlyTheWaitsOfRunsOfTheSession() {
+    final var waits = com.infenia.yukta.plugin.util.SignalWaits.shared();
+    final var mine =
+        waits.await("exec-pa-1", "gate", "approve", java.time.Duration.ofMinutes(1)).subscribe();
+    final var other =
+        waits.await("exec-pa-2", "gate", "approve", java.time.Duration.ofMinutes(1)).subscribe();
+    final WorkflowProgress ours = mock(WorkflowProgress.class);
+    when(ours.sessionId()).thenReturn("session-pa");
+    when(ours.workflowId()).thenReturn("wf-pa");
+    final WorkflowProgress theirs = mock(WorkflowProgress.class);
+    when(theirs.sessionId()).thenReturn("another-session");
+    when(taskTracker.getProgressByExecutionId("exec-pa-1")).thenReturn(ours);
+    when(taskTracker.getProgressByExecutionId("exec-pa-2")).thenReturn(theirs);
+
+    StepVerifier.create(gateway.pendingApprovals("session-pa"))
+        .assertNext(
+            approval -> {
+              assertThat(approval.executionId()).isEqualTo("exec-pa-1");
+              assertThat(approval.workflowId()).isEqualTo("wf-pa");
+              assertThat(approval.nodeId()).isEqualTo("gate");
+              assertThat(approval.name()).isEqualTo("approve");
+            })
+        .verifyComplete();
+    mine.dispose();
+    other.dispose();
+  }
+
+  @Test
   void getProgress_sessionAndExecution_delegatesToSessionScopedTrackerLookup() {
     final WorkflowProgress progress = mock(WorkflowProgress.class);
     when(taskTracker.getProgress("session-1", "exec-17")).thenReturn(progress);
