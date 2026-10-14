@@ -94,4 +94,28 @@ class TrackerEventFeedTest {
                     .extracting(ExecutionLogEvent::status)
                     .containsExactly("STOPPED"));
   }
+
+  @Test
+  void pausingARun_publishesNothingToTheFeed_soASupervisorNeverSeesItsOwnPause() {
+    final ExecutionEventFeed feed = new ExecutionEventFeed();
+    final DefaultTaskTrackerService tracker =
+        new DefaultTaskTrackerService(
+            Duration.ofSeconds(5),
+            mock(StatusHistoryCache.class),
+            new InMemoryExecutionLogStore(),
+            new SimpleMeterRegistry(),
+            ObservationRegistry.NOOP,
+            feed);
+    tracker.init();
+    final List<ExecutionEvent> seen = new CopyOnWriteArrayList<>();
+    feed.events().subscribe(seen::add);
+    StepVerifier.create(tracker.startWorkflow("e3", "s1", "wf1", List.of("a"))).verifyComplete();
+
+    tracker.emitControlStateEvent("e3", com.infenia.yukta.model.execution.ControlState.PAUSED);
+    tracker.emitLogEvent("e3", "a", "marker");
+
+    // the log line is the only event: it arrives after the pause was applied
+    await().atMost(3, TimeUnit.SECONDS).untilAsserted(() -> assertThat(seen).hasSize(1));
+    assertThat(seen.get(0)).isInstanceOf(ExecutionEvent.LogLine.class);
+  }
 }
