@@ -3,10 +3,12 @@
 package com.infenia.yukta.controller;
 
 import com.infenia.yukta.model.api.ApiResponse;
+import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import com.infenia.yukta.service.workflow.store.DefinitionRevision;
 import com.infenia.yukta.service.workflow.store.WorkflowDefinitionStore;
+import com.infenia.yukta.service.workflow.store.WorkflowDiff;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -58,6 +60,42 @@ public class WorkflowVersionController {
         .revisions(sessionId, workflowId)
         .collectList()
         .map(list -> ApiResponse.success(200, "Workflow versions retrieved", list));
+  }
+
+  /**
+   * Compare two saved versions, or a saved version with the current definition.
+   *
+   * @param sessionId the session
+   * @param workflowId the workflow
+   * @param from the older version, as listed
+   * @param to the newer version, as listed; the current definition when omitted
+   * @return the nodes and edges added, removed or changed
+   */
+  @GetMapping("/versions/diff")
+  @Operation(
+      summary = "Compare two versions of a workflow",
+      description = "Nodes added, removed or changed, and edges added or removed")
+  public Mono<ApiResponse<WorkflowDiff>> diff(
+      @Parameter(description = SESSION_ID) @PathVariable final String sessionId,
+      @Parameter(description = WORKFLOW_ID) @PathVariable final String workflowId,
+      @Parameter(description = "Older version id from the list") @RequestParam final String from,
+      @Parameter(description = "Newer version id; the current definition if omitted")
+          @RequestParam(required = false)
+          final String to) {
+    final Mono<WorkflowDefinition> newer =
+        to == null || to.isBlank()
+            ? definitions.find(sessionId, workflowId)
+            : definitions.findRevision(sessionId, workflowId, to);
+    return Mono.zip(definitions.findRevision(sessionId, workflowId, from), newer)
+        .switchIfEmpty(
+            Mono.error(
+                () -> new NotFoundException("Version of workflow " + workflowId + " not found")))
+        .map(
+            pair ->
+                ApiResponse.success(
+                    200,
+                    "Workflow versions compared",
+                    WorkflowDiff.between(pair.getT1(), pair.getT2())));
   }
 
   /**

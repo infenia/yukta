@@ -56,6 +56,46 @@ class WorkflowVersionControllerTest {
   }
 
   @Test
+  void diffComparesAVersionWithTheCurrentDefinition_orWithAnotherVersion() {
+    final WorkflowDefinition older =
+        new WorkflowDefinition(
+            "w1", "d", List.of(new WorkflowDefinition.Node("a", "T", Map.of())), List.of());
+    final WorkflowDefinition current =
+        new WorkflowDefinition(
+            "w1",
+            "d",
+            List.of(
+                new WorkflowDefinition.Node("a", "T", Map.of()),
+                new WorkflowDefinition.Node("b", "T", Map.of())),
+            List.of());
+    when(definitions.findRevision("s1", "w1", "0001-a")).thenReturn(Mono.just(older));
+    when(definitions.findRevision("s1", "w1", "0002-b")).thenReturn(Mono.just(current));
+    when(definitions.find("s1", "w1")).thenReturn(Mono.just(current));
+
+    for (final String uri :
+        List.of(
+            BASE + "/versions/diff?from=0001-a", BASE + "/versions/diff?from=0001-a&to=0002-b")) {
+      client
+          .get()
+          .uri(uri)
+          .exchange()
+          .expectStatus()
+          .isOk()
+          .expectBody()
+          .jsonPath("$.data.addedNodes[0]")
+          .isEqualTo("b");
+    }
+  }
+
+  @Test
+  void diffOfAnUnknownVersionIsNotFound() {
+    when(definitions.findRevision("s1", "w1", "nope")).thenReturn(Mono.empty());
+    when(definitions.find("s1", "w1")).thenReturn(Mono.empty());
+
+    client.get().uri(BASE + "/versions/diff?from=nope").exchange().expectStatus().isNotFound();
+  }
+
+  @Test
   void rollbackSavesTheOldVersionAgain_andPreparesIt() {
     final WorkflowDefinition old =
         new WorkflowDefinition(

@@ -48,6 +48,7 @@ class AppMcpToolsTest {
   private PluginInfoProvider pluginInfoProvider;
   private SystemHealthProvider systemHealthProvider;
   private ResultProvider resultProvider;
+  private com.infenia.yukta.mcp.provider.WorkflowVersionProvider workflowVersionProvider;
 
   @BeforeEach
   void setUp() {
@@ -58,6 +59,7 @@ class AppMcpToolsTest {
     pluginInfoProvider = mock(PluginInfoProvider.class);
     systemHealthProvider = mock(SystemHealthProvider.class);
     resultProvider = mock(ResultProvider.class);
+    workflowVersionProvider = mock(com.infenia.yukta.mcp.provider.WorkflowVersionProvider.class);
     mcpTools =
         new AppMcpTools(
             sessionInfoProvider,
@@ -66,7 +68,8 @@ class AppMcpToolsTest {
             workflowControlProvider,
             pluginInfoProvider,
             systemHealthProvider,
-            resultProvider);
+            resultProvider,
+            workflowVersionProvider);
   }
 
   @Test
@@ -199,6 +202,28 @@ class AppMcpToolsTest {
     when(workflowControlProvider.pendingApprovals("s1")).thenReturn(Mono.just(result));
 
     StepVerifier.create(mcpTools.listPendingApprovals("s1")).expectNext(result).verifyComplete();
+  }
+
+  @Test
+  void testWorkflowVersionToolsDelegateToTheProvider() {
+    var versions = new com.infenia.yukta.mcp.dto.WorkflowVersions("s1", "w1", List.of());
+    var diff =
+        new com.infenia.yukta.service.workflow.store.WorkflowDiff(
+            false, List.of("b"), List.of(), List.of(), List.of(), List.of());
+    var rollback = new com.infenia.yukta.mcp.dto.WorkflowRollback("w1", "0001-a");
+    when(workflowVersionProvider.versions("s1", "w1")).thenReturn(Mono.just(versions));
+    when(workflowVersionProvider.diff("s1", "w1", "0001-a", null)).thenReturn(Mono.just(diff));
+    when(workflowVersionProvider.rollback("s1", "w1", "0001-a")).thenReturn(Mono.just(rollback));
+
+    StepVerifier.create(mcpTools.listWorkflowVersions("s1", "w1"))
+        .expectNext(versions)
+        .verifyComplete();
+    StepVerifier.create(mcpTools.diffWorkflowVersions("s1", "w1", "0001-a", null))
+        .expectNext(diff)
+        .verifyComplete();
+    StepVerifier.create(mcpTools.rollbackWorkflow("s1", "w1", "0001-a"))
+        .expectNext(rollback)
+        .verifyComplete();
   }
 
   @Test

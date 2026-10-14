@@ -2,6 +2,8 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.mcp;
 
+import com.infenia.yukta.mcp.dto.WorkflowRollback;
+import com.infenia.yukta.mcp.dto.WorkflowVersions;
 import com.infenia.yukta.mcp.dto.ControlActionResult;
 import com.infenia.yukta.mcp.dto.ControlBusStatus;
 import com.infenia.yukta.mcp.dto.ExecutionLogs;
@@ -24,6 +26,8 @@ import com.infenia.yukta.mcp.provider.SessionInfoProvider;
 import com.infenia.yukta.mcp.provider.SystemHealthProvider;
 import com.infenia.yukta.mcp.provider.WorkflowControlProvider;
 import com.infenia.yukta.mcp.provider.WorkflowExecutionProvider;
+import com.infenia.yukta.mcp.provider.WorkflowVersionProvider;
+import com.infenia.yukta.service.workflow.store.WorkflowDiff;
 import com.infenia.yukta.model.execution.WorkflowProgress;
 import com.infenia.yukta.model.session.SessionConfigData;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
@@ -73,6 +77,9 @@ public class AppMcpTools {
 
   /** Provides the results of executions for MCP tools. */
   private final ResultProvider resultProvider;
+
+  /** Provides the saved versions of workflows for MCP tools. */
+  private final WorkflowVersionProvider workflowVersionProvider;
 
   /**
    * Get details of a specific session.
@@ -454,6 +461,94 @@ public class AppMcpTools {
   public Mono<PendingApprovals> listPendingApprovals(
       @McpToolParam(required = true, description = SESSION_ID_DESC) final String sessionId) {
     return workflowControlProvider.pendingApprovals(sessionId);
+  }
+
+  /**
+   * List the saved versions of a workflow.
+   *
+   * @param sessionId the session
+   * @param workflowId the workflow
+   * @return Mono containing the versions
+   */
+  @McpTool(
+      name = "list_workflow_versions",
+      title = "List Workflow Versions",
+      description =
+          "List the saved versions of a workflow, newest first (the newest 20 saves are kept)."
+              + " Use the ids with diff_workflow_versions and rollback_workflow.",
+      generateOutputSchema = true,
+      annotations =
+          @McpTool.McpAnnotations(
+              readOnlyHint = true,
+              destructiveHint = false,
+              openWorldHint = false))
+  public Mono<WorkflowVersions> listWorkflowVersions(
+      @McpToolParam(required = true, description = SESSION_ID_DESC) final String sessionId,
+      @McpToolParam(required = true, description = "The workflow identifier")
+          final String workflowId) {
+    return workflowVersionProvider.versions(sessionId, workflowId);
+  }
+
+  /**
+   * Compare two versions of a workflow.
+   *
+   * @param sessionId the session
+   * @param workflowId the workflow
+   * @param from the older version id
+   * @param to the newer version id, or omit for the current definition
+   * @return Mono containing the nodes and edges added, removed or changed
+   */
+  @McpTool(
+      name = "diff_workflow_versions",
+      title = "Diff Workflow Versions",
+      description =
+          "Compare two saved versions of a workflow (or a version with the current definition):"
+              + " nodes added, removed or changed, and edges added or removed.",
+      generateOutputSchema = true,
+      annotations =
+          @McpTool.McpAnnotations(
+              readOnlyHint = true,
+              destructiveHint = false,
+              openWorldHint = false))
+  public Mono<WorkflowDiff> diffWorkflowVersions(
+      @McpToolParam(required = true, description = SESSION_ID_DESC) final String sessionId,
+      @McpToolParam(required = true, description = "The workflow identifier")
+          final String workflowId,
+      @McpToolParam(required = true, description = "The older version id from the list")
+          final String from,
+      @McpToolParam(required = false, description = "The newer version id; omit for the current")
+          final String to) {
+    return workflowVersionProvider.diff(sessionId, workflowId, from, to);
+  }
+
+  /**
+   * Roll a workflow back to a saved version.
+   *
+   * @param sessionId the session
+   * @param workflowId the workflow
+   * @param version the version id to restore
+   * @return Mono containing the workflow and version
+   */
+  @McpTool(
+      name = "rollback_workflow",
+      title = "Roll Back Workflow",
+      description =
+          "Make an earlier saved version the current definition of a workflow. It becomes a new"
+              + " save, so it can be undone the same way; runs that already started keep the"
+              + " version they use.",
+      generateOutputSchema = true,
+      annotations =
+          @McpTool.McpAnnotations(
+              readOnlyHint = false,
+              destructiveHint = false,
+              openWorldHint = false))
+  public Mono<WorkflowRollback> rollbackWorkflow(
+      @McpToolParam(required = true, description = SESSION_ID_DESC) final String sessionId,
+      @McpToolParam(required = true, description = "The workflow identifier")
+          final String workflowId,
+      @McpToolParam(required = true, description = "The version id from the list")
+          final String version) {
+    return workflowVersionProvider.rollback(sessionId, workflowId, version);
   }
 
   /**
