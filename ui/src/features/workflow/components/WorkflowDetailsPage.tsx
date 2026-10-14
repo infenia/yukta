@@ -11,6 +11,7 @@ import type { NodeCommand } from './NodeControlsMenu';
 import { RunControls } from './RunControls';
 import { useBreadcrumbOverride } from '@/lib/breadcrumbOverrides';
 import { LogsPanel } from './LogsPanel';
+import { PendingApprovals } from './PendingApprovals';
 import { ProgressPanel } from './ProgressPanel';
 import { RunHistoryDropdown } from './RunHistoryDropdown';
 import { WorkflowCanvas } from './WorkflowCanvas';
@@ -135,6 +136,8 @@ export function WorkflowDetailsPage() {
           </>
         }
       />
+
+      <PendingApprovals sessionId={sessionId} workflowId={workflowId} />
 
       {nodeError && (
         <div className="px-6 py-2">
