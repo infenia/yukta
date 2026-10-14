@@ -1,0 +1,149 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: 2026 Infenia Private Limited
+
+import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
+import { screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { setupServer } from 'msw/node';
+import { http, HttpResponse } from 'msw';
+import { renderWithProviders } from '@/test/utils/testUtils';
+import { WorkflowVersionsPanel } from '../WorkflowVersionsPanel';
+import type { WorkflowDiff, WorkflowVersion } from '../../api/versions';
+
+const ok = (data: unknown) =>
+  HttpResponse.json({
+    timestamp: 't',
+    status: 200,
+    message: 'ok',
+    data,
+    path: '/',
+  });
+
+const BASE = '/api/sessions/s1/workflows/wf';
+const noChange: WorkflowDiff = {
+  descriptionChanged: false,
+  addedNodes: [],
+  removedNodes: [],
+  changedNodes: [],
+  addedEdges: [],
+  removedEdges: [],
+};
+
+let versions: WorkflowVersion[] = [];
+let diff: WorkflowDiff = noChange;
+let listFails = false;
+let rollbackFails = false;
+const rolledBack: string[] = [];
+
+const server = setupServer(
+  http.get(`${BASE}/versions`, () =>
+    listFails
+      ? HttpResponse.json({ message: 'no store' }, { status: 500 })
+      : ok(versions)
+  ),
+  http.get(`${BASE}/versions/diff`, () => ok(diff)),
+  http.post(`${BASE}/rollback`, ({ request }) => {
+    rolledBack.push(new URL(request.url).searchParams.get('version') ?? '');
+    return rollbackFails
+      ? HttpResponse.json({ message: 'Version gone' }, { status: 404 })
+      : ok({ workflowId: 'wf', version: 'x' });
+  })
+);
+
+beforeAll(() => server.listen());
+afterEach(() => {
+  versions = [];
+  diff = noChange;
+  listFails = false;
+  rollbackFails = false;
+  rolledBack.length = 0;
+});
+afterAll(() => server.close());
+
+const two: WorkflowVersion[] = [
+  { id: '0002-b', savedAt: '2026-10-14T10:00:00Z' },
+  { id: '0001-a', savedAt: '2026-10-13T10:00:00Z' },
+];
+
+describe('WorkflowVersionsPanel', () => {
+  it('says so when no version is saved', async () => {
+    renderWithProviders(
+      <WorkflowVersionsPanel sessionId="s1" workflowId="wf" />
+    );
+    expect(
+      await screen.findByText('No saved versions yet.')
+    ).toBeInTheDocument();
+  });
+
+  it('shows why the versions cannot be read', async () => {
+    listFails = true;
+    renderWithProviders(
+      <WorkflowVersionsPanel sessionId="s1" workflowId="wf" />
+    );
+    expect(await screen.findByText('no store')).toBeInTheDocument();
+  });
+
+  it('lists the versions and shows the changes since one, then hides them', async () => {
+    versions = two;
+    diff = {
+      descriptionChanged: true,
+      addedNodes: ['n-new'],
+      removedNodes: ['n-old'],
+      changedNodes: ['n-mid'],
+      addedEdges: ['a -> n-new'],
+      removedEdges: ['a -> n-old:error'],
+    };
+    renderWithProviders(
+      <WorkflowVersionsPanel sessionId="s1" workflowId="wf" />
+    );
+    expect(await screen.findByText('0002-b')).toBeInTheDocument();
+    expect(screen.getByText('0001-a')).toBeInTheDocument();
+
+    await userEvent.click(
+      screen.getAllByRole('button', { name: 'Changes since' })[0]
+    );
+
+    expect(await screen.findByText('description changed')).toBeInTheDocument();
+    expect(screen.getByText('+ node n-new')).toBeInTheDocument();
+    expect(screen.getByText('- node n-old')).toBeInTheDocument();
+    expect(screen.getByText('~ node n-mid')).toBeInTheDocument();
+    expect(screen.getByText('+ edge a -> n-new')).toBeInTheDocument();
+    expect(screen.getByText('- edge a -> n-old:error')).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Hide changes' }));
+    expect(screen.queryByText('+ node n-new')).not.toBeInTheDocument();
+  });
+
+  it('says when a version equals the current definition', async () => {
+    versions = two;
+    renderWithProviders(
+      <WorkflowVersionsPanel sessionId="s1" workflowId="wf" />
+    );
+
+    await userEvent.click(
+      (await screen.findAllByRole('button', { name: 'Changes since' }))[1]
+    );
+
+    expect(
+      await screen.findByText('Same as the current definition')
+    ).toBeInTheDocument();
+  });
+
+  it('rolls back to a version, and shows why it could not', async () => {
+    versions = two;
+    renderWithProviders(
+      <WorkflowVersionsPanel sessionId="s1" workflowId="wf" />
+    );
+
+    await userEvent.click(
+      (await screen.findAllByRole('button', { name: 'Roll back' }))[1]
+    );
+    await waitFor(() => expect(rolledBack).toEqual(['0001-a']));
+
+    rollbackFails = true;
+    await userEvent.click(
+      screen.getAllByRole('button', { name: 'Roll back' })[0]
+    );
+    expect(await screen.findByText('Version gone')).toBeInTheDocument();
+  });
+});
