@@ -149,6 +149,16 @@ final class TrackerEventApplier {
           .log("Received workflow status event for unknown execution");
       return;
     }
+    if (TaskStatus.isTerminalName(state.status)) {
+      // The run has ended: a second end (a stop racing a cancel, say) must not finalize it again
+      // or write a second end to the log.
+      log.atDebug()
+          .addKeyValue("executionId", event.executionId())
+          .addKeyValue("status", event.status())
+          .addKeyValue("finalStatus", state.status)
+          .log("Ignored workflow status event for a run that has ended");
+      return;
+    }
     final boolean terminal = TaskStatus.isTerminalName(event.status());
     if (terminal) {
       // Every node event before this one is already applied, so what is still open is final.

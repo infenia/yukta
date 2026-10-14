@@ -547,6 +547,15 @@ public class WorkflowOrchestrator {
                                 .addKeyValue(LOG_KEY_EXECUTION_ID, executionId)
                                 .log("{} failed", label))
                     .then(Mono.error(e)))
+        .doOnCancel(
+            () ->
+                // A caller that goes away ends the run too; if a stop already did, the tracker
+                // ignores this second end.
+                tracker
+                    .finishWorkflow(executionId, TaskStatus.CANCELLED)
+                    .doFinally(
+                        _ -> resultService.complete(executionId, TaskStatus.CANCELLED.name()))
+                    .subscribe(_ -> {}, _ -> {}))
         .doFinally(
             signal -> {
               executionControlRegistry.unregister(executionId);

@@ -235,6 +235,26 @@ class WorkflowOrchestratorTest {
   }
 
   @Test
+  void execute_cancelledByItsCaller_endsTheRunAsCancelled() {
+    final String executionId = "exec-cancel";
+    final Map<String, Object> payload = Map.of();
+    final PreparedWorkflow prepared = buildPreparedWorkflow(List.of("node-c"));
+
+    setupExecutionControl("sess-c", "wf-c", executionId, prepared, payload, Sinks.one());
+    when(tracker.startWorkflow(anyString(), anyString(), anyString(), anyList()))
+        .thenReturn(Mono.empty());
+    when(prepared.template().instantiate(anyString(), any())).thenReturn(Mono.never());
+
+    StepVerifier.create(orchestrator.execute("sess-c", "wf-c", executionId, prepared, payload))
+        .thenAwait(Duration.ofMillis(50))
+        .thenCancel()
+        .verify();
+
+    verify(tracker).finishWorkflow(executionId, TaskStatus.CANCELLED);
+    verify(executionControlRegistry).unregister(executionId);
+  }
+
+  @Test
   void execute_safeStopSinkTerminatesExecution() {
     final String sessionId = "sess-safe";
     final String workflowId = "wf-safe";
