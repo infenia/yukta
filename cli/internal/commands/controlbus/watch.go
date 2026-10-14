@@ -28,7 +28,7 @@ var snapshotInterval = 3 * time.Second
 // WatchCmd creates the "controlbus watch" command.
 func WatchCmd(c *client.Client) *cobra.Command {
 	var executionID, eventType string
-	var untilDone, noLogs bool
+	var untilDone, noLogs, quiet bool
 
 	cmd := &cobra.Command{
 		Use:   "watch",
@@ -41,6 +41,8 @@ One line per event:
   WORKFLOW <status>
   CONTROL <command> applied=<bool> [reason]
   LOG <node>: <line>
+With --quiet only problems and the end are shown: failed or otherwise non-SUCCESS final node
+statuses, control commands that were not applied, and the final workflow status.
 With -o json, each event is printed as one JSON object per line.
 
 The server does not replay events: only what happens after the stream opens is shown.
@@ -67,6 +69,7 @@ Press Ctrl-C to stop watching at any time.`,
 				eventType: eventType,
 				untilDone: untilDone,
 				noLogs:    noLogs,
+				quiet:     quiet,
 				json:      commands.GetOutputFormat() == "json",
 			}
 			if untilDone {
@@ -86,6 +89,7 @@ Press Ctrl-C to stop watching at any time.`,
 		"Only events of this kind: NodeStatusChanged, WorkflowStatusChanged, ControlOutcome or LogLine")
 	cmd.Flags().BoolVar(&untilDone, "until-done", false, "Exit when the execution has ended (needs --execution)")
 	cmd.Flags().BoolVar(&noLogs, "no-logs", false, "Leave out log lines")
+	cmd.Flags().BoolVar(&quiet, "quiet", false, "Only problems and the final workflow status")
 	return cmd
 }
 
@@ -98,7 +102,9 @@ type watcher struct {
 	eventType string
 	untilDone bool
 	noLogs    bool
+	quiet     bool
 	json      bool
+	seen      map[string]string // last status printed per node, to drop snapshot/stream duplicates
 }
 
 func (w *watcher) handle(e client.ExecutionEvent) error {
@@ -107,6 +113,15 @@ func (w *watcher) handle(e client.ExecutionEvent) error {
 	if w.finished {
 		return nil
 	}
+	if e.Type == client.EventNodeStatusChanged {
+		if w.seen[e.NodeID] == e.Status {
+			return nil
+		}
+		if w.seen == nil {
+			w.seen = map[string]string{}
+		}
+		w.seen[e.NodeID] = e.Status
+	}
 	if w.untilDone && e.Type == client.EventWorkflowStatusChanged && client.IsTerminalStatus(e.Status) {
 		w.finished = true
 		defer w.cancel()
@@ -114,11 +129,28 @@ func (w *watcher) handle(e client.ExecutionEvent) error {
 	if w.noLogs && e.Type == client.EventLogLine {
 		return nil
 	}
+	if w.quiet && !isProblemOrEnd(e) {
+		return nil
+	}
 	if w.eventType != "" && !strings.EqualFold(w.eventType, e.Type) {
 		return nil
 	}
 	w.print(e)
 	return nil
+}
+
+// isProblemOrEnd keeps what --quiet shows: the end of the workflow, final node statuses other than
+// SUCCESS, and control commands that were not applied.
+func isProblemOrEnd(e client.ExecutionEvent) bool {
+	switch e.Type {
+	case client.EventWorkflowStatusChanged:
+		return client.IsTerminalStatus(e.Status)
+	case client.EventNodeStatusChanged:
+		return client.IsTerminalStatus(e.Status) && e.Status != "SUCCESS"
+	case client.EventControlOutcome:
+		return e.Applied == nil || !*e.Applied
+	}
+	return false
 }
 
 func (w *watcher) print(e client.ExecutionEvent) {
@@ -130,12 +162,25 @@ func (w *watcher) print(e client.ExecutionEvent) {
 	fmt.Println(formatEvent(e))
 }
 
-// pollStatus turns a terminal snapshot into a WorkflowStatusChanged event.
+// pollStatus turns a snapshot into events: the final status of nodes that already ended (their
+// events were missed when the watch attached late) and, once it ended, the workflow status.
 func (w *watcher) pollStatus(ctx context.Context, c *client.Client, executionID string) {
 	ticker := time.NewTicker(snapshotInterval)
 	defer ticker.Stop()
 	for {
 		progress, err := c.GetExecution(executionID)
+		if err == nil {
+			for _, t := range progress.Tasks {
+				if client.IsTerminalStatus(t.Status) {
+					_ = w.handle(client.ExecutionEvent{
+						Type:        client.EventNodeStatusChanged,
+						ExecutionID: executionID,
+						NodeID:      t.NodeID,
+						Status:      t.Status,
+					})
+				}
+			}
+		}
 		if err == nil && client.IsTerminalStatus(progress.Status) {
 			_ = w.handle(client.ExecutionEvent{
 				Type:        client.EventWorkflowStatusChanged,
