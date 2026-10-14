@@ -44,8 +44,8 @@ class ExecutionControlCommandTest {
           case ExecutionControlCommand.RestartFromNodeCommand c -> "restart-from-node";
           case ExecutionControlCommand.SetBreakpointCommand c -> "set-breakpoint";
           case ExecutionControlCommand.SignalNodeCommand _ -> "signal";
-          case ExecutionControlCommand.SetLimitsCommand _ -> "limits";
-          case ExecutionControlCommand.SetPriorityCommand _ -> "priority";
+          case ExecutionControlCommand.SetLimitsCommand c -> "limits-" + c.maxConcurrent();
+          case ExecutionControlCommand.SetPriorityCommand c -> "priority-" + c.priority();
         };
 
     assertThat(kind).isEqualTo("pause-node");

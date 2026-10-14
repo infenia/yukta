@@ -226,6 +226,23 @@ class McpClientGatewayTest {
   }
 
   @Test
+  void call_countsArgumentBytesNotCharacters() {
+    gateway.setMaxArgumentBytes(14);
+    final McpCallSpec accents =
+        new McpCallSpec(
+            spec("ping").url(),
+            "ping",
+            Map.of("q", "éééé"),
+            Map.of(),
+            Map.of(),
+            Duration.ofSeconds(5));
+
+    StepVerifier.create(gateway.call(accents, () -> {}))
+        .expectErrorMatches(e -> e.getMessage().contains("max-argument-bytes"))
+        .verify();
+  }
+
+  @Test
   void call_allowsToolsInTheGatewayPolicy() {
     gateway.setAllowedTools(List.of("ping"));
 

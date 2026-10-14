@@ -68,6 +68,23 @@ class ApiKeysTest {
   }
 
   @Test
+  void read_refusesMalformedDigest() {
+    assertThat(refuses("sha256:abc")).contains("'h'");
+    assertThat(refuses("sha256:" + "z".repeat(64))).contains("64 hexadecimal");
+    assertThat(refuses("sha256:")).contains("64 hexadecimal");
+  }
+
+  private static String refuses(final String bad) {
+    final var env =
+        new MockEnvironment()
+            .withProperty("yukta.api-keys[0].name", "h")
+            .withProperty("yukta.api-keys[0].key", bad);
+    return org.assertj.core.api.Assertions.catchThrowableOfType(
+            IllegalArgumentException.class, () -> ApiKeys.read(env, null))
+        .getMessage();
+  }
+
+  @Test
   void hash_failsForAnUnknownAlgorithm() {
     org.assertj.core.api.Assertions.assertThatThrownBy(() -> ApiKeys.hash("NOPE", "x"))
         .isInstanceOf(IllegalStateException.class);

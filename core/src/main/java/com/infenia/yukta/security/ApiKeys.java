@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Set;
+import java.util.regex.Pattern;
 import org.jspecify.annotations.Nullable;
 import org.springframework.boot.context.properties.bind.Bindable;
 import org.springframework.boot.context.properties.bind.Binder;
@@ -28,6 +29,9 @@ public final class ApiKeys {
 
   /** Prefix of a key given as a hash. */
   private static final String HASH_PREFIX = "sha256:";
+
+  /** A SHA-256 digest in hex. */
+  private static final Pattern HEX_DIGEST = Pattern.compile("[0-9a-f]{64}");
 
   /** Name the single {@code yukta.api-key} goes by. */
   private static final String DEFAULT_NAME = "default";
@@ -130,10 +134,7 @@ public final class ApiKeys {
     if (key == null || key.isBlank()) {
       return;
     }
-    final String digest =
-        key.startsWith(HASH_PREFIX)
-            ? key.substring(HASH_PREFIX.length()).strip().toLowerCase(Locale.ROOT)
-            : sha256(key);
+    final String digest = key.startsWith(HASH_PREFIX) ? hashed(name, key) : sha256(key);
     all.add(new Key(digest, new Match(name, role, sessions)));
   }
 
@@ -187,6 +188,18 @@ public final class ApiKeys {
       }
     }
     return found;
+  }
+
+  /**
+   * The hash of a {@code sha256:<hex>} key; anything but 64 hex digits is a configuration error.
+   */
+  private static String hashed(final String name, final String key) {
+    final String hex = key.substring(HASH_PREFIX.length()).strip().toLowerCase(Locale.ROOT);
+    if (!HEX_DIGEST.matcher(hex).matches()) {
+      throw new IllegalArgumentException(
+          "API key '" + name + "': a sha256: key must be 64 hexadecimal digits");
+    }
+    return hex;
   }
 
   private static String sha256(final String text) {

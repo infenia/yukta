@@ -51,7 +51,12 @@ class SpelUtilsTest {
 
     assertThat((Object) SpelUtils.evaluateSync("name.toUpperCase()", root)).isEqualTo("YUKTA");
     for (final String expression :
-        new String[] {"name.repeat(1000000000)", "name.getClass()", "name.getBytes()"}) {
+        new String[] {
+          "name.repeat(1000000000)",
+          "name.replace('y', 'yyyyyyyyyy').replace('y', 'yyyyyyyyyy')",
+          "name.getClass()",
+          "name.getBytes()"
+        }) {
       org.assertj.core.api.Assertions.assertThatThrownBy(
               () -> SpelUtils.evaluateSync(expression, root))
           .isInstanceOf(SpelEvaluationException.class);

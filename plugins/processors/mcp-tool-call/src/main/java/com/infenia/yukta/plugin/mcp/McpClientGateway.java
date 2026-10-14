@@ -177,7 +177,7 @@ public class McpClientGateway {
       return null;
     }
     final String json = JSON_MAPPER.writeValueAsString(spec.arguments());
-    if (json.length() > maxArgumentBytes) {
+    if (json.getBytes(java.nio.charset.StandardCharsets.UTF_8).length > maxArgumentBytes) {
       return "Arguments of MCP tool '"
           + spec.tool()
           + "' exceed yukta.mcp-client.max-argument-bytes";

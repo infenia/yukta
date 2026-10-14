@@ -49,7 +49,6 @@ final class SafeMethodResolver implements MethodResolver {
           "strip",
           "toUpperCase",
           "toLowerCase",
-          "replace",
           "split",
           "keySet",
           "values",

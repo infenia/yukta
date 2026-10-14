@@ -67,11 +67,11 @@ class ProcessExecutorGatewayTest {
 
   @Test
   void noListAndNoSwitch_refusesEveryCommand() {
-    gateway.setAllowAny(false);
+    final ProcessExecutorGateway fresh = new ProcessExecutorGateway();
     final ProcessExecutionSpec spec =
         ProcessExecutionSpec.builder().command(List.of("echo", "hi")).timeoutSeconds(10L).build();
 
-    StepVerifier.create(gateway.executeForResult(spec))
+    StepVerifier.create(fresh.executeForResult(spec))
         .expectErrorMatches(
             e -> e instanceof IllegalArgumentException && e.getMessage().contains("allow-any"))
         .verify();
