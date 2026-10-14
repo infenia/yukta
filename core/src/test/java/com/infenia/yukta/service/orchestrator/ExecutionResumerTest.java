@@ -51,7 +51,9 @@ class ExecutionResumerTest {
   private final InMemoryNodeCheckpointStore checkpoints = new InMemoryNodeCheckpointStore();
   private final WorkflowDefinitionStore definitions = mock(WorkflowDefinitionStore.class);
   private final WorkflowOrchestrator orchestrator = mock(WorkflowOrchestrator.class);
-  private final ExecutionScheduler scheduler = mock(ExecutionScheduler.class);
+  private final ExecutionScheduler scheduler =
+      new ExecutionScheduler(
+          0, 0, 100, ExecutionScheduler.OnLimit.QUEUE, java.time.Duration.ofSeconds(30));
   private final PreparedWorkflow prepared = chain();
   private final ExecutionResumer resumer =
       new ExecutionResumer(log, checkpoints, definitions, orchestrator, scheduler);
@@ -85,7 +87,8 @@ class ExecutionResumerTest {
             any(),
             anyMap(),
             anyMap(),
-            anyString()))
+            anyString(),
+            any()))
         .thenReturn(Mono.empty());
   }
 
@@ -139,7 +142,8 @@ class ExecutionResumerTest {
             plan.capture(),
             eq(PAYLOAD),
             outputs.capture(),
-            anyString());
+            anyString(),
+            any());
     assertThat(plan.getValue().rerun()).containsExactlyInAnyOrder("b", "c");
     assertThat(plan.getValue().boundary()).containsExactly("a");
     assertThat(outputs.getValue().get("a"))
@@ -172,7 +176,7 @@ class ExecutionResumerTest {
 
     final ArgumentCaptor<RestartPlan> plan = ArgumentCaptor.forClass(RestartPlan.class);
     verify(orchestrator)
-        .rerun(any(), any(), any(), any(), any(), plan.capture(), any(), any(), any());
+        .rerun(any(), any(), any(), any(), any(), plan.capture(), any(), any(), any(), any());
     assertThat(plan.getValue().rerun()).containsExactlyInAnyOrder("a", "b", "c");
   }
 
@@ -182,7 +186,7 @@ class ExecutionResumerTest {
 
     StepVerifier.create(resumer.resume("old")).expectError(IllegalStateException.class).verify();
     verify(orchestrator, never())
-        .rerun(any(), any(), any(), any(), any(), any(), any(), any(), any());
+        .rerun(any(), any(), any(), any(), any(), any(), any(), any(), any(), any());
   }
 
   @Test
@@ -246,7 +250,7 @@ class ExecutionResumerTest {
 
     assertThat(first.block()).isNotNull();
     verify(orchestrator, times(1))
-        .rerun(any(), any(), any(), any(), any(), any(), any(), any(), any());
+        .rerun(any(), any(), any(), any(), any(), any(), any(), any(), any(), any());
   }
 
   @Test
@@ -280,7 +284,8 @@ class ExecutionResumerTest {
             any(),
             anyMap(),
             anyMap(),
-            anyString()))
+            anyString(),
+            any()))
         .thenReturn(Mono.error(new IllegalStateException("rerun broke")));
     abortedRun(DefinitionVersion.of(prepared), "a");
 
@@ -296,7 +301,8 @@ class ExecutionResumerTest {
             any(),
             anyMap(),
             anyMap(),
-            anyString());
+            anyString(),
+            any());
   }
 
   @Test
@@ -311,7 +317,7 @@ class ExecutionResumerTest {
 
     final ArgumentCaptor<RestartPlan> plan = ArgumentCaptor.forClass(RestartPlan.class);
     verify(orchestrator)
-        .rerun(any(), any(), any(), any(), any(), plan.capture(), any(), any(), any());
+        .rerun(any(), any(), any(), any(), any(), plan.capture(), any(), any(), any(), any());
     assertThat(plan.getValue().rerun()).containsExactlyInAnyOrder("a", "b", "c");
   }
 }

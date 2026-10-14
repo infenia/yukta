@@ -222,11 +222,39 @@ public class WorkflowOrchestrator {
       final PreparedWorkflow prepared,
       final String restartNodeId,
       final Map<String, List<Message<?>>> boundaryOutputs) {
+    return restartFromNode(
+        sessionId,
+        workflowId,
+        previousExecutionId,
+        newExecutionId,
+        prepared,
+        restartNodeId,
+        boundaryOutputs,
+        null);
+  }
+
+  /**
+   * As {@link #restartFromNode(String, String, String, String, PreparedWorkflow, String, Map)},
+   * with the slot already taken by the caller (given back if the restart cannot begin).
+   *
+   * @param admission the slot taken in advance, or null to ask for one when the run starts
+   */
+  @SuppressWarnings({"PMD.UseObjectForClearerAPI", "PMD.OnlyOneReturn"})
+  public Mono<Void> restartFromNode(
+      final String sessionId,
+      final String workflowId,
+      final String previousExecutionId,
+      final String newExecutionId,
+      final PreparedWorkflow prepared,
+      final String restartNodeId,
+      final Map<String, List<Message<?>>> boundaryOutputs,
+      final ExecutionScheduler.@Nullable Admission admission) {
 
     final RestartPlan plan;
     try {
       plan = RestartPlan.compute(prepared, restartNodeId);
     } catch (final IllegalArgumentException e) {
+      giveBack(admission);
       return Mono.error(e);
     }
     return rerun(
@@ -241,7 +269,8 @@ public class WorkflowOrchestrator {
             .<Map<String, Object>>map(ArchivedExecution::payload)
             .orElse(Map.of()),
         boundaryOutputs,
-        "restartNodeId=" + restartNodeId);
+        "restartNodeId=" + restartNodeId,
+        admission);
   }
 
   /**
@@ -262,6 +291,37 @@ public class WorkflowOrchestrator {
       final Map<String, Object> payload,
       final Map<String, List<Message<?>>> boundaryOutputs,
       final String origin) {
+    return rerun(
+        sessionId,
+        workflowId,
+        previousExecutionId,
+        newExecutionId,
+        prepared,
+        plan,
+        payload,
+        boundaryOutputs,
+        origin,
+        null);
+  }
+
+  /**
+   * As {@link #rerun(String, String, String, String, PreparedWorkflow, RestartPlan, Map, Map,
+   * String)}, with the slot already taken by the caller (given back if the run cannot begin).
+   *
+   * @param admission the slot taken in advance, or null to ask for one when the run starts
+   */
+  @SuppressWarnings("PMD.UseObjectForClearerAPI")
+  public Mono<Void> rerun(
+      final String sessionId,
+      final String workflowId,
+      final String previousExecutionId,
+      final String newExecutionId,
+      final PreparedWorkflow prepared,
+      final RestartPlan plan,
+      final Map<String, Object> payload,
+      final Map<String, List<Message<?>>> boundaryOutputs,
+      final String origin,
+      final ExecutionScheduler.@Nullable Admission admission) {
 
     log.atInfo()
         .addKeyValue(LOG_KEY_SESSION_ID, sessionId)
@@ -275,9 +335,15 @@ public class WorkflowOrchestrator {
 
     final List<WorkflowNode> topologicalOrder = prepared.topologicalOrder();
     final int nodeCount = topologicalOrder.size();
-    final NodeAssembler[] assemblers =
-        compiler.compileAssemblers(
-            prepared.edges(), prepared.parentsList(), prepared.pluginCache(), topologicalOrder);
+    final NodeAssembler[] assemblers;
+    try {
+      assemblers =
+          compiler.compileAssemblers(
+              prepared.edges(), prepared.parentsList(), prepared.pluginCache(), topologicalOrder);
+    } catch (final RuntimeException e) {
+      giveBack(admission);
+      return Mono.error(e);
+    }
 
     // Nodes outside the re-run set do not run: the ones feeding it replay what they recorded, the
     // rest stay silent, so independent branches are not executed again.
@@ -335,7 +401,7 @@ public class WorkflowOrchestrator {
               newExecutionId,
               nodeIds,
               ExecutionScheduler.priorityOf(payload),
-              null,
+              admission,
               recordReplayed.then(
                   compiler.executeTemplate(
                       newExecutionId,

@@ -54,7 +54,9 @@ class RestartFromNodeCommandProcessorTest {
 
   private final ExecutionControlRegistry registry = mock(ExecutionControlRegistry.class);
   private final WorkflowOrchestrator orchestrator = mock(WorkflowOrchestrator.class);
-  private final ExecutionScheduler scheduler = mock(ExecutionScheduler.class);
+  private ExecutionScheduler scheduler =
+      new ExecutionScheduler(
+          0, 0, 100, ExecutionScheduler.OnLimit.QUEUE, java.time.Duration.ofSeconds(30));
   private final RestartCompletionSink completionSink = mock(RestartCompletionSink.class);
   private final ExecutionArchive archive = new ExecutionArchive();
   private final InMemoryNodeCheckpointStore checkpoints = new InMemoryNodeCheckpointStore(3);
@@ -101,7 +103,7 @@ class RestartFromNodeCommandProcessorTest {
         new RestartFromNodeCommandProcessor(
             registry, archive, orchestrator, checkpoints, scheduler, completionSink);
     archive.put(new ArchivedExecution(EXEC, "s1", "w1", graph(), "v1", Map.of()));
-    when(orchestrator.restartFromNode(any(), any(), any(), any(), any(), any(), any()))
+    when(orchestrator.restartFromNode(any(), any(), any(), any(), any(), any(), any(), any()))
         .thenReturn(Mono.never());
   }
 
@@ -134,7 +136,7 @@ class RestartFromNodeCommandProcessorTest {
         ArgumentCaptor.forClass(Map.class);
     verify(orchestrator)
         .restartFromNode(
-            eq("s1"), eq("w1"), eq(EXEC), eq("new-1"), any(), eq("mid"), outputs.capture());
+            eq("s1"), eq("w1"), eq(EXEC), eq("new-1"), any(), eq("mid"), outputs.capture(), any());
     // only the node feeding the re-run part is replayed; the independent branch is left alone
     assertThat(outputs.getValue()).containsOnlyKeys("trigger");
     assertThat(outputs.getValue().get("trigger")).containsExactly(first, second);
@@ -155,16 +157,20 @@ class RestartFromNodeCommandProcessorTest {
   @Test
   void finishedExecution_isRefusedWhenTheLimitsAreFull() {
     when(registry.findByExecutionId(EXEC)).thenReturn(Optional.empty());
-    org.mockito.Mockito.doThrow(new ExecutionRejectedException("Execution limit reached"))
-        .when(scheduler)
-        .assertCanAccept("s1", "w1");
+    scheduler =
+        new ExecutionScheduler(1, 0, 0, ExecutionScheduler.OnLimit.REJECT, java.time.Duration.ZERO);
+    scheduler.acquire("s1", "w1");
+    processor =
+        new RestartFromNodeCommandProcessor(
+            registry, archive, orchestrator, checkpoints, scheduler, completionSink);
 
     StepVerifier.create(processor.process(new RestartFromNodeCommand(EXEC, "mid", "new-1")))
         .verifyError(ExecutionRejectedException.class);
 
     verify(completionSink)
         .completeRestartFailure(eq("new-1"), any(ExecutionRejectedException.class));
-    verify(orchestrator, never()).restartFromNode(any(), any(), any(), any(), any(), any(), any());
+    verify(orchestrator, never())
+        .restartFromNode(any(), any(), any(), any(), any(), any(), any(), any());
   }
 
   @Test
@@ -198,7 +204,8 @@ class RestartFromNodeCommandProcessorTest {
             eq("new-1"),
             org.mockito.ArgumentMatchers.argThat(e -> e.getMessage().contains("not finished")));
     verify(registry, never()).unregister(any());
-    verify(orchestrator, never()).restartFromNode(any(), any(), any(), any(), any(), any(), any());
+    verify(orchestrator, never())
+        .restartFromNode(any(), any(), any(), any(), any(), any(), any(), any());
   }
 
   @Test
@@ -218,7 +225,8 @@ class RestartFromNodeCommandProcessorTest {
                     e instanceof IllegalArgumentException
                         && e.getMessage().contains("'trigger'")
                         && e.getMessage().contains("incomplete")));
-    verify(orchestrator, never()).restartFromNode(any(), any(), any(), any(), any(), any(), any());
+    verify(orchestrator, never())
+        .restartFromNode(any(), any(), any(), any(), any(), any(), any(), any());
   }
 
   @Test
@@ -230,13 +238,14 @@ class RestartFromNodeCommandProcessorTest {
 
     verify(completionSink).completeRestartFailure(eq("new-1"), any(IllegalArgumentException.class));
     verify(completionSink).completeRestartFailure(eq("new-2"), any(IllegalArgumentException.class));
-    verify(orchestrator, never()).restartFromNode(any(), any(), any(), any(), any(), any(), any());
+    verify(orchestrator, never())
+        .restartFromNode(any(), any(), any(), any(), any(), any(), any(), any());
   }
 
   @Test
   void orchestratorFailingLater_isNotReportedThroughTheCompletionSink() {
     when(registry.findByExecutionId(EXEC)).thenReturn(Optional.empty());
-    when(orchestrator.restartFromNode(any(), any(), any(), any(), any(), any(), any()))
+    when(orchestrator.restartFromNode(any(), any(), any(), any(), any(), any(), any(), any()))
         .thenReturn(Mono.error(new RuntimeException("boom")));
 
     StepVerifier.create(processor.process(new RestartFromNodeCommand(EXEC, "trigger", "new-1")))
