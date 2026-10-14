@@ -12,6 +12,7 @@ import com.infenia.yukta.plugin.core.UiDesign;
 import com.infenia.yukta.plugin.core.WorkflowContext;
 import com.infenia.yukta.plugin.exception.WorkflowExecutionException;
 import com.infenia.yukta.plugin.type.ProcessorPlugin;
+import com.infenia.yukta.plugin.util.SignalWaits;
 import com.infenia.yukta.plugin.util.SpelUtils;
 import com.infenia.yukta.util.MapUtils;
 import com.infenia.yukta.util.VariableResolver;
@@ -53,6 +54,9 @@ import reactor.core.publisher.Mono;
   "PMD.CyclomaticComplexity"
 })
 public final class McpToolCallPlugin implements ProcessorPlugin {
+
+  /** The approvals this plugin waits for. */
+  private final SignalWaits waits = new SignalWaits();
 
   private static final String TYPE = "MCP_TOOL_CALL";
   private static final String URL = "url";
@@ -140,6 +144,15 @@ public final class McpToolCallPlugin implements ProcessorPlugin {
             null,
             "Tools this node may call; any other tool (even one chosen by ${...}) is refused"),
         ConfigField.optional(
+            ToolApproval.REQUIRE,
+            ConfigField.Type.LIST,
+            null,
+            "Tools (or *) that wait for a human signal before they are called"),
+        ConfigField.optional(
+            ToolApproval.SIGNAL, ConfigField.Type.STRING, "approve", "Name of the approval signal"),
+        ConfigField.optional(
+            ToolApproval.TIMEOUT, ConfigField.Type.NUMBER, 3600, "Longest wait for the approval"),
+        ConfigField.optional(
             AUTH_TOKEN, ConfigField.Type.SECRET, null, "Bearer token (decrypted:<key>)"),
         ConfigField.optional(TIMEOUT, ConfigField.Type.NUMBER, 60, "Timeout in seconds"),
         ConfigField.optional(
@@ -177,8 +190,11 @@ public final class McpToolCallPlugin implements ProcessorPlugin {
       Default: the payload if it is a map, else {"input": payload}
     - headers: Map<String, String> (variable expressions and decrypted:<key> supported)
     - allowedTools: list of tool names this node may call; any other tool is refused (use it when
-      the tool is chosen by a model). To require a human OK for a tool, put a WAIT_FOR_SIGNAL
-      node in front of this one.
+      the tool is chosen by a model).
+    - requireApproval: list of tool names (or "*") that wait for a human signal before they are
+      called. Send it with signal_node (name = approvalSignal, default "approve"; decision
+      "reject" refuses the call, anything else approves). approvalTimeoutSeconds: longest wait,
+      default 3600; no answer refuses the call.
     - authToken: bearer token, e.g. "decrypted:github-mcp"
     - timeout: seconds, positive (default: 60)
     - resultKey: also copy the tool text result into this metadata key
@@ -207,7 +223,7 @@ public final class McpToolCallPlugin implements ProcessorPlugin {
   @Override
   public Duration getDefaultTimeout(final Map<String, Object> config) {
     final long seconds = timeoutSeconds(config.get(TIMEOUT)).orElse(DEFAULT_TIMEOUT_SECONDS);
-    return Duration.ofSeconds(seconds + MARGIN_SECONDS);
+    return Duration.ofSeconds(seconds + MARGIN_SECONDS).plus(ToolApproval.wait(config));
   }
 
   private static Optional<Long> timeoutSeconds(final Object value) {
@@ -261,8 +277,9 @@ public final class McpToolCallPlugin implements ProcessorPlugin {
   public Mono<Message<?>> onControlSignal(final Message<?> signal) {
     if (RESET.equals(String.valueOf(signal.payload()))) {
       gateway.reset();
+      return Mono.empty();
     }
-    return Mono.empty();
+    return waits.deliver(signal);
   }
 
   @Override
@@ -284,6 +301,7 @@ public final class McpToolCallPlugin implements ProcessorPlugin {
                   .flatMap(
                       spec ->
                           allowed(config, spec.tool())
+                              .then(approved(ctx, config, spec.tool()))
                               .then(Mono.defer(() -> gateway.call(spec, heartbeat)))
                               .onErrorResume(
                                   error ->
@@ -294,6 +312,21 @@ public final class McpToolCallPlugin implements ProcessorPlugin {
                               .map(result -> new Outcome(nodeId, spec.tool(), result)));
             })
         .flatMapMany(outcome -> toMessage(message, config, failureMode, outcome, started));
+  }
+
+  /** Holds a tool that needs a human approval until the signal comes. */
+  private Mono<Void> approved(
+      final reactor.util.context.ContextView ctx,
+      final Map<String, Object> config,
+      final String tool) {
+    return ToolApproval.required(config, tool)
+        ? ToolApproval.await(
+            waits,
+            config,
+            ctx.getOrDefault("executionId", "unknown"),
+            ctx.getOrDefault("nodeId", "unknown"),
+            tool)
+        : Mono.empty();
   }
 
   /**
@@ -471,6 +504,7 @@ public final class McpToolCallPlugin implements ProcessorPlugin {
             && tools.stream().allMatch(t -> t instanceof final String name && !name.isBlank()))) {
       throw new IllegalArgumentException("allowedTools must be a list of tool names");
     }
+    ToolApproval.validate(config);
     final FailureMode failureMode = FailureMode.from(config.get(FAILURE_MODE));
     if (routeByStatus(config) && failureMode != FailureMode.CONTINUE) {
       throw new IllegalArgumentException("routeByStatus requires failureMode: CONTINUE");
