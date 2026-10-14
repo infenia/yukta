@@ -5,6 +5,7 @@ package com.infenia.yukta.service.log;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 
+import com.infenia.yukta.service.control.ExecutionScheduler;
 import com.infenia.yukta.service.orchestrator.tracker.DefaultTaskTrackerService;
 import com.infenia.yukta.service.streaming.StatusHistoryCache;
 import java.time.Duration;
@@ -207,5 +208,46 @@ class ExecutionRecoveryTest {
         .containsExactly("scheduler", "r1", "r1");
     assertThat(store.readAll().getFirst().status()).isEqualTo("SetLimits(2)");
     assertThat(tracker.getProgress("s1", "r1")).isNotNull();
+  }
+
+  @Test
+  void newestAppliedLimitChange_isReappliedToTheScheduler() {
+    final ExecutionScheduler scheduler =
+        new ExecutionScheduler(
+            9, 9, 10, ExecutionScheduler.OnLimit.REJECT, java.time.Duration.ZERO);
+    store.append(
+        ExecutionLogEvent.control(true, ExecutionLogEvent.SCHEDULER, "SetLimits(1, 1)", null));
+    store.append(
+        ExecutionLogEvent.control(true, ExecutionLogEvent.SCHEDULER, "SetLimits(4, 2) [by key:bob]", null));
+    store.append(
+        ExecutionLogEvent.control(
+            false, ExecutionLogEvent.SCHEDULER, "SetLimits(7, 7)", "refused"));
+    final ExecutionRecovery recovery = new ExecutionRecovery(store, tracker, 100);
+    recovery.setExecutionScheduler(scheduler);
+
+    recovery.recover();
+
+    assertThat(scheduler.maxPerWorkflow()).isEqualTo(2);
+    for (int i = 0; i < 4; i++) {
+      assertThat(scheduler.acquire("s", "w" + i).refused()).isFalse();
+    }
+    assertThat(scheduler.acquire("s", "w9").refused()).isTrue();
+  }
+
+  @Test
+  void legacySingleArgumentChange_keepsThePerWorkflowLimit() {
+    final ExecutionScheduler scheduler =
+        new ExecutionScheduler(9, 3, 10, ExecutionScheduler.OnLimit.REJECT, java.time.Duration.ZERO);
+    store.append(
+        ExecutionLogEvent.control(true, ExecutionLogEvent.SCHEDULER, "SetLimits(2)", null));
+    final ExecutionRecovery recovery = new ExecutionRecovery(store, tracker, 100);
+    recovery.setExecutionScheduler(scheduler);
+
+    recovery.recover();
+
+    assertThat(scheduler.maxPerWorkflow()).isEqualTo(3);
+    scheduler.acquire("s", "a");
+    scheduler.acquire("s", "b");
+    assertThat(scheduler.acquire("s", "c").refused()).isTrue();
   }
 }

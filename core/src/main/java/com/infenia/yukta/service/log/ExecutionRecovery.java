@@ -3,6 +3,7 @@
 package com.infenia.yukta.service.log;
 
 import com.infenia.yukta.plugin.store.NodeCheckpointStore;
+import com.infenia.yukta.service.control.ExecutionScheduler;
 import com.infenia.yukta.service.orchestrator.tracker.DefaultTaskTrackerService;
 import com.infenia.yukta.service.store.InMemoryNodeCheckpointStore;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -10,6 +11,8 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.SmartInitializingSingleton;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -28,6 +31,10 @@ import org.springframework.stereotype.Component;
 @SuppressWarnings({"PMD.UseConcurrentHashMap", "PMD.AvoidInstantiatingObjectsInLoops"})
 public class ExecutionRecovery implements SmartInitializingSingleton {
 
+  /** A limit change as the gateway logs it, with the actor suffix when there was one. */
+  private static final Pattern LIMITS =
+      Pattern.compile("SetLimits\\((\\d{1,9})(?:, (\\d{1,9}))?\\)(?: \\[by .*\\])?");
+
   /** The execution log. */
   private final ExecutionLogStore store;
 
@@ -39,6 +46,9 @@ public class ExecutionRecovery implements SmartInitializingSingleton {
 
   /** Holds the recorded outputs of runs, which go with the runs that are dropped. */
   private final NodeCheckpointStore checkpoints;
+
+  /** Gets back the limits that were last changed at run time, when present. */
+  private ExecutionScheduler executionScheduler;
 
   /**
    * Creates the recovery step.
@@ -68,6 +78,17 @@ public class ExecutionRecovery implements SmartInitializingSingleton {
     this(store, tracker, retainedRuns, new InMemoryNodeCheckpointStore());
   }
 
+  /**
+   * Lets recovery re-apply the newest run-time limit change found in the log.
+   *
+   * @param scheduler the scheduler
+   */
+  @Autowired(required = false)
+  @SuppressFBWarnings("EI_EXPOSE_REP2")
+  public void setExecutionScheduler(final ExecutionScheduler scheduler) {
+    this.executionScheduler = scheduler;
+  }
+
   @Override
   public void afterSingletonsInstantiated() {
     recover();
@@ -90,6 +111,7 @@ public class ExecutionRecovery implements SmartInitializingSingleton {
       }
     }
 
+    restoreLimits(scheduler);
     // Changes that belong to no run are not runs: they stay, the newest few.
     final List<ExecutionLogEvent> kept =
         new ArrayList<>(
@@ -114,6 +136,33 @@ public class ExecutionRecovery implements SmartInitializingSingleton {
         .addKeyValue("aborted", aborted)
         .addKeyValue("dropped", skip)
         .log("Recovered execution history");
+  }
+
+  /**
+   * Re-applies the newest limit change that was applied (not refused), so the limits an operator
+   * set at run time survive a restart; the log wins over the configuration from then on.
+   */
+  private void restoreLimits(final List<ExecutionLogEvent> schedulerEvents) {
+    if (executionScheduler == null) {
+      return;
+    }
+    for (final ExecutionLogEvent event : schedulerEvents.reversed()) {
+      if (event.type() != ExecutionLogEvent.Type.CONTROL_APPLIED) {
+        continue;
+      }
+      final Matcher match = LIMITS.matcher(event.status());
+      if (match.matches()) {
+        final int perWorkflow =
+            match.group(2) == null
+                ? executionScheduler.maxPerWorkflow()
+                : Integer.parseInt(match.group(2));
+        executionScheduler.setLimits(Integer.parseInt(match.group(1)), perWorkflow);
+        log.atInfo()
+            .addKeyValue("limits", event.status())
+            .log("Restored the limits changed at run time");
+        return;
+      }
+    }
   }
 
   private void restore(final ExecutionLogEvent started, final ExecutionLogEvent ended) {

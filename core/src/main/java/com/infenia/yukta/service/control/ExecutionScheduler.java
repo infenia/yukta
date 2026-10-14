@@ -287,6 +287,17 @@ public class ExecutionScheduler implements SmartLifecycle {
   }
 
   /**
+   * The per-workflow limit now in force.
+   *
+   * @return the limit, 0 for none
+   */
+  public int maxPerWorkflow() {
+    synchronized (lock) {
+      return maxPerWorkflow;
+    }
+  }
+
+  /**
    * Changes the limits while running. Raising them admits waiting starts at once; lowering them
    * lets running executions finish.
    *
