@@ -3031,4 +3031,19 @@ class DefaultTaskTrackerServiceTest {
     await().atMost(3, TimeUnit.SECONDS).untilAsserted(() -> assertThat(index).isEmpty());
     assertThat(tracker.getActiveSessions()).isEmpty();
   }
+
+  @Test
+  void maxSessions_evictsTheOldestFinishedSession_butNeverOneThatIsRunning() {
+    tracker.setMaxSessions(2);
+    StepVerifier.create(tracker.startWorkflow("e1", "s1", "w", List.of("a"))).verifyComplete();
+    tracker.emitWorkflowStatusEvent("e1", TaskStatus.SUCCESS);
+    StepVerifier.create(tracker.startWorkflow("e2", "s2", "w", List.of("a"))).verifyComplete();
+    org.awaitility.Awaitility.await()
+        .atMost(3, TimeUnit.SECONDS)
+        .until(() -> tracker.getProgress("s1", "e1").status().equals("SUCCESS"));
+
+    StepVerifier.create(tracker.startWorkflow("e3", "s3", "w", List.of("a"))).verifyComplete();
+
+    assertThat(tracker.getActiveSessions()).containsExactlyInAnyOrder("s2", "s3");
+  }
 }

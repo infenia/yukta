@@ -31,6 +31,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -82,6 +83,13 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
 
   /** Map of session ID to workflow states. */
   private final Map<String, Map<String, WorkflowState>> sessionStates = new ConcurrentHashMap<>();
+
+  /** When each session last started a run, to pick the one to evict. */
+  private final Map<String, Long> sessionUsed = new ConcurrentHashMap<>();
+
+  /** Most sessions kept in memory; 0 keeps them all. Evicted history is served from the log. */
+  @Value("${yukta.tracker.max-sessions:0}")
+  private int maxSessions;
 
   /** Map of execution ID to workflow state. */
   private final Map<String, WorkflowState> executionIndex = new ConcurrentHashMap<>();
@@ -261,6 +269,8 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
               .put(executionId, state);
 
           executionIndex.put(executionId, state);
+          sessionUsed.put(sessionId, System.nanoTime());
+          evictOldSessions(sessionId);
           telemetry.runStarted(executionId, sessionId, workflowId);
 
           latestExecs.put(getLatestKey(sessionId, workflowId), executionId);
@@ -650,6 +660,7 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
    */
   @Override
   public void removeSession(@SessionId final String sessionId) {
+    sessionUsed.remove(sessionId);
     history.forget(sessionId);
     final Map<String, WorkflowState> states = sessionStates.remove(sessionId);
     if (states != null) {
@@ -669,6 +680,33 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
     } else {
       log.atDebug().addKeyValue("sessionId", sessionId).log("Session not found for removal");
     }
+  }
+
+  /**
+   * Drops the session that started a run longest ago while there are more than {@code maxSessions},
+   * never one with a run still going and never the session that just started.
+   */
+  private void evictOldSessions(final String current) {
+    while (maxSessions > 0 && sessionStates.size() > maxSessions) {
+      final String oldest =
+          sessionStates.entrySet().stream()
+              .filter(e -> !e.getKey().equals(current))
+              .filter(
+                  e ->
+                      e.getValue().values().stream()
+                          .allMatch(state -> TaskStatus.isTerminalName(state.status)))
+              .map(Map.Entry::getKey)
+              .min(Comparator.comparingLong(id -> sessionUsed.getOrDefault(id, 0L)))
+              .orElse(null);
+      if (oldest == null) {
+        return;
+      }
+      removeSession(oldest);
+    }
+  }
+
+  /* default */ void setMaxSessions(final int maxSessions) {
+    this.maxSessions = maxSessions;
   }
 
   /** Applies a batch of events strictly in the order in which they were emitted. */
