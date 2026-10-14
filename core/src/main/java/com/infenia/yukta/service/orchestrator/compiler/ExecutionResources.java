@@ -49,8 +49,9 @@ public class ExecutionResources {
 
     return timeoutMono.flatMap(
         timeout -> {
-          final Mono<Void> all =
-              terminals.isEmpty() ? Mono.empty() : Mono.whenDelayError(terminals);
+          // Fail fast: the first failed terminal ends the run and cancels the rest, instead of
+          // leaving them to stall on back-pressure until their idle timeout.
+          final Mono<Void> all = terminals.isEmpty() ? Mono.empty() : Mono.when(terminals);
           final Mono<Void> timed =
               all.timeout(
                   NodeActivity.delayUnlessPaused(Duration.ofSeconds(timeout), scheduler, paused),
