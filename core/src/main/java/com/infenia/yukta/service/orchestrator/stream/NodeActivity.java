@@ -49,6 +49,9 @@ public final class NodeActivity {
   /** Clock reading of the first activity, or {@link #NONE}. Starts the node deadline. */
   private volatile long firstTouch = NONE;
 
+  /** Runs once, at the first {@link #touch()}; null for none. */
+  private volatile Runnable firstTouchAction;
+
   /** Idle timeout set once the first input is known, in nanoseconds; 0 keeps the one given. */
   private volatile long retimed;
 
@@ -80,8 +83,22 @@ public final class NodeActivity {
     final long now = clock.now(TimeUnit.NANOSECONDS);
     if (firstTouch == NONE) {
       firstTouch = now;
+      final Runnable first = firstTouchAction;
+      if (first != null) {
+        first.run();
+      }
     }
     lastTouch = now;
+  }
+
+  /**
+   * Sets what to do at the node's first activity (a status report). The callback must be
+   * idempotent: two threads touching at once may both run it.
+   *
+   * @param callback the action to run at the first {@link #touch()}
+   */
+  public void onFirstTouch(final Runnable callback) {
+    firstTouchAction = callback;
   }
 
   /**

@@ -2,7 +2,7 @@
 # Follow a Yukta execution with control-bus events until it ends, then print the RESULT line.
 # A thin wrapper around `yukta controlbus watch`; meant to run under Claude Code's Monitor tool.
 #
-# Usage: [YUKTA_SCOPE=<module|all>] yukta-watch.sh <session-id> <execution-id> [--no-logs]
+# Usage: [YUKTA_SCOPE=<module|all>] yukta-watch.sh <session-id> <execution-id> [--no-logs|--quiet]
 #
 # One line per event:
 #   NODE <node> <status>   WORKFLOW <status>   CONTROL <command> applied=<bool> [reason]   LOG <node>: <line>

@@ -8,6 +8,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import org.springframework.aot.hint.annotation.RegisterReflectionForBinding;
 import org.springframework.http.MediaType;
 import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -21,6 +22,13 @@ import reactor.core.publisher.Flux;
 @RequestMapping("/api")
 @RequiredArgsConstructor
 @Tag(name = "Events API", description = "Live feed of execution events")
+// Jackson serializes the sealed ExecutionEvent subtypes, which AOT cannot see from Envelope.
+@RegisterReflectionForBinding({
+  ExecutionEvent.NodeStatusChanged.class,
+  ExecutionEvent.WorkflowStatusChanged.class,
+  ExecutionEvent.ControlOutcome.class,
+  ExecutionEvent.LogLine.class
+})
 public class EventsController {
 
   /** The execution event feed. */

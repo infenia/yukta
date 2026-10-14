@@ -250,6 +250,8 @@ A supervisor implements `ExecutionSupervisor` (plugin-api) and is registered as 
   `yukta.supervisor.rules.file`). Metrics: `yukta.supervisor.commands{id,outcome}`.
 
 ### Node status only moves forward
+A node reports `RUNNING` (and gets its `startTime`) at its first activity (`NodeActivity.onFirstTouch`: first input, or subscribe for a trigger), not when the graph is wired; one that ends without any still reports `RUNNING` first. Per-node times in the progress API are therefore its own.
+
 `WorkflowState.updateTask` ignores a status that would reopen an ended node or step a node back
 (`PENDING` < `QUEUED` < `RUNNING` < any terminal status); the metadata of such an event is still
 merged. `WorkflowStateTransitionTest` checks this on thousands of random event orders, and
