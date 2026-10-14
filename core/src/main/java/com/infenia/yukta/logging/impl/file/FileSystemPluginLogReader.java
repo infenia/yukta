@@ -75,6 +75,9 @@ public class FileSystemPluginLogReader implements PluginLogReader {
    * @return the matching log file path, or {@code null} if not found
    */
   private Path findExecutionLogFile(final String executionId) {
+    if (executionId.contains("/") || executionId.contains("\\") || executionId.contains("..")) {
+      throw new IllegalArgumentException("Invalid execution ID: path traversal detected");
+    }
     final Path baseDir = Path.of(baseLogDir);
     Path result = null;
 

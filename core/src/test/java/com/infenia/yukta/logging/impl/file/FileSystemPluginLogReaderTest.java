@@ -41,6 +41,17 @@ class FileSystemPluginLogReaderTest {
   }
 
   @Test
+  void testReadExecutionRefusesPathTraversal() throws IOException {
+    Files.writeString(tempDir.resolve("secret.log"), "x | y | z | a | b | c\n");
+    Files.createDirectories(tempDir.resolve(SESSION_ID));
+
+    org.assertj.core.api.Assertions.assertThatThrownBy(
+            () -> reader.readExecution("../secret").collectList().block())
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("traversal");
+  }
+
+  @Test
   void testReadExecution() throws IOException {
     final Path sessionDir = Files.createDirectories(tempDir.resolve(SESSION_ID));
     Files.writeString(

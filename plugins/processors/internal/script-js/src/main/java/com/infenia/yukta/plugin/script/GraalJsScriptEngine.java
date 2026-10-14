@@ -10,9 +10,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
 import org.graalvm.polyglot.Context;
 import org.graalvm.polyglot.Engine;
 import org.graalvm.polyglot.HostAccess;
+import org.graalvm.polyglot.PolyglotException;
 import org.graalvm.polyglot.Source;
 import org.graalvm.polyglot.Value;
 import org.springframework.stereotype.Component;
@@ -45,8 +50,20 @@ public class GraalJsScriptEngine implements ScriptEngine {
   private static final Engine JS_ENGINE =
       Engine.newBuilder().option("engine.WarnInterpreterOnly", "false").build();
 
+  /** Cancels scripts that outlive {@link #timeoutMs}. */
+  private static final ScheduledExecutorService WATCHDOG =
+      Executors.newSingleThreadScheduledExecutor(
+          runnable -> {
+            final Thread thread = new Thread(runnable, "js-script-watchdog");
+            thread.setDaemon(true);
+            return thread;
+          });
+
   /** Parsed sources keyed by script text. */
   private final Map<String, Source> sourceCache = new ConcurrentHashMap<>();
+
+  /** Longest a script may run, in milliseconds ({@code -Dyukta.script.timeout-ms}). */
+  private final long timeoutMs = Long.getLong("yukta.script.timeout-ms", 10_000L);
 
   /** Default constructor. */
   public GraalJsScriptEngine() {
@@ -72,7 +89,19 @@ public class GraalJsScriptEngine implements ScriptEngine {
       bindings.putMember("message", message);
       bindings.putMember("payload", message.payload());
       bindings.putMember("metadata", message.metadata());
-      return detach(context.eval(source(script)));
+      // a script that never ends is cancelled; closing the context is the only way to stop it
+      final ScheduledFuture<?> watchdog =
+          WATCHDOG.schedule(() -> context.close(true), timeoutMs, TimeUnit.MILLISECONDS);
+      try {
+        return detach(context.eval(source(script)));
+      } catch (PolyglotException e) {
+        if (e.isCancelled()) {
+          throw new IllegalStateException("Script cancelled after " + timeoutMs + " ms", e);
+        }
+        throw e;
+      } finally {
+        watchdog.cancel(false);
+      }
     }
   }
 

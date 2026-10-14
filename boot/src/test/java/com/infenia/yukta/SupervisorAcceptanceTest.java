@@ -34,7 +34,9 @@ import org.springframework.test.context.DynamicPropertySource;
  * Attaches the rule supervisor to the real control bus: a rule reacts to a running node by pausing
  * the workflow, and another rule refuses to kill it.
  */
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.MOCK)
+@SpringBootTest(
+    webEnvironment = SpringBootTest.WebEnvironment.MOCK,
+    properties = "yukta.process.allow-any=true")
 @SuppressWarnings("PMD.CommentRequired")
 @NoArgsConstructor
 class SupervisorAcceptanceTest {

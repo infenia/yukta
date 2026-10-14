@@ -334,4 +334,20 @@ class VariableResolverTest {
         .expectNext("m1")
         .verifyComplete();
   }
+
+  @Test
+  void contextVariables_hideEngineEntriesAndObjects() {
+    StepVerifier.create(
+            resolver
+                .resolve("${context.yukta.control.actor}")
+                .contextWrite(ctx -> ctx.put("yukta.control.actor", "key:admin")))
+        .expectComplete()
+        .verify();
+    StepVerifier.create(
+            resolver
+                .resolve("${context.beat}")
+                .contextWrite(ctx -> ctx.put("beat", (Runnable) () -> {})))
+        .expectComplete()
+        .verify();
+  }
 }

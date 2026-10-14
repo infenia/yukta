@@ -28,7 +28,7 @@ case "$action" in
     port="$(free_port)"
     url="http://localhost:$port"
     export SERVER_PORT="$port" YUKTA_SESSION_BASE_DIR="$data/sessions" \
-      YUKTA_SESSION_EXECUTION_TIMEOUT_SECONDS=14400
+      YUKTA_SESSION_EXECUTION_TIMEOUT_SECONDS=14400 YUKTA_PROCESS_ALLOW_ANY=true
     launch_server "$name" "$data" "$bin"
     cat >"$STATE_DIR/$name.env" <<ENV
 YUKTA_DEV_NAME=$name
