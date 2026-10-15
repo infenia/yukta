@@ -408,7 +408,8 @@ bodies (use the signal command).
 ## Key File Locations
 - **Services**: `src/main/java/com/infenia/yukta/service/`
 - **Validation**: `src/main/java/com/infenia/yukta/validation/`
-- **Module guide (interactive)**: `docs/core-module-guide.html`
+- **Module reference (architecture, feature catalog, settings, metrics)**: `docs/core-module-reference.html`. When you add, change or remove a core feature, setting or meter, update it and run `docs/check-core-reference.sh` (then `--stamp`); the page's "Maintaining this document" section says what to edit.
+- **Module guide (interactive explorer, scenarios, risks, ADRs)**: `docs/core-module-guide.html`
 
 ## Imports
 @.claude/rules/coding-standards.md
