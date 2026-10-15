@@ -13,6 +13,7 @@ import java.util.Set;
  * @param pluginTypes the plugin types it is allowed to run
  * @param capacity how many node attempts it runs at once
  * @param usedSlots how many it runs now, as of its last heartbeat
+ * @param draining true while it finishes what it runs and takes nothing new (it is stopping)
  * @param registeredAt when it registered
  * @param leaseUntil when it is dropped unless it sends another heartbeat
  */
@@ -22,6 +23,7 @@ public record WorkerInfo(
     Set<String> pluginTypes,
     int capacity,
     int usedSlots,
+    boolean draining,
     Instant registeredAt,
     Instant leaseUntil) {
 

@@ -4,6 +4,7 @@ package com.infenia.yukta.service.log;
 
 import com.infenia.yukta.plugin.store.NodeCheckpointStore;
 import com.infenia.yukta.service.control.ExecutionScheduler;
+import com.infenia.yukta.service.leader.LeaderElection;
 import com.infenia.yukta.service.orchestrator.tracker.DefaultTaskTrackerService;
 import com.infenia.yukta.service.store.InMemoryNodeCheckpointStore;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -11,6 +12,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import lombok.extern.slf4j.Slf4j;
@@ -47,6 +49,12 @@ public class ExecutionRecovery implements SmartInitializingSingleton {
   /** Holds the recorded outputs of runs, which go with the runs that are dropped. */
   private final NodeCheckpointStore checkpoints;
 
+  /** Told which runs a recovery found interrupted; used to resume them on their own. */
+  private Consumer<List<String>> afterRecovery = _ -> {};
+
+  /** Tells whether recovery happens at startup or on takeover; absent means at startup. */
+  private LeaderElection election;
+
   /** Gets back the limits that were last changed at run time, when present. */
   private ExecutionScheduler executionScheduler;
 
@@ -79,6 +87,25 @@ public class ExecutionRecovery implements SmartInitializingSingleton {
   }
 
   /**
+   * Asks to be told, after every recovery, which runs it found interrupted.
+   *
+   * @param listener receives the ids of the runs that are now marked aborted
+   */
+  public void onRecovered(final Consumer<List<String>> listener) {
+    this.afterRecovery = listener;
+  }
+
+  /**
+   * Lets the election decide when recovery runs.
+   *
+   * @param leaderElection the election
+   */
+  @Autowired(required = false)
+  public void setLeaderElection(final LeaderElection leaderElection) {
+    this.election = leaderElection;
+  }
+
+  /**
    * Lets recovery re-apply the newest run-time limit change found in the log.
    *
    * @param scheduler the scheduler
@@ -91,11 +118,19 @@ public class ExecutionRecovery implements SmartInitializingSingleton {
 
   @Override
   public void afterSingletonsInstantiated() {
-    recover();
+    // With several servers a standby must not mark a living leader's runs aborted: recovery then
+    // happens on takeover (TakeoverRecovery).
+    if (election == null || !election.recoversOnTakeover()) {
+      recover();
+    }
   }
 
-  /** Marks interrupted runs aborted, trims the log and restores recent runs into the tracker. */
-  public void recover() {
+  /**
+   * Marks interrupted runs aborted, trims the log and restores recent runs into the tracker.
+   *
+   * @return the ids of the runs that were interrupted and are now marked aborted
+   */
+  public List<String> recover() {
     final Map<String, List<ExecutionLogEvent>> byRun = new LinkedHashMap<>();
     final List<ExecutionLogEvent> scheduler = new ArrayList<>();
     for (final ExecutionLogEvent event : store.readAll()) {
@@ -119,13 +154,13 @@ public class ExecutionRecovery implements SmartInitializingSingleton {
     final List<List<ExecutionLogEvent>> runs = new ArrayList<>(byRun.values());
     final int skip = Math.max(0, runs.size() - retainedRuns);
     runs.subList(0, skip).forEach(run -> checkpoints.clear(run.getFirst().executionId()));
-    int aborted = 0;
+    final List<String> abortedIds = new ArrayList<>();
     for (final List<ExecutionLogEvent> run : runs.subList(skip, runs.size())) {
       final ExecutionLogEvent started = find(run, ExecutionLogEvent.Type.RUN_STARTED);
       final ExecutionLogEvent ended = end(run);
       if (started != null && ended == null) {
         run.add(ExecutionLogEvent.aborted(started, finishedNodes(run)));
-        aborted++;
+        abortedIds.add(started.executionId());
       }
       kept.addAll(run);
       restore(started, end(run));
@@ -133,9 +168,11 @@ public class ExecutionRecovery implements SmartInitializingSingleton {
     store.replaceAll(kept);
     log.atInfo()
         .addKeyValue("restored", runs.size() - skip)
-        .addKeyValue("aborted", aborted)
+        .addKeyValue("aborted", abortedIds.size())
         .addKeyValue("dropped", skip)
         .log("Recovered execution history");
+    afterRecovery.accept(abortedIds);
+    return abortedIds;
   }
 
   /**
