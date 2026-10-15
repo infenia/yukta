@@ -16,6 +16,7 @@ import org.jspecify.annotations.Nullable;
  * @param pluginTypes the plugin types the worker may run (REGISTER only)
  * @param capacity how many node attempts the worker runs at once (REGISTER only)
  * @param usedSlots how many it runs now (LEASE only)
+ * @param draining true if the worker is stopping and takes no new attempts (LEASE only)
  * @param message why the control plane refused the worker (REJECT only)
  */
 public record WorkerFrame(
@@ -26,6 +27,7 @@ public record WorkerFrame(
     Set<String> pluginTypes,
     int capacity,
     int usedSlots,
+    boolean draining,
     @Nullable String message) {
 
   /** Kind of frame. */
@@ -63,6 +65,7 @@ public record WorkerFrame(
         registration.pluginTypes(),
         registration.capacity(),
         0,
+        false,
         null);
   }
 
@@ -70,10 +73,12 @@ public record WorkerFrame(
    * A lease renewal.
    *
    * @param usedSlots how many node attempts the worker runs now
+   * @param draining true if the worker is stopping and takes no new attempts
    * @return the frame
    */
-  public static WorkerFrame lease(final int usedSlots) {
-    return new WorkerFrame(Type.LEASE, null, null, Set.of(), Set.of(), 0, usedSlots, null);
+  public static WorkerFrame lease(final int usedSlots, final boolean draining) {
+    return new WorkerFrame(
+        Type.LEASE, null, null, Set.of(), Set.of(), 0, usedSlots, draining, null);
   }
 
   /**
@@ -82,7 +87,7 @@ public record WorkerFrame(
    * @return the frame
    */
   public static WorkerFrame ack() {
-    return new WorkerFrame(Type.ACK, null, null, Set.of(), Set.of(), 0, 0, null);
+    return new WorkerFrame(Type.ACK, null, null, Set.of(), Set.of(), 0, 0, false, null);
   }
 
   /**
@@ -92,6 +97,6 @@ public record WorkerFrame(
    * @return the frame
    */
   public static WorkerFrame reject(final String why) {
-    return new WorkerFrame(Type.REJECT, null, null, Set.of(), Set.of(), 0, 0, why);
+    return new WorkerFrame(Type.REJECT, null, null, Set.of(), Set.of(), 0, 0, false, why);
   }
 }

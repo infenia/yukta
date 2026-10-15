@@ -110,7 +110,7 @@ public class WorkerSessionHandler {
     WorkerFrame answer = WorkerFrame.reject("unexpected " + frame.type() + " frame");
     if (frame.type() == WorkerFrame.Type.LEASE) {
       answer =
-          registry.heartbeat(info.workerId(), frame.usedSlots())
+          registry.heartbeat(info.workerId(), frame.usedSlots(), frame.draining())
               ? WorkerFrame.ack()
               : WorkerFrame.reject("lease expired, register again");
     }

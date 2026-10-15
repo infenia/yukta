@@ -124,21 +124,25 @@ public class WorkersAutoConfiguration {
    * @param pluginTypes the plugin types this worker may run, comma separated
    * @param capacity how many node attempts it runs at once
    * @param lease the control plane's lease; the agent renews three times per lease
+   * @param drainTimeout longest the worker waits for running attempts when it stops
+   * @param runner runs the attempts, and counts them
    * @return the agent, started and stopped with the application
    */
   @Bean(initMethod = "start", destroyMethod = "stop")
-  @SuppressWarnings("PMD.UseObjectForClearerAPI")
+  @SuppressWarnings({"PMD.UseObjectForClearerAPI", "PMD.ExcessiveParameterList"})
   @ConditionalOnExpression("!'${yukta.workers.control-plane:}'.isEmpty()")
   public WorkerAgent workerAgent(
       final RSocketRequester.Builder builder,
       final RSocketMessageHandler responder,
+      final NodeRunner runner,
       @Value("${yukta.workers.control-plane}") final String controlPlane,
       @Value("${yukta.workers.token}") final String token,
       @Value("${yukta.workers.id}") final String workerId,
       @Value("${yukta.workers.pools:default}") final String pools,
       @Value("${yukta.workers.plugin-types:}") final String pluginTypes,
       @Value("${yukta.workers.capacity:4}") final int capacity,
-      @Value("${yukta.workers.lease:15s}") final Duration lease) {
+      @Value("${yukta.workers.lease:15s}") final Duration lease,
+      @Value("${yukta.workers.drain-timeout:30s}") final Duration drainTimeout) {
     final int colon = controlPlane.lastIndexOf(':');
     if (colon <= 0) {
       throw new IllegalArgumentException("yukta.workers.control-plane must be host:port");
@@ -156,7 +160,8 @@ public class WorkersAutoConfiguration {
         token,
         new WorkerRegistration(workerId, split(pools), split(pluginTypes), capacity),
         lease.dividedBy(3),
-        () -> 0);
+        runner::running,
+        drainTimeout);
   }
 
   private static Set<String> split(final String csv) {

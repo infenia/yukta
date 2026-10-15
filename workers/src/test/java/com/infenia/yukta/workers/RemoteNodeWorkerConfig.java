@@ -28,6 +28,7 @@ class RemoteNodeWorkerConfig {
             new FakePlugin("HEART", CANCELLED),
             new FakePlugin("CTX", CANCELLED),
             new FakePlugin("HOLD", CANCELLED),
+            new FakePlugin("SLOW", CANCELLED),
             new FakePlugin("NOT_ALLOWED", CANCELLED)));
   }
 }

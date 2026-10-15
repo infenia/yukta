@@ -92,6 +92,7 @@ public class WorkerRegistry {
             registration.pluginTypes(),
             registration.capacity(),
             0,
+            false,
             now,
             now.plus(leaseTime));
     workers.put(info.workerId(), info);
@@ -107,6 +108,19 @@ public class WorkerRegistry {
    *     again
    */
   public boolean heartbeat(final String workerId, final int usedSlots) {
+    return heartbeat(workerId, usedSlots, false);
+  }
+
+  /**
+   * Renews a worker's lease and records how many slots it uses and whether it is draining.
+   *
+   * @param workerId the worker
+   * @param usedSlots how many node attempts it runs now
+   * @param draining true if the worker is stopping and takes no new attempts
+   * @return false if the worker is not registered (or its lease had run out), so it must register
+   *     again
+   */
+  public boolean heartbeat(final String workerId, final int usedSlots, final boolean draining) {
     final Instant now = clock.instant();
     final WorkerInfo renewed =
         workers.computeIfPresent(
@@ -120,6 +134,7 @@ public class WorkerRegistry {
                         info.pluginTypes(),
                         info.capacity(),
                         Math.max(0, usedSlots),
+                        draining,
                         info.registeredAt(),
                         now.plus(leaseTime)));
     return renewed != null;

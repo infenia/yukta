@@ -20,3 +20,4 @@ worker) and `WorkerConnections`; the worker's `WorkerAgent` (connects out, regis
 - A node attempt is one `requestChannel` on the worker's own connection; the worker runs only the plugin types in
   `yukta.workers.plugin-types`. The tests start a real control plane and worker in one JVM.
 - `WorkerNodeExecutor` picks the worker; a missing worker is a failure the engine can retry.
+- Draining: `WorkerAgent.stop()` sends a lease with `draining=true`, waits for `NodeRunner.running()` to reach zero (at most `yukta.workers.drain-timeout`), then closes the connection.

@@ -50,7 +50,7 @@ class LostWorkerTest {
             "yukta.workers.control-plane=localhost:" + port,
             "yukta.workers.token=secret",
             "yukta.workers.id=" + name,
-            "yukta.workers.plugin-types=UPPER,HOLD",
+            "yukta.workers.plugin-types=UPPER,HOLD,SLOW",
             "yukta.workers.capacity=2",
             "yukta.workers.lease=3s")
         .run();

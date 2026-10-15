@@ -40,6 +40,7 @@ final class FakePlugin implements ProcessorPlugin {
                   DefaultMessage.create(
                       UUID.randomUUID(),
                       String.valueOf(message.payload()).toUpperCase(Locale.ROOT)));
+      case "SLOW" -> input.delayElements(java.time.Duration.ofMillis(1500));
       case "BOOM" -> Flux.error(new IllegalStateException("boom"));
       case "BAD" -> Flux.error(new IllegalArgumentException("bad input"));
       case "HEART" ->

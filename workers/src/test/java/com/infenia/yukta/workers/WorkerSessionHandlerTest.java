@@ -43,7 +43,7 @@ class WorkerSessionHandlerTest {
         .assertNext(frame -> assertThat(frame.type()).isEqualTo(WorkerFrame.Type.ACK))
         .then(() -> assertThat(registry.find("w1")).isPresent())
         .then(() -> assertThat(connections.find("w1")).contains(requester))
-        .then(() -> frames.tryEmitNext(WorkerFrame.lease(3)))
+        .then(() -> frames.tryEmitNext(WorkerFrame.lease(3, false)))
         .assertNext(frame -> assertThat(frame.type()).isEqualTo(WorkerFrame.Type.ACK))
         .then(() -> assertThat(registry.find("w1").orElseThrow().usedSlots()).isEqualTo(3))
         .then(frames::tryEmitComplete)
@@ -61,7 +61,7 @@ class WorkerSessionHandlerTest {
     StepVerifier.create(handler.session(requester, Flux.just(hello(null, "w1", 4))))
         .assertNext(frame -> assertThat(frame.type()).isEqualTo(WorkerFrame.Type.REJECT))
         .verifyComplete();
-    StepVerifier.create(handler.session(requester, Flux.just(WorkerFrame.lease(0))))
+    StepVerifier.create(handler.session(requester, Flux.just(WorkerFrame.lease(0, false))))
         .assertNext(frame -> assertThat(frame.message()).contains("must be REGISTER"))
         .verifyComplete();
     StepVerifier.create(handler.session(requester, Flux.empty()))
@@ -100,7 +100,7 @@ class WorkerSessionHandlerTest {
         .then(() -> frames.tryEmitNext(hello("secret", "w1", 2)))
         .expectNextCount(1)
         .then(() -> registry.remove("w1"))
-        .then(() -> frames.tryEmitNext(WorkerFrame.lease(0)))
+        .then(() -> frames.tryEmitNext(WorkerFrame.lease(0, false)))
         .assertNext(frame -> assertThat(frame.message()).contains("register again"))
         .verifyComplete();
   }
@@ -115,7 +115,7 @@ class WorkerSessionHandlerTest {
   @Test
   void frameSetsAreCopiedAndNullSetsBecomeEmpty() {
     final WorkerFrame frame =
-        new WorkerFrame(WorkerFrame.Type.ACK, null, null, null, null, 0, 0, null);
+        new WorkerFrame(WorkerFrame.Type.ACK, null, null, null, null, 0, 0, false, null);
 
     assertThat(frame.pools()).isEmpty();
     assertThat(frame.pluginTypes()).isEmpty();
