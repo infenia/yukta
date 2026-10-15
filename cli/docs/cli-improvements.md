@@ -5,6 +5,23 @@
 > lines, tests from ≈11.5k to ≈8.0k, and `build.gradle.kts` from 578 to 48 lines.
 > Companion: [`cli-module-guide.html`](cli-module-guide.html) is the interactive guide, including a command map.
 
+## Status on 2026-10-15
+
+The review below is the record of 2026-10-09. The interactive guide's *Risks and improvement ideas*
+board has the current list with impact and effort. Changes since, checked against `main`:
+
+- **New commands:** `controlbus watch` (the event stream, `--quiet` for problems only), `result`,
+  `workflow node retry | breakpoint | signal`, and `session apply` is now registered (it was written
+  and tested but never added to the session group).
+- **Still open:** no paging flags (`limit` / `cursor`), no stop mode, no idempotency key, no retries,
+  no `Last-Event-ID` or reconnect (also for `watch`), no `yukta version`, a stale README
+  (`yukta-darwin`, `goBuildDev`, `~/.yukta/config`, `/api/v1`), 12 calls on deprecated
+  `/api/workflow/...` paths.
+- **Still no command for:** validate, session config, supervisors, workflow versions, approvals,
+  scheduler limits and priority, recover, run search and control audit, workers.
+- **New:** zone-less server timestamps are parsed in the CLI's time zone (`localTimestamps`), and
+  `--quiet` classifies lines by keywords copied from the server (`keywordProblems`).
+
 ## 1. Verdict
 
 The CLI was a clean, thin REST client with robustness and build-hygiene problems. Those are now fixed:

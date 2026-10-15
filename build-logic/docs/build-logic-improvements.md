@@ -4,6 +4,28 @@
 > **Status (2026-10-10): all findings L1–L14 are fixed** on branch `chore/build-logic-improvements`. Each finding below has a **Resolution** line. The text of each finding is kept as the original review record.
 > Companion: [`build-logic-module-guide.html`](build-logic-module-guide.html) is the interactive guide, including the plugin hierarchy and quality-gate matrix.
 
+## Status on 2026-10-15
+
+The review below is the record of 2026-10-09 and is kept as written. Corrections and what is open
+now (checked against `main` after PRs #373, #374 and #391; the interactive guide's *Risks and
+improvement ideas* board has the full list with impact and effort):
+
+- **Coverage default is LINE 100% / BRANCH 100% per class**, not 90/85 as written below. The
+  `docDrift` risk lists the other documents that still say 90/85, and the Gradle 9.0 mention in the
+  root `CLAUDE.md` (the wrapper is 9.8.0).
+- **Netty:** `spring-conventions` now assigns `netty.version` from the catalog and boot resolves
+  4.2.18. The stale `netty.version=4.2.16.Final` line in `gradle.properties` is still there.
+- **OpenGrep** is cacheable (the SARIF report is a declared output). It still skips silently when the
+  program is missing.
+- **Disabled quality tasks:** four modules now (`mcp`, `plugin-api`, `internal-core`, and
+  `constant-source`, which turns off PMD main and test).
+- **CI** is sharded into four parallel jobs (platform, infra, plugins, frontend) by
+  `.github/scripts/ci-tasks.sh`; a new module is registered in four places.
+- **Still open:** no lock files, no toolchain resolver, `nashorn-core` legal sign-off, Trivy does
+  not block pull requests.
+- **New:** CVE patch pins (Jackson, plexus-utils) are written by hand in `build-logic/build.gradle.kts`
+  and `spring-conventions` and nothing reminds anyone to drop them (`cvePins`).
+
 ## 1. Verdict
 
 The convention plugins are well layered:
