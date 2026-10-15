@@ -196,8 +196,9 @@ jobs:
           done
           # PostgreSQL acceptance test: runs the whole app against a real PostgreSQL (Testcontainers)
           # so the schema, the R2DBC stores and the Flyway migrations are exercised end to end.
+          pg_args='-Pyukta.persistence=postgres :boot:test --tests *PostgresPersistenceAcceptanceTest'
           if [ "$full" = true ] || jq -e 'index("persistence-postgres") or index("boot")' <<<"$CHANGED_MODULES" >/dev/null; then
-            shards=$(jq -c '. + [{name: "postgres-acceptance", args: "-Pyukta.persistence=postgres :boot:test --tests *PostgresPersistenceAcceptanceTest"}]' <<<"$shards")
+            shards=$(jq -c --arg a "$pg_args" '. + [{name: "postgres-acceptance", args: $a}]' <<<"$shards")
           fi
           # Fail-fast lint: Checkstyle/PMD/OpenGrep only (cli and ui have none; boot needs the UI build)
           lint_tasks=""
