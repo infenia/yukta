@@ -224,7 +224,7 @@ memory. Both keep the newest 20 saved versions of a workflow (identical saves ad
 `WorkflowDefinitionStore.revisions/findRevision` and the web rollback endpoint use them. `GET
 .../versions/diff?from=&to=` (`to` omitted: the current definition) returns a `WorkflowDiff` (nodes
 added, removed or changed, edges added or removed); MCP has `list_workflow_versions`,
-`diff_workflow_versions` and `rollback_workflow`, and the workflow page a "Versions" panel. A version can carry a note (`POST .../versions/note?version=&note=`, MCP `note_workflow_version`; `DefinitionRevision.note`; a column in PostgreSQL, a `.note` file next to the version file). A start whose payload has `yukta.version` runs that saved version (the prepared-workflow cache is bypassed). Not yet: a note field in the UI panel.
+`diff_workflow_versions` and `rollback_workflow`, and the workflow page a "Versions" panel. A version can carry a note (`POST .../versions/note?version=&note=`, MCP `note_workflow_version`; `DefinitionRevision.note`; a column in PostgreSQL, a `.note` file next to the version file). A start whose payload has `yukta.version` runs that saved version (the prepared-workflow cache is bypassed). The workflow page's Versions panel shows and edits the notes.
 
 ### PostgreSQL stores (`persistence-postgres`, optional)
 `yukta.session.store-type=postgres` (profile `postgres`, build with `-Pyukta.persistence=postgres`)

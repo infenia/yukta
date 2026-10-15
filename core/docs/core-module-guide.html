@@ -315,7 +315,7 @@ glance:{
   ["At-least-once","A node's end is durable, a side effect before it can repeat after a crash. Exactly-once is impossible; plugins de-duplicate on the message id."],
   ["Pluggable durability","Memory by default; files or PostgreSQL by configuration. What survives a restart depends on the profile (see Guarantees)."]
  ],
- start:[["primer","Primer","New here? Start with the problem, the vocabulary and one worked example"],["map","System map","Eleven components and how data and commands flow between them"],["map","Replay a run","Seven scenarios: overload, failure, crash, supervisor..."],["guarantees","What survives a crash","Switch deployment profile and watch the table change"],["quality","Stress it","Scalability, performance, availability, security lenses"],["board","Challenge it","13 open risks, an impact x effort grid, your own notes"],["adrs","Decisions","Eight ADRs, each with a 'revisit when' trigger"],["glossary","Glossary","Plain definitions of every term used here"]]
+ start:[["primer","Primer","New here? Start with the problem, the vocabulary and one worked example"],["map","System map","Eleven components and how data and commands flow between them"],["map","Replay a run","Seven scenarios: overload, failure, crash, supervisor..."],["guarantees","What survives a crash","Switch deployment profile and watch the table change"],["quality","Stress it","Scalability, performance, availability, security lenses"],["board","Challenge it","12 open risks, an impact x effort grid, your own notes"],["adrs","Decisions","Eight ADRs, each with a 'revisit when' trigger"],["glossary","Glossary","Plain definitions of every term used here"]]
 },
 comps:[
  {
@@ -371,7 +371,6 @@ comps:[
    "yukta.session.store-type = in-memory | file | postgres"
   ],
   "risks": [
-   "versions21"
   ]
  },
  {
@@ -726,7 +725,6 @@ risks:[
 {id:"signals14",t:"Approval waits are in memory (F2)",a:"Reliability",i:2,e:2,c:["plugin","dur"],why:"Done: an answer is recorded in the checkpoint store (file or PostgreSQL) under signal:<node>, keyed by message id, so a resumed run does not ask again for a message that was already answered. Still in memory: the wait itself, so a message that is produced again after a restart (its parent did not finish) waits for a new signal, and a pending approval is not visible until the node waits again.",o:"List open waits from the store; keep the message id stable for nodes that rerun.",q:"How long do your approvals take, hours or days?",ph:""},
 {id:"memStore",t:"Agent memory is partly volatile (F7)",a:"Reliability",i:3,e:3,c:["plugin"],why:"KV_STORE is memory; chat history has no TTL and loads whole files; no shared or vector memory.",o:"Database backend after F10, eviction policy.",q:"",ph:"f10"},
 {id:"agentLoop",t:"Agent loop is incomplete (F8)",a:"Functionality",i:2,e:2,c:["plugin"],why:"Done: tool-role turns (assistant tool calls and tool results are sent as such) and tools/list follows nextCursor. Still missing: an example loop workflow and streaming.",o:"An example workflow that loops LLM_CALL and MCP_TOOL_CALL, and streamed answers.",q:"",ph:""},
-{id:"versions21",t:"Version notes are not in the UI (F9)",a:"Functionality",i:1,e:1,c:["def"],why:"Done: list, diff, rollback, a note per version (REST, MCP, all three stores) and pinning a run to a version with the start payload key yukta.version. Still missing: writing and showing the note in the workflow page Versions panel.",o:"A note field and a pin button in the panel.",q:"",ph:""},
 {id:"ctlKey",t:"Plugin-level control keyed by workflow and node (B30)",a:"Correctness",i:1,e:2,c:["control"],why:"Latent, left as is on purpose: heartbeat and statistics state is keyed by workflow plus node, so two sessions or runs with equal ids would share it. No code emits heartbeats or statistics today, plugins are shared instances and signals carry the execution id, so nothing is affected yet.",o:"When a plugin starts to emit them, key by the execution id in the message metadata.",q:"",ph:""},
 {id:"ckptIO",t:"Durable runs: resume reads a whole node output (P1)",a:"Performance",i:2,e:3,c:["dur"],why:"Done: a node keeps one open output file, so a message costs one write and not an open. Still missing: a resume reads a node's whole output into memory, and the append rate is not measured against a benchmark yet.",o:"Stream the reads; measure with the perf/ benchmark.",q:"What message rate must a durable run sustain?",ph:""},
 {id:"gaps12",t:"Capability gaps (F12)",a:"Functionality",i:2,e:4,c:["engine"],why:"Saga compensation, node result caching, A2A agent card, eval node, backfill, run search across sessions, secrets manager.",o:"Pull in on demand.",q:"Which one would a design partner ask for first?",ph:""}
