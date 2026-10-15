@@ -1,6 +1,6 @@
 # 10 Remote workers: design (F11)
 
-Status: **design for review, no code yet.** Decision taken: scale out with **remote workers**
+Status: **phase 1 is built** (registry, leases, `GET /api/workers`, RSocket server and agent in the `workers` module, token auth; no node runs remotely yet). Phases 2 to 6 are design only. Decision taken: scale out with **remote workers**
 (a control plane schedules nodes, workers run them), not active/standby only. Needs F10 (PostgreSQL
 persistence, first increment done) and benefits from F7/F9 (durable state, definition versions).
 
@@ -96,7 +96,7 @@ REST API (F3) gain `ADMIN`-only worker endpoints.
 ## Phases (each its own reviewed PR)
 
 0. Review this design; decide the open questions below.
-1. **Worker registry and agent:** RSocket server/client, mTLS/token, REGISTER/lease, `GET /api/workers`,
+1. **Worker registry and agent (done, token auth only; mTLS is left to the RSocket server's SSL settings):** RSocket server/client, mTLS/token, REGISTER/lease, `GET /api/workers`,
    metrics. No node runs remotely yet.
 2. **Remote processor execution:** `RemoteProcessor`, frames, one worker, happy path, cancel and
    heartbeat; acceptance test with two JVMs in Testcontainers/`ProcessBuilder`.

@@ -234,6 +234,16 @@ versions) and `R2dbcExecutionLogStore` (blocking interface, so one writer thread
 run time uses R2DBC (`spring.r2dbc.url`). The in-memory/file defaults step aside when the type is
 `postgres`. Node checkpoints use `R2dbcNodeCheckpointStore` when `yukta.restart.store-type=postgres` (one row per message in JSONB, which PostgreSQL stores out of line, so no cap; a state row per node holds the end marker and the incomplete flag; migration V3), otherwise files (`yukta.restart.dir`) or memory.
 
+### Workers (phase 1 of remote workers)
+`WorkerRegistry` (`service/worker`) lists the connected workers; a registration or heartbeat renews a
+lease (`yukta.workers.lease`, default 15s), a worker that misses it is dropped, `GET /api/workers` and
+the gauges `yukta.workers` and `yukta.worker.slots` report them. The optional `workers` module (build with
+`-Pyukta.workers=true`) carries them over RSocket: the control plane sets `yukta.workers.token` and
+`spring.rsocket.server.port`; a worker sets `yukta.workers.control-plane=host:port`, `yukta.workers.token`,
+`yukta.workers.id` (and `pools`, `plugin-types`, `capacity`) and connects out, registers on the route
+`worker.session` and renews its lease, reconnecting with a growing pause. No node runs remotely yet
+(see `docs/plans/10-remote-workers.md`).
+
 ### Sub-workflows
 `SUB_WORKFLOW` (internal-core) runs another stored workflow of the same session per message through
 `SubWorkflowGateway` (`SubWorkflowRunner`): a normal run with its own execution id, tracked

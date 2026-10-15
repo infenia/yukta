@@ -113,4 +113,17 @@ class WorkerRegistryTest {
     assertThat(new WorkerRegistry(Duration.ofSeconds(1), new SimpleMeterRegistry()).list())
         .isEmpty();
   }
+
+  @Test
+  void removeOfAnOldRegistration_leavesTheNewOneAlone() {
+    final Instant first = registry.register(worker("w1", 2)).registeredAt();
+    now.set(now.get().plusSeconds(1));
+    final Instant second = registry.register(worker("w1", 2)).registeredAt();
+
+    registry.remove("w1", first);
+    assertThat(registry.find("w1")).isPresent();
+
+    registry.remove("w1", second);
+    assertThat(registry.find("w1")).isEmpty();
+  }
 }

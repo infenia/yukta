@@ -135,6 +135,19 @@ public class WorkerRegistry {
   }
 
   /**
+   * Removes a worker only if it still has the registration made at {@code registeredAt}. A
+   * connection that closes late must not remove the worker that has since registered again on a new
+   * one.
+   *
+   * @param workerId the worker
+   * @param registeredAt the {@link WorkerInfo#registeredAt()} of the registration being closed
+   */
+  public void remove(final String workerId, final Instant registeredAt) {
+    workers.computeIfPresent(
+        workerId, (id, info) -> info.registeredAt().equals(registeredAt) ? null : info);
+  }
+
+  /**
    * Finds one live worker.
    *
    * @param workerId the worker

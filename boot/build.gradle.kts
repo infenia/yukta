@@ -56,6 +56,11 @@ dependencies {
         implementation(project(":persistence-postgres"))
     }
 
+    // Remote workers over RSocket (control plane server and worker agent): -Pyukta.workers=true
+    if (providers.gradleProperty("yukta.workers").orNull == "true") {
+        implementation(project(":workers"))
+    }
+
     implementation(libs.spring.boot.starter.webflux)
     implementation(libs.spring.boot.starter.validation)
     implementation(libs.spring.boot.starter.actuator)
