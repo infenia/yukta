@@ -18,6 +18,10 @@ flowchart LR
   P1 -- success --> P2["Processor<br/>transform"]
   P1 -- error --> D["Terminal<br/>dead letter"]
   P2 --> E["Terminal<br/>notify"]
+  classDef trigger fill:#FFE9DB,stroke:#E85D0C,stroke-width:2px,color:#11161F
+  classDef terminal fill:#EEF2F9,stroke:#6A7A9B,stroke-width:2px,color:#11161F
+  class T trigger
+  class D,E terminal
 ```
 
 A **trigger** starts the flow, **processors** transform, route and call out, and **terminals** end each branch. Processors can have named output ports such as `success` and `error`, so one node can send messages down different paths.

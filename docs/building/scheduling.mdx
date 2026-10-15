@@ -15,6 +15,8 @@ flowchart LR
   S["Start once"] --> E["One open execution"]
   T["SCHEDULE_TRIGGER<br/>tick 1, 2, 3 ..."] --> E
   E --> G["Nodes handle each tick as a message"]
+  classDef trigger fill:#FFE9DB,stroke:#E85D0C,stroke-width:2px,color:#11161F
+  class T trigger
 ```
 
 Every tick is a message with the payload `{"tick": 1, "firedAt": "2026-10-15T09:00:00Z"}`. `tick` counts from 1 and `firedAt` is the creation time in UTC.
