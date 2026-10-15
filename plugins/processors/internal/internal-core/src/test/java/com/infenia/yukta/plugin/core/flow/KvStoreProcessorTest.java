@@ -141,4 +141,41 @@ class KvStoreProcessorTest {
     assertThat(run("jOcr", Map.of(KEY, "a"))).isNull();
     assertThat(run("demFte", Map.of(KEY, "a"))).isNull();
   }
+
+  @Test
+  void incr_acceptsIntegerAndLongOperandsAndStoredValues() {
+    run(PUT, Map.of(KEY, "i", VALUE, 5));
+    assertThat(run(INCR, Map.of(KEY, "i", VALUE, 2L))).isEqualTo(7L);
+    assertThat(run(INCR, Map.of(KEY, "i", VALUE, 3))).isEqualTo(10L);
+    run(PUT, Map.of(KEY, "l", VALUE, 5L));
+    assertThat(run(INCR, Map.of(KEY, "l", VALUE, 1))).isEqualTo(6L);
+  }
+
+  @Test
+  void springConstructor_usesTheApplicationsStoreOrKeepsTheValuesInMemory() {
+    final com.infenia.yukta.plugin.store.KeyValueStore other = new InMemoryKeyValueStore();
+    final org.springframework.beans.factory.support.StaticListableBeanFactory factory =
+        new org.springframework.beans.factory.support.StaticListableBeanFactory();
+    factory.addBean("kv", other);
+    final KvStoreProcessor shared =
+        new KvStoreProcessor(
+            factory.getBeanProvider(com.infenia.yukta.plugin.store.KeyValueStore.class));
+    final KvStoreProcessor alone =
+        new KvStoreProcessor(
+            new org.springframework.beans.factory.support.StaticListableBeanFactory()
+                .getBeanProvider(com.infenia.yukta.plugin.store.KeyValueStore.class));
+    final Map<String, Object> config = Map.of("op", PUT);
+
+    shared
+        .process(
+            Flux.just(DefaultMessage.create(UUID.randomUUID(), Map.of(KEY, "x", VALUE, 1))), config)
+        .blockFirst();
+    alone
+        .process(
+            Flux.just(DefaultMessage.create(UUID.randomUUID(), Map.of(KEY, "y", VALUE, 2))), config)
+        .blockFirst();
+
+    assertThat(other.get(":x").block()).isEqualTo(1);
+    assertThat(other.get(":y").block()).isNull();
+  }
 }

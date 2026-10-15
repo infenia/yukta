@@ -48,4 +48,11 @@ class WorkflowDefinitionStoreDefaultsTest {
     assertThat(PLAIN.revisions("s", "w").collectList().block()).isEmpty();
     assertThat(PLAIN.findRevision("s", "w", "any").block()).isNull();
   }
+
+  @Test
+  void storeWithoutNotes_refusesToSaveOne() {
+    org.assertj.core.api.Assertions.assertThatThrownBy(
+            () -> PLAIN.saveNote("s", "w", "v", "text").block())
+        .isInstanceOf(UnsupportedOperationException.class);
+  }
 }

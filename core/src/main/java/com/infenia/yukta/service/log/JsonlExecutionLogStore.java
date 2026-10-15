@@ -4,6 +4,7 @@ package com.infenia.yukta.service.log;
 
 import jakarta.annotation.PreDestroy;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -11,9 +12,7 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
-import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Set;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
@@ -75,6 +74,9 @@ public class JsonlExecutionLogStore implements ExecutionLogStore {
   /** How long {@link #close()} waits for queued events, in milliseconds. */
   private final long shutdownWaitMillis;
 
+  /** Whether every appended event is forced to disk before the next one is written. */
+  private final boolean fsync;
+
   /** The one thread that touches the file. */
   private final ThreadPoolExecutor writer =
       new ThreadPoolExecutor(
@@ -105,8 +107,14 @@ public class JsonlExecutionLogStore implements ExecutionLogStore {
       @Value("${yukta.execution-log.dir}") final String dir,
       final ObjectMapper mapper,
       @Value("${yukta.execution-log.retained-runs:500}") final int retainedRuns,
-      @Value("${yukta.execution-log.compact-after:10000}") final int compactAfter) {
-    this(dir, mapper, retainedRuns, compactAfter, SHUTDOWN_WAIT_MILLIS);
+      @Value("${yukta.execution-log.compact-after:10000}") final int compactAfter,
+      @Value("${yukta.execution-log.fsync:false}") final boolean fsync) {
+    this(dir, mapper, retainedRuns, compactAfter, SHUTDOWN_WAIT_MILLIS, fsync);
+  }
+
+  /* default */ JsonlExecutionLogStore(
+      final String dir, final ObjectMapper mapper, final int retainedRuns, final int compactAfter) {
+    this(dir, mapper, retainedRuns, compactAfter, SHUTDOWN_WAIT_MILLIS, false);
   }
 
   /* default */ JsonlExecutionLogStore(
@@ -115,6 +123,17 @@ public class JsonlExecutionLogStore implements ExecutionLogStore {
       final int retainedRuns,
       final int compactAfter,
       final long shutdownWaitMillis) {
+    this(dir, mapper, retainedRuns, compactAfter, shutdownWaitMillis, false);
+  }
+
+  /* default */ JsonlExecutionLogStore(
+      final String dir,
+      final ObjectMapper mapper,
+      final int retainedRuns,
+      final int compactAfter,
+      final long shutdownWaitMillis,
+      final boolean fsync) {
+    this.fsync = fsync;
     this.dir = Path.of(dir);
     this.file = this.dir.resolve(FILE_NAME);
     this.mapper = mapper;
@@ -124,7 +143,7 @@ public class JsonlExecutionLogStore implements ExecutionLogStore {
   }
 
   /* default */ JsonlExecutionLogStore(final String dir, final ObjectMapper mapper) {
-    this(dir, mapper, 500, 10_000);
+    this(dir, mapper, 500, 10_000, SHUTDOWN_WAIT_MILLIS);
   }
 
   @Override
@@ -182,12 +201,22 @@ public class JsonlExecutionLogStore implements ExecutionLogStore {
   private void write(final ExecutionLogEvent event) {
     try {
       Files.createDirectories(dir);
-      Files.writeString(
-          file,
-          json(event) + "\n",
-          StandardCharsets.UTF_8,
-          StandardOpenOption.CREATE,
-          StandardOpenOption.APPEND);
+      final String line = json(event) + "\n";
+      if (fsync) {
+        // ponytail: one force per event; batch the forces if the write rate ever matters.
+        try (FileChannel channel =
+            FileChannel.open(file, StandardOpenOption.CREATE, StandardOpenOption.APPEND)) {
+          channel.write(ByteBuffer.wrap(line.getBytes(StandardCharsets.UTF_8)));
+          channel.force(false);
+        }
+      } else {
+        Files.writeString(
+            file,
+            line,
+            StandardCharsets.UTF_8,
+            StandardOpenOption.CREATE,
+            StandardOpenOption.APPEND);
+      }
     } catch (final IOException | RuntimeException e) {
       log.atError()
           .addKeyValue("executionId", event.executionId())
@@ -219,55 +248,14 @@ public class JsonlExecutionLogStore implements ExecutionLogStore {
   /** Drops the events of all but the newest runs. */
   private void compact() {
     final List<ExecutionLogEvent> events = read();
-    // Newest by last activity, so a long run that is still going is not "old"; a run without an
-    // end is never dropped.
-    final List<String> runs = runsByLastActivity(events);
-    if (runs.size() <= retainedRuns) {
+    final List<ExecutionLogEvent> kept = LogRetention.trim(events, retainedRuns);
+    if (kept.size() == events.size()) {
       return;
     }
-    final Set<String> keep =
-        new LinkedHashSet<>(runs.subList(runs.size() - retainedRuns, runs.size()));
-    keep.addAll(openRuns(events));
-    // scheduler changes belong to no run: keep the newest few
-    final List<ExecutionLogEvent> scheduler =
-        events.stream().filter(e -> ExecutionLogEvent.SCHEDULER.equals(e.executionId())).toList();
-    final Set<ExecutionLogEvent> keepScheduler =
-        Set.copyOf(
-            scheduler.subList(Math.max(0, scheduler.size() - retainedRuns), scheduler.size()));
-    rewrite(
-        events.stream()
-            .filter(event -> keep.contains(event.executionId()) || keepScheduler.contains(event))
-            .toList());
+    rewrite(kept);
     log.atInfo()
-        .addKeyValue("dropped", runs.size() - keep.size())
+        .addKeyValue("dropped", events.size() - kept.size())
         .log("Compacted the execution log");
-  }
-
-  /** Run ids, the one with the oldest last event first; scheduler changes are not runs. */
-  private static List<String> runsByLastActivity(final List<ExecutionLogEvent> events) {
-    final Set<String> runs = new LinkedHashSet<>();
-    for (final ExecutionLogEvent event : events) {
-      if (!ExecutionLogEvent.SCHEDULER.equals(event.executionId())) {
-        runs.remove(event.executionId());
-        runs.add(event.executionId());
-      }
-    }
-    return new ArrayList<>(runs);
-  }
-
-  /** Runs that started and have neither finished nor been marked aborted. */
-  private static Set<String> openRuns(final List<ExecutionLogEvent> events) {
-    final Set<String> open = new LinkedHashSet<>();
-    for (final ExecutionLogEvent event : events) {
-      switch (event.type()) {
-        case RUN_STARTED -> open.add(event.executionId());
-        case RUN_FINISHED, RUN_ABORTED -> open.remove(event.executionId());
-        default -> {
-          // not a start or an end
-        }
-      }
-    }
-    return open;
   }
 
   private List<ExecutionLogEvent> read() {

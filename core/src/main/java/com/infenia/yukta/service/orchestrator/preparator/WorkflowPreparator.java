@@ -11,6 +11,7 @@ import com.infenia.yukta.plugin.core.Plugin;
 import com.infenia.yukta.service.orchestrator.compiler.WorkflowCompiler;
 import com.infenia.yukta.service.orchestrator.validator.WorkflowValidator;
 import com.infenia.yukta.service.plugin.PluginRegistry;
+import com.infenia.yukta.service.worker.RemoteNodes;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import java.util.ArrayList;
@@ -65,6 +66,9 @@ public class WorkflowPreparator {
   /** Compiler for workflow templates. */
   private final WorkflowCompiler compiler;
 
+  /** Puts nodes with {@code engine.placement} on workers. */
+  private final RemoteNodes remoteNodes;
+
   /**
    * Prepares a workflow for execution.
    *
@@ -72,6 +76,12 @@ public class WorkflowPreparator {
    * @return a Mono containing the prepared workflow
    */
   public Mono<PreparedWorkflow> prepareWorkflow(@NotNull @Valid final WorkflowDefinition def) {
+    // Deferred, so every subscription builds its own maps; a second one must not add the edges
+    // again.
+    return Mono.defer(() -> prepare(def));
+  }
+
+  private Mono<PreparedWorkflow> prepare(final WorkflowDefinition def) {
     final int numNodes = def.nodes().size();
     log.atDebug()
         .addKeyValue(LOG_KEY_NUM_NODES, numNodes)
@@ -159,6 +169,16 @@ public class WorkflowPreparator {
                                 .addKeyValue(LOG_KEY_PORT, edge.sourcePort())
                                 .log("Added workflow edge");
                           });
+
+                  // Plugins were initialised as they are on this server; a node with placement
+                  // then runs its calls on a worker.
+                  def.nodes()
+                      .forEach(
+                          node ->
+                              pluginCache.computeIfPresent(
+                                  node.nodeId(),
+                                  (_, plugin) ->
+                                      remoteNodes.place(node.type(), node.config(), plugin)));
 
                   final List<WorkflowNode> workflowNodes =
                       def.nodes().stream()

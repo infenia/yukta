@@ -11,10 +11,12 @@ import type { NodeCommand } from './NodeControlsMenu';
 import { RunControls } from './RunControls';
 import { useBreadcrumbOverride } from '@/lib/breadcrumbOverrides';
 import { LogsPanel } from './LogsPanel';
+import { PendingApprovals } from './PendingApprovals';
 import { ProgressPanel } from './ProgressPanel';
 import { RunHistoryDropdown } from './RunHistoryDropdown';
 import { WorkflowCanvas } from './WorkflowCanvas';
 import { WorkflowTitleBar } from './WorkflowTitleBar';
+import { WorkflowVersionsPanel } from './WorkflowVersionsPanel';
 import { isTerminalExecStatus, toDisplayExecStatus } from '../lib/statusMapper';
 import { useExecutionLogs } from '../hooks/useExecutionLogs';
 import { useExecutionProgress } from '../hooks/useExecutionProgress';
@@ -29,6 +31,7 @@ export function WorkflowDetailsPage() {
     workflowId: string;
   }>();
   const [panelOpen, setPanelOpen] = useState(true);
+  const [versionsOpen, setVersionsOpen] = useState(false);
 
   const graphQuery = useWorkflowGraph(sessionId, workflowId);
   const executionsQuery = useWorkflowExecutions(sessionId, workflowId);
@@ -119,6 +122,14 @@ export function WorkflowDetailsPage() {
         status={executionStatus}
         actions={
           <>
+            <button
+              type="button"
+              onClick={() => setVersionsOpen((value) => !value)}
+              aria-pressed={versionsOpen}
+              className={buttonVariants({ variant: 'outline' })}
+            >
+              <span className="material-symbols-outlined text-base">history</span>Versions
+            </button>
             <Link
               to={`/sessions/${encodeURIComponent(sessionId)}/workflow/${encodeURIComponent(workflowId)}/edit`}
               className={buttonVariants({ variant: 'outline' })}
@@ -135,6 +146,10 @@ export function WorkflowDetailsPage() {
           </>
         }
       />
+
+      {versionsOpen && <WorkflowVersionsPanel sessionId={sessionId} workflowId={workflowId} />}
+
+      <PendingApprovals sessionId={sessionId} workflowId={workflowId} />
 
       {nodeError && (
         <div className="px-6 py-2">

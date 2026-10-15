@@ -87,6 +87,22 @@ class ExecutionResourcesTest {
   }
 
   @Test
+  void failedTerminal_failsTheRunAtOnce_andCancelsTheOthers() {
+    when(configStore.getExecutionTimeout("s")).thenReturn(Mono.just(60L));
+    final AtomicBoolean siblingCancelled = new AtomicBoolean();
+    final Mono<Void> stalled = Mono.<Void>never().doOnCancel(() -> siblingCancelled.set(true));
+    final Mono<Void> failing =
+        Mono.delay(Duration.ofMillis(50))
+            .then(Mono.error(new IllegalStateException("terminal failed")));
+
+    StepVerifier.create(run("s", List.of(stalled, failing), new ArrayList<>(), new ArrayList<>()))
+        .expectError(IllegalStateException.class)
+        .verify(Duration.ofSeconds(2));
+
+    assertThat(siblingCancelled).isTrue();
+  }
+
+  @Test
   void timesOutWithTheSessionTimeoutAndStillDisposes() {
     when(configStore.getExecutionTimeout("s")).thenReturn(Mono.just(1L));
     final Disposable resource = mock(Disposable.class);

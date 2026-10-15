@@ -31,7 +31,7 @@ SPDX-FileCopyrightText = "none"
 SPDX-License-Identifier = "CC0-1.0"
 
 [[annotations]]
-path = ["META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports", "boot/src/main/resources/META-INF/native-image/**", "plugins/**/src/main/resources/META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports", "persistence-postgres/src/main/resources/META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports", "boot/src/main/resources/banner.txt"]
+path = ["META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports", "boot/src/main/resources/META-INF/native-image/**", "plugins/**/src/main/resources/META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports", "persistence-postgres/src/main/resources/META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports", "workers/src/main/resources/META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports", "boot/src/main/resources/banner.txt"]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "none"
 SPDX-License-Identifier = "CC0-1.0"

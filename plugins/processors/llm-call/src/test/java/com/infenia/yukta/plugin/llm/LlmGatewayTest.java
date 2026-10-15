@@ -120,6 +120,17 @@ class LlmGatewayTest {
   }
 
   @Test
+  void providerRateLimit_refusesCallThatWouldWaitLongerThanItMayTake() {
+    gateway.setRateLimits(java.util.Map.of("openai", 1)); // one per minute, call timeout is 10 s
+
+    assertThat(gateway.call(request(Provider.OPENAI, "/v1")).text()).isEqualTo("hi");
+    assertThatThrownBy(() -> gateway.call(request(Provider.OPENAI, "/v1")))
+        .hasMessageContaining("Rate limit of OPENAI");
+    // another provider is not held back
+    assertThat(gateway.call(request(Provider.OLLAMA, "")).text()).isNotNull();
+  }
+
+  @Test
   void promptLengthIsLimited() {
     gateway.setMaxInputChars(5);
     assertThatThrownBy(() -> gateway.call(request(Provider.OPENAI, "/v1")))
@@ -180,6 +191,36 @@ class LlmGatewayTest {
         null,
         List.of(new ChatTurn("user", "q")),
         List.of(new ToolSpec("lookup", "Look something up", java.util.Map.of())));
+  }
+
+  @Test
+  void toolExchange_isSentAsAssistantToolCallsAndToolResult() {
+    final LlmRequest base = request(Provider.OPENAI, "/v1");
+    final LlmRequest exchange =
+        new LlmRequest(
+            base.provider(),
+            base.baseUrl(),
+            base.apiKey(),
+            base.model(),
+            base.temperature(),
+            base.maxTokens(),
+            base.timeout(),
+            base.system(),
+            List.of(
+                new ChatTurn("user", "weather in Oslo?"),
+                new ChatTurn(
+                    "assistant",
+                    "",
+                    null,
+                    null,
+                    List.of(new ToolCallRequest("call_1", "weather", "{\"city\":\"Oslo\"}"))),
+                new ChatTurn("tool", "rain", "call_1", "weather", List.of())));
+
+    gateway.call(exchange);
+
+    final String sent = bodies.getLast();
+    assertThat(sent).contains("\"tool_calls\"").contains("call_1").contains("weather");
+    assertThat(sent).contains("\"role\":\"tool\"").contains("\"tool_call_id\":\"call_1\"");
   }
 
   @Test
@@ -288,5 +329,25 @@ class LlmGatewayTest {
     assertThatThrownBy(() -> gateway.call(request(Provider.OPENAI, "/v1")))
         .hasMessageContaining("deny-input-patterns");
     assertThat(bodies).isEmpty();
+  }
+
+  @Test
+  void rateLimitFromTheEnvironment_spacesCalls_andAnInterruptedWaitFails() {
+    gateway.readPatterns(
+        new org.springframework.mock.env.MockEnvironment()
+            .withProperty("yukta.llm.rate-limit.openai", "600"));
+
+    // 600 per minute is 100 ms apart: the second call waits for its turn and still succeeds
+    assertThat(gateway.call(request(Provider.OPENAI, "/v1")).text()).isEqualTo("hi");
+    assertThat(gateway.call(request(Provider.OPENAI, "/v1")).text()).isEqualTo("hi");
+
+    Thread.currentThread().interrupt();
+    try {
+      assertThatThrownBy(() -> gateway.call(request(Provider.OPENAI, "/v1")))
+          .isInstanceOf(IllegalStateException.class)
+          .hasMessageContaining("Interrupted");
+    } finally {
+      assertThat(Thread.interrupted()).isTrue(); // the flag is kept for the caller; clear it here
+    }
   }
 }

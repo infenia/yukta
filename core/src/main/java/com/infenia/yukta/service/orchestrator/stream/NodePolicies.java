@@ -4,6 +4,8 @@ package com.infenia.yukta.service.orchestrator.stream;
 
 import com.infenia.yukta.message.Message;
 import com.infenia.yukta.model.workflow.NodePolicy;
+import com.infenia.yukta.plugin.exception.RunAbortedException;
+import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import java.time.Instant;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -11,13 +13,14 @@ import java.util.function.Function;
 import lombok.experimental.UtilityClass;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
+import reactor.core.publisher.BufferOverflowStrategy;
 import reactor.core.publisher.Flux;
 import reactor.util.retry.Retry;
 
 /** Applies a node's {@link NodePolicy} to the processing of one message. */
 @Slf4j
 @UtilityClass
-@SuppressWarnings("PMD.AtLeastOneConstructor")
+@SuppressWarnings({"PMD.AtLeastOneConstructor", "PMD.CognitiveComplexity"})
 public class NodePolicies {
 
   /** Header that tells the plugin which attempt (1, 2, ...) it is processing the message in. */
@@ -99,7 +102,7 @@ public class NodePolicies {
               Retry.backoff(retry.maxAttempts() - 1L, retry.backoff())
                   .maxBackoff(retry.maxBackoff())
                   .jitter(JITTER)
-                  .filter(retry::shouldRetry)
+                  .filter(error -> !RunAbortedException.isAbort(error) && retry.shouldRetry(error))
                   .doBeforeRetry(
                       signal ->
                           log.atWarn()
@@ -114,6 +117,9 @@ public class NodePolicies {
       case CONTINUE ->
           result.onErrorResume(
               error -> {
+                if (RunAbortedException.isAbort(error)) {
+                  return Flux.error(error);
+                }
                 log.atWarn()
                     .addKeyValue("nodeId", nodeId)
                     .setCause(error)
@@ -123,9 +129,11 @@ public class NodePolicies {
       case ROUTE ->
           result.onErrorResume(
               error ->
-                  overBudget(ledger)
-                      ? budgetError(nodeId, policy, error)
-                      : Flux.just(deadLetter(message, nodeId, error, attempts.get())));
+                  RunAbortedException.isAbort(error)
+                      ? Flux.error(error)
+                      : overBudget(ledger)
+                          ? budgetError(nodeId, policy, error)
+                          : Flux.just(deadLetter(message, nodeId, error, attempts.get())));
     };
   }
 
@@ -158,5 +166,31 @@ public class NodePolicies {
         .withHeader(FAILURE_EXCEPTION_HEADER, error.getClass().getName())
         .withHeader(FAILURE_TIME_HEADER, Instant.now().toString())
         .withSourcePort(NodePolicy.ERROR_PORT);
+  }
+
+  /**
+   * Puts a node's {@code engine.edgeBuffer}, if any, in front of its input: when the node is slower
+   * than its parents the buffer drops messages (counted by the tracker) instead of holding the
+   * parents.
+   *
+   * @param buffer the node's buffer, or null for none
+   * @param input the node's input
+   * @param tracker counts every dropped message
+   * @param module the node type, for the counter
+   * @return the input, bounded when the node asked for it
+   */
+  public static Flux<Message<?>> edgeBuffered(
+      final NodePolicy.@Nullable EdgeBuffer buffer,
+      final Flux<Message<?>> input,
+      final TaskTrackerService tracker,
+      final String module) {
+    return buffer == null
+        ? input
+        : input.onBackpressureBuffer(
+            buffer.size(),
+            _ -> tracker.recordEdgeDropped(module),
+            buffer.overflow() == NodePolicy.Overflow.DROP_OLDEST
+                ? BufferOverflowStrategy.DROP_OLDEST
+                : BufferOverflowStrategy.DROP_LATEST);
   }
 }

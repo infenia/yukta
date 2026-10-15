@@ -4,6 +4,7 @@ package com.infenia.yukta.service.workflow.store;
 
 import com.infenia.yukta.config.SessionConfigProperties;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
+import com.infenia.yukta.service.NotFoundException;
 import jakarta.annotation.PostConstruct;
 import java.io.IOException;
 import java.net.URLEncoder;
@@ -14,6 +15,7 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
@@ -54,6 +56,12 @@ public class FileWorkflowDefinitionStore implements WorkflowDefinitionStore {
 
   /** Name of the directory with the saved versions. */
   private static final String HISTORY = "history";
+
+  /** Extension of the file that holds a version's note. */
+  private static final String NOTE = ".note";
+
+  /** Extension of a version file. */
+  private static final String JSON = ".json";
 
   /** Where the files live. */
   private final SessionConfigProperties props;
@@ -144,6 +152,27 @@ public class FileWorkflowDefinitionStore implements WorkflowDefinitionStore {
         .subscribeOn(Schedulers.boundedElastic());
   }
 
+  @Override
+  @SuppressWarnings("PMD.UseObjectForClearerAPI")
+  public Mono<Void> saveNote(
+      final String sessionId, final String workflowId, final String revisionId, final String note) {
+    return Mono.<Void>fromCallable(
+            () -> {
+              final Path history = dir(sessionId, workflowId).resolve(HISTORY);
+              if (!Files.exists(inside(history.resolve(fileOf(revisionId))))) {
+                throw new NotFoundException("Version not found: " + revisionId);
+              }
+              final Path noteFile = inside(history.resolve(encode(revisionId) + NOTE));
+              if (note == null || note.isBlank()) {
+                Files.deleteIfExists(noteFile);
+              } else {
+                atomically(history, encode(revisionId) + NOTE, note);
+              }
+              return null;
+            })
+        .subscribeOn(Schedulers.boundedElastic());
+  }
+
   private void write(final String sessionId, final WorkflowDefinition definition)
       throws IOException {
     final Path dir = dir(sessionId, definition.workflowId());
@@ -160,21 +189,28 @@ public class FileWorkflowDefinitionStore implements WorkflowDefinitionStore {
 
   private List<DefinitionRevision> listRevisions(final Path dir) throws IOException {
     final Path history = dir.resolve(HISTORY);
-    List<DefinitionRevision> revisions = List.of();
+    final List<DefinitionRevision> revisions = new ArrayList<>();
     if (Files.isDirectory(history)) {
+      final List<String> ids;
       try (Stream<Path> files = Files.list(history)) {
-        revisions =
+        ids =
             files
                 .map(file -> history.relativize(file).toString())
-                .filter(name -> name.endsWith(".json"))
-                .map(name -> name.substring(0, name.length() - ".json".length()))
+                .filter(name -> name.endsWith(JSON))
+                .map(name -> name.substring(0, name.length() - JSON.length()))
                 .filter(FileWorkflowDefinitionStore::isRevisionId)
                 .sorted(Comparator.reverseOrder())
-                .map(
-                    id ->
-                        new DefinitionRevision(
-                            id, Instant.ofEpochMilli(Long.parseLong(id.substring(0, 13)))))
                 .toList();
+      }
+      for (final String revisionId : ids) {
+        final Path noteFile = history.resolve(encode(revisionId) + NOTE);
+        revisions.add(
+            new DefinitionRevision(
+                revisionId,
+                Instant.ofEpochMilli(Long.parseLong(revisionId.substring(0, 13))),
+                Files.exists(noteFile)
+                    ? Files.readString(noteFile, StandardCharsets.UTF_8)
+                    : null));
       }
     }
     return revisions;
@@ -183,10 +219,17 @@ public class FileWorkflowDefinitionStore implements WorkflowDefinitionStore {
   private void prune(final Path history) throws IOException {
     final List<Path> files;
     try (Stream<Path> listed = Files.list(history)) {
-      files = listed.sorted(Comparator.comparing(Path::toString)).toList();
+      files =
+          listed
+              .filter(file -> file.toString().endsWith(JSON))
+              .sorted(Comparator.comparing(Path::toString))
+              .toList();
     }
     for (int i = 0; i < files.size() - MAX_REVISIONS; i++) {
+      final String name = String.valueOf(files.get(i).getFileName());
       Files.deleteIfExists(files.get(i));
+      Files.deleteIfExists(
+          history.resolve(name.substring(0, name.length() - JSON.length()) + NOTE));
     }
   }
 
@@ -200,19 +243,19 @@ public class FileWorkflowDefinitionStore implements WorkflowDefinitionStore {
     return definition;
   }
 
-  private static void atomically(final Path dir, final String name, final String content)
+  /* default */ static void atomically(final Path dir, final String name, final String content)
       throws IOException {
+    final Path target = dir.resolve(name).normalize();
+    if (!target.startsWith(dir.normalize()) || target.equals(dir.normalize())) {
+      throw new IllegalArgumentException("Not a file name inside the directory: " + name);
+    }
     final Path tmp = Files.createTempFile(dir, "definition", ".tmp");
     try {
       Files.writeString(tmp, content, StandardCharsets.UTF_8);
       try (FileChannel channel = FileChannel.open(tmp, StandardOpenOption.WRITE)) {
         channel.force(true);
       }
-      Files.move(
-          tmp,
-          dir.resolve(name),
-          StandardCopyOption.ATOMIC_MOVE,
-          StandardCopyOption.REPLACE_EXISTING);
+      Files.move(tmp, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
     } finally {
       Files.deleteIfExists(tmp);
     }

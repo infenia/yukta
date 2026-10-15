@@ -399,6 +399,15 @@ public interface ControlBusGateway {
   com.infenia.yukta.model.execution.WorkflowProgress getCurrentProgress(String executionId);
 
   /**
+   * The nodes of a session that wait for a signal (an approval or decision) now, oldest first.
+   *
+   * @param sessionId the session
+   * @return one entry per open wait
+   */
+  reactor.core.publisher.Flux<com.infenia.yukta.model.control.PendingApproval> pendingApprovals(
+      String sessionId);
+
+  /**
    * Get the progress of an execution within a session.
    *
    * <p>Unlike {@link #getCurrentProgress(String)}, this reads the per-session record, which

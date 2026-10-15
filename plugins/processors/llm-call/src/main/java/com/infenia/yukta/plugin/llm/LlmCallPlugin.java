@@ -9,12 +9,15 @@ import com.infenia.yukta.plugin.core.FailureMode;
 import com.infenia.yukta.plugin.core.PluginDescriptor;
 import com.infenia.yukta.plugin.core.PluginGuard;
 import com.infenia.yukta.plugin.core.PluginMetricsReporter;
+import com.infenia.yukta.plugin.exception.RunAbortedException;
 import com.infenia.yukta.plugin.exception.WorkflowExecutionException;
 import com.infenia.yukta.plugin.type.ProcessorPlugin;
+import com.infenia.yukta.plugin.util.RunBudgets;
 import com.infenia.yukta.plugin.util.SpelUtils;
 import com.infenia.yukta.util.MapUtils;
 import com.infenia.yukta.util.VariableResolver;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import io.micrometer.core.instrument.MeterRegistry;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -24,6 +27,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
+import org.jspecify.annotations.Nullable;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -41,6 +45,7 @@ import reactor.util.retry.Retry;
  */
 @SuppressWarnings({
   "PMD.CommentRequired",
+  "PMD.ExcessiveImports",
   "PMD.GodClass",
   "PMD.CouplingBetweenObjects",
   "PMD.OnlyOneReturn",
@@ -62,6 +67,7 @@ public final class LlmCallPlugin implements ProcessorPlugin {
   private static final String MODEL = "model";
   private static final String TIMEOUT = "timeout";
   private static final String RETRIES_KEY = "retries";
+  private static final String HARD_STOP = "hardStop";
   private static final String FAILURE_MODE = "failureMode";
   private static final String ROUTE_BY_STATUS = "routeByStatus";
   private static final String PRICES = "prices";
@@ -77,7 +83,8 @@ public final class LlmCallPlugin implements ProcessorPlugin {
   private final LlmGateway gateway;
   private final VariableResolver resolver;
   private final PluginMetricsReporter reporter;
-  private final RunBudgets budgets = new RunBudgets();
+  private final RunBudgets budgets;
+  @Nullable private final MeterRegistry meters;
 
   /**
    * Creates the plugin without metrics.
@@ -90,6 +97,8 @@ public final class LlmCallPlugin implements ProcessorPlugin {
     this.gateway = gateway;
     this.resolver = resolver;
     this.reporter = PluginMetricsReporter.NOOP;
+    this.budgets = new RunBudgets();
+    this.meters = null;
   }
 
   /**
@@ -99,15 +108,34 @@ public final class LlmCallPlugin implements ProcessorPlugin {
    * @param resolver resolves config expressions
    * @param reporterProvider optional metrics reporter
    */
-  @Autowired
-  @SuppressFBWarnings("EI_EXPOSE_REP2") // the gateway is a shared Spring bean
   public LlmCallPlugin(
       final LlmGateway gateway,
       final VariableResolver resolver,
       final ObjectProvider<PluginMetricsReporter> reporterProvider) {
+    this(gateway, resolver, reporterProvider, null);
+  }
+
+  /**
+   * Spring constructor with token and cost meters.
+   *
+   * @param gateway the gateway
+   * @param resolver resolves config expressions
+   * @param reporterProvider optional metrics reporter
+   * @param meterProvider optional Micrometer registry for the token and cost meters
+   */
+  @Autowired
+  @SuppressWarnings("PMD.LawOfDemeter")
+  @SuppressFBWarnings("EI_EXPOSE_REP2") // the gateway is a shared Spring bean
+  public LlmCallPlugin(
+      final LlmGateway gateway,
+      final VariableResolver resolver,
+      final ObjectProvider<PluginMetricsReporter> reporterProvider,
+      @Nullable final ObjectProvider<MeterRegistry> meterProvider) {
     this.gateway = gateway;
     this.resolver = resolver;
     this.reporter = reporterProvider.getIfAvailable(() -> PluginMetricsReporter.NOOP);
+    this.budgets = RunBudgets.shared();
+    this.meters = meterProvider == null ? null : meterProvider.getIfAvailable();
   }
 
   @Override
@@ -156,7 +184,9 @@ public final class LlmCallPlugin implements ProcessorPlugin {
             "budget",
             ConfigField.Type.MAP,
             null,
-            "Limits for all calls of one run: {maxTokens, maxCost}; cost needs prices"),
+            "Limits for all calls of one run: {maxTokens, maxCost, maxCalls, agent, hardStop}; cost"
+                + " needs prices; the budget is shared with MCP_TOOL_CALL, and an agent is counted"
+                + " apart"),
         ConfigField.choice(
             "failureMode", false, "ERROR", "What to do on a failed call", "ERROR", "CONTINUE"),
         ConfigField.optional(
@@ -182,7 +212,9 @@ public final class LlmCallPlugin implements ProcessorPlugin {
     - model: String, e.g. "gpt-4o-mini", "claude-sonnet-5-5", "llama3"
     - messages: List of {role: user|assistant, content}, given as a literal list or as a SpEL
       expression over the message, e.g. "payload['history']" ("${...}" cannot be used here: it
-      turns lists into text)
+      turns lists into text). An assistant turn may carry the "actions" of its answer, and
+      {role: tool, toolCallId, toolName, content} turns give the result of each call, so the model
+      sees a proper tool exchange instead of a user message
       and/or prompt: String, appended as a final user turn (e.g. "${payload.message}")
 
     OPTIONAL:
@@ -199,6 +231,8 @@ public final class LlmCallPlugin implements ProcessorPlugin {
       the actions to an MCP_TOOL_CALL node and feed its result back as the next user turn.
     - budget: {maxTokens, maxCost} for all calls of one run (maxCost needs prices); once used up
       the next call fails like a failed call (failureMode applies). One call may overshoot.
+      With hardStop: true the next call ends the whole run instead: it is not retried, dropped
+      or routed by the node's engine policy, and failureMode does not absorb it.
     - failureMode: ERROR | CONTINUE (default: ERROR)
       ERROR: a failed call fails the node
       CONTINUE: emit the ORIGINAL payload unchanged with metadata llmSuccess=false and
@@ -260,43 +294,84 @@ public final class LlmCallPlugin implements ProcessorPlugin {
     return Flux.deferContextual(
         ctx -> {
           final String runId = String.valueOf(ctx.getOrDefault("executionId", "unknown"));
+          final String nodeId = String.valueOf(ctx.getOrDefault("nodeId", "unknown"));
           return resolveRequest(message, config)
               .flatMapMany(
                   request -> {
                     final long start = System.nanoTime();
-                    return budgeted(runId, config, attempt(request, retries(config)))
+                    return budgeted(runId, nodeId, config, attempt(request, retries(config)))
                         .<Message<?>>map(
                             response -> {
                               final Map<String, Object> payload =
                                   success(config, response, elapsedMillis(start));
                               budgets.add(
-                                  runId,
+                                  RunBudgets.key(runId, budgetOf(config)),
                                   response.inputTokens() + response.outputTokens(),
                                   payload.get("cost") instanceof final Double cost ? cost : 0.0);
+                              count(request, response, payload);
                               return output(message, config, payload, null);
                             })
                         .onErrorResume(
                             error ->
-                                failureMode == FailureMode.CONTINUE
-                                    ? Mono.<Message<?>>just(
-                                        output(
-                                            message, config, message.payload(), failureText(error)))
-                                    : Mono.error(
-                                        new WorkflowExecutionException(
-                                            "LLM call failed: " + error.getMessage(), error)))
+                                RunAbortedException.isAbort(error)
+                                    ? Mono.<Message<?>>error(error)
+                                    : failureMode == FailureMode.CONTINUE
+                                        ? Mono.<Message<?>>just(
+                                            output(
+                                                message,
+                                                config,
+                                                message.payload(),
+                                                failureText(error)))
+                                        : Mono.error(
+                                            new WorkflowExecutionException(
+                                                "LLM call failed: " + error.getMessage(), error)))
                         .flux();
                   });
         });
   }
 
+  /**
+   * Counts the tokens and the cost of a call per provider ({@code llm.tokens}, {@code llm.cost}).
+   */
+  private void count(
+      final LlmRequest request, final LlmResponse response, final Map<String, Object> payload) {
+    if (meters != null) {
+      final String provider = request.provider().name();
+      meters
+          .counter("llm.tokens", PROVIDER, provider, "direction", "input")
+          .increment(response.inputTokens());
+      meters
+          .counter("llm.tokens", PROVIDER, provider, "direction", "output")
+          .increment(response.outputTokens());
+      if (payload.get("cost") instanceof final Double cost) {
+        meters.counter("llm.cost", PROVIDER, provider).increment(cost);
+      }
+    }
+  }
+
+  private static Map<?, ?> budgetOf(final Map<String, Object> config) {
+    return config.get(BUDGET) instanceof final Map<?, ?> budget ? budget : null;
+  }
+
   /** Refuses the call if the run has used up its {@code budget}. */
   private Mono<LlmResponse> budgeted(
-      final String runId, final Map<String, Object> config, final Mono<LlmResponse> call) {
+      final String runId,
+      final String nodeId,
+      final Map<String, Object> config,
+      final Mono<LlmResponse> call) {
     return config.get(BUDGET) instanceof final Map<?, ?> budget
         ? budgets
-            .exceeded(runId, budget)
+            .exceeded(RunBudgets.key(runId, budget), budget)
             .<Mono<LlmResponse>>map(
-                why -> Mono.error(new IllegalStateException("LLM budget exceeded: " + why)))
+                why -> {
+                  reporter.increment(nodeId, "llm.budget.exceeded", "llm");
+                  return Mono.error(
+                      // hardStop ends the whole run; otherwise it is a failed call like any
+                      // other and failureMode / routeByStatus decide what follows
+                      Boolean.TRUE.equals(budget.get(HARD_STOP))
+                          ? new RunAbortedException("LLM budget exceeded: " + why)
+                          : new IllegalStateException("LLM budget exceeded: " + why));
+                })
             .orElse(call)
         : call;
   }
@@ -427,12 +502,10 @@ public final class LlmCallPlugin implements ProcessorPlugin {
   private static List<ChatTurn> turns(final Object messages, final Object prompt) {
     final List<ChatTurn> turns = new ArrayList<>();
     if (messages instanceof final List<?> list) {
-      for (final Object item : list) {
-        if (item instanceof final Map<?, ?> turn) {
-          turns.add(
-              new ChatTurn(String.valueOf(turn.get("role")), String.valueOf(turn.get("content"))));
-        }
-      }
+      list.stream()
+          .filter(Map.class::isInstance)
+          .map(item -> turn((Map<?, ?>) item))
+          .forEach(turns::add);
     }
     if (text(prompt) != null) {
       turns.add(new ChatTurn("user", prompt.toString()));
@@ -441,6 +514,15 @@ public final class LlmCallPlugin implements ProcessorPlugin {
       throw new IllegalArgumentException("messages and/or prompt must yield at least one turn");
     }
     return turns;
+  }
+
+  private static ChatTurn turn(final Map<?, ?> turn) {
+    return new ChatTurn(
+        String.valueOf(turn.get("role")),
+        String.valueOf(turn.get("content")),
+        Objects.toString(turn.get("toolCallId"), null),
+        Objects.toString(turn.get("toolName"), null),
+        AgentActions.toToolCalls(turn.get("actions")));
   }
 
   private Mono<Object> resolve(final Object value, final Message<?> message) {

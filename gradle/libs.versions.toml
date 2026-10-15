@@ -66,6 +66,8 @@ netty-codec-http3 = { group = "io.netty", name = "netty-codec-http3", version.re
 
 # PostgreSQL persistence (versions managed by the Spring Boot BOM)
 spring-boot-starter-data-r2dbc = { group = "org.springframework.boot", name = "spring-boot-starter-data-r2dbc" }
+spring-boot-starter-rsocket = { group = "org.springframework.boot", name = "spring-boot-starter-rsocket" }
+spring-boot-starter-rsocket-test = { group = "org.springframework.boot", name = "spring-boot-starter-rsocket-test" }
 spring-boot-starter-flyway = { group = "org.springframework.boot", name = "spring-boot-starter-flyway" }
 flyway-postgresql = { group = "org.flywaydb", name = "flyway-database-postgresql" }
 postgresql-jdbc = { group = "org.postgresql", name = "postgresql" }

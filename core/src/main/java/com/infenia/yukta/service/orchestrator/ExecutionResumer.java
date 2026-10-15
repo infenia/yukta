@@ -145,7 +145,6 @@ public class ExecutionResumer {
       return Mono.error(
           new ConflictException("Every node of " + started.executionId() + " had finished"));
     }
-    scheduler.assertCanAccept(started.sessionId(), started.workflowId());
     final String newId = UUID.randomUUID().toString();
     final Map<String, Object> payload = Objects.requireNonNull(started.payload());
     return Flux.fromIterable(plan.boundary())
@@ -156,8 +155,19 @@ public class ExecutionResumer {
                     .collectList()
                     .map(messages -> Map.<String, List<Message<?>>>entry(node, messages)))
         .collectMap(Map.Entry::getKey, Map.Entry::getValue)
-        .doOnNext(
+        .flatMap(
             outputs -> {
+              // The slot is taken before the log says the run was resumed, so a refused resume
+              // can be tried again.
+              final ExecutionScheduler.Admission admission =
+                  scheduler.acquire(
+                      started.sessionId(),
+                      started.workflowId(),
+                      ExecutionScheduler.priorityOf(payload),
+                      newId);
+              if (admission.refused()) {
+                return admission.permit().then();
+              }
               executionLog.append(ExecutionLogEvent.resumed(started, newId));
               orchestrator
                   .rerun(
@@ -169,7 +179,8 @@ public class ExecutionResumer {
                       plan,
                       payload,
                       outputs,
-                      "resume of " + started.executionId())
+                      "resume of " + started.executionId(),
+                      admission)
                   .subscribeOn(Schedulers.boundedElastic())
                   .doOnError(
                       err ->
@@ -179,8 +190,9 @@ public class ExecutionResumer {
                               .log("Resumed execution failed"))
                   .onErrorComplete()
                   .subscribe();
+              return Mono.<Void>empty();
             })
-        .thenReturn(newId);
+        .then(Mono.just(newId));
   }
 
   private static ExecutionLogEvent first(

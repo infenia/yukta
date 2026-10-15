@@ -3,10 +3,12 @@
 package com.infenia.yukta.controller;
 
 import com.infenia.yukta.model.api.ApiResponse;
+import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import com.infenia.yukta.service.workflow.store.DefinitionRevision;
 import com.infenia.yukta.service.workflow.store.WorkflowDefinitionStore;
+import com.infenia.yukta.service.workflow.store.WorkflowDiff;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -61,6 +63,44 @@ public class WorkflowVersionController {
   }
 
   /**
+   * Compare two saved versions, or a saved version with the current definition.
+   *
+   * @param sessionId the session
+   * @param workflowId the workflow
+   * @param olderVersion the older version, as listed
+   * @param newerVersion the newer version, as listed; the current definition when omitted
+   * @return the nodes and edges added, removed or changed
+   */
+  @GetMapping("/versions/diff")
+  @SuppressWarnings("PMD.UseObjectForClearerAPI")
+  @Operation(
+      summary = "Compare two versions of a workflow",
+      description = "Nodes added, removed or changed, and edges added or removed")
+  public Mono<ApiResponse<WorkflowDiff>> diff(
+      @Parameter(description = SESSION_ID) @PathVariable final String sessionId,
+      @Parameter(description = WORKFLOW_ID) @PathVariable final String workflowId,
+      @Parameter(description = "Older version id from the list") @RequestParam(name = "from")
+          final String olderVersion,
+      @Parameter(description = "Newer version id; the current definition if omitted")
+          @RequestParam(name = "to", required = false)
+          final String newerVersion) {
+    final Mono<WorkflowDefinition> newer =
+        newerVersion == null || newerVersion.isBlank()
+            ? definitions.find(sessionId, workflowId)
+            : definitions.findRevision(sessionId, workflowId, newerVersion);
+    return Mono.zip(definitions.findRevision(sessionId, workflowId, olderVersion), newer)
+        .switchIfEmpty(
+            Mono.error(
+                () -> new NotFoundException("Version of workflow " + workflowId + " not found")))
+        .map(
+            pair ->
+                ApiResponse.success(
+                    200,
+                    "Workflow versions compared",
+                    WorkflowDiff.between(pair.getT1(), pair.getT2())));
+  }
+
+  /**
    * Make an earlier version the current one. The version becomes a new save, so it can be undone
    * the same way; runs that already started keep the version they use.
    *
@@ -92,5 +132,32 @@ public class WorkflowVersionController {
                             200,
                             "Workflow rolled back to version " + version,
                             Map.of("workflowId", workflowId, "version", version))));
+  }
+
+  /**
+   * Write or clear the note of a saved version.
+   *
+   * @param sessionId the session
+   * @param workflowId the workflow
+   * @param version the version, as listed
+   * @param note the note; blank clears it
+   * @return the workflow id, version and note
+   */
+  @PostMapping("/versions/note")
+  @SuppressWarnings("PMD.UseObjectForClearerAPI")
+  @Operation(summary = "Write or clear the note on a saved version")
+  public Mono<ApiResponse<Map<String, String>>> note(
+      @Parameter(description = SESSION_ID) @PathVariable final String sessionId,
+      @Parameter(description = WORKFLOW_ID) @PathVariable final String workflowId,
+      @Parameter(description = "Version id from the list") @RequestParam final String version,
+      @Parameter(description = "The note; blank clears it") @RequestParam(defaultValue = "")
+          final String note) {
+    return definitions
+        .saveNote(sessionId, workflowId, version, note)
+        .thenReturn(
+            ApiResponse.success(
+                200,
+                "Version note saved",
+                Map.of("workflowId", workflowId, "version", version, "note", note.strip())));
   }
 }

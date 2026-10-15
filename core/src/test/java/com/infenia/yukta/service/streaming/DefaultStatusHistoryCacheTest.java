@@ -64,6 +64,22 @@ class DefaultStatusHistoryCacheTest {
   /** Default constructor. */
   /* package */ DefaultStatusHistoryCacheTest() {}
 
+  @Test
+  @DisplayName("history is capped per run and keeps the newest snapshot")
+  void put_pastTheCap_dropsTheOldestAndKeepsTheNewest() {
+    final DefaultStatusHistoryCache capped =
+        new DefaultStatusHistoryCache(CACHE_TTL_MINUTES, 3, 10);
+    for (int i = 0; i < 10; i++) {
+      capped.put(EXEC_ID_1, createWorkflowProgress(EXEC_ID_1, STATUS_RUNNING));
+    }
+    final WorkflowProgress last = createWorkflowProgress(EXEC_ID_1, STATUS_COMPLETED);
+    capped.put(EXEC_ID_1, last);
+
+    final List<WorkflowProgress> history = capped.get(EXEC_ID_1);
+    assertThat(history).hasSize(3);
+    assertThat(history.get(2)).isSameAs(last);
+  }
+
   // TTL Validation Tests
 
   @Test
@@ -216,7 +232,8 @@ class DefaultStatusHistoryCacheTest {
   @Test
   @DisplayName("put_concurrentAccess_threadsafe")
   void put_concurrentAccess_threadsafe() throws InterruptedException {
-    final DefaultStatusHistoryCache cache = new DefaultStatusHistoryCache(CACHE_TTL_MINUTES);
+    final DefaultStatusHistoryCache cache =
+        new DefaultStatusHistoryCache(CACHE_TTL_MINUTES, 10_000, 10);
     final String executionId = EXEC_CONCURRENT;
     final CountDownLatch startLatch = new CountDownLatch(1);
     final CountDownLatch endLatch = new CountDownLatch(NUM_THREADS);

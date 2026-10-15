@@ -148,9 +148,13 @@ public class ProcessorNodeAssemblerStrategy implements NodeAssemblerStrategy {
           .addKeyValue(LOG_KEY_NODE_ID, node.nodeId())
           .log("Processing stream with processor plugin");
       final NodeMessageChannel channel = channelProvider.channelFor(node.nodeId(), node.config());
-      final Flux<Message<?>> channelInput =
-          channel.inbound(node.nodeId(), context.executionId(), timedInput);
       final NodePolicy policy = NodePolicy.from(node.config());
+      final Flux<Message<?>> channelInput =
+          channel.inbound(
+              node.nodeId(),
+              context.executionId(),
+              NodePolicies.edgeBuffered(
+                  NodePolicy.edgeBuffer(node.config()), timedInput, tracker, node.type()));
       // failures are counted per run, so the ledger belongs to this assembly, not to the node
       final FailureLedger ledger =
           policy.failureBudget() == null ? null : new FailureLedger(policy.failureBudget());

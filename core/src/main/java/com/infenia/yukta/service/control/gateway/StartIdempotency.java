@@ -37,17 +37,32 @@ public class StartIdempotency implements SmartInitializingSingleton {
   /** How long a key remembers its execution. */
   private final Duration ttl;
 
+  /** Most keys remembered; beyond it the least recently used one is forgotten early. */
+  private static final long DEFAULT_MAX_KEYS = 100_000;
+
   /**
    * Creates the registry.
    *
    * @param ttl how long a key remembers its execution
    * @param log the execution log, which keeps keys across a restart when it is on disk
+   * @param maxKeys most keys remembered; a key evicted before its TTL lets a repeat start again
    */
   @Autowired
   public StartIdempotency(
       @Value("${yukta.start.idempotency-ttl:10m}") final Duration ttl,
-      final ExecutionLogStore log) {
-    this(ttl, Ticker.systemTicker(), log);
+      final ExecutionLogStore log,
+      @Value("${yukta.start.idempotency-max-keys:100000}") final long maxKeys) {
+    this(ttl, Ticker.systemTicker(), log, maxKeys);
+  }
+
+  /**
+   * Creates a registry with the default key limit.
+   *
+   * @param ttl how long a key remembers its execution
+   * @param log the execution log, which keeps keys across a restart when it is on disk
+   */
+  public StartIdempotency(final Duration ttl, final ExecutionLogStore log) {
+    this(ttl, Ticker.systemTicker(), log, DEFAULT_MAX_KEYS);
   }
 
   /**
@@ -56,18 +71,27 @@ public class StartIdempotency implements SmartInitializingSingleton {
    * @param ttl how long a key remembers its execution
    */
   public StartIdempotency(final Duration ttl) {
-    this(ttl, Ticker.systemTicker(), null);
+    this(ttl, Ticker.systemTicker(), null, DEFAULT_MAX_KEYS);
   }
 
   /* default */ StartIdempotency(final Duration ttl, final Ticker ticker) {
-    this(ttl, ticker, null);
+    this(ttl, ticker, null, DEFAULT_MAX_KEYS);
   }
 
   /* default */ StartIdempotency(
-      final Duration ttl, final Ticker ticker, @Nullable final ExecutionLogStore log) {
+      final Duration ttl,
+      final Ticker ticker,
+      @Nullable final ExecutionLogStore log,
+      final long maxKeys) {
     this.ttl = ttl;
     this.log = log;
-    this.entries = Caffeine.newBuilder().expireAfterWrite(ttl).ticker(ticker).build();
+    this.entries =
+        Caffeine.newBuilder()
+            .expireAfterWrite(ttl)
+            .maximumSize(Math.max(1, maxKeys))
+            .executor(Runnable::run)
+            .ticker(ticker)
+            .build();
   }
 
   /** Reloads the keys written before the last restart that have not expired yet. */

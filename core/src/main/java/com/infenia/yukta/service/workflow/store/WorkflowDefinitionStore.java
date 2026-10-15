@@ -76,4 +76,18 @@ public interface WorkflowDefinitionStore {
       String sessionId, String workflowId, String revisionId) {
     return Mono.empty();
   }
+
+  /**
+   * Write or clear the note of a saved version.
+   *
+   * @param sessionId the session identifier
+   * @param workflowId the workflow identifier
+   * @param revisionId the version, as listed by {@link #revisions}
+   * @param note the note; null or blank clears it
+   * @return Mono that completes when saved, or fails with NotFoundException for an unknown version
+   */
+  @SuppressWarnings("PMD.UseObjectForClearerAPI")
+  default Mono<Void> saveNote(String sessionId, String workflowId, String revisionId, String note) {
+    return Mono.error(new UnsupportedOperationException("This store keeps no version notes"));
+  }
 }

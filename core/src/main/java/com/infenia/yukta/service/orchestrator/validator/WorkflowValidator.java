@@ -8,6 +8,7 @@ import com.infenia.yukta.plugin.core.Plugin;
 import com.infenia.yukta.plugin.core.PluginCategory;
 import com.infenia.yukta.plugin.core.WorkflowContext;
 import com.infenia.yukta.plugin.core.WorkflowContext.WorkflowEdge;
+import com.infenia.yukta.plugin.type.TerminalPlugin;
 import com.infenia.yukta.plugin.type.TriggerPlugin;
 import com.infenia.yukta.service.plugin.PluginRegistry;
 import jakarta.validation.Valid;
@@ -301,13 +302,24 @@ public class WorkflowValidator {
     return Mono.empty();
   }
 
+  /**
+   * A terminal must declare the category and be a {@link TerminalPlugin}, because the assembler
+   * only builds a terminal from the type; a plugin that has only one of them is not accepted.
+   */
+  @SuppressWarnings("PMD.LawOfDemeter")
+  private static boolean isTerminal(final Plugin plugin) {
+    return plugin != null
+        && plugin.getCategory() == PluginCategory.TERMINAL
+        && plugin instanceof TerminalPlugin;
+  }
+
   private Mono<Void> validateTerminalNodeExists(final WorkflowDefinition def) {
     final boolean hasTerminal =
         def.nodes().stream()
             .anyMatch(
                 node -> {
                   final Plugin plugin = registry.get(node.type());
-                  return plugin != null && plugin.getCategory() == PluginCategory.TERMINAL;
+                  return isTerminal(plugin);
                 });
 
     if (!hasTerminal) {
@@ -393,7 +405,7 @@ public class WorkflowValidator {
     final Plugin plugin = registry.get(node.type());
     // Plugin is guaranteed non-null by validatePluginsRegistered (runs first)
     final boolean isEndpoint = !sourceIds.contains(node.nodeId());
-    final boolean isTerminal = plugin.getCategory() == PluginCategory.TERMINAL;
+    final boolean isTerminal = isTerminal(plugin);
 
     if (isEndpoint && !isTerminal) {
       log.atWarn()

@@ -153,4 +153,33 @@ class StartIdempotencyTest {
 
     assertThat(reloaded.once("s/w", "k", this::start).block()).isEqualTo("exec-1");
   }
+
+  @Test
+  void pastTheKeyLimit_anEvictedKeyStartsAgain() {
+    final StartIdempotency capped =
+        new StartIdempotency(Duration.ofMinutes(10), nanos::get, null, 2);
+    for (int i = 0; i < 50; i++) {
+      capped.once("s/w", "k" + i, this::start).block();
+    }
+    for (int i = 0; i < 50; i++) {
+      capped.once("s/w", "k" + i, this::start).block();
+    }
+
+    // only a few keys fit, so most repeats start again (documented ceiling)
+    assertThat(starts.get()).isGreaterThan(60);
+  }
+
+  @Test
+  void springConstructor_readsTheLimitsFromConfiguration() {
+    final StartIdempotency configured =
+        new StartIdempotency(
+            Duration.ofMinutes(1),
+            new com.infenia.yukta.service.log.InMemoryExecutionLogStore(),
+            10);
+
+    configured.once("s/w", "k", this::start).block();
+    configured.once("s/w", "k", this::start).block();
+
+    assertThat(starts).hasValue(1);
+  }
 }

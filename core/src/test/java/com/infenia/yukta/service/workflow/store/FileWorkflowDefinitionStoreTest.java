@@ -180,4 +180,51 @@ class FileWorkflowDefinitionStoreTest {
 
     assertThat(early).hasSize(22).isLessThan(late);
   }
+
+  @Test
+  void noteSurvivesRestart_pruneDropsIt() throws InterruptedException {
+    store.save("s", definition("w1", "one")).block();
+    final String revisionId =
+        java.util.Objects.requireNonNull(store.revisions("s", "w1").blockFirst()).id();
+    store.saveNote("s", "w1", revisionId, "first cut").block();
+
+    final FileWorkflowDefinitionStore restarted =
+        new FileWorkflowDefinitionStore(props, new ObjectMapper());
+    assertThat(restarted.revisions("s", "w1").blockFirst().note()).isEqualTo("first cut");
+
+    for (int i = 0; i < FileWorkflowDefinitionStore.MAX_REVISIONS + 2; i++) {
+      Thread.sleep(2);
+      restarted.save("s", definition("w1", "v" + i)).block();
+    }
+    assertThat(restarted.revisions("s", "w1").collectList().block())
+        .hasSize(FileWorkflowDefinitionStore.MAX_REVISIONS);
+    assertThat(restarted.revisions("s", "w1").map(DefinitionRevision::id).collectList().block())
+        .doesNotContain(revisionId);
+    org.assertj.core.api.Assertions.assertThatThrownBy(
+            () -> restarted.saveNote("s", "w1", revisionId, "late").block())
+        .isInstanceOf(com.infenia.yukta.service.NotFoundException.class);
+  }
+
+  @Test
+  void blankNoteClearsTheNoteFile() {
+    store.save("s", definition("w1", "one")).block();
+    final String revisionId =
+        java.util.Objects.requireNonNull(store.revisions("s", "w1").blockFirst()).id();
+    store.saveNote("s", "w1", revisionId, "text").block();
+
+    store.saveNote("s", "w1", revisionId, " ").block();
+    store.saveNote("s", "w1", revisionId, null).block();
+
+    assertThat(store.revisions("s", "w1").blockFirst().note()).isNull();
+  }
+
+  @Test
+  void atomicWrite_refusesNamesOutsideTheDirectory() {
+    org.assertj.core.api.Assertions.assertThatThrownBy(
+            () -> FileWorkflowDefinitionStore.atomically(dir, "../escape.json", "{}"))
+        .isInstanceOf(IllegalArgumentException.class);
+    org.assertj.core.api.Assertions.assertThatThrownBy(
+            () -> FileWorkflowDefinitionStore.atomically(dir, ".", "{}"))
+        .isInstanceOf(IllegalArgumentException.class);
+  }
 }
