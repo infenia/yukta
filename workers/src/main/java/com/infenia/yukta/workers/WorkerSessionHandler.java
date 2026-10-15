@@ -93,14 +93,12 @@ public class WorkerSessionHandler {
   }
 
   private WorkerFrame answer(final WorkerInfo info, final WorkerFrame frame) {
-    final boolean renewed =
-        frame.type() == WorkerFrame.Type.LEASE
-            && registry.heartbeat(info.workerId(), frame.usedSlots());
-    WorkerFrame answer = WorkerFrame.ack();
-    if (frame.type() != WorkerFrame.Type.LEASE) {
-      answer = WorkerFrame.reject("unexpected " + frame.type() + " frame");
-    } else if (!renewed) {
-      answer = WorkerFrame.reject("lease expired, register again");
+    WorkerFrame answer = WorkerFrame.reject("unexpected " + frame.type() + " frame");
+    if (frame.type() == WorkerFrame.Type.LEASE) {
+      answer =
+          registry.heartbeat(info.workerId(), frame.usedSlots())
+              ? WorkerFrame.ack()
+              : WorkerFrame.reject("lease expired, register again");
     }
     return answer;
   }
