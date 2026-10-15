@@ -2,6 +2,9 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.plugin.mcp;
 
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.RemovalCause;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -10,7 +13,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
@@ -81,11 +83,25 @@ public class McpClientGateway {
   /** Builder used to create the WebClient for each request. */
   private final WebClient.Builder webClientBuilder;
 
+  /** Most sessions kept open; the least recently used are ended beyond this many. */
+  private static final long SESSION_CACHE_MAX = 100;
+
   /**
    * Open sessions by {@link McpCallSpec#sessionKey()}; the session id is empty for stateless
-   * servers.
+   * servers. A session pushed out by newer ones is ended on the server; the next call for it starts
+   * a new one.
    */
-  private final Map<String, Session> sessions = new ConcurrentHashMap<>();
+  private final Cache<String, Session> sessions =
+      Caffeine.newBuilder()
+          .maximumSize(SESSION_CACHE_MAX)
+          .executor(Runnable::run)
+          .removalListener(
+              (String key, Session session, RemovalCause cause) -> {
+                if (cause.wasEvicted() && session != null) {
+                  terminate(List.of(session)).subscribe();
+                }
+              })
+          .build();
 
   /** A cached session handshake. */
   private record Session(McpCallSpec spec, Mono<String> sessionId) {}
@@ -133,7 +149,7 @@ public class McpClientGateway {
         .onErrorResume(
             SessionExpiredException.class,
             e -> {
-              sessions.remove(spec.sessionKey());
+              sessions.invalidate(spec.sessionKey());
               return callOnce(spec, requestId, heartbeat);
             })
         .timeout(spec.timeout())
@@ -207,7 +223,7 @@ public class McpClientGateway {
         .onErrorResume(
             SessionExpiredException.class,
             e -> {
-              sessions.remove(spec.sessionKey());
+              sessions.invalidate(spec.sessionKey());
               return listOnce(spec, heartbeat);
             })
         .timeout(spec.timeout());
@@ -276,9 +292,11 @@ public class McpClientGateway {
 
   private Mono<String> session(final McpCallSpec spec) {
     return sessions
-        .computeIfAbsent(
+        .get(
             spec.sessionKey(),
-            key -> new Session(spec, initialize(spec).doOnError(e -> sessions.remove(key)).cache()))
+            key ->
+                new Session(
+                    spec, initialize(spec).doOnError(e -> sessions.invalidate(key)).cache()))
         .sessionId();
   }
 
@@ -303,7 +321,7 @@ public class McpClientGateway {
   }
 
   private void cancelRemote(final McpCallSpec spec, final String requestId) {
-    final Session cached = sessions.get(spec.sessionKey());
+    final Session cached = sessions.getIfPresent(spec.sessionKey());
     if (cached == null) {
       return;
     }
@@ -324,15 +342,30 @@ public class McpClientGateway {
 
   /** Forget every cached session so the next call re-initializes (control-bus "reset"). */
   public void reset() {
-    sessions.clear();
+    sessions.invalidateAll();
+  }
+
+  /**
+   * Number of sessions kept open.
+   *
+   * @return the cache size
+   */
+  /* default */ long sessionCount() {
+    sessions.cleanUp();
+    return sessions.estimatedSize();
   }
 
   /** Terminate server sessions on application shutdown; the engine never calls plugin shutdown. */
   @jakarta.annotation.PreDestroy
   public void close() {
-    final List<Session> open = new ArrayList<>(sessions.values());
-    sessions.clear();
-    Flux.fromIterable(open)
+    final List<Session> open = new ArrayList<>(sessions.asMap().values());
+    sessions.invalidateAll();
+    terminate(open).blockLast(Duration.ofSeconds(CLOSE_SECONDS));
+  }
+
+  /** Ends sessions on their servers; a server that cannot be reached is not an error. */
+  private Flux<?> terminate(final List<Session> open) {
+    return Flux.fromIterable(open)
         .flatMap(
             s ->
                 s.sessionId()
@@ -347,8 +380,7 @@ public class McpClientGateway {
                                 .header(SESSION_HEADER, sessionId)
                                 .retrieve()
                                 .toBodilessEntity())
-                    .onErrorComplete())
-        .blockLast(Duration.ofSeconds(CLOSE_SECONDS));
+                    .onErrorComplete());
   }
 
   private Mono<Reply> post(

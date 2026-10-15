@@ -24,6 +24,7 @@ import org.springframework.web.reactive.function.client.WebClient;
 import reactor.test.StepVerifier;
 
 @SuppressWarnings({
+  "PMD.AvoidInstantiatingObjectsInLoops",
   "PMD.NcssCount",
   "PMD.CommentRequired",
   "PMD.AvoidDuplicateLiterals",
@@ -467,6 +468,31 @@ class McpClientGatewayTest {
     gateway.close();
     gateway.call(spec("ping"), () -> {}).block();
     assertThat(methods).filteredOn("initialize"::equals).hasSize(2);
+  }
+
+  @Test
+  void sessionCacheIsBoundedAndEvictedSessionsAreClosedOnTheServer() throws InterruptedException {
+    final McpCallSpec base = spec("ping");
+    for (int i = 0; i < 130; i++) {
+      gateway
+          .call(
+              new McpCallSpec(
+                  base.url(),
+                  base.tool(),
+                  base.arguments(),
+                  Map.of("X-Client", "c" + i),
+                  base.meta(),
+                  base.timeout()),
+              () -> {})
+          .block();
+    }
+
+    assertThat(gateway.sessionCount()).isLessThanOrEqualTo(100L);
+    // an evicted session is ended on the server (a DELETE request, which the fake records as "")
+    for (int i = 0; i < 50 && methods.stream().filter(String::isEmpty).count() < 30; i++) {
+      Thread.sleep(100);
+    }
+    assertThat(methods.stream().filter(String::isEmpty).count()).isGreaterThanOrEqualTo(30L);
   }
 
   @Test

@@ -2,6 +2,8 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.plugin.core.transformer;
 
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.jknack.handlebars.Handlebars;
 import com.github.jknack.handlebars.Template;
 import com.infenia.yukta.message.DefaultMessage;
@@ -18,7 +20,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.ConcurrentHashMap;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -34,7 +35,6 @@ import reactor.core.publisher.Mono;
   "PMD.AvoidThrowingRawExceptionTypes",
   "PMD.TooManyMethods",
   "PMD.AvoidCatchingGenericException",
-  "PMD.ExceptionAsFlowControl",
   "PMD.CyclomaticComplexity",
   "PMD.GodClass",
   "PMD.LawOfDemeter",
@@ -85,8 +85,12 @@ public class MapperProcessor implements ProcessorPlugin {
   /** Map mapper. */
   private final MapMessageMapper mapMapper = new MapMessageMapper();
 
-  /** Template cache. */
-  private final Map<String, Template> templateCache = new ConcurrentHashMap<>();
+  /** Templates kept compiled; the least recently used are dropped beyond this many. */
+  private static final long TEMPLATE_CACHE_MAX = 1_000;
+
+  /** Template cache. A template that was dropped is compiled again when it is next used. */
+  private final Cache<String, Template> templateCache =
+      Caffeine.newBuilder().maximumSize(TEMPLATE_CACHE_MAX).executor(Runnable::run).build();
 
   /** Script engines. */
   private final ObjectProvider<ScriptEngine> scriptEngines;
@@ -193,14 +197,14 @@ public class MapperProcessor implements ProcessorPlugin {
   @SuppressWarnings(UNCHECKED)
   private void initializeTemplates(final Object mapping) {
     if (mapping instanceof Map) {
-      ((Map<String, String>) mapping).values().forEach(this::compileTemplate);
+      ((Map<String, String>) mapping).values().forEach(this::template);
     } else if (mapping instanceof String template) {
-      compileTemplate(template);
+      template(template);
     }
   }
 
-  private void compileTemplate(final String templateStr) {
-    templateCache.computeIfAbsent(
+  private Template template(final String templateStr) {
+    return templateCache.get(
         templateStr,
         t -> {
           try {
@@ -209,6 +213,16 @@ public class MapperProcessor implements ProcessorPlugin {
             throw new RuntimeException("Failed to compile Handlebars template", e);
           }
         });
+  }
+
+  /**
+   * Number of templates kept compiled.
+   *
+   * @return the cache size
+   */
+  /* default */ long templateCacheSize() {
+    templateCache.cleanUp();
+    return templateCache.estimatedSize();
   }
 
   @Override
@@ -307,12 +321,7 @@ public class MapperProcessor implements ProcessorPlugin {
         dropOriginal ? new HashMap<>() : MapUtils.asMutableMap(message.payload());
     for (final Map.Entry<String, String> entry : mapping.entrySet()) {
       try {
-        final Template template = templateCache.get(entry.getValue());
-        if (template == null) {
-          throw new IllegalArgumentException(
-              "Template not found in cache for key: " + entry.getValue());
-        }
-        final String value = template.apply(message);
+        final String value = template(entry.getValue()).apply(message);
         MapUtils.setNestedValue(mapResult, entry.getKey(), value);
       } catch (IOException e) {
         if (strictMode) {
@@ -330,11 +339,7 @@ public class MapperProcessor implements ProcessorPlugin {
   private String executeTemplateString(
       final Message<?> message, final String mapping, final boolean strictMode) {
     try {
-      final Template template = templateCache.get(mapping);
-      if (template == null) {
-        throw new IllegalArgumentException("Template not found in cache: " + mapping);
-      }
-      return template.apply(message);
+      return template(mapping).apply(message);
     } catch (IOException e) {
       if (strictMode) {
         throw new RuntimeException("Template application failed", e);

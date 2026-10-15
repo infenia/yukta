@@ -199,8 +199,8 @@ Reshapes the payload: MAPPER (projection, template or script) and CONTENT-FILTER
 - CONTENT-FILTER keeps (INCLUDE, paths are SpEL) or removes (EXCLUDE, paths are dot notation) parts of the payload, with optional 'flatten' to turn nested maps into flat ones. It is meant for stripping sensitive or unimportant data before logging or sending on. Its type id is the only kebab-case one (typeIds).
 
 - **Guarantees.** PROJECTION and TEMPLATE cannot touch Java classes (restricted SpEL; Handlebars has no code access). With strictMode true an evaluation error fails the message instead of passing through a half-mapped payload.
-- **State.** Compiled templates, parsed expressions and parsed scripts are cached in plain maps keyed by their text, for the life of the process. Nothing is persisted.
-- **Ceiling.** Those caches have no size limit: every distinct script or template ever submitted stays (risk: unboundedMaps). Script work runs on the engine's threads with no time limit.
+- **State.** Compiled templates, parsed expressions and parsed scripts are cached by their text (least recently used first, at most 1,000 of each); a dropped one is compiled again when it is next used. Nothing is persisted.
+- **Ceiling.** The caches are bounded, so a long-lived server does not keep every script or template ever submitted (risk: unboundedMaps, now only the constant-source cache and supervisor windows). Script work runs on the engine's threads with no time limit.
 - **On failure.** A bad mapping fails at config check (missing mode or mapping, SCRIPT without the module). At run time an error follows strictMode.
 
 **Settings:** `MAPPER: mode, mapping, dropOriginal, strictMode`, `CONTENT-FILTER: mode, paths, flatten, strictMode, errorPort`, `script-js is selected with -Pyukta.plugins`

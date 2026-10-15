@@ -2,12 +2,13 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.plugin.llm;
 
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
@@ -68,10 +69,15 @@ public class LlmGateway {
   /** The most characters of prompt, or 0 for no limit. */
   private int maxInputChars;
 
-  /** Models by their connection and sampling configuration. */
-  // ponytail: unbounded map; node configs are static so it stays small, evict if configs become
-  // dynamic
-  private final Map<LlmRequest, ChatModel> models = new ConcurrentHashMap<>();
+  /** Most models kept; the least recently used are dropped beyond this many. */
+  private static final long MODEL_CACHE_MAX = 100;
+
+  /**
+   * Models by their connection and sampling configuration. A dropped model is built again when it
+   * is next used.
+   */
+  private final Cache<LlmRequest, ChatModel> models =
+      Caffeine.newBuilder().maximumSize(MODEL_CACHE_MAX).executor(Runnable::run).build();
 
   /** Spaces the calls to each provider, when {@code yukta.llm.rate-limit.<provider>} is set. */
   private final ProviderRateLimits rateLimits = new ProviderRateLimits();
@@ -195,9 +201,18 @@ public class LlmGateway {
     }
   }
 
+  /**
+   * Number of models kept.
+   *
+   * @return the cache size
+   */
+  /* default */ long modelCacheSize() {
+    models.cleanUp();
+    return models.estimatedSize();
+  }
+
   private LlmResponse invoke(final LlmRequest request) {
-    final ChatResponse response =
-        models.computeIfAbsent(cacheKey(request), this::build).call(prompt(request));
+    final ChatResponse response = models.get(cacheKey(request), this::build).call(prompt(request));
     final var result = response.getResult();
     final String text = result == null ? null : result.getOutput().getText();
     final List<ToolCallRequest> toolCalls =

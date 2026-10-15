@@ -11,11 +11,27 @@ import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
-@SuppressWarnings({"PMD.AtLeastOneConstructor", "PMD.CommentRequired", "PMD.ShortVariable"})
+@SuppressWarnings({
+  "PMD.AtLeastOneConstructor",
+  "PMD.CommentRequired",
+  "PMD.ShortVariable",
+  "PMD.TooManyMethods"
+})
 class SimpleExpressionEvaluatorTest {
 
   private static Message<?> msg(final Object payload) {
     return DefaultMessage.create(UUID.randomUUID(), payload).withHeader("src", "rest");
+  }
+
+  @Test
+  void cacheIsBoundedAndEvictedExpressionsAreParsedAgain() {
+    for (int i = 0; i < 1_500; i++) {
+      SimpleExpressionEvaluator.preParse("payload.a" + i + " exists");
+    }
+
+    assertThat(SimpleExpressionEvaluator.cacheSize()).isLessThanOrEqualTo(1_000L);
+    assertThat(SimpleExpressionEvaluator.evaluate("payload.a0 exists", msg(Map.of("a0", 1))))
+        .isTrue();
   }
 
   @Test

@@ -2,6 +2,8 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.plugin.script;
 
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import com.infenia.yukta.message.Message;
 import com.infenia.yukta.plugin.core.transformer.ScriptEngine;
 import java.util.ArrayList;
@@ -9,7 +11,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -60,8 +61,12 @@ public class GraalJsScriptEngine implements ScriptEngine {
             return thread;
           });
 
-  /** Parsed sources keyed by script text. */
-  private final Map<String, Source> sourceCache = new ConcurrentHashMap<>();
+  /** Most scripts kept parsed; the least recently used are dropped beyond this many. */
+  private static final long SOURCE_CACHE_MAX = 1_000;
+
+  /** Parsed sources keyed by script text. A dropped script is parsed again when it is next run. */
+  private final Cache<String, Source> sourceCache =
+      Caffeine.newBuilder().maximumSize(SOURCE_CACHE_MAX).executor(Runnable::run).build();
 
   /** Longest a script may run, in milliseconds ({@code -Dyukta.script.timeout-ms}). */
   private final long timeoutMs = Long.getLong("yukta.script.timeout-ms", 10_000L);
@@ -120,8 +125,17 @@ public class GraalJsScriptEngine implements ScriptEngine {
   }
 
   private Source source(final String script) {
-    return sourceCache.computeIfAbsent(
-        script, s -> Source.newBuilder(LANG, s, "mapper.js").buildLiteral());
+    return sourceCache.get(script, s -> Source.newBuilder(LANG, s, "mapper.js").buildLiteral());
+  }
+
+  /**
+   * Number of scripts kept parsed.
+   *
+   * @return the cache size
+   */
+  /* default */ long sourceCacheSize() {
+    sourceCache.cleanUp();
+    return sourceCache.estimatedSize();
   }
 
   private static Object detach(final Value value) {

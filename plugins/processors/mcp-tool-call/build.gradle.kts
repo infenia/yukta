@@ -10,6 +10,7 @@ dependencies {
     implementation(project(":plugin-api"))
     implementation(libs.spring.boot.starter.webflux)
     implementation(libs.spring.boot.starter.actuator)
+    implementation(libs.caffeine)
 }
 
 coverageConfig {

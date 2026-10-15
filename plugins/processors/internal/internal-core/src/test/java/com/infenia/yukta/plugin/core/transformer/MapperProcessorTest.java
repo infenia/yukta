@@ -10,12 +10,14 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.github.benmanes.caffeine.cache.Cache;
 import com.github.jknack.handlebars.Template;
 import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
 import com.infenia.yukta.plugin.core.WorkflowContext;
 import java.io.IOException;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -253,23 +255,32 @@ class MapperProcessorTest {
   }
 
   @Test
-  void templateNotCompiledFailsStrictAndIsSkippedNonStrict() {
-    final Map<String, Object> mapStrict = cfg("mode", "TEMPLATE", "mapping", Map.of("a", "{{x}}"));
-    assertThatThrownBy(() -> run(withEngine, mapStrict, "s"))
-        .hasMessageContaining("Template not found in cache for key");
+  void templateNotCompiledByInitializeIsCompiledOnDemand() {
     assertThat(
             (Map<String, Object>)
-                run(
-                    withEngine,
-                    cfg("mode", "TEMPLATE", "mapping", Map.of("a", "{{x}}"), "strictMode", false),
-                    "s"))
-        .isEmpty();
+                run(withEngine, cfg("mode", "TEMPLATE", "mapping", Map.of("a", "{{x}}")), "s"))
+        .containsEntry("a", "");
+    assertThat(run(withEngine, cfg("mode", "TEMPLATE", "mapping", "{{x}}"), "s")).isEqualTo("");
+    assertThatThrownBy(
+            () -> run(withEngine, cfg("mode", "TEMPLATE", "mapping", Map.of("a", "{{#if}}")), "s"))
+        .hasMessageContaining("Failed to compile Handlebars template");
+  }
 
-    assertThatThrownBy(() -> run(withEngine, cfg("mode", "TEMPLATE", "mapping", "{{x}}"), "s"))
-        .hasMessageContaining("Template not found in cache");
-    assertThat(
-            run(withEngine, cfg("mode", "TEMPLATE", "mapping", "{{x}}", "strictMode", false), "s"))
-        .isEqualTo("");
+  @Test
+  void templateCacheIsBoundedAndEvictedTemplatesAreCompiledAgain() {
+    final Map<String, String> mapping = new LinkedHashMap<>();
+    for (int i = 0; i < 1_300; i++) {
+      mapping.put("k" + i, "v" + i + "-{{payload.x}}");
+    }
+    final Map<String, Object> config = cfg("mode", "TEMPLATE", "mapping", mapping);
+
+    StepVerifier.create(withEngine.initialize(config)).verifyComplete();
+
+    assertThat(withEngine.templateCacheSize()).isLessThanOrEqualTo(1_000L);
+    assertThat((Map<String, Object>) run(withEngine, config, Map.of("x", "!")))
+        .hasSize(1_300)
+        .containsEntry("k0", "v0-!")
+        .containsEntry("k1299", "v1299-!");
   }
 
   @Test
@@ -277,7 +288,7 @@ class MapperProcessorTest {
     final Template broken = mock(Template.class);
     when(broken.apply(any(Object.class))).thenThrow(new IOException("boom"));
     java.util.Objects.requireNonNull(
-            (Map<String, Template>) ReflectionTestUtils.getField(withEngine, "templateCache"))
+            (Cache<String, Template>) ReflectionTestUtils.getField(withEngine, "templateCache"))
         .put("{{x}}", broken);
 
     final Map<String, Object> mapCfg = cfg("mode", "TEMPLATE", "mapping", Map.of("a", "{{x}}"));

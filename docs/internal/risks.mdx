@@ -1727,9 +1727,9 @@ IDs in brackets such as (G1) are finding numbers from the module's review notes 
 <Accordion title="Several caches and maps never evict (G11)">
 **Id** `unboundedMaps` · **Category** Scalability · **Impact** 3 · **Effort** 2 · **Components** Transform & script, Routing & EIP, Triggers, AI processors, External I/O, Supervisors & planes
 
-**Why it matters.** These all grow with the number of distinct inputs and are never trimmed: MAPPER's template and script caches (keyed by text), the SIMPLE expression cache, CONSTANT_SOURCE's static value cache, LlmGateway's model clients (keyed by url, key, model and options), MCP session cache (keyed by endpoint and credentials), and the supervisor's count windows (keyed by rule and run, only cleared when the rule fires). Each is small per entry; the risk is a long-lived server whose workflows change often.
+**Why it matters.** MAPPER's template and script caches, the SIMPLE expression cache, LlmGateway's model clients and the MCP session cache are now bounded (least recently used first: 1,000 templates, scripts and expressions, 100 models, 100 MCP sessions; an evicted MCP session is also ended on the server, and anything dropped is rebuilt when next used). Still unbounded and never trimmed: CONSTANT_SOURCE's static value cache and the supervisor's count windows (keyed by rule and run, only cleared when the rule fires). Each is small per entry; the risk is a long-lived server whose workflows change often.
 
-**Option.** A bounded LRU or time-based expiry for each (the SpEL cache already does 1,000 entries); remove entries when a run ends or a node shuts down.
+**Option.** A bounded LRU or time-based expiry for the two that remain; remove entries when a run ends or a node shuts down.
 
 **Question to settle.** How long does one server live in your deployment, and how often do definitions change?
 

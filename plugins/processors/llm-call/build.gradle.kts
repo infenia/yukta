@@ -10,6 +10,7 @@ dependencies {
     implementation(project(":plugin-api"))
     implementation(libs.spring.boot.starter.webflux)
     implementation(libs.spring.boot.starter.actuator)
+    implementation(libs.caffeine)
     implementation(libs.spring.ai.client.chat)
     implementation(libs.spring.ai.openai)
     implementation(libs.spring.ai.anthropic)

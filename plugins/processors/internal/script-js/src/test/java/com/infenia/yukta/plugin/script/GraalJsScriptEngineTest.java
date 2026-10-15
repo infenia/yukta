@@ -37,6 +37,16 @@ class GraalJsScriptEngineTest {
   }
 
   @Test
+  void sourceCacheIsBoundedAndDroppedScriptStillRuns() {
+    for (int i = 0; i < 1_200; i++) {
+      engine.precompile("payload.n + " + i);
+    }
+
+    assertThat(engine.sourceCacheSize()).isLessThanOrEqualTo(1_000L);
+    assertThat(run("payload.n + 0")).isEqualTo(2);
+  }
+
+  @Test
   void returnsScalarsDirectly() {
     assertThat(run("payload.n + 1")).isEqualTo(3);
     assertThat(run("'hi'")).isEqualTo("hi");

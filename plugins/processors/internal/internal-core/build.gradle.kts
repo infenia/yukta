@@ -10,5 +10,6 @@ dependencies {
     implementation(project(":core"))
     implementation(libs.spring.boot.starter.webflux)
     implementation(libs.jackson.databind)
+    implementation(libs.caffeine)
     implementation(libs.handlebars)
 }

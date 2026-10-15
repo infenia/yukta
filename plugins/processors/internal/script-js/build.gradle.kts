@@ -10,6 +10,7 @@ dependencies {
     api(project(":messaging"))
     implementation(project(":plugins:processors:internal:internal-core"))
     implementation(libs.spring.boot.starter.webflux)
+    implementation(libs.caffeine)
     implementation(libs.graalvm.polyglot)
     implementation(libs.graalvm.js)
 }
