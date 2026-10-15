@@ -1,0 +1,813 @@
+---
+title: "UI module"
+description: "The ui is the browser app operators use to work with Yukta: list sessions, build and edit workflows through forms, start, pause and stop runs, and watch a live graph with progress and logs."
+---
+
+The ui is the browser app operators use to work with Yukta: list sessions, build and edit workflows through forms, start, pause and stop runs, and watch a live graph with progress and logs. It is a React single-page app (one HTML page that draws every screen in the browser) that talks to the server only through the REST and live-stream endpoints under /api. This page is for thinking about it: open a component, play a scenario, then challenge the weak spots.
+
+| Property | What it means |
+|---|---|
+| Thin client | The UI holds no business rules. The server decides what is valid; the UI shows it, sends commands, and mirrors the status the server reports. |
+| Live by streaming | Progress and logs arrive over server-sent events (a one-way live stream). The page reconnects after a drop and tolerates replayed history. |
+| Forms, not drawing | Workflows are built with forms driven by each plugin's own config schema. The graph is a preview, not an editor. |
+| One jar, same origin | The built app is copied into the ui jar and served by boot with a Content-Security-Policy, so there is no CORS and no separate web host. |
+
+<Note>
+  Open risks, bugs and improvement ideas for this module are on the internal pages (sign-in required): [Risks](/internal/risks#ui), [Bugs](/internal/bugs) and [Improvements](/internal/improvements#ui).
+</Note>
+
+## Primer
+
+Yukta runs workflows (graphs of steps) on a server. People still need to see them: which sessions exist, what a workflow looks like, which run is in progress, which step failed, what the logs say, and they need buttons to start, pause or stop a run. Without a UI they would do this with curl and by reading JSON. The **ui** module is that screen. It is a React app built once into static files, served by the Yukta server, and it asks the server for everything it shows.
+
+<Tip>
+  Think of a cockpit display for an aircraft whose engine lives elsewhere. The display (**ui**) has no engine of its own. It reads gauges (**REST snapshots**), listens to a live telemetry feed (**SSE streams**) and sends commands over a wire (**POST calls**). If the wire is cut the display goes stale, it cannot invent data, and it must reconnect and catch up when the wire returns.
+</Tip>
+
+### Where the ui sits
+
+| Layer | Role |
+|---|---|
+| Operator's browser | Opens the app, clicks, watches |
+| ui | The React app. This page. (this module) |
+| boot | Serves the built files, falls back to index.html for app routes, sets the CSP |
+| web | The /api REST and SSE endpoints the app calls |
+| core + plugins | Run the workflows; the UI never talks to them directly |
+
+The ui knows only the HTTP contract of web. It does not know how runs execute, and it ships no plugin code.
+
+### The vocabulary in eight cards
+
+| Term | Meaning | Example |
+|---|---|---|
+| Session | A workspace that groups workflows, runs and configuration. The home page lists sessions; a session page lists its workflows. | Example: one team's CI pipelines. |
+| Workflow and run | A **workflow** is a graph of nodes and edges stored on the server. A **run** (execution) is one live execution of it, with its own id and status. | Run controls act on one run; the workflow page shows its history. |
+| Node and plugin | A **node** is one step. Its **plugin type** (HTTP_REQUEST, LLM_CALL...) decides what it does and which settings it has. Kinds: trigger, processor, terminal. | The Plugins page lists every type and its settings. |
+| ApiResponse envelope | Every REST answer wraps its payload in an object with status, message, data and optional field errors. The API client unwraps it so callers see only the data or a thrown error. | A 400 arrives as an ApiError carrying the server's message and a list of field errors. |
+| Query cache | TanStack Query keeps fetched data in memory, keyed by name. Data is 'fresh' for 5 minutes, so moving between pages does not refetch. | Saving a workflow invalidates the cache so lists refresh. |
+| SSE stream and replay | Server-sent events: the browser opens one long HTTP request and the server pushes lines. On every (re)connect the server replays history first, so the page must ignore duplicates. | Progress frames are whole snapshots, so repeats are harmless; log lines need de-duplication. |
+| Config schema | Each plugin describes its settings (name, type, required, default). The builder turns that list into form fields, so a new plugin needs no UI change. | SECRET fields show the placeholder decrypted:key. |
+| Stop modes | DRAIN lets in-flight work finish, CANCEL cancels it, KILL ends it at once. In the UI three of the four Stop choices apply to every run of the workflow, not just the one on screen. | 'Drain all runs' is a workflow-wide action. |
+
+### One example, end to end
+
+You open a workflow's run page and watch a run live. Click a step to see what happens, why, and where it can go wrong.
+
+<Steps>
+<Step title="Open run page">
+**What happens.** You open /sessions/demo/workflow/main, perhaps from the History page, whose links add ?exec=&lt;run id&gt;. The server returns the one index.html for any path that is not /api, /assets or similar.
+
+**Why.** A single page app has one real file; the browser router decides which screen to draw. boot also adds a Content-Security-Policy header so the page can only load scripts and connect to its own origin.
+
+**Can go wrong.** If the server was started with yukta.api-key (needed for remote access) the page loads but every /api call then answers 401, because the UI sends no key (risk noAuthHeader).
+
+</Step>
+<Step title="Load page code">
+**What happens.** The router downloads the code for this route only now: the run page, with React Flow (the graph drawing library) and dagre (the layout library).
+
+**Why.** Keeps the first download small. The build fails if any JavaScript file is over 300 KB, so no single route can bloat the app unnoticed.
+
+**Can go wrong.** On a slow network the area stays empty until the file arrives. In our view a tab left open across a deploy can fail to load a route, because file names carry a content hash that changes per build.
+
+</Step>
+<Step title="Fetch graph+runs">
+**What happens.** Two GET calls: the workflow graph and the list of its runs. The API client builds the URL with ids encoded, unwraps the envelope and hands the data to TanStack Query.
+
+**Why.** Results are cached for 5 minutes, so coming back to this page is instant. A failed query is retried once.
+
+**Can go wrong.** Because of the 5 minute cache, a graph changed by someone else can look old for up to 5 minutes. Saving from this browser tab invalidates the cache, other people's saves do not.
+
+</Step>
+<Step title="Pick a run">
+**What happens.** If the URL has ?exec=&lt;id&gt; and that run is in the list, it is shown. Otherwise the newest run is shown. With no runs at all the page shows the never-run state.
+
+**Why.** Keeping the choice in the URL makes a run linkable and survives a reload. Changing it replaces the history entry, so the Back button is not filled with run switches.
+
+**Can go wrong.** A run id that is not in the fetched list (for example an old run beyond the server's page of 500) silently falls back to the newest run.
+
+</Step>
+<Step title="Progress stream">
+**What happens.** The page fetches one status snapshot, then, if the run is not finished, opens a stream to /api/workflow/\{session\}/status/\{run\}/stream?includeHistory=true. Each frame is the whole progress object (run status plus every node's status).
+
+**Why.** Because each frame is a full snapshot the newest simply replaces the previous, so replayed or repeated frames do no harm. The stream is closed when the run is finished (a terminal status and an end time).
+
+**Can go wrong.** If the connection drops, the hook waits 1 s, then 2 s, 4 s... up to 30 s and opens a new stream. The server supports resuming from a Last-Event-ID, but a new stream never sends one, so the server replays from the start (risk replayNoLastId).
+
+</Step>
+<Step title="Log stream">
+**What happens.** A second stream, .../executions/\{run\}/logs/entries, sends stored log lines first and then live ones. Lines are collected for 100 ms and added in one go, kept to the newest 2,000, and drawn in a scrolling list with fixed 20 px rows.
+
+**Why.** Batching means a burst of 500 lines causes one redraw instead of 500. Only the visible rows exist in the page, so 2,000 lines stay cheap.
+
+**Can go wrong.** Replay after a reconnect is removed by comparing time, plugin, stream and text. Two genuinely identical lines in the same instant collapse into one, and runs with more than 2,000 lines can show old lines again after a reconnect (risk logDedupe).
+
+</Step>
+<Step title="Paint the DAG">
+**What happens.** dagre arranges nodes left to right; each node is drawn as a card whose colour and icon come from its status. An edge animates while its source has completed and its target is running.
+
+**Why.** Raw server statuses are turned into six UI states (completed, running, pending, failed, paused, skipped) in exactly one file, so every screen agrees.
+
+**Can go wrong.** A node status the mapper does not know shows as 'pending', quietly. Statuses are free text on the server until core defines an enumeration.
+
+</Step>
+<Step title="Pause a node">
+**What happens.** The node's menu offers only actions that fit its status: a running node can be paused, stopped, skipped or put in step mode; a failed node can be retried. Clicking sends POST /api/executions/\{run\}/nodes/\{node\}/pause.
+
+**Why.** The UI does not mark the node paused itself. It waits for the server to confirm through the next progress frame, so the screen never shows a state the server did not report.
+
+**Can go wrong.** In our view, while the progress stream is reconnecting the click can seem to do nothing, because streamed state takes precedence over the refetched snapshot.
+
+</Step>
+</Steps>
+
+### A visit in plain words
+
+<Steps>
+<Step title="Arrive">
+the browser gets index.html and a small main bundle; the router draws the Sessions list from one GET.
+</Step>
+<Step title="Browse">
+choosing a session or workflow downloads that route's code and its data; cached data is reused for 5 minutes.
+</Step>
+<Step title="Build">
+the editor fetches the whole session, lets you change one workflow with forms, validates it on the server and saves the whole session.
+</Step>
+<Step title="Run">
+Run sends a start request with a fresh Idempotency-Key and opens the new run's live streams.
+</Step>
+<Step title="Watch">
+streams update the graph, the node list and the log panel; every status passes through one mapping.
+</Step>
+<Step title="Steer">
+Pause, Resume, Stop, Restart and per-node actions are POST calls; the result shows up as the next streamed status.
+</Step>
+<Step title="Look around">
+Plugins shows what can be built, History lists recent runs, Control shows supervisors and control-bus nodes (refreshed every 5 s).
+</Step>
+</Steps>
+
+## Components
+
+### Shell & Routing
+
+*layout, lazy routes*
+
+Draws the header, breadcrumb and footer and maps each address to a screen. All routes except the home page are loaded on demand.
+
+- The routes are: / (session list; /sessions redirects there), /sessions/new, /sessions/:sessionId, /sessions/:sessionId/workflow/:workflowId (the run view), the same path plus /edit (the builder), /plugins, /history and /control. The header links Sessions, Plugins, History and Control.
+- Every route except the session list is declared lazy: its code is downloaded the first time you visit. Example: the run view needs React Flow and dagre, about 257 KB; users who only browse sessions never download it.
+- boot serves index.html for any GET that is not /api, /actuator, /mcp, /v3, /swagger-ui, /webjars, /sse or a static file pattern (js, css, fonts, images, json, webmanifest). Without that fallback, reloading /sessions/demo would give a 404, because that path exists only in the browser.
+- index.html is sent with no-cache and a Content-Security-Policy (default-src 'self'; inline styles allowed; no objects, no framing). Files under /assets are hashed and cached for a year. The theme (light, dark or system) is read from localStorage by a tiny script before the app loads, to avoid a flash.
+- Breadcrumbs link the 'Sessions' crumb to /sessions, which redirects to /. The run page can replace its crumb text with the workflow description.
+
+- **Guarantees.** An unknown address inside the app shows the shell, never a server 404; a file path that does not exist is a real 404, not the app.
+- **State.** Only the URL and the theme choice (localStorage key 'theme'). Everything else is rebuilt from the server on reload.
+- **Ceiling.** Each route is a separate download, so the first visit to a heavy page pays a round trip. The build budget keeps any one file under 300 KB.
+- **On failure.** If a route file fails to download, that screen does not render. There is no custom error boundary that I found in the router setup; the router's default error screen applies.
+
+**Settings:** `boot: SpaWebFluxConfig (fallback and CSP)`, `Vite dev server proxies /api, /sse and /actuator to :8080`
+
+### API Client & Cache
+
+*fetchApi, errors, queries*
+
+The single path for REST calls: builds safe URLs, unwraps the response envelope, turns failures into typed errors and caches answers.
+
+- fetchApi sends the request with a JSON content type. Headers passed by the caller are merged on top, so an Idempotency-Key does not drop the content type. It reads the JSON body even on errors; if the body is not JSON (a 502 page from a proxy) it falls back to the status text.
+- A non-2xx answer throws ApiError carrying the server's message and a list of field errors (field and message). Example: saving with a bad session id shows 'sessionId: must not be blank'. A 204 returns nothing; a successful non-JSON body is an error.
+- The api tagged template builds paths such as api`/api/sessions/$\{id\}` and URL-encodes every value. An id containing '/' or '?' therefore cannot reach a different endpoint. The action suffix of node commands (for example step/enable) comes from a closed list and is appended unencoded on purpose.
+- TanStack Query is configured with: fresh for 5 minutes, kept 10 minutes after last use, no refetch on window focus, and one retry for queries and for mutations. Mutations such as start and stop also invalidate the status and workflow-list queries on success.
+- fetchApi adds no Authorization or X-API-Key header and no credentials option. The server's ApiKeyFilter requires one on every /api/ request when yukta.api-key is set.
+
+- **Guarantees.** Every REST failure reaches the screen as an Error with a readable message; ids are always encoded.
+- **State.** The query cache is in memory only: gone on reload.
+- **Ceiling.** The 5 minute freshness means other people's changes can be invisible for that long. One retry for mutations can repeat a non-idempotent call (risk startRetryKey).
+- **On failure.** A network failure rejects the fetch and is shown by the screen's own error state (for example 'Failed to load sessions' with a retry button).
+
+**Settings:** `queryClient: staleTime 5 min, gcTime 10 min, retry 1`, `pnpm run api:types (regenerate OpenAPI types)`
+
+### Live Stream Hook
+
+*EventSource + backoff*
+
+Subscribes the page to a server-sent-event stream, parses each frame as JSON and reconnects after errors.
+
+- The hook takes a URL (or null to stay idle) and a callback. Changing the URL closes the old stream and opens a new one; leaving the page closes it.
+- A frame that is not valid JSON is dropped and the stream carries on. Example: a keep-alive comment or a half-written frame cannot crash the page.
+- On an error the hook closes the stream and, if reconnecting is allowed, opens a new one after 1 s, doubling each time up to 30 s. The counter resets once a connection opens, so a long outage does not leave the next blip with a 30 s delay.
+- The server numbers events and honours a Last-Event-ID header and sends a keep-alive every 15 s. The hook closes the browser's built-in EventSource and creates a new one on each retry, so the browser never sends Last-Event-ID. Every reconnect therefore replays from the start and the consumers remove duplicates.
+- An EventSource cannot set request headers. Any scheme that needs an Authorization header on the stream would need a different transport.
+
+- **Guarantees.** At most one open stream per URL; a closed page leaves no stream or timer behind.
+- **State.** Connection status (connecting, open, error) in memory. Nothing survives a reload.
+- **Ceiling.** Each open run page holds two long-lived HTTP connections (progress and logs). Browsers limit connections per host over HTTP/1.1 (six is typical), so several run pages open in tabs can starve each other.
+- **On failure.** When the server ends a log stream at run end, the browser sees an error and the hook reconnects (while the run is not yet seen as finished) and replays everything, which is then de-duplicated.
+
+**Settings:** `RECONNECT_BASE_MS 1000, RECONNECT_MAX_MS 30000`
+
+### Run View
+
+*canvas, progress, controls*
+
+The workflow page: a React Flow graph, a progress side panel, run controls, a run picker and the log terminal, all for one selected run.
+
+- On load it fetches the workflow graph and the run list, selects the run from ?exec= or the newest, then combines a status snapshot with the live progress stream. The stream is opened only while the run is not finished.
+- The graph is laid out left to right by dagre with nodes 240 by 96 px and fixed spacing. Nodes cannot be dragged or connected here. A node shows its status icon, a progress percentage when the plugin reports one in its metadata, and output port handles; an edge animates when its source is completed and its target is running.
+- RunControls: Run opens a dialog for an optional JSON payload (it must be a JSON object) and sends POST /api/workflow/start with a fresh Idempotency-Key. Pause and Resume are enabled by the run's status; Restart is enabled for a finished run.
+- Stop has four choices. 'Stop this run' stops the selected run. 'Drain', 'Cancel' and 'Kill all runs' call the workflow-wide stop with the matching mode, so they also stop runs started by other people. Each asks for confirmation first.
+- NodeControlsMenu lists only the actions that fit the node's current state, for example Retry only for a failed node and 'Restart from here' for any node that has started. The page shows the new state only when the server's next progress frame reports it.
+- A 429 from start shows 'The scheduler is at its limit. Try again shortly.' Other errors show the server's message.
+
+- **Guarantees.** Buttons are enabled only for states where they make sense, and destructive stops ask for confirmation.
+- **State.** Selected run in the URL; panel open/closed and log filters in memory. Run data is never stored in the browser.
+- **Ceiling.** The graph is drawn in the browser; very large workflows (the server allows up to 500 nodes) mean hundreds of React Flow nodes and animated edges. The run list is whatever the server returns (default up to 500) with no paging.
+- **On failure.** If the graph or run list fails to load, the page shows 'Failed to load workflow' with no retry button.
+
+**Settings:** `?exec=<executionId>`, `POST /api/workflow/start, /api/executions/{id}/{action}`
+
+### Workflow Builder
+
+*forms from config schema*
+
+Creates sessions and edits one workflow at a time through forms: nodes, edges, per-node settings and the engine failure policy.
+
+- 'New session' asks for id, name, description, initiator and project path, saves a starter workflow (an API_TRIGGER wired to a CONSOLE_TERMINAL, because a session needs at least one workflow) and opens the editor on it.
+- The editor loads the complete session from GET /api/sessions/\{id\}/config (always fresh, staleness 0) so that saving does not lose tags or other workflows. You pick a plugin type, press Add node (ids are generated like http-request-1), and add edges with three dropdowns: source, port and target.
+- Selecting a node shows the plugin's config schema as a form: text, number, checkbox, choice list and expression box. LIST and MAP settings are edited as JSON that is applied only when it parses. SECRET settings take a placeholder such as decrypted:&lt;key&gt; instead of the value. A plugin with no schema gets a raw JSON editor and its usage text. An empty field is removed so the plugin default applies.
+- Every node also has an 'Error handling and retries' panel for the engine policy: onError (FAIL, CONTINUE, ROUTE), trigger rule (ALL_SUCCESS, ALL_DONE, ONE_SUCCESS), retry, element timeout, deadline and failure budget.
+- Validate sends only the current workflow to POST /api/sessions/validate. The server uses the same rules as execution and answers valid or not with the first problem and each node's output ports, which fill the edge port dropdown. Save validates first and, if valid, sends the whole session to POST /api/sessions, then opens the run view.
+- The canvas preview is the same React Flow canvas as the run view, fed from the draft.
+
+- **Guarantees.** A workflow is saved only after the server validated it moments before; the UI never decides validity itself.
+- **State.** The draft lives only in memory: leaving the page or reloading discards it. Only Save writes to the server.
+- **Ceiling.** The edge editor is dropdown based, so graphs with many nodes are tedious. Saving replaces the whole session, so two editors of the same session overwrite each other.
+- **On failure.** Validation or save errors are shown inline (field errors joined as 'field: message'). A failed save leaves the draft intact.
+
+**Settings:** `POST /api/sessions/validate, POST /api/sessions, GET /api/sessions/{id}/config`, `GET /api/plugins and /api/plugins/{type}`
+
+### Oversight Pages
+
+*plugins, history, control*
+
+Three pages for discovery and oversight: the plugin catalogue, recent runs of a session, and supervisors and control-bus nodes.
+
+- Plugins: a filterable list grouped as Triggers, Processors, Terminals. The detail shows description, output ports, a table of config fields (name, type, description, required star), the usage pattern and a preview of how the node looks on the canvas. The selected type is kept in ?type=.
+- History: pick a session (default the first) and see its newest 50 runs from GET /api/workflow/\{session\}/history?limit=50. Each id links to the run page with ?exec=. The server pages with a cursor; the UI asks for one page of 50 and does not follow the cursor.
+- Control: lists node names registered on the control bus (GET /api/control/nodes, or per workflow). Typing a workflow id enables a Heartbeat button per node. A Supervisors table (GET /api/supervisors) shows each supervisor or control plane with kind, type, order, live or dry-run mode, rate cap and counts of applied, refused, recorded and dropped commands since startup.
+- Both the node list and the supervisor table refetch every 5 seconds while the page is open.
+
+- **Guarantees.** Read-only: these pages change nothing on the server.
+- **State.** No local state beyond filters and the selected item.
+- **Ceiling.** Each open Control page makes two requests every 5 seconds per browser. History shows at most 50 runs per session.
+- **On failure.** Each list has its own error state with a retry button; a failed heartbeat shows 'No heartbeat'.
+
+**Settings:** `GET /api/plugins, /api/workflow/{session}/history, /api/control/nodes, /api/supervisors`
+
+### Status Mapping
+
+*one translation point*
+
+Turns the server's free-text statuses into the UI's states, in one file.
+
+- Node statuses map to six UI states: completed, running, pending, failed, paused, skipped. Example: SUCCESS is completed; FAILURE, TIMED_OUT and ABORTED are failed; STOPPED, CANCELLED and UPSTREAM_FAILED are skipped (the node did not run because of something else); an unknown word shows as pending.
+- Run statuses map to coarse buckets (running, success, failure, stopped, paused, pending, unknown). The buttons use them: Pause needs 'running', Resume needs 'paused'.
+- NODE_STOPPED is special. When one node is stopped the server writes NODE_STOPPED as the whole run's status while the other nodes keep going. The mapper therefore treats it as running, not as finished. Before this was fixed, stopping one node made the page stop following a live run.
+- A separate list decides which statuses are terminal, meaning the run is over. The progress stream is closed and the Restart button is enabled only for these. A live control state (PAUSED, STOPPING) overrides the shown status while the run is not terminal.
+- The statuses are plain strings in the server's OpenAPI document, so a typo or a new status is not caught by the type checker.
+
+- **Guarantees.** Every screen gets the same meaning for a status, because nothing else interprets raw words.
+- **State.** None. Pure functions.
+- **Ceiling.** A new server status needs a code change here, and until then it renders as pending or unknown.
+- **On failure.** Unknown input degrades quietly instead of failing. That avoids crashes but can hide a new state.
+
+### Log Terminal
+
+*batch, cap, virtualise*
+
+Collects the log stream into a bounded buffer and draws only the visible rows.
+
+- Incoming entries are held in a small queue and added to the screen once every 100 ms. A burst of 500 lines costs one redraw.
+- Each entry gets a key made of timestamp, plugin id, stream and message. A key already seen is dropped, which removes the history the server replays after each reconnect. The set of remembered keys is itself capped at 2,000.
+- The list keeps the newest 2,000 entries. Rows are 20 px high and drawn through a virtual list: only rows in view plus a margin of 20 exist in the page.
+- The panel offers a text filter, auto-scroll, line wrapping (rows are then measured instead of fixed), copy and clear. Levels get colours: WARN, ERROR and DEBUG each have a colour token.
+
+- **Guarantees.** Memory and page size stay bounded however long the run is.
+- **State.** The 2,000-line buffer is in memory and resets when you switch runs.
+- **Ceiling.** Because of the 2,000 cap, long runs show only the tail; the rest is on the server.
+- **On failure.** Dropped duplicates look like missing lines when two real lines are identical and share a timestamp.
+
+**Settings:** `MAX_LOG_ENTRIES 20000, LOG_FLUSH_MS 100, row height 20 px`
+
+### Design System
+
+*tokens, shadcn, icons*
+
+Defines colours, type, spacing, dark mode, shared page pieces and the icon font once, for every screen.
+
+- Tailwind CSS 4 is configured in CSS, not in a JavaScript file. Colours are variables (oklch values) with light and dark sets, plus Material-style alias names such as on-surface. The brand colours come from the logo: blue (primary), slate (neutrals) and orange (the 'attention' pulse of a running node).
+- Plugin categories have their own colours (trigger orange, processor blue, terminal slate), used only on the canvas, the plugin catalogue and edges. Node effects (glow, flowing edges) are switched off when the user prefers reduced motion.
+- Components such as button, input, table and dropdown are copied-in shadcn primitives built on Base UI. Re-adding one needs three fixes by hand: the cn import path, Material Symbols instead of lucide-react, and the license header.
+- Icons are Material Symbols Outlined from a self-hosted subset. A script scans src for icon names, asks Google Fonts for a font with just those glyphs and writes src/assets/material-symbols-subset.woff2 (about 13.7 KB now, versus 3.96 MB for the full font).
+- Fonts are Inter Variable and JetBrains Mono, packaged from npm. Minimum text size is 12 px. Shared pieces: PageHeader, StateMessage, CodeBlock and StatusChip.
+
+- **Guarantees.** No screen hardcodes a colour for status or logs; dark mode and reduced motion are honoured everywhere the tokens are used.
+- **State.** The theme choice is stored in localStorage; the rest is static.
+- **Ceiling.** pnpm run icons needs network access, and an icon added without regenerating the font shows as blank text.
+- **On failure.** A missing glyph renders as its raw name. The build only checks the font's size, not its contents.
+
+**Settings:** `pnpm run icons, pnpm run favicons`, `src/index.css (@theme tokens)`
+
+### Build & Serving
+
+*Vite, Gradle, guards*
+
+Compiles and checks the app, packs it into the ui jar and defines the rules that keep it small and licensed.
+
+- pnpmBuild runs: type check of source, type check of tests, vite build, then a size check. The output dist/ is copied into the jar under static/, and boot serves it. The Gradle task depends on pnpmInstall, so Node and pnpm come from the build, not from the machine.
+- The size check fails the build if any JavaScript file is over 300,000 bytes or the icon font is over 100,000 bytes. Vite splits vendor code into stable chunks (react, tanstack, router and ui-kit) so they stay cached across releases.
+- A compile-time test fails the type check when a hand-written UI type and the matching server schema stop having the same fields. 'pnpm run api:types -- --check' fails when the committed generated types are stale, but it needs a running server, so it is not part of the normal build.
+- ':ui:check' runs two guards: validateHeaders (every source file under src, the config files and index.html must carry the SPDX license header) and verifyPackageVersion (package.json's version must equal the Gradle project version).
+- Unit tests (Vitest with Testing Library, a 100% threshold configured for coverage) run with ':ui:pnpmTest' or 'pnpm test'. E2E tests (Playwright against mocked APIs) run with ':ui:pnpmTestE2e -PrunE2e=true' and in a CI job. In build.gradle.kts the unit tests are commented out of 'check'.
+
+- **Guarantees.** A build that produces an oversized chunk, an oversized icon font, a file without a license header or a mismatched version number fails.
+- **State.** dist/ and build/ are generated output.
+- **Ceiling.** The build needs Node tooling and, for icons and API types, network or a running server.
+- **On failure.** A failure stops the Gradle build, so the jar is not produced.
+
+**Settings:** `./gradlew :ui:build`, `./gradlew :ui:pnpmTest`, `./gradlew :ui:pnpmTestE2e -PrunE2e=true`, `pnpm run lint:headers`
+
+## Scenarios
+
+### Watch a run
+
+One visit to a run page, from the first request to the run finishing. Use it first to learn the pieces.
+
+<Steps>
+<Step title="Open the run page">
+The browser gets index.html (with the CSP header) and the router lazily downloads the run view with React Flow and dagre. Lazy loading keeps the home page small.
+</Step>
+<Step title="Fetch the graph and the runs">
+Two GETs go through fetchApi, which encodes ids and unwraps the envelope. TanStack Query caches the answers for 5 minutes.
+</Step>
+<Step title="Choose a run, take a snapshot">
+The ?exec= value or the newest run is selected and its status is fetched. If it is not finished, the progress stream is opened with includeHistory=true.
+</Step>
+<Step title="Frames arrive, the graph repaints">
+Each frame replaces the previous snapshot. Every node status goes through the mapper and dagre positions the cards; running nodes pulse and edges flow.
+</Step>
+<Step title="Logs batch in">
+The log stream pushes history, then live lines. They are batched every 100 ms, de-duplicated, capped at 2,000 and drawn through a virtual list.
+</Step>
+<Step title="The run ends">
+A terminal status with an end time closes the progress stream and refreshes the workflow list and run history so status chips update.
+</Step>
+</Steps>
+
+### A dropped stream
+
+What happens when a live stream drops, and why duplicates are expected.
+
+<Steps>
+<Step title="The connection breaks">
+The server restarts, a proxy times out or Wi-Fi switches. The browser raises an error on the stream.
+</Step>
+<Step title="Close and wait">
+The hook closes the failed stream and waits 1 s (then 2, 4... up to 30 s). Closing it cleanly stops the browser from reconnecting on its own, so the hook controls timing.
+</Step>
+<Step title="Open a new stream">
+A new EventSource is created. It cannot reuse the old connection and sends no Last-Event-ID, so the server starts from the beginning.
+</Step>
+<Step title="Replay is absorbed">
+Progress frames are full snapshots, so the latest simply wins. Log lines are compared by time, plugin, stream and text and repeats are dropped.
+</Step>
+<Step title="Back to normal">
+Once a connection opens, the retry counter resets to 1 s. If the run finished meanwhile, no stream is reopened.
+</Step>
+</Steps>
+
+### Build and save a workflow
+
+How a workflow is created, edited, checked by the server and saved, and where drafts can be lost.
+
+<Steps>
+<Step title="Create a session">
+The form posts a session with a starter workflow (a trigger wired to a console terminal) to POST /api/sessions and opens the editor.
+</Step>
+<Step title="Load the draft">
+The editor fetches the complete session configuration with no caching. The complete session is needed because saving replaces it: anything missing would be deleted.
+</Step>
+<Step title="Add nodes and edges">
+Choose a plugin type, add a node and fill the generated form from the plugin's schema. Connect nodes with dropdowns. The preview canvas redraws the draft.
+</Step>
+<Step title="Validate">
+The current workflow goes to POST /api/sessions/validate. The server uses the same checks as execution and returns the first problem plus each node's output ports, which fill the edge port list.
+</Step>
+<Step title="Save">
+Save validates once more, then posts the whole session with this workflow replaced. On success the 'sessions' cache is invalidated and the run view opens.
+</Step>
+<Step title="Navigate away by accident">
+A click on any header link or a reload throws away an unsaved draft without a prompt.
+</Step>
+</Steps>
+
+### Start, steer and stop
+
+Starting, pausing, stopping and restarting a run, and why the screen only changes when the server says so.
+
+<Steps>
+<Step title="Run with a payload">
+The Run dialog takes an optional JSON object. The UI sends POST /api/workflow/start with a new random Idempotency-Key. If the server is at its limit it answers 429 and the UI shows a friendly message.
+</Step>
+<Step title="Follow the new run">
+On success the page selects the returned execution id and opens its streams.
+</Step>
+<Step title="Pause or act on a node">
+A POST is sent. The UI changes nothing itself; the next progress frame carries the new state (PAUSED), which the mapper turns into a paused node.
+</Step>
+<Step title="Stop">
+'Stop this run' calls /api/executions/\{id\}/stop. 'Drain', 'Cancel' and 'Kill all runs' call /api/workflow/\{session\}/\{workflow\}/stop?mode=... and affect every active run of that workflow. A confirmation dialog comes first.
+</Step>
+<Step title="Restart">
+Restart is enabled for a finished run, and 'Restart from here' for a node; both start a new run and the page jumps to the new id.
+</Step>
+</Steps>
+
+### A protected server
+
+Why the bundled UI cannot work against a server that requires an API key (a failure scenario).
+
+<Steps>
+<Step title="The operator exposes the server">
+To reach Yukta from another machine the operator sets YUKTA_SERVER_ADDRESS=0.0.0.0 and yukta.api-key. With a key set, every /api request must carry Authorization: Bearer or X-API-Key.
+</Step>
+<Step title="The page still loads">
+index.html and the assets are not under /api, so they are served without a key. The operator sees the app shell.
+</Step>
+<Step title="The first call is refused">
+fetchApi sends no key, so the session list request gets 401. The home page shows 'Failed to load sessions' and advises checking that the server is running, which does not help.
+</Step>
+<Step title="Streams cannot be fixed with a header">
+A browser EventSource cannot send headers, so even a UI that attached a key to fetch calls could not authenticate the progress and log streams the same way.
+</Step>
+<Step title="Workarounds today">
+Run the UI behind a reverse proxy that injects the header, or use the dev proxy locally. Both sit outside this module.
+</Step>
+</Steps>
+
+## Capabilities
+
+What this module does, how, what it guarantees and where the guarantee stops.
+
+
+### Sessions and builder
+
+| Capability | What it does | How | Guarantee | Limit |
+|---|---|---|---|---|
+| Session list and details | Find sessions and their workflows. | One summaries call; the table filters and pages 10 per page in the browser. A session page lists workflow cards. | Filters never need a server call. | All summaries are loaded at once. |
+| Create a session | Start a new workspace. | A form posts a session with a starter workflow, then opens the editor. | A session always has one workflow. | No way to delete or rename a session in the UI. |
+| Schema-driven node forms | Edit any plugin's settings without custom UI. | Fields for text, number, boolean, choice and expression; JSON for lists and maps; a decrypted:key placeholder for secrets. | New plugins are editable immediately. | A plugin with no schema falls back to raw JSON. |
+| Server-side validation | Check a draft before saving. | POST /api/sessions/validate runs the execution rules and returns each node's ports. | The UI never has its own validity rules. | Only the current workflow is validated before Save. |
+
+### Run view
+
+| Capability | What it does | How | Guarantee | Limit |
+|---|---|---|---|---|
+| Live DAG canvas | See the run on the graph. | dagre layout, React Flow rendering, status colours, flowing edges, progress percent from node metadata. | Layout is deterministic for a given graph. | Drawn entirely in the browser. |
+| Run controls | Start, pause, resume, stop, restart. | Buttons enable by run status; Stop offers this run or drain, cancel, kill for all runs; confirmation first. | No double-click guard other than the pending state. | Three of four stop choices are workflow-wide. |
+| Per-node actions | Control one step. | Pause, resume, stop, skip, retry, step mode and 'restart from here', listed by node state. | Menu shows only valid actions. | No breakpoint or priority controls, although REST has them. |
+| Run picker and links | Jump to any recent run. | A dropdown plus ?exec= in the URL; History links use the same parameter. | A run is linkable. | Unknown ids fall back to the newest run. |
+
+### Live data
+
+| Capability | What it does | How | Guarantee | Limit |
+|---|---|---|---|---|
+| Progress stream | Follow status as it changes. | SSE with a snapshot first and full-snapshot frames; closes when the run is finished. | Repeated frames are harmless. | Uses the legacy /api/workflow/... path. |
+| Log stream and terminal | Read logs live. | Batched every 100 ms, 2,000-line cap, de-duplicated, virtual list with filter, wrap, copy and clear. | Bounded memory. | Only the newest 20,000 lines are kept. |
+| Reconnect with backoff | Survive a dropped connection. | Retry after 1 s, doubling to 30 s; counter resets on success; malformed frames are ignored. | A blip does not freeze the page forever. | No resume token; full replay each time. |
+
+### Oversight
+
+| Capability | What it does | How | Guarantee | Limit |
+|---|---|---|---|---|
+| Plugin catalogue | Learn what can be built. | Grouped list, config table, usage text and a canvas preview; filter by name. | Always matches the server's plugins. | Decision plugins use the generic category icon. |
+| Run history | Find earlier runs. | Newest 50 runs of a chosen session, linking to the run page. | One call per session. | No search, no paging, no filter by status. |
+| Control bus and supervisors | See the automation. | Nodes on the control bus with optional heartbeat; supervisors with mode, rate cap and command counters. Polled every 5 s. | Auto-refreshing view. | Read-only; polling rather than events. |
+
+### Platform
+
+| Capability | What it does | How | Guarantee | Limit |
+|---|---|---|---|---|
+| Design tokens and dark mode | One consistent look. | Tailwind 4 tokens, light and dark sets, reduced-motion support, shadcn on Base UI. | No hardcoded status or log colours. | Brand colours are fixed to the logo. |
+| Small downloads | Fast first load. | Lazy routes, vendor chunks, a 13.7 KB icon font, a build that fails above 300 KB per script. | Budgets are enforced on every build. | Budgets cover size, not speed. |
+| Safe URLs and errors | No wrong-endpoint surprises. | Ids are URL-encoded; the server's message and field errors reach the user. | Ids with / or ? stay inside their segment. | One generic retry for all mutations. |
+| Typed contract | Catch drift with the server. | Types generated from the OpenAPI document plus a compile-time check that hand-written types match. | A renamed server field breaks the build. | Generated types mark every field optional, so hand-written types stay in use. |
+
+### Run page
+
+| Capability | What it does | How | Guarantee | Limit |
+|---|---|---|---|---|
+| Versions panel | Review and restore earlier saved definitions. | Lists saved versions, compares one with the current definition, rolls back, and edits version notes (WorkflowVersionsPanel.tsx; versions.ts). | A rollback is a normal server save and is audited by the server. | Editor can keep a stale draft after a rollback (rollbackStaleDraft). |
+| Pending approvals strip | Answer approval steps without leaving the run. | Polls the session's open approvals every 5 s and sends approve/reject through the signal endpoint (PendingApprovals.tsx; approvals.ts). | Decisions go through the server's review and audit. | No confirm, no reason, polls with no live run (approvalUx, approvalPoll). |
+| RESULT block | See what reaches the terminal nodes live. | Streams /api/sessions/\{s\}/executions/\{e\}/results and shows typed payloads as text (ExecutionResultBlock.tsx; useExecutionResults.ts). | Text only; no HTML is injected. | Newest 500 events kept; reconnects replay (dedupeEviction). |
+| Log buffer | Keep long runs readable. | Newest 20,000 lines; a pill shows how many earlier lines are hidden (useExecutionLogs.ts, LogsPanel.tsx). | Bounded memory. | Older lines are only available from the server. |
+
+### Control
+
+| Capability | What it does | How | Guarantee | Limit |
+|---|---|---|---|---|
+| Audit table | See who did what. | GET /api/control/audit?limit=50, polled every 5 s (ControlAuditPanel.tsx). | Shows server-recorded actor and outcome. | Fixed 50 rows, no filter or paging. |
+
+## What the UI keeps, and what it enforces
+
+The UI owns no durable data. This section lists its timings and limits, what vanishes on a reload, and which rules are enforced by the code or the build and which are not.
+
+
+### What survives a reload
+
+Everything about runs and workflows lives on the server and is fetched again.
+
+| Browser state | After a reload or crash |
+|---|---|
+| Theme choice (light, dark, system) | \*\*Yes.\*\* Kept in localStorage ('theme') |
+| Selected run (?exec=) and selected plugin (?type=) | \*\*Yes.\*\* In the URL, so shareable and kept |
+| Query cache (sessions, graphs, runs) | \*\*No.\*\* Memory only; refetched on demand |
+| Log buffer (newest 20,000 lines) | \*\*Partly.\*\* Gone, rebuilt from the server's replay when the page reopens |
+| Builder draft (unsaved changes) | \*\*No.\*\* Lost on reload or navigation, with no warning |
+| Open streams and retry timers | \*\*No.\*\* Closed when the page unloads |
+| Run, workflow and session data | \*\*Note.\*\* Not stored in the browser at all |
+
+### Timings and limits
+
+Values taken from the code. Changing one means a code change, there are no runtime settings.
+
+| Item | Value | Effect |
+|---|---|---|
+| Query fresh time (staleTime) | 5 minutes | No refetch when returning to a page within 5 minutes |
+| Query keep time (gcTime) | 10 minutes | Unused data is dropped after that |
+| Retries | 1 for queries and for mutations | A failed call is repeated once (default delay applies) |
+| Refetch on window focus | Off | Returning to the tab does not refresh |
+| Stream reconnect delay | 1 s doubling to 30 s | Resets when a connection opens |
+| Log flush | Every 100 ms | One redraw per batch |
+| Log buffer and dedupe memory | 2,000 entries each | Older lines are dropped |
+| Log row height | 20 px, 20 rows overscan | Virtual list; measured when wrapping |
+| History per session | 50 runs | Cursor paging not used |
+| Control page and supervisors table | Refetch every 5 s | Two requests per interval per open page |
+| Session list page size | 10, in the browser | All summaries are loaded first |
+| Workflow description field | 256 characters | Input limit in the editor |
+| JS chunk budget | 300,000 bytes each | Build fails above it |
+| Icon font budget | 100,000 bytes | Build fails above it |
+
+### Enforced or not
+
+| Rule | Status |
+|---|---|
+| Ids are URL-encoded in REST paths | \*\*Yes.\*\* Enforced by the api tag; a test covers it |
+| Workflow validity | \*\*Yes.\*\* Decided by the server at validate and save time, not by the UI |
+| Same-origin scripts only | \*\*Yes.\*\* Content-Security-Policy on index.html (inline styles allowed) |
+| Authentication | \*\*No.\*\* The UI sends no credentials; with yukta.api-key set all calls fail |
+| Who may start, stop or edit | \*\*No.\*\* No role checks in the UI; every control is shown to every visitor |
+| Bundle size, header and version rules | \*\*Yes.\*\* Enforced by build and ':ui:check' |
+| Unit tests and coverage | \*\*Partly.\*\* A 100% threshold is configured, but I found no call in ':ui:check' or CI that runs it |
+| API type drift | \*\*Partly.\*\* Compile-time check on every build; regeneration check needs a running server |
+| Status vocabulary | \*\*Partly.\*\* Free strings; unknown values degrade to pending or unknown |
+| Unsaved builder draft | \*\*No.\*\* No warning before it is discarded |
+
+## Reference
+
+### Routes
+
+All routes are defined in one router file. Only the session list is in the main bundle.
+
+| Path | Screen | Notes |
+|---|---|---|
+| / | Session list | Table with text filter and pagination in the browser. /sessions redirects here. |
+| /sessions/new | New session form | Lazy. Saves a starter workflow, then opens the editor. |
+| /sessions/:sessionId | Session details | Lazy. Info panel and workflow cards. |
+| /sessions/:sessionId/workflow/:workflowId | Run view | Lazy. ?exec= selects the run. |
+| /sessions/:sessionId/workflow/:workflowId/edit | Workflow builder | Lazy. Form-based. |
+| /plugins | Plugin catalogue | Lazy. ?type= selects the plugin. |
+| /history | Run history | Lazy. Newest 50 runs of the chosen session. |
+| /control | Control bus | Lazy. Supervisors and nodes, refetched every 5 s. |
+
+### Endpoints the UI calls
+
+Everything goes to the same origin under /api. Paths marked legacy are deprecated aliases on the server; the replacement exists.
+
+| Call | Used by | Notes |
+|---|---|---|
+| GET /api/sessions/summaries | Session list, History | All sessions in one answer. |
+| GET /api/sessions/\{id\} | Session details |  |
+| GET /api/sessions/\{id\}/workflows | Workflow cards, run list refresh |  |
+| GET /api/sessions/\{id\}/config | Builder | The complete session, the shape POST /api/sessions accepts. |
+| POST /api/sessions/validate | Builder | 200 with valid=false for a bad draft. |
+| POST /api/sessions | Builder | Replaces the whole session. |
+| GET /api/sessions/\{id\}/workflows/\{wid\}/graph | Run view | Nodes, edges, ports, categories. |
+| GET /api/sessions/\{id\}/workflows/\{wid\}/executions | Run view | No limit passed; server default 500. |
+| GET /api/workflow/\{sid\}/status/\{eid\} | Run view | Legacy; replacement is GET /api/executions/\{eid\}. |
+| SSE /api/workflow/\{sid\}/status/\{eid\}/stream?includeHistory=true | Run view | Legacy; replacement is /api/executions/\{eid\}/status/stream. |
+| SSE /api/sessions/\{sid\}/executions/\{eid\}/logs/entries | Run view | History first, then live. |
+| POST /api/workflow/start | Run controls | Idempotency-Key header; 202 with the execution id; 429 at the limit. |
+| POST /api/workflow/\{sid\}/\{wid\}/stop?mode= | Run controls | All runs of the workflow; DRAIN, CANCEL or KILL. |
+| GET /api/workflow/\{sid\}/history?limit=50 | History | Server also sends X-Next-Cursor, which the UI ignores. |
+| POST /api/executions/\{eid\}/pause \| resume \| stop \| restart | Run controls |  |
+| POST /api/executions/\{eid\}/restart/\{nodeId\} | Node menu | Starts a new run from that node. |
+| POST /api/executions/\{eid\}/nodes/\{nid\}/pause \| resume \| stop \| skip \| retry \| step \| step/enable \| step/disable | Node menu |  |
+| GET /api/plugins, GET /api/plugins/\{type\} | Plugins, Builder | Type, category, ports, config schema, usage. |
+| GET /api/control/nodes, /api/control/workflows/\{wid\}/nodes, .../nodes/\{nid\}/heartbeat | Control |  |
+| GET /api/supervisors | Control | Counters since startup. |
+
+### Status mapping
+
+Raw server status to what the screen shows. 'Terminal' means the run is over.
+
+| Raw status | Node shows as | Run bucket | Terminal run? |
+|---|---|---|---|
+| SUCCESS | completed | success | yes |
+| RUNNING, NODE_RESUMED, NODE_STEPPED | running | running | no |
+| FAILURE, ERROR, TIMED_OUT, ABORTED | failed | failure | yes |
+| PAUSED, NODE_PAUSED | paused | paused | no |
+| NODE_STOPPED | skipped | running (the run goes on) | no |
+| STOPPED, CANCELLED, WORKFLOW_STOPPED | skipped | stopped | yes |
+| UPSTREAM_FAILED | skipped | unknown | yes |
+| STOPPING | unknown to node map (pending) | stopped (shown as control state) | no |
+| PENDING, QUEUED | pending | pending | no |
+| anything else | pending | unknown | no |
+
+### Bundle budget
+
+Measured from the ui/dist/assets folder present in the working tree when this page was written (it may be older than the sources). The build fails if a script exceeds 300,000 bytes or the icon font exceeds 100,000 bytes. The previous guide recorded: icon subset 11,188 B (full font 3,960,036 B), WorkflowDetailsPage chunk 272,541 B, and a single 887,435 B script before splitting.
+
+| File | Bytes | Role |
+|---|---|---|
+| layout-\*.js | 257,430 | Run view shared code, includes React Flow and dagre (lazy) |
+| react-\*.js | 218,840 | React vendor chunk |
+| tanstack-\*.js | 176,700 | Query, Table, Virtual vendor chunk |
+| ui-kit-\*.js | 128,919 | Base UI vendor chunk |
+| router-\*.js | 93,376 | React Router vendor chunk |
+| index-\*.js | 56,278 | Main app code |
+| WorkflowDetailsPage-\*.js | 23,014 | Run view page (lazy) |
+| WorkflowEditorPage-\*.js | 12,006 | Builder page (lazy) |
+| SessionDetailsPage-\*.js | 7,992 | Session page (lazy) |
+| PluginsPage-\*.js | 5,509 | Plugins page (lazy) |
+| material-symbols-subset-\*.woff2 | 13,696 | Icon font subset |
+| index-\*.css | 64,869 | App styles |
+| layout-\*.css | 15,413 | React Flow styles |
+
+### Commands and rules
+
+| Command or rule | What it does |
+|---|---|
+| cd ui && pnpm dev | Vite dev server on :5173 with hot reload; proxies /api, /sse, /actuator to :8080 |
+| ./gradlew :boot:bootRun | Backend on :8080 for the dev server |
+| ./gradlew :ui:build | Type check, vite build, size check; packs dist/ into the jar |
+| ./gradlew :ui:pnpmTest or pnpm test | Vitest unit and component tests |
+| ./gradlew :ui:pnpmTestE2e -PrunE2e=true | Playwright E2E with mocked APIs (browsers must be installed) |
+| pnpm coverage | Coverage report; thresholds in vitest.config.ts are 100% |
+| pnpm run icons | Rebuild the icon font after adding an icon name anywhere in src (needs network) |
+| pnpm run api:types [-- --check] | Regenerate or verify the OpenAPI types (needs a running server) |
+| pnpm run lint:headers | Check SPDX headers (also run by ':ui:check') |
+| Rule: all HTTP through fetchApi | Build URLs with the api tag so ids are encoded |
+| Rule: live data through useEventSourceJson | Consumers must tolerate replayed history |
+| Rule: map statuses only in statusMapper.ts | Never interpret raw status words elsewhere |
+| Rule: colours via tokens | Use success, warning, terminal and log-\* tokens; never hardcode black or neutral grays |
+
+## Architecture decisions
+
+<AccordionGroup>
+<Accordion title="A single-page app served from the same jar and origin">
+**Context.** Operators need a web UI, but Yukta is deployed as one Spring Boot app, often as a native image.
+
+**Decision.** Build the React app to static files, copy them into the ui jar and let boot serve them with an index.html fallback and a CSP.
+
+**Consequences.** One artifact to deploy, no CORS, caching rules are simple (hashed assets for a year, index.html never cached). The API cannot be reached from a differently hosted UI without extra work, and the app needs the API key story solved on the same origin.
+
+**Alternatives considered.** A separately hosted front end or CDN: easier independent releases but needs CORS, two deployments and a second auth story. Server-rendered pages (templates): less JavaScript, but poor fit for live graphs and streams.
+
+**Revisit when.** UI and server need independent release cycles, or the UI must be offered as a hosted product.
+
+</Accordion>
+<Accordion title="Live data over server-sent events with replay and client de-duplication">
+**Context.** Runs are long and operators want immediate status and logs.
+
+**Decision.** Use EventSource streams. On every connection the server replays history, the client reconnects with backoff and drops repeats.
+
+**Consequences.** Simple server and client code, works through most proxies, and a missed message is repaired by the replay. Costs: replay on each reconnect, no resume token used, no headers for authentication.
+
+**Alternatives considered.** WebSockets: two-way and can carry auth, but need a handshake protocol, more server code and are harder through proxies. Polling: simplest, but laggy and wasteful at scale.
+
+**Revisit when.** Streams must carry authentication, or reconnect cost for long logs becomes noticeable.
+
+</Accordion>
+<Accordion title="One status chokepoint over free-text server statuses">
+**Context.** The server exposes statuses as strings, and different screens would otherwise interpret them differently.
+
+**Decision.** All translation happens in one mapper; unknown values degrade to pending or unknown instead of crashing.
+
+**Consequences.** Easy to fix a quirk once (as with NODE_STOPPED). Quiet failure on new statuses and manual upkeep.
+
+**Alternatives considered.** A generated enum from OpenAPI: safer, but impossible until core publishes one. Interpreting status words in each component: faster to write, guaranteed to drift.
+
+**Revisit when.** Core publishes a status enum (the backlog item the code refers to as core S1).
+
+</Accordion>
+<Accordion title="Form-based builder driven by plugin schemas, not drag-and-drop">
+**Context.** Plugins come and go and each has different settings. A drawing editor would need a design per plugin.
+
+**Decision.** Edit one workflow with lists and dropdowns and generate each node's form from its config schema; preview on the same canvas as the run view; validate on the server.
+
+**Consequences.** New plugins work immediately and the validity rules stay on the server. Editing large graphs is slow and the experience is plainer than a canvas editor.
+
+**Alternatives considered.** A drag-and-drop canvas editor: friendlier but a large build with custom node UIs. Raw JSON editing only: trivial, but error-prone and not discoverable.
+
+**Revisit when.** Operators build graphs of dozens of nodes routinely, or non-technical users become the main audience.
+
+</Accordion>
+<Accordion title="Hand-written types as working types, generated types as a drift check">
+**Context.** OpenAPI-generated types mark every field optional, which makes them awkward to use.
+
+**Decision.** Keep readable hand-written types; generate the OpenAPI types into the repo and fail the type check if a hand-written type and its server schema stop having the same fields.
+
+**Consequences.** Pleasant code and still protection against renamed fields. Two sources of truth; the regeneration check needs a running server and is not in the normal build.
+
+**Alternatives considered.** Use the generated types directly: single source but optional-everywhere noise. No types from the server: simplest, but the bugs that motivated this (wrong error shape, wrong status set) return.
+
+**Revisit when.** The server marks required fields in OpenAPI, so the generated types become usable.
+
+</Accordion>
+<Accordion title="Hard size budgets with lazy routes and vendor chunks">
+**Context.** The first version shipped a 3.96 MB icon font and a single 887 KB script.
+
+**Decision.** Lazy-load all routes but the home page, split vendor code, subset the icon font, and fail the build above 300 KB per script or 100 KB for the font.
+
+**Consequences.** Regressions are caught at build time. The budget measures bytes, not time, and icons need a manual regeneration step.
+
+**Alternatives considered.** Reviewer vigilance only: cheap but regresses silently. A full performance budget with Lighthouse in CI: more accurate but slower and flakier.
+
+**Revisit when.** A chunk legitimately needs to exceed 300 KB, or the build moves to a different bundler with different chunking.
+
+</Accordion>
+<Accordion title="Five minute query cache plus invalidation on change, no refocus refetch">
+**Context.** Most data (sessions, graphs, plugin list) changes rarely, and the hot data (status, logs) is streamed.
+
+**Decision.** Keep fresh data for 5 minutes, disable refetch on window focus, invalidate related queries after our own mutations, retry once.
+
+**Consequences.** Fast navigation and few requests. Other users' changes appear late and the blanket retry affects mutations.
+
+**Alternatives considered.** Always refetch on mount: always correct, many requests. Short polling everywhere: simple, but load grows with users.
+
+**Revisit when.** Multiple operators edit the same sessions, or stale lists cause real mistakes.
+
+</Accordion>
+<Accordion title="Design tokens in Tailwind 4 with copied-in shadcn components on Base UI">
+**Context.** A consistent look with dark mode and little custom CSS, without locking into a component library's release cycle.
+
+**Decision.** Define tokens in CSS, copy shadcn primitives into the repo, use Material Symbols from a self-hosted subset and enforce usage by convention.
+
+**Consequences.** Full control and a small bundle. Upgrading a primitive is a manual copy with three fixes, and nothing machine-enforces the token rules.
+
+**Alternatives considered.** A packaged component library: fastest to start, heavier and harder to restyle. Hand-written CSS: maximum control, no shared system.
+
+**Revisit when.** The brand or accessibility needs change enough that the tokens no longer fit, or the manual copy upkeep becomes costly.
+
+</Accordion>
+</AccordionGroup>
+
+## Glossary
+
+| Term | Meaning | Note |
+|---|---|---|
+| SPA (single-page app) | One HTML page that loads JavaScript, which draws every screen in the browser and changes the address without reloading. | Why the server must send index.html for any app route. |
+| React | A JavaScript library for building screens from small components that redraw when their data changes. | The framework of the ui (version 19). |
+| Vite | The tool that bundles the app for production and runs a fast dev server with hot reload. | Its build output dist/ is what the jar contains. |
+| Bundle and chunk | A bundle is the compiled script the browser downloads; it is split into chunks so each page loads only what it needs. | The 300 KB budget applies per chunk. |
+| Lazy route | A route whose code is downloaded the first time it is visited. | Keeps the first load small. |
+| React Router | The library that maps addresses to screens inside the SPA. | Defines the eight routes. |
+| TanStack Query | A library that fetches data, caches it by name, retries failures and refetches when told. | Source of the 5 minute freshness and the invalidation after saves. |
+| staleTime / gcTime | How long cached data counts as fresh, and how long unused data is kept before being dropped. | 5 minutes and 10 minutes here. |
+| ApiResponse envelope | The wrapper around every REST answer: timestamp, status, message, data, optional errors. | fetchApi unwraps it so callers get data or an error. |
+| FieldError | A field name and a message describing what is wrong with one input. | Shown in the new session form as 'field: message'. |
+| SSE (server-sent events) | A one-way live stream over a normal HTTP request: the server keeps it open and pushes small text events. | How progress and logs reach the page. |
+| EventSource | The browser object that opens an SSE stream. | It cannot send custom headers, which limits authentication. |
+| Last-Event-ID | A header a reconnecting SSE client sends so the server can resume after the last event it saw. | Supported by the server, not used by the UI today. |
+| Replay and de-duplication | Sending history again on every connection, and ignoring what has been seen. | Why log lines are compared by content. |
+| Exponential backoff | Waiting longer after each failed retry: 1 s, 2 s, 4 s... up to a cap. | Protects the server from reconnect storms. |
+| Virtualisation | Drawing only the rows in view of a long list. | Keeps the 2,000-line log terminal cheap. |
+| React Flow | A library that draws node-and-edge graphs with pan and zoom. | Draws the workflow canvas. |
+| dagre | A library that computes positions for nodes of a directed graph. | Gives the left-to-right layout. |
+| DAG | Directed acyclic graph: nodes joined by one-way edges with no loops. | The shape of every Yukta workflow. |
+| Trigger / Processor / Terminal | The three kinds of node: start, transform, end. | Their colours are orange, blue and slate on the canvas. |
+| Config schema | A plugin's own list of settings with types, defaults and descriptions. | Drives the generated forms. |
+| Engine policy | Per-node failure and timing options (onError, retry, trigger rule, timeouts, failure budget) handled by the engine, not the plugin. | The 'Error handling and retries' panel edits it. |
+| Idempotency-Key | A header that makes a repeated start return the first run instead of starting another. | The UI sends a fresh one per click. |
+| Stop modes (DRAIN, CANCEL, KILL) | Gentle, cancelling and immediate ways to stop a run. | Workflow-wide in the UI's menu. |
+| Control bus and supervisor | The channel through which commands reach runs, and the automated watchers that send commands. | Shown on the Control page. |
+| API key | A shared secret the server can require in a header on every /api call. | The UI does not send one. |
+| CSP (Content-Security-Policy) | A response header that tells the browser which sources of scripts, styles and connections are allowed. | Limits what injected content could do. |
+| Tailwind CSS and design tokens | A utility-class styling system, with colours, spacing and type defined once as named variables. | Enables dark mode and consistent look. |
+| shadcn / Base UI | Copy-in component source (shadcn) built on unstyled, accessible primitives (Base UI). | The buttons, menus and tables. |
+| Material Symbols subset | The icon font reduced to just the glyphs used. | 13.7 KB instead of 3.96 MB; must be regenerated when icons change. |
+| OpenAPI and openapi-typescript | OpenAPI describes the server's endpoints; the tool turns that description into TypeScript types. | Used for the drift check. |
+| SPDX header | A standard two-line license notice at the top of a file. | Checked on every ':ui:check'. |
+| Vitest and Playwright | Vitest runs unit and component tests; Playwright drives a real browser for end-to-end tests. | Playwright runs against mocked APIs here. |
+| MSW (mock service worker) | A tool that intercepts HTTP calls in tests and answers them with canned data. | Lets the UI be tested without a server. |
+| pnpm | A package manager for JavaScript dependencies. | Gradle installs and runs it for the build. |

@@ -1,0 +1,762 @@
+---
+title: "Core module"
+description: "Core is Yukta's engine and control plane: it takes a workflow definition (a DAG of trigger, processor and terminal nodes), runs it as a live stream of messages, lets people and programs steer it while"
+---
+
+Core is Yukta's engine and control plane: it takes a workflow definition (a DAG of trigger, processor and terminal nodes), runs it as a live stream of messages, lets people and programs steer it while it runs, and remembers enough to explain or resume it afterwards. This page is for thinking about it, not documenting it: open a component, play a scenario, then challenge the weak spots.
+
+| Property | What it means |
+|---|---|
+| Streaming DAG | Each edge is a Reactor stream. A slow consumer slows its producers (back-pressure), so memory stays bounded without queues between nodes. |
+| One JVM brain | Admission, command ordering, run state and signal waits live in one process. Plugins may block on virtual threads, but nothing is shared across servers yet. |
+| At-least-once | A node's end is durable, a side effect before it can repeat after a crash. Exactly-once is impossible; plugins de-duplicate on the message id. |
+| Pluggable durability | Memory by default; files or PostgreSQL by configuration. What survives a restart depends on the profile (see Guarantees). |
+
+<Note>
+  Open risks, bugs and improvement ideas for this module are on the internal pages (sign-in required): [Risks](/internal/risks#core), [Bugs](/internal/bugs) and [Improvements](/internal/improvements#core).
+</Note>
+
+## Primer
+
+Teams automate multi-step jobs: receive an event, ask an LLM, call an API, wait for a person, notify someone. Written as ad-hoc scripts, these have no retries, no visibility, no way to pause or stop them, and no way to continue after a crash. Yukta lets you describe the steps once, as a graph, and runs them reliably. **Core** is the engine inside the Yukta server that executes those graphs and lets you steer them while they run.
+
+<Tip>
+  Think of a factory line with a control room. Stations (**nodes**) are joined by conveyor belts (**streams**) that stop when the next station is busy. A foreman (the **control plane**) can pause the line, step it one item at a time, or stop it. Cameras and monitors (**observation**) show what is happening, automated watchers (**supervisors**) can press the foreman's buttons, and a logbook (the **execution log** and **checkpoints**) lets you work out after a power cut where the line had got to.
+</Tip>
+
+### Where it sits
+
+| Layer | Role |
+|---|---|
+| Clients | REST, web UI, MCP agents, CLI |
+| web / mcp / ui | Translate requests into calls on core |
+| core | The engine and control plane. This page. (this module) |
+| plugin-api + plugins | The contract and the actual node types |
+| boot | Wires it into one Spring Boot app |
+
+### Terms to know first
+
+| Term | Meaning | Example |
+|---|---|---|
+| Workflow | A graph written as JSON: nodes and the edges between them. It is stored once and can be run many times. | Example: triage a support ticket. |
+| Node | One step. Three kinds: a **trigger** starts the flow (no input), a **processor** transforms messages, a **terminal** ends a branch (saves, sends, notifies). | Example: an LLM call is a processor. |
+| Edge and port | A connection from one node's output to another's input. A node can also have an **error port** that carries failed messages. | Edge from classify with sourcePort error goes to a dead-letter terminal. |
+| Message | The unit of data flowing along edges: a payload, headers and a stable id. A trigger may emit many messages in one run. | One ticket = one message. |
+| Run (execution) | One live execution of a workflow, with its own execution id, status (QUEUED, RUNNING, SUCCESS...) and per-node status. | Started by a REST call; ends when every terminal completes or the run fails or is stopped. |
+| Session | A tenant-like scope that groups workflows, runs and configuration. Limits and fairness apply per session. | One team or one user's workspace. |
+| Plugin | Code that gives a node its behaviour. The engine never needs to know what a plugin does, only the contract. | LLM_CALL, HTTP_REQUEST, PROCESS_EXECUTOR. |
+| Engine policy | An optional block inside any node's config that the engine reads and plugins never see: retry, onError, timeouts, failure budget. | See the example workflow below. |
+
+### One example, end to end
+
+Simplified: the field names of the node and edge JSON are illustrative; the engine block is real.
+
+<Steps>
+<Step title="Ticket arrives">
+**What happens.** Waits for something to happen (here a new support ticket) and emits one message carrying the ticket data.
+
+**What it adds.** Starts the node's clocks and records its status. A trigger has no input, so it keeps the default 30 s idle timeout unless the plugin declares another.
+
+**Can go wrong.** A source that is quiet for a long time looks dead. Long silent work should call the heartbeat or use a longer timeout.
+
+</Step>
+<Step title="Classify">
+**What happens.** Sends the ticket text to a language model and returns a category.
+
+**What it adds.** Retries a failed call up to 3 times with growing delay (not for bad input), enforces a per-attempt timeout and the run's token budget, and sends a message that still fails to the error port tagged with attempts, exception and time. A message yields all of its output or none.
+
+**Can go wrong.** One call may overshoot the budget; there is no rate limit shared across nodes (F4); retries mean the plugin can see the same message twice.
+
+</Step>
+<Step title="Approve">
+**What happens.** Holds each message until a person or a supervisor sends an approve or reject signal (default wait one hour).
+
+**What it adds.** Delivers the signal through the same ordered, audited command path as pause or stop, extends the node timeout by the wait plus 30 s, and freezes the clocks while the run is paused.
+
+**Can go wrong.** The wait lives in memory: after a restart a resumed run waits again, and a signal sent before the node waits is refused (F2).
+
+</Step>
+<Step title="Update ticket">
+**What happens.** Calls the ticketing system to set the category.
+
+**What it adds.** Timeout is the request timeout plus 5 s, checkpoints the output, and the message id stays the same on every attempt.
+
+**Can go wrong.** A crash between the request and the node's end marker can repeat the call. The plugin or the target must de-duplicate on the message id.
+
+</Step>
+<Step title="Done">
+**What happens.** Ends the branch, for example by logging or notifying. The run succeeds when all terminals complete.
+
+**What it adds.** Marks the run finished, releases the run's slot, writes the end to the log and keeps the run restartable.
+
+**Can go wrong.** If this terminal fails, siblings that still produce output stall through back-pressure and the run fails only at the idle timeout (B16).
+
+</Step>
+<Step title="Dead letters">
+**What happens.** Receives messages that failed in Classify after all retries, with headers failure.attempts, failure.exception and failure.time.
+
+**What it adds.** Nothing special: it is wired like any terminal, but only an edge with sourcePort error from a node with onError ROUTE carries dead letters.
+
+**Can go wrong.** Forgetting the sourcePort means failed messages are dropped or fail the run, not quarantined.
+
+</Step>
+</Steps>
+
+### What wraps every node
+
+1. Merge parents (join rule)
+2. Valve: pause, step, skip, breakpoint
+3. Call the plugin (attempt, timeout, retry)
+4. Clocks and status
+5. Broadcast to every child
+
+## Components
+
+### Entry & Admission
+
+*front door, slots, queue*
+
+Receives start, restart and recover requests and decides whether, when and in what order a run may begin.
+
+- A start request first loads the stored definition and prepares it (checks and compiles the graph). If several requests for the same workflow arrive together, they share one preparation instead of each doing the work.
+- Then it asks the scheduler for a slot, which is permission to run. The caller receives an execution id only after a slot is granted. Example: the limit is 5 and 5 runs are active. A run finishes, freeing one slot, and two new requests arrive at that same moment. Exactly one gets the slot and an id; the other waits in the queue or gets HTTP 429. If ids were handed out before the slot check, both requests could get one and the limit would be exceeded.
+- The scheduler can cap total concurrent runs, runs per workflow and runs per session (a team or user workspace). All caps are off by default. A start that does not fit either waits in a queue (status QUEUED) or is refused at once with HTTP 429 ('too many requests'), depending on the on-limit setting.
+- The queue is ordered by an optional priority number in the start payload (higher first). Within the same priority, the next free slot goes to the session with the fewest runs right now, so one busy session cannot keep everyone else waiting.
+- A client can send an Idempotency-Key header. If its network drops and it sends the same start again with the same key (same session and workflow, within 10 minutes), it gets the first run's id back instead of starting a second run. With the file log the keys survive a restart.
+- On shutdown it stops accepting starts, refuses everything still queued and gives running runs 30 seconds to finish.
+
+- **Guarantees.** No run gets an id without a slot, a repeated start with the same key never starts a second run, and every refusal is counted by reason.
+- **State.** The slots and the queue are held in memory. Idempotency keys are saved in the execution log when one is configured. Limits changed at run time are logged and restored from the log on the next start; the log then wins over the configuration.
+- **Ceiling.** One scheduler in one server process. The queue holds 100 starts by default and there are no limits at all until you set some.
+- **On failure.** If the server crashes, queued starts lose their place in line. With a file or PostgreSQL log their start was already recorded, so they are marked ABORTED on the next boot together with the running ones, and can be recovered.
+
+**Settings:** `yukta.execution.max-concurrent / -per-workflow / -per-session`, `yukta.execution.on-limit (QUEUE|REJECT)`, `yukta.execution.queue-capacity (100), queue-timeout`, `yukta.start.idempotency-ttl (10m)`
+
+### Definition & Preparation
+
+*store, validate, compile*
+
+Keeps workflow definitions and versions, and turns one into a validated, runnable graph.
+
+- Definitions are stored per workflow together with the newest 20 versions, so you can roll back. Storage is memory, files or PostgreSQL.
+- Before a run, a validator checks the graph and refuses it with a message naming the node and the option at fault. It rejects loops, duplicate nodes or edges, connections to an output port the plugin does not have, graphs over 500 nodes or 2000 edges, and badly formed failure policies (for example a retry delay longer than the node's timeout).
+- The compiler then turns the graph into a runnable form, one assembler per node. The result is cached by the content of the definition. It is kept only if the stored definition has not changed in the meantime, so an old compile can never overwrite a newer edit.
+- Each run records a fingerprint (hash) of the graph it used. Progress, history and the log all carry it, so you can always tell which version a run executed.
+- Session, workflow, node and path identifiers are checked by Bean Validation annotations at the orchestrator boundary, which checks the shape of an identifier (for example a session id may not contain path separators) before it is used.
+
+- **Guarantees.** A broken graph is refused before any plugin runs, and a run always keeps the version it started with.
+- **State.** Definitions are durable with the file or PostgreSQL store. The compiled cache lives in memory and is simply rebuilt.
+- **Ceiling.** Preparation cost grows with graph size, so graphs are capped at 500 nodes and 2000 edges.
+- **On failure.** Editing a workflow does not change runs already in progress, and a resume is refused if the definition changed since the run started.
+
+**Settings:** `yukta.session.store-type = in-memory | file | postgres`
+
+### Stream Engine
+
+*node runtime and policies*
+
+Runs every node as a pipeline: merge parents, gate input, call the plugin, apply failure and time policy, fan out to children.
+
+- Joining: a node with several parents needs a rule for when one parent fails. ALL_SUCCESS (default) fails the node too, ALL_DONE carries on with the parents that worked, and ONE_SUCCESS carries on unless every parent failed.
+- Valve: each node has a gate in front of it. It implements pause (stop taking new messages; the one being processed finishes), step (let exactly n messages through, then pause), breakpoint (hold when a message matches a condition) and skip (pass messages through without calling the plugin).
+- Failure policy: a node's optional 'engine' config can retry a failed message with growing delays, give up on a message that takes too long, send a failed message to an error output, or fail the whole node if too many messages fail. With retry or error routing on, a message's output is held back until it is complete, so a failed attempt never leaves half a result downstream.
+- Clocks: a node fails if it is silent for too long (idle timeout). Any input, output, retry attempt or heartbeat resets that clock, and pausing freezes it so a pause never causes a timeout. Plugins can declare their own default.
+- Wiring: every child subscribes before the source starts, so no early message is lost, and the slowest child decides how fast data flows. This is back-pressure: a slow consumer makes upstream wait instead of buffering without limit.
+
+- **Guarantees.** Data flows with back-pressure end to end. A node's status only moves forward (PENDING, QUEUED, RUNNING, then an end state), so a late or out-of-order event can never reopen a finished node.
+- **State.** Each run's state, gates, failure counters and clocks are held in memory.
+- **Ceiling.** A fan-out (one node feeding several) moves at the speed of its slowest branch. If one branch stops reading because its terminal failed, its siblings stall until the idle timeout. With retry or error routing, one message's output is buffered until its attempt ends.
+- **On failure.** When a node fails, the nodes behind it are marked UPSTREAM_FAILED rather than FAILURE, so only the node that actually failed shows FAILURE.
+
+**Settings:** `engine.retry / onError / trigger / elementTimeoutMs / deadlineMs / failureBudget (per node)`, `timeoutSeconds (per node)`
+
+### Plugin Boundary
+
+*the extension seam*
+
+The contract between the engine and the work a node does: triggers produce messages, processors transform them, terminals consume them.
+
+- A plugin receives a stream of messages and a context holding the execution id, the node id, a heartbeat function and, for sub-workflows, a result collector. It never sees the engine's own policy options.
+- A plugin that does long, silent work (say a ten-minute script) calls the heartbeat now and then to tell the engine it is alive; otherwise the idle timeout would fail it. Blocking plugins run on virtual threads, which are cheap threads that do not tie up the main event loop.
+- A named signal, for example 'approved', can be sent to a running plugin through the same ordered, audited path as other commands. WAIT_FOR_SIGNAL uses this to hold a message until a person decides.
+- Safety rails: workflows may read only allow-listed environment variables, scripts may use only a small set of Java classes, and process execution can be limited to named commands. The expression and script engines are not part of core: expressions run in plugin-api and scripts in the script plugin (see Expressions & Secrets).
+
+- **Guarantees.** With retry or error routing on, the plugin is called once per message and receives a stable message id plus an attempt counter (1, 2, 3...). Retries repeat the same id, so a plugin can use it to avoid doing the same side effect twice.
+- **State.** State inside a plugin is the plugin's own business. Signal waits (WAIT_FOR_SIGNAL and MCP_TOOL_CALL approvals) and KV_STORE are held in memory.
+- **Ceiling.** Plugins run inside the same server process today, so a heavy or untrusted plugin competes with the engine for CPU and memory.
+- **On failure.** Throwing IllegalArgumentException means 'bad input' and is never retried.
+
+**Settings:** `yukta.process.allowed-commands`, `yukta.process.allow-any (off)`, `yukta.script.timeout-ms (10000), yukta.script.max-statements (50000000)`, `yukta.mcp-client.allowed-tools, max-argument-bytes, deny-argument-patterns; MCP_TOOL_CALL requireApproval, approvalSignal, approvalTimeoutSeconds`, `yukta.llm.deny-input-patterns, deny-output-patterns, max-input-chars`, `YUKTA_LIMITS_MAX_BODY (1MB, 413 above)`, `yukta.api-key, yukta.api-keys[].{name,key,role,sessions}; key may be sha256:<hex>`, `yukta.allowed-hosts, yukta.allowed-origins`, `yukta.variables.allowed`
+
+### Supervisors
+
+*rules, AI, custom code*
+
+Programs that watch every run and steer it: a rule engine, an AI agent or your own code, inside or outside the server.
+
+- A supervisor receives every execution event (run started, node failed, ...) through a small buffer of 256. If it is too slow, events are dropped and counted, so a slow supervisor never slows the engine.
+- It answers with commands such as pause. Commands are limited to 20 per second, can be run in dry-run mode (recorded but not applied) and are tagged with the supervisor's id so the audit shows who did it. A supervisor does not see the results of its own commands.
+- Reviewers are separate hooks that can veto any command, from a person or a supervisor, before it runs. The first reviewer to refuse wins, and the caller gets HTTP 403.
+- Not everything has to run inside the server: an external agent can read the same events as a live SSE stream and send commands through REST or MCP.
+
+- **Guarantees.** A misbehaving supervisor is contained: if it crashes it is restarted after a delay, and it can never block a run.
+- **State.** Supervisors hold no engine state; their command counts are exposed as metrics.
+- **Ceiling.** Event delivery is best effort, so a supervisor can miss events when it is overloaded.
+- **On failure.** A supervisor sees the status change caused by its own command (a pause produces a PAUSED event) and may react to it again, so it can loop. Only the 20 per second cap limits it.
+
+**Settings:** `yukta.supervisor.max-commands-per-second (20)`, `yukta.supervisor.dry-run`, `yukta.supervisor.rules.file`
+
+### Control Plane
+
+*commands, order, audit*
+
+The ordered, acknowledged way to change a run that is already going.
+
+- Commands include pause, resume, step, breakpoint, skip, retry node, stop, restart, restart from node, signal, change priority and change limits. All commands for one run enter one queue and are applied one after another in the order sent (first in, first out).
+- The caller gets an answer only once the command has actually been applied, and every run command is written to the log as applied or rejected, with who sent it.
+- Stop has three strengths: DRAIN lets work already in progress finish (with a deadline), CANCEL cancels it, KILL ends it immediately.
+- Restart from node re-runs one node and everything after it, replaying the recorded outputs of the nodes before it, so earlier work is not repeated. Retry node does the same for a node that failed.
+- A second, older channel exists beside run commands: the plugin-level control bus, which carries heartbeats, statistics and raw signals to a node's plugin. It is keyed by workflow and node, bypasses the reviewers and is not audited like run commands. Live control handles and their valves are kept in an execution control store built by a factory per run.
+
+- **Guarantees.** Commands for one run are applied in order, acknowledged and audited.
+- **State.** Pending commands and the gates are in memory. The audit trail is written to the execution log.
+- **Ceiling.** One batch consumer handles commands: ample for people and supervisors, not designed as a high-volume API.
+- **On failure.** Changing limits or priority is written to the log but does not pass the reviewers, and the raw per-node command endpoint is neither reviewed nor audited and is keyed by workflow and node, not by run. Through it an approval wait can be released unseen. Over REST, limits need ADMIN and priority OPERATOR.
+
+**Settings:** `yukta.supervisor.* (reviewers)`
+
+### Observation
+
+*tracker, progress, telemetry*
+
+Turns what happens in a run into ordered state, live progress streams and metrics.
+
+- Every change (a node started, finished, failed) becomes an event in one ordered queue. State events are never dropped. Log lines are lower priority: if more than 10,000 are waiting, extra ones are dropped and counted.
+- A single consumer reads the queue in batches and updates progress snapshots, run history and metrics. REST, SSE streams and MCP all read these snapshots.
+- Each run is recorded as one trace observation with one child per node. When a tracing library is present they become a proper trace of the run.
+- Useful meters: node durations and outcomes, retries, run duration, time spent queued, running and queued run counts, rejected starts by reason, checkpoint bytes and dropped events.
+- Two helpers sit beside it: a cache of recent progress snapshots per run (30 minutes at most) that lets a late SSE client catch up, and the plugin log store, which copies tracker log lines into memory by default. A file-based plugin log reader and writer exist but are not wired into the application.
+
+- **Guarantees.** State events are complete and in order, and the run and node timelines agree with the log.
+- **State.** Everything is in memory. After a restart the newest runs are restored from the log.
+- **Ceiling.** State events are never dropped and their queue has no size limit, and per-session state is kept until yukta.tracker.max-sessions evicts the oldest finished session (off by default), so memory can grow with the number of sessions and during event storms.
+- **On failure.** The queue cannot overflow and silently stop tracking: bounded channels use a non-terminating 'offer' instead of 'emit'.
+
+**Settings:** `tracing: add a Micrometer tracer to the classpath`
+
+### Durability
+
+*log, checkpoints, recovery*
+
+Makes a run explainable and resumable after the process dies.
+
+- Execution log: an append-only record of run starts (including the input payload), run ends, control commands and idempotency keys. One writer thread does the disk work, and the file is shrunk to the newest runs from time to time.
+- Checkpoints: the output of every node is recorded. When a node finishes normally, a tiny 'done' marker file is written and forced to disk together with its output before downstream nodes continue. The memory version is capped by message count and size; the file version keeps everything.
+- After a crash, on boot, runs that never finished are marked ABORTED and recent history is restored. Someone can then resume an aborted run: nodes with a done marker replay their recorded output and the others run again.
+- The archive keeps the last 10 finished runs (graph, input, outputs) so they can be restarted.
+
+- **Guarantees.** A resume trusts only the done marker, never the log. A node whose output exceeded the memory cap refuses a restart rather than replaying part of its output, unless a spill directory is set: then the node's whole output moves to files and replays complete.
+- **State.** Durable only if you configure directories (or PostgreSQL for the log).
+- **Ceiling.** Checkpoints are files or memory, not PostgreSQL. All file I/O runs on one writer thread, and log events are not fsynced unless yukta.execution-log.fsync=true.
+- **On failure.** There is a tiny window: if a plugin performs a side effect and the process dies before the done marker is written, that node runs again after a resume and the side effect can happen twice.
+
+**Settings:** `yukta.execution-log.dir, retained-runs (500), compact-after (10000)`, `yukta.restart.dir, retained-executions (10), messages-per-node (200), bytes-per-node (4 MiB), spill-dir (off)`
+
+### Persistence Backends
+
+*memory, files, PostgreSQL*
+
+The storage behind sessions, definitions and the log, chosen by one property.
+
+- In-memory is the default and loses everything on restart. File storage writes atomically and forces data to disk. PostgreSQL is accessed through R2DBC (non-blocking access) at run time, with Flyway applying the schema migrations.
+- PostgreSQL currently holds session config, workflow definitions with their versions and the execution log. Enable it by building with -Pyukta.persistence=postgres and setting the store type.
+- The log interface is blocking, so the PostgreSQL log goes through one writer thread. It trims to the newest runs and never drops a run that has no end recorded.
+
+- **Guarantees.** Behaviour is the same behind each store; the choice only changes what survives a restart.
+- **State.** Durable by definition, except the in-memory option.
+- **Ceiling.** Connection pool tuning, health checks and native-image support for R2DBC and Flyway are not finished.
+- **On failure.** Node checkpoints still use files or memory even with PostgreSQL.
+
+**Settings:** `yukta.session.store-type`, `spring.r2dbc.url / spring.flyway.url`
+
+### Sub-workflows
+
+*runs that start runs*
+
+Lets one workflow call another stored workflow for each message, enabling composition and agent-style plans.
+
+- A SUB_WORKFLOW node starts another stored workflow of the same session for every message it receives. The child is an ordinary run with its own execution id, subject to the same limits, tracking and audit.
+- The child's start payload carries its nesting depth and the parent's id; nesting is limited to 5 levels. The results from the child's terminal nodes are collected, and the parent node emits the child's id and results.
+- If the child fails, the node fails, so the parent's failure policy (retry, route, ...) applies.
+
+- **Guarantees.** A child is an ordinary run: tracked, limited and audited.
+- **State.** The link between parent and child lives only in the start payload; run history does not show it yet.
+- **Ceiling.** Each child needs its own slot while the parent keeps its own. If max-concurrent is small, the parent can end up waiting for children that are waiting for the parent's slot.
+- **On failure.** Stopping the parent does not stop its children yet, and a child cancelled with its parent may never receive a final status.
+
+**Settings:** `yukta.execution.max-concurrent must cover parent + children`
+
+### Expressions & Secrets
+
+*$\{...\} values, secrets*
+
+Resolves the $\{...\} values in a node's configuration against the current message and run, and hands out secrets by name.
+
+- A node's configuration can contain $\{...\} placeholders. The resolver in core replaces them for each message: payload fields ($\{payload.x\}), message metadata ($\{metadata.key\}), and typed values such as $\{payload.secs:int\}; an untyped value stays text. A timeout written as an expression is only known when the first message arrives, so the node starts with the default and is re-timed then.
+- Environment and system values are read only from an allow-list: YUKTA_VAR_\* variables, yukta.var.\* properties, a few harmless names and anything listed in yukta.variables.allowed. Names that look like secrets stay blocked even when listed.
+- Secrets are written decrypted:name. The default provider reads the environment variable YUKTA_SECRET_NAME, so values never appear in the workflow definition. $\{context.x\} reads a plain text, number or flag from the run's Reactor context; keys starting yukta. and object values are hidden.
+- The evaluators are not part of core. Conditions and mappings run through the expression utility in plugin-api, and scripts through a sandboxed JavaScript engine in the script plugin (only java.time and a few value classes are visible to scripts).
+
+- **Guarantees.** A workflow cannot read an environment variable or system property outside the allow-list, and secret-looking names are never exposed.
+- **State.** Nothing is stored: values are resolved per message from the message, the run context and the environment.
+- **Ceiling.** Expression and script evaluation have no time or size limit of their own, so one expression or script can use a lot of CPU or memory. The context lookup is not restricted to a list of keys.
+- **On failure.** A node whose configuration cannot be resolved fails that message like any other plugin failure, so retry and error routing apply.
+
+**Settings:** `yukta.variables.allowed / YUKTA_VARIABLES_ALLOWED`, `YUKTA_VAR_* and YUKTA_SECRET_* environment variables`
+
+## Scenarios
+
+### Happy path
+
+One start request travels from the front door to a finished run. Use it first to learn the vocabulary.
+
+<Steps>
+<Step title="A start request arrives">
+The caller posts a start, optionally with an Idempotency-Key. The gateway loads the stored definition; a repeated key returns the first execution id.
+</Step>
+<Step title="Prepare once, share it">
+The graph is validated (cycles, ports, size limits, policies) and compiled. Concurrent starts of the same content share one preparation, and the result is cached only if the definition is still current.
+</Step>
+<Step title="Admission">
+After preparing, and before any execution id exists, the scheduler grants a slot, queues the start or refuses it. Handing out the id only after the slot is granted means two requests arriving together can never both take the last slot.
+</Step>
+<Step title="Wire the graph">
+Each node gets its wrapper (merge parents, valve, plugin call, clocks, broadcast; see the primer) and each edge becomes a stream. All consumers subscribe first and the sources start last, so no early message is lost.
+</Step>
+<Step title="Messages flow">
+Triggers produce, processors transform per message with the Reactor context (execution, node, heartbeat), terminals consume. The slowest child paces the whole fan-out.
+</Step>
+<Step title="Observe and record">
+Ordered state events feed progress, SSE and meters. Each node's output is checkpointed and, when the node completes, a durable end marker is written before completion moves on.
+</Step>
+<Step title="Finish">
+Terminals complete, the run ends SUCCESS, the slot is released, the end is logged and the archive keeps the run restartable.
+</Step>
+</Steps>
+
+### Overload
+
+What happens when more work arrives than the server should run at once.
+
+<Steps>
+<Step title="A burst of starts">
+Many start requests arrive at once. With no limits configured (the default) all of them run at the same time, and the only brake is the server itself running out of resources.
+</Step>
+<Step title="Limits kick in">
+Global, per-workflow and per-session caps decide who runs. A start that does not fit waits (status QUEUED) or is refused with 429.
+</Step>
+<Step title="Fair, prioritised queue">
+Waiting starts are ordered by payload priority, then by the session with the fewest running runs, then arrival. An operator can change a queued run's priority or the limits live.
+</Step>
+<Step title="Queue full or too old">
+Beyond the queue capacity (default 100) or a queue timeout the start ends refused or TIMED_OUT, counted by reason in a rejection metric.
+</Step>
+<Step title="Shutdown under load">
+Nothing new is admitted, queued starts are refused, running ones get 30 s to finish; the rest are ABORTED on next boot.
+</Step>
+</Steps>
+
+### Node failure
+
+How a failing step is retried, quarantined or allowed to fail the run, and one place where that design is weak.
+
+<Steps>
+<Step title="A message fails in a processor">
+The plugin throws an error for one message. Anything it produced for that message is held back, so nothing downstream ever sees half a result.
+</Step>
+<Step title="Retry with backoff">
+Exponential backoff with jitter re-runs the plugin for that message, by exception class if configured. Bad input (IllegalArgumentException) is not retried. Every attempt counts as activity.
+</Step>
+<Step title="Route the poison message">
+With onError ROUTE the message, tagged with attempts, exception and time, goes to the error port and on to any dead-letter terminal. CONTINUE drops it; FAIL ends the node.
+</Step>
+<Step title="Failure budget">
+If more than N messages fail in a window, the node fails instead of dropping or routing the next one, so a broken dependency cannot turn into silent data loss.
+</Step>
+<Step title="Joins decide what a failed parent means">
+ALL_SUCCESS fails the join, ALL_DONE continues with the others, ONE_SUCCESS fails only if every parent failed. Descendants of a failed node end UPSTREAM_FAILED.
+</Step>
+<Step title="A terminal that dies">
+The first terminal that fails ends the run at once and cancels the others, so siblings no longer stall on back-pressure until the idle timeout; they end CANCELLED.
+</Step>
+</Steps>
+
+### Operator steers
+
+How a person steers a run that is already going, using the same channel automation uses.
+
+<Steps>
+<Step title="Pause">
+The command enters the run's FIFO; the valve stops pulling input, in-flight elements finish, and all timers freeze so a pause never causes a timeout.
+</Step>
+<Step title="Step and breakpoint">
+Step n lets exactly n elements through then pauses. A breakpoint holds a node at the first element whose payload or metadata matches.
+</Step>
+<Step title="Skip or retry a node">
+A processor can be skipped at run time (messages bypass the plugin); a node that ended FAILURE or TIMED_OUT can be re-run with its recorded input plus everything behind it.
+</Step>
+<Step title="Review and audit">
+Reviewers may refuse any command (403). Every command on a known run is logged as applied or rejected, with the actor.
+</Step>
+<Step title="Stop">
+DRAIN lets work finish with a deadline, CANCEL cancels, KILL is immediate. The run ends STOPPED and its slot is released.
+</Step>
+</Steps>
+
+### Supervisor intervenes
+
+How an automated watcher (rules or AI) observes runs and intervenes, and how it is kept from hurting them.
+
+<Steps>
+<Step title="Events are published">
+The tracker and command outcomes feed one global event stream. Delivery is best effort and never blocks a run.
+</Step>
+<Step title="A supervisor receives them">
+Each supervisor reads through a bounded buffer of 256 on its own scheduler. If it is slow, events are dropped and counted, not queued.
+</Step>
+<Step title="It answers with commands">
+A rule (JSON + SpEL), an AI agent or a bean returns control commands; they are rate limited to 20/s, can be dry-run and carry the supervisor id as actor.
+</Step>
+<Step title="Reviewers and the loop">
+Reviewers can still refuse a command. A supervisor never sees the outcome of its own commands, and a pause or resume publishes no event, so it cannot chase its own tail; the rate cap is a second guard.
+</Step>
+</Steps>
+
+### Crash and resume
+
+What is lost and what is kept when the server dies mid-run, and how a run is continued afterwards.
+
+<Steps>
+<Step title="The JVM dies mid-run">
+Memory is gone: tracker, scheduler slots, queued starts, signal waits. On disk (if configured): the log with the start payload, and checkpoint outputs with end markers.
+</Step>
+<Step title="Boot recovery">
+Unfinished runs are marked ABORTED, the newest runs are restored into history, idempotency keys are reloaded so a retrying client still gets its first id.
+</Step>
+<Step title="Someone asks to resume">
+The resumer claims the run exactly once; it is refused if the run was not aborted, was already resumed or its definition changed. Over REST it is `POST /api/executions/{id}/recover` (409 when refused), over MCP `control_workflow` with action RECOVER.
+</Step>
+<Step title="Replay what finished, re-run the rest">
+Nodes with a durable end marker replay their recorded output; the others run again from their inputs. Without a file or PostgreSQL checkpoint store nothing is resumable.
+</Step>
+<Step title="The at-least-once window">
+A side effect executed between the plugin acting and the marker being written can happen twice. Only plugin-side idempotency on the message id closes it.
+</Step>
+</Steps>
+
+### Sub-workflow fan-out
+
+How one workflow calls another and why that needs care with limits.
+
+<Steps>
+<Step title="A node starts a child per message">
+SUB_WORKFLOW calls the start path with the child id as a normal run; it carries depth and the parent id, and nesting stops at 5.
+</Step>
+<Step title="Children borrow the slot">
+A child runs on the slot its parent already holds, so a parent that waits for its children cannot starve them. Children do not count toward the limits or the running gauge; they stay bounded by the parent node and the nesting depth (5).
+</Step>
+<Step title="Results flow back">
+Terminal nodes of the child feed a collector; the parent node emits executionId and results[]. A failing child fails the node and the parent's failure policy applies.
+</Step>
+<Step title="Stopping the parent">
+The child runs inside the parent node, so cancelling the node cancels it and the child ends CANCELLED. The start payload of the child (and so its RUN_STARTED log entry) carries yukta.parentExecutionId.
+</Step>
+</Steps>
+
+## Capabilities
+
+What this module does, how, what it guarantees and where the guarantee stops.
+
+
+### Execution
+
+| Capability | What it does | How | Guarantee | Limit |
+|---|---|---|---|---|
+| Streaming back-pressure | Messages move as streams between nodes. | Every edge subscribes before the source connects; the slowest child sets the pace. | Bounded memory per edge. | One slow branch slows the fan-out. |
+| Join rules | What a node with several parents does when one fails. | ALL_SUCCESS, ALL_DONE, ONE_SUCCESS. | No dead path after a branch. | Rule is per node, not per edge. |
+| Sub-workflows | One workflow calls another. | Child is a normal run with its own id; depth max 5. | Children are tracked, limited, audited. | Slot deadlock when limits are tight. |
+
+### Failure
+
+| Capability | What it does | How | Guarantee | Limit |
+|---|---|---|---|---|
+| Retry & error routing | Handle transient and poison failures. | Backoff with jitter, by exception class; ROUTE sends the failed message to an error port; failure budget; all-or-nothing output. | A poison message never blocks the stream. | Retried per message, so only for per-message processors. |
+| Fail-fast vs partial | Choose between stopping and carrying on. | onError FAIL / CONTINUE / ROUTE and join rules. | Explicit behaviour per node. | Silent drops possible with CONTINUE; the budget is the guard. |
+
+### Time
+
+| Capability | What it does | How | Guarantee | Limit |
+|---|---|---|---|---|
+| Five clocks | Timeouts that mean what you expect. | Idle, element, node deadline, run deadline and queue wait; pause-aware; plugin heartbeats. | Pause and queue time never cause a timeout. | Expression timeouts are known only at the first message. |
+
+### Control
+
+| Capability | What it does | How | Guarantee | Limit |
+|---|---|---|---|---|
+| Live steering | Pause, step, breakpoint, skip, retry, stop. | Ordered per run, acknowledged, audited. | No races between commands. | Some endpoints bypass the reviewer. |
+| Supervisors & reviewers | Automation on the control bus. | Event feed in, commands out; reviewers can veto any command. | Isolated, rate limited, auditable. | Event delivery is best effort. |
+
+### Governance
+
+| Capability | What it does | How | Guarantee | Limit |
+|---|---|---|---|---|
+| Admission control | Decide who may run. | Global / workflow / session caps, priority, fair queue, 429, queue timeout. | No id without a slot. | In-memory scheduler. |
+| Idempotent start | Safe client retries. | Idempotency-Key per session and workflow; durable with the file log. | Duplicate start returns the first id. | Window is 10 minutes by default. |
+
+### Durability
+
+| Capability | What it does | How | Guarantee | Limit |
+|---|---|---|---|---|
+| Checkpoints & resume | Continue after a reboot. | Per-node outputs with a durable end marker; resume claims once. | A finished node is never re-run on resume. | Needs directories; not in PostgreSQL yet. |
+| Restart from a node | Re-run part of a finished or failed run. | Descendants re-run, boundary outputs replayed; admission-checked. | Independent branches untouched. | Bounded by retained runs and caps. |
+| Definition versions | Safe edits and rollback. | Newest 20 versions per workflow; runs pinned by content hash. | A run never changes under you. | No diff or pinning in the API yet. |
+
+### Observability
+
+| Capability | What it does | How | Guarantee | Limit |
+|---|---|---|---|---|
+| Metrics & traces | See why it is slow or stuck. | Run and node observations; counters, timers, gauges. | One reference of meters. | Needs a tracer on the classpath for spans. |
+| Live progress | Follow a run as it happens. | Ordered events to REST, SSE and MCP. | State never dropped. | Log lines are best effort. |
+
+### Extensibility
+
+| Capability | What it does | How | Guarantee | Limit |
+|---|---|---|---|---|
+| Plugin API | Add new node types. | Triggers, processors, terminals; defaults for timeouts; heartbeats. | Engine options hidden from plugins. | Runs in the engine JVM. |
+| LLM & MCP nodes | Agent-style workflows. | Tool calling, tool discovery, per-run token and cost budget, allowed tools. | A budget stops runaway cost. | One call may overshoot; no per-provider rate limit. |
+| Approval steps | Human in the loop. | WAIT_FOR_SIGNAL holds each message until a signal arrives. | Ordered and audited like any command. | The wait is in memory. |
+
+### Security
+
+| Capability | What it does | How | Guarantee | Limit |
+|---|---|---|---|---|
+| Safe-by-default reads | Limit what a workflow can reach. | Allow-listed env and system variables, restricted script and expression surface, process execution off unless a command list (or yukta.process.allow-any) is set. | Secrets by name stay blocked. | Command allow-list is opt-in. |
+| Roles and actors | Know who did what. | REST and MCP roles VIEWER / OPERATOR / ADMIN, hashed, rotating and session-limited keys; actor in the audit, shown on the Control page (GET /api/control/audit). | Attribution of control actions. | The Control page lists who sent which command. |
+
+## Guarantees and limits
+
+### Delivery semantics
+
+| Topic | Behaviour |
+|---|---|
+| Delivery | At-least-once. A side effect between plugin action and end marker can repeat after a crash; retries repeat per message. Plugins de-duplicate on the stable message id. |
+| Command order | FIFO per run, acknowledged, audited; commands for different runs are independent. |
+| Status order | Node status only moves forward; a late event cannot reopen an ended node. |
+| Output atomicity | With retry or onError, a message yields all of its output or none. |
+| Start | Exactly one execution id per slot; same Idempotency-Key returns the first id. |
+| Resume | Once per run, only with an unchanged definition. |
+| Durability switches | Each backend has its own switch (session.store-type, execution-log.dir, restart.dir, session-memory.dir), so a deployment can be half durable. The profiles above assume the matching ones are set. |
+
+
+### The five clocks
+
+| Clock | What it covers |
+|---|---|
+| Queue wait | Until a slot is granted. Optional timeout ends the run TIMED_OUT. |
+| Run deadline | Whole run, pause-aware. |
+| Node deadline | From first activity; not restarted by output; pause-aware. |
+| Node idle | Restarts on every input, output, attempt, heartbeat. |
+| Element timeout | Per message attempt; retry and onError apply. |
+
+
+### What survives a restart
+
+| What | In-memory (default) | File (directories set) | PostgreSQL + checkpoint dir |
+|---|---|---|---|
+| Workflow definitions and versions | \*\*No.\*\* Gone on restart | \*\*Yes.\*\* Kept, newest 20 versions, atomic writes | \*\*Yes.\*\* Kept, newest 20 versions |
+| Session config | \*\*No.\*\* Gone | \*\*Yes.\*\* Kept | \*\*Yes.\*\* Kept |
+| Run history and audit | \*\*No.\*\* Gone; nothing to mark ABORTED | \*\*Partly.\*\* Kept in JSONL; last events can be lost on power loss unless yukta.execution-log.fsync is on | \*\*Yes.\*\* Kept; trimmed to newest runs |
+| Runs in flight at the crash | \*\*No.\*\* Vanish | \*\*Yes.\*\* Marked ABORTED on boot | \*\*Yes.\*\* Marked ABORTED on boot |
+| Idempotency keys | \*\*No.\*\* Gone | \*\*Yes.\*\* Reloaded from the log | \*\*Yes.\*\* Ride the log |
+| Node outputs (checkpoints) | \*\*Partly.\*\* Memory, capped; with a spill directory the overflow goes to files | \*\*Yes.\*\* On disk if restart dir is set; no caps | \*\*Partly.\*\* Still files or memory, not PostgreSQL |
+| Resume an aborted run | \*\*No.\*\* Not possible | \*\*Yes.\*\* Needs log dir and restart dir | \*\*Partly.\*\* Log in PostgreSQL, outputs on files |
+| Queued starts and slots | \*\*No.\*\* Lost | \*\*Partly.\*\* Place in line and slot lost. The start was logged before the wait, so the run is marked ABORTED on boot and can be recovered | \*\*Partly.\*\* Place in line and slot lost. The start was logged before the wait, so the run is marked ABORTED on boot and can be recovered |
+| Signal waits (approvals) | \*\*No.\*\* Lost | \*\*No.\*\* Lost; a resumed run waits again | \*\*No.\*\* Lost; a resumed run waits again |
+| Session memory (chat history) | \*\*No.\*\* Gone | \*\*Yes.\*\* Durable with its own directory | \*\*Partly.\*\* Not in PostgreSQL; durable only if its own directory is set |
+| Limits changed at run time | \*\*No.\*\* Reset | \*\*Yes.\*\* Restored from the log | \*\*Yes.\*\* Restored from the log |
+| Live progress and metrics | \*\*No.\*\* Gone: the in-memory log is empty after a restart | \*\*Partly.\*\* Newest 500 runs restored | \*\*Partly.\*\* Newest 500 runs restored |
+
+
+### Pitfalls
+
+| Pitfall | How Yukta handles it |
+|---|---|
+| Cycles and malformed graphs | Reject at definition time |
+| Join after a branch never fires | Trigger rules |
+| Fan-out to a slow child | Credit-based flow control |
+| Late subscriber misses data | Start source when consumers are ready |
+| Timeouts count queue and pause | Separate clocks |
+| Long work looks dead | Heartbeats |
+| Transient failure fails the run | Retry with backoff |
+| Retries duplicate side effects | Idempotency keys |
+| Fail-fast vs partial results | Error handlers |
+| Crash loses state | Event history and checkpoints |
+| Re-running part of a graph | Clear downstream |
+| Definition changes under a run | Versioning |
+| Unbounded concurrency | Limits and pools |
+| Cancellation does not reach work | Cooperative then forced |
+| Commands race | Serialised signals |
+| Cannot see why it is slow | Metrics and traces |
+| Poison message | Dead-letter ports |
+| UI shows finished run with running nodes | One ordered history |
+| Large payloads in buffers | Claim check |
+| Starvation and priority | Priority queues |
+
+
+The full list of configuration properties, metrics and enums is in the [core reference](/contributing/core-reference).
+
+## Architecture decisions
+
+<AccordionGroup>
+<Accordion title="Reactor stream per edge with back-pressure">
+**Context.** Fan-out and slow consumers must not blow memory or reorder data.
+
+**Decision.** Each edge is a Reactor stream, subscribed before the source connects; no queue between nodes.
+
+**Consequences.** Bounded memory and simple semantics; slowest child paces the fan-out; stalls propagate.
+
+**Alternatives considered.** Queues or a message broker between nodes: decouples speeds but needs sizing and persistence, and loses end-to-end back-pressure.
+
+**Revisit when.** a non-critical branch must not slow the main path, or streams must cross machines.
+
+</Accordion>
+<Accordion title="Single JVM with in-memory control state">
+**Context.** Fast to build, easy to reason about ordering.
+
+**Decision.** Scheduler, tracker, valves and command queues are memory structures; durability is added behind interfaces.
+
+**Consequences.** Low latency and simple code; crash loses live state; no standby.
+
+**Alternatives considered.** Put state in a database or cluster framework from day one: more resilient, but adds latency and operational weight early on.
+
+**Revisit when.** availability needs exceed restart plus resume.
+
+</Accordion>
+<Accordion title="At-least-once with idempotent plugins">
+**Context.** Exactly-once across plugin side effects cannot be guaranteed.
+
+**Decision.** Retries and resumes may repeat work; message id is stable and an attempt header is supplied.
+
+**Consequences.** Honest guarantee; plugin authors carry the burden.
+
+**Alternatives considered.** Aim for exactly-once with a transactional outbox per node: only works where the target system supports it.
+
+**Revisit when.** a node type needs transactions with its target.
+
+</Accordion>
+<Accordion title="Durable node end marker, not log fsync">
+**Context.** A resume must not trust events that were queued but never forced.
+
+**Decision.** The end marker is written and forced together with the output before completion moves downstream.
+
+**Consequences.** Resume skips only truly finished nodes; small window remains before the marker.
+
+**Alternatives considered.** fsync every log event: slower, and still does not tell you a node's output is complete.
+
+**Revisit when.** checkpoints move to a database with its own commit semantics.
+
+</Accordion>
+<Accordion title="Forward-only node status">
+**Context.** Events arrive late and out of order.
+
+**Decision.** Status only moves PENDING &lt; QUEUED &lt; RUNNING &lt; an end state; metadata is still merged.
+
+**Consequences.** UIs never show a finished run with running nodes; some late information is ignored.
+
+**Alternatives considered.** Accept any order and reconcile later: UI glitches such as a finished run with running nodes.
+
+**Revisit when.** re-opening a node becomes a feature (e.g. retry shown as the same node).
+
+</Accordion>
+<Accordion title="Supervisors and reviewers on one control bus">
+**Context.** Humans, rules and AI should steer runs through the same safe path.
+
+**Decision.** Every command is ordered, reviewable and audited; supervisors are isolated and rate limited.
+
+**Consequences.** One enforcement point; commands that bypass it are bugs.
+
+**Alternatives considered.** Hard-coded alert rules in the engine, or separate APIs for people and automation: two paths to keep safe.
+
+**Revisit when.** commands need per-tenant policy outside the JVM.
+
+</Accordion>
+<Accordion title="PostgreSQL through R2DBC, schema by Flyway">
+**Context.** The engine is reactive; schema needs to be versioned.
+
+**Decision.** R2DBC at run time, Flyway over JDBC for migrations, one module, selected by property.
+
+**Consequences.** Non-blocking access; two connection styles to configure; native-image metadata needed.
+
+**Alternatives considered.** JDBC with a thread pool, or a document database: simpler to start, blocks threads or loses relational history.
+
+**Revisit when.** a second database or sharding is needed.
+
+</Accordion>
+<Accordion title="Remote workers as node invocation (proposed)">
+**Context.** Scale-out is needed without moving the DAG.
+
+**Decision.** The control plane keeps graph and policy and calls workers per node attempt over a bidirectional stream; workers connect out.
+
+**Consequences.** All policies carry over; control plane remains a data hop and a single point of failure until phase 6.
+
+**Alternatives considered.** Run whole workflows on workers (loses per-node isolation, control must be proxied) or active/standby only (does not scale out).
+
+**Revisit when.** payloads grow beyond the frame limit, or latency to workers matters.
+
+</Accordion>
+</AccordionGroup>
+
+## Glossary
+
+| Term | Meaning | Note |
+|---|---|---|
+| DAG | Directed acyclic graph: nodes joined by one-way edges with no loops. The shape of every workflow. | Loops are rejected at definition time. |
+| Trigger / Processor / Terminal | The three node kinds: start, transform, end. | Only processors can have retry and onError policy. |
+| Error port and dead letter | A separate output of a node that carries messages that failed, so they can be saved instead of lost. | Needs onError ROUTE and an edge with sourcePort error. |
+| Message and message id | The unit of data on an edge. The id is stable across retries. | Use it as the idempotency key in plugins. |
+| Run / execution / execution id | One live execution of a workflow and its identifier. | Everything (control, audit, logs) is keyed by it. |
+| Session | A scope grouping workflows, runs and limits. | Fair queueing is per session. |
+| Reactive stream (Reactor, Flux) | A pipeline of data that moves as the consumer asks for it. Yukta is built on Project Reactor. | The reason slow consumers slow producers instead of filling memory. |
+| Back-pressure | A slow consumer making upstream producers wait. | Keeps memory bounded; also means one slow branch can slow a fan-out. |
+| Fan-out | One node feeding several children. | Paced by the slowest child. |
+| Join rule | What a node with several parents does when a parent fails: ALL_SUCCESS, ALL_DONE or ONE_SUCCESS. | Avoids a join that never fires. |
+| Valve | A gate in front of a node that implements pause, step, skip and breakpoints. | Why pausing is exact and cheap. |
+| Idle timeout and heartbeat | A node fails if silent too long; a plugin doing long silent work calls a heartbeat to say it is alive. | The most common cause of surprising TIMED_OUT. |
+| Deadline | The longest a node (or the run) may take in total, whatever its activity. | Not restarted by output or heartbeat. |
+| Retry, backoff, jitter | Re-run a failed message after a growing, slightly random delay. | Jitter stops many retries hitting a service together. |
+| Failure budget | If too many messages fail in a time window, fail the node instead of quietly dropping more. | Guards against silent data loss with CONTINUE or ROUTE. |
+| Admission / scheduler | The gate that decides whether a start may run now, wait or be refused (HTTP 429). | Limits are off by default. |
+| Idempotency key | A caller-supplied key that makes a repeated start return the first run instead of starting another. | Safe client retries. |
+| Idempotent plugin | A plugin whose repeated execution for the same message has the same effect as one. | How at-least-once delivery stays correct. |
+| At-least-once | A step may run more than once but never zero times (after it was started). Exactly-once is not achievable here. | Plugins must tolerate duplicates. |
+| Control plane | The part that manages runs (admit, order commands, steer) as opposed to the data plane that moves messages. | Today lives in one JVM. |
+| Command and FIFO | An instruction to a live run, applied in first-in-first-out order per run and acknowledged. | No command races. |
+| Reviewer | A hook that can refuse any command before it runs; the caller gets HTTP 403. | A policy point for humans and automation alike. |
+| Supervisor | A program that watches the event feed and returns commands, in or out of the JVM. | Rate limited, isolated, can be dry-run. |
+| Execution log | An append-only record of run starts, ends, control commands and idempotency keys. | Memory by default; file or PostgreSQL if configured. |
+| Checkpoint | A node's recorded output, kept so it can be replayed instead of recomputed. | Memory is capped; file keeps everything. |
+| Durable end marker | A small file written and forced to disk with a node's output when the node completes. | What a resume trusts to skip a node. |
+| ABORTED | The status given on boot to a run that never finished because the process died. | Candidates for resume. |
+| Restart vs resume | Restart starts a new run (optionally from one node) using recorded outputs; resume continues an aborted run after a crash. | Resume needs file stores and an unchanged definition. |
+| Definition version (content hash) | A fingerprint of the graph a run used, stored with the run. | Lets you tell which version ran. |
+| Claim check | Passing a reference to big data instead of the data itself. | Planned for large payloads. |
+| Virtual threads | Cheap threads used so blocking plugins do not tie up the event loop. | Why blocking plugins are allowed. |
+| Observation / span | A timed record of work (one for the run, one per node) that becomes a trace when a tracer is present. | Needs a Micrometer tracer on the classpath. |
+| SSE | Server-sent events: a one-way live stream to browsers and agents. | How progress and the event feed are delivered. |
+| MCP | Model Context Protocol: how AI agents call tools; Yukta exposes control through it. | Another client of the same gateway. |
+| R2DBC and Flyway | Non-blocking database access at run time, and versioned schema migrations. | How PostgreSQL support is built. |
+| Remote worker | A separate process that runs a node on the control plane's behalf (designed, not built). | The planned scale-out path. |
+| API key and role | A shared secret that guards the REST API (and, separately, MCP). Named keys carry a role: VIEWER reads, OPERATOR steers runs, ADMIN does everything. | The audit shows the key name as the actor. |
+| Host and Origin check | A server-side test of which website name and page a request came from, so a page in the operator's browser cannot drive a local server (CSRF, DNS rebinding). | Done by HostOriginFilter while no API key is set: unknown Host or foreign Origin on a non-GET gets 403 (yukta.allowed-hosts, yukta.allowed-origins). |
+| Expression ($\{...\}) | A placeholder in a node's configuration that is filled from the message, the run or the environment just before the node runs. | See Expressions & Secrets. |
+| B16, S4, F6 ... | IDs in [Bugs page](/internal/bugs) and 11-remediation-plan.md: B = bug, S = security, F = feature, R = restart. | Used in the Risks section. |

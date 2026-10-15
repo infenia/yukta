@@ -153,6 +153,76 @@ a.card:hover,
   border-color: var(--yk-orange);
 }
 
+/* Motion: subtle and fast. Every new effect lives inside no-preference, so reduced-motion users
+ * (and the block below) get none of it. Hidden initial states only apply under .yk-js, which
+ * motion.js sets, so the page stays fully visible without JavaScript. */
+@media (prefers-reduced-motion: no-preference) {
+  .card,
+  a.card,
+  [data-component-part="card"] {
+    transition:
+      transform 180ms ease,
+      box-shadow 180ms ease,
+      border-color 180ms ease;
+  }
+
+  .card:hover,
+  a.card:hover,
+  [data-component-part="card"]:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px -8px color-mix(in srgb, var(--yk-orange) 45%, transparent);
+  }
+
+  /* Slow drift of the logo-colour bar. */
+  body::before {
+    background-size: 200% 100%;
+    animation: yk-bar-shift 14s ease-in-out infinite alternate;
+  }
+
+  @keyframes yk-bar-shift {
+    from {
+      background-position: 0% 0;
+    }
+    to {
+      background-position: 100% 0;
+    }
+  }
+
+  /* Scroll reveal, driven by motion.js. */
+  .yk-js .yk-reveal {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  .yk-js .yk-reveal.yk-in {
+    opacity: 1;
+    transform: none;
+    transition:
+      opacity 350ms ease,
+      transform 350ms ease;
+  }
+
+  /* Callouts, tables and code blocks fade in through the same .yk-reveal mechanism (motion.js). */
+
+  /* Inline links: the underline slides in from the left on hover. */
+  .prose p a:not(.card),
+  .prose li a:not(.card) {
+    text-decoration: none;
+    background-image: linear-gradient(currentColor, currentColor);
+    background-repeat: no-repeat;
+    background-position: 0 100%;
+    background-size: 0% 1px;
+    transition:
+      background-size 220ms ease,
+      color 150ms ease;
+  }
+
+  .prose p a:not(.card):hover,
+  .prose li a:not(.card):hover {
+    background-size: 100% 1px;
+  }
+}
+
 /* Respect users who ask for less motion. */
 @media (prefers-reduced-motion: reduce) {
   * {

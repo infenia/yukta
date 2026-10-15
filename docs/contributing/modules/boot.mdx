@@ -1,0 +1,721 @@
+---
+title: "Boot module"
+description: "Boot is the executable. It contains almost no logic of its own: it pulls the engine (core), the REST layer (web), the AI-agent endpoint (mcp), the React screens (ui) and the chosen plugins into one Sp"
+---
+
+Boot is the executable. It contains almost no logic of its own: it pulls the engine (core), the REST layer (web), the AI-agent endpoint (mcp), the React screens (ui) and the chosen plugins into one Spring Boot program, decides which settings apply (dev or prod), serves the web UI, and can be compiled into a native binary. Its risks are about defaults and packaging, not algorithms: what is switched on, who can reach it, and what is frozen at build time.
+
+| Property | What it means |
+|---|---|
+| Thin assembly | One class starts Spring; component scanning finds every module's beans. The behaviour you see comes from other modules, boot decides what is included and how it is configured. |
+| Profile decides safety | With no profile the app runs as dev: verbose logs including message payloads, extra management endpoints. A native binary forces prod instead. The same code is more or less exposed depending on one setting. |
+| Loopback by default | The server listens on 127.0.0.1 unless YUKTA_SERVER_ADDRESS says otherwise, so a fresh install is not reachable from the network. The container image opts in to 0.0.0.0. |
+| Plugins fixed at build | Optional plugins are compiled in or left out with -Pyukta.plugins. There is no way to add or remove one on a running server. |
+
+<Note>
+  Open risks, bugs and improvement ideas for this module are on the internal pages (sign-in required): [Risks](/internal/risks#boot), [Bugs](/internal/bugs) and [Improvements](/internal/improvements#boot).
+</Note>
+
+## Primer
+
+Yukta is built as many modules (engine, REST layer, MCP server, UI, plugins). Someone has to put them together into one program you can run, choose its settings, serve the web screens and ship it, either as a normal Java program or as a native binary. That someone is **boot**. It has one Java class that starts the app, one class that serves the web UI, three configuration files, a build script, and four test classes.
+
+<Tip>
+  Think of the box a product ships in. The box does not make the product, but it decides what is inside (which plugins), what is printed on the label (default settings), whether the lid is locked (loopback only, prod profile) and how it is carried (JVM jar or native binary). A mistake in the box, such as a missing part or an unlocked lid, ruins the product even if every part is fine.
+</Tip>
+
+### Where boot sits
+
+| Layer | Role |
+|---|---|
+| Clients | Browser, REST callers, MCP agents, CLI |
+| web / mcp / ui | Controllers, the MCP endpoint, the built React app |
+| core | The workflow engine and control plane |
+| plugin-api + plugins | The contract and the node types |
+| boot | Starts it all in one process. This page. (this module) |
+
+Boot depends on every other module and nothing depends on boot. It owns the entry point, the YAML configuration, the single-page-app hosting and the native image.
+
+### The vocabulary in eight cards
+
+| Term | Meaning | Example |
+|---|---|---|
+| Spring profile | A named set of settings. Boot has dev and prod. A profile adds a second YAML file on top of the base file. | application-prod.yaml turns off debug logging. |
+| Default profile | The profile used when none is chosen. Here it is dev (spring.profiles.default). | java -jar yukta.jar with no arguments runs as dev. |
+| Optional plugin | A plugin you may leave out of the build. Nine can be chosen; triggers, terminals, supervisors and control planes are always included. | -Pyukta.plugins=http-request,script-js |
+| Native image | A GraalVM-compiled executable that starts fast and needs no JVM, but is fixed at build time (no new classes, reflection must be declared). | ./gradlew nativeCompile produces a binary named yukta. |
+| Actuator | Spring's management endpoints (health, metrics, loggers...). They live on the same port as the API. | /actuator/health |
+| SPA | Single-page application: the React UI is one index.html plus scripts. The browser handles page changes itself. | Opening /sessions/x must still return index.html. |
+| Deep link | A URL that points inside the SPA, like /sessions/x. The server has no such file, so it must answer with index.html. | Without a fallback route, a page refresh gives 404. |
+| MCP endpoint | The address AI agents use to call Yukta's tools. It is /mcp, in stateless, async mode. | An agent posts a tool call to /mcp. |
+
+### One example, end to end
+
+A cold start of the native binary, up to a user pasting the link /sessions/x into a browser. Click a step to see what happens, why, and what can go wrong.
+
+<Steps>
+<Step title="Run the binary">
+**What happens.** The operating system starts the yukta executable (or java -jar). main() turns on automatic Reactor context propagation, so request ids and tracing values follow a message across threads.
+
+**Why it is built this way.** Without context propagation the request id in log lines would be lost whenever work hops to another thread, and log correlation would break.
+
+**Can go wrong.** The hook is global and set once. If another library sets a conflicting hook, nothing here detects it.
+
+</Step>
+<Step title="Pick a profile">
+**What happens.** In a native image with no --spring.profiles.active= (or -Dspring.profiles.active=) argument, main() sets prod. In a normal JVM, no profile means the default, dev.
+
+**Why it is built this way.** A native binary is what you ship, so it should be safe without extra flags. A developer running from the IDE wants verbose logs, so dev is the default.
+
+**Can go wrong.** A JVM jar started with no flags runs as dev: debug logs including message payloads and extra management endpoints. The choice is easy to forget.
+
+</Step>
+<Step title="Build context">
+**What happens.** Spring scans everything under com.infenia.yukta, so beans from core, web, mcp and every included plugin appear. The base YAML and the profile YAML are merged. Beans are created eagerly (no lazy initialisation).
+
+**Why it is built this way.** Eager creation means a bad setting fails at startup, not on the first request at 3 a.m.
+
+**Can go wrong.** Scanning is by package, not by an explicit list. A bean that happens to be on the classpath is switched on whether or not anyone meant it.
+
+</Step>
+<Step title="Listen on :8080">
+**What happens.** Netty starts and binds to server.address, which is $\{YUKTA_SERVER_ADDRESS:127.0.0.1\}, on the default port 8080. Virtual threads are enabled for blocking work.
+
+**Why it is built this way.** Loopback means a laptop install is not reachable from the office network. The container image sets YUKTA_SERVER_ADDRESS=0.0.0.0 because a container must listen on all its interfaces.
+
+**Can go wrong.** Bind to 0.0.0.0 with no yukta.api-key and the REST API is open. Even with a key, /actuator and Swagger have no key check (see Risks).
+
+</Step>
+<Step title="GET /sessions/x">
+**What happens.** A user pastes a link into the browser. The browser asks the server for the path /sessions/x.
+
+**Why it is built this way.** The path has no file behind it, because it is a screen of the React app, not a server resource.
+
+**Can go wrong.** If the server answered 404 here, every refresh or shared link would break.
+
+</Step>
+<Step title="SPA fallback">
+**What happens.** SpaWebFluxConfig answers any GET that is not /api, /actuator, /mcp, /sse, /v3, Swagger or a static file with index.html. The response is marked no-cache and carries a strict Content-Security-Policy.
+
+**Why it is built this way.** No-cache means a new release shows up on the next load. The CSP allows only same-origin scripts and connections, so HTML injected through a plugin's node design cannot load anything external.
+
+**Can go wrong.** A mistyped API path outside /api/ returns the HTML page with status 200, not a 404, which can confuse a client that expects JSON.
+
+</Step>
+<Step title="Hashed assets">
+**What happens.** The page asks for /assets/index-3fa9.js and friends. These are served from the ui jar's static folder with a 365-day cache.
+
+**Why it is built this way.** The file name contains a hash of its content, so a new build has a new name. Caching for a year is therefore safe and the second visit loads instantly.
+
+**Can go wrong.** Top-level files with fixed names (favicon, manifest, any /\*.json) get the same 365-day cache but are not hashed, so a changed one can be stale in browsers.
+
+</Step>
+<Step title="UI calls /api">
+**What happens.** The running UI calls /api/... on the same origin. Those requests reach web controllers, protected by the optional api key filter in the web module.
+
+**Why it is built this way.** Same origin means no cross-site configuration is needed, which is why the CSP can be so strict.
+
+**Can go wrong.** Nothing in boot restricts which origins may call the API. If a front proxy changes origins, the CSP connect rule will block the UI.
+
+</Step>
+</Steps>
+
+### The module in plain words
+
+<Steps>
+<Step title="Choose">
+at build time you pick which optional plugins go in, and whether you build a jar or a native binary.
+</Step>
+<Step title="Start">
+main() sets up context propagation and, for a native binary without a profile, picks prod.
+</Step>
+<Step title="Configure">
+the base YAML is read, then the dev or prod file on top.
+</Step>
+<Step title="Assemble">
+Spring finds every bean from every included module and starts the web server.
+</Step>
+<Step title="Serve">
+API, MCP, management endpoints and the React app all answer on one port.
+</Step>
+<Step title="Stay up">
+there is no cluster logic; everything is one process with in-memory defaults.
+</Step>
+</Steps>
+
+## Components
+
+### Launcher
+
+*main(), profile guess*
+
+Starts the application and chooses the profile in the one case where it must not be left to chance: a native image started without a profile.
+
+- main() first calls Hooks.enableAutomaticContextPropagation(). This makes Reactor copy context values (request id, tracing) from one thread to the next. Reason: Yukta is reactive, and without this the request id in log lines would vanish whenever work moves to another thread.
+- If the process is a native image and no argument starts with --spring.profiles.active= or -Dspring.profiles.active=, main() sets the system property to prod. Example: ./yukta runs as prod; ./yukta --spring.profiles.active=dev runs as dev.
+- In a normal JVM the launcher does nothing about profiles. The default profile in the base YAML, dev, applies. Example: java -jar boot.jar with no flags gives debug logging.
+- Only command-line arguments are checked. If a native image is started with only the SPRING_PROFILES_ACTIVE environment variable, main() still sets the system property to prod; which of the two Spring then prefers was not tested.
+
+- **Guarantees.** Context propagation is on before any Spring code runs. An explicit profile argument is never overwritten.
+- **State.** No state. The profile choice lives in a JVM system property for the rest of the process.
+- **Ceiling.** One class, no scaling concern.
+- **On failure.** If Spring fails to start (bad config, port in use) the process exits with the Spring error. There is no custom start-up diagnostics.
+
+**Settings:** `Hooks.enableAutomaticContextPropagation()`, `--spring.profiles.active=<name> (also -D form)`, `SPRING_PROFILES_ACTIVE is not checked by main()`
+
+### Layered Configuration
+
+*base + dev or prod*
+
+Provides every setting as a base file overlaid by the active profile's file.
+
+- application.yaml is always read. It sets the loopback address, virtual threads, the MCP server (name yukta, version 0.0.1, stateless, async, endpoint /mcp, no stdio), strict JSON (unknown fields are rejected), the console log pattern with a request id, and the management exposure.
+- application-dev.yaml adds more management endpoints and verbose logging. application-prod.yaml quiets logging, turns the banner off and switches on gzip compression for responses over 1 KB.
+- Profile files are merged over the base, key by key. Prod does not set management exposure, so prod inherits the small base list (health, info, metrics). Dev replaces it with a longer list.
+- ProfileConfigTest reads the real files and asserts that prod has no TRACE for the stream package, INFO for com.infenia.yukta, the small actuator list and no lazy initialisation, and that dev has TRACE and the longer list. This is what stops a casual edit from leaking payload logs into prod.
+- Strict JSON (fail-on-unknown-properties: true) means a client that sends an extra field gets an error rather than silent acceptance. Reason: a misspelt option should not be ignored.
+
+- **Guarantees.** A fresh install without any flags is loopback-only, and prod never has TRACE payload logging or debug management endpoints (guarded by a test).
+- **State.** Files are read at start. Changing them needs a restart. Nothing is stored.
+- **Ceiling.** Settings are plain keys with no validation of the YAML itself; a typo in a key name is silently ignored by Spring except for typed properties.
+- **On failure.** A bad value (for instance unreadable type) stops start-up. A misspelt key does not fail anything; it is just ignored.
+
+**Settings:** `server.address = ${YUKTA_SERVER_ADDRESS:127.0.0.1}`, `spring.profiles.default = dev`, `spring.jackson.deserialization.fail-on-unknown-properties = true`, `spring.ai.mcp.server.* (see map)`
+
+### Assembled Application
+
+*component scan, one process*
+
+Turns every module's classes into running beans inside one web server.
+
+- The application class carries @SpringBootApplication in com.infenia.yukta, so Spring scans that whole package tree: core, web, mcp, messaging and every plugin on the classpath. Boot lists no beans itself.
+- Dependencies are fixed in build.gradle.kts: core, web, mcp, ui, the internal-core processors, the API/constant/schedule triggers, notify and console terminals, the rule supervisor and three control planes (rule, model, rules-first). They are always in. The nine optional plugins join depending on the build flag.
+- Boot also brings the WebFlux, validation and actuator starters. It has no Spring Security: access control is done by plain web filters in web and mcp (roles, session-limited keys, host and origin checks), and the start-up guard ExposureGuard lives in boot. PostgreSQL stores and remote workers are optional modules switched on at build time.
+- Defaults are in-memory: session store type in-memory, plugin log store memory. A restart starts from nothing unless you configure files.
+- Startup is eager: a missing bean or a bad property stops the process immediately.
+
+- **Guarantees.** If the context starts, every module's beans are present and consistent. Eager creation means a defect appears at boot.
+- **State.** All engine state is in this one process (see core). Boot itself stores nothing.
+- **Ceiling.** One process, one port, one JVM. Scaling means running more copies, but nothing shares state between them.
+- **On failure.** A failed bean stops the whole app. There is no partial start where only the UI works.
+
+**Settings:** `yukta.session.store-type = in-memory`, `yukta.logs.store.backend = memory`, `scan base package com.infenia.yukta`
+
+### SPA Host
+
+*assets, fallback, CSP*
+
+Serves the React app from the ui jar and makes client-side routes work.
+
+- Files under /assets/ (Vite writes hashed file names) and flat top-level files ending in .js, .css, .woff, .woff2, .ttf, .svg, .png, .jpg, .webp, .ico, .json or .webmanifest are served with a 365-day cache. A hashed name changes when the content changes, so a long cache is safe for /assets/.
+- Every other GET is answered with index.html, except /api, /actuator, /mcp, /sse, /v3, /swagger-ui, /swagger-ui.html and /webjars, and except static asset paths. Reason: the router is looked at before the resource handler, so without these exclusions it would hide real files and real endpoints.
+- index.html is sent with Cache-Control no-cache, must-revalidate, and a Content-Security-Policy: default-src 'self'; style-src 'self' 'unsafe-inline'; img-src and font-src also allow data:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'. In plain words: scripts and connections only from the same origin, no plugins or embedding in frames; inline styles are allowed because React Flow positions nodes with style attributes.
+- The CSP header exists only on this fallback response. API responses and static assets do not get it; they do not need it, since the CSP matters for the document the browser renders.
+- Exclusions include /sse/\*\*, a leftover alias. The MCP filter still maps the exact path /sse to /mcp for old clients, so the exclusion is harmless but keeps a historic name in the code.
+
+- **Guarantees.** A refresh or pasted deep link always returns the app; a new release is picked up on the next load because index.html is never cached.
+- **State.** Stateless. The files come from the ui jar on the classpath.
+- **Ceiling.** The index file is read per request from the classpath resource. For heavy traffic a CDN in front would take the load; boot has no ETag or compression for assets in dev (gzip is on in prod).
+- **On failure.** If ui was not built, static/index.html is missing and the fallback fails at request time, not at start.
+
+**Settings:** `Cache-Control: max-age 365 days (assets)`, `Cache-Control: no-cache, must-revalidate (index.html)`, `CONTENT_SECURITY_POLICY constant`
+
+### Engine Tuning Defaults
+
+*yukta.\* and control.bus.\**
+
+Writes down a handful of engine settings so they are visible and changeable without code.
+
+- control.bus.batch.size 100 and control.bus.batch.timeout.ms 50: the control bus collects up to 100 commands, or waits at most 50 ms, before processing a batch. control.bus.buffer.size 256 is its internal buffer. The code uses the same numbers as its built-in defaults.
+- yukta.tracker.cleanup-ttl 10m: how long a finished run's data stays in the tracker. yukta.streaming.status-history-ttl-minutes 5: how long recent progress is kept for late subscribers (the code accepts 1 to 30).
+- yukta.session.execution-timeout-seconds 3600, yukta.session.store-type in-memory, and the two sub-directory names file-log-sub-dir (modified-files) and result-log-sub-dir (results).
+- yukta.logs.store.backend memory with a 30-minute default retention (the comment says the maximum is 1440 minutes, 24 hours). Only the memory store is registered today, although the comment says memory | file.
+- Everything else the engine reads (limits, queue, restart directories) has no entry in boot. Its default lives in core code, so boot's YAML is not the whole list of settings.
+
+- **Guarantees.** These values are what a fresh start uses. Unset settings fall back to the defaults written in core.
+- **State.** None here. Values are read at start.
+- **Ceiling.** Because they are only defaults, a deployment that needs limits, a durable log or file stores must add keys of its own; boot does not provide a production profile for state.
+- **On failure.** A wrongly typed value stops start-up. A key that nothing reads, such as one left over after a rename, is silently ignored.
+
+**Settings:** `control.bus.batch.size / batch.timeout.ms / buffer.size`, `yukta.tracker.cleanup-ttl`, `yukta.streaming.status-history-ttl-minutes`, `yukta.session.*`, `yukta.logs.store.*`
+
+### Management Surface
+
+*actuator health, metrics*
+
+Gives operators health, info and metrics, and developers a few more diagnostics, on the same port as the API.
+
+- Base and prod expose health, info and metrics. Dev adds loggers, mappings and threaddump. Not exposed in either profile: heapdump, env, beans, shutdown.
+- Health details use show-details: when-authorized. Boot contains no Spring Security, so in our view nobody counts as authorised and detail fields are most likely never shown; this was not run to confirm.
+- Management shares port 8080; there is no separate management port. The SPA router excludes /actuator/\*\*, so these paths are never answered with index.html.
+- The API key filter in web now also covers /actuator (except /actuator/health): with a key set, the rest needs an ADMIN key. With no key on a loopback bind, the actuator is open to local callers; in the dev profile loggers can be read and changed (POST to /actuator/loggers). Swagger and /v3 are still outside any key check.
+
+- **Guarantees.** Prod exposure is exactly health, info, metrics (asserted by ProfileConfigTest). No endpoint that dumps memory is exposed anywhere.
+- **State.** None. Metrics are in memory in the process.
+- **Ceiling.** Same port and thread pool as the API, so a scrape storm competes with real requests.
+- **On failure.** If the management endpoint is not reachable, probes fail and an orchestrator may restart a healthy app.
+
+**Settings:** `management.endpoints.web.exposure.include`, `management.endpoint.health.show-details = when-authorized`
+
+### Plugin Selection
+
+*build-time -Pyukta.plugins*
+
+Decides at build time which optional plugins are linked into the app.
+
+- -Pyukta.plugins accepts default (all except script-js, the default), all, none, or a comma list. The nine valid names are process-executor, http-request, file-io, sql-query, llm-call, session-memory, decision, mcp-tool-call and script-js. Two more modules are switched on by their own flags: -Pyukta.persistence=postgres (PostgreSQL stores) and -Pyukta.workers=true (remote workers).
+- An unknown name fails the Gradle configuration with a message listing the valid names. Example: -Pyukta.plugins=http-requst stops before compiling anything.
+- Triggers (api, constant source, schedule), terminals (notify, console), the internal-core processors, the rule supervisor and three control planes are always included. Only nine processors are optional.
+- Reason: a pure data-pipeline deployment may not want a shell-command plugin or a JavaScript engine in the image. Fewer plugins means less code to secure and a smaller native image.
+- The choice is baked into the jar or binary. A running server cannot gain or lose a plugin. A workflow that uses a plugin that was left out fails when it is validated or run.
+
+- **Guarantees.** The build refuses typos. What was chosen is exactly what is on the classpath.
+- **State.** No runtime state. Build input only.
+- **Ceiling.** Eleven or more modules are built each time. The more plugins, the longer the native compile.
+- **On failure.** A workflow using a missing node type is rejected by core; boot does not warn at start which plugins are missing.
+
+**Settings:** `./gradlew bootRun -Pyukta.plugins=none|all|a,b`, `./gradlew :boot:bootJar -Pyukta.plugins=...`
+
+### Native Image
+
+*GraalVM build and flags*
+
+Compiles the app into a standalone executable with fast start and low memory.
+
+- nativeCompile builds a binary named yukta from the main class, with --no-fallback (fail rather than build a JVM-needing fallback). The build JVM gets -J-Xmx16g. The size flags are -H:+RemoveUnusedSymbols, -H:+StripDebugInfo and -H:-AddAllCharsets.
+- Build arguments -Dspring.profiles.active=prod and -Dspring.aot.enabled=true are also set. Spring AOT precomputes the bean wiring at build time, which is what makes native start-up fast.
+- Whether the -D profile argument reaches the running binary was not verified: it is passed to the native-image builder. The launcher's own prod rule in main() is the part that is covered by a test.
+- The Dockerfile builds the image in a GraalVM stage, optionally compresses the binary with UPX, then copies it into a distroless nonroot image that exposes 8080 and sets YUKTA_SERVER_ADDRESS=0.0.0.0. There is no shell in the final image.
+- script-js (GraalJS) is no longer in the default set: it is the largest part of the native image, so ask for it with -Pyukta.plugins=all or by name.
+
+- **Guarantees.** A native image either builds with all reflection and resources known, or the build fails (no fallback).
+- **State.** None. The binary is immutable; data directories must be mounted if you use file stores.
+- **Ceiling.** The 16 GB build heap is not measured; a small CI machine may run out. Native builds are slow, so most developers use the JVM.
+- **On failure.** Reflection or resource gaps appear only at run time in the native binary, since tests run on the JVM.
+
+**Settings:** `./gradlew :boot:nativeCompile`, `buildArgs: --no-fallback, -J-Xmx16g, -H:+RemoveUnusedSymbols, -H:+StripDebugInfo, -H:-AddAllCharsets`, `-Dspring.aot.enabled=true`
+
+### Acceptance Harness
+
+*real app, real plugins*
+
+Boots the whole assembled app and proves the wiring, profiles and web hosting behave.
+
+- WorkflowAcceptanceTest runs a trigger, a PROCESS_EXECUTOR step and a console terminal on the real engine: a normal run ends SUCCESS and is logged; a stop leaves no node running and records the command; a flaky step is retried; a failing step fails the run; a finished run can be restarted; a step silent for over 30 seconds is not cut off by the default idle timeout.
+- SupervisorAcceptanceTest attaches a real rule supervisor: a rule pauses a workflow when its node starts running, and a deny rule refuses a KILL stop.
+- ProfileConfigTest checks dev vs prod config values. YuktaApplicationTest starts main() and checks the native profile rule and the profile-argument parsing. SpaWebFluxConfigTest checks the 365-day cache, the no-cache index, the CSP and which paths the router leaves alone.
+- These tests use the PROCESS_EXECUTOR plugin, which is optional. Building with -Pyukta.plugins=none would leave :boot:test with workflows it cannot run.
+
+- **Guarantees.** A wiring or profile regression fails a test instead of reaching a release.
+- **State.** Tests use real files and shell commands such as echo and sh in a temp setup; they need a Unix-like environment.
+- **Ceiling.** Acceptance tests wait up to 30 seconds per scenario, so they are the slowest part of the module.
+- **On failure.** A test depends on plugins that a build flag can remove; the failure then looks like a workflow bug rather than a build choice.
+
+**Settings:** `./gradlew :boot:test`, `./gradlew :boot:test --tests com.infenia.yukta.ProfileConfigTest`
+
+## Scenarios
+
+### Developer: ./gradlew bootRun
+
+What a developer's local run does from build to browser.
+
+<Steps>
+<Step title="Pick plugins">
+Gradle reads -Pyukta.plugins (default all) and adds the nine optional plugins to the classpath. Without the flag, everything is in.
+</Step>
+<Step title="main() runs">
+Context propagation is enabled. It is a JVM, not a native image, so the launcher leaves the profile alone.
+</Step>
+<Step title="Default profile is dev">
+With no profile named, spring.profiles.default makes dev active. Debug logging, TRACE for the orchestrator stream package and the longer management list apply.
+</Step>
+<Step title="Context starts">
+Beans from all modules are created. The server binds to 127.0.0.1:8080, so only this machine can connect.
+</Step>
+<Step title="Browse the UI">
+The browser opens http://localhost:8080, the fallback router serves index.html and the UI calls /api.
+</Step>
+</Steps>
+
+### Production: native container
+
+How the production container is built, started and what it exposes.
+
+<Steps>
+<Step title="Build the binary">
+nativeCompile runs with AOT and size flags and the prod profile argument. Plugins are those chosen at build time.
+</Step>
+<Step title="Package">
+The Dockerfile copies the binary into a distroless nonroot image and sets YUKTA_SERVER_ADDRESS=0.0.0.0, because a container must listen on all interfaces.
+</Step>
+<Step title="Start">
+main() sees a native image with no profile argument and sets prod. Logging is quiet and management exposure is health, info and metrics.
+</Step>
+<Step title="Serve">
+Port 8080 answers API, MCP, actuator and UI. The key filter guards /api and /actuator when a key is set; Swagger and /v3 have no check.
+</Step>
+</Steps>
+
+### Deep link refresh
+
+How a refresh or shared link on a client-side route reaches the right page.
+
+<Steps>
+<Step title="Browser asks for /sessions/x">
+The path is a screen inside the React app, not a file. A plain file server would return 404.
+</Step>
+<Step title="Router checks exclusions">
+The path is not /api, /actuator, /mcp, /sse, /v3, Swagger, webjars or a static asset, so the fallback matches.
+</Step>
+<Step title="index.html with CSP">
+The page comes back as 200 with no-cache and the CSP header. The browser then loads /assets/ files from its 365-day cache.
+</Step>
+<Step title="A new release">
+The new index.html points to new hashed file names, so the browser fetches new bundles. Fixed-name files such as favicon may be stale.
+</Step>
+</Steps>
+
+### Exposed by mistake
+
+A realistic misconfiguration: remote access with a key but no profile.
+
+<Steps>
+<Step title="Operator binds to 0.0.0.0">
+They set YUKTA_SERVER_ADDRESS=0.0.0.0 and yukta.api-key=secret for remote access, and run the jar as before. Without a key the server would now refuse to start (ExposureGuard).
+</Step>
+<Step title="Profile was never set">
+A JVM jar has no native rule, so the default dev profile still applies, with loggers, mappings and threaddump exposed.
+</Step>
+<Step title="API is protected, the rest is not">
+/api and /actuator (except health) now need the key. /swagger-ui.html and /v3/api-docs do not. Anyone on the network can read the API description. If only yukta.mcp.api-key had been set, ExposureGuard would still have let the server start, and /api would be open.
+</Step>
+<Step title="Payloads reach the log">
+Dev sets the orchestrator stream package to TRACE, which writes message payloads to the console. In a shared log system those payloads are now visible to others.
+</Step>
+</Steps>
+
+### Bad plugin build flag
+
+What a wrong or minimal plugin choice does at build time and in tests.
+
+<Steps>
+<Step title="A typo in -Pyukta.plugins">
+Example -Pyukta.plugins=http-requst. The build script computes the unknown names.
+</Step>
+<Step title="Fail fast">
+Gradle stops at configuration with 'Unknown yukta.plugins entries ... valid: ...'. No jar is built, so a typo cannot silently drop a plugin.
+</Step>
+<Step title="A valid but incomplete list">
+-Pyukta.plugins=none passes the build. The app starts, but a workflow using PROCESS_EXECUTOR is rejected.
+</Step>
+<Step title="Tests break too">
+WorkflowAcceptanceTest and SupervisorAcceptanceTest use PROCESS_EXECUTOR, so :boot:test cannot pass with none.
+</Step>
+</Steps>
+
+### Restart under defaults
+
+What a restart loses when only boot's defaults are used.
+
+<Steps>
+<Step title="Process stops">
+Session store, log store and tracker are in memory by default. Nothing is written by boot.
+</Step>
+<Step title="Process starts again">
+The base YAML again says store-type in-memory, logs backend memory. No workflow definition, session setting or run history is there.
+</Step>
+<Step title="Optional state is on you">
+Only configuration you added (file stores or logs directories) brings state back, or a build with -Pyukta.persistence=postgres and yukta.session.store-type=postgres. The default build has no database module.
+</Step>
+<Step title="Clients reconnect">
+The UI shows an empty system. Anyone who relied on stored definitions must re-create them. File stores must be configured on purpose.
+</Step>
+</Steps>
+
+## Capabilities
+
+Boot's capabilities are about packaging, configuration and hosting, not workflow features. Those live in core and the plugins.
+
+
+### Packaging
+
+| Capability | What it does | How | Guarantee | Limit |
+|---|---|---|---|---|
+| One program | Core, web, mcp, ui and plugins as one app. | Component scan from com.infenia.yukta; always-included modules in build.gradle.kts. | One process to run. | One module's fault stops all. |
+| Optional plugins | Pick plugins at build time. | -Pyukta.plugins=all\|none\|a,b with 9 names. | Typos fail the build. | Cannot change at run time. |
+| Native binary | Fast-start executable. | graalvmNative with --no-fallback, AOT and size flags. | Fails build on missing metadata. | 16 GB build heap unmeasured. |
+| Container image | Distroless nonroot image. | Dockerfile copies the native binary, sets YUKTA_SERVER_ADDRESS=0.0.0.0. | No shell, unprivileged user. | API open unless a key is set. |
+
+### Configuration
+
+| Capability | What it does | How | Guarantee | Limit |
+|---|---|---|---|---|
+| Profiles | Dev and prod overlays. | Base file plus application-dev or -prod; default profile dev. | Prod verified by ProfileConfigTest. | JVM default is dev, not prod. |
+| Loopback by default | Not reachable remotely. | server.address defaults to 127.0.0.1; override with YUKTA_SERVER_ADDRESS. | Fresh install is local only. | Remote means opt-in with care. |
+| Strict JSON | Reject unknown fields. | spring.jackson fail-on-unknown-properties true. | Typos in requests error out. | Older clients with extra fields break. |
+| Engine defaults | Control bus, tracker and history values. | control.bus.\* and yukta.\* keys in the base file. | Defaults visible in one place. | Not the full list of engine settings. |
+
+### Web hosting
+
+| Capability | What it does | How | Guarantee | Limit |
+|---|---|---|---|---|
+| SPA fallback | Deep links and refresh work. | Any unmatched GET returns index.html; API paths excluded. | Client routes never 404. | Bad paths outside /api give 200 HTML. |
+| Asset caching | Fast repeat visits. | 365-day cache for /assets/\*\* and top-level asset names; index.html no-cache. | New release seen on next load. | Fixed-name files may go stale. |
+| Content-Security-Policy | Limit what the page can load. | Header on index.html: same-origin default, no objects, no framing. | Injected HTML cannot load external scripts. | Only on the fallback response; inline styles allowed. |
+
+### Operations
+
+| Capability | What it does | How | Guarantee | Limit |
+|---|---|---|---|---|
+| Actuator | Health, info, metrics. | Base and prod: those three; dev adds loggers, mappings, threaddump. | No heapdump exposed in any profile. | No authentication on Swagger and /v3. |
+| Request ids in logs | Correlate lines of one request. | Log pattern includes [%X\{requestId\}]; context propagation enabled in main(). | Id follows across threads. | Only when the filter sets one. |
+| Virtual threads | Cheap threads for blocking work. | spring.threads.virtual.enabled true in base and prod. | Blocking plugins do not tie up the event loop. | Pinned or CPU-bound work still limited. |
+| Gzip in prod | Smaller responses. | spring.web.compression on over 1024 bytes in prod. | Less bandwidth. | Dev has no compression. |
+
+### Verification
+
+| Capability | What it does | How | Guarantee | Limit |
+|---|---|---|---|---|
+| Acceptance tests | Real workflows on the real app. | Workflow and supervisor tests with PROCESS_EXECUTOR. | Wiring regressions fail tests. | Need the optional plugin. |
+| Profile guard | Config can't silently leak. | ProfileConfigTest reads real YAML. | Prod stays quiet and small. | Tests only list known keys. |
+
+## What is enforced where
+
+Pick a profile and see what holds. Rows marked part or lost are the reasons for the risks on the board.
+
+
+### What each profile enforces
+
+| Topic | dev (default) | prod |
+|---|---|---|
+| Active when | \*\*Note.\*\* No profile named in a JVM run. Also the choice if you pass dev. | \*\*Note.\*\* --spring.profiles.active=prod, or a native image run without a profile argument. |
+| Management endpoints | \*\*Partly.\*\* health, info, metrics, loggers, mappings, threaddump. Heapdump and env are not exposed. | \*\*Yes.\*\* health, info, metrics only (inherited from the base file). |
+| Orchestrator stream logs | \*\*No.\*\* TRACE: message payloads can be written to the console. | \*\*Yes.\*\* Not set, so the INFO level of com.infenia.yukta applies. |
+| Application log level | \*\*Partly.\*\* DEBUG for com.infenia.yukta; Spring web at DEBUG. | \*\*Yes.\*\* INFO for com.infenia.yukta; root WARN; Spring ERROR. |
+| Response compression | \*\*Note.\*\* Off. | \*\*Yes.\*\* On for responses over 1 KB. |
+| Startup banner | \*\*Note.\*\* Console banner. | \*\*Note.\*\* Off. |
+| Lazy initialisation | \*\*Yes.\*\* Off: errors at start. | \*\*Yes.\*\* Off: errors at start (guarded by a test). |
+| Network address | \*\*Yes.\*\* 127.0.0.1 unless YUKTA_SERVER_ADDRESS. | \*\*Yes.\*\* 127.0.0.1 unless YUKTA_SERVER_ADDRESS. |
+| API key on /api | \*\*Partly.\*\* Only if a key is set (yukta.api-key or yukta.api-keys). Without it the API is open on loopback. | \*\*Partly.\*\* Same. |
+| MCP key on /mcp | \*\*Partly.\*\* The same keys, or yukta.mcp.api-key, if any is set. | \*\*Partly.\*\* Same. |
+| Auth on /actuator and Swagger | \*\*Partly.\*\* Actuator: yes when a key is set (ADMIN, except health). Swagger and /v3: none. | \*\*Partly.\*\* Same. |
+
+### What survives a restart (defaults)
+
+Boot's own defaults keep everything in memory.
+
+| State | After a restart |
+|---|---|
+| Workflow definitions and sessions | \*\*No.\*\* Gone with store-type in-memory (the default set in boot). |
+| Run history and tracker | \*\*No.\*\* Gone; nothing is persisted by default. |
+| Plugin logs | \*\*No.\*\* Gone with log backend memory, 30-minute retention. |
+| Settings and profile | \*\*Yes.\*\* Re-read from the same files and environment. |
+| Plugin set | \*\*Yes.\*\* Fixed at build; identical after restart. |
+| Static assets | \*\*Yes.\*\* Served from the jar or binary. |
+| Files and databases | \*\*Partly.\*\* Only if configured on purpose; PostgreSQL stores need -Pyukta.persistence=postgres at build time. |
+
+### Static serving rules
+
+| Rule | Value |
+|---|---|
+| Assets cache | 365 days for /assets/\*\* and the 12 top-level file patterns. |
+| index.html cache | no-cache, must-revalidate. |
+| CSP on index.html | Same-origin; inline styles allowed; no objects; no framing. |
+| Router exclusions | /api, /actuator, /mcp, /sse, /v3, /swagger-ui, /swagger-ui.html, /webjars. |
+| Match order | Router is consulted before the resource handler, hence the exclusions. |
+
+## Reference
+
+### Profile and config matrix
+
+The effective value after merging the base file with each profile.
+
+| Setting | dev (default) | prod |
+|---|---|---|
+| server.address | 127.0.0.1 (YUKTA_SERVER_ADDRESS) | 127.0.0.1 (YUKTA_SERVER_ADDRESS) |
+| Management exposure | health, info, metrics, loggers, mappings, threaddump | health, info, metrics |
+| health show-details | when-authorized | when-authorized |
+| com.infenia.yukta log level | DEBUG | INFO |
+| Stream package log level | TRACE | not set (INFO) |
+| Root log level | INFO | WARN |
+| Spring web logger | DEBUG | WARN |
+| Compression | off | on over 1024 bytes |
+| Banner | console | off |
+| Virtual threads | on | on |
+| MCP endpoint | /mcp, stateless, async | /mcp, stateless, async |
+| JSON unknown fields | rejected | rejected |
+| Session store type | in-memory | in-memory |
+
+### Run commands
+
+JVM vs native.
+
+| Goal | Command | Notes |
+|---|---|---|
+| Run from sources | ./gradlew bootRun | dev profile unless -Dspring.profiles.active is set |
+| Run with chosen plugins | ./gradlew bootRun -Pyukta.plugins=http-request,script-js | Unknown names fail the build |
+| Run without optional plugins | ./gradlew bootRun -Pyukta.plugins=none | Acceptance tests then fail |
+| Build a jar | ./gradlew :boot:bootJar | Then java -jar boot/build/libs/\*.jar --spring.profiles.active=prod |
+| Build native | ./gradlew :boot:nativeCompile | Output boot/build/native/nativeCompile/yukta; slow, needs GraalVM 25 |
+| Run native | ./boot/build/native/nativeCompile/yukta | prod chosen by main() if no profile argument |
+| Remote access | YUKTA_SERVER_ADDRESS=0.0.0.0 yukta.api-key=&lt;secret&gt; | Without a key the server refuses to start; set the REST keys (they cover /mcp too), not just yukta.mcp.api-key. Swagger and /v3 are still open |
+| Run module tests | ./gradlew :boot:test | Needs the PROCESS_EXECUTOR plugin |
+
+### Plugin catalogue
+
+| Build name | Gradle module | Status |
+|---|---|---|
+| process-executor | :plugins:processors:process-executor | optional |
+| http-request | :plugins:processors:http-request | optional |
+| file-io | :plugins:processors:file-io | optional |
+| sql-query | :plugins:processors:sql-query | optional |
+| llm-call | :plugins:processors:llm-call | optional |
+| session-memory | :plugins:processors:session-memory | optional |
+| decision | :plugins:processors:decision | optional |
+| mcp-tool-call | :plugins:processors:mcp-tool-call | optional |
+| script-js | :plugins:processors:internal:script-js | optional |
+| api, constant, schedule triggers | plugins:triggers:\* | always |
+| notify, console terminals | plugins:terminals:\* | always |
+| internal-core processors | plugins:processors:internal:internal-core | always |
+| rule supervisor | plugins:supervisors:rule-supervisor | always |
+| rule, model, rules-first control planes | plugins:control-planes:\* | always |
+
+### Endpoints served by this app
+
+| Path | Served by | Guard |
+|---|---|---|
+| /api/\*\* | web controllers (REST and SSE) | yukta.api-key or yukta.api-keys if set |
+| /mcp | mcp server (stateless, async) | the same keys, or yukta.mcp.api-key, if any is set |
+| /sse | alias rewritten to /mcp | same as /mcp |
+| /actuator/\*\* | actuator | ADMIN key when a key is set (health excepted) |
+| /swagger-ui.html, /v3/\*\* | springdoc | none |
+| /assets/\*\* | SPA host | none |
+| any other GET | SPA host (index.html) | none |
+
+## Architecture decisions
+
+<AccordionGroup>
+<Accordion title="One executable for everything">
+**Context.** Users want one program with REST, MCP and UI.
+
+**Decision.** Boot depends on core, web, mcp, ui and the plugins, and starts them in one JVM.
+
+**Consequences.** Simple to run and test; one fault can stop all; no independent scaling.
+
+**Alternatives considered.** Separate services per module: independent scaling, but a lot more to operate for a tool this size.
+
+**Revisit when.** a module needs its own scale or release cycle.
+
+</Accordion>
+<Accordion title="Loopback default, opt-in for remote">
+**Context.** A fresh install must not be reachable from the network.
+
+**Decision.** server.address defaults to 127.0.0.1, changed by YUKTA_SERVER_ADDRESS; the container image opts in.
+
+**Consequences.** Safe local use; remote use needs an explicit step; no check ties a public bind to a key.
+
+**Alternatives considered.** Bind to all interfaces and rely on the key: easier but unsafe when a key is forgotten.
+
+**Revisit when.** the guard needs to cover more than the address (for example the keys the filters really use), or the container needs a generated key.
+
+</Accordion>
+<Accordion title="dev as the default profile">
+**Context.** Developers run from source and want verbose logs.
+
+**Decision.** spring.profiles.default is dev; native forces prod in main().
+
+**Consequences.** Easy local work; a careless JVM deployment is verbose and over-exposed.
+
+**Alternatives considered.** Default to prod and require dev explicitly: safer, a small annoyance for developers.
+
+**Revisit when.** we see deployments running the jar without flags.
+
+</Accordion>
+<Accordion title="Optional plugins by build flag">
+**Context.** Some plugins (shell, JavaScript, SQL) add risk and image size.
+
+**Decision.** -Pyukta.plugins selects nine plugins; the rest are always in.
+
+**Consequences.** Smaller, safer builds; the set is frozen per artifact.
+
+**Alternatives considered.** Runtime plugin loading: flexible but incompatible with native image and harder to secure.
+
+**Revisit when.** third-party plugins matter more than native images.
+
+</Accordion>
+<Accordion title="Native image as the shipping format">
+**Context.** Fast start and small container footprint.
+
+**Decision.** graalvmNative with AOT, no fallback, size flags; Dockerfile uses distroless.
+
+**Consequences.** Fast start, low memory; slow builds; run-time reflection gaps found late.
+
+**Alternatives considered.** Ship a JVM jar: easy to build and debug, heavier and slower to start.
+
+**Revisit when.** native build issues cost more than start-up saves.
+
+</Accordion>
+<Accordion title="Hosting the SPA inside the server">
+**Context.** One deployable, same origin for UI and API.
+
+**Decision.** SpaWebFluxConfig serves the ui jar's static files, with a fallback router and CSP.
+
+**Consequences.** No CORS, one artifact, a strict CSP; the server carries static traffic.
+
+**Alternatives considered.** Host the UI separately on a CDN: faster static serving, more setup and cross-origin rules.
+
+**Revisit when.** traffic or release cadence makes a separate UI worthwhile.
+
+</Accordion>
+<Accordion title="Keys by filter, not Spring Security">
+**Context.** Keep dependencies and native-image surface small.
+
+**Decision.** Plain web filters for /api and /mcp check an optional shared key; management has none.
+
+**Consequences.** Small and native friendly; no roles, and uneven coverage of paths.
+
+**Alternatives considered.** Spring Security: roles, standard patterns, bigger footprint and configuration.
+
+**Revisit when.** users need roles, single sign-on or protection of every path.
+
+</Accordion>
+</AccordionGroup>
+
+## Glossary
+
+| Term | Meaning | Note |
+|---|---|---|
+| Spring Boot | A Java framework that starts an application, reads configuration and wires components. | Boot is a thin shell over it. |
+| Spring profile | A named group of settings that can be switched on. | dev vs prod behave differently. |
+| Default profile | The profile used when none is named. | Here it is dev. |
+| application.yaml | The main configuration file, with overlays per profile. | Where most defaults live. |
+| WebFlux | Spring's non-blocking web stack, built on Reactor and Netty. | The server model of the whole app. |
+| Netty | The network library that actually accepts connections. | The server on port 8080. |
+| Reactor | The library for asynchronous streams used across Yukta. | Context propagation is set up in main(). |
+| Context propagation | Copying values such as a request id from one thread to the next. | Keeps log lines correlated. |
+| Virtual threads | Very cheap Java threads for blocking work. | Blocking plugins do not tie up the event loop. |
+| Component scan | Spring finding classes marked as beans by package. | How all modules join the app. |
+| Bean | An object that Spring creates and manages. | The unit of wiring. |
+| Eager initialisation | Creating all beans at start instead of when first used. | Config errors show at start. |
+| Actuator | Spring's management endpoints such as health and metrics. | The operator surface. |
+| Loopback | The address 127.0.0.1, reachable only from the same machine. | Default bind address. |
+| API key | A shared secret sent with each request. | Guards /api and /mcp when set. |
+| MCP | Model Context Protocol, how AI agents call tools. | Served at /mcp. |
+| Stateless MCP | Each MCP request stands alone; the server keeps no session. | Easier to scale, simpler to run. |
+| SPA | Single-page application: one HTML page and scripts that change screens in the browser. | Needs the fallback router. |
+| Deep link | A URL pointing inside the SPA. | Must return index.html. |
+| CSP | Content-Security-Policy: a header telling the browser what a page may load. | Limits injected content. |
+| Vite | The build tool for the React UI; it emits hashed file names. | Makes year-long caching safe. |
+| Cache-Control | An HTTP header telling caches how long to keep a response. | 365 days for assets, none for index.html. |
+| Gradle property (-P) | A value passed on the build command line. | -Pyukta.plugins picks plugins. |
+| Native image | An executable made from Java ahead of time by GraalVM. | Fast start, fixed at build. |
+| GraalVM | A JDK distribution with a native compiler. | Needed for nativeCompile. |
+| AOT | Ahead-of-time compilation of Spring wiring. | Required for native start-up. |
+| Reflection metadata | A list of classes a native image must keep for run-time lookup. | Missing entries fail only at run time. |
+| Distroless image | A container with just the program and libraries, no shell. | Small and hard to abuse. |
+| Heap dump | A file of all memory contents of a process. | Would leak secrets; not exposed. |
+| PROCESS_EXECUTOR | A plugin that runs operating-system commands. | Optional; used by the acceptance tests. |
+| Plugin | Code that gives a workflow node its behaviour. | Nine are optional in boot. |
+| Acceptance test | A test of the whole app against realistic use. | Catches wiring problems. |
+| Jackson | The JSON library; here it rejects unknown fields. | Stricter request handling. |
+| Idle timeout | How long a node may be silent before failing (core). | Shown by an acceptance test. |

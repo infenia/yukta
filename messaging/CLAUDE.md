@@ -11,7 +11,7 @@ Message-based inter-node communication framework:
 ## Key Files
 - `src/main/java/com/infenia/yukta/message/Message.java`
 - `src/main/java/com/infenia/yukta/message/channel/NodeMessageChannel.java` (+ `DirectNodeMessageChannel`)
-- Module guide (interactive): `docs/messaging-module-guide.html`
+- Module guide: `../docs/contributing/modules/messaging.mdx` (module guide, published in the docs site); open risks and review findings: `../docs/internal/risks.mdx` and `../docs/internal/improvements.mdx` (section for this module)
 
 ## Build & Development Commands
 ```bash

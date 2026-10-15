@@ -1,0 +1,786 @@
+---
+title: "CLI module"
+description: "The cli module builds yukta, a small command-line program written in Go."
+---
+
+The cli module builds `yukta`, a small command-line program written in Go. It does no workflow work itself. Every command turns your typed words into one request to a running Yukta server, then prints the answer. This page explains how that translation works, what the program guarantees, and where it quietly falls short of the server it talks to.
+
+| Property | What it means |
+|---|---|
+| Thin client | No engine, no database, no cache, no config file. Each command is one HTTP call (or one live stream) and then the process exits. If the server is down, nothing works. |
+| Hand-written mirror | Every endpoint, path and response shape is copied by hand from the web module. Nothing generates or checks them, so the CLI can fall behind the server without any build failing. |
+| Strict build | Pinned linters, a security scanner, a vulnerability scan and a rule that every function is 100% covered by tests. Quality of the Go code is high; fit with the server is the weaker side. |
+| Streams without a safety net | Live status and logs use Server-Sent Events (a long-lived HTTP response that keeps sending lines). There is no timeout, no reconnect and no resume, only Ctrl-C. |
+
+<Note>
+  Open risks, bugs and improvement ideas for this module are on the internal pages (sign-in required): [Risks](/internal/risks#cli), [Bugs](/internal/bugs) and [Improvements](/internal/improvements#cli).
+</Note>
+
+## Primer
+
+People and scripts need to drive a Yukta server without opening the web UI: start a run in a CI job, watch its progress in a terminal, pause a node while debugging, list plugins. The server already offers all of this over HTTP (REST). Typing raw `curl` commands with long paths and JSON bodies is slow and error-prone, and a Java client would force every machine to install a JVM. The **cli** module solves this with one small native program, `yukta`, that has no runtime to install and starts in milliseconds.
+
+<Tip>
+  Think of a remote control for a television. The remote has no picture and no tuner. It only turns a button press into a signal, sends it, and shows you what the television reports back. If the television is off, or has a new feature the remote's maker never heard of, the remote can do nothing about it. That is the CLI: the buttons are commands, the signal is an HTTP request, and the television is the Yukta server.
+</Tip>
+
+### Where the cli sits
+
+| Layer | Role |
+|---|---|
+| You, scripts, CI jobs | Type `yukta workflow start ...` in a shell or call it from a pipeline |
+| cli (this page) | A Go program built with Cobra, a library for command-line trees. One request per command. (this module) |
+| HTTP over the network | JSON for normal calls, Server-Sent Events for live streams, optional bearer token |
+| web module (REST controllers) | Receives the request and calls core. This is the only thing the CLI knows about. |
+| core and plugins | The engine that actually runs workflows |
+
+The CLI shares no code with the Java side. It is a separate Go program in the same repository, built by its own Makefile. Gradle only calls that Makefile.
+
+### The vocabulary in eight cards
+
+| Term | Meaning | Example |
+|---|---|---|
+| Session | A workspace on the server that groups workflows, runs and configuration. Almost every command names one. | `yukta session list` prints session ids. |
+| Workflow and execution | A workflow is a stored graph of steps. An execution is one live run of it, with its own id. Commands that steer a run need the execution id, not the workflow id. | Start returns an execution id; pause, status and logs all take it. |
+| Node | One step in a workflow. Node commands (pause, stop, skip, step) act on a single node of a running execution. | `yukta workflow node pause s1 e42 classify` |
+| REST and the envelope | The server answers JSON wrapped in an envelope: status, message and a `data` field. The CLI reads only `data`. | `{"status":200,"message":"...","data":{"executionId":"e42"}}` |
+| SSE (Server-Sent Events) | A normal HTTP response that never ends. The server keeps writing lines starting with `data:`, one event per blank-line-separated block. Used for live status and logs. | `workflow status-stream` and `logs`. |
+| Cobra command tree | Cobra is the Go library that turns words like `workflow node pause` into a function call and generates --help text. Commands nest like folders. | root, then workflow, then node, then pause. |
+| Bearer token | A secret the CLI sends in the `Authorization` header. The server requires one only when its `yukta.api-key` setting is set. | `--token` or the `YUKTA_TOKEN` environment variable. |
+| Global flags | Options valid on every command: `--url` (which server), `--token`, `--timeout` (seconds before giving up on a normal call) and `-o table\|json`. | `yukta -o json plugin list` |
+
+### One example, end to end
+
+A developer starts a workflow with an input payload, then watches it live. Click a step to see what happens, why, and what can go wrong. (The session must already exist on the server; create it first with 'yukta session apply'.)
+
+<Steps>
+<Step title="Parse command">
+**What happens.** The shell gives the program `workflow start s1 build --payload '{"msg":"hi"}'`. Cobra finds the `start` command, checks it received exactly two positional arguments (session id, workflow id) and stores the flags. The global flags `--url`, `--token` and `--timeout` are written straight into the one shared client object.
+
+**Why.** Checking argument counts before any network call means a typo costs nothing. Binding flags directly to the client avoids a separate configuration step that could be skipped.
+
+**Can go wrong.** The URL default comes from `YUKTA_SERVER_URL` if set, else `http://localhost:8080`. A forgotten variable silently points the command at the wrong server.
+
+</Step>
+<Step title="Check payload">
+**What happens.** `--payload` (inline text) or `--payload-file` (a path) is read. The two flags cannot be combined. The text must parse as a JSON object, not an array or a bare number.
+
+**Why.** The server declares the payload as a map of names to values. Rejecting a bad payload here gives a clear local message instead of a server validation error after a network round trip.
+
+**Can go wrong.** With `--payload-file` a missing file is a plain read error, which is good. The other file-or-JSON commands (see the risks) cannot tell a mistyped path from bad JSON.
+
+</Step>
+<Step title="Build request">
+**What happens.** The client builds `POST /api/workflow/start` with a JSON body holding `sessionId`, `workflowId` and the payload. It adds `Content-Type` and `Accept` JSON headers and, when a token is set, `Authorization: Bearer ...`.
+
+**Why.** Ids that go into a path are escaped. Without that, a node id such as `a/../../sessions` would silently change which endpoint is called.
+
+**Can go wrong.** The token is sent to whatever `--url` says, including plain `http://`, with no warning. There is also no way to send the server's `Idempotency-Key` header, so a timed-out start cannot be retried safely.
+
+</Step>
+<Step title="Send and wait">
+**What happens.** The request goes out with a time limit (default 30 seconds, `--timeout 0` disables). The server answers **202 Accepted** with an envelope containing the new execution id. Any 2xx counts as success. Any other status becomes the error text `API error: status N: body`.
+
+**Why.** The limit covers connecting, waiting and reading the whole body. Without it a hung server would hang the shell or CI job forever.
+
+**Can go wrong.** No retries, ever. A 429 (server at its run limit) or a network blip is reported once and the command exits with status 1. The raw error body is shown, not parsed.
+
+</Step>
+<Step title="Print result">
+**What happens.** The CLI decodes the `data` field and prints `Workflow started with execution ID: e42`, or the same data as indented JSON when `-o json` is set.
+
+**Why.** JSON output lets a script capture the id (`jq -r .executionId`) and feed it to the next command.
+
+**Can go wrong.** The server's response shape is copied by hand into a Go struct. If the server renames `executionId`, the CLI prints an empty id and still exits 0.
+
+</Step>
+<Step title="Open stream">
+**What happens.** `yukta workflow status-stream s1 e42` opens `GET /api/workflow/s1/status/e42/stream?includeHistory=false` asking for `text/event-stream`. It checks the response really has that content type before reading.
+
+**Why.** No timeout is applied, because a stream may legitimately stay open for hours. Ctrl-C and SIGTERM are wired to cancel the request cleanly.
+
+**Can go wrong.** The CLI sends `includeHistory=false` by default, while the server's own default is true. Events that happened before you connected are not replayed unless you pass `--include-history`.
+
+</Step>
+<Step title="Read events">
+**What happens.** A small scanner reads line by line (up to 1 MB per line). Lines starting `data:` are collected, and a blank line ends one event. Each event is decoded as a progress snapshot and printed as indented JSON. The server's 15-second `: ping` comments are ignored.
+
+**Why.** Writing the scanner by hand keeps the dependency list to Cobra only. A fuzz test feeds it random input so a bad stream cannot crash it.
+
+**Can go wrong.** An event not followed by a blank line at the end of the connection is dropped. If the connection simply closes, the command ends with exit 0, which looks like success even when the network failed.
+
+</Step>
+<Step title="Ctrl-C or end">
+**What happens.** When you press Ctrl-C the request is cancelled and the command returns without an error, exit status 0. If the server finishes the stream, the command ends the same way.
+
+**Why.** Treating Ctrl-C as a normal end is what a 'watch' command should do: the user asked to stop watching, nothing failed.
+
+**Can go wrong.** There is no reconnect and the `Last-Event-ID` header is never sent. A dropped connection means you re-run the command and may see events twice or miss some.
+
+</Step>
+</Steps>
+
+### A command in plain words
+
+<Steps>
+<Step title="Type">
+You type a command. Cobra matches the words to a function and checks the arguments.
+</Step>
+<Step title="Configure">
+Global flags and environment variables fill in the server address, token and time limit on one shared client.
+</Step>
+<Step title="Build">
+The client builds the path, escaping every id, and attaches JSON and token headers.
+</Step>
+<Step title="Send">
+One HTTP request goes out with a time limit. There is no retry.
+</Step>
+<Step title="Judge">
+Any answer outside 200-299 becomes an error message that contains the status and the raw body.
+</Step>
+<Step title="Decode">
+The CLI reads only the data field of the answer into a hand-written Go type.
+</Step>
+<Step title="Print">
+A table or JSON goes to standard output, errors go to standard error, and the exit code is 0 or 1.
+</Step>
+</Steps>
+
+## Components
+
+### Entry & Wiring
+
+*main, one client, 5 groups*
+
+Starts the program: creates one HTTP client, builds the root command, attaches the five command groups and runs Cobra. Any returned error is printed as `error: ...` on standard error and the process exits with status 1.
+
+- `main` calls a single `Run` function. It creates exactly one client object and passes that same object to every command group (plugin, controlbus, logs, workflow, session). Sharing one object is what lets the global flags work: the root command writes `--url`, `--token` and `--timeout` into the client's fields, and every command later reads the same fields.
+- The client is created before the flags are read, but with fields the flag parser fills in. An earlier design replaced the server address in a pre-run hook; the current one binds the flags directly, so there is no moment where a command could see the wrong address.
+- Registration is manual: each group is added with an explicit call. That is simple, but it means a command can be written, tested and documented yet never reach the user. This happened with `session apply`, which was built and unit-tested but not registered; it is registered now, and nothing tests the command tree as a whole, so the same can happen again.
+- Cobra prints its own `Error: ...` and the usage text for any error, and then `main` prints `error: ...` again. A failed command therefore shows the message twice with a block of help text between.
+- The exit code is only ever 0 or 1. A 404, a timeout and a bad flag all look the same to a calling script.
+
+- **Guarantees.** Every command shares one client. Any error ends the process with status 1 after a message on standard error.
+- **State.** Nothing is held after the process exits. There is no config file, history or cache.
+- **Ceiling.** Not applicable: one short-lived process per command.
+- **On failure.** A failed command prints the message twice and exits 1. A panic would print a Go stack trace and exit 2; none is known.
+
+**Settings:** `yukta (binary name)`, `exit status 0 or 1`
+
+### Root & Global Flags
+
+*url, token, timeout, -o*
+
+Defines the top-level `yukta` command and the four options every command inherits, and applies the defaults.
+
+- `--url` defaults to the `YUKTA_SERVER_URL` environment variable, or `http://localhost:8080` when that is unset. The flag always wins over the variable. The default is read when the command tree is built, which is why a test or a script must set the variable before the program starts.
+- `--token` defaults to `YUKTA_TOKEN`. It is sent as `Authorization: Bearer ...` on normal requests and on streams. The server accepts it only when `yukta.api-key` is configured; otherwise the server ignores it. Passing the secret as a flag puts it in shell history and in the process list (visible to other users on the machine), so the environment variable is the safer way in our view.
+- `--timeout` defaults to 30 seconds and applies only to normal calls. `0` turns it off. Streams ignore it on purpose, because a status stream may run for hours.
+- `-o` / `--output` is `table` by default or `json`. The value is held in a package-level variable that commands read through a getter. Nothing validates it: `-o yaml` is accepted and treated as table by most commands, and only `session get` rejects it.
+- The root command's short description still reads 'Code quality gates for AI-driven development'. That describes one use of Yukta, not the product, so `yukta --help` misdescribes it.
+
+- **Guarantees.** Flag values reach the client before any command body runs. The flag always overrides the environment variable.
+- **State.** None. Defaults come from two environment variables read at start-up.
+- **Ceiling.** No ceiling. The only shared mutable state is the output-format variable, which is why tests that change it must reset it.
+- **On failure.** A bad duration such as `--timeout abc` is rejected by Cobra before anything runs.
+
+**Settings:** `--url / YUKTA_SERVER_URL (default http://localhost:8080)`, `--token / YUKTA_TOKEN`, `--timeout (default 30s, 0 = off)`, `-o, --output table|json (default table)`
+
+### Command Builders
+
+*Cobra groups, Action helper*
+
+Declares every command, its arguments and flags, calls the matching client function and chooses how to print the result.
+
+- There are five groups. `session` (list, get, summaries, workflow get/graph/executions), `workflow` (start, stop, pause, resume, status, status-stream, history, executions stop/restart, node pause/resume/stop/skip, node step enable/disable/next), `plugin` (list, get), `controlbus` (nodes, all-nodes, heartbeat, command) and `logs`. Group names follow the server's resources, so someone who knows the REST API can guess the command.
+- Most 'do something to this id' commands are built by one generic helper, `Action`. A command supplies its usage text, how many arguments it takes, the client call to make and a one-line success message. The helper adds the 'if `-o json` print the raw answer, else print the message' behaviour. This replaced about a dozen near-identical files and means pause, resume, step and stop all behave the same way.
+- Commands that take JSON (`controlbus command` and `session apply`) accept either a file path or inline JSON. The code checks whether a file with that name exists; if so it reads it, otherwise it treats the argument itself as JSON. Example: `yukta controlbus command wf1 node1 cmd.jsno` (typo) does not say 'file not found'. It says 'invalid JSON', because the typo was parsed as JSON text.
+- `workflow start` takes `--payload` or `--payload-file`. They exclude each other, and the content must be a JSON object. `workflow stop` takes no options and always sends the default stop mode, so the server's `?mode=DRAIN|CANCEL|KILL` choice is unreachable. `workflow node stop` has `--immediate` and `--reason`, but it always sends `reason=`, even when empty, which replaces the server's default reason text.
+- None of the list commands accept `--limit` or a cursor. The server returns at most 500 items per page by default (1,000 at most) and announces a next page in an `X-Next-Cursor` header, which the CLI never reads. An installation with more than 500 sessions is silently shown only the first 500.
+
+- **Guarantees.** Argument counts are checked before any request is sent, and every id is a required positional argument. Payload and JSON arguments are parsed locally before sending.
+- **State.** None. The only shared variable is the chosen output format.
+- **Ceiling.** About forty commands across five groups. Each new server endpoint needs a hand-written command, which does not scale as the API grows.
+- **On failure.** A bad argument count or invalid JSON stops the command before any network call, and exits 1.
+
+**Settings:** `yukta session list|get|summaries`, `yukta session workflow get|graph|executions`, `yukta workflow start|stop|pause|resume|status|status-stream|history`, `yukta workflow node ...`, `yukta workflow executions stop|restart`, `yukta plugin list|get`, `yukta controlbus nodes|all-nodes|heartbeat|command`, `yukta logs [--entries]`
+
+### Output Formatter
+
+*table or JSON to stdout*
+
+Prints aligned tables and indented JSON, and writes errors to standard error.
+
+- A table is written with Go's tab writer: columns are padded by two spaces. A header row comes first. This is for people reading a terminal.
+- JSON output is indented by two spaces and written to standard output, so it can be piped to `jq`. Encoding errors go to standard error and do not stop the program.
+- Which output a command gives is decided by the command, not by this component, and the choices are uneven. `session list`, `plugin list`, `controlbus nodes` print real tables. `workflow status` and `history` print plain text lines instead of a table. `session summaries`, `session workflow graph`, `session workflow executions` and `session workflow get` always print JSON whatever `-o` says. `workflow status-stream` always prints one indented JSON object per event. `logs` prints each line as the server sent it.
+- `controlbus heartbeat` in table mode walks a Go map, so its rows come out in random order from run to run. `controlbus command` sorts its keys first.
+
+- **Guarantees.** Data goes to standard output and errors to standard error, so piping JSON into another tool is safe.
+- **State.** None.
+- **Ceiling.** Whole results are held in memory and printed at the end (except streams), which is fine for hundreds of rows.
+- **On failure.** A JSON encoding failure prints a line to standard error and the command still exits 0.
+
+**Settings:** `-o table|json`
+
+### HTTP Client Core
+
+*headers, timeout, errors*
+
+Builds every request and turns the server's answer into either bytes or an error. All resource functions and streams go through it.
+
+- Every request carries `Content-Type: application/json` and `Accept: application/json`, plus the bearer token when one is set. The path must start with `/`. The address is joined from the base URL (trailing slashes removed) and the path.
+- Normal calls get a time limit: the request context is wrapped with the `--timeout` value, and the limit stays active until the whole body has been read. So a server that answers headers quickly but trickles the body is also cut off. The underlying Go HTTP client has no timeout of its own, deliberately, so that streams are not cut.
+- Any status outside 200-299 returns the error text `API error: status 404: {body}`, with the server's raw JSON error body included as-is. The CLI does not parse the error envelope (message, error, path), so the user sees JSON text inside an error line. The server's 202 for a start is accepted because it is a 2xx.
+- Path pieces are escaped with Go's path-escape function through one helper, `apiPath`. Example: node id `a/b` becomes `a%2Fb`, so it stays one path segment and cannot be used to reach a different endpoint. Query values are built separately with the standard query encoder.
+- There are no retries, no connection reuse tuning, no proxy settings beyond Go's defaults (the standard `HTTP_PROXY` variables are honoured by Go's default transport), no TLS options (no way to trust a private CA other than the system store) and no redirect policy beyond Go's default.
+
+- **Guarantees.** Every id in a path is escaped. A normal call never waits longer than the timeout (0 disables). A non-2xx answer is always an error that contains the status and body.
+- **State.** No state beyond the three settings on the client (base URL, token, timeout).
+- **Ceiling.** One request at a time per command. No pooling concerns for a short-lived process.
+- **On failure.** Network and timeout errors read `request failed: ...`. A server error reads `API error: status N: body`. Neither is retried.
+
+**Settings:** `--url`, `--token`, `--timeout`, `standard HTTP_PROXY / HTTPS_PROXY / NO_PROXY`
+
+### Resource Clients
+
+*one function per endpoint*
+
+One Go function per server endpoint (sessions, workflows and executions, plugins, control bus, logs), each with hand-written types for the answers.
+
+- Each function checks its ids are not empty, builds the path, sends the request and decodes only the `data` field of the envelope into a Go type. Example types: `WorkflowStartResponse{executionId}`, `WorkflowProgress{executionId, status, tasks[]}`, `PluginDetails`.
+- Some answers are typed (workflow start, progress, history, plugins). Others are left as `map[string]any` or `any` (session details, workflow definition, graph, summaries, heartbeat, command reply). The loosely typed ones cannot drift in a way that breaks, but they also give no help to someone reading the code.
+- The CLI calls the server's older, session-qualified paths for most run control: `/api/workflow/{sessionId}/{executionId}/pause`, `/api/workflow/{sessionId}/status/{executionId}` and the node paths. The server marks these as deprecated and offers shorter equivalents such as `/api/executions/{executionId}/pause`. The older paths have one advantage: with a session in the path the server also checks that the run belongs to that session, so one session's id cannot steer another session's run.
+- The decoding step treats a missing or renamed field as an empty value rather than an error. If the server renamed `executionId`, `workflow start` would print an empty id and exit 0.
+- No test compares these types or paths to the server's real API description (the OpenAPI document at `/v3/api-docs`). They are checked only against fake servers written by the same author, so a wrong assumption would be repeated in both places.
+
+- **Guarantees.** A call with an empty id fails locally with a clear message, and the response is decoded or an error returned. It never returns half-decoded data.
+- **State.** None.
+- **Ceiling.** Roughly 30 hand-written endpoint functions. Server changes need matching manual edits.
+- **On failure.** A body that is not valid JSON gives `failed to unmarshal response`. A valid body with different field names decodes to empty values.
+
+**Settings:** `/api/sessions...`, `/api/workflow/...`, `/api/plugins`, `/api/control/...`, `/api/sessions/{sid}/executions/{eid}/logs`
+
+### SSE Streaming
+
+*status and log streams*
+
+Opens long-lived event streams for execution status and logs, and reads them until the user stops or the server ends them.
+
+- A stream request sends `Accept: text/event-stream` and the same bearer token. A non-2xx status is read and reported like a normal error. A 2xx answer must have media type `text/event-stream`, otherwise the stream is refused. The time limit does not apply, so only Ctrl-C, SIGTERM or the server can end it.
+- The scanner reads lines with a buffer that grows to 1 MB. A line longer than that stops the stream with an error. `data:` lines in the same event are joined with newlines; a blank line fires the event. `event:` is remembered but never used. `id:`, `retry:` and comment lines (the server's `: ping` keep-alive every 15 seconds) are ignored.
+- There is no reconnect. The server supports `Last-Event-ID` (event ids count from 0 per stream, and a reconnecting client with that header skips what it already saw), but the CLI never sends it. A dropped connection ends the command. If the network closes cleanly, the command ends with exit 0, which cannot be told apart from 'the execution finished'.
+- Status updates are decoded as progress snapshots and each is printed as indented JSON. Log streams print each event's data as one line. `logs --entries` reads the structured variant. By the server's design these end when the execution reaches a final state.
+- A fuzz test feeds random bytes to the scanner to prove it never panics. Plain `go test` runs only its saved examples; the random exploration needs `go test -fuzz`, which nothing in the build runs.
+
+- **Guarantees.** Ctrl-C ends a stream cleanly with status 0. A stream of the wrong content type is never read. Event text is passed through unmodified.
+- **State.** None. The last event id is never stored, so resuming is not possible.
+- **Ceiling.** One connection per command. A single event larger than 1 MB (for example a progress snapshot with very large node metadata) ends the stream with an error.
+- **On failure.** A malformed progress event ends the stream with `failed to unmarshal progress`. A server that stops sending but keeps the connection open is not detected, apart from the server's own pings, which the CLI does not watch for.
+
+**Settings:** `workflow status-stream [--include-history]`, `logs [--entries]`
+
+### Build & Quality
+
+*Makefile, Gradle, release*
+
+Compiles the program for five platforms and runs all quality checks. The Makefile holds the real logic; Gradle only calls it so the JVM build can include the CLI.
+
+- `make build` produces one static binary (`CGO_ENABLED=0`, symbols stripped) named `build/yukta-<os>-<arch>`, with `.exe` added on Windows. `make build-all` builds linux/amd64, linux/arm64, darwin/amd64, darwin/arm64 and windows/amd64. Static means one file with nothing to install.
+- Tools are pinned by version and run with `go run pkg@version`: golangci-lint v2.14.0 (standard linters plus gocritic and revive), gosec v2.29.0 (security patterns) and govulncheck v1.8.0 (known-vulnerable dependencies and standard library). Pinning means the same commit gives the same result next month. The cost is a download on first use.
+- `make cover-check` always runs the tests afresh and then fails if any single function is below 100% coverage. Exceptions: `cmd/yukta/main.go`, `internal/testutil/testutil.go` and `test/integration_test.go` are exempt (0%). Per-function is stricter than a project average: a new untested function cannot hide behind well-tested ones.
+- `build.gradle.kts` is a 48-line wrapper: each Gradle task such as `goBuild`, `goLint` or `goTest` runs one Make target and shows its output. The Gradle `check` task runs all of them. Because it runs both `goTest` and the coverage check (which itself runs the tests), the tests run twice.
+- Windows developers need `make` and a POSIX shell (the Makefile uses shell, awk and grep), for example through WSL or Git Bash. The produced Windows binary itself needs nothing.
+- On a version tag, the release workflow runs `make build-all`, writes `SHA256SUMS`, attaches a signed build-provenance attestation (a record proving which commit and workflow produced the files) and publishes a GitHub release. CI and release read the Go version from `go.mod`. The binary has no version command, and the build embeds no version string.
+
+- **Guarantees.** Tool versions are pinned. Coverage is regenerated on every check. Release binaries come with checksums and a provenance record.
+- **State.** Build output goes to `cli/build/`; `coverage.out` is a generated file. Nothing else persists.
+- **Ceiling.** Tests run twice in `check`. Tools are downloaded on first use, so a clean machine needs network access to the Go module proxy.
+- **On failure.** Any failing step stops `make check`. A missing `make` on Windows stops the Gradle tasks before Go is even called.
+
+**Settings:** `make build | build-all | test | cover | cover-check | fmt | vet | lint | sec | vuln | check`, `./gradlew :cli:goBuild | goBuildAll | goTest | check`, `GOOS= / GOARCH= overrides`, `go.mod: go 1.26, toolchain go1.27.2`
+
+### Test Harness
+
+*httptest, capture, fuzz*
+
+Lets every command and client function be tested end to end against a real local HTTP server without a real Yukta.
+
+- A helper starts a throwaway local server that returns a fixed status and body and records each request's method and path-with-query. A test builds the real command, runs it with a list of arguments and checks both what was sent (`POST /api/workflow/s1/e1/pause`) and what was printed.
+- Printing is checked by swapping standard output for a pipe during the call and reading it back. Streams use another helper that serves a fixed block of event text with the right content type.
+- Earlier versions had a 612-line hand-written fake client behind several interfaces. It was deleted: fakes tested the fake. Real HTTP exercises the escaping, headers and error handling for free.
+- The file called `test/integration_test.go` is not an integration test in the usual sense. It never contacts a server; it checks how the client is constructed (default URL, trailing slash trimming, header setup). Nothing in the repository runs the CLI against a real Yukta server, so the paths and shapes in `res` are never checked against the actual controllers.
+- Because the output-format setting is a shared variable, tests that change it must restore it, or later tests in the same package see the wrong format.
+
+- **Guarantees.** Every function except the three exempt files is fully covered. The paths a command calls are asserted exactly.
+- **State.** Each test starts its own server and cleans it up.
+- **Ceiling.** Test code is about three times the size of main code (the improvements note gives about 8.0k test lines against 2.9k main lines).
+- **On failure.** A test that leaves the output variable changed can break unrelated tests. The fake server returns whatever the test says, so a wrong assumption about the server passes.
+
+**Settings:** `go test ./...`, `make cover-check`, `go test -fuzz FuzzScanSSE (manual)`
+
+## Scenarios
+
+### Start a run with a payload
+
+One request path from keystroke to printed result, including where an idempotency key would matter.
+
+<Steps>
+<Step title="Typed command">
+The user runs `yukta workflow start s1 build --payload '{"msg":"hi"}'`. Cobra matches the command and checks it got two positional arguments before anything else happens.
+</Step>
+<Step title="Flags reach the client">
+`--url`, `--token` and `--timeout` (or their defaults from the environment) were written into the shared client while the flags were parsed. No command needs to look them up.
+</Step>
+<Step title="Payload is validated locally">
+The payload text must be a JSON object. A mistake such as a trailing comma is reported before any request is sent, which saves a round trip and gives a message about the user's text rather than the server's.
+</Step>
+<Step title="One request, one answer">
+The client sends `POST /api/workflow/start` with a 30-second limit. The server replies 202 with an execution id. The CLI cannot send an `Idempotency-Key`, so if this call timed out, running it again could start a second run.
+</Step>
+<Step title="Print">
+`Workflow started with execution ID: e42` is printed, or JSON with `-o json`. A script can then pass the id to `status` or `logs`.
+</Step>
+</Steps>
+
+### Watch a run live
+
+How live status streams work, why they have no time limit, and what Ctrl-C and a dropped connection do.
+
+<Steps>
+<Step title="Open the stream">
+`yukta workflow status-stream s1 e42` asks for an event stream. The stream path is built with escaped ids and the same bearer token. The CLI sends `includeHistory=false` unless told otherwise.
+</Step>
+<Step title="No time limit">
+The stream bypasses the normal timeout. If it did not, a long run would be cut off after 30 seconds. The content type is checked first: a proxy returning an HTML login page with status 200 is rejected instead of being parsed as events.
+</Step>
+<Step title="Events arrive">
+The server sends a snapshot whenever progress changes, plus a `: ping` comment every 15 seconds so proxies do not close an idle connection. The scanner joins lines into events and prints each snapshot as JSON.
+</Step>
+<Step title="Ctrl-C">
+Ctrl-C cancels the request. The scanner returns a 'cancelled' error, which the command deliberately treats as a clean finish, exit 0. The user asked to stop watching, so that is not a failure.
+</Step>
+<Step title="Connection drops instead">
+If the network breaks, the stream ends. A clean close gives exit 0; a reset gives an error. The CLI does not reconnect and does not send `Last-Event-ID`, so nothing resumes.
+</Step>
+</Steps>
+
+### The server says no
+
+What the user sees when the server refuses a call, and why scripts cannot tell failures apart.
+
+<Steps>
+<Step title="A refusal comes back">
+The user runs `yukta workflow start s1 build` and the server is at its run limit. It answers 429 with a JSON error body.
+</Step>
+<Step title="Turned into an error">
+Any status outside 200-299 becomes `API error: status 429: {body}`. The CLI does not read the body's message field, so the user sees raw JSON inside a sentence.
+</Step>
+<Step title="No retry">
+A 429 means 'try again soon', and a pipeline could do that, but the CLI gives up at once. The wrapper script must implement its own retry loop and cannot tell 429 from 404 because the exit code is 1 either way.
+</Step>
+<Step title="Printed twice">
+Cobra prints `Error: ...` followed by the full usage text. Then `main` prints `error: ...` again. The one useful line is repeated and wrapped in help text, so it is easy to miss in CI logs.
+</Step>
+<Step title="The 401 variant">
+If the server has `yukta.api-key` set and no token was given, every call returns 401 with `WWW-Authenticate: Bearer`. The CLI reports the same generic `API error: status 401`, with no hint to set `YUKTA_TOKEN`.
+</Step>
+</Steps>
+
+### Slow or unreachable server
+
+Time limits, what they cover, and the two places they do not (streams and ambiguous starts).
+
+<Steps>
+<Step title="Server does not answer">
+The server host is down or a firewall silently drops packets. A normal call has a 30-second limit started when the request is created, so the command fails after 30 seconds instead of hanging forever.
+</Step>
+<Step title="Refused instantly">
+If the port is closed, Go reports `connection refused` straight away. The message is `request failed: ...` and exit 1.
+</Step>
+<Step title="Slow body">
+The limit also covers reading the body, so a server that sends headers and then trickles data is cut off too. A very large legitimate answer might exceed 30 seconds and need `--timeout 120s` or `0`.
+</Step>
+<Step title="Streams are exempt">
+A stream has no limit, so a server that accepts the connection and then goes silent leaves `yukta logs` waiting forever. The server's 15-second pings exist for proxies; the CLI does not watch for them.
+</Step>
+<Step title="Ambiguous start">
+If a `workflow start` times out, the run may or may not have started. Without an idempotency key the user cannot safely repeat it. They must check `workflow history` first, which is capped at the server's first page.
+</Step>
+</Steps>
+
+### Create a session with apply
+
+A real gap: a documented, tested command that users cannot run, and why no check caught it.
+
+<Steps>
+<Step title="Docs promise it">
+The README shows `yukta session apply session.json` and the help text of `yukta session` says 'Apply session configurations'. A developer types it.
+</Step>
+<Step title="It is registered now">
+The session group registers list, get, apply, workflow and summaries. `apply` reads a file or inline JSON, validates it, posts to `POST /api/sessions` and has its own local `-o` flag. Until the fix, the session group never registered it and Cobra reported an unknown command, even though its own tests passed.
+</Step>
+<Step title="No test over the tree">
+Its unit tests build the command directly, so they cannot tell whether the group lists it. A test that asked 'does `yukta session --help` list apply?' would catch the next command that is written but not registered.
+</Step>
+<Step title="Typos and flags">
+A mistyped file name is parsed as JSON and reports 'invalid JSON', and the local `-o` flag shadows the global one.
+</Step>
+<Step title="Before applying">
+There is still no command for `POST /api/sessions/validate`, so a CI job cannot check a definition without saving it.
+</Step>
+</Steps>
+
+### From commit to released binary
+
+How the build proves quality, what it cannot prove, and how binaries reach users.
+
+<Steps>
+<Step title="Local check">
+A developer runs `./gradlew :cli:check`. Gradle calls Make for format check, module verify, vet, lint, security scan, vulnerability scan, tests and coverage. Tests run twice because both the test task and the coverage task run them.
+</Step>
+<Step title="Pinned tools">
+golangci-lint, gosec and govulncheck run at fixed versions through `go run pkg@version`. The same commit gives the same verdict. Pinning previously exposed 32 unchecked errors and 5 security findings that unpinned runs had hidden.
+</Step>
+<Step title="Coverage gate">
+Each function must be 100% covered, except three exempt files. Adding an untested helper fails the build at once. It still cannot detect an unregistered command, since coverage measures lines run, not features reachable.
+</Step>
+<Step title="Tag and release">
+A version tag starts the release workflow. It builds five binaries, writes `SHA256SUMS`, records build provenance and publishes them. Names look like `yukta-linux-amd64` and `yukta-windows-amd64.exe`.
+</Step>
+<Step title="Which version is this?">
+A user with an old binary cannot ask it. There is no `version` command and no version string embedded at build time, so bug reports cannot name a release.
+</Step>
+</Steps>
+
+## Capabilities
+
+What the program can do today, grouped by area. 'Limit' names the practical edge of each.
+
+
+### Sessions
+
+| Capability | What it does | How | Guarantee | Limit |
+|---|---|---|---|---|
+| List sessions | Prints session ids from the server. | `session list` calls GET /api/sessions. | Alphabetical ids as the server returns them. | Only the first page (500 by default); no --limit or cursor. |
+| Session details and summaries | One session's id and workflow ids, or lean summaries of all sessions. | `session get`, `session summaries`. | Summaries always print JSON. | No paging; get prints table or JSON, summaries ignores -o. |
+| Workflow definition, graph, executions | Read a stored workflow, its node and edge graph, and its past runs. | `session workflow get\|graph\|executions`. | Printed as JSON whatever -o says. | Executions list is the server's first page only. |
+
+### Runs
+
+| Capability | What it does | How | Guarantee | Limit |
+|---|---|---|---|---|
+| Start a run | Starts an execution, optionally with an input payload. | `workflow start` with --payload or --payload-file. | Payload must be a JSON object; checked locally. | No Idempotency-Key, so a timed-out start cannot be safely repeated. |
+| Stop, pause, resume a run | Steer one execution or stop all runs of a workflow. | `workflow stop\|pause\|resume`, `workflow executions stop`. | Prints the affected execution ids. | `workflow stop` cannot choose DRAIN, CANCEL or KILL. |
+| Restart | Re-run an execution from the start or from a node. | `workflow executions restart <eid> [node]`. | Returns the new execution id. | Needs the server's checkpoints for from-node restarts. |
+| Status and history | A snapshot of one run, or the runs of a session. | `workflow status`, `workflow history`. | Plain text or JSON. | History is the first page; status table shows no per-task rows. |
+
+### Nodes
+
+| Capability | What it does | How | Guarantee | Limit |
+|---|---|---|---|---|
+| Pause, resume, stop, skip a node | Act on one node of a live run. | `workflow node pause\|resume\|stop\|skip`, stop has --immediate and --reason. | Each prints a one-line confirmation. | The server notes that skip is currently rejected for running executions. |
+| Step-through debugging | Make a node pause so you can advance it one step at a time. | `workflow node step enable\|disable\|next`. | Same confirmation style. | No breakpoint commands (server has them). |
+
+### Live
+
+| Capability | What it does | How | Guarantee | Limit |
+|---|---|---|---|---|
+| Live status stream | Watch a run's progress as it happens. | `workflow status-stream` over SSE. | Ctrl-C ends cleanly with exit 0. | No reconnect or resume; history off by default. |
+| Execution logs | Stream log lines or structured entries. | `logs <sid> <eid> [--entries]`. | Stored lines first, then live, as the server sends them. | Entries mode prints JSON lines; no filtering. |
+
+### Discovery
+
+| Capability | What it does | How | Guarantee | Limit |
+|---|---|---|---|---|
+| Plugin list and detail | Find node types and their ports and usage text. | `plugin list`, `plugin get <type>`. | Table or JSON. | Table shows only some fields; JSON includes the UI design. |
+
+### Control bus
+
+| Capability | What it does | How | Guarantee | Limit |
+|---|---|---|---|---|
+| Node inspection and commands | List active nodes, read a node's last heartbeat, send it a command. | `controlbus nodes\|all-nodes\|heartbeat\|command`. | Command payload is checked as JSON first. | The server expects a non-empty object of at most 100 entries; the CLI does not check that. |
+
+### Access
+
+| Capability | What it does | How | Guarantee | Limit |
+|---|---|---|---|---|
+| Remote servers and tokens | Point the CLI at another server with an API key. | --url and --token, or YUKTA_SERVER_URL and YUKTA_TOKEN. | Token is sent on normal calls and streams. | No warning when the token goes over plain http. |
+
+### Output
+
+| Capability | What it does | How | Guarantee | Limit |
+|---|---|---|---|---|
+| Table or JSON output | Readable columns for humans, JSON for scripts. | -o table\|json. | JSON goes to standard output and is indented. | Several commands ignore -o. |
+
+### Packaging
+
+| Capability | What it does | How | Guarantee | Limit |
+|---|---|---|---|---|
+| Static binaries for five platforms | Download one file and run it. | `make build-all`; release adds SHA256SUMS and provenance. | No runtime needed (CGO disabled). | No version command. |
+
+## Guarantees and limits
+
+What the CLI promises, what it leaves to the server, and what it does not do. 'Enforced' means code checks it; 'not enforced' means a user or the server must.
+
+
+### Behaviour of a command
+
+Per-call semantics. The CLI keeps no data between runs.
+
+| Topic | What the CLI does |
+|---|---|
+| Time limit | \*\*Yes.\*\* Normal calls give up after 30 seconds by default (covers connect, wait and reading the body). `--timeout 0` disables. |
+| Streams | \*\*Partly.\*\* No time limit on purpose. Only Ctrl-C, SIGTERM or the server ends them. A silent server is not detected. |
+| Retries | \*\*No.\*\* None. A timeout, 429 or network blip is reported once. |
+| Path safety | \*\*Yes.\*\* Every id in a path is escaped, so ids with `/`, `?` or `#` cannot reach a different endpoint. |
+| Success test | \*\*Yes.\*\* Any 2xx is success (the server uses 200 and 202). Everything else is an error with status and raw body. |
+| Exit codes | \*\*Partly.\*\* 0 on success and on Ctrl-C of a stream; 1 on any error. No separate codes for 4xx, 5xx, timeout or bad usage. |
+| Output channels | \*\*Yes.\*\* Results go to standard output, errors to standard error, so JSON can be piped. |
+| Stored data | \*\*Note.\*\* None: no config file, no cache, no history. Every setting comes from flags or two environment variables. |
+| Decoding | \*\*Partly.\*\* Only the envelope's `data` field is read. A renamed field becomes an empty value, not an error. |
+| Idempotency | \*\*No.\*\* The server's `Idempotency-Key` header for starts is not sendable from the CLI. |
+
+### Enforced by the CLI vs left to the server
+
+| Rule | Who enforces it |
+|---|---|
+| Required ids and argument counts | \*\*Yes.\*\* CLI, before any request. |
+| Payload is a JSON object (start) | \*\*Yes.\*\* CLI, and also the server's request validation. |
+| Command payload non-empty, at most 100 entries | \*\*Partly.\*\* Server only. The CLI checks only that the text is valid JSON. |
+| Authentication | \*\*Note.\*\* Server decides (`yukta.api-key`). The CLI only sends the token. |
+| Run belongs to the session | \*\*Partly.\*\* Server checks it on the session-qualified paths the CLI uses; the shorter execution-only paths skip that check. |
+| Run limit and queue | \*\*Note.\*\* Server. A refusal arrives as 429 and the CLI does not retry. |
+| Output format value | \*\*No.\*\* Not validated except by `session get`. |
+| Server compatibility | \*\*No.\*\* Not checked at all: no version negotiation and no contract test. |
+
+### Defaults and limits
+
+| Setting | Value |
+|---|---|
+| Server URL | `YUKTA_SERVER_URL`, else `http://localhost:8080` (the server itself listens on loopback by default) |
+| Token | `YUKTA_TOKEN`, else none |
+| Request timeout | 30 s for normal calls; `0` disables; not applied to streams |
+| Output | `table`; `json` is the only other defined value |
+| Largest stream line | 1 MB (initial buffer 64 KB) |
+| Status stream history | `--include-history` off by default (the server's own default is on) |
+| List size | Whatever the server returns as its first page: 500 by default, at most 1,000; the CLI cannot ask for more or for the next page |
+| Platforms built | linux/amd64, linux/arm64, darwin/amd64, darwin/arm64, windows/amd64 |
+| Coverage rule | 100% per function; exempt: main.go, testutil.go, integration_test.go |
+
+## Reference
+
+### Command to REST endpoint map
+
+What each command calls. sid = session id, eid = execution id, nid = node id, wid = workflow id. Paths marked (legacy) are the session-qualified forms that the server documents as deprecated; the server also offers /api/executions/\{eid\}/... forms.
+
+| Command | Method and endpoint | Notes |
+|---|---|---|
+| session list | GET /api/sessions | First page only. -o json prints \{sessions:[...]\}. |
+| session get &lt;sid&gt; | GET /api/sessions/\{sid\} | Table shows id and workflow ids; JSON raw. |
+| session summaries | GET /api/sessions/summaries | Always JSON. First page only. |
+| session workflow get &lt;sid&gt; &lt;wid&gt; | GET /api/sessions/\{sid\}/workflows/\{wid\} | Always JSON. |
+| session workflow graph &lt;sid&gt; &lt;wid&gt; | GET /api/sessions/\{sid\}/workflows/\{wid\}/graph | Always JSON. |
+| session workflow executions &lt;sid&gt; &lt;wid&gt; | GET /api/sessions/\{sid\}/workflows/\{wid\}/executions | Always JSON. First page only. |
+| session apply &lt;json-or-file&gt; | POST /api/sessions | Registered in the session group. |
+| workflow start &lt;sid&gt; &lt;wid&gt; [--payload \| --payload-file] | POST /api/workflow/start | Server answers 202. No Idempotency-Key. |
+| workflow stop &lt;sid&gt; &lt;wid&gt; | POST /api/workflow/\{sid\}/\{wid\}/stop | No ?mode= sent, so the server default DRAIN applies. |
+| workflow pause \| resume &lt;sid&gt; &lt;eid&gt; | POST /api/workflow/\{sid\}/\{eid\}/pause \| resume | (legacy) |
+| workflow status &lt;sid&gt; &lt;eid&gt; | GET /api/workflow/\{sid\}/status/\{eid\} | (legacy) Prints id, workflow, status, times, task count. |
+| workflow status-stream &lt;sid&gt; &lt;eid&gt; [--include-history] | GET /api/workflow/\{sid\}/status/\{eid\}/stream?includeHistory= | (legacy) SSE. Sends includeHistory=false by default. |
+| workflow history &lt;sid&gt; | GET /api/workflow/\{sid\}/history | First page only. Plain text, not a table. |
+| workflow executions stop &lt;eid&gt; | POST /api/workflow/executions/\{eid\}/stop | (legacy, no session in path) |
+| workflow executions restart &lt;eid&gt; [node] | POST /api/workflow/executions/\{eid\}/restart[/\{node\}] | (legacy, no session in path) |
+| workflow node pause \| resume &lt;sid&gt; &lt;eid&gt; &lt;nid&gt; | POST /api/workflow/\{sid\}/\{eid\}/node/\{nid\}/pause \| resume | (legacy) |
+| workflow node stop ... [--immediate] [--reason] | POST /api/workflow/\{sid\}/\{eid\}/node/\{nid\}/stop?immediate=&reason= | (legacy) Always sends reason, even when empty. |
+| workflow node skip ... [--skip=false] | POST /api/workflow/\{sid\}/\{eid\}/node/\{nid\}/skip?skip= | (legacy) The server notes core currently rejects skip for running executions. |
+| workflow node step enable \| disable \| next | POST /api/workflow/\{sid\}/\{eid\}/node/\{nid\}/step/enable \| step/disable \| step | (legacy) |
+| logs &lt;sid&gt; &lt;eid&gt; [--entries] | GET /api/sessions/\{sid\}/executions/\{eid\}/logs[/entries] | SSE. Ends when the execution reaches a final state. |
+| plugin list | GET /api/plugins | Table: type and category. |
+| plugin get &lt;type&gt; | GET /api/plugins/\{type\} | Table omits the UI HTML; JSON includes it. |
+| controlbus nodes &lt;wid&gt; | GET /api/control/workflows/\{wid\}/nodes |  |
+| controlbus all-nodes | GET /api/control/nodes |  |
+| controlbus heartbeat &lt;wid&gt; &lt;nid&gt; | GET /api/control/workflows/\{wid\}/nodes/\{nid\}/heartbeat | Table rows in random order. |
+| controlbus command &lt;wid&gt; &lt;nid&gt; &lt;json-or-file&gt; | POST /api/control/workflows/\{wid\}/nodes/\{nid\}/command | Body is the raw JSON object; the server needs 1 to 100 entries. |
+| controlbus watch [--execution] [--type] [--until-done] [--quiet] | GET /api/events/stream | One line per event; --quiet shows only problems and the end. |
+| result &lt;sid&gt; &lt;eid&gt; | GET /api/sessions/\{sid\}/executions/\{eid\}/results | What reached the terminal nodes. |
+| workflow node retry &lt;eid&gt; &lt;nid&gt; | POST /api/executions/\{eid\}/nodes/\{nid\}/retry | Restart from a failed node; prints the new execution id. |
+| workflow node breakpoint &lt;eid&gt; &lt;nid&gt; | POST and DELETE /api/executions/\{eid\}/nodes/\{nid\}/breakpoint | Data-driven breakpoint. |
+| workflow node signal &lt;eid&gt; &lt;nid&gt; | POST /api/executions/\{eid\}/nodes/\{nid\}/signal | Answer an approval. |
+
+### Server endpoints with no CLI command
+
+Found by comparing the web controllers with the commands. Each is a candidate for a new command or a reason to generate the client.
+
+| Server endpoint | What it does | Why a user might want it |
+|---|---|---|
+| GET /api/supervisors | Lists automated watchers. | Seeing what is watching a run. |
+| POST /api/sessions/validate | Checks a workflow definition without saving it. | A CI check before applying a config. |
+| GET /api/sessions/\{sid\}/config, GET /api/sessions/\{sid\}/workflows | Full session config and workflow list. | Exporting a session. |
+| POST /api/executions/\{eid\}/priority | Change a queued run's priority. | Queue management. |
+| POST /api/scheduler/limits | Change run limits at run time. | Operations. |
+| ?mode= on POST /api/workflow/\{sid\}/\{wid\}/stop | DRAIN (default), CANCEL or KILL. | Choosing how hard to stop. |
+| ?limit= and ?cursor= on list endpoints | Paging with an X-Next-Cursor response header. | Seeing beyond the first 500 items. |
+| Idempotency-Key header on POST /api/workflow/start | Repeat-safe starts. | Safe retries in pipelines. |
+| Last-Event-ID header on streams | Resume a stream without repeats. | Reconnecting watchers. |
+| GET /api/sessions/\{sid\}/approvals, POST .../versions/note, rollback, diff | Pending approvals and workflow versions. | Operating approval steps and rolling back from the terminal. |
+| GET /api/executions (run search), GET /api/control/audit | Search runs across sessions; list control commands with the actor. | Finding a run and seeing who did what. |
+| POST /api/executions/\{eid\}/recover | Resume a run that a restart aborted. | Recovery after a crash. |
+| GET /api/workers | Lists connected remote workers. | Operations. |
+
+### Build and check targets
+
+The Makefile is the source of truth. Gradle task names are listed for people who start from the JVM side.
+
+| Make target | Gradle task | What it does |
+|---|---|---|
+| make build | goBuild | Static binary for the current OS and architecture into build/yukta-&lt;os&gt;-&lt;arch&gt;[.exe]. |
+| make build-all | goBuildAll | The five platforms: linux amd64/arm64, darwin amd64/arm64, windows amd64. |
+| make test | goTest | go test ./... |
+| make cover / cover-check | goTestCoverage / goCoverageCheck | Fresh coverage profile, then the 100% per-function rule. |
+| make fmt-check / fmt | goFormatCheck / goFormat | gofmt. |
+| make mod-verify / mod-tidy | goModVerify / goModTidy | Module checksums / tidy. |
+| make vet / lint | goVet / goLint | go vet; golangci-lint v2.14.0. |
+| make sec / vuln | goSecurityScan / goVulnCheck | gosec v2.29.0; govulncheck v1.8.0. |
+| make check | check | Everything above. In Gradle, tests run twice (goTest and inside the coverage check). |
+
+## Architecture decisions
+
+<AccordionGroup>
+<Accordion title="A thin Go client that shares no code with the server">
+**Context.** Developers and CI machines should be able to drive Yukta without a JVM, and the CLI should start instantly.
+
+**Decision.** Write the CLI in Go with Cobra, as a separate module with its own build. It talks to the web module's REST and SSE API only.
+
+**Consequences.** Tiny static binaries, fast start, no Java needed. The cost is that every endpoint and type is duplicated by hand and nothing links it to the server.
+
+**Alternatives considered.** A Java CLI sharing the web module's DTOs would stay in step automatically but needs a JVM or a native-image build of the whole server stack. A shell script around curl needs no build but has no help text, validation or tests. A client generated from OpenAPI is possible but was not built.
+
+**Revisit when.** the endpoint list keeps growing, or drift causes a real incident.
+
+</Accordion>
+<Accordion title="Hand-written types and loosely typed answers">
+**Context.** The server's answers are wrapped in an envelope with many fields. The CLI only needs a few.
+
+**Decision.** Decode only the `data` field into small hand-written structs, or a generic map for complex answers such as graphs.
+
+**Consequences.** Little code and no generator dependency. Unknown fields are ignored, which is lenient, but renamed fields become empty without any error.
+
+**Alternatives considered.** Generate from the OpenAPI document: always correct, but large generated code and a build step. Strict decoding that rejects missing fields: catches drift, but breaks on harmless server additions if not tuned.
+
+**Revisit when.** a contract test finds drift, or a second client (for example a Python SDK) appears and could share the generated model.
+
+</Accordion>
+<Accordion title="The Makefile is the build; Gradle only wraps it">
+**Context.** The first Gradle script had about 578 lines duplicating Go build logic, hid compiler output and could use a stale coverage file.
+
+**Decision.** Put all logic in the Makefile and make each Gradle task run one Make target, so output shows as is and the JVM build can still include the CLI.
+
+**Consequences.** One place to change, same result with make or Gradle. Windows needs make and a POSIX shell.
+
+**Alternatives considered.** Pure Gradle: familiar to the JVM team but duplicates Go tooling and hid errors before. Pure Go tooling with no wrapper: simplest, but the repository's single entry point (`./gradlew check`) would not cover the CLI.
+
+**Revisit when.** Windows contributors become common, or the Make logic outgrows shell and awk.
+
+</Accordion>
+<Accordion title="One generic Action builder and commands grouped by resource">
+**Context.** Dozens of commands do the same thing: call an endpoint with ids and print one line.
+
+**Decision.** Group commands like the REST resources (session, workflow, node, executions, logs, plugin, controlbus) and build 'call and print' commands from one generic helper with a typed result.
+
+**Consequences.** Short, uniform commands; the 12 duplicate files were removed. Registration is still manual, which allowed a finished command to go unregistered.
+
+**Alternatives considered.** One file per command: easy to read but repetitive. Generating commands from OpenAPI: no omissions but unpredictable help text and awkward names. A flat list of commands: fewer levels but names collide.
+
+**Revisit when.** a registration test is added (then fine), or the command count doubles.
+
+</Accordion>
+<Accordion title="Test with a real local HTTP server, not mocks">
+**Context.** An earlier setup had interfaces and a 612-line fake client only for tests; the fake could pass while real behaviour was wrong.
+
+**Decision.** Delete the fakes. Every command and client function is run against an `httptest` server that records the path and returns canned answers. Enforce 100% coverage per function.
+
+**Consequences.** Escaping, headers and error text are tested for real. The fake server's answers are still written by the author, so wrong assumptions about the server pass. Coverage cannot see an unregistered command.
+
+**Alternatives considered.** Interface mocks: faster to write but test the mock. A real server in CI: the truest, slow and heavy (needs the JVM image). Recorded responses from the real server: realistic, but need regular refresh.
+
+**Revisit when.** a contract problem reaches users, which would justify the cost of a real-server test.
+
+</Accordion>
+<Accordion title="Streams: no timeout, own SSE scanner, no reconnect">
+**Context.** Status and log streams may run for hours, and the server speaks plain SSE with ids and 15-second pings.
+
+**Decision.** Skip the request timeout for streams, scan lines with a small own reader (1 MB line limit), and stop on Ctrl-C. Do not reconnect.
+
+**Consequences.** No extra dependency and easy to fuzz. The user loses events or must re-run after a drop, and a silent server hangs the command.
+
+**Alternatives considered.** A third-party SSE library: reconnect and ids for free, but a new dependency to scan and pin. A per-read idle timeout: protects against silent servers; not done. Polling the status endpoint: simple and resumable but slower and heavier.
+
+**Revisit when.** users report lost events, or CI jobs hang on dead streams.
+
+</Accordion>
+<Accordion title="Pin the quality tools with go run and versions">
+**Context.** Using @latest of golangci-lint, gosec and govulncheck made builds non-repeatable and ran unpinned code.
+
+**Decision.** Run each tool as `go run pkg@version` in the Makefile (golangci-lint v2.14.0, gosec v2.29.0, govulncheck v1.8.0).
+
+**Consequences.** Repeatable results with nothing to install; the module's own dependency list stays small. Versions need manual bumps, and a first run downloads the tool.
+
+**Alternatives considered.** A `tool` directive in go.mod: native, but adds hundreds of indirect requirements to the CLI module. Installing from a Docker image: strong isolation, heavier setup. Unpinned @latest: no upkeep but no repeatability.
+
+**Revisit when.** the manual bumps are forgotten, or Dependabot support for these pins becomes possible.
+
+</Accordion>
+<Accordion title="Static binaries per platform with checksums and provenance">
+**Context.** Users of a CLI download a program and trust it with an API key.
+
+**Decision.** Build with `CGO_ENABLED=0` for five targets, publish `SHA256SUMS` and a build-provenance attestation on tagged releases.
+
+**Consequences.** No installs, and users can verify what they run. No installer, no package-manager entries, no auto-update, no version command.
+
+**Alternatives considered.** Packages for Homebrew, apt and winget: easier for users, more release work. A container image: simple for CI but awkward for desktops. Source install with `go install`: needs Go.
+
+**Revisit when.** many users ask for package-manager installs, or a signed release is required.
+
+</Accordion>
+</AccordionGroup>
+
+## Glossary
+
+| Term | Meaning | Note |
+|---|---|---|
+| CLI (command-line interface) | A program you run by typing a command in a terminal rather than clicking. | The cli module builds the `yukta` program. |
+| Go | A compiled programming language that produces a single self-contained executable. | Why the CLI needs no runtime to install. |
+| Cobra | A Go library for building command trees with arguments, flags and generated --help. | It decides how words map to functions. |
+| REST | A way of exposing a server's features as URLs and HTTP verbs (GET reads, POST changes). | Everything the CLI does goes through the server's REST API. |
+| HTTP status code | A number in the answer: 2xx success, 4xx the caller erred, 5xx the server erred. | The CLI treats any non-2xx as an error. |
+| 202 Accepted | 'Received, work will continue.' The server answers a workflow start this way. | The CLI counts it as success. |
+| 429 Too Many Requests | The server refuses because a limit was reached. | The CLI does not retry it. |
+| API envelope | The common wrapper around every JSON answer: status, message, data (and error fields on failure). | The CLI reads only the data field. |
+| DTO (data transfer object) | A plain type that mirrors the shape of a request or answer. | The CLI keeps hand-written copies, which can drift from the server's. |
+| Drift | When two copies of something slowly stop matching because nothing forces them to stay equal. | The main long-term risk of this module. |
+| SSE (Server-Sent Events) | A one-way HTTP stream where the server keeps sending lines of text. | Used for live status and logs. |
+| Last-Event-ID | An HTTP header a reconnecting stream client sends so the server skips events it already delivered. | The server supports it; the CLI does not use it. |
+| Keep-alive ping | A comment line the server sends every 15 seconds on an idle stream. | Stops proxies from closing it; the CLI ignores it. |
+| Bearer token | A secret sent in the Authorization header as proof of permission. | The CLI's way to pass the server's API key. |
+| API key (yukta.api-key) | The server setting that turns on authentication for /api paths. | If it is set, the CLI needs --token or YUKTA_TOKEN. |
+| Loopback | The address 127.0.0.1, reachable only from the same machine. | The server's default, which is why an open API is acceptable locally. |
+| Idempotency key | A caller-chosen label that makes a repeated request return the first result instead of acting twice. | The server supports it on start; the CLI cannot send it. |
+| Pagination and cursor | Returning a long list in pages; a cursor is the 'where I stopped' marker for the next page. | The CLI never asks for page two. |
+| X-Next-Cursor | The response header in which the server names the cursor of the next page. | Not read by the CLI. |
+| Execution | One live run of a workflow with its own id. | Run-control commands take the execution id. |
+| Session | A workspace grouping workflows, runs and configuration. | Most commands start with a session id. |
+| Node | One step of a workflow. | Node commands act on a single step of a live run. |
+| Step mode | A debugging state where a node waits and is advanced one step at a time. | `workflow node step enable\|next\|disable`. |
+| Control bus | The server's channel for observing nodes and sending commands to them. | The `controlbus` command group. |
+| Heartbeat | A signal a node emits to show it is alive. | `controlbus heartbeat` prints the last one. |
+| DRAIN, CANCEL, KILL | Stop modes: let in-flight work finish, cancel at once, cancel and remove the run. | The CLI cannot choose; it gets DRAIN. |
+| Legacy path | The older, session-qualified URL form the server marks as deprecated. | The CLI uses it for most run control. |
+| Static binary | An executable with everything built in (here `CGO_ENABLED=0`). | One file to download and run. |
+| Makefile | A file of named build recipes run by the `make` tool. | The source of truth for the CLI build. |
+| golangci-lint, gosec, govulncheck | Go tools that check style and bugs, security patterns, and known-vulnerable dependencies. | Run, at pinned versions, in `make check`. |
+| Per-function coverage | A rule that every single function must have its lines run by tests (here 100%), not just the project on average. | A new untested function fails the build. |
+| httptest | A Go test helper that starts a real local HTTP server. | How every command is tested. |
+| Fuzz test | A test that feeds random input to look for crashes. | Used on the SSE scanner. |
+| Build provenance attestation | A signed record of which source and workflow produced a file. | Attached to release binaries on tags. |
+| Exit code | The number a program returns to its caller: 0 for success, other for failure. | The CLI uses only 0 and 1. |

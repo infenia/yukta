@@ -1,0 +1,852 @@
+---
+title: "Plugins module"
+description: "The plugins module is the toolbox of Yukta: 31 built-in node types (triggers that start a workflow, processors that route, transform, call outside systems or ask a model, and terminals that finish a b"
+---
+
+The plugins module is the toolbox of Yukta: 31 built-in node types (triggers that start a workflow, processors that route, transform, call outside systems or ask a model, and terminals that finish a branch) plus the supervisors and control planes that watch runs from outside. Each one is a small Spring bean that obeys a contract from plugin-api; the engine in core does the scheduling, retries and timeouts around it. This page is for thinking, not documenting: open a component, play a scenario, then challenge the weak spots, most of which are about what a workflow author is allowed to make a plugin do.
+
+| Property | What it means |
+|---|---|
+| One bean per type | Every type id (for example HTTP_REQUEST) is one singleton bean found by name in a registry. Per-node settings arrive as a map on each call, so one instance serves every node of that type. |
+| Same failure shape | Plugins that touch the outside world share one pattern: a typed spec, a gateway that does the I/O, a failureMode (ERROR or CONTINUE), optional success/failure ports and a node timeout that is the plugin's own timeout plus a margin. |
+| Config is power | A workflow author's settings decide which program runs, which URL is called, which folder is read. The plugins are where that power is granted or limited, so most open risks here are security and resource limits. |
+| Pick what ships | The build includes nine optional plugins by default (-Pyukta.plugins=all). Choosing a shorter list removes them, and their dependencies, from the application. |
+
+<Note>
+  Open risks, bugs and improvement ideas for this module are on the internal pages (sign-in required): [Risks](/internal/risks#plugins), [Bugs](/internal/bugs) and [Improvements](/internal/improvements#plugins).
+</Note>
+
+## Primer
+
+Yukta's engine knows how to run a graph of nodes, but it knows nothing about what a node does. Something has to actually fetch a web page, run a program, ask a language model, split a list into items, or post to a chat channel. Those somethings are plugins. The hard part is that they are driven by configuration written by whoever authors the workflow: that person names the URL, the command, the folder, the SQL, the model prompt. So a plugin must be flexible enough to be useful and careful enough that a configuration mistake (or a hostile configuration) does not take the server down.
+
+<Tip>
+  Think of a workshop with a wall of power tools. The engine is the foreman: it decides when each tool is switched on, how long it may run and what happens if it jams. Each plugin is one tool. A tool has a standard plug (the contract), its own dial settings (the config), and a guard (the failure handling). Some tools are harmless (a stapler: FILTER). Some can take a finger off (a saw: PROCESS_EXECUTOR). The foreman does not know what the saw cuts, only that it must stop after the timeout.
+</Tip>
+
+### Where plugins sit
+
+| Layer | Role |
+|---|---|
+| Clients | REST, web UI, MCP agents and the CLI submit workflow definitions and start runs |
+| core | The engine. It validates graphs, wires nodes into streams, applies timeouts, retries and error ports, hosts supervisors, and keeps the plugin registry |
+| plugin-api | The contract: three node interfaces (trigger, processor, terminal), the supervisor and control-plane interfaces, config field descriptions, failure helpers, a safe expression helper |
+| plugins | The implementations. This page. (this module) |
+| boot | Chooses which optional plugin modules are compiled into the application |
+
+In theory plugins depend only on plugin-api. In practice 11 of the 19 plugin modules also depend on core, to reuse the variable resolver and helpers (risk: coreLayering).
+
+### Eight terms to know first
+
+| Term | Meaning | Example |
+|---|---|---|
+| Plugin type | A named kind of node, written as an upper-case id such as FILTER or LLM_CALL. A workflow node says which type it is and carries a config map. | Node 'check-price' has type FILTER and config \{condition: 'payload.price &gt; 100'\}. |
+| Trigger, processor, terminal | Three roles. A trigger has no input and creates the first messages. A processor takes messages in and sends messages out. A terminal only takes messages in and ends the branch. | API_TRIGGER starts, MAPPER reshapes, NOTIFY_TERMINAL posts a webhook. |
+| Message | The unit that flows between nodes: a payload (the data), metadata (labels about the data), an id and the name of the output port it left on. | A support ticket is a payload; the model's confidence is added to metadata. |
+| Port | A named exit of a node. Edges in the workflow can be wired to a specific port, so one node can send different messages to different next nodes. | FILTER sends matching messages out of 'default' and rejects out of its discardPort; GATE uses 'pass' and 'reject'. |
+| FailureMode and routeBy | A setting on external-call plugins. ERROR fails the node when the call fails. CONTINUE turns the failure into a message with a status, and routeByStatus (or routeByExitCode) then sends it out of a 'success' or 'failure' port. | HTTP_REQUEST with failureMode CONTINUE and routeByStatus true sends a 503 down the 'failure' edge to a fallback node. |
+| Variable expression | Text such as $\{payload.user.id\} inside a config value. The plugin replaces it with a real value when a message arrives. Not every plugin does this; the catalogue says which. | url: 'https://api.example.com/cart/$\{payload.userId\}'. |
+| SpEL | Spring Expression Language: a small expression syntax (payload.price &gt; 100) used by FILTER, BRANCH, SPLITTER and others. In Yukta it runs in a restricted mode: it can read properties and call methods on data, but cannot name Java classes or create objects. | BRANCH selector 'payload.type'. |
+| Decision model | A model asked a constrained question (pick a label, say yes or no, rate on a scale) instead of free chat. Two backends exist: System One, a local model on Ollama that returns calibrated probabilities, and any chat model, whose probability is its own guess. | GATE asks 'Is this safe to send?' and routes on the probability of yes. |
+
+### One example, end to end
+
+A chat agent that remembers the conversation, lets the model use a tool and posts the reply. Click a node to see what happens, why it is built that way, and what can go wrong.
+
+<Steps>
+<Step title="Chat message">
+**What happens.** The REST or MCP start call carries a payload such as \{sessionId: 's1', message: 'What is the weather in Pune?'\}. The trigger emits it as one message.
+
+**Why it is built this way.** Core hands the start payload to the trigger through the Reactor context (the per-run bag of values that follows the stream). The trigger needs no settings of its own.
+
+**Can go wrong.** If the caller sends no payload, the trigger emits an empty message, and later nodes that expect sessionId fail on their own checks.
+
+</Step>
+<Step title="Load history">
+**What happens.** In mode 'load' it reads the last maxTurns (default 20) turns stored for the session id, attaches them to the payload as 'history', then records the user's new message as a turn. It also copies the session id into metadata for the later 'append' node.
+
+**Why it is built this way.** Resolves $\{payload.sessionId\} and $\{payload.message\} for each message, so one node serves many conversations. The store is a single bean shared by every workflow.
+
+**Can go wrong.** The in-memory cache has no eviction, so abandoned sessions stay until a restart; the history survives a restart only if a directory or PostgreSQL is configured. The user turn is stored before the model answers, so a failed model call leaves a question without an answer.
+
+</Step>
+<Step title="Ask the model">
+**What happens.** Sends the history plus the new message to the model (OpenAI-compatible, Anthropic or Ollama, through Spring AI). If the reply contains &lt;agent_action&gt; blocks, they are cut out and returned as a parsed 'actions' list next to the clean 'content' text.
+
+**Why it is built this way.** The node timeout is computed from the plugin's own timeout (default 120 s per attempt), the retries setting and the backoff, so the engine does not cut off a legitimate slow call. Each attempt runs on a thread meant for blocking work.
+
+**Can go wrong.** Spending is capped only if the node sets 'budget'; 'prices' alone only reports cost. A model that ignores the action format simply returns text, and the workflow takes the no-tool path.
+
+</Step>
+<Step title="Tool wanted?">
+**What happens.** Evaluates a condition on the reply: did the model ask for an action? If yes the message leaves on the port named 'tool', otherwise on 'default'.
+
+**Why it is built this way.** The condition is SpEL in restricted mode. With strictMode (default true) a message that matches no case and has no default port is an error rather than a silent drop.
+
+**Can go wrong.** A condition that throws on an unexpected payload shape fails the message. An errorPort can catch it instead.
+
+</Step>
+<Step title="Call the tool">
+**What happens.** Calls a named tool on a remote MCP server over streamable HTTP, with the arguments the model asked for, and emits \{success, tool, text, content, structured, error\}.
+
+**Why it is built this way.** Keeps one handshaken session per server and credentials, forwards the server's progress notifications to the engine as heartbeats so a slow tool is not timed out, and cancels the remote request if the node is cancelled.
+
+**Can go wrong.** The server URL and tool name come from config (and can contain variables), and nothing limits which hosts may be called (risk: ssrf).
+
+</Step>
+<Step title="Answer with result">
+**What happens.** A second LLM_CALL node. Its prompt includes the tool result, and its reply is the final answer text.
+
+**Why it is built this way.** Nothing new: the same retry, timeout and failureMode behaviour. A graph is acyclic, so a 'loop' of model, tool, model is written as separate nodes, not as a cycle.
+
+**Can go wrong.** Only one round of tool use is possible this way. Needing three rounds means three more nodes, or a model that batches its actions.
+
+</Step>
+<Step title="Save reply">
+**What happens.** In mode 'append' it stores the assistant's reply (default $\{payload.content\}) under the session id that 'load' left in metadata.
+
+**Why it is built this way.** Trims the session to maxTurns so the stored history cannot grow past the limit per session.
+
+**Can go wrong.** If the run crashes before this node, the user turn is stored and the reply is not. The next turn then shows the model a question with no answer.
+
+</Step>
+<Step title="Post reply">
+**What happens.** Posts the reply text as a JSON webhook (\{text: ...\}, Slack-compatible) and ends the branch.
+
+**Why it is built this way.** Refuses plain http except for localhost when the config is checked, applies a 10 s default timeout and, with failureMode ERROR, fails the node on any non-2xx answer including redirects.
+
+**Can go wrong.** Any https host is accepted. A webhook that is slow or down fails the node, and the user never sees the reply even though memory already holds it.
+
+</Step>
+</Steps>
+
+### The module in plain words
+
+<Steps>
+<Step title="Register">
+at startup every plugin bean is collected into a registry by type id. A duplicate type id stops the server from starting.
+</Step>
+<Step title="Describe">
+each plugin publishes a description, a list of config fields (shown as a form in the UI) and its output ports.
+</Step>
+<Step title="Validate">
+before a run, the engine asks each plugin to check its node's config, so a missing url fails at submit time, not at message 1,000.
+</Step>
+<Step title="Run">
+the engine calls the plugin once per node with a stream of messages and the config map; the plugin returns a stream of messages.
+</Step>
+<Step title="Resolve">
+plugins that support it replace $\{...\} variables and decrypted: secrets in their config using each message.
+</Step>
+<Step title="Guard">
+external-call plugins wrap the work in the failure pattern: ERROR throws, CONTINUE turns the failure into a routable message.
+</Step>
+<Step title="Watch">
+separately, supervisors and control planes read the stream of run events and may pause or stop a run, or veto a command.
+</Step>
+</Steps>
+
+## Components
+
+### Triggers
+
+*API, constant, schedule*
+
+Creates the first message of a run. Three types: API_TRIGGER, CONSTANT_SOURCE and SCHEDULE_TRIGGER.
+
+- API_TRIGGER takes the payload that the REST or MCP start call carried and emits it as one message with a fresh id. If the start call had no payload, it emits an empty one. It has no settings.
+- CONSTANT_SOURCE emits one message built from a 'variables' map (dots in a key make nested fields: 'user.name'). 'target' says whether the values go into the payload (default) or the metadata. The values may use $\{env.X\}, $\{sys.p\}, $\{context.k\} and decrypted:key, but $\{payload...\} is not replaced with data: a trigger has no incoming message to read from.
+- SCHEDULE_TRIGGER emits \{tick, firedAt\} repeatedly. Set exactly one of intervalMs (fixed gap; the first message comes after one interval, not at once) or cron (a Spring 6-field expression: second, minute, hour, day, month, weekday). 'zone' sets the cron time zone (default is the server's), 'maxRuns' stops after that many messages. A cron with no future date, or both or neither of the two settings, is rejected when the config is checked.
+- A scheduled workflow is one long run that stays open and keeps emitting. The schedule lives inside that run, not in a separate scheduler: nothing remembers it after a restart, so a restarted server does not fire missed ticks.
+
+- **Guarantees.** Each start produces a message with a new random id. SCHEDULE_TRIGGER never runs both schedules at once and refuses invalid cron or non-positive intervals at validation time.
+- **State.** None of its own. A schedule's position is held by the running stream and is lost with the process.
+- **Ceiling.** A trigger is one stream per run. Many schedules mean many open runs, each holding a timer and its downstream streams.
+- **On failure.** A bad config is rejected before the run starts. A tick that finds downstream busy is not queued by the trigger itself; how back-pressure is handled is the engine's job.
+
+**Settings:** `API_TRIGGER: none`, `CONSTANT_SOURCE: variables, target (PAYLOAD|METADATA)`, `SCHEDULE_TRIGGER: intervalMs | cron, zone, maxRuns`
+
+### Routing & EIP
+
+*filter, branch, split, group*
+
+Decides which messages go where and in what shape: FILTER, BRANCH, RECIPIENT_LIST, SPLITTER, AGGREGATE and VALIDATE.
+
+- FILTER keeps a message if a condition is true. The default engine is SpEL; engine 'SIMPLE' offers a tiny language with ==, exists and matches (a regular expression). 'REGO' is accepted by the form but rejected at validation as not implemented. Failing messages are dropped, unless discardPort names a second port, which turns the filter into a two-way router. strictMode (default true) turns an evaluation error into a node error; false drops the message quietly.
+- BRANCH sends each message to a named port. Mode SELECT_KEY (default) evaluates 'selector' and looks the result up in 'cases' (value to port name). Mode EXPRESSION treats each case key as a yes/no condition. defaultPort catches the rest. allowMultipleMatches (default false) lets one message go down several ports. With strictMode on and no match and no default, the message is an error, so a typo in a case value cannot silently lose data. errorPort sends evaluation failures to a port with the failure details attached.
+- RECIPIENT_LIST copies a message to several ports at once. Mode DYNAMIC (default) computes port names with an expression; STATIC uses a fixed 'recipients' list; EXTERNAL reads the list from a header or payload field. 'parallel' (default true) sends concurrently. Because the port names can be computed, the node can declare 'any port'.
+- SPLITTER turns one message holding a list into many messages, one per item (itemsPath says where the list is; headerMapping can copy per-item values into metadata). 'parallel' defaults to true and 'concurrency' to 1024. AGGREGATE does the reverse: it batches 'size' messages into one message holding a list of their payloads and flushes a partial batch after 'timeoutMs' if set, or when the stream ends. Example: SPLITTER over 3 orders, a model call per order, then AGGREGATE size 3 to rebuild one list.
+- VALIDATE checks that listed fields exist and are not null ('required') and have the right type ('types': string, number, boolean, object, array). Good messages leave on 'default', bad ones on 'invalid' with the reasons in failureReason, so bad input can be quarantined instead of crashing a later node.
+
+- **Guarantees.** Routing is by port name: the engine only delivers a message on edges wired to the port it left on. With strictMode on, an unmatched or unevaluable message is an error, not a silent drop. AGGREGATE flushes what it holds when the stream completes.
+- **State.** AGGREGATE holds a partial batch in memory until it is full, times out or the stream ends. The others hold nothing between messages. Expressions are cached after the first parse.
+- **Ceiling.** SPLITTER with parallel true can have 1024 items in flight per node. AGGREGATE's buffer is bounded by 'size' but 'size' is whatever the author sets. Expressions are evaluated in restricted SpEL, which is fast but still runs author-supplied logic per message.
+- **On failure.** An expression error is a node error (strictMode true), a dropped message (strictMode false) or an errorPort message. REGO fails validation. Loss of a partial AGGREGATE batch on a crash is possible.
+
+**Settings:** `FILTER: condition, engine, strictMode, discardPort, allowAfterHeavy`, `BRANCH: mode, selector, cases, defaultPort, allowMultipleMatches, strictMode, errorPort`, `RECIPIENT_LIST: mode, recipients, expression, sourceField, parallel`, `SPLITTER: itemsPath, headerMapping, parallel, concurrency`, `AGGREGATE: size, timeoutMs`, `VALIDATE: required, types`
+
+### Transform & script
+
+*MAPPER, CONTENT-FILTER*
+
+Reshapes the payload: MAPPER (projection, template or script) and CONTENT-FILTER (keep or remove fields).
+
+- MAPPER has three modes. PROJECTION maps target field names (dots nest) to SpEL expressions: \{'total': 'payload.price \* payload.qty'\}. TEMPLATE fills Handlebars templates (a Mustache-like text language): one template string, or a map of field to template. SCRIPT runs JavaScript that returns the new payload.
+- dropOriginal (default true) throws the old payload away and keeps only what the mapping builds; false merges the result over the original. strictMode (default true) fails the message on any evaluation error; false logs it and carries on (a failing script then gives an empty payload).
+- SCRIPT mode needs the optional script-js module, which implements a small interface (ScriptEngine) using GraalJS. If it is not in the build, SCRIPT configs are rejected with a message saying to add it to yukta.plugins. The script sees 'message', 'payload' and 'metadata', and its result is converted back into plain maps, lists and scalars.
+- The GraalJS context still has host access to the objects it is given, but Class objects are denied, Java.type may load only 12 value classes and java.time.\*, and a script is stopped after 50 million statements or 10 s (yukta.script.max-statements, yukta.script.timeout-ms). It has no memory limit (risk: scriptHostAccess). The engine marks SCRIPT nodes 'computationally heavy' and logs a hint if a script is simple enough to be a projection.
+- CONTENT-FILTER keeps (INCLUDE, paths are SpEL) or removes (EXCLUDE, paths are dot notation) parts of the payload, with optional 'flatten' to turn nested maps into flat ones. It is meant for stripping sensitive or unimportant data before logging or sending on. Its type id is the only kebab-case one (typeIds).
+
+- **Guarantees.** PROJECTION and TEMPLATE cannot touch Java classes (restricted SpEL; Handlebars has no code access). With strictMode true an evaluation error fails the message instead of passing through a half-mapped payload.
+- **State.** Compiled templates, parsed expressions and parsed scripts are cached in plain maps keyed by their text, for the life of the process. Nothing is persisted.
+- **Ceiling.** Those caches have no size limit: every distinct script or template ever submitted stays (risk: unboundedMaps). Script work runs on the engine's threads with no time limit.
+- **On failure.** A bad mapping fails at config check (missing mode or mapping, SCRIPT without the module). At run time an error follows strictMode.
+
+**Settings:** `MAPPER: mode, mapping, dropOriginal, strictMode`, `CONTENT-FILTER: mode, paths, flatten, strictMode, errorPort`, `script-js is selected with -Pyukta.plugins`
+
+### Flow & state
+
+*DELAY, loops, KV_STORE*
+
+Pace messages, repeat another plugin, and keep small facts: DELAY, LOOP_STREAM, LOOP_PREDICATE and KV_STORE.
+
+- DELAY holds each message for delayMs and releases them one at a time, in order. Ten messages with delayMs 100 take about a second, which is a simple way to stay under a rate limit.
+- LOOP_STREAM and LOOP_PREDICATE run another processor again and again on the same message. You name it with targetPluginId and give it targetConfig. After each run an exitCondition (SpEL; it can use #iterationCount and #elapsedTimeMs) decides whether to stop. With no exitCondition the loop stops after the first iteration. Safety limits: maxIterations (default 10), maxDuration (ISO-8601 duration, default PT1M) and delayInterval between rounds (default PT0S). LOOP_STREAM emits every message every iteration produced; LOOP_PREDICATE emits only the last one.
+- failureStrategy (default ABORT) says what a failing iteration does: ABORT fails the node, RETRY and SKIP both move on to the next iteration with the same last message (today they behave identically), ESCALATE throws an error whose text starts with 'WorkflowExecutionException:' but whose Java type is a plain RuntimeException (risk: loopEscalate).
+- A loop finds its target through the plugin registry and calls it directly, so the target's own config check is not run on targetConfig (risk: loopSkipsValidation). This is how Yukta gets polling and retry-until without breaking the 'no cycles' rule of a graph.
+- KV_STORE is a shared map (in memory, or the kv_entry table with yukta.kv.store-type=postgres) with operations get, put, incr and delete. The key comes from config or the payload's 'key' field, 'namespace' prefixes keys to keep users apart, and the output is \{key, value\}. 'put' stores payload.value, 'incr' adds payload.value (default 1) to a whole number. maxEntries (default 10000) refuses new keys beyond the cap, but in the in-memory store the size check and the insert are not one atomic step, so the cap can be slightly overshot under heavy concurrency. In PostgreSQL incr is one statement.
+
+- **Guarantees.** Loops always end: by exit condition, maxIterations or maxDuration. KV_STORE operations on one key are atomic (incr uses an atomic merge), and a full store refuses new keys.
+- **State.** KV_STORE is one store for the whole server: shared by every workflow and run. By default it is in memory, lost on restart and not shared between servers; with yukta.kv.store-type=postgres it survives a restart and is shared. Loops keep their iteration state only for the duration of one message.
+- **Ceiling.** KV_STORE is capped at 10,000 keys by default, in one JVM. A loop's cost is iterations times the target's cost, and maxDuration is checked between iterations, not during one.
+- **On failure.** A full KV store throws 'KV store is full'. A non-whole number in incr throws. A loop target that is missing or is not a processor fails the node with a message naming it.
+
+**Settings:** `DELAY: delayMs`, `LOOP_*: targetPluginId, targetConfig, exitCondition, maxIterations (10), maxDuration (PT1M), delayInterval (PT0S), failureStrategy (ABORT)`, `KV_STORE: op, key, namespace, maxEntries (10000)`
+
+### External I/O
+
+*process, http, file, sql, mcp*
+
+Calls the outside world: PROCESS_EXECUTOR, HTTP_REQUEST, FILE_READ, FILE_WRITE, SQL_QUERY and MCP_TOOL_CALL.
+
+- They share one pattern. Config is turned into a typed spec; a gateway does the I/O; failureMode ERROR (default) fails the node on a failed call; CONTINUE emits a message describing the failure; routeByStatus (HTTP_REQUEST, MCP_TOOL_CALL) or routeByExitCode (PROCESS_EXECUTOR) then stamps the message with port 'success' or 'failure'. FILE_READ, FILE_WRITE and SQL_QUERY use CONTINUE to send failures to an 'error' port instead. A node timeout is derived from the plugin's own: HTTP and MCP add 5 s, PROCESS_EXECUTOR adds 10 % (at least 5 s). Without that margin the engine's idle timer (default 30 s) would kill a 120 s call after 30 s.
+- PROCESS_EXECUTOR runs an operating-system command (a list: program then arguments, each of which may contain variables). inputMode NONE|ENV|STDIN passes the message in. timeout defaults to 300 s, output is capped at 10,000 lines and 10 MiB per stream, outputFormat STRUCTURED (default) gives \{exitCode, success, timedOut, durationMillis, outputTruncated, stdout, stderr\}. On timeout it destroys the process, then kills it after a grace period. useShell wraps the command in sh or cmd.exe but escapes every special character, so pipes and && never work.
+- HTTP_REQUEST sends one request per message (url, method, headers, body, timeout default 30 s) and emits \{status, success, headers, body\}, with JSON bodies parsed. Non-2xx answers are data, not errors, until failureMode ERROR turns them into one. The URL may come from the message, and there is no host allow-list (risk: ssrf).
+- FILE_READ and FILE_WRITE work only inside 'baseDir': the path is normalised, anything that escapes the folder or reaches out through a symbolic link is refused. Reads are capped (maxBytes, default 10 MiB) and must be UTF-8. But baseDir is itself workflow config, so the sandbox limits a path, not an author (risk: fileSandbox).
+- SQL_QUERY runs one parameterised statement per message over JDBC: only '?' placeholders, filled from named payload fields in order, never by pasting text. It opens one connection per message, caps rows (maxRows 1000) and sets a statement timeout (30 s). The driver comes from the deployer. MCP_TOOL_CALL calls a tool on a remote MCP server, keeps a session per server and credentials, reports progress to the engine as heartbeats, and understands a 'reset' control signal that drops cached sessions.
+
+- **Guarantees.** Every plugin here moves blocking work off the event threads, bounds its wait with a timeout and shows the outcome as data or a clear error. SQL values are always bound parameters. File paths cannot leave baseDir by '..' or by a link that already exists.
+- **State.** MCP_TOOL_CALL caches sessions in memory. Everything else is stateless between messages. Secrets used here (apiKey, authToken, SQL password) live in the node's config.
+- **Ceiling.** HTTP_REQUEST, MCP_TOOL_CALL and PROCESS_EXECUTOR process messages with a default concurrency of 256 per node, so a burst can start 256 processes or requests at once (risk: fanout256). SQL opens a connection per message, with no pool.
+- **On failure.** ERROR fails the node and the engine's retry and onError policy applies. CONTINUE keeps the run alive. A timed-out process leaves children running (risk: orphans). A SQL node's engine timeout is the 30 s default whatever timeoutSeconds says (risk: sqlTimeout).
+
+**Settings:** `PROCESS_EXECUTOR: command, inputMode, timeout 300, outputFormat, failureMode, routeByExitCode, maxOutputLines, maxOutputBytes`, `HTTP_REQUEST: url, method, headers, body, timeout 30, failureMode, routeByStatus`, `FILE_*: baseDir, path, maxBytes, contentField, append, failureMode`, `SQL_QUERY: url, username, password, sql, params, maxRows 1000, timeoutSeconds 30`, `MCP_TOOL_CALL: url, tool, arguments, authToken, timeout 60, resultKey`
+
+### AI processors
+
+*LLM, memory, decisions*
+
+Model-backed nodes: LLM_CALL, SESSION_MEMORY and the decision family CLASSIFY, GATE, SCORE, ASK, ANOMALY and DEDUPE.
+
+- LLM_CALL calls a chat model through Spring AI for providers openai (and openai-compatible endpoints such as Groq or vLLM through baseUrl), anthropic and ollama. It takes messages (a list of \{role, content\} turns or a SpEL expression), an optional prompt appended as the last user turn, and a system prompt. It emits \{success, content, actions, usage, latencyMs, model, cost?\}. Spring AI's own retry is switched off so the plugin's retries (default 0, exponential backoff from 500 ms) are the only ones.
+- Tool use is by text: the model is asked to put JSON inside &lt;agent_action&gt; tags, LLM_CALL cuts those out into the 'actions' list, and the graph decides what to do (BRANCH then MCP_TOOL_CALL). It does not use the providers' native tool-calling. 'prices' (\{input, output\} per million tokens) adds a cost figure, and a 'budget' (\{maxTokens, maxCost, maxCalls, agent, hardStop\}) stops further calls once a run has used it up (hardStop ends the whole run). With failureMode CONTINUE the original payload passes through with llmSuccess=false and llmError in metadata, so a second LLM_CALL with the same config can act as a fallback model.
+- SESSION_MEMORY keeps chat history per session id. Mode 'load' (before the model) adds 'history' to the payload and records the user turn; mode 'append' (after) records the reply. maxTurns defaults to 20. One bean holds all sessions, keyed by id alone, cached in memory; the history is also kept in a file per session (yukta.session-memory.dir) or in PostgreSQL (yukta.session-memory.store-type=postgres).
+- The decision family asks a model a constrained question about the message and writes the answer into metadata under 'into'. CLASSIFY picks one of two or more labels (routeByLabel gives one port per label, plus 'uncertain' below minProbability 0.6). GATE asks a yes/no question and routes to 'pass' or 'reject' (threshold 0.5). SCORE rates on 2 to 26 ordered levels and can route 'high' or 'low' by threshold. ASK asks up to 64 mixed questions in one call. ANOMALY and DEDUPE compare each message with the last window messages of the node's current run (ANOMALY window 20, minHistory 5, threshold 0.5; DEDUPE window 10, minProbability 0.6).
+- Two backends: SYSTEMONE (default) calls Ollama's /v1/systemone endpoint (needs Ollama 0.35 or newer and a decision model) and returns calibrated probabilities; LLM goes through LLM_CALL's gateway and asks the model for JSON, where the probability is the model's own estimate. What the model sees is the 'state' expression (default the whole payload), cut to 15,000 characters. A model failure fails the message; use the engine's retry and onError for recovery.
+
+- **Guarantees.** Decision nodes always produce a value in a known shape or an error: a label that is not one of the options, or a reply that is not JSON, is rejected. Probabilities are clamped to 0..1. History per session is trimmed to maxTurns.
+- **State.** Conversation history (SESSION_MEMORY), the ANOMALY and DEDUPE windows and LLM_CALL's cache of model clients are all in memory. Windows live only for one node in one run. Nothing survives a restart.
+- **Ceiling.** Each model call is a network call that can take seconds and cost money, at up to 256 concurrent calls per node. Session memory grows with the number of distinct session ids and is never evicted.
+- **On failure.** Timeouts and provider errors fail the node (ERROR) or pass the original payload on (CONTINUE). A decision model that is down fails each message. The user turn in SESSION_MEMORY is stored before the model answers.
+
+**Settings:** `LLM_CALL: provider, model, prompt, messages, system, baseUrl, apiKey, temperature, maxTokens, timeout 120, retries 0, prices, failureMode, routeByStatus`, `SESSION_MEMORY: mode, sessionId, message, assistant, maxTurns 20`, `Decision common: backend, provider, model, baseUrl, apiKey, timeout 30, state, into`
+
+### Terminals
+
+*console, webhook*
+
+Ends a branch: CONSOLE_TERMINAL logs the payload, NOTIFY_TERMINAL posts it to a webhook.
+
+- CONSOLE_TERMINAL writes 'Consuming message:  ' to the application log at INFO for every message. It takes no settings. It is the quickest way to see a result, and also writes every payload in full to the logs (risk: consoleLogs).
+- NOTIFY_TERMINAL sends \{text: ...\} as a JSON POST (Slack-compatible). The text is the 'text' setting if set, else the payload's 'text' field, else the payload turned into a string. url must be https; plain http is allowed only for localhost, 127.x and [::1].
+- It sends one message at a time, in order. timeoutMs defaults to 10,000. failureMode ERROR (default) fails the node on a non-2xx answer, and redirects count as failures; CONTINUE logs the failure and keeps sending later messages.
+- NOTIFY_TERMINAL's url is fixed in config and is not run through the variable resolver, so a message cannot choose where it is sent. Any https host is still accepted, including internal ones.
+
+- **Guarantees.** NOTIFY_TERMINAL never sends in clear text except to the local machine, never follows a redirect silently, and sends messages in order. A terminal only consumes: it has no output ports.
+- **State.** None.
+- **Ceiling.** One request in flight at a time per node, so a slow webhook paces the branch (back-pressure). CONSOLE_TERMINAL is bounded only by log volume.
+- **On failure.** A failed webhook either fails the node or is logged and skipped. A failure sinks the branch's result, not the other branches.
+
+**Settings:** `CONSOLE_TERMINAL: none`, `NOTIFY_TERMINAL: url, text, timeoutMs 10000, failureMode`
+
+### Contract & variables
+
+*plugin-api, registry, $\{...\}*
+
+The rules every plugin follows and the shared helpers they use: type registration, description, config schema, validation, ports, timeouts, failure helper, secrets and the variable language.
+
+- A plugin is a Spring bean implementing one of three interfaces (trigger, processor, terminal). The registry collects every plugin bean by getType(); a duplicate type id stops startup. Plugins are singletons: one instance serves every node of that type, with the node's config passed on each call.
+- A plugin may describe itself (text and a UI card), list its config fields (name, type, required, default; this generates the form in the UI, and field names must equal the keys the plugin reads), declare its output ports (possibly depending on config) and validate its own config. Four hooks run in order: validateConfig at submit, initialize and prepare at compile, shutdown at the end.
+- Variables ($\{...\}) are NOT resolved by the engine. Each plugin that wants them calls core's resolver itself: HTTP_REQUEST, MCP_TOOL_CALL, LLM_CALL, SESSION_MEMORY, PROCESS_EXECUTOR, CONSTANT_SOURCE and the decision plugins (for model, baseUrl and apiKey). FILTER, BRANCH, SPLITTER and others use SpEL instead; FILE_\*, SQL_QUERY, NOTIFY_TERMINAL and KV_STORE use their config literally. So SQL_QUERY's password 'decrypted:db' is NOT resolved, although the form text suggests it.
+- decrypted:key asks a SecretProvider. The default one reads the environment variable YUKTA_SECRET_&lt;KEY&gt; (key upper-cased, other characters become underscores), so a workflow cannot read arbitrary environment variables through it. $\{env.X\} and $\{sys.p\} read only an allow-list: YUKTA_VAR_\* variables, yukta.var.\* properties, a short list of harmless ones and names listed in YUKTA_VARIABLES_ALLOWED; names that look like secrets stay blocked even if listed.
+- The shared helpers: FailureMode and a guard that turns a failure into an 'error'-port message, a metrics counter hook, config validators (positive numbers, required strings) and SpelUtils, which runs SpEL in a restricted mode (read properties and call methods only; no types, constructors or bean references) with a 1,000-entry LRU cache.
+
+- **Guarantees.** Restricted SpEL cannot reach Java classes. A plugin's declared ports are the only ones the engine will route on. Secrets read by decrypted: come only from YUKTA_SECRET_ variables with the default provider.
+- **State.** The registry is built once at startup. SpEL cache is in memory, bounded at 1,000.
+- **Ceiling.** One instance per type means plugin code must be thread-safe, and any in-memory state is shared by all nodes and runs of that type.
+- **On failure.** Duplicate type ids and invalid config fail fast, at startup or submit. An unresolved variable path gives an empty value; a secret that is missing is an error; a blocked env name raises a SecurityException.
+
+**Settings:** `yukta.plugins (build property, see Selection)`, `YUKTA_SECRET_<KEY> environment variables for decrypted:key`
+
+### Supervisors & planes
+
+*rules, model, rules-first*
+
+Watches the run-event stream from outside the graph and can pause or stop runs or veto commands: RuleSupervisor, RuleControlPlane, ModelControlPlane and RulesFirstControlPlane.
+
+- A supervisor reads events (node status changed, workflow status changed, log line, control outcome) and returns commands (pause or resume or stop a workflow or node). Core's host applies them with the supervisor as the named actor, rate-limited (default 20 per second) and with a dry-run switch. Separately a supervisor may review any command, human or automated, and refuse it.
+- RuleSupervisor (id 'rules', on when yukta.supervisor.rules.file is set) reads a JSON file of rules. A reacting rule has 'when' (event, status, module, nodeId, workflowId, an 'if' SpEL condition, and optionally count within withinSeconds, default 60) and 'then' (command, mode, reason, immediate). Example: three FAILURE statuses from HTTP_REQUEST within 60 s on one run, then PauseWorkflow. A deny rule has 'command', optional 'if' and 'reason' and vetoes matching commands, for example StopWorkflow with mode KILL.
+- Failure bias is deliberate. If a deny rule's condition cannot be evaluated, the command is denied (fail closed). If an event rule's condition cannot be evaluated, the rule simply does not fire. An unknown command name in a rule fails at load, not at run time.
+- RuleControlPlane (yukta.control-plane.rules.file) is the same rules behind the control-plane contract: one decide(event) per event, with probability 1 and source RULE. ModelControlPlane (on when yukta.control-plane.model.name is set) asks a decision model a multiple-choice question about each event: 'instructions' is the question, options.&lt;key&gt; has a description and a command (NONE, PAUSE or STOP). By default it is asked about node and workflow status changes only, the defaults are continue=NONE and pause=PAUSE so it cannot stop anything unless configured, timeout is 2 s and min-probability 0.6.
+- The model plane fails open: if the model is down, slow or unsure, the decision is 'no opinion' and the run continues. It does not review commands (everything is allowed). RulesFirstControlPlane (on when yukta.control-plane.rules-first.model.name is set) asks rules first and consults the model only when no rule fired; a rule error is treated as no rule; deny reviews always come from the rules.
+
+- **Guarantees.** A deny rule cannot be bypassed by the model plane: reviews in the rules-first plane come from rules only. A broken deny condition blocks rather than allows. A rule file with an unknown field, a missing id, or a rule that is neither 'when/then' nor 'deny', fails at startup.
+- **State.** Rules are read once at startup and never reloaded. Count windows are kept per rule and run in memory and are never removed when a run ends. The model plane keeps no state.
+- **Ceiling.** ModelControlPlane makes one model call per matching event, serially (concatMap), so a busy server asks the model a lot and a slow model delays decisions without limit other than its 2 s timeout.
+- **On failure.** Model errors or timeouts mean 'no opinion' (fail open). A rule that cannot parse stops startup. A reacting rule that names an unknown command fails at load.
+
+**Settings:** `yukta.supervisor.rules.file`, `yukta.control-plane.rules.file`, `yukta.control-plane.model.name, .backend, .provider, .base-url, .api-key, .timeout (2s), .min-probability (0.6), .instructions, .options.<key>.description/.command, .events`, `yukta.control-plane.rules-first.rules-file and .model.*`, `(host, in core) yukta.supervisor.max-commands-per-second (20), yukta.supervisor.dry-run`
+
+### Selection & gates
+
+*-Pyukta.plugins, quality*
+
+Decides which plugin modules are compiled in and holds each module to code-quality checks.
+
+- Always included: internal-core (the 12 routing, transform and flow types), the three triggers, both terminals, the rule supervisor and the three control planes. Optional, nine modules: process-executor, http-request, file-io, sql-query, llm-call, session-memory, decision, mcp-tool-call and script-js.
+- Selection is a build property: -Pyukta.plugins=all (default), none, or a comma-separated list such as http-request,llm-call. An unknown name fails the build with a list of valid names. Choosing fewer modules shrinks the application and, more importantly, removes whole capabilities (for example, no PROCESS_EXECUTOR means a workflow cannot run programs at all).
+- The three control-plane modules are always compiled in, the model plane exposes the decision module, and the decision module depends on llm-call. So, reading the build files, CLASSIFY, GATE, SCORE, ASK, ANOMALY, DEDUPE and LLM_CALL are on the runtime classpath even with -Pyukta.plugins=none (not confirmed by running a build). Optional means optional to name, not necessarily absent (risk: optionalNotOptional).
+- Each module is checked by the normal gates (formatting, Checkstyle, PMD, SpotBugs, coverage). internal-core and constant-source switch off PMD main and test, and internal-core also switches off Checkstyle on tests, with a note to re-enable. The riskiest code (the script mapper) therefore has the lightest checks.
+- About 12,000 lines of main code across 19 modules. Leftover folders exist on disk with no source and no entry in settings.gradle.kts (triggers/auto-trigger, processors/scripting): they are not plugins.
+
+- **Guarantees.** A build with a given list contains exactly those modules; an unknown name fails fast. Duplicate type ids across included modules stop startup.
+- **State.** Build-time only. A deployment cannot add or remove an optional plugin without rebuilding.
+- **Ceiling.** All-or-nothing per module: you cannot keep HTTP_REQUEST but forbid private addresses. Runtime allow-lists exist for commands (yukta.process.allowed-commands), MCP tools and LLM prompts, not for hosts.
+- **On failure.** Unknown plugin names fail the Gradle configuration step. Disabled gates mean violations are not caught.
+
+**Settings:** `-Pyukta.plugins=all|none|a,b,c (boot/build.gradle.kts)`
+
+## Scenarios
+
+### Tool-using chat turn
+
+A chat agent that remembers the conversation, lets a model call a tool, and posts the reply. Use it first to learn how the families fit together.
+
+<Steps>
+<Step title="A message arrives">
+A client starts the chat workflow with \{sessionId: 's1', message: 'Weather in Pune?'\}. API_TRIGGER emits it as one message, taking the payload from the run's Reactor context.
+</Step>
+<Step title="History is loaded">
+SESSION_MEMORY in 'load' mode resolves $\{payload.sessionId\} and $\{payload.message\}, attaches the last 20 turns as 'history', then stores the new user turn. The ordering matters: it reads before it writes, so the model does not see the question twice.
+</Step>
+<Step title="The model answers">
+LLM_CALL sends history plus prompt to the configured provider. The reply says 'I need the weather tool' inside &lt;agent_action&gt; tags. The plugin lifts the JSON out into the 'actions' list and leaves clean text in 'content'. The node timeout was computed from the plugin's timeout and retries, so a slow model is not cut off at the engine's 30 s default.
+</Step>
+<Step title="BRANCH picks a path">
+A condition on the reply says an action was requested, so the message leaves on port 'tool'. A reply with no action would take 'default' straight to the save step. strictMode means an unmatched message is an error, not a silent drop.
+</Step>
+<Step title="The tool runs">
+MCP_TOOL_CALL opens (or reuses) a session to the tool server, calls the tool and streams back progress, which restarts the engine's idle timer. The result is \{success, text, content, ...\}. The server address and token come from config.
+</Step>
+<Step title="Final answer, save, post">
+A second LLM_CALL turns the tool result into the final text, SESSION_MEMORY 'append' stores it under the session id kept in metadata, and NOTIFY_TERMINAL posts it. If the run dies before 'append', the question is remembered without an answer.
+</Step>
+</Steps>
+
+### A failing external call
+
+What an outside call does when it fails, how the failure pattern turns it into something you can route on, and the burst case.
+
+<Steps>
+<Step title="The request fails">
+HTTP_REQUEST calls an inventory API that answers 503. The plugin does not throw on a non-2xx answer: it builds \{status: 503, success: false, headers, body\} and decides what to do from failureMode.
+</Step>
+<Step title="ERROR mode: the node fails">
+With failureMode ERROR (default) the 503 becomes a WorkflowExecutionException. The engine's engine.retry policy, if the node has one, retries the message with backoff; with onError ROUTE the failed message goes to the node's 'error' port. The plugin itself does not retry.
+</Step>
+<Step title="CONTINUE mode: a status you can route on">
+With failureMode CONTINUE and routeByStatus true, the 503 message leaves on port 'failure' (2xx leaves on 'success'). A transport error such as a timeout becomes status 0 with the error text. routeByStatus without CONTINUE is rejected when the config is checked.
+</Step>
+<Step title="The fallback runs">
+The 'failure' edge leads to a second node (for example another HTTP_REQUEST to a backup, or a NOTIFY_TERMINAL). The same pattern lets LLM_CALL fail over to a second model: on failure it passes the original payload through so the fallback node can reuse the same config.
+</Step>
+<Step title="The burst problem">
+If a trigger or splitter emits 1,000 messages at once, HTTP_REQUEST starts up to 256 requests at the same time (its default concurrency). A rate-limited API will answer many of them with 429, which then all take the failure path.
+</Step>
+</Steps>
+
+### A script, and where its limits end
+
+How MAPPER's SCRIPT mode works and why it is the sharpest edge in the module.
+
+<Steps>
+<Step title="An author writes a script">
+A MAPPER node in SCRIPT mode holds JavaScript such as 'return \{total: payload.items.length\}'. When the workflow is submitted, MAPPER checks that the script-js module is present; if not, the config is rejected with a message to add it to yukta.plugins.
+</Step>
+<Step title="The script is compiled once">
+At compile time the script text is parsed and cached by its text. The cache is a plain map with no size limit, so every distinct script ever submitted stays in memory.
+</Step>
+<Step title="Each message runs it">
+For each message a fresh GraalJS context runs the script with 'message', 'payload' and 'metadata' in scope, then the result is converted back to maps and lists. The shared engine reuses compiled code across contexts.
+</Step>
+<Step title="A hostile script">
+Another author writes Java.type('java.lang.Runtime').getRuntime().exec(...). The class lookup refuses it, and an infinite loop is cancelled after 10 s or 50 million statements. What is left is memory: a script can still allocate a lot, because the runtime has no heap limit option.
+</Step>
+<Step title="Choosing the safe path">
+PROJECTION (SpEL in restricted mode) and TEMPLATE (Handlebars) cannot reach Java classes. A deployment that does not need scripts can leave script-js out with -Pyukta.plugins, which removes the capability entirely.
+</Step>
+</Steps>
+
+### Poll until ready with a loop
+
+How a loop node repeats another plugin inside one node, which limits end it, and where its shortcuts show.
+
+<Steps>
+<Step title="Configure the loop">
+A LOOP_PREDICATE node names targetPluginId HTTP_REQUEST and a targetConfig with the status URL, an exitCondition on the answer, maxIterations 10, maxDuration PT1M and delayInterval PT2S. A graph cannot contain a cycle, so repeating is done inside one node.
+</Step>
+<Step title="The target is looked up">
+At run time the loop asks the registry for HTTP_REQUEST and checks it is a processor. It then calls that plugin's process method directly with targetConfig. The target's own config check and initialisation are never run for this config, so a missing url fails on the first message, not at submit.
+</Step>
+<Step title="Each round">
+The loop runs the target once on the last message, evaluates the exit condition with #iterationCount and #elapsedTimeMs available, and waits delayInterval. LOOP_PREDICATE keeps only the final message. LOOP_STREAM would pass on everything each round produced.
+</Step>
+<Step title="Limits end it">
+If the condition never becomes true, the loop stops at 10 iterations or one minute, whichever is first, and emits what it has. The duration is checked between rounds, so a single slow request can run past it.
+</Step>
+<Step title="A round fails">
+With failureStrategy ABORT (default) the node fails. RETRY and SKIP both go on to the next round with the previous message. ESCALATE fails with an error whose text starts with 'WorkflowExecutionException:' but whose type is a plain RuntimeException, so engine policies that match on exception type do not recognise it.
+</Step>
+</Steps>
+
+### A rule pauses a run
+
+How a written rule watches a run, pauses it, and how a deny rule refuses a command.
+
+<Steps>
+<Step title="The rules are loaded">
+At startup RuleSupervisor reads the file named by yukta.supervisor.rules.file. A rule with an unknown command, a missing id, or both 'when/then' and 'deny' stops the server from starting. The rules are not reloaded while it runs.
+</Step>
+<Step title="Events stream in">
+Core feeds the supervisor every execution event: node status changes, workflow status changes, log lines and command outcomes. Each is turned into a few fields (status, module, nodeId, metadata...) that rules match on.
+</Step>
+<Step title="A counting rule fires">
+The rule 'pause-on-repeated-http-failure' wants 3 FAILURE statuses from module HTTP_REQUEST within 60 s. The supervisor keeps a list of timestamps per rule and run. On the third failure the list is cleared and a PauseWorkflow command is returned.
+</Step>
+<Step title="The host applies it">
+Core's host sends the command with the supervisor's id as the actor, within the rate limit (20 per second by default) and not at all if dry-run is on. The pause is logged as 'PauseWorkflowCommand [by rules]'.
+</Step>
+<Step title="A deny rule vetoes">
+A person tries StopWorkflow with mode KILL. Before it runs, every supervisor reviews it. The 'no-kill' rule matches and the caller gets HTTP 403 with the reason. If the rule's condition had thrown an evaluation error, the command would also be denied: deny fails closed.
+</Step>
+</Steps>
+
+### Model control plane, model down
+
+How a model-driven control plane behaves, including when the model is unavailable, and why rules-first is safer.
+
+<Steps>
+<Step title="Configure the plane">
+yukta.control-plane.model.name is set. The plane builds one multiple-choice question from 'instructions' and the options. By default the options are 'continue' (no command) and 'pause' (PAUSE), so the model can pause a run but cannot stop it unless an option says STOP.
+</Step>
+<Step title="An event arrives">
+A node reports FAILURE. The event kind is in the plane's events list (default node and workflow status), so it is described in plain English ('Step HTTP_REQUEST changed status to FAILURE. Details: ...') and sent to the decision model.
+</Step>
+<Step title="The model answers">
+System One or the chosen chat model returns the chosen option with a probability. If that is below min-probability (0.6) or the option has no command, the decision is no commands. Otherwise the plane returns PauseWorkflow or StopWorkflow.
+</Step>
+<Step title="The model is down">
+The call times out after 2 s or errors. The plane logs a warning and returns 'no opinion'. The run continues untouched. This is fail-open: an outage removes oversight rather than stopping work.
+</Step>
+<Step title="Rules-first as the safer shape">
+RulesFirstControlPlane asks the rules first and consults the model only if no rule fired. A rule error counts as no rule. Veto (review) decisions always come from the rules, so the model can never loosen a deny rule.
+</Step>
+</Steps>
+
+## Capabilities
+
+Eighteen things the plugins can do, grouped by purpose, each with what it guarantees and where it stops.
+
+
+### Starting runs
+
+| Capability | What it does | How | Guarantee | Limit |
+|---|---|---|---|---|
+| REST-started runs | Emits the payload that started the run. | API_TRIGGER reads the payload from the Reactor context and emits it as one message with a new id. | No payload gives an empty message, not a crash. | No settings; one message per run. |
+| Scheduled runs | Fires on a fixed gap or a cron time. | SCHEDULE_TRIGGER with intervalMs or a 6-field cron, optional zone and maxRuns. Payload \{tick, firedAt\}. | Exactly one of cron or intervalMs; invalid values are rejected at validation. | Lives inside one open run; missed ticks are not replayed after a restart. |
+| Fixed inputs | Starts a workflow with constants or environment values. | CONSTANT_SOURCE builds a message from 'variables', into payload or metadata. | Static values are resolved once and reused. | No $\{payload\}: a trigger has no input. |
+
+### Routing and shaping
+
+| Capability | What it does | How | Guarantee | Limit |
+|---|---|---|---|---|
+| Filtering and branching | Keeps, drops or routes messages by condition. | FILTER with an optional discard port; BRANCH by selector or by per-case conditions; RECIPIENT_LIST to several ports. | strictMode makes an unmatched or failing message an error, not silent loss. | Conditions are restricted SpEL; the REGO engine is not implemented. |
+| Split and group | Turns one list into items and items back into a batch. | SPLITTER (itemsPath, concurrency 1024) and AGGREGATE (size, timeoutMs). | AGGREGATE flushes when the stream completes. | A partial batch is only in memory. |
+| Input checks | Sends malformed data to an 'invalid' port. | VALIDATE with required fields and types. | Reasons are attached in failureReason. | Checks shape only, not business rules. |
+| Reshaping | Renames, computes, templates and trims fields. | MAPPER PROJECTION, TEMPLATE or SCRIPT; CONTENT-FILTER INCLUDE or EXCLUDE. | PROJECTION and TEMPLATE cannot reach Java classes. | SCRIPT may load only 12 value classes and java.time.\*, runs at most 50 million statements and 10 s, and has no memory limit. |
+
+### Flow and state
+
+| Capability | What it does | How | Guarantee | Limit |
+|---|---|---|---|---|
+| Pacing and repeating | Slows a stream and repeats another plugin. | DELAY (delayMs); LOOP_STREAM and LOOP_PREDICATE with maxIterations 10, maxDuration PT1M. | Loops always end. | Loops skip the target's config check; RETRY equals SKIP. |
+| Shared counters and flags | Keeps small facts between messages and runs. | KV_STORE get, put, incr, delete with namespace and maxEntries 10000. | incr is atomic; a full store refuses new keys. | In memory, one JVM, shared by all workflows. |
+
+### Calling out
+
+| Capability | What it does | How | Guarantee | Limit |
+|---|---|---|---|---|
+| Running programs | Runs an OS command per message and returns its result. | PROCESS_EXECUTOR with env or stdin input, caps and timeout, structured, raw or JSON output. | Output is capped (10,000 lines, 10 MiB); a timeout destroys the process. | Any program the server can run; children can outlive a timeout. |
+| Web calls | Calls any HTTP address and returns status, headers and body. | HTTP_REQUEST with variables in url, headers and body; routeByStatus. | Non-2xx is data unless failureMode ERROR. | No host allow-list; concurrency 256. |
+| Files in a folder | Reads or writes text files under a base directory. | FILE_READ and FILE_WRITE normalise paths and refuse '..' or links that leave baseDir. | Reads are size-capped (10 MiB). | baseDir is author-chosen; a link swapped in after the check is not caught. |
+| Database queries | Runs a parameterised SQL statement. | SQL_QUERY binds payload fields to '?' placeholders over JDBC. | Values are never pasted into SQL; rows capped at 1000; statement timeout 30 s. | A connection per message; any statement kind is allowed. |
+| Calling tools on another server | Invokes an MCP tool and returns its result. | MCP_TOOL_CALL over streamable HTTP with cached sessions, progress heartbeats and cancellation. | A slow tool is not timed out while it reports progress. | No host allow-list; token in config. |
+
+### Models and memory
+
+| Capability | What it does | How | Guarantee | Limit |
+|---|---|---|---|---|
+| Asking a model | Gets text and parsed actions from a model. | LLM_CALL for openai(-compatible), anthropic, ollama with retries, prices and failureMode. | Provider-level retries are off; the plugin's retries are the only ones. | Cost is reported and can be capped per run with budget (tokens, cost, calls; hardStop ends the run). |
+| Remembering a chat | Stores turns per session id. | SESSION_MEMORY load and append, trimmed to maxTurns. | Bounded history per session. | Memory only; no eviction of sessions. |
+| Constrained decisions | Routes on a model's label, yes/no, score, answers, anomaly or duplicate verdict. | CLASSIFY, GATE, SCORE, ASK, ANOMALY, DEDUPE with SYSTEMONE or LLM backend. | Answers outside the options or non-JSON replies are rejected. | Text sent to the model is cut to 15,000 characters. |
+
+### Watching runs
+
+| Capability | What it does | How | Guarantee | Limit |
+|---|---|---|---|---|
+| Rules and model oversight | Pauses or stops runs and vetoes commands. | RuleSupervisor, RuleControlPlane, ModelControlPlane and RulesFirstControlPlane. | Deny rules fail closed; the model plane fails open. | Rules load once at startup. |
+
+### Finishing
+
+| Capability | What it does | How | Guarantee | Limit |
+|---|---|---|---|---|
+| Output | Logs or posts the result. | CONSOLE_TERMINAL logs each payload; NOTIFY_TERMINAL posts \{text\} to an https webhook. | NOTIFY never uses clear text except to localhost. | CONSOLE writes full payloads at INFO. |
+
+## Guarantees, limits and defaults
+
+What the plugins promise, what they leave to the engine, and what is not enforced at all. Open the tables to see how messages are ordered, what is lost on a restart and which protections exist only as advice.
+
+
+### How messages are processed
+
+The engine hands each plugin a stream. How a plugin consumes it decides ordering and concurrency.
+
+| Plugins | How messages are handled | What it means |
+|---|---|---|
+| PROCESS_EXECUTOR, HTTP_REQUEST, MCP_TOOL_CALL, LLM_CALL, SESSION_MEMORY, decision plugins (except ANOMALY, DEDUPE) | Started concurrently, output kept in input order; default concurrency 256 per node | \*\*Partly.\*\* Fast, but a burst of 1,000 messages starts 256 calls at once and cannot be tuned in config |
+| FILE_READ, FILE_WRITE, SQL_QUERY, NOTIFY_TERMINAL, ANOMALY, DEDUPE, loops | One message at a time, in order | \*\*Yes.\*\* Safe for order-dependent state; a slow call paces everything behind it |
+| FILTER, MAPPER, RECIPIENT_LIST (parallel true), SPLITTER (parallel true, 1024) | Handled concurrently; order of output is not guaranteed across messages | \*\*Note.\*\* Fine for independent items; set parallel false when order matters |
+| DELAY | Each message waits delayMs, released one at a time | \*\*Yes.\*\* Spaces out a stream; a plain way to stay under a rate limit |
+| AGGREGATE | Collects 'size' messages or waits timeoutMs, then emits one list | \*\*Partly.\*\* A partial batch lives only in memory |
+
+### What survives a restart
+
+| State | Where it lives | After a restart |
+|---|---|---|
+| KV_STORE contents | In-memory map in one bean | \*\*No.\*\* Gone; also not shared between servers |
+| SESSION_MEMORY history | In-memory map keyed by session id | \*\*No.\*\* Gone; replace the SessionStore bean for durability |
+| ANOMALY and DEDUPE windows | Local to one node run | \*\*No.\*\* Gone, and also reset at the start of every run |
+| Schedule position (SCHEDULE_TRIGGER) | The running stream | \*\*No.\*\* Gone; a restarted run starts counting again |
+| MCP sessions, LLM model clients, compiled scripts and templates | Caches in plugin beans | \*\*Note.\*\* Rebuilt on demand; no data is lost |
+| Rule files (supervisor and control planes) | Files on disk, read at startup | \*\*Yes.\*\* Re-read at boot; edits need a restart |
+| Rule count windows | In-memory per rule and run | \*\*No.\*\* Gone; a counting rule starts again from zero |
+| Files written by FILE_WRITE, rows written by SQL_QUERY, webhooks sent | Outside Yukta | \*\*Yes.\*\* Kept; but after a crash a node may run again, so these side effects can repeat (at-least-once) |
+| Secrets | Environment variables YUKTA_SECRET_&lt;KEY&gt;, or any value written in config | \*\*Note.\*\* Environment: kept by the host. Config: kept wherever workflows are stored |
+
+### Enforced or not
+
+A table of protections a reader might assume. 'Enforced' means code rejects or limits it; 'Not enforced' means only the workflow author's care stands in the way.
+
+| Protection | Status |
+|---|---|
+| Call timeouts (process 300 s, HTTP 30 s, MCP 60 s, LLM 120 s per attempt, SQL 30 s, webhook 10 s) | \*\*Yes.\*\* Enforced per plugin; the engine's node timeout follows the plugin's, except SQL_QUERY and FILE_\* which keep the engine default of 30 s |
+| Output and result size caps | \*\*Partly.\*\* Enforced for process output (10,000 lines, 10 MiB), file reads (10 MiB) and SQL rows (1000). No plugin-level cap on HTTP or MCP response bodies; client-library defaults apply and were not checked |
+| Restricted expressions (no Java types in SpEL) | \*\*Yes.\*\* Enforced for FILTER, BRANCH, MAPPER projection and friends |
+| Resource limits on JavaScript | \*\*Partly.\*\* Class lookup limited to 12 classes and java.time, Class objects denied, 50 million statements and 10 s; no memory limit |
+| Which hosts HTTP_REQUEST, MCP_TOOL_CALL and NOTIFY_TERMINAL may reach | \*\*No.\*\* Not enforced (NOTIFY only requires https) |
+| Which programs PROCESS_EXECUTOR may run | \*\*No.\*\* Not enforced: any program the server account can start |
+| File paths stay under baseDir | \*\*Partly.\*\* Enforced for '..' and existing links; baseDir itself is workflow config, and a link created after the check is not caught |
+| SQL values never concatenated into SQL | \*\*Yes.\*\* Enforced: only bound '?' parameters; but any statement kind (even DDL) may be run |
+| Secrets hidden from read APIs and logs | \*\*No.\*\* Not enforced: apiKey, authToken and password stored in config are returned as written; CONSOLE_TERMINAL logs payloads in full |
+| Spending cap on model calls | \*\*Partly.\*\* LLM_CALL and MCP_TOOL_CALL stop at a per-run budget (tokens, cost, calls; hardStop ends the run). Counted in memory per JVM; LLM-backed decisions are not budgeted |
+| Deny rules in a supervisor | \*\*Yes.\*\* Enforced and fail closed |
+| Model control plane oversight | \*\*Partly.\*\* Best effort: fails open when the model is unavailable |
+
+### Timeouts and margins
+
+| Plugin | Own timeout | Node timeout the engine uses |
+|---|---|---|
+| PROCESS_EXECUTOR | timeout, 300 s | timeout plus 10 % (at least 5 s) |
+| HTTP_REQUEST | timeout, 30 s | timeout plus 5 s |
+| MCP_TOOL_CALL | timeout, 60 s | timeout plus 5 s; progress heartbeats restart the idle clock |
+| LLM_CALL | timeout, 120 s per attempt | (timeout + 1) x (retries + 1) + 5 s + backoff; retries counted up to 10 |
+| Decision plugins | timeout, 30 s | timeout plus 5 s |
+| SQL_QUERY | timeoutSeconds, 30 s | Not derived: engine default of 30 s |
+| NOTIFY_TERMINAL | timeoutMs, 10 s | Not derived: engine default of 30 s |
+| ModelControlPlane | timeout, 2 s | Not a node: a failed or late answer means no opinion |
+
+## Reference
+
+### Catalogue 1: triggers, routing, transform, flow
+
+Type id, what it does, key settings with defaults, and notes. All 'strictMode' defaults are true. Risk ids refer to the Risks board.
+
+| Type | Category | Does | Key settings (default) | Notes |
+|---|---|---|---|---|
+| API_TRIGGER | Trigger | Emits the start payload from the REST or MCP start call | none | Empty map if no payload |
+| CONSTANT_SOURCE | Trigger | Emits one message of fixed or env-derived values | variables (empty), target PAYLOAD\|METADATA (PAYLOAD) | No $\{payload\}; static value cache unbounded |
+| SCHEDULE_TRIGGER | Trigger | Emits \{tick, firedAt\} on a schedule | intervalMs xor cron (6-field), zone (system), maxRuns (unbounded) | First tick after one interval; schedule lost on restart |
+| FILTER | Processor | Keeps messages where a condition is true | condition, engine SpEL\|SIMPLE (SpEL), discardPort, strictMode, allowAfterHeavy (false) | REGO rejected as not implemented; no discardPort means silent drop |
+| BRANCH | Processor | Routes a message to a named port | mode SELECT_KEY\|EXPRESSION (SELECT_KEY), selector, cases, defaultPort, allowMultipleMatches (false), errorPort | No match and no default is an error when strict |
+| RECIPIENT_LIST | Processor | Copies a message to several ports | mode DYNAMIC\|STATIC\|EXTERNAL (DYNAMIC), recipients, expression, sourceField, parallel (true), errorPort | Dynamic mode declares any port name |
+| SPLITTER | Processor | One message per list item | itemsPath, headerMapping, parallel (true), concurrency (1024), errorPort | Parallel output order not promised |
+| AGGREGATE | Processor | Batches payloads into one list message | size (required), timeoutMs (none) | Partial batch in memory; flushed at stream end |
+| VALIDATE | Processor | Checks required fields and types | required, types (string\|number\|boolean\|object\|array) | Bad messages leave on 'invalid' with failureReason |
+| MAPPER | Processor | Reshapes the payload | mode PROJECTION\|TEMPLATE\|SCRIPT, mapping, dropOriginal (true) | SCRIPT needs script-js; class lookup, time and statements limited, no memory limit (scriptHostAccess) |
+| CONTENT-FILTER | Processor | Keeps (INCLUDE) or drops (EXCLUDE) paths | mode, paths, flatten (false), errorPort | Only kebab-case type id (typeIds) |
+| DELAY | Processor | Holds each message delayMs, one at a time | delayMs (required, positive) |  |
+| LOOP_STREAM | Processor | Runs a target processor repeatedly, emits every round's output | targetPluginId, targetConfig, exitCondition, maxIterations (10), maxDuration (PT1M), delayInterval (PT0S), failureStrategy (ABORT) | No exitCondition means one round; loopEscalate, loopSkipsValidation |
+| LOOP_PREDICATE | Processor | Same, emits only the last message | same as LOOP_STREAM | Same risks |
+| KV_STORE | Processor | Shared in-memory key-value store | op get\|put\|incr\|delete, key (payload.key), namespace (none), maxEntries (10000) | Emits \{key, value\}; kvVolatile |
+
+### Catalogue 2: external I/O and AI
+
+All of these use failureMode ERROR (default) or CONTINUE. Where routeByStatus or routeByExitCode exists it needs CONTINUE and adds ports 'success' and 'failure'.
+
+| Type | Does | Key settings (default) | Output | Notes |
+|---|---|---|---|---|
+| PROCESS_EXECUTOR | Runs an OS command | command (list), inputMode NONE\|ENV\|STDIN (NONE), workingDir, timeout (300 s), env, useShell (false), captureStderr (false), outputFormat STRUCTURED\|RAW\|JSON\|PASSTHROUGH (STRUCTURED), routeByExitCode (false), maxOutputLines (10000), maxOutputBytes (10 MiB), includeOutput (true), includeInput (false) | \{exitCode, success, timedOut, durationMillis, outputTruncated, stdout, stderr\} | No program allow-list; concurrency 256; children survive a timeout; useShell escapes all metacharacters |
+| HTTP_REQUEST | One HTTP request per message | url, method (GET), headers, body, timeout (30 s), routeByStatus (false) | \{status, success, headers, body\} and metadata status | Any host reachable; transport errors give status 0 under CONTINUE |
+| FILE_READ | Reads a UTF-8 file | baseDir (required), path (payload.path), maxBytes (10 MiB) | \{path, content\} | Errors to 'error' port under CONTINUE |
+| FILE_WRITE | Writes or appends a line | baseDir, path, contentField (content), append (false) | Input message passes through | A plain String payload is written as is |
+| SQL_QUERY | Runs one parameterised statement | url, username, password, sql, params, maxRows (1000), timeoutSeconds (30) | \{rows, count\} or \{updated\} | Driver from deployer; connection per message; password is not variable-resolved |
+| MCP_TOOL_CALL | Calls a tool on a remote MCP server | url, tool, arguments (payload), headers, authToken, timeout (60 s), resultKey, routeByStatus (false) | \{success, tool, text, content, structured, error\}; metadata mcpSuccess, mcpTool, mcpLatencyMs | Control signal 'reset' drops cached sessions; routeByStatus restricts edge ports to success, failure, error |
+| LLM_CALL | Calls a chat model | provider openai\|openai-compatible\|anthropic\|ollama, model, prompt, messages, system, baseUrl, apiKey, temperature, maxTokens, timeout (120 s), retries (0), prices, routeByStatus (false) | \{success, content, actions, usage, latencyMs, model, cost?\} | CONTINUE passes the original payload on with llmSuccess=false; budget \{maxTokens, maxCost, maxCalls, agent, hardStop\} |
+| SESSION_MEMORY | Per-session chat history | mode load\|append, sessionId, message, assistant, maxTurns (20) | load adds payload.history; append passes through | In memory; keyed by session id alone |
+| CLASSIFY | Picks one of 2+ labels | labels (map), question, minProbability (0.6), routeByLabel (false) | metadata 'classification' \{label, probabilities, uncertain\} | Ports: one per label plus 'uncertain', or 'default' |
+| GATE | Yes/no question | question, threshold (0.5) | metadata 'gate' \{probability, passed\} | Ports 'pass', 'reject' |
+| SCORE | Rates on ordered levels | question, levels (2 to 26), threshold (none) | metadata 'score' \{score, level\} | Ports 'high', 'low' with a threshold, else 'default' |
+| ASK | Up to 64 questions in one call | questions (name to \{type choice\|yesno\|score, instructions, criteria\}) | metadata 'answers' | Route on answers with BRANCH |
+| ANOMALY | Is this unusual vs the last window messages? | window (20), minHistory (5), threshold (0.5), question | metadata 'anomaly' \{probability, warmup\} | Ports 'normal', 'anomalous'; window per node and run |
+| DEDUPE | Same meaning as a recent message? | window (10), minProbability (0.6) | metadata 'dedupe' \{duplicate, duplicateOf, probability\} | Ports 'unique', 'duplicate'; window per node and run |
+
+### Catalogue 3: terminals, supervisors, control planes
+
+Decision plugins share these settings: backend SYSTEMONE|LLM (SYSTEMONE), provider (needed for LLM), model, baseUrl (http://localhost:11434 for SYSTEMONE), apiKey, timeout (30 s), state (payload, cut to 15,000 characters), into (the metadata key).
+
+| Name | Kind | Does | Switch and settings (default) | Notes |
+|---|---|---|---|---|
+| CONSOLE_TERMINAL | Terminal | Logs each payload at INFO | none | Full payloads in logs (consoleLogs) |
+| NOTIFY_TERMINAL | Terminal | POSTs \{text\} to a webhook | url (https, http only for localhost), text, timeoutMs (10000), failureMode (ERROR) | Redirects count as failures; url is not variable-resolved |
+| RuleSupervisor (id 'rules') | Supervisor | Applies JSON rules to events and reviews commands | yukta.supervisor.rules.file | Rules fixed at startup |
+| RuleControlPlane | Control plane | The same rules behind decide(event) | yukta.control-plane.rules.file | Probability 1, source RULE |
+| ModelControlPlane | Control plane | Asks a decision model what to do about an event | yukta.control-plane.model.name; .backend (SYSTEMONE), .provider, .base-url, .api-key, .timeout (2s), .min-probability (0.6), .instructions, .options.&lt;key&gt;.description and .command NONE\|PAUSE\|STOP (defaults continue=NONE, pause=PAUSE), .events (NodeStatusChanged, WorkflowStatusChanged) | Fails open; no command review; at least two options required |
+| RulesFirstControlPlane | Control plane | Rules first, model only if no rule fired | yukta.control-plane.rules-first.rules-file and .model.\* (same keys as above) | Leave the individual plugins' properties unset; deny reviews come from rules |
+
+### The $\{...\} variable syntax
+
+Only plugins that call the resolver use this (see the Contract component). If the whole value is one variable it keeps its type; mixed with text it becomes text.
+
+| Form | Resolves to | Notes |
+|---|---|---|
+| $\{payload\} | The whole payload | Keeps its type when it is the entire value |
+| $\{payload.a.b\} | A nested field of a payload map | Missing path gives an empty value; only maps are walked, not lists |
+| $\{metadata.k\} | A metadata entry |  |
+| $\{env.X\} | Environment variable X of the server | Blocked when the name contains PASSWORD, PASSWD, SECRET, TOKEN, CREDENTIAL, PRIVATE or KEY (any case); no allow-list otherwise |
+| $\{sys.p\} | JVM system property p | Same name check as env |
+| $\{context.k\} | A value in the Reactor context | Per-run values the engine places in the Reactor context |
+| $\{x:int\} | Cast to int, integer, long, double, float, bool, boolean or string | Needed where a plugin expects a number, because untyped variables resolve to text |
+| decrypted:key | A secret from the SecretProvider | Default provider reads YUKTA_SECRET_&lt;KEY&gt;; a missing secret is an error. Works as a whole value or inside $\{...\} |
+| SpEL expressions | Not variables: separate syntax used by FILTER, BRANCH, SPLITTER, MAPPER projection, LOOP exitCondition, LLM_CALL messages, decision 'state' | Restricted mode: property reads and method calls only |
+
+### Which module brings which types
+
+Always-on modules are compiled into every build. Optional modules are picked with -Pyukta.plugins.
+
+| Module (name in yukta.plugins) | Always on? | Types or components it provides |
+|---|---|---|
+| internal-core | Always | FILTER, BRANCH, RECIPIENT_LIST, SPLITTER, AGGREGATE, VALIDATE, MAPPER, CONTENT-FILTER, DELAY, LOOP_STREAM, LOOP_PREDICATE, KV_STORE |
+| api-trigger, constant-source, schedule-trigger | Always | API_TRIGGER, CONSTANT_SOURCE, SCHEDULE_TRIGGER |
+| console-terminal, notify-terminal | Always | CONSOLE_TERMINAL, NOTIFY_TERMINAL |
+| rule-supervisor, rule-control-plane, model-control-plane, rules-first-control-plane | Always | RuleSupervisor, RuleControlPlane, ModelControlPlane, RulesFirstControlPlane (each active only if its property is set) |
+| process-executor | Optional | PROCESS_EXECUTOR |
+| http-request | Optional | HTTP_REQUEST |
+| file-io | Optional | FILE_READ, FILE_WRITE |
+| sql-query | Optional | SQL_QUERY (JDBC driver supplied by the deployer) |
+| llm-call | Optional | LLM_CALL |
+| session-memory | Optional | SESSION_MEMORY |
+| decision | Optional (but pulled in by the control planes) | CLASSIFY, GATE, SCORE, ASK, ANOMALY, DEDUPE; pulls in llm-call |
+| mcp-tool-call | Optional | MCP_TOOL_CALL |
+| script-js | Optional | GraalJS implementation of the ScriptEngine interface, enabling MAPPER SCRIPT mode |
+
+### Rule file fields
+
+One JSON file, \{"rules": [...]\}. Each rule has an id and either when/then or deny. Unknown fields fail at startup.
+
+| Part | Field | Meaning |
+|---|---|---|
+| when | event | NodeStatusChanged, WorkflowStatusChanged, LogLine or ControlOutcome (class name of the event) |
+| when | status, module, nodeId, workflowId | Exact match on the event field; omitted means any |
+| when | if | SpEL condition over the event fields (status, module, nodeId, metadata, command, actor, line...). If it cannot be evaluated the rule does not fire |
+| when | count, withinSeconds | Fire only when count matching events arrive within the window (default window 60 s), counted per rule and run |
+| then | command | PauseWorkflow, ResumeWorkflow, StopWorkflow, PauseNode, ResumeNode or StopNode |
+| then | mode, reason, immediate | StopWorkflow mode (default DRAIN); StopNode immediate flag; reason text (default 'Stopped by rule') |
+| deny | command | Name of the command to veto (the 'Command' suffix is optional) |
+| deny | if | SpEL over the command fields (executionId, actor, nodeId, mode, reason, immediate). If it cannot be evaluated the command is denied |
+| deny | reason | Text returned to the caller (default 'denied by rule &lt;id&gt;') |
+
+## Architecture decisions
+
+<AccordionGroup>
+<Accordion title="One singleton bean per plugin type, found by type id">
+**Context.** The engine must run many nodes of the same kind, validate and describe plugins, and build forms from them, without knowing each class.
+
+**Decision.** Every plugin is a Spring bean implementing a plugin-api interface; the registry maps getType() to the bean, rejects duplicates at startup, and passes the node's config on each call.
+
+**Consequences.** Simple discovery and a stable contract. Plugins must be thread-safe and any state they hold is shared by all nodes and runs of that type (KV_STORE and SESSION_MEMORY are exactly that).
+
+**Alternatives considered.** A new instance per node (cleaner state, more objects, harder to keep a shared client or cache); separate class loaders or processes per plugin (strong isolation, much more complex, slower).
+
+**Revisit when.** Third parties need to ship untrusted plugins, or per-node state becomes common.
+
+</Accordion>
+<Accordion title="Typed spec, gateway, failure mode and routeBy ports for external calls">
+**Context.** Process, HTTP, MCP, model, file and SQL calls all fail, time out and need to be routed on without writing a BRANCH after each one.
+
+**Decision.** Each such plugin turns config and message into a spec, delegates I/O to a gateway, and offers failureMode ERROR or CONTINUE with optional success/failure (or error) ports. The node timeout is the plugin's timeout plus a margin.
+
+**Consequences.** A uniform way to build fallbacks and metrics. Not every plugin follows it yet: SQL_QUERY and FILE_\* skip the timeout margin, and the HTTP, MCP, model and process plugins each copy the same resolve-spec code.
+
+**Alternatives considered.** Always throw and use only the engine's onError ROUTE (simpler plugin, but the plugin cannot attach a status or output to the error); one generic 'call' plugin with drivers (less duplication, a larger blast radius).
+
+**Revisit when.** A seventh external plugin is added, or the duplication causes a divergence bug; then extract a shared base.
+
+</Accordion>
+<Accordion title="Plugins resolve their own variables">
+**Context.** Config values like $\{payload.id\} or decrypted:key must be replaced per message; where to do it is a choice.
+
+**Decision.** The engine does not resolve config. Each plugin that needs it calls core's resolver on the fields where it makes sense, and SpEL plugins evaluate expressions themselves.
+
+**Consequences.** A plugin controls which fields are variable and which are literal (a webhook url cannot be steered by a message). The cost is inconsistency: SQL_QUERY's password is not resolved though its form hint says it is, and every plugin links to core.
+
+**Alternatives considered.** The engine resolves the whole config before each call (uniform, but a secret would reach every plugin and untrusted payloads could set any field); a declared per-field flag in the config schema (uniform and safe, needs a schema change).
+
+**Revisit when.** Another plugin needs variables, or plugin-api takes over the resolver (coreLayering).
+
+</Accordion>
+<Accordion title="Optional plugins are chosen at build time">
+**Context.** Process execution, file access, SQL and model calls are powerful, and some deployments (or native images) want none of them.
+
+**Decision.** boot lists nine optional modules and includes them according to -Pyukta.plugins (default all). Scripting is one of them: MAPPER depends only on a small ScriptEngine interface and script-js implements it with GraalJS; without it SCRIPT configs are rejected with a clear message. Always-on: routing, triggers, terminals, supervisors and control planes.
+
+**Consequences.** Smaller application and attack surface when used. No runtime switch, and the control planes pull in decision and LLM code regardless.
+
+**Alternatives considered.** Runtime feature flags per plugin (flexible, but the code is always present and always scanned); separate plugin jars loaded at startup (flexible, but a class-loading and native-image burden); for scripting, no engine at all (safest, loses power) or a separate worker process (real isolation, much more work).
+
+**Revisit when.** Operators want to turn plugins on or off per environment without rebuilding.
+
+</Accordion>
+<Accordion title="Two backends behind one DecisionModel interface">
+**Context.** Routing on a model's answer needs a label and a confidence, and some users run a local specialised model while others use a hosted chat model.
+
+**Decision.** CLASSIFY, GATE, SCORE, ASK, ANOMALY and DEDUPE and the model control plane all call a DecisionModel. SYSTEMONE (default) asks Ollama's System One endpoint for calibrated probabilities; LLM asks any chat model for JSON and clamps its stated confidence.
+
+**Consequences.** One set of plugins, two ways of running them. Probabilities mean different things per backend, so thresholds do not transfer.
+
+**Alternatives considered.** Always use LLM_CALL and parse text (less code, no calibration, fragile); a classic machine-learning classifier (cheap, needs training data); a single hard-wired backend (simpler, locks users in).
+
+**Revisit when.** A third backend arrives, or users cannot tune thresholds because of the mismatch.
+
+</Accordion>
+<Accordion title="Model tool use is explicit in the graph, as text actions">
+**Context.** Agents need a model to ask for tools, but the engine wants every step visible, retryable and supervisable.
+
+**Decision.** LLM_CALL extracts &lt;agent_action&gt; JSON blocks into an 'actions' list; the workflow uses BRANCH and MCP_TOOL_CALL to act and a second LLM_CALL to answer. Providers' native tool-calling is not used. This is our reading of the code and the usage text; no document states the reason.
+
+**Consequences.** Every step is a node with its own timeout, retry, logs and events; works the same across providers. The number of rounds is fixed by the number of nodes, and a model must follow the tag format.
+
+**Alternatives considered.** Native function calling through Spring AI inside one plugin (fewer nodes, better format adherence, hides the loop from the engine and supervisors); an agent-loop plugin that calls tools itself (compact, but a second engine inside a node).
+
+**Revisit when.** Agents need many rounds of tools, or reliability of the tag format becomes a problem.
+
+</Accordion>
+<Accordion title="Rules decide first; the model is advisory; deny is authoritative">
+**Context.** Automatic oversight of runs must be trustworthy but also able to handle cases rules cannot describe.
+
+**Decision.** RuleSupervisor and RuleControlPlane apply written rules; deny rules fail closed. ModelControlPlane is advisory, fails open and can only issue the commands its options name (default pause only). RulesFirstControlPlane asks rules first and takes reviews only from rules.
+
+**Consequences.** Predictable on the clear cases and safe by default; a model outage cannot block work. It also means a model outage removes the fuzzy oversight silently.
+
+**Alternatives considered.** Model-only control (flexible, unpredictable, steerable); rules-only (predictable, blind to novel failures); fail-closed model (safer, stops work when the model is down).
+
+**Revisit when.** Unattended runs become high-stakes, so a silent fail-open is no longer acceptable.
+
+</Accordion>
+<Accordion title="State is in memory first">
+**Context.** KV_STORE, SESSION_MEMORY, anomaly windows and schedule positions need somewhere to live, and a database would add setup and a dependency.
+
+**Decision.** They live in plain in-process maps by default, with 'ponytail' comments in the code naming what to add later (eviction, a pool); KV_STORE and SESSION_MEMORY now also have opt-in PostgreSQL stores.
+
+**Consequences.** Zero setup and fast. Nothing survives a restart or is shared between servers, and some of it grows without bounds.
+
+**Alternatives considered.** A store interface with memory and database implementations from day one (more work now, easy to swap); an external cache such as Redis (shared, one more service).
+
+**Revisit when.** Yukta runs on more than one server, or users depend on chat history or counters surviving a restart.
+
+</Accordion>
+</AccordionGroup>
+
+## Glossary
+
+| Term | Meaning | Note |
+|---|---|---|
+| Plugin | A named kind of node (trigger, processor or terminal) implemented as a Spring bean. | Every capability of a workflow is a plugin; adding one means adding a bean. |
+| Trigger | A plugin with no input that creates the first messages of a run. | Without one a workflow never starts. |
+| Processor | A plugin that takes messages in and sends messages out. | Most of the module's 31 types are processors. |
+| Terminal | A plugin that only receives messages and ends a branch. | It is where results become visible: a log line or a webhook. |
+| Message | The unit of data between nodes: payload, metadata, id and the output port it left on. | Plugins read and rewrite it; many risks are about what goes into it. |
+| Payload and metadata | Payload is the data being processed. Metadata is labels about it, such as a model's verdict. | Decision plugins write results to metadata so the payload stays unchanged. |
+| Port | A named exit of a node. Edges can be wired to one port, so a node can branch. | Routing, failure paths ('failure', 'error') and decisions ('pass', 'reject') are all ports. |
+| Plugin registry | The table that maps a type id to its bean; it rejects duplicates at startup. | It is also how loops find the plugin they repeat. |
+| Spring bean | An object created and managed by the Spring framework; here, one per plugin. | One bean means one instance serves all nodes of that type. |
+| Singleton | Only one instance of a class exists in the application. | Any state a plugin keeps in a field is shared by every node and run. |
+| Config schema | A plugin's list of setting names, types and defaults, used to draw a form in the UI. | Field names must equal the keys the plugin reads or the form lies. |
+| Variable expression | Text like $\{payload.id\} in a config value, replaced per message. | Only some plugins support it; the catalogue lists which. |
+| SpEL | Spring Expression Language, a small expression syntax. | Used by FILTER, BRANCH and others; restricted here so it cannot name Java classes. |
+| Handlebars | A text template language with \{\{placeholders\}\}. | MAPPER's TEMPLATE mode; it cannot run arbitrary Java. |
+| GraalJS and GraalVM | A JavaScript engine that runs on the Java virtual machine, part of the GraalVM project. | Powers MAPPER's SCRIPT mode; its security settings decide what a script can do. |
+| Host access | The ability of guest script code to call into the Java program that hosts it. | HostAccess.ALL is still used, but Class objects are denied and class lookup is allow-listed; it is the core of risk scriptHostAccess. |
+| SSRF | Server-side request forgery: making a server call an address the caller could not reach. | HTTP_REQUEST and MCP_TOOL_CALL can reach internal systems if the url is not restricted. |
+| Allow-list and deny-list | Allow-list: only listed things are permitted. Deny-list: everything except listed things. | Deny-lists miss new cases; the variable resolver uses one, the file sandbox uses neither. |
+| Sandbox | A restriction that keeps code or data inside a defined area. | FILE_READ and FILE_WRITE use a base directory as one. |
+| Symbolic link | A file that points to another path. | A link inside baseDir can lead outside it; the plugin checks for it, but not atomically. |
+| Time-of-check to time-of-use | A gap between checking something and using it, in which it can change. | The file sandbox checks links, then opens the file; a swap in between is not caught. |
+| JDBC and parameterised query | JDBC is Java's database interface. A parameterised query sends values separately from the SQL text. | SQL_QUERY binds values to '?' so message text cannot become SQL. |
+| MCP | Model Context Protocol: a standard for exposing tools to AI models over HTTP. | MCP_TOOL_CALL is a client; Yukta's own MCP server is a separate module. |
+| Streamable HTTP | MCP's HTTP transport, where a reply can be plain JSON or a stream of events. | Progress events in that stream restart the engine's idle timer. |
+| Ollama and System One | Ollama runs models locally. System One is a decision-style interface it exposes that returns calibrated probabilities. | The default backend of the decision plugins and the model control plane. |
+| Calibrated probability | A probability that matches how often the model is right at that confidence. | Lets a threshold like 0.6 mean something; a chat model's self-reported confidence does not. |
+| Prompt injection | Text in the data that tells a model to ignore its instructions. | Decision plugins judge data that may contain such text. |
+| Fail open and fail closed | On error, allow (open) or refuse (closed). | The model plane fails open; deny rules fail closed. |
+| Back-pressure | A slow consumer making its producers wait instead of buffering without limit. | Why a slow webhook slows the whole branch. |
+| Reactor and flatMap concurrency | Reactor is the stream library; flatMap runs inner work concurrently, by default up to 256 at once. | The source of risk fanout256. |
+| Reactor context | A bag of values that travels with a stream, such as node id or the start payload. | API_TRIGGER and many plugins read from it. |
+| Dead letter | A message that failed and is parked on an error path instead of being lost. | The engine's onError ROUTE sends failures to the 'error' port. |
+| Heartbeat | A signal from a long task saying it is still alive. | MCP_TOOL_CALL turns progress notifications into heartbeats. |
+| Idempotency | Doing the same operation twice has the same effect as once. | Engine retries and crash recovery can repeat a call, so side effects should be idempotent. |
+| Supervisor and control plane | Components outside the graph that read run events and may issue commands or refuse them. | RuleSupervisor and the three control planes. |
+| Cron expression | A schedule written as fields (here six: second to weekday). | SCHEDULE_TRIGGER accepts Spring's format. |
+| ISO-8601 duration | A time length written like PT1M (one minute) or PT2S. | Loop maxDuration and delayInterval use it. |
+| Enterprise integration patterns | A catalogue of message-routing patterns: filter, router, splitter, aggregator, recipient list. | The routing plugins implement them. |
+| LRU cache | A cache that drops the least recently used entry when full. | The SpEL cache is one (1,000 entries); several others are not. |
+| Quality gates | Automatic checks (formatting, static analysis, coverage) that must pass. | Some are switched off in internal-core. |

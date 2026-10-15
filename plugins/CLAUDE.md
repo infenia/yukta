@@ -25,7 +25,7 @@ Declare `getConfigSchema()` (see `ConfigField`) on a plugin to get a generated c
 
 ## Development
 Each plugin should implement the interfaces defined in `plugin-api`.
-Guide (interactive): `docs/plugins-module-guide.html`; review findings: `docs/plugins-improvements.md`.
+Guide: `../docs/contributing/modules/plugins.mdx` (module guide, published in the docs site); open risks and review findings: `../docs/internal/risks.mdx` and `../docs/internal/improvements.mdx` (section for this module).
 
 ## Imports
 @.claude/rules/coding-standards.md

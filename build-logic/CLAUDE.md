@@ -20,7 +20,7 @@ All modules apply these plugins via `plugins { id 'com.infenia.yukta.xxx-convent
 - **License**: `config/license/`
 
 ## Docs
-- `docs/build-logic-module-guide.html` (interactive guide) and `docs/build-logic-improvements.md` (review findings).
+- `../docs/contributing/modules/build-logic.mdx` (module guide, published in the docs site); open risks and review findings: `../docs/internal/risks.mdx` and `../docs/internal/improvements.mdx` (section for this module).
 
 ## Imports
 @.claude/rules/coding-standards.md

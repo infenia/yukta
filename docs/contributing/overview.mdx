@@ -1,0 +1,80 @@
+---
+title: "How the code is organised"
+description: "The Yukta modules, what each one owns, and where to read about its internals."
+---
+
+Yukta is a multi-module Gradle build. Each module has one job, and the pages in this tab explain how that job is done: what the module is for, its components and scenarios, what it guarantees and where the guarantee stops, and the decisions behind its design.
+
+<Note>
+  Yukta is pre-beta. Module internals change faster than the user-facing pages in the rest of this site.
+</Note>
+
+## The modules
+
+| Module | What it owns |
+|---|---|
+| [`boot`](/contributing/modules/boot) | The Spring Boot application, its profiles, static serving and the GraalVM native image |
+| [`core`](/contributing/modules/core) | The DAG orchestration engine: admission, execution, control, checkpoints and the MCP tools that sit on them. Also see the [core reference](/contributing/core-reference) |
+| [`plugin-api`](/contributing/modules/plugin-api) | The contracts a plugin implements: triggers, processors, terminals, supervisors and control planes |
+| [`plugins`](/contributing/modules/plugins) | The built-in node types, supervisors and control planes |
+| [`messaging`](/contributing/modules/messaging) | The message envelope that travels along every edge, and the node message channel hook |
+| [`web`](/contributing/modules/web) | The HTTP front door: REST calls and event streams, validation, and the standard response envelope |
+| [`mcp`](/contributing/modules/mcp) | The MCP server that lets AI agents build and run workflows |
+| [`ui`](/contributing/modules/ui) | The React single-page web UI for building, running and watching workflows |
+| [`workers`](/contributing/modules/workers) | Optional remote workers: a processor node can run on another machine over RSocket |
+| [`persistence-postgres`](/contributing/modules/persistence-postgres) | Optional PostgreSQL stores for definitions, sessions, run history and node outputs, plus a leader lease so two servers can share one database |
+| [`cli`](/contributing/modules/cli) | The Go command line client for a remote server |
+| [`build-logic`](/contributing/modules/build-logic) | Gradle conventions: Java, Checkstyle, PMD, SpotBugs, OpenGrep, JaCoCo and dependency scanning |
+
+## How they fit together
+
+```mermaid
+flowchart TB
+  clients["Clients: REST, web UI, MCP agents, CLI"]
+  edge["web, mcp, ui"]
+  core["core: engine and control plane"]
+  plug["plugin-api and plugins"]
+  msg["messaging"]
+  store["persistence-postgres"]
+  work["workers"]
+  boot["boot: one Spring Boot app"]
+  clients --> edge --> core
+  core --> plug
+  core --> msg
+  plug --> msg
+  core --> store
+  core --> work
+  boot -. wires together .-> core
+  boot -. wires together .-> edge
+```
+
+Clients talk to `web`, `mcp` or `ui`, which translate requests into calls on `core`. The engine runs each node by calling a plugin through the contracts in `plugin-api`. State goes to the stores in `core` (files or memory) or `persistence-postgres`, and nodes can run on other machines through `workers`. `boot` wires everything into one application.
+
+## Where to start
+
+<CardGroup cols={2}>
+  <Card title="Core reference" icon="book" href="/contributing/core-reference">
+    The feature catalogue, configuration properties, metrics and guarantees of the engine.
+  </Card>
+  <Card title="Core module" icon="gear" href="/contributing/modules/core">
+    Components, scenarios and design decisions of the engine.
+  </Card>
+  <Card title="Writing a plugin" icon="plug" href="/plugins/writing-a-plugin">
+    How to add a node type, with the plugin-api contracts explained.
+  </Card>
+  <Card title="Build and quality gates" icon="shield-check" href="/contributing/modules/build-logic">
+    What `./gradlew check` runs, where, and why a pull request builds only changed modules.
+  </Card>
+</CardGroup>
+
+## Reading a module page
+
+Every module page follows the same shape:
+
+1. **At a glance and Primer.** The problem the module solves, the vocabulary, and one example traced end to end.
+2. **Components and Scenarios.** The parts of the module and what happens inside them in typical and failing cases.
+3. **Capabilities.** What the module does, with its guarantee and limit for each capability.
+4. **Guarantees and limits and Reference.** What is enforced, what is only advice, what survives a restart, and the settings and lists behind them.
+5. **Architecture decisions and Glossary.** Why it is built this way, and what each term means.
+
+Known weaknesses, confirmed defects and the plan for each module are kept on internal pages that need a sign-in: **Risks**, **Bugs** and **Improvements** in the Internal tab.
