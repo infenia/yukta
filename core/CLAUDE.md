@@ -242,7 +242,7 @@ the gauges `yukta.workers` and `yukta.worker.slots` report them. The optional `w
 `-Pyukta.workers=true`) carries them over RSocket: the control plane sets `yukta.workers.token` and
 `spring.rsocket.server.port`; a worker sets `yukta.workers.control-plane=host:port`, `yukta.workers.token`,
 `yukta.workers.id` (and `pools`, `plugin-types`, `capacity`) and connects out, registers on the route
-`worker.session` and renews its lease, reconnecting with a growing pause. A processor node with
+`worker.session` and renews its lease, reconnecting with a growing pause. The connection can use mutual TLS: the control plane sets `spring.rsocket.server.ssl.bundle` and `spring.rsocket.server.ssl.client-auth=need`, a worker sets `yukta.workers.ssl-bundle` (an SSL bundle with its key store and the trust store for the control plane; the host name in the certificate is verified), and the shared token still has to match. A processor node with
 `engine.placement {pool}` runs on a worker of that pool: `WorkflowPreparator` swaps its plugin for a
 `RemoteProcessor` (`RemoteNodes`; the plugin on this server still provides type, schema, timeouts and
 validation), so retries, `onError`, timeouts, valves, checkpoints and status work as for a local node.

@@ -9,10 +9,12 @@ import java.time.Duration;
 import java.util.Arrays;
 import java.util.Set;
 import java.util.stream.Collectors;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.ssl.SslBundles;
 import org.springframework.context.annotation.Bean;
 import org.springframework.messaging.rsocket.RSocketRequester;
 import org.springframework.messaging.rsocket.annotation.support.RSocketMessageHandler;
@@ -126,10 +128,16 @@ public class WorkersAutoConfiguration {
    * @param lease the control plane's lease; the agent renews three times per lease
    * @param drainTimeout longest the worker waits for running attempts when it stops
    * @param runner runs the attempts, and counts them
+   * @param sslBundle name of the SSL bundle for TLS to the control plane; empty for plain TCP
+   * @param bundles the SSL bundles of the application
    * @return the agent, started and stopped with the application
    */
   @Bean(initMethod = "start", destroyMethod = "stop")
-  @SuppressWarnings({"PMD.UseObjectForClearerAPI", "PMD.ExcessiveParameterList"})
+  @SuppressWarnings({
+    "PMD.UseObjectForClearerAPI",
+    "PMD.ExcessiveParameterList",
+    "PMD.LawOfDemeter"
+  })
   @ConditionalOnExpression("!'${yukta.workers.control-plane:}'.isEmpty()")
   public WorkerAgent workerAgent(
       final RSocketRequester.Builder builder,
@@ -142,7 +150,9 @@ public class WorkersAutoConfiguration {
       @Value("${yukta.workers.plugin-types:}") final String pluginTypes,
       @Value("${yukta.workers.capacity:4}") final int capacity,
       @Value("${yukta.workers.lease:15s}") final Duration lease,
-      @Value("${yukta.workers.drain-timeout:30s}") final Duration drainTimeout) {
+      @Value("${yukta.workers.drain-timeout:30s}") final Duration drainTimeout,
+      @Value("${yukta.workers.ssl-bundle:}") final String sslBundle,
+      final ObjectProvider<SslBundles> bundles) {
     final int colon = controlPlane.lastIndexOf(':');
     if (colon <= 0) {
       throw new IllegalArgumentException("yukta.workers.control-plane must be host:port");
@@ -150,11 +160,12 @@ public class WorkersAutoConfiguration {
     // The control plane calls back into this connection to run nodes, so the worker answers
     // requests on it with its own handlers (the NodeRunner).
     final Mono<RSocketRequester> connect =
-        builder
-            .rsocketConnector(connector -> connector.acceptor(responder.responder()))
-            .connectTcp(
-                controlPlane.substring(0, colon),
-                Integer.parseInt(controlPlane.substring(colon + 1)));
+        WorkerTransport.connect(
+            builder,
+            responder,
+            controlPlane.substring(0, colon),
+            Integer.parseInt(controlPlane.substring(colon + 1)),
+            sslBundle.isBlank() ? null : bundles.getObject().getBundle(sslBundle));
     return new WorkerAgent(
         connect,
         token,

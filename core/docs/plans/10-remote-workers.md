@@ -88,7 +88,7 @@ control plane                                   worker (same jar, `worker` profi
 
 ## Security
 
-Worker authentication with mTLS (preferred) or a per-worker token; the control plane accepts
+Worker authentication with mTLS (built: `yukta.workers.ssl-bundle` plus the RSocket server's SSL bundle with `client-auth=need`) or a per-worker token (built: one shared token); the control plane accepts
 `REGISTER` only from authenticated workers, and the worker only runs plugin types on its own allow
 list (so a compromised control plane cannot make a worker run `PROCESS_EXECUTOR`). Roles for the
 REST API (F3) gain `ADMIN`-only worker endpoints.
