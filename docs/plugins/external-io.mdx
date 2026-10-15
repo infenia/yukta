@@ -33,7 +33,7 @@ The server refuses every command until you allow some. Set `yukta.process.allowe
 | `timeout` | number | `300` | Seconds the process may run. Positive. Variables allowed. When it runs out, the process and every process it started are stopped (asked to end first, killed after 2 seconds) |
 | `concurrency` | number | `4` | Messages handled at once for this node; each starts a process. Positive |
 | `env` | map | empty | Extra environment variables. Variables allowed. Explicit entries win over `inputMode` ones |
-| `useShell` | boolean | `false` | Run through `/bin/sh -c` (or `cmd.exe /c` on Windows). Arguments with special characters are quoted, so pipes and `&&` do not act as operators |
+| `useShell` | boolean | `false` | Run the `command` elements as one script through `/bin/sh -c` (or `cmd.exe /c` on Windows). The elements are joined with spaces and run as written, so `\|`, `&&` and `>` work. An element that uses `${...}` becomes one quoted word, so message data cannot add shell syntax. Write `true` or `false`, not an expression. Needs `yukta.process.allow-any=true` |
 | `captureStderr` | boolean | `false` | Capture standard error separately. When `false`, it is merged into standard output |
 | `maxOutputLines` | number | `10000` | Most lines kept per stream. `0` means unlimited |
 | `maxOutputBytes` | number | `10485760` | Most bytes kept per stream (10 MiB). `0` means unlimited |
@@ -42,6 +42,14 @@ The server refuses every command until you allow some. Set `yukta.process.allowe
 | `routeByExitCode` | boolean | `false` | Emit on `success` (exit code 0) or `failure`. Needs `failureMode` `CONTINUE` |
 | `includeOutput` | boolean | `true` | Put the text of stdout and stderr in the payload (`STRUCTURED`, `JSON`) |
 | `includeInput` | boolean | `false` | Put the incoming payload under `input` (`STRUCTURED`, `JSON`) |
+
+With `useShell` the `command` list is a shell script, one element per piece. Elements without `${...}` are the script as written, and an element with `${...}` is quoted into one word:
+
+```json
+{ "command": ["grep", "-c", "${payload.query}", "src/*.java", "|", "sort"], "useShell": true }
+```
+
+If `payload.query` is `x; rm -rf /`, `grep` gets that text as its one pattern argument. On Windows the value of a variable cannot contain a double quote, a percent sign or a line break, because `cmd.exe` cannot protect them; pass such values with `inputMode: ENV` or `STDIN` instead.
 
 Output ports: `default`, or `success` and `failure` when `routeByExitCode` is on.
 

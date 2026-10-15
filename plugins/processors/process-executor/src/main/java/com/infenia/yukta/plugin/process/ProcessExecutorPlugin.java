@@ -44,6 +44,7 @@ import tools.jackson.databind.ObjectMapper;
  */
 @SuppressWarnings({
   "PMD.CouplingBetweenObjects",
+  "PMD.CyclomaticComplexity",
   "PMD.GodClass",
   "PMD.TooManyMethods",
   "PMD.CommentRequired",
@@ -147,7 +148,12 @@ public final class ProcessExecutorPlugin implements ProcessorPlugin {
         ConfigField.optional("workingDir", ConfigField.Type.STRING, null, "Working directory"),
         ConfigField.optional("timeout", ConfigField.Type.NUMBER, 300, "Timeout in seconds"),
         ConfigField.optional("env", ConfigField.Type.MAP, null, "Extra environment variables"),
-        ConfigField.optional("useShell", ConfigField.Type.BOOLEAN, false, "Run through a shell"),
+        ConfigField.optional(
+            "useShell",
+            ConfigField.Type.BOOLEAN,
+            false,
+            "Run the elements as one shell script (pipes, &&, > work); needs"
+                + " yukta.process.allow-any"),
         ConfigField.optional("captureStderr", ConfigField.Type.BOOLEAN, null, "Capture stderr"),
         ConfigField.choice(
             "outputFormat",
@@ -207,8 +213,13 @@ public final class ProcessExecutorPlugin implements ProcessorPlugin {
     - workingDir: String (SpEL supported, default: current directory)
     - timeout: Long (SpEL supported, default: 300 seconds, must be positive)
     - env: Map<String, String> (SpEL supported, default: empty)
-    - useShell: Boolean (default: false)
-      Execute command via shell (sh on Unix, cmd.exe on Windows)
+    - useShell: true | false (default: false; not an expression)
+      Run the command elements as one shell script (sh -c on Unix, cmd.exe /c on Windows),
+      joined with spaces and run as written, so "|", "&&" and ">" work. An element that uses
+      ${...} becomes one quoted word, so message data cannot add shell syntax; put shell syntax
+      in elements without variables. Needs yukta.process.allow-any=true. On Windows a variable's
+      value cannot contain a double quote, "%" or a line break (use inputMode ENV or STDIN).
+      Example: ["grep", "-c", "${payload.query}", "src/*.java", "|", "sort"]
     - captureStderr: Boolean (default: false)
       Capture stderr separately instead of merging it into stdout
     - concurrency: Integer (default: 4, must be positive)
@@ -485,12 +496,18 @@ public final class ProcessExecutorPlugin implements ProcessorPlugin {
   @SuppressWarnings("unchecked")
   private Mono<ProcessExecutorConfig> resolveConfig(
       final Map<String, Object> config, final Message<?> message) {
+    final boolean useShell;
+    try {
+      useShell = useShell(config);
+    } catch (IllegalArgumentException e) {
+      return Mono.error(e);
+    }
     return Mono.zip(
-            resolveCommand((List<Object>) config.get(COMMAND), message),
+            resolveCommand((List<Object>) config.get(COMMAND), message, useShell),
             resolveWorkingDir(config, message),
             resolveTimeout(config, message),
             resolveEnv((Map<String, Object>) config.getOrDefault("env", Map.of()), message),
-            resolveUseShell(config, message))
+            Mono.just(useShell))
         .map(tuple -> buildConfig(tuple, config));
   }
 
@@ -547,21 +564,44 @@ public final class ProcessExecutorPlugin implements ProcessorPlugin {
         .defaultIfEmpty(DEFAULT_TIMEOUT_SECONDS);
   }
 
-  private Mono<Boolean> resolveUseShell(
-      final Map<String, Object> config, final Message<?> message) {
-    return resolveValue(config.getOrDefault("useShell", false), message)
-        .map(v -> MapUtils.convert(v, Boolean.class))
-        .defaultIfEmpty(false);
+  /**
+   * Whether the command runs through a shell. It must be written as true or false: a variable
+   * expression could let message data switch the shell on.
+   */
+  private static boolean useShell(final Map<String, Object> config) {
+    final Object raw = config.getOrDefault("useShell", false);
+    if (raw instanceof final Boolean flag) {
+      return flag;
+    }
+    if (raw instanceof final String text
+        && ("true".equalsIgnoreCase(text) || "false".equalsIgnoreCase(text))) {
+      return Boolean.parseBoolean(text);
+    }
+    throw new IllegalArgumentException("useShell must be true or false, not an expression");
   }
 
-  private Mono<List<String>> resolveCommand(final List<Object> command, final Message<?> message) {
+  /**
+   * Resolves the command elements. With a shell, the elements are one script; an element that uses
+   * a variable is made one inert word ({@link ProcessExecutorGateway#quoteForShell}), so the
+   * message cannot add shell syntax. Elements without a variable are the script as written.
+   */
+  private Mono<List<String>> resolveCommand(
+      final List<Object> command, final Message<?> message, final boolean useShell) {
     if (command == null || command.isEmpty()) {
       log.atWarn().log("Command resolution failed: command is mandatory");
       return Mono.error(new IllegalArgumentException("command is mandatory"));
     }
+    final String osName = System.getProperty("os.name");
     return Flux.fromIterable(command)
-        .flatMapSequential(value -> resolveValue(value, message))
-        .map(Object::toString)
+        .flatMapSequential(
+            value ->
+                resolveValue(value, message)
+                    .map(Object::toString)
+                    .map(
+                        text ->
+                            useShell && !resolver.isStatic(value)
+                                ? ProcessExecutorGateway.quoteForShell(text, osName)
+                                : text))
         .collectList();
   }
 
@@ -603,6 +643,7 @@ public final class ProcessExecutorPlugin implements ProcessorPlugin {
     }
     try {
       ConfigValidation.concurrency(config, DEFAULT_CONCURRENCY);
+      useShell(config);
       OutputFormat.from(config.get(OUTPUT_FORMAT));
       InputMode.from(config.get(INPUT_MODE));
       final FailureMode failureMode = FailureMode.from(config.get(FAILURE_MODE));

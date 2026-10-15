@@ -20,7 +20,6 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Consumer;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import lombok.NoArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -33,7 +32,7 @@ import reactor.core.scheduler.Schedulers;
 /** Gateway for executing external processes with reactive streaming output. */
 @Slf4j
 @Service
-@SuppressWarnings({"PMD.OnlyOneReturn", "PMD.TooManyMethods"})
+@SuppressWarnings({"PMD.GodClass", "PMD.OnlyOneReturn", "PMD.TooManyMethods"})
 @NoArgsConstructor
 public class ProcessExecutorGateway {
 
@@ -506,10 +505,10 @@ public class ProcessExecutorGateway {
   }
 
   /**
-   * Wrap the command in a shell based on the OS. Command arguments are properly escaped to prevent
-   * shell injection.
+   * Wrap the command in a shell based on the OS. The elements are run as one script; see {@link
+   * #wrapInShell(List, String)}.
    *
-   * @param command the original command and arguments
+   * @param command the script, as elements joined with spaces
    * @return the shell-wrapped command
    */
   private List<String> wrapInShell(final List<String> command) {
@@ -517,48 +516,61 @@ public class ProcessExecutorGateway {
   }
 
   /**
-   * Wrap the command in a shell for the given OS name. Package-private to allow direct testing of
-   * both the Windows and non-Windows branches regardless of the OS running the build.
+   * Wrap the command in a shell for the given OS name. The elements are joined with spaces into one
+   * script that the shell runs as written, so pipes, {@code &&} and redirects work. A value that
+   * comes from outside must be made one inert word with {@link #quoteForShell} before it gets here.
+   * Package-private to allow direct testing of both the Windows and non-Windows branches regardless
+   * of the OS running the build.
    *
-   * @param command the original command and arguments
+   * @param command the script, as elements joined with spaces
    * @param osName the {@code os.name} system property value to branch on
    * @return the shell-wrapped command
    */
   /* package */ List<String> wrapInShell(final List<String> command, final String osName) {
     final List<String> wrapped = new ArrayList<>();
-    if (osName.toLowerCase(Locale.ROOT).contains("win")) {
+    if (isWindows(osName)) {
       wrapped.add("cmd.exe");
       wrapped.add("/c");
     } else {
       wrapped.add("/bin/sh");
       wrapped.add("-c");
     }
-    // Escape shell metacharacters to prevent injection
-    final String joined =
-        command.stream().map(this::escapeShellArg).collect(Collectors.joining(" "));
-    wrapped.add(joined);
+    wrapped.add(String.join(" ", command));
     return wrapped;
   }
 
+  private static boolean isWindows(final String osName) {
+    return osName.toLowerCase(Locale.ROOT).contains("win");
+  }
+
   /**
-   * Escape a shell argument by wrapping in single quotes and escaping single quotes within, but
-   * only if necessary. This prevents shell metacharacter injection by handling dangerous characters
-   * like semicolons, pipes, redirects, etc.
+   * Make a value one inert word of a shell script, whatever characters it holds.
    *
-   * @param arg the argument to escape
-   * @return the escaped argument safe for shell execution
+   * <p>On Unix the value goes in single quotes, with each single quote written as {@code '"'"'}. On
+   * Windows it goes in double quotes, where {@code cmd.exe} keeps {@code & | < > ^ ( )} literal and
+   * trailing backslashes are doubled so they cannot escape the closing quote. {@code cmd.exe} has
+   * no way to protect a double quote, a percent sign (variable expansion) or a line break, so such
+   * a value is refused: pass it with {@code inputMode} ENV or STDIN instead.
+   *
+   * @param value the value to quote
+   * @param osName the {@code os.name} system property value to branch on
+   * @return the quoted word
+   * @throws IllegalArgumentException if the value cannot be quoted for {@code cmd.exe}
    */
-  private String escapeShellArg(final String arg) {
-    // Check if arg contains dangerous shell metacharacters that require quoting
-    // Allow alphanumeric, spaces, common punctuation, paths, hyphens, underscores
-    // Only quote if it contains shell special chars like ;|&$`<>(){}[]'"\
-    if (arg.matches("^[a-zA-Z0-9._/ :,()\\-]*$")) {
-      // Safe argument - contains only benign characters
-      return arg;
+  /* package */ static String quoteForShell(final String value, final String osName) {
+    if (!isWindows(osName)) {
+      return "'" + value.replace("'", "'\"'\"'") + "'";
     }
-    // Unsafe argument - wrap in single quotes and escape any single quotes within
-    // by closing the quote, adding an escaped quote, and reopening
-    return "'" + arg.replace("'", "'\"'\"'") + "'";
+    if (value.chars().anyMatch(c -> c == '"' || c == '%' || c == '\n' || c == '\r' || c == 0)) {
+      throw new IllegalArgumentException(
+          "A value used in a shell command on Windows cannot contain a double quote, a percent sign"
+              + " or a line break; pass it with inputMode ENV or STDIN instead");
+    }
+    int trailing = 0;
+    while (trailing < value.length() && value.charAt(value.length() - 1 - trailing) == '\\') {
+      trailing++;
+    }
+    return "\"" + value + "\\".repeat(trailing) + "\"";
   }
 
   /**

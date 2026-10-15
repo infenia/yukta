@@ -1630,7 +1630,7 @@ IDs in brackets such as (G1) are finding numbers from the module's review notes 
 | MAPPER SCRIPT: sandboxed, but no heap limit (G1) | Security | 2 | 3 |
 | No host allow-list for HTTP_REQUEST, MCP_TOOL_CALL (G7) | Security | 4 | 2 |
 | Secrets sit in workflow config and are returned as written | Security | 4 | 3 |
-| PROCESS_EXECUTOR: command allow-list added; allow-any and useShell remain (G3, G4) | Security | 2 | 2 |
+| PROCESS_EXECUTOR: command allow-list added; allow-any remains (G3, G4) | Security | 2 | 2 |
 | A timeout kills the child but not its children (G9) | Reliability | 3 | 2 |
 | Concurrency per node: only a default and a few plugins have a setting (G8) | Scalability | 2 | 2 |
 | File sandbox protects a path, not an author | Security | 3 | 2 |
@@ -1684,12 +1684,12 @@ IDs in brackets such as (G1) are finding numbers from the module's review notes 
 **Question to settle.** Is it acceptable for a workflow definition to be a secret-bearing document, or must it be safe to share like source code?
 
 </Accordion>
-<Accordion title="PROCESS_EXECUTOR: command allow-list added; allow-any and useShell remain (G3, G4)">
+<Accordion title="PROCESS_EXECUTOR: command allow-list added; allow-any remains (G3, G4)">
 **Id** `shellModel` · **Category** Security · **Impact** 2 · **Effort** 2 · **Components** External I/O
 
-**Why it matters.** Done (PR #373): nothing runs unless `yukta.process.allowed-commands` lists the executable (or `yukta.process.allow-any=true`), and `useShell` is refused while the list is set. Still open: (1) `allow-any=true` switches the check off, and then `useShell` works with the old quoting, which `cmd.exe` on Windows does not honour, so '&' or '|' inside an interpolated value can still act; (2) the list names programs, not arguments, so an allowed interpreter or a tool that takes options (git, python, curl) still runs whatever a message puts into its arguments; (3) on Unix the single-quote escaping means pipes and redirects never work, so `useShell` only adds PATH lookup, which surprises authors.
+**Why it matters.** Done (PR #373): nothing runs unless `yukta.process.allowed-commands` lists the executable (or `yukta.process.allow-any=true`), and `useShell` is refused while the list is set. Also done: `useShell` now runs its elements as one raw script (pipes, `&&` and redirects work), only with `allow-any`, and an element that uses a variable is quoted into one word for the platform shell (single quotes on Unix; double quotes on Windows, refusing a value with a double quote, `%` or a line break). Still open: (1) `allow-any=true` switches the allow-list off; (2) the list names programs, not arguments, so an allowed interpreter or a tool that takes options (git, python, curl) still runs whatever a message puts into its arguments.
 
-**Option.** Refuse useShell on Windows when any argument is interpolated; allow a pattern per program (allowed arguments) for the programs that take options; consider dropping useShell and exec arguments directly.
+**Option.** Allow a pattern per program (allowed arguments) for the programs that take options.
 
 **Question to settle.** Which programs do your workflows really need, and can any of them be told to run another program?
 

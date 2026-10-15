@@ -27,6 +27,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledOnOs;
+import org.junit.jupiter.api.condition.OS;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
@@ -41,6 +43,7 @@ import reactor.test.StepVerifier;
 import reactor.util.context.Context;
 
 @SuppressWarnings({
+  "PMD.CyclomaticComplexity",
   "PMD.TooManyMethods",
   "PMD.ExcessiveImports",
   "PMD.CommentRequired",
@@ -63,6 +66,11 @@ class ProcessExecutorPluginTest {
   @BeforeEach
   void setUp() {
     plugin = new ProcessExecutorPlugin(gateway, resolver);
+    // like the real resolver: a value is dynamic when it uses ${...}
+    when(resolver.isStatic(any()))
+        .thenAnswer(
+            invocation ->
+                !(invocation.getArgument(0) instanceof final String text && text.contains("${")));
     // Generic resolver mock to handle all variable resolutions by returning the input
     when(resolver.resolve(any(), any()))
         .thenAnswer(
@@ -147,6 +155,55 @@ class ProcessExecutorPluginTest {
     StepVerifier.create(
             plugin.validateConfig(Map.of("command", List.of("echo", "ok"), "concurrency", 0)))
         .expectErrorMessage("concurrency must be a positive whole number, got: 0")
+        .verify();
+  }
+
+  @Test
+  @DisabledOnOs(OS.WINDOWS)
+  void process_useShell_quotesOnlyTheElementsThatUseVariables() {
+    when(resolver.resolve(eq("${payload.query}"), any())).thenReturn(Mono.just("x; rm -rf /"));
+    final Map<String, Object> config = new HashMap<>();
+    config.put("command", List.of("grep", "-c", "${payload.query}", "|", "wc -l"));
+    config.put("useShell", true);
+    final ArgumentCaptor<ProcessExecutionSpec> specCaptor =
+        ArgumentCaptor.forClass(ProcessExecutionSpec.class);
+    when(gateway.executeForResult(specCaptor.capture())).thenReturn(Mono.just(successResult("1")));
+
+    StepVerifier.create(plugin.process(Flux.just(message("in")), config))
+        .expectNextCount(1)
+        .verifyComplete();
+
+    assertThat(specCaptor.getValue().command())
+        .containsExactly("grep", "-c", "'x; rm -rf /'", "|", "wc -l");
+  }
+
+  @Test
+  void process_withoutUseShell_variablesAreNotQuoted() {
+    when(resolver.resolve(eq("${payload.q}"), any())).thenReturn(Mono.just("a b"));
+    final ArgumentCaptor<ProcessExecutionSpec> specCaptor =
+        ArgumentCaptor.forClass(ProcessExecutionSpec.class);
+    when(gateway.executeForResult(specCaptor.capture()))
+        .thenReturn(Mono.just(successResult("a b")));
+
+    StepVerifier.create(
+            plugin.process(
+                Flux.just(message("in")), Map.of("command", List.of("echo", "${payload.q}"))))
+        .expectNextCount(1)
+        .verifyComplete();
+
+    assertThat(specCaptor.getValue().command()).containsExactly("echo", "a b");
+  }
+
+  @Test
+  void useShell_cannotBeVariableExpression() {
+    final Map<String, Object> config =
+        Map.of("command", List.of("echo", "hi"), "useShell", "${payload.shell}");
+
+    StepVerifier.create(plugin.validateConfig(config))
+        .expectErrorMessage("useShell must be true or false, not an expression")
+        .verify();
+    StepVerifier.create(plugin.process(Flux.just(message("in")), config))
+        .expectErrorMessage("useShell must be true or false, not an expression")
         .verify();
   }
 
