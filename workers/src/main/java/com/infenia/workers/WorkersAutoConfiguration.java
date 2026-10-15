@@ -1,19 +1,25 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
-package com.infenia.yukta.workers;
+package com.infenia.workers;
 
+import com.infenia.yukta.service.leader.LeaderElection;
+import com.infenia.yukta.service.leader.SingleServerLeader;
 import com.infenia.yukta.service.plugin.PluginRegistry;
 import com.infenia.yukta.service.worker.WorkerRegistration;
 import com.infenia.yukta.service.worker.WorkerRegistry;
 import java.time.Duration;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
+import org.springframework.aot.hint.annotation.RegisterReflectionForBinding;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.ssl.SslBundle;
 import org.springframework.boot.ssl.SslBundles;
 import org.springframework.context.annotation.Bean;
 import org.springframework.messaging.rsocket.RSocketRequester;
@@ -30,6 +36,11 @@ import tools.jackson.databind.ObjectMapper;
  * yukta.workers.id}; the agent connects out. A node is not run remotely yet.
  */
 @AutoConfiguration
+@RegisterReflectionForBinding({
+  WorkerFrame.class,
+  NodeFrame.class,
+  com.infenia.yukta.message.DefaultMessage.class
+})
 public class WorkersAutoConfiguration {
 
   /** Default constructor. */
@@ -50,8 +61,10 @@ public class WorkersAutoConfiguration {
   public WorkerSessionHandler workerSessionHandler(
       final WorkerRegistry registry,
       final WorkerConnections connections,
+      final ObjectProvider<LeaderElection> election,
       @Value("${yukta.workers.token}") final String token) {
-    return new WorkerSessionHandler(registry, connections, token);
+    return new WorkerSessionHandler(
+        registry, connections, election.getIfAvailable(SingleServerLeader::new), token);
   }
 
   /**
@@ -119,7 +132,8 @@ public class WorkersAutoConfiguration {
    *
    * @param builder builds the RSocket requester
    * @param responder lets the control plane call back into this worker
-   * @param controlPlane {@code host:port} of the control plane's RSocket server
+   * @param controlPlane {@code host:port} of the control plane's RSocket server; several, comma
+   *     separated, are tried in turn until one is the leader
    * @param token the shared secret of the control plane
    * @param workerId this worker's id
    * @param pools the pools this worker serves, comma separated
@@ -153,19 +167,20 @@ public class WorkersAutoConfiguration {
       @Value("${yukta.workers.drain-timeout:30s}") final Duration drainTimeout,
       @Value("${yukta.workers.ssl-bundle:}") final String sslBundle,
       final ObjectProvider<SslBundles> bundles) {
-    final int colon = controlPlane.lastIndexOf(':');
-    if (colon <= 0) {
-      throw new IllegalArgumentException("yukta.workers.control-plane must be host:port");
-    }
+    final SslBundle bundle = sslBundle.isBlank() ? null : bundles.getObject().getBundle(sslBundle);
+    // Several control planes (the leader and its standbys) may be listed; each connection attempt
+    // tries the next one, and a standby refuses the worker, so the worker ends up on the leader.
+    final List<Mono<RSocketRequester>> targets =
+        Arrays.stream(controlPlane.split(","))
+            .map(String::trim)
+            .filter(address -> !address.isEmpty())
+            .map(address -> target(address, builder, responder, bundle))
+            .toList();
+    final AtomicInteger turn = new AtomicInteger();
     // The control plane calls back into this connection to run nodes, so the worker answers
     // requests on it with its own handlers (the NodeRunner).
     final Mono<RSocketRequester> connect =
-        WorkerTransport.connect(
-            builder,
-            responder,
-            controlPlane.substring(0, colon),
-            Integer.parseInt(controlPlane.substring(colon + 1)),
-            sslBundle.isBlank() ? null : bundles.getObject().getBundle(sslBundle));
+        Mono.defer(() -> targets.get(Math.floorMod(turn.getAndIncrement(), targets.size())));
     return new WorkerAgent(
         connect,
         token,
@@ -173,6 +188,23 @@ public class WorkersAutoConfiguration {
         lease.dividedBy(3),
         runner::running,
         drainTimeout);
+  }
+
+  private static Mono<RSocketRequester> target(
+      final String address,
+      final RSocketRequester.Builder builder,
+      final RSocketMessageHandler responder,
+      final SslBundle bundle) {
+    final int colon = address.lastIndexOf(':');
+    if (colon <= 0) {
+      throw new IllegalArgumentException("yukta.workers.control-plane must be host:port");
+    }
+    return WorkerTransport.connect(
+        builder,
+        responder,
+        address.substring(0, colon),
+        Integer.parseInt(address.substring(colon + 1)),
+        bundle);
   }
 
   private static Set<String> split(final String csv) {
