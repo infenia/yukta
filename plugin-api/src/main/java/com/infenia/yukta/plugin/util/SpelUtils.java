@@ -82,7 +82,11 @@ public final class SpelUtils {
    * @param <T> the result type
    * @return the evaluation result
    */
-  @SuppressWarnings({"unchecked", "TypeParameterUnusedInFormals", "PMD.AvoidCatchingGenericException"})
+  @SuppressWarnings({
+    "unchecked",
+    "TypeParameterUnusedInFormals",
+    "PMD.AvoidCatchingGenericException"
+  })
   public static <T> T evaluateSync(
       final String expressionStr, final Object root, final Map<String, Object> variables) {
     final Expression expression = CACHE.computeIfAbsent(expressionStr, PARSER::parseExpression);

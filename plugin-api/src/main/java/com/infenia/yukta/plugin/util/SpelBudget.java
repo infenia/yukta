@@ -120,7 +120,9 @@ final class SpelBudget {
   private static @Nullable TypedValue regexCall(
       final String name, final Object target, final @Nullable Object[] arguments) {
     TypedValue result = null;
-    if (target instanceof String text && arguments.length > 0 && arguments[0] instanceof String regex) {
+    if (target instanceof String text
+        && arguments.length > 0
+        && arguments[0] instanceof String regex) {
       final Pattern pattern = Pattern.compile(regex);
       if ("matches".equals(name) && arguments.length == 1) {
         result = new TypedValue(pattern.matcher(new GuardedText(text)).matches());

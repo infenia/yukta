@@ -1627,7 +1627,7 @@ IDs in brackets such as (G1) are finding numbers from the module's review notes 
 
 | Risk | Category | Impact | Effort |
 |---|---|---|---|
-| MAPPER SCRIPT: sandboxed, but no memory limit and host access to its inputs (G1) | Security | 2 | 3 |
+| MAPPER SCRIPT: sandboxed, but no heap limit (G1) | Security | 2 | 3 |
 | No host allow-list for HTTP_REQUEST, MCP_TOOL_CALL (G7) | Security | 4 | 2 |
 | Secrets sit in workflow config and are returned as written | Security | 4 | 3 |
 | PROCESS_EXECUTOR: command allow-list added; allow-any and useShell remain (G3, G4) | Security | 2 | 2 |
@@ -1654,12 +1654,12 @@ IDs in brackets such as (G1) are finding numbers from the module's review notes 
 | SESSION_MEMORY blocks a reactive thread while it calls the database | Performance | 3 | 2 |
 
 <AccordionGroup>
-<Accordion title="MAPPER SCRIPT: sandboxed, but no memory limit and host access to its inputs (G1)">
+<Accordion title="MAPPER SCRIPT: sandboxed, but no heap limit (G1)">
 **Id** `scriptHostAccess` · **Category** Security · **Impact** 2 · **Effort** 3 · **Components** Transform & script, Selection & gates
 
-**Why it matters.** Done (PR #373): the GraalJS class lookup accepts only 12 value classes (Math, String, the number and boolean wrappers, UUID, Base64, ArrayList, HashMap, List, Map) and java.time.\*; Class objects are denied, so no reflection; a script is cancelled after 50 million statements or 10 s (`yukta.script.max-statements`, `yukta.script.timeout-ms`). Still open: (1) there is no memory limit (the runtime has no heap option), so a script can allocate until the JVM is under pressure; (2) `HostAccess.ALL` is still used, so a script can call every public method of the objects it is given (message, payload, metadata); (3) the 'nosem' comments that switch off the OpenGrep rules remain, so a regression would not be flagged; (4) one shared watchdog thread cancels every script.
+**Why it matters.** Done (PR #373): the GraalJS class lookup accepts only 12 value classes (Math, String, the number and boolean wrappers, UUID, Base64, ArrayList, HashMap, List, Map) and java.time.\*; Class objects are denied, so no reflection; a script is cancelled after 50 million statements or 10 s (`yukta.script.max-statements`, `yukta.script.timeout-ms`). Also done: the script is given plain-data copies of message, payload and metadata (polyglot proxies; other values as text) instead of live Java objects, `HostAccess.ALL` and its 'nosem' comment are gone, a script may be given and return at most 1,000,000 values (64 levels deep), and builds strings of at most 10,000,000 characters (the experimental GraalJS option `js.string-length-limit`, which needs `allowExperimentalOptions`). Still open: (1) there is no heap limit (the Community runtime has no heap option; it needs Oracle GraalVM), so a script can still allocate within its statement budget until the JVM is under pressure; (2) the 'nosem' comment for the class-lookup rule remains; (3) one shared watchdog thread cancels every script.
 
-**Option.** Run scripts on a bounded pool and watch their heap use from the watchdog, or give them read-only proxy views of the message instead of host objects; add a test that fails if the lookup list grows; keep script-js out of builds that do not need it (-Pyukta.plugins).
+**Option.** Run scripts on a bounded pool and watch their heap use from the watchdog, or use Oracle GraalVM's heap limit; add a test that fails if the lookup list grows; keep script-js out of builds that do not need it (-Pyukta.plugins).
 
 **Question to settle.** Do you trust every workflow author with the CPU and memory of the server for ten seconds at a time?
 

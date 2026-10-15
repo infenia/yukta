@@ -187,7 +187,7 @@ JavaScript scripts run with a time limit and a statement limit. Both are system 
 | `yukta.script.timeout-ms` | `10000` |
 | `yukta.script.max-statements` | `50000000` |
 
-Scripts can reach only a short list of date, time and basic value types from the host. They have no memory limit.
+Scripts can reach only a short list of date, time and basic value types from the host, and the message data they are given are plain copies, not Java objects. A script can be given and can return at most 1,000,000 values, and can build strings of at most 10,000,000 characters. There is no heap limit (GraalVM Community has none).
 
 Expressions (filter conditions, branch cases, mapper projections, loop exit conditions and so on) have a time limit too, the system property `yukta.spel.timeout-ms` (default `1000`, `0` turns it off). An expression that runs longer, for example a regular expression that backtracks without end, is stopped and fails the message.
 
