@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 
 import com.infenia.yukta.config.SessionConfigProperties;
+import com.infenia.yukta.plugin.store.NodeCheckpointStore;
 import com.infenia.yukta.service.log.ExecutionLogStore;
 import com.infenia.yukta.service.session.store.SessionConfigStore;
 import com.infenia.yukta.service.workflow.store.WorkflowDefinitionStore;
@@ -40,6 +41,20 @@ class PostgresPersistenceAutoConfigurationTest {
               assertThat(context.getBean(ExecutionLogStore.class))
                   .isInstanceOf(R2dbcExecutionLogStore.class);
             });
+  }
+
+  @Test
+  void withRestartStoreTypePostgres_theCheckpointsAreDatabaseBacked() {
+    runner
+        .withPropertyValues(
+            "yukta.session.store-type=postgres", "yukta.restart.store-type=postgres")
+        .run(
+            context ->
+                assertThat(context.getBean(NodeCheckpointStore.class))
+                    .isInstanceOf(R2dbcNodeCheckpointStore.class));
+    runner
+        .withPropertyValues("yukta.session.store-type=postgres")
+        .run(context -> assertThat(context).doesNotHaveBean(NodeCheckpointStore.class));
   }
 
   @Test

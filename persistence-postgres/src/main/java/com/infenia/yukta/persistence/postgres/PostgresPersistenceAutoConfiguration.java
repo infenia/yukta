@@ -3,6 +3,7 @@
 package com.infenia.yukta.persistence.postgres;
 
 import com.infenia.yukta.config.SessionConfigProperties;
+import com.infenia.yukta.plugin.store.NodeCheckpointStore;
 import com.infenia.yukta.service.log.ExecutionLogStore;
 import com.infenia.yukta.service.session.store.SessionConfigStore;
 import com.infenia.yukta.service.workflow.store.WorkflowDefinitionStore;
@@ -75,5 +76,19 @@ public class PostgresPersistenceAutoConfiguration {
       @Value("${yukta.execution-log.retained-runs:500}") final int retainedRuns,
       @Value("${yukta.execution-log.compact-after:10000}") final int compactAfter) {
     return new R2dbcExecutionLogStore(client, mapper, retainedRuns, compactAfter, 5_000);
+  }
+
+  /**
+   * The node checkpoints, when {@code yukta.restart.store-type=postgres}.
+   *
+   * @param client runs the statements
+   * @param mapper reads and writes JSON
+   * @return the store
+   */
+  @Bean
+  @ConditionalOnProperty(name = "yukta.restart.store-type", havingValue = "postgres")
+  public NodeCheckpointStore nodeCheckpointStore(
+      final DatabaseClient client, final ObjectMapper mapper) {
+    return new R2dbcNodeCheckpointStore(client, mapper);
   }
 }

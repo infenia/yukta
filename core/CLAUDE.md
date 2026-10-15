@@ -230,7 +230,7 @@ versions) and `R2dbcExecutionLogStore` (blocking interface, so one writer thread
 `retained-runs` runs and never drops a run without an end). Schema: Flyway migrations in
 `persistence-postgres/src/main/resources/db/migration` (applied over JDBC from `spring.flyway.url`);
 run time uses R2DBC (`spring.r2dbc.url`). The in-memory/file defaults step aside when the type is
-`postgres`. Node checkpoints (`yukta.restart.dir`) still use files or memory.
+`postgres`. Node checkpoints use `R2dbcNodeCheckpointStore` when `yukta.restart.store-type=postgres` (one row per message in JSONB, which PostgreSQL stores out of line, so no cap; a state row per node holds the end marker and the incomplete flag; migration V3), otherwise files (`yukta.restart.dir`) or memory.
 
 ### Sub-workflows
 `SUB_WORKFLOW` (internal-core) runs another stored workflow of the same session per message through

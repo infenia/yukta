@@ -61,7 +61,12 @@ abstract class PostgresTestSupport {
   void emptyTables() {
     for (final String table :
         new String[] {
-          "workflow_definition_revision", "workflow_definition", "session_config", "execution_log"
+          "workflow_definition_revision",
+          "workflow_definition",
+          "session_config",
+          "execution_log",
+          "node_checkpoint",
+          "node_checkpoint_state"
         }) {
       db.sql("DELETE FROM " + table).fetch().rowsUpdated().block();
     }
