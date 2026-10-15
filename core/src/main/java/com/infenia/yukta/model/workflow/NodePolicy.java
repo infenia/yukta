@@ -77,7 +77,14 @@ public record NodePolicy(
 
   /** Options accepted in the {@code engine} object. */
   private static final Set<String> KEYS =
-      Set.of("retry", "onError", "trigger", "elementTimeoutMs", "deadlineMs", "failureBudget");
+      Set.of(
+          "retry",
+          "onError",
+          "trigger",
+          "elementTimeoutMs",
+          "deadlineMs",
+          "failureBudget",
+          "edgeBuffer");
 
   /** Options accepted in the {@code retry} object. */
   private static final Set<String> RETRY_KEYS =
@@ -212,6 +219,55 @@ public record NodePolicy(
    */
   public record FailureBudget(int maxFailures, Duration window) {}
 
+  /** What a full edge buffer does with the message that does not fit. */
+  public enum Overflow {
+    /** Drop the oldest waiting message. */
+    DROP_OLDEST,
+    /** Drop the message that just arrived. */
+    DROP_NEWEST
+  }
+
+  /**
+   * A bounded buffer in front of a node: a slow node then drops messages instead of slowing its
+   * parents (without it the slowest child paces the fan-out).
+   *
+   * @param size most messages waiting
+   * @param overflow what to drop when it is full
+   */
+  public record EdgeBuffer(int size, Overflow overflow) {}
+
+  /** Options accepted in the {@code edgeBuffer} object. */
+  private static final Set<String> EDGE_BUFFER_KEYS = Set.of("size", "overflow");
+
+  /**
+   * Reads the optional {@code engine.edgeBuffer} of a node config.
+   *
+   * @param config the node config, possibly empty
+   * @return the buffer, or null when the node has none
+   * @throws IllegalArgumentException with a precise message if it is malformed
+   */
+  @Nullable
+  public static EdgeBuffer edgeBuffer(@Nullable final Map<String, Object> config) {
+    final Object raw = config == null ? null : config.get(CONFIG_KEY);
+    if (raw == null || !asMap(raw, CONFIG_KEY).containsKey("edgeBuffer")) {
+      return null;
+    }
+    final Map<String, Object> buffer =
+        asMap(asMap(raw, CONFIG_KEY).get("edgeBuffer"), "edgeBuffer");
+    rejectUnknown(buffer, EDGE_BUFFER_KEYS, "engine.edgeBuffer");
+    final long size = number(buffer.get("size"), "engine.edgeBuffer.size", -1);
+    if (size < 1 || size > MAX_EDGE_BUFFER) {
+      throw new IllegalArgumentException(
+          "engine.edgeBuffer.size is required and must be between 1 and " + MAX_EDGE_BUFFER);
+    }
+    return new EdgeBuffer(
+        (int) size,
+        parseEnum(buffer.get("overflow"), Overflow.class, "overflow", Overflow.DROP_OLDEST));
+  }
+
+  /** Largest accepted edge buffer. */
+  private static final int MAX_EDGE_BUFFER = 100_000;
+
   /**
    * Whether the plugin must be called once per message, which retry and onError need.
    *
@@ -245,6 +301,7 @@ public record NodePolicy(
             engine.containsKey("failureBudget")
                 ? parseBudget(asMap(engine.get("failureBudget"), "failureBudget"))
                 : null);
+    edgeBuffer(config);
     if (policy.failureBudget() != null && policy.onError() == OnError.FAIL) {
       throw new IllegalArgumentException(
           "engine.failureBudget needs engine.onError CONTINUE or ROUTE; with FAIL the first"

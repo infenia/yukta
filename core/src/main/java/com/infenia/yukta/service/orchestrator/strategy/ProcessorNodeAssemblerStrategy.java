@@ -28,6 +28,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
+import reactor.core.publisher.BufferOverflowStrategy;
 import reactor.core.publisher.Flux;
 import reactor.core.scheduler.Scheduler;
 
@@ -99,6 +100,22 @@ public class ProcessorNodeAssemblerStrategy implements NodeAssemblerStrategy {
             1);
   }
 
+  /**
+   * Puts the node's {@code engine.edgeBuffer}, if any, in front of its input: when the node is
+   * slower than its parents the buffer drops messages (counted) instead of holding the parents.
+   */
+  private Flux<Message<?>> edgeBuffered(final WorkflowNode node, final Flux<Message<?>> input) {
+    final NodePolicy.EdgeBuffer buffer = NodePolicy.edgeBuffer(node.config());
+    return buffer == null
+        ? input
+        : input.onBackpressureBuffer(
+            buffer.size(),
+            _ -> tracker.recordEdgeDropped(node.type()),
+            buffer.overflow() == NodePolicy.Overflow.DROP_OLDEST
+                ? BufferOverflowStrategy.DROP_OLDEST
+                : BufferOverflowStrategy.DROP_LATEST);
+  }
+
   @Override
   public NodeAssembler createAssembler(
       final WorkflowNode node,
@@ -148,9 +165,9 @@ public class ProcessorNodeAssemblerStrategy implements NodeAssemblerStrategy {
           .addKeyValue(LOG_KEY_NODE_ID, node.nodeId())
           .log("Processing stream with processor plugin");
       final NodeMessageChannel channel = channelProvider.channelFor(node.nodeId(), node.config());
-      final Flux<Message<?>> channelInput =
-          channel.inbound(node.nodeId(), context.executionId(), timedInput);
       final NodePolicy policy = NodePolicy.from(node.config());
+      final Flux<Message<?>> channelInput =
+          channel.inbound(node.nodeId(), context.executionId(), edgeBuffered(node, timedInput));
       // failures are counted per run, so the ledger belongs to this assembly, not to the node
       final FailureLedger ledger =
           policy.failureBudget() == null ? null : new FailureLedger(policy.failureBudget());
