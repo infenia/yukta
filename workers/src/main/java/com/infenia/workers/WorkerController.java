@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
-package com.infenia.yukta.workers;
+package com.infenia.workers;
 
 import org.springframework.messaging.handler.annotation.MessageMapping;
+import org.springframework.messaging.rsocket.RSocketRequester;
 import org.springframework.stereotype.Controller;
 import reactor.core.publisher.Flux;
 
@@ -25,11 +26,13 @@ public class WorkerController {
   /**
    * One worker connection: the worker registers, then renews its lease.
    *
+   * @param requester the way back into this worker
    * @param frames what the worker sends
    * @return what the control plane answers
    */
   @MessageMapping("worker.session")
-  public Flux<WorkerFrame> session(final Flux<WorkerFrame> frames) {
-    return handler.session(frames);
+  public Flux<WorkerFrame> session(
+      final RSocketRequester requester, final Flux<WorkerFrame> frames) {
+    return handler.session(requester, frames);
   }
 }

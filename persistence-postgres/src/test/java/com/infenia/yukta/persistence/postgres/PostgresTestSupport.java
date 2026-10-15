@@ -66,7 +66,10 @@ abstract class PostgresTestSupport {
           "session_config",
           "execution_log",
           "node_checkpoint",
-          "node_checkpoint_state"
+          "node_checkpoint_state",
+          "leader_lease",
+          "kv_entry",
+          "session_history"
         }) {
       db.sql("DELETE FROM " + table).fetch().rowsUpdated().block();
     }

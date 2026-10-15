@@ -1,6 +1,6 @@
 # 10 Remote workers: design (F11)
 
-Status: **phase 1 is built** (registry, leases, `GET /api/workers`, RSocket server and agent in the `workers` module, token auth; no node runs remotely yet). Phases 2 to 6 are design only. Decision taken: scale out with **remote workers**
+Status: **phases 1 and 2 are built** (registry, leases, `GET /api/workers`, RSocket server and agent in the `workers` module, token auth; a processor node with `engine.placement` runs on a worker, with pool and free-slot choice). Failure handling beyond "the attempt fails and the engine retries", operations and control-plane HA are design only. Decision taken: scale out with **remote workers**
 (a control plane schedules nodes, workers run them), not active/standby only. Needs F10 (PostgreSQL
 persistence, first increment done) and benefits from F7/F9 (durable state, definition versions).
 
@@ -88,7 +88,7 @@ control plane                                   worker (same jar, `worker` profi
 
 ## Security
 
-Worker authentication with mTLS (preferred) or a per-worker token; the control plane accepts
+Worker authentication with mTLS (built: `yukta.workers.ssl-bundle` plus the RSocket server's SSL bundle with `client-auth=need`) or a per-worker token (built: one shared token); the control plane accepts
 `REGISTER` only from authenticated workers, and the worker only runs plugin types on its own allow
 list (so a compromised control plane cannot make a worker run `PROCESS_EXECUTOR`). Roles for the
 REST API (F3) gain `ADMIN`-only worker endpoints.
@@ -98,14 +98,14 @@ REST API (F3) gain `ADMIN`-only worker endpoints.
 0. Review this design; decide the open questions below.
 1. **Worker registry and agent (done, token auth only; mTLS is left to the RSocket server's SSL settings):** RSocket server/client, mTLS/token, REGISTER/lease, `GET /api/workers`,
    metrics. No node runs remotely yet.
-2. **Remote processor execution:** `RemoteProcessor`, frames, one worker, happy path, cancel and
+2. **Remote processor execution (done, tested with a real control plane and worker in one JVM):** `RemoteProcessor`, frames, one worker, happy path, cancel and
    heartbeat; acceptance test with two JVMs in Testcontainers/`ProcessBuilder`.
 3. **Placement:** pools/requires, free-slot selection, `local-only` plugin flag and validation.
-4. **Failure semantics:** lost worker, retry on another worker, drain on worker shutdown, chaos
+4. **Failure semantics (lost worker mid-attempt fails retryably and the retry lands on another worker: done and tested; drain on shutdown: done and tested; kill -9 chaos test with the worker in its own JVM: done):** lost worker, retry on another worker, drain on worker shutdown, chaos
    tests (kill -9 mid node), at-least-once documentation.
 5. **Operations:** UI list of workers, per-worker load, `max-concurrent` accounting that counts remote
    slots, native-image support for the worker profile.
-6. **Control plane HA:** active/standby with a PostgreSQL lease; workers reconnect to the new leader;
+6. **Control plane HA (done: PostgreSQL lease, standby refuses starts, takeover recovers and auto-resumes; open: workers finding the new leader on their own, queued starts and waits surviving):** active/standby with a PostgreSQL lease; workers reconnect to the new leader;
    in-flight runs resume from checkpoints (needs the checkpoint store in PostgreSQL).
 
 ## Risks

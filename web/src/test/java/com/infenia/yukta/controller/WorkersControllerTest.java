@@ -24,7 +24,14 @@ class WorkersControllerTest {
     final WorkerRegistry registry = mock(WorkerRegistry.class);
     final WorkerInfo info =
         new WorkerInfo(
-            "w1", Set.of("default"), Set.of("HTTP_REQUEST"), 4, 1, Instant.EPOCH, Instant.EPOCH);
+            "w1",
+            Set.of("default"),
+            Set.of("HTTP_REQUEST"),
+            4,
+            1,
+            false,
+            Instant.EPOCH,
+            Instant.EPOCH);
     when(registry.list()).thenReturn(List.of(info));
 
     StepVerifier.create(new WorkersController(registry).list())

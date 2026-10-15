@@ -576,4 +576,42 @@ class LlmCallPluginTest {
                 new StaticListableBeanFactory().getBeanProvider(PluginMetricsReporter.class)))
         .isNotNull();
   }
+
+  @Test
+  void tokensAndCostAreMeteredPerProvider() {
+    final io.micrometer.core.instrument.simple.SimpleMeterRegistry meters =
+        new io.micrometer.core.instrument.simple.SimpleMeterRegistry();
+    final StaticListableBeanFactory factory = new StaticListableBeanFactory();
+    factory.addBean("meters", meters);
+    plugin =
+        new LlmCallPlugin(
+            gateway,
+            resolver,
+            new StaticListableBeanFactory().getBeanProvider(PluginMetricsReporter.class),
+            factory.getBeanProvider(io.micrometer.core.instrument.MeterRegistry.class));
+    when(gateway.call(any())).thenReturn(new LlmResponse("ok", 1_000_000, 500_000, "m"));
+
+    StepVerifier.create(run(config("prices", Map.of("input", 2.0, "output", 4.0))))
+        .expectNextCount(1)
+        .verifyComplete();
+    StepVerifier.create(run(config())).expectNextCount(1).verifyComplete();
+
+    assertThat(
+            meters
+                .get("llm.tokens")
+                .tag("provider", "OPENAI")
+                .tag("direction", "input")
+                .counter()
+                .count())
+        .isEqualTo(2_000_000.0);
+    assertThat(
+            meters
+                .get("llm.tokens")
+                .tag("provider", "OPENAI")
+                .tag("direction", "output")
+                .counter()
+                .count())
+        .isEqualTo(1_000_000.0);
+    assertThat(meters.get("llm.cost").tag("provider", "OPENAI").counter().count()).isEqualTo(4.0);
+  }
 }

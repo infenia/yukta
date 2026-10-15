@@ -2,6 +2,9 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.service.control;
 
+import com.infenia.yukta.service.leader.LeaderElection;
+import com.infenia.yukta.service.leader.NotLeaderException;
+import com.infenia.yukta.service.leader.SingleServerLeader;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
@@ -71,6 +74,9 @@ public class ExecutionScheduler implements SmartLifecycle {
 
   /** Guards all state below. */
   private final Object lock = new Object();
+
+  /** Tells whether this server admits runs; a single server always does. */
+  private LeaderElection election = new SingleServerLeader();
 
   /** Starts waiting for a slot: highest priority first, oldest first within a priority. */
   private final List<Waiter> queue = new ArrayList<>();
@@ -172,6 +178,7 @@ public class ExecutionScheduler implements SmartLifecycle {
    * @throws ExecutionRejectedException if the start would be refused
    */
   public void assertCanAccept(final String sessionId, final String workflowId) {
+    assertLeader();
     synchronized (lock) {
       if (closed) {
         throw refusal(RejectReason.SHUTDOWN, "The server is shutting down");
@@ -231,6 +238,7 @@ public class ExecutionScheduler implements SmartLifecycle {
       final String workflowId,
       final int priority,
       @Nullable final String executionId) {
+    assertLeader();
     final String key = key(sessionId, workflowId);
     synchronized (lock) {
       if (closed) {
@@ -374,6 +382,24 @@ public class ExecutionScheduler implements SmartLifecycle {
 
   private static Admission refused(final ExecutionRejectedException error) {
     return new Admission(true, Mono.error(error), true);
+  }
+
+  /** Only the leader admits runs; a standby refuses them (HTTP 503). */
+  private void assertLeader() {
+    if (!election.isLeader()) {
+      count(RejectReason.NOT_LEADER);
+      throw new NotLeaderException();
+    }
+  }
+
+  /**
+   * Lets the election decide whether this server admits runs; without one it always does.
+   *
+   * @param leaderElection the election
+   */
+  @Autowired(required = false)
+  public void setLeaderElection(final LeaderElection leaderElection) {
+    this.election = leaderElection;
   }
 
   /** Counts a refusal and builds its exception. */
@@ -572,7 +598,8 @@ public class ExecutionScheduler implements SmartLifecycle {
     LIMIT,
     QUEUE_FULL,
     WORKFLOW_QUEUE_FULL,
-    QUEUE_TIMEOUT
+    QUEUE_TIMEOUT,
+    NOT_LEADER
   }
 
   /** What to do with a start that does not fit within the limits. */

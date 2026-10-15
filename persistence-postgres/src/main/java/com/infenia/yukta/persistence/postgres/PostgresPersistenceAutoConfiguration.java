@@ -3,7 +3,9 @@
 package com.infenia.yukta.persistence.postgres;
 
 import com.infenia.yukta.config.SessionConfigProperties;
+import com.infenia.yukta.plugin.store.KeyValueStore;
 import com.infenia.yukta.plugin.store.NodeCheckpointStore;
+import com.infenia.yukta.plugin.store.SessionHistoryStore;
 import com.infenia.yukta.service.log.ExecutionLogStore;
 import com.infenia.yukta.service.session.store.SessionConfigStore;
 import com.infenia.yukta.service.workflow.store.WorkflowDefinitionStore;
@@ -21,6 +23,7 @@ import tools.jackson.databind.ObjectMapper;
  * R2DBC support), with {@code spring.flyway.user} and {@code spring.flyway.password}.
  */
 @AutoConfiguration
+@SuppressWarnings("PMD.AvoidDuplicateLiterals")
 @ConditionalOnProperty(name = "yukta.session.store-type", havingValue = "postgres")
 public class PostgresPersistenceAutoConfiguration {
 
@@ -90,5 +93,56 @@ public class PostgresPersistenceAutoConfiguration {
   public NodeCheckpointStore nodeCheckpointStore(
       final DatabaseClient client, final ObjectMapper mapper) {
     return new R2dbcNodeCheckpointStore(client, mapper);
+  }
+
+  /**
+   * Leader election through a lease row, when {@code yukta.ha.mode=postgres}.
+   *
+   * @param client runs the statements
+   * @param instanceId this server's id in the lease row (random if not set)
+   * @param lease how long a renewal keeps the lease
+   * @param meters where the {@code yukta.leader} gauge is registered
+   * @return the election
+   */
+  @Bean
+  @ConditionalOnProperty(name = "yukta.ha.mode", havingValue = "postgres")
+  public R2dbcLeaderElection leaderElection(
+      final DatabaseClient client,
+      @Value("${yukta.ha.instance-id:#{T(java.util.UUID).randomUUID().toString()}}")
+          final String instanceId,
+      @Value("${yukta.ha.lease:15s}") final java.time.Duration lease,
+      final io.micrometer.core.instrument.MeterRegistry meters) {
+    return new R2dbcLeaderElection(client, instanceId, lease, meters);
+  }
+
+  /**
+   * The state of {@code KV_STORE} nodes, when {@code yukta.kv.store-type=postgres}.
+   *
+   * @param client runs the statements
+   * @param mapper reads and writes JSON
+   * @return the store
+   */
+  @Bean
+  @ConditionalOnProperty(name = "yukta.kv.store-type", havingValue = "postgres")
+  public KeyValueStore keyValueStore(final DatabaseClient client, final ObjectMapper mapper) {
+    return new R2dbcKeyValueStore(client, mapper);
+  }
+
+  /**
+   * The chat history of {@code SESSION_MEMORY} nodes, when {@code
+   * yukta.session-memory.store-type=postgres}.
+   *
+   * @param client runs the statements
+   * @param mapper reads and writes JSON
+   * @param ttl how long a session that is not written is kept; unset keeps all
+   * @return the store
+   */
+  @Bean
+  @ConditionalOnProperty(name = "yukta.session-memory.store-type", havingValue = "postgres")
+  public SessionHistoryStore sessionHistoryStore(
+      final DatabaseClient client,
+      final ObjectMapper mapper,
+      @Value("${yukta.session-memory.ttl:#{null}}") final java.time.Duration ttl) {
+    return new R2dbcSessionHistoryStore(client, mapper, ttl);
   }
 }
