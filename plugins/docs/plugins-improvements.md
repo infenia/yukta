@@ -5,6 +5,56 @@
 > time.** Their findings are marked *(WIP)*.
 > Companion: [`plugins-module-guide.html`](plugins-module-guide.html) is the interactive guide, including a plugin catalogue.
 
+## 0. Status on 2026-10-15
+
+Sections 1 to 3 are the original review of 2026-10-09 and are kept as written. This section says
+what has changed since, checked against `main` after PRs #373 (security hardening) and #374 (core
+risks). The interactive guide's *Risks and improvement ideas* board has the current list with
+impact and effort; this table maps the G numbers onto it.
+
+"Checked" means the code was read on 2026-10-15. Rows marked *not re-checked* come from the
+original review and may have changed.
+
+| ID | Status | Evidence |
+|---|---|---|
+| G1 | Mostly closed | GraalJS class lookup is limited to 12 value classes and `java.time.*`, `Class` objects are denied, scripts stop after 50 M statements or 10 s (`GraalJsScriptEngine`). Open: no memory limit; `HostAccess.ALL` on the objects it is given. Checked |
+| G2 | Mostly closed | `SpelUtils` calls only methods on the `SafeMethodResolver` allow-list. Open: no evaluation time budget (see plugin-api guide). Checked |
+| G3 | Partly closed | Nothing runs unless `yukta.process.allowed-commands` lists it (or `allow-any=true`); `useShell` is refused while a list is set. With `allow-any` the Windows quoting problem remains. Checked |
+| G4 | Open | `useShell` still escapes every metacharacter. Checked |
+| G5 | Partly closed | `EnvSecretProvider` exists (`decrypted:<key>` reads `YUKTA_SECRET_<KEY>`). Open: nothing redacts secrets in the read APIs, and `SQL_QUERY` takes `password` literally. Checked |
+| G6 | Closed | `${env.*}` and `${sys.*}` read only `YUKTA_VAR_*` / `yukta.var.*`, a short harmless list and names in `yukta.variables.allowed`; secret-looking names stay blocked. Checked |
+| G7 | Open | No outbound host allow-list for `HTTP_REQUEST` or `MCP_TOOL_CALL`. MCP now has tool-level controls (allowed tools, approvals, argument limits). Checked |
+| G8 | Open | Default concurrency is still 256 for process, HTTP, MCP, session and file/SQL nodes. LLM calls can be spaced per provider (`yukta.llm.rate-limit.<provider>`). Checked |
+| G9 | Open | No descendant handling on timeout. Checked |
+| G10 | Not re-checked | `ProcessExecutorGateway` changed in #373 (lines stream live; `maxOutputLines` / `maxOutputBytes` bound the kept output). |
+| G11 | Open | Mapper caches, `LlmGateway` model clients and the MCP session map are still plain maps. Checked |
+| G12 | Not re-checked | |
+| G13 | Partly checked | `ESCALATE` still throws a plain `RuntimeException`. RETRY vs SKIP not re-checked |
+| G14 | Open | The loop still calls the target from the registry without `validateConfig`. Checked |
+| G15, G16 | Not re-checked | |
+| G17 | Partly closed | History can be kept in files or PostgreSQL (`yukta.session-memory.ttl` expires database rows). The in-memory cache still never evicts. Checked |
+| G18 | Open, slightly worse | 11 plugin modules depend on `:core`; 26 imports of `VariableResolver` (was 24). New shared helpers went into `plugin-api`. Checked |
+| G19 | Open | `internal-core` still has `pmdMain`, `pmdTest`, `checkstyleTest` off; `constant-source` has PMD off. Checked |
+| G20, G21, G22, G24 | Not re-checked | |
+| G23 | Open | `ConsoleTerminalPlugin` still logs the payload at INFO. Checked |
+| G25 | Open | `CONTENT-FILTER` is still the only kebab-case id. Checked |
+
+New since the original review, with their ids in the guide:
+
+- `agentGuardsOptIn`: MCP tool lists, approvals, budgets and prompt filters all default to off.
+- `decisionUnbudgeted`: LLM-backed decisions and the model control plane bypass the run budget.
+- `sessionStoreBlocks`: `SESSION_MEMORY` calls the blocking history store inside a map operation and is not marked blocking.
+- `budgetLedger` and `signalWaitsShared` (in the plugin-api guide): the new shared ledger and approval waits are per JVM, in memory, and can overshoot.
+
+Suggested order for the next steps (impact over effort, cheap and high impact first):
+
+1. `sessionStoreBlocks`: one line (`isBlocking() = true`) plus moving the store call out of the map operation.
+2. G7 host allow-list (`ssrf`), together with `agentGuardsOptIn` (warn when an MCP tool name comes from the message and no list is set).
+3. G5 redaction in the read APIs, and resolving `decrypted:` in `SQL_QUERY`.
+4. G8 and G9: a `maxConcurrency` setting and descendant kill on timeout.
+5. `decisionUnbudgeted` and the plugin-api `budgetLedger`: count every model call once, in the gateway.
+6. G18: move `VariableResolver` and `MapUtils` out of core.
+
 ## 1. Verdict
 
 The built-in plugins cover a useful set:
