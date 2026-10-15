@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
-package com.infenia.yukta.workers;
+package com.infenia.workers;
 
 import com.infenia.yukta.service.plugin.PluginRegistry;
 import java.util.List;
@@ -28,6 +28,7 @@ class RemoteNodeWorkerConfig {
             new FakePlugin("HEART", CANCELLED),
             new FakePlugin("CTX", CANCELLED),
             new FakePlugin("HOLD", CANCELLED),
+            new FakePlugin("SLOW", CANCELLED),
             new FakePlugin("NOT_ALLOWED", CANCELLED)));
   }
 }

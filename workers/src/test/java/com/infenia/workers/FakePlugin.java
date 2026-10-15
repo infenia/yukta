@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
-package com.infenia.yukta.workers;
+package com.infenia.workers;
 
 import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
@@ -40,6 +40,7 @@ final class FakePlugin implements ProcessorPlugin {
                   DefaultMessage.create(
                       UUID.randomUUID(),
                       String.valueOf(message.payload()).toUpperCase(Locale.ROOT)));
+      case "SLOW" -> input.delayElements(java.time.Duration.ofMillis(1500));
       case "BOOM" -> Flux.error(new IllegalStateException("boom"));
       case "BAD" -> Flux.error(new IllegalArgumentException("bad input"));
       case "HEART" ->

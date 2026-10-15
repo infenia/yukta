@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
-package com.infenia.yukta.workers;
+package com.infenia.workers;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 
+import com.infenia.yukta.service.leader.SingleServerLeader;
 import com.infenia.yukta.service.worker.WorkerRegistration;
 import com.infenia.yukta.service.worker.WorkerRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
@@ -26,7 +27,7 @@ class WorkerSessionHandlerTest {
   private final WorkerConnections connections = new WorkerConnections();
   private final RSocketRequester requester = mock(RSocketRequester.class);
   private final WorkerSessionHandler handler =
-      new WorkerSessionHandler(registry, connections, "secret");
+      new WorkerSessionHandler(registry, connections, new SingleServerLeader(), "secret");
 
   private static WorkerFrame hello(final String token, final String workerId, final int capacity) {
     return WorkerFrame.register(
@@ -43,7 +44,7 @@ class WorkerSessionHandlerTest {
         .assertNext(frame -> assertThat(frame.type()).isEqualTo(WorkerFrame.Type.ACK))
         .then(() -> assertThat(registry.find("w1")).isPresent())
         .then(() -> assertThat(connections.find("w1")).contains(requester))
-        .then(() -> frames.tryEmitNext(WorkerFrame.lease(3)))
+        .then(() -> frames.tryEmitNext(WorkerFrame.lease(3, false)))
         .assertNext(frame -> assertThat(frame.type()).isEqualTo(WorkerFrame.Type.ACK))
         .then(() -> assertThat(registry.find("w1").orElseThrow().usedSlots()).isEqualTo(3))
         .then(frames::tryEmitComplete)
@@ -61,7 +62,7 @@ class WorkerSessionHandlerTest {
     StepVerifier.create(handler.session(requester, Flux.just(hello(null, "w1", 4))))
         .assertNext(frame -> assertThat(frame.type()).isEqualTo(WorkerFrame.Type.REJECT))
         .verifyComplete();
-    StepVerifier.create(handler.session(requester, Flux.just(WorkerFrame.lease(0))))
+    StepVerifier.create(handler.session(requester, Flux.just(WorkerFrame.lease(0, false))))
         .assertNext(frame -> assertThat(frame.message()).contains("must be REGISTER"))
         .verifyComplete();
     StepVerifier.create(handler.session(requester, Flux.empty()))
@@ -100,7 +101,7 @@ class WorkerSessionHandlerTest {
         .then(() -> frames.tryEmitNext(hello("secret", "w1", 2)))
         .expectNextCount(1)
         .then(() -> registry.remove("w1"))
-        .then(() -> frames.tryEmitNext(WorkerFrame.lease(0)))
+        .then(() -> frames.tryEmitNext(WorkerFrame.lease(0, false)))
         .assertNext(frame -> assertThat(frame.message()).contains("register again"))
         .verifyComplete();
   }
@@ -115,9 +116,30 @@ class WorkerSessionHandlerTest {
   @Test
   void frameSetsAreCopiedAndNullSetsBecomeEmpty() {
     final WorkerFrame frame =
-        new WorkerFrame(WorkerFrame.Type.ACK, null, null, null, null, 0, 0, null);
+        new WorkerFrame(WorkerFrame.Type.ACK, null, null, null, null, 0, 0, false, null);
 
     assertThat(frame.pools()).isEmpty();
     assertThat(frame.pluginTypes()).isEmpty();
+  }
+
+  @Test
+  void standby_refusesWorkers() {
+    final WorkerSessionHandler standby =
+        new WorkerSessionHandler(
+            registry,
+            connections,
+            new com.infenia.yukta.service.leader.LeaderElection() {
+              @Override
+              public boolean isLeader() {
+                return false;
+              }
+            },
+            "secret");
+
+    StepVerifier.create(standby.session(requester, Flux.just(hello("secret", "w1", 4))))
+        .assertNext(frame -> assertThat(frame.message()).contains("not the leader"))
+        .verifyComplete();
+
+    assertThat(registry.list()).isEmpty();
   }
 }

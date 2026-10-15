@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
-package com.infenia.yukta.workers;
+package com.infenia.workers;
 
 import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
@@ -118,7 +118,7 @@ public class WorkerNodeExecutor implements RemoteNodeExecutor {
   /* default */ Optional<Chosen> pick(final String pool, final String pluginType) {
     return registry.list().stream()
         .filter(info -> info.pools().contains(pool) && info.pluginTypes().contains(pluginType))
-        .filter(info -> free(info) > 0)
+        .filter(info -> !info.draining() && free(info) > 0)
         .flatMap(
             info ->
                 connections

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
-package com.infenia.yukta.workers;
+package com.infenia.workers;
 
 import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
@@ -11,6 +11,7 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.stereotype.Controller;
 import reactor.core.publisher.Flux;
@@ -41,6 +42,9 @@ public class NodeRunner {
   /** Converts messages to and from plain JSON values. */
   private final ObjectMapper mapper;
 
+  /** Attempts running now. */
+  private final AtomicInteger active = new AtomicInteger();
+
   /**
    * Creates the runner.
    *
@@ -54,6 +58,16 @@ public class NodeRunner {
     this.plugins = plugins;
     this.allowed = Set.copyOf(allowed);
     this.mapper = mapper;
+  }
+
+  /**
+   * How many attempts run now; the agent reports it as the worker's used slots and waits for it to
+   * reach zero when the worker drains.
+   *
+   * @return the number of running attempts
+   */
+  public int running() {
+    return active.get();
   }
 
   /**
@@ -74,6 +88,7 @@ public class NodeRunner {
     Flux<NodeFrame> result =
         Flux.just(NodeFrame.error(IllegalArgumentException.class.getName(), problem.orElse("")));
     if (problem.isEmpty()) {
+      active.incrementAndGet();
       final ProcessorPlugin plugin = (ProcessorPlugin) plugins.get(start.pluginType());
       final Map<String, Object> config = start.config() != null ? start.config() : Map.of();
       final Flux<Message<?>> input =
@@ -104,7 +119,8 @@ public class NodeRunner {
               .takeUntil(
                   frame ->
                       frame.kind() == NodeFrame.Kind.COMPLETE
-                          || frame.kind() == NodeFrame.Kind.ERROR);
+                          || frame.kind() == NodeFrame.Kind.ERROR)
+              .doFinally(_ -> active.decrementAndGet());
     }
     return result;
   }
