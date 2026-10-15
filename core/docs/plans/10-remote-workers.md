@@ -88,7 +88,7 @@ control plane                                   worker (same jar, `worker` profi
 
 ## Security
 
-Worker authentication with mTLS (preferred) or a per-worker token; the control plane accepts
+Worker authentication with mTLS (built: `yukta.workers.ssl-bundle` plus the RSocket server's SSL bundle with `client-auth=need`) or a per-worker token (built: one shared token); the control plane accepts
 `REGISTER` only from authenticated workers, and the worker only runs plugin types on its own allow
 list (so a compromised control plane cannot make a worker run `PROCESS_EXECUTOR`). Roles for the
 REST API (F3) gain `ADMIN`-only worker endpoints.
@@ -101,7 +101,7 @@ REST API (F3) gain `ADMIN`-only worker endpoints.
 2. **Remote processor execution (done, tested with a real control plane and worker in one JVM):** `RemoteProcessor`, frames, one worker, happy path, cancel and
    heartbeat; acceptance test with two JVMs in Testcontainers/`ProcessBuilder`.
 3. **Placement:** pools/requires, free-slot selection, `local-only` plugin flag and validation.
-4. **Failure semantics (lost worker mid-attempt fails retryably and the retry lands on another worker: done and tested; drain on shutdown: done and tested; kill -9 chaos tests with separate JVMs: open):** lost worker, retry on another worker, drain on worker shutdown, chaos
+4. **Failure semantics (lost worker mid-attempt fails retryably and the retry lands on another worker: done and tested; drain on shutdown: done and tested; kill -9 chaos test with the worker in its own JVM: done):** lost worker, retry on another worker, drain on worker shutdown, chaos
    tests (kill -9 mid node), at-least-once documentation.
 5. **Operations:** UI list of workers, per-worker load, `max-concurrent` accounting that counts remote
    slots, native-image support for the worker profile.

@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
-package com.infenia.yukta.workers;
+package com.infenia.workers;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 
+import com.infenia.yukta.service.leader.SingleServerLeader;
 import com.infenia.yukta.service.worker.WorkerRegistration;
 import com.infenia.yukta.service.worker.WorkerRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
@@ -26,7 +27,7 @@ class WorkerSessionHandlerTest {
   private final WorkerConnections connections = new WorkerConnections();
   private final RSocketRequester requester = mock(RSocketRequester.class);
   private final WorkerSessionHandler handler =
-      new WorkerSessionHandler(registry, connections, "secret");
+      new WorkerSessionHandler(registry, connections, new SingleServerLeader(), "secret");
 
   private static WorkerFrame hello(final String token, final String workerId, final int capacity) {
     return WorkerFrame.register(
@@ -119,5 +120,26 @@ class WorkerSessionHandlerTest {
 
     assertThat(frame.pools()).isEmpty();
     assertThat(frame.pluginTypes()).isEmpty();
+  }
+
+  @Test
+  void standby_refusesWorkers() {
+    final WorkerSessionHandler standby =
+        new WorkerSessionHandler(
+            registry,
+            connections,
+            new com.infenia.yukta.service.leader.LeaderElection() {
+              @Override
+              public boolean isLeader() {
+                return false;
+              }
+            },
+            "secret");
+
+    StepVerifier.create(standby.session(requester, Flux.just(hello("secret", "w1", 4))))
+        .assertNext(frame -> assertThat(frame.message()).contains("not the leader"))
+        .verifyComplete();
+
+    assertThat(registry.list()).isEmpty();
   }
 }
