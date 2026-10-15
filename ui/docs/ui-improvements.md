@@ -2,6 +2,7 @@
 
 > Scope: `ui/src` (React 19 + Vite + Tailwind 4; ≈4k non-test lines) reviewed on 2026-10-09 against `main` @ `8d3161b5`,
 > including a look at the current `dist/` build output.
+> **Open improvements (2026-10-15): see the Risks board in [`ui-module-guide.html`](ui-module-guide.html).**
 > **Status (2026-10-10): all twelve findings (U1–U12) are resolved.** Each finding below keeps its original
 > write-up and adds a **Resolved** note saying what was done.
 > Companion: [`ui-module-guide.html`](ui-module-guide.html) is the interactive guide.
