@@ -740,7 +740,7 @@ adrs:[
 {t:"Remote workers as node invocation (proposed)",ctx:"Scale-out is needed without moving the DAG.",dec:"The control plane keeps graph and policy and calls workers per node attempt over a bidirectional stream; workers connect out.",con:"All policies carry over; control plane remains a data hop and a single point of failure until phase 6.",rev:"payloads grow beyond the frame limit, or latency to workers matters."}],
 evo:[
  {id:"now",n:"Today",d:"One JVM. Files or PostgreSQL for definitions, sessions and log. Resume with file checkpoints.",r:[]},
- {id:"f10",n:"Finish PostgreSQL (F10)",d:"Done: the checkpoint store in PostgreSQL (yukta.restart.store-type=postgres). Left: PostgreSQL backends for KV_STORE and session memory, claim-check references, native-image metadata.",r:["payload23","memStore"]},
+ {id:"f10",n:"Finish PostgreSQL (F10)",d:"Done: the checkpoint store in PostgreSQL (yukta.restart.store-type=postgres). Also done: KV_STORE in PostgreSQL and a CI step for the PostgreSQL acceptance test. Left: a PostgreSQL backend for session memory, claim-check references, native-image metadata.",r:["payload23","memStore"]},
  {id:"p1",n:"Workers phase 1-2",d:"Done: registry, agent, token auth, leases, remote processor over a stream with cancel and heartbeat, pool and free-slot choice. Left: mTLS.",r:[]},
  {id:"p2",n:"Placement and failure",d:"Pools, free-slot choice, local-only plugins, lost-worker retry, chaos tests.",r:["remote"]},
  {id:"p5",n:"Operations",d:"Worker UI, slot accounting, native image for workers.",r:[]},
