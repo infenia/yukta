@@ -28,4 +28,25 @@ class WorkerAgentTest {
 
     assertThatCode(agent::stop).doesNotThrowAnyException();
   }
+
+  @Test
+  void stopClosesTheOpenConnection_ifThereIsOne() {
+    final WorkerAgent agent =
+        new WorkerAgent(
+            reactor.core.publisher.Mono.just(mock(RSocketRequester.class)),
+            "secret",
+            new WorkerRegistration("w", Set.of(), Set.of(), 1),
+            Duration.ofSeconds(1),
+            () -> 0);
+    final RSocketRequester withSocket = mock(RSocketRequester.class);
+    final io.rsocket.RSocket socket = mock(io.rsocket.RSocket.class);
+    org.mockito.Mockito.when(withSocket.rsocket()).thenReturn(socket);
+
+    agent.connected(mock(RSocketRequester.class));
+    assertThatCode(agent::stop).doesNotThrowAnyException();
+    agent.connected(withSocket);
+    agent.stop();
+
+    org.mockito.Mockito.verify(socket).dispose();
+  }
 }

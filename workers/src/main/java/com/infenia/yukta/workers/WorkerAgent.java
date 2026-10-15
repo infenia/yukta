@@ -3,7 +3,9 @@
 package com.infenia.yukta.workers;
 
 import com.infenia.yukta.service.worker.WorkerRegistration;
+import io.rsocket.RSocket;
 import java.time.Duration;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.IntSupplier;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.rsocket.RSocketRequester;
@@ -40,6 +42,9 @@ public class WorkerAgent {
 
   /** The running connection loop, null before {@link #start()}. */
   private Disposable connection;
+
+  /** The connection in use, so {@link #stop()} can close it; null when there is none. */
+  private final AtomicReference<RSocketRequester> current = new AtomicReference<>();
 
   /**
    * Creates the agent.
@@ -79,11 +84,23 @@ public class WorkerAgent {
             .subscribe();
   }
 
-  /** Stops connecting and closes the connection. */
+  /**
+   * Stops connecting and closes the connection, so the control plane sees the worker go at once and
+   * fails what it was running there (the engine then retries it).
+   */
   public void stop() {
     if (connection != null) {
       connection.dispose();
     }
+    final RSocketRequester open = current.get();
+    final RSocket socket = open == null ? null : open.rsocket();
+    if (socket != null) {
+      socket.dispose();
+    }
+  }
+
+  /* default */ void connected(final RSocketRequester requester) {
+    current.set(requester);
   }
 
   /** One connection: register, then renew until the control plane ends or refuses it. */
@@ -93,6 +110,7 @@ public class WorkerAgent {
             Mono.just(WorkerFrame.register(token, registration)),
             Flux.interval(renewEvery).map(_ -> WorkerFrame.lease(usedSlots.getAsInt())));
     return connect
+        .doOnNext(this::connected)
         .flatMapMany(
             requester ->
                 requester.route("worker.session").data(out).retrieveFlux(WorkerFrame.class))

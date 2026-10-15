@@ -252,7 +252,7 @@ plane sends each attempt down the worker's own RSocket connection (`node.run`, o
 the input messages, COMPLETE; back come the output, HEARTBEATs that restart the node's idle clock, and COMPLETE
 or ERROR), so back-pressure and cancellation work end to end. It chooses the connected worker of the pool that
 allows the plugin type and has the most free slots (counting what it has sent and the worker's heartbeat); none
-means the attempt fails at once, as a failure the engine can retry. A worker runs only the plugin types on
+means the attempt fails at once, as a failure the engine can retry. A worker that goes away mid-attempt (its connection closes, also when the agent is stopped) fails the attempt with a `WorkflowExecutionException` naming it; the engine's retry picks a worker again, so it can land on another one. Not yet: draining a worker before it stops. A worker runs only the plugin types on
 `yukta.workers.plugin-types`, initialises and prepares the plugin per attempt, and sends a failure back with
 its class name (`IllegalArgumentException` stays one, so it is not retried). Messages cross as plain JSON values.
 See `docs/plans/10-remote-workers.md`.

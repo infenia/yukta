@@ -106,6 +106,7 @@ public class WorkerNodeExecutor implements RemoteNodeExecutor {
               .data(out)
               .retrieveFlux(NodeFrame.class)
               .<Message<?>>handle((frame, sink) -> answer(workerId, frame, heartbeat, sink))
+              .onErrorMap(WorkerNodeExecutor::isTransport, error -> lost(workerId, error))
               .doFinally(_ -> load.decrementAndGet());
         });
   }
@@ -133,6 +134,21 @@ public class WorkerNodeExecutor implements RemoteNodeExecutor {
   private int free(final WorkerInfo info) {
     final int sent = inFlight.getOrDefault(info.workerId(), new AtomicInteger()).get();
     return info.capacity() - Math.max(info.usedSlots(), sent);
+  }
+
+  /**
+   * Whether an error came from the connection (the worker went away, or answered with a transport
+   * error) and not from the plugin: those are reported as {@link WorkflowExecutionException}s the
+   * engine can retry, and a retry picks a worker again, so it may land on another one.
+   */
+  private static boolean isTransport(final Throwable error) {
+    return !(error instanceof WorkflowExecutionException)
+        && !(error instanceof IllegalArgumentException);
+  }
+
+  private static WorkflowExecutionException lost(final String workerId, final Throwable error) {
+    return new WorkflowExecutionException(
+        "Lost worker " + workerId + " during the attempt: " + error, error);
   }
 
   private NodeFrame frame(final Message<?> message) {
