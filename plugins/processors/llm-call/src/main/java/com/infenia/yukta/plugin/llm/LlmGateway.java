@@ -113,7 +113,8 @@ public class LlmGateway {
   /** Sleeps until the provider's rate limit gives this call its turn (the caller is blocking). */
   private void waitForTurn(final LlmRequest request) {
     final long wait =
-        rateLimits.reserve(request.provider().name(), System.nanoTime(), request.timeout());
+        rateLimits.reserve(
+            request.provider().name(), System.nanoTime(), request.timeout().dividedBy(2));
     if (wait > 0) {
       try {
         TimeUnit.NANOSECONDS.sleep(wait);

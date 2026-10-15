@@ -17,6 +17,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.locks.ReentrantLock;
 import reactor.core.publisher.Mono;
 import reactor.core.publisher.Sinks;
 
@@ -61,6 +62,9 @@ public final class SignalWaits {
 
   /** Signals that came before their wait, by the same key. */
   private final Map<String, Early> early = new ConcurrentHashMap<>();
+
+  /** Keeps the capacity check and the put of {@link #early} together. */
+  private final ReentrantLock earlyLock = new ReentrantLock();
 
   private record Waiter(Sinks.One<Decision> sink, Instant since) {}
 
@@ -185,12 +189,17 @@ public final class SignalWaits {
 
   private boolean keepEarly(final String key, final Decision decision) {
     final Instant now = Instant.now(clock);
-    early.values().removeIf(e -> e.stored().plus(EARLY_TTL).isBefore(now));
-    if (early.size() >= EARLY_CAP && !early.containsKey(key)) {
-      return false;
+    earlyLock.lock(); // the size check and the put must not interleave
+    try {
+      early.values().removeIf(e -> e.stored().plus(EARLY_TTL).isBefore(now));
+      final boolean room = early.size() < EARLY_CAP || early.containsKey(key);
+      if (room) {
+        early.put(key, new Early(decision, now));
+      }
+      return room;
+    } finally {
+      earlyLock.unlock();
     }
-    early.put(key, new Early(decision, now));
-    return true;
   }
 
   private Decision takeEarly(final String key) {

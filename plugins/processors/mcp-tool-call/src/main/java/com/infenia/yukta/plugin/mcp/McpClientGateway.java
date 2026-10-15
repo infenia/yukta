@@ -4,6 +4,7 @@ package com.infenia.yukta.plugin.mcp;
 
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -215,17 +216,22 @@ public class McpClientGateway {
   private Mono<List<Map<String, Object>>> listOnce(
       final McpCallSpec spec, final Runnable heartbeat) {
     return session(spec)
-        .flatMap(sessionId -> listPage(spec, sessionId, null, heartbeat, new ArrayList<>(), 1));
+        .flatMap(
+            sessionId ->
+                listPage(spec, sessionId, null, heartbeat, new ArrayList<>(), new HashSet<>()));
   }
 
-  /** Reads one page of {@code tools/list} and follows {@code nextCursor} up to the page limit. */
+  /**
+   * Reads one page of {@code tools/list} and follows {@code nextCursor} up to the page limit; an
+   * endless or repeating cursor is an error.
+   */
   private Mono<List<Map<String, Object>>> listPage(
       final McpCallSpec spec,
       final String sessionId,
       final String cursor,
       final Runnable heartbeat,
       final List<Map<String, Object>> collected,
-      final int page) {
+      final Set<String> seen) {
     final String requestId = UUID.randomUUID().toString();
     final Map<String, Object> params = cursor == null ? Map.of() : Map.of("cursor", cursor);
     return post(spec, sessionId, request(requestId, "tools/list", params), heartbeat)
@@ -233,13 +239,23 @@ public class McpClientGateway {
         .flatMap(
             tools -> {
               collected.addAll(tools.tools());
-              return tools.nextCursor() == null || page >= MAX_LIST_PAGES
-                  ? Mono.just(collected)
-                  : listPage(spec, sessionId, tools.nextCursor(), heartbeat, collected, page + 1);
+              final String next = tools.nextCursor();
+              if (next == null) {
+                return Mono.just(collected);
+              }
+              if (seen.size() + 1 >= MAX_LIST_PAGES || !seen.add(next)) {
+                return Mono.error(
+                    new McpHttpException(
+                        200, "tools/list did not end within " + MAX_LIST_PAGES + " pages"));
+              }
+              return listPage(spec, sessionId, next, heartbeat, collected, seen);
             });
   }
 
-  /** The tools of one page, and where the next page starts (null on the last one). */
+  /**
+   * The tools of one page, and where the next page starts (null on the last one; an empty cursor is
+   * a cursor).
+   */
   private record ToolPage(List<Map<String, Object>> tools, String nextCursor) {}
 
   private Mono<McpCallResult> callOnce(
@@ -439,8 +455,7 @@ public class McpClientGateway {
                             tool.getOrDefault("inputSchema", Map.of())))
                 .toList();
     final Object next = result.get("nextCursor");
-    return new ToolPage(
-        tools, next instanceof final String cursor && !cursor.isEmpty() ? cursor : null);
+    return new ToolPage(tools, next instanceof final String cursor ? cursor : null);
   }
 
   @SuppressWarnings("unchecked")
