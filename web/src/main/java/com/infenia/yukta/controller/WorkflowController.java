@@ -122,6 +122,7 @@ public class WorkflowController {
    * @param sessionId the session
    * @param limit page size (default 500, at most 1000)
    * @param cursor execution ID of the last item of the previous page
+   * @param filter narrows the list to workflow, status, text in the execution id, and start range
    * @return one page of execution summaries
    */
   @GetMapping("/workflow/{sessionId}/history")
@@ -129,15 +130,18 @@ public class WorkflowController {
       summary = "Get workflow history",
       description =
           "Lists the executions of a session, newest first. A further page is announced in the"
-              + " X-Next-Cursor header.")
+              + " X-Next-Cursor header. Narrow it with workflowId, status, text (text in the"
+              + " execution id) and since/until (start time range, ISO date-time).")
   public Mono<ResponseEntity<ApiResponse<List<WorkflowExecutionSummary>>>> getWorkflowHistory(
       @Parameter(description = SESSION_ID) @PathVariable final String sessionId,
       @RequestParam(required = false) final Integer limit,
-      @RequestParam(required = false) final String cursor) {
+      @RequestParam(required = false) final String cursor,
+      final HistoryFilter filter) {
     return sessionService
         .getSessionConfig(sessionId)
         .switchIfEmpty(Mono.error(() -> new NotFoundException("Session not found: " + sessionId)))
         .flatMap(config -> controlBus.getHistory(sessionId))
+        .map(history -> history.stream().filter(filter::matches).toList())
         .map(
             history ->
                 Pagination.page(
