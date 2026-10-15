@@ -44,7 +44,7 @@ class SignalWaitsTest {
   }
 
   @Test
-  void duplicateAfterAccept_isDropped_butASignalOutsideTheWindowIsKept() {
+  void duplicateAfterAccept_isDropped_butLaterSignalIsKept() {
     final Hand clock = new Hand();
     final SignalWaits waits = new SignalWaits(clock);
 
