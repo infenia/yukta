@@ -213,7 +213,7 @@ Pace messages, repeat another plugin, and keep small facts: DELAY, LOOP_STREAM, 
 
 - DELAY holds each message for delayMs and releases them one at a time, in order. Ten messages with delayMs 100 take about a second, which is a simple way to stay under a rate limit.
 - LOOP_STREAM and LOOP_PREDICATE run another processor again and again on the same message. You name it with targetPluginId and give it targetConfig. After each run an exitCondition (SpEL; it can use #iterationCount and #elapsedTimeMs) decides whether to stop. With no exitCondition the loop stops after the first iteration. Safety limits: maxIterations (default 10), maxDuration (ISO-8601 duration, default PT1M) and delayInterval between rounds (default PT0S). LOOP_STREAM emits every message every iteration produced; LOOP_PREDICATE emits only the last one.
-- failureStrategy (default ABORT) says what a failing iteration does: ABORT fails the node, RETRY and SKIP both move on to the next iteration with the same last message (today they behave identically), ESCALATE throws an error whose text starts with 'WorkflowExecutionException:' but whose Java type is a plain RuntimeException (risk: loopEscalate).
+- failureStrategy (default ABORT) says what a failing iteration does: ABORT fails the node, RETRY and SKIP both move on to the next iteration with the same last message and use up an iteration (a failed iteration emits nothing, so they behave identically), ESCALATE ends the run with a RunAbortedException. A RunAbortedException from the target is never absorbed by RETRY or SKIP.
 - A loop finds its target through the plugin registry and calls it directly, so the target's own config check is not run on targetConfig (risk: loopSkipsValidation). This is how Yukta gets polling and retry-until without breaking the 'no cycles' rule of a graph.
 - KV_STORE is a shared map (in memory, or the kv_entry table with yukta.kv.store-type=postgres) with operations get, put, incr and delete. The key comes from config or the payload's 'key' field, 'namespace' prefixes keys to keep users apart, and the output is \{key, value\}. 'put' stores payload.value, 'incr' adds payload.value (default 1) to a whole number. maxEntries (default 10000) refuses new keys beyond the cap, but in the in-memory store the size check and the insert are not one atomic step, so the cap can be slightly overshot under heavy concurrency. In PostgreSQL incr is one statement.
 
@@ -426,7 +426,7 @@ The loop runs the target once on the last message, evaluates the exit condition 
 If the condition never becomes true, the loop stops at 10 iterations or one minute, whichever is first, and emits what it has. The duration is checked between rounds, so a single slow request can run past it.
 </Step>
 <Step title="A round fails">
-With failureStrategy ABORT (default) the node fails. RETRY and SKIP both go on to the next round with the previous message. ESCALATE fails with an error whose text starts with 'WorkflowExecutionException:' but whose type is a plain RuntimeException, so engine policies that match on exception type do not recognise it.
+With failureStrategy ABORT (default) the node fails. RETRY and SKIP both go on to the next round with the previous message. ESCALATE fails with a RunAbortedException (the cause is the failure), which engine retry and onError policies never absorb. A RunAbortedException from the target passes through RETRY and SKIP unchanged.
 </Step>
 </Steps>
 

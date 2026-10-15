@@ -6,12 +6,14 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
 import com.infenia.yukta.plugin.core.Plugin;
+import com.infenia.yukta.plugin.exception.RunAbortedException;
 import com.infenia.yukta.plugin.type.ProcessorPlugin;
 import com.infenia.yukta.service.orchestrator.tracker.DefaultTaskTrackerService;
 import com.infenia.yukta.service.plugin.PluginRegistry;
@@ -181,8 +183,45 @@ class LoopPredicateProcessorTest {
             processor
                 .process(Flux.just(inputMsg), config)
                 .contextWrite(Context.of("executionId", "e1", "nodeId", "n1")))
-        .expectErrorMatches(e -> e.getMessage().contains("WorkflowExecutionException"))
+        .expectErrorMatches(
+            e ->
+                e instanceof RunAbortedException
+                    && e.getMessage().contains("Loop execution failed")
+                    && "Failure".equals(e.getCause().getMessage()))
         .verify();
+  }
+
+  @Test
+  void abortFromTheTargetIsNeverRetriedOrSkipped() {
+    when(registry.contains(TARGET)).thenReturn(true);
+    when(registry.get(TARGET)).thenReturn(targetPlugin);
+    when(targetPlugin.process(any(), any()))
+        .thenReturn(Flux.error(new RunAbortedException("budget used up")));
+
+    for (final String strategy : new String[] {"RETRY", "SKIP"}) {
+      StepVerifier.create(
+              processor.process(
+                  Flux.just(DefaultMessage.create(UUID.randomUUID(), TEST)),
+                  Map.of(TARGETPLUGINID, TARGET, FAILURESTRATEGY, strategy, MAXITERATIONS, 5)))
+          .expectError(RunAbortedException.class)
+          .verify();
+    }
+    verify(targetPlugin, times(2)).process(any(), any());
+  }
+
+  @Test
+  void retryRunsTheSameInputAgainUntilMaxIterations() {
+    when(registry.contains(TARGET)).thenReturn(true);
+    when(registry.get(TARGET)).thenReturn(targetPlugin);
+    when(targetPlugin.process(any(), any())).thenReturn(Flux.error(new RuntimeException("fail")));
+
+    StepVerifier.create(
+            processor.process(
+                Flux.just(DefaultMessage.create(UUID.randomUUID(), TEST)),
+                Map.of(TARGETPLUGINID, TARGET, FAILURESTRATEGY, "RETRY", MAXITERATIONS, 3)))
+        .expectNextMatches(m -> TEST.equals(m.payload()))
+        .verifyComplete();
+    verify(targetPlugin, times(3)).process(any(), any());
   }
 
   @Test

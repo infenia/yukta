@@ -194,8 +194,10 @@ Each iteration runs the target on the current message. The target's result becom
 |---|---|
 | `ABORT` | Fails the node |
 | `RETRY` | Goes on with the next iteration, using the same message, after `delayInterval` |
-| `SKIP` | Behaves the same as `RETRY` |
-| `ESCALATE` | Fails the node with a wrapped error |
+| `SKIP` | Behaves the same as `RETRY`: a failed iteration produces nothing, so the next one starts from the same message |
+| `ESCALATE` | Ends the whole run: the node fails with a `RunAbortedException` that no retry, `onError` policy or dead letter absorbs |
+
+Every strategy except `ABORT` and `ESCALATE` uses up an iteration for the failed attempt, so `maxIterations` and `maxDuration` bound them. If the target itself ends the run (for example `LLM_CALL` with `budget.hardStop`), the loop passes that on whatever the strategy is.
 
 `targetConfig` is not checked when the workflow is validated, so a mistake in it appears only at run time. The target must be an installed processor. These nodes emit nothing until the loop ends, so set `timeoutSeconds` on the node to at least `maxDuration` when a loop can run longer than 30 seconds.
 

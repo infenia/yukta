@@ -1754,12 +1754,12 @@ IDs in brackets such as (G1) are finding numbers from the module's review notes 
 **Question to settle.** What would you use KV_STORE for that you could not afford to lose?
 
 </Accordion>
-<Accordion title="LOOP failureStrategy: RETRY equals SKIP; ESCALATE has the wrong type (G13)">
+<Accordion title="LOOP failureStrategy: RETRY equals SKIP">
 **Id** `loopEscalate` · **Category** Correctness · **Impact** 2 · **Effort** 1 · **Components** Flow & state
 
-**Why it matters.** RETRY and SKIP both advance to the next round with the previous message, so the names promise a difference that does not exist. ESCALATE throws a plain RuntimeException whose text starts with 'WorkflowExecutionException:'; engine rules that match on the exception class (retryOn, noRetryOn) cannot recognise it.
+**Why it matters.** RETRY and SKIP both advance to the next round with the previous message, so the names promise a difference that does not exist (a failed round emits nothing, so there is nothing else to skip to). ESCALATE is fixed: it now throws a RunAbortedException that engine rules cannot absorb.
 
-**Option.** Give SKIP a distinct meaning (end the loop with the last good message) and throw the real WorkflowExecutionException.
+**Option.** Give SKIP a distinct meaning (end the loop with the last good message), or keep one name.
 
 **Question to settle.** What should 'skip' mean for a loop: skip the round, or skip the rest of the loop?
 

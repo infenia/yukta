@@ -7,6 +7,7 @@ import com.infenia.yukta.plugin.core.ConfigField;
 import com.infenia.yukta.plugin.core.Plugin;
 import com.infenia.yukta.plugin.core.PluginDescriptor;
 import com.infenia.yukta.plugin.core.UiDesign;
+import com.infenia.yukta.plugin.exception.RunAbortedException;
 import com.infenia.yukta.plugin.type.ProcessorPlugin;
 import com.infenia.yukta.plugin.util.SpelUtils;
 import com.infenia.yukta.service.orchestrator.tracker.DefaultTaskTrackerService;
@@ -224,13 +225,17 @@ public class LoopPredicateProcessor implements ProcessorPlugin {
       final FailureStrategy strategy,
       final LoopState state,
       final Duration delay) {
+    if (RunAbortedException.isAbort(error)) {
+      // an order to end the run is never absorbed by RETRY or SKIP
+      return Mono.error(error);
+    }
     return switch (strategy) {
       case ABORT -> Mono.error(error);
       case RETRY -> Mono.just(state.retry()).delayElement(delay);
       case SKIP -> Mono.just(state.next(state.message(), false)).delayElement(delay);
       case ESCALATE ->
           Mono.error(
-              new RuntimeException("WorkflowExecutionException: Loop execution failed", error));
+              new RunAbortedException("Loop execution failed: " + error.getMessage(), error));
     };
   }
 
