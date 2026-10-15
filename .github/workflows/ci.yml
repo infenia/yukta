@@ -238,7 +238,7 @@ jobs:
           gradle-version: wrapper
           dependency-graph: disabled
           cache-provider: enhanced
-          cache-read-only: ${{ github.ref != 'refs/heads/main' }}
+          cache-read-only: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
 
       - name: Install OpenGrep
         run: |
@@ -299,17 +299,20 @@ jobs:
           cache-dependency-path: 'cli/go.sum'
 
       # boot depends on the ui module, so every shard that builds boot needs Node.
-      - name: Set up Node.js
-        if: matrix.name != 'plugins'
-        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
-        with:
-          node-version: '24'
-
+      # pnpm must be installed before setup-node so `cache: pnpm` can find the store.
       - name: Set up pnpm
         if: matrix.name != 'plugins'
         uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
         with:
           version: 10.30.1
+
+      - name: Set up Node.js
+        if: matrix.name != 'plugins'
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: '24'
+          cache: pnpm
+          cache-dependency-path: ui/pnpm-lock.yaml
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6
@@ -319,7 +322,7 @@ jobs:
           # which always resolves the FULL graph.
           dependency-graph: disabled
           cache-provider: enhanced
-          cache-read-only: ${{ github.ref != 'refs/heads/main' }}
+          cache-read-only: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
           build-scan-publish: true
 
       - name: Grant execute permission for gradlew
@@ -456,7 +459,7 @@ jobs:
         with:
           gradle-version: wrapper
           dependency-graph-continue-on-failure: true   # Don't fail CI if submission fails
-          cache-read-only: ${{ github.ref != 'refs/heads/main' }}
+          cache-read-only: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
 
   # ─────────────────────────────────────────────
   # Job 4: Fail PRs that introduce known-vulnerable dependencies.
@@ -512,15 +515,17 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Setup Node.js
-        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
-        with:
-          node-version: '24'
-
       - name: Setup pnpm
         uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
         with:
           version: 10
+
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: '24'
+          cache: pnpm
+          cache-dependency-path: ui/pnpm-lock.yaml
 
       - name: Install UI dependencies
         working-directory: ui
