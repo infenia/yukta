@@ -189,8 +189,14 @@ Pre-existing CVEs are enforced on `main` — fix or add a justified entry to
 `.trivyignore`.
 
 ### "Why does building take so long on main?"
-Full build (all modules, all gates) runs on every push to main. Test locally
-first with `./gradlew check`.
+Full build (all modules, all gates) runs on every push to main, split into
+parallel shards (`platform`, `infra`, `plugins`, `frontend`, plus the PostgreSQL
+acceptance test). `.github/scripts/ci-tasks.sh` picks the Gradle tasks per shard;
+shards with nothing to do are not started. A separate `Fast Lint` job
+(Checkstyle, PMD, OpenGrep) reports style failures within minutes.
+
+To catch those before pushing, enable the pre-push hook once:
+`git config core.hooksPath .githooks`. Test locally first with `./gradlew check`.
 
 ---
 
