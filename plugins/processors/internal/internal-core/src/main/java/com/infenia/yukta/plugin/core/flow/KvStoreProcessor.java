@@ -6,23 +6,24 @@ import com.infenia.yukta.message.Message;
 import com.infenia.yukta.plugin.core.ConfigField;
 import com.infenia.yukta.plugin.core.PluginDescriptor;
 import com.infenia.yukta.plugin.core.UiDesign;
+import com.infenia.yukta.plugin.store.KeyValueStore;
 import com.infenia.yukta.plugin.type.ProcessorPlugin;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.ConcurrentHashMap;
-import lombok.NoArgsConstructor;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 /**
- * Shared in-memory key-value state that survives across workflow runs (until restart). Operations:
- * get, put, incr, delete.
+ * Shared key-value state that survives across workflow runs: in memory (until restart) by default,
+ * or in the application's {@link KeyValueStore} such as the PostgreSQL one. Operations: get, put,
+ * incr, delete.
  */
 @Component
 @SuppressWarnings("PMD.UseConcurrentHashMap")
-@NoArgsConstructor
 public final class KvStoreProcessor implements ProcessorPlugin {
 
   /** Default cap on distinct keys. */
@@ -31,10 +32,27 @@ public final class KvStoreProcessor implements ProcessorPlugin {
   /** Supported operations. */
   private static final List<String> OPS = List.of("get", "put", "incr", "delete");
 
-  // ponytail: in-memory only (lost on restart, single node); back with a database when durability
-  // or clustering matters.
-  /** Values by namespace-qualified key. */
-  private final Map<String, Object> store = new ConcurrentHashMap<>();
+  /** Where the values are kept: memory by default, a database when the application has one. */
+  private final KeyValueStore store;
+
+  /** Keeps the values in memory. */
+  public KvStoreProcessor() {
+    this(new InMemoryKeyValueStore());
+  }
+
+  /**
+   * Spring constructor.
+   *
+   * @param stores a database backed store, if the application has one
+   */
+  @Autowired
+  public KvStoreProcessor(final ObjectProvider<KeyValueStore> stores) {
+    this(stores.getIfAvailable(InMemoryKeyValueStore::new));
+  }
+
+  /* default */ KvStoreProcessor(final KeyValueStore store) {
+    this.store = store;
+  }
 
   @Override
   public PluginDescriptor describe() {
@@ -95,7 +113,8 @@ public final class KvStoreProcessor implements ProcessorPlugin {
   @Override
   public Flux<Message<?>> process(final Flux<Message<?>> input, final Map<String, Object> config) {
     final String operation = String.valueOf(config.get("op"));
-    return input.map(
+    final int max = config.get("maxEntries") instanceof Number cap ? cap.intValue() : MAX_ENTRIES;
+    return input.concatMap(
         message -> {
           final Map<?, ?> payload = message.payload() instanceof Map<?, ?> map ? map : Map.of();
           final Object key = config.getOrDefault("key", payload.get("key"));
@@ -103,57 +122,40 @@ public final class KvStoreProcessor implements ProcessorPlugin {
             throw new IllegalArgumentException("key is required (config or payload.key)");
           }
           final String full = config.getOrDefault("namespace", "") + ":" + key;
-          final Object value =
-              switch (operation) {
-                case "put" -> {
-                  final Object stored = payload.get("value");
-                  if (stored == null) {
-                    throw new IllegalArgumentException("put requires payload.value");
-                  }
-                  checkCapacity(full, config);
-                  store.put(full, stored);
-                  yield stored;
-                }
-                case "incr" -> {
-                  final Number add = delta(payload);
-                  checkCapacity(full, config);
-                  yield store.merge(full, add, KvStoreProcessor::sum);
-                }
-                case "delete" -> store.remove(full);
-                default -> store.get(full);
-              };
-          final Map<String, Object> out = new java.util.HashMap<>();
-          out.put("key", key);
-          out.put("value", value);
-          return message.withPayload(out).withSourcePort("default");
+          return value(operation, full, payload, max)
+              .map(Optional::of)
+              .defaultIfEmpty(Optional.empty())
+              .map(
+                  value -> {
+                    final Map<String, Object> out = new java.util.HashMap<>();
+                    out.put("key", key);
+                    out.put("value", value.orElse(null));
+                    return message.withPayload(out).withSourcePort("default");
+                  });
         });
   }
 
-  // ponytail: size check is not atomic with the insert, so the cap can be overshot slightly under
-  // heavy concurrency.
-  private void checkCapacity(final String fullKey, final Map<String, Object> config) {
-    final int max = config.get("maxEntries") instanceof Number cap ? cap.intValue() : MAX_ENTRIES;
-    if (!store.containsKey(fullKey) && store.size() >= max) {
-      throw new IllegalStateException("KV store is full (" + max + " entries)");
-    }
+  private Mono<Object> value(
+      final String operation, final String full, final Map<?, ?> payload, final int max) {
+    return switch (operation) {
+      case "put" -> {
+        final Object stored = payload.get("value");
+        if (stored == null) {
+          throw new IllegalArgumentException("put requires payload.value");
+        }
+        yield store.put(full, stored, max);
+      }
+      case "incr" -> store.incr(full, delta(payload), max).map(number -> (Object) number);
+      case "delete" -> store.remove(full);
+      default -> store.get(full);
+    };
   }
 
-  private static Number delta(final Map<?, ?> payload) {
+  private static long delta(final Map<?, ?> payload) {
     final Object value = payload.get("value");
-    if (value != null && !isWhole(value)) {
+    if (value != null && !(value instanceof Long || value instanceof Integer)) {
       throw new IllegalArgumentException("incr requires a whole-number payload.value");
     }
-    return value == null ? 1L : (Number) value;
-  }
-
-  private static Number sum(final Object old, final Object add) {
-    if (!isWhole(old)) {
-      throw new IllegalArgumentException("incr requires the stored value to be a whole number");
-    }
-    return ((Number) old).longValue() + ((Number) add).longValue();
-  }
-
-  private static boolean isWhole(final Object value) {
-    return value instanceof Long || value instanceof Integer;
+    return value == null ? 1L : ((Number) value).longValue();
   }
 }

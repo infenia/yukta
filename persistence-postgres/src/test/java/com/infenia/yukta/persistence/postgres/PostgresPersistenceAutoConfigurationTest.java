@@ -62,6 +62,41 @@ class PostgresPersistenceAutoConfigurationTest {
   }
 
   @Test
+  void withKvStoreTypePostgres_theKeyValueStoreIsDatabaseBacked() {
+    runner
+        .withPropertyValues("yukta.session.store-type=postgres", "yukta.kv.store-type=postgres")
+        .run(
+            context ->
+                assertThat(context.getBean(com.infenia.yukta.plugin.store.KeyValueStore.class))
+                    .isInstanceOf(R2dbcKeyValueStore.class));
+    runner
+        .withPropertyValues("yukta.session.store-type=postgres")
+        .run(
+            context ->
+                assertThat(context)
+                    .doesNotHaveBean(com.infenia.yukta.plugin.store.KeyValueStore.class));
+  }
+
+  @Test
+  void withSessionMemoryStoreTypePostgres_theHistoryIsDatabaseBacked() {
+    runner
+        .withInitializer(
+            context ->
+                context
+                    .getBeanFactory()
+                    .setConversionService(
+                        org.springframework.boot.convert.ApplicationConversionService
+                            .getSharedInstance()))
+        .withPropertyValues(
+            "yukta.session.store-type=postgres", "yukta.session-memory.store-type=postgres")
+        .run(
+            context ->
+                assertThat(
+                        context.getBean(com.infenia.yukta.plugin.store.SessionHistoryStore.class))
+                    .isInstanceOf(R2dbcSessionHistoryStore.class));
+  }
+
+  @Test
   void withHaModePostgres_theLeaderElectionIsDatabaseBacked() {
     runner
         .withInitializer(

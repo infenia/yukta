@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
-package com.infenia.yukta.workers;
+package com.infenia.workers;
 
+import com.infenia.yukta.service.leader.LeaderElection;
 import com.infenia.yukta.service.worker.WorkerInfo;
 import com.infenia.yukta.service.worker.WorkerRegistration;
 import com.infenia.yukta.service.worker.WorkerRegistry;
@@ -28,6 +29,9 @@ public class WorkerSessionHandler {
   /** The way back into each connected worker. */
   private final WorkerConnections connections;
 
+  /** Tells whether this server is the leader; only the leader takes workers. */
+  private final LeaderElection election;
+
   /** The shared secret workers must present. */
   private final byte[] token;
 
@@ -36,13 +40,18 @@ public class WorkerSessionHandler {
    *
    * @param registry the workers that are connected
    * @param connections the way back into each connected worker
+   * @param election tells whether this server is the leader; a standby refuses workers
    * @param token the shared secret workers must present
    */
   @SuppressFBWarnings("EI_EXPOSE_REP2") // the registry is a shared Spring bean
   public WorkerSessionHandler(
-      final WorkerRegistry registry, final WorkerConnections connections, final String token) {
+      final WorkerRegistry registry,
+      final WorkerConnections connections,
+      final LeaderElection election,
+      final String token) {
     this.registry = registry;
     this.connections = connections;
+    this.election = election;
     this.token = token.getBytes(StandardCharsets.UTF_8);
   }
 
@@ -77,10 +86,20 @@ public class WorkerSessionHandler {
 
   /** Why the first frame is not a good registration, or null if it is. */
   private String refusal(final WorkerFrame hello) {
+    return isRegistration(hello) ? admissionProblem(hello) : "the first frame must be REGISTER";
+  }
+
+  private static boolean isRegistration(final WorkerFrame hello) {
+    return hello != null && hello.type() == WorkerFrame.Type.REGISTER;
+  }
+
+  /** Why this server will not take the worker, or null if it will. */
+  private String admissionProblem(final WorkerFrame hello) {
     String why = null;
-    if (hello == null || hello.type() != WorkerFrame.Type.REGISTER) {
-      why = "the first frame must be REGISTER";
-    } else if (!tokenMatches(hello.token())) {
+    if (!election.isLeader()) {
+      why = "this server is not the leader";
+    }
+    if (why == null && !tokenMatches(hello.token())) {
       log.atWarn().addKeyValue("workerId", hello.workerId()).log("Worker refused: bad token");
       why = "token refused";
     }

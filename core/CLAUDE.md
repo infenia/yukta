@@ -224,7 +224,7 @@ memory. Both keep the newest 20 saved versions of a workflow (identical saves ad
 `WorkflowDefinitionStore.revisions/findRevision` and the web rollback endpoint use them. `GET
 .../versions/diff?from=&to=` (`to` omitted: the current definition) returns a `WorkflowDiff` (nodes
 added, removed or changed, edges added or removed); MCP has `list_workflow_versions`,
-`diff_workflow_versions` and `rollback_workflow`, and the workflow page a "Versions" panel. A version can carry a note (`POST .../versions/note?version=&note=`, MCP `note_workflow_version`; `DefinitionRevision.note`; a column in PostgreSQL, a `.note` file next to the version file). A start whose payload has `yukta.version` runs that saved version (the prepared-workflow cache is bypassed). Not yet: a note field in the UI panel.
+`diff_workflow_versions` and `rollback_workflow`, and the workflow page a "Versions" panel. A version can carry a note (`POST .../versions/note?version=&note=`, MCP `note_workflow_version`; `DefinitionRevision.note`; a column in PostgreSQL, a `.note` file next to the version file). A start whose payload has `yukta.version` runs that saved version (the prepared-workflow cache is bypassed). The workflow page's Versions panel shows and edits the notes.
 
 ### PostgreSQL stores (`persistence-postgres`, optional)
 `yukta.session.store-type=postgres` (profile `postgres`, build with `-Pyukta.persistence=postgres`)
@@ -233,7 +233,7 @@ versions) and `R2dbcExecutionLogStore` (blocking interface, so one writer thread
 `retained-runs` runs and never drops a run without an end). Schema: Flyway migrations in
 `persistence-postgres/src/main/resources/db/migration` (applied over JDBC from `spring.flyway.url`);
 run time uses R2DBC (`spring.r2dbc.url`). The in-memory/file defaults step aside when the type is
-`postgres`. Node checkpoints use `R2dbcNodeCheckpointStore` when `yukta.restart.store-type=postgres` (one row per message in JSONB, which PostgreSQL stores out of line, so no cap; a state row per node holds the end marker and the incomplete flag; migration V3), otherwise files (`yukta.restart.dir`) or memory.
+`postgres`. Node checkpoints use `R2dbcNodeCheckpointStore` when `yukta.restart.store-type=postgres` (one row per message in JSONB, which PostgreSQL stores out of line, so no cap; a state row per node holds the end marker and the incomplete flag; migration V3), otherwise files (`yukta.restart.dir`) or memory. `KV_STORE` keeps its state in `R2dbcKeyValueStore` (table `kv_entry`, migration V5) when `yukta.kv.store-type=postgres`; the SPI is `KeyValueStore` in plugin-api. `SESSION_MEMORY` history goes to `R2dbcSessionHistoryStore` (table `session_history`, migration V6) with `yukta.session-memory.store-type=postgres`; the SPI is `SessionHistoryStore`.
 
 ### Workers (remote workers, phases 1 and 2)
 `WorkerRegistry` (`service/worker`) lists the connected workers; a registration or heartbeat renews a
@@ -242,7 +242,7 @@ the gauges `yukta.workers` and `yukta.worker.slots` report them. The optional `w
 `-Pyukta.workers=true`) carries them over RSocket: the control plane sets `yukta.workers.token` and
 `spring.rsocket.server.port`; a worker sets `yukta.workers.control-plane=host:port`, `yukta.workers.token`,
 `yukta.workers.id` (and `pools`, `plugin-types`, `capacity`) and connects out, registers on the route
-`worker.session` and renews its lease, reconnecting with a growing pause. A processor node with
+`worker.session` and renews its lease, reconnecting with a growing pause. The connection can use mutual TLS: the control plane sets `spring.rsocket.server.ssl.bundle` and `spring.rsocket.server.ssl.client-auth=need`, a worker sets `yukta.workers.ssl-bundle` (an SSL bundle with its key store and the trust store for the control plane; the host name in the certificate is verified), and the shared token still has to match. `yukta.workers.control-plane` may list several addresses, comma separated: each connection attempt tries the next, and a standby (`LeaderElection.isLeader()` false) refuses the registration, so a worker ends up on the leader and finds the new one after a failover (with the growing pause between attempts). A processor node with
 `engine.placement {pool}` runs on a worker of that pool: `WorkflowPreparator` swaps its plugin for a
 `RemoteProcessor` (`RemoteNodes`; the plugin on this server still provides type, schema, timeouts and
 validation), so retries, `onError`, timeouts, valves, checkpoints and status work as for a local node.

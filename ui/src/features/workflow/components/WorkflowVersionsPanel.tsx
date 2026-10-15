@@ -10,6 +10,7 @@ import {
   getDiff,
   getVersions,
   rollback,
+  saveNote,
   type WorkflowDiff,
 } from '../api/versions';
 
@@ -47,6 +48,15 @@ export function WorkflowVersionsPanel({ sessionId, workflowId }: Props) {
     queryFn: () => getDiff(sessionId, workflowId, compared as string),
     enabled: compared !== null,
   });
+  const [notes, setNotes] = useState<Record<string, string>>({});
+  const writeNote = useMutation({
+    mutationFn: ({ version, note }: { version: string; note: string }) =>
+      saveNote(sessionId, workflowId, version, note),
+    onSuccess: () =>
+      queryClient.invalidateQueries({
+        queryKey: ['sessions', sessionId, 'workflows', workflowId, 'versions'],
+      }),
+  });
   const goBack = useMutation({
     mutationFn: (version: string) => rollback(sessionId, workflowId, version),
     onSuccess: () =>
@@ -60,9 +70,11 @@ export function WorkflowVersionsPanel({ sessionId, workflowId }: Props) {
       aria-label="Workflow versions"
       className="border-outline-variant bg-surface-container-low flex flex-col gap-2 border-b px-6 py-3"
     >
-      {(versions.error || goBack.error) && (
+      {(versions.error || goBack.error || writeNote.error) && (
         <InlineError
-          message={controlErrorMessage(versions.error ?? goBack.error)}
+          message={controlErrorMessage(
+            versions.error ?? goBack.error ?? writeNote.error
+          )}
         />
       )}
       {versions.data?.length === 0 && (
@@ -95,6 +107,30 @@ export function WorkflowVersionsPanel({ sessionId, workflowId }: Props) {
               onClick={() => goBack.mutate(version.id)}
             >
               Roll back
+            </Button>
+          </div>
+          <div className="flex items-center gap-2">
+            <input
+              aria-label={`Note for ${version.id}`}
+              className="border-outline-variant bg-surface text-on-surface w-96 rounded-lg border px-2 py-1 text-sm"
+              placeholder="What is this version for?"
+              value={notes[version.id] ?? version.note ?? ''}
+              onChange={(event) =>
+                setNotes({ ...notes, [version.id]: event.target.value })
+              }
+            />
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={writeNote.isPending}
+              onClick={() =>
+                writeNote.mutate({
+                  version: version.id,
+                  note: notes[version.id] ?? version.note ?? '',
+                })
+              }
+            >
+              Save note
             </Button>
           </div>
           {compared === version.id && diff.data && (
