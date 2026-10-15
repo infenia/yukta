@@ -182,10 +182,11 @@ class FileWorkflowDefinitionStoreTest {
   }
 
   @Test
-  void aNoteSurvivesRestart_andIsPrunedWithItsVersion() throws InterruptedException {
+  void noteSurvivesRestart_pruneDropsIt() throws InterruptedException {
     store.save("s", definition("w1", "one")).block();
-    final String id = store.revisions("s", "w1").blockFirst().id();
-    store.setNote("s", "w1", id, "first cut").block();
+    final String revisionId =
+        java.util.Objects.requireNonNull(store.revisions("s", "w1").blockFirst()).id();
+    store.saveNote("s", "w1", revisionId, "first cut").block();
 
     final FileWorkflowDefinitionStore restarted =
         new FileWorkflowDefinitionStore(props, new ObjectMapper());
@@ -197,10 +198,23 @@ class FileWorkflowDefinitionStoreTest {
     }
     assertThat(restarted.revisions("s", "w1").collectList().block())
         .hasSize(FileWorkflowDefinitionStore.MAX_REVISIONS);
-    assertThat(restarted.revisions("s", "w1").map(r -> r.id()).collectList().block())
-        .doesNotContain(id);
+    assertThat(restarted.revisions("s", "w1").map(DefinitionRevision::id).collectList().block())
+        .doesNotContain(revisionId);
     org.assertj.core.api.Assertions.assertThatThrownBy(
-            () -> restarted.setNote("s", "w1", id, "late").block())
+            () -> restarted.saveNote("s", "w1", revisionId, "late").block())
         .isInstanceOf(com.infenia.yukta.service.NotFoundException.class);
+  }
+
+  @Test
+  void blankNoteClearsTheNoteFile() {
+    store.save("s", definition("w1", "one")).block();
+    final String revisionId =
+        java.util.Objects.requireNonNull(store.revisions("s", "w1").blockFirst()).id();
+    store.saveNote("s", "w1", revisionId, "text").block();
+
+    store.saveNote("s", "w1", revisionId, " ").block();
+    store.saveNote("s", "w1", revisionId, null).block();
+
+    assertThat(store.revisions("s", "w1").blockFirst().note()).isNull();
   }
 }

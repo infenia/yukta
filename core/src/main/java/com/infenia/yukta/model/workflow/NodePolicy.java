@@ -90,6 +90,12 @@ public record NodePolicy(
   private static final Set<String> RETRY_KEYS =
       Set.of("maxAttempts", "backoffMs", "maxBackoffMs", "retryOn", "noRetryOn");
 
+  /** Options accepted in the {@code edgeBuffer} object. */
+  private static final Set<String> EDGE_BUFFER_KEYS = Set.of("size", "overflow");
+
+  /** Largest accepted edge buffer. */
+  private static final int MAX_EDGE_BUFFER = 100_000;
+
   /** Options accepted in the {@code failureBudget} object. */
   private static final Set<String> BUDGET_KEYS = Set.of("maxFailures", "windowMs");
 
@@ -236,9 +242,6 @@ public record NodePolicy(
    */
   public record EdgeBuffer(int size, Overflow overflow) {}
 
-  /** Options accepted in the {@code edgeBuffer} object. */
-  private static final Set<String> EDGE_BUFFER_KEYS = Set.of("size", "overflow");
-
   /**
    * Reads the optional {@code engine.edgeBuffer} of a node config.
    *
@@ -264,9 +267,6 @@ public record NodePolicy(
         (int) size,
         parseEnum(buffer.get("overflow"), Overflow.class, "overflow", Overflow.DROP_OLDEST));
   }
-
-  /** Largest accepted edge buffer. */
-  private static final int MAX_EDGE_BUFFER = 100_000;
 
   /**
    * Whether the plugin must be called once per message, which retry and onError need.

@@ -151,7 +151,7 @@ public class FileNodeCheckpointStore implements NodeCheckpointStore, ByteCounted
         Files.isDirectory(path)
             ? new StandardOpenOption[] {StandardOpenOption.READ}
             : new StandardOpenOption[] {StandardOpenOption.WRITE};
-    try (var channel = java.nio.channels.FileChannel.open(path, options)) {
+    try (var channel = FileChannel.open(path, options)) {
       channel.force(true);
     }
   }
@@ -248,6 +248,7 @@ public class FileNodeCheckpointStore implements NodeCheckpointStore, ByteCounted
     }
   }
 
+  @SuppressWarnings("PMD.CloseResource") // the appender is closed by markComplete or clear
   private void write(final String executionId, final String nodeId, final Message<?> message) {
     try {
       final byte[] line =

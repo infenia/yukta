@@ -86,4 +86,22 @@ class R2dbcWorkflowDefinitionStoreTest extends PostgresTestSupport {
     assertThat(store.findRevision("s", "w", revisions.get(0).id()).block().description())
         .isEqualTo("v" + (R2dbcWorkflowDefinitionStore.MAX_REVISIONS + 2));
   }
+
+  @Test
+  void noteIsStored_blankClearsIt_unknownIsNotFound() {
+    store.save("s", definition("w1", "one")).block();
+    final String revisionId =
+        java.util.Objects.requireNonNull(store.revisions("s", "w1").blockFirst()).id();
+
+    store.saveNote("s", "w1", revisionId, "first cut").block();
+    assertThat(store.revisions("s", "w1").blockFirst().note()).isEqualTo("first cut");
+
+    store.saveNote("s", "w1", revisionId, " ").block();
+    assertThat(store.revisions("s", "w1").blockFirst().note()).isNull();
+    store.saveNote("s", "w1", revisionId, null).block();
+
+    org.assertj.core.api.Assertions.assertThatThrownBy(
+            () -> store.saveNote("s", "w1", "nope", "x").block())
+        .isInstanceOf(com.infenia.yukta.service.NotFoundException.class);
+  }
 }

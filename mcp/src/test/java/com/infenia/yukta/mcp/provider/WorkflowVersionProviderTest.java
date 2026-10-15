@@ -106,7 +106,7 @@ class WorkflowVersionProviderTest {
 
   @Test
   void note_storesTheStrippedNote() {
-    when(definitions.setNote("s", "w1", "0001-a", "why")).thenReturn(Mono.empty());
+    when(definitions.saveNote("s", "w1", "0001-a", "why")).thenReturn(Mono.empty());
 
     StepVerifier.create(provider.note("s", "w1", "0001-a", "  why "))
         .assertNext(result -> assertThat(result.note()).isEqualTo("why"))
@@ -114,8 +114,20 @@ class WorkflowVersionProviderTest {
   }
 
   @Test
-  void note_requiresAVersion() {
+  void note_requiresVersion() {
     StepVerifier.create(provider.note("s", "w1", " ", "x"))
+        .expectError(IllegalArgumentException.class)
+        .verify();
+  }
+
+  @Test
+  void note_withoutText_clearsTheNote() {
+    when(definitions.saveNote("s", "w1", "0001-a", "")).thenReturn(Mono.empty());
+
+    StepVerifier.create(provider.note("s", "w1", "0001-a", null))
+        .assertNext(result -> assertThat(result.note()).isEmpty())
+        .verifyComplete();
+    StepVerifier.create(provider.note("s", "w1", null, "x"))
         .expectError(IllegalArgumentException.class)
         .verify();
   }

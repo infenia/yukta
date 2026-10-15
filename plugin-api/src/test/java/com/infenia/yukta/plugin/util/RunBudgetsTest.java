@@ -56,4 +56,43 @@ class RunBudgetsTest {
     assertThat(RunBudgets.key("r", java.util.Map.of("maxCalls", 2))).isEqualTo("r");
     assertThat(budgets.exceeded("r", java.util.Map.of("maxCalls", 2))).isEmpty();
   }
+
+  @Test
+  void budgetOption_isReadForAllThreeLimits_andTheLedgerIsShared() {
+    final java.util.Map<String, Object> budget =
+        java.util.Map.of("maxTokens", 10, "maxCost", 2.5, "maxCalls", 3);
+    budgets.add("opt", 10, 0.0);
+    assertThat(budgets.exceeded("opt", budget))
+        .hasValueSatisfying(w -> assertThat(w).contains("token"));
+    assertThat(budgets.exceeded("fresh", budget)).isEmpty();
+    assertThat(budgets.exceeded("opt", java.util.Map.of("maxTokens", 99))).isEmpty();
+    assertThat(RunBudgets.shared()).isSameAs(RunBudgets.shared());
+    assertThat(RunBudgets.key("r", null)).isEqualTo("r");
+    assertThat(RunBudgets.key("r", java.util.Map.of("agent", " "))).isEqualTo("r");
+    assertThat(RunBudgets.key("r", java.util.Map.of("agent", "a"))).isEqualTo("r\0a");
+  }
+
+  @Test
+  void validate_acceptsGoodBudgets_andRefusesBadOnes() {
+    RunBudgets.validate(java.util.Map.of());
+    RunBudgets.validate(java.util.Map.of("budget", "not a map"));
+    RunBudgets.validate(
+        java.util.Map.of(
+            "budget",
+            java.util.Map.of("maxCalls", 2, "maxTokens", 5, "agent", "a", "hardStop", true)));
+    RunBudgets.validate(
+        java.util.Map.of(
+            "budget", java.util.Map.of("maxCost", 1.0), "prices", java.util.Map.of("m", 1)));
+
+    for (final java.util.Map<String, Object> bad :
+        java.util.List.<java.util.Map<String, Object>>of(
+            java.util.Map.of("budget", java.util.Map.of("maxCalls", 0)),
+            java.util.Map.of("budget", java.util.Map.of("maxTokens", "lots")),
+            java.util.Map.of("budget", java.util.Map.of("maxCost", 1.0)),
+            java.util.Map.of("budget", java.util.Map.of("agent", 5)),
+            java.util.Map.of("budget", java.util.Map.of("hardStop", "yes")))) {
+      org.assertj.core.api.Assertions.assertThatThrownBy(() -> RunBudgets.validate(bad))
+          .isInstanceOf(IllegalArgumentException.class);
+    }
+  }
 }

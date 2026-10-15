@@ -56,6 +56,9 @@ public class AppMcpTools {
   /** Description for session ID parameter. */
   private static final String SESSION_ID_DESC = "The unique identifier of the session";
 
+  /** Description of the workflow id tool parameter. */
+  private static final String WORKFLOW_ID_DESC = "The workflow identifier";
+
   /** Description of the execution id parameter. */
   private static final String EXECUTION_ID_DESC = "The unique identifier of the workflow execution";
 
@@ -486,8 +489,7 @@ public class AppMcpTools {
               openWorldHint = false))
   public Mono<WorkflowVersions> listWorkflowVersions(
       @McpToolParam(required = true, description = SESSION_ID_DESC) final String sessionId,
-      @McpToolParam(required = true, description = "The workflow identifier")
-          final String workflowId) {
+      @McpToolParam(required = true, description = WORKFLOW_ID_DESC) final String workflowId) {
     return workflowVersionProvider.versions(sessionId, workflowId);
   }
 
@@ -515,8 +517,7 @@ public class AppMcpTools {
   @SuppressWarnings("PMD.UseObjectForClearerAPI")
   public Mono<WorkflowDiff> diffWorkflowVersions(
       @McpToolParam(required = true, description = SESSION_ID_DESC) final String sessionId,
-      @McpToolParam(required = true, description = "The workflow identifier")
-          final String workflowId,
+      @McpToolParam(required = true, description = WORKFLOW_ID_DESC) final String workflowId,
       @McpToolParam(required = true, description = "The older version id from the list")
           final String olderVersion,
       @McpToolParam(required = false, description = "The newer version id; omit for the current")
@@ -547,8 +548,7 @@ public class AppMcpTools {
               openWorldHint = false))
   public Mono<WorkflowRollback> rollbackWorkflow(
       @McpToolParam(required = true, description = SESSION_ID_DESC) final String sessionId,
-      @McpToolParam(required = true, description = "The workflow identifier")
-          final String workflowId,
+      @McpToolParam(required = true, description = WORKFLOW_ID_DESC) final String workflowId,
       @McpToolParam(required = true, description = "The version id from the list")
           final String version) {
     return workflowVersionProvider.rollback(sessionId, workflowId, version);
@@ -576,8 +576,7 @@ public class AppMcpTools {
               openWorldHint = false))
   public Mono<WorkflowVersionNote> noteWorkflowVersion(
       @McpToolParam(required = true, description = SESSION_ID_DESC) final String sessionId,
-      @McpToolParam(required = true, description = "The workflow identifier")
-          final String workflowId,
+      @McpToolParam(required = true, description = WORKFLOW_ID_DESC) final String workflowId,
       @McpToolParam(required = true, description = "The version id from the list")
           final String version,
       @McpToolParam(required = true, description = "The note; blank clears it") final String note) {

@@ -27,7 +27,7 @@ import reactor.core.scheduler.Schedulers;
 class WorkflowStarter {
 
   /** Start payload key that pins a run to a saved version of the workflow. */
-  static final String PIN_KEY = "yukta.version";
+  /* default */ static final String PIN_KEY = "yukta.version";
 
   /** The stored workflow definitions. */
   private final WorkflowDefinitionStore definitions;

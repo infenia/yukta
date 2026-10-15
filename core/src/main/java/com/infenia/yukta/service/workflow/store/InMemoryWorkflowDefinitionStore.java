@@ -10,6 +10,7 @@ import java.util.Comparator;
 import java.util.Deque;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import lombok.NoArgsConstructor;
@@ -28,6 +29,7 @@ import reactor.core.publisher.Mono;
 @ConditionalOnProperty(name = "yukta.session.store-type", havingValue = "in-memory")
 @Component
 @NoArgsConstructor
+@SuppressWarnings("PMD.TooManyMethods")
 public class InMemoryWorkflowDefinitionStore implements WorkflowDefinitionStore {
 
   /** Map of session ID to workflow ID to workflow definition. */
@@ -77,10 +79,11 @@ public class InMemoryWorkflowDefinitionStore implements WorkflowDefinitionStore 
         new Revision(
             new DefinitionRevision(DefinitionRevisions.idOf(now, definition), now), definition));
     while (revisions.size() > MAX_REVISIONS) {
-      final Revision dropped = revisions.pollFirst();
-      if (dropped != null) {
-        notes.remove(noteKey(sessionId, definition.workflowId(), dropped.info().id()));
-      }
+      notes.remove(
+          noteKey(
+              sessionId,
+              definition.workflowId(),
+              Objects.requireNonNull(revisions.pollFirst()).info().id()));
     }
   }
 
@@ -106,7 +109,8 @@ public class InMemoryWorkflowDefinitionStore implements WorkflowDefinitionStore 
   }
 
   @Override
-  public Mono<Void> setNote(
+  @SuppressWarnings("PMD.UseObjectForClearerAPI")
+  public Mono<Void> saveNote(
       final String sessionId, final String workflowId, final String revisionId, final String note) {
     return findRevision(sessionId, workflowId, revisionId)
         .switchIfEmpty(Mono.error(() -> new NotFoundException("Version not found: " + revisionId)))

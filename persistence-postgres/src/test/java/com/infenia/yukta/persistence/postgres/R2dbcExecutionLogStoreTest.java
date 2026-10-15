@@ -226,4 +226,18 @@ class R2dbcExecutionLogStoreTest extends PostgresTestSupport {
           .block();
     }
   }
+
+  @Test
+  void whenTheQueueIsFull_theEventIsDropped() {
+    final java.util.concurrent.BlockingQueue<ExecutionLogEvent> full =
+        new java.util.concurrent.ArrayBlockingQueue<>(1);
+    full.add(started("waiting"));
+    final R2dbcExecutionLogStore saturated =
+        new R2dbcExecutionLogStore(db, new ObjectMapper(), 2, 1_000, 5_000, full);
+
+    saturated.append(started("dropped"));
+
+    assertThat(full).hasSize(1);
+    saturated.close();
+  }
 }

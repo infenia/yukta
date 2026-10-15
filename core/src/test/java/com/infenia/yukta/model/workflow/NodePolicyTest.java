@@ -222,27 +222,40 @@ class NodePolicyTest {
 
   @Test
   void edgeBuffer_isParsed_defaultsToDropOldest_andIsValidated() {
-    final java.util.Map<String, Object> config =
-        java.util.Map.of("engine", java.util.Map.of("edgeBuffer", java.util.Map.of("size", 50)));
+    final Map<String, Object> config = Map.of("engine", Map.of("edgeBuffer", Map.of("size", 50)));
 
     assertThat(NodePolicy.edgeBuffer(config))
         .isEqualTo(new NodePolicy.EdgeBuffer(50, NodePolicy.Overflow.DROP_OLDEST));
     assertThat(NodePolicy.from(config)).isEqualTo(NodePolicy.DEFAULT);
-    assertThat(NodePolicy.edgeBuffer(java.util.Map.of())).isNull();
+    assertThat(NodePolicy.edgeBuffer(Map.of())).isNull();
     assertThat(
             NodePolicy.edgeBuffer(
-                java.util.Map.of(
-                    "engine",
-                    java.util.Map.of(
-                        "edgeBuffer", java.util.Map.of("size", 5, "overflow", "DROP_NEWEST")))))
+                Map.of(
+                    "engine", Map.of("edgeBuffer", Map.of("size", 5, "overflow", "DROP_NEWEST")))))
         .isEqualTo(new NodePolicy.EdgeBuffer(5, NodePolicy.Overflow.DROP_NEWEST));
 
-    org.assertj.core.api.Assertions.assertThatThrownBy(
-            () ->
-                NodePolicy.from(
-                    java.util.Map.of(
-                        "engine", java.util.Map.of("edgeBuffer", java.util.Map.of("size", 0)))))
+    assertThatThrownBy(
+            () -> NodePolicy.from(Map.of("engine", Map.of("edgeBuffer", Map.of("size", 0)))))
         .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("engine.edgeBuffer.size");
+  }
+
+  @Test
+  void edgeBuffer_branches() {
+    assertThat(NodePolicy.edgeBuffer(null)).isNull();
+    assertThat(NodePolicy.edgeBuffer(Map.of("engine", Map.of("onError", "CONTINUE")))).isNull();
+    assertThatThrownBy(
+            () ->
+                NodePolicy.edgeBuffer(
+                    Map.of("engine", Map.of("edgeBuffer", Map.of("size", 1, "colour", "red")))))
+        .isInstanceOf(IllegalArgumentException.class);
+    assertThatThrownBy(
+            () ->
+                NodePolicy.edgeBuffer(
+                    Map.of("engine", Map.of("edgeBuffer", Map.of("size", 1_000_000)))))
+        .hasMessageContaining("between 1 and");
+    assertThatThrownBy(
+            () -> NodePolicy.edgeBuffer(Map.of("engine", Map.of("edgeBuffer", Map.of()))))
         .hasMessageContaining("engine.edgeBuffer.size");
   }
 }

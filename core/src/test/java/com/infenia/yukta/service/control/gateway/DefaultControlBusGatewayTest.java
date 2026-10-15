@@ -2089,7 +2089,7 @@ class DefaultControlBusGatewayTest {
   }
 
   @Test
-  void startWorkflow_pinnedToAVersion_runsThatVersionAndSkipsTheCache() {
+  void startWorkflow_pinnedVersion_runsItAndSkipsCache() {
     final String sessionId = "sess-pin";
     final String workflowId = "wf-pin";
     final WorkflowDefinition old = new WorkflowDefinition(workflowId, "old", List.of(), List.of());
@@ -2111,6 +2111,31 @@ class DefaultControlBusGatewayTest {
 
     verify(preparedWorkflowCache, never()).get(sessionId, workflowId);
     verify(preparedWorkflowCache, never()).put(any(), any(), any());
+  }
+
+  @Test
+  void startWorkflow_unusablePin_runsTheCurrentVersion() {
+    final String sessionId = "sess-nopin";
+    final String workflowId = "wf-nopin";
+    final WorkflowDefinition current =
+        new WorkflowDefinition(workflowId, "current", List.of(), List.of());
+    final PreparedWorkflow preparedWorkflow = mock(PreparedWorkflow.class);
+    when(workflowDefinitionStore.find(sessionId, workflowId)).thenReturn(Mono.just(current));
+    when(preparedWorkflowCache.get(sessionId, workflowId)).thenReturn(Optional.empty());
+    when(orchestrator.prepareWorkflow(current)).thenReturn(Mono.just(preparedWorkflow));
+    when(orchestrator.execute(
+            eq(sessionId), eq(workflowId), anyString(), eq(preparedWorkflow), any(), any()))
+        .thenReturn(Mono.empty());
+
+    for (final Map<String, Object> payload :
+        java.util.Arrays.<Map<String, Object>>asList(
+            null, Map.of("yukta.version", 5), Map.of("yukta.version", " "))) {
+      StepVerifier.create(gateway.startWorkflow(sessionId, workflowId, payload))
+          .expectNextCount(1)
+          .verifyComplete();
+    }
+
+    verify(workflowDefinitionStore, never()).findRevision(any(), any(), any());
   }
 
   @Test

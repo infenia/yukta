@@ -548,7 +548,35 @@ class McpToolCallPluginTest {
     StepVerifier.create(plugin.validateConfig(config("budget", Map.of("maxTokens", 5))))
         .expectErrorMessage("budget of MCP_TOOL_CALL supports maxCalls, agent, hardStop")
         .verify();
+    StepVerifier.create(plugin.validateConfig(config("budget", Map.of("maxCost", 5))))
+        .expectErrorMessage("budget of MCP_TOOL_CALL supports maxCalls, agent, hardStop")
+        .verify();
     StepVerifier.create(plugin.validateConfig(config("budget", Map.of("maxCalls", 3))))
         .verifyComplete();
+  }
+
+  @Test
+  void budget_mustBeMap() {
+    StepVerifier.create(plugin.validateConfig(config("budget", "lots")))
+        .expectErrorMessage("budget must be a map")
+        .verify();
+  }
+
+  @Test
+  void budget_withoutAnAgent_countsTheWholeRun_andRefusesLaterCallsOfAnyNode() {
+    when(gateway.call(any(), any())).thenReturn(Mono.just(success()));
+    final Map<String, Object> cfg = config("budget", Map.of("maxCalls", 1));
+
+    StepVerifier.create(
+            plugin
+                .process(Flux.just(input()), cfg)
+                .contextWrite(Context.of("executionId", "run-whole")))
+        .expectNextCount(1)
+        .verifyComplete();
+    StepVerifier.create(
+            plugin
+                .process(Flux.just(input()), cfg)
+                .contextWrite(Context.of("executionId", "run-whole")))
+        .verifyError(IllegalStateException.class);
   }
 }

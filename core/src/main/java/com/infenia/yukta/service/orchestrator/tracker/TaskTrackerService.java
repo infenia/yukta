@@ -206,7 +206,7 @@ public interface TaskTrackerService {
    *
    * @param module the node type
    */
-  default void recordEdgeDropped(String module) {}
+  void recordEdgeDropped(String module);
 
   /**
    * Record an operator control state (pause, step, skip, ...) for an execution.

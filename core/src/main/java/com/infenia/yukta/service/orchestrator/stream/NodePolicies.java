@@ -5,6 +5,7 @@ package com.infenia.yukta.service.orchestrator.stream;
 import com.infenia.yukta.message.Message;
 import com.infenia.yukta.model.workflow.NodePolicy;
 import com.infenia.yukta.plugin.exception.RunAbortedException;
+import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import java.time.Instant;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -12,6 +13,7 @@ import java.util.function.Function;
 import lombok.experimental.UtilityClass;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
+import reactor.core.publisher.BufferOverflowStrategy;
 import reactor.core.publisher.Flux;
 import reactor.util.retry.Retry;
 
@@ -164,5 +166,31 @@ public class NodePolicies {
         .withHeader(FAILURE_EXCEPTION_HEADER, error.getClass().getName())
         .withHeader(FAILURE_TIME_HEADER, Instant.now().toString())
         .withSourcePort(NodePolicy.ERROR_PORT);
+  }
+
+  /**
+   * Puts a node's {@code engine.edgeBuffer}, if any, in front of its input: when the node is slower
+   * than its parents the buffer drops messages (counted by the tracker) instead of holding the
+   * parents.
+   *
+   * @param buffer the node's buffer, or null for none
+   * @param input the node's input
+   * @param tracker counts every dropped message
+   * @param module the node type, for the counter
+   * @return the input, bounded when the node asked for it
+   */
+  public static Flux<Message<?>> edgeBuffered(
+      final NodePolicy.@Nullable EdgeBuffer buffer,
+      final Flux<Message<?>> input,
+      final TaskTrackerService tracker,
+      final String module) {
+    return buffer == null
+        ? input
+        : input.onBackpressureBuffer(
+            buffer.size(),
+            _ -> tracker.recordEdgeDropped(module),
+            buffer.overflow() == NodePolicy.Overflow.DROP_OLDEST
+                ? BufferOverflowStrategy.DROP_OLDEST
+                : BufferOverflowStrategy.DROP_LATEST);
   }
 }

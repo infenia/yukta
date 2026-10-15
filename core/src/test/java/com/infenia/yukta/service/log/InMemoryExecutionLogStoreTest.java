@@ -18,7 +18,7 @@ class InMemoryExecutionLogStoreTest {
   }
 
   @Test
-  void trimsToTheNewestRuns_andKeepsOpenRun() {
+  void trimsToNewestRuns_keepsOpenRun() {
     final InMemoryExecutionLogStore store = new InMemoryExecutionLogStore(2, 9);
     store.append(ExecutionLogEvent.started("open", "s", "w", "v"));
     for (int i = 0; i < 4; i++) {

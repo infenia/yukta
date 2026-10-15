@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.plugin.util;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -15,6 +16,9 @@ import java.util.Optional;
  * the rest of the run. The newest {@value #MAX_RUNS} keys are remembered; an older one starts again
  * from zero.
  */
+@SuppressFBWarnings(
+    value = {"SING_SINGLETON_HAS_NONPRIVATE_CONSTRUCTOR", "MS_EXPOSE_REP"},
+    justification = "shared() is a convenience; tests and plugins may still own an instance")
 public final class RunBudgets {
 
   /** Option: most tokens. */
@@ -27,7 +31,7 @@ public final class RunBudgets {
   private static final String AGENT = "agent";
 
   /** Ledger shared by every plugin of the process. */
-  private static final RunBudgets SHARED = new RunBudgets();
+  private static final RunBudgets LEDGER = new RunBudgets();
 
   /** Option: most cost. */
   private static final String MAX_COST = "maxCost";
@@ -47,6 +51,9 @@ public final class RunBudgets {
             }
           });
 
+  /** What a run that has not called yet has used. */
+  private static final Spent NOTHING = new Spent(0, 0, 0);
+
   /** Tokens and cost one run has used. */
   private record Spent(long tokens, double cost, long calls) {}
 
@@ -56,7 +63,7 @@ public final class RunBudgets {
    * @return the shared ledger
    */
   public static RunBudgets shared() {
-    return SHARED;
+    return LEDGER;
   }
 
   /**
@@ -100,17 +107,16 @@ public final class RunBudgets {
    */
   public Optional<String> exceeded(
       final String runId, final Long maxTokens, final Double maxCost, final Long maxCalls) {
-    final Spent spent = byRun.get(runId);
-    Optional<String> why = Optional.empty();
-    if (spent != null && maxCalls != null && spent.calls() >= maxCalls) {
-      return Optional.of("call budget of " + maxCalls + " used (" + spent.calls() + ")");
-    }
-    if (spent != null && maxTokens != null && spent.tokens() >= maxTokens) {
-      why = Optional.of("token budget of " + maxTokens + " used (" + spent.tokens() + ")");
-    } else if (spent != null && maxCost != null && spent.cost() >= maxCost) {
-      why = Optional.of("cost budget of " + maxCost + " used (" + spent.cost() + ")");
-    }
-    return why;
+    final Spent spent = byRun.getOrDefault(runId, NOTHING);
+    final String why =
+        maxTokens != null && spent.tokens() >= maxTokens
+            ? "token budget of " + maxTokens + " used (" + spent.tokens() + ")"
+            : maxCost != null && spent.cost() >= maxCost
+                ? "cost budget of " + maxCost + " used (" + spent.cost() + ")"
+                : maxCalls != null && spent.calls() >= maxCalls
+                    ? "call budget of " + maxCalls + " used (" + spent.calls() + ")"
+                    : null;
+    return Optional.ofNullable(why);
   }
 
   /**
@@ -142,9 +148,6 @@ public final class RunBudgets {
         }
       }
       validateHardStop(budget);
-      if (budget.get(AGENT) != null && !(budget.get(AGENT) instanceof String)) {
-        throw new IllegalArgumentException("budget.agent must be text");
-      }
       if (budget.get(MAX_COST) != null && !(config.get("prices") instanceof Map<?, ?>)) {
         throw new IllegalArgumentException("budget.maxCost needs prices to measure cost");
       }
@@ -152,6 +155,9 @@ public final class RunBudgets {
   }
 
   private static void validateHardStop(final Map<?, ?> budget) {
+    if (budget.get(AGENT) != null && !(budget.get(AGENT) instanceof String)) {
+      throw new IllegalArgumentException("budget.agent must be text");
+    }
     if (budget.get("hardStop") != null && !(budget.get("hardStop") instanceof Boolean)) {
       throw new IllegalArgumentException("budget.hardStop must be true or false");
     }

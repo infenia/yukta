@@ -144,6 +144,7 @@ public class WorkflowVersionController {
    * @return the workflow id, version and note
    */
   @PostMapping("/versions/note")
+  @SuppressWarnings("PMD.UseObjectForClearerAPI")
   @Operation(summary = "Write or clear the note on a saved version")
   public Mono<ApiResponse<Map<String, String>>> note(
       @Parameter(description = SESSION_ID) @PathVariable final String sessionId,
@@ -152,7 +153,7 @@ public class WorkflowVersionController {
       @Parameter(description = "The note; blank clears it") @RequestParam(defaultValue = "")
           final String note) {
     return definitions
-        .setNote(sessionId, workflowId, version, note)
+        .saveNote(sessionId, workflowId, version, note)
         .thenReturn(
             ApiResponse.success(
                 200,

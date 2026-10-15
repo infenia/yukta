@@ -115,7 +115,7 @@ public class WorkflowVersionProvider {
     }
     final String text = note == null ? "" : note.strip();
     return definitions
-        .setNote(sessionId, workflowId, version, text)
+        .saveNote(sessionId, workflowId, version, text)
         .thenReturn(new WorkflowVersionNote(workflowId, version, text));
   }
 }

@@ -3,7 +3,7 @@
 package com.infenia.yukta.service.workflow.store;
 
 import java.time.Instant;
-import org.springframework.lang.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * One saved version of a workflow definition.

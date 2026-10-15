@@ -173,7 +173,8 @@ public class R2dbcWorkflowDefinitionStore implements WorkflowDefinitionStore {
   }
 
   @Override
-  public Mono<Void> setNote(
+  @SuppressWarnings("PMD.UseObjectForClearerAPI")
+  public Mono<Void> saveNote(
       final String sessionId, final String workflowId, final String revisionId, final String note) {
     return client
         .sql(
