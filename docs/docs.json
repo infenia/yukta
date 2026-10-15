@@ -134,7 +134,7 @@
         ]
       },
       {
-        "tab": "REST API",
+        "tab": "API guides",
         "groups": [
           {
             "group": "API basics",
@@ -155,6 +155,10 @@
             ]
           }
         ]
+      },
+      {
+        "tab": "Endpoint reference",
+        "openapi": "api/openapi.json"
       }
     ]
   },
