@@ -42,7 +42,7 @@ class SignalNodeCommandProcessorTest {
   private void known() {
     when(registry.findByExecutionId("e1")).thenReturn(Optional.of(control));
     when(control.workflowId()).thenReturn("wf");
-    when(plugins.lookup("wf", "n1")).thenReturn(Optional.of(plugin));
+    when(plugins.lookup("wf", "e1", "n1")).thenReturn(Optional.of(plugin));
   }
 
   @Test
@@ -92,7 +92,7 @@ class SignalNodeCommandProcessorTest {
 
     when(registry.findByExecutionId("e1")).thenReturn(Optional.of(control));
     when(control.workflowId()).thenReturn("wf");
-    when(plugins.lookup("wf", "n1")).thenReturn(Optional.empty());
+    when(plugins.lookup("wf", "e1", "n1")).thenReturn(Optional.empty());
     StepVerifier.create(processor.process(command)).verifyError(NotFoundException.class);
   }
 

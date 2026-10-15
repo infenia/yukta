@@ -192,8 +192,8 @@ class TerminalNodeAssemblerStrategyTest {
     verify(tracker, atLeastOnce())
         .emitTaskStatusEvent(
             eq(EXECUTION_ID), eq(NODE_ID), anyString(), any(TaskStatus.class), any());
-    verify(activePluginRegistry).register(WORKFLOW_ID, NODE_ID, terminal);
-    verify(activePluginRegistry).unregister(WORKFLOW_ID, NODE_ID);
+    verify(activePluginRegistry).register(WORKFLOW_ID, EXECUTION_ID, NODE_ID, terminal);
+    verify(activePluginRegistry).unregister(WORKFLOW_ID, EXECUTION_ID, NODE_ID);
   }
 
   @Test
@@ -251,8 +251,8 @@ class TerminalNodeAssemblerStrategyTest {
     verify(tracker, atLeastOnce())
         .emitTaskStatusEvent(
             eq(EXECUTION_ID), eq(NODE_ID), anyString(), eq(TaskStatus.FAILURE), any());
-    verify(activePluginRegistry).register(WORKFLOW_ID, NODE_ID, terminal);
-    verify(activePluginRegistry).unregister(WORKFLOW_ID, NODE_ID);
+    verify(activePluginRegistry).register(WORKFLOW_ID, EXECUTION_ID, NODE_ID, terminal);
+    verify(activePluginRegistry).unregister(WORKFLOW_ID, EXECUTION_ID, NODE_ID);
   }
 
   @Test

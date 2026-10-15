@@ -21,7 +21,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 @DisplayName("ActivePluginRegistry")
 @NoArgsConstructor
-@SuppressWarnings("PMD.CommentRequired")
+@SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.CommentRequired"})
 class ActivePluginRegistryTest {
 
   private static final String WORKFLOW_ID = "workflow-1";
@@ -45,6 +45,44 @@ class ActivePluginRegistryTest {
     registry.register(WORKFLOW_ID, NODE_ID, plugin);
 
     assertThat(registry.lookup(WORKFLOW_ID, NODE_ID)).containsSame(plugin);
+  }
+
+  @Test
+  @DisplayName("should keep the same node of two runs apart")
+  void sameNodeOfTwoRuns_isRegisteredPerRun() {
+    registry.register(WORKFLOW_ID, "run-1", NODE_ID, plugin);
+    registry.register(WORKFLOW_ID, "run-2", NODE_ID, plugin);
+
+    registry.unregister(WORKFLOW_ID, "run-1", NODE_ID);
+
+    assertThat(registry.lookup(WORKFLOW_ID, "run-1", NODE_ID)).isEmpty();
+    assertThat(registry.lookup(WORKFLOW_ID, "run-2", NODE_ID)).containsSame(plugin);
+    verify(handler1).removeNode(WORKFLOW_ID + "\0run-1\0" + NODE_ID);
+    verify(handler1, never()).removeNode(WORKFLOW_ID + "\0run-2\0" + NODE_ID);
+  }
+
+  @Test
+  @DisplayName("should find the node of any run when the run is not named")
+  void lookupWithoutRun_findsTheNodeOfAnyRun() {
+    registry.register(WORKFLOW_ID, "run-1", NODE_ID, plugin);
+
+    assertThat(registry.lookup(WORKFLOW_ID, NODE_ID)).containsSame(plugin);
+
+    registry.unregister(WORKFLOW_ID, "run-1", NODE_ID);
+
+    assertThat(registry.lookup(WORKFLOW_ID, NODE_ID)).isEmpty();
+  }
+
+  @Test
+  @DisplayName("should refcount a registration of one run")
+  void sameRunRegisteredTwice_isRefcounted() {
+    registry.register(WORKFLOW_ID, "run-1", NODE_ID, plugin);
+    registry.register(WORKFLOW_ID, "run-1", NODE_ID, plugin);
+
+    registry.unregister(WORKFLOW_ID, "run-1", NODE_ID);
+
+    assertThat(registry.lookup(WORKFLOW_ID, "run-1", NODE_ID)).containsSame(plugin);
+    verify(handler1, never()).removeNode(WORKFLOW_ID + "\0run-1\0" + NODE_ID);
   }
 
   @Test

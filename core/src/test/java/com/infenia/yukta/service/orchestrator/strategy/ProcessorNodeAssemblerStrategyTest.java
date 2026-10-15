@@ -189,8 +189,8 @@ class ProcessorNodeAssemblerStrategyTest {
 
     StepVerifier.create(context.streams()[0]).expectNextCount(1).verifyComplete();
 
-    verify(activePluginRegistry).register(WORKFLOW_ID, NODE_ID, processor);
-    verify(activePluginRegistry).unregister(WORKFLOW_ID, NODE_ID);
+    verify(activePluginRegistry).register(WORKFLOW_ID, EXECUTION_ID, NODE_ID, processor);
+    verify(activePluginRegistry).unregister(WORKFLOW_ID, EXECUTION_ID, NODE_ID);
   }
 
   @Test

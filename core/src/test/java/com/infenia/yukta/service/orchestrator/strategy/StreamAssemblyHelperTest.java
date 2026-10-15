@@ -95,6 +95,27 @@ class StreamAssemblyHelperTest {
   }
 
   @Test
+  void buildStreamWithContext_registersThePluginForTheRunAndReleasesItAtTheEnd() {
+    final WorkflowNode node = new WorkflowNode(NODE_ID, "processor", Map.of());
+
+    final Flux<Message<?>> result =
+        StreamAssemblyHelper.buildStreamWithContext(
+            node,
+            Flux.just(DefaultMessage.create(UUID.randomUUID(), "x")),
+            Duration.ofSeconds(5),
+            new NodeActivity(),
+            tracker,
+            buildContext(),
+            plugin,
+            activePluginRegistry);
+
+    StepVerifier.create(result).expectNextCount(1).verifyComplete();
+
+    verify(activePluginRegistry).register(WORKFLOW_ID, EXECUTION_ID, NODE_ID, plugin);
+    verify(activePluginRegistry).unregister(WORKFLOW_ID, EXECUTION_ID, NODE_ID);
+  }
+
+  @Test
   void buildStreamWithContext_logSinkEmitsWholeLinesAndMarksNodeActivity() {
     final WorkflowNode node = new WorkflowNode(NODE_ID, "processor", Map.of());
     final NodeActivity activity = new NodeActivity();
@@ -367,8 +388,8 @@ class StreamAssemblyHelperTest {
 
     StepVerifier.create(result).expectNextCount(1).verifyComplete();
 
-    verify(activePluginRegistry).register(WORKFLOW_ID, NODE_ID, plugin);
-    verify(activePluginRegistry).unregister(WORKFLOW_ID, NODE_ID);
+    verify(activePluginRegistry).register(WORKFLOW_ID, EXECUTION_ID, NODE_ID, plugin);
+    verify(activePluginRegistry).unregister(WORKFLOW_ID, EXECUTION_ID, NODE_ID);
   }
 
   @Test
@@ -390,8 +411,8 @@ class StreamAssemblyHelperTest {
 
     StepVerifier.create(result).expectError().verify();
 
-    verify(activePluginRegistry).register(WORKFLOW_ID, NODE_ID, plugin);
-    verify(activePluginRegistry).unregister(WORKFLOW_ID, NODE_ID);
+    verify(activePluginRegistry).register(WORKFLOW_ID, EXECUTION_ID, NODE_ID, plugin);
+    verify(activePluginRegistry).unregister(WORKFLOW_ID, EXECUTION_ID, NODE_ID);
   }
 
   @Test
@@ -412,8 +433,8 @@ class StreamAssemblyHelperTest {
 
     StepVerifier.create(result).thenCancel().verify();
 
-    verify(activePluginRegistry).register(WORKFLOW_ID, NODE_ID, plugin);
-    verify(activePluginRegistry).unregister(WORKFLOW_ID, NODE_ID);
+    verify(activePluginRegistry).register(WORKFLOW_ID, EXECUTION_ID, NODE_ID, plugin);
+    verify(activePluginRegistry).unregister(WORKFLOW_ID, EXECUTION_ID, NODE_ID);
   }
 
   // ── helpers ───────────────────────────────────────────────────────────────

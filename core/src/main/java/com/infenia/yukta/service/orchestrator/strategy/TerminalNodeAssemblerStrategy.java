@@ -177,7 +177,12 @@ public class TerminalNodeAssemblerStrategy implements NodeAssemblerStrategy {
 
       completion =
           StreamAssemblyHelper.withPluginLifecycle(
-              completion, context.workflowId(), node.nodeId(), plugin, activePluginRegistry);
+              completion,
+              context.workflowId(),
+              context.executionId(),
+              node.nodeId(),
+              plugin,
+              activePluginRegistry);
 
       completion =
           completion

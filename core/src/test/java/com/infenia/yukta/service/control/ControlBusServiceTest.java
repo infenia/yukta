@@ -295,7 +295,7 @@ class ControlBusServiceTest {
 
       final List<String> result = controlBusService.getActiveNodes();
 
-      assertThat(result).isEqualTo(allKeys);
+      assertThat(result).containsExactly(NODE_ID, "node-2");
     }
 
     @Test
@@ -307,7 +307,7 @@ class ControlBusServiceTest {
 
       final List<String> result = controlBusService.getActiveNodes();
 
-      assertThat(result).isEqualTo(handler2Keys);
+      assertThat(result).containsExactly(NODE_ID);
     }
   }
 
