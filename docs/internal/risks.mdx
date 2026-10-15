@@ -1697,9 +1697,9 @@ IDs in brackets such as (G1) are finding numbers from the module's review notes 
 <Accordion title="A timeout kills the child but not its children (G9)">
 **Id** `orphans` · **Category** Reliability · **Impact** 3 · **Effort** 2 · **Components** External I/O
 
-**Why it matters.** On timeout the plugin destroys, then force-kills, the process it started. If that process was a shell or a build tool that started others (sh -&gt; mvn -&gt; java), the descendants keep running and keep the output pipes open, which can block the reader threads on the pool for blocking work.
+**Why it matters.** On timeout the plugin now stops the whole tree it started (sh -&gt; mvn -&gt; java): descendants are listed first, asked to end, and killed if still alive after 2 seconds, which also closes the output pipes. What remains: a process that detaches itself (a daemon that double-forks before the timeout) is no longer a descendant and keeps running.
 
-**Option.** Destroy descendants before the parent, in both the graceful and the forcible path (the platform's process handle lists them); consider running the child in its own process group.
+**Option.** Run the child in its own process group or session so that even detached children can be stopped together.
 
 **Question to settle.** Do you run build tools and scripts through this plugin, or only single binaries?
 

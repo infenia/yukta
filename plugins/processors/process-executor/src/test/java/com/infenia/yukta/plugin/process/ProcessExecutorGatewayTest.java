@@ -9,8 +9,11 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
@@ -731,6 +734,53 @@ class ProcessExecutorGatewayTest {
     // destroyForcibly() is asynchronous; wait briefly for the kill to take effect
     process.waitFor(5, TimeUnit.SECONDS);
     assertThat(process.isAlive()).isFalse();
+  }
+
+  @Test
+  @DisabledOnOs(OS.WINDOWS)
+  void cleanupProcess_alsoDestroysDescendants() throws Exception {
+    final Process process = new ProcessBuilder("sh", "-c", "sleep 30 & wait").start();
+    ProcessHandle grandchild = null;
+    for (int i = 0; i < 50 && grandchild == null; i++) {
+      grandchild = process.descendants().findFirst().orElse(null);
+      if (grandchild == null) {
+        Thread.sleep(100);
+      }
+    }
+    assertThat(grandchild).as("the shell started a child").isNotNull();
+    assertThat(grandchild.isAlive()).isTrue();
+
+    StepVerifier.create(gateway.cleanupProcess(process)).verifyComplete();
+
+    grandchild.onExit().get(5, TimeUnit.SECONDS);
+    assertThat(grandchild.isAlive()).as("the grandchild must not outlive its parent").isFalse();
+  }
+
+  @Test
+  @DisabledOnOs(OS.WINDOWS)
+  void executeStream_timeout_alsoKillsGrandchildren() throws Exception {
+    final Path pidFile = Files.createTempFile("yukta-grandchild", ".pid");
+    try {
+      StepVerifier.create(
+              gateway.executeStream(
+                  List.of("sh", "-c", "sleep 30 & echo $! > " + pidFile + "; wait"),
+                  null,
+                  SHORT_TIMEOUT_SECONDS,
+                  Map.of(),
+                  false))
+          .verifyErrorSatisfies(error -> assertThat(error.getMessage()).contains("timed out"));
+
+      final long pid = Long.parseLong(Files.readString(pidFile).trim());
+      final Optional<ProcessHandle> grandchild = ProcessHandle.of(pid);
+      if (grandchild.isPresent()) {
+        grandchild.get().onExit().get(5, TimeUnit.SECONDS);
+      }
+      assertThat(ProcessHandle.of(pid).map(ProcessHandle::isAlive).orElse(false))
+          .as("the grandchild must be gone after the timeout")
+          .isFalse();
+    } finally {
+      Files.deleteIfExists(pidFile);
+    }
   }
 
   @Test

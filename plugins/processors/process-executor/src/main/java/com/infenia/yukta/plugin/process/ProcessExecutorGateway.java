@@ -17,9 +17,11 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import lombok.NoArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -560,11 +562,15 @@ public class ProcessExecutorGateway {
   }
 
   /**
-   * Terminate a process if it is still alive, escalating from graceful to forcible destruction.
+   * Terminate a process and everything it started, escalating from graceful to forcible
+   * destruction.
    *
-   * <p>The process is first asked to terminate via {@link Process#destroy()}; if it is still alive
-   * after {@link #FORCE_DESTROY_GRACE}, it is killed via {@link Process#destroyForcibly()}.
-   * Package-private for direct testing.
+   * <p>The descendants are listed first, because once the parent is gone they are re-parented and
+   * can no longer be found. The process and its descendants are asked to terminate via {@link
+   * Process#destroy()}; any of them still alive after {@link #FORCE_DESTROY_GRACE} is killed via
+   * {@link ProcessHandle#destroyForcibly()}. Killing the descendants too closes the pipes they
+   * share with the parent, so the output readers are not left blocked. Package-private for direct
+   * testing.
    *
    * @param process the process to terminate
    * @return a Mono completing when termination has been initiated or the process already exited
@@ -575,8 +581,14 @@ public class ProcessExecutorGateway {
               if (!process.isAlive()) {
                 return Mono.empty();
               }
-              process.destroy();
-              return Mono.fromFuture(process.onExit())
+              final List<ProcessHandle> tree =
+                  Stream.concat(Stream.of(process.toHandle()), process.descendants()).toList();
+              tree.forEach(ProcessHandle::destroy);
+              return Mono.fromFuture(
+                      CompletableFuture.allOf(
+                          tree.stream()
+                              .map(ProcessHandle::onExit)
+                              .toArray(CompletableFuture[]::new)))
                   .timeout(FORCE_DESTROY_GRACE)
                   .then()
                   .onErrorResume(
@@ -588,7 +600,9 @@ public class ProcessExecutorGateway {
                                     .setMessage(
                                         "Process ignored graceful termination; destroying forcibly")
                                     .log();
-                                process.destroyForcibly();
+                                tree.stream()
+                                    .filter(ProcessHandle::isAlive)
+                                    .forEach(ProcessHandle::destroyForcibly);
                               }));
             })
         .subscribeOn(Schedulers.boundedElastic());

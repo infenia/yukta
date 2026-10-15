@@ -30,7 +30,7 @@ The server refuses every command until you allow some. Set `yukta.process.allowe
 | `command` | list of strings | none, required | The program, then its arguments. Each element may use `${...}` variables |
 | `inputMode` | `NONE`, `ENV` or `STDIN` | `NONE` | How the message reaches the process. `ENV`: metadata as `YUKTA_METADATA_<KEY>` variables and the payload as `YUKTA_PAYLOAD`. `STDIN`: the payload on standard input. Text payloads go as written, other payloads as JSON |
 | `workingDir` | string | the server's directory | Working directory. Variables allowed |
-| `timeout` | number | `300` | Seconds the process may run. Positive. Variables allowed |
+| `timeout` | number | `300` | Seconds the process may run. Positive. Variables allowed. When it runs out, the process and every process it started are stopped (asked to end first, killed after 2 seconds) |
 | `env` | map | empty | Extra environment variables. Variables allowed. Explicit entries win over `inputMode` ones |
 | `useShell` | boolean | `false` | Run through `/bin/sh -c` (or `cmd.exe /c` on Windows). Arguments with special characters are quoted, so pipes and `&&` do not act as operators |
 | `captureStderr` | boolean | `false` | Capture standard error separately. When `false`, it is merged into standard output |
