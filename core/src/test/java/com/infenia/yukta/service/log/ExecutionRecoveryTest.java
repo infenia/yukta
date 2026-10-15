@@ -252,6 +252,21 @@ class ExecutionRecoveryTest {
   }
 
   @Test
+  void whenNoLimitChangeWasApplied_theSchedulerKeepsItsLimits() {
+    final ExecutionScheduler scheduler =
+        new ExecutionScheduler(9, 9, 10, ExecutionScheduler.OnLimit.REJECT, Duration.ZERO);
+    store.append(
+        ExecutionLogEvent.control(
+            false, ExecutionLogEvent.SCHEDULER, "SetLimits(8, 8)", "refused by a reviewer"));
+    final ExecutionRecovery recovery = new ExecutionRecovery(store, tracker, 100);
+    recovery.setExecutionScheduler(scheduler);
+
+    recovery.recover();
+
+    assertThat(scheduler.perWorkflowLimit()).isEqualTo(9);
+  }
+
+  @Test
   void onlyAppliedAndReadableLimitChanges_areReapplied() {
     final ExecutionScheduler scheduler =
         new ExecutionScheduler(9, 9, 10, ExecutionScheduler.OnLimit.REJECT, Duration.ZERO);

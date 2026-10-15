@@ -217,4 +217,14 @@ class FileWorkflowDefinitionStoreTest {
 
     assertThat(store.revisions("s", "w1").blockFirst().note()).isNull();
   }
+
+  @Test
+  void atomicWrite_refusesNamesOutsideTheDirectory() {
+    org.assertj.core.api.Assertions.assertThatThrownBy(
+            () -> FileWorkflowDefinitionStore.atomically(dir, "../escape.json", "{}"))
+        .isInstanceOf(IllegalArgumentException.class);
+    org.assertj.core.api.Assertions.assertThatThrownBy(
+            () -> FileWorkflowDefinitionStore.atomically(dir, ".", "{}"))
+        .isInstanceOf(IllegalArgumentException.class);
+  }
 }

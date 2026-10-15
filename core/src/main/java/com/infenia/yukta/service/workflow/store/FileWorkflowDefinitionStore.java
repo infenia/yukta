@@ -243,19 +243,19 @@ public class FileWorkflowDefinitionStore implements WorkflowDefinitionStore {
     return definition;
   }
 
-  private static void atomically(final Path dir, final String name, final String content)
+  /* default */ static void atomically(final Path dir, final String name, final String content)
       throws IOException {
+    final Path target = dir.resolve(name).normalize();
+    if (!target.startsWith(dir.normalize()) || target.equals(dir.normalize())) {
+      throw new IllegalArgumentException("Not a file name inside the directory: " + name);
+    }
     final Path tmp = Files.createTempFile(dir, "definition", ".tmp");
     try {
       Files.writeString(tmp, content, StandardCharsets.UTF_8);
       try (FileChannel channel = FileChannel.open(tmp, StandardOpenOption.WRITE)) {
         channel.force(true);
       }
-      Files.move(
-          tmp,
-          dir.resolve(name),
-          StandardCopyOption.ATOMIC_MOVE,
-          StandardCopyOption.REPLACE_EXISTING);
+      Files.move(tmp, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
     } finally {
       Files.deleteIfExists(tmp);
     }

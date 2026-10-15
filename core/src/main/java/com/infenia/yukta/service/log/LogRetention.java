@@ -23,13 +23,17 @@ class LogRetention {
   /* default */ static List<ExecutionLogEvent> trim(
       final List<ExecutionLogEvent> events, final int retainedRuns) {
     final List<String> runs = runsByLastActivity(events);
-    return runs.size() <= retainedRuns ? events : dropOld(events, runs, retainedRuns);
+    final long scheduler =
+        events.stream().filter(e -> ExecutionLogEvent.SCHEDULER.equals(e.executionId())).count();
+    return runs.size() <= retainedRuns && scheduler <= retainedRuns
+        ? events
+        : dropOld(events, runs, retainedRuns);
   }
 
   private static List<ExecutionLogEvent> dropOld(
       final List<ExecutionLogEvent> events, final List<String> runs, final int retainedRuns) {
     final Set<String> keep =
-        new LinkedHashSet<>(runs.subList(runs.size() - retainedRuns, runs.size()));
+        new LinkedHashSet<>(runs.subList(Math.max(0, runs.size() - retainedRuns), runs.size()));
     keep.addAll(openRuns(events));
     final List<ExecutionLogEvent> scheduler =
         events.stream().filter(e -> ExecutionLogEvent.SCHEDULER.equals(e.executionId())).toList();
