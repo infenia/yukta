@@ -19,6 +19,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.WebApplicationType;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
@@ -92,6 +93,18 @@ class RemoteNodeTest {
   static void stop() {
     worker.close();
     controlPlane.close();
+  }
+
+  /**
+   * The worker reports its used slots on its heartbeat, so a slot freed by the previous test is
+   * still counted as busy until the next one. Wait for the report before the next attempt.
+   */
+  @BeforeEach
+  void awaitFreeSlot() {
+    final WorkerRegistry registry = controlPlane.getBean(WorkerRegistry.class);
+    await()
+        .atMost(Duration.ofSeconds(10))
+        .until(() -> registry.find("w1").map(info -> info.usedSlots() == 0).orElse(false));
   }
 
   private static Message<?> message(final Object payload) {
