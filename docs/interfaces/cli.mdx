@@ -1,0 +1,208 @@
+---
+title: "Command-line client"
+description: "Use the yukta command to manage sessions, start and control runs, and watch them live from a terminal or a CI job."
+---
+
+The `yukta` command is a thin client for a running Yukta server. It is a single static binary with no runtime to install. It calls the [REST API](/api/overview) and prints the answer, which makes it useful in shell scripts, CI jobs and quick checks at a terminal.
+
+Use it when you want to apply a session file, start a workflow, follow its logs and result, or steer a run, without writing HTTP calls.
+
+## Install
+
+There are no packaged releases yet; build the binary from source. The build produces binaries for Linux (amd64 and arm64), macOS (Intel and Apple silicon) and Windows (amd64). Copy the one for your platform onto your `PATH`. See [Deployment](/operations/deployment).
+
+## Configure
+
+Three global flags apply to every command. Flags go before or after the command name.
+
+| Flag | Environment variable | Default | Meaning |
+|---|---|---|---|
+| `--url` | `YUKTA_SERVER_URL` | `http://localhost:8080` | Base address of the server |
+| `--token` | `YUKTA_TOKEN` | none | API key, sent as `Authorization: Bearer <key>` |
+| `--timeout` | none | `30s` | Time limit for each non-streaming request. `0` disables it. Streaming commands are not limited |
+| `-o`, `--output` | none | `table` | `table` or `json` |
+
+A flag overrides the environment variable. The client reads no configuration file.
+
+```bash
+export YUKTA_SERVER_URL=https://yukta.example.com
+export YUKTA_TOKEN=<key>
+yukta session list
+```
+
+The server's role and session rules apply to the key you give; see [REST API overview](/api/overview#roles). The client sends the key only as a bearer token.
+
+## Output formats
+
+| Format | What you get |
+|---|---|
+| `table` | Lists as aligned columns, single objects as field and value rows, and actions as one confirmation line such as `Execution paused: <id>` |
+| `json` | The server's data as indented JSON. For actions, the response object, for example `{ "executionId": "..." }` |
+
+Some commands print JSON in both formats because their data is nested: `session summaries`, `session workflow get`, `session workflow graph`, `session workflow executions`. The live commands print one item per line, as described under [Watch live](#watch-live).
+
+## Sessions
+
+| Command | Does |
+|---|---|
+| `yukta session list` | List session ids |
+| `yukta session get <session-id>` | Show a session's id and workflow ids |
+| `yukta session summaries` | List sessions with their workflow counts, as JSON |
+| `yukta session apply <json-or-file>` | Create or replace a session from a JSON file, or from inline JSON if no such file exists |
+| `yukta session workflow get <session-id> <workflow-id>` | Print a workflow definition as JSON |
+| `yukta session workflow graph <session-id> <workflow-id>` | Print the nodes and edges with plugin metadata |
+| `yukta session workflow executions <session-id> <workflow-id>` | List the runs of one workflow, newest first |
+
+`session apply` sends the same body as [`POST /api/sessions`](/api/sessions#apply-a-session) and needs a key with the `ADMIN` role. It checks that the text is valid JSON before sending it.
+
+```bash
+yukta session apply session.json
+yukta session get demo
+```
+
+## Start and stop workflows
+
+| Command | Does |
+|---|---|
+| `yukta workflow start <session-id> <workflow-id>` | Start a run and print its execution id |
+| `yukta workflow stop <session-id> <workflow-id>` | Stop every active run of the workflow, letting work in flight drain |
+| `yukta workflow executions stop <execution-id>` | Stop one run |
+| `yukta workflow executions restart <execution-id> [from-node-id]` | Restart a run from the beginning, or from a node, as a new run |
+
+`workflow start` takes the trigger input with one of two flags:
+
+| Flag | Meaning |
+|---|---|
+| `--payload <json>` | Inline JSON object |
+| `--payload-file <path>` | File that holds a JSON object |
+
+The two flags cannot be combined, and the payload must be a JSON object.
+
+```bash
+yukta workflow start demo greet --payload '{"name":"Ada"}'
+```
+
+```text
+Workflow started with execution ID: 550e8400-e29b-41d4-a716-446655440000
+```
+
+## Inspect runs
+
+| Command | Does |
+|---|---|
+| `yukta workflow status <session-id> <execution-id>` | Show the run's status, times and the number of nodes |
+| `yukta workflow history <session-id>` | List the runs of a session with status and times |
+
+Use `-o json` with `status` to get the full snapshot, including every node's status. The server may keep only the newest runs; see the [REST history call](/api/workflows#list-the-runs-of-a-session).
+
+## Control a run
+
+| Command | Does |
+|---|---|
+| `yukta workflow pause <session-id> <execution-id>` | Pause a run |
+| `yukta workflow resume <session-id> <execution-id>` | Resume a paused run |
+
+## Control nodes
+
+Node commands act on one node of a live run. The role they need is `OPERATOR`.
+
+| Command | Does |
+|---|---|
+| `yukta workflow node pause <session-id> <execution-id> <node-id>` | Pause a node |
+| `yukta workflow node resume <session-id> <execution-id> <node-id>` | Resume a node |
+| `yukta workflow node stop <session-id> <execution-id> <node-id>` | Stop a node. `--immediate` stops without draining; `--reason <text>` records a reason |
+| `yukta workflow node skip <session-id> <execution-id> <node-id>` | Skip a node so it passes its input through. `--skip=false` unskips it |
+| `yukta workflow node step enable <session-id> <execution-id> <node-id>` | Turn on step mode |
+| `yukta workflow node step disable <session-id> <execution-id> <node-id>` | Turn off step mode |
+| `yukta workflow node step next <session-id> <execution-id> <node-id>` | Let one element through |
+| `yukta workflow node retry <execution-id> <node-id>` | Restart from a node that failed, as a new run, and print the new id |
+| `yukta workflow node breakpoint <execution-id> <node-id> --field <f> --equals <v>` | Hold a node before the first element whose field equals a value |
+| `yukta workflow node breakpoint <execution-id> <node-id> --clear` | Remove the node's breakpoint |
+| `yukta workflow node signal <execution-id> <node-id> --name <n> --decision <d> [--data <text>]` | Answer a node that waits for a signal |
+
+`retry`, `breakpoint` and `signal` take no session id. `signal` fails with an HTTP `409` error if the node is not waiting for that signal. These commands map to the calls on the [Control API](/api/control) page.
+
+```bash
+yukta workflow node signal 550e8400-e29b-41d4-a716-446655440000 approve \
+  --name release-approval --decision approve --data "ship it"
+```
+
+## Watch live
+
+These commands stay connected until the run ends or you press Ctrl-C. A Ctrl-C ends them cleanly with exit code `0`.
+
+| Command | Prints |
+|---|---|
+| `yukta logs <session-id> <execution-id>` | One log line per line, stored lines first, then live. `--entries` prints each entry as one JSON object |
+| `yukta result <session-id> <execution-id>` | One JSON event per line as results reach the terminal nodes, ending with `EXECUTION_END`. `--node <id>` follows one terminal node. Works after the run ended, while the server keeps the result |
+| `yukta workflow status-stream <session-id> <execution-id>` | A JSON progress snapshot at every change. `--include-history` replays recent updates first |
+| `yukta controlbus watch` | One line per event of all runs |
+
+`controlbus watch` follows the server-wide [event feed](/api/streams#stream-events-of-all-runs) and prints one line per event:
+
+```text
+NODE compile RUNNING
+LOG compile: compiling 12 files
+NODE compile SUCCESS
+CONTROL PauseWorkflowCommand applied=true
+WORKFLOW SUCCESS
+```
+
+| Flag | Meaning |
+|---|---|
+| `--execution <id>` | Only events of this run |
+| `--type <kind>` | Only `NodeStatusChanged`, `WorkflowStatusChanged`, `ControlOutcome` or `LogLine` |
+| `--no-logs` | Leave out log lines |
+| `--quiet` | Show only problems and the end: final node statuses other than `SUCCESS` with the reason each node reports, the error and warning lines of the output (each once, at most 20 per node, written as `ERROR <node>: <line>` or `WARN <node>: <line>`), control commands that were not applied, and the final workflow status |
+| `--until-done` | Exit when the run has ended. Needs `--execution`. It also checks the run's status while it waits, so it ends correctly even if the run finished before the watch began |
+
+With `-o json`, `controlbus watch` prints each event as one JSON object per line. The feed does not replay past events, so start the watch before the run, or use `--until-done`.
+
+`--until-done` exits with `0` whatever the final status of the run. Read the last `WORKFLOW` line, or the run's status, to see the outcome.
+
+```bash
+EXEC=$(yukta workflow start demo build -o json | jq -r .executionId)
+yukta controlbus watch --execution "$EXEC" --quiet --until-done
+```
+
+## Discover plugins
+
+| Command | Does |
+|---|---|
+| `yukta plugin list` | List plugin types with their category |
+| `yukta plugin get <type>` | Show a plugin's description, usage pattern and output ports. `-o json` adds the full details |
+
+## Control bus
+
+The control bus commands address nodes by workflow id rather than by run. See the [REST control bus calls](/api/control#list-active-nodes).
+
+| Command | Does |
+|---|---|
+| `yukta controlbus nodes <workflow-id>` | List the active nodes of a workflow |
+| `yukta controlbus all-nodes` | List the active nodes of all workflows |
+| `yukta controlbus heartbeat <workflow-id> <node-id>` | Show a node's last heartbeat |
+| `yukta controlbus command <workflow-id> <node-id> <json-or-file>` | Send a command to a node, as inline JSON or from a file. Needs the `ADMIN` role |
+| `yukta controlbus watch` | Stream events, described above |
+
+## Access
+
+Give the client a key with `--token` or `YUKTA_TOKEN` when the server requires one. A key with the `VIEWER` role can run the read commands and the live commands. Starting, stopping and controlling runs needs `OPERATOR`, and applying sessions and sending control bus commands needs `ADMIN`. A refused request prints the server's answer, for example `API error: status 403: ...`.
+
+## Exit codes
+
+| Code | Meaning |
+|---|---|
+| `0` | The command succeeded, or a live command was stopped with Ctrl-C |
+| `1` | The command failed: a bad argument, a connection problem, a timeout, or an HTTP error from the server |
+
+On failure the command prints `error: <message>` to standard error. An HTTP error includes the status code and the response body.
+
+## Not covered by the client
+
+The client does not wrap every REST call. For recovering aborted runs, changing priority or scheduler limits, approval lists, version history and rollback, validation, the control audit, supervisors and workers, use the [REST API](/api/overview) or the [MCP server](/interfaces/mcp).
+
+## Related
+
+- [REST API overview](/api/overview)
+- [MCP server](/interfaces/mcp)
+- [Run controls](/running/run-controls)

@@ -1,0 +1,110 @@
+---
+title: "Rule files"
+description: "The declarative JSON format used by the rule supervisor and the rule control plane: react to events and veto commands."
+tag: "Optional"
+---
+
+A rule file is a JSON document with a `rules` list. Each rule is either a **reaction** (`when` an event matches, `then` send a command) or a **veto** (`deny` a command). Rules are checked when the file is loaded, so a mistake such as an invalid condition or an unknown command stops the server from using the file and reports which rule is wrong.
+
+```json
+{
+  "rules": [
+    {
+      "id": "pause-on-repeated-http-failure",
+      "when": {
+        "event": "NodeStatusChanged",
+        "status": "FAILURE",
+        "module": "HTTP_REQUEST",
+        "count": 3,
+        "withinSeconds": 60
+      },
+      "then": { "command": "PauseWorkflow" }
+    },
+    {
+      "id": "stop-node-on-server-error",
+      "when": { "event": "NodeStatusChanged", "status": "FAILURE", "if": "metadata['code'] == 500" },
+      "then": { "command": "StopNode", "immediate": true, "reason": "server error" }
+    },
+    {
+      "id": "no-kill",
+      "deny": { "command": "StopWorkflow", "if": "mode == 'KILL'", "reason": "use DRAIN or CANCEL" }
+    }
+  ]
+}
+```
+
+## Rule fields
+
+| Field | Meaning |
+|---|---|
+| `id` | Names the rule in logs and errors |
+| `when` | The events that trigger a reaction |
+| `then` | The command to send when triggered |
+| `deny` | A command to refuse. A rule has either `when` and `then`, or `deny` |
+
+## `when`: which events
+
+Every field you set must match. Omit a field to match any value.
+
+| Field | Meaning |
+|---|---|
+| `event` | `NodeStatusChanged`, `WorkflowStatusChanged`, `ControlOutcome` or `LogLine` |
+| `status` | The status, for status events, for example `FAILURE` |
+| `module` | The node's plugin type, for node events, for example `HTTP_REQUEST` |
+| `nodeId` | A specific node, for node and log events |
+| `workflowId` | A specific workflow, for status events |
+| `if` | A condition expression over the event's fields |
+| `count` | How many matching events trigger the rule. Default `1` |
+| `withinSeconds` | The window in which `count` events must occur, counted per execution. Default `60` |
+
+### Event fields available to `if`
+
+| Event | Fields |
+|---|---|
+| All events | `executionId` |
+| `NodeStatusChanged` | `workflowId`, `nodeId`, `module`, `status`, `metadata` (a map, for example `metadata['code']`) |
+| `WorkflowStatusChanged` | `workflowId`, `status` |
+| `ControlOutcome` | `command`, `actor`, `applied`, `reason` |
+| `LogLine` | `nodeId`, `line` |
+
+A condition that cannot be evaluated counts as not matching, so a faulty reaction never fires.
+
+## `then`: which command
+
+| Field | Meaning |
+|---|---|
+| `command` | `PauseWorkflow`, `ResumeWorkflow`, `StopWorkflow`, `PauseNode`, `ResumeNode` or `StopNode`. Node commands address the node that triggered the rule |
+| `mode` | For `StopWorkflow`: `DRAIN` (default), `CANCEL` or `KILL` |
+| `reason` | Recorded with a stop. Default `Stopped by rule` |
+| `immediate` | For `StopNode`: interrupt instead of draining |
+
+The command is addressed to the execution that produced the event.
+
+## `deny`: which commands to refuse
+
+A deny rule makes the rule engine act as a [reviewer](/running/supervisors): matching commands are refused before they run.
+
+| Field | Meaning |
+|---|---|
+| `command` | The command name, with or without the `Command` suffix, for example `StopWorkflow` |
+| `if` | A condition over the command's fields. Omit it to always refuse |
+| `reason` | Shown to the caller. Default `denied by rule <id>` |
+
+Command fields available to `if`: `executionId`, `actor`, `nodeId`, `mode`, `reason` and `immediate`.
+
+A deny condition that cannot be evaluated **refuses** the command, so a faulty rule never lets a forbidden command through.
+
+## Enabling a rule file
+
+| To use it as | Set |
+|---|---|
+| A supervisor | `yukta.supervisor.rules.file` |
+| A control plane | `yukta.control-plane.rules.file` |
+
+Both read the same format.
+
+## Related
+
+- [Supervisors](/running/supervisors)
+- [Control planes](/running/control-planes)
+- [Run controls](/running/run-controls)

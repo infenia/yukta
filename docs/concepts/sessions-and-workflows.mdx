@@ -1,0 +1,53 @@
+---
+title: "Sessions and workflows"
+description: "How workflows are grouped, stored, versioned and addressed."
+---
+
+A **session** is a scope that groups workflows, executions and configuration. A **workflow** is a graph of nodes and edges that is stored once and run many times.
+
+## Sessions
+
+You create or replace a session by sending its whole configuration in one request. The session carries descriptive metadata and the workflows it contains.
+
+| Field | Required | Meaning |
+|---|---|---|
+| `sessionId` | yes | Identifier used in every later call. Up to 256 characters; must not contain `/`, `\` or `..` |
+| `name` | yes | Human-readable name, up to 256 characters |
+| `description` | yes | Human-readable description, up to 256 characters |
+| `initiator` | yes | Who or what created the session, for example a user name or `AI Agent` |
+| `projectPath` | no | Absolute path on the server that the session works in |
+| `tags` | no | Free-form string key-value labels for filtering |
+| `workflows` | yes | Map of workflow definitions, keyed by `workflowId`; at least one |
+
+Applying a session stores the session and each of its workflows. Applying the same `sessionId` again replaces its configuration. An identical workflow definition does not create a new version.
+
+Sessions are also the unit of fairness and limits. Concurrency caps can apply per session, and when starts are queued the session with the fewest running executions goes first, so one busy session cannot starve the others. See [Admission and limits](/running/admission-and-limits).
+
+## Workflows
+
+A workflow is identified by its `workflowId` inside a session. Its definition has a description, a list of nodes and a list of edges. The shape is covered in [Defining a workflow](/building/defining-a-workflow).
+
+Before any plugin runs, a definition is validated: it must be acyclic, ids must be unique, every edge must reference existing nodes and ports, and the graph must be within size limits. See [Validation and versions](/building/validation-and-versions).
+
+## Versions
+
+Each workflow keeps its newest 20 versions. You can diff two versions, annotate a version with a note and roll back to an earlier one. Each execution records a content hash of the graph it ran, so progress, history and the log always say which definition produced them. To run a specific saved version instead of the current one, pass the version in the start payload.
+
+## Addressing
+
+| Thing | Identified by |
+|---|---|
+| Session | `sessionId` |
+| Workflow | `sessionId` + `workflowId` |
+| Node | `nodeId`, unique within its workflow |
+| Execution | `executionId`, unique across the server |
+
+## Where sessions are kept
+
+By default sessions, definitions and versions live in memory and are lost on restart. Set `yukta.session.store-type` to `file` or `postgres` to keep them. See [Persistence](/operations/persistence).
+
+## Related
+
+- [How Yukta works](/concepts/how-it-works)
+- [Defining a workflow](/building/defining-a-workflow)
+- [REST: sessions](/api/sessions)

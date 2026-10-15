@@ -1,0 +1,71 @@
+---
+title: "Terminals"
+description: "CONSOLE_TERMINAL and NOTIFY_TERMINAL: plugins that end a branch of a workflow."
+---
+
+A terminal consumes messages and ends a branch. It has no output ports, so nothing can be wired from it. Both terminals are always part of the server. The default timeout of a terminal is the engine default of 30 seconds idle; it also covers what the terminal does after its last input.
+
+## CONSOLE_TERMINAL
+
+Writes the payload of every message to the server log. It is the quickest way to see a result while you build a workflow.
+
+| Property | Value |
+|---|---|
+| Options | none |
+| Output ports | none |
+| Logs | `Consuming message: <payload>` at INFO level, for every message |
+
+The whole payload is written to the log in full. Payloads can carry personal data or secrets, and large payloads make large logs, so do not use this terminal on a branch that carries sensitive data in production.
+
+```json
+{ "nodeId": "end", "type": "CONSOLE_TERMINAL", "config": {} }
+```
+
+## NOTIFY_TERMINAL
+
+Sends each message as a JSON webhook notification. The body is compatible with Slack incoming webhooks.
+
+| Option | Type | Default | Meaning |
+|---|---|---|---|
+| `url` | string | none, required | The webhook address. It must be `https`; `http` is accepted only for `localhost`, `127.x.x.x` and `[::1]` |
+| `text` | string | none | A fixed text to send. Without it the terminal sends the payload's `text` field, or, when there is none, the payload turned into a string |
+| `timeoutMs` | number | `10000` | Request timeout in milliseconds, positive |
+| `failureMode` | `ERROR` or `CONTINUE` | `ERROR` | `ERROR` fails the node on a failed send. `CONTINUE` logs the failure and goes on with later messages |
+
+Output ports: none.
+
+Each message becomes one `POST` with the body `{"text": "..."}`. Messages are sent one at a time, in order, so a slow webhook slows the branch that feeds it. A response that is not 2xx counts as a failure, and so does a redirect: the terminal never follows one.
+
+`url` and `text` are used as written and are not variable-resolved, so a message cannot choose where it is sent. Any `https` host is accepted, including hosts inside your network, so treat the workflow definition as trusted. The webhook address is itself a secret for many services and is returned as written by the workflow APIs.
+
+This node posts a fixed alert text:
+
+```json
+{
+  "nodeId": "alert",
+  "type": "NOTIFY_TERMINAL",
+  "config": {
+    "url": "https://hooks.slack.com/services/T000/B000/XXXX",
+    "text": "Quality gate failed",
+    "timeoutMs": 5000,
+    "failureMode": "CONTINUE"
+  }
+}
+```
+
+To send text built from the message, put it in a `text` field of the payload first, for example with a `MAPPER` node (see [Transform](/plugins/transform)), and leave the `text` option out.
+
+## Limits and defaults
+
+| Item | Value |
+|---|---|
+| Default node idle timeout | 30 seconds |
+| `NOTIFY_TERMINAL` `timeoutMs` | 10000 |
+| `NOTIFY_TERMINAL` requests in flight | 1 per node |
+| Plain `http` | only to `localhost`, `127.x.x.x` and `[::1]` |
+
+## Related
+
+- [Defining a workflow](/building/defining-a-workflow)
+- [Failure handling](/concepts/failure-handling)
+- [Security](/operations/security)

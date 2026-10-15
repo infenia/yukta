@@ -1,0 +1,81 @@
+---
+title: "Approvals and signals"
+description: "Hold a message until a person or another system sends a named signal, with a timeout and an accept or reject decision."
+---
+
+A **signal** is a named message that you send to a node of a running execution. The `WAIT_FOR_SIGNAL` plugin uses signals for human-in-the-loop steps: it holds each message until its signal arrives, then lets the message go on, drops it or fails, depending on the decision.
+
+## Add a wait
+
+```json
+{
+  "nodeId": "approve",
+  "type": "WAIT_FOR_SIGNAL",
+  "config": {
+    "signal": "approve",
+    "timeoutSeconds": 3600,
+    "onTimeout": "FAIL",
+    "onReject": "FAIL"
+  }
+}
+```
+
+| Option | Default | Meaning |
+|---|---|---|
+| `signal` | required | Name of the signal to wait for |
+| `timeoutSeconds` | `3600` | Longest wait |
+| `onTimeout` | `FAIL` | `FAIL` fails the node. `CONTINUE` lets the message go on with `signal.decision` set to `timeout` |
+| `onReject` | `FAIL` | What to do for a `reject` decision. `FAIL` fails the node; `CONTINUE` drops the message |
+
+Any decision other than `reject` lets the message through. The message is tagged with `signal.name`, `signal.decision` and `signal.data`, so a later [branch](/building/routing-and-branching) can route on `metadata.signal.decision`.
+
+The engine's idle timeout for this node is the wait plus 30 seconds, so the node does not time out while it waits.
+
+## Send a signal
+
+```http
+POST /api/executions/{executionId}/nodes/{nodeId}/signal?name=approve&decision=approve&data=ok
+```
+
+| Parameter | Meaning |
+|---|---|
+| `name` | The signal name; must match the node's `signal` option |
+| `decision` | Your answer, for example `approve` or `reject` |
+| `data` | Optional text carried to the message |
+
+The call needs the `OPERATOR` role. Signals go through the same ordering, review and audit as every other command. The same action is available as the MCP tool `signal_node`, in the web UI's pending-approvals strip, and in the CLI.
+
+### When the node is not waiting yet
+
+| Situation | Result |
+|---|---|
+| The node is waiting for that signal | Accepted immediately |
+| The node belongs to a live execution but has no message waiting yet | The signal is kept for ten minutes (up to 100 per execution) and delivered when the wait begins |
+| The node is not registered at all | `409 Conflict` |
+| A second signal for the same wait arrives within five seconds of an accepted one | Treated as a double submit and refused as not waiting |
+
+## List pending approvals
+
+```http
+GET /api/sessions/{sessionId}/approvals
+```
+
+returns every open wait of the session, oldest first, with the execution and node it belongs to. The MCP tool `list_pending_approvals` and the workflow page in the web UI show the same list.
+
+## After a restart
+
+The wait itself is held in memory. An answered signal is recorded with the node's checkpoint, so a [resumed](/operations/checkpoints-and-resume) execution reuses the answer for the same message instead of waiting again; this needs a file or PostgreSQL checkpoint store. A timeout is not recorded. A pending approval is not visible after a restart until its node waits again, and live waits are not carried over on a high-availability takeover.
+
+## Limits and defaults
+
+| Item | Value |
+|---|---|
+| Default wait | 3600 seconds |
+| Held early signals | 10 minutes, at most 100 |
+| Placement | `WAIT_FOR_SIGNAL` cannot run on a remote worker |
+
+## Related
+
+- [Run controls](/running/run-controls)
+- [Executions](/concepts/executions)
+- [REST: control](/api/control)

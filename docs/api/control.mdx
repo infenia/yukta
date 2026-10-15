@@ -1,0 +1,250 @@
+---
+title: "Control API"
+description: "Pause, resume and steer a running execution and its nodes, send signals, and use the control bus and its audit log."
+---
+
+Control endpoints send a command to a live execution or to one of its nodes. Each command is reviewed by any configured [supervisors](/running/supervisors) and recorded in the audit log. These endpoints also cover the control bus, the live command path to individual nodes. Start, stop and restart are on the [Workflows](/api/workflows) and [Executions](/api/executions) pages.
+
+All responses use the [envelope](/api/overview#response-envelope). An unknown execution, or one of another session, answers `404`. A command that a supervisor refuses answers `403` with the reason.
+
+| Method and path | Purpose | Role |
+|---|---|---|
+| `POST /api/executions/{executionId}/pause` | Pause a run | `OPERATOR` |
+| `POST /api/executions/{executionId}/resume` | Resume a paused run | `OPERATOR` |
+| `POST /api/executions/{executionId}/nodes/{nodeId}/pause` | Pause a node | `OPERATOR` |
+| `POST /api/executions/{executionId}/nodes/{nodeId}/resume` | Resume a node | `OPERATOR` |
+| `POST /api/executions/{executionId}/nodes/{nodeId}/stop` | Stop a node | `OPERATOR` |
+| `POST /api/executions/{executionId}/nodes/{nodeId}/skip` | Skip or unskip a node | `OPERATOR` |
+| `POST /api/executions/{executionId}/nodes/{nodeId}/step/enable` | Turn on step mode | `OPERATOR` |
+| `POST /api/executions/{executionId}/nodes/{nodeId}/step/disable` | Turn off step mode | `OPERATOR` |
+| `POST /api/executions/{executionId}/nodes/{nodeId}/step` | Let one element through | `OPERATOR` |
+| `POST /api/executions/{executionId}/nodes/{nodeId}/retry` | Retry a failed node | `OPERATOR` |
+| `POST /api/executions/{executionId}/nodes/{nodeId}/breakpoint` | Set a breakpoint | `OPERATOR` |
+| `DELETE /api/executions/{executionId}/nodes/{nodeId}/breakpoint` | Clear a breakpoint | `OPERATOR` |
+| `POST /api/executions/{executionId}/nodes/{nodeId}/signal` | Answer a waiting node | `OPERATOR` |
+| `GET /api/control/nodes` | List active nodes | `VIEWER` |
+| `GET /api/control/workflows/{workflowId}/nodes` | List active nodes of a workflow | `VIEWER` |
+| `GET /api/control/workflows/{workflowId}/nodes/{nodeId}/heartbeat` | Read a node's last heartbeat | `VIEWER` |
+| `POST /api/control/workflows/{workflowId}/nodes/{nodeId}/command` | Send a command to a node | `ADMIN` |
+| `GET /api/control/audit` | List control commands | `VIEWER` |
+
+Every execution and node control call, except retry, returns `data.executionId`, the id of the execution it acted on. The deprecated `/api/workflow/{sessionId}/{executionId}/...` forms of these calls are listed under [deprecated aliases](/api/overview#deprecated-aliases).
+
+## Pause and resume a run
+
+`POST /api/executions/{executionId}/pause`
+`POST /api/executions/{executionId}/resume`
+
+Pausing applies backpressure to the whole run, so nodes stop taking new work until you resume. The run's `controlState` becomes `PAUSED`, then `RESUMED`.
+
+```http
+POST /api/executions/550e8400-e29b-41d4-a716-446655440000/pause
+```
+
+```json
+{
+  "timestamp": "2026-07-19T10:15:30.123456",
+  "status": 200,
+  "message": "Workflow pause signal accepted",
+  "data": { "executionId": "550e8400-e29b-41d4-a716-446655440000" }
+}
+```
+
+## Pause and resume a node
+
+`POST /api/executions/{executionId}/nodes/{nodeId}/pause`
+`POST /api/executions/{executionId}/nodes/{nodeId}/resume`
+
+Pauses or resumes one node; the rest of the run keeps going. **Errors**: `404` if the node does not exist or cannot be paused.
+
+## Stop a node
+
+`POST /api/executions/{executionId}/nodes/{nodeId}/stop`
+
+| Query parameter | Default | Meaning |
+|---|---|---|
+| `immediate` | `false` | `true` stops the node at once. `false` lets work in flight drain first |
+| `reason` | `Stopped via REST API` | A reason recorded with the command |
+
+**Errors**: `404` if the node does not exist or cannot be stopped.
+
+## Skip or unskip a node
+
+`POST /api/executions/{executionId}/nodes/{nodeId}/skip`
+
+A skipped node passes its input through unchanged instead of running its plugin. Only processor nodes can be skipped.
+
+| Query parameter | Default | Meaning |
+|---|---|---|
+| `skip` | `true` | `true` skips the node, `false` resumes normal processing |
+
+**Errors**: `400` if the node is not a processor, `404` if the node does not exist.
+
+## Step through a node
+
+`POST /api/executions/{executionId}/nodes/{nodeId}/step/enable`
+`POST /api/executions/{executionId}/nodes/{nodeId}/step/disable`
+`POST /api/executions/{executionId}/nodes/{nodeId}/step`
+
+Step mode makes a node hold its input so you can watch it one element at a time. Enable it, call `step` once per element to let exactly one through, and disable it to return to normal flow.
+
+## Retry a failed node
+
+`POST /api/executions/{executionId}/nodes/{nodeId}/retry`
+
+Starts a new run from a node that ended `FAILURE` or `TIMED_OUT`. The nodes before it replay their recorded output; the node and everything behind it run again. The original run is left as it was.
+
+**Response `data`**: `executionId` of the **new** run.
+
+**Errors**: `404` if the run or node is unknown, `400` if the node did not fail.
+
+```http
+POST /api/executions/550e8400-e29b-41d4-a716-446655440000/nodes/fetch/retry
+```
+
+```json
+{
+  "timestamp": "2026-07-19T10:15:30.123456",
+  "status": 200,
+  "message": "Node retry accepted",
+  "data": { "executionId": "7c9e6679-7425-40de-944b-e07fc1f90ae7" }
+}
+```
+
+## Set and clear a breakpoint
+
+`POST /api/executions/{executionId}/nodes/{nodeId}/breakpoint`
+`DELETE /api/executions/{executionId}/nodes/{nodeId}/breakpoint`
+
+A breakpoint holds a node before the first element whose field equals a value. Resume the node to continue.
+
+| Query parameter | Required | Meaning |
+|---|---|---|
+| `field` | yes | The field to compare, for example `payload.status` |
+| `equals` | yes | The value that triggers the breakpoint |
+
+`DELETE` takes no parameters. **Errors**: `404` if the node does not exist or cannot hold a breakpoint.
+
+```http
+POST /api/executions/550e8400-e29b-41d4-a716-446655440000/nodes/deploy/breakpoint?field=payload.status&equals=error
+```
+
+## Send a signal to a node
+
+`POST /api/executions/{executionId}/nodes/{nodeId}/signal`
+
+Releases or rejects a node that waits for a named signal, such as a `WAIT_FOR_SIGNAL` approval step. Find waiting nodes with the [pending approvals list](/api/executions#list-pending-approvals). See [Approvals and signals](/building/approvals-and-signals).
+
+| Query parameter | Required | Meaning |
+|---|---|---|
+| `name` | yes | The signal the node waits for |
+| `decision` | yes | The decision, for example `approve` or `reject` |
+| `data` | no | Text that goes with the decision |
+
+**Errors**: `409` if the node is not waiting for that signal, `404` if the run or node is unknown.
+
+```http
+POST /api/executions/550e8400-e29b-41d4-a716-446655440000/nodes/approve/signal?name=release-approval&decision=approve&data=ship+it
+```
+
+## Control states
+
+The `controlState` of an execution status reports the latest operator command. Its values are `PAUSED`, `RESUMED`, `NODE_PAUSED`, `NODE_RESUMED`, `NODE_STEPPED`, `NODE_STOPPED`, `NODE_SKIPPED`, `NODE_UNSKIPPED`, `STEP_MODE_ENABLED`, `STEP_MODE_DISABLED` and `STOPPING`. It is separate from the run `status` and never ends a run by itself.
+
+## List active nodes
+
+`GET /api/control/nodes`
+`GET /api/control/workflows/{workflowId}/nodes`
+
+Lists the nodes registered on the control bus, that is nodes that have sent a heartbeat. The first call covers all workflows, the second one workflow.
+
+**Response `data`**: an array of node ids.
+
+```json
+{
+  "timestamp": "2026-07-19T10:15:30.123456",
+  "status": 200,
+  "message": "Active nodes retrieved",
+  "data": ["trigger", "map", "end"]
+}
+```
+
+## Read a node's heartbeat
+
+`GET /api/control/workflows/{workflowId}/nodes/{nodeId}/heartbeat`
+
+Returns the most recent heartbeat message of a node, as a message object in `data`.
+
+## Send a command to a node
+
+`POST /api/control/workflows/{workflowId}/nodes/{nodeId}/command`
+
+Sends an administrative command to a node through the control bus and returns the node's answer. The body is a bare JSON object with 1 to 100 entries. Which commands a node understands depends on its plugin. Approval signals cannot be sent this way and are refused with `403`; use the signal endpoint.
+
+**Response `data`**: `payload`, what the node answered.
+
+```http
+POST /api/control/workflows/greet/nodes/map/command
+Content-Type: application/json
+```
+
+```json
+{ "action": "flush" }
+```
+
+## List control commands
+
+`GET /api/control/audit`
+
+Lists the newest control commands recorded in the execution log, whether applied or refused, with who sent them. Newest first.
+
+| Query parameter | Default | Meaning |
+|---|---|---|
+| `limit` | `100` | How many entries, 1 to 500 |
+| `executionId` | all | Only the commands of this run |
+
+**Response `data`**: an array of entries.
+
+| Field | Type | Meaning |
+|---|---|---|
+| `time` | string | When the command was recorded |
+| `executionId` | string | The run, or `scheduler` for a limit change |
+| `command` | string | The command, such as `PauseWorkflowCommand` or `SetLimits(2, 0)` |
+| `actor` | string | `key:<name>` for a named API key, or the id of the supervisor that sent it. Absent for the single key or no key |
+| `applied` | boolean | `false` if a supervisor or the run refused it |
+| `reason` | string | Why it was refused. Absent when applied |
+
+```http
+GET /api/control/audit?limit=2
+```
+
+```json
+{
+  "timestamp": "2026-07-19T10:15:30.123456",
+  "status": 200,
+  "message": "Control commands retrieved",
+  "data": [
+    {
+      "time": "2026-07-19T10:15:20.100Z",
+      "executionId": "550e8400-e29b-41d4-a716-446655440000",
+      "command": "PauseWorkflowCommand",
+      "actor": "key:alice",
+      "applied": true
+    },
+    {
+      "time": "2026-07-19T10:14:02.500Z",
+      "executionId": "scheduler",
+      "command": "SetLimits(2, 0)",
+      "actor": "rate-guard",
+      "applied": false,
+      "reason": "Not allowed while the deployment window is closed"
+    }
+  ]
+}
+```
+
+## Related
+
+- [Run controls](/running/run-controls)
+- [Supervisors](/running/supervisors)
+- [Streams API](/api/streams)

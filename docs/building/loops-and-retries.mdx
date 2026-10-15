@@ -1,0 +1,79 @@
+---
+title: "Loops and retries"
+description: "Repeat work until a condition holds, within bounds, and choose between a loop, an engine retry and a polling loop."
+---
+
+Yukta has two different mechanisms for doing something again. Choosing the right one matters.
+
+| Need | Use | Scope |
+|---|---|---|
+| A step failed and should be tried again for the same message | [Engine retry](/concepts/failure-handling) (`engine.retry`) | One message, one node, with backoff |
+| Repeat an action until a condition becomes true (polling, waiting for readiness) | `LOOP_PREDICATE` | A target plugin, repeated and bounded |
+| Run an action repeatedly and pass every result downstream | `LOOP_STREAM` | A target plugin, each result emitted as a message |
+
+## Engine retry
+
+A retry reruns a failed attempt with exponential backoff and jitter. It is for transient faults, not for waiting.
+
+```json
+{
+  "nodeId": "call-api",
+  "type": "HTTP_REQUEST",
+  "config": {
+    "url": "https://service.example.com/orders",
+    "method": "POST",
+    "engine": {
+      "retry": { "maxAttempts": 4, "backoffMs": 200, "maxBackoffMs": 5000 },
+      "onError": "ROUTE"
+    }
+  }
+}
+```
+
+A plugin that reports invalid input is never retried. Because a retry can show the same message twice, make downstream side effects idempotent on the message id. See [Failure handling](/concepts/failure-handling).
+
+## Poll until a condition holds
+
+`LOOP_PREDICATE` wraps another plugin, runs it repeatedly and stops when an **exit condition** is true or a bound is reached. This example polls a command until it has run three times, one second apart, and never runs more than five times or longer than one minute:
+
+```json
+{
+  "nodeId": "poll",
+  "type": "LOOP_PREDICATE",
+  "config": {
+    "targetPluginId": "PROCESS_EXECUTOR",
+    "targetConfig": { "command": ["check-ready"], "failureMode": "CONTINUE" },
+    "exitCondition": "#iterationCount >= 3",
+    "maxIterations": 5,
+    "maxDuration": "PT1M",
+    "delayInterval": "PT1S",
+    "failureStrategy": "ABORT"
+  }
+}
+```
+
+| Option | Meaning |
+|---|---|
+| `targetPluginId` | The plugin type to run on each iteration |
+| `targetConfig` | The target plugin's own options |
+| `exitCondition` | An expression; the loop ends when it is true. `#iterationCount` is the number of completed iterations |
+| `maxIterations` | Hard cap on iterations |
+| `maxDuration` | Hard cap on total time, as an ISO-8601 duration such as `PT1M` |
+| `delayInterval` | Pause between iterations, as an ISO-8601 duration |
+| `failureStrategy` | What to do if an iteration fails |
+
+Always set `maxIterations` and `maxDuration`. A loop without a bound that never meets its condition runs until the node's time limits end it.
+
+## Stream every result
+
+`LOOP_STREAM` runs the target repeatedly and emits each result as its own message, so downstream nodes process results as they arrive. Use it for paging through results or generating a series of items.
+
+## Time limits still apply
+
+A loop is one node, so the node's idle timeout and `deadlineMs` bound it. Raise `timeoutSeconds` for long polling, or have the plugin report progress so its idle clock restarts; see [Time limits](/concepts/time-limits).
+
+## Related
+
+- [Failure handling](/concepts/failure-handling)
+- [Routing and flow control](/plugins/routing-and-flow)
+- [Scheduling](/building/scheduling)

@@ -1,0 +1,54 @@
+---
+title: "Time limits"
+description: "The five independent clocks that bound an execution, and how pausing and long-running work interact with them."
+---
+
+Yukta bounds an execution with five independent clocks. All of them are **pause-aware**: pausing freezes every clock, so a pause never causes a timeout.
+
+| Clock | Scope | Resets on | Ends with |
+|---|---|---|---|
+| Queue wait | A start waiting for a slot | not applicable | `TIMED_OUT` after `yukta.execution.queue-timeout` (off by default) |
+| Run deadline | The whole execution | never | `TIMED_OUT`. 3600 seconds by default (`yukta.session.execution-timeout-seconds`) |
+| Node idle | One node | Any input, output, retry attempt or heartbeat | The node ends `TIMED_OUT` |
+| Element timeout | One attempt at one message | Each attempt | The attempt fails, so retry and error routing apply |
+| Node deadline | One node, from its first activity | never (paused time is excluded) | The node ends `TIMED_OUT` |
+
+## Node idle timeout
+
+The idle clock is the node's `timeoutSeconds`. When you do not set it, the plugin supplies a default that fits its work:
+
+| Plugin | Default idle timeout |
+|---|---|
+| `PROCESS_EXECUTOR` | Its own timeout (300 s by default) plus 10 % (at least 5 s) |
+| `LLM_CALL` | Every attempt plus backoff |
+| `HTTP_REQUEST` | Its own timeout plus 5 s |
+| `WAIT_FOR_SIGNAL` | Its wait plus 30 s |
+| Others | 30 s |
+
+Triggers have no input, so they keep the default idle timeout unless the plugin declares another.
+
+A timeout given as an expression is unknown until a message arrives. The node starts with the default and is re-timed when its first message comes in. Write numeric options as typed expressions, for example `${payload.secs:int}`; see [Variables and expressions](/building/variables-and-expressions).
+
+## Long silent work
+
+A node that works for a long time without producing output would hit its idle timeout. A plugin keeps its node alive by sending a **heartbeat**, which restarts the idle clock. Remote workers send heartbeats automatically while an attempt runs. See [Writing a plugin](/plugins/writing-a-plugin).
+
+## Element timeout and deadline
+
+Set both in a node's `engine` object:
+
+```json
+"engine": { "elementTimeoutMs": 20000, "deadlineMs": 600000 }
+```
+
+`deadlineMs` must be above `elementTimeoutMs`. A terminal's idle timeout and `deadlineMs` also cover what it does after its last input.
+
+## Run deadline
+
+The run deadline bounds the whole execution and defaults to 3600 seconds. Change it with `yukta.session.execution-timeout-seconds` (environment form `YUKTA_SESSION_EXECUTION_TIMEOUT_SECONDS`). Because it never resets, it is the safety net for a workflow that should always finish. A run that outlives it ends `TIMED_OUT`; a node that times out keeps its own status.
+
+## Related
+
+- [Failure handling](/concepts/failure-handling)
+- [Run controls](/running/run-controls)
+- [Admission and limits](/running/admission-and-limits)

@@ -1,0 +1,47 @@
+---
+title: "Sub-workflows"
+description: "Run another stored workflow from inside a node, once per message."
+---
+
+The `SUB_WORKFLOW` processor runs another stored workflow of the **same session** for each message it receives. Use it to compose small workflows into larger ones, to share a reusable sequence between several workflows, or to build agent-style plans where a step decides which workflow to run.
+
+## Behaviour
+
+- The child is a normal execution with its own execution id. It is tracked, logged and audited like any other.
+- The child's terminal nodes feed a result collector. The sub-workflow node emits one message with `{ "executionId": ..., "results": [...] }`.
+- A failing child fails the node, so the parent's [failure policy](/concepts/failure-handling) applies to it: retries, error routing and timeouts all work as for any node.
+- The child's start payload carries two labels, `yukta.depth` and `yukta.parentExecutionId`, so a child can tell how deep it is and who started it.
+- The child runs inside the parent node. Cancelling or stopping the node cancels the child (`CANCELLED`).
+
+## Concurrency
+
+When `yukta.execution.max-concurrent` is set, a child runs on the slot its parent already holds. Children are therefore not counted against the limits or the running-executions gauge, which prevents a parent that waits for its children from starving them.
+
+## Example
+
+A parent workflow that calls a reusable `notify` workflow for every ticket:
+
+```json
+{
+  "nodeId": "notify-each",
+  "type": "SUB_WORKFLOW",
+  "config": { "workflowId": "notify" }
+}
+```
+
+See [Routing and flow control](/plugins/routing-and-flow) for the node's full option list.
+
+## Limits and defaults
+
+| Item | Value |
+|---|---|
+| Maximum nesting depth | 5 |
+| Scope | The child must be a workflow of the same session |
+| Placement | A `SUB_WORKFLOW` node cannot be placed on a remote worker |
+| Run history | The parent-child link is carried in the child's start payload and its start entry in the execution log |
+
+## Related
+
+- [Executions](/concepts/executions)
+- [Failure handling](/concepts/failure-handling)
+- [Admission and limits](/running/admission-and-limits)

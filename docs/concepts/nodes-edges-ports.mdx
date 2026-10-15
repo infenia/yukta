@@ -1,0 +1,73 @@
+---
+title: "Nodes, edges and ports"
+description: "Node roles, how edges and output ports route messages, and how a node with several parents joins them."
+---
+
+A workflow graph is built from **nodes** and **edges**. Nodes do the work. Edges say where each node's output goes. **Ports** let one node send different outcomes down different edges.
+
+## Nodes
+
+A node is one step. It has a `nodeId` that is unique within the workflow, a `type` naming the plugin that implements it, and a `config` object holding that plugin's options.
+
+The type decides the node's **role**:
+
+| Role | Inputs | Outputs | Purpose |
+|---|---|---|---|
+| Trigger | none | one or many messages | Starts the flow: an API call, a constant payload or a schedule |
+| Processor | one or more parents | one or more children | Transforms, routes, calls out, decides |
+| Terminal | one or more parents | none | Ends a branch: logs the result or sends a notification |
+
+A workflow needs at least one trigger (no inbound edges) and at least one terminal (no outbound edges), with processors in between. A trigger may emit many messages in one execution.
+
+## Edges
+
+An edge is a one-way connection from a `source` node to a `target` node. Every message a node emits is delivered to each of its outgoing edges, so a node with two outgoing edges feeds both children (a fan-out). The slowest child sets the pace; see [Delivery and back-pressure](/concepts/delivery-and-backpressure).
+
+```json
+{ "source": "fetch", "target": "transform" }
+```
+
+## Ports
+
+A node can publish messages on a named **output port**. An edge can name the port it listens to with `sourcePort`:
+
+```json
+{ "source": "tests", "target": "report-pass", "sourcePort": "success" },
+{ "source": "tests", "target": "report-fail", "sourcePort": "failure" }
+```
+
+| Edge | Receives |
+|---|---|
+| No `sourcePort` | Every message the source emits, **except** messages on the `error` port |
+| `sourcePort` set | Only messages the source emitted on that port |
+
+The ports a node offers depend on its plugin. Examples: the process plugin routes by exit code to `success` and `failure`, the HTTP plugin can route by status, the branch plugin offers one port per case, and the validate plugin sends rejected messages to `invalid`. The plugin reference lists each node's ports.
+
+The `error` port is built in. When a processor is configured with `onError: ROUTE`, a message that fails all its retries leaves on `error`, carrying the reason, so you can send it to a dead-letter node. Edges without a port never carry dead letters, so failures cannot leak into the normal path. See [Failure handling](/concepts/failure-handling).
+
+<Warning>
+  A message emitted on a port that no edge listens to is dropped. Validation rejects an edge that names a port the source plugin does not declare.
+</Warning>
+
+## Several parents: join rules
+
+A node with several parents receives the messages of all of them. A **join rule** decides what happens when one parent fails. It is set per node with `engine.trigger`:
+
+| `engine.trigger` | Effect |
+|---|---|
+| `ALL_SUCCESS` (default) | The node fails as soon as one parent fails |
+| `ALL_DONE` | The node carries on with the parents that worked |
+| `ONE_SUCCESS` | The node carries on, but fails if every parent failed |
+
+The rule belongs to the node, not to an individual edge.
+
+## Limits
+
+A workflow can have at most 500 nodes and 2000 edges. Node ids, like every identifier, are limited to 256 characters.
+
+## Related
+
+- [Messages](/concepts/messages)
+- [Failure handling](/concepts/failure-handling)
+- [Routing and branching](/building/routing-and-branching)
+- [Plugin overview](/plugins/overview)

@@ -1,0 +1,249 @@
+---
+title: "Configuration"
+description: "Every setting an operator can change, its default and what it controls, plus the per-node engine options."
+---
+
+The Yukta server runs with safe defaults and needs no configuration to start on loopback. This page lists every setting that changes how it admits, runs, stores and protects executions, grouped by area.
+
+<Note>
+  Yukta is pre-beta (`0.0.1-SNAPSHOT`). Setting names and defaults may change before v0.1.0.
+</Note>
+
+## How settings are supplied
+
+Settings are keys such as `yukta.execution.max-concurrent`. The server reads them from these places:
+
+| Source | Form | Example |
+|---|---|---|
+| Command-line argument | `--key=value` after the program name | `--yukta.execution.max-concurrent=20` |
+| Environment variable | The key in upper case, with `.` and `-` replaced by `_` | `YUKTA_SESSION_BASE_DIR=/data/yukta` |
+| Configuration file | `key=value` lines in a properties file read at start | `yukta.execution.on-limit=REJECT` |
+| System property | `-Dkey=value` before the program arguments | `-Dyukta.script.timeout-ms=5000` |
+
+Durations accept a number with a unit, such as `30s`, `10m` or `1h`. A plain `0` means off where the table says so.
+
+These environment variables are used in the project's own scripts and image: `YUKTA_SERVER_ADDRESS`, `YUKTA_API_KEY`, `YUKTA_LIMITS_MAX_BODY`, `YUKTA_SESSION_BASE_DIR`, `YUKTA_SESSION_EXECUTION_TIMEOUT_SECONDS`, `YUKTA_PROCESS_ALLOW_ANY`, `SERVER_PORT` and `SPRING_PROFILES_ACTIVE`.
+
+Four groups are not read from the configuration file. `yukta.script.timeout-ms` and `yukta.script.max-statements` are read only as system properties. The variable allow-list is read from the system property `yukta.variables.allowed` or the environment variable `YUKTA_VARIABLES_ALLOWED`. Workflow variables are read from system properties `yukta.var.*` or environment variables `YUKTA_VAR_*`. Secrets are read only from environment variables `YUKTA_SECRET_*`.
+
+```properties
+yukta.execution.max-concurrent=20
+yukta.execution.on-limit=REJECT
+yukta.execution-log.dir=/var/lib/yukta/log
+yukta.restart.dir=/var/lib/yukta/checkpoints
+```
+
+<Warning>
+  A native binary activates the `prod` profile itself unless a profile is given as a command-line argument. Pass profiles with `--spring.profiles.active=...` for a native binary, not with the environment variable. See [Deployment](/operations/deployment).
+</Warning>
+
+## Server and network
+
+| Setting | Default | Meaning |
+|---|---|---|
+| `server.address` (`YUKTA_SERVER_ADDRESS`) | `127.0.0.1` | Address the HTTP server binds to. Any non-loopback value needs an API key or the server refuses to start. The container image sets `0.0.0.0` |
+| `server.port` (`SERVER_PORT`) | `8080` | HTTP port for the API, the web UI and `/mcp` |
+| `spring.codec.max-in-memory-size` (`YUKTA_LIMITS_MAX_BODY`) | `1MB` | Largest request body (start payload, workflow definition, MCP call). A bigger body is answered with `413` |
+| `spring.profiles.active` | `dev` | Profile. `dev` is the default when none is named. See [Deployment](/operations/deployment) |
+| `management.endpoints.web.exposure.include` | `health,info,metrics` (`dev` adds `loggers,mappings,threaddump`) | Which management endpoints are exposed under `/actuator` |
+
+## Admission and limits
+
+All limits are off by default. See [Admission and limits](/running/admission-and-limits).
+
+| Setting | Default | Meaning and effect |
+|---|---|---|
+| `yukta.execution.max-concurrent` | `0` (off) | Total executions running at once. Starts beyond it wait or are refused |
+| `yukta.execution.max-concurrent-per-workflow` | `0` (off) | Executions of one workflow running at once |
+| `yukta.execution.max-concurrent-per-session` | `0` (off) | Executions of one session running at once |
+| `yukta.execution.on-limit` | `QUEUE` | `QUEUE` holds a start that does not fit with status `QUEUED`. `REJECT` refuses it with `429` |
+| `yukta.execution.queue-capacity` | `100` | Waiting starts. A start beyond it is refused with `429` |
+| `yukta.execution.queue-capacity-per-workflow` | `0` (off) | Waiting starts of one workflow |
+| `yukta.execution.queue-timeout` | `0` (off) | A start that waits longer ends `TIMED_OUT` |
+| `yukta.execution.shutdown-timeout` | `30s` | Time running executions get to finish when the server stops |
+| `yukta.start.idempotency-ttl` | `10m` | Window in which a repeated `Idempotency-Key` returns the first execution id |
+| `yukta.start.idempotency-max-keys` | `100000` | Size of the idempotency key cache. An evicted key lets a repeat start again |
+| `yukta.stop.drain-timeout` | `30s` | How long a `DRAIN` stop waits for work in progress |
+
+Two start payload keys work with these: `yukta.priority` (a number, higher runs first, default `0`) and `yukta.version` (run a saved version of the workflow).
+
+## Timeouts
+
+| Setting | Default | Meaning and effect |
+|---|---|---|
+| `yukta.session.execution-timeout-seconds` (`YUKTA_SESSION_EXECUTION_TIMEOUT_SECONDS`) | `3600` | Run deadline: an execution still going after this ends `TIMED_OUT`. Server-wide |
+| `yukta.execution.queue-timeout` | `0` (off) | Longest wait for a slot. See above |
+| `yukta.stop.drain-timeout` | `30s` | Deadline of a `DRAIN` stop |
+| `yukta.execution.shutdown-timeout` | `30s` | Grace time at server stop |
+
+Per-node clocks (idle, element and node deadline) are set in the node. See [Per-node engine options](#per-node-engine-options) and [Time limits](/concepts/time-limits).
+
+## Streams and history
+
+| Setting | Default | Meaning and effect |
+|---|---|---|
+| `yukta.tracker.cleanup-ttl` | `10m` | How long an execution's live state is kept after it ends |
+| `yukta.tracker.max-sessions` | `0` (off) | When more sessions are held in memory, the oldest session with no running execution is dropped. Keep it small: every start scans the sessions while the limit is exceeded |
+| `yukta.streaming.status-history-max-per-run` | `200` | Progress snapshots kept per execution for late stream clients |
+| `yukta.streaming.status-history-max-executions` | `1000` | Executions with progress history |
+| `yukta.streaming.status-history-ttl-minutes` | `5` | How long that history is kept |
+
+## Logs and results
+
+| Setting | Default | Meaning and effect |
+|---|---|---|
+| `yukta.logs.store.backend` | `memory` | Where node log lines are kept. `memory` is the only supported value |
+| `yukta.logs.store.retention.default-period-minutes` | `30` | Log retention. Values are clamped between 1 minute and 24 hours (`1440`) |
+| `yukta.results.retained-events` | `1000` | Result events replayed per execution to a late client |
+| `yukta.results.retention` | `1h` | Time after last use before an execution's results are dropped |
+| `yukta.results.max-executions` | `200` | Executions with retained results |
+
+Logs and results are held in memory and are lost on restart.
+
+## Durability
+
+See [Persistence](/operations/persistence) and [Checkpoints and resume](/operations/checkpoints-and-resume).
+
+| Setting | Default | Meaning and effect |
+|---|---|---|
+| `yukta.execution-log.dir` | unset (memory) | Keep the execution log as a file in this directory. Needed to recover and resume after a restart. Ignored when the session store is PostgreSQL |
+| `yukta.execution-log.retained-runs` | `500` | Newest runs kept and restored at start. A run without an end is never dropped |
+| `yukta.execution-log.compact-after` | `10000` | The log is trimmed after this many appended events |
+| `yukta.execution-log.fsync` | `false` | Force every event to disk. Without it a power loss can lose the last few events |
+| `yukta.restart.dir` | unset (memory) | Keep node outputs (checkpoints) on disk, with no size caps. Needed to resume |
+| `yukta.restart.spill-dir` | unset | With in-memory checkpoints, move the output of a node that outgrows the caps to files here. Do not point it at a shared folder |
+| `yukta.restart.retained-executions` | `10` | Finished executions kept restartable |
+| `yukta.restart.messages-per-node` | `200` | In-memory cap: messages kept per node and execution |
+| `yukta.restart.bytes-per-node` | `4194304` (4 MiB) | In-memory cap: bytes kept per node and execution |
+| `yukta.restart.auto-resume` | `false` | After recovery, resume each interrupted run, one after another |
+
+## Stores
+
+| Setting | Default | Meaning and effect |
+|---|---|---|
+| `yukta.session.store-type` | `in-memory` | `in-memory`, `file` or `postgres`. Selects the store for sessions and workflow definitions, and for the execution log when `postgres` |
+| `yukta.session.base-dir` (`YUKTA_SESSION_BASE_DIR`) | `.yukta` in the user's home directory | Root directory of the file store |
+| `yukta.restart.store-type` | file if `yukta.restart.dir` is set, else memory | `postgres` stores checkpoints in PostgreSQL |
+| `yukta.kv.store-type` | `memory` | `postgres` keeps the state of `KV_STORE` nodes in PostgreSQL |
+| `yukta.session-memory.store-type` | `memory` | `postgres` keeps `SESSION_MEMORY` chat history in PostgreSQL |
+| `yukta.session-memory.dir` | unset | Keep chat history as files in this directory |
+| `yukta.session-memory.ttl` | unset | With PostgreSQL history, drop a session's history after this idle time |
+| `spring.r2dbc.url` | none | PostgreSQL URL used at run time, `r2dbc:postgresql://host:5432/yukta` |
+| `spring.r2dbc.username`, `spring.r2dbc.password` | none | Credentials for run-time access |
+| `spring.flyway.url` | none | PostgreSQL URL used for schema migrations, `jdbc:postgresql://host:5432/yukta` |
+| `spring.flyway.user`, `spring.flyway.password` | none | Credentials for migrations |
+| `workflow.cache.ttl.ms` | `600000` | How long an unused prepared workflow stays cached. The cache is rebuilt on demand |
+
+The PostgreSQL settings need a build with the PostgreSQL switch and the `postgres` profile. See [Persistence](/operations/persistence).
+
+## Security
+
+See [Security](/operations/security).
+
+| Setting | Default | Meaning and effect |
+|---|---|---|
+| `yukta.api-key` (`YUKTA_API_KEY`) | unset | One key with the `ADMIN` role for REST and MCP |
+| `yukta.api-keys[i].name` | `unnamed` | Name of a key. Appears in the audit as `key:<name>` |
+| `yukta.api-keys[i].key` | required | The key, as plain text or `sha256:<64 hex digits>` |
+| `yukta.api-keys[i].role` | `VIEWER` | `VIEWER`, `OPERATOR` or `ADMIN` |
+| `yukta.api-keys[i].sessions` | all sessions | Limit the key to these session ids |
+| `yukta.mcp.api-key` | unset | An extra `ADMIN` key that works only on `/mcp` |
+| `yukta.allowed-hosts` | loopback names | Extra `Host` values accepted while no key is set |
+| `yukta.allowed-origins` | none | Extra `Origin` values accepted for changing requests while no key is set |
+| `yukta.variables.allowed` (`YUKTA_VARIABLES_ALLOWED`) | empty | Extra environment variable and system property names workflows may read with `${env.X}` and `${sys.x}` |
+| `yukta.var.*` (`YUKTA_VAR_*`) | none | Names that workflows may always read |
+| `YUKTA_SECRET_<NAME>` | none | The value behind `decrypted:<name>` |
+
+## AI and plugin safety
+
+| Setting | Default | Meaning and effect |
+|---|---|---|
+| `yukta.process.allowed-commands` | empty | Executables `PROCESS_EXECUTOR` may run, matched by the exact name used in the command. While empty, nothing runs |
+| `yukta.process.allow-any` | `false` | Let `PROCESS_EXECUTOR` run any executable when no list is set |
+| `yukta.script.timeout-ms` | `10000` | Longest a JavaScript script may run. System property only |
+| `yukta.script.max-statements` | `50000000` | Most statements a script may run. System property only |
+| `yukta.mcp-client.allowed-tools` | empty (any) | Tools `MCP_TOOL_CALL` may call |
+| `yukta.mcp-client.max-argument-bytes` | `65536` | Most bytes of arguments, as JSON, in one tool call |
+| `yukta.mcp-client.deny-argument-patterns` | empty | Regular expressions that tool arguments must not match |
+| `yukta.llm.deny-input-patterns` | empty | Regular expressions the prompt must not match |
+| `yukta.llm.deny-output-patterns` | empty | Regular expressions the answer and its tool-call arguments must not match |
+| `yukta.llm.max-input-chars` | `0` (no limit) | Most characters of prompt in one call |
+| `yukta.llm.rate-limit.<provider>` | off | Requests per minute to a provider, across all nodes and runs |
+
+## Supervisors and control planes
+
+See [Supervisors](/running/supervisors) and [Control planes](/running/control-planes).
+
+| Setting | Default | Meaning and effect |
+|---|---|---|
+| `yukta.supervisor.max-commands-per-second` | `20` | Rate limit for each supervisor's commands |
+| `yukta.supervisor.dry-run` | `false` | Record supervisor commands without applying them |
+| `yukta.supervisor.rules.file` | unset | JSON rules file. Setting it enables the rule supervisor |
+| `yukta.control-plane.rules.file` | unset | JSON rules file. Setting it enables the rule control plane |
+| `yukta.control-plane.rules-first.rules-file` | unset | Rules file of the rules-first control plane |
+| `yukta.control-plane.model.name` | unset | Model name. Setting it enables the model control plane |
+
+## Workers
+
+See [Remote workers](/operations/remote-workers). Build with the workers switch.
+
+| Setting | Side | Default | Meaning and effect |
+|---|---|---|---|
+| `yukta.workers.token` | both | none | Shared secret. A server with a token and no control-plane address accepts workers |
+| `spring.rsocket.server.port` | control plane | none | Port workers connect to |
+| `spring.rsocket.server.ssl.bundle` | control plane | none | TLS bundle for the worker port |
+| `spring.rsocket.server.ssl.client-auth` | control plane | none | `need` requires a client certificate (mutual TLS) |
+| `yukta.workers.lease` | both | `15s` | How long a renewal keeps a worker listed |
+| `yukta.workers.control-plane` | worker | none | `host:port` of the control plane. Several addresses, comma separated, for high availability |
+| `yukta.workers.id` | worker | none (required) | The worker's name |
+| `yukta.workers.pools` | worker | `default` | Pools the worker serves, comma separated |
+| `yukta.workers.plugin-types` | worker | empty (runs nothing) | Plugin types the worker may run, comma separated |
+| `yukta.workers.capacity` | worker | `4` | Node attempts at once |
+| `yukta.workers.drain-timeout` | worker | `30s` | Longest wait for running attempts when the worker stops |
+| `yukta.workers.ssl-bundle` | worker | none (plain TCP) | TLS bundle for the connection to the control plane |
+
+## High availability
+
+See [High availability](/operations/high-availability).
+
+| Setting | Default | Meaning and effect |
+|---|---|---|
+| `yukta.ha.mode` | single server | `postgres` enables active/standby. Needs the PostgreSQL stores |
+| `yukta.ha.lease` | `15s` | Leader lease. The leader renews it three times per lease |
+| `yukta.ha.instance-id` | random per start | This server's name in the lease row |
+| `yukta.restart.auto-resume` | `false` | Resume interrupted runs after a takeover |
+
+## Internal tuning
+
+| Setting | Default | Meaning and effect |
+|---|---|---|
+| `control.bus.batch.size` | `100` | Plugin-level control signals handled per batch |
+| `control.bus.batch.timeout.ms` | `50` | Longest wait to fill a batch |
+| `control.bus.buffer.size` | `256` | Buffer for plugin-level control signals |
+
+## Per-node engine options
+
+A node's `config` may hold a reserved `engine` object. The server reads it and plugins never see it. Unknown keys are rejected when the workflow is validated.
+
+| Option | Applies to | Default | Meaning |
+|---|---|---|---|
+| `retry.maxAttempts` | Processors | `3` once `retry` is present | Total attempts including the first, 1 to 10 |
+| `retry.backoffMs` | Processors | `200` | Delay before the first retry. It doubles on each retry, with jitter |
+| `retry.maxBackoffMs` | Processors | `10000` | Upper bound of the retry delay |
+| `retry.retryOn`, `retry.noRetryOn` | Processors | empty | Error class names to retry or never retry. `noRetryOn` wins |
+| `onError` | Processors | `FAIL` | `FAIL` ends the node, `CONTINUE` drops the message, `ROUTE` sends it to the `error` port |
+| `failureBudget.maxFailures`, `failureBudget.windowMs` | With `CONTINUE` or `ROUTE` | off | More failures than this inside the window fail the node |
+| `trigger` | Nodes with several parents | `ALL_SUCCESS` | Join rule: `ALL_SUCCESS`, `ALL_DONE` or `ONE_SUCCESS` |
+| `elementTimeoutMs` | Processors | none | Time limit for one attempt at one message |
+| `deadlineMs` | Any node | none | Time limit for the node from its first activity. Must exceed `elementTimeoutMs` |
+| `edgeBuffer.size`, `edgeBuffer.overflow` | Any node | off | A bounded buffer in front of the node, size 1 to 100000. When full it drops `DROP_OLDEST` (default) or `DROP_NEWEST` instead of slowing the parents |
+| `placement.pool` | Processors | local | Run the node on a worker of this pool. A `placement` without `pool` uses `default` |
+
+The node's own `timeoutSeconds` sets the idle timeout. Details are in [Failure handling](/concepts/failure-handling) and [Time limits](/concepts/time-limits).
+
+## Related
+
+- [Limits and defaults](/reference/limits-and-defaults)
+- [Admission and limits](/running/admission-and-limits)
+- [Security](/operations/security)
+- [Deployment](/operations/deployment)

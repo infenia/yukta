@@ -1,0 +1,107 @@
+---
+title: "Errors"
+description: "The error response shape, field errors and every HTTP status the REST API returns, with the cause and what to do."
+---
+
+Every failure is an HTTP status code plus, in most cases, a JSON error body. This page lists the body, the field errors and each status the API can return.
+
+## Error body
+
+Errors use the [response envelope](/api/overview#response-envelope) with error fields instead of `data`.
+
+```json
+{
+  "timestamp": "2026-07-19T10:15:30.123456",
+  "status": 404,
+  "error": "Not Found",
+  "message": "Session not found: demo",
+  "path": "/api/sessions/demo"
+}
+```
+
+| Field | Meaning |
+|---|---|
+| `status` | The HTTP status code |
+| `error` | The standard reason phrase for the status, such as `Not Found` |
+| `message` | What went wrong, in a sentence you can show to a person |
+| `path` | The request path |
+| `errors` | A list of field errors. Present only when the problem is tied to fields |
+| `timestamp` | When the error was produced |
+
+Branch on `status`, not on the text of `message`. Messages are written for people and can change.
+
+Three kinds of refusal are answered by the access checks before a request reaches the API and carry no body: `401`, `403` from the key or host checks, and `400` for an ambiguous path. Handle them by status code alone.
+
+## Field errors
+
+A `400` caused by invalid input lists each problem in `errors`. Each entry names the field and says what is wrong.
+
+```json
+{
+  "timestamp": "2026-07-19T10:15:30.123456",
+  "status": 400,
+  "error": "Bad Request",
+  "message": "Validation failed",
+  "path": "/api/sessions",
+  "errors": [
+    { "field": "name", "message": "Session name is mandatory" },
+    { "field": "initiator", "message": "Initiator is mandatory" }
+  ]
+}
+```
+
+A request body with a field the API does not know is rejected the same way, with the field name and the message `Unknown field: '<name>'`.
+
+```json
+{
+  "timestamp": "2026-07-19T10:15:30.123456",
+  "status": 400,
+  "error": "Bad Request",
+  "message": "Invalid request body",
+  "path": "/api/workflow/start",
+  "errors": [{ "field": "workflowID", "message": "Unknown field: 'workflowID'" }]
+}
+```
+
+## Status codes
+
+| Status | Cause | What to do |
+|---|---|---|
+| `400` Bad Request | Invalid input: a field fails validation, the body is not valid JSON or has an unknown field, a required query parameter is missing or has the wrong type, or the workflow failed validation (for example a cycle, an unknown plugin type, or no trigger node). Also an action that does not apply, such as skipping a node that is not a processor, or restarting from an unknown node | Read `message` and `errors`, fix the request and send it again. Use `POST /api/sessions/validate` to check a workflow before you save it |
+| `401` Unauthorized | A key is required and none, or an unknown one, was sent. The response carries `WWW-Authenticate: Bearer` | Send the key as `Authorization: Bearer <key>` or `X-API-Key: <key>` |
+| `403` Forbidden | One of: the key's role is too low for the call; the key is limited to other sessions; the `Host` or `Origin` check failed on a server without a key; a supervisor or rule refused a control command; or a command sent to a node carried an approval signal | Use a key with a higher role, a key for the session, or the right host name. For a refused command, read `message` and the [control audit](/api/control#list-control-commands) |
+| `404` Not Found | The session, workflow, execution, node, plugin type or workflow version does not exist. An execution that belongs to another session is reported the same way, so one session cannot probe another | Check the identifiers. Run ids are only kept as long as the history keeps them |
+| `405` Method Not Allowed | The path exists but not for that HTTP method | Use the method the endpoint page lists |
+| `409` Conflict | The target's current state does not allow the request. `signal` answers it when the node is not waiting for that signal. `recover` answers it when the run was not aborted, was already recovered, has no recorded start payload, its workflow changed since it started, or every node had already finished | Read `message`; for a signal, list the [pending approvals](/api/executions#list-pending-approvals) first |
+| `413` Content Too Large | The request body is larger than the limit (`1MB` by default) | Send a smaller body, or raise `YUKTA_LIMITS_MAX_BODY` |
+| `429` Too Many Requests | A start was refused because the execution limit is reached and the queue is full (or queueing is off), or because the server is shutting down | Retry later with the same `Idempotency-Key`. See [Admission and limits](/running/admission-and-limits) |
+| `500` Internal Server Error | An unexpected failure. The message is `An unexpected error occurred. Reference: <request id>`; the cause is only in the server log | Report the request id from the message or the `X-Request-ID` header |
+| `503` Service Unavailable | The call is a start that reached a standby server in a high-availability pair. Only the leader starts runs | Send the request to the leader, or retry after the standby takes over. See [High availability](/operations/high-availability) |
+
+Other client errors raised while handling the request, such as an unsupported media type, use the same envelope and the standard status code.
+
+## Which calls return which errors
+
+| Call | Common errors |
+|---|---|
+| `POST /api/sessions` | `400` validation or workflow validation, `403` role |
+| `POST /api/workflow/start` | `400`, `404` unknown session or workflow, `429` limit reached, `503` standby |
+| Execution reads and controls | `404` unknown execution, `409` for `signal` and `recover` |
+| Node controls | `404` unknown node, or a node that cannot be paused or stopped; `400` when a skip targets a node that is not a processor |
+| `POST /api/executions/{executionId}/priority` | `400` when the run is not waiting for a slot |
+| Version calls | `404` unknown version, `400` missing parameter |
+
+## Retry guidance
+
+| Status | Safe to retry? |
+|---|---|
+| `400`, `401`, `403`, `404`, `405`, `413` | No. Change the request first |
+| `409` | Only after the target's state changes |
+| `429`, `503` | Yes, with backoff. Send the same `Idempotency-Key` on a start so a retry cannot create two runs |
+| `500` | Once, then report it |
+
+## Related
+
+- [REST API overview](/api/overview)
+- [Failure handling](/concepts/failure-handling)
+- [Troubleshooting](/operations/troubleshooting)

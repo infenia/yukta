@@ -1,0 +1,174 @@
+---
+title: "Capacity and performance"
+description: "The ceilings, bounded and unbounded memory, admission limits, every metric the server publishes, what to alert on and how to run the load tests."
+---
+
+Yukta runs the engine and the control plane in one server process. This page lists what bounds that process, which limits to set before you accept traffic, and how to watch it.
+
+## Ceilings
+
+| Ceiling | Value | Changed by |
+|---|---|---|
+| Nodes per workflow | 500 | Fixed |
+| Edges per workflow | 2000 | Fixed |
+| Sub-workflow nesting depth | 5 | Fixed |
+| Waiting starts | 100 | `yukta.execution.queue-capacity` |
+| Request body | 1 MiB | `spring.codec.max-in-memory-size` |
+| Saved versions per workflow | 20 | Fixed |
+| Edge buffer size | 1 to 100000 | `engine.edgeBuffer.size` per node |
+| Retry attempts per message | 10 | `engine.retry.maxAttempts` per node |
+
+A workflow over the graph limits is refused when it is validated. A start that would nest sub-workflows deeper than 5 fails.
+
+Admission, command ordering and run state live in one server at a time. [High availability](/operations/high-availability) gives failover, not more admission capacity. To move node work off the server, use [remote workers](/operations/remote-workers).
+
+## What is in memory
+
+| Data | Bound | Setting |
+|---|---|---|
+| Live state of ended executions | Kept `10m` after the end | `yukta.tracker.cleanup-ttl` |
+| Sessions held by the tracker | Not limited | `yukta.tracker.max-sessions` (off) |
+| Progress history for late stream clients | 200 snapshots per execution, 1000 executions, 5 minutes | `yukta.streaming.*` |
+| Result events | 1000 per execution, 200 executions, 1 hour after last use | `yukta.results.*` |
+| Node log lines | 30 minutes by default, 1 minute to 24 hours | `yukta.logs.store.retention.default-period-minutes` |
+| Log lines waiting to be recorded | 10,000, then dropped and counted | Fixed |
+| Execution log (in memory) | Newest 500 runs, trimmed every 10,000 events | `yukta.execution-log.retained-runs`, `compact-after` |
+| Idempotency keys | 100,000 keys for 10 minutes | `yukta.start.idempotency-*` |
+| Restartable executions | 10 | `yukta.restart.retained-executions` |
+| Checkpoints (memory store) | 200 messages and 4 MiB per node and execution | `yukta.restart.messages-per-node`, `bytes-per-node` |
+| Prepared workflows | Dropped after 10 minutes unused | `workflow.cache.ttl.ms` |
+
+Not bounded:
+
+- **The tracker's state queue.** Every state change goes through one queue that never drops events. An event storm shows up as memory growth, not as lost data. Alert on `yukta.tracker.queue.depth`.
+- **Large payloads.** Every node that touches a payload holds it in memory. Yukta has no reference-passing for large data, so keep payloads small or pass references yourself.
+- **Chat history held in memory.** `SESSION_MEMORY` keeps the history of every session it has read until the server restarts, unless it is stored in PostgreSQL with `yukta.session-memory.ttl`.
+
+## Back-pressure
+
+Every edge is a stream. A slow consumer slows its producers, so memory between nodes stays bounded without queues. A node with several children moves at the pace of its slowest child.
+
+To keep one slow branch from slowing the others, put an `edgeBuffer` in front of the slow node. When it is full, it drops the oldest (or newest) message instead of pacing the parents. Drops are counted in `yukta.edge.dropped`. The default stays lossless.
+
+Other bounded paths drop rather than wait: a supervisor that is too slow loses events (`yukta.tracker.dropped{kind=supervisor}`), and more than 10,000 pending log lines are dropped (`yukta.tracker.dropped{type=log}`). State events are never dropped by design.
+
+See [Delivery and back-pressure](/concepts/delivery-and-backpressure).
+
+## Limits to set before you accept traffic
+
+All admission limits are off by default. Set them to match the machine and protect other sessions:
+
+| Setting | Why |
+|---|---|
+| `yukta.execution.max-concurrent` | Total running executions the machine can carry |
+| `yukta.execution.max-concurrent-per-session` | One busy session cannot take every slot |
+| `yukta.execution.max-concurrent-per-workflow` | One workflow cannot take every slot |
+| `yukta.execution.queue-capacity` | How many starts may wait (default 100). More are refused with `429` |
+| `yukta.execution.on-limit=REJECT` | Refuse instead of queue when you prefer clients to back off |
+| `yukta.execution.queue-timeout` | A start that waits too long ends `TIMED_OUT` |
+| `yukta.session.execution-timeout-seconds` | Bound a run so a stuck run does not hold a slot forever |
+
+A paused run keeps its slot and its clocks are frozen, so paused runs count against `max-concurrent`.
+
+The queue admits by priority, then by the session with the fewest running executions, then by arrival, so one busy session cannot starve the others. See [Admission and limits](/running/admission-and-limits).
+
+## Metrics
+
+Meters are read at `GET /actuator/metrics` (the list) and `GET /actuator/metrics/{name}`. The default configuration exposes the metrics endpoint only. Standard process meters for memory, threads and CPU are available there too.
+
+| Meter | Type | Tags | Meaning |
+|---|---|---|---|
+| `yukta.node.executions` | counter | `module`, `status` | Nodes that reached a terminal status. `module` is the node's plugin type |
+| `yukta.node.duration` | timer | `module` | Node run time |
+| `yukta.node.retries` | counter | `module` | Messages retried |
+| `yukta.execution.duration` | timer | `status` | Run time of ended executions |
+| `yukta.execution.queue.wait` | timer | none | Time starts waited for a slot |
+| `yukta.executions.running` | gauge | none | Executions holding a slot |
+| `yukta.executions.queued` | gauge | none | Executions waiting for a slot |
+| `yukta.executions.rejected` | counter | `reason` | Refused starts. Reasons: `shutdown`, `limit`, `queue_full`, `workflow_queue_full`, `queue_timeout`, `not_leader` |
+| `yukta.tracker.queue.depth` | gauge | none | State events accepted and not yet applied |
+| `yukta.tracker.dropped` | counter | `type` (`log`, `state`) or `kind` (`supervisor`) | Dropped log lines, lost state events, and events a slow supervisor missed |
+| `yukta.tracker.log.append.failed` | counter | `type` (`node`, `run`) | Failed writes to the execution log |
+| `yukta.edge.dropped` | counter | `type` | Messages dropped by an edge buffer. `type` is the node's plugin type |
+| `yukta.checkpoint.bytes` | gauge | none | Node output held by the checkpoint store |
+| `yukta.checkpoint.errors` | counter | none | End markers that could not be written |
+| `yukta.plugin.events` | counter | `plugin`, `outcome` | Counts that plugins report. Includes `llm.budget.exceeded` and `mcp.budget.exceeded` as `plugin` values |
+| `yukta.supervisor.commands` | counter | `id`, `outcome` | Commands issued by each supervisor |
+| `yukta.workers` | gauge | none | Workers connected to the control plane |
+| `yukta.worker.slots` | gauge | none | Free node slots across the workers |
+| `yukta.leader` | gauge | none | `1` on the leader. Present with [high availability](/operations/high-availability) |
+| `yukta.mcp.call` | timer | `tool`, `outcome` | `MCP_TOOL_CALL` duration |
+| `llm.tokens` | counter | `provider`, `direction` | Model tokens used, `input` or `output` |
+| `llm.cost` | counter | `provider` | Model cost, when the node reports it |
+
+## What to alert on
+
+| Signal | Why it matters |
+|---|---|
+| `yukta.tracker.queue.depth` growing | The tracker cannot keep up. Memory grows with it |
+| `yukta.executions.queued` high for a long time, or `yukta.execution.queue.wait` rising | Limits are lower than demand |
+| `yukta.executions.rejected` rising | Clients are being refused. The reason tag says why |
+| `yukta.checkpoint.errors` above 0 | Some nodes cannot be resumed. They run again on resume |
+| `yukta.tracker.dropped` above 0 | Log lines or events were lost |
+| `yukta.tracker.log.append.failed` above 0 | The execution log is missing entries. Recovery and resume may be incomplete |
+| `yukta.checkpoint.bytes` growing | Checkpoint outputs are accumulating |
+| `yukta.node.executions` with `status` `FAILURE` or `TIMED_OUT` | Node failure rate |
+| `yukta.leader` not exactly one `1` across servers | No leader, or more than one |
+| `yukta.worker.slots` at 0 | Placed nodes will fail until workers free up |
+| Process memory or thread count rising without leveling off | Something is growing. Check the bounds above |
+
+## Tracing
+
+Tracing is optional. Each execution is one observation `yukta.run`, the parent of one `yukta.node` observation per node (tags `module` and `status`). The observations become spans only when a tracing library is part of the build. The standard build does not include one, and Yukta has no tracing settings of its own.
+
+## Sizing
+
+Yukta does not publish throughput figures. Size from your own workflows:
+
+1. Set the admission limits above, with a queue small enough that waiting starts do not pile up.
+2. Run the load test below with your workflows and watch memory, threads and CPU.
+3. Bound server memory with `yukta.tracker.cleanup-ttl` and `yukta.execution-log.retained-runs`. Throttle with `yukta.execution.max-concurrent` and `yukta.execution.queue-capacity`. A `429` shows up as a refused start.
+4. Move heavy nodes to [workers](/operations/remote-workers).
+
+## Load tests
+
+The repository's `perf` directory holds two k6 load-test scripts (k6 is a command-line load-testing tool). Both create one session per workflow, then start workflows in turn through `POST /api/workflow/start` and poll `GET /api/executions/{id}` until each ends. Run the server with the `prod` profile first.
+
+```bash
+k6 run perf/k6/load.js
+k6 run -e RATE=200 -e HOLD=10m perf/k6/load.js
+k6 run perf/k6/soak.js
+k6 run -e DURATION=8h -e RATE=10 perf/k6/soak.js
+```
+
+| Script | Default shape |
+|---|---|
+| `load.js` | Ramp for 1 minute, hold 3 minutes, ramp down for 1 minute, at 100 starts per second |
+| `soak.js` | 20 starts per second for 1 hour |
+
+| Variable | Meaning |
+|---|---|
+| `BASE_URL` | Server address, `http://localhost:8080` by default |
+| `API_KEY` | Key to send when the server has one |
+| `RATE`, `RAMP`, `HOLD`, `DURATION` | Load shape |
+| `WORKFLOWS` | Comma-separated workflows to cycle through. Default `trigger-terminal,mapper,filter,chain10` |
+| `MAX_REJECTED` | Highest accepted share of starts refused with `429`. Default `0.01` |
+
+The tests report `workflow_e2e` (start to end), `workflow_success` and `workflow_rejected` (the share of starts refused with `429`), each tagged by workflow. The soak test samples memory, thread count and CPU every 30 seconds from `/actuator/metrics`. Heap and thread count should level off. Steady growth means something is not bounded.
+
+## Limits and defaults
+
+| Item | Default |
+|---|---|
+| Graph | 500 nodes, 2000 edges |
+| Sub-workflow depth | 5 |
+| Queue capacity | 100 |
+| State queue | Unbounded |
+| Pending log lines | 10,000 |
+
+## Related
+
+- [Admission and limits](/running/admission-and-limits)
+- [Observability](/running/observability)
+- [Limits and defaults](/reference/limits-and-defaults)
+- [Troubleshooting](/operations/troubleshooting)

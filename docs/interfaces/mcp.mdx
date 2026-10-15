@@ -1,0 +1,254 @@
+---
+title: "MCP server"
+description: "Let an AI agent create sessions, run workflows, watch them and steer them through the Model Context Protocol."
+---
+
+Yukta includes a Model Context Protocol (MCP) server. An MCP client such as Claude Code can use it to create a session, start a workflow, read its status, logs and result, and control the run, all as tool calls.
+
+<Note>
+  Yukta is pre-beta (`0.0.1-SNAPSHOT`). Tool names, arguments and result fields may change before v0.1.0.
+</Note>
+
+Use MCP when an agent drives Yukta. A person or a script is better served by the [REST API](/api/overview) or the [command-line client](/interfaces/cli), which cover the same operations plus a few more. The MCP server offers 23 tools, 2 prompts and 3 resources.
+
+## Endpoint and transport
+
+The server listens at `/mcp` on the same address and port as the REST API, for example `http://localhost:8080/mcp`. It uses the streamable HTTP transport in stateless mode: every request stands alone and there is no MCP session to keep. There is no standard-input transport. The former path `/sse` is still accepted as an alias for `/mcp`.
+
+## Connect a client
+
+With Claude Code, one command adds the server:
+
+```bash
+claude mcp add --transport http yukta http://localhost:8080/mcp
+```
+
+When the server requires a key, add it as a header:
+
+```bash
+claude mcp add --transport http yukta http://localhost:8080/mcp \
+  --header "Authorization: Bearer <key>"
+```
+
+Other clients take the same two values, a URL and optional headers. A typical configuration file looks like this:
+
+```json
+{
+  "mcpServers": {
+    "yukta": {
+      "type": "http",
+      "url": "http://localhost:8080/mcp",
+      "headers": { "Authorization": "Bearer <key>" }
+    }
+  }
+}
+```
+
+## Authentication and roles
+
+`/mcp` is protected by the same keys as the REST API, plus an optional `yukta.mcp.api-key` that grants the `ADMIN` role to MCP only. Send the key as `Authorization: Bearer <key>` or `X-API-Key: <key>`. Setting only the REST key therefore closes MCP too. With no key configured, the server accepts requests from loopback only, as for REST; see [Security](/operations/security).
+
+A key that is not an unrestricted `ADMIN` key has each tool call checked against the role the tool needs. A call that is not allowed is refused with HTTP `403`. A request body above 1 MB is refused with `413`. A key limited to sessions can call a tool only with a `sessionId` argument that names one of its sessions. The four tools that name no session (`list_plugins`, `get_plugin_details`, `get_session_creation_instructions` and `get_plugin_creation_guide`) are open to such a key. `list_sessions` and `get_control_bus_status` are not.
+
+| Role | Tools it may call |
+|---|---|
+| `VIEWER` | `list_sessions`, `get_session_details`, `get_workflow_details`, `get_workflow_status`, `get_workflow_history`, `get_execution_logs`, `get_execution_result`, `list_pending_approvals`, `list_workflow_versions`, `diff_workflow_versions`, `list_plugins`, `get_plugin_details`, `get_plugin_creation_guide`, `get_session_creation_instructions`, `get_control_bus_status` |
+| `OPERATOR` | Everything `VIEWER` can, plus `start_workflow`, `control_workflow`, `control_node`, `set_node_breakpoint`, `signal_node`, `rollback_workflow`, `note_workflow_version` |
+| `ADMIN` | Everything, including `create_session` |
+
+Rolling back a version and writing a version note need only the `OPERATOR` role over MCP, while the equivalent REST calls need `ADMIN`. `create_session` needs `ADMIN` because the workflows it defines can run processes and reach external systems.
+
+With named keys, control commands sent through MCP are recorded in the [control audit](/api/control#list-control-commands) as `key:<name>`.
+
+## Tools
+
+Tools return structured JSON, except where noted. Every tool that takes an `executionId` also takes the `sessionId` that owns it. An unknown execution and an execution of another session give the same error, so one session cannot probe another.
+
+### Sessions
+
+| Tool | Role | Arguments | Result |
+|---|---|---|---|
+| `list_sessions` | `VIEWER` | none | `sessions`: an array of `sessionId` and `workflowCount` |
+| `get_session_details` | `VIEWER` | `sessionId` | `sessionId` and `workflowIds` |
+| `create_session` | `ADMIN` | `config`: an object with `sessionId`, `name`, `description`, `initiator`, `projectPath`, `tags` and `workflows`, the same fields as [`POST /api/sessions`](/api/sessions#apply-a-session) | `sessionId`, `createdWorkflows`, `warnings` and `success` |
+| `get_session_creation_instructions` | `VIEWER` | none | Guidance for writing a session: naming rules, the configuration structure, an example, and the available plugins with their categories |
+
+`create_session` replaces an existing session with the same `sessionId`. Its description tells the agent to confirm with the user first, and the tool is marked destructive so clients can prompt for approval.
+
+### Workflows and runs
+
+| Tool | Role | Arguments | Result |
+|---|---|---|---|
+| `get_workflow_details` | `VIEWER` | `sessionId`, `workflowId` | The workflow definition: nodes and edges |
+| `start_workflow` | `OPERATOR` | `sessionId`, `workflowId` | `executionId` |
+| `get_workflow_status` | `VIEWER` | `sessionId`, `executionId` | The progress snapshot: run status, a status for each node, and start and end times. Poll it to follow a run |
+| `get_workflow_history` | `VIEWER` | `sessionId` | `executions`: run summaries with `executionId`, `workflowId`, `status`, `startTime`, `endTime` |
+| `get_execution_logs` | `VIEWER` | `sessionId`, `executionId`; optional `tailLines`, `filterPattern`, `afterCursor` | `executionId`, `totalLines`, `returnedLines`, `lines` and `nextCursor` |
+| `get_execution_result` | `VIEWER` | `sessionId`, `executionId`; optional `afterCursor` | The [result object](/api/executions#read-the-result-of-a-run): `complete`, `status`, `nextCursor` and `events` |
+
+`start_workflow` has no payload argument; it starts the workflow with an empty trigger payload. To start with input, use the REST API or the CLI.
+
+`get_execution_logs` returns formatted log lines. `filterPattern` is a regular expression applied to each line, at most 200 characters, and an expensive pattern is rejected. `tailLines` keeps the last N matching lines. One call returns at most 5000 lines. While a run is active, pass the previous `nextCursor` as `afterCursor` to receive only the lines written since, and read each line once.
+
+`get_execution_result` is the way to read the output of a run: every message that reached a terminal node, then `NODE_END` and `EXECUTION_END` events. `complete` is `true` once the run has ended; use `get_workflow_status` to tell whether it is still running.
+
+### Control
+
+| Tool | Role | Arguments | Result |
+|---|---|---|---|
+| `control_workflow` | `OPERATOR` | `sessionId`, `action`; `executionId` for all actions except `STOP_ALL`; `workflowId` for `STOP_ALL`; `fromNodeId` for `RESTART_FROM_NODE`; optional `reason` | `action`, `executionId`, `nodeId`, `resultExecutionIds` and `message` |
+| `control_node` | `OPERATOR` | `sessionId`, `executionId`, `nodeId`, `action`; optional `immediate` and `reason` for `STOP` | The same result object |
+| `set_node_breakpoint` | `OPERATOR` | `sessionId`, `executionId`, `nodeId`, `field`, `equalsValue` | The same result object |
+| `signal_node` | `OPERATOR` | `sessionId`, `executionId`, `nodeId`, `signalName`, `decision`; optional `data` | The same result object |
+| `list_pending_approvals` | `VIEWER` | `sessionId` | `sessionId` and `approvals`: each with `executionId`, `workflowId`, `nodeId`, `name`, `since` |
+
+**`control_workflow` actions**
+
+| Action | Effect |
+|---|---|
+| `PAUSE`, `RESUME` | Pause or resume a run |
+| `STOP` | Stop one run |
+| `STOP_ALL` | Stop every active run of `workflowId` |
+| `RESTART` | Restart a run from the beginning as a new run |
+| `RESTART_FROM_NODE` | Restart as a new run from `fromNodeId` |
+| `RECOVER` | Continue a run that a server restart aborted, as a new run |
+
+`RESTART`, `RESTART_FROM_NODE` and `RECOVER` return the id of the new run in `resultExecutionIds`. `STOP_ALL` returns the ids it stopped there.
+
+**`control_node` actions**
+
+| Action | Effect |
+|---|---|
+| `PAUSE`, `RESUME`, `STOP` | Pause, resume or stop the node. `immediate=true` stops it at once instead of draining |
+| `STEP_ENABLE`, `STEP_DISABLE`, `STEP` | Turn step mode on or off, or let one element through |
+| `SKIP`, `UNSKIP` | Pass the node's input through, or process it again. Only processors can be skipped |
+| `RETRY` | Restart from a node that failed, as a new run; its id is in `resultExecutionIds` |
+| `BREAKPOINT_CLEAR` | Remove the node's breakpoint |
+
+`set_node_breakpoint` holds a node when a payload field equals a value, such as `field=payload.status` and `equalsValue=error`. `signal_node` answers a node that waits for a signal, such as an approval step: `decision` `approve` lets the message through, `reject` fails or drops it, and any other value is passed on to the workflow. It fails when the node is not waiting. See [Approvals and signals](/building/approvals-and-signals) and [Run controls](/running/run-controls).
+
+### Versions
+
+Each change to a workflow is saved as a version, and the newest 20 are kept.
+
+| Tool | Role | Arguments | Result |
+|---|---|---|---|
+| `list_workflow_versions` | `VIEWER` | `sessionId`, `workflowId` | `versions`, newest first: `id`, `savedAt`, `note` |
+| `diff_workflow_versions` | `VIEWER` | `sessionId`, `workflowId`, `olderVersion`; optional `newerVersion` (the current definition when omitted) | Nodes added, removed and changed, and edges added and removed |
+| `rollback_workflow` | `OPERATOR` | `sessionId`, `workflowId`, `version` | `workflowId` and `version` |
+| `note_workflow_version` | `OPERATOR` | `sessionId`, `workflowId`, `version`, `note` (blank clears it) | `workflowId`, `version` and `note` |
+
+A rollback saves the restored definition as a new version, and runs that already started keep the definition they use.
+
+### Plugins and server status
+
+| Tool | Role | Arguments | Result |
+|---|---|---|---|
+| `list_plugins` | `VIEWER` | none | `plugins`: each with `type` and `category` |
+| `get_plugin_details` | `VIEWER` | `type` | `type`, `category`, `description`, `usagePattern`, `uiDesign` and `outputPorts` |
+| `get_plugin_creation_guide` | `VIEWER` | optional `templateType`: `trigger`, `processor`, `terminal` or `all` | Guidance and templates for writing a plugin |
+| `get_control_bus_status` | `VIEWER` | optional `filterType`: `sessions`, `plugins`, `health` or `executions` | `activeSessions` (with active run counts), `pluginRegistry`, `systemHealth` (memory and uptime) and `recentExecutions` (the 20 newest) |
+
+For the options of a plugin, the [REST plugin endpoint](/api/catalogue#get-a-plugin) also returns the declared configuration schema.
+
+## Prompts
+
+Prompts are templates a client can offer to the user.
+
+| Prompt | Arguments | What it asks the agent to do |
+|---|---|---|
+| `debug-workflow` | `sessionId`, `executionId` | Inspect the node statuses, search the logs, review the workflow definition, find the root cause and suggest a fix, restarting if that helps |
+| `create-session-config` | none | Read the session instructions and the plugin list, draft workflows, and apply them with `create_session` |
+
+## Resources
+
+| URI | Content |
+|---|---|
+| `yukta://overview` | A short overview of Yukta and the typical tool flow |
+| `yukta://architecture` | A description of the DAG model, sessions, the control bus and logs |
+| `yukta://sessions/{sessionId}/executions/{executionId}/logs` | The persisted logs of a run, one line per line of text |
+
+## What an agent sees on errors
+
+A failed tool call returns a tool result marked as an error, with a message the agent can act on. The text names the problem and, where it helps, the tool to use next.
+
+| Situation | Message |
+|---|---|
+| Unknown session | `Session not found: <id>. Use list_sessions to see available sessions.` |
+| Unknown execution, or one of another session | `Execution not found: <id>. Use get_workflow_history to list executions.` |
+| Missing argument for an action | `executionId is required for action PAUSE.` |
+| Bad log filter | `Invalid regex pattern: ...` or `Regex pattern too long (max 200 characters).` |
+| Bad status filter | `Unsupported filter: <value>. Valid filters: sessions, executions, plugins, health; omit the filter for the full status.` |
+| Unknown plugin | `Plugin not found: <type>` |
+
+Calls that the key may not make are refused at HTTP level instead; see [Authentication and roles](#authentication-and-roles).
+
+## Example: create, run and watch a workflow
+
+An agent is asked to greet Ada with a small workflow. It reads the instructions, creates the session, starts the workflow and follows the run.
+
+<Steps>
+  <Step title="Read the instructions and the plugins">
+    The agent calls `get_session_creation_instructions` and `list_plugins` to learn the format and the node types.
+  </Step>
+  <Step title="Create the session">
+    `create_session` with:
+
+    ```json
+    {
+      "config": {
+        "sessionId": "greetings",
+        "name": "Greetings",
+        "description": "Greet a user",
+        "initiator": "agent",
+        "projectPath": "/tmp",
+        "workflows": {
+          "greet": {
+            "workflowId": "greet",
+            "description": "Build a greeting",
+            "nodes": [
+              { "nodeId": "trigger", "type": "API_TRIGGER", "config": {} },
+              { "nodeId": "map", "type": "MAPPER", "config": { "mode": "PROJECTION", "mapping": { "greeting": "'Hello, ' + payload.name" } } },
+              { "nodeId": "end", "type": "CONSOLE_TERMINAL", "config": {} }
+            ],
+            "edges": [
+              { "source": "trigger", "target": "map" },
+              { "source": "map", "target": "end" }
+            ]
+          }
+        }
+      }
+    }
+    ```
+
+    The result is `{ "sessionId": "greetings", "createdWorkflows": ["greet"], "warnings": [], "success": true }`.
+  </Step>
+  <Step title="Start the workflow">
+    `start_workflow` with `{ "sessionId": "greetings", "workflowId": "greet" }` returns `{ "executionId": "550e8400-e29b-41d4-a716-446655440000" }`.
+  </Step>
+  <Step title="Read the status and logs">
+    `get_workflow_status` with the session and execution ids returns the run status and a status per node. `get_execution_logs` with `{ "sessionId": "greetings", "executionId": "550e8400-e29b-41d4-a716-446655440000", "afterCursor": 0 }` returns the lines so far and a `nextCursor` to pass on the next poll.
+  </Step>
+  <Step title="Read the result">
+    `get_execution_result` returns the events the terminal node received and `complete: true` once the run ended.
+  </Step>
+</Steps>
+
+If the run fails, the agent can call `control_node` with `RETRY` on the failed node, or `control_workflow` with `RESTART`, then follow the new run id from `resultExecutionIds`.
+
+## Limits and defaults
+
+| Limit | Value |
+|---|---|
+| Request body | 1 MB (`YUKTA_LIMITS_MAX_BODY`) |
+| Lines returned by `get_execution_logs` | 5000 per call |
+| Length of `filterPattern` | 200 characters |
+| Recent runs in `get_control_bus_status` | 20 |
+| Saved versions per workflow | 20 |
+
+## Related
+
+- [REST API overview](/api/overview)
+- [Building with AI and agents](/building/ai-and-agents)
+- [Security](/operations/security)
+- [Command-line client](/interfaces/cli)

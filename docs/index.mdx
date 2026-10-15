@@ -1,0 +1,76 @@
+---
+title: "Introduction"
+description: "Yukta is a reactive, DAG-based workflow orchestration server. Define a workflow once as JSON and run it from a script, a CI pipeline, a web UI or an AI agent."
+---
+
+Yukta runs **workflows**: graphs of small steps that pass messages to one another. You describe a workflow as JSON, store it on the server, and start it from anywhere that can make an HTTP request. While it runs you can watch it live, pause it, skip a step, approve a decision, retry a failure or stop it.
+
+<Note>
+  Yukta is pre-beta (`0.0.1-SNAPSHOT`). The workflow JSON, the REST API, the MCP tools and the plugin contract may change before v0.1.0, and there are no tagged releases yet, so you run Yukta from source.
+</Note>
+
+## What a workflow looks like
+
+```mermaid
+%%{init: {'theme':'base','themeVariables':{'primaryColor':'#E4EFFF','primaryBorderColor':'#2F6BFF','primaryTextColor':'#11161F','secondaryColor':'#EEF2F9','tertiaryColor':'#FBFCFE','lineColor':'#6A7A9B','fontFamily':'Inter, sans-serif'}}}%%
+flowchart LR
+  T["Trigger<br/>starts the flow"] --> P1["Processor<br/>call an API"]
+  P1 -- success --> P2["Processor<br/>transform"]
+  P1 -- error --> D["Terminal<br/>dead letter"]
+  P2 --> E["Terminal<br/>notify"]
+```
+
+A **trigger** starts the flow, **processors** transform, route and call out, and **terminals** end each branch. Processors can have named output ports such as `success` and `error`, so one node can send messages down different paths.
+
+## Why Yukta
+
+<CardGroup cols={2}>
+  <Card title="Workflows are data" icon="diagram-project">
+    A workflow is a JSON graph. There is no language to learn, and a graph is easy for people, tools and AI agents to generate, diff and review.
+  </Card>
+  <Card title="One definition, many callers" icon="plug">
+    Start the same workflow from the REST API, the web UI, the command-line client or an MCP client such as Claude.
+  </Card>
+  <Card title="Streaming, with back-pressure" icon="bolt">
+    Messages stream through the graph. A slow node slows the nodes feeding it, so memory stays bounded without queues between steps.
+  </Card>
+  <Card title="Observable and steerable" icon="gauge">
+    Live graph view, log and status streams, and run controls: pause, resume, step, breakpoints, skip, retry, restart and stop.
+  </Card>
+  <Card title="Failure is a first-class path" icon="shield-halved">
+    Retries with backoff, error routing to dead-letter nodes, failure budgets and five independent time limits are built in around every node.
+  </Card>
+  <Card title="Safe to start with" icon="lock">
+    The server listens on loopback only, refuses to run operating-system commands until you allow them, and requires an API key before it accepts remote connections.
+  </Card>
+</CardGroup>
+
+## What it is good for
+
+- **CI/CD and quality gates:** run build and test stages, route on exit codes, stop a pipeline on failure.
+- **Data pipelines:** split a batch, filter, map and load, with retries and dead letters.
+- **Operations automation:** health checks with alert paths, scheduled jobs, fan-out notifications.
+- **AI agents:** model calls, tool use over MCP, per-user memory, approval steps and budgets that stop runaway loops.
+
+## Where to go next
+
+<CardGroup cols={3}>
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Run the server and your first workflow in five minutes.
+  </Card>
+  <Card title="How Yukta works" icon="sitemap" href="/concepts/how-it-works">
+    Sessions, workflows, nodes, messages and executions.
+  </Card>
+  <Card title="Defining a workflow" icon="code" href="/building/defining-a-workflow">
+    The full JSON shape and the options every node accepts.
+  </Card>
+  <Card title="Plugins" icon="puzzle-piece" href="/plugins/overview">
+    Every built-in trigger, processor and terminal.
+  </Card>
+  <Card title="MCP server" icon="robot" href="/interfaces/mcp">
+    Let an AI agent create and run workflows.
+  </Card>
+  <Card title="REST API" icon="terminal" href="/api/overview">
+    Endpoints, authentication, paging and streams.
+  </Card>
+</CardGroup>

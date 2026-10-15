@@ -1,0 +1,78 @@
+---
+title: "Control planes"
+description: "Decision makers on the control bus that judge one event at a time, using rules, a small model, or rules first and a model as a fallback."
+tag: "Optional"
+---
+
+A **control plane** is a supervisor that decides what to do about **one event at a time**. Where a [supervisor](/running/supervisors) may keep state and emit any commands, a control plane answers a single question per event: nothing, pause, or stop. Control planes are optional and off until enabled. They share the hosting, auditing and rate limiting of supervisors.
+
+Three control planes are built in.
+
+| Control plane | Decides with | Enabled by |
+|---|---|---|
+| Rule control plane | The same JSON rules as the rule supervisor | `yukta.control-plane.rules.file` |
+| Model control plane | A small model asked a multiple-choice question | `yukta.control-plane.model.name` |
+| Rules-first control plane | Rules first; the model only when no rule fired | `yukta.control-plane.rules-first.model.name` |
+
+## Rule control plane
+
+Uses the format described in [Rule files](/running/rule-files):
+
+```properties
+yukta.control-plane.rules.file=/etc/yukta/rules.json
+```
+
+## Model control plane
+
+For each event the model is asked a question with a fixed set of answers. Each answer maps to a command: nothing (`NONE`), pause the workflow (`PAUSE`) or drain and stop it (`STOP`).
+
+It acts **only when it is sure**. An answer less probable than the minimum probability, an unknown answer, a failing or slow model and an unreadable reply all count as no opinion, so the model can never hold up the control bus. By default it can only pause; a stop has to be configured.
+
+```properties
+yukta.control-plane.model.name=my-model
+yukta.control-plane.model.backend=SYSTEMONE
+yukta.control-plane.model.timeout=2s
+yukta.control-plane.model.min-probability=0.6
+```
+
+| Setting | Default | Meaning |
+|---|---|---|
+| `yukta.control-plane.model.name` | required | Model name. Setting it enables the plane |
+| `yukta.control-plane.model.backend` | `SYSTEMONE` | `SYSTEMONE` uses a local Ollama constrained-answer endpoint with calibrated probabilities. `LLM` prompts any chat model (OpenAI-compatible, Anthropic or Ollama) to answer as JSON |
+| `yukta.control-plane.model.provider` | unset | Required for backend `LLM` |
+| `yukta.control-plane.model.base-url` | `http://localhost:11434` for `SYSTEMONE` | Model endpoint |
+| `yukta.control-plane.model.api-key` | unset | Key for the provider |
+| `yukta.control-plane.model.timeout` | `2s` | Longest the model may take; slower counts as no opinion |
+| `yukta.control-plane.model.min-probability` | `0.6` | Below this the answer is ignored |
+| `yukta.control-plane.model.instructions` | built in | The question asked about each event |
+| `yukta.control-plane.model.options` | `continue` and `pause` | Map of answers: each has a `description` of when it applies and a `command` (`NONE`, `PAUSE`, `STOP`). At least two are required |
+| `yukta.control-plane.model.events` | `NodeStatusChanged`, `WorkflowStatusChanged` | Event kinds the model is asked about |
+
+The default answers are `continue` (normal operation, a success, a retry that may still succeed, or an execution that already finished) and `pause` (repeated failures, exhausted retries, authentication errors or resource exhaustion that will not fix themselves, so a person must look). Write option descriptions explicitly: a small model needs them.
+
+## Rules-first control plane
+
+Combines both. Rules decide first; the model is asked only when no rule fired. Use it to handle the cases you can state exactly with rules and leave the long tail to the model. It takes the rules file and the same `model.*` settings under its own prefix:
+
+```properties
+yukta.control-plane.rules-first.rules-file=/etc/yukta/rules.json
+yukta.control-plane.rules-first.model.name=my-model
+```
+
+## Choosing
+
+| If you can... | Use |
+|---|---|
+| State the situations and responses exactly | Rule control plane (or just the rule supervisor) |
+| Describe situations only in words | Model control plane |
+| Do both, with exact cases taking priority | Rules-first control plane |
+
+## Writing your own
+
+A control plane implements one operation: decide what to do about an event, within a bounded time. An error counts as no opinion. See [Writing a plugin](/plugins/writing-a-plugin).
+
+## Related
+
+- [Supervisors](/running/supervisors)
+- [Rule files](/running/rule-files)
+- [Run controls](/running/run-controls)

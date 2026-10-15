@@ -1,0 +1,282 @@
+---
+title: "Workflows API"
+description: "Read workflow definitions and graphs, manage saved versions, and start, stop and list runs of a workflow."
+---
+
+These endpoints work on one workflow: read its definition, draw its graph, compare and restore saved versions, start it, stop its runs and list them. Creating or changing a definition happens through [Sessions](/api/sessions), because a workflow is saved as part of a session.
+
+| Method and path | Purpose | Role |
+|---|---|---|
+| `GET /api/sessions/{sessionId}/workflows/{workflowId}` | Read the definition | `VIEWER` |
+| `GET /api/sessions/{sessionId}/workflows/{workflowId}/graph` | Read the graph with plugin metadata | `VIEWER` |
+| `GET /api/sessions/{sessionId}/workflows/{workflowId}/executions` | List the runs of one workflow | `VIEWER` |
+| `GET /api/sessions/{sessionId}/workflows/{workflowId}/versions` | List saved versions | `VIEWER` |
+| `GET /api/sessions/{sessionId}/workflows/{workflowId}/versions/diff` | Compare two versions | `VIEWER` |
+| `POST /api/sessions/{sessionId}/workflows/{workflowId}/rollback` | Restore a saved version | `ADMIN` |
+| `POST /api/sessions/{sessionId}/workflows/{workflowId}/versions/note` | Write or clear a version note | `ADMIN` |
+| `POST /api/workflow/start` | Start a run | `OPERATOR` |
+| `POST /api/workflow/{sessionId}/{workflowId}/stop` | Stop every active run of a workflow | `OPERATOR` |
+| `GET /api/workflow/{sessionId}/history` | List the runs of a session | `VIEWER` |
+
+All responses use the [envelope](/api/overview#response-envelope). `404` is returned for an unknown session or workflow.
+
+## Get a definition
+
+`GET /api/sessions/{sessionId}/workflows/{workflowId}`
+
+Returns the workflow as stored.
+
+**Response `data`**: `workflowId`, `description`, `nodes` (each with `nodeId`, `type`, `config`) and `edges` (each with `source`, `target`, `sourcePort`).
+
+```http
+GET /api/sessions/demo/workflows/greet
+```
+
+```json
+{
+  "timestamp": "2026-07-19T10:15:30.123456",
+  "status": 200,
+  "message": "Workflow retrieved",
+  "data": {
+    "workflowId": "greet",
+    "description": "Build a greeting",
+    "nodes": [
+      { "nodeId": "trigger", "type": "API_TRIGGER", "config": {} },
+      { "nodeId": "end", "type": "CONSOLE_TERMINAL", "config": {} }
+    ],
+    "edges": [{ "source": "trigger", "target": "end", "sourcePort": "default" }]
+  }
+}
+```
+
+## Get the graph
+
+`GET /api/sessions/{sessionId}/workflows/{workflowId}/graph`
+
+Returns the nodes and edges enriched with what a canvas needs to draw them, plus the order in which nodes would run.
+
+**Response `data`**
+
+| Field | Type | Meaning |
+|---|---|---|
+| `workflowId`, `description` | string | As in the definition |
+| `nodes[].nodeId`, `nodes[].type` | string | As in the definition |
+| `nodes[].category` | string | `TRIGGER`, `PROCESSOR` or `TERMINAL`. Absent if the plugin type is unknown |
+| `nodes[].description` | string | What the plugin does. Absent if the type is unknown |
+| `nodes[].uiDesign` | object | The node's drawing: `html`, `width` and `height`. Absent when the plugin has none |
+| `nodes[].outputPorts` | array | Output port names for this node's configuration |
+| `edges` | array | `source`, `target` and `sourcePort` |
+| `topologicalOrder` | array | Node ids in execution order |
+
+## List the runs of one workflow
+
+`GET /api/sessions/{sessionId}/workflows/{workflowId}/executions`
+
+Returns run summaries of this workflow, newest first. An empty list means the workflow has never run. It takes `limit` and `cursor` and announces more pages in the `X-Next-Cursor` header; see [paging](/api/overview#paging).
+
+**Response `data`**: an array of run summaries.
+
+| Field | Type | Meaning |
+|---|---|---|
+| `executionId` | string | The run id |
+| `workflowId` | string | The workflow id |
+| `status` | string | The run status, see [Status values](/reference/status-values) |
+| `startTime` | string | When the run started |
+| `endTime` | string | When it ended. Absent while it runs |
+
+## List saved versions
+
+`GET /api/sessions/{sessionId}/workflows/{workflowId}/versions`
+
+Every change to a workflow's definition is saved as a version. The list is newest first and holds the newest 20 versions. Applying an unchanged definition does not create a version.
+
+**Response `data`**: an array of versions.
+
+| Field | Type | Meaning |
+|---|---|---|
+| `id` | string | The version id. Ids sort in the order versions were saved |
+| `savedAt` | string | When the version was saved |
+| `note` | string | The note on the version. Absent when there is none |
+
+```http
+GET /api/sessions/demo/workflows/greet/versions
+```
+
+```json
+{
+  "timestamp": "2026-07-19T10:15:30.123456",
+  "status": 200,
+  "message": "Workflow versions retrieved",
+  "data": [
+    { "id": "1784455530123-0a1b2c3d", "savedAt": "2026-07-19T10:05:30.123Z", "note": "Add the mapper" },
+    { "id": "1784451930456-7e8f9a0b", "savedAt": "2026-07-19T09:05:30.456Z" }
+  ]
+}
+```
+
+## Compare versions
+
+`GET /api/sessions/{sessionId}/workflows/{workflowId}/versions/diff`
+
+Compares an older version with a newer one, or with the current definition.
+
+| Query parameter | Required | Meaning |
+|---|---|---|
+| `from` | yes | The older version id |
+| `to` | no | The newer version id. The current definition when omitted |
+
+**Response `data`**
+
+| Field | Type | Meaning |
+|---|---|---|
+| `descriptionChanged` | boolean | Whether the description differs |
+| `addedNodes` | array | Ids of nodes only the newer version has |
+| `removedNodes` | array | Ids of nodes only the older version has |
+| `changedNodes` | array | Ids of nodes whose type or configuration differ |
+| `addedEdges` | array | Edges only the newer version has, written `source -> target` or `source -> target:port` |
+| `removedEdges` | array | Edges only the older version has |
+
+**Errors**: `404` if a version does not exist; `400` if `from` is missing.
+
+```http
+GET /api/sessions/demo/workflows/greet/versions/diff?from=1784451930456-7e8f9a0b
+```
+
+```json
+{
+  "timestamp": "2026-07-19T10:15:30.123456",
+  "status": 200,
+  "message": "Workflow versions compared",
+  "data": {
+    "descriptionChanged": false,
+    "addedNodes": ["map"],
+    "removedNodes": [],
+    "changedNodes": [],
+    "addedEdges": ["map -> end:default", "trigger -> map:default"],
+    "removedEdges": ["trigger -> end:default"]
+  }
+}
+```
+
+## Roll back to a version
+
+`POST /api/sessions/{sessionId}/workflows/{workflowId}/rollback?version={id}`
+
+Makes an earlier version the current definition. The restored definition is saved as a new version, so you can undo the rollback the same way. Runs that have already started keep the definition they use.
+
+| Query parameter | Required | Meaning |
+|---|---|---|
+| `version` | yes | The version id from the list |
+
+**Response `data`**: `workflowId` and `version`.
+
+**Errors**: `404` if the version does not exist.
+
+## Write a version note
+
+`POST /api/sessions/{sessionId}/workflows/{workflowId}/versions/note?version={id}&note={text}`
+
+Writes a note on a saved version, for example what changed and why. A blank note clears it. The text is trimmed.
+
+| Query parameter | Required | Meaning |
+|---|---|---|
+| `version` | yes | The version id |
+| `note` | no | The note. Blank clears it |
+
+**Response `data`**: `workflowId`, `version` and `note`.
+
+## Start a workflow
+
+`POST /api/workflow/start`
+
+Starts a run and returns its id at once. The run continues in the background; follow it with [status](/api/executions) or the [streams](/api/streams). A start may wait in a queue when the [execution limits](/running/admission-and-limits) are full; the run then reports `QUEUED` until it gets a slot.
+
+| Header | Meaning |
+|---|---|
+| `Idempotency-Key` | Optional. A repeat with the same key for the same workflow returns the first run id. See [idempotent start](/api/overview#idempotent-start) |
+
+**Request body**
+
+| Field | Type | Required | Meaning |
+|---|---|---|---|
+| `sessionId` | string | yes | The session |
+| `workflowId` | string | yes | The workflow |
+| `payload` | object | no | Input for the trigger node. Treated as empty when omitted. A numeric `yukta.priority` key sets the queue priority; higher is admitted first |
+
+**Response** `202 Accepted`. `data.executionId` is the run id.
+
+**Errors**: `404` unknown session or workflow, `400` a workflow that fails validation, `429` limit reached and no room to queue, `503` on a standby server.
+
+```http
+POST /api/workflow/start
+Idempotency-Key: greet-2026-07-19
+Content-Type: application/json
+```
+
+```json
+{ "sessionId": "demo", "workflowId": "greet", "payload": { "name": "Ada" } }
+```
+
+```json
+{
+  "timestamp": "2026-07-19T10:15:30.123456",
+  "status": 202,
+  "message": "Workflow start accepted",
+  "data": { "executionId": "550e8400-e29b-41d4-a716-446655440000" }
+}
+```
+
+## Stop all runs of a workflow
+
+`POST /api/workflow/{sessionId}/{workflowId}/stop`
+
+Stops every active run of the workflow and cuts the trigger's input stream, so no new messages arrive.
+
+| Query parameter | Default | Meaning |
+|---|---|---|
+| `mode` | `DRAIN` | `DRAIN` lets work in flight finish, and cancels it if it does not finish within the drain deadline. `CANCEL` cancels every node at once so plugins can clean up. `KILL` cancels at once and removes the run, so it accepts no further commands |
+
+**Response `data`**: `executionIds`, the runs that were signalled. To stop one run, use [`POST /api/executions/{executionId}/stop`](/api/executions#stop-a-run).
+
+**Errors**: `400` for an unknown `mode`.
+
+```http
+POST /api/workflow/demo/greet/stop?mode=CANCEL
+```
+
+```json
+{
+  "timestamp": "2026-07-19T10:15:30.123456",
+  "status": 200,
+  "message": "Workflow stop signals accepted",
+  "data": { "executionIds": ["550e8400-e29b-41d4-a716-446655440000"] }
+}
+```
+
+## List the runs of a session
+
+`GET /api/workflow/{sessionId}/history`
+
+Returns the runs of every workflow in the session, newest first. It takes `limit` and `cursor` (see [paging](/api/overview#paging)) and these filters. Every filter that is set must match.
+
+| Query parameter | Meaning |
+|---|---|
+| `workflowId` | Only runs of this workflow |
+| `status` | Only runs with this status, not case sensitive |
+| `text` | Only runs whose id contains this text, not case sensitive |
+| `since` | Only runs that started at or after this time, ISO date-time such as `2026-07-19T00:00:00` |
+| `until` | Only runs that started at or before this time |
+
+**Response `data`**: run summaries, as in the per-workflow list. How many runs the history keeps is set by `yukta.execution-log.retained-runs` (default `500`).
+
+**Errors**: `404` if the session does not exist.
+
+```http
+GET /api/workflow/demo/history?status=FAILURE&limit=20
+```
+
+## Related
+
+- [Executions API](/api/executions)
+- [Validation and versions](/building/validation-and-versions)
+- [Admission and limits](/running/admission-and-limits)

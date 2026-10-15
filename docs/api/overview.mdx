@@ -1,0 +1,175 @@
+---
+title: "REST API overview"
+description: "Base path, authentication, response envelope, paging, idempotency and stream conventions shared by every endpoint."
+---
+
+The Yukta server exposes everything it can do over a JSON REST API. The web UI, the command-line client and your own integrations all use it. This page covers the rules that apply to every endpoint; the endpoint pages list the individual calls.
+
+<Note>
+  Yukta is pre-beta (`0.0.1-SNAPSHOT`). Paths, fields and status codes may change before v0.1.0.
+</Note>
+
+## Base path and discovery
+
+All endpoints live under `/api` on the server address, `http://localhost:8080` by default. There is no version segment in the path.
+
+The server publishes an OpenAPI description at `/v3/api-docs` and interactive documentation at `/swagger-ui.html`. Both list every endpoint with its schemas.
+
+| Page | Covers |
+|---|---|
+| [Sessions](/api/sessions) | Session configuration, listing, validation |
+| [Workflows](/api/workflows) | Definitions, versions, start, stop, history |
+| [Executions](/api/executions) | Status, results, restart, recover, approvals, scheduler limits |
+| [Control](/api/control) | Pause, resume, per-node controls, control bus, audit |
+| [Streams](/api/streams) | Server-sent event streams |
+| [Catalogue](/api/catalogue) | Plugins, supervisors, workers |
+| [Errors](/api/errors) | Error shape and every status code |
+
+## Authentication
+
+A fresh server listens on loopback only and requires no key. When you configure `yukta.api-key` or `yukta.api-keys`, every request under `/api` must carry a key in one of two headers:
+
+```http
+Authorization: Bearer <key>
+```
+
+```http
+X-API-Key: <key>
+```
+
+A missing or unknown key is answered with `401` and a `WWW-Authenticate: Bearer` header. A valid key that is not allowed to make the request gets `403`. Only `/actuator/health` is reachable without a key. The other management endpoints need an `ADMIN` key that is not limited to sessions. See [Security](/operations/security) for how to configure keys.
+
+### Roles
+
+`yukta.api-key` defines one key with the `ADMIN` role. `yukta.api-keys` defines named keys, each with a role and an optional list of sessions.
+
+| Role | May call |
+|---|---|
+| `VIEWER` | Every `GET` request, including the event streams |
+| `OPERATOR` | Everything `VIEWER` can, plus every non-`GET` request under `/api/executions/` and `/api/workflow/`: start and stop workflows, pause, resume, restart, recover, change priority, per-node controls, breakpoints and signals |
+| `ADMIN` | Everything, including applying sessions (`POST /api/sessions`), validating drafts, rolling back versions, writing version notes, changing scheduler limits and sending control-bus node commands |
+
+Each endpoint page names the role it needs. When keys are configured, a request path that uses `..` segments, encoded separators or path parameters is refused with `400`, so no spelling of a path bypasses the check.
+
+### Keys limited to sessions
+
+A key can be limited to a list of sessions. It then reaches only `/api/sessions/{sessionId}/...` and `/api/workflow/{sessionId}/...` for its own sessions, and `/api/executions/{executionId}/...` for runs of its sessions. Every other path answers `403`: the session listings, the plugin catalogue, the event stream and the control-bus views. `POST /api/workflow/start` names its session in the body rather than the path, so a session-limited key cannot call it. The MCP `start_workflow` tool accepts such a key.
+
+With named keys, the control commands a request sends are recorded under the actor `key:<name>` in the [control audit](/api/control).
+
+### Servers without a key
+
+When no key is configured the server checks the `Host` and `Origin` headers instead. A request whose `Host` is not `localhost`, `127.0.0.1`, `[::1]` or listed in `yukta.allowed-hosts` is refused with `403`. A request that changes state and carries an `Origin` header must come from the same site or from an origin listed in `yukta.allowed-origins`. Both rules stop a web page in your browser from driving a local server. They are switched off as soon as a key is configured.
+
+The server does not send CORS headers. A browser application must be served from the same origin as the API, as the built-in web UI is, or reach it through a proxy.
+
+## Request and response format
+
+- Request bodies are JSON with `Content-Type: application/json`.
+- Responses are JSON, except the [event streams](/api/streams), which use `text/event-stream`.
+- Unknown fields in a request body are rejected with `400` and the field name, so a misspelt option never passes silently.
+- Timestamps are ISO-8601 strings without a zone offset for run times, and with `Z` for instants such as `savedAt`.
+- Identifiers in path segments must be URL-encoded.
+
+Every response carries an `X-Request-ID` header. Send your own value (letters, digits and hyphens, up to 64 characters) to correlate calls; otherwise the server generates one. `X-Correlation-ID` works the same way. Quote the request ID when you report a server error.
+
+## Response envelope
+
+Most endpoints wrap their result in one envelope.
+
+```json
+{
+  "timestamp": "2026-07-19T10:15:30.123456",
+  "status": 200,
+  "message": "Session details retrieved",
+  "data": {
+    "sessionId": "demo",
+    "name": "Quickstart",
+    "workflowIds": ["greet"]
+  }
+}
+```
+
+| Field | Meaning |
+|---|---|
+| `timestamp` | When the response was produced |
+| `status` | The HTTP status code |
+| `message` | A short human-readable summary |
+| `data` | The result. Absent when the call returns nothing, and on errors |
+
+Empty fields are left out. Error responses use the same envelope with `error`, `path` and, for validation problems, `errors` instead of `data`; see [Errors](/api/errors).
+
+Two kinds of response do not use the envelope: the event streams, and `GET /api/sessions/{sessionId}/executions/{executionId}/results`, which returns the results object directly.
+
+## Paging
+
+List endpoints that can grow large are paged with a cursor.
+
+| Parameter | Meaning | Default |
+|---|---|---|
+| `limit` | Items per page. Values below 1 mean the default; the maximum is 1000 | 500 |
+| `cursor` | The id of the last item of the previous page | first page |
+
+When more items remain, the response carries an `X-Next-Cursor` header holding the cursor for the next page. When the header is absent, you have the last page. A cursor that matches no item returns the first page again.
+
+Paged endpoints: `GET /api/sessions`, `GET /api/sessions/summaries`, `GET /api/workflow/{sessionId}/history` and `GET /api/sessions/{sessionId}/workflows/{workflowId}/executions`. Two other lists take only a `limit` and no cursor: `GET /api/executions` (default 100, maximum 1000) and `GET /api/control/audit` (default 100, maximum 500).
+
+```http
+GET /api/sessions?limit=2
+```
+
+```http
+HTTP/1.1 200 OK
+X-Next-Cursor: build-b
+```
+
+```http
+GET /api/sessions?limit=2&cursor=build-b
+```
+
+## Idempotent start
+
+`POST /api/workflow/start` accepts an optional `Idempotency-Key` header. A repeat of the request with the same key, for the same session and workflow, within the window returns the execution id of the first start instead of starting a second run. A start that failed is forgotten, so retrying it runs again.
+
+```http
+POST /api/workflow/start
+Idempotency-Key: nightly-2026-07-19
+Content-Type: application/json
+```
+
+The window is `yukta.start.idempotency-ttl` (default `10m`) and the server remembers at most `yukta.start.idempotency-max-keys` keys (default `100000`). Keys survive a restart only when the execution log is kept on disk.
+
+## Server-sent event streams
+
+Streams share these conventions; the [Streams](/api/streams) page has the details of each.
+
+- Each event has an `id` that counts from 0 within the stream.
+- A client that reconnects sends the last id it saw in the `Last-Event-ID` header. The stream then skips what the client already received.
+- An idle stream sends a comment line (`: ping`) every 15 seconds so proxies keep the connection open.
+- Status, log and result streams end when the execution ends. The event feed (`/api/events/stream`) never ends on its own.
+
+## Request size
+
+The server reads request bodies up to `1MB`. A larger body is answered with `413`. Set `YUKTA_LIMITS_MAX_BODY` to change the limit, for example `4MB`.
+
+## Deprecated aliases
+
+Execution endpoints exist at two paths. The `/api/executions/{executionId}/...` form is current. The older `/api/workflow/...` form still works and is marked deprecated; where it names a session, it also checks that the execution belongs to that session.
+
+| Current path | Deprecated alias |
+|---|---|
+| `GET /api/executions/{executionId}` | `GET /api/workflow/{sessionId}/status/{executionId}` |
+| `GET /api/executions/{executionId}/status/stream` | `GET /api/workflow/{sessionId}/status/{executionId}/stream` |
+| `POST /api/executions/{executionId}/stop` | `POST /api/workflow/executions/{executionId}/stop` |
+| `POST /api/executions/{executionId}/restart` | `POST /api/workflow/executions/{executionId}/restart` |
+| `POST /api/executions/{executionId}/restart/{fromNodeId}` | `POST /api/workflow/executions/{executionId}/restart/{fromNodeId}` |
+| `POST /api/executions/{executionId}/pause` and `/resume` and `/recover` | `POST /api/workflow/{sessionId}/{executionId}/pause`, `/resume`, `/recover` |
+| `POST /api/executions/{executionId}/nodes/{nodeId}/pause`, `/resume`, `/stop`, `/skip`, `/step`, `/step/enable`, `/step/disable` | `POST /api/workflow/{sessionId}/{executionId}/node/{nodeId}/...` |
+
+Retry, breakpoint, signal and priority exist only at the current path. The execution index behind `/api/executions/{executionId}` keeps a finished run for `yukta.tracker.cleanup-ttl` (default `10m`). To read an older run from the session history, use the status alias that names the session.
+
+## Related
+
+- [Errors](/api/errors)
+- [Security](/operations/security)
+- [Run controls](/running/run-controls)

@@ -1,0 +1,148 @@
+---
+title: "Defining a workflow"
+description: "The complete JSON shape of a session and its workflows, and how to build one step by step."
+---
+
+A workflow is plain JSON. You send it inside a [session](/concepts/sessions-and-workflows) to `POST /api/sessions`, and the server validates and stores it.
+
+<Note>
+  The workflow schema is pre-beta and may change before v0.1.0.
+</Note>
+
+## Structure
+
+```json
+{
+  "sessionId": "triage",
+  "name": "Ticket triage",
+  "description": "Classify a ticket, wait for approval, update the tracker",
+  "initiator": "ops-team",
+  "projectPath": "/srv/triage",
+  "tags": { "team": "support" },
+  "workflows": {
+    "triage": {
+      "workflowId": "triage",
+      "description": "Classify, approve, update",
+      "nodes": [
+        { "nodeId": "ticket", "type": "API_TRIGGER", "config": {} },
+        {
+          "nodeId": "classify",
+          "type": "LLM_CALL",
+          "config": {
+            "engine": {
+              "retry": { "maxAttempts": 3, "backoffMs": 200, "maxBackoffMs": 5000 },
+              "onError": "ROUTE"
+            }
+          }
+        },
+        { "nodeId": "approve", "type": "WAIT_FOR_SIGNAL", "config": { "signal": "approve" } },
+        { "nodeId": "update", "type": "HTTP_REQUEST", "config": {} },
+        { "nodeId": "done", "type": "CONSOLE_TERMINAL", "config": {} },
+        { "nodeId": "dead", "type": "CONSOLE_TERMINAL", "config": {} }
+      ],
+      "edges": [
+        { "source": "ticket", "target": "classify" },
+        { "source": "classify", "target": "approve" },
+        { "source": "approve", "target": "update" },
+        { "source": "update", "target": "done" },
+        { "source": "classify", "target": "dead", "sourcePort": "error" }
+      ]
+    }
+  }
+}
+```
+
+<Tip>
+  Node options other than `engine` are abbreviated here. Each plugin defines its own options; see the [plugin reference](/plugins/overview). Complete, runnable workflows are in the [examples](/examples).
+</Tip>
+
+## Session fields
+
+See [Sessions and workflows](/concepts/sessions-and-workflows) for the session-level fields (`sessionId`, `name`, `description`, `initiator`, `projectPath`, `tags`).
+
+## Workflow fields
+
+| Field | Required | Meaning |
+|---|---|---|
+| `workflowId` | yes | Identifier inside the session. Same shape rules as `sessionId` |
+| `description` | yes | Up to 256 characters |
+| `nodes` | yes | At least one node |
+| `edges` | yes | The list of connections, which may be empty |
+
+## Node fields
+
+| Field | Required | Meaning |
+|---|---|---|
+| `nodeId` | yes | Unique within the workflow, up to 256 characters |
+| `type` | yes | Plugin type string, used exactly as listed in the [plugin overview](/plugins/overview) |
+| `config` | no | The plugin's options, plus the reserved `engine` object |
+
+### Plugin options
+
+Everything in `config` except `engine` belongs to the plugin. Option values can be literals, or placeholders resolved just before the node runs; see [Variables and expressions](/building/variables-and-expressions). To see the options a plugin accepts, ask the server:
+
+```http
+GET /api/plugins/{type}
+```
+
+The response lists every option with its type, default and description, and the output ports the plugin declares.
+
+### Engine options
+
+The reserved `engine` object configures behaviour that the engine applies uniformly to any node:
+
+| Key | Purpose | Page |
+|---|---|---|
+| `retry`, `onError`, `failureBudget` | Retries and error routing | [Failure handling](/concepts/failure-handling) |
+| `trigger` | Join rule for several parents | [Nodes, edges and ports](/concepts/nodes-edges-ports) |
+| `elementTimeoutMs`, `deadlineMs` | Time limits | [Time limits](/concepts/time-limits) |
+| `edgeBuffer` | Drop instead of slow down | [Delivery and back-pressure](/concepts/delivery-and-backpressure) |
+| `placement` | Run on a remote worker pool | [Remote workers](/operations/remote-workers) |
+
+Alongside `engine`, a node's `timeoutSeconds` sets its idle timeout.
+
+## Edge fields
+
+| Field | Required | Meaning |
+|---|---|---|
+| `source` | yes | `nodeId` of the node the message leaves |
+| `target` | yes | `nodeId` of the node it enters |
+| `sourcePort` | no | Name of the output port to listen to. Omit it to receive everything except `error` |
+
+## Build one step by step
+
+<Steps>
+  <Step title="Pick a trigger">
+    Use `API_TRIGGER` to start from a request with a payload, `SCHEDULE_TRIGGER` to start on a timer, or `CONSTANT_SOURCE` to emit fixed values.
+  </Step>
+  <Step title="Add processors">
+    Chain the plugins that fetch, transform, route or decide. Add `engine` options where a node can fail.
+  </Step>
+  <Step title="End every branch with a terminal">
+    Every path must reach a terminal. Send the `error` port of nodes with `onError: ROUTE` to a dead-letter terminal.
+  </Step>
+  <Step title="Validate">
+    Check the definition before applying it with `POST /api/sessions/validate`. See [Validation and versions](/building/validation-and-versions).
+  </Step>
+  <Step title="Apply and start">
+    `POST /api/sessions`, then `POST /api/workflow/start`.
+  </Step>
+</Steps>
+
+You can also build workflows in the [web UI](/interfaces/web-ui), which renders a form from each plugin's option list and shows a live preview of the graph.
+
+## Limits
+
+| Item | Value |
+|---|---|
+| Nodes per workflow | 500 |
+| Edges per workflow | 2000 |
+| Description, name | 256 characters |
+| Identifiers | 256 characters; session and workflow ids cannot contain `/`, `\` or `..` |
+| Versions kept | Newest 20 per workflow |
+
+## Related
+
+- [Routing and branching](/building/routing-and-branching)
+- [Validation and versions](/building/validation-and-versions)
+- [Plugin overview](/plugins/overview)

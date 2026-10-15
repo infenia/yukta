@@ -1,0 +1,258 @@
+---
+title: "AI plugins"
+description: "LLM_CALL, MCP_LIST_TOOLS, MCP_TOOL_CALL and SESSION_MEMORY: call a model, give it tools and keep conversation history."
+tag: "Optional"
+---
+
+These four processors are optional: `LLM_CALL` needs the `llm-call` module, `MCP_LIST_TOOLS` and `MCP_TOOL_CALL` need `mcp-tool-call`, and `SESSION_MEMORY` needs `session-memory`. See [Built-in plugins](/plugins/overview) for how a build selects them. To build workflows from them, read [AI and agents](/building/ai-and-agents).
+
+Options that accept `${...}` variables say so. For the syntax, and for `decrypted:<key>` secrets, see [Variables and expressions](/building/variables-and-expressions).
+
+<Warning>
+  An API key or token written in a node's `config` is stored and returned as written by the workflow APIs. Write `decrypted:<key>` instead. The server then reads the secret from the environment variable `YUKTA_SECRET_<KEY>` (the key in upper case, other characters turned into underscores).
+</Warning>
+
+## LLM_CALL
+
+Calls a chat model and emits its answer. It supports OpenAI and OpenAI-compatible endpoints (set `baseUrl` for Groq, vLLM and similar), Anthropic and Ollama.
+
+| Option | Type | Default | Meaning |
+|---|---|---|---|
+| `provider` | `openai`, `openai-compatible`, `anthropic` or `ollama` | none, required | The provider. `openai-compatible` is the same as `openai`. Variables allowed |
+| `model` | string | none, required | The model name. Variables allowed |
+| `prompt` | string | none | Added as the last user turn. Variables allowed, for example `${payload.message}` |
+| `messages` | list or string | none | The conversation so far, see below. At least one of `messages` and `prompt` is required |
+| `system` | string | none | The system prompt. Variables allowed |
+| `baseUrl` | string | the provider's address | Endpoint override. Variables allowed |
+| `apiKey` | string | none | API key. Use `decrypted:<key>` |
+| `temperature` | number | the model's own | Sampling temperature |
+| `maxTokens` | number | the model's own | Most tokens in the answer |
+| `timeout` | number | `120` | Seconds per attempt, positive |
+| `retries` | number | `0` | Extra attempts after a failure, with exponential backoff starting at 500 ms |
+| `tools` | list or string | none | Tools the model may ask for, see below |
+| `prices` | map | none | `{"input": ..., "output": ...}`: price per million tokens. Adds `cost` to the output |
+| `budget` | map | none | Limits for all model and tool calls of one execution, see below |
+| `failureMode` | `ERROR` or `CONTINUE` | `ERROR` | What a failed call does |
+| `routeByStatus` | boolean | `false` | Emit on `success` or `failure`. Needs `failureMode` `CONTINUE` |
+
+Output ports: `default`, or `success` and `failure` when `routeByStatus` is on.
+
+### messages
+
+`messages` is either a literal list of turns, `[{"role": "user", "content": "..."}]`, or a string that is an expression evaluated against the incoming message, such as `payload['history']`. Do not write it as `${...}`: that form turns a list into text. Roles are `user`, `assistant` and `tool`. An assistant turn can carry the `actions` of its answer, and a `tool` turn (`{"role": "tool", "toolCallId": "...", "toolName": "...", "content": "..."}`) gives the result of one call, so the model sees a proper tool exchange.
+
+### Output
+
+On success the payload is:
+
+| Field | Meaning |
+|---|---|
+| `success` | `true` |
+| `content` | The text of the answer, with any `<agent_action>` blocks removed |
+| `actions` | The tool calls the model asked for, each `{"tool", "arguments", "id"}`. Empty when it asked for none |
+| `usage` | `{"inputTokens", "outputTokens"}` |
+| `latencyMs` | Time of the call |
+| `model` | The model that answered |
+| `cost` | Only when `prices` is set |
+
+The metadata gets `llmSuccess` set to `true`. A model may also write JSON inside `<agent_action>` tags in its text. Those blocks are parsed into `actions` too.
+
+With `failureMode` `CONTINUE`, a failed call emits the original payload unchanged, with the metadata `llmSuccess` set to `false` and the reason in `llmError`. With `routeByStatus` on, send `failure` to a second `LLM_CALL` node with another model to fail over.
+
+### tools
+
+`tools` is a list of `{"name", "description", "inputSchema"}`, or an expression that gives one, such as `payload.tools` after an `MCP_LIST_TOOLS` node. The model may then answer with calls to these tools. They come back in `actions` and are not run by this node. Wire the actions to an `MCP_TOOL_CALL` node.
+
+### budget
+
+```json
+{ "maxTokens": 20000, "maxCost": 0.5, "maxCalls": 6, "agent": "triage", "hardStop": true }
+```
+
+| Key | Meaning |
+|---|---|
+| `maxTokens` | Most input plus output tokens used by the execution |
+| `maxCost` | Most cost; needs `prices` |
+| `maxCalls` | Most tool calls. Only `MCP_TOOL_CALL` nodes add to this count |
+| `agent` | A name. Use under this name is counted apart from the rest of the execution |
+| `hardStop` | `true` ends the whole execution when the budget is used up, see below |
+
+The ledger is shared by every `LLM_CALL` and `MCP_TOOL_CALL` node of the same execution (and `agent` name). The check runs before each call and the usage is added after it, so one call can overshoot, and calls running at the same time can each pass the check. When the budget is used up, the next call fails like a failed call and `failureMode` applies. With `hardStop` set, the next call instead ends the whole execution: the engine does not retry it, drop it or route it as a dead letter, and `failureMode` does not absorb it.
+
+Budgets are kept in the memory of the server. They start again from zero after a restart and are not carried over when an execution is resumed. The server remembers the most recent 10,000 budget keys.
+
+### Server settings
+
+| Setting | Default | Meaning |
+|---|---|---|
+| `yukta.llm.deny-input-patterns` | none | List of regular expressions. A call whose system prompt or turns match one is refused |
+| `yukta.llm.deny-output-patterns` | none | List of regular expressions. An answer, or the arguments of a tool call in it, that matches one is refused |
+| `yukta.llm.max-input-chars` | `0` (no limit) | Longest prompt, counted over the system prompt and all turns |
+| `yukta.llm.rate-limit.<provider>` | none | Requests per minute for `openai`, `anthropic` or `ollama`. Calls are spaced evenly. A call that would wait longer than half its `timeout` fails |
+
+A refused call fails the node like any other failed call. These settings apply to every `LLM_CALL` and decision node on the server.
+
+### Timeout and concurrency
+
+Default timeout: `(timeout + 1) * (retries + 1) + 5` seconds plus the backoff, about 127 seconds with the defaults. Up to 256 messages are handled at once, with results emitted in order.
+
+```json
+{
+  "nodeId": "llm",
+  "type": "LLM_CALL",
+  "config": {
+    "provider": "openai",
+    "baseUrl": "http://localhost:11434/v1",
+    "apiKey": "ollama",
+    "model": "llama3.2",
+    "system": "You are a concise, helpful assistant.",
+    "messages": "payload['history']",
+    "prompt": "${payload.message}",
+    "timeout": 60
+  }
+}
+```
+
+## MCP_LIST_TOOLS
+
+Lists the tools of a remote MCP server so a model can choose among them. The server must speak MCP over streamable HTTP.
+
+| Option | Type | Default | Meaning |
+|---|---|---|---|
+| `url` | string | none, required | The MCP endpoint. Must be `http` or `https`. Variables allowed |
+| `headers` | map | empty | Extra request headers. Variables allowed |
+| `authToken` | string | none | Bearer token, sent as `Authorization: Bearer ...`. Use `decrypted:<key>` |
+| `timeout` | number | `30` | Seconds to wait, positive |
+| `allowedTools` | list | none | Keep only the tools with these names |
+
+Output port: `default`. The payload becomes `{"tools": [{"name", "description", "inputSchema"}], "count": n}`. It replaces the incoming payload, so keep anything you still need elsewhere. The plugin follows the server's paging for up to 50 pages and fails if the list does not end by then. Messages are handled one at a time. Default timeout: `timeout` plus 5 seconds.
+
+```json
+{
+  "nodeId": "tools",
+  "type": "MCP_LIST_TOOLS",
+  "config": {
+    "url": "https://tools.example.com/mcp",
+    "authToken": "decrypted:tools-mcp",
+    "allowedTools": ["search_issues", "get_issue"]
+  }
+}
+```
+
+## MCP_TOOL_CALL
+
+Calls one tool on a remote MCP server for each message and emits the result. Use it as the "act" step of an agent loop, or to call another agent.
+
+| Option | Type | Default | Meaning |
+|---|---|---|---|
+| `url` | string | none, required | The MCP endpoint. Must be `http` or `https`. Variables allowed |
+| `tool` | string | none, required | The tool name. Variables allowed |
+| `arguments` | map or string | the payload | The tool arguments. A map, whose values may use variables, or a string that is an expression returning a map, such as `payload.args`. By default the payload is used if it is an object, otherwise `{"input": <payload>}` |
+| `headers` | map | empty | Extra request headers. Variables allowed |
+| `authToken` | string | none | Bearer token. Use `decrypted:<key>` |
+| `timeout` | number | `60` | Seconds per call, positive |
+| `allowedTools` | list | none | The tools this node may call. Any other tool is refused, even one chosen through a variable. Use it whenever a model picks the tool |
+| `requireApproval` | list | none | Tool names, or `*`, that wait for a human signal before they are called |
+| `approvalSignal` | string | `approve` | The name of the approval signal |
+| `approvalTimeoutSeconds` | number | `3600` | Longest wait for the approval. With no answer the call is refused |
+| `budget` | map | none | `{"maxCalls", "agent", "hardStop"}`, counted together with the `LLM_CALL` budget of the same execution and agent. `maxTokens` and `maxCost` are not accepted here |
+| `resultKey` | string | none | Also copy the text of the result into this metadata key |
+| `failureMode` | `ERROR` or `CONTINUE` | `ERROR` | `ERROR` fails the node on a tool error or a transport error |
+| `routeByStatus` | boolean | `false` | Emit on `success` or `failure`. Needs `failureMode` `CONTINUE`. Edges may then use only the ports `success`, `failure` and `error` |
+
+Output ports: `default`, or `success` and `failure` when `routeByStatus` is on.
+
+The payload is `{"success", "tool", "text", "content", "structured", "error"}`: `text` is the text result, `content` the full list of result parts, `structured` the structured result if the tool gives one. The metadata gets `mcpSuccess`, `mcpTool` and `mcpLatencyMs`. A tool that reports an error with `CONTINUE` is emitted with `success` false and the message in `error`.
+
+Every call carries the message id and the attempt number in its request metadata (`yukta/messageId` and `yukta/attempt`), so a tool server can recognise a repeated call. The node keeps one MCP session per server and set of credentials and sends progress as heartbeats so a long call is not timed out while it reports progress.
+
+An approval works like [`WAIT_FOR_SIGNAL`](/plugins/routing-and-flow#wait_for_signal): answer the waiting node with the signal endpoint of its execution, using `name` equal to `approvalSignal`. A `decision` of `reject` refuses the call and any other decision allows it. See [Approvals and signals](/building/approvals-and-signals).
+
+### Server settings
+
+| Setting | Default | Meaning |
+|---|---|---|
+| `yukta.mcp-client.allowed-tools` | empty (any) | Tool names that every `MCP_TOOL_CALL` node on the server may call |
+| `yukta.mcp-client.max-argument-bytes` | `65536` | Largest JSON size of the arguments |
+| `yukta.mcp-client.deny-argument-patterns` | none | Regular expressions; arguments that match one are refused. Use it for secrets or injected instructions |
+
+Default timeout: `timeout` plus 5 seconds, plus `approvalTimeoutSeconds` when `requireApproval` is set. Up to 256 messages are handled at once.
+
+```json
+{
+  "nodeId": "act",
+  "type": "MCP_TOOL_CALL",
+  "config": {
+    "url": "https://tools.example.com/mcp",
+    "tool": "${payload.tool}",
+    "arguments": "payload.args",
+    "allowedTools": ["search_issues", "get_issue"],
+    "authToken": "decrypted:tools-mcp",
+    "budget": { "maxCalls": 6, "agent": "triage", "hardStop": true },
+    "timeout": 30
+  }
+}
+```
+
+## SESSION_MEMORY
+
+Keeps chat history per conversation id, so a model sees earlier turns. Use two nodes: one in `load` mode before the model and one in `append` mode after it.
+
+| Option | Type | Default | Meaning |
+|---|---|---|---|
+| `mode` | `load` or `append` | none, required | `load` attaches history and records the user turn. `append` records the model's reply |
+| `sessionId` | string | none | The conversation id. Required for `load`. For `append` the default is `${metadata.sessionId}`. Variables allowed |
+| `message` | string | none | The user turn to record. Required for `load`. Variables allowed |
+| `assistant` | string | `${payload.content}` | The reply to record, for `append`. Variables allowed |
+| `maxTurns` | number | `20` | Turns kept per conversation and returned by `load`. A turn is one user or assistant message. Positive |
+
+Output port: `default`.
+
+`load` reads the stored turns first, then records the user turn. The payload is the incoming payload (an object; any other payload becomes `{"input": <payload>}`) plus `history`, a list of `{"role", "content"}`. The metadata gets `sessionId`, which lets a later `append` node find the conversation. Feed the history to the model with `"messages": "payload['history']"` and `"prompt": "${payload.message}"`. `append` records the reply and passes the message on unchanged.
+
+If the model call fails after `load`, the user turn is already stored without an answer.
+
+The conversation id is the whole key: histories are shared across all sessions and workflows on the server. Where history is kept is a server setting:
+
+| Setting | Meaning |
+|---|---|
+| none | In memory. Lost on restart |
+| `yukta.session-memory.dir` | Also written as one JSON file per conversation in this folder |
+| `yukta.session-memory.store-type=postgres` | In PostgreSQL, with the PostgreSQL module. `yukta.session-memory.ttl` deletes conversations that have not been written for that long |
+
+See [Persistence](/operations/persistence). Up to 256 messages are handled at once; the default timeout is 30 seconds.
+
+```json
+[
+  {
+    "nodeId": "memory-load",
+    "type": "SESSION_MEMORY",
+    "config": {
+      "mode": "load",
+      "sessionId": "${payload.sessionId}",
+      "message": "${payload.message}",
+      "maxTurns": 20
+    }
+  },
+  { "nodeId": "memory-append", "type": "SESSION_MEMORY", "config": { "mode": "append", "maxTurns": 20 } }
+]
+```
+
+## Limits and defaults
+
+| Item | Value |
+|---|---|
+| `LLM_CALL` `timeout`, `retries` | 120 s, 0; node timeout about 127 s |
+| `MCP_LIST_TOOLS` `timeout` | 30 s; node 35 s; at most 50 pages |
+| `MCP_TOOL_CALL` `timeout` | 60 s; node 65 s, plus the approval wait when set |
+| `MCP_TOOL_CALL` `approvalTimeoutSeconds` | 3600 |
+| `yukta.mcp-client.max-argument-bytes` | 65536 |
+| `SESSION_MEMORY` `maxTurns` | 20 |
+| Messages in flight per node | 256 for `LLM_CALL`, `MCP_TOOL_CALL` and `SESSION_MEMORY`; 1 for `MCP_LIST_TOOLS` |
+
+## Related
+
+- [AI and agents](/building/ai-and-agents)
+- [Decision plugins](/plugins/decisions)
+- [Approvals and signals](/building/approvals-and-signals)
+- [Variables and expressions](/building/variables-and-expressions)

@@ -1,0 +1,201 @@
+---
+title: "Deployment"
+description: "Run Yukta from source, as an archive, as a native binary or in a container, with the profiles and build switches that shape it."
+---
+
+Yukta is one executable that holds the engine, the REST API, the MCP endpoint, the web UI and the built-in plugins. This page covers the ways to run it, what each profile changes, and the build switches that choose optional parts.
+
+There are no packaged releases yet. Every form below is built from source.
+
+## Run from source
+
+```bash
+./gradlew bootRun
+```
+
+The server listens on `http://localhost:8080`, on loopback only, and uses the `dev` profile. Open `http://localhost:8080/` for the [web UI](/interfaces/web-ui).
+
+To run from source with the quieter profile, name it:
+
+```bash
+SPRING_PROFILES_ACTIVE=prod ./gradlew bootRun
+```
+
+## Profiles
+
+A profile is a named set of defaults. With no profile named, the server runs as `dev`.
+
+| Setting | `dev` (default) | `prod` |
+|---|---|---|
+| Listening address | `127.0.0.1` (`YUKTA_SERVER_ADDRESS`) | `127.0.0.1` (`YUKTA_SERVER_ADDRESS`) |
+| Management endpoints | `health`, `info`, `metrics`, `loggers`, `mappings`, `threaddump` | `health`, `info`, `metrics` |
+| Application log level | `DEBUG` | `INFO` |
+| Stream engine log level | `TRACE` | `INFO` |
+| Root log level | `INFO` | `WARN` |
+| Response compression | Off | On for responses over 1 KB |
+| Startup banner | Console | Off |
+
+Both profiles reject unknown JSON fields in requests, enable the MCP endpoint at `/mcp`, and keep sessions in memory unless configured otherwise.
+
+<Warning>
+  The `dev` stream-engine log level `TRACE` writes message payloads to the console. Run `prod` wherever payloads can hold sensitive data.
+</Warning>
+
+Neither profile turns authentication on or off. The API is open on loopback until you set a key. See [Security](/operations/security).
+
+## Executable archive
+
+Build an archive and run it with the `prod` profile:
+
+```bash
+./gradlew :boot:bootJar
+java -jar boot/build/libs/*.jar --spring.profiles.active=prod
+```
+
+Settings follow the [configuration rules](/operations/configuration#how-settings-are-supplied): command-line arguments, environment variables or a configuration file.
+
+## Native binary
+
+A native binary starts fast and needs no separate runtime. Building it is slow and needs a GraalVM JDK, version 25.
+
+```bash
+./gradlew :boot:nativeCompile
+./boot/build/native/nativeCompile/yukta
+```
+
+The binary is built with the `prod` profile and uses it unless you pass a profile as a command-line argument:
+
+```bash
+./boot/build/native/nativeCompile/yukta --spring.profiles.active=prod,postgres
+```
+
+<Note>
+  For a native binary, pass profiles on the command line. The environment variable `SPRING_PROFILES_ACTIVE` does not replace the built-in `prod` choice.
+</Note>
+
+Add `-Pnative.quick` for a faster build that trades run-time speed for build time. Optional parts that depend on build-time decisions, such as the workers role, are fixed when the binary is built. See [Remote workers](/operations/remote-workers). Use the PostgreSQL stores with the archive build, not the native binary.
+
+## Container image
+
+The repository's Dockerfile builds the native binary in one stage and copies it into a minimal image with no shell and no package manager. The image runs as an unprivileged user (UID 65532) and exposes port 8080.
+
+```bash
+docker build -t yukta .
+docker run --rm -p 127.0.0.1:8080:8080 -e YUKTA_API_KEY=change-me yukta
+```
+
+| Setting | In the image | Why it matters |
+|---|---|---|
+| `YUKTA_SERVER_ADDRESS` | `0.0.0.0` | A container must listen on all its interfaces to be reachable |
+| `YUKTA_API_KEY` | not set | Required. The server refuses to start on `0.0.0.0` without a key, so run with `-e YUKTA_API_KEY=<key>` |
+| Profile | `prod` | The binary chooses it |
+
+### Expose it safely
+
+Publishing the container port makes the API reachable from the network that can reach the host. Publish on loopback (`-p 127.0.0.1:8080:8080`) when a reverse proxy on the same host fronts the server, and put TLS in that proxy. Use a long random key and named keys with limited roles for clients. See [Security](/operations/security).
+
+### Keep data
+
+By default everything is in memory. To keep sessions and run history, mount a host directory that the unprivileged user (UID 65532) can write to, and point the file stores at it:
+
+```bash
+docker run --rm -p 127.0.0.1:8080:8080 \
+  -e YUKTA_API_KEY=change-me \
+  -e YUKTA_SESSION_STORE_TYPE=file \
+  -e YUKTA_SESSION_BASE_DIR=/data \
+  -e YUKTA_EXECUTION_LOG_DIR=/data/log \
+  -e YUKTA_RESTART_DIR=/data/checkpoints \
+  -v /srv/yukta-data:/data yukta
+```
+
+See [Persistence](/operations/persistence).
+
+### Health checks and stop
+
+The image has no shell or `curl`, so use an HTTP probe from your orchestrator against `GET /actuator/health`. Give a container stop a grace period longer than `yukta.execution.shutdown-timeout` (30 s by default), so running executions can finish. See [Graceful shutdown](#graceful-shutdown).
+
+The provided image build uses the default build switches: no PostgreSQL stores, no remote workers and no JavaScript script plugin.
+
+## Build switches
+
+Some parts are chosen when you build, with `-P` properties. A running server cannot add or remove them.
+
+| Switch | Effect |
+|---|---|
+| `-Pyukta.plugins=default` | The default. Includes every optional plugin below except `script-js` |
+| `-Pyukta.plugins=all` | Includes every optional plugin, including `script-js` |
+| `-Pyukta.plugins=none` | No optional plugins |
+| `-Pyukta.plugins=http-request,llm-call` | Exactly the named plugins. An unknown name fails the build |
+| `-Pyukta.persistence=postgres` | Include the PostgreSQL stores. See [Persistence](/operations/persistence) |
+| `-Pyukta.workers=true` | Include remote workers. See [Remote workers](/operations/remote-workers) |
+| `-Pyukta.workers.native=control-plane` or `worker` | Role of a native binary that includes workers |
+
+Optional plugins and the node types they provide:
+
+| Build name | Node types |
+|---|---|
+| `process-executor` | `PROCESS_EXECUTOR` |
+| `http-request` | `HTTP_REQUEST` |
+| `file-io` | `FILE_READ`, `FILE_WRITE` |
+| `sql-query` | `SQL_QUERY` |
+| `llm-call` | `LLM_CALL` |
+| `session-memory` | `SESSION_MEMORY` |
+| `decision` | `SCORE`, `ANOMALY`, `GATE`, `CLASSIFY`, `ASK`, `DEDUPE` |
+| `mcp-tool-call` | `MCP_TOOL_CALL`, `MCP_LIST_TOOLS` |
+| `script-js` | The `SCRIPT` mode of `MAPPER` |
+
+The triggers, the console and notify terminals, the built-in flow and transform processors, the supervisors and the control planes are always included. See [Plugins](/plugins/overview).
+
+```bash
+./gradlew bootRun -Pyukta.plugins=http-request,mcp-tool-call
+./gradlew :boot:bootJar -Pyukta.persistence=postgres -Pyukta.workers=true
+```
+
+## Management endpoints
+
+| Endpoint | Purpose |
+|---|---|
+| `GET /actuator/health` | Liveness and health. Open without a key. Details are shown only to authorized callers |
+| `GET /actuator/info` | Build information |
+| `GET /actuator/metrics` | The list of meters. `GET /actuator/metrics/{name}` reads one. See [Capacity and performance](/operations/capacity-and-performance) |
+
+With a key set, everything under `/actuator` except `/actuator/health` needs an unrestricted `ADMIN` key. Change which endpoints are exposed with `management.endpoints.web.exposure.include`.
+
+The interactive API documentation is at `/swagger-ui.html` and the OpenAPI description at `/v3/api-docs`. Neither needs a key.
+
+## Serving the web UI
+
+The web UI is part of the executable, so there is nothing separate to deploy. The server answers `GET /` and any other `GET` path that is not an API, management, MCP or documentation path with the UI page, so deep links and refresh work.
+
+- Static files under `/assets/` and top-level assets are cached for a year. The page itself is never cached.
+- The page carries a Content-Security-Policy that allows only same-origin scripts and connections, no framing and no objects.
+- Behind a reverse proxy with no API key set, add the public host name to `yukta.allowed-hosts`, or requests are refused with `403`. See [Security](/operations/security#host-and-origin-protection).
+- Event streams send a keep-alive comment every 15 seconds. A proxy idle timeout longer than that keeps streams open.
+
+## Graceful shutdown
+
+On a normal stop signal the server:
+
+1. Stops admitting new starts. Starts still waiting in the queue are refused.
+2. Gives running executions `yukta.execution.shutdown-timeout` (default `30s`) to finish.
+3. Releases its leader lease at once, when [high availability](/operations/high-availability) is on.
+4. Flushes the queued execution log events, waiting up to 5 seconds.
+
+Executions still running when the process ends are marked `ABORTED` at the next start when the execution log is durable. See [Checkpoints and resume](/operations/checkpoints-and-resume).
+
+## Limits and defaults
+
+| Item | Value |
+|---|---|
+| Port | `8080` |
+| Address | `127.0.0.1` |
+| Default profile | `dev` (native binary: `prod`) |
+| Shutdown timeout | 30 s |
+| Request body size | 1 MiB |
+
+## Related
+
+- [Configuration](/operations/configuration)
+- [Security](/operations/security)
+- [Persistence](/operations/persistence)
+- [Quickstart](/quickstart)

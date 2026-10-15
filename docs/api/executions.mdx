@@ -1,0 +1,296 @@
+---
+title: "Executions API"
+description: "Read the status and result of a run, search runs, stop, restart and recover them, and manage the execution queue."
+---
+
+An execution is one run of a workflow, identified by the `executionId` that the start call returns. These endpoints observe a run, end it, restart it, and manage the queue that decides when runs begin. Pause, resume and per-node controls are on the [Control](/api/control) page, and live updates are on the [Streams](/api/streams) page.
+
+| Method and path | Purpose | Role |
+|---|---|---|
+| `GET /api/executions` | Search runs across sessions | `VIEWER` |
+| `GET /api/executions/{executionId}` | Read the status of a run | `VIEWER` |
+| `GET /api/sessions/{sessionId}/executions/{executionId}/results` | Read what reached the terminal nodes | `VIEWER` |
+| `GET /api/sessions/{sessionId}/approvals` | List nodes that wait for a decision | `VIEWER` |
+| `POST /api/executions/{executionId}/stop` | Stop one run | `OPERATOR` |
+| `POST /api/executions/{executionId}/restart` | Restart a run from the beginning | `OPERATOR` |
+| `POST /api/executions/{executionId}/restart/{fromNodeId}` | Restart from one node | `OPERATOR` |
+| `POST /api/executions/{executionId}/recover` | Continue a run that a server restart aborted | `OPERATOR` |
+| `POST /api/executions/{executionId}/priority` | Change the priority of a queued run | `OPERATOR` |
+| `POST /api/scheduler/limits` | Change the execution limits | `ADMIN` |
+
+Responses use the [envelope](/api/overview#response-envelope), except the results read, which returns its object directly. For an unknown execution, or one that belongs to another session, every call answers `404`. The older `/api/workflow/...` paths for these calls are listed under [deprecated aliases](/api/overview#deprecated-aliases).
+
+## Search runs
+
+`GET /api/executions`
+
+Finds runs across all sessions, or in one session, newest first.
+
+| Query parameter | Meaning |
+|---|---|
+| `sessionId` | Only this session |
+| `limit` | Most runs returned, 1 to 1000. Default 100. There is no cursor |
+| `workflowId` | Only runs of this workflow |
+| `status` | Only runs with this status, not case sensitive |
+| `text` | Only runs whose id contains this text, not case sensitive |
+| `since`, `until` | Only runs that started within this range, ISO date-time |
+
+**Response `data`**: an array of hits.
+
+| Field | Type | Meaning |
+|---|---|---|
+| `sessionId` | string | The session of the run |
+| `executionId` | string | The run id |
+| `workflowId` | string | The workflow |
+| `status` | string | The run status |
+| `startTime` | string | When it started |
+| `endTime` | string | When it ended. Absent while it runs |
+
+The search reads each session's history, which keeps the newest `yukta.execution-log.retained-runs` runs (default `500`).
+
+```http
+GET /api/executions?status=FAILURE&since=2026-07-19T00:00:00&limit=10
+```
+
+```json
+{
+  "timestamp": "2026-07-19T10:15:30.123456",
+  "status": 200,
+  "message": "Executions found",
+  "data": [
+    {
+      "sessionId": "demo",
+      "executionId": "550e8400-e29b-41d4-a716-446655440000",
+      "workflowId": "greet",
+      "status": "FAILURE",
+      "startTime": "2026-07-19T09:40:01.512",
+      "endTime": "2026-07-19T09:40:03.870"
+    }
+  ]
+}
+```
+
+## Get the status of a run
+
+`GET /api/executions/{executionId}`
+
+Returns a snapshot of the run: its status and a status for every node.
+
+**Response `data`**
+
+| Field | Type | Meaning |
+|---|---|---|
+| `executionId`, `sessionId`, `workflowId` | string | Identity of the run |
+| `status` | string | The run status. See [Status values](/reference/status-values) |
+| `tasks` | array | One entry per node |
+| `tasks[].nodeId` | string | The node |
+| `tasks[].module` | string | The node's plugin type |
+| `tasks[].status` | string | The node status |
+| `tasks[].startTime`, `tasks[].endTime` | string | Node times. `null` until set |
+| `tasks[].metadata` | object | What the node reports, such as progress or the reason for a failure |
+| `startTime`, `endTime` | string | Run times. `endTime` is `null` while it runs |
+| `controlState` | string | The latest operator control state, such as `PAUSED`, or `null` |
+| `definitionVersion` | string | A hash of the workflow graph this run uses, or `null` |
+
+`GET /api/executions/{executionId}` resolves a run from the execution index, which keeps a finished run for 10 minutes (`yukta.tracker.cleanup-ttl`). To read an older run that is still in its session's history, use the deprecated alias `GET /api/workflow/{sessionId}/status/{executionId}`.
+
+```http
+GET /api/executions/550e8400-e29b-41d4-a716-446655440000
+```
+
+```json
+{
+  "timestamp": "2026-07-19T10:15:30.123456",
+  "status": 200,
+  "message": "Workflow status retrieved successfully",
+  "data": {
+    "executionId": "550e8400-e29b-41d4-a716-446655440000",
+    "sessionId": "demo",
+    "workflowId": "greet",
+    "status": "SUCCESS",
+    "tasks": [
+      { "nodeId": "trigger", "module": "API_TRIGGER", "status": "SUCCESS", "startTime": "2026-07-19T10:15:29.001", "endTime": "2026-07-19T10:15:29.040", "metadata": {} },
+      { "nodeId": "end", "module": "CONSOLE_TERMINAL", "status": "SUCCESS", "startTime": "2026-07-19T10:15:29.002", "endTime": "2026-07-19T10:15:29.100", "metadata": {} }
+    ],
+    "startTime": "2026-07-19T10:15:29.000",
+    "endTime": "2026-07-19T10:15:29.101",
+    "controlState": null,
+    "definitionVersion": "9f3a1c2b7d4e5a60"
+  }
+}
+```
+
+## Read the result of a run
+
+`GET /api/sessions/{sessionId}/executions/{executionId}/results`
+
+Returns what the terminal nodes of the run have received so far. Use it when you want the outcome of a run without holding a stream open. To follow a run live, use the [results stream](/api/streams#stream-the-results-of-a-run).
+
+| Query parameter | Default | Meaning |
+|---|---|---|
+| `afterCursor` | `0` | The `nextCursor` of an earlier read. Only newer events are returned |
+
+This endpoint returns the object below directly, without the envelope.
+
+| Field | Type | Meaning |
+|---|---|---|
+| `executionId` | string | The run |
+| `complete` | boolean | `true` once the run ended, so no more events will come |
+| `status` | string | The final run status. Absent while it runs |
+| `truncated` | boolean | `true` if the replay buffer dropped earlier events |
+| `nextCursor` | integer | Pass it as `afterCursor` on the next read |
+| `events` | array | The events, oldest first |
+
+Each event has a `kind`: `RESULT` when a message reached a terminal node (with the message in `payload`), `NODE_END` when a terminal node finished, and `EXECUTION_END` as the last event. It also carries `nodeId` (absent on `EXECUTION_END`), `sequence` (position in the run's stream from 0), `status` (on the end events), `truncated` (on the end events) and `timestamp`.
+
+Results are kept per run for `yukta.results.retention` (default `1h`), up to `yukta.results.retained-events` events per run (default `1000`) and `yukta.results.max-executions` runs (default `200`).
+
+```http
+GET /api/sessions/demo/executions/550e8400-e29b-41d4-a716-446655440000/results
+```
+
+```json
+{
+  "executionId": "550e8400-e29b-41d4-a716-446655440000",
+  "complete": true,
+  "status": "SUCCESS",
+  "truncated": false,
+  "nextCursor": 3,
+  "events": [
+    { "kind": "RESULT", "nodeId": "end", "sequence": 0, "payload": { "greeting": "Hello, Ada" }, "truncated": false, "timestamp": "2026-07-19T10:15:29.090Z" },
+    { "kind": "NODE_END", "nodeId": "end", "sequence": 1, "status": "SUCCESS", "truncated": false, "timestamp": "2026-07-19T10:15:29.095Z" },
+    { "kind": "EXECUTION_END", "sequence": 2, "status": "SUCCESS", "truncated": false, "timestamp": "2026-07-19T10:15:29.101Z" }
+  ]
+}
+```
+
+## List pending approvals
+
+`GET /api/sessions/{sessionId}/approvals`
+
+Lists the nodes of the session that wait for a signal right now, such as an approval step, oldest first. Answer one with the [signal endpoint](/api/control#send-a-signal-to-a-node) of its run. See [Approvals and signals](/building/approvals-and-signals).
+
+**Response `data`**: an array of waits.
+
+| Field | Type | Meaning |
+|---|---|---|
+| `executionId` | string | The run that waits |
+| `workflowId` | string | Its workflow |
+| `nodeId` | string | The node that waits |
+| `name` | string | The signal it waits for |
+| `since` | string | When the wait began |
+
+```json
+{
+  "timestamp": "2026-07-19T10:15:30.123456",
+  "status": 200,
+  "message": "Pending approvals retrieved",
+  "data": [
+    {
+      "executionId": "550e8400-e29b-41d4-a716-446655440000",
+      "workflowId": "release",
+      "nodeId": "approve",
+      "name": "release-approval",
+      "since": "2026-07-19T10:12:00Z"
+    }
+  ]
+}
+```
+
+## Stop a run
+
+`POST /api/executions/{executionId}/stop`
+
+Stops one run. To stop every active run of a workflow, use [`POST /api/workflow/{sessionId}/{workflowId}/stop`](/api/workflows#stop-all-runs-of-a-workflow).
+
+**Response `data`**: `executionId` of the stopped run.
+
+```http
+POST /api/executions/550e8400-e29b-41d4-a716-446655440000/stop
+```
+
+## Restart a run
+
+`POST /api/executions/{executionId}/restart`
+
+Stops the run if it is still active and starts the workflow again with the original trigger payload. The new run gets a new id.
+
+**Response `data`**: `executionId` of the new run.
+
+```json
+{
+  "timestamp": "2026-07-19T10:15:30.123456",
+  "status": 200,
+  "message": "Workflow restart accepted",
+  "data": { "executionId": "7c9e6679-7425-40de-944b-e07fc1f90ae7" }
+}
+```
+
+## Restart from a node
+
+`POST /api/executions/{executionId}/restart/{fromNodeId}`
+
+Starts a new run from one node. The nodes before it replay their last recorded output; the node and everything behind it run again. The response is the same as for a full restart.
+
+| Path parameter | Meaning |
+|---|---|
+| `fromNodeId` | The node to restart from |
+
+**Errors**: `404` if the run is unknown or no longer restartable. `400` if the node is not in the workflow, or if the run is still active and a node before the chosen one has not finished. To restart from a node that failed, you can also use the [retry endpoint](/api/control#retry-a-failed-node).
+
+## Recover an aborted run
+
+`POST /api/executions/{executionId}/recover`
+
+Continues a run that a server restart aborted, as a new run. Nodes that finished are replayed from their recorded output and the rest run again. It needs the execution log and checkpoints to be kept on disk; see [Checkpoints and resume](/operations/checkpoints-and-resume).
+
+**Response `data`**: `executionId` of the new run.
+
+**Errors**: `409` if the run was not aborted, was already recovered, has no recorded start payload, its workflow changed since it started, or every node had already finished. `404` if the run or its workflow no longer exists.
+
+## Change the priority of a queued run
+
+`POST /api/executions/{executionId}/priority?priority={n}`
+
+Changes the priority of a run that waits for an execution slot. Higher values are admitted first; the run moves behind the queued runs of equal or higher priority.
+
+| Query parameter | Required | Meaning |
+|---|---|---|
+| `priority` | yes | The new priority, an integer |
+
+**Response `data`**: `executionId`.
+
+**Errors**: `400` unless the run is waiting for a slot.
+
+## Change the execution limits
+
+`POST /api/scheduler/limits?maxConcurrent={n}&maxPerWorkflow={n}`
+
+Changes how many runs may execute at once on the running server. Raising a limit admits waiting starts immediately. Lowering it lets running runs finish and holds new starts back. The `yukta.execution.*` settings themselves are not changed. See [Admission and limits](/running/admission-and-limits).
+
+| Query parameter | Required | Meaning |
+|---|---|---|
+| `maxConcurrent` | yes | Most runs executing at once. `0` for no limit |
+| `maxPerWorkflow` | yes | Most runs of one workflow executing at once. `0` for no limit |
+
+**Response `data`**: `maxConcurrent` and `maxPerWorkflow` as set. A supervisor that refuses the command makes the call answer `403`.
+
+```http
+POST /api/scheduler/limits?maxConcurrent=8&maxPerWorkflow=2
+```
+
+```json
+{
+  "timestamp": "2026-07-19T10:15:30.123456",
+  "status": 200,
+  "message": "Limits changed",
+  "data": { "maxConcurrent": 8, "maxPerWorkflow": 2 }
+}
+```
+
+## Related
+
+- [Control API](/api/control)
+- [Streams API](/api/streams)
+- [Executions](/concepts/executions)
+- [Run controls](/running/run-controls)

@@ -1,0 +1,99 @@
+---
+title: "Observability"
+description: "Progress, logs, results, the live event feed, metrics and tracing: how to see what an execution is doing and what it produced."
+---
+
+Everything that happens in an execution becomes an event in one ordered queue. One consumer turns those events into progress snapshots, history and meters that REST, the live streams, MCP and the web UI all read.
+
+## Progress and status
+
+```http
+GET /api/executions/{executionId}
+```
+
+returns the execution status and a status for every node. Each snapshot carries `definitionVersion`, a content hash of the graph that is running. A node's status includes the reason when it ends `FAILURE` or `TIMED_OUT` (the error message, truncated), so a watcher can show the cause without reading logs. A node behind a failed one carries none.
+
+A live stream of progress is available as server-sent events:
+
+```http
+GET /api/executions/{executionId}/status/stream
+```
+
+A reader that connects late catches up from a history cache.
+
+| Setting | Default | Meaning |
+|---|---|---|
+| `yukta.streaming.status-history-max-per-run` | `200` | Progress snapshots kept per execution |
+| `yukta.streaming.status-history-max-executions` | `1000` | Executions with progress history |
+| `yukta.streaming.status-history-ttl-minutes` | `5` | How long the catch-up cache lives |
+| `yukta.tracker.cleanup-ttl` | `10m` | How long execution data is kept after it ends |
+| `yukta.tracker.max-sessions` | `0` (off) | Evict the oldest session without a running execution beyond this count |
+
+State events are never dropped. After a restart, the newest executions are restored from the execution log.
+
+## Logs
+
+Nodes write log lines while they run. Lines reach the log stream as they are written, labelled `stdout` or `stderr`:
+
+```http
+GET /api/sessions/{sessionId}/executions/{executionId}/logs
+```
+
+- A node that logged live is not logged again from its output message. Other nodes log their output message, cut to 2,048 characters.
+- More than 10,000 waiting lines are dropped and counted, so a log burst can never hold up an execution.
+- A failed log write is counted and never blocks a status update or the end of a run.
+- `yukta.logs.store.retention.default-period-minutes` (default `30`) sets retention, clamped between 1 minute and 24 hours.
+- Over MCP, `get_execution_logs` returns only new lines when you pass the previous call's `nextCursor` as `afterCursor`.
+
+## Results
+
+Logs are text. **Results** are a separate channel recording what reaches every terminal node, with payloads kept whole and typed.
+
+```http
+GET /api/sessions/{sessionId}/executions/{executionId}/results
+```
+
+The response is a stream of events, or JSON when you send `Accept: application/json` (with `afterCursor` to read only new events). The live stream is complete; only the replay buffer is bounded, and end events carry `truncated` when it dropped anything.
+
+| Setting | Default | Meaning |
+|---|---|---|
+| `yukta.results.retained-events` | `1000` | Replay buffer per execution |
+| `yukta.results.retention` | `1h` | Time after last use before results are dropped |
+| `yukta.results.max-executions` | `200` | Executions with retained results |
+
+Results are in memory only and are gone after a restart.
+
+## Event feed
+
+All executions' events are also published on one stream, which is how supervisors work and how an external tool can watch everything:
+
+```http
+GET /api/events/stream?executionId={id}&type={type}
+```
+
+Both filters are optional. Event delivery is best effort and never blocks an execution. See [Supervisors](/running/supervisors).
+
+## Audit
+
+```http
+GET /api/control/audit
+```
+
+lists who sent which command and whether it was applied or rejected.
+
+## Metrics
+
+Yukta publishes metrics for every governance and execution decision: node executions, durations and retries, execution duration and queue wait, scheduler gauges, rejected starts by reason, dropped events, edge drops, checkpoint bytes and errors, worker and leader gauges, and model usage. The complete list, with tags and what to alert on, is in [Capacity and performance](/operations/capacity-and-performance).
+
+The one to alert on is `yukta.tracker.queue.depth`: state events waiting to be applied. Growth means an event storm is becoming memory growth rather than data loss.
+
+## Tracing
+
+Tracing is optional. Each execution is one observation named `yukta.run`, the parent of one `yukta.node` observation per node (tags `module` and `status`). Observations become spans when a tracer is present on the server. Node spans are opened only for a status the execution accepted, so a late event for an ended node leaves no open span. There is no Yukta setting for tracing.
+
+## Related
+
+- [Executions](/concepts/executions)
+- [REST: streams](/api/streams)
+- [Capacity and performance](/operations/capacity-and-performance)
+- [Web UI](/interfaces/web-ui)

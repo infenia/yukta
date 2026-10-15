@@ -1,0 +1,4 @@
+# Only .mdx pages, docs.json, style.css and assets are published.
+# Markdown files (plans, notes, drafts) must never become pages.
+*.md
+superpowers/

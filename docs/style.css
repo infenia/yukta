@@ -1,0 +1,118 @@
+/*
+ * Yukta docs theme: mirrors the Yukta web UI tokens (cool slate neutrals, blue primary,
+ * orange attention accent, soft rounded corners, Inter + JetBrains Mono).
+ * Colour and font basics live in docs.json; this file adds what docs.json cannot express.
+ */
+@import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap");
+
+:root {
+  --yk-blue: #2f6bff;
+  --yk-blue-soft: #6fa2ff;
+  --yk-slate: #6a7a9b;
+  --yk-orange: #e85d0c;
+  --yk-success: #008235;
+  --yk-danger: #e7000b;
+
+  --yk-border: #dee1e8;
+  --yk-muted: #545e6f;
+  --yk-surface: #f0f4f9;
+
+  --yk-radius-lg: 0.625rem; /* inputs, buttons, small controls */
+  --yk-radius-xl: 0.875rem; /* cards, callouts, code blocks, tables */
+}
+
+.dark {
+  --yk-orange: #fc8c45;
+  --yk-success: #4bcb71;
+  --yk-danger: #ff6467;
+
+  --yk-border: #2d333d;
+  --yk-muted: #9aa5b8;
+  --yk-surface: #1c222b;
+}
+
+/* Typography: the UI's mono face for code, slightly calmer body tracking. */
+code,
+pre,
+.font-mono {
+  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+body {
+  letter-spacing: 0.01em;
+}
+
+/* Soft, rounded surfaces like the UI's rounded-xl panels. */
+.card,
+[data-component-part="card"],
+.callout,
+[data-callout-type],
+.accordion,
+details,
+.code-block,
+pre,
+table {
+  border-radius: var(--yk-radius-xl);
+}
+
+.card,
+.accordion,
+details,
+.code-block,
+table {
+  border-color: var(--yk-border);
+}
+
+input,
+button,
+[role="searchbox"],
+#search-bar-entry {
+  border-radius: var(--yk-radius-lg);
+}
+
+/* Inline code: a quiet slate chip instead of a loud box. */
+:not(pre) > code {
+  background: var(--yk-surface);
+  border: 1px solid var(--yk-border);
+  border-radius: 0.4rem;
+  padding: 0.05em 0.35em;
+  font-size: 0.9em;
+}
+
+/* Callouts follow the UI's semantic colours:
+ * note = blue, tip = success green, warning = attention orange, danger = destructive red. */
+[data-callout-type="note"],
+[data-callout-type="info"] {
+  border-color: color-mix(in srgb, var(--yk-blue) 35%, transparent);
+  background: color-mix(in srgb, var(--yk-blue) 8%, transparent);
+}
+
+[data-callout-type="tip"],
+[data-callout-type="check"] {
+  border-color: color-mix(in srgb, var(--yk-success) 35%, transparent);
+  background: color-mix(in srgb, var(--yk-success) 8%, transparent);
+}
+
+[data-callout-type="warning"] {
+  border-color: color-mix(in srgb, var(--yk-orange) 40%, transparent);
+  background: color-mix(in srgb, var(--yk-orange) 9%, transparent);
+}
+
+[data-callout-type="danger"] {
+  border-color: color-mix(in srgb, var(--yk-danger) 40%, transparent);
+  background: color-mix(in srgb, var(--yk-danger) 8%, transparent);
+}
+
+/* Tags such as "Optional" use the attention colour so they stand out in the sidebar and page header. */
+[data-page-tag],
+.tag {
+  color: var(--yk-orange);
+}
+
+/* Respect users who ask for less motion. */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+    animation: none !important;
+  }
+}

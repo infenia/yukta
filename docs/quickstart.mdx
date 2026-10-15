@@ -1,0 +1,137 @@
+---
+title: "Quickstart"
+description: "Run the Yukta server and execute your first workflow in five minutes."
+---
+
+You will start the server, apply a session that contains one workflow, start that workflow with some input, and read the result.
+
+## Before you begin
+
+- A JDK, version 25, to run the server from source
+- `git`
+- `curl` (any HTTP client works; the examples show plain HTTP requests as well)
+
+There are no packaged releases yet. A native binary and a container image can be built from source, see [Deployment](/operations/deployment).
+
+## 1. Run the server
+
+```bash
+git clone https://github.com/infenia/yukta.git
+cd yukta
+./gradlew bootRun
+```
+
+The server listens on `http://localhost:8080`, on loopback only. Open that address for the [web UI](/interfaces/web-ui), or `http://localhost:8080/swagger-ui.html` for interactive API documentation.
+
+## 2. Apply a session
+
+A **session** groups workflows. This one holds a single workflow that reads a name from the start request and builds a greeting.
+
+```http
+POST /api/sessions
+Content-Type: application/json
+```
+
+```json
+{
+  "sessionId": "demo",
+  "name": "Quickstart",
+  "description": "Greet a user",
+  "initiator": "me",
+  "projectPath": "/tmp",
+  "workflows": {
+    "greet": {
+      "workflowId": "greet",
+      "description": "Map the request payload into a greeting",
+      "nodes": [
+        { "nodeId": "trigger", "type": "API_TRIGGER", "config": {} },
+        {
+          "nodeId": "map",
+          "type": "MAPPER",
+          "config": {
+            "mode": "PROJECTION",
+            "mapping": { "greeting": "'Hello, ' + payload.name" }
+          }
+        },
+        { "nodeId": "end", "type": "CONSOLE_TERMINAL", "config": {} }
+      ],
+      "edges": [
+        { "source": "trigger", "target": "map" },
+        { "source": "map", "target": "end" }
+      ]
+    }
+  }
+}
+```
+
+With `curl`, save the body as `session.json` and run:
+
+```bash
+curl -X POST http://localhost:8080/api/sessions \
+  -H "Content-Type: application/json" -d @session.json
+```
+
+The workflow has one node of each role: `API_TRIGGER` receives the payload you send when you start it, `MAPPER` builds a new record from it, and `CONSOLE_TERMINAL` ends the branch by logging what arrives.
+
+<Note>
+  Sessions are held in memory by default, so apply them again after a restart. See [Persistence](/operations/persistence) to keep them on disk or in PostgreSQL.
+</Note>
+
+## 3. Start the workflow
+
+```http
+POST /api/workflow/start
+Content-Type: application/json
+```
+
+```json
+{ "sessionId": "demo", "workflowId": "greet", "payload": { "name": "Ada" } }
+```
+
+```bash
+curl -X POST http://localhost:8080/api/workflow/start \
+  -H "Content-Type: application/json" \
+  -d '{"sessionId":"demo","workflowId":"greet","payload":{"name":"Ada"}}'
+```
+
+The server answers `202 Accepted` with an **execution id** in `data.executionId`. The execution runs in the background.
+
+## 4. Watch it and read the result
+
+Poll the status:
+
+```http
+GET /api/executions/{executionId}
+```
+
+The response contains the execution `status` (`SUCCESS` when it finishes) and a status for every node. To follow it live, open the status stream, which uses server-sent events:
+
+```bash
+curl -N http://localhost:8080/api/executions/{executionId}/status/stream
+```
+
+The log of the run is at `GET /api/sessions/demo/executions/{executionId}/logs`. The terminal node logs the mapped record, `{greeting=Hello, Ada}`.
+
+## What just happened
+
+1. Applying the session validated and stored the workflow.
+2. Starting it checked the limits, took a slot and returned an execution id.
+3. The trigger emitted one message carrying your payload. The mapper derived a new message from it, and the terminal consumed it.
+4. Every step produced progress events that the status and log streams carried to you.
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="More examples" icon="flask" href="/examples">
+    Ten workflows for CI, quality gates, data pipelines, retries, notifications and LLM agents.
+  </Card>
+  <Card title="Connect an AI agent" icon="robot" href="/interfaces/mcp">
+    Point Claude or any MCP client at `/mcp` and let it create and run workflows.
+  </Card>
+  <Card title="Run operating-system commands" icon="terminal" href="/operations/security">
+    The process plugin refuses every command until you allow-list it.
+  </Card>
+  <Card title="Understand the model" icon="sitemap" href="/concepts/how-it-works">
+    Sessions, nodes, ports, messages and executions in depth.
+  </Card>
+</CardGroup>

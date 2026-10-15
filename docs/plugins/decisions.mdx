@@ -1,0 +1,205 @@
+---
+title: "Decision plugins"
+description: "CLASSIFY, GATE, SCORE, ASK, ANOMALY and DEDUPE: constrained model decisions for routing and gating."
+tag: "Optional"
+---
+
+A decision plugin asks a model a constrained question about a message and records the answer in the message metadata. The answer is always in a known shape: a label from your list, a probability, or a score. You route on it with the plugin's own ports or with a `BRANCH` node.
+
+All six need the optional `decision` module, which also brings in `LLM_CALL`. See [Built-in plugins](/plugins/overview) for how a build selects it. Use them to classify, to gate on a yes/no judgement, to rate on a scale, to ask several questions in one call, or to spot unusual and repeated messages.
+
+## Common options
+
+Every decision plugin takes these options in addition to its own.
+
+| Option | Type | Default | Meaning |
+|---|---|---|---|
+| `backend` | `SYSTEMONE` or `LLM` | `SYSTEMONE` | The kind of model, see below |
+| `provider` | `openai`, `anthropic` or `ollama` | none | The chat provider. Required when `backend` is `LLM` |
+| `model` | string | none, required | The model name. Variables allowed |
+| `baseUrl` | string | `http://localhost:11434` for `SYSTEMONE` | Endpoint override. Variables allowed |
+| `apiKey` | string | none | API key. Use `decrypted:<key>`. Variables allowed |
+| `timeout` | number | `30` | Seconds to wait for the model |
+| `state` | expression | `payload` | What the model sees. A text result is used as is, any other value is turned into JSON. It is cut to 15,000 characters |
+| `into` | string | per plugin | The metadata key that receives the result |
+
+The two backends:
+
+| Backend | How it works |
+|---|---|
+| `SYSTEMONE` | Calls Ollama's System One endpoint (`/v1/systemone`). It needs Ollama 0.35 or newer and a decision model. The probabilities are calibrated |
+| `LLM` | Uses any chat model through the same model access as `LLM_CALL`, so the `yukta.llm.*` settings apply. The model is asked for JSON, and the probabilities are its own estimates and are not calibrated |
+
+The decision is written to `metadata[into]`. The payload is not changed. A model failure, a reply that is not valid, or a label that is not among the options fails the message. Use the node's `engine` policy (retry and error routing) to retry or send failures to a dead letter: see [Failure handling](/concepts/failure-handling).
+
+Describe each label, level and criterion explicitly. A small decision model depends on those descriptions.
+
+Default timeout: `timeout` plus 5 seconds, so 35 seconds with the default. `CLASSIFY`, `GATE`, `SCORE` and `ASK` handle up to 256 messages at once, with results emitted in order. `ANOMALY` and `DEDUPE` handle one at a time.
+
+## CLASSIFY
+
+Picks one label for the message.
+
+| Option | Type | Default | Meaning |
+|---|---|---|---|
+| `labels` | map | none, required | Label to a description of when it applies. At least two |
+| `question` | string | `Which label fits this?` | What is asked |
+| `minProbability` | number | `0.6` | Below this probability the answer is uncertain |
+| `routeByLabel` | boolean | `false` | Emit on a port per label |
+
+`into` defaults to `classification`. The result is `{"choice", "probability", "probabilities", "label", "uncertain"}`: the chosen label, its probability, the probability of every label, and whether the answer counts as uncertain (a probability below `minProbability`).
+
+Output ports: `default`, or with `routeByLabel` one port named like each label plus `uncertain`. A message leaves on its label's port, or on `uncertain` when it is uncertain. Label names therefore become port names.
+
+```json
+{
+  "nodeId": "triage",
+  "type": "CLASSIFY",
+  "config": {
+    "model": "tev1:0.8b",
+    "state": "payload.text",
+    "labels": {
+      "bug": "The user reports something that is broken or behaves wrongly",
+      "feature": "The user asks for new behaviour",
+      "question": "The user asks how something works"
+    },
+    "routeByLabel": true,
+    "minProbability": 0.6
+  }
+}
+```
+
+## GATE
+
+Asks a yes/no question and routes on the answer.
+
+| Option | Type | Default | Meaning |
+|---|---|---|---|
+| `question` | string | none, required | A yes/no question, for example `Is this message safe to send to a customer?` |
+| `threshold` | number | `0.5` | The probability of yes needed to pass |
+
+`into` defaults to `gate`. The result is `{"probability", "passed"}`. Output ports: `pass` when the probability of yes is at or above `threshold`, otherwise `reject`.
+
+```json
+{
+  "nodeId": "safe-to-send",
+  "type": "GATE",
+  "config": {
+    "backend": "LLM",
+    "provider": "anthropic",
+    "model": "claude-sonnet-5-5",
+    "apiKey": "decrypted:anthropic",
+    "question": "Is this reply polite and free of personal data?",
+    "state": "payload.reply",
+    "threshold": 0.8
+  }
+}
+```
+
+## SCORE
+
+Rates the message on an ordered scale.
+
+| Option | Type | Default | Meaning |
+|---|---|---|---|
+| `question` | string | none, required | What is rated |
+| `levels` | list | none, required | The levels, lowest first. From 2 to 26 entries |
+| `threshold` | number | none | The score from which a message counts as high |
+
+`into` defaults to `score`. The result is `{"score", "level"}`. The score runs from 0 to the number of levels minus one and is weighted by the model's probabilities. `level` is the nearest named level. Output ports: `default`, or `high` and `low` when `threshold` is set (`high` at or above it).
+
+```json
+{
+  "nodeId": "urgency",
+  "type": "SCORE",
+  "config": {
+    "model": "tev1:0.8b",
+    "question": "How urgent is this ticket?",
+    "levels": ["can wait", "this week", "today", "now"],
+    "threshold": 2
+  }
+}
+```
+
+## ASK
+
+Asks several questions about one message in a single model call.
+
+| Option | Type | Default | Meaning |
+|---|---|---|---|
+| `questions` | map | none, required | Question name to its definition. Up to 64 |
+
+Each definition is `{"type", "instructions", "criteria"}`:
+
+| `type` | `criteria` | Answer |
+|---|---|---|
+| `choice` | a map of option to description, at least two | `{"choice", "probability", "probabilities"}` |
+| `yesno` | not used | `{"probability"}` |
+| `score` | a list of levels, lowest first, at least two | `{"score"}` |
+
+`into` defaults to `answers`. The result is an object with one entry per question name. Output port: `default`. Route on the answers with a `BRANCH` node, for example on `metadata['answers']['sentiment']['choice']`.
+
+```json
+{
+  "nodeId": "review",
+  "type": "ASK",
+  "config": {
+    "model": "tev1:0.8b",
+    "state": "payload.text",
+    "questions": {
+      "sentiment": {
+        "type": "choice",
+        "instructions": "What is the sentiment of the text?",
+        "criteria": { "positive": "Happy or satisfied", "negative": "Angry or disappointed", "neutral": "Neither" }
+      },
+      "contains_pii": { "type": "yesno", "instructions": "Does the text contain personal data?" }
+    }
+  }
+}
+```
+
+## ANOMALY
+
+Judges whether each message is unusual compared with the recent ones.
+
+| Option | Type | Default | Meaning |
+|---|---|---|---|
+| `window` | number | `20` | How many recent messages are kept for comparison. At least 1 |
+| `minHistory` | number | `5` | Messages seen before judging starts. At least 0 |
+| `threshold` | number | `0.5` | The probability from which a message is anomalous |
+| `question` | string | `Is the current item unusual compared with the recent items?` | What is asked |
+
+`into` defaults to `anomaly`. The result is `{"probability", "warmup"}`. Output ports: `normal` and `anomalous`. The first `minHistory` messages are always `normal`, with `warmup` true and probability 0.
+
+## DEDUPE
+
+Judges whether a message means the same as a recent one.
+
+| Option | Type | Default | Meaning |
+|---|---|---|---|
+| `window` | number | `10` | How many recent unique messages are kept for comparison. At least 1 |
+| `minProbability` | number | `0.6` | The probability needed to call a message a repeat |
+
+`into` defaults to `dedupe`. The result is `{"duplicate": false}` for a unique message, and `{"duplicate": true, "duplicateOf": "<message id>", "probability": ...}` for a repeat. Output ports: `unique` and `duplicate`. Only unique messages enter the window. The first message is always unique.
+
+For both `ANOMALY` and `DEDUPE`, the window belongs to one node in one execution and holds each message as text cut to 500 characters. It is kept in memory and starts empty in every execution. A workflow that is started again for every event therefore never builds history, and every message looks normal or unique. Use them in a long-running execution, for example one started by `SCHEDULE_TRIGGER`.
+
+## Limits and defaults
+
+| Item | Value |
+|---|---|
+| Text shown to the model (`state`) | 15,000 characters |
+| `timeout` | 30 s; node timeout 35 s |
+| `CLASSIFY` `minProbability`, `GATE` `threshold` | 0.6, 0.5 |
+| `SCORE` levels | 2 to 26 |
+| `ASK` questions | up to 64 |
+| `ANOMALY` `window`, `minHistory`, `threshold` | 20, 5, 0.5 |
+| `DEDUPE` `window`, `minProbability` | 10, 0.6 |
+| Window text per message | 500 characters |
+
+## Related
+
+- [AI plugins](/plugins/ai)
+- [AI and agents](/building/ai-and-agents)
+- [Routing and branching](/building/routing-and-branching)
+- [Failure handling](/concepts/failure-handling)
