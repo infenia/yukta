@@ -1,20 +1,22 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
-package com.infenia.yukta.workers;
+package com.infenia.workers;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
 import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
-import com.infenia.yukta.service.worker.WorkerInfo;
+import com.infenia.yukta.plugin.exception.WorkflowExecutionException;
 import com.infenia.yukta.service.worker.WorkerRegistry;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import java.io.IOException;
+import java.nio.file.Path;
 import java.time.Duration;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.WebApplicationType;
@@ -25,12 +27,13 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 import reactor.core.publisher.Flux;
+import reactor.test.StepVerifier;
 import reactor.util.context.Context;
 
-/** A worker that stops finishes what it runs and is given no new attempts meanwhile. */
+/** A worker in its own JVM is killed with SIGKILL while it runs an attempt. */
 @NoArgsConstructor
 @SuppressWarnings("PMD.LawOfDemeter")
-class DrainTest {
+class ChaosTest {
 
   /** The control plane. */
   @Configuration
@@ -43,18 +46,23 @@ class DrainTest {
     }
   }
 
-  private static ConfigurableApplicationContext worker(final String port, final String name) {
-    return new SpringApplicationBuilder(RemoteNodeWorkerConfig.class)
-        .web(WebApplicationType.NONE)
-        .properties(
+  private static Process startWorker(final String port, final String name) throws IOException {
+    final List<String> command =
+        List.of(
+            Path.of(System.getProperty("java.home"), "bin", "java").toString(),
+            "-cp",
+            System.getProperty("java.class.path"),
+            WorkerMain.class.getName(),
             "yukta.workers.control-plane=localhost:" + port,
             "yukta.workers.token=secret",
             "yukta.workers.id=" + name,
-            "yukta.workers.plugin-types=UPPER,SLOW",
+            "yukta.workers.plugin-types=UPPER,HOLD",
             "yukta.workers.capacity=2",
-            "yukta.workers.lease=3s",
-            "yukta.workers.drain-timeout=20s")
-        .run();
+            "yukta.workers.lease=3s");
+    return new ProcessBuilder(command)
+        .redirectErrorStream(true)
+        .redirectOutput(ProcessBuilder.Redirect.DISCARD)
+        .start();
   }
 
   private static Flux<Message<?>> run(
@@ -65,7 +73,7 @@ class DrainTest {
   }
 
   @Test
-  void drainingWorker_finishesItsAttempt_andGetsNoNewOnes() {
+  void killedWorker_failsItsAttemptRetryably_andTheRetryRunsOnTheSurvivor() throws IOException {
     try (ConfigurableApplicationContext controlPlane =
         new SpringApplicationBuilder(ControlPlane.class)
             .web(WebApplicationType.NONE)
@@ -77,34 +85,30 @@ class DrainTest {
       final String port = controlPlane.getEnvironment().getProperty("local.rsocket.server.port");
       final WorkerRegistry registry = controlPlane.getBean(WorkerRegistry.class);
       final WorkerNodeExecutor executor = controlPlane.getBean(WorkerNodeExecutor.class);
-      try (ConfigurableApplicationContext first = worker(port, "w1");
-          ConfigurableApplicationContext second = worker(port, "w2")) {
-        assertThat(second.isRunning()).isTrue();
+      final Process doomed = startWorker(port, "w1");
+      final Process survivor = startWorker(port, "w2");
+      try {
         await()
-            .atMost(Duration.ofSeconds(20))
+            .atMost(Duration.ofSeconds(60))
             .until(() -> registry.find("w1").isPresent() && registry.find("w2").isPresent());
 
-        // the slow attempt goes to w1 (equal slots, lowest id)
-        final CompletableFuture<Message<?>> slow = run(executor, "SLOW", "x").next().toFuture();
-        await()
-            .atMost(Duration.ofSeconds(10))
-            .until(() -> first.getBean(NodeRunner.class).running() == 1);
+        // equal slots, lowest id: the held attempt runs on w1
+        StepVerifier.create(run(executor, "HOLD", "x"))
+            .expectNextCount(1)
+            .then(doomed::destroyForcibly)
+            .verifyErrorSatisfies(
+                error ->
+                    assertThat(error)
+                        .isInstanceOf(WorkflowExecutionException.class)
+                        .hasMessageContaining("w1"));
 
-        final CompletableFuture<Void> stopping =
-            CompletableFuture.runAsync(() -> first.getBean(WorkerAgent.class).stop());
-        await()
-            .atMost(Duration.ofSeconds(10))
-            .until(() -> registry.find("w1").map(WorkerInfo::draining).orElse(false));
-        assertThat(stopping).isNotDone();
-
-        // meanwhile nothing new goes to w1: its attempt is still running, the new one runs on w2
-        assertThat(run(executor, "UPPER", "q").blockFirst().payload()).isEqualTo("Q");
-        assertThat(second.getBean(NodeRunner.class).running()).isZero();
-
-        // the draining attempt finishes normally, then the worker is gone
-        assertThat(slow.join().payload()).isEqualTo("x");
-        stopping.join();
-        await().atMost(Duration.ofSeconds(20)).until(() -> registry.find("w1").isEmpty());
+        await().atMost(Duration.ofSeconds(30)).until(() -> registry.find("w1").isEmpty());
+        StepVerifier.create(run(executor, "UPPER", "again"))
+            .assertNext(out -> assertThat(out.payload()).isEqualTo("AGAIN"))
+            .verifyComplete();
+      } finally {
+        doomed.destroyForcibly();
+        survivor.destroyForcibly();
       }
     }
   }

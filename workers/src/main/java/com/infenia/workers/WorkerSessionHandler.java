@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
-package com.infenia.yukta.workers;
+package com.infenia.workers;
 
 import com.infenia.yukta.service.leader.LeaderElection;
 import com.infenia.yukta.service.worker.WorkerInfo;
