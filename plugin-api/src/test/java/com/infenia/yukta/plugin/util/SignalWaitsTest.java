@@ -40,7 +40,21 @@ class SignalWaitsTest {
         .then(() -> assertThat(answer(waits, "fine")).isEqualTo(SignalWaits.ACCEPTED))
         .assertNext(d -> assertThat(d).isEqualTo(new SignalWaits.Decision("approve", "fine")))
         .verifyComplete();
-    assertThat(answer(waits, null)).isEqualTo(SignalWaits.QUEUED); // kept for a later wait
+    assertThat(answer(waits, null)).isEqualTo(SignalWaits.NOT_WAITING); // double submit
+  }
+
+  @Test
+  void duplicateAfterAccept_isDropped_butASignalOutsideTheWindowIsKept() {
+    final Hand clock = new Hand();
+    final SignalWaits waits = new SignalWaits(clock);
+
+    StepVerifier.create(waits.await("e", "n", "ok", Duration.ofSeconds(5)))
+        .then(() -> answer(waits, "one"))
+        .expectNextCount(1)
+        .verifyComplete();
+    assertThat(answer(waits, "dup")).isEqualTo(SignalWaits.NOT_WAITING);
+    clock.advance(SignalWaits.DUPLICATE_WINDOW.plusSeconds(1));
+    assertThat(answer(waits, "early")).isEqualTo(SignalWaits.QUEUED);
   }
 
   @Test
@@ -70,7 +84,7 @@ class SignalWaitsTest {
     assertThat(second).isNotDone();
     assertThat(answer(waits, "two")).isEqualTo(SignalWaits.ACCEPTED);
     assertThat(second).isCompleted();
-    assertThat(answer(waits, "three")).isEqualTo(SignalWaits.QUEUED);
+    assertThat(answer(waits, "three")).isEqualTo(SignalWaits.NOT_WAITING);
   }
 
   @Test
@@ -85,7 +99,7 @@ class SignalWaitsTest {
     assertThat(answer(waits, "two")).isEqualTo(SignalWaits.ACCEPTED);
     assertThat(first).isCompleted();
     assertThat(third).isCompleted();
-    assertThat(answer(waits, "three")).isEqualTo(SignalWaits.QUEUED);
+    assertThat(answer(waits, "three")).isEqualTo(SignalWaits.NOT_WAITING);
   }
 
   @Test
