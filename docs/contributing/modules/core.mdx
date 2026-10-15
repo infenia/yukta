@@ -240,7 +240,7 @@ Turns what happens in a run into ordered state, live progress streams and metric
 
 - **Guarantees.** State events are complete and in order, and the run and node timelines agree with the log.
 - **State.** Everything is in memory. After a restart the newest runs are restored from the log.
-- **Ceiling.** State events are never dropped and their queue has no size limit, and per-session state is kept until yukta.tracker.max-sessions evicts the oldest finished session (off by default), so memory can grow with the number of sessions and during event storms.
+- **Ceiling.** State events are never dropped and their queue has no size limit, and per-session state is kept until yukta.tracker.max-sessions evicts the oldest finished session or yukta.tracker.session-ttl drops an idle one (both off by default), so memory can grow with the number of sessions and during event storms.
 - **On failure.** The queue cannot overflow and silently stop tracking: bounded channels use a non-terminating 'offer' instead of 'emit'.
 
 **Settings:** `tracing: add a Micrometer tracer to the classpath`

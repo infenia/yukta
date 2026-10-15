@@ -23,6 +23,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -3068,6 +3069,93 @@ class DefaultTaskTrackerServiceTest {
     StepVerifier.create(tracker.startWorkflow("e2", "s2", "w", List.of("a"))).verifyComplete();
 
     assertThat(tracker.getActiveSessions()).containsExactlyInAnyOrder("s1", "s2");
+  }
+
+  /** A finished session, a clock to move and the TTL in force. */
+  private AtomicLong ttlClock(final Duration ttl) {
+    final AtomicLong now = new AtomicLong(1_000_000_000L);
+    tracker.setClock(now::get);
+    tracker.setSessionTtl(ttl);
+    return now;
+  }
+
+  private void finishRun(final String execution, final String session) {
+    StepVerifier.create(tracker.startWorkflow(execution, session, "w", List.of("a")))
+        .verifyComplete();
+    tracker.emitWorkflowStatusEvent(execution, TaskStatus.SUCCESS);
+    await()
+        .atMost(3, TimeUnit.SECONDS)
+        .until(() -> "SUCCESS".equals(tracker.getProgress(session, execution).status()));
+  }
+
+  @Test
+  void sessionTtl_dropsFinishedSessionOnceIdleLongEnough() {
+    final AtomicLong now = ttlClock(Duration.ofMinutes(10));
+    finishRun("e1", "s1");
+
+    now.addAndGet(Duration.ofMinutes(9).toNanos());
+    tracker.evictExpiredSessions();
+    assertThat(tracker.getActiveSessions()).contains("s1");
+
+    now.addAndGet(Duration.ofMinutes(2).toNanos());
+    tracker.evictExpiredSessions();
+    assertThat(tracker.getActiveSessions()).doesNotContain("s1");
+  }
+
+  @Test
+  void sessionTtl_neverDropsSessionWithRunningRun() {
+    final AtomicLong now = ttlClock(Duration.ofMinutes(10));
+    StepVerifier.create(tracker.startWorkflow("e1", "s1", "w", List.of("a"))).verifyComplete();
+
+    now.addAndGet(Duration.ofHours(5).toNanos());
+    tracker.evictExpiredSessions();
+
+    assertThat(tracker.getActiveSessions()).contains("s1");
+  }
+
+  @Test
+  void sessionTtl_countsIdleTimeFromTheEndOfTheLastRun() {
+    final AtomicLong now = ttlClock(Duration.ofMinutes(10));
+    StepVerifier.create(tracker.startWorkflow("e1", "s1", "w", List.of("a"))).verifyComplete();
+    now.addAndGet(Duration.ofHours(1).toNanos());
+
+    tracker.emitWorkflowStatusEvent("e1", TaskStatus.SUCCESS);
+    final Map<String, Long> used = field(tracker, "sessionUsed");
+    await().atMost(3, TimeUnit.SECONDS).until(() -> used.get("s1") == now.get());
+    tracker.evictExpiredSessions();
+    assertThat(tracker.getActiveSessions()).as("the run has just ended").contains("s1");
+
+    now.addAndGet(Duration.ofMinutes(11).toNanos());
+    tracker.evictExpiredSessions();
+    assertThat(tracker.getActiveSessions()).doesNotContain("s1");
+  }
+
+  @Test
+  void sessionTtl_timerDropsIdleSessionsWithoutAnyCall() {
+    final DefaultTaskTrackerService timed =
+        new DefaultTaskTrackerService(Duration.ofMillis(200), statusHistoryCache);
+    timed.setSessionTtl(Duration.ofSeconds(1));
+    timed.init();
+    try {
+      StepVerifier.create(timed.startWorkflow("e1", "s1", "w", List.of("a"))).verifyComplete();
+      timed.emitWorkflowStatusEvent("e1", TaskStatus.SUCCESS);
+
+      await().atMost(10, TimeUnit.SECONDS).until(() -> !timed.getActiveSessions().contains("s1"));
+    } finally {
+      timed.stopSessionSweeper();
+    }
+  }
+
+  @Test
+  void sessionTtl_isOffByDefault() {
+    final AtomicLong now = new AtomicLong(1_000_000_000L);
+    tracker.setClock(now::get);
+    finishRun("e1", "s1");
+
+    now.addAndGet(Duration.ofDays(100).toNanos());
+    tracker.evictExpiredSessions();
+
+    assertThat(tracker.getActiveSessions()).contains("s1");
   }
 
   @Test

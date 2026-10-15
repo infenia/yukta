@@ -28,7 +28,7 @@ Admission, command ordering and run state live in one server at a time. [High av
 | Data | Bound | Setting |
 |---|---|---|
 | Live state of ended executions | Kept `10m` after the end | `yukta.tracker.cleanup-ttl` |
-| Sessions held by the tracker | Not limited | `yukta.tracker.max-sessions` (off) |
+| Sessions held by the tracker | Not limited | `yukta.tracker.max-sessions` (off), `yukta.tracker.session-ttl` (off) |
 | Progress history for late stream clients | 200 snapshots per execution, 1000 executions, 5 minutes | `yukta.streaming.*` |
 | Result events | 1000 per execution, 200 executions, 1 hour after last use | `yukta.results.*` |
 | Node log lines | 30 minutes by default, 1 minute to 24 hours | `yukta.logs.store.retention.default-period-minutes` |

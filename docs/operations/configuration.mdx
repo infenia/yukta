@@ -85,6 +85,7 @@ Per-node clocks (idle, element and node deadline) are set in the node. See [Per-
 |---|---|---|
 | `yukta.tracker.cleanup-ttl` | `10m` | How long an execution's live state is kept after it ends |
 | `yukta.tracker.max-sessions` | `0` (off) | When more sessions are held in memory, the oldest session with no running execution is dropped. Keep it small: every start scans the sessions while the limit is exceeded |
+| `yukta.tracker.session-ttl` | unset (off) | A session with no running execution is dropped after it has been idle this long, counted from the end of its last run (or its last start if that is newer). A timer checks every quarter of the TTL, at least once a minute. The session's history leaves the API and the UI with it, so set it above how long you want history to stay visible, for example `24h` |
 | `yukta.streaming.status-history-max-per-run` | `200` | Progress snapshots kept per execution for late stream clients |
 | `yukta.streaming.status-history-max-executions` | `1000` | Executions with progress history |
 | `yukta.streaming.status-history-ttl-minutes` | `5` | How long that history is kept |

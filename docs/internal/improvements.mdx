@@ -594,7 +594,7 @@ Vertical on one JVM. Streams are efficient, but every run's state, the scheduler
 **Ceilings today**
 
 - All admission, ordering and run state in one process
-- Unbounded tracker state queue; sessions are evicted only if yukta.tracker.max-sessions is set
+- Unbounded tracker state queue; sessions are evicted only if yukta.tracker.max-sessions or yukta.tracker.session-ttl is set
 - Fan-out paced by the slowest child
 - Checkpoint memory bound = retained runs x nodes x bytes-per-node
 - The default in-memory execution log and the idempotency cache are not size bounded

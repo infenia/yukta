@@ -64,6 +64,7 @@ This page collects the numbers that bound a Yukta server: fixed ceilings, defaul
 |---|---|---|---|
 | Ended execution state kept | 10 minutes | `yukta.tracker.cleanup-ttl` | [Configuration](/operations/configuration#streams-and-history) |
 | Sessions held in memory | No limit | `yukta.tracker.max-sessions` | [Configuration](/operations/configuration#streams-and-history) |
+| Idle session lifetime | No limit | `yukta.tracker.session-ttl` | [Configuration](/operations/configuration#streams-and-history) |
 | Progress snapshots per execution | 200 | `yukta.streaming.status-history-max-per-run` | [Observability](/running/observability) |
 | Executions with progress history | 1000 | `yukta.streaming.status-history-max-executions` | [Observability](/running/observability) |
 | Progress history lifetime | 5 minutes | `yukta.streaming.status-history-ttl-minutes` | [Observability](/running/observability) |
