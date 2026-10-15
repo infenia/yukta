@@ -3,7 +3,11 @@ title: "Introduction"
 description: "Yukta is a reactive, DAG-based workflow orchestration server. Define a workflow once as JSON and run it from a script, a CI pipeline, a web UI or an AI agent."
 ---
 
+import { DagHero } from "/snippets/dag-hero.jsx"
+
 Yukta runs **workflows**: graphs of small steps that pass messages to one another. You describe a workflow as JSON, store it on the server, and start it from anywhere that can make an HTTP request. While it runs you can watch it live, pause it, skip a step, approve a decision, retry a failure or stop it.
+
+<DagHero />
 
 <Note>
   Yukta is pre-beta (`0.0.1-SNAPSHOT`). The workflow JSON, the REST API, the MCP tools and the plugin contract may change before v0.1.0, and there are no tagged releases yet, so you run Yukta from source.
