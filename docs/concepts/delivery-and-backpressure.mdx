@@ -35,6 +35,8 @@ flowchart LR
   A --> B["Slow node"]
   A --> C["Fast node"]
   B -. "slow node paces A and the trigger" .-> A
+  classDef trigger fill:#FFE9DB,stroke:#E85D0C,stroke-width:2px,color:#11161F
+  class T trigger
 ```
 
 ### Letting a node fall behind

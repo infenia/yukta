@@ -109,6 +109,50 @@ button,
   color: var(--yk-orange);
 }
 
+/* The logo's three colours as a thin bar across the top of every page: orange trigger, blue
+ * processor, slate terminal. This is the most visible place the orange accent appears. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0 0 auto 0;
+  height: 3px;
+  z-index: 60;
+  pointer-events: none;
+  background: linear-gradient(
+    90deg,
+    var(--yk-orange) 0%,
+    var(--yk-orange) 18%,
+    var(--yk-blue) 18%,
+    var(--yk-blue) 82%,
+    var(--yk-slate) 82%,
+    var(--yk-slate) 100%
+  );
+}
+
+/* Orange is the attention accent: hover, focus and selection. Blue stays the resting colour. */
+#navbar a:hover,
+#sidebar a:hover,
+footer a:hover,
+.prose p a:hover,
+.prose li a:hover {
+  color: var(--yk-orange);
+}
+
+:focus-visible {
+  outline: 2px solid var(--yk-orange);
+  outline-offset: 2px;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--yk-orange) 28%, transparent);
+}
+
+.card:hover,
+a.card:hover,
+[data-component-part="card"]:hover {
+  border-color: var(--yk-orange);
+}
+
 /* Respect users who ask for less motion. */
 @media (prefers-reduced-motion: reduce) {
   * {

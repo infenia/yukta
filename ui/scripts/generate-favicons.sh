@@ -3,14 +3,15 @@
 # SPDX-FileCopyrightText: 2026 Infenia Private Limited
 #
 # Regenerates the favicon set in public/ from public/logo.svg (left untouched):
-#   favicon.svg                         the drawing only (no C2PA metadata/title), tight viewBox
+#   favicon.svg                         the drawing on a white rounded tile (no C2PA metadata/title),
+#                                       so it stays visible on dark backgrounds
 #   favicon.ico                         16, 32 and 48 px frames
 #   favicon-96x96.png, apple-touch-icon.png, web-app-manifest-{192x192,512x512}.png
 # Needs Inkscape and ImageMagick (`convert`). Run after changing logo.svg: `pnpm run favicons`.
 set -euo pipefail
 cd "$(dirname "$0")/../public"
 
-# Drawing extent is about x 32..216, y 36..214 of the 250x250 canvas; crop with a little air.
+# Drawing extent is about x 32..216, y 36..214 of the 250x250 canvas; crop with 8 units of air.
 python3 - <<'PY'
 import re
 s = open('logo.svg').read()
@@ -18,8 +19,10 @@ s = re.sub(r'<metadata>.*?</metadata>', '', s, flags=re.S)
 s = re.sub(r'<title[^>]*>.*?</title>', '', s, flags=re.S)
 s = re.sub(r'\s+xmlns:c2pa="[^"]*"', '', s)
 s = re.sub(r'\s+(width|height)="250"', '', s)
-s = s.replace('viewBox="0 0 250 250"', 'viewBox="26 27 196 196"')
+s = s.replace('viewBox="0 0 250 250"', 'viewBox="18 19 212 212"')
 s = s.replace(' role="img" aria-labelledby="logo-title"', '')
+# White rounded tile behind the mark (the connectors and rings are mid-tone, lost on dark themes)
+s = s.replace('  <!-- connectors -->', '  <rect x="18" y="19" width="212" height="212" rx="40" fill="#fff"/>\n\n  <!-- connectors -->')
 s = re.sub(r'\n\s*\n+', '\n', s).strip() + '\n'
 open('favicon.svg', 'w').write(s)
 PY
