@@ -1,0 +1,2158 @@
+---
+title: "Improvements"
+description: "The way forward for every Yukta module: evolution paths, quality-lens ceilings and levers, open questions and review findings."
+---
+
+<Note>
+  Internal page. It is restricted to project members.
+</Note>
+
+For each module: the **evolution path** (what the module is today and what to do next), the **quality lenses** (what limits it, what already helps and what needs design work), the **open questions** to settle, and the findings of its review that are still open. Individual weaknesses are on the [Risks](/internal/risks) page and confirmed defects on the [Bugs](/internal/bugs) page.
+
+## Boot
+
+### Evolution path
+
+Boot's path is mostly about making the safe choice the default and proving the shipped artifact works.
+
+1. **Today.** One process, loopback by default with a start-up guard, dev default on the JVM, prod forced on native, all plugins except script-js by default, in-memory state unless a persistence or workers build is chosen.
+2. **Safer defaults.** Done: refuse to bind publicly without a key, guard /actuator. Next: fix the guard for the MCP-key-only case, guard or switch off Swagger, prod as the default profile, trim dev exposure. Risks: `guardMcpKeyOnly`, `profileDefault`, `devExposure`, `openOps`.
+3. **Verify the shipped artifact.** Smoke-test the native binary and its profile; measure the build heap; make tests independent of plugin choice. Risks: `nativeGap`, `xmx8g`, `testsNeedPlugin`, `profileForce`, `nativeMetaStale`.
+4. **Persistent profile.** A documented profile with file stores or a database, and clean-up of dead keys. Risks: `singleProc`, `deadKeys`.
+5. **Flexible packaging.** Prebuilt plugin variants or a plugin directory for JVM builds. Risks: `buildFixed`, `scanBroad`.
+
+### Quality lenses
+
+<AccordionGroup>
+<Accordion title="Scalability">
+Boot adds nothing that scales: one process, one port. All scaling questions belong to core. It does not block scale-out, but it offers no help either.
+
+**Ceilings today**
+
+- One JVM, one Netty server, one port for API, MCP and management
+- In-memory defaults mean copies share nothing
+- Native image fixes the plugin set
+- Management traffic shares the API pool
+
+**Levers today**
+
+- Virtual threads for blocking work
+- Gzip in prod
+- Long cache for hashed assets
+
+**Needs design work**
+
+- A documented multi-instance setup, or an explicit statement that it is single-node
+- A separate management port
+- A CDN or ETag strategy for assets if traffic grows
+
+</Accordion>
+<Accordion title="Performance">
+Start-up and memory are the performance topics here. Native image gives the best start-up; the JVM is easier to build.
+
+**Ceilings today**
+
+- The native build needs a big heap and time
+- index.html is read per request
+- Debug logging with payloads in dev costs CPU and disk
+
+**Levers today**
+
+- Native image with AOT
+- 365-day cache of hashed assets
+- Eager start-up that finds faults early
+
+**Needs design work**
+
+- Measured start-up and memory numbers per mode
+- Cache the index file in memory
+- A budget for build time and heap
+
+</Accordion>
+<Accordion title="Availability">
+Nothing in boot restarts, replicates or drains. Availability comes from the platform that runs the process, and from core's recovery after a restart.
+
+**Ceilings today**
+
+- No graceful shutdown setting is configured here
+- Defaults lose state on restart
+- Health detail is probably hidden
+
+**Levers today**
+
+- Health endpoint in every profile
+- Eager start-up so bad config never half-starts
+- Fail-fast build for plugin typos
+
+**Needs design work**
+
+- Readiness vs liveness split
+- A shutdown grace period set explicitly
+- A persistent-state profile
+
+</Accordion>
+<Accordion title="Security">
+The strongest lens for this module. Since the first guide the start-up guard, a guarded actuator and Host/Origin checks were added; what is left is the dev default, the open docs, and one gap in the guard.
+
+**Ceilings today**
+
+- Swagger and /v3 are outside any key
+- The guard accepts yukta.mcp.api-key alone, which leaves /api open
+- Default JVM profile is dev
+- Keys are optional on loopback
+
+**Levers today**
+
+- Loopback by default, and a start-up refusal on other addresses without a key
+- Actuator guarded by an ADMIN key; no heapdump or env exposure
+- CSP and no-cache on index.html
+- Profile test guards prod config
+
+**Needs design work**
+
+- Prod-by-default or a refusal to bind publicly in dev
+- Guard the docs, or switch them off in prod
+- A guard that checks the keys the filters use
+
+</Accordion>
+<Accordion title="Operability">
+Good basics: three profiles' worth of logging, request ids in log lines, a health URL. Missing is guidance and guard rails for production.
+
+**Ceilings today**
+
+- Config split across YAML, environment and build flags
+- Keys that nothing reads
+- Which plugins are in a given binary is not visible at run time
+
+**Levers today**
+
+- Console logs with request id
+- Health, info and metrics
+- Documented run commands
+
+**Needs design work**
+
+- Expose the build's plugin list in info
+- Remove or implement dead config keys
+- A production example config
+
+</Accordion>
+<Accordion title="Evolvability">
+Adding a module or plugin is one line in the build file, which is cheap. The weak spot is that behaviour is spread across the build flag, YAML and a launcher rule.
+
+**Ceilings today**
+
+- Plugin list is a hand-kept map in the build script
+- Profile forcing is in code and in the build
+- Legacy /sse name lingers
+
+**Levers today**
+
+- Single place to add modules
+- Tests for config and launcher rules
+- Fail-fast validation of plugin names
+
+**Needs design work**
+
+- Derive the plugin list from the module tree
+- Decide and document the profile policy
+- Retire the /sse alias on a schedule
+
+</Accordion>
+</AccordionGroup>
+
+### Questions to settle
+
+- **Security.** The server is exposed on 0.0.0.0 with an API key and no profile. List what a stranger can read (hint: the docs), and what changes if only yukta.mcp.api-key is set. (risk `openOps`)
+- **Security.** Which of our default settings would you change first to be safe in production, and what breaks for developers? (risk `profileDefault`)
+- **Scale.** You must run three copies behind a load balancer. What does each copy hold that the others cannot see? (risk `singleProc`)
+- **Packaging.** A customer wants a build without shell execution and without JavaScript. What do they type and what can they not change later? (risk `buildFixed`)
+- **Reliability.** A native-only crash appears after a release. How would we have caught it? (risk `nativeGap`)
+- **Operability.** An operator asks which plugins are in the binary. Where do they look? (risk `scanBroad`)
+- **Web.** A client calls /apis/workflows by mistake. What does it get and is that fine? (risk `apiPath200`)
+- **Caching.** We replace favicon.ico. When do users see it? (risk `staticStale`)
+- **Config.** How would you prove every key in application.yaml is read by something? (risk `deadKeys`)
+- **Testing.** Someone builds with -Pyukta.plugins=none. What tells them tests can't pass? (risk `testsNeedPlugin`)
+
+## Build logic
+
+### Evolution path
+
+Order is by cheap trust gains first: make what the build says true, then close bypasses, then make it reproducible, then speed it up.
+
+1. **Today.** Six plugins, one catalog, 27 modules. Gates fail the build; OpenGrep needs the program installed; one coverage exception; no lock files; Netty now comes from the catalog; CI builds in four shards.
+2. **Make the docs and versions honest.** Correct the docs from the code, delete the stale Netty line, fix the nashorn reason text, and decide whether pull requests should block on vulnerabilities. Risks: `nettyTwoSources`, `docDrift`, `legalSignoff`, `trivyPrGate`, `cvePins`.
+3. **Close the escape hatches.** Guard every quality task against being disabled, fail on missing coverage data, burn down the three temporary disables, check build-logic itself. Risks: `disabledTasks`, `coverageNoData`, `selfUnchecked`.
+4. **Reproducible and visible.** Commit lock files and turn on the CI check; warn when OpenGrep is skipped; add a toolchain resolver; align Node and pnpm in CI. Risks: `noLockfiles`, `opengrepSilentSkip`, `noToolchainResolver`, `nodeDrift`.
+5. **Faster and sharper.** Run OpenGrep once with declared outputs, tune Error Prone and SpotBugs, generate the CI module map, and decide whether 100% per class stays. Risks: `opengrepEveryModule`, `advisoryTools`, `ciManualMap`, `strict100`, `fullBuildOnRoot`.
+
+### Quality lenses
+
+<AccordionGroup>
+<Accordion title="Scalability">
+Scales with module count, not users. Each of 27 modules runs its own analysis, and the checks that cannot be cached (OpenGrep, which declares no outputs) grow linearly. CI runs a whole-repo build whenever a root file changes.
+
+**Ceilings today**
+
+- OpenGrep runs one module at a time (a shared service) but is cacheable, so unchanged modules are skipped
+- A catalog, config or build-logic change triggers a full CI build
+- One CI runner with a 30-minute timeout
+- Test forks are limited by memory
+
+**Levers today**
+
+- Gradle build cache and parallel execution
+- Path-filtered PR builds with buildDependents
+- Test forks scaled to CPUs / 2
+
+**Needs design work**
+
+- Run OpenGrep once at the root or give it declared outputs
+- Split a full build across runners if it nears the timeout
+- Remote build cache for CI and laptops
+
+</Accordion>
+<Accordion title="Performance">
+A local ./gradlew check is the developer's inner loop, so its time is what matters. Rules are heavy (five analysers, per-class coverage, a scan), and CLAUDE.md steers developers toward the smallest test scope.
+
+**Ceilings today**
+
+- Static analysis is not incremental across the board
+- Coverage verification depends on every test finishing
+- Configuration cache is off (Go tasks are incompatible)
+- Test JVMs run at the lowest compiler tier
+
+**Levers today**
+
+- Build cache on; parallel on with 8 workers
+- JaCoCo reports built only with -Pcoverage
+- Tests in parallel forks, ParallelGC
+
+**Needs design work**
+
+- Turn on the configuration cache for modules that allow it
+- Measure which gate dominates check time
+- Exclude test sources from the slowest analysers if needed (judgement)
+
+</Accordion>
+<Accordion title="Availability">
+Barely applies to production, since build-logic runs nowhere at run time. It matters for the availability of the build: a broken convention plugin stops everyone, and CI downloads tools and rules at run time.
+
+**Ceilings today**
+
+- One broken convention script fails every module
+- CI depends on GitHub, Maven Central, the Gradle plugin portal and tool download sites
+- No JDK 25 means no build
+
+**Levers today**
+
+- OpenGrep rules are local, so no rule download
+- Pinned Action SHAs and a checked OpenGrep binary
+- The wrapper jar is validated
+
+**Needs design work**
+
+- A mirror or cache for plugin and dependency downloads
+- A toolchain resolver or documented JDK setup
+- Dependency lock files to make restores deterministic
+
+</Accordion>
+<Accordion title="Security">
+This is where build-logic earns its keep: it is the supply-chain control point. It bans four dangerous code patterns, enforces a licence list, pins CVE-affected versions, and CI pins tools by checksum or commit hash.
+
+**Ceilings today**
+
+- Locking is declared but no lock files exist, so resolved versions are not recorded
+- Vulnerability scan blocks only on main, not on pull requests
+- Four OpenGrep rules cover few risk patterns
+- A stale Netty line remains in gradle.properties; the resolved version is not asserted
+
+**Levers today**
+
+- Local pinned OpenGrep rules with --error
+- Licence allow-list with one per-artifact exception
+- Netty BOM imported after Boot; plexus-utils pinned
+- Secret scan blocking on every run; dependency review on PRs
+
+**Needs design work**
+
+- Commit lock files and enable the CI lock check
+- Remove the stale Netty line and add a check of the resolved version
+- More OpenGrep rules for the plugin sandbox and file access
+- Legal sign-off for the nashorn-core exception
+
+</Accordion>
+<Accordion title="Operability">
+Developer experience: clear failures, one command to fix formatting, and a documented way to add a module. The weak spots are silent skips and docs that disagree with the code.
+
+**Ceilings today**
+
+- Silent skip when opengrep is missing
+- Docs say 90/85 while code enforces 100/100
+- Adding a module needs edits in settings and two places in ci.yml
+- Failure messages come from several tools in different styles
+
+**Levers today**
+
+- spotlessApply fixes formatting
+- Reasoned coverage exceptions and stale-entry errors with clear messages
+- CI lint reports a missing path filter by name
+
+**Needs design work**
+
+- Print a warning when OpenGrep is skipped
+- Keep CLAUDE.md and guides in step with the code
+- Generate the CI module list from settings.gradle.kts
+
+</Accordion>
+<Accordion title="Evolvability">
+Good: rules are in one place, versions in one catalog, and the plugins are small and layered. The cost is that a rule change hits all 27 modules at once, and a few module-level escapes exist.
+
+**Ceilings today**
+
+- A new strict rule blocks every module at once
+- spring-conventions is the de facto standard bundle (naming)
+- Quality tooling is Java only
+- Escape hatches in module build files
+
+**Levers today**
+
+- Layered plugins
+- Reasoned exception DSL
+- Config files separate from code
+
+**Needs design work**
+
+- A rollout path for new rules (warn first, then fail)
+- A guard against disabling quality tasks
+- A decision on how Kotlin build code is checked
+
+</Accordion>
+</AccordionGroup>
+
+### Questions to settle
+
+- **Security.** If the Netty override and the catalog disagree, how would you notice in a pull request, and what would you add to make it impossible? (risk `nettyTwoSources`)
+- **Security.** Lock files are declared but absent. What would a locked build protect you from that BOM pinning does not? (risk `noLockfiles`)
+- **Operability.** A new contributor never installs OpenGrep. What do you want to happen locally: nothing, a warning, an error, or an auto-download? (risk `opengrepSilentSkip`)
+- **Governance.** Three modules disable some analysers with a 'temporarily disabled' comment. Who should own burning those down, and what would make the temporary disable expire? (risk `disabledTasks`)
+- **Correctness.** 100% line and branch per class: what tests have you seen written only to reach a branch, and would you accept them? (risk `strict100`)
+- **Governance.** Would you accept the nashorn-core exception for a native image without a written legal opinion? What is the smallest evidence you would want? (risk `legalSignoff`)
+- **Performance.** Check time on a full repo is mostly waiting. Which gate would you measure first, and what would you change if OpenGrep were the slowest? (risk `opengrepEveryModule`)
+- **Evolvability.** A new Checkstyle rule would fail 40 files in 10 modules. How should it be introduced without blocking everyone? (risk `advisoryTools`)
+- **Availability.** GitHub or Maven Central is down for an hour. Which parts of the pipeline break, and which would you mirror first? (risk `fullBuildOnRoot`)
+- **Operability.** If the CI module map were generated from settings.gradle.kts, what could still go wrong when someone adds a module? (risk `ciManualMap`)
+
+### Build logic review
+
+The convention plugins are well layered (`java`, then `spring`, then `library`, with `quality` and `jacoco` mixed in), the version catalog is shared with the main build, and the quality toolchain is unusually complete: Spotless, Checkstyle, PMD, SpotBugs, Error Prone, a licence allow-list, OpenGrep and JaCoCo with a per-class exception DSL. The review of 2026-10-09 found weak points in policy and enforcement (gates that could not fail, coverage exception sprawl, a broad licence allow-list). All of them are fixed, and the gates now fail the build. What remains open is the supply-chain and housekeeping list below, checked against `main` after PRs #373, #374 and #391 on 2026-10-15.
+
+The ids below that start with `BL-` were assigned on this page; the source lists those items without ids.
+
+**Open findings**
+
+| ID | Finding | Impact | Effort / Fix | Status |
+|---|---|---|---|---|
+| L5 | The licence allow-list was narrowed to one per-artifact exception, `org.openjdk.nashorn:nashorn-core:15.4` (GPL-2.0 with Classpath Exception). The GraalVM native image statically links it | Distribution risk for the native image until a human confirms the exception is acceptable | Effort M. Legal review for native distribution (the code change is done) | Open: legal sign-off pending |
+| BL-1 | No dependency lock files | Builds are not pinned to exact resolved versions | Not rated in the source | Open |
+| BL-2 | No toolchain resolver | A missing JDK is not downloaded automatically | Not rated in the source | Open |
+| BL-3 | Trivy does not block pull requests (CI `security.yml` scans, and the root `trivy` task is on demand) | Vulnerabilities do not stop a merge | Not rated in the source | Open |
+| BL-4 | The stale `netty.version=4.2.16.Final` line is still in `gradle.properties`, while `spring-conventions` now assigns `netty.version` from the catalog and boot resolves 4.2.18 | Misleading, dead configuration | Remove the line | Open |
+| BL-5 | Documentation drift (`docDrift`): other documents still say the coverage default is 90/85 (it is LINE 100% and BRANCH 100% per class), and the root `CLAUDE.md` mentions Gradle 9.0 while the wrapper is 9.8.0 | Readers get wrong thresholds and versions | Update the documents | Open |
+| BL-6 | OpenGrep skips silently when the program is missing (the task itself is now cacheable) | A build without the CLI passes without the scan | Not rated in the source | Open |
+| BL-7 | CVE patch pins (`cvePins`: Jackson, plexus-utils) are written by hand in `build-logic/build.gradle.kts` and `spring-conventions`, and nothing reminds anyone to drop them | Pins outlive the vulnerability they patch | Add a reminder or a check | Open (new) |
+| BL-8 | Quality tasks are disabled in four modules: `mcp`, `plugin-api`, `internal-core` and `constant-source` (which turns off PMD main and test) | Those modules skip part of the gate | Not rated in the source | Open |
+
+**Pending roadmap steps**
+
+All three roadmap phases are marked done. What is still pending is the tail of phase 2 and the open table above:
+
+1. Get the legal sign-off for `nashorn-core` in the native image (L5).
+2. Add lock files and a toolchain resolver (BL-1, BL-2).
+3. Make Trivy block pull requests, or document why it does not (BL-3).
+4. Clean the stale Netty line and the drifted documents (BL-4, BL-5).
+5. Add a reminder to drop the CVE pins and make OpenGrep fail when its program is missing (BL-7, BL-6).
+
+13 findings already fixed (L1 to L14, with L5 fixed in code and its legal sign-off listed above). Module guide: [build-logic](/contributing/modules/build-logic). Defect view: [bugs](/internal/bugs#build-logic).
+
+## CLI
+
+### Evolution path
+
+A practical order: fix what misleads users first, then close the gaps to the server, then make the link to the server self-checking.
+
+1. **Today.** Five command groups (about forty commands, including watch, result, node retry, breakpoint and signal), 100% function coverage, pinned tools, releases with checksums. The first page of every list, no retries, no resume.
+2. **Make it honest.** Done: `session apply` is registered. Next: refresh the README, fix the root description, silence the duplicate error output, add `yukta version`, and test that every written command is registered. Risks: `docsStale`, `errorNoise`, `noVersion`.
+3. **Close the main gaps.** Paging flags, stop mode, idempotency key, empty reason fix, and the commands still missing (validate, versions, approvals, scheduler limits and priority, recover, supervisors). Done: events (`controlbus watch`), node retry, breakpoint, signal, result. Risks: `noPaging`, `stopMode`, `idemKey`, `emptyReason`, `missingCmds`.
+4. **Robust in pipelines.** Opt-in retries, stream reconnect with Last-Event-ID, distinct exit codes, consistent -o, token safety warnings. Risks: `noRetry`, `streamLoose`, `outputUneven`, `tokenPlain`.
+5. **Self-checking against the server.** A contract test (real server or OpenAPI) in CI, a registration test over the command tree, and a move off deprecated paths. Risks: `dtoDrift`, `legacyPaths`, `testsTwice`, `winBuild`, `fileOrJson`, `localTimestamps`, `keywordProblems`.
+
+### Quality lenses
+
+<AccordionGroup>
+<Accordion title="Scalability">
+A command-line client barely has a scaling story: one short-lived process, one request. What scales badly is not the program but its hand-written copy of the API (every new endpoint needs hand edits) and its inability to see past the first page of a long list.
+
+**Ceilings today**
+
+- Lists stop at the server's first page (500 by default, 1,000 at most) with no way to continue
+- One hand-written function and command per endpoint: the work grows with the API
+- A single stream event larger than 1 MB ends the stream
+- Many parallel CLI calls from CI each open their own connection; no shared pooling
+
+**Levers today**
+
+- Streams do not buffer: events are printed as they arrive
+- Static binaries scale to any number of build agents without installs
+
+**Needs design work**
+
+- --limit and --cursor flags or an automatic follow of X-Next-Cursor
+- A generated client or a contract test to stop manual drift
+- A larger or configurable line limit
+
+</Accordion>
+<Accordion title="Performance">
+Start-up is fast because there is no runtime to boot: it is a static Go binary. The real latency is the network round trip and the server. Performance is not a concern of this module.
+
+**Ceilings today**
+
+- Each command pays one connection setup (and TLS handshake if https)
+- Whole answers are read into memory before printing
+- 30-second default limit may be too short for large answers
+
+**Levers today**
+
+- Milliseconds of start-up; no JVM
+- Request body and flags are tiny
+- No retries, so no hidden extra load on the server
+
+**Needs design work**
+
+- Nothing urgent. A batch mode could save reconnects if scripts call it hundreds of times
+
+</Accordion>
+<Accordion title="Availability">
+The CLI is only as available as the server. It fails fast (30 s) and never retries, which is predictable but unforgiving for flaky networks and for the 'at limit' answer the server gives on purpose.
+
+**Ceilings today**
+
+- No retries or back-off on 429, 5xx or network errors
+- Streams do not reconnect, and a clean close looks like success
+- Exit code 1 for every failure, so scripts cannot react differently to each
+- A hung stream with a silent server waits forever
+
+**Levers today**
+
+- A time limit on every normal call
+- Ctrl-C always works on streams
+- Clear 'request failed' versus 'API error' wording
+
+**Needs design work**
+
+- Opt-in retry for safe GETs and for starts with an idempotency key
+- Reconnect with Last-Event-ID
+- Distinct exit codes for usage error, server error and timeout
+
+</Accordion>
+<Accordion title="Security">
+The CLI is a credential carrier. It sends a bearer token to whatever address it is given, and the server's API key is the only protection on an open server. The server's default is loopback only, and the CLI's default URL matches that.
+
+**Ceilings today**
+
+- Token sent over plain http with no warning
+- `--token` on the command line is visible in shell history and the process list
+- No control over TLS (custom CA, client certificates)
+- Path escaping protects ids, but nothing validates the server's identity beyond normal TLS
+
+**Levers today**
+
+- Ids are escaped, so a hostile id cannot redirect a request
+- Token read from the environment by default
+- gosec and govulncheck run in the build; releases carry checksums and provenance
+- User-named files are read deliberately and annotated for the scanner
+
+**Needs design work**
+
+- A warning (or refusal) when a token would go over http to a non-loopback host
+- Documented advice to use YUKTA_TOKEN rather than --token
+- A way to trust a private CA
+
+</Accordion>
+<Accordion title="Operability">
+Easy to build and test, harder to support in the field. A user cannot tell which version they run, errors appear twice with help text, and the documentation describes commands and files that do not exist.
+
+**Ceilings today**
+
+- No version command and no embedded version
+- Errors printed twice and wrapped in usage text
+- README out of date: wrong binary names, a `goBuildDev` task that does not exist, a config file and `--file` flag that do not exist, `/api/v1` paths
+- Windows developers need make and a POSIX shell
+
+**Levers today**
+
+- Release workflow with SHA256SUMS and provenance
+- One source of truth for the build (the Makefile)
+- Clear error prefixes: request failed versus API error
+
+**Needs design work**
+
+- A `version` command with ldflags
+- Silenced duplicate error output
+- Refresh the README and CLAUDE.md, add a test that every command listed in help is registered
+
+</Accordion>
+<Accordion title="Evolvability">
+Adding a command is easy and cheap because of the shared builder, and the code is small and fully covered. The weakness is the link to the server: nothing breaks when the server changes, so the CLI quietly drifts.
+
+**Ceilings today**
+
+- Hand-written DTOs and paths with no contract test
+- Server marks the paths the CLI uses as deprecated
+- Registration by hand: a finished command can stay unreachable
+- Shared package-level output variable
+
+**Levers today**
+
+- Generic Action helper keeps new simple commands to a few lines
+- Tests use a real HTTP server, so refactors are safe
+- 100% per-function coverage
+
+**Needs design work**
+
+- A contract test against the server's OpenAPI document or a real server in CI
+- A test that walks the command tree and compares it with a list of supported endpoints
+- Move to the non-deprecated paths with care for the session check
+
+</Accordion>
+</AccordionGroup>
+
+### Questions to settle
+
+- **Scope.** Is the CLI a full admin tool or a small CI helper? The answer decides whether the 12 missing endpoints matter. (risk `missingCmds`)
+- **Correctness.** With more than 500 sessions, what should `session list` do? Truncate silently, warn, page, or fail? (risk `noPaging`)
+- **Security.** Would you let a token go over plain http to a non-loopback address? What is the right default? (risk `tokenPlain`)
+- **Reliability.** A pipeline starts a run and the call times out. What should it do next, and what does the CLI offer? (risk `idemKey`)
+- **Availability.** The stream ends with no error and no final status. Is that success, failure or unknown? (risk `streamLoose`)
+- **Evolvability.** How would you notice, today, that the server renamed a response field? Who finds out first? (risk `dtoDrift`)
+- **Quality.** session apply was written, tested and promised by the README but not registered, and is registered now. What test would have caught it, and does one exist for the other commands? (risk `docsStale`)
+- **Operability.** What exit codes would your automation want, and who should own that contract? (risk `errorNoise`)
+- **Governance.** Where should the CLI documentation come from so it cannot go stale: Cobra itself, or the Makefile? (risk `docsStale`)
+- **Migration.** The server plans to drop the session-qualified paths. What do you lose, and how would you keep the cross-session safety check? (risk `legacyPaths`)
+
+### CLI review
+
+The CLI was a clean, thin REST client with robustness and build-hygiene problems, and all 13 findings of the review of 2026-10-09 are fixed: paths are escaped, non-streaming requests time out (`--timeout`, default 30 s), the client can send a bearer token and a start payload, tools are pinned and the build is reproducible, and the test-only interfaces and the 612-line mock are gone (main code went from about 3.7k to 2.9k lines, tests from about 11.5k to 8.0k, and `build.gradle.kts` from 578 to 48 lines). Since then the CLI gained `controlbus watch`, `result`, `workflow node retry`, `breakpoint` and `signal`, and `session apply` is now registered. What is open is feature parity with the server (paging, stop mode, idempotency, reconnect, and commands for newer endpoints) and a few rough edges. The scorecard after the fixes is command design 4.5/5, correctness 4.5/5, server parity 4/5, build 4.5/5 and tests 4.5/5.
+
+The ids below are assigned on this page; the source lists the open items without ids.
+
+**Open findings**
+
+| ID | Finding | Impact | Effort / Fix | Status |
+|---|---|---|---|---|
+| CLI-1 | No paging flags (`limit`, `cursor`) | Large listings cannot be paged from the CLI | Not rated in the source | Open |
+| CLI-2 | No stop mode (the server accepts `DRAIN`, `CANCEL` or `KILL`) | A run can only be stopped the default way | Not rated in the source | Open |
+| CLI-3 | No idempotency key on `workflow start` | A retried start can create a second run | Not rated in the source | Open |
+| CLI-4 | No retries | A transient failure fails the command | Not rated in the source | Open |
+| CLI-5 | No `Last-Event-ID` or reconnect, also for `controlbus watch` | A dropped stream ends the command | Not rated in the source | Open |
+| CLI-6 | No `yukta version` command | Users cannot tell which build they run | Not rated in the source | Open |
+| CLI-7 | Stale README: it still mentions `yukta-darwin`, `goBuildDev`, `~/.yukta/config` and `/api/v1` | Wrong instructions. Also tracked on the [bugs page](/internal/bugs#cli) | Update the README | Open |
+| CLI-8 | 12 calls still use the deprecated `/api/workflow/...` paths | The CLI depends on deprecated paths. Also tracked on the [bugs page](/internal/bugs#cli) | Move the calls to the current paths | Open |
+| CLI-9 | No command for: validate, session config, supervisors, workflow versions, approvals, scheduler limits and priority, recover, run search and control audit, workers | Those server features are REST and MCP only | Not rated in the source. Generating the client from OpenAPI was considered and not done | Open |
+| CLI-10 | Zone-less server timestamps are parsed in the CLI's time zone (`localTimestamps`) | Times can be shown shifted. Also tracked on the [bugs page](/internal/bugs#cli) | Not rated in the source | Open (new) |
+| CLI-11 | `--quiet` classifies lines by keywords copied from the server (`keywordProblems`) | The filter drifts when server messages change. Also tracked on the [bugs page](/internal/bugs#cli) | Not rated in the source | Open (new) |
+
+**Pending roadmap steps**
+
+All four roadmap phases (safe requests, parity, reproducible build, trim) are marked done. The remaining work is the parity list above:
+
+1. Add paging flags, a stop mode and an idempotency key (CLI-1, CLI-2, CLI-3).
+2. Add retries and stream reconnect with `Last-Event-ID`, including for `controlbus watch` (CLI-4, CLI-5).
+3. Add commands for the endpoints that have none (CLI-9) and a `yukta version` command (CLI-6).
+4. Fix the README, the deprecated paths, the timestamp parsing and the keyword classifier (CLI-7, CLI-8, CLI-10, CLI-11).
+
+13 findings already fixed. Module guide: [cli](/contributing/modules/cli).
+
+## Core
+
+### Evolution path
+
+1. **Today.** One JVM. Files or PostgreSQL for definitions, sessions and log. Resume with file checkpoints.
+2. **Finish PostgreSQL (F10).** Done: the checkpoint store in PostgreSQL (yukta.restart.store-type=postgres). Also done: KV_STORE in PostgreSQL and a CI step for the PostgreSQL acceptance test. Left: a PostgreSQL backend for session memory, claim-check references, native-image metadata. Risks: `payload23`.
+3. **Workers phase 1-2.** Done: registry, agent, token auth, leases, remote processor over a stream with cancel and heartbeat, pool and free-slot choice. mTLS available.
+4. **Placement and failure.** Pools, free-slot choice, local-only plugins, lost-worker retry, chaos tests. Risks: `remote`.
+5. **Operations.** Worker UI, slot accounting, native image for workers.
+6. **Control plane HA.** Done: active/standby with a PostgreSQL lease, a standby refuses starts, takeover recovers and resumes interrupted runs. Left: queued starts and live waits survive. Workers listing several control planes find the new leader by themselves. Risks: `spof`.
+
+### Quality lenses
+
+<AccordionGroup>
+<Accordion title="Scalability">
+Vertical on one JVM. Streams are efficient, but every run's state, the scheduler and the tracker share the process. Horizontal scale-out is designed (remote workers) but not built.
+
+**Ceilings today**
+
+- All admission, ordering and run state in one process
+- Unbounded tracker state queue; sessions are evicted only if yukta.tracker.max-sessions is set
+- Fan-out paced by the slowest child
+- Checkpoint memory bound = retained runs x nodes x bytes-per-node
+- The default in-memory execution log and the idempotency cache are not size bounded
+
+**Levers today**
+
+- Global, per-workflow and per-session limits and fair queue
+- Byte and message caps on checkpoints
+- Virtual threads for blocking plugins
+
+**Needs design work**
+
+- Remote workers (F11 phases 1-5)
+- A time-based eviction policy for finished sessions
+- Shared control state (phase 6)
+
+</Accordion>
+<Accordion title="Performance">
+Low per-message overhead: one volatile write per activity touch, one periodic idle check per node, batched tracker consumer.
+
+**Ceilings today**
+
+- Per-message retry or ROUTE buffers a message's output
+- Large payloads copy through memory and checkpoints
+- Single writer thread for the log
+- Compile cost grows with graph size (cap 500 nodes)
+
+**Levers today**
+
+- Back-pressure instead of queues
+- Prepared-workflow cache and shared prepare
+- Batching in tracker and log
+
+**Needs design work**
+
+- Claim-check for large payloads
+- Defer blocking archive on the start path
+- Performance budget per node type
+
+</Accordion>
+<Accordion title="Availability">
+A crash is recoverable, not invisible: runs are ABORTED and resumable only with a file or PostgreSQL checkpoint store. There is no standby.
+
+**Ceilings today**
+
+- Control state in memory is a single point of failure
+- Checkpoints not in PostgreSQL
+- Signal waits and queue positions are lost
+- Log events not fsynced unless the option is on
+
+**Levers today**
+
+- Durable node end marker
+- Boot recovery and one-shot resume
+- Idempotent start surviving restarts
+
+**Needs design work**
+
+- Checkpoint store in PostgreSQL
+- Active/standby with a database lease (phase 6)
+- Durable signal waits
+
+</Accordion>
+<Accordion title="Security">
+Keys, roles, session scoping, host and origin checks, command review, tool and prompt filters and expression limits are in place.
+
+**Ceilings today**
+
+- Plugins run in the engine JVM
+- Scripts have a time and a statement limit but no memory limit (the runtime has no heap limit option)
+- Filters are patterns, not a classifier
+
+**Levers today**
+
+- REST and MCP roles, hashed, rotating and session-limited keys, actors in the audit
+- Key checks on the decoded path, one key set for REST and MCP, Host and Origin check, protected actuator
+- Deny-by-default process execution; allow-listed env, script, expression and tool surface; prompt and answer filters
+- Reviewers and audit on limit and priority changes
+
+**Needs design work**
+
+- Worker mTLS and plugin allow-lists (remote design)
+
+</Accordion>
+<Accordion title="Operability">
+Good visibility, thin lifecycle tooling.
+
+**Ceilings today**
+
+- Run history search covers the retained runs of each session (GET /api/executions), not older ones
+- Sessions are evicted only by a count, not by age
+
+**Levers today**
+
+- Meters for every governance decision
+- Run and node spans
+- SSE feed and supervisors
+- A list of pending approvals (REST, MCP, workflow page) and a versions panel with diff and rollback
+- Limits changed at run time restored on start
+
+**Needs design work**
+
+- Health and pool metrics for PostgreSQL (check what Spring Boot already exposes)
+- Run history search beyond the retained runs
+- Parent/child links in history (only the start payload carries them)
+
+</Accordion>
+<Accordion title="Evolvability">
+Sealed command types and a plugin API keep the surface small, but adding a command type is an API change.
+
+**Ceilings today**
+
+- Sealed ExecutionControlCommand in plugin-api
+- Large tracker class
+- Validator and assembler disagree on what a terminal is
+
+**Levers today**
+
+- Records and small processors per command
+- Property-based tests on status order
+- Coverage and static-analysis gates
+
+**Needs design work**
+
+- Extension point for new command types
+- Split tracker projections
+
+</Accordion>
+</AccordionGroup>
+
+### Questions to settle
+
+- **Failure.** One terminal fails while its sibling is slow. What happens to the sibling, and what is the run's final status? (risk `backpressure25`)
+- **Scale.** Your largest customer starts 5,000 runs in a minute with no limits set. What happens first, and what is the first graph you look at? (risk `spof`)
+- **Durability.** You pull the power. Which approvals, queued starts and limit changes are gone, and do users find out? (risk `signals14`)
+- **Security.** A workflow author is not trusted. Which three plugins must be unavailable to them? (risk `remote`)
+- **Evolution.** The remote-workers design needs one decision reversed in a year. Which, and what does it cost? (risk `remote`)
+- **Performance.** A message becomes 50 MiB. Which components copy it, how many times? (risk `payload23`)
+- **Control.** An AI supervisor pauses a run you are debugging. How do you tell, and how do you stop it? (risk `ctlKey`)
+- **Data.** A run was resumed after the definition was edited. Why is that refused, and is it the right call? (risk `exactlyOnce22`)
+- **Operability.** Which three signals would page you at 3 a.m. today? Which are missing? (risk `trackerQ26`)
+- **Product.** If sub-workflows power agents that plan their own DAGs, which limit breaks first? (risk `gaps12`)
+
+### Feature backlog
+
+These are the features from the core review of 2026-10-12 that were reviewed but not (fully) built, in priority order. Statuses are as recorded in the backlog: **open**, **partly done**, **done**, **needs decision**. Rows marked done or partly done keep their history so the open remainder (after "Open:") is clear. Bugs from the same review are on the [bugs page](/internal/bugs#core).
+
+| ID | Status | Feature | Module | Notes |
+| F2 | partly done | `WAIT_FOR_SIGNAL` node + `SignalNodeCommand` (REST/MCP) are done, a signal that comes before the wait is kept (10 min, 100 at most), and the open waits are listed (`GET /api/sessions/{s}/approvals`, MCP `list_pending_approvals`, strip on the workflow page). Answers are remembered in the checkpoint store, so a resumed run does not ask again for an answered message. **Open:** the wait itself is in memory (a message that is produced again waits again; open waits are not listed until the node waits) | core, plugins, web, mcp, ui | See the [core guide](/contributing/modules/core), section "Signals and approval steps" |
+| F3 | done | REST roles per key, actor `key:<name>`, hashed and rotating keys (`sha256:<hex>`, several at once), session-limited keys (`sessions`: `/api/sessions/{s}/**`, `/api/workflow/{s}/**` and the executions of those sessions), MCP roles per tool (`McpToolAccess`) and session scoping of MCP calls. The Control page lists who did what (`GET /api/control/audit`) | web, mcp, core | See the [web guide](/contributing/modules/web) |
+| F4 | partly done | Per-run token/cost `budget` on `LLM_CALL`, `budget.hardStop` (ends the run), the `llm.budget.exceeded` counter and `yukta.llm.rate-limit.<provider>` are done (see the [core guide](/contributing/modules/core)). `RunBudgets` is shared with `MCP_TOOL_CALL` (`maxCalls`) and a budget can name an `agent`. **Open:** token and cost meters, budgets for other plugins | llm-call, core | |
+| F5 | done | `allowedTools` on `MCP_TOOL_CALL`; gateway-level `yukta.mcp-client.allowed-tools`, `max-argument-bytes`, `deny-argument-patterns`; `LLM_CALL` filters `yukta.llm.deny-input-patterns`, `deny-output-patterns` (also the arguments of tool calls the model returns) and `max-input-chars`. `MCP_TOOL_CALL` `requireApproval` holds listed tools (or `*`) until a `signal_node` answers (`approvalSignal`, `approvalTimeoutSeconds`). Filters are patterns, not a classifier | plugins | |
+| F6 | partly done | `SUB_WORKFLOW` node and `SubWorkflowGateway` are done (see the [core guide](/contributing/modules/core)); a child borrows the parent's slot and is cancelled with its parent node. **Open:** parent/child links in run history and the UI (today only the start payload carries `yukta.parentExecutionId`), runtime-generated sub-DAGs (plan from an agent) | core, plugins | Basis for runtime plans |
+| F7 | partly done | `SESSION_MEMORY` history is durable with `yukta.session-memory.dir` (atomic per-session JSON file, fsynced). `KV_STORE` and `SESSION_MEMORY` history can be backed by PostgreSQL (`yukta.kv.store-type=postgres`, `yukta.session-memory.store-type=postgres` with an optional `yukta.session-memory.ttl`). **Open:** session history has no eviction or TTL and loads whole files; no shared/vector memory for agents; a DB backend (see F10) | plugins | |
+| F8 | partly done | `LLM_CALL` `tools` option sends tool definitions and returns native tool calls in `actions`; `messages` turns can carry `actions` (assistant) and `{role: tool, toolCallId, toolName, content}`, sent as real tool turns; `MCP_LIST_TOOLS` follows `nextCursor`. **Open:** streaming, parallel tool calls policy, a ready-made agent-loop workflow example (not shipped: it needs a live model and MCP server to verify) | llm-call, mcp-tool-call | See the [plugins guide](/contributing/modules/plugins) |
+| F9 | partly done | Durable definitions, the newest 20 versions, `GET .../versions`, `GET .../versions/diff`, `POST .../rollback`, MCP `list_workflow_versions`/`diff_workflow_versions`/`rollback_workflow` and a Versions panel on the workflow page are done. Notes on versions (REST, MCP) and pinning a run (`yukta.version` in the start payload) are done. The Versions panel on the workflow page shows and edits the notes. **Open:** none | core, web, mcp, ui | See the [core guide](/contributing/modules/core) |
+| F10 | partly done | Restart spill (`yukta.restart.spill-dir`) landed; a `RESUMABLE` status was skipped on purpose (`ABORTED` is the resume candidate, a new value would spread into web/UI status vocab). `persistence-postgres` (R2DBC at run time, Flyway over JDBC for the schema; user decision) backs sessions, workflow definitions + versions and the execution log; tested with Testcontainers and a full-app test. The node checkpoint store in PostgreSQL is done (`yukta.restart.store-type=postgres`; large messages rely on TOAST, so no separate claim-check yet). **Open:** PostgreSQL backends for `KV_STORE`/session memory, idempotency keys already ride the log, (a CI step runs the PostgreSQL acceptance test with `-Pyukta.persistence=postgres`) native-image reachability metadata for R2DBC/Flyway, connection-pool tuning and health checks, row-level retention for session configs, Flyway license check before distribution (Community edition, allowed per artifact in the build conventions) | new module | Prerequisite for HA |
+| F11 | phases 1, 2, part of 4 and 6 done | Remote workers (decision: control plane schedules nodes, workers run them). Design and phases in the [remote workers plan](/internal/plans/remote-workers); **phases 1 and 2 are built** (registry/agent/leases and remote processor execution with `engine.placement`, `workers` module, `-Pyukta.workers=true`); open: operations (UI list, remote slots in max-concurrent), (workers following the leader: done). Waiting on the open decisions at the end of that document (transport, packaging, secrets, first plugins, payload limit); control plane HA is phase 6 | messaging, core | Large |
+| F12 | open | Saga compensation, node result caching, A2A agent card, eval/scoring node, backfill, run history search (done for one session: `GET /api/workflow/{s}/history?workflowId=&status=&text=&since=&until=`; `GET /api/executions?...` across sessions), MDC log correlation, Vault secrets, `yukta.restart.auto-resume` | various | Pull in on demand |
+| F13 | needs decision | Trace id in the progress snapshot (REST/SSE/MCP). Needs `micrometer-tracing` on the core classpath, which core does not depend on; MDC was dropped on purpose (structured key-values carry `executionId`/`nodeId`) | `RunTelemetry`, `WorkflowProgress` | Add the dependency only if a tracing backend is used in production |
+
+## MCP
+
+### Evolution path
+
+A suggested order, driven by risk rather than by size. The first steps are small and close the largest exposures.
+
+1. **Today.** 23 tools, stateless /mcp, the same named keys and roles as REST (optional), per-tool role check, session-limited keys, ownership check, bounded log reader with a cursor, polling for progress.
+2. **Close the cheap gaps.** Done: refuse non-loopback without a key. Next: make one setting cover REST and MCP, add idempotencyKey, payload and stop mode to the tools, fix both creation guides and test them, show config fields and config-aware ports in plugin details. Risks: `apiKeyOpen`, `noIdempotency`, `stopParity`, `sessionGuideWrong`, `pluginGuideWrong`, `portsNoConfig`, `configSchemaHidden`.
+3. **Know who is calling.** Done: named keys with roles, sessions and an actor. Next: a rate limit, a log or counter for rejected calls, and a test that the role map covers every tool. Risks: `noActor`, `noRateLimit`, `bodyReparse`, `rejectsUnlogged`.
+4. **Safer authoring and reading.** Overwrite flag and dry-run for create_session. Mark log lines as data. Paging for history, sessions and logs. Risks: `overwriteSession`, `logInjection`, `noPaging`.
+5. **Live and cheap status.** A one-pass summary in core for the status tool. A way to wait for or subscribe to changes, so agents stop polling. Risks: `healthLinear`, `noPush`, `signalNotState`.
+6. **Keep it honest.** Generate the tool table from annotations in a test, add a parity check with web, re-enable PMD on tests. Risks: `docsDrift`, `pmdTestOff`.
+
+### Quality lenses
+
+<AccordionGroup>
+<Accordion title="Scalability">
+mcp is a stateless shell, so it scales as far as core does: any instance could serve any request. The pressure is that agents poll, and some calls grow with the number of sessions.
+
+**Ceilings today**
+
+- Status and list tools read every session with no paging
+- Polling load grows with agents x runs, because nothing is pushed
+- Whole-log reads to find a tail on very large logs
+- All tool descriptions are sent to every client on connect
+
+**Levers today**
+
+- No state, no sticky sessions
+- 8-at-a-time session reads
+- Streaming tail with a 5,000-line cap
+
+**Needs design work**
+
+- Paging on list and history tools
+- A cheaper status path in core (one-pass summary)
+- Progress notifications or a resource subscription instead of polling
+
+</Accordion>
+<Accordion title="Performance">
+Each call is one or a few reads in core, so latency is mostly core's. The costs worth watching are log scans, the aggregate status and the ownership read on every execution call.
+
+**Ceilings today**
+
+- Log filter scans every line of an execution
+- Status cost is linear in sessions and history size
+- Regex budget of 50 ms per line, times many lines, can still add up
+
+**Levers today**
+
+- Regex compiled once per call
+- One pass per session in the aggregator
+- Ownership read is a single record lookup
+
+**Needs design work**
+
+- A line or time bound on the whole filter, not only per line
+- Cache or summary for the status snapshot
+- Server-side paging for history
+
+</Accordion>
+<Accordion title="Availability">
+Almost nothing here can fail by itself, since there is no state. Availability is core's. mcp's own risk is a boot failure from the framework and a flood of agent calls with no rate limit.
+
+**Ceilings today**
+
+- Whole app fails to start if schema generation breaks
+- No rate limit per caller
+- No health signal for the MCP endpoint itself
+
+**Levers today**
+
+- Stateless: a restart is invisible to a polling agent
+- Broken sessions are skipped in listings
+
+**Needs design work**
+
+- A per-key rate limit
+- A startup smoke test that lists tools (exists: the integration test)
+- Metrics for tool calls and errors
+
+</Accordion>
+<Accordion title="Security">
+This is the lens that matters most. The endpoint can install workflows that run commands, and it ships open. The module fences agent input (regex, size), keeps ownership consistent and sets honest hints. It has no caller identity or authorisation.
+
+**Ceilings today**
+
+- Keys are static configuration; the mcp key is a full ADMIN key
+- Open when no key is set (loopback only)
+- Role is decided by a filter that re-reads the request body
+- Rejected requests are not logged or counted
+
+**Levers today**
+
+- Constant-time key compare when set
+- Same error for unknown and foreign executions
+- Destructive and open-world hints, and a confirm request on create_session
+- Regex length and time limits
+
+**Needs design work**
+
+- Name keys per agent and avoid yukta.mcp.api-key
+- A log or counter for rejected calls
+- A test that the role map covers every tool
+- Expiry and revocation without a restart
+
+</Accordion>
+<Accordion title="Operability">
+Errors are written for agents and sit in the server log too, but the module has no metrics, no audit of its own and little visibility into what agents are doing.
+
+**Ceilings today**
+
+- No call counts, error counts or latency per tool
+- Skipped sessions only appear as log warnings
+- Hand-written guides can drift without any alarm
+
+**Levers today**
+
+- Actionable error text naming the next tool
+- Warnings logged for skipped sessions
+- Test of the tool list on the real endpoint
+
+**Needs design work**
+
+- Per-tool metrics and a request log with agent identity
+- A 'skipped sessions' field in the status result
+- Tests that compile guide templates and validate the example config
+
+</Accordion>
+<Accordion title="Evolvability">
+The shape is simple and cheap to change. Adding a tool is a method and a provider call. The danger is surface drift: web, mcp and the plugin API move on their own, and the module's text does not follow.
+
+**Ceilings today**
+
+- Parity with REST is by hand (payload, idempotency, stop mode already differ)
+- Framework quirks are encoded in conventions, not in types
+- PMD is switched off for test code
+
+**Levers today**
+
+- Thin facade over providers
+- Records for every result
+- Integration test on real JSON-RPC
+
+**Needs design work**
+
+- A parity checklist or shared contract with web
+- Generated or tested guides
+- Re-enable pmdTest and fix its findings
+
+</Accordion>
+</AccordionGroup>
+
+### Questions to settle
+
+- **Security.** Today the endpoint is open and relies on a loopback bind. Is that an acceptable default for a tool that can install command-running workflows, and what is the smallest change that makes it safe? (risk `apiKeyOpen`)
+- **Identity.** If an incident happens, how would you tell whether an agent or a person stopped a run? What would you need to add? (risk `noActor`)
+- **Trust boundary.** Access is decided by a filter that reads the request body before the MCP runtime does. What could make the two readings differ, and what would you test? (risk `bodyReparse`)
+- **Failure.** An agent's start_workflow call times out. What should it do next, and what could it break by doing it? (risk `noIdempotency`)
+- **Prompt injection.** A plugin logs text from an external web page. How could that text change what the agent does next? (risk `logInjection`)
+- **Design.** Is it right for the tool description to carry the safety rules (confirm first), or must the server enforce them? (risk `overwriteSession`)
+- **Scale.** You have 500 sessions and 20 agents polling the status tool every 5 seconds. What breaks first? (risk `healthLinear`)
+- **Protocol.** What would you give up, and what would you gain, by moving to a stateful transport for live progress? (risk `noPush`)
+- **Quality.** How would you test that the creation guide stays valid when the plugin API changes? (risk `pluginGuideWrong`)
+- **Operations.** A control call says 'Pause signal sent.' When is it safe for the agent to assume the node is paused? (risk `signalNotState`)
+
+## Messaging
+
+### Evolution path
+
+1. **Today.** One immutable envelope, one pass-through channel, core stamps history and routes by port. Several fields carried but unused.
+2. **Decide the unused fields.** For each unenforced field choose: enforce it (for example an expiry check), or remove it. Make `from` and `withPayload` use one copy path. Risks: `unenforced`, `copyDrift`, `wideContract`.
+3. **Define the channel contract.** Write what a channel may do on failure, how it signals slowness, and fix the registration through auto-configuration. Done: a skipped processor now goes through the channel too. Risks: `channelErrors`, `conditionalOrder`, `edgeDropsUnseen`.
+4. **Payload model.** Choose a payload story: a canonical JSON tree, an optional schema, and a claim check for large bodies. Risks: `payloadSize`, `untypedPayload`, `shallowImmutable`.
+5. **Better lineage.** Carry history through split and aggregate, record truncation, and add a per-output id if needed. Risks: `historyCap`, `lineageReset`, `idNotUnique`.
+6. **A real second channel.** Build one durable or remote channel to prove the SPI, and trusted-header rules for it. Risks: `remoteSpi`, `forgeable`, `wireFormat`.
+
+### Quality lenses
+
+<AccordionGroup>
+<Accordion title="Scalability">
+The module has no state, so it scales with whatever uses it. The question is the envelope's weight when many messages flow: each wither copies 22 fields and metadata is copied per header change. History is capped so copies do not grow with length.
+
+**Ceilings today**
+
+- Copy cost is proportional to metadata size at every header change
+- Payload is carried by reference, so it is as large as the plugin makes it
+- One provider for the whole server; no per-run channel state in the SPI
+- In-process Flux only; no proof of a cross-machine transport
+
+**Levers today**
+
+- History cap of 64
+- Singleton direct channel, no extra operators
+- Builder to batch several changes into one copy
+
+**Needs design work**
+
+- A measured limit for payload and metadata size
+- A defined remote or durable channel contract before scale-out
+- Optionally a cheaper copy path for header-only changes
+
+</Accordion>
+<Accordion title="Performance">
+Per message the default cost is small: a few record copies per node and one list append. The channel adds nothing. In our view the module is not a bottleneck; the cost shows up when payloads are large or headers are rewritten many times per node.
+
+**Ceilings today**
+
+- Each wither allocates a new 22-field record
+- Each header change copies the whole metadata map (an unmodifiable copy is rebuilt)
+- Constructor does null checks, a stream scan of metadata values and a list copy for every instance
+
+**Levers today**
+
+- Pass-through channel with identical stream objects
+- Short-circuit when metadata has no nulls (copy only)
+- Capped history keeps copies constant
+
+**Needs design work**
+
+- A micro-benchmark for the envelope under a realistic header load
+- Guidance on when to use `toBuilder()`
+
+</Accordion>
+<Accordion title="Availability">
+Barely applies: the module holds no state and does no I/O, so it cannot be down by itself. Its availability story is about what a replacement channel could do to the node's stream.
+
+**Ceilings today**
+
+- A faulty custom channel can fail every node in the run (its errors are outside the retry policy)
+- Two competing provider beans stop the server from starting
+- No acknowledgement or redelivery in the SPI
+
+**Levers today**
+
+- Default channel cannot fail
+- Immutable messages make sharing safe in concurrent branches
+- Constructor tests for odd inputs
+
+**Needs design work**
+
+- A documented failure contract for channels (retry, error port, or fail)
+- A startup check that exactly one provider exists, with a clear message
+
+</Accordion>
+<Accordion title="Security">
+No authentication, no network and no secrets here. The relevant points are trust in header values and what travels in a message. The module does not sign, validate or encrypt anything, and the envelope makes no secrecy promise.
+
+**Ceilings today**
+
+- Any plugin can set trace id, correlation id, workflow id, priority or control flag on a message it emits
+- Core overwrites only the source node; other identity fields are unverified
+- Payload and metadata may hold secrets; core echoes a truncated payload into run log lines
+- A custom channel runs inside the JVM with full access to every message
+
+**Levers today**
+
+- Source node is set by core, not by plugins
+- Unmodifiable copies protect the envelope from accidental changes
+- Channel hook exists, so signing or encryption could be added in one place
+
+**Needs design work**
+
+- A rule on which headers plugins may set
+- A redaction hook or marker for sensitive headers
+- A review of what the control flag is meant to do
+
+</Accordion>
+<Accordion title="Operability">
+Little to operate. The visible pieces are the history list, the trace id and the failure headers, which together explain most of a message's journey. There is no metric from this module.
+
+**Ceilings today**
+
+- No counters for dropped null headers or truncated history
+- No indication that a custom channel is active (no log or metric from the default wiring)
+- History truncation leaves no marker
+
+**Levers today**
+
+- Trace id and history in every message
+- Failure fields and headers on dead letters
+- Tests documenting each rule
+
+**Needs design work**
+
+- A startup log naming the active channel provider
+- A header or flag that says history was truncated
+
+</Accordion>
+<Accordion title="Evolvability">
+The envelope is the most widely shared type in the codebase. A new field touches the interface, the record, two hand-written copy paths and the tests, and then ripples through every module's rebuild. The channel SPI is small and easy to extend, but untested beyond a pass-through.
+
+**Ceilings today**
+
+- 40-method interface with one implementation
+- Two copy paths list all 22 fields by hand (`from` and `withPayload`)
+- Payload typed as a plain Object, so a schema change is invisible to the compiler
+- Fields carried but unused tempt future code to rely on them
+
+**Levers today**
+
+- Record and Lombok withers cut the boilerplate
+- Builder with `toBuilder`
+- Tests for immutability and the cap
+- A clear note in the interface for the history rule
+
+**Needs design work**
+
+- A single copy path (for example builder only) so a new field cannot be missed
+- A decision to remove or enforce each unenforced field
+- A typed or schema-checked payload option
+
+</Accordion>
+</AccordionGroup>
+
+### Questions to settle
+
+- **Evolution.** Name one field of the envelope you would delete today, and one you would enforce. What breaks for each? (risk `unenforced`)
+- **Scale.** If the SPI had to carry messages to another machine, which five questions must its contract answer first? (risk `remoteSpi`)
+- **Correctness.** A plugin mutates a list inside its payload. Which other branches can see it, and when would anyone notice? (risk `shallowImmutable`)
+- **Performance.** A message becomes 50 MiB. Which components copy it, and which only pass a reference? (risk `payloadSize`)
+- **Security.** Which headers can a malicious plugin set that an operator would trust, and which should core re-stamp? (risk `forgeable`)
+- **Operability.** You debug a message that went through 80 nodes. What can you still see in its history, and what can you rebuild from elsewhere? (risk `historyCap`)
+- **Failure.** A custom channel throws on one message. What does the user see, and which component should decide? (risk `channelErrors`)
+- **Design.** After a split, is each child the same message or a new one? What should its history say? (risk `lineageReset`)
+- **Evolvability.** Is the 40-method interface worth keeping if only one implementation will ever exist? (risk `wideContract`)
+- **Operability.** How would you know which channel provider is active in production, and how would two providers be diagnosed? (risk `conditionalOrder`)
+
+## Persistence PostgreSQL
+
+### Evolution path
+
+1. **Today.** Nine tables, seven stores, a lease. Statements are single and safe; recovery rewrites and multi-step operations are not atomic; the fencing number is unused.
+2. **Make recovery safe.** Transactional rewrite of the log, durable start and end events, transactions for the multi-step operations. Risks: `logReplaceAll`, `logDropsEvents`, `noTransactions`.
+3. **Fence the leader.** Pass the fencing token to the writes that matter and refuse older tokens in the statement. Risks: `fencingUnused`.
+4. **Index and bound.** Index the event type and update time, stream the reads, make the KV cap and the clean-up honest, add a session delete. Risks: `compactionCost`, `readsWholeSets`, `historyTtlScan`, `kvCapRace`, `noDelete`, `noRetention`, `sessionConfigGaps`.
+5. **Observe it.** Meters and a health check for the stores, a startup summary of which store is used, honest counters. Risks: `noStoreMetrics`, `halfDurable`, `heldBytesDrift`, `blockingCalls`.
+6. **Operate it.** Separate accounts, an upgrade test on data, a documented backup and restore. Risks: `twoConnections`, `noMigrationPlan`.
+
+### Quality lenses
+
+<AccordionGroup>
+<Accordion title="Scalability">
+Fine for one control plane and a few hundred runs. The log has one writer thread, the lease is one row, and several operations load or scan whole tables.
+
+**Ceilings today**
+
+- One writer thread and one statement at a time for the execution log
+- Compaction and recovery scan the whole log
+- Reads of the log and of a node's output load everything into memory
+- Per-session history and KV counts scan their tables
+
+**Levers today**
+
+- Batched inserts of up to 100 events
+- Large messages are stored out of line by PostgreSQL
+- Trim to the newest runs, never open ones
+
+**Needs design work**
+
+- Indexes for the ttl delete and the compaction query
+- Stream reads (a cursor) instead of loading whole sets
+- Partition or archive the log if runs are many
+
+</Accordion>
+<Accordion title="Performance">
+Single statements are cheap. The costly parts are the one-by-one rewrite at recovery, blocking reads on the resume path, and queries that count or group whole tables.
+
+**Ceilings today**
+
+- replaceAll inserts events one per round trip
+- isFinished and isComplete are one query each, per node, blocking
+- getAllConfigs runs about seven queries for a session
+- get reads every row of a node to return the last
+
+**Levers today**
+
+- Batch insert for the log
+- Upserts in one statement for counters and history
+- Timeouts on every blocking wait
+
+**Needs design work**
+
+- Batch or bulk the recovery rewrite
+- Fetch only the last checkpoint row
+- A benchmark for log append rate and resume time
+
+</Accordion>
+<Accordion title="Availability">
+A crash is recoverable and a standby can take over, but the pieces that make this safe are the least protected: the rewrite is not atomic and the fencing number is unused.
+
+**Ceilings today**
+
+- The log can lose queued events with the process
+- A crash inside replaceAll loses the log
+- A paused leader can still write after a takeover
+- The database is a single point of failure (no failover logic here)
+
+**Levers today**
+
+- Lease with an expiry from the database clock
+- Local validity measured from the time of sending
+- Release of the lease on graceful stop
+- Takeover actions isolated from each other
+
+**Needs design work**
+
+- A transactional rewrite of the log
+- Fencing checks on writes by the old leader
+- Durable acknowledgement for the run-end event
+
+</Accordion>
+<Accordion title="Security">
+No authentication of its own: it trusts the database account it is given. The data it stores can include payloads, definitions with literal secrets and chat history.
+
+**Ceilings today**
+
+- Definitions, payloads and chat turns are stored as plain JSON
+- One database account for the application; Flyway may use the same
+- No row-level separation between sessions
+- Secrets typed into a workflow config are stored as written
+
+**Levers today**
+
+- Values are always bound as parameters; the few column names that are concatenated into a statement come from constants in the code
+- A pinned, patched scram-client
+- Constant statement timeouts
+
+**Needs design work**
+
+- Separate migration and runtime accounts, documented
+- Encryption at rest and in transit settings in the setup text
+- Redaction of secret-like config before storage (see web and plugins)
+
+</Accordion>
+<Accordion title="Operability">
+Little visibility: one gauge for the leader and nothing for the stores themselves.
+
+**Ceilings today**
+
+- No metrics for append rate, queue depth, dropped events, statement time or lock waits
+- No health indicator for the stores
+- The checkpoint byte counter drifts and restarts at zero
+- No tool to inspect or repair a damaged log
+
+**Levers today**
+
+- The yukta.leader gauge
+- Log lines for dropped events, failed batches and failed trims
+- Spring Boot's own R2DBC and Flyway integration
+
+**Needs design work**
+
+- Meters for queue depth, drops and write latency
+- A health check that runs a trivial query
+- A documented backup and restore procedure
+
+</Accordion>
+<Accordion title="Evolvability">
+Easy to add a store (one class, one migration, one bean). Hard parts are changing a stored JSON shape and moving a deployment to a newer schema while it holds data.
+
+**Ceilings today**
+
+- Forward-only migrations
+- Stored JSON shapes are the Java records; a rename changes what old rows mean
+- Tests start from an empty schema
+
+**Levers today**
+
+- Small classes, one per interface
+- JSONB keeps most changes out of migrations
+- Auto-configuration with one switch per store
+
+**Needs design work**
+
+- A test that migrates a database holding V1 data to the latest version
+- A version field inside stored documents
+- A rule for removing a column or table
+
+</Accordion>
+</AccordionGroup>
+
+### Questions to settle
+
+- **Failure.** The server dies between the delete and the last insert of replaceAll. What can an operator still do, and what would they have needed? (risk `logReplaceAll`)
+- **Reliability.** The log queue is full for ten seconds. Which events are lost, and which of them matter most? (risk `logDropsEvents`)
+- **Availability.** A leader freezes for 40 seconds with a 15 second lease. Walk through what each server does when the leader wakes up. (risk `fencingUnused`)
+- **Correctness.** An operator applies a session with twelve workflows and the database restarts after the sixth. What does the session look like? (risk `noTransactions`)
+- **Performance.** A run has 400 nodes and the database answers in 50 ms. What does a resume cost in waiting time? (risk `blockingCalls`)
+- **Scale.** You keep 500 runs of 5,000 events. What happens on each trim, and what happens to the queue meanwhile? (risk `compactionCost`)
+- **Operations.** How would you tell, from the running system, which kinds of state are durable? (risk `halfDurable`)
+- **Privacy.** A customer asks you to delete everything about one session. What do you run? (risk `noDelete`)
+- **Evolution.** You rename a field of the workflow definition record. What happens to the stored definitions? (risk `noMigrationPlan`)
+- **Security.** Which database account does the application use, and what can it do that it should not? (risk `twoConnections`)
+
+## Plugin API
+
+### Evolution path
+
+A suggested order. Step 1 comes first because it protects the ability to stop a run.
+
+1. **Today.** A small, working SPI with 16 commands, a supervisor and control-plane SPI, an expression sandbox with a method allow-list, and shared helpers for run budgets and approval waits. Open work is mostly bounds on control calls and expressions, decoupling plugins from core, and tooling for authors.
+2. **Bound the control path.** Add review and decide timeouts with a defined outcome, protect stop from being delayed, and align the two ordering rules. Risks: `reviewNoTimeout`, `decideStall`, `orderOpposite`.
+3. **Make plugins independent of core.** Move the resolver and map helpers into plugin-api or a support module, expose the registry and tracker through small SPIs, and add an SPI version with a startup check. Risks: `coreDependency`, `noVersion`.
+4. **Tools for plugin authors.** Ship test fixtures with a conformance suite, re-enable PMD for tests, and either call shutdown or remove it. Risks: `noTestKit`, `sharedInstance`, `pmdOff`, `shutdownNever`.
+5. **Harden expressions and secrets.** Evaluation time budget (the method allow-list is done), parse outside the lock, a run budget that is reserved before the call, scoped and audited secret access, and a data-only UiDesign. Risks: `spelLimits`, `secretThin`, `uiHtml`, `budgetLedger`.
+6. **Typed and reactive extension seams.** Non-blocking store calls (the PostgreSQL stores now make this concrete), declared node signals, and a decision on the directive layer and the unused optimiser hooks. Risks: `storeSync`, `onSignalLoose`, `directiveOnlyStop`, `deadHooks`, `eventsBestEffort`, `signalWaitsShared`.
+
+### Quality lenses
+
+<AccordionGroup>
+<Accordion title="Scalability">
+Barely applies to the module itself: it is interfaces and a few static helpers with no threads or I/O. What it does decide is the scaling shape of everything built on it: one shared plugin instance per type, streams per node, and a single in-process supervisor host.
+
+**Ceilings today**
+
+- One shared instance per type means plugin code must be safe under many concurrent nodes; a field-based cache becomes a contention point
+- The expression cache has one lock around parsing and lookup, shared by every plugin in the process
+- Supervisor events are handled one at a time per control-plane plugin
+- Sync checkpoint calls (clear, isComplete, isFinished) would block threads on a remote store
+
+**Levers today**
+
+- Virtual-thread offload for blocking plugins through one flag
+- Bounded expression cache (1000)
+- Per-config timeout and buffer hooks
+
+**Needs design work**
+
+- A concurrency test kit that runs a plugin under many nodes
+- A non-blocking checkpoint interface for database stores
+- A cache with less lock contention if expression use grows
+
+</Accordion>
+<Accordion title="Performance">
+The helpers sit on the hot path of every message that uses expressions, and parse-once-evaluate-many keeps that cheap. Everything else is interface calls; the cost is in the plugins.
+
+**Ceilings today**
+
+- Each evaluation builds a new evaluation context
+- Cache miss parses under the cache lock
+- No evaluation timeout: a heavy expression costs whatever it costs
+- Messages are immutable; every with-er call copies the envelope
+
+**Levers today**
+
+- Pre-parse hook (preParse) and parse cache
+- Default buffer size hook per plugin
+- isBlocking keeps blocking work off reactive threads
+
+**Needs design work**
+
+- A benchmark of expression evaluation under load
+- Optional per-evaluation time limit
+- A guidance note on when to use preParse in prepare
+
+</Accordion>
+<Accordion title="Availability">
+Not a runtime component, so it has no uptime of its own. It shapes availability through the supervisor SPI, where a hung reviewer or a slow decide() can stall command handling for a run or a plugin.
+
+**Ceilings today**
+
+- review() has no timeout, and commands of one run wait their turn
+- decide() handled one event at a time per plugin; a hang stalls that plugin's feed
+- Event feed is best effort and has no replay after a missed event
+- shutdown is never called, so resources of shared plugins live until the process ends
+
+**Levers today**
+
+- A failing review counts as a denial instead of an allow
+- Supervisor failures are retried with backoff and never stop runs
+- A failing decide() counts as no opinion
+
+**Needs design work**
+
+- A review time limit with a defined outcome
+- A stop that cannot be vetoed or delayed
+- A documented bound for decide() enforced by the default supervise
+
+</Accordion>
+<Accordion title="Security">
+This is where the module matters most: it holds the sandbox for user-written expressions, the veto on control commands, and the secret interface. Authentication itself is not here.
+
+**Ceilings today**
+
+- Expression evaluation has no time or size limit and can still call any public method of reachable objects
+- SecretProvider has no caller identity, so it cannot scope secrets per plugin or session
+- UiDesign is raw HTML supplied by plugin code and rendered by the UI
+- Review vetoes depend on supervisors being present and correct
+
+**Levers today**
+
+- Restricted evaluation context: no static calls, constructors or bean references, with tests
+- Breakpoint conditions are declarative, not code
+- SECRET field type and decrypted:&lt;key&gt; convention
+- Denial on review error
+
+**Needs design work**
+
+- An expression budget (time and size)
+- Secret access scoped by plugin and audited
+- A sanitising or sandboxed rendering of UiDesign HTML
+
+</Accordion>
+<Accordion title="Operability">
+The module offers metrics hooks (a reporter interface) and an actor in the command audit, but ships no tooling for plugin authors: no test kit, no lifecycle that tells a plugin when to clean up.
+
+**Ceilings today**
+
+- No test fixtures for plugin authors
+- pmdTest is disabled
+- A plugin cannot know it is being stopped except by stream cancel
+- Config schema and the code that reads it are kept aligned by hand
+
+**Levers today**
+
+- PluginMetricsReporter with a NOOP default and per-node OK/ERROR counts through PluginGuard
+- Actor id in the command audit (ControlActor)
+- Tests that pin defaults and sandbox rules
+
+**Needs design work**
+
+- A test kit (harness and message builders)
+- A conformance test every plugin can run
+- Re-enable pmdTest
+
+</Accordion>
+<Accordion title="Evolvability">
+This is the module's biggest long-term risk: a wide set of defaults that every plugin silently relies on, no version marker, and plugins that also compile against core internals.
+
+**Ceilings today**
+
+- Adding an abstract method breaks every plugin; adding a command breaks every exhaustive switch
+- No SPI version, so mismatches show up as runtime errors
+- Plugins import VariableResolver, MapUtils, PluginRegistry and the tracker from core
+- WorkflowDirective has one member, so its sealed hierarchy gives little extension room yet
+
+**Levers today**
+
+- Default methods for new hooks
+- Sealed types that make missing handling a compile error
+- Small module with few dependencies
+
+**Needs design work**
+
+- Move the shared helpers plugins need into plugin-api or a support module
+- An SPI version constant and a startup check
+- A decision on whether directives or processor-side effects are the extension seam
+
+</Accordion>
+</AccordionGroup>
+
+### Questions to settle
+
+- **Availability.** A supervisor's review calls a slow policy service. What should happen to a human's stop command while it waits? (risk `reviewNoTimeout`)
+- **Evolvability.** You must add a 17th control command. List everything in the repository that breaks and decide if that is a feature or a cost. (risk `directiveOnlyStop`)
+- **Correctness.** Write the smallest test that proves a plugin is safe to share between two nodes with different configs. (risk `sharedInstance`)
+- **Security.** Name three expressions you would try against the sandbox that are not in the tests. Which layer would stop each? (risk `spelLimits`)
+- **Reliability.** A rule must pause a workflow after 3 failures but the feed drops under load. How would you guarantee it? (risk `eventsBestEffort`)
+- **Evolvability.** An external team wants to ship a plugin as a jar. Which parts of today's contract and dependencies would stop them? (risk `coreDependency`)
+- **Performance.** A PostgreSQL checkpoint store answers isFinished in 5 ms. What does that cost a resume of a 200-node run? (risk `storeSync`)
+- **Functionality.** How would an agent discover that a plugin accepts an 'approve' signal and what payload it needs? (risk `onSignalLoose`)
+- **Security.** Two teams share one server. How would you stop team A's plugin from reading team B's secrets? (risk `secretThin`)
+- **Operability.** Which lifecycle hook should release a database pool, given that shutdown is never called? (risk `shutdownNever`)
+
+## Plugins
+
+### Evolution path
+
+A possible order of work, safest edges first.
+
+1. **Today.** 31 node types and four supervisor kinds on one JVM. Done since the first guide (PRs #373, #374): script sandbox with class allow-list and limits, command allow-list, env allow-list, restricted SpEL methods, LLM and MCP budgets, provider rate limit, tool approvals, PostgreSQL stores for KV_STORE and SESSION_MEMORY. Open: no host allow-list, plaintext secrets in config, no concurrency cap, memory-only defaults.
+2. **Contain the sharp edges.** Done: script sandbox, command allow-list. Next: operator-set host and folder allow-lists, a max-concurrency setting, kill descendant processes on timeout, redact secrets in read APIs, make the agent guards a deployment default. Risks: `scriptHostAccess`, `ssrf`, `shellModel`, `orphans`, `fanout256`, `plaintextSecrets`, `fileSandbox`, `agentGuardsOptIn`.
+3. **Bound memory and cost.** Evict caches and sessions, put LLM-backed decisions under the run budget (LLM_CALL and MCP_TOOL_CALL already are), derive timeouts for SQL and file plugins, add a connection pool, take SESSION_MEMORY off the reactive threads, truncate logged output. Risks: `unboundedMaps`, `sessionMemory`, `sqlTimeout`, `consoleLogs`, `sessionStoreBlocks`.
+4. **Make state durable.** Done: PostgreSQL stores for KV_STORE and SESSION_MEMORY (opt-in). Left: make them the default or warn when memory-only, durable anomaly windows, a persistent scheduler, rules that reload. Risks: `kvVolatile`, `windowsPerRun`, `scheduleLost`.
+5. **Clean the layering.** Move the resolver and helpers into plugin-api, validate loop targets, re-enable the gates, rename CONTENT-FILTER with an alias, make control planes optional. Risks: `coreLayering`, `gatesOff`, `loopSkipsValidation`, `loopEscalate`, `typeIds`, `optionalNotOptional`.
+6. **Decide the oversight model.** Alert on 'no opinion' from the model plane, prefer rules-first, treat model verdicts as advice. Risks: `modelFailsOpen`, `promptInjection`.
+
+### Quality lenses
+
+<AccordionGroup>
+<Accordion title="Scalability">
+Per-message plugins scale with the JVM's threads and with the number of nodes, and most of the cost is waiting on outside systems. What does not scale is state: KV_STORE, SESSION_MEMORY and the control-plane windows live in one process.
+
+**Ceilings today**
+
+- Default concurrency of 256 per node for process, HTTP, MCP, model and session plugins, not configurable
+- KV_STORE capped at 10,000 keys in one JVM; SESSION_MEMORY unbounded
+- ModelControlPlane asks the model about each matching event, one at a time
+- SQL_QUERY opens a connection per message
+
+**Levers today**
+
+- Caps on process output, file reads and SQL rows
+- SPLITTER concurrency and AGGREGATE size are settings
+- Optional modules keep unused code out of a build
+
+**Needs design work**
+
+- A max-concurrency setting on external plugins
+- A store interface so KV_STORE and SESSION_MEMORY can be database-backed
+- A connection pool for SQL_QUERY
+
+</Accordion>
+<Accordion title="Performance">
+Pure plugins (FILTER, BRANCH, PROJECTION) are cheap and cache parsed expressions. The cost is in model calls and outside requests, which take seconds, not microseconds.
+
+**Ceilings today**
+
+- A model call per message (decision plugins, LLM_CALL) dominates latency and cost
+- SCRIPT mode creates a fresh GraalJS context per message
+- A Handlebars or SpEL parse is cached forever, so memory, not CPU, is the limit
+- File and SQL work uses a shared pool for blocking work
+
+**Levers today**
+
+- Compiled scripts and templates are reused
+- SpEL cache is a 1,000-entry LRU
+- Model clients are reused per configuration
+- Timeouts bound every external wait
+
+**Needs design work**
+
+- Rate limits for hosts and non-model plugins (model providers have yukta.llm.rate-limit)
+- Budgets for LLM-backed decisions (LLM_CALL and MCP_TOOL_CALL have them)
+- Benchmark figures (none were found in the module notes)
+
+</Accordion>
+<Accordion title="Availability">
+Plugins are as available as what they call. The module's job is to fail in a way the graph can handle: status ports, error ports, fallbacks. In-memory state does not survive a restart.
+
+**Ceilings today**
+
+- A failed model, webhook or database fails every message that needs it
+- KV_STORE, session history and windows vanish on restart
+- The model control plane fails open by design
+- Schedules are not remembered across restarts
+
+**Levers today**
+
+- failureMode CONTINUE with routeBy ports for fallback paths
+- LLM_CALL passes the payload on for model failover
+- Engine retry and dead-letter ports apply on top
+
+**Needs design work**
+
+- Durable session and KV stores
+- A circuit breaker for repeated failures of one outside system
+- Persistent schedules
+
+</Accordion>
+<Accordion title="Security">
+This is the lens that matters most. Plugins turn author-written configuration into running code, network calls, file access and database queries. Several guards exist (restricted SpEL, bound SQL parameters, file path checks, https for webhooks), but several are absent.
+
+**Ceilings today**
+
+- JavaScript has a class allow-list, a statement limit and a time limit, but no memory limit
+- No host allow-list for HTTP_REQUEST, MCP_TOOL_CALL or NOTIFY_TERMINAL; PROCESS_EXECUTOR runs nothing unless yukta.process.allowed-commands is set (or allow-any is on)
+- Secrets written in config are returned by read APIs as plaintext
+- Untrusted text goes straight into model prompts
+
+**Levers today**
+
+- Restricted SpEL with no types or constructors
+- decrypted: secrets from YUKTA_SECRET_ environment variables
+- File sandbox with link checks; SQL bound parameters; https-only webhooks
+- Deny rules that fail closed; optional modules
+
+**Needs design work**
+
+- Host and command allow-lists, set by the operator, not the author
+- A memory limit for scripts and a host allow-list for outbound calls
+- Secret redaction in read APIs
+- A decision on who is trusted to author workflows
+
+</Accordion>
+<Accordion title="Operability">
+Each external plugin counts successes and errors per node and publishes a usage description. MCP calls get a timer. Logging is uneven: some plugins log payloads and exception text in full.
+
+**Ceilings today**
+
+- CONSOLE_TERMINAL logs every payload at INFO
+- PROCESS_EXECUTOR puts up to 10 MiB of output into error messages and logs
+- Rule files need a restart to change
+- No metrics for model cost totals
+
+**Levers today**
+
+- Per-node counters for most plugins
+- A Micrometer timer yukta.mcp.call
+- A generated config form from each plugin's field list
+- Usage text that explains every setting
+
+**Needs design work**
+
+- Truncation of embedded output
+- Reloadable rules
+- Cost and token metrics
+- Redacted logging
+
+</Accordion>
+<Accordion title="Evolvability">
+Adding a plugin is easy: one bean, one config schema. The friction is below the surface: 11 of 19 plugin modules depend on core, two quality gates are off in the largest module, and type ids are not uniformly named.
+
+**Ceilings today**
+
+- Plugins compile against core classes, so core changes can break them
+- internal-core holds 12 types and has PMD and Checkstyle-test disabled
+- Per-plugin copies of UI card HTML
+- Aliases do not exist if a type id is renamed
+
+**Levers today**
+
+- One contract; a registry that rejects duplicates
+- A shared failure helper, metrics hook and config validators
+- A tests-pin-the-field-names convention in the module notes
+
+**Needs design work**
+
+- Move resolver and helpers into plugin-api
+- Re-enable the disabled gates
+- A naming rule and an alias mechanism for type ids
+
+</Accordion>
+</AccordionGroup>
+
+### Questions to settle
+
+- **Security.** If a workflow author is not fully trusted, which plugins would you remove from the build and which would you keep behind allow-lists? (risk `scriptHostAccess`)
+- **Security.** Where should the host allow-list live: in each plugin's config, a deployment setting, or the network around the server? (risk `ssrf`)
+- **Scalability.** What is the right default concurrency for a plugin that starts a program, calls a model, or reads a file, and who should set it? (risk `fanout256`)
+- **Evolvability.** Is the 'typed spec, gateway, failure mode' pattern worth extracting into a base class, or does that hide the differences between a process, a web call and a tool call? (risk `coreLayering`)
+- **Reliability.** Which of KV_STORE, SESSION_MEMORY, ANOMALY windows and schedules deserve durable storage first, and what would break without it? (risk `kvVolatile`)
+- **Governance.** Should a model be allowed to spend money without a cap, and what is the unit of a budget: tokens, cost, calls or time? (risk `decisionUnbudgeted`)
+- **Security.** Which verdicts in your workflows would hurt if an attacker could choose the answer, and should those use a model at all? (risk `promptInjection`)
+- **Availability.** When the model control plane is down, should the system keep running unattended, or stop? (risk `modelFailsOpen`)
+- **Functionality.** Should a loop be a plugin that calls other plugins, or a real sub-graph in the engine? (risk `loopSkipsValidation`)
+- **Operability.** What should be in the logs for a failed external call: nothing, a summary, or everything the process printed? (risk `consoleLogs`)
+
+### Plugins review
+
+The nine built-in plugin modules cover a useful set: triggers (API, one-shot, constants), routing (branch, recipient list, splitter, filter), transformation (mapper, content filter), loops, process execution, HTTP, LLM calls and chat memory, and the newer plugins are carefully written, with typed config records, explicit failure modes, port routing, output caps and good usage text. The plugin layer is also where user-supplied workflow config becomes executed code, and the review of 2026-10-09 found the guard-rails missing: two code-execution paths (SpEL and the mapper's JavaScript), unbounded process concurrency, no way to pass a secret, quality gates switched off in `internal-core`, and plugins that depend on `:core` instead of only on `plugin-api`. The status on 2026-10-15 (checked against `main` after PRs #373 and #374) is that the two code-execution paths are mostly closed, secrets are partly addressed, and the resource, layering and gate findings are largely still open. The review's original scorecard rated security 1/5, resource safety 2/5, layering 2/5 and quality gates 2/5.
+
+Priority is P0 (fix now) to P3 (clean-up); effort is S (under half a day), M (1 to 2 days) or L (over 2 days). "Not re-checked" means the finding comes from the original review and may have changed.
+
+**Open findings**
+
+| ID | Finding | Impact | Effort / Fix | Status |
+|---|---|---|---|---|
+| G1 | P0. The mapper's SCRIPT mode gave workflow JavaScript full Java access (`HostAccess.ALL`, class lookup, no time limit) | Code execution from workflow config. Now limited to 12 value classes and `java.time.*`, `Class` objects denied, scripts stop after 50 M statements or 10 s | Effort S. Remaining: add a memory limit; `HostAccess.ALL` is still used on the objects the script is given | Mostly closed |
+| G2 | P0. SpEL in plugin config (Filter, Branch, Mapper, RecipientList, LoopStream, Splitter, LlmCall) | Code execution from workflow config. Fixed in plugin-api with the `SafeMethodResolver` allow-list | Effort S. Remaining: no evaluation time budget (see the plugin-api guide) | Mostly closed |
+| G3 | P1. Process-executor quoting on Windows is ineffective (single quotes do not quote for `cmd.exe`) | `&`, `\|` and `^` in an interpolated argument still run. Nothing runs unless `yukta.process.allowed-commands` lists it, and `useShell` is refused while a list is set | Effort S. Refuse `useShell` on Windows when an argument came from interpolation, or apply `cmd`-specific `^` escaping. Remaining problem is with `allow-any` | Partly closed |
+| G4 | P1. `useShell` cannot use any shell feature: every metacharacter is escaped, so pipes, `&&` and redirects never work | `useShell` only adds PATH and builtin lookup; word splitting also changes for unquoted parentheses and spaces | Effort S (design decision). Pick one model: (a) a trusted single shell string with no interpolation, or (b) remove `useShell` and exec argv directly | Open |
+| G5 | P1. No safe way to provide secrets, so API keys sit in plaintext in workflow config | Keys are stored in session files and returned by the read APIs. `EnvSecretProvider` now exists (`decrypted:<key>` reads `YUKTA_SECRET_<KEY>`) | Effort S. Remaining: redact secret-like config keys in the read APIs, and resolve `decrypted:` in `SQL_QUERY`, which takes `password` literally | Partly closed |
+| G7 | P2. `HTTP_REQUEST` can reach internal addresses (server-side request forgery); no outbound host allow-list for `HTTP_REQUEST` or `MCP_TOOL_CALL` | Cloud metadata, loopback admin ports and the internal network are reachable. MCP now has tool-level controls | Effort S. Optional `yukta.http.allowed-hosts`, block link-local and loopback by default, and re-check after redirects | Open |
+| G8 | P1. Process-executor runs up to 256 processes at once per node; default concurrency is still 256 for process, HTTP, MCP, session and file/SQL nodes | A trigger or splitter that emits many messages forks hundreds of processes. LLM calls can be spaced per provider (`yukta.llm.rate-limit.<provider>`) | Effort S. A `maxConcurrency` setting passed to `flatMapSequential` | Open |
+| G9 | P1. A timeout leaves grandchild processes running | Descendants keep running and keep the pipes open, blocking stdout reader threads on `boundedElastic` | Effort S. Destroy `process.descendants()` before the parent, in the forcible path too | Open |
+| G10 | P2. Large process output flows through exceptions and logs | Up to 10 MB of stdout can end up in an exception message and the error log. #373 changed the gateway (lines stream live; `maxOutputLines` and `maxOutputBytes` bound the kept output) | Effort S. Truncate text embedded in exceptions to the last N lines | Not re-checked |
+| G11 | P2. Mapper, template, script and expression caches, `LlmGateway` model clients and the MCP session map are unbounded plain maps | Memory grows with every distinct workflow submitted | Effort S. A bounded LRU, or clear entries in `shutdown(config)` | Open |
+| G12 | P2. `ConfigVariableSource` relies on `prepare()`, which core never calls | The cache is always empty; it works by accident | Effort S. Delete `prepare` and the cache | Not re-checked |
+| G13 | P2. LoopStream: RETRY and SKIP behave the same, and ESCALATE wraps in a plain `RuntimeException` | Failure handling is not what the options promise | Effort S. Give SKIP a distinct meaning and throw a real `WorkflowExecutionException`. ESCALATE still throws a plain `RuntimeException`; RETRY versus SKIP not re-checked | Partly checked, open |
+| G14 | P2. Loop plugins call the target plugin directly and skip its `validateConfig` and `initialize` | Invalid target config is accepted. The loop still calls the target from the registry without validation | Effort M. Validate `targetConfig` in the loop's own `validateConfig`; longer term, model loops as sub-graphs in core | Open |
+| G15 | P2. Internal-core plugins stamp history themselves (Branch, RecipientList, Splitter, ContentFilter, Filter) | Core already stamps every node | Effort S. Remove `withAddedHistory(nodeId)` from them | Not re-checked |
+| G16 | P3. `ApiTriggerPlugin` throws on a missing context payload | `NoSuchElementException` if the orchestrator wrote no payload | Effort S. Use `ctx.getOrDefault("payload", Map.of())` | Not re-checked |
+| G17 | P3. `SESSION_MEMORY` has no eviction | History can be kept in files or PostgreSQL (`yukta.session-memory.ttl` expires database rows), but the in-memory cache never evicts | Effort S. Caffeine `expireAfterAccess` | Partly closed |
+| G18 | Layering. 11 plugin modules depend on `:core` (26 imports of `VariableResolver`, was 24); new shared helpers went into `plugin-api` | The layering is inverted: plugins should depend only on `plugin-api` | Effort M. Move `VariableResolver`, `MapUtils` and `SecretProvider` use into `plugin-api` or a new `plugin-support` module; pass the registry and tracker through narrow SPI interfaces | Open, slightly worse |
+| G19 | Quality gates. `internal-core` still has `pmdMain`, `pmdTest` and `checkstyleTest` off; `constant-source` has PMD off; `MapperProcessor` has a 0% threshold | Part of the gate does not run for those modules | Effort M. Turn them back on one at a time, starting with JaCoCo for `MapperProcessor` | Open |
+| G20 | `internal-core` coverage config names five classes that do not exist | Stale configuration | Effort S. Delete the stale entries | Not re-checked |
+| G21 | `ProcessExecutorGateway.execute(...)` and `executeStream(...)` have no callers outside the gateway's own tests | Dead code | Effort S. Delete them; `executeForResult` is the API | Not re-checked |
+| G22 | `UiDesign` HTML is duplicated per plugin and almost identical | Duplication | Effort S. Return `UiDesign` from colour, icon and label and let the UI render it | Not re-checked |
+| G23 | `ConsoleTerminalPlugin` logs every payload at INFO | Payloads reach the log | Effort S. Use DEBUG, or truncate | Open |
+| G24 | `new ObjectMapper()` as a static in several plugins | Date and module config can differ from Spring's mapper | Effort S. Inject Spring's configured `JsonMapper` | Not re-checked |
+| G25 | Plugin type ids use mixed naming: `CONTENT-FILTER` is still the only kebab-case id | Inconsistent ids | Effort S. Standardise on `SCREAMING_SNAKE` and accept old ids as aliases for one release | Open |
+| agentGuardsOptIn | MCP tool lists, approvals, budgets and prompt filters all default to off | Agent guards only work when an operator turns them on | Not rated in the source. Warn when an MCP tool name comes from the message and no list is set | Open (new) |
+| decisionUnbudgeted | LLM-backed decisions and the model control plane bypass the run budget | Model calls are not counted against `budget` | Not rated in the source. Count every model call once, in the gateway | Open (new) |
+| sessionStoreBlocks | `SESSION_MEMORY` calls the blocking history store inside a map operation and is not marked blocking | Blocking call on a reactive thread | Not rated in the source. One line (`isBlocking() = true`) plus moving the store call out of the map operation | Open (new) |
+| budgetLedger | The shared run budget ledger is per JVM, in memory, and can overshoot (see the plugin-api guide) | Budgets are not shared across servers or workers | Not rated in the source | Open (new) |
+| signalWaitsShared | The shared approval waits are per JVM and in memory (see the plugin-api guide) | Open waits are lost on restart or failover | Not rated in the source | Open (new) |
+
+**Pending roadmap steps**
+
+The status section of the review gives this suggested order for the next steps (impact over effort, cheap and high impact first); the original five-phase roadmap is otherwise unchanged:
+
+1. `sessionStoreBlocks`: one line plus moving the store call out of the map operation.
+2. G7 host allow-list, together with `agentGuardsOptIn` (warn when an MCP tool name comes from the message and no list is set).
+3. G5 redaction in the read APIs, and resolving `decrypted:` in `SQL_QUERY`.
+4. G8 and G9: a `maxConcurrency` setting and descendant kill on timeout.
+5. `decisionUnbudgeted` and the plugin-api `budgetLedger`: count every model call once, in the gateway.
+6. G18: move `VariableResolver` and `MapUtils` out of core.
+
+1 finding already fixed (G6, the variable resolver now reads only an allow-list of environment variables). G1 and G2 are mostly closed and stay in the table with what remains. Module guide: [plugins](/contributing/modules/plugins). Defect view: [bugs](/internal/bugs#plugins).
+
+## UI
+
+### Evolution path
+
+1. **Today.** A same-origin SPA served by boot. Streams and REST work with no key. Builder, plugins, history and control pages exist; unit tests run only by hand.
+2. **Make it usable on a protected server.** Choose a browser auth model, make fetch and the streams carry it, and show a clear 'sign in' state instead of 'server not running'. Risks: `noAuthHeader`.
+3. **Safer actions.** One idempotency key per click, no automatic retry of non-idempotent calls, per-run stop modes, a draft guard and a version check on save. Risks: `startRetryKey`, `stopAllRuns`, `noDraftGuard`, `wholeSessionSave`.
+4. **Use the event model fully.** Resume streams with Last-Event-ID, switch to /api/executions/... paths and drive the Control page from the global event stream. Risks: `replayNoLastId`, `logDedupe`, `legacyAliases`, `pollControl`.
+5. **Tighten the contract.** When core publishes a status enum, generate unions, take icons from plugin metadata and run the unit and type-drift checks in CI. Risks: `freeStatus`, `iconGap`, `noTestGate`, `deadSanitiser`.
+6. **Close the REST gap.** Add delete, run search, paging and resume as operators ask for them (approvals and versions are done). Risks: `uiGaps`, `pagingCaps`.
+
+### Quality lenses
+
+<AccordionGroup>
+<Accordion title="Scalability">
+The static files scale trivially (served by boot, cached for a year when hashed). What scales poorly is per-user load on the server and per-page work in the browser: every open page holds streams and some pages poll.
+
+**Ceilings today**
+
+- Two long-lived streams per open run page; browsers limit connections per host
+- Control page polls two endpoints every 5 s per browser
+- Session list loads every session summary and pages in the browser
+- Large graphs (the server allows 500 nodes) mean hundreds of animated canvas nodes
+
+**Levers today**
+
+- Hashed, long-cached assets
+- Log buffer and virtual list keep memory bounded
+- 5 minute cache avoids repeat fetches
+
+**Needs design work**
+
+- Use the global events stream instead of polling for Control
+- Server paging for sessions and runs
+- Level-of-detail or collapsing for very large graphs
+
+</Accordion>
+<Accordion title="Performance">
+A small first load (lazy routes, split vendor files, a 13.7 KB icon font) and cheap live updates (batched logs, virtual list, whole-snapshot progress).
+
+**Ceilings today**
+
+- Every progress frame replaces the whole snapshot and re-lays out the graph
+- Reconnect replays the full history of a run
+- Largest single script about 257 KB; total first load for the run view is several hundred KB
+- Dedupe and filtering touch up to 2,000 strings per update
+
+**Levers today**
+
+- Build-time budgets per chunk and for the icon font
+- 100 ms log batching
+- Fixed-height virtual rows
+
+**Needs design work**
+
+- Use Last-Event-ID so reconnects resume instead of replaying
+- Re-layout only when the graph changes, not on every status frame
+- A speed budget (not only a size budget)
+
+</Accordion>
+<Accordion title="Availability">
+The UI is stateless, so it recovers by reloading. Its job is to degrade clearly when the server is away or a stream drops.
+
+**Ceilings today**
+
+- Run page shows a blank error message with no retry if the graph or run list fails
+- Streams reopen only while the run is not finished; a long outage during a run relies on the 30 s backoff cap
+- An unsaved builder draft is lost on any reload
+- No offline or stale-while-error view beyond the 5 minute cache
+
+**Levers today**
+
+- Stream reconnect with backoff
+- Error states with retry on most lists
+- Same-origin deployment, so nothing else to be down
+
+**Needs design work**
+
+- Retry on the run page
+- Unsaved-changes guard or local draft storage
+- A visible 'live updates paused' indicator
+
+</Accordion>
+<Accordion title="Security">
+Browser-side defences are reasonable (CSP, URL-encoded ids, no HTML injection paths in the code). The larger gaps are that the app cannot authenticate and shows every control to everyone.
+
+**Ceilings today**
+
+- No credentials sent: unusable once yukta.api-key is set
+- EventSource cannot carry headers, so streams cannot use the same scheme
+- No role awareness: every visitor sees Stop, Kill and Save
+- CSP allows inline styles (needed by React Flow)
+
+**Levers today**
+
+- CSP: same-origin scripts and connections, no framing
+- Ids URL-encoded
+- Secrets entered as decrypted:&lt;key&gt; placeholders, not values
+
+**Needs design work**
+
+- A login or key flow plus a stream transport that can authenticate
+- Role-based hiding of destructive controls once the server has roles
+- Remove or use the unused sanitiser dependency deliberately
+
+</Accordion>
+<Accordion title="Operability">
+Good visibility of runs, weak visibility into the UI itself. Failures are shown to the user but not reported anywhere.
+
+**Ceilings today**
+
+- No client-side error or performance reporting
+- Unit tests do not run in ':ui:check' or CI as far as I found
+- Icons and API types need manual commands (network, running server)
+- No pages for resuming an aborted run, breakpoints, scheduler limits or priority
+
+**Levers today**
+
+- Control page with supervisor counters and heartbeats
+- CI E2E job with screenshot baselines
+- Build guards for size, headers and version
+
+**Needs design work**
+
+- Run Vitest in CI and enforce the coverage threshold
+- CI step for the API types check
+- Surfaces for the operations that exist only in REST
+
+</Accordion>
+<Accordion title="Evolvability">
+Feature folders, one API client and one status mapper keep change local. Weak points are hand-maintained mappings (statuses, icons) and legacy endpoint paths.
+
+**Ceilings today**
+
+- Statuses are free strings, so the mapper can drift from core
+- Plugin icon map must be edited for each new plugin
+- Deprecated /api/workflow/... paths are hard-coded in hooks and E2E mocks
+- Generated types are all-optional, so hand-written types duplicate the contract
+
+**Levers today**
+
+- Compile-time check that hand-written and generated types agree
+- Schema-driven forms need no change per plugin
+- Design tokens in one CSS file
+
+**Needs design work**
+
+- Status enum from core, then generated unions
+- Icon (and colour) from plugin metadata instead of a UI-side map
+- Move to the /api/executions/... paths
+
+</Accordion>
+</AccordionGroup>
+
+### Questions to settle
+
+- **Security.** Your server is exposed to the team and a key is required. Walk through what the first screen shows and how an operator recovers. What would you build? (risk `noAuthHeader`)
+- **Reliability.** A start request times out in the browser but the server accepted it. What does the user see, how many runs exist after the retry, and how would you prove it? (risk `startRetryKey`)
+- **Performance.** A run has produced 200,000 log lines and the connection drops every minute. What does each reconnect cost the server and the browser? (risk `replayNoLastId`)
+- **Correctness.** Core adds a status WAITING_APPROVAL. Which screens change meaning, and how would you find out before a user does? (risk `freeStatus`)
+- **Operability.** Two operators press Drain on the same workflow while a third is debugging a run of it. Who is surprised, and what should the dialog say? (risk `stopAllRuns`)
+- **Data.** Two people edit different workflows of one session. Whose change survives, and where would you add the check? (risk `wholeSessionSave`)
+- **Scale.** Fifty operators leave the Control page open all day. What is the steady load, and would you move to events or slow the poll? (risk `pollControl`)
+- **Governance.** A UI regression ships that only a unit test would catch. Which gate should have stopped it? (risk `noTestGate`)
+- **Product.** A plugin author wants a custom icon and a rich node card. What belongs in the plugin's metadata and what in the UI, and is rendering their HTML ever acceptable? (risk `deadSanitiser`)
+- **Evolution.** The server drops its legacy /api/workflow/... status paths next release. What breaks first, and how would you notice in CI? (risk `legacyAliases`)
+
+### UI review
+
+The UI is a modern, well-tested SPA: feature folders with separate `api`, `hooks` and `components`, TanStack Query for fetching, React Flow with dagre for the DAG canvas, SSE hooks for live progress and logs, shadcn and Base UI primitives with Tailwind 4 tokens and dark mode, Vitest at about 98% coverage, Playwright end-to-end tests with screenshot baselines, and DOMPurify on plugin-provided node HTML. The review of 2026-10-09 found payload weight (a 3.96 MB icon font and one 887 KB script chunk), live views that stopped silently on the first stream error, wrong API error text, and a guessed status vocabulary. After the fixes the icon font is 11 KB, the largest script chunk is 273 KB, streams reconnect with backoff, server messages reach users, and the types are generated from OpenAPI with a drift guard in the build.
+
+All twelve findings (U1 to U12) are resolved; the roadmap's four phases are done and nothing is pending from the review. The one remaining caveat is that statuses stay free-form strings until core adds a status enum. Open work for the module is tracked as risks: see [the UI risks](/internal/risks#ui). Module guide: [ui](/contributing/modules/ui).
+
+12 findings already fixed.
+
+## Web
+
+### Evolution path
+
+A suggested order, from cheap and safe to large. Each step names the risks it addresses.
+
+1. **Today.** 16 controllers, four filters, one error handler. Loopback bind with a start-up guard, named keys with roles and session limits. Streams with ids and a heartbeat. Cursor paging over full lists. Run search, control audit and version endpoints added. Tests for every controller, mapper and filter.
+2. **Close the doors.** Done: fail closed when the address is open and no key is set (but see the MCP-key case), guard the actuator. Next: guard or drop the docs, let the UI send the key, log and count rejected requests with a request id and the key name. Risks: `openByDefault`, `uiNoKey`, `silent401`.
+3. **Make the contract honest.** Add a 409 for conflicts; stop the three local catches; validate and record limit changes; unify the edge-port default; apply ownership checks on the canonical routes and add a session filter to the events stream. Risks: `noConflict`, `localCatch`, `limitsEndpoint`, `mapperDrift`, `ownershipGap`.
+4. **Scale reads and streams.** Page in the store; give log lines durable sequence numbers; tell slow readers they missed events; cap streams, rate and body size. Risks: `pagingLinear`, `logSeam`, `slowReader`, `noLimits`, `searchScan`.
+5. **Identity and operations.** Done: named keys, roles, session limits, hashed keys. Next: expiry and revocation without a restart, the key name in the access log, a per-key rate limit, or an identity provider; masked secrets in read APIs. Risks: `staticKeys`, `configUnredacted`.
+6. **Retire aliases and dead code.** Move the CLI and UI to canonical routes, remove the 14 aliases, delete the unused records. Risks: `legacyAliases`, `deadDtos`.
+
+### Quality lenses
+
+<AccordionGroup>
+<Accordion title="Scalability">
+Web keeps no state, so more instances would be easy in principle, but core holds the run state in one process and nothing here is shared. The non-blocking server handles many connections cheaply; the cost is in lists loaded in full and in streams with no cap.
+
+**Ceilings today**
+
+- One core process behind all of it
+- History and session lists are loaded in full then sliced
+- Every open stream holds a subscription and, for logs, a 1024-line buffer, with no cap
+- No rate limit on any route
+
+**Levers today**
+
+- Non-blocking WebFlux and virtual threads
+- Page size capped at 1000
+- Summaries load only the requested page
+
+**Needs design work**
+
+- Page in the store (core), not by slicing a full list
+- Limits on connections and request rate
+- A multi-instance story for streams if core ever scales out
+
+</Accordion>
+<Accordion title="Performance">
+Per-request work is small: bind, one core call, wrap. The risks are list endpoints that scale with data size and heavy streams.
+
+**Ceilings today**
+
+- Page cost grows with history length (full load plus linear cursor search)
+- Session summaries read configs one after another
+- Log streams copy up to 1024 buffered lines per connection
+
+**Levers today**
+
+- Compile-time mappers (no reflection)
+- Summaries read only one page of configs
+- Heartbeats avoid reconnect storms behind proxies
+
+**Needs design work**
+
+- Store-level paging by cursor
+- Parallel or batched summary reads
+- Load numbers for the stream endpoints (perf/ scripts exist at the repository root)
+
+</Accordion>
+<Accordion title="Availability">
+Web has no state of its own to lose. Its availability is core's: if core is down or restarting every stream drops and clients must reconnect.
+
+**Ceilings today**
+
+- Streams drop on restart; ids are not durable
+- Slow readers miss live events
+- No timeout or lifetime for streams
+
+**Levers today**
+
+- Heartbeat comments keep idle streams open through proxies
+- Last-Event-ID resume
+- 500s carry a reference id for support
+
+**Needs design work**
+
+- Documented reconnect behaviour for clients
+- Health of the stream path under load
+- Graceful stream close on shutdown
+
+</Accordion>
+<Accordion title="Security">
+Much improved since the first guide: named keys with roles, session-limited keys, hashed keys and rotation, a guarded actuator, path normalisation, host and origin checks, and a start-up guard. What is left is mostly operational: static keys, open docs, and no rate limits.
+
+**Ceilings today**
+
+- Keys are static configuration; no expiry or revocation without a restart
+- Open on loopback when no key is set (HostOriginFilter stops browsers only)
+- Swagger UI and OpenAPI are outside the key
+- Node config returned unredacted; 4xx echoes core messages
+
+**Levers today**
+
+- Loopback bind by default and a start-up guard for other addresses
+- Roles, named and session-limited keys, hashed keys, several keys for rotation
+- Path normalisation (400 on ambiguous paths) and Host/Origin checks
+- Strict JSON and field validation
+- 500s carry no exception text; request ids validated
+
+**Needs design work**
+
+- Rate limits and a stream cap
+- Redaction of secrets in read APIs
+- The UI able to send the key
+- Log or count rejected requests, with the key name
+
+</Accordion>
+<Accordion title="Operability">
+Good basics: a request id on every accepted call, one log line per request and uniform errors. Gaps: rejected calls (400, 401, 403) are invisible and the access log carries no caller.
+
+**Ceilings today**
+
+- 401s have no id and no log line
+- No caller identity in logs
+- No request metrics owned by this module
+
+**Levers today**
+
+- Request id in headers and every log line
+- Access log with status and duration
+- Uniform error envelope
+- OpenAPI and Swagger UI
+
+**Needs design work**
+
+- Log or count rejected requests
+- Metrics for streams and 4xx/5xx rates
+- Caller identity once it exists
+
+</Accordion>
+<Accordion title="Evolvability">
+Small, consistent and well tested, but with leftovers: deprecated aliases still in use, response types that nothing uses, and two mappers that disagree on a default.
+
+**Ceilings today**
+
+- 14 aliases that clients still call
+- 11 unused response records
+- Mapper duplication
+- Contract is the OpenAPI plus the UI's generated types
+
+**Levers today**
+
+- Controller conventions and helpers
+- Tests for every controller, mapper and filter
+- Records and MapStruct keep DTOs short
+
+**Needs design work**
+
+- Alias retirement plan
+- Remove or move unused records
+- A contract test that fails on breaking OpenAPI changes
+
+</Accordion>
+</AccordionGroup>
+
+### Questions to settle
+
+- **Security.** Roles now separate reading, running and authoring. Which key should be allowed to submit a workflow that can run a program, and should an OPERATOR key be able to? (risk `staticKeys`)
+- **Security.** A container is started from the published image with no configuration. What stops a stranger on the same network from running code, and is that enough? (risk `openByDefault`)
+- **Security.** Session ids look like tenant boundaries but the checks only run on some routes. What should a session mean to security? (risk `ownershipGap`)
+- **Reliability.** A UI shows 'running' while the run actually finished, because the event was dropped for a slow tab. Where should the truth live? (risk `slowReader`)
+- **Correctness.** Two log lines with identical text arrive within the same millisecond around a connect. Which one should a viewer see, and how would you prove the stream correct? (risk `logSeam`)
+- **Performance.** A session has 200,000 runs of history. What does the 200th page of 500 cost, and what would you change first? (risk `pagingLinear`)
+- **Operability.** On-call sees a spike of 500s. How would you tell conflicts from real bugs with today's mapping? (risk `noConflict`)
+- **Governance.** Limit changes are now admin-only, audited with the actor and restored on restart. Should there be a floor, so that one call cannot set 'no limit'? (risk `limitsEndpoint`)
+- **Evolvability.** The CLI uses the old routes and the UI the new ones. How do you migrate without breaking either, and what do you lose if the old routes carry the only ownership check? (risk `legacyAliases`)
+- **Availability.** A client opens a thousand log streams and never reads them. What happens to memory, and what should the server do? (risk `noLimits`)
+
+## Workers
+
+### Evolution path
+
+1. **Today.** Placement by pool, free-slot choice, leases, drain, retry on another worker, optional mutual TLS, failover across several addresses. In-memory registry; plain TCP and one token by default.
+2. **Make the link trustworthy.** Require TLS off loopback, per-worker credentials mapped to ids, and a decision on where secrets are resolved. Risks: `plainTokenDefault`, `sharedTokenIdentity`.
+3. **Failover that works in the bad case.** Check leadership on every lease, reset the reconnect pause, close stale connections. Risks: `deposedKeepsWorkers`, `reconnectBackoff`, `staleConnections`.
+4. **Make a placed node behave like a local one.** Map errors back, forward the log sink and trace context, count budgets on the control plane, enforce capacity, mark stateful plugins. Risks: `abortLostAcrossWire`, `liveLogsLost`, `noTraceContext`, `budgetPerJvm`, `capacityRace`, `statefulPlacement`, `perAttemptInit`.
+5. **Handle data and upgrades.** A payload limit with a reference above it, a protocol version and a compatibility test. Risks: `payloadAsJson`, `wireVersion`.
+6. **Verify the native path.** A native registration test in CI and a clear failure when the role switch is missing. Risks: `nativeUnverified`.
+
+### Quality lenses
+
+<AccordionGroup>
+<Accordion title="Scalability">
+Scales the plugin call out. The control plane still carries every message in both directions and holds all state, so it is the ceiling.
+
+**Ceilings today**
+
+- The control plane is a data hop for every message
+- One RSocket connection per worker
+- The registry is an in-memory map scanned on each pick
+- No size limit or claim check for large payloads
+
+**Levers today**
+
+- Pools, plugin types and free-slot choice
+- Back-pressure and cancel end to end
+- Workers need no inbound port
+
+**Needs design work**
+
+- A payload limit and a reference for large bodies
+- Atomic slot accounting or worker-side limits
+- Autoscaling signals from the slot gauge
+
+</Accordion>
+<Accordion title="Performance">
+Each attempt adds a round trip and a JSON conversion of every message in both directions, and an initialise and prepare on the worker.
+
+**Ceilings today**
+
+- JSON conversion of every message twice
+- Initialise and prepare per attempt (per message with per-message policies)
+- Registry list sorted per pick
+
+**Levers today**
+
+- Streaming rather than request-reply per message
+- One channel for all messages of an attempt (without per-message policies)
+
+**Needs design work**
+
+- A benchmark of latency and throughput per message
+- Reuse of the prepared plugin across attempts on a worker
+
+</Accordion>
+<Accordion title="Availability">
+A dead worker is a delay, not a failed run. The weak points are the control plane, which is the single owner of state, and the time workers take to find a new leader.
+
+**Ceilings today**
+
+- A deposed but running control plane keeps its workers
+- The reconnect pause grows to 30 s and is not reset
+- Attempts in flight at a failover fail and retry
+- No queue: no worker means an immediate failure
+
+**Levers today**
+
+- Lease expiry
+- Retry on another worker, tested with SIGKILL
+- Graceful drain
+- Several control-plane addresses
+
+**Needs design work**
+
+- Check leadership on every lease
+- Reset the backoff after a healthy connection
+- An option to wait for a worker instead of failing
+
+</Accordion>
+<Accordion title="Security">
+The weakest lens. Everything that makes the module safe is optional or shared: plain TCP by default, one token for all workers, and node configs and payloads on the wire.
+
+**Ceilings today**
+
+- Plain TCP by default
+- One shared token and self-declared worker ids
+- Node config (with any literal secret) and payloads cross the wire
+- A control plane can send any START to a worker for an allowed type
+
+**Levers today**
+
+- Constant-time token comparison
+- Mutual TLS with host-name verification (tested)
+- Per-worker allow-list of plugin types
+- Processors only
+
+**Needs design work**
+
+- Per-worker credentials or certificates mapped to ids
+- TLS required by default when a non-loopback address is used
+- A decision on where secrets are resolved (design question 3)
+
+</Accordion>
+<Accordion title="Operability">
+One list endpoint and two gauges. Worker-side logs, meters and spans stay on the worker.
+
+**Ceilings today**
+
+- Plugin meters and logs live in the worker's JVM
+- No live log stream from placed nodes
+- Warnings for every reconnect attempt
+- No UI list of workers
+
+**Levers today**
+
+- GET /api/workers
+- yukta.workers and yukta.worker.slots gauges
+- Log lines for registration, refusal and worker gone
+
+**Needs design work**
+
+- Forward the log sink and trace context
+- Per-worker load and failure counters
+- A readiness check for 'at least one worker in pool X'
+
+</Accordion>
+<Accordion title="Evolvability">
+Two small records are the whole protocol, which is easy to change and easy to break.
+
+**Ceilings today**
+
+- No version on the frames
+- No SIGNAL frame, so stateful and signal plugins cannot be placed
+- Control plane and worker must be the same build
+
+**Levers today**
+
+- A small, clear frame set
+- Real-connection tests
+- Role chosen by properties
+
+**Needs design work**
+
+- A version in REGISTER and a compatibility rule
+- Frames for signals, trace context and deadlines as designed
+- A test that mixes two versions
+
+</Accordion>
+</AccordionGroup>
+
+### Questions to settle
+
+- **Security.** A device on your network can reach the control plane's RSocket port. List what it can learn and what it can make a worker do. (risk `plainTokenDefault`)
+- **Identity.** One worker is compromised. How do you cut it off without restarting the others? (risk `sharedTokenIdentity`)
+- **Availability.** The leader loses its database lease but keeps running. Where do the workers end up and when do placed nodes work again? (risk `deposedKeepsWorkers`)
+- **Availability.** A control plane has restarted five times this week. What is the pause before a worker reconnects after the sixth? (risk `reconnectBackoff`)
+- **Correctness.** A placed LLM_CALL node hits a budget with hardStop. What does the run do, and what does it do for a local node? (risk `abortLostAcrossWire`)
+- **Governance.** A run uses three workers and has a token budget of 100,000. How much can it spend? (risk `budgetPerJvm`)
+- **Operability.** Someone asks to watch a placed build step live. What do they see? (risk `liveLogsLost`)
+- **Scale.** A placed node returns a 200 MiB file. Which components hold it, and how many times? (risk `payloadAsJson`)
+- **Evolution.** You change a field of the message record. In which order do you upgrade the control plane and the workers, and what breaks in between? (risk `wireVersion`)
+- **Design.** Which of your plugins keep anything between messages, and is it safe to place them? (risk `statefulPlacement`)

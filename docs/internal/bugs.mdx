@@ -1,0 +1,138 @@
+---
+title: "Bugs"
+description: "Defects and hardening items that are open, fixed or dropped, by module, with severity and source."
+---
+
+This page lists known defects and hardening items from the core backlog and the module reviews, plus findings recorded while Yukta ran its own checks. It covers bugs only; feature ideas are on the [improvements page](/internal/improvements). Modules with no items are not listed.
+
+Severity uses the scale of the source: High, Medium and Low from the [remediation plan](/internal/plans/remediation), and P0 (fix now) to P3 (clean-up) from the module reviews; "Not rated" means the source gives none. Where the core backlog and the later [remediation plan](/internal/plans/remediation) disagree, the later and more recently verified status is used. Status is one of Open, Fixed, Dropped (not planned) or Not a defect (re-verification found nothing wrong). Fixed items stay listed so the history of an id is not lost. Eight review findings of the plugins module (G10, G12, G15, G16, G20, G21, G22, G24) were not re-checked in 2026-10-15 and are on the [improvements page](/internal/improvements#plugins) instead.
+
+## Summary
+
+| ID | Module | Severity | Status | Summary | Source |
+|---|---|---|---|---|---|
+| L5 | Build logic | Not rated | Open | The licence allow-list was narrowed to one per-artifact exception, `org.openjdk.nashorn:nashorn-core:15.4` (GPL-2.0 with Classpath Exception), which the GraalVM native image statically links. The code change is done; a human still has to confirm the exception is acceptable for native distribution (legal sign-off pending) | [Build logic review](/internal/improvements#build-logic) |
+| CLI-7 | CLI | Not rated | Open | Stale README: it still mentions `yukta-darwin`, `goBuildDev`, `~/.yukta/config` and `/api/v1` | [CLI review](/internal/improvements#cli) |
+| CLI-8 | CLI | Not rated | Open | 12 calls still use the deprecated `/api/workflow/...` paths | [CLI review](/internal/improvements#cli) |
+| CLI-10 | CLI | Not rated | Open | Zone-less server timestamps are parsed in the CLI time zone (`localTimestamps`), so times can be shifted | [CLI review](/internal/improvements#cli) |
+| CLI-11 | CLI | Not rated | Open | `--quiet` classifies lines by keywords copied from the server (`keywordProblems`), which drifts when server messages change | [CLI review](/internal/improvements#cli) |
+| B4 | Core | Medium | Fixed | `changeLimits`, `changePriority` and the raw node command (`POST /control/workflows/{wf}/nodes/{node}/command`) skipped the `ControlReviewer` and, for the last, the audit. Now limits and priority pass the reviewer and are audited with the actor (`SetLimitsCommand`, `SetPriorityCommand`), and the raw node command refuses signal bodies. Where: `DefaultControlBusGateway`, `ControlBusController` | Core backlog 09; [Remediation plan](/internal/plans/remediation) |
+| B16 | Core | Medium | Fixed | A subtree that stopped reading (its terminal failed) stalled sibling branches through `publish` back-pressure, and the run failed only at the idle timeout. Now a downstream cancel-with-error propagates to the run (fail fast). Where: `NodeBroadcast`, `StreamTopologyDecorator` | Core backlog 09; [Remediation plan](/internal/plans/remediation) |
+| B19 | Core | Low | Fixed | `archive()` cleared checkpoint files on the start path (blocking) before the run `subscribeOn`. Fixed for starts and restarts, and for sub-workflow starts with `subscribeOn(boundedElastic())`. Where: `WorkflowOrchestrator.execute`, `SubWorkflowRunner` | Core backlog 09; [Remediation plan](/internal/plans/remediation) |
+| B21 | Core | Low | Open | `sessionStates` and `latestExecs` of finished sessions were never evicted. Partly done: `yukta.tracker.max-sessions` evicts the oldest session without a running run, and finished runs are capped at 100 per session. Left: a time-based policy, which needs a decision because evicting sessions drops history the UI shows. Where: `DefaultTaskTrackerService` | Core backlog 09; [Remediation plan](/internal/plans/remediation) |
+| B23 | Core | Not rated | Dropped | The live log stream stays open until cleanup. Dropped on purpose: an existing test requires the trailing line after the terminal status. Where: `DefaultTaskTrackerService.getLogStream` | Core backlog 09 |
+| B25 | Core | Low | Not a defect | A supervisor was thought to see the status events its own command causes (pause to PAUSED) and loop, capped only by the rate limit. On re-verification a pause publishes no event, and a supervisor never sees the outcome of its own commands. Where: `SupervisorHost` | Core backlog 09; [Remediation plan](/internal/plans/remediation) |
+| B26 | Core | Low | Fixed | The preparator duplicated edges when the prepare `Mono` was subscribed twice; the validator and the assembler disagreed on what a terminal is; a failed `checkpointStore.save` failed the node while a failed `markComplete` did not. Where: `WorkflowPreparator`, `WorkflowValidator`, `StreamTopologyDecorator` | Core backlog 09; [Remediation plan](/internal/plans/remediation) |
+| B27 | Core | Medium | Fixed | Run status had no forward-only guard like node status, so a second terminal event finalized again and appended `finished` twice. The guard is done; the split of the roughly 1000-line `DefaultTaskTrackerService` (history and cleanup projection) was left for later. Where: `tracker/` | Core backlog 09; [Remediation plan](/internal/plans/remediation) |
+| R1 | Core | Medium | Fixed | Restarting a finished run had the same check-then-acquire race that #340 fixed for starts, so two restarts could exceed a limit by one. Restart, restart from a node and resume now take their slot before the new id is reported. Where: `RestartCommandProcessor`, `RestartFromNodeCommandProcessor` | Core backlog 09; [Remediation plan](/internal/plans/remediation) |
+| S3 | Core | Medium | Fixed | `FileSystemPluginLogReader.findExecutionLogFile` did not validate `executionId` (path traversal), and the writer had a create/overwrite race. Not wired as beans, so dead code today; fixed anyway (an execution id check in the file log reader). Where: `logging/impl/file` | Core backlog 09; [Remediation plan](/internal/plans/remediation) |
+| B30 | Core | Low | Open | Heartbeats, statistics and plugin-level commands are keyed by workflow and node only, so two sessions or runs with equal ids collide. Latent: nothing emits heartbeats yet. Fix: include the session or execution id. Where: `ControlBusService.compositeKey`, `ControlHeartbeatHandler`, `ActivePluginRegistry` | [Remediation plan](/internal/plans/remediation) |
+| DF-5 | Core | P2 | Open | The long-running server on port 8080 died during a `--watch` run (found 2026-10-13 in workflow `quick-check`, execution f44043ba-1735-4b47-b093-826c7f3ced92). After `yukta controlbus watch` failed with `unexpected EOF`, `localhost:8080` refused connections and the process was gone; no log was captured. Not reproduced | Dogfood backlog (`examples/11-dogfood`) |
+| S4 | Plugins | High | Fixed | `yukta.process.allowed-commands` was opt-in, so with it unset any command could run. Now an empty list denies unless `yukta.process.allow-any=true` (the migration switch). Where: `ProcessExecutorGateway` | Core backlog 09; [Remediation plan](/internal/plans/remediation) |
+| G1 | Plugins | P0 (residual) | Open | The mapper SCRIPT mode is mostly closed: class lookup is limited to 12 value classes and `java.time.*`, and scripts stop after 50 M statements or 10 s. Open: no memory limit, and `HostAccess.ALL` on the objects the script is given | [Plugins review](/internal/improvements#plugins) |
+| G2 | Plugins | P0 (residual) | Open | SpEL is mostly closed: `SpelUtils` calls only methods on the `SafeMethodResolver` allow-list. Open: no evaluation time budget | [Plugins review](/internal/improvements#plugins) |
+| G3 | Plugins | P1 | Open | Partly closed: nothing runs unless allowed and `useShell` is refused while a list is set. With `allow-any` the Windows quoting problem remains (single quotes do not protect against `cmd.exe` metacharacters) | [Plugins review](/internal/improvements#plugins) |
+| G4 | Plugins | P1 | Open | `useShell` still escapes every metacharacter, so pipes, `&&` and redirects never work and unquoted parentheses and spaces change word splitting. A design decision is needed | [Plugins review](/internal/improvements#plugins) |
+| G5 | Plugins | P1 | Open | Partly closed: `EnvSecretProvider` exists (`decrypted:<key>` reads `YUKTA_SECRET_<KEY>`). Open: nothing redacts secrets in the read APIs, and `SQL_QUERY` takes `password` literally | [Plugins review](/internal/improvements#plugins) |
+| G7 | Plugins | P2 | Open | No outbound host allow-list for `HTTP_REQUEST` or `MCP_TOOL_CALL` (server-side request forgery). MCP now has tool-level controls | [Plugins review](/internal/improvements#plugins) |
+| G8 | Plugins | P1 | Open | Default concurrency is still 256 for process, HTTP, MCP, session and file/SQL nodes. LLM calls can be spaced per provider | [Plugins review](/internal/improvements#plugins) |
+| G9 | Plugins | P1 | Open | No descendant handling on timeout: grandchild processes keep running and keep the pipes open | [Plugins review](/internal/improvements#plugins) |
+| G11 | Plugins | P2 | Open | Mapper caches, `LlmGateway` model clients and the MCP session map are still plain, unbounded maps | [Plugins review](/internal/improvements#plugins) |
+| G13 | Plugins | P2 | Open | `ESCALATE` in LoopStream still throws a plain `RuntimeException`; RETRY versus SKIP not re-checked | [Plugins review](/internal/improvements#plugins) |
+| G14 | Plugins | P2 | Open | The loop plugins still call the target from the registry without `validateConfig` | [Plugins review](/internal/improvements#plugins) |
+| G17 | Plugins | P3 | Open | Partly closed: history can be kept in files or PostgreSQL (`yukta.session-memory.ttl` expires database rows). The in-memory cache still never evicts | [Plugins review](/internal/improvements#plugins) |
+| G18 | Plugins | Not rated | Open | Slightly worse: 11 plugin modules depend on `:core` and there are 26 imports of `VariableResolver` (was 24) | [Plugins review](/internal/improvements#plugins) |
+| G19 | Plugins | Not rated | Open | `internal-core` still has `pmdMain`, `pmdTest` and `checkstyleTest` off; `constant-source` has PMD off | [Plugins review](/internal/improvements#plugins) |
+| G23 | Plugins | Not rated | Open | `ConsoleTerminalPlugin` still logs every payload at INFO | [Plugins review](/internal/improvements#plugins) |
+| G25 | Plugins | Not rated | Open | `CONTENT-FILTER` is still the only kebab-case plugin type id | [Plugins review](/internal/improvements#plugins) |
+
+## Build logic
+
+| ID | Severity | Status | Summary | Source |
+|---|---|---|---|---|
+| L5 | Not rated | Open | The licence allow-list was narrowed to one per-artifact exception, `org.openjdk.nashorn:nashorn-core:15.4` (GPL-2.0 with Classpath Exception), which the GraalVM native image statically links. The code change is done; a human still has to confirm the exception is acceptable for native distribution (legal sign-off pending) | [Build logic review](/internal/improvements#build-logic) |
+
+## CLI
+
+| ID | Severity | Status | Summary | Source |
+|---|---|---|---|---|
+| CLI-7 | Not rated | Open | Stale README: it still mentions `yukta-darwin`, `goBuildDev`, `~/.yukta/config` and `/api/v1` | [CLI review](/internal/improvements#cli) |
+| CLI-8 | Not rated | Open | 12 calls still use the deprecated `/api/workflow/...` paths | [CLI review](/internal/improvements#cli) |
+| CLI-10 | Not rated | Open | Zone-less server timestamps are parsed in the CLI time zone (`localTimestamps`), so times can be shifted | [CLI review](/internal/improvements#cli) |
+| CLI-11 | Not rated | Open | `--quiet` classifies lines by keywords copied from the server (`keywordProblems`), which drifts when server messages change | [CLI review](/internal/improvements#cli) |
+
+## Core
+
+| ID | Severity | Status | Summary | Source |
+|---|---|---|---|---|
+| B4 | Medium | Fixed | `changeLimits`, `changePriority` and the raw node command (`POST /control/workflows/{wf}/nodes/{node}/command`) skipped the `ControlReviewer` and, for the last, the audit. Now limits and priority pass the reviewer and are audited with the actor (`SetLimitsCommand`, `SetPriorityCommand`), and the raw node command refuses signal bodies. Where: `DefaultControlBusGateway`, `ControlBusController` | Core backlog 09; [Remediation plan](/internal/plans/remediation) |
+| B16 | Medium | Fixed | A subtree that stopped reading (its terminal failed) stalled sibling branches through `publish` back-pressure, and the run failed only at the idle timeout. Now a downstream cancel-with-error propagates to the run (fail fast). Where: `NodeBroadcast`, `StreamTopologyDecorator` | Core backlog 09; [Remediation plan](/internal/plans/remediation) |
+| B19 | Low | Fixed | `archive()` cleared checkpoint files on the start path (blocking) before the run `subscribeOn`. Fixed for starts and restarts, and for sub-workflow starts with `subscribeOn(boundedElastic())`. Where: `WorkflowOrchestrator.execute`, `SubWorkflowRunner` | Core backlog 09; [Remediation plan](/internal/plans/remediation) |
+| B21 | Low | Open | `sessionStates` and `latestExecs` of finished sessions were never evicted. Partly done: `yukta.tracker.max-sessions` evicts the oldest session without a running run, and finished runs are capped at 100 per session. Left: a time-based policy, which needs a decision because evicting sessions drops history the UI shows. Where: `DefaultTaskTrackerService` | Core backlog 09; [Remediation plan](/internal/plans/remediation) |
+| B23 | Not rated | Dropped | The live log stream stays open until cleanup. Dropped on purpose: an existing test requires the trailing line after the terminal status. Where: `DefaultTaskTrackerService.getLogStream` | Core backlog 09 |
+| B25 | Low | Not a defect | A supervisor was thought to see the status events its own command causes (pause to PAUSED) and loop, capped only by the rate limit. On re-verification a pause publishes no event, and a supervisor never sees the outcome of its own commands. Where: `SupervisorHost` | Core backlog 09; [Remediation plan](/internal/plans/remediation) |
+| B26 | Low | Fixed | The preparator duplicated edges when the prepare `Mono` was subscribed twice; the validator and the assembler disagreed on what a terminal is; a failed `checkpointStore.save` failed the node while a failed `markComplete` did not. Where: `WorkflowPreparator`, `WorkflowValidator`, `StreamTopologyDecorator` | Core backlog 09; [Remediation plan](/internal/plans/remediation) |
+| B27 | Medium | Fixed | Run status had no forward-only guard like node status, so a second terminal event finalized again and appended `finished` twice. The guard is done; the split of the roughly 1000-line `DefaultTaskTrackerService` (history and cleanup projection) was left for later. Where: `tracker/` | Core backlog 09; [Remediation plan](/internal/plans/remediation) |
+| R1 | Medium | Fixed | Restarting a finished run had the same check-then-acquire race that #340 fixed for starts, so two restarts could exceed a limit by one. Restart, restart from a node and resume now take their slot before the new id is reported. Where: `RestartCommandProcessor`, `RestartFromNodeCommandProcessor` | Core backlog 09; [Remediation plan](/internal/plans/remediation) |
+| S3 | Medium | Fixed | `FileSystemPluginLogReader.findExecutionLogFile` did not validate `executionId` (path traversal), and the writer had a create/overwrite race. Not wired as beans, so dead code today; fixed anyway (an execution id check in the file log reader). Where: `logging/impl/file` | Core backlog 09; [Remediation plan](/internal/plans/remediation) |
+| B30 | Low | Open | Heartbeats, statistics and plugin-level commands are keyed by workflow and node only, so two sessions or runs with equal ids collide. Latent: nothing emits heartbeats yet. Fix: include the session or execution id. Where: `ControlBusService.compositeKey`, `ControlHeartbeatHandler`, `ActivePluginRegistry` | [Remediation plan](/internal/plans/remediation) |
+
+### Dogfood findings
+
+Defects, errors and slowdowns noticed while Yukta ran its own checks (the dogfood loop). Set the status when one is fixed.
+
+#### DF-5: the long-running server on :8080 died during a `--watch` run
+- Status: open (not reproduced)
+- Severity: P2
+- Kind: error
+- Found: 2026-10-13, workflow `quick-check`, execution f44043ba-1735-4b47-b093-826c7f3ced92
+- Evidence: after `yukta controlbus watch` failed with `unexpected EOF`, `localhost:8080` refused connections and the process was gone. No log was captured because the server was started from a terminal.
+- Repro: unknown.
+- Update 2026-10-14: not reproduced. A native server on port 9101 survived two full `gradle-check` runs plus watchers after the DF-3 fix (it died only while DF-3 broke the stream). Native servers now log to `.yukta-dev/<name>.log`. Reopen with that log if it recurs; the suspect remains the old native build.
+
+The module guide is [core](/contributing/modules/core).
+
+## Plugins
+
+| ID | Severity | Status | Summary | Source |
+|---|---|---|---|---|
+| S4 | High | Fixed | `yukta.process.allowed-commands` was opt-in, so with it unset any command could run. Now an empty list denies unless `yukta.process.allow-any=true` (the migration switch). Where: `ProcessExecutorGateway` | Core backlog 09; [Remediation plan](/internal/plans/remediation) |
+| G1 | P0 (residual) | Open | The mapper SCRIPT mode is mostly closed: class lookup is limited to 12 value classes and `java.time.*`, and scripts stop after 50 M statements or 10 s. Open: no memory limit, and `HostAccess.ALL` on the objects the script is given | [Plugins review](/internal/improvements#plugins) |
+| G2 | P0 (residual) | Open | SpEL is mostly closed: `SpelUtils` calls only methods on the `SafeMethodResolver` allow-list. Open: no evaluation time budget | [Plugins review](/internal/improvements#plugins) |
+| G3 | P1 | Open | Partly closed: nothing runs unless allowed and `useShell` is refused while a list is set. With `allow-any` the Windows quoting problem remains (single quotes do not protect against `cmd.exe` metacharacters) | [Plugins review](/internal/improvements#plugins) |
+| G4 | P1 | Open | `useShell` still escapes every metacharacter, so pipes, `&&` and redirects never work and unquoted parentheses and spaces change word splitting. A design decision is needed | [Plugins review](/internal/improvements#plugins) |
+| G5 | P1 | Open | Partly closed: `EnvSecretProvider` exists (`decrypted:<key>` reads `YUKTA_SECRET_<KEY>`). Open: nothing redacts secrets in the read APIs, and `SQL_QUERY` takes `password` literally | [Plugins review](/internal/improvements#plugins) |
+| G7 | P2 | Open | No outbound host allow-list for `HTTP_REQUEST` or `MCP_TOOL_CALL` (server-side request forgery). MCP now has tool-level controls | [Plugins review](/internal/improvements#plugins) |
+| G8 | P1 | Open | Default concurrency is still 256 for process, HTTP, MCP, session and file/SQL nodes. LLM calls can be spaced per provider | [Plugins review](/internal/improvements#plugins) |
+| G9 | P1 | Open | No descendant handling on timeout: grandchild processes keep running and keep the pipes open | [Plugins review](/internal/improvements#plugins) |
+| G11 | P2 | Open | Mapper caches, `LlmGateway` model clients and the MCP session map are still plain, unbounded maps | [Plugins review](/internal/improvements#plugins) |
+| G13 | P2 | Open | `ESCALATE` in LoopStream still throws a plain `RuntimeException`; RETRY versus SKIP not re-checked | [Plugins review](/internal/improvements#plugins) |
+| G14 | P2 | Open | The loop plugins still call the target from the registry without `validateConfig` | [Plugins review](/internal/improvements#plugins) |
+| G17 | P3 | Open | Partly closed: history can be kept in files or PostgreSQL (`yukta.session-memory.ttl` expires database rows). The in-memory cache still never evicts | [Plugins review](/internal/improvements#plugins) |
+| G18 | Not rated | Open | Slightly worse: 11 plugin modules depend on `:core` and there are 26 imports of `VariableResolver` (was 24) | [Plugins review](/internal/improvements#plugins) |
+| G19 | Not rated | Open | `internal-core` still has `pmdMain`, `pmdTest` and `checkstyleTest` off; `constant-source` has PMD off | [Plugins review](/internal/improvements#plugins) |
+| G23 | Not rated | Open | `ConsoleTerminalPlugin` still logs every payload at INFO | [Plugins review](/internal/improvements#plugins) |
+| G25 | Not rated | Open | `CONTENT-FILTER` is still the only kebab-case plugin type id | [Plugins review](/internal/improvements#plugins) |
+
+The module guide is [plugins](/contributing/modules/plugins).
+
+## Recording a dogfood finding
+
+When a dogfood run (a watched run of Yukta's own checks) shows a Yukta defect, record it on this page instead of in a file next to the code.
+
+1. Find the module's section on this page and its `### Dogfood findings` heading. If the module has no section yet, add `## <Module>` in alphabetical position with that heading. Defects in the dogfood scripts and workflows themselves go under a `## Dogfood tooling` section.
+2. Use the next unused `DF-<n>` across the whole page (the ids are not per module) and add an entry:
+
+```text
+#### DF-<n>: <one-line title>
+- Status: open | fixed in <sha>
+- Severity: P0 to P3
+- Kind: bug | error | perf | ux | security | improvement
+- Found: <date>, workflow <wf>, scope <scope>, execution <e>, stage <node>
+- Evidence: <the ERROR / WARN / CONTROL / SLOW / RESULT line>
+- Repro: <command>
+```
+
+3. Add a row for it to the summary table at the top of the page so it is counted.
+
+This page is MDX: put commands and log lines in backticks, and escape `{`, `}` and `<` outside code.

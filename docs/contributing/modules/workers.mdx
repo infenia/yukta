@@ -1,0 +1,695 @@
+---
+title: "Workers module"
+description: "A Yukta server normally runs every node of a workflow itself."
+---
+
+A Yukta server normally runs every node of a workflow itself. The optional **workers** module lets a processor node run on another machine instead: the node's config says which pool of workers may run it, workers connect out to the server and register, and each node attempt travels over one RSocket stream. The server keeps the graph, the policies and the checkpoints; only the plugin call moves. This page is for thinking about it: open a component, play a scenario, then challenge the weak spots.
+
+| Property | What it means |
+|---|---|
+| Workers call in | A worker connects out to the control plane and registers with a shared token. It needs no open port, so it can sit behind a firewall. |
+| One stream per attempt | A node attempt is one bidirectional RSocket channel: input flows to the worker, output and heartbeats flow back, and a stop on the server cancels the worker's pipeline. |
+| Same policies as local | Retries, onError, timeouts, pause and checkpoints wrap the remote call exactly as they wrap a local plugin, so a placed node behaves like a local one. |
+| Trust is thin by default | The default transport is plain TCP with one shared token. Mutual TLS exists but is optional, and what crosses the wire includes node config and message payloads. |
+
+<Note>
+  Open risks, bugs and improvement ideas for this module are on the internal pages (sign-in required): [Risks](/internal/risks#workers), [Bugs](/internal/bugs) and [Improvements](/internal/improvements#workers).
+</Note>
+
+## Primer
+
+Some nodes are heavy or risky: they start programs, call models, run scripts or query databases. If they all run inside the one server that also holds the workflow engine, a busy node slows everything, a crashing node can take the server with it, and the machine has to be big. The workers module moves such a node onto another machine. The difficult part is keeping everything else the same: back-pressure, retries, timeouts, pause and stop must work as if the node were local, and a worker that dies in the middle must not hang the run.
+
+<Tip>
+  Think of a head office that plans jobs and keeps the books, and branch offices that do the heavy work. Branches phone in to say they are open and what they can do; head office sends a job and its inputs down the open line and gets results back piece by piece. If a branch goes quiet, head office notices and gives the job to another branch.
+</Tip>
+
+### Where workers sits
+
+| Layer | Role |
+|---|---|
+| Clients | REST (GET /api/workers), web UI, workflows with engine.placement |
+| core | Engine, WorkerRegistry, RemoteNodes and RemoteProcessor, leader election |
+| workers | RSocket server and client, the node channel, drain. This page. (this module) |
+| plugin-api + plugins | The processors that run on a worker |
+| RSocket / Netty | Transport, back-pressure, TLS |
+
+The module depends on core and plugin-api. Core defines the RemoteNodeExecutor interface; this module implements it. Core also holds the registry and the placement logic, so part of the story is in core.
+
+### The vocabulary in eight cards
+
+| Term | Meaning | Example |
+|---|---|---|
+| Control plane | The Yukta server that holds the graph, the policies and the checkpoints, and accepts workers. | The normal server, started with a token. |
+| Worker | A Yukta process that connects to a control plane and runs processor nodes for it. | One with plugin-types HTTP_REQUEST and capacity 4. |
+| Pool | A label on workers. A node asks for a pool, and only workers in that pool may run it. | gpu, default. |
+| Placement | The node option `engine.placement {pool}` that sends the node to a worker. | A PROCESS_EXECUTOR node placed in pool build. |
+| Lease | A claim on being alive that a worker renews every few seconds; if it lapses the worker disappears from the registry. | 15 seconds, renewed every 5. |
+| Slot | One node attempt a worker can run at once. Capacity is the number of slots. | Capacity 4 means four at a time. |
+| Frame | One message on the wire: a check-in, a lease, or a piece of a node attempt. | START, MESSAGE, COMPLETE. |
+| Drain | A worker stops taking new work and waits for running work to finish before it closes. | Sent as a lease with draining true. |
+
+### One node attempt, from check-in to a lost worker
+
+A worker checks in, a placed node is sent to it, results come back, and then the worker dies in the middle of the next attempt. Click a step to see what happens, why, and what can go wrong.
+
+<Steps>
+<Step title="Check in">
+**What happens.** The worker's agent connects to the control plane and sends `REGISTER` with the token, its id, pools, plugin types and capacity. The session handler checks the token, stores the connection and answers `ACK`.
+
+**Why it works this way.** The worker connects out, so it needs no open port. The token keeps strangers from registering.
+
+**Can go wrong.** With the default plain TCP the token and everything that follows can be read on the network. The token is shared by all workers, so any holder can register under any id.
+
+</Step>
+<Step title="Stay alive">
+**What happens.** Every 5 s the agent sends `LEASE` with the number of running nodes and a draining flag. The registry renews the lease (15 s) and answers `ACK`.
+
+**Why it works this way.** A worker that dies without saying so is removed after one lease, so nothing is sent to it for long.
+
+**Can go wrong.** The control plane answers a lease without checking that it is still the leader, so a control plane that lost the lease but is alive keeps its workers.
+
+</Step>
+<Step title="Choose a worker">
+**What happens.** For an attempt of a placed node, `pick` keeps workers of the node's pool that run the plugin type, are not draining and have a free slot, and takes the one with most free slots.
+
+**Why it works this way.** Work goes where there is room, and only to workers that declared the plugin type.
+
+**Can go wrong.** The choice and the counter increment are separate steps, so two attempts chosen together can both take the last slot; the worker does not enforce its capacity.
+
+</Step>
+<Step title="Send the job">
+**What happens.** The control plane opens a `node.run` channel on the worker's connection and sends `START` (execution id, node id, plugin type and the node config), then the input messages as JSON, then `COMPLETE`.
+
+**Why it works this way.** One stream per attempt keeps back-pressure and cancellation working end to end.
+
+**Can go wrong.** The node config goes on the wire as written, including any literal secret in it. Payloads become plain JSON, so Java types are lost, and there is no size limit.
+
+</Step>
+<Step title="Worker runs it">
+**What happens.** The runner checks the plugin type is allowed and a processor, calls `initialize`, `prepare` and `process` on the incoming messages, and sends each output message as a `MESSAGE` frame, `HEARTBEAT` frames when the plugin beats, then `COMPLETE`.
+
+**Why it works this way.** The plugin runs exactly as it would locally, with the execution id, node id and heartbeat in the Reactor context.
+
+**Can go wrong.** The live log sink and the trace context are not passed, so process output is not streamed live and spans do not join the run's trace.
+
+</Step>
+<Step title="Worker dies">
+**What happens.** The worker process is killed while an attempt is running. The connection closes, and the control plane's channel fails with a transport error.
+
+**Why it works this way.** The error becomes `Lost worker X during the attempt`, a failure the engine's retry policy can retry.
+
+**Can go wrong.** The effect the plugin already had on the outside world (a request sent, a file written) is not undone, so a retry can repeat it. Plugins must be idempotent on the message id.
+
+</Step>
+<Step title="Retry elsewhere">
+**What happens.** The retry policy runs the attempt again. The dead worker's lease has not yet lapsed, but its connection is gone, so `pick` finds no connection for it and chooses another worker.
+
+**Why it works this way.** A worker failure becomes a delay, not a failed run, as long as another worker in the pool has room.
+
+**Can go wrong.** If no other worker qualifies, the retry fails at once with 'No connected worker', which is retried again with the node's backoff until the policy gives up.
+
+</Step>
+</Steps>
+
+### A worker's day in plain words
+
+<Steps>
+<Step title="Starts">
+reads its settings, connects out and checks in with the token.
+</Step>
+<Step title="Waits">
+renews its lease every few seconds and reports how many nodes it is running.
+</Step>
+<Step title="Is chosen">
+receives a job description and the input messages down the open line.
+</Step>
+<Step title="Works">
+runs the plugin, sending results and heartbeats back as they appear.
+</Step>
+<Step title="Is stopped">
+tells the control plane to send no more work, finishes what it has, then closes.
+</Step>
+<Step title="Is lost">
+if it dies, the control plane sees the line close and the engine retries elsewhere.
+</Step>
+</Steps>
+
+## Components
+
+### Roles & auto-configuration
+
+*control plane or worker*
+
+Decides from properties whether this server accepts workers (control plane) or is one (worker), and switches the matching beans on.
+
+- With `yukta.workers.token` set and `yukta.workers.control-plane` empty, the server is a **control plane**: it gets the session handler, the connection map, the node executor and the `worker.session` controller. It also needs `spring.rsocket.server.port` for the RSocket server to listen.
+- With `yukta.workers.control-plane` set (one or more `host:port`, comma separated), the server is a **worker**: it gets the `NodeRunner` and the `WorkerAgent`, which connects out. Setting both makes it a worker only. A worker without a token fails at start.
+- Worker settings: `id`, `pools` (default `default`), `plugin-types` (default empty, so it runs nothing), `capacity` (4), `lease` (15 s), `drain-timeout` (30 s) and `ssl-bundle`.
+- The package is `com.infenia.workers`, outside the application's component scan (`com.infenia.yukta`) on purpose: its two controllers would otherwise be scanned without their properties. The module is only on the classpath with `-Pyukta.workers=true`.
+- The auto-configuration registers reflection hints for the two frame records and `DefaultMessage` for the native image.
+
+- **Guarantees.** A control plane never runs nodes for itself through this module; a worker never accepts workers.
+- **State.** None. Beans are created once.
+- **Ceiling.** Role and settings are fixed at start (and, in a native image, at build time).
+- **On failure.** A missing property gives a start-up error (token) or a silently inactive role (no port, empty plugin types).
+
+**Settings:** `yukta.workers.token`, `yukta.workers.control-plane`, `yukta.workers.id`, `yukta.workers.pools`, `yukta.workers.plugin-types`, `yukta.workers.capacity`, `spring.rsocket.server.port`
+
+### Registration & leases
+
+*WorkerSessionHandler*
+
+Accepts or refuses a worker, keeps its lease alive, and removes it when it goes.
+
+- A worker opens one channel on the route `worker.session` and its first frame must be `REGISTER` with the shared token. The handler refuses (REJECT, then the stream ends) when the first frame is something else, when this server is not the leader, when the token differs (compared in constant time), or when the registry refuses (blank id, capacity below 1).
+- On success the handler stores the worker's connection, answers `ACK`, and then answers every `LEASE` frame: `ACK` if core's `WorkerRegistry` still knows the worker and renews its lease, `REJECT` ('lease expired, register again') if not. Any other frame is rejected.
+- When the stream ends, the handler removes the connection and the registry entry, but only the ones this registration made (compared by the registration time), so a worker that registered again is not removed by its own old stream.
+- Core's `WorkerRegistry` keeps each worker's pools, plugin types, capacity, used slots, draining flag and lease end; a lease lasts 15 s and expired workers vanish from `list()`. It feeds `GET /api/workers` and the gauges `yukta.workers` and `yukta.worker.slots`.
+- The leader check happens only at registration. A `LEASE` frame is answered without asking whether this server is still the leader.
+
+- **Guarantees.** A worker is listed only while its lease is fresh; a refused worker is told why.
+- **State.** In memory: the registry map and the connection map. Nothing is persisted.
+- **Ceiling.** The registry is a map scanned and pruned on every `list()`; fine for tens of workers.
+- **On failure.** A lost lease makes the next lease frame a REJECT, which makes the agent reconnect.
+
+**Settings:** `yukta.workers.lease`, `yukta.workers.token`
+
+### Worker agent
+
+*WorkerAgent*
+
+Runs on a worker: connects out to the control plane, registers, renews its lease and reconnects when the connection is lost.
+
+- It tries the configured addresses in turn, one per attempt. The first frame is `REGISTER` (token, id, pools, plugin types, capacity); then a `LEASE` frame every third of the lease (5 s) carrying the number of nodes running and whether it is draining.
+- When the connection ends or the control plane answers REJECT, the agent logs a warning and reconnects with an exponential pause from 1 s to 30 s, for ever. The retry does not say that failures are 'transient', so the count is not reset after a long healthy connection; the pause reaches its maximum after a few reconnects and stays there (by Reactor's rules; not measured).
+- Each reconnect calls `connect` again and remembers only the latest connection, so a connection that ended with a REJECT is not closed by the agent.
+- `stop()` drains first: it sends a lease with `draining=true` at once, polls every 50 ms until no node is running or `drain-timeout` (30 s) has passed, and then disposes the connection. Attempts still running then fail on the control plane as a lost worker.
+- The agent is a Spring bean with `initMethod=start` and `destroyMethod=stop`, so draining runs during application shutdown and delays it by up to the drain timeout.
+
+- **Guarantees.** A worker that loses its control plane keeps trying to reach one; a stopping worker stops taking new work before it closes.
+- **State.** In memory: the current connection, the draining flag and a sink for urgent frames.
+- **Ceiling.** One lease frame per 5 s per worker.
+- **On failure.** Connection loss is retried; a REJECT is treated like a loss; there is no give-up.
+
+**Settings:** `yukta.workers.control-plane`, `yukta.workers.lease`, `yukta.workers.drain-timeout`
+
+### Transport & TLS
+
+*RSocket over TCP or TLS*
+
+Opens the RSocket connection from the worker to the control plane, plain or with mutual TLS.
+
+- Without `yukta.workers.ssl-bundle` the worker uses plain TCP. With a bundle it builds a Netty TLS client from the bundle's key manager (its certificate) and trust manager, and verifies the control plane's host name against the certificate.
+- On the control plane, TLS is switched on with Spring's own RSocket server settings (`spring.rsocket.server.ssl.bundle` and `client-auth=need` for mutual TLS). The shared token is still checked in the REGISTER frame.
+- The connection is established by the worker, so workers need no open inbound port. The control plane later sends node work down the same connection (it calls `node.run` on the worker's own responder).
+- `WorkerConnections` maps a worker id to its connection on the control plane.
+
+- **Guarantees.** With TLS and a trusted certificate the worker registers; an untrusted certificate or none does not (tested with certificates made by keytool).
+- **State.** In memory: the connection map.
+- **Ceiling.** One connection per worker; node attempts are channels on it.
+- **On failure.** A TLS failure is a connection failure, so the agent retries with its pause.
+
+**Settings:** `yukta.workers.ssl-bundle`, `spring.rsocket.server.ssl.bundle`
+
+### Placement & selection
+
+*RemoteNodes, pick()*
+
+Turns `engine.placement` on a node into a call to a worker, and chooses which worker.
+
+- When a workflow is prepared, `RemoteNodes` replaces the plugin of a node that has `engine.placement` with a `RemoteProcessor`. The local plugin still supplies type, schema, timeouts and validation. Placement is refused on anything that is not a processor and on SESSION_MEMORY, KV_STORE, WAIT_FOR_SIGNAL and SUB_WORKFLOW (a fixed list), and fails to prepare when the workers module is not built in.
+- For each attempt `pick` keeps the workers in the node's pool that list the plugin type, are not draining and have a free slot, and takes the one with most free slots (the smallest id on a tie). Free slots are the worker's capacity minus the larger of the used slots from its last lease and the attempts this control plane has sent to it.
+- If no worker qualifies the attempt fails at once with a `WorkflowExecutionException` that the engine's retry policy can retry.
+- The choice and the counter increment are two steps, not one atomic step.
+
+- **Guarantees.** A node is sent only to a worker that declared the plugin type and had a free slot at the time of the choice.
+- **State.** In memory: the in-flight counter per worker.
+- **Ceiling.** The choice reads the registry list and sorts it for every attempt.
+- **On failure.** No worker means an immediate, retryable failure; nothing queues.
+
+**Settings:** `engine.placement`
+
+### Control-plane executor
+
+*WorkerNodeExecutor*
+
+Runs one node attempt on the chosen worker and splices the worker's output back into the node's stream.
+
+- It opens one RSocket `requestChannel` on the route `node.run` over the worker's own connection and sends `START` (execution id, node id, plugin type, node config), then each input message as a `MESSAGE` frame, then `COMPLETE`.
+- Frames coming back are handled one by one: `MESSAGE` becomes a message again, `HEARTBEAT` calls the node's heartbeat (so the idle clock restarts), `COMPLETE` ends the stream, `ERROR` becomes an exception.
+- Back-pressure and cancellation are RSocket's: the control plane's demand limits the worker, and a stop or timeout on the control plane cancels the channel so the worker disposes the plugin pipeline.
+- An error frame whose class is `IllegalArgumentException` becomes an `IllegalArgumentException` (bad input, never retried). Any other class becomes a `WorkflowExecutionException` whose text names the worker, the class and the message. An error that is not one of those two types and not from a frame (the connection closing) becomes 'Lost worker X during the attempt', which the engine can retry.
+- Messages are converted to and from plain JSON maps with the application's `ObjectMapper`.
+
+- **Guarantees.** Retries, onError, timeouts, pause and checkpoints keep working because they wrap this call exactly as they wrap a local plugin.
+- **State.** In memory: the in-flight counter per worker.
+- **Ceiling.** The control plane sees every message in both directions (it is a data hop).
+- **On failure.** A lost worker mid-attempt is a retryable failure and the retry can land on another worker (tested, also with SIGKILL).
+
+### Node runner
+
+*NodeRunner*
+
+Runs on a worker: receives a node attempt, runs the local plugin on the incoming messages and sends the output back.
+
+- It is a Spring `@Controller` with the route `node.run`. The first frame must be `START`; the plugin type must be in `yukta.workers.plugin-types` and must be a processor, else an `IllegalArgumentException` error frame comes back.
+- For each attempt it calls the plugin's `initialize` and `prepare` with the node config, then `process` on the incoming messages. It puts the execution id, node id and a heartbeat callback into the Reactor context, as the local assembler does. It does not put the log sink or the run's trace into the context.
+- Output messages go back as `MESSAGE` frames, then `COMPLETE`; any error becomes one `ERROR` frame with the class name and message. Plugin heartbeats become `HEARTBEAT` frames.
+- A counter of running attempts feeds the lease frames and the drain. The runner itself enforces no capacity: it runs whatever the control plane sends.
+
+- **Guarantees.** A worker runs only the plugin types it was started with, and only processors.
+- **State.** In memory: the count of running attempts.
+- **Ceiling.** Initialise and prepare run again for every attempt (a message, with per-message policies).
+- **On failure.** Any plugin error ends the attempt with an error frame; nothing is retried on the worker.
+
+**Settings:** `yukta.workers.plugin-types`, `yukta.workers.capacity`
+
+### Wire frames
+
+*WorkerFrame, NodeFrame*
+
+Defines what crosses the wire: two small record types, one for the worker session and one for a node attempt.
+
+- `WorkerFrame` has the types REGISTER, LEASE, ACK and REJECT and fields for token, worker id, pools, plugin types, capacity, used slots, draining and a message.
+- `NodeFrame` has the kinds START, MESSAGE, HEARTBEAT, COMPLETE and ERROR and fields for execution id, node id, plugin type, config, message (a JSON map), error class and error message.
+- Both are serialised as JSON by Spring's RSocket codecs. Neither carries a version. The design document also planned a SIGNAL frame, trace context, an attempt number and deadlines in START; none of these exists.
+- The records, and `DefaultMessage`, are registered for reflection so a native image can read them.
+
+- **Guarantees.** A frame is a plain value; once built it is not changed.
+- **State.** None.
+- **Ceiling.** Messages are not size-limited by the module.
+- **On failure.** A control plane and a worker built from different versions must still agree on these two records; nothing checks it.
+
+### Failover & drain
+
+*standbys, graceful stop*
+
+Keeps workers attached to the right control plane and lets a worker leave without cutting off running nodes.
+
+- With several control planes (a leader and standbys), a standby answers REGISTER with `REJECT 'this server is not the leader'`; the agent tries the next address after its pause, so a worker ends up on the leader and finds the new one after a failover.
+- When the leader process dies, its connections close; the workers' agents reconnect (see the backoff risk) and the new leader registers them.
+- When a worker is stopped it drains (stops taking work, waits for running nodes up to the drain timeout), and the control plane skips draining workers when it picks.
+- A control plane that lost the lease but is still running keeps the workers it already has: it checks leadership only when a worker registers.
+
+- **Guarantees.** A worker never gets new work after it started draining; a control plane that is a standby never registers workers.
+- **State.** In memory on both sides.
+- **Ceiling.** Failover takes at least the lease of the control plane plus the workers' pause.
+- **On failure.** See the Failover and Drain scenarios.
+
+**Settings:** `yukta.workers.drain-timeout`, `yukta.ha.mode`
+
+### Tests
+
+*real control plane and worker*
+
+Shows the behaviour with a real control plane and real workers, not mocks.
+
+- Most tests start a control plane and a worker as two Spring applications in one JVM and talk over a real RSocket connection: remote node execution, lost worker, drain, follow-the-leader and the transport.
+- `WorkersTlsTest` makes certificates with keytool and checks that a trusted worker registers and an untrusted one, or one with no certificate, does not.
+- `ChaosTest` starts workers as separate JVMs (`WorkerMain`) and kills one with SIGKILL during an attempt: the attempt fails retryably and the retry runs on the other worker.
+- The boot module has acceptance tests for the control plane and the worker module, run with `-Pyukta.workers=true`.
+
+- **Guarantees.** The failure cases that matter (lost worker, kill -9, drain, standby) are tested.
+- **State.** Ports and processes started per test.
+- **Ceiling.** Not tested: a deposed leader that stays alive, a very large message, a version mismatch, a native image.
+- **On failure.** Tests need free local ports and, for chaos, the ability to start a JVM.
+
+### Native image
+
+*GraalVM roles*
+
+Makes the control plane and the worker usable as native binaries.
+
+- Spring decides property-conditioned beans when a native image is built, so a native image has to be built as the role it will have: `-Pyukta.workers=true -Pyukta.workers.native=control-plane` or `worker`. The real token, address and id are read when it starts.
+- A native image built without that switch starts but takes no workers.
+- Status in the module's notes: both roles build and start, and a control plane reports no workers; a native worker did not register because the frame records had no reflection hints. The hints are added but not yet verified in a native image, because the rebuild was stopped for lack of memory.
+
+- **Guarantees.** A JVM build is the verified path; the native path is not yet verified end to end.
+- **State.** None.
+- **Ceiling.** A native image is fixed to one role.
+- **On failure.** A native worker may start and not register.
+
+## Scenarios
+
+### A placed node runs
+
+A placed processor node from workflow preparation to its last output message.
+
+<Steps>
+<Step title="A worker joins">
+The agent connects, sends REGISTER and then a LEASE every 5 s. The registry lists the worker with its pools, plugin types, capacity and used slots (`GET /api/workers`).
+</Step>
+<Step title="The workflow is prepared">
+A node has `engine.placement {pool}`. Core replaces its plugin with a `RemoteProcessor`; preparing fails if the workers module is not built in, or if the node is SESSION_MEMORY, KV_STORE, WAIT_FOR_SIGNAL or SUB_WORKFLOW.
+</Step>
+<Step title="An attempt starts">
+The engine's policy starts an attempt. `pick` takes the worker with most free slots; the executor opens `node.run` and sends START with the node config, then the input messages.
+</Step>
+<Step title="The worker runs the plugin">
+The runner initialises and prepares the plugin for this attempt, processes the input, and sends back each output message. Heartbeats restart the node's idle clock on the control plane.
+</Step>
+<Step title="It ends">
+COMPLETE ends the stream and the node continues as a local one would: checkpoints are recorded on the control plane, the status is emitted there.
+</Step>
+</Steps>
+
+### A worker dies mid-attempt
+
+What the control plane and the engine do when a worker disappears in the middle of an attempt.
+
+<Steps>
+<Step title="The process is killed">
+A worker is killed with SIGKILL during an attempt. The TCP connection closes.
+</Step>
+<Step title="The channel fails">
+The control plane's channel ends with a transport error. The executor turns it into `Lost worker X during the attempt` (a `WorkflowExecutionException`).
+</Step>
+<Step title="The engine retries">
+The node's retry policy runs the attempt again. `pick` no longer finds the dead worker's connection and chooses another worker of the pool. This is tested with workers in separate JVMs.
+</Step>
+<Step title="Side effects">
+What the plugin did before the kill (a request sent, a file written) is not undone. Execution is at-least-once; the message id and the `attempt` header let a plugin de-duplicate.
+</Step>
+</Steps>
+
+### A worker is stopped on purpose
+
+How a worker leaves without cutting off the nodes it is running.
+
+<Steps>
+<Step title="Stop is requested">
+The application shuts down; the agent's `stop()` sends a LEASE with `draining=true` at once.
+</Step>
+<Step title="No new work">
+The control plane marks the worker as draining and `pick` skips it. Nodes already running continue.
+</Step>
+<Step title="Wait for the work">
+The agent polls every 50 ms until no node runs or 30 s have passed. Spring's shutdown waits for it.
+</Step>
+<Step title="Close">
+The agent disposes its connection. Attempts still running after the timeout fail on the control plane as a lost worker and are retried.
+</Step>
+</Steps>
+
+### The control plane changes leader
+
+How workers find the new leader, and the case where they do not.
+
+<Steps>
+<Step title="Several addresses">
+Workers are configured with the addresses of the leader and its standbys. A standby answers REGISTER with REJECT 'this server is not the leader'.
+</Step>
+<Step title="The leader process dies">
+Its connections close. Each agent logs a warning and reconnects, trying the next address on each attempt, with a pause that grows to 30 s.
+</Step>
+<Step title="The new leader registers them">
+The standby that took the lease accepts REGISTER and lists the workers. Placed nodes can run again; attempts that were in flight failed as lost workers and are retried.
+</Step>
+<Step title="A leader that is only deposed">
+If the old leader lost its lease but is still running (a network split to the database), its connections stay open and it keeps answering LEASE with ACK. The workers never move, while the new leader has none.
+</Step>
+</Steps>
+
+### A stranger tries to register
+
+Who may register, what a registered worker can see, and what mutual TLS adds.
+
+<Steps>
+<Step title="A wrong token">
+A client connects and sends REGISTER with a wrong token. The handler logs 'bad token', answers REJECT 'token refused' and the stream ends.
+</Step>
+<Step title="The right token, any identity">
+Anyone who holds the shared token can register under any worker id, pool and plugin types, and a registration with an existing id replaces the entry of that worker.
+</Step>
+<Step title="Then the jobs arrive">
+The control plane sends such a worker START frames with node configs and input messages for the plugin types it claimed.
+</Step>
+<Step title="With mutual TLS">
+If both sides use SSL bundles with client authentication, a client without a trusted certificate cannot connect at all; the token is still required.
+</Step>
+</Steps>
+
+## Capabilities
+
+What this module does, how, what it guarantees and where the guarantee stops.
+
+
+### Scale-out
+
+| Capability | What it does | How | Guarantee | Limit |
+|---|---|---|---|---|
+| Placement by pool | A processor node can run on a worker of a named pool. | `engine.placement {pool}` replaces the plugin with a RemoteProcessor. | Heavy nodes leave the control plane's JVM. | Only processors; four types are refused. |
+| Free-slot selection | Work goes to the worker with most free slots that has the plugin type. | Capacity minus the larger of reported and sent attempts. | Even load across a pool. | Not atomic with the increment. |
+| Plugin allow-list per worker | A worker runs only the types it was started with. | `yukta.workers.plugin-types`, checked in the runner. | A compromised control plane cannot make a worker run PROCESS_EXECUTOR. | Empty list means the worker runs nothing. |
+
+### Streaming
+
+| Capability | What it does | How | Guarantee | Limit |
+|---|---|---|---|---|
+| End-to-end back-pressure | A slow consumer slows the worker, and a stop cancels it. | One RSocket channel per attempt. | Memory stays bounded on both sides. | The control plane carries all data. |
+| Heartbeats | A long-running plugin keeps its node alive. | HEARTBEAT frames call the node's heartbeat on the control plane. | The idle timeout works as for a local node. | Only when the plugin beats. |
+
+### Registry
+
+| Capability | What it does | How | Guarantee | Limit |
+|---|---|---|---|---|
+| Leases | Workers that go silent are removed after 15 s. | LEASE frames every 5 s; list() prunes expired entries. | Nothing is sent to a dead worker for long. | Memory only. |
+| Visibility | The list of workers with their load. | `GET /api/workers`, gauges `yukta.workers` and `yukta.worker.slots`. | Operators see capacity. | No per-worker history. |
+
+### Failure
+
+| Capability | What it does | How | Guarantee | Limit |
+|---|---|---|---|---|
+| Lost worker is retryable | A worker dying mid-attempt fails the attempt in a way the engine retries. | Transport errors become a WorkflowExecutionException. | The retry can land on another worker. | At-least-once: the effect may repeat. |
+| Graceful drain | A stopping worker finishes its running nodes first. | Lease with draining true; poll until idle or timeout. | A rolling restart does not cut off nodes. | Delays shutdown by up to 30 s. |
+
+### Security
+
+| Capability | What it does | How | Guarantee | Limit |
+|---|---|---|---|---|
+| Token and mutual TLS | Only holders of the token (and, with TLS, a trusted certificate) can register. | Constant-time token compare; SSL bundle with client auth. | Strangers are refused. | One shared token; TLS is optional. |
+
+### High availability
+
+| Capability | What it does | How | Guarantee | Limit |
+|---|---|---|---|---|
+| Follows the leader | Workers find the new control plane leader. | Several addresses; a standby answers REJECT. | A failover needs no operator. | Pause up to 30 s; a deposed leader keeps its workers. |
+
+### Packaging
+
+| Capability | What it does | How | Guarantee | Limit |
+|---|---|---|---|---|
+| One jar, two roles | The same build is a control plane or a worker. | Properties choose the role; native images fix it at build time. | No separate worker artifact. | Native path not verified. |
+
+## What carries over from a local node, and what does not
+
+A placed node is wrapped by the same engine policies as a local one; these tables say where that holds and where it stops.
+
+
+### Semantics of a placed node
+
+| Concern | Behaviour |
+|---|---|
+| Back-pressure | \*\*Yes.\*\* RSocket request-n credit in both directions. |
+| Cancel and stop | \*\*Yes.\*\* A cancel on the control plane cancels the channel; the worker disposes the plugin pipeline. |
+| Idle timeout | \*\*Yes.\*\* Worker heartbeats restart the node's idle clock; a silent worker times out like a silent plugin. |
+| Retry, onError, failure budget | \*\*Yes.\*\* They wrap the remote call; a lost worker is retryable. |
+| Pause, skip, breakpoints | \*\*Yes.\*\* Valves run on the control plane before and after the stream. |
+| Checkpoints and resume | \*\*Yes.\*\* Messages pass through the control plane, so they are recorded as for a local node. |
+| Side effects | \*\*Partly.\*\* At-least-once. An attempt may run twice if a worker dies after the effect and before COMPLETE. |
+| Error type and class | \*\*Partly.\*\* Only IllegalArgumentException is rebuilt as itself. Every other class becomes a WorkflowExecutionException with the class in its text, so class-based retry rules and the hard-stop abort do not see the original. |
+| Payload types | \*\*Partly.\*\* Messages cross as plain JSON values; Java types are lost. |
+| Live logs and traces | \*\*No.\*\* The log sink and the run's trace are not passed to the worker. |
+| Run budgets and rate limits | \*\*Partly.\*\* Counted in the worker's JVM, not for the run as a whole. |
+
+### What can run on a worker
+
+| Plugin kind | Placed? |
+|---|---|
+| Processors such as PROCESS_EXECUTOR, HTTP_REQUEST, SQL_QUERY, LLM_CALL, MCP_TOOL_CALL, MAPPER | \*\*Yes.\*\* Yes, if the worker lists the type. |
+| SESSION_MEMORY, KV_STORE, WAIT_FOR_SIGNAL, SUB_WORKFLOW | \*\*No.\*\* Refused: they keep state on the control plane. |
+| Triggers and terminals | \*\*No.\*\* Not placeable: always local. |
+| Processors that keep per-node state in memory (ANOMALY, DEDUPE windows, MCP sessions) | \*\*Partly.\*\* Allowed, but the state lives on whichever worker ran the attempt. |
+
+### Limits and defaults
+
+| Item | Value |
+|---|---|
+| Lease / renewal | 15 s (`yukta.workers.lease`) / every third of it |
+| Capacity | 4 slots (`yukta.workers.capacity`) |
+| Pools | `default` (`yukta.workers.pools`) |
+| Plugin types | none: a worker with an empty list runs nothing |
+| Drain timeout | 30 s |
+| Reconnect pause | 1 s growing to 30 s, no give-up |
+| Message size | no limit set by the module |
+| Transport | plain TCP unless `yukta.workers.ssl-bundle` is set |
+
+## Reference
+
+### Settings on each side
+
+A server is a control plane when it has a token and no control-plane address; a worker when it has a control-plane address.
+
+| Property | Side | Meaning | Default |
+|---|---|---|---|
+| yukta.workers.token | both | Shared secret checked in REGISTER (constant time) | none (required) |
+| spring.rsocket.server.port | control plane | Port the RSocket server listens on | none |
+| spring.rsocket.server.ssl.bundle | control plane | SSL bundle; with client-auth=need, mutual TLS | none |
+| yukta.workers.lease | both | How long a renewal keeps a worker listed | 15s |
+| yukta.workers.control-plane | worker | host:port, several comma separated | none |
+| yukta.workers.id | worker | The worker's name in the registry | none (required) |
+| yukta.workers.pools | worker | Pools the worker serves | default |
+| yukta.workers.plugin-types | worker | Plugin types it will run | empty (runs nothing) |
+| yukta.workers.capacity | worker | Nodes at once | 4 |
+| yukta.workers.drain-timeout | worker | Longest wait for running nodes at stop | 30s |
+| yukta.workers.ssl-bundle | worker | SSL bundle for TLS to the control plane | none (plain TCP) |
+| engine.placement \{pool\} | node config | Run this processor node on a worker of the pool | local |
+| -Pyukta.workers=true | build | Include the module | not included |
+| -Pyukta.workers.native=control-plane\|worker | native build | Role the image is built as | none |
+
+### The frames
+
+Two record types; every frame has a kind and only the fields it needs.
+
+| Frame | Direction | Carries | Answer |
+|---|---|---|---|
+| REGISTER | worker to control plane | token, worker id, pools, plugin types, capacity | ACK or REJECT |
+| LEASE | worker to control plane | used slots, draining | ACK or REJECT (lease expired) |
+| ACK / REJECT | control plane to worker | REJECT carries the reason | none |
+| START | control plane to worker | execution id, node id, plugin type, node config | MESSAGE / HEARTBEAT / COMPLETE / ERROR |
+| MESSAGE | both | one message as a JSON map | none |
+| HEARTBEAT | worker to control plane | nothing | none |
+| COMPLETE | both | nothing | ends the stream |
+| ERROR | worker to control plane | error class and message | ends the stream |
+
+### Do and don't for operators
+
+Short rules that follow from the guarantees.
+
+| Do | Don't |
+|---|---|
+| Use mutual TLS on both sides and a long random token. | Don't run workers over plain TCP across a network you do not control. |
+| Keep secrets out of node configs of placed nodes, or accept that they cross the wire. | Don't assume `decrypted:` values stay on the control plane. |
+| Make placed plugins idempotent on the message id. | Don't place a node whose effect cannot safely repeat. |
+| Put a load balancer or health check on the leader gauge and list every control plane in each worker. | Don't rely on a deposed control plane releasing its workers. |
+| Run the same build on the control plane and the workers. | Don't upgrade one side alone: the frames have no version. |
+
+## Architecture decisions
+
+<AccordionGroup>
+<Accordion title="Workers connect out; the control plane calls back on that connection">
+**Context.** Workers may sit behind firewalls or NAT and should need no open port.
+
+**Decision.** The worker opens an RSocket connection and registers; the control plane sends node.run requests down the same connection.
+
+**Consequences.** No inbound ports on workers; the control plane needs the worker's connection to be alive and cannot reach a worker that is not connected.
+
+**Alternatives considered.** The control plane connects to workers: simpler to reason about, but needs reachable workers and an address list.
+
+**Revisit when.** workers need to be reachable by other systems, or connections must survive a control-plane restart.
+
+</Accordion>
+<Accordion title="RSocket requestChannel per node attempt">
+**Context.** A node attempt streams messages in both directions and must support back-pressure and cancel.
+
+**Decision.** One bidirectional channel per attempt with START, MESSAGE, HEARTBEAT, COMPLETE and ERROR frames.
+
+**Consequences.** Back-pressure and cancel come for free; the control plane carries all data; a new dependency and native-image work.
+
+**Alternatives considered.** gRPC bidirectional streaming: same shape with more tooling. WebSocket or HTTP streaming: fewer dependencies, back-pressure by hand.
+
+**Revisit when.** payloads outgrow the control plane, or RSocket support in native images stays a blocker.
+
+</Accordion>
+<Accordion title="Remote node invocation, not whole runs on workers">
+**Context.** Scale-out should not move the graph, the policies or the checkpoints.
+
+**Decision.** The control plane keeps the DAG; only the plugin call of a placed node runs on a worker.
+
+**Consequences.** Every policy carries over unchanged; the control plane stays the single owner of state and a data hop.
+
+**Alternatives considered.** Whole runs on workers: no data hop, but pause, stop and status would have to be proxied.
+
+**Revisit when.** the control plane is the bottleneck for data volume.
+
+</Accordion>
+<Accordion title="A shared token, mutual TLS optional">
+**Context.** Workers must be authenticated, with little setup for a first deployment.
+
+**Decision.** A shared token in REGISTER, compared in constant time; SSL bundles with client authentication as an option.
+
+**Consequences.** Quick to start; the same secret for all workers, self-declared identities, and plain TCP unless TLS is configured.
+
+**Alternatives considered.** Per-worker tokens or certificates mapped to ids: stronger, more to manage.
+
+**Revisit when.** workers run on machines or networks the operator does not fully control.
+
+</Accordion>
+<Accordion title="Lease-based registry in memory">
+**Context.** The control plane must know which workers are alive without a database.
+
+**Decision.** Each worker renews a 15 s lease every 5 s; expired workers disappear from the list.
+
+**Consequences.** Simple and fast to detect a silent death; lost on a control-plane restart (workers re-register).
+
+**Alternatives considered.** A persistent registry: survives restarts but adds a store and stale entries.
+
+**Revisit when.** worker counts grow past what a map scan handles, or registrations must survive a restart.
+
+</Accordion>
+<Accordion title="At-least-once for placed nodes">
+**Context.** A worker can die after an effect and before COMPLETE.
+
+**Decision.** Retry on another worker; pass the message id and attempt header so plugins can de-duplicate.
+
+**Consequences.** Honest and simple; plugin authors carry the burden of idempotency.
+
+**Alternatives considered.** Exactly-once through transactions with the target: not available for general plugins.
+
+**Revisit when.** a plugin type needs transactional effects.
+
+</Accordion>
+<Accordion title="Drain before closing, then fail what is left">
+**Context.** A rolling restart of workers should not cut nodes in the middle.
+
+**Decision.** Send draining=true, wait for running attempts up to a timeout, then close; leftovers fail as lost workers and retry.
+
+**Consequences.** Graceful in the normal case; the stop is delayed up to 30 s, and long nodes are still cut.
+
+**Alternatives considered.** Hand running attempts over to another worker: not possible with side effects.
+
+**Revisit when.** nodes routinely run longer than the drain timeout.
+
+</Accordion>
+</AccordionGroup>
+
+## Glossary
+
+| Term | Meaning | Note |
+|---|---|---|
+| Control plane | The Yukta server that holds the graph, the policies and the checkpoints and accepts workers. | Started with a token and an RSocket port. |
+| Worker | A Yukta process that connects to a control plane and runs processor nodes for it. | Started with a control-plane address. |
+| Pool | A label on workers; a placed node names the pool it may run in. | default unless set. |
+| Placement | The node option engine.placement that sends a node to a worker. | Only processors can be placed. |
+| RemoteProcessor | Core's stand-in for a plugin whose node is placed on a worker. | Sits where the plugin call sits, so policies still wrap it. |
+| RemoteNodeExecutor | The core interface this module implements to run a node remotely. | WorkerNodeExecutor is the implementation. |
+| RSocket | A message protocol with back-pressure and cancellation over TCP or WebSocket. | The transport here. |
+| requestChannel | An RSocket interaction where both sides stream to each other. | One per node attempt. |
+| Frame | One message on the wire. | WorkerFrame or NodeFrame. |
+| REGISTER | The first frame of a worker session; carries the token and the worker's description. | Refused with REJECT if wrong. |
+| LEASE | A frame a worker sends every few seconds to say it is alive and how busy it is. | Answered with ACK or REJECT. |
+| Lease | A claim that expires unless renewed. | 15 s, renewed every 5 s. |
+| Slot | One node attempt a worker can run at once. | Capacity is the number of slots. |
+| Drain | Stop taking new work and wait for the running work to finish. | Sent as draining=true in a lease. |
+| Heartbeat | A signal from a running plugin that it is still working. | Restarts the node's idle clock. |
+| START | The first frame of a node attempt: execution, node, plugin type and config. | Carries the node config as written. |
+| Attempt | One try of a node on one worker. | A retry is a new attempt. |
+| At-least-once | A guarantee that something happens one or more times. | A placed node's effect may repeat after a worker dies. |
+| Idempotent | Safe to run twice with the same input. | What plugins on workers should be. |
+| Standby | A control plane that is not the leader. | Refuses registrations. |
+| Leader | The control plane that admits runs. | Decided by the PostgreSQL lease. |
+| SSL bundle | Spring's named set of keys and trust stores. | Used for TLS and mutual TLS. |
+| Mutual TLS | TLS where the client also shows a certificate. | Keeps strangers from connecting. |
+| Backoff | A growing pause between retries. | 1 s up to 30 s here. |
+| Claim check | Sending a reference instead of a large body. | Not built yet. |

@@ -1,0 +1,704 @@
+---
+title: "Messaging module"
+description: "Messaging is the smallest and lowest module in Yukta."
+---
+
+Messaging is the smallest and lowest module in Yukta. It answers two questions: what is the thing that travels along every edge of a workflow graph (the **message envelope**), and what hook can wrap the input and output of every node (the **node message channel**)? It has no engine, no I/O and no state. This page is for thinking about it: open a component, play a scenario, then challenge the weak spots.
+
+| Property | What it means |
+|---|---|
+| Immutable envelope | A message is a Java record. Every change returns a new copy, so two branches that receive the same message can never disturb each other's view of it. |
+| Enterprise-integration shape | The envelope carries identity, routing, sequence, priority and dead-letter fields borrowed from classic messaging patterns. Many of them are carried but nothing acts on them yet. |
+| One hook per node | Core asks a provider for a channel for each node and wraps the plugin's input and output with it. Today the only channel does nothing (a pass-through). |
+| Core owns the bookkeeping | Core, not plugins, stamps the node history and sets the source node on every edge. The module only supplies the vocabulary. |
+
+<Note>
+  Open risks, bugs and improvement ideas for this module are on the internal pages (sign-in required): [Risks](/internal/risks#messaging), [Bugs](/internal/bugs) and [Improvements](/internal/improvements#messaging).
+</Note>
+
+## Primer
+
+A workflow in Yukta is a graph of steps. Something has to flow from one step to the next, and that thing must be safe to hand to several steps at once. If steps could change a shared object in place, a step on one branch could silently break a step on another. Teams also need to know where a piece of data came from, which request it belongs to and which steps it passed through. **Messaging** defines that unit of data (the **message**) and a hook (the **channel**) that core wraps around every step. It is the lowest module: core, plugin-api and every plugin depend on it, and it depends on nobody in Yukta.
+
+<Tip>
+  Think of a postal service. A message is a sealed envelope with a label: sender, tracking number, priority stamp, and a sheet where each sorting office stamps its name. You never edit an envelope. If a sorting office wants to change something, it puts the content into a new envelope and copies the label. The **channel** is a customs gate at the door of each sorting office: today the gate is open and nobody checks anything, but the door frame is there, so a real checkpoint could be fitted later.
+</Tip>
+
+### Where messaging sits
+
+| Layer | Role |
+|---|---|
+| Clients | REST, web UI, MCP agents |
+| web / mcp | A few control endpoints build control messages |
+| core | Routes messages along edges, stamps history, calls the channel hook |
+| plugin-api + plugins | Create and derive messages; plugin-api re-exports messaging |
+| messaging | The envelope and the channel hook. This page. (this module) |
+
+Messaging depends only on Reactor (streams) and Spring Boot autoconfigure (for one conditional bean). It knows nothing about workflows, plugins or HTTP.
+
+### The vocabulary in eight cards
+
+| Term | Meaning | Example |
+|---|---|---|
+| Message | The unit of data on an edge: a payload plus labels (headers). It is immutable. Its type is `Message<T>` where T is the payload type. | One incoming API request becomes one message. |
+| Payload | The actual data being moved. It is typed as a plain Java object with no schema, so any plugin can put anything in it. | A JSON map, a string, a list of rows. |
+| Header | A label on the message that is not the payload. Fixed headers (id, trace id, source port...) are real fields. Free-form headers live in the `metadata` map. | A plugin adds metadata 'http.status' = 200. |
+| Wither | A method named `withX` that returns a copy of the message with one thing changed. The original is untouched. | `msg.withPayload(newBody)` returns a new message with the same labels. |
+| Message history | The list of node ids a message has passed through. Core appends to it; plugins must not. Only the last 64 are kept. | [ticket, classify, approve] |
+| Source port | The name of the output a message leaves a node from. Edges can listen only to a named port, such as `error`. | A failed message leaves on port 'error'. |
+| Node message channel | A hook with two methods: one wraps the stream going into a plugin, one wraps the stream coming out. The default does nothing. | A custom channel could log or encrypt every message. |
+| Channel provider | A factory that hands core the channel to use for a node, given its id and config. Core asks once per node when it builds the graph. | One provider bean for the whole server. |
+
+### One message, through one node
+
+A weather lookup. An API trigger creates a message, a node called 'weather' (an HTTP_REQUEST processor) enriches it, and two children receive the result. Click a step to see what happens, why, and where it can go wrong.
+
+<Steps>
+<Step title="Create">
+**What happens.** The API trigger turns the request body into a message with the factory `create(traceId, payload)`. The message gets a random UUID as its id, the current time, a trace id, empty metadata and empty history. Then it sets source port 'default'.
+
+**Why it works this way.** A factory with safe defaults means every message starts with the same shape: no null maps, no null history, a timestamp always present.
+
+**Can go wrong.** Passing a null trace id (the control bus does) means the message has no trace. Nothing checks that a trace exists.
+
+</Step>
+<Step title="Route in">
+**What happens.** On the edge into 'weather', core stamps the parent's node id as the message's source node and checks the port. This edge names no port, so everything passes except messages on the `error` port.
+
+**Why it works this way.** Routing by port lets one node feed different children by outcome. Excluding the error port from unnamed edges means dead letters never leak into the happy path.
+
+**Can go wrong.** A plugin that forgets to set a port still works on unnamed edges but is silently dropped by an edge that names a port.
+
+</Step>
+<Step title="Inbound hook">
+**What happens.** Core asks the provider for the channel of node 'weather' and passes the incoming stream through `inbound`. The default channel returns the stream unchanged.
+
+**Why it works this way.** This is the one seam where a deployment could inspect, delay, persist or forward every message entering a node without touching any plugin.
+
+**Can go wrong.** An error thrown here is not inside the node's retry policy, so it is not retried or routed to the error port. A node that is skipped still goes through the channel, so an audit channel sees it.
+
+</Step>
+<Step title="Plugin derives">
+**What happens.** The HTTP plugin calls `DefaultMessage.from(original, body)` and then `withMetadata(...)`. The result keeps the id, trace id, timestamp and history, but has the new body and extra headers such as the HTTP status.
+
+**Why it works this way.** Deriving from the input, instead of creating from scratch, is how trace, correlation and sequence survive the node. The id also stays the same, so retries of the same message are recognisable.
+
+**Can go wrong.** Using `create` instead of `from` starts a new identity and an empty history: lineage is lost. Splitter and Aggregate do this on purpose.
+
+</Step>
+<Step title="Outbound hook">
+**What happens.** The plugin's output stream passes through `outbound`. Again the default returns it unchanged.
+
+**Why it works this way.** Symmetric to inbound: a custom channel could add a signature, size check or audit entry to every output.
+
+**Can go wrong.** Terminals have no output, so for them only the inbound side is ever called; triggers have no input, so only outbound.
+
+</Step>
+<Step title="History stamp">
+**What happens.** After the node, core appends 'weather' to the message's history, so it now reads [api, weather] (the trigger node 'api' was stamped earlier). Then it saves a checkpoint and records a log line.
+
+**Why it works this way.** One place stamps every node, so history is complete and plugins cannot get it wrong or double-stamp.
+
+**Can go wrong.** Only the last 64 entries are kept. In a long chain or a loop, the beginning of the journey is forgotten.
+
+</Step>
+<Step title="Fan-out">
+**What happens.** The stamped message goes to every child edge. Each edge stamps its own source node on a copy, then applies its port filter.
+
+**Why it works this way.** Because the message is immutable, every child can safely receive the same object. No defensive copies are needed.
+
+**Can go wrong.** Immutability is shallow: the payload object and any object stored in metadata are shared by reference. If a plugin mutates a list inside a payload, sibling branches can see it.
+
+</Step>
+</Steps>
+
+### A message in plain words
+
+<Steps>
+<Step title="Born">
+a trigger creates it with a fresh id, a trace id and a timestamp.
+</Step>
+<Step title="Delivered">
+core puts the parent's node id on it and checks the port rule of the edge.
+</Step>
+<Step title="Wrapped">
+the channel sees it on the way into the plugin.
+</Step>
+<Step title="Changed">
+the plugin never edits it; it makes a copy with a new payload or extra headers.
+</Step>
+<Step title="Wrapped again">
+the channel sees the output on the way out.
+</Step>
+<Step title="Stamped">
+core adds the node to its history.
+</Step>
+<Step title="Shared">
+every child edge receives the same immutable message.
+</Step>
+</Steps>
+
+## Components
+
+### Envelope Contract
+
+*the Message interface*
+
+Defines what a message is: 22 read accessors and 18 copy-with-change methods, with no storage or transport decisions.
+
+- Reading uses record-style accessors with no 'get' prefix: `msg.payload()`, `msg.traceId()`. Writing uses 'wither' methods that always return a new message and never touch the original.
+- The accessors are grouped by purpose: identity (id, trace, correlation, reply-to), timestamp and expiry, routing (source port, source node, workflow id), sequence, priority and control flag, dead-letter fields, history, metadata and payload.
+- The interface has about 40 methods but one implementation. The reason it is an interface at all is that core and plugins should compile against a contract, not against a record that may grow fields.
+- The id is documented as a *logical* id: it is kept across `withPayload` and every other copy. So it is not unique per node output. Any store must key entries by (execution id, node id, message id), or two different outputs would overwrite each other.
+- The documentation of `withAddedHistory` states the rule that core stamps every node itself and plugins must not call it.
+
+- **Guarantees.** Every wither returns a new instance; reading a message never changes it.
+- **State.** None. It is an interface.
+- **Ceiling.** Each new field needs changes in the interface, the record, the two copy paths and the tests. A wide interface is costly to extend (see the risk on its width).
+- **On failure.** Nothing runs here, so nothing fails. The contract can be broken only by an implementation that mutates, and there is only one implementation.
+
+### Envelope Record
+
+*DefaultMessage, 22 components*
+
+The only implementation of the envelope: an immutable record that tidies its own maps and history when it is built.
+
+- It is a Java record with 22 components, so equality, accessors and copying come for free. Lombok generates most withers and a builder with `toBuilder`, so several fields can be changed in one copy instead of a chain of copies.
+- Metadata is cleaned in the constructor. A null map becomes empty. Entries whose value is null are dropped quietly, because an immutable map cannot hold nulls. A null key is rejected with a NullPointerException, because that would be a programming error and not 'no value'.
+- History is cleaned in the constructor too: null becomes an empty list, and only the last 64 entries are kept (the constant is `MAX_HISTORY`). So even a message built by hand or read back from a checkpoint file cannot carry more than 64.
+- The timestamp defaults to 'now' if not given. Both maps and lists are copied into unmodifiable versions, so a caller who keeps a reference to the list it passed in cannot change the message later.
+- This immutability is shallow. The list and map are fixed, but the objects inside metadata and the payload itself are shared by reference. Nothing in the module copies or freezes them.
+- The checkpoint store in core writes a message as JSON and reads it back as this record. The payload then comes back as plain JSON values (maps, lists, strings), not as its original Java type.
+
+- **Guarantees.** A message always has non-null metadata and history, history is at most 64 long, metadata has no null values or keys, and a timestamp is present.
+- **State.** None. Every instance is a value. Nothing survives a restart unless core checkpoints it.
+- **Ceiling.** Each wither copies the whole record (22 fields). Metadata changes copy the entire map. That is fine for small headers and wasteful if many large headers are rewritten at every node.
+- **On failure.** A null metadata key throws NullPointerException at construction. Any other bad input (a negative priority, a huge map) is accepted.
+
+**Settings:** `MAX_HISTORY = 64 (a constant, not configurable)`
+
+### Factories
+
+*create and from*
+
+The two named ways to get a message: a new logical message (`create`) or a new payload on an old message (`from`).
+
+- `create(traceId, payload)` makes a brand-new message: a random UUID id, the trace id as text (or null if none is given), the current time, empty metadata and empty history. Everything else is zero or null.
+- `from(original, newPayload)` copies every one of the 22 fields of the original, including id, trace, timestamp, history and metadata, and swaps only the payload. The instance method `withPayload` does the same.
+- Triggers use `create` because a trigger starts a new logical message (the API trigger, the schedule trigger and the constant source all do). Processors such as HTTP_REQUEST, LLM_CALL, MAPPER and PROCESS_EXECUTOR use `from`, which is why trace and id survive them.
+- Splitter and Aggregate deliberately use `create`: a split child is a new logical message with a new id (its correlation id points at the parent), and an aggregate is one new message built from many. Their history starts empty again. Splitter copies the parent's trace id; Aggregate takes the trace id of the first message in the batch.
+
+- **Guarantees.** `from` never loses a field. `create` never produces null maps or null history.
+- **State.** None.
+- **Ceiling.** No uniqueness or validation: the factory trusts the caller (for example, two messages could be created with the same trace id by design).
+- **On failure.** If a plugin builds a message with `create` when it should have used `from`, trace, history and identity are silently lost. Nothing warns about it.
+
+### Header & History Ops
+
+*withers for plugin authors*
+
+The small copy-with-one-change operations that plugins and core use to adjust headers, record failures and mark sequence positions.
+
+- `withHeader(key, value)` adds or replaces one entry in the metadata map. A null value removes the key; a null key throws. So a plugin can 'unset' a header without a separate remove method.
+- `withMetadata(map)` replaces the whole map (the record cleans it as always). `withSourcePort(port)` names the output the message leaves from; core filters edges by this value.
+- `withFailure(origDest, reason, detail)` fills three dead-letter fields in one copy. Core's retry policy and several router plugins use it, then set the source port to `error` so only error edges receive the message. It does not touch the `retryCount` field; the retry count in dead letters lives in a header called `failure.attempts`.
+- `withSequence(id, position, total)` marks a message as item N of M in a group. `withAddedHistory(nodeId)` appends one id and drops the oldest if there are already 64. Plugins must not call it: core does it for every node, and a second stamp would put a node in the list twice.
+- Convenience setters exist for trace id, correlation id, reply-to, source node, workflow id, expiration, format indicator, timestamp, priority, control flag and retry count.
+
+- **Guarantees.** Each call returns a new message and leaves the original unchanged. Trace and correlation ids survive any chain of withers on a derived message.
+- **State.** None.
+- **Ceiling.** A chain of three withers makes three copies of a 22-field record. Use `toBuilder()` to change several fields in one copy.
+- **On failure.** Wrong use, not runtime failure: stamping history in a plugin double-counts nodes; setting a port name no edge listens for makes the message vanish.
+
+### Port Routing (core)
+
+*sets source node, filters*
+
+Core's step on every edge: put the parent's node id on the message and decide whether this edge may receive it, based on the source port.
+
+- For each parent edge, core sets `sourceNodeId` to the parent's id by copying the message. This overwrites whatever was there, so a plugin cannot fake where a message came from.
+- If the edge names a source port, only messages whose `sourcePort` equals that name pass. If the edge names no port, every message passes except those on the port named `error`.
+- Why exclude the error port: with `onError: ROUTE`, a message that failed all its retries is tagged with failure details and the `error` port. A normal edge must not receive it as if it had succeeded; only an edge that asks for the error port gets it.
+- A message with no source port reaches unnamed edges but never an edge that names a port. The API trigger and several processors set the port `default` explicitly.
+- This code lives in core (`StreamTopologyDecorator`), not in messaging. It is shown here because it defines how two fields of the envelope are used.
+
+- **Guarantees.** A message never reaches an error-port edge unless it carries the error port, and never reaches an unnamed edge if it does.
+- **State.** None. The decision is made per message from its fields.
+- **Ceiling.** Filtering is a string comparison per message per edge. Not a bottleneck.
+- **On failure.** An edge that names a port nothing emits just stays silent. The validator rejects an edge naming a port the plugin does not declare, so this mostly shows up with plugins that emit undeclared ports.
+
+**Settings:** `edge.sourcePort in the workflow JSON`
+
+### Channel SPI
+
+*inbound / outbound hook*
+
+A two-method hook core calls around every node, plus the provider that hands core the right hook for each node.
+
+- The hook is `NodeMessageChannel` with `inbound(nodeId, executionId, upstream)` and `outbound(nodeId, executionId, pluginOutput)`. Each takes a Reactor stream of messages and returns a stream. A channel may transform, delay, filter, log or forward the messages.
+- The provider is `NodeMessageChannelProvider.channelFor(nodeId, config)`. It receives the node's id and config, so one provider can choose a different channel per node. Core calls it once while it builds the node, not once per message.
+- Processor nodes use both sides. Trigger nodes have no input, so only `outbound` is used. Terminal nodes have no output, so only `inbound` is used.
+- The channel sits outside the engine's retry and error policy. For processors, the per-message retry wraps the plugin call, while the channel wraps the whole stream around it. A failure inside the channel therefore fails the node's stream; it is not retried per message.
+- A skipped processor still has its channel: core always builds the pipeline and reads the skip flag per message, so the channel sees the message and the plugin is bypassed.
+
+- **Guarantees.** Core asks the provider for a channel for every trigger, processor and terminal it builds, and wraps the plugin stream with it.
+- **State.** None in the interface. A custom channel can hold what it likes.
+- **Ceiling.** The streams are Reactor `Flux` values of in-process objects. There is no acknowledgement, no serialisation contract and no flow-control signal beyond Reactor back-pressure, so the hook is not yet proven for a remote or durable transport.
+- **On failure.** An exception in `inbound` or `outbound` propagates as the node's stream error. The retry policy does not wrap it.
+
+**Settings:** `a NodeMessageChannelProvider bean (to replace the default)`
+
+### History Stamp (core)
+
+*once per node, in core*
+
+Core appends each node's id to every message leaving that node, then checkpoints and fans it out.
+
+- After the node's output (and after the outbound channel), core maps every message through `withAddedHistory(nodeId)`. Only after that does it save the checkpoint, emit a log line and broadcast to children.
+- Because it is the single stamp point, a message that passed through three nodes has three entries, in order. A plugin that also stamped would add a duplicate.
+- A skipped processor is still stamped, because the stamp is part of the node's output decoration, not of the plugin call.
+- Fan-out sends the same stamped message object to every child. Immutability makes that safe for the envelope itself; the shared payload is the only thing that could be changed by mistake.
+- No plugin in the repository calls `withAddedHistory` today; only core does.
+
+- **Guarantees.** Exactly one history entry per node per message, added by core. The checkpoint copy already includes it.
+- **State.** History travels inside the message. It is checkpointed with it (files or memory, per core's setting).
+- **Ceiling.** The list is capped at 64 entries, oldest dropped first. Messages that move through more than 64 nodes (for example in a retry loop) lose the start of their journey.
+- **On failure.** Nothing here fails. The loss is silent: the oldest entries are discarded without a marker.
+
+### Direct Channel
+
+*no-op default*
+
+The default channel: both methods return the stream unchanged, and one shared instance serves every node.
+
+- `inbound` and `outbound` each return their argument. There is no copy, no buffer and no operator added to the Reactor chain.
+- The provider returns the same singleton for every node and ignores the node id and config.
+- This is why the hook costs nothing today: the node's stream has the same shape with or without the channel.
+- Tests check that the stream object returned is the very same one that went in, and that the provider hands back the same instance for different nodes.
+
+- **Guarantees.** A message is delivered to the plugin and downstream exactly as received. No reordering, no change.
+- **State.** None.
+- **Ceiling.** Not applicable: it does no work. It is also the only channel, so the ceiling of the SPI has never been tested with a real transport.
+- **On failure.** It cannot fail. It also provides no durability, no remote delivery and no extra back-pressure.
+
+### Default Wiring
+
+*Spring configuration*
+
+A tiny Spring configuration that registers the direct provider unless another provider bean exists.
+
+- A configuration class declares one bean of the provider type, marked `@ConditionalOnMissingBean`. If any other provider bean is already registered when Spring evaluates the condition, the default is not created.
+- The class is found by normal component scanning: the application class is in the package `com.infenia.yukta`, which contains this package. The module has no auto-configuration registration file.
+- To replace the channel, register your own `NodeMessageChannelProvider` bean. A test in the module shows the default appears when none exists and is skipped when a custom one is added to the context first.
+- Condition checks depend on the order in which Spring processes configuration. The conditional annotation is designed for auto-configuration classes that Spring orders last. Here it is on an ordinary scanned class, so the outcome can depend on scan order.
+
+- **Guarantees.** In the tested setups, exactly one provider bean exists: the custom one if present, otherwise the direct one.
+- **State.** A Spring bean, created once per application context.
+- **Ceiling.** One provider for the whole server; per-node choice has to be made inside the provider.
+- **On failure.** If the default and a custom provider both get registered, core's constructor injection cannot choose one and the application fails to start with a clear error.
+
+**Settings:** `a NodeMessageChannelProvider @Bean`
+
+### Build & Tests
+
+*dependencies, safety net*
+
+The module's two exported dependencies and its four test classes.
+
+- The module exports Reactor core (for `Flux`) and Spring Boot autoconfigure (for the conditional bean). Both are declared as 'api', so every module that depends on messaging sees them too.
+- Core and plugin-api both declare messaging as an 'api' dependency. That is why every plugin sees `Message` without adding anything: plugin-api re-exports it.
+- One test class covers the record: accessors, withers, factories, immutability of maps and history, null handling, the 64 cap, and an oversized history passed to the constructor. Three small test classes cover the channel, the provider and the Spring configuration.
+- There is no test of a custom channel with real behaviour, because none exists yet.
+
+- **Guarantees.** The envelope rules in the Guarantees section are each pinned by a test.
+- **State.** None.
+- **Ceiling.** The module is tiny (about 7 main files); it cannot grow into a bottleneck by itself. Its weight is that everything depends on it, so a change here forces a rebuild and re-check of the whole repository.
+- **On failure.** A breaking change to the interface fails compilation in core, plugin-api and every plugin, which is a loud and early signal.
+
+**Settings:** `:messaging:test (Gradle task)`
+
+## Scenarios
+
+### Happy path
+
+One message from creation, through one processor and out to its children. Use it first.
+
+<Steps>
+<Step title="A trigger creates a message">
+An API trigger receives a request and calls `create(traceId, payload)`. The result has a random id, the current time, empty history and empty metadata. The trigger sets source port 'default'.
+</Step>
+<Step title="The outbound hook and the first stamp">
+The trigger's output goes through the channel's `outbound` (a pass-through), then core appends the trigger's node id to the history.
+</Step>
+<Step title="Core routes along the edge">
+For the edge to the next node, core copies the message with the parent as source node. The edge names no port, so the message passes (it is not on the error port).
+</Step>
+<Step title="Inbound hook, plugin and withers">
+The message goes through `inbound` into the plugin. The plugin makes a derived message with `from` and `withMetadata`. Id, trace and timestamp survive because it derived instead of creating.
+</Step>
+<Step title="Outbound, stamp and fan-out">
+The output passes `outbound`; core appends the node id, checkpoints the message and fans out the same object to every child. Immutability makes sharing safe, but the payload object itself is shared by reference.
+</Step>
+</Steps>
+
+### Dead letter
+
+How a failed message is marked and kept off the normal path, and one field that looks useful but is unused.
+
+<Steps>
+<Step title="A message fails all its retries">
+A processor with `onError: ROUTE` keeps failing for one message. Core's policy gives up after the configured attempts.
+</Step>
+<Step title="The envelope records why">
+Core calls `withFailure(nodeId, 'PROCESSING_FAILED', exception text)`, adds headers `failure.attempts`, `failure.exception` and `failure.time`, and sets source port `error`. The original message and id are kept so the failure can be traced back.
+</Step>
+<Step title="Routing keeps it off the happy path">
+Normal edges (no port) drop anything on the error port. Only an edge that names the port `error` receives the message, typically going to a dead-letter terminal.
+</Step>
+<Step title="What is not used">
+The envelope also has a `retryCount` field, but nothing sets it. The count of attempts travels in the `failure.attempts` header instead. A reader who looks only at the field sees zero.
+</Step>
+</Steps>
+
+### Custom channel
+
+What happens when a deployment replaces the default channel, and where the hook does not reach.
+
+<Steps>
+<Step title="A deployment registers its own provider">
+A team wants every message audited. They add a `NodeMessageChannelProvider` bean that returns an auditing channel for each node.
+</Step>
+<Step title="Spring chooses">
+If their bean is registered before the default's condition is checked, the default is skipped and everything works. If the order is different, two providers exist and startup fails because core needs exactly one.
+</Step>
+<Step title="Core asks once per node">
+While building the graph, core calls `channelFor(nodeId, config)` once per node and keeps the channel. The auditing channel's `inbound` and `outbound` methods add an operator to each stream.
+</Step>
+<Step title="Where it does not apply">
+A skipped processor still goes through the channel, so the audit channel sees it as passed through unchanged. A failure inside the audit code is not retried by the node's retry policy and fails the node's stream.
+</Step>
+<Step title="Making it remote">
+The team now wants the channel to send messages to another process. The interface passes only in-memory streams, with no acknowledgement or serialisation rule, and the payload is a plain Java object with no schema. They must design all of that themselves.
+</Step>
+</Steps>
+
+### Long chain or loop
+
+What the 64-entry history cap means for long chains and loops.
+
+<Steps>
+<Step title="A message keeps travelling">
+A message passes through many nodes (a long pipeline, or a processor that sends output back through an earlier path). At each node core appends one id.
+</Step>
+<Step title="The cap bites">
+At 64 entries the oldest id is dropped for every new one. The list is a sliding window of the last 64 nodes, with no marker that something was dropped.
+</Step>
+<Step title="Lineage questions go unanswered">
+A debugger asks 'which trigger produced this message?'. For a message that has passed 100 nodes, the answer is gone from history. Only the trace id and the checkpoints in core can still tell.
+</Step>
+<Step title="Why the cap exists">
+Without a cap, a message that loops would grow its history without limit, and every copy (each wither) would cost more. The cap keeps each copy small and constant.
+</Step>
+</Steps>
+
+### Split and aggregate
+
+How split children and aggregates are built, and why their lineage restarts.
+
+<Steps>
+<Step title="Splitter makes children">
+A Splitter node turns one message with 3 items into 3 messages. Each child is created with `create` and then given the parent's trace id, correlation id (the parent's id), sequence id and position 1/3, 2/3, 3/3.
+</Step>
+<Step title="Each child is a new logical message">
+The children have fresh ids and empty history; they share the parent's metadata map. They carry the parent's priority, reply-to, expiration and format indicator, but nothing in the engine acts on those.
+</Step>
+<Step title="Aggregate merges">
+An Aggregate node buffers a number of messages, or waits for a time limit, and builds one new message with the list of payloads. It keeps the trace id of the first one but not metadata, correlation or sequence.
+</Step>
+<Step title="Nobody checks the sequence">
+The sequence fields say 'item 2 of 3', but the aggregate does not wait for all 3 or put them in order; it merges by count or time. The fields are labels only.
+</Step>
+</Steps>
+
+## Capabilities
+
+What this module does, how, what it guarantees and where the guarantee stops.
+
+
+### Envelope
+
+| Capability | What it does | How | Guarantee | Limit |
+|---|---|---|---|---|
+| Immutable messages | A message cannot be changed after it is built. | A record whose maps and lists are copied into unmodifiable versions; all changes go through `with*` methods. | Two branches never disturb each other's view of the envelope. | Shallow: payload and metadata values are shared by reference. |
+| Tidy defaults | A message never has null metadata, null history or a missing timestamp. | The constructor replaces nulls and fills the timestamp. | Plugins can read headers without null checks. | Other fields (ids, port) may still be null. |
+| Null headers dropped | Metadata cannot hold a null value. | Entries with null values are removed at construction; `withHeader(key, null)` removes the key; a null key throws. | No null surprises in headers. | A plugin cannot store 'explicitly nothing'. |
+| Bounded history | History cannot grow without limit. | Only the last 64 node ids are kept, including when a message is built or read from a checkpoint. | Constant copy cost per message. | Early lineage is lost in long chains. |
+
+### Identity
+
+| Capability | What it does | How | Guarantee | Limit |
+|---|---|---|---|---|
+| Trace survives derivation | Messages derived from one input share its trace id. | `from` and the withers copy the trace and correlation ids. | One request can be followed through the whole flow. | Only if plugins derive instead of creating. |
+| Logical message id | One id for one logical message across nodes. | `from` keeps the id; `create` makes a random UUID. | Retries of a message are recognisable by id. | Not unique per node output. |
+| Correlation and reply-to | Fields to link a reply to a request and to say where to send it. | Set by plugins; the Splitter sets the correlation id to the parent's id. | A child can be tied to its parent. | Nothing routes replies; reply-to is only carried. |
+
+### Routing
+
+| Capability | What it does | How | Guarantee | Limit |
+|---|---|---|---|---|
+| Source port | A message names the output it leaves from. | Plugins call `withSourcePort`; core filters edges by it. | Outcomes can be routed to different children. | A port name no edge listens for drops the message. |
+| Source node | A message says which node it came from. | Core sets it on every edge, overwriting any earlier value. | Consumers can trust it was set by the engine. | Control messages set it by hand. |
+| Error port exclusion | Failed messages stay off normal edges. | Unnamed edges drop messages on the `error` port. | Dead letters never reach the happy path. | Needs an explicit error edge to be seen. |
+
+### Failure
+
+| Capability | What it does | How | Guarantee | Limit |
+|---|---|---|---|---|
+| Dead-letter fields | A message can say where it was headed and why it failed. | `withFailure(origDest, reason, detail)`; core and several router plugins use it. | A failed message arrives with its explanation. | `retryCount` is not set by anyone. |
+
+### Sequence
+
+| Capability | What it does | How | Guarantee | Limit |
+|---|---|---|---|---|
+| Position in a group | A message can be item N of M. | `withSequence(id, position, total)`; the Splitter sets it. | A consumer could rebuild order. | No component reorders or waits for the full set. |
+| Priority and control flag | Header fields to mark importance and management messages. | Set on control messages by the control gateway; the control bus sorts a batch by priority. | Operator commands in one batch run in priority order. | Data messages are not prioritised. |
+
+### Channel
+
+| Capability | What it does | How | Guarantee | Limit |
+|---|---|---|---|---|
+| Per-node hook | One place to wrap every node's input and output. | `NodeMessageChannel` chosen per node by the provider; core calls inbound and outbound. | Transport, audit or encryption can be added without touching plugins. | Only a pass-through exists. |
+| Replaceable default | A deployment can replace the channel. | A provider bean replaces the default thanks to `@ConditionalOnMissingBean`. | No code change in core is needed. | Order of Spring configuration matters. |
+
+### Lineage
+
+| Capability | What it does | How | Guarantee | Limit |
+|---|---|---|---|---|
+| History stamp by core | A record of which nodes a message passed. | Core appends the node id once per node; plugins must not. | A complete, uniform journey record. | Capped at 64; reset by Splitter and Aggregate. |
+
+### Packaging
+
+| Capability | What it does | How | Guarantee | Limit |
+|---|---|---|---|---|
+| Re-exported by plugin-api | Plugin authors need one dependency. | Messaging is an 'api' dependency of plugin-api, with Reactor and Spring autoconfigure. | Every plugin sees `Message` and `Flux` automatically. | The module's dependencies become part of every plugin's classpath. |
+
+## What is promised, and what is only carried
+
+The module has no profiles or deployment modes. It is pure code with no storage, so what matters is which rules the envelope enforces and which fields are only labels. Nothing here survives a restart by itself: core checkpoints decide that.
+
+
+### Enforced by the envelope
+
+Each rule is applied in the record's constructor or its withers and is covered by a test.
+
+| Rule | Guarantee |
+|---|---|
+| Immutability of the envelope | \*\*Yes.\*\* Every wither returns a new instance. The metadata map and the history list are unmodifiable copies. |
+| Deep immutability | \*\*Partly.\*\* Not provided. Payload and the values inside metadata are shared references and can be mutated by whoever holds them. |
+| Metadata cleanliness | \*\*Yes.\*\* No null values (dropped), no null keys (rejected with NullPointerException). |
+| History length | \*\*Yes.\*\* At most 64. The oldest ids are dropped first, on append, on construction and on read-back. |
+| Timestamp | \*\*Yes.\*\* Always present: defaults to the time of construction when omitted. |
+| Identity across derivation | \*\*Yes.\*\* Id, trace id, correlation id and timestamp are kept by `from`, `withPayload` and all withers. |
+| Trace presence | \*\*Partly.\*\* Kept if present, but nothing requires a trace: control messages are created with none. |
+
+### Core rules built on the envelope
+
+These behaviours live in core but define how fields are used.
+
+| Topic | Behaviour |
+|---|---|
+| History stamping | \*\*Yes.\*\* Core stamps each node once per message, including skipped processors. Plugins must not. |
+| Source node | \*\*Yes.\*\* Set by core on every edge, overwriting any earlier value. |
+| Port filtering | \*\*Yes.\*\* A named edge passes only its port. An unnamed edge passes everything except the `error` port. |
+| Channel coverage | \*\*Partly.\*\* Processors use inbound and outbound, triggers outbound only, terminals inbound only. |
+| Channel failure | \*\*Partly.\*\* A failure in the channel is not covered by the node's per-message retry and error-port policy. |
+
+### Carried but not enforced
+
+These fields exist in the envelope. Nothing in core or the plugins acts on them. Do not assume they have an effect.
+
+| Field | Status |
+|---|---|
+| expiration | \*\*No.\*\* Never checked. An expired message is delivered like any other. Splitter only copies it. |
+| replyTo | \*\*No.\*\* Never used to route a reply. Splitter copies it; ContentFilter can read it. |
+| formatIndicator | \*\*No.\*\* Never checked or used to pick a format. Splitter copies it. |
+| retryCount | \*\*No.\*\* Not set by any code. The attempt count is carried in the header `failure.attempts` instead. |
+| controlMessage | \*\*No.\*\* Set on control messages by the gateway and controller; no code reads it to treat them differently. |
+| sequenceId, sequenceNumber, sequenceSize | \*\*No.\*\* Set by Splitter. No node re-orders or waits for the full set; Aggregate merges by count or time. |
+| priority | \*\*Partly.\*\* Used only to order a batch of control commands. Data messages are not prioritised. The run scheduler has its own separate priority. |
+| correlationId | \*\*Partly.\*\* Set by Splitter, read by ContentFilter for its allow-list. Nothing matches requests to replies. |
+
+### Limits and defaults
+
+Numbers a reader may need.
+
+| Item | Value |
+|---|---|
+| History cap | \*\*Note.\*\* 64 entries (constant, not configurable) |
+| Envelope size | \*\*Note.\*\* 22 record components, 22 accessors, 18 withers |
+| Payload size limit | \*\*No.\*\* None in this module. Core's checkpoint caps limit replay, not the message. |
+| Payload type | \*\*Note.\*\* Plain Java object; no schema. Read back from checkpoints as JSON values. |
+| Provider call frequency | \*\*Note.\*\* Once per node when the graph is assembled, not per message. |
+| Default channel | \*\*Note.\*\* Pass-through, one shared instance for all nodes. |
+
+## Reference
+
+### Envelope field table
+
+Every field, who sets it today, and who reads it. Verified against core and the plugins in the repository.
+
+| Group | Fields | Who sets them | Who reads them |
+|---|---|---|---|
+| Identity | id, traceId | `create` (random id; trace from the trigger or null). Kept by `from` and all withers. | Core logs and checkpoints; id is the key for retries and stores. |
+| Identity | correlationId, replyTo | Plugins. Splitter sets correlation to the parent's id and copies reply-to. | ContentFilter reads them. Nothing routes replies. |
+| Time | timestamp | Set at construction. `from` keeps the original; Splitter copies the parent's. | Plugins and logs. |
+| QoS | expiration, formatIndicator | Splitter copies them from the parent. | Nothing. |
+| QoS | priority, controlMessage | Control gateway and the node-command endpoint set them on commands. Splitter copies priority. | Control bus sorts a batch by priority. Nothing reads the flag. |
+| Routing | sourcePort | Plugins (`default`, named ports, `error`). Core's retry policy and PluginGuard set `error`. | Core edge filter. |
+| Routing | sourceNodeId | Core, on every edge. The control bus sets a fixed source name on commands. | Control bus (to find the target node). |
+| Routing | workflowId | Only the node-command endpoint sets it today. | Control bus. Data messages do not carry it. |
+| Sequence | sequenceId, sequenceNumber, sequenceSize | Splitter. | ContentFilter (sequence id). No reordering. |
+| Dead letter | origDest, failureReason, exceptionDetail | `withFailure`: core's retry policy, PluginGuard, Branch, Splitter, ContentFilter, RecipientList, Validate. | Dead-letter terminals and loggers. |
+| Dead letter | retryCount | Nobody. | Nobody. |
+| Lineage | messageHistory | Core only, once per node. | Debugging and checkpoints. Capped at 64. |
+| Free-form | metadata | Many plugins (HTTP status, LLM usage, process output...). Core adds `failure.attempts`, `failure.exception`, `failure.time`. | Plugins and expressions. |
+| Body | payload | Every plugin. | Every plugin; core echoes a truncated text of it into run log lines. |
+
+### Do and don't for plugin authors
+
+Short rules that follow from the guarantees.
+
+| Do | Don't |
+|---|---|
+| Derive from the input: `DefaultMessage.from(in, newPayload)` or `in.withPayload(...)`, so trace, id, history and metadata survive. | Don't call `create` inside a processor unless you really produce a new logical message (split children, aggregates). It resets identity and history. |
+| Add information with `withHeader(key, value)` or `withMetadata(map)`. | Don't expect a null header to be stored. A null value removes the key, and a null key throws. |
+| Set `withSourcePort(port)` when you emit to a named port, and use the declared port names. | Don't emit a port no edge listens for. The message is silently dropped. |
+| Use `toBuilder()` when changing several fields, to make one copy instead of several. | Don't call `withAddedHistory`. Core stamps every node once; a second stamp duplicates the entry. |
+| Treat the payload and metadata values as read-only: copy before you change a list or map. | Don't mutate a payload object in place. Sibling branches share the same object. |
+| Key any store by (execution id, node id, message id). | Don't key by message id alone. The id is logical and stays the same through the nodes. |
+| Use `withFailure` plus source port `error` when you want a message to go to the error edge. | Don't rely on `expiration`, `replyTo`, `retryCount` or `controlMessage` having any effect. |
+
+## Architecture decisions
+
+<AccordionGroup>
+<Accordion title="An immutable record envelope with withers">
+**Context.** A message is handed to several branches at once and passes through many plugins written by different people.
+
+**Decision.** The message is a Java record. Maps and lists are copied into unmodifiable versions at construction. Changes return new instances.
+
+**Consequences.** Safe sharing across branches and simple reasoning; every change allocates a copy; immutability is shallow, so payloads can still be mutated.
+
+**Alternatives considered.** A mutable bean: cheaper changes, but one branch could break another and ordering bugs would be hard to find. A fully deep-copied message on every hop: safe but far too expensive for large payloads.
+
+**Revisit when.** payload mutation causes a real bug, or copy cost shows up in profiles.
+
+</Accordion>
+<Accordion title="Enterprise-integration headers in the envelope">
+**Context.** The module was modelled on classic messaging patterns (envelope, correlation, sequence, dead letter, return address).
+
+**Decision.** The envelope carries identity, routing, sequence, QoS and dead-letter fields from the start, even if the engine does not use them yet.
+
+**Consequences.** Plugins have the vocabulary; some fields are unused and mislead; every addition widens the interface.
+
+**Alternatives considered.** A minimal envelope (id, payload, headers map) and put everything else in headers: smaller and easier to change, but loses typed, discoverable fields.
+
+**Revisit when.** a field stays unused after a year, or a feature needs one that is missing.
+
+</Accordion>
+<Accordion title="Node-level channel hook instead of a transport between nodes">
+**Context.** Edges are Reactor streams with back-pressure, and the project may need remote or durable transport later.
+
+**Decision.** Core calls a provider once per node and wraps input and output with a channel. The default is a no-op pass-through.
+
+**Consequences.** One seam for audit, encryption or transport; zero cost today; the hook is coarse and its failure contract is undefined.
+
+**Alternatives considered.** A message broker between every pair of nodes: durable but adds latency and loses end-to-end back-pressure. No hook at all: simplest, but retrofitting needs core changes.
+
+**Revisit when.** a concrete need for remote or durable delivery appears.
+
+</Accordion>
+<Accordion title="Plugin-replaceable default through a conditional bean">
+**Context.** Deployments should be able to replace the channel without changing core.
+
+**Decision.** The default provider is registered with `@ConditionalOnMissingBean` in a scanned configuration; a custom bean wins.
+
+**Consequences.** Replacing needs one bean and no code change; the outcome depends on Spring ordering.
+
+**Alternatives considered.** Auto-configuration registration: the intended home for this condition. An explicit property selecting the provider: clear, but needs a name registry. An optional dependency injected with a default: simple, but hides which one is active.
+
+**Revisit when.** the first real custom provider is added, or two providers conflict at startup.
+
+</Accordion>
+<Accordion title="Core stamps history, once per node">
+**Context.** Plugins are written by many people and cannot be trusted to record where a message has been.
+
+**Decision.** Core appends the node id to every message after the node's output. Plugins must not. The list is capped at 64.
+
+**Consequences.** Uniform, complete history for the retained window; lineage is lost beyond 64 and across split and aggregate.
+
+**Alternatives considered.** Plugins stamp themselves: flexible, but duplicates and gaps. Store lineage in the tracker only: unbounded, but not visible to plugins and not carried in checkpoints.
+
+**Revisit when.** a feature needs complete lineage over long or looping flows.
+
+</Accordion>
+<Accordion title="The id is a logical id, kept across derivation">
+**Context.** A retry or a derived message is still the same piece of work, and stores must recognise it.
+
+**Decision.** `from` and `withPayload` keep the id; `create` makes a new one. Stores key by (execution, node, id).
+
+**Consequences.** Retries and enrichment keep one id; the id is not unique per node output.
+
+**Alternatives considered.** A new id at every node plus a parent id link: unique per hop but needs a lineage map and breaks 'stable id for idempotency'. A separate lineage id: both properties, one more field.
+
+**Revisit when.** single-hop tracing or exactly-once keyed storage needs a unique id per output.
+
+</Accordion>
+<Accordion title="Messaging as a tiny, dependency-light bottom module">
+**Context.** Core, plugin-api and every plugin share the envelope. Any dependency becomes everyone's dependency.
+
+**Decision.** The module depends only on Reactor and Spring Boot autoconfigure, both as 'api', and plugin-api re-exports it.
+
+**Consequences.** Plugins need one import; the module's two dependencies become part of every plugin's classpath; changes to the interface rebuild everything.
+
+**Alternatives considered.** Merge it into plugin-api: fewer modules but core would then depend on the plugin contract. Hide Reactor behind our own stream type: cleaner but heavy and slower.
+
+**Revisit when.** plugins need to ship without Reactor or Spring on their classpath.
+
+</Accordion>
+</AccordionGroup>
+
+## Glossary
+
+| Term | Meaning | Note |
+|---|---|---|
+| Message | The unit of data that flows along an edge of a workflow graph: a payload plus headers. | Everything in the engine passes messages, not raw data. |
+| Envelope | The wrapper around the payload that holds the labels (identity, routing, history). | The module defines this wrapper. |
+| Payload | The actual data inside a message. | Typed only as a plain Java object, with no schema. |
+| Header and metadata | Labels on the message. Fixed headers are record fields; free-form ones live in the metadata map. | Plugins add information in metadata. |
+| Immutable | Cannot be changed after it is built. Changes make a new copy. | Makes a message safe to share between branches. |
+| Shallow vs deep immutability | Shallow: the object itself cannot change. Deep: everything it refers to cannot change either. | The envelope is shallow, so payload objects can still be mutated. |
+| Record | A Java type for a fixed set of fields with generated accessors, equals and toString. | The envelope is a record with 22 fields. |
+| Wither | A method named `withX` that returns a copy with one thing changed. | How plugins 'change' a message. |
+| Builder and toBuilder | A helper to build an object field by field; `toBuilder` starts from an existing one. | One copy for many changes. |
+| Lombok | A Java tool that generates repetitive code (withers, builders) at compile time. | Generates most withers in the envelope. |
+| Enterprise Integration Patterns | A catalogue of messaging patterns (envelope, correlation id, dead letter, sequence, return address). | The model for the envelope's header fields. |
+| Dead letter | A message that could not be processed, kept with the reason instead of being lost. | Carried with failure fields and the `error` port. |
+| Source port | The name of a node output a message leaves from. | Edges can listen to one port. |
+| Error port | The port named `error`, used for failed messages. | Unnamed edges never receive it. |
+| Message history | The list of node ids a message passed through, at most 64. | Stamped by core only. |
+| Trace id | An id shared by all messages derived from one request. | Lets you follow one request through the workflow. |
+| Correlation id | An id that links related messages, such as a reply to a request or a child to its parent. | Splitter sets it to the parent's id. |
+| Logical id | An id that identifies a piece of work and stays the same across derived copies. | Not unique per node output. |
+| Claim check | Passing a reference to big data instead of the data itself. | A possible answer to the large payload risk. |
+| Reactor and Flux | Project Reactor is a library for streams that move at the pace the consumer asks for. A Flux is a stream of many items. | Both channel methods take and return a Flux. |
+| Back-pressure | A slow consumer making upstream producers wait. | A custom channel must preserve it. |
+| SPI (service provider interface) | An interface meant to be implemented by others to extend a system. | The channel and provider are an SPI. |
+| Node message channel | The hook called with the input and output stream of a node. | The default does nothing. |
+| Channel provider | The factory that gives core a channel for a node. | Replace it to change the channel. |
+| Pass-through | Returns what it is given, unchanged. | The default channel. |
+| @ConditionalOnMissingBean | A Spring annotation: create this bean only if no other bean of that type exists yet. | How the default provider yields to a custom one. |
+| Component scanning | Spring finds configuration classes by searching packages under the application class. | How the default configuration is picked up. |
+| Auto-configuration | Spring Boot's mechanism for optional default beans, evaluated after user configuration. | The usual home for a conditional default. |
+| Fan-out | One node feeding several children. | All children receive the same message. |
+| Checkpoint | A node's recorded output kept so it can be replayed after a crash. | Messages are stored as JSON and read back as plain values. |
+| Control message | A message that carries an operator command to the engine, not workflow data. | Created by the control gateway and node-command endpoint. |

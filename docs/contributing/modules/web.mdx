@@ -1,0 +1,875 @@
+---
+title: "Web module"
+description: "Web is the HTTP front door of the Yukta server."
+---
+
+Web is the HTTP front door of the Yukta server. It accepts REST calls and long-lived event streams, checks them, hands them to core (the engine) and wraps the answer in one standard envelope. It holds almost no state and makes almost no decisions: its job is to be a faithful, safe translation layer. This page is for thinking about it, not documenting it: open a component, replay a scenario, then challenge the weak spots.
+
+| Property | What it means |
+|---|---|
+| Thin by design | 16 controllers do three things: bind and validate the request, call one core service, wrap the result. Rules (limits, ordering, retries) live in core, not here. |
+| One envelope, one error path | Every answer is an ApiResponse. Errors are thrown, never caught in controllers, and one handler turns them into 400, 403, 404, 429 or 500. |
+| Streams without gaps | Status, log and event streams use Server-Sent Events with ids and a 15 s heartbeat. The log stream subscribes to live lines before it reads history so nothing falls between the two. |
+| Roles and named keys | Optional named API keys with the roles VIEWER (read), OPERATOR (also start and control) and ADMIN (everything), optional session limits, hashed keys and several keys at once for rotation. A single key still works and may do everything. |
+
+<Note>
+  Open risks, bugs and improvement ideas for this module are on the internal pages (sign-in required): [Risks](/internal/risks#web), [Bugs](/internal/bugs) and [Improvements](/internal/improvements#web).
+</Note>
+
+## Primer
+
+Yukta runs workflows (graphs of steps) inside a Java server. People and programs need a way in: a web page that starts a run, a command-line tool that stops one, a script that reads logs. That way in must be predictable (same shape of answer every time), safe (reject bad input early, never leak internals) and live (show progress as it happens). **Web** is that way in. It is the HTTP boundary: it receives REST calls and streaming connections and translates them into calls on core, the engine. It does not run anything itself.
+
+<Tip>
+  Think of a hotel front desk. Guests (clients) never walk into the kitchen. The **doorman** checks who you are (the key check) and writes your name in the visitors' book (request id and access log). The **receptionist** checks your booking form is filled in correctly (validation) and passes it to the right department (core). If something is wrong, one **complaints desk** answers in a standard letter (the error handler). For a long job, the desk gives you a **live display** (a stream) rather than making you ask again and again.
+</Tip>
+
+### Where web sits
+
+| Layer | Role |
+|---|---|
+| Clients | The web UI, the Go command-line tool (cli), scripts, curl |
+| web | REST and event streams. Binds, validates, calls core, wraps. This page. (this module) |
+| core | The engine and control plane that actually starts, steers and remembers runs |
+| plugin-api + plugins | The node types a workflow is made of |
+| boot | Wires everything into one Spring Boot app and sets the bind address and settings |
+
+The mcp module is a parallel front door for AI agents. It calls core directly and has its own key (yukta.mcp.api-key); it does not go through web. Web knows nothing about plugins: it only calls core services.
+
+### The vocabulary in eight cards
+
+| Term | Meaning | Example |
+|---|---|---|
+| Filter | Code that runs on every HTTP request before any controller, and again as the response leaves. Web has three: key check, request id, access log. | Checking an API key once in a filter is simpler and safer than repeating it in 42 endpoints. |
+| ApiResponse envelope | The one JSON shape for every answer: timestamp, status, message, and either data (success) or error, path and a list of field errors (failure). | A start returns status 202 with data.executionId; a bad body returns status 400 with errors listing each bad field. |
+| Session, workflow, execution | Three ids that appear in URLs. A **session** is a workspace that owns configuration and workflows. A **workflow** is a stored graph. An **execution** is one run of a workflow. | Session team-a, workflow triage, execution e-123. |
+| Mono and Flux | Reactor types used by the reactive WebFlux server. A **Mono** is one result that arrives later (or none); a **Flux** is many results over time. Nothing waits on a thread meanwhile. | A start returns a Mono of the response; a log stream returns a Flux of events. |
+| Server-Sent Events (SSE) | A long-lived HTTP response where the server keeps pushing small text messages. Each can carry an id; a reconnecting client sends the last id it saw in the Last-Event-ID header. | The log page keeps one SSE connection open and appends lines as they arrive. |
+| Idempotency-Key | A client-chosen header that makes a retry safe. The server returns the first run's id for a repeated key instead of starting a second run. | A phone loses signal after sending a start; it resends with the same key and gets the same execution id. |
+| Cursor paging | A way to read a long list in pages. The reply says where it stopped (X-Next-Cursor, the id of the last item); the next call sends that as ?cursor=. | GET /api/workflow/team-a/history?limit=100&cursor=e-900 returns the next 100 runs after e-900. |
+| Control command | A request to change a run that is already going: pause, resume, stop, step, set a breakpoint. Web forwards it; core orders, applies and records it. | POST /api/executions/e-123/nodes/classify/pause. |
+
+### One example, end to end
+
+A client starts a workflow and web answers. Click a step to see what happens, why it is built that way, and what can go wrong. The grey step is core, outside this module.
+
+<Steps>
+<Step title="Request in">
+**What happens.** A client sends POST /api/workflow/start with a JSON body naming a session, a workflow and an optional trigger payload, and optionally an Idempotency-Key header.
+
+**Why it works this way.** The server is non-blocking (Spring WebFlux): the request is handled by a small pool of event-loop threads, not one thread per call, so thousands of connections (including streams) are cheap.
+
+**Can go wrong.** There is no limit here on request rate, body size beyond 1 MiB (spring.codec.max-in-memory-size, YUKTA_LIMITS_MAX_BODY), or open connections (see the limits risk).
+
+</Step>
+<Step title="API key check">
+**What happens.** If a key is set (yukta.api-key or yukta.api-keys) and the path is under /api or /actuator (except /actuator/health), the filter requires a key as 'Authorization: Bearer &lt;key&gt;' or 'X-API-Key'. It compares SHA-256 digests in constant time, then checks the key's role and sessions: a miss ends the request with 401 and 'WWW-Authenticate: Bearer', a role or session that does not allow the request gives 403, and a path with encoded separators, parameters or dot segments gives 400.
+
+**Why it works this way.** It runs first, so a caller without the key costs almost nothing and never reaches validation or core. Constant-time comparison means response time does not reveal how many leading characters were right.
+
+**Can go wrong.** If no key is configured the check is off and the API is open. A rejected request gets no request id and no access-log line, because the later filters never run.
+
+</Step>
+<Step title="Request id">
+**What happens.** Keeps the client's X-Request-ID if it is 1 to 64 letters, digits or hyphens; otherwise makes a UUID. Echoes it as X-Request-ID and X-Correlation-ID and stores it in the logging context.
+
+**Why it works this way.** The id lets support match a client's failed call to the server's log lines, which is the only detail a 500 reply gives out. The strict character rule stops a hostile header from forging log lines.
+
+**Can go wrong.** The access log line still has no caller. With named keys, control commands are recorded in the execution log with the actor 'key:&lt;name&gt;', but reads and starts are not attributed anywhere.
+
+</Step>
+<Step title="Validate body">
+**What happens.** The JSON is read into a WorkflowStartRequest record. The session id must be non-blank, at most 256 characters and free of slashes and '..'; the workflow id must be non-blank. Unknown JSON fields are rejected.
+
+**Why it works this way.** Bad input is stopped at the door with a precise message (which field, why). Rejecting unknown fields turns a typo like 'workflowID' into an immediate 400 instead of a silently ignored value.
+
+**Can go wrong.** Web checks the shape only. Whether the session and workflow exist, and whether the graph is valid, is core's job and shows up later as a 404 or 400.
+
+</Step>
+<Step title="Core starts run">
+**What happens.** The controller calls WorkflowService.validateAndStartWorkflow (with the key if given). Core finds the workflow, asks the scheduler for a slot and returns an execution id.
+
+**Why it works this way.** Web adds no rules of its own. Limits, queueing, retry of the same key and ordering are core's, so the same behaviour holds for the REST API, the UI and the MCP tools.
+
+**Can go wrong.** Core can refuse: unknown session or workflow gives NotFoundException, a full server gives ExecutionRejectedException. Either becomes an HTTP error in the next steps.
+
+</Step>
+<Step title="Reply 202">
+**What happens.** The id is wrapped as status 202 'Workflow start accepted' with data.executionId. 202 means accepted, not finished: the run continues after the reply.
+
+**Why it works this way.** One envelope for every reply means clients write one parser. The client then watches progress with GET /api/executions/\{id\}/status/stream.
+
+**Can go wrong.** A 202 does not mean the run will succeed, only that it was admitted. The client must watch the status or history to learn the outcome.
+
+</Step>
+<Step title="Access log">
+**What happens.** When the exchange ends, one INFO line is written: method, path, status and duration, for example 'POST /api/workflow/start -&gt; 202 in 14ms', tagged with the request id.
+
+**Why it works this way.** One line per request, written once the answer is known, is cheap and enough to see traffic and slow calls.
+
+**Can go wrong.** For a stream the line appears only when the connection closes, so duration means connection time. The query string and caller identity are not logged.
+
+</Step>
+<Step title="Error mapping">
+**What happens.** If binding fails or core throws, GlobalExceptionHandler turns the exception into an ApiResponse error: 400 for bad input, 404 not found, 403 vetoed, 429 too many runs, 500 for anything else.
+
+**Why it works this way.** Controllers never catch errors, so every endpoint, including future ones, answers failure in the same shape. A 500 reply contains no exception text, only 'Reference: &lt;request id&gt;'; the real cause goes to the log.
+
+**Can go wrong.** 4xx replies do echo the exception message from core. A core message that names internal detail would reach the client. Some exceptions that mean 'conflict' (such as a restart already running) arrive as IllegalStateException and become 500.
+
+</Step>
+</Steps>
+
+### A request in plain words
+
+<Steps>
+<Step title="Knock">
+a client sends an HTTP request to /api/...
+</Step>
+<Step title="Door">
+the key filter lets it in or sends 401.
+</Step>
+<Step title="Name tag">
+it gets a request id that follows it into every log line.
+</Step>
+<Step title="Form check">
+the body is read into a record and validated; typos and missing fields stop here with a 400.
+</Step>
+<Step title="Hand-off">
+one core service is called; core does the real work.
+</Step>
+<Step title="Reply">
+the result is wrapped in the standard envelope, or the one error handler explains the failure.
+</Step>
+<Step title="Live view">
+for long jobs the client opens a stream and receives events with ids and a heartbeat.
+</Step>
+</Steps>
+
+## Components
+
+### Filter chain
+
+*key, request id, access log*
+
+Runs on every request before any controller: checks the API key, gives the request an id and writes one access-log line when it ends.
+
+- Order matters. The key filter runs first, the request-id filter second, the access-log filter last (it has no explicit order, so it runs after the others). The reason for key-first is that an unauthenticated caller should cost as little as possible. The consequence is that a rejected 401 has no request id and no log line.
+- The key check applies when yukta.api-key or yukta.api-keys is set, to /api and to the actuator except /actuator/health. The path is decoded first; encoded separators, ';' and dot segments are refused with 400. The key comes from 'Authorization: Bearer &lt;key&gt;' or X-API-Key and is compared as a SHA-256 digest with MessageDigest.isEqual. A named key has a role (VIEWER reads; OPERATOR also POST/DELETE under /api/executions/ and /api/workflow/; ADMIN everything, including the actuator) and optionally a list of sessions; a miss gives 401 and an empty body, a role or session that does not allow the request gives 403. Without any key, HostOriginFilter answers 403 to a Host that is not loopback (or in yukta.allowed-hosts) and to a non-GET whose Origin is not the Host.
+- The request id: a client's X-Request-ID is kept only if it matches [A-Za-z0-9-]\{1,64\}; otherwise a UUID is generated. X-Correlation-ID follows the same rule and falls back to the request id. Both are returned on the response. The id goes into the Reactor context and the logging MDC, so every log line of that request shows [requestId] even when work hops threads. The strict pattern exists because the value is written to logs and headers: a newline in it could forge a log line.
+- The access log writes 'POST /api/workflow/start -&gt; 202 in 14ms' at INFO when the exchange ends. For a stream that is when the connection closes. The line has method, path, status and duration, with no query string and no caller identity (the actor of a control command goes to the execution log instead).
+- Why filters and not controller code: a filter covers every route, including endpoints added later, so a forgotten check cannot leave a hole.
+
+- **Guarantees.** A request that passes the key check has a request id that is echoed in X-Request-ID. The key comparison is constant-time. Client-supplied ids can only contain letters, digits and hyphens.
+- **State.** Only the key bytes, read once when the server starts. Nothing is stored per request. Changing the key needs a restart.
+- **Ceiling.** Keys are configuration: no expiry, and a change needs a restart. Roles are matched by path prefix. No rate limiting. Rejections (400, 401, 403) leave no log line.
+- **On failure.** Missing or wrong key: 401 with an empty body. If the key is empty the filter lets everything through.
+
+**Settings:** `yukta.api-key (empty = API open)`, `Authorization: Bearer <key> or X-API-Key`, `X-Request-ID, X-Correlation-ID`
+
+### Binding & mapping
+
+*JSON to records, mappers*
+
+Turns JSON bodies into validated Java records and maps them to and from core's own types.
+
+- Request bodies are records: ConfigRequest (a session), WorkflowDefinitionRequest (a workflow, also used by the dry-run validator), WorkflowStartRequest and NodeCommandRequest. Rules are annotations: a session id is at most 256 characters and must not contain '/', backslash or '..'; names and descriptions are at most 256; the project path is non-blank and at most 1024; a session needs at least one workflow, a workflow at least one node; a node command payload has 1 to 100 entries. In our view the id pattern exists so an id is safe to use as a file or path segment.
+- Unknown JSON fields are rejected. The setting lives in boot (spring.jackson.deserialization.fail-on-unknown-properties: true), so it applies to every JSON body. Example: a client sends workflowID instead of workflowId. Without the rule that field would be dropped and the call would fail later with a vague 'workflowId is required'.
+- Records copy their lists and maps and turn null into empty (a missing tags map means no tags), so nothing downstream has to null-check and nobody can change a request after validation.
+- Three MapStruct mappers convert records to core types and back. MapStruct generates plain Java at compile time (no reflection), which also suits a GraalVM native image. SessionMapper maps a session request to core's SessionConfigData and builds the summary rows; AppConfigMapper maps a workflow request for the dry-run validator; WorkflowMapper builds graph edges and log entries.
+- The two mappers differ on one default: SessionMapper turns a missing edge sourcePort into 'default', AppConfigMapper leaves it null. So the validator and the saving path can see the same edge slightly differently.
+
+- **Guarantees.** Anything that fails validation is stopped with a 400 before core is called, with every failing field listed. Request records are immutable.
+- **State.** None.
+- **Ceiling.** No explicit body-size limit is set in this repository, so the framework default applies. Validation checks shape and length, not the meaning of a node's config (core's validator does that).
+- **On failure.** Bean-validation failure: 400 'Validation failed' with one entry per bad field. Unknown field: 400 'Invalid request body' naming the field. Malformed JSON: 400 with a generic reason.
+
+**Settings:** `spring.jackson.deserialization.fail-on-unknown-properties=true (boot)`, `@SessionId, @ProjectPath, @NotBlank, @Size`
+
+### Session & config API
+
+*sessions, validate, graph*
+
+Creates or replaces a session with its workflows, reads them back in several shapes, dry-runs a draft and describes a workflow's graph for the editor.
+
+- POST /api/sessions applies a whole configuration: it creates the session or replaces its config. There is no partial update. The editor calls GET /api/sessions/\{sid\}/config, changes it and posts it back, which is why /config returns exactly the shape the POST accepts.
+- Reads come in sizes for different screens. GET /api/sessions lists ids alphabetically (paged). /summaries returns lean rows (name, tag names, workflow count) and loads only the page's configs, one after another, skipping any it cannot read with a warning in the log. /\{sid\} returns details (tag names and workflow ids, but not tag values). /config returns everything. /workflows returns each workflow with node count, edge count and latest run status. /workflows/\{wid\} returns one definition.
+- POST /api/sessions/validate dry-runs a draft with the same WorkflowValidator that execution uses. It always answers 200: valid:true, or valid:false with the first problem as the message. The reason: the question 'is this draft OK?' was answered successfully, and an editor wants to show the problem inline, not handle an HTTP error. Malformed bodies still get 400 first.
+- The validate reply also lists each node's output ports for its current config (nodes whose plugin type is unknown are left out). Ports can depend on config, for example whether an error port exists, so the editor asks instead of guessing.
+- GET .../workflows/\{wid\}/graph builds the picture for the canvas: each node enriched with plugin category, description, UI hints and ports, the edges, and a topological order (an order in which every step comes after the steps it depends on).
+- This is the one controller that catches errors itself: validate turns any exception into valid:false plus e.getMessage().
+
+- **Guarantees.** A saved session is exactly what core's store holds; reads never change anything. Validate never saves and never starts a run.
+- **State.** None in web. Sessions live in core's store, which is in memory by default (yukta.session.store-type: in-memory) and is lost on restart unless core is configured otherwise.
+- **Ceiling.** Listing sessions loads every id and sorts them on each page call. A config POST carries a whole session in one body. /config and /workflows/\{wid\} return node config exactly as stored.
+- **On failure.** Unknown session or workflow: 404. Bad body: 400 with field errors. A draft that fails validation: 200 with valid:false.
+
+**Settings:** `POST /api/sessions`, `GET /api/sessions[/summaries]`, `GET /api/sessions/{sid}[/config|/workflows]`, `POST /api/sessions/validate`, `GET .../workflows/{wid}/graph`
+
+### Run lifecycle API
+
+*start, stop, restart, status*
+
+Starts a workflow, stops one run or every run of a workflow, restarts a run whole or from a node, and reads status and history.
+
+- POST /api/workflow/start answers 202 'accepted' with an execution id. The run continues after the reply, so the client follows it with a status call or stream. An optional Idempotency-Key header makes a retry safe: the same key with the same session and workflow returns the first run's id instead of starting a second one. The window is core's setting (yukta.start.idempotency-ttl, 10 minutes by default).
+- An unknown session or workflow gives 404. If core refuses to admit the run because of its limits the reply is 429.
+- Stopping has two scopes. POST /api/workflow/\{sid\}/\{wid\}/stop?mode= stops every active run of a workflow and returns the ids it signalled. DRAIN (default) lets in-flight work finish, CANCEL cancels it, KILL stops at once. POST /api/executions/\{eid\}/stop stops one run.
+- POST /api/executions/\{eid\}/restart stops the run and starts the workflow again with the original trigger payload and a new execution id. .../restart/\{node\} restarts from a node, replaying the stored outputs of its parent nodes. .../nodes/\{nid\}/retry restarts from a node that failed. Each returns the new id.
+- Status: GET /api/executions/\{eid\} returns a progress snapshot; GET /api/workflow/\{sid\}/history lists a session's runs newest first (paged), and GET /api/sessions/\{sid\}/workflows/\{wid\}/executions does the same for one workflow.
+- Every execution route has a canonical form (/api/executions/...) and a deprecated alias (/api/workflow/...). The CLI still calls almost all of the aliases and the UI calls the two status aliases.
+
+- **Guarantees.** A 202 means core admitted the start. The same Idempotency-Key never starts a second run inside core's window. Stop returns only the ids actually signalled.
+- **State.** None in web. Run state and history live in core.
+- **Ceiling.** History is loaded in full from core and then cut into a page by web. Admission limits, queues and the idempotency window are core's.
+- **On failure.** 404 unknown session, workflow, execution or node. 429 when core refuses a start. 500 if core throws something unmapped, such as a restart already in progress (see risks).
+
+**Settings:** `POST /api/workflow/start (Idempotency-Key)`, `POST /api/workflow/{sid}/{wid}/stop?mode=DRAIN|CANCEL|KILL`, `POST /api/executions/{eid}/stop|restart|restart/{node}`, `GET /api/executions/{eid}`, `GET /api/workflow/{sid}/history`
+
+### Errors & envelope
+
+*ApiResponse, one handler*
+
+Defines the one JSON shape for every reply and the one place that turns exceptions into HTTP status codes.
+
+- ApiResponse has timestamp, status, message, data (success only), error, path and a list of field errors (failure only). Empty fields are left out of the JSON. Lists are returned as bare arrays inside data.
+- Controllers do not catch errors. Core throws typed exceptions and GlobalExceptionHandler maps them: NotFoundException (core) or ResourceNotFoundException (web) gives 404; IllegalArgumentException, ValidationException and bean-validation errors give 400; ControlRejectedException (a supervisor vetoed a command) gives 403; ExecutionRejectedException gives 429; anything else, including IllegalStateException, gives 500.
+- A 500 never carries exception text. The message is 'An unexpected error occurred. Reference: &lt;request id&gt;' and the cause is logged with the same id. The reason: exception messages can name classes, paths or SQL; a client should get a ticket number, not internals.
+- 4xx replies do carry the exception message, because 'Session not found: team-x' is what the caller needs. This relies on core writing client-safe messages.
+- Framework errors (unsupported method, wrong content type, unknown route) pass through the same handler, so even those get the envelope.
+- Two places bypass the handler: the validate endpoint (returns e.getMessage() inside a 200) and the plugin list (a 500 whose message includes 'Failed to retrieve plugins: ' plus the exception text).
+
+- **Guarantees.** Every error reply has the envelope with status, error, message and path. A 500 reveals no exception text.
+- **State.** None.
+- **Ceiling.** The mapping is by exception type, so a new kind of core failure becomes 500 until someone adds a handler. ConflictException maps to 409 (the recover endpoint uses it), but the restart race still throws IllegalStateException, which is a 500.
+- **On failure.** If a core exception is not mapped it becomes 500 and the caller gets only the reference id.
+
+**Settings:** `ApiResponse<T>`, `GlobalExceptionHandler`, `X-Request-ID in 5xx replies`
+
+### Run control API
+
+*pause, step, retry, limits*
+
+Steers a run while it is running: pause and resume, per-node pause, resume, stop, skip and step, breakpoints, queue priority and the global limits.
+
+- All control calls are POST (clearing a breakpoint is DELETE). Each one checks the execution exists, sends one command to core, waits for core's acknowledgement and answers 200 with the execution id. It does not wait for the effect to show; read the status to confirm. Core orders commands per run and its supervisors may veto one, which is the 403.
+- Whole run: pause and resume. Per node: pause, resume, stop (?immediate=false drains in-flight work, true stops at once; ?reason= is recorded), skip (?skip=true or false; core currently rejects skipping on a running execution).
+- Debugging: 'step mode' makes a node hold messages; 'step' lets exactly one through. A breakpoint pauses a node when a payload field equals a value, for example field=payload.status&equals=error. Example: put a breakpoint on classify, run, and the node stops at the first error ticket so you can look at it.
+- Operating: POST /api/executions/\{eid\}/priority?priority=n changes the priority of a start still waiting for a slot (higher runs first; otherwise 400). POST /api/scheduler/limits?maxConcurrent=&maxPerWorkflow= sets the two global limits at run time (ADMIN key only; reviewed, audited with the actor and restored from the log at startup); 0 means no limit and a negative number is treated as 0.
+- Older routes take a session id and run the ownership check. The newer routes (retry, breakpoint, priority, limits) have no session in the path, so they check existence only or nothing at all.
+
+- **Guarantees.** A command reaches core only if the execution exists. Core applies commands in order per run and records them.
+- **State.** None in web. Limits changed at run time are not restored after a restart (core logs them).
+- **Ceiling.** Limits can only be set globally and per workflow here, not per session. There is no batching: one command per call.
+- **On failure.** 404 for an unknown execution or node. 400 for a rejected state change (such as priority of a run that is not waiting). 403 when a supervisor vetoes. Conflicts surface as 500.
+
+**Settings:** `POST /api/executions/{eid}/pause|resume`, `POST .../nodes/{nid}/pause|resume|stop|skip|step|step/enable|step/disable|retry`, `POST|DELETE .../nodes/{nid}/breakpoint`, `POST .../priority`, `POST /api/scheduler/limits`
+
+### Streams (SSE)
+
+*status, logs, events*
+
+Pushes run status, execution logs and a global event feed to clients as Server-Sent Events, with ids and a heartbeat.
+
+- A shared helper numbers each event from 0 and merges a keep-alive comment (': ping') every 15 seconds so proxies do not close an idle connection. A reconnecting client sends Last-Event-ID; the stream skips everything up to that id.
+- Status stream: GET /api/executions/\{eid\}/status/stream?includeHistory=true asks core to replay recent status changes (core keeps five minutes by default) and then follow live ones.
+- Log streams: GET /api/sessions/\{sid\}/executions/\{eid\}/logs (formatted lines) and .../logs/entries (structured: level, stream, message). If the run already ended they send the stored lines and finish. If it is running they send history then live lines, and finish when the run reaches a terminal state.
+- How history and live join without a gap: the live feed is subscribed first, into a buffer of 1024 lines, and only then is the history read. A line written during the read may appear in both. For history lines stamped at or after the seam start, the stream remembers their text; the first live line with the same text and a timestamp not after the history snapshot is dropped once. Example: history ends with 'step 7 done'; the live buffer also holds 'step 7 done' from the same moment; it is sent once.
+- Event feed: GET /api/events/stream?executionId=&type= pushes node status changes, workflow status changes, control-command outcomes and log lines (types NodeStatusChanged, WorkflowStatusChanged, ControlOutcome, LogLine) for all runs. It has no replay and no session filter.
+- The live parts are best-effort: if a client reads more slowly than events arrive, it misses events instead of slowing the server.
+
+- **Guarantees.** Event ids are sequential within one connection and a heartbeat is sent every 15 s. Log streams subscribe to live lines before reading history, so nothing falls into the gap (duplicates are suppressed by a text heuristic).
+- **State.** Per connection only: a position counter and, for running log streams, a 1024-line buffer. Everything is gone when the connection closes or the server restarts.
+- **Ceiling.** Every open stream holds a subscription and (for logs) a buffer. There is no cap on open connections and no maximum stream lifetime. A slow reader silently misses live events.
+- **On failure.** A foreign or unknown execution: 404 before the stream starts. A dropped connection: the client reconnects with Last-Event-ID; ids are positions in a rebuilt stream, so they line up only if history is unchanged.
+
+**Settings:** `Heartbeat 15 s`, `Live buffer 1024 lines`, `yukta.streaming.status-history-ttl-minutes (core, 5)`, `Last-Event-ID`, `includeHistory=true`
+
+### Settings & exposure
+
+*bind address, key, API docs*
+
+The few settings that decide who can reach the server and how strict it is, plus the generated API documentation.
+
+- Bind address: server.address defaults to 127.0.0.1 (loopback), so a fresh install is not reachable from the network. Setting YUKTA_SERVER_ADDRESS to another address now makes ExposureGuard (boot) refuse to start unless a key is configured; the Docker image sets 0.0.0.0, so a container without a key does not start.
+- The API key is the one security setting in web: yukta.api-key. Empty (the default) leaves the API open. The README says to set it whenever the address is opened.
+- Surfaces the key does not cover: the Swagger UI and the OpenAPI document (the filter guards only /api and /actuator). The MCP endpoint (/mcp) has its own filter that accepts the same keys plus yukta.mcp.api-key. The actuator (health, info, metrics) is guarded except /actuator/health.
+- OpenAPI is generated by springdoc from the controller annotations: UI at /swagger-ui.html, JSON at /v3/api-docs. The UI has a generated types file (api.generated.ts) for these endpoints.
+- Web has no settings class of its own. It also relies on boot for the log pattern that prints the request id and for virtual threads being enabled.
+
+- **Guarantees.** On a default install the server accepts connections only from the same machine.
+- **State.** Read once at startup.
+- **Ceiling.** Settings are changed by restarting; there is no live reload of the key.
+- **On failure.** If the address is opened without a key, the whole API (including workflows that run code) is open to the network.
+
+**Settings:** `server.address / YUKTA_SERVER_ADDRESS (127.0.0.1)`, `yukta.api-key`, `yukta.mcp.api-key (mcp)`, `/swagger-ui.html, /v3/api-docs`, `management.endpoints.web.exposure.include=health,info,metrics`
+
+### Catalogue & control bus
+
+*plugins, nodes, supervisors*
+
+Read-only views of what the server offers and what is attached to it: plugin types, live nodes and heartbeats, and supervisors; plus an admin command to a live node.
+
+- GET /api/plugins lists every plugin type and its category. GET /api/plugins/\{type\} adds the description, a usage pattern, UI design hints, the output ports and the configSchema: the list of config fields the plugin declares. An editor uses it to build a form for a node.
+- The control-bus views identify nodes by workflow id and node id only, with no session or execution in the path: GET /api/control/nodes (all live nodes), /api/control/workflows/\{wid\}/nodes, and .../nodes/\{nid\}/heartbeat (the last heartbeat message).
+- POST /api/control/workflows/\{wid\}/nodes/\{nid\}/command sends an administrative command to a live plugin. The body is a map of 1 to 100 entries (it is the map itself, not wrapped in a field). Web builds a control message marked with source 'CONSOLE' and returns the plugin's response payload. Example: \{"action": "flush"\}.
+- GET /api/supervisors lists the supervisors and control-plane plugins attached to the control bus, in review order, with id, kind, type, dry-run flag, rate limit and counters since startup: applied, rejected, recorded (dry-run) and rate-limited.
+- The plugin catalogue handles its own errors: an unknown type is a locally built 404, and a failure listing plugins becomes a 500 with the exception text.
+
+- **Guarantees.** The catalogue is read-only. The admin command goes through the control bus like any other command.
+- **State.** None. Counters live in core's supervisor host.
+- **Ceiling.** Control-bus views are not scoped to a session; two sessions that reuse a workflow id are not told apart by the path.
+- **On failure.** Unknown plugin type or node: 404. Empty or oversized command: 400.
+
+**Settings:** `GET /api/plugins[/{type}]`, `GET /api/control/nodes`, `GET /api/control/workflows/{wid}/nodes[/{nid}/heartbeat]`, `POST .../nodes/{nid}/command`, `GET /api/supervisors`
+
+### Ownership check
+
+*ExecutionAccess*
+
+One helper that confirms that the execution you name exists and, when a session is named, belongs to that session.
+
+- require(sessionId, executionId) has two modes. With a session id it looks in that session's own records, so another session's run looks like 'not found' and its existence is not revealed. Without one (null) it looks the execution up globally.
+- Who calls it with a session: the log streams and the older /api/workflow/\{sid\}/... routes. Who calls it without one: the newer canonical routes (/api/executions/...), which have no session in the path. In that mode it only proves the execution exists.
+- Who does not call it at all: stop, restart and restart-from-node (core reports a missing run itself), history by workflow, the control-bus views and the events stream.
+- Why it exists: it catches client mistakes, such as a UI addressing session A's run through session B's screen. It is a consistency check, not authorization: a key limited to sessions is enforced by the key filter, and a key without sessions reaches every session.
+
+- **Guarantees.** A named session cannot read or steer another session's execution through the routes that use it.
+- **State.** None.
+- **Ceiling.** It reads core's in-memory tracker, so it only knows runs core still remembers.
+- **On failure.** Always the same 404 'Execution not found: &lt;id&gt;' for unknown or foreign runs.
+
+## Scenarios
+
+### Start a run
+
+One start request from the door to a 202 reply, and how the client then follows the run.
+
+<Steps>
+<Step title="Request arrives">
+A client posts to /api/workflow/start with a session id, a workflow id and an optional payload. The key filter checks the key (if one is set) and the tracing filter gives the request an id.
+</Step>
+<Step title="Bind and validate">
+The JSON is read into a record. A bad session id, a blank workflow id or an unknown field is a 400 right here, so core never sees malformed input.
+</Step>
+<Step title="Call core">
+The controller calls core's WorkflowService, passing the Idempotency-Key if the client sent one. Core finds the workflow, asks the scheduler for a slot and returns an execution id. Web adds no rules of its own.
+</Step>
+<Step title="Reply 202">
+The id is wrapped in the envelope with status 202 'accepted'. The run goes on after the reply. The access-log filter writes 'POST /api/workflow/start -&gt; 202 in 14ms'.
+</Step>
+<Step title="Follow the run">
+The client opens GET /api/executions/\{id\}/status/stream. The canonical route has no session, so only existence is checked. The legacy route (/api/workflow/\{sid\}/status/\{id\}/stream) carries the session and checks ownership too.
+</Step>
+</Steps>
+
+### Watch logs, no gap
+
+A log stream that joins stored lines and live lines with no gap, and what happens on reconnect.
+
+<Steps>
+<Step title="Connect">
+GET /api/sessions/\{sid\}/executions/\{eid\}/logs. The ownership check looks in that session's own records; a run of another session is a 404, so existence is not leaked.
+</Step>
+<Step title="Finished or running?">
+If the run is already in a terminal state, only the stored lines are sent and the stream ends. A running run needs both history and live lines, which is where a gap could appear.
+</Step>
+<Step title="Subscribe to live first">
+The live feed is subscribed before anything is read, into a 1024-line buffer, filtered to this execution. Reason: if history were read first, a line written during the read would be in neither part.
+</Step>
+<Step title="Read history and join">
+After the stored lines, live lines follow. A line written during the read may be in both, so history lines from the seam are remembered by text and the first live line with the same text and a timestamp not after the snapshot is dropped once.
+</Step>
+<Step title="Ids and heartbeat">
+Every event gets id 0, 1, 2... and an idle stream sends ': ping' every 15 s. The stream ends when core reports the run in a terminal state.
+</Step>
+<Step title="Reconnect">
+The connection drops. The client reconnects with Last-Event-ID: 41. Web rebuilds the stream and skips ids up to 41. That is exact only if the history did not change in between (for example it was not trimmed by retention).
+</Step>
+</Steps>
+
+### A bad call
+
+Five ways a call fails, what status each gets, and the one place that does not follow the rule.
+
+<Steps>
+<Step title="A typo">
+A client sends workflowID instead of workflowId. The unknown field is rejected: 400 'Invalid request body' with errors: [\{field: workflowID, message: Unknown field\}]. Without this rule the typo would be ignored.
+</Step>
+<Step title="Missing fields">
+A session body without name and initiator is a 400 'Validation failed' listing every bad field at once, so the client fixes them in one go.
+</Step>
+<Step title="Unknown workflow">
+The body is fine but the workflow does not exist. Core throws NotFoundException, the handler maps it to 404 and echoes the message ('Workflow not found...').
+</Step>
+<Step title="Too many runs">
+Core's limit is reached and it refuses the start with ExecutionRejectedException. The handler answers 429. The client should retry later.
+</Step>
+<Step title="An unmapped failure">
+Two restarts of the same run arrive together. Core throws IllegalStateException ('Restart already in progress'). The handler maps it to 500 with only 'Reference: &lt;request id&gt;' (a ConflictException would give 409, but this path does not use it); the cause is in the log.
+</Step>
+<Step title="The exception to the rule">
+POST /api/sessions/validate catches every error itself and puts e.getMessage() in the reply. That is useful for an editor but it is the one path that can show exception text for an unexpected failure.
+</Step>
+</Steps>
+
+### Steer a live run
+
+Pausing, breaking, stepping and retrying a run that is already going, and one dangerous switch.
+
+<Steps>
+<Step title="Pause the run">
+POST /api/executions/\{eid\}/pause. The helper checks the execution exists, sends the command to core and waits for the acknowledgement. The reply is 200 with the execution id; the status confirms the effect.
+</Step>
+<Step title="Break on a value">
+POST .../nodes/classify/breakpoint?field=payload.status&equals=error. The node pauses when a message matches, so a person can inspect the first bad case. DELETE on the same path clears it.
+</Step>
+<Step title="Step through">
+Step mode holds messages at a node; each POST .../step lets exactly one through. Useful to watch a transformation message by message.
+</Step>
+<Step title="A supervisor says no">
+A rule or AI supervisor attached to the control bus can review commands. If it vetoes one, core throws ControlRejectedException and web answers 403 with the reason.
+</Step>
+<Step title="Retry a failed node">
+POST .../nodes/\{nid\}/retry restarts from the failed node and returns a new execution id. The caller then follows the new id.
+</Step>
+<Step title="Lift the limits">
+POST /api/scheduler/limits?maxConcurrent=0&maxPerWorkflow=0 removes the two global caps at once (0 means no limit). It needs an ADMIN key, is audited with the actor and survives a restart, but the controller does not check the range or ask for confirmation.
+</Step>
+</Steps>
+
+### A server exposed with a key
+
+What an API key does and does not protect once the server is reachable from the network.
+
+<Steps>
+<Step title="Open the door deliberately">
+An operator sets YUKTA_SERVER_ADDRESS=0.0.0.0 and a key. Loopback is the default so that exposure is a decision, not an accident, and boot now refuses to start on another address without a key. Caution: the guard also counts yukta.mcp.api-key as a key, so a server with only the MCP key set starts and leaves /api open (boot guide, guardMcpKeyOnly).
+</Step>
+<Step title="A call without the key">
+The filter answers 401 with 'WWW-Authenticate: Bearer' and an empty body. The request-id and access-log filters never run, so the rejected call is not in the access log (nor is a 400 or 403 from the same filter).
+</Step>
+<Step title="A call with the key">
+The key is compared in constant time and the call proceeds. Nothing in the request says who the caller is; the key is the same for everyone.
+</Step>
+<Step title="What the key allows">
+Everything under /api/\*\*: create sessions, start and stop any run, read any log. Some plugins run processes, scripts and SQL, so a caller who can write a workflow can run code on the server.
+</Step>
+<Step title="The bundled UI">
+The UI's API client sends no Authorization or X-API-Key header, so against a keyed server its calls would be 401 unless a proxy adds the header. The CLI can send a bearer token.
+</Step>
+<Step title="What the key does not guard">
+Paths outside /api and /actuator: the Swagger UI and the OpenAPI document are still open. The MCP endpoint has its own filter (same keys, plus a per-tool role check).
+</Step>
+</Steps>
+
+### Page through history
+
+Reading a long history in pages, and what the cursor design costs.
+
+<Steps>
+<Step title="First page">
+GET /api/workflow/\{sid\}/history with no limit returns up to 500 runs, newest first. A limit above 1000 is cut to 1000; below 1 means 500.
+</Step>
+<Step title="A next cursor">
+If more remain, the reply has X-Next-Cursor: the id of the last run on this page. The client sends it back as ?cursor=. Because it is an id, not an offset, new runs added at the top do not shift the pages.
+</Step>
+<Step title="How the page is cut">
+Web asks core for the whole history, finds the cursor by walking the list, and slices. Cost grows with the history length on every page call, not with the page size.
+</Step>
+<Step title="A cursor that vanished">
+If the run named by the cursor has been trimmed from history, web does not fail; it silently starts again from the first item. A client that loops until there is no next cursor could see page 1 again.
+</Step>
+</Steps>
+
+## Capabilities
+
+Capabilities grouped by what a client wants to do. Each card says what it does, how, what you can rely on, and where it stops.
+
+
+### Edge
+
+| Capability | What it does | How | Guarantee | Limit |
+|---|---|---|---|---|
+| API key guard | Optional shared secret for /api/\*\*. | Filter compares the presented key (Bearer or X-API-Key) with the configured one in constant time. | Wrong or missing key is always a 401 with WWW-Authenticate. | One key for all callers; off when yukta.api-key is empty. |
+| Request tracing | A request id on every accepted request. | Accepts a safe X-Request-ID or generates a UUID; puts it in headers, Reactor context and the logging MDC. | Client ids are limited to 1 to 64 letters, digits and hyphens. | Not set for requests rejected by the key filter. |
+| Access log | One line per request. | Logs method, path, status and duration when the exchange ends. | Written even if the stream is cancelled (it runs on completion of any kind). | No query string, no caller identity, no line for 401s. |
+| Strict JSON | Typos in field names are errors. | Jackson is configured to fail on unknown properties. | A misspelled field never silently disappears. | Applies to JSON bodies only; query parameters are not checked this way. |
+
+### Sessions
+
+| Capability | What it does | How | Guarantee | Limit |
+|---|---|---|---|---|
+| Create or replace a session | Save a session and its workflows in one call. | POST /api/sessions maps the request to core's config and applies it. | Whole-config semantics: what you send is what is stored. | No partial update; large bodies depend on the framework body limit. |
+| Read in several shapes | Ids, summaries, details, full config, workflow summaries, one definition. | Separate GETs sized for each screen; summaries load only the requested page. | Reads never change state. | Full config is returned as stored, including any literal secrets in node config. |
+| Dry-run validation | Check a draft without saving. | POST /api/sessions/validate runs core's WorkflowValidator and returns valid, the first problem and each node's ports. | Same rules as execution; never saves or runs. | Reports only the first problem; unknown plugin types get no ports. |
+| Workflow graph | The picture data for the canvas. | Enriches nodes with plugin category, description, UI design and ports and adds topological order. | Order is a valid run order for the DAG. | Built per request from the stored definition. |
+
+### Runs
+
+| Capability | What it does | How | Guarantee | Limit |
+|---|---|---|---|---|
+| Start with retry safety | Launch a run; retry without duplicates. | POST /api/workflow/start returns 202 and an id; Idempotency-Key returns the first id for a repeated key. | No second run for the same key inside core's window (10 minutes by default). | 404 unknown session or workflow; 429 at core's limit. |
+| Stop modes | Stop one run or all runs of a workflow. | ?mode=DRAIN (default), CANCEL or KILL for a workflow; one run has its own stop route. | Returns the ids that were signalled. | Stopping a workflow acts on active runs only. |
+| Restart and retry | Run again from the start or from a node. | restart repeats the original payload; restart/\{node\} and retry replay from checkpoints; each returns a new execution id. | The old run's record is kept; the new run has its own id. | Needs core's checkpoints for node restarts. |
+| History with cursor paging | Read past runs in pages. | limit (default 500, max 1000) and cursor; next cursor in X-Next-Cursor. | Cursor is an id, so new runs do not shift later pages. | The whole history is loaded and cut per call; an unknown cursor restarts from the first item. |
+
+### Control
+
+| Capability | What it does | How | Guarantee | Limit |
+|---|---|---|---|---|
+| Pause, resume, stop, skip, step | Whole-run and per-node control. | POST routes call core's control bus and answer with the execution id. | Acknowledged by core before the reply; core orders commands per run. | Skip is rejected on running executions; a supervisor may veto (403). |
+| Breakpoints | Pause a node on a payload value. | POST .../breakpoint?field=&equals=; DELETE clears it. | Condition is a field and an exact value. | One field-equals rule; no expressions. |
+| Queue priority and limits | Reorder waiting starts; change global limits live. | POST .../priority?priority=n and POST /api/scheduler/limits?maxConcurrent=&maxPerWorkflow=. | Priority only for runs waiting for a slot; 0 means no limit. | No per-session limit here; not restored after restart; no validation of values. |
+
+### Streams
+
+| Capability | What it does | How | Guarantee | Limit |
+|---|---|---|---|---|
+| Status stream | Progress of one run as events. | GET .../status/stream with includeHistory (default true). | Sequential ids and a 15 s heartbeat; Last-Event-ID resumes. | Ids are positions in a rebuilt stream, valid only if nothing was reordered. |
+| Log streams | Log lines or structured entries of one run. | History then live, live subscribed first, joined with a text-based duplicate filter. | No gap at the seam; ends when the run ends. | 1024-line live buffer; slow reader may miss live lines. |
+| Event feed | Everything happening, for all runs. | GET /api/events/stream with executionId and type filters. | Event types: NodeStatusChanged, WorkflowStatusChanged, ControlOutcome, LogLine. | No replay, no session filter, best effort. |
+
+### Catalogue
+
+| Capability | What it does | How | Guarantee | Limit |
+|---|---|---|---|---|
+| Plugin catalogue with config schema | What node types exist and how to configure them. | GET /api/plugins and /api/plugins/\{type\} (ports, UI design, configSchema). | Read-only. | A listing failure becomes a 500 that includes exception text. |
+| Control-bus views and supervisors | Live nodes, heartbeats, admin command, supervisors with counters. | GET /api/control/..., POST .../command, GET /api/supervisors. | Command body is 1 to 100 entries. | Not scoped by session; counters are since startup. |
+
+## What is enforced, and what is not
+
+Web keeps no state, so the interesting questions are about what it enforces at the edge, what its defaults are and what a client can rely on.
+
+
+### Which surfaces the API key protects
+
+The key filter checks paths under /api and /actuator (except /actuator/health) when yukta.api-key or yukta.api-keys is set.
+
+| Surface | Protected by yukta.api-key? | Notes |
+|---|---|---|
+| /api/\*\* (all operations) | \*\*Partly.\*\* Only if a key is set | Off by default on loopback. Named keys with roles VIEWER, OPERATOR and ADMIN, optional session limits. |
+| MCP endpoint /mcp | \*\*Partly.\*\* Its own filter | Same keys plus yukta.mcp.api-key; each tools/call is checked against the key's role (McpToolAccess). |
+| Swagger UI and /v3/api-docs | \*\*No.\*\* No | Anyone who can reach the server can read the API description. |
+| Actuator (info, metrics) | \*\*Yes.\*\* Yes, ADMIN only | /actuator/health stays open for probes; health details only 'when-authorized'. |
+| Network reachability | \*\*Yes.\*\* Loopback by default; guarded | server.address is 127.0.0.1 unless YUKTA_SERVER_ADDRESS is set; a non-loopback address needs a key or the server does not start (but see guardMcpKeyOnly in the boot guide). |
+
+### Semantics clients can rely on
+
+| Topic | Guarantee |
+|---|---|
+| Reply shape | Every reply is an ApiResponse. Success has data; failure has error, path and a possibly empty list of field errors. |
+| Start | 202 means admitted, not finished. The same Idempotency-Key (same session and workflow, inside core's window) returns the first execution id. |
+| Control commands | Reply is sent after core acknowledges; the effect is visible through status. Core applies commands per run in order. |
+| Request id | Echoed in X-Request-ID on every request that passes the key check; it is the only detail a 500 gives. |
+| Error text | 5xx never contains exception text. 4xx contains core's message, so core must keep messages client-safe. |
+| Paging | Newest first for runs, alphabetical for sessions. Cursor is the id of the last item. An unknown cursor starts again from the first item. |
+| Streams | Event ids count from 0 per connection; heartbeat every 15 s; reconnect with Last-Event-ID. Live parts are best effort. |
+| Validation | Unknown JSON fields are rejected; each bad field is reported; validate answers 200 with valid:false for a bad draft. |
+
+### Defaults and limits
+
+| Setting | Value | Where |
+|---|---|---|
+| server.address | 127.0.0.1 (Docker image: 0.0.0.0, needs a key) | boot application.yaml, Dockerfile |
+| yukta.api-key | empty (API open) | web ApiKeyFilter |
+| Page size | default 500, maximum 1000; a limit below 1 means 500 | Pagination |
+| Heartbeat comment | every 15 s | SseStreams |
+| Live log buffer | 1024 lines per running log stream | LogManagementController |
+| Request id | [A-Za-z0-9-]\{1,64\}, else a UUID | RequestTracingFilter |
+| Session id | at most 256 chars, no '/', backslash or '..' | @SessionId (core) |
+| Session name and description | at most 256 chars each; both required | ConfigRequest |
+| Project path | required, at most 1024 chars, no other check | @ProjectPath (core) |
+| Node command payload | 1 to 100 entries | NodeCommandRequest |
+| Stop mode | DRAIN (default), CANCEL, KILL | WorkflowController |
+| Node stop | immediate=false, reason 'Stopped via REST API' | ExecutionControlController |
+| Status stream history | includeHistory=true; core keeps 5 minutes | ExecutionController, application.yaml |
+
+### Enforced or not
+
+| Concern | Status | What happens |
+|---|---|---|
+| Authentication | \*\*Yes.\*\* Optional keys, hashed, rotatable | Named keys or one key; open on loopback when none is set. |
+| Authorization and roles | \*\*Yes.\*\* VIEWER, OPERATOR, ADMIN | Role by method and path prefix; a session-limited key reaches only its sessions. |
+| Session ownership | \*\*Partly.\*\* Filter for limited keys; controllers uneven | Canonical /api/executions routes check existence only; a limited key is checked by the filter. |
+| Caller identity in logs | \*\*Partly.\*\* Control commands only | Control commands carry the actor key:&lt;name&gt; in the execution log; the access log has none. |
+| Rate limiting | \*\*No.\*\* None | No limit on request rate or on open streams in this module. |
+| Request body size | \*\*Yes.\*\* 1 MiB default | spring.codec.max-in-memory-size (YUKTA_LIMITS_MAX_BODY); larger bodies get 413. |
+| Input validation | \*\*Yes.\*\* At the edge | Shape and length are checked before core. |
+| Secrets in responses | \*\*Partly.\*\* Not redacted | Config is returned as stored; safe only if authors use secret references. |
+
+### What the web layer remembers
+
+It holds nothing that matters across a restart.
+
+| Item | After a restart |
+|---|---|
+| Open SSE connections | \*\*No.\*\* All drop; clients must reconnect with Last-Event-ID |
+| Event ids | \*\*No.\*\* Positions in a rebuilt stream, not stored anywhere |
+| Idempotency keys | \*\*Note.\*\* Kept by core, not web (depends on core's log) |
+| API key | \*\*Yes.\*\* Read again from configuration |
+| Sessions, runs, logs | \*\*Note.\*\* Owned by core; depends on its store and log settings |
+
+## Reference
+
+### Endpoints: sessions, workflows and drafts
+
+42 operations in total; 56 routes counting 14 deprecated aliases. All paths are under /api and answer with the ApiResponse envelope unless noted.
+
+| Method | Path | What it does | Notes | Errors |
+|---|---|---|---|---|
+| POST | /api/sessions | Create or replace a session and its workflows | Body: ConfigRequest. 200, no data | 400 validation, unknown field |
+| GET | /api/sessions?limit&cursor | Session ids, alphabetical | Paged (X-Next-Cursor). Loads all ids per call | - |
+| GET | /api/sessions/summaries?limit&cursor | Lean rows: id, name, tag names, workflow count | Paged; loads only the page's configs, in order; unreadable sessions are skipped with a warning | - |
+| GET | /api/sessions/\{sid\} | Details: tag names and workflow ids | Not the full config (tag values omitted) | 404 unknown session |
+| GET | /api/sessions/\{sid\}/config | Full configuration, same shape POST accepts | Node config returned as stored | 404 |
+| GET | /api/sessions/\{sid\}/workflows | Workflow summaries: node and edge counts, latest run status | Latest status from core | 404 |
+| GET | /api/sessions/\{sid\}/workflows/\{wid\} | One workflow definition | - | 404 |
+| GET | /api/sessions/\{sid\}/workflows/\{wid\}/graph | Nodes with plugin metadata and ports, edges, topological order | For the canvas | 404 |
+| GET | /api/sessions/\{sid\}/workflows/\{wid\}/executions?limit&cursor | Runs of one workflow, newest first | Paged | 404 |
+| POST | /api/sessions/validate | Dry-run a draft workflow | Always 200: valid, first problem, output ports per node. Catches errors itself | 400 only for a malformed body |
+
+### Endpoints: starting, stopping and reading runs
+
+Canonical routes are /api/executions/...; the /api/workflow/... forms are deprecated aliases. The CLI still calls almost all aliases; the UI calls the two status aliases.
+
+| Method | Path | What it does | Notes | Errors |
+|---|---|---|---|---|
+| POST | /api/workflow/start | Start a run. Header Idempotency-Key optional | 202 with data.executionId. Body: sessionId, workflowId, payload | 404 session or workflow, 429 limit, 400 body |
+| POST | /api/workflow/\{sid\}/\{wid\}/stop?mode= | Stop every active run of a workflow | DRAIN (default), CANCEL or KILL. Returns signalled ids | 404 |
+| GET | /api/workflow/\{sid\}/history?limit&cursor | A session's runs, newest first | Paged; whole history loaded then cut | 404 unknown session |
+| POST | /api/executions/\{eid\}/stop (alias /api/workflow/executions/\{eid\}/stop) | Stop one run | Returns the same id. No ownership check | 404 |
+| POST | /api/executions/\{eid\}/restart (alias /api/workflow/executions/\{eid\}/restart) | Stop and start again with the original payload | New execution id. No ownership check | 404; 500 if a restart is already in progress |
+| POST | /api/executions/\{eid\}/restart/\{node\} (alias /api/workflow/executions/\{eid\}/restart/\{node\}) | Restart from a node using its parents' checkpoints | New execution id | 404 |
+| POST | /api/executions/\{eid\}/nodes/\{nid\}/retry | Restart from a failed node | Canonical only. Existence checked | 404 |
+| GET | /api/executions/\{eid\} (alias /api/workflow/\{sid\}/status/\{eid\}) | Progress snapshot | Alias carries a session and checks ownership | 404 |
+
+### Endpoints: controlling a live run
+
+Each answers 200 with the execution id after core acknowledges the command. Aliases are /api/workflow/\{sid\}/\{eid\}/... and /api/workflow/\{sid\}/\{eid\}/node/\{nid\}/...; they check ownership, the canonical routes check existence.
+
+| Method | Path | What it does | Notes | Errors |
+|---|---|---|---|---|
+| POST | /api/executions/\{eid\}/pause \| resume | Pause or resume the whole run | Alias exists | 404; 403 supervisor veto |
+| POST | /api/executions/\{eid\}/nodes/\{nid\}/pause \| resume | Pause or resume one node | Alias exists | 404 |
+| POST | /api/executions/\{eid\}/nodes/\{nid\}/stop?immediate=false&reason= | Stop a node, draining or at once | Defaults: drain, 'Stopped via REST API'. Alias exists | 404 |
+| POST | /api/executions/\{eid\}/nodes/\{nid\}/skip?skip=true | Mark a node as pass-through, or undo | Core rejects it for running executions. Alias exists | 400 rejected, 404 |
+| POST | /api/executions/\{eid\}/nodes/\{nid\}/step/enable \| step/disable | Turn step mode on or off | Alias exists | 404 |
+| POST | /api/executions/\{eid\}/nodes/\{nid\}/step | Let exactly one message through | Node must be in step mode. Alias exists | 404 |
+| POST | /api/executions/\{eid\}/nodes/\{nid\}/breakpoint?field=&equals= | Pause the node when a payload field equals a value | Canonical only. No ownership check | 404 |
+| DELETE | /api/executions/\{eid\}/nodes/\{nid\}/breakpoint | Clear the breakpoint | Canonical only | 404 |
+| POST | /api/executions/\{eid\}/priority?priority= | Change the priority of a run waiting for a slot | Higher runs first. Canonical only | 400 if not waiting |
+| POST | /api/scheduler/limits?maxConcurrent=&maxPerWorkflow= | Set the global execution limits live | Data: both values. 0 = no limit, negative treated as 0. Not remembered after restart | - |
+
+### Endpoints: streams (Server-Sent Events)
+
+All send numbered events and a ': ping' comment every 15 s. Reconnect with the Last-Event-ID header.
+
+| Method | Path | What it does | Notes | Errors |
+|---|---|---|---|---|
+| GET (SSE) | /api/executions/\{eid\}/status/stream?includeHistory=true (alias /api/workflow/\{sid\}/status/\{eid\}/stream) | Progress events for one run | History window is core's setting (5 minutes) | 404 before the stream starts |
+| GET (SSE) | /api/sessions/\{sid\}/executions/\{eid\}/logs | Formatted log lines: stored, then live | Ends when the run is terminal. 1024-line live buffer | 404 unknown or foreign run |
+| GET (SSE) | /api/sessions/\{sid\}/executions/\{eid\}/logs/entries | Structured entries (level, stream, message) | Same join as /logs | 404 |
+| GET (SSE) | /api/events/stream?executionId=&type= | All execution events | Types: NodeStatusChanged, WorkflowStatusChanged, ControlOutcome, LogLine. No replay, no session filter, best effort | - |
+
+### Endpoints: catalogue, control bus and supervisors
+
+| Method | Path | What it does | Notes | Errors |
+|---|---|---|---|---|
+| GET | /api/plugins | All plugin types with category | Handles its own errors (500 with exception text) | 500 |
+| GET | /api/plugins/\{type\} | Description, usage pattern, UI design, output ports, configSchema | 404 built locally | 404 |
+| GET | /api/control/nodes | All nodes registered on the control bus | Not scoped by session | - |
+| GET | /api/control/workflows/\{wid\}/nodes | Live nodes of a workflow id | Not scoped by session | - |
+| GET | /api/control/workflows/\{wid\}/nodes/\{nid\}/heartbeat | Last heartbeat message of a node | - | - |
+| POST | /api/control/workflows/\{wid\}/nodes/\{nid\}/command | Send an admin command to a live plugin | Body is a map of 1 to 100 entries; source 'CONSOLE'. Returns the plugin's response payload | 400 body, 404 node |
+| GET | /api/supervisors | Supervisors and control-plane plugins in review order | Fields: id, kind, type, order, dryRun, maxCommandsPerSecond, applied, rejected, recorded, rateLimited | - |
+
+### Error mapping
+
+One handler for the whole module. Every row answers with the ApiResponse error envelope.
+
+| Exception | Status | Message | Typical cause |
+|---|---|---|---|
+| Bean-validation failure on a body | 400 | 'Validation failed' with one entry per field | Missing name, blank workflow id |
+| Malformed JSON, unknown field | 400 | 'Invalid request body' with the field, or a generic reason | workflowID typo |
+| ConstraintViolationException | 400 | 'Constraint violation' with paths | Annotated parameters |
+| ValidationException (web) | 400 | Its message and its list of errors | Explicit validation |
+| IllegalArgumentException | 400 | The exception message | Rejected state change, such as priority of a run that is not waiting |
+| NotFoundException (core) or ResourceNotFoundException (web) | 404 | The exception message | Unknown session, workflow, execution or node |
+| ControlRejectedException | 403 | The supervisor's reason | A supervisor vetoed the command |
+| ExecutionRejectedException | 429 | The exception message | Core's execution limit, or shutting down |
+| IllegalStateException | 500 | 'An unexpected error occurred. Reference: &lt;request id&gt;' | Includes conflicts such as 'Restart already in progress' |
+| Any other exception | 500 | Same generic text | Bugs and unmapped failures |
+
+### Controller conventions
+
+What a new endpoint should do to fit in.
+
+| Convention | Why |
+|---|---|
+| Return Mono&lt;ApiResponse&lt;T&gt;&gt; (or a Flux of ServerSentEvent for streams) | Keeps the server non-blocking and the reply shape uniform. |
+| Do not catch errors; let core throw | One handler decides the status code; no controller can leak or mis-map an error. |
+| Use /api/executions/\{eid\}/... for execution routes | The /api/workflow/... forms are deprecated aliases kept for the UI and CLI. |
+| Call ExecutionAccess when a session is in the path | Hides other sessions' runs behind the same 404 as unknown ones. |
+| Use Pagination for lists and SseStreams for SSE | Gives the standard limit, cursor, X-Next-Cursor, ids and heartbeat. |
+| Put validation on a request record, not in the controller | Records are immutable and validated before the method runs. |
+| Write 4xx messages that are safe for a client | Messages from core are echoed in 4xx replies. |
+| Add the route to OpenAPI annotations | Swagger UI and the UI's generated types are built from them. |
+
+### Deprecated aliases and who uses them
+
+| Alias | Canonical route | Used by |
+|---|---|---|
+| /api/workflow/executions/\{eid\}/stop \| restart \| restart/\{node\} | /api/executions/\{eid\}/stop \| restart \| restart/\{node\} | CLI (UI uses the canonical form) |
+| /api/workflow/\{sid\}/status/\{eid\} | /api/executions/\{eid\} | UI and CLI |
+| /api/workflow/\{sid\}/status/\{eid\}/stream | /api/executions/\{eid\}/status/stream | UI and CLI |
+| /api/workflow/\{sid\}/\{eid\}/pause \| resume | /api/executions/\{eid\}/pause \| resume | CLI |
+| /api/workflow/\{sid\}/\{eid\}/node/\{nid\}/pause \| resume \| stop \| skip \| step \| step/enable \| step/disable | /api/executions/\{eid\}/nodes/\{nid\}/... | CLI (UI uses the canonical form) |
+
+## Architecture decisions
+
+<AccordionGroup>
+<Accordion title="Thin controllers; errors thrown, mapped in one place">
+**Context.** A REST layer tends to grow its own rules and its own error formats per endpoint, which drift apart and sometimes leak internals.
+
+**Decision.** Controllers bind, call one core service and wrap the result. They do not catch errors. Core throws typed exceptions and GlobalExceptionHandler maps them to 400, 403, 404, 429 and 500. A 500 shows only a reference id.
+
+**Consequences.** Every endpoint fails in the same shape and rules live in one place (core), so REST, UI and MCP behave the same. But web depends on core's exceptions and messages, and unmapped types become 500.
+
+**Alternatives considered.** Catch and map in each controller: flexible but inconsistent and easy to leak. Return a result type instead of exceptions: explicit but noisy in reactive chains.
+
+**Revisit when.** a core failure needs a status the mapping cannot express (such as 409), or messages from core stop being safe to show.
+
+</Accordion>
+<Accordion title="Optional shared API key with a loopback default">
+**Context.** Yukta started as a local developer tool; remote access must be possible but must not happen by accident.
+
+**Decision.** server.address defaults to 127.0.0.1. One optional key, yukta.api-key, guards /api/\*\*; it is checked in a filter with a constant-time comparison.
+
+**Consequences.** Very easy to set up and a safe default on a laptop. Open on loopback; for anything else the server now requires a key (named keys give roles and session limits).
+
+**Alternatives considered.** Full identity (OIDC, roles) from day one: right for multi-tenant use but heavy for a local tool. No auth and rely on a reverse proxy: simplest, but invisible in the product and easy to forget.
+
+**Revisit when.** more than one trusted party uses a server, or the server holds multi-tenant data, or any deployment is reachable from an untrusted network.
+
+</Accordion>
+<Accordion title="One ApiResponse envelope for success and error">
+**Context.** Clients (UI, CLI, scripts, agents) need one predictable parsing path.
+
+**Decision.** Every reply is an ApiResponse with timestamp, status, message and data, or error, path and field errors. Lists are bare arrays inside data.
+
+**Consequences.** One parser everywhere and uniform OpenAPI. It differs from the standard ProblemDetail error format, so generic HTTP tooling does not understand it, and the status appears twice (HTTP and body).
+
+**Alternatives considered.** RFC 9457 ProblemDetail for errors and plain bodies for success: standard but two shapes. Wrapper types per endpoint: verbose and inconsistent.
+
+**Revisit when.** external integrations need standard error documents, or the envelope blocks streaming or large downloads.
+
+</Accordion>
+<Accordion title="Server-Sent Events with positional ids and a heartbeat">
+**Context.** Clients need live status and logs; the data flows one way, from server to browser.
+
+**Decision.** SSE over plain HTTP. Events are numbered from 0 per connection, a ': ping' comment goes out every 15 s, and Last-Event-ID resumes by skipping already-seen ids. Logs subscribe to live before reading history.
+
+**Consequences.** Simple, proxy-friendly, automatic reconnect in browsers. Ids are positions, not durable sequence numbers, and live parts are best effort.
+
+**Alternatives considered.** WebSocket: two-way but heavier to proxy and no built-in resume. Polling: simplest but slower and more load. Message broker: durable but a large new dependency.
+
+**Revisit when.** clients need guaranteed, gap-free delivery or two-way interaction, or log lines get durable sequence numbers.
+
+</Accordion>
+<Accordion title="Cursor paging by item id over a loaded list">
+**Context.** Lists (sessions, history) can be long; offsets break when new runs appear at the top.
+
+**Decision.** limit (default 500, max 1000) plus cursor = id of the last item; the next cursor is returned in X-Next-Cursor and the list stays a bare array. Web slices the list core returns.
+
+**Consequences.** Stable pages and a small client API. But cost grows with the full list, and an unknown cursor restarts at the first item.
+
+**Alternatives considered.** Offset paging: simple but shifts under inserts. Paging inside the store: efficient but needs core and store changes. Return everything: simplest, unbounded.
+
+**Revisit when.** a list grows past a few thousand items or paging cost shows up in latency.
+
+</Accordion>
+<Accordion title="Canonical /api/executions routes with deprecated /api/workflow aliases">
+**Context.** Execution operations had grown several URL shapes; clients (UI, CLI) already depended on them.
+
+**Decision.** Every execution operation has one canonical path without a session, and the older session-carrying path stays as a deprecated alias that also checks ownership.
+
+**Consequences.** Existing clients keep working while the shape converges. Two route families to test, and the check and the alias are coupled.
+
+**Alternatives considered.** Hard cut: clean but breaks clients. Keep both forever: no migration but permanent clutter.
+
+**Revisit when.** the CLI and UI have moved, or ownership moves to server-side resolution.
+
+</Accordion>
+<Accordion title="Dry-run validate answers 200 with valid:false">
+**Context.** An editor wants to check a draft on every change and show the first problem inline.
+
+**Decision.** POST /api/sessions/validate runs the real validator without saving and returns valid, the first problem and each node's output ports. Only a malformed body is a 400.
+
+**Consequences.** Easy for an editor, no HTTP error handling for a normal 'no'. But it needs its own error catching, which reports e.getMessage() for every kind of failure.
+
+**Alternatives considered.** Return 400 with errors: standard but treats a normal answer as an error. Validate only on save: simpler but a slower edit loop.
+
+**Revisit when.** validation needs to report many problems at once, or unexpected errors must not be shown to callers.
+
+</Accordion>
+<Accordion title="Web holds no state and delegates every decision to core">
+**Context.** REST, the UI, the CLI and MCP must behave identically for starts, limits and control commands.
+
+**Decision.** Web keeps no state of its own and adds no rules. Limits, ordering, idempotency, supervisors and checkpoints are core's. Even ownership uses core's tracker.
+
+**Consequences.** No duplicated logic between REST and MCP; web is easy to test. But web cannot protect itself (no limits, no identity) unless core or a gateway does.
+
+**Alternatives considered.** Put policy (rate limits, quotas, per-user rules) in web: protects the edge but duplicates MCP's path. A shared policy layer in core: one place, more coupling.
+
+**Revisit when.** web needs per-client policy that MCP should not share, or the module is deployed apart from core.
+
+</Accordion>
+</AccordionGroup>
+
+## Glossary
+
+| Term | Meaning | Note |
+|---|---|---|
+| WebFlux | Spring's non-blocking web framework. A few event-loop threads serve many connections; code returns Mono or Flux instead of waiting. | It is why streams are cheap, and why blocking code in a controller would be harmful. |
+| Mono / Flux | Reactor types for 'one result later' and 'many results over time'. | Every controller returns one of them. |
+| Reactive stream | A sequence of values handled as they arrive, with the consumer able to signal how much it can take (back-pressure). | The basis of Yukta's engine and of the SSE streams. |
+| Back-pressure | A slow consumer tells the producer to slow down, so memory stays bounded. | The live feeds behind SSE do not use it; they drop events for slow readers instead. |
+| Event loop | A small set of threads that react to network events and must never block. | A long blocking call in a controller would stall many requests. |
+| Virtual thread | A lightweight Java thread; enabled in boot so blocking work in plugins does not tie up real threads. | Explains why blocking plugins do not hurt the web layer. |
+| Filter (WebFilter) | Code that wraps every HTTP exchange, before and after a controller. | Web uses three: key, request id, access log. |
+| Controller | A class that maps URLs and HTTP methods to methods. | Web has eleven; they hold no rules. |
+| API key | A shared secret a client sends with each call. | The only access control in web; optional. |
+| Bearer token | An Authorization header of the form 'Authorization: Bearer &lt;secret&gt;'. | One of the two accepted ways to send the key. |
+| Constant-time comparison | Comparing secrets so the time taken does not depend on where they differ. | Stops guessing the key by timing. |
+| Loopback | The address 127.0.0.1: only the same machine can connect. | The default bind, so a fresh install is not reachable from the network. |
+| Request id | A short unique label for one request, returned in X-Request-ID and printed in every log line. | The only detail a 500 gives, and how support finds the cause. |
+| MDC (logging context) | A per-thread map the logger prints with each line, here holding the request id. | Makes the id appear even when work hops threads. |
+| Reactor context | Per-subscription key-value data that travels with a reactive chain. | Carries the request id between threads. |
+| ApiResponse | The standard JSON envelope for every reply. | Clients parse one shape. |
+| Record | A short Java class for immutable data. | All request and response types are records. |
+| Bean Validation | Annotations like @NotBlank and @Size that declare the rules for a field. | Bad input is rejected at the edge with a field list. |
+| MapStruct | A tool that generates conversion code at compile time. | Converts request records to core types without reflection. |
+| GraalVM native image | Compiles the server ahead of time to a fast-starting executable; limits reflection. | One reason mappers are generated at build time. |
+| OpenAPI / Swagger UI | A machine-readable API description and a page that lets you try it, generated from the annotations. | Served at /v3/api-docs and /swagger-ui.html; not behind the key. |
+| Server-Sent Events (SSE) | A one-way stream of text events over one HTTP response. | Used for status, logs and the event feed. |
+| Last-Event-ID | A header a reconnecting SSE client sends with the last id it received. | Lets the stream skip what the client already has. |
+| Heartbeat comment | A ': ping' line sent every 15 s on an idle stream. | Keeps proxies from closing it as idle. |
+| Replay buffer | A bounded memory of recent items given to late subscribers. | The log stream's live feed keeps 1024 lines so nothing written during the history read is lost. |
+| Best-effort feed | A broadcast that drops items for subscribers that cannot keep up. | Why slow stream readers miss events. |
+| Idempotency-Key | A client-chosen header that makes a repeated request return the first result. | Makes a retried start safe. |
+| 202 Accepted | HTTP status meaning 'received, not finished'. | What a start returns. |
+| 429 Too Many Requests | HTTP status for 'slow down'. | Core's limit refusing a start. |
+| Cursor paging | Reading a list in pages, each reply naming where to continue. | Used for sessions and history. |
+| Session | A workspace that groups config, workflows and runs. | The first id in many URLs. |
+| Workflow | A stored graph of nodes and edges. | Started to make a run. |
+| Execution | One run of a workflow, with its own id. | The id every control and stream route needs. |
+| Node and port | A node is one step; a port is a named output it can emit on, such as an error port. | The validate reply lists each node's ports for the editor. |
+| DAG / topological order | A graph with one-way edges and no loops; a topological order lists steps so each follows its inputs. | The graph endpoint returns it for the canvas. |
+| Control bus | Core's channel for commands to running nodes, with a registry of live nodes. | The control views and the admin command talk to it. |
+| Supervisor | An automated reviewer (rule or AI) attached to the control bus that can approve, veto or issue commands. | Its veto is the 403; GET /api/supervisors lists them. |
+| DRAIN / CANCEL / KILL | Stop modes: let in-flight work finish; cancel it; stop at once. | Chosen by the mode parameter when stopping a workflow. |
+| Breakpoint and step mode | Debugging aids: pause a node on a value; hold messages and release one at a time. | Available through the control endpoints. |
+| Checkpoint | Core's saved output of a node, used to restart a run from a node. | Restart-from-node and retry rely on it. |
+| Actuator | Spring's built-in health, info and metrics endpoints. | Exposed by boot and outside the key. |
+| MCP | Model Context Protocol: how AI agents call tools on a server. | A parallel front door with its own key. |

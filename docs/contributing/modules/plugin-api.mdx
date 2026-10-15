@@ -1,0 +1,811 @@
+---
+title: "Plugin API module"
+description: "plugin-api is the contract between Yukta's engine and the code that does the actual work."
+---
+
+plugin-api is the contract between Yukta's engine and the code that does the actual work. Every node in a workflow (call an API, ask a model, wait for a person) is a plugin that implements one of three small interfaces here, and every supervisor that watches or steers runs implements another. The module holds almost no logic of its own: it holds the shape of the conversation. This page is for thinking about that contract: open a component, replay a scenario, then challenge the weak spots.
+
+| Property | What it means |
+|---|---|
+| Three small shapes | A trigger produces a stream of messages, a processor turns one stream into another, a terminal consumes a stream. Everything else on the interface has a safe default, so a plugin can be three methods long. |
+| One shared instance | Core creates one object per plugin type and uses it for every node, workflow and session. State must travel in the config argument, not in fields. This is documented, not enforced. |
+| Control as data | Pause, stop, skip, step, restart and breakpoints are 16 typed commands. Supervisors (rules, models, your code) read events and emit the same commands, and can also veto any command. |
+| A thin, sandboxed toolbox | Expression evaluation, failure routing and config checks are shared helpers, so plugins do not each invent them. The expression helper cannot call static code or construct objects. |
+
+<Note>
+  Open risks, bugs and improvement ideas for this module are on the internal pages (sign-in required): [Risks](/internal/risks#plugin-api), [Bugs](/internal/bugs) and [Improvements](/internal/improvements#plugin-api).
+</Note>
+
+## Primer
+
+Yukta runs workflows: graphs of steps such as 'receive a webhook, classify with a model, call an API, notify someone'. The engine (core) should not know how to call every API or model, and the people who write those steps should not need to know how the engine schedules, retries or stops things. **plugin-api** is the agreement between the two sides. It is a small Java library of interfaces and helpers that core, the REST layer and the built-in plugins all compile against. A new plugin is a class that implements one interface; the engine discovers it and calls it.
+
+<Tip>
+  Think of a power socket standard. The socket (this module) defines the shape of the pins, the voltage and what a safety cut-off looks like. Appliances (plugins) can be anything as long as they fit. The building (core) provides power and can cut it. There is also a smoke detector standard (supervisors): any detector that fits the socket can listen to what is happening and trip a breaker, and a second kind of device can refuse to let a breaker be tripped.
+</Tip>
+
+### Where plugin-api sits
+
+| Layer | Role |
+|---|---|
+| plugins | The code that does the work: HTTP_REQUEST, LLM_CALL, rule-based control planes. They implement this contract. |
+| plugin-api | The contract: three plugin kinds, control commands, supervisor and store interfaces, small helpers. This page. (this module) |
+| core | The engine. Finds plugins, validates and runs them, applies control commands, hosts supervisors. |
+| web / mcp / ui | Read plugin descriptors and config schemas to build forms and API answers, and send control commands. |
+| messaging | The Message type that flows through every plugin. plugin-api exposes it to its users. |
+
+plugin-api has no running code of its own: no threads, no server, no database. Its only dependencies are Reactor (streams), the jakarta annotations, the messaging module, and Spring's expression library (kept private).
+
+### The vocabulary in eight cards
+
+| Term | Meaning | Example |
+|---|---|---|
+| Plugin | A class that gives a workflow node its behaviour. It has a unique type string (for example HTTP_REQUEST) that workflow definitions refer to. | A node of type LLM_CALL is run by the one plugin object whose getType() returns LLM_CALL. |
+| Three kinds | A **trigger** starts data flowing (no input). A **processor** receives a stream and returns a stream. A **terminal** receives a stream and finishes it (save, send, notify). | A webhook is a trigger, a classifier is a processor, an email sender is a terminal. |
+| Message and port | The unit of data passed between plugins: a payload plus headers. A plugin can have several named output ports; the default port is called 'default'. | A filter has ports match and discard; failed messages go out on a port named 'error'. |
+| Shared instance | Core creates one plugin object per type and reuses it for every node. Settings arrive as a map on every call, so the object itself must hold no per-node state. | Two LLM_CALL nodes with different prompts use the same Java object and different config maps. |
+| Config and descriptor | A node's settings are a plain map. A plugin may describe itself (text, usage, a small HTML picture) and declare its fields so the UI can draw a form instead of a raw JSON box. | A field list says 'url: required string, method: one of GET/POST'. |
+| Control command | A typed instruction to a live run, such as pause the workflow, skip a node or stop. There are exactly 13, defined here as a closed list. | StopWorkflowCommand with mode DRAIN. |
+| Supervisor | A watcher that receives events from all runs and may emit control commands, and may also approve or refuse any command before it runs. | A rule says 'if a node fails 3 times, pause the workflow'. |
+| Checkpoint | The last message each node produced in a run, kept by a store so a run can be restarted from a node without redoing the earlier work. | Restart from node C replays the saved outputs of C's direct parents. |
+
+### One plugin, from startup to stop
+
+A processor plugin called HTTP_REQUEST used in one workflow. Click a stage to see what happens, why, and what can go wrong.
+
+<Steps>
+<Step title="Registered">
+**What happens.** At startup Spring collects every Plugin bean into a list and core puts them in a map keyed by getType(). One object per type is kept.
+
+**Why it is built this way.** A map keyed by type makes lookups trivial for every later step. Two plugins with the same type would make a workflow ambiguous, so core refuses to start and names both classes.
+
+**Can go wrong.** A plugin that keeps per-node state in a field works in a demo with one node and breaks when two nodes share the object. Nothing checks this.
+
+</Step>
+<Step title="Validated">
+**What happens.** When a workflow is validated (before it runs), core calls validateConfig(config) for every node, then validateInContext(context, config) with the node's incoming and outgoing edges. Both return a Mono that errors if the settings or the graph position are wrong.
+
+**Why it is built this way.** Failing here means the user sees 'url is required' immediately, not after half the workflow has run. The context lets a plugin check things the config cannot show, such as 'I need exactly one incoming edge'.
+
+**Can go wrong.** A plugin that skips validation turns a typo into a runtime error deep in a run. ConfigValidation has helpers (positive number, required text) to make the checks one line.
+
+</Step>
+<Step title="Prepared">
+**What happens.** Right before a run, core calls initialize(config) and then prepare(config) for each node. A plugin pre-parses expressions or warms a cache here.
+
+**Why it is built this way.** Parsing once up front keeps the hot path fast. SpelUtils.preParse(expression) fills a bounded cache of 1000 parsed expressions.
+
+**Can go wrong.** These methods run again for every node that uses the same plugin, on the same shared object. If one stores its argument in a field, the last node wins.
+
+</Step>
+<Step title="Runs">
+**What happens.** Core calls process(input, config) once per run of the node. The plugin returns a stream of output messages. A plugin that blocks (a database call) says isBlocking() is true and core runs it on a virtual thread.
+
+**Why it is built this way.** The engine, not the plugin, owns the timeout (the node's timeoutSeconds, else getDefaultTimeout(config), 30 s unless overridden), the buffer size (default 1024) and thread choice. A long job tells the engine it is alive through the heartbeat so the idle timeout restarts.
+
+**Can go wrong.** A blocking call in a plugin that said isBlocking() is false ties up a shared reactive thread. A long silent step with no heartbeat looks dead and times out.
+
+</Step>
+<Step title="Failure routed">
+**What happens.** When the HTTP call fails, a plugin that wraps its work in PluginGuard.guard(...) either raises the error (FailureMode ERROR, the default) or re-emits the input message on the port named 'error' with failure details (FailureMode CONTINUE).
+
+**Why it is built this way.** One shared helper gives every plugin the same two behaviours and the same OK/ERROR metric counts. A downstream node on the error port can then retry, alert or store the failed message.
+
+**Can go wrong.** A plugin that invents its own error convention breaks routing: a workflow author cannot rely on 'error' meaning the same everywhere.
+
+</Step>
+<Step title="Control signal">
+**What happens.** An operator sends a message addressed to one node (workflow id plus node id). Core looks up the live plugin and calls onControlSignal(message). The plugin may reply with a message or nothing.
+
+**Why it is built this way.** This is separate from the 16 typed commands (pause, stop). Those go to the engine; this one goes to the plugin itself, for plugin-specific actions.
+
+**Can go wrong.** The payload is an untyped message and the contract does not describe which signals a plugin understands, so callers must know by convention.
+
+</Step>
+<Step title="Stopped">
+**What happens.** A StopWorkflowCommand (mode DRAIN, CANCEL or KILL) is turned into a Stop directive and applied. DRAIN stops the triggers and lets in-flight work finish; CANCEL and KILL cancel the streams at once, which a plugin sees as an ordinary Reactor cancel signal.
+
+**Why it is built this way.** Cancel is the only stop signal a plugin sees, so cleanup belongs in doOnCancel or doFinally on the stream they return.
+
+**Can go wrong.** A plugin that ignores cancel keeps working after the run ended, for example an open HTTP call.
+
+</Step>
+<Step title="Shutdown?">
+**What happens.** The contract has shutdown(config) for releasing resources. Core never calls it, because the one shared object serves every workflow.
+
+**Why it is built this way.** Release long-lived resources through the owning Spring bean's lifecycle (for example a @PreDestroy method), not through this method.
+
+**Can go wrong.** A plugin author reading the interface assumes shutdown runs and leaks a connection pool.
+
+</Step>
+</Steps>
+
+### plugin-api in plain words
+
+<Steps>
+<Step title="Describe">
+A plugin says its type, its kind and optionally its settings and a short description.
+</Step>
+<Step title="Register">
+Core collects every plugin object and refuses to start if two share a type.
+</Step>
+<Step title="Check">
+Before a run, the plugin is asked whether the settings and the node's place in the graph make sense.
+</Step>
+<Step title="Run">
+The plugin turns an input stream into an output stream; the engine wraps timeouts, threads and counts around it.
+</Step>
+<Step title="Fail">
+If a call fails, a helper either raises the error or sends the message down the 'error' port.
+</Step>
+<Step title="Steer">
+Operators and supervisors send typed commands; processors turn them into actions; supervisors can veto.
+</Step>
+<Step title="Remember">
+A store keeps each node's last output so a run can restart from the middle.
+</Step>
+</Steps>
+
+## Components
+
+### Plugin contract
+
+*Plugin + 3 kinds*
+
+Defines what every workflow node plugin must provide and what it may override. The base interface Plugin has two required members (a unique type string and a category); each kind adds one required stream method.
+
+- Three kinds extend the base. A trigger implements start(config) and returns a Flux of messages (a Flux is a stream of zero or more items). A processor implements process(input, config) and returns a Flux. A terminal implements consume(input, config) and returns a Mono (a result that completes once) that finishes when everything was consumed. The category (TRIGGER, PROCESSOR, TERMINAL) is filled in by the kind, so an author does not write it.
+- Everything else has a default. Timeout 30 seconds, buffer size 1024, one output port named 'default', not blocking, validation passes, initialize/prepare/shutdown do nothing, no control-signal handling. A plugin that overrides nothing but the two required members is valid. Example: the three-line uppercase processor in the primer.
+- Two defaults take the node's config: getOutputPorts(config) and getDefaultTimeout(config). They exist because the answer can depend on settings. A router whose ports come from its config returns different ports per node; an LLM call with retries returns a longer timeout than a plain HTTP call, so the engine does not cut it off at 30 seconds.
+- isBlocking() tells core how to run the plugin. If true, core subscribes it on a virtual thread (a cheap thread that can wait on I/O without hogging a CPU thread). If false (default), the plugin runs on the reactive threads and must never block. The plugin does not choose the thread itself.
+- Core keeps one shared instance per type. At startup the registry builds a map from getType() to the object and throws if two plugins share a type, naming both classes, so a conflict is a startup failure, not a wrong node at runtime. Because one object serves every node, per-node settings must come from the config argument on each call.
+- Validation has two hooks. validateConfig(config) checks settings alone. validateInContext(context, config) also sees the node's incoming and outgoing edges. Both return a Mono that errors on failure. initialize and prepare run once per node before a run, on the same shared object, so they must be repeatable and only warm caches.
+
+- **Guarantees.** The compiler guarantees that a plugin supplies a type, a category and its stream method. Core guarantees unique types at startup. Statelessness of the shared instance is a rule in the Javadoc, not something the code checks.
+- **State.** None in this module. Interfaces only. Whatever a plugin keeps in its own fields is lost on restart and shared across all nodes of its type.
+- **Ceiling.** The contract has 18 members, which is a lot for a plugin author to learn, though only 3 are required. Adding a new default method is safe; adding an abstract one breaks every plugin.
+- **On failure.** A plugin that returns a Flux that errors fails its node; engine policy then applies. shutdown(config) exists but core never calls it, and isComputationallyHeavy and suppressOptimizationHint are not read by core.
+
+**Settings:** `getType()`, `getCategory() (filled by the kind)`, `getDefaultTimeout(config), default 30 s`, `getDefaultBufferSize(), default 1024`, `isBlocking(), default false`
+
+### Metadata & schema
+
+*describe, ConfigField, UiDesign*
+
+Lets a plugin describe itself and its settings without being run, so UIs, REST and agents can list and configure plugins.
+
+- describe() returns a PluginDescriptor with three parts: a description, a usage pattern (free text, such as a sample config), and an optional UiDesign. The default is an empty descriptor, so describing is optional.
+- UiDesign carries a small block of HTML plus a width and height. The UI draws it as the node's picture. Many plugins repeat nearly the same HTML (colour, icon, label), which is a known duplication in the plugins module.
+- getConfigSchema() returns a list of ConfigField entries: name, type, required flag, default, allowed options and a one-line description. Types are STRING, NUMBER, BOOLEAN, ENUM, LIST, MAP, EXPRESSION and SECRET. EXPRESSION means 'edit as a SpEL or template text in a code-style box'; SECRET means 'the value should be a decrypted:&lt;key&gt; reference, not the credential itself'.
+- If the schema is empty (the default) the UI falls back to a raw JSON editor and the usage pattern text. So a plugin with no schema still works, but the form is poorer.
+- Three factory methods keep declarations short: required(name, type, description), optional(name, type, default, description) and choice(name, required, default, description, options...) which produces an ENUM.
+
+- **Guarantees.** Field options are copied into an immutable list. Descriptor and schema are read-only data with safe empty defaults.
+- **State.** None. Read by web (the plugin list endpoint) and by the graph service that describes workflows.
+- **Ceiling.** The schema is flat: no nested objects, no conditional fields (show field B only if field A is X), and no validation rules beyond required and the options list.
+- **On failure.** The schema is not checked against what the plugin really reads. If the code reads a key the schema omits, the UI form hides a real setting; the module's CLAUDE.md asks authors to keep names in step by hand.
+
+**Settings:** `ConfigField.Type: STRING NUMBER BOOLEAN ENUM LIST MAP EXPRESSION SECRET`, `PluginCategory: TRIGGER PROCESSOR TERMINAL`
+
+### Graph context, liveness
+
+*WorkflowContext, heartbeat*
+
+Gives a plugin two pieces of engine information: the edges around its node during validation, and a way to report liveness during a long run.
+
+- WorkflowContext holds the node id, the list of outgoing edges and the list of incoming edges. Each edge records source, target and the optional source port. Core builds it for each node during validation and passes it to validateInContext. The constructor copies the lists, so later changes by the caller are not seen.
+- A plugin can use the context to enforce a graph rule. Example: a JOIN-like plugin rejects a workflow in which it has fewer than two incoming edges, with a clear message, before anything runs.
+- The heartbeat is a Reactor context entry under the key 'yukta.heartbeat'. Its value is a Runnable. A long-running plugin reads it with Mono.deferContextual and runs it now and then. Each call restarts the node's idle timeout. Example: a 10-minute process step that prints progress every minute calls the heartbeat each time so it is not declared dead after 30 seconds of silence.
+- The key is absent outside a workflow run (for instance in a unit test), so plugins must handle a missing key. Core also puts execution, node, workflow and session ids in the same Reactor context under its own keys; those are core's, not defined here.
+
+- **Guarantees.** The context is immutable once built. The heartbeat only restarts the idle clock; it does not extend a hard overall limit.
+- **State.** None. The heartbeat is per subscription and lives only for the run.
+- **Ceiling.** Only direct neighbours are visible, not the whole graph, so a plugin cannot check a rule like 'there is a terminal somewhere downstream'.
+- **On failure.** If a plugin never beats and works silently longer than its idle timeout, the engine times the node out as if it were dead.
+
+**Settings:** `WorkflowContext.HEARTBEAT_KEY = yukta.heartbeat`
+
+### Expression sandbox
+
+*SpelUtils (SpEL, cached)*
+
+Evaluates the expressions that users write in workflow settings (a filter condition, a branch rule, a mapping) against a message, inside a restricted context.
+
+- It uses Spring's SpEL (Spring Expression Language, a small expression syntax) with a SimpleEvaluationContext, the restricted variant. Allowed: read properties, read map keys, call a short list of safe methods (such as name.startsWith('x'); about 40 names plus everything in java.time), and use variables passed in (#n). Not allowed: static access T(java.lang.System), constructors (new java.io.File), and bean references (@someBean). Tests assert each of these is rejected, including 'a'.getClass().forName(...).
+- Why this matters: expressions come from workflow definitions, which come from users over REST or MCP. The original design used the full evaluation context, which let a workflow author run any Java code on the server. The restricted context closed that hole (an old review finding, now fixed).
+- Parsed expressions are cached in a least-recently-used map of at most 1000 entries, so the same expression text is parsed once. The cache is guarded by one lock. preParse(text) lets a plugin parse during prepare; blank text is ignored.
+- Two entry points: evaluateSync(expression, root[, variables]) returns the value directly, and evaluate(...) wraps it in a Mono that runs when subscribed. A fresh evaluation context is built per call, so variables set by one call never leak into the next (a test checks this).
+- The result type is chosen by the caller through generics, with no check. A caller that expects a Boolean and gets a String fails with a ClassCastException at the call site.
+
+- **Guarantees.** No static calls, no object construction, no bean access, no property writes; variables never leak between calls; the parse cache never exceeds 1000 entries.
+- **State.** A process-wide static cache of parsed expressions, lost on restart (it only saves parsing time).
+- **Ceiling.** One lock around the cache, and parsing happens while holding it. There is no evaluation timeout: an expression that loops through a large collection runs until it finishes.
+- **On failure.** A bad expression throws a SpEL exception; nothing is cached for it. Callers should surface it as a config error in validateConfig by parsing early.
+
+**Settings:** `MAX_CACHED = 1000 (not configurable)`
+
+### Failure & config helpers
+
+*PluginGuard, FailureMode*
+
+Shared building blocks so every plugin handles failure, metrics and config checking the same way: PluginGuard, FailureMode, PluginMetricsReporter, ConfigValidation, ResultCollector, MessageMapper and three exception types.
+
+- FailureMode has two values. ERROR (default) lets the exception fail the node. CONTINUE turns the failure into a message. FailureMode.from(value) parses a config text case-insensitively; null gives ERROR; anything else throws an IllegalArgumentException that lists the valid values.
+- PluginGuard.guard(operation, input, mode, reporter, metric) wraps one message's work. On success it counts OK. On failure it counts ERROR and then either re-raises (ERROR mode) or returns the original input with failure details attached (the plugin's node id, the exception class name and its message) and its source port set to 'error' (CONTINUE mode). A downstream edge from the 'error' port can then deal with it. PluginGuard.counted(flux, ...) only counts, for plugins that handle failures themselves.
+- PluginMetricsReporter is a one-method interface: increment(nodeId, metric, tag). The default NOOP drops everything. Core supplies a real one; the tag is OK or ERROR here, and plugin-specific words such as MATCH or DISCARD elsewhere.
+- ConfigValidation gives fail-fast readers: positiveLong, positiveInt (also checks the int range) and requiredString. They reject zero, negatives, fractions, infinity and values too large to store, so a config of 1e30 cannot silently become a wrong number.
+- ResultCollector is a thread-safe bucket used by sub-workflow execution to gather final messages from terminal nodes. MessageMapper is a two-method interface for converting a message payload to a domain object and back while keeping headers. The exceptions (WorkflowExecutionException, plus FilterEvaluationException and NoMatchingBranchException) give plugins a technology-neutral error type.
+
+- **Guarantees.** Using guard gives the same two failure behaviours and the same metric counts in every plugin that uses it. Config readers never return an out-of-range number.
+- **State.** None, except ResultCollector, which holds messages in memory for the life of one sub-workflow call.
+- **Ceiling.** Adoption is by choice. A plugin that ignores these helpers is still valid; nothing forces consistency. The error port name 'error' is a string constant, not a type.
+- **On failure.** In CONTINUE mode the failure message leaves through port 'error'. If no edge uses that port, the message is not delivered anywhere useful, so a workflow author must wire it.
+
+**Settings:** `PluginGuard.ERROR_PORT = error`, `FailureMode ERROR | CONTINUE (parsed from config text)`, `ConfigValidation: positiveLong, positiveInt, requiredString`
+
+### Control commands
+
+*sealed set of 16 commands*
+
+Defines every instruction an operator, API caller or supervisor can send to a live run, as a closed list of typed records.
+
+- ExecutionControlCommand is a sealed interface: the list of allowed types is fixed in the declaration, so a switch over it needs no default branch and adding a command makes every switch fail to compile until it handles the new one. Every command names its target run through executionId().
+- Run-level: PauseWorkflow, ResumeWorkflow, StopWorkflow (with a reason and a StopMode), Restart and RestartFromNode (both carry a pre-generated id for the new run, so the caller can poll it at once). Node-level: PauseNode, ResumeNode, StopNode (immediate or drain, with reason), SkipNode (true or false), EnableStepMode, DisableStepMode, StepNode, and SetBreakpoint. That is 13 in total.
+- StopMode has three values. DRAIN (default) stops the triggers and lets work in flight finish, cancelling it if it does not finish before the drain deadline. CANCEL cancels every node's subscription at once so plugins can clean up. KILL cancels and also removes the execution, so later commands for it are refused.
+- SetBreakpoint takes a field and a text. The field must be 'payload', 'payload.some.path' or 'metadata.key', and the node holds before the first element whose value's text equals the given text. The record's constructor rejects any other field, and rejects a field without a value. A null field clears the breakpoint. The condition is declarative on purpose: it can arrive from a remote caller, so it must not be code.
+- ControlActor.CONTEXT_KEY ('yukta.control.actor') names the Reactor context entry that carries who sent a command. It is empty for API callers and holds the supervisor's id for supervisor commands, which is how the audit log writes 'PauseWorkflowCommand [by my-supervisor]'.
+- SkipNode on a running run only works for processors; core rejects other node types. It takes effect from the next element, and an element already inside the plugin finishes normally.
+
+- **Guarantees.** The set is closed and checked by the compiler; SetBreakpoint cannot be built with an invalid field; StopWorkflow never has a null mode.
+- **State.** None here. Commands are values. Core orders them per run, applies them and logs them.
+- **Ceiling.** Adding a command is a breaking change for every exhaustive switch in the repo, by design. The list is fixed at compile time, so a third-party plugin cannot define its own command type.
+- **On failure.** A command for an unknown run is rejected by core with a not-found error. Commands whose processor throws are recorded as rejected.
+
+**Settings:** `StopMode DRAIN | CANCEL | KILL`, `ControlActor.CONTEXT_KEY = yukta.control.actor`
+
+### Command processing
+
+*ControlSignalProcessor*
+
+The extension point that turns a command into an action: the interface a processor implements, the priority rule, and the directive type a processor may return.
+
+- A ControlSignalProcessor answers canProcess(command) with true or false and implements process(command), which returns a Mono of a WorkflowDirective, an empty Mono, or an error. Spring beans of this type are collected by core's directive dispatcher.
+- When several processors accept a command, the one with the highest getPriority() handles it and the rest are skipped. The default is 0; the built-in processors use values from 10 to 20. To override a built-in, a custom processor must return more than that built-in's priority (above 20 beats all). Example: a processor with priority 30 that turns Restart into RestartFromNode for specific nodes.
+- A processor can act in two ways. It can do the work itself and return an empty Mono (this is what most built-ins do for pause, skip and so on). Or it can return a directive for the dispatcher to apply. The only directive today is Stop(reason), so only 'stop this run' can be handed back; everything else is done inside the processor.
+- Ordering and acknowledgement are core's job, not this interface's: core runs the commands of one run strictly one after another, tells the caller when the command was applied or rejected, and records it.
+
+- **Guarantees.** Exactly one processor handles each command (the highest priority among those that accept). The directive set is sealed, so the dispatcher's switch is exhaustive.
+- **State.** None.
+- **Ceiling.** No chain: a second processor cannot add audit around a first. If two accept at equal priority, the winner is the first one in Spring's bean list; the contract does not define that.
+- **On failure.** If no processor accepts a command, core fails the call with 'No processor registered for command'. A processor error becomes a rejection recorded in the log.
+
+**Settings:** `getPriority(), default 0; built-ins 10-20`, `WorkflowDirective.Stop(reason)`
+
+### Supervisor SPI
+
+*supervise, review, decide*
+
+Lets automated decision makers (rule engines, models, custom code) watch execution events, emit commands, and approve or refuse any command.
+
+- ExecutionSupervisor has three members: id() (unique, used in audit and metrics), supervise(events) which receives the event stream and returns commands, and review(request) which returns Allow or Deny for any command. The default review allows everything and the default order() is 0.
+- The events are four types: NodeStatusChanged, WorkflowStatusChanged, ControlOutcome (a command was applied or rejected, with who sent it) and LogLine. The feed is best effort by design: a supervisor that cannot keep up misses events instead of slowing the runs. Core counts drops in yukta.tracker.dropped.
+- Review is a veto in a line. Core asks the supervisors in order() sequence, lowest first, and the first denial refuses the command. If a supervisor's review throws an error, that counts as a denial ('review failed'). The caller gets a rejection (HTTP 403) and the log records it. Example: a supervisor denies StopWorkflow for runs tagged 'billing' unless sent by a human.
+- ControlPlanePlugin is the simple form: implement decide(event) which returns a ControlDecision (a list of commands, a confidence from 0 to 1, and a source RULE or MODEL). Its supervise handles events one at a time in order, treats an error from decide as no opinion, and emits the commands. Core reads only the commands; confidence and source are for the plugins that combine decisions (a rules-first plugin consults rules before a model).
+- Core isolates supervisors: it subscribes each once at startup, resubscribes after a failure with backoff from 1 second up to 1 minute, rate limits commands (20 per second per supervisor by default), supports dry-run (commands are only recorded), and does not deliver a supervisor's own command outcomes back to it. These limits live in core's SupervisorHost, not here.
+- ControlRequest carries the command and the actor (a supervisor id, or null for an API caller). Decision is a record of allowed and a reason, with Decision.ALLOW and Decision.deny(reason).
+
+- **Guarantees.** Every command, human or automated, can be vetoed; a failing reviewer denies rather than allows; a supervisor failure never stops a run.
+- **State.** None here. Core holds subscriptions and counters in memory.
+- **Ceiling.** decide() handles one event at a time per plugin, so the speed of one slow decision (a model call) caps the plugin's event rate. The event feed has no replay.
+- **On failure.** review() has no timeout in the contract or in core's reviewer; a review that never completes blocks later commands for that run. A decide() that never completes stalls all later events for that plugin. The Javadoc asks authors to bound both.
+
+**Settings:** `yukta.supervisor.max-commands-per-second (core, default 20)`, `yukta.supervisor.dry-run (core, default false)`, `GET /api/supervisors (core)`
+
+### Store SPIs
+
+*NodeCheckpointStore, Secret*
+
+Two storage interfaces that core implements: NodeCheckpointStore (each node's output per run) and SecretProvider (credential lookup).
+
+- NodeCheckpointStore.save(executionId, nodeId, message) records the last message a node emitted; get returns it. When a run is restarted from a node, core reads the checkpoint of that node's direct parents and replays them as synthetic input, so earlier nodes do not run again.
+- Three methods have defaults so older stores keep compiling. getAll returns every message a node produced (the default knows only the last). isComplete says whether nothing was dropped (a store with a size cap reports false once it has dropped, so a restart never replays half an output as if whole). markComplete and isFinished record and report that a node ended normally and all its output is safe; a durable store must make the marker survive a crash before its Mono completes.
+- The engine calls markComplete once when a node's stream completes (never for a failure or a stop) and waits for it before passing the completion on. A failure writing the marker must not fail the run: the node is simply reported as not finished.
+- clear(executionId) releases a run's checkpoints and is called when a run finishes. The implementations must be thread-safe.
+- SecretProvider has one method, getSecret(key), returning a Mono of the secret text. A config value written as decrypted:&lt;key&gt; is resolved through it. Core's default reads environment variables with a fixed prefix YUKTA_SECRET_, so a workflow cannot read arbitrary environment variables. A deployment can supply its own bean to use a vault.
+
+- **Guarantees.** isComplete and isFinished let a restart avoid replaying partial or unfinished output. Durable stores must persist before markComplete's Mono completes.
+- **State.** None in this module. Core ships memory and file implementations; what survives a restart depends on which one is configured.
+- **Ceiling.** clear, isComplete and isFinished are plain synchronous calls, so a store backed by a remote database would block a thread on each. save, get and getAll are reactive.
+- **On failure.** Missing checkpoints give an empty result. A store failure on markComplete is swallowed by design.
+
+**Settings:** `yukta.secret env prefix YUKTA_SECRET_ (core default provider)`
+
+### Build & test setup
+
+*dependencies, tests*
+
+Declares what the library depends on and how it is tested, since every other module compiles against it.
+
+- Dependencies: reactor-core, the jakarta annotation API and the messaging module are exposed to everything that uses plugin-api (api scope). spring-expression is internal (implementation scope), so plugins do not get Spring's expression classes for free.
+- Core exposes plugin-api to its own users with api scope, so web, mcp and boot get it transitively.
+- Tests are plain JUnit 5 with Reactor's StepVerifier. They cover the defaults of the contract, PluginGuard, FailureMode, ConfigField, the sandbox (rejected expressions, cache bound), the checkpoint defaults, the command records, the supervisor defaults and the control-plane plugin.
+- The java-test-fixtures plugin is applied but the module has no fixtures source, so a plugin author gets no ready-made test kit (a fake Message factory, a harness that runs a plugin as the engine would).
+- pmdTest is switched off with a note until test-source PMD violations are fixed. Checkstyle and SpotBugs still apply.
+
+- **Guarantees.** The tests pin the sandbox and the documented defaults, so a change in them fails the build.
+- **State.** None.
+- **Ceiling.** No version marker exists on the contract, so a plugin built against an older release cannot declare what it needs and can only fail at runtime.
+- **On failure.** A change to a default method's behaviour can silently change every plugin that relied on it; only tests in this module guard that.
+
+**Settings:** `./gradlew :plugin-api:test`
+
+## Scenarios
+
+### Life of a plugin
+
+A plugin from registration to the end of a run, showing which method is called when, and which one is never called.
+
+<Steps>
+<Step title="Registered at startup">
+Spring gives core every Plugin bean. The registry maps getType() to the object and refuses to start on a duplicate type, naming both classes. One object will serve every node of that type.
+</Step>
+<Step title="Checked before the run">
+For each node core calls validateConfig(config) and then validateInContext(context, config). A plugin rejects a missing url or a wrong number of incoming edges here, so the user sees the problem at once.
+</Step>
+<Step title="Initialised and prepared">
+initialize(config) then prepare(config) run for every node. The plugin parses its expressions once, through the sandbox's cache, so the run is not slowed by parsing.
+</Step>
+<Step title="Runs with engine policy">
+process(input, config) returns a stream. A blocking plugin is subscribed on a virtual thread. The node's timeoutSeconds or the plugin's default timeout (30 s unless overridden) is the idle limit; heartbeats restart it.
+</Step>
+<Step title="Gets a control signal">
+An API call addressed to workflow and node reaches onControlSignal(message). The plugin may answer with a message. Typed commands such as pause go to the engine instead.
+</Step>
+<Step title="Never told to shut down">
+At the end of a run the stream completes or is cancelled. shutdown(config) is not called by the engine; long-lived resources must be released by the Spring bean's own lifecycle.
+</Step>
+</Steps>
+
+### A bad config is caught early
+
+How shared helpers and the validation hooks catch a mistake before anything runs.
+
+<Steps>
+<Step title="A user saves bad settings">
+A workflow node has a numeric setting (a limit) with the value 1e30. Nothing runs yet.
+</Step>
+<Step title="The plugin validates">
+validateConfig calls ConfigValidation.positiveLong. The helper rejects the value because it is above the largest whole number a long can hold, which would otherwise silently saturate.
+</Step>
+<Step title="A graph rule is checked">
+validateInContext receives the node's edges. A plugin that needs two inputs and has one returns an error Mono naming the node, so the whole workflow fails validation with a clear message.
+</Step>
+<Step title="The UI form helps earlier">
+If the plugin declared ConfigField entries (NUMBER, required, default), the form already restricts input. If it declared none, the user sees a raw JSON box and only learns of the problem at validation.
+</Step>
+<Step title="Why not at run time">
+Failing before the run avoids a half-finished run and a confusing error deep in a stream. The cost is that plugin authors must write the checks; a plugin that skips them still loads.
+</Step>
+</Steps>
+
+### A plugin call fails
+
+What a plugin failure becomes: counted, raised or routed to the error port, and the quiet failure of a long job that looks dead.
+
+<Steps>
+<Step title="The call throws">
+An HTTP plugin gets a 500 from the target service while processing one message.
+</Step>
+<Step title="The guard counts it">
+PluginGuard.guard reports ERROR for this node and metric (OK would have been counted on success). The counts let operators see the failure rate per node.
+</Step>
+<Step title="ERROR or CONTINUE">
+In ERROR mode (default) the exception propagates and the engine's policy for the node (retry, fail the run) applies. In CONTINUE mode the original message is re-emitted with the failure details and sourcePort 'error'.
+</Step>
+<Step title="The error port is wired or not">
+If the workflow has an edge from the node's 'error' port, a downstream node handles the failed message. If not, nothing consumes it. The plugin cannot know which case it is in.
+</Step>
+<Step title="Silent long work">
+A different failure: a plugin works for minutes without emitting anything and never calls the heartbeat. The engine's idle timeout fires and the node is marked timed out although the work was fine.
+</Step>
+</Steps>
+
+### An operator stops a run
+
+A stop command travelling through review, processor and directive, and what it leaves behind in the event feed.
+
+<Steps>
+<Step title="A command is built">
+An API caller sends a stop. It becomes StopWorkflowCommand(executionId, reason, mode). A null mode becomes DRAIN, so a caller who says nothing gets the gentle option.
+</Step>
+<Step title="Supervisors review it">
+Core asks every ExecutionSupervisor, lowest order() first, to review the command. The first denial refuses it with HTTP 403 and the log records it. An erroring reviewer counts as a denial.
+</Step>
+<Step title="A processor handles it">
+Of the processors that accept this command, the one with the highest priority runs. The built-in stop processor returns a Stop directive.
+</Step>
+<Step title="The directive is applied">
+The dispatcher switches on the sealed directive: Stop unregisters the run and signals it to stop. DRAIN lets in-flight work finish; CANCEL and KILL cancel at once.
+</Step>
+<Step title="The outcome is an event">
+A ControlOutcome event (applied or rejected, by whom) goes onto the event feed and the log. Supervisors see it, except the supervisor that sent the command.
+</Step>
+<Step title="Restart reads checkpoints">
+If the command had been RestartFromNode, the processor would read the checkpoints of that node's direct parents from the NodeCheckpointStore and replay them as input.
+</Step>
+</Steps>
+
+### A supervisor pauses a run
+
+How an automated watcher reads events, issues commands inside limits and can still miss events.
+
+<Steps>
+<Step title="Subscribed once">
+At startup core subscribes the supervisor to the event feed. Events caused by its own commands are filtered out so it cannot answer itself.
+</Step>
+<Step title="An event arrives">
+A NodeStatusChanged event says node 'classify' is FAILURE. For a ControlPlanePlugin, decide(event) is called for this one event, and events are handled strictly one at a time.
+</Step>
+<Step title="A decision is made">
+A rule plugin returns ControlDecision with PauseWorkflowCommand, confidence 1 and source RULE. A model plugin might return a lower confidence and source MODEL, or no commands at all.
+</Step>
+<Step title="Core applies it with limits">
+The command carries the supervisor's id as actor. Core allows at most 20 per second per supervisor by default; extra ones are recorded as rate-limited. In dry-run mode every command is only recorded.
+</Step>
+<Step title="Other supervisors may veto">
+Because the pause is an ordinary command, every supervisor's review() sees it, including a safety supervisor that denies pauses on critical workflows.
+</Step>
+<Step title="Slow supervisor, missed events">
+If the supervisor is slow, the feed drops events for it and counts the drops. It misses some failures rather than slowing the workflows.
+</Step>
+</Steps>
+
+### A hung reviewer (edge case)
+
+An edge case: one reviewer that never answers, and how it can block even a human stop.
+
+<Steps>
+<Step title="A reviewer waits on a call">
+A supervisor's review() calls an external policy service to decide. The service stops answering and the Mono never completes. There is no timeout in the contract or in core's reviewer.
+</Step>
+<Step title="The first command waits">
+Commands for the same run run one after another. The pending review holds that run's turn, so it never reaches a processor.
+</Step>
+<Step title="A human presses stop">
+An operator sends StopWorkflow for the same run. It queues behind the stuck command and also waits, even though a human stop is what you most want to work.
+</Step>
+<Step title="Other runs are fine">
+Commands for other runs have their own turn queues, so the damage is per run. But every command for every run asks all supervisors, so a reviewer that hangs on every call affects all runs.
+</Step>
+<Step title="Ways out">
+Add a per-review timeout in core that counts a timeout as a denial (or an allow for stop), exempt STOP from review, or require a timeout on the SPI. Each has a cost: a denied stop is also a failure.
+</Step>
+</Steps>
+
+## Capabilities
+
+Eighteen things the contract lets a plugin or a supervisor do, grouped by where they are used.
+
+
+### Plugin contract
+
+| Capability | What it does | How | Guarantee | Limit |
+|---|---|---|---|---|
+| Three plugin kinds | Trigger, processor and terminal interfaces with one required stream method each. | start returns a Flux, process maps a Flux to a Flux, consume turns a Flux into a Mono that completes. | The compiler requires the method; the category is filled by the kind. | A plugin can only be one kind. |
+| Safe defaults | A plugin overrides only what it needs. | Timeout 30 s, buffer 1024, ports ['default'], not blocking, empty validation and lifecycle hooks. | A plugin with two required members and a stream method is valid. | Defaults are shared by every plugin, so changing one changes all. |
+| Virtual-thread offload | A plugin declares that it blocks. | isBlocking() true makes core subscribe it on a virtual thread. | Blocking plugins do not tie up reactive threads. | A plugin that lies about it blocks the reactive threads. |
+| Per-config timeout and ports | Timeout and ports can depend on settings. | getDefaultTimeout(config) and getOutputPorts(config). | A long step is not cut at 30 s; a router can have its own ports. | Overriding is by convention; an override that is slow to compute runs on every use. |
+| Two-stage validation | Checks before the run. | validateConfig(config) for settings; validateInContext(context, config) for graph position. | Errors surface before any message flows. | A plugin can skip both and still load. |
+
+### Describing
+
+| Capability | What it does | How | Guarantee | Limit |
+|---|---|---|---|---|
+| Plugin descriptor | Description, usage and an optional picture. | describe() returns PluginDescriptor with an optional UiDesign (HTML, width, height). | Never null; EMPTY by default. | The picture is a raw HTML string. |
+| Config schema | Typed field list for form rendering. | ConfigField with name, type, required, default, options, description; eight types. | Options are copied into an immutable list. | Flat only: no nesting or conditions. |
+
+### Graph and liveness
+
+| Capability | What it does | How | Guarantee | Limit |
+|---|---|---|---|---|
+| Graph context | Neighbouring edges for a node. | WorkflowContext holds node id, incoming and outgoing edges with source ports. | Edge lists are copied and immutable. | Direct neighbours only. |
+| Heartbeat | A long job says it is alive. | Read a Runnable from the Reactor context under 'yukta.heartbeat' and run it. | Restarts the node's idle timeout. | Absent outside a run; no hard cap. |
+
+### Helpers
+
+| Capability | What it does | How | Guarantee | Limit |
+|---|---|---|---|---|
+| Sandboxed expressions | Evaluate user-written expressions safely. | SpelUtils with SimpleEvaluationContext: properties, map keys, variables and a method allow-list (SafeMethodResolver). | No static calls, constructors, bean references or methods outside the allow-list; tested. | No evaluation timeout; one cache lock. |
+| Failure routing | Same failure behaviour in every plugin. | PluginGuard.guard with FailureMode ERROR or CONTINUE; CONTINUE emits on port 'error' with failure details. | OK and ERROR counted per node and metric. | Opt-in; the 'error' port must be wired. |
+| Config readers | Reject bad numbers early. | ConfigValidation.positiveLong, positiveInt, requiredString. | Rejects zero, negatives, fractions, infinity and overflow. | Only three readers. |
+
+### Control
+
+| Capability | What it does | How | Guarantee | Limit |
+|---|---|---|---|---|
+| Typed control commands | Thirteen commands for live runs. | A sealed interface of records; each names its run. | Closed set, compiler-checked. | Fixed at compile time. |
+| Stop modes | Three ways to stop. | StopMode DRAIN (default), CANCEL, KILL. | A null mode becomes DRAIN. | DRAIN depends on a drain deadline in core. |
+| Breakpoints | Hold a node on a matching element. | SetBreakpoint field is payload, payload.path or metadata.key, compared by text. | Invalid fields are rejected when the record is built. | Equality of text only. |
+
+### Supervision
+
+| Capability | What it does | How | Guarantee | Limit |
+|---|---|---|---|---|
+| Supervisors and vetoes | Automation that watches and steers. | supervise(events) emits commands; review(request) allows or denies any command. | First denial wins; a review error denies. | No review timeout. |
+| Control-plane plugins | Judge one event at a time. | decide(event) returns ControlDecision with commands, confidence 0-1 and source RULE or MODEL. | A failing decision counts as no opinion. | Handled one event at a time per plugin. |
+
+### Storage
+
+| Capability | What it does | How | Guarantee | Limit |
+|---|---|---|---|---|
+| Checkpoint store | Remember each node's output. | save, get, getAll, clear, plus isComplete, markComplete and isFinished. | A durable store persists before markComplete completes. | Some calls are synchronous. |
+
+## Guarantees and limits
+
+plugin-api is an interface, so most guarantees are promises that other modules must keep. Each row says who keeps the promise: the compiler, a test, core at runtime, or only the reader's discipline.
+
+
+### What is enforced and what is only convention
+
+| Rule | Status |
+|---|---|
+| Every plugin has a type, a category and its stream method | \*\*Yes.\*\* Compiler enforces it |
+| Plugin types are unique | \*\*Yes.\*\* Core fails startup on a duplicate and names both classes |
+| The set of 13 control commands is closed | \*\*Yes.\*\* Sealed interface; exhaustive switches |
+| A breakpoint field is payload, payload.path or metadata.key | \*\*Yes.\*\* Checked when the record is built |
+| Expressions cannot call static code, build objects or use beans | \*\*Yes.\*\* Restricted evaluation context; tests cover T(), new, @bean and getClass().forName |
+| Plugin instances hold no per-node state | \*\*Partly.\*\* Javadoc rule only; nothing checks it |
+| A reviewer or decide() completes in bounded time | \*\*Partly.\*\* Javadoc asks for it on decide(); review() has no stated limit; neither is enforced |
+| shutdown(config) releases resources | \*\*No.\*\* Core never calls it |
+| isComputationallyHeavy and suppressOptimizationHint feed validator hints | \*\*No.\*\* No caller in core or web; only plugins read them |
+| Config schema matches what the plugin reads | \*\*Partly.\*\* Kept in step by hand |
+| Checkpoint stores are thread-safe | \*\*Partly.\*\* Stated in the Javadoc; not checked |
+
+### Defaults a plugin inherits
+
+| Setting | Default | Who reads it |
+|---|---|---|
+| Timeout | 30 seconds (getDefaultTimeout) | Core, when the node has no timeoutSeconds |
+| Buffer size | 1024 (getDefaultBufferSize) | Core's workflow compiler |
+| Output ports | ['default'] | Core's validator and graph service |
+| Blocking | false: runs on the reactive threads | Core's node assemblers |
+| Validation | passes | Core's validator |
+| Control-plane review order | 0, lowest first | Core's reviewer |
+| Command processor priority | 0, highest wins; built-ins 10-20 | Core's dispatcher |
+| Stop mode | DRAIN | The StopWorkflow command itself |
+| Failure mode | ERROR | FailureMode.from(config value) |
+| Expression cache | 1000 entries, least recently used out | SpelUtils |
+
+### Semantics of control and events
+
+| Topic | Guarantee |
+|---|---|
+| Review order | Supervisors by order(), lowest first; the first denial wins; an error in review counts as denial. |
+| Command order | Core runs the commands of one run strictly in sequence; this interface does not itself define ordering. |
+| Supervisor events | Best effort: a slow supervisor misses events and the drops are counted. Own command outcomes are not delivered back. |
+| Supervisor failure | Resubscribed with backoff from 1 s to 1 min; never affects the runs. |
+| Decision errors | An error in decide() is treated as no opinion; later events are still handled. |
+| Checkpoint completeness | isComplete is false once a capped store dropped messages, so a restart does not replay partial output. |
+| Node end marker | markComplete must be durable before its Mono completes; a failure writing it is not a run failure. |
+
+### What survives a restart
+
+This module holds no state, so the question is about what its interfaces let others keep.
+
+| Item | Where it lives |
+|---|---|
+| Plugin objects | \*\*No.\*\* Recreated by Spring at startup |
+| Parsed expression cache | \*\*No.\*\* Static memory in the process; rebuilt on demand |
+| Checkpoints and end markers | \*\*Note.\*\* Decided by the NodeCheckpointStore that core provides: memory or files |
+| Supervisor subscriptions and counters | \*\*No.\*\* In memory in core; resubscribed at startup |
+| Secrets | \*\*Note.\*\* Held by the SecretProvider; the default reads environment variables each time |
+
+## Reference
+
+### Plugin contract: method, default and caller
+
+Every member of the Plugin interface. The last column says who calls it in core, checked in the current code.
+
+| Method | Default | Called by |
+|---|---|---|
+| getType() | required | Plugin registry (map key); validator; graph service |
+| getCategory() | filled by TriggerPlugin, ProcessorPlugin, TerminalPlugin | Core, to pick start, process or consume |
+| start(config) / process(input, config) / consume(input, config) | required (one per kind) | The node assemblers when a run is built |
+| describe() | PluginDescriptor.EMPTY | Graph service; the plugin list for the UI and API |
+| getConfigSchema() | empty list | The web plugin controller |
+| getOutputPorts() / getOutputPorts(config) | ['default'] | Validator (edge ports) and graph service |
+| getDefaultTimeout() / getDefaultTimeout(config) | 30 s | Node timeouts, validator and compiler; used when the node has no timeoutSeconds |
+| getDefaultBufferSize() | 1024 | Workflow compiler |
+| validateConfig(config) | passes | Workflow validator |
+| validateInContext(context, config) | passes | Workflow validator |
+| initialize(config) | does nothing | Workflow preparator, per node, before a run |
+| prepare(config) | does nothing | Workflow preparator, right after initialize |
+| isBlocking() | false | Trigger, processor and terminal assemblers (virtual thread if true) |
+| onControlSignal(message) | empty | Control bus service, when a node is addressed |
+| shutdown(config) | does nothing | Nobody in core |
+| isComputationallyHeavy(config) / suppressOptimizationHint(config) | false | No caller in core or web; the built-in filter plugin reads its own copy |
+
+### The 13 control commands
+
+All carry executionId. Extra fields are listed.
+
+| Command | Extra fields | Meaning |
+|---|---|---|
+| PauseWorkflowCommand | none | Stop pulling new elements everywhere; in-flight work finishes |
+| ResumeWorkflowCommand | none | Undo the pause |
+| PauseNodeCommand | nodeId | Pause one node |
+| ResumeNodeCommand | nodeId | Resume one node |
+| StopNodeCommand | nodeId, immediate, reason | Hard stop (cancel upstream) or drain and stop |
+| SkipNodeCommand | nodeId, skip | Processor nodes only: pass elements through without calling the plugin |
+| EnableStepModeCommand | nodeId | Node holds each element until stepped |
+| DisableStepModeCommand | nodeId | Back to normal |
+| StepNodeCommand | nodeId | Let exactly one element through; no effect outside step mode |
+| StopWorkflowCommand | reason, mode (null = DRAIN) | Stop the whole run: DRAIN, CANCEL or KILL |
+| RestartCommand | newExecutionId | Stop and restart from the beginning with the original payload |
+| RestartFromNodeCommand | fromNodeId, newExecutionId | Restart using the checkpoints of the node's direct parents |
+| SetBreakpointCommand | nodeId, field, equalsValue | Hold the node before the first matching element; null field clears |
+
+### Write a plugin: checklist
+
+The smallest correct plugin and the rules that follow from the contract.
+
+| Step | What to do |
+|---|---|
+| Pick a kind | Implement TriggerPlugin (start), ProcessorPlugin (process) or TerminalPlugin (consume), and return a unique getType() string. |
+| Register it | Make it a Spring bean (for example @Component). Core collects every Plugin bean; a duplicate type stops startup. |
+| Stay stateless | One object serves all nodes. Read settings from the config argument inside each call. Do not store config from initialize in a field. |
+| Say if you block | Return isBlocking() true if you wait on I/O or compute for long. Do not call subscribeOn yourself. |
+| Validate early | Put setting checks in validateConfig (use ConfigValidation) and graph checks in validateInContext. |
+| Declare your fields | Return ConfigField entries from getConfigSchema, with the same key names the code reads. |
+| Use the sandbox | Evaluate user expressions with SpelUtils; call preParse in prepare. Read message data with payload(), not getPayload(). |
+| Handle failure | Wrap risky work in PluginGuard.guard with a FailureMode read from config, or let the error propagate. |
+| Declare ports | If you route, return the port names from getOutputPorts(config) and set sourcePort on emitted messages. |
+| Long work | Run the heartbeat Runnable from the Reactor context key yukta.heartbeat, and set getDefaultTimeout(config) honestly. |
+| Clean up on cancel | Use doOnCancel or doFinally on the stream; do not rely on shutdown(config), which is never called. |
+
+## Architecture decisions
+
+<AccordionGroup>
+<Accordion title="Plugins are Reactor functions over streams, in three kinds">
+**Context.** Nodes of a workflow move many messages and must react to a slow consumer without unbounded queues.
+
+**Decision.** A trigger returns a Flux, a processor maps Flux to Flux, a terminal consumes a Flux into a Mono. The plugin sees the whole stream, not one message at a time.
+
+**Consequences.** Back-pressure and cancellation come from Reactor for free, and plugins can batch, window or merge. Authors must know Reactor, and a plugin that blocks can stall a thread.
+
+**Alternatives considered.** A per-message callback (simple, but no batching, no streaming and ordering is the plugin's problem) or a plugin-owned thread pool (hides back-pressure and costs threads).
+
+**Revisit when.** most plugins turn out to be per-message and the Reactor learning curve blocks contributors.
+
+</Accordion>
+<Accordion title="One shared instance per plugin type; settings passed on each call">
+**Context.** Plugins are discovered as Spring beans and many nodes can use the same type at once.
+
+**Decision.** Core keeps one object per type. Every method receives the node's config. initialize and prepare are repeatable and must not hold state.
+
+**Consequences.** Cheap, simple lookup and no per-node object lifecycle. State mistakes are easy and unchecked; shutdown has no per-node meaning so it is never called.
+
+**Alternatives considered.** An instance per node (clear state, but a lifecycle and memory cost per node and a factory abstraction) or a per-node context object passed in (explicit, but a larger interface).
+
+**Revisit when.** plugin bugs from shared state keep appearing, or plugins need real per-node resources such as a connection.
+
+</Accordion>
+<Accordion title="Defaults for almost every hook">
+**Context.** The interface should stay usable as hooks are added.
+
+**Decision.** Only getType and the stream method are required; every other method has a safe default.
+
+**Consequences.** Plugins are tiny and new hooks do not break old plugins. Unused or misleading hooks stay (shutdown, the optimiser hints) and behaviour can change silently.
+
+**Alternatives considered.** Abstract base classes (hide the interface but force inheritance) or opt-in capability interfaces (honest, but more types and instanceof checks).
+
+**Revisit when.** the number of rarely used hooks makes the contract hard to learn.
+
+</Accordion>
+<Accordion title="Control commands are a closed sealed set of records">
+**Context.** Pause, stop, skip, step and restart must go through one channel so they can be ordered, audited and offered to people and programs.
+
+**Decision.** A sealed interface of 13 records, each naming its run, with validation in the constructors of the risky ones (SetBreakpoint).
+
+**Consequences.** Exhaustive switches and compile-time safety; easy to serialise and log. The set cannot be extended by plugins.
+
+**Alternatives considered.** A string command name with a map of arguments (open, but no compile-time check and easy typos) or an open interface (extensible, but no exhaustive handling).
+
+**Revisit when.** plugins need their own operator commands handled by the engine.
+
+</Accordion>
+<Accordion title="Highest priority wins; one processor per command">
+**Context.** Operators need to override how a command behaves without editing the engine.
+
+**Decision.** Of the processors that accept a command, only the highest getPriority() handles it. Built-ins use 10-20.
+
+**Consequences.** Simple and predictable; overriding is one class. No chaining, so audit around a built-in means re-implementing it. Direction is the opposite of supervisor review order.
+
+**Alternatives considered.** A chain of interceptors (composable, but order and error rules are complex) or events only (no override).
+
+**Revisit when.** two features want to wrap the same command.
+
+</Accordion>
+<Accordion title="Supervisors are plugins with an event feed and a veto">
+**Context.** Automation should react to runs and steer them, but must not be able to harm them or act unchecked.
+
+**Decision.** ExecutionSupervisor gets events and emits the same commands as an operator; any supervisor can deny any command; core isolates, rate limits and audits them. The feed is best effort.
+
+**Consequences.** One safe path for human and machine actions, with an audit by actor. Events can be missed and a hung reviewer can block (see risks). The model-based control planes use the same SPI as rule engines.
+
+**Alternatives considered.** External agents only through REST and SSE (isolation by process, but latency and no veto) or hard-coded rules in the engine (fast, but not extensible).
+
+**Revisit when.** supervisors need guaranteed delivery or must run out of process.
+
+</Accordion>
+<Accordion title="Expressions run in a restricted SpEL context behind one helper">
+**Context.** Users write conditions and mappings in workflow settings. Evaluating them with the full expression context allowed arbitrary code on the server (found in an earlier review).
+
+**Decision.** All plugins call SpelUtils, which uses the restricted evaluation context with read-only property access and instance methods, and keeps a bounded parse cache.
+
+**Consequences.** One place to harden and test. Still no time budget and instance methods remain.
+
+**Alternatives considered.** A custom expression language (tighter, but cost and learning) or no expressions (simple, but less flexible).
+
+**Revisit when.** expressions come from untrusted callers, or a cheaper or safer language is needed.
+
+</Accordion>
+<Accordion title="Storage behind interfaces with evolvable defaults">
+**Context.** Where checkpoints and secrets live differs per deployment, and the first version of the checkpoint store only kept the last message.
+
+**Decision.** NodeCheckpointStore and SecretProvider are interfaces; later hooks (getAll, isComplete, markComplete, isFinished) were added as default methods so earlier stores kept compiling.
+
+**Consequences.** Core can switch memory, file and database stores. Some defaults are weak (isFinished is false) and some calls are synchronous.
+
+**Alternatives considered.** A concrete class (simple, but fixed storage) or a general key-value store interface (flexible, but vague contracts for completeness and durability).
+
+**Revisit when.** a remote store needs fully non-blocking calls.
+
+</Accordion>
+</AccordionGroup>
+
+## Glossary
+
+| Term | Meaning | Note |
+|---|---|---|
+| SPI (service provider interface) | A set of interfaces that others implement to extend a system, as opposed to an API that you call. | plugin-api is an SPI: core calls plugins, not the other way round. |
+| Plugin | A class implementing a plugin interface, found by core and run as a workflow node. | Everything a workflow does is a plugin. |
+| Trigger / Processor / Terminal | The three node kinds: start (no input), transform (stream in, stream out), finish (stream in, nothing out). | Each has one required method with a different shape. |
+| Workflow / node / edge | A workflow is a graph; nodes are steps and edges connect one node's output to another's input. | validateInContext sees a node's edges. |
+| DAG | Directed acyclic graph: arrows with no loops. The shape of every workflow. | Core rejects loops before running. |
+| Message | The envelope that flows between nodes: a payload plus headers such as id, source port and failure details. Immutable; changes make copies. | Plugins read payload() and use with-methods to change it. |
+| Port | A named output of a node. Edges leave from a port; the default port is 'default'. | Failed messages leave through port 'error'. |
+| Error port | The port named 'error' used by PluginGuard in CONTINUE mode. | If no edge uses it, failed messages go nowhere useful. |
+| Reactor / Flux / Mono | Reactor is the library for streams. A Flux is a stream of zero or more items; a Mono is a result of at most one item, or a completion. | Every plugin method returns one of these. |
+| Back-pressure | A slow consumer tells its producer to slow down so memory stays bounded. | Why plugins return streams, not lists. |
+| Reactor context | A small read-only map attached to a stream subscription, used to pass values like ids and the heartbeat to code deep in the stream. | The heartbeat and actor id are looked up there. |
+| Heartbeat | A signal from a long job meaning 'still alive'; restarts the idle timeout. | Key yukta.heartbeat holds a Runnable. |
+| Idle timeout | The time a node may stay silent before the engine calls it dead. | Default 30 s unless the node or plugin says otherwise. |
+| Virtual thread | A lightweight Java thread that can wait on I/O cheaply. | Blocking plugins are run on them. |
+| Blocking | Waiting for something (a file, a network reply) while holding a thread. | A blocking plugin must say so with isBlocking(). |
+| Shared instance (singleton) | One object reused for every use. Here, one plugin object per type. | State in a field is shared across nodes. |
+| Spring bean | An object created and managed by Spring and found by type. | A plugin is registered by being a bean. |
+| Descriptor | Plugin metadata: description, usage text and optional UI picture. | Used by UI, REST and agents. |
+| ConfigField / config schema | A declared setting (name, type, default, options). A list of them is the schema. | Lets the UI draw a form. |
+| SpEL | Spring Expression Language, a small syntax for reading data and calling methods, such as payload.amount &gt; 100. | Used in filters, branches and mappings. |
+| Sandbox | A restricted environment where code cannot reach dangerous capabilities. | The expression helper blocks static calls, object creation and bean access. |
+| LRU cache | A cache that evicts the least recently used entry when full. | SpelUtils keeps 1000 parsed expressions. |
+| Sealed interface | A Java interface whose allowed implementations are listed in its declaration, so the compiler knows all of them. | Control commands and directives are sealed. |
+| Record | A compact Java class for immutable data. | Each command and event is a record. |
+| Control command | A typed instruction to a live run: pause, stop, skip, step, restart, breakpoint. | 13 of them in ExecutionControlCommand. |
+| Directive | An action a processor hands back for the dispatcher to apply. Only Stop exists. | Result of ControlSignalProcessor.process. |
+| Stop modes (DRAIN / CANCEL / KILL) | Gentle stop that lets work finish; immediate cancel; cancel and forget the run. | A null mode means DRAIN. |
+| Breakpoint | A hold on a node before the first element whose payload or metadata value equals a given text. | Stays set until cleared. |
+| Supervisor | A component that watches events from all runs and may emit commands and veto commands. | Rules, a model or your code. |
+| Control plane (plugin) | A simpler supervisor that judges one event at a time and returns a decision. | RULE and MODEL are its sources. |
+| Review / veto | Asking every supervisor before a command runs; the first denial refuses it. | A hung review blocks the command. |
+| Actor | Who sent a command: a supervisor id, or none for an API caller. | Appears in the audit as [by id]. |
+| Dry-run | A mode where supervisor commands are only recorded, not applied. | Core setting, safe for testing a new rule. |
+| Backoff | Waiting longer between each retry (here 1 s up to 1 min). | Used when a supervisor fails. |
+| Checkpoint | The last message a node produced in a run, saved by a store. | Lets a run restart in the middle. |
+| Restart from node | Re-run from a chosen node using the saved outputs of its direct parents. | Needs checkpoints. |
+| Idempotent | Safe to do twice with the same effect as once. | initialize and prepare must be. |
+| Audit log | A record of who did what and when. | Commands are logged with their actor. |
+| Secret reference (decrypted:key) | A config value that names a secret instead of containing it. | Resolved by a SecretProvider. |
+| Test fixtures | Shared test helpers a module publishes for other modules' tests. | Applied here but empty. |
+| Binary compatibility | Whether code built against an old version still runs against a new one. | Adding an abstract method breaks it. |

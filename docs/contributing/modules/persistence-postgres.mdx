@@ -1,0 +1,667 @@
+---
+title: "Persistence PostgreSQL module"
+description: "By default Yukta keeps its definitions, sessions, run history and node outputs in memory or in files on one server."
+---
+
+By default Yukta keeps its definitions, sessions, run history and node outputs in memory or in files on one server. **persistence-postgres** is the optional module that moves them into PostgreSQL, adds a leader lease so two servers can share the database, and holds the small state of KV_STORE and SESSION_MEMORY nodes. It has no engine logic: it implements storage interfaces that core and plugin-api define. This page is for thinking about it: open a component, play a scenario, then challenge the weak spots.
+
+| Property | What it means |
+|---|---|
+| Same interfaces, other backend | Every store implements an interface from core or plugin-api, so the engine does not know whether it talks to memory, files or PostgreSQL. |
+| Documents in JSONB | Definitions, log events, messages and chat turns are stored as JSONB with a few key columns. A change to a Java record rarely needs a migration. |
+| Selected by properties | Each store has its own switch. A deployment can be half durable, for example PostgreSQL definitions with in-memory checkpoints. |
+| Not a transaction layer | Most operations are one statement, but multi-step ones (apply a session, remove a workflow, rewrite the log) are not wrapped in a transaction. |
+
+<Note>
+  Open risks, bugs and improvement ideas for this module are on the internal pages (sign-in required): [Risks](/internal/risks#persistence-postgresql), [Bugs](/internal/bugs) and [Improvements](/internal/improvements#persistence-postgresql).
+</Note>
+
+## Primer
+
+A Yukta server forgets everything when it restarts unless it writes state somewhere: the workflow designs, which sessions exist, which runs started and ended, what each node produced. Files work for one server. They do not work when two servers should share one state, and they are awkward to query. This module writes the same state into PostgreSQL instead, and adds one more thing files cannot do easily: a lease that tells several servers which one is in charge.
+
+<Tip>
+  Think of an office that used to keep its records in a filing cabinet on one desk. This module moves the cabinet into a shared records room: any clerk can use it, and a duty roster on the door says which clerk is on duty. The clerks still do their jobs the same way; only where the paper lives has changed.
+</Tip>
+
+### Where persistence-postgres sits
+
+| Layer | Role |
+|---|---|
+| Clients | REST, web UI, MCP agents, the CLI |
+| core | Engine, scheduler, startup recovery and the store interfaces |
+| plugin-api | The KeyValueStore, SessionHistoryStore and NodeCheckpointStore interfaces |
+| persistence-postgres | Implements them on PostgreSQL. This page. (this module) |
+| PostgreSQL | R2DBC at run time, Flyway over JDBC for the schema |
+
+The module depends on core and plugin-api. Nothing depends on it except the application (boot), which includes it only when built with -Pyukta.persistence=postgres.
+
+### The vocabulary in eight cards
+
+| Term | Meaning | Example |
+|---|---|---|
+| Store | A class that keeps one kind of data behind an interface. Core asks for a store; it does not care which one it gets. | The workflow definition store. |
+| R2DBC | A non-blocking way to talk to a database from Reactor code. Statements return a Mono or Flux instead of blocking a thread. | DatabaseClient.sql(...).fetch(). |
+| Flyway | A tool that runs numbered SQL scripts once each, to build and change the schema. | V3__node_checkpoints.sql. |
+| JSONB | A PostgreSQL column type that stores a JSON document in a binary form. Key order is not kept; the database can compare documents. | A whole workflow definition in one cell. |
+| Execution log | An append-only list of run events. Startup recovery reads it to find runs that never ended. | RUN_STARTED, NODE_FINISHED, RUN_FINISHED. |
+| Checkpoint | The recorded output of one node of one run, and a stamp saying the node ended normally. | What the HTTP node returned. |
+| Lease | A claim that expires unless it is renewed. Whoever holds it acts as the leader. | One row, renewed every 5 seconds. |
+| Fencing number | A number that grows each time the lease changes hands, so a late write from an old holder could be recognised and refused. | Held in the lease row; not yet checked by any write. |
+
+### One run, from its start to a resume after a crash
+
+A workflow run is logged, each node leaves its output, the server crashes, and a restart finds the run and resumes it. Click a step to see what happens, why, and what can go wrong.
+
+<Steps>
+<Step title="Run starts">
+**What happens.** Core appends `RUN_STARTED` with the start payload. `append` only queues the event; the single writer thread inserts it, together with other waiting events, into `execution_log`.
+
+**Why it works this way.** The start is logged before the run does any work, so a crash right after still leaves a trace that the run existed and what its input was.
+
+**Can go wrong.** If the queue of 10,000 events is full the event is dropped and only an error line says so; the run then has no start in the log and cannot be resumed.
+
+</Step>
+<Step title="Node output">
+**What happens.** Each message a node produces is inserted as a row in `node_checkpoint` (JSONB). A failed insert marks the node incomplete in `node_checkpoint_state`.
+
+**Why it works this way.** A later restart from this node can replay the recorded messages instead of running the upstream nodes again.
+
+**Can go wrong.** Messages come back as plain JSON values (maps, lists, numbers, text), not the Java types the node produced.
+
+</Step>
+<Step title="Node ends">
+**What happens.** After the last message core calls `markComplete`: a second statement sets `done` for the node. Only a node with that stamp is skipped by a resume.
+
+**Why it works this way.** The stamp separates a node that finished from one that was cut off while writing, which is what makes a resume safe.
+
+**Can go wrong.** The stamp is a separate statement from the last message. A crash between them makes the node run again, so its side effects must tolerate that (at-least-once).
+
+</Step>
+<Step title="Run ends">
+**What happens.** Core appends `RUN_FINISHED` (or aborted). Every 10,000 appended events the writer also trims the table to the newest 500 runs.
+
+**Why it works this way.** Trimming keeps the table from growing without limit, and it never removes a run that has a start and no end.
+
+**Can go wrong.** The trim groups the whole table by execution id each time; on a large log it is a heavy statement on the single writer thread.
+
+</Step>
+<Step title="Server crashes">
+**What happens.** The JVM stops. Events still in the in-memory queue are gone; everything already inserted is in PostgreSQL.
+
+**Why it works this way.** PostgreSQL commits each statement on its own, so what was written is durable without any extra step.
+
+**Can go wrong.** Up to 10,000 queued events can be lost with the process. A run whose end event was among them looks interrupted.
+
+</Step>
+<Step title="Restart recovery">
+**What happens.** On start (or when a standby takes over) core reads the whole log, marks runs without an end ABORTED, and rewrites the log without the oldest runs with `replaceAll`: delete every row, then insert the kept events one by one.
+
+**Why it works this way.** The rewrite keeps the log bounded and records the abort of each interrupted run.
+
+**Can go wrong.** The rewrite is not in a transaction. A crash after the delete and before the inserts finish loses the log, and with it the means to resume anything.
+
+</Step>
+<Step title="Resume">
+**What happens.** `ExecutionResumer` reads the log for the run's payload, asks `isFinished` for each node, replays the recorded output of finished nodes with `getAll` and runs the rest again.
+
+**Why it works this way.** Finished work is not repeated and the run continues from where it was cut off.
+
+**Can go wrong.** `isFinished` is a blocking call per node (up to 30 s each if the database is slow), and a timeout counts as unfinished, so that node runs again.
+
+</Step>
+</Steps>
+
+### A run's state in plain words
+
+<Steps>
+<Step title="Designed">
+a workflow definition is saved; the identical definition twice adds no version.
+</Step>
+<Step title="Started">
+the log records the start and the input before any node runs.
+</Step>
+<Step title="Producing">
+each node leaves its output rows; a stamp is set when the node ends.
+</Step>
+<Step title="Ended or cut off">
+the log records the end; if the server dies first, the run has no end.
+</Step>
+<Step title="Found again">
+on the next start the log is read and the run is marked aborted, or resumed.
+</Step>
+<Step title="Trimmed">
+old runs are deleted once there are more than 500; runs without an end are kept.
+</Step>
+</Steps>
+
+## Components
+
+### Auto-configuration
+
+*which stores exist*
+
+Decides, from properties, which store beans the application gets: PostgreSQL ones, or none (then the in-memory and file defaults in core stay).
+
+- `PostgresPersistenceAutoConfiguration` is registered through `AutoConfiguration.imports`. Its three always-on beans (workflow definitions, session config, execution log) exist when `yukta.session.store-type=postgres`.
+- Four more beans are switched on one by one: `yukta.restart.store-type=postgres` (node checkpoints), `yukta.ha.mode=postgres` (leader lease), `yukta.kv.store-type=postgres` (KV_STORE state) and `yukta.session-memory.store-type=postgres` (chat history). So a deployment can be half on PostgreSQL.
+- The log store takes `yukta.execution-log.retained-runs` (500) and `compact-after` (10,000); the lease takes `yukta.ha.instance-id` (random if unset) and `yukta.ha.lease` (15 s); the history store takes an optional `yukta.session-memory.ttl`.
+- The module is only on the classpath when the application is built with `-Pyukta.persistence=postgres`, so the choice is made twice: at build time and by properties.
+
+- **Guarantees.** With the matching property set, the matching bean exists; without it, core's default store is used.
+- **State.** None. Beans are created once at start.
+- **Ceiling.** Nothing checks that the properties agree: the session store can be PostgreSQL while checkpoints stay in memory, which is a half-durable deployment.
+- **On failure.** A missing `spring.r2dbc.url` fails the application at start. A wrong `store-type` value silently selects the default store.
+
+**Settings:** `yukta.session.store-type`, `yukta.restart.store-type`, `yukta.ha.mode`, `yukta.kv.store-type`, `yukta.session-memory.store-type`, `yukta.session-memory.ttl`
+
+### Connections & drivers
+
+*R2DBC + JDBC*
+
+Provides the two connections the module needs: R2DBC for all run-time statements and JDBC for Flyway.
+
+- At run time every store uses Spring's `DatabaseClient` over R2DBC (`spring.r2dbc.url`). Flyway has no R2DBC support, so the schema is migrated over JDBC from `spring.flyway.url` with `spring.flyway.user` and `spring.flyway.password`.
+- The driver jars are `runtimeOnly`: the R2DBC PostgreSQL driver, the PostgreSQL JDBC driver and the Flyway PostgreSQL module.
+- The R2DBC driver pulls in scram-client 3.2, which has a high-severity advisory; the build pins scram-client and scram-common to 3.3 with a constraint.
+- Several stores wait for the database on the calling thread (see the Blocking calls risk): they convert a Mono to a future and wait with a timeout (10 s for history and lease, 30 s for checkpoints and the log).
+
+- **Guarantees.** Every statement has a timeout where it blocks; a timeout is logged and turned into a safe default.
+- **State.** The connection pool belongs to Spring Boot's R2DBC auto-configuration, not to this module.
+- **Ceiling.** Pool size and R2DBC pool metrics are not set or exposed here.
+- **On failure.** An unreachable database makes writes fail (logged) and reads return empty or "unfinished"; the application keeps running.
+
+**Settings:** `spring.r2dbc.url`, `spring.flyway.url`, `spring.flyway.user`, `spring.flyway.password`
+
+### Schema migrations
+
+*V1 to V6*
+
+Creates and evolves the nine tables. Each migration is a numbered SQL file that runs once per database.
+
+- V1 creates `workflow_definition`, `workflow_definition_revision`, `session_config` and `execution_log` (with an index on execution id). V2 adds the version `note`. V3 adds `node_checkpoint` and `node_checkpoint_state`. V4 adds `leader_lease`. V5 adds `kv_entry`. V6 adds `session_history`.
+- Flyway runs on every server at start. It locks the schema history table, so two servers starting together do not both migrate.
+- All state is stored as JSONB documents plus a few key columns, so most changes to the Java records need no migration; a migration is needed only for a new table or column.
+- There are no down scripts. Nothing is partitioned, and the only indexes besides the primary keys are on `execution_log(execution_id)` and `node_checkpoint(execution_id, node_id, seq)`.
+
+- **Guarantees.** A migration that ran is never run again; the schema history records it.
+- **State.** The `flyway_schema_history` table in the same database.
+- **Ceiling.** Forward-only: a bad migration is fixed by another migration or by hand.
+- **On failure.** A failing migration stops the application at start, before any store is used.
+
+**Settings:** `spring.flyway.*`
+
+### KV and chat history
+
+*two small stores*
+
+Keep the state of KV_STORE nodes and the chat history of SESSION_MEMORY nodes in PostgreSQL, so both survive a restart and are shared by servers.
+
+- `R2dbcKeyValueStore` (table `kv_entry`, key + JSONB value) implements the plugin-api `KeyValueStore`. `put` and `incr` are single statements: a counter is incremented in the database, so concurrent increments do not lose updates. `incr` on a value that is not a whole number turns the database error into an `IllegalArgumentException`.
+- The size cap (`maxEntries`) is a condition inside the insert: it counts all rows, and refuses a new key when the count has reached the cap. The count and the insert are one statement but not serialised against other inserts, so two concurrent new keys can both pass.
+- `R2dbcSessionHistoryStore` (table `session_history`, session id + JSONB turns) implements `SessionHistoryStore`. Its calls block the calling thread, up to 10 s; a failure is logged and the chat goes on from memory.
+- With `yukta.session-memory.ttl`, every save also deletes the sessions whose `updated_at` is older than the ttl. A load does not check the ttl.
+
+- **Guarantees.** Counters are exact; a history save never fails the chat.
+- **State.** Tables `kv_entry` and `session_history`.
+- **Ceiling.** The ttl delete scans the table on every save (no index on `updated_at`); the KV cap counts all rows on every new key.
+- **On failure.** A database failure on the history store means the history lives only in memory until the next successful save.
+
+**Settings:** `yukta.kv.store-type`, `yukta.session-memory.store-type`, `yukta.session-memory.ttl`
+
+### Definitions & sessions
+
+*workflow definitions, session config*
+
+Stores the workflow definitions of each session with their newest 20 versions, and the session's own settings.
+
+- `R2dbcWorkflowDefinitionStore.save` is one statement: it writes a new row in `workflow_definition_revision` unless the stored definition is identical (compared as JSONB), and upserts the current row. A second statement then deletes all but the newest 20 revisions of that workflow. The revision id comes from the time and the definition, and is ordered as text.
+- `saveNote` sets the note on one version (an empty note is stored as null) and fails with Not Found if the version does not exist. `findRevision` and `revisions` back the web diff and rollback endpoints.
+- `R2dbcSessionConfigStore` keeps name, description, project path, initiator, initiated time and tags in `session_config`. Initiator, description, initiated time and tags are set only while still empty. The execution timeout and the log directories are not stored: they come from `SessionConfigProperties` for every session.
+- Applying a session config writes the row, then saves each workflow one after the other. The store has no way to delete a session row, and the interface has no delete either.
+- `getAllConfigs` runs about seven queries for one session. `getSessionIds` lists sessions that have a config row, so definitions without a row are not listed.
+
+- **Guarantees.** Saving an identical definition adds no version; at most 20 versions per workflow are kept.
+- **State.** Tables `workflow_definition`, `workflow_definition_revision` and `session_config`.
+- **Ceiling.** Removing a workflow or a session's workflows is two statements; applying a session is several. None of it is in a transaction.
+- **On failure.** A failure between statements leaves a partly applied session (the config row replaced, some workflows saved) or a workflow with versions but no current row.
+
+**Settings:** `yukta.session.store-type`
+
+### Execution log
+
+*run history, resume source*
+
+Records the start and end of runs, node ends, control commands and idempotency keys, so a restart can mark interrupted runs ABORTED and resume them.
+
+- `append` puts an event in a queue (10,000 events) and asks one writer thread to drain it. The writer inserts up to 100 events per statement; if a batch fails it writes the events one by one and logs the ones that still fail. When the queue is full the event is dropped and an error is logged.
+- Reads (`readAll`) and rewrites (`replaceAll`) run on the same writer thread, after the pending events, so they see everything appended before them. `readAll` loads every row into memory and skips rows it cannot parse.
+- `replaceAll` is used by startup and takeover recovery to rewrite the log without the oldest runs. It deletes every row and then inserts the kept events one at a time, each with its own statement and a 30 s wait, with no transaction.
+- After every `compact-after` (10,000) appended events the writer trims the table to the newest `retained-runs` (500) runs by their last event, never dropping a run that has a start but no end, and keeps the newest 500 scheduler entries (execution id `scheduler`).
+- If an event's payload cannot be written as JSON, the event is stored without the payload and a warning says that the run cannot be resumed.
+
+- **Guarantees.** Events of one run keep their order (the sequence column); a run without an end is never trimmed.
+- **State.** Table `execution_log`: a sequence number, the execution id and the event as JSONB. In memory: the queue and a counter since the last compaction.
+- **Ceiling.** One writer thread, one statement at a time. Compaction groups the whole table by execution id every 10,000 events.
+- **On failure.** A full queue or a failing insert loses events silently as far as the run is concerned; a crash inside `replaceAll` loses the log.
+
+**Settings:** `yukta.execution-log.retained-runs`, `yukta.execution-log.compact-after`
+
+### Node checkpoints
+
+*outputs and end markers*
+
+Stores what each node of a run produced and whether it ended normally, so a run can restart from a node or resume after a crash.
+
+- `save` inserts one row per message in `node_checkpoint` (JSONB). If the insert fails the node is marked *incomplete* in `node_checkpoint_state`, so a restart that needs this node is refused instead of replaying part of it.
+- `markComplete` sets the *done* flag in a second table, after the last message; if that fails the node is marked incomplete instead and a resume will run it again. `isFinished` is true only when done is set and incomplete is not.
+- `isComplete` and `isFinished` are plain (blocking) methods in the interface, so they wait for the database up to 30 s; a timeout is treated as *unfinished*, which is the safe side for a resume.
+- `get` reads all rows of the node and takes the last one. `getAll` streams the rows in order. `clear` deletes the rows and the state of a run, and lowers the byte counter.
+- The byte counter (`bytesHeld`, shown as a core meter) counts characters on save and bytes on clear, only in this JVM.
+
+- **Guarantees.** A node counts as finished only when its end marker is durable; a failed save makes the node incomplete.
+- **State.** Tables `node_checkpoint` and `node_checkpoint_state`; the counter is in memory.
+- **Ceiling.** The end marker is a separate statement from the last message, so there is a short window between them.
+- **On failure.** A database failure marks nodes incomplete, which makes a restart from them impossible but never replays half an output.
+
+**Settings:** `yukta.restart.store-type`
+
+### Leader lease
+
+*one active server*
+
+Lets several servers share the database while only one admits runs, and lets another take over when the leader stops.
+
+- One row in `leader_lease` holds the name, the holder, a fencing number and an expiry. Each server runs one statement every third of a lease (5 s by default): it inserts the row or, if it is the holder or the lease has expired, takes it and renews the expiry. The fencing number grows by one when the holder changes.
+- The expiry uses the database clock. A server counts itself the leader only while the time since it *sent* its last successful renewal is shorter than the lease, measured with a local monotonic clock, so a server that cannot reach the database stops being leader before another can take over.
+- When a server becomes leader it runs the registered takeover actions on another thread (core uses this for recovery and auto-resume). A server that stops releases the lease by setting its expiry in the past, waiting up to 10 s.
+- `fencingToken()` exposes the number, but nothing in this module or in core uses it to reject a write from an old leader. The gauge `yukta.leader` is 1 on the leader.
+
+- **Guarantees.** Two servers never both believe they hold a lease that has not expired, as long as the local clock does not run slow relative to the database clock.
+- **State.** The row in `leader_lease`; in memory the validity time, the fencing number and the takeover list.
+- **Ceiling.** One tiny statement per 5 s per server; no contention beyond that.
+- **On failure.** A leader paused for longer than the lease (a long stop-the-world pause) can still finish a write after another server has taken over.
+
+**Settings:** `yukta.ha.mode`, `yukta.ha.lease`, `yukta.ha.instance-id`
+
+### Tests & build
+
+*Testcontainers*
+
+Shows each store works against a real PostgreSQL 18, and keeps the module at full coverage.
+
+- Every store has a test class that runs against a PostgreSQL container started by Testcontainers (`postgres:18-alpine`); the base class migrates the schema with Flyway and empties all nine tables before each test.
+- The lease tests cover a graceful hand-over, a crashed holder replaced after its lease, an unreachable database ending leadership after the holder's own lease, and a failing takeover action not stopping others. The boot module has a Postgres acceptance test, run with `-Pyukta.persistence=postgres`.
+- The build applies the library conventions, so the module has the same Checkstyle, PMD, SpotBugs and 100% per-class coverage gates as the others.
+
+- **Guarantees.** Behaviour that needs a database is tested against a real one, not a mock.
+- **State.** A container started once per test JVM and stopped at exit.
+- **Ceiling.** The tests need Docker. They start from an empty database, so no test upgrades an older schema that already holds data.
+- **On failure.** Without Docker the container is not started and the tests fail in the base class.
+
+## Scenarios
+
+### A normal run
+
+One run from the saved design to the trimmed log, in the order the statements run.
+
+<Steps>
+<Step title="The design is saved">
+An operator applies a session. The session row is upserted, then each workflow is saved in its own statement: a new version row unless the definition is identical, the current row replaced, and all but the newest 20 versions pruned in a second statement.
+</Step>
+<Step title="The run is logged">
+Core appends `RUN_STARTED`. The event waits in the queue, and the writer thread inserts it with its neighbours in one batched statement.
+</Step>
+<Step title="Nodes leave output">
+Each message is inserted into `node_checkpoint`. When the node ends, a second statement stamps it done.
+</Step>
+<Step title="The run ends">
+Core appends the end event. The run's outputs stay for a restart until the run falls out of the archive of retained executions (10 by default); then core clears them with two deletes, and the call waits up to 30 s.
+</Step>
+<Step title="The table is trimmed">
+After 10,000 appended events the writer deletes all but the newest 500 runs. A run that started and has no end is never deleted.
+</Step>
+</Steps>
+
+### The server crashes mid-run
+
+What is on disk when the process dies, and what the next start does with it.
+
+<Steps>
+<Step title="The process dies">
+Events waiting in the in-memory queue are lost with the process. Everything already inserted is durable.
+</Step>
+<Step title="Node state on disk">
+Finished nodes have their output rows and a done stamp. The node that was running has some rows and no stamp.
+</Step>
+<Step title="The next start">
+Flyway checks the schema, the stores are created, and recovery reads the log: a run with a start and no end is marked ABORTED.
+</Step>
+<Step title="Resume (optional)">
+With auto-resume, each aborted run is resumed once: finished nodes replay their recorded output, the rest run again. Each `isFinished` is a blocking query.
+</Step>
+</Steps>
+
+### Failover to a standby
+
+How a standby takes the lease, and what the lease does not protect against.
+
+<Steps>
+<Step title="Two servers, one lease">
+Both run the renewal statement every 5 s. One has the row, the other's statement changes nothing and it counts itself a standby.
+</Step>
+<Step title="The leader stops">
+A graceful stop sets the expiry in the past; a crash leaves the lease to run out (15 s). The standby's next renewal then takes the row and raises the fencing number.
+</Step>
+<Step title="Takeover actions run">
+The new leader runs the registered actions on another thread: startup recovery (mark the old leader's runs ABORTED, rewrite the log) and, if set, auto-resume.
+</Step>
+<Step title="A paused old leader">
+If the old leader was only paused (a long garbage collection, a frozen VM), it may wake and finish a write it had already started. Nothing in the database refuses a write carrying an old fencing number.
+</Step>
+</Steps>
+
+### Startup recovery rewrites the log
+
+The startup rewrite of the execution log, and why it is the most fragile statement sequence in the module.
+
+<Steps>
+<Step title="Read everything">
+Recovery calls `readAll`: every row of the log is loaded into memory, parsed, and rows that fail to parse are skipped with a warning.
+</Step>
+<Step title="Decide what to keep">
+It keeps the newest 500 runs, marks the ones without an end ABORTED, and clears the checkpoints of the runs it drops.
+</Step>
+<Step title="Replace the log">
+`replaceAll` deletes all rows and inserts the kept events one by one, each waiting up to 30 s. There is no transaction around the delete and the inserts.
+</Step>
+<Step title="If it is cut short">
+A crash, a lost connection or a leader change between the delete and the last insert leaves a partial log. The runs that could be resumed are gone from it.
+</Step>
+</Steps>
+
+### Counters and chat survive a restart
+
+The small stores for counters and chat: what is atomic, what is capped, what is cleaned.
+
+<Steps>
+<Step title="A counter is incremented">
+`incr` adds to the stored whole number in one statement, so two servers incrementing together lose nothing. If a value is not a whole number the database error becomes an IllegalArgumentException.
+</Step>
+<Step title="The cap is checked">
+A new key is accepted only if the table has fewer rows than `maxEntries`. Two new keys arriving together can both pass the check.
+</Step>
+<Step title="A chat turn is saved">
+The history of the session is written as one JSONB cell. With a ttl, the same call then deletes expired sessions by scanning the table.
+</Step>
+<Step title="After a restart">
+The plugin loads the history again from the table; a failure to read is logged and the chat starts empty.
+</Step>
+</Steps>
+
+## Capabilities
+
+What this module does, how, what it guarantees and where the guarantee stops.
+
+
+### Definitions
+
+| Capability | What it does | How | Guarantee | Limit |
+|---|---|---|---|---|
+| Durable workflow designs | Definitions survive a restart and are shared by servers. | Table `workflow_definition`, JSONB. | Operators keep their work; a standby sees the same designs. | Not in a transaction with the session row. |
+| Twenty versions with notes | Each workflow keeps its newest 20 saved versions, each with an optional note. | Table `workflow_definition_revision`; an identical save adds none. | Diff and rollback in the UI, CLI-less audit of changes. | Version order is by a time-based id from the saving server's clock. |
+
+### Sessions
+
+| Capability | What it does | How | Guarantee | Limit |
+|---|---|---|---|---|
+| Session settings | Name, description, project path, initiator, initiated time and tags per session. | Table `session_config`; some fields are set only while empty. | The session list survives a restart. | Timeout and log directories are not stored; no way to delete a session. |
+
+### Run history
+
+| Capability | What it does | How | Guarantee | Limit |
+|---|---|---|---|---|
+| Batched execution log | Run starts, node ends and control commands in PostgreSQL. | One writer thread; up to 100 events per insert. | Runs interrupted by a crash can be found and resumed. | 10,000-event queue; events are dropped when it is full. |
+| Bounded log | The table is trimmed to the newest 500 runs. | A delete every 10,000 appended events; open runs are never removed. | The table does not grow without limit. | The trim scans the whole table. |
+| Unserialisable payloads tolerated | A run whose start payload cannot be written as JSON is still logged. | The event is stored without the payload and a warning is logged. | A bad payload does not break the run. | Such a run cannot be resumed. |
+
+### Node state
+
+| Capability | What it does | How | Guarantee | Limit |
+|---|---|---|---|---|
+| Per-message checkpoints | Every message a node produces is stored in order. | Table `node_checkpoint` with a sequence number; large messages are stored out of line by PostgreSQL. | Restart from a node and resume after a crash, with no size cap. | Reads load a node's whole output. |
+| Durable end marker | A node counts as finished only with a stamp. | Table `node_checkpoint_state`: `done` and `incomplete`. | A resume never replays half an output. | Set in a separate statement from the last message. |
+| Failure marks incomplete | A failed save or a failed stamp makes the node incomplete. | The state row gets `incomplete = true`. | A restart from that node is refused instead of wrong. | The refusal is only visible as an error to the caller. |
+
+### High availability
+
+| Capability | What it does | How | Guarantee | Limit |
+|---|---|---|---|---|
+| Leader lease | One server at a time admits runs. | One row; renewed every third of the lease; expiry from the database clock. | A standby takes over within about one lease. | The fencing number is not checked by any write. |
+| Takeover actions | Registered actions run when a server becomes leader. | Run on another thread; a failing action does not stop the others. | Recovery and auto-resume start without a human. | Live approval waits and queued starts are not restored (core). |
+
+### Plugin state
+
+| Capability | What it does | How | Guarantee | Limit |
+|---|---|---|---|---|
+| KV store | State of KV_STORE nodes in a table. | `incr` and `put` as single statements. | Counters are exact across servers. | The size cap can be passed by concurrent new keys. |
+| Chat history | Chat history of SESSION_MEMORY in a table, with an optional ttl. | One JSONB cell per session, replaced on every turn. | Conversations survive a restart and are shared. | The ttl is applied on write only and scans the table. |
+
+### Schema
+
+| Capability | What it does | How | Guarantee | Limit |
+|---|---|---|---|---|
+| Versioned schema | Six numbered migrations build the tables. | Flyway over JDBC at start. | A new server joins an existing database safely. | Forward-only. |
+
+## What survives a crash, and what is only best effort
+
+Each store has its own switch, so the table assumes the matching switch is set. PostgreSQL commits every statement on its own; nothing here uses a multi-statement transaction.
+
+
+### Enforced by the module
+
+Each rule is applied in a statement or in the store's code and is covered by a test.
+
+| Rule | Guarantee |
+|---|---|
+| Schema exists before use | \*\*Yes.\*\* Flyway migrates at start; the application does not start if a migration fails. |
+| Identical definition adds no version | \*\*Yes.\*\* The insert of a version is skipped when the stored definition is equal as JSONB. |
+| At most 20 versions per workflow | \*\*Yes.\*\* A second statement prunes after every save; between the two statements 21 can exist. |
+| Log order within a run | \*\*Yes.\*\* A sequence column orders reads; one writer thread inserts in queue order. |
+| A run without an end is never trimmed | \*\*Yes.\*\* The compaction statement excludes executions that have a start and no end. |
+| Counter atomicity | \*\*Yes.\*\* `incr` adds inside one statement. |
+| KV size cap | \*\*Partly.\*\* Checked inside the insert, but not serialised against concurrent inserts. |
+| Node counted finished only with a durable stamp | \*\*Yes.\*\* `isFinished` needs done and not incomplete; unknown or timed out counts as unfinished. |
+| Single leader | \*\*Partly.\*\* True while every server's clock is sound and the holder is not paused; no write is fenced. |
+
+### What survives a restart or a crash
+
+Compare with the in-memory and file defaults in core.
+
+| Data | With PostgreSQL |
+|---|---|
+| Workflow definitions and versions | \*\*Yes.\*\* Durable. |
+| Session settings | \*\*Yes.\*\* Durable; the timeout and directories come from properties. |
+| Execution log | \*\*Partly.\*\* Durable once inserted. Events still queued (up to 10,000), dropped on overflow or failing to insert are lost. |
+| Node outputs | \*\*Yes.\*\* Durable per message; a node is finished only with its stamp. |
+| Leader lease | \*\*Yes.\*\* Expires by itself; a new holder is chosen without help. |
+| KV_STORE state | \*\*Yes.\*\* Durable and shared (with the KV switch set). |
+| Chat history | \*\*Yes.\*\* Durable and shared (with the history switch set); a failed save leaves it only in memory. |
+| Live approval waits, queued starts, scheduler slots | \*\*No.\*\* Not stored here (core keeps them in memory). |
+
+### Limits and defaults
+
+| Item | Value |
+|---|---|
+| Retained runs | 500 (`yukta.execution-log.retained-runs`) |
+| Compaction after | 10,000 appended events (`compact-after`) |
+| Log queue / batch | 10,000 events / 100 per insert |
+| Statement waits | Log 30 s; checkpoint state and clear 30 s; history 10 s; lease 10 s |
+| Versions per workflow | 20 |
+| Lease / renewal | 15 s / every 5 s (`yukta.ha.lease`) |
+| Log writer shutdown wait | 5 s |
+| KV entries | Set by the KV_STORE node (default 10,000) |
+| Chat history ttl | None unless `yukta.session-memory.ttl` is set |
+
+## Reference
+
+### Tables, writers and cleaners
+
+Nine tables from six migrations. 'Cleaned by' says what removes rows; 'nothing' means no code in this module or in core does.
+
+| Table | Migration | Written by | Read by | Cleaned by |
+|---|---|---|---|---|
+| workflow_definition | V1 | Definition store (save) | find, findAll | remove, removeAll (no caller in core) |
+| workflow_definition_revision | V1, V2 (note) | save, saveNote | revisions, findRevision | prune to 20 after each save; remove |
+| session_config | V1 | Session config store | getAllConfigs, getSessionIds | nothing (the interface has no delete) |
+| execution_log | V1 | Log writer thread | readAll at recovery and resume | compaction; replaceAll |
+| node_checkpoint | V3 | Checkpoint save | get, getAll | clear when the run leaves the archive of retained executions; recovery for dropped runs |
+| node_checkpoint_state | V3 | markComplete, failed saves | isComplete, isFinished | clear |
+| leader_lease | V4 | Every server, every 5 s | The same statement | nothing (one row) |
+| kv_entry | V5 | KV store put, incr | get | remove (by the plugin) |
+| session_history | V6 | History save | load | ttl delete on save (if set) |
+
+### Settings that choose a store
+
+Set the build flag once, then one property per kind of data.
+
+| Setting | Selects | Default |
+|---|---|---|
+| -Pyukta.persistence=postgres (build) | Puts this module on the classpath | Not included |
+| yukta.session.store-type=postgres | Definitions, session config and the execution log | in-memory |
+| yukta.restart.store-type=postgres | Node checkpoints | files if `yukta.restart.dir`, else memory |
+| yukta.ha.mode=postgres | The leader lease | single server |
+| yukta.kv.store-type=postgres | KV_STORE state | memory |
+| yukta.session-memory.store-type=postgres | SESSION_MEMORY history | memory or a directory |
+| spring.r2dbc.url | Run-time connection | none |
+| spring.flyway.url / user / password | Migration connection (JDBC) | none |
+
+### Do and don't for operators
+
+Short rules that follow from the guarantees.
+
+| Do | Don't |
+|---|---|
+| Set every switch you need: a PostgreSQL log with in-memory checkpoints cannot resume a run. | Don't assume one property makes everything durable. |
+| Give Flyway an account that may change the schema, and the application an account that may not. | Don't run the application with the schema owner's password. |
+| Run a database backup that includes all nine tables together. | Don't restore only some of them: the log, the checkpoints and the definitions refer to each other. |
+| Watch the error lines 'event dropped' and 'Batch insert failed' in the log. | Don't treat the lack of an error in the UI as proof the log is complete. |
+| Run the failover test in your environment before relying on a standby. | Don't rely on the fencing number: nothing checks it yet. |
+
+## Architecture decisions
+
+<AccordionGroup>
+<Accordion title="R2DBC at run time, Flyway over JDBC for the schema">
+**Context.** The engine is reactive; Flyway has no R2DBC support.
+
+**Decision.** Stores use Spring's DatabaseClient over R2DBC. Flyway migrates over a separate JDBC connection at start.
+
+**Consequences.** Non-blocking statements and versioned schema; two connection settings to keep in step; native-image metadata needed for both drivers.
+
+**Alternatives considered.** JDBC everywhere with a thread pool: simpler tooling, but blocks threads. Hibernate Reactive: heavier.
+
+**Revisit when.** a second database is needed, or Flyway gains R2DBC support.
+
+</Accordion>
+<Accordion title="JSONB documents with a few key columns">
+**Context.** Definitions, events, messages and chat turns are Java records that change often.
+
+**Decision.** Store each as a JSONB cell next to the columns used for lookups.
+
+**Consequences.** Few migrations and easy storage of whatever the record holds; no column-level queries or constraints, and old rows carry the old shape.
+
+**Alternatives considered.** A normalised schema: queryable and constrained, but a migration for every record change.
+
+**Revisit when.** the record shapes settle and reporting queries are needed.
+
+</Accordion>
+<Accordion title="One module, one switch per store">
+**Context.** Deployments need different mixes: files for one store, PostgreSQL for another.
+
+**Decision.** Each store is a bean guarded by its own property; the module is added at build time.
+
+**Consequences.** Flexible and incremental; nothing checks the combination, so half-durable setups are possible.
+
+**Alternatives considered.** One 'postgres' switch for all: simpler, but no gradual adoption.
+
+**Revisit when.** support requests show people misconfiguring the mix.
+
+</Accordion>
+<Accordion title="A lease row with a fencing number for leader election">
+**Context.** Two servers should share a database and only one should admit runs.
+
+**Decision.** One row, renewed by the holder, taken over after expiry; the number grows with every change.
+
+**Consequences.** Simple and uses the database already there; split-brain protection depends on the fencing number, which nothing checks yet.
+
+**Alternatives considered.** Advisory locks (tied to a session, lost silently on reconnect), ZooKeeper or etcd (another system).
+
+**Revisit when.** a stale leader is observed writing, or the lease needs sub-second failover.
+
+</Accordion>
+<Accordion title="One writer thread for the execution log">
+**Context.** Events must keep their order and must not slow down the engine.
+
+**Decision.** A queue and one thread that inserts in batches and also does reads, rewrites and trims.
+
+**Consequences.** Ordered, cheap and simple to reason about; one slow statement (a trim, a rewrite) delays all appends and can overflow the queue.
+
+**Alternatives considered.** Insert on the calling thread: simple but couples engine speed to the database. A message broker: durable but another system.
+
+**Revisit when.** the queue overflows in normal operation.
+
+</Accordion>
+<Accordion title="Blocking waits behind the blocking interfaces">
+**Context.** NodeCheckpointStore.isFinished, SessionHistoryStore and the log store are plain methods in their interfaces.
+
+**Decision.** Implement them by waiting on the reactive statement with a timeout, and fall back to a safe value.
+
+**Consequences.** Works with callers that are not reactive; occupies the calling thread and hides a slow database behind 'unfinished' or 'empty'.
+
+**Alternatives considered.** Make the interfaces reactive: cleaner, a change in core and plugin-api.
+
+**Revisit when.** the waits show up in latency, or a caller runs on an event-loop thread.
+
+</Accordion>
+<Accordion title="Store checkpoints one row per message, no size cap">
+**Context.** A restart needs a node's whole output and nodes can produce large messages.
+
+**Decision.** Insert each message as a JSONB row; PostgreSQL stores large values out of line.
+
+**Consequences.** No cap and no special handling for large messages; resume loads the output into memory.
+
+**Alternatives considered.** Files (the other store) with their own caps; an object store with references for large payloads.
+
+**Revisit when.** payload sizes require a claim-check reference.
+
+</Accordion>
+</AccordionGroup>
+
+## Glossary
+
+| Term | Meaning | Note |
+|---|---|---|
+| Store | A class that keeps one kind of data behind an interface from core or plugin-api. | The engine does not know which backend it is using. |
+| R2DBC | Reactive Relational Database Connectivity: a non-blocking database API. | Statements return Mono and Flux instead of blocking. |
+| Flyway | A migration tool that runs numbered SQL scripts once each. | Builds the tables and records which scripts ran. |
+| Migration | One numbered SQL script such as V3__node_checkpoints.sql. | Forward-only here. |
+| JSONB | PostgreSQL's binary JSON column type. | Stores definitions, events, messages and chat turns. |
+| DatabaseClient | Spring's thin wrapper for running SQL over R2DBC. | Every statement in the module goes through it. |
+| Execution log | The append-only list of run events kept in execution_log. | Used to find interrupted runs and to resume. |
+| Event | One entry of the execution log, such as RUN_STARTED or NODE_FINISHED. | Stored as JSONB. |
+| Compaction | Deleting old runs from the log so it stays bounded. | Runs every 10,000 appended events. |
+| Writer thread | The single thread that inserts log events and also reads, rewrites and trims. | Keeps events in order; a slow statement delays all. |
+| Checkpoint | The recorded output of a node of a run. | Lets a run restart from a node or resume. |
+| End marker | The done flag in node_checkpoint_state. | A node is finished only when it is set and incomplete is not. |
+| Incomplete | A flag saying the node's output was not fully recorded. | Makes a restart from that node refuse. |
+| Resume | Continuing an aborted run from its checkpoints. | Finished nodes replay, the rest run again. |
+| Lease | A claim on a role that expires unless renewed. | One row in leader_lease. |
+| Fencing number | A counter that grows each time the lease changes hands. | Meant to reject writes from an old leader; not checked yet. |
+| Takeover action | Code that runs when this server becomes leader. | Core uses it for recovery and auto-resume. |
+| Standby | A server that is not the leader. | Refuses to admit runs. |
+| TOAST | PostgreSQL's way of storing large values out of line. | Why the checkpoint table needs no size cap. |
+| Testcontainers | A library that starts a real PostgreSQL in Docker for tests. | The tests need Docker. |
+| KV_STORE | A workflow node type that keeps counters and flags. | Its state can live in the kv_entry table. |
+| SESSION_MEMORY | A workflow node type that keeps chat history. | Its history can live in the session_history table. |
+| Half durable | A deployment where some stores are in PostgreSQL and others in memory. | Possible because each store has its own switch. |
+| Advisory lock | A PostgreSQL lock that the application names and takes itself. | Not used here; mentioned as an alternative for the lease. |

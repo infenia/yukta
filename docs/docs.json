@@ -43,14 +43,17 @@
         "groups": [
           {
             "group": "Get started",
+            "public": true,
             "pages": [
               "index",
               "quickstart",
+              "playground",
               "examples"
             ]
           },
           {
             "group": "Concepts",
+            "public": true,
             "pages": [
               "concepts/how-it-works",
               "concepts/sessions-and-workflows",
@@ -65,6 +68,7 @@
           },
           {
             "group": "Building workflows",
+            "public": true,
             "pages": [
               "building/defining-a-workflow",
               "building/validation-and-versions",
@@ -78,6 +82,7 @@
           },
           {
             "group": "Plugin reference",
+            "public": true,
             "pages": [
               "plugins/overview",
               "plugins/triggers",
@@ -92,6 +97,7 @@
           },
           {
             "group": "Running and controlling",
+            "public": true,
             "pages": [
               "running/run-controls",
               "running/admission-and-limits",
@@ -103,6 +109,7 @@
           },
           {
             "group": "Interfaces",
+            "public": true,
             "pages": [
               "interfaces/web-ui",
               "interfaces/mcp",
@@ -111,6 +118,7 @@
           },
           {
             "group": "Operations",
+            "public": true,
             "pages": [
               "operations/configuration",
               "operations/security",
@@ -125,6 +133,7 @@
           },
           {
             "group": "Reference",
+            "public": true,
             "pages": [
               "reference/glossary",
               "reference/limits-and-defaults",
@@ -138,6 +147,7 @@
         "groups": [
           {
             "group": "API basics",
+            "public": true,
             "pages": [
               "api/overview",
               "api/errors"
@@ -145,6 +155,7 @@
           },
           {
             "group": "Endpoints",
+            "public": true,
             "pages": [
               "api/sessions",
               "api/workflows",
@@ -158,7 +169,65 @@
       },
       {
         "tab": "Endpoint reference",
-        "openapi": "api/openapi.json"
+        "groups": [
+          {
+            "group": "Endpoints",
+            "public": true,
+            "openapi": "api/openapi.json"
+          }
+        ]
+      },
+      {
+        "tab": "Contributing",
+        "groups": [
+          {
+            "group": "Overview",
+            "public": true,
+            "pages": [
+              "contributing/overview",
+              "contributing/core-reference"
+            ]
+          },
+          {
+            "group": "Modules",
+            "public": true,
+            "pages": [
+              "contributing/modules/boot",
+              "contributing/modules/build-logic",
+              "contributing/modules/cli",
+              "contributing/modules/core",
+              "contributing/modules/mcp",
+              "contributing/modules/messaging",
+              "contributing/modules/persistence-postgres",
+              "contributing/modules/plugin-api",
+              "contributing/modules/plugins",
+              "contributing/modules/ui",
+              "contributing/modules/web",
+              "contributing/modules/workers"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Internal",
+        "groups": [
+          {
+            "group": "Engineering health",
+            "pages": [
+              "internal/bugs",
+              "internal/risks",
+              "internal/improvements"
+            ]
+          },
+          {
+            "group": "Plans",
+            "pages": [
+              "internal/plans/remote-workers",
+              "internal/plans/remediation",
+              "internal/plans/performance"
+            ]
+          }
+        ]
       }
     ]
   },
