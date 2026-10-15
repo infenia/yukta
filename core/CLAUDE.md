@@ -70,6 +70,7 @@ Any node's config may carry a reserved `engine` object; plugins never see these 
 - `failureBudget {maxFailures, windowMs}` (needs `onError` CONTINUE or ROUTE): when more than
   `maxFailures` messages fail within the window, the node fails instead of dropping or routing the
   next one. Counted per run (`FailureLedger`).
+- `edgeBuffer {size, overflow}` (any node with a processor; `DROP_OLDEST` default or `DROP_NEWEST`): a bounded buffer in front of the node. When the node is slower than its parents it drops messages (counted in `yukta.edge.dropped{type=<node type>}`) instead of pacing the fan-out. Opt-in; the default stays lossless.
 - `trigger` (nodes with several parents): `ALL_SUCCESS` (default, fail with a failing parent),
   `ALL_DONE` (continue on the other parents) or `ONE_SUCCESS` (continue, but fail if every parent
   failed).
@@ -104,7 +105,7 @@ Malformed policies are rejected by `WorkflowValidator` with the node id and opti
 - Restart-from-node re-runs the node and its descendants and replays the recorded output of the
   nodes that feed them (`RestartPlan`); independent branches are left alone.
 - Set `yukta.restart.dir` to keep node outputs on disk (`FileNodeCheckpointStore`, one JSON line per
-  message, no caps; payloads come back as plain JSON values). With it and `yukta.execution-log.dir`,
+  message, appended through one open channel per node until `markComplete`, no caps; payloads come back as plain JSON values). With it and `yukta.execution-log.dir`,
   `ExecutionResumer.resume(executionId)` continues a run that a restart aborted: the log holds the
   payload (`RUN_STARTED`); nodes that finished (a durable end marker, below) replay their
   recorded output, the rest run again. `NODE_FINISHED` log events are history only. A run resumes once (`RUN_RESUMED`) and only if its definition
@@ -220,8 +221,7 @@ memory. Both keep the newest 20 saved versions of a workflow (identical saves ad
 `WorkflowDefinitionStore.revisions/findRevision` and the web rollback endpoint use them. `GET
 .../versions/diff?from=&to=` (`to` omitted: the current definition) returns a `WorkflowDiff` (nodes
 added, removed or changed, edges added or removed); MCP has `list_workflow_versions`,
-`diff_workflow_versions` and `rollback_workflow`, and the workflow page a "Versions" panel. Not yet:
-notes on a version and pinning a run to a version.
+`diff_workflow_versions` and `rollback_workflow`, and the workflow page a "Versions" panel. A version can carry a note (`POST .../versions/note?version=&note=`, MCP `note_workflow_version`; `DefinitionRevision.note`; a column in PostgreSQL, a `.note` file next to the version file). A start whose payload has `yukta.version` runs that saved version (the prepared-workflow cache is bypassed). Not yet: a note field in the UI panel.
 
 ### PostgreSQL stores (`persistence-postgres`, optional)
 `yukta.session.store-type=postgres` (profile `postgres`, build with `-Pyukta.persistence=postgres`)
@@ -253,8 +253,7 @@ whole run instead: it throws `RunAbortedException`, which `NodePolicies` never r
 routes and `failureMode` does not absorb. Every refusal is counted in `llm.budget.exceeded`. One call
 may overshoot the limit. `yukta.llm.rate-limit.<provider>` (requests per minute, e.g.
 `yukta.llm.rate-limit.openai=60`) spaces the calls to a provider across all nodes and runs; a call
-that would wait longer than its own timeout fails. Not yet: one budget across `LLM_CALL` and
-`MCP_TOOL_CALL`, or per agent.
+that would wait longer than its own timeout fails. The ledger (`RunBudgets.shared()` in plugin-api) is shared with `MCP_TOOL_CALL`, whose `budget` takes `{maxCalls, agent, hardStop}`; `LLM_CALL` also takes `maxCalls`, and a budget with an `agent` is counted apart from the rest of the run. Not yet: token and cost meters per provider.
 
 ### Supervisors (rule engine / AI / custom code on the control bus)
 A supervisor implements `ExecutionSupervisor` (plugin-api) and is registered as a Spring bean:
