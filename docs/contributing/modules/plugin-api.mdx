@@ -1,6 +1,7 @@
 ---
 title: "Plugin API module"
 description: "plugin-api is the contract between Yukta's engine and the code that does the actual work."
+mode: "wide"
 ---
 
 plugin-api is the contract between Yukta's engine and the code that does the actual work. Every node in a workflow (call an API, ask a model, wait for a person) is a plugin that implements one of three small interfaces here, and every supervisor that watches or steers runs implements another. The module holds almost no logic of its own: it holds the shape of the conversation. This page is for thinking about that contract: open a component, replay a scenario, then challenge the weak spots.

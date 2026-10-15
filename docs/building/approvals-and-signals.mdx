@@ -1,6 +1,7 @@
 ---
 title: "Approvals and signals"
 description: "Hold a message until a person or another system sends a named signal, with a timeout and an accept or reject decision."
+mode: "wide"
 ---
 
 A **signal** is a named message that you send to a node of a running execution. The `WAIT_FOR_SIGNAL` plugin uses signals for human-in-the-loop steps: it holds each message until its signal arrives, then lets the message go on, drops it or fails, depending on the decision.

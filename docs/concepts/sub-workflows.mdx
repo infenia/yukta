@@ -1,6 +1,7 @@
 ---
 title: "Sub-workflows"
 description: "Run another stored workflow from inside a node, once per message."
+mode: "wide"
 ---
 
 The `SUB_WORKFLOW` processor runs another stored workflow of the **same session** for each message it receives. Use it to compose small workflows into larger ones, to share a reusable sequence between several workflows, or to build agent-style plans where a step decides which workflow to run.
