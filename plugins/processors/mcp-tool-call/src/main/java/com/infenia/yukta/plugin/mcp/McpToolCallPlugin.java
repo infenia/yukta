@@ -10,8 +10,10 @@ import com.infenia.yukta.plugin.core.PluginDescriptor;
 import com.infenia.yukta.plugin.core.PluginMetricsReporter;
 import com.infenia.yukta.plugin.core.UiDesign;
 import com.infenia.yukta.plugin.core.WorkflowContext;
+import com.infenia.yukta.plugin.exception.RunAbortedException;
 import com.infenia.yukta.plugin.exception.WorkflowExecutionException;
 import com.infenia.yukta.plugin.type.ProcessorPlugin;
+import com.infenia.yukta.plugin.util.RunBudgets;
 import com.infenia.yukta.plugin.util.SignalWaits;
 import com.infenia.yukta.plugin.util.SpelUtils;
 import com.infenia.yukta.util.MapUtils;
@@ -64,6 +66,7 @@ public final class McpToolCallPlugin implements ProcessorPlugin {
   private static final String ARGUMENTS = "arguments";
   private static final String HEADERS = "headers";
   private static final String ALLOWED_TOOLS = "allowedTools";
+  private static final String BUDGET = "budget";
   private static final String AUTH_TOKEN = "authToken";
   private static final String TIMEOUT = "timeout";
   private static final String RESULT_KEY = "resultKey";
@@ -83,6 +86,7 @@ public final class McpToolCallPlugin implements ProcessorPlugin {
   private final VariableResolver resolver;
   private final PluginMetricsReporter reporter;
   private final MeterRegistry meters;
+  private final RunBudgets budgets = RunBudgets.shared();
 
   /**
    * Creates the plugin.
@@ -139,6 +143,11 @@ public final class McpToolCallPlugin implements ProcessorPlugin {
                 + " (default: the payload)"),
         ConfigField.optional(HEADERS, ConfigField.Type.MAP, null, "Extra request headers"),
         ConfigField.optional(
+            BUDGET,
+            ConfigField.Type.MAP,
+            null,
+            "Limits for the calls of one run: {maxCalls, agent, hardStop}; shared with LLM_CALL"),
+        ConfigField.optional(
             ALLOWED_TOOLS,
             ConfigField.Type.LIST,
             null,
@@ -189,6 +198,8 @@ public final class McpToolCallPlugin implements ProcessorPlugin {
       evaluated against the message that returns a map, e.g. "payload.toolCall.args".
       Default: the payload if it is a map, else {"input": payload}
     - headers: Map<String, String> (variable expressions and decrypted:<key> supported)
+    - budget: {maxCalls, agent, hardStop} limits the calls of one run, counted together with the
+      LLM_CALL budget of the same run (and agent); hardStop ends the whole run
     - allowedTools: list of tool names this node may call; any other tool is refused (use it when
       the tool is chosen by a model).
     - requireApproval: list of tool names (or "*") that wait for a human signal before they are
@@ -302,16 +313,46 @@ public final class McpToolCallPlugin implements ProcessorPlugin {
                       spec ->
                           allowed(config, spec.tool())
                               .then(approved(ctx, config, spec.tool()))
+                              .then(
+                                  Mono.defer(
+                                      () ->
+                                          charged(
+                                              ctx.getOrDefault("executionId", "unknown"),
+                                              nodeId,
+                                              config)))
                               .then(Mono.defer(() -> gateway.call(spec, heartbeat)))
                               .onErrorResume(
                                   error ->
                                       failureMode == FailureMode.CONTINUE
+                                              && !RunAbortedException.isAbort(error)
                                           ? Mono.just(
                                               McpCallResult.transportFailure(error.toString()))
                                           : Mono.error(error))
                               .map(result -> new Outcome(nodeId, spec.tool(), result)));
             })
         .flatMapMany(outcome -> toMessage(message, config, failureMode, outcome, started));
+  }
+
+  /**
+   * Counts the call against the node's {@code budget} (shared with LLM_CALL) and refuses it once
+   * {@code maxCalls} is used; {@code hardStop} ends the whole run instead of failing the call.
+   */
+  private Mono<Void> charged(
+      final String runId, final String nodeId, final Map<String, Object> config) {
+    if (!(config.get(BUDGET) instanceof final Map<?, ?> budget)) {
+      return Mono.empty();
+    }
+    final String key = RunBudgets.key(runId, budget);
+    final java.util.Optional<String> why = budgets.exceeded(key, budget);
+    if (why.isPresent()) {
+      reporter.increment(nodeId, "mcp.budget.exceeded", "mcp");
+      return Mono.error(
+          Boolean.TRUE.equals(budget.get("hardStop"))
+              ? new RunAbortedException("MCP budget exceeded: " + why.get())
+              : new IllegalStateException("MCP budget exceeded: " + why.get()));
+    }
+    budgets.addCall(key);
+    return Mono.empty();
   }
 
   /** Holds a tool that needs a human approval until the signal comes. */
@@ -486,6 +527,19 @@ public final class McpToolCallPlugin implements ProcessorPlugin {
                     .log("MCP tool call configuration validation failed: {}", e.getMessage()));
   }
 
+  /** The budget of a tool node counts calls; tokens and cost belong to model calls. */
+  private static void checkBudget(final Map<String, Object> config) {
+    if (config.get(BUDGET) instanceof final Map<?, ?> budget) {
+      if (budget.containsKey("maxTokens") || budget.containsKey("maxCost")) {
+        throw new IllegalArgumentException(
+            "budget of MCP_TOOL_CALL supports maxCalls, agent, hardStop");
+      }
+      RunBudgets.validate(config);
+    } else if (config.get(BUDGET) != null) {
+      throw new IllegalArgumentException("budget must be a map");
+    }
+  }
+
   private static void checkConfig(final Map<String, Object> config) {
     if (config.get(URL) == null || config.get(TOOL) == null) {
       throw new IllegalArgumentException("url and tool are mandatory");
@@ -505,6 +559,7 @@ public final class McpToolCallPlugin implements ProcessorPlugin {
       throw new IllegalArgumentException("allowedTools must be a list of tool names");
     }
     ToolApproval.validate(config);
+    checkBudget(config);
     final FailureMode failureMode = FailureMode.from(config.get(FAILURE_MODE));
     if (routeByStatus(config) && failureMode != FailureMode.CONTINUE) {
       throw new IllegalArgumentException("routeByStatus requires failureMode: CONTINUE");

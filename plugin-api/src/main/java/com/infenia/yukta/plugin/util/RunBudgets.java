@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
-package com.infenia.yukta.plugin.llm;
+package com.infenia.yukta.plugin.util;
 
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -9,13 +9,25 @@ import java.util.Map;
 import java.util.Optional;
 
 /**
- * What the LLM calls of each run have used so far, so a node can stop a run that loops on a model.
- * The newest {@value #MAX_RUNS} runs are remembered; an older run starts again from zero.
+ * What the model and tool calls of each run have used so far, so a node can stop a run that loops
+ * on a model. One ledger ({@link #shared()}) serves every plugin, so a budget spans {@code
+ * LLM_CALL} and {@code MCP_TOOL_CALL}; a budget with an {@code agent} counts that agent apart from
+ * the rest of the run. The newest {@value #MAX_RUNS} keys are remembered; an older one starts again
+ * from zero.
  */
 public final class RunBudgets {
 
   /** Option: most tokens. */
   private static final String MAX_TOKENS = "maxTokens";
+
+  /** Option: most calls. */
+  private static final String MAX_CALLS = "maxCalls";
+
+  /** Option: names the agent whose use is counted apart from the rest of the run. */
+  private static final String AGENT = "agent";
+
+  /** Ledger shared by every plugin of the process. */
+  private static final RunBudgets SHARED = new RunBudgets();
 
   /** Option: most cost. */
   private static final String MAX_COST = "maxCost";
@@ -36,7 +48,29 @@ public final class RunBudgets {
           });
 
   /** Tokens and cost one run has used. */
-  private record Spent(long tokens, double cost) {}
+  private record Spent(long tokens, double cost, long calls) {}
+
+  /**
+   * The ledger every plugin uses by default.
+   *
+   * @return the shared ledger
+   */
+  public static RunBudgets shared() {
+    return SHARED;
+  }
+
+  /**
+   * The key a budget counts under: the run, or the run and the agent the budget names.
+   *
+   * @param runId the run
+   * @param budget the {@code budget} option, or null
+   * @return the key to pass to {@link #exceeded} and the add methods
+   */
+  public static String key(final String runId, final Map<?, ?> budget) {
+    return budget != null && budget.get(AGENT) instanceof final String agent && !agent.isBlank()
+        ? runId + "\0" + agent
+        : runId;
+  }
 
   /** Creates an empty ledger. */
   public RunBudgets() {
@@ -52,8 +86,25 @@ public final class RunBudgets {
    * @return why the run may not call again, or empty if it may
    */
   public Optional<String> exceeded(final String runId, final Long maxTokens, final Double maxCost) {
+    return exceeded(runId, maxTokens, maxCost, null);
+  }
+
+  /**
+   * Checks a run against its limits before another call.
+   *
+   * @param runId the run
+   * @param maxTokens most tokens (input plus output) the run may use, or null for no limit
+   * @param maxCost most cost the run may reach, or null for no limit
+   * @param maxCalls most calls the run may make, or null for no limit
+   * @return why the run may not call again, or empty if it may
+   */
+  public Optional<String> exceeded(
+      final String runId, final Long maxTokens, final Double maxCost, final Long maxCalls) {
     final Spent spent = byRun.get(runId);
     Optional<String> why = Optional.empty();
+    if (spent != null && maxCalls != null && spent.calls() >= maxCalls) {
+      return Optional.of("call budget of " + maxCalls + " used (" + spent.calls() + ")");
+    }
     if (spent != null && maxTokens != null && spent.tokens() >= maxTokens) {
       why = Optional.of("token budget of " + maxTokens + " used (" + spent.tokens() + ")");
     } else if (spent != null && maxCost != null && spent.cost() >= maxCost) {
@@ -73,7 +124,8 @@ public final class RunBudgets {
     return exceeded(
         runId,
         budget.get(MAX_TOKENS) == null ? null : limit(budget, MAX_TOKENS).longValue(),
-        budget.get(MAX_COST) == null ? null : limit(budget, MAX_COST).doubleValue());
+        budget.get(MAX_COST) == null ? null : limit(budget, MAX_COST).doubleValue(),
+        budget.get(MAX_CALLS) == null ? null : limit(budget, MAX_CALLS).longValue());
   }
 
   /**
@@ -84,12 +136,15 @@ public final class RunBudgets {
    */
   public static void validate(final Map<String, Object> config) {
     if (config.get("budget") instanceof final Map<?, ?> budget) {
-      for (final String key : List.of(MAX_TOKENS, MAX_COST)) {
+      for (final String key : List.of(MAX_TOKENS, MAX_COST, MAX_CALLS)) {
         if (budget.get(key) != null) {
           limit(budget, key);
         }
       }
       validateHardStop(budget);
+      if (budget.get(AGENT) != null && !(budget.get(AGENT) instanceof String)) {
+        throw new IllegalArgumentException("budget.agent must be text");
+      }
       if (budget.get(MAX_COST) != null && !(config.get("prices") instanceof Map<?, ?>)) {
         throw new IllegalArgumentException("budget.maxCost needs prices to measure cost");
       }
@@ -119,7 +174,20 @@ public final class RunBudgets {
   public void add(final String runId, final long tokens, final double cost) {
     byRun.merge(
         runId,
-        new Spent(tokens, cost),
-        (old, added) -> new Spent(old.tokens() + added.tokens(), old.cost() + added.cost()));
+        new Spent(tokens, cost, 0),
+        (old, added) ->
+            new Spent(old.tokens() + added.tokens(), old.cost() + added.cost(), old.calls()));
+  }
+
+  /**
+   * Counts one call, whatever it cost.
+   *
+   * @param runId the run
+   */
+  public void addCall(final String runId) {
+    byRun.merge(
+        runId,
+        new Spent(0, 0, 1),
+        (old, added) -> new Spent(old.tokens(), old.cost(), old.calls() + 1));
   }
 }

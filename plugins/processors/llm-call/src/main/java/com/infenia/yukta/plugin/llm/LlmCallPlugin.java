@@ -12,6 +12,7 @@ import com.infenia.yukta.plugin.core.PluginMetricsReporter;
 import com.infenia.yukta.plugin.exception.RunAbortedException;
 import com.infenia.yukta.plugin.exception.WorkflowExecutionException;
 import com.infenia.yukta.plugin.type.ProcessorPlugin;
+import com.infenia.yukta.plugin.util.RunBudgets;
 import com.infenia.yukta.plugin.util.SpelUtils;
 import com.infenia.yukta.util.MapUtils;
 import com.infenia.yukta.util.VariableResolver;
@@ -80,7 +81,7 @@ public final class LlmCallPlugin implements ProcessorPlugin {
   private final LlmGateway gateway;
   private final VariableResolver resolver;
   private final PluginMetricsReporter reporter;
-  private final RunBudgets budgets = new RunBudgets();
+  private final RunBudgets budgets;
 
   /**
    * Creates the plugin without metrics.
@@ -93,6 +94,7 @@ public final class LlmCallPlugin implements ProcessorPlugin {
     this.gateway = gateway;
     this.resolver = resolver;
     this.reporter = PluginMetricsReporter.NOOP;
+    this.budgets = new RunBudgets();
   }
 
   /**
@@ -111,6 +113,7 @@ public final class LlmCallPlugin implements ProcessorPlugin {
     this.gateway = gateway;
     this.resolver = resolver;
     this.reporter = reporterProvider.getIfAvailable(() -> PluginMetricsReporter.NOOP);
+    this.budgets = RunBudgets.shared();
   }
 
   @Override
@@ -159,7 +162,9 @@ public final class LlmCallPlugin implements ProcessorPlugin {
             "budget",
             ConfigField.Type.MAP,
             null,
-            "Limits for all calls of one run: {maxTokens, maxCost}; cost needs prices"),
+            "Limits for all calls of one run: {maxTokens, maxCost, maxCalls, agent, hardStop}; cost"
+                + " needs prices; the budget is shared with MCP_TOOL_CALL, and an agent is counted"
+                + " apart"),
         ConfigField.choice(
             "failureMode", false, "ERROR", "What to do on a failed call", "ERROR", "CONTINUE"),
         ConfigField.optional(
@@ -278,7 +283,7 @@ public final class LlmCallPlugin implements ProcessorPlugin {
                               final Map<String, Object> payload =
                                   success(config, response, elapsedMillis(start));
                               budgets.add(
-                                  runId,
+                                  RunBudgets.key(runId, budgetOf(config)),
                                   response.inputTokens() + response.outputTokens(),
                                   payload.get("cost") instanceof final Double cost ? cost : 0.0);
                               return output(message, config, payload, null);
@@ -302,6 +307,10 @@ public final class LlmCallPlugin implements ProcessorPlugin {
         });
   }
 
+  private static Map<?, ?> budgetOf(final Map<String, Object> config) {
+    return config.get(BUDGET) instanceof final Map<?, ?> budget ? budget : null;
+  }
+
   /** Refuses the call if the run has used up its {@code budget}. */
   private Mono<LlmResponse> budgeted(
       final String runId,
@@ -310,7 +319,7 @@ public final class LlmCallPlugin implements ProcessorPlugin {
       final Mono<LlmResponse> call) {
     return config.get(BUDGET) instanceof final Map<?, ?> budget
         ? budgets
-            .exceeded(runId, budget)
+            .exceeded(RunBudgets.key(runId, budget), budget)
             .<Mono<LlmResponse>>map(
                 why -> {
                   reporter.increment(nodeId, "llm.budget.exceeded", "llm");

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
-package com.infenia.yukta.plugin.llm;
+package com.infenia.yukta.plugin.util;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -41,5 +41,19 @@ class RunBudgetsTest {
 
     assertThat(budgets.exceeded("first", 100L, null)).isEmpty();
     assertThat(budgets.exceeded("run-" + (RunBudgets.MAX_RUNS - 1), 1L, null)).isPresent();
+  }
+
+  @Test
+  void callsAreLimited_andAnAgentIsCountedApart() {
+    final java.util.Map<String, Object> budget = java.util.Map.of("maxCalls", 2, "agent", "a1");
+    final String key = RunBudgets.key("r", budget);
+    budgets.addCall(key);
+    assertThat(budgets.exceeded(key, budget)).isEmpty();
+    budgets.addCall(key);
+
+    assertThat(budgets.exceeded(key, budget))
+        .hasValueSatisfying(w -> assertThat(w).contains("call"));
+    assertThat(RunBudgets.key("r", java.util.Map.of("maxCalls", 2))).isEqualTo("r");
+    assertThat(budgets.exceeded("r", java.util.Map.of("maxCalls", 2))).isEmpty();
   }
 }

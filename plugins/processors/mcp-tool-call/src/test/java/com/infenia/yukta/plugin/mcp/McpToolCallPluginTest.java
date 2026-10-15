@@ -503,4 +503,52 @@ class McpToolCallPluginTest {
     StepVerifier.create(plugin.validateConfig(config("url", "https://x"))).verifyComplete();
     StepVerifier.create(plugin.validateConfig(config("url", 5))).verifyComplete();
   }
+
+  @Test
+  void budget_refusesCallsPastMaxCalls_andHardStopEndsTheRun() {
+    when(gateway.call(any(), any())).thenReturn(Mono.just(success()));
+    final Map<String, Object> soft = config("budget", Map.of("maxCalls", 1, "agent", "a-soft"));
+    final Map<String, Object> hard =
+        config(
+            "budget",
+            Map.of("maxCalls", 1, "agent", "a-hard", "hardStop", true),
+            "failureMode",
+            "CONTINUE");
+
+    for (final Map<String, Object> cfg : List.of(soft, hard)) {
+      StepVerifier.create(
+              plugin
+                  .process(Flux.just(input()), cfg)
+                  .contextWrite(Context.of("executionId", "run-budget")))
+          .expectNextCount(1)
+          .verifyComplete();
+    }
+    StepVerifier.create(
+            plugin
+                .process(Flux.just(input()), soft)
+                .contextWrite(Context.of("executionId", "run-budget")))
+        .verifyErrorSatisfies(
+            e ->
+                assertThat(e)
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("call budget"));
+    StepVerifier.create(
+            plugin
+                .process(Flux.just(input()), hard)
+                .contextWrite(Context.of("executionId", "run-budget")))
+        .verifyErrorSatisfies(
+            e ->
+                assertThat(com.infenia.yukta.plugin.exception.RunAbortedException.isAbort(e))
+                    .isTrue());
+    verify(gateway, org.mockito.Mockito.times(2)).call(any(), any());
+  }
+
+  @Test
+  void budget_isValidated() {
+    StepVerifier.create(plugin.validateConfig(config("budget", Map.of("maxTokens", 5))))
+        .expectErrorMessage("budget of MCP_TOOL_CALL supports maxCalls, agent, hardStop")
+        .verify();
+    StepVerifier.create(plugin.validateConfig(config("budget", Map.of("maxCalls", 3))))
+        .verifyComplete();
+  }
 }

@@ -31,6 +31,7 @@ class McpToolCallPluginConfigSchemaTest {
             "tool",
             "arguments",
             "headers",
+            "budget",
             "allowedTools",
             "requireApproval",
             "approvalSignal",
