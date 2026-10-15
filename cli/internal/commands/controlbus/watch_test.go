@@ -172,6 +172,40 @@ func TestWatchCmd_untilDoneReplaysEndedNodes(t *testing.T) {
 	}
 }
 
+// The snapshot carries a node's metadata, so a late watch still shows why a node failed.
+func TestWatchCmd_quietUntilDoneShowsTheReasonOfAMissedFailure(t *testing.T) {
+	defer func(old time.Duration) { snapshotInterval = old }(snapshotInterval)
+	snapshotInterval = 20 * time.Millisecond
+
+	release := make(chan struct{})
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/events/stream":
+			w.Header().Set("Content-Type", "text/event-stream")
+			w.(http.Flusher).Flush()
+			select {
+			case <-release:
+			case <-r.Context().Done():
+			}
+		case "/api/executions/e":
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = io.WriteString(w, `{"data":{"executionId":"e","status":"FAILURE","tasks":[`+
+				`{"nodeId":"tests","status":"FAILURE","metadata":{"error":"Process timed out after 300s"}}]}}`)
+		}
+	}))
+	defer srv.Close()
+	defer close(release)
+
+	out, err := testutil.Run(t, WatchCmd(client.NewClient(srv.URL)), "--execution", "e", "--until-done", "--quiet")
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := "NODE tests FAILURE\nERROR tests: Process timed out after 300s\nWORKFLOW FAILURE\n"
+	if out != want {
+		t.Errorf("output %q, want %q", out, want)
+	}
+}
+
 func TestWatcher_dropsRepeatedNodeStatus(t *testing.T) {
 	w := &watcher{}
 	ev := client.ExecutionEvent{Type: client.EventNodeStatusChanged, NodeID: "n", Status: "SUCCESS"}
