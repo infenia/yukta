@@ -23,3 +23,4 @@ worker) and `WorkerConnections`; the worker's `WorkerAgent` (connects out, regis
 - Draining: `WorkerAgent.stop()` sends a lease with `draining=true`, waits for `NodeRunner.running()` to reach zero (at most `yukta.workers.drain-timeout`), then closes the connection.
 - TLS/mTLS: `WorkerTransport` connects with TCP or, with `yukta.workers.ssl-bundle`, TLS using the bundle's key and trust stores (host name verified). The test makes certificates with keytool and checks that a worker with a trusted certificate registers and one with an untrusted certificate or none does not.
 - `ChaosTest` starts workers as separate JVMs (`WorkerMain`) and kills one with SIGKILL during an attempt: the attempt fails retryably and the retry runs on the other worker.
+- `yukta.workers.control-plane` takes several addresses; a standby answers REJECT ("not the leader") and the agent's next attempt tries the next address.
