@@ -116,25 +116,6 @@ final class SpelBudget {
     };
   }
 
-  /** Runs {@code matches} or {@code split} on a text that checks the limit; null for others. */
-  private static @Nullable TypedValue regexCall(
-      final String name, final Object target, final @Nullable Object[] arguments) {
-    TypedValue result = null;
-    if (target instanceof String text
-        && arguments.length > 0
-        && arguments[0] instanceof String regex) {
-      final Pattern pattern = Pattern.compile(regex);
-      if ("matches".equals(name) && arguments.length == 1) {
-        result = new TypedValue(pattern.matcher(new GuardedText(text)).matches());
-      } else if ("split".equals(name) && arguments.length <= 2) {
-        final int limit =
-            arguments.length == 2 && arguments[1] instanceof Number number ? number.intValue() : 0;
-        result = new TypedValue(pattern.split(new GuardedText(text), limit));
-      }
-    }
-    return result;
-  }
-
   /**
    * Makes a property accessor check the limit on every read.
    *
@@ -143,6 +124,33 @@ final class SpelBudget {
    */
   /* default */ static PropertyAccessor guard(final PropertyAccessor delegate) {
     return new GuardedAccessor(delegate);
+  }
+
+  /** Runs {@code matches} or {@code split} on a text that checks the limit; null for others. */
+  private static @Nullable TypedValue regexCall(
+      final String name, final Object target, final @Nullable Object... arguments) {
+    TypedValue result = null;
+    if (target instanceof String text
+        && arguments.length > 0
+        && arguments[0] instanceof String regex) {
+      if ("matches".equals(name) && arguments.length == 1) {
+        result = matches(text, regex);
+      } else if ("split".equals(name) && arguments.length <= 2) {
+        result = split(text, regex, arguments);
+      }
+    }
+    return result;
+  }
+
+  private static TypedValue matches(final String text, final String regex) {
+    return new TypedValue(Pattern.compile(regex).matcher(new GuardedText(text)).matches());
+  }
+
+  private static TypedValue split(
+      final String text, final String regex, final @Nullable Object... arguments) {
+    final int limit =
+        arguments.length == 2 && arguments[1] instanceof Number number ? number.intValue() : 0;
+    return new TypedValue(Pattern.compile(regex).split(new GuardedText(text), limit));
   }
 
   /** The evaluation ran out of time. */

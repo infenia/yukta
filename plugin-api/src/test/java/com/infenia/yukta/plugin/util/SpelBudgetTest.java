@@ -49,12 +49,12 @@ class SpelBudgetTest {
   }
 
   @Test
-  void aRunawayRegexInMatchesIsStopped() {
+  void runawayRegexInMatchesIsStopped() {
     assertStopped(EVIL_INPUT + ".matches(" + EVIL_REGEX + ")", Map.of());
   }
 
   @Test
-  void aRunawayRegexInSplitIsStopped() {
+  void runawayRegexInSplitIsStopped() {
     assertStopped(EVIL_INPUT + ".split(" + EVIL_REGEX + ")", Map.of());
   }
 

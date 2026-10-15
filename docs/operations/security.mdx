@@ -178,6 +178,24 @@ yukta.process.allowed-commands=git,npm,mvn
 
 Use `allow-any` only when every workflow author is fully trusted.
 
+## Outbound hosts
+
+`HTTP_REQUEST` and `MCP_TOOL_CALL` call whatever URL a node names, and the URL can be built from a message with `${...}`. By default every host is allowed. To limit it, list the hosts the server may call:
+
+| Setting | Effect |
+|---|---|
+| `yukta.http.allowed-hosts` | Hosts `HTTP_REQUEST` may call |
+| `yukta.mcp-client.allowed-hosts` | Hosts `MCP_TOOL_CALL` and `MCP_LIST_TOOLS` may call |
+
+Each entry is a host name or IP address, compared without regard to case, or `*.example.com`, which matches any subdomain but not `example.com` itself. A call to any other host is refused before a request is made, and so is a URL with no host. The check uses the host the URL really addresses, so `https://good.com@evil.com/` counts as `evil.com`.
+
+```properties
+yukta.http.allowed-hosts=api.example.com,*.internal.example
+yukta.mcp-client.allowed-hosts=mcp.example.com
+```
+
+The list works on the name in the URL. It does not stop a listed name that resolves to an address you did not intend, so keep the listed names under your control. `NOTIFY_TERMINAL` webhooks are not covered by these settings.
+
 ## Script limits
 
 JavaScript scripts run with a time limit and a statement limit. Both are system properties:

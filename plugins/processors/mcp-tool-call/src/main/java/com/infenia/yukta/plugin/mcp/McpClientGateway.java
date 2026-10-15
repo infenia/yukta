@@ -5,6 +5,7 @@ package com.infenia.yukta.plugin.mcp;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.RemovalCause;
+import com.infenia.yukta.plugin.util.HostAllowList;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -41,6 +42,7 @@ import tools.jackson.databind.ObjectMapper;
 @RequiredArgsConstructor
 @SuppressWarnings({
   "PMD.CommentRequired",
+  "PMD.GodClass",
   "PMD.TooManyMethods",
   "PMD.UseConcurrentHashMap",
   "PMD.OnlyOneReturn",
@@ -73,6 +75,12 @@ public class McpClientGateway {
 
   /** Tools workflows may call; empty means any. */
   private Set<String> allowedTools = Set.of();
+
+  /** The setting that lists the hosts the endpoint may be on. */
+  private static final String ALLOWED_HOSTS_PROPERTY = "yukta.mcp-client.allowed-hosts";
+
+  /** The hosts the endpoint may be on; empty allows every host. */
+  private HostAllowList allowedHosts = HostAllowList.from(null);
 
   /** The most bytes of tool arguments, as JSON. */
   private int maxArgumentBytes = 65_536;
@@ -168,6 +176,17 @@ public class McpClientGateway {
   }
 
   /**
+   * Sets the hosts the MCP endpoint may be on ({@code yukta.mcp-client.allowed-hosts}); empty
+   * allows any. A listed host is a name, an IP address or {@code *.domain}.
+   *
+   * @param hosts the allowed hosts, or empty
+   */
+  @Value("${yukta.mcp-client.allowed-hosts:}")
+  /* default */ void setAllowedHosts(final List<String> hosts) {
+    this.allowedHosts = HostAllowList.from(hosts);
+  }
+
+  /**
    * Sets the most bytes of arguments, as JSON, one call may carry ({@code
    * yukta.mcp-client.max-argument-bytes}).
    *
@@ -190,6 +209,10 @@ public class McpClientGateway {
   }
 
   private String refusalFor(final McpCallSpec spec) {
+    final String hostRefusal = allowedHosts.refusalFor(spec.url(), ALLOWED_HOSTS_PROPERTY);
+    if (hostRefusal != null) {
+      return hostRefusal;
+    }
     if (!allowedTools.isEmpty() && !allowedTools.contains(spec.tool())) {
       return "MCP tool '" + spec.tool() + "' is not in yukta.mcp-client.allowed-tools";
     }
@@ -219,6 +242,10 @@ public class McpClientGateway {
    */
   public Mono<List<Map<String, Object>>> listTools(
       final McpCallSpec spec, final Runnable heartbeat) {
+    final String hostRefusal = allowedHosts.refusalFor(spec.url(), ALLOWED_HOSTS_PROPERTY);
+    if (hostRefusal != null) {
+      return Mono.error(new IllegalArgumentException(hostRefusal));
+    }
     return Mono.defer(() -> listOnce(spec, heartbeat))
         .onErrorResume(
             SessionExpiredException.class,

@@ -44,7 +44,7 @@ Risks rated impact 4 or 5, across all modules.
 | [MCP](#mcp) | The session guide example cannot be accepted | Correctness | 4 | 2 |
 | [Persistence PostgreSQL](#persistence-postgresql) | The startup log rewrite is not atomic | Reliability | 4 | 2 |
 | [Plugin API](#plugin-api) | A hung reviewer blocks commands, including a human stop | Availability | 4 | 2 |
-| [Plugins](#plugins) | No host allow-list for HTTP_REQUEST, MCP_TOOL_CALL (G7) | Security | 4 | 2 |
+| [Plugins](#plugins) | Host allow-list for HTTP_REQUEST, MCP_TOOL_CALL is opt-in (G7) | Security | 3 | 2 |
 | [Workers](#workers) | Plain TCP is the default, and the wire carries tokens, configs and payloads | Security | 4 | 2 |
 | [CLI](#cli) | Hand-written paths and types can drift from the server | Evolvability | 4 | 3 |
 | [Core](#core) | Remote nodes: failure handling and operations are thin | Scalability | 4 | 3 |
@@ -1628,7 +1628,7 @@ IDs in brackets such as (G1) are finding numbers from the module's review notes 
 | Risk | Category | Impact | Effort |
 |---|---|---|---|
 | MAPPER SCRIPT: sandboxed, but no heap limit (G1) | Security | 2 | 3 |
-| No host allow-list for HTTP_REQUEST, MCP_TOOL_CALL (G7) | Security | 4 | 2 |
+| Host allow-list for HTTP_REQUEST, MCP_TOOL_CALL is opt-in (G7) | Security | 3 | 2 |
 | Secrets sit in workflow config and are returned as written | Security | 4 | 3 |
 | PROCESS_EXECUTOR: command allow-list added; allow-any remains (G3, G4) | Security | 2 | 2 |
 | A timeout kills the child but not its children (G9) | Reliability | 3 | 2 |
@@ -1664,12 +1664,14 @@ IDs in brackets such as (G1) are finding numbers from the module's review notes 
 **Question to settle.** Do you trust every workflow author with the CPU and memory of the server for ten seconds at a time?
 
 </Accordion>
-<Accordion title="No host allow-list for HTTP_REQUEST, MCP_TOOL_CALL (G7)">
-**Id** `ssrf` · **Category** Security · **Impact** 4 · **Effort** 2 · **Components** External I/O, Terminals, Selection & gates
+<Accordion title="Host allow-list for HTTP_REQUEST, MCP_TOOL_CALL is opt-in (G7)">
+**Id** `ssrf` · **Category** Security · **Impact** 3 · **Effort** 2 · **Components** External I/O, Terminals, Selection & gates
 
 **Why it matters.** HTTP_REQUEST and MCP_TOOL_CALL send to any url in config, and the url can be built from the message ($\{payload.url\}). That reaches the cloud metadata address (169.254.169.254), localhost admin ports and anything on the internal network. NOTIFY_TERMINAL requires https but accepts any host. The MCP session cache is keyed by url and credentials, so many different urls also mean many cached sessions. Update: MCP_TOOL_CALL now has tool-level controls (`allowedTools`, `yukta.mcp-client.allowed-tools`, argument limits and deny patterns, `requireApproval`), but they decide which tool is called, not which host: an empty allow-list still allows any tool and any url.
 
-**Option.** An operator-set list of allowed hosts (for example yukta.http.allowed-hosts); block loopback and link-local addresses by default; re-check the address after each redirect and after DNS resolution; apply the same check to MCP and webhooks.
+**Update.** The operator can now list the hosts the server may call (`yukta.http.allowed-hosts` for HTTP_REQUEST, `yukta.mcp-client.allowed-hosts` for MCP_TOOL_CALL and MCP_LIST_TOOLS; names, IP addresses or `*.domain`). A URL on another host, or without a host, is refused before a request is made. It is opt-in: with no list every host is still allowed, so cloud metadata and the internal network stay reachable until the operator sets one. The check is on the name in the URL, so it does not stop a listed name that resolves somewhere unintended, and NOTIFY_TERMINAL webhooks are not covered. Redirects are not followed, so none need checking.
+
+**Option.** Block loopback and link-local addresses by default and check the resolved address after DNS resolution; apply the same list to webhooks.
 
 **Question to settle.** Should the allow-list be per deployment, per session (team), or per workflow? And is a network egress policy outside the application a cleaner place for it?
 

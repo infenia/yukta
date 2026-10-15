@@ -496,6 +496,26 @@ class McpClientGatewayTest {
   }
 
   @Test
+  void hostsOutsideTheAllowListAreRefusedBeforeAnyRequest() {
+    gateway.setAllowedHosts(List.of("example.com"));
+
+    StepVerifier.create(gateway.call(spec("ping"), () -> {}))
+        .expectErrorMessage("Host 'localhost' is not in yukta.mcp-client.allowed-hosts")
+        .verify();
+    StepVerifier.create(gateway.listTools(spec("ping"), () -> {}))
+        .expectErrorMessage("Host 'localhost' is not in yukta.mcp-client.allowed-hosts")
+        .verify();
+    assertThat(methods).as("no request reached the server").isEmpty();
+  }
+
+  @Test
+  void listedHostIsCalled() {
+    gateway.setAllowedHosts(List.of("localhost"));
+
+    StepVerifier.create(gateway.call(spec("ping"), () -> {})).expectNextCount(1).verifyComplete();
+  }
+
+  @Test
   void spec_sessionKeySeparatesCredentials() {
     final McpCallSpec a = spec("ping");
     final McpCallSpec b =

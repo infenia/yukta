@@ -92,7 +92,7 @@ A chat agent that remembers the conversation, lets the model use a tool and post
 
 **Why it is built this way.** Keeps one handshaken session per server and credentials, forwards the server's progress notifications to the engine as heartbeats so a slow tool is not timed out, and cancels the remote request if the node is cancelled.
 
-**Can go wrong.** The server URL and tool name come from config (and can contain variables), and nothing limits which hosts may be called (risk: ssrf).
+**Can go wrong.** The server URL and tool name come from config (and can contain variables), and by default nothing limits which hosts may be called; yukta.mcp-client.allowed-hosts limits them (risk: ssrf).
 
 </Step>
 <Step title="Answer with result">
@@ -508,7 +508,7 @@ Eighteen things the plugins can do, grouped by purpose, each with what it guaran
 | Capability | What it does | How | Guarantee | Limit |
 |---|---|---|---|---|
 | Running programs | Runs an OS command per message and returns its result. | PROCESS_EXECUTOR with env or stdin input, caps and timeout, structured, raw or JSON output. | Output is capped (10,000 lines, 10 MiB); a timeout destroys the process. | Any program the server can run; children can outlive a timeout. |
-| Web calls | Calls any HTTP address and returns status, headers and body. | HTTP_REQUEST with variables in url, headers and body; routeByStatus. | Non-2xx is data unless failureMode ERROR. | No host allow-list; concurrency 16 by default. |
+| Web calls | Calls any HTTP address and returns status, headers and body. | HTTP_REQUEST with variables in url, headers and body; routeByStatus. | Non-2xx is data unless failureMode ERROR. | Open to every host unless yukta.http.allowed-hosts is set; concurrency 16 by default. |
 | Files in a folder | Reads or writes text files under a base directory. | FILE_READ and FILE_WRITE normalise paths and refuse '..' or links that leave baseDir. | Reads are size-capped (10 MiB). | baseDir is author-chosen; a link swapped in after the check is not caught. |
 | Database queries | Runs a parameterised SQL statement. | SQL_QUERY binds payload fields to '?' placeholders over JDBC. | Values are never pasted into SQL; rows capped at 1000; statement timeout 30 s. | A connection per message; any statement kind is allowed. |
 | Calling tools on another server | Invokes an MCP tool and returns its result. | MCP_TOOL_CALL over streamable HTTP with cached sessions, progress heartbeats and cancellation. | A slow tool is not timed out while it reports progress. | No host allow-list; token in config. |
