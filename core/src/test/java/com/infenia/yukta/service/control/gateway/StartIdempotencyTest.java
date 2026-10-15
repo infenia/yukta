@@ -168,4 +168,18 @@ class StartIdempotencyTest {
     // only a few keys fit, so most repeats start again (documented ceiling)
     assertThat(starts.get()).isGreaterThan(60);
   }
+
+  @Test
+  void springConstructor_readsTheLimitsFromConfiguration() {
+    final StartIdempotency configured =
+        new StartIdempotency(
+            Duration.ofMinutes(1),
+            new com.infenia.yukta.service.log.InMemoryExecutionLogStore(),
+            10);
+
+    configured.once("s/w", "k", this::start).block();
+    configured.once("s/w", "k", this::start).block();
+
+    assertThat(starts).hasValue(1);
+  }
 }

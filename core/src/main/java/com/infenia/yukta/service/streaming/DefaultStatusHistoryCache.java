@@ -8,10 +8,10 @@ import com.infenia.yukta.model.execution.WorkflowProgress;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
-import java.util.ArrayDeque;
 import java.util.Collections;
 import java.util.Deque;
 import java.util.List;
+import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.TimeUnit;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -92,14 +92,14 @@ public class DefaultStatusHistoryCache implements StatusHistoryCache {
                 log.atDebug()
                     .addKeyValue("executionId", executionId)
                     .log("Creating new history deque");
-                return new ArrayDeque<>();
+                return new ConcurrentLinkedDeque<>();
               });
 
-      synchronized (deque) {
-        deque.addLast(progress);
-        while (deque.size() > maxPerRun) {
-          deque.removeFirst();
-        }
+      deque.addLast(progress);
+      // Bounded: the oldest go first, so the newest (the terminal one) is always kept. Size is
+      // read once per put; the deque is at most maxPerRun long, so this is cheap.
+      while (deque.size() > maxPerRun) {
+        deque.pollFirst();
       }
 
       log.atTrace().addKeyValue("executionId", executionId).log("Progress recorded to history");
@@ -120,9 +120,7 @@ public class DefaultStatusHistoryCache implements StatusHistoryCache {
       log.atTrace().addKeyValue("executionId", executionId).log("History cache miss or expired");
       history = Collections.emptyList();
     } else {
-      synchronized (deque) {
-        history = List.copyOf(deque);
-      }
+      history = List.copyOf(deque);
       log.atTrace()
           .addKeyValue("executionId", executionId)
           .addKeyValue("historySize", history.size())

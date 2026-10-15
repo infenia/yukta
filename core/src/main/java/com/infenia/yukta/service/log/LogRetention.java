@@ -20,12 +20,14 @@ class LogRetention {
    * @param retainedRuns how many runs (and scheduler changes) to keep
    * @return the kept events, or {@code events} itself when nothing is dropped
    */
-  static List<ExecutionLogEvent> trim(
+  /* default */ static List<ExecutionLogEvent> trim(
       final List<ExecutionLogEvent> events, final int retainedRuns) {
     final List<String> runs = runsByLastActivity(events);
-    if (runs.size() <= retainedRuns) {
-      return events;
-    }
+    return runs.size() <= retainedRuns ? events : dropOld(events, runs, retainedRuns);
+  }
+
+  private static List<ExecutionLogEvent> dropOld(
+      final List<ExecutionLogEvent> events, final List<String> runs, final int retainedRuns) {
     final Set<String> keep =
         new LinkedHashSet<>(runs.subList(runs.size() - retainedRuns, runs.size()));
     keep.addAll(openRuns(events));

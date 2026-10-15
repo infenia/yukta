@@ -120,6 +120,20 @@ class DefaultTaskTrackerServiceTest {
   }
 
   @Test
+  void testQueueDepthIsReportedByGauge() {
+    final SimpleMeterRegistry meters = new SimpleMeterRegistry();
+    final DefaultTaskTrackerService unconsumed =
+        new DefaultTaskTrackerService(
+            Duration.ofSeconds(30), statusHistoryCache, new InMemoryExecutionLogStore(), meters);
+
+    // init() was not called, so nobody consumes the queue and events stay counted
+    unconsumed.emitWorkflowStatusEvent("q-exec", TaskStatus.RUNNING);
+    unconsumed.emitWorkflowStatusEvent("q-exec", TaskStatus.SUCCESS);
+
+    assertThat(meters.get("yukta.tracker.queue.depth").gauge().value()).isEqualTo(2.0);
+  }
+
+  @Test
   void testDefinitionVersionIsReportedWithTheProgress() {
     StepVerifier.create(tracker.startWorkflow("v-exec", "v-sess", "v-wf", List.of("a")))
         .verifyComplete();

@@ -9,16 +9,16 @@ import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 
 @NoArgsConstructor
-@SuppressWarnings({"PMD.CommentRequired", "PMD.AvoidDuplicateLiterals"})
+@SuppressWarnings("PMD.CommentRequired")
 class InMemoryExecutionLogStoreTest {
 
-  private static void run(final InMemoryExecutionLogStore store, final String id) {
-    store.append(ExecutionLogEvent.started(id, "s", "w", "v"));
-    store.append(ExecutionLogEvent.finished(id, "s", "w", "SUCCESS", Map.of()));
+  private static void run(final InMemoryExecutionLogStore store, final String runId) {
+    store.append(ExecutionLogEvent.started(runId, "s", "w", "v"));
+    store.append(ExecutionLogEvent.finished(runId, "s", "w", "SUCCESS", Map.of()));
   }
 
   @Test
-  void trimsToTheNewestRuns_andKeepsARunWithoutAnEnd() {
+  void trimsToTheNewestRuns_andKeepsOpenRun() {
     final InMemoryExecutionLogStore store = new InMemoryExecutionLogStore(2, 9);
     store.append(ExecutionLogEvent.started("open", "s", "w", "v"));
     for (int i = 0; i < 4; i++) {

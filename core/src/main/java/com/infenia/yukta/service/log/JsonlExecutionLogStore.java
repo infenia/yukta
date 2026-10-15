@@ -249,7 +249,7 @@ public class JsonlExecutionLogStore implements ExecutionLogStore {
   private void compact() {
     final List<ExecutionLogEvent> events = read();
     final List<ExecutionLogEvent> kept = LogRetention.trim(events, retainedRuns);
-    if (kept == events) {
+    if (kept.size() == events.size()) {
       return;
     }
     rewrite(kept);

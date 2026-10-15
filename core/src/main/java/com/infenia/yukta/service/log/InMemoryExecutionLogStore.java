@@ -4,6 +4,7 @@ package com.infenia.yukta.service.log;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.locks.ReentrantLock;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
@@ -28,10 +29,13 @@ public class InMemoryExecutionLogStore implements ExecutionLogStore {
   /** Appended events after which the log is trimmed. */
   private final int compactAfter;
 
-  /** The events, oldest first; guarded by {@code this}. */
+  /** Guards {@link #events} and {@link #sinceTrim}. */
+  private final ReentrantLock lock = new ReentrantLock();
+
+  /** The events, oldest first. */
   private List<ExecutionLogEvent> events = new ArrayList<>();
 
-  /** Events appended since the last trim; guarded by {@code this}. */
+  /** Events appended since the last trim. */
   private int sinceTrim;
 
   /** Creates a store with the default limits. */
@@ -54,22 +58,38 @@ public class InMemoryExecutionLogStore implements ExecutionLogStore {
   }
 
   @Override
-  public synchronized void append(final ExecutionLogEvent event) {
-    events.add(event);
-    if (++sinceTrim >= compactAfter) {
-      sinceTrim = 0;
-      events = new ArrayList<>(LogRetention.trim(events, retainedRuns));
+  public void append(final ExecutionLogEvent event) {
+    lock.lock();
+    try {
+      events.add(event);
+      sinceTrim++;
+      if (sinceTrim >= compactAfter) {
+        sinceTrim = 0;
+        events = new ArrayList<>(LogRetention.trim(events, retainedRuns));
+      }
+    } finally {
+      lock.unlock();
     }
   }
 
   @Override
-  public synchronized List<ExecutionLogEvent> readAll() {
-    return List.copyOf(events);
+  public List<ExecutionLogEvent> readAll() {
+    lock.lock();
+    try {
+      return List.copyOf(events);
+    } finally {
+      lock.unlock();
+    }
   }
 
   @Override
-  public synchronized void replaceAll(final List<ExecutionLogEvent> kept) {
-    events = new ArrayList<>(kept);
-    sinceTrim = 0;
+  public void replaceAll(final List<ExecutionLogEvent> kept) {
+    lock.lock();
+    try {
+      events = new ArrayList<>(kept);
+      sinceTrim = 0;
+    } finally {
+      lock.unlock();
+    }
   }
 }
