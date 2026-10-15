@@ -8,13 +8,13 @@ import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.r2dbc.core.DatabaseClient;
-import org.testcontainers.junit.jupiter.Container;
+import org.testcontainers.DockerClientFactory;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
 /**
- * A real PostgreSQL with the Flyway schema, shared by the tests of a class. Tests are skipped when
- * Docker is not available.
+ * A real PostgreSQL with the Flyway schema, shared by every test class in the JVM (started once,
+ * stopped by Testcontainers' Ryuk at exit). Tests are skipped when Docker is not available.
  */
 @Testcontainers(disabledWithoutDocker = true)
 @SuppressWarnings({
@@ -25,8 +25,7 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 abstract class PostgresTestSupport {
 
   /** The database. */
-  @Container
-  private static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer("postgres:18-alpine");
+  private static final PostgreSQLContainer POSTGRES = startPostgres();
 
   /** Runs statements against {@link #POSTGRES}. */
   protected static DatabaseClient db;
@@ -34,6 +33,16 @@ abstract class PostgresTestSupport {
   /** Creates the support. */
   protected PostgresTestSupport() {
     super();
+  }
+
+  @SuppressWarnings("resource") // stopped by Ryuk at JVM exit
+  private static PostgreSQLContainer startPostgres() {
+    PostgreSQLContainer container = null;
+    if (DockerClientFactory.instance().isDockerAvailable()) {
+      container = new PostgreSQLContainer("postgres:18-alpine");
+      container.start();
+    }
+    return container;
   }
 
   @BeforeAll

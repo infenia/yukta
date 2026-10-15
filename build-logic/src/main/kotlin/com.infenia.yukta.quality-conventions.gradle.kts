@@ -150,6 +150,9 @@ tasks.register<Exec>("opengrep") {
 
     inputs.file(ruleFile)
     inputs.dir(sourceDir).optional()
+    // Declared output makes the scan UP-TO-DATE / cacheable when sources and rules are unchanged.
+    outputs.file(reportFile)
+    outputs.cacheIf { true }
 
     doFirst {
         reportDir.asFile.mkdirs()

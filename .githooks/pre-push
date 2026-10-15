@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: 2026 Infenia Private Limited
+#
+# Runs the cheap CI gates (format, Checkstyle, PMD) on the modules you changed against
+# origin/main, so style failures never reach CI. Enable once with:
+#   git config core.hooksPath .githooks
+# Skip in an emergency with: git push --no-verify
+set -euo pipefail
+
+base=$(git merge-base HEAD origin/main 2>/dev/null || true)
+[ -n "$base" ] || exit 0
+
+tasks=()
+while read -r dir; do
+  [ -f "$dir/build.gradle.kts" ] || continue
+  case $dir in cli|ui|build-logic|boot) continue ;; esac
+  mod=":${dir//\//:}"
+  tasks+=("$mod:checkstyleMain" "$mod:checkstyleTest" "$mod:pmdMain" "$mod:pmdTest")
+done < <(git diff --name-only "$base" HEAD | while read -r f; do
+  d=$(dirname "$f")
+  while [ "$d" != . ] && [ ! -f "$d/build.gradle.kts" ]; do d=$(dirname "$d"); done
+  echo "$d"
+done | sort -u)
+
+[ ${#tasks[@]} -gt 0 ] || exit 0
+echo "pre-push: ./gradlew spotlessCheck ${#tasks[@]} lint tasks"
+./gradlew -q --console=plain spotlessCheck "${tasks[@]}" --continue
