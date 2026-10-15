@@ -82,8 +82,8 @@ Returns run summaries of this workflow, newest first. An empty list means the wo
 | `executionId` | string | The run id |
 | `workflowId` | string | The workflow id |
 | `status` | string | The run status, see [Status values](/reference/status-values) |
-| `startTime` | string | When the run started |
-| `endTime` | string | When it ended. Absent while it runs |
+| `startTime` | string | When the run started, with the server's UTC offset (for example `+05:30`, or `Z`) |
+| `endTime` | string | When it ended, with the server's UTC offset. Absent while it runs |
 
 ## List saved versions
 

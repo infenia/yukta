@@ -12,38 +12,63 @@ import (
 	"time"
 )
 
-// timestampLayout is the zone-less layout the server emits for java.time.LocalDateTime values.
+// timestampLayout is the zone-less layout older servers emit for java.time.LocalDateTime values.
 const timestampLayout = "2006-01-02T15:04:05.999999999"
 
-// Timestamp is a time.Time that also accepts the zone-less timestamps the server returns.
+// Timestamp is a time.Time that also accepts the zone-less timestamps older servers return.
+//
+// Current servers send an RFC 3339 timestamp with their UTC offset, which is an exact instant. An
+// older server sends the clock reading of its own time zone with no offset, so the zone is unknown:
+// the CLI does not guess one (its own zone is no better a guess). Such a value keeps its clock
+// reading, is shown without a zone and is written back out unchanged, and the difference between
+// two of them is still right.
 type Timestamp struct {
 	time.Time
+	zoneless bool
 }
 
 // UnmarshalJSON parses RFC 3339 timestamps, or zone-less ones.
-//
-// Zone-less values (java.time.LocalDateTime on the server) are parsed with time.Local, which
-// assumes the server and the CLI share a timezone. Differences between two zone-less values are
-// always correct; mixing one with an RFC 3339 value is only correct under that assumption.
 func (t *Timestamp) UnmarshalJSON(data []byte) error {
 	var raw *string
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return err
 	}
 	if raw == nil || *raw == "" {
-		t.Time = time.Time{}
+		*t = Timestamp{}
 		return nil
 	}
 	if parsed, err := time.Parse(time.RFC3339Nano, *raw); err == nil {
-		t.Time = parsed
+		*t = Timestamp{Time: parsed}
 		return nil
 	}
-	parsed, err := time.ParseInLocation(timestampLayout, *raw, time.Local)
+	parsed, err := time.ParseInLocation(timestampLayout, *raw, time.UTC)
 	if err != nil {
 		return err
 	}
-	t.Time = parsed
+	*t = Timestamp{Time: parsed, zoneless: true}
 	return nil
+}
+
+// MarshalJSON writes the timestamp as it was read: RFC 3339, or the zone-less text of an older
+// server.
+func (t Timestamp) MarshalJSON() ([]byte, error) {
+	if t.zoneless {
+		return json.Marshal(t.Time.Format(timestampLayout))
+	}
+	return t.Time.MarshalJSON()
+}
+
+// String shows a time for people: the clock reading with the server's offset (or none, if the
+// server sent none), and "-" for a time that is not set.
+func (t Timestamp) String() string {
+	switch {
+	case t.IsZero():
+		return "-"
+	case t.zoneless:
+		return t.Time.Format("2006-01-02 15:04:05")
+	default:
+		return t.Time.Format("2006-01-02 15:04:05 -07:00")
+	}
 }
 
 // WorkflowStartRequest is the request body for starting a workflow execution.
