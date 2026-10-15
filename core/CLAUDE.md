@@ -210,8 +210,10 @@ that is not registered gives HTTP 409. The waits of all plugins share one `Signa
 the workflow page list the open ones (oldest first); answering goes through the signal endpoint.
 `WAIT_FOR_SIGNAL` (internal-core) holds each message until its signal arrives (`signal`, `timeoutSeconds` default 3600, `onTimeout`,
 `onReject`) and tags it with `signal.name/decision/data`; the engine timeout for the node is the wait
-plus 30 s. The wait is in memory: a resumed run waits again (a durable wait waits for the
-checkpoint store in PostgreSQL).
+plus 30 s. The wait is in memory, but an answer is recorded in the run's checkpoint store as a message of the
+pseudo node `signal:<node>` (payload `{messageId, name, decision, data}`, a timeout is not recorded), so a resumed run
+reuses it for the same message id instead of waiting again; that needs a file or PostgreSQL store and a message that
+was replayed from a finished parent.
 
 ### Workflow definitions and their versions
 With `yukta.session.store-type=file`, `FileWorkflowDefinitionStore` keeps definitions under

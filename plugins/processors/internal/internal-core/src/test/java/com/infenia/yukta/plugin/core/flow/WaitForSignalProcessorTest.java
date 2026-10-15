@@ -7,13 +7,17 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
+import com.infenia.yukta.plugin.store.NodeCheckpointStore;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 import reactor.util.context.Context;
 
@@ -137,5 +141,105 @@ class WaitForSignalProcessorTest {
     final WaitForSignalProcessor shared = new WaitForSignalProcessor();
 
     assertThat(shared.describe()).isNotNull();
+  }
+
+  /** A checkpoint store that keeps every message in a list, as the file store does. */
+  private static final class ListStore implements NodeCheckpointStore {
+    private final List<Message<?>> kept = new ArrayList<>();
+    private boolean failing;
+
+    @Override
+    public Mono<Void> save(final String executionId, final String nodeId, final Message<?> m) {
+      return failing
+          ? Mono.error(new IllegalStateException("disk full"))
+          : Mono.fromRunnable(() -> kept.add(m));
+    }
+
+    @Override
+    public Mono<Message<?>> get(final String executionId, final String nodeId) {
+      return getAll(executionId, nodeId).takeLast(1).next();
+    }
+
+    @Override
+    public Flux<Message<?>> getAll(final String executionId, final String nodeId) {
+      return failing
+          ? Flux.error(new IllegalStateException("disk gone"))
+          : Flux.fromIterable(List.copyOf(kept));
+    }
+
+    @Override
+    public void clear(final String executionId) {
+      kept.clear();
+    }
+  }
+
+  private Flux<Message<?>> runWith(
+      final WaitForSignalProcessor proc, final Message<?> in, final Map<String, Object> config) {
+    return proc.process(Flux.just(in), config)
+        .contextWrite(Context.of("executionId", "e1", "nodeId", "n1"));
+  }
+
+  @Test
+  void anAnswer_isRememberedForAResumeOfTheSameMessage() {
+    final ListStore store = new ListStore();
+    final WaitForSignalProcessor first =
+        new WaitForSignalProcessor(new com.infenia.yukta.plugin.util.SignalWaits(), store);
+    StepVerifier.create(runWith(first, input, Map.of("signal", "approval")))
+        .then(() -> first.onControlSignal(signal("approve", "fine")).block())
+        .expectNextCount(1)
+        .verifyComplete();
+
+    // after a restart: new waits, the same checkpoint store, the same message id
+    final WaitForSignalProcessor resumed =
+        new WaitForSignalProcessor(new com.infenia.yukta.plugin.util.SignalWaits(), store);
+    StepVerifier.create(runWith(resumed, input, Map.of("signal", "approval")))
+        .assertNext(out -> assertThat(out.metadata()).containsEntry("signal.decision", "approve"))
+        .verifyComplete();
+
+    // another message, or another signal name, still waits (and here times out)
+    final Message<?> other = DefaultMessage.create(UUID.randomUUID(), "other");
+    StepVerifier.create(runWith(resumed, other, Map.of("signal", "approval", "timeoutSeconds", 1)))
+        .expectError(IllegalStateException.class)
+        .verify(Duration.ofSeconds(5));
+    StepVerifier.create(
+            runWith(resumed, input, Map.of("signal", "other-name", "timeoutSeconds", 1)))
+        .expectError(IllegalStateException.class)
+        .verify(Duration.ofSeconds(5));
+  }
+
+  @Test
+  void aTimeoutIsNotRemembered_andAnUnreadableEntryIsIgnored() {
+    final ListStore store = new ListStore();
+    store.kept.add(DefaultMessage.create(UUID.randomUUID(), "not a map"));
+    final WaitForSignalProcessor proc =
+        new WaitForSignalProcessor(new com.infenia.yukta.plugin.util.SignalWaits(), store);
+
+    StepVerifier.create(
+            runWith(
+                proc,
+                input,
+                Map.of("signal", "approval", "timeoutSeconds", 1, "onTimeout", "CONTINUE")))
+        .assertNext(out -> assertThat(out.metadata()).containsEntry("signal.decision", "timeout"))
+        .verifyComplete();
+
+    assertThat(store.kept).hasSize(1);
+  }
+
+  @Test
+  void aStoreThatFails_neverFailsTheWait() {
+    final ListStore store = new ListStore();
+    store.failing = true;
+    final WaitForSignalProcessor proc =
+        new WaitForSignalProcessor(new com.infenia.yukta.plugin.util.SignalWaits(), store);
+
+    StepVerifier.create(runWith(proc, input, Map.of("signal", "approval")))
+        .then(() -> proc.onControlSignal(signal("approve", "ok")).block())
+        .expectNextCount(1)
+        .verifyComplete();
+  }
+
+  @Test
+  void theSpringConstructorTakesTheCheckpointStore() {
+    assertThat(new WaitForSignalProcessor(new ListStore())).isNotNull();
   }
 }
