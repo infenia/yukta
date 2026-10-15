@@ -177,4 +177,21 @@ class InMemoryWorkflowDefinitionStoreTest {
     store.removeAll(SESSION_ID_1).block();
     assertThat(store.revisions(SESSION_ID_1, WORKFLOW_ID_1).collectList().block()).isEmpty();
   }
+
+  @Test
+  void aNoteIsShownOnItsVersion_clearedByBlank_andUnknownVersionIsNotFound() {
+    store.save(SESSION_ID_1, version("one")).block();
+    final String id = store.revisions(SESSION_ID_1, WORKFLOW_ID_1).blockFirst().id();
+
+    store.setNote(SESSION_ID_1, WORKFLOW_ID_1, id, "added the audit sink").block();
+    assertThat(store.revisions(SESSION_ID_1, WORKFLOW_ID_1).blockFirst().note())
+        .isEqualTo("added the audit sink");
+
+    store.setNote(SESSION_ID_1, WORKFLOW_ID_1, id, " ").block();
+    assertThat(store.revisions(SESSION_ID_1, WORKFLOW_ID_1).blockFirst().note()).isNull();
+
+    StepVerifier.create(store.setNote(SESSION_ID_1, WORKFLOW_ID_1, "nope", "x"))
+        .expectError(com.infenia.yukta.service.NotFoundException.class)
+        .verify();
+  }
 }

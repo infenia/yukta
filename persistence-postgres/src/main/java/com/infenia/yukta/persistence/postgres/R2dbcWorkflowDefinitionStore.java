@@ -3,6 +3,7 @@
 package com.infenia.yukta.persistence.postgres;
 
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
+import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.workflow.store.DefinitionRevision;
 import com.infenia.yukta.service.workflow.store.DefinitionRevisions;
 import com.infenia.yukta.service.workflow.store.WorkflowDefinitionStore;
@@ -157,7 +158,7 @@ public class R2dbcWorkflowDefinitionStore implements WorkflowDefinitionStore {
     return client
         .sql(
             """
-            SELECT revision_id, saved_at FROM workflow_definition_revision
+            SELECT revision_id, saved_at, note FROM workflow_definition_revision
             WHERE session_id = :s AND workflow_id = :w ORDER BY revision_id DESC
             """)
         .bind("s", sessionId)
@@ -166,8 +167,34 @@ public class R2dbcWorkflowDefinitionStore implements WorkflowDefinitionStore {
             row ->
                 new DefinitionRevision(
                     row.get("revision_id", String.class),
-                    Objects.requireNonNull(row.get("saved_at", OffsetDateTime.class)).toInstant()))
+                    Objects.requireNonNull(row.get("saved_at", OffsetDateTime.class)).toInstant(),
+                    row.get("note", String.class)))
         .all();
+  }
+
+  @Override
+  public Mono<Void> setNote(
+      final String sessionId,
+      final String workflowId,
+      final String revisionId,
+      final String note) {
+    return client
+        .sql(
+            """
+            UPDATE workflow_definition_revision SET note = NULLIF(CAST(:n AS text), '')
+            WHERE session_id = :s AND workflow_id = :w AND revision_id = :r
+            """)
+        .bind("n", note == null || note.isBlank() ? "" : note)
+        .bind("s", sessionId)
+        .bind("w", workflowId)
+        .bind("r", revisionId)
+        .fetch()
+        .rowsUpdated()
+        .flatMap(
+            rows ->
+                rows == 0
+                    ? Mono.<Void>error(new NotFoundException("Version not found: " + revisionId))
+                    : Mono.<Void>empty());
   }
 
   @Override

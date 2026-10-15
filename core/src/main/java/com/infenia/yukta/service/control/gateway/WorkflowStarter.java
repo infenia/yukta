@@ -26,6 +26,9 @@ import reactor.core.scheduler.Schedulers;
 @SuppressWarnings("PMD.AvoidDuplicateLiterals")
 class WorkflowStarter {
 
+  /** Start payload key that pins a run to a saved version of the workflow. */
+  static final String PIN_KEY = "yukta.version";
+
   /** The stored workflow definitions. */
   private final WorkflowDefinitionStore definitions;
 
@@ -60,6 +63,12 @@ class WorkflowStarter {
         () -> startOnce(sessionId, workflowId, payload));
   }
 
+  /** The version a start asks for with the payload key {@code yukta.version}, or null. */
+  private static String pinnedVersion(final Map<String, Object> payload) {
+    final Object version = payload == null ? null : payload.get(PIN_KEY);
+    return version instanceof final String text && !text.isBlank() ? text : null;
+  }
+
   private Mono<String> startOnce(
       final String sessionId, final String workflowId, final Map<String, Object> payload) {
     log.atInfo()
@@ -67,8 +76,10 @@ class WorkflowStarter {
         .addKeyValue("workflowId", workflowId)
         .log("Starting workflow execution");
 
-    return definitions
-        .find(sessionId, workflowId)
+    final String pinned = pinnedVersion(payload);
+    return (pinned == null
+            ? definitions.find(sessionId, workflowId)
+            : definitions.findRevision(sessionId, workflowId, pinned))
         .switchIfEmpty(
             Mono.defer(
                 () -> {
@@ -95,7 +106,8 @@ class WorkflowStarter {
               // Refuse at once, with a reason, a start that could neither run nor be queued.
               scheduler.assertCanAccept(sessionId, workflowId);
               final String executionId = UUID.randomUUID().toString();
-              return prepareAndExecute(sessionId, workflowId, def, executionId, payload);
+              return prepareAndExecute(
+                  sessionId, workflowId, def, executionId, payload, pinned == null);
             })
         .doOnSuccess(
             executionId ->
@@ -151,7 +163,8 @@ class WorkflowStarter {
       final String workflowId,
       final WorkflowDefinition def,
       final String executionId,
-      final Map<String, Object> payload) {
+      final Map<String, Object> payload,
+      final boolean useCache) {
     return Mono.defer(
             () -> {
               log.atDebug()
@@ -160,7 +173,9 @@ class WorkflowStarter {
                   .addKeyValue("executionId", executionId)
                   .log("Preparing workflow for execution");
 
-              final java.util.Optional<PreparedWorkflow> cached = cache.get(sessionId, workflowId);
+              // A run pinned to an older version must not take the current prepared workflow.
+              final java.util.Optional<PreparedWorkflow> cached =
+                  useCache ? cache.get(sessionId, workflowId) : java.util.Optional.empty();
               if (cached.isPresent()) {
                 log.atDebug()
                     .addKeyValue("sessionId", sessionId)

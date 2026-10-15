@@ -180,4 +180,27 @@ class FileWorkflowDefinitionStoreTest {
 
     assertThat(early).hasSize(22).isLessThan(late);
   }
+
+  @Test
+  void aNoteSurvivesRestart_andIsPrunedWithItsVersion() throws InterruptedException {
+    store.save("s", definition("w1", "one")).block();
+    final String id = store.revisions("s", "w1").blockFirst().id();
+    store.setNote("s", "w1", id, "first cut").block();
+
+    final FileWorkflowDefinitionStore restarted =
+        new FileWorkflowDefinitionStore(props, new ObjectMapper());
+    assertThat(restarted.revisions("s", "w1").blockFirst().note()).isEqualTo("first cut");
+
+    for (int i = 0; i < FileWorkflowDefinitionStore.MAX_REVISIONS + 2; i++) {
+      Thread.sleep(2);
+      restarted.save("s", definition("w1", "v" + i)).block();
+    }
+    assertThat(restarted.revisions("s", "w1").collectList().block())
+        .hasSize(FileWorkflowDefinitionStore.MAX_REVISIONS);
+    assertThat(restarted.revisions("s", "w1").map(r -> r.id()).collectList().block())
+        .doesNotContain(id);
+    org.assertj.core.api.Assertions.assertThatThrownBy(
+            () -> restarted.setNote("s", "w1", id, "late").block())
+        .isInstanceOf(com.infenia.yukta.service.NotFoundException.class);
+  }
 }

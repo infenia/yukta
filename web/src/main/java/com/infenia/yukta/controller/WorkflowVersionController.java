@@ -133,4 +133,30 @@ public class WorkflowVersionController {
                             "Workflow rolled back to version " + version,
                             Map.of("workflowId", workflowId, "version", version))));
   }
+
+  /**
+   * Write or clear the note of a saved version.
+   *
+   * @param sessionId the session
+   * @param workflowId the workflow
+   * @param version the version, as listed
+   * @param note the note; blank clears it
+   * @return the workflow id, version and note
+   */
+  @PostMapping("/versions/note")
+  @Operation(summary = "Write or clear the note on a saved version")
+  public Mono<ApiResponse<Map<String, String>>> note(
+      @Parameter(description = SESSION_ID) @PathVariable final String sessionId,
+      @Parameter(description = WORKFLOW_ID) @PathVariable final String workflowId,
+      @Parameter(description = "Version id from the list") @RequestParam final String version,
+      @Parameter(description = "The note; blank clears it") @RequestParam(defaultValue = "")
+          final String note) {
+    return definitions
+        .setNote(sessionId, workflowId, version, note)
+        .thenReturn(
+            ApiResponse.success(
+                200,
+                "Version note saved",
+                Map.of("workflowId", workflowId, "version", version, "note", note.strip())));
+  }
 }

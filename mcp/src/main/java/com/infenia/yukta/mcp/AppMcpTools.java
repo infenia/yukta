@@ -18,6 +18,7 @@ import com.infenia.yukta.mcp.dto.WorkflowControlAction;
 import com.infenia.yukta.mcp.dto.WorkflowHistory;
 import com.infenia.yukta.mcp.dto.WorkflowRollback;
 import com.infenia.yukta.mcp.dto.WorkflowStartResult;
+import com.infenia.yukta.mcp.dto.WorkflowVersionNote;
 import com.infenia.yukta.mcp.dto.WorkflowVersions;
 import com.infenia.yukta.mcp.provider.LogProvider;
 import com.infenia.yukta.mcp.provider.PluginInfoProvider;
@@ -551,6 +552,36 @@ public class AppMcpTools {
       @McpToolParam(required = true, description = "The version id from the list")
           final String version) {
     return workflowVersionProvider.rollback(sessionId, workflowId, version);
+  }
+
+  /**
+   * Write or clear the note of a saved workflow version.
+   *
+   * @param sessionId the session
+   * @param workflowId the workflow
+   * @param version the version id
+   * @param note the note; blank clears it
+   * @return Mono containing the version and its note
+   */
+  @McpTool(
+      name = "note_workflow_version",
+      title = "Note Workflow Version",
+      description =
+          "Write a note on a saved workflow version (what changed and why); blank clears it.",
+      generateOutputSchema = true,
+      annotations =
+          @McpTool.McpAnnotations(
+              readOnlyHint = false,
+              destructiveHint = false,
+              openWorldHint = false))
+  public Mono<WorkflowVersionNote> noteWorkflowVersion(
+      @McpToolParam(required = true, description = SESSION_ID_DESC) final String sessionId,
+      @McpToolParam(required = true, description = "The workflow identifier")
+          final String workflowId,
+      @McpToolParam(required = true, description = "The version id from the list")
+          final String version,
+      @McpToolParam(required = true, description = "The note; blank clears it") final String note) {
+    return workflowVersionProvider.note(sessionId, workflowId, version, note);
   }
 
   /**

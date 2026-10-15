@@ -29,6 +29,7 @@ class McpToolAccess {
           Map.entry("list_workflow_versions", ApiRole.VIEWER),
           Map.entry("diff_workflow_versions", ApiRole.VIEWER),
           Map.entry("rollback_workflow", ApiRole.OPERATOR),
+          Map.entry("note_workflow_version", ApiRole.OPERATOR),
           Map.entry("get_workflow_details", ApiRole.VIEWER),
           Map.entry("get_workflow_status", ApiRole.VIEWER),
           Map.entry("get_workflow_history", ApiRole.VIEWER),

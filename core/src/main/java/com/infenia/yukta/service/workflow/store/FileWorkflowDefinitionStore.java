@@ -4,6 +4,7 @@ package com.infenia.yukta.service.workflow.store;
 
 import com.infenia.yukta.config.SessionConfigProperties;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
+import com.infenia.yukta.service.NotFoundException;
 import jakarta.annotation.PostConstruct;
 import java.io.IOException;
 import java.net.URLEncoder;
@@ -54,6 +55,9 @@ public class FileWorkflowDefinitionStore implements WorkflowDefinitionStore {
 
   /** Name of the directory with the saved versions. */
   private static final String HISTORY = "history";
+
+  /** Extension of the file that holds a version's note. */
+  private static final String NOTE = ".note";
 
   /** Where the files live. */
   private final SessionConfigProperties props;
@@ -144,6 +148,26 @@ public class FileWorkflowDefinitionStore implements WorkflowDefinitionStore {
         .subscribeOn(Schedulers.boundedElastic());
   }
 
+  @Override
+  public Mono<Void> setNote(
+      final String sessionId, final String workflowId, final String revisionId, final String note) {
+    return Mono.<Void>fromCallable(
+            () -> {
+              final Path history = dir(sessionId, workflowId).resolve(HISTORY);
+              if (!Files.exists(inside(history.resolve(fileOf(revisionId))))) {
+                throw new NotFoundException("Version not found: " + revisionId);
+              }
+              final Path noteFile = inside(history.resolve(encode(revisionId) + NOTE));
+              if (note == null || note.isBlank()) {
+                Files.deleteIfExists(noteFile);
+              } else {
+                atomically(history, encode(revisionId) + NOTE, note);
+              }
+              return null;
+            })
+        .subscribeOn(Schedulers.boundedElastic());
+  }
+
   private void write(final String sessionId, final WorkflowDefinition definition)
       throws IOException {
     final Path dir = dir(sessionId, definition.workflowId());
@@ -173,20 +197,37 @@ public class FileWorkflowDefinitionStore implements WorkflowDefinitionStore {
                 .map(
                     id ->
                         new DefinitionRevision(
-                            id, Instant.ofEpochMilli(Long.parseLong(id.substring(0, 13)))))
+                            id,
+                            Instant.ofEpochMilli(Long.parseLong(id.substring(0, 13))),
+                            readNote(history, id)))
                 .toList();
       }
     }
     return revisions;
   }
 
+  private static String readNote(final Path history, final String id) {
+    try {
+      final Path file = history.resolve(encode(id) + NOTE);
+      return Files.exists(file) ? Files.readString(file, StandardCharsets.UTF_8) : null;
+    } catch (final IOException e) {
+      return null;
+    }
+  }
+
   private void prune(final Path history) throws IOException {
     final List<Path> files;
     try (Stream<Path> listed = Files.list(history)) {
-      files = listed.sorted(Comparator.comparing(Path::toString)).toList();
+      files =
+          listed
+              .filter(file -> file.toString().endsWith(".json"))
+              .sorted(Comparator.comparing(Path::toString))
+              .toList();
     }
     for (int i = 0; i < files.size() - MAX_REVISIONS; i++) {
+      final String name = files.get(i).getFileName().toString();
       Files.deleteIfExists(files.get(i));
+      Files.deleteIfExists(history.resolve(name.substring(0, name.length() - 5) + NOTE));
     }
   }
 

@@ -2089,6 +2089,31 @@ class DefaultControlBusGatewayTest {
   }
 
   @Test
+  void startWorkflow_pinnedToAVersion_runsThatVersionAndSkipsTheCache() {
+    final String sessionId = "sess-pin";
+    final String workflowId = "wf-pin";
+    final WorkflowDefinition old = new WorkflowDefinition(workflowId, "old", List.of(), List.of());
+    final PreparedWorkflow preparedWorkflow = mock(PreparedWorkflow.class);
+
+    when(workflowDefinitionStore.findRevision(sessionId, workflowId, "0001-a"))
+        .thenReturn(Mono.just(old));
+    when(orchestrator.prepareWorkflow(old)).thenReturn(Mono.just(preparedWorkflow));
+    when(workflowDefinitionStore.find(sessionId, workflowId))
+        .thenReturn(Mono.just(new WorkflowDefinition(workflowId, "current", List.of(), List.of())));
+    when(orchestrator.execute(
+            eq(sessionId), eq(workflowId), anyString(), eq(preparedWorkflow), anyMap(), any()))
+        .thenReturn(Mono.empty());
+
+    StepVerifier.create(
+            gateway.startWorkflow(sessionId, workflowId, Map.of("yukta.version", "0001-a")))
+        .expectNextCount(1)
+        .verifyComplete();
+
+    verify(preparedWorkflowCache, never()).get(sessionId, workflowId);
+    verify(preparedWorkflowCache, never()).put(any(), any(), any());
+  }
+
+  @Test
   void startWorkflow_workflowFound_returnsNewExecutionId() {
     // Given
     final String sessionId = "sess-start";
