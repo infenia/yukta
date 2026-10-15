@@ -33,7 +33,9 @@ let versions: WorkflowVersion[] = [];
 let diff: WorkflowDiff = noChange;
 let listFails = false;
 let rollbackFails = false;
+let noteFails = false;
 const rolledBack: string[] = [];
+const noted: string[] = [];
 
 const server = setupServer(
   http.get(`${BASE}/versions`, () =>
@@ -42,6 +44,13 @@ const server = setupServer(
       : ok(versions)
   ),
   http.get(`${BASE}/versions/diff`, () => ok(diff)),
+  http.post(`${BASE}/versions/note`, ({ request }) => {
+    const query = new URL(request.url).searchParams;
+    noted.push(`${query.get('version')}=${query.get('note')}`);
+    return noteFails
+      ? HttpResponse.json({ message: 'No such version' }, { status: 404 })
+      : ok({});
+  }),
   http.post(`${BASE}/rollback`, ({ request }) => {
     rolledBack.push(new URL(request.url).searchParams.get('version') ?? '');
     return rollbackFails
@@ -56,7 +65,9 @@ afterEach(() => {
   diff = noChange;
   listFails = false;
   rollbackFails = false;
+  noteFails = false;
   rolledBack.length = 0;
+  noted.length = 0;
 });
 afterAll(() => server.close());
 
@@ -145,5 +156,50 @@ describe('WorkflowVersionsPanel', () => {
       screen.getAllByRole('button', { name: 'Roll back' })[0]
     );
     expect(await screen.findByText('Version gone')).toBeInTheDocument();
+  });
+
+  it('shows the note of a version, saves an edited one, and shows why it failed', async () => {
+    versions = [
+      { id: '0002-b', savedAt: '2026-10-14T10:00:00Z', note: 'added audit' },
+      { id: '0001-a', savedAt: '2026-10-13T10:00:00Z' },
+    ];
+    renderWithProviders(
+      <WorkflowVersionsPanel sessionId="s1" workflowId="wf" />
+    );
+    expect(await screen.findByLabelText('Note for 0002-b')).toHaveValue(
+      'added audit'
+    );
+    expect(screen.getByLabelText('Note for 0001-a')).toHaveValue('');
+
+    await userEvent.type(screen.getByLabelText('Note for 0001-a'), 'first cut');
+    await userEvent.click(
+      screen.getAllByRole('button', { name: 'Save note' })[1]
+    );
+    await waitFor(() => expect(noted).toEqual(['0001-a=first cut']));
+
+    await userEvent.click(
+      screen.getAllByRole('button', { name: 'Save note' })[0]
+    );
+    await waitFor(() => expect(noted).toHaveLength(2));
+    expect(noted[1]).toBe('0002-b=added audit');
+
+    noteFails = true;
+    await userEvent.click(
+      screen.getAllByRole('button', { name: 'Save note' })[0]
+    );
+    expect(await screen.findByText('No such version')).toBeInTheDocument();
+  });
+
+  it('clears the note when an empty one is saved', async () => {
+    versions = [{ id: '0001-a', savedAt: '2026-10-13T10:00:00Z' }];
+    renderWithProviders(
+      <WorkflowVersionsPanel sessionId="s1" workflowId="wf" />
+    );
+
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Save note' })
+    );
+
+    await waitFor(() => expect(noted).toEqual(['0001-a=']));
   });
 });

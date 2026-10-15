@@ -258,4 +258,31 @@ class NodePolicyTest {
             () -> NodePolicy.edgeBuffer(Map.of("engine", Map.of("edgeBuffer", Map.of()))))
         .hasMessageContaining("engine.edgeBuffer.size");
   }
+
+  @Test
+  void placement_isParsed_defaultsToTheDefaultPool_andIsValidated() {
+    assertThat(NodePolicy.placement(null)).isNull();
+    assertThat(NodePolicy.placement(Map.of("engine", Map.of("onError", "CONTINUE")))).isNull();
+    assertThat(NodePolicy.placement(Map.of("engine", Map.of("placement", Map.of()))))
+        .isEqualTo(new NodePolicy.Placement("default"));
+    assertThat(NodePolicy.placement(Map.of("engine", Map.of("placement", Map.of("pool", "gpu")))))
+        .isEqualTo(new NodePolicy.Placement("gpu"));
+    assertThat(NodePolicy.from(Map.of("engine", Map.of("placement", Map.of("pool", "gpu")))))
+        .isEqualTo(NodePolicy.DEFAULT);
+
+    assertThatThrownBy(
+            () -> NodePolicy.placement(Map.of("engine", Map.of("placement", Map.of("pool", " ")))))
+        .hasMessageContaining("engine.placement.pool");
+    assertThatThrownBy(
+            () ->
+                NodePolicy.placement(Map.of("engine", Map.of("placement", Map.of("region", "eu")))))
+        .isInstanceOf(IllegalArgumentException.class);
+  }
+
+  @Test
+  void placement_poolMustBeText() {
+    assertThatThrownBy(
+            () -> NodePolicy.placement(Map.of("engine", Map.of("placement", Map.of("pool", 5)))))
+        .hasMessageContaining("engine.placement.pool");
+  }
 }

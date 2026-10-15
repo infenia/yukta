@@ -721,4 +721,15 @@ class GlobalExceptionHandlerTest {
     assertThat(resp.getBody()).isNotNull();
     assertThat(resp.getBody().message()).endsWith("Reference: rid-42");
   }
+
+  @Test
+  void testHandleNotLeader_isServiceUnavailable() {
+    final ServerHttpRequest request = mock(ServerHttpRequest.class);
+    when(request.getPath()).thenReturn(RequestPath.parse("/workflow/start", "/"));
+
+    final ResponseEntity<ApiResponse<Object>> resp =
+        handler.handleNotLeader(new com.infenia.yukta.service.leader.NotLeaderException(), request);
+
+    assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.SERVICE_UNAVAILABLE);
+  }
 }

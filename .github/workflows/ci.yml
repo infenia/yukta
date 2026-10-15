@@ -122,6 +122,8 @@ jobs:
               - 'boot/**'
             persistence-postgres:
               - 'persistence-postgres/**'
+            workers:
+              - 'workers/**'
             messaging:
               - 'messaging/**'
             plugin-api:
@@ -380,6 +382,17 @@ jobs:
           fi
 
       # Surface test results directly in the run summary / annotations
+      # The default build runs without the PostgreSQL module; this runs the full application against a
+      # real PostgreSQL (Testcontainers) with it, so the schema, the R2DBC stores and the Flyway
+      # migrations are exercised through the application, not only module by module.
+      - name: PostgreSQL acceptance test
+        if: |
+          github.event_name != 'pull_request' ||
+          needs.changes.outputs.root == 'true' ||
+          contains(needs.changes.outputs.modules, 'persistence-postgres') ||
+          contains(needs.changes.outputs.modules, 'boot')
+        run: ./gradlew -Pyukta.persistence=postgres :boot:test --tests '*PostgresPersistenceAcceptanceTest'
+
       - name: Publish test result summary
         if: always()
         uses: mikepenz/action-junit-report@b7b80d7ac5b1da46d6aaff9fb57ad50d8453bcb3 # v6.6.0

@@ -17,6 +17,7 @@ import com.infenia.yukta.plugin.util.SpelUtils;
 import com.infenia.yukta.util.MapUtils;
 import com.infenia.yukta.util.VariableResolver;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import io.micrometer.core.instrument.MeterRegistry;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -26,6 +27,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
+import org.jspecify.annotations.Nullable;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -82,6 +84,7 @@ public final class LlmCallPlugin implements ProcessorPlugin {
   private final VariableResolver resolver;
   private final PluginMetricsReporter reporter;
   private final RunBudgets budgets;
+  @Nullable private final MeterRegistry meters;
 
   /**
    * Creates the plugin without metrics.
@@ -95,6 +98,7 @@ public final class LlmCallPlugin implements ProcessorPlugin {
     this.resolver = resolver;
     this.reporter = PluginMetricsReporter.NOOP;
     this.budgets = new RunBudgets();
+    this.meters = null;
   }
 
   /**
@@ -104,16 +108,34 @@ public final class LlmCallPlugin implements ProcessorPlugin {
    * @param resolver resolves config expressions
    * @param reporterProvider optional metrics reporter
    */
-  @Autowired
-  @SuppressFBWarnings("EI_EXPOSE_REP2") // the gateway is a shared Spring bean
   public LlmCallPlugin(
       final LlmGateway gateway,
       final VariableResolver resolver,
       final ObjectProvider<PluginMetricsReporter> reporterProvider) {
+    this(gateway, resolver, reporterProvider, null);
+  }
+
+  /**
+   * Spring constructor with token and cost meters.
+   *
+   * @param gateway the gateway
+   * @param resolver resolves config expressions
+   * @param reporterProvider optional metrics reporter
+   * @param meterProvider optional Micrometer registry for the token and cost meters
+   */
+  @Autowired
+  @SuppressWarnings("PMD.LawOfDemeter")
+  @SuppressFBWarnings("EI_EXPOSE_REP2") // the gateway is a shared Spring bean
+  public LlmCallPlugin(
+      final LlmGateway gateway,
+      final VariableResolver resolver,
+      final ObjectProvider<PluginMetricsReporter> reporterProvider,
+      @Nullable final ObjectProvider<MeterRegistry> meterProvider) {
     this.gateway = gateway;
     this.resolver = resolver;
     this.reporter = reporterProvider.getIfAvailable(() -> PluginMetricsReporter.NOOP);
     this.budgets = RunBudgets.shared();
+    this.meters = meterProvider == null ? null : meterProvider.getIfAvailable();
   }
 
   @Override
@@ -286,6 +308,7 @@ public final class LlmCallPlugin implements ProcessorPlugin {
                                   RunBudgets.key(runId, budgetOf(config)),
                                   response.inputTokens() + response.outputTokens(),
                                   payload.get("cost") instanceof final Double cost ? cost : 0.0);
+                              count(request, response, payload);
                               return output(message, config, payload, null);
                             })
                         .onErrorResume(
@@ -305,6 +328,25 @@ public final class LlmCallPlugin implements ProcessorPlugin {
                         .flux();
                   });
         });
+  }
+
+  /**
+   * Counts the tokens and the cost of a call per provider ({@code llm.tokens}, {@code llm.cost}).
+   */
+  private void count(
+      final LlmRequest request, final LlmResponse response, final Map<String, Object> payload) {
+    if (meters != null) {
+      final String provider = request.provider().name();
+      meters
+          .counter("llm.tokens", PROVIDER, provider, "direction", "input")
+          .increment(response.inputTokens());
+      meters
+          .counter("llm.tokens", PROVIDER, provider, "direction", "output")
+          .increment(response.outputTokens());
+      if (payload.get("cost") instanceof final Double cost) {
+        meters.counter("llm.cost", PROVIDER, provider).increment(cost);
+      }
+    }
   }
 
   private static Map<?, ?> budgetOf(final Map<String, Object> config) {
