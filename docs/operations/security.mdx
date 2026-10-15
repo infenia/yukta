@@ -189,6 +189,8 @@ JavaScript scripts run with a time limit and a statement limit. Both are system 
 
 Scripts can reach only a short list of date, time and basic value types from the host. They have no memory limit.
 
+Expressions (filter conditions, branch cases, mapper projections, loop exit conditions and so on) have a time limit too, the system property `yukta.spel.timeout-ms` (default `1000`, `0` turns it off). An expression that runs longer, for example a regular expression that backtracks without end, is stopped and fails the message.
+
 ## Variables and secrets
 
 Placeholders such as `${env.NAME}` and `${sys.name}` in a node's configuration read the server's environment, but only from an allow-list:
