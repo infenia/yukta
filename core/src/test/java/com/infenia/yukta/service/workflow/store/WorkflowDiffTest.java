@@ -51,7 +51,7 @@ class WorkflowDiffTest {
   }
 
   @Test
-  void aMissingDescription_isComparedNotDereferenced() {
+  void missingDescription_isComparedNotDereferenced() {
     final List<Node> nodes = List.of(new Node("a", "T", Map.of()));
 
     final WorkflowDefinition missing = definition(null, nodes, List.of());
