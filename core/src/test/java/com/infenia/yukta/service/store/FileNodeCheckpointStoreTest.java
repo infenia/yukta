@@ -237,4 +237,27 @@ class FileNodeCheckpointStoreTest {
     assertThat(store.markerFailures()).isEqualTo(1);
     assertThat(store.isFinished("e1", "n1")).isFalse();
   }
+
+  @Test
+  void concurrentSavesToOneNode_keepEveryLineWhole_andACompletedNodeCanBeWrittenAgain() {
+    final FileNodeCheckpointStore store = store();
+    reactor.core.publisher.Flux.range(0, 500)
+        .flatMap(
+            i ->
+                store
+                    .save("e1", "n1", message("m" + i))
+                    .subscribeOn(reactor.core.scheduler.Schedulers.parallel()),
+            16)
+        .blockLast();
+
+    assertThat(store.getAll("e1", "n1").collectList().block()).hasSize(500);
+    assertThat(store.isComplete("e1", "n1")).isTrue();
+
+    store.markComplete("e1", "n1").block();
+    store.save("e1", "n1", message("again")).block();
+    assertThat(store.getAll("e1", "n1").collectList().block()).hasSize(501);
+    assertThat(store.isFinished("e1", "n1")).isTrue();
+    store.clear("e1");
+    assertThat(store.getAll("e1", "n1").collectList().block()).isEmpty();
+  }
 }
