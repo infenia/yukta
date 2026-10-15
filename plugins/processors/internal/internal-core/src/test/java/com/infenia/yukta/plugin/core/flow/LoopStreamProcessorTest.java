@@ -51,6 +51,12 @@ class LoopStreamProcessorTest {
   /** Literal target. */
   private static final String TARGET = "target";
 
+  /** Literal missing. */
+  private static final String MISSING = "missing";
+
+  /** Literal targetConfig. */
+  private static final String TARGETCONFIG = "targetConfig";
+
   /** Literal targetPluginId. */
   private static final String TARGETPLUGINID = "targetPluginId";
 
@@ -143,16 +149,21 @@ class LoopStreamProcessorTest {
 
   @Test
   void testPrepare() {
-    StepVerifier.create(processor.prepare(Map.of(EXITCONDITION, "true"))).verifyComplete();
+    when(registry.contains(TARGET)).thenReturn(true);
+    when(registry.get(TARGET)).thenReturn(targetPlugin);
+    when(targetPlugin.prepare(Map.of())).thenReturn(Mono.empty());
+
+    StepVerifier.create(processor.prepare(Map.of(TARGETPLUGINID, TARGET, EXITCONDITION, "true")))
+        .verifyComplete();
   }
 
   @Test
   void testPluginNotFound() {
-    when(registry.contains("missing")).thenReturn(false);
+    when(registry.contains(MISSING)).thenReturn(false);
     StepVerifier.create(
             processor.process(
                 Flux.just(DefaultMessage.create(UUID.randomUUID(), TEST)),
-                Map.of(TARGETPLUGINID, "missing")))
+                Map.of(TARGETPLUGINID, MISSING)))
         .expectError(IllegalArgumentException.class)
         .verify();
   }
@@ -277,6 +288,46 @@ class LoopStreamProcessorTest {
                 Map.of(TARGETPLUGINID, TARGET, FAILURESTRATEGY, "RETRY", MAXITERATIONS, 3)))
         .verifyComplete();
     verify(targetPlugin, times(3)).process(any(), any());
+  }
+
+  @Test
+  void validateConfigIsPassedOnToTheTarget() {
+    final Map<String, Object> targetConfig = Map.of("k", "v");
+    when(registry.contains(TARGET)).thenReturn(true);
+    when(registry.get(TARGET)).thenReturn(targetPlugin);
+    when(targetPlugin.validateConfig(targetConfig))
+        .thenReturn(Mono.error(new IllegalArgumentException("bad target config")));
+
+    StepVerifier.create(
+            processor.validateConfig(Map.of(TARGETPLUGINID, TARGET, TARGETCONFIG, targetConfig)))
+        .expectErrorMessage("bad target config")
+        .verify();
+  }
+
+  @Test
+  void validateConfigRejectsAnUnknownTarget() {
+    when(registry.contains(MISSING)).thenReturn(false);
+
+    StepVerifier.create(processor.validateConfig(Map.of(TARGETPLUGINID, MISSING)))
+        .expectError(IllegalArgumentException.class)
+        .verify();
+  }
+
+  @Test
+  void initializeAndPrepareReachTheTarget() {
+    final Map<String, Object> targetConfig = Map.of("k", "v");
+    final Map<String, Object> config =
+        Map.of(TARGETPLUGINID, TARGET, TARGETCONFIG, targetConfig, EXITCONDITION, "true");
+    when(registry.contains(TARGET)).thenReturn(true);
+    when(registry.get(TARGET)).thenReturn(targetPlugin);
+    when(targetPlugin.initialize(targetConfig)).thenReturn(Mono.empty());
+    when(targetPlugin.prepare(targetConfig)).thenReturn(Mono.empty());
+
+    StepVerifier.create(processor.initialize(config)).verifyComplete();
+    StepVerifier.create(processor.prepare(config)).verifyComplete();
+
+    verify(targetPlugin).initialize(targetConfig);
+    verify(targetPlugin).prepare(targetConfig);
   }
 
   @Test

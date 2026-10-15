@@ -1767,9 +1767,9 @@ IDs in brackets such as (G1) are finding numbers from the module's review notes 
 <Accordion title="Loops call another plugin without its config check (G14)">
 **Id** `loopSkipsValidation` · **Category** Correctness · **Impact** 3 · **Effort** 3 · **Components** Flow & state, Contract & variables
 
-**Why it matters.** A loop looks up its target in the registry and calls it directly. The target's validateConfig and initialize never run for targetConfig, and variable resolution rules of the target are bypassed. A wrong url in targetConfig is found on the first message, not at submit, and some targets (for example one that depends on prepare) may not be ready.
+**Why it matters.** A loop looks up its target in the registry and calls it directly. Its validateConfig, initialize and prepare now pass the call on to the target with targetConfig, so a wrong url is found at submit and the target is set up first. What remains is that the target is not a real node: the engine's per-node policies (retry, onError, timeouts) do not apply to it individually.
 
-**Option.** Run the target's validateConfig in the loop's own validateConfig; longer term model a loop as a sub-graph in the engine so the target is a real node.
+**Option.** Model a loop as a sub-graph in the engine so the target is a real node.
 
 **Question to settle.** Is repetition a plugin feature or an engine feature in your view?
 

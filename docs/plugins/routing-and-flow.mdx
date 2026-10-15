@@ -199,7 +199,7 @@ Each iteration runs the target on the current message. The target's result becom
 
 Every strategy except `ABORT` and `ESCALATE` uses up an iteration for the failed attempt, so `maxIterations` and `maxDuration` bound them. If the target itself ends the run (for example `LLM_CALL` with `budget.hardStop`), the loop passes that on whatever the strategy is.
 
-`targetConfig` is not checked when the workflow is validated, so a mistake in it appears only at run time. The target must be an installed processor. These nodes emit nothing until the loop ends, so set `timeoutSeconds` on the node to at least `maxDuration` when a loop can run longer than 30 seconds.
+`targetConfig` is checked when the workflow is validated: the loop runs the target's own config check on it, and the target's setup (`initialize` and `prepare`) runs when the workflow is prepared. The target must be an installed processor; an unknown or non-processor target fails validation. These nodes emit nothing until the loop ends, so set `timeoutSeconds` on the node to at least `maxDuration` when a loop can run longer than 30 seconds.
 
 This node checks a command up to five times, one second apart, and stops after the third check:
 

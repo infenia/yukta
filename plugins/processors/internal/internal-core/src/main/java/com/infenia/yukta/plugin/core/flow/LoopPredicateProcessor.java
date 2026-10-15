@@ -113,10 +113,23 @@ public class LoopPredicateProcessor implements ProcessorPlugin {
   }
 
   @Override
+  public Mono<Void> validateConfig(final Map<String, Object> config) {
+    return LoopTarget.resolve(registryProvider, config)
+        .flatMap(target -> target.validateConfig(LoopTarget.configOf(config)));
+  }
+
+  @Override
+  public Mono<Void> initialize(final Map<String, Object> config) {
+    return LoopTarget.resolve(registryProvider, config)
+        .flatMap(target -> target.initialize(LoopTarget.configOf(config)));
+  }
+
+  @Override
   public Mono<Void> prepare(final Map<String, Object> config) {
     final String exitCondition = (String) config.get("exitCondition");
     SpelUtils.preParse(exitCondition);
-    return Mono.empty();
+    return LoopTarget.resolve(registryProvider, config)
+        .flatMap(target -> target.prepare(LoopTarget.configOf(config)));
   }
 
   @Override
