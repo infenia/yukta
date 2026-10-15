@@ -205,7 +205,7 @@ Gateway commands for a live run (`ControlBusGateway`). REST: `POST /api/executio
 `signal_node`, gateway `signalNode`) hands a named signal to the plugin of a node through the same
 review, ordering and audit as other commands (`SignalNodeCommandProcessor`). The plugin must answer
 `ACCEPTED` or `QUEUED`; a node of a live run that is not waiting for it yet keeps the signal for ten
-minutes (at most 100, `QUEUED`) and the wait that begins takes it at once, while a signal for a node
+minutes (at most 100, `QUEUED`) and the wait that begins takes it at once (a second signal on the same key within 5 s of an accepted one is a double submit and gets `NOT_WAITING`), while a signal for a node
 that is not registered gives HTTP 409. The waits of all plugins share one `SignalWaits.shared()`, so
 `GET /api/sessions/{s}/approvals`, MCP `list_pending_approvals` and the "pending approvals" strip of
 the workflow page list the open ones (oldest first); answering goes through the signal endpoint.
