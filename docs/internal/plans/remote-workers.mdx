@@ -3,6 +3,10 @@ title: "Remote workers design"
 description: "Design for running processor nodes on remote workers: options considered, architecture, semantics, security, phases, risks and open decisions (F11)."
 ---
 
+<Note>
+  Internal plan, restricted to project members. Back to the [internal index](/internal).
+</Note>
+
 Status: **phases 1 and 2 are built** (registry, leases, `GET /api/workers`, RSocket server and agent in the `workers` module, token auth; a processor node with `engine.placement` runs on a worker, with pool and free-slot choice). Failure handling beyond "the attempt fails and the engine retries", operations and control-plane HA are design only. Decision taken: scale out with **remote workers**
 (a control plane schedules nodes, workers run them), not active/standby only. Needs F10 (PostgreSQL
 persistence, first increment done) and benefits from F7/F9 (durable state, definition versions).

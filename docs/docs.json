@@ -207,27 +207,6 @@
             ]
           }
         ]
-      },
-      {
-        "tab": "Internal",
-        "groups": [
-          {
-            "group": "Engineering health",
-            "pages": [
-              "internal/bugs",
-              "internal/risks",
-              "internal/improvements"
-            ]
-          },
-          {
-            "group": "Plans",
-            "pages": [
-              "internal/plans/remote-workers",
-              "internal/plans/remediation",
-              "internal/plans/performance"
-            ]
-          }
-        ]
       }
     ]
   },
