@@ -7,6 +7,7 @@ import com.infenia.yukta.message.Message;
 import com.infenia.yukta.plugin.core.ConfigField;
 import com.infenia.yukta.plugin.exception.WorkflowExecutionException;
 import com.infenia.yukta.plugin.type.ProcessorPlugin;
+import com.infenia.yukta.plugin.util.ConfigValidation;
 import com.infenia.yukta.plugin.util.MapUtils;
 import com.infenia.yukta.plugin.util.SpelUtils;
 import com.infenia.yukta.plugin.util.VariableResolver;
@@ -48,6 +49,9 @@ public abstract class DecisionPlugin implements ProcessorPlugin {
 
   /** Where a local Ollama listens. */
   private static final String LOCAL_OLLAMA = "http://localhost:11434";
+
+  /** Model calls in flight at once when the node does not set {@code concurrency}. */
+  private static final int DEFAULT_CONCURRENCY = 16;
 
   /** Seconds to wait for the model by default. */
   private static final long DEFAULT_TIMEOUT_SECONDS = 30;
@@ -91,7 +95,9 @@ public abstract class DecisionPlugin implements ProcessorPlugin {
 
   @Override
   public Flux<Message<?>> process(final Flux<Message<?>> input, final Map<String, Object> config) {
-    return input.flatMapSequential(message -> decide(message, config));
+    return input.flatMapSequential(
+        message -> decide(message, config),
+        ConfigValidation.concurrency(config, DEFAULT_CONCURRENCY));
   }
 
   @Override
@@ -99,6 +105,7 @@ public abstract class DecisionPlugin implements ProcessorPlugin {
     return Mono.fromRunnable(
         () -> {
           require(config, "model");
+          ConfigValidation.concurrency(config, DEFAULT_CONCURRENCY);
           if (backend(config) == ModelSpec.Backend.LLM) {
             require(config, "provider");
           }
@@ -141,7 +148,12 @@ public abstract class DecisionPlugin implements ProcessorPlugin {
             TIMEOUT, ConfigField.Type.NUMBER, DEFAULT_TIMEOUT_SECONDS, "Timeout in seconds"),
         ConfigField.optional(
             STATE, ConfigField.Type.EXPRESSION, "payload", "Expression for what the model sees"),
-        ConfigField.optional(INTO, ConfigField.Type.STRING, into, "Metadata key for the result"));
+        ConfigField.optional(INTO, ConfigField.Type.STRING, into, "Metadata key for the result"),
+        ConfigField.optional(
+            ConfigValidation.CONCURRENCY_KEY,
+            ConfigField.Type.NUMBER,
+            DEFAULT_CONCURRENCY,
+            "Model calls in flight at once"));
   }
 
   /**

@@ -23,6 +23,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicInteger;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -105,6 +106,48 @@ class ProcessExecutorPluginTest {
         .verifyComplete();
 
     verify(gateway).executeForResult(any(), eq(sink));
+  }
+
+  /** Runs {@code count} messages through the plugin and returns the most calls seen at once. */
+  private int peakConcurrency(final Map<String, Object> config, final int count) {
+    final AtomicInteger inFlight = new AtomicInteger();
+    final AtomicInteger peak = new AtomicInteger();
+    when(gateway.executeForResult(any()))
+        .thenAnswer(
+            invocation ->
+                Mono.defer(
+                    () -> {
+                      peak.accumulateAndGet(inFlight.incrementAndGet(), Math::max);
+                      return Mono.just(successResult("ok"))
+                          .delayElement(Duration.ofMillis(20))
+                          .doOnTerminate(inFlight::decrementAndGet);
+                    }));
+    StepVerifier.create(
+            plugin.process(Flux.range(0, count).map(ProcessExecutorPluginTest::message), config))
+        .expectNextCount(count)
+        .verifyComplete();
+    return peak.get();
+  }
+
+  @Test
+  void process_handlesAtMostTheConfiguredNumberOfMessagesAtOnce() {
+    assertThat(peakConcurrency(Map.of("command", List.of("echo", "ok"), "concurrency", 2), 20))
+        .isEqualTo(2);
+  }
+
+  @Test
+  void process_withoutConcurrencyStartsFewProcessesAtOnce() {
+    assertThat(peakConcurrency(Map.of("command", List.of("echo", "ok")), 40))
+        .as("default concurrency of a node that forks processes")
+        .isEqualTo(4);
+  }
+
+  @Test
+  void validateConfig_rejectsNonPositiveConcurrency() {
+    StepVerifier.create(
+            plugin.validateConfig(Map.of("command", List.of("echo", "ok"), "concurrency", 0)))
+        .expectErrorMessage("concurrency must be a positive whole number, got: 0")
+        .verify();
   }
 
   // --- plugin identity ---

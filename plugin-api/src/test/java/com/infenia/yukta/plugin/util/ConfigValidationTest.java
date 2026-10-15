@@ -38,6 +38,17 @@ class ConfigValidationTest {
   }
 
   @Test
+  void concurrencyUsesTheNodeSettingOrTheDefaultAndRejectsBadValues() {
+    assertThat(ConfigValidation.concurrency(Map.of(), 4)).isEqualTo(4);
+    assertThat(ConfigValidation.concurrency(Map.of("concurrency", 9), 4)).isEqualTo(9);
+    assertThatThrownBy(() -> ConfigValidation.concurrency(Map.of("concurrency", 0), 4))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("concurrency");
+    assertThatThrownBy(() -> ConfigValidation.concurrency(Map.of("concurrency", "many"), 4))
+        .isInstanceOf(IllegalArgumentException.class);
+  }
+
+  @Test
   void requiredStringRejectsMissingAndBlank() {
     assertThat(ConfigValidation.requiredString(Map.of("s", " a "), "s")).isEqualTo("a");
     assertThatThrownBy(() -> ConfigValidation.requiredString(Map.of(), "s"))

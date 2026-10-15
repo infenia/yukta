@@ -13,6 +13,7 @@ import com.infenia.yukta.plugin.core.PluginMetricsReporter;
 import com.infenia.yukta.plugin.core.WorkflowContext;
 import com.infenia.yukta.plugin.exception.WorkflowExecutionException;
 import com.infenia.yukta.plugin.type.ProcessorPlugin;
+import com.infenia.yukta.plugin.util.ConfigValidation;
 import com.infenia.yukta.plugin.util.MapUtils;
 import com.infenia.yukta.plugin.util.VariableResolver;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -64,6 +65,10 @@ public final class ProcessExecutorPlugin implements ProcessorPlugin {
 
   private static final String COMMAND = "command";
   private static final String TIMEOUT = "timeout";
+
+  /** Messages handled at once when the node does not set {@code concurrency}. */
+  private static final int DEFAULT_CONCURRENCY = 4;
+
   private static final String OUTPUT_FORMAT = "outputFormat";
   private static final String FAILURE_MODE = "failureMode";
   private static final String INPUT_MODE = "inputMode";
@@ -159,7 +164,12 @@ public final class ProcessExecutorPlugin implements ProcessorPlugin {
             "routeByExitCode",
             ConfigField.Type.BOOLEAN,
             false,
-            "Emit on success/failure ports (needs failureMode CONTINUE)"));
+            "Emit on success/failure ports (needs failureMode CONTINUE)"),
+        ConfigField.optional(
+            ConfigValidation.CONCURRENCY_KEY,
+            ConfigField.Type.NUMBER,
+            DEFAULT_CONCURRENCY,
+            "Messages handled at once (each starts a process)"));
   }
 
   @Override
@@ -201,6 +211,8 @@ public final class ProcessExecutorPlugin implements ProcessorPlugin {
       Execute command via shell (sh on Unix, cmd.exe on Windows)
     - captureStderr: Boolean (default: false)
       Capture stderr separately instead of merging it into stdout
+    - concurrency: Integer (default: 4, must be positive)
+      Messages handled at once; each one starts a process, the rest wait their turn
     - maxOutputLines: Integer (default: 10000, 0 = unlimited)
     - maxOutputBytes: Long (default: 10485760, 0 = unlimited)
       Output beyond the caps is discarded and the result is flagged as truncated
@@ -258,7 +270,11 @@ public final class ProcessExecutorPlugin implements ProcessorPlugin {
   public Flux<Message<?>> process(final Flux<Message<?>> input, final Map<String, Object> config) {
     log.atDebug().log("Process executor starting: processing input stream");
     return PluginGuard.counted(
-        input.flatMapSequential(message -> executeProcess(message, config)), reporter, "process");
+        input.flatMapSequential(
+            message -> executeProcess(message, config),
+            ConfigValidation.concurrency(config, DEFAULT_CONCURRENCY)),
+        reporter,
+        "process");
   }
 
   private Flux<Message<?>> executeProcess(
@@ -586,6 +602,7 @@ public final class ProcessExecutorPlugin implements ProcessorPlugin {
       return Mono.error(new IllegalArgumentException("timeout must be positive, got: " + timeout));
     }
     try {
+      ConfigValidation.concurrency(config, DEFAULT_CONCURRENCY);
       OutputFormat.from(config.get(OUTPUT_FORMAT));
       InputMode.from(config.get(INPUT_MODE));
       final FailureMode failureMode = FailureMode.from(config.get(FAILURE_MODE));

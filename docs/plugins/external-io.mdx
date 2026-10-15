@@ -31,6 +31,7 @@ The server refuses every command until you allow some. Set `yukta.process.allowe
 | `inputMode` | `NONE`, `ENV` or `STDIN` | `NONE` | How the message reaches the process. `ENV`: metadata as `YUKTA_METADATA_<KEY>` variables and the payload as `YUKTA_PAYLOAD`. `STDIN`: the payload on standard input. Text payloads go as written, other payloads as JSON |
 | `workingDir` | string | the server's directory | Working directory. Variables allowed |
 | `timeout` | number | `300` | Seconds the process may run. Positive. Variables allowed. When it runs out, the process and every process it started are stopped (asked to end first, killed after 2 seconds) |
+| `concurrency` | number | `4` | Messages handled at once for this node; each starts a process. Positive |
 | `env` | map | empty | Extra environment variables. Variables allowed. Explicit entries win over `inputMode` ones |
 | `useShell` | boolean | `false` | Run through `/bin/sh -c` (or `cmd.exe /c` on Windows). Arguments with special characters are quoted, so pipes and `&&` do not act as operators |
 | `captureStderr` | boolean | `false` | Capture standard error separately. When `false`, it is merged into standard output |
@@ -55,7 +56,7 @@ The metadata always gets `exitCode`: the real exit code, or `-1` when the proces
 
 Variables whose names contain `PASSWORD`, `SECRET`, `TOKEN`, `KEY` and similar words cannot be read with `${env...}` or `${sys...}`. With `inputMode` `ENV`, the message is visible in the process's environment, so do not use it for messages that carry secrets. See [Variables and expressions](/building/variables-and-expressions).
 
-Default timeout: `timeout` plus 10 percent (at least 5 seconds), so 330 seconds with the default. Up to 256 messages are handled at once, with results emitted in order.
+Default timeout: `timeout` plus 10 percent (at least 5 seconds), so 330 seconds with the default. Up to `concurrency` messages (default 4) are handled at once, with results emitted in order; the rest wait their turn.
 
 This node runs a check and routes on its exit code:
 
@@ -90,6 +91,7 @@ Makes one HTTP request per message and emits the response. Requires the `http-re
 | `headers` | map | empty | Request headers. Values may use variables and `decrypted:<key>` secrets |
 | `body` | string or object | none | The request body. Text goes as written; an object goes as JSON. Text may use variables |
 | `timeout` | number | `30` | Seconds to wait for the response. Positive |
+| `concurrency` | number | `16` | Requests in flight at once for this node. Positive |
 | `failureMode` | `ERROR` or `CONTINUE` | `ERROR` | `ERROR` fails the node on a non-2xx status or a transport error |
 | `routeByStatus` | boolean | `false` | Emit on `success` (a 2xx status) or `failure`. Needs `failureMode` `CONTINUE` |
 
@@ -99,7 +101,7 @@ The payload is `{"status", "success", "headers", "body"}`. `success` is true for
 
 The server does not restrict which hosts a request can reach, and the URL can come from the message. Treat the URL as trusted input.
 
-Default timeout: `timeout` plus 5 seconds. Up to 256 messages are handled at once, with results emitted in order.
+Default timeout: `timeout` plus 5 seconds. Up to `concurrency` messages (default 16) are handled at once, with results emitted in order.
 
 ```json
 {
@@ -225,8 +227,8 @@ Each message that reaches this node adds 1 to `ci:build-failures`.
 
 | Plugin | Timeout default | Other defaults |
 |---|---|---|
-| `PROCESS_EXECUTOR` | `timeout` 300 s; node 330 s | output 10000 lines and 10 MiB per stream; 256 at once |
-| `HTTP_REQUEST` | `timeout` 30 s; node 35 s | 256 at once |
+| `PROCESS_EXECUTOR` | `timeout` 300 s; node 330 s | output 10000 lines and 10 MiB per stream; 4 at once (`concurrency`) |
+| `HTTP_REQUEST` | `timeout` 30 s; node 35 s | 16 at once (`concurrency`) |
 | `SQL_QUERY` | `timeoutSeconds` 30 s, also the node timeout | `maxRows` 1000; one connection per message |
 | `FILE_READ` | node 30 s | `maxBytes` 10 MiB |
 | `FILE_WRITE` | node 30 s | none |

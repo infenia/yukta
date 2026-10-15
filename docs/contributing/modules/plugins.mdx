@@ -238,7 +238,7 @@ Calls the outside world: PROCESS_EXECUTOR, HTTP_REQUEST, FILE_READ, FILE_WRITE, 
 
 - **Guarantees.** Every plugin here moves blocking work off the event threads, bounds its wait with a timeout and shows the outcome as data or a clear error. SQL values are always bound parameters. File paths cannot leave baseDir by '..' or by a link that already exists.
 - **State.** MCP_TOOL_CALL caches sessions in memory. Everything else is stateless between messages. Secrets used here (apiKey, authToken, SQL password) live in the node's config.
-- **Ceiling.** HTTP_REQUEST, MCP_TOOL_CALL and PROCESS_EXECUTOR process messages with a default concurrency of 256 per node, so a burst can start 256 processes or requests at once (risk: fanout256). SQL opens a connection per message, with no pool.
+- **Ceiling.** HTTP_REQUEST, MCP_TOOL_CALL and PROCESS_EXECUTOR process messages with a per-node `concurrency` setting (default 4 for PROCESS_EXECUTOR, 16 for HTTP_REQUEST and MCP_TOOL_CALL), so a burst cannot start hundreds of processes or requests at once (risk: fanout256). SQL opens a connection per message, with no pool.
 - **On failure.** ERROR fails the node and the engine's retry and onError policy applies. CONTINUE keeps the run alive. A timed-out process leaves children running (risk: orphans). A SQL node's engine timeout is the 30 s default whatever timeoutSeconds says (risk: sqlTimeout).
 
 **Settings:** `PROCESS_EXECUTOR: command, inputMode, timeout 300, outputFormat, failureMode, routeByExitCode, maxOutputLines, maxOutputBytes`, `HTTP_REQUEST: url, method, headers, body, timeout 30, failureMode, routeByStatus`, `FILE_*: baseDir, path, maxBytes, contentField, append, failureMode`, `SQL_QUERY: url, username, password, sql, params, maxRows 1000, timeoutSeconds 30`, `MCP_TOOL_CALL: url, tool, arguments, authToken, timeout 60, resultKey`
@@ -257,7 +257,7 @@ Model-backed nodes: LLM_CALL, SESSION_MEMORY and the decision family CLASSIFY, G
 
 - **Guarantees.** Decision nodes always produce a value in a known shape or an error: a label that is not one of the options, or a reply that is not JSON, is rejected. Probabilities are clamped to 0..1. History per session is trimmed to maxTurns.
 - **State.** Conversation history (SESSION_MEMORY), the ANOMALY and DEDUPE windows and LLM_CALL's cache of model clients are all in memory. Windows live only for one node in one run. Nothing survives a restart.
-- **Ceiling.** Each model call is a network call that can take seconds and cost money, at up to 256 concurrent calls per node. Session memory grows with the number of distinct session ids and is never evicted.
+- **Ceiling.** Each model call is a network call that can take seconds and cost money, at up to `concurrency` (default 16) concurrent calls per node. Session memory grows with the number of distinct session ids and is never evicted.
 - **On failure.** Timeouts and provider errors fail the node (ERROR) or pass the original payload on (CONTINUE). A decision model that is down fails each message. The user turn in SESSION_MEMORY is stored before the model answers.
 
 **Settings:** `LLM_CALL: provider, model, prompt, messages, system, baseUrl, apiKey, temperature, maxTokens, timeout 120, retries 0, prices, failureMode, routeByStatus`, `SESSION_MEMORY: mode, sessionId, message, assistant, maxTurns 20`, `Decision common: backend, provider, model, baseUrl, apiKey, timeout 30, state, into`
@@ -382,7 +382,7 @@ With failureMode CONTINUE and routeByStatus true, the 503 message leaves on port
 The 'failure' edge leads to a second node (for example another HTTP_REQUEST to a backup, or a NOTIFY_TERMINAL). The same pattern lets LLM_CALL fail over to a second model: on failure it passes the original payload through so the fallback node can reuse the same config.
 </Step>
 <Step title="The burst problem">
-If a trigger or splitter emits 1,000 messages at once, HTTP_REQUEST starts up to 256 requests at the same time (its default concurrency). A rate-limited API will answer many of them with 429, which then all take the failure path.
+If a trigger or splitter emits 1,000 messages at once, HTTP_REQUEST starts up to `concurrency` requests at the same time (default 16; the rest wait). A rate-limited API will answer many of them with 429, which then all take the failure path.
 </Step>
 </Steps>
 
@@ -508,7 +508,7 @@ Eighteen things the plugins can do, grouped by purpose, each with what it guaran
 | Capability | What it does | How | Guarantee | Limit |
 |---|---|---|---|---|
 | Running programs | Runs an OS command per message and returns its result. | PROCESS_EXECUTOR with env or stdin input, caps and timeout, structured, raw or JSON output. | Output is capped (10,000 lines, 10 MiB); a timeout destroys the process. | Any program the server can run; children can outlive a timeout. |
-| Web calls | Calls any HTTP address and returns status, headers and body. | HTTP_REQUEST with variables in url, headers and body; routeByStatus. | Non-2xx is data unless failureMode ERROR. | No host allow-list; concurrency 256. |
+| Web calls | Calls any HTTP address and returns status, headers and body. | HTTP_REQUEST with variables in url, headers and body; routeByStatus. | Non-2xx is data unless failureMode ERROR. | No host allow-list; concurrency 16 by default. |
 | Files in a folder | Reads or writes text files under a base directory. | FILE_READ and FILE_WRITE normalise paths and refuse '..' or links that leave baseDir. | Reads are size-capped (10 MiB). | baseDir is author-chosen; a link swapped in after the check is not caught. |
 | Database queries | Runs a parameterised SQL statement. | SQL_QUERY binds payload fields to '?' placeholders over JDBC. | Values are never pasted into SQL; rows capped at 1000; statement timeout 30 s. | A connection per message; any statement kind is allowed. |
 | Calling tools on another server | Invokes an MCP tool and returns its result. | MCP_TOOL_CALL over streamable HTTP with cached sessions, progress heartbeats and cancellation. | A slow tool is not timed out while it reports progress. | No host allow-list; token in config. |
@@ -544,7 +544,7 @@ The engine hands each plugin a stream. How a plugin consumes it decides ordering
 
 | Plugins | How messages are handled | What it means |
 |---|---|---|
-| PROCESS_EXECUTOR, HTTP_REQUEST, MCP_TOOL_CALL, LLM_CALL, SESSION_MEMORY, decision plugins (except ANOMALY, DEDUPE) | Started concurrently, output kept in input order; default concurrency 256 per node | \*\*Partly.\*\* Fast, but a burst of 1,000 messages starts 256 calls at once and cannot be tuned in config |
+| PROCESS_EXECUTOR, HTTP_REQUEST, MCP_TOOL_CALL, LLM_CALL, SESSION_MEMORY, decision plugins (except ANOMALY, DEDUPE) | Started concurrently, output kept in input order; `concurrency` per node (4 for PROCESS_EXECUTOR, 16 for the network plugins and decision plugins); SESSION_MEMORY runs one message at a time | \*\*Yes.\*\* A burst of 1,000 messages starts at most `concurrency` calls at once; raise it in config for more throughput |
 | FILE_READ, FILE_WRITE, SQL_QUERY, NOTIFY_TERMINAL, ANOMALY, DEDUPE, loops | One message at a time, in order | \*\*Yes.\*\* Safe for order-dependent state; a slow call paces everything behind it |
 | FILTER, MAPPER, RECIPIENT_LIST (parallel true), SPLITTER (parallel true, 1024) | Handled concurrently; order of output is not guaranteed across messages | \*\*Note.\*\* Fine for independent items; set parallel false when order matters |
 | DELAY | Each message waits delayMs, released one at a time | \*\*Yes.\*\* Spaces out a stream; a plain way to stay under a rate limit |
@@ -840,7 +840,7 @@ One JSON file, \{"rules": [...]\}. Each rule has an id and either when/then or d
 | Prompt injection | Text in the data that tells a model to ignore its instructions. | Decision plugins judge data that may contain such text. |
 | Fail open and fail closed | On error, allow (open) or refuse (closed). | The model plane fails open; deny rules fail closed. |
 | Back-pressure | A slow consumer making its producers wait instead of buffering without limit. | Why a slow webhook slows the whole branch. |
-| Reactor and flatMap concurrency | Reactor is the stream library; flatMap runs inner work concurrently, by default up to 256 at once. | The source of risk fanout256. |
+| Reactor and flatMap concurrency | Reactor is the stream library; flatMap runs inner work concurrently, by default up to 256 at once. | The plugins now pass their own `concurrency` instead of using that default (risk fanout256). |
 | Reactor context | A bag of values that travels with a stream, such as node id or the start payload. | API_TRIGGER and many plugins read from it. |
 | Dead letter | A message that failed and is parked on an error path instead of being lost. | The engine's onError ROUTE sends failures to the 'error' port. |
 | Heartbeat | A signal from a long task saying it is still alive. | MCP_TOOL_CALL turns progress notifications into heartbeats. |

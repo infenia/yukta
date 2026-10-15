@@ -1632,7 +1632,7 @@ IDs in brackets such as (G1) are finding numbers from the module's review notes 
 | Secrets sit in workflow config and are returned as written | Security | 4 | 3 |
 | PROCESS_EXECUTOR: command allow-list added; allow-any and useShell remain (G3, G4) | Security | 2 | 2 |
 | A timeout kills the child but not its children (G9) | Reliability | 3 | 2 |
-| Default concurrency 256 per node, not configurable (G8) | Scalability | 3 | 2 |
+| Concurrency per node: only a default and a few plugins have a setting (G8) | Scalability | 2 | 2 |
 | File sandbox protects a path, not an author | Security | 3 | 2 |
 | Several caches and maps never evict (G11) | Scalability | 3 | 2 |
 | SESSION_MEMORY: durable now; memory cache never evicts and no owner | Reliability | 3 | 2 |
@@ -1704,12 +1704,12 @@ IDs in brackets such as (G1) are finding numbers from the module's review notes 
 **Question to settle.** Do you run build tools and scripts through this plugin, or only single binaries?
 
 </Accordion>
-<Accordion title="Default concurrency 256 per node, not configurable (G8)">
+<Accordion title="Concurrency per node: only a default and a few plugins have a setting (G8)">
 **Id** `fanout256` · **Category** Scalability · **Impact** 3 · **Effort** 2 · **Components** External I/O, AI processors
 
-**Why it matters.** PROCESS_EXECUTOR, HTTP_REQUEST, MCP_TOOL_CALL, LLM_CALL, SESSION_MEMORY and the decision plugins start work for up to 256 messages at once and keep the output in order. A trigger or splitter that emits 1,000 messages starts 256 processes, requests or model calls together. Model and web APIs rate-limit well below that, and each process uses real memory and file handles. Update: model calls can now be spaced per provider with `yukta.llm.rate-limit.<provider>` (requests per minute, across all nodes and runs), which covers the provider-rate part for LLM_CALL and the LLM-backed decisions. PROCESS_EXECUTOR, HTTP_REQUEST, MCP_TOOL_CALL, SESSION_MEMORY and the file and SQL plugins still start up to 256 at once.
+**Why it matters.** PROCESS_EXECUTOR, HTTP_REQUEST, MCP_TOOL_CALL, LLM_CALL and the decision plugins now take a per-node `concurrency` setting (defaults: 4 for processes, 16 for the others), and SESSION_MEMORY handles one message at a time, so a trigger or splitter that emits 1,000 messages no longer starts hundreds of calls together. What remains: the limit is per node, not shared across nodes or runs, so many nodes still add up; the file and SQL plugins already run one message at a time. Model calls can also be spaced per provider with `yukta.llm.rate-limit.<provider>` (requests per minute, across all nodes and runs).
 
-**Option.** A maxConcurrency setting per node (default small, for example 1 to 4 for processes and 8 to 16 for network calls); a shared rate limiter per provider or host.
+**Option.** A shared rate limiter per provider or host, across nodes and runs.
 
 **Question to settle.** Should the engine own a per-node concurrency policy (like retry) instead of each plugin choosing?
 

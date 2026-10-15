@@ -131,7 +131,8 @@ class ClassifyPluginTest {
             "apiKey",
             "timeout",
             "state",
-            "into");
+            "into",
+            "concurrency");
     assertThat(schema.stream().filter(ConfigField::required).map(ConfigField::name))
         .containsExactly("labels", "model");
   }

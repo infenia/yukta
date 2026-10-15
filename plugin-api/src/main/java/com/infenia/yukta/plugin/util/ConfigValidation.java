@@ -9,6 +9,9 @@ import lombok.experimental.UtilityClass;
 @UtilityClass
 public class ConfigValidation {
 
+  /** Config key: how many messages a node handles at once. */
+  public static final String CONCURRENCY_KEY = "concurrency";
+
   /**
    * Reads an optional whole number greater than zero.
    *
@@ -53,6 +56,22 @@ public class ConfigValidation {
       throw new IllegalArgumentException(key + " is too large: " + value);
     }
     return (int) value;
+  }
+
+  /**
+   * Reads how many messages a node may handle at once.
+   *
+   * <p>Plugins that call something slow or costly per message pass this to {@code
+   * flatMapSequential}, so a burst of messages cannot start hundreds of calls (Reactor's own
+   * default is 256).
+   *
+   * @param config the plugin config
+   * @param defaultValue the plugin's default when {@value #CONCURRENCY_KEY} is absent
+   * @return the number of messages handled at once
+   * @throws IllegalArgumentException if present but not a positive whole number
+   */
+  public static int concurrency(final Map<String, Object> config, final int defaultValue) {
+    return positiveInt(config, CONCURRENCY_KEY, defaultValue);
   }
 
   /**

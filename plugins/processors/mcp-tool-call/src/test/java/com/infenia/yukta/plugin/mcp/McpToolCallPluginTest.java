@@ -80,6 +80,42 @@ class McpToolCallPluginTest {
     return new McpCallResult(true, "boom", List.of(), null, "boom");
   }
 
+  private int peakConcurrency(final Map<String, Object> config, final int count) {
+    final AtomicInteger inFlight = new AtomicInteger();
+    final AtomicInteger peak = new AtomicInteger();
+    when(gateway.call(any(), any()))
+        .thenAnswer(
+            invocation ->
+                Mono.defer(
+                    () -> {
+                      peak.accumulateAndGet(inFlight.incrementAndGet(), Math::max);
+                      return Mono.just(success())
+                          .delayElement(Duration.ofMillis(20))
+                          .doOnTerminate(inFlight::decrementAndGet);
+                    }));
+    StepVerifier.create(plugin.process(Flux.range(0, count).map(i -> input()), config))
+        .expectNextCount(count)
+        .verifyComplete();
+    return peak.get();
+  }
+
+  @Test
+  void handlesAtMostTheConfiguredNumberOfCallsAtOnce() {
+    assertThat(peakConcurrency(config("concurrency", 3), 20)).isEqualTo(3);
+  }
+
+  @Test
+  void withoutConcurrencySixteenCallsAreInFlightAtMost() {
+    assertThat(peakConcurrency(config(), 60)).isEqualTo(16);
+  }
+
+  @Test
+  void validateConfigRejectsNonPositiveConcurrency() {
+    StepVerifier.create(plugin.validateConfig(config("concurrency", 0)))
+        .expectErrorMessage("concurrency must be a positive whole number, got: 0")
+        .verify();
+  }
+
   @Test
   void allowedTools_refuseOtherTools_withoutCallingTheServer() {
     when(gateway.call(any(), any())).thenReturn(Mono.just(success()));

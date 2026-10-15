@@ -118,7 +118,8 @@ public class SessionMemoryPlugin implements ProcessorPlugin {
     return Flux.defer(
         () -> {
           final Mode mode = Mode.from(config.get(MODE));
-          return input.flatMapSequential(
+          // one message at a time: each load must see the turns the messages before it stored
+          return input.concatMap(
               message -> mode == Mode.LOAD ? load(message, config) : append(message, config));
         });
   }
