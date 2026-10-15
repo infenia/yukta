@@ -35,7 +35,7 @@ public class EventsController {
   private final ExecutionEventFeed feed;
 
   /** One event on the wire. */
-  public record Envelope(String type, ExecutionEvent event) {}
+  public record Envelope(String type, EventSeverity severity, ExecutionEvent event) {}
 
   /**
    * Stream events of all executions as they happen.
@@ -45,6 +45,7 @@ public class EventsController {
    * @param executionId only events of this execution
    * @param type only events of this kind: NodeStatusChanged, WorkflowStatusChanged, ControlOutcome
    *     or LogLine
+   * @param severity only events of this severity or above: INFO, WARN or ERROR
    * @return the events with a keep-alive comment every 15 seconds
    */
   @GetMapping(value = "/events/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
@@ -52,17 +53,25 @@ public class EventsController {
       summary = "Stream execution events",
       description =
           "Live node and workflow status changes, control command outcomes and log lines of all"
-              + " executions")
+              + " executions, each with a severity (INFO, WARN, ERROR)")
   public Flux<ServerSentEvent<Envelope>> stream(
       @Parameter(description = "Only events of this execution") @RequestParam(required = false)
           final String executionId,
       @Parameter(description = "Only events of this kind") @RequestParam(required = false)
-          final String type) {
+          final String type,
+      @Parameter(description = "Only events of this severity or above: INFO, WARN or ERROR")
+          @RequestParam(required = false)
+          final String severity) {
+    final EventSeverity minimum =
+        severity == null ? EventSeverity.INFO : EventSeverity.parse(severity);
     return SseStreams.events(
         feed.events()
             .filter(event -> executionId == null || executionId.equals(event.executionId()))
-            .map(event -> new Envelope(event.getClass().getSimpleName(), event))
-            .filter(envelope -> type == null || type.equalsIgnoreCase(envelope.type())),
+            .map(
+                event ->
+                    new Envelope(event.getClass().getSimpleName(), EventSeverity.of(event), event))
+            .filter(envelope -> type == null || type.equalsIgnoreCase(envelope.type()))
+            .filter(envelope -> envelope.severity().compareTo(minimum) >= 0),
         null,
         SseStreams.HEARTBEAT);
   }

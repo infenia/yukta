@@ -327,4 +327,40 @@ class NodeStreamsTest {
 
     verify(tracker).emitTaskStatusEvent(EXEC, NODE_ID, TASK, TaskStatus.UPSTREAM_FAILED, Map.of());
   }
+
+  @Test
+  void ownFailure_carriesTheReasonOnItsStatusEvent() {
+    StepVerifier.create(decorate(Flux.error(new IllegalStateException(BOOM))))
+        .expectError(IllegalStateException.class)
+        .verify();
+
+    verify(tracker)
+        .emitTaskStatusEvent(
+            EXEC, NODE_ID, TASK, TaskStatus.FAILURE, Map.of(NodeStreams.ERROR_KEY, BOOM));
+  }
+
+  @Test
+  void describe_namesTheClassWhenThereIsNoMessage() {
+    assertThat(NodeStreams.describe(new IllegalStateException()))
+        .isEqualTo("IllegalStateException");
+  }
+
+  @Test
+  void describe_namesTheClassWhenTheMessageIsBlank() {
+    assertThat(NodeStreams.describe(new IllegalStateException(" ")))
+        .isEqualTo("IllegalStateException");
+  }
+
+  @Test
+  void describe_keepsHeadAndTailOfLongMessage() {
+    final String text = "head" + "x".repeat(20_000) + "tail";
+
+    final String described = NodeStreams.describe(new IllegalStateException(text));
+
+    assertThat(described)
+        .startsWith("head")
+        .endsWith("tail")
+        .contains("chars cut")
+        .hasSizeLessThan(8_100);
+  }
 }
