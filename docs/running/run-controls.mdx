@@ -1,0 +1,103 @@
+---
+title: "Run controls"
+description: "Pause, resume, step, set breakpoints, skip, stop, restart and retry a live execution through one ordered, audited command path."
+---
+
+Every change to a running execution is a **command**. People, supervisors, the REST API, the MCP server, the CLI and the web UI all send the same commands through the same pipeline.
+
+## How commands work
+
+- All commands for one execution enter one queue and are **applied in the order sent**. The caller's response arrives only after the command has been applied.
+- Commands for different executions are independent.
+- Every command for a known execution is recorded in the execution log as applied or rejected, with the **actor**: the API key name (`key:<name>`), a supervisor id, or the UI user. `GET /api/control/audit` lists who sent which command.
+- Before a command runs, **reviewers** can refuse it. A refusal returns `403` and is logged. See [Supervisors](/running/supervisors).
+- The pipeline is built for people and supervisors, not as a high-volume API.
+
+## Pause and resume
+
+Pausing stops a node, or the whole execution, from taking new messages. The message being processed finishes. **All time limits freeze while paused**, so a pause never causes a timeout.
+
+```http
+POST /api/executions/{executionId}/pause
+POST /api/executions/{executionId}/resume
+```
+
+## Step
+
+Step mode lets exactly *n* messages through a node, then pauses it again. Use it to watch a pipeline one message at a time.
+
+## Breakpoints
+
+A breakpoint holds a node **before** the first message whose `payload`, a path inside the payload such as `payload.order.id`, or a `metadata.key` equals a given text. It is ordered and audited like any command.
+
+```http
+POST /api/executions/{executionId}/nodes/{nodeId}/breakpoint
+DELETE /api/executions/{executionId}/nodes/{nodeId}/breakpoint
+```
+
+## Skip and unskip
+
+Skipping a **processor** passes messages through it without calling its plugin, from the next message on. A message already inside the plugin finishes. Unskip resumes normal processing. Other node kinds reject skip.
+
+```http
+POST /api/executions/{executionId}/nodes/{nodeId}/skip
+```
+
+A processor can also be skipped from the start of a queued execution, and unskipped later.
+
+## Stop
+
+Three strengths of stopping an execution:
+
+| Mode | Effect |
+|---|---|
+| `DRAIN` (default) | Work already in progress finishes, within `yukta.stop.drain-timeout` (30 seconds) |
+| `CANCEL` | In-flight work is cancelled |
+| `KILL` | Ends the execution immediately |
+
+```http
+POST /api/workflow/{sessionId}/{workflowId}/stop?mode=DRAIN
+POST /api/executions/{executionId}/stop
+```
+
+A single node can also be stopped, draining or immediately.
+
+## Restart, restart from a node, and retry a node
+
+| Action | What it does |
+|---|---|
+| Restart | Run the whole workflow again with its original start payload |
+| Restart from node | Re-run a node and everything after it. The recorded outputs of the nodes feeding it are replayed, so earlier work is not repeated. Independent branches are left alone |
+| Retry node | The same for a node that ended `FAILURE` or `TIMED_OUT`, using the output its parents recorded |
+
+```http
+POST /api/executions/{executionId}/restart
+POST /api/executions/{executionId}/nodes/{nodeId}/retry
+```
+
+Recent finished executions stay restartable: the server keeps their graph, start payload and recorded node outputs (the newest 10 by default, with per-node caps). A node that exceeds the caps makes a restart that needs it refuse rather than replay partially, unless a spill directory is configured. After a server restart, use [resume](/operations/checkpoints-and-resume) instead.
+
+A restart takes a slot like a new start, so it can be queued or refused with `429`.
+
+## Signals
+
+A signal hands a named answer to a waiting node, such as an approval. See [Approvals and signals](/building/approvals-and-signals).
+
+## Change the queue
+
+Operators can change the scheduler limits and a queued execution's priority while the server runs. See [Admission and limits](/running/admission-and-limits).
+
+## Who can do what
+
+| Role | Commands |
+|---|---|
+| `VIEWER` | None, read only |
+| `OPERATOR` | Start, pause, resume, step, skip, stop, restart, retry, signal, recover, change a queued priority |
+| `ADMIN` | Everything, including defining sessions and changing scheduler limits |
+
+## Related
+
+- [Executions](/concepts/executions)
+- [REST: control](/api/control)
+- [Supervisors](/running/supervisors)
+- [Security](/operations/security)

@@ -1,0 +1,308 @@
+---
+title: "Routing and flow"
+description: "BRANCH, FILTER, SPLITTER, AGGREGATE, RECIPIENT_LIST, DELAY, LOOP_PREDICATE, LOOP_STREAM, SUB_WORKFLOW and WAIT_FOR_SIGNAL: plugins that decide where messages go and when."
+---
+
+These ten processors are always part of the server. They route messages by port, split and batch them, pace them, repeat other plugins, run other workflows and wait for people.
+
+Routing works by port name: a message leaves a node on one port, and the engine delivers it only along edges whose `sourcePort` names that port. An edge with no `sourcePort` receives every message of the node. See [Nodes, edges and ports](/concepts/nodes-edges-ports) and [Routing and branching](/building/routing-and-branching).
+
+Options marked "expression" take the expression language described in [Variables and expressions](/building/variables-and-expressions). Inside an expression the message is the root, so `payload.status` reads a payload field and `metadata.key` reads a metadata entry. These plugins do not resolve `${...}` variables in their options.
+
+Unless a section says otherwise, the default timeout is the engine default of 30 seconds idle (see [Time limits](/concepts/time-limits)).
+
+## BRANCH
+
+Sends each message to one port, or several, chosen by an exact match or by conditions.
+
+| Option | Type | Default | Meaning |
+|---|---|---|---|
+| `mode` | `SELECT_KEY` or `EXPRESSION` | none, required | `SELECT_KEY` evaluates `selector` and looks the result up in `cases`. `EXPRESSION` evaluates each key of `cases` as a yes/no condition |
+| `selector` | expression | none | The value to match. Required in `SELECT_KEY` mode, unused in `EXPRESSION` mode |
+| `cases` | map | none, required, not empty | In `SELECT_KEY` mode: value to port name. In `EXPRESSION` mode: condition to port name |
+| `defaultPort` | string | none | Port for messages that match no case |
+| `allowMultipleMatches` | boolean | `false` | `EXPRESSION` mode only: send the message to every matching case instead of the first |
+| `strictMode` | boolean | `true` | Fail when nothing matches and there is no `defaultPort`, and when an expression fails |
+| `errorPort` | string | none | Port that receives messages whose evaluation failed, with the failure details attached |
+
+Output ports: every port named in `cases`, plus `defaultPort` and `errorPort` when set. Each port named in `cases` or `defaultPort` must have an outgoing edge, or the workflow is rejected at validation.
+
+In `SELECT_KEY` mode the selector result is compared as text, so a number `3` matches the case key `"3"`. In `EXPRESSION` mode cases are tried in the order written. With `strictMode` on, a message that matches nothing and has no `defaultPort` is an error, so a typo in a case cannot silently lose data. With `strictMode` off such a message is dropped.
+
+This node routes a quality gate on two payload fields:
+
+```json
+{
+  "nodeId": "decide",
+  "type": "BRANCH",
+  "config": {
+    "mode": "EXPRESSION",
+    "cases": {
+      "payload.coverage >= 80 && payload.lintErrors == 0": "pass",
+      "payload.coverage < 80 || payload.lintErrors > 0": "fail"
+    },
+    "strictMode": true
+  }
+}
+```
+
+```json
+[
+  { "source": "decide", "target": "report-pass", "sourcePort": "pass" },
+  { "source": "decide", "target": "report-fail", "sourcePort": "fail" }
+]
+```
+
+## FILTER
+
+Keeps messages that match a condition. A message that does not match is dropped, or sent to a second port.
+
+| Option | Type | Default | Meaning |
+|---|---|---|---|
+| `condition` | expression | none, required | The test. It must give true for the message to pass; any other result counts as false |
+| `engine` | `SpEL` or `SIMPLE` | `SpEL` | `SpEL` selects the full expression language. `SIMPLE` selects a small language described below |
+| `strictMode` | boolean | `true` | Fail the node on an evaluation error. When `false`, the message is dropped quietly |
+| `discardPort` | string | none | Port for messages that do not match. Without it they are dropped |
+| `allowAfterHeavy` | boolean | `false` | Suppress the advisory warning that a filter is better placed close to the trigger |
+
+Output ports: `default`, plus `discardPort` when set.
+
+The `SIMPLE` engine accepts one test of the form `path operator value`, where the path starts with `payload.` or `metadata.`:
+
+| Test | Passes when |
+|---|---|
+| `payload.status == 'ok'` | the value, compared as text, equals the quoted text |
+| `payload.email exists` | the path is present and not null |
+| `payload.email matches '.*@example\.com'` | the whole value matches the regular expression |
+
+The engine value `REGO` is not supported and is rejected at validation.
+
+```json
+{
+  "nodeId": "keep-active",
+  "type": "FILTER",
+  "config": { "condition": "payload.active == true" }
+}
+```
+
+## SPLITTER
+
+Splits one message that holds a list into one message per item.
+
+| Option | Type | Default | Meaning |
+|---|---|---|---|
+| `itemsPath` | expression | none, required | Expression that returns the list, for example `payload.records`. A value that is not a list is treated as a list of one |
+| `headerMapping` | map | none | Metadata key to expression, evaluated against the parent message, set on every item message |
+| `parallel` | boolean | `true` | Split several incoming messages at the same time. When `false`, one at a time |
+| `concurrency` | number | `1024` | How many incoming messages are split at once when `parallel` is on |
+| `strictMode` | boolean | `true` | Fail when `itemsPath` gives nothing, or a mapping fails. When `false`, the message is dropped or the mapping skipped |
+| `errorPort` | string | none | Port that receives the parent message when splitting fails, with the failure details attached |
+
+Output ports: `default`, plus `errorPort` when set.
+
+Each item message has a new id and the item as its payload. It keeps the parent's metadata, trace id and priority, and carries the position of the item in the batch (`sequenceNumber` from 1, and `sequenceSize`) with the parent's id as its correlation id. Items of one parent are emitted in order.
+
+```json
+{
+  "nodeId": "split",
+  "type": "SPLITTER",
+  "config": { "itemsPath": "payload.records" }
+}
+```
+
+## AGGREGATE
+
+Batches messages into one message that holds a list. It is the reverse of `SPLITTER`.
+
+| Option | Type | Default | Meaning |
+|---|---|---|---|
+| `size` | number | none, required | Most messages per batch, a positive whole number |
+| `timeoutMs` | number | none | Send a partial batch this many milliseconds after it started, if it is not full by then |
+
+Output port: `default`.
+
+The batch message has a new id, the trace id of its first message, and the payload `{"items": [...], "count": n}`, where `items` holds the payloads in arrival order. Batching is by arrival only: messages are not grouped by correlation id. A partial batch is always sent when the input ends. Without `timeoutMs`, a partial batch waits in memory until it fills or the input ends.
+
+```json
+{
+  "nodeId": "collect",
+  "type": "AGGREGATE",
+  "config": { "size": 3, "timeoutMs": 2000 }
+}
+```
+
+## RECIPIENT_LIST
+
+Copies one message to several ports at once.
+
+| Option | Type | Default | Meaning |
+|---|---|---|---|
+| `mode` | `STATIC`, `DYNAMIC` or `EXTERNAL` | `DYNAMIC` | How the recipients are chosen |
+| `recipients` | list | none | `STATIC` mode: the port names. Required in that mode |
+| `expression` | expression | none | `DYNAMIC` mode: expression that returns a port name or a list of port names. Required in that mode |
+| `sourceField` | expression | none | `EXTERNAL` mode: expression that reads the list of port names from the message, for example `metadata.recipients` or `payload.targets`. Required in that mode |
+| `parallel` | boolean | `true` | Handle several incoming messages at the same time. When `false`, one at a time |
+| `strictMode` | boolean | `true` | Fail the node when the recipients cannot be worked out. When `false`, the message is dropped |
+| `errorPort` | string | none | Port that receives the message when the recipients cannot be worked out |
+
+Output ports: in `STATIC` mode the names in `recipients` plus `errorPort`. In the other modes the plugin can emit on any port name, so the engine accepts whatever the expression returns. A result that is empty or null sends nothing.
+
+Each recipient receives its own copy of the message on the port of that name.
+
+```json
+{
+  "nodeId": "fan-out",
+  "type": "RECIPIENT_LIST",
+  "config": { "mode": "STATIC", "recipients": ["slack", "email", "pager"], "parallel": true }
+}
+```
+
+## DELAY
+
+Holds each message for a fixed time and releases them one at a time, in order.
+
+| Option | Type | Default | Meaning |
+|---|---|---|---|
+| `delayMs` | number | none, required | Delay per message in milliseconds, a positive number |
+
+Output port: `default`. Ten messages with `delayMs` 100 take about a second, which makes `DELAY` a simple way to stay under an outside rate limit. Because the node's idle timeout is 30 seconds, set `timeoutSeconds` on the node when `delayMs` is close to or above 30000.
+
+```json
+{ "nodeId": "pace", "type": "DELAY", "config": { "delayMs": 250 } }
+```
+
+## LOOP_PREDICATE and LOOP_STREAM
+
+Run another processor again and again on a message. This is how Yukta polls and retries until a condition holds without breaking the rule that a workflow has no cycles. `LOOP_PREDICATE` emits only the final result. `LOOP_STREAM` emits every message that every iteration produced.
+
+| Option | Type | Default | Meaning |
+|---|---|---|---|
+| `targetPluginId` | string | none, required | The type string of the processor to run in each iteration, for example `HTTP_REQUEST` |
+| `targetConfig` | map | empty | The `config` of that processor |
+| `exitCondition` | expression | none | Ends the loop when true. Can use `#iterationCount` and `#elapsedTimeMs`, and reads the latest result as the message. With no condition the loop stops after the first iteration |
+| `maxIterations` | number | `10` | Most iterations |
+| `maxDuration` | ISO-8601 duration | `PT1M` | Longest total time. Checked before each iteration, not during one |
+| `delayInterval` | ISO-8601 duration | `PT0S` | Wait between iterations |
+| `failureStrategy` | `ABORT`, `RETRY`, `SKIP` or `ESCALATE` | `ABORT` | What a failing iteration does |
+
+Output port: `default`.
+
+Each iteration runs the target on the current message. The target's result becomes the input of the next iteration. The loop ends when `exitCondition` is true, when `maxIterations` is reached or when `maxDuration` has passed; reaching a limit is not an error. For `LOOP_PREDICATE`, an iteration uses the last message the target emitted.
+
+| `failureStrategy` | A failing iteration |
+|---|---|
+| `ABORT` | Fails the node |
+| `RETRY` | Goes on with the next iteration, using the same message, after `delayInterval` |
+| `SKIP` | Behaves the same as `RETRY` |
+| `ESCALATE` | Fails the node with a wrapped error |
+
+`targetConfig` is not checked when the workflow is validated, so a mistake in it appears only at run time. The target must be an installed processor. These nodes emit nothing until the loop ends, so set `timeoutSeconds` on the node to at least `maxDuration` when a loop can run longer than 30 seconds.
+
+This node checks a command up to five times, one second apart, and stops after the third check:
+
+```json
+{
+  "nodeId": "poll",
+  "type": "LOOP_PREDICATE",
+  "config": {
+    "targetPluginId": "PROCESS_EXECUTOR",
+    "targetConfig": { "command": ["echo", "checking readiness"], "failureMode": "CONTINUE" },
+    "exitCondition": "#iterationCount >= 3",
+    "maxIterations": 5,
+    "maxDuration": "PT1M",
+    "delayInterval": "PT1S",
+    "failureStrategy": "ABORT",
+    "timeoutSeconds": 90
+  }
+}
+```
+
+See [Loops and retries](/building/loops-and-retries) for choosing between a loop and the engine's own retry.
+
+## SUB_WORKFLOW
+
+Runs another workflow of the same session for each message and emits what that workflow produced.
+
+| Option | Type | Default | Meaning |
+|---|---|---|---|
+| `workflowId` | string | none, required | The workflow to run. It must exist in the same session |
+| `payload` | map | the message payload | The start payload of the child. Values are used as written. When omitted, the message payload is used if it is an object, otherwise `{"input": <payload>}` |
+| `timeoutSeconds` | number | `300` | Longest time the child may run |
+
+Output port: `default`. Messages are handled one at a time. The output payload is `{"executionId": "...", "results": [...]}`: the child's own execution id and the payload of every message that reached a terminal node of the child, in order. The node fails when the workflow does not exist, the child fails, or `timeoutSeconds` passes.
+
+The child is a normal execution with its own id. It is tracked and controllable like any other. It does not take an execution slot of its own: it uses the slot its parent holds, so it does not count towards the admission limits. The child's start payload also carries `yukta.depth` and `yukta.parentExecutionId`. Workflows can nest at most 5 levels deep, which stops a workflow from starting itself forever.
+
+Default timeout: `timeoutSeconds` plus 10 seconds, so 310 seconds with the default.
+
+```json
+{
+  "nodeId": "enrich-order",
+  "type": "SUB_WORKFLOW",
+  "config": { "workflowId": "enrich", "timeoutSeconds": 120 }
+}
+```
+
+See [Sub-workflows](/concepts/sub-workflows).
+
+## WAIT_FOR_SIGNAL
+
+Holds each message until a named signal arrives. Use it for approvals and for waiting on a person or another system.
+
+| Option | Type | Default | Meaning |
+|---|---|---|---|
+| `signal` | string | none, required | The name of the signal to wait for |
+| `timeoutSeconds` | number | `3600` | Longest wait per message |
+| `onTimeout` | `FAIL` or `CONTINUE` | `FAIL` | `FAIL` fails the node. `CONTINUE` releases the message with the decision `timeout` |
+| `onReject` | `FAIL` or `CONTINUE` | `FAIL` | What a `reject` decision does: `FAIL` fails the node, `CONTINUE` drops the message |
+
+Output port: `default`. Messages are held one at a time, in order. When a signal arrives the plugin releases the message with three metadata entries added: `signal.name`, `signal.decision` and `signal.data`. Read them in a later node, for example with `metadata['signal.decision']` in a `BRANCH` expression.
+
+A decision of `reject` (any capitalisation) is a rejection. Any other decision, such as `approve`, releases the message.
+
+Send the signal to the waiting node of a running execution:
+
+```http
+POST /api/executions/{executionId}/nodes/{nodeId}/signal?name=approve&decision=approve&data=ok
+```
+
+The request answers `409` when the node is not waiting for that name. List the nodes that wait now with `GET /api/sessions/{sessionId}/approvals`.
+
+Signal behaviour:
+
+- A signal that arrives before its wait is kept for 10 minutes, at most 100 at a time, and is taken by the wait that follows.
+- A second signal for the same node and name within 5 seconds of an accepted one counts as a double submit and is answered as not waiting.
+- The answer is recorded with the node's checkpoint, so a resumed execution reuses it for the same message instead of waiting again.
+- Waits are held in memory. After a server restart, an execution that is resumed waits for a new signal.
+
+Default timeout: `timeoutSeconds` plus 30 seconds, so 3630 seconds with the default.
+
+```json
+{
+  "nodeId": "approve-deploy",
+  "type": "WAIT_FOR_SIGNAL",
+  "config": { "signal": "approve", "timeoutSeconds": 900, "onTimeout": "FAIL", "onReject": "FAIL" }
+}
+```
+
+See [Approvals and signals](/building/approvals-and-signals).
+
+## Limits and defaults
+
+| Item | Value |
+|---|---|
+| `SPLITTER` `concurrency` | 1024 incoming messages at once |
+| `LOOP_*` `maxIterations`, `maxDuration` | 10 iterations, `PT1M` |
+| `SUB_WORKFLOW` nesting | 5 levels |
+| `SUB_WORKFLOW` `timeoutSeconds` | 300, node timeout 310 |
+| `WAIT_FOR_SIGNAL` `timeoutSeconds` | 3600, node timeout 3630 |
+| Early signal kept | 10 minutes, at most 100 |
+| Duplicate signal window | 5 seconds |
+| All other plugins on this page | 30 seconds idle timeout |
+
+## Related
+
+- [Routing and branching](/building/routing-and-branching)
+- [Loops and retries](/building/loops-and-retries)
+- [Approvals and signals](/building/approvals-and-signals)
+- [Sub-workflows](/concepts/sub-workflows)

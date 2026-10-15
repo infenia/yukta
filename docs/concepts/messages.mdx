@@ -1,0 +1,64 @@
+---
+title: "Messages"
+description: "The envelope every node receives and emits: payload, metadata, identity and routing."
+---
+
+A **message** is the unit of data on an edge. It is a **payload** plus labels about the payload. A trigger can emit many messages in one execution, and a processor can turn one message into several or several into one.
+
+## Anatomy
+
+| Part | Meaning |
+|---|---|
+| Payload | The data being moved. It can be any JSON-like value; there is no fixed schema |
+| Metadata | Free-form key-value labels set by plugins, for example the HTTP status code a request returned |
+| Message id | A stable identifier for one logical message. Retries and derived messages keep it |
+| Trace id | Shared by every message derived from one request, so you can follow one input through the whole workflow |
+| Timestamp | When the message was created |
+| Source node and port | Which node emitted it and on which output port. The engine sets the source node on every edge |
+| History | The ids of the last 64 nodes the message passed through, stamped by the engine |
+
+Messages are immutable. A node never edits a message it received; it builds a new one from it with a changed payload or label. Two branches that receive the same message can therefore never disturb one another. The immutability is shallow: values inside a payload are shared, so treat received payloads as read-only.
+
+## Identity across nodes
+
+Deriving a message from an input keeps its message id, trace id and timestamp. Creating a brand-new message, as a trigger or a splitter does, assigns new ones.
+
+| Node behaviour | Result |
+|---|---|
+| A processor transforms a message | Same id and trace id, new payload |
+| A splitter turns one message into several | New ids; each child carries the parent's trace id, the parent's id as its correlation id and its position in the group |
+| An aggregator merges several messages | One new message; it keeps the trace id of the first |
+
+Because a message may be delivered more than once after a retry or resume, plugins that have side effects should de-duplicate on the message id. See [Delivery and back-pressure](/concepts/delivery-and-backpressure).
+
+## Labels the engine adds
+
+| Label | Added when | Content |
+|---|---|---|
+| `attempt` | A node has retries, error routing or an element timeout | `1`, `2`, ... for each attempt at one message |
+| `failure.attempts`, `failure.exception`, `failure.time` | A message is routed to the `error` port | How many attempts were made, the error text and when it failed |
+| `origDest`, `failureReason` | A message is routed to the `error` port | The node it was heading for and why it failed |
+| Signal labels `signal.name`, `signal.decision`, `signal.data` | A message was held by an approval step | What the person or system answered |
+
+## Reading a message in configuration
+
+Node options can reference the incoming message with `${payload.field}` and `${metadata.key}`. See [Variables and expressions](/building/variables-and-expressions).
+
+## Fields that are carried only
+
+Messages also have optional header fields borrowed from classic messaging patterns: priority, expiration, reply-to, a format indicator, a retry counter and a control flag. They are carried along but the engine does not act on them: an expired message is delivered like any other, and reply-to does not route anything. Do not rely on them for behaviour. Execution priority is a different mechanism, set with `yukta.priority` in the start payload; see [Admission and limits](/running/admission-and-limits).
+
+## Limits and defaults
+
+| Item | Value |
+|---|---|
+| History length | Last 64 nodes, not configurable |
+| Payload size | No limit on the message itself. A node checkpoint kept in memory is capped; see [Checkpoints and resume](/operations/checkpoints-and-resume) |
+| Start payload | Request bodies above 1 MiB are rejected with `413` |
+| Log line from an output | Cut to 2,048 characters |
+
+## Related
+
+- [Nodes, edges and ports](/concepts/nodes-edges-ports)
+- [Executions](/concepts/executions)
+- [Failure handling](/concepts/failure-handling)

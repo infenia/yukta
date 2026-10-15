@@ -1,0 +1,200 @@
+---
+title: "Catalogue API"
+description: "Discover the plugins a workflow can use, and see the supervisors and remote workers connected to the server."
+---
+
+The catalogue endpoints describe what the server offers and who is attached to it. They are read-only and need the `VIEWER` role. Responses use the [envelope](/api/overview#response-envelope).
+
+| Method and path | Purpose |
+|---|---|
+| `GET /api/plugins` | List plugin types |
+| `GET /api/plugins/{type}` | Describe one plugin type |
+| `GET /api/supervisors` | List running supervisors and control planes |
+| `GET /api/workers` | List connected remote workers |
+
+## List plugins
+
+`GET /api/plugins`
+
+Returns every registered plugin type with its category. Use the `type` values as the `type` of a node in a workflow.
+
+**Response `data`**: an array.
+
+| Field | Type | Meaning |
+|---|---|---|
+| `type` | string | The plugin type, such as `API_TRIGGER` |
+| `category` | string | `TRIGGER`, `PROCESSOR` or `TERMINAL` |
+
+```http
+GET /api/plugins
+```
+
+```json
+{
+  "timestamp": "2026-07-19T10:15:30.123456",
+  "status": 200,
+  "message": "Plugins retrieved successfully",
+  "data": [
+    { "type": "API_TRIGGER", "category": "TRIGGER" },
+    { "type": "MAPPER", "category": "PROCESSOR" },
+    { "type": "CONSOLE_TERMINAL", "category": "TERMINAL" }
+  ]
+}
+```
+
+## Get a plugin
+
+`GET /api/plugins/{type}`
+
+Returns what a plugin does, how to configure it and what it can output. Editors use `configSchema` to build a form for a node.
+
+| Path parameter | Meaning |
+|---|---|
+| `type` | The plugin type exactly as listed |
+
+**Response `data`**
+
+| Field | Type | Meaning |
+|---|---|---|
+| `type` | string | The plugin type |
+| `category` | string | `TRIGGER`, `PROCESSOR` or `TERMINAL` |
+| `description` | string | What the plugin does |
+| `usagePattern` | string | The expected configuration and the shape of the messages it reads and writes |
+| `uiDesign` | object | How a canvas draws the node: `html`, `width` and `height`. `null` when the plugin has none |
+| `outputPorts` | array | The output port names the plugin offers by default |
+| `configSchema` | array | The declared options. Empty when the plugin declares none |
+
+Each entry of `configSchema` describes one option:
+
+| Field | Type | Meaning |
+|---|---|---|
+| `name` | string | The key in the node's `config` |
+| `type` | string | `STRING`, `NUMBER`, `BOOLEAN`, `ENUM`, `LIST`, `MAP`, `EXPRESSION` or `SECRET` |
+| `required` | boolean | Whether the plugin rejects a configuration without it |
+| `defaultValue` | any | The value used when the key is absent. `null` if none |
+| `options` | array | The allowed values for an `ENUM`. Empty otherwise |
+| `description` | string | One line of help |
+
+A `SECRET` option takes a reference such as `decrypted:<key>` rather than the secret itself.
+
+**Errors**: `404` if no plugin has that type. The error lists a field error on `type`.
+
+```http
+GET /api/plugins/MAPPER
+```
+
+The response below is abridged: `usagePattern` and the HTML of `uiDesign` are shortened and some descriptions are reworded.
+
+```json
+{
+  "timestamp": "2026-07-19T10:15:30.123456",
+  "status": 200,
+  "message": "Plugin details retrieved",
+  "data": {
+    "type": "MAPPER",
+    "category": "PROCESSOR",
+    "description": "Transforms message payloads using PROJECTION, TEMPLATE or SCRIPT modes.",
+    "usagePattern": "Configure with:\n- mode: 'PROJECTION', 'TEMPLATE', or 'SCRIPT'. ...",
+    "uiDesign": { "html": "<div class=\"flex ...\">...</div>", "width": 140, "height": 80 },
+    "outputPorts": ["default"],
+    "configSchema": [
+      { "name": "mode", "type": "ENUM", "required": true, "defaultValue": "PROJECTION", "options": ["PROJECTION", "TEMPLATE", "SCRIPT"], "description": "How the mapping is applied" },
+      { "name": "mapping", "type": "EXPRESSION", "required": true, "defaultValue": null, "options": [], "description": "Field to expression map, template or script" },
+      { "name": "dropOriginal", "type": "BOOLEAN", "required": false, "defaultValue": true, "options": [], "description": "Drop the input payload" },
+      { "name": "strictMode", "type": "BOOLEAN", "required": false, "defaultValue": true, "options": [], "description": "Fail on eval errors" }
+    ]
+  }
+}
+```
+
+The plugin pages describe each built-in type: [Plugins overview](/plugins/overview).
+
+## List supervisors
+
+`GET /api/supervisors`
+
+Lists the supervisors and control-plane plugins running on the control bus, in the order they review commands. The counts start at zero when the server starts. See [Supervisors](/running/supervisors) and [Control planes](/running/control-planes).
+
+**Response `data`**: an array, one entry per supervisor.
+
+| Field | Type | Meaning |
+|---|---|---|
+| `id` | string | The id that appears as `actor` in the audit log |
+| `kind` | string | `CONTROL_PLANE` for a control-plane plugin, otherwise `SUPERVISOR` |
+| `type` | string | The name of the implementation, such as `RuleSupervisor` |
+| `order` | integer | Review order, lowest first |
+| `dryRun` | boolean | `true` if its commands are only recorded, not applied |
+| `maxCommandsPerSecond` | integer | How many commands it may issue per second (`yukta.supervisor.max-commands-per-second`, default `20`) |
+| `applied` | integer | Commands applied |
+| `rejected` | integer | Commands that were refused |
+| `recorded` | integer | Commands recorded but not applied because of dry run |
+| `rateLimited` | integer | Commands dropped by the rate limit |
+
+```json
+{
+  "timestamp": "2026-07-19T10:15:30.123456",
+  "status": 200,
+  "message": "Supervisors retrieved",
+  "data": [
+    {
+      "id": "rules",
+      "kind": "SUPERVISOR",
+      "type": "RuleSupervisor",
+      "order": 0,
+      "dryRun": false,
+      "maxCommandsPerSecond": 20,
+      "applied": 12,
+      "rejected": 1,
+      "recorded": 0,
+      "rateLimited": 0
+    }
+  ]
+}
+```
+
+An empty array means none is configured.
+
+## List workers
+
+`GET /api/workers`
+
+Lists the remote workers that are connected and keep their lease, ordered by worker id. See [Remote workers](/operations/remote-workers).
+
+**Response `data`**: an array, one entry per worker.
+
+| Field | Type | Meaning |
+|---|---|---|
+| `workerId` | string | The worker's own id |
+| `pools` | array | The pools it serves, such as `default` or `gpu` |
+| `pluginTypes` | array | The plugin types it may run |
+| `capacity` | integer | How many node attempts it runs at once |
+| `usedSlots` | integer | How many it runs now, as of its last heartbeat. Free slots are `capacity` minus `usedSlots` |
+| `draining` | boolean | `true` while it finishes its work and takes nothing new |
+| `registeredAt` | string | When it registered |
+| `leaseUntil` | string | When it is dropped unless it sends another heartbeat |
+
+```json
+{
+  "timestamp": "2026-07-19T10:15:30.123456",
+  "status": 200,
+  "message": "Workers retrieved",
+  "data": [
+    {
+      "workerId": "worker-1",
+      "pools": ["default"],
+      "pluginTypes": ["PROCESS_EXECUTOR"],
+      "capacity": 4,
+      "usedSlots": 1,
+      "draining": false,
+      "registeredAt": "2026-07-19T09:00:00Z",
+      "leaseUntil": "2026-07-19T10:15:40Z"
+    }
+  ]
+}
+```
+
+## Related
+
+- [Plugins overview](/plugins/overview)
+- [Supervisors](/running/supervisors)
+- [Remote workers](/operations/remote-workers)

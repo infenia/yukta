@@ -1,0 +1,69 @@
+---
+title: "Supervisors"
+description: "Programs that watch every execution and steer it, or veto commands before they run: a rule engine, an AI agent or your own code."
+tag: "Optional"
+---
+
+A **supervisor** watches the live event feed of all executions and returns commands: pause a workflow after repeated failures, stop a node that returns a server error, refuse a dangerous stop. Supervisors are optional and off until you enable one.
+
+## What a supervisor can do
+
+- **React to events.** Receive every event (a node changed status, a workflow changed status, a command was applied or rejected, a log line was written) and answer with commands.
+- **Veto commands.** A **reviewer** can refuse any command, from a person or a program, before it runs. The first refusal wins, and a reviewer that errors refuses. The caller gets `403` and the log records the rejection.
+
+Commands sent by a supervisor go through the same ordered, reviewed, audited pipeline as everyone else's. They are logged and audited with the supervisor's id as the actor.
+
+## The built-in rule supervisor
+
+The rule supervisor reads a JSON rules file. Enable it by setting the path:
+
+```properties
+yukta.supervisor.rules.file=/etc/yukta/rules.json
+```
+
+The rule format is in [Rule files](/running/rule-files).
+
+## Safety
+
+A supervisor can never hold up an execution:
+
+| Protection | Behaviour |
+|---|---|
+| Failure isolation | A failing supervisor is resubscribed with backoff |
+| Rate limit | At most `yukta.supervisor.max-commands-per-second` commands (default `20`) |
+| Dry run | `yukta.supervisor.dry-run=true` records commands without applying them |
+| No feedback loop | A supervisor never sees the outcome of its own commands |
+| Slow consumers | Events reach a supervisor through a bounded buffer of 256. A slow supervisor drops events (counted in `yukta.tracker.dropped` with `kind=supervisor`) instead of slowing the engine |
+
+Event delivery is best effort. Commands are rate limited, but a supervisor can still react to the state changes its own commands cause.
+
+## Supervisors outside the server
+
+You do not need to write code inside the server. The event feed is also a server-sent events stream, and external agents steer through the REST control endpoints or the MCP tools:
+
+```http
+GET /api/events/stream?executionId={id}&type={type}
+```
+
+## Inspect what is installed
+
+```http
+GET /api/supervisors
+```
+
+reports every supervisor and control plane: its kind (`SUPERVISOR` or `CONTROL_PLANE`), order, dry-run flag and command counts. The web UI's Control page shows the same.
+
+## Settings
+
+| Setting | Default | Meaning |
+|---|---|---|
+| `yukta.supervisor.rules.file` | unset | Enables the rule supervisor and sets its rules file |
+| `yukta.supervisor.max-commands-per-second` | `20` | Rate limit per supervisor |
+| `yukta.supervisor.dry-run` | `false` | Record commands without applying them |
+
+## Related
+
+- [Rule files](/running/rule-files)
+- [Control planes](/running/control-planes)
+- [Run controls](/running/run-controls)
+- [Observability](/running/observability)

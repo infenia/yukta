@@ -1,0 +1,50 @@
+---
+title: "Glossary"
+description: "Terms used across the Yukta documentation."
+---
+
+| Term | Meaning |
+|---|---|
+| **Actor** | Who sent a command: an API key name (`key:<name>`), a supervisor id or a UI user. Recorded in the audit |
+| **Admission** | The decision to start, queue or refuse an execution. Made by the scheduler against the concurrency limits |
+| **At-least-once** | A step may run more than once but never zero times after it started. Exactly-once is not achievable across the side effects of arbitrary plugins |
+| **Attempt** | One try of a node on one message. Nodes with retries label each message with its attempt number |
+| **Back-pressure** | A slow consumer making upstream producers wait, which keeps memory bounded |
+| **Breakpoint** | A rule that holds a node before the first message matching a value |
+| **Checkpoint** | A node's recorded output, kept so a restart or resume can replay it instead of recomputing |
+| **Command** | An instruction to a live execution: pause, resume, step, skip, stop, restart, signal and others. Applied in order and audited |
+| **Control bus** | The live command and event path of the server |
+| **Control plane** | A supervisor that decides one command per event, using rules, a model or both |
+| **Dead letter** | A message that failed after all attempts and was routed to the `error` port instead of being lost |
+| **Drain** | Stopping gracefully: work already in progress finishes before the execution or worker ends |
+| **Durable end marker** | A small record written and forced to disk with a node's output when the node completes. A resume trusts only this marker |
+| **Edge** | A one-way connection from a source node to a target node, optionally from a named output port |
+| **Engine policy** | The reserved `engine` object in a node's configuration: retry, error routing, time limits, buffering and placement |
+| **Execution** | One live run of a workflow, with its own `executionId`, a status and a status per node |
+| **Fan-out** | One node feeding several children. Paced by the slowest child |
+| **Fencing number** | A counter that grows each time high-availability leadership changes hands, so a stale leader can be recognised |
+| **Heartbeat** | A signal from a long-running node or worker that restarts its idle clock |
+| **Idempotency key** | A client-supplied value that makes a repeated start return the first execution |
+| **Idempotent plugin** | A plugin whose repeated execution for the same message has the same effect as one |
+| **Join rule** | How a node with several parents treats a failed parent: `ALL_SUCCESS`, `ALL_DONE` or `ONE_SUCCESS` |
+| **Lease** | A time-limited right: held by a worker to stay registered, or by a server to be the leader |
+| **MCP** | Model Context Protocol: how AI agents call tools. Yukta exposes its control and read operations through it |
+| **Message** | The unit of data on an edge: a payload plus labels, with a stable id |
+| **Node** | One step of a workflow: an id, a plugin type and a configuration |
+| **Output port** | A named output of a node. Edges can listen to one port. `error` is built in |
+| **Payload** | The data inside a message |
+| **Placement** | Running a processor node on a remote worker pool instead of the server |
+| **Plugin** | The implementation behind a node type: a trigger, a processor or a terminal |
+| **Processor** | A node that transforms, routes or calls out |
+| **Reviewer** | A policy hook that can refuse any command before it runs |
+| **Scheduler** | The part of the server that grants slots to executions and queues or refuses the rest |
+| **Session** | A scope that groups workflows, executions and configuration |
+| **Signal** | A named message sent to a waiting node of a running execution, such as an approval |
+| **Slot** | The right to run one execution under the concurrency limits |
+| **SSE** | Server-sent events: a one-way live stream to browsers, scripts and agents |
+| **Supervisor** | A program that watches the event feed of all executions and returns commands |
+| **Terminal** | A node that ends a branch: it consumes messages and has no outputs |
+| **Trigger** | A node that starts a workflow: it has no inputs and emits messages |
+| **Valve** | The gate in front of each node that implements pause, step, skip and breakpoints |
+| **Workflow** | A directed acyclic graph of nodes and edges, stored once and run many times |
+| **Worker** | A separate process that runs placed nodes for the server |

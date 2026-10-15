@@ -1,0 +1,133 @@
+---
+title: "Web UI"
+description: "Browse sessions, build workflows with forms, run them and watch them live in the browser."
+---
+
+The web UI is a browser application that the Yukta server serves itself. Open the server address, `http://localhost:8080` by default, and you see your sessions. Everything it does goes through the [REST API](/api/overview), so anything you can click you can also script.
+
+Use it to build and edit workflows without writing JSON by hand, to watch a run as it progresses, and to steer a run with buttons instead of commands.
+
+## Pages
+
+| Address | Page |
+|---|---|
+| `/` | Session list |
+| `/sessions/new` | New session form |
+| `/sessions/{sessionId}` | Session details with its workflows |
+| `/sessions/{sessionId}/workflow/{workflowId}` | Live workflow graph, run controls, progress and logs |
+| `/sessions/{sessionId}/workflow/{workflowId}/edit` | Workflow editor |
+| `/plugins` | Plugin catalogue |
+| `/history` | Run history |
+| `/control` | Control bus, supervisors and audit |
+
+A top bar links to Sessions, Plugins, History and Control, and has the theme toggle. A breadcrumb row below it shows where you are.
+
+## Sessions
+
+The session list shows one row per session: its name, id and description, the initiator, tags, project path and the number of workflows. Search filters by name or session id. The table shows 10 rows per page. Select a row to open the session.
+
+A session's page shows its description, tags, initiator and project path, with a button that copies the path. Below it, every workflow appears as a card with its id, description, node and edge counts, and the status of its latest run: Completed, Failed, Stopped, Running, Pending or Not Run. Select a card to open the workflow.
+
+**New session** asks for a session id, name, description, initiator and the absolute project path on the server. Creating the session saves it with a starter workflow named `main` (an API trigger wired to a console terminal) and opens the editor on it. **New workflow** on a session's page takes a workflow id and opens the editor on an empty workflow.
+
+## Build and edit workflows
+
+The editor builds a workflow from forms instead of raw JSON, next to a live preview of the graph.
+
+- **Add a node.** Pick a plugin type from the list, grouped as triggers, processors and terminals, and select **Add node**. Each node gets a unique id such as `mapper-1`.
+- **Configure a node.** Select a node to see its form. The form comes from the plugin's own description of its options, so each option appears with the right control: a text box, a number box, a switch, a dropdown for fixed choices, a monospace box for expressions, a JSON box for lists and maps, and a credential box that expects a `decrypted:<key>` reference. Required options are marked. An option you leave empty is left out, so the plugin default applies. A plugin that declares no options gets a JSON editor and its usage notes.
+- **Error handling and retries.** Every node has an expandable section for the engine policy: what a failing message does, when a node with several parents starts, retries, timeouts and the failure budget. See [Failure handling](/concepts/failure-handling).
+- **Connect nodes.** Choose a source node, optionally one of its output ports, and a target, then **Add edge**. The port list of a node reflects its current configuration; select **Validate** to refresh it after changing a node.
+- **Validate.** **Validate** checks the draft with the same rules the server applies before a run and shows the first problem, or "Workflow is valid".
+- **Save.** **Save** validates first and, only if the draft is valid, saves the whole session and opens the workflow page.
+
+The graph preview updates as you add nodes. See [Defining a workflow](/building/defining-a-workflow) for the model behind the forms.
+
+## Watch a workflow
+
+The workflow page shows the graph and everything about one run.
+
+### The graph
+
+Each node is a card with an accent colour for its role: orange for triggers, blue for processors and slate for terminals. The card also shows its state:
+
+| State | Looks like |
+|---|---|
+| Done | Green dot |
+| Active | Pulsing dot in the role colour, a spinning icon, and a percentage when the node reports progress |
+| Waiting | Dimmed outline |
+| Failed | Red border and an error icon. Covers failure, error, timed out and aborted |
+| Paused | Amber dot and a pause icon |
+| Skipped | Faded, with a skip icon. Covers skipped, stopped, cancelled and upstream failed |
+
+Edges connect output ports on the right of a node to inputs on the left of the next. A node with several output ports shows one handle per port. The canvas pans and zooms.
+
+### Title bar and run chip
+
+The title bar shows the workflow and a chip with the status of the selected run: running, success, failure, stopped, paused, pending or not run. A pause or a stop in progress replaces the status while the run is still live.
+
+### Choosing a run
+
+**Run History** in the breadcrumb row lists the runs of this workflow, newest first, with start time and status. The page shows the latest run until you pick another. The selection is kept in the address as `?exec=<id>`, so you can link to a run.
+
+### Run controls
+
+| Button | Available when |
+|---|---|
+| **Run** | Always. Opens a box for an optional JSON trigger payload, then starts the workflow and selects the new run |
+| **Pause** | The run is running |
+| **Resume** | The run is paused |
+| **Stop** | The run is live. A menu offers **Stop this run** and, for every active run of the workflow, **Drain**, **Cancel** or **Kill**. Each asks for confirmation |
+| **Restart** | The run has finished. Starts a new run with the original input |
+
+The [stop modes](/api/workflows#stop-all-runs-of-a-workflow) are the same as in the API. Errors from a control call appear next to the buttons.
+
+### Progress panel
+
+**Workflow progress** opens a side panel with three blocks:
+
+- **Execution summary**: execution id, session id, status, start and end time.
+- **Result**: what reached the terminal nodes, streamed live, with a LIVE marker while the run goes on.
+- **Task sequence**: every node in execution order with its state and timing. Each node has an actions menu that lists only what makes sense for its state: pause, resume, stop, skip, retry a failed node, enable or disable step mode, step once, and **Restart from here**.
+
+### Logs panel
+
+**Execution logs** at the bottom streams the run's log lines with timestamp, level and node, coloured by level. It has a filter box, an auto-scroll switch with **Jump to latest**, a line-wrap switch and a copy button. It keeps the newest 20,000 lines and says how many earlier ones are hidden.
+
+### Approvals
+
+When a node of the workflow waits for a person, a bar above the graph says which node waits for which signal and in which run, with **Approve** and **Reject** buttons. The list refreshes every five seconds. See [Approvals and signals](/building/approvals-and-signals).
+
+### Versions
+
+**Versions** opens the saved versions of the workflow. For each one you can see what changed since then compared with the current definition, write a note about it, or **Roll back** to it after a confirmation. A rollback becomes a new version, so you can undo it. See [Validation and versions](/building/validation-and-versions).
+
+## Run history
+
+The History page lists recent runs of one session, newest first, up to the 50 most recent. Pick the session from the list at the top. Each row shows the execution id, workflow, status, start and end time. The execution id links to the workflow page with that run selected.
+
+## Plugin catalogue
+
+The Plugins page lists every plugin type grouped as triggers, processors and terminals, with a filter box. Select one to see its description, its output ports, a table of its options (name, type, whether it is required, and what it does), its usage notes and a preview of how it looks on the canvas. See [Plugins](/plugins/overview).
+
+## Control bus
+
+The Control page, titled Control Bus, has three parts. All of them refresh every five seconds.
+
+- **Supervisors and control planes**: each running supervisor with its kind, review order, whether it is live or in dry run, its command rate limit, and how many commands it applied, refused, only recorded and dropped. See [Supervisors](/running/supervisors).
+- **Who did what**: the 50 newest control commands with time, actor, command, run and whether it was applied or refused and why. Commands sent without a named key show as `api`.
+- **Active nodes**: the nodes registered on the control bus. Enter a workflow id to narrow the list to that workflow and to show a **Heartbeat** button for each node.
+
+## Theme
+
+The toggle in the top bar cycles through light, dark and system. System follows your operating system setting. The choice is stored in your browser.
+
+## Authentication
+
+The web UI does not send an API key. It works against a server that has no key configured, which is the default on loopback. On a server that requires a key, the UI's requests are answered with `401` and its pages show load errors. For such a server use the [command-line client](/interfaces/cli), the [REST API](/api/overview) or the [MCP server](/interfaces/mcp), which all accept a key. See [Security](/operations/security).
+
+## Related
+
+- [Run controls](/running/run-controls)
+- [Defining a workflow](/building/defining-a-workflow)
+- [REST API overview](/api/overview)

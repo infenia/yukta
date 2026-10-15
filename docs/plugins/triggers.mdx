@@ -1,0 +1,137 @@
+---
+title: "Triggers"
+description: "API_TRIGGER, CONSTANT_SOURCE and SCHEDULE_TRIGGER: the plugins that start a workflow."
+---
+
+A trigger has no input. It produces the first message of an execution and sends it out on the `default` port. All three triggers are always part of the server.
+
+Every trigger node has an idle timeout of 30 seconds unless you set `timeoutSeconds` on the node. It matters only for a trigger that stays silent for a long time, which in practice means `SCHEDULE_TRIGGER`.
+
+## API_TRIGGER
+
+Passes the payload of the start request into the workflow. Use it when an outside system starts the workflow and supplies its own data.
+
+| Property | Value |
+|---|---|
+| Options | none |
+| Output port | `default` |
+| Emits | one message whose payload is the `payload` object of the start request |
+
+If the start request has no payload, the message has an empty payload. Each start produces a message with a new id. See [Executions](/api/executions) for how to start a workflow and [Messages](/concepts/messages) for the message model.
+
+```json
+{ "nodeId": "start", "type": "API_TRIGGER", "config": {} }
+```
+
+Started with `POST /api/workflow/start` and this body, the first message carries `{"name": "Ada", "priority": "high"}` as its payload:
+
+```json
+{
+  "sessionId": "example-02-api-payload",
+  "workflowId": "greet-user",
+  "payload": { "name": "Ada", "priority": "high" }
+}
+```
+
+## CONSTANT_SOURCE
+
+Emits one message built from fixed variables when the workflow starts. Use it for workflows that need no outside input, for constants, or for values read from the server's environment.
+
+| Option | Type | Default | Meaning |
+|---|---|---|---|
+| `variables` | map | empty | Key to value. A dot in a key nests the value: `user.name` becomes `{"user": {"name": ...}}`. With no variables the trigger emits one empty message |
+| `target` | `PAYLOAD` or `METADATA` | `PAYLOAD` | Where the variables go: the message payload or its metadata. With `METADATA` the payload is empty |
+
+| Property | Value |
+|---|---|
+| Output port | `default` |
+| Emits | one message with a new id |
+
+String values may use these variables, resolved once and reused:
+
+| Variable | Reads |
+|---|---|
+| `${env.NAME}` | An environment variable the server allows workflows to read |
+| `${sys.name}` | A system property the server allows workflows to read |
+| `${context.name}` | A plain text, number or flag the engine put in the run context |
+| `decrypted:key` | A secret from the server's secret store |
+
+A trigger has no incoming message, so `${payload...}` and `${metadata...}` do not work here. Values that are not strings, such as lists and objects, are emitted as written. See [Variables and expressions](/building/variables-and-expressions) for the syntax, the allow-list for `env` and `sys`, and secrets.
+
+This node emits a batch of records into the payload:
+
+```json
+{
+  "nodeId": "extract",
+  "type": "CONSTANT_SOURCE",
+  "config": {
+    "variables": {
+      "records": [
+        { "id": 1, "name": "Ada", "active": true },
+        { "id": 2, "name": "Grace", "active": false }
+      ]
+    }
+  }
+}
+```
+
+## SCHEDULE_TRIGGER
+
+Emits a message repeatedly, on a fixed interval or on a cron schedule. The schedule lives inside one long-running execution: you start the workflow once and it keeps emitting until it is stopped, reaches `maxRuns`, or the server stops. See [Scheduling](/building/scheduling) for restart behaviour and how to start workflows on a timer from outside.
+
+| Option | Type | Default | Meaning |
+|---|---|---|---|
+| `intervalMs` | number | none | Fixed gap between messages, in milliseconds, positive. The first message comes after one interval, not at once |
+| `cron` | string | none | A cron expression with six fields: second, minute, hour, day of month, month, day of week |
+| `zone` | string | the server's time zone | Time zone name for `cron`, for example `Europe/Berlin` |
+| `maxRuns` | number | unlimited | Stop after this many messages, positive whole number |
+
+Set exactly one of `intervalMs` and `cron`. Setting both or neither is rejected when the workflow is validated, as are an invalid cron expression, a time zone that does not exist, a cron expression with no future date, a non-positive `intervalMs` and a `maxRuns` that is not a positive whole number.
+
+| Property | Value |
+|---|---|
+| Output port | `default` |
+| Emits | `{"tick": 1, "firedAt": "2026-10-15T09:00:00Z"}`: `tick` counts from 1, `firedAt` is the UTC time the message was created |
+| Default timeout | 30 seconds idle; set `timeoutSeconds` on the node when the gap between messages is longer |
+
+When the `maxRuns`-th message has been emitted the trigger completes and the execution finishes once downstream work is done.
+
+This node fires every five seconds, three times:
+
+```json
+{
+  "nodeId": "every-5s",
+  "type": "SCHEDULE_TRIGGER",
+  "config": { "intervalMs": 5000, "maxRuns": 3 }
+}
+```
+
+This node fires at 08:30 on weekdays, Berlin time. The longest gap is the weekend, so the node timeout allows three days of silence:
+
+```json
+{
+  "nodeId": "weekday-morning",
+  "type": "SCHEDULE_TRIGGER",
+  "config": {
+    "cron": "0 30 8 * * MON-FRI",
+    "zone": "Europe/Berlin",
+    "timeoutSeconds": 259200
+  }
+}
+```
+
+## Limits and defaults
+
+| Item | Value |
+|---|---|
+| Default node idle timeout | 30 seconds, for all three triggers |
+| Messages per start, `API_TRIGGER` and `CONSTANT_SOURCE` | 1 |
+| `SCHEDULE_TRIGGER` first message | after one `intervalMs`, or at the next cron time |
+| `SCHEDULE_TRIGGER` position after a restart | not kept; see [Scheduling](/building/scheduling) |
+
+## Related
+
+- [Scheduling](/building/scheduling)
+- [Executions](/api/executions)
+- [Variables and expressions](/building/variables-and-expressions)
+- [Time limits](/concepts/time-limits)

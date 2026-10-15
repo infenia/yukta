@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="26 27 196 196">
+  <style>
+    .line  { fill: none; stroke: #6A7A9B; stroke-width: 5; stroke-linecap: round; stroke-linejoin: round; }
+    .ring  { fill: none; stroke: #2F6BFF; }
+    .solid { fill: #2F6BFF; }
+    .dot   { fill: #E85D0C; }
+    .ring-accent { fill: none; stroke: #E85D0C; stroke-width: 5; }
+  </style>
+  <!-- connectors -->
+  <g class="line">
+    <path d="M67 62 82 77H138"/>
+    <path d="M82 77V89"/>
+    <path d="M61 184 82 163H131"/>
+    <path d="M82 163V151"/>
+    <path d="M35 120H51"/>
+    <path d="M165 104V129"/>
+    <path d="M130 128 141 139"/>
+    <path d="M184 58 194 48"/>
+    <path d="M189 187 195 193"/>
+  </g>
+  <!-- nodes -->
+  <circle class="ring-accent" cx="54" cy="49" r="10"/>
+  <circle class="solid" cx="82" cy="120" r="25"/>
+  <circle class="ring" cx="165" cy="77" r="15" stroke-width="12"/>
+  <circle class="ring" cx="165" cy="163" r="20" stroke-width="16"/>
+  <circle class="dot" cx="206" cy="204" r="10"/>
+</svg>

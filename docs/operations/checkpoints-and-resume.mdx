@@ -1,0 +1,142 @@
+---
+title: "Checkpoints and resume"
+description: "How Yukta records node outputs, restarts a run or one node, recovers after a restart and resumes an aborted run."
+---
+
+A checkpoint is the recorded output of one node in one execution. Yukta records checkpoints so that a restart or a resume can replay what a node already produced instead of running it again.
+
+## When to use it
+
+Use restart and retry when a run failed and you want to re-run part of it without repeating earlier work. Use resume after the server stopped in the middle of runs: they are marked `ABORTED` at the next start, and you can continue them from their checkpoints.
+
+## What a checkpoint is
+
+Every message a node emits is recorded, in order, as it leaves the node. When the node completes normally, a small durable end marker is written and forced to disk before downstream nodes see the node's completion. A node counts as finished only when its marker exists.
+
+A resume trusts only that marker. It does not trust the execution log to say that a node finished, because the log record of a node end may still have been waiting to be written when the server stopped.
+
+If a checkpoint cannot be saved, or the marker cannot be written, the run carries on. The node is left unmarked, so a resume runs it again instead of trusting a partial output. The counter `yukta.checkpoint.errors` counts failed markers.
+
+## Where checkpoints are kept
+
+| Store | Select with | Behaviour |
+|---|---|---|
+| Memory (default) | No settings | Capped per node and per execution. Lost on restart |
+| Memory with spill | `yukta.restart.spill-dir` | When a node outgrows the caps, its whole output moves to files in that directory and is replayed from there |
+| Files | `yukta.restart.dir` | One JSON line per message, no size caps. The end marker is a file written and forced to disk |
+| PostgreSQL | `yukta.restart.store-type=postgres` | One row per message and a state row per node with the end marker |
+
+### In-memory caps
+
+| Setting | Default | Cap |
+|---|---|---|
+| `yukta.restart.messages-per-node` | `200` | Messages kept per node and execution |
+| `yukta.restart.bytes-per-node` | `4194304` (4 MiB) | Bytes per node and execution. Strings and byte arrays count by size; other payloads count 1 KiB each |
+| `yukta.restart.retained-executions` | `10` | Executions kept restartable. Older ones lose their checkpoints |
+
+A node that goes over a cap is marked incomplete. A restart that needs its output is refused instead of replaying part of it, unless a spill directory is set. Do not point the spill directory at a folder shared with another process. Leftover spill files from an earlier process are removed at start.
+
+Messages come back from files and from PostgreSQL as plain JSON values. A resume reads a node's whole output into memory.
+
+See [Persistence](/operations/persistence) for the file layout and PostgreSQL tables.
+
+## Restart, restart from a node, retry a node
+
+These three operations start a new execution, with a new execution id, from a finished or running one.
+
+| Operation | What it does | REST |
+|---|---|---|
+| Restart | Stops the old execution if it is still going, and starts the whole workflow again with the original start payload | `POST /api/executions/{id}/restart` |
+| Restart from a node | Re-runs that node and every node after it. The recorded outputs of the nodes that feed this part are replayed. Independent branches are not run again | `POST /api/executions/{id}/restart/{nodeId}` |
+| Retry a node | Restart from a node that ended `FAILURE` or `TIMED_OUT`, using the output its parents recorded | `POST /api/executions/{id}/nodes/{nodeId}/retry` |
+
+Rules:
+
+- The execution must still be in the in-memory archive: the newest `yukta.restart.retained-executions` executions, running or finished. Otherwise the server answers `404` with "no longer restartable".
+- After a server restart the archive is empty, so restart and restart from a node are not available for earlier runs. Use resume for runs that a restart aborted.
+- On a run that is still going, only parents that have finished (they have their end marker) are replayed. If a parent is still producing output, the request is refused with `400`.
+- A parent whose output went over the in-memory caps makes the request fail with `400`, unless the output is on disk or in PostgreSQL.
+- Retry on a node that did not fail is refused with `400`.
+- A restart takes a slot like any start. It can wait with status `QUEUED` or be refused with `429`.
+- A second restart of the same execution while one is in progress is refused.
+
+```http
+POST /api/executions/6f1c0d5e-9b3a-4c7e-8d21-5a0b7c9e1f23/nodes/classify/retry
+```
+
+The response carries the id of the new execution.
+
+## Recovery on boot
+
+When the server starts with a durable execution log, it reads the log and:
+
+1. Marks every run that has a start and no end as `ABORTED`.
+2. Restores the newest `yukta.execution-log.retained-runs` runs into history.
+3. Drops older runs from the log and deletes their checkpoints.
+4. Re-applies the newest scheduler limit change recorded in the log.
+
+With the default in-memory log there is nothing to recover and a restart gives a clean server. With high availability the same recovery runs when a server becomes leader. See [High availability](/operations/high-availability).
+
+## Resume
+
+Resume continues a run that a restart aborted, as a new run. Nodes that finished are not run again. Their recorded output is replayed to the nodes that did not finish, and those run.
+
+```http
+POST /api/executions/6f1c0d5e-9b3a-4c7e-8d21-5a0b7c9e1f23/recover
+```
+
+The response carries the id of the new execution.
+
+### Conditions
+
+- A durable execution log (`yukta.execution-log.dir` or PostgreSQL), because the log holds the start payload.
+- A file or PostgreSQL checkpoint store, because only a durable end marker counts as finished.
+- The run is `ABORTED`.
+- The workflow definition is unchanged since the run started.
+- A run is resumed once.
+
+### Refusals
+
+| Status | Cause |
+|---|---|
+| `404` | The run is unknown, or its workflow no longer exists |
+| `409` | The run was not aborted |
+| `409` | The run is being resumed or was already resumed |
+| `409` | The workflow changed since the run started |
+| `409` | The start payload of the run was not recorded |
+| `409` | Every node of the run had already finished |
+| `429` | The new run did not get a slot. Nothing is recorded as resumed, so you can try again |
+
+### Auto-resume
+
+With `yukta.restart.auto-resume=true`, after each recovery the server resumes every interrupted run, one after another. A run that cannot be resumed is logged and skipped. Auto-resume is off by default.
+
+### Approvals
+
+An answered approval (a signal sent to a `WAIT_FOR_SIGNAL` node) is recorded with the checkpoints. A resumed run reuses the answer for the same message instead of waiting again. An approval that timed out is not recorded. A wait that was still open when the server stopped is lost, and the resumed run waits for a new signal.
+
+## Make plugin side effects safe to repeat
+
+Delivery is at-least-once. There is a short moment between a plugin acting on the outside world and its node's end marker reaching disk. If the server stops in that moment, a resume runs the node again.
+
+Retries repeat per message, and a resume can repeat a node. Make side effects idempotent:
+
+- Use the stable message id (and the `attempt` header) as the idempotency key when you call an external service.
+- Prefer "set to this value" operations over "add one".
+- Check for an existing result before you create one.
+
+## Limits and defaults
+
+| Item | Default |
+|---|---|
+| Executions kept restartable | 10 |
+| In-memory cap per node | 200 messages and 4 MiB |
+| Restart wait for the new run to be accepted | 30 s |
+| Resume | Once per run |
+
+## Related
+
+- [Persistence](/operations/persistence)
+- [High availability](/operations/high-availability)
+- [Delivery and back-pressure](/concepts/delivery-and-backpressure)
+- [Run controls](/running/run-controls)

@@ -1,0 +1,72 @@
+---
+title: "Delivery and back-pressure"
+description: "What Yukta guarantees about delivery, ordering and memory, and how a slow node affects the rest of the graph."
+---
+
+Yukta tells you exactly what it promises and where each promise stops. This page collects the guarantees that shape how you design workflows and plugins.
+
+## Guarantees
+
+| Topic | Guarantee | What to design for |
+|---|---|---|
+| Delivery | **At-least-once.** A step may run more than once, never zero times once it has started | Make side effects idempotent on the message id. A side effect between a plugin acting and its output being recorded can repeat after a crash; retries repeat per message |
+| Command order | Commands for one execution are applied one at a time, in the order sent, acknowledged and audited | Commands for different executions are independent |
+| Status order | Node and run status only move forward | Some late information is ignored, but its labels are still merged |
+| Output atomicity | With retries or error routing, a message yields all of its output or none | That output is buffered until the attempt ends |
+| Start | One execution id per granted slot; the same `Idempotency-Key` returns the first id | The key window is finite (10 minutes by default) and the key cache is bounded |
+| Resume | At most once per execution, only if the definition is unchanged, trusting only the durable end marker | Needs a file or PostgreSQL checkpoint store |
+| Back-pressure | Memory per edge is bounded; the slowest child paces a fan-out | One slow branch slows the others unless you set an edge buffer on it |
+| Failure isolation | A slow or failing supervisor never blocks an execution | Its events are dropped, not queued |
+
+Exactly-once is not achievable across the side effects of arbitrary plugins, so Yukta does not claim it.
+
+## Back-pressure
+
+Each edge is a stream. A slow consumer makes its producers wait, so memory stays bounded without queues between nodes.
+
+- Every child subscribes before its source starts, so no early message is lost.
+- A fan-out moves at the speed of its slowest child.
+- Nodes that block while they work run on lightweight threads, so they do not hold up the engine.
+
+```mermaid
+%%{init: {'theme':'base','themeVariables':{'primaryColor':'#E4EFFF','primaryBorderColor':'#2F6BFF','primaryTextColor':'#11161F','secondaryColor':'#EEF2F9','tertiaryColor':'#FBFCFE','lineColor':'#6A7A9B','fontFamily':'Inter, sans-serif'}}}%%
+flowchart LR
+  T["Trigger"] --> A["Fast node"]
+  A --> B["Slow node"]
+  A --> C["Fast node"]
+  B -. "slow node paces A and the trigger" .-> A
+```
+
+### Letting a node fall behind
+
+By default delivery is lossless. If you would rather drop messages than slow the producers, put a bounded buffer in front of a node:
+
+```json
+{
+  "nodeId": "enrich",
+  "type": "HTTP_REQUEST",
+  "config": {
+    "engine": { "edgeBuffer": { "size": 100, "overflow": "DROP_OLDEST" } }
+  }
+}
+```
+
+When the node is slower than its parents and the buffer is full, it drops the oldest messages (`DROP_OLDEST`, the default) or the newest (`DROP_NEWEST`). Drops are counted in the `yukta.edge.dropped` metric.
+
+<Warning>
+  If a terminal on one branch fails and stops reading, sibling branches stall until the execution ends. A failing terminal ends the whole run and cancels the other branches.
+</Warning>
+
+## Idempotent plugins
+
+A plugin is idempotent when running it again for the same message has the same effect as running it once. Use the message id (and the `attempt` label) as the de-duplication key when a node writes to an external system. This matters in three cases: retries, restart or resume replaying a node, and a crash between a side effect and the node's recorded output.
+
+## Large payloads
+
+Every node a payload passes through carries it in memory. There is no reference-passing mechanism for very large data, so keep payloads small and pass references (file paths, object keys) in messages instead.
+
+## Related
+
+- [Failure handling](/concepts/failure-handling)
+- [Checkpoints and resume](/operations/checkpoints-and-resume)
+- [Capacity and performance](/operations/capacity-and-performance)

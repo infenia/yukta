@@ -1,0 +1,120 @@
+---
+title: "High availability"
+description: "Run several servers on one PostgreSQL database so that one admits runs and the others take over when it stops."
+tag: "Optional"
+---
+
+Active/standby high availability lets several Yukta servers share one PostgreSQL database. One server holds a lease and admits runs. The others stand by and take over when the lease expires.
+
+It needs the PostgreSQL stores and is off by default. A single server is always its own leader.
+
+## When to use it
+
+Use it when losing the one server that admits runs is not acceptable. It gives failover, not scale-out: admission, command ordering and run state live in one server at a time. To spread node work over more machines, see [Remote workers](/operations/remote-workers).
+
+## How it works
+
+```mermaid
+%%{init: {'theme':'base','themeVariables':{'primaryColor':'#E4EFFF','primaryBorderColor':'#2F6BFF','primaryTextColor':'#11161F','secondaryColor':'#EEF2F9','tertiaryColor':'#FBFCFE','lineColor':'#6A7A9B','fontFamily':'Inter, sans-serif'}}}%%
+flowchart LR
+  C[Clients] --> L[Leader]
+  C -.->|503| S[Standby]
+  L --> DB[(PostgreSQL lease row)]
+  S -->|waits for expiry| DB
+```
+
+All servers run the same build against the same database. A lease row in PostgreSQL names the current leader and when its lease expires.
+
+- The leader renews the lease three times per lease period. With the default `15s` lease, that is every 5 seconds.
+- A standby tries to take the lease once it has expired, in one atomic database statement.
+- Each change of holder increases a fencing number stored in the lease row.
+- A server counts itself leader only while its own last renewal is younger than the lease, measured on its own clock. A server that cannot reach the database therefore stops admitting runs before another server can take over.
+- A server that stops gracefully releases the lease at once, so a standby does not wait for it to expire.
+
+## What a standby does
+
+A standby is a normal running server that does not admit work:
+
+- It refuses every start, restart and resume with HTTP `503` and the message "This server is a standby; retry on the leader". The counter `yukta.executions.rejected{reason=not_leader}` counts these.
+- It refuses worker registrations.
+- It does not run recovery at start, so it does not mark a living leader's runs `ABORTED`.
+
+Run state (progress, logs, results) is held in the memory of the server that ran the execution. Send all requests, including reads and control commands, to the leader.
+
+## Takeover and recovery
+
+When a server becomes leader, including the first server at a cold start, it runs recovery once:
+
+1. Runs of the previous leader that never finished are marked `ABORTED`.
+2. The newest runs are restored into history from the shared execution log.
+3. With `yukta.restart.auto-resume=true`, the interrupted runs are resumed one after another from their checkpoints.
+
+Resume needs the execution log and checkpoints to be shared: use the PostgreSQL stores, or a shared directory for checkpoints. See [Checkpoints and resume](/operations/checkpoints-and-resume).
+
+The new leader takes over within about one lease after the old one stops renewing. Workers reconnect to it on their own.
+
+## Not carried over
+
+These are not carried over to the new leader:
+
+- Approval waits that were open (the plugin waiting for a signal). A resumed run waits again.
+- Queued starts that had not yet run.
+- Execution slots held by the old leader.
+- Live progress state of the old leader beyond what the execution log records.
+
+Clients should treat a takeover like a restart: reconnect, check status, and resume or restart runs that were aborted.
+
+## How clients and workers find the leader
+
+Yukta does not proxy requests to the leader. A client that reaches a standby gets `503` and must try the other address.
+
+- Clients: list every server in the client configuration, or put a load balancer in front whose health check selects the leader.
+- Workers: set `yukta.workers.control-plane` to every server, comma separated. A standby refuses the worker, so the worker ends up on the leader. After a failover it tries the next address.
+
+## Health check on the leader gauge
+
+The gauge `yukta.leader` is `1` on the leader and `0` on a standby. Read it from the metrics endpoint:
+
+```http
+GET /actuator/metrics/yukta.leader
+```
+
+The response lists a measurement with value `1.0` on the leader. When keys are configured, the metrics endpoint needs an unrestricted `ADMIN` key. `/actuator/health` stays open but does not tell leaders from standbys, so a load balancer that must route to the leader should use the gauge.
+
+Alert when no server reports `1`, or when more than one does.
+
+## Settings
+
+| Setting | Default | Meaning |
+|---|---|---|
+| `yukta.ha.mode` | single server | Set `postgres` to enable. Needs `yukta.session.store-type=postgres` |
+| `yukta.ha.lease` | `15s` | How long a renewal keeps the lease. Renewal happens three times per lease |
+| `yukta.ha.instance-id` | random per start | This server's name in the lease row. Set it to keep the name stable across restarts |
+| `yukta.restart.auto-resume` | `false` | Resume interrupted runs after a takeover |
+| `yukta.restart.store-type` | memory or files | Set `postgres` so the new leader can read checkpoints |
+
+```properties
+yukta.session.store-type=postgres
+yukta.restart.store-type=postgres
+yukta.ha.mode=postgres
+yukta.ha.lease=15s
+yukta.restart.auto-resume=true
+```
+
+Run with the `postgres` profile and the connection URLs described in [Persistence](/operations/persistence).
+
+## Limits and defaults
+
+| Item | Value |
+|---|---|
+| Lease | 15 s |
+| Renewal | Every third of the lease (5 s) |
+| Lease statement time limit | 10 s |
+| Takeover time | About one lease after the old leader stops renewing |
+
+## Related
+
+- [Persistence](/operations/persistence)
+- [Checkpoints and resume](/operations/checkpoints-and-resume)
+- [Remote workers](/operations/remote-workers)
+- [Capacity and performance](/operations/capacity-and-performance)

@@ -1,0 +1,166 @@
+---
+title: "Writing a plugin"
+description: "The contract a trigger, processor or terminal fulfils: what it declares, how it handles messages and failures, and how Yukta picks it up."
+---
+
+A plugin is the implementation behind a node `type`. This page describes the plugin contract in plain terms: the three roles, what a plugin declares, how it handles messages, failures, time and budgets, and how the server picks it up. It does not depend on a programming language. The contract is written as a set of operations; how you spell each one depends on the language and the plugin interface your server build provides.
+
+<Note>
+  The plugin contract is pre-beta (`0.0.1-SNAPSHOT`) and may change before v0.1.0. Pin your plugins to the server version they were built for.
+</Note>
+
+## The three roles
+
+| Role | Input | Output | Purpose |
+|---|---|---|---|
+| Trigger | none | a stream of messages | Starts a workflow: takes data from the start request, a schedule or a constant |
+| Processor | a stream of messages | a stream of messages on named ports | Transforms, routes or calls out |
+| Terminal | a stream of messages | none | Ends a branch: logs, notifies or stores |
+
+A plugin works on streams, not on single calls. The engine subscribes the plugin to its input and delivers whatever it emits along the edges of the workflow. Back-pressure, retries, time limits, pause, skip and failure routing are applied around the plugin by the engine, so a plugin holds only its own logic. See [How Yukta works](/concepts/how-it-works).
+
+## What a plugin declares
+
+| Declaration | Meaning | Default |
+|---|---|---|
+| Type | The unique string users write as a node's `type`. Registering two plugins with the same type stops the server at startup | none, required |
+| Category | `TRIGGER`, `PROCESSOR` or `TERMINAL`. It follows from the role | fixed by the role |
+| Description and usage text | Short text for the plugin catalogue and for `GET /api/plugins/{type}` | empty |
+| Config fields | The options of a node: for each, a name, a kind (`STRING`, `NUMBER`, `BOOLEAN`, `ENUM`, `LIST`, `MAP`, `EXPRESSION` or `SECRET`), whether it is required, a default, the allowed values of an `ENUM` and a one-line description. The web UI builds the node form from them | none; the UI falls back to a raw JSON editor |
+| Output ports | The named outputs a node can emit on. They may depend on the node's config, for example a router whose ports come from its cases. The name `*` means any port | one port, `default` |
+| Default timeout | How long a node of this plugin may sit idle before the engine fails it. May depend on config, for example a process timeout plus a margin | 30 seconds |
+| Default buffer size | Messages buffered on the plugin's output | 1024 |
+| Failure mode | The convention for failed calls: `ERROR` fails the node, `CONTINUE` emits the failure on the `error` port or in the result | `ERROR` |
+
+Keep the field names equal to the keys the plugin actually reads, and keep the declared ports equal to the ports it actually emits on: the engine routes only on declared ports.
+
+## Operations
+
+A plugin implements the operations of its role and may override the optional ones. Every optional operation has a safe default.
+
+### Role operations
+
+| Operation | Role | Purpose | Default |
+|---|---|---|---|
+| Start | Trigger | Takes the node's config and returns the stream of messages that start the run | none, required |
+| Process | Processor | Takes the input stream and the node's config and returns the output stream | none, required |
+| Consume | Terminal | Takes the input stream and the node's config and completes when everything is consumed | none, required |
+
+### Declaration and lifecycle operations
+
+| Operation | Purpose | Default |
+|---|---|---|
+| Type | Returns the type string | none, required |
+| Category | Returns the category | fixed by the role |
+| Describe | Returns the description, usage text and the card the UI draws | empty |
+| Config schema | Returns the config fields | none |
+| Output ports, optionally for a config | Returns the ports | `default` |
+| Default timeout, optionally for a config | Returns the idle timeout | 30 seconds |
+| Default buffer size | Returns the output buffer size | 1024 |
+| Validate config | Checks a node's config when the workflow is submitted and rejects a bad one with a clear message | accepts everything |
+| Validate in context | Checks the node's place in the graph, given its incoming and outgoing edges, for example that every case port has an edge | accepts everything |
+| Initialize | One-time warm-up for a node's config, at compile time | does nothing |
+| Prepare | Pre-parses expressions, right after initialize | does nothing |
+| Shutdown | Releases resources. The engine does not call it, because instances are shared; release long-lived resources with the server's own lifecycle | does nothing |
+| Is blocking | Tells the engine the plugin does blocking input and output or long synchronous work, so it runs off the shared event threads | no |
+| Handle control signal | Receives a message sent to this node while the execution runs, see below | not handled |
+| Is computationally heavy, suppress optimization hint | Hints used by the workflow validator, for example for a filter that is deliberately late in the graph | no, no |
+
+The hooks run in this order for a node: validate config at submit, initialize and prepare at compile, and process, start or consume at run time.
+
+### One instance serves many nodes
+
+A plugin instance is a shared singleton: one instance serves every node of its type, in every workflow and session, and several nodes can run at once. Treat it as stateless, pass everything through the node's config, keep per-node state outside the instance, and make initialize safe to run many times with different configs.
+
+## Messages
+
+A message carries a payload, a metadata map, a stable id and routing fields such as the trace id and the source port. See [Messages](/concepts/messages).
+
+- **Input.** The engine hands the plugin the messages of all incoming edges merged into one stream. The plugin reads the payload and metadata and, where it supports `${...}` options, resolves them per message itself. The engine does not resolve options for the plugin. See [Variables and expressions](/building/variables-and-expressions).
+- **Output.** To pass a message on with a new payload, copy it so that its id and metadata are kept. Set the source port on every output message to choose which edges receive it. A message with no port set keeps the port it arrived with, so set one explicitly.
+- **Failures.** A message can carry failure details: the reason and a description of the error. Plugins in `CONTINUE` mode emit the original message on the `error` port with those details attached.
+
+## Failures and retries
+
+- `ERROR` mode: the error ends the node. The node's `engine` policy then decides: retry, drop, route to a dead letter or fail. See [Failure handling](/concepts/failure-handling).
+- `CONTINUE` mode: the failure is data. The plugin emits it so that downstream nodes can route on it.
+- Report each failure with the right kind of error. An error that signals invalid input, such as a config value that is out of range, is not retried by the engine's default retry policy, because repeating the same input cannot succeed. Other errors are retried when the node's policy asks for it.
+- A plugin can order the whole run to end, for example when a hard budget is used up. This kind of error is never retried, dropped or routed to a dead letter, and a plugin's own failure mode does not absorb it.
+
+## Idempotency
+
+Delivery is at least once. A retry, a restart from a node or a resume can run a step again with the same message. A plugin with outside side effects, such as writing a record or calling an API, should de-duplicate on the message id, and should pass the id and the attempt number to the outside system when it can. `MCP_TOOL_CALL` does this: it sends both in the request metadata of every tool call.
+
+## Time, heartbeats and logs
+
+- The engine owns the timeout. A node's idle timeout is its `timeoutSeconds` option if set, otherwise the plugin's default timeout. The clock restarts whenever the node emits or consumes a message, and it holds while the node or execution is paused.
+- A step that works for a long time without emitting must send **heartbeats**. A heartbeat restarts the idle timeout, so a ten-minute job that reports progress every minute is not declared dead after 30 seconds. A heartbeat does not extend a hard deadline (`engine.deadlineMs`). The engine gives the plugin the heartbeat for the current run.
+- A plugin can write **live log lines** for the run, each tagged with the stream it came from, `stdout` or `stderr`. They appear in the execution logs while the node runs. `PROCESS_EXECUTOR` uses this for the output of a process. See [Observability](/running/observability).
+- A plugin can count outcomes per node (for example `OK` and `ERROR`) through a metrics hook, which feeds the metrics endpoint.
+
+## Budgets and approvals
+
+Two shared helpers are part of the contract so that plugins need no engine internals:
+
+| Helper | Purpose |
+|---|---|
+| Run budgets | A ledger of what the model and tool calls of one execution have used: tokens, cost and call count, optionally under an agent name. A plugin checks it before a call, adds the usage after it, and ends the run when a hard stop is set. `LLM_CALL` and `MCP_TOOL_CALL` share it. The ledger lives in the server's memory |
+| Signal waits | A named wait for a human decision, per execution and node. A plugin waits on it and delivers incoming signals to it. `WAIT_FOR_SIGNAL` and the approvals of `MCP_TOOL_CALL` use it |
+
+## Control commands and signals
+
+The engine runs execution commands itself: pause and resume a workflow or node, stop, skip, step mode, breakpoints, restart, restart from a node, set limits and set priority. A plugin does not implement these. See [Run controls](/running/run-controls).
+
+A plugin receives only messages addressed to its node through its control-signal operation:
+
+| Message | Source | Expected behaviour |
+|---|---|---|
+| A `signal` command, with the payload `{executionId, nodeId, name, decision, data}` | The signal endpoint, the CLI or the MCP tool | Answer `ACCEPTED` when a wait took it, `QUEUED` when it arrived before its wait and was kept, `NOT_WAITING` otherwise. The caller gets `409` for `NOT_WAITING` |
+| A node command sent through the control bus | The `yukta controlbus command` CLI command | Plugin-defined. `MCP_TOOL_CALL` accepts the payload `reset` and drops its cached sessions |
+
+Return nothing for a message the plugin does not understand.
+
+## Checklist
+
+<Steps>
+  <Step title="Choose the role">
+    Decide whether the plugin starts a workflow, transforms messages or ends a branch, and pick a unique type string. Use the upper-case, underscore form of the built-in types.
+  </Step>
+  <Step title="Declare the contract">
+    Give it a category, a description, the config fields with defaults, and the output ports. Add a default timeout that matches the real run time, including retries and margins.
+  </Step>
+  <Step title="Validate early">
+    Reject bad options in the validate-config operation so a typo fails at submit and not deep in a run. Check graph rules, such as required edges, in the validate-in-context operation.
+  </Step>
+  <Step title="Implement the role operation">
+    Keep the plugin stateless. Set a source port on every output message. Resolve variables yourself if the plugin accepts them. Mark the plugin as blocking if it blocks.
+  </Step>
+  <Step title="Handle failure">
+    Support `failureMode` with `ERROR` and `CONTINUE`. Signal invalid input as invalid input. Make side effects idempotent on the message id.
+  </Step>
+  <Step title="Report progress">
+    Send heartbeats from long steps, and write log lines users will want to see.
+  </Step>
+  <Step title="Add it to the server build and check it">
+    Include the plugin in the server build, start the server and call `GET /api/plugins/{type}` to see its schema. Use it in a workflow and run it.
+  </Step>
+</Steps>
+
+## How a plugin is picked up
+
+Plugins are part of the server process. At startup the server collects every plugin of its build and registers each under its type string. A duplicate type stops the startup. There is no runtime loading: to add a plugin, build it into the server and restart.
+
+After that the plugin behaves like a built-in one:
+
+- `GET /api/plugins` lists it and `GET /api/plugins/{type}` returns its schema. The web UI catalogue and node form, and the MCP tools `list_plugins` and `get_plugin_details`, read the same data.
+- The MCP tool `get_plugin_creation_guide` returns a template for writing a new plugin.
+- Workflows can use its type like any other. A workflow that uses a type the server does not have is rejected when it is validated.
+
+Plugins can also run on a remote worker instead of the server. See [Remote workers](/operations/remote-workers).
+
+## Related
+
+- [Built-in plugins](/plugins/overview)
+- [Failure handling](/concepts/failure-handling)
+- [Time limits](/concepts/time-limits)
+- [Approvals and signals](/building/approvals-and-signals)

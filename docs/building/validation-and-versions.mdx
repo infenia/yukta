@@ -1,0 +1,93 @@
+---
+title: "Validation and versions"
+description: "Check a workflow definition before it runs, and diff, annotate and roll back its saved versions."
+---
+
+Yukta refuses a broken graph **before any plugin runs**, with an error that names the node and the option at fault. It also keeps each workflow's recent versions so you can compare and restore them.
+
+## Validate a definition
+
+Validate without applying:
+
+```http
+POST /api/sessions/validate
+Content-Type: application/json
+```
+
+Send one **workflow definition** (the object you would put under `workflows` in a session). The server checks it with the same rules as execution and stores nothing. The answer is always `200`:
+
+```json
+{
+  "valid": false,
+  "message": "Workflow must contain at least one TERMINAL node",
+  "ports": { "fetch": ["success", "failure"], "trigger": ["default"] }
+}
+```
+
+`valid` says whether the draft would be accepted, `message` names the first problem found (it is `null` when valid), and `ports` lists the output ports of each node for its configuration, so an editor can offer the right `sourcePort` values. Applying a session runs the same checks, so an invalid definition is never stored. The web UI validates before it saves.
+
+### What is checked
+
+| Check | Rejected when |
+|---|---|
+| Structure | The graph has a cycle, a duplicate node id or a duplicate edge; an edge references a node that does not exist |
+| Roles | There is no trigger or no terminal, or an entry point that is not a trigger |
+| Ports | An edge names a `sourcePort` that the source plugin does not declare. `error` is allowed on nodes with `onError: ROUTE` |
+| Size | More than 500 nodes or 2000 edges |
+| Failure policy | Unknown `engine` keys, `maxBackoffMs` not below the node timeout, `retryOn` and `noRetryOn` sharing an entry, `deadlineMs` not above `elementTimeoutMs` |
+| Plugin options | A required option is missing or has the wrong type, as reported by the plugin |
+| Identifiers | A session, workflow or node id is blank, too long or contains a path separator |
+
+## Versions
+
+Each workflow keeps its newest 20 versions per session.
+
+- Saving an **identical** definition adds no version.
+- Every execution records a content hash of the graph it used, carried by progress, history and the log.
+- A version can carry a short **note** that explains the change.
+
+### Diff two versions
+
+```http
+GET /api/sessions/{sessionId}/workflows/{workflowId}/versions/diff?from={version}&to={version}
+```
+
+Omit `to` to compare with the current definition. The result lists a changed description, nodes added, removed or changed, and edges added or removed.
+
+### Annotate a version
+
+```http
+POST /api/sessions/{sessionId}/workflows/{workflowId}/versions/note?version={version}&note={text}
+```
+
+### List versions
+
+```http
+GET /api/sessions/{sessionId}/workflows/{workflowId}/versions
+```
+
+### Roll back
+
+```http
+POST /api/sessions/{sessionId}/workflows/{workflowId}/rollback?version={version}
+```
+
+restores an earlier version as the current definition. Rollback is also available as an MCP tool and in the web UI's versions panel.
+
+### Run a specific version
+
+Put `yukta.version` in the start payload to run a saved version without changing the current one. Such a run bypasses the prepared-workflow cache.
+
+```json
+{
+  "sessionId": "demo",
+  "workflowId": "greet",
+  "payload": { "name": "Ada", "yukta.version": "a1b2c3" }
+}
+```
+
+## Related
+
+- [Defining a workflow](/building/defining-a-workflow)
+- [REST: workflows](/api/workflows)
+- [MCP server](/interfaces/mcp)

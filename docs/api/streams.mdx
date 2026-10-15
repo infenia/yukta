@@ -1,0 +1,149 @@
+---
+title: "Streams API"
+description: "Follow a run live over server-sent events: status, logs, results and the server-wide event feed."
+---
+
+Streams push updates as they happen over server-sent events (SSE), so a client does not have to poll. Every stream needs the `VIEWER` role.
+
+| Method and path | Carries |
+|---|---|
+| `GET /api/executions/{executionId}/status/stream` | Progress snapshots of one run |
+| `GET /api/sessions/{sessionId}/executions/{executionId}/logs` | Log lines as text |
+| `GET /api/sessions/{sessionId}/executions/{executionId}/logs/entries` | Log entries as JSON |
+| `GET /api/sessions/{sessionId}/executions/{executionId}/results` | What reaches the terminal nodes |
+| `GET /api/events/stream` | Events of all runs: status changes, control outcomes and log lines |
+
+## Common behaviour
+
+Request a stream with `Accept: text/event-stream` and keep the connection open. The response is a sequence of events separated by blank lines.
+
+```text
+id: 0
+data: {"executionId":"550e8400-e29b-41d4-a716-446655440000","status":"RUNNING"}
+
+: ping
+
+id: 1
+data: {"executionId":"550e8400-e29b-41d4-a716-446655440000","status":"SUCCESS"}
+```
+
+The `data` of the example above is shortened. The sections below show the full shape of each stream.
+
+- **Event ids.** Each event has an `id` that counts from 0 within the stream, in the order the server delivers events.
+- **Resuming.** After a dropped connection, reconnect with the last id you saw in the `Last-Event-ID` header. The server replays the stream and skips everything up to that id, so nothing arrives twice. This works for the status, log and result streams; the event feed does not support it.
+- **Keep-alive.** An idle stream sends a comment line, `: ping`, every 15 seconds so proxies do not close the connection. Ignore comment lines.
+- **Ending.** The status, log and result streams end when the run reaches a final state. The event feed has no end.
+- **Errors.** A stream that cannot start answers with an ordinary JSON [error](/api/errors) before any event, for example `404` for an unknown run or one that belongs to another session.
+
+## Stream the status of a run
+
+`GET /api/executions/{executionId}/status/stream`
+
+Sends a progress snapshot every time the run or one of its nodes changes. Each event's `data` is the same object that [`GET /api/executions/{executionId}`](/api/executions#get-the-status-of-a-run) returns, so a client can use one parser for both. The stream completes when the run ends.
+
+| Query parameter | Default | Meaning |
+|---|---|---|
+| `includeHistory` | `true` | Replay the updates of the last few minutes first (`yukta.streaming.status-history-ttl-minutes`, default 5), then follow live. Keep it `true` when you resume with `Last-Event-ID`, so the ids line up |
+
+The deprecated path `GET /api/workflow/{sessionId}/status/{executionId}/stream` does the same and also checks the session.
+
+```http
+GET /api/executions/550e8400-e29b-41d4-a716-446655440000/status/stream
+Accept: text/event-stream
+```
+
+## Stream the logs of a run
+
+`GET /api/sessions/{sessionId}/executions/{executionId}/logs`
+
+Sends the stored log lines of the run first, then live lines until the run reaches a final state. For a run that has already finished, it sends the stored lines and ends. The server subscribes to live lines before it reads the stored ones, so a line written while the history loads is neither lost nor sent twice. Each event's `data` is one formatted line.
+
+```text
+id: 0
+data: [2026-07-19T10:15:29.050Z] [INFO] [map/MAPPER] STDOUT: mapped 1 record
+
+id: 1
+data: [2026-07-19T10:15:29.088Z] [INFO] [end/CONSOLE_TERMINAL] STDOUT: {greeting=Hello, Ada}
+```
+
+How long stored lines are kept depends on the log store; see [Observability](/running/observability).
+
+## Stream structured log entries
+
+`GET /api/sessions/{sessionId}/executions/{executionId}/logs/entries`
+
+The same lines as JSON objects, for clients that filter by node or level. It behaves exactly like the text stream.
+
+| Field | Type | Meaning |
+|---|---|---|
+| `executionId` | string | The run |
+| `pluginId` | string | The node that wrote the entry |
+| `pluginName` | string | The plugin type of that node |
+| `stream` | string | `STDOUT`, `STDERR` or a custom stream name |
+| `message` | string | The text |
+| `level` | string | `DEBUG`, `INFO`, `WARN` or `ERROR` |
+| `timestamp` | string | When the entry was written |
+
+```text
+id: 0
+data: {"executionId":"550e8400-e29b-41d4-a716-446655440000","pluginId":"map","pluginName":"MAPPER","stream":"STDOUT","message":"mapped 1 record","level":"INFO","timestamp":"2026-07-19T10:15:29.050Z"}
+```
+
+## Stream the results of a run
+
+`GET /api/sessions/{sessionId}/executions/{executionId}/results`
+
+Sends what reaches the terminal nodes: kept events first, then new ones until the run ends. The same path returns JSON when you ask for `application/json`; see [Read the result of a run](/api/executions#read-the-result-of-a-run).
+
+| Query parameter | Meaning |
+|---|---|
+| `nodeId` | Only this terminal node. The final `EXECUTION_END` event is always sent |
+
+Each event's `data` is a result event with `kind` (`RESULT`, `NODE_END` or `EXECUTION_END`), `nodeId`, `sequence`, `payload` (for `RESULT`), `status` (for the end events), `truncated` and `timestamp`. The stream ends after `EXECUTION_END`. A finished run whose results are no longer kept sends nothing and ends.
+
+```text
+id: 0
+data: {"kind":"RESULT","nodeId":"end","sequence":0,"payload":{"greeting":"Hello, Ada"},"truncated":false,"timestamp":"2026-07-19T10:15:29.090Z"}
+
+id: 2
+data: {"kind":"EXECUTION_END","sequence":2,"status":"SUCCESS","truncated":false,"timestamp":"2026-07-19T10:15:29.101Z"}
+```
+
+## Stream events of all runs
+
+`GET /api/events/stream`
+
+A live feed of what happens across the server, for monitors and external supervisors. It does not replay past events, and a reader that cannot keep up misses events. It has no `Last-Event-ID` support and does not end on its own.
+
+| Query parameter | Meaning |
+|---|---|
+| `executionId` | Only events of this run |
+| `type` | Only this kind: `NodeStatusChanged`, `WorkflowStatusChanged`, `ControlOutcome` or `LogLine`. Not case sensitive |
+| `severity` | Only this severity or higher: `INFO`, `WARN` or `ERROR`. An invalid value answers `400` |
+
+Each event's `data` is an envelope with the event `type`, its `severity` and the `event` itself.
+
+| Type | Fields of `event` |
+|---|---|
+| `NodeStatusChanged` | `executionId`, `workflowId`, `nodeId`, `module`, `status`, `metadata`, `timestamp` |
+| `WorkflowStatusChanged` | `executionId`, `workflowId`, `status`, `timestamp` |
+| `ControlOutcome` | `executionId`, `command`, `actor`, `applied`, `reason`, `timestamp` |
+| `LogLine` | `executionId`, `nodeId`, `line`, `timestamp` |
+
+**Severity.** A node or run that ends `FAILURE`, `TIMED_OUT` or `ABORTED` is `ERROR`. One that ends `CANCELLED` is `WARN`. A node that ends `UPSTREAM_FAILED` stays `INFO`, because it only reflects the node before it. A control command that was not applied is `WARN`. A log line is `ERROR` if it contains words such as `error`, `failed`, `failure`, `exception` or `What went wrong`, `WARN` if it contains `warn`, `warning` or `deprecat`, and `INFO` otherwise.
+
+```http
+GET /api/events/stream?executionId=550e8400-e29b-41d4-a716-446655440000&severity=WARN
+Accept: text/event-stream
+```
+
+```text
+id: 0
+data: {"type":"NodeStatusChanged","severity":"ERROR","event":{"executionId":"550e8400-e29b-41d4-a716-446655440000","workflowId":"build","nodeId":"compile","module":"PROCESS_EXECUTOR","status":"FAILURE","metadata":{"error":"exit code 1"},"timestamp":"2026-07-19T10:15:29.500Z"}}
+```
+
+## Related
+
+- [Executions API](/api/executions)
+- [Observability](/running/observability)
+- [Status values](/reference/status-values)

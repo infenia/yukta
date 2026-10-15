@@ -1,0 +1,213 @@
+---
+title: "Built-in plugins"
+description: "The 34 triggers, processors and terminals that ship with Yukta, and how a build chooses which ones to include."
+---
+
+A plugin is the implementation behind a node `type`. Yukta ships 34 of them in three roles: **triggers** start a workflow, **processors** transform, route and call out, and **terminals** end a branch.
+
+This page lists every type at a glance. Each group has its own page with every option, the output ports and a JSON example.
+
+<Note>
+  The plugin set and the options of each plugin are pre-beta (`0.0.1-SNAPSHOT`) and may change before v0.1.0.
+</Note>
+
+## Type strings
+
+Use a type string exactly as written below. Lookup is exact and case-sensitive, so `branch` and `Branch` are not found. Almost every type is upper case with underscores. `CONTENT-FILTER` is the one type that uses a hyphen.
+
+## Triggers
+
+A trigger has no input. It produces the first message of a run. See [Triggers](/plugins/triggers).
+
+| Type | What it does |
+|---|---|
+| `API_TRIGGER` | Passes the payload of the start request into the workflow |
+| `CONSTANT_SOURCE` | Emits a message built from fixed variables at startup |
+| `SCHEDULE_TRIGGER` | Emits a message on a fixed interval or a cron schedule |
+
+## Processors
+
+Processors read messages from their parents and emit messages on named output ports.
+
+### Routing and flow
+
+See [Routing and flow](/plugins/routing-and-flow).
+
+| Type | What it does |
+|---|---|
+| `BRANCH` | Sends each message to a port chosen by an exact match or by conditions |
+| `FILTER` | Keeps messages that match a condition and drops or reroutes the rest |
+| `SPLITTER` | Splits one message that holds a list into one message per item |
+| `AGGREGATE` | Batches messages into one message that holds a list |
+| `RECIPIENT_LIST` | Copies one message to several ports |
+| `DELAY` | Holds each message for a fixed time, in order |
+| `LOOP_PREDICATE` | Runs another processor repeatedly until a condition holds and emits the last result |
+| `LOOP_STREAM` | Runs another processor repeatedly and emits every result |
+| `SUB_WORKFLOW` | Runs another workflow of the same session for each message |
+| `WAIT_FOR_SIGNAL` | Holds a message until a named signal (an approval or decision) arrives |
+
+### Transform
+
+See [Transform](/plugins/transform).
+
+| Type | What it does |
+|---|---|
+| `MAPPER` | Rebuilds the payload by projection, template or script |
+| `VALIDATE` | Checks required fields and field types; failures leave on `invalid` |
+| `CONTENT-FILTER` | Keeps or removes fields, for example to strip sensitive data |
+
+### External I/O
+
+See [External I/O](/plugins/external-io).
+
+| Type | What it does |
+|---|---|
+| `PROCESS_EXECUTOR` | Runs an operating system command; can route by exit code |
+| `HTTP_REQUEST` | Makes an HTTP request; can route by status |
+| `SQL_QUERY` | Runs a parameterised SQL statement |
+| `FILE_READ` | Reads a text file inside a sandbox directory |
+| `FILE_WRITE` | Writes or appends text to a file inside a sandbox directory |
+| `KV_STORE` | Reads and writes small shared state: get, put, incr, delete |
+
+### AI
+
+See [AI plugins](/plugins/ai).
+
+| Type | What it does |
+|---|---|
+| `LLM_CALL` | Calls a chat model (OpenAI-compatible, Anthropic or Ollama) |
+| `MCP_LIST_TOOLS` | Lists the tools of an MCP server so a model can choose among them |
+| `MCP_TOOL_CALL` | Calls one tool on an MCP server |
+| `SESSION_MEMORY` | Keeps chat history per conversation id |
+
+### Decisions
+
+See [Decision plugins](/plugins/decisions).
+
+| Type | What it does |
+|---|---|
+| `CLASSIFY` | Picks one label for a message; can route by label |
+| `GATE` | Answers a yes/no question and routes to `pass` or `reject` |
+| `SCORE` | Rates a message on an ordered scale |
+| `ASK` | Asks up to 64 questions about a message in one model call |
+| `ANOMALY` | Judges whether a message is unusual compared with recent ones |
+| `DEDUPE` | Judges whether a message repeats a recent one |
+
+## Terminals
+
+A terminal consumes messages and has no output ports. See [Terminals](/plugins/terminals).
+
+| Type | What it does |
+|---|---|
+| `CONSOLE_TERMINAL` | Writes each payload to the server log |
+| `NOTIFY_TERMINAL` | Sends each message as a JSON webhook (Slack-compatible) |
+
+## Options every node accepts
+
+Besides the options of its plugin, a node's `config` can carry:
+
+- `timeoutSeconds`: the node's idle timeout in seconds. Without it the node uses the default timeout of its plugin, which is 30 seconds unless the plugin page says otherwise. See [Time limits](/concepts/time-limits).
+- `engine`: the reserved engine policy object (retry, error routing, deadline, edge buffer, placement). See [Failure handling](/concepts/failure-handling).
+
+Plugins read their own options only. Where an option accepts `${...}` variables, its description says so; see [Variables and expressions](/building/variables-and-expressions) for the syntax. Options that take an expression use the expression language described on that page.
+
+## Choosing which plugins a build includes
+
+Triggers, terminals and the routing, transform and flow processors (`BRANCH`, `FILTER`, `SPLITTER`, `AGGREGATE`, `RECIPIENT_LIST`, `DELAY`, `LOOP_PREDICATE`, `LOOP_STREAM`, `SUB_WORKFLOW`, `WAIT_FOR_SIGNAL`, `MAPPER`, `VALIDATE`, `CONTENT-FILTER`, `KV_STORE`) are always part of the server. The rest are optional and chosen when the server is built, with the build property `yukta.plugins`:
+
+```text
+-Pyukta.plugins=default
+-Pyukta.plugins=all
+-Pyukta.plugins=none
+-Pyukta.plugins=http-request,llm-call,session-memory
+```
+
+| Value | Result |
+|---|---|
+| `default` | Every optional module except `script-js`. This applies when the property is not set |
+| `all` | Every optional module, including `script-js` |
+| `none` | No optional module |
+| a comma-separated list | Exactly the modules named |
+
+An unknown module name stops the build. The modules and the types they provide:
+
+| Module | Types |
+|---|---|
+| `process-executor` | `PROCESS_EXECUTOR` |
+| `http-request` | `HTTP_REQUEST` |
+| `file-io` | `FILE_READ`, `FILE_WRITE` |
+| `sql-query` | `SQL_QUERY` |
+| `llm-call` | `LLM_CALL` |
+| `session-memory` | `SESSION_MEMORY` |
+| `mcp-tool-call` | `MCP_TOOL_CALL`, `MCP_LIST_TOOLS` |
+| `decision` | `CLASSIFY`, `GATE`, `SCORE`, `ASK`, `ANOMALY`, `DEDUPE`; also brings in `LLM_CALL` |
+| `script-js` | No type of its own; enables the `SCRIPT` mode of `MAPPER` |
+
+Leaving a module out removes its capability from the server entirely. A deployment that does not need to run commands, SQL or scripts can leave those modules out.
+
+### When a type is not installed
+
+A workflow that uses a type the server does not have is rejected when it is validated, with the message `Plugin not found for type: <TYPE>`, and its node never runs. `MAPPER` in `SCRIPT` mode is rejected the same way, with a message that names `script-js`, when that module is missing. See [Validation and versions](/building/validation-and-versions).
+
+To see what a running server has, list its plugins:
+
+```http
+GET /api/plugins
+```
+
+The response lists each installed `type` with its `category` (`TRIGGER`, `PROCESSOR` or `TERMINAL`). The web UI plugin catalogue and the MCP tools `list_plugins` and `get_plugin_details` show the same information.
+
+## Reading a plugin's option schema
+
+`GET /api/plugins/{type}` describes one installed plugin. It answers `404` when the type is not installed.
+
+```http
+GET /api/plugins/DELAY
+```
+
+```json
+{
+  "status": 200,
+  "message": "Plugin details retrieved",
+  "data": {
+    "type": "DELAY",
+    "category": "PROCESSOR",
+    "description": "Delays every message by a fixed time; messages are released one at a time, in order.",
+    "usagePattern": "Configure with:\n- delayMs: positive delay per message in milliseconds (required).",
+    "outputPorts": ["default"],
+    "configSchema": [
+      {
+        "name": "delayMs",
+        "type": "NUMBER",
+        "required": true,
+        "defaultValue": null,
+        "options": [],
+        "description": "Positive delay per message in ms"
+      }
+    ]
+  }
+}
+```
+
+This example is abridged. The response also carries a timestamp and the card design the web UI draws for the node.
+
+| Field | Meaning |
+|---|---|
+| `outputPorts` | The ports the plugin declares with no configuration. Several plugins declare more ports once configured, for example `FILTER` with `discardPort`. The group pages list the ports per configuration |
+| `configSchema[].name` | The key to use in a node's `config` |
+| `configSchema[].type` | `STRING`, `NUMBER`, `BOOLEAN`, `ENUM`, `LIST`, `MAP`, `EXPRESSION` or `SECRET` |
+| `configSchema[].required` | Whether the option must be set |
+| `configSchema[].defaultValue` | The value used when the option is absent, or `null` |
+| `configSchema[].options` | The allowed values of an `ENUM` option |
+
+A plugin with no configuration, such as `API_TRIGGER` or `CONSOLE_TERMINAL`, returns an empty `configSchema`.
+
+<Warning>
+  `PROCESS_EXECUTOR`, `SQL_QUERY`, `FILE_READ`, `FILE_WRITE`, `HTTP_REQUEST` and the `SCRIPT` mode of `MAPPER` act on the server's host or network with the server's permissions. Treat authorship of workflows as a trusted operation. See [Security](/operations/security).
+</Warning>
+
+## Related
+
+- [Defining a workflow](/building/defining-a-workflow)
+- [Writing a plugin](/plugins/writing-a-plugin)
+- [Failure handling](/concepts/failure-handling)

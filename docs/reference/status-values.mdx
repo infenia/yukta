@@ -1,0 +1,68 @@
+---
+title: "Status values"
+description: "Every execution and node status, and the enumerated values used by node options, limits and roles."
+---
+
+## Execution and node status
+
+Statuses only move forward: `PENDING` → `QUEUED` → `RUNNING` → one terminal status. A status that would step back is ignored.
+
+| Status | Terminal | Meaning |
+|---|---|---|
+| `PENDING` | no | Created, not yet started |
+| `QUEUED` | no | Waiting for a slot because a concurrency limit is reached |
+| `RUNNING` | no | Active. A node becomes `RUNNING` at its first activity |
+| `SUCCESS` | yes | Finished normally |
+| `FAILURE` | yes | Failed |
+| `ERROR` | yes | Failed with an unexpected error |
+| `STOPPED` | yes | Ended by a stop command |
+| `CANCELLED` | yes | Cancelled: by the caller, or because another branch's terminal failed |
+| `TIMED_OUT` | yes | A time limit expired (queue wait, run deadline, node idle or node deadline) |
+| `SKIPPED` | yes | A processor that was skipped |
+| `UPSTREAM_FAILED` | yes | A node that never ran because an upstream node failed |
+| `ABORTED` | yes | The server stopped while the execution ran; assigned on the next boot |
+
+Node-level values such as `NODE_*` are never terminal for the whole execution.
+
+## Node option values
+
+| Option | Values |
+|---|---|
+| `engine.onError` | `FAIL` (default), `CONTINUE`, `ROUTE` |
+| `engine.trigger` (join rule) | `ALL_SUCCESS` (default), `ALL_DONE`, `ONE_SUCCESS` |
+| `engine.edgeBuffer.overflow` | `DROP_OLDEST` (default), `DROP_NEWEST` |
+| `WAIT_FOR_SIGNAL` `onTimeout`, `onReject` | `FAIL` (default), `CONTINUE` |
+
+## Server settings
+
+| Setting | Values |
+|---|---|
+| `yukta.execution.on-limit` | `QUEUE` (default), `REJECT` |
+| `yukta.session.store-type` | `in-memory` (default), `file`, `postgres` |
+| `yukta.control-plane.model.backend` | `SYSTEMONE` (default), `LLM` |
+
+## Stop modes
+
+| Mode | Effect |
+|---|---|
+| `DRAIN` (default) | In-progress work finishes within the drain timeout |
+| `CANCEL` | In-flight work is cancelled |
+| `KILL` | Ends the execution immediately |
+
+## API roles
+
+| Role | Allows |
+|---|---|
+| `VIEWER` | Read |
+| `OPERATOR` | Also start, control, signal and recover executions |
+| `ADMIN` | Everything, including defining sessions and workflows and changing scheduler limits |
+
+## Signal answers
+
+When you send a signal to a node, the node answers `ACCEPTED` (delivered), `QUEUED` (kept for a wait that has not begun) or refuses it as not waiting. A signal to a node that is not registered gives `409`.
+
+## Related
+
+- [Executions](/concepts/executions)
+- [Failure handling](/concepts/failure-handling)
+- [Run controls](/running/run-controls)

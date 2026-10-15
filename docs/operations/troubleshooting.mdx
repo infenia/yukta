@@ -1,0 +1,148 @@
+---
+title: "Troubleshooting"
+description: "Common symptoms of a running Yukta server, their causes and the fix."
+---
+
+This page lists symptoms you can observe on a running server, what causes each and how to fix it. Read the symptom table first, then the sections for the ones that need more explanation.
+
+## Symptom table
+
+| Symptom | Likely cause | Fix |
+|---|---|---|
+| Start answered `429` "Execution limit reached" | `yukta.execution.on-limit=REJECT` and every slot is taken | Raise the limits, or set `on-limit=QUEUE` |
+| Start answered `429` "...the queue is full" | The queue holds `yukta.execution.queue-capacity` starts | Raise the capacity or the concurrency limits, or slow the clients |
+| Start answered `429` "The server is shutting down" | The server is stopping | Retry against the restarted server |
+| Start, restart or resume answered `503` "This server is a standby" | [High availability](/operations/high-availability) is on and you reached a standby | Send the request to the leader |
+| Execution stays `QUEUED` | All slots are taken | See [Execution stays QUEUED](#execution-stays-queued) |
+| Execution ends `TIMED_OUT` | A queue, run or node clock ran out | See [A node or run times out](#a-node-or-run-times-out) |
+| Many nodes show `UPSTREAM_FAILED` | They sit behind one node that failed | See [UPSTREAM_FAILED](#upstream_failed-is-not-the-failure) |
+| Command answered `403` | Role or session of the key, Host or Origin check, or a reviewer refused | See [A command is rejected with 403](#a-command-is-rejected-with-403) |
+| Request answered `401` | No key or a wrong key | Send `Authorization: Bearer <key>` or `X-API-Key` |
+| Request answered `400` with no body on a keyed server | The path is ambiguous (`;`, `//`, `..`, backslash, encoded slash) | Send a clean path |
+| Request answered `400` "unknown field" | Requests reject unknown JSON fields | Remove or correct the field |
+| Request answered `413` | The body is larger than `spring.codec.max-in-memory-size` (1 MiB) | Send less, or raise `YUKTA_LIMITS_MAX_BODY` |
+| Workflow refused as too large | More than 500 nodes or 2000 edges | Split it into sub-workflows |
+| Resume answered `409` | The run is not eligible | See [Resume is refused](#resume-is-refused) |
+| Restart answered `404` "no longer restartable" | The execution left the archive, or the server restarted | Resume it if it was aborted, or start a new run |
+| Restart from a node answered `400` "incomplete" | The node's output went over the in-memory caps | Use `yukta.restart.dir`, PostgreSQL checkpoints or `yukta.restart.spill-dir` |
+| Retry node answered `400` "did not fail" | Only `FAILURE` and `TIMED_OUT` nodes can be retried | Pick the failed node |
+| Pending approvals gone after a restart | Open approval waits live in memory | See [Approvals invisible after a restart](#approvals-invisible-after-a-restart) |
+| Runs marked `ABORTED` after a restart | They were in flight when the server stopped | Resume them, see [Checkpoints and resume](/operations/checkpoints-and-resume) |
+| Process node refused | No command is allowed | See [Process execution is refused](#process-execution-is-refused) |
+| Server will not start on `0.0.0.0` | No API key is set | See [The server refuses to start](#the-server-refuses-to-start-on-a-non-loopback-address) |
+| Log lines missing | Retention, dropped lines or a placed node | See [Log lines are missing](#log-lines-are-missing) |
+| Event stream disconnects | Server restart, proxy idle timeout or a slow reader | See [Event streams disconnect](#event-streams-disconnect) |
+| UI or API answers `403` with no body behind a proxy | The Host check, with no key set | Set a key, or add the host to `yukta.allowed-hosts` |
+| Placed node fails "No connected worker in pool" | No worker serves the pool and type with a free slot | See [Remote workers](/operations/remote-workers#selection-rule) |
+| Workflow with `engine.placement` fails to prepare | The build has no workers module | Build with `-Pyukta.workers=true` |
+| Worker is refused | Wrong token, or the server is a standby | Check `yukta.workers.token` and list every control plane |
+| Server will not start with PostgreSQL | A migration failed, or a URL is missing | See [PostgreSQL does not start](#postgresql-does-not-start) |
+| Signal answered `409` | The node is not registered or not waiting for that signal | Check the execution, the node id and the signal name |
+
+## Execution stays QUEUED
+
+An execution is `QUEUED` while it waits for a slot. Check:
+
+1. `yukta.executions.running` against `yukta.execution.max-concurrent`, `max-concurrent-per-session` and `max-concurrent-per-workflow`.
+2. Whether running executions are stuck. A run holds its slot until it ends, and a paused run keeps its slot with its clocks frozen. Stop or resume stuck runs.
+3. The queue order. Higher `yukta.priority` goes first, then the session with the fewest running executions, then arrival. Change a waiting execution's priority with `POST /api/executions/{id}/priority?priority=n`.
+
+To raise limits without a restart, use `POST /api/scheduler/limits?maxConcurrent=..&maxPerWorkflow=..` (needs the `ADMIN` role). Set `yukta.execution.queue-timeout` so a start that waits too long ends `TIMED_OUT` instead of waiting forever.
+
+See [Admission and limits](/running/admission-and-limits).
+
+## A node or run times out
+
+`TIMED_OUT` has several causes, one per clock:
+
+| Where | Cause | Fix |
+|---|---|---|
+| Execution, before it ran | It waited longer than `yukta.execution.queue-timeout` | Raise limits or the timeout |
+| Execution | The run deadline passed (`yukta.session.execution-timeout-seconds`, 3600 s) | Raise it, or split the work |
+| Node, idle | No input, output, retry or heartbeat for the node's idle timeout (`timeoutSeconds`, else the plugin default, 30 s for many) | Set `timeoutSeconds`. Long silent work needs the plugin to send heartbeats |
+| Node, deadline | `engine.deadlineMs` passed | Raise it |
+| One message | `engine.elementTimeoutMs` passed. The attempt fails, so retry and `onError` apply | Raise it, or add retries |
+| `WAIT_FOR_SIGNAL` | No signal within its `timeoutSeconds` (default 3600) | Send the signal in time, or raise the timeout |
+
+Pausing freezes every clock, so a pause never causes a timeout. See [Time limits](/concepts/time-limits).
+
+## UPSTREAM_FAILED is not the failure
+
+Only the node that failed ends `FAILURE`. Every node behind it ends `UPSTREAM_FAILED`, and the first terminal that fails ends the run and cancels the other branches. Look for the node with `FAILURE` or `TIMED_OUT`, read its logs and fix that one.
+
+A node with several parents fails when one parent fails by default. Set `engine.trigger` to `ALL_DONE` or `ONE_SUCCESS` if it should carry on. See [Failure handling](/concepts/failure-handling).
+
+## A command is rejected with 403
+
+Several checks can answer `403`:
+
+- **Role.** A `VIEWER` key cannot change anything, and an `OPERATOR` key reaches only paths under `/api/executions/` and `/api/workflow/`. Defining workflows and changing scheduler limits need `ADMIN`.
+- **Session limit.** A key limited to sessions reaches only its own.
+- **Host or Origin.** With no key set, an unknown `Host` or a foreign `Origin` on a changing request is refused with no body.
+- **A reviewer.** A supervisor that reviews commands can refuse any command. The refusal is recorded.
+
+For a refused control command, read the reason from the audit: `GET /api/control/audit?executionId=<id>`. A refused entry shows the command and the reason. See [Security](/operations/security).
+
+## Resume is refused
+
+`POST /api/executions/{id}/recover` answers `409` when:
+
+- The run was not aborted. Only a run that a restart aborted can be resumed.
+- The run is being resumed or was already resumed. A run resumes once.
+- The workflow changed since the run started.
+- The start payload was not recorded.
+- Every node had already finished.
+
+It answers `404` when the run is unknown (for example, after a restart with the in-memory log) or its workflow no longer exists. It needs `yukta.execution-log.dir` or PostgreSQL, and a file or PostgreSQL checkpoint store. See [Checkpoints and resume](/operations/checkpoints-and-resume).
+
+## Approvals invisible after a restart
+
+The list of pending approvals and the waits behind it live in memory. After a restart, or a [high-availability](/operations/high-availability) takeover, an open approval is gone, and it reappears only when its node waits again, for example in a resumed run. An approval that was already answered is recorded with the checkpoints, and a resumed run reuses the answer.
+
+## Process execution is refused
+
+`PROCESS_EXECUTOR` refuses with one of these messages:
+
+| Message | Fix |
+|---|---|
+| "Process execution is off" | Set `yukta.process.allowed-commands`, or `yukta.process.allow-any=true` for fully trusted authors |
+| "useShell is not allowed while yukta.process.allowed-commands is set" | Call the executable directly, or remove the list |
+| "Command 'x' is not in yukta.process.allowed-commands" | Add the exact executable name |
+
+On a placed node, set the allow-list on the worker. See [Security](/operations/security#process-execution).
+
+## The server refuses to start on a non-loopback address
+
+The server refuses to listen on any address but loopback unless a key exists. The message reads "Refusing to listen on '...' without an API key". Either set `yukta.api-key` (`YUKTA_API_KEY`) or `yukta.api-keys`, or set `YUKTA_SERVER_ADDRESS=127.0.0.1`. The container image listens on `0.0.0.0`, so it always needs a key. See [Security](/operations/security#exposing-the-server).
+
+## Log lines are missing
+
+- **Retention.** Node log lines are kept in memory for 30 minutes by default, between 1 minute and 24 hours (`yukta.logs.store.retention.default-period-minutes`). They are lost on restart.
+- **Overflow.** When more than 10,000 lines wait to be recorded, the extra lines are dropped. `yukta.tracker.dropped{type=log}` counts them.
+- **Failed writes.** `yukta.tracker.log.append.failed` counts failures to write to the execution log. They never block a run.
+- **Placed nodes.** Log lines a plugin writes on a worker do not reach the execution's log stream.
+- **Cut lines.** A node that did not write live logs has its output logged cut to 2,048 characters.
+
+## Event streams disconnect
+
+- A server restart or takeover drops every open stream. Reconnect with the `Last-Event-ID` header to continue.
+- Idle streams send a keep-alive comment every 15 seconds. A proxy with a shorter idle timeout closes them.
+- A client that connects late catches up from the progress history, which is kept for 5 minutes (`yukta.streaming.status-history-ttl-minutes`), 200 snapshots per execution.
+- Live parts of a stream are best effort. Read final state from the status or result endpoints.
+
+See [Streams](/api/streams).
+
+## PostgreSQL does not start
+
+The server applies the schema migrations first and does not start if one fails. Check:
+
+- Both URLs are set: `spring.flyway.url` for migrations (`jdbc:postgresql://...`) and `spring.r2dbc.url` for run-time access (`r2dbc:postgresql://...`). They are different URL forms for the same database.
+- The migration account can change the schema.
+- The `postgres` profile is active and the build used `-Pyukta.persistence=postgres`. See [Persistence](/operations/persistence).
+
+## Related
+
+- [Errors](/api/errors)
+- [Configuration](/operations/configuration)
+- [Observability](/running/observability)
+- [Capacity and performance](/operations/capacity-and-performance)

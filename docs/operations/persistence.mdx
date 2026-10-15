@@ -1,0 +1,169 @@
+---
+title: "Persistence"
+description: "Keep sessions, the execution log and node outputs in memory, on disk or in PostgreSQL, and what survives a restart in each case."
+---
+
+Yukta keeps its state in memory by default and can move each kind of data to files or to PostgreSQL. Each kind has its own switch, so a deployment can be durable for some data and not for other data.
+
+## When to use it
+
+The default is right for trying things out: nothing to set up, and a restart gives a clean server. Choose files when you run a single server and want sessions, workflows and run history to survive a restart. Choose PostgreSQL when you need the same on a database, want several servers to share state, or want [high availability](/operations/high-availability).
+
+## The three profiles
+
+| Profile | How to select it | Where data goes |
+|---|---|---|
+| Memory (default) | No settings | In the server process. Lost on restart |
+| File | Set the directory settings below | Files on the server's disk |
+| PostgreSQL | Optional build switch, the `postgres` profile and database URLs | PostgreSQL tables |
+
+## Which setting switches which store
+
+| Data | Setting | Values |
+|---|---|---|
+| Sessions and workflow definitions (with versions) | `yukta.session.store-type` | `in-memory` (default), `file`, `postgres` |
+| Execution log (run history and audit) | `yukta.execution-log.dir` | Unset keeps it in memory. A directory keeps it as a file. Ignored when the session store is `postgres`, which keeps the log in PostgreSQL |
+| Checkpoints (node outputs) | `yukta.restart.dir` or `yukta.restart.store-type` | Memory by default. A directory keeps them as files. `postgres` keeps them in PostgreSQL |
+| `KV_STORE` node state | `yukta.kv.store-type` | `memory` (default), `postgres` |
+| `SESSION_MEMORY` chat history | `yukta.session-memory.dir` or `yukta.session-memory.store-type` | Memory by default. A directory keeps files. `postgres` keeps a table |
+| Leader lease | `yukta.ha.mode` | `postgres` enables [high availability](/operations/high-availability) |
+
+The PostgreSQL stores are created only when `yukta.session.store-type=postgres`. The `postgres` profile sets it. The other PostgreSQL switches (`yukta.restart.store-type`, `yukta.kv.store-type`, `yukta.session-memory.store-type`, `yukta.ha.mode`) then choose which further data moves to the database.
+
+## What survives a restart
+
+"Memory" is the default. "File" means the directory settings are set and the session store is `file`. "PostgreSQL" assumes the matching switch from the table above is set for each row.
+
+| Item | Memory | File | PostgreSQL |
+|---|---|---|---|
+| Workflow definitions and versions | Lost | Kept | Kept |
+| Session configuration | Lost | Kept | Kept |
+| Run history and audit | Lost | Kept. The last events can be lost without `yukta.execution-log.fsync` | Kept, newest runs |
+| Runs in flight at the crash | Vanish | Marked `ABORTED` at the next start | Marked `ABORTED` when a server becomes leader |
+| Idempotency keys | Lost | Reloaded | Reloaded |
+| Node outputs (checkpoints) | Capped, optional spill to files. Lost on restart | On disk, no caps | In PostgreSQL |
+| Resume of an aborted run | Not possible | Needs the log and checkpoint directories | Needs the log and checkpoints in PostgreSQL |
+| Queued starts and slots | Lost | Lost. The run is marked `ABORTED` and can be recovered | Lost. The run is marked `ABORTED` and can be recovered |
+| Approval waits (`WAIT_FOR_SIGNAL`) | Lost | Lost. An answered signal is reused on resume | Lost. An answered signal is reused on resume |
+| Chat history (`SESSION_MEMORY`) | Lost | Kept in its own directory | Kept |
+| `KV_STORE` state | Lost | Lost | Kept |
+| Limits changed at run time | Reset | Restored from the log | Restored from the log |
+| Execution results | Lost | Lost | Lost |
+| Live node logs | Lost | Lost | Lost |
+
+A deployment can be half durable. A PostgreSQL log with in-memory checkpoints keeps the run history but has no outputs to resume from. Set every switch you need.
+
+## File layout
+
+The file store writes plain files and JSON lines under directories you choose. It is meant for one server; do not share these directories between servers.
+
+| Data | Directory setting | Contents |
+|---|---|---|
+| Sessions and definitions | `yukta.session.base-dir` (default `.yukta` in the home directory) | One JSON file per session. Under `workflows`, one directory per session and workflow with the current definition and a `history` folder of saved versions |
+| Execution log | `yukta.execution-log.dir` | One file, `executions.jsonl`, one event per line |
+| Checkpoints | `yukta.restart.dir` | One directory per execution, one file of JSON lines per node, plus marker files that say a node finished or is incomplete |
+| Chat history | `yukta.session-memory.dir` | One small JSON file per session, replaced on every turn |
+| Spill files | `yukta.restart.spill-dir` | Outputs that outgrew the in-memory caps. Removed with the execution and at the next start |
+
+File writes for definitions are atomic. The execution log is written by one background writer, so requests never wait on the disk.
+
+```properties
+yukta.session.store-type=file
+yukta.session.base-dir=/var/lib/yukta
+yukta.execution-log.dir=/var/lib/yukta/log
+yukta.restart.dir=/var/lib/yukta/checkpoints
+yukta.session-memory.dir=/var/lib/yukta/chat
+```
+
+<Tip>
+  Without `yukta.execution-log.fsync=true`, events are handed to the operating system but not forced to disk. A process crash loses nothing, but a power loss can lose the last few events. A rewritten log (compaction) is always forced to disk before it replaces the old one.
+</Tip>
+
+## PostgreSQL
+
+<Steps>
+  <Step title="Build with the PostgreSQL switch">
+    The PostgreSQL stores are an optional part of the build. Add the switch when you build:
+
+    ```bash
+    ./gradlew bootJar -Pyukta.persistence=postgres
+    ```
+  </Step>
+  <Step title="Activate the profile">
+    Name the `postgres` profile together with `prod`:
+
+    ```bash
+    java -jar boot/build/libs/*.jar --spring.profiles.active=prod,postgres
+    ```
+
+    The profile sets `yukta.session.store-type=postgres` and turns on the database support. Without the profile the database support stays off.
+  </Step>
+  <Step title="Give two connection URLs">
+    The server needs two URLs to the same database, because migrations and run-time access use different connections:
+
+    | Setting | Used for | Example |
+    |---|---|---|
+    | `spring.r2dbc.url` | Run-time access | `r2dbc:postgresql://host:5432/yukta` |
+    | `spring.flyway.url` | Schema migrations | `jdbc:postgresql://host:5432/yukta` |
+
+    Credentials: `spring.r2dbc.username` and `spring.r2dbc.password` for run-time access, `spring.flyway.user` and `spring.flyway.password` for migrations. As environment variables these are `SPRING_R2DBC_URL`, `SPRING_R2DBC_USERNAME`, `SPRING_R2DBC_PASSWORD`, `SPRING_FLYWAY_URL`, `SPRING_FLYWAY_USER` and `SPRING_FLYWAY_PASSWORD`.
+  </Step>
+  <Step title="Choose the further stores">
+    Move the data you need: `yukta.restart.store-type=postgres` for checkpoints, `yukta.kv.store-type=postgres` for `KV_STORE` state, `yukta.session-memory.store-type=postgres` for chat history, `yukta.ha.mode=postgres` for the leader lease.
+  </Step>
+</Steps>
+
+On start the server applies the schema migrations first. It does not start if a migration fails.
+
+Give the migration connection an account that may change the schema, and the run-time connection an account that may only read and write the tables. Back up all tables together: the log, the checkpoints and the definitions refer to each other.
+
+Use the PostgreSQL stores with the standard build run as an archive. The native binary is not covered for PostgreSQL storage.
+
+### Schema tables
+
+Six numbered migrations create nine tables.
+
+| Table | Stores |
+|---|---|
+| `workflow_definition` | The current definition of each workflow, per session |
+| `workflow_definition_revision` | Saved versions of each workflow, with the optional note |
+| `session_config` | Session name, description, project path, initiator, initiated time and tags |
+| `execution_log` | The execution log: run starts with their payload, node ends, control commands, idempotency keys |
+| `node_checkpoint` | Every message a node produced, in order, for restart and resume |
+| `node_checkpoint_state` | Per node: whether it finished (the durable end marker) and whether its output is incomplete |
+| `leader_lease` | One row: the current leader, its fencing number and when its lease expires |
+| `kv_entry` | State of `KV_STORE` nodes |
+| `session_history` | `SESSION_MEMORY` chat history, one row per session |
+
+Each statement is committed on its own. Nothing in the module relies on a transaction across several statements.
+
+## Retention and trimming
+
+| Data | What is kept | How it shrinks |
+|---|---|---|
+| Execution log | The newest `yukta.execution-log.retained-runs` runs (default `500`) | After every `yukta.execution-log.compact-after` appended events (default `10000`) older runs are dropped. A run with a start and no end is never dropped |
+| Workflow versions | The newest 20 per workflow | Older versions are removed after each save. An identical save adds no version |
+| Checkpoints | Outputs of the newest `yukta.restart.retained-executions` executions (default `10`) | Outputs go when the execution leaves that window, and for runs dropped from the log at recovery |
+| Chat history in PostgreSQL | One row per session | With `yukta.session-memory.ttl`, sessions idle longer than that are removed when another session saves |
+| Session configuration | All sessions | Not removed. The API has no call that deletes a session or a workflow |
+| Execution results, live logs | See [Configuration](/operations/configuration) | Memory only, bounded by their own settings |
+
+The PostgreSQL execution log queues up to 10,000 events for its writer and inserts them in batches of 100. If the queue is full, events are dropped and an error is logged.
+
+## Limits and defaults
+
+| Item | Value |
+|---|---|
+| Workflow versions kept | 20 per workflow |
+| Execution log retained runs | `500` |
+| Execution log compaction | After `10000` events |
+| PostgreSQL log queue and batch | 10,000 events and 100 per insert |
+| Statement time limit | 30 s for the log and checkpoints, 10 s for history and the lease |
+| Checkpoint memory caps | `200` messages and 4 MiB per node |
+
+## Related
+
+- [Checkpoints and resume](/operations/checkpoints-and-resume)
+- [High availability](/operations/high-availability)
+- [Configuration](/operations/configuration)
+- [Deployment](/operations/deployment)

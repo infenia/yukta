@@ -1,0 +1,135 @@
+---
+title: "Limits and defaults"
+description: "Every ceiling and default value in one place, with the setting that changes it and the page that explains it."
+---
+
+This page collects the numbers that bound a Yukta server: fixed ceilings, default values and the setting that changes each one. "Fixed" means no setting changes it. "Off" means the feature is disabled until you set it.
+
+<Note>
+  Yukta is pre-beta (`0.0.1-SNAPSHOT`). Defaults and limits may change before v0.1.0.
+</Note>
+
+## Workflow graph
+
+| Limit | Value | Changed by | Explained in |
+|---|---|---|---|
+| Nodes per workflow | 500 | Fixed | [Validation and versions](/building/validation-and-versions) |
+| Edges per workflow | 2000 | Fixed | [Validation and versions](/building/validation-and-versions) |
+| Sub-workflow nesting depth | 5 | Fixed | [Sub-workflows](/concepts/sub-workflows) |
+| Saved versions per workflow | 20 | Fixed | [Validation and versions](/building/validation-and-versions) |
+| Retry attempts per message | 1 to 10, default 3 once `retry` is set | `engine.retry.maxAttempts` | [Failure handling](/concepts/failure-handling) |
+| Retry delay | 200 ms first, doubling, capped at 10000 ms | `engine.retry.backoffMs`, `maxBackoffMs` | [Failure handling](/concepts/failure-handling) |
+| Edge buffer size | 1 to 100000 | `engine.edgeBuffer.size` | [Per-node engine options](/operations/configuration#per-node-engine-options) |
+| Join rule | `ALL_SUCCESS` | `engine.trigger` | [Failure handling](/concepts/failure-handling) |
+| Error handling | `FAIL` | `engine.onError` | [Failure handling](/concepts/failure-handling) |
+| Pool of a placed node | `default` | `engine.placement.pool` | [Remote workers](/operations/remote-workers) |
+
+## Admission
+
+| Limit | Default | Changed by | Explained in |
+|---|---|---|---|
+| Concurrent executions, total | Off | `yukta.execution.max-concurrent` | [Admission and limits](/running/admission-and-limits) |
+| Concurrent executions per workflow | Off | `yukta.execution.max-concurrent-per-workflow` | [Admission and limits](/running/admission-and-limits) |
+| Concurrent executions per session | Off | `yukta.execution.max-concurrent-per-session` | [Admission and limits](/running/admission-and-limits) |
+| Behaviour at the limit | `QUEUE` | `yukta.execution.on-limit` | [Admission and limits](/running/admission-and-limits) |
+| Waiting starts | 100 | `yukta.execution.queue-capacity` | [Admission and limits](/running/admission-and-limits) |
+| Waiting starts per workflow | Off | `yukta.execution.queue-capacity-per-workflow` | [Admission and limits](/running/admission-and-limits) |
+| Priority | `0` | `yukta.priority` in the start payload | [Admission and limits](/running/admission-and-limits) |
+| Idempotency window | 10 minutes | `yukta.start.idempotency-ttl` | [Admission and limits](/running/admission-and-limits) |
+| Idempotency keys kept | 100,000 | `yukta.start.idempotency-max-keys` | [Admission and limits](/running/admission-and-limits) |
+| Supervisor command rate | 20 per second | `yukta.supervisor.max-commands-per-second` | [Supervisors](/running/supervisors) |
+| Supervisor event buffer | 256 events, then events are dropped | Fixed | [Supervisors](/running/supervisors) |
+
+## Time
+
+| Limit | Default | Changed by | Explained in |
+|---|---|---|---|
+| Queue wait | Off | `yukta.execution.queue-timeout` | [Time limits](/concepts/time-limits) |
+| Run deadline | 3600 s | `yukta.session.execution-timeout-seconds` | [Time limits](/concepts/time-limits) |
+| Node idle timeout | The plugin's default, 30 s for many | `timeoutSeconds` on the node | [Time limits](/concepts/time-limits) |
+| Element timeout | None | `engine.elementTimeoutMs` | [Time limits](/concepts/time-limits) |
+| Node deadline | None | `engine.deadlineMs` | [Time limits](/concepts/time-limits) |
+| `WAIT_FOR_SIGNAL` wait | 3600 s | `timeoutSeconds` on the node | [Approvals and signals](/building/approvals-and-signals) |
+| Signal sent before its node waits | Kept 10 minutes, at most 100 | Fixed | [Approvals and signals](/building/approvals-and-signals) |
+| Server stop grace | 30 s | `yukta.execution.shutdown-timeout` | [Deployment](/operations/deployment) |
+| `DRAIN` stop | 30 s | `yukta.stop.drain-timeout` | [Run controls](/running/run-controls) |
+| Script run time | 10 s | `yukta.script.timeout-ms` | [Security](/operations/security) |
+| Script statements | 50,000,000 | `yukta.script.max-statements` | [Security](/operations/security) |
+
+## History, streams and results
+
+| Limit | Default | Changed by | Explained in |
+|---|---|---|---|
+| Ended execution state kept | 10 minutes | `yukta.tracker.cleanup-ttl` | [Configuration](/operations/configuration#streams-and-history) |
+| Sessions held in memory | No limit | `yukta.tracker.max-sessions` | [Configuration](/operations/configuration#streams-and-history) |
+| Progress snapshots per execution | 200 | `yukta.streaming.status-history-max-per-run` | [Observability](/running/observability) |
+| Executions with progress history | 1000 | `yukta.streaming.status-history-max-executions` | [Observability](/running/observability) |
+| Progress history lifetime | 5 minutes | `yukta.streaming.status-history-ttl-minutes` | [Observability](/running/observability) |
+| Result events replayed per execution | 1000 | `yukta.results.retained-events` | [Observability](/running/observability) |
+| Result retention after last use | 1 hour | `yukta.results.retention` | [Observability](/running/observability) |
+| Executions with results | 200 | `yukta.results.max-executions` | [Observability](/running/observability) |
+| Log retention | 30 minutes, clamped to 1 minute to 24 hours | `yukta.logs.store.retention.default-period-minutes` | [Observability](/running/observability) |
+| Pending log lines | 10,000, then dropped | Fixed | [Capacity and performance](/operations/capacity-and-performance) |
+| Echoed node output in logs | 2,048 characters | Fixed | [Troubleshooting](/operations/troubleshooting#log-lines-are-missing) |
+| Live log buffer per stream | 1024 lines | Fixed | [Streams](/api/streams) |
+| Stream keep-alive | Every 15 s | Fixed | [Streams](/api/streams) |
+| List page size | Default 500, maximum 1000 | `limit` query parameter | [REST API overview](/api/overview) |
+| Audit list size | Default 100, 1 to 500 | `limit` query parameter | [Security](/operations/security#audit-actor-naming) |
+
+## Durability
+
+| Limit | Default | Changed by | Explained in |
+|---|---|---|---|
+| Runs kept in the execution log | 500 | `yukta.execution-log.retained-runs` | [Persistence](/operations/persistence#retention-and-trimming) |
+| Log compaction | After 10,000 events | `yukta.execution-log.compact-after` | [Persistence](/operations/persistence#retention-and-trimming) |
+| Log `fsync` | Off | `yukta.execution-log.fsync` | [Persistence](/operations/persistence) |
+| Log writer queue | 10,000 events | Fixed | [Persistence](/operations/persistence#retention-and-trimming) |
+| Executions kept restartable | 10 | `yukta.restart.retained-executions` | [Checkpoints and resume](/operations/checkpoints-and-resume) |
+| Checkpoint messages per node (memory) | 200 | `yukta.restart.messages-per-node` | [Checkpoints and resume](/operations/checkpoints-and-resume) |
+| Checkpoint bytes per node (memory) | 4 MiB (4194304) | `yukta.restart.bytes-per-node` | [Checkpoints and resume](/operations/checkpoints-and-resume) |
+| Checkpoint spill directory | Off | `yukta.restart.spill-dir` | [Checkpoints and resume](/operations/checkpoints-and-resume) |
+| Auto-resume | Off | `yukta.restart.auto-resume` | [Checkpoints and resume](/operations/checkpoints-and-resume) |
+| Resumes per run | 1 | Fixed | [Checkpoints and resume](/operations/checkpoints-and-resume) |
+| `KV_STORE` entries | 10,000 | `maxEntries` on the node | [Plugins](/plugins/overview) |
+| Prepared workflow cache | 10 minutes unused | `workflow.cache.ttl.ms` | [Configuration](/operations/configuration#stores) |
+| PostgreSQL statement time limit | 30 s for the log and checkpoints, 10 s for history and the lease | Fixed | [Persistence](/operations/persistence) |
+
+## Request size and API
+
+| Limit | Default | Changed by | Explained in |
+|---|---|---|---|
+| Request body | 1 MiB | `spring.codec.max-in-memory-size` (`YUKTA_LIMITS_MAX_BODY`) | [Security](/operations/security#request-size-limit) |
+| MCP body for limited keys | 1 MiB | Fixed | [Security](/operations/security#mcp) |
+| Listening address | `127.0.0.1` | `server.address` (`YUKTA_SERVER_ADDRESS`) | [Security](/operations/security#exposing-the-server) |
+| Port | 8080 | `server.port` | [Deployment](/operations/deployment) |
+
+## AI and plugin safety
+
+| Limit | Default | Changed by | Explained in |
+|---|---|---|---|
+| Allowed process commands | None, nothing runs | `yukta.process.allowed-commands` | [Security](/operations/security#process-execution) |
+| Allow any command | Off | `yukta.process.allow-any` | [Security](/operations/security#process-execution) |
+| MCP tool allow-list | Any tool | `yukta.mcp-client.allowed-tools` | [Security](/operations/security#llm-and-mcp-call-filters) |
+| MCP tool argument size | 65536 bytes | `yukta.mcp-client.max-argument-bytes` | [Security](/operations/security#llm-and-mcp-call-filters) |
+| Prompt size | No limit | `yukta.llm.max-input-chars` | [Security](/operations/security#llm-and-mcp-call-filters) |
+| Prompt and answer filters | None | `yukta.llm.deny-input-patterns`, `deny-output-patterns` | [Security](/operations/security#llm-and-mcp-call-filters) |
+| Model request rate | Off | `yukta.llm.rate-limit.<provider>` | [AI and agents](/building/ai-and-agents) |
+
+## Workers and high availability
+
+| Limit | Default | Changed by | Explained in |
+|---|---|---|---|
+| Worker lease | 15 s | `yukta.workers.lease` | [Remote workers](/operations/remote-workers) |
+| Worker capacity | 4 attempts | `yukta.workers.capacity` | [Remote workers](/operations/remote-workers) |
+| Worker pools | `default` | `yukta.workers.pools` | [Remote workers](/operations/remote-workers) |
+| Worker plugin types | None, runs nothing | `yukta.workers.plugin-types` | [Remote workers](/operations/remote-workers) |
+| Worker drain timeout | 30 s | `yukta.workers.drain-timeout` | [Remote workers](/operations/remote-workers) |
+| Worker reconnect pause | 1 s growing to 30 s | Fixed | [Remote workers](/operations/remote-workers) |
+| Leader lease | 15 s, renewed every 5 s | `yukta.ha.lease` | [High availability](/operations/high-availability) |
+
+## Related
+
+- [Configuration](/operations/configuration)
+- [Capacity and performance](/operations/capacity-and-performance)
+- [Time limits](/concepts/time-limits)
+- [Status values](/reference/status-values)

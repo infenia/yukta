@@ -1,0 +1,129 @@
+---
+title: "Routing and branching"
+description: "Patterns for sending messages down different paths: by exit code, HTTP status, expression, validation result, recipient list and error."
+---
+
+Routing is how a workflow makes decisions. A node publishes each message on a named **output port**, and edges listen to ports. This page shows the common patterns. The full option list for each node is in the [plugin reference](/plugins/routing-and-flow).
+
+<Tip>
+  An edge with no `sourcePort` receives everything except messages on the `error` port. An edge with a `sourcePort` receives only that port. A message on a port with no listening edge is dropped, so wire every port you care about.
+</Tip>
+
+## Route on an exit code
+
+The process plugin can send a message to `success` or `failure` depending on the command's exit code. Set `failureMode` to `CONTINUE` so a non-zero exit is routed instead of failing the node.
+
+```json
+{
+  "nodeId": "tests",
+  "type": "PROCESS_EXECUTOR",
+  "config": {
+    "command": ["run-tests"],
+    "timeout": 120,
+    "failureMode": "CONTINUE",
+    "routeByExitCode": true
+  }
+}
+```
+
+```json
+{ "source": "tests", "target": "report-pass", "sourcePort": "success" },
+{ "source": "tests", "target": "report-fail", "sourcePort": "failure" }
+```
+
+## Route on an HTTP status
+
+The HTTP plugin does the same for the response status with `routeByStatus`:
+
+```json
+{
+  "nodeId": "probe",
+  "type": "HTTP_REQUEST",
+  "config": {
+    "url": "https://service.example.com/health",
+    "method": "GET",
+    "timeout": 5,
+    "failureMode": "CONTINUE",
+    "routeByStatus": true
+  }
+}
+```
+
+A successful response goes to `success`; an error status goes to `failure`.
+
+## Branch on an expression
+
+The `BRANCH` plugin evaluates cases against the message and sends it to the port named by the first matching case.
+
+```json
+{
+  "nodeId": "decide",
+  "type": "BRANCH",
+  "config": {
+    "mode": "EXPRESSION",
+    "cases": {
+      "payload.coverage >= 80 && payload.lintErrors == 0": "pass",
+      "payload.coverage < 80 || payload.lintErrors > 0": "fail"
+    },
+    "allowMultipleMatches": false,
+    "strictMode": true
+  }
+}
+```
+
+```json
+{ "source": "decide", "target": "report-pass", "sourcePort": "pass" },
+{ "source": "decide", "target": "report-fail", "sourcePort": "fail" }
+```
+
+The port names come from the case values. There is also an exact-match mode for comparing one value against fixed cases.
+
+## Filter
+
+`FILTER` passes only the messages that match a condition and drops the rest:
+
+```json
+{ "nodeId": "keep-active", "type": "FILTER", "config": { "condition": "payload.active == true" } }
+```
+
+## Validate and reject
+
+`VALIDATE` checks required fields and types. Messages that pass continue; messages that fail go to the `invalid` port, where you can send them to a report or a dead-letter node.
+
+## Fan out to several recipients
+
+`RECIPIENT_LIST` sends one message to several recipients, optionally in parallel. Each recipient is a port:
+
+```json
+{
+  "nodeId": "fan-out",
+  "type": "RECIPIENT_LIST",
+  "config": { "mode": "STATIC", "recipients": ["slack", "email", "pager"], "parallel": true }
+}
+```
+
+```json
+{ "source": "fan-out", "target": "slack", "sourcePort": "slack" },
+{ "source": "fan-out", "target": "email", "sourcePort": "email" },
+{ "source": "fan-out", "target": "pager", "sourcePort": "pager" }
+```
+
+To send the **same** message to several nodes without choosing, give the node several outgoing edges without ports; every child receives every message.
+
+## Route failures
+
+With `onError: ROUTE` in a node's `engine` object, a message that fails all its attempts leaves on the `error` port with its failure details. See [Failure handling](/concepts/failure-handling).
+
+```json
+{ "source": "classify", "target": "dead-letter", "sourcePort": "error" }
+```
+
+## Rejoin branches
+
+Several branches can lead into one node, often a shared terminal. When that node has several parents, its join rule decides what a failed branch means; see [Nodes, edges and ports](/concepts/nodes-edges-ports).
+
+## Related
+
+- [Nodes, edges and ports](/concepts/nodes-edges-ports)
+- [Routing and flow control](/plugins/routing-and-flow)
+- [Variables and expressions](/building/variables-and-expressions)

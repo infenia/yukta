@@ -1,0 +1,182 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "theme": "maple",
+  "name": "Yukta",
+  "description": "A reactive, DAG-based workflow orchestration server. Define a workflow once as JSON; run it from REST, a web UI, a CLI or an AI agent.",
+  "colors": {
+    "primary": "#2F6BFF",
+    "light": "#6FA2FF",
+    "dark": "#2F6BFF"
+  },
+  "appearance": {
+    "default": "system"
+  },
+  "background": {
+    "color": {
+      "light": "#FBFCFE",
+      "dark": "#0A0D14"
+    }
+  },
+  "fonts": {
+    "heading": {
+      "family": "Inter",
+      "weight": 600
+    },
+    "body": {
+      "family": "Inter",
+      "weight": 400
+    }
+  },
+  "styling": {
+    "codeblocks": "system"
+  },
+  "favicon": "/favicon.svg",
+  "logo": {
+    "light": "/images/logo.svg",
+    "dark": "/images/logo.svg",
+    "href": "/"
+  },
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get started",
+            "pages": [
+              "index",
+              "quickstart",
+              "examples"
+            ]
+          },
+          {
+            "group": "Concepts",
+            "pages": [
+              "concepts/how-it-works",
+              "concepts/sessions-and-workflows",
+              "concepts/nodes-edges-ports",
+              "concepts/messages",
+              "concepts/executions",
+              "concepts/delivery-and-backpressure",
+              "concepts/failure-handling",
+              "concepts/time-limits",
+              "concepts/sub-workflows"
+            ]
+          },
+          {
+            "group": "Building workflows",
+            "pages": [
+              "building/defining-a-workflow",
+              "building/validation-and-versions",
+              "building/variables-and-expressions",
+              "building/routing-and-branching",
+              "building/loops-and-retries",
+              "building/approvals-and-signals",
+              "building/scheduling",
+              "building/ai-and-agents"
+            ]
+          },
+          {
+            "group": "Plugin reference",
+            "pages": [
+              "plugins/overview",
+              "plugins/triggers",
+              "plugins/routing-and-flow",
+              "plugins/transform",
+              "plugins/external-io",
+              "plugins/ai",
+              "plugins/decisions",
+              "plugins/terminals",
+              "plugins/writing-a-plugin"
+            ]
+          },
+          {
+            "group": "Running and controlling",
+            "pages": [
+              "running/run-controls",
+              "running/admission-and-limits",
+              "running/observability",
+              "running/supervisors",
+              "running/control-planes",
+              "running/rule-files"
+            ]
+          },
+          {
+            "group": "Interfaces",
+            "pages": [
+              "interfaces/web-ui",
+              "interfaces/mcp",
+              "interfaces/cli"
+            ]
+          },
+          {
+            "group": "Operations",
+            "pages": [
+              "operations/configuration",
+              "operations/security",
+              "operations/persistence",
+              "operations/checkpoints-and-resume",
+              "operations/high-availability",
+              "operations/remote-workers",
+              "operations/deployment",
+              "operations/capacity-and-performance",
+              "operations/troubleshooting"
+            ]
+          },
+          {
+            "group": "Reference",
+            "pages": [
+              "reference/glossary",
+              "reference/limits-and-defaults",
+              "reference/status-values"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API guides",
+        "groups": [
+          {
+            "group": "API basics",
+            "pages": [
+              "api/overview",
+              "api/errors"
+            ]
+          },
+          {
+            "group": "Endpoints",
+            "pages": [
+              "api/sessions",
+              "api/workflows",
+              "api/executions",
+              "api/control",
+              "api/streams",
+              "api/catalogue"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Endpoint reference",
+        "openapi": "api/openapi.json"
+      }
+    ]
+  },
+  "navbar": {
+    "links": [
+      {
+        "label": "Examples",
+        "href": "https://github.com/infenia/yukta/tree/main/examples"
+      }
+    ],
+    "primary": {
+      "type": "github",
+      "href": "https://github.com/infenia/yukta"
+    }
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/infenia/yukta"
+    }
+  }
+}

@@ -1,0 +1,288 @@
+---
+title: "Sessions API"
+description: "Apply, validate, list and read sessions and their configuration over REST."
+---
+
+A session groups workflows, executions and configuration. These endpoints create or replace a session, check a draft workflow, and read sessions back. The calls that read or change one workflow inside a session are on the [Workflows](/api/workflows) page.
+
+Every response uses the [envelope](/api/overview#response-envelope). There is no endpoint that deletes a session.
+
+| Method and path | Purpose | Role |
+|---|---|---|
+| `POST /api/sessions` | Create or replace a session and its workflows | `ADMIN` |
+| `POST /api/sessions/validate` | Check a draft workflow without saving it | `ADMIN` |
+| `GET /api/sessions` | List session ids | `VIEWER` |
+| `GET /api/sessions/summaries` | List sessions as table rows | `VIEWER` |
+| `GET /api/sessions/{sessionId}` | Read session details | `VIEWER` |
+| `GET /api/sessions/{sessionId}/config` | Read the full configuration | `VIEWER` |
+| `GET /api/sessions/{sessionId}/workflows` | List workflows with run status | `VIEWER` |
+
+## Apply a session
+
+`POST /api/sessions`
+
+Creates a session, or replaces an existing one with the same `sessionId`. The call validates and prepares every workflow it contains. Workflows that the session had before and the request leaves out are removed, so always send the complete configuration. To edit a session, read it with `GET /api/sessions/{sessionId}/config`, change it and send it back.
+
+Because workflows can run processes, scripts and SQL, applying a session needs the `ADMIN` role.
+
+**Request body**
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `sessionId` | string | yes | Up to 256 characters. Must not contain `/`, `\` or `..` |
+| `name` | string | yes | Up to 256 characters |
+| `description` | string | yes | Up to 256 characters |
+| `initiator` | string | yes | The person or system that applies the session |
+| `projectPath` | string | yes | Absolute path on the server, up to 1024 characters |
+| `tags` | object | no | String keys with string values. Empty when omitted |
+| `workflows` | object | yes | At least one entry. Keys are workflow ids; values are workflow definitions |
+
+**Workflow definition**
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `workflowId` | string | yes | Use the same value as the key in `workflows` |
+| `description` | string | yes | Up to 256 characters |
+| `nodes` | array | yes | At least one node |
+| `nodes[].nodeId` | string | yes | Unique within the workflow |
+| `nodes[].type` | string | yes | A plugin type, see [Catalogue](/api/catalogue) |
+| `nodes[].config` | object | no | The plugin's options and the optional `engine` policy |
+| `edges` | array | yes | May be empty |
+| `edges[].source` | string | yes | Source node id |
+| `edges[].target` | string | yes | Target node id |
+| `edges[].sourcePort` | string | no | Output port. An edge without one is stored with the port `default` |
+
+**Response** `200`: no `data`; the message is `Configuration applied successfully`.
+
+**Errors**: `400` for invalid fields or a workflow that fails validation, `403` for a role below `ADMIN`.
+
+```http
+POST /api/sessions
+Content-Type: application/json
+```
+
+```json
+{
+  "sessionId": "demo",
+  "name": "Demo",
+  "description": "Greet a user",
+  "initiator": "docs",
+  "projectPath": "/tmp",
+  "tags": { "team": "platform" },
+  "workflows": {
+    "greet": {
+      "workflowId": "greet",
+      "description": "Build a greeting",
+      "nodes": [
+        { "nodeId": "trigger", "type": "API_TRIGGER", "config": {} },
+        {
+          "nodeId": "map",
+          "type": "MAPPER",
+          "config": { "mode": "PROJECTION", "mapping": { "greeting": "'Hello, ' + payload.name" } }
+        },
+        { "nodeId": "end", "type": "CONSOLE_TERMINAL", "config": {} }
+      ],
+      "edges": [
+        { "source": "trigger", "target": "map" },
+        { "source": "map", "target": "end" }
+      ]
+    }
+  }
+}
+```
+
+```json
+{
+  "timestamp": "2026-07-19T10:15:30.123456",
+  "status": 200,
+  "message": "Configuration applied successfully"
+}
+```
+
+## Validate a draft workflow
+
+`POST /api/sessions/validate`
+
+Checks one workflow with the same rules that run before execution, and saves nothing. Editors use it to give feedback before a save. A draft that fails is still a `200` response, with `valid` set to `false`, so you can tell a rejected draft from a failed request. The result also lists each node's output ports for its current configuration, which tells an editor which `sourcePort` values are valid.
+
+**Request body**: one workflow definition, the same shape as an entry of `workflows` above.
+
+**Response `data`**
+
+| Field | Type | Meaning |
+|---|---|---|
+| `valid` | boolean | Whether the workflow would be accepted |
+| `message` | string | The first problem found. Absent when valid |
+| `outputPorts` | object | Node id to the list of output port names. Only nodes whose plugin type is known appear |
+
+**Errors**: `400` when the body itself is malformed, `403` for a role below `ADMIN`.
+
+```http
+POST /api/sessions/validate
+Content-Type: application/json
+```
+
+```json
+{
+  "workflowId": "check",
+  "description": "A draft with no terminal",
+  "nodes": [{ "nodeId": "trigger", "type": "API_TRIGGER", "config": {} }],
+  "edges": []
+}
+```
+
+```json
+{
+  "timestamp": "2026-07-19T10:15:30.123456",
+  "status": 200,
+  "message": "Workflow validated",
+  "data": {
+    "valid": false,
+    "message": "Workflow must contain at least one TERMINAL node",
+    "outputPorts": { "trigger": ["default"] }
+  }
+}
+```
+
+## List sessions
+
+`GET /api/sessions`
+
+Returns session ids in alphabetical order.
+
+| Query parameter | Meaning |
+|---|---|
+| `limit` | Items per page, 1 to 1000. Default 500 |
+| `cursor` | The last session id of the previous page |
+
+**Response `data`**: an array of session ids. When more remain, the `X-Next-Cursor` header holds the cursor for the next page.
+
+```http
+GET /api/sessions?limit=2
+```
+
+```json
+{
+  "timestamp": "2026-07-19T10:15:30.123456",
+  "status": 200,
+  "message": "Sessions retrieved successfully",
+  "data": ["build", "demo"]
+}
+```
+
+## List session summaries
+
+`GET /api/sessions/summaries`
+
+Returns one lean row per session, ordered by session id, for tables. Only the sessions on the requested page are read. A session that cannot be read is skipped. It takes the same `limit` and `cursor` parameters and the same `X-Next-Cursor` header as the list above.
+
+**Response `data`**: an array of rows.
+
+| Field | Type | Meaning |
+|---|---|---|
+| `sessionId` | string | The session id |
+| `name` | string | The session name |
+| `description` | string | The session description |
+| `initiator` | string | Who applied it |
+| `tags` | array of strings | The tag keys |
+| `projectPath` | string | The project path |
+| `workflowCount` | integer | Number of workflows |
+
+```json
+{
+  "timestamp": "2026-07-19T10:15:30.123456",
+  "status": 200,
+  "message": "Session summaries retrieved",
+  "data": [
+    {
+      "sessionId": "demo",
+      "name": "Demo",
+      "description": "Greet a user",
+      "initiator": "docs",
+      "tags": ["team"],
+      "projectPath": "/tmp",
+      "workflowCount": 1
+    }
+  ]
+}
+```
+
+## Get session details
+
+`GET /api/sessions/{sessionId}`
+
+Returns the session's metadata and the ids of its workflows.
+
+| Path parameter | Meaning |
+|---|---|
+| `sessionId` | The session id |
+
+**Response `data`**: the fields of a summary row, with `workflowIds` (an array of workflow ids) instead of `workflowCount`.
+
+**Errors**: `404` if the session does not exist.
+
+```http
+GET /api/sessions/demo
+```
+
+```json
+{
+  "timestamp": "2026-07-19T10:15:30.123456",
+  "status": 200,
+  "message": "Session details retrieved",
+  "data": {
+    "sessionId": "demo",
+    "name": "Demo",
+    "description": "Greet a user",
+    "initiator": "docs",
+    "tags": ["team"],
+    "projectPath": "/tmp",
+    "workflowIds": ["greet"]
+  }
+}
+```
+
+## Get the full configuration
+
+`GET /api/sessions/{sessionId}/config`
+
+Returns the complete configuration in the shape that `POST /api/sessions` accepts: the metadata, the tags with their values, and every workflow definition. Read it, change it and send it back to edit a session. The web UI's editor works this way.
+
+**Response `data`**: the fields of the apply request (`sessionId`, `name`, `description`, `initiator`, `tags`, `projectPath`, `workflows`).
+
+**Errors**: `404` if the session does not exist.
+
+## List a session's workflows
+
+`GET /api/sessions/{sessionId}/workflows`
+
+Returns one summary per workflow with its size and the status of its latest run.
+
+**Response `data`**
+
+| Field | Type | Meaning |
+|---|---|---|
+| `workflowId` | string | The workflow id |
+| `description` | string | The workflow description |
+| `nodeCount` | integer | Number of nodes |
+| `edgeCount` | integer | Number of edges |
+| `status` | string | Status of the latest run. Absent when the workflow has never run. See [Status values](/reference/status-values) |
+
+**Errors**: `404` if the session does not exist.
+
+```json
+{
+  "timestamp": "2026-07-19T10:15:30.123456",
+  "status": 200,
+  "message": "Workflow summaries retrieved",
+  "data": [
+    { "workflowId": "greet", "description": "Build a greeting", "nodeCount": 3, "edgeCount": 2, "status": "SUCCESS" }
+  ]
+}
+```
+
+## Related
+
+- [Workflows API](/api/workflows)
+- [Defining a workflow](/building/defining-a-workflow)
+- [Validation and versions](/building/validation-and-versions)

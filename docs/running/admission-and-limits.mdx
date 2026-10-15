@@ -1,0 +1,91 @@
+---
+title: "Admission and limits"
+description: "Concurrency caps, queueing or refusing excess starts, priority, fairness between sessions, idempotent starts and live limit changes."
+---
+
+The **scheduler** decides whether, when and in what order an execution may begin. It grants a slot to each execution, or queues or refuses the start. The execution id is handed out only after a slot is granted, so two requests racing for the last slot can never both succeed.
+
+## Limits
+
+All limits are off by default.
+
+| Setting | Default | Meaning |
+|---|---|---|
+| `yukta.execution.max-concurrent` | `0` (off) | Total concurrent executions |
+| `yukta.execution.max-concurrent-per-workflow` | `0` (off) | Concurrent executions of one workflow |
+| `yukta.execution.max-concurrent-per-session` | `0` (off) | Concurrent executions of one session |
+| `yukta.execution.on-limit` | `QUEUE` | `QUEUE` waits for a slot. `REJECT` refuses with `429` |
+| `yukta.execution.queue-capacity` | `100` | Waiting starts. Beyond it, `429` |
+| `yukta.execution.queue-capacity-per-workflow` | `0` (off) | Waiting starts of one workflow |
+| `yukta.execution.queue-timeout` | `0` (off) | A start that waits longer ends `TIMED_OUT` |
+| `yukta.execution.shutdown-timeout` | `30s` | Time running executions get on shutdown |
+
+A start that does not fit waits with status `QUEUED`, or is refused with HTTP `429`, depending on `on-limit`.
+
+## Queue order
+
+When a slot frees up, the next start is chosen by:
+
+1. **Priority**: the start payload key `yukta.priority` (a number, higher first, default `0`).
+2. **Fairness**: the session with the fewest running executions goes first, oldest first on a tie. One busy session cannot starve others.
+3. **Arrival order.**
+
+```json
+{ "sessionId": "ops", "workflowId": "nightly", "payload": { "yukta.priority": 10 } }
+```
+
+## Restarts and resumes
+
+Restarting a finished execution, restarting from a node and resuming take their slot the same way as a new start, before the new id is reported. Restarting an execution that is still running keeps the old behaviour: the old execution holds its slot until it ends. Child executions of [sub-workflows](/concepts/sub-workflows) run on their parent's slot.
+
+## Idempotent start
+
+A client that retries a start after a network failure gets the first execution back instead of starting a second one. Send an `Idempotency-Key` header:
+
+```http
+POST /api/workflow/start
+Idempotency-Key: 7f3c2b9e-order-4411
+```
+
+| Behaviour | Detail |
+|---|---|
+| Repeat within the window | Returns the first execution id for the same key, session and workflow |
+| Failed start | Not remembered, so a retry runs normally |
+| Window | `yukta.start.idempotency-ttl`, `10m` by default |
+| Cache size | `yukta.start.idempotency-max-keys`, `100000` by default. A key evicted before its window lets a repeat start again |
+| After a restart | With the file execution log or PostgreSQL the keys are reloaded and the window restarts at the reload |
+
+## Change limits while running
+
+Operators can change the limits and a queued execution's priority without a restart:
+
+```http
+POST /api/scheduler/limits
+POST /api/executions/{executionId}/priority
+```
+
+- Changing limits needs role `ADMIN`. The new limits are recorded in the execution log, and on startup the newest recorded change is reapplied, so the log wins over configuration from then on.
+- Changing a priority needs role `OPERATOR` and works only while the execution is `QUEUED`.
+- Both pass the reviewers and are audited with the actor.
+
+## What you see
+
+| Where | What |
+|---|---|
+| Status | `QUEUED` while waiting |
+| Gauges | `yukta.executions.running`, `yukta.executions.queued` |
+| Refusal counter | `yukta.executions.rejected` with a `reason` tag: `shutdown`, `limit`, `queue_full`, `workflow_queue_full`, `queue_timeout`, `not_leader` |
+
+## Shutdown
+
+On shutdown nothing new is admitted, queued starts are refused, and running executions get `yukta.execution.shutdown-timeout` to finish.
+
+## Limits and defaults
+
+One scheduler lives in one server process. Queue positions and slots are lost if the server crashes; the start was logged first, so the execution is marked `ABORTED` on boot and can be recovered. A standby server in a high-availability pair refuses every start with `503`; see [High availability](/operations/high-availability).
+
+## Related
+
+- [Executions](/concepts/executions)
+- [Capacity and performance](/operations/capacity-and-performance)
+- [Configuration](/operations/configuration)

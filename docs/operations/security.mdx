@@ -1,0 +1,270 @@
+---
+title: "Security"
+description: "Expose the server safely, control who can do what, and limit what workflows may run."
+---
+
+A fresh Yukta server is reachable only from the machine it runs on. This page covers how to open it to a network, how API keys and roles work, and the settings that bound what a workflow may do.
+
+<Note>
+  Yukta is pre-beta (`0.0.1-SNAPSHOT`). Setting names and access rules may change before v0.1.0.
+</Note>
+
+## Default posture
+
+- The server listens on `127.0.0.1` and takes no key. Only processes on the same machine can reach it.
+- With no key set, a host and origin check protects the local server from other web pages (see [Host and Origin protection](#host-and-origin-protection)).
+- `PROCESS_EXECUTOR` runs nothing until you allow commands.
+- Workflows can read only a short list of environment variables.
+
+## Exposing the server
+
+To listen on another address, set both of these:
+
+| Setting | Value |
+|---|---|
+| `YUKTA_SERVER_ADDRESS` (`server.address`) | The address to bind, for example `0.0.0.0` |
+| `yukta.api-key` (`YUKTA_API_KEY`) or `yukta.api-keys` | At least one key |
+
+The server refuses to start on a non-loopback address with no key. The container image binds `0.0.0.0`, so it needs `-e YUKTA_API_KEY=<key>` even when you publish the port on loopback only.
+
+Yukta serves plain HTTP. Put a reverse proxy that terminates TLS in front of it when clients are not on the same host, because keys travel in request headers. See [Deployment](/operations/deployment).
+
+<Warning>
+  Setting only `yukta.mcp.api-key` satisfies the start-up check but protects `/mcp` alone. The REST API stays open. Set `yukta.api-key` or `yukta.api-keys` whenever the server is reachable from a network.
+</Warning>
+
+## API keys
+
+A client sends the key on every request in one of two headers:
+
+```http
+Authorization: Bearer <key>
+```
+
+```http
+X-API-Key: <key>
+```
+
+The same keys guard REST (`/api/**`), the MCP endpoint (`/mcp`) and the management endpoints (`/actuator/**`, except `/actuator/health`).
+
+| Response | Meaning |
+|---|---|
+| `401` with `WWW-Authenticate: Bearer` | No key, or a key that does not match |
+| `403` | The key is valid but its role or sessions do not allow the request |
+| `400` | The path is ambiguous (it contains `;`, `//`, `..`, a backslash, or an encoded slash, dot or percent sign). Checked while a key is set |
+
+These refusals carry no JSON body. Handle them by status code.
+
+### One key
+
+`yukta.api-key` defines a single key with the `ADMIN` role.
+
+### Named keys
+
+For several people or agents, define a list. Each entry has a name, a key, a role and optional sessions.
+
+```properties
+yukta.api-keys[0].name=ci
+yukta.api-keys[0].key=sha256:e79b3879e5d133ee9c794ffa3bdbc6411d054cf5929542c7f844b45801907a58
+yukta.api-keys[0].role=OPERATOR
+yukta.api-keys[0].sessions[0]=build
+yukta.api-keys[1].name=admin
+yukta.api-keys[1].key=change-me
+yukta.api-keys[1].role=ADMIN
+```
+
+| Field | Default | Meaning |
+|---|---|---|
+| `name` | `unnamed` | Name used in the audit |
+| `key` | required | Plain text or `sha256:<64 hex digits>` |
+| `role` | `VIEWER` | `VIEWER`, `OPERATOR` or `ADMIN` |
+| `sessions` | all | Session ids the key may reach |
+
+### Hashed keys
+
+A key that starts with `sha256:` is the SHA-256 digest of the real key, in 64 hexadecimal digits. The server then never holds the plain key. Clients still send the plain key.
+
+```bash
+printf '%s' 'example-ci-key-123' | sha256sum
+```
+
+The first example entry above uses the digest of `example-ci-key-123`.
+
+Use long random keys. Keys are compared as digests in constant time.
+
+### Rotation
+
+Several keys can be valid at once. To rotate without downtime, add the new key as another entry, move clients to it, then remove the old entry.
+
+## Roles
+
+| Role | May do |
+|---|---|
+| `VIEWER` | Read: `GET`, `HEAD` and `OPTIONS` on any `/api` path, including definitions, logs, results and streams |
+| `OPERATOR` | Everything a viewer may, plus any method on paths under `/api/executions/` and `/api/workflow/`: start and stop workflows, pause, resume, restart, recover, retry, skip, set breakpoints, send signals and approvals, change a queued execution's priority |
+| `ADMIN` | Everything, including defining sessions and workflows, validating drafts, rolling back versions, changing scheduler limits (`POST /api/scheduler/limits`) and reading `/actuator/**` |
+
+Defining a workflow is an `ADMIN` action because a workflow can run commands, scripts and SQL. See [Workflow authorship](#workflow-authorship-is-a-trusted-operation).
+
+### MCP
+
+The MCP endpoint uses the same keys. Each tool call is checked against the key's role:
+
+| Role | MCP tools |
+|---|---|
+| `VIEWER` | `get_session_details`, `list_sessions`, `get_execution_logs`, `get_execution_result`, `list_pending_approvals`, `list_workflow_versions`, `diff_workflow_versions`, `get_workflow_details`, `get_workflow_status`, `get_workflow_history`, `list_plugins`, `get_plugin_details`, `get_control_bus_status`, `get_session_creation_instructions`, `get_plugin_creation_guide` |
+| `OPERATOR` | `start_workflow`, `control_workflow`, `control_node`, `set_node_breakpoint`, `signal_node`, `rollback_workflow`, `note_workflow_version` |
+| `ADMIN` | Every other tool, including those that define sessions and workflows |
+
+A key limited to sessions must pass a `sessionId` argument that it may reach. For any key that is not an unrestricted `ADMIN` key, a `POST` body that cannot be parsed is refused with `403` and one larger than 1 MiB with `413`.
+
+See [MCP](/interfaces/mcp).
+
+## Session-limited keys
+
+A key with `sessions` reaches only these `/api` paths, and only for its own sessions:
+
+- `/api/sessions/{session}/...`
+- `/api/workflow/{session}/...`
+- `/api/executions/{executionId}/...` when the execution belongs to one of its sessions
+
+Every other path is refused with `403`, including the global event stream, the worker list and the audit list. A session-limited key never reaches `/actuator/**`.
+
+## Host and Origin protection
+
+While no key of any kind is set, the server checks every request to protect a local server from other web pages and DNS rebinding:
+
+- The `Host` header must be `localhost`, `127.0.0.1`, `[::1]` or listed in `yukta.allowed-hosts`.
+- A changing request (any method except `GET`, `HEAD` and `OPTIONS`) that carries an `Origin` header must come from the same host as the request, or the origin must be listed in `yukta.allowed-origins`.
+
+A refused request gets `403` with no body. If you reach the server through a proxy under another host name and no key is set, list that name:
+
+```properties
+yukta.allowed-hosts=yukta.internal.example
+yukta.allowed-origins=https://yukta.internal.example
+```
+
+The check is off once any key is configured.
+
+## Audit actor naming
+
+Control commands (pause, stop, skip, signal, restart, limit and priority changes and others) are recorded in the execution log with who sent them:
+
+| Sender | Actor |
+|---|---|
+| A named key | `key:<name>` |
+| The key set with `yukta.api-key`, when named keys are also defined | `key:default` |
+| The key set with `yukta.mcp.api-key`, when named keys are also defined | `key:mcp` |
+| A supervisor | The supervisor's id |
+| The single key, with no named keys defined | No actor recorded |
+
+List recent commands, newest first, with `GET /api/control/audit`. The query parameters are `limit` (1 to 500, default 100) and `executionId`. Entries show the command, whether it was applied or refused, and the reason for a refusal.
+
+The audit covers control commands only. Ordinary reads and starts are not audited by key.
+
+## Process execution
+
+`PROCESS_EXECUTOR` refuses every command until you configure it.
+
+| Setting | Effect |
+|---|---|
+| `yukta.process.allowed-commands` | Comma-separated executables a workflow may run. Matched against the exact executable name in the command. When the list is set, shell mode (`useShell`) is refused |
+| `yukta.process.allow-any=true` | Run any executable. Takes effect only while the list is empty |
+
+```properties
+yukta.process.allowed-commands=git,npm,mvn
+```
+
+Use `allow-any` only when every workflow author is fully trusted.
+
+## Script limits
+
+JavaScript scripts run with a time limit and a statement limit. Both are system properties:
+
+| Property | Default |
+|---|---|
+| `yukta.script.timeout-ms` | `10000` |
+| `yukta.script.max-statements` | `50000000` |
+
+Scripts can reach only a short list of date, time and basic value types from the host. They have no memory limit.
+
+## Variables and secrets
+
+Placeholders such as `${env.NAME}` and `${sys.name}` in a node's configuration read the server's environment, but only from an allow-list:
+
+- Environment variables starting `YUKTA_VAR_`, and system properties starting `yukta.var.`.
+- A short list of harmless names: `HOME`, `USER`, `LANG`, `TZ`, `HOSTNAME`, `PWD`, `PATH`, and a few system properties such as `user.name` and `os.name`.
+- Names listed in `YUKTA_VARIABLES_ALLOWED` (environment) or `yukta.variables.allowed` (system property), separated by commas.
+
+Any name containing `PASSWORD`, `PASSWD`, `SECRET`, `TOKEN`, `CREDENTIAL`, `PRIVATE` or `KEY` stays blocked, even when listed. A blocked or unlisted name fails the message like a plugin error.
+
+Secrets are written `decrypted:name` in a node's configuration, so the value never appears in a stored workflow. The server reads the value from the environment variable `YUKTA_SECRET_` followed by the name in upper case, with every character other than letters and digits replaced by `_`. For example `decrypted:db.password` reads `YUKTA_SECRET_DB_PASSWORD`.
+
+See [Variables and expressions](/building/variables-and-expressions).
+
+## Request size limit
+
+The server reads request bodies up to `spring.codec.max-in-memory-size` (`YUKTA_LIMITS_MAX_BODY`), `1MB` by default. A larger body is answered with `413`. The limit covers start payloads, workflow definitions and MCP calls.
+
+## LLM and MCP call filters
+
+These settings apply to every `LLM_CALL` and `MCP_TOOL_CALL` node, whatever the node says, so a model cannot choose its way around them. A refused call fails as bad input and is not retried.
+
+| Setting | Effect |
+|---|---|
+| `yukta.llm.deny-input-patterns` | Regular expressions the prompt must not match |
+| `yukta.llm.deny-output-patterns` | Regular expressions the answer and its tool-call arguments must not match |
+| `yukta.llm.max-input-chars` | Most characters of prompt in a call. `0` means no limit |
+| `yukta.llm.rate-limit.<provider>` | Requests per minute to a provider |
+| `yukta.mcp-client.allowed-tools` | Tools a workflow may call. Empty allows any |
+| `yukta.mcp-client.max-argument-bytes` | Most bytes of arguments in a call, `65536` by default |
+| `yukta.mcp-client.deny-argument-patterns` | Regular expressions the arguments must not match |
+
+A pattern that contains a comma, such as `a{1,3}`, must be written as an indexed entry: `yukta.llm.deny-input-patterns[0]=...`.
+
+Per-run token, cost and call budgets are set in the node. See [AI and agents](/building/ai-and-agents).
+
+## TLS for workers
+
+Remote workers connect to the control plane over a persistent connection that is plain TCP unless you configure TLS. Use a shared token and mutual TLS on both sides:
+
+```properties
+# control plane
+yukta.workers.token=<long random token>
+spring.rsocket.server.ssl.bundle=server
+spring.rsocket.server.ssl.client-auth=need
+
+# worker
+yukta.workers.ssl-bundle=client
+```
+
+The worker checks the control plane's host name against its certificate. A worker also runs only the plugin types in its own `yukta.workers.plugin-types`, so a compromised control plane cannot make it run other types. See [Remote workers](/operations/remote-workers).
+
+## Workflow authorship is a trusted operation
+
+Anyone who can define or change a workflow decides what its nodes do. Nodes can run commands, scripts and SQL, call HTTP endpoints, read and write files inside a configured directory, and call models and tools. `HTTP_REQUEST` and `SQL_QUERY` connect to whatever address or database the workflow names; there is no allow-list setting for them.
+
+The settings above limit the largest risks, but they do not make an untrusted author safe. Give the `ADMIN` role, and with it the right to define workflows, only to people you would let run code on the server. Keep secrets out of workflow definitions: use `decrypted:name` references.
+
+Without any key, everyone who can reach the server has this right. That is why the default is loopback only.
+
+## Not covered by keys
+
+These parts of the server need no key:
+
+- `/actuator/health`
+- The interactive API documentation, `/swagger-ui.html` and `/v3/api-docs`
+- The web UI's static files and pages
+
+Restrict them at the proxy if the API description should not be public.
+
+## Reporting vulnerabilities
+
+Report a vulnerability privately to the maintainers. Use the repository's [security policy](https://github.com/infenia/yukta/security/policy). Do not open a public issue for it.
+
+## Related
+
+- [Configuration](/operations/configuration)
+- [Remote workers](/operations/remote-workers)
+- [Deployment](/operations/deployment)
+- [REST API overview](/api/overview)
