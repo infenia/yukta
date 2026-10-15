@@ -28,7 +28,9 @@ import reactor.core.publisher.Sinks;
  * review and audit as any other command. The waits are in memory.
  *
  * <p>A signal that arrives before its wait is kept for {@link #EARLY_TTL} (at most {@link
- * #EARLY_CAP} at a time) and answered {@link #QUEUED}; the wait that follows takes it at once.
+ * #EARLY_CAP} at a time) and answered {@link #QUEUED}; the wait that follows takes it at once. A
+ * signal that follows an accepted one on the same key within {@link #DUPLICATE_WINDOW} is taken for
+ * a double submit and answered {@link #NOT_WAITING}, so it cannot be kept for a later wait.
  */
 @SuppressWarnings("PMD.OnlyOneReturn")
 @SuppressFBWarnings(
@@ -48,6 +50,9 @@ public final class SignalWaits {
   /** How long a signal that came early is kept. */
   public static final Duration EARLY_TTL = Duration.ofMinutes(10);
 
+  /** How long after an accepted signal another one on the same key counts as a duplicate. */
+  public static final Duration DUPLICATE_WINDOW = Duration.ofSeconds(5);
+
   /** Most early signals kept at once; further ones are answered {@link #NOT_WAITING}. */
   public static final int EARLY_CAP = 100;
 
@@ -62,6 +67,9 @@ public final class SignalWaits {
 
   /** Signals that came before their wait, by the same key. */
   private final Map<String, Early> early = new ConcurrentHashMap<>();
+
+  /** When a signal was last accepted, by the same key. */
+  private final Map<String, Instant> accepted = new ConcurrentHashMap<>();
 
   /** Keeps the capacity check and the put of {@link #early} together. */
   private final ReentrantLock earlyLock = new ReentrantLock();
@@ -181,10 +189,20 @@ public final class SignalWaits {
     if (waiter != null) {
       waiter.sink().tryEmitValue(decision); // a fresh sink; only this call ever emits to it
       answer = ACCEPTED;
+      final Instant now = Instant.now(clock);
+      accepted.values().removeIf(t -> t.plus(DUPLICATE_WINDOW).isBefore(now));
+      accepted.put(key, now);
+    } else if (isDuplicate(key)) {
+      answer = NOT_WAITING;
     } else {
       answer = keepEarly(key, decision) ? QUEUED : NOT_WAITING;
     }
     return Mono.just(DefaultMessage.create(UUID.randomUUID(), answer));
+  }
+
+  private boolean isDuplicate(final String key) {
+    final Instant last = accepted.get(key);
+    return last != null && !last.plus(DUPLICATE_WINDOW).isBefore(Instant.now(clock));
   }
 
   private boolean keepEarly(final String key, final Decision decision) {

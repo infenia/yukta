@@ -106,7 +106,7 @@ class WaitForSignalProcessorTest {
         .expectNextCount(1)
         .verifyComplete();
 
-    assertThat(answer(signal("approve", null))).isEqualTo("QUEUED");
+    assertThat(answer(signal("approve", null))).isEqualTo("NOT_WAITING");
   }
 
   @Test
