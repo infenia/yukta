@@ -271,4 +271,52 @@ class ExecutionRecoveryTest {
     scheduler.acquire("s", "w");
     assertThat(scheduler.acquire("s", "w").refused()).isTrue();
   }
+
+  @Test
+  void recover_returnsTheIdsOfTheRunsItAborted() {
+    store.append(ExecutionLogEvent.started("crashed", "s1", "w1", "v1"));
+    finishedRun("done", "SUCCESS");
+
+    assertThat(new ExecutionRecovery(store, tracker, 100).recover()).containsExactly("crashed");
+  }
+
+  @Test
+  void whenTheElectionRecoversOnTakeover_startupLeavesTheLogAlone() {
+    store.append(ExecutionLogEvent.started("living", "s1", "w1", "v1"));
+    final ExecutionRecovery recovery = new ExecutionRecovery(store, tracker, 100);
+    recovery.setLeaderElection(
+        new com.infenia.yukta.service.leader.LeaderElection() {
+          @Override
+          public boolean isLeader() {
+            return false;
+          }
+
+          @Override
+          public boolean recoversOnTakeover() {
+            return true;
+          }
+        });
+
+    recovery.afterSingletonsInstantiated();
+
+    assertThat(store.readAll()).hasSize(1);
+
+    recovery.setLeaderElection(new com.infenia.yukta.service.leader.SingleServerLeader());
+    recovery.afterSingletonsInstantiated();
+
+    assertThat(store.readAll()).hasSize(2);
+  }
+
+  @Test
+  void listenerIsToldWhichRunsWereInterrupted() {
+    store.append(ExecutionLogEvent.started("crashed", "s1", "w1", "v1"));
+    final List<List<String>> told = new java.util.ArrayList<>();
+    final ExecutionRecovery recovery = new ExecutionRecovery(store, tracker, 100);
+    recovery.onRecovered(told::add);
+
+    recovery.recover();
+    recovery.recover();
+
+    assertThat(told).containsExactly(List.of("crashed"), List.of());
+  }
 }

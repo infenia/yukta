@@ -7,6 +7,8 @@ import { api, fetchApi } from '@/lib/apiClient';
 export interface WorkflowVersion {
   id: string;
   savedAt: string;
+  /** What the version is for, if somebody wrote it down. */
+  note?: string | null;
 }
 
 /** What changed between a saved version and the current definition. */
@@ -42,5 +44,17 @@ export const rollback = (
 ) =>
   fetchApi<unknown>(
     `${base(sessionId, workflowId)}/rollback?version=${encodeURIComponent(version)}`,
+    { method: 'POST' }
+  );
+
+/** Writes the note of a version; an empty text clears it. */
+export const saveNote = (
+  sessionId: string,
+  workflowId: string,
+  version: string,
+  note: string
+) =>
+  fetchApi<unknown>(
+    `${base(sessionId, workflowId)}/versions/note?version=${encodeURIComponent(version)}&note=${encodeURIComponent(note)}`,
     { method: 'POST' }
   );

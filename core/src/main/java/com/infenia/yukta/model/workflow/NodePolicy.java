@@ -84,11 +84,18 @@ public record NodePolicy(
           "elementTimeoutMs",
           "deadlineMs",
           "failureBudget",
-          "edgeBuffer");
+          "edgeBuffer",
+          "placement");
 
   /** Options accepted in the {@code retry} object. */
   private static final Set<String> RETRY_KEYS =
       Set.of("maxAttempts", "backoffMs", "maxBackoffMs", "retryOn", "noRetryOn");
+
+  /** Options accepted in the {@code placement} object. */
+  private static final Set<String> PLACEMENT_KEYS = Set.of("pool");
+
+  /** Pool a placement without a {@code pool} uses. */
+  public static final String DEFAULT_POOL = "default";
 
   /** Options accepted in the {@code edgeBuffer} object. */
   private static final Set<String> EDGE_BUFFER_KEYS = Set.of("size", "overflow");
@@ -225,6 +232,13 @@ public record NodePolicy(
    */
   public record FailureBudget(int maxFailures, Duration window) {}
 
+  /**
+   * Where a node runs when it is not on the control plane.
+   *
+   * @param pool the pool of workers that may run it
+   */
+  public record Placement(String pool) {}
+
   /** What a full edge buffer does with the message that does not fit. */
   public enum Overflow {
     /** Drop the oldest waiting message. */
@@ -241,6 +255,30 @@ public record NodePolicy(
    * @param overflow what to drop when it is full
    */
   public record EdgeBuffer(int size, Overflow overflow) {}
+
+  /**
+   * Reads the optional {@code engine.placement} of a node config: the node then runs on a worker of
+   * the pool instead of on the control plane.
+   *
+   * @param config the node config, possibly empty
+   * @return the placement, or null when the node runs locally
+   * @throws IllegalArgumentException with a precise message if it is malformed
+   */
+  @Nullable
+  public static Placement placement(@Nullable final Map<String, Object> config) {
+    final Object raw = config == null ? null : config.get(CONFIG_KEY);
+    if (raw == null || !asMap(raw, CONFIG_KEY).containsKey("placement")) {
+      return null;
+    }
+    final Map<String, Object> placement =
+        asMap(asMap(raw, CONFIG_KEY).get("placement"), "placement");
+    rejectUnknown(placement, PLACEMENT_KEYS, "engine.placement");
+    final Object pool = placement.getOrDefault("pool", DEFAULT_POOL);
+    if (!(pool instanceof final String name) || name.isBlank()) {
+      throw new IllegalArgumentException("engine.placement.pool must be a non-empty name");
+    }
+    return new Placement(name);
+  }
 
   /**
    * Reads the optional {@code engine.edgeBuffer} of a node config.
@@ -302,6 +340,7 @@ public record NodePolicy(
                 ? parseBudget(asMap(engine.get("failureBudget"), "failureBudget"))
                 : null);
     edgeBuffer(config);
+    placement(config);
     if (policy.failureBudget() != null && policy.onError() == OnError.FAIL) {
       throw new IllegalArgumentException(
           "engine.failureBudget needs engine.onError CONTINUE or ROUTE; with FAIL the first"
