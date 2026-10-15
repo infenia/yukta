@@ -1807,9 +1807,9 @@ IDs in brackets such as (G1) are finding numbers from the module's review notes 
 <Accordion title="CONSOLE_TERMINAL logs every payload at INFO (G23)">
 **Id** `consoleLogs` · **Category** Security · **Impact** 3 · **Effort** 1 · **Components** Terminals
 
-**Why it matters.** Every message is written in full to the application log. Payloads can carry personal data and secrets, and large payloads inflate logs. PROCESS_EXECUTOR can also put up to 10 MiB of process output in error messages.
+**Why it matters.** CONSOLE_TERMINAL now writes payloads in full only at DEBUG (at INFO it logs a count), so a default configuration no longer puts payload data in the log. With DEBUG on, payloads can still carry personal data and secrets, and large payloads inflate logs. PROCESS_EXECUTOR can also put up to 10 MiB of process output in error messages.
 
-**Option.** Log at DEBUG or truncate and redact; cap output embedded in exception text to the last few lines.
+**Option.** Truncate and redact payloads at DEBUG; cap output embedded in exception text to the last few lines.
 
 **Question to settle.** Which of your log destinations are allowed to hold payload data?
 

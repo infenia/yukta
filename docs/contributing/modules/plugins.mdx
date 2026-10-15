@@ -268,7 +268,7 @@ Model-backed nodes: LLM_CALL, SESSION_MEMORY and the decision family CLASSIFY, G
 
 Ends a branch: CONSOLE_TERMINAL logs the payload, NOTIFY_TERMINAL posts it to a webhook.
 
-- CONSOLE_TERMINAL writes 'Consuming message:  ' to the application log at INFO for every message. It takes no settings. It is the quickest way to see a result, and also writes every payload in full to the logs (risk: consoleLogs).
+- CONSOLE_TERMINAL writes 'Consuming message:  ' to the application log at DEBUG for every message, and 'Consumed N message(s)' at INFO when its input ends. It takes no settings. It is the quickest way to see a result (enable DEBUG for `com.infenia.yukta.plugin.terminal`); payloads are written in full only at DEBUG.
 - NOTIFY_TERMINAL sends \{text: ...\} as a JSON POST (Slack-compatible). The text is the 'text' setting if set, else the payload's 'text' field, else the payload turned into a string. url must be https; plain http is allowed only for localhost, 127.x and [::1].
 - It sends one message at a time, in order. timeoutMs defaults to 10,000. failureMode ERROR (default) fails the node on a non-2xx answer, and redirects count as failures; CONTINUE logs the failure and keeps sending later messages.
 - NOTIFY_TERMINAL's url is fixed in config and is not run through the variable resolver, so a message cannot choose where it is sent. Any https host is still accepted, including internal ones.
@@ -531,7 +531,7 @@ Eighteen things the plugins can do, grouped by purpose, each with what it guaran
 
 | Capability | What it does | How | Guarantee | Limit |
 |---|---|---|---|---|
-| Output | Logs or posts the result. | CONSOLE_TERMINAL logs each payload; NOTIFY_TERMINAL posts \{text\} to an https webhook. | NOTIFY never uses clear text except to localhost. | CONSOLE writes full payloads at INFO. |
+| Output | Logs or posts the result. | CONSOLE_TERMINAL logs each payload; NOTIFY_TERMINAL posts \{text\} to an https webhook. | NOTIFY never uses clear text except to localhost. | CONSOLE writes full payloads only at DEBUG. |
 
 ## Guarantees, limits and defaults
 
@@ -647,7 +647,7 @@ Decision plugins share these settings: backend SYSTEMONE|LLM (SYSTEMONE), provid
 
 | Name | Kind | Does | Switch and settings (default) | Notes |
 |---|---|---|---|---|
-| CONSOLE_TERMINAL | Terminal | Logs each payload at INFO | none | Full payloads in logs (consoleLogs) |
+| CONSOLE_TERMINAL | Terminal | Logs each payload at DEBUG, a count at INFO | none | Full payloads in logs at DEBUG (consoleLogs) |
 | NOTIFY_TERMINAL | Terminal | POSTs \{text\} to a webhook | url (https, http only for localhost), text, timeoutMs (10000), failureMode (ERROR) | Redirects count as failures; url is not variable-resolved |
 | RuleSupervisor (id 'rules') | Supervisor | Applies JSON rules to events and reviews commands | yukta.supervisor.rules.file | Rules fixed at startup |
 | RuleControlPlane | Control plane | The same rules behind decide(event) | yukta.control-plane.rules.file | Probability 1, source RULE |

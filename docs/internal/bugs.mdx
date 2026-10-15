@@ -48,7 +48,7 @@ Severity uses the scale of the source: High, Medium and Low from the [remediatio
 | G17 | Plugins | P3 | Open | Partly closed: history can be kept in files or PostgreSQL (`yukta.session-memory.ttl` expires database rows). The in-memory cache still never evicts | [Plugins review](/internal/improvements#plugins) |
 | G18 | Plugins | Not rated | Fixed | Plugins depended on `:core` for `VariableResolver` and `MapUtils`. Both moved to `plugin-api` (`com.infenia.yukta.plugin.util`), and 10 of the 11 plugin modules no longer depend on `:core`. Only `internal-core` still does, for `PluginRegistry` and `DefaultTaskTrackerService` in the loop processors | [Plugins review](/internal/improvements#plugins) |
 | G19 | Plugins | Not rated | Fixed | `pmdMain`, `pmdTest` and `checkstyleTest` of `internal-core`, PMD of `constant-source` and `pmdTest` of `plugin-api` were switched off. All are on again and pass: constants moved above instance fields, log calls guarded, and test classes follow the repo convention of class-level `@SuppressWarnings`. The `MapperProcessor` 0% coverage threshold mentioned in the review was already gone | [Plugins review](/internal/improvements#plugins) |
-| G23 | Plugins | Not rated | Open | `ConsoleTerminalPlugin` still logs every payload at INFO | [Plugins review](/internal/improvements#plugins) |
+| G23 | Plugins | Not rated | Fixed | `ConsoleTerminalPlugin` logged every payload at INFO. Payloads are now logged at DEBUG only; INFO has one `Consumed N message(s)` line when the input ends | [Plugins review](/internal/improvements#plugins) |
 | G25 | Plugins | Not rated | Open | `CONTENT-FILTER` is still the only kebab-case plugin type id | [Plugins review](/internal/improvements#plugins) |
 
 ## Build logic
@@ -116,7 +116,7 @@ The module guide is [core](/contributing/modules/core).
 | G17 | P3 | Open | Partly closed: history can be kept in files or PostgreSQL (`yukta.session-memory.ttl` expires database rows). The in-memory cache still never evicts | [Plugins review](/internal/improvements#plugins) |
 | G18 | Not rated | Fixed | Plugins depended on `:core` for `VariableResolver` and `MapUtils`. Both moved to `plugin-api` (`com.infenia.yukta.plugin.util`), and 10 of the 11 plugin modules no longer depend on `:core`. Only `internal-core` still does, for `PluginRegistry` and `DefaultTaskTrackerService` in the loop processors | [Plugins review](/internal/improvements#plugins) |
 | G19 | Not rated | Fixed | `pmdMain`, `pmdTest` and `checkstyleTest` of `internal-core`, PMD of `constant-source` and `pmdTest` of `plugin-api` were switched off. All are on again and pass: constants moved above instance fields, log calls guarded, and test classes follow the repo convention of class-level `@SuppressWarnings`. The `MapperProcessor` 0% coverage threshold mentioned in the review was already gone | [Plugins review](/internal/improvements#plugins) |
-| G23 | Not rated | Open | `ConsoleTerminalPlugin` still logs every payload at INFO | [Plugins review](/internal/improvements#plugins) |
+| G23 | Not rated | Fixed | `ConsoleTerminalPlugin` logged every payload at INFO. Payloads are now logged at DEBUG only; INFO has one `Consumed N message(s)` line when the input ends | [Plugins review](/internal/improvements#plugins) |
 | G25 | Not rated | Open | `CONTENT-FILTER` is still the only kebab-case plugin type id | [Plugins review](/internal/improvements#plugins) |
 
 The module guide is [plugins](/contributing/modules/plugins).
