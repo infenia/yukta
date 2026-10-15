@@ -3,6 +3,7 @@
 package com.infenia.yukta.workers;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
 
 import com.infenia.yukta.service.worker.WorkerRegistration;
 import com.infenia.yukta.service.worker.WorkerRegistry;
@@ -11,6 +12,7 @@ import java.time.Duration;
 import java.util.Set;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
+import org.springframework.messaging.rsocket.RSocketRequester;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Sinks;
 import reactor.test.StepVerifier;
@@ -21,7 +23,10 @@ class WorkerSessionHandlerTest {
 
   private final WorkerRegistry registry =
       new WorkerRegistry(Duration.ofSeconds(15), new SimpleMeterRegistry());
-  private final WorkerSessionHandler handler = new WorkerSessionHandler(registry, "secret");
+  private final WorkerConnections connections = new WorkerConnections();
+  private final RSocketRequester requester = mock(RSocketRequester.class);
+  private final WorkerSessionHandler handler =
+      new WorkerSessionHandler(registry, connections, "secret");
 
   private static WorkerFrame hello(final String token, final String workerId, final int capacity) {
     return WorkerFrame.register(
@@ -33,10 +38,11 @@ class WorkerSessionHandlerTest {
   void workerWithToken_registersRenewsAndLeavesWithItsStream() {
     final Sinks.Many<WorkerFrame> frames = Sinks.many().unicast().onBackpressureBuffer();
 
-    StepVerifier.create(handler.session(frames.asFlux()))
+    StepVerifier.create(handler.session(requester, frames.asFlux()))
         .then(() -> frames.tryEmitNext(hello("secret", "w1", 4)))
         .assertNext(frame -> assertThat(frame.type()).isEqualTo(WorkerFrame.Type.ACK))
         .then(() -> assertThat(registry.find("w1")).isPresent())
+        .then(() -> assertThat(connections.find("w1")).contains(requester))
         .then(() -> frames.tryEmitNext(WorkerFrame.lease(3)))
         .assertNext(frame -> assertThat(frame.type()).isEqualTo(WorkerFrame.Type.ACK))
         .then(() -> assertThat(registry.find("w1").orElseThrow().usedSlots()).isEqualTo(3))
@@ -44,20 +50,21 @@ class WorkerSessionHandlerTest {
         .verifyComplete();
 
     assertThat(registry.find("w1")).isEmpty();
+    assertThat(connections.find("w1")).isEmpty();
   }
 
   @Test
   void badTokenOrFirstFrame_isRefusedAndNothingRegistered() {
-    StepVerifier.create(handler.session(Flux.just(hello("wrong", "w1", 4))))
+    StepVerifier.create(handler.session(requester, Flux.just(hello("wrong", "w1", 4))))
         .assertNext(frame -> assertThat(frame.message()).isEqualTo("token refused"))
         .verifyComplete();
-    StepVerifier.create(handler.session(Flux.just(hello(null, "w1", 4))))
+    StepVerifier.create(handler.session(requester, Flux.just(hello(null, "w1", 4))))
         .assertNext(frame -> assertThat(frame.type()).isEqualTo(WorkerFrame.Type.REJECT))
         .verifyComplete();
-    StepVerifier.create(handler.session(Flux.just(WorkerFrame.lease(0))))
+    StepVerifier.create(handler.session(requester, Flux.just(WorkerFrame.lease(0))))
         .assertNext(frame -> assertThat(frame.message()).contains("must be REGISTER"))
         .verifyComplete();
-    StepVerifier.create(handler.session(Flux.empty()))
+    StepVerifier.create(handler.session(requester, Flux.empty()))
         .assertNext(frame -> assertThat(frame.type()).isEqualTo(WorkerFrame.Type.REJECT))
         .verifyComplete();
 
@@ -66,7 +73,7 @@ class WorkerSessionHandlerTest {
 
   @Test
   void refusedRegistration_isRejectedWithItsReason() {
-    StepVerifier.create(handler.session(Flux.just(hello("secret", "w1", 0))))
+    StepVerifier.create(handler.session(requester, Flux.just(hello("secret", "w1", 0))))
         .assertNext(frame -> assertThat(frame.message()).contains("capacity"))
         .verifyComplete();
   }
@@ -75,7 +82,7 @@ class WorkerSessionHandlerTest {
   void unexpectedFrame_endsTheSessionWithReject() {
     final Sinks.Many<WorkerFrame> frames = Sinks.many().unicast().onBackpressureBuffer();
 
-    StepVerifier.create(handler.session(frames.asFlux()))
+    StepVerifier.create(handler.session(requester, frames.asFlux()))
         .then(() -> frames.tryEmitNext(hello("secret", "w1", 2)))
         .expectNextCount(1)
         .then(() -> frames.tryEmitNext(hello("secret", "w1", 2)))
@@ -89,7 +96,7 @@ class WorkerSessionHandlerTest {
   void lapsedLease_isRejectedSoTheWorkerRegistersAgain() {
     final Sinks.Many<WorkerFrame> frames = Sinks.many().unicast().onBackpressureBuffer();
 
-    StepVerifier.create(handler.session(frames.asFlux()))
+    StepVerifier.create(handler.session(requester, frames.asFlux()))
         .then(() -> frames.tryEmitNext(hello("secret", "w1", 2)))
         .expectNextCount(1)
         .then(() -> registry.remove("w1"))
@@ -100,7 +107,7 @@ class WorkerSessionHandlerTest {
 
   @Test
   void theControllerDelegatesToTheHandler() {
-    StepVerifier.create(new WorkerController(handler).session(Flux.empty()))
+    StepVerifier.create(new WorkerController(handler).session(requester, Flux.empty()))
         .expectNextCount(1)
         .verifyComplete();
   }

@@ -20,7 +20,7 @@ class WorkerAgentTest {
   void stopBeforeStart_isHarmless() {
     final WorkerAgent agent =
         new WorkerAgent(
-            mock(RSocketRequester.class),
+            reactor.core.publisher.Mono.just(mock(RSocketRequester.class)),
             "secret",
             new WorkerRegistration("w", Set.of(), Set.of(), 1),
             Duration.ofSeconds(1),

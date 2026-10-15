@@ -39,7 +39,26 @@ class WorkersTransportTest {
   /** A worker: only the agent. */
   @Configuration
   @EnableAutoConfiguration
-  /* default */ static class Worker {}
+  /* default */ static class Worker {
+    @Bean
+    /* default */ com.infenia.yukta.service.plugin.PluginRegistry plugins() {
+      return new com.infenia.yukta.service.plugin.PluginRegistry(
+          java.util.List.of(
+              new com.infenia.yukta.plugin.type.ProcessorPlugin() {
+                @Override
+                public String getType() {
+                  return "NOOP";
+                }
+
+                @Override
+                public reactor.core.publisher.Flux<com.infenia.yukta.message.Message<?>> process(
+                    final reactor.core.publisher.Flux<com.infenia.yukta.message.Message<?>> input,
+                    final java.util.Map<String, Object> config) {
+                  return input;
+                }
+              }));
+    }
+  }
 
   private static ConfigurableApplicationContext start(
       final Class<?> config, final String... properties) {

@@ -56,6 +56,7 @@ Any node's config may carry a reserved `engine` object; plugins never see these 
   "failureBudget": { "maxFailures": 10, "windowMs": 60000 }
 }
 ```
+- `placement {pool}` (processors, see "Workers"): run the node on a worker of the pool (default `default`).
 - `retry` (processors only): re-run the plugin for the failing message with exponential backoff and
   jitter; the plugin is then called once per message, so use it with per-message processors.
   Every attempt counts as node activity, `IllegalArgumentException` (bad input) is not retried, and
@@ -234,15 +235,27 @@ versions) and `R2dbcExecutionLogStore` (blocking interface, so one writer thread
 run time uses R2DBC (`spring.r2dbc.url`). The in-memory/file defaults step aside when the type is
 `postgres`. Node checkpoints use `R2dbcNodeCheckpointStore` when `yukta.restart.store-type=postgres` (one row per message in JSONB, which PostgreSQL stores out of line, so no cap; a state row per node holds the end marker and the incomplete flag; migration V3), otherwise files (`yukta.restart.dir`) or memory.
 
-### Workers (phase 1 of remote workers)
+### Workers (remote workers, phases 1 and 2)
 `WorkerRegistry` (`service/worker`) lists the connected workers; a registration or heartbeat renews a
 lease (`yukta.workers.lease`, default 15s), a worker that misses it is dropped, `GET /api/workers` and
 the gauges `yukta.workers` and `yukta.worker.slots` report them. The optional `workers` module (build with
 `-Pyukta.workers=true`) carries them over RSocket: the control plane sets `yukta.workers.token` and
 `spring.rsocket.server.port`; a worker sets `yukta.workers.control-plane=host:port`, `yukta.workers.token`,
 `yukta.workers.id` (and `pools`, `plugin-types`, `capacity`) and connects out, registers on the route
-`worker.session` and renews its lease, reconnecting with a growing pause. No node runs remotely yet
-(see `docs/plans/10-remote-workers.md`).
+`worker.session` and renews its lease, reconnecting with a growing pause. A processor node with
+`engine.placement {pool}` runs on a worker of that pool: `WorkflowPreparator` swaps its plugin for a
+`RemoteProcessor` (`RemoteNodes`; the plugin on this server still provides type, schema, timeouts and
+validation), so retries, `onError`, timeouts, valves, checkpoints and status work as for a local node.
+Triggers, terminals and the stateful plugins (`SESSION_MEMORY`, `KV_STORE`, `WAIT_FOR_SIGNAL`,
+`SUB_WORKFLOW`) cannot be placed, and without the `workers` module a placed node fails to prepare. The control
+plane sends each attempt down the worker's own RSocket connection (`node.run`, one `requestChannel`: START,
+the input messages, COMPLETE; back come the output, HEARTBEATs that restart the node's idle clock, and COMPLETE
+or ERROR), so back-pressure and cancellation work end to end. It chooses the connected worker of the pool that
+allows the plugin type and has the most free slots (counting what it has sent and the worker's heartbeat); none
+means the attempt fails at once, as a failure the engine can retry. A worker runs only the plugin types on
+`yukta.workers.plugin-types`, initialises and prepares the plugin per attempt, and sends a failure back with
+its class name (`IllegalArgumentException` stays one, so it is not retried). Messages cross as plain JSON values.
+See `docs/plans/10-remote-workers.md`.
 
 ### Sub-workflows
 `SUB_WORKFLOW` (internal-core) runs another stored workflow of the same session per message through

@@ -1,9 +1,10 @@
 # Workers Module CLAUDE.md
 
 ## Overview
-Remote workers over RSocket (phase 1 of `core/docs/plans/10-remote-workers.md`): the control plane's
-`WorkerController`/`WorkerSessionHandler` (route `worker.session`) and the worker's `WorkerAgent`, which
-connects out, registers and renews its lease. The registry itself is `WorkerRegistry` in core.
+Remote workers over RSocket (phases 1 and 2 of `core/docs/plans/10-remote-workers.md`): the control plane's
+`WorkerController`/`WorkerSessionHandler` (route `worker.session`), `WorkerNodeExecutor` (runs a node attempt on a
+worker) and `WorkerConnections`; the worker's `WorkerAgent` (connects out, registers, renews its lease) and
+`NodeRunner` (route `node.run`, runs the attempts). The registry is `WorkerRegistry` in core.
 
 ## Build & Development Commands
 ```bash
@@ -16,4 +17,6 @@ connects out, registers and renews its lease. The registry itself is `WorkerRegi
   `yukta.workers.token`, `yukta.workers.id`.
 - The first frame must be `REGISTER` with the token (constant-time compare); a refused worker gets `REJECT` and
   the stream ends. A closed stream removes only the registration it made.
-- No node runs remotely yet; frames for that come with phase 2.
+- A node attempt is one `requestChannel` on the worker's own connection; the worker runs only the plugin types in
+  `yukta.workers.plugin-types`. The tests start a real control plane and worker in one JVM.
+- `WorkerNodeExecutor` picks the worker; a missing worker is a failure the engine can retry.

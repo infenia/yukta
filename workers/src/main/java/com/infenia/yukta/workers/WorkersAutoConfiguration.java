@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.workers;
 
+import com.infenia.yukta.service.plugin.PluginRegistry;
 import com.infenia.yukta.service.worker.WorkerRegistration;
 import com.infenia.yukta.service.worker.WorkerRegistry;
 import java.time.Duration;
@@ -14,6 +15,9 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.messaging.rsocket.RSocketRequester;
+import org.springframework.messaging.rsocket.annotation.support.RSocketMessageHandler;
+import reactor.core.publisher.Mono;
+import tools.jackson.databind.ObjectMapper;
 
 /**
  * Remote workers.
@@ -42,8 +46,57 @@ public class WorkersAutoConfiguration {
   @ConditionalOnExpression(
       "!'${yukta.workers.token:}'.isEmpty() && '${yukta.workers.control-plane:}'.isEmpty()")
   public WorkerSessionHandler workerSessionHandler(
-      final WorkerRegistry registry, @Value("${yukta.workers.token}") final String token) {
-    return new WorkerSessionHandler(registry, token);
+      final WorkerRegistry registry,
+      final WorkerConnections connections,
+      @Value("${yukta.workers.token}") final String token) {
+    return new WorkerSessionHandler(registry, connections, token);
+  }
+
+  /**
+   * The way back into each connected worker.
+   *
+   * @return the connections
+   */
+  @Bean
+  @ConditionalOnExpression(
+      "!'${yukta.workers.token:}'.isEmpty() && '${yukta.workers.control-plane:}'.isEmpty()")
+  public WorkerConnections workerConnections() {
+    return new WorkerConnections();
+  }
+
+  /**
+   * Runs the nodes that have {@code engine.placement} on workers.
+   *
+   * @param registry the workers that are connected
+   * @param connections the way back into each connected worker
+   * @param mapper converts messages to and from plain JSON values
+   * @return the executor
+   */
+  @Bean
+  @ConditionalOnExpression(
+      "!'${yukta.workers.token:}'.isEmpty() && '${yukta.workers.control-plane:}'.isEmpty()")
+  public WorkerNodeExecutor remoteNodeExecutor(
+      final WorkerRegistry registry,
+      final WorkerConnections connections,
+      final ObjectMapper mapper) {
+    return new WorkerNodeExecutor(registry, connections, mapper);
+  }
+
+  /**
+   * The worker's runner of node attempts.
+   *
+   * @param plugins the plugins of this server
+   * @param pluginTypes the plugin types this worker agreed to run, comma separated
+   * @param mapper converts messages to and from plain JSON values
+   * @return the runner
+   */
+  @Bean
+  @ConditionalOnExpression("!'${yukta.workers.control-plane:}'.isEmpty()")
+  public NodeRunner nodeRunner(
+      final PluginRegistry plugins,
+      @Value("${yukta.workers.plugin-types:}") final String pluginTypes,
+      final ObjectMapper mapper) {
+    return new NodeRunner(plugins, split(pluginTypes), mapper);
   }
 
   /**
@@ -63,6 +116,7 @@ public class WorkersAutoConfiguration {
    * The agent of a worker: connects to the control plane and keeps its lease.
    *
    * @param builder builds the RSocket requester
+   * @param responder lets the control plane call back into this worker
    * @param controlPlane {@code host:port} of the control plane's RSocket server
    * @param token the shared secret of the control plane
    * @param workerId this worker's id
@@ -77,6 +131,7 @@ public class WorkersAutoConfiguration {
   @ConditionalOnExpression("!'${yukta.workers.control-plane:}'.isEmpty()")
   public WorkerAgent workerAgent(
       final RSocketRequester.Builder builder,
+      final RSocketMessageHandler responder,
       @Value("${yukta.workers.control-plane}") final String controlPlane,
       @Value("${yukta.workers.token}") final String token,
       @Value("${yukta.workers.id}") final String workerId,
@@ -88,11 +143,16 @@ public class WorkersAutoConfiguration {
     if (colon <= 0) {
       throw new IllegalArgumentException("yukta.workers.control-plane must be host:port");
     }
-    final RSocketRequester requester =
-        builder.tcp(
-            controlPlane.substring(0, colon), Integer.parseInt(controlPlane.substring(colon + 1)));
+    // The control plane calls back into this connection to run nodes, so the worker answers
+    // requests on it with its own handlers (the NodeRunner).
+    final Mono<RSocketRequester> connect =
+        builder
+            .rsocketConnector(connector -> connector.acceptor(responder.responder()))
+            .connectTcp(
+                controlPlane.substring(0, colon),
+                Integer.parseInt(controlPlane.substring(colon + 1)));
     return new WorkerAgent(
-        requester,
+        connect,
         token,
         new WorkerRegistration(workerId, split(pools), split(pluginTypes), capacity),
         lease.dividedBy(3),

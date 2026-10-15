@@ -23,8 +23,8 @@ public class WorkerAgent {
   /** Longest pause between two connection attempts. */
   private static final Duration MAX_PAUSE = Duration.ofSeconds(30);
 
-  /** Opens the stream to the control plane. */
-  private final RSocketRequester requester;
+  /** Connects to the control plane; subscribed again for every connection attempt. */
+  private final Mono<RSocketRequester> connect;
 
   /** The control plane's shared secret. */
   private final String token;
@@ -44,7 +44,7 @@ public class WorkerAgent {
   /**
    * Creates the agent.
    *
-   * @param requester opens the stream to the control plane
+   * @param connect connects to the control plane (subscribed again for every attempt)
    * @param token the control plane's shared secret
    * @param registration what this worker announces
    * @param renewEvery how often the lease is renewed (a third of the control plane's lease is a
@@ -52,12 +52,12 @@ public class WorkerAgent {
    * @param usedSlots how many node attempts this worker runs now
    */
   public WorkerAgent(
-      final RSocketRequester requester,
+      final Mono<RSocketRequester> connect,
       final String token,
       final WorkerRegistration registration,
       final Duration renewEvery,
       final IntSupplier usedSlots) {
-    this.requester = requester;
+    this.connect = connect;
     this.token = token;
     this.registration = registration;
     this.renewEvery = renewEvery;
@@ -92,10 +92,10 @@ public class WorkerAgent {
         Flux.concat(
             Mono.just(WorkerFrame.register(token, registration)),
             Flux.interval(renewEvery).map(_ -> WorkerFrame.lease(usedSlots.getAsInt())));
-    return requester
-        .route("worker.session")
-        .data(out)
-        .retrieveFlux(WorkerFrame.class)
+    return connect
+        .flatMapMany(
+            requester ->
+                requester.route("worker.session").data(out).retrieveFlux(WorkerFrame.class))
         .doOnNext(this::check)
         .then(Mono.error(new IllegalStateException("The control plane closed the connection")));
   }
