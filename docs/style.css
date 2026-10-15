@@ -63,6 +63,21 @@ table {
   border-color: var(--yk-border);
 }
 
+/* Full width: every page sets mode: wide, but below Mintlify's xl breakpoint (1280px) the content
+   column is still capped at 36rem. Let it fill the space between the sidebar and the page edge. */
+#content-area {
+  max-width: none;
+}
+
+/* Tables: Mintlify gives every cell a 150px minimum, so a five-column table is wider than the
+   text column and scrolls sideways. A smaller minimum lets the cells wrap so the table fits, and
+   long identifiers and paths may break so they cannot force it wider than its box. */
+.prose table td,
+.prose table th {
+  min-width: 5.5rem;
+  overflow-wrap: anywhere;
+}
+
 input,
 button,
 [role="searchbox"],

@@ -1,6 +1,7 @@
 ---
 title: "Web module"
 description: "Web is the HTTP front door of the Yukta server."
+mode: "wide"
 ---
 
 Web is the HTTP front door of the Yukta server. It accepts REST calls and long-lived event streams, checks them, hands them to core (the engine) and wraps the answer in one standard envelope. It holds almost no state and makes almost no decisions: its job is to be a faithful, safe translation layer. This page is for thinking about it, not documenting it: open a component, replay a scenario, then challenge the weak spots.

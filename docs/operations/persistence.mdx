@@ -1,6 +1,7 @@
 ---
 title: "Persistence"
 description: "Keep sessions, the execution log and node outputs in memory, on disk or in PostgreSQL, and what survives a restart in each case."
+mode: "wide"
 ---
 
 Yukta keeps its state in memory by default and can move each kind of data to files or to PostgreSQL. Each kind has its own switch, so a deployment can be durable for some data and not for other data.

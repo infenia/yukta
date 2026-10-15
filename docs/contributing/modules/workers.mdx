@@ -1,6 +1,7 @@
 ---
 title: "Workers module"
 description: "A Yukta server normally runs every node of a workflow itself."
+mode: "wide"
 ---
 
 A Yukta server normally runs every node of a workflow itself. The optional **workers** module lets a processor node run on another machine instead: the node's config says which pool of workers may run it, workers connect out to the server and register, and each node attempt travels over one RSocket stream. The server keeps the graph, the policies and the checkpoints; only the plugin call moves. This page is for thinking about it: open a component, play a scenario, then challenge the weak spots.

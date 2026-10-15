@@ -1,6 +1,7 @@
 ---
 title: "Writing a plugin"
 description: "The contract a trigger, processor or terminal fulfils: what it declares, how it handles messages and failures, and how Yukta picks it up."
+mode: "wide"
 ---
 
 A plugin is the implementation behind a node `type`. This page describes the plugin contract in plain terms: the three roles, what a plugin declares, how it handles messages, failures, time and budgets, and how the server picks it up. It does not depend on a programming language. The contract is written as a set of operations; how you spell each one depends on the language and the plugin interface your server build provides.

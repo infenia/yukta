@@ -12,6 +12,7 @@
     "default": "system"
   },
   "background": {
+    "decoration": "gradient",
     "color": {
       "light": "#FBFCFE",
       "dark": "#0A0D14"

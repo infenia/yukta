@@ -1,6 +1,7 @@
 ---
 title: "Admission and limits"
 description: "Concurrency caps, queueing or refusing excess starts, priority, fairness between sessions, idempotent starts and live limit changes."
+mode: "wide"
 ---
 
 The **scheduler** decides whether, when and in what order an execution may begin. It grants a slot to each execution, or queues or refuses the start. The execution id is handed out only after a slot is granted, so two requests racing for the last slot can never both succeed.
