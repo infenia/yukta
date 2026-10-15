@@ -180,22 +180,20 @@ public class ExecutionRecovery implements SmartInitializingSingleton {
    * set at run time survive a restart; the log wins over the configuration from then on.
    */
   private void restoreLimits(final List<ExecutionLogEvent> schedulerEvents) {
-    boolean restored = executionScheduler == null;
-    for (final ExecutionLogEvent event : schedulerEvents.reversed()) {
-      if (restored) {
-        break;
-      }
-      final Matcher match = LIMITS.matcher(event.status());
-      if (event.type() == ExecutionLogEvent.Type.CONTROL_APPLIED && match.matches()) {
-        final int perWorkflow =
-            match.group(2) == null
-                ? executionScheduler.perWorkflowLimit()
-                : Integer.parseInt(match.group(2));
-        executionScheduler.setLimits(Integer.parseInt(match.group(1)), perWorkflow);
-        log.atInfo()
-            .addKeyValue("limits", event.status())
-            .log("Restored the limits changed at run time");
-        restored = true;
+    final ExecutionScheduler target = executionScheduler;
+    if (target != null) {
+      for (final ExecutionLogEvent event : schedulerEvents.reversed()) {
+        // Both numbers are 1 to 9 digits (see LIMITS), so parseInt cannot overflow.
+        final Matcher match = LIMITS.matcher(event.status());
+        if (event.type() == ExecutionLogEvent.Type.CONTROL_APPLIED && match.matches()) {
+          final int perWorkflow =
+              match.group(2) == null ? target.perWorkflowLimit() : Integer.parseInt(match.group(2));
+          target.setLimits(Integer.parseInt(match.group(1)), perWorkflow);
+          log.atInfo()
+              .addKeyValue("limits", event.status())
+              .log("Restored the limits changed at run time");
+          break;
+        }
       }
     }
   }

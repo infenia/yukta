@@ -104,7 +104,15 @@ export function WorkflowVersionsPanel({ sessionId, workflowId }: Props) {
               size="sm"
               variant="outline"
               disabled={goBack.isPending}
-              onClick={() => goBack.mutate(version.id)}
+              onClick={() => {
+                if (
+                  window.confirm(
+                    `Roll back to ${version.id}? This replaces the current definition.`
+                  )
+                ) {
+                  goBack.mutate(version.id);
+                }
+              }}
             >
               Roll back
             </Button>
@@ -133,6 +141,14 @@ export function WorkflowVersionsPanel({ sessionId, workflowId }: Props) {
               Save note
             </Button>
           </div>
+          {compared === version.id && diff.isLoading && (
+            <p className="text-on-surface-variant ml-4 text-xs">
+              Loading changes…
+            </p>
+          )}
+          {compared === version.id && diff.error && (
+            <InlineError message={controlErrorMessage(diff.error)} />
+          )}
           {compared === version.id && diff.data && (
             <ul className="text-on-surface-variant ml-4 font-mono text-xs">
               {changes(diff.data).length === 0 ? (

@@ -8,6 +8,8 @@ import com.infenia.yukta.model.workflow.WorkflowDefinition.Node;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -56,10 +58,12 @@ public record WorkflowDiff(
             changed.add(id);
           }
         });
-    final List<String> oldEdges = older.edges().stream().map(WorkflowDiff::edge).toList();
-    final List<String> newEdges = newer.edges().stream().map(WorkflowDiff::edge).toList();
+    final Set<String> oldEdges =
+        older.edges().stream().map(WorkflowDiff::edge).collect(Collectors.toSet());
+    final Set<String> newEdges =
+        newer.edges().stream().map(WorkflowDiff::edge).collect(Collectors.toSet());
     return new WorkflowDiff(
-        !older.description().equals(newer.description()),
+        !Objects.equals(older.description(), newer.description()),
         sorted(after.keySet().stream().filter(id -> !before.containsKey(id))),
         sorted(before.keySet().stream().filter(id -> !after.containsKey(id))),
         sorted(changed.stream()),

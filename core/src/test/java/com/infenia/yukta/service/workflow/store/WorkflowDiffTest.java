@@ -51,6 +51,19 @@ class WorkflowDiffTest {
   }
 
   @Test
+  void aMissingDescription_isComparedNotDereferenced() {
+    final List<Node> nodes = List.of(new Node("a", "T", Map.of()));
+
+    final WorkflowDefinition missing = definition(null, nodes, List.of());
+
+    final WorkflowDiff withOne = WorkflowDiff.between(missing, definition("d", nodes, List.of()));
+    final WorkflowDiff withNone = WorkflowDiff.between(missing, missing);
+
+    assertThat(withOne.descriptionChanged()).isTrue();
+    assertThat(withNone.descriptionChanged()).isFalse();
+  }
+
+  @Test
   void identicalDefinitions_haveNoDifferences() {
     final WorkflowDefinition same =
         definition("d", List.of(new Node("a", "T", Map.of())), List.of());

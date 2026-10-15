@@ -1,7 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
-import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
+import {
+  describe,
+  it,
+  expect,
+  vi,
+  beforeAll,
+  afterAll,
+  afterEach,
+} from 'vitest';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { setupServer } from 'msw/node';
@@ -32,6 +40,7 @@ const noChange: WorkflowDiff = {
 let versions: WorkflowVersion[] = [];
 let diff: WorkflowDiff = noChange;
 let listFails = false;
+let diffFails = false;
 let rollbackFails = false;
 let noteFails = false;
 const rolledBack: string[] = [];
@@ -43,7 +52,11 @@ const server = setupServer(
       ? HttpResponse.json({ message: 'no store' }, { status: 500 })
       : ok(versions)
   ),
-  http.get(`${BASE}/versions/diff`, () => ok(diff)),
+  http.get(`${BASE}/versions/diff`, () =>
+    diffFails
+      ? HttpResponse.json({ message: 'No such version' }, { status: 404 })
+      : ok(diff)
+  ),
   http.post(`${BASE}/versions/note`, ({ request }) => {
     const query = new URL(request.url).searchParams;
     noted.push(`${query.get('version')}=${query.get('note')}`);
@@ -64,6 +77,8 @@ afterEach(() => {
   versions = [];
   diff = noChange;
   listFails = false;
+  diffFails = false;
+  vi.restoreAllMocks();
   rollbackFails = false;
   noteFails = false;
   rolledBack.length = 0;
@@ -140,8 +155,38 @@ describe('WorkflowVersionsPanel', () => {
     ).toBeInTheDocument();
   });
 
+  it('shows why the changes could not be read', async () => {
+    versions = two;
+    diffFails = true;
+    renderWithProviders(
+      <WorkflowVersionsPanel sessionId="s1" workflowId="wf" />
+    );
+
+    await userEvent.click(
+      (await screen.findAllByRole('button', { name: 'Changes since' }))[0]
+    );
+
+    expect(await screen.findByText('No such version')).toBeInTheDocument();
+  });
+
+  it('does not roll back unless the user confirms', async () => {
+    versions = two;
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    renderWithProviders(
+      <WorkflowVersionsPanel sessionId="s1" workflowId="wf" />
+    );
+
+    await userEvent.click(
+      (await screen.findAllByRole('button', { name: 'Roll back' }))[1]
+    );
+
+    expect(confirm).toHaveBeenCalledWith(expect.stringContaining('0001-a'));
+    expect(rolledBack).toEqual([]);
+  });
+
   it('rolls back to a version, and shows why it could not', async () => {
     versions = two;
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
     renderWithProviders(
       <WorkflowVersionsPanel sessionId="s1" workflowId="wf" />
     );

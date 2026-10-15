@@ -699,6 +699,9 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
   /**
    * Drops the session that started a run longest ago while there are more than {@code maxSessions},
    * never one with a run still going and never the session that just started.
+   *
+   * <p>Each pass scans every session and its runs, so a start costs O(sessions) while the limit is
+   * exceeded; that is cheap for a small {@code maxSessions}, the intended use.
    */
   private void evictOldSessions(final String current) {
     while (maxSessions > 0 && sessionStates.size() > maxSessions) {
