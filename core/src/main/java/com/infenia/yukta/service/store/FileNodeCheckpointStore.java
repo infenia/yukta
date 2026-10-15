@@ -9,6 +9,8 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.net.URLEncoder;
+import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -16,6 +18,8 @@ import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -38,7 +42,8 @@ import tools.jackson.databind.ObjectMapper;
  */
 @Slf4j
 @Component
-@ConditionalOnExpression("!'${yukta.restart.dir:}'.isEmpty()")
+@ConditionalOnExpression(
+    "!'${yukta.restart.dir:}'.isEmpty() && !'postgres'.equals('${yukta.restart.store-type:}')")
 @SuppressWarnings({"PMD.OnlyOneReturn", "PMD.AvoidCatchingGenericException", "PMD.TooManyMethods"})
 public class FileNodeCheckpointStore implements NodeCheckpointStore, ByteCounted {
 
@@ -59,6 +64,9 @@ public class FileNodeCheckpointStore implements NodeCheckpointStore, ByteCounted
 
   /** Markers that could not be made durable. */
   private final AtomicLong failedMarkers = new AtomicLong();
+
+  /** Open output files by run and node, so a message costs one write and not an open. */
+  private final Map<String, FileChannel> appenders = new ConcurrentHashMap<>();
 
   /** Reads and writes messages. */
   private final ObjectMapper mapper;
@@ -120,6 +128,7 @@ public class FileNodeCheckpointStore implements NodeCheckpointStore, ByteCounted
     try {
       Files.createDirectories(dir(executionId));
       final Path output = file(executionId, nodeId, MESSAGES);
+      closeAppender(executionId, nodeId);
       if (Files.exists(output)) {
         force(output);
       }
@@ -143,7 +152,7 @@ public class FileNodeCheckpointStore implements NodeCheckpointStore, ByteCounted
         Files.isDirectory(path)
             ? new StandardOpenOption[] {StandardOpenOption.READ}
             : new StandardOpenOption[] {StandardOpenOption.WRITE};
-    try (var channel = java.nio.channels.FileChannel.open(path, options)) {
+    try (var channel = FileChannel.open(path, options)) {
       channel.force(true);
     }
   }
@@ -174,6 +183,16 @@ public class FileNodeCheckpointStore implements NodeCheckpointStore, ByteCounted
 
   @Override
   public void clear(final String executionId) {
+    appenders
+        .keySet()
+        .removeIf(
+            key -> {
+              if (key.startsWith(executionId + "\0")) {
+                closeQuietly(appenders.get(key));
+                return true;
+              }
+              return false;
+            });
     final Path dir = dir(executionId);
     if (!Files.exists(dir)) {
       return;
@@ -195,18 +214,55 @@ public class FileNodeCheckpointStore implements NodeCheckpointStore, ByteCounted
     return held.get();
   }
 
+  /** The open output file of a node, kept until the node completes or the run is cleared. */
+  private FileChannel appender(final String executionId, final String nodeId) {
+    return appenders.compute(
+        executionId + "\0" + nodeId,
+        (_, open) -> {
+          if (open != null && open.isOpen()) {
+            return open;
+          }
+          try {
+            Files.createDirectories(dir(executionId));
+            return FileChannel.open(
+                file(executionId, nodeId, MESSAGES),
+                StandardOpenOption.CREATE,
+                StandardOpenOption.APPEND);
+          } catch (final IOException e) {
+            throw new UncheckedIOException(e);
+          }
+        });
+  }
+
+  /** Closes the open output file of a node, if any. */
+  private void closeAppender(final String executionId, final String nodeId) {
+    closeQuietly(appenders.remove(executionId + "\0" + nodeId));
+  }
+
+  private static void closeQuietly(final FileChannel channel) {
+    if (channel != null) {
+      try {
+        channel.close();
+      } catch (final IOException e) {
+        log.atDebug().setCause(e).log("Could not close a node output file");
+      }
+    }
+  }
+
+  @SuppressWarnings("PMD.CloseResource") // the appender is closed by markComplete or clear
   private void write(final String executionId, final String nodeId, final Message<?> message) {
     try {
-      Files.createDirectories(dir(executionId));
-      final String line = mapper.writeValueAsString(message) + "\n";
-      Files.writeString(
-          file(executionId, nodeId, MESSAGES),
-          line,
-          StandardCharsets.UTF_8,
-          StandardOpenOption.CREATE,
-          StandardOpenOption.APPEND);
-      held.addAndGet(line.getBytes(StandardCharsets.UTF_8).length);
+      final byte[] line =
+          (mapper.writeValueAsString(message) + "\n").getBytes(StandardCharsets.UTF_8);
+      // One write call per line on an O_APPEND channel: lines of concurrent writers stay whole.
+      final ByteBuffer buffer = ByteBuffer.wrap(line);
+      final FileChannel channel = appender(executionId, nodeId);
+      while (buffer.hasRemaining()) {
+        channel.write(buffer);
+      }
+      held.addAndGet(line.length);
     } catch (final IOException | RuntimeException e) {
+      closeAppender(executionId, nodeId);
       log.atWarn()
           .addKeyValue("executionId", executionId)
           .addKeyValue("nodeId", nodeId)

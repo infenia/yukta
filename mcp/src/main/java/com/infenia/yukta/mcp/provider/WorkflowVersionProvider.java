@@ -3,6 +3,7 @@
 package com.infenia.yukta.mcp.provider;
 
 import com.infenia.yukta.mcp.dto.WorkflowRollback;
+import com.infenia.yukta.mcp.dto.WorkflowVersionNote;
 import com.infenia.yukta.mcp.dto.WorkflowVersions;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.service.NotFoundException;
@@ -95,5 +96,26 @@ public class WorkflowVersionProvider {
                     .save(sessionId, definition)
                     .then(controlBus.compileAndCacheWorkflow(sessionId, definition))
                     .thenReturn(new WorkflowRollback(workflowId, version)));
+  }
+
+  /**
+   * Write or clear the note of a saved version.
+   *
+   * @param sessionId the session
+   * @param workflowId the workflow
+   * @param version the version to annotate
+   * @param note the note; blank clears it
+   * @return the version and its note
+   */
+  @SuppressWarnings("PMD.UseObjectForClearerAPI")
+  public Mono<WorkflowVersionNote> note(
+      final String sessionId, final String workflowId, final String version, final String note) {
+    if (version == null || version.isBlank()) {
+      return Mono.error(new IllegalArgumentException("version is required."));
+    }
+    final String text = note == null ? "" : note.strip();
+    return definitions
+        .saveNote(sessionId, workflowId, version, text)
+        .thenReturn(new WorkflowVersionNote(workflowId, version, text));
   }
 }

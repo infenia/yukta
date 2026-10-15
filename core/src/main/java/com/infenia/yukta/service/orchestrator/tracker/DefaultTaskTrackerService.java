@@ -395,6 +395,11 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
     telemetry.retried(module);
   }
 
+  @Override
+  public void recordEdgeDropped(final String module) {
+    telemetry.dropped("yukta.edge.dropped", module);
+  }
+
   /**
    * Emit a workflow status event for asynchronous processing.
    *

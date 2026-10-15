@@ -278,4 +278,14 @@ class AppMcpToolsTest {
 
     StepVerifier.create(mcpTools.getPluginCreationGuide("all")).expectNext(guide).verifyComplete();
   }
+
+  @Test
+  void testNoteWorkflowVersionDelegatesToTheProvider() {
+    var note = new com.infenia.yukta.mcp.dto.WorkflowVersionNote("w1", "0001-a", "why");
+    when(workflowVersionProvider.note("s1", "w1", "0001-a", "why")).thenReturn(Mono.just(note));
+
+    StepVerifier.create(mcpTools.noteWorkflowVersion("s1", "w1", "0001-a", "why"))
+        .expectNext(note)
+        .verifyComplete();
+  }
 }

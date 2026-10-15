@@ -64,6 +64,7 @@ public final class McpToolCallPlugin implements ProcessorPlugin {
   private static final String ARGUMENTS = "arguments";
   private static final String HEADERS = "headers";
   private static final String ALLOWED_TOOLS = "allowedTools";
+  private static final String UNKNOWN = "unknown";
   private static final String AUTH_TOKEN = "authToken";
   private static final String TIMEOUT = "timeout";
   private static final String RESULT_KEY = "resultKey";
@@ -139,6 +140,11 @@ public final class McpToolCallPlugin implements ProcessorPlugin {
                 + " (default: the payload)"),
         ConfigField.optional(HEADERS, ConfigField.Type.MAP, null, "Extra request headers"),
         ConfigField.optional(
+            ToolBudget.BUDGET,
+            ConfigField.Type.MAP,
+            null,
+            "Limits for the calls of one run: {maxCalls, agent, hardStop}; shared with LLM_CALL"),
+        ConfigField.optional(
             ALLOWED_TOOLS,
             ConfigField.Type.LIST,
             null,
@@ -189,6 +195,8 @@ public final class McpToolCallPlugin implements ProcessorPlugin {
       evaluated against the message that returns a map, e.g. "payload.toolCall.args".
       Default: the payload if it is a map, else {"input": payload}
     - headers: Map<String, String> (variable expressions and decrypted:<key> supported)
+    - budget: {maxCalls, agent, hardStop} limits the calls of one run, counted together with the
+      LLM_CALL budget of the same run (and agent); hardStop ends the whole run
     - allowedTools: list of tool names this node may call; any other tool is refused (use it when
       the tool is chosen by a model).
     - requireApproval: list of tool names (or "*") that wait for a human signal before they are
@@ -292,7 +300,7 @@ public final class McpToolCallPlugin implements ProcessorPlugin {
     final long started = System.nanoTime();
     return Mono.deferContextual(
             ctx -> {
-              final String nodeId = ctx.getOrDefault("nodeId", "unknown");
+              final String nodeId = ctx.getOrDefault("nodeId", UNKNOWN);
               final Runnable heartbeat =
                   ctx.hasKey(WorkflowContext.HEARTBEAT_KEY)
                       ? ctx.get(WorkflowContext.HEARTBEAT_KEY)
@@ -302,10 +310,19 @@ public final class McpToolCallPlugin implements ProcessorPlugin {
                       spec ->
                           allowed(config, spec.tool())
                               .then(approved(ctx, config, spec.tool()))
+                              .then(
+                                  Mono.defer(
+                                      () ->
+                                          ToolBudget.charge(
+                                              ctx.getOrDefault("executionId", UNKNOWN),
+                                              nodeId,
+                                              config,
+                                              reporter)))
                               .then(Mono.defer(() -> gateway.call(spec, heartbeat)))
                               .onErrorResume(
                                   error ->
                                       failureMode == FailureMode.CONTINUE
+                                              && !ToolBudget.isAbort(error)
                                           ? Mono.just(
                                               McpCallResult.transportFailure(error.toString()))
                                           : Mono.error(error))
@@ -323,8 +340,8 @@ public final class McpToolCallPlugin implements ProcessorPlugin {
         ? ToolApproval.await(
             waits,
             config,
-            ctx.getOrDefault("executionId", "unknown"),
-            ctx.getOrDefault("nodeId", "unknown"),
+            ctx.getOrDefault("executionId", UNKNOWN),
+            ctx.getOrDefault("nodeId", UNKNOWN),
             tool)
         : Mono.empty();
   }
@@ -505,6 +522,7 @@ public final class McpToolCallPlugin implements ProcessorPlugin {
       throw new IllegalArgumentException("allowedTools must be a list of tool names");
     }
     ToolApproval.validate(config);
+    ToolBudget.validate(config);
     final FailureMode failureMode = FailureMode.from(config.get(FAILURE_MODE));
     if (routeByStatus(config) && failureMode != FailureMode.CONTINUE) {
       throw new IllegalArgumentException("routeByStatus requires failureMode: CONTINUE");

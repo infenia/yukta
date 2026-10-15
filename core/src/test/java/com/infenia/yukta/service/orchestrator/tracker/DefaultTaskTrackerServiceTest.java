@@ -3069,4 +3069,17 @@ class DefaultTaskTrackerServiceTest {
 
     assertThat(tracker.getActiveSessions()).containsExactlyInAnyOrder("s1", "s2");
   }
+
+  @Test
+  void testEdgeDropsAreCounted() {
+    final SimpleMeterRegistry meters = new SimpleMeterRegistry();
+    final DefaultTaskTrackerService counting =
+        new DefaultTaskTrackerService(
+            Duration.ofSeconds(30), statusHistoryCache, new InMemoryExecutionLogStore(), meters);
+
+    counting.recordEdgeDropped("HTTP_REQUEST");
+
+    assertThat(meters.get("yukta.edge.dropped").tag("type", "HTTP_REQUEST").counter().count())
+        .isEqualTo(1);
+  }
 }

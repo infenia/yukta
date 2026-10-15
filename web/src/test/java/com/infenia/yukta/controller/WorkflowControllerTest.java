@@ -226,6 +226,47 @@ class WorkflowControllerTest {
   }
 
   @Test
+  void testHistoryCanBeNarrowedByWorkflowStatusTextAndTime() {
+    final LocalDateTime t = LocalDateTime.of(2026, 1, 2, 12, 0);
+    final WorkflowExecutionSummary old =
+        new WorkflowExecutionSummary("alpha-1", "wf", "SUCCESS", t.minusDays(5), null);
+    final WorkflowExecutionSummary failed =
+        new WorkflowExecutionSummary("beta-2", "wf", "FAILURE", t, null);
+    final WorkflowExecutionSummary other =
+        new WorkflowExecutionSummary("beta-3", "other", "SUCCESS", t, null);
+    final WorkflowExecutionSummary unstarted =
+        new WorkflowExecutionSummary("gamma-4", "wf", "QUEUED", null, null);
+    when(sessionService.getSessionConfig("s1")).thenReturn(Mono.just(config()));
+    when(controlBus.getHistory("s1")).thenReturn(Mono.just(List.of(old, failed, other, unstarted)));
+
+    for (final String[] query :
+        new String[][] {
+          {"workflowId=other", "beta-3"},
+          {"status=failure", "beta-2"},
+          {"text=ALPHA", "alpha-1"},
+          {"since=2026-01-02T00:00:00", "beta-2"},
+          {"until=2026-01-01T00:00:00", "alpha-1"},
+        }) {
+      client
+          .get()
+          .uri("/api/workflow/s1/history?" + query[0])
+          .exchange()
+          .expectBody()
+          .jsonPath("$.data.length()")
+          .isEqualTo(query[0].startsWith("since") ? 2 : 1)
+          .jsonPath("$.data[0].executionId")
+          .isEqualTo(query[1]);
+    }
+    client
+        .get()
+        .uri("/api/workflow/s1/history")
+        .exchange()
+        .expectBody()
+        .jsonPath("$.data.length()")
+        .isEqualTo(4);
+  }
+
+  @Test
   void testHistoryOfUnknownSessionIs404() {
     when(sessionService.getSessionConfig("nope")).thenReturn(Mono.empty());
 

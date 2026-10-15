@@ -219,4 +219,70 @@ class NodePolicyTest {
     first.initCause(second);
     assertThat(onlyIo.shouldRetry(first)).isFalse();
   }
+
+  @Test
+  void edgeBuffer_isParsed_defaultsToDropOldest_andIsValidated() {
+    final Map<String, Object> config = Map.of("engine", Map.of("edgeBuffer", Map.of("size", 50)));
+
+    assertThat(NodePolicy.edgeBuffer(config))
+        .isEqualTo(new NodePolicy.EdgeBuffer(50, NodePolicy.Overflow.DROP_OLDEST));
+    assertThat(NodePolicy.from(config)).isEqualTo(NodePolicy.DEFAULT);
+    assertThat(NodePolicy.edgeBuffer(Map.of())).isNull();
+    assertThat(
+            NodePolicy.edgeBuffer(
+                Map.of(
+                    "engine", Map.of("edgeBuffer", Map.of("size", 5, "overflow", "DROP_NEWEST")))))
+        .isEqualTo(new NodePolicy.EdgeBuffer(5, NodePolicy.Overflow.DROP_NEWEST));
+
+    assertThatThrownBy(
+            () -> NodePolicy.from(Map.of("engine", Map.of("edgeBuffer", Map.of("size", 0)))))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("engine.edgeBuffer.size");
+  }
+
+  @Test
+  void edgeBuffer_branches() {
+    assertThat(NodePolicy.edgeBuffer(null)).isNull();
+    assertThat(NodePolicy.edgeBuffer(Map.of("engine", Map.of("onError", "CONTINUE")))).isNull();
+    assertThatThrownBy(
+            () ->
+                NodePolicy.edgeBuffer(
+                    Map.of("engine", Map.of("edgeBuffer", Map.of("size", 1, "colour", "red")))))
+        .isInstanceOf(IllegalArgumentException.class);
+    assertThatThrownBy(
+            () ->
+                NodePolicy.edgeBuffer(
+                    Map.of("engine", Map.of("edgeBuffer", Map.of("size", 1_000_000)))))
+        .hasMessageContaining("between 1 and");
+    assertThatThrownBy(
+            () -> NodePolicy.edgeBuffer(Map.of("engine", Map.of("edgeBuffer", Map.of()))))
+        .hasMessageContaining("engine.edgeBuffer.size");
+  }
+
+  @Test
+  void placement_isParsed_defaultsToTheDefaultPool_andIsValidated() {
+    assertThat(NodePolicy.placement(null)).isNull();
+    assertThat(NodePolicy.placement(Map.of("engine", Map.of("onError", "CONTINUE")))).isNull();
+    assertThat(NodePolicy.placement(Map.of("engine", Map.of("placement", Map.of()))))
+        .isEqualTo(new NodePolicy.Placement("default"));
+    assertThat(NodePolicy.placement(Map.of("engine", Map.of("placement", Map.of("pool", "gpu")))))
+        .isEqualTo(new NodePolicy.Placement("gpu"));
+    assertThat(NodePolicy.from(Map.of("engine", Map.of("placement", Map.of("pool", "gpu")))))
+        .isEqualTo(NodePolicy.DEFAULT);
+
+    assertThatThrownBy(
+            () -> NodePolicy.placement(Map.of("engine", Map.of("placement", Map.of("pool", " ")))))
+        .hasMessageContaining("engine.placement.pool");
+    assertThatThrownBy(
+            () ->
+                NodePolicy.placement(Map.of("engine", Map.of("placement", Map.of("region", "eu")))))
+        .isInstanceOf(IllegalArgumentException.class);
+  }
+
+  @Test
+  void placement_poolMustBeText() {
+    assertThatThrownBy(
+            () -> NodePolicy.placement(Map.of("engine", Map.of("placement", Map.of("pool", 5)))))
+        .hasMessageContaining("engine.placement.pool");
+  }
 }

@@ -3,16 +3,21 @@
 package com.infenia.yukta.service.orchestrator.stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 
 import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
 import com.infenia.yukta.model.workflow.NodePolicy;
+import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import java.time.Duration;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Sinks;
 import reactor.test.StepVerifier;
 
 @NoArgsConstructor
@@ -464,5 +469,54 @@ class NodePoliciesTest {
         .expectNextCount(1)
         .expectErrorSatisfies(e -> assertThat(e).hasMessageContaining("failed more than 1"))
         .verify(Duration.ofSeconds(5));
+  }
+
+  @Test
+  void edgeBuffered_withoutBuffer_passesInputThrough() {
+    final Flux<Message<?>> input = Flux.just(DefaultMessage.create(UUID.randomUUID(), "a"));
+
+    assertThat(NodePolicies.edgeBuffered(null, input, mock(TaskTrackerService.class), "T"))
+        .isSameAs(input);
+  }
+
+  private static void emitTen(final Sinks.Many<Message<?>> sink) {
+    for (int i = 0; i < 10; i++) {
+      sink.tryEmitNext(DefaultMessage.create(UUID.randomUUID(), i));
+    }
+    sink.tryEmitComplete();
+  }
+
+  @Test
+  void edgeBuffered_dropsOldestOrNewest_andCountsEveryDrop() {
+    final TaskTrackerService tracker = mock(TaskTrackerService.class);
+    final Sinks.Many<Message<?>> oldest = Sinks.many().unicast().onBackpressureBuffer();
+    final Sinks.Many<Message<?>> newest = Sinks.many().unicast().onBackpressureBuffer();
+
+    StepVerifier.create(
+            NodePolicies.edgeBuffered(
+                new NodePolicy.EdgeBuffer(3, NodePolicy.Overflow.DROP_OLDEST),
+                oldest.asFlux(),
+                tracker,
+                "T"),
+            0)
+        .then(() -> emitTen(oldest))
+        .thenRequest(Long.MAX_VALUE)
+        .expectNextMatches(m -> Integer.valueOf(7).equals(m.payload()))
+        .expectNextCount(2)
+        .verifyComplete();
+    StepVerifier.create(
+            NodePolicies.edgeBuffered(
+                new NodePolicy.EdgeBuffer(3, NodePolicy.Overflow.DROP_NEWEST),
+                newest.asFlux(),
+                tracker,
+                "T"),
+            0)
+        .then(() -> emitTen(newest))
+        .thenRequest(Long.MAX_VALUE)
+        .expectNextMatches(m -> Integer.valueOf(0).equals(m.payload()))
+        .expectNextCount(2)
+        .verifyComplete();
+
+    verify(tracker, times(14)).recordEdgeDropped("T");
   }
 }
