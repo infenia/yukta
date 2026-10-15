@@ -19,6 +19,7 @@ import com.infenia.yukta.util.SinkEmit;
 import com.infenia.yukta.validation.NodeId;
 import com.infenia.yukta.validation.SessionId;
 import com.infenia.yukta.validation.WorkflowId;
+import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import io.micrometer.observation.ObservationRegistry;
@@ -41,6 +42,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.validation.annotation.Validated;
+import reactor.core.Scannable;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.publisher.Sinks;
@@ -140,6 +142,12 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
       final ExecutionEventFeed eventFeed) {
     this.cleanupTtl = cleanupTtl;
     this.telemetry = new RunTelemetry(meters, observations);
+    Gauge.builder(
+            "yukta.tracker.queue.depth",
+            eventSink,
+            sink -> Scannable.from(sink).scanOrDefault(Scannable.Attr.BUFFERED, 0))
+        .description("Tracker events accepted but not yet applied")
+        .register(meters);
     this.streams =
         new ExecutionStreams(
             statusSinks,

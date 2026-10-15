@@ -119,7 +119,7 @@ Malformed policies are rejected by `WorkflowValidator` with the node id and opti
 - Restart-from-node on a run that is still going replays only parents that have finished (the
   durable end marker); a replayed output is marked finished under the new run, so a second resume
   does not run those nodes again. A resume claim is dropped if the caller cancels.
-- Run starts and ends go to an `ExecutionLogStore`. By default it is in memory; set
+- Run starts and ends go to an `ExecutionLogStore`. By default it is in memory and trimmed like the file log (`LogRetention`: the newest `retained-runs`, never a run without an end, every `compact-after` events); set
   `yukta.execution-log.dir` to keep `executions.jsonl` on disk. On startup `ExecutionRecovery`
   marks runs that never finished as `ABORTED`, restores the newest
   `yukta.execution-log.retained-runs` (default 500) into history, and rewrites the log without
@@ -148,7 +148,7 @@ Malformed policies are rejected by `WorkflowValidator` with the node id and opti
   execution id instead of starting another. A failed start is not remembered. With the file log
   (`yukta.execution-log.dir`) the keys are written to it (`IDEMPOTENCY_KEY`) and reloaded on startup,
   so a client retrying after a restart still gets the first execution; the window restarts at the
-  reload.
+  reload. `yukta.start.idempotency-max-keys` (default 100000) caps the cache; a key evicted before its TTL lets a repeat start again.
 - Waiting starts are admitted by priority: a start payload key `yukta.priority` (number, higher
   first, default 0), then arrival order. `ExecutionScheduler.setLimits` changes the limits at run time; through the gateway
   (`changeLimits`) the change is recorded in the log under run id `scheduler` (the newest
@@ -175,6 +175,7 @@ payload in its archive and log entry.
 `yukta.executions.running` and `yukta.executions.queued` gauges report the scheduler.
 The first terminal that fails ends the run at once and cancels the other branches (they end
 `CANCELLED`); a caller that cancels a run ends it `CANCELLED` too, and a second end of a run is ignored.
+`yukta.tracker.queue.depth` gauges the state queue. Progress history keeps `yukta.streaming.status-history-max-per-run` (200) snapshots per run and `...-max-executions` (1000) runs, always the newest.
 `yukta.tracker.max-sessions` (default 0, off) evicts the oldest session without a running run when
 more are kept in memory.
 A run that outlives the session execution timeout ends `TIMED_OUT` (`ExecutionTimeoutException`); a

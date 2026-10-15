@@ -315,7 +315,7 @@ glance:{
   ["At-least-once","A node's end is durable, a side effect before it can repeat after a crash. Exactly-once is impossible; plugins de-duplicate on the message id."],
   ["Pluggable durability","Memory by default; files or PostgreSQL by configuration. What survives a restart depends on the profile (see Guarantees)."]
  ],
- start:[["primer","Primer","New here? Start with the problem, the vocabulary and one worked example"],["map","System map","Eleven components and how data and commands flow between them"],["map","Replay a run","Seven scenarios: overload, failure, crash, supervisor..."],["guarantees","What survives a crash","Switch deployment profile and watch the table change"],["quality","Stress it","Scalability, performance, availability, security lenses"],["board","Challenge it","44 open risks, an impact x effort grid, your own notes"],["adrs","Decisions","Eight ADRs, each with a 'revisit when' trigger"],["glossary","Glossary","Plain definitions of every term used here"]]
+ start:[["primer","Primer","New here? Start with the problem, the vocabulary and one worked example"],["map","System map","Eleven components and how data and commands flow between them"],["map","Replay a run","Seven scenarios: overload, failure, crash, supervisor..."],["guarantees","What survives a crash","Switch deployment profile and watch the table change"],["quality","Stress it","Scalability, performance, availability, security lenses"],["board","Challenge it","16 open risks, an impact x effort grid, your own notes"],["adrs","Decisions","Eight ADRs, each with a 'revisit when' trigger"],["glossary","Glossary","Plain definitions of every term used here"]]
 },
 comps:[
  {
@@ -346,7 +346,6 @@ comps:[
   ],
   "risks": [
    "spof",
-   "idemCap"
   ]
  },
  {
@@ -546,7 +545,6 @@ comps:[
    "cpstore",
    "exactlyOnce22",
    "payload23",
-   "logGrow"
   ]
  },
  {
@@ -728,17 +726,14 @@ risks:[
 {id:"exactlyOnce22",t:"Exactly-once is impossible",a:"Reliability",i:4,e:5,c:["dur","plugin"],why:"A side effect between the plugin acting and the end marker can repeat; remote workers widen the window.",o:"Keep at-least-once, publish idempotency patterns, add result caching keyed by message id (F12).",q:"Which of your plugins can safely run twice, and which cannot?",ph:""},
 {id:"payload23",t:"Large payloads are carried through the engine",a:"Performance",i:4,e:4,c:["engine","dur"],why:"Every message is in memory and in checkpoints; over the cap a restart is refused unless a spill directory moves the overflow to files. Remote workers make the control plane a data hop.",o:"Claim-check references to an object store or large objects; a frame size limit.",q:"What is the largest message you expect in a year?",ph:"f10"},
 {id:"backpressure25",t:"Slowest child paces every fan-out",a:"Performance",i:3,e:3,c:["engine"],why:"By design: safe, but a slow audit sink can throttle the main path.",o:"A per-edge buffer or drop policy for non-critical branches, chosen explicitly.",q:"Which consumers are allowed to fall behind?",ph:""},
-{id:"trackerQ26",t:"State event queue is unbounded",a:"Scalability",i:3,e:2,c:["obs"],why:"State events are never dropped, so an event storm becomes memory growth rather than data loss.",o:"Alert on queue depth; consider coalescing progress events.",q:"Would you rather lose events or run out of memory?",ph:""},
+{id:"trackerQ26",t:"State event queue is unbounded",a:"Scalability",i:3,e:2,c:["obs"],why:"State events are never dropped, so an event storm becomes memory growth rather than data loss. The depth is now a gauge (yukta.tracker.queue.depth), so growth can be alerted on before it becomes an outage.",o:"Alert on yukta.tracker.queue.depth; coalescing progress events remains an option if the alert fires.",q:"Would you rather lose events or run out of memory?",ph:""},
 {id:"signals14",t:"Approval waits are in memory (F2)",a:"Reliability",i:3,e:3,c:["plugin","dur"],why:"A resumed run waits again, because the waits are in memory. A signal that comes before the wait is now kept for ten minutes (at most 100) and a list of open waits is available over REST, MCP and the workflow page; only durability is missing.",o:"Record the decision in the checkpoint store keyed by message id (needs the message id to survive replay) after F10.",q:"How long do your approvals take, hours or days?",ph:""},
 {id:"llmBudget",t:"Budgets stop at one plugin (F4)",a:"Governance",i:3,e:3,c:["plugin"],why:"Done: a per-provider rate limit (yukta.llm.rate-limit.<provider>), a budget metric and budget.hardStop, which ends the run. Still missing: one budget across LLM_CALL and MCP_TOOL_CALL, per agent or per provider, and token or cost meters.",o:"A shared budget service keyed by run, agent and provider.",q:"",ph:""},
 {id:"memStore",t:"Agent memory is partly volatile (F7)",a:"Reliability",i:3,e:3,c:["plugin"],why:"KV_STORE is memory; chat history has no TTL and loads whole files; no shared or vector memory.",o:"Database backend after F10, eviction policy.",q:"",ph:"f10"},
 {id:"agentLoop",t:"Agent loop is incomplete (F8)",a:"Functionality",i:2,e:2,c:["plugin"],why:"Done: tool-role turns (assistant tool calls and tool results are sent as such) and tools/list follows nextCursor. Still missing: an example loop workflow and streaming.",o:"An example workflow that loops LLM_CALL and MCP_TOOL_CALL, and streamed answers.",q:"",ph:""},
 {id:"versions21",t:"Version history lacks diff and pinning (F9)",a:"Functionality",i:2,e:2,c:["def"],why:"Done: list, diff and rollback over REST, MCP and the workflow page. Still missing: notes on a version (they need a column in three stores) and pinning a run to a version.",o:"A note per save and a version argument on start.",q:"",ph:""},
 {id:"writerThread27",t:"Single writer thread for the log",a:"Performance",i:2,e:2,c:["persist"],why:"The store interface is blocking; PostgreSQL goes through one thread.",o:"Batch inserts or make the interface reactive.",q:"",ph:""},
-{id:"logGrow",t:"Default execution log never shrinks (B28)",a:"Scalability",i:3,e:1,c:["dur","persist"],why:"Without a log directory the log is a copy-on-write list that keeps every start payload and event, so memory grows without bound and every append copies the list.",o:"A bounded structure that trims to the newest runs, never dropping a run without an end, as the file log does.",q:"Is anyone running a long-lived server on the default store?",ph:""},
-{id:"ctlKey",t:"Plugin-level control keyed by workflow and node (B30)",a:"Correctness",i:1,e:2,c:["control"],why:"Latent: heartbeat and statistics state is keyed by workflow plus node, so two sessions or runs with equal ids would share it. No code emits heartbeats or statistics today, plugins are shared instances and signals carry the execution id, so nothing is affected yet.",o:"When a plugin starts to emit them, key by the execution id in the message metadata.",q:"",ph:""},
-{id:"idemCap",t:"Idempotency cache has no size cap (B31)",a:"Scalability",i:2,e:1,c:["entry"],why:"A client sending a new key per request keeps one cached entry per key for the whole window, so memory follows the request rate.",o:"Cap the cache size.",q:"",ph:""},
-{id:"histCache",t:"Run progress history is unbounded (B34)",a:"Scalability",i:4,e:1,c:["obs"],why:"Every status event stores a full snapshot of all node states for up to 30 minutes, with no count cap on the history or the cache. A large run, or many runs, grows memory with events times nodes.",o:"Cap the history per run (keep the last snapshot), set a maximum cache size, optionally coalesce snapshots.",q:"How many late-joining viewers need every intermediate step?",ph:""},
+{id:"ctlKey",t:"Plugin-level control keyed by workflow and node (B30)",a:"Correctness",i:1,e:2,c:["control"],why:"Latent, left as is on purpose: heartbeat and statistics state is keyed by workflow plus node, so two sessions or runs with equal ids would share it. No code emits heartbeats or statistics today, plugins are shared instances and signals carry the execution id, so nothing is affected yet.",o:"When a plugin starts to emit them, key by the execution id in the message metadata.",q:"",ph:""},
 {id:"ckptIO",t:"Durable runs pay a file open per message (P1)",a:"Performance",i:3,e:3,c:["dur"],why:"With a restart directory each message is appended by opening the file on another thread, and a resume reads a node's whole output into memory. Not measured yet.",o:"Measure first; keep one appender per node and stream the reads.",q:"What message rate must a durable run sustain?",ph:""},
 {id:"gaps12",t:"Capability gaps (F12)",a:"Functionality",i:2,e:4,c:["engine"],why:"Saga compensation, node result caching, A2A agent card, eval node, backfill, run search, secrets manager, auto-resume.",o:"Pull in on demand.",q:"Which one would a design partner ask for first?",ph:""}
 ],
