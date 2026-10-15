@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
-package com.infenia.yukta.workers;
+package com.infenia.workers;
 
 import com.infenia.yukta.service.leader.LeaderElection;
 import com.infenia.yukta.service.leader.SingleServerLeader;
@@ -13,6 +13,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
+import org.springframework.aot.hint.annotation.RegisterReflectionForBinding;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
@@ -35,6 +36,11 @@ import tools.jackson.databind.ObjectMapper;
  * yukta.workers.id}; the agent connects out. A node is not run remotely yet.
  */
 @AutoConfiguration
+@RegisterReflectionForBinding({
+  WorkerFrame.class,
+  NodeFrame.class,
+  com.infenia.yukta.message.DefaultMessage.class
+})
 public class WorkersAutoConfiguration {
 
   /** Default constructor. */
