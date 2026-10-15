@@ -18,7 +18,11 @@ import org.springframework.r2dbc.core.DatabaseClient;
 import tools.jackson.databind.ObjectMapper;
 
 @NoArgsConstructor
-@SuppressWarnings({"PMD.CommentRequired", "PMD.UnitTestShouldIncludeAssert"})
+@SuppressWarnings({
+  "PMD.CommentRequired",
+  "PMD.UnitTestShouldIncludeAssert",
+  "PMD.AvoidDuplicateLiterals"
+})
 class PostgresPersistenceAutoConfigurationTest {
 
   private final ApplicationContextRunner runner =
@@ -55,6 +59,29 @@ class PostgresPersistenceAutoConfigurationTest {
     runner
         .withPropertyValues("yukta.session.store-type=postgres")
         .run(context -> assertThat(context).doesNotHaveBean(NodeCheckpointStore.class));
+  }
+
+  @Test
+  void withHaModePostgres_theLeaderElectionIsDatabaseBacked() {
+    runner
+        .withInitializer(
+            context ->
+                context
+                    .getBeanFactory()
+                    .setConversionService(
+                        org.springframework.boot.convert.ApplicationConversionService
+                            .getSharedInstance()))
+        .withBean(
+            io.micrometer.core.instrument.MeterRegistry.class,
+            io.micrometer.core.instrument.simple.SimpleMeterRegistry::new)
+        .withPropertyValues("yukta.session.store-type=postgres", "yukta.ha.mode=postgres")
+        .run(
+            context ->
+                assertThat(context.getBean(com.infenia.yukta.service.leader.LeaderElection.class))
+                    .isInstanceOf(R2dbcLeaderElection.class));
+    runner
+        .withPropertyValues("yukta.session.store-type=postgres")
+        .run(context -> assertThat(context).doesNotHaveBean(R2dbcLeaderElection.class));
   }
 
   @Test

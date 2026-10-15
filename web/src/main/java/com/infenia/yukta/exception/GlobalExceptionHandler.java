@@ -8,6 +8,7 @@ import com.infenia.yukta.model.api.ApiResponse;
 import com.infenia.yukta.service.ConflictException;
 import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.control.ExecutionRejectedException;
+import com.infenia.yukta.service.leader.NotLeaderException;
 import com.infenia.yukta.service.supervisor.ControlRejectedException;
 import jakarta.validation.ConstraintViolationException;
 import java.util.List;
@@ -267,6 +268,19 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
   public ResponseEntity<ApiResponse<Object>> handleIllegalArgument(
       final IllegalArgumentException exception, final ServerHttpRequest request) {
     return buildErrorResponse(HttpStatus.BAD_REQUEST, exception.getMessage(), request);
+  }
+
+  /**
+   * Handle a start sent to a standby server.
+   *
+   * @param exception the exception
+   * @param request the current request
+   * @return structured 503 response
+   */
+  @ExceptionHandler(NotLeaderException.class)
+  public ResponseEntity<ApiResponse<Object>> handleNotLeader(
+      final NotLeaderException exception, final ServerHttpRequest request) {
+    return buildErrorResponse(HttpStatus.SERVICE_UNAVAILABLE, exception.getMessage(), request);
   }
 
   /**

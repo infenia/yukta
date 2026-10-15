@@ -257,6 +257,20 @@ means the attempt fails at once, as a failure the engine can retry. A worker tha
 its class name (`IllegalArgumentException` stays one, so it is not retried). Messages cross as plain JSON values.
 See `docs/plans/10-remote-workers.md`.
 
+### High availability (active/standby)
+`LeaderElection` (`service/leader`) says whether this server admits runs. A single server is always the
+leader (`SingleServerLeader`). With `yukta.ha.mode=postgres` (persistence-postgres, `V4__leader_lease`) servers share
+the database and one holds a lease row (`yukta.ha.lease`, default 15s, renewed three times per lease; a graceful stop
+releases it; the `yukta.leader` gauge is 1 on the leader; the fencing number grows with every change of holder). A
+server counts itself the leader only while its own last renewal is younger than the lease, so one that cannot reach
+the database stops before another can take over. `ExecutionScheduler` refuses every start, restart and resume on a
+standby with `NotLeaderException` (HTTP 503; counted as `yukta.executions.rejected{reason=not_leader}`). Startup
+recovery is skipped in this mode; on takeover `TakeoverRecovery` runs `ExecutionRecovery.recover()` (marks the old
+leader's unfinished runs `ABORTED`). With `yukta.restart.auto-resume=true`, after any recovery (startup of a
+single server too) `ExecutionResumer.resume` runs on each interrupted run, one after the other, from the
+checkpoints (use the PostgreSQL checkpoint store, or a shared directory). Lost on takeover: live approval waits, queued
+starts, slots and the old tracker state. Clients send requests to the leader; there is no proxy.
+
 ### Sub-workflows
 `SUB_WORKFLOW` (internal-core) runs another stored workflow of the same session per message through
 `SubWorkflowGateway` (`SubWorkflowRunner`): a normal run with its own execution id, tracked

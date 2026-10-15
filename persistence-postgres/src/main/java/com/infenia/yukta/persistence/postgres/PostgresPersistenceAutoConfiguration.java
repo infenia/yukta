@@ -91,4 +91,24 @@ public class PostgresPersistenceAutoConfiguration {
       final DatabaseClient client, final ObjectMapper mapper) {
     return new R2dbcNodeCheckpointStore(client, mapper);
   }
+
+  /**
+   * Leader election through a lease row, when {@code yukta.ha.mode=postgres}.
+   *
+   * @param client runs the statements
+   * @param instanceId this server's id in the lease row (random if not set)
+   * @param lease how long a renewal keeps the lease
+   * @param meters where the {@code yukta.leader} gauge is registered
+   * @return the election
+   */
+  @Bean
+  @ConditionalOnProperty(name = "yukta.ha.mode", havingValue = "postgres")
+  public R2dbcLeaderElection leaderElection(
+      final DatabaseClient client,
+      @Value("${yukta.ha.instance-id:#{T(java.util.UUID).randomUUID().toString()}}")
+          final String instanceId,
+      @Value("${yukta.ha.lease:15s}") final java.time.Duration lease,
+      final io.micrometer.core.instrument.MeterRegistry meters) {
+    return new R2dbcLeaderElection(client, instanceId, lease, meters);
+  }
 }

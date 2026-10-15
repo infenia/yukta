@@ -105,7 +105,7 @@ REST API (F3) gain `ADMIN`-only worker endpoints.
    tests (kill -9 mid node), at-least-once documentation.
 5. **Operations:** UI list of workers, per-worker load, `max-concurrent` accounting that counts remote
    slots, native-image support for the worker profile.
-6. **Control plane HA:** active/standby with a PostgreSQL lease; workers reconnect to the new leader;
+6. **Control plane HA (done: PostgreSQL lease, standby refuses starts, takeover recovers and auto-resumes; open: workers finding the new leader on their own, queued starts and waits surviving):** active/standby with a PostgreSQL lease; workers reconnect to the new leader;
    in-flight runs resume from checkpoints (needs the checkpoint store in PostgreSQL).
 
 ## Risks
