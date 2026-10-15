@@ -31,32 +31,8 @@ import reactor.core.publisher.Mono;
 /** Splitter breaks a single composite message into individual messages. */
 @Slf4j
 @Component
-@SuppressWarnings({
-  "PMD.OnlyOneReturn",
-  "PMD.AvoidCatchingGenericException",
-  "PMD.TooManyMethods",
-  "PMD.ExceptionAsFlowControl",
-  "PMD.CyclomaticComplexity"
-})
+@SuppressWarnings({"PMD.OnlyOneReturn", "PMD.AvoidCatchingGenericException", "PMD.TooManyMethods"})
 public final class SplitterProcessor implements ProcessorPlugin {
-
-  /** Metrics reporter. */
-  private final PluginMetricsReporter reporter;
-
-  /** Creates the plugin without metrics. */
-  public SplitterProcessor() {
-    this.reporter = PluginMetricsReporter.NOOP;
-  }
-
-  /**
-   * Spring constructor.
-   *
-   * @param reporterProvider optional metrics reporter
-   */
-  @Autowired
-  public SplitterProcessor(final ObjectProvider<PluginMetricsReporter> reporterProvider) {
-    this.reporter = reporterProvider.getIfAvailable(() -> PluginMetricsReporter.NOOP);
-  }
 
   /** Type. */
   private static final String TYPE = "SPLITTER";
@@ -84,6 +60,24 @@ public final class SplitterProcessor implements ProcessorPlugin {
 
   /** Err fail. */
   private static final String ERR_FAIL = "Splitter failed";
+
+  /** Metrics reporter. */
+  private final PluginMetricsReporter reporter;
+
+  /** Creates the plugin without metrics. */
+  public SplitterProcessor() {
+    this.reporter = PluginMetricsReporter.NOOP;
+  }
+
+  /**
+   * Spring constructor.
+   *
+   * @param reporterProvider optional metrics reporter
+   */
+  @Autowired
+  public SplitterProcessor(final ObjectProvider<PluginMetricsReporter> reporterProvider) {
+    this.reporter = reporterProvider.getIfAvailable(() -> PluginMetricsReporter.NOOP);
+  }
 
   @Override
   public PluginDescriptor describe() {
@@ -307,7 +301,9 @@ public final class SplitterProcessor implements ProcessorPlugin {
       final String errorPort,
       final boolean strict,
       final Throwable error) {
-    log.error("Splitter failed: {}", error.getMessage());
+    if (log.isErrorEnabled()) {
+      log.error("Splitter failed: {}", error.getMessage());
+    }
     if (errorPort != null && !errorPort.isBlank()) {
       return Flux.just(
           parent.withSourcePort(errorPort).withFailure(null, ERR_FAIL, error.getMessage()));

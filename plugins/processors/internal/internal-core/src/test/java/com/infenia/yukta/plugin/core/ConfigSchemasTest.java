@@ -19,7 +19,6 @@ import org.junit.jupiter.api.Test;
 
 /** The configuration schemas the UI renders its forms from: the fields and which are required. */
 @NoArgsConstructor
-@SuppressWarnings("PMD.TooManyStaticImports")
 class ConfigSchemasTest {
 
   private static List<String> names(final Plugin plugin) {

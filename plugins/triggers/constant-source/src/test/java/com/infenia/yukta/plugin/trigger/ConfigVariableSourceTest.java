@@ -21,6 +21,12 @@ import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
 /** Config variable source test. */
+@SuppressWarnings({
+  "PMD.AvoidDuplicateLiterals",
+  "PMD.TooManyStaticImports",
+  "PMD.UnitTestAssertionsShouldIncludeMessage",
+  "PMD.UnnecessaryFullyQualifiedName"
+})
 @ExtendWith(MockitoExtension.class)
 @NoArgsConstructor
 class ConfigVariableSourceTest {

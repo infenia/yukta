@@ -25,7 +25,18 @@ import org.springframework.test.util.ReflectionTestUtils;
 import reactor.core.publisher.Flux;
 import reactor.test.StepVerifier;
 
-@SuppressWarnings({"PMD.CommentRequired", "unchecked"})
+@SuppressWarnings({
+  "PMD.AtLeastOneConstructor",
+  "PMD.AvoidDuplicateLiterals",
+  "PMD.CommentRequired",
+  "PMD.ShortVariable",
+  "PMD.TooManyMethods",
+  "PMD.TooManyStaticImports",
+  "PMD.UnitTestAssertionsShouldIncludeMessage",
+  "PMD.UnnecessaryFullyQualifiedName",
+  "PMD.UseConcurrentHashMap",
+  "unchecked"
+})
 class MapperProcessorTest {
 
   private final ScriptEngine engine = mock(ScriptEngine.class);

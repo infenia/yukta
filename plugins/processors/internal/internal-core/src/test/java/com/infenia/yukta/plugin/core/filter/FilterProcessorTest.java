@@ -21,7 +21,12 @@ import reactor.core.publisher.Flux;
 import reactor.test.StepVerifier;
 
 /** Filter processor test. */
-@SuppressWarnings("PMD.TooManyMethods")
+@SuppressWarnings({
+  "PMD.AvoidDuplicateLiterals",
+  "PMD.TooManyMethods",
+  "PMD.UnitTestAssertionsShouldIncludeMessage",
+  "PMD.UnnecessaryFullyQualifiedName"
+})
 @NoArgsConstructor
 class FilterProcessorTest {
 

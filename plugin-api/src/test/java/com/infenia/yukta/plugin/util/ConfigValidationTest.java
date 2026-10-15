@@ -8,7 +8,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 
-@SuppressWarnings("PMD.CommentRequired")
+@SuppressWarnings({"PMD.AtLeastOneConstructor", "PMD.CommentRequired"})
 class ConfigValidationTest {
 
   @Test

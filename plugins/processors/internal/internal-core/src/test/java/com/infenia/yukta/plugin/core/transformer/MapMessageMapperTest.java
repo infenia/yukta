@@ -12,7 +12,7 @@ import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 
 @NoArgsConstructor
-@SuppressWarnings("PMD.CommentRequired")
+@SuppressWarnings({"PMD.CommentRequired", "PMD.ShortVariable"})
 class MapMessageMapperTest {
 
   private final MapMessageMapper mapper = new MapMessageMapper();

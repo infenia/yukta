@@ -14,6 +14,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
+@SuppressWarnings({"PMD.AtLeastOneConstructor", "PMD.CommentRequired", "PMD.ShortMethodName"})
 class ControlPlanePluginTest {
 
   private static final ExecutionControlCommand PAUSE =

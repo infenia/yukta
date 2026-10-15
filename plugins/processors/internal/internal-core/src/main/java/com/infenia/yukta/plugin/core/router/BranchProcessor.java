@@ -42,24 +42,6 @@ import reactor.core.publisher.Mono;
 })
 public final class BranchProcessor implements ProcessorPlugin {
 
-  /** Metrics reporter. */
-  private final PluginMetricsReporter reporter;
-
-  /** Creates the plugin without metrics. */
-  public BranchProcessor() {
-    this.reporter = PluginMetricsReporter.NOOP;
-  }
-
-  /**
-   * Spring constructor.
-   *
-   * @param reporterProvider optional metrics reporter
-   */
-  @Autowired
-  public BranchProcessor(final ObjectProvider<PluginMetricsReporter> reporterProvider) {
-    this.reporter = reporterProvider.getIfAvailable(() -> PluginMetricsReporter.NOOP);
-  }
-
   /** Type. */
   private static final String TYPE = "BRANCH";
 
@@ -95,6 +77,24 @@ public final class BranchProcessor implements ProcessorPlugin {
 
   /** Unchecked. */
   private static final String UNCHECKED = "unchecked";
+
+  /** Metrics reporter. */
+  private final PluginMetricsReporter reporter;
+
+  /** Creates the plugin without metrics. */
+  public BranchProcessor() {
+    this.reporter = PluginMetricsReporter.NOOP;
+  }
+
+  /**
+   * Spring constructor.
+   *
+   * @param reporterProvider optional metrics reporter
+   */
+  @Autowired
+  public BranchProcessor(final ObjectProvider<PluginMetricsReporter> reporterProvider) {
+    this.reporter = reporterProvider.getIfAvailable(() -> PluginMetricsReporter.NOOP);
+  }
 
   @Override
   public PluginDescriptor describe() {
@@ -241,7 +241,10 @@ public final class BranchProcessor implements ProcessorPlugin {
       final String errorPort,
       final boolean strictMode,
       final Exception exception) {
-    log.error("Branch evaluation failed for message {}: {}", message.id(), exception.getMessage());
+    if (log.isErrorEnabled()) {
+      log.error(
+          "Branch evaluation failed for message {}: {}", message.id(), exception.getMessage());
+    }
     if (errorPort != null) {
       return Flux.just(
           message

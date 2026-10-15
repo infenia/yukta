@@ -15,6 +15,7 @@ import reactor.core.publisher.Flux;
 import reactor.test.StepVerifier;
 
 /** Pins the defaults every plugin inherits, so changing one is a deliberate act. */
+@SuppressWarnings({"PMD.AtLeastOneConstructor", "PMD.CommentRequired", "PMD.ShortVariable"})
 class PluginContractDefaultsTest {
 
   private final Plugin plugin =

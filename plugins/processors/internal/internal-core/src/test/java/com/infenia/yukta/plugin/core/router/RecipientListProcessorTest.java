@@ -21,7 +21,11 @@ import reactor.test.StepVerifier;
 import reactor.util.context.Context;
 
 /** Recipient list processor test. */
-@SuppressWarnings("PMD.TooManyMethods")
+@SuppressWarnings({
+  "PMD.AvoidDuplicateLiterals",
+  "PMD.TooManyMethods",
+  "PMD.UnitTestAssertionsShouldIncludeMessage"
+})
 @NoArgsConstructor
 class RecipientListProcessorTest {
 

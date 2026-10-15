@@ -38,7 +38,11 @@ import reactor.core.publisher.Mono;
  * recorded.
  */
 @Component
+@SuppressWarnings("PMD.OnlyOneReturn")
 public final class WaitForSignalProcessor implements ProcessorPlugin {
+
+  /** Action that fails the message. */
+  private static final String FAIL = "FAIL";
 
   /** Config key: name of the signal to wait for. */
   private static final String SIGNAL = "signal";
@@ -121,9 +125,8 @@ public final class WaitForSignalProcessor implements ProcessorPlugin {
         ConfigField.required(SIGNAL, ConfigField.Type.STRING, "Name of the signal to wait for"),
         ConfigField.optional(
             TIMEOUT_SECONDS, ConfigField.Type.NUMBER, DEFAULT_TIMEOUT_SECONDS, "Longest wait"),
-        ConfigField.choice(ON_TIMEOUT, false, "FAIL", "Action on timeout", "FAIL", CONTINUE),
-        ConfigField.choice(
-            ON_REJECT, false, "FAIL", "Action on a reject decision", "FAIL", CONTINUE));
+        ConfigField.choice(ON_TIMEOUT, false, FAIL, "Action on timeout", FAIL, CONTINUE),
+        ConfigField.choice(ON_REJECT, false, FAIL, "Action on a reject decision", FAIL, CONTINUE));
   }
 
   @Override

@@ -23,7 +23,12 @@ import reactor.core.publisher.Flux;
 import reactor.test.StepVerifier;
 
 /** Splitter processor test. */
-@SuppressWarnings("PMD.TooManyMethods")
+@SuppressWarnings({
+  "PMD.AvoidDuplicateLiterals",
+  "PMD.TooManyMethods",
+  "PMD.UnitTestAssertionsShouldIncludeMessage",
+  "PMD.UseConcurrentHashMap"
+})
 @NoArgsConstructor
 class SplitterProcessorTest {
 

@@ -8,6 +8,13 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.StopWorkflowCommand;
 import org.junit.jupiter.api.Test;
 
+@SuppressWarnings({
+  "PMD.AtLeastOneConstructor",
+  "PMD.CommentRequired",
+  "PMD.ShortVariable",
+  "PMD.UnnecessaryFullyQualifiedName",
+  "PMD.UnusedLocalVariable"
+})
 class ExecutionControlCommandTest {
 
   @Test
