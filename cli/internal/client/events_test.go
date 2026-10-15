@@ -37,7 +37,7 @@ func TestStreamEvents_parsesEveryEventType(t *testing.T) {
 	defer server.Close()
 
 	var got []ExecutionEvent
-	err := NewClient(server.URL).StreamEvents(context.Background(), "e1", "LogLine", func(e ExecutionEvent) error {
+	err := NewClient(server.URL).StreamEvents(context.Background(), "e1", "LogLine", "", func(e ExecutionEvent) error {
 		got = append(got, e)
 		return nil
 	})
@@ -62,11 +62,29 @@ func TestStreamEvents_parsesEveryEventType(t *testing.T) {
 	}
 }
 
+func TestStreamEvents_severityFilterAndEnvelopeFields(t *testing.T) {
+	server := eventServer(t, "severity=WARN",
+		`{"type":"NodeStatusChanged","severity":"ERROR","event":{"executionId":"e1","nodeId":"style","status":"FAILURE","metadata":{"error":"Process failed"}}}`)
+	defer server.Close()
+
+	var got []ExecutionEvent
+	err := NewClient(server.URL).StreamEvents(context.Background(), "", "", "WARN", func(e ExecutionEvent) error {
+		got = append(got, e)
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(got) != 1 || got[0].Severity != "ERROR" || got[0].Metadata["error"] != "Process failed" {
+		t.Errorf("events = %+v", got)
+	}
+}
+
 func TestStreamEvents_noFiltersSendsNoQuery(t *testing.T) {
 	server := eventServer(t, "")
 	defer server.Close()
 
-	if err := NewClient(server.URL).StreamEvents(context.Background(), "", "", func(ExecutionEvent) error { return nil }); err != nil {
+	if err := NewClient(server.URL).StreamEvents(context.Background(), "", "", "", func(ExecutionEvent) error { return nil }); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
@@ -79,7 +97,7 @@ func TestStreamEvents_callbackErrorStopsStream(t *testing.T) {
 
 	stop := errors.New("stop")
 	calls := 0
-	err := NewClient(server.URL).StreamEvents(context.Background(), "", "", func(ExecutionEvent) error {
+	err := NewClient(server.URL).StreamEvents(context.Background(), "", "", "", func(ExecutionEvent) error {
 		calls++
 		return stop
 	})
@@ -92,14 +110,14 @@ func TestStreamEvents_badJSON(t *testing.T) {
 	server := eventServer(t, "", `not json`)
 	defer server.Close()
 
-	err := NewClient(server.URL).StreamEvents(context.Background(), "", "", func(ExecutionEvent) error { return nil })
+	err := NewClient(server.URL).StreamEvents(context.Background(), "", "", "", func(ExecutionEvent) error { return nil })
 	if err == nil {
 		t.Fatal("expected an unmarshal error")
 	}
 }
 
 func TestStreamEvents_nilCallback(t *testing.T) {
-	if err := NewClient("http://localhost").StreamEvents(context.Background(), "", "", nil); err == nil {
+	if err := NewClient("http://localhost").StreamEvents(context.Background(), "", "", "", nil); err == nil {
 		t.Fatal("expected error for nil callback")
 	}
 }
@@ -110,7 +128,7 @@ func TestStreamEvents_apiError(t *testing.T) {
 	}))
 	defer server.Close()
 
-	err := NewClient(server.URL).StreamEvents(context.Background(), "", "", func(ExecutionEvent) error { return nil })
+	err := NewClient(server.URL).StreamEvents(context.Background(), "", "", "", func(ExecutionEvent) error { return nil })
 	if err == nil {
 		t.Fatal("expected error for 500")
 	}

@@ -41,8 +41,13 @@ One line per event:
   WORKFLOW <status>
   CONTROL <command> applied=<bool> [reason]
   LOG <node>: <line>
-With --quiet only problems and the end are shown: failed or otherwise non-SUCCESS final node
-statuses, control commands that were not applied, and the final workflow status.
+With --quiet only problems and the end are shown, which keeps a long run cheap to follow:
+failed or otherwise non-SUCCESS final node statuses, each followed by the reason the node
+reports, the error and warning lines of the output as
+  ERROR <node>: <line>
+  WARN <node>: <line>
+(each once, at most 20 per node), control commands that were not applied, and the final
+workflow status.
 With -o json, each event is printed as one JSON object per line.
 
 The server does not replay events: only what happens after the stream opens is shown.
@@ -69,14 +74,16 @@ Press Ctrl-C to stop watching at any time.`,
 				eventType: eventType,
 				untilDone: untilDone,
 				noLogs:    noLogs,
-				quiet:     quiet,
 				json:      commands.GetOutputFormat() == "json",
+			}
+			if quiet {
+				w.problems = newProblemFilter()
 			}
 			if untilDone {
 				go w.pollStatus(ctx, c, executionID)
 			}
 
-			err := c.StreamEvents(ctx, executionID, eventType, w.handle)
+			err := c.StreamEvents(ctx, executionID, eventType, "", w.handle)
 			if errors.Is(err, context.Canceled) {
 				return nil
 			}
@@ -89,7 +96,8 @@ Press Ctrl-C to stop watching at any time.`,
 		"Only events of this kind: NodeStatusChanged, WorkflowStatusChanged, ControlOutcome or LogLine")
 	cmd.Flags().BoolVar(&untilDone, "until-done", false, "Exit when the execution has ended (needs --execution)")
 	cmd.Flags().BoolVar(&noLogs, "no-logs", false, "Leave out log lines")
-	cmd.Flags().BoolVar(&quiet, "quiet", false, "Only problems and the final workflow status")
+	cmd.Flags().BoolVar(&quiet, "quiet", false,
+		"Only problems (with their reasons and error lines) and the final workflow status")
 	return cmd
 }
 
@@ -102,8 +110,8 @@ type watcher struct {
 	eventType string
 	untilDone bool
 	noLogs    bool
-	quiet     bool
 	json      bool
+	problems  *problemFilter     // set by --quiet
 	seen      map[nodeKey]string // last status printed per execution node, to drop snapshot/stream duplicates
 }
 
@@ -137,7 +145,7 @@ func (w *watcher) handle(e client.ExecutionEvent) error {
 	if w.noLogs && e.Type == client.EventLogLine {
 		return nil
 	}
-	if w.quiet && !isProblemOrEnd(e) {
+	if w.problems != nil && !isProblemOrEnd(e) && !isWarnOrError(e) {
 		return nil
 	}
 	if w.eventType != "" && !strings.EqualFold(w.eventType, e.Type) {
@@ -167,6 +175,12 @@ func (w *watcher) print(e client.ExecutionEvent) {
 		fmt.Println(string(line))
 		return
 	}
+	if w.problems != nil {
+		for _, line := range w.problems.render(e) {
+			fmt.Println(line)
+		}
+		return
+	}
 	fmt.Println(formatEvent(e))
 }
 
@@ -185,6 +199,7 @@ func (w *watcher) pollStatus(ctx context.Context, c *client.Client, executionID 
 						ExecutionID: executionID,
 						NodeID:      t.NodeID,
 						Status:      t.Status,
+						Metadata:    t.Metadata, // a failed node's reason, if its event was missed
 					})
 				}
 			}

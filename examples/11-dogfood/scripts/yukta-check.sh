@@ -10,7 +10,8 @@
 #   -p project-path   checkout to check (default: current git toplevel)
 #   --detach          start the run, print "STARTED execution=<id> session=<id>" and exit; follow it
 #                     with yukta-watch.sh (the form for Claude Code under the Monitor tool)
-#   --watch           follow the run with control-bus events (see yukta-watch.sh) instead of the log
+#   --watch           follow the run, errors and warnings only (yukta-watch.sh --quiet), instead of the
+#                     full log; the cheap way to follow a run
 #   WORKFLOW          override the workflow name (e.g. quick-check: formatting + Go vet)
 #
 # Server: $YUKTA_SERVER_URL, else .yukta-dev/current.env written by yukta-worktree.sh.
@@ -76,7 +77,7 @@ case "$mode" in
   watch)
     echo "STARTED execution=$exec_id session=$session"
     export YUKTA_SCOPE="$scope"
-    exec "$here/yukta-watch.sh" "$session" "$exec_id"
+    exec "$here/yukta-watch.sh" "$session" "$exec_id" --quiet
     ;;
 esac
 

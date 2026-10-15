@@ -8,6 +8,7 @@ import com.infenia.yukta.model.workflow.WorkflowNode;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import java.time.Duration;
 import java.util.Collections;
+import java.util.Map;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BooleanSupplier;
@@ -23,6 +24,12 @@ import reactor.core.scheduler.Schedulers;
 @UtilityClass
 @SuppressWarnings({"PMD.AtLeastOneConstructor", "PMD.OnlyOneReturn"})
 public class NodeStreams {
+
+  /** Metadata key of a failed node's status event holding the reason. */
+  public static final String ERROR_KEY = "error";
+
+  /** Longest reason kept on a status event; a longer one keeps its head and tail. */
+  private static final int MAX_ERROR_CHARS = 8_000;
 
   /**
    * Applies the node's idle timeout, then reports RUNNING at the node's first activity and SUCCESS
@@ -94,8 +101,40 @@ public class NodeStreams {
                   .setCause(error)
                   .log();
               markRunning.run();
-              emit(tracker, executionId, node, failureStatus(error));
+              final TaskStatus status = failureStatus(error);
+              emit(
+                  tracker,
+                  executionId,
+                  node,
+                  status,
+                  status == TaskStatus.UPSTREAM_FAILED
+                      ? Collections.emptyMap()
+                      : Map.of(ERROR_KEY, describe(error)));
             });
+  }
+
+  /**
+   * The reason a node failed, as reported on its status event: the error's message (its class name
+   * when it has none), cut to head and tail when long, since a build tool puts the first errors at
+   * the top and the report location at the bottom.
+   *
+   * @param error the error that ended the node
+   * @return the text, at most {@value #MAX_ERROR_CHARS} characters plus the cut marker
+   */
+  /* default */ static String describe(final Throwable error) {
+    final String message = error.getMessage();
+    final String text =
+        message == null || message.isBlank() ? error.getClass().getSimpleName() : message;
+    // ponytail: fixed head/tail split; make it configurable if a plugin needs a different shape.
+    if (text.length() <= MAX_ERROR_CHARS) {
+      return text;
+    }
+    final int half = MAX_ERROR_CHARS / 2;
+    return text.substring(0, half)
+        + "\n… ["
+        + (text.length() - MAX_ERROR_CHARS)
+        + " chars cut] …\n"
+        + text.substring(text.length() - half);
   }
 
   /**
@@ -117,7 +156,15 @@ public class NodeStreams {
       final String executionId,
       final WorkflowNode node,
       final TaskStatus status) {
-    tracker.emitTaskStatusEvent(
-        executionId, node.nodeId(), node.type(), status, Collections.emptyMap());
+    emit(tracker, executionId, node, status, Collections.emptyMap());
+  }
+
+  private void emit(
+      final TaskTrackerService tracker,
+      final String executionId,
+      final WorkflowNode node,
+      final TaskStatus status,
+      final Map<String, Object> metadata) {
+    tracker.emitTaskStatusEvent(executionId, node.nodeId(), node.type(), status, metadata);
   }
 }

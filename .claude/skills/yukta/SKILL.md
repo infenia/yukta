@@ -9,20 +9,40 @@ allowed-tools: Bash, Read
 The full `gradle check` is encoded as a Yukta workflow (`examples/11-dogfood/session.json`).
 Do not decide which checks to run: run the workflow and act on its result.
 
+## Token budget: follow a run by its problems, never its log
+A run prints thousands of lines and almost all are noise. Every event on the control bus has a severity
+(`INFO`, `WARN`, `ERROR`) and a failed node's event carries its reason, so ask for problems only:
+- **Do:** `yukta-check.sh --watch …`, or `--detach` then `yukta-watch.sh <s> <e> --quiet`.
+- **Don't:** `yukta logs`, `yukta controlbus watch` without `--quiet`, `yukta-check.sh` without
+  `--watch`/`--detach` (it streams the whole log), or reading a report file whole.
+
+A passing run is a couple of lines. A failing one adds only the cause, e.g.:
+```
+NODE style FAILURE
+ERROR style: [ant:checkstyle] [ERROR] Foo.java:3: bad
+ERROR style: Execution failed for task ':core:checkstyleMain'.
+ERROR style: See the report at: file:///…/core/build/reports/checkstyle/main.html
+WORKFLOW FAILURE
+RESULT status=FAILURE failed_node=style execution=<id> session=<id>
+```
+
 ## Run the checks
 ```bash
-examples/11-dogfood/scripts/yukta-check.sh        # checks the current checkout; exit 0 = SUCCESS
+examples/11-dogfood/scripts/yukta-check.sh --watch        # checks the current checkout; exit 0 = SUCCESS
 ```
 1. Read the final line: `RESULT status=<S> failed_node=<node> execution=<id> session=<id>`.
-2. If `SUCCESS`: done. Otherwise fix only what `failed_node` reports (stages are fail-fast, in order:
-   spotless, compile, tests, coverage, style, spotbugs, licenses, security, cli).
-3. Read that stage's report (see `examples/11-dogfood/README.md` table), fix, rerun the script.
+2. If `SUCCESS`: done. Otherwise fix only what the `ERROR <failed_node>:` lines report (stages are
+   fail-fast, in order: spotless, compile, tests, coverage, style, spotbugs, licenses, security, cli).
+3. Fix, then rerun the script.
 4. Formatting failures: run `./gradlew spotlessApply`, then rerun.
+5. If the `ERROR` lines are not enough, open the report they name (stage table in
+   `examples/11-dogfood/README.md`) but **grep it for the failures**, do not read it: `<error` in
+   checkstyle/PMD XML, `<failure` or `<error` in `<module>/build/test-results/test/TEST-*.xml`.
 
 Scope it when the whole project is overkill:
 ```bash
-examples/11-dogfood/scripts/yukta-check.sh -m core                          # staged gate for one module
-examples/11-dogfood/scripts/yukta-check.sh :core:test --tests '<FQCN>'      # any gradle args, one stage (failed_node=gradle)
+examples/11-dogfood/scripts/yukta-check.sh --watch -m core                       # staged gate for one module
+examples/11-dogfood/scripts/yukta-check.sh --watch :core:test --tests '<FQCN>'   # any gradle args, one stage (failed_node=gradle)
 ```
 
 For quick inner-loop feedback keep using the scoped tiers in CLAUDE.md; use this for the final gate.
@@ -38,11 +58,12 @@ Yukta develops Yukta, so a run is also a test of Yukta. Watch it live instead of
    #   STARTED execution=<e> session=<s>
    ```
    Without the subagent, use **Monitor** with failures only (an event only on trouble, plus the end):
-   `yukta-watch.sh <s> <e> --quiet` (only problems, the end, SLOW and RESULT).
-   Drop `--quiet` (use `--no-logs`, then nothing) only when debugging a stage live. Never Monitor unfiltered `LOG` lines (compile
-   warnings alone flood and rate-limit it).
-   Lines: `NODE <node> <status>`, `WORKFLOW <status>`, `CONTROL <cmd> applied=<bool>`, `LOG <node>: <line>`,
-   `SLOW <node> …`, then the `RESULT` line. (`yukta-check.sh --watch …` does both in one.)
+   `yukta-watch.sh <s> <e> --quiet` (only problems with their causes, the end, SLOW and RESULT).
+   Lines: `NODE <node> <status>` (failed nodes), `ERROR <node>: <line>`, `WARN <node>: <line>`,
+   `CONTROL <cmd> applied=false …`, `WORKFLOW <status>`, `SLOW <node> …`, then the `RESULT` line.
+   (`yukta-check.sh --watch …` does both in one.)
+   Drop `--quiet` (use `--no-logs`, then nothing) only when debugging a stage live. Never Monitor unfiltered
+   `LOG` lines (compile warnings alone flood and rate-limit it).
    The subagent is read-only: you decide on retry, fixes and backlog entries. It triages at L1 only; when the
    cause isn't clear quickly (unknown, a Yukta stack trace, security, hang, repeat failure) it returns
    `ESCALATE:` at once with the evidence so far, and you take over the analysis.
@@ -50,7 +71,7 @@ Yukta develops Yukta, so a run is also a test of Yukta. Watch it live instead of
    output), improve it in `cli/` as part of the work (tests; `:cli:check` needs 100% function coverage)
    instead of working around it or only backlogging it.
 2. Every failure or anomaly is analysed (root cause, not symptom) and either fixed or logged; never ignored.
-   When a stage fails (`NODE <stage> FAILURE`/`TIMED_OUT`), read its report, then:
+   When a stage fails (`NODE <stage> FAILURE`/`TIMED_OUT`), start from its `ERROR` lines, then:
    - **Related to the current run/change** (your change broke it, or it blocks this run): fix it, then retry
      from that stage (earlier stages are not rerun) and watch the new execution id:
      `examples/11-dogfood/scripts/yukta-cli.sh workflow node retry <e> <stage>`
@@ -62,6 +83,8 @@ Yukta develops Yukta, so a run is also a test of Yukta. Watch it live instead of
 3. Other levers, only on executions you started: `yukta-cli.sh workflow pause|resume <s> <e>`,
    `workflow node pause|resume|stop|skip <s> <e> <node>`, `workflow node signal <e> <node> --name N --decision D`,
    `workflow node breakpoint <e> <node> --field F --equals V [--clear]`, `workflow executions stop <e>`.
+   Stop a run early, rather than letting it burn time, once a stage shows an `ERROR` you cannot be wrong
+   about (`workflow executions stop <e>`).
 4. **Record every finding** in `<module>/docs/dogfood-backlog.md` (the module the defect is in; the dogfood
    tooling itself: `examples/11-dogfood/docs/dogfood-backlog.md`). Create the file with a `# Dogfood backlog`
    heading if it is missing, use the next free `DF-<n>` in that file, and append:
@@ -69,10 +92,11 @@ Yukta develops Yukta, so a run is also a test of Yukta. Watch it live instead of
    ### DF-<n>: <one-line title>
    - Status: open        - Severity: P0–P3        - Kind: bug | error | perf | ux | security | improvement
    - Found: <date>, workflow <wf>, scope <scope>, execution <e>, stage <node>
-   - Evidence: <the log / CONTROL / SLOW / RESULT line>
+   - Evidence: <the ERROR / WARN / CONTROL / SLOW / RESULT line>
    - Repro: <command>
    ```
-   Record: an unexpected `CONTROL … applied=false`; an exception or stack trace in a `LOG` line; a watcher
+   Record: an unexpected `CONTROL … applied=false`; an exception or stack trace in an `ERROR` line that is
+   not from your change; a watcher
    that never ends or a RESULT that contradicts the node statuses; a CLI/server error; a `SLOW` line; a
    tooling failure (script, worktree, build setup); a monitoring/execution improvement or a security finding.
    When fixed later, set `Status: fixed in <sha>`.
@@ -102,8 +126,8 @@ runs Gradle on (`-p`), whichever provider serves it.
 `YUKTA_SERVER_URL` selects the server; `-o json` for machine output.
 - `yukta session apply <file|json>`, `session list`, `session get <id>`
 - `yukta workflow start <session> <workflow>`, `workflow status <session> <exec>`, `workflow stop <session> <workflow>`
-- `yukta logs <session> <exec>` streams until the execution finishes
-- `yukta controlbus watch [--execution E] [--until-done] [--no-logs] [--type T]` streams control-bus events
+- `yukta controlbus watch --execution E --until-done --quiet` streams only problems with their causes (use this); without `--quiet` it streams every event (`--no-logs`, `--type T` narrow it)
+- `yukta logs <session> <exec>` streams the whole log until the execution finishes (humans; avoid)
 - `yukta workflow node retry|signal|breakpoint <exec> <node>` need no session id
 - `yukta plugin list`, `plugin get <type>`
 
