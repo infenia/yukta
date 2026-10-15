@@ -56,6 +56,11 @@ dependencies {
         implementation(project(":persistence-postgres"))
     }
 
+    // Remote workers over RSocket (control plane server and worker agent): -Pyukta.workers=true
+    if (providers.gradleProperty("yukta.workers").orNull == "true") {
+        implementation(project(":workers"))
+    }
+
     implementation(libs.spring.boot.starter.webflux)
     implementation(libs.spring.boot.starter.validation)
     implementation(libs.spring.boot.starter.actuator)
@@ -72,13 +77,33 @@ dependencies {
     testImplementation(libs.testcontainers.junit)
 }
 
-// Tells the tests whether the PostgreSQL stores are part of this build.
+// Tells the tests whether the optional modules (PostgreSQL stores, remote workers) are part of this build.
 tasks.withType<Test>().configureEach {
     providers.gradleProperty("yukta.persistence").orNull?.let { systemProperty("yukta.persistence", it) }
+    providers.gradleProperty("yukta.workers").orNull?.let { systemProperty("yukta.workers", it) }
 }
 
 tasks.named<org.springframework.boot.gradle.tasks.run.BootRun>("bootRun") {
     mainClass.set("com.infenia.yukta.YuktaApplication")
+}
+
+// Spring decides property-conditioned beans when the native image is built (AOT), not when it
+// starts. So a native image with the workers module needs to be built as the role it will have:
+//   -Pyukta.workers.native=control-plane  serves workers (set yukta.workers.token and
+//                                         spring.rsocket.server.port when it starts)
+//   -Pyukta.workers.native=worker         is a worker (set yukta.workers.control-plane, .token, .id,
+//                                         .plugin-types when it starts)
+// The values given here only switch the beans on; the real ones are read at start.
+tasks.withType<org.springframework.boot.gradle.tasks.aot.ProcessAot>().configureEach {
+    when (providers.gradleProperty("yukta.workers.native").orNull) {
+        "control-plane" -> args("--yukta.workers.token=set-at-start", "--spring.rsocket.server.port=0")
+        "worker" ->
+            args(
+                "--yukta.workers.control-plane=set-at-start:0",
+                "--yukta.workers.token=set-at-start",
+                "--yukta.workers.id=set-at-start",
+            )
+    }
 }
 
 graalvmNative {

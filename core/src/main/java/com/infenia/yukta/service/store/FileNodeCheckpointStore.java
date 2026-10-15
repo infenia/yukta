@@ -42,7 +42,8 @@ import tools.jackson.databind.ObjectMapper;
  */
 @Slf4j
 @Component
-@ConditionalOnExpression("!'${yukta.restart.dir:}'.isEmpty()")
+@ConditionalOnExpression(
+    "!'${yukta.restart.dir:}'.isEmpty() && !'postgres'.equals('${yukta.restart.store-type:}')")
 @SuppressWarnings({"PMD.OnlyOneReturn", "PMD.AvoidCatchingGenericException", "PMD.TooManyMethods"})
 public class FileNodeCheckpointStore implements NodeCheckpointStore, ByteCounted {
 
