@@ -43,7 +43,7 @@ Not bounded:
 
 - **The tracker's state queue.** Every state change goes through one queue that never drops events. An event storm shows up as memory growth, not as lost data. Alert on `yukta.tracker.queue.depth`.
 - **Large payloads.** Every node that touches a payload holds it in memory. Yukta has no reference-passing for large data, so keep payloads small or pass references yourself.
-- **Chat history held in memory.** `SESSION_MEMORY` keeps the history of every session it has read until the server restarts, unless it is stored in PostgreSQL with `yukta.session-memory.ttl`.
+- **Chat history held in memory.** `SESSION_MEMORY` keeps at most `yukta.session-memory.max-sessions` sessions in memory (10,000 by default, least recently used first), and with `yukta.session-memory.ttl` drops a session that has been idle that long. With memory-only history an evicted session loses its history, so store it in files or PostgreSQL if that matters.
 
 ## Back-pressure
 

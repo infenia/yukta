@@ -257,7 +257,7 @@ Model-backed nodes: LLM_CALL, SESSION_MEMORY and the decision family CLASSIFY, G
 
 - **Guarantees.** Decision nodes always produce a value in a known shape or an error: a label that is not one of the options, or a reply that is not JSON, is rejected. Probabilities are clamped to 0..1. History per session is trimmed to maxTurns.
 - **State.** Conversation history (SESSION_MEMORY), the ANOMALY and DEDUPE windows and LLM_CALL's cache of model clients are all in memory. Windows live only for one node in one run. Nothing survives a restart.
-- **Ceiling.** Each model call is a network call that can take seconds and cost money, at up to `concurrency` (default 16) concurrent calls per node. Session memory grows with the number of distinct session ids and is never evicted.
+- **Ceiling.** Each model call is a network call that can take seconds and cost money, at up to `concurrency` (default 16) concurrent calls per node. Session memory is bounded by `yukta.session-memory.max-sessions` (10,000) and the optional `yukta.session-memory.ttl`; with memory-only history an evicted session loses its history.
 - **On failure.** Timeouts and provider errors fail the node (ERROR) or pass the original payload on (CONTINUE). A decision model that is down fails each message. The user turn in SESSION_MEMORY is stored before the model answers.
 
 **Settings:** `LLM_CALL: provider, model, prompt, messages, system, baseUrl, apiKey, temperature, maxTokens, timeout 120, retries 0, prices, failureMode, routeByStatus`, `SESSION_MEMORY: mode, sessionId, message, assistant, maxTurns 20`, `Decision common: backend, provider, model, baseUrl, apiKey, timeout 30, state, into`

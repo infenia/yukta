@@ -128,7 +128,8 @@ See [Persistence](/operations/persistence) and [Checkpoints and resume](/operati
 | `yukta.kv.store-type` | `memory` | `postgres` keeps the state of `KV_STORE` nodes in PostgreSQL |
 | `yukta.session-memory.store-type` | `memory` | `postgres` keeps `SESSION_MEMORY` chat history in PostgreSQL |
 | `yukta.session-memory.dir` | unset | Keep chat history as files in this directory |
-| `yukta.session-memory.ttl` | unset | With PostgreSQL history, drop a session's history after this idle time |
+| `yukta.session-memory.ttl` | unset | Drop a session's chat history from memory after this idle time; with PostgreSQL history, also delete the stored rows |
+| `yukta.session-memory.max-sessions` | `10000` | Most chat sessions kept in memory, least recently used first. With files or PostgreSQL an evicted session is read back on its next use; with memory only its history is lost |
 | `spring.r2dbc.url` | none | PostgreSQL URL used at run time, `r2dbc:postgresql://host:5432/yukta` |
 | `spring.r2dbc.username`, `spring.r2dbc.password` | none | Credentials for run-time access |
 | `spring.flyway.url` | none | PostgreSQL URL used for schema migrations, `jdbc:postgresql://host:5432/yukta` |

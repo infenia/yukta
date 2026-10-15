@@ -9,6 +9,7 @@ dependencies {
     api(project(":messaging"))
     implementation(project(":plugin-api"))
     implementation(libs.spring.boot.starter.webflux)
+    implementation(libs.caffeine)
 }
 
 coverageConfig {

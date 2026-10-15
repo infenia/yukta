@@ -2,6 +2,9 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.plugin.session;
 
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.Ticker;
 import com.infenia.yukta.plugin.store.SessionHistoryStore;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.IOException;
@@ -12,10 +15,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
 import org.springframework.beans.factory.ObjectProvider;
@@ -31,13 +34,16 @@ import tools.jackson.databind.json.JsonMapper;
  * disk (one small JSON file per session, replaced atomically on every turn), so history survives a
  * restart.
  *
- * <p>Turns are {@code {role, content}} maps, the shape the llm-call plugin accepts. A session that
- * was read once stays in memory until restart. A file that cannot be read is logged and treated as
- * an empty history.
+ * <p>Turns are {@code {role, content}} maps, the shape the llm-call plugin accepts. At most {@code
+ * yukta.session-memory.max-sessions} sessions (default 10,000) are kept in memory, the least
+ * recently used leaving first, and with {@code yukta.session-memory.ttl} a session idle for that
+ * long leaves too. With files or a database a session that left memory is read back on its next
+ * use; with memory only its history is gone. A file that cannot be read is logged and treated as an
+ * empty history.
  */
 @Slf4j
 @Service
-@SuppressWarnings({"PMD.AvoidCatchingGenericException", "PMD.LawOfDemeter"})
+@SuppressWarnings("PMD.AvoidCatchingGenericException")
 public class SessionStore {
 
   /** Reads and writes the session files. */
@@ -46,10 +52,11 @@ public class SessionStore {
   /** The stored turns of one session. */
   private static final TypeReference<List<Map<String, String>>> TURNS = new TypeReference<>() {};
 
+  /** Most sessions kept in memory when {@code yukta.session-memory.max-sessions} is not set. */
+  private static final long DEFAULT_MAX_SESSIONS = 10_000;
+
   /** Turns by session id, oldest first. */
-  // ponytail: no eviction, so abandoned sessions stay until restart; add a TTL (e.g. caffeine)
-  // if sessions are not bounded
-  private final Map<String, List<Map<String, String>>> sessions = new ConcurrentHashMap<>();
+  private final Cache<String, List<Map<String, String>>> sessions;
 
   /** Directory of the session files, or null to keep history in memory only. */
   private final @Nullable Path dir;
@@ -62,14 +69,29 @@ public class SessionStore {
     this("");
   }
 
+  private SessionStore(
+      final @Nullable Path dir,
+      final @Nullable SessionHistoryStore database,
+      final long maxSessions,
+      final @Nullable Duration ttl,
+      final Ticker ticker) {
+    this.dir = dir;
+    this.database = database;
+    final Caffeine<Object, Object> builder =
+        Caffeine.newBuilder().maximumSize(maxSessions).executor(Runnable::run).ticker(ticker);
+    if (ttl != null) {
+      builder.expireAfterAccess(ttl);
+    }
+    this.sessions = builder.build();
+  }
+
   /**
    * Creates a store whose history is kept in a database.
    *
    * @param database where the history is kept
    */
   public SessionStore(final SessionHistoryStore database) {
-    this.dir = null;
-    this.database = database;
+    this(null, database, DEFAULT_MAX_SESSIONS, null, Ticker.systemTicker());
   }
 
   /**
@@ -78,8 +100,20 @@ public class SessionStore {
    * @param dir directory for the session files, or empty to keep history in memory only
    */
   public SessionStore(final String dir) {
-    this.dir = dir.isBlank() ? null : Path.of(dir);
-    this.database = null;
+    this(dir, DEFAULT_MAX_SESSIONS, null, Ticker.systemTicker());
+  }
+
+  /**
+   * Creates a store with its own limits.
+   *
+   * @param dir directory for the session files, or empty to keep history in memory only
+   * @param maxSessions most sessions kept in memory
+   * @param ttl how long an unused session stays in memory, or null for no limit
+   * @param ticker the clock the time limit uses
+   */
+  /* default */ SessionStore(
+      final String dir, final long maxSessions, final @Nullable Duration ttl, final Ticker ticker) {
+    this(dir.isBlank() ? null : Path.of(dir), null, maxSessions, ttl, ticker);
   }
 
   /**
@@ -88,6 +122,8 @@ public class SessionStore {
    *
    * @param dir directory for the session files, or empty
    * @param databases the application's database store, if any
+   * @param maxSessions most sessions kept in memory
+   * @param ttl how long an unused session stays in memory, or unset for no limit
    */
   @Autowired
   @SuppressFBWarnings(
@@ -95,9 +131,15 @@ public class SessionStore {
       justification = "A malformed directory fails at startup, before any session exists")
   public SessionStore(
       @Value("${yukta.session-memory.dir:}") final String dir,
-      final ObjectProvider<SessionHistoryStore> databases) {
-    this.database = databases.getIfAvailable();
-    this.dir = dir.isBlank() ? null : Path.of(dir);
+      final ObjectProvider<SessionHistoryStore> databases,
+      @Value("${yukta.session-memory.max-sessions:10000}") final long maxSessions,
+      @Value("${yukta.session-memory.ttl:#{null}}") final @Nullable Duration ttl) {
+    this(
+        dir.isBlank() ? null : Path.of(dir),
+        databases.getIfAvailable(),
+        maxSessions,
+        ttl,
+        Ticker.systemTicker());
   }
 
   /**
@@ -109,7 +151,7 @@ public class SessionStore {
    */
   public List<Map<String, String>> history(final String sessionId, final int maxTurns) {
     final List<Map<String, String>> turns =
-        sessions.computeIfAbsent(sessionId, id -> load(id).orElse(List.of()));
+        sessions.get(sessionId, id -> load(id).orElse(List.of()));
     return List.copyOf(turns.subList(Math.max(0, turns.size() - maxTurns), turns.size()));
   }
 
@@ -123,17 +165,29 @@ public class SessionStore {
    */
   public void append(
       final String sessionId, final String role, final String content, final int maxTurns) {
-    sessions.compute(
-        sessionId,
-        (id, existing) -> {
-          final List<Map<String, String>> turns =
-              new ArrayList<>(existing == null ? load(id).orElse(List.of()) : existing);
-          turns.add(Map.of("role", role, "content", content));
-          final List<Map<String, String>> kept =
-              List.copyOf(turns.subList(Math.max(0, turns.size() - maxTurns), turns.size()));
-          save(id, kept);
-          return kept;
-        });
+    sessions
+        .asMap()
+        .compute(
+            sessionId,
+            (id, existing) -> {
+              final List<Map<String, String>> turns =
+                  new ArrayList<>(existing == null ? load(id).orElse(List.of()) : existing);
+              turns.add(Map.of("role", role, "content", content));
+              final List<Map<String, String>> kept =
+                  List.copyOf(turns.subList(Math.max(0, turns.size() - maxTurns), turns.size()));
+              save(id, kept);
+              return kept;
+            });
+  }
+
+  /**
+   * Number of sessions kept in memory.
+   *
+   * @return the cache size
+   */
+  /* default */ long sessionCount() {
+    sessions.cleanUp();
+    return sessions.estimatedSize();
   }
 
   private java.util.Optional<List<Map<String, String>>> load(final String sessionId) {
