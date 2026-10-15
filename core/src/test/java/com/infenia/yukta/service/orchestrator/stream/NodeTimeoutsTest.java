@@ -13,7 +13,7 @@ import com.infenia.yukta.message.Message;
 import com.infenia.yukta.model.workflow.WorkflowNode;
 import com.infenia.yukta.plugin.core.Plugin;
 import com.infenia.yukta.plugin.store.SecretProvider;
-import com.infenia.yukta.util.VariableResolver;
+import com.infenia.yukta.plugin.util.VariableResolver;
 import java.time.Duration;
 import java.util.Map;
 import java.util.UUID;

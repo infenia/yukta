@@ -8,7 +8,6 @@ plugins {
 dependencies {
     api(project(":messaging"))
     implementation(project(":plugin-api"))
-    implementation(project(":core"))
     implementation(libs.spring.boot.starter.webflux)
     implementation(libs.spring.boot.starter.actuator)
     implementation(libs.spring.ai.client.chat)

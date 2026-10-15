@@ -9,6 +9,7 @@ dependencies {
     api(libs.reactor.core)
     api("jakarta.annotation:jakarta.annotation-api")
     implementation(libs.spring.expression)
+    implementation(libs.jackson.databind)
     api(project(":messaging"))
 }
 

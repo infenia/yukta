@@ -10,7 +10,7 @@ import static org.mockito.Mockito.when;
 
 import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
-import com.infenia.yukta.util.VariableResolver;
+import com.infenia.yukta.plugin.util.VariableResolver;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;

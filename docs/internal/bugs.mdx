@@ -46,7 +46,7 @@ Severity uses the scale of the source: High, Medium and Low from the [remediatio
 | G13 | Plugins | P2 | Open | `ESCALATE` in LoopStream still throws a plain `RuntimeException`; RETRY versus SKIP not re-checked | [Plugins review](/internal/improvements#plugins) |
 | G14 | Plugins | P2 | Open | The loop plugins still call the target from the registry without `validateConfig` | [Plugins review](/internal/improvements#plugins) |
 | G17 | Plugins | P3 | Open | Partly closed: history can be kept in files or PostgreSQL (`yukta.session-memory.ttl` expires database rows). The in-memory cache still never evicts | [Plugins review](/internal/improvements#plugins) |
-| G18 | Plugins | Not rated | Open | Slightly worse: 11 plugin modules depend on `:core` and there are 26 imports of `VariableResolver` (was 24) | [Plugins review](/internal/improvements#plugins) |
+| G18 | Plugins | Not rated | Fixed | Plugins depended on `:core` for `VariableResolver` and `MapUtils`. Both moved to `plugin-api` (`com.infenia.yukta.plugin.util`), and 10 of the 11 plugin modules no longer depend on `:core`. Only `internal-core` still does, for `PluginRegistry` and `DefaultTaskTrackerService` in the loop processors | [Plugins review](/internal/improvements#plugins) |
 | G19 | Plugins | Not rated | Open | `internal-core` still has `pmdMain`, `pmdTest` and `checkstyleTest` off; `constant-source` has PMD off | [Plugins review](/internal/improvements#plugins) |
 | G23 | Plugins | Not rated | Open | `ConsoleTerminalPlugin` still logs every payload at INFO | [Plugins review](/internal/improvements#plugins) |
 | G25 | Plugins | Not rated | Open | `CONTENT-FILTER` is still the only kebab-case plugin type id | [Plugins review](/internal/improvements#plugins) |
@@ -114,7 +114,7 @@ The module guide is [core](/contributing/modules/core).
 | G13 | P2 | Open | `ESCALATE` in LoopStream still throws a plain `RuntimeException`; RETRY versus SKIP not re-checked | [Plugins review](/internal/improvements#plugins) |
 | G14 | P2 | Open | The loop plugins still call the target from the registry without `validateConfig` | [Plugins review](/internal/improvements#plugins) |
 | G17 | P3 | Open | Partly closed: history can be kept in files or PostgreSQL (`yukta.session-memory.ttl` expires database rows). The in-memory cache still never evicts | [Plugins review](/internal/improvements#plugins) |
-| G18 | Not rated | Open | Slightly worse: 11 plugin modules depend on `:core` and there are 26 imports of `VariableResolver` (was 24) | [Plugins review](/internal/improvements#plugins) |
+| G18 | Not rated | Fixed | Plugins depended on `:core` for `VariableResolver` and `MapUtils`. Both moved to `plugin-api` (`com.infenia.yukta.plugin.util`), and 10 of the 11 plugin modules no longer depend on `:core`. Only `internal-core` still does, for `PluginRegistry` and `DefaultTaskTrackerService` in the loop processors | [Plugins review](/internal/improvements#plugins) |
 | G19 | Not rated | Open | `internal-core` still has `pmdMain`, `pmdTest` and `checkstyleTest` off; `constant-source` has PMD off | [Plugins review](/internal/improvements#plugins) |
 | G23 | Not rated | Open | `ConsoleTerminalPlugin` still logs every payload at INFO | [Plugins review](/internal/improvements#plugins) |
 | G25 | Not rated | Open | `CONTENT-FILTER` is still the only kebab-case plugin type id | [Plugins review](/internal/improvements#plugins) |

@@ -13,7 +13,7 @@ import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
 import com.infenia.yukta.plugin.core.PluginMetricsReporter;
 import com.infenia.yukta.plugin.exception.WorkflowExecutionException;
-import com.infenia.yukta.util.VariableResolver;
+import com.infenia.yukta.plugin.util.VariableResolver;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;

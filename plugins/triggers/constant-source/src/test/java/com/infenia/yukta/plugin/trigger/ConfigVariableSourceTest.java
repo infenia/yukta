@@ -9,7 +9,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.infenia.yukta.util.VariableResolver;
+import com.infenia.yukta.plugin.util.VariableResolver;
 import java.util.Map;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.BeforeEach;

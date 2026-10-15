@@ -5,7 +5,7 @@ package com.infenia.yukta.service.orchestrator.stream;
 import com.infenia.yukta.message.Message;
 import com.infenia.yukta.model.workflow.WorkflowNode;
 import com.infenia.yukta.plugin.core.Plugin;
-import com.infenia.yukta.util.VariableResolver;
+import com.infenia.yukta.plugin.util.VariableResolver;
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;

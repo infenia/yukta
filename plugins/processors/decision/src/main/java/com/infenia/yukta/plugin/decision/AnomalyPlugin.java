@@ -5,7 +5,7 @@ package com.infenia.yukta.plugin.decision;
 import com.infenia.yukta.message.Message;
 import com.infenia.yukta.plugin.core.ConfigField;
 import com.infenia.yukta.plugin.core.PluginDescriptor;
-import com.infenia.yukta.util.VariableResolver;
+import com.infenia.yukta.plugin.util.VariableResolver;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;

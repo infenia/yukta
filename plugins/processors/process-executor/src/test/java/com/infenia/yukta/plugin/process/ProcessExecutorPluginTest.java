@@ -16,7 +16,7 @@ import com.infenia.yukta.plugin.core.PluginLogSink;
 import com.infenia.yukta.plugin.core.PluginMetricsReporter;
 import com.infenia.yukta.plugin.core.WorkflowContext;
 import com.infenia.yukta.plugin.exception.WorkflowExecutionException;
-import com.infenia.yukta.util.VariableResolver;
+import com.infenia.yukta.plugin.util.VariableResolver;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
