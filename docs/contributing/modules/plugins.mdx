@@ -1,6 +1,7 @@
 ---
 title: "Plugins module"
 description: "The plugins module is the toolbox of Yukta: 31 built-in node types (triggers that start a workflow, processors that route, transform, call outside systems or ask a model, and terminals that finish a b"
+mode: "wide"
 ---
 
 The plugins module is the toolbox of Yukta: 31 built-in node types (triggers that start a workflow, processors that route, transform, call outside systems or ask a model, and terminals that finish a branch) plus the supervisors and control planes that watch runs from outside. Each one is a small Spring bean that obeys a contract from plugin-api; the engine in core does the scheduling, retries and timeouts around it. This page is for thinking, not documenting: open a component, play a scenario, then challenge the weak spots, most of which are about what a workflow author is allowed to make a plugin do.

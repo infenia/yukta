@@ -2,6 +2,7 @@
 title: "Decision plugins"
 description: "CLASSIFY, GATE, SCORE, ASK, ANOMALY and DEDUPE: constrained model decisions for routing and gating."
 tag: "Optional"
+mode: "wide"
 ---
 
 A decision plugin asks a model a constrained question about a message and records the answer in the message metadata. The answer is always in a known shape: a label from your list, a probability, or a score. You route on it with the plugin's own ports or with a `BRANCH` node.

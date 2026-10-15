@@ -2,6 +2,7 @@
 title: "Rule files"
 description: "The declarative JSON format used by the rule supervisor and the rule control plane: react to events and veto commands."
 tag: "Optional"
+mode: "wide"
 ---
 
 A rule file is a JSON document with a `rules` list. Each rule is either a **reaction** (`when` an event matches, `then` send a command) or a **veto** (`deny` a command). Rules are checked when the file is loaded, so a mistake such as an invalid condition or an unknown command stops the server from using the file and reports which rule is wrong.

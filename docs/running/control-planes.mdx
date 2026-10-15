@@ -2,6 +2,7 @@
 title: "Control planes"
 description: "Decision makers on the control bus that judge one event at a time, using rules, a small model, or rules first and a model as a fallback."
 tag: "Optional"
+mode: "wide"
 ---
 
 A **control plane** is a supervisor that decides what to do about **one event at a time**. Where a [supervisor](/running/supervisors) may keep state and emit any commands, a control plane answers a single question per event: nothing, pause, or stop. Control planes are optional and off until enabled. They share the hosting, auditing and rate limiting of supervisors.

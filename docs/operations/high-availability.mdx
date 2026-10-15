@@ -2,6 +2,7 @@
 title: "High availability"
 description: "Run several servers on one PostgreSQL database so that one admits runs and the others take over when it stops."
 tag: "Optional"
+mode: "wide"
 ---
 
 Active/standby high availability lets several Yukta servers share one PostgreSQL database. One server holds a lease and admits runs. The others stand by and take over when the lease expires.

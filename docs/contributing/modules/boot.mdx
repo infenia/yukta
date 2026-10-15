@@ -1,6 +1,7 @@
 ---
 title: "Boot module"
 description: "Boot is the executable. It contains almost no logic of its own: it pulls the engine (core), the REST layer (web), the AI-agent endpoint (mcp), the React screens (ui) and the chosen plugins into one Sp"
+mode: "wide"
 ---
 
 Boot is the executable. It contains almost no logic of its own: it pulls the engine (core), the REST layer (web), the AI-agent endpoint (mcp), the React screens (ui) and the chosen plugins into one Spring Boot program, decides which settings apply (dev or prod), serves the web UI, and can be compiled into a native binary. Its risks are about defaults and packaging, not algorithms: what is switched on, who can reach it, and what is frozen at build time.
