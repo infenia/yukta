@@ -104,20 +104,73 @@ Poll the status:
 GET /api/executions/{executionId}
 ```
 
-The response contains the execution `status` (`SUCCESS` when it finishes) and a status for every node. To follow it live, open the status stream, which uses server-sent events:
+```json
+{
+  "status": 200,
+  "message": "Workflow status retrieved successfully",
+  "data": {
+    "executionId": "3de8bcf2-24ee-400a-8bff-c586c610dbe4",
+    "sessionId": "demo",
+    "workflowId": "greet",
+    "status": "SUCCESS",
+    "tasks": [
+      { "nodeId": "trigger", "module": "API_TRIGGER", "status": "SUCCESS" },
+      { "nodeId": "map", "module": "MAPPER", "status": "SUCCESS" },
+      { "nodeId": "end", "module": "CONSOLE_TERMINAL", "status": "SUCCESS" }
+    ]
+  }
+}
+```
+
+The run has a `status` and every node has one. `SUCCESS` means the execution finished normally. To follow a run live instead of polling, open the status stream, which uses server-sent events:
 
 ```bash
 curl -N http://localhost:8080/api/executions/{executionId}/status/stream
 ```
 
-The log of the run is at `GET /api/sessions/demo/executions/{executionId}/logs`. The terminal node logs the mapped record, `{greeting=Hello, Ada}`.
+### Read the logs
+
+```http
+GET /api/sessions/demo/executions/{executionId}/logs
+```
+
+The log stream shows what each node produced as it ran:
+
+```text
+[INFO] [trigger/API_TRIGGER] STDOUT: {name=Ada}
+[INFO] [map/MAPPER] STDOUT: {greeting=Hello, Ada}
+```
+
+### Read the result
+
+Logs are text for people. The **result** is what reached the terminal node, kept whole and typed:
+
+```http
+GET /api/sessions/demo/executions/{executionId}/results
+Accept: application/json
+```
+
+```json
+{
+  "executionId": "3de8bcf2-24ee-400a-8bff-c586c610dbe4",
+  "complete": true,
+  "status": "SUCCESS",
+  "events": [
+    { "kind": "RESULT", "nodeId": "end", "payload": { "greeting": "Hello, Ada" } },
+    { "kind": "NODE_END", "nodeId": "end", "status": "SUCCESS" },
+    { "kind": "EXECUTION_END" }
+  ]
+}
+```
+
+Responses show the fields used here; the server returns more, such as timestamps and cursors.
 
 ## What just happened
 
 1. Applying the session validated and stored the workflow.
 2. Starting it checked the limits, took a slot and returned an execution id.
-3. The trigger emitted one message carrying your payload. The mapper derived a new message from it, and the terminal consumed it.
-4. Every step produced progress events that the status and log streams carried to you.
+3. The trigger emitted one message carrying your payload. The mapper derived a new message from it, and the terminal received it as the result.
+4. Every step produced events that the status, log and result streams carried to you.
 
 ## Next steps
 
@@ -133,5 +186,8 @@ The log of the run is at `GET /api/sessions/demo/executions/{executionId}/logs`.
   </Card>
   <Card title="Understand the model" icon="sitemap" href="/concepts/how-it-works">
     Sessions, nodes, ports, messages and executions in depth.
+  </Card>
+  <Card title="Explore the REST API" icon="code" href="/api/overview">
+    Guides for every endpoint, plus an interactive endpoint reference.
   </Card>
 </CardGroup>
