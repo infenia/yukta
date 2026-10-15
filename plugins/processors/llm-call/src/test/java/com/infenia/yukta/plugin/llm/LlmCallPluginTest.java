@@ -114,6 +114,59 @@ class LlmCallPluginTest {
   }
 
   @Test
+  void hardStopBudget_endsTheRun_evenWithFailureModeContinue() {
+    when(gateway.call(any())).thenReturn(new LlmResponse("ok", 100, 100, "m"));
+    final Map<String, Object> config =
+        config("budget", Map.of("maxTokens", 150, "hardStop", true), "failureMode", "CONTINUE");
+
+    StepVerifier.create(runInRun(config, "r1")).expectNextCount(1).verifyComplete();
+    StepVerifier.create(runInRun(config, "r1"))
+        .verifyErrorSatisfies(
+            e ->
+                assertThat(e)
+                    .isInstanceOf(com.infenia.yukta.plugin.exception.RunAbortedException.class)
+                    .hasMessageContaining("budget exceeded"));
+  }
+
+  @Test
+  void hardStopMustBeBoolean() {
+    StepVerifier.create(
+            plugin.validateConfig(config("budget", Map.of("maxTokens", 10, "hardStop", "yes"))))
+        .expectErrorMessage("budget.hardStop must be true or false")
+        .verify();
+  }
+
+  @Test
+  void toolExchangeInMessages_reachesTheGatewayAsToolTurns() {
+    when(gateway.call(any())).thenReturn(new LlmResponse("ok", 1, 1, "m"));
+    final Map<String, Object> config =
+        config(
+            "messages",
+            List.of(
+                Map.of("role", "user", "content", "weather?"),
+                Map.of(
+                    "role",
+                    "assistant",
+                    "content",
+                    "",
+                    "actions",
+                    List.of(
+                        Map.of("tool", "weather", "arguments", Map.of("c", "Oslo"), "id", "c1"))),
+                Map.of(
+                    "role", "tool", "content", "rain", "toolCallId", "c1", "toolName", "weather")));
+
+    StepVerifier.create(run(config)).expectNextCount(1).verifyComplete();
+
+    final var captured = ArgumentCaptor.forClass(LlmRequest.class);
+    verify(gateway).call(captured.capture());
+    final var turns = captured.getValue().messages();
+    assertThat(turns.get(1).toolCalls())
+        .containsExactly(new ToolCallRequest("c1", "weather", "{\"c\":\"Oslo\"}"));
+    assertThat(turns.get(2).toolCallId()).isEqualTo("c1");
+    assertThat(turns.get(2).toolName()).isEqualTo("weather");
+  }
+
+  @Test
   void budgetIsValidated() {
     StepVerifier.create(plugin.validateConfig(config("budget", Map.of("maxTokens", 0))))
         .expectError(IllegalArgumentException.class)
@@ -133,6 +186,9 @@ class LlmCallPluginTest {
                     Map.of("input", 1.0))))
         .verifyComplete();
     StepVerifier.create(plugin.validateConfig(config("budget", Map.of()))).verifyComplete();
+    StepVerifier.create(
+            plugin.validateConfig(config("budget", Map.of("maxTokens", 10, "hardStop", true))))
+        .verifyComplete();
   }
 
   @Test
@@ -519,5 +575,43 @@ class LlmCallPluginTest {
                 resolver,
                 new StaticListableBeanFactory().getBeanProvider(PluginMetricsReporter.class)))
         .isNotNull();
+  }
+
+  @Test
+  void tokensAndCostAreMeteredPerProvider() {
+    final io.micrometer.core.instrument.simple.SimpleMeterRegistry meters =
+        new io.micrometer.core.instrument.simple.SimpleMeterRegistry();
+    final StaticListableBeanFactory factory = new StaticListableBeanFactory();
+    factory.addBean("meters", meters);
+    plugin =
+        new LlmCallPlugin(
+            gateway,
+            resolver,
+            new StaticListableBeanFactory().getBeanProvider(PluginMetricsReporter.class),
+            factory.getBeanProvider(io.micrometer.core.instrument.MeterRegistry.class));
+    when(gateway.call(any())).thenReturn(new LlmResponse("ok", 1_000_000, 500_000, "m"));
+
+    StepVerifier.create(run(config("prices", Map.of("input", 2.0, "output", 4.0))))
+        .expectNextCount(1)
+        .verifyComplete();
+    StepVerifier.create(run(config())).expectNextCount(1).verifyComplete();
+
+    assertThat(
+            meters
+                .get("llm.tokens")
+                .tag("provider", "OPENAI")
+                .tag("direction", "input")
+                .counter()
+                .count())
+        .isEqualTo(2_000_000.0);
+    assertThat(
+            meters
+                .get("llm.tokens")
+                .tag("provider", "OPENAI")
+                .tag("direction", "output")
+                .counter()
+                .count())
+        .isEqualTo(1_000_000.0);
+    assertThat(meters.get("llm.cost").tag("provider", "OPENAI").counter().count()).isEqualTo(4.0);
   }
 }

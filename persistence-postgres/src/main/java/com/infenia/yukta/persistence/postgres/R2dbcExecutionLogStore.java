@@ -4,13 +4,13 @@ package com.infenia.yukta.persistence.postgres;
 
 import com.infenia.yukta.service.log.ExecutionLogEvent;
 import com.infenia.yukta.service.log.ExecutionLogStore;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import jakarta.annotation.PreDestroy;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.RejectedExecutionException;
@@ -29,11 +29,14 @@ import tools.jackson.databind.ObjectMapper;
  * newest {@code retained-runs} runs; a run without an end is never dropped.
  */
 @Slf4j
-@SuppressWarnings({"PMD.AvoidCatchingGenericException", "PMD.OnlyOneReturn"})
+@SuppressWarnings({"PMD.AvoidCatchingGenericException", "PMD.OnlyOneReturn", "PMD.TooManyMethods"})
 public class R2dbcExecutionLogStore implements ExecutionLogStore {
 
   /** Events that may wait for the writer. */
   private static final int QUEUE_CAPACITY = 10_000;
+
+  /** Most events written by one statement. */
+  private static final int BATCH_SIZE = 100;
 
   /** Longest one statement may take. */
   private static final Duration STATEMENT_TIMEOUT = Duration.ofSeconds(30);
@@ -70,6 +73,9 @@ public class R2dbcExecutionLogStore implements ExecutionLogStore {
             return thread;
           });
 
+  /** Events waiting to be written; the writer takes them in batches. */
+  private final BlockingQueue<ExecutionLogEvent> pending;
+
   /** Events appended since the last trim; only touched on the writer thread. */
   private int sinceCompaction;
 
@@ -82,13 +88,29 @@ public class R2dbcExecutionLogStore implements ExecutionLogStore {
    * @param compactAfter appended events after which the log is trimmed
    * @param shutdownWaitMillis how long to wait for queued events on shutdown
    */
-  @SuppressFBWarnings("EI_EXPOSE_REP2")
   public R2dbcExecutionLogStore(
       final DatabaseClient client,
       final ObjectMapper mapper,
       final int retainedRuns,
       final int compactAfter,
       final long shutdownWaitMillis) {
+    this(
+        client,
+        mapper,
+        retainedRuns,
+        compactAfter,
+        shutdownWaitMillis,
+        new ArrayBlockingQueue<>(QUEUE_CAPACITY));
+  }
+
+  /* default */ R2dbcExecutionLogStore(
+      final DatabaseClient client,
+      final ObjectMapper mapper,
+      final int retainedRuns,
+      final int compactAfter,
+      final long shutdownWaitMillis,
+      final BlockingQueue<ExecutionLogEvent> pending) {
+    this.pending = pending;
     this.client = client;
     this.mapper = mapper;
     this.retainedRuns = Math.max(1, retainedRuns);
@@ -98,12 +120,19 @@ public class R2dbcExecutionLogStore implements ExecutionLogStore {
 
   @Override
   public void append(final ExecutionLogEvent event) {
-    try {
-      writer.execute(() -> write(event));
-    } catch (final RejectedExecutionException e) {
+    if (!pending.offer(event)) {
       log.atError()
           .addKeyValue("executionId", event.executionId())
           .log("Execution log is falling behind, event dropped");
+      return;
+    }
+    try {
+      // one task per event, but the first one to run writes everything waiting, in batches
+      writer.execute(this::drainAll);
+    } catch (final RejectedExecutionException e) {
+      log.atError()
+          .setCause(e)
+          .log("Execution log writer is stopped or busy, the event waits for the next write");
     }
   }
 
@@ -139,7 +168,13 @@ public class R2dbcExecutionLogStore implements ExecutionLogStore {
   /** Runs {@code work} after everything queued so far, and returns {@code fallback} on failure. */
   private <T> T onWriter(final Callable<T> work, final T fallback) {
     try {
-      return writer.submit(work).get();
+      return writer
+          .submit(
+              () -> {
+                drainAll();
+                return work.call();
+              })
+          .get();
     } catch (final InterruptedException e) {
       Thread.currentThread().interrupt();
       return fallback;
@@ -149,12 +184,43 @@ public class R2dbcExecutionLogStore implements ExecutionLogStore {
     }
   }
 
-  private void write(final ExecutionLogEvent event) {
-    insert(event);
-    sinceCompaction++;
-    if (sinceCompaction >= compactAfter) {
-      sinceCompaction = 0;
-      compact();
+  /** Writes the waiting events in batches of at most {@link #BATCH_SIZE}; writer thread only. */
+  private void drainAll() {
+    final List<ExecutionLogEvent> batch = new ArrayList<>(BATCH_SIZE);
+    while (pending.drainTo(batch, BATCH_SIZE) > 0) {
+      insertBatch(batch);
+      sinceCompaction += batch.size();
+      batch.clear();
+      if (sinceCompaction >= compactAfter) {
+        sinceCompaction = 0;
+        compact();
+      }
+    }
+  }
+
+  /** One multi-row insert; if it fails the events are tried one by one so none is lost. */
+  private void insertBatch(final List<ExecutionLogEvent> batch) {
+    try {
+      final StringBuilder sql =
+          new StringBuilder(128).append("INSERT INTO execution_log (execution_id, event) VALUES ");
+      final List<String> json = new ArrayList<>(batch.size());
+      for (int i = 0; i < batch.size(); i++) {
+        sql.append(i == 0 ? "" : ", ")
+            .append("(:e")
+            .append(i)
+            .append(", CAST(:j")
+            .append(i)
+            .append(" AS jsonb))");
+        json.add(json(batch.get(i)));
+      }
+      DatabaseClient.GenericExecuteSpec spec = client.sql(sql.toString());
+      for (int i = 0; i < batch.size(); i++) {
+        spec = spec.bind("e" + i, batch.get(i).executionId()).bind("j" + i, json.get(i));
+      }
+      spec.fetch().rowsUpdated().block(STATEMENT_TIMEOUT);
+    } catch (final RuntimeException e) {
+      log.atWarn().setCause(e).log("Batch insert failed, writing the events one by one");
+      batch.forEach(this::insert);
     }
   }
 

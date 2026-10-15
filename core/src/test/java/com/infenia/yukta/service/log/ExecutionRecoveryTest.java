@@ -5,6 +5,7 @@ package com.infenia.yukta.service.log;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 
+import com.infenia.yukta.service.control.ExecutionScheduler;
 import com.infenia.yukta.service.orchestrator.tracker.DefaultTaskTrackerService;
 import com.infenia.yukta.service.streaming.StatusHistoryCache;
 import java.time.Duration;
@@ -207,5 +208,130 @@ class ExecutionRecoveryTest {
         .containsExactly("scheduler", "r1", "r1");
     assertThat(store.readAll().getFirst().status()).isEqualTo("SetLimits(2)");
     assertThat(tracker.getProgress("s1", "r1")).isNotNull();
+  }
+
+  @Test
+  void newestAppliedLimitChange_isReappliedToTheScheduler() {
+    final ExecutionScheduler scheduler =
+        new ExecutionScheduler(9, 9, 10, ExecutionScheduler.OnLimit.REJECT, Duration.ZERO);
+    store.append(
+        ExecutionLogEvent.control(true, ExecutionLogEvent.SCHEDULER, "SetLimits(1, 1)", null));
+    store.append(
+        ExecutionLogEvent.control(
+            true, ExecutionLogEvent.SCHEDULER, "SetLimits(4, 2) [by key:bob]", null));
+    store.append(
+        ExecutionLogEvent.control(
+            false, ExecutionLogEvent.SCHEDULER, "SetLimits(7, 7)", "refused"));
+    final ExecutionRecovery recovery = new ExecutionRecovery(store, tracker, 100);
+    recovery.setExecutionScheduler(scheduler);
+
+    recovery.recover();
+
+    assertThat(scheduler.perWorkflowLimit()).isEqualTo(2);
+    for (int i = 0; i < 4; i++) {
+      assertThat(scheduler.acquire("s", "w" + i).refused()).isFalse();
+    }
+    assertThat(scheduler.acquire("s", "w9").refused()).isTrue();
+  }
+
+  @Test
+  void legacySingleArgumentChange_keepsThePerWorkflowLimit() {
+    final ExecutionScheduler scheduler =
+        new ExecutionScheduler(9, 3, 10, ExecutionScheduler.OnLimit.REJECT, Duration.ZERO);
+    store.append(
+        ExecutionLogEvent.control(true, ExecutionLogEvent.SCHEDULER, "SetLimits(2)", null));
+    final ExecutionRecovery recovery = new ExecutionRecovery(store, tracker, 100);
+    recovery.setExecutionScheduler(scheduler);
+
+    recovery.recover();
+
+    assertThat(scheduler.perWorkflowLimit()).isEqualTo(3);
+    scheduler.acquire("s", "a");
+    scheduler.acquire("s", "b");
+    assertThat(scheduler.acquire("s", "c").refused()).isTrue();
+  }
+
+  @Test
+  void whenNoLimitChangeWasApplied_theSchedulerKeepsItsLimits() {
+    final ExecutionScheduler scheduler =
+        new ExecutionScheduler(9, 9, 10, ExecutionScheduler.OnLimit.REJECT, Duration.ZERO);
+    store.append(
+        ExecutionLogEvent.control(
+            false, ExecutionLogEvent.SCHEDULER, "SetLimits(8, 8)", "refused by a reviewer"));
+    final ExecutionRecovery recovery = new ExecutionRecovery(store, tracker, 100);
+    recovery.setExecutionScheduler(scheduler);
+
+    recovery.recover();
+
+    assertThat(scheduler.perWorkflowLimit()).isEqualTo(9);
+  }
+
+  @Test
+  void onlyAppliedAndReadableLimitChanges_areReapplied() {
+    final ExecutionScheduler scheduler =
+        new ExecutionScheduler(9, 9, 10, ExecutionScheduler.OnLimit.REJECT, Duration.ZERO);
+    store.append(
+        ExecutionLogEvent.control(true, ExecutionLogEvent.SCHEDULER, "SetLimits(3, 1)", null));
+    store.append(
+        ExecutionLogEvent.control(
+            false, ExecutionLogEvent.SCHEDULER, "SetLimits(8, 8)", "refused by a reviewer"));
+    store.append(
+        ExecutionLogEvent.control(true, ExecutionLogEvent.SCHEDULER, "SetLimits(garbled", null));
+    final ExecutionRecovery recovery = new ExecutionRecovery(store, tracker, 100);
+    recovery.setExecutionScheduler(scheduler);
+
+    recovery.recover();
+
+    assertThat(scheduler.perWorkflowLimit()).isEqualTo(1);
+    scheduler.acquire("s", "w");
+    assertThat(scheduler.acquire("s", "w").refused()).isTrue();
+  }
+
+  @Test
+  void recover_returnsTheIdsOfTheRunsItAborted() {
+    store.append(ExecutionLogEvent.started("crashed", "s1", "w1", "v1"));
+    finishedRun("done", "SUCCESS");
+
+    assertThat(new ExecutionRecovery(store, tracker, 100).recover()).containsExactly("crashed");
+  }
+
+  @Test
+  void whenTheElectionRecoversOnTakeover_startupLeavesTheLogAlone() {
+    store.append(ExecutionLogEvent.started("living", "s1", "w1", "v1"));
+    final ExecutionRecovery recovery = new ExecutionRecovery(store, tracker, 100);
+    recovery.setLeaderElection(
+        new com.infenia.yukta.service.leader.LeaderElection() {
+          @Override
+          public boolean isLeader() {
+            return false;
+          }
+
+          @Override
+          public boolean recoversOnTakeover() {
+            return true;
+          }
+        });
+
+    recovery.afterSingletonsInstantiated();
+
+    assertThat(store.readAll()).hasSize(1);
+
+    recovery.setLeaderElection(new com.infenia.yukta.service.leader.SingleServerLeader());
+    recovery.afterSingletonsInstantiated();
+
+    assertThat(store.readAll()).hasSize(2);
+  }
+
+  @Test
+  void listenerIsToldWhichRunsWereInterrupted() {
+    store.append(ExecutionLogEvent.started("crashed", "s1", "w1", "v1"));
+    final List<List<String>> told = new java.util.ArrayList<>();
+    final ExecutionRecovery recovery = new ExecutionRecovery(store, tracker, 100);
+    recovery.onRecovered(told::add);
+
+    recovery.recover();
+    recovery.recover();
+
+    assertThat(told).containsExactly(List.of("crashed"), List.of());
   }
 }

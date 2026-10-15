@@ -14,6 +14,7 @@ import java.util.List;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.TimeUnit;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -21,7 +22,10 @@ import org.springframework.stereotype.Service;
  * Caffeine-backed in-memory cache for storing workflow progress updates per execution.
  *
  * <p>Uses a concurrent deque per execution to maintain insertion-order history of progress updates.
- * Each execution's history expires after a configurable TTL, with a hard maximum of 30 minutes.
+ * Each execution's history expires after a configurable TTL, with a hard maximum of 30 minutes. A
+ * run keeps at most {@code max-per-run} snapshots (the oldest go first, so the newest, which is the
+ * terminal one once the run ends, is always kept) and at most {@code max-executions} runs are
+ * remembered.
  */
 @Service
 @Slf4j
@@ -32,6 +36,9 @@ public class DefaultStatusHistoryCache implements StatusHistoryCache {
   /** Maximum TTL for history cache. */
   private static final int MAX_TTL_MINUTES = 30;
 
+  /** Snapshots kept per execution. */
+  private final int maxPerRun;
+
   /** Cache storing workflow progress history per execution. */
   private final Cache<String, Deque<WorkflowProgress>> cache;
 
@@ -40,8 +47,22 @@ public class DefaultStatusHistoryCache implements StatusHistoryCache {
    *
    * @param ttlMinutes the time-to-live in minutes (must be > 0 and <= 30)
    */
+  public DefaultStatusHistoryCache(final int ttlMinutes) {
+    this(ttlMinutes, 200, 1000);
+  }
+
+  /**
+   * Create a new cache with the configured TTL and bounds.
+   *
+   * @param ttlMinutes the time-to-live in minutes (must be > 0 and <= 30)
+   * @param maxPerRun snapshots kept per execution (at least 1)
+   * @param maxExecutions executions remembered (at least 1)
+   */
+  @Autowired
   public DefaultStatusHistoryCache(
-      @Value("${yukta.streaming.status-history-ttl-minutes:5}") final int ttlMinutes) {
+      @Value("${yukta.streaming.status-history-ttl-minutes:5}") final int ttlMinutes,
+      @Value("${yukta.streaming.status-history-max-per-run:200}") final int maxPerRun,
+      @Value("${yukta.streaming.status-history-max-executions:1000}") final int maxExecutions) {
     if (ttlMinutes <= 0) {
       throw new IllegalArgumentException("TTL must be greater than 0 minutes");
     }
@@ -52,7 +73,12 @@ public class DefaultStatusHistoryCache implements StatusHistoryCache {
 
     log.info("Initializing DefaultStatusHistoryCache with TTL={} minutes", ttlMinutes);
 
-    this.cache = Caffeine.newBuilder().expireAfterWrite(ttlMinutes, TimeUnit.MINUTES).build();
+    this.maxPerRun = Math.max(1, maxPerRun);
+    this.cache =
+        Caffeine.newBuilder()
+            .expireAfterWrite(ttlMinutes, TimeUnit.MINUTES)
+            .maximumSize(Math.max(1, maxExecutions))
+            .build();
   }
 
   @Override
@@ -70,11 +96,13 @@ public class DefaultStatusHistoryCache implements StatusHistoryCache {
               });
 
       deque.addLast(progress);
+      // Bounded: the oldest go first, so the newest (the terminal one) is always kept. Size is
+      // read once per put; the deque is at most maxPerRun long, so this is cheap.
+      while (deque.size() > maxPerRun) {
+        deque.pollFirst();
+      }
 
-      log.atTrace()
-          .addKeyValue("executionId", executionId)
-          .addKeyValue("historySize", deque.size())
-          .log("Progress recorded to history");
+      log.atTrace().addKeyValue("executionId", executionId).log("Progress recorded to history");
     } catch (final RuntimeException e) {
       log.atWarn()
           .setCause(e)

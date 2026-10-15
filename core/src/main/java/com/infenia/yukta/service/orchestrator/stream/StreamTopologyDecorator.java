@@ -9,6 +9,7 @@ import com.infenia.yukta.plugin.store.NodeCheckpointStore;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BooleanSupplier;
@@ -329,13 +330,35 @@ public class StreamTopologyDecorator {
         .addArgument(executionId)
         .addArgument(nodeId)
         .log();
+    // A store that cannot save a message must not fail the run, the same as one that cannot write
+    // the end marker. The node is then left unmarked, so a resume runs it again instead of
+    // trusting a partial output.
+    final AtomicBoolean saveFailed = new AtomicBoolean();
     logStream =
-        logStream.concatMap(msg -> checkpointStore.save(executionId, nodeId, msg).thenReturn(msg));
+        logStream.concatMap(
+            msg ->
+                checkpointStore
+                    .save(executionId, nodeId, msg)
+                    .onErrorResume(
+                        error -> {
+                          saveFailed.set(true);
+                          log.atError()
+                              .addKeyValue("executionId", executionId)
+                              .addKeyValue("nodeId", nodeId)
+                              .setCause(error)
+                              .log("Could not save a checkpoint");
+                          return Mono.empty();
+                        })
+                    .thenReturn(msg));
     // Only a node that completed normally is marked, and its completion goes on downstream once the
     // marker is durable. A store that cannot write it must not fail the run.
     logStream =
         logStream.concatWith(
-            Mono.defer(() -> checkpointStore.markComplete(executionId, nodeId))
+            Mono.defer(
+                    () ->
+                        saveFailed.get()
+                            ? Mono.<Void>empty()
+                            : checkpointStore.markComplete(executionId, nodeId))
                 .onErrorResume(
                     error -> {
                       log.atError()

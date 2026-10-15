@@ -1115,6 +1115,38 @@ class DefaultControlBusGatewayTest {
   }
 
   @Test
+  void pendingApprovals_listsOnlyTheWaitsOfRunsOfTheSession() {
+    final var waits = com.infenia.yukta.plugin.util.SignalWaits.shared();
+    final var mine =
+        waits.await("exec-pa-1", "gate", "approve", java.time.Duration.ofMinutes(1)).subscribe();
+    final var other =
+        waits.await("exec-pa-2", "gate", "approve", java.time.Duration.ofMinutes(1)).subscribe();
+    // a wait of a run the tracker does not know (any more) is left out
+    final var unknown =
+        waits.await("exec-pa-3", "gate", "approve", java.time.Duration.ofMinutes(1)).subscribe();
+    final WorkflowProgress ours = mock(WorkflowProgress.class);
+    when(ours.sessionId()).thenReturn("session-pa");
+    when(ours.workflowId()).thenReturn("wf-pa");
+    final WorkflowProgress theirs = mock(WorkflowProgress.class);
+    when(theirs.sessionId()).thenReturn("another-session");
+    when(taskTracker.getProgressByExecutionId("exec-pa-1")).thenReturn(ours);
+    when(taskTracker.getProgressByExecutionId("exec-pa-2")).thenReturn(theirs);
+
+    StepVerifier.create(gateway.pendingApprovals("session-pa"))
+        .assertNext(
+            approval -> {
+              assertThat(approval.executionId()).isEqualTo("exec-pa-1");
+              assertThat(approval.workflowId()).isEqualTo("wf-pa");
+              assertThat(approval.nodeId()).isEqualTo("gate");
+              assertThat(approval.name()).isEqualTo("approve");
+            })
+        .verifyComplete();
+    mine.dispose();
+    other.dispose();
+    unknown.dispose();
+  }
+
+  @Test
   void getProgress_sessionAndExecution_delegatesToSessionScopedTrackerLookup() {
     final WorkflowProgress progress = mock(WorkflowProgress.class);
     when(taskTracker.getProgress("session-1", "exec-17")).thenReturn(progress);
@@ -2054,6 +2086,56 @@ class DefaultControlBusGatewayTest {
     verify(preparedWorkflowCache, never()).put(any(), any(), any());
     verify(orchestrator)
         .execute(eq(sessionId), eq(workflowId), anyString(), eq(preparedWorkflow), anyMap(), any());
+  }
+
+  @Test
+  void startWorkflow_pinnedVersion_runsItAndSkipsCache() {
+    final String sessionId = "sess-pin";
+    final String workflowId = "wf-pin";
+    final WorkflowDefinition old = new WorkflowDefinition(workflowId, "old", List.of(), List.of());
+    final PreparedWorkflow preparedWorkflow = mock(PreparedWorkflow.class);
+
+    when(workflowDefinitionStore.findRevision(sessionId, workflowId, "0001-a"))
+        .thenReturn(Mono.just(old));
+    when(orchestrator.prepareWorkflow(old)).thenReturn(Mono.just(preparedWorkflow));
+    when(workflowDefinitionStore.find(sessionId, workflowId))
+        .thenReturn(Mono.just(new WorkflowDefinition(workflowId, "current", List.of(), List.of())));
+    when(orchestrator.execute(
+            eq(sessionId), eq(workflowId), anyString(), eq(preparedWorkflow), anyMap(), any()))
+        .thenReturn(Mono.empty());
+
+    StepVerifier.create(
+            gateway.startWorkflow(sessionId, workflowId, Map.of("yukta.version", "0001-a")))
+        .expectNextCount(1)
+        .verifyComplete();
+
+    verify(preparedWorkflowCache, never()).get(sessionId, workflowId);
+    verify(preparedWorkflowCache, never()).put(any(), any(), any());
+  }
+
+  @Test
+  void startWorkflow_unusablePin_runsTheCurrentVersion() {
+    final String sessionId = "sess-nopin";
+    final String workflowId = "wf-nopin";
+    final WorkflowDefinition current =
+        new WorkflowDefinition(workflowId, "current", List.of(), List.of());
+    final PreparedWorkflow preparedWorkflow = mock(PreparedWorkflow.class);
+    when(workflowDefinitionStore.find(sessionId, workflowId)).thenReturn(Mono.just(current));
+    when(preparedWorkflowCache.get(sessionId, workflowId)).thenReturn(Optional.empty());
+    when(orchestrator.prepareWorkflow(current)).thenReturn(Mono.just(preparedWorkflow));
+    when(orchestrator.execute(
+            eq(sessionId), eq(workflowId), anyString(), eq(preparedWorkflow), any(), any()))
+        .thenReturn(Mono.empty());
+
+    for (final Map<String, Object> payload :
+        java.util.Arrays.<Map<String, Object>>asList(
+            null, Map.of("yukta.version", 5), Map.of("yukta.version", " "))) {
+      StepVerifier.create(gateway.startWorkflow(sessionId, workflowId, payload))
+          .expectNextCount(1)
+          .verifyComplete();
+    }
+
+    verify(workflowDefinitionStore, never()).findRevision(any(), any(), any());
   }
 
   @Test

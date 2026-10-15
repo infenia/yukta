@@ -11,6 +11,7 @@ import com.infenia.yukta.plugin.store.NodeCheckpointStore;
 import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.archive.ArchivedExecution;
 import com.infenia.yukta.service.archive.ExecutionArchive;
+import com.infenia.yukta.service.control.ExecutionControl;
 import com.infenia.yukta.service.control.ExecutionScheduler;
 import com.infenia.yukta.service.control.gateway.RestartCompletionSink;
 import com.infenia.yukta.service.control.store.ExecutionControlRegistry;
@@ -18,8 +19,10 @@ import com.infenia.yukta.service.orchestrator.RestartPlan;
 import com.infenia.yukta.service.orchestrator.WorkflowOrchestrator;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -87,10 +90,6 @@ public class RestartFromNodeCommandProcessor implements ControlSignalProcessor {
                 () ->
                     new NotFoundException(
                         "Execution not found or no longer restartable: " + restart.executionId()));
-    if (registry.findByExecutionId(restart.executionId()).isEmpty()) {
-      // A running run gives up its slot when stopped, so only a finished one is checked.
-      scheduler.assertCanAccept(archived.sessionId(), archived.workflowId());
-    }
     final RestartPlan plan = RestartPlan.compute(archived.prepared(), restart.fromNodeId());
     final boolean live = registry.findByExecutionId(restart.executionId()).isPresent();
     for (final String nodeId : plan.boundary()) {
@@ -120,22 +119,42 @@ public class RestartFromNodeCommandProcessor implements ControlSignalProcessor {
                     .collectList()
                     .map(messages -> Map.entry(nodeId, messages)))
         .collectMap(Map.Entry::getKey, Map.Entry::getValue)
-        .doOnNext(outputs -> start(restart, archived, outputs))
+        .flatMap(outputs -> start(restart, archived, outputs))
         .then();
   }
 
-  private void start(
+  private Mono<Void> start(
       final RestartFromNodeCommand restart,
       final ArchivedExecution archived,
       final Map<String, List<Message<?>>> outputs) {
+    final Optional<ExecutionControl> running = registry.findByExecutionId(restart.executionId());
+    // The slot is taken before the new id is reported, so two restarts cannot both use the last
+    // one. A running run gives up its slot when stopped, so it is not asked.
+    final ExecutionScheduler.Admission admission =
+        running.isEmpty()
+            ? scheduler.acquire(
+                archived.sessionId(),
+                archived.workflowId(),
+                ExecutionScheduler.priorityOf(archived.payload()),
+                restart.newExecutionId())
+            : null;
+    return admission != null && admission.refused()
+        ? admission.permit().then()
+        : launch(restart, archived, outputs, running, admission);
+  }
+
+  private Mono<Void> launch(
+      final RestartFromNodeCommand restart,
+      final ArchivedExecution archived,
+      final Map<String, List<Message<?>>> outputs,
+      final Optional<ExecutionControl> running,
+      final ExecutionScheduler.@Nullable Admission admission) {
     // If the old run is still going it is stopped first, so it cannot repeat side effects.
-    registry
-        .findByExecutionId(restart.executionId())
-        .ifPresent(
-            control -> {
-              control.safeStopSink().tryEmitEmpty();
-              registry.unregister(control.executionId());
-            });
+    running.ifPresent(
+        control -> {
+          control.safeStopSink().tryEmitEmpty();
+          registry.unregister(control.executionId());
+        });
 
     orchestrator
         .restartFromNode(
@@ -145,7 +164,8 @@ public class RestartFromNodeCommandProcessor implements ControlSignalProcessor {
             restart.newExecutionId(),
             archived.prepared(),
             restart.fromNodeId(),
-            outputs)
+            outputs,
+            admission)
         .subscribeOn(Schedulers.boundedElastic())
         .doOnError(
             err ->
@@ -164,6 +184,7 @@ public class RestartFromNodeCommandProcessor implements ControlSignalProcessor {
         .addKeyValue("definitionVersion", archived.definitionVersion())
         .log("Restarted execution from node");
     completionSink.completeRestartSuccess(restart.newExecutionId());
+    return Mono.empty();
   }
 
   @Override

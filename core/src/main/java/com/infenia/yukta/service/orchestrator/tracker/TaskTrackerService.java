@@ -202,6 +202,13 @@ public interface TaskTrackerService {
   void recordRetry(String module);
 
   /**
+   * Records a message that an edge buffer dropped because the node could not keep up.
+   *
+   * @param module the node type
+   */
+  void recordEdgeDropped(String module);
+
+  /**
    * Record an operator control state (pause, step, skip, ...) for an execution.
    *
    * <p>Control state is reported next to, never instead of, the lifecycle status.

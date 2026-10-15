@@ -3,8 +3,10 @@
 package com.infenia.yukta.service.control.gateway;
 
 import com.infenia.yukta.message.Message;
+import com.infenia.yukta.model.control.PendingApproval;
 import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
 import com.infenia.yukta.model.execution.WorkflowProgress;
+import com.infenia.yukta.plugin.util.SignalWaits;
 import com.infenia.yukta.service.control.ControlBusService;
 import com.infenia.yukta.service.orchestrator.tracker.DefaultTaskTrackerService;
 import java.util.List;
@@ -89,6 +91,24 @@ final class ExecutionQueries {
 
   /* default */ WorkflowProgress getProgress(final String sessionId, final String executionId) {
     return taskTracker.getProgress(sessionId, executionId);
+  }
+
+  /* default */ Flux<PendingApproval> pendingApprovals(final String sessionId) {
+    return Flux.fromIterable(SignalWaits.shared().pending())
+        .concatMap(
+            wait -> {
+              final WorkflowProgress progress =
+                  taskTracker.getProgressByExecutionId(wait.executionId());
+              return progress != null && sessionId.equals(progress.sessionId())
+                  ? Mono.just(
+                      new PendingApproval(
+                          wait.executionId(),
+                          progress.workflowId(),
+                          wait.nodeId(),
+                          wait.name(),
+                          wait.since()))
+                  : Mono.<PendingApproval>empty();
+            });
   }
 
   /* default */ WorkflowProgress getCurrentProgress(final String executionId) {

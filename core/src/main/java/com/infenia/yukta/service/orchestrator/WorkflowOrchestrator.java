@@ -48,7 +48,12 @@ import reactor.util.context.Context;
 @Service
 @Validated
 @RequiredArgsConstructor
-@SuppressWarnings({"PMD.ExcessiveImports", "PMD.CouplingBetweenObjects", "PMD.TooManyMethods"})
+@SuppressWarnings({
+  "PMD.ExcessiveImports",
+  "PMD.CouplingBetweenObjects",
+  "PMD.TooManyMethods",
+  "PMD.UseObjectForClearerAPI"
+})
 public class WorkflowOrchestrator {
 
   /** Log key for session ID. */
@@ -213,7 +218,6 @@ public class WorkflowOrchestrator {
    * @param boundaryOutputs recorded output of each node that feeds the re-run part, by node id
    * @return a Mono that completes when the restarted execution finishes
    */
-  @SuppressWarnings({"PMD.UseObjectForClearerAPI", "PMD.OnlyOneReturn"})
   public Mono<Void> restartFromNode(
       final String sessionId,
       final String workflowId,
@@ -222,11 +226,39 @@ public class WorkflowOrchestrator {
       final PreparedWorkflow prepared,
       final String restartNodeId,
       final Map<String, List<Message<?>>> boundaryOutputs) {
+    return restartFromNode(
+        sessionId,
+        workflowId,
+        previousExecutionId,
+        newExecutionId,
+        prepared,
+        restartNodeId,
+        boundaryOutputs,
+        null);
+  }
+
+  /**
+   * As {@link #restartFromNode(String, String, String, String, PreparedWorkflow, String, Map)},
+   * with the slot already taken by the caller (given back if the restart cannot begin).
+   *
+   * @param admission the slot taken in advance, or null to ask for one when the run starts
+   */
+  @SuppressWarnings("PMD.OnlyOneReturn")
+  public Mono<Void> restartFromNode(
+      final String sessionId,
+      final String workflowId,
+      final String previousExecutionId,
+      final String newExecutionId,
+      final PreparedWorkflow prepared,
+      final String restartNodeId,
+      final Map<String, List<Message<?>>> boundaryOutputs,
+      final ExecutionScheduler.@Nullable Admission admission) {
 
     final RestartPlan plan;
     try {
       plan = RestartPlan.compute(prepared, restartNodeId);
     } catch (final IllegalArgumentException e) {
+      giveBack(admission);
       return Mono.error(e);
     }
     return rerun(
@@ -241,7 +273,8 @@ public class WorkflowOrchestrator {
             .<Map<String, Object>>map(ArchivedExecution::payload)
             .orElse(Map.of()),
         boundaryOutputs,
-        "restartNodeId=" + restartNodeId);
+        "restartNodeId=" + restartNodeId,
+        admission);
   }
 
   /**
@@ -250,8 +283,14 @@ public class WorkflowOrchestrator {
    *
    * @param payload trigger payload, for triggers inside the re-run part
    * @param origin what started this, for the log
+   * @param admission the slot taken in advance (given back if the run cannot begin), or null to ask
+   *     for one when the run starts
    */
-  @SuppressWarnings("PMD.UseObjectForClearerAPI")
+  @SuppressWarnings({
+    "PMD.ExcessiveParameterList",
+    "PMD.AvoidCatchingGenericException",
+    "PMD.OnlyOneReturn"
+  })
   public Mono<Void> rerun(
       final String sessionId,
       final String workflowId,
@@ -261,7 +300,8 @@ public class WorkflowOrchestrator {
       final RestartPlan plan,
       final Map<String, Object> payload,
       final Map<String, List<Message<?>>> boundaryOutputs,
-      final String origin) {
+      final String origin,
+      final ExecutionScheduler.@Nullable Admission admission) {
 
     log.atInfo()
         .addKeyValue(LOG_KEY_SESSION_ID, sessionId)
@@ -275,9 +315,15 @@ public class WorkflowOrchestrator {
 
     final List<WorkflowNode> topologicalOrder = prepared.topologicalOrder();
     final int nodeCount = topologicalOrder.size();
-    final NodeAssembler[] assemblers =
-        compiler.compileAssemblers(
-            prepared.edges(), prepared.parentsList(), prepared.pluginCache(), topologicalOrder);
+    final NodeAssembler[] assemblers;
+    try {
+      assemblers =
+          compiler.compileAssemblers(
+              prepared.edges(), prepared.parentsList(), prepared.pluginCache(), topologicalOrder);
+    } catch (final RuntimeException e) {
+      giveBack(admission);
+      return Mono.error(e);
+    }
 
     // Nodes outside the re-run set do not run: the ones feeding it replay what they recorded, the
     // rest stay silent, so independent branches are not executed again.
@@ -335,7 +381,7 @@ public class WorkflowOrchestrator {
               newExecutionId,
               nodeIds,
               ExecutionScheduler.priorityOf(payload),
-              null,
+              admission,
               recordReplayed.then(
                   compiler.executeTemplate(
                       newExecutionId,
@@ -481,6 +527,16 @@ public class WorkflowOrchestrator {
                                 .addKeyValue(LOG_KEY_EXECUTION_ID, executionId)
                                 .log("{} failed", label))
                     .then(Mono.error(e)))
+        .doOnCancel(
+            () ->
+                // A caller that goes away ends the run too; if a stop already did, the tracker
+                // ignores this second end.
+                tracker
+                    .finishWorkflow(executionId, TaskStatus.CANCELLED)
+                    .doFinally(
+                        _ -> resultService.complete(executionId, TaskStatus.CANCELLED.name()))
+                    .onErrorComplete()
+                    .subscribe())
         .doFinally(
             signal -> {
               executionControlRegistry.unregister(executionId);

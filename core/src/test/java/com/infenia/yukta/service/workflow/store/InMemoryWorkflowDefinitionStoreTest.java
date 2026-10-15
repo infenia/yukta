@@ -177,4 +177,47 @@ class InMemoryWorkflowDefinitionStoreTest {
     store.removeAll(SESSION_ID_1).block();
     assertThat(store.revisions(SESSION_ID_1, WORKFLOW_ID_1).collectList().block()).isEmpty();
   }
+
+  @Test
+  void noteShowsOnVersion_blankClearsIt_unknownIsNotFound() {
+    store.save(SESSION_ID_1, version("noted")).block();
+    final String revisionId =
+        java.util.Objects.requireNonNull(store.revisions(SESSION_ID_1, WORKFLOW_ID_1).blockFirst())
+            .id();
+
+    store.saveNote(SESSION_ID_1, WORKFLOW_ID_1, revisionId, "added the audit sink").block();
+    assertThat(store.revisions(SESSION_ID_1, WORKFLOW_ID_1).blockFirst().note())
+        .isEqualTo("added the audit sink");
+
+    store.saveNote(SESSION_ID_1, WORKFLOW_ID_1, revisionId, " ").block();
+    assertThat(store.revisions(SESSION_ID_1, WORKFLOW_ID_1).blockFirst().note()).isNull();
+
+    StepVerifier.create(store.saveNote(SESSION_ID_1, WORKFLOW_ID_1, "nope", "x"))
+        .expectError(com.infenia.yukta.service.NotFoundException.class)
+        .verify();
+  }
+
+  @Test
+  void nullNoteClearsIt_noteGoesWithPrunedVersion() throws InterruptedException {
+    store.save(SESSION_ID_1, version("first")).block();
+    final String revisionId =
+        java.util.Objects.requireNonNull(store.revisions(SESSION_ID_1, WORKFLOW_ID_1).blockFirst())
+            .id();
+    store.saveNote(SESSION_ID_1, WORKFLOW_ID_1, revisionId, "keep me").block();
+    store.saveNote(SESSION_ID_1, WORKFLOW_ID_1, revisionId, null).block();
+    assertThat(store.revisions(SESSION_ID_1, WORKFLOW_ID_1).blockFirst().note()).isNull();
+
+    store.saveNote(SESSION_ID_1, WORKFLOW_ID_1, revisionId, "old note").block();
+    for (int i = 0; i < InMemoryWorkflowDefinitionStore.MAX_REVISIONS; i++) {
+      Thread.sleep(2);
+      store.save(SESSION_ID_1, version("v" + i)).block();
+    }
+    assertThat(
+            store
+                .revisions(SESSION_ID_1, WORKFLOW_ID_1)
+                .map(DefinitionRevision::id)
+                .collectList()
+                .block())
+        .doesNotContain(revisionId);
+  }
 }

@@ -19,6 +19,7 @@ import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
@@ -118,51 +119,65 @@ public class RestartCommandProcessor implements ControlSignalProcessor {
 
   private Mono<Void> performAtomicHandoff(
       final ArchivedExecution archived, final RestartCommand restart) {
-    return Mono.fromRunnable(
-            () -> {
-              final Optional<ExecutionControl> running =
-                  registry.findByExecutionId(restart.executionId());
-              if (running.isEmpty()) {
-                // A running run gives up its slot when stopped, so only a finished one is checked.
-                scheduler.assertCanAccept(archived.sessionId(), archived.workflowId());
-              }
-              // If the old run is still going it is stopped first, so it cannot repeat effects.
-              running.ifPresent(
-                  control -> {
-                    control.safeStopSink().tryEmitEmpty();
-                    registry.unregister(control.executionId());
-                  });
-            })
-        .then(
-            Mono.defer(
-                () -> {
-                  orchestrator
-                      .execute(
-                          archived.sessionId(),
-                          archived.workflowId(),
-                          restart.newExecutionId(),
-                          archived.prepared(),
-                          archived.payload())
-                      .subscribeOn(Schedulers.boundedElastic())
-                      .doOnError(
-                          err ->
-                              log.atError()
-                                  .setCause(err)
-                                  .addKeyValue("oldExecutionId", restart.executionId())
-                                  .addKeyValue("newExecutionId", restart.newExecutionId())
-                                  .log("Restarted execution failed"))
-                      .onErrorComplete()
-                      .subscribe();
+    return Mono.defer(
+        () -> {
+          final Optional<ExecutionControl> running =
+              registry.findByExecutionId(restart.executionId());
+          ExecutionScheduler.Admission admission = null;
+          if (running.isEmpty()) {
+            // The slot is taken now, before the new id is reported, so two restarts cannot both
+            // use the last one. A running run gives up its slot when stopped, so it is not asked.
+            admission =
+                scheduler.acquire(
+                    archived.sessionId(),
+                    archived.workflowId(),
+                    ExecutionScheduler.priorityOf(archived.payload()),
+                    restart.newExecutionId());
+            if (admission.refused()) {
+              return admission.permit().then();
+            }
+          }
+          // If the old run is still going it is stopped first, so it cannot repeat effects.
+          running.ifPresent(
+              control -> {
+                control.safeStopSink().tryEmitEmpty();
+                registry.unregister(control.executionId());
+              });
+          start(archived, restart, admission);
+          return Mono.empty();
+        });
+  }
 
-                  log.atInfo()
-                      .addKeyValue("oldExecutionId", restart.executionId())
-                      .addKeyValue("newExecutionId", restart.newExecutionId())
-                      .addKeyValue("workflowId", archived.workflowId())
-                      .addKeyValue("definitionVersion", archived.definitionVersion())
-                      .log("Restarted execution");
-                  completionSink.completeRestartSuccess(restart.newExecutionId());
-                  return Mono.empty();
-                }));
+  private void start(
+      final ArchivedExecution archived,
+      final RestartCommand restart,
+      final ExecutionScheduler.@Nullable Admission admission) {
+    orchestrator
+        .execute(
+            archived.sessionId(),
+            archived.workflowId(),
+            restart.newExecutionId(),
+            archived.prepared(),
+            archived.payload(),
+            admission)
+        .subscribeOn(Schedulers.boundedElastic())
+        .doOnError(
+            err ->
+                log.atError()
+                    .setCause(err)
+                    .addKeyValue("oldExecutionId", restart.executionId())
+                    .addKeyValue("newExecutionId", restart.newExecutionId())
+                    .log("Restarted execution failed"))
+        .onErrorComplete()
+        .subscribe();
+
+    log.atInfo()
+        .addKeyValue("oldExecutionId", restart.executionId())
+        .addKeyValue("newExecutionId", restart.newExecutionId())
+        .addKeyValue("workflowId", archived.workflowId())
+        .addKeyValue("definitionVersion", archived.definitionVersion())
+        .log("Restarted execution");
+    completionSink.completeRestartSuccess(restart.newExecutionId());
   }
 
   @Override

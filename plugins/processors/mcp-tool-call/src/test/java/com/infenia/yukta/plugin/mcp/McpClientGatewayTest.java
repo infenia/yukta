@@ -24,6 +24,7 @@ import org.springframework.web.reactive.function.client.WebClient;
 import reactor.test.StepVerifier;
 
 @SuppressWarnings({
+  "PMD.NcssCount",
   "PMD.CommentRequired",
   "PMD.AvoidDuplicateLiterals",
   "PMD.AvoidUsingVolatile",
@@ -47,6 +48,8 @@ class McpClientGatewayTest {
   private volatile boolean sse;
   private volatile boolean initFail;
   private volatile boolean listError;
+  private volatile int paged;
+  private final AtomicInteger cursors = new AtomicInteger();
   private volatile boolean stateless;
   private HttpServer server;
   private McpClientGateway gateway;
@@ -104,6 +107,26 @@ class McpClientGatewayTest {
                   + id
                   + "\",\"result\":{\"tools\":[{\"name\":\"weather\",\"description\":\"Weather\","
                   + "\"inputSchema\":{\"type\":\"object\"}},{\"name\":\"bare\"},\"junk\"]}}";
+      if (paged == 1) {
+        reply =
+            body.contains("\"cursor\":\"p2\"")
+                ? rpc(id, "\"result\":{\"tools\":[{\"name\":\"second\"}]}")
+                : rpc(id, "\"result\":{\"tools\":[{\"name\":\"first\"}],\"nextCursor\":\"p2\"}");
+      } else if (paged == 2) {
+        reply =
+            rpc(
+                id,
+                "\"result\":{\"tools\":[{\"name\":\"again\"}],\"nextCursor\":\"c"
+                    + cursors.incrementAndGet()
+                    + "\"}");
+      } else if (paged == 3) {
+        reply =
+            body.contains("\"cursor\":\"\"")
+                ? rpc(id, "\"result\":{\"tools\":[{\"name\":\"last\"}]}")
+                : rpc(id, "\"result\":{\"tools\":[{\"name\":\"only\"}],\"nextCursor\":\"\"}");
+      } else if (paged == 4) {
+        reply = rpc(id, "\"result\":{\"tools\":[{\"name\":\"loop\"}],\"nextCursor\":\"same\"}");
+      }
       exchange.getResponseHeaders().add("Content-Type", "application/json");
     } else if ("tools/call".equals(method)) {
       if (body.contains("slow")) {
@@ -199,6 +222,44 @@ class McpClientGatewayTest {
                         Map.of("name", "bare", "description", "", "inputSchema", Map.of())))
         .verifyComplete();
     assertThat(methods).containsExactly("initialize", "notifications/initialized", "tools/list");
+  }
+
+  @Test
+  void listTools_followsNextCursorToTheLastPage() {
+    paged = 1;
+
+    StepVerifier.create(gateway.listTools(spec("tools/list"), () -> {}))
+        .assertNext(
+            tools ->
+                assertThat(tools)
+                    .extracting(tool -> tool.get("name"))
+                    .containsExactly("first", "second"))
+        .verifyComplete();
+    assertThat(methods)
+        .containsExactly("initialize", "notifications/initialized", "tools/list", "tools/list");
+  }
+
+  @Test
+  void listTools_failsOnEndlessOrRepeatedCursors() {
+    paged = 2;
+    StepVerifier.create(gateway.listTools(spec("tools/list"), () -> {}))
+        .verifyErrorSatisfies(e -> assertThat(e).hasMessageContaining("did not end"));
+
+    paged = 4;
+    StepVerifier.create(gateway.listTools(spec("tools/list"), () -> {}))
+        .verifyErrorSatisfies(e -> assertThat(e).hasMessageContaining("did not end"));
+  }
+
+  @Test
+  void listTools_followsAnEmptyCursorLikeAnyOther() {
+    paged = 3;
+    StepVerifier.create(gateway.listTools(spec("tools/list"), () -> {}))
+        .assertNext(
+            tools ->
+                assertThat(tools)
+                    .extracting(tool -> tool.get("name"))
+                    .containsExactly("only", "last"))
+        .verifyComplete();
   }
 
   @Test

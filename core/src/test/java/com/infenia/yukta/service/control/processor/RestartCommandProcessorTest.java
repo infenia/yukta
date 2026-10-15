@@ -44,7 +44,9 @@ class RestartCommandProcessorTest {
   private final ExecutionControlRegistry registry = mock(ExecutionControlRegistry.class);
   private final WorkflowOrchestrator orchestrator = mock(WorkflowOrchestrator.class);
   private final RestartCompletionSink completionSink = mock(RestartCompletionSink.class);
-  private final ExecutionScheduler scheduler = mock(ExecutionScheduler.class);
+  private ExecutionScheduler scheduler =
+      new ExecutionScheduler(
+          0, 0, 100, ExecutionScheduler.OnLimit.QUEUE, java.time.Duration.ofSeconds(30));
   private final PreparedWorkflow prepared = mock(PreparedWorkflow.class);
   private final ExecutionArchive archive = new ExecutionArchive();
 
@@ -72,11 +74,12 @@ class RestartCommandProcessorTest {
   @Test
   void finishedExecution_isRestartedWithItsOriginalGraphAndPayload() {
     when(registry.findByExecutionId("exec-1")).thenReturn(Optional.empty());
-    when(orchestrator.execute(any(), any(), any(), any(), any())).thenReturn(Mono.never());
+    when(orchestrator.execute(any(), any(), any(), any(), any(), any())).thenReturn(Mono.never());
 
     StepVerifier.create(processor.process(new RestartCommand("exec-1", "new-1"))).verifyComplete();
 
-    verify(orchestrator).execute("s1", "w1", "new-1", prepared, Map.of("k", "v"));
+    verify(orchestrator)
+        .execute(eq("s1"), eq("w1"), eq("new-1"), eq(prepared), eq(Map.of("k", "v")), any());
     verify(registry, never()).unregister(any());
     verify(completionSink).completeRestartSuccess("new-1");
   }
@@ -88,7 +91,7 @@ class RestartCommandProcessorTest {
     when(control.executionId()).thenReturn("exec-1");
     when(control.safeStopSink()).thenReturn(safeStop);
     when(registry.findByExecutionId("exec-1")).thenReturn(Optional.of(control));
-    when(orchestrator.execute(any(), any(), any(), any(), any())).thenReturn(Mono.never());
+    when(orchestrator.execute(any(), any(), any(), any(), any(), any())).thenReturn(Mono.never());
 
     StepVerifier.create(processor.process(new RestartCommand("exec-1", "new-1"))).verifyComplete();
 
@@ -100,16 +103,35 @@ class RestartCommandProcessorTest {
   @Test
   void finishedExecution_isRefusedWhenTheLimitsAreFull() {
     when(registry.findByExecutionId("exec-1")).thenReturn(Optional.empty());
-    org.mockito.Mockito.doThrow(new ExecutionRejectedException("Execution limit reached"))
-        .when(scheduler)
-        .assertCanAccept("s1", "w1");
+    scheduler =
+        new ExecutionScheduler(1, 0, 0, ExecutionScheduler.OnLimit.REJECT, java.time.Duration.ZERO);
+    scheduler.acquire("s1", "w1");
+    processor =
+        new RestartCommandProcessor(registry, archive, orchestrator, scheduler, completionSink);
 
     StepVerifier.create(processor.process(new RestartCommand("exec-1", "new-1")))
         .verifyError(ExecutionRejectedException.class);
 
     verify(completionSink)
         .completeRestartFailure(eq("new-1"), any(ExecutionRejectedException.class));
-    verify(orchestrator, never()).execute(any(), any(), any(), any(), any());
+    verify(orchestrator, never()).execute(any(), any(), any(), any(), any(), any());
+  }
+
+  @Test
+  void twoRestartsForTheLastSlot_onlyOneProceeds() {
+    scheduler =
+        new ExecutionScheduler(1, 0, 0, ExecutionScheduler.OnLimit.REJECT, java.time.Duration.ZERO);
+    processor =
+        new RestartCommandProcessor(registry, archive, orchestrator, scheduler, completionSink);
+    when(registry.findByExecutionId("exec-1")).thenReturn(Optional.empty());
+    when(orchestrator.execute(any(), any(), any(), any(), any(), any())).thenReturn(Mono.never());
+
+    StepVerifier.create(processor.process(new RestartCommand("exec-1", "new-1"))).verifyComplete();
+    StepVerifier.create(processor.process(new RestartCommand("exec-1", "new-2")))
+        .verifyError(ExecutionRejectedException.class);
+
+    verify(orchestrator).execute(any(), any(), eq("new-1"), any(), any(), any());
+    verify(orchestrator, never()).execute(any(), any(), eq("new-2"), any(), any(), any());
   }
 
   @Test
@@ -118,11 +140,9 @@ class RestartCommandProcessorTest {
     when(control.executionId()).thenReturn("exec-1");
     when(control.safeStopSink()).thenReturn(Sinks.one());
     when(registry.findByExecutionId("exec-1")).thenReturn(Optional.of(control));
-    when(orchestrator.execute(any(), any(), any(), any(), any())).thenReturn(Mono.never());
+    when(orchestrator.execute(any(), any(), any(), any(), any(), any())).thenReturn(Mono.never());
 
     StepVerifier.create(processor.process(new RestartCommand("exec-1", "new-1"))).verifyComplete();
-
-    verify(scheduler, never()).assertCanAccept(any(), any());
   }
 
   @Test
@@ -131,13 +151,13 @@ class RestartCommandProcessorTest {
         .verifyError(IllegalArgumentException.class);
 
     verify(completionSink).completeRestartFailure(eq("new-2"), any(IllegalArgumentException.class));
-    verify(orchestrator, never()).execute(any(), any(), any(), any(), any());
+    verify(orchestrator, never()).execute(any(), any(), any(), any(), any(), any());
   }
 
   @Test
   void orchestratorFailingLater_isNotReportedThroughTheCompletionSink() {
     when(registry.findByExecutionId("exec-1")).thenReturn(Optional.empty());
-    when(orchestrator.execute(any(), any(), any(), any(), any()))
+    when(orchestrator.execute(any(), any(), any(), any(), any(), any()))
         .thenReturn(Mono.error(new RuntimeException("Orchestrator failure")));
 
     StepVerifier.create(processor.process(new RestartCommand("exec-1", "new-1"))).verifyComplete();
@@ -149,7 +169,7 @@ class RestartCommandProcessorTest {
   @Test
   void restartingTwiceInSequence_succeedsBothTimes() {
     when(registry.findByExecutionId("exec-1")).thenReturn(Optional.empty());
-    when(orchestrator.execute(any(), any(), any(), any(), any())).thenReturn(Mono.never());
+    when(orchestrator.execute(any(), any(), any(), any(), any(), any())).thenReturn(Mono.never());
 
     StepVerifier.create(processor.process(new RestartCommand("exec-1", "new-1"))).verifyComplete();
     StepVerifier.create(processor.process(new RestartCommand("exec-1", "new-2"))).verifyComplete();
@@ -161,7 +181,7 @@ class RestartCommandProcessorTest {
   @Test
   void secondRestartWhileOneIsInProgress_isRejected() {
     when(registry.findByExecutionId("exec-1")).thenReturn(Optional.empty());
-    when(orchestrator.execute(any(), any(), any(), any(), any())).thenReturn(Mono.never());
+    when(orchestrator.execute(any(), any(), any(), any(), any(), any())).thenReturn(Mono.never());
 
     final var first = processor.process(new RestartCommand("exec-1", "new-1"));
     final var second = processor.process(new RestartCommand("exec-1", "new-2"));

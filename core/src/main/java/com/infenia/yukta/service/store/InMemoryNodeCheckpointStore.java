@@ -45,7 +45,8 @@ import tools.jackson.databind.ObjectMapper;
  */
 @Slf4j
 @Component
-@ConditionalOnExpression("'${yukta.restart.dir:}'.isEmpty()")
+@ConditionalOnExpression(
+    "'${yukta.restart.dir:}'.isEmpty() && !'postgres'.equals('${yukta.restart.store-type:}')")
 @SuppressWarnings({
   "PMD.AvoidSynchronizedStatement",
   "PMD.LawOfDemeter",

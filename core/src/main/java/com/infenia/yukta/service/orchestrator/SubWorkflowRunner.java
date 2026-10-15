@@ -6,6 +6,7 @@ import com.infenia.yukta.model.workflow.PreparedWorkflow;
 import com.infenia.yukta.plugin.gateway.ResultCollector;
 import com.infenia.yukta.plugin.gateway.SubWorkflowGateway;
 import com.infenia.yukta.service.NotFoundException;
+import com.infenia.yukta.service.control.ExecutionScheduler;
 import com.infenia.yukta.service.workflow.store.PreparedWorkflowCache;
 import com.infenia.yukta.service.workflow.store.WorkflowDefinitionStore;
 import java.util.HashMap;
@@ -14,6 +15,7 @@ import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
 /**
  * Runs a stored workflow as a child of another run and waits for it, collecting what reaches its
@@ -34,6 +36,9 @@ public class SubWorkflowRunner implements SubWorkflowGateway {
 
   /** Prepares and runs workflows. */
   private final WorkflowOrchestrator orchestrator;
+
+  /** Lends a child the slot its parent holds. */
+  private final ExecutionScheduler scheduler;
 
   @Override
   public Mono<Result> run(
@@ -58,8 +63,16 @@ public class SubWorkflowRunner implements SubWorkflowGateway {
               .flatMap(
                   prepared ->
                       orchestrator
-                          .execute(sessionId, workflowId, executionId, prepared, start)
+                          .execute(
+                              sessionId,
+                              workflowId,
+                              executionId,
+                              prepared,
+                              start,
+                              scheduler.borrowed())
                           .contextWrite(ctx -> ctx.put("resultCollector", collector)))
+              // Registering and archiving the child do file work, so not on the caller's thread.
+              .subscribeOn(Schedulers.boundedElastic())
               .then(
                   Mono.fromSupplier(
                       () ->

@@ -461,4 +461,22 @@ class ExecutionSchedulerTest {
 
     assertThat(order).containsExactly("high");
   }
+
+  @Test
+  void standby_refusesEveryStart() {
+    final ExecutionScheduler scheduler = scheduler(0, 0, 100, OnLimit.QUEUE);
+    scheduler.setLeaderElection(
+        new com.infenia.yukta.service.leader.LeaderElection() {
+          @Override
+          public boolean isLeader() {
+            return false;
+          }
+        });
+
+    assertThatThrownBy(() -> scheduler.assertCanAccept("s", "w"))
+        .isInstanceOf(com.infenia.yukta.service.leader.NotLeaderException.class);
+    assertThatThrownBy(() -> scheduler.acquire("s", "w"))
+        .isInstanceOf(com.infenia.yukta.service.leader.NotLeaderException.class);
+    assertThat(scheduler.running()).isZero();
+  }
 }

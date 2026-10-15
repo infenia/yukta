@@ -235,6 +235,26 @@ class WorkflowOrchestratorTest {
   }
 
   @Test
+  void execute_cancelledByItsCaller_endsTheRunAsCancelled() {
+    final String executionId = "exec-cancel";
+    final Map<String, Object> payload = Map.of();
+    final PreparedWorkflow prepared = buildPreparedWorkflow(List.of("node-c"));
+
+    setupExecutionControl("sess-c", "wf-c", executionId, prepared, payload, Sinks.one());
+    when(tracker.startWorkflow(anyString(), anyString(), anyString(), anyList()))
+        .thenReturn(Mono.empty());
+    when(prepared.template().instantiate(anyString(), any())).thenReturn(Mono.never());
+
+    StepVerifier.create(orchestrator.execute("sess-c", "wf-c", executionId, prepared, payload))
+        .thenAwait(Duration.ofMillis(50))
+        .thenCancel()
+        .verify();
+
+    verify(tracker).finishWorkflow(executionId, TaskStatus.CANCELLED);
+    verify(executionControlRegistry).unregister(executionId);
+  }
+
+  @Test
   void execute_safeStopSinkTerminatesExecution() {
     final String sessionId = "sess-safe";
     final String workflowId = "wf-safe";
@@ -948,5 +968,23 @@ class WorkflowOrchestratorTest {
     doNothing().when(executionControlRegistry).unregister(executionId);
     when(executionControl.safeStopSink()).thenReturn(safeStop);
     lenient().when(executionControl.stopRequested()).thenReturn(new AtomicBoolean());
+  }
+
+  @Test
+  void restartFromNode_graphThatCannotBeCompiled_givesTheReservedSlotBack() {
+    final WorkflowNode trigger = new WorkflowNode("trigger", "trigger-type", Map.of());
+    final PreparedWorkflow prepared = buildPreparedWorkflowFromNodes(List.of(trigger));
+    when(compiler.compileAssemblers(any(), any(), any(), any()))
+        .thenThrow(new IllegalStateException("cannot compile"));
+    final ExecutionScheduler limited =
+        new ExecutionScheduler(1, 0, 0, ExecutionScheduler.OnLimit.REJECT, Duration.ZERO);
+    final ExecutionScheduler.Admission admission = limited.acquire("s", "w");
+
+    StepVerifier.create(
+            orchestrator.restartFromNode(
+                "s", "w", "prev", "new", prepared, "trigger", Map.of(), admission))
+        .verifyErrorMessage("cannot compile");
+
+    assertThat(limited.running()).isZero();
   }
 }

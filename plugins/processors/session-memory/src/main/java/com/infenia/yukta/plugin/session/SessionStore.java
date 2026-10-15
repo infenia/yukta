@@ -2,6 +2,8 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.plugin.session;
 
+import com.infenia.yukta.plugin.store.SessionHistoryStore;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.IOException;
 import java.net.URLEncoder;
 import java.nio.channels.FileChannel;
@@ -16,6 +18,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -34,7 +37,7 @@ import tools.jackson.databind.json.JsonMapper;
  */
 @Slf4j
 @Service
-@SuppressWarnings("PMD.AvoidCatchingGenericException")
+@SuppressWarnings({"PMD.AvoidCatchingGenericException", "PMD.LawOfDemeter"})
 public class SessionStore {
 
   /** Reads and writes the session files. */
@@ -51,9 +54,22 @@ public class SessionStore {
   /** Directory of the session files, or null to keep history in memory only. */
   private final @Nullable Path dir;
 
+  /** A database for the history, or null; used instead of the files when present. */
+  private final @Nullable SessionHistoryStore database;
+
   /** Creates a store that keeps history in memory only. */
   public SessionStore() {
     this("");
+  }
+
+  /**
+   * Creates a store whose history is kept in a database.
+   *
+   * @param database where the history is kept
+   */
+  public SessionStore(final SessionHistoryStore database) {
+    this.dir = null;
+    this.database = database;
   }
 
   /**
@@ -61,8 +77,26 @@ public class SessionStore {
    *
    * @param dir directory for the session files, or empty to keep history in memory only
    */
+  public SessionStore(final String dir) {
+    this.dir = dir.isBlank() ? null : Path.of(dir);
+    this.database = null;
+  }
+
+  /**
+   * Spring constructor: a database for the history if the application has one, else the files of
+   * {@code yukta.session-memory.dir}, else memory.
+   *
+   * @param dir directory for the session files, or empty
+   * @param databases the application's database store, if any
+   */
   @Autowired
-  public SessionStore(@Value("${yukta.session-memory.dir:}") final String dir) {
+  @SuppressFBWarnings(
+      value = "CT_CONSTRUCTOR_THROW",
+      justification = "A malformed directory fails at startup, before any session exists")
+  public SessionStore(
+      @Value("${yukta.session-memory.dir:}") final String dir,
+      final ObjectProvider<SessionHistoryStore> databases) {
+    this.database = databases.getIfAvailable();
     this.dir = dir.isBlank() ? null : Path.of(dir);
   }
 
@@ -104,7 +138,9 @@ public class SessionStore {
 
   private java.util.Optional<List<Map<String, String>>> load(final String sessionId) {
     java.util.Optional<List<Map<String, String>>> turns = java.util.Optional.empty();
-    if (dir != null) {
+    if (database != null) {
+      turns = database.load(sessionId);
+    } else if (dir != null) {
       final Path file = file(dir, sessionId);
       if (Files.exists(file)) {
         try {
@@ -118,9 +154,15 @@ public class SessionStore {
   }
 
   private void save(final String sessionId, final List<Map<String, String>> turns) {
-    if (dir == null) {
-      return;
+    if (database != null) {
+      database.save(sessionId, turns);
+    } else if (dir != null) {
+      saveToFile(dir, sessionId, turns);
     }
+  }
+
+  private static void saveToFile(
+      final Path dir, final String sessionId, final List<Map<String, String>> turns) {
     try {
       Files.createDirectories(dir);
       final Path file = file(dir, sessionId);

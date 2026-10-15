@@ -8,6 +8,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import lombok.NoArgsConstructor;
@@ -16,6 +17,7 @@ import org.springframework.ai.anthropic.AnthropicChatOptions;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.SystemMessage;
+import org.springframework.ai.chat.messages.ToolResponseMessage;
 import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
@@ -44,7 +46,12 @@ import tools.jackson.databind.ObjectMapper;
  * <p>A {@link ChatModel} owns an HTTP client, so one is built per distinct connection/sampling
  * configuration and reused. Calls are blocking; callers must schedule them accordingly.
  */
-@SuppressWarnings({"PMD.LawOfDemeter", "PMD.ExcessiveImports", "PMD.TooManyMethods"})
+@SuppressWarnings({
+  "PMD.LawOfDemeter",
+  "PMD.ExcessiveImports",
+  "PMD.TooManyMethods",
+  "PMD.CouplingBetweenObjects"
+})
 @Service
 @NoArgsConstructor
 public class LlmGateway {
@@ -66,6 +73,9 @@ public class LlmGateway {
   // dynamic
   private final Map<LlmRequest, ChatModel> models = new ConcurrentHashMap<>();
 
+  /** Spaces the calls to each provider, when {@code yukta.llm.rate-limit.<provider>} is set. */
+  private final ProviderRateLimits rateLimits = new ProviderRateLimits();
+
   /**
    * Call the model and return its answer.
    *
@@ -74,6 +84,7 @@ public class LlmGateway {
    */
   public LlmResponse call(final LlmRequest request) {
     refuseIfDenied("prompt", "yukta.llm.deny-input-patterns", inputParts(request), denyInput);
+    waitForTurn(request);
     final LlmResponse answer = invoke(request);
     refuseIfDenied("answer", "yukta.llm.deny-output-patterns", outputParts(answer), denyOutput);
     return answer;
@@ -90,6 +101,32 @@ public class LlmGateway {
     final Binder binder = Binder.get(environment);
     setDenyInput(patterns(binder, "yukta.llm.deny-input-patterns"));
     setDenyOutput(patterns(binder, "yukta.llm.deny-output-patterns"));
+    rateLimits.configure(limits(binder));
+  }
+
+  private static Map<String, Integer> limits(final Binder binder) {
+    return binder
+        .bind("yukta.llm.rate-limit", Bindable.mapOf(String.class, Integer.class))
+        .orElse(Map.of());
+  }
+
+  /** Sleeps until the provider's rate limit gives this call its turn (the caller is blocking). */
+  private void waitForTurn(final LlmRequest request) {
+    final long wait =
+        rateLimits.reserve(
+            request.provider().name(), System.nanoTime(), request.timeout().dividedBy(2));
+    if (wait > 0) {
+      try {
+        TimeUnit.NANOSECONDS.sleep(wait);
+      } catch (final InterruptedException e) {
+        Thread.currentThread().interrupt();
+        throw new IllegalStateException("Interrupted while waiting for the rate limit", e);
+      }
+    }
+  }
+
+  /* default */ void setRateLimits(final Map<String, Integer> perMinute) {
+    rateLimits.configure(perMinute);
   }
 
   private static List<String> patterns(final Binder binder, final String name) {
@@ -235,16 +272,41 @@ public class LlmGateway {
         List.of());
   }
 
+  private static Message message(final ChatTurn turn) {
+    return switch (turn.role().toLowerCase(Locale.ROOT)) {
+      case "assistant" ->
+          turn.toolCalls().isEmpty()
+              ? new AssistantMessage(turn.content())
+              : AssistantMessage.builder()
+                  .content(turn.content())
+                  .toolCalls(
+                      turn.toolCalls().stream()
+                          .map(
+                              call ->
+                                  new AssistantMessage.ToolCall(
+                                      call.id(), "function", call.name(), call.arguments()))
+                          .toList())
+                  .build();
+      case "tool" ->
+          ToolResponseMessage.builder()
+              .responses(
+                  List.of(
+                      new ToolResponseMessage.ToolResponse(
+                          Objects.toString(turn.toolCallId(), ""),
+                          Objects.toString(turn.toolName(), ""),
+                          turn.content())))
+              .build();
+      default -> new UserMessage(turn.content());
+    };
+  }
+
   private static List<Message> messages(final LlmRequest request) {
     final List<Message> messages = new ArrayList<>();
     if (request.system() != null && !request.system().isBlank()) {
       messages.add(new SystemMessage(request.system()));
     }
     for (final ChatTurn turn : request.messages()) {
-      messages.add(
-          "assistant".equals(turn.role().toLowerCase(Locale.ROOT))
-              ? new AssistantMessage(turn.content())
-              : new UserMessage(turn.content()));
+      messages.add(message(turn));
     }
     return messages;
   }
