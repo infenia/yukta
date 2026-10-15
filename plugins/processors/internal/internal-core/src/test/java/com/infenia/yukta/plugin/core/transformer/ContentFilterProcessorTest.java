@@ -322,7 +322,7 @@ class ContentFilterProcessorTest {
 
   @Test
   void testType() {
-    assertEquals("CONTENT-FILTER", processor.getType(), "Test type");
+    assertEquals("CONTENT_FILTER", processor.getType(), "Test type");
   }
 
   @Test

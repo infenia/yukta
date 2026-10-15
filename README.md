@@ -175,7 +175,7 @@ Processors can expose named output ports (for example `success` and `failure`, o
 | `AGGREGATE` | Batches messages into a single list |
 | `RECIPIENT_LIST` | Fans one message out to several recipients |
 | `MAPPER` | Transforms payloads with SpEL projection, Handlebars or GraalVM JS |
-| `CONTENT-FILTER` | Removes redundant or sensitive fields |
+| `CONTENT_FILTER` | Removes redundant or sensitive fields |
 | `LOOP_PREDICATE` / `LOOP_STREAM` | Repeats a target plugin until a condition holds, or streams every result |
 | `DELAY` | Delays messages by a fixed time, in order |
 | `SUB_WORKFLOW` | Runs another workflow of the same session per message and emits its results |

@@ -14,7 +14,7 @@ This page lists every type at a glance. Each group has its own page with every o
 
 ## Type strings
 
-Use a type string exactly as written below. Lookup is exact and case-sensitive, so `branch` and `Branch` are not found. Almost every type is upper case with underscores. `CONTENT-FILTER` is the one type that uses a hyphen.
+Use a type string exactly as written below. Lookup is exact and case-sensitive, so `branch` and `Branch` are not found. Every type is upper case with underscores. Before this release the content filter was written `CONTENT-FILTER`; that id is no longer found, so change it in stored workflows.
 
 ## Triggers
 
@@ -55,7 +55,7 @@ See [Transform](/plugins/transform).
 |---|---|
 | `MAPPER` | Rebuilds the payload by projection, template or script |
 | `VALIDATE` | Checks required fields and field types; failures leave on `invalid` |
-| `CONTENT-FILTER` | Keeps or removes fields, for example to strip sensitive data |
+| `CONTENT_FILTER` | Keeps or removes fields, for example to strip sensitive data |
 
 ### External I/O
 
@@ -114,7 +114,7 @@ Plugins read their own options only. Where an option accepts `${...}` variables,
 
 ## Choosing which plugins a build includes
 
-Triggers, terminals and the routing, transform and flow processors (`BRANCH`, `FILTER`, `SPLITTER`, `AGGREGATE`, `RECIPIENT_LIST`, `DELAY`, `LOOP_PREDICATE`, `LOOP_STREAM`, `SUB_WORKFLOW`, `WAIT_FOR_SIGNAL`, `MAPPER`, `VALIDATE`, `CONTENT-FILTER`, `KV_STORE`) are always part of the server. The rest are optional and chosen when the server is built, with the build property `yukta.plugins`:
+Triggers, terminals and the routing, transform and flow processors (`BRANCH`, `FILTER`, `SPLITTER`, `AGGREGATE`, `RECIPIENT_LIST`, `DELAY`, `LOOP_PREDICATE`, `LOOP_STREAM`, `SUB_WORKFLOW`, `WAIT_FOR_SIGNAL`, `MAPPER`, `VALIDATE`, `CONTENT_FILTER`, `KV_STORE`) are always part of the server. The rest are optional and chosen when the server is built, with the build property `yukta.plugins`:
 
 ```text
 -Pyukta.plugins=default

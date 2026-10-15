@@ -1,6 +1,6 @@
 ---
 title: "Transform"
-description: "MAPPER, VALIDATE and CONTENT-FILTER: plugins that reshape, check and trim payloads."
+description: "MAPPER, VALIDATE and CONTENT_FILTER: plugins that reshape, check and trim payloads."
 mode: "wide"
 ---
 
@@ -108,7 +108,7 @@ Output ports: `default` for valid messages and `invalid` for the rest. An invali
 ]
 ```
 
-## CONTENT-FILTER
+## CONTENT_FILTER
 
 Keeps or removes parts of a message. Use it to strip sensitive or unimportant fields before logging or sending a payload on. The type string is written with a hyphen.
 
@@ -138,7 +138,7 @@ This node removes secrets before a payload goes on:
 ```json
 {
   "nodeId": "redact",
-  "type": "CONTENT-FILTER",
+  "type": "CONTENT_FILTER",
   "config": {
     "mode": "EXCLUDE",
     "paths": ["user.password", "user.token", "metadata.apiKey"]
@@ -153,7 +153,7 @@ This node removes secrets before a payload goes on:
 | `MAPPER` `dropOriginal`, `strictMode` | `true`, `true` |
 | Script run time and statements | 10 seconds, 50 million |
 | Script memory | not limited |
-| `CONTENT-FILTER` `mode` | `INCLUDE` |
+| `CONTENT_FILTER` `mode` | `INCLUDE` |
 | Default timeout, all three plugins | 30 seconds idle |
 
 ## Related

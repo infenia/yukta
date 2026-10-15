@@ -13,7 +13,7 @@ const PLUGIN_ICONS: Record<string, string> = {
   AGGREGATE: 'merge',
   RECIPIENT_LIST: 'groups',
   FILTER: 'filter_alt',
-  'CONTENT-FILTER': 'filter_alt',
+  'CONTENT_FILTER': 'filter_alt',
   VALIDATE: 'verified',
   MAPPER: 'swap_horiz',
   DELAY: 'timer',

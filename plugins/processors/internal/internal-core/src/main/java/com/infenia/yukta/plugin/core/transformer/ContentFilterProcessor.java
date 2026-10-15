@@ -41,7 +41,7 @@ import reactor.core.publisher.Mono;
 public class ContentFilterProcessor implements ProcessorPlugin {
 
   /** Type. */
-  private static final String TYPE = "CONTENT-FILTER";
+  private static final String TYPE = "CONTENT_FILTER";
 
   /** Mode include. */
   private static final String MODE_INCLUDE = "INCLUDE";
