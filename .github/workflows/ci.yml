@@ -233,6 +233,17 @@ jobs:
           java-version: '25'
           distribution: 'temurin'
 
+      # spotlessCheck reaches the ui module, whose Gradle tasks run pnpm.
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: '24'
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        with:
+          version: 10.30.1
+
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6
         with:
@@ -300,20 +311,19 @@ jobs:
           cache-dependency-path: 'cli/go.sum'
 
       # boot depends on the ui module, so every shard that builds boot needs Node.
-      # pnpm must be installed before setup-node so `cache: pnpm` can find the store.
-      - name: Set up pnpm
-        if: matrix.name != 'plugins'
-        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
-        with:
-          version: 10.30.1
-
+      # boot depends on the ui module, so the shards that build boot or ui need Node and pnpm.
+      # No pnpm store cache here: the post step errors when a shard never runs `pnpm install`.
       - name: Set up Node.js
-        if: matrix.name != 'plugins'
+        if: contains(fromJson('["platform", "frontend", "postgres-acceptance"]'), matrix.name)
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: '24'
-          cache: pnpm
-          cache-dependency-path: ui/pnpm-lock.yaml
+
+      - name: Set up pnpm
+        if: contains(fromJson('["platform", "frontend", "postgres-acceptance"]'), matrix.name)
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        with:
+          version: 10.30.1
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6
