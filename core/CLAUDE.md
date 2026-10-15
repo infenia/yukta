@@ -304,6 +304,11 @@ Every progress snapshot (REST, SSE, MCP) carries `definitionVersion`, the conten
 the run uses (the same value the archive and the execution log store). The control-bus consumer
 resubscribes with capped backoff if its stream ever fails, until `shutdown()`.
 
+A node that ends `FAILURE` or `TIMED_OUT` reports its reason in the metadata of its status event
+(`NodeStreams.ERROR_KEY`, `error`: the exception message, cut to 4000 characters at each end); an
+`UPSTREAM_FAILED` node carries none. Watchers (SSE, `yukta controlbus watch --quiet`) read the cause
+from there instead of the logs.
+
 ### Breakpoints and tracing
 `ReactiveControlValve.setBreakpoint(predicate)` (per node, via `ExecutionControl.nodePauseValves()`;
 remote callers use `ControlBusGateway.addBreakpoint`) holds the node on the first element that matches until it is resumed. Each node run is one
