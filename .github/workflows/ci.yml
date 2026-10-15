@@ -91,6 +91,8 @@ jobs:
     outputs:
       modules: ${{ steps.filter.outputs.changes }}
       root: ${{ steps.filter.outputs.root }}
+      shards: ${{ steps.plan.outputs.shards }}
+      lint: ${{ steps.plan.outputs.lint }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -173,30 +175,52 @@ jobs:
             rules-first-control-plane:
               - 'plugins/control-planes/rules-first-control-plane/**'
 
+      # Turn the changed-module list into the shards to run (see .github/scripts/ci-tasks.sh).
+      # Shards with nothing to do are left out of the matrix, so they cost no runner.
+      - name: Plan shards
+        id: plan
+        env:
+          CHANGED_MODULES: ${{ steps.filter.outputs.changes }}
+          ROOT: ${{ steps.filter.outputs.root }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          full=false
+          if [ "$EVENT" != pull_request ] || [ "$ROOT" = true ]; then full=true; fi
+          shards='[]'
+          lint=''
+          for shard in platform infra plugins frontend; do
+            tasks=$(FULL=$full CHANGED_MODULES="$CHANGED_MODULES" .github/scripts/ci-tasks.sh "$shard")
+            [ -n "${tasks// /}" ] || continue
+            shards=$(jq -c --arg n "$shard" --arg t "$tasks" '. + [{name: $n, args: ($t + "--continue")}]' <<<"$shards")
+            lint="$lint $tasks"
+          done
+          # PostgreSQL acceptance test: runs the whole app against a real PostgreSQL (Testcontainers)
+          # so the schema, the R2DBC stores and the Flyway migrations are exercised end to end.
+          if [ "$full" = true ] || jq -e 'index("persistence-postgres") or index("boot")' <<<"$CHANGED_MODULES" >/dev/null; then
+            shards=$(jq -c '. + [{name: "postgres-acceptance", args: "-Pyukta.persistence=postgres :boot:test --tests *PostgresPersistenceAcceptanceTest"}]' <<<"$shards")
+          fi
+          # Fail-fast lint: Checkstyle/PMD/OpenGrep only (cli and ui have none; boot needs the UI build)
+          lint_tasks=""
+          for t in $lint; do
+            m=${t%:build}
+            case $m in :cli|:ui) continue ;; esac
+            lint_tasks="$lint_tasks $m:opengrep"
+            [ "$m" = :boot ] || lint_tasks="$lint_tasks $m:checkstyleMain $m:checkstyleTest $m:pmdMain $m:pmdTest"
+          done
+          echo "shards=$shards" >> "$GITHUB_OUTPUT"
+          echo "lint=${lint_tasks# }" >> "$GITHUB_OUTPUT"
+          echo "Shards: $shards"
+
   # ─────────────────────────────────────────────
-  # Job 2: Build and quality-gate changed modules.
-  #
-  # On PR:   rebuild & check changed modules plus everything that
-  #          depends on them (buildDependents), so cross-module
-  #          regressions are caught before merge.
-  #          If root files changed (e.g. ci.yml, build-logic) → full build.
-  #
-  # On push to main / scheduled: full build of every module
-  #          (tests + Checkstyle + PMD + SpotBugs + JaCoCo verification).
+  # Job 2a: Fail-fast lint. Checkstyle, PMD and OpenGrep on the affected modules, so a style
+  # violation is reported in a few minutes instead of after the full test run.
   # ─────────────────────────────────────────────
-  build:
-    name: Build & Check
+  lint:
+    name: Fast Lint
     needs: changes
     runs-on: ubuntu-latest
-    timeout-minutes: 30
-    permissions:
-      contents: read
-      checks: write          # For test result annotations
-    # Skip entirely on PRs where nothing relevant changed
-    if: |
-      github.event_name != 'pull_request' ||
-      needs.changes.outputs.root == 'true' ||
-      needs.changes.outputs.modules != '[]'
+    timeout-minutes: 15
+    if: needs.changes.outputs.lint != ''
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -208,22 +232,81 @@ jobs:
           java-version: '25'
           distribution: 'temurin'
 
-      # The cli module shells out to `go` directly (goBuild, goTest,
-      # goCoverageCheck, goVet, goLint, ...); without this the runner's
-      # ambient/unpinned Go was hitting "go: no such tool covdata" during
-      # coverage generation for the cmd/yukta package.
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6
+        with:
+          gradle-version: wrapper
+          dependency-graph: disabled
+          cache-provider: enhanced
+          cache-read-only: ${{ github.ref != 'refs/heads/main' }}
+
+      - name: Install OpenGrep
+        run: |
+          mkdir -p "$HOME/.local/bin"
+          curl -fsSL -o "$HOME/.local/bin/opengrep" \
+            "https://github.com/opengrep/opengrep/releases/download/$OPENGREP_VERSION/opengrep_manylinux_x86"
+          echo "$OPENGREP_SHA256  $HOME/.local/bin/opengrep" | sha256sum -c -
+          chmod +x "$HOME/.local/bin/opengrep"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Spotless, Checkstyle, PMD, OpenGrep
+        env:
+          LINT_TASKS: ${{ needs.changes.outputs.lint }}
+        run: |
+          set -f
+          # shellcheck disable=SC2086 # LINT_TASKS is intentionally word-split
+          ./gradlew spotlessCheck $LINT_TASKS --continue
+
+  # ─────────────────────────────────────────────
+  # Job 2b: Build and quality-gate, sharded so the shards run in parallel.
+  #
+  # The `changes` job decides which shards exist (see .github/scripts/ci-tasks.sh):
+  #   PR:   changed modules, or every module of a shard when a library module or a root file
+  #         changed (everything consumes those).
+  #   main / schedule: every module (tests + Checkstyle + PMD + SpotBugs + JaCoCo verification).
+  # ─────────────────────────────────────────────
+  build:
+    name: Build & Check (${{ matrix.name }})
+    needs: changes
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      checks: write          # For test result annotations
+    if: needs.changes.outputs.shards != '[]'
+    strategy:
+      fail-fast: false       # let every shard report, so one run shows all the failures
+      matrix:
+        include: ${{ fromJson(needs.changes.outputs.shards) }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          java-version: '25'
+          distribution: 'temurin'
+
+      # The cli module shells out to `go` directly (goBuild, goTest, goCoverageCheck, ...); without
+      # a pinned Go the runner's ambient one hit "go: no such tool covdata" during coverage.
       - name: Set up Go
+        if: matrix.name == 'frontend'
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: 'cli/go.mod'
           cache-dependency-path: 'cli/go.sum'
 
+      # boot depends on the ui module, so every shard that builds boot needs Node.
       - name: Set up Node.js
+        if: matrix.name != 'plugins'
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: '24'
 
       - name: Set up pnpm
+        if: matrix.name != 'plugins'
         uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
         with:
           version: 10.30.1
@@ -231,16 +314,12 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6
         with:
-          # Use the exact Gradle version from your wrapper
           gradle-version: wrapper
-          # Dependency graph submission is handled by the dedicated
-          # dependency-submission job below, which always resolves the FULL
-          # graph. Submitting from here would produce partial snapshots on
-          # PRs that only build changed modules.
+          # Dependency graph submission is handled by the dedicated dependency-submission job,
+          # which always resolves the FULL graph.
           dependency-graph: disabled
-          cache-provider: enhanced                     # Default, best performance
+          cache-provider: enhanced
           cache-read-only: ${{ github.ref != 'refs/heads/main' }}
-          # Build reporting (very useful)
           build-scan-publish: true
 
       - name: Grant execute permission for gradlew
@@ -248,6 +327,7 @@ jobs:
 
       # Pinned binary + sha256 (bump both together with OPENGREP_VERSION)
       - name: Install OpenGrep
+        if: matrix.name != 'postgres-acceptance'
         run: |
           mkdir -p "$HOME/.local/bin"
           curl -fsSL -o "$HOME/.local/bin/opengrep" \
@@ -257,20 +337,22 @@ jobs:
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
           "$HOME/.local/bin/opengrep" --version
 
+      # Trivy only gates main / scheduled runs (PRs get the report-only scan in security.yml).
       - name: Install Trivy
+        if: matrix.name == 'platform' && github.event_name != 'pull_request'
         uses: aquasecurity/setup-trivy@81e514348e19b6112ce2a7e3ecbafe19c1e1f567 # v0.3.1
         with:
           version: v0.72.0 # keep in sync with security.yml
           cache: true
 
       - name: Verify dependency lock files are up-to-date
+        if: matrix.name == 'platform'
         run: |
           # Lockfiles are only enforced once they are committed; with none tracked there is nothing to drift.
           if [ -z "$(git ls-files '*gradle.lockfile')" ]; then
             echo "No gradle.lockfile files are committed; skipping lock verification"
             exit 0
           fi
-          echo "▶ Verifying lock files match resolved dependencies..."
           ./gradlew boot:compileAotJava --write-locks --no-configuration-cache
           # git status (not git diff) so a new module's uncommitted lockfile is caught too
           if [ -n "$(git status --porcelain -- '**/gradle.lockfile' 'gradle.lockfile')" ]; then
@@ -280,118 +362,16 @@ jobs:
             echo "Then commit the updated gradle.lockfile files."
             exit 1
           fi
-
           echo "✓ Lock files are current and valid"
 
-      - name: Full build (push to main / schedule / root change on PR)
-        if: |
-          github.event_name != 'pull_request' ||
-          needs.changes.outputs.root == 'true'
-        run: |
-          echo "▶ Running full build (all modules: tests + quality gates)"
-          # On PRs, skip Trivy (vulnerability database downloads timeout in CI)
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            ./gradlew build jacocoTestReport -x trivy
-          else
-            ./gradlew build jacocoTestReport
-          fi
-
-      - name: Partial build (PR — changed modules and their dependents)
-        if: |
-          github.event_name == 'pull_request' &&
-          needs.changes.outputs.root != 'true' &&
-          needs.changes.outputs.modules != '[]'
+      - name: Gradle build (${{ matrix.name }})
         env:
-          CHANGED_MODULES: ${{ needs.changes.outputs.modules }}
+          GRADLE_ARGS: ${{ matrix.args }}
         run: |
-          echo "▶ Changed modules: $CHANGED_MODULES"
-
-          TASKS=""
-
-          # Library modules use buildDependents so that everything that
-          # consumes them is rebuilt and re-tested too. Leaf modules
-          # (nothing depends on them) just run their own build.
-          for module in $(echo "$CHANGED_MODULES" | jq -r '.[]'); do
-            case $module in
-              "core")
-                TASKS="$TASKS :core:buildDependents" ;;
-              "web")
-                TASKS="$TASKS :web:buildDependents" ;;
-              "messaging")
-                TASKS="$TASKS :messaging:buildDependents" ;;
-              "plugin-api")
-                TASKS="$TASKS :plugin-api:buildDependents" ;;
-              "mcp")
-                TASKS="$TASKS :mcp:buildDependents" ;;
-              "api-trigger")
-                TASKS="$TASKS :plugins:triggers:api-trigger:buildDependents" ;;
-              "constant-source")
-                TASKS="$TASKS :plugins:triggers:constant-source:buildDependents" ;;
-              "console-terminal")
-                TASKS="$TASKS :plugins:terminals:console-terminal:buildDependents" ;;
-              "internal-core")
-                TASKS="$TASKS :plugins:processors:internal:internal-core:buildDependents" ;;
-              "process-executor")
-                TASKS="$TASKS :plugins:processors:process-executor:buildDependents" ;;
-              "http-request")
-                TASKS="$TASKS :plugins:processors:http-request:buildDependents" ;;
-              "llm-call")
-                TASKS="$TASKS :plugins:processors:llm-call:buildDependents" ;;
-              "mcp-tool-call")
-                TASKS="$TASKS :plugins:processors:mcp-tool-call:buildDependents" ;;
-              "session-memory")
-                TASKS="$TASKS :plugins:processors:session-memory:buildDependents" ;;
-              "decision")
-                TASKS="$TASKS :plugins:processors:decision:buildDependents" ;;
-              "script-js")
-                TASKS="$TASKS :plugins:processors:internal:script-js:buildDependents" ;;
-              "rule-supervisor")
-                TASKS="$TASKS :plugins:supervisors:rule-supervisor:buildDependents" ;;
-              "file-io")
-                TASKS="$TASKS :plugins:processors:file-io:buildDependents" ;;
-              "sql-query")
-                TASKS="$TASKS :plugins:processors:sql-query:buildDependents" ;;
-              "schedule-trigger")
-                TASKS="$TASKS :plugins:triggers:schedule-trigger:buildDependents" ;;
-              "notify-terminal")
-                TASKS="$TASKS :plugins:terminals:notify-terminal:buildDependents" ;;
-              "rule-control-plane")
-                TASKS="$TASKS :plugins:control-planes:rule-control-plane:buildDependents" ;;
-              "model-control-plane")
-                TASKS="$TASKS :plugins:control-planes:model-control-plane:buildDependents" ;;
-              "rules-first-control-plane")
-                TASKS="$TASKS :plugins:control-planes:rules-first-control-plane:buildDependents" ;;
-              "boot")
-                TASKS="$TASKS :boot:build" ;;
-              "cli")
-                TASKS="$TASKS :cli:build" ;;
-              "ui")
-                TASKS="$TASKS :ui:build" ;;
-              *)
-                echo "❌ Unrecognized module '$module' — add a task mapping for it in this step"
-                exit 1 ;;
-            esac
-          done
-
-          if [ -n "$TASKS" ]; then
-            echo "▶ Executing: ./gradlew $TASKS jacocoTestReport -x trivy"
-            # shellcheck disable=SC2086 # TASKS is intentionally word-split
-            ./gradlew $TASKS jacocoTestReport -x trivy
-          else
-            echo "▶ No module tasks matched — nothing to build"
-          fi
-
-      # Surface test results directly in the run summary / annotations
-      # The default build runs without the PostgreSQL module; this runs the full application against a
-      # real PostgreSQL (Testcontainers) with it, so the schema, the R2DBC stores and the Flyway
-      # migrations are exercised through the application, not only module by module.
-      - name: PostgreSQL acceptance test
-        if: |
-          github.event_name != 'pull_request' ||
-          needs.changes.outputs.root == 'true' ||
-          contains(needs.changes.outputs.modules, 'persistence-postgres') ||
-          contains(needs.changes.outputs.modules, 'boot')
-        run: ./gradlew -Pyukta.persistence=postgres :boot:test --tests '*PostgresPersistenceAcceptanceTest'
+          set -f   # args contain globs (--tests *Foo); they are for Gradle, not the shell
+          echo "▶ ./gradlew $GRADLE_ARGS"
+          # shellcheck disable=SC2086 # GRADLE_ARGS is intentionally word-split
+          ./gradlew $GRADLE_ARGS
 
       - name: Publish test result summary
         if: always()
@@ -413,13 +393,14 @@ jobs:
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           fail_ci_if_error: false
+          flags: ${{ matrix.name }}
 
       # Upload test and quality reports (helpful for debugging)
       - name: Upload build reports
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
-          name: build-reports
+          name: build-reports-${{ matrix.name }}
           path: |
             **/build/reports/
             **/build/test-results/
@@ -623,7 +604,7 @@ jobs:
   ci-gate:
     name: CI Gate
     if: always()
-    needs: [lint-workflows, wrapper-validation, changes, build, dependency-submission, dependency-review, e2e-tests]
+    needs: [lint-workflows, wrapper-validation, changes, lint, build, dependency-submission, dependency-review, e2e-tests]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
