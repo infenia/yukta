@@ -114,6 +114,28 @@ describe('WorkflowDetailsPage', () => {
     expect(breadcrumbSlot.textContent).toContain('exec-091-qp-55');
   });
 
+  it('opens and closes the versions panel', async () => {
+    server.use(
+      http.get('/api/sessions/:sessionId/workflows/:workflowId/versions', () =>
+        HttpResponse.json({
+          timestamp: 't',
+          status: 200,
+          message: 'ok',
+          data: [{ id: '0001-a', savedAt: '2026-10-13T10:00:00Z' }],
+          path: '/versions',
+        })
+      )
+    );
+    renderPage();
+    const toggle = await screen.findByRole('button', { name: /versions/i });
+
+    await userEvent.click(toggle);
+    expect(await screen.findByText('0001-a')).toBeInTheDocument();
+
+    await userEvent.click(toggle);
+    expect(screen.queryByText('0001-a')).not.toBeInTheDocument();
+  });
+
   it('closes and reopens the progress panel', async () => {
     const user = userEvent.setup();
     renderPage();

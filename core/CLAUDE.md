@@ -56,6 +56,7 @@ Any node's config may carry a reserved `engine` object; plugins never see these 
   "failureBudget": { "maxFailures": 10, "windowMs": 60000 }
 }
 ```
+- `placement {pool}` (processors, see "Workers"): run the node on a worker of the pool (default `default`).
 - `retry` (processors only): re-run the plugin for the failing message with exponential backoff and
   jitter; the plugin is then called once per message, so use it with per-message processors.
   Every attempt counts as node activity, `IllegalArgumentException` (bad input) is not retried, and
@@ -70,6 +71,7 @@ Any node's config may carry a reserved `engine` object; plugins never see these 
 - `failureBudget {maxFailures, windowMs}` (needs `onError` CONTINUE or ROUTE): when more than
   `maxFailures` messages fail within the window, the node fails instead of dropping or routing the
   next one. Counted per run (`FailureLedger`).
+- `edgeBuffer {size, overflow}` (any node with a processor; `DROP_OLDEST` default or `DROP_NEWEST`): a bounded buffer in front of the node. When the node is slower than its parents it drops messages (counted in `yukta.edge.dropped{type=<node type>}`) instead of pacing the fan-out. Opt-in; the default stays lossless.
 - `trigger` (nodes with several parents): `ALL_SUCCESS` (default, fail with a failing parent),
   `ALL_DONE` (continue on the other parents) or `ONE_SUCCESS` (continue, but fail if every parent
   failed).
@@ -104,7 +106,7 @@ Malformed policies are rejected by `WorkflowValidator` with the node id and opti
 - Restart-from-node re-runs the node and its descendants and replays the recorded output of the
   nodes that feed them (`RestartPlan`); independent branches are left alone.
 - Set `yukta.restart.dir` to keep node outputs on disk (`FileNodeCheckpointStore`, one JSON line per
-  message, no caps; payloads come back as plain JSON values). With it and `yukta.execution-log.dir`,
+  message, appended through one open channel per node until `markComplete`, no caps; payloads come back as plain JSON values). With it and `yukta.execution-log.dir`,
   `ExecutionResumer.resume(executionId)` continues a run that a restart aborted: the log holds the
   payload (`RUN_STARTED`); nodes that finished (a durable end marker, below) replay their
   recorded output, the rest run again. `NODE_FINISHED` log events are history only. A run resumes once (`RUN_RESUMED`) and only if its definition
@@ -119,15 +121,16 @@ Malformed policies are rejected by `WorkflowValidator` with the node id and opti
 - Restart-from-node on a run that is still going replays only parents that have finished (the
   durable end marker); a replayed output is marked finished under the new run, so a second resume
   does not run those nodes again. A resume claim is dropped if the caller cancels.
-- Run starts and ends go to an `ExecutionLogStore`. By default it is in memory; set
+- Run starts and ends go to an `ExecutionLogStore`. By default it is in memory and trimmed like the file log (`LogRetention`: the newest `retained-runs`, never a run without an end, every `compact-after` events); set
   `yukta.execution-log.dir` to keep `executions.jsonl` on disk. On startup `ExecutionRecovery`
   marks runs that never finished as `ABORTED`, restores the newest
   `yukta.execution-log.retained-runs` (default 500) into history, and rewrites the log without
   older ones. File access runs on one background writer thread, and the file is compacted to the
   newest `retained-runs` runs after every `yukta.execution-log.compact-after` (default 10000) events.
   Compaction and recovery keep the newest runs by their last event, and compaction never drops a
-  run without an end. Events are not `fsync`ed, so a power loss can lose the last few; a rewritten
-  file (compaction, session config) is forced to disk before it replaces the old one.
+  run without an end. Events are not `fsync`ed unless `yukta.execution-log.fsync=true` (one force per
+  event), so otherwise a power loss can lose the last few; a rewritten file (compaction, session
+  config) is forced to disk before it replaces the old one.
 
 ### Execution limits and idempotent starts
 - `ExecutionScheduler` admits executions. By default there is no limit. Set
@@ -147,17 +150,22 @@ Malformed policies are rejected by `WorkflowValidator` with the node id and opti
   execution id instead of starting another. A failed start is not remembered. With the file log
   (`yukta.execution-log.dir`) the keys are written to it (`IDEMPOTENCY_KEY`) and reloaded on startup,
   so a client retrying after a restart still gets the first execution; the window restarts at the
-  reload.
+  reload. `yukta.start.idempotency-max-keys` (default 100000) caps the cache; a key evicted before its TTL lets a repeat start again.
 - Waiting starts are admitted by priority: a start payload key `yukta.priority` (number, higher
   first, default 0), then arrival order. `ExecutionScheduler.setLimits` changes the limits at run time; through the gateway
   (`changeLimits`) the change is recorded in the log under run id `scheduler` (the newest
-  `retained-runs` of them are kept). Limits are not restored from the log on startup.
+  `retained-runs` of them are kept). On startup `ExecutionRecovery` re-applies the newest applied
+  `SetLimits(max, perWorkflow)` entry (a legacy `SetLimits(max)` keeps the per-workflow limit), so the
+  log wins over the configuration from then on.
 - Concurrent starts of a workflow that is not prepared yet share one preparation (per definition
   content). A prepared workflow is cached only if its definition is still the stored one.
 - A start asks the scheduler for its slot after the workflow is prepared and before the execution id
   is handed out (`WorkflowOrchestrator.execute(..., admission)`), so two starts racing for the last
   slot cannot both get an id: the loser gets HTTP 429 and no run is created.
-- Restarting a finished run goes through the same admission check as a start (HTTP 429 when full).
+- Restarting a finished run, restarting it from a node and resuming an aborted run take their slot
+  before the new id is reported (`scheduler.acquire`, passed to `execute`/`rerun` as the admission),
+  so two of them cannot both use the last slot: the loser gets HTTP 429. Restarting a run that is
+  still going keeps the old behaviour, because the old run holds its slot until it ends.
 
 ### Control audit and stop mode
 Every control command sent to a known run is recorded in the execution log as `CONTROL_APPLIED`
@@ -167,6 +175,11 @@ selects how a run stops (default `DRAIN`). Restart-from-node after a server rest
 memory); use `ExecutionResumer` for aborted runs. A restart-from-node keeps the original start
 payload in its archive and log entry.
 `yukta.executions.running` and `yukta.executions.queued` gauges report the scheduler.
+The first terminal that fails ends the run at once and cancels the other branches (they end
+`CANCELLED`); a caller that cancels a run ends it `CANCELLED` too, and a second end of a run is ignored.
+`yukta.tracker.queue.depth` gauges the state queue. Progress history keeps `yukta.streaming.status-history-max-per-run` (200) snapshots per run and `...-max-executions` (1000) runs, always the newest.
+`yukta.tracker.max-sessions` (default 0, off) evicts the oldest session without a running run when
+more are kept in memory.
 A run that outlives the session execution timeout ends `TIMED_OUT` (`ExecutionTimeoutException`); a
 node that times out keeps its own status. A failure to write the end of a run to the execution log
 no longer keeps the run from ending.
@@ -191,17 +204,27 @@ Gateway commands for a live run (`ControlBusGateway`). REST: `POST /api/executio
 `SignalNodeCommand` (REST `POST /api/executions/{id}/nodes/{node}/signal?name=&decision=&data=`, MCP
 `signal_node`, gateway `signalNode`) hands a named signal to the plugin of a node through the same
 review, ordering and audit as other commands (`SignalNodeCommandProcessor`). The plugin must answer
-`ACCEPTED`; a node that is not waiting for it gives HTTP 409. `WAIT_FOR_SIGNAL` (internal-core) holds
-each message until its signal arrives (`signal`, `timeoutSeconds` default 3600, `onTimeout`,
+`ACCEPTED` or `QUEUED`; a node of a live run that is not waiting for it yet keeps the signal for ten
+minutes (at most 100, `QUEUED`) and the wait that begins takes it at once (a second signal on the same key within 5 s of an accepted one is a double submit and gets `NOT_WAITING`), while a signal for a node
+that is not registered gives HTTP 409. The waits of all plugins share one `SignalWaits.shared()`, so
+`GET /api/sessions/{s}/approvals`, MCP `list_pending_approvals` and the "pending approvals" strip of
+the workflow page list the open ones (oldest first); answering goes through the signal endpoint.
+`WAIT_FOR_SIGNAL` (internal-core) holds each message until its signal arrives (`signal`, `timeoutSeconds` default 3600, `onTimeout`,
 `onReject`) and tags it with `signal.name/decision/data`; the engine timeout for the node is the wait
-plus 30 s. The wait is in memory: a resumed run waits again.
+plus 30 s. The wait is in memory, but an answer is recorded in the run's checkpoint store as a message of the
+pseudo node `signal:<node>` (payload `{messageId, name, decision, data}`, a timeout is not recorded), so a resumed run
+reuses it for the same message id instead of waiting again; that needs a file or PostgreSQL store and a message that
+was replayed from a finished parent.
 
 ### Workflow definitions and their versions
 With `yukta.session.store-type=file`, `FileWorkflowDefinitionStore` keeps definitions under
 `<baseDir>/workflows/<session>/<workflow>/` (`current.json`, `history/<version>.json`; ids are
 URL-encoded, writes are atomic and fsynced) so they survive a restart; `in-memory` keeps them in
 memory. Both keep the newest 20 saved versions of a workflow (identical saves add none).
-`WorkflowDefinitionStore.revisions/findRevision` and the web rollback endpoint use them.
+`WorkflowDefinitionStore.revisions/findRevision` and the web rollback endpoint use them. `GET
+.../versions/diff?from=&to=` (`to` omitted: the current definition) returns a `WorkflowDiff` (nodes
+added, removed or changed, edges added or removed); MCP has `list_workflow_versions`,
+`diff_workflow_versions` and `rollback_workflow`, and the workflow page a "Versions" panel. A version can carry a note (`POST .../versions/note?version=&note=`, MCP `note_workflow_version`; `DefinitionRevision.note`; a column in PostgreSQL, a `.note` file next to the version file). A start whose payload has `yukta.version` runs that saved version (the prepared-workflow cache is bypassed). The workflow page's Versions panel shows and edits the notes.
 
 ### PostgreSQL stores (`persistence-postgres`, optional)
 `yukta.session.store-type=postgres` (profile `postgres`, build with `-Pyukta.persistence=postgres`)
@@ -210,22 +233,66 @@ versions) and `R2dbcExecutionLogStore` (blocking interface, so one writer thread
 `retained-runs` runs and never drops a run without an end). Schema: Flyway migrations in
 `persistence-postgres/src/main/resources/db/migration` (applied over JDBC from `spring.flyway.url`);
 run time uses R2DBC (`spring.r2dbc.url`). The in-memory/file defaults step aside when the type is
-`postgres`. Node checkpoints (`yukta.restart.dir`) still use files or memory.
+`postgres`. Node checkpoints use `R2dbcNodeCheckpointStore` when `yukta.restart.store-type=postgres` (one row per message in JSONB, which PostgreSQL stores out of line, so no cap; a state row per node holds the end marker and the incomplete flag; migration V3), otherwise files (`yukta.restart.dir`) or memory. `KV_STORE` keeps its state in `R2dbcKeyValueStore` (table `kv_entry`, migration V5) when `yukta.kv.store-type=postgres`; the SPI is `KeyValueStore` in plugin-api. `SESSION_MEMORY` history goes to `R2dbcSessionHistoryStore` (table `session_history`, migration V6) with `yukta.session-memory.store-type=postgres`; the SPI is `SessionHistoryStore`.
+
+### Workers (remote workers, phases 1 and 2)
+`WorkerRegistry` (`service/worker`) lists the connected workers; a registration or heartbeat renews a
+lease (`yukta.workers.lease`, default 15s), a worker that misses it is dropped, `GET /api/workers` and
+the gauges `yukta.workers` and `yukta.worker.slots` report them. The optional `workers` module (build with
+`-Pyukta.workers=true`) carries them over RSocket: the control plane sets `yukta.workers.token` and
+`spring.rsocket.server.port`; a worker sets `yukta.workers.control-plane=host:port`, `yukta.workers.token`,
+`yukta.workers.id` (and `pools`, `plugin-types`, `capacity`) and connects out, registers on the route
+`worker.session` and renews its lease, reconnecting with a growing pause. The connection can use mutual TLS: the control plane sets `spring.rsocket.server.ssl.bundle` and `spring.rsocket.server.ssl.client-auth=need`, a worker sets `yukta.workers.ssl-bundle` (an SSL bundle with its key store and the trust store for the control plane; the host name in the certificate is verified), and the shared token still has to match. `yukta.workers.control-plane` may list several addresses, comma separated: each connection attempt tries the next, and a standby (`LeaderElection.isLeader()` false) refuses the registration, so a worker ends up on the leader and finds the new one after a failover (with the growing pause between attempts). A processor node with
+`engine.placement {pool}` runs on a worker of that pool: `WorkflowPreparator` swaps its plugin for a
+`RemoteProcessor` (`RemoteNodes`; the plugin on this server still provides type, schema, timeouts and
+validation), so retries, `onError`, timeouts, valves, checkpoints and status work as for a local node.
+Triggers, terminals and the stateful plugins (`SESSION_MEMORY`, `KV_STORE`, `WAIT_FOR_SIGNAL`,
+`SUB_WORKFLOW`) cannot be placed, and without the `workers` module a placed node fails to prepare. The control
+plane sends each attempt down the worker's own RSocket connection (`node.run`, one `requestChannel`: START,
+the input messages, COMPLETE; back come the output, HEARTBEATs that restart the node's idle clock, and COMPLETE
+or ERROR), so back-pressure and cancellation work end to end. It chooses the connected worker of the pool that
+allows the plugin type and has the most free slots (counting what it has sent and the worker's heartbeat); none
+means the attempt fails at once, as a failure the engine can retry. A worker that goes away mid-attempt (its connection closes, also when the agent is stopped) fails the attempt with a `WorkflowExecutionException` naming it; the engine's retry picks a worker again, so it can land on another one. A stopping worker drains first: its agent tells the control plane it takes nothing new (`draining` on the lease frame, so `WorkerNodeExecutor` skips it), waits up to `yukta.workers.drain-timeout` (30s) for its running attempts, then closes the connection; what is still running then fails as a lost worker. `LLM_CALL` counts `llm.tokens{provider,direction}` and `llm.cost{provider}`. A worker runs only the plugin types on
+`yukta.workers.plugin-types`, initialises and prepares the plugin per attempt, and sends a failure back with
+its class name (`IllegalArgumentException` stays one, so it is not retried). Messages cross as plain JSON values.
+See `docs/plans/10-remote-workers.md`.
+
+### High availability (active/standby)
+`LeaderElection` (`service/leader`) says whether this server admits runs. A single server is always the
+leader (`SingleServerLeader`). With `yukta.ha.mode=postgres` (persistence-postgres, `V4__leader_lease`) servers share
+the database and one holds a lease row (`yukta.ha.lease`, default 15s, renewed three times per lease; a graceful stop
+releases it; the `yukta.leader` gauge is 1 on the leader; the fencing number grows with every change of holder). A
+server counts itself the leader only while its own last renewal is younger than the lease, so one that cannot reach
+the database stops before another can take over. `ExecutionScheduler` refuses every start, restart and resume on a
+standby with `NotLeaderException` (HTTP 503; counted as `yukta.executions.rejected{reason=not_leader}`). Startup
+recovery is skipped in this mode; on takeover `TakeoverRecovery` runs `ExecutionRecovery.recover()` (marks the old
+leader's unfinished runs `ABORTED`). With `yukta.restart.auto-resume=true`, after any recovery (startup of a
+single server too) `ExecutionResumer.resume` runs on each interrupted run, one after the other, from the
+checkpoints (use the PostgreSQL checkpoint store, or a shared directory). Lost on takeover: live approval waits, queued
+starts, slots and the old tracker state. Clients send requests to the leader; there is no proxy.
 
 ### Sub-workflows
 `SUB_WORKFLOW` (internal-core) runs another stored workflow of the same session per message through
-`SubWorkflowGateway` (`SubWorkflowRunner`): a normal run with its own execution id, tracked and
-limited like any other, whose terminal nodes feed a `ResultCollector` in the Reactor context. The
+`SubWorkflowGateway` (`SubWorkflowRunner`): a normal run with its own execution id, tracked
+like any other, whose terminal nodes feed a `ResultCollector` in the Reactor context. The
 node emits `{executionId, results[]}`; a failing child fails the node. The child start payload
 carries `yukta.depth` and `yukta.parentExecutionId`; nesting is limited to 5. With
-`yukta.execution.max-concurrent` the limit must allow parent and children together.
+`yukta.execution.max-concurrent` a child runs on the slot its parent holds (`ExecutionScheduler.borrowed()`),
+so a parent that waits for its children cannot starve them; children are not counted in the limits or
+the running gauge and stay bounded by the parent node and the depth. The child is subscribed inside the
+parent node, so cancelling the node cancels the child, which ends `CANCELLED`; the link to the parent
+is the `yukta.parentExecutionId` in the child's start payload (and its `RUN_STARTED` log entry).
 
 ### LLM budgets
 `LLM_CALL` takes `budget: {maxTokens, maxCost}` (tokens are input plus output; `maxCost` needs
 `prices`). Use is counted per run across all `LLM_CALL` nodes (the plugin keeps the newest 10000
 runs); once a limit is reached the next call fails like a failed call (`failureMode` and
-`routeByStatus` apply, so a workflow can fall back). One call may overshoot the limit. Not yet:
-limits per agent or per provider, or a rate limit per provider (see the backlog).
+`routeByStatus` apply, so a workflow can fall back). With `budget.hardStop: true` the next call ends the
+whole run instead: it throws `RunAbortedException`, which `NodePolicies` never retries, drops or
+routes and `failureMode` does not absorb. Every refusal is counted in `llm.budget.exceeded`. One call
+may overshoot the limit. `yukta.llm.rate-limit.<provider>` (requests per minute, e.g.
+`yukta.llm.rate-limit.openai=60`) spaces the calls to a provider across all nodes and runs; a call
+that would wait longer than its own timeout fails. The ledger (`RunBudgets.shared()` in plugin-api) is shared with `MCP_TOOL_CALL`, whose `budget` takes `{maxCalls, agent, hardStop}`; `LLM_CALL` also takes `maxCalls`, and a budget with an `agent` is counted apart from the rest of the run. Token and cost are counted per provider in `llm.tokens` and `llm.cost`.
 
 ### Supervisors (rule engine / AI / custom code on the control bus)
 A supervisor implements `ExecutionSupervisor` (plugin-api) and is registered as a Spring bean:
@@ -304,6 +371,11 @@ Every progress snapshot (REST, SSE, MCP) carries `definitionVersion`, the conten
 the run uses (the same value the archive and the execution log store). The control-bus consumer
 resubscribes with capped backoff if its stream ever fails, until `shutdown()`.
 
+A node that ends `FAILURE` or `TIMED_OUT` reports its reason in the metadata of its status event
+(`NodeStreams.ERROR_KEY`, `error`: the exception message, cut to 4000 characters at each end); an
+`UPSTREAM_FAILED` node carries none. Watchers (SSE, `yukta controlbus watch --quiet`) read the cause
+from there instead of the logs.
+
 ### Breakpoints and tracing
 `ReactiveControlValve.setBreakpoint(predicate)` (per node, via `ExecutionControl.nodePauseValves()`;
 remote callers use `ControlBusGateway.addBreakpoint`) holds the node on the first element that matches until it is resumed. Each node run is one
@@ -341,7 +413,8 @@ bodies (use the signal command).
 ## Key File Locations
 - **Services**: `src/main/java/com/infenia/yukta/service/`
 - **Validation**: `src/main/java/com/infenia/yukta/validation/`
-- **Module guide (interactive)**: `docs/core-module-guide.html`
+- **Module reference (architecture, feature catalog, settings, metrics)**: `docs/core-module-reference.html`. When you add, change or remove a core feature, setting or meter, update it and run `docs/check-core-reference.sh` (then `--stamp`); the page's "Maintaining this document" section says what to edit.
+- **Module guide (interactive explorer, scenarios, risks, ADRs)**: `docs/core-module-guide.html`
 
 ## Imports
 @.claude/rules/coding-standards.md

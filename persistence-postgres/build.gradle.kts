@@ -10,6 +10,7 @@ dependencies {
     implementation(project(":core"))
     implementation(project(":plugin-api"))
     implementation(libs.spring.boot.starter.data.r2dbc)
+    implementation(libs.spring.boot.starter.actuator)
     implementation(libs.spring.boot.starter.flyway)
     runtimeOnly(libs.flyway.postgresql)
     runtimeOnly(libs.postgresql.jdbc)

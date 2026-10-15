@@ -94,16 +94,26 @@ examples/11-dogfood/scripts/yukta-check.sh :core:test --tests 'com.infenia.yukta
 
 ### Watching and controlling a run
 `--detach` starts the run and returns at once; `yukta-watch.sh` follows it with control-bus events
-(`yukta controlbus watch`) until it ends. `--watch` does both in one command.
+(`yukta controlbus watch`) until it ends. `--watch` does both in one command and shows **problems only**
+(`--quiet`), which is the cheap way to follow a run (for an agent, in tokens):
 ```bash
 examples/11-dogfood/scripts/yukta-check.sh --detach -m core      # STARTED execution=<e> session=<s>
-examples/11-dogfood/scripts/yukta-watch.sh <s> <e>               # events, then SLOW lines and RESULT
-examples/11-dogfood/scripts/yukta-check.sh --watch -m core       # start and follow in one go
+examples/11-dogfood/scripts/yukta-watch.sh <s> <e> --quiet       # problems, then SLOW lines and RESULT
+examples/11-dogfood/scripts/yukta-watch.sh <s> <e>               # every event (humans)
+examples/11-dogfood/scripts/yukta-check.sh --watch -m core       # start and follow, problems only
 ```
-One line per event: `NODE <node> <status>`, `WORKFLOW <status>`, `CONTROL <command> applied=<bool> [reason]`,
-`LOG <node>: <line>` (`--no-logs` leaves these out). `SLOW <node> <s>s (median <m>s, <n> runs)` is printed
-when a stage took over 15s and 1.5x the median of its last 10 runs at the same scope; durations are kept in
-`.yukta-dev/durations.tsv`.
+Every control-bus event has a severity, `INFO`, `WARN` or `ERROR` (`GET /api/events/stream?severity=WARN`
+sends that and above): a failed or timed-out node or run is `ERROR`, so is a log line with `error`,
+`exception`, `failed`, `failure` or `What went wrong`; a rejected control command, a cancelled node or run
+and a `warn`/`deprecat…` line are `WARN`. A failed node's status event also carries the reason
+(`metadata.error`: the process's exit code, output and stderr, cut to the first and last 4000 characters).
+With `--quiet` the output is:
+`NODE <node> <status>` for a failed (non-SUCCESS) node, `ERROR|WARN <node>: <line>` (the reason's and the output's
+problem lines, each once, 20 per node at most), `CONTROL <command> applied=false [reason]`, `WORKFLOW <status>`.
+Without it, one line per event: `NODE <node> <status>`, `WORKFLOW <status>`,
+`CONTROL <command> applied=<bool> [reason]`, `LOG <node>: <line>` (`--no-logs` leaves these out).
+`SLOW <node> <s>s (median <m>s, <n> runs)` is printed when a stage took over 15s and 1.5x the median of its
+last 10 runs at the same scope; durations are kept in `.yukta-dev/durations.tsv`.
 
 Steer a run with the CLI, through `yukta-cli.sh` (it picks the server and the binary):
 ```bash

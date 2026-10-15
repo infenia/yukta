@@ -4,6 +4,7 @@ package com.infenia.yukta.plugin.mcp;
 
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -57,6 +58,9 @@ public class McpClientGateway {
 
   /** Heartbeat for requests that cannot report progress. */
   private static final Runnable NO_OP = Thread::onSpinWait;
+
+  /** Most pages of {@code tools/list} that are followed. */
+  private static final int MAX_LIST_PAGES = 50;
 
   /** Key of a tool name. */
   private static final String NAME = "name";
@@ -190,7 +194,8 @@ public class McpClientGateway {
   }
 
   /**
-   * List the tools the server offers (first page).
+   * List the tools the server offers, following {@code nextCursor} for up to {@value
+   * #MAX_LIST_PAGES} pages.
    *
    * @param spec the endpoint, headers and time limit; {@code tool} and {@code arguments} are unused
    * @param heartbeat run whenever the server reports progress
@@ -198,25 +203,60 @@ public class McpClientGateway {
    */
   public Mono<List<Map<String, Object>>> listTools(
       final McpCallSpec spec, final Runnable heartbeat) {
-    final String requestId = UUID.randomUUID().toString();
-    return Mono.defer(() -> listOnce(spec, requestId, heartbeat))
+    return Mono.defer(() -> listOnce(spec, heartbeat))
         .onErrorResume(
             SessionExpiredException.class,
             e -> {
               sessions.remove(spec.sessionKey());
-              return listOnce(spec, requestId, heartbeat);
+              return listOnce(spec, heartbeat);
             })
         .timeout(spec.timeout());
   }
 
   private Mono<List<Map<String, Object>>> listOnce(
-      final McpCallSpec spec, final String requestId, final Runnable heartbeat) {
+      final McpCallSpec spec, final Runnable heartbeat) {
     return session(spec)
         .flatMap(
             sessionId ->
-                post(spec, sessionId, request(requestId, "tools/list", Map.of()), heartbeat))
-        .map(reply -> toTools(reply, requestId));
+                listPage(spec, sessionId, null, heartbeat, new ArrayList<>(), new HashSet<>()));
   }
+
+  /**
+   * Reads one page of {@code tools/list} and follows {@code nextCursor} up to the page limit; an
+   * endless or repeating cursor is an error.
+   */
+  private Mono<List<Map<String, Object>>> listPage(
+      final McpCallSpec spec,
+      final String sessionId,
+      final String cursor,
+      final Runnable heartbeat,
+      final List<Map<String, Object>> collected,
+      final Set<String> seen) {
+    final String requestId = UUID.randomUUID().toString();
+    final Map<String, Object> params = cursor == null ? Map.of() : Map.of("cursor", cursor);
+    return post(spec, sessionId, request(requestId, "tools/list", params), heartbeat)
+        .map(reply -> toTools(reply, requestId))
+        .flatMap(
+            tools -> {
+              collected.addAll(tools.tools());
+              final String next = tools.nextCursor();
+              if (next == null) {
+                return Mono.just(collected);
+              }
+              if (seen.size() + 1 >= MAX_LIST_PAGES || !seen.add(next)) {
+                return Mono.error(
+                    new McpHttpException(
+                        200, "tools/list did not end within " + MAX_LIST_PAGES + " pages"));
+              }
+              return listPage(spec, sessionId, next, heartbeat, collected, seen);
+            });
+  }
+
+  /**
+   * The tools of one page, and where the next page starts (null on the last one; an empty cursor is
+   * a cursor).
+   */
+  private record ToolPage(List<Map<String, Object>> tools, String nextCursor) {}
 
   private Mono<McpCallResult> callOnce(
       final McpCallSpec spec, final String requestId, final Runnable heartbeat) {
@@ -393,26 +433,29 @@ public class McpClientGateway {
   }
 
   @SuppressWarnings("unchecked")
-  private static List<Map<String, Object>> toTools(final Reply reply, final String requestId) {
+  private static ToolPage toTools(final Reply reply, final String requestId) {
     final Map<String, Object> answer = answerFor(reply, requestId);
     if (answer.get("error") instanceof final Map<?, ?> error) {
       throw new McpHttpException(200, "tools/list failed: " + error.get("message"));
     }
     final Map<String, Object> result = (Map<String, Object>) answer.getOrDefault(RESULT, Map.of());
-    return ((List<Object>) result.getOrDefault("tools", List.of()))
-        .stream()
-            .filter(Map.class::isInstance)
-            .map(item -> (Map<String, Object>) item)
-            .map(
-                tool ->
-                    Map.<String, Object>of(
-                        NAME,
-                        String.valueOf(tool.get(NAME)),
-                        "description",
-                        String.valueOf(tool.getOrDefault("description", "")),
-                        "inputSchema",
-                        tool.getOrDefault("inputSchema", Map.of())))
-            .toList();
+    final List<Map<String, Object>> tools =
+        ((List<Object>) result.getOrDefault("tools", List.of()))
+            .stream()
+                .filter(Map.class::isInstance)
+                .map(item -> (Map<String, Object>) item)
+                .map(
+                    tool ->
+                        Map.<String, Object>of(
+                            NAME,
+                            String.valueOf(tool.get(NAME)),
+                            "description",
+                            String.valueOf(tool.getOrDefault("description", "")),
+                            "inputSchema",
+                            tool.getOrDefault("inputSchema", Map.of())))
+                .toList();
+    final Object next = result.get("nextCursor");
+    return new ToolPage(tools, next instanceof final String cursor ? cursor : null);
   }
 
   @SuppressWarnings("unchecked")

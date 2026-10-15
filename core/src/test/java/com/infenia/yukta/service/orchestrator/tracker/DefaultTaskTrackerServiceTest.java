@@ -120,6 +120,20 @@ class DefaultTaskTrackerServiceTest {
   }
 
   @Test
+  void testQueueDepthIsReportedByGauge() {
+    final SimpleMeterRegistry meters = new SimpleMeterRegistry();
+    final DefaultTaskTrackerService unconsumed =
+        new DefaultTaskTrackerService(
+            Duration.ofSeconds(30), statusHistoryCache, new InMemoryExecutionLogStore(), meters);
+
+    // init() was not called, so nobody consumes the queue and events stay counted
+    unconsumed.emitWorkflowStatusEvent("q-exec", TaskStatus.RUNNING);
+    unconsumed.emitWorkflowStatusEvent("q-exec", TaskStatus.SUCCESS);
+
+    assertThat(meters.get("yukta.tracker.queue.depth").gauge().value()).isEqualTo(2.0);
+  }
+
+  @Test
   void testDefinitionVersionIsReportedWithTheProgress() {
     StepVerifier.create(tracker.startWorkflow("v-exec", "v-sess", "v-wf", List.of("a")))
         .verifyComplete();
@@ -3030,5 +3044,42 @@ class DefaultTaskTrackerServiceTest {
 
     await().atMost(3, TimeUnit.SECONDS).untilAsserted(() -> assertThat(index).isEmpty());
     assertThat(tracker.getActiveSessions()).isEmpty();
+  }
+
+  @Test
+  void maxSessions_evictsTheOldestFinishedSession_butNeverOneThatIsRunning() {
+    tracker.setMaxSessions(2);
+    StepVerifier.create(tracker.startWorkflow("e1", "s1", "w", List.of("a"))).verifyComplete();
+    tracker.emitWorkflowStatusEvent("e1", TaskStatus.SUCCESS);
+    StepVerifier.create(tracker.startWorkflow("e2", "s2", "w", List.of("a"))).verifyComplete();
+    await()
+        .atMost(3, TimeUnit.SECONDS)
+        .until(() -> "SUCCESS".equals(tracker.getProgress("s1", "e1").status()));
+
+    StepVerifier.create(tracker.startWorkflow("e3", "s3", "w", List.of("a"))).verifyComplete();
+
+    assertThat(tracker.getActiveSessions()).containsExactlyInAnyOrder("s2", "s3");
+  }
+
+  @Test
+  void maxSessions_keepsEverySessionThatStillHasRunningRun() {
+    tracker.setMaxSessions(1);
+    StepVerifier.create(tracker.startWorkflow("e1", "s1", "w", List.of("a"))).verifyComplete();
+    StepVerifier.create(tracker.startWorkflow("e2", "s2", "w", List.of("a"))).verifyComplete();
+
+    assertThat(tracker.getActiveSessions()).containsExactlyInAnyOrder("s1", "s2");
+  }
+
+  @Test
+  void testEdgeDropsAreCounted() {
+    final SimpleMeterRegistry meters = new SimpleMeterRegistry();
+    final DefaultTaskTrackerService counting =
+        new DefaultTaskTrackerService(
+            Duration.ofSeconds(30), statusHistoryCache, new InMemoryExecutionLogStore(), meters);
+
+    counting.recordEdgeDropped("HTTP_REQUEST");
+
+    assertThat(meters.get("yukta.edge.dropped").tag("type", "HTTP_REQUEST").counter().count())
+        .isEqualTo(1);
   }
 }

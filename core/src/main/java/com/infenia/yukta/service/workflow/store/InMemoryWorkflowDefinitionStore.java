@@ -3,12 +3,14 @@
 package com.infenia.yukta.service.workflow.store;
 
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
+import com.infenia.yukta.service.NotFoundException;
 import jakarta.annotation.PostConstruct;
 import java.time.Instant;
 import java.util.Comparator;
 import java.util.Deque;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import lombok.NoArgsConstructor;
@@ -27,6 +29,7 @@ import reactor.core.publisher.Mono;
 @ConditionalOnProperty(name = "yukta.session.store-type", havingValue = "in-memory")
 @Component
 @NoArgsConstructor
+@SuppressWarnings("PMD.TooManyMethods")
 public class InMemoryWorkflowDefinitionStore implements WorkflowDefinitionStore {
 
   /** Map of session ID to workflow ID to workflow definition. */
@@ -37,6 +40,9 @@ public class InMemoryWorkflowDefinitionStore implements WorkflowDefinitionStore 
 
   /** Most versions kept per workflow. */
   public static final int MAX_REVISIONS = 20;
+
+  /** Notes by session, workflow and version. */
+  private final Map<String, String> notes = new ConcurrentHashMap<>();
 
   /** A saved version. */
   private record Revision(DefinitionRevision info, WorkflowDefinition definition) {}
@@ -73,7 +79,11 @@ public class InMemoryWorkflowDefinitionStore implements WorkflowDefinitionStore 
         new Revision(
             new DefinitionRevision(DefinitionRevisions.idOf(now, definition), now), definition));
     while (revisions.size() > MAX_REVISIONS) {
-      revisions.pollFirst();
+      notes.remove(
+          noteKey(
+              sessionId,
+              definition.workflowId(),
+              Objects.requireNonNull(revisions.pollFirst()).info().id()));
     }
   }
 
@@ -86,10 +96,34 @@ public class InMemoryWorkflowDefinitionStore implements WorkflowDefinitionStore 
                   .getOrDefault(sessionId + "\0" + workflowId, new ConcurrentLinkedDeque<>())
                   .stream()
                   .map(Revision::info)
+                  .map(info -> info.withNote(notes.get(noteKey(sessionId, workflowId, info.id()))))
                   .sorted(Comparator.comparing(DefinitionRevision::id).reversed())
                   .toList();
           return Flux.fromIterable(newestFirst);
         });
+  }
+
+  private static String noteKey(
+      final String sessionId, final String workflowId, final String revisionId) {
+    return sessionId + "\0" + workflowId + "\0" + revisionId;
+  }
+
+  @Override
+  @SuppressWarnings("PMD.UseObjectForClearerAPI")
+  public Mono<Void> saveNote(
+      final String sessionId, final String workflowId, final String revisionId, final String note) {
+    return findRevision(sessionId, workflowId, revisionId)
+        .switchIfEmpty(Mono.error(() -> new NotFoundException("Version not found: " + revisionId)))
+        .doOnNext(
+            _ -> {
+              final String key = noteKey(sessionId, workflowId, revisionId);
+              if (note == null || note.isBlank()) {
+                notes.remove(key);
+              } else {
+                notes.put(key, note);
+              }
+            })
+        .then();
   }
 
   @Override

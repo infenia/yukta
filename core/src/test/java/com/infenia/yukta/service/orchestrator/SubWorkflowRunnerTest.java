@@ -18,6 +18,7 @@ import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.plugin.gateway.ResultCollector;
 import com.infenia.yukta.plugin.gateway.SubWorkflowGateway;
 import com.infenia.yukta.service.NotFoundException;
+import com.infenia.yukta.service.control.ExecutionScheduler;
 import com.infenia.yukta.service.workflow.store.PreparedWorkflowCache;
 import com.infenia.yukta.service.workflow.store.WorkflowDefinitionStore;
 import java.util.List;
@@ -45,7 +46,10 @@ class SubWorkflowRunnerTest {
   private final PreparedWorkflow prepared = mock(PreparedWorkflow.class);
   private final WorkflowDefinition definition =
       new WorkflowDefinition("child", "d", List.of(), List.of());
-  private final SubWorkflowRunner runner = new SubWorkflowRunner(definitions, cache, orchestrator);
+  private final ExecutionScheduler scheduler =
+      new ExecutionScheduler(1, 0, 0, ExecutionScheduler.OnLimit.REJECT, java.time.Duration.ZERO);
+  private final SubWorkflowRunner runner =
+      new SubWorkflowRunner(definitions, cache, orchestrator, scheduler);
 
   /** A child run whose terminal delivers one message to the collector in the context. */
   private Mono<Void> delivering(final Object payload) {
@@ -60,7 +64,7 @@ class SubWorkflowRunnerTest {
   @Test
   void cachedWorkflow_runsAsChild_andReturnsTerminalResults() {
     when(cache.get("s", "child")).thenReturn(Optional.of(prepared));
-    when(orchestrator.execute(anyString(), anyString(), anyString(), any(), anyMap()))
+    when(orchestrator.execute(anyString(), anyString(), anyString(), any(), anyMap(), any()))
         .thenReturn(delivering("out"));
 
     StepVerifier.create(runner.run("s", "child", Map.of("k", "v"), "parent", 2))
@@ -68,7 +72,8 @@ class SubWorkflowRunnerTest {
         .verifyComplete();
 
     final ArgumentCaptor<Map<String, Object>> start = ArgumentCaptor.forClass(Map.class);
-    verify(orchestrator).execute(eq("s"), eq("child"), anyString(), eq(prepared), start.capture());
+    verify(orchestrator)
+        .execute(eq("s"), eq("child"), anyString(), eq(prepared), start.capture(), any());
     assertThat(start.getValue())
         .containsEntry("k", "v")
         .containsEntry(SubWorkflowGateway.DEPTH_KEY, 2)
@@ -80,7 +85,7 @@ class SubWorkflowRunnerTest {
     when(cache.get("s", "child")).thenReturn(Optional.empty());
     when(definitions.find("s", "child")).thenReturn(Mono.just(definition));
     when(orchestrator.prepareWorkflow(definition)).thenReturn(Mono.just(prepared));
-    when(orchestrator.execute(anyString(), anyString(), anyString(), any(), anyMap()))
+    when(orchestrator.execute(anyString(), anyString(), anyString(), any(), anyMap(), any()))
         .thenReturn(Mono.empty());
 
     StepVerifier.create(runner.run("s", "child", Map.of(), "parent", 1))
@@ -106,16 +111,59 @@ class SubWorkflowRunnerTest {
     StepVerifier.create(
             runner.run("s", "child", Map.of(), "parent", SubWorkflowGateway.MAX_DEPTH + 1))
         .verifyError(IllegalStateException.class);
-    verify(orchestrator, never()).execute(anyString(), anyString(), anyString(), any(), anyMap());
+    verify(orchestrator, never())
+        .execute(anyString(), anyString(), anyString(), any(), anyMap(), any());
   }
 
   @Test
   void failingChild_failsTheCaller() {
     when(cache.get("s", "child")).thenReturn(Optional.of(prepared));
-    when(orchestrator.execute(anyString(), anyString(), anyString(), any(), anyMap()))
+    when(orchestrator.execute(anyString(), anyString(), anyString(), any(), anyMap(), any()))
         .thenReturn(Mono.error(new IllegalStateException("child failed")));
 
     StepVerifier.create(runner.run("s", "child", Map.of(), "parent", 1))
         .verifyErrorMessage("child failed");
+  }
+
+  @Test
+  void childTakesNoSlotOfItsOwn_soSingleSlotParentCannotStarveIt() {
+    scheduler.acquire("s", "parent"); // the parent holds the only slot
+    when(cache.get("s", "child")).thenReturn(Optional.of(prepared));
+    when(orchestrator.execute(anyString(), anyString(), anyString(), any(), anyMap(), any()))
+        .thenAnswer(
+            call -> {
+              final ExecutionScheduler.Admission admission = call.getArgument(5);
+              return admission.permit().doOnNext(ExecutionScheduler.Permit::release).then();
+            });
+
+    StepVerifier.create(runner.run("s", "child", Map.of(), "parent", 1))
+        .expectNextCount(1)
+        .verifyComplete();
+
+    assertThat(scheduler.running()).isEqualTo(1);
+  }
+
+  @Test
+  void cancellingTheCaller_cancelsTheChild() {
+    when(cache.get("s", "child")).thenReturn(Optional.of(prepared));
+    final java.util.concurrent.atomic.AtomicBoolean cancelled =
+        new java.util.concurrent.atomic.AtomicBoolean();
+    when(orchestrator.execute(anyString(), anyString(), anyString(), any(), anyMap(), any()))
+        .thenReturn(Mono.<Void>never().doOnCancel(() -> cancelled.set(true)));
+
+    final reactor.core.Disposable run = runner.run("s", "child", Map.of(), "parent", 1).subscribe();
+    org.awaitility.Awaitility.await()
+        .atMost(2, java.util.concurrent.TimeUnit.SECONDS)
+        .until(this::mockingInvoked);
+    run.dispose();
+
+    org.awaitility.Awaitility.await()
+        .atMost(2, java.util.concurrent.TimeUnit.SECONDS)
+        .untilTrue(cancelled);
+    assertThat(cancelled).isTrue();
+  }
+
+  private boolean mockingInvoked() {
+    return !org.mockito.Mockito.mockingDetails(orchestrator).getInvocations().isEmpty();
   }
 }

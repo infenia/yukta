@@ -32,6 +32,10 @@ type ExecutionEvent struct {
 	Applied     *bool  `json:"applied,omitempty"`
 	Reason      string `json:"reason,omitempty"`
 	Line        string `json:"line,omitempty"`
+	// Severity is INFO, WARN or ERROR, set by the server on the envelope.
+	Severity string `json:"severity,omitempty"`
+	// Metadata is what a node reported; a failed node's reason is under "error".
+	Metadata map[string]any `json:"metadata,omitempty"`
 }
 
 // IsTerminalStatus reports whether a workflow or node status is final. It mirrors the server's
@@ -45,11 +49,12 @@ func IsTerminalStatus(status string) bool {
 }
 
 // StreamEvents streams control-bus events (GET /api/events/stream) until ctx ends or onEvent
-// returns an error. executionID and eventType are optional server-side filters.
+// returns an error. executionID, eventType and severity (the lowest wanted: INFO, WARN or ERROR) are
+// optional server-side filters.
 // Events are not replayed by the server, so subscribe before the action you want to observe.
 func (c *Client) StreamEvents(
 	ctx context.Context,
-	executionID, eventType string,
+	executionID, eventType, severity string,
 	onEvent func(ExecutionEvent) error,
 ) error {
 	if onEvent == nil {
@@ -62,6 +67,9 @@ func (c *Client) StreamEvents(
 	}
 	if eventType != "" {
 		params.Set("type", eventType)
+	}
+	if severity != "" {
+		params.Set("severity", severity)
 	}
 	path := "/api/events/stream"
 	if len(params) > 0 {
@@ -76,14 +84,16 @@ func (c *Client) StreamEvents(
 
 	return ScanSSE(ctx, resp.Body, func(sse SSEEvent) error {
 		var envelope struct {
-			Type  string         `json:"type"`
-			Event ExecutionEvent `json:"event"`
+			Type     string         `json:"type"`
+			Severity string         `json:"severity"`
+			Event    ExecutionEvent `json:"event"`
 		}
 		if err := json.Unmarshal([]byte(sse.Data), &envelope); err != nil {
 			return fmt.Errorf("failed to unmarshal event: %w", err)
 		}
 		event := envelope.Event
 		event.Type = envelope.Type
+		event.Severity = envelope.Severity
 		return onEvent(event)
 	})
 }

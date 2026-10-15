@@ -19,6 +19,7 @@ import com.infenia.yukta.util.SinkEmit;
 import com.infenia.yukta.validation.NodeId;
 import com.infenia.yukta.validation.SessionId;
 import com.infenia.yukta.validation.WorkflowId;
+import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import io.micrometer.observation.ObservationRegistry;
@@ -31,6 +32,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -40,6 +42,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.validation.annotation.Validated;
+import reactor.core.Scannable;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.publisher.Sinks;
@@ -50,6 +53,7 @@ import reactor.core.scheduler.Schedulers;
 @Service
 @Validated
 @SuppressWarnings({
+  "PMD.GodClass",
   "PMD.ExcessiveImports",
   "PMD.TooManyMethods",
   "PMD.CouplingBetweenObjects",
@@ -82,6 +86,13 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
 
   /** Map of session ID to workflow states. */
   private final Map<String, Map<String, WorkflowState>> sessionStates = new ConcurrentHashMap<>();
+
+  /** When each session last started a run, to pick the one to evict. */
+  private final Map<String, Long> sessionUsed = new ConcurrentHashMap<>();
+
+  /** Most sessions kept in memory; 0 keeps them all. Evicted history is served from the log. */
+  @Value("${yukta.tracker.max-sessions:0}")
+  private int maxSessions;
 
   /** Map of execution ID to workflow state. */
   private final Map<String, WorkflowState> executionIndex = new ConcurrentHashMap<>();
@@ -131,6 +142,12 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
       final ExecutionEventFeed eventFeed) {
     this.cleanupTtl = cleanupTtl;
     this.telemetry = new RunTelemetry(meters, observations);
+    Gauge.builder(
+            "yukta.tracker.queue.depth",
+            eventSink,
+            sink -> Scannable.from(sink).scanOrDefault(Scannable.Attr.BUFFERED, 0))
+        .description("Tracker events accepted but not yet applied")
+        .register(meters);
     this.streams =
         new ExecutionStreams(
             statusSinks,
@@ -261,6 +278,8 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
               .put(executionId, state);
 
           executionIndex.put(executionId, state);
+          sessionUsed.put(sessionId, System.nanoTime());
+          evictOldSessions(sessionId);
           telemetry.runStarted(executionId, sessionId, workflowId);
 
           latestExecs.put(getLatestKey(sessionId, workflowId), executionId);
@@ -374,6 +393,11 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
   @Override
   public void recordRetry(final String module) {
     telemetry.retried(module);
+  }
+
+  @Override
+  public void recordEdgeDropped(final String module) {
+    telemetry.dropped("yukta.edge.dropped", module);
   }
 
   /**
@@ -650,6 +674,7 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
    */
   @Override
   public void removeSession(@SessionId final String sessionId) {
+    sessionUsed.remove(sessionId);
     history.forget(sessionId);
     final Map<String, WorkflowState> states = sessionStates.remove(sessionId);
     if (states != null) {
@@ -669,6 +694,36 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
     } else {
       log.atDebug().addKeyValue("sessionId", sessionId).log("Session not found for removal");
     }
+  }
+
+  /**
+   * Drops the session that started a run longest ago while there are more than {@code maxSessions},
+   * never one with a run still going and never the session that just started.
+   *
+   * <p>Each pass scans every session and its runs, so a start costs O(sessions) while the limit is
+   * exceeded; that is cheap for a small {@code maxSessions}, the intended use.
+   */
+  private void evictOldSessions(final String current) {
+    while (maxSessions > 0 && sessionStates.size() > maxSessions) {
+      final String oldest =
+          sessionStates.entrySet().stream()
+              .filter(e -> !e.getKey().equals(current))
+              .filter(
+                  e ->
+                      e.getValue().values().stream()
+                          .allMatch(state -> TaskStatus.isTerminalName(state.status)))
+              .map(Map.Entry::getKey)
+              .min(Comparator.comparingLong(id -> sessionUsed.getOrDefault(id, 0L)))
+              .orElse(null);
+      if (oldest == null) {
+        return;
+      }
+      removeSession(oldest);
+    }
+  }
+
+  /* default */ void setMaxSessions(final int maxSessions) {
+    this.maxSessions = maxSessions;
   }
 
   /** Applies a batch of events strictly in the order in which they were emitted. */

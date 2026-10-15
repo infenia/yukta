@@ -7,6 +7,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
 import java.io.IOException;
+import java.nio.channels.FileChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
@@ -236,5 +237,65 @@ class FileNodeCheckpointStoreTest {
 
     assertThat(store.markerFailures()).isEqualTo(1);
     assertThat(store.isFinished("e1", "n1")).isFalse();
+  }
+
+  @Test
+  void concurrentSaves_keepLinesWhole_completedNodeReopens() {
+    final FileNodeCheckpointStore store = store();
+    reactor.core.publisher.Flux.range(0, 500)
+        .flatMap(
+            i ->
+                store
+                    .save("e1", "n1", message("m" + i))
+                    .subscribeOn(reactor.core.scheduler.Schedulers.parallel()),
+            16)
+        .blockLast();
+
+    assertThat(store.getAll("e1", "n1").collectList().block()).hasSize(500);
+    assertThat(store.isComplete("e1", "n1")).isTrue();
+
+    store.markComplete("e1", "n1").block();
+    store.save("e1", "n1", message("again")).block();
+    assertThat(store.getAll("e1", "n1").collectList().block()).hasSize(501);
+    assertThat(store.isFinished("e1", "n1")).isTrue();
+    store.clear("e1");
+    assertThat(store.getAll("e1", "n1").collectList().block()).isEmpty();
+  }
+
+  @SuppressWarnings({"unchecked", "PMD.AvoidAccessibilityAlteration"})
+  private static Map<String, FileChannel> appenders(final FileNodeCheckpointStore store)
+      throws ReflectiveOperationException {
+    final java.lang.reflect.Field field =
+        FileNodeCheckpointStore.class.getDeclaredField("appenders");
+    field.setAccessible(true);
+    return (Map<String, FileChannel>) field.get(store);
+  }
+
+  @Test
+  @SuppressWarnings("PMD.CloseResource")
+  void closedAppender_isReplacedByFreshOne() throws ReflectiveOperationException {
+    final FileNodeCheckpointStore store = store();
+    store.save("e1", "n1", message("a")).block();
+    final FileChannel first = appenders(store).get("e1\0n1");
+    org.junit.jupiter.api.Assertions.assertDoesNotThrow(first::close);
+
+    store.save("e1", "n1", message("b")).block();
+
+    assertThat(appenders(store).get("e1\0n1")).isNotSameAs(first);
+    assertThat(store.getAll("e1", "n1").collectList().block()).hasSize(2);
+  }
+
+  @Test
+  @SuppressWarnings("PMD.CloseResource")
+  void stuckChannel_doesNotStopClear() throws ReflectiveOperationException, IOException {
+    final FileNodeCheckpointStore store = store();
+    final FileChannel stuck = org.mockito.Mockito.mock(FileChannel.class);
+    org.mockito.Mockito.doThrow(new IOException("stuck")).when(stuck).close();
+    appenders(store).put("e1\0n1", stuck);
+    appenders(store).put("other\0n1", stuck);
+
+    store.clear("e1");
+
+    assertThat(appenders(store)).containsOnlyKeys("other\0n1");
   }
 }

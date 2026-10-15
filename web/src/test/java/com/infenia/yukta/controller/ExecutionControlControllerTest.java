@@ -27,6 +27,7 @@ import reactor.core.publisher.Mono;
   "PMD.LawOfDemeter",
   "PMD.TooManyMethods",
   "PMD.UnitTestShouldIncludeAssert",
+  "PMD.AvoidDuplicateLiterals",
 })
 class ExecutionControlControllerTest {
 
@@ -74,6 +75,27 @@ class ExecutionControlControllerTest {
         .exchange()
         .expectStatus()
         .isEqualTo(409);
+  }
+
+  @Test
+  void testPendingApprovalsAreListedForTheSession() {
+    when(controlBus.pendingApprovals("s1"))
+        .thenReturn(
+            reactor.core.publisher.Flux.just(
+                new com.infenia.yukta.model.control.PendingApproval(
+                    "e1", "wf", "gate", "approve", java.time.Instant.EPOCH)));
+
+    client
+        .get()
+        .uri("/api/sessions/s1/approvals")
+        .exchange()
+        .expectStatus()
+        .isOk()
+        .expectBody()
+        .jsonPath("$.data[0].executionId")
+        .isEqualTo("e1")
+        .jsonPath("$.data[0].name")
+        .isEqualTo("approve");
   }
 
   @Test

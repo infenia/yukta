@@ -28,6 +28,12 @@ class McpToolAccessTest {
   @Test
   void rolesDecideWhichToolsMayBeCalled() {
     assertThat(McpToolAccess.permitted(key("VIEWER", null), "list_sessions", null)).isTrue();
+    assertThat(McpToolAccess.permitted(key("VIEWER", null), "list_pending_approvals", "a"))
+        .isTrue();
+    assertThat(McpToolAccess.permitted(key("VIEWER", null), "diff_workflow_versions", "a"))
+        .isTrue();
+    assertThat(McpToolAccess.permitted(key("VIEWER", null), "rollback_workflow", "a")).isFalse();
+    assertThat(McpToolAccess.permitted(key("OPERATOR", null), "rollback_workflow", "a")).isTrue();
     assertThat(McpToolAccess.permitted(key("VIEWER", null), "signal_node", "a")).isFalse();
     assertThat(McpToolAccess.permitted(key("OPERATOR", null), "signal_node", "a")).isTrue();
     assertThat(McpToolAccess.permitted(key("OPERATOR", null), "create_session", "a")).isFalse();

@@ -25,6 +25,8 @@ import reactor.core.publisher.Mono;
 @SuppressWarnings({"PMD.CommentRequired", "PMD.LawOfDemeter", "PMD.UnitTestShouldIncludeAssert"})
 class WorkflowVersionControllerTest {
 
+  private static final String VERSION_B = "0002-b";
+
   private static final String BASE = "/api/sessions/s1/workflows/w1";
 
   private final WorkflowDefinitionStore definitions = mock(WorkflowDefinitionStore.class);
@@ -42,7 +44,7 @@ class WorkflowVersionControllerTest {
   @Test
   void versionsAreListed() {
     when(definitions.revisions("s1", "w1"))
-        .thenReturn(Flux.just(new DefinitionRevision("0002-b", Instant.EPOCH)));
+        .thenReturn(Flux.just(new DefinitionRevision(VERSION_B, Instant.EPOCH)));
 
     client
         .get()
@@ -52,7 +54,49 @@ class WorkflowVersionControllerTest {
         .isOk()
         .expectBody()
         .jsonPath("$.data[0].id")
-        .isEqualTo("0002-b");
+        .isEqualTo(VERSION_B);
+  }
+
+  @Test
+  void diffComparesVersionWithCurrentDefinition_orWithAnotherVersion() {
+    final WorkflowDefinition older =
+        new WorkflowDefinition(
+            "w1", "d", List.of(new WorkflowDefinition.Node("a", "T", Map.of())), List.of());
+    final WorkflowDefinition current =
+        new WorkflowDefinition(
+            "w1",
+            "d",
+            List.of(
+                new WorkflowDefinition.Node("a", "T", Map.of()),
+                new WorkflowDefinition.Node("b", "T", Map.of())),
+            List.of());
+    when(definitions.findRevision("s1", "w1", "0001-a")).thenReturn(Mono.just(older));
+    when(definitions.findRevision("s1", "w1", VERSION_B)).thenReturn(Mono.just(current));
+    when(definitions.find("s1", "w1")).thenReturn(Mono.just(current));
+
+    for (final String uri :
+        List.of(
+            BASE + "/versions/diff?from=0001-a",
+            BASE + "/versions/diff?from=0001-a&to=",
+            BASE + "/versions/diff?from=0001-a&to=" + VERSION_B)) {
+      client
+          .get()
+          .uri(uri)
+          .exchange()
+          .expectStatus()
+          .isOk()
+          .expectBody()
+          .jsonPath("$.data.addedNodes[0]")
+          .isEqualTo("b");
+    }
+  }
+
+  @Test
+  void diffOfAnUnknownVersionIsNotFound() {
+    when(definitions.findRevision("s1", "w1", "nope")).thenReturn(Mono.empty());
+    when(definitions.find("s1", "w1")).thenReturn(Mono.empty());
+
+    client.get().uri(BASE + "/versions/diff?from=nope").exchange().expectStatus().isNotFound();
   }
 
   @Test
@@ -85,5 +129,21 @@ class WorkflowVersionControllerTest {
     when(definitions.findRevision("s1", "w1", "nope")).thenReturn(Mono.empty());
 
     client.post().uri(BASE + "/rollback?version=nope").exchange().expectStatus().isNotFound();
+  }
+
+  @Test
+  void noteIsStoredOnTheVersion() {
+    when(definitions.saveNote("s1", "w1", VERSION_B, "why")).thenReturn(Mono.empty());
+
+    client
+        .post()
+        .uri(BASE + "/versions/note?version=" + VERSION_B + "&note=why")
+        .exchange()
+        .expectStatus()
+        .isOk()
+        .expectBody()
+        .jsonPath("$.data.note")
+        .isEqualTo("why");
+    verify(definitions).saveNote("s1", "w1", VERSION_B, "why");
   }
 }

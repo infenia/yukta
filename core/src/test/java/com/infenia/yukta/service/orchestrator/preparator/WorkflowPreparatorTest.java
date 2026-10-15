@@ -11,6 +11,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.infenia.yukta.model.workflow.PreparedWorkflow;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.model.workflow.WorkflowDefinition.Edge;
 import com.infenia.yukta.model.workflow.WorkflowDefinition.Node;
@@ -54,7 +55,15 @@ class WorkflowPreparatorTest {
 
   @BeforeEach
   void setUp() {
-    preparator = new WorkflowPreparator(registry, validator, topologicalSortService, compiler);
+    preparator =
+        new WorkflowPreparator(
+            registry,
+            validator,
+            topologicalSortService,
+            compiler,
+            new com.infenia.yukta.service.worker.RemoteNodes(
+                new org.springframework.beans.factory.support.StaticListableBeanFactory()
+                    .getBeanProvider(com.infenia.yukta.service.worker.RemoteNodeExecutor.class)));
   }
 
   @Test
@@ -85,6 +94,66 @@ class WorkflowPreparatorTest {
     verify(plugin).initialize(Map.of());
     verify(topologicalSortService).computeTopologicalOrder(anyList(), anyMap(), anyMap());
     verify(compiler).compileTemplate(anyList(), anyMap(), anyMap(), anyList());
+  }
+
+  @Test
+  void prepareWorkflow_nodeWithPlacement_runsOnTheWorkerAfterTheLocalPluginIsInitialised() {
+    final com.infenia.yukta.plugin.type.ProcessorPlugin processor =
+        org.mockito.Mockito.mock(com.infenia.yukta.plugin.type.ProcessorPlugin.class);
+    final Map<String, Object> placed = Map.of("engine", Map.of("placement", Map.of("pool", "gpu")));
+    final Node node = new Node("n1", "HTTP_REQUEST", placed);
+    final WorkflowDefinition def = new WorkflowDefinition("wf9", "d", List.of(node), List.of());
+    final org.springframework.beans.factory.ObjectProvider<
+            com.infenia.yukta.service.worker.RemoteNodeExecutor>
+        provider = org.mockito.Mockito.mock(org.springframework.beans.factory.ObjectProvider.class);
+    when(provider.getIfAvailable())
+        .thenReturn(
+            org.mockito.Mockito.mock(com.infenia.yukta.service.worker.RemoteNodeExecutor.class));
+    final WorkflowPreparator remote =
+        new WorkflowPreparator(
+            registry,
+            validator,
+            topologicalSortService,
+            compiler,
+            new com.infenia.yukta.service.worker.RemoteNodes(provider));
+    when(registry.get("HTTP_REQUEST")).thenReturn(processor);
+    when(validator.validate(def)).thenReturn(Mono.empty());
+    when(processor.initialize(placed)).thenReturn(Mono.empty());
+    when(processor.prepare(placed)).thenReturn(Mono.empty());
+    when(topologicalSortService.computeTopologicalOrder(anyList(), anyMap(), anyMap()))
+        .thenReturn(List.of(new WorkflowNode("n1", "HTTP_REQUEST", placed)));
+    when(compiler.compileTemplate(anyList(), anyMap(), anyMap(), anyList())).thenReturn(template);
+
+    StepVerifier.create(remote.prepareWorkflow(def))
+        .assertNext(
+            pw ->
+                assertThat(pw.pluginCache().get("n1"))
+                    .isInstanceOf(com.infenia.yukta.service.worker.RemoteProcessor.class))
+        .verifyComplete();
+
+    verify(processor).initialize(placed);
+  }
+
+  @Test
+  void prepareWorkflow_subscribedTwice_doesNotDuplicateEdges() {
+    final Node n1 = new Node("n1", "type-a", Map.of());
+    final Node n2 = new Node("n2", "type-b", Map.of());
+    final WorkflowDefinition def =
+        new WorkflowDefinition(
+            "wf3", "twice", List.of(n1, n2), List.of(new Edge("n1", "n2", "default")));
+    when(registry.get(any())).thenReturn(plugin);
+    when(validator.validate(def)).thenReturn(Mono.empty());
+    when(plugin.initialize(any())).thenReturn(Mono.empty());
+    when(plugin.prepare(any())).thenReturn(Mono.empty());
+    when(topologicalSortService.computeTopologicalOrder(anyList(), anyMap(), anyMap()))
+        .thenReturn(List.of(new WorkflowNode("n1", "type-a", Map.of())));
+    when(compiler.compileTemplate(anyList(), anyMap(), anyMap(), anyList())).thenReturn(template);
+
+    final Mono<PreparedWorkflow> prepared = preparator.prepareWorkflow(def);
+    StepVerifier.create(prepared).expectNextCount(1).verifyComplete();
+    StepVerifier.create(prepared)
+        .assertNext(pw -> assertThat(pw.adjacencyList().get("n1")).hasSize(1))
+        .verifyComplete();
   }
 
   @Test
