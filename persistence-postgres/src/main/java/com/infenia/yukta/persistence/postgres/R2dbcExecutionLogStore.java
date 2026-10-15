@@ -11,11 +11,13 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.r2dbc.core.DatabaseClient;
 import tools.jackson.databind.ObjectMapper;
@@ -34,6 +36,9 @@ public class R2dbcExecutionLogStore implements ExecutionLogStore {
 
   /** Events that may wait for the writer. */
   private static final int QUEUE_CAPACITY = 10_000;
+
+  /** Most events written by one statement. */
+  private static final int BATCH_SIZE = 100;
 
   /** Longest one statement may take. */
   private static final Duration STATEMENT_TIMEOUT = Duration.ofSeconds(30);
@@ -70,6 +75,12 @@ public class R2dbcExecutionLogStore implements ExecutionLogStore {
             return thread;
           });
 
+  /** Events waiting to be written; the writer takes them in batches. */
+  private final BlockingQueue<ExecutionLogEvent> pending = new ArrayBlockingQueue<>(QUEUE_CAPACITY);
+
+  /** True while a drain task is queued or running, so appends do not queue one task each. */
+  private final AtomicBoolean drainScheduled = new AtomicBoolean();
+
   /** Events appended since the last trim; only touched on the writer thread. */
   private int sinceCompaction;
 
@@ -98,12 +109,19 @@ public class R2dbcExecutionLogStore implements ExecutionLogStore {
 
   @Override
   public void append(final ExecutionLogEvent event) {
-    try {
-      writer.execute(() -> write(event));
-    } catch (final RejectedExecutionException e) {
+    if (!pending.offer(event)) {
       log.atError()
           .addKeyValue("executionId", event.executionId())
           .log("Execution log is falling behind, event dropped");
+      return;
+    }
+    if (drainScheduled.compareAndSet(false, true)) {
+      try {
+        writer.execute(this::drain);
+      } catch (final RejectedExecutionException e) {
+        drainScheduled.set(false);
+        log.atError().log("Execution log writer is stopped, events dropped");
+      }
     }
   }
 
@@ -139,7 +157,13 @@ public class R2dbcExecutionLogStore implements ExecutionLogStore {
   /** Runs {@code work} after everything queued so far, and returns {@code fallback} on failure. */
   private <T> T onWriter(final Callable<T> work, final T fallback) {
     try {
-      return writer.submit(work).get();
+      return writer
+          .submit(
+              () -> {
+                drainAll();
+                return work.call();
+              })
+          .get();
     } catch (final InterruptedException e) {
       Thread.currentThread().interrupt();
       return fallback;
@@ -149,12 +173,60 @@ public class R2dbcExecutionLogStore implements ExecutionLogStore {
     }
   }
 
-  private void write(final ExecutionLogEvent event) {
-    insert(event);
-    sinceCompaction++;
-    if (sinceCompaction >= compactAfter) {
-      sinceCompaction = 0;
-      compact();
+  /** Writes everything waiting, then lets the next append schedule a new drain. */
+  private void drain() {
+    drainAll();
+    drainScheduled.set(false);
+    if (!pending.isEmpty() && drainScheduled.compareAndSet(false, true)) {
+      try {
+        writer.execute(this::drain);
+      } catch (final RejectedExecutionException e) {
+        drainScheduled.set(false);
+      }
+    }
+  }
+
+  /** Writes the waiting events in batches of at most {@link #BATCH_SIZE}; writer thread only. */
+  private void drainAll() {
+    final List<ExecutionLogEvent> batch = new ArrayList<>(BATCH_SIZE);
+    while (pending.drainTo(batch, BATCH_SIZE) > 0) {
+      insertBatch(batch);
+      sinceCompaction += batch.size();
+      batch.clear();
+      if (sinceCompaction >= compactAfter) {
+        sinceCompaction = 0;
+        compact();
+      }
+    }
+  }
+
+  /** One multi-row insert; if it fails the events are tried one by one so none is lost. */
+  private void insertBatch(final List<ExecutionLogEvent> batch) {
+    if (batch.size() == 1) {
+      insert(batch.getFirst());
+      return;
+    }
+    try {
+      final StringBuilder sql =
+          new StringBuilder("INSERT INTO execution_log (execution_id, event) VALUES ");
+      final List<String> json = new ArrayList<>(batch.size());
+      for (int i = 0; i < batch.size(); i++) {
+        sql.append(i == 0 ? "" : ", ")
+            .append("(:e")
+            .append(i)
+            .append(", CAST(:j")
+            .append(i)
+            .append(" AS jsonb))");
+        json.add(json(batch.get(i)));
+      }
+      DatabaseClient.GenericExecuteSpec spec = client.sql(sql.toString());
+      for (int i = 0; i < batch.size(); i++) {
+        spec = spec.bind("e" + i, batch.get(i).executionId()).bind("j" + i, json.get(i));
+      }
+      spec.fetch().rowsUpdated().block(STATEMENT_TIMEOUT);
+    } catch (final RuntimeException e) {
+      log.atWarn().setCause(e).log("Batch insert failed, writing the events one by one");
+      batch.forEach(this::insert);
     }
   }
 

@@ -56,6 +56,20 @@ class R2dbcExecutionLogStoreTest extends PostgresTestSupport {
   }
 
   @Test
+  void manyEventsAreWrittenInBatches_andKeepTheirOrder() {
+    store.close();
+    store = new R2dbcExecutionLogStore(db, new ObjectMapper(), 1_000, 100_000, 5_000);
+    for (int i = 0; i < 250; i++) {
+      store.append(started("r" + i));
+    }
+
+    assertThat(store.readAll())
+        .extracting(ExecutionLogEvent::executionId)
+        .containsExactlyElementsOf(
+            java.util.stream.IntStream.range(0, 250).mapToObj(i -> "r" + i).toList());
+  }
+
+  @Test
   void replaceAllSwapsTheWholeLog() {
     store.append(started("old"));
 
