@@ -6,7 +6,7 @@ plugins {
 
 // Remote workers over RSocket: the control plane side (a server that workers register with) and
 // the worker side (an agent that connects out). Added to the application with
-// -Pyukta.workers=true; see core/docs/plans/10-remote-workers.md.
+// -Pyukta.workers=true; see docs/internal/plans/remote-workers.mdx.
 dependencies {
     implementation(project(":core"))
     implementation(project(":plugin-api"))

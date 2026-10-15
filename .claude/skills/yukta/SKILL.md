@@ -85,21 +85,24 @@ Yukta develops Yukta, so a run is also a test of Yukta. Watch it live instead of
    `workflow node breakpoint <e> <node> --field F --equals V [--clear]`, `workflow executions stop <e>`.
    Stop a run early, rather than letting it burn time, once a stage shows an `ERROR` you cannot be wrong
    about (`workflow executions stop <e>`).
-4. **Record every finding** in `<module>/docs/dogfood-backlog.md` (the module the defect is in; the dogfood
-   tooling itself: `examples/11-dogfood/docs/dogfood-backlog.md`). Create the file with a `# Dogfood backlog`
-   heading if it is missing, use the next free `DF-<n>` in that file, and append:
+4. **Record every finding** in `docs/internal/bugs.mdx`, under the `### Dogfood findings` heading of the
+   module section the defect is in (the dogfood tooling itself: the `## Dogfood tooling` section). Create the
+   heading if it is missing, use the next free `DF-<n>` on the whole page (`grep -o 'DF-[0-9]*'`), and append:
    ```
-   ### DF-<n>: <one-line title>
-   - Status: open        - Severity: P0–P3        - Kind: bug | error | perf | ux | security | improvement
+   #### DF-<n>: <one-line title>
+   - Status: open
+   - Severity: P0–P3
+   - Kind: bug | error | perf | ux | security | improvement
    - Found: <date>, workflow <wf>, scope <scope>, execution <e>, stage <node>
    - Evidence: <the ERROR / WARN / CONTROL / SLOW / RESULT line>
    - Repro: <command>
    ```
+   The page is MDX: put commands and log lines in backticks and escape `{`, `}` and `<` outside code.
    Record: an unexpected `CONTROL … applied=false`; an exception or stack trace in an `ERROR` line that is
    not from your change; a watcher
    that never ends or a RESULT that contradicts the node statuses; a CLI/server error; a `SLOW` line; a
    tooling failure (script, worktree, build setup); a monitoring/execution improvement or a security finding.
-   When fixed later, set `Status: fixed in <sha>`.
+   When fixed later, set `- Status: fixed in <sha>`.
    Don't commit backlog edits unless asked; mention new entries in your reply.
 
 ## Server
