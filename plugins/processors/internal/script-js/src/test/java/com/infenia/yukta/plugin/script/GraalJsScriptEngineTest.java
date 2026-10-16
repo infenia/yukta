@@ -18,7 +18,12 @@ import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 
 @NoArgsConstructor
-@SuppressWarnings({"PMD.CommentRequired", "PMD.TooManyMethods", "PMD.UseConcurrentHashMap"})
+@SuppressWarnings({
+  "PMD.AvoidDuplicateLiterals",
+  "PMD.CommentRequired",
+  "PMD.TooManyMethods",
+  "PMD.UseConcurrentHashMap"
+})
 class GraalJsScriptEngineTest {
 
   private final GraalJsScriptEngine engine = new GraalJsScriptEngine();
@@ -176,9 +181,20 @@ class GraalJsScriptEngineTest {
 
   @Test
   void oversizedResultIsRefused() {
-    assertThatThrownBy(() -> run("Array.from({length: 1500000}, (_, i) => i)"))
-        .isInstanceOf(IllegalStateException.class)
-        .hasMessageContaining("too large");
+    // a generous time limit: the result check must be what stops this, not a slow machine
+    System.setProperty("yukta.script.timeout-ms", "120000");
+    try {
+      final GraalJsScriptEngine patient = new GraalJsScriptEngine();
+      assertThatThrownBy(
+              () ->
+                  patient.eval(
+                      "new Array(1500000).fill(0)",
+                      DefaultMessage.create(UUID.randomUUID(), Map.of())))
+          .isInstanceOf(IllegalStateException.class)
+          .hasMessageContaining("too large");
+    } finally {
+      System.clearProperty("yukta.script.timeout-ms");
+    }
   }
 
   @Test
