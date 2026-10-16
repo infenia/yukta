@@ -96,7 +96,7 @@ A developer starts a workflow with an input payload, then watches it live. Click
 
 </Step>
 <Step title="Open stream">
-**What happens.** `yukta workflow status-stream s1 e42` opens `GET /api/workflow/s1/status/e42/stream?includeHistory=false` asking for `text/event-stream`. It checks the response really has that content type before reading.
+**What happens.** `yukta workflow status-stream s1 e42` opens `GET /api/executions/e42/status/stream?includeHistory=false` asking for `text/event-stream`. It checks the response really has that content type before reading.
 
 **Why.** No timeout is applied, because a stream may legitimately stay open for hours. Ctrl-C and SIGTERM are wired to cancel the request cleanly.
 
@@ -251,7 +251,7 @@ One Go function per server endpoint (sessions, workflows and executions, plugins
 
 - Each function checks its ids are not empty, builds the path, sends the request and decodes only the `data` field of the envelope into a Go type. Example types: `WorkflowStartResponse{executionId}`, `WorkflowProgress{executionId, status, tasks[]}`, `PluginDetails`.
 - Some answers are typed (workflow start, progress, history, plugins). Others are left as `map[string]any` or `any` (session details, workflow definition, graph, summaries, heartbeat, command reply). The loosely typed ones cannot drift in a way that breaks, but they also give no help to someone reading the code.
-- The CLI calls the server's older, session-qualified paths for most run control: `/api/workflow/{sessionId}/{executionId}/pause`, `/api/workflow/{sessionId}/status/{executionId}` and the node paths. The server marks these as deprecated and offers shorter equivalents such as `/api/executions/{executionId}/pause`. The older paths have one advantage: with a session in the path the server also checks that the run belongs to that session, so one session's id cannot steer another session's run.
+- The CLI uses the execution paths for run control (`/api/executions/{executionId}/pause`, `/api/executions/{executionId}` and the node paths `/api/executions/{executionId}/nodes/{nodeId}/...`); only start, stop-workflow and history still use `/api/workflow/...`, which have no other route. These paths carry no session, so the server no longer checks that a run belongs to the session the user typed. `workflow status` makes that check itself from the `sessionId` in the answer; the other commands still take the session argument but do not send it.
 - The decoding step treats a missing or renamed field as an empty value rather than an error. If the server renamed `executionId`, `workflow start` would print an empty id and exit 0.
 - No test compares these types or paths to the server's real API description (the OpenAPI document at `/v3/api-docs`). They are checked only against fake servers written by the same author, so a wrong assumption would be repeated in both places.
 
@@ -573,7 +573,7 @@ Per-call semantics. The CLI keeps no data between runs.
 
 ### Command to REST endpoint map
 
-What each command calls. sid = session id, eid = execution id, nid = node id, wid = workflow id. Paths marked (legacy) are the session-qualified forms that the server documents as deprecated; the server also offers /api/executions/\{eid\}/... forms.
+What each command calls. sid = session id, eid = execution id, nid = node id, wid = workflow id. Run control uses the /api/executions/\{eid\}/... paths; start, stop of a workflow and history use /api/workflow/..., which have no other route.
 
 | Command | Method and endpoint | Notes |
 |---|---|---|
@@ -586,16 +586,16 @@ What each command calls. sid = session id, eid = execution id, nid = node id, wi
 | session apply &lt;json-or-file&gt; | POST /api/sessions | Registered in the session group. |
 | workflow start &lt;sid&gt; &lt;wid&gt; [--payload \| --payload-file] | POST /api/workflow/start | Server answers 202. No Idempotency-Key. |
 | workflow stop &lt;sid&gt; &lt;wid&gt; | POST /api/workflow/\{sid\}/\{wid\}/stop | No ?mode= sent, so the server default DRAIN applies. |
-| workflow pause \| resume &lt;sid&gt; &lt;eid&gt; | POST /api/workflow/\{sid\}/\{eid\}/pause \| resume | (legacy) |
-| workflow status &lt;sid&gt; &lt;eid&gt; | GET /api/workflow/\{sid\}/status/\{eid\} | (legacy) Prints id, workflow, status, times, task count. |
-| workflow status-stream &lt;sid&gt; &lt;eid&gt; [--include-history] | GET /api/workflow/\{sid\}/status/\{eid\}/stream?includeHistory= | (legacy) SSE. Sends includeHistory=false by default. |
+| workflow pause \| resume &lt;sid&gt; &lt;eid&gt; | POST /api/executions/\{eid\}/pause \| resume | The session is not sent |
+| workflow status &lt;sid&gt; &lt;eid&gt; | GET /api/executions/\{eid\} | Prints id, workflow, status, times, task count. A run of another session is reported as not found. |
+| workflow status-stream &lt;sid&gt; &lt;eid&gt; [--include-history] | GET /api/executions/\{eid\}/status/stream?includeHistory= | SSE. Sends includeHistory=false by default. |
 | workflow history &lt;sid&gt; | GET /api/workflow/\{sid\}/history | First page only. Plain text, not a table. |
-| workflow executions stop &lt;eid&gt; | POST /api/workflow/executions/\{eid\}/stop | (legacy, no session in path) |
-| workflow executions restart &lt;eid&gt; [node] | POST /api/workflow/executions/\{eid\}/restart[/\{node\}] | (legacy, no session in path) |
-| workflow node pause \| resume &lt;sid&gt; &lt;eid&gt; &lt;nid&gt; | POST /api/workflow/\{sid\}/\{eid\}/node/\{nid\}/pause \| resume | (legacy) |
-| workflow node stop ... [--immediate] [--reason] | POST /api/workflow/\{sid\}/\{eid\}/node/\{nid\}/stop?immediate=&reason= | (legacy) Always sends reason, even when empty. |
-| workflow node skip ... [--skip=false] | POST /api/workflow/\{sid\}/\{eid\}/node/\{nid\}/skip?skip= | (legacy) The server notes core currently rejects skip for running executions. |
-| workflow node step enable \| disable \| next | POST /api/workflow/\{sid\}/\{eid\}/node/\{nid\}/step/enable \| step/disable \| step | (legacy) |
+| workflow executions stop &lt;eid&gt; | POST /api/executions/\{eid\}/stop | |
+| workflow executions restart &lt;eid&gt; [node] | POST /api/executions/\{eid\}/restart[/\{node\}] | |
+| workflow node pause \| resume &lt;sid&gt; &lt;eid&gt; &lt;nid&gt; | POST /api/executions/\{eid\}/nodes/\{nid\}/pause \| resume | The session is not sent |
+| workflow node stop ... [--immediate] [--reason] | POST /api/executions/\{eid\}/nodes/\{nid\}/stop?immediate=&reason= | Always sends reason, even when empty. |
+| workflow node skip ... [--skip=false] | POST /api/executions/\{eid\}/nodes/\{nid\}/skip?skip= | The server notes core currently rejects skip for running executions. |
+| workflow node step enable \| disable \| next | POST /api/executions/\{eid\}/nodes/\{nid\}/step/enable \| step/disable \| step | The session is not sent |
 | logs &lt;sid&gt; &lt;eid&gt; [--entries] | GET /api/sessions/\{sid\}/executions/\{eid\}/logs[/entries] | SSE. Ends when the execution reaches a final state. |
 | plugin list | GET /api/plugins | Table: type and category. |
 | plugin get &lt;type&gt; | GET /api/plugins/\{type\} | Table omits the UI HTML; JSON includes it. |

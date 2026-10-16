@@ -17,9 +17,9 @@ func TestExecutionsCommands(t *testing.T) {
 		wantReq string
 		wantOut string
 	}{
-		{"stop", []string{"stop", "e1"}, "POST /api/workflow/executions/e1/stop", "Execution stopped: exec-1"},
-		{"restart", []string{"restart", "e1"}, "POST /api/workflow/executions/e1/restart", "Execution restarted with ID: exec-1"},
-		{"restart from node", []string{"restart", "e1", "n1"}, "POST /api/workflow/executions/e1/restart/n1", "Execution restarted with ID: exec-1"},
+		{"stop", []string{"stop", "e1"}, "POST /api/executions/e1/stop", "Execution stopped: exec-1"},
+		{"restart", []string{"restart", "e1"}, "POST /api/executions/e1/restart", "Execution restarted with ID: exec-1"},
+		{"restart from node", []string{"restart", "e1", "n1"}, "POST /api/executions/e1/restart/n1", "Execution restarted with ID: exec-1"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

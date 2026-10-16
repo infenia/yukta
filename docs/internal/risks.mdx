@@ -509,9 +509,9 @@ Review of 2026-10-15 against main (after PRs #371, #373 and #374): 1 risk closed
 <Accordion title="Uses the server's deprecated session-qualified paths">
 **Id** `legacyPaths` · **Category** Evolvability · **Impact** 2 · **Effort** 2 · **Components** Resource Clients
 
-**Why it matters.** Pause, resume, status, stream and node control use `/api/workflow/{sid}/{eid}/...`. The server documents these as deprecated in favour of `/api/executions/{eid}/...`. When they are removed the CLI breaks. In our view the legacy form also has a useful property: the session in the path makes the server check that the run belongs to that session. Update: 12 of the client's calls still use the deprecated /api/workflow/... forms (pause, resume, stop, status, stream, history and the node commands); the newer commands (retry, breakpoint, signal, result) use the canonical /api/executions/... and /api/sessions/... paths.
+**Why it matters.** Pause, resume, status, stream and node control use `/api/workflow/{sid}/{eid}/...`. The server documents these as deprecated in favour of `/api/executions/{eid}/...`. When they are removed the CLI breaks. In our view the legacy form also has a useful property: the session in the path makes the server check that the run belongs to that session. Update: the client now uses /api/executions/... for pause, resume, stop, status, stream and the node commands; only start, stop-workflow and history (no other route) remain on /api/workflow/.... `workflow status` makes the session check itself from the answer; the other run-control commands no longer send the session, so the cross-session check is gone for them.
 
-**Option.** Move to the new paths and keep session as an optional guard (for example a --session flag); or ask the server team to keep the session check on the new paths and set a removal date for the old ones.
+**Option.** Make the other commands check the session too (one extra read each), or ask the server team to keep the session check on the new paths and set a removal date for the old ones.
 
 **Question to settle.** Should the new execution-only paths verify a session when one is known, so that moving to them does not weaken the cross-session check?
 

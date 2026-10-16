@@ -14,9 +14,9 @@ func TestStepCommands(t *testing.T) {
 	tests := []struct {
 		verb, wantReq, wantOut string
 	}{
-		{"enable", "POST /api/workflow/s/e/node/n/step/enable", "Step mode enabled for node: n"},
-		{"disable", "POST /api/workflow/s/e/node/n/step/disable", "Step mode disabled for node: n"},
-		{"next", "POST /api/workflow/s/e/node/n/step", "Stepped to next execution in node: n"},
+		{"enable", "POST /api/executions/e/nodes/n/step/enable", "Step mode enabled for node: n"},
+		{"disable", "POST /api/executions/e/nodes/n/step/disable", "Step mode disabled for node: n"},
+		{"next", "POST /api/executions/e/nodes/n/step", "Stepped to next execution in node: n"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.verb, func(t *testing.T) {

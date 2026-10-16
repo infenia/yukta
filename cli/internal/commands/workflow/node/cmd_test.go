@@ -20,13 +20,13 @@ func TestNodeCommands(t *testing.T) {
 		wantReq string
 		wantOut string
 	}{
-		{"pause", []string{"pause", "s", "e", "n"}, "POST /api/workflow/s/e/node/n/pause", "Node paused: n"},
-		{"resume", []string{"resume", "s", "e", "n"}, "POST /api/workflow/s/e/node/n/resume", "Node resumed: n"},
-		{"stop default", []string{"stop", "s", "e", "n"}, "POST /api/workflow/s/e/node/n/stop?immediate=false&reason=", "Node stopped: n"},
-		{"stop flags", []string{"stop", "s", "e", "n", "--immediate", "--reason", "why"}, "POST /api/workflow/s/e/node/n/stop?immediate=true&reason=why", "Node stopped: n"},
-		{"skip default", []string{"skip", "s", "e", "n"}, "POST /api/workflow/s/e/node/n/skip?skip=true", "Node n: skipped"},
-		{"unskip", []string{"skip", "s", "e", "n", "--skip=false"}, "POST /api/workflow/s/e/node/n/skip?skip=false", "Node n: unskipped"},
-		{"escapes ids", []string{"pause", "s", "e", "a/b"}, "POST /api/workflow/s/e/node/a%2Fb/pause", "Node paused: a/b"},
+		{"pause", []string{"pause", "s", "e", "n"}, "POST /api/executions/e/nodes/n/pause", "Node paused: n"},
+		{"resume", []string{"resume", "s", "e", "n"}, "POST /api/executions/e/nodes/n/resume", "Node resumed: n"},
+		{"stop default", []string{"stop", "s", "e", "n"}, "POST /api/executions/e/nodes/n/stop?immediate=false&reason=", "Node stopped: n"},
+		{"stop flags", []string{"stop", "s", "e", "n", "--immediate", "--reason", "why"}, "POST /api/executions/e/nodes/n/stop?immediate=true&reason=why", "Node stopped: n"},
+		{"skip default", []string{"skip", "s", "e", "n"}, "POST /api/executions/e/nodes/n/skip?skip=true", "Node n: skipped"},
+		{"unskip", []string{"skip", "s", "e", "n", "--skip=false"}, "POST /api/executions/e/nodes/n/skip?skip=false", "Node n: unskipped"},
+		{"escapes ids", []string{"pause", "s", "e", "a/b"}, "POST /api/executions/e/nodes/a%2Fb/pause", "Node paused: a/b"},
 		{"retry", []string{"retry", "e", "n"}, "POST /api/executions/e/nodes/n/retry", "Node n retried; new execution: exec-1"},
 		{"signal", []string{"signal", "e", "n", "--name", "approval", "--decision", "approve", "--data", "ok"},
 			"POST /api/executions/e/nodes/n/signal?data=ok&decision=approve&name=approval", "Signal approval=approve sent to node n"},
