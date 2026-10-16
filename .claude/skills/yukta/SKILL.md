@@ -31,10 +31,11 @@ RESULT status=FAILURE failed_node=style execution=<id> session=<id>
 examples/11-dogfood/scripts/yukta-check.sh --watch        # checks the current checkout; exit 0 = SUCCESS
 ```
 1. Read the final line: `RESULT status=<S> failed_node=<node> execution=<id> session=<id>`.
-2. If `SUCCESS`: done. Otherwise fix only what the `ERROR <failed_node>:` lines report (stages are
-   fail-fast, in order: spotless, compile, tests, coverage, style, spotbugs, licenses, security, cli).
+2. If `SUCCESS`: done (review `healed=`, see below). Otherwise the stage could not be healed: fix only what
+   the `ERROR <failed_node>:` lines report (stages run in order: spotless, compile, tests, coverage,
+   style, spotbugs, licenses, security, cli).
 3. Fix, then rerun the script.
-4. Formatting failures: run `./gradlew spotlessApply`, then rerun.
+4. With `--no-heal`, formatting failures: run `./gradlew spotlessApply`, then rerun.
 5. If the `ERROR` lines are not enough, open the report they name (stage table in
    `examples/11-dogfood/README.md`) but **grep it for the failures**, do not read it: `<error` in
    checkstyle/PMD XML, `<failure` or `<error` in `<module>/build/test-results/test/TEST-*.xml`.
@@ -46,6 +47,31 @@ examples/11-dogfood/scripts/yukta-check.sh --watch :core:test --tests '<FQCN>'  
 ```
 
 For quick inner-loop feedback keep using the scoped tiers in CLAUDE.md; use this for the final gate.
+
+## Self-healing runs (the default for the staged check)
+`yukta-check.sh` rewrites the staged `gradle-check` so a failing stage repairs itself before the run
+fails (`self_heal` in `_lib.sh`, policy `examples/11-dogfood/heal.json`). Per stage: the check, then a
+deterministic fix where one exists (`spotless`: `spotlessApply`), then up to two headless Claude Code
+attempts (attempt 1 fresh, attempt 2 a fork of this session), each followed by a recheck; the last
+recheck fails the run. A `verify` stage re-runs every stage when anything was healed, so `SUCCESS`
+means the whole tree passes. `--no-heal` gives the plain chain, `--fixer fresh|fork|auto` picks who
+fixes (a fork needs `CLAUDE_CODE_SESSION_ID`, i.e. a run started from Claude Code).
+- **Don't edit files or run gradle in the checkout while a run is healing**: the fixer is editing it.
+  Act on the final `RESULT` or an `ESCALATE:` only. `ERROR <stage>: …` lines before a `HEAL <stage> …`
+  line are the failure being handled, not something for you to fix.
+- `HEAL <stage> attempt=<n> mode=<auto|fresh|fork> fixed=<bool> files=<n> cost=$<x> summary=<text>` is
+  one fix attempt. `summary=GUARD: …` means the attempt was rejected (it touched `config/`,
+  `build-logic/` or `gradle/`, added a suppression, removed assertions, or changed nothing); its edits
+  stay in the tree, so look at `git diff` and decide.
+- `RESULT … healed=style:fix1,spotless:auto` lists what was fixed. **Review those changes** (`git diff`,
+  records in `.yukta-dev/heal/<session>/`) before committing: the fixer never commits.
+- A failure after healing (`failed_node=<stage>`, the stage's last recheck) is exhausted: take over, fix
+  it, then `yukta-cli.sh workflow node retry <e> <stage>-r2` (or rerun the script). Record a fixer that
+  misbehaves (wrong fix, GUARD hit, cost over budget) as a `DF-<n>` finding.
+- Node ids: `<stage>` (check), `<stage>-auto`, `<stage>-fix1|2`, `<stage>-r1..` (rechecks), `verify`.
+  Nodes that were not reached still show `SUCCESS`; read `HEAL` lines, not node statuses.
+- Budget: `YUKTA_HEAL_BUDGET` (USD per attempt, default 1), `YUKTA_HEAL_MODEL` (default sonnet). The
+  server must be started with `YUKTA_PROCESS_ALLOW_ANY=true` (the dogfood server scripts do).
 
 ## Dogfood loop: watch, steer, and log what you find
 Yukta develops Yukta, so a run is also a test of Yukta. Watch it live instead of waiting for the end.
