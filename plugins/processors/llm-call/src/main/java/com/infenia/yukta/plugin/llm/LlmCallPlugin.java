@@ -12,10 +12,11 @@ import com.infenia.yukta.plugin.core.PluginMetricsReporter;
 import com.infenia.yukta.plugin.exception.RunAbortedException;
 import com.infenia.yukta.plugin.exception.WorkflowExecutionException;
 import com.infenia.yukta.plugin.type.ProcessorPlugin;
+import com.infenia.yukta.plugin.util.ConfigValidation;
+import com.infenia.yukta.plugin.util.MapUtils;
 import com.infenia.yukta.plugin.util.RunBudgets;
 import com.infenia.yukta.plugin.util.SpelUtils;
-import com.infenia.yukta.util.MapUtils;
-import com.infenia.yukta.util.VariableResolver;
+import com.infenia.yukta.plugin.util.VariableResolver;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.time.Duration;
@@ -66,6 +67,10 @@ public final class LlmCallPlugin implements ProcessorPlugin {
   private static final String PROVIDER = "provider";
   private static final String MODEL = "model";
   private static final String TIMEOUT = "timeout";
+
+  /** Calls in flight at once when the node does not set {@code concurrency}. */
+  private static final int DEFAULT_CONCURRENCY = 16;
+
   private static final String RETRIES_KEY = "retries";
   private static final String HARD_STOP = "hardStop";
   private static final String FAILURE_MODE = "failureMode";
@@ -193,7 +198,12 @@ public final class LlmCallPlugin implements ProcessorPlugin {
             "routeByStatus",
             ConfigField.Type.BOOLEAN,
             false,
-            "Emit on success/failure ports (needs failureMode CONTINUE)"));
+            "Emit on success/failure ports (needs failureMode CONTINUE)"),
+        ConfigField.optional(
+            ConfigValidation.CONCURRENCY_KEY,
+            ConfigField.Type.NUMBER,
+            DEFAULT_CONCURRENCY,
+            "Model calls in flight at once"));
   }
 
   @Override
@@ -223,6 +233,7 @@ public final class LlmCallPlugin implements ProcessorPlugin {
     - system: system prompt String
     - temperature: Double, maxTokens: Integer
     - timeout: seconds per attempt, positive (default: 120)
+    - concurrency: model calls in flight at once, positive (default: 16)
     - retries: extra attempts with exponential backoff (default: 0)
     - prices: {input, output} price per 1M tokens; adds "cost" to the output
     - tools: [{name, description, inputSchema}] or an expression (e.g. payload.tools from an
@@ -286,7 +297,11 @@ public final class LlmCallPlugin implements ProcessorPlugin {
   @Override
   public Flux<Message<?>> process(final Flux<Message<?>> input, final Map<String, Object> config) {
     return PluginGuard.counted(
-        input.flatMapSequential(message -> call(message, config)), reporter, "llm");
+        input.flatMapSequential(
+            message -> call(message, config),
+            ConfigValidation.concurrency(config, DEFAULT_CONCURRENCY)),
+        reporter,
+        "llm");
   }
 
   private Flux<Message<?>> call(final Message<?> message, final Map<String, Object> config) {
@@ -564,6 +579,7 @@ public final class LlmCallPlugin implements ProcessorPlugin {
   }
 
   private static void checkNumbers(final Map<String, Object> config) {
+    ConfigValidation.concurrency(config, DEFAULT_CONCURRENCY);
     if (config.get(TIMEOUT) instanceof final Number number && number.longValue() <= 0) {
       throw new IllegalArgumentException("timeout must be positive, got: " + number);
     }

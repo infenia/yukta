@@ -10,19 +10,6 @@ dependencies {
     implementation(project(":core"))
     implementation(libs.spring.boot.starter.webflux)
     implementation(libs.jackson.databind)
+    implementation(libs.caffeine)
     implementation(libs.handlebars)
 }
-
-// TODO: temporarily disabled — re-enable once violations are addressed.
-tasks.named("pmdMain") {
-    enabled = false
-}
-
-tasks.named("pmdTest") {
-    enabled = false
-}
-
-tasks.named("checkstyleTest") {
-    enabled = false
-}
-

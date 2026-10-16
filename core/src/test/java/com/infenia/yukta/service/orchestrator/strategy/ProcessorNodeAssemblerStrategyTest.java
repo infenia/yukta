@@ -25,6 +25,7 @@ import com.infenia.yukta.plugin.store.SecretProvider;
 import com.infenia.yukta.plugin.type.ProcessorPlugin;
 import com.infenia.yukta.plugin.type.TerminalPlugin;
 import com.infenia.yukta.plugin.type.TriggerPlugin;
+import com.infenia.yukta.plugin.util.VariableResolver;
 import com.infenia.yukta.service.control.ExecutionControl;
 import com.infenia.yukta.service.control.store.ActivePluginRegistry;
 import com.infenia.yukta.service.control.valve.ReactiveControlValve;
@@ -32,7 +33,6 @@ import com.infenia.yukta.service.orchestrator.assembly.AssemblyContext;
 import com.infenia.yukta.service.orchestrator.stream.StreamTopologyDecorator;
 import com.infenia.yukta.service.orchestrator.stream.UpstreamFailure;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
-import com.infenia.yukta.util.VariableResolver;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Map;
@@ -189,8 +189,8 @@ class ProcessorNodeAssemblerStrategyTest {
 
     StepVerifier.create(context.streams()[0]).expectNextCount(1).verifyComplete();
 
-    verify(activePluginRegistry).register(WORKFLOW_ID, NODE_ID, processor);
-    verify(activePluginRegistry).unregister(WORKFLOW_ID, NODE_ID);
+    verify(activePluginRegistry).register(WORKFLOW_ID, EXECUTION_ID, NODE_ID, processor);
+    verify(activePluginRegistry).unregister(WORKFLOW_ID, EXECUTION_ID, NODE_ID);
   }
 
   @Test

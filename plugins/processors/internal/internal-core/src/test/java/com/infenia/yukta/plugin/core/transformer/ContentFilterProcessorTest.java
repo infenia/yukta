@@ -19,7 +19,12 @@ import reactor.core.publisher.Flux;
 import reactor.test.StepVerifier;
 
 /** Content filter processor test. */
-@SuppressWarnings("PMD.TooManyMethods")
+@SuppressWarnings({
+  "PMD.AvoidDuplicateLiterals",
+  "PMD.TooManyMethods",
+  "PMD.UnitTestAssertionsShouldIncludeMessage",
+  "PMD.UseConcurrentHashMap"
+})
 @NoArgsConstructor
 class ContentFilterProcessorTest {
 
@@ -317,7 +322,7 @@ class ContentFilterProcessorTest {
 
   @Test
   void testType() {
-    assertEquals("CONTENT-FILTER", processor.getType(), "Test type");
+    assertEquals("CONTENT_FILTER", processor.getType(), "Test type");
   }
 
   @Test

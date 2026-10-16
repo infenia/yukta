@@ -23,10 +23,7 @@ To compile the Yukta Go CLI for your current operating system:
 ./gradlew :cli:goBuild
 ```
 
-The compiled binary will be placed in `cli/build/` and named according to your OS:
-- Linux: `yukta`
-- macOS: `yukta-darwin` (Intel) or `yukta-darwin-arm64` (Apple Silicon)
-- Windows: `yukta.exe`
+The compiled binary is placed in `cli/build/` and named `yukta-<os>-<arch>`, with `.exe` on Windows, for example `yukta-linux-amd64` or `yukta-darwin-arm64`.
 
 ### Build for All Platforms
 
@@ -36,19 +33,12 @@ To compile binaries for all supported platforms (Linux, macOS, Windows):
 ./gradlew :cli:goBuildAll
 ```
 
-All compiled binaries will be available in `cli/build/`:
-- `yukta` (Linux)
-- `yukta-darwin` (macOS Intel)
-- `yukta-darwin-arm64` (macOS Apple Silicon)
-- `yukta.exe` (Windows)
+All compiled binaries are available in `cli/build/`:
+- `yukta-linux-amd64`, `yukta-linux-arm64`
+- `yukta-darwin-amd64` (macOS Intel), `yukta-darwin-arm64` (macOS Apple Silicon)
+- `yukta-windows-amd64.exe`
 
-### Development Build
-
-For development with verbose output and debug symbols:
-
-```bash
-./gradlew :cli:goBuildDev
-```
+The same builds are available from `cli/` with `make build` (current platform) and `make build-all`.
 
 ## Usage
 
@@ -57,25 +47,25 @@ For development with verbose output and debug symbols:
 List all active sessions:
 
 ```bash
-./yukta session list
+yukta session list
 ```
 
 Get details of a specific session:
 
 ```bash
-./yukta session get <session-id>
+yukta session get <session-id>
 ```
 
 Create or update a session using JSON:
 
 ```bash
-./yukta session apply '{"name":"my-session","config":{}}'
+yukta session apply '{"name":"my-session","config":{}}'
 ```
 
 Apply a session from a file:
 
 ```bash
-./yukta session apply session.json
+yukta session apply session.json
 ```
 
 ### Workflow Operations
@@ -83,8 +73,8 @@ Apply a session from a file:
 Start a workflow, optionally passing a trigger payload:
 
 ```bash
-./yukta workflow start <session-id> <workflow-id> --payload '{"message":"hi"}'
-./yukta workflow start <session-id> <workflow-id> --payload-file payload.json
+yukta workflow start <session-id> <workflow-id> --payload '{"message":"hi"}'
+yukta workflow start <session-id> <workflow-id> --payload-file payload.json
 ```
 
 Read-only views: `yukta session summaries`, `yukta session workflow graph|executions <session-id> <workflow-id>`,
@@ -93,7 +83,7 @@ and `yukta logs <session-id> <execution-id> --entries` for structured log entrie
 Get workflow details within a session:
 
 ```bash
-./yukta session workflow get <session-id> <workflow-id>
+yukta session workflow get <session-id> <workflow-id>
 ```
 
 ### Command Structure
@@ -117,12 +107,13 @@ yukta [flags] <resource> <action> [arguments]
 The CLI can be configured using environment variables:
 
 - **YUKTA_SERVER_URL** - The base URL of the Yukta server (e.g., `http://localhost:8080`)
+- **YUKTA_TOKEN** - The API key to send as `Authorization: Bearer <key>` to a server that has keys set
 
 Example:
 
 ```bash
 export YUKTA_SERVER_URL=http://production-yukta.example.com:8080
-./yukta session list
+yukta session list
 ```
 
 ### Configuration Priority
@@ -133,85 +124,33 @@ The CLI resolves the server URL using the following priority (highest to lowest)
 2. **Environment variable** (`YUKTA_SERVER_URL`)
 3. **Default value** (`http://localhost:8080`)
 
-### Configuration File (Optional)
+### No configuration file
 
-For persistent configuration, create a `.yukta/config` file in your home directory:
-
-```yaml
-server_url: http://yukta.example.com:8080
-timeout: 60s
-default_session: my-session
-```
+The CLI reads no configuration file. The server URL, the token, the timeout and the output format come from the flags and environment variables above.
 
 ## Extensibility
 
 ### Adding New Endpoints
 
-The Yukta Go CLI is designed to be extensible. To add support for new endpoints:
-
-1. **Define the API interface** in `pkg/api/client.go`:
-   - Add a method to the `Client` interface
-   - Implement the HTTP request logic
-
-2. **Create a command handler** in `cmd/commands/`:
-   - Create a new file (e.g., `config.go`)
-   - Define the command structure and flags using Cobra
-   - Implement the command execution logic
-
-3. **Register the command** in `cmd/root.go`:
-   - Add the new command to the root command's subcommands
-
-**Example: Adding a Configuration Command**
-
-```go
-// pkg/api/client.go
-type Client interface {
-    // ... existing methods ...
-    GetConfig(ctx context.Context, configID string) (*Config, error)
-}
-
-// cmd/commands/config.go
-var configGetCmd = &cobra.Command{
-    Use:   "get <config-id>",
-    Short: "Get configuration by ID",
-    RunE: func(cmd *cobra.Command, args []string) error {
-        // Implementation
-    },
-}
-
-// cmd/root.go
-var configCmd = &cobra.Command{
-    Use:   "config",
-    Short: "Manage Yukta configurations",
-}
-
-func init() {
-    configCmd.AddCommand(configGetCmd)
-    rootCmd.AddCommand(configCmd)
-}
-```
+1. **Add a client method** in `internal/client/` (see "API Client" below).
+2. **Add a command** in `internal/commands/<resource>/` with Cobra; a simple "call and print" action uses `commands.Action`.
+3. **Register it** with its parent command (for example in `internal/commands/workflow/`), which `internal/commands/root.go` already adds.
 
 ### Project Structure
 
 ```
 cli/
-├── main.go                  # Application entry point
-├── cmd/
-│   ├── root.go             # Root command definition
-│   └── commands/
-│       ├── session.go      # Session command handlers
-│       ├── workflow.go     # Workflow command handlers
-│       └── ...
-├── pkg/
-│   ├── api/
-│   │   ├── client.go       # HTTP client interface
-│   │   └── types.go        # API data types
-│   ├── config/
-│   │   └── config.go       # Configuration management
-│   └── logger/
-│       └── logger.go       # Logging utilities
-├── build/                  # Compiled binaries (after build)
-└── README.md               # This file
+├── cmd/yukta/main.go        # Application entry point
+├── internal/
+│   ├── app/                 # Wiring: builds the client and the root command
+│   ├── client/              # HTTP client and API types
+│   ├── commands/            # Cobra commands, one folder per resource
+│   ├── output/              # Table and JSON printing
+│   └── testutil/            # Fake server and output capture for tests
+├── test/                    # Integration test
+├── build/                   # Compiled binaries (after build)
+├── Makefile                 # Build, test and quality targets (the Gradle tasks call it)
+└── README.md                # This file
 ```
 
 ### API Client
@@ -224,18 +163,14 @@ Commands take a `*client.Client` (`internal/client`). To add an endpoint:
 
 ## API Reference
 
-The Yukta Go CLI communicates with the following Yukta server endpoints:
+The CLI calls these server endpoints (paths under `/api`):
 
-### Sessions API
-
-- `GET /api/v1/sessions` - List all sessions
-- `GET /api/v1/sessions/{id}` - Get a specific session
-- `POST /api/v1/sessions` - Create a new session
-- `PUT /api/v1/sessions/{id}` - Update a session
-
-### Workflows API
-
-- `GET /api/v1/sessions/{sessionId}/workflows/{workflowId}` - Get workflow details
+- Sessions: `/api/sessions`, `/api/sessions/{id}`, `/api/sessions/summaries`, `/api/sessions/{s}/workflows/{w}` (and `/graph`, `/executions`)
+- Starting and listing: `POST /api/workflow/start`, `POST /api/workflow/{s}/{w}/stop`, `GET /api/workflow/{s}/history`
+- Run control and status: `/api/executions/{id}` (status, `/pause`, `/resume`, `/stop`, `/restart[/{node}]`, `/status/stream`) and `/api/executions/{id}/nodes/{node}/...` (`pause`, `resume`, `stop`, `skip`, `step`, `retry`, `signal`, `breakpoint`)
+- Logs and results: `/api/sessions/{s}/executions/{e}/logs`, `/logs/entries` and `/results`
+- Control bus and events: `/api/control/...`, `/api/events/stream`
+- Plugins: `/api/plugins`, `/api/plugins/{type}`
 
 For the complete API documentation, refer to the main Yukta documentation.
 
@@ -252,7 +187,7 @@ If you encounter connection errors:
 
 2. Test connectivity:
    ```bash
-   curl -v http://your-server-url/health
+   curl -v http://your-server-url/actuator/health
    ```
 
 3. Check if the Yukta server is running and accessible
@@ -270,14 +205,14 @@ Ensure the binary is in your PATH or use the full path:
 Increase the timeout value:
 
 ```bash
-./yukta --timeout 60s session list
+yukta --timeout 60s session list
 ```
 
 ## Development
 
 ### Prerequisites
 
-- Go 1.21 or later
+- Go 1.26 or later
 - Gradle 9.0+
 - Java 25 (for the build system)
 
@@ -291,13 +226,13 @@ Increase the timeout value:
 
 The Go CLI follows standard Go conventions and includes:
 - `gofmt` for formatting
-- `golint` for linting
+- `golangci-lint` (pinned version) for linting, plus `gosec` and `govulncheck`
 - `go vet` for static analysis
 
 These checks are integrated into the Gradle build:
 
 ```bash
-./gradlew :cli:goCheck
+./gradlew :cli:check
 ```
 
 ## License

@@ -7,7 +7,6 @@ plugins {
 dependencies {
     api(project(":messaging"))
     implementation(project(":plugin-api"))
-    implementation(project(":core"))
     implementation(project(":plugins:processors:llm-call"))
     implementation(libs.spring.boot.starter.webflux)
     implementation(libs.jackson.databind)

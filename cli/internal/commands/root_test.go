@@ -47,8 +47,8 @@ func TestRootCmd_hasLongDescription(t *testing.T) {
 		t.Error("expected non-empty Long description")
 	}
 
-	if !strings.Contains(cmd.Long, "quality") {
-		t.Errorf("expected 'quality' in Long description, got %q", cmd.Long)
+	if !strings.Contains(cmd.Long, "workflow") {
+		t.Errorf("expected 'workflow' in Long description, got %q", cmd.Long)
 	}
 }
 

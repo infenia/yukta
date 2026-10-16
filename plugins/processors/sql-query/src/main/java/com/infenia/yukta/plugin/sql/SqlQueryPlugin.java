@@ -11,6 +11,7 @@ import com.infenia.yukta.plugin.core.PluginMetricsReporter;
 import com.infenia.yukta.plugin.core.UiDesign;
 import com.infenia.yukta.plugin.type.ProcessorPlugin;
 import com.infenia.yukta.plugin.util.ConfigValidation;
+import com.infenia.yukta.plugin.util.VariableResolver;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
@@ -22,6 +23,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import org.jspecify.annotations.Nullable;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -36,7 +38,9 @@ import reactor.core.scheduler.Schedulers;
 @Component
 @SuppressWarnings({
   "PMD.UseConcurrentHashMap",
-  "PMD.AvoidInstantiatingObjectsInLoops"
+  "PMD.AvoidInstantiatingObjectsInLoops",
+  "PMD.CouplingBetweenObjects",
+  "PMD.OnlyOneReturn"
 }) // ordered rows
 public final class SqlQueryPlugin implements ProcessorPlugin {
 
@@ -55,19 +59,44 @@ public final class SqlQueryPlugin implements ProcessorPlugin {
   /** Metrics reporter. */
   private final PluginMetricsReporter reporter;
 
-  /** Default constructor without metrics. */
+  /** Resolves {@code decrypted:<key>} and {@code ${...}} in the connection settings. */
+  private final VariableResolver resolver;
+
+  /** Connection settings after resolution. */
+  private record Credentials(String url, @Nullable String username, @Nullable String password) {}
+
+  /** Default constructor without metrics or a secret store. */
   public SqlQueryPlugin() {
     this.reporter = PluginMetricsReporter.NOOP;
+    this.resolver = noSecrets();
+  }
+
+  /**
+   * Constructor without a secret store.
+   *
+   * @param reporterProvider optional metrics reporter
+   */
+  public SqlQueryPlugin(final ObjectProvider<PluginMetricsReporter> reporterProvider) {
+    this(reporterProvider, noSecrets());
   }
 
   /**
    * Spring constructor.
    *
    * @param reporterProvider optional metrics reporter
+   * @param resolver resolves secret references and variables in the connection settings
    */
   @Autowired
-  public SqlQueryPlugin(final ObjectProvider<PluginMetricsReporter> reporterProvider) {
+  public SqlQueryPlugin(
+      final ObjectProvider<PluginMetricsReporter> reporterProvider,
+      final VariableResolver resolver) {
     this.reporter = reporterProvider.getIfAvailable(() -> PluginMetricsReporter.NOOP);
+    this.resolver = resolver;
+  }
+
+  private static VariableResolver noSecrets() {
+    return new VariableResolver(
+        key -> Mono.error(new IllegalStateException("No secret store is configured")));
   }
 
   @Override
@@ -75,7 +104,10 @@ public final class SqlQueryPlugin implements ProcessorPlugin {
     return new PluginDescriptor(
         "Runs a parameterized SQL statement over JDBC for each message.",
         "Configure with:\n"
-            + "- url, username, password: JDBC connection (driver must be on the classpath).\n"
+            + "- url, username, password: JDBC connection (driver must be on the classpath). Each"
+            + " may\n"
+            + "  use ${...} variables, and password may be decrypted:<key> to read the secret"
+            + " store.\n"
             + "- sql: statement using '?' placeholders (required).\n"
             + "- params: payload field names bound to the placeholders, in order.\n"
             + "- maxRows: cap on returned rows, positive (default 1000).\n"
@@ -156,22 +188,50 @@ public final class SqlQueryPlugin implements ProcessorPlugin {
     return input.concatMap(
         message ->
             PluginGuard.guard(
-                Mono.<Message<?>>fromCallable(() -> execute(message, config))
-                    .subscribeOn(Schedulers.boundedElastic()),
+                credentials(message, config)
+                    .flatMap(
+                        credentials ->
+                            Mono.<Message<?>>fromCallable(
+                                    () -> execute(message, config, credentials))
+                                .subscribeOn(Schedulers.boundedElastic())),
                 message,
                 mode,
                 reporter,
                 SQL));
   }
 
-  private static Message<?> execute(final Message<?> message, final Map<String, Object> config)
+  /** The connection settings of one message, with secret references and variables resolved. */
+  private Mono<Credentials> credentials(
+      final Message<?> message, final Map<String, Object> config) {
+    return Mono.zip(
+            resolved(config.get("url"), message),
+            resolved(config.get("username"), message),
+            resolved(config.get("password"), message))
+        .map(
+            parts ->
+                new Credentials(
+                    parts.getT1().orElse("null"),
+                    parts.getT2().orElse(null),
+                    parts.getT3().orElse(null)));
+  }
+
+  private Mono<Optional<String>> resolved(final Object value, final Message<?> message) {
+    if (value == null) {
+      return Mono.just(Optional.empty());
+    }
+    return resolver
+        .resolve(value, message)
+        .map(resolvedValue -> Optional.of(resolvedValue.toString()))
+        .defaultIfEmpty(Optional.empty());
+  }
+
+  private static Message<?> execute(
+      final Message<?> message, final Map<String, Object> config, final Credentials credentials)
       throws SQLException {
     final Map<?, ?> payload = message.payload() instanceof Map<?, ?> map ? map : Map.of();
     try (Connection connection =
             DriverManager.getConnection(
-                String.valueOf(config.get("url")),
-                (String) config.get("username"),
-                (String) config.get("password"));
+                credentials.url(), credentials.username(), credentials.password());
         PreparedStatement statement =
             connection.prepareStatement(String.valueOf(config.get(SQL)))) {
       statement.setMaxRows(ConfigValidation.positiveInt(config, "maxRows", DEFAULT_MAX_ROWS));

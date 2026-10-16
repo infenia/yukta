@@ -220,7 +220,7 @@ Evaluates the expressions that users write in workflow settings (a filter condit
 
 - **Guarantees.** No static calls, no object construction, no bean access, no property writes; variables never leak between calls; the parse cache never exceeds 1000 entries.
 - **State.** A process-wide static cache of parsed expressions, lost on restart (it only saves parsing time).
-- **Ceiling.** One lock around the cache, and parsing happens while holding it. There is no evaluation timeout: an expression that loops through a large collection runs until it finishes.
+- **Ceiling.** One lock around the cache, and parsing happens while holding it. An evaluation is stopped after `yukta.spel.timeout-ms` (1,000 ms by default; 0 turns it off): method calls, property reads and the text a `matches` or `split` regex reads check the clock, and Spring itself stops selections and projections after 10,000 operations. Pure arithmetic on literals does not check the clock but cannot grow with the data.
 - **On failure.** A bad expression throws a SpEL exception; nothing is cached for it. Callers should surface it as a config error in validateConfig by parsing early.
 
 **Settings:** `MAX_CACHED = 1000 (not configurable)`
@@ -516,7 +516,7 @@ Eighteen things the contract lets a plugin or a supervisor do, grouped by where 
 
 | Capability | What it does | How | Guarantee | Limit |
 |---|---|---|---|---|
-| Sandboxed expressions | Evaluate user-written expressions safely. | SpelUtils with SimpleEvaluationContext: properties, map keys, variables and a method allow-list (SafeMethodResolver). | No static calls, constructors, bean references or methods outside the allow-list; tested. | No evaluation timeout; one cache lock. |
+| Sandboxed expressions | Evaluate user-written expressions safely. | SpelUtils with SimpleEvaluationContext: properties, map keys, variables and a method allow-list (SafeMethodResolver). | No static calls, constructors, bean references or methods outside the allow-list; tested. | Evaluation time limit 1 s (`yukta.spel.timeout-ms`); no size limit; one cache lock. |
 | Failure routing | Same failure behaviour in every plugin. | PluginGuard.guard with FailureMode ERROR or CONTINUE; CONTINUE emits on port 'error' with failure details. | OK and ERROR counted per node and metric. | Opt-in; the 'error' port must be wired. |
 | Config readers | Reject bad numbers early. | ConfigValidation.positiveLong, positiveInt, requiredString. | Rejects zero, negatives, fractions, infinity and overflow. | Only three readers. |
 

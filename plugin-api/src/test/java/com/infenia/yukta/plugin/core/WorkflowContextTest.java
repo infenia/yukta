@@ -9,6 +9,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
+@SuppressWarnings({
+  "PMD.AtLeastOneConstructor",
+  "PMD.CommentRequired",
+  "PMD.LocalVariableCouldBeFinal",
+  "PMD.UnitTestAssertionsShouldIncludeMessage"
+})
 class WorkflowContextTest {
 
   @Test

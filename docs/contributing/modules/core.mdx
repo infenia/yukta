@@ -217,12 +217,12 @@ The ordered, acknowledged way to change a run that is already going.
 - The caller gets an answer only once the command has actually been applied, and every run command is written to the log as applied or rejected, with who sent it.
 - Stop has three strengths: DRAIN lets work already in progress finish (with a deadline), CANCEL cancels it, KILL ends it immediately.
 - Restart from node re-runs one node and everything after it, replaying the recorded outputs of the nodes before it, so earlier work is not repeated. Retry node does the same for a node that failed.
-- A second, older channel exists beside run commands: the plugin-level control bus, which carries heartbeats, statistics and raw signals to a node's plugin. It is keyed by workflow and node, bypasses the reviewers and is not audited like run commands. Live control handles and their valves are kept in an execution control store built by a factory per run.
+- A second, older channel exists beside run commands: the plugin-level control bus, which carries heartbeats, statistics and raw signals to a node's plugin. It is keyed by workflow, run and node (`ControlKey`; a heartbeat or statistics message names its run in the metadata key `executionId`, and without one the key has no run), bypasses the reviewers and is not audited like run commands. Reading a heartbeat or statistics for a node without naming a run returns the newest one from any run. Live control handles and their valves are kept in an execution control store built by a factory per run.
 
 - **Guarantees.** Commands for one run are applied in order, acknowledged and audited.
 - **State.** Pending commands and the gates are in memory. The audit trail is written to the execution log.
 - **Ceiling.** One batch consumer handles commands: ample for people and supervisors, not designed as a high-volume API.
-- **On failure.** Changing limits or priority is written to the log but does not pass the reviewers, and the raw per-node command endpoint is neither reviewed nor audited and is keyed by workflow and node, not by run. Through it an approval wait can be released unseen. Over REST, limits need ADMIN and priority OPERATOR.
+- **On failure.** Changing limits or priority is written to the log but does not pass the reviewers, and the raw per-node command endpoint is neither reviewed nor audited and finds the node of any run, since the call names no run. Through it an approval wait can be released unseen. Over REST, limits need ADMIN and priority OPERATOR.
 
 **Settings:** `yukta.supervisor.* (reviewers)`
 
@@ -240,7 +240,7 @@ Turns what happens in a run into ordered state, live progress streams and metric
 
 - **Guarantees.** State events are complete and in order, and the run and node timelines agree with the log.
 - **State.** Everything is in memory. After a restart the newest runs are restored from the log.
-- **Ceiling.** State events are never dropped and their queue has no size limit, and per-session state is kept until yukta.tracker.max-sessions evicts the oldest finished session (off by default), so memory can grow with the number of sessions and during event storms.
+- **Ceiling.** State events are never dropped and their queue has no size limit, and per-session state is kept until yukta.tracker.max-sessions evicts the oldest finished session or yukta.tracker.session-ttl drops an idle one (both off by default), so memory can grow with the number of sessions and during event storms.
 - **On failure.** The queue cannot overflow and silently stop tracking: bounded channels use a non-terminating 'offer' instead of 'emit'.
 
 **Settings:** `tracing: add a Micrometer tracer to the classpath`

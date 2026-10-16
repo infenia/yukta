@@ -69,7 +69,12 @@ class StreamAssemblyHelper {
 
     built =
         withPluginLifecycle(
-            built, context.workflowId(), node.nodeId(), plugin, activePluginRegistry);
+            built,
+            context.workflowId(),
+            context.executionId(),
+            node.nodeId(),
+            plugin,
+            activePluginRegistry);
 
     built = control.applyPostProcessingControls(node.nodeId(), built);
     return contextBuilder
@@ -116,6 +121,7 @@ class StreamAssemblyHelper {
    *
    * @param flux the node's stream
    * @param workflowId the workflow identifier
+   * @param executionId the run
    * @param nodeId the node identifier
    * @param plugin the plugin instance servicing the node
    * @param activePluginRegistry the registry to register/unregister the plugin with
@@ -124,11 +130,13 @@ class StreamAssemblyHelper {
   /* default */ static Flux<Message<?>> withPluginLifecycle(
       final Flux<Message<?>> flux,
       final String workflowId,
+      final String executionId,
       final String nodeId,
       final Plugin plugin,
       final ActivePluginRegistry activePluginRegistry) {
-    return flux.doOnSubscribe(s -> activePluginRegistry.register(workflowId, nodeId, plugin))
-        .doFinally(signal -> activePluginRegistry.unregister(workflowId, nodeId));
+    return flux.doOnSubscribe(
+            s -> activePluginRegistry.register(workflowId, executionId, nodeId, plugin))
+        .doFinally(signal -> activePluginRegistry.unregister(workflowId, executionId, nodeId));
   }
 
   /**
@@ -138,6 +146,7 @@ class StreamAssemblyHelper {
    *
    * @param mono the terminal node's completion signal
    * @param workflowId the workflow identifier
+   * @param executionId the run
    * @param nodeId the node identifier
    * @param plugin the plugin instance servicing the node
    * @param activePluginRegistry the registry to register/unregister the plugin with
@@ -146,10 +155,12 @@ class StreamAssemblyHelper {
   /* default */ static Mono<Void> withPluginLifecycle(
       final Mono<Void> mono,
       final String workflowId,
+      final String executionId,
       final String nodeId,
       final Plugin plugin,
       final ActivePluginRegistry activePluginRegistry) {
-    return mono.doOnSubscribe(s -> activePluginRegistry.register(workflowId, nodeId, plugin))
-        .doFinally(signal -> activePluginRegistry.unregister(workflowId, nodeId));
+    return mono.doOnSubscribe(
+            s -> activePluginRegistry.register(workflowId, executionId, nodeId, plugin))
+        .doFinally(signal -> activePluginRegistry.unregister(workflowId, executionId, nodeId));
   }
 }

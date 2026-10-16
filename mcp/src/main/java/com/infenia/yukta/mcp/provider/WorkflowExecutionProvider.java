@@ -9,6 +9,7 @@ import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.model.workflow.WorkflowExecution;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import com.infenia.yukta.service.session.SessionService;
+import com.infenia.yukta.service.workflow.ConfigRedactor;
 import com.infenia.yukta.service.workflow.WorkflowService;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -34,6 +35,9 @@ public class WorkflowExecutionProvider {
   /** Gateway for workflow control and observability operations. */
   private final ControlBusGateway controlBus;
 
+  /** Hides literal secrets in the definitions handed to an agent. */
+  private final ConfigRedactor configRedactor;
+
   /**
    * Get workflow definition.
    *
@@ -43,7 +47,7 @@ public class WorkflowExecutionProvider {
    */
   public Mono<WorkflowDefinition> getWorkflowDetails(
       final String sessionId, final String workflowId) {
-    return sessionService.getSessionWorkflow(sessionId, workflowId);
+    return sessionService.getSessionWorkflow(sessionId, workflowId).map(configRedactor::redact);
   }
 
   /**

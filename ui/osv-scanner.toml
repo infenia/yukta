@@ -1,0 +1,9 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: 2026 Infenia Private Limited
+
+# GHSA-vfj7-8cjw-p6xm: braces <= 3.0.3 stack exhaustion (no patched version exists).
+# braces is reached only via the shadcn CLI devDependency (micromatch -> fast-glob -> braces),
+# so it is not in the production bundle.
+[[IgnoredVulns]]
+id = "GHSA-vfj7-8cjw-p6xm"
+reason = "No patched braces release. Dev-only path via shadcn CLI devDependency; not shipped in the production bundle."

@@ -14,7 +14,16 @@ import reactor.test.StepVerifier;
 
 /** Tests for the behaviour described by {@link SignalWaits}. */
 @NoArgsConstructor
-@SuppressWarnings("PMD.AvoidDuplicateLiterals")
+@SuppressWarnings({
+  "PMD.AvoidDuplicateLiterals",
+  "PMD.AvoidInstantiatingObjectsInLoops",
+  "PMD.CommentDefaultAccessModifier",
+  "PMD.CommentRequired",
+  "PMD.ShortClassName",
+  "PMD.ShortVariable",
+  "PMD.TooManyMethods",
+  "PMD.UseConcurrentHashMap"
+})
 class SignalWaitsTest {
 
   private static com.infenia.yukta.message.Message<?> signal(final Object data) {

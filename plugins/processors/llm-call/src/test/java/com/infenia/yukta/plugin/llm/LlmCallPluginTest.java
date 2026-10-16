@@ -13,13 +13,14 @@ import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
 import com.infenia.yukta.plugin.core.PluginMetricsReporter;
 import com.infenia.yukta.plugin.exception.WorkflowExecutionException;
-import com.infenia.yukta.util.VariableResolver;
+import com.infenia.yukta.plugin.util.VariableResolver;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicInteger;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -78,6 +79,46 @@ class LlmCallPluginTest {
 
   private Flux<Message<?>> runInRun(final Map<String, Object> config, final String executionId) {
     return run(config).contextWrite(reactor.util.context.Context.of("executionId", executionId));
+  }
+
+  private int peakConcurrency(final Map<String, Object> config, final int count) {
+    final AtomicInteger inFlight = new AtomicInteger();
+    final AtomicInteger peak = new AtomicInteger();
+    when(gateway.call(any()))
+        .thenAnswer(
+            invocation -> {
+              peak.accumulateAndGet(inFlight.incrementAndGet(), Math::max);
+              try {
+                Thread.sleep(30);
+              } finally {
+                inFlight.decrementAndGet();
+              }
+              return new LlmResponse("ok", 1, 1, "m");
+            });
+    StepVerifier.create(
+            plugin.process(
+                Flux.range(0, count).map(i -> DefaultMessage.create(UUID.randomUUID(), "in")),
+                config))
+        .expectNextCount(count)
+        .verifyComplete();
+    return peak.get();
+  }
+
+  @Test
+  void handlesAtMostTheConfiguredNumberOfCallsAtOnce() {
+    assertThat(peakConcurrency(config("concurrency", 3), 20)).isBetween(2, 3);
+  }
+
+  @Test
+  void withoutConcurrencySixteenCallsAreInFlightAtMost() {
+    assertThat(peakConcurrency(config(), 60)).isLessThanOrEqualTo(16).isGreaterThan(4);
+  }
+
+  @Test
+  void validateConfigRejectsNonPositiveConcurrency() {
+    StepVerifier.create(plugin.validateConfig(config("concurrency", 0)))
+        .expectErrorMessage("concurrency must be a positive whole number, got: 0")
+        .verify();
   }
 
   @Test

@@ -12,38 +12,63 @@ import (
 	"time"
 )
 
-// timestampLayout is the zone-less layout the server emits for java.time.LocalDateTime values.
+// timestampLayout is the zone-less layout older servers emit for java.time.LocalDateTime values.
 const timestampLayout = "2006-01-02T15:04:05.999999999"
 
-// Timestamp is a time.Time that also accepts the zone-less timestamps the server returns.
+// Timestamp is a time.Time that also accepts the zone-less timestamps older servers return.
+//
+// Current servers send an RFC 3339 timestamp with their UTC offset, which is an exact instant. An
+// older server sends the clock reading of its own time zone with no offset, so the zone is unknown:
+// the CLI does not guess one (its own zone is no better a guess). Such a value keeps its clock
+// reading, is shown without a zone and is written back out unchanged, and the difference between
+// two of them is still right.
 type Timestamp struct {
 	time.Time
+	zoneless bool
 }
 
 // UnmarshalJSON parses RFC 3339 timestamps, or zone-less ones.
-//
-// Zone-less values (java.time.LocalDateTime on the server) are parsed with time.Local, which
-// assumes the server and the CLI share a timezone. Differences between two zone-less values are
-// always correct; mixing one with an RFC 3339 value is only correct under that assumption.
 func (t *Timestamp) UnmarshalJSON(data []byte) error {
 	var raw *string
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return err
 	}
 	if raw == nil || *raw == "" {
-		t.Time = time.Time{}
+		*t = Timestamp{}
 		return nil
 	}
 	if parsed, err := time.Parse(time.RFC3339Nano, *raw); err == nil {
-		t.Time = parsed
+		*t = Timestamp{Time: parsed}
 		return nil
 	}
-	parsed, err := time.ParseInLocation(timestampLayout, *raw, time.Local)
+	parsed, err := time.ParseInLocation(timestampLayout, *raw, time.UTC)
 	if err != nil {
 		return err
 	}
-	t.Time = parsed
+	*t = Timestamp{Time: parsed, zoneless: true}
 	return nil
+}
+
+// MarshalJSON writes the timestamp as it was read: RFC 3339, or the zone-less text of an older
+// server.
+func (t Timestamp) MarshalJSON() ([]byte, error) {
+	if t.zoneless {
+		return json.Marshal(t.Format(timestampLayout))
+	}
+	return json.Marshal(t.Time)
+}
+
+// String shows a time for people: the clock reading with the server's offset (or none, if the
+// server sent none), and "-" for a time that is not set.
+func (t Timestamp) String() string {
+	switch {
+	case t.IsZero():
+		return "-"
+	case t.zoneless:
+		return t.Format("2006-01-02 15:04:05")
+	default:
+		return t.Format("2006-01-02 15:04:05 -07:00")
+	}
 }
 
 // WorkflowStartRequest is the request body for starting a workflow execution.
@@ -164,7 +189,7 @@ func (c *Client) StopExecution(executionID string) (WorkflowStartResponse, error
 		return WorkflowStartResponse{}, fmt.Errorf("executionID cannot be empty")
 	}
 
-	path := apiPath("/api/workflow/executions/%s/stop", executionID)
+	path := apiPath("/api/executions/%s/stop", executionID)
 	httpReq, err := c.newRequest("POST", path)
 	if err != nil {
 		return WorkflowStartResponse{}, err
@@ -192,7 +217,7 @@ func (c *Client) RestartExecution(executionID string) (WorkflowStartResponse, er
 		return WorkflowStartResponse{}, fmt.Errorf("executionID cannot be empty")
 	}
 
-	path := apiPath("/api/workflow/executions/%s/restart", executionID)
+	path := apiPath("/api/executions/%s/restart", executionID)
 	httpReq, err := c.newRequest("POST", path)
 	if err != nil {
 		return WorkflowStartResponse{}, err
@@ -223,7 +248,7 @@ func (c *Client) RestartFromNode(executionID, fromNodeID string) (WorkflowStartR
 		return WorkflowStartResponse{}, fmt.Errorf("fromNodeID cannot be empty")
 	}
 
-	path := apiPath("/api/workflow/executions/%s/restart/%s", executionID, fromNodeID)
+	path := apiPath("/api/executions/%s/restart/%s", executionID, fromNodeID)
 	httpReq, err := c.newRequest("POST", path)
 	if err != nil {
 		return WorkflowStartResponse{}, err
@@ -254,7 +279,7 @@ func (c *Client) PauseWorkflow(sessionID, executionID string) (WorkflowStartResp
 		return WorkflowStartResponse{}, fmt.Errorf("executionID cannot be empty")
 	}
 
-	path := apiPath("/api/workflow/%s/%s/pause", sessionID, executionID)
+	path := apiPath("/api/executions/%s/pause", executionID)
 	httpReq, err := c.newRequest("POST", path)
 	if err != nil {
 		return WorkflowStartResponse{}, err
@@ -285,7 +310,7 @@ func (c *Client) ResumeWorkflow(sessionID, executionID string) (WorkflowStartRes
 		return WorkflowStartResponse{}, fmt.Errorf("executionID cannot be empty")
 	}
 
-	path := apiPath("/api/workflow/%s/%s/resume", sessionID, executionID)
+	path := apiPath("/api/executions/%s/resume", executionID)
 	httpReq, err := c.newRequest("POST", path)
 	if err != nil {
 		return WorkflowStartResponse{}, err
@@ -316,7 +341,7 @@ func (c *Client) GetWorkflowStatus(sessionID, executionID string) (WorkflowProgr
 		return WorkflowProgress{}, fmt.Errorf("executionID cannot be empty")
 	}
 
-	path := apiPath("/api/workflow/%s/status/%s", sessionID, executionID)
+	path := apiPath("/api/executions/%s", executionID)
 	httpReq, err := c.newRequest("GET", path)
 	if err != nil {
 		return WorkflowProgress{}, err
@@ -333,6 +358,12 @@ func (c *Client) GetWorkflowStatus(sessionID, executionID string) (WorkflowProgr
 
 	if err := json.Unmarshal(body, &response); err != nil {
 		return WorkflowProgress{}, fmt.Errorf("failed to unmarshal response: %w", err)
+	}
+
+	// /api/executions/{id} does not look at a session, so the check the old path made on the
+	// server is made here: a run of another session is reported as not found.
+	if response.Data.SessionID != "" && response.Data.SessionID != sessionID {
+		return WorkflowProgress{}, fmt.Errorf("execution %q not found in session %q", executionID, sessionID)
 	}
 
 	return response.Data, nil
@@ -378,7 +409,7 @@ func (c *Client) PauseNode(sessionID, executionID, nodeID string) (WorkflowStart
 		return WorkflowStartResponse{}, fmt.Errorf("nodeID cannot be empty")
 	}
 
-	path := apiPath("/api/workflow/%s/%s/node/%s/pause", sessionID, executionID, nodeID)
+	path := apiPath("/api/executions/%s/nodes/%s/pause", executionID, nodeID)
 	httpReq, err := c.newRequest("POST", path)
 	if err != nil {
 		return WorkflowStartResponse{}, err
@@ -412,7 +443,7 @@ func (c *Client) ResumeNode(sessionID, executionID, nodeID string) (WorkflowStar
 		return WorkflowStartResponse{}, fmt.Errorf("nodeID cannot be empty")
 	}
 
-	path := apiPath("/api/workflow/%s/%s/node/%s/resume", sessionID, executionID, nodeID)
+	path := apiPath("/api/executions/%s/nodes/%s/resume", executionID, nodeID)
 	httpReq, err := c.newRequest("POST", path)
 	if err != nil {
 		return WorkflowStartResponse{}, err
@@ -446,7 +477,7 @@ func (c *Client) EnableStepMode(sessionID, executionID, nodeID string) (Workflow
 		return WorkflowStartResponse{}, fmt.Errorf("nodeID cannot be empty")
 	}
 
-	path := apiPath("/api/workflow/%s/%s/node/%s/step/enable", sessionID, executionID, nodeID)
+	path := apiPath("/api/executions/%s/nodes/%s/step/enable", executionID, nodeID)
 	httpReq, err := c.newRequest("POST", path)
 	if err != nil {
 		return WorkflowStartResponse{}, err
@@ -480,7 +511,7 @@ func (c *Client) DisableStepMode(sessionID, executionID, nodeID string) (Workflo
 		return WorkflowStartResponse{}, fmt.Errorf("nodeID cannot be empty")
 	}
 
-	path := apiPath("/api/workflow/%s/%s/node/%s/step/disable", sessionID, executionID, nodeID)
+	path := apiPath("/api/executions/%s/nodes/%s/step/disable", executionID, nodeID)
 	httpReq, err := c.newRequest("POST", path)
 	if err != nil {
 		return WorkflowStartResponse{}, err
@@ -514,7 +545,7 @@ func (c *Client) StepNode(sessionID, executionID, nodeID string) (WorkflowStartR
 		return WorkflowStartResponse{}, fmt.Errorf("nodeID cannot be empty")
 	}
 
-	path := apiPath("/api/workflow/%s/%s/node/%s/step", sessionID, executionID, nodeID)
+	path := apiPath("/api/executions/%s/nodes/%s/step", executionID, nodeID)
 	httpReq, err := c.newRequest("POST", path)
 	if err != nil {
 		return WorkflowStartResponse{}, err
@@ -552,7 +583,7 @@ func (c *Client) StopNode(sessionID, executionID, nodeID string, immediate bool,
 	params.Set("immediate", strconv.FormatBool(immediate))
 	params.Set("reason", reason)
 
-	path := apiPath("/api/workflow/%s/%s/node/%s/stop", sessionID, executionID, nodeID) + "?" + params.Encode()
+	path := apiPath("/api/executions/%s/nodes/%s/stop", executionID, nodeID) + "?" + params.Encode()
 	httpReq, err := c.newRequest("POST", path)
 	if err != nil {
 		return WorkflowStartResponse{}, err
@@ -589,7 +620,7 @@ func (c *Client) SkipNode(sessionID, executionID, nodeID string, skip bool) (Wor
 	params := url.Values{}
 	params.Set("skip", strconv.FormatBool(skip))
 
-	path := apiPath("/api/workflow/%s/%s/node/%s/skip", sessionID, executionID, nodeID) + "?" + params.Encode()
+	path := apiPath("/api/executions/%s/nodes/%s/skip", executionID, nodeID) + "?" + params.Encode()
 	httpReq, err := c.newRequest("POST", path)
 	if err != nil {
 		return WorkflowStartResponse{}, err
@@ -631,7 +662,7 @@ func (c *Client) StreamWorkflowStatus(
 	params := url.Values{}
 	params.Set("includeHistory", strconv.FormatBool(includeHistory))
 
-	path := apiPath("/api/workflow/%s/%s/status/stream", sessionID, executionID) + "?" + params.Encode()
+	path := apiPath("/api/executions/%s/status/stream", executionID) + "?" + params.Encode()
 
 	resp, err := c.streamRequest(ctx, path)
 	if err != nil {

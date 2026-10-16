@@ -14,7 +14,7 @@ Logged, not fixed. Found 2026-10-11 on `main` at `6070249e`.
   poll the execution for 30 s. Same with `CONSTANT_SOURCE -> MAPPER -> CONSOLE_TERMINAL`, with `API_TRIGGER` as the
   trigger, and with `displayOutput: true`. Profile `prod`, in-memory stores, default limits.
 - **Evidence:** the log has "Starting workflow execution" and "Started tracking" for the run but no
-  "Consuming message" line (`ConsoleTerminalPlugin.consume`) and no "Terminal node execution completed
+  "Consumed N message(s)" line (`ConsoleTerminalPlugin.consume`, INFO; the payload itself is logged at DEBUG as "Consuming message") and no "Terminal node execution completed
   successfully" (`TerminalNodeAssemblerStrategy`), so the terminal does not seem to receive the message or to
   complete. Not investigated further.
 - **Impact:** executions pile up as `RUNNING`; under load memory and thread use grow, and the soak test

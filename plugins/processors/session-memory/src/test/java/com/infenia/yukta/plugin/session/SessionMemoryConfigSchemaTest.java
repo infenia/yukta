@@ -6,7 +6,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 
 import com.infenia.yukta.plugin.core.ConfigField;
-import com.infenia.yukta.util.VariableResolver;
+import com.infenia.yukta.plugin.util.VariableResolver;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 

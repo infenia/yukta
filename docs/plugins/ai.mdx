@@ -29,6 +29,7 @@ Calls a chat model and emits its answer. It supports OpenAI and OpenAI-compatibl
 | `temperature` | number | the model's own | Sampling temperature |
 | `maxTokens` | number | the model's own | Most tokens in the answer |
 | `timeout` | number | `120` | Seconds per attempt, positive |
+| `concurrency` | number | `16` | Model calls in flight at once for this node. Positive |
 | `retries` | number | `0` | Extra attempts after a failure, with exponential backoff starting at 500 ms |
 | `tools` | list or string | none | Tools the model may ask for, see below |
 | `prices` | map | none | `{"input": ..., "output": ...}`: price per million tokens. Adds `cost` to the output |
@@ -95,7 +96,7 @@ A refused call fails the node like any other failed call. These settings apply t
 
 ### Timeout and concurrency
 
-Default timeout: `(timeout + 1) * (retries + 1) + 5` seconds plus the backoff, about 127 seconds with the defaults. Up to 256 messages are handled at once, with results emitted in order.
+Default timeout: `(timeout + 1) * (retries + 1) + 5` seconds plus the backoff, about 127 seconds with the defaults. Up to `concurrency` messages (default 16) are handled at once, with results emitted in order.
 
 ```json
 {
@@ -152,6 +153,7 @@ Calls one tool on a remote MCP server for each message and emits the result. Use
 | `headers` | map | empty | Extra request headers. Variables allowed |
 | `authToken` | string | none | Bearer token. Use `decrypted:<key>` |
 | `timeout` | number | `60` | Seconds per call, positive |
+| `concurrency` | number | `16` | Tool calls in flight at once for this node. Positive |
 | `allowedTools` | list | none | The tools this node may call. Any other tool is refused, even one chosen through a variable. Use it whenever a model picks the tool |
 | `requireApproval` | list | none | Tool names, or `*`, that wait for a human signal before they are called |
 | `approvalSignal` | string | `approve` | The name of the approval signal |
@@ -177,7 +179,7 @@ An approval works like [`WAIT_FOR_SIGNAL`](/plugins/routing-and-flow#wait_for_si
 | `yukta.mcp-client.max-argument-bytes` | `65536` | Largest JSON size of the arguments |
 | `yukta.mcp-client.deny-argument-patterns` | none | Regular expressions; arguments that match one are refused. Use it for secrets or injected instructions |
 
-Default timeout: `timeout` plus 5 seconds, plus `approvalTimeoutSeconds` when `requireApproval` is set. Up to 256 messages are handled at once.
+Default timeout: `timeout` plus 5 seconds, plus `approvalTimeoutSeconds` when `requireApproval` is set. Up to `concurrency` messages (default 16) are handled at once.
 
 ```json
 {
@@ -221,7 +223,7 @@ The conversation id is the whole key: histories are shared across all sessions a
 | `yukta.session-memory.dir` | Also written as one JSON file per conversation in this folder |
 | `yukta.session-memory.store-type=postgres` | In PostgreSQL, with the PostgreSQL module. `yukta.session-memory.ttl` deletes conversations that have not been written for that long |
 
-See [Persistence](/operations/persistence). Up to 256 messages are handled at once; the default timeout is 30 seconds.
+See [Persistence](/operations/persistence). Messages are handled one at a time, in order, so each load sees the turns stored before it; the default timeout is 30 seconds.
 
 ```json
 [
@@ -249,7 +251,7 @@ See [Persistence](/operations/persistence). Up to 256 messages are handled at on
 | `MCP_TOOL_CALL` `approvalTimeoutSeconds` | 3600 |
 | `yukta.mcp-client.max-argument-bytes` | 65536 |
 | `SESSION_MEMORY` `maxTurns` | 20 |
-| Messages in flight per node | 256 for `LLM_CALL`, `MCP_TOOL_CALL` and `SESSION_MEMORY`; 1 for `MCP_LIST_TOOLS` |
+| Messages in flight per node | 16 for `LLM_CALL` and `MCP_TOOL_CALL` (`concurrency`); 1 for `SESSION_MEMORY` and `MCP_LIST_TOOLS` |
 
 ## Related
 

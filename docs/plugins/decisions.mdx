@@ -21,6 +21,7 @@ Every decision plugin takes these options in addition to its own.
 | `baseUrl` | string | `http://localhost:11434` for `SYSTEMONE` | Endpoint override. Variables allowed |
 | `apiKey` | string | none | API key. Use `decrypted:<key>`. Variables allowed |
 | `timeout` | number | `30` | Seconds to wait for the model |
+| `concurrency` | number | `16` | Model calls in flight at once for this node. Positive |
 | `state` | expression | `payload` | What the model sees. A text result is used as is, any other value is turned into JSON. It is cut to 15,000 characters |
 | `into` | string | per plugin | The metadata key that receives the result |
 
@@ -35,7 +36,7 @@ The decision is written to `metadata[into]`. The payload is not changed. A model
 
 Describe each label, level and criterion explicitly. A small decision model depends on those descriptions.
 
-Default timeout: `timeout` plus 5 seconds, so 35 seconds with the default. `CLASSIFY`, `GATE`, `SCORE` and `ASK` handle up to 256 messages at once, with results emitted in order. `ANOMALY` and `DEDUPE` handle one at a time.
+Default timeout: `timeout` plus 5 seconds, so 35 seconds with the default. `CLASSIFY`, `GATE`, `SCORE` and `ASK` handle up to `concurrency` messages (default 16) at once, with results emitted in order. `ANOMALY` and `DEDUPE` handle one at a time.
 
 ## CLASSIFY
 

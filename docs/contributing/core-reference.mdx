@@ -686,10 +686,10 @@ Every change in a run becomes an event in one ordered queue; a single consumer t
 - One consumer applies events in batches (`TrackerEventApplier`) to per-run `WorkflowState`; it resubscribes with capped backoff if its stream fails, until `shutdown()`.
 - Every progress snapshot carries `definitionVersion` (content hash of the graph).
 - History: the newest `status-history-max-per-run` (200) snapshots per run for `status-history-max-executions` (1000) runs, always the newest; a late SSE client catches up from this cache (TTL 5 minutes).
-- `yukta.tracker.max-sessions` evicts the oldest session without a running run when more are held (off by default). Finished runs are cleaned up after `yukta.tracker.cleanup-ttl` (10m).
+- `yukta.tracker.max-sessions` evicts the oldest session without a running run when more are held (off by default). `yukta.tracker.session-ttl` (off by default) drops a session with no running run once it has been idle that long, counted from the end of its last run or its last start; a timer checks every quarter of the TTL (between 1 s and 1 min). Finished runs are cleaned up after `yukta.tracker.cleanup-ttl` (10m).
 - Use `SinkEmit.offer`, not `Sinks.Many#emitNext`, for any bounded sink: `emitNext` terminates the sink on overflow.
 
-**Configure:** `yukta.tracker.max-sessions` · `yukta.tracker.cleanup-ttl` · `yukta.streaming.status-history-max-per-run` · `…status-history-max-executions` · `…status-history-ttl-minutes`
+**Configure:** `yukta.tracker.max-sessions` · `yukta.tracker.session-ttl` · `yukta.tracker.cleanup-ttl` · `yukta.streaming.status-history-max-per-run` · `…status-history-max-executions` · `…status-history-ttl-minutes`
 
 **Source:** `DefaultTaskTrackerService` `TrackerEventApplier` `WorkflowState` `ExecutionStreams` `ExecutionHistory` `DefaultStatusHistoryCache` `SinkEmit`
 
@@ -956,7 +956,7 @@ Settings that bound what a node can do. Enforced by the plugins and web layer; d
 | MCP tool calls | `yukta.mcp-client.allowed-tools` · `…max-argument-bytes` · `…deny-argument-patterns` | see plugin |
 | Prompt and answer filters | `yukta.llm.deny-input-patterns` · `…deny-output-patterns` · `…max-input-chars` | see plugin |
 
-GraalJS scripts may `Java.type` only `java.time.*` and a few value classes and cannot reflect on `Class`. Scripts have no memory limit.
+GraalJS scripts may `Java.type` only `java.time.*` and a few value classes and cannot reflect on `Class`. They are given plain-data copies of the message, not Java objects, and are limited to 1,000,000 values in and out and 10,000,000-character strings. Scripts have no heap limit.
 
 ## Extensibility
 
@@ -1034,6 +1034,7 @@ Lookup tables. Each row names the feature that owns it, so a change to a feature
 | `yukta.supervisor.dry-run` | false | [CTL-07](#ctl-07-supervisors) | Record supervisor commands without applying |
 | `yukta.supervisor.rules.file` | unset | [CTL-07](#ctl-07-supervisors) | Enable the rule supervisor (module: rule-supervisor) |
 | `yukta.tracker.max-sessions` | 0 (off) | [OBS-01](#obs-01-tracker-and-live-progress) | Evict the oldest session without a running run beyond this count |
+| `yukta.tracker.session-ttl` | unset (off) | [OBS-01](#obs-01-tracker-and-live-progress) | Drop a session with no running run once it has been idle this long |
 | `yukta.tracker.cleanup-ttl` | 10m | [OBS-01](#obs-01-tracker-and-live-progress) | How long execution data is kept after a terminal status |
 | `yukta.streaming.status-history-max-per-run` | 200 | [OBS-01](#obs-01-tracker-and-live-progress) | Progress snapshots per run |
 | `yukta.streaming.status-history-max-executions` | 1000 | [OBS-01](#obs-01-tracker-and-live-progress) | Runs with progress history |
@@ -1191,7 +1192,7 @@ What survives a restart, by deployment profile. "Memory" is the default; "File" 
 
 - **One brain:** admission, command ordering and run state are in one JVM (active/standby gives failover, not scale-out of admission).
 - **Graph size:** 500 nodes, 2000 edges, sub-workflow depth 5.
-- **Memory growth:** the state queue is unbounded; sessions are evicted only when `yukta.tracker.max-sessions` is set; the in-memory log and idempotency cache are bounded by their retention settings.
+- **Memory growth:** the state queue is unbounded; sessions are evicted only when `yukta.tracker.max-sessions` or `yukta.tracker.session-ttl` is set; the in-memory log and idempotency cache are bounded by their retention settings.
 - **Large payloads** are carried through memory by every node that touches them; there is no claim-check yet.
 
 Known gaps, risk analysis and design decisions are tracked in the [bug backlog](/internal/bugs), the [remediation plan](/internal/plans/remediation), the [performance plan](/internal/plans/performance), the [core risks](/internal/risks#core) and the [core module guide](/contributing/modules/core).

@@ -23,7 +23,14 @@ import reactor.util.context.Context;
 
 /** Tests for WaitForSignalProcessor. */
 @NoArgsConstructor
-@SuppressWarnings({"PMD.CommentRequired", "PMD.AvoidDuplicateLiterals", "PMD.TooManyMethods"})
+@SuppressWarnings({
+  "PMD.AvoidDuplicateLiterals",
+  "PMD.CommentRequired",
+  "PMD.LawOfDemeter",
+  "PMD.ShortVariable",
+  "PMD.TooManyMethods",
+  "PMD.UseConcurrentHashMap"
+})
 class WaitForSignalProcessorTest {
 
   private final WaitForSignalProcessor processor =
@@ -180,7 +187,7 @@ class WaitForSignalProcessorTest {
   }
 
   @Test
-  void anAnswer_isRememberedForAResumeOfTheSameMessage() {
+  void answerIsRememberedWhenTheSameMessageResumes() {
     final ListStore store = new ListStore();
     final WaitForSignalProcessor first =
         new WaitForSignalProcessor(new com.infenia.yukta.plugin.util.SignalWaits(), store);
@@ -208,7 +215,7 @@ class WaitForSignalProcessorTest {
   }
 
   @Test
-  void aTimeoutIsNotRemembered_andAnUnreadableEntryIsIgnored() {
+  void timeoutIsNotRememberedAndUnreadableEntryIsIgnored() {
     final ListStore store = new ListStore();
     store.kept.add(DefaultMessage.create(UUID.randomUUID(), "not a map"));
     final WaitForSignalProcessor proc =
@@ -226,7 +233,7 @@ class WaitForSignalProcessorTest {
   }
 
   @Test
-  void aStoreThatFails_neverFailsTheWait() {
+  void failingStoreNeverFailsTheWait() {
     final ListStore store = new ListStore();
     store.failing = true;
     final WaitForSignalProcessor proc =

@@ -25,7 +25,7 @@ Durations accept a number with a unit, such as `30s`, `10m` or `1h`. A plain `0`
 
 These environment variables are used in the project's own scripts and image: `YUKTA_SERVER_ADDRESS`, `YUKTA_API_KEY`, `YUKTA_LIMITS_MAX_BODY`, `YUKTA_SESSION_BASE_DIR`, `YUKTA_SESSION_EXECUTION_TIMEOUT_SECONDS`, `YUKTA_PROCESS_ALLOW_ANY`, `SERVER_PORT` and `SPRING_PROFILES_ACTIVE`.
 
-Four groups are not read from the configuration file. `yukta.script.timeout-ms` and `yukta.script.max-statements` are read only as system properties. The variable allow-list is read from the system property `yukta.variables.allowed` or the environment variable `YUKTA_VARIABLES_ALLOWED`. Workflow variables are read from system properties `yukta.var.*` or environment variables `YUKTA_VAR_*`. Secrets are read only from environment variables `YUKTA_SECRET_*`.
+Four groups are not read from the configuration file. `yukta.script.timeout-ms`, `yukta.script.max-statements` and `yukta.spel.timeout-ms` are read only as system properties. The variable allow-list is read from the system property `yukta.variables.allowed` or the environment variable `YUKTA_VARIABLES_ALLOWED`. Workflow variables are read from system properties `yukta.var.*` or environment variables `YUKTA_VAR_*`. Secrets are read only from environment variables `YUKTA_SECRET_*`.
 
 ```properties
 yukta.execution.max-concurrent=20
@@ -85,6 +85,7 @@ Per-node clocks (idle, element and node deadline) are set in the node. See [Per-
 |---|---|---|
 | `yukta.tracker.cleanup-ttl` | `10m` | How long an execution's live state is kept after it ends |
 | `yukta.tracker.max-sessions` | `0` (off) | When more sessions are held in memory, the oldest session with no running execution is dropped. Keep it small: every start scans the sessions while the limit is exceeded |
+| `yukta.tracker.session-ttl` | unset (off) | A session with no running execution is dropped after it has been idle this long, counted from the end of its last run (or its last start if that is newer). A timer checks every quarter of the TTL, at least once a minute. The session's history leaves the API and the UI with it, so set it above how long you want history to stay visible, for example `24h` |
 | `yukta.streaming.status-history-max-per-run` | `200` | Progress snapshots kept per execution for late stream clients |
 | `yukta.streaming.status-history-max-executions` | `1000` | Executions with progress history |
 | `yukta.streaming.status-history-ttl-minutes` | `5` | How long that history is kept |
@@ -128,7 +129,8 @@ See [Persistence](/operations/persistence) and [Checkpoints and resume](/operati
 | `yukta.kv.store-type` | `memory` | `postgres` keeps the state of `KV_STORE` nodes in PostgreSQL |
 | `yukta.session-memory.store-type` | `memory` | `postgres` keeps `SESSION_MEMORY` chat history in PostgreSQL |
 | `yukta.session-memory.dir` | unset | Keep chat history as files in this directory |
-| `yukta.session-memory.ttl` | unset | With PostgreSQL history, drop a session's history after this idle time |
+| `yukta.session-memory.ttl` | unset | Drop a session's chat history from memory after this idle time; with PostgreSQL history, also delete the stored rows |
+| `yukta.session-memory.max-sessions` | `10000` | Most chat sessions kept in memory, least recently used first. With files or PostgreSQL an evicted session is read back on its next use; with memory only its history is lost |
 | `spring.r2dbc.url` | none | PostgreSQL URL used at run time, `r2dbc:postgresql://host:5432/yukta` |
 | `spring.r2dbc.username`, `spring.r2dbc.password` | none | Credentials for run-time access |
 | `spring.flyway.url` | none | PostgreSQL URL used for schema migrations, `jdbc:postgresql://host:5432/yukta` |
@@ -162,8 +164,11 @@ See [Security](/operations/security).
 | `yukta.process.allowed-commands` | empty | Executables `PROCESS_EXECUTOR` may run, matched by the exact name used in the command. While empty, nothing runs |
 | `yukta.process.allow-any` | `false` | Let `PROCESS_EXECUTOR` run any executable when no list is set |
 | `yukta.script.timeout-ms` | `10000` | Longest a JavaScript script may run. System property only |
+| `yukta.spel.timeout-ms` | `1000` | Longest one expression (filter, branch, mapper projection, loop condition, ...) may run; `0` turns the limit off. System property only |
 | `yukta.script.max-statements` | `50000000` | Most statements a script may run. System property only |
 | `yukta.mcp-client.allowed-tools` | empty (any) | Tools `MCP_TOOL_CALL` may call |
+| `yukta.mcp-client.allowed-hosts` | empty (any) | Hosts `MCP_TOOL_CALL` and `MCP_LIST_TOOLS` may call: names, IP addresses or `*.domain` |
+| `yukta.http.allowed-hosts` | empty (any) | Hosts `HTTP_REQUEST` may call: names, IP addresses or `*.domain` |
 | `yukta.mcp-client.max-argument-bytes` | `65536` | Most bytes of arguments, as JSON, in one tool call |
 | `yukta.mcp-client.deny-argument-patterns` | empty | Regular expressions that tool arguments must not match |
 | `yukta.llm.deny-input-patterns` | empty | Regular expressions the prompt must not match |

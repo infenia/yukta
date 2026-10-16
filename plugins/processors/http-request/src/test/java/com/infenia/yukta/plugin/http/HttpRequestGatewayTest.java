@@ -9,6 +9,7 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.List;
 import java.util.Map;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.AfterEach;
@@ -17,7 +18,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.test.StepVerifier;
 
-@SuppressWarnings({"PMD.CommentRequired", "PMD.LawOfDemeter"})
+@SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.CommentRequired", "PMD.LawOfDemeter"})
 @NoArgsConstructor
 class HttpRequestGatewayTest {
 
@@ -84,6 +85,28 @@ class HttpRequestGatewayTest {
               assertThat(r.body()).isEqualTo("POST|t|hello");
               assertThat(r.headers().keySet()).anyMatch("content-type"::equalsIgnoreCase);
             })
+        .verifyComplete();
+  }
+
+  @Test
+  void hostsOutsideTheAllowListAreRefusedWithoutCalling() {
+    gateway.setAllowedHosts(List.of("example.com"));
+    final HttpRequestSpec spec =
+        new HttpRequestSpec("GET", base + "/echo", Map.of(), null, Duration.ofSeconds(5));
+
+    StepVerifier.create(gateway.execute(spec))
+        .expectErrorMessage("Host 'localhost' is not in yukta.http.allowed-hosts")
+        .verify();
+  }
+
+  @Test
+  void listedHostIsCalled() {
+    gateway.setAllowedHosts(List.of("localhost"));
+    final HttpRequestSpec spec =
+        new HttpRequestSpec("GET", base + "/echo", Map.of(), null, Duration.ofSeconds(5));
+
+    StepVerifier.create(gateway.execute(spec))
+        .assertNext(r -> assertThat(r.status()).isEqualTo(201))
         .verifyComplete();
   }
 

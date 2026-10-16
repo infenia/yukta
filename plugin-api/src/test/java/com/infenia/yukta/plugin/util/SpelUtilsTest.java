@@ -12,6 +12,12 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.expression.spel.SpelEvaluationException;
 import reactor.test.StepVerifier;
 
+@SuppressWarnings({
+  "PMD.AtLeastOneConstructor",
+  "PMD.CommentRequired",
+  "PMD.UnnecessaryCast",
+  "PMD.UnnecessaryFullyQualifiedName"
+})
 class SpelUtilsTest {
 
   @ParameterizedTest
@@ -61,6 +67,12 @@ class SpelUtilsTest {
               () -> SpelUtils.evaluateSync(expression, root))
           .isInstanceOf(SpelEvaluationException.class);
     }
+  }
+
+  @Test
+  void anAllowedNameWithArgumentsNoMethodTakesIsNotFound() {
+    assertThatThrownBy(() -> SpelUtils.evaluateSync("'abc'.length(1)", Map.of()))
+        .isInstanceOf(SpelEvaluationException.class);
   }
 
   @Test

@@ -8,7 +8,7 @@ import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 
 @NoArgsConstructor
-@SuppressWarnings("PMD.CommentRequired")
+@SuppressWarnings({"PMD.AvoidInstantiatingObjectsInLoops", "PMD.CommentRequired"})
 class RunAbortedExceptionTest {
 
   @Test
@@ -19,6 +19,16 @@ class RunAbortedExceptionTest {
     assertThat(RunAbortedException.isAbort(abort)).isTrue();
     assertThat(RunAbortedException.isAbort(new IllegalStateException("wrapped", abort))).isTrue();
     assertThat(RunAbortedException.isAbort(new IllegalStateException("plain"))).isFalse();
+  }
+
+  @Test
+  void theCauseIsKept() {
+    final IllegalStateException cause = new IllegalStateException("why");
+
+    final RunAbortedException abort = new RunAbortedException("stopped", cause);
+
+    assertThat(abort).hasMessage("stopped").hasCause(cause);
+    assertThat(RunAbortedException.isAbort(abort)).isTrue();
   }
 
   @Test

@@ -12,10 +12,11 @@ import com.infenia.yukta.plugin.core.UiDesign;
 import com.infenia.yukta.plugin.core.WorkflowContext;
 import com.infenia.yukta.plugin.exception.WorkflowExecutionException;
 import com.infenia.yukta.plugin.type.ProcessorPlugin;
+import com.infenia.yukta.plugin.util.ConfigValidation;
+import com.infenia.yukta.plugin.util.MapUtils;
 import com.infenia.yukta.plugin.util.SignalWaits;
 import com.infenia.yukta.plugin.util.SpelUtils;
-import com.infenia.yukta.util.MapUtils;
-import com.infenia.yukta.util.VariableResolver;
+import com.infenia.yukta.plugin.util.VariableResolver;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
@@ -45,6 +46,7 @@ import reactor.core.publisher.Mono;
 @Component
 @SuppressWarnings({
   "PMD.CommentRequired",
+  "PMD.ExcessiveImports",
   "PMD.OnlyOneReturn",
   "PMD.TooManyMethods",
   "PMD.UseConcurrentHashMap",
@@ -67,6 +69,10 @@ public final class McpToolCallPlugin implements ProcessorPlugin {
   private static final String UNKNOWN = "unknown";
   private static final String AUTH_TOKEN = "authToken";
   private static final String TIMEOUT = "timeout";
+
+  /** Calls in flight at once when the node does not set {@code concurrency}. */
+  private static final int DEFAULT_CONCURRENCY = 16;
+
   private static final String RESULT_KEY = "resultKey";
   private static final String FAILURE_MODE = "failureMode";
   private static final String ROUTE_BY_STATUS = "routeByStatus";
@@ -172,7 +178,12 @@ public final class McpToolCallPlugin implements ProcessorPlugin {
             ROUTE_BY_STATUS,
             ConfigField.Type.BOOLEAN,
             false,
-            "Emit on success/failure ports (needs failureMode CONTINUE)"));
+            "Emit on success/failure ports (needs failureMode CONTINUE)"),
+        ConfigField.optional(
+            ConfigValidation.CONCURRENCY_KEY,
+            ConfigField.Type.NUMBER,
+            DEFAULT_CONCURRENCY,
+            "Tool calls in flight at once"));
   }
 
   @Override
@@ -205,6 +216,7 @@ public final class McpToolCallPlugin implements ProcessorPlugin {
       default 3600; no answer refuses the call.
     - authToken: bearer token, e.g. "decrypted:github-mcp"
     - timeout: seconds, positive (default: 60)
+    - concurrency: tool calls in flight at once, positive (default: 16)
     - resultKey: also copy the tool text result into this metadata key
     - failureMode: ERROR | CONTINUE (default: ERROR)
       ERROR: tool error or transport error fails the node (engine retry/onError applies)
@@ -292,7 +304,9 @@ public final class McpToolCallPlugin implements ProcessorPlugin {
 
   @Override
   public Flux<Message<?>> process(final Flux<Message<?>> input, final Map<String, Object> config) {
-    return input.flatMapSequential(message -> call(message, config));
+    return input.flatMapSequential(
+        message -> call(message, config),
+        ConfigValidation.concurrency(config, DEFAULT_CONCURRENCY));
   }
 
   private Flux<Message<?>> call(final Message<?> message, final Map<String, Object> config) {
@@ -516,6 +530,7 @@ public final class McpToolCallPlugin implements ProcessorPlugin {
     if (config.get(TIMEOUT) instanceof final Number number && number.longValue() <= 0) {
       throw new IllegalArgumentException("timeout must be positive, got: " + number);
     }
+    ConfigValidation.concurrency(config, DEFAULT_CONCURRENCY);
     if (config.get(ALLOWED_TOOLS) != null
         && !(config.get(ALLOWED_TOOLS) instanceof final List<?> tools
             && tools.stream().allMatch(t -> t instanceof final String name && !name.isBlank()))) {

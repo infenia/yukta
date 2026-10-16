@@ -8,7 +8,11 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 
-@SuppressWarnings("PMD.CommentRequired")
+@SuppressWarnings({
+  "PMD.AtLeastOneConstructor",
+  "PMD.AvoidDuplicateLiterals",
+  "PMD.CommentRequired"
+})
 class ConfigValidationTest {
 
   @Test
@@ -34,6 +38,17 @@ class ConfigValidationTest {
     assertThatThrownBy(() -> ConfigValidation.positiveLong(Map.of("n", 1e30), "n", 1))
         .isInstanceOf(IllegalArgumentException.class);
     assertThatThrownBy(() -> ConfigValidation.positiveInt(Map.of("n", 1L << 40), "n", 1))
+        .isInstanceOf(IllegalArgumentException.class);
+  }
+
+  @Test
+  void concurrencyUsesTheNodeSettingOrTheDefaultAndRejectsBadValues() {
+    assertThat(ConfigValidation.concurrency(Map.of(), 4)).isEqualTo(4);
+    assertThat(ConfigValidation.concurrency(Map.of("concurrency", 9), 4)).isEqualTo(9);
+    assertThatThrownBy(() -> ConfigValidation.concurrency(Map.of("concurrency", 0), 4))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("concurrency");
+    assertThatThrownBy(() -> ConfigValidation.concurrency(Map.of("concurrency", "many"), 4))
         .isInstanceOf(IllegalArgumentException.class);
   }
 

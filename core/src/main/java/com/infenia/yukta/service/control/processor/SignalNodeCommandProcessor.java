@@ -60,7 +60,7 @@ public class SignalNodeCommandProcessor implements ControlSignalProcessor {
                       () -> new NotFoundException("Execution not found: " + signal.executionId()));
           final var plugin =
               plugins
-                  .lookup(control.workflowId(), signal.nodeId())
+                  .lookup(control.workflowId(), signal.executionId(), signal.nodeId())
                   .orElseThrow(() -> new NotFoundException("Node not found: " + signal.nodeId()));
           final Map<String, Object> body = new ConcurrentHashMap<>();
           body.put("executionId", signal.executionId());

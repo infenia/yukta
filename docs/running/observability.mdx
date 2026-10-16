@@ -29,6 +29,7 @@ A reader that connects late catches up from a history cache.
 | `yukta.streaming.status-history-ttl-minutes` | `5` | How long the catch-up cache lives |
 | `yukta.tracker.cleanup-ttl` | `10m` | How long execution data is kept after it ends |
 | `yukta.tracker.max-sessions` | `0` (off) | Evict the oldest session without a running execution beyond this count |
+| `yukta.tracker.session-ttl` | unset (off) | Drop a session with no running execution once it has been idle this long. Its history leaves the API and the UI |
 
 State events are never dropped. After a restart, the newest executions are restored from the execution log.
 

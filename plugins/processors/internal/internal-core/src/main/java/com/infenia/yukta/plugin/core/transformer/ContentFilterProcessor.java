@@ -8,8 +8,8 @@ import com.infenia.yukta.plugin.core.PluginDescriptor;
 import com.infenia.yukta.plugin.core.UiDesign;
 import com.infenia.yukta.plugin.exception.WorkflowExecutionException;
 import com.infenia.yukta.plugin.type.ProcessorPlugin;
+import com.infenia.yukta.plugin.util.MapUtils;
 import com.infenia.yukta.plugin.util.SpelUtils;
-import com.infenia.yukta.util.MapUtils;
 import java.lang.reflect.Array;
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -41,7 +41,7 @@ import reactor.core.publisher.Mono;
 public class ContentFilterProcessor implements ProcessorPlugin {
 
   /** Type. */
-  private static final String TYPE = "CONTENT-FILTER";
+  private static final String TYPE = "CONTENT_FILTER";
 
   /** Mode include. */
   private static final String MODE_INCLUDE = "INCLUDE";

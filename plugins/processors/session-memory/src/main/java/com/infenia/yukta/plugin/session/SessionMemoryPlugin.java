@@ -7,8 +7,8 @@ import com.infenia.yukta.message.Message;
 import com.infenia.yukta.plugin.core.ConfigField;
 import com.infenia.yukta.plugin.core.PluginDescriptor;
 import com.infenia.yukta.plugin.type.ProcessorPlugin;
-import com.infenia.yukta.util.MapUtils;
-import com.infenia.yukta.util.VariableResolver;
+import com.infenia.yukta.plugin.util.MapUtils;
+import com.infenia.yukta.plugin.util.VariableResolver;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -118,7 +118,8 @@ public class SessionMemoryPlugin implements ProcessorPlugin {
     return Flux.defer(
         () -> {
           final Mode mode = Mode.from(config.get(MODE));
-          return input.flatMapSequential(
+          // one message at a time: each load must see the turns the messages before it stored
+          return input.concatMap(
               message -> mode == Mode.LOAD ? load(message, config) : append(message, config));
         });
   }

@@ -11,6 +11,12 @@ import java.util.Map;
 import org.junit.jupiter.api.Test;
 import reactor.core.publisher.Flux;
 
+@SuppressWarnings({
+  "PMD.AtLeastOneConstructor",
+  "PMD.CommentRequired",
+  "PMD.ShortMethodName",
+  "PMD.UseConcurrentHashMap"
+})
 class ExecutionSupervisorTest {
 
   private static final class Observer implements ExecutionSupervisor {

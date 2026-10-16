@@ -14,7 +14,7 @@ import reactor.core.publisher.Flux;
 import reactor.test.StepVerifier;
 
 /** Tests for KvStoreProcessor. */
-@SuppressWarnings("PMD.UseConcurrentHashMap")
+@SuppressWarnings({"PMD.TooManyMethods", "PMD.UseConcurrentHashMap"})
 @NoArgsConstructor
 class KvStoreProcessorTest {
 

@@ -2,9 +2,10 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.plugin.core.util;
 
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import com.infenia.yukta.message.Message;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -24,8 +25,12 @@ public final class SimpleExpressionEvaluator {
   private static final Pattern EXPR_PATTERN =
       Pattern.compile("^(\\S+)\\s+(==|exists|matches)(?:\\s+(.+))?$");
 
-  /** Cache. */
-  private static final Map<String, Expression> CACHE = new ConcurrentHashMap<>();
+  /** Expressions kept parsed; the least recently used are dropped beyond this many. */
+  private static final long CACHE_MAX = 1_000;
+
+  /** Cache. A dropped expression is parsed again when it is next used. */
+  private static final Cache<String, Expression> CACHE =
+      Caffeine.newBuilder().maximumSize(CACHE_MAX).executor(Runnable::run).build();
 
   private SimpleExpressionEvaluator() {
     // Utility class
@@ -40,8 +45,7 @@ public final class SimpleExpressionEvaluator {
    * @throws IllegalArgumentException if the expression is invalid
    */
   public static boolean evaluate(final String expressionStr, final Message<?> message) {
-    final Expression expression =
-        CACHE.computeIfAbsent(expressionStr, SimpleExpressionEvaluator::parse);
+    final Expression expression = CACHE.get(expressionStr, SimpleExpressionEvaluator::parse);
     return expression.evaluate(message);
   }
 
@@ -52,8 +56,18 @@ public final class SimpleExpressionEvaluator {
    */
   public static void preParse(final String expressionStr) {
     if (expressionStr != null && !expressionStr.isBlank()) {
-      CACHE.computeIfAbsent(expressionStr, SimpleExpressionEvaluator::parse);
+      CACHE.asMap().computeIfAbsent(expressionStr, SimpleExpressionEvaluator::parse);
     }
+  }
+
+  /**
+   * Number of expressions kept parsed.
+   *
+   * @return the cache size
+   */
+  /* default */ static long cacheSize() {
+    CACHE.cleanUp();
+    return CACHE.estimatedSize();
   }
 
   private static Expression parse(final String expressionStr) {

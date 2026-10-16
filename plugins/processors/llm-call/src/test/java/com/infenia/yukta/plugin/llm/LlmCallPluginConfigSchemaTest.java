@@ -5,7 +5,7 @@ package com.infenia.yukta.plugin.llm;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 
-import com.infenia.yukta.util.VariableResolver;
+import com.infenia.yukta.plugin.util.VariableResolver;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 

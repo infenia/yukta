@@ -10,6 +10,13 @@ import org.junit.jupiter.api.Test;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
+@SuppressWarnings({
+  "PMD.AtLeastOneConstructor",
+  "PMD.CommentDefaultAccessModifier",
+  "PMD.CommentRequired",
+  "PMD.LinguisticNaming",
+  "PMD.UnitTestAssertionsShouldIncludeMessage"
+})
 class NodeCheckpointStoreTest {
 
   /** A store that only knows the last message, as stores written before getAll existed do. */

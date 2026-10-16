@@ -13,7 +13,7 @@ import com.infenia.yukta.message.Message;
 import com.infenia.yukta.plugin.core.PluginMetricsReporter;
 import com.infenia.yukta.plugin.core.WorkflowContext;
 import com.infenia.yukta.plugin.exception.WorkflowExecutionException;
-import com.infenia.yukta.util.VariableResolver;
+import com.infenia.yukta.plugin.util.VariableResolver;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
@@ -78,6 +78,42 @@ class McpToolCallPluginTest {
 
   private static McpCallResult bad() {
     return new McpCallResult(true, "boom", List.of(), null, "boom");
+  }
+
+  private int peakConcurrency(final Map<String, Object> config, final int count) {
+    final AtomicInteger inFlight = new AtomicInteger();
+    final AtomicInteger peak = new AtomicInteger();
+    when(gateway.call(any(), any()))
+        .thenAnswer(
+            invocation ->
+                Mono.defer(
+                    () -> {
+                      peak.accumulateAndGet(inFlight.incrementAndGet(), Math::max);
+                      return Mono.just(success())
+                          .delayElement(Duration.ofMillis(20))
+                          .doOnTerminate(inFlight::decrementAndGet);
+                    }));
+    StepVerifier.create(plugin.process(Flux.range(0, count).map(i -> input()), config))
+        .expectNextCount(count)
+        .verifyComplete();
+    return peak.get();
+  }
+
+  @Test
+  void handlesAtMostTheConfiguredNumberOfCallsAtOnce() {
+    assertThat(peakConcurrency(config("concurrency", 3), 20)).isBetween(2, 3);
+  }
+
+  @Test
+  void withoutConcurrencySixteenCallsAreInFlightAtMost() {
+    assertThat(peakConcurrency(config(), 60)).isLessThanOrEqualTo(16).isGreaterThan(4);
+  }
+
+  @Test
+  void validateConfigRejectsNonPositiveConcurrency() {
+    StepVerifier.create(plugin.validateConfig(config("concurrency", 0)))
+        .expectErrorMessage("concurrency must be a positive whole number, got: 0")
+        .verify();
   }
 
   @Test

@@ -30,9 +30,9 @@ import reactor.util.context.Context;
 
 @NoArgsConstructor
 @SuppressWarnings({
-  "PMD.CommentRequired",
   "PMD.AvoidDuplicateLiterals",
-  "PMD.TooManyMethods",
+  "PMD.CommentRequired",
+  "PMD.TooManyStaticImports",
   "unchecked"
 })
 class SubWorkflowProcessorTest {

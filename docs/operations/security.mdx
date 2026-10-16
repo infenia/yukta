@@ -178,6 +178,24 @@ yukta.process.allowed-commands=git,npm,mvn
 
 Use `allow-any` only when every workflow author is fully trusted.
 
+## Outbound hosts
+
+`HTTP_REQUEST` and `MCP_TOOL_CALL` call whatever URL a node names, and the URL can be built from a message with `${...}`. By default every host is allowed. To limit it, list the hosts the server may call:
+
+| Setting | Effect |
+|---|---|
+| `yukta.http.allowed-hosts` | Hosts `HTTP_REQUEST` may call |
+| `yukta.mcp-client.allowed-hosts` | Hosts `MCP_TOOL_CALL` and `MCP_LIST_TOOLS` may call |
+
+Each entry is a host name or IP address, compared without regard to case, or `*.example.com`, which matches any subdomain but not `example.com` itself. A call to any other host is refused before a request is made, and so is a URL with no host. The check uses the host the URL really addresses, so `https://good.com@evil.com/` counts as `evil.com`.
+
+```properties
+yukta.http.allowed-hosts=api.example.com,*.internal.example
+yukta.mcp-client.allowed-hosts=mcp.example.com
+```
+
+The list works on the name in the URL. It does not stop a listed name that resolves to an address you did not intend, so keep the listed names under your control. `NOTIFY_TERMINAL` webhooks are not covered by these settings.
+
 ## Script limits
 
 JavaScript scripts run with a time limit and a statement limit. Both are system properties:
@@ -187,7 +205,9 @@ JavaScript scripts run with a time limit and a statement limit. Both are system 
 | `yukta.script.timeout-ms` | `10000` |
 | `yukta.script.max-statements` | `50000000` |
 
-Scripts can reach only a short list of date, time and basic value types from the host. They have no memory limit.
+Scripts can reach only a short list of date, time and basic value types from the host, and the message data they are given are plain copies, not Java objects. A script can be given and can return at most 1,000,000 values, and can build strings of at most 10,000,000 characters. There is no heap limit (GraalVM Community has none).
+
+Expressions (filter conditions, branch cases, mapper projections, loop exit conditions and so on) have a time limit too, the system property `yukta.spel.timeout-ms` (default `1000`, `0` turns it off). An expression that runs longer, for example a regular expression that backtracks without end, is stopped and fails the message.
 
 ## Variables and secrets
 
@@ -200,6 +220,8 @@ Placeholders such as `${env.NAME}` and `${sys.name}` in a node's configuration r
 Any name containing `PASSWORD`, `PASSWD`, `SECRET`, `TOKEN`, `CREDENTIAL`, `PRIVATE` or `KEY` stays blocked, even when listed. A blocked or unlisted name fails the message like a plugin error.
 
 Secrets are written `decrypted:name` in a node's configuration, so the value never appears in a stored workflow. The server reads the value from the environment variable `YUKTA_SECRET_` followed by the name in upper case, with every character other than letters and digits replaced by `_`. For example `decrypted:db.password` reads `YUKTA_SECRET_DB_PASSWORD`.
+
+The read APIs mask literal secrets. `GET /api/sessions/{id}/config`, `GET /api/sessions/{id}/workflows/{wf}` and the MCP tool `get_workflow_details` return `******` for a literal value in a field the plugin declares secret (such as `apiKey`, `authToken` or `password`) and for any key, at any depth, whose name contains password, secret, token, api key, authorization or credential. References (`decrypted:name`, `${...}`) are not masked, since they are not secrets. A definition that still holds `******` is refused when saved, so an editor that reads a masked definition and sends it back cannot overwrite a stored secret with the mask: put the real value, or better a `decrypted:` reference, back before saving.
 
 See [Variables and expressions](/building/variables-and-expressions).
 

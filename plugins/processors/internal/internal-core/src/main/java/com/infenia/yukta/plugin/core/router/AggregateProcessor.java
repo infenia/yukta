@@ -26,6 +26,12 @@ import reactor.core.publisher.Mono;
 @SuppressWarnings("PMD.AvoidFieldNameMatchingMethodName")
 public final class AggregateProcessor implements ProcessorPlugin {
 
+  /** Size. */
+  private static final String SIZE = "size";
+
+  /** Timeout ms. */
+  private static final String TIMEOUT_MS = "timeoutMs";
+
   /** Metrics reporter. */
   private final PluginMetricsReporter reporter;
 
@@ -43,12 +49,6 @@ public final class AggregateProcessor implements ProcessorPlugin {
   public AggregateProcessor(final ObjectProvider<PluginMetricsReporter> reporterProvider) {
     this.reporter = reporterProvider.getIfAvailable(() -> PluginMetricsReporter.NOOP);
   }
-
-  /** Size. */
-  private static final String SIZE = "size";
-
-  /** Timeout ms. */
-  private static final String TIMEOUT_MS = "timeoutMs";
 
   @Override
   public PluginDescriptor describe() {

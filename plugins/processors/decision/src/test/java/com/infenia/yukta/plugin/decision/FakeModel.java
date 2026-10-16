@@ -4,7 +4,7 @@ package com.infenia.yukta.plugin.decision;
 
 import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
-import com.infenia.yukta.util.VariableResolver;
+import com.infenia.yukta.plugin.util.VariableResolver;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;

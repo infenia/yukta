@@ -5,18 +5,57 @@ package com.infenia.yukta.plugin.session;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.github.benmanes.caffeine.cache.Ticker;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicLong;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-@SuppressWarnings({"PMD.CommentRequired", "PMD.AvoidDuplicateLiterals"})
+@SuppressWarnings({"PMD.CommentRequired", "PMD.AvoidDuplicateLiterals", "PMD.TooManyMethods"})
 @NoArgsConstructor
 class SessionStoreTest {
 
   private final SessionStore store = new SessionStore();
+
+  @Test
+  void inMemoryStoreKeepsAtMostMaxSessions() {
+    final SessionStore bounded = new SessionStore("", 3, null, Ticker.systemTicker());
+
+    for (int i = 0; i < 10; i++) {
+      bounded.append("s" + i, "user", "q", 5);
+    }
+
+    assertThat(bounded.sessionCount()).isLessThanOrEqualTo(3L);
+  }
+
+  @Test
+  void anEvictedSessionIsReadBackFromItsFile(@TempDir final Path dir) {
+    final SessionStore bounded = new SessionStore(dir.toString(), 2, null, Ticker.systemTicker());
+    for (int i = 0; i < 6; i++) {
+      bounded.append("s" + i, "user", "q" + i, 5);
+    }
+
+    assertThat(bounded.sessionCount()).isLessThanOrEqualTo(2L);
+    assertThat(bounded.history("s0", 5)).containsExactly(Map.of("role", "user", "content", "q0"));
+  }
+
+  @Test
+  void idleSessionsLeaveMemoryAfterTheTtl() {
+    final AtomicLong now = new AtomicLong();
+    final SessionStore expiring = new SessionStore("", 100, Duration.ofMinutes(10), now::get);
+    expiring.append("s", "user", "q", 5);
+
+    now.addAndGet(Duration.ofMinutes(9).toNanos());
+    assertThat(expiring.history("s", 5)).as("used 9 minutes ago").hasSize(1);
+    now.addAndGet(Duration.ofMinutes(9).toNanos());
+    assertThat(expiring.history("s", 5)).as("the read 9 minutes ago kept it").hasSize(1);
+    now.addAndGet(Duration.ofMinutes(11).toNanos());
+    assertThat(expiring.history("s", 5)).as("idle for 11 minutes").isEmpty();
+  }
 
   @Test
   void unknownSessionIsEmpty() {
@@ -151,11 +190,15 @@ class SessionStoreTest {
 
     new SessionStore(
             dir.toString(),
-            withDatabase.getBeanProvider(com.infenia.yukta.plugin.store.SessionHistoryStore.class))
+            withDatabase.getBeanProvider(com.infenia.yukta.plugin.store.SessionHistoryStore.class),
+            100,
+            null)
         .append("a", "user", "x", 5);
     new SessionStore(
             dir.toString(),
-            none.getBeanProvider(com.infenia.yukta.plugin.store.SessionHistoryStore.class))
+            none.getBeanProvider(com.infenia.yukta.plugin.store.SessionHistoryStore.class),
+            100,
+            null)
         .append("b", "user", "y", 5);
 
     assertThat(database.rows).containsOnlyKeys("a");
@@ -164,7 +207,10 @@ class SessionStoreTest {
 
     final SessionStore memory =
         new SessionStore(
-            "", none.getBeanProvider(com.infenia.yukta.plugin.store.SessionHistoryStore.class));
+            "",
+            none.getBeanProvider(com.infenia.yukta.plugin.store.SessionHistoryStore.class),
+            100,
+            null);
     memory.append("c", "user", "z", 5);
     assertThat(memory.history("c", 5)).hasSize(1);
   }

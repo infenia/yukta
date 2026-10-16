@@ -35,28 +35,9 @@ import reactor.core.publisher.Mono;
   "PMD.OnlyOneReturn",
   "PMD.AvoidCatchingGenericException",
   "PMD.TooManyMethods",
-  "PMD.ExceptionAsFlowControl",
-  "PMD.CyclomaticComplexity"
+  "PMD.GuardLogStatement"
 })
 public final class SplitterProcessor implements ProcessorPlugin {
-
-  /** Metrics reporter. */
-  private final PluginMetricsReporter reporter;
-
-  /** Creates the plugin without metrics. */
-  public SplitterProcessor() {
-    this.reporter = PluginMetricsReporter.NOOP;
-  }
-
-  /**
-   * Spring constructor.
-   *
-   * @param reporterProvider optional metrics reporter
-   */
-  @Autowired
-  public SplitterProcessor(final ObjectProvider<PluginMetricsReporter> reporterProvider) {
-    this.reporter = reporterProvider.getIfAvailable(() -> PluginMetricsReporter.NOOP);
-  }
 
   /** Type. */
   private static final String TYPE = "SPLITTER";
@@ -84,6 +65,24 @@ public final class SplitterProcessor implements ProcessorPlugin {
 
   /** Err fail. */
   private static final String ERR_FAIL = "Splitter failed";
+
+  /** Metrics reporter. */
+  private final PluginMetricsReporter reporter;
+
+  /** Creates the plugin without metrics. */
+  public SplitterProcessor() {
+    this.reporter = PluginMetricsReporter.NOOP;
+  }
+
+  /**
+   * Spring constructor.
+   *
+   * @param reporterProvider optional metrics reporter
+   */
+  @Autowired
+  public SplitterProcessor(final ObjectProvider<PluginMetricsReporter> reporterProvider) {
+    this.reporter = reporterProvider.getIfAvailable(() -> PluginMetricsReporter.NOOP);
+  }
 
   @Override
   public PluginDescriptor describe() {

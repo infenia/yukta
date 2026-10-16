@@ -18,7 +18,6 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.support.StaticListableBeanFactory;
 
 /** The Spring constructors accept an optional reporter bean. */
-@SuppressWarnings("PMD.CommentRequired")
 @NoArgsConstructor
 class PluginMetricsWiringTest {
 

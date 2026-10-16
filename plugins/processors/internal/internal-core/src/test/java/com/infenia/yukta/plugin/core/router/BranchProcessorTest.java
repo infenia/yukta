@@ -22,7 +22,14 @@ import reactor.test.StepVerifier;
 import reactor.util.context.Context;
 
 /** Branch processor test. */
-@SuppressWarnings({"PMD.TooManyMethods", "PMD.UseConcurrentHashMap"})
+@SuppressWarnings({
+  "PMD.AvoidDuplicateLiterals",
+  "PMD.LooseCoupling",
+  "PMD.TooManyMethods",
+  "PMD.UnitTestAssertionsShouldIncludeMessage",
+  "PMD.UnnecessaryFullyQualifiedName",
+  "PMD.UseConcurrentHashMap"
+})
 @NoArgsConstructor
 class BranchProcessorTest {
 

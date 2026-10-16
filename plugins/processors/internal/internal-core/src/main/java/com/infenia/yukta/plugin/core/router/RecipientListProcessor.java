@@ -30,29 +30,12 @@ import reactor.core.publisher.Mono;
 @Slf4j
 @Component
 @SuppressWarnings({
-  "PMD.OnlyOneReturn",
   "PMD.AvoidCatchingGenericException",
-  "PMD.CognitiveComplexity"
+  "PMD.OnlyOneReturn",
+  "PMD.TooManyMethods",
+  "PMD.GuardLogStatement"
 })
 public final class RecipientListProcessor implements ProcessorPlugin {
-
-  /** Metrics reporter. */
-  private final PluginMetricsReporter reporter;
-
-  /** Creates the plugin without metrics. */
-  public RecipientListProcessor() {
-    this.reporter = PluginMetricsReporter.NOOP;
-  }
-
-  /**
-   * Spring constructor.
-   *
-   * @param reporterProvider optional metrics reporter
-   */
-  @Autowired
-  public RecipientListProcessor(final ObjectProvider<PluginMetricsReporter> reporterProvider) {
-    this.reporter = reporterProvider.getIfAvailable(() -> PluginMetricsReporter.NOOP);
-  }
 
   /** Type. */
   private static final String TYPE = "RECIPIENT_LIST";
@@ -89,6 +72,24 @@ public final class RecipientListProcessor implements ProcessorPlugin {
 
   /** Err prefix. */
   private static final String ERR_PREFIX = "WorkflowExecutionException: ";
+
+  /** Metrics reporter. */
+  private final PluginMetricsReporter reporter;
+
+  /** Creates the plugin without metrics. */
+  public RecipientListProcessor() {
+    this.reporter = PluginMetricsReporter.NOOP;
+  }
+
+  /**
+   * Spring constructor.
+   *
+   * @param reporterProvider optional metrics reporter
+   */
+  @Autowired
+  public RecipientListProcessor(final ObjectProvider<PluginMetricsReporter> reporterProvider) {
+    this.reporter = reporterProvider.getIfAvailable(() -> PluginMetricsReporter.NOOP);
+  }
 
   // A bare "return """ text block collides with this project's checkstyle
   // TextBlockGoogleStyleFormatting rule, which google-java-format's own formatting of `return`

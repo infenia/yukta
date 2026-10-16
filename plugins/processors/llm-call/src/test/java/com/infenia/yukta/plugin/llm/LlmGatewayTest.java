@@ -149,6 +149,29 @@ class LlmGatewayTest {
   }
 
   @Test
+  void modelCacheIsBoundedAndDroppedModelIsBuiltAgain() {
+    for (int i = 0; i < 130; i++) {
+      gateway.call(modelRequest("m" + i));
+    }
+
+    assertThat(gateway.modelCacheSize()).isLessThanOrEqualTo(100L);
+    assertThat(gateway.call(modelRequest("m0")).text()).isEqualTo("hi");
+  }
+
+  private LlmRequest modelRequest(final String model) {
+    return new LlmRequest(
+        Provider.OPENAI,
+        base + "/v1",
+        "key",
+        model,
+        null,
+        null,
+        Duration.ofSeconds(10),
+        null,
+        List.of(new ChatTurn("user", "q")));
+  }
+
+  @Test
   void toolsAreSentToTheModel_andItsToolCallsComeBackWithoutBeingRun() {
     final LlmRequest request =
         new LlmRequest(

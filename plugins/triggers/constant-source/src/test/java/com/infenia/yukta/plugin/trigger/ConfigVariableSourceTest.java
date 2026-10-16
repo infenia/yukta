@@ -9,7 +9,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.infenia.yukta.util.VariableResolver;
+import com.infenia.yukta.plugin.util.VariableResolver;
 import java.util.Map;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.BeforeEach;
@@ -21,6 +21,12 @@ import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
 /** Config variable source test. */
+@SuppressWarnings({
+  "PMD.AvoidDuplicateLiterals",
+  "PMD.TooManyStaticImports",
+  "PMD.UnitTestAssertionsShouldIncludeMessage",
+  "PMD.UnnecessaryFullyQualifiedName"
+})
 @ExtendWith(MockitoExtension.class)
 @NoArgsConstructor
 class ConfigVariableSourceTest {

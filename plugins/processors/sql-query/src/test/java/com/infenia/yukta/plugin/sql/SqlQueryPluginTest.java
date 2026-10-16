@@ -7,6 +7,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
 import com.infenia.yukta.plugin.core.PluginMetricsReporter;
+import com.infenia.yukta.plugin.util.VariableResolver;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -16,11 +17,12 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.support.StaticListableBeanFactory;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
 /** Tests for SqlQueryPlugin against an in-memory H2 database. */
 @NoArgsConstructor
-@SuppressWarnings("PMD.TooManyMethods")
+@SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.TooManyMethods"})
 class SqlQueryPluginTest {
 
   /** Test literal sql. */
@@ -59,6 +61,90 @@ class SqlQueryPluginTest {
         run("select id, name from t where id = ?", Map.of("id", 1), List.of("id"));
     assertThat(selected.payload())
         .isEqualTo(Map.of("rows", List.of(Map.of("id", 1, "name", "ann")), "count", 1));
+  }
+
+  /** A plugin whose secret store holds one secret, {@code db-pass}. */
+  private static SqlQueryPlugin pluginWithSecrets() {
+    return new SqlQueryPlugin(
+        new StaticListableBeanFactory().getBeanProvider(PluginMetricsReporter.class),
+        new VariableResolver(key -> "db-pass".equals(key) ? Mono.just("pw") : Mono.empty()));
+  }
+
+  @Test
+  void passwordCanBeSecretReference() {
+    run("create user if not exists app password 'pw' admin", Map.of(), List.of());
+    final Map<String, Object> config =
+        Map.of(
+            URL_KEY, URL, USER_KEY, "app", PASS_KEY, "decrypted:db-pass", SQL_KEY, "select 1 as x");
+
+    final Message<?> out =
+        pluginWithSecrets()
+            .process(Flux.just(DefaultMessage.create(UUID.randomUUID(), Map.of())), config)
+            .blockFirst();
+
+    assertThat(out.payload()).isEqualTo(Map.of("rows", List.of(Map.of("x", 1)), "count", 1));
+  }
+
+  @Test
+  void withoutSecretStoreDecryptedReferenceFailsTheMessage() {
+    final Map<String, Object> config =
+        Map.of(
+            URL_KEY, URL, USER_KEY, "sa", PASS_KEY, "decrypted:anything", SQL_KEY, "select 1 as x");
+
+    StepVerifier.create(
+            plugin.process(Flux.just(DefaultMessage.create(UUID.randomUUID(), Map.of())), config))
+        .expectErrorSatisfies(e -> assertThat(e).hasMessageContaining("No secret store"))
+        .verify();
+  }
+
+  @Test
+  void credentialsMayBeLeftOutWhenTheUrlCarriesThem() {
+    final Map<String, Object> config =
+        Map.of(URL_KEY, URL + ";USER=sa;PASSWORD=", SQL_KEY, "select 1 as x");
+
+    final Message<?> out =
+        plugin
+            .process(Flux.just(DefaultMessage.create(UUID.randomUUID(), Map.of())), config)
+            .blockFirst();
+
+    assertThat(((Map<?, ?>) out.payload()).get("count")).isEqualTo(1);
+  }
+
+  @Test
+  void anUnknownSecretFailsTheMessageInsteadOfConnectingWithItsName() {
+    final Map<String, Object> config =
+        Map.of(
+            URL_KEY, URL, USER_KEY, "sa", PASS_KEY, "decrypted:missing", SQL_KEY, "select 1 as x");
+
+    StepVerifier.create(
+            pluginWithSecrets()
+                .process(Flux.just(DefaultMessage.create(UUID.randomUUID(), Map.of())), config))
+        .expectErrorSatisfies(e -> assertThat(e).hasMessageContaining("Secret not found"))
+        .verify();
+  }
+
+  @Test
+  void usernameAndUrlMayUseVariablesToo() {
+    final Map<String, Object> config =
+        Map.of(
+            URL_KEY,
+            "${payload.url}",
+            USER_KEY,
+            "${payload.user}",
+            PASS_KEY,
+            "",
+            SQL_KEY,
+            "select 1 as x");
+
+    final Message<?> out =
+        pluginWithSecrets()
+            .process(
+                Flux.just(
+                    DefaultMessage.create(UUID.randomUUID(), Map.of("url", URL, "user", "sa"))),
+                config)
+            .blockFirst();
+
+    assertThat(((Map<?, ?>) out.payload()).get("count")).isEqualTo(1);
   }
 
   @Test

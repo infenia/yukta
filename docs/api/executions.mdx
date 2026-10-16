@@ -44,7 +44,7 @@ Finds runs across all sessions, or in one session, newest first.
 | `executionId` | string | The run id |
 | `workflowId` | string | The workflow |
 | `status` | string | The run status |
-| `startTime` | string | When it started |
+| `startTime` | string | When it started, with the server's UTC offset, for example `2026-07-19T15:10:01.512+05:30` (`Z` when the server runs in UTC) |
 | `endTime` | string | When it ended. Absent while it runs |
 
 The search reads each session's history, which keeps the newest `yukta.execution-log.retained-runs` runs (default `500`).
@@ -64,8 +64,8 @@ GET /api/executions?status=FAILURE&since=2026-07-19T00:00:00&limit=10
       "executionId": "550e8400-e29b-41d4-a716-446655440000",
       "workflowId": "greet",
       "status": "FAILURE",
-      "startTime": "2026-07-19T09:40:01.512",
-      "endTime": "2026-07-19T09:40:03.870"
+      "startTime": "2026-07-19T09:40:01.512Z",
+      "endTime": "2026-07-19T09:40:03.870Z"
     }
   ]
 }
@@ -87,9 +87,9 @@ Returns a snapshot of the run: its status and a status for every node.
 | `tasks[].nodeId` | string | The node |
 | `tasks[].module` | string | The node's plugin type |
 | `tasks[].status` | string | The node status |
-| `tasks[].startTime`, `tasks[].endTime` | string | Node times. `null` until set |
+| `tasks[].startTime`, `tasks[].endTime` | string | Node times, with the server's UTC offset. `null` until set |
 | `tasks[].metadata` | object | What the node reports, such as progress or the reason for a failure |
-| `startTime`, `endTime` | string | Run times. `endTime` is `null` while it runs |
+| `startTime`, `endTime` | string | Run times, with the server's UTC offset. `endTime` is `null` while it runs |
 | `controlState` | string | The latest operator control state, such as `PAUSED`, or `null` |
 | `definitionVersion` | string | A hash of the workflow graph this run uses, or `null` |
 
@@ -110,11 +110,11 @@ GET /api/executions/550e8400-e29b-41d4-a716-446655440000
     "workflowId": "greet",
     "status": "SUCCESS",
     "tasks": [
-      { "nodeId": "trigger", "module": "API_TRIGGER", "status": "SUCCESS", "startTime": "2026-07-19T10:15:29.001", "endTime": "2026-07-19T10:15:29.040", "metadata": {} },
-      { "nodeId": "end", "module": "CONSOLE_TERMINAL", "status": "SUCCESS", "startTime": "2026-07-19T10:15:29.002", "endTime": "2026-07-19T10:15:29.100", "metadata": {} }
+      { "nodeId": "trigger", "module": "API_TRIGGER", "status": "SUCCESS", "startTime": "2026-07-19T10:15:29.001Z", "endTime": "2026-07-19T10:15:29.040Z", "metadata": {} },
+      { "nodeId": "end", "module": "CONSOLE_TERMINAL", "status": "SUCCESS", "startTime": "2026-07-19T10:15:29.002Z", "endTime": "2026-07-19T10:15:29.100Z", "metadata": {} }
     ],
-    "startTime": "2026-07-19T10:15:29.000",
-    "endTime": "2026-07-19T10:15:29.101",
+    "startTime": "2026-07-19T10:15:29.000Z",
+    "endTime": "2026-07-19T10:15:29.101Z",
     "controlState": null,
     "definitionVersion": "9f3a1c2b7d4e5a60"
   }

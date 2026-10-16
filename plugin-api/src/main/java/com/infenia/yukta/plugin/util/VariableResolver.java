@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
-package com.infenia.yukta.util;
+package com.infenia.yukta.plugin.util;
 
 import com.infenia.yukta.message.Message;
 import com.infenia.yukta.plugin.store.SecretProvider;
@@ -14,13 +14,11 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 /** Resolves variables and expressions in configuration values. */
-@Slf4j
 @Component
 @RequiredArgsConstructor
 @SuppressWarnings({"PMD.OnlyOneReturn", "PMD.SimplifyBooleanReturns", "PMD.TooManyMethods"})

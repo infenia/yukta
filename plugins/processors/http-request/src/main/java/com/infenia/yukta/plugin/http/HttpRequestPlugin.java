@@ -11,8 +11,10 @@ import com.infenia.yukta.plugin.core.PluginGuard;
 import com.infenia.yukta.plugin.core.PluginMetricsReporter;
 import com.infenia.yukta.plugin.exception.WorkflowExecutionException;
 import com.infenia.yukta.plugin.type.ProcessorPlugin;
-import com.infenia.yukta.util.MapUtils;
-import com.infenia.yukta.util.VariableResolver;
+import com.infenia.yukta.plugin.util.ConfigValidation;
+import com.infenia.yukta.plugin.util.MapUtils;
+import com.infenia.yukta.plugin.util.VariableResolver;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -44,6 +46,9 @@ import tools.jackson.databind.ObjectMapper;
 })
 @Slf4j
 @Component
+@SuppressFBWarnings(
+    value = "EI_EXPOSE_REP2",
+    justification = "The gateway is a Spring service that the plugin only calls")
 public final class HttpRequestPlugin implements ProcessorPlugin {
 
   /** Extra time the node gets beyond the request timeout, in seconds. */
@@ -55,6 +60,10 @@ public final class HttpRequestPlugin implements ProcessorPlugin {
   private static final String HEADERS = "headers";
   private static final String BODY = "body";
   private static final String TIMEOUT = "timeout";
+
+  /** Requests in flight at once when the node does not set {@code concurrency}. */
+  private static final int DEFAULT_CONCURRENCY = 16;
+
   private static final String FAILURE_MODE = "failureMode";
   private static final String ROUTE_BY_STATUS = "routeByStatus";
   private static final String PORT_SUCCESS = "success";
@@ -122,7 +131,12 @@ public final class HttpRequestPlugin implements ProcessorPlugin {
             "routeByStatus",
             ConfigField.Type.BOOLEAN,
             false,
-            "Emit on success/failure ports (needs failureMode CONTINUE)"));
+            "Emit on success/failure ports (needs failureMode CONTINUE)"),
+        ConfigField.optional(
+            ConfigValidation.CONCURRENCY_KEY,
+            ConfigField.Type.NUMBER,
+            DEFAULT_CONCURRENCY,
+            "Requests in flight at once"));
   }
 
   @Override
@@ -146,6 +160,7 @@ public final class HttpRequestPlugin implements ProcessorPlugin {
       Example: {"Authorization": "decrypted:crm-token"}
     - body: String or object (strings support variable expressions); sent as-is / as JSON
     - timeout: seconds, positive (default: 30)
+    - concurrency: requests in flight at once, positive (default: 16)
     - failureMode: ERROR | CONTINUE (default: ERROR)
       ERROR: non-2xx status or transport error fails the node
       CONTINUE: the result is emitted (status 0 on transport errors) so downstream can route
@@ -184,7 +199,11 @@ public final class HttpRequestPlugin implements ProcessorPlugin {
   @Override
   public Flux<Message<?>> process(final Flux<Message<?>> input, final Map<String, Object> config) {
     return PluginGuard.counted(
-        input.flatMapSequential(message -> request(message, config)), reporter, "http");
+        input.flatMapSequential(
+            message -> request(message, config),
+            ConfigValidation.concurrency(config, DEFAULT_CONCURRENCY)),
+        reporter,
+        "http");
   }
 
   private Flux<Message<?>> request(final Message<?> message, final Map<String, Object> config) {
@@ -304,6 +323,7 @@ public final class HttpRequestPlugin implements ProcessorPlugin {
     if (config.get(TIMEOUT) instanceof final Number number && number.longValue() <= 0) {
       throw new IllegalArgumentException("timeout must be positive, got: " + number);
     }
+    ConfigValidation.concurrency(config, DEFAULT_CONCURRENCY);
     final FailureMode failureMode = FailureMode.from(config.get(FAILURE_MODE));
     if (routeByStatus(config) && failureMode != FailureMode.CONTINUE) {
       throw new IllegalArgumentException("routeByStatus requires failureMode: CONTINUE");

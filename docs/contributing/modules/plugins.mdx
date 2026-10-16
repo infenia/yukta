@@ -92,7 +92,7 @@ A chat agent that remembers the conversation, lets the model use a tool and post
 
 **Why it is built this way.** Keeps one handshaken session per server and credentials, forwards the server's progress notifications to the engine as heartbeats so a slow tool is not timed out, and cancels the remote request if the node is cancelled.
 
-**Can go wrong.** The server URL and tool name come from config (and can contain variables), and nothing limits which hosts may be called (risk: ssrf).
+**Can go wrong.** The server URL and tool name come from config (and can contain variables), and by default nothing limits which hosts may be called; yukta.mcp-client.allowed-hosts limits them (risk: ssrf).
 
 </Step>
 <Step title="Answer with result">
@@ -188,22 +188,22 @@ Decides which messages go where and in what shape: FILTER, BRANCH, RECIPIENT_LIS
 
 ### Transform & script
 
-*MAPPER, CONTENT-FILTER*
+*MAPPER, CONTENT_FILTER*
 
-Reshapes the payload: MAPPER (projection, template or script) and CONTENT-FILTER (keep or remove fields).
+Reshapes the payload: MAPPER (projection, template or script) and CONTENT_FILTER (keep or remove fields).
 
 - MAPPER has three modes. PROJECTION maps target field names (dots nest) to SpEL expressions: \{'total': 'payload.price \* payload.qty'\}. TEMPLATE fills Handlebars templates (a Mustache-like text language): one template string, or a map of field to template. SCRIPT runs JavaScript that returns the new payload.
 - dropOriginal (default true) throws the old payload away and keeps only what the mapping builds; false merges the result over the original. strictMode (default true) fails the message on any evaluation error; false logs it and carries on (a failing script then gives an empty payload).
 - SCRIPT mode needs the optional script-js module, which implements a small interface (ScriptEngine) using GraalJS. If it is not in the build, SCRIPT configs are rejected with a message saying to add it to yukta.plugins. The script sees 'message', 'payload' and 'metadata', and its result is converted back into plain maps, lists and scalars.
-- The GraalJS context still has host access to the objects it is given, but Class objects are denied, Java.type may load only 12 value classes and java.time.\*, and a script is stopped after 50 million statements or 10 s (yukta.script.max-statements, yukta.script.timeout-ms). It has no memory limit (risk: scriptHostAccess). The engine marks SCRIPT nodes 'computationally heavy' and logs a hint if a script is simple enough to be a projection.
-- CONTENT-FILTER keeps (INCLUDE, paths are SpEL) or removes (EXCLUDE, paths are dot notation) parts of the payload, with optional 'flatten' to turn nested maps into flat ones. It is meant for stripping sensitive or unimportant data before logging or sending on. Its type id is the only kebab-case one (typeIds).
+- The script gets plain-data copies of the message (polyglot proxies for maps and lists; any other value as its text), so it cannot change the message or call methods on its objects. Host access is limited to the value classes Java.type may load (12 value classes and java.time.\*, no Class objects, no implementing host interfaces). A script is stopped after 50 million statements or 10 s (yukta.script.max-statements, yukta.script.timeout-ms), may be given and may return at most 1,000,000 values, and builds strings of at most 10,000,000 characters (an experimental GraalJS option, js.string-length-limit). It has no heap limit (risk: scriptHostAccess). The engine marks SCRIPT nodes 'computationally heavy' and logs a hint if a script is simple enough to be a projection.
+- CONTENT_FILTER keeps (INCLUDE, paths are SpEL) or removes (EXCLUDE, paths are dot notation) parts of the payload, with optional 'flatten' to turn nested maps into flat ones. It is meant for stripping sensitive or unimportant data before logging or sending on. Its type id was `CONTENT-FILTER` before it was renamed to match the others; the old id is not accepted.
 
 - **Guarantees.** PROJECTION and TEMPLATE cannot touch Java classes (restricted SpEL; Handlebars has no code access). With strictMode true an evaluation error fails the message instead of passing through a half-mapped payload.
-- **State.** Compiled templates, parsed expressions and parsed scripts are cached in plain maps keyed by their text, for the life of the process. Nothing is persisted.
-- **Ceiling.** Those caches have no size limit: every distinct script or template ever submitted stays (risk: unboundedMaps). Script work runs on the engine's threads with no time limit.
+- **State.** Compiled templates, parsed expressions and parsed scripts are cached by their text (least recently used first, at most 1,000 of each); a dropped one is compiled again when it is next used. Nothing is persisted.
+- **Ceiling.** The caches are bounded, so a long-lived server does not keep every script or template ever submitted (risk: unboundedMaps, now only the constant-source cache and supervisor windows). Script work runs on the engine's threads with no time limit.
 - **On failure.** A bad mapping fails at config check (missing mode or mapping, SCRIPT without the module). At run time an error follows strictMode.
 
-**Settings:** `MAPPER: mode, mapping, dropOriginal, strictMode`, `CONTENT-FILTER: mode, paths, flatten, strictMode, errorPort`, `script-js is selected with -Pyukta.plugins`
+**Settings:** `MAPPER: mode, mapping, dropOriginal, strictMode`, `CONTENT_FILTER: mode, paths, flatten, strictMode, errorPort`, `script-js is selected with -Pyukta.plugins`
 
 ### Flow & state
 
@@ -213,8 +213,8 @@ Pace messages, repeat another plugin, and keep small facts: DELAY, LOOP_STREAM, 
 
 - DELAY holds each message for delayMs and releases them one at a time, in order. Ten messages with delayMs 100 take about a second, which is a simple way to stay under a rate limit.
 - LOOP_STREAM and LOOP_PREDICATE run another processor again and again on the same message. You name it with targetPluginId and give it targetConfig. After each run an exitCondition (SpEL; it can use #iterationCount and #elapsedTimeMs) decides whether to stop. With no exitCondition the loop stops after the first iteration. Safety limits: maxIterations (default 10), maxDuration (ISO-8601 duration, default PT1M) and delayInterval between rounds (default PT0S). LOOP_STREAM emits every message every iteration produced; LOOP_PREDICATE emits only the last one.
-- failureStrategy (default ABORT) says what a failing iteration does: ABORT fails the node, RETRY and SKIP both move on to the next iteration with the same last message (today they behave identically), ESCALATE throws an error whose text starts with 'WorkflowExecutionException:' but whose Java type is a plain RuntimeException (risk: loopEscalate).
-- A loop finds its target through the plugin registry and calls it directly, so the target's own config check is not run on targetConfig (risk: loopSkipsValidation). This is how Yukta gets polling and retry-until without breaking the 'no cycles' rule of a graph.
+- failureStrategy (default ABORT) says what a failing iteration does: ABORT fails the node, RETRY and SKIP both move on to the next iteration with the same last message and use up an iteration (a failed iteration emits nothing, so they behave identically), ESCALATE ends the run with a RunAbortedException. A RunAbortedException from the target is never absorbed by RETRY or SKIP.
+- A loop finds its target through the plugin registry and calls it directly. The loop's own validateConfig, initialize and prepare pass the call on to the target with targetConfig, so a wrong targetConfig fails at submit and the target (for example a MAPPER in TEMPLATE mode) is set up before the first round (risk: loopSkipsValidation, now only about modelling loops as sub-graphs). This is how Yukta gets polling and retry-until without breaking the 'no cycles' rule of a graph.
 - KV_STORE is a shared map (in memory, or the kv_entry table with yukta.kv.store-type=postgres) with operations get, put, incr and delete. The key comes from config or the payload's 'key' field, 'namespace' prefixes keys to keep users apart, and the output is \{key, value\}. 'put' stores payload.value, 'incr' adds payload.value (default 1) to a whole number. maxEntries (default 10000) refuses new keys beyond the cap, but in the in-memory store the size check and the insert are not one atomic step, so the cap can be slightly overshot under heavy concurrency. In PostgreSQL incr is one statement.
 
 - **Guarantees.** Loops always end: by exit condition, maxIterations or maxDuration. KV_STORE operations on one key are atomic (incr uses an atomic merge), and a full store refuses new keys.
@@ -231,14 +231,14 @@ Pace messages, repeat another plugin, and keep small facts: DELAY, LOOP_STREAM, 
 Calls the outside world: PROCESS_EXECUTOR, HTTP_REQUEST, FILE_READ, FILE_WRITE, SQL_QUERY and MCP_TOOL_CALL.
 
 - They share one pattern. Config is turned into a typed spec; a gateway does the I/O; failureMode ERROR (default) fails the node on a failed call; CONTINUE emits a message describing the failure; routeByStatus (HTTP_REQUEST, MCP_TOOL_CALL) or routeByExitCode (PROCESS_EXECUTOR) then stamps the message with port 'success' or 'failure'. FILE_READ, FILE_WRITE and SQL_QUERY use CONTINUE to send failures to an 'error' port instead. A node timeout is derived from the plugin's own: HTTP and MCP add 5 s, PROCESS_EXECUTOR adds 10 % (at least 5 s). Without that margin the engine's idle timer (default 30 s) would kill a 120 s call after 30 s.
-- PROCESS_EXECUTOR runs an operating-system command (a list: program then arguments, each of which may contain variables). inputMode NONE|ENV|STDIN passes the message in. timeout defaults to 300 s, output is capped at 10,000 lines and 10 MiB per stream, outputFormat STRUCTURED (default) gives \{exitCode, success, timedOut, durationMillis, outputTruncated, stdout, stderr\}. On timeout it destroys the process, then kills it after a grace period. useShell wraps the command in sh or cmd.exe but escapes every special character, so pipes and && never work.
+- PROCESS_EXECUTOR runs an operating-system command (a list: program then arguments, each of which may contain variables). inputMode NONE|ENV|STDIN passes the message in. timeout defaults to 300 s, output is capped at 10,000 lines and 10 MiB per stream, outputFormat STRUCTURED (default) gives \{exitCode, success, timedOut, durationMillis, outputTruncated, stdout, stderr\}. On timeout it destroys the process, then kills it after a grace period. useShell runs the elements as one script in sh or cmd.exe, as written, so pipes and && work; an element that uses a variable is quoted into one word (a Windows value with a double quote, % or a line break is refused). useShell must be true or false, never an expression, and needs yukta.process.allow-any.
 - HTTP_REQUEST sends one request per message (url, method, headers, body, timeout default 30 s) and emits \{status, success, headers, body\}, with JSON bodies parsed. Non-2xx answers are data, not errors, until failureMode ERROR turns them into one. The URL may come from the message, and there is no host allow-list (risk: ssrf).
 - FILE_READ and FILE_WRITE work only inside 'baseDir': the path is normalised, anything that escapes the folder or reaches out through a symbolic link is refused. Reads are capped (maxBytes, default 10 MiB) and must be UTF-8. But baseDir is itself workflow config, so the sandbox limits a path, not an author (risk: fileSandbox).
 - SQL_QUERY runs one parameterised statement per message over JDBC: only '?' placeholders, filled from named payload fields in order, never by pasting text. It opens one connection per message, caps rows (maxRows 1000) and sets a statement timeout (30 s). The driver comes from the deployer. MCP_TOOL_CALL calls a tool on a remote MCP server, keeps a session per server and credentials, reports progress to the engine as heartbeats, and understands a 'reset' control signal that drops cached sessions.
 
 - **Guarantees.** Every plugin here moves blocking work off the event threads, bounds its wait with a timeout and shows the outcome as data or a clear error. SQL values are always bound parameters. File paths cannot leave baseDir by '..' or by a link that already exists.
 - **State.** MCP_TOOL_CALL caches sessions in memory. Everything else is stateless between messages. Secrets used here (apiKey, authToken, SQL password) live in the node's config.
-- **Ceiling.** HTTP_REQUEST, MCP_TOOL_CALL and PROCESS_EXECUTOR process messages with a default concurrency of 256 per node, so a burst can start 256 processes or requests at once (risk: fanout256). SQL opens a connection per message, with no pool.
+- **Ceiling.** HTTP_REQUEST, MCP_TOOL_CALL and PROCESS_EXECUTOR process messages with a per-node `concurrency` setting (default 4 for PROCESS_EXECUTOR, 16 for HTTP_REQUEST and MCP_TOOL_CALL), so a burst cannot start hundreds of processes or requests at once (risk: fanout256). SQL opens a connection per message, with no pool.
 - **On failure.** ERROR fails the node and the engine's retry and onError policy applies. CONTINUE keeps the run alive. A timed-out process leaves children running (risk: orphans). A SQL node's engine timeout is the 30 s default whatever timeoutSeconds says (risk: sqlTimeout).
 
 **Settings:** `PROCESS_EXECUTOR: command, inputMode, timeout 300, outputFormat, failureMode, routeByExitCode, maxOutputLines, maxOutputBytes`, `HTTP_REQUEST: url, method, headers, body, timeout 30, failureMode, routeByStatus`, `FILE_*: baseDir, path, maxBytes, contentField, append, failureMode`, `SQL_QUERY: url, username, password, sql, params, maxRows 1000, timeoutSeconds 30`, `MCP_TOOL_CALL: url, tool, arguments, authToken, timeout 60, resultKey`
@@ -257,7 +257,7 @@ Model-backed nodes: LLM_CALL, SESSION_MEMORY and the decision family CLASSIFY, G
 
 - **Guarantees.** Decision nodes always produce a value in a known shape or an error: a label that is not one of the options, or a reply that is not JSON, is rejected. Probabilities are clamped to 0..1. History per session is trimmed to maxTurns.
 - **State.** Conversation history (SESSION_MEMORY), the ANOMALY and DEDUPE windows and LLM_CALL's cache of model clients are all in memory. Windows live only for one node in one run. Nothing survives a restart.
-- **Ceiling.** Each model call is a network call that can take seconds and cost money, at up to 256 concurrent calls per node. Session memory grows with the number of distinct session ids and is never evicted.
+- **Ceiling.** Each model call is a network call that can take seconds and cost money, at up to `concurrency` (default 16) concurrent calls per node. Session memory is bounded by `yukta.session-memory.max-sessions` (10,000) and the optional `yukta.session-memory.ttl`; with memory-only history an evicted session loses its history.
 - **On failure.** Timeouts and provider errors fail the node (ERROR) or pass the original payload on (CONTINUE). A decision model that is down fails each message. The user turn in SESSION_MEMORY is stored before the model answers.
 
 **Settings:** `LLM_CALL: provider, model, prompt, messages, system, baseUrl, apiKey, temperature, maxTokens, timeout 120, retries 0, prices, failureMode, routeByStatus`, `SESSION_MEMORY: mode, sessionId, message, assistant, maxTurns 20`, `Decision common: backend, provider, model, baseUrl, apiKey, timeout 30, state, into`
@@ -268,7 +268,7 @@ Model-backed nodes: LLM_CALL, SESSION_MEMORY and the decision family CLASSIFY, G
 
 Ends a branch: CONSOLE_TERMINAL logs the payload, NOTIFY_TERMINAL posts it to a webhook.
 
-- CONSOLE_TERMINAL writes 'Consuming message:  ' to the application log at INFO for every message. It takes no settings. It is the quickest way to see a result, and also writes every payload in full to the logs (risk: consoleLogs).
+- CONSOLE_TERMINAL writes 'Consuming message:  ' to the application log at DEBUG for every message, and 'Consumed N message(s)' at INFO when its input ends. It takes no settings. It is the quickest way to see a result (enable DEBUG for `com.infenia.yukta.plugin.terminal`); payloads are written in full only at DEBUG.
 - NOTIFY_TERMINAL sends \{text: ...\} as a JSON POST (Slack-compatible). The text is the 'text' setting if set, else the payload's 'text' field, else the payload turned into a string. url must be https; plain http is allowed only for localhost, 127.x and [::1].
 - It sends one message at a time, in order. timeoutMs defaults to 10,000. failureMode ERROR (default) fails the node on a non-2xx answer, and redirects count as failures; CONTINUE logs the failure and keeps sending later messages.
 - NOTIFY_TERMINAL's url is fixed in config and is not run through the variable resolver, so a message cannot choose where it is sent. Any https host is still accepted, including internal ones.
@@ -382,7 +382,7 @@ With failureMode CONTINUE and routeByStatus true, the 503 message leaves on port
 The 'failure' edge leads to a second node (for example another HTTP_REQUEST to a backup, or a NOTIFY_TERMINAL). The same pattern lets LLM_CALL fail over to a second model: on failure it passes the original payload through so the fallback node can reuse the same config.
 </Step>
 <Step title="The burst problem">
-If a trigger or splitter emits 1,000 messages at once, HTTP_REQUEST starts up to 256 requests at the same time (its default concurrency). A rate-limited API will answer many of them with 429, which then all take the failure path.
+If a trigger or splitter emits 1,000 messages at once, HTTP_REQUEST starts up to `concurrency` requests at the same time (default 16; the rest wait). A rate-limited API will answer many of them with 429, which then all take the failure path.
 </Step>
 </Steps>
 
@@ -426,7 +426,7 @@ The loop runs the target once on the last message, evaluates the exit condition 
 If the condition never becomes true, the loop stops at 10 iterations or one minute, whichever is first, and emits what it has. The duration is checked between rounds, so a single slow request can run past it.
 </Step>
 <Step title="A round fails">
-With failureStrategy ABORT (default) the node fails. RETRY and SKIP both go on to the next round with the previous message. ESCALATE fails with an error whose text starts with 'WorkflowExecutionException:' but whose type is a plain RuntimeException, so engine policies that match on exception type do not recognise it.
+With failureStrategy ABORT (default) the node fails. RETRY and SKIP both go on to the next round with the previous message. ESCALATE fails with a RunAbortedException (the cause is the failure), which engine retry and onError policies never absorb. A RunAbortedException from the target passes through RETRY and SKIP unchanged.
 </Step>
 </Steps>
 
@@ -494,7 +494,7 @@ Eighteen things the plugins can do, grouped by purpose, each with what it guaran
 | Filtering and branching | Keeps, drops or routes messages by condition. | FILTER with an optional discard port; BRANCH by selector or by per-case conditions; RECIPIENT_LIST to several ports. | strictMode makes an unmatched or failing message an error, not silent loss. | Conditions are restricted SpEL; the REGO engine is not implemented. |
 | Split and group | Turns one list into items and items back into a batch. | SPLITTER (itemsPath, concurrency 1024) and AGGREGATE (size, timeoutMs). | AGGREGATE flushes when the stream completes. | A partial batch is only in memory. |
 | Input checks | Sends malformed data to an 'invalid' port. | VALIDATE with required fields and types. | Reasons are attached in failureReason. | Checks shape only, not business rules. |
-| Reshaping | Renames, computes, templates and trims fields. | MAPPER PROJECTION, TEMPLATE or SCRIPT; CONTENT-FILTER INCLUDE or EXCLUDE. | PROJECTION and TEMPLATE cannot reach Java classes. | SCRIPT may load only 12 value classes and java.time.\*, runs at most 50 million statements and 10 s, and has no memory limit. |
+| Reshaping | Renames, computes, templates and trims fields. | MAPPER PROJECTION, TEMPLATE or SCRIPT; CONTENT_FILTER INCLUDE or EXCLUDE. | PROJECTION and TEMPLATE cannot reach Java classes. | SCRIPT gets plain-data copies of the message, may load only 12 value classes and java.time.\*, runs at most 50 million statements and 10 s, handles at most 1,000,000 values and 10 million characters per string, and has no heap limit. |
 
 ### Flow and state
 
@@ -508,7 +508,7 @@ Eighteen things the plugins can do, grouped by purpose, each with what it guaran
 | Capability | What it does | How | Guarantee | Limit |
 |---|---|---|---|---|
 | Running programs | Runs an OS command per message and returns its result. | PROCESS_EXECUTOR with env or stdin input, caps and timeout, structured, raw or JSON output. | Output is capped (10,000 lines, 10 MiB); a timeout destroys the process. | Any program the server can run; children can outlive a timeout. |
-| Web calls | Calls any HTTP address and returns status, headers and body. | HTTP_REQUEST with variables in url, headers and body; routeByStatus. | Non-2xx is data unless failureMode ERROR. | No host allow-list; concurrency 256. |
+| Web calls | Calls any HTTP address and returns status, headers and body. | HTTP_REQUEST with variables in url, headers and body; routeByStatus. | Non-2xx is data unless failureMode ERROR. | Open to every host unless yukta.http.allowed-hosts is set; concurrency 16 by default. |
 | Files in a folder | Reads or writes text files under a base directory. | FILE_READ and FILE_WRITE normalise paths and refuse '..' or links that leave baseDir. | Reads are size-capped (10 MiB). | baseDir is author-chosen; a link swapped in after the check is not caught. |
 | Database queries | Runs a parameterised SQL statement. | SQL_QUERY binds payload fields to '?' placeholders over JDBC. | Values are never pasted into SQL; rows capped at 1000; statement timeout 30 s. | A connection per message; any statement kind is allowed. |
 | Calling tools on another server | Invokes an MCP tool and returns its result. | MCP_TOOL_CALL over streamable HTTP with cached sessions, progress heartbeats and cancellation. | A slow tool is not timed out while it reports progress. | No host allow-list; token in config. |
@@ -531,7 +531,7 @@ Eighteen things the plugins can do, grouped by purpose, each with what it guaran
 
 | Capability | What it does | How | Guarantee | Limit |
 |---|---|---|---|---|
-| Output | Logs or posts the result. | CONSOLE_TERMINAL logs each payload; NOTIFY_TERMINAL posts \{text\} to an https webhook. | NOTIFY never uses clear text except to localhost. | CONSOLE writes full payloads at INFO. |
+| Output | Logs or posts the result. | CONSOLE_TERMINAL logs each payload; NOTIFY_TERMINAL posts \{text\} to an https webhook. | NOTIFY never uses clear text except to localhost. | CONSOLE writes full payloads only at DEBUG. |
 
 ## Guarantees, limits and defaults
 
@@ -544,7 +544,7 @@ The engine hands each plugin a stream. How a plugin consumes it decides ordering
 
 | Plugins | How messages are handled | What it means |
 |---|---|---|
-| PROCESS_EXECUTOR, HTTP_REQUEST, MCP_TOOL_CALL, LLM_CALL, SESSION_MEMORY, decision plugins (except ANOMALY, DEDUPE) | Started concurrently, output kept in input order; default concurrency 256 per node | \*\*Partly.\*\* Fast, but a burst of 1,000 messages starts 256 calls at once and cannot be tuned in config |
+| PROCESS_EXECUTOR, HTTP_REQUEST, MCP_TOOL_CALL, LLM_CALL, SESSION_MEMORY, decision plugins (except ANOMALY, DEDUPE) | Started concurrently, output kept in input order; `concurrency` per node (4 for PROCESS_EXECUTOR, 16 for the network plugins and decision plugins); SESSION_MEMORY runs one message at a time | \*\*Yes.\*\* A burst of 1,000 messages starts at most `concurrency` calls at once; raise it in config for more throughput |
 | FILE_READ, FILE_WRITE, SQL_QUERY, NOTIFY_TERMINAL, ANOMALY, DEDUPE, loops | One message at a time, in order | \*\*Yes.\*\* Safe for order-dependent state; a slow call paces everything behind it |
 | FILTER, MAPPER, RECIPIENT_LIST (parallel true), SPLITTER (parallel true, 1024) | Handled concurrently; order of output is not guaranteed across messages | \*\*Note.\*\* Fine for independent items; set parallel false when order matters |
 | DELAY | Each message waits delayMs, released one at a time | \*\*Yes.\*\* Spaces out a stream; a plain way to stay under a rate limit |
@@ -573,7 +573,7 @@ A table of protections a reader might assume. 'Enforced' means code rejects or l
 | Call timeouts (process 300 s, HTTP 30 s, MCP 60 s, LLM 120 s per attempt, SQL 30 s, webhook 10 s) | \*\*Yes.\*\* Enforced per plugin; the engine's node timeout follows the plugin's, except SQL_QUERY and FILE_\* which keep the engine default of 30 s |
 | Output and result size caps | \*\*Partly.\*\* Enforced for process output (10,000 lines, 10 MiB), file reads (10 MiB) and SQL rows (1000). No plugin-level cap on HTTP or MCP response bodies; client-library defaults apply and were not checked |
 | Restricted expressions (no Java types in SpEL) | \*\*Yes.\*\* Enforced for FILTER, BRANCH, MAPPER projection and friends |
-| Resource limits on JavaScript | \*\*Partly.\*\* Class lookup limited to 12 classes and java.time, Class objects denied, 50 million statements and 10 s; no memory limit |
+| Resource limits on JavaScript | \*\*Partly.\*\* Class lookup limited to 12 classes and java.time, Class objects denied, 50 million statements and 10 s, 1,000,000 values in and out, 10 million characters per string; no heap limit |
 | Which hosts HTTP_REQUEST, MCP_TOOL_CALL and NOTIFY_TERMINAL may reach | \*\*No.\*\* Not enforced (NOTIFY only requires https) |
 | Which programs PROCESS_EXECUTOR may run | \*\*No.\*\* Not enforced: any program the server account can start |
 | File paths stay under baseDir | \*\*Partly.\*\* Enforced for '..' and existing links; baseDir itself is workflow config, and a link created after the check is not caught |
@@ -613,8 +613,8 @@ Type id, what it does, key settings with defaults, and notes. All 'strictMode' d
 | SPLITTER | Processor | One message per list item | itemsPath, headerMapping, parallel (true), concurrency (1024), errorPort | Parallel output order not promised |
 | AGGREGATE | Processor | Batches payloads into one list message | size (required), timeoutMs (none) | Partial batch in memory; flushed at stream end |
 | VALIDATE | Processor | Checks required fields and types | required, types (string\|number\|boolean\|object\|array) | Bad messages leave on 'invalid' with failureReason |
-| MAPPER | Processor | Reshapes the payload | mode PROJECTION\|TEMPLATE\|SCRIPT, mapping, dropOriginal (true) | SCRIPT needs script-js; class lookup, time and statements limited, no memory limit (scriptHostAccess) |
-| CONTENT-FILTER | Processor | Keeps (INCLUDE) or drops (EXCLUDE) paths | mode, paths, flatten (false), errorPort | Only kebab-case type id (typeIds) |
+| MAPPER | Processor | Reshapes the payload | mode PROJECTION\|TEMPLATE\|SCRIPT, mapping, dropOriginal (true) | SCRIPT needs script-js; plain-data inputs, class lookup, time, statements, value counts and string length limited, no heap limit (scriptHostAccess) |
+| CONTENT_FILTER | Processor | Keeps (INCLUDE) or drops (EXCLUDE) paths | mode, paths, flatten (false), errorPort | Renamed from CONTENT-FILTER; the old id is not accepted |
 | DELAY | Processor | Holds each message delayMs, one at a time | delayMs (required, positive) |  |
 | LOOP_STREAM | Processor | Runs a target processor repeatedly, emits every round's output | targetPluginId, targetConfig, exitCondition, maxIterations (10), maxDuration (PT1M), delayInterval (PT0S), failureStrategy (ABORT) | No exitCondition means one round; loopEscalate, loopSkipsValidation |
 | LOOP_PREDICATE | Processor | Same, emits only the last message | same as LOOP_STREAM | Same risks |
@@ -647,7 +647,7 @@ Decision plugins share these settings: backend SYSTEMONE|LLM (SYSTEMONE), provid
 
 | Name | Kind | Does | Switch and settings (default) | Notes |
 |---|---|---|---|---|
-| CONSOLE_TERMINAL | Terminal | Logs each payload at INFO | none | Full payloads in logs (consoleLogs) |
+| CONSOLE_TERMINAL | Terminal | Logs each payload at DEBUG, a count at INFO | none | Full payloads in logs at DEBUG (consoleLogs) |
 | NOTIFY_TERMINAL | Terminal | POSTs \{text\} to a webhook | url (https, http only for localhost), text, timeoutMs (10000), failureMode (ERROR) | Redirects count as failures; url is not variable-resolved |
 | RuleSupervisor (id 'rules') | Supervisor | Applies JSON rules to events and reviews commands | yukta.supervisor.rules.file | Rules fixed at startup |
 | RuleControlPlane | Control plane | The same rules behind decide(event) | yukta.control-plane.rules.file | Probability 1, source RULE |
@@ -676,7 +676,7 @@ Always-on modules are compiled into every build. Optional modules are picked wit
 
 | Module (name in yukta.plugins) | Always on? | Types or components it provides |
 |---|---|---|
-| internal-core | Always | FILTER, BRANCH, RECIPIENT_LIST, SPLITTER, AGGREGATE, VALIDATE, MAPPER, CONTENT-FILTER, DELAY, LOOP_STREAM, LOOP_PREDICATE, KV_STORE |
+| internal-core | Always | FILTER, BRANCH, RECIPIENT_LIST, SPLITTER, AGGREGATE, VALIDATE, MAPPER, CONTENT_FILTER, DELAY, LOOP_STREAM, LOOP_PREDICATE, KV_STORE |
 | api-trigger, constant-source, schedule-trigger | Always | API_TRIGGER, CONSTANT_SOURCE, SCHEDULE_TRIGGER |
 | console-terminal, notify-terminal | Always | CONSOLE_TERMINAL, NOTIFY_TERMINAL |
 | rule-supervisor, rule-control-plane, model-control-plane, rules-first-control-plane | Always | RuleSupervisor, RuleControlPlane, ModelControlPlane, RulesFirstControlPlane (each active only if its property is set) |
@@ -826,7 +826,7 @@ One JSON file, \{"rules": [...]\}. Each rule has an id and either when/then or d
 | SpEL | Spring Expression Language, a small expression syntax. | Used by FILTER, BRANCH and others; restricted here so it cannot name Java classes. |
 | Handlebars | A text template language with \{\{placeholders\}\}. | MAPPER's TEMPLATE mode; it cannot run arbitrary Java. |
 | GraalJS and GraalVM | A JavaScript engine that runs on the Java virtual machine, part of the GraalVM project. | Powers MAPPER's SCRIPT mode; its security settings decide what a script can do. |
-| Host access | The ability of guest script code to call into the Java program that hosts it. | HostAccess.ALL is still used, but Class objects are denied and class lookup is allow-listed; it is the core of risk scriptHostAccess. |
+| Host access | The ability of guest script code to call into the Java program that hosts it. | No longer HostAccess.ALL: the script gets plain-data copies, and host access covers only the allow-listed value classes (no Class objects, no implementing host interfaces); it is the core of risk scriptHostAccess. |
 | SSRF | Server-side request forgery: making a server call an address the caller could not reach. | HTTP_REQUEST and MCP_TOOL_CALL can reach internal systems if the url is not restricted. |
 | Allow-list and deny-list | Allow-list: only listed things are permitted. Deny-list: everything except listed things. | Deny-lists miss new cases; the variable resolver uses one, the file sandbox uses neither. |
 | Sandbox | A restriction that keeps code or data inside a defined area. | FILE_READ and FILE_WRITE use a base directory as one. |
@@ -840,7 +840,7 @@ One JSON file, \{"rules": [...]\}. Each rule has an id and either when/then or d
 | Prompt injection | Text in the data that tells a model to ignore its instructions. | Decision plugins judge data that may contain such text. |
 | Fail open and fail closed | On error, allow (open) or refuse (closed). | The model plane fails open; deny rules fail closed. |
 | Back-pressure | A slow consumer making its producers wait instead of buffering without limit. | Why a slow webhook slows the whole branch. |
-| Reactor and flatMap concurrency | Reactor is the stream library; flatMap runs inner work concurrently, by default up to 256 at once. | The source of risk fanout256. |
+| Reactor and flatMap concurrency | Reactor is the stream library; flatMap runs inner work concurrently, by default up to 256 at once. | The plugins now pass their own `concurrency` instead of using that default (risk fanout256). |
 | Reactor context | A bag of values that travels with a stream, such as node id or the start payload. | API_TRIGGER and many plugins read from it. |
 | Dead letter | A message that failed and is parked on an error path instead of being lost. | The engine's onError ROUTE sends failures to the 'error' port. |
 | Heartbeat | A signal from a long task saying it is still alive. | MCP_TOOL_CALL turns progress notifications into heartbeats. |

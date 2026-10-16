@@ -15,6 +15,7 @@ import reactor.core.publisher.Flux;
 import reactor.test.StepVerifier;
 
 /** Tests for ValidateProcessor. */
+@SuppressWarnings("PMD.AvoidDuplicateLiterals")
 @NoArgsConstructor
 class ValidateProcessorTest {
 

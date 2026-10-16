@@ -3,14 +3,18 @@
 package com.infenia.yukta.plugin.process;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.infenia.yukta.plugin.exception.WorkflowExecutionException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
@@ -147,43 +151,96 @@ class ProcessExecutorGatewayTest {
   // New tests for improved coverage
 
   @Test
-  void escapeShellArg_safeAlphanumericArgument_returnsUnescaped() {
-    // Uses reflection to test private method via shell wrapping
+  void wrapInShell_joinsTheCommandIntoOneRawScript() {
+    assertThat(gateway.wrapInShell(List.of("echo hi", "|", "tr a-z A-Z"), "Linux"))
+        .containsExactly("/bin/sh", "-c", "echo hi | tr a-z A-Z");
+    assertThat(gateway.wrapInShell(List.of("dir", "|", "find \"x\""), "Windows 11"))
+        .containsExactly("cmd.exe", "/c", "dir | find \"x\"");
+  }
+
+  @Test
+  @DisabledOnOs(OS.WINDOWS)
+  void shell_pipesAndLogicalOperatorsWork() {
     StepVerifier.create(
             gateway.executeStream(
-                List.of(ECHO, "hello-world_123.txt"),
+                List.of("echo hello", "|", "tr a-z A-Z"),
                 null,
                 DEFAULT_TIMEOUT_SECONDS,
                 Map.of(),
                 true))
-        .assertNext(line -> assertThat(line).contains("hello-world_123.txt"))
+        .assertNext(line -> assertThat(line).contains("HELLO"))
+        .verifyComplete();
+    StepVerifier.create(
+            gateway.executeStream(
+                List.of("echo a", "&&", "echo b"), null, DEFAULT_TIMEOUT_SECONDS, Map.of(), true))
+        .expectNextCount(2)
         .verifyComplete();
   }
 
   @Test
-  void escapeShellArg_unsafeArgumentWithSemicolon_quotesForSafety() {
-    StepVerifier.create(
-            gateway.executeStream(
-                List.of(ECHO, "hello;world"), null, DEFAULT_TIMEOUT_SECONDS, Map.of(), true))
-        .assertNext(line -> assertThat(line).contains("hello;world"))
-        .verifyComplete();
+  @DisabledOnOs(OS.WINDOWS)
+  void shell_redirectsWork() throws IOException {
+    final Path file = Files.createTempFile("yukta-shell", ".txt");
+    try {
+      StepVerifier.create(
+              gateway.executeStream(
+                  List.of("echo written", ">", file.toString()),
+                  null,
+                  DEFAULT_TIMEOUT_SECONDS,
+                  Map.of(),
+                  true))
+          .verifyComplete();
+
+      assertThat(Files.readString(file)).contains("written");
+    } finally {
+      Files.deleteIfExists(file);
+    }
   }
 
   @Test
-  void escapeShellArg_argumentWithPipe_quotesForSafety() {
-    StepVerifier.create(
-            gateway.executeStream(
-                List.of(ECHO, "hello|world"), null, DEFAULT_TIMEOUT_SECONDS, Map.of(), true))
-        .assertNext(line -> assertThat(line).contains("hello|world"))
-        .verifyComplete();
+  void quoteForShell_posix_makesTheValueOneInertWord() {
+    assertThat(ProcessExecutorGateway.quoteForShell("a b; rm -rf /", "Linux"))
+        .isEqualTo("'a b; rm -rf /'");
+    assertThat(ProcessExecutorGateway.quoteForShell("it's", "Linux")).isEqualTo("'it'\"'\"'s'");
+    assertThat(ProcessExecutorGateway.quoteForShell("", "Linux")).isEqualTo("''");
   }
 
   @Test
-  void escapeShellArg_argumentWithSingleQuote_escapesProperly() {
+  void quoteForShell_windows_usesDoubleQuotesWhichKeepMetacharactersLiteral() {
+    assertThat(ProcessExecutorGateway.quoteForShell("a & b | c > d ^ e (f)", "Windows 11"))
+        .isEqualTo("\"a & b | c > d ^ e (f)\"");
+    assertThat(ProcessExecutorGateway.quoteForShell("C:\\dir\\", "Windows 11"))
+        .as("a trailing backslash must not escape the closing quote")
+        .isEqualTo("\"C:\\dir\\\\\"");
+  }
+
+  @Test
+  void quoteForShell_windows_loneBackslashIsDoubled() {
+    assertThat(ProcessExecutorGateway.quoteForShell("\\", "Windows 11")).isEqualTo("\"\\\\\"");
+  }
+
+  @Test
+  void quoteForShell_windows_refusesWhatCmdCannotQuote() {
+    for (final String bad : List.of("say \"hi\"", "100%", "a\nb", "a\rb", "a\0b")) {
+      assertThatThrownBy(() -> ProcessExecutorGateway.quoteForShell(bad, "Windows 11"))
+          .isInstanceOf(IllegalArgumentException.class)
+          .hasMessageContaining("inputMode");
+    }
+  }
+
+  @Test
+  @DisabledOnOs(OS.WINDOWS)
+  void quotedValuesStayInertInRealShell() {
+    final String hostile = "a;b|c>d $(echo INJECTED) `echo INJECTED` 'q' \"dq\" \\ end";
+
     StepVerifier.create(
             gateway.executeStream(
-                List.of(PRINTF, "%s\\n", "it's"), null, DEFAULT_TIMEOUT_SECONDS, Map.of(), true))
-        .assertNext(line -> assertThat(line).contains("it's"))
+                List.of("printf '%s\\n'", ProcessExecutorGateway.quoteForShell(hostile, "Linux")),
+                null,
+                DEFAULT_TIMEOUT_SECONDS,
+                Map.of(),
+                true))
+        .assertNext(line -> assertThat(line.strip()).isEqualTo(hostile))
         .verifyComplete();
   }
 
@@ -426,20 +483,6 @@ class ProcessExecutorGatewayTest {
   }
 
   @Test
-  void executeStream_commandWithMetacharacters_shellQuotingPreventsInjection() {
-    // Test that dangerous shell metacharacters are properly escaped when useShell=true
-    StepVerifier.create(
-            gateway.executeStream(
-                List.of("echo", "safe;string|with:pipes"),
-                null,
-                DEFAULT_TIMEOUT_SECONDS,
-                Map.of(),
-                true))
-        .assertNext(output -> assertThat(output).contains("safe;string|with:pipes"))
-        .verifyComplete();
-  }
-
-  @Test
   void executeStream_shellArgWithComplexQuoting_handledCorrectly() {
     StepVerifier.create(
             gateway.executeStream(
@@ -449,43 +492,6 @@ class ProcessExecutorGatewayTest {
                 Map.of(),
                 false))
         .assertNext(output -> assertThat(output).contains("test string with spaces"))
-        .verifyComplete();
-  }
-
-  @Test
-  void escapeShellArg_alphanumericAndSafeChars_noQuotingNeeded() {
-    // Test through shell wrapper that safe args don't get quoted
-    StepVerifier.create(
-            gateway.executeStream(
-                List.of("echo", "hello123_-./test"), null, DEFAULT_TIMEOUT_SECONDS, Map.of(), true))
-        .assertNext(output -> assertThat(output).contains("hello123_-./test"))
-        .verifyComplete();
-  }
-
-  @Test
-  void escapeShellArg_dangerousCharsSemicolon_quotesForSafety() {
-    StepVerifier.create(
-            gateway.executeStream(
-                List.of("echo", "cmd1;cmd2"), null, DEFAULT_TIMEOUT_SECONDS, Map.of(), true))
-        .assertNext(output -> assertThat(output).contains("cmd1;cmd2"))
-        .verifyComplete();
-  }
-
-  @Test
-  void escapeShellArg_dangerousCharsPipe_quotesForSafety() {
-    StepVerifier.create(
-            gateway.executeStream(
-                List.of("echo", "text|other"), null, DEFAULT_TIMEOUT_SECONDS, Map.of(), true))
-        .assertNext(output -> assertThat(output).contains("text|other"))
-        .verifyComplete();
-  }
-
-  @Test
-  void escapeShellArg_dangerousCharsRedirection_quotesForSafety() {
-    StepVerifier.create(
-            gateway.executeStream(
-                List.of("echo", "file>output"), null, DEFAULT_TIMEOUT_SECONDS, Map.of(), true))
-        .assertNext(output -> assertThat(output).contains("file>output"))
         .verifyComplete();
   }
 
@@ -612,20 +618,6 @@ class ProcessExecutorGatewayTest {
   }
 
   @Test
-  void escapeShellArg_safeCharactersOnly_returnsUnquoted() {
-    // Test the safe branch in escapeShellArg where regex matches
-    StepVerifier.create(
-            gateway.executeStream(
-                List.of("echo", "abc123._/test-value:works"),
-                null,
-                DEFAULT_TIMEOUT_SECONDS,
-                Map.of(),
-                true))
-        .assertNext(output -> assertThat(output).contains("abc123._/test-value:works"))
-        .verifyComplete();
-  }
-
-  @Test
   void processOutput_includesCommandInErrorMessage() {
     // Test that error messages include the command
     StepVerifier.create(
@@ -731,6 +723,53 @@ class ProcessExecutorGatewayTest {
     // destroyForcibly() is asynchronous; wait briefly for the kill to take effect
     process.waitFor(5, TimeUnit.SECONDS);
     assertThat(process.isAlive()).isFalse();
+  }
+
+  @Test
+  @DisabledOnOs(OS.WINDOWS)
+  void cleanupProcess_alsoDestroysDescendants() throws Exception {
+    final Process process = new ProcessBuilder("sh", "-c", "sleep 30 & wait").start();
+    ProcessHandle grandchild = null;
+    for (int i = 0; i < 50 && grandchild == null; i++) {
+      grandchild = process.descendants().findFirst().orElse(null);
+      if (grandchild == null) {
+        Thread.sleep(100);
+      }
+    }
+    assertThat(grandchild).as("the shell started a child").isNotNull();
+    assertThat(grandchild.isAlive()).isTrue();
+
+    StepVerifier.create(gateway.cleanupProcess(process)).verifyComplete();
+
+    grandchild.onExit().get(5, TimeUnit.SECONDS);
+    assertThat(grandchild.isAlive()).as("the grandchild must not outlive its parent").isFalse();
+  }
+
+  @Test
+  @DisabledOnOs(OS.WINDOWS)
+  void executeStream_timeout_alsoKillsGrandchildren() throws Exception {
+    final Path pidFile = Files.createTempFile("yukta-grandchild", ".pid");
+    try {
+      StepVerifier.create(
+              gateway.executeStream(
+                  List.of("sh", "-c", "sleep 30 & echo $! > " + pidFile + "; wait"),
+                  null,
+                  SHORT_TIMEOUT_SECONDS,
+                  Map.of(),
+                  false))
+          .verifyErrorSatisfies(error -> assertThat(error.getMessage()).contains("timed out"));
+
+      final long pid = Long.parseLong(Files.readString(pidFile).trim());
+      final Optional<ProcessHandle> grandchild = ProcessHandle.of(pid);
+      if (grandchild.isPresent()) {
+        grandchild.get().onExit().get(5, TimeUnit.SECONDS);
+      }
+      assertThat(ProcessHandle.of(pid).map(ProcessHandle::isAlive).orElse(false))
+          .as("the grandchild must be gone after the timeout")
+          .isFalse();
+    } finally {
+      Files.deleteIfExists(pidFile);
+    }
   }
 
   @Test

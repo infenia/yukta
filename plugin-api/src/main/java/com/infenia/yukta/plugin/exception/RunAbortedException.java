@@ -23,6 +23,16 @@ public class RunAbortedException extends WorkflowExecutionException {
   }
 
   /**
+   * Creates the exception.
+   *
+   * @param message why the run must end
+   * @param cause the failure that made it end
+   */
+  public RunAbortedException(final String message, final Throwable cause) {
+    super(message, cause);
+  }
+
+  /**
    * Whether an error, or something it was caused by, is a {@code RunAbortedException}.
    *
    * @param error the error

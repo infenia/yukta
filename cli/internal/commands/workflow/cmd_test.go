@@ -29,11 +29,11 @@ func TestExecutionCommands(t *testing.T) {
 		wantReq string
 		wantOut string
 	}{
-		{"pause", execOK, []string{"pause", "s", "e"}, "POST /api/workflow/s/e/pause", "Execution paused: exec-1"},
-		{"resume", execOK, []string{"resume", "s", "e"}, "POST /api/workflow/s/e/resume", "Execution resumed: exec-1"},
+		{"pause", execOK, []string{"pause", "s", "e"}, "POST /api/executions/e/pause", "Execution paused: exec-1"},
+		{"resume", execOK, []string{"resume", "s", "e"}, "POST /api/executions/e/resume", "Execution resumed: exec-1"},
 		{"stop", `{"data":{"executionIds":["a","b"]}}`, []string{"stop", "s", "w"}, "POST /api/workflow/s/w/stop", "Stopped 2 execution(s)\n  - a\n  - b"},
 		{"status", `{"data":{"executionId":"exec-1","workflowId":"w","status":"RUNNING","tasks":[{}]}}`,
-			[]string{"status", "s", "e"}, "GET /api/workflow/s/status/e", "Tasks:    1"},
+			[]string{"status", "s", "e"}, "GET /api/executions/e", "Tasks:    1"},
 		{"history", `{"data":[{"executionId":"exec-1","workflowId":"w","status":"DONE"}]}`,
 			[]string{"history", "s"}, "GET /api/workflow/s/history", "Total Executions: 1"},
 	}

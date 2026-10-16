@@ -16,16 +16,19 @@ import com.infenia.yukta.plugin.core.PluginLogSink;
 import com.infenia.yukta.plugin.core.PluginMetricsReporter;
 import com.infenia.yukta.plugin.core.WorkflowContext;
 import com.infenia.yukta.plugin.exception.WorkflowExecutionException;
-import com.infenia.yukta.util.VariableResolver;
+import com.infenia.yukta.plugin.util.VariableResolver;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicInteger;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledOnOs;
+import org.junit.jupiter.api.condition.OS;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
@@ -40,6 +43,7 @@ import reactor.test.StepVerifier;
 import reactor.util.context.Context;
 
 @SuppressWarnings({
+  "PMD.CyclomaticComplexity",
   "PMD.TooManyMethods",
   "PMD.ExcessiveImports",
   "PMD.CommentRequired",
@@ -62,6 +66,11 @@ class ProcessExecutorPluginTest {
   @BeforeEach
   void setUp() {
     plugin = new ProcessExecutorPlugin(gateway, resolver);
+    // like the real resolver: a value is dynamic when it uses ${...}
+    when(resolver.isStatic(any()))
+        .thenAnswer(
+            invocation ->
+                !(invocation.getArgument(0) instanceof final String text && text.contains("${")));
     // Generic resolver mock to handle all variable resolutions by returning the input
     when(resolver.resolve(any(), any()))
         .thenAnswer(
@@ -105,6 +114,115 @@ class ProcessExecutorPluginTest {
         .verifyComplete();
 
     verify(gateway).executeForResult(any(), eq(sink));
+  }
+
+  /** Runs {@code count} messages through the plugin and returns the most calls seen at once. */
+  private int peakConcurrency(final Map<String, Object> config, final int count) {
+    final AtomicInteger inFlight = new AtomicInteger();
+    final AtomicInteger peak = new AtomicInteger();
+    when(gateway.executeForResult(any()))
+        .thenAnswer(
+            invocation ->
+                Mono.defer(
+                    () -> {
+                      peak.accumulateAndGet(inFlight.incrementAndGet(), Math::max);
+                      return Mono.just(successResult("ok"))
+                          .delayElement(Duration.ofMillis(20))
+                          .doOnTerminate(inFlight::decrementAndGet);
+                    }));
+    StepVerifier.create(
+            plugin.process(Flux.range(0, count).map(ProcessExecutorPluginTest::message), config))
+        .expectNextCount(count)
+        .verifyComplete();
+    return peak.get();
+  }
+
+  @Test
+  void process_handlesAtMostTheConfiguredNumberOfMessagesAtOnce() {
+    assertThat(peakConcurrency(Map.of("command", List.of("echo", "ok"), "concurrency", 2), 20))
+        .isEqualTo(2);
+  }
+
+  @Test
+  void process_withoutConcurrencyStartsFewProcessesAtOnce() {
+    assertThat(peakConcurrency(Map.of("command", List.of("echo", "ok")), 40))
+        .as("default concurrency of a node that forks processes")
+        .isLessThanOrEqualTo(4)
+        .isGreaterThan(1);
+  }
+
+  @Test
+  void validateConfig_rejectsNonPositiveConcurrency() {
+    StepVerifier.create(
+            plugin.validateConfig(Map.of("command", List.of("echo", "ok"), "concurrency", 0)))
+        .expectErrorMessage("concurrency must be a positive whole number, got: 0")
+        .verify();
+  }
+
+  @Test
+  @DisabledOnOs(OS.WINDOWS)
+  void process_useShell_quotesOnlyTheElementsThatUseVariables() {
+    when(resolver.resolve(eq("${payload.query}"), any())).thenReturn(Mono.just("x; rm -rf /"));
+    final Map<String, Object> config = new HashMap<>();
+    config.put("command", List.of("grep", "-c", "${payload.query}", "|", "wc -l"));
+    config.put("useShell", true);
+    final ArgumentCaptor<ProcessExecutionSpec> specCaptor =
+        ArgumentCaptor.forClass(ProcessExecutionSpec.class);
+    when(gateway.executeForResult(specCaptor.capture())).thenReturn(Mono.just(successResult("1")));
+
+    StepVerifier.create(plugin.process(Flux.just(message("in")), config))
+        .expectNextCount(1)
+        .verifyComplete();
+
+    assertThat(specCaptor.getValue().command())
+        .containsExactly("grep", "-c", "'x; rm -rf /'", "|", "wc -l");
+  }
+
+  @Test
+  void process_withoutUseShell_variablesAreNotQuoted() {
+    when(resolver.resolve(eq("${payload.q}"), any())).thenReturn(Mono.just("a b"));
+    final ArgumentCaptor<ProcessExecutionSpec> specCaptor =
+        ArgumentCaptor.forClass(ProcessExecutionSpec.class);
+    when(gateway.executeForResult(specCaptor.capture()))
+        .thenReturn(Mono.just(successResult("a b")));
+
+    StepVerifier.create(
+            plugin.process(
+                Flux.just(message("in")), Map.of("command", List.of("echo", "${payload.q}"))))
+        .expectNextCount(1)
+        .verifyComplete();
+
+    assertThat(specCaptor.getValue().command()).containsExactly("echo", "a b");
+  }
+
+  @Test
+  void useShell_numberIsNotAnAnswer() {
+    StepVerifier.create(
+            plugin.validateConfig(Map.of("command", List.of("echo", "hi"), "useShell", 1)))
+        .expectErrorMessage("useShell must be true or false, not an expression")
+        .verify();
+  }
+
+  @Test
+  void useShell_mayBeWrittenAsTrueOrFalseText() {
+    for (final String text : List.of("true", "FALSE")) {
+      StepVerifier.create(
+              plugin.validateConfig(Map.of("command", List.of("echo", "hi"), "useShell", text)))
+          .verifyComplete();
+    }
+  }
+
+  @Test
+  void useShell_cannotBeVariableExpression() {
+    final Map<String, Object> config =
+        Map.of("command", List.of("echo", "hi"), "useShell", "${payload.shell}");
+
+    StepVerifier.create(plugin.validateConfig(config))
+        .expectErrorMessage("useShell must be true or false, not an expression")
+        .verify();
+    StepVerifier.create(plugin.process(Flux.just(message("in")), config))
+        .expectErrorMessage("useShell must be true or false, not an expression")
+        .verify();
   }
 
   // --- plugin identity ---

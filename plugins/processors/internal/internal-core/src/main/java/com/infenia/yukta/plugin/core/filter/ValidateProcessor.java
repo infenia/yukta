@@ -28,6 +28,15 @@ import reactor.core.publisher.Mono;
 @SuppressWarnings({"PMD.AvoidFieldNameMatchingMethodName", "PMD.UseConcurrentHashMap"})
 public final class ValidateProcessor implements ProcessorPlugin {
 
+  /** Required. */
+  private static final String REQUIRED = "required";
+
+  /** Types. */
+  private static final String TYPES = "types";
+
+  /** Invalid. */
+  private static final String INVALID = "invalid";
+
   /** Metrics reporter. */
   private final PluginMetricsReporter reporter;
 
@@ -45,15 +54,6 @@ public final class ValidateProcessor implements ProcessorPlugin {
   public ValidateProcessor(final ObjectProvider<PluginMetricsReporter> reporterProvider) {
     this.reporter = reporterProvider.getIfAvailable(() -> PluginMetricsReporter.NOOP);
   }
-
-  /** Required. */
-  private static final String REQUIRED = "required";
-
-  /** Types. */
-  private static final String TYPES = "types";
-
-  /** Invalid. */
-  private static final String INVALID = "invalid";
 
   @Override
   public PluginDescriptor describe() {

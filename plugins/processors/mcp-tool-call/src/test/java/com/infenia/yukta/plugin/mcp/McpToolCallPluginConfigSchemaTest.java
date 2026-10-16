@@ -40,7 +40,8 @@ class McpToolCallPluginConfigSchemaTest {
             "timeout",
             "resultKey",
             "failureMode",
-            "routeByStatus");
+            "routeByStatus",
+            "concurrency");
     assertThat(schema.stream().filter(ConfigField::required).map(ConfigField::name))
         .containsExactly("url", "tool");
   }

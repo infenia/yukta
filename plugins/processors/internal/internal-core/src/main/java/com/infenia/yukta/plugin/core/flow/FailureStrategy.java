@@ -6,10 +6,17 @@ package com.infenia.yukta.plugin.core.flow;
 public enum FailureStrategy {
   /** Abort the workflow execution. */
   ABORT,
-  /** Retry the current iteration. */
+  /**
+   * Run the iteration again with the same input. The failed attempt still counts as an iteration,
+   * so {@code maxIterations} and {@code maxDuration} bound the retries.
+   */
   RETRY,
-  /** Skip the current iteration and move to the next. */
+  /**
+   * Drop the failed iteration's output and go on with the next one. A failed iteration produces
+   * nothing, so the next iteration starts from the same input and, like RETRY, uses up an
+   * iteration; the two differ only in what they are called.
+   */
   SKIP,
-  /** Escalate the error to the global handler (stops parent workflow). */
+  /** End the whole run with a {@code RunAbortedException}; nothing retries or routes it. */
   ESCALATE
 }

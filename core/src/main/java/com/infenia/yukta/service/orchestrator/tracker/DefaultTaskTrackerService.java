@@ -24,6 +24,7 @@ import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import io.micrometer.observation.ObservationRegistry;
 import jakarta.annotation.PostConstruct;
+import jakarta.annotation.PreDestroy;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
@@ -35,13 +36,17 @@ import java.time.ZoneId;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.LongSupplier;
 import lombok.extern.slf4j.Slf4j;
+import org.jspecify.annotations.Nullable;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.validation.annotation.Validated;
+import reactor.core.Disposable;
 import reactor.core.Scannable;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -87,8 +92,21 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
   /** Map of session ID to workflow states. */
   private final Map<String, Map<String, WorkflowState>> sessionStates = new ConcurrentHashMap<>();
 
-  /** When each session last started a run, to pick the one to evict. */
+  /** When each session last started or ended a run, to pick the one to evict. */
   private final Map<String, Long> sessionUsed = new ConcurrentHashMap<>();
+
+  /** Clock for {@link #sessionUsed}, in nanoseconds; replaced in tests. */
+  private LongSupplier clock = System::nanoTime;
+
+  /**
+   * How long a session with no run going is kept after its last run started or ended; unset keeps
+   * every session ({@code yukta.tracker.session-ttl}, for example {@code 24h}).
+   */
+  @Value("${yukta.tracker.session-ttl:#{null}}")
+  private @Nullable Duration sessionTtl;
+
+  /** Periodically drops the sessions that have been idle past {@link #sessionTtl}. */
+  private @Nullable Disposable sessionSweeper;
 
   /** Most sessions kept in memory; 0 keeps them all. Evicted history is served from the log. */
   @Value("${yukta.tracker.max-sessions:0}")
@@ -245,6 +263,40 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
         .subscribe(
             null,
             e -> log.atError().setCause(e).log("Tracker event consumer stopped unexpectedly"));
+    startSessionSweeper();
+  }
+
+  private void startSessionSweeper() {
+    final Duration ttl = sessionTtl;
+    if (ttl == null || ttl.isZero() || ttl.isNegative()) {
+      return;
+    }
+    // often enough that a session leaves soon after its time is up, rarely enough to cost nothing
+    final Duration period =
+        Duration.ofMillis(Math.clamp(ttl.dividedBy(4).toMillis(), 1_000L, 60_000L));
+    sessionSweeper =
+        Flux.interval(period, Schedulers.parallel())
+            .concatMap(
+                _ ->
+                    Mono.fromRunnable(this::evictExpiredSessions)
+                        .onErrorResume(
+                            e -> {
+                              log.atError()
+                                  .setCause(e)
+                                  .log("Dropping idle tracker sessions failed; will try again");
+                              return Mono.empty();
+                            }))
+            .subscribe();
+    log.atInfo()
+        .addKeyValue("sessionTtl", ttl)
+        .addKeyValue("sweepEvery", period)
+        .log("Dropping tracker sessions that have been idle past the session TTL");
+  }
+
+  /** Stops the sweep of idle sessions. */
+  @PreDestroy
+  public void stopSessionSweeper() {
+    Optional.ofNullable(sessionSweeper).ifPresent(Disposable::dispose);
   }
 
   /**
@@ -278,7 +330,7 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
               .put(executionId, state);
 
           executionIndex.put(executionId, state);
-          sessionUsed.put(sessionId, System.nanoTime());
+          sessionUsed.put(sessionId, clock.getAsLong());
           evictOldSessions(sessionId);
           telemetry.runStarted(executionId, sessionId, workflowId);
 
@@ -722,8 +774,40 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
     }
   }
 
+  /**
+   * Drops every session that has no run going and has been idle longer than {@code
+   * yukta.tracker.session-ttl}; does nothing when that is not set. A session is idle from the end
+   * of its last run, or from its last start if that is newer.
+   */
+  /* default */ void evictExpiredSessions() {
+    final Duration ttl = sessionTtl;
+    if (ttl == null || ttl.isZero() || ttl.isNegative()) {
+      return;
+    }
+    final long now = clock.getAsLong();
+    final long ttlNanos = ttl.toNanos();
+    sessionStates.entrySet().stream()
+        .filter(
+            entry ->
+                entry.getValue().values().stream()
+                    .allMatch(state -> TaskStatus.isTerminalName(state.status)))
+        // a session nobody has touched since startup counts as used now, so it gets a full TTL
+        .filter(entry -> now - sessionUsed.computeIfAbsent(entry.getKey(), _ -> now) > ttlNanos)
+        .map(Map.Entry::getKey)
+        .toList()
+        .forEach(this::removeSession);
+  }
+
   /* default */ void setMaxSessions(final int maxSessions) {
     this.maxSessions = maxSessions;
+  }
+
+  /* default */ void setSessionTtl(final Duration ttl) {
+    this.sessionTtl = ttl;
+  }
+
+  /* default */ void setClock(final LongSupplier clock) {
+    this.clock = clock;
   }
 
   /** Applies a batch of events strictly in the order in which they were emitted. */
@@ -768,6 +852,8 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
   }
 
   private void scheduleCleanup(final String executionId) {
+    Optional.ofNullable(executionIndex.get(executionId))
+        .ifPresent(ended -> sessionUsed.put(ended.sessionId, clock.getAsLong()));
     log.atDebug()
         .addKeyValue("executionId", executionId)
         .addKeyValue("delayMs", cleanupTtl.toMillis())

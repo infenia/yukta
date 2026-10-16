@@ -28,7 +28,7 @@ import reactor.test.StepVerifier;
 /** Unit tests for {@link WorkflowValidator}. */
 @MockitoSettings
 @NoArgsConstructor
-@SuppressWarnings({"PMD.TooManyMethods", "PMD.AvoidDuplicateLiterals"})
+@SuppressWarnings({"PMD.TooManyMethods", "PMD.AvoidDuplicateLiterals", "PMD.CyclomaticComplexity"})
 class WorkflowValidatorTest {
 
   /** Trigger plugin type identifier. */
@@ -101,6 +101,27 @@ class WorkflowValidatorTest {
 
   private static WorkflowDefinition.Node node(final String nodeId, final String type) {
     return new WorkflowDefinition.Node(nodeId, type, Map.of());
+  }
+
+  @Test
+  void definitionHoldingTheRedactionMaskIsRefused() {
+    final WorkflowDefinition masked =
+        new WorkflowDefinition(
+            "w",
+            "d",
+            List.of(
+                new WorkflowDefinition.Node(
+                    "n1", "X", Map.of("headers", Map.of("Authorization", "******")))),
+            List.of());
+
+    StepVerifier.create(validator.validate(masked))
+        .expectErrorSatisfies(
+            e ->
+                org.assertj.core.api.Assertions.assertThat(e)
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("n1.headers.Authorization")
+                    .hasMessageContaining("decrypted:"))
+        .verify();
   }
 
   @Test

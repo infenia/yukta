@@ -14,9 +14,9 @@ Writes the payload of every message to the server log. It is the quickest way to
 |---|---|
 | Options | none |
 | Output ports | none |
-| Logs | `Consuming message: <payload>` at INFO level, for every message |
+| Logs | `Consuming message: <payload>` at DEBUG level for every message, and `Consumed <n> message(s)` at INFO when the input ends |
 
-The whole payload is written to the log in full. Payloads can carry personal data or secrets, and large payloads make large logs, so do not use this terminal on a branch that carries sensitive data in production.
+The whole payload is written to the log in full, but only at DEBUG, so a default INFO configuration shows a message count and no payload data. Payloads can carry personal data or secrets, and large payloads make large logs, so do not enable DEBUG for this terminal on a branch that carries sensitive data in production.
 
 ```json
 { "nodeId": "end", "type": "CONSOLE_TERMINAL", "config": {} }

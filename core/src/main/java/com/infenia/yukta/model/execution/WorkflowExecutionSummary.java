@@ -4,6 +4,7 @@ package com.infenia.yukta.model.execution;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.LocalDateTime;
+import tools.jackson.databind.annotation.JsonSerialize;
 
 /**
  * Summary of a workflow execution.
@@ -19,5 +20,9 @@ public record WorkflowExecutionSummary(
     @Schema(description = "The unique execution identifier") String executionId,
     @Schema(description = "The workflow identifier") String workflowId,
     @Schema(description = "The execution status") String status,
-    @Schema(description = "The start time of the execution") LocalDateTime startTime,
-    @Schema(description = "The end time of the execution") LocalDateTime endTime) {}
+    @Schema(description = "The start time of the execution, with the server's UTC offset")
+        @JsonSerialize(using = OffsetTimestampSerializer.class)
+        LocalDateTime startTime,
+    @Schema(description = "The end time of the execution, with the server's UTC offset")
+        @JsonSerialize(using = OffsetTimestampSerializer.class)
+        LocalDateTime endTime) {}

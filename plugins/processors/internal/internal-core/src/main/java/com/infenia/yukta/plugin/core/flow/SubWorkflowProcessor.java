@@ -26,6 +26,7 @@ import reactor.util.context.ContextView;
  * as its start payload, or the configured {@code payload} map. Messages are handled one at a time.
  */
 @Component
+@SuppressWarnings({"PMD.LawOfDemeter", "PMD.UseConcurrentHashMap"})
 public final class SubWorkflowProcessor implements ProcessorPlugin {
 
   /** Config key: the workflow to run. */
@@ -144,16 +145,17 @@ public final class SubWorkflowProcessor implements ProcessorPlugin {
     return start;
   }
 
-  private static Message<?> result(final Message<?> message, final SubWorkflowGateway.Result r) {
+  private static Message<?> result(
+      final Message<?> message, final SubWorkflowGateway.Result outcome) {
     final Map<String, Object> payload = new LinkedHashMap<>();
-    payload.put("executionId", r.executionId());
-    payload.put("results", r.results());
+    payload.put("executionId", outcome.executionId());
+    payload.put("results", outcome.results());
     return DefaultMessage.from(message, payload);
   }
 
   private static String workflowId(final Map<String, Object> config) {
-    if (config.get(WORKFLOW_ID) instanceof String id && !id.isBlank()) {
-      return id;
+    if (config.get(WORKFLOW_ID) instanceof String workflow && !workflow.isBlank()) {
+      return workflow;
     }
     throw new IllegalArgumentException("workflowId must be a non-empty workflow id");
   }

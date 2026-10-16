@@ -22,7 +22,9 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.BiFunction;
 import java.util.function.Function;
+import java.util.stream.Stream;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -49,8 +51,8 @@ import reactor.util.retry.Retry;
 })
 public class ControlBusService {
 
-  /** Separator used to create composite keys from workflow and node IDs. */
-  private static final String COMPOSITE_KEY_SEPARATOR = "\0";
+  /** Metadata key of a control message that names the run it comes from. */
+  public static final String EXECUTION_ID_KEY = "executionId";
 
   /** Number of messages to batch before processing. */
   private final int batchSize;
@@ -93,17 +95,6 @@ public class ControlBusService {
   /** Handler for retry logic when emitting fails. */
   private static final Sinks.EmitFailureHandler RETRY_HANDLER =
       Sinks.EmitFailureHandler.busyLooping(Duration.ofMillis(100));
-
-  /**
-   * Create a composite key from workflow ID and node ID.
-   *
-   * @param workflowId the workflow identifier
-   * @param nodeId the node identifier
-   * @return the composite key
-   */
-  private static String compositeKey(final String workflowId, final String nodeId) {
-    return workflowId + COMPOSITE_KEY_SEPARATOR + nodeId;
-  }
 
   /**
    * Constructor for ControlBusService.
@@ -295,7 +286,7 @@ public class ControlBusService {
   }
 
   /**
-   * Get the last heartbeat for a node in a specific workflow.
+   * Get the last heartbeat for a node in a specific workflow: the newest one from any run of it.
    *
    * @param workflowId the workflow identifier
    * @param nodeId the node identifier
@@ -304,16 +295,29 @@ public class ControlBusService {
   @Nullable
   public Message<?> getLastHeartbeat(
       @NotBlank final String workflowId, @NotBlank final String nodeId) {
-    final String key = compositeKey(workflowId, nodeId);
-    return handlers.stream()
-        .map(h -> h.getLastHeartbeat(key))
-        .filter(Objects::nonNull)
-        .findFirst()
-        .orElse(null);
+    return newest(workflowId, nodeId, ControlSignalHandler::getLastHeartbeat);
   }
 
   /**
-   * Get the last statistics for a node in a specific workflow.
+   * Get the last heartbeat for a node of one run.
+   *
+   * @param workflowId the workflow identifier
+   * @param executionId the run
+   * @param nodeId the node identifier
+   * @return the last heartbeat message, or null
+   */
+  @Nullable
+  public Message<?> getLastHeartbeat(
+      @NotBlank final String workflowId,
+      @Nullable final String executionId,
+      @NotBlank final String nodeId) {
+    return read(
+        ControlKey.forNode(workflowId, executionId, nodeId),
+        ControlSignalHandler::getLastHeartbeat);
+  }
+
+  /**
+   * Get the last statistics for a node in a specific workflow: the newest from any run of it.
    *
    * @param workflowId the workflow identifier
    * @param nodeId the node identifier
@@ -322,44 +326,85 @@ public class ControlBusService {
   @Nullable
   public Message<?> getLastStatistics(
       @NotBlank final String workflowId, @NotBlank final String nodeId) {
-    final String key = compositeKey(workflowId, nodeId);
+    return newest(workflowId, nodeId, ControlSignalHandler::getLastStatistics);
+  }
+
+  /**
+   * Get the last statistics for a node of one run.
+   *
+   * @param workflowId the workflow identifier
+   * @param executionId the run
+   * @param nodeId the node identifier
+   * @return the last statistics message, or null
+   */
+  @Nullable
+  public Message<?> getLastStatistics(
+      @NotBlank final String workflowId,
+      @Nullable final String executionId,
+      @NotBlank final String nodeId) {
+    return read(
+        ControlKey.forNode(workflowId, executionId, nodeId),
+        ControlSignalHandler::getLastStatistics);
+  }
+
+  /** The message a handler holds for a key. */
+  @Nullable
+  private Message<?> read(
+      final String key, final BiFunction<ControlSignalHandler, String, Message<?>> getter) {
     return handlers.stream()
-        .map(h -> h.getLastStatistics(key))
+        .map(h -> getter.apply(h, key))
         .filter(Objects::nonNull)
         .findFirst()
         .orElse(null);
+  }
+
+  /** The newest message of a node over every run that reported, and over reports without a run. */
+  @Nullable
+  private Message<?> newest(
+      final String workflowId,
+      final String nodeId,
+      final BiFunction<ControlSignalHandler, String, Message<?>> getter) {
+    return Stream.concat(
+            Stream.of(ControlKey.forNode(workflowId, null, nodeId)),
+            activeKeys().stream().filter(key -> ControlKey.isFor(key, workflowId, nodeId)))
+        .distinct()
+        .map(key -> read(key, getter))
+        .filter(Objects::nonNull)
+        .max(
+            Comparator.comparing(
+                Message::timestamp, Comparator.nullsFirst(Comparator.naturalOrder())))
+        .orElse(null);
+  }
+
+  /** The keys every handler holds state for. */
+  private List<String> activeKeys() {
+    return handlers.stream()
+        .map(ControlSignalHandler::getActiveNodes)
+        .flatMap(List::stream)
+        .toList();
   }
 
   /**
    * List all node IDs in a specific workflow that have emitted heartbeats.
    *
    * @param workflowId the workflow identifier
-   * @return list of node IDs scoped to the workflow
+   * @return list of node IDs scoped to the workflow, each once however many runs reported
    */
   public List<String> getActiveNodes(@NotBlank final String workflowId) {
-    final String prefix = workflowId + COMPOSITE_KEY_SEPARATOR;
-    return handlers.stream()
-        .map(ControlSignalHandler::getActiveNodes)
-        .filter(list -> !list.isEmpty())
-        .findFirst()
-        .orElse(List.of())
-        .stream()
-        .filter(key -> key.startsWith(prefix))
-        .map(key -> key.substring(prefix.length()))
+    return activeKeys().stream()
+        .filter(key -> ControlKey.isIn(key, workflowId))
+        .map(ControlKey::nodeId)
+        .distinct()
         .toList();
   }
 
   /**
    * List all node IDs across all workflows that have emitted heartbeats.
    *
-   * @return list of all active node IDs
+   * @return list of all active node IDs, each once
    */
   public List<String> getActiveNodes() {
-    return handlers.stream()
-        .map(ControlSignalHandler::getActiveNodes)
-        .filter(list -> !list.isEmpty())
-        .findFirst()
-        .orElse(List.of());
+    return activeKeys().stream().map(ControlKey::nodeId).distinct().toList();
   }
 
   /**
@@ -461,6 +506,13 @@ public class ControlBusService {
         .log("Batch processing complete: {} messages, {} handled, {} skipped");
   }
 
+  /** The run a control message comes from, or null if it does not say. */
+  @Nullable
+  private static String executionIdOf(final Message<?> msg) {
+    final Object executionId = msg.metadata().get(EXECUTION_ID_KEY);
+    return executionId == null ? null : executionId.toString();
+  }
+
   private boolean processMessage(final Message<?> msg) {
     final Object payload = msg.payload();
     final String nodeId = msg.sourceNodeId();
@@ -478,7 +530,7 @@ public class ControlBusService {
       return false;
     }
 
-    final String key = compositeKey(workflowId, nodeId);
+    final String key = ControlKey.forNode(workflowId, executionIdOf(msg), nodeId);
     final String payloadType = payload.getClass().getSimpleName();
 
     for (final ControlSignalHandler handler : handlers) {

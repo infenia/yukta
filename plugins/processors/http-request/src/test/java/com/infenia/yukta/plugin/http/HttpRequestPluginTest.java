@@ -11,12 +11,13 @@ import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
 import com.infenia.yukta.plugin.core.PluginMetricsReporter;
 import com.infenia.yukta.plugin.exception.WorkflowExecutionException;
-import com.infenia.yukta.util.VariableResolver;
+import com.infenia.yukta.plugin.util.VariableResolver;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicInteger;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -62,6 +63,44 @@ class HttpRequestPluginTest {
 
   private Flux<Message<?>> run(final Map<String, Object> config) {
     return plugin.process(Flux.just(input()), config);
+  }
+
+  private int peakConcurrency(final Map<String, Object> config, final int count) {
+    final AtomicInteger inFlight = new AtomicInteger();
+    final AtomicInteger peak = new AtomicInteger();
+    when(gateway.execute(any()))
+        .thenAnswer(
+            invocation ->
+                Mono.defer(
+                    () -> {
+                      peak.accumulateAndGet(inFlight.incrementAndGet(), Math::max);
+                      return Mono.just(okResult("x", false))
+                          .delayElement(Duration.ofMillis(20))
+                          .doOnTerminate(inFlight::decrementAndGet);
+                    }));
+    StepVerifier.create(plugin.process(Flux.range(0, count).map(i -> input()), config))
+        .expectNextCount(count)
+        .verifyComplete();
+    return peak.get();
+  }
+
+  @Test
+  void handlesAtMostTheConfiguredNumberOfRequestsAtOnce() {
+    assertThat(peakConcurrency(Map.of("url", "http://x/y", "concurrency", 3), 20)).isBetween(2, 3);
+  }
+
+  @Test
+  void withoutConcurrencySixteenRequestsAreInFlightAtMost() {
+    assertThat(peakConcurrency(Map.of("url", "http://x/y"), 60))
+        .isLessThanOrEqualTo(16)
+        .isGreaterThan(4);
+  }
+
+  @Test
+  void validateConfigRejectsNonPositiveConcurrency() {
+    StepVerifier.create(plugin.validateConfig(Map.of("url", "http://x/y", "concurrency", -1)))
+        .expectErrorMessage("concurrency must be a positive whole number, got: -1")
+        .verify();
   }
 
   @Test

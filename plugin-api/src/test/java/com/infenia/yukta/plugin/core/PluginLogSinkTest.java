@@ -9,6 +9,11 @@ import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
+@SuppressWarnings({
+  "PMD.AtLeastOneConstructor",
+  "PMD.CommentRequired",
+  "PMD.UnitTestAssertionsShouldIncludeMessage"
+})
 class PluginLogSinkTest {
 
   @Test

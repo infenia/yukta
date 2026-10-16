@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.plugin.util;
 
+import com.infenia.yukta.plugin.exception.WorkflowExecutionException;
 import java.io.Serial;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -81,7 +82,11 @@ public final class SpelUtils {
    * @param <T> the result type
    * @return the evaluation result
    */
-  @SuppressWarnings({"unchecked", "TypeParameterUnusedInFormals"})
+  @SuppressWarnings({
+    "unchecked",
+    "TypeParameterUnusedInFormals",
+    "PMD.AvoidCatchingGenericException"
+  })
   public static <T> T evaluateSync(
       final String expressionStr, final Object root, final Map<String, Object> variables) {
     final Expression expression = CACHE.computeIfAbsent(expressionStr, PARSER::parseExpression);
@@ -89,14 +94,28 @@ public final class SpelUtils {
     // refs.
     final SimpleEvaluationContext context =
         SimpleEvaluationContext.forPropertyAccessors(
-                new MapAccessor(), DataBindingPropertyAccessor.forReadOnlyAccess())
+                SpelBudget.guard(new MapAccessor()),
+                SpelBudget.guard(DataBindingPropertyAccessor.forReadOnlyAccess()))
             .withRootObject(root)
             .withMethodResolvers(SAFE_METHODS)
             .build();
     if (variables != null) {
       variables.forEach(context::setVariable);
     }
-    return (T) expression.getValue(context);
+    try {
+      return (T) SpelBudget.run(() -> expression.getValue(context));
+    } catch (RuntimeException e) {
+      if (SpelBudget.exceeded(e)) {
+        throw new WorkflowExecutionException(
+            "Expression evaluation exceeded its time budget of "
+                + SpelBudget.timeoutMillis()
+                + " ms (-D"
+                + SpelBudget.TIMEOUT_PROPERTY
+                + ")",
+            e);
+      }
+      throw e;
+    }
   }
 
   /**

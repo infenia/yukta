@@ -34,7 +34,7 @@ public class ControlStatisticsHandler implements ControlSignalHandler {
   /**
    * Get the last statistics message for a node.
    *
-   * @param compositeKey the composite key (workflowId + "\0" + nodeId)
+   * @param compositeKey the composite key (a ControlKey: workflow, run and node)
    * @return the last statistics message, or null if none
    */
   @Override
@@ -43,9 +43,20 @@ public class ControlStatisticsHandler implements ControlSignalHandler {
   }
 
   /**
+   * Get the keys of every node that has reported statistics, so a read that does not name a run can
+   * find the runs that did.
+   *
+   * @return the keys ({@code ControlKey}) that have statistics
+   */
+  @Override
+  public java.util.List<String> getActiveNodes() {
+    return java.util.List.copyOf(lastStatistics.keySet());
+  }
+
+  /**
    * Remove a node's statistics record.
    *
-   * @param compositeKey the composite key (workflowId + "\0" + nodeId)
+   * @param compositeKey the composite key (a ControlKey: workflow, run and node)
    */
   @Override
   public void removeNode(final String compositeKey) {

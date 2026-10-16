@@ -13,7 +13,10 @@ import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-/** A simple TerminalPlugin that logs message payloads to the console. */
+/**
+ * A simple TerminalPlugin that logs message payloads to the console. Payloads can carry personal
+ * data or secrets, so they are logged at DEBUG; at INFO only a count of consumed messages appears.
+ */
 @Slf4j
 @Component
 public class ConsoleTerminalPlugin implements TerminalPlugin {
@@ -26,9 +29,9 @@ public class ConsoleTerminalPlugin implements TerminalPlugin {
   @Override
   public PluginDescriptor describe() {
     return new PluginDescriptor(
-        "Logs message payloads to the console/logger.",
-        "Consumes messages and prints their payload to the application logs. No configuration"
-            + " required.",
+        "Logs message payloads to the console/logger (at DEBUG).",
+        "Consumes messages and prints their payload to the application logs at DEBUG level; INFO"
+            + " shows only a message count. No configuration required.",
         Optional.of(
             new UiDesign(
                 """
@@ -63,6 +66,15 @@ public class ConsoleTerminalPlugin implements TerminalPlugin {
 
   @Override
   public Mono<Void> consume(final Flux<Message<?>> input, final Map<String, Object> config) {
-    return input.doOnNext(msg -> log.info("Consuming message: {}", msg.payload())).then();
+    return input
+        .doOnNext(
+            msg -> {
+              if (log.isDebugEnabled()) {
+                log.debug("Consuming message: {}", msg.payload());
+              }
+            })
+        .count()
+        .doOnNext(count -> log.info("Consumed {} message(s)", count))
+        .then();
   }
 }

@@ -557,11 +557,11 @@ The ids below are assigned on this page; the source lists the open items without
 | CLI-4 | No retries | A transient failure fails the command | Not rated in the source | Open |
 | CLI-5 | No `Last-Event-ID` or reconnect, also for `controlbus watch` | A dropped stream ends the command | Not rated in the source | Open |
 | CLI-6 | No `yukta version` command | Users cannot tell which build they run | Not rated in the source | Open |
-| CLI-7 | Stale README: it still mentions `yukta-darwin`, `goBuildDev`, `~/.yukta/config` and `/api/v1` | Wrong instructions. Also tracked on the [bugs page](/internal/bugs#cli) | Update the README | Open |
-| CLI-8 | 12 calls still use the deprecated `/api/workflow/...` paths | The CLI depends on deprecated paths. Also tracked on the [bugs page](/internal/bugs#cli) | Move the calls to the current paths | Open |
+| CLI-7 | Stale README: it mentioned `yukta-darwin`, `goBuildDev`, `~/.yukta/config` and `/api/v1` | Wrong instructions. Also tracked on the [bugs page](/internal/bugs#cli) | Update the README | Fixed |
+| CLI-8 | 17 calls used `/api/workflow/...`, 14 of them deprecated aliases | The CLI depended on deprecated paths. Also tracked on the [bugs page](/internal/bugs#cli) | Move the calls to the current paths | Fixed: the 14 now use `/api/executions/...`; start, stop-workflow and history have no other route |
 | CLI-9 | No command for: validate, session config, supervisors, workflow versions, approvals, scheduler limits and priority, recover, run search and control audit, workers | Those server features are REST and MCP only | Not rated in the source. Generating the client from OpenAPI was considered and not done | Open |
-| CLI-10 | Zone-less server timestamps are parsed in the CLI's time zone (`localTimestamps`) | Times can be shown shifted. Also tracked on the [bugs page](/internal/bugs#cli) | Not rated in the source | Open (new) |
-| CLI-11 | `--quiet` classifies lines by keywords copied from the server (`keywordProblems`) | The filter drifts when server messages change. Also tracked on the [bugs page](/internal/bugs#cli) | Not rated in the source | Open (new) |
+| CLI-10 | Zone-less server timestamps were parsed in the CLI's time zone (`localTimestamps`) | Times could be shown shifted. Also tracked on the [bugs page](/internal/bugs#cli) | Not rated in the source | Fixed: the server sends run and node times with its UTC offset, and the CLI keeps a zone-less value from an older server as it came |
+| CLI-11 | `--quiet` classifies lines by keywords copied from the server (`keywordProblems`; partly fixed: one-line log events take the server's rating, keywords remain for multi-line text, failure reasons and servers with no rating) | The filter drifts when server messages change. Also tracked on the [bugs page](/internal/bugs#cli) | Not rated in the source | Open (new) |
 
 **Pending roadmap steps**
 
@@ -594,7 +594,7 @@ Vertical on one JVM. Streams are efficient, but every run's state, the scheduler
 **Ceilings today**
 
 - All admission, ordering and run state in one process
-- Unbounded tracker state queue; sessions are evicted only if yukta.tracker.max-sessions is set
+- Unbounded tracker state queue; sessions are evicted only if yukta.tracker.max-sessions or yukta.tracker.session-ttl is set
 - Fan-out paced by the slowest child
 - Checkpoint memory bound = retained runs x nodes x bytes-per-node
 - The default in-memory execution log and the idempotency cache are not size bounded
@@ -664,7 +664,7 @@ Keys, roles, session scoping, host and origin checks, command review, tool and p
 **Ceilings today**
 
 - Plugins run in the engine JVM
-- Scripts have a time and a statement limit but no memory limit (the runtime has no heap limit option)
+- Scripts have a time, a statement, a value-count and a string-length limit but no heap limit (the runtime has no heap limit option)
 - Filters are patterns, not a classifier
 
 **Levers today**
@@ -1431,7 +1431,7 @@ A possible order of work, safest edges first.
 2. **Contain the sharp edges.** Done: script sandbox, command allow-list. Next: operator-set host and folder allow-lists, a max-concurrency setting, kill descendant processes on timeout, redact secrets in read APIs, make the agent guards a deployment default. Risks: `scriptHostAccess`, `ssrf`, `shellModel`, `orphans`, `fanout256`, `plaintextSecrets`, `fileSandbox`, `agentGuardsOptIn`.
 3. **Bound memory and cost.** Evict caches and sessions, put LLM-backed decisions under the run budget (LLM_CALL and MCP_TOOL_CALL already are), derive timeouts for SQL and file plugins, add a connection pool, take SESSION_MEMORY off the reactive threads, truncate logged output. Risks: `unboundedMaps`, `sessionMemory`, `sqlTimeout`, `consoleLogs`, `sessionStoreBlocks`.
 4. **Make state durable.** Done: PostgreSQL stores for KV_STORE and SESSION_MEMORY (opt-in). Left: make them the default or warn when memory-only, durable anomaly windows, a persistent scheduler, rules that reload. Risks: `kvVolatile`, `windowsPerRun`, `scheduleLost`.
-5. **Clean the layering.** Move the resolver and helpers into plugin-api, validate loop targets, re-enable the gates, rename CONTENT-FILTER with an alias, make control planes optional. Risks: `coreLayering`, `gatesOff`, `loopSkipsValidation`, `loopEscalate`, `typeIds`, `optionalNotOptional`.
+5. **Clean the layering.** Move the resolver and helpers into plugin-api, validate loop targets, re-enable the gates, rename CONTENT-FILTER (done, without an alias), make control planes optional. Risks: `coreLayering`, `gatesOff`, `loopSkipsValidation`, `loopEscalate`, `typeIds`, `optionalNotOptional`.
 6. **Decide the oversight model.** Alert on 'no opinion' from the model plane, prefer rules-first, treat model verdicts as advice. Risks: `modelFailsOpen`, `promptInjection`.
 
 ### Quality lenses
@@ -1442,7 +1442,7 @@ Per-message plugins scale with the JVM's threads and with the number of nodes, a
 
 **Ceilings today**
 
-- Default concurrency of 256 per node for process, HTTP, MCP, model and session plugins, not configurable
+- Concurrency is per node (4 for process, 16 for HTTP, MCP, model and decision nodes, 1 for session memory); there is no limit shared across nodes or runs
 - KV_STORE capped at 10,000 keys in one JVM; SESSION_MEMORY unbounded
 - ModelControlPlane asks the model about each matching event, one at a time
 - SQL_QUERY opens a connection per message
@@ -1512,7 +1512,7 @@ This is the lens that matters most. Plugins turn author-written configuration in
 
 **Ceilings today**
 
-- JavaScript has a class allow-list, a statement limit and a time limit, but no memory limit
+- JavaScript has a class allow-list, plain-data inputs, a statement limit, a time limit, value-count and string-length limits, but no heap limit
 - No host allow-list for HTTP_REQUEST, MCP_TOOL_CALL or NOTIFY_TERMINAL; PROCESS_EXECUTOR runs nothing unless yukta.process.allowed-commands is set (or allow-any is on)
 - Secrets written in config are returned by read APIs as plaintext
 - Untrusted text goes straight into model prompts
@@ -1605,22 +1605,22 @@ Priority is P0 (fix now) to P3 (clean-up); effort is S (under half a day), M (1 
 
 | ID | Finding | Impact | Effort / Fix | Status |
 |---|---|---|---|---|
-| G1 | P0. The mapper's SCRIPT mode gave workflow JavaScript full Java access (`HostAccess.ALL`, class lookup, no time limit) | Code execution from workflow config. Now limited to 12 value classes and `java.time.*`, `Class` objects denied, scripts stop after 50 M statements or 10 s | Effort S. Remaining: add a memory limit; `HostAccess.ALL` is still used on the objects the script is given | Mostly closed |
-| G2 | P0. SpEL in plugin config (Filter, Branch, Mapper, RecipientList, LoopStream, Splitter, LlmCall) | Code execution from workflow config. Fixed in plugin-api with the `SafeMethodResolver` allow-list | Effort S. Remaining: no evaluation time budget (see the plugin-api guide) | Mostly closed |
-| G3 | P1. Process-executor quoting on Windows is ineffective (single quotes do not quote for `cmd.exe`) | `&`, `\|` and `^` in an interpolated argument still run. Nothing runs unless `yukta.process.allowed-commands` lists it, and `useShell` is refused while a list is set | Effort S. Refuse `useShell` on Windows when an argument came from interpolation, or apply `cmd`-specific `^` escaping. Remaining problem is with `allow-any` | Partly closed |
-| G4 | P1. `useShell` cannot use any shell feature: every metacharacter is escaped, so pipes, `&&` and redirects never work | `useShell` only adds PATH and builtin lookup; word splitting also changes for unquoted parentheses and spaces | Effort S (design decision). Pick one model: (a) a trusted single shell string with no interpolation, or (b) remove `useShell` and exec argv directly | Open |
-| G5 | P1. No safe way to provide secrets, so API keys sit in plaintext in workflow config | Keys are stored in session files and returned by the read APIs. `EnvSecretProvider` now exists (`decrypted:<key>` reads `YUKTA_SECRET_<KEY>`) | Effort S. Remaining: redact secret-like config keys in the read APIs, and resolve `decrypted:` in `SQL_QUERY`, which takes `password` literally | Partly closed |
-| G7 | P2. `HTTP_REQUEST` can reach internal addresses (server-side request forgery); no outbound host allow-list for `HTTP_REQUEST` or `MCP_TOOL_CALL` | Cloud metadata, loopback admin ports and the internal network are reachable. MCP now has tool-level controls | Effort S. Optional `yukta.http.allowed-hosts`, block link-local and loopback by default, and re-check after redirects | Open |
-| G8 | P1. Process-executor runs up to 256 processes at once per node; default concurrency is still 256 for process, HTTP, MCP, session and file/SQL nodes | A trigger or splitter that emits many messages forks hundreds of processes. LLM calls can be spaced per provider (`yukta.llm.rate-limit.<provider>`) | Effort S. A `maxConcurrency` setting passed to `flatMapSequential` | Open |
-| G9 | P1. A timeout leaves grandchild processes running | Descendants keep running and keep the pipes open, blocking stdout reader threads on `boundedElastic` | Effort S. Destroy `process.descendants()` before the parent, in the forcible path too | Open |
+| G1 | P0. The mapper's SCRIPT mode gave workflow JavaScript full Java access (`HostAccess.ALL`, class lookup, no time limit) | Code execution from workflow config. Now limited to 12 value classes and `java.time.*`, `Class` objects denied, scripts stop after 50 M statements or 10 s | Effort S. Done: the script gets plain-data copies of the message (no live objects, no `HostAccess.ALL`), at most 1,000,000 values in and out, and strings of at most 10,000,000 characters. Left: a real heap limit, which needs Oracle GraalVM sandbox options | Mostly closed (no heap limit) |
+| G2 | P0. SpEL in plugin config (Filter, Branch, Mapper, RecipientList, LoopStream, Splitter, LlmCall) | Code execution from workflow config. Fixed in plugin-api with the `SafeMethodResolver` allow-list | Effort S. Done: an evaluation time budget (`yukta.spel.timeout-ms`, 1 s) checked by method calls, property reads and the text a `matches` or `split` regex reads | Fixed |
+| G3 | P1. Process-executor quoting on Windows is ineffective (single quotes do not quote for `cmd.exe`) | `&`, `\|` and `^` in an interpolated argument still run. Nothing runs unless `yukta.process.allowed-commands` lists it, and `useShell` is refused while a list is set | Effort S. Done: an element with `${...}` is quoted into one word for the platform shell (single quotes on Unix, double quotes on Windows; a Windows value with a double quote, `%` or a line break is refused) | Fixed |
+| G4 | P1. `useShell` cannot use any shell feature: every metacharacter is escaped, so pipes, `&&` and redirects never work | `useShell` only adds PATH and builtin lookup; word splitting also changes for unquoted parentheses and spaces | Effort S (design decision). Done, model (a): `useShell` runs the elements as one raw script (joined with spaces), only with `yukta.process.allow-any=true`, and variable values are quoted | Fixed |
+| G5 | P1. No safe way to provide secrets, so API keys sit in plaintext in workflow config | Keys are stored in session files and returned by the read APIs. `EnvSecretProvider` now exists (`decrypted:<key>` reads `YUKTA_SECRET_<KEY>`) | Effort S. Done: `ConfigRedactor` masks literal secrets (SECRET fields of the plugin, and keys named like secrets at any depth) in the REST config and workflow endpoints and in `get_workflow_details`; a definition holding the mask is refused when saved; `SQL_QUERY` resolves `decrypted:` and `${...}` in `url`, `username` and `password`. Left: secrets can still be stored literally | Fixed |
+| G7 | P2. `HTTP_REQUEST` can reach internal addresses (server-side request forgery); no outbound host allow-list for `HTTP_REQUEST` or `MCP_TOOL_CALL` | Cloud metadata, loopback admin ports and the internal network are reachable. MCP now has tool-level controls | Effort S. Done: optional `yukta.http.allowed-hosts` and `yukta.mcp-client.allowed-hosts` (names, IPs or `*.domain`), checked before any request. Not done: blocking link-local and loopback by default (it would break existing workflows), and re-checking the resolved address; redirects are not followed, so none need re-checking | Fixed (opt-in) |
+| G8 | P1. Process-executor runs up to 256 processes at once per node; default concurrency is still 256 for process, HTTP, MCP, session and file/SQL nodes | A trigger or splitter that emits many messages forks hundreds of processes. LLM calls can be spaced per provider (`yukta.llm.rate-limit.<provider>`) | Effort S. Done: a `concurrency` setting passed to `flatMapSequential`, with defaults of 4 for process and 16 for HTTP, MCP, LLM and decision nodes; SESSION_MEMORY uses `concatMap`. File and SQL nodes were already one at a time | Fixed |
+| G9 | P1. A timeout leaves grandchild processes running | Descendants keep running and keep the pipes open, blocking stdout reader threads on `boundedElastic` | Effort S. Done: `cleanupProcess` lists `process.descendants()` before the parent, asks them all to end and force-kills any that are still alive after the grace period | Fixed |
 | G10 | P2. Large process output flows through exceptions and logs | Up to 10 MB of stdout can end up in an exception message and the error log. #373 changed the gateway (lines stream live; `maxOutputLines` and `maxOutputBytes` bound the kept output) | Effort S. Truncate text embedded in exceptions to the last N lines | Not re-checked |
-| G11 | P2. Mapper, template, script and expression caches, `LlmGateway` model clients and the MCP session map are unbounded plain maps | Memory grows with every distinct workflow submitted | Effort S. A bounded LRU, or clear entries in `shutdown(config)` | Open |
+| G11 | P2. Mapper, template, script and expression caches, `LlmGateway` model clients and the MCP session map were unbounded plain maps | Memory grew with every distinct workflow submitted | Effort S. Done: Caffeine caches with a size limit (1,000 templates, scripts and expressions; 100 models; 100 MCP sessions, which are also ended on the server when evicted) | Fixed |
 | G12 | P2. `ConfigVariableSource` relies on `prepare()`, which core never calls | The cache is always empty; it works by accident | Effort S. Delete `prepare` and the cache | Not re-checked |
-| G13 | P2. LoopStream: RETRY and SKIP behave the same, and ESCALATE wraps in a plain `RuntimeException` | Failure handling is not what the options promise | Effort S. Give SKIP a distinct meaning and throw a real `WorkflowExecutionException`. ESCALATE still throws a plain `RuntimeException`; RETRY versus SKIP not re-checked | Partly checked, open |
-| G14 | P2. Loop plugins call the target plugin directly and skip its `validateConfig` and `initialize` | Invalid target config is accepted. The loop still calls the target from the registry without validation | Effort M. Validate `targetConfig` in the loop's own `validateConfig`; longer term, model loops as sub-graphs in core | Open |
+| G13 | P2. LoopStream: RETRY and SKIP behave the same, and ESCALATE wraps in a plain `RuntimeException` | Failure handling is not what the options promise | Effort S. Give SKIP a distinct meaning and throw a real `WorkflowExecutionException`. ESCALATE now throws a `RunAbortedException`, and an abort from the target is never retried or skipped. RETRY and SKIP re-checked: identical by design (a failed iteration emits nothing) and documented as such | Fixed |
+| G14 | P2. Loop plugins call the target plugin directly and skip its `validateConfig` and `initialize` | Invalid target config was accepted, and the target's setup never ran. The loop's `validateConfig`, `initialize` and `prepare` now pass the call on to the target | Effort M. Done: validate `targetConfig` in the loop's own `validateConfig`. Longer term, model loops as sub-graphs in core | Fixed |
 | G15 | P2. Internal-core plugins stamp history themselves (Branch, RecipientList, Splitter, ContentFilter, Filter) | Core already stamps every node | Effort S. Remove `withAddedHistory(nodeId)` from them | Not re-checked |
 | G16 | P3. `ApiTriggerPlugin` throws on a missing context payload | `NoSuchElementException` if the orchestrator wrote no payload | Effort S. Use `ctx.getOrDefault("payload", Map.of())` | Not re-checked |
-| G17 | P3. `SESSION_MEMORY` has no eviction | History can be kept in files or PostgreSQL (`yukta.session-memory.ttl` expires database rows), but the in-memory cache never evicts | Effort S. Caffeine `expireAfterAccess` | Partly closed |
+| G17 | P3. `SESSION_MEMORY` has no eviction | History can be kept in files or PostgreSQL (`yukta.session-memory.ttl` expires database rows), but the in-memory cache never evicted | Effort S. Done: a Caffeine cache with `yukta.session-memory.max-sessions` (10,000) and `expireAfterAccess` from `yukta.session-memory.ttl` | Fixed |
 | G18 | Layering. 11 plugin modules depend on `:core` (26 imports of `VariableResolver`, was 24); new shared helpers went into `plugin-api` | The layering is inverted: plugins should depend only on `plugin-api` | Effort M. Move `VariableResolver`, `MapUtils` and `SecretProvider` use into `plugin-api` or a new `plugin-support` module; pass the registry and tracker through narrow SPI interfaces | Open, slightly worse |
 | G19 | Quality gates. `internal-core` still has `pmdMain`, `pmdTest` and `checkstyleTest` off; `constant-source` has PMD off; `MapperProcessor` has a 0% threshold | Part of the gate does not run for those modules | Effort M. Turn them back on one at a time, starting with JaCoCo for `MapperProcessor` | Open |
 | G20 | `internal-core` coverage config names five classes that do not exist | Stale configuration | Effort S. Delete the stale entries | Not re-checked |
@@ -1628,7 +1628,7 @@ Priority is P0 (fix now) to P3 (clean-up); effort is S (under half a day), M (1 
 | G22 | `UiDesign` HTML is duplicated per plugin and almost identical | Duplication | Effort S. Return `UiDesign` from colour, icon and label and let the UI render it | Not re-checked |
 | G23 | `ConsoleTerminalPlugin` logs every payload at INFO | Payloads reach the log | Effort S. Use DEBUG, or truncate | Open |
 | G24 | `new ObjectMapper()` as a static in several plugins | Date and module config can differ from Spring's mapper | Effort S. Inject Spring's configured `JsonMapper` | Not re-checked |
-| G25 | Plugin type ids use mixed naming: `CONTENT-FILTER` is still the only kebab-case id | Inconsistent ids | Effort S. Standardise on `SCREAMING_SNAKE` and accept old ids as aliases for one release | Open |
+| G25 | Plugin type ids use mixed naming: `CONTENT-FILTER` is still the only kebab-case id | Inconsistent ids | Effort S. Done: renamed to `CONTENT_FILTER`; the old id is not accepted (no alias), so stored workflows must be updated | Fixed |
 | agentGuardsOptIn | MCP tool lists, approvals, budgets and prompt filters all default to off | Agent guards only work when an operator turns them on | Not rated in the source. Warn when an MCP tool name comes from the message and no list is set | Open (new) |
 | decisionUnbudgeted | LLM-backed decisions and the model control plane bypass the run budget | Model calls are not counted against `budget` | Not rated in the source. Count every model call once, in the gateway | Open (new) |
 | sessionStoreBlocks | `SESSION_MEMORY` calls the blocking history store inside a map operation and is not marked blocking | Blocking call on a reactive thread | Not rated in the source. One line (`isBlocking() = true`) plus moving the store call out of the map operation | Open (new) |

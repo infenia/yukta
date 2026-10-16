@@ -12,6 +12,7 @@ import com.infenia.yukta.model.session.SessionConfigResponse;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.session.SessionService;
+import com.infenia.yukta.service.workflow.ConfigRedactor;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -58,6 +59,9 @@ public class SessionConfigController {
   /** The session mapper. */
   private final SessionMapper sessionMapper;
 
+  /** Hides literal secrets in the definitions this controller hands out. */
+  private final ConfigRedactor configRedactor;
+
   /**
    * Get one session.
    *
@@ -98,7 +102,10 @@ public class SessionConfigController {
     return sessionService
         .getSessionConfig(sessionId)
         .switchIfEmpty(sessionNotFound(sessionId))
-        .map(config -> ApiResponse.success(200, "Session configuration retrieved", config));
+        .map(
+            config ->
+                ApiResponse.success(
+                    200, "Session configuration retrieved", configRedactor.redact(config)));
   }
 
   /**
@@ -191,7 +198,7 @@ public class SessionConfigController {
                             + "' in session: '"
                             + sessionId
                             + "'")))
-        .map(def -> ApiResponse.success(200, "Workflow retrieved", def));
+        .map(def -> ApiResponse.success(200, "Workflow retrieved", configRedactor.redact(def)));
   }
 
   /**

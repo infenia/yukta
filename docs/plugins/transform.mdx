@@ -1,6 +1,6 @@
 ---
 title: "Transform"
-description: "MAPPER, VALIDATE and CONTENT-FILTER: plugins that reshape, check and trim payloads."
+description: "MAPPER, VALIDATE and CONTENT_FILTER: plugins that reshape, check and trim payloads."
 mode: "wide"
 ---
 
@@ -33,7 +33,7 @@ With `strictMode` off, a projection field whose expression gives null is left ou
 
 ### SCRIPT mode
 
-A script sees three values: `message`, `payload` and `metadata`. Its result is the value of its last expression, converted to plain objects, lists and scalars. An object literal needs parentheses:
+A script sees three values: `message`, `payload` and `metadata`. They are copies made of plain data (objects, lists, text, numbers and booleans), so a script can change its copy but not the message it came from, and it cannot call Java methods on them. `message` carries the message fields (`message.id`, `message.workflowId`, `message.sourceNodeId`, `message.metadata`, `message.payload` and so on) as values, not as methods: write `message.id`, not `message.id()`. Any other kind of value in the payload, such as a date-time or a Java object, is seen as its text. Its result is the value of its last expression, converted to plain objects, lists and scalars. An object literal needs parentheses:
 
 ```text
 ({ total: payload.items.length, label: 'order-' + payload.id })
@@ -46,7 +46,9 @@ Scripts are limited:
 | Run time | 10 seconds, then the script is cancelled |
 | Statements | 50 million, then the script is stopped |
 | Types a script can load | A short list of value types, such as `Math`, `String`, `UUID`, `Base64`, lists, maps and the date-time types. Anything else is refused |
-| Memory | not limited |
+| Data in and out | At most 1,000,000 values and 64 levels of nesting for what the script is given and for what it returns |
+| Text | A string a script builds can be at most 10,000,000 characters |
+| Memory | no heap limit (GraalVM Community has none); the limits above and the statement limit are the only guards |
 
 The run-time and statement limits are server start-up settings, `yukta.script.timeout-ms` (10000) and `yukta.script.max-statements` (50000000).
 
@@ -106,7 +108,7 @@ Output ports: `default` for valid messages and `invalid` for the rest. An invali
 ]
 ```
 
-## CONTENT-FILTER
+## CONTENT_FILTER
 
 Keeps or removes parts of a message. Use it to strip sensitive or unimportant fields before logging or sending a payload on. The type string is written with a hyphen.
 
@@ -136,7 +138,7 @@ This node removes secrets before a payload goes on:
 ```json
 {
   "nodeId": "redact",
-  "type": "CONTENT-FILTER",
+  "type": "CONTENT_FILTER",
   "config": {
     "mode": "EXCLUDE",
     "paths": ["user.password", "user.token", "metadata.apiKey"]
@@ -151,7 +153,7 @@ This node removes secrets before a payload goes on:
 | `MAPPER` `dropOriginal`, `strictMode` | `true`, `true` |
 | Script run time and statements | 10 seconds, 50 million |
 | Script memory | not limited |
-| `CONTENT-FILTER` `mode` | `INCLUDE` |
+| `CONTENT_FILTER` `mode` | `INCLUDE` |
 | Default timeout, all three plugins | 30 seconds idle |
 
 ## Related

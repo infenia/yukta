@@ -10,7 +10,8 @@ import static org.mockito.Mockito.when;
 
 import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
-import com.infenia.yukta.util.VariableResolver;
+import com.infenia.yukta.plugin.util.VariableResolver;
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -61,6 +62,30 @@ class SessionMemoryPluginTest {
 
   private Flux<Message<?>> run(final Object payload, final Map<String, Object> config) {
     return plugin.process(Flux.just(DefaultMessage.create(UUID.randomUUID(), payload)), config);
+  }
+
+  @Test
+  void messagesRunInSequenceSoEachSeesTheTurnsBeforeIt() {
+    // a slow first message and a fast second one: handled concurrently, the second would load
+    // its history before the first has stored its turn
+    when(resolver.resolve(any(), any()))
+        .thenAnswer(
+            inv -> {
+              final Message<?> message = inv.getArgument(1);
+              final long delayMillis = "slow".equals(message.payload()) ? 80 : 5;
+              return Mono.justOrEmpty(inv.<Object>getArgument(0))
+                  .delayElement(Duration.ofMillis(delayMillis));
+            });
+
+    StepVerifier.create(
+            plugin.process(
+                Flux.just(
+                    DefaultMessage.create(UUID.randomUUID(), "slow"),
+                    DefaultMessage.create(UUID.randomUUID(), "fast")),
+                load()))
+        .assertNext(m -> assertThat((List<?>) ((Map<?, ?>) m.payload()).get("history")).isEmpty())
+        .assertNext(m -> assertThat((List<?>) ((Map<?, ?>) m.payload()).get("history")).hasSize(1))
+        .verifyComplete();
   }
 
   @Test

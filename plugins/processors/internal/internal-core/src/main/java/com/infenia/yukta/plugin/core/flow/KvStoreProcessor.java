@@ -29,6 +29,9 @@ public final class KvStoreProcessor implements ProcessorPlugin {
   /** Default cap on distinct keys. */
   private static final int MAX_ENTRIES = 10_000;
 
+  /** Config and payload key naming the entry. */
+  private static final String KEY = "key";
+
   /** Supported operations. */
   private static final List<String> OPS = List.of("get", "put", "incr", "delete");
 
@@ -86,12 +89,12 @@ public final class KvStoreProcessor implements ProcessorPlugin {
   public List<ConfigField> getConfigSchema() {
     return List.of(
         ConfigField.choice("op", true, null, "Operation", "get", "put", "incr", "delete"),
-        ConfigField.optional("key", ConfigField.Type.STRING, null, "Key (default: payload key)"),
+        ConfigField.optional(KEY, ConfigField.Type.STRING, null, "Key (default: payload key)"),
         ConfigField.optional("namespace", ConfigField.Type.STRING, null, "Prefix isolating keys"),
         ConfigField.optional(
             "maxEntries",
             ConfigField.Type.NUMBER,
-            10000,
+            MAX_ENTRIES,
             "Most distinct keys; new keys beyond it fail"));
   }
 
@@ -117,7 +120,7 @@ public final class KvStoreProcessor implements ProcessorPlugin {
     return input.concatMap(
         message -> {
           final Map<?, ?> payload = message.payload() instanceof Map<?, ?> map ? map : Map.of();
-          final Object key = config.getOrDefault("key", payload.get("key"));
+          final Object key = config.getOrDefault(KEY, payload.get(KEY));
           if (key == null) {
             throw new IllegalArgumentException("key is required (config or payload.key)");
           }
@@ -128,7 +131,7 @@ public final class KvStoreProcessor implements ProcessorPlugin {
               .map(
                   value -> {
                     final Map<String, Object> out = new java.util.HashMap<>();
-                    out.put("key", key);
+                    out.put(KEY, key);
                     out.put("value", value.orElse(null));
                     return message.withPayload(out).withSourcePort("default");
                   });

@@ -79,7 +79,8 @@ final class SafeMethodResolver implements MethodResolver {
       throws AccessException {
     final String type = target.getClass().getName();
     if (ALLOWED.contains(name) || VALUE_PACKAGES.stream().anyMatch(type::startsWith)) {
-      return delegate.resolve(context, target, name, argumentTypes);
+      final MethodExecutor executor = delegate.resolve(context, target, name, argumentTypes);
+      return executor == null ? null : SpelBudget.guard(executor, name);
     }
     return null;
   }
