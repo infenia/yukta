@@ -13,7 +13,9 @@ import com.infenia.yukta.model.execution.WorkflowProgress;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.model.workflow.WorkflowExecution;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
+import com.infenia.yukta.service.plugin.PluginRegistry;
 import com.infenia.yukta.service.session.SessionService;
+import com.infenia.yukta.service.workflow.ConfigRedactor;
 import com.infenia.yukta.service.workflow.WorkflowService;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -36,15 +38,33 @@ class WorkflowExecutionProviderTest {
     workflowService = mock(WorkflowService.class);
     sessionService = mock(SessionService.class);
     controlBus = mock(ControlBusGateway.class);
-    provider = new WorkflowExecutionProvider(workflowService, sessionService, controlBus);
+    provider =
+        new WorkflowExecutionProvider(
+            workflowService,
+            sessionService,
+            controlBus,
+            new ConfigRedactor(mock(PluginRegistry.class)));
   }
 
   @Test
   void testGetWorkflowDetails() {
-    WorkflowDefinition def = mock(WorkflowDefinition.class);
+    WorkflowDefinition def =
+        new WorkflowDefinition(
+            "w1",
+            "d",
+            List.of(
+                new WorkflowDefinition.Node(
+                    "n1", "HTTP_REQUEST", Map.of("url", "http://x", "apiKey", "k-123"))),
+            List.of());
     when(sessionService.getSessionWorkflow("s1", "w1")).thenReturn(Mono.just(def));
 
-    StepVerifier.create(provider.getWorkflowDetails("s1", "w1")).expectNext(def).verifyComplete();
+    StepVerifier.create(provider.getWorkflowDetails("s1", "w1"))
+        .assertNext(
+            details ->
+                org.assertj.core.api.Assertions.assertThat(details.nodes().getFirst().config())
+                    .containsEntry("url", "http://x")
+                    .containsEntry("apiKey", "******"))
+        .verifyComplete();
   }
 
   @Test

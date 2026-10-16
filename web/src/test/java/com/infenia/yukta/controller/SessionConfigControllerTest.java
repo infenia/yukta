@@ -13,7 +13,9 @@ import com.infenia.yukta.mapper.SessionMapper;
 import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
 import com.infenia.yukta.model.session.SessionConfigResponse;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
+import com.infenia.yukta.service.plugin.PluginRegistry;
 import com.infenia.yukta.service.session.SessionService;
+import com.infenia.yukta.service.workflow.ConfigRedactor;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -56,9 +58,55 @@ class SessionConfigControllerTest {
     sessionService = mock(SessionService.class);
     client =
         WebTestClient.bindToController(
-                new SessionConfigController(sessionService, Mappers.getMapper(SessionMapper.class)))
+                new SessionConfigController(
+                    sessionService,
+                    Mappers.getMapper(SessionMapper.class),
+                    new ConfigRedactor(mock(PluginRegistry.class))))
             .controllerAdvice(new GlobalExceptionHandler())
             .build();
+  }
+
+  @Test
+  void literalSecretsAreMaskedInTheConfigAndTheWorkflow() {
+    final WorkflowDefinition withSecrets =
+        new WorkflowDefinition(
+            "wf",
+            "desc",
+            List.of(
+                new WorkflowDefinition.Node(
+                    "n1",
+                    "HTTP_REQUEST",
+                    Map.of(
+                        "url",
+                        "http://x",
+                        "headers",
+                        Map.of("Authorization", "Bearer abc", "X-Id", "1")))),
+            List.of());
+    when(sessionService.getSessionConfig("s1"))
+        .thenReturn(
+            Mono.just(
+                new SessionConfigResponse(
+                    "s1", "n", "d", "i", Map.of(), "/p", Map.of("wf", withSecrets))));
+    when(sessionService.getSessionWorkflow("s1", "wf")).thenReturn(Mono.just(withSecrets));
+
+    client
+        .get()
+        .uri("/api/sessions/s1/config")
+        .exchange()
+        .expectBody()
+        .jsonPath("$.data.workflows.wf.nodes[0].config.headers.Authorization")
+        .isEqualTo("******")
+        .jsonPath("$.data.workflows.wf.nodes[0].config.headers['X-Id']")
+        .isEqualTo("1")
+        .jsonPath("$.data.workflows.wf.nodes[0].config.url")
+        .isEqualTo("http://x");
+    client
+        .get()
+        .uri("/api/sessions/s1/workflows/wf")
+        .exchange()
+        .expectBody()
+        .jsonPath("$.data.nodes[0].config.headers.Authorization")
+        .isEqualTo("******");
   }
 
   @Test

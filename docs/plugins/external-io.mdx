@@ -131,9 +131,9 @@ Runs one parameterised SQL statement per message. Requires the `sql-query` modul
 
 | Option | Type | Default | Meaning |
 |---|---|---|---|
-| `url` | string | none, required | The database connection URL, for example `jdbc:postgresql://db:5432/app` |
-| `username` | string | none | Database user |
-| `password` | string | none | Database password, used as written |
+| `url` | string | none, required | The database connection URL, for example `jdbc:postgresql://db:5432/app`. `${...}` variables are allowed |
+| `username` | string | none | Database user. `${...}` variables are allowed |
+| `password` | string | none | Database password. Write `decrypted:<key>` to read it from the secret store (`YUKTA_SECRET_<KEY>`); `${...}` variables are allowed. A plain value is used as written |
 | `sql` | string | none, required | The statement, with `?` placeholders |
 | `params` | list | empty | Payload field names, bound to the placeholders in order |
 | `maxRows` | number | `1000` | Most rows returned, positive |

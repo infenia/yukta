@@ -11,6 +11,7 @@ import com.infenia.yukta.plugin.core.WorkflowContext.WorkflowEdge;
 import com.infenia.yukta.plugin.type.TerminalPlugin;
 import com.infenia.yukta.plugin.type.TriggerPlugin;
 import com.infenia.yukta.service.plugin.PluginRegistry;
+import com.infenia.yukta.service.workflow.ConfigRedactor;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import java.time.Duration;
@@ -219,6 +220,19 @@ public class WorkflowValidator {
         .addKeyValue("nodeCount", def.nodes().size())
         .addKeyValue("edgeCount", def.edges().size())
         .log("Starting workflow validation");
+
+    final List<String> masked = ConfigRedactor.placeholders(def);
+    if (!masked.isEmpty()) {
+      return Mono.error(
+          new IllegalArgumentException(
+              "The definition holds the secret mask '"
+                  + ConfigRedactor.PLACEHOLDER
+                  + "' at "
+                  + String.join(", ", masked)
+                  + ". The read APIs mask literal secrets; replace each with the real value or a"
+                  + " decrypted:<key> reference before saving, or the stored secret would be"
+                  + " lost"));
+    }
 
     final Optional<String> invalidPolicy = findInvalidPolicy(def);
     if (invalidPolicy.isPresent()) {

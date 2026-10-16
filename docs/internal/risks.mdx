@@ -49,7 +49,7 @@ Risks rated impact 4 or 5, across all modules.
 | [CLI](#cli) | Hand-written paths and types can drift from the server | Evolvability | 4 | 3 |
 | [Core](#core) | Remote nodes: failure handling and operations are thin | Scalability | 4 | 3 |
 | [Plugin API](#plugin-api) | Plugins still depend on core internals (G18) | Evolvability | 4 | 3 |
-| [Plugins](#plugins) | Secrets sit in workflow config and are returned as written | Security | 4 | 3 |
+| [Plugins](#plugins) | Secrets can still be stored literally in workflow config (G5) | Security | 3 | 3 |
 | [Messaging](#messaging) | The channel SPI is unproven for remote or durable transport | Evolvability | 4 | 4 |
 | [Messaging](#messaging) | No payload size limit or claim check | Performance | 4 | 4 |
 | [Boot](#boot) | Everything is a single process with in-memory defaults | Availability | 4 | 5 |
@@ -1629,7 +1629,7 @@ IDs in brackets such as (G1) are finding numbers from the module's review notes 
 |---|---|---|---|
 | MAPPER SCRIPT: sandboxed, but no heap limit (G1) | Security | 2 | 3 |
 | Host allow-list for HTTP_REQUEST, MCP_TOOL_CALL is opt-in (G7) | Security | 3 | 2 |
-| Secrets sit in workflow config and are returned as written | Security | 4 | 3 |
+| Secrets can still be stored literally in workflow config (G5) | Security | 3 | 3 |
 | PROCESS_EXECUTOR: command allow-list added; allow-any remains (G3, G4) | Security | 2 | 2 |
 | A timeout kills the child but not its children (G9) | Reliability | 3 | 2 |
 | Concurrency per node: only a default and a few plugins have a setting (G8) | Scalability | 2 | 2 |
@@ -1676,12 +1676,12 @@ IDs in brackets such as (G1) are finding numbers from the module's review notes 
 **Question to settle.** Should the allow-list be per deployment, per session (team), or per workflow? And is a network egress policy outside the application a cleaner place for it?
 
 </Accordion>
-<Accordion title="Secrets sit in workflow config and are returned as written">
-**Id** `plaintextSecrets` · **Category** Security · **Impact** 4 · **Effort** 3 · **Components** Contract & variables, External I/O, AI processors
+<Accordion title="Secrets can still be stored literally in workflow config (G5)">
+**Id** `plaintextSecrets` · **Category** Security · **Impact** 3 · **Effort** 3 · **Components** Contract & variables, External I/O, AI processors
 
-**Why it matters.** A default secret provider now exists (decrypted:key reads YUKTA_SECRET_&lt;KEY&gt;), but nothing forces its use. apiKey (LLM_CALL, decision plugins, model plane), authToken (MCP), SQL passwords and webhook urls can be typed into the config, and the code has no redaction in read paths, so the REST and MCP workflow views return them. LlmGateway also keeps the key inside its client cache key. And SQL_QUERY's schema text suggests 'decrypted:&lt;key&gt;' for the password, but the plugin never calls the resolver, so that form would be used literally.
+**Why it matters.** A default secret provider exists (decrypted:key reads YUKTA_SECRET_&lt;KEY&gt;), but nothing forces its use. apiKey (LLM_CALL, decision plugins, model plane), authToken (MCP), SQL passwords and webhook urls can still be typed into the config, and then sit in the stored definition and its files. Done: the REST config and workflow endpoints and the MCP get_workflow_details tool now mask literal secrets (SECRET-typed fields and keys named like secrets), a definition that holds the mask is refused when saved, and SQL_QUERY now resolves decrypted: and variables in url, username and password. Still open: a literal secret is stored as typed; LlmGateway keeps the key inside its client cache key; other places that show config (for example logs) are not masked.
 
-**Option.** Redact secret-typed fields (the field list already has a SECRET type) in every read API; make plugins that take secrets resolve decrypted: consistently, including SQL_QUERY; consider rejecting plain-text values for SECRET fields.
+**Option.** Consider rejecting plain-text values for SECRET fields so a literal cannot be stored at all; keep the key out of the cache key.
 
 **Question to settle.** Is it acceptable for a workflow definition to be a secret-bearing document, or must it be safe to share like source code?
 
