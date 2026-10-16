@@ -96,7 +96,7 @@ Defects, errors and slowdowns noticed while Yukta ran its own checks (the dogfoo
 - Update 2026-10-14: not reproduced. A native server on port 9101 survived two full `gradle-check` runs plus watchers after the DF-3 fix (it died only while DF-3 broke the stream). Native servers now log to `.yukta-dev/<name>.log`. Reopen with that log if it recurs; the suspect remains the old native build.
 
 #### DF-6: the chain behind a port-routed edge silently ends, and the run still reports `SUCCESS`
-- Status: fixed in this branch (`feat/dogfood-self-heal`), sha pending
+- Status: fixed in 081b8ba3
 - Severity: P1
 - Kind: bug
 - Found: 2026-10-16, a hand-built spike session, `check` (`routeByExitCode`) → `fix1` → `r1` → `next`
