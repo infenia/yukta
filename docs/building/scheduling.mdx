@@ -10,7 +10,8 @@ There are two ways to run a workflow repeatedly. Put a `SCHEDULE_TRIGGER` node a
 
 A schedule lives inside one long-running execution. You start the workflow once. Its `SCHEDULE_TRIGGER` node then emits a message on every tick, and the rest of the graph handles each message as it arrives. The execution stays open, and holds one execution slot, until you stop it, the trigger reaches its `maxRuns`, or the server stops. It is not a separate scheduler that creates a new execution per tick.
 
-<img className="yk-diagram" src="/images/diagrams/scheduling.svg" alt="A workflow is started once and holds one open execution. SCHEDULE_TRIGGER emits a tick into it and the nodes handle each tick as a message." loading="lazy" />
+<img className="yk-diagram block dark:hidden" src="/images/diagrams/scheduling.light.svg" alt="A workflow is started once and holds one open execution. SCHEDULE_TRIGGER emits a tick into it and the nodes handle each tick as a message." loading="lazy" />
+<img className="yk-diagram hidden dark:block" src="/images/diagrams/scheduling.dark.svg" alt="A workflow is started once and holds one open execution. SCHEDULE_TRIGGER emits a tick into it and the nodes handle each tick as a message." loading="lazy" />
 
 Every tick is a message with the payload `{"tick": 1, "firedAt": "2026-10-15T09:00:00Z"}`. `tick` counts from 1 and `firedAt` is the creation time in UTC.
 

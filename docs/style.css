@@ -1,97 +1,208 @@
 /*
- * Yukta docs theme: mirrors the Yukta web UI tokens (cool slate neutrals, blue primary,
- * orange attention accent, soft rounded corners, Inter + JetBrains Mono).
- * Colour and font basics live in docs.json; this file adds what docs.json cannot express.
+ * Yukta docs theme.
+ *
+ * The docs use the product's design system (ui/src/index.css), so the site and the app look like
+ * one thing. Colours come from the logo and each has one job:
+ *   blue   #2F6BFF  primary: anything you can act on, and what is current or selected
+ *   slate  #6A7A9B  structure: cool-tinted neutrals for text, lines and surfaces
+ *   orange #E85D0C  attention: where a flow starts, something live, a warning. Used sparingly.
+ * Green and red appear only for success and failure. Depth comes from 1px borders and soft
+ * neutral shadows, never from coloured glows or gradients.
+ *
+ * Sections: tokens, base, chrome, content, components, page pieces, motion.
+ * Selectors are Mintlify's documented ids and the data-component-part attributes of its components.
  */
-@import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap");
+
+/* ==========================================================================
+ * Tokens (values from ui/src/index.css). The --yk-* names are shared with snippets/*.jsx.
+ * ======================================================================== */
 
 :root {
+  /* Brand constants: the logo's colours, the same in both themes. */
   --yk-blue: #2f6bff;
   --yk-blue-soft: #6fa2ff;
   --yk-slate: #6a7a9b;
   --yk-orange: #e85d0c;
+  --yk-blue-strong: #245be0; /* brand blue one step darker: white text on it passes AA */
+
+  /* Theme roles. */
+  --yk-bg: #fbfcfe;
+  --yk-card: #ffffff;
+  --yk-fg: #11161f;
+  --yk-muted: #545e6f; /* secondary text */
+  --yk-surface: #f0f4f9; /* muted surface: table heads, chips, hover */
+  --yk-border: #dee1e8;
+  --yk-outline: #677895;
+  --yk-primary: #245be0; /* brand blue darkened just enough for AA text on the page */
+  --yk-accent: #e4efff; /* blue-tinted selected background */
+  --yk-accent-fg: #1d47b8;
   --yk-success: #008235;
   --yk-danger: #e7000b;
+  --yk-ring: color-mix(in srgb, var(--yk-blue) 55%, transparent);
 
-  --yk-blue-deep: #1f4fd8;
-  --yk-orange-soft: #ff9a5c;
-  --yk-ink: #0e1424;
+  --yk-shadow-sm: 0 1px 2px rgb(17 22 31 / 0.05), 0 1px 3px rgb(17 22 31 / 0.04);
+  --yk-shadow-md: 0 2px 4px rgb(17 22 31 / 0.04), 0 12px 28px -12px rgb(17 22 31 / 0.16);
 
-  --yk-border: #dbe3f3;
-  --yk-muted: #545e6f;
-  --yk-surface: #eef3ff;
-  --yk-bg: #fbfcfe;
-  --yk-card-bg: #ffffff;
-  --yk-glow-blue: color-mix(in srgb, var(--yk-blue) 16%, transparent);
-  --yk-glow-orange: color-mix(in srgb, var(--yk-orange) 11%, transparent);
-  --yk-brand-gradient: linear-gradient(90deg, var(--yk-blue), var(--yk-blue-soft) 55%, var(--yk-orange));
-
-  --yk-radius-lg: 0.625rem; /* inputs, buttons, small controls */
-  --yk-radius-xl: 0.875rem; /* cards, callouts, code blocks, tables */
+  --yk-radius-lg: 0.625rem; /* buttons, inputs, small controls */
+  --yk-radius-xl: 0.875rem; /* cards, callouts, accordions, code, tables, diagrams */
+  --yk-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 .dark {
+  --yk-bg: #0a0d14;
+  --yk-card: #11161f;
+  --yk-fg: #f3f5f9;
+  --yk-muted: #9aa5b8;
+  --yk-surface: #1c222b;
+  --yk-border: #2d333d;
+  --yk-outline: #7f90ae;
+  --yk-primary: #6fa2ff;
+  --yk-accent: #1e2d4c;
+  --yk-accent-fg: #a9c6ff;
   --yk-orange: #fc8c45;
   --yk-success: #4bcb71;
   --yk-danger: #ff6467;
 
-  --yk-blue-deep: #8db6ff;
-  --yk-ink: #f4f7ff;
-
-  --yk-border: #263149;
-  --yk-muted: #9aa5b8;
-  --yk-surface: #151c2c;
-  --yk-bg: #0a0d14;
-  --yk-card-bg: #0f1524;
-  --yk-glow-blue: color-mix(in srgb, var(--yk-blue) 26%, transparent);
-  --yk-glow-orange: color-mix(in srgb, var(--yk-orange) 15%, transparent);
+  --yk-shadow-sm: 0 1px 2px rgb(0 0 0 / 0.35);
+  --yk-shadow-md: 0 2px 4px rgb(0 0 0 / 0.3), 0 14px 32px -12px rgb(0 0 0 / 0.55);
 }
 
-/* Typography: the UI's mono face for code, slightly calmer body tracking. */
+/* ==========================================================================
+ * Base and type
+ * ======================================================================== */
+
 code,
 pre,
+kbd,
 .font-mono {
   font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-feature-settings: "calt" 0;
 }
 
 body {
-  letter-spacing: 0.01em;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
-/* Soft, rounded surfaces like the UI's rounded-xl panels. */
-.card,
-[data-component-part="card"],
-.callout,
-[data-callout-type],
-.accordion,
-details,
-.code-block,
-pre,
-table {
-  border-radius: var(--yk-radius-xl);
+::selection {
+  background: color-mix(in srgb, var(--yk-blue) 22%, transparent);
 }
 
-.card,
-.accordion,
-details,
-.code-block,
-table {
+:focus-visible {
+  outline: 2px solid var(--yk-ring);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+#page-title {
+  letter-spacing: -0.022em;
+}
+
+.prose {
+  line-height: 1.7;
+}
+
+.prose h2 {
+  margin-top: 2.75rem;
+  letter-spacing: -0.016em;
+}
+
+.prose h3 {
+  margin-top: 2rem;
+  letter-spacing: -0.01em;
+}
+
+/* Inline links: brand blue with a quiet underline that firms up on hover. Cards are links too,
+   so only links inside running text are touched. */
+.prose :is(p, li, td, th, dd, blockquote) a:not(.card) {
+  color: var(--yk-primary);
+  font-weight: 500;
+  border-bottom: 0;
+  text-decoration-line: underline;
+  text-decoration-thickness: 1px;
+  text-decoration-color: color-mix(in srgb, var(--yk-primary) 35%, transparent);
+  text-underline-offset: 0.22em;
+}
+
+.prose :is(p, li, td, th, dd, blockquote) a:not(.card):hover {
+  text-decoration-color: currentColor;
+}
+
+/* Inline code: a neutral chip, as in the app. */
+:not(pre) > code {
+  padding: 0.1em 0.38em;
+  font-size: 0.86em;
+  color: var(--yk-fg);
+  background: var(--yk-surface);
+  border: 1px solid var(--yk-border);
+  border-radius: 0.375rem;
+}
+
+:not(pre) > code::before,
+:not(pre) > code::after {
+  content: none;
+}
+
+.prose blockquote {
+  border-left: 3px solid var(--yk-border);
+  color: var(--yk-muted);
+  font-style: normal;
+}
+
+.prose hr {
   border-color: var(--yk-border);
 }
 
-/* Full width: every page sets mode: wide, but below Mintlify's xl breakpoint (1280px) the content
-   column is still capped at 36rem. Let it fill the space between the sidebar and the page edge. */
+/* ==========================================================================
+ * Chrome: top bar, navbar, sidebar, table of contents, search
+ * ======================================================================== */
+
+/* The logo as a 2px line: the blue flow ending in its orange dot. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0 0 auto 0;
+  height: 2px;
+  z-index: 60;
+  pointer-events: none;
+  background: linear-gradient(90deg, var(--yk-blue) 0 94%, var(--yk-orange) 94% 100%);
+}
+
+#navbar {
+  border-bottom: 1px solid var(--yk-border);
+}
+
+/* Every page sets mode: wide, but below Mintlify's xl breakpoint (1280px) the content column is
+   still capped at 36rem. Let it fill the space between the sidebar and the page edge. */
 #content-area {
   max-width: none;
 }
 
-/* Tables: Mintlify gives every cell a 150px minimum, so a five-column table is wider than the
-   text column and scrolls sideways. A smaller minimum lets the cells wrap so the table fits, and
-   long identifiers and paths may break so they cannot force it wider than its box. */
-.prose table td,
-.prose table th {
-  min-width: 5.5rem;
-  overflow-wrap: anywhere;
+#sidebar-title,
+#sidebar h5 {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--yk-fg);
+}
+
+#sidebar a {
+  border-radius: var(--yk-radius-lg);
+}
+
+#sidebar a[aria-current="page"],
+#sidebar a[data-active="true"],
+#sidebar li[data-active="true"] > a {
+  color: var(--yk-accent-fg);
+  font-weight: 600;
+  background: var(--yk-accent);
+}
+
+#table-of-contents a[data-active="true"],
+#table-of-contents a[aria-current] {
+  color: var(--yk-primary);
 }
 
 input,
@@ -101,480 +212,334 @@ button,
   border-radius: var(--yk-radius-lg);
 }
 
-/* Inline code: a quiet slate chip instead of a loud box. */
-:not(pre) > code {
-  background: var(--yk-surface);
-  border: 1px solid var(--yk-border);
-  border-radius: 0.4rem;
-  padding: 0.05em 0.35em;
-  font-size: 0.9em;
+#search-bar-entry {
+  border-color: var(--yk-border);
 }
 
-/* Callouts follow the UI's semantic colours:
- * note = blue, tip = success green, warning = attention orange, danger = destructive red. */
-[data-callout-type="note"],
-[data-callout-type="info"] {
-  border-color: color-mix(in srgb, var(--yk-blue) 35%, transparent);
-  background: color-mix(in srgb, var(--yk-blue) 8%, transparent);
-}
-
-[data-callout-type="tip"],
-[data-callout-type="check"] {
-  border-color: color-mix(in srgb, var(--yk-success) 35%, transparent);
-  background: color-mix(in srgb, var(--yk-success) 8%, transparent);
-}
-
-[data-callout-type="warning"] {
-  border-color: color-mix(in srgb, var(--yk-orange) 40%, transparent);
-  background: color-mix(in srgb, var(--yk-orange) 9%, transparent);
-}
-
-[data-callout-type="danger"] {
-  border-color: color-mix(in srgb, var(--yk-danger) 40%, transparent);
-  background: color-mix(in srgb, var(--yk-danger) 8%, transparent);
-}
-
-/* Tags such as "Optional" use the attention colour so they stand out in the sidebar and page header. */
+/* Tags such as "Optional" in the sidebar and page header. */
 [data-page-tag],
 .tag {
-  color: var(--yk-orange);
+  color: var(--yk-accent-fg);
 }
 
-/* The logo's two brand colours as a thin bar across the top of every page: blue (primary) running
- * into orange (secondary). */
-body::before {
-  content: "";
-  position: fixed;
-  inset: 0 0 auto 0;
-  height: 3px;
-  z-index: 60;
-  pointer-events: none;
-  background: linear-gradient(
-    90deg,
-    var(--yk-blue) 0%,
-    var(--yk-blue-soft) 45%,
-    var(--yk-orange) 85%,
-    var(--yk-orange-soft) 100%
-  );
+/* ==========================================================================
+ * Content: tables, code blocks
+ * ======================================================================== */
+
+/* Mintlify gives every cell a 150px minimum, so a five-column table is wider than the text column
+   and scrolls sideways. A smaller minimum lets the cells wrap so the table fits, and long
+   identifiers may break so they cannot force it wider than its box. */
+.prose table td,
+.prose table th {
+  min-width: 5.5rem;
+  overflow-wrap: anywhere;
 }
 
-/* Orange is the attention accent: hover, focus and selection. Blue stays the resting colour. */
-#navbar a:hover,
-#sidebar a:hover,
-footer a:hover,
-.prose p a:hover,
-.prose li a:hover {
-  color: var(--yk-orange);
+.prose table {
+  border-radius: var(--yk-radius-xl);
 }
 
-:focus-visible {
-  outline: 2px solid var(--yk-orange);
-  outline-offset: 2px;
+.prose table thead th {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--yk-muted);
+  background: var(--yk-surface);
 }
 
-::selection {
-  background: color-mix(in srgb, var(--yk-orange) 28%, transparent);
+.prose table tbody tr {
+  border-color: var(--yk-border);
+}
+
+.prose table tbody tr:hover td {
+  background: color-mix(in srgb, var(--yk-surface) 60%, transparent);
+}
+
+/* Mintlify draws the frame and header; this aligns their colour, radius and depth with the rest. */
+.code-block,
+.code-group {
+  border-color: var(--yk-border);
+  border-radius: var(--yk-radius-xl);
+  box-shadow: var(--yk-shadow-sm);
+}
+
+/* ==========================================================================
+ * Components
+ * ======================================================================== */
+
+/* Steps: numbered badges on a hairline, in the app's selected-state blue. */
+[data-component-part="step-number"] > div {
+  color: var(--yk-accent-fg);
+  font-weight: 600;
+  background: var(--yk-accent);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--yk-blue) 22%, transparent),
+    0 0 0 4px var(--yk-bg);
+}
+
+[data-component-part="step-line"][data-component-part] {
+  --tw-gradient-from: var(--yk-border);
+  --tw-gradient-via: var(--yk-border);
+  background-color: var(--yk-border);
+}
+
+[data-component-part="step-title"] {
+  font-weight: 600;
+  letter-spacing: -0.006em;
+}
+
+/* Accordions: quiet bordered panels on the card surface. */
+.accordion,
+[data-component-part="accordion"],
+[data-component-part="accordion-group"] {
+  border-color: var(--yk-border);
+  border-radius: var(--yk-radius-xl);
+  background: var(--yk-card);
+}
+
+[data-component-part="accordion-group"] [data-component-part="accordion"] {
+  background: transparent;
+}
+
+[data-component-part="accordion-button"]:hover {
+  background: var(--yk-surface);
+}
+
+[data-component-part="accordion-title"] {
+  font-weight: 500;
+  color: var(--yk-fg);
+}
+
+details[open] > [data-component-part="accordion-button"] [data-component-part="accordion-caret-right"],
+details[open] > summary [data-component-part="accordion-caret-right"] {
+  color: var(--yk-primary);
+}
+
+details[open] > [data-component-part="accordion-button"] + * {
+  border-top: 1px solid var(--yk-border);
+  padding-top: 0.75rem;
+}
+
+/* Cards: raised surface, an icon tile like the app's node icon, blue border on hover. */
+.card,
+a.card,
+[data-component-part="card"] {
+  background: var(--yk-card);
+  border: 1px solid var(--yk-border);
+  border-radius: var(--yk-radius-xl);
+  box-shadow: var(--yk-shadow-sm);
 }
 
 .card:hover,
 a.card:hover,
 [data-component-part="card"]:hover {
-  border-color: var(--yk-orange);
+  border-color: color-mix(in srgb, var(--yk-blue) 45%, var(--yk-border));
+  box-shadow: var(--yk-shadow-md);
 }
 
-/* Diagrams: animated SVG panels (images/diagrams, built by generate.py). The panel is always dark,
- * so it reads the same in light and dark mode; the shadow and glow lift it off the page. */
-img.yk-diagram {
-  display: block;
-  width: 100%;
-  height: auto;
-  margin: 1.75rem 0;
-  border-radius: 1.5rem;
-  border: 1px solid color-mix(in srgb, var(--yk-blue) 28%, transparent);
-  box-shadow:
-    0 18px 40px -22px color-mix(in srgb, var(--yk-blue) 60%, transparent),
-    0 2px 6px rgba(10, 13, 20, 0.18);
-}
-
-.dark img.yk-diagram {
-  border-color: color-mix(in srgb, var(--yk-blue-soft) 30%, transparent);
-  box-shadow:
-    0 22px 50px -24px color-mix(in srgb, var(--yk-blue) 75%, transparent),
-    0 0 0 1px rgba(255, 255, 255, 0.04);
-}
-
-/* ==========================================================================
- * Brand design layer: blue (primary) and orange (secondary), the two colours of the logo.
- * Every rule here is additive and degrades to the Mintlify defaults if a selector stops matching.
- * ======================================================================== */
-
-/* Atmosphere: a soft blue glow top-left and an orange glow top-right behind the whole page. */
-body::after {
-  content: "";
-  position: fixed;
-  inset: 0;
-  z-index: -1;
-  pointer-events: none;
-  background:
-    radial-gradient(52rem 30rem at 6% -6%, var(--yk-glow-blue), transparent 62%),
-    radial-gradient(44rem 26rem at 100% 0%, var(--yk-glow-orange), transparent 62%);
-}
-
-/* Navbar: frosted glass with a hairline. */
-#navbar,
-#navbar-transition {
-  backdrop-filter: saturate(170%) blur(14px);
-  -webkit-backdrop-filter: saturate(170%) blur(14px);
-  background-color: color-mix(in srgb, var(--yk-bg) 74%, transparent) !important;
-}
-
-#navbar {
-  border-bottom: 1px solid var(--yk-border);
-}
-
-/* Sidebar: small-caps group labels, a tinted pill with an orange edge on the current page. */
-#sidebar-title,
-#sidebar h5 {
-  font-size: 0.68rem;
-  font-weight: 700;
-  letter-spacing: 0.09em;
-  text-transform: uppercase;
-  color: var(--yk-slate);
-}
-
-#sidebar a {
+/* Mintlify draws the icon itself in the primary colour; this only adds the tile behind it. */
+div[data-component-part="card-icon"][data-component-part] {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
   border-radius: var(--yk-radius-lg);
+  background: var(--yk-accent);
 }
 
-#sidebar a:hover {
-  background: color-mix(in srgb, var(--yk-blue) 8%, transparent);
+div[data-component-part="card-icon"] > svg {
+  width: 1.125rem;
+  height: 1.125rem;
 }
 
-#sidebar a[aria-current="page"],
-#sidebar a[data-active="true"],
-#sidebar li[data-active="true"] > a {
-  color: var(--yk-blue);
+[data-component-part="card-title"] {
   font-weight: 600;
-  background: color-mix(in srgb, var(--yk-blue) 11%, transparent);
-  box-shadow: inset 3px 0 0 var(--yk-orange);
+  color: var(--yk-fg);
 }
 
-.dark #sidebar a[aria-current="page"],
-.dark #sidebar a[data-active="true"],
-.dark #sidebar li[data-active="true"] > a {
-  color: var(--yk-blue-soft);
-}
-
-/* Page title: ink fading into brand blue. Falls back to the plain colour without clip support. */
-@supports (-webkit-background-clip: text) or (background-clip: text) {
-  #page-title {
-    background-image: linear-gradient(100deg, var(--yk-ink) 0%, var(--yk-ink) 38%, var(--yk-blue) 100%);
-    -webkit-background-clip: text;
-    background-clip: text;
-    -webkit-text-fill-color: transparent;
-    color: transparent;
-  }
-
-  .dark #page-title {
-    background-image: linear-gradient(100deg, #ffffff 0%, #ffffff 36%, var(--yk-blue-soft) 100%);
-  }
-}
-
-#page-title {
-  letter-spacing: -0.028em;
-  font-weight: 700;
-}
-
-/* Section headings: a short orange tab sitting on a hairline. */
-.prose h2 {
-  letter-spacing: -0.018em;
-  padding-bottom: 0.45rem;
-  margin-bottom: 0.9rem;
-  background:
-    linear-gradient(var(--yk-orange), var(--yk-orange)) no-repeat 0 100% / 2.4rem 3px,
-    linear-gradient(var(--yk-border), var(--yk-border)) no-repeat 0 100% / 100% 1px;
-}
-
-.prose h3 {
-  letter-spacing: -0.01em;
-}
-
-/* Text details: orange list markers, quotes with an orange rule, a gradient divider. */
-.prose li::marker {
-  color: var(--yk-orange);
-}
-
-.prose blockquote {
-  border-left: 3px solid var(--yk-orange);
-  background: color-mix(in srgb, var(--yk-orange) 6%, transparent);
-  border-radius: 0 var(--yk-radius-lg) var(--yk-radius-lg) 0;
-  padding: 0.4rem 1rem;
-}
-
-.prose hr {
-  height: 1px;
-  border: 0;
-  background: linear-gradient(90deg, transparent, var(--yk-blue), var(--yk-orange), transparent);
-  opacity: 0.55;
-}
-
-:not(pre) > code {
-  color: var(--yk-blue-deep);
-  background: color-mix(in srgb, var(--yk-blue) 8%, var(--yk-surface));
-  border-color: color-mix(in srgb, var(--yk-blue) 22%, var(--yk-border));
-}
-
-/* Cards: glass surface with a blue wash, an accent line that appears on hover, blue icons. */
-.card,
-a.card,
-[data-component-part="card"] {
-  position: relative;
-  overflow: hidden;
-  background: linear-gradient(
-    160deg,
-    color-mix(in srgb, var(--yk-blue) 8%, var(--yk-card-bg)) 0%,
-    var(--yk-card-bg) 62%
-  );
-  box-shadow:
-    0 1px 2px rgba(14, 20, 36, 0.05),
-    0 16px 32px -24px color-mix(in srgb, var(--yk-blue) 55%, transparent);
-}
-
-.card::before,
-[data-component-part="card"]::before {
-  content: "";
-  position: absolute;
-  inset: 0 0 auto 0;
-  height: 3px;
-  background: var(--yk-brand-gradient);
-  opacity: 0;
-  transition: opacity 200ms ease;
-  pointer-events: none;
-}
-
-.card:hover::before,
-[data-component-part="card"]:hover::before {
-  opacity: 1;
-}
-
-.card svg {
-  color: var(--yk-blue);
-}
-
-.card:hover svg {
-  color: var(--yk-orange);
-}
-
-/* Callouts: a solid accent edge in the semantic colour. */
+/* Callouts: one treatment for every kind. A light tint, a matching hairline and a coloured icon.
+   Note and info are blue, tip and check success, warning attention orange, danger destructive. */
 [data-callout-type] {
-  border-left-width: 3px;
+  --yk-callout: var(--yk-slate);
+  border: 1px solid color-mix(in srgb, var(--yk-callout) 26%, transparent);
+  background: color-mix(in srgb, var(--yk-callout) 6%, var(--yk-bg));
+  border-radius: var(--yk-radius-xl);
 }
 
 [data-callout-type="note"],
 [data-callout-type="info"] {
-  border-left-color: var(--yk-blue);
+  --yk-callout: var(--yk-blue);
 }
 
 [data-callout-type="tip"],
 [data-callout-type="check"] {
-  border-left-color: var(--yk-success);
+  --yk-callout: var(--yk-success);
 }
 
 [data-callout-type="warning"] {
-  border-left-color: var(--yk-orange);
+  --yk-callout: var(--yk-orange);
 }
 
 [data-callout-type="danger"] {
-  border-left-color: var(--yk-danger);
+  --yk-callout: var(--yk-danger);
 }
 
-/* Tabs: orange underline on the active tab. */
+[data-callout-type] [data-component-part="callout-icon"] svg {
+  color: var(--yk-callout);
+  fill: currentColor;
+}
+
+[data-callout-type] [data-component-part="callout-content"] {
+  color: var(--yk-fg);
+}
+
+/* Tabs: the active tab is underlined in blue. */
+[data-component-part="tab-button"][aria-selected="true"],
 [role="tab"][aria-selected="true"] {
-  color: var(--yk-blue);
-  border-bottom-color: var(--yk-orange);
-}
-
-.dark [role="tab"][aria-selected="true"] {
-  color: var(--yk-blue-soft);
-}
-
-/* Code blocks and tables: tinted, softly lifted. */
-.code-block,
-pre {
-  border: 1px solid var(--yk-border);
-  box-shadow: 0 18px 36px -28px color-mix(in srgb, var(--yk-blue) 60%, transparent);
-}
-
-.prose table thead th {
-  background: color-mix(in srgb, var(--yk-blue) 9%, transparent);
-  color: var(--yk-blue-deep);
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-
-.prose table tbody tr:nth-child(even) td {
-  background: color-mix(in srgb, var(--yk-blue) 3%, transparent);
-}
-
-.prose table tbody tr:hover td {
-  background: color-mix(in srgb, var(--yk-orange) 7%, transparent);
-}
-
-/* Search and scrollbars. */
-#search-bar-entry {
-  border-color: var(--yk-border);
-  background: color-mix(in srgb, var(--yk-card-bg) 80%, transparent);
-}
-
-#search-bar-entry:hover {
+  color: var(--yk-fg);
   border-color: var(--yk-blue);
 }
 
-* {
-  scrollbar-width: thin;
-  scrollbar-color: color-mix(in srgb, var(--yk-blue) 45%, transparent) transparent;
+/* ==========================================================================
+ * Page pieces
+ * ======================================================================== */
+
+/* Diagrams (images/diagrams, built by generate.py) come in a light and a dark file; the page
+   shows the one for the current theme. The SVG draws its own frame. */
+img.yk-diagram {
+  width: 100%;
+  height: auto;
+  margin: 1.5rem 0;
+  border-radius: var(--yk-radius-xl);
+  box-shadow: var(--yk-shadow-sm);
 }
 
-/* Home page hero: eyebrow chip, two buttons (blue primary, orange secondary) and feature chips. */
+/* Home page hero: a status-style eyebrow, then one primary and one secondary action. */
 .yk-hero {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.75rem 1rem;
-  margin: 0.25rem 0 1.5rem;
+  justify-content: space-between;
+  gap: 1rem;
+  margin: 0.25rem 0 1.75rem;
+  padding: 1rem 1.25rem;
+  background: var(--yk-card);
+  border: 1px solid var(--yk-border);
+  border-radius: var(--yk-radius-xl);
+  box-shadow: var(--yk-shadow-sm);
 }
 
 .yk-eyebrow {
   display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.3rem 0.8rem;
-  border-radius: 999px;
-  font-size: 0.74rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--yk-orange);
-  border: 1px solid color-mix(in srgb, var(--yk-orange) 40%, transparent);
-  background: color-mix(in srgb, var(--yk-orange) 9%, transparent);
+  gap: 0.55rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--yk-muted);
 }
 
-.yk-eyebrow::before {
-  content: "";
-  width: 0.45rem;
-  height: 0.45rem;
-  border-radius: 50%;
+/* The one orange moment: a live dot, like a running node in the app. */
+.yk-live {
+  position: relative;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 999px;
   background: var(--yk-orange);
-  box-shadow: 0 0 0 4px color-mix(in srgb, var(--yk-orange) 25%, transparent);
 }
 
 .yk-hero-cta {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.6rem;
-  margin-left: auto;
+  gap: 0.5rem;
 }
 
 .yk-btn {
   display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
-  padding: 0.55rem 1.1rem;
-  border-radius: var(--yk-radius-lg);
-  font-size: 0.9rem;
+  gap: 0.375rem;
+  height: 2.25rem;
+  padding: 0 0.95rem;
+  font-size: 0.875rem;
   font-weight: 600;
-  text-decoration: none !important;
-  border: 1px solid transparent !important;
-  transition:
-    transform 160ms ease,
-    box-shadow 160ms ease,
-    background-color 160ms ease;
+  line-height: 1;
+  border: 1px solid transparent;
+  border-radius: var(--yk-radius-lg);
+  text-decoration: none;
 }
 
 .yk-btn-primary {
-  color: #fff !important;
-  background: linear-gradient(135deg, var(--yk-blue-soft), var(--yk-blue) 60%, var(--yk-blue-deep));
-  box-shadow: 0 10px 22px -12px var(--yk-blue);
-}
-
-.yk-btn-secondary {
-  color: var(--yk-orange) !important;
-  background: color-mix(in srgb, var(--yk-orange) 9%, transparent);
-  border-color: color-mix(in srgb, var(--yk-orange) 45%, transparent) !important;
-}
-
-.yk-btn:hover {
-  transform: translateY(-2px);
+  color: #ffffff;
+  background: var(--yk-blue-strong);
+  box-shadow: var(--yk-shadow-sm);
 }
 
 .yk-btn-primary:hover {
-  box-shadow: 0 14px 28px -12px var(--yk-blue);
+  background: color-mix(in srgb, var(--yk-blue-strong) 86%, #000);
+}
+
+.yk-btn-secondary {
+  color: var(--yk-fg);
+  background: var(--yk-card);
+  border-color: var(--yk-border);
 }
 
 .yk-btn-secondary:hover {
-  background: color-mix(in srgb, var(--yk-orange) 16%, transparent);
-  box-shadow: 0 12px 24px -14px var(--yk-orange);
+  border-color: color-mix(in srgb, var(--yk-blue) 45%, var(--yk-border));
+  background: var(--yk-surface);
 }
 
-.yk-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  flex-basis: 100%;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
+/* ==========================================================================
+ * Motion: short, functional, ease-out. All of it lives in no-preference, so reduced-motion users
+ * get none. Hidden initial states apply only under .yk-js (set by motion.js), so the page stays
+ * visible without JavaScript.
+ * ======================================================================== */
 
-.yk-chips li {
-  margin: 0;
-  padding: 0.22rem 0.7rem;
-  border-radius: 999px;
-  font-size: 0.78rem;
-  font-weight: 500;
-  color: var(--yk-blue-deep);
-  border: 1px solid color-mix(in srgb, var(--yk-blue) 28%, transparent);
-  background: color-mix(in srgb, var(--yk-blue) 7%, transparent);
-}
-
-.yk-chips li::marker {
-  content: "";
-}
-
-/* Motion: subtle and fast. Every new effect lives inside no-preference, so reduced-motion users
- * (and the block below) get none of it. Hidden initial states only apply under .yk-js, which
- * motion.js sets, so the page stays fully visible without JavaScript. */
 @media (prefers-reduced-motion: no-preference) {
   .card,
   a.card,
-  [data-component-part="card"] {
+  [data-component-part="card"],
+  .yk-btn,
+  [data-component-part="accordion-button"],
+  #sidebar a {
     transition:
-      transform 180ms ease,
-      box-shadow 180ms ease,
-      border-color 180ms ease;
+      transform 180ms var(--yk-ease),
+      box-shadow 180ms var(--yk-ease),
+      border-color 180ms var(--yk-ease),
+      background-color 180ms var(--yk-ease),
+      color 180ms var(--yk-ease);
   }
 
   .card:hover,
   a.card:hover,
-  [data-component-part="card"]:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 20px -8px color-mix(in srgb, var(--yk-orange) 45%, transparent);
+  [data-component-part="card"]:hover,
+  .yk-btn:hover {
+    transform: translateY(-1px);
   }
 
-  /* Slow drift of the logo-colour bar. */
-  body::before {
-    background-size: 200% 100%;
-    animation: yk-bar-shift 14s ease-in-out infinite alternate;
+  .prose :is(p, li, td, th, dd, blockquote) a:not(.card) {
+    transition: text-decoration-color 150ms var(--yk-ease);
   }
 
-  @keyframes yk-bar-shift {
-    from {
-      background-position: 0% 0;
+  /* The app's running pulse (node-breathe), on the hero's live dot. */
+  .yk-live::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: inherit;
+    animation: yk-live 2.4s var(--yk-ease) infinite;
+  }
+
+  @keyframes yk-live {
+    0% {
+      transform: scale(1);
+      opacity: 0.55;
     }
-    to {
-      background-position: 100% 0;
+    70%,
+    100% {
+      transform: scale(2.8);
+      opacity: 0;
     }
   }
 
@@ -588,38 +553,11 @@ pre {
     opacity: 1;
     transform: none;
     transition:
-      opacity 350ms ease,
-      transform 350ms ease;
-  }
-
-  img.yk-diagram:hover {
-    box-shadow:
-      0 26px 56px -22px color-mix(in srgb, var(--yk-blue) 80%, transparent),
-      0 0 34px -10px color-mix(in srgb, var(--yk-orange) 45%, transparent);
-  }
-
-  /* Callouts, tables and code blocks fade in through the same .yk-reveal mechanism (motion.js). */
-
-  /* Inline links: the underline slides in from the left on hover. */
-  .prose p a:not(.card),
-  .prose li a:not(.card) {
-    text-decoration: none;
-    background-image: linear-gradient(currentColor, currentColor);
-    background-repeat: no-repeat;
-    background-position: 0 100%;
-    background-size: 0% 1px;
-    transition:
-      background-size 220ms ease,
-      color 150ms ease;
-  }
-
-  .prose p a:not(.card):hover,
-  .prose li a:not(.card):hover {
-    background-size: 100% 1px;
+      opacity 350ms var(--yk-ease),
+      transform 350ms var(--yk-ease);
   }
 }
 
-/* Respect users who ask for less motion. */
 @media (prefers-reduced-motion: reduce) {
   * {
     transition: none !important;

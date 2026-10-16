@@ -15,7 +15,8 @@ Use it when losing the one server that admits runs is not acceptable. It gives f
 
 ## How it works
 
-<img className="yk-diagram" src="/images/diagrams/high-availability.svg" alt="Clients talk to the leader and a standby answers 503. Both servers use one PostgreSQL lease row: the leader renews it and the standby waits for it to expire." loading="lazy" />
+<img className="yk-diagram block dark:hidden" src="/images/diagrams/high-availability.light.svg" alt="Clients talk to the leader and a standby answers 503. Both servers use one PostgreSQL lease row: the leader renews it and the standby waits for it to expire." loading="lazy" />
+<img className="yk-diagram hidden dark:block" src="/images/diagrams/high-availability.dark.svg" alt="Clients talk to the leader and a standby answers 503. Both servers use one PostgreSQL lease row: the leader renews it and the standby waits for it to expire." loading="lazy" />
 
 All servers run the same build against the same database. A lease row in PostgreSQL names the current leader and when its lease expires.
 
