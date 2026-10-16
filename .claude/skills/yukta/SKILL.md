@@ -1,6 +1,6 @@
 ---
 name: yukta
-description: Use to verify changes in the Yukta repo by running its staged `gradle check` workflow on a local Yukta server via the yukta CLI, to watch a run and steer it (retry a stage, pause) and record defects it finds, or to start/stop a local Yukta server. Use instead of choosing gradle quality tasks yourself.
+description: Use to verify changes in the Yukta repo (the final gate before a commit or PR, or any "run the checks / fix the build" request) by running its staged, self-healing `gradle check` workflow on a local Yukta server via the yukta CLI; the run repairs spotless, compile, test, coverage, style and spotbugs failures itself and reports what it healed. Also to watch a run and steer it (retry a stage, pause), record defects it finds, or start/stop a local Yukta server. Use instead of choosing gradle quality tasks yourself.
 allowed-tools: Bash, Read
 ---
 
@@ -25,6 +25,14 @@ ERROR style: See the report at: file:///…/core/build/reports/checkstyle/main.h
 WORKFLOW FAILURE
 RESULT status=FAILURE failed_node=style execution=<id> session=<id>
 ```
+
+## When to use which gate
+- Inner loop (a few classes): the scoped Gradle tiers in CLAUDE.md, not this.
+- Final gate before a commit or PR, or "make the build pass": `yukta-check.sh --watch` (self-healing).
+  From Claude Code leave `--fixer` at `auto`: attempt 1 is a cheap fresh fixer, attempt 2 forks this session
+  so it knows what you changed. Use `--fixer fresh` for a change you did not make (a different branch).
+- You want the failure itself, not a repair (debugging a flaky stage, reproducing a CI failure): `--no-heal`.
+- After a healed run: `git diff` the files the `HEAL` lines name, keep what is right, and commit it yourself.
 
 ## Run the checks
 ```bash
@@ -163,4 +171,9 @@ runs Gradle on (`-p`), whichever provider serves it.
 ## Don'ts
 - Don't edit `.yukta-dev/` state by hand or kill servers you didn't start.
 - Don't start servers any way other than `yukta-server.sh` (it keeps the state files the other scripts read).
-- Don't run concurrent checks against the same checkout.
+- Don't run concurrent checks against the same checkout, and don't edit files or run Gradle in it while a
+  self-healing run is going (the fixer is editing the same tree).
+- Don't commit what a healing run changed without reading the diff; don't widen the guard (protected paths,
+  suppressions) to get a run through, fix the cause or record a `DF-<n>`.
+- Don't start a server without `YUKTA_PROCESS_ALLOW_ANY=true` (`yukta-server.sh` sets it) or run the fixer
+  with `claude --bare` (it loses the login).
