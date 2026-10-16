@@ -29,25 +29,7 @@ Yukta is a multi-module Gradle build. Each module has one job, and the pages in 
 
 ## How they fit together
 
-```mermaid
-flowchart TB
-  clients["Clients: REST, web UI, MCP agents, CLI"]
-  edge["web, mcp, ui"]
-  core["core: engine and control plane"]
-  plug["plugin-api and plugins"]
-  msg["messaging"]
-  store["persistence-postgres"]
-  work["workers"]
-  boot["boot: one Spring Boot app"]
-  clients --> edge --> core
-  core --> plug
-  core --> msg
-  plug --> msg
-  core --> store
-  core --> work
-  boot -. wires together .-> core
-  boot -. wires together .-> edge
-```
+<img className="yk-diagram" src="/images/diagrams/module-map.svg" alt="Clients reach the web, mcp and ui modules, which call core. Core uses plugin-api and plugins, messaging, persistence-postgres and workers. The boot module wires them into one Spring Boot app." loading="lazy" />
 
 Clients talk to `web`, `mcp` or `ui`, which translate requests into calls on `core`. The engine runs each node by calling a plugin through the contracts in `plugin-api`. State goes to the stores in `core` (files or memory) or `persistence-postgres`, and nodes can run on other machines through `workers`. `boot` wires everything into one application.
 

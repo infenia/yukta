@@ -76,17 +76,7 @@ Start it with a payload such as `{"sessionId": "user-42", "message": "My name is
 
 An agent loop has four steps: the model reads the task and the tools on offer, decides whether it needs a tool, the workflow runs the tool, and the result goes back to the model.
 
-```mermaid
-%%{init: {'theme':'base','themeVariables':{'primaryColor':'#E4EFFF','primaryBorderColor':'#2F6BFF','primaryTextColor':'#11161F','secondaryColor':'#EEF2F9','tertiaryColor':'#FBFCFE','lineColor':'#6A7A9B','fontFamily':'Inter, sans-serif'}}}%%
-flowchart LR
-  L["MCP_LIST_TOOLS"] --> P["LLM_CALL<br/>tools"]
-  P --> B{"BRANCH<br/>asked for a tool?"}
-  B -- yes --> M["MAPPER"] --> A["MCP_TOOL_CALL"] --> F["LLM_CALL<br/>final answer"]
-  B -- no --> D["Terminal"]
-  F --> E["Terminal"]
-  classDef terminal fill:#EEF2F9,stroke:#6A7A9B,stroke-width:2px,color:#11161F
-  class D,E terminal
-```
+<img className="yk-diagram" src="/images/diagrams/agent-loop.svg" alt="An agent workflow lists MCP tools, asks the model, branches on whether it asked for a tool, maps the arguments, calls the tool and asks the model for a final answer." loading="lazy" />
 
 - `MCP_LIST_TOOLS` reads the tool names, descriptions and input schemas of an MCP server. `allowedTools` narrows the list.
 - `LLM_CALL` takes them in its `tools` option (an expression such as `payload.tools`). If the model wants a tool, the call appears in `payload.actions` as `{"tool", "arguments", "id"}`. The node does not run it.

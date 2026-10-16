@@ -168,6 +168,27 @@ a.card:hover,
   border-color: var(--yk-orange);
 }
 
+/* Diagrams: animated SVG panels (images/diagrams, built by generate.py). The panel is always dark,
+ * so it reads the same in light and dark mode; the shadow and glow lift it off the page. */
+img.yk-diagram {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin: 1.75rem 0;
+  border-radius: 1.5rem;
+  border: 1px solid color-mix(in srgb, var(--yk-blue) 28%, transparent);
+  box-shadow:
+    0 18px 40px -22px color-mix(in srgb, var(--yk-blue) 60%, transparent),
+    0 2px 6px rgba(10, 13, 20, 0.18);
+}
+
+.dark img.yk-diagram {
+  border-color: color-mix(in srgb, var(--yk-blue-soft) 30%, transparent);
+  box-shadow:
+    0 22px 50px -24px color-mix(in srgb, var(--yk-blue) 75%, transparent),
+    0 0 0 1px rgba(255, 255, 255, 0.04);
+}
+
 /* Motion: subtle and fast. Every new effect lives inside no-preference, so reduced-motion users
  * (and the block below) get none of it. Hidden initial states only apply under .yk-js, which
  * motion.js sets, so the page stays fully visible without JavaScript. */
@@ -215,6 +236,12 @@ a.card:hover,
     transition:
       opacity 350ms ease,
       transform 350ms ease;
+  }
+
+  img.yk-diagram:hover {
+    box-shadow:
+      0 26px 56px -22px color-mix(in srgb, var(--yk-blue) 80%, transparent),
+      0 0 34px -10px color-mix(in srgb, var(--yk-orange) 45%, transparent);
   }
 
   /* Callouts, tables and code blocks fade in through the same .yk-reveal mechanism (motion.js). */

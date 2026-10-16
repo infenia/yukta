@@ -10,15 +10,7 @@ There are two ways to run a workflow repeatedly. Put a `SCHEDULE_TRIGGER` node a
 
 A schedule lives inside one long-running execution. You start the workflow once. Its `SCHEDULE_TRIGGER` node then emits a message on every tick, and the rest of the graph handles each message as it arrives. The execution stays open, and holds one execution slot, until you stop it, the trigger reaches its `maxRuns`, or the server stops. It is not a separate scheduler that creates a new execution per tick.
 
-```mermaid
-%%{init: {'theme':'base','themeVariables':{'primaryColor':'#E4EFFF','primaryBorderColor':'#2F6BFF','primaryTextColor':'#11161F','secondaryColor':'#EEF2F9','tertiaryColor':'#FBFCFE','lineColor':'#6A7A9B','fontFamily':'Inter, sans-serif'}}}%%
-flowchart LR
-  S["Start once"] --> E["One open execution"]
-  T["SCHEDULE_TRIGGER<br/>tick 1, 2, 3 ..."] --> E
-  E --> G["Nodes handle each tick as a message"]
-  classDef trigger fill:#FFE9DB,stroke:#E85D0C,stroke-width:2px,color:#11161F
-  class T trigger
-```
+<img className="yk-diagram" src="/images/diagrams/scheduling.svg" alt="A workflow is started once and holds one open execution. SCHEDULE_TRIGGER emits a tick into it and the nodes handle each tick as a message." loading="lazy" />
 
 Every tick is a message with the payload `{"tick": 1, "firedAt": "2026-10-15T09:00:00Z"}`. `tick` counts from 1 and `firedAt` is the creation time in UTC.
 
