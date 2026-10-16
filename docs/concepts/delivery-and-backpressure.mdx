@@ -29,7 +29,8 @@ Each edge is a stream. A slow consumer makes its producers wait, so memory stays
 - A fan-out moves at the speed of its slowest child.
 - Nodes that block while they work run on lightweight threads, so they do not hold up the engine.
 
-<img className="yk-diagram" src="/images/diagrams/backpressure.svg" alt="A trigger feeds a fast node, which feeds a slow node and another fast node. The slow node paces the fast node and the trigger." loading="lazy" />
+<img className="yk-diagram block dark:hidden" src="/images/diagrams/backpressure.light.svg" alt="A trigger feeds a fast node, which feeds a slow node and another fast node. The slow node paces the fast node and the trigger." loading="lazy" />
+<img className="yk-diagram hidden dark:block" src="/images/diagrams/backpressure.dark.svg" alt="A trigger feeds a fast node, which feeds a slow node and another fast node. The slow node paces the fast node and the trigger." loading="lazy" />
 
 ### Letting a node fall behind
 

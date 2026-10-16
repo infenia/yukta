@@ -15,7 +15,8 @@ Place a node on a worker when it is heavy, must run close to a resource (a priva
 
 ## How it works
 
-<img className="yk-diagram" src="/images/diagrams/remote-workers.svg" alt="The control plane opens one channel per attempt to each worker. Workers register and renew their lease with the control plane." loading="lazy" />
+<img className="yk-diagram block dark:hidden" src="/images/diagrams/remote-workers.light.svg" alt="The control plane opens one channel per attempt to each worker. Workers register and renew their lease with the control plane." loading="lazy" />
+<img className="yk-diagram hidden dark:block" src="/images/diagrams/remote-workers.dark.svg" alt="The control plane opens one channel per attempt to each worker. Workers register and renew their lease with the control plane." loading="lazy" />
 
 - Workers connect out to the control plane over a persistent connection, so a worker needs no inbound port.
 - A worker registers with a shared token, its id, its pools, the plugin types it may run and its capacity.

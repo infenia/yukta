@@ -10,7 +10,8 @@ Yukta splits cleanly into a **data plane** that moves messages through a workflo
 
 A **session** groups workflows. A **workflow** is a directed acyclic graph of **nodes** joined by **edges**. Each node is an instance of a **plugin** with its own configuration. Starting a workflow creates an **execution**: a live run with its own id and a status for the run and for every node. Triggers put **messages** into the graph, messages stream along edges from node to node, and terminals consume them.
 
-<img className="yk-diagram" src="/images/diagrams/architecture.svg" alt="Clients enter through admission and definition into the stream engine, which runs plugins and feeds observation and durability. A control plane sends ordered commands to the engine and supervisors read the event feed." loading="lazy" />
+<img className="yk-diagram block dark:hidden" src="/images/diagrams/architecture.light.svg" alt="Clients enter through admission and definition into the stream engine, which runs plugins and feeds observation and durability. A control plane sends ordered commands to the engine and supervisors read the event feed." loading="lazy" />
+<img className="yk-diagram hidden dark:block" src="/images/diagrams/architecture.dark.svg" alt="Clients enter through admission and definition into the stream engine, which runs plugins and feeds observation and durability. A control plane sends ordered commands to the engine and supervisors read the event feed." loading="lazy" />
 
 ## The life of an execution
 

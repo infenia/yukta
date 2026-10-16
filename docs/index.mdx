@@ -7,18 +7,11 @@ mode: "wide"
 import { DagHero } from "/snippets/dag-hero.jsx"
 
 <div className="not-prose yk-hero">
-  <span className="yk-eyebrow">Reactive workflow orchestration</span>
+  <span className="yk-eyebrow"><span className="yk-live" aria-hidden="true"></span>Reactive workflow orchestration</span>
   <div className="yk-hero-cta">
     <a className="yk-btn yk-btn-primary" href="/quickstart">Get started</a>
-    <a className="yk-btn yk-btn-secondary" href="/playground">Try the playground</a>
+    <a className="yk-btn yk-btn-secondary" href="/playground">Open the playground</a>
   </div>
-  <ul className="yk-chips">
-    <li>JSON workflows</li>
-    <li>REST</li>
-    <li>Web UI</li>
-    <li>CLI</li>
-    <li>MCP for AI agents</li>
-  </ul>
 </div>
 
 Yukta runs **workflows**: graphs of small steps that pass messages to one another. You describe a workflow as JSON, store it on the server, and start it from anywhere that can make an HTTP request. While it runs you can watch it live, pause it, skip a step, approve a decision, retry a failure or stop it.
@@ -31,7 +24,8 @@ Yukta runs **workflows**: graphs of small steps that pass messages to one anothe
 
 ## What a workflow looks like
 
-<img className="yk-diagram" src="/images/diagrams/workflow-anatomy.svg" alt="A trigger starts the flow, two processors call an API and transform the result, and terminals end each branch. A failed call goes to a dead-letter terminal." loading="lazy" />
+<img className="yk-diagram block dark:hidden" src="/images/diagrams/workflow-anatomy.light.svg" alt="A trigger starts the flow, two processors call an API and transform the result, and terminals end each branch. A failed call goes to a dead-letter terminal." loading="lazy" />
+<img className="yk-diagram hidden dark:block" src="/images/diagrams/workflow-anatomy.dark.svg" alt="A trigger starts the flow, two processors call an API and transform the result, and terminals end each branch. A failed call goes to a dead-letter terminal." loading="lazy" />
 
 A **trigger** starts the flow, **processors** transform, route and call out, and **terminals** end each branch. Processors can have named output ports such as `success` and `error`, so one node can send messages down different paths.
 

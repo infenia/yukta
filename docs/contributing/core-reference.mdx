@@ -141,7 +141,8 @@ Core splits cleanly into a **data plane** that moves messages through the graph 
 
 Solid arrows carry data. Dashed arrows carry commands (cmds) or the event feed about a run. Each box maps to a feature group in the [catalog](#feature-catalog).
 
-<img className="yk-diagram" src="/images/diagrams/feature-map.svg" alt="Feature groups of the core and how they connect: admission, definition, stream engine, plugins, sub-workflows, observation, durability, persistence, control plane and supervisors." loading="lazy" />
+<img className="yk-diagram block dark:hidden" src="/images/diagrams/feature-map.light.svg" alt="Feature groups of the core and how they connect: admission, definition, stream engine, plugins, sub-workflows, observation, durability, persistence, control plane and supervisors." loading="lazy" />
+<img className="yk-diagram hidden dark:block" src="/images/diagrams/feature-map.dark.svg" alt="Feature groups of the core and how they connect: admission, definition, stream engine, plugins, sub-workflows, observation, durability, persistence, control plane and supervisors." loading="lazy" />
 
 ### Design principles
 
