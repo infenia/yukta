@@ -13,9 +13,18 @@
   --yk-success: #008235;
   --yk-danger: #e7000b;
 
-  --yk-border: #dee1e8;
+  --yk-blue-deep: #1f4fd8;
+  --yk-orange-soft: #ff9a5c;
+  --yk-ink: #0e1424;
+
+  --yk-border: #dbe3f3;
   --yk-muted: #545e6f;
-  --yk-surface: #f0f4f9;
+  --yk-surface: #eef3ff;
+  --yk-bg: #fbfcfe;
+  --yk-card-bg: #ffffff;
+  --yk-glow-blue: color-mix(in srgb, var(--yk-blue) 16%, transparent);
+  --yk-glow-orange: color-mix(in srgb, var(--yk-orange) 11%, transparent);
+  --yk-brand-gradient: linear-gradient(90deg, var(--yk-blue), var(--yk-blue-soft) 55%, var(--yk-orange));
 
   --yk-radius-lg: 0.625rem; /* inputs, buttons, small controls */
   --yk-radius-xl: 0.875rem; /* cards, callouts, code blocks, tables */
@@ -26,9 +35,16 @@
   --yk-success: #4bcb71;
   --yk-danger: #ff6467;
 
-  --yk-border: #2d333d;
+  --yk-blue-deep: #8db6ff;
+  --yk-ink: #f4f7ff;
+
+  --yk-border: #263149;
   --yk-muted: #9aa5b8;
-  --yk-surface: #1c222b;
+  --yk-surface: #151c2c;
+  --yk-bg: #0a0d14;
+  --yk-card-bg: #0f1524;
+  --yk-glow-blue: color-mix(in srgb, var(--yk-blue) 26%, transparent);
+  --yk-glow-orange: color-mix(in srgb, var(--yk-orange) 15%, transparent);
 }
 
 /* Typography: the UI's mono face for code, slightly calmer body tracking. */
@@ -124,8 +140,8 @@ button,
   color: var(--yk-orange);
 }
 
-/* The logo's three colours as a thin bar across the top of every page: orange trigger, blue
- * processor, slate terminal. This is the most visible place the orange accent appears. */
+/* The logo's two brand colours as a thin bar across the top of every page: blue (primary) running
+ * into orange (secondary). */
 body::before {
   content: "";
   position: fixed;
@@ -135,12 +151,10 @@ body::before {
   pointer-events: none;
   background: linear-gradient(
     90deg,
-    var(--yk-orange) 0%,
-    var(--yk-orange) 18%,
-    var(--yk-blue) 18%,
-    var(--yk-blue) 82%,
-    var(--yk-slate) 82%,
-    var(--yk-slate) 100%
+    var(--yk-blue) 0%,
+    var(--yk-blue-soft) 45%,
+    var(--yk-orange) 85%,
+    var(--yk-orange-soft) 100%
   );
 }
 
@@ -187,6 +201,346 @@ img.yk-diagram {
   box-shadow:
     0 22px 50px -24px color-mix(in srgb, var(--yk-blue) 75%, transparent),
     0 0 0 1px rgba(255, 255, 255, 0.04);
+}
+
+/* ==========================================================================
+ * Brand design layer: blue (primary) and orange (secondary), the two colours of the logo.
+ * Every rule here is additive and degrades to the Mintlify defaults if a selector stops matching.
+ * ======================================================================== */
+
+/* Atmosphere: a soft blue glow top-left and an orange glow top-right behind the whole page. */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(52rem 30rem at 6% -6%, var(--yk-glow-blue), transparent 62%),
+    radial-gradient(44rem 26rem at 100% 0%, var(--yk-glow-orange), transparent 62%);
+}
+
+/* Navbar: frosted glass with a hairline. */
+#navbar,
+#navbar-transition {
+  backdrop-filter: saturate(170%) blur(14px);
+  -webkit-backdrop-filter: saturate(170%) blur(14px);
+  background-color: color-mix(in srgb, var(--yk-bg) 74%, transparent) !important;
+}
+
+#navbar {
+  border-bottom: 1px solid var(--yk-border);
+}
+
+/* Sidebar: small-caps group labels, a tinted pill with an orange edge on the current page. */
+#sidebar-title,
+#sidebar h5 {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--yk-slate);
+}
+
+#sidebar a {
+  border-radius: var(--yk-radius-lg);
+}
+
+#sidebar a:hover {
+  background: color-mix(in srgb, var(--yk-blue) 8%, transparent);
+}
+
+#sidebar a[aria-current="page"],
+#sidebar a[data-active="true"],
+#sidebar li[data-active="true"] > a {
+  color: var(--yk-blue);
+  font-weight: 600;
+  background: color-mix(in srgb, var(--yk-blue) 11%, transparent);
+  box-shadow: inset 3px 0 0 var(--yk-orange);
+}
+
+.dark #sidebar a[aria-current="page"],
+.dark #sidebar a[data-active="true"],
+.dark #sidebar li[data-active="true"] > a {
+  color: var(--yk-blue-soft);
+}
+
+/* Page title: ink fading into brand blue. Falls back to the plain colour without clip support. */
+@supports (-webkit-background-clip: text) or (background-clip: text) {
+  #page-title {
+    background-image: linear-gradient(100deg, var(--yk-ink) 0%, var(--yk-ink) 38%, var(--yk-blue) 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: transparent;
+  }
+
+  .dark #page-title {
+    background-image: linear-gradient(100deg, #ffffff 0%, #ffffff 36%, var(--yk-blue-soft) 100%);
+  }
+}
+
+#page-title {
+  letter-spacing: -0.028em;
+  font-weight: 700;
+}
+
+/* Section headings: a short orange tab sitting on a hairline. */
+.prose h2 {
+  letter-spacing: -0.018em;
+  padding-bottom: 0.45rem;
+  margin-bottom: 0.9rem;
+  background:
+    linear-gradient(var(--yk-orange), var(--yk-orange)) no-repeat 0 100% / 2.4rem 3px,
+    linear-gradient(var(--yk-border), var(--yk-border)) no-repeat 0 100% / 100% 1px;
+}
+
+.prose h3 {
+  letter-spacing: -0.01em;
+}
+
+/* Text details: orange list markers, quotes with an orange rule, a gradient divider. */
+.prose li::marker {
+  color: var(--yk-orange);
+}
+
+.prose blockquote {
+  border-left: 3px solid var(--yk-orange);
+  background: color-mix(in srgb, var(--yk-orange) 6%, transparent);
+  border-radius: 0 var(--yk-radius-lg) var(--yk-radius-lg) 0;
+  padding: 0.4rem 1rem;
+}
+
+.prose hr {
+  height: 1px;
+  border: 0;
+  background: linear-gradient(90deg, transparent, var(--yk-blue), var(--yk-orange), transparent);
+  opacity: 0.55;
+}
+
+:not(pre) > code {
+  color: var(--yk-blue-deep);
+  background: color-mix(in srgb, var(--yk-blue) 8%, var(--yk-surface));
+  border-color: color-mix(in srgb, var(--yk-blue) 22%, var(--yk-border));
+}
+
+/* Cards: glass surface with a blue wash, an accent line that appears on hover, blue icons. */
+.card,
+a.card,
+[data-component-part="card"] {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(
+    160deg,
+    color-mix(in srgb, var(--yk-blue) 8%, var(--yk-card-bg)) 0%,
+    var(--yk-card-bg) 62%
+  );
+  box-shadow:
+    0 1px 2px rgba(14, 20, 36, 0.05),
+    0 16px 32px -24px color-mix(in srgb, var(--yk-blue) 55%, transparent);
+}
+
+.card::before,
+[data-component-part="card"]::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 3px;
+  background: var(--yk-brand-gradient);
+  opacity: 0;
+  transition: opacity 200ms ease;
+  pointer-events: none;
+}
+
+.card:hover::before,
+[data-component-part="card"]:hover::before {
+  opacity: 1;
+}
+
+.card svg {
+  color: var(--yk-blue);
+}
+
+.card:hover svg {
+  color: var(--yk-orange);
+}
+
+/* Callouts: a solid accent edge in the semantic colour. */
+[data-callout-type] {
+  border-left-width: 3px;
+}
+
+[data-callout-type="note"],
+[data-callout-type="info"] {
+  border-left-color: var(--yk-blue);
+}
+
+[data-callout-type="tip"],
+[data-callout-type="check"] {
+  border-left-color: var(--yk-success);
+}
+
+[data-callout-type="warning"] {
+  border-left-color: var(--yk-orange);
+}
+
+[data-callout-type="danger"] {
+  border-left-color: var(--yk-danger);
+}
+
+/* Tabs: orange underline on the active tab. */
+[role="tab"][aria-selected="true"] {
+  color: var(--yk-blue);
+  border-bottom-color: var(--yk-orange);
+}
+
+.dark [role="tab"][aria-selected="true"] {
+  color: var(--yk-blue-soft);
+}
+
+/* Code blocks and tables: tinted, softly lifted. */
+.code-block,
+pre {
+  border: 1px solid var(--yk-border);
+  box-shadow: 0 18px 36px -28px color-mix(in srgb, var(--yk-blue) 60%, transparent);
+}
+
+.prose table thead th {
+  background: color-mix(in srgb, var(--yk-blue) 9%, transparent);
+  color: var(--yk-blue-deep);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.prose table tbody tr:nth-child(even) td {
+  background: color-mix(in srgb, var(--yk-blue) 3%, transparent);
+}
+
+.prose table tbody tr:hover td {
+  background: color-mix(in srgb, var(--yk-orange) 7%, transparent);
+}
+
+/* Search and scrollbars. */
+#search-bar-entry {
+  border-color: var(--yk-border);
+  background: color-mix(in srgb, var(--yk-card-bg) 80%, transparent);
+}
+
+#search-bar-entry:hover {
+  border-color: var(--yk-blue);
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--yk-blue) 45%, transparent) transparent;
+}
+
+/* Home page hero: eyebrow chip, two buttons (blue primary, orange secondary) and feature chips. */
+.yk-hero {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1rem;
+  margin: 0.25rem 0 1.5rem;
+}
+
+.yk-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.3rem 0.8rem;
+  border-radius: 999px;
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--yk-orange);
+  border: 1px solid color-mix(in srgb, var(--yk-orange) 40%, transparent);
+  background: color-mix(in srgb, var(--yk-orange) 9%, transparent);
+}
+
+.yk-eyebrow::before {
+  content: "";
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 50%;
+  background: var(--yk-orange);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--yk-orange) 25%, transparent);
+}
+
+.yk-hero-cta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-left: auto;
+}
+
+.yk-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.55rem 1.1rem;
+  border-radius: var(--yk-radius-lg);
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-decoration: none !important;
+  border: 1px solid transparent !important;
+  transition:
+    transform 160ms ease,
+    box-shadow 160ms ease,
+    background-color 160ms ease;
+}
+
+.yk-btn-primary {
+  color: #fff !important;
+  background: linear-gradient(135deg, var(--yk-blue-soft), var(--yk-blue) 60%, var(--yk-blue-deep));
+  box-shadow: 0 10px 22px -12px var(--yk-blue);
+}
+
+.yk-btn-secondary {
+  color: var(--yk-orange) !important;
+  background: color-mix(in srgb, var(--yk-orange) 9%, transparent);
+  border-color: color-mix(in srgb, var(--yk-orange) 45%, transparent) !important;
+}
+
+.yk-btn:hover {
+  transform: translateY(-2px);
+}
+
+.yk-btn-primary:hover {
+  box-shadow: 0 14px 28px -12px var(--yk-blue);
+}
+
+.yk-btn-secondary:hover {
+  background: color-mix(in srgb, var(--yk-orange) 16%, transparent);
+  box-shadow: 0 12px 24px -14px var(--yk-orange);
+}
+
+.yk-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  flex-basis: 100%;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.yk-chips li {
+  margin: 0;
+  padding: 0.22rem 0.7rem;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--yk-blue-deep);
+  border: 1px solid color-mix(in srgb, var(--yk-blue) 28%, transparent);
+  background: color-mix(in srgb, var(--yk-blue) 7%, transparent);
+}
+
+.yk-chips li::marker {
+  content: "";
 }
 
 /* Motion: subtle and fast. Every new effect lives inside no-preference, so reduced-motion users

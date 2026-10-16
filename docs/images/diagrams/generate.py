@@ -145,7 +145,7 @@ class Diagram:
             '<pattern id="grid" width="26" height="26" patternUnits="userSpaceOnUse">'
             '<circle cx="1.5" cy="1.5" r="1.1" fill="#8FA4D8" opacity=".16"/></pattern>'
         )
-        for nm, c in (("a", "#2F6BFF"), ("b", "#8B5CF6"), ("c", "#F2641A")):
+        for nm, c in (("a", "#2F6BFF"), ("b", "#F2641A"), ("c", "#2F6BFF")):
             out.append(
                 f'<radialGradient id="blob-{nm}"><stop offset="0" stop-color="{c}" '
                 'stop-opacity=".34"/><stop offset="1" stop-color="' + c + '" stop-opacity="0"/>'
