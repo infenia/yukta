@@ -36,6 +36,7 @@ import java.time.ZoneId;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.LongSupplier;
@@ -57,7 +58,6 @@ import reactor.core.scheduler.Schedulers;
 @Service
 @Validated
 @SuppressWarnings({
-  "PMD.AvoidCatchingGenericException",
   "PMD.GodClass",
   "PMD.ExcessiveImports",
   "PMD.TooManyMethods",
@@ -273,33 +273,30 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
     }
     // often enough that a session leaves soon after its time is up, rarely enough to cost nothing
     final Duration period =
-        ttl.dividedBy(4).compareTo(Duration.ofSeconds(1)) < 0
-            ? Duration.ofSeconds(1)
-            : ttl.dividedBy(4).compareTo(Duration.ofMinutes(1)) > 0
-                ? Duration.ofMinutes(1)
-                : ttl.dividedBy(4);
+        Duration.ofMillis(Math.clamp(ttl.dividedBy(4).toMillis(), 1_000L, 60_000L));
     sessionSweeper =
-        Flux.interval(period, Schedulers.parallel()).subscribe(_ -> evictExpiredSessionsSafely());
+        Flux.interval(period, Schedulers.parallel())
+            .concatMap(
+                _ ->
+                    Mono.fromRunnable(this::evictExpiredSessions)
+                        .onErrorResume(
+                            e -> {
+                              log.atError()
+                                  .setCause(e)
+                                  .log("Dropping idle tracker sessions failed; will try again");
+                              return Mono.empty();
+                            }))
+            .subscribe();
     log.atInfo()
         .addKeyValue("sessionTtl", ttl)
         .addKeyValue("sweepEvery", period)
         .log("Dropping tracker sessions that have been idle past the session TTL");
   }
 
-  private void evictExpiredSessionsSafely() {
-    try {
-      evictExpiredSessions();
-    } catch (RuntimeException e) {
-      log.atError().setCause(e).log("Dropping idle tracker sessions failed; will try again");
-    }
-  }
-
   /** Stops the sweep of idle sessions. */
   @PreDestroy
   public void stopSessionSweeper() {
-    if (sessionSweeper != null) {
-      sessionSweeper.dispose();
-    }
+    Optional.ofNullable(sessionSweeper).ifPresent(Disposable::dispose);
   }
 
   /**
@@ -855,10 +852,8 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
   }
 
   private void scheduleCleanup(final String executionId) {
-    final WorkflowState ended = executionIndex.get(executionId);
-    if (ended != null) {
-      sessionUsed.put(ended.sessionId, clock.getAsLong());
-    }
+    Optional.ofNullable(executionIndex.get(executionId))
+        .ifPresent(ended -> sessionUsed.put(ended.sessionId, clock.getAsLong()));
     log.atDebug()
         .addKeyValue("executionId", executionId)
         .addKeyValue("delayMs", cleanupTtl.toMillis())

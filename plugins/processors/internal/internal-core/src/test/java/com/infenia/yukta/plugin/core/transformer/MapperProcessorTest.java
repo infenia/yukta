@@ -264,6 +264,22 @@ class MapperProcessorTest {
     assertThatThrownBy(
             () -> run(withEngine, cfg("mode", "TEMPLATE", "mapping", Map.of("a", "{{#if}}")), "s"))
         .hasMessageContaining("Failed to compile Handlebars template");
+    // a template that cannot be compiled is skipped, or for a single template gives an empty text
+    assertThat(
+            (Map<String, Object>)
+                run(
+                    withEngine,
+                    cfg("mode", "TEMPLATE", "mapping", Map.of("a", "{{#if}}"), "strictMode", false),
+                    "s"))
+        .isEmpty();
+    assertThatThrownBy(() -> run(withEngine, cfg("mode", "TEMPLATE", "mapping", "{{#if}}"), "s"))
+        .hasMessageContaining("Failed to compile Handlebars template");
+    assertThat(
+            run(
+                withEngine,
+                cfg("mode", "TEMPLATE", "mapping", "{{#if}}", "strictMode", false),
+                "s"))
+        .isEqualTo("");
   }
 
   @Test

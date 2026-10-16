@@ -89,17 +89,14 @@ public final class HostAllowList {
   private static @Nullable String hostOf(final String url) {
     try {
       final String host = URI.create(url.strip()).getHost();
-      return host == null || host.isBlank() ? null : normalize(host);
+      return host == null ? null : normalize(host);
     } catch (IllegalArgumentException e) {
       return null;
     }
   }
 
   private static String normalize(final String host) {
-    String normalized = host.strip().toLowerCase(Locale.ROOT);
-    if (normalized.startsWith("[") && normalized.endsWith("]")) {
-      normalized = normalized.substring(1, normalized.length() - 1);
-    }
-    return normalized.endsWith(".") ? normalized.substring(0, normalized.length() - 1) : normalized;
+    // lower case, without the brackets of an IPv6 address and without a trailing dot
+    return host.strip().toLowerCase(Locale.ROOT).replaceAll("^\\[|]$", "").replaceAll("\\.$", "");
   }
 }

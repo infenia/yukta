@@ -119,6 +119,52 @@ class GraalJsScriptEngineTest {
   }
 
   @Test
+  void everyKindOfValueInThePayloadReachesTheScriptAsPlainData() {
+    final Map<String, Object> payload = new java.util.LinkedHashMap<>();
+    payload.put("nothing", null);
+    payload.put("text", "hi");
+    payload.put("int", 3);
+    payload.put("flag", true);
+    payload.put("long", 5L);
+    payload.put("double", 2.5);
+    payload.put("decimal", new java.math.BigDecimal("1.5"));
+    payload.put("set", java.util.Set.of(7));
+    payload.put("ints", new int[] {1, 2});
+    payload.put("moment", java.time.Instant.parse("2026-01-02T03:04:05Z"));
+
+    final Object out = engine.eval("payload", DefaultMessage.create(UUID.randomUUID(), payload));
+
+    assertThat((Map<String, Object>) out)
+        .containsEntry("nothing", null)
+        .containsEntry("text", "hi")
+        .containsEntry("int", 3)
+        .containsEntry("flag", true)
+        .containsEntry("long", 5L)
+        .containsEntry("double", 2.5)
+        .containsEntry("decimal", 1.5)
+        .containsEntry("set", List.of(7))
+        .containsEntry("ints", List.of(1, 2))
+        .containsEntry("moment", "2026-01-02T03:04:05Z");
+  }
+
+  @Test
+  void deeplyNestedInputAndResultsAreRefused() {
+    Map<String, Object> nested = new HashMap<>();
+    for (int i = 0; i < 70; i++) {
+      nested = Map.of("next", nested);
+    }
+    final Map<String, Object> deep = nested;
+
+    assertThatThrownBy(
+            () -> engine.eval("1", DefaultMessage.create(UUID.randomUUID(), Map.of("deep", deep))))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("nested too deeply");
+    assertThatThrownBy(() -> run("var o = {}; for (var i = 0; i < 70; i++) { o = {next: o}; } o"))
+        .isInstanceOf(IllegalStateException.class)
+        .hasMessageContaining("nested too deeply");
+  }
+
+  @Test
   void oversizedInputIsRefused() {
     final List<Integer> big = IntStream.range(0, 1_100_000).boxed().toList();
 

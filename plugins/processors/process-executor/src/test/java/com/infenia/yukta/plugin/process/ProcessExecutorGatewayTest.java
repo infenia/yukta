@@ -215,8 +215,13 @@ class ProcessExecutorGatewayTest {
   }
 
   @Test
+  void quoteForShell_windows_loneBackslashIsDoubled() {
+    assertThat(ProcessExecutorGateway.quoteForShell("\\", "Windows 11")).isEqualTo("\"\\\\\"");
+  }
+
+  @Test
   void quoteForShell_windows_refusesWhatCmdCannotQuote() {
-    for (final String bad : List.of("say \"hi\"", "100%", "a\nb", "a\rb")) {
+    for (final String bad : List.of("say \"hi\"", "100%", "a\nb", "a\rb", "a\0b")) {
       assertThatThrownBy(() -> ProcessExecutorGateway.quoteForShell(bad, "Windows 11"))
           .isInstanceOf(IllegalArgumentException.class)
           .hasMessageContaining("inputMode");

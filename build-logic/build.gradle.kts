@@ -1,6 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
+buildscript {
+  dependencies {
+    constraints {
+      // GHSA-r937-wjx7-w2jp (CVE-2026-53914): kotlin-dsl pulls kotlin-gradle-plugin 2.4.10
+      classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:2.4.21")
+    }
+  }
+}
+
 plugins {
     `kotlin-dsl`
 }

@@ -31,9 +31,9 @@ import reactor.core.publisher.Mono;
 @Component
 @SuppressWarnings({
   "PMD.AvoidCatchingGenericException",
-  "PMD.CognitiveComplexity",
   "PMD.OnlyOneReturn",
-  "PMD.TooManyMethods"
+  "PMD.TooManyMethods",
+  "PMD.GuardLogStatement"
 })
 public final class RecipientListProcessor implements ProcessorPlugin {
 
@@ -244,10 +244,8 @@ public final class RecipientListProcessor implements ProcessorPlugin {
             }
             return Flux.fromIterable(recipients).map(message::withSourcePort);
           } catch (final Exception e) {
-            if (log.isErrorEnabled()) {
-              log.error(
-                  "Recipient computation failed for message {}: {}", message.id(), e.getMessage());
-            }
+            log.error(
+                "Recipient computation failed for message {}: {}", message.id(), e.getMessage());
             if (errorPort != null && !errorPort.isBlank()) {
               return Flux.just(
                   message

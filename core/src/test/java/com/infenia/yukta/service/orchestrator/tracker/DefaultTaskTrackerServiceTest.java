@@ -23,6 +23,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.BeforeEach;
@@ -36,6 +37,7 @@ import reactor.test.StepVerifier;
 @MockitoSettings
 @NoArgsConstructor
 @SuppressWarnings({
+  "PMD.AvoidInstantiatingObjectsInLoops",
   "PMD.LawOfDemeter",
   "PMD.TooManyMethods",
   "PMD.CyclomaticComplexity",
@@ -187,8 +189,7 @@ class DefaultTaskTrackerServiceTest {
   @Test
   void testLateRunningEventForAnEndedNodeOpensNoSpan() {
     final var observations = io.micrometer.observation.ObservationRegistry.create();
-    final java.util.concurrent.atomic.AtomicInteger started =
-        new java.util.concurrent.atomic.AtomicInteger();
+    final AtomicInteger started = new AtomicInteger();
     observations
         .observationConfig()
         .observationHandler(
@@ -3144,6 +3145,75 @@ class DefaultTaskTrackerServiceTest {
     } finally {
       timed.stopSessionSweeper();
     }
+  }
+
+  @Test
+  void sessionTtl_zeroOrNegativeMeansOff() {
+    final AtomicLong now = ttlClock(Duration.ZERO);
+    finishRun("e1", "s1");
+    now.addAndGet(Duration.ofDays(1).toNanos());
+    tracker.evictExpiredSessions();
+    assertThat(tracker.getActiveSessions()).contains("s1");
+
+    tracker.setSessionTtl(Duration.ofSeconds(-5));
+    tracker.evictExpiredSessions();
+    assertThat(tracker.getActiveSessions()).contains("s1");
+
+    for (final Duration off : List.of(Duration.ZERO, Duration.ofSeconds(-5))) {
+      final DefaultTaskTrackerService idle =
+          new DefaultTaskTrackerService(Duration.ofMillis(200), statusHistoryCache);
+      idle.setSessionTtl(off);
+      idle.init();
+      idle.stopSessionSweeper();
+    }
+    tracker.stopSessionSweeper();
+  }
+
+  @Test
+  void sessionTtl_untouchedSessionGetsFullTtlFromTheFirstSweep() {
+    final AtomicLong now = ttlClock(Duration.ofMinutes(10));
+    finishRun("e1", "s1");
+    final Map<String, Long> used = field(tracker, "sessionUsed");
+    used.remove("s1");
+    now.addAndGet(Duration.ofDays(1).toNanos());
+
+    tracker.evictExpiredSessions();
+    assertThat(tracker.getActiveSessions()).as("counted as used now").contains("s1");
+
+    now.addAndGet(Duration.ofMinutes(11).toNanos());
+    tracker.evictExpiredSessions();
+    assertThat(tracker.getActiveSessions()).doesNotContain("s1");
+  }
+
+  @Test
+  void sessionTtl_failingSweepIsLoggedAndTimerKeepsGoing() {
+    final DefaultTaskTrackerService timed =
+        new DefaultTaskTrackerService(Duration.ofMillis(200), statusHistoryCache);
+    final AtomicInteger sweeps = new AtomicInteger();
+    timed.setSessionTtl(Duration.ofSeconds(1));
+    timed.setClock(
+        () -> {
+          sweeps.incrementAndGet();
+          throw new IllegalStateException("clock broke");
+        });
+    timed.init();
+    try {
+      await().atMost(10, TimeUnit.SECONDS).until(() -> sweeps.get() >= 2);
+      assertThat(sweeps.get()).as("the timer kept going after a failure").isGreaterThanOrEqualTo(2);
+    } finally {
+      timed.stopSessionSweeper();
+    }
+  }
+
+  @Test
+  void maxSessions_picksTheOldestOfSeveralFinishedSessions() {
+    tracker.setMaxSessions(2);
+    finishRun("e1", "s1");
+    finishRun("e2", "s2");
+
+    StepVerifier.create(tracker.startWorkflow("e3", "s3", "w", List.of("a"))).verifyComplete();
+
+    assertThat(tracker.getActiveSessions()).containsExactlyInAnyOrder("s2", "s3");
   }
 
   @Test

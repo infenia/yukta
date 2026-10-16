@@ -28,7 +28,12 @@ import reactor.core.publisher.Mono;
  */
 @Slf4j
 @Component
-@SuppressWarnings({"PMD.OnlyOneReturn", "PMD.AvoidCatchingGenericException", "PMD.TooManyMethods"})
+@SuppressWarnings({
+  "PMD.OnlyOneReturn",
+  "PMD.AvoidCatchingGenericException",
+  "PMD.TooManyMethods",
+  "PMD.GuardLogStatement"
+})
 public final class FilterProcessor implements ProcessorPlugin {
 
   /** Type. */
@@ -197,9 +202,7 @@ public final class FilterProcessor implements ProcessorPlugin {
   private Mono<Message<?>> handleEvaluationError(
       final String nodeId, final String condition, final boolean strictMode, final Exception err) {
     reporter.increment(nodeId, "filter", "ERROR");
-    if (log.isErrorEnabled()) {
-      log.error("Filter evaluation failed for condition [{}]: {}", condition, err.getMessage());
-    }
+    log.error("Filter evaluation failed for condition [{}]: {}", condition, err.getMessage());
     if (!strictMode) {
       return Mono.empty();
     }

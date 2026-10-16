@@ -105,7 +105,7 @@ public class McpClientGateway {
           .executor(Runnable::run)
           .removalListener(
               (String key, Session session, RemovalCause cause) -> {
-                if (cause.wasEvicted() && session != null) {
+                if (cause.wasEvicted()) {
                   terminate(List.of(session)).subscribe();
                 }
               })

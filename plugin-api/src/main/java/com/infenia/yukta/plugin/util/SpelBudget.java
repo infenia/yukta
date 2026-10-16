@@ -32,6 +32,12 @@ final class SpelBudget {
   /** Milliseconds one evaluation may run when {@value #TIMEOUT_PROPERTY} is not set. */
   /* default */ static final long DEFAULT_TIMEOUT_MS = 1_000L;
 
+  /** The String methods that run a regular expression. */
+  private static final String MATCHES_METHOD = "matches";
+
+  /** The String methods that run a regular expression. */
+  private static final String SPLIT_METHOD = "split";
+
   /** How many characters a regex reads between two looks at the clock. */
   private static final int CHARS_PER_CHECK = 1_024;
 
@@ -133,9 +139,9 @@ final class SpelBudget {
     if (target instanceof String text
         && arguments.length > 0
         && arguments[0] instanceof String regex) {
-      if ("matches".equals(name) && arguments.length == 1) {
+      if (MATCHES_METHOD.equals(name)) {
         result = matches(text, regex);
-      } else if ("split".equals(name) && arguments.length <= 2) {
+      } else if (SPLIT_METHOD.equals(name)) {
         result = split(text, regex, arguments);
       }
     }
@@ -148,8 +154,8 @@ final class SpelBudget {
 
   private static TypedValue split(
       final String text, final String regex, final @Nullable Object... arguments) {
-    final int limit =
-        arguments.length == 2 && arguments[1] instanceof Number number ? number.intValue() : 0;
+    // the executor is only called with the arguments of a method it found, already converted
+    final int limit = arguments.length == 2 ? ((Number) arguments[1]).intValue() : 0;
     return new TypedValue(Pattern.compile(regex).split(new GuardedText(text), limit));
   }
 
@@ -192,11 +198,6 @@ final class SpelBudget {
     @Override
     public CharSequence subSequence(final int start, final int end) {
       return text.subSequence(start, end);
-    }
-
-    @Override
-    public String toString() {
-      return text;
     }
   }
 

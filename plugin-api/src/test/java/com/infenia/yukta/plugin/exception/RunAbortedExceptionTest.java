@@ -22,6 +22,16 @@ class RunAbortedExceptionTest {
   }
 
   @Test
+  void theCauseIsKept() {
+    final IllegalStateException cause = new IllegalStateException("why");
+
+    final RunAbortedException abort = new RunAbortedException("stopped", cause);
+
+    assertThat(abort).hasMessage("stopped").hasCause(cause);
+    assertThat(RunAbortedException.isAbort(abort)).isTrue();
+  }
+
+  @Test
   void isAbort_isBounded_andToleratesNull() {
     Throwable chain = new RunAbortedException("too deep to be found");
     for (int i = 0; i < 10; i++) {

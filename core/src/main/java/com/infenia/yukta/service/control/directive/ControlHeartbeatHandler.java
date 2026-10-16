@@ -34,7 +34,7 @@ public class ControlHeartbeatHandler implements ControlSignalHandler {
   /**
    * Get the last heartbeat for a node.
    *
-   * @param compositeKey the composite key (workflowId + "\0" + nodeId)
+   * @param compositeKey the composite key (a ControlKey: workflow, run and node)
    * @return the last heartbeat message, or null if none
    */
   @Override
@@ -55,7 +55,7 @@ public class ControlHeartbeatHandler implements ControlSignalHandler {
   /**
    * Remove a node's heartbeat record.
    *
-   * @param compositeKey the composite key (workflowId + "\0" + nodeId)
+   * @param compositeKey the composite key (a ControlKey: workflow, run and node)
    */
   @Override
   public void removeNode(final String compositeKey) {

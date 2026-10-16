@@ -53,9 +53,9 @@ func (t *Timestamp) UnmarshalJSON(data []byte) error {
 // server.
 func (t Timestamp) MarshalJSON() ([]byte, error) {
 	if t.zoneless {
-		return json.Marshal(t.Time.Format(timestampLayout))
+		return json.Marshal(t.Format(timestampLayout))
 	}
-	return t.Time.MarshalJSON()
+	return json.Marshal(t.Time)
 }
 
 // String shows a time for people: the clock reading with the server's offset (or none, if the
@@ -65,9 +65,9 @@ func (t Timestamp) String() string {
 	case t.IsZero():
 		return "-"
 	case t.zoneless:
-		return t.Time.Format("2006-01-02 15:04:05")
+		return t.Format("2006-01-02 15:04:05")
 	default:
-		return t.Time.Format("2006-01-02 15:04:05 -07:00")
+		return t.Format("2006-01-02 15:04:05 -07:00")
 	}
 }
 

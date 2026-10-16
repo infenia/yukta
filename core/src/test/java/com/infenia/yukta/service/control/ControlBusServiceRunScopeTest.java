@@ -9,6 +9,7 @@ import static org.mockito.Mockito.mock;
 import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
 import com.infenia.yukta.model.control.ControlHeartbeat;
+import com.infenia.yukta.model.control.ControlStatistics;
 import com.infenia.yukta.service.control.directive.ControlHeartbeatHandler;
 import com.infenia.yukta.service.control.directive.ControlSignalHandler;
 import com.infenia.yukta.service.control.directive.ControlStatisticsHandler;
@@ -96,6 +97,24 @@ class ControlBusServiceRunScopeTest {
         .until(() -> service.getLastHeartbeat(WORKFLOW_ID, NODE_ID) != null);
 
     assertThat(service.getLastHeartbeat(WORKFLOW_ID, NODE_ID)).isSameAs(message);
+  }
+
+  @Test
+  void statisticsOfRunAreReadByRunAndNewestAcrossRuns() {
+    final Message<?> stats =
+        DefaultMessage.create(UUID.randomUUID(), new ControlStatistics(NODE_ID, 1.0, 2.0, Map.of()))
+            .withWorkflowId(WORKFLOW_ID)
+            .withSourceNodeId(NODE_ID)
+            .withMetadata(Map.of("executionId", "run-7"));
+    StepVerifier.create(service.emit(stats)).verifyComplete();
+
+    await()
+        .atMost(Duration.ofSeconds(3))
+        .until(() -> service.getLastStatistics(WORKFLOW_ID, "run-7", NODE_ID) != null);
+
+    assertThat(service.getLastStatistics(WORKFLOW_ID, "run-7", NODE_ID)).isSameAs(stats);
+    assertThat(service.getLastStatistics(WORKFLOW_ID, "other-run", NODE_ID)).isNull();
+    assertThat(service.getLastStatistics(WORKFLOW_ID, NODE_ID)).isSameAs(stats);
   }
 
   @Test

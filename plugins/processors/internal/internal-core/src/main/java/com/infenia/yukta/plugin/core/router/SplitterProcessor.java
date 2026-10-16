@@ -31,7 +31,12 @@ import reactor.core.publisher.Mono;
 /** Splitter breaks a single composite message into individual messages. */
 @Slf4j
 @Component
-@SuppressWarnings({"PMD.OnlyOneReturn", "PMD.AvoidCatchingGenericException", "PMD.TooManyMethods"})
+@SuppressWarnings({
+  "PMD.OnlyOneReturn",
+  "PMD.AvoidCatchingGenericException",
+  "PMD.TooManyMethods",
+  "PMD.GuardLogStatement"
+})
 public final class SplitterProcessor implements ProcessorPlugin {
 
   /** Type. */
@@ -301,9 +306,7 @@ public final class SplitterProcessor implements ProcessorPlugin {
       final String errorPort,
       final boolean strict,
       final Throwable error) {
-    if (log.isErrorEnabled()) {
-      log.error("Splitter failed: {}", error.getMessage());
-    }
+    log.error("Splitter failed: {}", error.getMessage());
     if (errorPort != null && !errorPort.isBlank()) {
       return Flux.just(
           parent.withSourcePort(errorPort).withFailure(null, ERR_FAIL, error.getMessage()));

@@ -47,5 +47,6 @@ class ControlKeyTest {
     assertThat(ControlKey.isIn("wf\0run-1\0n", "wf")).isTrue();
     assertThat(ControlKey.isIn("wf\0n", "wf")).isTrue();
     assertThat(ControlKey.isIn("wf2\0run-1\0n", "wf")).isFalse();
+    assertThat(ControlKey.isIn("no-separator", "no-separator")).isFalse();
   }
 }

@@ -86,6 +86,31 @@ class SqlQueryPluginTest {
   }
 
   @Test
+  void withoutSecretStoreDecryptedReferenceFailsTheMessage() {
+    final Map<String, Object> config =
+        Map.of(
+            URL_KEY, URL, USER_KEY, "sa", PASS_KEY, "decrypted:anything", SQL_KEY, "select 1 as x");
+
+    StepVerifier.create(
+            plugin.process(Flux.just(DefaultMessage.create(UUID.randomUUID(), Map.of())), config))
+        .expectErrorSatisfies(e -> assertThat(e).hasMessageContaining("No secret store"))
+        .verify();
+  }
+
+  @Test
+  void credentialsMayBeLeftOutWhenTheUrlCarriesThem() {
+    final Map<String, Object> config =
+        Map.of(URL_KEY, URL + ";USER=sa;PASSWORD=", SQL_KEY, "select 1 as x");
+
+    final Message<?> out =
+        plugin
+            .process(Flux.just(DefaultMessage.create(UUID.randomUUID(), Map.of())), config)
+            .blockFirst();
+
+    assertThat(((Map<?, ?>) out.payload()).get("count")).isEqualTo(1);
+  }
+
+  @Test
   void anUnknownSecretFailsTheMessageInsteadOfConnectingWithItsName() {
     final Map<String, Object> config =
         Map.of(

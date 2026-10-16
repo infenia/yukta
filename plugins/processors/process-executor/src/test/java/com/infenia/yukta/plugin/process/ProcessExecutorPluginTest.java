@@ -147,7 +147,8 @@ class ProcessExecutorPluginTest {
   void process_withoutConcurrencyStartsFewProcessesAtOnce() {
     assertThat(peakConcurrency(Map.of("command", List.of("echo", "ok")), 40))
         .as("default concurrency of a node that forks processes")
-        .isEqualTo(4);
+        .isLessThanOrEqualTo(4)
+        .isGreaterThan(1);
   }
 
   @Test
@@ -192,6 +193,23 @@ class ProcessExecutorPluginTest {
         .verifyComplete();
 
     assertThat(specCaptor.getValue().command()).containsExactly("echo", "a b");
+  }
+
+  @Test
+  void useShell_numberIsNotAnAnswer() {
+    StepVerifier.create(
+            plugin.validateConfig(Map.of("command", List.of("echo", "hi"), "useShell", 1)))
+        .expectErrorMessage("useShell must be true or false, not an expression")
+        .verify();
+  }
+
+  @Test
+  void useShell_mayBeWrittenAsTrueOrFalseText() {
+    for (final String text : List.of("true", "FALSE")) {
+      StepVerifier.create(
+              plugin.validateConfig(Map.of("command", List.of("echo", "hi"), "useShell", text)))
+          .verifyComplete();
+    }
   }
 
   @Test

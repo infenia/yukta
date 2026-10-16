@@ -218,6 +218,23 @@ public class GraalJsScriptEngine implements ScriptEngine {
     private int values;
 
     /* default */ Object copy(final Object value, final int depth) {
+      countValue(depth);
+      if (isScalar(value)) {
+        return value;
+      }
+      if (value instanceof Map<?, ?> map) {
+        return copyMap(map, depth);
+      }
+      if (value instanceof Iterable<?> items) {
+        return copyElements(items, depth);
+      }
+      if (value instanceof Number number) {
+        return number.doubleValue();
+      }
+      return value.getClass().isArray() ? copyArray(value, depth) : String.valueOf(value);
+    }
+
+    private void countValue(final int depth) {
       values++;
       if (values > MAX_VALUES) {
         throw new IllegalArgumentException(
@@ -227,14 +244,15 @@ public class GraalJsScriptEngine implements ScriptEngine {
         throw new IllegalArgumentException(
             "Script input nested too deeply (more than " + MAX_DEPTH + " levels)");
       }
-      return switch (value) {
-        case null -> null;
-        case String _, Boolean _, Integer _, Long _, Double _ -> value;
-        case Map<?, ?> map -> copyMap(map, depth);
-        case Iterable<?> items -> copyElements(items, depth);
-        case Number number -> number.doubleValue();
-        default -> value.getClass().isArray() ? copyArray(value, depth) : String.valueOf(value);
-      };
+    }
+
+    private static boolean isScalar(final Object value) {
+      return value == null
+          || value instanceof String
+          || value instanceof Boolean
+          || value instanceof Integer
+          || value instanceof Long
+          || value instanceof Double;
     }
 
     private Object copyMap(final Map<?, ?> map, final int depth) {

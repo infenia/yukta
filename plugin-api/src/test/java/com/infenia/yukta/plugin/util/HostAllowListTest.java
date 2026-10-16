@@ -10,7 +10,7 @@ import org.junit.jupiter.api.Test;
 
 /** Which hosts an outbound call may reach. */
 @NoArgsConstructor
-@SuppressWarnings("PMD.AvoidUsingHardCodedIP")
+@SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.AvoidUsingHardCodedIP"})
 class HostAllowListTest {
 
   /** The setting named in the messages. */
@@ -62,6 +62,14 @@ class HostAllowListTest {
     for (final String url : List.of("not a url", "file:///etc/passwd", "http:///x", "")) {
       assertThat(refusal(List.of("good.com"), url)).as(url).contains("no host");
     }
+  }
+
+  @Test
+  void nullEntriesAreIgnoredAndIpv6AddressesMatchWithOrWithoutBrackets() {
+    assertThat(HostAllowList.from(java.util.Arrays.asList("good.com", null)).isEmpty()).isFalse();
+    assertThat(refusal(List.of("[::1]"), "http://[::1]:8080/x")).isNull();
+    assertThat(refusal(List.of("::1"), "http://[::1]/x")).isNull();
+    assertThat(refusal(List.of("::1"), "http://[::2]/x")).isNotNull();
   }
 
   @Test

@@ -6,7 +6,6 @@ import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.Ticker;
 import com.infenia.yukta.plugin.store.SessionHistoryStore;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.IOException;
 import java.net.URLEncoder;
 import java.nio.channels.FileChannel;
@@ -126,9 +125,6 @@ public class SessionStore {
    * @param ttl how long an unused session stays in memory, or unset for no limit
    */
   @Autowired
-  @SuppressFBWarnings(
-      value = "CT_CONSTRUCTOR_THROW",
-      justification = "A malformed directory fails at startup, before any session exists")
   public SessionStore(
       @Value("${yukta.session-memory.dir:}") final String dir,
       final ObjectProvider<SessionHistoryStore> databases,

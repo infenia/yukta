@@ -70,6 +70,12 @@ class SpelUtilsTest {
   }
 
   @Test
+  void anAllowedNameWithArgumentsNoMethodTakesIsNotFound() {
+    assertThatThrownBy(() -> SpelUtils.evaluateSync("'abc'.length(1)", Map.of()))
+        .isInstanceOf(SpelEvaluationException.class);
+  }
+
+  @Test
   void variablesDoNotLeakBetweenCalls() {
     SpelUtils.evaluateSync("#n", Map.of(), Map.of("n", 1));
 

@@ -509,7 +509,7 @@ public class ControlBusService {
   /** The run a control message comes from, or null if it does not say. */
   @Nullable
   private static String executionIdOf(final Message<?> msg) {
-    final Object executionId = msg.metadata() == null ? null : msg.metadata().get(EXECUTION_ID_KEY);
+    final Object executionId = msg.metadata().get(EXECUTION_ID_KEY);
     return executionId == null ? null : executionId.toString();
   }
 

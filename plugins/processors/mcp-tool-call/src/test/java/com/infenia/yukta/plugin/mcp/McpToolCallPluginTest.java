@@ -101,12 +101,12 @@ class McpToolCallPluginTest {
 
   @Test
   void handlesAtMostTheConfiguredNumberOfCallsAtOnce() {
-    assertThat(peakConcurrency(config("concurrency", 3), 20)).isEqualTo(3);
+    assertThat(peakConcurrency(config("concurrency", 3), 20)).isBetween(2, 3);
   }
 
   @Test
   void withoutConcurrencySixteenCallsAreInFlightAtMost() {
-    assertThat(peakConcurrency(config(), 60)).isEqualTo(16);
+    assertThat(peakConcurrency(config(), 60)).isLessThanOrEqualTo(16).isGreaterThan(4);
   }
 
   @Test

@@ -42,7 +42,10 @@ class ConfigRedactorTest {
   private void typeWithSecretField(final String type, final String field) {
     final Plugin plugin = mock(Plugin.class);
     when(plugin.getConfigSchema())
-        .thenReturn(List.of(ConfigField.optional(field, ConfigField.Type.SECRET, null, "secret")));
+        .thenReturn(
+            List.of(
+                ConfigField.optional(field, ConfigField.Type.SECRET, null, "secret"),
+                ConfigField.optional("sql", ConfigField.Type.STRING, null, "statement")));
     when(registry.contains(type)).thenReturn(true);
     when(registry.get(type)).thenReturn(plugin);
   }
@@ -88,6 +91,13 @@ class ConfigRedactorTest {
   }
 
   @Test
+  void onlyTextIsMaskedAndTheMaskIsNotMaskedAgain() {
+    assertThat(redactedConfig("X", Map.of("token", 12_345, "password", MASK)))
+        .containsEntry("token", 12_345)
+        .containsEntry("password", MASK);
+  }
+
+  @Test
   void anEmptyValueIsLeftAlone() {
     assertThat(redactedConfig("X", Map.of("password", ""))).containsEntry("password", "");
   }
@@ -119,5 +129,7 @@ class ConfigRedactorTest {
 
     assertThat(ConfigRedactor.placeholders(definition)).containsExactly("n1.headers.Authorization");
     assertThat(ConfigRedactor.placeholders(workflow("X", Map.of("password", "real")))).isEmpty();
+    assertThat(ConfigRedactor.placeholders(workflow("X", Map.of("tokens", List.of("ok", MASK)))))
+        .containsExactly("n1.tokens.1");
   }
 }

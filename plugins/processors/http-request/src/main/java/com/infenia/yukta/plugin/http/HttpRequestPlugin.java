@@ -14,6 +14,7 @@ import com.infenia.yukta.plugin.type.ProcessorPlugin;
 import com.infenia.yukta.plugin.util.ConfigValidation;
 import com.infenia.yukta.plugin.util.MapUtils;
 import com.infenia.yukta.plugin.util.VariableResolver;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -45,6 +46,9 @@ import tools.jackson.databind.ObjectMapper;
 })
 @Slf4j
 @Component
+@SuppressFBWarnings(
+    value = "EI_EXPOSE_REP2",
+    justification = "The gateway is a Spring service that the plugin only calls")
 public final class HttpRequestPlugin implements ProcessorPlugin {
 
   /** Extra time the node gets beyond the request timeout, in seconds. */

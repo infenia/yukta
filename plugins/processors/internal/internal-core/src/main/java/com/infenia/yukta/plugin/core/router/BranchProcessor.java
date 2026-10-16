@@ -38,7 +38,8 @@ import reactor.core.publisher.Mono;
   "PMD.AvoidDeeplyNestedIfStmts",
   "PMD.ExceptionAsFlowControl",
   "PMD.AvoidCatchingGenericException",
-  "PMD.UselessParentheses"
+  "PMD.UselessParentheses",
+  "PMD.GuardLogStatement"
 })
 public final class BranchProcessor implements ProcessorPlugin {
 
@@ -241,10 +242,7 @@ public final class BranchProcessor implements ProcessorPlugin {
       final String errorPort,
       final boolean strictMode,
       final Exception exception) {
-    if (log.isErrorEnabled()) {
-      log.error(
-          "Branch evaluation failed for message {}: {}", message.id(), exception.getMessage());
-    }
+    log.error("Branch evaluation failed for message {}: {}", message.id(), exception.getMessage());
     if (errorPort != null) {
       return Flux.just(
           message

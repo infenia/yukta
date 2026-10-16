@@ -33,9 +33,4 @@ public final class OffsetTimestampSerializer extends ValueSerializer<LocalDateTi
         DateTimeFormatter.ISO_OFFSET_DATE_TIME.format(
             value.atZone(ZoneId.systemDefault()).toOffsetDateTime()));
   }
-
-  @Override
-  public Class<?> handledType() {
-    return LocalDateTime.class;
-  }
 }
