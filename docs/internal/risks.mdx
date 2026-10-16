@@ -19,12 +19,12 @@ Confirmed defects are tracked on the [Bugs](/internal/bugs) page and the way for
 | [Boot](#boot) | 17 | 3 | 2 |
 | [Build logic](#build-logic) | 17 | 1 | 1 |
 | [CLI](#cli) | 19 | 2 | 1 |
-| [Core](#core) | 11 | 2 | 0 |
+| [Core](#core) | 10 | 2 | 0 |
 | [MCP](#mcp) | 19 | 1 | 1 |
 | [Messaging](#messaging) | 17 | 2 | 0 |
 | [Persistence PostgreSQL](#persistence-postgresql) | 17 | 1 | 1 |
-| [Plugin API](#plugin-api) | 19 | 2 | 1 |
-| [Plugins](#plugins) | 25 | 2 | 1 |
+| [Plugin API](#plugin-api) | 18 | 1 | 1 |
+| [Plugins](#plugins) | 23 | 0 | 0 |
 | [UI](#ui) | 24 | 2 | 1 |
 | [Web](#web) | 17 | 0 | 0 |
 | [Workers](#workers) | 15 | 1 | 1 |
@@ -44,12 +44,9 @@ Risks rated impact 4 or 5, across all modules.
 | [MCP](#mcp) | The session guide example cannot be accepted | Correctness | 4 | 2 |
 | [Persistence PostgreSQL](#persistence-postgresql) | The startup log rewrite is not atomic | Reliability | 4 | 2 |
 | [Plugin API](#plugin-api) | A hung reviewer blocks commands, including a human stop | Availability | 4 | 2 |
-| [Plugins](#plugins) | Host allow-list for HTTP_REQUEST, MCP_TOOL_CALL is opt-in (G7) | Security | 3 | 2 |
 | [Workers](#workers) | Plain TCP is the default, and the wire carries tokens, configs and payloads | Security | 4 | 2 |
 | [CLI](#cli) | Hand-written paths and types can drift from the server | Evolvability | 4 | 3 |
 | [Core](#core) | Remote nodes: failure handling and operations are thin | Scalability | 4 | 3 |
-| [Plugin API](#plugin-api) | Plugins still depend on core internals (G18) | Evolvability | 4 | 3 |
-| [Plugins](#plugins) | Secrets can still be stored literally in workflow config (G5) | Security | 3 | 3 |
 | [Messaging](#messaging) | The channel SPI is unproven for remote or durable transport | Evolvability | 4 | 4 |
 | [Messaging](#messaging) | No payload size limit or claim check | Performance | 4 | 4 |
 | [Boot](#boot) | Everything is a single process with in-memory defaults | Availability | 4 | 5 |
@@ -680,7 +677,6 @@ Review of 2026-10-15 against main (after PRs #371, #373 and #374): 1 risk closed
 | State event queue is unbounded | Scalability | 3 | 2 |
 | Approval waits are in memory (F2) | Reliability | 2 | 2 |
 | Agent loop is incomplete (F8) | Functionality | 2 | 2 |
-| Plugin-level control keyed by workflow and node (B30) | Correctness | 1 | 2 |
 | Durable runs: resume reads a whole node output (P1) | Performance | 2 | 3 |
 | Capability gaps (F12) | Functionality | 2 | 4 |
 
@@ -761,14 +757,6 @@ Review of 2026-10-15 against main (after PRs #371, #373 and #374): 1 risk closed
 **Why it matters.** Done: tool-role turns (assistant tool calls and tool results are sent as such) and tools/list follows nextCursor. Still missing: an example loop workflow and streaming.
 
 **Option.** An example workflow that loops LLM_CALL and MCP_TOOL_CALL, and streamed answers.
-
-</Accordion>
-<Accordion title="Plugin-level control keyed by workflow and node (B30)">
-**Id** `ctlKey` · **Category** Correctness · **Impact** 1 · **Effort** 2 · **Components** Control Plane
-
-**Why it matters.** Latent, left as is on purpose: heartbeat and statistics state is keyed by workflow plus node, so two sessions or runs with equal ids would share it. No code emits heartbeats or statistics today, plugins are shared instances and signals carry the execution id, so nothing is affected yet.
-
-**Option.** When a plugin starts to emit them, key by the execution id in the message metadata.
 
 </Accordion>
 <Accordion title="Durable runs: resume reads a whole node output (P1)">
@@ -1414,7 +1402,6 @@ IDs such as G18 and G22 refer to the plugins module's improvements list, which c
 | Expression sandbox: allow-list done, still no time budget and a shared lock | Security | 3 | 2 |
 | Statelessness of the shared instance is documented, not enforced | Correctness | 3 | 3 |
 | shutdown(config) is on the contract but never called | Operability | 2 | 2 |
-| Plugins still depend on core internals (G18) | Evolvability | 4 | 3 |
 | No SPI version marker | Evolvability | 3 | 2 |
 | WorkflowDirective has only Stop | Evolvability | 2 | 3 |
 | Unused optimiser hooks on the contract | Functionality | 2 | 1 |
@@ -1487,16 +1474,6 @@ IDs such as G18 and G22 refer to the plugins module's improvements list, which c
 **Option.** Remove the method, or call it for each plugin once at application stop; mark it deprecated with a clear message in the meantime.
 
 **Question to settle.** Is any plugin relying on it today, and would a once-per-plugin lifecycle hook (not per node) be more honest?
-
-</Accordion>
-<Accordion title="Plugins still depend on core internals (G18)">
-**Id** `coreDependency` · **Category** Evolvability · **Impact** 4 · **Effort** 3 · **Components** Build & test setup, Plugin contract
-
-**Why it matters.** Still 11 plugin build files depend on :core, and the coupling grew a little: plugin sources have 26 imports of VariableResolver (15 files; was 24), 10 of MapUtils (10 files; was 9), 4 of PluginRegistry (2 files) and 4 of DefaultTaskTrackerService (2 files). So a plugin is not only coupled to this contract but to engine classes that can change, which defeats the point of a separate SPI and blocks third-party plugins. The direction is right in the new code: the run budget ledger (RunBudgets) and the approval waits (SignalWaits) were put into plugin-api so that plugins need no core class for them; the resolver and the map helpers have not been moved yet.
-
-**Option.** Move the resolver and map helpers into plugin-api or a new support module; expose the registry and tracker through small SPI interfaces; add a dependency check that fails if a plugin imports core.
-
-**Question to settle.** Which of the four core classes is a real engine service and which is just a utility that landed in the wrong module?
 
 </Accordion>
 <Accordion title="No SPI version marker">
@@ -1645,9 +1622,7 @@ IDs in brackets such as (G1) are finding numbers from the module's review notes 
 | CONSOLE_TERMINAL logs every payload at INFO (G23) | Security | 3 | 1 |
 | Schedules are not remembered across restarts | Availability | 2 | 3 |
 | Model control plane fails open and asks the model per event | Availability | 3 | 2 |
-| CONTENT-FILTER is the only kebab-case type id (G25) | Evolvability | 1 | 1 |
-| 11 of 19 plugin modules depend on :core (G18) | Evolvability | 3 | 4 |
-| Quality gates disabled for the riskiest module (G19) | Governance | 3 | 3 |
+| The loop plugins still depend on :core (G18) | Evolvability | 2 | 3 |
 | 'Optional' decision and LLM plugins may be present anyway | Security | 2 | 2 |
 | Agent guards are all opt-in: tool lists, approvals, budgets and filters default to off | Governance | 3 | 2 |
 | LLM-backed decisions and the model control plane are outside the run budget | Governance | 2 | 2 |
@@ -1836,34 +1811,14 @@ IDs in brackets such as (G1) are finding numbers from the module's review notes 
 **Question to settle.** If the model is down for an hour, what should happen to unattended runs?
 
 </Accordion>
-<Accordion title="CONTENT-FILTER is the only kebab-case type id (G25)">
-**Id** `typeIds` · **Category** Evolvability · **Impact** 1 · **Effort** 1 · **Components** Transform & script, Routing & EIP
+<Accordion title="The loop plugins still depend on :core (G18)">
+**Id** `coreLayering` · **Category** Evolvability · **Impact** 2 · **Effort** 3 · **Components** Contract & variables, Selection & gates
 
-**Why it matters.** Every other type is UPPER_SNAKE_CASE. The inconsistency makes workflow JSON harder to remember and generate. The old API_TRIGGER inconsistency is fixed. Renaming without an alias would break stored workflows.
+**Why it matters.** Done: the variable resolver and map helpers moved to plugin-api, and 10 of the 11 plugin modules that depended on :core no longer do. What is left is internal-core, whose two loop processors use core's PluginRegistry and DefaultTaskTrackerService, so internal-core cannot be built and tested without the engine and a change in those two classes can break it. New shared helpers (RunBudgets, SignalWaits, HostAllowList, the KeyValueStore and SessionHistoryStore SPIs) go into plugin-api.
 
-**Option.** Rename to CONTENT_FILTER and accept the old id as an alias in the registry for one release.
-
-**Question to settle.** Do stored workflows or external tools depend on the current id?
-
-</Accordion>
-<Accordion title="11 of 19 plugin modules depend on :core (G18)">
-**Id** `coreLayering` · **Category** Evolvability · **Impact** 3 · **Effort** 4 · **Components** Contract & variables, Selection & gates
-
-**Why it matters.** Plugins use core's variable resolver, helper classes, registry and tracker. Counted on 2026-10-15: 11 of the plugin build files depend on :core, with 26 imports of VariableResolver (15 files), 10 of MapUtils (10 files), 4 of PluginRegistry and 4 of DefaultTaskTrackerService. The intended direction is core depends on plugin-api and plugins depend only on plugin-api; today core changes can break plugins and a plugin cannot be built and tested without the engine. New shared helpers (RunBudgets, SignalWaits, the KeyValueStore and SessionHistoryStore SPIs) went into plugin-api, which is the right direction; the older helpers have not moved.
-
-**Option.** Move the resolver, map helpers and secret lookup into plugin-api or a small plugin-support module; give loops and other cross-plugin features narrow interfaces for the registry and tracker.
+**Option.** Give the loop processors narrow interfaces for the registry and the tracker in plugin-api, implemented by core.
 
 **Question to settle.** Will third parties write plugins? If yes, the core dependency is a public-API problem.
-
-</Accordion>
-<Accordion title="Quality gates disabled for the riskiest module (G19)">
-**Id** `gatesOff` · **Category** Governance · **Impact** 3 · **Effort** 3 · **Components** Selection & gates
-
-**Why it matters.** internal-core turns off PMD (main and test) and Checkstyle for tests, with an unfinished-work note. constant-source turns off PMD main and test. The old note that JaCoCo verification was off and that coverage exceptions named missing classes no longer matches the build file. The 12 routing, transform and script types, including the script mapper, are the least checked.
-
-**Option.** Turn the gates back on one at a time, starting with the script mapper after its fix.
-
-**Question to settle.** Who owns turning the disabled checks back on, and by when?
 
 </Accordion>
 <Accordion title="'Optional' decision and LLM plugins may be present anyway">
