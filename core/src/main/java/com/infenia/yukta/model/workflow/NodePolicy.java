@@ -71,6 +71,9 @@ public record NodePolicy(
   /** Output port that failing messages are routed to by {@link OnError#ROUTE}. */
   public static final String ERROR_PORT = "error";
 
+  /** Port of an edge that names none, and the port a message starts from at each node. */
+  public static final String DEFAULT_PORT = "default";
+
   /** No retry, fail on error, fail when a parent fails. */
   public static final NodePolicy DEFAULT =
       new NodePolicy(null, OnError.FAIL, JoinRule.ALL_SUCCESS, null, null, null);

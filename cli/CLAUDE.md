@@ -34,7 +34,7 @@ make fmt       # Format code
 - `internal/commands/`: Command definitions (Cobra).
 - `internal/client/`: HTTP client and types.
 - `internal/app/`: Application configuration.
-- Dogfood scripts (`examples/11-dogfood/scripts/`) are thin wrappers over this CLI: if they need a server call the CLI lacks, add it here (`controlbus watch`, `workflow node retry|signal|breakpoint` came from that). `:cli:check` enforces 100% coverage per function.
+- Dogfood scripts (`examples/11-dogfood/scripts/`) are thin wrappers over this CLI: if they need a server call the CLI lacks, add it here (`controlbus watch`, `workflow node retry|signal|breakpoint` came from that). `:cli:check` enforces 100% coverage per function. `controlbus watch --quiet` must keep passing `HEAL ` log lines (the self-healing check's fix reports) next to problems.
 - `../docs/contributing/modules/cli.mdx` (module guide, published in the docs site); open risks and review findings: `../docs/internal/risks.mdx` and `../docs/internal/improvements.mdx` (section for this module).
 
 ## Tech Stack

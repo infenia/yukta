@@ -176,3 +176,28 @@ func TestWatchCmd_quietWithJsonKeepsTheEventsAsTheyAre(t *testing.T) {
 		t.Errorf("output %q", out)
 	}
 }
+
+func TestWatchCmd_quietAlwaysShowsAHealReport(t *testing.T) {
+	stream := "data: " + `{"type":"LogLine","severity":"INFO","event":{"executionId":"e","nodeId":"style-fix1","line":"  HEAL style attempt=1 mode=fresh fixed=true files=2 cost=$0.21 summary=removed the unused import"}}` + "\n\n" +
+		"data: " + `{"type":"LogLine","severity":"INFO","event":{"executionId":"e","nodeId":"style-fix1","line":"ordinary output"}}` + "\n\n" +
+		"data: " + `{"type":"WorkflowStatusChanged","event":{"executionId":"e","status":"SUCCESS"}}` + "\n\n"
+
+	out, err := testutil.Run(t, WatchCmd(testutil.Stream(t, stream)), "--quiet")
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := "HEAL style attempt=1 mode=fresh fixed=true files=2 cost=$0.21 summary=removed the unused import\n" +
+		"WORKFLOW SUCCESS\n"
+	if out != want {
+		t.Errorf("output:\n%s\nwant:\n%s", out, want)
+	}
+}
+
+func TestHealLine(t *testing.T) {
+	if _, ok := healLine(client.ExecutionEvent{Type: client.EventNodeStatusChanged, Line: "HEAL x"}); ok {
+		t.Error("a status event is not a heal report")
+	}
+	if _, ok := healLine(client.ExecutionEvent{Type: client.EventLogLine, Line: "no heal here"}); ok {
+		t.Error("an ordinary log line is not a heal report")
+	}
+}

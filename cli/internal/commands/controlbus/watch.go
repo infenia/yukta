@@ -145,7 +145,7 @@ func (w *watcher) handle(e client.ExecutionEvent) error {
 	if w.noLogs && e.Type == client.EventLogLine {
 		return nil
 	}
-	if w.problems != nil && !isProblemOrEnd(e) && !isWarnOrError(e) {
+	if _, heal := healLine(e); w.problems != nil && !heal && !isProblemOrEnd(e) && !isWarnOrError(e) {
 		return nil
 	}
 	if w.eventType != "" && !strings.EqualFold(w.eventType, e.Type) {
