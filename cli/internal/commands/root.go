@@ -25,10 +25,10 @@ func RootCmd(c *client.Client) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "yukta",
-		Short: "Yukta CLI - Code quality gates for AI-driven development",
-		Long: `Yukta is a high-performance CLI tool for enforcing code quality gates
-through AI-driven development workflows. It provides session management,
-workflow orchestration, and integration with quality check plugins.`,
+		Short: "Yukta CLI - run and steer workflows on a Yukta server",
+		Long: `Yukta is a reactive workflow orchestration server. This CLI manages
+sessions, starts and controls workflow runs, watches their progress and reads their
+logs and results.`,
 		// With no subcommand, show help instead of Cobra's "no subcommands" error.
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return cmd.Help()
