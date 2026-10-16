@@ -28,6 +28,7 @@
       ".callout",
       "table",
       "pre",
+      "img.yk-diagram",
     ].join(",");
     var CONTAINER_SELECTOR = "#content-area, #content-container, main, article";
     var SKIP = "#navbar, #sidebar, #table-of-contents, footer, nav, [data-yk-no-reveal]";

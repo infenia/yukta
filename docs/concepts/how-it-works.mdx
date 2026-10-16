@@ -10,19 +10,7 @@ Yukta splits cleanly into a **data plane** that moves messages through a workflo
 
 A **session** groups workflows. A **workflow** is a directed acyclic graph of **nodes** joined by **edges**. Each node is an instance of a **plugin** with its own configuration. Starting a workflow creates an **execution**: a live run with its own id and a status for the run and for every node. Triggers put **messages** into the graph, messages stream along edges from node to node, and terminals consume them.
 
-```mermaid
-%%{init: {'theme':'base','themeVariables':{'primaryColor':'#E4EFFF','primaryBorderColor':'#2F6BFF','primaryTextColor':'#11161F','secondaryColor':'#EEF2F9','tertiaryColor':'#FBFCFE','lineColor':'#6A7A9B','fontFamily':'Inter, sans-serif'}}}%%
-flowchart TB
-  C["Clients<br/>REST · web UI · MCP agents · CLI"] --> E["Entry and admission<br/>limits, queue, idempotent start"]
-  E --> D["Definition<br/>validate and prepare the graph"]
-  D --> S["Stream engine<br/>one stream per edge, policies per node"]
-  S --> P["Plugins<br/>local, or on remote workers"]
-  S --> O["Observation<br/>progress, logs, results, metrics"]
-  S --> R["Durability<br/>execution log, checkpoints"]
-  CP["Control plane<br/>ordered, reviewed, audited commands"] -. commands .-> S
-  SUP["Supervisors<br/>rules, a model or your own code"] -. commands .-> CP
-  O -. event feed .-> SUP
-```
+<img className="yk-diagram" src="/images/diagrams/architecture.svg" alt="Clients enter through admission and definition into the stream engine, which runs plugins and feeds observation and durability. A control plane sends ordered commands to the engine and supervisors read the event feed." loading="lazy" />
 
 ## The life of an execution
 

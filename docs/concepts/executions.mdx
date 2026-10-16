@@ -31,11 +31,7 @@ Two keys in the start payload are reserved:
 
 Run and node status only move forward:
 
-```mermaid
-%%{init: {'theme':'base','themeVariables':{'primaryColor':'#E4EFFF','primaryBorderColor':'#2F6BFF','primaryTextColor':'#11161F','secondaryColor':'#EEF2F9','tertiaryColor':'#FBFCFE','lineColor':'#6A7A9B','fontFamily':'Inter, sans-serif'}}}%%
-flowchart LR
-  PENDING --> QUEUED --> RUNNING --> T["terminal status"]
-```
+<img className="yk-diagram" src="/images/diagrams/status-model.svg" alt="Status only moves forward: PENDING, QUEUED, RUNNING, then a terminal status." loading="lazy" />
 
 | Status | Meaning |
 |---|---|

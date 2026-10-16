@@ -15,14 +15,7 @@ Use it when losing the one server that admits runs is not acceptable. It gives f
 
 ## How it works
 
-```mermaid
-%%{init: {'theme':'base','themeVariables':{'primaryColor':'#E4EFFF','primaryBorderColor':'#2F6BFF','primaryTextColor':'#11161F','secondaryColor':'#EEF2F9','tertiaryColor':'#FBFCFE','lineColor':'#6A7A9B','fontFamily':'Inter, sans-serif'}}}%%
-flowchart LR
-  C[Clients] --> L[Leader]
-  C -.->|503| S[Standby]
-  L --> DB[(PostgreSQL lease row)]
-  S -->|waits for expiry| DB
-```
+<img className="yk-diagram" src="/images/diagrams/high-availability.svg" alt="Clients talk to the leader and a standby answers 503. Both servers use one PostgreSQL lease row: the leader renews it and the standby waits for it to expire." loading="lazy" />
 
 All servers run the same build against the same database. A lease row in PostgreSQL names the current leader and when its lease expires.
 

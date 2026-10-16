@@ -141,30 +141,7 @@ Core splits cleanly into a **data plane** that moves messages through the graph 
 
 Solid arrows carry data. Dashed arrows carry commands (cmds) or the event feed about a run. Each box maps to a feature group in the [catalog](#feature-catalog).
 
-```mermaid
-flowchart LR
-  ADM["Entry and Admission<br/>ADM · slots, queue"]
-  DEF["Definition<br/>DEF · validate, compile"]
-  ENG["Stream Engine<br/>ENG · nodes, policies"]
-  EXT["Plugins / Workers<br/>EXT · SCL · node work"]
-  SUP["Supervisors<br/>CTL-07 · rules, AI, code"]
-  CTL["Control Plane<br/>CTL · ordered, audited"]
-  OBS["Observation<br/>OBS · tracker, metrics"]
-  SUB["Sub-workflows<br/>ENG-07 · child runs"]
-  HA["HA and Security<br/>SCL-02 · SEC · keys"]
-  DUR["Durability<br/>DUR · log, checkpoints"]
-  PER["Persistence<br/>files · PostgreSQL"]
-  ADM -->|load| DEF
-  DEF -->|graph| ENG
-  ENG -->|stream| EXT
-  ENG -->|child run| SUB
-  ENG -->|events| OBS
-  OBS -->|log| DUR
-  DUR -->|store| PER
-  SUP -.->|cmds| CTL
-  CTL -.->|commands| ENG
-  OBS -.->|feed| CTL
-```
+<img className="yk-diagram" src="/images/diagrams/feature-map.svg" alt="Feature groups of the core and how they connect: admission, definition, stream engine, plugins, sub-workflows, observation, durability, persistence, control plane and supervisors." loading="lazy" />
 
 ### Design principles
 

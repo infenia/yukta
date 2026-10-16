@@ -15,14 +15,7 @@ Place a node on a worker when it is heavy, must run close to a resource (a priva
 
 ## How it works
 
-```mermaid
-%%{init: {'theme':'base','themeVariables':{'primaryColor':'#E4EFFF','primaryBorderColor':'#2F6BFF','primaryTextColor':'#11161F','secondaryColor':'#EEF2F9','tertiaryColor':'#FBFCFE','lineColor':'#6A7A9B','fontFamily':'Inter, sans-serif'}}}%%
-flowchart LR
-  CP[Control plane] -->|one channel per attempt| W1[Worker A, pool default]
-  CP --> W2[Worker B, pool default]
-  W1 -->|register, renew lease| CP
-  W2 -->|register, renew lease| CP
-```
+<img className="yk-diagram" src="/images/diagrams/remote-workers.svg" alt="The control plane opens one channel per attempt to each worker. Workers register and renew their lease with the control plane." loading="lazy" />
 
 - Workers connect out to the control plane over a persistent connection, so a worker needs no inbound port.
 - A worker registers with a shared token, its id, its pools, the plugin types it may run and its capacity.
