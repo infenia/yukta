@@ -97,6 +97,38 @@ func TestProblemFilter_logLinesKeepOnlyProblemsAndNeverRepeat(t *testing.T) {
 	}
 }
 
+// A one-line log event is rated by the server as a whole, so the CLI takes that rating and does not
+// match keywords of its own: a line the server calls an error is one even if it has none of them.
+func TestProblemFilter_oneLineLogEventTakesTheServersRating(t *testing.T) {
+	f := newProblemFilter()
+	rated := func(severity, line string) client.ExecutionEvent {
+		return client.ExecutionEvent{Type: client.EventLogLine, NodeID: "n", Severity: severity, Line: line}
+	}
+
+	if got := f.render(rated("ERROR", "the build broke")); !reflect.DeepEqual(got, []string{"ERROR n: the build broke"}) {
+		t.Errorf("error: %q", got)
+	}
+	if got := f.render(rated("WARN", "careful now")); !reflect.DeepEqual(got, []string{"WARN n: careful now"}) {
+		t.Errorf("warn: %q", got)
+	}
+	if got := f.render(rated("INFO", "error budget is fine")); len(got) != 0 {
+		t.Errorf("info is not a problem even with a keyword in it: %q", got)
+	}
+	if got := f.render(rated("ERROR", "   ")); len(got) != 0 {
+		t.Errorf("a blank line says nothing: %q", got)
+	}
+}
+
+// An event from a server that sends no rating still gets the keyword match.
+func TestProblemFilter_logEventWithoutRatingFallsBackToKeywords(t *testing.T) {
+	f := newProblemFilter()
+	e := client.ExecutionEvent{Type: client.EventLogLine, NodeID: "n", Line: "error: boom"}
+
+	if got := f.render(e); !reflect.DeepEqual(got, []string{"ERROR n: error: boom"}) {
+		t.Errorf("got %q", got)
+	}
+}
+
 func TestProblemFilter_capsALongLineAndANoisyNode(t *testing.T) {
 	f := newProblemFilter()
 

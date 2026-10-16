@@ -659,9 +659,9 @@ Review of 2026-10-15 against main (after PRs #371, #373 and #374): 1 risk closed
 <Accordion title="--quiet decides what is a problem by keywords copied from the server">
 **Id** `keywordProblems` · **Category** Correctness · **Impact** 2 · **Effort** 2 · **Components** SSE Streaming, Command Builders
 
-**Why it matters.** `controlbus watch --quiet` keeps a line when it matches `error|failed|failure|exception|What went wrong` (or warn/deprecat), the same regular expressions as the server's `EventSeverity`, plus gradle-specific context lines. A log line such as '0 errors found' is shown as an error, and a real failure whose line has none of the words is hidden (a failed node's own reason is still shown). The two copies of the patterns can drift apart, and each node prints at most 20 problem lines.
+**Why it matters.** `controlbus watch --quiet` keeps a line when it matches `error|failed|failure|exception|What went wrong` (or warn/deprecat), the same regular expressions as the server's `EventSeverity`, plus gradle-specific context lines. A log line such as '0 errors found' is shown as an error, and a real failure whose line has none of the words is hidden (a failed node's own reason is still shown). Update: a one-line log event now takes the server's own rating (`Severity`), so the CLI has no keywords of its own for it and a line the server calls an error is shown even without the words. The patterns remain only for text of several lines (rated by the server as a whole), a failed node's reason, and servers that send no rating; they can still drift from the server's for those. Each node prints at most 20 problem lines.
 
-**Option.** Have the server send the severity it already computes (the CLI reads it for the server filter) and use only that; or share the patterns from one place.
+**Option.** Have the server send a level per line (stderr or the plugin's own level, which the tracker drops today) so that multi-line text needs no matching either; or share the patterns from one place.
 
 **Question to settle.** Would you rather see a harmless line too often or miss a failure line?
 

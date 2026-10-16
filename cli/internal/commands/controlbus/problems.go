@@ -20,8 +20,9 @@ const (
 	wentWrongContext = 3
 )
 
-// The patterns are the server's EventSeverity ones, so a line the server calls an error is one here,
-// plus gradle's report pointer, which picks the useful line out of a failed node's reason.
+// The patterns are used for text the server rates only as a whole (several lines, or the reason of
+// a failed node) and for servers that send no rating. They are the server's EventSeverity ones plus
+// gradle's report pointer, which picks the useful line out of a failed node's reason.
 var (
 	errorLine = regexp.MustCompile(`(?i)\b(error|failed|failure)\b|exception|What went wrong|See the report at`)
 	warnLine  = regexp.MustCompile(`(?i)\bwarn(ing)?\b|deprecat`)
@@ -51,7 +52,7 @@ func isWarnOrError(e client.ExecutionEvent) bool {
 // stays itself followed by the problem lines of the reason it carries.
 func (p *problemFilter) render(e client.ExecutionEvent) []string {
 	if e.Type == client.EventLogLine {
-		return p.lines(e.NodeID, e.Line)
+		return p.logLine(e)
 	}
 	out := []string{formatEvent(e)}
 	if reason, _ := e.Metadata["error"].(string); strings.TrimSpace(reason) != "" {
@@ -64,6 +65,21 @@ func (p *problemFilter) render(e client.ExecutionEvent) []string {
 		out = append(out, found...)
 	}
 	return out
+}
+
+// logLine renders a log event. The server rates every event, so a one-line event takes that rating
+// and the CLI has no keywords of its own to keep in step with the server's. Text of several lines
+// (the server rates it as a whole) and events from a server that sends no rating are split into
+// lines and matched by keyword.
+func (p *problemFilter) logLine(e client.ExecutionEvent) []string {
+	line := strings.TrimSpace(e.Line)
+	if line == "" || strings.Contains(line, "\n") || (e.Severity != "WARN" && e.Severity != "ERROR" && e.Severity != "INFO") {
+		return p.lines(e.NodeID, e.Line)
+	}
+	if e.Severity == "INFO" {
+		return nil
+	}
+	return p.admit(e.NodeID, e.Severity, line)
 }
 
 // lines picks the problem lines out of text: error and warning lines, and the lines that follow

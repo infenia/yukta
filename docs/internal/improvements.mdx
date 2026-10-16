@@ -561,7 +561,7 @@ The ids below are assigned on this page; the source lists the open items without
 | CLI-8 | 17 calls used `/api/workflow/...`, 14 of them deprecated aliases | The CLI depended on deprecated paths. Also tracked on the [bugs page](/internal/bugs#cli) | Move the calls to the current paths | Fixed: the 14 now use `/api/executions/...`; start, stop-workflow and history have no other route |
 | CLI-9 | No command for: validate, session config, supervisors, workflow versions, approvals, scheduler limits and priority, recover, run search and control audit, workers | Those server features are REST and MCP only | Not rated in the source. Generating the client from OpenAPI was considered and not done | Open |
 | CLI-10 | Zone-less server timestamps were parsed in the CLI's time zone (`localTimestamps`) | Times could be shown shifted. Also tracked on the [bugs page](/internal/bugs#cli) | Not rated in the source | Fixed: the server sends run and node times with its UTC offset, and the CLI keeps a zone-less value from an older server as it came |
-| CLI-11 | `--quiet` classifies lines by keywords copied from the server (`keywordProblems`) | The filter drifts when server messages change. Also tracked on the [bugs page](/internal/bugs#cli) | Not rated in the source | Open (new) |
+| CLI-11 | `--quiet` classifies lines by keywords copied from the server (`keywordProblems`; partly fixed: one-line log events take the server's rating, keywords remain for multi-line text, failure reasons and servers with no rating) | The filter drifts when server messages change. Also tracked on the [bugs page](/internal/bugs#cli) | Not rated in the source | Open (new) |
 
 **Pending roadmap steps**
 
