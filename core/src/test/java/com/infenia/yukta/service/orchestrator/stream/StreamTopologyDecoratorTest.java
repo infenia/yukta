@@ -151,6 +151,31 @@ class StreamTopologyDecoratorTest {
 
   @Test
   @SuppressWarnings(UNCHECKED)
+  void testApplyEdgeRoutingPortResetsToDefaultForTheReceiver() {
+    final Message<?> routed = DefaultMessage.create(UUID.randomUUID(), DATA).withSourcePort(PORT_A);
+    final Flux<Message<?>>[] streams = new Flux[] {Flux.just(routed)};
+
+    StepVerifier.create(
+            decorator.applyEdgeRouting(streams, new ParentEdgeInfo(0, PARENT_1, PORT_A)))
+        .assertNext(m -> assertThat(m.sourcePort()).isEqualTo(NodePolicy.DEFAULT_PORT))
+        .verifyComplete();
+  }
+
+  @Test
+  @SuppressWarnings(UNCHECKED)
+  void testApplyEdgeRoutingErrorPortKeepsPortForTheReceiver() {
+    final Message<?> dead =
+        DefaultMessage.create(UUID.randomUUID(), DATA).withSourcePort(NodePolicy.ERROR_PORT);
+    final Flux<Message<?>>[] streams = new Flux[] {Flux.just(dead)};
+    final ParentEdgeInfo edge = new ParentEdgeInfo(0, PARENT_1, NodePolicy.ERROR_PORT);
+
+    StepVerifier.create(decorator.applyEdgeRouting(streams, edge))
+        .assertNext(m -> assertThat(m.sourcePort()).isEqualTo(NodePolicy.ERROR_PORT))
+        .verifyComplete();
+  }
+
+  @Test
+  @SuppressWarnings(UNCHECKED)
   void testApplyEdgeRoutingNoPort() {
     final Message<?> msg1 = DefaultMessage.create(UUID.randomUUID(), DATA);
     final Message<?> msg2 = DefaultMessage.create(UUID.randomUUID(), DATA);

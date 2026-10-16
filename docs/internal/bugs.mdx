@@ -95,6 +95,17 @@ Defects, errors and slowdowns noticed while Yukta ran its own checks (the dogfoo
 - Repro: unknown.
 - Update 2026-10-14: not reproduced. A native server on port 9101 survived two full `gradle-check` runs plus watchers after the DF-3 fix (it died only while DF-3 broke the stream). Native servers now log to `.yukta-dev/<name>.log`. Reopen with that log if it recurs; the suspect remains the old native build.
 
+#### DF-6: the chain behind a port-routed edge silently ends, and the run still reports `SUCCESS`
+- Status: fixed in this branch (`feat/dogfood-self-heal`), sha pending
+- Severity: P1
+- Kind: bug
+- Found: 2026-10-16, a hand-built spike session, `check` (`routeByExitCode`) → `fix1` → `r1` → `next`
+- Evidence: after the first node behind a `failure`/`success` edge nothing ran, yet every later node was reported `SUCCESS` within about 30 µs and the run ended `WORKFLOW SUCCESS` in 10 ms (a 12 s `sleep` node never started).
+- Cause: `SessionMapper` gives every edge without a port the port `default`, and `DefaultMessage.from` copies the input's `sourcePort` onto the output. A plain node behind a routed one therefore emitted `failure`, which its own `default` edge filtered out.
+- Fix: `StreamTopologyDecorator.routeEdge` resets the port to `default` once a message has passed a port-filtered edge (the `error` port keeps its port, `NotifyTerminal` reads it). Tests: `StreamTopologyDecoratorTest`.
+- Still open: nodes that never received a message are reported `SUCCESS`, not skipped, so a node's status cannot tell whether it ran. Anything that needs to know (a heal report) must read the logs.
+- Repro: any `routeByExitCode` node followed by two plain `PROCESS_EXECUTOR` nodes.
+
 The module guide is [core](/contributing/modules/core).
 
 ## Plugins
