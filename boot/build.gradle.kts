@@ -75,6 +75,7 @@ dependencies {
     testImplementation(libs.spring.boot.starter.actuator.test)
     testImplementation(libs.testcontainers.postgresql)
     testImplementation(libs.testcontainers.junit)
+    testRuntimeOnly(libs.h2)
 }
 
 // Tells the tests whether the optional modules (PostgreSQL stores, remote workers) are part of this build.
