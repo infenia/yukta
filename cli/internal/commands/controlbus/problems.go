@@ -48,9 +48,26 @@ func isWarnOrError(e client.ExecutionEvent) bool {
 	return e.Severity == "WARN" || e.Severity == "ERROR"
 }
 
-// render turns an event into output lines: a log line becomes its problem lines, a status change
-// stays itself followed by the problem lines of the reason it carries.
+// healPrefix starts the one-line report a self-healing fix step prints (yukta-heal.sh), which
+// --quiet always shows: it is how a watcher learns that a failure was handled.
+const healPrefix = "HEAL "
+
+// healLine returns the report in a log line, if it is one.
+func healLine(e client.ExecutionEvent) (string, bool) {
+	if e.Type != client.EventLogLine {
+		return "", false
+	}
+	line := strings.TrimSpace(e.Line)
+	return line, strings.HasPrefix(line, healPrefix)
+}
+
+// render turns an event into output lines: a log line becomes its problem lines (or, for a HEAL
+// report, itself), a status change stays itself followed by the problem lines of the reason it
+// carries.
 func (p *problemFilter) render(e client.ExecutionEvent) []string {
+	if line, ok := healLine(e); ok {
+		return []string{line}
+	}
 	if e.Type == client.EventLogLine {
 		return p.logLine(e)
 	}

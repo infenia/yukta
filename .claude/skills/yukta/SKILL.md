@@ -1,6 +1,6 @@
 ---
 name: yukta
-description: Use to verify changes in the Yukta repo by running its staged `gradle check` workflow on a local Yukta server via the yukta CLI, to watch a run and steer it (retry a stage, pause) and record defects it finds, or to start/stop a local Yukta server. Use instead of choosing gradle quality tasks yourself.
+description: Use to verify changes in the Yukta repo (the final gate before a commit or PR, or any "run the checks / fix the build" request) by running its staged, self-healing `gradle check` workflow on a local Yukta server via the yukta CLI; the run repairs spotless, compile, test, coverage, style and spotbugs failures itself and reports what it healed. Also to watch a run and steer it (retry a stage, pause), record defects it finds, or start/stop a local Yukta server. Use instead of choosing gradle quality tasks yourself.
 allowed-tools: Bash, Read
 ---
 
@@ -26,15 +26,24 @@ WORKFLOW FAILURE
 RESULT status=FAILURE failed_node=style execution=<id> session=<id>
 ```
 
+## When to use which gate
+- Inner loop (a few classes): the scoped Gradle tiers in CLAUDE.md, not this.
+- Final gate before a commit or PR, or "make the build pass": `yukta-check.sh --watch` (self-healing).
+  From Claude Code leave `--fixer` at `auto`: attempt 1 is a cheap fresh fixer, attempt 2 forks this session
+  so it knows what you changed. Use `--fixer fresh` for a change you did not make (a different branch).
+- You want the failure itself, not a repair (debugging a flaky stage, reproducing a CI failure): `--no-heal`.
+- After a healed run: `git diff` the files the `HEAL` lines name, keep what is right, and commit it yourself.
+
 ## Run the checks
 ```bash
 examples/11-dogfood/scripts/yukta-check.sh --watch        # checks the current checkout; exit 0 = SUCCESS
 ```
 1. Read the final line: `RESULT status=<S> failed_node=<node> execution=<id> session=<id>`.
-2. If `SUCCESS`: done. Otherwise fix only what the `ERROR <failed_node>:` lines report (stages are
-   fail-fast, in order: spotless, compile, tests, coverage, style, spotbugs, licenses, security, cli).
+2. If `SUCCESS`: done (review `healed=`, see below). Otherwise the stage could not be healed: fix only what
+   the `ERROR <failed_node>:` lines report (stages run in order: spotless, compile, tests, coverage,
+   style, spotbugs, licenses, security, cli).
 3. Fix, then rerun the script.
-4. Formatting failures: run `./gradlew spotlessApply`, then rerun.
+4. With `--no-heal`, formatting failures: run `./gradlew spotlessApply`, then rerun.
 5. If the `ERROR` lines are not enough, open the report they name (stage table in
    `examples/11-dogfood/README.md`) but **grep it for the failures**, do not read it: `<error` in
    checkstyle/PMD XML, `<failure` or `<error` in `<module>/build/test-results/test/TEST-*.xml`.
@@ -46,6 +55,31 @@ examples/11-dogfood/scripts/yukta-check.sh --watch :core:test --tests '<FQCN>'  
 ```
 
 For quick inner-loop feedback keep using the scoped tiers in CLAUDE.md; use this for the final gate.
+
+## Self-healing runs (the default for the staged check)
+`yukta-check.sh` rewrites the staged `gradle-check` so a failing stage repairs itself before the run
+fails (`self_heal` in `_lib.sh`, policy `examples/11-dogfood/heal.json`). Per stage: the check, then a
+deterministic fix where one exists (`spotless`: `spotlessApply`), then up to two headless Claude Code
+attempts (attempt 1 fresh, attempt 2 a fork of this session), each followed by a recheck; the last
+recheck fails the run. A `verify` stage re-runs every stage when anything was healed, so `SUCCESS`
+means the whole tree passes. `--no-heal` gives the plain chain, `--fixer fresh|fork|auto` picks who
+fixes (a fork needs `CLAUDE_CODE_SESSION_ID`, i.e. a run started from Claude Code).
+- **Don't edit files or run gradle in the checkout while a run is healing**: the fixer is editing it.
+  Act on the final `RESULT` or an `ESCALATE:` only. `ERROR <stage>: …` lines before a `HEAL <stage> …`
+  line are the failure being handled, not something for you to fix.
+- `HEAL <stage> attempt=<n> mode=<auto|fresh|fork> fixed=<bool> files=<n> cost=$<x> summary=<text>` is
+  one fix attempt. `summary=GUARD: …` means the attempt was rejected (it touched `config/`,
+  `build-logic/` or `gradle/`, added a suppression, removed assertions, or changed nothing); its edits
+  stay in the tree, so look at `git diff` and decide.
+- `RESULT … healed=style:fix1,spotless:auto` lists what was fixed. **Review those changes** (`git diff`,
+  records in `.yukta-dev/heal/<session>/`) before committing: the fixer never commits.
+- A failure after healing (`failed_node=<stage>`, the stage's last recheck) is exhausted: take over, fix
+  it, then `yukta-cli.sh workflow node retry <e> <stage>-r2` (or rerun the script). Record a fixer that
+  misbehaves (wrong fix, GUARD hit, cost over budget) as a `DF-<n>` finding.
+- Node ids: `<stage>` (check), `<stage>-auto`, `<stage>-fix1|2`, `<stage>-r1..` (rechecks), `verify`.
+  Nodes that were not reached still show `SUCCESS`; read `HEAL` lines, not node statuses.
+- Budget: `YUKTA_HEAL_BUDGET` (USD per attempt, default 1), `YUKTA_HEAL_MODEL` (default sonnet). The
+  server must be started with `YUKTA_PROCESS_ALLOW_ANY=true` (the dogfood server scripts do).
 
 ## Dogfood loop: watch, steer, and log what you find
 Yukta develops Yukta, so a run is also a test of Yukta. Watch it live instead of waiting for the end.
@@ -137,4 +171,9 @@ runs Gradle on (`-p`), whichever provider serves it.
 ## Don'ts
 - Don't edit `.yukta-dev/` state by hand or kill servers you didn't start.
 - Don't start servers any way other than `yukta-server.sh` (it keeps the state files the other scripts read).
-- Don't run concurrent checks against the same checkout.
+- Don't run concurrent checks against the same checkout, and don't edit files or run Gradle in it while a
+  self-healing run is going (the fixer is editing the same tree).
+- Don't commit what a healing run changed without reading the diff; don't widen the guard (protected paths,
+  suppressions) to get a run through, fix the cause or record a `DF-<n>`.
+- Don't start a server without `YUKTA_PROCESS_ALLOW_ANY=true` (`yukta-server.sh` sets it) or run the fixer
+  with `claude --bare` (it loses the login).

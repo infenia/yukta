@@ -160,15 +160,95 @@ warn_if_stale_native() {
   return 0
 }
 
+# self_heal: reads session JSON on stdin and rewrites the gradle-check workflow so a failing stage
+# repairs itself (the policy is heal.json, the stage -> {auto, claude} map). Run it LAST, after
+# scope_to_module/splice_args, which rebuild the edges as one linear chain.
+#   stage S ──success──────────────────────────────────────────────▶ next stage
+#     └failure▶ S-auto ▶ S-r1 ─success──────────────────────────────▶ next stage   (deterministic fix)
+#                 └failure▶ S-fix1 ▶ S-r2 ─success──────────────────▶ next stage   (claude, attempt 1)
+#                              └failure▶ S-fix2 ▶ S-r3 (fails the run) ─▶ next stage  (claude, attempt 2)
+# then a "verify" node before the terminal re-runs every stage's tasks when anything was healed. The
+# DAG cannot loop, so the repeats are unrolled; the engine does not mark untaken nodes as skipped,
+# so what was healed is read from the records yukta-heal.sh writes, not from node statuses.
+# Variables: policy (JSON), module, project, healsh, healdir, fork (claude session to fork, may be
+# empty), m1 and m2 (fixer mode of attempt 1 and 2: fresh or fork).
+self_heal() {
+  jq --argjson policy "$1" --arg module "$2" --arg project "$3" --arg healsh "$4" --arg healdir "$5" \
+    --arg fork "$6" --arg m1 "$7" --arg m2 "$8" '
+    def tasks: [.[1:][] | select(startswith("-") | not)];
+    def px: if $module != "" and (startswith(":") | not) then ":" + $module + ":" + . else . end;
+    def uniq: reduce .[] as $t ([]; if index($t) then . else . + [$t] end);
+    def edge($s; $t; $p): {source: $s, target: $t} + (if $p then {sourcePort: $p} else {} end);
+    def healnode($id; $stage; $attempt; $mode; $tasks): {
+      nodeId: $id, type: "PROCESS_EXECUTOR",
+      config: {command: [$healsh, $stage, ($attempt | tostring), $mode], workingDir: $project,
+        timeout: 3600, timeoutSeconds: 3600, failureMode: "CONTINUE",
+        env: {YUKTA_HEAL_DIR: $healdir, YUKTA_HEAL_TASKS: ($tasks | join(" ")),
+          YUKTA_FORK_SESSION: $fork, YUKTA_MODULE: $module}}};
+    def expand:
+      . as $n
+      | ($policy[$n.nodeId] // {}) as $p
+      | ($n.config.command // [] | tasks) as $t
+      | [(if $p.auto then {id: ($n.nodeId + "-auto"), attempt: 0, mode: "auto", tasks: ($p.auto | map(px))} else empty end),
+         (if $p.claude then
+            ({id: ($n.nodeId + "-fix1"), attempt: 1, mode: $m1, tasks: $t},
+             {id: ($n.nodeId + "-fix2"), attempt: 2, mode: $m2, tasks: $t})
+          else empty end)] as $steps
+      | ($steps | length) as $k
+      | if $n.type != "PROCESS_EXECUTOR" or $k == 0
+        then {entry: $n.nodeId, nodes: [$n], edges: [], outs: [{from: $n.nodeId}]}
+        else
+          ($n | .config.failureMode = "CONTINUE" | .config.routeByExitCode = true) as $head
+          | [range(0; $k) as $i | $n | .nodeId = ($n.nodeId + "-r" + ($i + 1 | tostring))
+              | if $i < $k - 1 then .config.failureMode = "CONTINUE" | .config.routeByExitCode = true else . end] as $checks
+          | {entry: $n.nodeId,
+             nodes: ([$head] + [range(0; $k) as $i
+                       | healnode($steps[$i].id; $n.nodeId; $steps[$i].attempt; $steps[$i].mode; $steps[$i].tasks), $checks[$i]]),
+             edges: ([edge($n.nodeId; $steps[0].id; "failure")]
+                     + [range(0; $k) as $i | edge($steps[$i].id; $checks[$i].nodeId; null)]
+                     + [range(0; $k - 1) as $i | edge($checks[$i].nodeId; $steps[$i + 1].id; "failure")]),
+             outs: ([{from: $n.nodeId, port: "success"}]
+                    + [range(0; $k - 1) as $i | {from: $checks[$i].nodeId, port: "success"}]
+                    + [{from: $checks[$k - 1].nodeId}])}
+        end;
+    if .workflows["gradle-check"] == null then . else
+    .workflows["gradle-check"] |= (
+      . as $wf
+      | ([$wf.nodes[] | select(.type == "PROCESS_EXECUTOR") | .config.command | tasks] | add // [] | uniq) as $all
+      | ($wf.nodes | map(expand)) as $recs
+      | {entry: "verify",
+         nodes: [{nodeId: "verify", type: "PROCESS_EXECUTOR",
+                  config: {command: [$healsh, "verify", "0", "verify"], workingDir: $project,
+                    timeout: 3600, timeoutSeconds: 3600, failureMode: "ERROR",
+                    env: {YUKTA_HEAL_DIR: $healdir, YUKTA_HEAL_TASKS: ($all | join(" ")), YUKTA_MODULE: $module}}}],
+         edges: [], outs: [{from: "verify"}]} as $verify
+      | ($recs[:-1] + [$verify] + $recs[-1:]) as $seq
+      | .nodes = [$seq[].nodes[]]
+      | .edges = ([$seq[].edges[]]
+          + [range(0; $seq | length - 1) as $i | $seq[$i].outs[] | edge(.from; $seq[$i + 1].entry; .port)]))
+    end'
+}
+
 # print_result SESSION EXECUTION: prints the machine readable RESULT line; returns 0 only when the
 # execution ended COMPLETED/SUCCESS.
 print_result() {
-  local progress status failed
+  local progress status failed healed
   progress="$("$(find_cli)" -o json workflow status "$1" "$2" | jq '(.data // .)')"
   status="$(jq -r '.status' <<<"$progress")"
-  failed="$(jq -r '[.tasks[] | select(.status | test("FAIL|ERROR"; "i")) | .nodeId][0] // "-"' <<<"$progress")"
-  echo "RESULT status=$status failed_node=$failed execution=$2 session=$1"
+  failed="$(jq -r '[.tasks[] | select(.status | test("FAIL|ERROR"; "i")) | .nodeId][0] // "-" | sub("-(auto|fix[0-9]+|r[0-9]+)$"; "")' <<<"$progress")"
+  healed="$(healed_stages "$1" "$failed")"
+  echo "RESULT status=$status failed_node=$failed healed=${healed:--} execution=$2 session=$1"
   [[ "$status" == COMPLETED || "$status" == SUCCESS ]]
+}
+
+# healed_stages SESSION [FAILED_STAGE]: "stage:step,..." for every heal step of the last check run
+# that fixed its stage (records written by yukta-heal.sh), except the stage that still failed; empty
+# when nothing was healed.
+healed_stages() {
+  local dir="$STATE_DIR/heal/$1"
+  [[ -d "$dir" ]] || return 0
+  jq -rs --arg failed "${2:--}" '[.[] | select(.fixed and .stage != $failed) | "\(.stage):\(if .attempt == 0 then "auto" else "fix\(.attempt)" end)"] | unique | join(",")' \
+    "$dir"/*.json 2>/dev/null || true
 }
 
 # record_durations SESSION EXECUTION SCOPE: appends each finished node's duration to

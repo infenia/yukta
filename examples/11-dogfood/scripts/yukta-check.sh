@@ -2,7 +2,8 @@
 # Run the staged `gradle check` workflow on a Yukta server and report the result.
 # A thin wrapper around the yukta CLI.
 #
-# Usage: [WORKFLOW=quick-check] yukta-check.sh [--detach|--watch] [-p project-path] [-m module] [gradle args...]
+# Usage: [WORKFLOW=quick-check] yukta-check.sh [--detach|--watch] [--no-heal] [--fixer fresh|fork|auto]
+#                                              [-p project-path] [-m module] [gradle args...]
 #   (no args)         staged gradle-check, whole project
 #   -m <module>       staged gradle-check scoped to one module (gradle path, e.g. core or
 #                     plugins:processors:decision)
@@ -12,6 +13,10 @@
 #                     with yukta-watch.sh (the form for Claude Code under the Monitor tool)
 #   --watch           follow the run, errors and warnings only (yukta-watch.sh --quiet), instead of the
 #                     full log; the cheap way to follow a run
+#   --no-heal         the plain fail-fast chain: no self-healing (the staged gradle-check heals by default)
+#   --fixer MODE      who attempts the Claude fixes of a failed stage: fresh (a new headless claude),
+#                     fork (a fork of this Claude Code session, $CLAUDE_CODE_SESSION_ID) or auto (the
+#                     default: fresh first, fork for the second attempt; fresh when there is no session)
 #   WORKFLOW          override the workflow name (e.g. quick-check: formatting + Go vet)
 #
 # Server: $YUKTA_SERVER_URL, else .yukta-dev/current.env written by yukta-worktree.sh.
@@ -22,17 +27,20 @@ here="$(dirname "${BASH_SOURCE[0]}")"
 source "$here/_lib.sh"
 
 need jq
-project_arg="" module="" mode=logs
+project_arg="" module="" mode=logs heal=1 fixer=auto
 while (($#)); do
   case "$1" in
     -p) project_arg="${2:?-p needs a path}"; shift 2 ;;
     -m) module="${2:?-m needs a module}"; shift 2 ;;
     --detach) mode=detach; shift ;;
     --watch) mode=watch; shift ;;
+    --no-heal) heal=0; shift ;;
+    --fixer) fixer="${2:?--fixer needs fresh, fork or auto}"; shift 2 ;;
     --) shift; break ;;
     *) break ;;
   esac
 done
+[[ "$fixer" =~ ^(fresh|fork|auto)$ ]] || die "invalid --fixer '$fixer' (fresh, fork or auto)"
 [[ -z "$module" || "$module" =~ ^[A-Za-z0-9][A-Za-z0-9:_-]*$ ]] || die "invalid module '$module'"
 [[ -z "$module" || $# -eq 0 ]] || die "use either -m <module> or gradle args, not both"
 project="$(cd "${project_arg:-$(git rev-parse --show-toplevel)}" && pwd)"
@@ -53,11 +61,22 @@ if (($#)); then
   workflow=gradle-run
   scope="args:$(printf '%.60s' "$*")"
 fi
+# Self-healing applies to the staged gradle-check only (see self_heal in _lib.sh).
+heal_dir="$STATE_DIR/heal/$session"
+rm -rf "$heal_dir"
+fork_session="${CLAUDE_CODE_SESSION_ID:-}"
+m1=fresh m2=fork
+[[ "$fixer" == fresh || -z "$fork_session" ]] && m2=fresh
+[[ "$fixer" == fork && -n "$fork_session" ]] && m1=fork
 {
   render_session "$REPO_ROOT/examples/11-dogfood/session.json" "$project" \
     | jq --arg s "$session" '.sessionId=$s | .name=$s' \
     | if [[ -n "$module" ]]; then scope_to_module "$module"; else cat; fi \
-    | if (($#)); then splice_args "$@"; else cat; fi
+    | if (($#)); then splice_args "$@"; else cat; fi \
+    | if ((heal)) && [[ "$workflow" == gradle-check ]]; then
+      self_heal "$(cat "$REPO_ROOT/examples/11-dogfood/heal.json")" "$module" "$project" \
+        "$REPO_ROOT/examples/11-dogfood/scripts/yukta-heal.sh" "$heal_dir" "$fork_session" "$m1" "$m2"
+    else cat; fi
 } >"$tmp/session.json"
 
 echo ">> server $YUKTA_SERVER_URL, session $session, project $project" >&2
