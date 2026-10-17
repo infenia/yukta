@@ -4,6 +4,10 @@ description: "The envelope every node receives and emits: payload, metadata, ide
 mode: "wide"
 ---
 
+<Info>
+  **In plain terms:** a message is the item moving through your flowchart: an order, a file, a record. It carries the data itself plus a few labels (where it came from, an id you can trace). Steps never change a message in place; they make a new one, so two branches working on the same item can never interfere.
+</Info>
+
 A **message** is the unit of data on an edge. It is a **payload** plus labels about the payload. A trigger can emit many messages in one execution, and a processor can turn one message into several or several into one.
 
 ## Anatomy

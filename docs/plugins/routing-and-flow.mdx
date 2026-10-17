@@ -4,6 +4,10 @@ description: "BRANCH, FILTER, SPLITTER, AGGREGATE, RECIPIENT_LIST, DELAY, LOOP_P
 mode: "wide"
 ---
 
+<Info>
+  **In plain terms:** these are the traffic controllers of a workflow. They send each item down the right path, split a big item into many small ones (or gather them back), spread work to several places, wait, repeat a step, run another workflow, or hold until a person approves.
+</Info>
+
 These ten processors are always part of the server. They route messages by port, split and batch them, pace them, repeat other plugins, run other workflows and wait for people.
 
 Routing works by port name: a message leaves a node on one port, and the engine delivers it only along edges whose `sourcePort` names that port. An edge with no `sourcePort` receives every message of the node. See [Nodes, edges and ports](/concepts/nodes-edges-ports) and [Routing and branching](/building/routing-and-branching).

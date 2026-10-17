@@ -4,6 +4,10 @@ description: "The five independent clocks that bound an execution, and how pausi
 mode: "wide"
 ---
 
+<Info>
+  **In plain terms:** a stuck job should end, not hang forever. Yukta watches five clocks: how long a start may wait in line, how long the whole run may take, how long a step may sit idle, how long a single attempt may take, and how long a step may live in total. Pausing a run freezes all of them, so a pause never causes a timeout.
+</Info>
+
 Yukta bounds an execution with five independent clocks. All of them are **pause-aware**: pausing freezes every clock, so a pause never causes a timeout.
 
 | Clock | Scope | Resets on | Ends with |

@@ -4,6 +4,10 @@ description: "Pause, resume and steer a running execution and its nodes, send si
 mode: "wide"
 ---
 
+<Info>
+  **In plain terms:** use these calls to steer a run while it is happening: pause, resume, skip a step, send an approval. Every command is checked by any supervisors you run and written to an audit log.
+</Info>
+
 Control endpoints send a command to a live execution or to one of its nodes. Each command is reviewed by any configured [supervisors](/running/supervisors) and recorded in the audit log. These endpoints also cover the control bus, the live command path to individual nodes. Start, stop and restart are on the [Workflows](/api/workflows) and [Executions](/api/executions) pages.
 
 All responses use the [envelope](/api/overview#response-envelope). An unknown execution, or one of another session, answers `404`. A command that a supervisor refuses answers `403` with the reason.

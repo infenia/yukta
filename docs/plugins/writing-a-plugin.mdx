@@ -4,6 +4,10 @@ description: "The contract a trigger, processor or terminal fulfils: what it dec
 mode: "wide"
 ---
 
+<Info>
+  **In plain terms:** if the built-in steps do not cover what you need, you can add your own. This page explains what a plugin must say about itself and how it should behave, without assuming a particular programming language, so you can judge the effort before you start.
+</Info>
+
 A plugin is the implementation behind a node `type`. This page describes the plugin contract in plain terms: the three roles, what a plugin declares, how it handles messages, failures, time and budgets, and how the server picks it up. It does not depend on a programming language. The contract is written as a set of operations; how you spell each one depends on the language and the plugin interface your server build provides.
 
 <Note>

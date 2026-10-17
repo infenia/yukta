@@ -5,6 +5,14 @@ tag: "Optional"
 mode: "wide"
 ---
 
+<Info>
+  **In plain terms:** a control plane is the simplest kind of supervisor: for each event it answers one question, "do nothing, pause, or stop?" Choose one when you want a basic safety net without writing logic.
+</Info>
+
+<Tip>
+  **Why a model here?** Rules cover situations you can state exactly. A decision model covers the rest: it reads each event and picks one of your options (continue, pause or stop) with a calibrated probability, and acts only when it is sure. A System One model keeps that cheap enough to judge every event; the same job on a chat model would be slower and cost more tokens. Set `backend` to `LLM` if you prefer one.
+</Tip>
+
 A **control plane** is a supervisor that decides what to do about **one event at a time**. Where a [supervisor](/running/supervisors) may keep state and emit any commands, a control plane answers a single question per event: nothing, pause, or stop. Control planes are optional and off until enabled. They share the hosting, auditing and rate limiting of supervisors.
 
 Three control planes are built in.

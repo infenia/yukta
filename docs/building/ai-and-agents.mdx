@@ -5,6 +5,10 @@ tag: "Optional"
 mode: "wide"
 ---
 
+<Info>
+  **In plain terms:** an AI agent here is a loop where a model suggests what to do next and your flowchart does it. You stay in charge: the steps are drawn by you, each action is visible, and budgets and approvals stop the model from running up costs or doing something unexpected. This page shows how to wire that up.
+</Info>
+
 A model-driven workflow calls a chat model from a node, lets the model ask for tools, and keeps the model on a short leash with budgets and filters. The plugins involved (`LLM_CALL`, `MCP_LIST_TOOLS`, `MCP_TOOL_CALL`, `SESSION_MEMORY` and the decision plugins) are optional modules chosen when the server is built. See [Built-in plugins](/plugins/overview).
 
 Yukta keeps the control flow in the graph, not in the model. The model suggests an action; a node you wired runs it, and you decide what happens next. That makes an agent easy to inspect, limit, pause and approve like any other workflow. This page shows how to put the pieces together. For the options of each plugin, see [AI plugins](/plugins/ai) and [Decision plugins](/plugins/decisions).
@@ -213,7 +217,16 @@ Things to notice:
 
 ## Decisions instead of free text
 
-When a node must choose, not write, a decision plugin is cheaper and easier to route on than a free-text answer: `CLASSIFY` gives one label from your list, `GATE` a yes/no with a probability, `SCORE` a position on a scale, `ASK` several answers in one call. They use a small local decision model (Ollama System One) or any chat model. Typical uses:
+An agent does two very different jobs: **writing** (drafting an answer, planning) and **choosing** (which branch, is this safe, how urgent). A chat model (LLM) can do both, but you pay for every token it generates, even when the answer is one word. **System One** decision models are built for choosing. They are given your options and return one of them with a calibrated probability, so the call is small and the answer is easy to route on. Use an LLM for the open-ended step and System One for the many small decisions around it.
+
+| Use | Choose |
+|---|---|
+| Draft, summarise, plan or call tools | `LLM_CALL` |
+| Route, gate, score or flag, especially at high volume | A decision plugin with `backend: SYSTEMONE`, the default |
+| A decision, but no System One model is available | The same decision plugin with `backend: LLM` |
+| Watch and steer running workflows | A [model control plane](/running/control-planes#model-control-plane) |
+
+With `SYSTEMONE`, token and provider costs for these calls do not apply, because the model runs on your own Ollama. Probabilities from `SYSTEMONE` are calibrated; those from the `LLM` backend are the model's own estimates. See [Decision plugins](/plugins/decisions#common-options) for the two backends. When a node must choose, not write, a decision plugin is cheaper and easier to route on than a free-text answer: `CLASSIFY` gives one label from your list, `GATE` a yes/no with a probability, `SCORE` a position on a scale, `ASK` several answers in one call. They use a small local decision model (Ollama System One) or any chat model. Typical uses:
 
 - `CLASSIFY` with `routeByLabel` at the start of a workflow, so each kind of request takes its own branch, with an `uncertain` port for the unclear ones.
 - A `GATE` in front of `MCP_TOOL_CALL` that asks whether the arguments the model proposed are safe, with `state` set to `payload.args`.

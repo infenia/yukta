@@ -4,7 +4,9 @@ description: "Run the Yukta server and execute your first workflow in five minut
 mode: "wide"
 ---
 
-You will start the server, apply a session that contains one workflow, start that workflow with some input, and read the result.
+By the end of this page you will have a real job running on your own machine: a tiny workflow that takes a name and produces a greeting. It is small on purpose. It shows the whole loop you will use for bigger jobs: **save the flowchart on the server, start a run with some input, watch it, read the answer.**
+
+Technically, you will start the server, apply a session that contains one workflow, start that workflow with a payload, and read the execution's status, logs and result. You need to be comfortable running a few terminal commands, but you do not need to write any code.
 
 ## Before you begin
 
@@ -26,7 +28,7 @@ The server listens on `http://localhost:8080`, on loopback only. Open that addre
 
 ## 2. Apply a session
 
-A **session** groups workflows. This one holds a single workflow that reads a name from the start request and builds a greeting.
+A **session** is a folder that groups related workflows (here, just one). Sending it to the server saves the flowchart so you can run it as often as you like. This one holds a single workflow that reads a name from the start request and builds a greeting.
 
 ```http
 POST /api/sessions
@@ -95,7 +97,7 @@ curl -X POST http://localhost:8080/api/workflow/start \
   -d '{"sessionId":"demo","workflowId":"greet","payload":{"name":"Ada"}}'
 ```
 
-The server answers `202 Accepted` with an **execution id** in `data.executionId`. The execution runs in the background.
+Think of this as pressing "go". The server answers `202 Accepted` ("got it, working on it") with an **execution id** in `data.executionId`: a ticket number for this particular run. The execution runs in the background, so you use the ticket to check on it.
 
 ## 4. Watch it and read the result
 
@@ -167,6 +169,8 @@ Accept: application/json
 Responses show the fields used here; the server returns more, such as timestamps and cursors.
 
 ## What just happened
+
+In everyday terms: you handed the server a flowchart, gave it a name to work with, and it produced a greeting while reporting every step. In detail:
 
 1. Applying the session validated and stored the workflow.
 2. Starting it checked the limits, took a slot and returned an execution id.

@@ -4,6 +4,10 @@ description: "How Yukta records node outputs, restarts a run or one node, recove
 mode: "wide"
 ---
 
+<Info>
+  **In plain terms:** a checkpoint is a saved copy of what each step has produced. If the server stops mid-run, Yukta can pick up from those copies instead of redoing finished work, the way a video game resumes from its last save point.
+</Info>
+
 A checkpoint is the recorded output of one node in one execution. Yukta records checkpoints so that a restart or a resume can replay what a node already produced instead of running it again.
 
 ## When to use it

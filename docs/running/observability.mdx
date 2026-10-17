@@ -4,6 +4,10 @@ description: "Progress, logs, results, the live event feed, metrics and tracing:
 mode: "wide"
 ---
 
+<Info>
+  **In plain terms:** how you see inside a run. Everything that happens is recorded as an ordered event, and the live view, the progress API, logs, results and metrics all read from the same record, so they never disagree.
+</Info>
+
 Everything that happens in an execution becomes an event in one ordered queue. One consumer turns those events into progress snapshots, history and meters that REST, the live streams, MCP and the web UI all read.
 
 ## Progress and status

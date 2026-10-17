@@ -4,6 +4,10 @@ description: "Follow a run live over server-sent events: status, logs, results a
 mode: "wide"
 ---
 
+<Info>
+  **In plain terms:** instead of asking "is it done yet?" again and again, open a stream and the server pushes updates to you the moment they happen: step status, log lines and results.
+</Info>
+
 Streams push updates as they happen over server-sent events (SSE), so a client does not have to poll. Every stream needs the `VIEWER` role.
 
 | Method and path | Carries |

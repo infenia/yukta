@@ -4,6 +4,10 @@ description: "Patterns for sending messages down different paths: by exit code, 
 mode: "wide"
 ---
 
+<Info>
+  **In plain terms:** routing is how a workflow decides. Think of a sorting office: each item goes down the belt that matches it, for example "build passed" to the deploy step and "build failed" to the alert step. This page shows the common patterns: route on a command's result, on a web response, on a value in the data, or to several places at once.
+</Info>
+
 Routing is how a workflow makes decisions. A node publishes each message on a named **output port**, and edges listen to ports. This page shows the common patterns. The full option list for each node is in the [plugin reference](/plugins/routing-and-flow).
 
 <Tip>

@@ -4,6 +4,10 @@ description: "Run another stored workflow from inside a node, once per message."
 mode: "wide"
 ---
 
+<Info>
+  **In plain terms:** a sub-workflow is a workflow used as a single step inside another one, like calling a reusable procedure. Use it to avoid copying the same steps into several flowcharts, or to let a step decide at run time which workflow to run.
+</Info>
+
 The `SUB_WORKFLOW` processor runs another stored workflow of the **same session** for each message it receives. Use it to compose small workflows into larger ones, to share a reusable sequence between several workflows, or to build agent-style plans where a step decides which workflow to run.
 
 ## Behaviour

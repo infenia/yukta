@@ -4,6 +4,10 @@ description: "Pause, resume, step, set breakpoints, skip, stop, restart and retr
 mode: "wide"
 ---
 
+<Info>
+  **In plain terms:** these are the buttons on a running job: pause, resume, step one at a time, stop at a breakpoint, skip a step, retry a failure, restart, stop. Whoever presses them (a person, a script, an AI assistant, an automatic rule), each press is handled the same way, in order, and recorded.
+</Info>
+
 Every change to a running execution is a **command**. People, supervisors, the REST API, the MCP server, the CLI and the web UI all send the same commands through the same pipeline.
 
 ## How commands work

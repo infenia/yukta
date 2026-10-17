@@ -4,6 +4,10 @@ description: "The complete JSON shape of a session and its workflows, and how to
 mode: "wide"
 ---
 
+<Info>
+  **In plain terms:** this page is the blueprint format. You describe your job as a list of steps (`nodes`) and a list of arrows between them (`edges`), wrap it in a session, and send it to the server. Start with the small example, then add options one at a time. Every option shown here applies to any step.
+</Info>
+
 A workflow is plain JSON. You send it inside a [session](/concepts/sessions-and-workflows) to `POST /api/sessions`, and the server validates and stores it.
 
 <Note>

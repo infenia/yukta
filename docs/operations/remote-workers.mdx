@@ -5,6 +5,10 @@ tag: "Optional"
 mode: "wide"
 ---
 
+<Info>
+  **In plain terms:** some steps are heavy, need special hardware, or must run next to a particular system. Remote workers let such a step run on another machine, while the server still handles ordering, retries, timeouts and status as if it ran locally.
+</Info>
+
 A processor node with `engine.placement` runs on a worker process of a named pool instead of on the server that orchestrates the run. Retries, error routing, timeouts, pause and skip, checkpoints and status work as they do for a local node.
 
 Remote workers are an optional part of the build and are off by default.
