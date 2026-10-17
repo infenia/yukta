@@ -5,10 +5,10 @@ mode: "wide"
 ---
 
 <Info>
-  **In plain terms:** the `yukta` command lets you do everything from a terminal: load a workflow file, start it, follow its logs, steer it. It is a single small program with nothing else to install, which makes it handy in scripts and CI jobs.
+  **In plain terms:** the `yukta-cli` command lets you do everything from a terminal: load a workflow file, start it, follow its logs, steer it. It is a single small program with nothing else to install, which makes it handy in scripts and CI jobs.
 </Info>
 
-The `yukta` command is a thin client for a running Yukta server. It is a single static binary with no runtime to install. It calls the [REST API](/api/overview) and prints the answer, which makes it useful in shell scripts, CI jobs and quick checks at a terminal.
+The `yukta-cli` command is a thin client for a running Yukta server. It is a single static binary with no runtime to install. It calls the [REST API](/api/overview) and prints the answer, which makes it useful in shell scripts, CI jobs and quick checks at a terminal.
 
 Use it when you want to apply a session file, start a workflow, follow its logs and result, or steer a run, without writing HTTP calls.
 
@@ -32,7 +32,7 @@ A flag overrides the environment variable. The client reads no configuration fil
 ```bash
 export YUKTA_SERVER_URL=https://yukta.example.com
 export YUKTA_TOKEN=<key>
-yukta session list
+yukta-cli session list
 ```
 
 The server's role and session rules apply to the key you give; see [REST API overview](/api/overview#roles). The client sends the key only as a bearer token.
@@ -50,29 +50,29 @@ Some commands print JSON in both formats because their data is nested: `session 
 
 | Command | Does |
 |---|---|
-| `yukta session list` | List session ids |
-| `yukta session get <session-id>` | Show a session's id and workflow ids |
-| `yukta session summaries` | List sessions with their workflow counts, as JSON |
-| `yukta session apply <json-or-file>` | Create or replace a session from a JSON file, or from inline JSON if no such file exists |
-| `yukta session workflow get <session-id> <workflow-id>` | Print a workflow definition as JSON |
-| `yukta session workflow graph <session-id> <workflow-id>` | Print the nodes and edges with plugin metadata |
-| `yukta session workflow executions <session-id> <workflow-id>` | List the runs of one workflow, newest first |
+| `yukta-cli session list` | List session ids |
+| `yukta-cli session get <session-id>` | Show a session's id and workflow ids |
+| `yukta-cli session summaries` | List sessions with their workflow counts, as JSON |
+| `yukta-cli session apply <json-or-file>` | Create or replace a session from a JSON file, or from inline JSON if no such file exists |
+| `yukta-cli session workflow get <session-id> <workflow-id>` | Print a workflow definition as JSON |
+| `yukta-cli session workflow graph <session-id> <workflow-id>` | Print the nodes and edges with plugin metadata |
+| `yukta-cli session workflow executions <session-id> <workflow-id>` | List the runs of one workflow, newest first |
 
 `session apply` sends the same body as [`POST /api/sessions`](/api/sessions#apply-a-session) and needs a key with the `ADMIN` role. It checks that the text is valid JSON before sending it.
 
 ```bash
-yukta session apply session.json
-yukta session get demo
+yukta-cli session apply session.json
+yukta-cli session get demo
 ```
 
 ## Start and stop workflows
 
 | Command | Does |
 |---|---|
-| `yukta workflow start <session-id> <workflow-id>` | Start a run and print its execution id |
-| `yukta workflow stop <session-id> <workflow-id>` | Stop every active run of the workflow, letting work in flight drain |
-| `yukta workflow executions stop <execution-id>` | Stop one run |
-| `yukta workflow executions restart <execution-id> [from-node-id]` | Restart a run from the beginning, or from a node, as a new run |
+| `yukta-cli workflow start <session-id> <workflow-id>` | Start a run and print its execution id |
+| `yukta-cli workflow stop <session-id> <workflow-id>` | Stop every active run of the workflow, letting work in flight drain |
+| `yukta-cli workflow executions stop <execution-id>` | Stop one run |
+| `yukta-cli workflow executions restart <execution-id> [from-node-id]` | Restart a run from the beginning, or from a node, as a new run |
 
 `workflow start` takes the trigger input with one of two flags:
 
@@ -84,7 +84,7 @@ yukta session get demo
 The two flags cannot be combined, and the payload must be a JSON object.
 
 ```bash
-yukta workflow start demo greet --payload '{"name":"Ada"}'
+yukta-cli workflow start demo greet --payload '{"name":"Ada"}'
 ```
 
 ```text
@@ -95,8 +95,8 @@ Workflow started with execution ID: 550e8400-e29b-41d4-a716-446655440000
 
 | Command | Does |
 |---|---|
-| `yukta workflow status <session-id> <execution-id>` | Show the run's status, times and the number of nodes |
-| `yukta workflow history <session-id>` | List the runs of a session with status and times |
+| `yukta-cli workflow status <session-id> <execution-id>` | Show the run's status, times and the number of nodes |
+| `yukta-cli workflow history <session-id>` | List the runs of a session with status and times |
 
 Use `-o json` with `status` to get the full snapshot, including every node's status. The server may keep only the newest runs; see the [REST history call](/api/workflows#list-the-runs-of-a-session).
 
@@ -104,8 +104,8 @@ Use `-o json` with `status` to get the full snapshot, including every node's sta
 
 | Command | Does |
 |---|---|
-| `yukta workflow pause <session-id> <execution-id>` | Pause a run |
-| `yukta workflow resume <session-id> <execution-id>` | Resume a paused run |
+| `yukta-cli workflow pause <session-id> <execution-id>` | Pause a run |
+| `yukta-cli workflow resume <session-id> <execution-id>` | Resume a paused run |
 
 ## Control nodes
 
@@ -113,22 +113,22 @@ Node commands act on one node of a live run. The role they need is `OPERATOR`.
 
 | Command | Does |
 |---|---|
-| `yukta workflow node pause <session-id> <execution-id> <node-id>` | Pause a node |
-| `yukta workflow node resume <session-id> <execution-id> <node-id>` | Resume a node |
-| `yukta workflow node stop <session-id> <execution-id> <node-id>` | Stop a node. `--immediate` stops without draining; `--reason <text>` records a reason |
-| `yukta workflow node skip <session-id> <execution-id> <node-id>` | Skip a node so it passes its input through. `--skip=false` unskips it |
-| `yukta workflow node step enable <session-id> <execution-id> <node-id>` | Turn on step mode |
-| `yukta workflow node step disable <session-id> <execution-id> <node-id>` | Turn off step mode |
-| `yukta workflow node step next <session-id> <execution-id> <node-id>` | Let one element through |
-| `yukta workflow node retry <execution-id> <node-id>` | Restart from a node that failed, as a new run, and print the new id |
-| `yukta workflow node breakpoint <execution-id> <node-id> --field <f> --equals <v>` | Hold a node before the first element whose field equals a value |
-| `yukta workflow node breakpoint <execution-id> <node-id> --clear` | Remove the node's breakpoint |
-| `yukta workflow node signal <execution-id> <node-id> --name <n> --decision <d> [--data <text>]` | Answer a node that waits for a signal |
+| `yukta-cli workflow node pause <session-id> <execution-id> <node-id>` | Pause a node |
+| `yukta-cli workflow node resume <session-id> <execution-id> <node-id>` | Resume a node |
+| `yukta-cli workflow node stop <session-id> <execution-id> <node-id>` | Stop a node. `--immediate` stops without draining; `--reason <text>` records a reason |
+| `yukta-cli workflow node skip <session-id> <execution-id> <node-id>` | Skip a node so it passes its input through. `--skip=false` unskips it |
+| `yukta-cli workflow node step enable <session-id> <execution-id> <node-id>` | Turn on step mode |
+| `yukta-cli workflow node step disable <session-id> <execution-id> <node-id>` | Turn off step mode |
+| `yukta-cli workflow node step next <session-id> <execution-id> <node-id>` | Let one element through |
+| `yukta-cli workflow node retry <execution-id> <node-id>` | Restart from a node that failed, as a new run, and print the new id |
+| `yukta-cli workflow node breakpoint <execution-id> <node-id> --field <f> --equals <v>` | Hold a node before the first element whose field equals a value |
+| `yukta-cli workflow node breakpoint <execution-id> <node-id> --clear` | Remove the node's breakpoint |
+| `yukta-cli workflow node signal <execution-id> <node-id> --name <n> --decision <d> [--data <text>]` | Answer a node that waits for a signal |
 
 `retry`, `breakpoint` and `signal` take no session id. `signal` fails with an HTTP `409` error if the node is not waiting for that signal. These commands map to the calls on the [Control API](/api/control) page.
 
 ```bash
-yukta workflow node signal 550e8400-e29b-41d4-a716-446655440000 approve \
+yukta-cli workflow node signal 550e8400-e29b-41d4-a716-446655440000 approve \
   --name release-approval --decision approve --data "ship it"
 ```
 
@@ -138,10 +138,10 @@ These commands stay connected until the run ends or you press Ctrl-C. A Ctrl-C e
 
 | Command | Prints |
 |---|---|
-| `yukta logs <session-id> <execution-id>` | One log line per line, stored lines first, then live. `--entries` prints each entry as one JSON object |
-| `yukta result <session-id> <execution-id>` | One JSON event per line as results reach the terminal nodes, ending with `EXECUTION_END`. `--node <id>` follows one terminal node. Works after the run ended, while the server keeps the result |
-| `yukta workflow status-stream <session-id> <execution-id>` | A JSON progress snapshot at every change. `--include-history` replays recent updates first |
-| `yukta controlbus watch` | One line per event of all runs |
+| `yukta-cli logs <session-id> <execution-id>` | One log line per line, stored lines first, then live. `--entries` prints each entry as one JSON object |
+| `yukta-cli result <session-id> <execution-id>` | One JSON event per line as results reach the terminal nodes, ending with `EXECUTION_END`. `--node <id>` follows one terminal node. Works after the run ended, while the server keeps the result |
+| `yukta-cli workflow status-stream <session-id> <execution-id>` | A JSON progress snapshot at every change. `--include-history` replays recent updates first |
+| `yukta-cli controlbus watch` | One line per event of all runs |
 
 `controlbus watch` follows the server-wide [event feed](/api/streams#stream-events-of-all-runs) and prints one line per event:
 
@@ -166,16 +166,16 @@ With `-o json`, `controlbus watch` prints each event as one JSON object per line
 `--until-done` exits with `0` whatever the final status of the run. Read the last `WORKFLOW` line, or the run's status, to see the outcome.
 
 ```bash
-EXEC=$(yukta workflow start demo build -o json | jq -r .executionId)
-yukta controlbus watch --execution "$EXEC" --quiet --until-done
+EXEC=$(yukta-cli workflow start demo build -o json | jq -r .executionId)
+yukta-cli controlbus watch --execution "$EXEC" --quiet --until-done
 ```
 
 ## Discover plugins
 
 | Command | Does |
 |---|---|
-| `yukta plugin list` | List plugin types with their category |
-| `yukta plugin get <type>` | Show a plugin's description, usage pattern and output ports. `-o json` adds the full details |
+| `yukta-cli plugin list` | List plugin types with their category |
+| `yukta-cli plugin get <type>` | Show a plugin's description, usage pattern and output ports. `-o json` adds the full details |
 
 ## Control bus
 
@@ -183,11 +183,11 @@ The control bus commands address nodes by workflow id rather than by run. See th
 
 | Command | Does |
 |---|---|
-| `yukta controlbus nodes <workflow-id>` | List the active nodes of a workflow |
-| `yukta controlbus all-nodes` | List the active nodes of all workflows |
-| `yukta controlbus heartbeat <workflow-id> <node-id>` | Show a node's last heartbeat |
-| `yukta controlbus command <workflow-id> <node-id> <json-or-file>` | Send a command to a node, as inline JSON or from a file. Needs the `ADMIN` role |
-| `yukta controlbus watch` | Stream events, described above |
+| `yukta-cli controlbus nodes <workflow-id>` | List the active nodes of a workflow |
+| `yukta-cli controlbus all-nodes` | List the active nodes of all workflows |
+| `yukta-cli controlbus heartbeat <workflow-id> <node-id>` | Show a node's last heartbeat |
+| `yukta-cli controlbus command <workflow-id> <node-id> <json-or-file>` | Send a command to a node, as inline JSON or from a file. Needs the `ADMIN` role |
+| `yukta-cli controlbus watch` | Stream events, described above |
 
 ## Access
 

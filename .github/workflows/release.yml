@@ -43,13 +43,13 @@ jobs:
 
       - name: Checksums
         working-directory: cli/build
-        run: sha256sum yukta-* > SHA256SUMS
+        run: sha256sum yukta-cli-* > SHA256SUMS
 
       - name: Attest build provenance
         if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
-          subject-path: cli/build/yukta-*
+          subject-path: cli/build/yukta-cli-*
 
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:

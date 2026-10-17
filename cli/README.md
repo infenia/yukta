@@ -23,7 +23,7 @@ To compile the Yukta Go CLI for your current operating system:
 ./gradlew :cli:goBuild
 ```
 
-The compiled binary is placed in `cli/build/` and named `yukta-<os>-<arch>`, with `.exe` on Windows, for example `yukta-linux-amd64` or `yukta-darwin-arm64`.
+The compiled binary is placed in `cli/build/` and named `yukta-cli-<os>-<arch>`, with `.exe` on Windows, for example `yukta-cli-linux-amd64` or `yukta-cli-darwin-arm64`.
 
 ### Build for All Platforms
 
@@ -34,9 +34,9 @@ To compile binaries for all supported platforms (Linux, macOS, Windows):
 ```
 
 All compiled binaries are available in `cli/build/`:
-- `yukta-linux-amd64`, `yukta-linux-arm64`
-- `yukta-darwin-amd64` (macOS Intel), `yukta-darwin-arm64` (macOS Apple Silicon)
-- `yukta-windows-amd64.exe`
+- `yukta-cli-linux-amd64`, `yukta-cli-linux-arm64`
+- `yukta-cli-darwin-amd64` (macOS Intel), `yukta-cli-darwin-arm64` (macOS Apple Silicon)
+- `yukta-cli-windows-amd64.exe`
 
 The same builds are available from `cli/` with `make build` (current platform) and `make build-all`.
 
@@ -47,25 +47,25 @@ The same builds are available from `cli/` with `make build` (current platform) a
 List all active sessions:
 
 ```bash
-yukta session list
+yukta-cli session list
 ```
 
 Get details of a specific session:
 
 ```bash
-yukta session get <session-id>
+yukta-cli session get <session-id>
 ```
 
 Create or update a session using JSON:
 
 ```bash
-yukta session apply '{"name":"my-session","config":{}}'
+yukta-cli session apply '{"name":"my-session","config":{}}'
 ```
 
 Apply a session from a file:
 
 ```bash
-yukta session apply session.json
+yukta-cli session apply session.json
 ```
 
 ### Workflow Operations
@@ -73,17 +73,17 @@ yukta session apply session.json
 Start a workflow, optionally passing a trigger payload:
 
 ```bash
-yukta workflow start <session-id> <workflow-id> --payload '{"message":"hi"}'
-yukta workflow start <session-id> <workflow-id> --payload-file payload.json
+yukta-cli workflow start <session-id> <workflow-id> --payload '{"message":"hi"}'
+yukta-cli workflow start <session-id> <workflow-id> --payload-file payload.json
 ```
 
-Read-only views: `yukta session summaries`, `yukta session workflow graph|executions <session-id> <workflow-id>`,
-and `yukta logs <session-id> <execution-id> --entries` for structured log entries.
+Read-only views: `yukta-cli session summaries`, `yukta-cli session workflow graph|executions <session-id> <workflow-id>`,
+and `yukta-cli logs <session-id> <execution-id> --entries` for structured log entries.
 
 Get workflow details within a session:
 
 ```bash
-yukta session workflow get <session-id> <workflow-id>
+yukta-cli session workflow get <session-id> <workflow-id>
 ```
 
 ### Command Structure
@@ -113,7 +113,7 @@ Example:
 
 ```bash
 export YUKTA_SERVER_URL=http://production-yukta.example.com:8080
-yukta session list
+yukta-cli session list
 ```
 
 ### Configuration Priority
@@ -197,7 +197,7 @@ If you encounter connection errors:
 Ensure the binary is in your PATH or use the full path:
 
 ```bash
-/path/to/yukta session list
+/path/to/yukta-cli session list
 ```
 
 ### Timeout Errors
@@ -205,7 +205,7 @@ Ensure the binary is in your PATH or use the full path:
 Increase the timeout value:
 
 ```bash
-yukta --timeout 60s session list
+yukta-cli --timeout 60s session list
 ```
 
 ## Development
