@@ -8,7 +8,7 @@ mode: "wide"
   Internal plan, restricted to project members. Back to the [internal index](/internal).
 </Note>
 
-Status: **plan only, nothing built yet.** Decisions marked **Decision** need an answer before the phase that depends on them starts. Resource figures for hosted runners are from memory and must be re-checked in Phase 0.
+Status: **decisions answered, Phase 1 scaffolding started.** Resource figures for hosted runners are from memory and must be re-checked in Phase 0. The answers given so far are recorded in [Decisions](#decisions).
 
 ## Goal
 
@@ -48,56 +48,78 @@ The central question is whether GitHub-hosted runners are reliable enough. The r
 
 ### Who builds what
 
+There is no arm64 or Apple hardware, so those targets use GitHub-hosted runners (free for this public repository) or a bundled-runtime build. The release machine does everything else.
+
 | Artifact | Built on | Why |
 |---|---|---|
-| Server `linux/amd64` | **Release machine** (Ryzen, 32 GB) | Native host, enough memory, fastest iteration |
+| Server `linux/amd64` native | **Release machine** (Ryzen, 32 GB) | Native host, enough memory |
 | Docker image `linux/amd64` | **Release machine** | Wraps the binary above |
-| CLI, all 5 platforms | **Release machine** | Cross-compiles, trivial |
-| `.deb`, `.rpm`, `.tar.gz`, checksums, SBOM, signatures | **Release machine** | Pure packaging from Linux. Signing keys stay on your machine, not on GitHub |
-| Server `linux/arm64` + Docker `linux/arm64` | **arm64 host**, see options | Needs native arm64 |
-| Server `windows/amd64` | **Windows host** | Needs native Windows and the MSVC toolchain |
-| Server `macos/arm64` (and `macos/amd64`) | **macOS host** | Needs macOS |
+| CLI, all 5 platforms | **Release machine** | Go cross-compiles, trivial |
+| `.deb`, `.rpm`, `.tar.gz`, `.msi`, checksums, SBOM | **Release machine, inside Docker** | Packaging tools run on Linux; see [Packaging in Docker](#packaging-in-docker) |
+| Server `linux/arm64` native + Docker `linux/arm64` | **Hosted runner `ubuntu-24.04-arm`** | Needs native arm64. QEMU emulation on the release machine is the fallback, and is expected to be slow |
+| Windows and macOS server | **Bundled-runtime build on the release machine** (Tier 2), native build on hosted runners later (Tier 3) | See [Windows and macOS](#windows-and-macos-without-native-hardware) |
 
-### Options for the hosts the release machine cannot be
+### Options considered for the hosts the release machine cannot be
 
 | Option | Pros | Cons |
 |---|---|---|
-| **A. GitHub-hosted runners** (`ubuntu-24.04-arm`, `windows-latest`, `macos-latest`) | Free for public repos, nothing to maintain, clean machine every run | Memory is the risk, especially macOS (about 7 GB on the standard hosted runner, to be confirmed). Needs a lower builder heap or a larger paid runner. Occasional infrastructure failures |
-| **B. Self-hosted runners** you control | Predictable memory and cache | You run and secure them. A self-hosted runner on a public repo must be restricted to release tags only |
+| **A. GitHub-hosted runners** (`ubuntu-24.04-arm`, `windows-latest`, `macos-latest`) | Free for public repos, nothing to maintain, clean machine every run | Memory is the risk, especially macOS (about 7 GB on the standard runner, to be confirmed). Needs a lower builder heap or a paid larger runner. Occasional infrastructure failures |
+| **B. Self-hosted runners** | Predictable memory and cache | You run and secure them. Not available without hardware |
 | **C. QEMU emulation of arm64 on the release machine** | No extra hardware | Native-image under emulation is very slow and often fails. Fine for *running* an arm64 image in a smoke test, not for compiling |
-| **D. Bundled runtime instead of a native binary** (`jlink` runtime plus the Spring Boot jar) | Buildable for every OS from one Linux machine; no GraalVM; no JDK needed by the user | Larger download (roughly tens of MB more), slower start, no native-image behaviour, extra work to keep module lists right |
+| **D. Bundled runtime** (`jlink` runtime plus the Spring Boot jar) | Buildable for every OS and CPU from one Linux machine; no GraalVM; the user needs no JDK | Larger download, slower start than native, extra work to keep the module list right |
+| **E. Rented hardware** (a cloud Mac or arm64 VM) | Real hosts | Cost and upkeep; a cloud Mac has a minimum rental period |
 
-**Recommendation:** use the release machine for everything it can build natively (A is used only for what it cannot), prove in Phase 0 whether hosted runners can finish the native build, and keep **D as the escape hatch** for a platform whose native build is too flaky to ship. Because publishing is separate from building, a failed runner delays one artifact and never blocks or corrupts the release.
-
-**Decision 1:** what do you have for arm64 and macOS? An Apple Silicon Mac, a spare arm64 box, or only hosted runners? This changes whether option A, B or D is used for those targets.
+**Approach:** hosted runners (A) for arm64 and for proving the Windows and macOS native builds; the bundled runtime (D) so Windows and macOS users are never blocked on those native builds. Because publishing is separate from building, a failed runner delays one artifact and never blocks or corrupts a release.
 
 ## Binary naming
 
-Both the server and the CLI are called `yukta` today. Proposal:
+Decided: the server keeps the name `yukta`, the CLI becomes `yukta-cli`.
 
-| Program | New name | Notes |
+| Program | Name | What changes |
 |---|---|---|
-| Server | `yukta-server` | The long-running process; the Docker entrypoint |
-| CLI | `yukta` | What people type most |
+| Server | `yukta` | Nothing in the build: `imageName` is already `yukta` |
+| CLI | `yukta-cli` | `cli/Makefile` (`BINARY_NAME`), the Cobra root command name, `release.yml`, `examples/` and dogfood scripts, the `yukta` skill, CLI docs and tests |
 
-**Decision 2:** confirm the names (or choose `yuktad`). This touches `boot/build.gradle.kts` (`imageName`), the Dockerfile and every doc that runs `./yukta`.
+Release artifacts and the CLI docs use `yukta-cli` everywhere. Existing text that runs `yukta session ...` must be updated in the same change, or the docs and scripts will break.
 
 ## Artifacts per release
 
 | Artifact | Platforms | Contents |
 |---|---|---|
-| `yukta-<ver>-linux-amd64.tar.gz`, `-linux-arm64.tar.gz` | Linux | `yukta-server`, `yukta`, `LICENSE`, `NOTICE`, sample config |
-| `yukta-<ver>-darwin-arm64.tar.gz` (+ `amd64` if wanted) | macOS | same |
-| `yukta-<ver>-windows-amd64.zip` | Windows | `yukta-server.exe`, `yukta.exe`, licences |
-| `yukta_<ver>_amd64.deb`, `_arm64.deb`, `.rpm` x2 | Debian, Ubuntu, Fedora, RHEL | Binaries in `/usr/bin`, a `systemd` unit, a `yukta` system user, `/etc/yukta/yukta.env`. Built with `nfpm` from Linux. The service listens on loopback and starts disabled |
+| `yukta-<ver>-linux-amd64.tar.gz`, `-linux-arm64.tar.gz` | Linux | `yukta` (server), `yukta-cli`, `LICENSE`, `NOTICE`, sample config |
+| `yukta-<ver>-darwin-arm64.tar.gz`, `-darwin-amd64.tar.gz` | macOS | same, in the bundled-runtime form first (see below) |
+| `yukta-<ver>-windows-amd64.zip`, `.msi` | Windows | `yukta.exe`, `yukta-cli.exe`, licences. The MSI is built in Docker |
+| `yukta_<ver>_amd64.deb`, `_arm64.deb`, `.rpm` x2 | Debian, Ubuntu, Fedora, RHEL | `yukta` and `yukta-cli` in `/usr/bin`, a `systemd` unit, a `yukta` system user, `/etc/yukta/yukta.env`. Built with `nfpm` from Linux. The service listens on loopback and starts disabled |
 | `ghcr.io/infenia/yukta:<tag>` | `linux/amd64`, `linux/arm64` | One multi-architecture manifest |
 | Homebrew formula, Scoop manifest, winget manifest | macOS/Linux, Windows | Point at the archives above and their checksums |
 | `install.sh`, `install.ps1` | Unix, Windows | Download the right archive, verify its checksum, install. Hosted at the docs domain |
 | `SHA256SUMS`, `*.sig` or `*.bundle`, SBOM (CycloneDX) | all | Verification material |
 
-**Decision 3:** native `.pkg` (macOS) and `.msi` (Windows) installers are **deferred** in this plan. They need a Mac, a Windows host, an Apple Developer account and a signing certificate. Archives plus Homebrew, Scoop and winget cover most users without them. Confirm, or ask for them in v0.1.0.
+## Packaging in Docker
 
-**Decision 4:** are macOS and Windows required for v0.1.0, or does v0.1.0 ship Linux and Docker first and add the other two when their builds are proven? Splitting the release this way is the lowest-risk path.
+Installer formats that look platform-specific can mostly be produced from Linux, inside a pinned container, so the release machine needs nothing installed beyond Docker:
+
+| Format | Tool in the container | Notes |
+|---|---|---|
+| `.deb`, `.rpm` | `nfpm` | Both architectures from one run |
+| Windows `.msi` | `wixl` (msitools) | Wraps the finished `yukta.exe`, `yukta-cli.exe` and licences, with Start Menu entries and a `PATH` option. Can be Authenticode-signed from Linux with `osslsigncode` once a certificate exists |
+| macOS `.pkg` | `xar` and `bomutils`-style tooling | A flat package can be assembled on Linux. Signing and notarization from Linux are possible with Apple's notary API (tools such as `quill`), but need an Apple Developer account |
+| macOS `.dmg` | `genisoimage`/`libdmg-hfsplus` | Optional; a `.tar.gz` and Homebrew cover most users |
+
+What Docker **cannot** do is compile a macOS or Windows native binary. macOS cannot legally run in a container on non-Apple hardware, and Windows native-image needs the Microsoft toolchain. So Docker produces the *packages*; where the *binary inside* comes from is covered next.
+
+## Windows and macOS without native hardware
+
+Ordered from least to most effort. Each tier is usable on its own.
+
+| Tier | What users get | Built where | Notes |
+|---|---|---|---|
+| **0. Docker Desktop** | The same `linux/amd64` / `linux/arm64` image, on Windows and macOS (Intel and Apple Silicon) | Already covered by the Docker work | Zero extra build. Windows users can also run the Linux `.tar.gz` or `.deb` inside WSL 2 |
+| **1. Bundled-runtime archive** | `yukta.zip` / `.msi` for Windows, `.tar.gz` for macOS (Intel and Apple Silicon) containing a small private Java runtime and the server. **No JDK to install** | Release machine. `jlink` can build a runtime for another OS by pointing at that OS's Java modules, downloaded once | Slower start and larger than native. Module list found with `jdeps` and verified by a smoke test on a hosted runner |
+| **2. Package managers** | `brew install`, `scoop install`, `winget install` | Manifests only | Point at the Tier 1 archives first, native later |
+| **3. Native binary** | Same as Linux: one fast executable | `windows-latest` and `macos-latest` hosted runners, if Phase 0 shows they can finish | Switch the manifests and archives to native when proven. The bundled runtime stays as the fallback |
+
+The macOS and Windows installers are unsigned at first: users see a Gatekeeper or SmartScreen warning. The docs say so, show the checksum check, and note that Homebrew, Scoop, `winget` and the install scripts avoid most of the friction.
 
 ## Docker plan
 
@@ -109,9 +131,7 @@ Changes to `Dockerfile`:
 4. **Metadata and supply chain.** OCI labels (source, version, licence, revision), an SBOM and provenance attached to the image, `cosign` signature, and a Trivy scan that fails the release on unignored high findings (the repo already has `.trivyignore`).
 5. **Smoke test per architecture** before the manifest is published: start the container with an API key, wait for `/actuator/health`, run the quickstart workflow. The arm64 smoke test can run under QEMU on the release machine, because it runs rather than compiles.
 6. **UPX:** the current build tries to compress the binary with UPX. For releases, drop it unless Phase 0 shows a clear benefit; compressed binaries start slower, can trip antivirus scanners, and add a failure mode on arm64.
-7. **Registries.** GHCR is already implied by `release.yml`.
-
-**Decision 5:** also publish to Docker Hub? It is where most people look first, but needs an account, a namespace and rate-limit-friendly pulls. Recommended: GHCR first, mirror to Docker Hub once the release flow is stable.
+7. **Registries.** GHCR (`ghcr.io/infenia/yukta`) and Docker Hub, with identical tags and digests. Docker Hub needs an account, a namespace and an access token held only where publishing runs.
 
 ## Release flow
 
@@ -122,7 +142,7 @@ Run on the release machine as `release/release.sh vX.Y.Z` (and a `--dry-run` tha
 3. **Build locally:** server linux/amd64, CLI x5, packages, image amd64.
 4. **Collect remote builds:** trigger the CI jobs for arm64, Windows and macOS (or build on your own hosts) and download their artifacts. Each job uploads checksums.
 5. **Verify:** checksums match, each native binary passes `--version`, and a smoke test starts it and runs a workflow on its own OS and architecture (hosted runners run these tests).
-6. **Sign and attest:** `cosign`/GPG signatures and SBOM from the release machine. Build provenance attestation is only available for artifacts built in GitHub Actions, so locally built artifacts carry your signature instead, and the docs say which is which.
+6. **Sign and attest:** keyless `cosign` signatures (Sigstore) on archives, checksums and images, plus a CycloneDX SBOM attached to each image. Keyless signing needs no key to store or leak: signatures are tied to an identity and recorded in a public log. In GitHub Actions the identity is the release workflow and build provenance is attested too; on the release machine it is your own login, through a browser sign-in. The docs say which artifacts carry GitHub-built provenance and which are signed by a person.
 7. **Publish as a draft:** upload to a draft GitHub release, push image digests, create the manifest, update the Homebrew and Scoop repositories.
 8. **Promote:** after a final install test from the *published* artifacts on a clean machine or container, publish the release, then move tags and `latest`.
 9. **Rollback:** a draft can be deleted; a published image tag is never overwritten, so a bad release is superseded by the next patch and the release notes say so.
@@ -133,11 +153,11 @@ CI keeps `release.yml` for the parts that run well there (CLI, the arm64, Window
 
 | Phase | Work | Exit criterion | Needs from you |
 |---|---|---|---|
-| **0. Measure and decide** (1 to 2 days) | Run `nativeCompile` on the release machine and time it, record peak memory. Try the same on `ubuntu-24.04-arm`, `windows-latest` and `macos-latest` with a configurable builder heap (new `-Pnative.heap`, default 16g). Check that the server builds and starts on Windows and macOS at all (never tried: paths, the UI build, the process plugin) | A table of time, peak memory and pass/fail per platform; Decisions 1 to 4 answered | Access to the release machine; answers |
-| **1. Linux and Docker** | Rename binaries; refactor the Dockerfile; `release/` scripts; `.deb`/`.rpm`/tar.gz; image amd64 on the release machine; image arm64 on the chosen arm64 host; manifest; smoke tests; signing | `docker run ghcr.io/infenia/yukta:0.1.0-rc.1` works on amd64 and arm64; `.deb` installs on Ubuntu | arm64 host; GHCR permission; signing key |
-| **2. macOS and Windows** | Native builds, archives, install scripts, Homebrew tap, Scoop and winget manifests | Installs work on a clean Mac and a clean Windows machine; the quickstart passes on each | Mac access or runner; optional certificates |
-| **3. Release rehearsal** | A full `-rc` through `release.sh`, then install from the published artifacts everywhere. Fix what breaks | One end-to-end run with no manual steps beyond the documented ones | none |
-| **4. v0.1.0** | Tag, publish, announce, flip the docs to the install-first version | Release is public and the docs match it | final go-ahead |
+| **0. Measure** (1 to 2 days) | Run `nativeCompile` on the release machine and time it, record peak memory. Try the same on `ubuntu-24.04-arm`, `windows-latest` and `macos-latest` with a configurable builder heap (`-Pnative.heap`, default 16g). Check that the server builds and starts on Windows and macOS (never tried) | A table of time, peak memory and pass/fail per platform | Run the commands on the release machine |
+| **1. Linux and Docker** | Rename the CLI; Dockerfile refactor; `release/` scripts; `.deb`/`.rpm`/tarballs; image amd64 on the release machine; arm64 on a hosted runner; manifest; smoke tests; signing | `docker run ghcr.io/infenia/yukta:0.1.0-rc.1` works on amd64 and arm64; `.deb` installs on Ubuntu | GHCR and Docker Hub permissions; Docker Hub token |
+| **2. Windows and macOS** | Tier 1 bundled-runtime archives, `.msi` in Docker, install scripts, Homebrew tap, Scoop and winget manifests | Installs work on a clean Mac and Windows machine (a hosted runner counts); quickstart passes | Create the Homebrew tap and Scoop bucket repositories |
+| **3. Native on Windows and macOS** | Hosted-runner native builds, if Phase 0 shows they fit | Native archives replace the bundled-runtime ones in the manifests | none |
+| **4. Release rehearsal and v0.1.0** | A full `-rc` through `release.sh`, install from the published artifacts everywhere, fix, tag, flip the docs | One end-to-end run; docs match the release | final go-ahead |
 
 ## Documentation plan
 
@@ -168,14 +188,21 @@ The Mintlify preview process from the earlier docs work applies: review on the b
 | Unsigned macOS and Windows binaries trigger warnings | Document the warnings and the checksum check; add signing when certificates exist |
 | Locally built artifacts have no GitHub provenance | Sign with your own key and say so in the docs; use GitHub-built artifacts where provenance matters |
 | A secret or signing key leaks via a public repo's CI | Keys stay on the release machine; self-hosted runners only for tags |
-| Name clash between server and CLI | Decision 2 |
+| Name clash between server and CLI | Resolved: server `yukta`, CLI `yukta-cli` |
 | One bad image tag overwritten | Tags are immutable by policy; digests pinned in the manifest step |
 
-## Decisions needed
+## Decisions
 
-1. What hardware exists for arm64 and macOS (Apple Silicon Mac, arm64 box, or hosted runners only)?
-2. Server binary name: `yukta-server`, or something else?
-3. Defer `.pkg` and `.msi` installers and code signing?
-4. Ship Linux and Docker as v0.1.0 and add macOS and Windows after, or wait for all?
-5. Registries: GHCR only at first, or Docker Hub too?
-6. Signing: `cosign` keyless is only possible from GitHub Actions; for the release machine, use a `cosign` key or GPG?
+| # | Question | Answer |
+|---|---|---|
+| 1 | Hardware for arm64 and macOS | None. Use hosted runners and the bundled runtime |
+| 2 | Binary names | Server `yukta`, CLI `yukta-cli` |
+| 3 | `.pkg` and `.msi` installers | Wanted. Build them with Docker (see [Packaging in Docker](#packaging-in-docker)); `.msi` is straightforward, `.pkg` possible, signing needs accounts |
+| 4 | Linux and Docker first | Yes. Also look for other ways to reach Windows and macOS: see [Windows and macOS](#windows-and-macos-without-native-hardware) |
+| 5 | Docker Hub as well as GHCR | Yes |
+| 6 | Signing | Best available: keyless `cosign` (Sigstore) plus GitHub build provenance where built in CI |
+
+### Still open
+
+- Whether to buy an Apple Developer ID (about USD 99 a year) and a Windows code-signing certificate, which remove the macOS and Windows warnings. Not needed for the first release candidate.
+- The Docker Hub namespace (assumed `infenia/yukta`).
