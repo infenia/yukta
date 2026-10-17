@@ -8,7 +8,7 @@ mode: "wide"
   Internal plan, restricted to project members. Back to the [internal index](/internal).
 </Note>
 
-Status: **decisions answered, Phase 1 scaffolding started.** Resource figures for hosted runners are from memory and must be re-checked in Phase 0. The answers given so far are recorded in [Decisions](#decisions).
+Status: **decisions answered; Phase 1 scripts written, not yet run end to end.** Resource figures for hosted runners are from memory and must be re-checked in Phase 0. The answers given so far are recorded in [Decisions](#decisions).
 
 ## Goal
 
@@ -148,6 +148,17 @@ Run on the release machine as `release/release.sh vX.Y.Z` (and a `--dry-run` tha
 9. **Rollback:** a draft can be deleted; a published image tag is never overwritten, so a bad release is superseded by the next patch and the release notes say so.
 
 CI keeps `release.yml` for the parts that run well there (CLI, the arm64, Windows and macOS builds, provenance) and gains `workflow_dispatch` inputs so a single platform can be rebuilt without redoing the rest.
+
+## Progress
+
+Done on the `claude/mintlify-docs-intro-clarity-8z8xn4` branch:
+
+- CLI renamed to `yukta-cli` (code, Makefile, release workflow, dogfood scripts, skill, docs). Go tests pass and `make build-all` produces the five renamed binaries.
+- `release/` scripts: `build-cli.sh`, `build-server.sh`, `package.sh`, `build-image.sh`, `sign.sh`, `release.sh`, plus `Dockerfile`, `nfpm.yaml`, a systemd unit and an env file. `package.sh` was run here with a stand-in binary and produced a valid `.tar.gz`, `.deb` and `.rpm`.
+- `boot/build.gradle.kts` takes `-Pnative.heap` (default `16g`); the root `Dockerfile` takes `NATIVE_HEAP`.
+- `release.yml` builds the arm64 server on `ubuntu-24.04-arm`, smoke tests it, attests provenance, and creates the GitHub release as a **draft**.
+
+**Not run yet** (this planning environment has no Docker daemon, no GraalVM, and cannot reach registries): the native compile, the Docker image builds and smoke tests, the manifest push, signing, the arm64 workflow job, and installing the `.deb` on a real system. Phase 0 and a rehearsal `-rc` on the release machine are what prove them.
 
 ## Phases
 

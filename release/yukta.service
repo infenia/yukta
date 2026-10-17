@@ -1,0 +1,29 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: 2026 Infenia Private Limited
+
+[Unit]
+Description=Yukta workflow orchestration server
+Documentation=https://yukta.infenia.com/
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=yukta
+Group=yukta
+EnvironmentFile=-/etc/yukta/yukta.env
+ExecStart=/usr/bin/yukta
+Restart=on-failure
+RestartSec=5
+# Longer than yukta.execution.shutdown-timeout (30 s), so running executions can finish.
+TimeoutStopSec=45
+# /var/lib/yukta, owned by the service user. Point the file stores at it in yukta.env.
+StateDirectory=yukta
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ProtectKernelTunables=yes
+ProtectControlGroups=yes
+
+[Install]
+WantedBy=multi-user.target
