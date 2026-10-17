@@ -4,6 +4,10 @@ description: "Per-node retry, error routing, failure budgets and join rules, set
 mode: "wide"
 ---
 
+<Info>
+  **In plain terms:** in real systems calls fail and services go down. Instead of making every plugin handle that, Yukta wraps every step in the same safety net, which you tune per step: try again a few times with waiting in between, send failures down a dedicated "error" path, or give up after too many failures. No step can hang forever either, because time limits apply to every step.
+</Info>
+
 Retries, error routing and time limits are not plugin features. They are applied by the engine around every node, and you control them with a reserved `engine` object inside a node's `config`. The plugin never sees it.
 
 <Note>

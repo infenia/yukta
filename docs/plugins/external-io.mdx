@@ -4,6 +4,10 @@ description: "PROCESS_EXECUTOR, HTTP_REQUEST, SQL_QUERY, FILE_READ, FILE_WRITE a
 mode: "wide"
 ---
 
+<Info>
+  **In plain terms:** these are the steps that reach outside Yukta: run a command on the server, call a web service, query a database, read or write files, and keep shared values between runs. They are where real side effects happen, so each has settings for what to do when the outside world fails.
+</Info>
+
 These plugins run commands, call HTTP services, query databases, read and write files and keep shared state. Five of them need an optional module in the server build; `KV_STORE` is always included. See [Built-in plugins](/plugins/overview) for the modules.
 
 Most of them share one failure pattern, set with `failureMode`:

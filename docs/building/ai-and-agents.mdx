@@ -5,6 +5,10 @@ tag: "Optional"
 mode: "wide"
 ---
 
+<Info>
+  **In plain terms:** an AI agent here is a loop where a model suggests what to do next and your flowchart does it. You stay in charge: the steps are drawn by you, each action is visible, and budgets and approvals stop the model from running up costs or doing something unexpected. This page shows how to wire that up.
+</Info>
+
 A model-driven workflow calls a chat model from a node, lets the model ask for tools, and keeps the model on a short leash with budgets and filters. The plugins involved (`LLM_CALL`, `MCP_LIST_TOOLS`, `MCP_TOOL_CALL`, `SESSION_MEMORY` and the decision plugins) are optional modules chosen when the server is built. See [Built-in plugins](/plugins/overview).
 
 Yukta keeps the control flow in the graph, not in the model. The model suggests an action; a node you wired runs it, and you decide what happens next. That makes an agent easy to inspect, limit, pause and approve like any other workflow. This page shows how to put the pieces together. For the options of each plugin, see [AI plugins](/plugins/ai) and [Decision plugins](/plugins/decisions).

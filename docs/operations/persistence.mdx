@@ -4,6 +4,10 @@ description: "Keep sessions, the execution log and node outputs in memory, on di
 mode: "wide"
 ---
 
+<Info>
+  **In plain terms:** by default Yukta forgets everything when it restarts, which is fine for trying it out. When you need your workflows and history to survive restarts, switch the storage to files or PostgreSQL, one kind of data at a time.
+</Info>
+
 Yukta keeps its state in memory by default and can move each kind of data to files or to PostgreSQL. Each kind has its own switch, so a deployment can be durable for some data and not for other data.
 
 ## When to use it

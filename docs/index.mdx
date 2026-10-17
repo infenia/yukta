@@ -1,6 +1,6 @@
 ---
 title: "Introduction"
-description: "Yukta is a reactive, DAG-based workflow orchestration server. Define a workflow once as JSON and run it from a script, a CI pipeline, a web UI or an AI agent."
+description: "Yukta runs multi-step jobs for you: describe the steps once as a flowchart, then start it from a script, a CI pipeline, a web page or an AI assistant and watch it run. Technically, a reactive, DAG-based workflow orchestration server."
 mode: "wide"
 ---
 
@@ -14,7 +14,13 @@ import { DagHero } from "/snippets/dag-hero.jsx"
   </div>
 </div>
 
-Yukta runs **workflows**: graphs of small steps that pass messages to one another. You describe a workflow as JSON, store it on the server, and start it from anywhere that can make an HTTP request. While it runs you can watch it live, pause it, skip a step, approve a decision, retry a failure or stop it.
+Many jobs are really a **sequence of steps with decisions along the way**. A new order arrives, so you check stock, charge the card and email the customer. Code is pushed, so you build it, run the tests and deploy only if they pass. A sensor reports a problem, so you page someone, and if nobody answers you try again.
+
+Yukta is a server that runs jobs like these for you. You write the steps down once, as a flowchart in JSON. Yukta then carries them out, runs independent steps side by side, retries what fails, and lets you watch, pause or stop the job while it is running. You can start the same flowchart from a script, a CI pipeline, a web page or an AI assistant.
+
+<Info>
+  **In technical terms:** Yukta is a reactive, DAG-based workflow orchestration server. A *DAG* (directed acyclic graph) is a flowchart whose arrows only ever point forward, so a job can never loop back by accident. *Reactive* means messages stream from step to step as they are produced, and a slow step slows the ones feeding it instead of letting work pile up in memory. Every term below is explained in plain words first and then in full technical detail on its own page.
+</Info>
 
 <DagHero />
 
@@ -24,40 +30,75 @@ Yukta runs **workflows**: graphs of small steps that pass messages to one anothe
 
 ## What a workflow looks like
 
+Picture a small job: fetch data from an outside service, tidy it up, and save the result. If the service is down, set the item aside so someone can look at it later. That is a workflow.
+
 <img className="yk-diagram block dark:hidden" src="/images/diagrams/workflow-anatomy.light.svg" alt="A trigger starts the flow, two processors call an API and transform the result, and terminals end each branch. A failed call goes to a dead-letter terminal." loading="lazy" />
 <img className="yk-diagram hidden dark:block" src="/images/diagrams/workflow-anatomy.dark.svg" alt="A trigger starts the flow, two processors call an API and transform the result, and terminals end each branch. A failed call goes to a dead-letter terminal." loading="lazy" />
 
-A **trigger** starts the flow, **processors** transform, route and call out, and **terminals** end each branch. Processors can have named output ports such as `success` and `error`, so one node can send messages down different paths.
+Every workflow is built from three kinds of box, joined by arrows:
+
+| In plain words | Yukta's term | Example |
+|---|---|---|
+| The thing that **starts** the job | **Trigger** | A request arrives, a timer fires, a fixed value is injected |
+| A **step** that does some work or makes a choice | **Processor** | Call a web service, reshape data, pick a path, ask an AI model |
+| Where a path **ends** | **Terminal** | Log the result, send a notification, set a failed item aside |
+| The **arrows** between boxes | **Edges** | "When this step is done, hand its output to that step" |
+| A **labelled exit** on a step | **Port** | `success` and `error`, so one step can send good and bad outcomes down different paths |
+| The data that travels along the arrows | **Message** | One order, one file, one record |
+
+The set-aside place in the picture is called a **dead letter**: a terminal that keeps failed items for later inspection instead of losing them. Each box is an instance of a **plugin**, a ready-made capability such as "call an HTTP endpoint" or "run a command". Yukta ships with many, and you can write your own.
 
 ## Why Yukta
 
 <CardGroup cols={2}>
   <Card title="Workflows are data" icon="diagram-project">
-    A workflow is a JSON graph. There is no language to learn, and a graph is easy for people, tools and AI agents to generate, diff and review.
+    You describe the job as a JSON graph instead of writing a program, so there is no new language to learn. A graph is also easy for people, tools and AI assistants to generate, compare and review, the way you would review a document.
   </Card>
-  <Card title="One definition, many callers" icon="plug">
-    Start the same workflow from the REST API, the web UI, the command-line client or an MCP client such as Claude.
+  <Card title="One definition, many ways to start" icon="plug">
+    Write the job once. Start it from the REST API (for scripts and other software), the web UI (for people), the command-line client (for terminals) or an MCP client such as Claude (for AI assistants).
   </Card>
   <Card title="Streaming, with back-pressure" icon="bolt">
-    Messages stream through the graph. A slow node slows the nodes feeding it, so memory stays bounded without queues between steps.
+    Data flows through the job as a stream, like water through pipes, instead of waiting in big queues. If one step is slow, the steps feeding it slow down too, so memory use stays bounded however large the job is.
   </Card>
-  <Card title="Observable and steerable" icon="gauge">
-    Live graph view, log and status streams, and run controls: pause, resume, step, breakpoints, skip, retry, restart and stop.
+  <Card title="Watch it and steer it" icon="gauge">
+    See a live picture of the job, follow its log and status, and take control while it runs: pause, resume, go one step at a time, stop at a breakpoint, skip a step, retry a failure, restart or stop.
   </Card>
-  <Card title="Failure is a first-class path" icon="shield-halved">
-    Retries with backoff, error routing to dead-letter nodes, failure budgets and five independent time limits are built in around every node.
+  <Card title="Failure is planned for" icon="shield-halved">
+    Things go wrong, so every step has built-in retries with waiting between attempts, a route for errors to a dead-letter node, a limit on how many failures to tolerate, and five independent time limits so nothing hangs forever.
   </Card>
   <Card title="Safe to start with" icon="lock">
-    The server listens on loopback only, refuses to run operating-system commands until you allow them, and requires an API key before it accepts remote connections.
+    A new server accepts connections from your own machine only, refuses to run operating-system commands until you allow them, and demands an API key before it accepts remote connections.
   </Card>
 </CardGroup>
 
-## What it is good for
+## Find your use case
 
-- **CI/CD and quality gates:** run build and test stages, route on exit codes, stop a pipeline on failure.
-- **Data pipelines:** split a batch, filter, map and load, with retries and dead letters.
-- **Operations automation:** health checks with alert paths, scheduled jobs, fan-out notifications.
-- **AI agents:** model calls, tool use over MCP, per-user memory, approval steps and budgets that stop runaway loops.
+Start from what you are trying to get done. Each row points to a ready-to-run example and the page that explains the technique.
+
+| If you want to... | Yukta gives you... | Try |
+|---|---|---|
+| **Gate a release in CI/CD**: build, test, and stop the pipeline when something fails | Steps that run commands, route on the exit code (pass or fail) and end in a clear verdict | [Example 03](/examples), [Routing and branching](/building/routing-and-branching) |
+| **Check quality before an AI agent's work is accepted** | Branches that compare reported metrics with your thresholds and block or approve | [Example 04](/examples), [Decisions plugins](/plugins/decisions) |
+| **Process a batch of records**: split, filter, reshape, load | Pipelines that fan one batch out into many messages, with retries and dead letters for bad records | [Example 05](/examples), [Transform plugins](/plugins/transform) |
+| **Monitor a service and raise an alert** | Health checks, run on a schedule if you wish, that send "up" and "down" down different paths | [Example 06](/examples), [Scheduling](/building/scheduling) |
+| **Notify several people or systems about one event** | Fan-out from a single event to many channels | [Example 07](/examples), [External I/O](/plugins/external-io) |
+| **Wait until something is ready, then continue** | Bounded repetition that retries until a condition holds, then gives up | [Example 08](/examples), [Loops and retries](/building/loops-and-retries) |
+| **Build an AI assistant that remembers each user** | Model calls with per-user memory, approval steps and budgets that stop runaway loops | [Example 09](/examples), [AI and agents](/building/ai-and-agents) |
+| **Let an AI assistant run your automations as tools** | An MCP server so Claude or any MCP client can create and start workflows | [Example 10](/examples), [MCP server](/interfaces/mcp) |
+| **Put a human in the loop**: pause until someone approves | Steps that wait for a signal before continuing | [Approvals and signals](/building/approvals-and-signals) |
+
+<Tip>
+  Not sure whether your job fits? If you can sketch it as boxes and arrows on a whiteboard, and some boxes call outside systems or make decisions, it fits. Jobs that are one step long, or that need a person to click through screens, usually do not need an orchestrator.
+</Tip>
+
+## Who it is for
+
+- **Developers and DevOps engineers** who chain build, test, deploy and alert steps and want one place to see and control them.
+- **Data and integration engineers** who move and reshape records between systems and need retries and a place for bad records to go.
+- **AI and agent builders** who need model calls, memory, approvals and spending limits around an agent, or who want an agent to use automations as tools.
+- **Platform teams** who want to offer automation to others with limits, fairness between teams, API-key protection and a record of what ran.
+
+You do not need to write code to define a workflow, but you do write JSON and call an HTTP API (or use the web UI, CLI or an AI assistant that does it for you).
 
 ## Where to go next
 

@@ -4,6 +4,10 @@ description: "Base path, authentication, response envelope, paging, idempotency 
 mode: "wide"
 ---
 
+<Info>
+  **In plain terms:** the REST API is how other software talks to Yukta, over ordinary web requests. Everything the web UI and CLI do goes through it. Read this page once for the rules every call shares (how to sign in, the shape of answers, how long lists are paged), then use the endpoint pages as a lookup.
+</Info>
+
 The Yukta server exposes everything it can do over a JSON REST API. The web UI, the command-line client and your own integrations all use it. This page covers the rules that apply to every endpoint; the endpoint pages list the individual calls.
 
 <Note>

@@ -4,6 +4,10 @@ description: "Concurrency caps, queueing or refusing excess starts, priority, fa
 mode: "wide"
 ---
 
+<Info>
+  **In plain terms:** when many jobs are started at once, something has to decide who goes first. The scheduler grants each run a slot, makes it wait in line, or turns it away, and shares capacity fairly between teams. All limits are off until you set them.
+</Info>
+
 The **scheduler** decides whether, when and in what order an execution may begin. It grants a slot to each execution, or queues or refuses the start. The execution id is handed out only after a slot is granted, so two requests racing for the last slot can never both succeed.
 
 ## Limits

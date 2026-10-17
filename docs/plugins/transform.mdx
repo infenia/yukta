@@ -4,6 +4,10 @@ description: "MAPPER, VALIDATE and CONTENT_FILTER: plugins that reshape, check a
 mode: "wide"
 ---
 
+<Info>
+  **In plain terms:** these steps reshape the data itself: rename and compute fields, drop what you do not need, check that data has the right form, or remove unsafe content. Use them between a source and a destination that expect different formats.
+</Info>
+
 These three processors are always part of the server, except that the `SCRIPT` mode of `MAPPER` needs the optional `script-js` module (see [Built-in plugins](/plugins/overview)).
 
 Options marked "expression" take the expression language described in [Variables and expressions](/building/variables-and-expressions). Inside an expression the message is the root, so `payload.price` reads a payload field. These plugins do not resolve `${...}` variables in their options. Unless a section says otherwise, the default timeout is the engine default of 30 seconds idle.

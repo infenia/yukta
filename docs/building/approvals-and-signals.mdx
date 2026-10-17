@@ -4,6 +4,10 @@ description: "Hold a message until a person or another system sends a named sign
 mode: "wide"
 ---
 
+<Info>
+  **In plain terms:** use this when a person (or another system) must say "go ahead" before a job continues, such as approving a deployment or a refund. The workflow stops at that step and waits. Sending a named signal releases it, or rejects it.
+</Info>
+
 A **signal** is a named message that you send to a node of a running execution. The `WAIT_FOR_SIGNAL` plugin uses signals for human-in-the-loop steps: it holds each message until its signal arrives, then lets the message go on, drops it or fails, depending on the decision.
 
 ## Add a wait

@@ -4,6 +4,10 @@ description: "Reference message data, settings and secrets inside node configura
 mode: "wide"
 ---
 
+<Info>
+  **In plain terms:** placeholders let one workflow adapt to its input and keep passwords out of the file. Write `${...}` where a value belongs, such as a customer name from the incoming message or an API token from the secret store, and Yukta fills it in just before the step runs.
+</Info>
+
 Any string in a node's `config` can contain a **placeholder** written `${...}`. The server resolves placeholders just before the node runs, from message data, an allow-list of settings, or a secret store. This keeps secrets out of stored workflow definitions and lets one definition adapt to its input.
 
 <Note>

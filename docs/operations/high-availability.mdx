@@ -5,6 +5,10 @@ tag: "Optional"
 mode: "wide"
 ---
 
+<Info>
+  **In plain terms:** run more than one server so that if one fails another takes over. Only one server is in charge at a time; the others wait on standby. Use this when downtime is not acceptable. It needs PostgreSQL and is off by default.
+</Info>
+
 Active/standby high availability lets several Yukta servers share one PostgreSQL database. One server holds a lease and admits runs. The others stand by and take over when the lease expires.
 
 It needs the PostgreSQL stores and is off by default. A single server is always its own leader.

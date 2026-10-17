@@ -4,6 +4,10 @@ description: "Use the yukta command to manage sessions, start and control runs, 
 mode: "wide"
 ---
 
+<Info>
+  **In plain terms:** the `yukta` command lets you do everything from a terminal: load a workflow file, start it, follow its logs, steer it. It is a single small program with nothing else to install, which makes it handy in scripts and CI jobs.
+</Info>
+
 The `yukta` command is a thin client for a running Yukta server. It is a single static binary with no runtime to install. It calls the [REST API](/api/overview) and prints the answer, which makes it useful in shell scripts, CI jobs and quick checks at a terminal.
 
 Use it when you want to apply a session file, start a workflow, follow its logs and result, or steer a run, without writing HTTP calls.
