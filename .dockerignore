@@ -20,3 +20,4 @@ package.json
 ui/package.json
 .pnpm-store
 .pnpm
+dist

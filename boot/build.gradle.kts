@@ -138,7 +138,8 @@ graalvmNative {
             buildArgs.add("-H:+UnlockExperimentalVMOptions")
 
             // Heap for native image compilation
-            buildArgs.add("-J-Xmx16g")
+            // -Pnative.heap=<size> lowers it for machines with less memory (default 16g)
+            buildArgs.add("-J-Xmx${providers.gradleProperty("native.heap").getOrElse("16g")}")
             // Builder JVM has slf4j-api but no provider; its NOP fallback warning is harmless
             buildArgs.add("-J-Dslf4j.internal.verbosity=ERROR")
 

@@ -24,8 +24,11 @@ FROM ghcr.io/graalvm/native-image-community:25@sha256:0d936f32bb8acb5bc60c41b33e
 WORKDIR /build
 COPY . .
 
+# Builder heap for native-image; lower it on machines with less memory.
+ARG NATIVE_HEAP=16g
+
 # Build native image with aggressive optimizations
-RUN ./gradlew nativeCompile -x test --no-daemon
+RUN ./gradlew nativeCompile -x test --no-daemon -Pnative.heap=${NATIVE_HEAP}
 
 # Stage 2: Copy binary (UPX compression attempted but not critical for image size)
 FROM alpine:3.24@sha256:294b683cb724975bec92580e1e685676bd4b50bda910ddb8c51d4cabeaec77e6 AS compressor
