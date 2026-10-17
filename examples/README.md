@@ -47,7 +47,7 @@ Yukta has no webhook trigger. The examples are started by hand; a run starts fro
 
 - **REST:** `POST /api/workflow/start` with `{"sessionId", "workflowId", "payload"?}`. Returns `202` and `data.executionId`.
 - **MCP:** the `start_workflow` tool at `http://localhost:8080/mcp` (see example 10).
-- **CLI:** `cli/build/yukta-linux-amd64 workflow start <session> <workflow>`.
+- **CLI:** `cli/build/yukta-cli-linux-amd64 workflow start <session> <workflow>`.
 - **UI:** the web console.
 
 To run on a timer, use the built-in `SCHEDULE_TRIGGER` (interval or cron) as the workflow's trigger, or call the REST endpoint from cron or CI.

@@ -21,7 +21,7 @@ func WorkflowCmd(c *client.Client) *cobra.Command {
 		Short: "Workflow commands",
 		Long: `Workflow commands for retrieving and managing workflow definitions within sessions.
 
-Use "yukta session workflow <subcommand>" to perform workflow-related operations.`,
+Use "yukta-cli session workflow <subcommand>" to perform workflow-related operations.`,
 	}
 
 	// Add subcommands to the workflow command group
@@ -49,8 +49,8 @@ This command retrieves the complete workflow definition including nodes, edges,
 and other configuration details.
 
 Usage:
-  yukta session workflow get <session-id> <workflow-id>
-  yukta session workflow get session-123 workflow-456 -o json`,
+  yukta-cli session workflow get <session-id> <workflow-id>
+  yukta-cli session workflow get session-123 workflow-456 -o json`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			sessionID := args[0]
