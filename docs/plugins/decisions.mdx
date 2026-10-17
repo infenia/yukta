@@ -9,6 +9,10 @@ mode: "wide"
   **In plain terms:** use these when a workflow needs judgement that a simple rule cannot make, such as "is this message an urgent complaint?". A model answers a tightly framed question (pick a label, say yes or no, give a score) and the answer comes back in a predictable form you can route on.
 </Info>
 
+<Tip>
+  **Why not just use an LLM?** You can: set `backend` to `LLM`. But a decision is a small output, a label and a probability, and paying a chat model to generate it on every message adds up. The default `SYSTEMONE` backend uses a [System One](https://systemonemodels.org/) decision model, which answers from your list of options with a calibrated probability and runs on your own Ollama. Use it for high-volume routing, gating and monitoring, and keep LLMs for work that needs open-ended text.
+</Tip>
+
 A decision plugin asks a model a constrained question about a message and records the answer in the message metadata. The answer is always in a known shape: a label from your list, a probability, or a score. You route on it with the plugin's own ports or with a `BRANCH` node.
 
 All six need the optional `decision` module, which also brings in `LLM_CALL`. See [Built-in plugins](/plugins/overview) for how a build selects it. Use them to classify, to gate on a yes/no judgement, to rate on a scale, to ask several questions in one call, or to spot unusual and repeated messages.

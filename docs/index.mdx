@@ -1,13 +1,13 @@
 ---
 title: "Introduction"
-description: "Yukta runs multi-step jobs for you: describe the steps once as a flowchart, then start it from a script, a CI pipeline, a web page or an AI assistant and watch it run. Technically, a reactive, DAG-based workflow orchestration server."
+description: "Yukta runs multi-step jobs for you: describe the steps once as a flowchart, then start it from a script, a CI pipeline, a web page or an AI assistant and watch it run. Built for AI agents. Technically, a reactive, DAG-based workflow orchestration server."
 mode: "wide"
 ---
 
 import { DagHero } from "/snippets/dag-hero.jsx"
 
 <div className="not-prose yk-hero">
-  <span className="yk-eyebrow"><span className="yk-live" aria-hidden="true"></span>Reactive workflow orchestration</span>
+  <span className="yk-eyebrow"><span className="yk-live" aria-hidden="true"></span>Workflows for AI agents and automation</span>
   <div className="yk-hero-cta">
     <a className="yk-btn yk-btn-primary" href="/quickstart">Get started</a>
     <a className="yk-btn yk-btn-secondary" href="/playground">Open the playground</a>
@@ -15,6 +15,8 @@ import { DagHero } from "/snippets/dag-hero.jsx"
 </div>
 
 Many jobs are really a **sequence of steps with decisions along the way**. A new order arrives, so you check stock, charge the card and email the customer. Code is pushed, so you build it, run the tests and deploy only if they pass. A sensor reports a problem, so you page someone, and if nobody answers you try again.
+
+Today, many of those jobs involve **AI**: an agent that reads a request, decides what to do, calls tools and reports back. Yukta is built for that. The agent's steps become a flowchart you can see, limit, pause and approve, instead of a black box.
 
 Yukta is a server that runs jobs like these for you. You write the steps down once, as a flowchart in JSON. Yukta then carries them out, runs independent steps side by side, retries what fails, and lets you watch, pause or stop the job while it is running. You can start the same flowchart from a script, a CI pipeline, a web page or an AI assistant.
 
@@ -27,6 +29,38 @@ Yukta is a server that runs jobs like these for you. You write the steps down on
 <Note>
   Yukta is pre-beta (`0.0.1-SNAPSHOT`). The workflow JSON, the REST API, the MCP tools and the plugin contract may change before v0.1.0, and there are no tagged releases yet, so you run Yukta from source.
 </Note>
+
+## Built for AI agents
+
+AI is not an add-on in Yukta. Three things work together.
+
+<CardGroup cols={3}>
+  <Card title="Agents as workflows" icon="robot" href="/building/ai-and-agents">
+    A model suggests the next action, and a step **you drew** carries it out. Spending budgets, tool allow-lists, approval steps and per-user memory sit around every call, so an agent is easy to inspect and hard to run away with.
+  </Card>
+  <Card title="Agents that drive Yukta" icon="plug" href="/interfaces/mcp">
+    Through MCP, an assistant such as Claude can create, start, watch and steer workflows as tool calls. Your automations become tools the assistant can use.
+  </Card>
+  <Card title="Fast, cheap decisions" icon="scale-balanced" href="/plugins/decisions">
+    Choosing is not the same as writing. **System One decision models** answer a multiple-choice question with a calibrated probability, so a step can route work or a guard can pause a run without paying for a full chat model each time.
+  </Card>
+</CardGroup>
+
+### Two kinds of model, used for what each does best
+
+| | **LLM** (chat model) | **System One** (decision model) |
+|---|---|---|
+| Good at | Writing, reasoning, planning, using tools | Choosing: pick a label, say yes or no, give a score |
+| Answers with | Free text, or JSON you ask for | One of your options, with a probability |
+| Cost per call | Higher: it generates text, and providers bill by token | Lower: a decision needs only a label and a probability, and it can run on your own machine through Ollama |
+| Use it for | The creative or open-ended step of an agent | The many small decisions around it |
+
+You pick the model per node with `backend: SYSTEMONE` or `backend: LLM`, so the same pipeline can mix both. Typical uses:
+
+- **Decision nodes in a workflow:** sort each incoming request into a branch, ask "is this tool call safe?" before an agent is allowed to run it, flag unusual or duplicate events.
+- **Monitoring and control:** a model on the control bus watches every run and pauses one that is failing in a way no simple rule describes. It acts only when it is confident, so it can never hold up a run.
+
+A large language model can do the same job, and Yukta lets you choose it. For high-volume, repeated decisions, a decision model usually costs less per call and returns a probability you can route on. See [Decision plugins](/plugins/decisions) and [Control planes](/running/control-planes).
 
 ## What a workflow looks like
 
@@ -73,18 +107,20 @@ The set-aside place in the picture is called a **dead letter**: a terminal that 
 
 ## Find your use case
 
-Start from what you are trying to get done. Each row points to a ready-to-run example and the page that explains the technique.
+Start from what you are trying to get done. The AI use cases come first. Each row points to a ready-to-run example and the page that explains the technique.
 
 | If you want to... | Yukta gives you... | Try |
 |---|---|---|
+| **Build an AI assistant that remembers each user** | Model calls with per-user memory, approval steps and budgets that stop runaway loops | [Example 09](/examples), [AI and agents](/building/ai-and-agents) |
+| **Let an AI assistant run your automations as tools** | An MCP server so Claude or any MCP client can create and start workflows | [Example 10](/examples), [MCP server](/interfaces/mcp) |
+| **Make fast, low-cost decisions at scale**: classify requests, judge whether an action is safe | System One decision nodes that return a label or yes/no with a probability, with an LLM backend when you need one | [Decision plugins](/plugins/decisions), [AI and agents](/building/ai-and-agents) |
+| **Watch every run and step in automatically** | A decision model (or plain rules) on the control bus that pauses or stops a run that is going wrong | [Control planes](/running/control-planes), [Supervisors](/running/supervisors) |
 | **Gate a release in CI/CD**: build, test, and stop the pipeline when something fails | Steps that run commands, route on the exit code (pass or fail) and end in a clear verdict | [Example 03](/examples), [Routing and branching](/building/routing-and-branching) |
 | **Check quality before an AI agent's work is accepted** | Branches that compare reported metrics with your thresholds and block or approve | [Example 04](/examples), [Decisions plugins](/plugins/decisions) |
 | **Process a batch of records**: split, filter, reshape, load | Pipelines that fan one batch out into many messages, with retries and dead letters for bad records | [Example 05](/examples), [Transform plugins](/plugins/transform) |
 | **Monitor a service and raise an alert** | Health checks, run on a schedule if you wish, that send "up" and "down" down different paths | [Example 06](/examples), [Scheduling](/building/scheduling) |
 | **Notify several people or systems about one event** | Fan-out from a single event to many channels | [Example 07](/examples), [External I/O](/plugins/external-io) |
 | **Wait until something is ready, then continue** | Bounded repetition that retries until a condition holds, then gives up | [Example 08](/examples), [Loops and retries](/building/loops-and-retries) |
-| **Build an AI assistant that remembers each user** | Model calls with per-user memory, approval steps and budgets that stop runaway loops | [Example 09](/examples), [AI and agents](/building/ai-and-agents) |
-| **Let an AI assistant run your automations as tools** | An MCP server so Claude or any MCP client can create and start workflows | [Example 10](/examples), [MCP server](/interfaces/mcp) |
 | **Put a human in the loop**: pause until someone approves | Steps that wait for a signal before continuing | [Approvals and signals](/building/approvals-and-signals) |
 
 <Tip>
@@ -93,9 +129,9 @@ Start from what you are trying to get done. Each row points to a ready-to-run ex
 
 ## Who it is for
 
+- **AI and agent builders** who need model calls, memory, approvals and spending limits around an agent, cheap decision models for routing and monitoring, or who want an agent to use automations as tools.
 - **Developers and DevOps engineers** who chain build, test, deploy and alert steps and want one place to see and control them.
 - **Data and integration engineers** who move and reshape records between systems and need retries and a place for bad records to go.
-- **AI and agent builders** who need model calls, memory, approvals and spending limits around an agent, or who want an agent to use automations as tools.
 - **Platform teams** who want to offer automation to others with limits, fairness between teams, API-key protection and a record of what ran.
 
 You do not need to write code to define a workflow, but you do write JSON and call an HTTP API (or use the web UI, CLI or an AI assistant that does it for you).

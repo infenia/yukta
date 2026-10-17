@@ -8,6 +8,8 @@ mode: "wide"
   **In plain terms:** plugins are the building blocks you drop into a flowchart. Each box in a workflow is one plugin with its own settings: a *trigger* to start the job, *processors* to do the work (call a web service, reshape data, make a choice, ask an AI model) and *terminals* to finish a path. Skim the tables to see what exists; each group has its own page with every option.
 </Info>
 
+AI has first-class support: the AI plugins (`LLM_CALL`, `MCP_LIST_TOOLS`, `MCP_TOOL_CALL`, `SESSION_MEMORY`) build agents, and the decision plugins use fast System One decision models (or an LLM) to classify, gate and score. See [AI and agents](/building/ai-and-agents).
+
 A plugin is the implementation behind a node `type`. Yukta ships 34 of them in three roles: **triggers** start a workflow, **processors** transform, route and call out, and **terminals** end a branch.
 
 This page lists every type at a glance. Each group has its own page with every option, the output ports and a JSON example.

@@ -2,7 +2,7 @@
   "$schema": "https://mintlify.com/docs.json",
   "theme": "maple",
   "name": "Yukta",
-  "description": "Yukta runs multi-step jobs for you: describe the steps once as a flowchart, then start it from a script, a web page, a CLI or an AI assistant. Technically, a reactive, DAG-based workflow orchestration server.",
+  "description": "Yukta runs multi-step jobs for you: describe the steps once as a flowchart, then start it from a script, a web page, a CLI or an AI assistant. Built for AI agents and automation. Technically, a reactive, DAG-based workflow orchestration server.",
   "colors": {
     "primary": "#2F6BFF",
     "light": "#6FA2FF",
