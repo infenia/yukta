@@ -1,6 +1,6 @@
 ---
 title: "Deployment"
-description: "Run Yukta from source, as an archive, as a native binary or in a container, with the profiles and build switches that shape it."
+description: "Install Yukta as a Docker image, a Linux package or an archive, or run it from source, with the profiles and build switches that shape it."
 mode: "wide"
 ---
 
@@ -8,9 +8,45 @@ mode: "wide"
   **In plain terms:** how to get Yukta running beyond your laptop: as a plain program, a native binary or a container. The page also shows which optional parts to include in the build, so you ship only what you use.
 </Info>
 
-Yukta is one executable that holds the engine, the REST API, the MCP endpoint, the web UI and the built-in plugins. This page covers the ways to run it, what each profile changes, and the build switches that choose optional parts.
+Yukta is one executable that holds the engine, the REST API, the MCP endpoint, the web UI and the built-in plugins. This page covers the ways to install and run it, what each profile changes, and the build switches that choose optional parts.
 
-There are no packaged releases yet. Every form below is built from source.
+## Install
+
+<Warning>
+  **Status: packaged downloads arrive with the first release (v0.1.0).** Yukta has no tagged release yet, so until it is published the table and sections below under Install describe what the release will contain, and the version numbers are examples. Everything under [Run from source](#run-from-source), [Executable archive](#executable-archive), [Native binary](#native-binary) and building the [Container image](#container-image) yourself works today.
+</Warning>
+
+Running the server with a JDK is the last option. Prefer one of these, in this order.
+
+| Install with | Platforms | You get |
+|---|---|---|
+| **Docker image** `ghcr.io/infenia/yukta` (also on Docker Hub as `infenia/yukta`) | Linux, macOS and Windows through Docker Desktop; `amd64` and `arm64`, one tag for both | The native server in a minimal, unprivileged image. See [Container image](#container-image) |
+| **Debian or RPM package** | Linux `amd64` and `arm64` | The server, a `systemd` service, a service user and a settings file at `/etc/yukta/yukta.env`. The service is installed stopped |
+| **Archive** (`.tar.gz`) | Linux `amd64` and `arm64` | The native server and the command-line client, with no installer |
+| **Native downloads for macOS and Windows, Homebrew, Scoop, winget** | macOS, Windows | Follow the Linux release. Until then use Docker, or WSL 2 on Windows |
+| **Run from source** | Anything with JDK 25 | For contributors. See [Run from source](#run-from-source) |
+
+Every release also publishes a `SHA256SUMS` file for the downloads, and a signature bundle for each file that you can check with [`cosign`](https://docs.sigstore.dev/). Check the sums before you run a download:
+
+```bash
+sha256sum --check --ignore-missing SHA256SUMS
+```
+
+### Run as a Linux service
+
+The packages install a `systemd` unit that runs as its own `yukta` user, listens on `127.0.0.1` and keeps data in memory until you say otherwise. Edit `/etc/yukta/yukta.env` (it holds commented examples for the address, the API key and file storage), then:
+
+```bash
+sudo systemctl enable --now yukta
+sudo systemctl status yukta
+journalctl -u yukta -f
+```
+
+The unit waits up to 45 seconds when stopping, longer than the default [graceful shutdown](#graceful-shutdown) of 30 seconds, so running executions can finish. An upgrade keeps your edited settings file.
+
+### Upgrade and roll back
+
+Pull the new image tag, or install the newer package or archive over the old one. Pin an exact version (`ghcr.io/infenia/yukta:0.1.0`) when you need repeatable deployments; `latest` only ever moves to a stable release, never to a release candidate. To roll back, install the previous version. Sessions kept in memory are lost on restart, so use [Persistence](/operations/persistence) if you need to keep them.
 
 ## Run from source
 
@@ -82,7 +118,11 @@ Add `-Pnative.quick` for a faster build that trades run-time speed for build tim
 
 ## Container image
 
-The repository's Dockerfile builds the native binary in one stage and copies it into a minimal image with no shell and no package manager. The image runs as an unprivileged user (UID 65532) and exposes port 8080.
+The release image is a minimal image with no shell and no package manager. It runs as an unprivileged user (UID 65532) and exposes port 8080. Pull it, or build it yourself from the repository's Dockerfile, which compiles the native binary in one stage:
+
+```bash
+docker run --rm -p 127.0.0.1:8080:8080 -e YUKTA_API_KEY=change-me ghcr.io/infenia/yukta:latest
+```
 
 ```bash
 docker build -t yukta .

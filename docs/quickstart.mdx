@@ -1,30 +1,91 @@
 ---
 title: "Quickstart"
-description: "Run the Yukta server and execute your first workflow in five minutes."
+description: "Install Yukta with Docker or a ready-made program, then run your first workflow in five minutes. No Java needed."
 mode: "wide"
 ---
 
 By the end of this page you will have a real job running on your own machine: a tiny workflow that takes a name and produces a greeting. It is small on purpose. It shows the whole loop you will use for bigger jobs: **save the flowchart on the server, start a run with some input, watch it, read the answer.**
 
-Technically, you will start the server, apply a session that contains one workflow, start that workflow with a payload, and read the execution's status, logs and result. You need to be comfortable running a few terminal commands, but you do not need to write any code.
+Technically, you will install and start the server, apply a session that contains one workflow, start that workflow with a payload, and read the execution's status, logs and result. You need to be comfortable running a few terminal commands, but you do not need to write any code.
 
 ## Before you begin
 
-- A JDK, version 25, to run the server from source
-- `git`
+- A way to run Yukta: **Docker** is the quickest, or download a ready-made program for Linux (see below)
 - `curl` (any HTTP client works; the examples show plain HTTP requests as well)
 
-There are no packaged releases yet. A native binary and a container image can be built from source, see [Deployment](/operations/deployment).
+You do **not** need Java or the source code. Building from source is the last option, for people who want to change Yukta itself.
 
-## 1. Run the server
+<Warning>
+  **Status: packaged downloads arrive with the first release (v0.1.0).** The Docker image, the Linux packages and the archives below are produced by that release, and Yukta has no tagged release yet. Until it is published, use the **From source** tab. See [Deployment](/operations/deployment#install) for what each release contains.
+</Warning>
+
+## 1. Install and run the server
+
+Pick the way that suits you. All of them start the same server on `http://localhost:8080`.
+
+<Tabs>
+  <Tab title="Docker" icon="docker">
+    Works on Linux, macOS and Windows (with Docker Desktop), on Intel/AMD and ARM processors. One image tag serves both processor types.
+
+    ```bash
+    docker run --rm -p 127.0.0.1:8080:8080 \
+      -e YUKTA_API_KEY=change-me \
+      ghcr.io/infenia/yukta:latest
+    ```
+
+    A container listens on all of its own network interfaces, and Yukta refuses to do that without an API key, so the key is required. `-p 127.0.0.1:8080:8080` publishes the port to your own machine only.
+
+    <Note>
+      With a key set, add `-H "X-API-Key: change-me"` to every `curl` command below. The web UI does not send a key yet, so against this container it shows load errors; use `curl`, the command-line client or MCP. See [Web UI](/interfaces/web-ui).
+    </Note>
+  </Tab>
+  <Tab title="Linux program" icon="linux">
+    A single native program with no runtime to install. It starts in a fraction of a second and listens on your own machine only.
+
+    ```bash
+    VERSION=0.1.0
+    ARCH=amd64        # or arm64
+    curl -LO https://github.com/infenia/yukta/releases/download/v$VERSION/yukta-$VERSION-linux-$ARCH.tar.gz
+    curl -LO https://github.com/infenia/yukta/releases/download/v$VERSION/SHA256SUMS
+    sha256sum --check --ignore-missing SHA256SUMS
+    tar -xzf yukta-$VERSION-linux-$ARCH.tar.gz
+    ./yukta-$VERSION-linux-$ARCH/yukta
+    ```
+
+    On Debian, Ubuntu, Fedora or RHEL you can install a package instead, which also adds a `systemd` service that you start when you are ready (`sudo systemctl enable --now yukta`):
+
+    ```bash
+    sudo apt install ./yukta_0.1.0_amd64.deb      # Debian, Ubuntu
+    sudo dnf install ./yukta-0.1.0-1.x86_64.rpm   # Fedora, RHEL
+    ```
+  </Tab>
+  <Tab title="macOS and Windows" icon="desktop">
+    The Docker tab works today on both, through Docker Desktop. Native downloads (a plain archive, then Homebrew, Scoop and winget) follow the Linux release, so for now use Docker, or run the Linux program inside WSL 2 on Windows.
+  </Tab>
+  <Tab title="From source" icon="code">
+    For contributors, or until the first release exists. You need a JDK, version 25, and `git`.
+
+    ```bash
+    git clone https://github.com/infenia/yukta.git
+    cd yukta
+    ./gradlew bootRun
+    ```
+
+    Gradle builds everything the first time, which takes a few minutes.
+  </Tab>
+</Tabs>
+
+The server listens on `http://localhost:8080`, on your own machine only. Check that it is up:
 
 ```bash
-git clone https://github.com/infenia/yukta.git
-cd yukta
-./gradlew bootRun
+curl http://localhost:8080/actuator/health
 ```
 
-The server listens on `http://localhost:8080`, on loopback only. Open that address for the [web UI](/interfaces/web-ui), or `http://localhost:8080/swagger-ui.html` for interactive API documentation.
+```json
+{"status":"UP"}
+```
+
+Then open that address for the [web UI](/interfaces/web-ui) (not with Docker and an API key, see the note above), or `http://localhost:8080/swagger-ui.html` for interactive API documentation. For production use, ports, keys and storage, see [Deployment](/operations/deployment).
 
 ## 2. Apply a session
 
