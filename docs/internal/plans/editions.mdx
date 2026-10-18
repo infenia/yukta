@@ -1,6 +1,6 @@
 ---
 title: "Editions plan"
-description: "Plan for splitting Yukta into three tiers: an Apache-2.0 Community edition, a protected open-source tier, and a closed-source Enterprise edition in a separate repository that plugs into the same server."
+description: "Plan for splitting Yukta into three tiers: an Apache-2.0 Community edition, a source-available Plus tier, and a closed-source Enterprise edition in a separate repository that plugs into the same server."
 mode: "wide"
 ---
 
@@ -8,11 +8,11 @@ mode: "wide"
   Internal plan, restricted to project members. Back to the [internal index](/internal). **Plan only: nothing in this plan has been implemented.** This is engineering planning, not legal advice. Every licensing decision below needs review by a lawyer before it is acted on.
 </Note>
 
-Status: **for review.** Questions that need your answer are collected under [Decisions needed](#decisions-needed), each with a recommendation.
+Status: **for review.** D1, D3, D4 and D5 are answered (see [Decisions](#decisions)); the rest still need an answer. One consequence of choosing ELv2 needs your explicit confirmation: tier 2 is source-available, not open source.
 
 ## The goal in one paragraph
 
-Yukta becomes a freemium product with three tiers. **Community** (Apache-2.0) is what you can run today, minus the durable, clustered and enterprise-security parts. A **protected open-source tier** keeps selected features open but under a licence that stops others from reselling them. **Enterprise** is closed source, lives in a separate private repository, and plugs into the same server through published extension points, so the open server never needs to contain, or know about, enterprise code.
+Yukta becomes a freemium product with three tiers. **Community** (Apache-2.0) is what you can run today, minus the durable, clustered and enterprise-security parts. A **source-available Plus tier** keeps selected features readable and free to use, but under a licence (ELv2) that stops others from reselling them as a hosted service. **Enterprise** is closed source, lives in a separate private repository, and plugs into the same server through published extension points, so the open server never needs to contain, or know about, enterprise code.
 
 ## Good news first: the code is already split along the right lines
 
@@ -32,25 +32,39 @@ What is **missing** is a public, versioned contract (the interfaces live inside 
 | Tier | Licence | Source | Who it is for |
 |---|---|---|---|
 | **1. Community** | Apache-2.0 | Public, this repository | Everyone: try it, embed it, run single-server workloads |
-| **2. Plus** (name to decide) | A protective open-source licence: **AGPL-3.0-only** recommended, see below | Public, this repository, in its own directory | Teams that want more than Community and are happy with AGPL, and the route by which commercial customers learn there is a paid licence |
+| **2. Plus** (name to decide) | **Elastic License 2.0 (ELv2)**, source-available, see below | Public, this repository, in its own directory | Teams that want durable single-node storage, free to use for their own purposes, and the route by which hosting vendors learn they need a commercial licence |
 | **3. Enterprise** | Proprietary commercial licence | Private repository `infenia/yukta-enterprise` | Organisations that need durability, availability, scale and enterprise security |
 
-### Choosing the tier-2 licence
+### The tier-2 licence: ELv2
 
-You asked for an open-source licence that "protects proprietorship". These are the realistic options. Licences that are not approved as open source (BSL, FSL, SSPL, Elastic License) are left out because you asked for open source.
+You first asked for an "open-source" licence that protects proprietorship, and then asked whether ELv2 can be used. **It can, with one consequence you must accept: ELv2 is a source-available licence, not an open-source one.** It is not approved by the Open Source Initiative, so the Plus tier must never be described as "open source" in the docs, the README or marketing. Community stays open source (Apache-2.0).
 
-| Licence | What it requires of others | Protects you from | Main cost |
-|---|---|---|---|
-| **AGPL-3.0-only** | Anyone who modifies the code and lets users use it over a network must publish their changes under AGPL | A cloud vendor selling a hosted Yukta Plus without contributing back; a competitor closing the code | Many companies ban AGPL, which is the point for dual licensing and also reduces adoption |
-| **MPL-2.0** | Changes to the MPL files themselves stay open; larger works may be proprietary | Little: others can wrap the code in a closed product | Weak protection |
-| **EUPL-1.2** | Strong copyleft like GPL with a network clause and explicit compatibility list | Similar to AGPL | Less known outside Europe |
+What ELv2 says, in short (the licence text is the authority):
 
-**Recommendation:** AGPL-3.0-only, with a commercial licence offered to anyone who cannot use AGPL (dual licensing). That only works if Infenia owns all the copyright, see [Legal groundwork](#legal-groundwork).
+| ELv2 allows | ELv2 forbids |
+|---|---|
+| Use, copy, modify and redistribute the code, including commercially and inside a company | Providing the software to others **as a hosted or managed service** that gives them access to a substantial set of its features |
+| Distribute your own changes, keeping the licence | Moving, disabling or circumventing **licence-key functionality**, or removing licence and copyright notices |
+| No obligation to publish your own changes, and no copyleft | Using the licensor's trademarks beyond what the licence permits |
 
-Two consequences to know before choosing:
+How the options compare for this product:
 
-1. A program that combines Apache-2.0 code (Community) with AGPL code (Plus) is, as a whole, covered by AGPL. So the **Plus build is a separate artifact** from the Community build, and Community must never depend on Plus. The Apache parts stay Apache; only the combined binary behaves as AGPL.
-2. Enterprise code that you own can use Plus code in a proprietary build, because you are the copyright holder and are not bound by your own licence. This holds only for code where you are the sole owner.
+| Licence | OSI open source | Stops a hosted competitor | Corporate adoption | Dual licensing leverage |
+|---|---|---|---|---|
+| **ELv2 (chosen)** | No | Yes, directly and by name | Easy: no copyleft, internal use is free | Commercial licence needed only by hosting vendors |
+| AGPL-3.0-only (previous recommendation) | Yes | Indirectly, through copyleft | Many companies ban AGPL | Strong: also sells to anyone who cannot accept AGPL |
+| MPL-2.0 | Yes | No | Easy | Weak |
+
+Why ELv2 fits here: your stated concern is protection of the product, not forcing users to share changes. ELv2 addresses that concern directly, and it does not frighten away the enterprises that you also want as paying Enterprise customers.
+
+What you give up compared with AGPL: the "open source" label; automatic acceptance by organisations and distributions that allow only OSI licences (some Linux distributions will not package it, and GitHub shows it as "other"); and the AGPL's ability to push every corporate user toward a commercial licence.
+
+Consequences to know before accepting:
+
+1. **Mixing with Apache code.** Apache-2.0 allows Apache code to be included in an ELv2 work. A binary that contains Community and Plus code is therefore offered under ELv2's terms for the Plus parts, and the Apache parts stay Apache. As before, the **Plus build is a separate artifact** from the Community build, and Community must never depend on Plus, so the Community binary stays purely Apache and open source.
+2. **Enterprise code that you own can use Plus code** freely, since you are the copyright holder and are not bound by your own licence.
+3. **Ownership is still essential.** Offering a commercial licence to hosting vendors needs Infenia to own all Plus code, so the contributor agreement is still required, see [Legal groundwork](#legal-groundwork).
+4. **Ask counsel one specific question:** whether the "hosted service" and licence-key clauses are worded as you intend for a workflow orchestrator, since Yukta is often itself run as a service inside a customer's own organisation.
 
 ## What goes in which tier
 
@@ -61,14 +75,14 @@ This is the part to review closely. Rows marked **Decision** depend on your answ
 | Capability | Today | Community | Plus | Enterprise |
 |---|---|---|---|---|
 | In-memory sessions, workflows, log, checkpoints | `core`, default | Yes | Yes | Yes |
-| Single-node durable storage on disk (`File*Store`, JSONL log, checkpoint and chat directories) | `core`, Apache | Remove from Community | **Decision D3**: recommended here | Yes |
+| Single-node durable storage on disk (`File*Store`, JSONL log, checkpoint and chat directories) | `core`, Apache | Removed from Community | **Yes (D3)** | Yes |
 | PostgreSQL stores (sessions, workflows, log, checkpoints, KV, chat history, flyway migrations) | `persistence-postgres` | No | No | Yes |
 | High availability: leader election and failover (`R2dbcLeaderElection`) | `persistence-postgres`; interface in `core` | Single server only (`SingleServerLeader`) | Single server only | Yes |
 | Scale-out: remote workers, worker pools, placement (`workers` server and agent, RSocket, TLS to workers) | `workers`; `RemoteNodeExecutor` in `core` | `engine.placement` is refused with a clear message | No | Yes |
 | Concurrency limits, queue, per-session fairness on one server | `core` (`ExecutionScheduler`) | Yes (safety, not scale) | Yes | Yes |
 | Loopback by default, one API key, host and origin protection, request size limits | `core`, `web` | Yes | Yes | Yes |
 | Process, outbound-host, script and LLM/MCP guards | plugins and `core` | Yes | Yes | Yes |
-| **Decision D4:** several named keys, roles (`VIEWER`, `OPERATOR`, `ADMIN`), hashed keys, session-limited keys | `core/security`, `web` | One key, full access | **D4** | Yes |
+| Several named keys, roles (`VIEWER`, `OPERATOR`, `ADMIN`), hashed keys, session-limited keys | `core/security`, `web` | One key, full access | One key, full access | **Yes (D4)** |
 | **New:** single sign-on (OIDC, SAML), group-to-role mapping | not built | No | No | Yes |
 | **New:** external secret managers (Vault, cloud KMS), encryption of stored data at rest | not built | No | No | Yes |
 | **New:** tamper-evident audit export, SIEM streaming, retention | partial: audit actor names and control audit exist | Basic audit log in memory | Same | Yes |
@@ -79,13 +93,7 @@ This is the part to review closely. Rows marked **Decision** depend on your answ
 
 The engine, DAG validation, REST and MCP interfaces, web UI, CLI, playground, built-in triggers, terminals, flow, transform and external-I/O plugins, rule supervisor and rule control plane, run controls, observability, the `LLM_CALL` and MCP tool plugins, and the install scripts all stay in **Community**.
 
-**Decision D5 (optional use of tier 2):** you may move selected differentiators into Plus so that they stay open but protected. Candidates, in the order I would consider them:
-
-1. The decision plugins (`CLASSIFY`, `GATE`, `SCORE`, `ASK`, `ANOMALY`, `DEDUPE`) and the System One backend.
-2. The model and rules-first control planes.
-3. `SESSION_MEMORY`.
-
-Without D5, tier 2 contains only what D3 and D4 send it. Moving AI features there would reverse some of the positioning in the current docs, so I recommend leaving them in Community unless you want a stronger AGPL funnel.
+**D5 (decided):** the AI features stay in **Community**: `LLM_CALL`, the MCP tool plugins, `SESSION_MEMORY`, the decision plugins and System One backend, and the model and rules-first control planes. They are central to how the product is positioned, so Plus contains only the single-node file persistence.
 
 ### The honest cost of the free-tier cut
 
@@ -103,7 +111,7 @@ Today Community can write sessions to disk. Removing that means a free user lose
  │ spi      (Apache) interfaces + test kit    │◄───────│ persistence-postgres   implements the stores  │
  │ plugin-api, messaging (Apache)             │◄───────│ ha                     implements LeaderElection│
  │ core, web, mcp, ui, plugins (Apache)       │        │ workers                implements remote nodes │
- │ plus/    (AGPL)  optional                  │        │ security-sso, security-rbac, audit, secrets    │
+ │ plus/    (ELv2)  optional                  │        │ security-sso, security-rbac, audit, secrets    │
  │ boot            Community build            │        │ license                verifies the licence file│
  │ boot-plus       Community + Plus build     │        │ boot-enterprise        Community + Enterprise  │
  └────────────────────────────────────────────┘        └───────────────────────────────────────────────┘
@@ -178,11 +186,11 @@ Do these before moving any code. They are the part most likely to cause trouble 
 | Item | Why |
 |---|---|
 | **Confirm who owns the copyright.** Almost all commits are by one author plus the `engineering-infenia` account and Dependabot. Confirm that the author's work is assigned to Infenia Private Limited (employment or contractor terms) | Dual licensing and a closed Enterprise repository both require Infenia to own the code it relicenses |
-| **Add a Contributor Licence Agreement** (or at least a Developer Certificate of Origin plus a licence-grant clause) **before accepting outside contributions.** `CONTRIBUTING.md` has neither today | Without it, one outside contribution to a Plus file can make dual licensing impossible for that file |
+| **Add a Contributor Licence Agreement** (a Developer Certificate of Origin alone is not enough, because Infenia must be free to license Plus code commercially) **before accepting outside contributions.** `CONTRIBUTING.md` has neither today | Without it, one outside contribution to a Plus file can make dual licensing impossible for that file |
 | **Choose and register a trademark policy** for the name "Yukta" and the logo | A licence on the code does not stop others using your name |
 | **Write the Enterprise licence (EULA)** and a commercial licence for Plus | The contracts that actually enforce the tiers |
-| **Update licence metadata**: SPDX headers (`Apache-2.0` vs `AGPL-3.0-only`), per-directory REUSE annotations, `LICENSES/AGPL-3.0-only.txt`, `NOTICE`, and the `licensee` allow-list so dependencies for Plus are checked correctly | The repository already enforces licence hygiene; the tiers must fit into it |
-| **Counsel review** of all of the above, including whether combining Apache and AGPL code in `boot-plus` is done correctly | This plan is not legal advice |
+| **Update licence metadata**: SPDX headers (`Apache-2.0` vs `Elastic-2.0`), per-directory REUSE annotations, `LICENSES/Elastic-2.0.txt`, `NOTICE`, and the `licensee` allow-list so dependencies for Plus are checked correctly | The repository already enforces licence hygiene; the tiers must fit into it |
+| **Counsel review** of all of the above, including how the `boot-plus` build combines Apache and ELv2 code, and the wording questions in [the tier-2 licence](#the-tier-2-licence-elv2) | This plan is not legal advice |
 
 ## Phases
 
@@ -193,7 +201,7 @@ Do these before moving any code. They are the part most likely to cause trouble 
 | **2. Publish** | Public | Publish `spi`, `plugin-api`, `messaging`, `core` and friends to Maven Central; versioning and compatibility policy | Enterprise can build against released artifacts |
 | **3. Private repository** | Private | Create the repository; move `persistence-postgres` and `workers` with history; add `ha` as its own module; `boot-enterprise`; CI; native build and image; private registry | An Enterprise image runs the current PostgreSQL and worker scenarios |
 | **4. Cut Community** | Public | Remove the two modules and the build switches; apply D3; add the bootstrap directory; update docs, Quickstart and Deployment; add "Enterprise" tags | Community build has no PostgreSQL or worker code; docs match |
-| **5. Plus (optional)** | Public | `plus/` directory, AGPL headers, `boot-plus`, CI rule that Community never depends on Plus; commercial licence page | Separate Plus artifacts build and pass tests |
+| **5. Plus (optional)** | Public | `plus/` directory with the single-node file stores moved out of `core`, ELv2 headers, `boot-plus`, CI rule that Community never depends on Plus; commercial licence page | Separate Plus artifacts build and pass tests |
 | **6. New Enterprise features** | Private | Licence verification first, then RBAC, SSO, audit export, secrets, encryption at rest, multi-tenancy, in order of customer demand | Each feature behind the licence and the TCK |
 | **7. Go to market** | Both | Pricing page, ordering and delivery, support terms, upgrade paths between tiers | Out of scope for engineering; listed so it is not forgotten |
 
@@ -211,25 +219,25 @@ The install scripts and Docker image names stay as planned. Enterprise gets its 
 | The Enterprise adapters drift from the public contract | The test kit runs in both repositories; strict compatibility rules for `spi` |
 | Native-image closed world prevents drop-in plug-ins | Build-time composition (approach A); a JVM plug-in directory only if needed |
 | Community feels crippled without persistence and drives users away | Bootstrap directory and export; keep a generous Community in every other respect |
-| AGPL reduces adoption of Plus | That is partly the goal; keep Community under Apache so adoption is not blocked |
+| ELv2 is not open source, so some users and distributions will skip Plus | Keep everything else in Community under Apache-2.0; describe Plus accurately as source-available; Plus only holds file persistence, so little depends on it |
 | The old Apache snapshot of the moved code stays available | Accept it; the value is in ongoing development, support and the new Enterprise features, not in hiding old code |
 | Two repositories double the release effort | Reuse the `release/` scripts; one compatibility table; automated cross-repository CI |
 | Licence key checks annoy honest customers | Offline verification, long grace period, never touch data |
 
-## Decisions needed
+## Decisions
 
-| # | Question | Recommendation |
+| # | Question | Answer |
 |---|---|---|
-| D1 | Tier-2 licence | AGPL-3.0-only with a commercial licence for those who cannot use AGPL |
-| D2 | Tier-2 name | "Plus" as a working name; any name works |
-| D3 | Where does single-node file persistence go? | Plus (open and protected) as the step between memory and PostgreSQL; the alternative is Enterprise only |
-| D4 | Where do named keys, roles, hashed and session-limited keys go? | Enterprise (they are the first thing a team asks for), leaving Community with one key |
-| D5 | Move any AI features (decision plugins, model control planes) to Plus? | No, keep them in Community for now |
-| D6 | Packaging for Enterprise | Build-time composition in the private repository (approach A) |
-| D7 | Distribution of Enterprise artifacts | Private registry with per-customer credentials, then a portal later |
-| D8 | Maven coordinates and host | Maven Central under `com.infenia.yukta` |
-| D9 | Timing relative to v0.1.0 | Phases 0 to 2 before tagging; Phase 4 immediately after Phase 3 |
-| D10 | Contributor agreement | CLA (Apache-style individual and corporate), required before the first outside pull request is merged |
+| D1 | Tier-2 licence | **ELv2**, accepting that it is source-available, not open source. Counsel to confirm the wording questions above |
+| D2 | Tier-2 name | Open. "Plus" is a working name; any name works. If "Plus" is kept, say "source-available" next to it |
+| D3 | Single-node file persistence | **Plus** |
+| D4 | Named keys, roles, hashed and session-limited keys | **Enterprise** |
+| D5 | AI features | **Stay in Community** |
+| D6 | Packaging for Enterprise | Open. Recommendation: build-time composition in the private repository (approach A) |
+| D7 | Distribution of Enterprise artifacts | Open. Recommendation: private registry with per-customer credentials, a portal later |
+| D8 | Maven coordinates and host | Open. Recommendation: Maven Central under `com.infenia.yukta` |
+| D9 | Timing relative to v0.1.0 | Open. Recommendation: Phases 0 to 2 before tagging; Phase 4 straight after Phase 3 |
+| D10 | Contributor agreement | Open. Recommendation: CLA (individual and corporate), required before the first outside pull request is merged |
 
 ## What happens after you approve
 
