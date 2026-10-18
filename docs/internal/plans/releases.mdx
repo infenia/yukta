@@ -92,7 +92,7 @@ Release artifacts and the CLI docs use `yukta-cli` everywhere. Existing text tha
 | `yukta_<ver>_amd64.deb`, `_arm64.deb`, `.rpm` x2 | Debian, Ubuntu, Fedora, RHEL | `yukta` and `yukta-cli` in `/usr/bin`, a `systemd` unit, a `yukta` system user, `/etc/yukta/yukta.env`. Built with `nfpm` from Linux. The service listens on loopback and starts disabled |
 | `ghcr.io/infenia/yukta:<tag>` | `linux/amd64`, `linux/arm64` | One multi-architecture manifest |
 | Homebrew formula, Scoop manifest, winget manifest | macOS/Linux, Windows | Point at the archives above and their checksums |
-| `install.sh`, `install.ps1` | Unix, Windows | Download the right archive, verify its checksum, install. Hosted at the docs domain |
+| `install.sh`, `install.ps1` | Unix, Windows | One command installs the server and `yukta-cli`: pick the right files for the system, verify them against `SHA256SUMS`, install without `sudo`. Attached to every release, pinned to its version, so `releases/latest/download/install.sh` always serves the newest stable copy. Falls back to the client alone, plus a Docker hint, when a platform has no native server yet |
 | `SHA256SUMS`, `*.sig` or `*.bundle`, SBOM (CycloneDX) | all | Verification material |
 
 ## Packaging in Docker
