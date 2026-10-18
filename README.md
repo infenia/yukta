@@ -58,7 +58,7 @@ Most workflow engines make you pick: a heavy platform you have to operate, or a 
 
 ## Quick start
 
-You need **JDK 25** and `curl`. There are no releases yet, so run from source:
+The quickest way is Docker, which needs no Java: `docker run --rm -p 127.0.0.1:8080:8080 -e YUKTA_API_KEY=change-me ghcr.io/infenia/yukta:latest` (add `-H "X-API-Key: change-me"` to the `curl` commands below). Packaged downloads and the image arrive with the first release (v0.1.0); there is no tagged release yet, so until then run from source. You need **JDK 25** and `curl`:
 
 ```bash
 git clone https://github.com/infenia/yukta.git
