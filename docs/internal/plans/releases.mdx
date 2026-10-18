@@ -161,11 +161,13 @@ CI keeps `release.yml` for the parts that run well there (CLI, the arm64, Window
 
 ## Documentation plan
 
-The docs change in two steps, so they never describe something that does not exist yet.
+The work ships as **two pull requests**. The first changes only the docs, so the install story and the Quickstart can be reviewed on their own; the second adds the release tooling that makes it true.
 
-**Now (safe to do before any release):** none of the install commands can work yet, so the only change that is true today is an honest "coming soon" note. This plan lives under Internal.
+**Pull request 1 (docs):** the Quickstart, Deployment, introduction note and README lead with the Docker image and Linux downloads, with macOS and Windows through Docker Desktop for now, and run-from-source last. Each page carries a clear status note that packaged downloads arrive with the first release (v0.1.0), so nothing claims an install that does not exist yet.
 
-**With the first release candidate (Phase 3), on a branch merged with v0.1.0:**
+**Pull request 2 (release):** the CLI rename, the `release/` scripts, packaging and the release workflow, plus the doc edits that depend on them (the `yukta-cli` name). Before v0.1.0 is tagged, the status notes in the docs are removed.
+
+What changes in the docs:
 
 | Page | Change |
 |---|---|
