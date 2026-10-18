@@ -14,7 +14,17 @@ Use it when you want to apply a session file, start a workflow, follow its logs 
 
 ## Install
 
-There are no packaged releases yet; build the binary from source. The build produces binaries for Linux (amd64 and arm64), macOS (Intel and Apple silicon) and Windows (amd64). Copy the one for your platform onto your `PATH`. See [Deployment](/operations/deployment).
+The Linux archives, `.deb` and `.rpm` packages of a release include `yukta-cli` next to the server. Every release also lists the client on its own for each platform, so you can install it on a laptop that only talks to a remote server:
+
+| Platform | File |
+|---|---|
+| Linux | `yukta-cli-linux-amd64`, `yukta-cli-linux-arm64` |
+| macOS | `yukta-cli-darwin-amd64` (Intel), `yukta-cli-darwin-arm64` (Apple silicon) |
+| Windows | `yukta-cli-windows-amd64.exe` |
+
+Download the file for your platform, check it against the release's `SHA256SUMS`, make it executable (`chmod +x`) and put it on your `PATH`, for example as `/usr/local/bin/yukta-cli`.
+
+Yukta has no tagged release yet. Until one exists, build the client from source with `make build-all` in the `cli` folder, or `./gradlew :cli:goBuildAll`. The binaries are written to `cli/build/`. See [Deployment](/operations/deployment).
 
 ## Configure
 

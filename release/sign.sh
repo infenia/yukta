@@ -7,7 +7,7 @@
 # In GitHub Actions the identity is the workflow instead.
 #
 # Usage: release/sign.sh <version> [--images]
-#   signs dist/packages/* and the SHA256SUMS files as <file>.bundle, and with --images the image digests
+#   signs every file in dist/assets/ (made by release.sh) as <file>.bundle, and with --images the image digests
 set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
@@ -18,7 +18,7 @@ need cosign
 while IFS= read -r -d '' file; do
   log "signing $file"
   cosign sign-blob --yes --bundle "$file.bundle" "$file"
-done < <(find "$DIST/packages" "$DIST/cli" -maxdepth 1 -type f \( -name '*.tar.gz' -o -name '*.deb' -o -name '*.rpm' -o -name 'SHA256SUMS' -o -name 'yukta-cli-*' \) ! -name '*.bundle' -print0)
+done < <(find "$DIST/assets" -maxdepth 1 -type f ! -name '*.bundle' -print0)
 
 if [[ "${2:-}" == "--images" ]]; then
   need docker

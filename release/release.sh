@@ -52,16 +52,22 @@ for platform in "${PLATFORMS[@]}"; do
   fi
 done
 
-(cd "$DIST/packages" && sha256sum -- * > SHA256SUMS)
+# One flat folder holds every file the release publishes, so one SHA256SUMS covers them all and
+# `sha256sum --check` works on a plain download folder.
+assets="$DIST/assets"
+rm -rf "$assets"
+mkdir -p "$assets"
+cp "$DIST"/packages/* "$DIST"/cli/yukta-cli-* "$assets/"
+(cd "$assets" && sha256sum -- * > SHA256SUMS.tmp && mv SHA256SUMS.tmp SHA256SUMS)
 if $publish; then
   "$RELEASE_DIR/build-image.sh" "$version" --push
   "$RELEASE_DIR/sign.sh" "$version" --images
   need gh
   notes_flag=(); is_prerelease "$version" && notes_flag=(--prerelease)
   gh release view "v$version" >/dev/null 2>&1 || gh release create "v$version" --draft "${notes_flag[@]}" --generate-notes --title "v$version"
-  gh release upload "v$version" "$DIST"/packages/* "$DIST"/cli/* --clobber
+  gh release upload "v$version" "$assets"/* --clobber
   log "draft release v$version uploaded. Install from the published artifacts on a clean machine, then publish it."
 else
   "$RELEASE_DIR/build-image.sh" "$version"
-  log "dry run complete: nothing was pushed, signed or uploaded. Artifacts are in $DIST"
+  log "dry run complete: nothing was pushed, signed or uploaded. Release files are in $assets"
 fi
