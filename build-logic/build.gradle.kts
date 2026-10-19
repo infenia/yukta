@@ -34,10 +34,10 @@ dependencies {
 
     // Build-time transitives of the plugins above with published CVEs (Dependabot); same minor line
     constraints {
-        implementation("com.fasterxml.jackson.core:jackson-core:2.21.7")
-        implementation("com.fasterxml.jackson.core:jackson-databind:2.21.7")
-        implementation("tools.jackson.core:jackson-core:3.1.7")
-        implementation("tools.jackson.core:jackson-databind:3.1.7")
+        implementation("com.fasterxml.jackson.core:jackson-core:2.22.3")
+        implementation("com.fasterxml.jackson.core:jackson-databind:2.22.3")
+        implementation("tools.jackson.core:jackson-core:3.2.3")
+        implementation("tools.jackson.core:jackson-databind:3.2.3")
         implementation("org.codehaus.plexus:plexus-utils:3.6.1")
     }
 }
