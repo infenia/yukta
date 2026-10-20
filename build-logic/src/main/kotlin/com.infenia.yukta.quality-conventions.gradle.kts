@@ -187,6 +187,11 @@ tasks.register<Exec>("opengrep") {
             false
         }
 
+        // A scanner that is missing must not read as "no findings" on CI.
+        if (sourceExists && !opengrepExists && System.getenv("CI") != null) {
+            throw GradleException("opengrep is not on the PATH; CI must install it (see ci.yml) instead of skipping the scan")
+        }
+
         sourceExists && opengrepExists
     }
 }
