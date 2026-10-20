@@ -38,4 +38,4 @@ jobs:
           path-to-signatures: signatures/cla.json
           path-to-document: https://github.com/infenia/yukta/blob/main/CLA.md
           branch: cla-signatures
-          allowlist: arun-infenia,engineering-infenia,*[bot]
+          allowlist: arun-infenia,engineering-infenia,claude,*[bot]
