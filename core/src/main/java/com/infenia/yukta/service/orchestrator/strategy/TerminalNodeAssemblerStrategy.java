@@ -25,6 +25,9 @@ import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import com.infenia.yukta.service.result.ExecutionResultService;
 import java.time.Duration;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicLong;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.annotation.Order;
@@ -99,6 +102,7 @@ public class TerminalNodeAssemblerStrategy implements NodeAssemblerStrategy {
 
     return context -> {
       final var control = context.control();
+      final AtomicLong received = new AtomicLong();
 
       log.atDebug()
           .addKeyValue(LOG_KEY_NODE_ID, node.nodeId())
@@ -132,9 +136,11 @@ public class TerminalNodeAssemblerStrategy implements NodeAssemblerStrategy {
                     final ResultCollector collector = ctx.getOrDefault("resultCollector", null);
                     final Flux<Message<?>> published =
                         flux.doOnNext(
-                            message ->
-                                resultService.publish(
-                                    context.executionId(), node.nodeId(), message.payload()));
+                            message -> {
+                              received.incrementAndGet();
+                              resultService.publish(
+                                  context.executionId(), node.nodeId(), message.payload());
+                            });
                     if (collector != null) {
                       log.atDebug()
                           .addKeyValue(LOG_KEY_NODE_ID, node.nodeId())
@@ -210,7 +216,7 @@ public class TerminalNodeAssemblerStrategy implements NodeAssemblerStrategy {
                         node.nodeId(),
                         node.type(),
                         TaskStatus.SUCCESS,
-                        Collections.emptyMap());
+                        completionMetadata(terminal, node.config(), received.get()));
                     resultService.nodeEnd(
                         context.executionId(), node.nodeId(), TaskStatus.SUCCESS.name());
                   })
@@ -244,5 +250,16 @@ public class TerminalNodeAssemblerStrategy implements NodeAssemblerStrategy {
 
       context.terminals().add(completion);
     };
+  }
+
+  /** Tells whether the terminal was reached, and how the run ended there. */
+  private static Map<String, Object> completionMetadata(
+      final TerminalPlugin terminal, final Map<String, Object> config, final long received) {
+    final Map<String, Object> metadata = new HashMap<>();
+    metadata.put("reached", received > 0);
+    if (received > 0) {
+      metadata.putAll(terminal.completionMetadata(config));
+    }
+    return metadata;
   }
 }
