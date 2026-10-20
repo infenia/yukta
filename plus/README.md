@@ -13,3 +13,10 @@ Added to the application with `-Pyukta.edition=plus` (the file stores below). `p
 
 Rules for this module: nothing outside `boot` may depend on it, and every file keeps the
 `AGPL-3.0-only` SPDX header (Spotless adds it).
+
+## Extending (integration layer)
+
+- `EnterpriseModule` (`com.infenia.yukta.plus.ext`): register a bean to declare a module, its `requiresPlusApi()` (checked against `PlusApi.VERSION`) and its `features()`. `EnterpriseModuleRegistry` refuses a module built for another API version, asks a `LicenseVerifier` (a bean; without one it warns) and `PlusConfiguration` then reports `ENTERPRISE` and the features through `GET /api/edition` and `/actuator/info`.
+- A module replaces a default by providing a bean of the same type and declaring `@AutoConfiguration(before = DefaultsAutoConfiguration.class)`; `DefaultsAutoConfiguration` is in `core`.
+- Contract tests: `testImplementation(testFixtures(project(":plus")))`, then extend `ExecutionLogStoreContract`, `NodeCheckpointStoreContract`, `WorkflowDefinitionStoreContract` or `LeaderElectionContract` and return your implementation (see `ContractsTest`). There is no `SessionConfigStore` contract yet.
+- Gated settings live in the `GATES` table of `FeatureGateEnvironmentPostProcessor` (`core`): add a row (key, value, provider class, edition, build hint) to make a build refuse a setting whose module is absent.
