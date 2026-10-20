@@ -8,10 +8,13 @@ import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
 import java.util.Map;
 import java.util.UUID;
+import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 import reactor.core.publisher.Flux;
 import reactor.test.StepVerifier;
 
+@NoArgsConstructor
+@SuppressWarnings({"PMD.CommentRequired", "PMD.AvoidDuplicateLiterals"})
 class OutcomeTerminalTest {
 
   private final OutcomeTerminal terminal = new OutcomeTerminal();
@@ -55,5 +58,12 @@ class OutcomeTerminalTest {
     StepVerifier.create(terminal.consume(one, Map.of("outcome", "SUCCESS"))).verifyComplete();
     StepVerifier.create(terminal.consume(Flux.empty(), Map.of("outcome", "SUCCESS")))
         .verifyComplete();
+  }
+
+  @Test
+  void describe_declaresTypeAndConfig() {
+    assertThat(terminal.getType()).isEqualTo("OUTCOME_TERMINAL");
+    assertThat(terminal.describe().description()).isNotBlank();
+    assertThat(terminal.getConfigSchema()).extracting("name").contains("outcome", "restartFrom");
   }
 }

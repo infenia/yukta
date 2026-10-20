@@ -33,7 +33,7 @@ import org.springframework.test.context.DynamicPropertySource;
 @SpringBootTest(
     webEnvironment = SpringBootTest.WebEnvironment.MOCK,
     properties = "yukta.process.allow-any=true")
-@SuppressWarnings("PMD.CommentRequired")
+@SuppressWarnings({"PMD.CommentRequired", "PMD.ShortVariable", "PMD.AvoidDuplicateLiterals"})
 @NoArgsConstructor
 class RestartRuleAcceptanceTest {
 
@@ -59,7 +59,7 @@ class RestartRuleAcceptanceTest {
     registry.add("yukta.supervisor.rules.file", file::toString);
   }
 
-  private static Node sh(final String id, final String script) {
+  private static Node shell(final String id, final String script) {
     return new Node(
         id,
         "PROCESS_EXECUTOR",
@@ -94,9 +94,9 @@ class RestartRuleAcceptanceTest {
             "stage",
             List.of(
                 new Node("t", "CONSTANT_SOURCE", Map.of()),
-                sh("check", "echo x >> '" + runs + "'; test -f '" + fixed + "'"),
+                shell("check", "echo x >> '" + runs + "'; test -f '" + fixed + "'"),
                 outcome("ok", "SUCCESS"),
-                sh("apply", applyScript.replace("FIXED", fixed.toString())),
+                shell("apply", applyScript.replace("FIXED", fixed.toString())),
                 outcome("retry", "RETRY"),
                 outcome("escalate", "ESCALATE")),
             List.of(

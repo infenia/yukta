@@ -16,6 +16,7 @@ import org.springframework.expression.Expression;
 
 /** A rule that reacts to events with a command. */
 @Slf4j
+@SuppressWarnings("PMD.TooManyMethods")
 public final class EventRule {
 
   /** Window used when a counting rule gives none. */
@@ -88,16 +89,6 @@ public final class EventRule {
    * Whether an event is one the rule reacts to.
    *
    * @param event the event
-   * @return true if every condition of the rule holds
-   */
-  public boolean matches(final ExecutionEvent event) {
-    return matches(event, 0);
-  }
-
-  /**
-   * Whether an event is one the rule reacts to.
-   *
-   * @param event the event
    * @param attempt how many restarts led to the event's run, readable as {@code attempt}
    * @return true if every condition of the rule holds
    */
@@ -137,7 +128,7 @@ public final class EventRule {
    * @return true for {@code Restart} and {@code RestartFromNode}
    */
   public boolean restarts() {
-    return then.command() != null && then.command().toLowerCase(Locale.ROOT).startsWith("restart");
+    return then.command().toLowerCase(Locale.ROOT).startsWith("restart");
   }
 
   private boolean conditionHolds(final Map<String, Object> fields) {
@@ -194,19 +185,19 @@ public final class EventRule {
       final String newExecutionId,
       final Map<String, Object> fields) {
     final String from = then.from();
-    String target = nodeId;
-    if (from != null && from.startsWith(METADATA_PREFIX)) {
-      final Object metadata = fields.get("metadata");
-      final Object value =
-          metadata instanceof Map<?, ?> map
-              ? map.get(from.substring(METADATA_PREFIX.length()))
-              : null;
-      target = value == null ? null : value.toString();
-    } else if (from != null) {
-      target = from;
-    }
-    return target == null || target.isBlank() || START.equalsIgnoreCase(target)
+    final String target =
+        from == null
+            ? nodeId
+            : from.startsWith(METADATA_PREFIX)
+                ? metadataValue(fields, from.substring(METADATA_PREFIX.length()))
+                : from;
+    return target == null || START.equalsIgnoreCase(target)
         ? new ExecutionControlCommand.RestartCommand(executionId, newExecutionId)
         : new ExecutionControlCommand.RestartFromNodeCommand(executionId, target, newExecutionId);
+  }
+
+  private static String metadataValue(final Map<String, Object> fields, final String key) {
+    final Object value = fields.get("metadata") instanceof Map<?, ?> map ? map.get(key) : null;
+    return value == null ? null : value.toString();
   }
 }

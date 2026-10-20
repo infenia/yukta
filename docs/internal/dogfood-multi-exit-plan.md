@@ -12,7 +12,10 @@ Deviation from the plan below: no new `ExecutionEvent.OutcomeReported`; the outc
 
 First thing to do next: with JDK 25, run `./gradlew spotlessApply :plugins:terminals:outcome-terminal:test :core:test --tests '*TerminalNodeAssemblerStrategy*'` and fix compile/style issues. Add a test for the `reached`/completion metadata in `TerminalNodeAssemblerStrategyTest`.
 
-## Remaining steps
+## Update (continued on JDK 25)
+Compiled, formatted and tested: steps 0, 1 (rule actions `Restart`/`RestartFromNode`, `from: metadata.<key>`), 2 (attempt lineage lives in `RuleSupervisor`, not the engine: it generates the new id, so it counts restarts itself) and 6 (`RestartRuleAcceptanceTest`: retry restarts, escalate does not, budget stops a loop). Step 3 (`Escalate`) is dropped: an exhausted retry is simply not restarted and the last `outcome` on the stream is the signal. Step 5 docs and DF-7 done. **Still open: step 4** (per-stage workflows, `rules.json`, thin `yukta-check.sh`, removing `self_heal`), which needs a live run with the Claude fixer to validate.
+
+## Remaining steps (original list)
 1. Rule actions `RestartFromNode` / `Restart` in `EventRule.commandFor` (rule-supervisor); host generates `newExecutionId`.
 2. Attempt lineage across restarts (`attempt` event field) in `RestartFromNodeCommandProcessor`, so rules can bound loops.
 3. `Escalate` rule action (ERROR-severity audit/ControlOutcome) for the external Claude supervisor.

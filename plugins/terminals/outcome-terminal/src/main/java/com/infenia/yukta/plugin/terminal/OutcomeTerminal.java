@@ -12,6 +12,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import lombok.NoArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
@@ -24,6 +25,8 @@ import reactor.core.publisher.Mono;
  */
 @Slf4j
 @Component
+@NoArgsConstructor
+@SuppressWarnings("PMD.UseConcurrentHashMap")
 public final class OutcomeTerminal implements TerminalPlugin {
 
   /** Config key of the outcome. */

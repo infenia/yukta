@@ -43,7 +43,7 @@ import tools.jackson.databind.json.JsonMapper;
  * deny rule, so a faulty rule never lets a forbidden command through.
  */
 @Component
-@SuppressWarnings("PMD.CouplingBetweenObjects")
+@SuppressWarnings({"PMD.CouplingBetweenObjects", "PMD.ExcessiveImports"})
 @ConditionalOnProperty("yukta.supervisor.rules.file")
 public final class RuleSupervisor implements ExecutionSupervisor {
 
