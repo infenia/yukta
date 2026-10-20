@@ -13,11 +13,12 @@ const API_KEY = __ENV.API_KEY || '';
 if (API_KEY && BASE_URL.startsWith('http://') && !/^http:\/\/(localhost|127\.0\.0\.1|\[::1\])[:/]?/.test(BASE_URL)) {
   throw new Error('API_KEY requires an https BASE_URL (or localhost)');
 }
+const POLL_OK = http.expectedStatuses(200, 404); // 404 right after start is counted in poll_not_found
 const START_OK = http.expectedStatuses(202, 429); // 429 is admission control, judged by workflow_rejected
-// Known issue (perf/KNOWN-ISSUES.md #1): CONSOLE_TERMINAL never leaves RUNNING, so a run never
-// ends. LENIENT=true (default) treats a run as done once every non-terminal node has ended.
-// Set -e LENIENT=false once that is fixed, to require the run itself to reach a final status.
-const LENIENT = (__ENV.LENIENT || 'true') !== 'false';
+// LENIENT=true treats a run as done once every non-terminal node has ended, which hides runs
+// whose own status never turns final. Off by default; stuck_runs (teardown) also catches them.
+const LENIENT = (__ENV.LENIENT || 'false') === 'true';
+const GRACE_S = Number(__ENV.GRACE || 30); // how long teardown waits for runs to finish
 const FINAL = ['SUCCESS', 'FAILURE', 'ERROR', 'STOPPED', 'CANCELLED', 'TIMED_OUT',
   'SKIPPED', 'UPSTREAM_FAILED', 'ABORTED'];
 
@@ -25,9 +26,19 @@ export const e2e = new Trend('workflow_e2e', true);
 export const success = new Rate('workflow_success');
 export const rejected = new Rate('workflow_rejected'); // share of starts refused with HTTP 429
 export const lenientDone = new Counter('workflow_lenient_done');
+export const pollNotFound = new Counter('poll_not_found'); // run not queryable yet after its 202
+export const stuckRuns = new Counter('stuck_runs'); // runs still not final after GRACE
+export const trackerLost = new Counter('tracker_events_lost'); // state events the server dropped
 
-const headers = { 'Content-Type': 'application/json' };
+export const headers = { 'Content-Type': 'application/json' };
 if (API_KEY) headers.Authorization = `Bearer ${API_KEY}`;
+
+// Value of an actuator metric, 0 if it was never recorded (404) or cannot be read.
+function metric(name, tag) {
+  const r = http.get(`${BASE_URL}/actuator/metrics/${name}${tag ? `?tag=${tag}` : ''}`, { headers });
+  return r.status === 200 ? Number(r.json('measurements.0.value')) || 0 : 0;
+}
+const lostNow = () => metric('yukta.tracker.dropped', 'type:state');
 
 // Register one session per selected workflow.
 export function setup() {
@@ -36,7 +47,32 @@ export function setup() {
     const r = http.post(`${BASE_URL}/api/sessions`, JSON.stringify(sessionBody(name)), { headers });
     if (r.status !== 200) throw new Error(`setup '${name}' failed: ${r.status} ${r.body}`);
   }
-  return { names };
+  return { names, lost0: lostNow() };
+}
+
+// Runs of the test sessions whose own status is still RUNNING after the grace period are stuck.
+export function teardown(ctx) {
+  const deadline = Date.now() + GRACE_S * 1000;
+  let stuck = {};
+  do {
+    stuck = {};
+    for (const name of ctx.names) {
+      let cursor = '';
+      do {
+        const r = http.get(`${BASE_URL}/api/workflow/${sessionId(name)}/history?status=RUNNING&limit=1000${cursor}`, { headers });
+        if (r.status !== 200) break;
+        (stuck[name] = stuck[name] || []).push(...r.json('data').map((x) => x.executionId));
+        const next = r.headers['X-Next-Cursor'];
+        cursor = next ? `&cursor=${next}` : '';
+      } while (cursor);
+    }
+    if (!Object.keys(stuck).length) break;
+    sleep(2);
+  } while (Date.now() < deadline);
+  const n = Object.values(stuck).reduce((a, ids) => a + ids.length, 0);
+  stuckRuns.add(n);
+  for (const [name, ids] of Object.entries(stuck)) console.error(`STUCK ${name}: ${ids.length} e.g. ${ids.slice(0, 3)}`);
+  trackerLost.add(lostNow() - ctx.lost0);
 }
 
 // Returns 'ok' | 'failed' | null (still running)
@@ -62,7 +98,8 @@ export function runOnce(ctx) {
   if (!check(r, { 'start 202': (x) => x.status === 202 }, tags)) { success.add(false, tags); return; }
   const id = r.json('data.executionId');
   for (let i = 0; i < 100; i++) {
-    const s = http.get(`${BASE_URL}/api/executions/${id}`, { headers, tags });
+    const s = http.get(`${BASE_URL}/api/executions/${id}`, { headers, tags, responseCallback: POLL_OK });
+    if (s.status === 404) pollNotFound.add(1, tags);
     const res = s.status === 200 ? outcome(s.json('data')) : null;
     if (res) {
       e2e.add(Date.now() - start, tags);
@@ -80,6 +117,8 @@ export const thresholds = {
   workflow_e2e: ['p(95)<2000'],
   workflow_success: ['rate>0.99'],
   workflow_rejected: [`rate<${__ENV.MAX_REJECTED || 0.01}`],
+  stuck_runs: ['count==0'], // a run that never reached a final status
+  tracker_events_lost: ['count==0'], // server dropped a status event
   dropped_iterations: ['count==0'], // generator ran out of VUs: results understate the load
 };
 // Per-workflow breakdown in the summary, so a failing plugin is named.

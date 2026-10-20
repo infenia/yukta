@@ -54,3 +54,6 @@ jte-classes/
 
 # Yukta dogfood state
 .yukta-dev/
+
+# k6 benchmark reports
+perf/reports/

@@ -137,7 +137,9 @@ Yukta does not publish throughput figures. Size from your own workflows:
 
 ## Load tests
 
-The repository's `perf` directory holds two k6 load-test scripts (k6 is a command-line load-testing tool). Both create one session per workflow, then start workflows in turn through `POST /api/workflow/start` and poll `GET /api/executions/{id}` until each ends. Run the server with the `prod` profile first.
+The repository's `perf` directory holds three k6 scripts (k6 is a command-line load-testing tool): `perf.js` (baseline latency), `load.js` and `soak.js`. They create one session per workflow, then start workflows in turn through `POST /api/workflow/start` and poll `GET /api/executions/{id}` until each ends. Run the server with the `prod` profile first.
+
+`perf/run.sh <perf|load|soak>` runs the same tests against a container with fixed resources (2 vCPU and 8 GB by default) and keeps a report per run; see `perf/README.md`. A test also fails when a run is still `RUNNING` after the test (`stuck_runs`) or the server dropped a status event (`tracker_events_lost`).
 
 ```bash
 k6 run perf/k6/load.js
