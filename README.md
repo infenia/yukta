@@ -58,7 +58,7 @@ Most workflow engines make you pick: a heavy platform you have to operate, or a 
 
 ## Quick start
 
-The quickest way is Docker, which needs no Java: `docker run --rm -p 127.0.0.1:8080:8080 -e YUKTA_API_KEY=change-me ghcr.io/infenia/yukta:latest` (add `-H "X-API-Key: change-me"` to the `curl` commands below). Packaged downloads and the image arrive with the first release (v0.1.0); there is no tagged release yet, so until then run from source. You need **JDK 25** and `curl`:
+The quickest way is the one-command installer (installs the server `yukta` and the client `yukta-cli`, no Java needed): `curl -fsSL https://github.com/infenia/yukta/releases/latest/download/install.sh | sh` on Linux and macOS, or `irm https://github.com/infenia/yukta/releases/latest/download/install.ps1 | iex` in PowerShell. Or use Docker: `docker run --rm -p 127.0.0.1:8080:8080 -e YUKTA_API_KEY=change-me ghcr.io/infenia/yukta:latest` (add `-H "X-API-Key: change-me"` to the `curl` commands below). Packaged downloads and the image arrive with the first release (v0.1.0); there is no tagged release yet, so until then run from source. You need **JDK 25** and `curl`:
 
 ```bash
 git clone https://github.com/infenia/yukta.git
