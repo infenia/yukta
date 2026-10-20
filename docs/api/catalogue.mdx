@@ -16,6 +16,7 @@ The catalogue endpoints describe what the server offers and who is attached to i
 | `GET /api/plugins/{type}` | Describe one plugin type |
 | `GET /api/supervisors` | List running supervisors and control planes |
 | `GET /api/workers` | List connected remote workers |
+| `GET /api/edition` | Show the edition, licence and features of this build |
 
 ## List plugins
 
@@ -195,6 +196,35 @@ Lists the remote workers that are connected and keep their lease, ordered by wor
       "leaseUntil": "2026-07-19T10:15:40Z"
     }
   ]
+}
+```
+
+## Show the edition
+
+`GET /api/edition`
+
+Tells which edition of Yukta this server is, under which licence, and which optional features it has. See [Licensing and editions](/reference/licensing).
+
+**Response `data`**:
+
+| Field | Type | Meaning |
+|---|---|---|
+| `edition` | string | `COMMUNITY`, `PLUS` or `ENTERPRISE` |
+| `license` | string | The licence of the build, such as `Apache-2.0` or `AGPL-3.0-only` |
+| `features` | array | The optional features present, such as `file-stores`, `postgres`, `high-availability`, `remote-workers` |
+| `source` | string or null | Where the corresponding source can be obtained, set by the Plus edition |
+
+```json
+{
+  "timestamp": "2026-10-20T10:15:30.123456",
+  "status": 200,
+  "message": "Edition retrieved",
+  "data": {
+    "edition": "PLUS",
+    "license": "AGPL-3.0-only",
+    "features": ["file-stores"],
+    "source": "https://github.com/infenia/yukta"
+  }
 }
 ```
 

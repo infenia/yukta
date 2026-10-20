@@ -5,10 +5,6 @@ package com.infenia.yukta.service.log;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.locks.ReentrantLock;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
-import org.springframework.stereotype.Component;
 
 /**
  * Default execution log: kept in memory, so nothing survives a restart. Set {@code
@@ -17,10 +13,6 @@ import org.springframework.stereotype.Component;
  * <p>Like the file log, it is trimmed to the newest {@code retained-runs} runs after every {@code
  * compact-after} appended events; a run without an end is never dropped.
  */
-@Component
-@ConditionalOnExpression(
-    "'${yukta.execution-log.dir:}'.isEmpty()"
-        + " && !'postgres'.equals('${yukta.session.store-type:in-memory}')")
 public class InMemoryExecutionLogStore implements ExecutionLogStore {
 
   /** Runs that survive a trim. */
@@ -49,10 +41,7 @@ public class InMemoryExecutionLogStore implements ExecutionLogStore {
    * @param retainedRuns runs kept when the log is trimmed
    * @param compactAfter appended events after which the log is trimmed
    */
-  @Autowired
-  public InMemoryExecutionLogStore(
-      @Value("${yukta.execution-log.retained-runs:500}") final int retainedRuns,
-      @Value("${yukta.execution-log.compact-after:10000}") final int compactAfter) {
+  public InMemoryExecutionLogStore(final int retainedRuns, final int compactAfter) {
     this.retainedRuns = Math.max(1, retainedRuns);
     this.compactAfter = Math.max(1, compactAfter);
   }

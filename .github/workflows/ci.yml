@@ -123,9 +123,13 @@ jobs:
             boot:
               - 'boot/**'
             persistence-postgres:
-              - 'persistence-postgres/**'
+              - 'plus/persistence-postgres/**'
             workers:
-              - 'workers/**'
+              - 'plus/workers/**'
+            plus:
+              - 'plus/**'
+              - '!plus/persistence-postgres/**'
+              - '!plus/workers/**'
             messaging:
               - 'messaging/**'
             plugin-api:
@@ -199,6 +203,11 @@ jobs:
           pg_args='-Pyukta.persistence=postgres :boot:test --tests *PostgresPersistenceAcceptanceTest'
           if [ "$full" = true ] || jq -e 'index("persistence-postgres") or index("boot")' <<<"$CHANGED_MODULES" >/dev/null; then
             shards=$(jq -c --arg a "$pg_args" '. + [{name: "postgres-acceptance", args: $a}]' <<<"$shards")
+          fi
+          # Plus edition (AGPL-3.0-only): the same app with the on-disk stores (-Pyukta.edition=plus)
+          plus_args='-Pyukta.edition=plus :boot:test --tests *FileStoreAcceptanceTest'
+          if [ "$full" = true ] || jq -e 'index("plus") or index("boot")' <<<"$CHANGED_MODULES" >/dev/null; then
+            shards=$(jq -c --arg a "$plus_args" '. + [{name: "plus-acceptance", args: $a}]' <<<"$shards")
           fi
           # Fail-fast lint: Checkstyle/PMD/OpenGrep only (cli and ui have none; boot needs the UI build)
           lint_tasks=""
@@ -314,13 +323,13 @@ jobs:
       # boot depends on the ui module, so the shards that build boot or ui need Node and pnpm.
       # No pnpm store cache here: the post step errors when a shard never runs `pnpm install`.
       - name: Set up Node.js
-        if: contains(fromJson('["platform", "frontend", "postgres-acceptance"]'), matrix.name)
+        if: contains(fromJson('["platform", "frontend", "postgres-acceptance", "plus-acceptance"]'), matrix.name)
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: '24'
 
       - name: Set up pnpm
-        if: contains(fromJson('["platform", "frontend", "postgres-acceptance"]'), matrix.name)
+        if: contains(fromJson('["platform", "frontend", "postgres-acceptance", "plus-acceptance"]'), matrix.name)
         uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
         with:
           version: 10.30.1
@@ -341,7 +350,7 @@ jobs:
 
       # Pinned binary + sha256 (bump both together with OPENGREP_VERSION)
       - name: Install OpenGrep
-        if: matrix.name != 'postgres-acceptance'
+        if: ${{ !contains(fromJson('["postgres-acceptance", "plus-acceptance"]'), matrix.name) }}
         run: |
           mkdir -p "$HOME/.local/bin"
           curl -fsSL -o "$HOME/.local/bin/opengrep" \
@@ -389,7 +398,7 @@ jobs:
 
       - name: Publish test result summary
         if: always()
-        uses: mikepenz/action-junit-report@b7b80d7ac5b1da46d6aaff9fb57ad50d8453bcb3 # v6.6.0
+        uses: mikepenz/action-junit-report@6ef3fdcfcd5f0b5d14df3e659ef19b8c6820f93d # v6.6.1
         with:
           report_paths: '**/build/test-results/test/TEST-*.xml'
           annotate_only: true
@@ -412,7 +421,7 @@ jobs:
       # Upload test and quality reports (helpful for debugging)
       - name: Upload build reports
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: build-reports-${{ matrix.name }}
           path: |
@@ -561,7 +570,7 @@ jobs:
 
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: playwright-report
           path: ui/playwright-report/
@@ -570,7 +579,7 @@ jobs:
 
       - name: Upload test videos
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: playwright-videos
           path: ui/test-results/

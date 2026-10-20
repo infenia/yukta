@@ -16,9 +16,12 @@ plugins {
 
 val libs = extensions.getByType<VersionCatalogsExtension>().named("libs")
 
+// The plus module is AGPL-3.0-only; everything else is Apache-2.0 (see LICENSING.md)
+val licenseHeader = rootProject.file(if (path == ":plus" || path.startsWith(":plus:")) "config/license/header-agpl.txt" else "config/license/header.txt")
+
 spotless {
     java {
-        licenseHeaderFile(rootProject.file("config/license/header.txt"))
+        licenseHeaderFile(licenseHeader)
         importOrder()
 //        removeUnusedImports()
 //        cleanthat()
@@ -31,7 +34,7 @@ spotless {
 
     kotlinGradle {
         target("*.gradle.kts", "build-logic/**/*.gradle.kts")
-        licenseHeaderFile(rootProject.file("config/license/header.txt"), "(plugins|id|import|apply)")
+        licenseHeaderFile(licenseHeader, "(plugins|id|import|apply)")
     }
 
     format("xml") {

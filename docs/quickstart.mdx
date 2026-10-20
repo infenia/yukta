@@ -1,6 +1,6 @@
 ---
 title: "Quickstart"
-description: "Install Yukta with Docker or a ready-made program, then run your first workflow in five minutes. No Java needed."
+description: "Install Yukta with one command, then run your first workflow in five minutes. No Java needed."
 mode: "wide"
 ---
 
@@ -10,20 +10,81 @@ Technically, you will install and start the server, apply a session that contain
 
 ## Before you begin
 
-- A way to run Yukta: **Docker** is the quickest, or download a ready-made program for Linux (see below)
-- `curl` (any HTTP client works; the examples show plain HTTP requests as well)
+- A terminal on Linux, macOS or Windows
+- `curl` (any HTTP client works; the examples show plain HTTP requests as well). On Windows, PowerShell has what you need.
 
 You do **not** need Java or the source code. Building from source is the last option, for people who want to change Yukta itself.
 
 <Warning>
-  **Status: packaged downloads arrive with the first release (v0.1.0).** The Docker image, the Linux packages and the archives below are produced by that release, and Yukta has no tagged release yet. Until it is published, use the **From source** tab. See [Deployment](/operations/deployment#install) for what each release contains.
+  **Status: the installer and the packages arrive with the first release (v0.1.0).** Yukta has no tagged release yet, so the commands on the install tabs do not work until it is published. Until then, use the **From source** tab. See [Deployment](/operations/deployment#install) for what each release contains.
 </Warning>
 
 ## 1. Install and run the server
 
-Pick the way that suits you. All of them start the same server on `http://localhost:8080`.
+One command installs both programs: **`yukta`**, the server, and **`yukta-cli`**, the command-line client that talks to it. Pick your system:
 
 <Tabs>
+  <Tab title="Linux and macOS" icon="terminal">
+    ```bash
+    curl -fsSL https://github.com/infenia/yukta/releases/latest/download/install.sh | sh
+    ```
+
+    The script finds your system (Intel/AMD or ARM), downloads the files from the GitHub release, **checks their checksums** and stops if one does not match, then copies the programs into `/usr/local/bin` if you are root, or `~/.local/bin` otherwise. It never uses `sudo`, never edits your shell profile and contacts only GitHub. If the folder is not on your `PATH` it tells you the line to add.
+
+    Start the server:
+
+    ```bash
+    yukta
+    ```
+
+    <Note>
+      On macOS the script installs the client, and for now the server runs in Docker (see the Docker tab), until a native macOS server is published. The script prints the exact Docker command.
+    </Note>
+
+    Options go after `sh -s --`. For example, to install a specific version into a folder you choose:
+
+    ```bash
+    curl -fsSL https://github.com/infenia/yukta/releases/latest/download/install.sh \
+      | sh -s -- --version 0.1.0 --install-dir /opt/yukta/bin
+    ```
+
+    | Option | Meaning |
+    |---|---|
+    | `--version X.Y.Z` | Install this version instead of the newest stable release (needed for release candidates such as `0.1.0-rc.1`) |
+    | `--install-dir <dir>` | Install into this folder |
+    | `--cli-only`, `--server-only` | Install just one of the two programs |
+    | `--uninstall` | Remove both programs from the folder |
+
+    Prefer to read a script before running it? Download it first with `curl -fsSLO <url>`, open it, then run `sh install.sh`.
+  </Tab>
+  <Tab title="Windows" icon="windows">
+    In PowerShell (no administrator rights needed):
+
+    ```powershell
+    irm https://github.com/infenia/yukta/releases/latest/download/install.ps1 | iex
+    ```
+
+    The script checks the checksums, copies `yukta-cli.exe` (and `yukta.exe` once a native Windows server is published) into `%LOCALAPPDATA%\Programs\Yukta` and adds that folder to your user `PATH`. Open a new terminal afterwards.
+
+    <Note>
+      Until a native Windows server is published, the script installs the client and prints the Docker Desktop command that runs the server (see the Docker tab).
+    </Note>
+
+    A script piped to `iex` cannot take parameters, so options are environment variables set first, for example:
+
+    ```powershell
+    $env:YUKTA_VERSION = '0.1.0'
+    $env:YUKTA_INSTALL_DIR = 'C:\Tools\Yukta'
+    irm https://github.com/infenia/yukta/releases/latest/download/install.ps1 | iex
+    ```
+
+    | Variable | Meaning |
+    |---|---|
+    | `YUKTA_VERSION` | Install this version instead of the newest stable release |
+    | `YUKTA_INSTALL_DIR` | Install into this folder |
+    | `YUKTA_CLI_ONLY`, `YUKTA_SERVER_ONLY` | Set to `1` to install just one of the two programs |
+    | `YUKTA_UNINSTALL` | Set to `1` to remove the programs and the `PATH` entry |
+  </Tab>
   <Tab title="Docker" icon="docker">
     Works on Linux, macOS and Windows (with Docker Desktop), on Intel/AMD and ARM processors. One image tag serves both processor types.
 
@@ -36,11 +97,11 @@ Pick the way that suits you. All of them start the same server on `http://localh
     A container listens on all of its own network interfaces, and Yukta refuses to do that without an API key, so the key is required. `-p 127.0.0.1:8080:8080` publishes the port to your own machine only.
 
     <Note>
-      With a key set, add `-H "X-API-Key: change-me"` to every `curl` command below. The web UI does not send a key yet, so against this container it shows load errors; use `curl`, the command-line client or MCP. See [Web UI](/interfaces/web-ui).
+      With a key set, add `-H "X-API-Key: change-me"` to every `curl` command below, or pass `--token change-me` to `yukta-cli`. The web UI does not send a key yet, so against this container it shows load errors; use `curl`, the command-line client or MCP. See [Web UI](/interfaces/web-ui).
     </Note>
   </Tab>
-  <Tab title="Linux program" icon="linux">
-    A single native program with no runtime to install. It starts in a fraction of a second and listens on your own machine only.
+  <Tab title="Packages and archives" icon="box-archive">
+    If you would rather not run a script, download the files yourself from the [releases page](https://github.com/infenia/yukta/releases) and check them against `SHA256SUMS`.
 
     ```bash
     VERSION=0.1.0
@@ -58,9 +119,6 @@ Pick the way that suits you. All of them start the same server on `http://localh
     sudo apt install ./yukta_0.1.0_amd64.deb      # Debian, Ubuntu
     sudo dnf install ./yukta-0.1.0-1.x86_64.rpm   # Fedora, RHEL
     ```
-  </Tab>
-  <Tab title="macOS and Windows" icon="desktop">
-    The Docker tab works today on both, through Docker Desktop. Native downloads (a plain archive, then Homebrew, Scoop and winget) follow the Linux release, so for now use Docker, or run the Linux program inside WSL 2 on Windows.
   </Tab>
   <Tab title="From source" icon="code">
     For contributors, or until the first release exists. You need a JDK, version 25, and `git`.
@@ -138,7 +196,7 @@ curl -X POST http://localhost:8080/api/sessions \
 The workflow has one node of each role: `API_TRIGGER` receives the payload you send when you start it, `MAPPER` builds a new record from it, and `CONSOLE_TERMINAL` ends the branch by logging what arrives.
 
 <Note>
-  Sessions are held in memory by default, so apply them again after a restart. See [Persistence](/operations/persistence) to keep them on disk or in PostgreSQL.
+  Sessions are held in memory by default, so apply them again after a restart. See [Persistence](/operations/persistence) to keep them on disk or in PostgreSQL (both Plus edition).
 </Note>
 
 ## 3. Start the workflow
@@ -243,6 +301,9 @@ In everyday terms: you handed the server a flowchart, gave it a name to work wit
 <CardGroup cols={2}>
   <Card title="More examples" icon="flask" href="/examples">
     Ten workflows for CI, quality gates, data pipelines, retries, notifications and LLM agents.
+  </Card>
+  <Card title="Use the command-line client" icon="terminal" href="/interfaces/cli">
+    `yukta-cli` applies sessions, starts runs and follows logs from a terminal or a CI job.
   </Card>
   <Card title="Connect an AI agent" icon="robot" href="/interfaces/mcp">
     Point Claude or any MCP client at `/mcp` and let it create and run workflows.

@@ -29,6 +29,23 @@ jobs:
       - name: Check REUSE compliance
         uses: fsfe/reuse-action@676e2d560c9a403aa252096d99fcab3e1132b0f5 # v6
 
+  plus-isolation:
+    name: Apache modules never depend on Plus
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      # Only boot (behind -Pyukta.edition=plus) may use the AGPL plus module; a dependency anywhere
+      # else would make the Apache-2.0 Community build AGPL as a whole.
+      - name: Check that only boot depends on :plus
+        run: |
+          if git grep -nE 'project\(":plus' -- '*.gradle.kts' ':!plus/**' ':!boot/build.gradle.kts'; then
+            echo "::error::Only boot/build.gradle.kts may depend on :plus (see LICENSING.md)"
+            exit 1
+          fi
+
   gradle-license-validation:
     name: Dependency License Validation (Licensee)
     runs-on: ubuntu-latest
@@ -84,7 +101,7 @@ jobs:
 
       - name: Upload Licensee reports
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: licensee-reports
           path: |
@@ -121,7 +138,7 @@ jobs:
           always() && hashFiles('trivy-license-results.sarif') != '' &&
           (github.event_name != 'pull_request' ||
            github.event.pull_request.head.repo.full_name == github.repository)
-        uses: github/codeql-action/upload-sarif@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4
+        uses: github/codeql-action/upload-sarif@24c54180a607b1449ed407dd24f251e4e9147c8d # v4
         with:
           sarif_file: 'trivy-license-results.sarif'
           category: 'Trivy License Scan'

@@ -159,7 +159,11 @@ describe('ThemeToggle', () => {
     it('should have correct button styling', () => {
       render(<ThemeToggle />);
       const button = screen.getByLabelText('Toggle theme');
-      expect(button).toHaveClass('p-2', 'transition-colors', 'hover:bg-surface-container-low');
+      expect(button).toHaveClass(
+        'p-2',
+        'transition-colors',
+        'hover:bg-surface-container-low'
+      );
     });
 
     it('should have type button attribute', () => {

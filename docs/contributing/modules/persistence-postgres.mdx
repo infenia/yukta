@@ -4,6 +4,10 @@ description: "By default Yukta keeps its definitions, sessions, run history and 
 mode: "wide"
 ---
 
+<Note>
+  This module is part of the **Plus** edition (AGPL-3.0-only). See [Licensing and editions](/reference/licensing).
+</Note>
+
 By default Yukta keeps its definitions, sessions, run history and node outputs in memory or in files on one server. **persistence-postgres** is the optional module that moves them into PostgreSQL, adds a leader lease so two servers can share the database, and holds the small state of KV_STORE and SESSION_MEMORY nodes. It has no engine logic: it implements storage interfaces that core and plugin-api define. This page is for thinking about it: open a component, play a scenario, then challenge the weak spots.
 
 | Property | What it means |

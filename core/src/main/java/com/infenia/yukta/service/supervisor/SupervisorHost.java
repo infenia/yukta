@@ -7,8 +7,10 @@ import com.infenia.yukta.plugin.control.ControlPlanePlugin;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.control.ExecutionEvent;
 import com.infenia.yukta.plugin.control.ExecutionSupervisor;
+import com.infenia.yukta.security.AuditRecord;
+import com.infenia.yukta.security.AuditSink;
+import com.infenia.yukta.service.control.ControlAudit;
 import com.infenia.yukta.service.control.directive.DirectiveDispatcher;
-import com.infenia.yukta.service.log.ExecutionLogEvent;
 import com.infenia.yukta.service.log.ExecutionLogStore;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.micrometer.core.instrument.Counter;
@@ -16,12 +18,15 @@ import io.micrometer.core.instrument.MeterRegistry;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicLong;
 import lombok.extern.slf4j.Slf4j;
+import org.jspecify.annotations.Nullable;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import reactor.core.Disposable;
@@ -41,7 +46,7 @@ import reactor.util.retry.Retry;
  */
 @Slf4j
 @Component
-@SuppressWarnings("PMD.TooManyMethods")
+@SuppressWarnings({"PMD.TooManyMethods", "PMD.ExcessiveImports"})
 public class SupervisorHost {
 
   /** Events a supervisor may have waiting before the feed starts dropping them for it. */
@@ -64,6 +69,9 @@ public class SupervisorHost {
 
   /** Records commands that were not applied. */
   private final ExecutionLogStore executionLog;
+
+  /** Receives every audit record besides the log, if a module provides one. */
+  @Nullable private AuditSink auditSink;
 
   /** Registry for the command counter. */
   private final MeterRegistry meters;
@@ -230,13 +238,27 @@ public class SupervisorHost {
       final ExecutionControlCommand command,
       final String reason) {
     count(supervisorId, outcome);
-    executionLog.append(
-        ExecutionLogEvent.control(
+    ControlAudit.record(
+        executionLog,
+        auditSink,
+        new AuditRecord(
             false,
             command.executionId(),
-            command.getClass().getSimpleName() + " [by " + supervisorId + "]",
-            reason));
+            command.getClass().getSimpleName(),
+            supervisorId,
+            reason,
+            Instant.now()));
     return Mono.empty();
+  }
+
+  /**
+   * Passes every audit record on to a sink, besides the execution log.
+   *
+   * @param sink the sink, if the application has one
+   */
+  @Autowired(required = false)
+  public void setAuditSink(final AuditSink sink) {
+    this.auditSink = sink;
   }
 
   private void count(final String supervisorId, final String outcome) {
