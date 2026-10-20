@@ -8,13 +8,15 @@ import com.infenia.yukta.plugin.control.ControlSignalProcessor;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.control.ExecutionEvent;
 import com.infenia.yukta.plugin.control.WorkflowDirective;
+import com.infenia.yukta.security.AuditRecord;
+import com.infenia.yukta.security.AuditSink;
 import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.archive.ExecutionArchive;
 import com.infenia.yukta.service.control.CommandSequencer;
+import com.infenia.yukta.service.control.ControlAudit;
 import com.infenia.yukta.service.control.ControlBusService;
 import com.infenia.yukta.service.control.ExecutionControl;
 import com.infenia.yukta.service.control.store.ExecutionControlRegistry;
-import com.infenia.yukta.service.log.ExecutionLogEvent;
 import com.infenia.yukta.service.log.ExecutionLogStore;
 import com.infenia.yukta.service.supervisor.ControlReviewer;
 import com.infenia.yukta.service.supervisor.ExecutionEventFeed;
@@ -25,6 +27,8 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
+import org.jspecify.annotations.Nullable;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
 
@@ -59,6 +63,9 @@ public class DirectiveDispatcher {
 
   /** Records applied and rejected commands. */
   private final ExecutionLogStore executionLog;
+
+  /** Receives every audit record besides the log, if a module provides one. */
+  @Nullable private AuditSink auditSink;
 
   /** Lets supervisors refuse a command before it runs. */
   private final ControlReviewer reviewer;
@@ -96,6 +103,16 @@ public class DirectiveDispatcher {
     this.executionLog = executionLog;
     this.reviewer = reviewer;
     this.eventFeed = eventFeed;
+  }
+
+  /**
+   * Passes every audit record on to a sink, besides the execution log.
+   *
+   * @param sink the sink, if the application has one
+   */
+  @Autowired(required = false)
+  public void setAuditSink(final AuditSink sink) {
+    this.auditSink = sink;
   }
 
   /** Registers this dispatcher as the executor of execution control commands. */
@@ -141,7 +158,6 @@ public class DirectiveDispatcher {
    */
   private Mono<Void> audited(final ExecutionControlCommand command, final String actor) {
     final String name = command.getClass().getSimpleName();
-    final String logged = actor == null ? name : name + " [by " + actor + "]";
     return reviewer
         .review(new ControlRequest(command, actor))
         .then(Mono.defer(() -> dispatch(command)))
@@ -149,22 +165,33 @@ public class DirectiveDispatcher {
         .doOnError(error -> outcome(command, name, actor, error.getMessage()))
         .doOnSuccess(
             _ ->
-                executionLog.append(
-                    ExecutionLogEvent.control(true, command.executionId(), logged, null)))
+                ControlAudit.record(
+                    executionLog,
+                    auditSink,
+                    new AuditRecord(true, command.executionId(), name, actor, null, Instant.now())))
         .doOnError(
             error ->
-                executionLog.append(
-                    ExecutionLogEvent.control(
-                        false, command.executionId(), logged, error.getMessage())));
+                ControlAudit.record(
+                    executionLog,
+                    auditSink,
+                    new AuditRecord(
+                        false,
+                        command.executionId(),
+                        name,
+                        actor,
+                        error.getMessage(),
+                        Instant.now())));
   }
 
   /** A command whose caller went away before it finished is neither applied nor lost. */
   private void cancelled(final ExecutionControlCommand command, final String actor) {
     final String name = command.getClass().getSimpleName();
-    final String logged = actor == null ? name : name + " [by " + actor + "]";
     outcome(command, name, actor, CANCELLED_REASON);
-    executionLog.append(
-        ExecutionLogEvent.control(false, command.executionId(), logged, CANCELLED_REASON));
+    ControlAudit.record(
+        executionLog,
+        auditSink,
+        new AuditRecord(
+            false, command.executionId(), name, actor, CANCELLED_REASON, Instant.now()));
   }
 
   private void outcome(

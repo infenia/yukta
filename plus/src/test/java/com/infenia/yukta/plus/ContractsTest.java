@@ -7,12 +7,16 @@ import com.infenia.yukta.plugin.store.NodeCheckpointStore;
 import com.infenia.yukta.plus.testkit.ExecutionLogStoreContract;
 import com.infenia.yukta.plus.testkit.LeaderElectionContract;
 import com.infenia.yukta.plus.testkit.NodeCheckpointStoreContract;
+import com.infenia.yukta.plus.testkit.SessionConfigStoreContract;
 import com.infenia.yukta.plus.testkit.WorkflowDefinitionStoreContract;
 import com.infenia.yukta.service.leader.LeaderElection;
 import com.infenia.yukta.service.leader.SingleServerLeader;
 import com.infenia.yukta.service.log.ExecutionLogStore;
 import com.infenia.yukta.service.log.InMemoryExecutionLogStore;
 import com.infenia.yukta.service.log.JsonlExecutionLogStore;
+import com.infenia.yukta.service.session.store.FileSessionConfigStore;
+import com.infenia.yukta.service.session.store.InMemorySessionConfigStore;
+import com.infenia.yukta.service.session.store.SessionConfigStore;
 import com.infenia.yukta.service.store.FileNodeCheckpointStore;
 import com.infenia.yukta.service.store.InMemoryNodeCheckpointStore;
 import com.infenia.yukta.service.workflow.store.FileWorkflowDefinitionStore;
@@ -95,6 +99,29 @@ class ContractsTest {
       final SessionConfigProperties props = new SessionConfigProperties();
       props.setBaseDir(dir.toString());
       return new FileWorkflowDefinitionStore(props, MAPPER);
+    }
+  }
+
+  @Nested
+  @NoArgsConstructor
+  public class InMemorySessions extends SessionConfigStoreContract {
+    @Override
+    protected SessionConfigStore create() {
+      return new InMemorySessionConfigStore(
+          new SessionConfigProperties(), new InMemoryWorkflowDefinitionStore());
+    }
+  }
+
+  @Nested
+  @NoArgsConstructor
+  public class FileSessions extends SessionConfigStoreContract {
+    @TempDir /* default */ Path dir;
+
+    @Override
+    protected SessionConfigStore create() {
+      final SessionConfigProperties props = new SessionConfigProperties();
+      props.setBaseDir(dir.toString());
+      return new FileSessionConfigStore(props, MAPPER, new InMemoryWorkflowDefinitionStore());
     }
   }
 

@@ -127,9 +127,9 @@ Community can no longer write sessions to disk, so a free user loses workflows o
 
 ### 1. The contract: Apache hooks in `core`, AGPL framework in `plus` (D12)
 
-The seams stay in `core` because `core` calls them and the Community build must never depend on `plus`: `SessionConfigStore`, `WorkflowDefinitionStore`, `ExecutionLogStore`, `ExecutionControlStore`, `NodeCheckpointStore`, `KeyValueStore`, `SessionHistoryStore`, `LeaderElection`, `RemoteNodeExecutor` and `ApiAuthenticator`. They are public under an irrevocable Apache grant, so a third party can implement them without `plus`; the plan does not pretend otherwise. What `plus` owns is the supported integration layer: `EnterpriseModule` and `PlusApi.VERSION`, the registry (version check, features, licence verification hook), the edition reporting and the contract tests. A module built on it is part of a Plus build and follows the AGPL; Infenia's own Enterprise modules are exempt as their copyright owner. How far the AGPL reaches into a module that only implements the Apache hooks is contested and needs a lawyer. A separate Apache `spi` module (the earlier idea) is not needed.
+The seams stay in `core` because `core` calls them and the Community build must never depend on `plus`: `SessionConfigStore`, `WorkflowDefinitionStore`, `ExecutionLogStore`, `ExecutionControlStore`, `NodeCheckpointStore`, `KeyValueStore`, `SessionHistoryStore`, `LeaderElection`, `RemoteNodeExecutor`, `ApiAuthenticator` and `AuditSink`. They are public under an irrevocable Apache grant, so a third party can implement them without `plus`; the plan does not pretend otherwise. What `plus` owns is the supported integration layer: `EnterpriseModule` and `PlusApi.VERSION`, the registry (version check, features, licence verification hook), the edition reporting and the contract tests. A module built on it is part of a Plus build and follows the AGPL; Infenia's own Enterprise modules are exempt as their copyright owner. How far the AGPL reaches into a module that only implements the Apache hooks is contested and needs a lawyer. A separate Apache `spi` module (the earlier idea) is not needed.
 
-Still open: a `SessionConfigStore` contract test, and an `AuditSink` seam (audit actor names flow through `ControlActor` today).
+Both are built: `SessionConfigStoreContract` (it leaves out what a setter does to a value that is already set, because the stores disagree: bug B31) and the `AuditSink` hook, which receives every control command besides the execution log. The audit trail itself (SIEM export, tamper evidence) is Enterprise work.
 
 ### 2. Extension by Spring auto-configuration (built)
 
@@ -198,7 +198,7 @@ Do these before moving any code. They are the part most likely to cause trouble 
 | Phase | Where | Work | State |
 |---|---|---|---|
 | **0. Decide and prepare** | Both | Answer the open decisions; remaining legal groundwork; trademark | Plus, metadata and CLA drafts done; D2, D6 to D9, D11 open; counsel review open |
-| **1. Contracts** | Public | Hooks, replaceable defaults, feature gate, `EditionInfo`, `ApiAuthenticator`, contract tests | **Done** (in `core` and `plus`, D12). Open: `SessionConfigStore` contract, `AuditSink` |
+| **1. Contracts** | Public | Hooks, replaceable defaults, feature gate, `EditionInfo`, `ApiAuthenticator`, contract tests | **Done** (in `core` and `plus`, D12) |
 | **2. Publish** | Public | Publish `plugin-api`, `messaging`, `core`, `plus` and friends to Maven Central; versioning policy; a BOM | Not started (needs credentials) |
 | **3. Private repository** | Private | Create the repository; `boot-enterprise`; CI; native build and image; private registry | Not started |
 | **4. Cut Community** | Public | Community refuses PostgreSQL, HA and worker settings; bootstrap folder; docs | **Done** except moving the two modules out, which waits for Phase 3 (D13) |

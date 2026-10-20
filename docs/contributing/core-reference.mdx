@@ -1,14 +1,14 @@
 ---
 title: "Core module reference"
 description: "Architecture, feature catalog and reference for the Yukta core module."
-verifiedCommit: "bdcc59a5"
+verifiedCommit: "cc3db521"
 verifiedDate: "2026-10-20"
 mode: "wide"
 ---
 
 The `core` module is the engine and control plane of Yukta. It takes a workflow definition (a DAG of trigger, processor and terminal nodes), runs it as a live stream of messages, lets people and programs steer it while it runs, and records enough to explain or resume it afterwards.
 
-Last verified against commit `bdcc59a5` on 2026-10-20.
+Last verified against commit `cc3db521` on 2026-10-20.
 
 <CardGroup cols={2}>
   <Card title="Reactive">
@@ -523,6 +523,7 @@ All commands for one run enter one queue, are applied in the order sent, acknowl
 - Commands are a sealed set (`ExecutionControlCommand`): pause/resume workflow and node, step mode, step, stop node, stop workflow, skip, breakpoint, signal, restart, restart-from-node, set limits, set priority. One processor class per command.
 - The caller's answer arrives only once the command has been applied (`CommandSequencer`: FIFO per run; runs are independent).
 - Audit: every command for a **known** run is logged as `CONTROL_APPLIED` (status = command name) or `CONTROL_REJECTED` (status = `command: reason`). Commands for unknown runs are not recorded. A restart that fails is audited as rejected.
+- `ControlAudit` is the one place that writes these entries (dispatcher, gateway limit changes and supervisor refusals all call it). It also passes each one to an `AuditSink` bean if the application has one, as an `AuditRecord`; a sink that throws is logged and ignored, so it can never stop a command.
 - The actor is carried in the Reactor context (`ControlActor.CONTEXT_KEY`); REST uses the API key name, supervisors their id.
 
 **Surface:** One facade, `ControlBusGateway`, used by REST, MCP and the CLI. Split internally into `WorkflowStarter`, `NodeCommands`, `RestartCoordinator`, `ExecutionQueries` (shared base `ControlDispatch`).

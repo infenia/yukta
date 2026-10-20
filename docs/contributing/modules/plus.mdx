@@ -21,7 +21,8 @@ The `plus` directory holds everything that is not in the Community edition. It h
 
 1. It provides a bean of a type that `core` owns (a store, `LeaderElection`, `ApiAuthenticator`) and declares `@AutoConfiguration(before = DefaultsAutoConfiguration.class)`, so the single-server default steps aside.
 2. It registers an `EnterpriseModule` bean with the `PlusApi.VERSION` it was built against. The registry refuses a mismatch at start-up, asks the `LicenseVerifier` and lists the features.
-3. It runs the contract tests from `testFixtures(project(":plus"))` against its implementations.
+3. It can provide an `AuditSink` bean to receive every control command (applied or not) besides the execution log.
+4. It runs the contract tests from `testFixtures(project(":plus"))` against its implementations.
 
 The build then reports the Enterprise edition through `GET /api/edition`. Settings that need a module that is not in the build stop start-up with a message that names the build switch (the `GATES` table in `FeatureGateEnvironmentPostProcessor`).
 
