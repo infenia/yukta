@@ -2,7 +2,10 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.config;
 
+import com.infenia.yukta.edition.EditionInfo;
 import com.infenia.yukta.plugin.store.NodeCheckpointStore;
+import com.infenia.yukta.security.ApiAuthenticator;
+import com.infenia.yukta.security.ApiKeyAuthenticator;
 import com.infenia.yukta.service.leader.LeaderElection;
 import com.infenia.yukta.service.leader.SingleServerLeader;
 import com.infenia.yukta.service.log.ExecutionLogStore;
@@ -15,6 +18,7 @@ import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.Bean;
+import org.springframework.core.env.Environment;
 import tools.jackson.databind.ObjectMapper;
 
 /**
@@ -77,5 +81,28 @@ public class DefaultsAutoConfiguration {
   @ConditionalOnExpression("!'postgres'.equals('${yukta.ha.mode:}')")
   public SingleServerLeader singleServerLeader() {
     return new SingleServerLeader();
+  }
+
+  /**
+   * Who may call the REST API and MCP: the API keys of the configuration.
+   *
+   * @param environment holds the API keys
+   * @return the authenticator
+   */
+  @Bean
+  @ConditionalOnMissingBean(ApiAuthenticator.class)
+  public ApiKeyAuthenticator apiKeyAuthenticator(final Environment environment) {
+    return ApiKeyAuthenticator.read(environment);
+  }
+
+  /**
+   * The edition of a build that has no edition module.
+   *
+   * @return the Community info
+   */
+  @Bean
+  @ConditionalOnMissingBean(EditionInfo.class)
+  public EditionInfo communityEdition() {
+    return EditionInfo.community();
   }
 }

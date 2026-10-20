@@ -1,14 +1,14 @@
 ---
 title: "Core module reference"
 description: "Architecture, feature catalog and reference for the Yukta core module."
-verifiedCommit: "d2424ed"
-verifiedDate: "2026-10-15"
+verifiedCommit: "916caa84"
+verifiedDate: "2026-10-20"
 mode: "wide"
 ---
 
 The `core` module is the engine and control plane of Yukta. It takes a workflow definition (a DAG of trigger, processor and terminal nodes), runs it as a live stream of messages, lets people and programs steer it while it runs, and records enough to explain or resume it afterwards.
 
-Last verified against commit `d2424ed` on 2026-10-15.
+Last verified against commit `916caa84` on 2026-10-20.
 
 <CardGroup cols={2}>
   <Card title="Reactive">
@@ -812,6 +812,8 @@ Sessions, definitions with versions, the execution log, node checkpoints, KV sta
 - Stores: `R2dbcSessionConfigStore`, `R2dbcWorkflowDefinitionStore` (newest 20 versions, notes), `R2dbcExecutionLogStore` (one writer thread; trims to `retained-runs`; never drops a run without an end), `R2dbcNodeCheckpointStore` (one JSONB row per message plus a state row per node with the end marker; migration V3), `R2dbcKeyValueStore` (`KV_STORE`; V5), `R2dbcSessionHistoryStore` (`SESSION_MEMORY`; V6). Leader lease is V4.
 - The in-memory and file defaults step aside when the type is `postgres`.
 
+- The single-server defaults (`InMemoryExecutionLogStore`, `InMemoryNodeCheckpointStore`, `SingleServerLeader`) are registered by `DefaultsAutoConfiguration` with `@ConditionalOnMissingBean`; an extension module replaces one by declaring `@AutoConfiguration(before = DefaultsAutoConfiguration.class)`. `FeatureGateEnvironmentPostProcessor` refuses a store, leader or worker setting whose module is not in the build, and `EditionInfo` (`GET /api/edition`) reports the edition.
+
 **Configure:** `yukta.session.store-type=postgres` · `yukta.restart.store-type=postgres` · `yukta.kv.store-type=postgres` · `yukta.session-memory.store-type=postgres`
 
 **Limits:** Pool tuning, health checks and native-image metadata for R2DBC and Flyway are not finished.
@@ -891,6 +893,7 @@ One key set guards both REST and MCP. Named keys carry a role and may be limited
 
 **Behaviour**
 
+- The filters ask an `ApiAuthenticator` (`Scope.REST` or `Scope.MCP`), whose default is `ApiKeyAuthenticator` (the keys below). A module replaces it by providing another `ApiAuthenticator` bean; `HostOriginFilter` and the start-up exposure check ask the same bean, so they follow it.
 - Keys come from `yukta.api-key` (one key that may do everything) and `yukta.api-keys[]` (`name`, `key`, `role`, `sessions`). A key is plain text or `sha256:<hex>`; several keys at once allow rotation without downtime. A request presents `Authorization: Bearer <key>` or `X-API-Key`.
 - Roles: `VIEWER` reads. `OPERATOR` also starts, controls and recovers runs (paths under `/api/executions/` and `/api/workflow/`, no `..`). `ADMIN` everything, including defining sessions and workflows (which can run processes, scripts and SQL) and changing scheduler limits.
 - The audit records the actor as `key:<name>`; `GET /api/control/audit` lists who sent which command.
@@ -1036,6 +1039,7 @@ Lookup tables. Each row names the feature that owns it, so a change to a feature
 | `yukta.session.store-type` | `in-memory` | [DEF-01](#def-01-definition-store-and-versions), [DUR-05](#dur-05-session-configuration) | `in-memory` \| `file` \| `postgres` |
 | `yukta.kv.store-type` | memory | [DUR-04](#dur-04-postgresql-stores) | State of `KV_STORE` (module: persistence-postgres) |
 | `yukta.session-memory.store-type` | memory | [DUR-04](#dur-04-postgresql-stores) | History of `SESSION_MEMORY` (module: persistence-postgres) |
+| `yukta.session-memory.dir` | unset (memory) | [DUR-04](#dur-04-postgresql-stores) | Keep `SESSION_MEMORY` history on disk (Plus build) |
 | `yukta.workers.lease` | 15s | [SCL-01](#scl-01-remote-workers) | Worker lease; a missed renewal drops the worker |
 | `yukta.workers.token` | unset | [SCL-01](#scl-01-remote-workers) | Shared token (module: workers) |
 | `yukta.workers.control-plane` | unset | [SCL-01](#scl-01-remote-workers) | Worker side: `host:port`, comma-separated for HA (workers) |
@@ -1045,6 +1049,7 @@ Lookup tables. Each row names the feature that owns it, so a change to a feature
 | `yukta.ha.mode` | single server | [SCL-02](#scl-02-active/standby-high-availability) | `postgres` enables active/standby (persistence-postgres) |
 | `yukta.ha.lease` | 15s | [SCL-02](#scl-02-active/standby-high-availability) | Leader lease, renewed three times per lease |
 | `yukta.api-key` | unset | [SEC-01](#sec-01-api-keys-roles-and-actors) | One key that may do everything |
+| `yukta.mcp.api-key` | unset | [SEC-01](#sec-01-api-keys-roles-and-actors) | One more key that may do everything, accepted only on the MCP endpoint |
 | `yukta.api-keys[].name\|key\|role\|sessions` | unset | [SEC-01](#sec-01-api-keys-roles-and-actors) | Named keys; `key` may be `sha256:<hex>` |
 | `yukta.allowed-hosts` · `yukta.allowed-origins` | loopback | [SEC-01](#sec-01-api-keys-roles-and-actors) | Host and Origin check while no key is set (web) |
 | `yukta.variables.allowed` · `YUKTA_VARIABLES_ALLOWED` | empty | [SEC-02](#sec-02-expressions-variables-and-secrets) | Extra readable `${env.X}` / `${sys.x}` names |

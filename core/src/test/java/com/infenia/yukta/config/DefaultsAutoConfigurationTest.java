@@ -4,7 +4,10 @@ package com.infenia.yukta.config;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.infenia.yukta.edition.EditionInfo;
 import com.infenia.yukta.plugin.store.NodeCheckpointStore;
+import com.infenia.yukta.security.ApiAuthenticator;
+import com.infenia.yukta.security.ApiKeyAuthenticator;
 import com.infenia.yukta.service.leader.LeaderElection;
 import com.infenia.yukta.service.leader.SingleServerLeader;
 import com.infenia.yukta.service.log.ExecutionLogStore;
@@ -34,6 +37,8 @@ class DefaultsAutoConfigurationTest {
           assertThat(context).hasSingleBean(InMemoryExecutionLogStore.class);
           assertThat(context).hasSingleBean(InMemoryNodeCheckpointStore.class);
           assertThat(context).hasSingleBean(SingleServerLeader.class);
+          assertThat(context).hasSingleBean(ApiKeyAuthenticator.class);
+          assertThat(context.getBean(EditionInfo.class)).isEqualTo(EditionInfo.community());
         });
   }
 
@@ -43,6 +48,8 @@ class DefaultsAutoConfigurationTest {
         .withBean("log", ExecutionLogStore.class, () -> Mockito.mock(ExecutionLogStore.class))
         .withBean("cp", NodeCheckpointStore.class, () -> Mockito.mock(NodeCheckpointStore.class))
         .withBean("le", LeaderElection.class, () -> Mockito.mock(LeaderElection.class))
+        .withBean("auth", ApiAuthenticator.class, () -> Mockito.mock(ApiAuthenticator.class))
+        .withBean("ed", EditionInfo.class, EditionInfo::community)
         .run(
             context -> {
               assertThat(context).hasSingleBean(ExecutionLogStore.class);
@@ -51,6 +58,8 @@ class DefaultsAutoConfigurationTest {
               assertThat(context).doesNotHaveBean(InMemoryExecutionLogStore.class);
               assertThat(context).doesNotHaveBean(InMemoryNodeCheckpointStore.class);
               assertThat(context).doesNotHaveBean(SingleServerLeader.class);
+              assertThat(context).hasSingleBean(ApiAuthenticator.class);
+              assertThat(context).doesNotHaveBean(ApiKeyAuthenticator.class);
             });
   }
 

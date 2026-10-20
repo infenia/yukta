@@ -3,6 +3,9 @@
 package com.infenia.yukta.mcp;
 
 import com.infenia.yukta.plugin.control.ControlActor;
+import com.infenia.yukta.security.ApiAuthenticator;
+import com.infenia.yukta.security.ApiAuthenticator.Scope;
+import com.infenia.yukta.security.ApiKeyAuthenticator;
 import com.infenia.yukta.security.ApiKeys;
 import com.infenia.yukta.security.ApiRole;
 import com.infenia.yukta.security.RequestPaths;
@@ -49,17 +52,26 @@ public class McpEndpointFilter implements WebFilter {
   /** Former endpoint name, kept as an alias for clients that are already configured. */
   private static final String LEGACY_ENDPOINT = "/sse";
 
-  /** Keys clients may present; empty disables the check. */
-  private final ApiKeys keys;
+  /** Identifies the caller; an open authenticator disables the check. */
+  private final ApiAuthenticator authenticator;
 
   /**
    * Create the filter from the configuration.
    *
    * @param environment holds the REST keys and {@code yukta.mcp.api-key}
    */
-  @Autowired
   public McpEndpointFilter(final Environment environment) {
-    this.keys = ApiKeys.read(environment, "yukta.mcp.api-key");
+    this(ApiKeyAuthenticator.read(environment));
+  }
+
+  /**
+   * Create the filter.
+   *
+   * @param authenticator identifies the caller (API keys by default)
+   */
+  @Autowired
+  public McpEndpointFilter(final ApiAuthenticator authenticator) {
+    this.authenticator = authenticator;
   }
 
   /**
@@ -68,7 +80,7 @@ public class McpEndpointFilter implements WebFilter {
    * @param apiKey the required key, or empty to leave the endpoint open
    */
   public McpEndpointFilter(final String apiKey) {
-    this.keys = ApiKeys.single(apiKey);
+    this.authenticator = ApiKeyAuthenticator.single(apiKey);
   }
 
   @Override
@@ -79,10 +91,11 @@ public class McpEndpointFilter implements WebFilter {
     if (!legacy && !ENDPOINT.equals(path)) {
       return chain.filter(exchange);
     }
-    if (keys.isEmpty()) {
+    if (authenticator.isOpen(Scope.MCP)) {
       return chain.filter(rewritten(exchange, legacy));
     }
-    final ApiKeys.Match match = keys.find(ApiKeys.presented(exchange.getRequest().getHeaders()));
+    final ApiKeys.Match match =
+        authenticator.authenticate(Scope.MCP, exchange.getRequest().getHeaders());
     final HttpStatus refusal = refusal(raw, match);
     if (refusal != null) {
       return reject(exchange, refusal);
@@ -91,7 +104,7 @@ public class McpEndpointFilter implements WebFilter {
         match.role() == ApiRole.ADMIN && match.sessions().isEmpty()
             ? chain.filter(rewritten(exchange, legacy))
             : checked(exchange, chain, match, legacy);
-    return keys.named()
+    return authenticator.named()
         ? next.contextWrite(ctx -> ctx.put(ControlActor.CONTEXT_KEY, "key:" + match.name()))
         : next;
   }
