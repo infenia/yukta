@@ -4,6 +4,10 @@ description: "Install Yukta as a Docker image, a Linux package or an archive, or
 mode: "wide"
 ---
 
+<Note>
+  Storing state on disk (`YUKTA_SESSION_STORE_TYPE=file`) is part of the **Plus** edition (AGPL-3.0-only). Build it with `-Pyukta.edition=plus`; the Community build refuses these settings at start-up and keeps state in memory. See [Licensing and editions](/reference/licensing).
+</Note>
+
 <Info>
   **In plain terms:** how to get Yukta running beyond your laptop: as a plain program, a native binary or a container. The page also shows which optional parts to include in the build, so you ship only what you use.
 </Info>

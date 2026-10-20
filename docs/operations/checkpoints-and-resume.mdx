@@ -4,6 +4,10 @@ description: "How Yukta records node outputs, restarts a run or one node, recove
 mode: "wide"
 ---
 
+<Note>
+  Storing state on disk (`yukta.execution-log.dir`, `yukta.restart.dir`) is part of the **Plus** edition (AGPL-3.0-only). Build it with `-Pyukta.edition=plus`; the Community build refuses these settings at start-up and keeps state in memory. See [Licensing and editions](/reference/licensing).
+</Note>
+
 <Info>
   **In plain terms:** a checkpoint is a saved copy of what each step has produced. If the server stops mid-run, Yukta can pick up from those copies instead of redoing finished work, the way a video game resumes from its last save point.
 </Info>

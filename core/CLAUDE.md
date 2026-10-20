@@ -103,6 +103,7 @@ Malformed policies are rejected by `WorkflowValidator` with the node id and opti
   `yukta.restart.spill-dir` is set: then the whole output of that node moves to files there
   (`FileNodeCheckpointStore`, so it replays as plain JSON values), is deleted with the execution,
   and leftovers of an earlier process are removed at startup. Do not point it at a shared folder.
+- **Plus split:** `FileSessionConfigStore`, `FileWorkflowDefinitionStore` and `JsonlExecutionLogStore` live in the AGPL `plus` module (same packages). `FileNodeCheckpointStore` stays here (the in-memory store spills to it); `PlusConfiguration` registers it as the durable store. `PlusRequiredEnvironmentPostProcessor` stops start-up if a file setting is used without Plus.
 - Restart-from-node re-runs the node and its descendants and replays the recorded output of the
   nodes that feed them (`RestartPlan`); independent branches are left alone.
 - Set `yukta.restart.dir` to keep node outputs on disk (`FileNodeCheckpointStore`, one JSON line per

@@ -73,3 +73,11 @@ path = ["**/*.md", "docs/**/*.mdx", "docs/docs.json", "docs/.mintignore", "docs/
 precedence = "aggregate"
 SPDX-FileCopyrightText = "2026 Infenia Private Limited"
 SPDX-License-Identifier = "Apache-2.0"
+
+# The Plus edition is AGPL-3.0-only; its files carry the same SPDX header in the file itself. This
+# entry covers the files that cannot (Markdown, resources) and must stay the last one so it wins.
+[[annotations]]
+path = ["plus/**"]
+precedence = "override"
+SPDX-FileCopyrightText = "2026 Infenia Private Limited"
+SPDX-License-Identifier = "AGPL-3.0-only"

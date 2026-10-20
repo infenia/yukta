@@ -5,10 +5,10 @@ mode: "wide"
 ---
 
 <Note>
-  Internal plan, restricted to project members. Back to the [internal index](/internal). **Plan only: nothing in this plan has been implemented.** This is engineering planning, not legal advice. Every licensing decision below needs review by a lawyer before it is acted on.
+  Internal plan, restricted to project members. Back to the [internal index](/internal). This is engineering planning, not legal advice. Every licensing decision below needs review by a lawyer before it is acted on. The public statement of the model is [Licensing and editions](/reference/licensing).
 </Note>
 
-Status: **for review.** D1 (AGPL-3.0-only), D3, D4 and D5 are answered (see [Decisions](#decisions)); the rest still need an answer.
+Status: **Plus tier and licence paperwork done; the Enterprise side is not started.** Decided: D1 (AGPL-3.0-only), D3, D4, D5, D10. Done (see [LICENSING.md](https://github.com/infenia/yukta/blob/main/LICENSING.md)): the `plus` module with the single-node file stores, AGPL headers and REUSE entries, the `-Pyukta.edition=plus` build switch (used instead of a separate `boot-plus` module), the Community start-up error for file settings, the source offer in `/actuator/info`, the CI isolation guard, and the CLA files with a bot (texts are drafts pending legal review). Still to do: Phases 1 to 4 and 6, the UI footer source link, and the legal items marked open below. The sections here describe only that remaining work.
 
 ## The goal in one paragraph
 
@@ -23,16 +23,16 @@ A look at the current repository shows that most of the work is moving things, n
 | `persistence-postgres` and `workers` are separate Gradle modules. Each depends only on `core` and `plugin-api`, and nothing in `core`, `web`, `mcp` or `boot` imports them (only two YAML files in `boot` mention their settings) | They can be lifted out whole |
 | The seams are interfaces owned by `core` and `plugin-api`: `SessionConfigStore`, `WorkflowDefinitionStore`, `ExecutionLogStore`, `NodeCheckpointStore`, `KeyValueStore`, `SessionHistoryStore`, `LeaderElection` (with `SingleServerLeader` as the default) and the `RemoteNodeExecutor` family | Enterprise implementations of these are exactly the "adapter" you describe |
 | Defaults are Spring beans guarded by `@ConditionalOnMissingBean` and property conditions; add-on modules register through `AutoConfiguration.imports` | A jar on the classpath can replace a default with no change to the server |
-| The build already has per-edition switches (`-Pyukta.persistence=postgres`, `-Pyukta.workers=true`, `-Pyukta.plugins=...`) and the default build leaves the optional modules out | The first release can already be the Community edition |
+| The build already has per-edition switches (`-Pyukta.edition=plus`, `-Pyukta.persistence=postgres`, `-Pyukta.workers=true`, `-Pyukta.plugins=...`) and the default build leaves the optional modules out | The first release can already be the Community edition |
 
-What is **missing** is a public, versioned contract (the interfaces live inside the large `core` module, and no artifact has ever been published), an "edition" concept so the server can say "this needs Enterprise" clearly, and the licensing paperwork.
+What is **missing** is a public, versioned contract (the interfaces live inside the large `core` module, and no artifact has ever been published) and an `Edition` value so the server can say "this needs Enterprise" clearly. The licensing paperwork and the Plus module exist.
 
 ## The three tiers
 
 | Tier | Licence | Source | Who it is for |
 |---|---|---|---|
 | **1. Community** | Apache-2.0 | Public, this repository | Everyone: try it, embed it, run single-server workloads |
-| **2. Plus** (name to decide) | **AGPL-3.0-only**, see below | Public, this repository, in its own directory | Teams that want more than Community and are happy with AGPL, and the route by which commercial customers learn there is a paid licence |
+| **2. Plus** (name to decide) | **AGPL-3.0-only**, see below | Public, this repository, in `plus/` (built) | Teams that want more than Community and are happy with AGPL, and the route by which commercial customers learn there is a paid licence |
 | **3. Enterprise** | Proprietary commercial licence | Private repository `infenia/yukta-enterprise` | Organisations that need durability, availability, scale and enterprise security |
 
 ### The tier-2 licence: AGPL-3.0-only
@@ -62,7 +62,7 @@ How the options compare for this product (ELv2, the alternative considered, is t
 1. A program that combines Apache code (Community) with AGPL code (Plus) is, as a whole, covered by AGPL. So the **Plus build is a separate artifact** from the Community build, and Community must never depend on Plus.
 2. Enterprise code that Infenia owns can use Plus code in a proprietary build, because the copyright holder is not bound by its own licence. This holds only for code where Infenia is the sole owner.
 
-**An honest limit.** The code that would move into Plus (the single-node `File*Store` classes) is already public under Apache-2.0 in the git history, and an irrevocable Apache grant cannot be withdrawn. Anyone may keep using, or fork, that old copy. The AGPL therefore protects only what is written from now on. For Plus to be worth protecting, new Plus-tier work should be added over time; at launch it is mainly a clear licence ladder (Community, Plus, Enterprise) and a route to commercial licences, not a moat. The moat is Enterprise.
+**An honest limit.** The code that moved into Plus (the single-node `File*Store` classes) is already public under Apache-2.0 in the git history, and an irrevocable Apache grant cannot be withdrawn. Anyone may keep using, or fork, that old copy. The AGPL therefore protects only what is written from now on. For Plus to be worth protecting, new Plus-tier work should be added over time; at launch it is mainly a clear licence ladder (Community, Plus, Enterprise) and a route to commercial licences, not a moat. The moat is Enterprise.
 
 **Whole-server AGPL was considered and is not recommended.** Licensing `core`, `web` and `boot` under the AGPL would not protect the Apache code that is already public (a competitor could fork it), and it would complicate the plug-in story: third-party and Enterprise adapters linked into an AGPL server become part of one combined work, which needs a linking exception to keep them proprietary. Keeping Community Apache keeps the adapter interfaces simple and adoption high.
 
@@ -75,7 +75,7 @@ This is the part to review closely. Rows marked **Decision** depend on your answ
 | Capability | Today | Community | Plus | Enterprise |
 |---|---|---|---|---|
 | In-memory sessions, workflows, log, checkpoints | `core`, default | Yes | Yes | Yes |
-| Single-node durable storage on disk (`File*Store`, JSONL log, checkpoint and chat directories) | `core`, Apache | Removed from Community | **Yes (D3)** | Yes |
+| Single-node durable storage on disk (`File*Store`, JSONL log, checkpoint and chat directories) | `plus/` (done); the checkpoint store class stays in `core` for overflow | Refused with a clear message | **Yes (D3)** | Yes |
 | PostgreSQL stores (sessions, workflows, log, checkpoints, KV, chat history, flyway migrations) | `persistence-postgres` | No | No | Yes |
 | High availability: leader election and failover (`R2dbcLeaderElection`) | `persistence-postgres`; interface in `core` | Single server only (`SingleServerLeader`) | Single server only | Yes |
 | Scale-out: remote workers, worker pools, placement (`workers` server and agent, RSocket, TLS to workers) | `workers`; `RemoteNodeExecutor` in `core` | `engine.placement` is refused with a clear message | No | Yes |
@@ -97,11 +97,11 @@ The engine, DAG validation, REST and MCP interfaces, web UI, CLI, playground, bu
 
 ### The honest cost of the free-tier cut
 
-Today Community can write sessions to disk. Removing that means a free user loses all workflows on restart. Mitigations that keep Community useful without persistence, all small:
+Community can no longer write sessions to disk, so a free user loses workflows on restart. The start-up error and the [licensing page](/reference/licensing) say so. Still to build, all small:
 
-- **Declarative start-up:** a `yukta.bootstrap.dir` that applies every session JSON file in a folder when the server starts, so definitions live in git, not in the server. Users already have `yukta-cli session apply`.
+- **Declarative start-up:** a `yukta.bootstrap.dir` that applies every session JSON file in a folder when the server starts, so definitions live in git, not in the server. Users already have `yukta session apply`.
 - **Export:** `GET` endpoints already return definitions; the docs would show a one-line backup.
-- **Clear messaging:** the server logs once at startup that state is in memory, and the docs say so on the first page a user sees.
+- **Clear messaging:** the server logs once at startup that state is in memory.
 
 ## Architecture: how Enterprise plugs in
 
@@ -113,7 +113,7 @@ Today Community can write sessions to disk. Removing that means a free user lose
  │ core, web, mcp, ui, plugins (Apache)       │        │ workers                implements remote nodes │
  │ plus/    (AGPL)  optional                  │        │ security-sso, security-rbac, audit, secrets    │
  │ boot            Community build            │        │ license                verifies the licence file│
- │ boot-plus       Community + Plus build     │        │ boot-enterprise        Community + Enterprise  │
+ │ boot -Pyukta.edition=plus  Plus build      │        │ boot-enterprise        Community + Enterprise  │
  └────────────────────────────────────────────┘        └───────────────────────────────────────────────┘
           published to Maven Central ───────────────────► consumed as ordinary dependencies
 ```
@@ -163,10 +163,10 @@ Recommendation: A for everything, B only if a customer needs to add their own ad
 
 | Item | Public `infenia/yukta` | Private `infenia/yukta-enterprise` |
 |---|---|---|
-| Modules | `spi`, `plugin-api`, `messaging`, `core`, `web`, `mcp`, `ui`, `plugins/**`, `cli`, `boot`, optional `plus/**` and `boot-plus` | `persistence-postgres`, `ha`, `workers`, `security-*`, `audit`, `secrets`, `license`, `boot-enterprise` |
+| Modules | `spi`, `plugin-api`, `messaging`, `core`, `web`, `mcp`, `ui`, `plugins/**`, `cli`, `boot`, `plus/**` (AGPL, behind `-Pyukta.edition=plus`) | `persistence-postgres`, `ha`, `workers`, `security-*`, `audit`, `secrets`, `license`, `boot-enterprise` |
 | Publishes | Maven Central artifacts under `com.infenia.yukta`; Community image and installers | The Enterprise image and binaries to a private registry |
 | Versioning | Semantic versions; `spi` follows strict compatibility rules | Enterprise `X.Y` is built against Yukta `X.Y`; one compatibility table |
-| CI | Existing CI plus a check that no Apache module depends on `plus/**` | Builds against the published artifacts, runs the `spi` test kit on every adapter, plus Testcontainers for PostgreSQL |
+| CI | Existing CI, which already checks that no Apache module depends on `plus/**` | Builds against the published artifacts, runs the `spi` test kit on every adapter, plus Testcontainers for PostgreSQL |
 | Secrets | none | Licence signing key, registry credentials, kept off GitHub-hosted runners where possible |
 
 The public repository needs to start publishing artifacts first; none have ever been published.
@@ -177,7 +177,6 @@ The public repository needs to start publishing artifacts first; none have ever 
 2. **Remove from the public `main`.** Delete the two modules and the `-Pyukta.persistence` and `-Pyukta.workers` switches from `boot/build.gradle.kts` and `settings.gradle.kts`. Replace them with the feature gate messages above.
 3. **Leave the public history alone.** The code is in the public Git history under Apache-2.0, and that grant is irrevocable for anyone who already has it (there is at least one fork). No release was ever tagged, so nothing was distributed as a product, but the old snapshot stays Apache forever. Rewriting public history would not recall clones or the fork and would break everyone's checkouts, so the plan does not do it. New work happens only in the private repository.
 4. **Docs.** The user-facing pages for persistence, high availability, remote workers and parts of security stay public as *product* pages with an "Enterprise" tag (that is what sells it), but their configuration detail and the module pages `contributing/modules/persistence-postgres` and `workers` move to private documentation.
-5. **File persistence.** Per D3, either remove the `File*Store` classes from Community and re-create them in `plus/`, or move them to Enterprise.
 
 ## Legal groundwork
 
@@ -186,29 +185,27 @@ Do these before moving any code. They are the part most likely to cause trouble 
 | Item | Why |
 |---|---|
 | **Confirm who owns the copyright.** Almost all commits are by one author plus the `engineering-infenia` account and Dependabot. Confirm that the author's work is assigned to Infenia Private Limited (employment or contractor terms) | Dual licensing and a closed Enterprise repository both require Infenia to own the code it relicenses |
-| **Add a Contributor Licence Agreement** before accepting outside contributions. A DCO alone is not enough, because dual licensing needs the right to license contributions commercially. A practical, low-cost route is to adapt the Apache individual and corporate CLAs (replace "the Foundation" with Infenia) and collect signatures with a free GitHub CLA bot. `CONTRIBUTING.md` has neither today | Without it, one outside contribution to a Plus file can make dual licensing impossible for that file |
+| **Have the CLA reviewed.** `CLA.md`, `CLA-corporate.md` and the CLA bot are in place as drafts adapted from the Apache CLAs. They must be reviewed before the first outside pull request is merged | Dual licensing needs the right to license contributions commercially; without a valid CLA one outside contribution to a Plus file can make that impossible |
 | **Choose and register a trademark policy** for the name "Yukta" and the logo | A licence on the code does not stop others using your name |
-| **Write the Enterprise licence (EULA)** and a commercial licence for Plus | The contracts that actually enforce the tiers |
-| **Update licence metadata**: SPDX headers (`Apache-2.0` vs `AGPL-3.0-only`), per-directory REUSE annotations, `LICENSES/AGPL-3.0-only.txt`, `NOTICE`, a `LICENSING.md` that explains the three tiers in plain words, and the `licensee` allow-list so dependencies for Plus are checked correctly | The repository already enforces licence hygiene; the tiers must fit into it |
-| **Meet the AGPL network clause (§13) in the Plus build**: show where the corresponding source is (a "Source code" link in the UI footer and in `GET /actuator/info`) | The duty applies to modified versions, and offering the link from the start avoids any doubt |
+| **Write the Enterprise licence (EULA)** and a commercial licence for Plus (`LICENSING.md` points to Infenia for it) | The contracts that actually enforce the tiers |
+| **Finish the AGPL network clause (§13) in the Plus build.** `/actuator/info` already shows the source link; add a "Source code" link to the UI footer | The duty applies to modified versions, and offering the link from the start avoids any doubt |
 | **Get a short professional review.** You do not need a retainer: a few fixed-fee hours with an open-source-experienced lawyer, covering the CLA, the commercial licence and the Enterprise EULA, is enough. Do it before the first outside contribution or the first commercial deal, not before any code is written; the early phases are reversible | This plan is not legal advice |
 
 ## Phases
 
 | Phase | Where | Work | Done when |
 |---|---|---|---|
-| **0. Decide and prepare** | Both | Answer the decisions below; legal groundwork; pick names; trademark | Decisions recorded; counsel sign-off on the licences |
+| **0. Decide and prepare** | Both | Answer the open decisions below; remaining legal groundwork; pick names; trademark. *Plus, metadata and CLA drafts are done* | Decisions recorded; counsel sign-off on the licences |
 | **1. Contracts** | Public | Extract `spi`; add `Edition`, `FeatureGate`, `Authenticator`/`Authorizer`/`AuditSink` with the current API-key code as the Community implementation; write the test kit; add clear start-up errors. **No behaviour change** | Existing tests pass; a fake in-test adapter passes the test kit |
 | **2. Publish** | Public | Publish `spi`, `plugin-api`, `messaging`, `core` and friends to Maven Central; versioning and compatibility policy | Enterprise can build against released artifacts |
 | **3. Private repository** | Private | Create the repository; move `persistence-postgres` and `workers` with history; add `ha` as its own module; `boot-enterprise`; CI; native build and image; private registry | An Enterprise image runs the current PostgreSQL and worker scenarios |
 | **4. Cut Community** | Public | Remove the two modules and the build switches; apply D3; add the bootstrap directory; update docs, Quickstart and Deployment; add "Enterprise" tags | Community build has no PostgreSQL or worker code; docs match |
-| **5. Plus** | Public | `plus/` directory with the single-node file stores moved out of `core`, AGPL headers, source link for §13, `boot-plus`, CI rule that Community never depends on Plus; commercial licence page | Separate Plus artifacts build and pass tests |
 | **6. New Enterprise features** | Private | Licence verification first, then RBAC, SSO, audit export, secrets, encryption at rest, multi-tenancy, in order of customer demand | Each feature behind the licence and the TCK |
 | **7. Go to market** | Both | Pricing page, ordering and delivery, support terms, upgrade paths between tiers | Out of scope for engineering; listed so it is not forgotten |
 
 ### Interaction with the release work in progress
 
-The release plan (#408 to #410) already builds the **default** variant, which leaves out PostgreSQL and workers, so the first image and installers are effectively the Community edition. Recommendation: complete **Phases 0 and 1 before tagging v0.1.0**. Then the first release has the final licence headers, the edition endpoint and the clear "requires Enterprise" errors, and nobody receives a release that later loses features. Phase 4 should also land before v0.1.0 if D3 removes file persistence, because removing a feature after a release is a breaking change.
+The release plan (#408 to #410) already builds the **default** variant, which leaves out PostgreSQL and workers, so the first image and installers are effectively the Community edition. Recommendation: complete **Phases 0 and 1 before tagging v0.1.0**. Then the first release has the final licence headers, the edition endpoint and the clear "requires Enterprise" errors, and nobody receives a release that later loses features. Phase 4 should also land before v0.1.0: file persistence already moved to Plus, and removing PostgreSQL and workers after a release is a breaking change.
 
 The install scripts and Docker image names stay as planned. Enterprise gets its own image name and delivery channel.
 
@@ -238,9 +235,9 @@ The install scripts and Docker image names stay as planned. Enterprise gets its 
 | D7 | Distribution of Enterprise artifacts | Open. Recommendation: private registry with per-customer credentials, a portal later |
 | D8 | Maven coordinates and host | Open. Recommendation: Maven Central under `com.infenia.yukta` |
 | D9 | Timing relative to v0.1.0 | Open. Recommendation: Phases 0 to 2 before tagging; Phase 4 straight after Phase 3 |
-| D10 | Contributor agreement | Open. Recommendation: adapted Apache CLA (individual and corporate) with a GitHub CLA bot, required before the first outside pull request is merged |
+| D10 | Contributor agreement | **Adapted Apache CLA (individual and corporate) with a GitHub CLA bot**, in place (`CLA.md`, `CLA-corporate.md`, `.github/workflows/cla.yml`); the texts are drafts pending legal review |
 | D11 | Trademark | Open. Recommendation: a short trademark policy for "Yukta" and the logo, and registration if budget allows |
 
-## What happens after you approve
+## What happens next
 
-Nothing starts until you approve the plan. Phase 1 would be the first pull request: extract `spi`, add the edition and feature gate with clear start-up errors, and move no code out of the repository yet. Everything after that is gated on the legal groundwork.
+Phase 1 is the next pull request: extract `spi`, add the `Edition` value, the feature gate and `GET /api/edition`, and widen the start-up errors from file settings to PostgreSQL, HA and placement settings, moving no more code out of the repository yet. Everything after that is gated on the remaining legal groundwork.

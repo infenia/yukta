@@ -56,6 +56,11 @@ dependencies {
         implementation(project(":persistence-postgres"))
     }
 
+    // Single-node durable storage on disk (AGPL-3.0-only, see LICENSING.md): -Pyukta.edition=plus
+    if (providers.gradleProperty("yukta.edition").orNull == "plus") {
+        implementation(project(":plus"))
+    }
+
     // Remote workers over RSocket (control plane server and worker agent): -Pyukta.workers=true
     if (providers.gradleProperty("yukta.workers").orNull == "true") {
         implementation(project(":workers"))
@@ -81,6 +86,7 @@ dependencies {
 // Tells the tests whether the optional modules (PostgreSQL stores, remote workers) are part of this build.
 tasks.withType<Test>().configureEach {
     providers.gradleProperty("yukta.persistence").orNull?.let { systemProperty("yukta.persistence", it) }
+    providers.gradleProperty("yukta.edition").orNull?.let { systemProperty("yukta.edition", it) }
     providers.gradleProperty("yukta.workers").orNull?.let { systemProperty("yukta.workers", it) }
 }
 

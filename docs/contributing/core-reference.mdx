@@ -221,9 +221,9 @@ Base package `com.infenia.yukta` under `core/src/main/java`. Use this to find wh
 | `…control.gateway` | The facade REST and MCP call; split by concern | `ControlBusGateway` `DefaultControlBusGateway` `WorkflowStarter` `NodeCommands` `RestartCoordinator` `ExecutionQueries` `StartIdempotency` | ADM-02, CTL |
 | `…control.processor / valve / directive / store` | One processor per command; the valve; plugin-level directives; control handle stores | `SignalNodeCommandProcessor` `ReactiveControlValve` `DirectiveDispatcher` `InMemoryExecutionControlStore` | CTL |
 | `service.supervisor` | Supervisor host, reviewer hook, event feed | `SupervisorHost` `ControlReviewer` `ExecutionEventFeed` | CTL-06, CTL-07 |
-| `service.log / archive / store` | Execution log, recovery, archive, node checkpoint stores | `ExecutionLogStore` `JsonlExecutionLogStore` `ExecutionRecovery` `ExecutionArchive` `FileNodeCheckpointStore` | DUR |
-| `service.workflow / workflow.store` | Definitions, versions, diff, prepared-workflow cache | `WorkflowService` `WorkflowDefinitionStore` `FileWorkflowDefinitionStore` `PreparedWorkflowCache` `WorkflowDiff` | DEF-01 |
-| `service.session` | Session config and its stores | `SessionService` `FileSessionConfigStore` `InMemorySessionConfigStore` | DUR-05 |
+| `service.log / archive / store` | Execution log, recovery, archive, node checkpoint stores | `ExecutionLogStore` `JsonlExecutionLogStore` (plus) `ExecutionRecovery` `ExecutionArchive` `FileNodeCheckpointStore` | DUR |
+| `service.workflow / workflow.store` | Definitions, versions, diff, prepared-workflow cache | `WorkflowService` `WorkflowDefinitionStore` `FileWorkflowDefinitionStore` (plus) `PreparedWorkflowCache` `WorkflowDiff` | DEF-01 |
+| `service.session` | Session config and its stores | `SessionService` `FileSessionConfigStore` (plus) `InMemorySessionConfigStore` | DUR-05 |
 | `service.result / streaming` | Terminal results channel; progress history cache | `ExecutionResultService` `StatusHistoryCache` | OBS |
 | `service.worker / leader` | Worker registry and remote node execution; leader election | `WorkerRegistry` `RemoteProcessor` `RemoteNodes` `LeaderElection` `TakeoverRecovery` | SCL |
 | `service.plugin` | Plugin lookup by type | `PluginRegistry` | EXT-01 |
@@ -256,7 +256,7 @@ Keeps each workflow definition per session together with its newest 20 versions,
 
 **Surface:** REST `GET …/versions/diff?from=&to=` (omit `to` for current), rollback endpoint, `POST …/versions/note?version=&note=`. MCP `list_workflow_versions`, `diff_workflow_versions`, `rollback_workflow`, `note_workflow_version`. UI Versions panel.
 
-**Source:** `WorkflowDefinitionStore` `FileWorkflowDefinitionStore` `InMemoryWorkflowDefinitionStore` `DefinitionRevision` `WorkflowDiff` `WorkflowService`
+**Source:** `WorkflowDefinitionStore` `FileWorkflowDefinitionStore` (plus) `InMemoryWorkflowDefinitionStore` `DefinitionRevision` `WorkflowDiff` `WorkflowService`
 
 **Limits:** Newest 20 versions kept. PostgreSQL variant lives in [DUR-04](#dur-04-postgresql-stores).
 
@@ -758,7 +758,7 @@ An append-only record of run starts (with the input payload), ends, control comm
 
 **Configure:** `yukta.execution-log.dir` · `…retained-runs` (500) · `…compact-after` (10000) · `…fsync` (false)
 
-**Source:** `ExecutionLogStore` `InMemoryExecutionLogStore` `JsonlExecutionLogStore` `ExecutionLogEvent` `ExecutionRecovery`
+**Source:** `ExecutionLogStore` `InMemoryExecutionLogStore` `JsonlExecutionLogStore` (plus) `ExecutionLogEvent` `ExecutionRecovery`
 
 **Limits:** Without fsync, power loss can lose the last few events. A failure to write a run's end no longer keeps the run from ending.
 
@@ -829,7 +829,7 @@ Stores each session's configuration (workflows, execution timeout, tags) and its
 
 **Configure:** `yukta.session.store-type` (in-memory \| file \| postgres)
 
-**Source:** `SessionService` `SessionConfigStore` `FileSessionConfigStore` `InMemorySessionConfigStore` `SessionConfigProperties`
+**Source:** `SessionService` `SessionConfigStore` `FileSessionConfigStore` (plus) `InMemorySessionConfigStore` `SessionConfigProperties`
 
 ## Scale-out and high availability
 

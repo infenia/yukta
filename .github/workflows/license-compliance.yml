@@ -29,6 +29,23 @@ jobs:
       - name: Check REUSE compliance
         uses: fsfe/reuse-action@676e2d560c9a403aa252096d99fcab3e1132b0f5 # v6
 
+  plus-isolation:
+    name: Apache modules never depend on Plus
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      # Only boot (behind -Pyukta.edition=plus) may use the AGPL plus module; a dependency anywhere
+      # else would make the Apache-2.0 Community build AGPL as a whole.
+      - name: Check that only boot depends on :plus
+        run: |
+          if git grep -nE 'project\(":plus"\)' -- '*.gradle.kts' ':!plus/**' ':!boot/build.gradle.kts'; then
+            echo "::error::Only boot/build.gradle.kts may depend on :plus (see LICENSING.md)"
+            exit 1
+          fi
+
   gradle-license-validation:
     name: Dependency License Validation (Licensee)
     runs-on: ubuntu-latest

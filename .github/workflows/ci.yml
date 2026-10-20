@@ -200,6 +200,11 @@ jobs:
           if [ "$full" = true ] || jq -e 'index("persistence-postgres") or index("boot")' <<<"$CHANGED_MODULES" >/dev/null; then
             shards=$(jq -c --arg a "$pg_args" '. + [{name: "postgres-acceptance", args: $a}]' <<<"$shards")
           fi
+          # Plus edition (AGPL-3.0-only): the same app with the on-disk stores (-Pyukta.edition=plus)
+          plus_args='-Pyukta.edition=plus :boot:test --tests *FileStoreAcceptanceTest'
+          if [ "$full" = true ] || jq -e 'index("plus") or index("boot")' <<<"$CHANGED_MODULES" >/dev/null; then
+            shards=$(jq -c --arg a "$plus_args" '. + [{name: "plus-acceptance", args: $a}]' <<<"$shards")
+          fi
           # Fail-fast lint: Checkstyle/PMD/OpenGrep only (cli and ui have none; boot needs the UI build)
           lint_tasks=""
           for t in $lint; do

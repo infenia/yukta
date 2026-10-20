@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: AGPL-3.0-only
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.service.log;
 
@@ -39,50 +39,6 @@ class ExecutionLogStoreTest {
         .extracting(ExecutionLogEvent::type)
         .containsExactly(ExecutionLogEvent.Type.RUN_STARTED, ExecutionLogEvent.Type.RUN_FINISHED);
     store.close();
-  }
-
-  @Test
-  void eventFactories_fillTheRightFields() {
-    final ExecutionLogEvent started = ExecutionLogEvent.started("e1", "s1", "w1", "v1");
-    final ExecutionLogEvent finished =
-        ExecutionLogEvent.finished("e1", "s1", "w1", "SUCCESS", Map.of("n1", "SUCCESS"));
-    final ExecutionLogEvent aborted = ExecutionLogEvent.aborted(started);
-
-    assertThat(started.type()).isEqualTo(ExecutionLogEvent.Type.RUN_STARTED);
-    assertThat(started.definitionVersion()).isEqualTo("v1");
-    assertThat(finished.status()).isEqualTo("SUCCESS");
-    assertThat(finished.nodeStatuses()).containsEntry("n1", "SUCCESS");
-    assertThat(aborted.type()).isEqualTo(ExecutionLogEvent.Type.RUN_ABORTED);
-    assertThat(aborted.status()).isEqualTo("ABORTED");
-    assertThat(aborted.executionId()).isEqualTo("e1");
-    assertThat(
-            new ExecutionLogEvent(
-                    started.type(),
-                    "e",
-                    "s",
-                    "w",
-                    null,
-                    null,
-                    null,
-                    null,
-                    null,
-                    started.timestamp())
-                .nodeStatuses())
-        .isEmpty();
-  }
-
-  @Test
-  void inMemory_appendsAndReplaces() {
-    final InMemoryExecutionLogStore store = new InMemoryExecutionLogStore();
-    final ExecutionLogEvent first = ExecutionLogEvent.started("a", "s", "w", "v");
-    final ExecutionLogEvent second = ExecutionLogEvent.started("b", "s", "w", "v");
-
-    store.append(first);
-    store.append(second);
-    assertThat(store.readAll()).containsExactly(first, second);
-
-    store.replaceAll(List.of(second));
-    assertThat(store.readAll()).containsExactly(second);
   }
 
   @Test

@@ -137,6 +137,7 @@
             "public": true,
             "pages": [
               "reference/glossary",
+              "reference/licensing",
               "reference/limits-and-defaults",
               "reference/status-values"
             ]

@@ -20,7 +20,7 @@ FULL=${FULL:-false}
 
 declare -A path=(
   [messaging]=:messaging [plugin-api]=:plugin-api [core]=:core [web]=:web [mcp]=:mcp [boot]=:boot
-  [persistence-postgres]=:persistence-postgres [workers]=:workers [cli]=:cli [ui]=:ui
+  [persistence-postgres]=:persistence-postgres [plus]=:plus [workers]=:workers [cli]=:cli [ui]=:ui
   [api-trigger]=:plugins:triggers:api-trigger
   [constant-source]=:plugins:triggers:constant-source
   [schedule-trigger]=:plugins:triggers:schedule-trigger
@@ -45,7 +45,7 @@ declare -A path=(
 group_of() {
   case $1 in
     messaging|plugin-api|core|web|mcp|boot) echo platform ;;
-    persistence-postgres|workers) echo infra ;;
+    persistence-postgres|plus|workers) echo infra ;;
     cli|ui) echo frontend ;;
     *) echo plugins ;;
   esac

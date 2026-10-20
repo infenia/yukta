@@ -4,6 +4,10 @@ description: "Keep sessions, the execution log and node outputs in memory, on di
 mode: "wide"
 ---
 
+<Note>
+  Storing state on disk (`yukta.session.store-type=file`, `yukta.execution-log.dir`, `yukta.restart.dir`, `yukta.session-memory.dir`) is part of the **Plus** edition (AGPL-3.0-only). Build it with `-Pyukta.edition=plus`; the Community build refuses these settings at start-up and keeps state in memory. See [Licensing and editions](/reference/licensing).
+</Note>
+
 <Info>
   **In plain terms:** by default Yukta forgets everything when it restarts, which is fine for trying it out. When you need your workflows and history to survive restarts, switch the storage to files or PostgreSQL, one kind of data at a time.
 </Info>
@@ -19,7 +23,7 @@ The default is right for trying things out: nothing to set up, and a restart giv
 | Profile | How to select it | Where data goes |
 |---|---|---|
 | Memory (default) | No settings | In the server process. Lost on restart |
-| File | Set the directory settings below | Files on the server's disk |
+| File | Plus build (`-Pyukta.edition=plus`), then the directory settings below | Files on the server's disk |
 | PostgreSQL | Optional build switch, the `postgres` profile and database URLs | PostgreSQL tables |
 
 ## Which setting switches which store
