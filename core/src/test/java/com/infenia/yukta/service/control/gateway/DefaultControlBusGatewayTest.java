@@ -16,6 +16,7 @@ import static org.mockito.Mockito.when;
 
 import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
+import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
 import com.infenia.yukta.model.execution.WorkflowProgress;
 import com.infenia.yukta.model.workflow.PreparedWorkflow;
@@ -648,6 +649,37 @@ class DefaultControlBusGatewayTest {
                     && err.getMessage().contains("Execution not found")
                     && err.getMessage().contains(executionId))
         .verify();
+  }
+
+  @Test
+  void stopExecution_noHandleButTrackerStillRunning_finishesTheRunAsStopped() {
+    final String executionId = "exec-orphan";
+    when(executionControlRegistry.findByExecutionId(executionId)).thenReturn(Optional.empty());
+    when(taskTracker.getProgressByExecutionId(executionId))
+        .thenReturn(
+            new WorkflowProgress(executionId, "sess", "wf", "RUNNING", List.of(), null, null));
+    when(taskTracker.finishWorkflow(executionId, TaskStatus.STOPPED)).thenReturn(Mono.empty());
+
+    StepVerifier.create(gateway.stopExecution(executionId, "stop"))
+        .expectNext(executionId)
+        .verifyComplete();
+
+    verify(taskTracker).finishWorkflow(executionId, TaskStatus.STOPPED);
+  }
+
+  @Test
+  void stopExecution_noHandleAndTrackerAlreadyFinal_isNotFound() {
+    final String executionId = "exec-done";
+    when(executionControlRegistry.findByExecutionId(executionId)).thenReturn(Optional.empty());
+    when(taskTracker.getProgressByExecutionId(executionId))
+        .thenReturn(
+            new WorkflowProgress(executionId, "sess", "wf", "SUCCESS", List.of(), null, null));
+
+    StepVerifier.create(gateway.stopExecution(executionId, "stop"))
+        .expectError(IllegalArgumentException.class)
+        .verify();
+
+    verify(taskTracker, never()).finishWorkflow(any(), any());
   }
 
   @Test

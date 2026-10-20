@@ -390,14 +390,18 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
 
   @Override
   public Mono<String> stopExecution(final String executionId, final String reason) {
-    return Mono.fromSupplier(() -> dispatch.findExecutionOrThrow(executionId))
-        .flatMap(
-            control ->
-                executeCommand(
-                        ControlDispatch.buildCommand(
-                            new StopWorkflowCommand(control.executionId(), reason),
-                            ControlDispatch.CONTROL_COMMAND_PRIORITY + 20))
-                    .thenReturn(control.executionId()))
+    return Mono.defer(
+            () ->
+                executionControlRegistry
+                    .findByExecutionId(executionId)
+                    .map(
+                        control ->
+                            executeCommand(
+                                    ControlDispatch.buildCommand(
+                                        new StopWorkflowCommand(control.executionId(), reason),
+                                        ControlDispatch.CONTROL_COMMAND_PRIORITY + 20))
+                                .thenReturn(control.executionId()))
+                    .orElseGet(() -> queries.finishOrphan(executionId)))
         .doOnSubscribe(
             _ ->
                 log.atInfo()
