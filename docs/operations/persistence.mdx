@@ -5,7 +5,7 @@ mode: "wide"
 ---
 
 <Note>
-  Storing state on disk (`yukta.session.store-type=file`, `yukta.execution-log.dir`, `yukta.restart.dir`, `yukta.session-memory.dir`) is part of the **Plus** edition (AGPL-3.0-only). Build it with `-Pyukta.edition=plus`; the Community build refuses these settings at start-up and keeps state in memory. See [Licensing and editions](/reference/licensing).
+  Storing state on disk (`yukta.session.store-type=file`, `yukta.execution-log.dir`, `yukta.restart.dir`, `yukta.session-memory.dir`) and PostgreSQL storage are part of the **Plus** edition (AGPL-3.0-only). Build it with `-Pyukta.edition=plus` (PostgreSQL also needs `-Pyukta.persistence=postgres`); the Community build refuses these settings at start-up and keeps state in memory. See [Licensing and editions](/reference/licensing).
 </Note>
 
 <Info>

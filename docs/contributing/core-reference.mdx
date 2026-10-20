@@ -54,8 +54,8 @@ Last verified against commit `d2424ed` on 2026-10-15.
 - REST controllers, SSE endpoints, Host/Origin filter: `web`
 - MCP tools: `mcp`. CLI: `cli`. UI: `ui`
 - Node implementations (`LLM_CALL`, `HTTP_REQUEST`, ...): `plugins/*`; contracts: `plugin-api`
-- PostgreSQL stores and Flyway migrations: `persistence-postgres`
-- RSocket worker transport and agent: `workers`
+- PostgreSQL stores and Flyway migrations: `plus/persistence-postgres` (AGPL, Plus)
+- RSocket worker transport and agent: `plus/workers` (AGPL, Plus)
 - Application wiring and native image: `boot`
 
 <Note>
@@ -808,7 +808,7 @@ Sessions, definitions with versions, the execution log, node checkpoints, KV sta
 
 **Behaviour**
 
-- R2DBC at run time (`spring.r2dbc.url`); Flyway migrations applied over JDBC (`spring.flyway.url`) from `persistence-postgres/src/main/resources/db/migration`. Profile `postgres`; build with `-Pyukta.persistence=postgres`.
+- R2DBC at run time (`spring.r2dbc.url`); Flyway migrations applied over JDBC (`spring.flyway.url`) from `plus/persistence-postgres/src/main/resources/db/migration`. Profile `postgres`; build with `-Pyukta.persistence=postgres`.
 - Stores: `R2dbcSessionConfigStore`, `R2dbcWorkflowDefinitionStore` (newest 20 versions, notes), `R2dbcExecutionLogStore` (one writer thread; trims to `retained-runs`; never drops a run without an end), `R2dbcNodeCheckpointStore` (one JSONB row per message plus a state row per node with the end marker; migration V3), `R2dbcKeyValueStore` (`KV_STORE`; V5), `R2dbcSessionHistoryStore` (`SESSION_MEMORY`; V6). Leader lease is V4.
 - The in-memory and file defaults step aside when the type is `postgres`.
 

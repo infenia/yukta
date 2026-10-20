@@ -20,7 +20,7 @@ FULL=${FULL:-false}
 
 declare -A path=(
   [messaging]=:messaging [plugin-api]=:plugin-api [core]=:core [web]=:web [mcp]=:mcp [boot]=:boot
-  [persistence-postgres]=:persistence-postgres [plus]=:plus [workers]=:workers [cli]=:cli [ui]=:ui
+  [persistence-postgres]=:plus:persistence-postgres [plus]=:plus [workers]=:plus:workers [cli]=:cli [ui]=:ui
   [api-trigger]=:plugins:triggers:api-trigger
   [constant-source]=:plugins:triggers:constant-source
   [schedule-trigger]=:plugins:triggers:schedule-trigger

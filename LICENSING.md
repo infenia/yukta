@@ -5,15 +5,19 @@ Yukta comes in three editions. Only the first two are in this repository.
 | Edition | Licence | Where | For whom |
 |---|---|---|---|
 | **Community** | [Apache-2.0](LICENSES/Apache-2.0.txt) | Everything outside `plus/` | Anyone: try it, embed it, run it on a single server |
-| **Plus** | [AGPL-3.0-only](LICENSES/AGPL-3.0-only.txt), or a commercial licence | `plus/` | Single-node durable storage on disk, for teams happy with the AGPL |
-| **Enterprise** | Proprietary | A separate private repository | High availability, PostgreSQL, remote workers, enterprise security |
+| **Plus** | [AGPL-3.0-only](LICENSES/AGPL-3.0-only.txt), or a commercial licence | `plus/` | Durable state (disk, PostgreSQL), high availability and remote workers, for teams happy with the AGPL |
+| **Enterprise** | Proprietary | A separate private repository (not created yet) | Enterprise security, multi-tenancy and the other features built there; PostgreSQL, HA and workers will move there later |
 
 ## What this means in practice
 
 - **Using Community** needs nothing beyond the Apache-2.0 terms. This is what you get from the
   default build, the Docker image and the installers.
 - **Plus** adds storing sessions, workflows, the execution log, checkpoints and chat history on
-  disk. Build it with `-Pyukta.edition=plus`. Without Plus, those settings
+  disk (`-Pyukta.edition=plus`), PostgreSQL storage with leader election for high availability
+  (`-Pyukta.persistence=postgres`, `plus/persistence-postgres`), and remote workers
+  (`-Pyukta.workers=true`, `plus/workers`). For now these two modules are in Plus; they are planned
+  to move to Enterprise when its repository exists, and code already published stays available
+  under the licence it was published with. Without Plus, those settings
   (`yukta.session.store-type=file`, `yukta.execution-log.dir`, `yukta.restart.dir`,
   `yukta.session-memory.dir`) stop start-up with a clear message; state otherwise stays in memory.
 - **The AGPL applies to the Plus build as a whole**, because it combines Apache and AGPL code.

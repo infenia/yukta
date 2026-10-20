@@ -41,7 +41,7 @@ jobs:
       # else would make the Apache-2.0 Community build AGPL as a whole.
       - name: Check that only boot depends on :plus
         run: |
-          if git grep -nE 'project\(":plus"\)' -- '*.gradle.kts' ':!plus/**' ':!boot/build.gradle.kts'; then
+          if git grep -nE 'project\(":plus' -- '*.gradle.kts' ':!plus/**' ':!boot/build.gradle.kts'; then
             echo "::error::Only boot/build.gradle.kts may depend on :plus (see LICENSING.md)"
             exit 1
           fi

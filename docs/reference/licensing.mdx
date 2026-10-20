@@ -13,8 +13,8 @@ mode: "wide"
 | Edition | Licence | What it adds | Where it lives |
 |---|---|---|---|
 | **Community** | Apache-2.0 | The engine, REST and MCP interfaces, web UI, CLI, all built-in plugins, in-memory state | This repository, everything outside `plus/` |
-| **Plus** | AGPL-3.0-only, or a commercial licence | Single-server state on disk: sessions, workflow definitions, the execution log, checkpoints and chat history | This repository, the `plus/` directory |
-| **Enterprise** | Commercial | PostgreSQL storage, high availability, remote workers, named API keys and roles, and further security features | A separate private repository |
+| **Plus** | AGPL-3.0-only, or a commercial licence | State on disk (sessions, workflow definitions, the execution log, checkpoints, chat history), PostgreSQL storage with high availability, and remote workers | This repository, the `plus/` directory |
+| **Enterprise** | Commercial | Enterprise security, multi-tenancy and other features built in a separate private repository that does not exist yet. PostgreSQL, high availability and remote workers are planned to move there later | A separate private repository |
 
 The default build, the Docker image and the installers are the Community edition.
 
@@ -30,10 +30,12 @@ If a setting that needs disk storage is present, the Community build refuses to 
 | `yukta.execution-log.dir` | Plus |
 | `yukta.restart.dir` | Plus |
 | `yukta.session-memory.dir` | Plus |
+| `yukta.session.store-type=postgres`, `yukta.ha.mode=postgres` | Plus, with `-Pyukta.persistence=postgres` |
+| `yukta.workers.*`, `engine.placement` | Plus, with `-Pyukta.workers=true` |
 
 ## Plus: what to know
 
-Build it with `-Pyukta.edition=plus`. Because the build combines Apache and AGPL code, the Plus build as a whole is covered by the AGPL.
+Build it with `-Pyukta.edition=plus`; add `-Pyukta.persistence=postgres` for PostgreSQL and `-Pyukta.workers=true` for remote workers. Because the build combines Apache and AGPL code, the Plus build as a whole is covered by the AGPL.
 
 - Running it unmodified, inside your company or for your customers, needs nothing more.
 - If you modify it and let other people use it over a network, the AGPL (section 13) requires you to offer them your modified source. A Plus server shows where its source is under `edition` in `/actuator/info`.

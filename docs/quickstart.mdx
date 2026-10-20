@@ -196,7 +196,7 @@ curl -X POST http://localhost:8080/api/sessions \
 The workflow has one node of each role: `API_TRIGGER` receives the payload you send when you start it, `MAPPER` builds a new record from it, and `CONSOLE_TERMINAL` ends the branch by logging what arrives.
 
 <Note>
-  Sessions are held in memory by default, so apply them again after a restart. See [Persistence](/operations/persistence) to keep them on disk (Plus edition) or in PostgreSQL (Enterprise edition).
+  Sessions are held in memory by default, so apply them again after a restart. See [Persistence](/operations/persistence) to keep them on disk or in PostgreSQL (both Plus edition).
 </Note>
 
 ## 3. Start the workflow

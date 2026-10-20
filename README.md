@@ -271,7 +271,7 @@ Built with Java 25, Spring Boot 4.1 (WebFlux), Gradle 9.8, Project Reactor, Spri
 |--------|---------|
 | `boot` | Spring Boot entry point, native image config |
 | `core` | DAG orchestration engine, plugin registry |
-| `persistence-postgres` | Optional PostgreSQL stores (R2DBC + Flyway) for sessions, workflows and the execution log |
+| `plus/persistence-postgres` | Optional (AGPL, Plus) PostgreSQL stores (R2DBC + Flyway) for sessions, workflows and the execution log |
 | `plugin-api` | Plugin interfaces and store abstractions |
 | `plugins` | Built-in processors, triggers, terminals, supervisors |
 | `web` | REST controllers |

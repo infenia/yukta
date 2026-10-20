@@ -53,7 +53,7 @@ dependencies {
 
     // PostgreSQL stores for sessions, workflows and the execution log: -Pyukta.persistence=postgres
     if (providers.gradleProperty("yukta.persistence").orNull == "postgres") {
-        implementation(project(":persistence-postgres"))
+        implementation(project(":plus:persistence-postgres"))
     }
 
     // Single-node durable storage on disk (AGPL-3.0-only, see LICENSING.md): -Pyukta.edition=plus
@@ -63,7 +63,7 @@ dependencies {
 
     // Remote workers over RSocket (control plane server and worker agent): -Pyukta.workers=true
     if (providers.gradleProperty("yukta.workers").orNull == "true") {
-        implementation(project(":workers"))
+        implementation(project(":plus:workers"))
     }
 
     implementation(libs.spring.boot.starter.webflux)

@@ -123,9 +123,13 @@ jobs:
             boot:
               - 'boot/**'
             persistence-postgres:
-              - 'persistence-postgres/**'
+              - 'plus/persistence-postgres/**'
             workers:
-              - 'workers/**'
+              - 'plus/workers/**'
+            plus:
+              - 'plus/**'
+              - '!plus/persistence-postgres/**'
+              - '!plus/workers/**'
             messaging:
               - 'messaging/**'
             plugin-api:
