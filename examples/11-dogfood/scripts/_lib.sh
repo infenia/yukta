@@ -14,10 +14,10 @@ valid_name() {
 }
 
 # Locate the yukta CLI: $YUKTA_BIN, then PATH, then the newest build for this OS/arch in cli/build
-# (yukta-<os>-<arch> from `gradlew :cli:goBuild`, or yukta from `make build`).
+# (yukta-cli-<os>-<arch> from `gradlew :cli:goBuild`, or yukta-cli from `make build`).
 find_cli() {
   if [[ -n "${YUKTA_BIN:-}" ]]; then echo "$YUKTA_BIN"; return; fi
-  if command -v yukta >/dev/null 2>&1; then command -v yukta; return; fi
+  if command -v yukta-cli >/dev/null 2>&1; then command -v yukta-cli; return; fi
   local os arch f
   os="$(uname -s | tr '[:upper:]' '[:lower:]')"
   case "$(uname -m)" in
@@ -25,9 +25,9 @@ find_cli() {
     aarch64 | arm64) arch=arm64 ;;
     *) arch="$(uname -m)" ;;
   esac
-  f="$(ls -t "$REPO_ROOT/cli/build/yukta-$os-$arch" "$REPO_ROOT/cli/build/yukta" 2>/dev/null | head -1)"
+  f="$(ls -t "$REPO_ROOT/cli/build/yukta-cli-$os-$arch" "$REPO_ROOT/cli/build/yukta-cli" 2>/dev/null | head -1)"
   [[ -n "$f" && -x "$f" ]] && { echo "$f"; return; }
-  die "yukta CLI for $os/$arch not found; run ./gradlew :cli:goBuild or set YUKTA_BIN"
+  die "yukta-cli for $os/$arch not found; run ./gradlew :cli:goBuild or set YUKTA_BIN"
 }
 
 # render_session TEMPLATE PROJECT_PATH: prints the session JSON with __PROJECT_PATH__ replaced.

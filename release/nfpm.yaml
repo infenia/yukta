@@ -1,0 +1,45 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: 2026 Infenia Private Limited
+
+# Debian and RPM packages, built by release/package.sh with nfpm. Values in ${...} come from the
+# environment of that script.
+name: yukta
+arch: ${ARCH}
+platform: linux
+version: ${VERSION}
+section: net
+priority: optional
+maintainer: Infenia Private Limited <arun@infenia.com>
+description: |-
+  Yukta workflow orchestration server.
+  Define a workflow once as JSON and run it from REST, a web UI, a CLI or an AI agent.
+vendor: Infenia Private Limited
+homepage: https://yukta.infenia.com/
+license: Apache-2.0
+contents:
+  - src: ${SERVER_BIN}
+    expand: true
+    dst: /usr/bin/yukta
+    file_info:
+      mode: 0755
+  - src: ${CLI_BIN}
+    expand: true
+    dst: /usr/bin/yukta-cli
+    file_info:
+      mode: 0755
+  - src: release/yukta.service
+    dst: /usr/lib/systemd/system/yukta.service
+    file_info:
+      mode: 0644
+  - src: release/yukta.env
+    dst: /etc/yukta/yukta.env
+    type: config|noreplace
+    file_info:
+      mode: 0640
+  - src: LICENSE
+    dst: /usr/share/doc/yukta/LICENSE
+  - src: NOTICE
+    dst: /usr/share/doc/yukta/NOTICE
+scripts:
+  postinstall: release/postinstall.sh
+  preremove: release/preremove.sh

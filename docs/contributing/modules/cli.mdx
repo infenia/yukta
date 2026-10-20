@@ -4,7 +4,7 @@ description: "The cli module builds yukta, a small command-line program written 
 mode: "wide"
 ---
 
-The cli module builds `yukta`, a small command-line program written in Go. It does no workflow work itself. Every command turns your typed words into one request to a running Yukta server, then prints the answer. This page explains how that translation works, what the program guarantees, and where it quietly falls short of the server it talks to.
+The cli module builds `yukta-cli`, a small command-line program written in Go. It does no workflow work itself. Every command turns your typed words into one request to a running Yukta server, then prints the answer. This page explains how that translation works, what the program guarantees, and where it quietly falls short of the server it talks to.
 
 | Property | What it means |
 |---|---|
@@ -19,7 +19,7 @@ The cli module builds `yukta`, a small command-line program written in Go. It do
 
 ## Primer
 
-People and scripts need to drive a Yukta server without opening the web UI: start a run in a CI job, watch its progress in a terminal, pause a node while debugging, list plugins. The server already offers all of this over HTTP (REST). Typing raw `curl` commands with long paths and JSON bodies is slow and error-prone, and a Java client would force every machine to install a JVM. The **cli** module solves this with one small native program, `yukta`, that has no runtime to install and starts in milliseconds.
+People and scripts need to drive a Yukta server without opening the web UI: start a run in a CI job, watch its progress in a terminal, pause a node while debugging, list plugins. The server already offers all of this over HTTP (REST). Typing raw `curl` commands with long paths and JSON bodies is slow and error-prone, and a Java client would force every machine to install a JVM. The **cli** module solves this with one small native program, `yukta-cli`, that has no runtime to install and starts in milliseconds.
 
 <Tip>
   Think of a remote control for a television. The remote has no picture and no tuner. It only turns a button press into a signal, sends it, and shows you what the television reports back. If the television is off, or has a new feature the remote's maker never heard of, the remote can do nothing about it. That is the CLI: the buttons are commands, the signal is an HTTP request, and the television is the Yukta server.
@@ -29,7 +29,7 @@ People and scripts need to drive a Yukta server without opening the web UI: star
 
 | Layer | Role |
 |---|---|
-| You, scripts, CI jobs | Type `yukta workflow start ...` in a shell or call it from a pipeline |
+| You, scripts, CI jobs | Type `yukta-cli workflow start ...` in a shell or call it from a pipeline |
 | cli (this page) | A Go program built with Cobra, a library for command-line trees. One request per command. (this module) |
 | HTTP over the network | JSON for normal calls, Server-Sent Events for live streams, optional bearer token |
 | web module (REST controllers) | Receives the request and calls core. This is the only thing the CLI knows about. |
@@ -41,18 +41,18 @@ The CLI shares no code with the Java side. It is a separate Go program in the sa
 
 | Term | Meaning | Example |
 |---|---|---|
-| Session | A workspace on the server that groups workflows, runs and configuration. Almost every command names one. | `yukta session list` prints session ids. |
+| Session | A workspace on the server that groups workflows, runs and configuration. Almost every command names one. | `yukta-cli session list` prints session ids. |
 | Workflow and execution | A workflow is a stored graph of steps. An execution is one live run of it, with its own id. Commands that steer a run need the execution id, not the workflow id. | Start returns an execution id; pause, status and logs all take it. |
-| Node | One step in a workflow. Node commands (pause, stop, skip, step) act on a single node of a running execution. | `yukta workflow node pause s1 e42 classify` |
+| Node | One step in a workflow. Node commands (pause, stop, skip, step) act on a single node of a running execution. | `yukta-cli workflow node pause s1 e42 classify` |
 | REST and the envelope | The server answers JSON wrapped in an envelope: status, message and a `data` field. The CLI reads only `data`. | `{"status":200,"message":"...","data":{"executionId":"e42"}}` |
 | SSE (Server-Sent Events) | A normal HTTP response that never ends. The server keeps writing lines starting with `data:`, one event per blank-line-separated block. Used for live status and logs. | `workflow status-stream` and `logs`. |
 | Cobra command tree | Cobra is the Go library that turns words like `workflow node pause` into a function call and generates --help text. Commands nest like folders. | root, then workflow, then node, then pause. |
 | Bearer token | A secret the CLI sends in the `Authorization` header. The server requires one only when its `yukta.api-key` setting is set. | `--token` or the `YUKTA_TOKEN` environment variable. |
-| Global flags | Options valid on every command: `--url` (which server), `--token`, `--timeout` (seconds before giving up on a normal call) and `-o table\|json`. | `yukta -o json plugin list` |
+| Global flags | Options valid on every command: `--url` (which server), `--token`, `--timeout` (seconds before giving up on a normal call) and `-o table\|json`. | `yukta-cli -o json plugin list` |
 
 ### One example, end to end
 
-A developer starts a workflow with an input payload, then watches it live. Click a step to see what happens, why, and what can go wrong. (The session must already exist on the server; create it first with 'yukta session apply'.)
+A developer starts a workflow with an input payload, then watches it live. Click a step to see what happens, why, and what can go wrong. (The session must already exist on the server; create it first with 'yukta-cli session apply'.)
 
 <Steps>
 <Step title="Parse command">
@@ -96,7 +96,7 @@ A developer starts a workflow with an input payload, then watches it live. Click
 
 </Step>
 <Step title="Open stream">
-**What happens.** `yukta workflow status-stream s1 e42` opens `GET /api/executions/e42/status/stream?includeHistory=false` asking for `text/event-stream`. It checks the response really has that content type before reading.
+**What happens.** `yukta-cli workflow status-stream s1 e42` opens `GET /api/executions/e42/status/stream?includeHistory=false` asking for `text/event-stream`. It checks the response really has that content type before reading.
 
 **Why.** No timeout is applied, because a stream may legitimately stay open for hours. Ctrl-C and SIGTERM are wired to cancel the request cleanly.
 
@@ -166,19 +166,19 @@ Starts the program: creates one HTTP client, builds the root command, attaches t
 - **Ceiling.** Not applicable: one short-lived process per command.
 - **On failure.** A failed command prints the message twice and exits 1. A panic would print a Go stack trace and exit 2; none is known.
 
-**Settings:** `yukta (binary name)`, `exit status 0 or 1`
+**Settings:** `yukta-cli (binary name)`, `exit status 0 or 1`
 
 ### Root & Global Flags
 
 *url, token, timeout, -o*
 
-Defines the top-level `yukta` command and the four options every command inherits, and applies the defaults.
+Defines the top-level `yukta-cli` command and the four options every command inherits, and applies the defaults.
 
 - `--url` defaults to the `YUKTA_SERVER_URL` environment variable, or `http://localhost:8080` when that is unset. The flag always wins over the variable. The default is read when the command tree is built, which is why a test or a script must set the variable before the program starts.
 - `--token` defaults to `YUKTA_TOKEN`. It is sent as `Authorization: Bearer ...` on normal requests and on streams. The server accepts it only when `yukta.api-key` is configured; otherwise the server ignores it. Passing the secret as a flag puts it in shell history and in the process list (visible to other users on the machine), so the environment variable is the safer way in our view.
 - `--timeout` defaults to 30 seconds and applies only to normal calls. `0` turns it off. Streams ignore it on purpose, because a status stream may run for hours.
 - `-o` / `--output` is `table` by default or `json`. The value is held in a package-level variable that commands read through a getter. Nothing validates it: `-o yaml` is accepted and treated as table by most commands, and only `session get` rejects it.
-- The root command's short description still reads 'Code quality gates for AI-driven development'. That describes one use of Yukta, not the product, so `yukta --help` misdescribes it.
+- The root command's short description still reads 'Code quality gates for AI-driven development'. That describes one use of Yukta, not the product, so `yukta-cli --help` misdescribes it.
 
 - **Guarantees.** Flag values reach the client before any command body runs. The flag always overrides the environment variable.
 - **State.** None. Defaults come from two environment variables read at start-up.
@@ -195,7 +195,7 @@ Declares every command, its arguments and flags, calls the matching client funct
 
 - There are five groups. `session` (list, get, summaries, workflow get/graph/executions), `workflow` (start, stop, pause, resume, status, status-stream, history, executions stop/restart, node pause/resume/stop/skip, node step enable/disable/next), `plugin` (list, get), `controlbus` (nodes, all-nodes, heartbeat, command) and `logs`. Group names follow the server's resources, so someone who knows the REST API can guess the command.
 - Most 'do something to this id' commands are built by one generic helper, `Action`. A command supplies its usage text, how many arguments it takes, the client call to make and a one-line success message. The helper adds the 'if `-o json` print the raw answer, else print the message' behaviour. This replaced about a dozen near-identical files and means pause, resume, step and stop all behave the same way.
-- Commands that take JSON (`controlbus command` and `session apply`) accept either a file path or inline JSON. The code checks whether a file with that name exists; if so it reads it, otherwise it treats the argument itself as JSON. Example: `yukta controlbus command wf1 node1 cmd.jsno` (typo) does not say 'file not found'. It says 'invalid JSON', because the typo was parsed as JSON text.
+- Commands that take JSON (`controlbus command` and `session apply`) accept either a file path or inline JSON. The code checks whether a file with that name exists; if so it reads it, otherwise it treats the argument itself as JSON. Example: `yukta-cli controlbus command wf1 node1 cmd.jsno` (typo) does not say 'file not found'. It says 'invalid JSON', because the typo was parsed as JSON text.
 - `workflow start` takes `--payload` or `--payload-file`. They exclude each other, and the content must be a JSON object. `workflow stop` takes no options and always sends the default stop mode, so the server's `?mode=DRAIN|CANCEL|KILL` choice is unreachable. `workflow node stop` has `--immediate` and `--reason`, but it always sends `reason=`, even when empty, which replaces the server's default reason text.
 - None of the list commands accept `--limit` or a cursor. The server returns at most 500 items per page by default (1,000 at most) and announces a next page in an `X-Next-Cursor` header, which the CLI never reads. An installation with more than 500 sessions is silently shown only the first 500.
 
@@ -204,7 +204,7 @@ Declares every command, its arguments and flags, calls the matching client funct
 - **Ceiling.** About forty commands across five groups. Each new server endpoint needs a hand-written command, which does not scale as the API grows.
 - **On failure.** A bad argument count or invalid JSON stops the command before any network call, and exits 1.
 
-**Settings:** `yukta session list|get|summaries`, `yukta session workflow get|graph|executions`, `yukta workflow start|stop|pause|resume|status|status-stream|history`, `yukta workflow node ...`, `yukta workflow executions stop|restart`, `yukta plugin list|get`, `yukta controlbus nodes|all-nodes|heartbeat|command`, `yukta logs [--entries]`
+**Settings:** `yukta-cli session list|get|summaries`, `yukta-cli session workflow get|graph|executions`, `yukta-cli workflow start|stop|pause|resume|status|status-stream|history`, `yukta-cli workflow node ...`, `yukta-cli workflow executions stop|restart`, `yukta-cli plugin list|get`, `yukta-cli controlbus nodes|all-nodes|heartbeat|command`, `yukta-cli logs [--entries]`
 
 ### Output Formatter
 
@@ -287,7 +287,7 @@ Opens long-lived event streams for execution status and logs, and reads them unt
 
 Compiles the program for five platforms and runs all quality checks. The Makefile holds the real logic; Gradle only calls it so the JVM build can include the CLI.
 
-- `make build` produces one static binary (`CGO_ENABLED=0`, symbols stripped) named `build/yukta-<os>-<arch>`, with `.exe` added on Windows. `make build-all` builds linux/amd64, linux/arm64, darwin/amd64, darwin/arm64 and windows/amd64. Static means one file with nothing to install.
+- `make build` produces one static binary (`CGO_ENABLED=0`, symbols stripped) named `build/yukta-cli-<os>-<arch>`, with `.exe` added on Windows. `make build-all` builds linux/amd64, linux/arm64, darwin/amd64, darwin/arm64 and windows/amd64. Static means one file with nothing to install.
 - Tools are pinned by version and run with `go run pkg@version`: golangci-lint v2.14.0 (standard linters plus gocritic and revive), gosec v2.29.0 (security patterns) and govulncheck v1.8.0 (known-vulnerable dependencies and standard library). Pinning means the same commit gives the same result next month. The cost is a download on first use.
 - `make cover-check` always runs the tests afresh and then fails if any single function is below 100% coverage. Exceptions: `cmd/yukta/main.go`, `internal/testutil/testutil.go` and `test/integration_test.go` are exempt (0%). Per-function is stricter than a project average: a new untested function cannot hide behind well-tested ones.
 - `build.gradle.kts` is a 48-line wrapper: each Gradle task such as `goBuild`, `goLint` or `goTest` runs one Make target and shows its output. The Gradle `check` task runs all of them. Because it runs both `goTest` and the coverage check (which itself runs the tests), the tests run twice.
@@ -328,7 +328,7 @@ One request path from keystroke to printed result, including where an idempotenc
 
 <Steps>
 <Step title="Typed command">
-The user runs `yukta workflow start s1 build --payload '{"msg":"hi"}'`. Cobra matches the command and checks it got two positional arguments before anything else happens.
+The user runs `yukta-cli workflow start s1 build --payload '{"msg":"hi"}'`. Cobra matches the command and checks it got two positional arguments before anything else happens.
 </Step>
 <Step title="Flags reach the client">
 `--url`, `--token` and `--timeout` (or their defaults from the environment) were written into the shared client while the flags were parsed. No command needs to look them up.
@@ -350,7 +350,7 @@ How live status streams work, why they have no time limit, and what Ctrl-C and a
 
 <Steps>
 <Step title="Open the stream">
-`yukta workflow status-stream s1 e42` asks for an event stream. The stream path is built with escaped ids and the same bearer token. The CLI sends `includeHistory=false` unless told otherwise.
+`yukta-cli workflow status-stream s1 e42` asks for an event stream. The stream path is built with escaped ids and the same bearer token. The CLI sends `includeHistory=false` unless told otherwise.
 </Step>
 <Step title="No time limit">
 The stream bypasses the normal timeout. If it did not, a long run would be cut off after 30 seconds. The content type is checked first: a proxy returning an HTML login page with status 200 is rejected instead of being parsed as events.
@@ -372,7 +372,7 @@ What the user sees when the server refuses a call, and why scripts cannot tell f
 
 <Steps>
 <Step title="A refusal comes back">
-The user runs `yukta workflow start s1 build` and the server is at its run limit. It answers 429 with a JSON error body.
+The user runs `yukta-cli workflow start s1 build` and the server is at its run limit. It answers 429 with a JSON error body.
 </Step>
 <Step title="Turned into an error">
 Any status outside 200-299 becomes `API error: status 429: {body}`. The CLI does not read the body's message field, so the user sees raw JSON inside a sentence.
@@ -403,7 +403,7 @@ If the port is closed, Go reports `connection refused` straight away. The messag
 The limit also covers reading the body, so a server that sends headers and then trickles data is cut off too. A very large legitimate answer might exceed 30 seconds and need `--timeout 120s` or `0`.
 </Step>
 <Step title="Streams are exempt">
-A stream has no limit, so a server that accepts the connection and then goes silent leaves `yukta logs` waiting forever. The server's 15-second pings exist for proxies; the CLI does not watch for them.
+A stream has no limit, so a server that accepts the connection and then goes silent leaves `yukta-cli logs` waiting forever. The server's 15-second pings exist for proxies; the CLI does not watch for them.
 </Step>
 <Step title="Ambiguous start">
 If a `workflow start` times out, the run may or may not have started. Without an idempotency key the user cannot safely repeat it. They must check `workflow history` first, which is capped at the server's first page.
@@ -416,13 +416,13 @@ A real gap: a documented, tested command that users cannot run, and why no check
 
 <Steps>
 <Step title="Docs promise it">
-The README shows `yukta session apply session.json` and the help text of `yukta session` says 'Apply session configurations'. A developer types it.
+The README shows `yukta-cli session apply session.json` and the help text of `yukta-cli session` says 'Apply session configurations'. A developer types it.
 </Step>
 <Step title="It is registered now">
 The session group registers list, get, apply, workflow and summaries. `apply` reads a file or inline JSON, validates it, posts to `POST /api/sessions` and has its own local `-o` flag. Until the fix, the session group never registered it and Cobra reported an unknown command, even though its own tests passed.
 </Step>
 <Step title="No test over the tree">
-Its unit tests build the command directly, so they cannot tell whether the group lists it. A test that asked 'does `yukta session --help` list apply?' would catch the next command that is written but not registered.
+Its unit tests build the command directly, so they cannot tell whether the group lists it. A test that asked 'does `yukta-cli session --help` list apply?' would catch the next command that is written but not registered.
 </Step>
 <Step title="Typos and flags">
 A mistyped file name is parsed as JSON and reports 'invalid JSON', and the local `-o` flag shadows the global one.
@@ -447,7 +447,7 @@ golangci-lint, gosec and govulncheck run at fixed versions through `go run pkg@v
 Each function must be 100% covered, except three exempt files. Adding an untested helper fails the build at once. It still cannot detect an unregistered command, since coverage measures lines run, not features reachable.
 </Step>
 <Step title="Tag and release">
-A version tag starts the release workflow. It builds five binaries, writes `SHA256SUMS`, records build provenance and publishes them. Names look like `yukta-linux-amd64` and `yukta-windows-amd64.exe`.
+A version tag starts the release workflow. It builds five binaries, writes `SHA256SUMS`, records build provenance and publishes them. Names look like `yukta-cli-linux-amd64` and `yukta-cli-windows-amd64.exe`.
 </Step>
 <Step title="Which version is this?">
 A user with an old binary cannot ask it. There is no `version` command and no version string embedded at build time, so bug reports cannot name a release.
@@ -635,7 +635,7 @@ The Makefile is the source of truth. Gradle task names are listed for people who
 
 | Make target | Gradle task | What it does |
 |---|---|---|
-| make build | goBuild | Static binary for the current OS and architecture into build/yukta-&lt;os&gt;-&lt;arch&gt;[.exe]. |
+| make build | goBuild | Static binary for the current OS and architecture into build/yukta-cli-&lt;os&gt;-&lt;arch&gt;[.exe]. |
 | make build-all | goBuildAll | The five platforms: linux amd64/arm64, darwin amd64/arm64, windows amd64. |
 | make test | goTest | go test ./... |
 | make cover / cover-check | goTestCoverage / goCoverageCheck | Fresh coverage profile, then the 100% per-function rule. |
@@ -750,7 +750,7 @@ The Makefile is the source of truth. Gradle task names are listed for people who
 
 | Term | Meaning | Note |
 |---|---|---|
-| CLI (command-line interface) | A program you run by typing a command in a terminal rather than clicking. | The cli module builds the `yukta` program. |
+| CLI (command-line interface) | A program you run by typing a command in a terminal rather than clicking. | The cli module builds the `yukta-cli` program. |
 | Go | A compiled programming language that produces a single self-contained executable. | Why the CLI needs no runtime to install. |
 | Cobra | A Go library for building command trees with arguments, flags and generated --help. | It decides how words map to functions. |
 | REST | A way of exposing a server's features as URLs and HTTP verbs (GET reads, POST changes). | Everything the CLI does goes through the server's REST API. |
