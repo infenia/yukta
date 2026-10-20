@@ -4,7 +4,7 @@ description: "The cli module builds yukta, a small command-line program written 
 mode: "wide"
 ---
 
-The cli module builds `yukta`, a small command-line program written in Go. It does no workflow work itself. Every command turns your typed words into one request to a running Yukta server, then prints the answer. This page explains how that translation works, what the program guarantees, and where it quietly falls short of the server it talks to.
+The cli module builds `yukta-cli`, a small command-line program written in Go. It does no workflow work itself. Every command turns your typed words into one request to a running Yukta server, then prints the answer. This page explains how that translation works, what the program guarantees, and where it quietly falls short of the server it talks to.
 
 | Property | What it means |
 |---|---|
@@ -19,7 +19,7 @@ The cli module builds `yukta`, a small command-line program written in Go. It do
 
 ## Primer
 
-People and scripts need to drive a Yukta server without opening the web UI: start a run in a CI job, watch its progress in a terminal, pause a node while debugging, list plugins. The server already offers all of this over HTTP (REST). Typing raw `curl` commands with long paths and JSON bodies is slow and error-prone, and a Java client would force every machine to install a JVM. The **cli** module solves this with one small native program, `yukta`, that has no runtime to install and starts in milliseconds.
+People and scripts need to drive a Yukta server without opening the web UI: start a run in a CI job, watch its progress in a terminal, pause a node while debugging, list plugins. The server already offers all of this over HTTP (REST). Typing raw `curl` commands with long paths and JSON bodies is slow and error-prone, and a Java client would force every machine to install a JVM. The **cli** module solves this with one small native program, `yukta-cli`, that has no runtime to install and starts in milliseconds.
 
 <Tip>
   Think of a remote control for a television. The remote has no picture and no tuner. It only turns a button press into a signal, sends it, and shows you what the television reports back. If the television is off, or has a new feature the remote's maker never heard of, the remote can do nothing about it. That is the CLI: the buttons are commands, the signal is an HTTP request, and the television is the Yukta server.
@@ -166,19 +166,19 @@ Starts the program: creates one HTTP client, builds the root command, attaches t
 - **Ceiling.** Not applicable: one short-lived process per command.
 - **On failure.** A failed command prints the message twice and exits 1. A panic would print a Go stack trace and exit 2; none is known.
 
-**Settings:** `yukta (binary name)`, `exit status 0 or 1`
+**Settings:** `yukta-cli (binary name)`, `exit status 0 or 1`
 
 ### Root & Global Flags
 
 *url, token, timeout, -o*
 
-Defines the top-level `yukta` command and the four options every command inherits, and applies the defaults.
+Defines the top-level `yukta-cli` command and the four options every command inherits, and applies the defaults.
 
 - `--url` defaults to the `YUKTA_SERVER_URL` environment variable, or `http://localhost:8080` when that is unset. The flag always wins over the variable. The default is read when the command tree is built, which is why a test or a script must set the variable before the program starts.
 - `--token` defaults to `YUKTA_TOKEN`. It is sent as `Authorization: Bearer ...` on normal requests and on streams. The server accepts it only when `yukta.api-key` is configured; otherwise the server ignores it. Passing the secret as a flag puts it in shell history and in the process list (visible to other users on the machine), so the environment variable is the safer way in our view.
 - `--timeout` defaults to 30 seconds and applies only to normal calls. `0` turns it off. Streams ignore it on purpose, because a status stream may run for hours.
 - `-o` / `--output` is `table` by default or `json`. The value is held in a package-level variable that commands read through a getter. Nothing validates it: `-o yaml` is accepted and treated as table by most commands, and only `session get` rejects it.
-- The root command's short description still reads 'Code quality gates for AI-driven development'. That describes one use of Yukta, not the product, so `yukta --help` misdescribes it.
+- The root command's short description still reads 'Code quality gates for AI-driven development'. That describes one use of Yukta, not the product, so `yukta-cli --help` misdescribes it.
 
 - **Guarantees.** Flag values reach the client before any command body runs. The flag always overrides the environment variable.
 - **State.** None. Defaults come from two environment variables read at start-up.
@@ -750,7 +750,7 @@ The Makefile is the source of truth. Gradle task names are listed for people who
 
 | Term | Meaning | Note |
 |---|---|---|
-| CLI (command-line interface) | A program you run by typing a command in a terminal rather than clicking. | The cli module builds the `yukta` program. |
+| CLI (command-line interface) | A program you run by typing a command in a terminal rather than clicking. | The cli module builds the `yukta-cli` program. |
 | Go | A compiled programming language that produces a single self-contained executable. | Why the CLI needs no runtime to install. |
 | Cobra | A Go library for building command trees with arguments, flags and generated --help. | It decides how words map to functions. |
 | REST | A way of exposing a server's features as URLs and HTTP verbs (GET reads, POST changes). | Everything the CLI does goes through the server's REST API. |

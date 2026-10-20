@@ -5,19 +5,37 @@
 # Build the runtime image for each platform that has a server binary in dist/, smoke test it, and
 # optionally push one multi-architecture manifest to GHCR and Docker Hub.
 #
-# Usage: release/build-image.sh <version> [--push]
+# Usage: release/build-image.sh <version> [--push | --promote]
 #   without --push: builds and tests each platform locally (an image for another architecture runs
 #   under QEMU; install it once with: docker run --privileged --rm tonistiigi/binfmt --install all)
 #   with --push: pushes per-architecture tags, then the manifest, to both registries; run
-#   'docker login ghcr.io' and 'docker login' first
+#   'docker login ghcr.io' and 'docker login' first. Moves no X.Y or latest tag: until the release is
+#   published, only the exact version is visible
+#   with --promote: after the release is published and tested, points X.Y and latest at the exact
+#   version in both registries (stable releases only)
 set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
-[[ $# -ge 1 ]] || die "usage: build-image.sh <version> [--push]"
+[[ $# -ge 1 ]] || die "usage: build-image.sh <version> [--push | --promote]"
 version="$(normalize_version "$1")"
 push=false
-[[ "${2:-}" == "--push" ]] && push=true
+promote=false
+case "${2:-}" in
+  --push) push=true ;;
+  --promote) promote=true ;;
+  "") ;;
+  *) die "unknown option ${2}" ;;
+esac
 need docker
+
+if $promote; then
+  is_prerelease "$version" && die "$version is a prerelease: it never moves X.Y or latest"
+  for image in "$IMAGE_GHCR" "$IMAGE_HUB"; do
+    docker buildx imagetools create -t "$image:${version%.*}" -t "$image:latest" "$image:$version"
+    docker buildx imagetools inspect "$image:latest"
+  done
+  exit 0
+fi
 revision="$(git -C "$REPO_ROOT" rev-parse HEAD)"
 
 # Start the image, wait for /actuator/health, check it says UP. The image has no shell or curl,
@@ -35,6 +53,7 @@ smoke_test() {
     sleep 2
   done
   docker logs "$name" >&2 || true
+  docker rm -f "$name" >/dev/null 2>&1 || true  # die exits, so the RETURN trap would not run
   die "smoke test failed for $platform: /actuator/health never reported UP"
 }
 
@@ -59,11 +78,6 @@ done
 $push || { log "built and tested: ${built[*]} (not pushed)"; exit 0; }
 
 # Docker Hub gets the same per-architecture images and the same manifest as GHCR.
-tags=("$version")
-if ! is_prerelease "$version"; then
-  major_minor="${version%.*}"
-  tags+=("$major_minor" latest)
-fi
 for image in "$IMAGE_GHCR" "$IMAGE_HUB"; do
   sources=()
   for arch in "${built[@]}"; do
@@ -71,8 +85,6 @@ for image in "$IMAGE_GHCR" "$IMAGE_HUB"; do
     docker push "$image:$version-$arch"
     sources+=("$image:$version-$arch")
   done
-  args=()
-  for t in "${tags[@]}"; do args+=(-t "$image:$t"); done
-  docker buildx imagetools create "${args[@]}" "${sources[@]}"
+  docker buildx imagetools create -t "$image:$version" "${sources[@]}"
   docker buildx imagetools inspect "$image:$version"
 done

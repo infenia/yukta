@@ -9,7 +9,7 @@ platform: linux
 version: ${VERSION}
 section: net
 priority: optional
-maintainer: Infenia Private Limited
+maintainer: Infenia Private Limited <arun@infenia.com>
 description: |-
   Yukta workflow orchestration server.
   Define a workflow once as JSON and run it from REST, a web UI, a CLI or an AI agent.
