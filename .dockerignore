@@ -14,10 +14,6 @@ docs
 README.md
 .env
 .env.local
-pnpm-lock.yaml
-ui/pnpm-lock.yaml
-package.json
-ui/package.json
 .pnpm-store
 .pnpm
 dist

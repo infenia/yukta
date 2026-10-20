@@ -109,8 +109,11 @@ tasks.withType<com.diffplug.gradle.spotless.SpotlessTask>().configureEach {
 }
 
 // Disable npm and yarn tasks — only pnpm is used
+// PnpmSetupTask extends NpmSetupTask but installs pnpm, so it stays enabled.
 tasks.withType<com.github.gradle.node.npm.task.NpmSetupTask>().configureEach {
-    enabled = false
+    if (this !is com.github.gradle.node.pnpm.task.PnpmSetupTask) {
+        enabled = false
+    }
 }
 tasks.withType<com.github.gradle.node.npm.task.NpmInstallTask>().configureEach {
     enabled = false
