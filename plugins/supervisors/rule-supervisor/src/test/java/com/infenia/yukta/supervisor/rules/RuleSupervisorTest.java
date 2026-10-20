@@ -73,6 +73,60 @@ class RuleSupervisorTest {
     return supervisor.review(new ControlRequest(command, null)).block();
   }
 
+  private static final String RETRY_RULES =
+      """
+      {"rules":[{"id":"retry","when":{"event":"NodeStatusChanged","nodeId":"n1","status":"SUCCESS",
+        "if":"metadata['outcome'] == 'RETRY' and attempt < 2"},
+        "then":{"command":"RestartFromNode","from":"metadata.restartFrom"}}]}
+      """;
+
+  @Test
+  void supervise_restartFromNode_readsTargetFromMetadataAndGeneratesNewId() {
+    final var commands =
+        run(
+            supervisor(RETRY_RULES),
+            node("e1", "SUCCESS", Map.of("outcome", "RETRY", "restartFrom", "spotless")));
+
+    assertThat(commands)
+        .singleElement()
+        .isInstanceOfSatisfying(
+            ExecutionControlCommand.RestartFromNodeCommand.class,
+            restart -> {
+              assertThat(restart.executionId()).isEqualTo("e1");
+              assertThat(restart.fromNodeId()).isEqualTo("spotless");
+              assertThat(restart.newExecutionId()).isNotBlank();
+            });
+  }
+
+  @Test
+  void supervise_restartFromStart_restartsWholeRun() {
+    final var commands =
+        run(
+            supervisor(RETRY_RULES),
+            node("e1", "SUCCESS", Map.of("outcome", "RETRY", "restartFrom", "START")));
+
+    assertThat(commands).singleElement().isInstanceOf(ExecutionControlCommand.RestartCommand.class);
+  }
+
+  @Test
+  void supervise_restartLoop_stopsWhenAttemptBudgetIsSpent() {
+    final var rules = supervisor(RETRY_RULES);
+    final Map<String, Object> retry = Map.of("outcome", "RETRY", "restartFrom", "spotless");
+    String execution = "e0";
+    int restarts = 0;
+    while (true) {
+      final var commands = run(rules, node(execution, "SUCCESS", retry));
+      if (commands.isEmpty()) {
+        break;
+      }
+      execution =
+          ((ExecutionControlCommand.RestartFromNodeCommand) commands.getFirst()).newExecutionId();
+      restarts++;
+    }
+
+    assertThat(restarts).isEqualTo(2);
+  }
+
   @Test
   void id_isRules() {
     assertThat(supervisor("{}").id()).isEqualTo("rules");

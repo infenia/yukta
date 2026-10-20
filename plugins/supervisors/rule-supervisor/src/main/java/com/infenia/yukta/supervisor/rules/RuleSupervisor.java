@@ -18,9 +18,12 @@ import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Deque;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -50,6 +53,9 @@ public final class RuleSupervisor implements ExecutionSupervisor {
   /** A rule that counts nothing triggers on the first match. */
   private static final int NOT_COUNTING = 1;
 
+  /** How many restarted runs are remembered for {@code attempt}. */
+  private static final int MAX_TRACKED_RUNS = 1000;
+
   /** Reads rules strictly, so a misspelled field fails at startup instead of being ignored. */
   private static final JsonMapper JSON =
       JsonMapper.builder().enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES).build();
@@ -62,6 +68,16 @@ public final class RuleSupervisor implements ExecutionSupervisor {
 
   /** Recent matches of counting rules, by rule and execution. */
   private final Map<String, Deque<Instant>> matches = new ConcurrentHashMap<>();
+
+  /** Restarts that led to a run started by a rule, by execution id; the oldest are forgotten. */
+  private final Map<String, Integer> attempts =
+      Collections.synchronizedMap(
+          new LinkedHashMap<>() {
+            @Override
+            protected boolean removeEldestEntry(final Map.Entry<String, Integer> eldest) {
+              return size() > MAX_TRACKED_RUNS;
+            }
+          });
 
   /** Time source. */
   private final Clock clock;
@@ -157,8 +173,13 @@ public final class RuleSupervisor implements ExecutionSupervisor {
   private List<ExecutionControlCommand> react(final ExecutionEvent event) {
     final List<ExecutionControlCommand> commands = new ArrayList<>();
     for (final EventRule rule : eventRules) {
-      if (rule.matches(event) && countReached(rule, event)) {
-        commands.add(rule.command(event));
+      final int attempt = attempts.getOrDefault(event.executionId(), 0);
+      if (rule.matches(event, attempt) && countReached(rule, event)) {
+        final String newExecutionId = UUID.randomUUID().toString();
+        if (rule.restarts()) {
+          attempts.put(newExecutionId, attempt + 1);
+        }
+        commands.add(rule.command(event, newExecutionId));
       }
     }
     return commands;

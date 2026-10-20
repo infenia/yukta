@@ -24,6 +24,9 @@ public class Fields {
   /** Name of the status field. */
   public static final String STATUS = "status";
 
+  /** Name of the attempt field (restarts that led to the run). */
+  public static final String ATTEMPT = "attempt";
+
   /** Name of the module field. */
   public static final String MODULE = "module";
 

@@ -69,17 +69,22 @@ public record RuleSet(List<Rule> rules) {
    * The command a rule sends to the execution that triggered it.
    *
    * @param command {@code PauseWorkflow}, {@code ResumeWorkflow}, {@code StopWorkflow}, {@code
-   *     PauseNode}, {@code ResumeNode} or {@code StopNode}. Node commands address the node that
-   *     triggered the rule.
+   *     PauseNode}, {@code ResumeNode}, {@code StopNode}, {@code Restart} or {@code
+   *     RestartFromNode}. Node commands address the node that triggered the rule. A restart gets a
+   *     new execution id and, for a rule's {@code if}, {@code attempt} counts the restarts that led
+   *     to the run (0 for the first).
    * @param mode for {@code StopWorkflow}: {@code DRAIN} (default), {@code CANCEL} or {@code KILL}
    * @param reason recorded with a stop
    * @param immediate for {@code StopNode}: interrupt instead of draining
+   * @param from for {@code RestartFromNode}: the node to restart from, as a literal or {@code
+   *     metadata.<key>} of the event; {@code START} (or nothing found) restarts the whole run
    */
   public record Then(
       String command,
       @Nullable String mode,
       @Nullable String reason,
-      @Nullable Boolean immediate) {}
+      @Nullable Boolean immediate,
+      @Nullable String from) {}
 
   /**
    * Commands a rule refuses.
