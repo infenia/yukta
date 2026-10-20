@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.persistence.postgres;
 
+import com.infenia.yukta.config.DefaultsAutoConfiguration;
 import com.infenia.yukta.config.SessionConfigProperties;
 import com.infenia.yukta.plugin.store.KeyValueStore;
 import com.infenia.yukta.plugin.store.NodeCheckpointStore;
@@ -22,7 +23,7 @@ import tools.jackson.databind.ObjectMapper;
  * the schema is created by Flyway from {@code spring.flyway.url} (a JDBC URL, since Flyway has no
  * R2DBC support), with {@code spring.flyway.user} and {@code spring.flyway.password}.
  */
-@AutoConfiguration
+@AutoConfiguration(before = DefaultsAutoConfiguration.class)
 @SuppressWarnings("PMD.AvoidDuplicateLiterals")
 @ConditionalOnProperty(name = "yukta.session.store-type", havingValue = "postgres")
 public class PostgresPersistenceAutoConfiguration {

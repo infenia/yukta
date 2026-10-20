@@ -51,7 +51,6 @@ class FollowTheLeaderTest {
             .web(WebApplicationType.NONE)
             .properties(
                 "spring.rsocket.server.port=0",
-                "yukta.ha.mode=postgres",
                 "yukta.workers.token=secret",
                 "yukta.workers.lease=3s")
             .run();

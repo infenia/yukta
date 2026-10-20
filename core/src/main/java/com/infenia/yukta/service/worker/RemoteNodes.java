@@ -61,7 +61,8 @@ public class RemoteNodes {
       final RemoteNodeExecutor remote = executor.getIfAvailable();
       if (remote == null) {
         throw new IllegalStateException(
-            "engine.placement needs the workers module (build with -Pyukta.workers=true)");
+            "engine.placement needs the workers module (Plus edition; build with"
+                + " -Pyukta.workers=true)");
       }
       result = new RemoteProcessor(processor, remote, placement.pool());
     }
