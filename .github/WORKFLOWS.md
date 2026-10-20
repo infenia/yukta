@@ -84,10 +84,11 @@ the GitHub Security tab.
 | Component | Check | Purpose |
 |-----------|-------|---------|
 | **REUSE** | License Header Compliance | Verifies all files have SPDX license headers |
+| **Plus isolation** | Apache modules never depend on Plus | Fails if any module other than `boot` depends on the AGPL `:plus` module |
 | **Licensee** | Dependency License Validation | Ensures all dependencies have Apache-2.0 compatible licenses |
 | **Trivy** | License Scanning | Scans lock files for forbidden/restricted licenses |
 
-**Jobs**: `reuse-compliance`, `gradle-license-validation`, `trivy-license-scan`
+**Jobs**: `reuse-compliance`, `plus-isolation`, `gradle-license-validation`, `trivy-license-scan`
 
 **Triggered on**: Push to main, PR, manual trigger
 
@@ -222,3 +223,11 @@ is published. The container image (GraalVM native compile) is built locally, not
 
 - `CI Gate` is the single check to require in branch protection.
 - `Lint Workflows` fails if a Gradle module in `settings.gradle.kts` has no path filter in `ci.yml`.
+
+---
+
+### `cla.yml` — Contributor License Agreement
+
+**Purpose**: Ask outside contributors to sign `CLA.md` (or `CLA-corporate.md`) and record it on the `cla-signatures` branch
+
+**Triggered on**: Pull request (`pull_request_target`, never checks out PR code) and the signing comment

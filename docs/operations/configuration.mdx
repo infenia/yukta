@@ -4,6 +4,10 @@ description: "Every setting an operator can change, its default and what it cont
 mode: "wide"
 ---
 
+<Note>
+  Storing state on disk (`yukta.session.store-type=file`, `yukta.execution-log.dir`, `yukta.restart.dir`, `yukta.session-memory.dir`) is part of the **Plus** edition (AGPL-3.0-only). Build it with `-Pyukta.edition=plus`; the Community build refuses these settings at start-up and keeps state in memory. See [Licensing and editions](/reference/licensing).
+</Note>
+
 <Info>
   **In plain terms:** settings control how the server behaves: how many jobs may run at once, where data is kept, who may connect. You do not need any to start, because the defaults are safe. Use this page as a menu when you are ready to tune a deployment, grouped by what you want to change.
 </Info>
@@ -127,6 +131,7 @@ See [Persistence](/operations/persistence) and [Checkpoints and resume](/operati
 
 | Setting | Default | Meaning and effect |
 |---|---|---|
+| `yukta.bootstrap.dir` | unset | A folder of session files (`*.json`, the body of `POST /api/sessions`) applied at start-up, in name order. See [Persistence](/operations/persistence) |
 | `yukta.session.store-type` | `in-memory` | `in-memory`, `file` or `postgres`. Selects the store for sessions and workflow definitions, and for the execution log when `postgres` |
 | `yukta.session.base-dir` (`YUKTA_SESSION_BASE_DIR`) | `.yukta` in the user's home directory | Root directory of the file store |
 | `yukta.restart.store-type` | file if `yukta.restart.dir` is set, else memory | `postgres` stores checkpoints in PostgreSQL |

@@ -129,7 +129,9 @@ class SupervisorHostTest {
 
   @Test
   void start_dryRun_nothingAppliedButRecorded() {
+    final List<com.infenia.yukta.security.AuditRecord> sunk = new CopyOnWriteArrayList<>();
     start(supervisor("rules", SupervisorHostTest::pauseOnFailure), true, 10);
+    host.setAuditSink(sunk::add);
 
     await()
         .atMost(3, TimeUnit.SECONDS)
@@ -144,6 +146,12 @@ class SupervisorHostTest {
                       });
             });
     verify(dispatcher, never()).dispatchOrdered(any());
+    assertThat(sunk)
+        .anySatisfy(
+            r -> {
+              assertThat(r.actor()).isEqualTo("rules");
+              assertThat(r.applied()).isFalse();
+            });
   }
 
   @Test

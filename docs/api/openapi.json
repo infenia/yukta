@@ -3110,6 +3110,28 @@
           }
         }
       }
+    },
+    "/api/edition": {
+      "get": {
+        "tags": [
+          "Edition API"
+        ],
+        "summary": "Show the edition",
+        "description": "Returns the edition of this build (COMMUNITY, PLUS or ENTERPRISE), its licence, the optional features it has and, where the licence asks for it, where the source is",
+        "operationId": "show",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseEditionInfo"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -5192,6 +5214,78 @@
           },
           "reason": {
             "type": "string"
+          }
+        }
+      },
+      "ApiResponseEditionInfo": {
+        "type": "object",
+        "description": "Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields.",
+        "properties": {
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "description": "The time the response was generated"
+          },
+          "status": {
+            "type": "integer",
+            "format": "int32",
+            "description": "The HTTP status code",
+            "example": 200
+          },
+          "message": {
+            "type": "string",
+            "description": "A human-readable message",
+            "example": "Operation successful"
+          },
+          "data": {
+            "$ref": "#/components/schemas/EditionInfo"
+          },
+          "error": {
+            "type": "string",
+            "description": "The HTTP status error name",
+            "example": "Bad Request"
+          },
+          "path": {
+            "type": "string",
+            "description": "The request path",
+            "example": "/api/files"
+          },
+          "errors": {
+            "type": "array",
+            "description": "The list of field validation errors",
+            "items": {
+              "$ref": "#/components/schemas/FieldError"
+            }
+          }
+        }
+      },
+      "EditionInfo": {
+        "type": "object",
+        "description": "What this build is: its edition, licence and features",
+        "properties": {
+          "edition": {
+            "type": "string",
+            "enum": [
+              "COMMUNITY",
+              "PLUS",
+              "ENTERPRISE"
+            ]
+          },
+          "license": {
+            "type": "string",
+            "description": "The SPDX licence expression of the build",
+            "example": "Apache-2.0"
+          },
+          "features": {
+            "type": "array",
+            "description": "The optional features present",
+            "items": {
+              "type": "string"
+            }
+          },
+          "source": {
+            "type": "string",
+            "description": "Where the corresponding source can be obtained, if the licence asks for it"
           }
         }
       }

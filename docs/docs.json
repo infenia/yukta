@@ -137,6 +137,7 @@
             "public": true,
             "pages": [
               "reference/glossary",
+              "reference/licensing",
               "reference/limits-and-defaults",
               "reference/status-values"
             ]
@@ -202,6 +203,7 @@
               "contributing/modules/persistence-postgres",
               "contributing/modules/plugin-api",
               "contributing/modules/plugins",
+              "contributing/modules/plus",
               "contributing/modules/ui",
               "contributing/modules/web",
               "contributing/modules/workers"

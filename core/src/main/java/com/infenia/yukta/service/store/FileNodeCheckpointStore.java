@@ -22,9 +22,6 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
-import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
@@ -34,16 +31,14 @@ import tools.jackson.databind.ObjectMapper;
  * {@link NodeCheckpointStore} that keeps what each node produced on disk, so a run that was
  * interrupted by a server restart can be resumed.
  *
- * <p>Active when {@code yukta.restart.dir} is set. One JSON line per message, in {@code
+ * <p>Registered as the durable store by the Plus edition when {@code yukta.restart.dir} is set; the
+ * in-memory store also uses it for output beyond its caps. One JSON line per message, in {@code
  * <dir>/e-<executionId>/<nodeId>.jsonl}. Output is not capped (the disk is the claim check); a
  * message that cannot be written as JSON marks the node incomplete, so a restart that needs it is
  * refused instead of replaying part of it. Messages come back as plain JSON values: a payload that
  * was a Java object is read as a map, and bytes as base64 text.
  */
 @Slf4j
-@Component
-@ConditionalOnExpression(
-    "!'${yukta.restart.dir:}'.isEmpty() && !'postgres'.equals('${yukta.restart.store-type:}')")
 @SuppressWarnings({"PMD.OnlyOneReturn", "PMD.AvoidCatchingGenericException", "PMD.TooManyMethods"})
 public class FileNodeCheckpointStore implements NodeCheckpointStore, ByteCounted {
 
@@ -78,8 +73,7 @@ public class FileNodeCheckpointStore implements NodeCheckpointStore, ByteCounted
    * @param mapper reads and writes messages
    */
   @SuppressFBWarnings("EI_EXPOSE_REP2")
-  public FileNodeCheckpointStore(
-      @Value("${yukta.restart.dir}") final String dir, final ObjectMapper mapper) {
+  public FileNodeCheckpointStore(final String dir, final ObjectMapper mapper) {
     this.root = Path.of(dir);
     this.mapper = mapper;
   }

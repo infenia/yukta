@@ -2,10 +2,13 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.config;
 
-import com.infenia.yukta.security.ApiKeys;
+import com.infenia.yukta.security.ApiAuthenticator;
+import com.infenia.yukta.security.ApiAuthenticator.Scope;
+import com.infenia.yukta.security.ApiKeyAuthenticator;
 import jakarta.annotation.PostConstruct;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Component;
 
@@ -21,13 +24,28 @@ public class ExposureGuard {
   /** The configuration to check. */
   private final Environment environment;
 
+  /** Tells whether a caller must authenticate. */
+  private final ApiAuthenticator authenticator;
+
   /**
    * Create the guard.
    *
    * @param environment holds {@code server.address} and the API keys
    */
   public ExposureGuard(final Environment environment) {
+    this(environment, ApiKeyAuthenticator.read(environment));
+  }
+
+  /**
+   * Create the guard.
+   *
+   * @param environment holds {@code server.address}
+   * @param authenticator tells whether any caller needs to authenticate
+   */
+  @Autowired
+  public ExposureGuard(final Environment environment, final ApiAuthenticator authenticator) {
     this.environment = environment;
+    this.authenticator = authenticator;
   }
 
   /**
@@ -38,7 +56,7 @@ public class ExposureGuard {
   @PostConstruct
   public void check() {
     final String address = environment.getProperty("server.address", "");
-    if (!loopback(address) && ApiKeys.read(environment, "yukta.mcp.api-key").isEmpty()) {
+    if (!loopback(address) && authenticator.isOpen(Scope.MCP)) {
       throw new IllegalStateException(
           "Refusing to listen on '"
               + (address.isBlank() ? "all interfaces" : address)

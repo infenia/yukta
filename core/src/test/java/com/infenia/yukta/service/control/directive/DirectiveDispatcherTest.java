@@ -23,6 +23,7 @@ import com.infenia.yukta.service.log.ExecutionLogEvent;
 import com.infenia.yukta.service.log.InMemoryExecutionLogStore;
 import com.infenia.yukta.service.supervisor.ControlReviewer;
 import com.infenia.yukta.service.supervisor.ExecutionEventFeed;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -268,6 +269,8 @@ class DirectiveDispatcherTest {
 
   @Test
   void dispatchOrdered_recordsAppliedAndRejectedCommandsOfKnownRuns() {
+    final List<com.infenia.yukta.security.AuditRecord> sunk = new ArrayList<>();
+    dispatcher.setAuditSink(sunk::add);
     registry.register(createControl("s", "w", "exec-audit"));
     final ExecutionControlCommand pause =
         new ExecutionControlCommand.PauseWorkflowCommand("exec-audit");
@@ -291,6 +294,14 @@ class DirectiveDispatcherTest {
                 ExecutionLogEvent.Type.CONTROL_REJECTED,
                 "exec-audit",
                 "ResumeWorkflowCommand: not paused"));
+    assertThat(sunk)
+        .extracting(
+            com.infenia.yukta.security.AuditRecord::applied,
+            com.infenia.yukta.security.AuditRecord::command,
+            com.infenia.yukta.security.AuditRecord::reason)
+        .containsExactly(
+            org.assertj.core.api.Assertions.tuple(true, "PauseWorkflowCommand", null),
+            org.assertj.core.api.Assertions.tuple(false, "ResumeWorkflowCommand", "not paused"));
   }
 
   @Test
