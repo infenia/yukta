@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 plugins {
     id("com.infenia.yukta.library-conventions")
+    `java-test-fixtures`
 }
 
 // The Plus edition (AGPL-3.0-only): single-node durable storage on disk. Added to the application
@@ -12,6 +13,11 @@ dependencies {
     implementation(libs.spring.boot.starter.actuator)
     implementation(libs.spring.boot.starter.webflux)
     implementation(libs.spring.boot.starter.validation)
+
+    // The contract tests an extension module runs against its stores and election (testFixtures)
+    testFixturesApi(project(":core"))
+    testFixturesApi(libs.spring.boot.starter.test)
+    testFixturesApi(libs.reactor.test)
 }
 
 coverageConfig {
