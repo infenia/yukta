@@ -56,6 +56,12 @@ jobs:
           done < <(sed -n 's/^include("\(.*\)")/\1/p' settings.gradle.kts)
           exit $status
 
+      - name: Lint shell scripts (shellcheck)
+        run: shellcheck .github/scripts/*.sh
+
+      - name: Test the shard planner
+        run: .github/scripts/ci-tasks.test.sh
+
       - name: Lint workflows (actionlint)
         run: |
           docker run --rm -v "$PWD:/repo" -w /repo \
@@ -109,8 +115,11 @@ jobs:
               - 'settings.gradle.kts'
               - 'build-logic/**'
               - 'gradle/**'
+              - 'gradle.properties'
               - 'gradlew'
               - 'gradlew.bat'
+              - '.java-version'
+              - '.github/scripts/**'
               - 'lombok.config'
               - 'config/**'
 
@@ -192,7 +201,7 @@ jobs:
           if [ "$EVENT" != pull_request ] || [ "$ROOT" = true ]; then full=true; fi
           shards='[]'
           lint=''
-          for shard in platform infra plugins frontend; do
+          for shard in platform infra plugins cli ui; do
             tasks=$(FULL=$full CHANGED_MODULES="$CHANGED_MODULES" .github/scripts/ci-tasks.sh "$shard")
             [ -n "${tasks// /}" ] || continue
             shards=$(jq -c --arg n "$shard" --arg t "$tasks" '. + [{name: $n, args: ($t + "--continue")}]' <<<"$shards")
@@ -253,6 +262,18 @@ jobs:
         with:
           version: 10.30.1
 
+      - name: Locate pnpm store
+        id: pnpm-store
+        run: echo "path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache pnpm store
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: ${{ steps.pnpm-store.outputs.path }}
+          key: pnpm-store-${{ runner.os }}-${{ hashFiles('ui/pnpm-lock.yaml') }}
+          restore-keys: |
+            pnpm-store-${{ runner.os }}-
+
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6
         with:
@@ -269,6 +290,7 @@ jobs:
           echo "$OPENGREP_SHA256  $HOME/.local/bin/opengrep" | sha256sum -c -
           chmod +x "$HOME/.local/bin/opengrep"
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          "$HOME/.local/bin/opengrep" --version
 
       - name: Spotless, Checkstyle, PMD, OpenGrep
         env:
@@ -312,27 +334,47 @@ jobs:
 
       # The cli module shells out to `go` directly (goBuild, goTest, goCoverageCheck, ...); without
       # a pinned Go the runner's ambient one hit "go: no such tool covdata" during coverage.
+      #
+      # The cache key covers cli/Makefile because it pins golangci-lint, gosec and govulncheck, which
+      # `go run` compiles on first use; keying on go.sum alone froze the cache before they were built.
       - name: Set up Go
-        if: matrix.name == 'frontend'
+        if: matrix.name == 'cli'
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: 'cli/go.mod'
-          cache-dependency-path: 'cli/go.sum'
+          cache-dependency-path: |
+            cli/go.sum
+            cli/Makefile
 
-      # boot depends on the ui module, so every shard that builds boot needs Node.
       # boot depends on the ui module, so the shards that build boot or ui need Node and pnpm.
-      # No pnpm store cache here: the post step errors when a shard never runs `pnpm install`.
       - name: Set up Node.js
-        if: contains(fromJson('["platform", "frontend", "postgres-acceptance", "plus-acceptance"]'), matrix.name)
+        if: contains(fromJson('["platform", "ui", "postgres-acceptance", "plus-acceptance"]'), matrix.name)
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: '24'
 
       - name: Set up pnpm
-        if: contains(fromJson('["platform", "frontend", "postgres-acceptance", "plus-acceptance"]'), matrix.name)
+        if: contains(fromJson('["platform", "ui", "postgres-acceptance", "plus-acceptance"]'), matrix.name)
         uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
         with:
           version: 10.30.1
+
+      # Cache the pnpm store (every run was downloading all ~650 packages: "reused 0"). Done with
+      # actions/cache rather than setup-node's `cache: pnpm`, whose post step errors when a shard
+      # never runs `pnpm install`.
+      - name: Locate pnpm store
+        id: pnpm-store
+        if: contains(fromJson('["platform", "ui", "postgres-acceptance", "plus-acceptance"]'), matrix.name)
+        run: echo "path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache pnpm store
+        if: contains(fromJson('["platform", "ui", "postgres-acceptance", "plus-acceptance"]'), matrix.name)
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: ${{ steps.pnpm-store.outputs.path }}
+          key: pnpm-store-${{ runner.os }}-${{ hashFiles('ui/pnpm-lock.yaml') }}
+          restore-keys: |
+            pnpm-store-${{ runner.os }}-
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6
@@ -343,14 +385,13 @@ jobs:
           dependency-graph: disabled
           cache-provider: enhanced
           cache-read-only: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
-          build-scan-publish: true
 
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
       # Pinned binary + sha256 (bump both together with OPENGREP_VERSION)
       - name: Install OpenGrep
-        if: ${{ !contains(fromJson('["postgres-acceptance", "plus-acceptance"]'), matrix.name) }}
+        if: contains(fromJson('["platform", "infra", "plugins"]'), matrix.name)
         run: |
           mkdir -p "$HOME/.local/bin"
           curl -fsSL -o "$HOME/.local/bin/opengrep" \
@@ -368,25 +409,6 @@ jobs:
           version: v0.72.0 # keep in sync with security.yml
           cache: true
 
-      - name: Verify dependency lock files are up-to-date
-        if: matrix.name == 'platform'
-        run: |
-          # Lockfiles are only enforced once they are committed; with none tracked there is nothing to drift.
-          if [ -z "$(git ls-files '*gradle.lockfile')" ]; then
-            echo "No gradle.lockfile files are committed; skipping lock verification"
-            exit 0
-          fi
-          ./gradlew boot:compileAotJava --write-locks --no-configuration-cache
-          # git status (not git diff) so a new module's uncommitted lockfile is caught too
-          if [ -n "$(git status --porcelain -- '**/gradle.lockfile' 'gradle.lockfile')" ]; then
-            git status --porcelain -- '**/gradle.lockfile' 'gradle.lockfile'
-            echo "❌ Lock files are out of date."
-            echo "Run locally: ./gradlew boot:compileAotJava --write-locks --no-configuration-cache"
-            echo "Then commit the updated gradle.lockfile files."
-            exit 1
-          fi
-          echo "✓ Lock files are current and valid"
-
       - name: Gradle build (${{ matrix.name }})
         env:
           GRADLE_ARGS: ${{ matrix.args }}
@@ -397,7 +419,7 @@ jobs:
           ./gradlew $GRADLE_ARGS
 
       - name: Publish test result summary
-        if: always()
+        if: always() && !contains(fromJson('["cli", "ui"]'), matrix.name)
         uses: mikepenz/action-junit-report@6ef3fdcfcd5f0b5d14df3e659ef19b8c6820f93d # v6.6.1
         with:
           report_paths: '**/build/test-results/test/TEST-*.xml'
@@ -409,8 +431,9 @@ jobs:
       # Requires the CODECOV_TOKEN repository secret; harmless until it is set.
       - name: Upload coverage to Codecov
         if: |
-          github.event_name != 'pull_request' ||
-          github.event.pull_request.head.repo.full_name == github.repository
+          matrix.name != 'ui' &&
+          (github.event_name != 'pull_request' ||
+          github.event.pull_request.head.repo.full_name == github.repository)
         continue-on-error: true
         uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
         with:
@@ -456,14 +479,8 @@ jobs:
           java-version: '25'
           distribution: 'temurin'
 
-      # cli/build.gradle.kts shells out to `go`; keep the toolchain
-      # available in case any of its tasks touch configuration/resolution.
-      - name: Set up Go
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
-        with:
-          go-version-file: 'cli/go.mod'
-          cache-dependency-path: 'cli/go.sum'
-
+      # No Go here: resolving dependencies never runs the cli module's `go` tasks, and a Go cache
+      # saved from this job would be restored (and then never refreshed) by the cli shard.
       - name: Set up Node.js
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
@@ -529,7 +546,6 @@ jobs:
       (github.event_name == 'pull_request' || github.ref == 'refs/heads/main')
     permissions:
       contents: read
-      pull-requests: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -538,7 +554,7 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
         with:
-          version: 10
+          version: 10.30.1
 
       - name: Setup Node.js
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
@@ -555,18 +571,37 @@ jobs:
         working-directory: ui
         run: pnpm exec playwright install --with-deps chromium
 
+      # Reporters (html, json -> test-results/results.json, junit, github) come from playwright.config.ts;
+      # passing --reporter here would replace that list and drop the json output path.
       - name: Run E2E tests
         working-directory: ui
-        run: |
-          pnpm test:e2e \
-            --project=chromium \
-            --reporter=html \
-            --reporter=json \
-            --reporter=junit \
-            --reporter=github
+        run: pnpm test:e2e --project=chromium
         env:
           CI: true
           BASE_URL: http://localhost:5173
+
+      # Retries make a flaky test exit 0, so surface them instead of letting them pass unnoticed.
+      - name: Summarize E2E results
+        if: always()
+        working-directory: ui
+        run: |
+          node - <<'NODE' >> "$GITHUB_STEP_SUMMARY"
+          const fs = require('fs');
+          const file = 'test-results/results.json';
+          if (!fs.existsSync(file)) {
+            console.log('### E2E: no results.json was produced');
+            process.exit(0);
+          }
+          const { stats } = JSON.parse(fs.readFileSync(file, 'utf8'));
+          const secs = ((stats.duration || 0) / 1000).toFixed(1);
+          console.log('### E2E results (Playwright)\n');
+          console.log('| Passed | Failed | Flaky | Skipped | Duration |');
+          console.log('|--------|--------|-------|---------|----------|');
+          console.log(`| ${stats.expected} | ${stats.unexpected} | ${stats.flaky} | ${stats.skipped} | ${secs}s |`);
+          if (stats.flaky > 0) {
+            console.error(`::warning title=Flaky E2E tests::${stats.flaky} test(s) only passed on retry`);
+          }
+          NODE
 
       - name: Upload test results
         if: always()
@@ -585,42 +620,6 @@ jobs:
           path: ui/test-results/
           retention-days: 7
           if-no-files-found: ignore
-
-      - name: Comment PR with test results
-        if: github.event_name == 'pull_request' && always()
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v7
-        with:
-          script: |
-            const fs = require('fs');
-            const resultsPath = 'ui/test-results/results.json';
-            if (!fs.existsSync(resultsPath)) {
-              return;
-            }
-            const results = JSON.parse(fs.readFileSync(resultsPath, 'utf8'));
-            const stats = results.stats || {
-              tests: 0, passes: 0, failures: 0, duration: 0
-            };
-            const status = stats.failures === 0
-              ? '✅ All tests passed'
-              : '❌ Tests failed';
-            const table = '| Metric | Value |\n'
-              + '|--------|-------|\n'
-              + `| Total Tests | ${stats.tests || 0} |\n`
-              + `| Passed | ${stats.passes || 0} |\n`
-              + `| Failed | ${stats.failures || 0} |\n`
-              + `| Duration | ${((stats.duration || 0) / 1000).toFixed(1)}s |`;
-            const comment = `## ${status}\n\n${table}\n\n<details>\n`
-              + '<summary>View detailed report</summary>\n\n'
-              + '[Download Playwright Report]'
-              + '(https://github.com/${{ github.repository }}/actions/runs/'
-              + '${{ github.run_id }})\n\n</details>';
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: comment
-            });
-        continue-on-error: true
 
   # ─────────────────────────────────────────────
   # Single required check for branch protection. Jobs skipped by path

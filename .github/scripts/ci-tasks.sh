@@ -4,7 +4,7 @@
 #
 # Prints the Gradle tasks one CI shard must run (empty output = nothing to do).
 #
-# Usage: ci-tasks.sh <platform|infra|plugins|frontend>
+# Usage: ci-tasks.sh <platform|infra|plugins|cli|ui>
 # Env:   FULL=true            run every module of the shard (main, schedule, root-file change)
 #        CHANGED_MODULES      JSON array of changed module names (paths-filter output)
 #
@@ -46,7 +46,8 @@ group_of() {
   case $1 in
     messaging|plugin-api|core|web|mcp|boot) echo platform ;;
     persistence-postgres|plus|workers) echo infra ;;
-    cli|ui) echo frontend ;;
+    cli) echo cli ;;
+    ui) echo ui ;;
     *) echo plugins ;;
   esac
 }

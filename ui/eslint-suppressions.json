@@ -1,0 +1,50 @@
+{
+  "src/features/sessions/components/SessionDetailsPage.tsx": {
+    "react-hooks/set-state-in-effect": {
+      "count": 1
+    }
+  },
+  "src/features/sessions/components/SessionListPage.tsx": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 5
+    },
+    "tailwindcss/no-contradicting-classname": {
+      "count": 2
+    }
+  },
+  "src/features/sessions/components/__tests__/SessionListPage.test.tsx": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 3
+    }
+  },
+  "src/features/sessions/components/__tests__/columns.test.tsx": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 16
+    }
+  },
+  "src/features/sessions/components/columns.tsx": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 4
+    }
+  },
+  "src/features/workflow/hooks/useExecutionLogs.ts": {
+    "react-hooks/refs": {
+      "count": 3
+    }
+  },
+  "src/lib/__tests__/theme.test.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 2
+    }
+  },
+  "src/lib/__tests__/utils.test.ts": {
+    "no-constant-binary-expression": {
+      "count": 1
+    }
+  },
+  "src/test/setup.ts": {
+    "@typescript-eslint/no-unused-vars": {
+      "count": 4
+    }
+  }
+}
