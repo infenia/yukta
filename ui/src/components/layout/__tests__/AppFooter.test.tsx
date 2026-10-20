@@ -1,9 +1,18 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
-import { describe, it, expect } from 'vitest';
-import { render } from '@testing-library/react';
+import { describe, it, expect, vi } from 'vitest';
+import { renderWithProviders as render } from '@/test/utils/testUtils';
 import AppFooter from '../AppFooter';
+
+vi.mock('@/features/edition/api/edition', () => ({
+  getEdition: vi.fn().mockResolvedValue({
+    edition: 'COMMUNITY',
+    license: 'Apache-2.0',
+    features: [],
+    source: null,
+  }),
+}));
 
 describe('AppFooter', () => {
   it('should render footer element', () => {

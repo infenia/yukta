@@ -16,7 +16,9 @@ describe('HeaderPortal', () => {
       </div>
     );
 
-    expect(screen.getByTestId('portal-target')).toHaveTextContent('portaled content');
+    expect(screen.getByTestId('portal-target')).toHaveTextContent(
+      'portaled content'
+    );
   });
 
   it('renders nothing when the target does not exist', () => {

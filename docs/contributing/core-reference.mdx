@@ -1039,6 +1039,7 @@ Lookup tables. Each row names the feature that owns it, so a change to a feature
 | `yukta.session.store-type` | `in-memory` | [DEF-01](#def-01-definition-store-and-versions), [DUR-05](#dur-05-session-configuration) | `in-memory` \| `file` \| `postgres` |
 | `yukta.kv.store-type` | memory | [DUR-04](#dur-04-postgresql-stores) | State of `KV_STORE` (module: persistence-postgres) |
 | `yukta.session-memory.store-type` | memory | [DUR-04](#dur-04-postgresql-stores) | History of `SESSION_MEMORY` (module: persistence-postgres) |
+| `yukta.bootstrap.dir` | unset | [DUR-05](#dur-05-session-configuration) | Folder of session files applied at start-up (module: web) |
 | `yukta.session-memory.dir` | unset (memory) | [DUR-04](#dur-04-postgresql-stores) | Keep `SESSION_MEMORY` history on disk (Plus build) |
 | `yukta.workers.lease` | 15s | [SCL-01](#scl-01-remote-workers) | Worker lease; a missed renewal drops the worker |
 | `yukta.workers.token` | unset | [SCL-01](#scl-01-remote-workers) | Shared token (module: workers) |

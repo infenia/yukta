@@ -39,6 +39,12 @@ The default is right for trying things out: nothing to set up, and a restart giv
 
 The PostgreSQL stores are created only when `yukta.session.store-type=postgres`. The `postgres` profile sets it. The other PostgreSQL switches (`yukta.restart.store-type`, `yukta.kv.store-type`, `yukta.session-memory.store-type`, `yukta.ha.mode`) then choose which further data moves to the database.
 
+## Start with your workflows (all editions)
+
+Memory is the default, and the Community edition has nothing else. To get your sessions back after every restart, keep their definitions in files and point `yukta.bootstrap.dir` (`YUKTA_BOOTSTRAP_DIR`) at the folder. At start-up Yukta applies every `*.json` file in it, in name order, the same way `POST /api/sessions` or `yukta session apply` would. A file that is unreadable, invalid or cannot be applied is logged and skipped; it never stops the server. Keep the folder in git and the definitions come back with the server.
+
+The server also logs once at start-up that state is kept in memory.
+
 ## What survives a restart
 
 "Memory" is the default. "File" means the directory settings are set and the session store is `file`. "PostgreSQL" assumes the matching switch from the table above is set for each row.
