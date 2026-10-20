@@ -67,6 +67,12 @@ assets="$DIST/assets"
 rm -rf "$assets"
 mkdir -p "$assets"
 cp "$DIST"/packages/* "$DIST"/cli/yukta-cli-* "$assets/"
+# The install scripts attached to a release install exactly that release.
+sed "s/^DEFAULT_VERSION=\"@VERSION@\"/DEFAULT_VERSION=\"$version\"/" "$RELEASE_DIR/install.sh" > "$assets/install.sh"
+sed "s/^\( *\)\$defaultVersion = '@VERSION@'/\1\$defaultVersion = '$version'/" "$RELEASE_DIR/install.ps1" > "$assets/install.ps1"
+chmod 0755 "$assets/install.sh"
+grep -q "DEFAULT_VERSION=\"$version\"" "$assets/install.sh" || die "could not pin the version in install.sh"
+grep -q "defaultVersion = '$version'" "$assets/install.ps1" || die "could not pin the version in install.ps1"
 (cd "$assets" && sha256sum -- * > SHA256SUMS.tmp && mv SHA256SUMS.tmp SHA256SUMS)
 if $publish; then
   "$RELEASE_DIR/build-image.sh" "$version" --push

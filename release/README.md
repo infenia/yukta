@@ -11,6 +11,8 @@ and in CI. The plan and the reasons behind it are in
 | `package.sh` | `.tar.gz`, `.deb`, `.rpm` for one platform | any machine with Go |
 | `build-image.sh` | Runtime image per architecture, smoke test, optional multi-arch push to GHCR and Docker Hub | machine with Docker |
 | `sign.sh` | Keyless Sigstore signatures with `cosign` | machine with `cosign` |
+| `install.sh`, `install.ps1` | One-command installers for users (server and client). `release.sh` attaches copies pinned to the release version | users' machines |
+| `test-install.sh` | Tests `install.sh` against a local fake release server; writes only to a temp folder | any Linux/macOS machine |
 | `release.sh` | All of the above for one version; dry run unless `--publish` | release machine |
 
 ## Release steps
@@ -26,5 +28,19 @@ and in CI. The plan and the reasons behind it are in
 For a rehearsal, `NATIVE_QUICK=1 release/build-server.sh` compiles with `-Ob`: much faster, slower at run time. `release.sh --publish` refuses it. `NATIVE_HEAP=24g` raises the builder heap on a machine with the memory (or swap) for it.
 
 Run `docker run --privileged --rm tonistiigi/binfmt --install all` once on the release machine so the arm64 image can be smoke tested under QEMU.
+
+## Install scripts
+
+Users install with one command:
+
+```bash
+curl -fsSL https://github.com/infenia/yukta/releases/latest/download/install.sh | sh
+```
+
+```powershell
+irm https://github.com/infenia/yukta/releases/latest/download/install.ps1 | iex
+```
+
+The scripts download `SHA256SUMS` and the files for the user's system from the GitHub release, refuse to continue on a checksum mismatch and need no `sudo`. A release's copy is pinned to that release's version. Run `release/test-install.sh` after changing `install.sh`. `install.ps1` has not been run on a real Windows machine yet: test it on one before the first release.
 
 `dist/` is not committed.
