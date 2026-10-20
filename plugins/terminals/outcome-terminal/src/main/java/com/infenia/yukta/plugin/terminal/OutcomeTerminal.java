@@ -57,16 +57,12 @@ public final class OutcomeTerminal implements TerminalPlugin {
   public List<ConfigField> getConfigSchema() {
     return List.of(
         ConfigField.choice(
-            OUTCOME_KEY,
-            true,
-            null,
-            "How the run ended",
-            "SUCCESS",
-            "RETRY",
-            "ESCALATE",
-            "FAILED"),
+            OUTCOME_KEY, true, null, "How the run ended", "SUCCESS", "RETRY", "ESCALATE", "FAILED"),
         ConfigField.optional(
-            RESTART_FROM_KEY, ConfigField.Type.STRING, null, "Node to restart from; omit for start"),
+            RESTART_FROM_KEY,
+            ConfigField.Type.STRING,
+            null,
+            "Node to restart from; omit for start"),
         ConfigField.optional(REASON_KEY, ConfigField.Type.STRING, null, "Why the run ended here"));
   }
 
@@ -111,7 +107,8 @@ public final class OutcomeTerminal implements TerminalPlugin {
     final Object raw = config.get(OUTCOME_KEY);
     final String outcome = raw == null ? "" : raw.toString().strip().toUpperCase(Locale.ROOT);
     if (!OUTCOMES.contains(outcome)) {
-      throw new IllegalArgumentException("outcome must be one of " + new java.util.TreeSet<>(OUTCOMES));
+      throw new IllegalArgumentException(
+          "outcome must be one of " + new java.util.TreeSet<>(OUTCOMES));
     }
     return outcome;
   }

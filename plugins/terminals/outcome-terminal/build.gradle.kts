@@ -8,5 +8,6 @@ plugins {
 dependencies {
     api(project(":messaging"))
     implementation(project(":plugin-api"))
+    implementation(libs.spring.boot.starter.webflux)
     implementation(libs.jackson.databind)
 }
