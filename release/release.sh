@@ -38,6 +38,7 @@ branch="$(git rev-parse --abbrev-ref HEAD)"
 $allow_branch || [[ "$branch" == "main" ]] || die "on branch '$branch'; release from main or pass --allow-branch"
 [[ "$(gradle_version)" == "$version" ]] || die "gradle.properties has version '$(gradle_version)', not '$version'"
 ui_version="$(sed -n 's/.*"version": *"\([^"]*\)".*/\1/p' ui/package.json | head -1)"
+if $publish && [[ -n "${NATIVE_QUICK:-}" ]]; then die "NATIVE_QUICK builds are for rehearsals; unset it to publish"; fi
 [[ "$ui_version" == "$version" ]] || die "ui/package.json has version '$ui_version', not '$version'"
 
 rm -rf "$DIST/packages"

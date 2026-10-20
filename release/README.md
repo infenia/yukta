@@ -23,6 +23,8 @@ and in CI. The plan and the reasons behind it are in
 6. Install from the published artifacts on a clean machine, then publish the draft release.
 7. `release/build-image.sh X.Y.Z --promote` moves `X.Y` and `latest` (stable releases only).
 
+For a rehearsal, `NATIVE_QUICK=1 release/build-server.sh` compiles with `-Ob`: much faster, slower at run time. `release.sh --publish` refuses it. `NATIVE_HEAP=24g` raises the builder heap on a machine with the memory (or swap) for it.
+
 Run `docker run --privileged --rm tonistiigi/binfmt --install all` once on the release machine so the arm64 image can be smoke tested under QEMU.
 
 `dist/` is not committed.
