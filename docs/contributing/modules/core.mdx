@@ -269,7 +269,7 @@ Makes a run explainable and resumable after the process dies.
 
 The storage behind sessions, definitions and the log, chosen by one property.
 
-- In-memory is the default and loses everything on restart. File storage writes atomically and forces data to disk. PostgreSQL is accessed through R2DBC (non-blocking access) at run time, with Flyway applying the schema migrations.
+- In-memory is the default and loses everything on restart. File storage (the `plus` module, AGPL-3.0-only; the checkpoint store class stays in `core`) writes atomically and forces data to disk. PostgreSQL is accessed through R2DBC (non-blocking access) at run time, with Flyway applying the schema migrations.
 - PostgreSQL currently holds session config, workflow definitions with their versions and the execution log. Enable it by building with -Pyukta.persistence=postgres and setting the store type.
 - The log interface is blocking, so the PostgreSQL log goes through one writer thread. It trims to the newest runs and never drops a run that has no end recorded.
 

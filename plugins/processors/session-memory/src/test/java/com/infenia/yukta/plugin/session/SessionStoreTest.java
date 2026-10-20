@@ -6,16 +6,14 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.github.benmanes.caffeine.cache.Ticker;
-import java.nio.file.Path;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
 
-@SuppressWarnings({"PMD.CommentRequired", "PMD.AvoidDuplicateLiterals", "PMD.TooManyMethods"})
+@SuppressWarnings({"PMD.CommentRequired", "PMD.AvoidDuplicateLiterals"})
 @NoArgsConstructor
 class SessionStoreTest {
 
@@ -23,7 +21,7 @@ class SessionStoreTest {
 
   @Test
   void inMemoryStoreKeepsAtMostMaxSessions() {
-    final SessionStore bounded = new SessionStore("", 3, null, Ticker.systemTicker());
+    final SessionStore bounded = new SessionStore(3, null, Ticker.systemTicker());
 
     for (int i = 0; i < 10; i++) {
       bounded.append("s" + i, "user", "q", 5);
@@ -33,20 +31,9 @@ class SessionStoreTest {
   }
 
   @Test
-  void anEvictedSessionIsReadBackFromItsFile(@TempDir final Path dir) {
-    final SessionStore bounded = new SessionStore(dir.toString(), 2, null, Ticker.systemTicker());
-    for (int i = 0; i < 6; i++) {
-      bounded.append("s" + i, "user", "q" + i, 5);
-    }
-
-    assertThat(bounded.sessionCount()).isLessThanOrEqualTo(2L);
-    assertThat(bounded.history("s0", 5)).containsExactly(Map.of("role", "user", "content", "q0"));
-  }
-
-  @Test
   void idleSessionsLeaveMemoryAfterTheTtl() {
     final AtomicLong now = new AtomicLong();
-    final SessionStore expiring = new SessionStore("", 100, Duration.ofMinutes(10), now::get);
+    final SessionStore expiring = new SessionStore(100, Duration.ofMinutes(10), now::get);
     expiring.append("s", "user", "q", 5);
 
     now.addAndGet(Duration.ofMinutes(9).toNanos());
@@ -103,52 +90,6 @@ class SessionStoreTest {
         .isInstanceOf(UnsupportedOperationException.class);
   }
 
-  @Test
-  void withDirectory_historySurvivesRestart(@TempDir final Path dir) {
-    final SessionStore first = new SessionStore(dir.toString());
-    first.append("s", "user", "q1", 10);
-    first.append("s", "assistant", "a1", 10);
-
-    final SessionStore restarted = new SessionStore(dir.toString());
-
-    assertThat(restarted.history("s", 10))
-        .containsExactly(
-            Map.of("role", "user", "content", "q1"), Map.of("role", "assistant", "content", "a1"));
-    restarted.append("s", "user", "q2", 2);
-    assertThat(new SessionStore(dir.toString()).history("s", 10))
-        .containsExactly(
-            Map.of("role", "assistant", "content", "a1"), Map.of("role", "user", "content", "q2"));
-  }
-
-  @Test
-  void withDirectory_sessionIdCannotEscape_andUnknownSessionsAreEmpty(@TempDir final Path dir)
-      throws java.io.IOException {
-    final SessionStore store = new SessionStore(dir.toString());
-    store.append("../../evil", "user", "x", 5);
-
-    assertThat(dir.getParent().resolve("evil.json")).doesNotExist();
-    try (var files = java.nio.file.Files.list(dir)) {
-      assertThat(files.map(f -> dir.relativize(f).toString()).toList())
-          .containsExactly("..%2F..%2Fevil.json");
-    }
-    assertThat(store.history("other", 5)).isEmpty();
-  }
-
-  @Test
-  void withDirectory_unreadableFileMeansEmptyHistory_andUnwritableKeepsMemory(
-      @TempDir final Path dir) throws java.io.IOException {
-    java.nio.file.Files.writeString(dir.resolve("broken.json"), "not json");
-    final SessionStore store = new SessionStore(dir.toString());
-    assertThat(store.history("broken", 5)).isEmpty();
-
-    // the "directory" is a regular file, so nothing can be written beneath it
-    final Path blocker = java.nio.file.Files.createFile(dir.resolve("blocker"));
-    final SessionStore unwritable = new SessionStore(blocker.toString());
-    unwritable.append("s", "user", "kept", 5);
-    assertThat(unwritable.history("s", 5))
-        .containsExactly(Map.of("role", "user", "content", "kept"));
-  }
-
   /** A database that keeps the turns in a map. */
   private static final class FakeDatabase
       implements com.infenia.yukta.plugin.store.SessionHistoryStore {
@@ -180,7 +121,7 @@ class SessionStoreTest {
   }
 
   @Test
-  void springConstructor_prefersDatabaseThenFilesThenMemory(@TempDir final Path dir) {
+  void springConstructor_prefersDatabaseThenMemory() {
     final FakeDatabase database = new FakeDatabase();
     final org.springframework.beans.factory.support.StaticListableBeanFactory withDatabase =
         new org.springframework.beans.factory.support.StaticListableBeanFactory();
@@ -189,25 +130,14 @@ class SessionStoreTest {
         new org.springframework.beans.factory.support.StaticListableBeanFactory();
 
     new SessionStore(
-            dir.toString(),
             withDatabase.getBeanProvider(com.infenia.yukta.plugin.store.SessionHistoryStore.class),
             100,
             null)
         .append("a", "user", "x", 5);
-    new SessionStore(
-            dir.toString(),
-            none.getBeanProvider(com.infenia.yukta.plugin.store.SessionHistoryStore.class),
-            100,
-            null)
-        .append("b", "user", "y", 5);
-
     assertThat(database.rows).containsOnlyKeys("a");
-    assertThat(dir.resolve("b.json")).exists();
-    assertThat(dir.resolve("a.json")).doesNotExist();
 
     final SessionStore memory =
         new SessionStore(
-            "",
             none.getBeanProvider(com.infenia.yukta.plugin.store.SessionHistoryStore.class),
             100,
             null);

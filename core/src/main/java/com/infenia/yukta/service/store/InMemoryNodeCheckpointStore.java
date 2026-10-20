@@ -20,10 +20,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
-import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import tools.jackson.databind.ObjectMapper;
@@ -44,9 +40,6 @@ import tools.jackson.databind.ObjectMapper;
  * Spill files are removed with the execution, and leftovers of an earlier process on startup.
  */
 @Slf4j
-@Component
-@ConditionalOnExpression(
-    "'${yukta.restart.dir:}'.isEmpty() && !'postgres'.equals('${yukta.restart.store-type:}')")
 @SuppressWarnings({
   "PMD.AvoidSynchronizedStatement",
   "PMD.LawOfDemeter",
@@ -93,11 +86,10 @@ public class InMemoryNodeCheckpointStore implements NodeCheckpointStore, ByteCou
    * @param spillDir directory for output beyond the caps; empty to refuse such restarts
    * @param mapper writes spilled messages
    */
-  @Autowired
   public InMemoryNodeCheckpointStore(
-      @Value("${yukta.restart.messages-per-node:200}") final int messagesPerNode,
-      @Value("${yukta.restart.bytes-per-node:4194304}") final long bytesPerNode,
-      @Value("${yukta.restart.spill-dir:}") final String spillDir,
+      final int messagesPerNode,
+      final long bytesPerNode,
+      final String spillDir,
       final ObjectProvider<ObjectMapper> mapper) {
     this(messagesPerNode, bytesPerNode, openSpill(spillDir, mapper));
   }

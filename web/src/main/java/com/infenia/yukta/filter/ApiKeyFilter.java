@@ -4,6 +4,9 @@ package com.infenia.yukta.filter;
 
 import com.infenia.yukta.model.execution.WorkflowProgress;
 import com.infenia.yukta.plugin.control.ControlActor;
+import com.infenia.yukta.security.ApiAuthenticator;
+import com.infenia.yukta.security.ApiAuthenticator.Scope;
+import com.infenia.yukta.security.ApiKeyAuthenticator;
 import com.infenia.yukta.security.ApiKeys;
 import com.infenia.yukta.security.ApiRole;
 import com.infenia.yukta.security.RequestPaths;
@@ -67,8 +70,8 @@ public class ApiKeyFilter implements WebFilter {
   private static final Pattern SESSION_PATH =
       Pattern.compile("^/api/(?:sessions|workflow)/([^/]+)(?:/.*)?$");
 
-  /** Keys clients may present; empty disables the check. */
-  private final ApiKeys keys;
+  /** Identifies the caller; an open authenticator disables the check. */
+  private final ApiAuthenticator authenticator;
 
   /** Finds the session of an execution, or null if unknown. */
   @Nullable private final ControlBusGateway controlBus;
@@ -79,20 +82,31 @@ public class ApiKeyFilter implements WebFilter {
    * @param environment holds {@code yukta.api-key} and {@code yukta.api-keys}
    */
   public ApiKeyFilter(final Environment environment) {
-    this(environment, null);
+    this(ApiKeyAuthenticator.read(environment), null);
+  }
+
+  /**
+   * Create the filter from the configuration, with the API keys as authenticator.
+   *
+   * @param environment holds {@code yukta.api-key} and {@code yukta.api-keys}
+   * @param controlBus finds the session of an execution, or null
+   */
+  public ApiKeyFilter(final Environment environment, @Nullable final ControlBusGateway controlBus) {
+    this(ApiKeyAuthenticator.read(environment), controlBus);
   }
 
   /**
    * Create the filter from the configuration, able to tell which session an execution belongs to.
    *
-   * @param environment holds {@code yukta.api-key} and {@code yukta.api-keys}
+   * @param authenticator identifies the caller (API keys by default)
    * @param controlBus finds the session of an execution; without it a session-limited key cannot
    *     reach {@code /api/executions/{id}/**}
    */
   @Autowired
-  @SuppressFBWarnings("EI_EXPOSE_REP2") // the gateway is a shared Spring bean
-  public ApiKeyFilter(final Environment environment, final ControlBusGateway controlBus) {
-    this.keys = ApiKeys.read(environment, null);
+  @SuppressFBWarnings("EI_EXPOSE_REP2") // both are shared Spring beans
+  public ApiKeyFilter(
+      final ApiAuthenticator authenticator, @Nullable final ControlBusGateway controlBus) {
+    this.authenticator = authenticator;
     this.controlBus = controlBus;
   }
 
@@ -102,14 +116,14 @@ public class ApiKeyFilter implements WebFilter {
    * @param apiKey the required key, or empty to leave the API open
    */
   public ApiKeyFilter(final String apiKey) {
-    this.keys = ApiKeys.single(apiKey);
+    this.authenticator = ApiKeyAuthenticator.single(apiKey);
     this.controlBus = null;
   }
 
   @Override
   public Mono<Void> filter(final ServerWebExchange exchange, final WebFilterChain chain) {
     final String raw = exchange.getRequest().getPath().value();
-    if (keys.isEmpty()) {
+    if (authenticator.isOpen(Scope.REST)) {
       return chain.filter(exchange);
     }
     if (RequestPaths.ambiguous(raw)) {
@@ -119,7 +133,8 @@ public class ApiKeyFilter implements WebFilter {
     if (!guarded(path)) {
       return chain.filter(exchange);
     }
-    final ApiKeys.Match match = keys.find(ApiKeys.presented(exchange.getRequest().getHeaders()));
+    final ApiKeys.Match match =
+        authenticator.authenticate(Scope.REST, exchange.getRequest().getHeaders());
     if (match == null) {
       exchange.getResponse().getHeaders().set(HttpHeaders.WWW_AUTHENTICATE, "Bearer");
       return reject(exchange, HttpStatus.UNAUTHORIZED);
@@ -127,7 +142,7 @@ public class ApiKeyFilter implements WebFilter {
     if (!permitted(match, exchange, path)) {
       return reject(exchange, HttpStatus.FORBIDDEN);
     }
-    return keys.named()
+    return authenticator.named()
         ? chain
             .filter(exchange)
             .contextWrite(ctx -> ctx.put(ControlActor.CONTEXT_KEY, "key:" + match.name()))

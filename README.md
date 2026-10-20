@@ -19,7 +19,7 @@
 [![codecov](https://codecov.io/gh/infenia/yukta/branch/main/graph/badge.svg)](https://codecov.io/gh/infenia/yukta)
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/infenia/yukta/badge)](https://scorecard.dev/viewer/?uri=github.com/infenia/yukta)
 [![REUSE status](https://api.reuse.software/badge/github.com/infenia/yukta)](https://api.reuse.software/info/github.com/infenia/yukta)
-[![License: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-blue)](LICENSE)
+[![License: Apache 2.0 / AGPL-3.0](https://img.shields.io/badge/license-Apache%202.0%20%2B%20AGPL--3.0-blue)](LICENSING.md)
 [![Status: pre-beta](https://img.shields.io/badge/status-pre--beta-yellow)](#project-status)
 
 ---
@@ -58,7 +58,7 @@ Most workflow engines make you pick: a heavy platform you have to operate, or a 
 
 ## Quick start
 
-The quickest way is Docker, which needs no Java: `docker run --rm -p 127.0.0.1:8080:8080 -e YUKTA_API_KEY=change-me ghcr.io/infenia/yukta:latest` (add `-H "X-API-Key: change-me"` to the `curl` commands below). Packaged downloads and the image arrive with the first release (v0.1.0); there is no tagged release yet, so until then run from source. You need **JDK 25** and `curl`:
+The quickest way is the one-command installer (installs the server `yukta` and the client `yukta-cli`, no Java needed): `curl -fsSL https://github.com/infenia/yukta/releases/latest/download/install.sh | sh` on Linux and macOS, or `irm https://github.com/infenia/yukta/releases/latest/download/install.ps1 | iex` in PowerShell. Or use Docker: `docker run --rm -p 127.0.0.1:8080:8080 -e YUKTA_API_KEY=change-me ghcr.io/infenia/yukta:latest` (add `-H "X-API-Key: change-me"` to the `curl` commands below). Packaged downloads and the image arrive with the first release (v0.1.0); there is no tagged release yet, so until then run from source. You need **JDK 25** and `curl`:
 
 ```bash
 git clone https://github.com/infenia/yukta.git
@@ -256,7 +256,7 @@ The server listens on `127.0.0.1` by default. To expose it, set `YUKTA_SERVER_AD
 ```
 
 **Persistence.** By default sessions, workflow definitions and the execution log live in memory;
-`yukta.session.store-type=file` and `yukta.execution-log.dir` keep them on disk. For PostgreSQL build
+`yukta.session.store-type=file` and `yukta.execution-log.dir` keep them on disk in the Plus build (`-Pyukta.edition=plus`, AGPL-3.0-only; see [`LICENSING.md`](LICENSING.md)). For PostgreSQL build
 with `./gradlew bootJar -Pyukta.persistence=postgres` and run with `SPRING_PROFILES_ACTIVE=prod,postgres`,
 `SPRING_R2DBC_URL=r2dbc:postgresql://host:5432/yukta` (run time, reactive) and
 `SPRING_FLYWAY_URL=jdbc:postgresql://host:5432/yukta` (schema migrations only, since Flyway has no
@@ -271,7 +271,7 @@ Built with Java 25, Spring Boot 4.1 (WebFlux), Gradle 9.8, Project Reactor, Spri
 |--------|---------|
 | `boot` | Spring Boot entry point, native image config |
 | `core` | DAG orchestration engine, plugin registry |
-| `persistence-postgres` | Optional PostgreSQL stores (R2DBC + Flyway) for sessions, workflows and the execution log |
+| `plus/persistence-postgres` | Optional (AGPL, Plus) PostgreSQL stores (R2DBC + Flyway) for sessions, workflows and the execution log |
 | `plugin-api` | Plugin interfaces and store abstractions |
 | `plugins` | Built-in processors, triggers, terminals, supervisors |
 | `web` | REST controllers |
@@ -298,7 +298,7 @@ Open an [issue](https://github.com/infenia/yukta/issues/new/choose) for bugs and
 
 ## License
 
-Apache License 2.0. See [`LICENSE`](LICENSE). The repository follows the [REUSE](https://reuse.software/) specification.
+Apache License 2.0 for the Community edition. The `plus/` directory (single-node durable storage on disk) is AGPL-3.0-only, with a commercial licence available. See [`LICENSING.md`](LICENSING.md) and [`LICENSE`](LICENSE). The repository follows the [REUSE](https://reuse.software/) specification.
 
 ---
 

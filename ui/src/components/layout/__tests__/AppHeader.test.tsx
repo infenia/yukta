@@ -20,7 +20,11 @@ describe('AppHeader', () => {
   it('should render with border and surface styling', () => {
     const { container } = renderWithRouter(<AppHeader />);
     const header = container.querySelector('header');
-    expect(header).toHaveClass('border-b', 'border-outline-variant', 'bg-surface');
+    expect(header).toHaveClass(
+      'border-b',
+      'border-outline-variant',
+      'bg-surface'
+    );
   });
 
   it('should render HeaderLogo component', () => {

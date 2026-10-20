@@ -2,7 +2,9 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.filter;
 
-import com.infenia.yukta.security.ApiKeys;
+import com.infenia.yukta.security.ApiAuthenticator;
+import com.infenia.yukta.security.ApiAuthenticator.Scope;
+import com.infenia.yukta.security.ApiKeyAuthenticator;
 import java.net.URI;
 import java.util.List;
 import java.util.Locale;
@@ -54,9 +56,19 @@ public class HostOriginFilter implements WebFilter {
    * @param environment holds the API keys, {@code yukta.allowed-hosts} and {@code
    *     yukta.allowed-origins}
    */
-  @Autowired
   public HostOriginFilter(final Environment environment) {
-    this.enforced = ApiKeys.read(environment, "yukta.mcp.api-key").isEmpty();
+    this(environment, ApiKeyAuthenticator.read(environment));
+  }
+
+  /**
+   * Create the filter from the configuration and the authenticator in use.
+   *
+   * @param environment holds {@code yukta.allowed-hosts} and {@code yukta.allowed-origins}
+   * @param authenticator tells whether any caller needs to authenticate
+   */
+  @Autowired
+  public HostOriginFilter(final Environment environment, final ApiAuthenticator authenticator) {
+    this.enforced = authenticator.isOpen(Scope.MCP);
     this.hosts = lowerCase(list(environment, "yukta.allowed-hosts"));
     this.origins = lowerCase(list(environment, "yukta.allowed-origins"));
   }

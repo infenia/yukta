@@ -1,0 +1,33 @@
+---
+title: "Plus module"
+description: "The AGPL-3.0-only module: file stores, the PostgreSQL and workers modules nested in it, and the integration layer that extension modules build on."
+mode: "wide"
+---
+
+<Note>
+  This module is part of the **Plus** edition (AGPL-3.0-only). See [Licensing and editions](/reference/licensing).
+</Note>
+
+The `plus` directory holds everything that is not in the Community edition. It has four parts:
+
+| Part | What it is | Switch |
+|---|---|---|
+| `plus` itself | Single-server stores on disk (sessions, workflow definitions, execution log, chat history), `PlusConfiguration` for the checkpoint files, the edition and the `/actuator/info` source offer | `-Pyukta.edition=plus` |
+| `plus/persistence-postgres` | PostgreSQL stores, Flyway migrations and the leader lease for high availability. See [persistence-postgres](/contributing/modules/persistence-postgres) | `-Pyukta.persistence=postgres` |
+| `plus/workers` | Remote workers over RSocket. See [workers](/contributing/modules/workers) | `-Pyukta.workers=true` |
+| `com.infenia.yukta.plus.ext` | The integration layer: `EnterpriseModule`, `PlusApi`, `LicenseVerifier`, `EnterpriseModuleRegistry` | always in Plus |
+
+## How a module plugs in
+
+1. It provides a bean of a type that `core` owns (a store, `LeaderElection`, `ApiAuthenticator`) and declares `@AutoConfiguration(before = DefaultsAutoConfiguration.class)`, so the single-server default steps aside.
+2. It registers an `EnterpriseModule` bean with the `PlusApi.VERSION` it was built against. The registry refuses a mismatch at start-up, asks the `LicenseVerifier` and lists the features.
+3. It can provide an `AuditSink` bean to receive every control command (applied or not) besides the execution log.
+4. It runs the contract tests from `testFixtures(project(":plus"))` against its implementations.
+
+The build then reports the Enterprise edition through `GET /api/edition`. Settings that need a module that is not in the build stop start-up with a message that names the build switch (the `GATES` table in `FeatureGateEnvironmentPostProcessor`).
+
+## Rules
+
+- Nothing outside `boot` may depend on `:plus` or `:plus:*`; CI checks it. A dependency from the Apache modules would make the Community build AGPL.
+- Every file here carries the `AGPL-3.0-only` SPDX header; Spotless adds it.
+- The hooks stay in `core` under Apache-2.0. This module owns the framework around them.
