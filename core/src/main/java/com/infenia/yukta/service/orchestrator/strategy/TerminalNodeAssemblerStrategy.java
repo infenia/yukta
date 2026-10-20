@@ -253,6 +253,7 @@ public class TerminalNodeAssemblerStrategy implements NodeAssemblerStrategy {
   }
 
   /** Tells whether the terminal was reached, and how the run ended there. */
+  @SuppressWarnings("PMD.UseConcurrentHashMap")
   private static Map<String, Object> completionMetadata(
       final TerminalPlugin terminal, final Map<String, Object> config, final long received) {
     final Map<String, Object> metadata = new HashMap<>();

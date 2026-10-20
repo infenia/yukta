@@ -79,6 +79,18 @@ class TriggerTerminalAcceptanceTest {
   }
 
   @Test
+  void outcomeTerminal_endsTheRunWithItsInput() {
+    final var key =
+        wf.save(
+            List.of(
+                node("in", "API_TRIGGER", Map.of()),
+                node("end", "OUTCOME_TERMINAL", Map.of("outcome", "SUCCESS"))),
+            List.of(new Edge("in", "end", null)));
+
+    assertThat(wf.runOne(key, Map.of("hello", "world"))).containsEntry("hello", "world");
+  }
+
+  @Test
   void notifyTerminal_postsTheMessageToTheWebhook() throws IOException {
     try (FakeHttp hook = new FakeHttp()) {
       final var key =
