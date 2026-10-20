@@ -91,7 +91,7 @@ yukta-cli session workflow get <session-id> <workflow-id>
 All commands follow this pattern:
 
 ```
-yukta [flags] <resource> <action> [arguments]
+yukta-cli [flags] <resource> <action> [arguments]
 ```
 
 **Global Flags:**

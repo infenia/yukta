@@ -125,7 +125,7 @@ The macOS and Windows installers are unsigned at first: users see a Gatekeeper o
 
 Changes to `Dockerfile`:
 
-1. **Split building from packaging.** Keep today's full build as a dev target, and add a **runtime target** that only copies a prebuilt binary chosen by `TARGETARCH` (`dist/linux-amd64/yukta-server` or `dist/linux-arm64/yukta-server`) into the distroless image. The image and the downloadable archive then contain the *same* binary, built once.
+1. **Split building from packaging.** Keep today's full build as a dev target, and add a **runtime target** that only copies a prebuilt binary chosen by `TARGETARCH` (`dist/linux-amd64/yukta` or `dist/linux-arm64/yukta`) into the distroless image. The image and the downloadable archive then contain the *same* binary, built once.
 2. **Multi-arch assembly.** Build or load each architecture's image, push them by digest, then create the manifest with `docker buildx imagetools create`. Either architecture can come from a different machine.
 3. **Tags.** `X.Y.Z`, `X.Y`, and `latest` only for stable releases; `X.Y.Z-rc.N` for prereleases, which never move `latest`.
 4. **Metadata and supply chain.** OCI labels (source, version, licence, revision), an SBOM and provenance attached to the image, `cosign` signature, and a Trivy scan that fails the release on unignored high findings (the repo already has `.trivyignore`).
@@ -135,7 +135,7 @@ Changes to `Dockerfile`:
 
 ## Release flow
 
-Run on the release machine as `release/release.sh vX.Y.Z` (and a `--dry-run` that publishes nothing):
+Run on the release machine as `release/release.sh vX.Y.Z` (a dry run that publishes nothing; `--publish` publishes):
 
 1. **Preflight:** clean tree on `main`, version in `gradle.properties` and `ui/package.json` match the tag, CI green on that commit, tag format valid. Prereleases use `-rc.N`.
 2. **Quality gate:** the existing `./gradlew check` (or the staged `yukta-check.sh`) passes.
@@ -182,7 +182,7 @@ What changes in the docs:
 
 | Page | Change |
 |---|---|
-| `quickstart` | Replace "Before you begin: a JDK" with **Choose how to install**, as tabs: **Docker** (first, one command), **Binary** (Linux, macOS, Windows), **Package manager** (Homebrew, Scoop, winget, `.deb`/`.rpm`), and **From source** (last, labelled as for contributors). Steps 2 to 4 are unchanged. Add a "check it is running" step using `yukta-server --version` and `/actuator/health` |
+| `quickstart` | Replace "Before you begin: a JDK" with **Choose how to install**, as tabs: **Docker** (first, one command), **Binary** (Linux, macOS, Windows), **Package manager** (Homebrew, Scoop, winget, `.deb`/`.rpm`), and **From source** (last, labelled as for contributors). Steps 2 to 4 are unchanged. Add a "check it is running" step using `yukta --version` and `/actuator/health` |
 | `operations/deployment` | Add an **Install** section at the top: artifact table, platform matrix, how to verify checksums and signatures, upgrade and rollback, systemd service from the `.deb`/`.rpm`, Docker Compose example, Windows notes. Move "Run from source" to the end. Replace the "no packaged releases" sentence and rename `./boot/build/native/...` examples to the installed binary |
 | `index` | Replace the pre-beta note that says there are no releases and you run from source with a link to the install options |
 | `interfaces/cli` | How to install the CLI (same archive, package managers) |

@@ -7,7 +7,9 @@
 # GraalVM native-image cannot cross-compile: run it on an amd64 host for linux-amd64 and on an
 # arm64 host (for example a GitHub-hosted ubuntu-24.04-arm runner) for linux-arm64.
 #
-# Usage: [NATIVE_HEAP=16g] release/build-server.sh
+# Usage: [NATIVE_HEAP=16g] [NATIVE_QUICK=1] release/build-server.sh
+# NATIVE_QUICK=1 compiles with -Ob: much faster, for rehearsals and smoke tests. release.sh refuses
+# to publish such a binary.
 # Result: dist/linux-<arch>/yukta and dist/linux-<arch>/SHA256SUMS
 set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
@@ -24,6 +26,7 @@ mkdir -p "$out"
 
 log "native compile for $platform (builder heap $heap)"
 docker build --target builder --build-arg "NATIVE_HEAP=$heap" \
+  --build-arg "NATIVE_QUICK=${NATIVE_QUICK:-}" \
   -t "yukta-builder:$platform" "$REPO_ROOT"
 cid="$(docker create "yukta-builder:$platform")"
 trap 'docker rm -f "$cid" >/dev/null 2>&1 || true' EXIT

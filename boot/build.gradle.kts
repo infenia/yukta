@@ -119,7 +119,6 @@ graalvmNative {
             imageName.set("yukta")
             mainClass.set("com.infenia.yukta.YuktaApplication")
             buildArgs.add("--no-fallback")
-            buildArgs.add("--emit=build-report")
 
             // openai-java-core ships agent-recorded proxy/serialization metadata captured from its
             // own Gradle/ByteBuddy-based tests (classes absent here), so native-image warns
@@ -154,6 +153,10 @@ graalvmNative {
             buildArgs.add("-H:+StripDebugInfo")                // Remove debug information
             buildArgs.add("-H:-AddAllCharsets")                // Remove unnecessary charsets
             buildArgs.add("-H:IncludeLocales=en")              // English is the only supported locale
+
+            // Docker builds: -Pnative.static links zlib and everything except libc into the binary, so
+            // it runs on the distroless cc image (which has libc but no libz). Needs libz.a.
+            if (providers.gradleProperty("native.static").isPresent) buildArgs.add("--static-nolibc")
 
             // Dev builds: -Pnative.quick trades runtime speed for much faster image compilation
             if (providers.gradleProperty("native.quick").isPresent) buildArgs.add("-Ob")

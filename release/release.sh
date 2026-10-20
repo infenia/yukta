@@ -38,17 +38,26 @@ branch="$(git rev-parse --abbrev-ref HEAD)"
 $allow_branch || [[ "$branch" == "main" ]] || die "on branch '$branch'; release from main or pass --allow-branch"
 [[ "$(gradle_version)" == "$version" ]] || die "gradle.properties has version '$(gradle_version)', not '$version'"
 ui_version="$(sed -n 's/.*"version": *"\([^"]*\)".*/\1/p' ui/package.json | head -1)"
+if $publish && [[ -n "${NATIVE_QUICK:-}" ]]; then die "NATIVE_QUICK builds are for rehearsals; unset it to publish"; fi
 [[ "$ui_version" == "$version" ]] || die "ui/package.json has version '$ui_version', not '$version'"
 
-rm -rf "$DIST/cli" "$DIST/packages"
-"$RELEASE_DIR/build-cli.sh"
+rm -rf "$DIST/packages"
+# A published release must carry the CLI binaries the tag workflow built and attested (artifact
+# cli-binaries, downloaded into dist/cli/). A local rebuild has different digests, so the
+# provenance would no longer match the uploaded files. Dry runs may build locally.
+if ! compgen -G "$DIST/cli/yukta-cli-*" >/dev/null; then
+  $publish && die "--publish needs the CI-built CLI binaries: download the artifact cli-binaries into $DIST/cli/"
+  "$RELEASE_DIR/build-cli.sh"
+fi
 if ! $skip_server; then "$RELEASE_DIR/build-server.sh"; fi
 
 for platform in "${PLATFORMS[@]}"; do
   if [[ -x "$DIST/$platform/yukta" ]]; then
     "$RELEASE_DIR/package.sh" "$version" "$platform"
+  elif $publish; then
+    die "no server binary for $platform: a published release needs every platform (see release/README.md)"
   else
-    log "WARNING: no server binary for $platform; it is left out of this release"
+    log "WARNING: no server binary for $platform; it is left out of this dry run"
   fi
 done
 
@@ -72,7 +81,7 @@ if $publish; then
   notes_flag=(); is_prerelease "$version" && notes_flag=(--prerelease)
   gh release view "v$version" >/dev/null 2>&1 || gh release create "v$version" --draft "${notes_flag[@]}" --generate-notes --title "v$version"
   gh release upload "v$version" "$assets"/* --clobber
-  log "draft release v$version uploaded. Install from the published artifacts on a clean machine, then publish it."
+  log "draft release v$version uploaded. Install from the published artifacts on a clean machine, publish it, then run: release/build-image.sh $version --promote"
 else
   "$RELEASE_DIR/build-image.sh" "$version"
   log "dry run complete: nothing was pushed, signed or uploaded. Release files are in $assets"
