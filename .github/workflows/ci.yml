@@ -323,13 +323,13 @@ jobs:
       # boot depends on the ui module, so the shards that build boot or ui need Node and pnpm.
       # No pnpm store cache here: the post step errors when a shard never runs `pnpm install`.
       - name: Set up Node.js
-        if: contains(fromJson('["platform", "frontend", "postgres-acceptance"]'), matrix.name)
+        if: contains(fromJson('["platform", "frontend", "postgres-acceptance", "plus-acceptance"]'), matrix.name)
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: '24'
 
       - name: Set up pnpm
-        if: contains(fromJson('["platform", "frontend", "postgres-acceptance"]'), matrix.name)
+        if: contains(fromJson('["platform", "frontend", "postgres-acceptance", "plus-acceptance"]'), matrix.name)
         uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
         with:
           version: 10.30.1
@@ -350,7 +350,7 @@ jobs:
 
       # Pinned binary + sha256 (bump both together with OPENGREP_VERSION)
       - name: Install OpenGrep
-        if: matrix.name != 'postgres-acceptance'
+        if: ${{ !contains(fromJson('["postgres-acceptance", "plus-acceptance"]'), matrix.name) }}
         run: |
           mkdir -p "$HOME/.local/bin"
           curl -fsSL -o "$HOME/.local/bin/opengrep" \
