@@ -160,73 +160,136 @@ warn_if_stale_native() {
   return 0
 }
 
-# self_heal: reads session JSON on stdin and rewrites the gradle-check workflow so a failing stage
-# repairs itself (the policy is heal.json, the stage -> {auto, claude} map). Run it LAST, after
-# scope_to_module/splice_args, which rebuild the edges as one linear chain.
-#   stage S ──success──────────────────────────────────────────────▶ next stage
-#     └failure▶ S-auto ▶ S-r1 ─success──────────────────────────────▶ next stage   (deterministic fix)
-#                 └failure▶ S-fix1 ▶ S-r2 ─success──────────────────▶ next stage   (claude, attempt 1)
-#                              └failure▶ S-fix2 ▶ S-r3 (fails the run) ─▶ next stage  (claude, attempt 2)
-# then a "verify" node before the terminal re-runs every stage's tasks when anything was healed. The
-# DAG cannot loop, so the repeats are unrolled; the engine does not mark untaken nodes as skipped,
-# so what was healed is read from the records yukta-heal.sh writes, not from node statuses.
-# Variables: policy (JSON), module, project, healsh, healdir, fork (claude session to fork, may be
-# empty), m1 and m2 (fixer mode of attempt 1 and 2: fresh or fork).
-self_heal() {
-  jq --argjson policy "$1" --arg module "$2" --arg project "$3" --arg healsh "$4" --arg healdir "$5" \
-    --arg fork "$6" --arg m1 "$7" --arg m2 "$8" '
+# stage_workflows POLICY MODULE PROJECT HEALSH HEALDIR: reads session JSON on stdin and adds one small
+# workflow "stage-<stage>" per stage of gradle-check (after scoping), each with several exits that an
+# OUTCOME_TERMINAL names. The supervisor (rules.json) restarts a RETRY; the driver (run_stages) acts
+# on ESCALATE and moves on after SUCCESS. POLICY is heal.json, the stage -> {auto, claude} map.
+#   run ──success──────────────▶ OUT SUCCESS
+#     └failure▶ apply ─success▶ OUT RETRY (restartFrom run)     (stage has a deterministic fix)
+#                  └failure───▶ OUT ESCALATE
+#     └failure▶ OUT ESCALATE                                    (claude may fix it, no auto fix)
+#     └failure▶ OUT FAILED                                      (no policy: fail fast)
+stage_workflows() {
+  jq --argjson policy "$1" --arg module "$2" --arg project "$3" --arg healsh "$4" --arg healdir "$5" '
     def tasks: [.[1:][] | select(startswith("-") | not)];
     def px: if $module != "" and (startswith(":") | not) then ":" + $module + ":" + . else . end;
-    def uniq: reduce .[] as $t ([]; if index($t) then . else . + [$t] end);
-    def edge($s; $t; $p): {source: $s, target: $t} + (if $p then {sourcePort: $p} else {} end);
-    def healnode($id; $stage; $attempt; $mode; $tasks): {
-      nodeId: $id, type: "PROCESS_EXECUTOR",
-      config: {command: [$healsh, $stage, ($attempt | tostring), $mode], workingDir: $project,
-        timeout: 3600, timeoutSeconds: 3600, failureMode: "CONTINUE",
-        env: {YUKTA_HEAL_DIR: $healdir, YUKTA_HEAL_TASKS: ($tasks | join(" ")),
-          YUKTA_FORK_SESSION: $fork, YUKTA_MODULE: $module}}};
-    def expand:
-      . as $n
-      | ($policy[$n.nodeId] // {}) as $p
-      | ($n.config.command // [] | tasks) as $t
-      | [(if $p.auto then {id: ($n.nodeId + "-auto"), attempt: 0, mode: "auto", tasks: ($p.auto | map(px))} else empty end),
-         (if $p.claude then
-            ({id: ($n.nodeId + "-fix1"), attempt: 1, mode: $m1, tasks: $t},
-             {id: ($n.nodeId + "-fix2"), attempt: 2, mode: $m2, tasks: $t})
-          else empty end)] as $steps
-      | ($steps | length) as $k
-      | if $n.type != "PROCESS_EXECUTOR" or $k == 0
-        then {entry: $n.nodeId, nodes: [$n], edges: [], outs: [{from: $n.nodeId}]}
-        else
-          ($n | .config.failureMode = "CONTINUE" | .config.routeByExitCode = true) as $head
-          | [range(0; $k) as $i | $n | .nodeId = ($n.nodeId + "-r" + ($i + 1 | tostring))
-              | if $i < $k - 1 then .config.failureMode = "CONTINUE" | .config.routeByExitCode = true else . end] as $checks
-          | {entry: $n.nodeId,
-             nodes: ([$head] + [range(0; $k) as $i
-                       | healnode($steps[$i].id; $n.nodeId; $steps[$i].attempt; $steps[$i].mode; $steps[$i].tasks), $checks[$i]]),
-             edges: ([edge($n.nodeId; $steps[0].id; "failure")]
-                     + [range(0; $k) as $i | edge($steps[$i].id; $checks[$i].nodeId; null)]
-                     + [range(0; $k - 1) as $i | edge($checks[$i].nodeId; $steps[$i + 1].id; "failure")]),
-             outs: ([{from: $n.nodeId, port: "success"}]
-                    + [range(0; $k - 1) as $i | {from: $checks[$i].nodeId, port: "success"}]
-                    + [{from: $checks[$k - 1].nodeId}])}
-        end;
+    def out($id; $o): {nodeId: $id, type: "OUTCOME_TERMINAL", config: ({outcome: $o} + (if $o == "RETRY" then {restartFrom: "run"} else {} end))};
+    def edge($s; $t; $p): {source: $s, target: $t, sourcePort: $p};
+    def stage($n):
+      ($policy[$n.nodeId] // {}) as $p
+      | ($n.config.command | tasks) as $t
+      | ($n | .nodeId = "run" | .config.failureMode = "CONTINUE" | .config.routeByExitCode = true) as $run
+      | ({nodeId: "apply", type: "PROCESS_EXECUTOR",
+          config: {command: [$healsh, $n.nodeId, "0", "auto"], workingDir: $project,
+            timeout: 3600, timeoutSeconds: 3600, failureMode: "CONTINUE", routeByExitCode: true,
+            env: {YUKTA_HEAL_DIR: $healdir, YUKTA_HEAL_TASKS: (($p.auto // []) | map(px) | join(" ")), YUKTA_MODULE: $module}}}) as $apply
+      | {workflowId: ("stage-" + $n.nodeId), description: ("Stage " + $n.nodeId + " with explicit exits"),
+         nodes: ([{nodeId: "trigger", type: "CONSTANT_SOURCE", config: {}}, $run, out("ok"; "SUCCESS")]
+                 + (if $p.auto then [$apply, out("retry"; "RETRY"), out("escalate"; "ESCALATE")]
+                    elif $p.claude then [out("escalate"; "ESCALATE")]
+                    else [out("failed"; "FAILED")] end)),
+         edges: ([{source: "trigger", target: "run"}, edge("run"; "ok"; "success")]
+                 + (if $p.auto then [edge("run"; "apply"; "failure"), edge("apply"; "retry"; "success"), edge("apply"; "escalate"; "failure")]
+                    elif $p.claude then [edge("run"; "escalate"; "failure")]
+                    else [edge("run"; "failed"; "failure")] end))};
     if .workflows["gradle-check"] == null then . else
-    .workflows["gradle-check"] |= (
-      . as $wf
-      | ([$wf.nodes[] | select(.type == "PROCESS_EXECUTOR") | .config.command | tasks] | add // [] | uniq) as $all
-      | ($wf.nodes | map(expand)) as $recs
-      | {entry: "verify",
-         nodes: [{nodeId: "verify", type: "PROCESS_EXECUTOR",
-                  config: {command: [$healsh, "verify", "0", "verify"], workingDir: $project,
-                    timeout: 3600, timeoutSeconds: 3600, failureMode: "ERROR",
-                    env: {YUKTA_HEAL_DIR: $healdir, YUKTA_HEAL_TASKS: ($all | join(" ")), YUKTA_MODULE: $module}}}],
-         edges: [], outs: [{from: "verify"}]} as $verify
-      | ($recs[:-1] + [$verify] + $recs[-1:]) as $seq
-      | .nodes = [$seq[].nodes[]]
-      | .edges = ([$seq[].edges[]]
-          + [range(0; $seq | length - 1) as $i | $seq[$i].outs[] | edge(.from; $seq[$i + 1].entry; .port)]))
+      .workflows += ([.workflows["gradle-check"].nodes[] | select(.type == "PROCESS_EXECUTOR") | stage(.)]
+                     | map({(.workflowId): .}) | add // {})
     end'
+}
+
+# stage_names: reads session JSON on stdin, prints the stages of gradle-check in order.
+stage_names() {
+  jq -r '.workflows["gradle-check"].nodes[] | select(.type == "PROCESS_EXECUTOR") | .nodeId'
+}
+
+# stage_tasks STAGE: reads session JSON on stdin, prints the gradle tasks of the stage (as scoped).
+stage_tasks() {
+  jq -r --arg s "$1" '.workflows["gradle-check"].nodes[] | select(.nodeId == $s)
+    | [.config.command[1:][] | select(startswith("-") | not)] | join(" ")'
+}
+
+_history() { "$(find_cli)" -o json workflow history "$1" | jq 'if type == "object" then (.data // .) else . end'; }
+
+# follow_stage SESSION WORKFLOW EXECUTION: waits until the stage workflow's newest execution has ended
+# and prints its id. A RETRY outcome is restarted by the server (rules.json) into a new execution;
+# after an execution ends this waits a few seconds for such a successor before settling on it.
+# ponytail: assumes startTime sorts as text (ISO-8601) and a 4s grace; without rules.json the
+# RETRY simply settles here and the driver treats it as an escalation.
+follow_stage() {
+  local session="$1" wf="$2" first="$3" settled="" row id status
+  for _ in $(seq 1 3600); do
+    row="$(_history "$session" | jq -r --arg wf "$wf" --arg first "$first" '
+      ([.[] | select(.executionId == $first) | .startTime][0]) as $t0
+      | [.[] | select(.workflowId == $wf and (.startTime >= $t0))] | sort_by(.startTime) | last
+      | "\(.executionId) \(.status)"')"
+    id="${row%% *}" status="${row#* }"
+    if [[ "$status" =~ ^(PENDING|QUEUED|RUNNING|PAUSED)$ || -z "$id" || "$id" == null ]]; then
+      settled=""
+      sleep 2
+    elif [[ "$settled" == "$id" ]]; then
+      echo "$id"
+      return 0
+    else
+      settled="$id"
+      sleep 4
+    fi
+  done
+  die "stage $wf did not end"
+}
+
+# stage_outcome SESSION EXECUTION: the outcome of the OUTCOME_TERMINAL the run reached (SUCCESS, RETRY,
+# ESCALATE, FAILED), or NONE.
+stage_outcome() {
+  "$(find_cli)" -o json workflow status "$1" "$2" \
+    | jq -r '(.data // .) | [.tasks[] | select(.module == "OUTCOME_TERMINAL" and .metadata.reached == true) | .metadata.outcome][0] // "NONE"'
+}
+
+start_stage() { # session workflow
+  "$(find_cli)" -o json workflow start "$1" "$2" | jq -r '.data.executionId // .executionId'
+}
+
+# run_stages SESSION SESSIONFILE: the supervisor-side loop of a healing check. For each stage, start
+# its workflow and follow it; on SUCCESS go on, on ESCALATE (or a RETRY the server did not restart)
+# let the Claude fixer try (two attempts, modes $m1 and $m2), then start the stage again; FAILED or an
+# unfixed stage ends the check. Finally re-run every task once if anything was healed. Prints STAGE
+# lines and the RESULT line; returns 0 only when everything passed.
+# Variables: cli project module healsh heal_dir fork m1 m2.
+run_stages() {
+  local session="$1" file="$2" stage exec outcome attempt mode fixed last="-" failed="-" tasks all
+  all="$(jq -r '[.workflows["gradle-check"].nodes[] | select(.type == "PROCESS_EXECUTOR") | .config.command[1:][] | select(startswith("-") | not)] | unique | join(" ")' "$file")"
+  while read -r stage; do
+    echo "STAGE $stage start"
+    exec="$(start_stage "$session" "stage-$stage")"
+    attempt=0
+    while :; do
+      exec="$(follow_stage "$session" "stage-$stage" "$exec")"
+      last="$exec"
+      outcome="$(stage_outcome "$session" "$exec")"
+      echo "STAGE $stage $outcome execution=$exec"
+      [[ "$outcome" == SUCCESS ]] && break
+      if [[ "$outcome" == FAILED || "$outcome" == NONE || $attempt -ge 2 ]]; then failed="$stage"; break 2; fi
+      attempt=$((attempt + 1))
+      mode="$m1"; ((attempt == 2)) && mode="$m2"
+      tasks="$(stage_tasks "$stage" <"$file")"
+      "$(find_cli)" -o json workflow status "$session" "$exec" \
+        | jq -r '(.data // .) | .tasks[] | select(.metadata.error != null) | "ERROR \(.nodeId): \(.metadata.error | .[0:300])"' | head -3
+      (cd "$project" && YUKTA_HEAL_DIR="$heal_dir" YUKTA_HEAL_TASKS="$tasks" YUKTA_FORK_SESSION="$fork" \
+        YUKTA_MODULE="$module" "$healsh" "$stage" "$attempt" "$mode") | tail -1
+      fixed="$(jq -r '.fixed' "$heal_dir/$stage-$attempt.json" 2>/dev/null || echo false)"
+      [[ "$fixed" == true ]] || continue
+      exec="$(start_stage "$session" "stage-$stage")"
+    done
+  done < <(stage_names <"$file")
+  if [[ "$failed" == "-" ]] && jq -e -s 'any(.[]; .fixed)' "$heal_dir"/*.json >/dev/null 2>&1; then
+    (cd "$project" && YUKTA_HEAL_DIR="$heal_dir" YUKTA_HEAL_TASKS="$all" YUKTA_MODULE="$module" \
+      "$healsh" verify 0 verify) || failed="verify"
+  fi
+  local healed status=COMPLETED
+  healed="$(healed_stages "$session" "$failed")"
+  [[ "$failed" == "-" ]] || status=FAILURE
+  echo "RESULT status=$status failed_node=$failed healed=${healed:--} execution=$last session=$session"
+  [[ "$status" == COMPLETED ]]
 }
 
 # print_result SESSION EXECUTION: prints the machine readable RESULT line; returns 0 only when the
@@ -235,7 +298,7 @@ print_result() {
   local progress status failed healed
   progress="$("$(find_cli)" -o json workflow status "$1" "$2" | jq '(.data // .)')"
   status="$(jq -r '.status' <<<"$progress")"
-  failed="$(jq -r '[.tasks[] | select(.status | test("FAIL|ERROR"; "i")) | .nodeId][0] // "-" | sub("-(auto|fix[0-9]+|r[0-9]+)$"; "")' <<<"$progress")"
+  failed="$(jq -r '[.tasks[] | select(.status | test("FAIL|ERROR"; "i")) | .nodeId][0] // "-" | .' <<<"$progress")"
   healed="$(healed_stages "$1" "$failed")"
   echo "RESULT status=$status failed_node=$failed healed=${healed:--} execution=$2 session=$1"
   [[ "$status" == COMPLETED || "$status" == SUCCESS ]]

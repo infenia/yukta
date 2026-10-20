@@ -148,26 +148,35 @@ RESULT status=FAILED failed_node=style execution=<id> session=check-<branch>
 ```
 
 ## Self-healing check
-`yukta-check.sh` expands each stage of the staged `gradle-check` into a repair chain, so a run fixes what it
-can before it fails. The DAG cannot loop, so the retries are unrolled; edges leave a stage on its
-`success`/`failure` port (`routeByExitCode`):
+`yukta-check.sh` runs the staged `gradle-check` as one small workflow per stage (`stage-<stage>`, built by
+`stage_workflows` in `scripts/_lib.sh` from the `gradle-check` stage table, so `-m <module>` works). Each stage
+has several explicit exits, named by an `OUTCOME_TERMINAL` whose outcome the supervisor and the driver act on:
 ```
-S ──success───────────────────────────────────────────────────────────▶ next stage
-└failure▶ S-auto ▶ S-r1 ─success────────────────────────────────────▶ next stage   deterministic fix
-             └failure▶ S-fix1 ▶ S-r2 ─success──────────────────────▶ next stage   claude, attempt 1 (fresh)
-                          └failure▶ S-fix2 ▶ S-r3 (fails the run) ──▶ next stage   claude, attempt 2 (fork)
-... ▶ verify (re-runs every stage when something was healed) ▶ done
+run ──success──────────────▶ OUT SUCCESS               the driver starts the next stage
+ └failure▶ apply ─success▶ OUT RETRY (restartFrom run)  the server's rule restarts the run from `run`
+              └failure───▶ OUT ESCALATE                 the driver calls the Claude fixer, then restarts the stage
 ```
+Stages with only a Claude fix go from `run` straight to ESCALATE; stages without a policy end in `OUT FAILED`.
+Two pieces cooperate:
+- **The server's rule file** `rules.json` (`yukta.supervisor.rules.file`; `yukta-worktree.sh` and
+  `yukta-native.sh` set it) restarts a stage on RETRY while `attempt < 2`. A server without it still works:
+  an unrestarted RETRY is treated as an escalation.
+- **The driver** (`run_stages`, called by `yukta-check.sh`) follows the newest execution of each stage
+  workflow (a restart is a new execution), reads the outcome from the terminal's status metadata, and on
+  ESCALATE runs the fixer (two attempts) and starts the stage again. After the last stage it re-runs every
+  task once if anything was healed (`yukta-heal.sh verify`), and prints `STAGE …` lines and the `RESULT` line.
+  With `--detach` the driver runs in the background: `STARTED session=<s> log=<file>`, then
+  `yukta-watch.sh <s> <file>` follows the log to the `RESULT` line.
 | stage | `auto` | `claude` | in `heal.json` |
 |---|---|---|---|
 | spotless | `spotlessApply` | yes | |
 | compile, tests, coverage, style, spotbugs, cli | | yes | |
 | licenses, security | | | no entry: plain fail-fast |
 
-`session.json` stays the linear spec; `self_heal` (in `scripts/_lib.sh`) generates the chain after the
-module scope is applied, so `-m <module>` works. `test-self-heal.sh` checks the generated graph offline.
+`session.json` stays the linear spec (and the `--no-heal` workflow). `test-self-heal.sh` checks the generated
+stage workflows offline.
 
-Each fix step is `yukta-heal.sh <stage> <attempt> <mode>`, run by a `PROCESS_EXECUTOR` node. For a Claude
+Each fix step is `yukta-heal.sh <stage> <attempt> <mode>`, run by the `apply` node (mode `auto`, which exits non-zero when it did not repair the stage) or by the driver (Claude). For a Claude
 attempt it re-runs the stage to get the cause fresh (and stops there if it passes now), builds a short brief
 (the problem lines only, the failing test classes, the working-tree diffstat, the previous attempt's
 summary), runs `claude -p` (Sonnet, `acceptEdits`, tools limited to Read/Edit/Write/Grep/Glob and
@@ -181,8 +190,8 @@ or this folder, adding a suppression (`@SuppressFBWarnings`, `NOPMD`, `CHECKSTYL
 - It prints `HEAL <stage> attempt=<n> mode=<m> fixed=<bool> files=<n> cost=$<x> summary=<text>` (shown by
   `--quiet`) and writes `.yukta-dev/heal/<session>/<stage>-<n>.json`; `RESULT` gains `healed=<stage:step,…>`.
 - The server needs `YUKTA_PROCESS_ALLOW_ANY=true` and a logged-in `claude` on its PATH (not `--bare`, which
-  loses the login). Nodes that were not reached are reported `SUCCESS` by the engine, so `healed=` comes from
-  the records, not from node statuses.
+  loses the login). `healed=` comes from the records, not from node statuses. Which exit a stage took is its
+  `OUTCOME_TERMINAL`'s `reached`/`outcome` metadata.
 
 ## The check workflow
 `session.json` is `CONSTANT_SOURCE` → one `PROCESS_EXECUTOR` per stage → `CONSOLE_TERMINAL`.

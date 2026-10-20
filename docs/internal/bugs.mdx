@@ -109,7 +109,7 @@ Defects, errors and slowdowns noticed while Yukta ran its own checks (the dogfoo
 - Repro: any `routeByExitCode` node followed by two plain `PROCESS_EXECUTOR` nodes.
 
 #### DF-7: rules could not restart a run, and a run could not say which exit it took
-- Status: fixed in this branch (PR #417); the dogfood example still uses the unrolled `self_heal` chain
+- Status: fixed in this branch (PR #417); the dogfood check now runs one workflow per stage, restarted by `rules.json`
 - Severity: P2
 - Kind: improvement
 - Found: 2026-10-20, designing multi-exit stage workflows

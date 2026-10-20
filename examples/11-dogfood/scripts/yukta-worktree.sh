@@ -58,7 +58,8 @@ url="http://localhost:$port"
 # launch_server gives the server its own process group, so yukta-stop.sh stops the Gradle wrapper
 # and the JVM together.
 export SERVER_PORT="$port" YUKTA_SESSION_BASE_DIR="$wt/.yukta" \
-  YUKTA_SESSION_EXECUTION_TIMEOUT_SECONDS=14400 YUKTA_PROCESS_ALLOW_ANY=true
+  YUKTA_SESSION_EXECUTION_TIMEOUT_SECONDS=14400 YUKTA_PROCESS_ALLOW_ANY=true \
+  YUKTA_SUPERVISOR_RULES_FILE="$REPO_ROOT/examples/11-dogfood/rules.json"
 launch_server "$name" "$wt" ./gradlew bootRun -q --console=plain
 
 cat >"$STATE_DIR/$name.env" <<ENV

@@ -2,7 +2,7 @@
 # Follow a Yukta execution with control-bus events until it ends, then print the RESULT line.
 # A thin wrapper around `yukta controlbus watch`; meant to run under Claude Code's Monitor tool.
 #
-# Usage: [YUKTA_SCOPE=<module|all>] yukta-watch.sh <session-id> <execution-id> [--quiet | --no-logs]
+# Usage: [YUKTA_SCOPE=<module|all>] yukta-watch.sh <session-id> <execution-id|check-log-file> [--quiet | --no-logs]
 #
 # One line per event:
 #   NODE <node> <status>   WORKFLOW <status>   CONTROL <command> applied=<bool> [reason]   LOG <node>: <line>
@@ -22,6 +22,14 @@ need jq
 session="${1:?usage: yukta-watch.sh <session-id> <execution-id> [--quiet | --no-logs]}"
 exec_id="${2:?usage: yukta-watch.sh <session-id> <execution-id> [--quiet | --no-logs]}"
 shift 2
+
+# A staged check (yukta-check.sh --detach) gives a log file instead of an execution: follow it to its
+# RESULT line.
+if [[ -f "$exec_id" ]]; then
+  tail -n +1 -f "$exec_id" | awk '{ print; fflush() } /^RESULT / { exit }' || true
+  grep -q '^RESULT status=COMPLETED' "$exec_id"
+  exit $?
+fi
 
 load_server
 "$(find_cli)" controlbus watch --execution "$exec_id" --until-done "$@"
