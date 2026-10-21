@@ -63,9 +63,6 @@ licensee {
     // Other permissive licenses
     // Per-artifact decisions for weak/strong-copyleft licences (statically linked into the native
     // image; needs legal sign-off before distribution). Nothing else may use these licences.
-    allowDependency("org.openjdk.nashorn", "nashorn-core", "15.4") {
-        because("GPL-2.0 with Classpath Exception (license URL only); pulled in by GraalVM JS in internal-core")
-    }
     // Flyway Community Edition is Apache-2.0 (its POM only links the README); needs a legal check
     // before it ships in a distribution.
     allowDependency("org.flywaydb", "flyway-core", "12.4.0") {

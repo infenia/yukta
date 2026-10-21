@@ -11,5 +11,9 @@ dependencies {
     implementation(libs.spring.boot.starter.webflux)
     implementation(libs.jackson.databind)
     implementation(libs.caffeine)
-    implementation(libs.handlebars)
+    // Nashorn (GPL-2.0 with Classpath Exception) is only used by Handlebars' JavaScript helpers, which
+    // the mapper never registers.
+    implementation(libs.handlebars) {
+        exclude(group = "org.openjdk.nashorn", module = "nashorn-core")
+    }
 }
