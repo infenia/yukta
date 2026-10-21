@@ -17,8 +17,8 @@ Same cause as #1. `fanout` is part of the 250 starts/s check above and finished 
 
 ## 3. `bootRun` needs the UI build
 
-`./gradlew bootRun` fails at `:ui:pnpmInstall` when pnpm cannot be downloaded (offline/sandbox). Workaround:
-`-x :ui:pnpmInstall -x :ui:pnpmBuild -x :ui:pnpmSetup -x :ui:nodeSetup` (API only).
+`./gradlew bootRun` fails at `:ui:pnpmInstall` when pnpm cannot be downloaded (offline/sandbox). Fixed: `-PskipUi` skips the
+UI build (API only).
 
 ## 4. Runs stuck as `RUNNING`, control calls answer 404 (fixed, DF-7)
 
