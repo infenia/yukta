@@ -38,8 +38,8 @@ Maintainers are responsible for:
 ### Project owner
 
 Infenia Private Limited owns the project and its repository and appoints the maintainers. The
-owner holds administrative rights on the GitHub organization, the release and signing
-credentials, and the documentation site.
+owner holds administrative rights on the GitHub organization, the repository secrets and
+variables, and the documentation site.
 
 ## Decision Making
 
@@ -78,8 +78,10 @@ The project must not depend on a single person being reachable.
   documented: [docs/building](docs/building), [release/README.md](release/README.md) and
   [.github/WORKFLOWS.md](.github/WORKFLOWS.md). Nothing in a release depends on private
   knowledge of one person.
-* Release signing keys and credentials are held by the project owner, not by an individual's
-  personal account, and are reissued by the owner if a person leaves.
+* Releases are cut by [release-please](https://github.com/googleapis/release-please) and built and
+  signed in GitHub Actions. Signing is keyless (Sigstore), so there is no long-lived private key
+  that one person must hold. The bot credentials are repository secrets managed by the project
+  owner, and the owner rotates them if a person leaves.
 * If every maintainer becomes unavailable, the project owner appoints replacements. Anyone may
   also fork the project under its licenses.
 
