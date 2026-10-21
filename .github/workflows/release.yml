@@ -37,8 +37,23 @@ jobs:
           go-version-file: 'cli/go.mod'
           cache: false   # release artifacts must not depend on shared caches
 
+      - name: Version
+        id: version
+        env:
+          REF_NAME: ${{ github.ref_name }}
+          IS_TAG: ${{ github.event_name == 'push' }}
+        run: |
+          version="$(sed -n 's/^version=//p' gradle.properties)"
+          if [ "$IS_TAG" = true ] && [ "v$version" != "$REF_NAME" ]; then
+            echo "::error::tag $REF_NAME does not match version $version in gradle.properties"
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
       - name: Build all platforms
         working-directory: cli
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
         run: make build-all
 
       - name: Checksums
@@ -57,11 +72,18 @@ jobs:
           path: cli/build/
           if-no-files-found: error
 
-  server-linux-arm64:
-    name: Server linux/arm64
-    # GraalVM native-image cannot cross-compile, so arm64 needs an arm64 host. The amd64 server,
-    # the images, the packages and the signing happen on the release machine (release/release.sh).
-    runs-on: ubuntu-24.04-arm
+  server:
+    name: Server ${{ matrix.platform }}
+    # GraalVM native-image cannot cross-compile: each platform needs a host of its own architecture
+    # (linux-arm64 would be one more entry here, on ubuntu-24.04-arm). The images, the packages and
+    # the signing happen on the release machine (release/release.sh).
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux-amd64
+            runner: ubuntu-latest
     timeout-minutes: 180   # records a PGO profile (instrumented build + examples), then builds
     permissions:
       contents: read
@@ -71,6 +93,10 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
+
+      # The hosted runner has little free disk; the native build and its builder image need several GB.
+      - name: Free disk space
+        run: sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
 
       # Builds inside the pinned Oracle GraalVM image, the same way the release machine does. It first
       # records a PGO profile on this runner (release/pgo-profile.sh), so the profile matches the commit.
@@ -83,14 +109,14 @@ jobs:
       # Kept for audit and to rebuild a release the same way; the build never reads an old one.
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
-          name: pgo-profile-linux-arm64
+          name: pgo-profile-${{ matrix.platform }}
           path: boot/pgo/yukta.iprof
           if-no-files-found: warn
           retention-days: 90
 
       - name: Smoke test
         run: |
-          dist/linux-arm64/yukta &
+          dist/${{ matrix.platform }}/yukta &
           pid=$!
           for _ in $(seq 1 60); do
             if curl -fsS http://127.0.0.1:8080/actuator/health | grep -q '"status":"UP"'; then kill "$pid"; exit 0; fi
@@ -104,18 +130,18 @@ jobs:
         if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
-          subject-path: dist/linux-arm64/yukta
+          subject-path: dist/${{ matrix.platform }}/yukta
 
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
-          name: server-linux-arm64
-          path: dist/linux-arm64/
+          name: server-${{ matrix.platform }}
+          path: dist/${{ matrix.platform }}/
           if-no-files-found: error
 
   publish:
     name: GitHub release
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
-    needs: [cli, server-linux-arm64]
+    needs: [cli, server]
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:

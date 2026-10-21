@@ -17,6 +17,8 @@
 
 # Variables
 BINARY_NAME := yukta-cli
+# Release version baked into the binary; release/build-cli.sh passes it from gradle.properties.
+VERSION ?= dev
 BUILD_DIR := build
 CMD_DIR := cmd/yukta
 GOOS ?= $(shell go env GOOS)
@@ -46,7 +48,7 @@ build: ## Build CLI for GOOS/GOARCH (default: current OS/arch)
 	@mkdir -p $(BUILD_DIR)
 	@out=$(BUILD_DIR)/$(BINARY_NAME)-$(GOOS)-$(GOARCH)$(if $(filter windows,$(GOOS)),.exe); \
 		echo "Building $$out"; \
-		CGO_ENABLED=0 GOOS=$(GOOS) GOARCH=$(GOARCH) go build -ldflags='-s -w' -o $$out ./$(CMD_DIR)
+		CGO_ENABLED=0 GOOS=$(GOOS) GOARCH=$(GOARCH) go build -ldflags='-s -w -X com.infenia.yukta/go-cli/internal/commands.Version=$(VERSION)' -o $$out ./$(CMD_DIR)
 
 build-all: ## Build CLI for all platforms (Linux/macOS/Windows)
 	@for target in $(TARGETS); do \

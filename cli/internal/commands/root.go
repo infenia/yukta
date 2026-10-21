@@ -13,6 +13,9 @@ import (
 // outputFormat holds the -o/--output value, read by subcommands via GetOutputFormat.
 var outputFormat string
 
+// Version is the release version, set at build time (-ldflags -X, see cli/Makefile).
+var Version = "dev"
+
 // RootCmd creates and returns the root Cobra command with global flags.
 // The --url, --timeout and --token flags are bound straight to the client's fields, so
 // there is no separate sync step after parsing; -o/--output is inherited by all subcommands.
@@ -24,7 +27,8 @@ func RootCmd(c *client.Client) *cobra.Command {
 	}
 
 	cmd := &cobra.Command{
-		Use:   "yukta-cli",
+		Use:     "yukta-cli",
+		Version: Version,
 		Short: "Yukta CLI - run and steer workflows on a Yukta server",
 		Long: `Yukta is a reactive workflow orchestration server. This CLI manages
 sessions, starts and controls workflow runs, watches their progress and reads their

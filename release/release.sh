@@ -3,17 +3,18 @@
 # SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 # Run a release from the release machine. Builds what this machine can build, takes the rest from
-# dist/ (for example the arm64 binary downloaded from the GitHub Actions run), then packages,
+# dist/ (for example the server binary downloaded from the GitHub Actions run), then packages,
 # builds images and checksums. Publishes only with --publish.
 #
 # Usage: release/release.sh <version> [--publish] [--skip-server] [--allow-branch]
 #   <version>       0.1.0 or 0.1.0-rc.1 (a leading v is fine)
 #   --publish       push images, sign everything, upload to the GitHub release as a draft
 #   --skip-server   do not run the native build; use the binaries already in dist/
-#   --allow-branch  allow a release from a branch other than main (for rehearsals)
+#   --allow-branch  allow a release when HEAD is not the tag v<version> (for rehearsals)
 #
-# Before this: set the version in gradle.properties and ui/package.json, merge to main, wait for CI.
-# The arm64 binary comes from the release workflow run for the tag (artifact server-linux-arm64).
+# Before this: set the version in gradle.properties and ui/package.json, merge to main, wait for CI,
+# push the tag, and check it out. install.ps1 is not attached until it has run on a real Windows machine.
+# The arm64 binary comes from the release workflow run for the tag (artifact server-linux-amd64).
 set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
@@ -34,8 +35,9 @@ done
 log "preflight"
 cd "$REPO_ROOT"
 [[ -z "$(git status --porcelain)" ]] || die "working tree is not clean"
-branch="$(git rev-parse --abbrev-ref HEAD)"
-$allow_branch || [[ "$branch" == "main" ]] || die "on branch '$branch'; release from main or pass --allow-branch"
+# Release from the tag checkout, so the image revision label and the packages are the tagged commit.
+$allow_branch || [[ "$(git describe --exact-match --tags HEAD 2>/dev/null)" == "v$version" ]] ||
+  die "HEAD is not tag v$version: run 'git checkout v$version' (or pass --allow-branch for a rehearsal)"
 [[ "$(gradle_version)" == "$version" ]] || die "gradle.properties has version '$(gradle_version)', not '$version'"
 ui_version="$(sed -n 's/.*"version": *"\([^"]*\)".*/\1/p' ui/package.json | head -1)"
 if $publish && [[ -n "${NATIVE_QUICK:-}" ]]; then die "NATIVE_QUICK builds are for rehearsals; unset it to publish"; fi
@@ -73,10 +75,8 @@ if ! $skip_server && [[ -s "$REPO_ROOT/boot/pgo/yukta.iprof" ]]; then
 fi
 # The install scripts attached to a release install exactly that release.
 sed "s/^DEFAULT_VERSION=\"@VERSION@\"/DEFAULT_VERSION=\"$version\"/" "$RELEASE_DIR/install.sh" > "$assets/install.sh"
-sed "s/^\( *\)\$defaultVersion = '@VERSION@'/\1\$defaultVersion = '$version'/" "$RELEASE_DIR/install.ps1" > "$assets/install.ps1"
 chmod 0755 "$assets/install.sh"
 grep -q "DEFAULT_VERSION=\"$version\"" "$assets/install.sh" || die "could not pin the version in install.sh"
-grep -q "defaultVersion = '$version'" "$assets/install.ps1" || die "could not pin the version in install.ps1"
 (cd "$assets" && sha256sum -- * > SHA256SUMS.tmp && mv SHA256SUMS.tmp SHA256SUMS)
 if $publish; then
   "$RELEASE_DIR/build-image.sh" "$version" --push
