@@ -66,7 +66,8 @@ graph (reflection, resources, runtime wiring) is caught by the full build on
 `main` and by the nightly run, which files an issue.
 
 **Jobs**:
-1. `lint-workflows` — yamllint, actionlint, zizmor, shellcheck for `.github/scripts`,
+1. `lint-workflows` — yamllint, actionlint, zizmor, shellcheck for `.github/scripts`, the label
+   check (`sync-labels.py --check`),
    the shard-planner table test (`ci-tasks.test.sh`) and a module-graph check
    (`ci-tasks.sh --check`: every `project()` dependency is an included module).
 2. `changes` — Plan the run with `ci-tasks.sh` (fast, ~5s): changed modules and
@@ -213,7 +214,24 @@ Publishes to the OpenSSF API (powers the README badge) and uploads SARIF.
 
 ### `labeler.yml` / `stale.yml`
 
-Auto-label PRs by touched paths; mark and close stale issues/PRs.
+Auto-label PRs by touched paths; mark and close stale issues/PRs. Issues labelled `risk`,
+`security`, `dogfood`, `flaky-test`, `ci-nightly`, `epic`, `needs-triage`, `blocked` or `pinned`
+never go stale.
+
+---
+
+### `labels.yml` — Sync labels
+
+**Purpose**: Keep the repository labels equal to `.github/labels.yml`.
+
+On a push to `main` that changes the file (or manually), `.github/scripts/sync-labels.py --apply`
+creates missing labels and updates colors and descriptions. It never deletes a label; one that is
+not in the file is listed in the job summary. The `lint-workflows` job runs
+`sync-labels.py --check` on every PR: the file must be valid, and every label that the labeler,
+Dependabot, the stale bot and the issue forms apply must be defined in it.
+
+Issues, issue types and the **Yukta Roadmap** project are described in
+[PROJECT.md](PROJECT.md).
 
 ---
 

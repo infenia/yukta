@@ -46,6 +46,17 @@ plus:
       - any-glob-to-any-file:
           - 'plus/**'
 
+# Plus modules (the plus label above also applies)
+persistence-postgres:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'plus/persistence-postgres/**'
+
+workers:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'plus/workers/**'
+
 # CLI module changes
 cli:
   - changed-files:

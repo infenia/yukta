@@ -1,0 +1,195 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: 2026 Infenia Private Limited
+
+# Every label of the repository, synced by .github/workflows/labels.yml (sync-labels.sh).
+# The sync creates and updates labels; it never deletes one, so retire a label by hand.
+# Issue kind (bug, feature, task, epic) is the issue *type*, not a label; see .github/PROJECT.md.
+# Colors are hex without '#'. Descriptions are at most 100 characters.
+
+# --- Triage and workflow -----------------------------------------------------------------------
+- name: needs-triage
+  color: fbca04
+  description: New issue, not yet triaged into the project
+- name: blocked
+  color: b60205
+  description: Waiting on something outside this issue or PR
+- name: pinned
+  color: 0e8a16
+  description: Kept open on purpose; never marked stale
+- name: work-in-progress
+  color: fef2c0
+  description: PR still being worked on; never marked stale
+- name: stale
+  color: cccccc
+  description: No activity for a while; closes unless updated
+- name: duplicate
+  color: cfd3d7
+  description: This issue or pull request already exists
+- name: invalid
+  color: e4e669
+  description: This doesn't seem right
+- name: wontfix
+  color: ffffff
+  description: This will not be worked on
+- name: question
+  color: d876e3
+  description: Further information is requested
+- name: good first issue
+  color: 7057ff
+  description: Good for newcomers
+- name: help wanted
+  color: "008672"
+  description: Extra attention is needed
+- name: breaking-change
+  color: d93f0b
+  description: Changes a public API, config key, plugin id or stored format
+
+# --- Source: where an item came from (set by forms and automation) ------------------------------
+- name: epic
+  color: 3e4b9e
+  description: Groups the sub-issues of a plan or evolution path
+- name: risk
+  color: c5def5
+  description: A rated weakness (impact and effort), not yet a defect
+- name: security
+  color: b60205
+  description: Security weakness or hardening item
+- name: dogfood
+  color: f9d0c4
+  description: Found while Yukta ran its own checks (examples/11-dogfood)
+- name: ci-nightly
+  color: b60205
+  description: Failure of a scheduled (nightly) CI run; closes itself when the run is green
+- name: flaky-test
+  color: fef2c0
+  description: A test that failed and then passed on retry
+- name: perf
+  color: bfd4f2
+  description: Found by the perf tests (perf/)
+- name: ci:full
+  color: 5319e7
+  description: Build every module on this PR, not only the changed ones
+
+# --- Areas: modules (also applied to PRs by .github/labeler.yml) --------------------------------
+- name: boot
+  color: 1d76db
+  description: Module boot (application entry point, native image)
+- name: build
+  color: 1d76db
+  description: Build logic, Gradle, config and CI
+- name: cli
+  color: 1d76db
+  description: Module cli (Go command-line client)
+- name: core
+  color: 1d76db
+  description: Module core (DAG engine, orchestration, control bus)
+- name: mcp
+  color: 1d76db
+  description: Module mcp (MCP server)
+- name: messaging
+  color: 1d76db
+  description: Module messaging (shared message abstractions)
+- name: plugin-api
+  color: 1d76db
+  description: Module plugin-api (contract used by every plugin)
+- name: plugins
+  color: 1d76db
+  description: Modules under plugins/
+- name: plus
+  color: 1d76db
+  description: Plus edition (AGPL-3.0-only)
+- name: persistence-postgres
+  color: 1d76db
+  description: Module plus/persistence-postgres
+- name: workers
+  color: 1d76db
+  description: Module plus/workers (remote workers)
+- name: ui
+  color: 1d76db
+  description: Module ui (web UI)
+- name: web
+  color: 1d76db
+  description: Module web (REST controllers)
+- name: documentation
+  color: "0075ca"
+  description: Product documentation (docs/, Mintlify) or Markdown
+
+# --- Sub-areas (PR labeler only) -----------------------------------------------------------------
+- name: triggers
+  color: c2e0c6
+  description: Trigger plugins (plugins/triggers)
+- name: processors
+  color: c2e0c6
+  description: Processor plugins (plugins/processors)
+- name: supervisors
+  color: c2e0c6
+  description: Supervisor plugins (plugins/supervisors)
+- name: control-planes
+  color: c2e0c6
+  description: Control-plane plugins (plugins/control-planes)
+- name: terminals
+  color: c2e0c6
+  description: Terminal plugins (plugins/terminals)
+- name: jte
+  color: c2e0c6
+  description: JTE templates in ui
+- name: tailwind
+  color: c2e0c6
+  description: Tailwind CSS in ui
+- name: frontend
+  color: c2e0c6
+  description: Front-end JavaScript in ui
+- name: test
+  color: c2e0c6
+  description: Changes tests
+
+# --- PR type (from the branch name, .github/labeler.yml) -----------------------------------------
+- name: type/feature
+  color: a2eeef
+  description: PR from a feat/ branch
+- name: type/bugfix
+  color: d73a4a
+  description: PR from a fix/ branch
+- name: type/chore
+  color: ededed
+  description: PR from a chore/ branch
+- name: type/refactor
+  color: ededed
+  description: PR from a refactor/ branch
+- name: type/docs
+  color: "0075ca"
+  description: PR from a docs/ branch
+- name: type/test
+  color: ededed
+  description: PR from a test/ branch
+
+# --- Legacy kind labels (issue types replace them; kept for old issues and PRs) -----------------
+- name: bug
+  color: d73a4a
+  description: Something isn't working (prefer the Bug issue type)
+- name: enhancement
+  color: a2eeef
+  description: New feature or request (prefer the Feature issue type)
+
+# --- Dependencies (.github/dependabot.yml) -------------------------------------------------------
+- name: dependencies
+  color: "0366d6"
+  description: Pull requests that update a dependency file
+- name: java
+  color: ffa221
+  description: Pull requests that update java code
+- name: github-actions
+  color: "000000"
+  description: Pull requests that update GitHub Actions code
+- name: go
+  color: 16e2e2
+  description: Pull requests that update go code
+- name: javascript
+  color: "168700"
+  description: Pull requests that update javascript code
+- name: docker
+  color: 21ceff
+  description: Pull requests that update docker code
+- name: python
+  color: 2b67c6
+  description: Pull requests that update python code

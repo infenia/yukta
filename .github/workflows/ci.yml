@@ -45,6 +45,9 @@ jobs:
           pip install --require-hashes -r .github/requirements/yamllint.txt
           yamllint .github/workflows/
 
+      - name: Check the labels (labels.yml defines every label the automation applies)
+        run: python3 .github/scripts/sync-labels.py --check
+
       - name: Check the module graph (every project() dependency is an included module)
         run: .github/scripts/ci-tasks.sh --check
 
