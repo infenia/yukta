@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# One self-healing step of the dogfood check workflow (see self_heal in _lib.sh). Run by a Yukta
+# One self-healing step of the dogfood check (see stage_workflows and run_stages in _lib.sh). Run by a Yukta
 # PROCESS_EXECUTOR node, but usable by hand.
 #
 # Usage: yukta-heal.sh <stage> <attempt> <mode>
@@ -13,7 +13,8 @@
 # YUKTA_MODULE (module the run is scoped to), YUKTA_FORK_SESSION, YUKTA_HEAL_BUDGET (USD per
 # attempt, default 1), YUKTA_HEAL_MODEL (default sonnet).
 #
-# It prints one line and always exits 0 (the recheck node decides), except verify:
+# It prints one line and always exits 0 (the driver reads the record), except verify, and auto, which
+# exits non-zero when it did not repair the stage:
 #   HEAL <stage> attempt=<n> mode=<m> fixed=<true|false> files=<n> cost=$<x> summary=<text>
 # and writes <YUKTA_HEAL_DIR>/<stage>-<attempt>.json. It never commits, never reverts, and marks the
 # attempt as not fixed when it touched protected paths, added a suppression or removed assertions.
@@ -93,7 +94,9 @@ case "$mode" in
     changed="$(changed_since "$before")"; rm -f "$before"
     if ((rc == 0)) && [[ -n "$changed" ]]; then fixed=true; else fixed=false; fi
     record "$fixed" "$(files_json "$changed")" 0 "ran ${tasks:-nothing} (exit $rc)"
-    exit 0
+    # the stage workflow routes on this: 0 = repaired (RETRY), non-zero = needs the fixer (ESCALATE)
+    [[ "$fixed" == true ]]
+    exit $?
     ;;
   fresh | fork) ;;
   *) echo "HEAL $stage attempt=$attempt unknown mode '$mode'"; exit 0 ;;

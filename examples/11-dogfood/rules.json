@@ -1,0 +1,6 @@
+{"rules":[
+  {"id":"restart-stage-on-retry",
+   "when":{"event":"NodeStatusChanged","status":"SUCCESS","module":"OUTCOME_TERMINAL",
+           "if":"metadata['reached'] == true and metadata['outcome'] == 'RETRY' and attempt < 2"},
+   "then":{"command":"RestartFromNode","from":"metadata.restartFrom"}}
+]}

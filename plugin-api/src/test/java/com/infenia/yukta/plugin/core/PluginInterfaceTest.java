@@ -244,6 +244,7 @@ class PluginInterfaceTest {
           }
         };
     assertEquals(PluginCategory.TERMINAL, terminal.getCategory());
+    assertEquals(Map.of(), terminal.completionMetadata(Map.of()));
   }
 
   @Test

@@ -16,10 +16,17 @@ import org.springframework.expression.Expression;
 
 /** A rule that reacts to events with a command. */
 @Slf4j
+@SuppressWarnings("PMD.TooManyMethods")
 public final class EventRule {
 
   /** Window used when a counting rule gives none. */
   private static final int DEFAULT_WINDOW_SECONDS = 60;
+
+  /** Prefix of a {@code from} that reads the event's metadata. */
+  private static final String METADATA_PREFIX = "metadata.";
+
+  /** A {@code from} that restarts the whole run. */
+  private static final String START = "START";
 
   /** The rule's id. */
   private final String identifier;
@@ -46,7 +53,7 @@ public final class EventRule {
     this.when = when;
     this.then = then;
     this.condition = when.condition() == null ? null : Conditions.parse(ruleId, when.condition());
-    commandFor(then, "execution", "node");
+    commandFor(then, "execution", "node", "new", Map.of());
   }
 
   /**
@@ -82,10 +89,12 @@ public final class EventRule {
    * Whether an event is one the rule reacts to.
    *
    * @param event the event
+   * @param attempt how many restarts led to the event's run, readable as {@code attempt}
    * @return true if every condition of the rule holds
    */
-  public boolean matches(final ExecutionEvent event) {
+  public boolean matches(final ExecutionEvent event, final int attempt) {
     final Map<String, Object> fields = Fields.eventFields(event);
+    fields.put(Fields.ATTEMPT, attempt);
     final String kind = when.event();
     return (kind == null || kind.equals(event.getClass().getSimpleName()))
         && same(when.status(), fields.get(Fields.STATUS))
@@ -99,11 +108,27 @@ public final class EventRule {
    * The command to send for an event that matched.
    *
    * @param event the event
+   * @param newExecutionId the id for the run a restart starts
    * @return the command, addressed to the event's execution (and node, for node commands)
    */
-  public ExecutionControlCommand command(final ExecutionEvent event) {
-    final Object nodeId = Fields.eventFields(event).get(Fields.NODE_ID);
-    return commandFor(then, event.executionId(), nodeId == null ? null : nodeId.toString());
+  public ExecutionControlCommand command(final ExecutionEvent event, final String newExecutionId) {
+    final Map<String, Object> fields = Fields.eventFields(event);
+    final Object nodeId = fields.get(Fields.NODE_ID);
+    return commandFor(
+        then,
+        event.executionId(),
+        nodeId == null ? null : nodeId.toString(),
+        newExecutionId,
+        fields);
+  }
+
+  /**
+   * Whether the rule restarts the run.
+   *
+   * @return true for {@code Restart} and {@code RestartFromNode}
+   */
+  public boolean restarts() {
+    return then.command().toLowerCase(Locale.ROOT).startsWith("restart");
   }
 
   private boolean conditionHolds(final Map<String, Object> fields) {
@@ -128,7 +153,11 @@ public final class EventRule {
 
   @SuppressWarnings("PMD.CyclomaticComplexity")
   private static ExecutionControlCommand commandFor(
-      final Then then, final String executionId, final String nodeId) {
+      final Then then,
+      final String executionId,
+      final String nodeId,
+      final String newExecutionId,
+      final Map<String, Object> fields) {
     final String name = then.command() == null ? "" : then.command().toLowerCase(Locale.ROOT);
     final String reason = then.reason() == null ? "Stopped by rule" : then.reason();
     return switch (name) {
@@ -142,8 +171,33 @@ public final class EventRule {
       case "stopnode" ->
           new ExecutionControlCommand.StopNodeCommand(
               executionId, nodeId, Boolean.TRUE.equals(then.immediate()), reason);
+      case "restart" -> new ExecutionControlCommand.RestartCommand(executionId, newExecutionId);
+      case "restartfromnode" -> restart(then, executionId, nodeId, newExecutionId, fields);
       default ->
           throw new IllegalArgumentException("Unknown command in rule: '" + then.command() + "'");
     };
+  }
+
+  private static ExecutionControlCommand restart(
+      final Then then,
+      final String executionId,
+      final String nodeId,
+      final String newExecutionId,
+      final Map<String, Object> fields) {
+    final String from = then.from();
+    final String target =
+        from == null
+            ? nodeId
+            : from.startsWith(METADATA_PREFIX)
+                ? metadataValue(fields, from.substring(METADATA_PREFIX.length()))
+                : from;
+    return target == null || START.equalsIgnoreCase(target)
+        ? new ExecutionControlCommand.RestartCommand(executionId, newExecutionId)
+        : new ExecutionControlCommand.RestartFromNodeCommand(executionId, target, newExecutionId);
+  }
+
+  private static String metadataValue(final Map<String, Object> fields, final String key) {
+    final Object value = fields.get("metadata") instanceof Map<?, ?> map ? map.get(key) : null;
+    return value == null ? null : value.toString();
   }
 }

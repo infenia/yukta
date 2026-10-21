@@ -28,6 +28,13 @@ import reactor.core.publisher.Flux;
 @SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.CommentRequired", "PMD.TooManyMethods"})
 class RuleSupervisorTest {
 
+  private static final String RETRY_RULES =
+      """
+      {"rules":[{"id":"retry","when":{"event":"NodeStatusChanged","nodeId":"n1","status":"SUCCESS",
+        "if":"metadata['outcome'] == 'RETRY' and attempt < 2"},
+        "then":{"command":"RestartFromNode","from":"metadata.restartFrom"}}]}
+      """;
+
   /** A clock the test moves by hand. */
   private static final class ManualClock extends Clock {
     private Instant now = Instant.parse("2026-01-01T00:00:00Z");
@@ -71,6 +78,104 @@ class RuleSupervisorTest {
   private static Decision review(
       final RuleSupervisor supervisor, final ExecutionControlCommand command) {
     return supervisor.review(new ControlRequest(command, null)).block();
+  }
+
+  @Test
+  void supervise_restartFromNode_readsTargetFromMetadataAndGeneratesNewId() {
+    final var commands =
+        run(
+            supervisor(RETRY_RULES),
+            node("e1", "SUCCESS", Map.of("outcome", "RETRY", "restartFrom", "spotless")));
+
+    assertThat(commands)
+        .singleElement()
+        .isInstanceOfSatisfying(
+            ExecutionControlCommand.RestartFromNodeCommand.class,
+            restart -> {
+              assertThat(restart.executionId()).isEqualTo("e1");
+              assertThat(restart.fromNodeId()).isEqualTo("spotless");
+              assertThat(restart.newExecutionId()).isNotBlank();
+            });
+  }
+
+  @Test
+  void supervise_restartFromStart_restartsWholeRun() {
+    final var commands =
+        run(
+            supervisor(RETRY_RULES),
+            node("e1", "SUCCESS", Map.of("outcome", "RETRY", "restartFrom", "START")));
+
+    assertThat(commands).singleElement().isInstanceOf(ExecutionControlCommand.RestartCommand.class);
+  }
+
+  @Test
+  void supervise_restartLoop_stopsWhenAttemptBudgetIsSpent() {
+    final var rules = supervisor(RETRY_RULES);
+    final Map<String, Object> retry = Map.of("outcome", "RETRY", "restartFrom", "spotless");
+    String execution = "e0";
+    int restarts = 0;
+    while (true) {
+      final var commands = run(rules, node(execution, "SUCCESS", retry));
+      if (commands.isEmpty()) {
+        break;
+      }
+      execution =
+          ((ExecutionControlCommand.RestartFromNodeCommand) commands.getFirst()).newExecutionId();
+      restarts++;
+    }
+
+    assertThat(restarts).isEqualTo(2);
+  }
+
+  @Test
+  void supervise_restartRule_literalTargetStartAndMissingMetadata() {
+    final var rules =
+        supervisor(
+            """
+            {"rules":[
+             {"id":"lit","when":{"status":"FAILURE"},"then":{"command":"RestartFromNode","from":"n0"}},
+             {"id":"dflt","when":{"status":"TIMED_OUT"},"then":{"command":"RestartFromNode"}},
+             {"id":"all","when":{"status":"CANCELLED"},"then":{"command":"Restart"}},
+             {"id":"meta","when":{"status":"QUEUED"},"then":{"command":"RestartFromNode","from":"metadata.x"}}]}
+            """);
+
+    final var commands =
+        run(
+            rules,
+            node("e1", "FAILURE", null),
+            node("e1", "TIMED_OUT", null),
+            node("e1", "CANCELLED", null),
+            node("e1", "QUEUED", null),
+            node("e1", "QUEUED", Map.of("x", "n7")),
+            node("e1", "QUEUED", Map.of("y", "z")));
+
+    assertThat(commands)
+        .extracting(c -> c.getClass().getSimpleName())
+        .containsExactly(
+            "RestartFromNodeCommand",
+            "RestartFromNodeCommand",
+            "RestartCommand",
+            "RestartCommand",
+            "RestartFromNodeCommand",
+            "RestartCommand");
+    assertThat(((ExecutionControlCommand.RestartFromNodeCommand) commands.get(0)).fromNodeId())
+        .isEqualTo("n0");
+    assertThat(((ExecutionControlCommand.RestartFromNodeCommand) commands.get(1)).fromNodeId())
+        .isEqualTo("n1");
+    assertThat(((ExecutionControlCommand.RestartFromNodeCommand) commands.get(4)).fromNodeId())
+        .isEqualTo("n7");
+  }
+
+  @Test
+  void supervise_manyRestarts_forgetsTheOldestAttempts() {
+    final var rules = supervisor(RETRY_RULES);
+    final Map<String, Object> retry = Map.of("outcome", "RETRY", "restartFrom", "spotless");
+    final ExecutionEvent[] events = new ExecutionEvent[1100];
+    for (int i = 0; i < events.length; i++) {
+      events[i] = node("e" + i, "SUCCESS", retry);
+    }
+
+    assertThat(run(rules, events)).hasSize(events.length);
   }
 
   @Test

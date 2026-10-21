@@ -24,4 +24,16 @@ public interface TerminalPlugin extends Plugin {
    * @return a Mono that completes when all messages are consumed
    */
   Mono<Void> consume(Flux<Message<?>> input, Map<String, Object> config);
+
+  /**
+   * Describes how the run ended at this terminal. The engine adds it to the metadata of the
+   * terminal's {@code SUCCESS} status event, but only when something reached the terminal, so a
+   * supervisor can tell the exit a run took from the exits it did not.
+   *
+   * @param config the plugin configuration
+   * @return extra metadata for the status event; empty by default
+   */
+  default Map<String, Object> completionMetadata(final Map<String, Object> config) {
+    return Map.of();
+  }
 }
