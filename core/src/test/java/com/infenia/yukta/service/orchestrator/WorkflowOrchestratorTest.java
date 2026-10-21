@@ -10,6 +10,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -781,7 +782,8 @@ class WorkflowOrchestratorTest {
 
     e1Body.tryEmitEmpty();
 
-    verify(checkpointStore).clear("e1");
+    // The body runs on boundedElastic, so the clear lands asynchronously.
+    verify(checkpointStore, timeout(5000)).clear("e1");
   }
 
   @Test
@@ -873,9 +875,26 @@ class WorkflowOrchestratorTest {
     assertThat(done.isDone()).isFalse();
     held.release();
 
-    assertThat(done.isDone()).isTrue();
+    // The run itself moves to another thread once the slot is granted.
+    done.orTimeout(5, java.util.concurrent.TimeUnit.SECONDS).join();
     verify(tracker).emitWorkflowStatusEvent("e-wait", TaskStatus.QUEUED);
     assertThat(limited.running()).isZero();
+  }
+
+  @Test
+  void execute_startsTrackingOnTheCallersThread_soStartedRunCanBeRead() {
+    final ExecutionScheduler limited =
+        new ExecutionScheduler(1, 0, 10, ExecutionScheduler.OnLimit.QUEUE, Duration.ofSeconds(30));
+    final PreparedWorkflow prepared = reservedSetUp();
+    final ExecutionScheduler.Admission admission = limited.acquire("s", "w", 0, "e-read");
+
+    orchestratorWith(limited)
+        .execute("s", "w", "e-read", prepared, Map.of(), admission)
+        .toFuture()
+        .orTimeout(5, java.util.concurrent.TimeUnit.SECONDS);
+
+    // No waiting: the run is tracked by the time subscribe returns.
+    verify(tracker).startWorkflow(eq("e-read"), eq("s"), eq("w"), anyList());
   }
 
   @Test
