@@ -299,7 +299,7 @@ Compiles the program for five platforms and runs all quality checks. The Makefil
 - **Ceiling.** Tests run twice in `check`. Tools are downloaded on first use, so a clean machine needs network access to the Go module proxy.
 - **On failure.** Any failing step stops `make check`. A missing `make` on Windows stops the Gradle tasks before Go is even called.
 
-**Settings:** `make build | build-all | test | cover | cover-check | fmt | vet | lint | sec | vuln | check`, `./gradlew :cli:goBuild | goBuildAll | goTest | check`, `GOOS= / GOARCH= overrides`, `go.mod: go 1.26, toolchain go1.27.2`
+**Settings:** `make build | build-all | test | cover | cover-check | fmt | vet | lint | sec | vuln | check`, `./gradlew :cli:goBuild | goBuildAll | goTest | check`, `GOOS= / GOARCH= overrides`, `go.mod: go 1.26, toolchain go1.27.3`
 
 ### Test Harness
 
