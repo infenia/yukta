@@ -30,13 +30,14 @@ from other cores, and writes a report. the server is one of:
 | jar (default) | `boot/build/libs/boot-0.0.1-SNAPSHOT.jar` on a JVM | `eclipse-temurin:25-jre` | nothing: the script runs `./gradlew :boot:bootJar` every time (a no-op when up to date), unless you set `JAR=<path>` |
 | `BINARY=<path>` (native) | the GraalVM binary, e.g. `dist/linux-amd64/yukta` | `debian:12-slim` | the binary, built once with `release/build-server.sh` (add `NATIVE_QUICK=1` for a fast, slower-running rehearsal build; `NATIVE_HEAP=24g` for more builder heap). |
 
-The native binary is **not** rebuilt by `run.sh` (a native compile takes a long time): rebuild it yourself after
-changing code, or you benchmark an old binary. Compare the `artifact` hash and `commit` in `meta.json`.
+`MODE=native perf/run.sh ...` builds the binary first with `release/build-server.sh` (a full build with a PGO profile
+takes a long time; `NATIVE_QUICK=1` is faster) and runs it. `BINARY=<path>` alone does **not** build: rebuild it yourself
+after changing code, or you benchmark an old binary. Compare the `artifact` hash and `commit` in `meta.json`.
 
 ```bash
 perf/run.sh perf                                # jar, 2 vCPU, 8 GB (defaults), 10 starts/s for 2m
-BINARY=dist/linux-amd64/yukta perf/run.sh perf                    # the same test against the native binary
-release/build-server.sh && BINARY=dist/linux-amd64/yukta perf/run.sh perf   # rebuild the binary first
+MODE=native perf/run.sh perf                    # build the native binary, then the same test against it
+BINARY=dist/linux-amd64/yukta perf/run.sh perf  # an existing binary, no build
 DURATION=5m RATE=20 perf/run.sh perf
 RATE=200 HOLD=10m perf/run.sh load
 DURATION=8h RATE=10 BINARY=dist/linux-amd64/yukta perf/run.sh soak
