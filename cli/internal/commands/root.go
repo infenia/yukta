@@ -29,7 +29,7 @@ func RootCmd(c *client.Client) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "yukta-cli",
 		Version: Version,
-		Short: "Yukta CLI - run and steer workflows on a Yukta server",
+		Short:   "Yukta CLI - run and steer workflows on a Yukta server",
 		Long: `Yukta is a reactive workflow orchestration server. This CLI manages
 sessions, starts and controls workflow runs, watches their progress and reads their
 logs and results.`,
