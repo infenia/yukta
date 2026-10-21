@@ -8,10 +8,16 @@
 # The report lists the failed jobs and steps, and the failed and flaky tests from the build-reports
 # artifacts. Every run also writes test time per shard to the job summary, for balancing the shards.
 #
-# Env: GH_TOKEN, REPO, RUN_ID, RUN_URL, WORKFLOW, CONCLUSION, HEAD_SHA
+# A new issue gets the Bug type and, when the project is configured (project-lib.sh), is put on
+# the Yukta Roadmap project in Triage as a P1 CI failure.
+#
+# Env: GH_TOKEN, REPO, RUN_ID, RUN_URL, WORKFLOW, CONCLUSION, HEAD_SHA;
+#      optional PROJECT_TOKEN, PROJECT_OWNER, PROJECT_NUMBER
 set -euo pipefail
 
 here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+# shellcheck source=project-lib.sh
+. "$here/project-lib.sh"
 label=ci-nightly
 title="Nightly failure: $WORKFLOW"
 sha=${HEAD_SHA:0:7}
@@ -75,5 +81,11 @@ else
     echo
     cat "$report"
   } >"$work/body.md"
-  gh issue create -R "$REPO" --title "$title" --label "$label" -F "$work/body.md"
+  url=$(gh issue create -R "$REPO" --title "$title" --label "$label" -F "$work/body.md")
+  echo "Opened $url"
+  issue_set_type "$REPO" "${url##*/}" Bug
+  if project_enabled; then
+    project_add_item "$url" Status=Triage Kind="CI failure" Priority=P1 Module=build >/dev/null ||
+      echo "warning: could not put $url on the project" >&2
+  fi
 fi
