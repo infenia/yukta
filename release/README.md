@@ -14,8 +14,10 @@ same on the release machine and in CI. The plan and the reasons behind it are in
   The CLI (`yukta-cli --version`) and the server (`/actuator/info`) report it.
 - Prerelease ladder: `0.1.0-alpha.N` → `0.1.0-beta.N` → `0.1.0-rc.N` → `0.1.0`. While the major version is
   `0`, a minor release may break things; a patch release only fixes bugs.
-- `main` carries the next version with `-SNAPSHOT`. A release PR sets the exact version; the tag is cut from
-  that merge commit.
+- `main` carries the next planned release with `-SNAPSHOT` (after `0.1.0-alpha.2`: `0.1.0-alpha.3-SNAPSHOT`;
+  after the last alpha, the first beta, and so on). A release PR sets the exact version; the tag is cut from
+  that merge commit. Do not use `0.1.0-SNAPSHOT` while alphas and betas are still coming: it reads as the
+  final release and sorts before every `0.1.0-alpha.N`.
 - Image tags: the exact version always; `X.Y` and `latest` only for stable releases
   (`build-image.sh --promote` refuses prereleases).
 - Published tags, images and release assets are never replaced. A bad release is superseded by the next one.
