@@ -1,6 +1,3 @@
-# SPDX-License-Identifier: Apache-2.0
-# SPDX-FileCopyrightText: 2026 Infenia Private Limited
-
 # Known issues found by the perf tests
 
 Logged, not fixed. Found 2026-10-11 on `main` at `6070249e`; updated 2026-10-21.

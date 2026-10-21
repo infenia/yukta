@@ -1,6 +1,3 @@
-# SPDX-License-Identifier: Apache-2.0
-# SPDX-FileCopyrightText: 2026 Infenia Private Limited
-
 # Performance tests (k6)
 
 Three tests share one engine (`k6/lib.js`): `perf.js` (baseline latency at a fixed rate, for comparing commits),

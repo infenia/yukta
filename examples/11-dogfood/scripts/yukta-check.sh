@@ -2,6 +2,9 @@
 # Run the staged `gradle check` workflow on a Yukta server and report the result.
 # A thin wrapper around the yukta CLI.
 #
+# The staged gradle-check is supervisor-driven: each stage is its own workflow with explicit exits (see
+# stage_workflows in _lib.sh); --no-heal, gradle args and WORKFLOW use the plain single workflow.
+#
 # Usage: [WORKFLOW=quick-check] yukta-check.sh [--detach|--watch] [--no-heal] [--fixer fresh|fork|auto]
 #                                              [-p project-path] [-m module] [gradle args...]
 #   (no args)         staged gradle-check, whole project
@@ -10,9 +13,11 @@
 #   <gradle args>     run exactly these args as one stage, e.g. :core:test --tests X, or build
 #   -p project-path   checkout to check (default: current git toplevel)
 #   --detach          start the run, print "STARTED execution=<id> session=<id>" and exit; follow it
-#                     with yukta-watch.sh (the form for Claude Code under the Monitor tool)
+#                     with yukta-watch.sh (the form for Claude Code under the Monitor tool). The staged
+#                     check runs in the background and prints "STARTED session=<id> log=<file>"; follow
+#                     it with yukta-watch.sh <session> <file>
 #   --watch           follow the run, errors and warnings only (yukta-watch.sh --quiet), instead of the
-#                     full log; the cheap way to follow a run
+#                     full log; the cheap way to follow a run (the staged check prints STAGE lines)
 #   --no-heal         the plain fail-fast chain: no self-healing (the staged gradle-check heals by default)
 #   --fixer MODE      who attempts the Claude fixes of a failed stage: fresh (a new headless claude),
 #                     fork (a fork of this Claude Code session, $CLAUDE_CODE_SESSION_ID) or auto (the
@@ -61,8 +66,9 @@ if (($#)); then
   workflow=gradle-run
   scope="args:$(printf '%.60s' "$*")"
 fi
-# Self-healing applies to the staged gradle-check only (see self_heal in _lib.sh).
+# Self-healing applies to the staged gradle-check only (see stage_workflows in _lib.sh).
 heal_dir="$STATE_DIR/heal/$session"
+healsh="$REPO_ROOT/examples/11-dogfood/scripts/yukta-heal.sh"
 rm -rf "$heal_dir"
 fork_session="${CLAUDE_CODE_SESSION_ID:-}"
 m1=fresh m2=fork
@@ -74,8 +80,8 @@ m1=fresh m2=fork
     | if [[ -n "$module" ]]; then scope_to_module "$module"; else cat; fi \
     | if (($#)); then splice_args "$@"; else cat; fi \
     | if ((heal)) && [[ "$workflow" == gradle-check ]]; then
-      self_heal "$(cat "$REPO_ROOT/examples/11-dogfood/heal.json")" "$module" "$project" \
-        "$REPO_ROOT/examples/11-dogfood/scripts/yukta-heal.sh" "$heal_dir" "$fork_session" "$m1" "$m2"
+      stage_workflows "$(cat "$REPO_ROOT/examples/11-dogfood/heal.json")" "$module" "$project" \
+        "$healsh" "$heal_dir"
     else cat; fi
 } >"$tmp/session.json"
 
@@ -85,6 +91,23 @@ echo ">> server $YUKTA_SERVER_URL, session $session, project $project" >&2
 # a CLI built before 'session apply' existed prints the session help and exits 0
 ! grep -q "Available Commands" "$tmp/apply.out" \
   || die "stale CLI (session apply printed help); rebuild it: ./gradlew :cli:goBuild"
+if ((heal)) && [[ "$workflow" == gradle-check ]]; then
+  # Staged, supervisor-driven check: one small workflow per stage (see stage_workflows). The server's
+  # rule file (examples/11-dogfood/rules.json) restarts a stage whose repair worked; this loop moves
+  # from stage to stage and calls the Claude fixer on an escalation.
+  export cli project module healsh heal_dir fork=$fork_session m1 m2
+  case "$mode" in
+    detach)
+      mkdir -p "$STATE_DIR/check"
+      log="$STATE_DIR/check/$session.log"
+      cp "$tmp/session.json" "$STATE_DIR/check/$session.json"
+      ( run_stages "$session" "$STATE_DIR/check/$session.json" >"$log" 2>&1 ) </dev/null &
+      echo "STARTED session=$session log=$log"
+      exit 0
+      ;;
+    *) run_stages "$session" "$tmp/session.json"; exit $? ;;
+  esac
+fi
 exec_id="$("$cli" -o json workflow start "$session" "$workflow" | jq -r '.data.executionId // .executionId')"
 [[ -n "$exec_id" && "$exec_id" != null ]] || die "could not start workflow"
 

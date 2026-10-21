@@ -78,12 +78,13 @@ A condition that cannot be evaluated counts as not matching, so a faulty reactio
 
 | Field | Meaning |
 |---|---|
-| `command` | `PauseWorkflow`, `ResumeWorkflow`, `StopWorkflow`, `PauseNode`, `ResumeNode` or `StopNode`. Node commands address the node that triggered the rule |
+| `command` | `PauseWorkflow`, `ResumeWorkflow`, `StopWorkflow`, `PauseNode`, `ResumeNode`, `StopNode`, `Restart` or `RestartFromNode`. Node commands address the node that triggered the rule |
 | `mode` | For `StopWorkflow`: `DRAIN` (default), `CANCEL` or `KILL` |
 | `reason` | Recorded with a stop. Default `Stopped by rule` |
 | `immediate` | For `StopNode`: interrupt instead of draining |
+| `from` | For `RestartFromNode`: the node to restart from, as a literal or `metadata.<key>` of the event (for example `metadata.restartFrom` of an [`OUTCOME_TERMINAL`](/plugins/terminals)). `START`, or a key the event lacks, restarts the whole run. Default: the node that triggered the rule |
 
-The command is addressed to the execution that produced the event.
+The command is addressed to the execution that produced the event. A restart starts a new run (the rule engine picks its id), and that run's events see `attempt`, the number of restarts the rules made to get there (0 for a run nobody restarted). Use `"if": "attempt < 2"` to bound a retry loop; when the budget is spent the rule stays silent and the last outcome is the signal for whoever watches the event stream. The count lives in memory (the newest 1,000 restarted runs).
 
 ## `deny`: which commands to refuse
 

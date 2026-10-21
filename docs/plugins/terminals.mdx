@@ -60,6 +60,18 @@ This node posts a fixed alert text:
 
 To send text built from the message, put it in a `text` field of the payload first, for example with a `MAPPER` node (see [Transform](/plugins/transform)), and leave the `text` option out.
 
+## OUTCOME_TERMINAL
+
+Names the exit a run took, so a [supervisor](/running/supervisors) can act on it. Put one at the end of each exit of a workflow.
+
+| Option | Meaning |
+|---|---|
+| `outcome` | Required: `SUCCESS`, `RETRY` (the cause was repaired, run again), `ESCALATE` (needs a fixer) or `FAILED` |
+| `restartFrom` | Node to restart from; omit to restart from the start |
+| `reason` | Free text for the supervisor |
+
+Every terminal reports `reached` in the metadata of its `SUCCESS` status event: `true` if a message arrived, `false` for an exit the run did not take. `OUTCOME_TERMINAL` adds `outcome`, `restartFrom` and `reason` to that metadata, and only when it was reached. A rule keys on them, for example `"if": "metadata['reached'] == true and metadata['outcome'] == 'RETRY'"` (see [rule files](/running/rule-files)).
+
 ## Limits and defaults
 
 | Item | Value |

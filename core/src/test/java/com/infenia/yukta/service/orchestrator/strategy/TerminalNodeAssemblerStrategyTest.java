@@ -197,6 +197,56 @@ class TerminalNodeAssemblerStrategyTest {
   }
 
   @Test
+  void createAssembler_terminalReached_reportsReachedAndCompletionMetadata() {
+    final Message<?> msg = DefaultMessage.create(UUID.randomUUID(), "data");
+    final TerminalPlugin terminal = mock(TerminalPlugin.class);
+    when(terminal.consume(any(), any()))
+        .thenAnswer(inv -> inv.<Flux<Message<?>>>getArgument(0).then());
+    when(terminal.completionMetadata(any())).thenReturn(Map.of("outcome", "RETRY"));
+    final WorkflowNode node = new WorkflowNode(NODE_ID, "terminal", Map.of());
+    final AssemblyContext context = buildContext(Flux.just(msg));
+    when(streamTopologyDecorator.mergeParentStreams(any(), any(), any(ParentEdgeInfo[].class)))
+        .thenReturn(Flux.just(msg));
+
+    strategy
+        .createAssembler(node, terminal, Duration.ofSeconds(5), 0, 1024, new ParentEdgeInfo[0])
+        .assemble(context);
+    StepVerifier.create(context.terminals().getFirst()).verifyComplete();
+
+    verify(tracker)
+        .emitTaskStatusEvent(
+            eq(EXECUTION_ID),
+            eq(NODE_ID),
+            anyString(),
+            eq(TaskStatus.SUCCESS),
+            eq(Map.of("reached", true, "outcome", "RETRY")));
+  }
+
+  @Test
+  void createAssembler_terminalNotReached_reportsNotReachedWithoutCompletionMetadata() {
+    final TerminalPlugin terminal = mock(TerminalPlugin.class);
+    when(terminal.consume(any(), any())).thenReturn(Mono.empty());
+    when(terminal.completionMetadata(any())).thenReturn(Map.of("outcome", "RETRY"));
+    final WorkflowNode node = new WorkflowNode(NODE_ID, "terminal", Map.of());
+    final AssemblyContext context = buildContext(Flux.empty());
+    when(streamTopologyDecorator.mergeParentStreams(any(), any(), any(ParentEdgeInfo[].class)))
+        .thenReturn(Flux.empty());
+
+    strategy
+        .createAssembler(node, terminal, Duration.ofSeconds(5), 0, 1024, new ParentEdgeInfo[0])
+        .assemble(context);
+    StepVerifier.create(context.terminals().getFirst()).verifyComplete();
+
+    verify(tracker)
+        .emitTaskStatusEvent(
+            eq(EXECUTION_ID),
+            eq(NODE_ID),
+            anyString(),
+            eq(TaskStatus.SUCCESS),
+            eq(Map.of("reached", false)));
+  }
+
+  @Test
   @SuppressWarnings("unchecked")
   void createAssembler_terminalInput_isPublishedAsResultsWithNodeEnd() {
     final Message<?> msg = DefaultMessage.create(UUID.randomUUID(), "final-answer");
