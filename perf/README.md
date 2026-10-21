@@ -1,19 +1,22 @@
-# SPDX-License-Identifier: Apache-2.0
-# SPDX-FileCopyrightText: 2026 Infenia Private Limited
-
 # Performance tests (k6)
 
-Both scripts register one session per workflow from `k6/workflows.js`, then repeatedly pick one in turn (round-robin),
+| Test | Pattern | Script |
+|------|---------|--------|
+| Load | Ramp to a peak rate (default 100 starts/s), hold, ramp down | `k6/load.js` |
+| Soak | Constant rate (default 20 starts/s, 1 h) with JVM heap, thread and CPU samples | `k6/soak.js` |
+
+Both scripts share `k6/lib.js` and register one session per workflow from `k6/workflows.js`, then repeatedly pick one in turn (round-robin),
 `POST /api/workflow/start` and poll `GET /api/executions/{id}` until it ends. Select with
-`-e WORKFLOWS=mapper,chain10`. Default: `trigger-terminal,mapper,filter,chain10`. Also available: `fanout`
-(hangs, see issues) and `process` (spawns `echo`, heavy). To cover another plugin, add an entry to `CATALOG`.
+`-e WORKFLOWS=mapper,chain10`. Default: `trigger-terminal,mapper,filter,chain10`. Also available: `fanout` and
+`process` (spawns `echo`, heavy). To cover another plugin, add an entry to `CATALOG`.
 
-Metrics (each also tagged `wf:<name>`, with a threshold per workflow): `workflow_e2e` (start to end),
-`workflow_success`, `workflow_rejected` (share of starts refused with HTTP 429; limit via `-e MAX_REJECTED=0.05`, default 0.01), `workflow_lenient_done`.
+Metrics (each also tagged `wf:<name>`, with a threshold per workflow): `workflow_e2e` (start to end, p95 < 2 s),
+`workflow_success` (> 99%), `workflow_rejected` (share of starts refused with HTTP 429; limit via
+`-e MAX_REJECTED=0.05`, default 0.01), `workflow_lenient_done`.
 
-Runs currently never reach a final status because of a server bug, so `LENIENT=true` (default) counts a run as
-done when all nodes except `CONSOLE_TERMINAL` ended. Use `-e LENIENT=false` once fixed. Open problems found by
-these tests are in [KNOWN-ISSUES.md](KNOWN-ISSUES.md).
+The runs-never-finish bug (#331) is fixed. `LENIENT` still defaults to `true`, which counts a run as done once all
+nodes except `CONSOLE_TERMINAL` ended; pass `-e LENIENT=false` to require the run itself to reach a final status.
+Open problems found by these tests are in [KNOWN-ISSUES.md](KNOWN-ISSUES.md).
 
 ## Run
 
