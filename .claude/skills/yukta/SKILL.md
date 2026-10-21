@@ -1,6 +1,6 @@
 ---
 name: yukta
-description: Use to verify changes in the Yukta repo (the final gate before a commit or PR, or any "run the checks / fix the build" request) by running its staged, self-healing `gradle check` workflow on a local Yukta server via the yukta CLI; the run repairs spotless, compile, test, coverage, style and spotbugs failures itself and reports what it healed. Also to watch a run and steer it (retry a stage, pause), record defects it finds, or start/stop a local Yukta server. Use instead of choosing gradle quality tasks yourself.
+description: Use to verify changes in the Yukta repo, whenever you finish editing code or are about to run tests or the build (a module check while iterating, the final gate before a commit or PR, any "run the checks / test my change / fix the build" request) by running its staged, self-healing `gradle check` workflow on a local Yukta server via the yukta CLI; the run repairs spotless, compile, test, coverage, style and spotbugs failures itself and reports what it healed. Also to watch a run and steer it (retry a stage, pause), record defects it finds, or start/stop a local Yukta server. Use instead of choosing gradle quality tasks yourself.
 allowed-tools: Bash, Read
 ---
 
@@ -147,16 +147,17 @@ examples/11-dogfood/scripts/yukta-server.sh stop <name>     # when finished (use
 ```
 Always go through `yukta-server.sh`; never call a provider script or `bootRun` yourself. How the server is
 launched is the *provider*, chosen by the environment, and nothing else in this skill depends on it:
-- **worktree** (default, today): a git worktree of `origin/main` run with `bootRun`. Slow to start (Gradle
-  build), so run `start` in the background and wait for "ready". Extra args pass through
-  (`start <name> <base-ref>`, `stop <name> --force`).
-- **native**: `YUKTA_SERVER_BIN=<path>` (or `YUKTA_SERVER_MODE=native`) runs the GraalVM executable
-  (default `boot/build/native/nativeCompile/yukta`, from `./gradlew :boot:nativeCompile`). Starts in seconds, so
-  no need to background it. Same state files and "ready" line, so everything below is unchanged.
+- **release** (default): the latest GitHub release's native executable, downloaded with `gh`, checked against
+  `SHA256SUMS` and cached; `--version <tag>` / `YUKTA_SERVER_VERSION` pins one. Starts in seconds. The ready line
+  names what runs, e.g. `(release v0.1.0-alpha.2)`.
+- **native** (`YUKTA_SERVER_MODE=native` or `YUKTA_SERVER_BIN=<path>`) and **jar** (`YUKTA_SERVER_MODE=jar`): a
+  local build of your change (`./gradlew :boot:nativeCompile` / `:boot:bootJar`). Seconds to start.
+- **docker** (`YUKTA_SERVER_MODE=docker`): a local image; no JDK inside, so no gradle stages.
+- **worktree** (`YUKTA_SERVER_MODE=worktree`): `origin/main` via `bootRun`. Minutes, can fail; run `start` in the
+  background. Extra args pass through (`start <name> <base-ref>`, `stop <name> --force`).
 
-Moving to the native executable later means setting `YUKTA_SERVER_BIN` (and, if you like, making `native` the
-default in `yukta-server.sh`); this skill needs no other change. The checked-out code is what the workflow
-runs Gradle on (`-p`), whichever provider serves it.
+Same state files and "ready" line for all of them, so everything below is unchanged. The checked-out code is what
+the workflow runs Gradle on (`-p`), whichever provider serves it.
 
 ## CLI cheat-sheet
 `YUKTA_SERVER_URL` selects the server; `-o json` for machine output.

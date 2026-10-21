@@ -71,7 +71,7 @@ Waiting on tests is the main development bottleneck. **Run the smallest scope th
 | 3 | Many files changed across a module, or shared code (`plugin-api`, `messaging`, config, `build-logic`) | `./gradlew :<mod>:test` |
 | 4 | Final gate, once, before commit/PR, or cross-module impact | `./gradlew spotlessApply check` |
 
-- Tier 4 is best run as `yukta-check.sh --watch` (the `yukta` skill): same gates, staged, self-healing, one `RESULT` line. Use plain `./gradlew spotlessApply check` when no server is running.
+- Run Tier 3 as `yukta-check.sh -m <module> --watch` and Tier 4 as `yukta-check.sh --watch` (the `yukta` skill; the server defaults to the latest GitHub release). A Stop hook asks for it when code is uncommitted (`YUKTA_DOGFOOD=off` opts out). Tier 4 is best run as `yukta-check.sh --watch` (the `yukta` skill): same gates, staged, self-healing, one `RESULT` line. Use plain `./gradlew spotlessApply check` when no server is running.
 - Never start at Tier 3/4. When you escalate, state the reason in one line (e.g. "14 files changed across orchestrator + store").
 - Run `spotlessApply` and `check` **once at the end**, not after every edit.
 - Don't use `clean` or `--rerun-tasks`; Gradle's up-to-date/build cache already skips unchanged work.
