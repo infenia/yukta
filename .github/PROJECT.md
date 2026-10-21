@@ -88,8 +88,27 @@ Aim to triage within 5 working days. P0 issues get an assignee the same day.
    - **Item closed** and **Pull request merged**: Status = Done.
    - **Auto-archive items**: `is:closed updated:<@today-14d`.
    - **Auto-add sub-issues to project**.
-7. For automation that writes to the project from Actions: create a GitHub App owned by the org
+7. For automation that writes to the project from Actions, create a GitHub App owned by the org
    with **Organization → Projects: read and write** and **Repository → Issues: read and write**,
-   install it on `infenia/yukta`, and store its id as the org variable `YUKTA_PROJECT_APP_ID`
-   and its private key as the org secret `YUKTA_PROJECT_APP_KEY`. Workflows mint a short-lived
-   token from it with `actions/create-github-app-token`; `GITHUB_TOKEN` cannot write org projects.
+   and install it on `infenia/yukta`. Then set:
+
+   | Name | Kind | Value |
+   |---|---|---|
+   | `YUKTA_PROJECT_APP_CLIENT_ID` | org or repo variable | the App's client id |
+   | `YUKTA_PROJECT_APP_KEY` | org or repo secret | the App's private key |
+   | `YUKTA_PROJECT_NUMBER` | org or repo variable | the project number from its URL |
+
+   Workflows mint a short-lived token from the App with `actions/create-github-app-token`;
+   `GITHUB_TOKEN` cannot write org projects. Until all three are set, the workflows below still
+   label and file issues and only skip the project.
+
+## Automation that writes to the project
+
+| Workflow | When | What it sets |
+|---|---|---|
+| `issue-triage.yml` | an issue is opened | area label from the form's Module answer; project item in Triage with Module, Severity, Priority, Category, Impact, Effort from the form and Kind from the labels and type |
+| `nightly-report.yml` | a scheduled run fails and no tracking issue is open | the new `ci-nightly` issue gets the Bug type and a project item: Triage, Kind CI failure, Priority P1, Module build. The issue closes itself when the nightly is green, and the project moves it to Done |
+
+Both use `.github/scripts/project-lib.sh` (`project_add_item <url> Field=Value ...`), which looks up
+fields and options by name and skips, with a warning, any that the project does not have.
+`project-lib.test.sh` tests it and the triage mapping in the `lint-workflows` CI job.

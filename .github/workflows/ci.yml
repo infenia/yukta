@@ -59,10 +59,13 @@ jobs:
         run: .github/scripts/ci-tasks.sh --check
 
       - name: Lint shell scripts (shellcheck)
-        run: shellcheck .github/scripts/*.sh
+        run: shellcheck -x -P .github/scripts .github/scripts/*.sh
 
       - name: Test the shard planner
         run: .github/scripts/ci-tasks.test.sh
+
+      - name: Test the project helpers and issue triage
+        run: .github/scripts/project-lib.test.sh
 
       - name: Lint workflows (actionlint)
         run: |

@@ -41,8 +41,22 @@ jobs:
           persist-credentials: false
           sparse-checkout: .github/scripts
 
+      # Optional: with the GitHub App configured (.github/PROJECT.md), a new tracking issue is also
+      # put on the Yukta Roadmap project. Without it the issue is filed as before.
+      - name: Mint the project token
+        id: app
+        if: vars.YUKTA_PROJECT_APP_CLIENT_ID != '' && vars.YUKTA_PROJECT_NUMBER != ''
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ vars.YUKTA_PROJECT_APP_CLIENT_ID }}
+          private-key: ${{ secrets.YUKTA_PROJECT_APP_KEY }}
+          permission-organization-projects: write
+
       - name: Open, update or close the tracking issue
         env:
+          PROJECT_TOKEN: ${{ steps.app.outputs.token }}
+          PROJECT_OWNER: ${{ github.repository_owner }}
+          PROJECT_NUMBER: ${{ vars.YUKTA_PROJECT_NUMBER }}
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
           RUN_ID: ${{ github.event.workflow_run.id }}
