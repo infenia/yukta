@@ -143,25 +143,25 @@
   color: c2e0c6
   description: Changes tests
 
-# --- PR type (from the branch name, .github/labeler.yml) -----------------------------------------
+# --- PR type (from the PR title, .github/workflows/pr-title.yml; used by .github/release.yml) -----------------------------------------
 - name: type/feature
   color: a2eeef
-  description: PR from a feat/ branch
+  description: PR whose title type is feat (set by the PR title check)
 - name: type/bugfix
   color: d73a4a
-  description: PR from a fix/ branch
+  description: PR whose title type is fix (set by the PR title check)
 - name: type/chore
   color: ededed
-  description: PR from a chore/ branch
+  description: PR whose title type is chore, ci, build, style, perf or revert
 - name: type/refactor
   color: ededed
-  description: PR from a refactor/ branch
+  description: PR whose title type is refactor (set by the PR title check)
 - name: type/docs
   color: "0075ca"
-  description: PR from a docs/ branch
+  description: PR whose title type is docs (set by the PR title check)
 - name: type/test
   color: ededed
-  description: PR from a test/ branch
+  description: PR whose title type is test (set by the PR title check)
 
 # --- Legacy kind labels (issue types replace them; kept for old issues and PRs) -----------------
 - name: bug

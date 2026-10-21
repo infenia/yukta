@@ -8,7 +8,7 @@
 # The report lists the failed jobs and steps, and the failed and flaky tests from the build-reports
 # artifacts. Every run also writes test time per shard to the job summary, for balancing the shards.
 #
-# A new issue gets the Bug type and, when the project is configured (project-lib.sh), is put on
+# Flaky tests are tracked one issue per test by flaky-tests.sh. A new issue gets the Bug type and, when the project is configured (project-lib.sh), is put on
 # the Yukta Roadmap project in Triage as a P1 CI failure.
 #
 # Env: GH_TOKEN, REPO, RUN_ID, RUN_URL, WORKFLOW, CONCLUSION, HEAD_SHA;
@@ -31,6 +31,11 @@ report="$work/report.md"
 reports=false
 if gh run download "$RUN_ID" -R "$REPO" -p 'build-reports-*' -D "$work/reports" 2>/dev/null; then
   reports=true
+fi
+
+# Flaky tests get their own issues (flaky-tests.sh); a problem there must not stop the run report.
+if [ "$reports" = true ]; then
+  "$here/flaky-tests.sh" "$work/reports" || echo "warning: flaky test tracking failed" >&2
 fi
 
 issue=$(gh issue list -R "$REPO" --label "$label" --state open --limit 100 --json number,title |

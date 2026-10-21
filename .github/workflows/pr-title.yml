@@ -1,0 +1,65 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: 2026 Infenia Private Limited
+
+name: PR title
+
+# PRs are squash-merged, so the PR title becomes the commit on main: it must be a Conventional Commit
+# (types from .gitmessage). A feat/fix PR without a linked issue gets a warning, not a failure; the
+# link (Fixes #123) is what moves the issue to In review and Done on the Yukta Roadmap project.
+# The title type also sets the PR's type/* label, which groups the release notes (.github/release.yml).
+on:
+  pull_request:
+    branches: [ "main" ]
+    types: [opened, edited, synchronize, reopened]
+
+permissions:
+  contents: read
+
+jobs:
+  title:
+    name: Conventional PR title
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    # Dependabot writes its own titles ("Build(deps): Bump ..."); nothing a person can fix.
+    if: github.event.pull_request.user.login != 'dependabot[bot]'
+    permissions:
+      contents: read
+      pull-requests: write   # set the type/* label
+    steps:
+      - name: Check the title
+        id: title
+        env:
+          TITLE: ${{ github.event.pull_request.title }}
+          BODY: ${{ github.event.pull_request.body }}
+        run: |
+          types='feat|fix|docs|test|refactor|chore|style|perf|ci|build|revert'
+          if ! [[ $TITLE =~ ^($types)(\([a-z0-9._/-]+\))?!?:\ [^[:space:]].*$ ]]; then
+            echo "::error::PR title must be a Conventional Commit: '<type>(<scope>): <subject>', type one of ${types//|/, }. Got: $TITLE"
+            exit 1
+          fi
+          kind=${BASH_REMATCH[1]}
+          echo "kind=$kind" >>"$GITHUB_OUTPUT"
+          link='(([Ff]ix(es|ed)?|[Cc]lose[sd]?|[Rr]esolve[sd]?|[Rr]efs?) +(#[0-9]+|https://github\.com/[^ ]+/issues/[0-9]+))'
+          if [[ $kind =~ ^(feat|fix)$ ]] && ! [[ ${BODY:-} =~ $link ]]; then
+            echo "::warning::A $kind PR should link its issue in the description (Fixes #<n>, or Refs #<n> when it does not close it)."
+          fi
+          echo "OK: $TITLE"
+
+      # Fork PRs get a read-only token, so only same-repository PRs are labelled.
+      - name: Set the type label
+        if: github.event.pull_request.head.repo.full_name == github.repository
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+          KIND: ${{ steps.title.outputs.kind }}
+        run: |
+          case "$KIND" in
+            feat) want=type/feature ;;
+            fix) want=type/bugfix ;;
+            docs | test | refactor) want=type/$KIND ;;
+            *) want=type/chore ;;
+          esac
+          gh api "repos/$REPO/issues/$PR/labels" --jq '.[].name' | grep '^type/' | grep -vx "$want" |
+            while read -r old; do gh pr edit "$PR" -R "$REPO" --remove-label "$old"; done
+          gh pr edit "$PR" -R "$REPO" --add-label "$want"
