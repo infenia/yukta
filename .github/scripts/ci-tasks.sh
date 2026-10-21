@@ -114,22 +114,32 @@ sorted() { [ $# -eq 0 ] || printf '%s\n' "$@" | sort; }
 mapfile -t affected_list < <(sorted "${!affected[@]}")
 mapfile -t changed_list < <(sorted "${!changed[@]}")
 
-shards='[]'
+# Fail-fast lint: Checkstyle/PMD/OpenGrep only (cli and ui have none; boot needs the UI build).
 lint=''
+for m in "${affected_list[@]}"; do
+  case $m in :cli|:ui) continue ;; esac
+  lint="$lint $m:opengrep"
+  [ "$m" = :boot ] || lint="$lint $m:checkstyleMain $m:checkstyleTest $m:pmdMain $m:pmdTest"
+done
+
+# When the lint job runs (a partial run with JVM modules), the shards skip what it already ran:
+# `build` includes `check`, which would repeat Spotless, Checkstyle, PMD and OpenGrep. Exclusions are
+# task paths so boot keeps the Checkstyle/PMD that lint leaves out. Full runs have no lint job, so
+# their shards run everything.
+skip=''
+if [ "$full" != true ] && [ -n "$lint" ]; then
+  skip=' -x spotlessCheck'
+  for t in $lint; do skip="$skip -x $t"; done
+fi
+
+shards='[]'
 for shard in platform infra plugins cli ui; do
   tasks=''
   for m in "${affected_list[@]}"; do
     [ "$(group_of "$m")" = "$shard" ] && tasks="$tasks$m:build "
   done
   [ -n "$tasks" ] || continue
-  shards=$(jq -c --arg n "$shard" --arg a "${tasks}--continue" '. + [{name: $n, args: $a}]' <<<"$shards")
-done
-
-# Fail-fast lint: Checkstyle/PMD/OpenGrep only (cli and ui have none; boot needs the UI build).
-for m in "${affected_list[@]}"; do
-  case $m in :cli|:ui) continue ;; esac
-  lint="$lint $m:opengrep"
-  [ "$m" = :boot ] || lint="$lint $m:checkstyleMain $m:checkstyleTest $m:pmdMain $m:pmdTest"
+  shards=$(jq -c --arg n "$shard" --arg a "${tasks}--continue$skip" '. + [{name: $n, args: $a}]' <<<"$shards")
 done
 
 # End-to-end runs of the whole app: when the store they exercise (or anything it depends on) or

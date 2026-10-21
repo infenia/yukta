@@ -67,6 +67,14 @@ expect 'web/src/A.java' '.lint' \
   '":boot:opengrep :web:opengrep :web:checkstyleMain :web:checkstyleTest :web:pmdMain :web:pmdTest"'
 expect 'cli/main.go' '.lint' '""'
 
+# The shards skip what the lint job already ran (partial runs only), so no check runs twice.
+shard_args='.shards[0].args'
+expect 'web/src/A.java' "$shard_args" \
+  '":boot:build :web:build --continue -x spotlessCheck -x :boot:opengrep -x :web:opengrep -x :web:checkstyleMain -x :web:checkstyleTest -x :web:pmdMain -x :web:pmdTest"'
+expect 'cli/main.go' "$shard_args" '":cli:build --continue"'
+got=$(FULL=true "$planner" </dev/null | jq -c '[.shards[].args | contains(" -x ")] | any')
+[ "$got" = false ] || fail "FULL=true shards must not skip checks" false "$got"
+
 # Files outside any module build nothing.
 expect 'docs/a.md README.md examples/x/README.md' "$shards" '""'
 expect '' '.full' 'false'
