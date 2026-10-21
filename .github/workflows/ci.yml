@@ -179,6 +179,8 @@ jobs:
               - 'plugins/processors/sql-query/**'
             schedule-trigger:
               - 'plugins/triggers/schedule-trigger/**'
+            outcome-terminal:
+              - 'plugins/terminals/outcome-terminal/**'
             notify-terminal:
               - 'plugins/terminals/notify-terminal/**'
             rule-control-plane:

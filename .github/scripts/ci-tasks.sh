@@ -26,6 +26,7 @@ declare -A path=(
   [schedule-trigger]=:plugins:triggers:schedule-trigger
   [console-terminal]=:plugins:terminals:console-terminal
   [notify-terminal]=:plugins:terminals:notify-terminal
+  [outcome-terminal]=:plugins:terminals:outcome-terminal
   [internal-core]=:plugins:processors:internal:internal-core
   [script-js]=:plugins:processors:internal:script-js
   [process-executor]=:plugins:processors:process-executor
