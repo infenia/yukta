@@ -48,7 +48,7 @@ jobs:
             Feel free to reopen if you plan to continue working on it.
 
           # Exemptions
-          exempt-issue-labels: 'blocked,pinned,epic,ci-nightly'
+          exempt-issue-labels: 'blocked,pinned,epic,ci-nightly,risk,security,dogfood,flaky-test,needs-triage'
           exempt-pr-labels: 'blocked,pinned,work-in-progress'
 
           # Behavior

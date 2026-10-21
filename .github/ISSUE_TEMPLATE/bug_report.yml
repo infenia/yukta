@@ -3,8 +3,14 @@
 
 name: Bug report
 description: Something is broken or behaves unexpectedly
-labels: ["bug"]
+type: Bug
+labels: ["needs-triage"]
 body:
+  - type: markdown
+    attributes:
+      value: |
+        Search [open issues](https://github.com/infenia/yukta/issues) first. Report security
+        vulnerabilities privately through the link on the previous page, not here.
   - type: textarea
     id: what
     attributes:
@@ -17,6 +23,40 @@ body:
     attributes:
       label: Steps to reproduce
       description: A minimal workflow JSON or request helps most.
+    validations:
+      required: true
+  - type: dropdown
+    id: module
+    attributes:
+      label: Module
+      description: Where the defect is, if you know.
+      options:
+        - boot
+        - build (build logic, Gradle, CI)
+        - cli
+        - core
+        - mcp
+        - messaging
+        - plugin-api
+        - plugins
+        - plus
+        - persistence-postgres
+        - workers
+        - ui
+        - web
+        - documentation
+        - not sure
+    validations:
+      required: true
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity
+      options:
+        - Critical (data loss, security, or the server is unusable)
+        - High (a feature is broken, no workaround)
+        - Medium (broken, with a workaround)
+        - Low (cosmetic or minor)
     validations:
       required: true
   - type: input
