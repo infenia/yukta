@@ -15,7 +15,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import reactor.core.publisher.Mono;
-import reactor.core.scheduler.Schedulers;
 
 /**
  * Starts workflow executions: loads the definition, refuses what the scheduler cannot take,
@@ -199,7 +198,6 @@ class WorkflowStarter {
               }
               orchestrator
                   .execute(sessionId, workflowId, executionId, prepared, payload, admission)
-                  .subscribeOn(Schedulers.boundedElastic())
                   .doOnError(
                       err ->
                           log.atError()

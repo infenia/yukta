@@ -41,6 +41,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.validation.annotation.Validated;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 import reactor.util.context.Context;
 
 /** Orchestrator for executing reactive workflow DAGs. */
@@ -492,7 +493,9 @@ public class WorkflowOrchestrator {
             .then(
                 Mono.usingWhen(
                     awaitSlot(sessionId, workflowId, executionId, priority, reserved),
-                    _ -> body,
+                    // Tracking above starts on the caller's thread, so a started run can be read
+                    // at once; only the work itself moves off it.
+                    _ -> body.subscribeOn(Schedulers.boundedElastic()),
                     permit -> Mono.fromRunnable(permit::release)));
 
     return Mono.firstWithSignal(
