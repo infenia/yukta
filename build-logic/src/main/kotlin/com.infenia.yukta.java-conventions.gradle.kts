@@ -4,6 +4,7 @@
 plugins {
     java
     id("io.freefair.lombok")
+    id("org.gradle.test-retry")
 }
 
 val libs = extensions.getByType<VersionCatalogsExtension>().named("libs")
@@ -34,4 +35,13 @@ tasks.withType<Test>().configureEach {
     maxParallelForks = (Runtime.getRuntime().availableProcessors() / 2).coerceAtLeast(1)
     jvmArgs("-XX:+UseParallelGC", "-XX:TieredStopAtLevel=1")
     failFast = providers.gradleProperty("failFast").isPresent
+    // Nightly CI only (-PretryFlakyTests): re-run a failed test up to twice so the report can tell a
+    // flaky test (passed on retry) from a broken one. The task still fails either way.
+    if (providers.gradleProperty("retryFlakyTests").isPresent) {
+        extensions.configure<org.gradle.testretry.TestRetryTaskExtension> {
+            maxRetries.set(2)
+            maxFailures.set(20)
+            failOnPassedAfterRetry.set(true)
+        }
+    }
 }

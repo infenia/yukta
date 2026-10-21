@@ -144,13 +144,15 @@ jobs:
   # ─────────────────────────────────────────────
   # Job 2a: Fail-fast lint. Checkstyle, PMD and OpenGrep on the affected modules, so a style
   # violation is reported in a few minutes instead of after the full test run.
+  # Skipped on full runs: every shard's `build` runs the same checks, and on all 30 modules this
+  # job (~7 min) was slower than any shard, so it only lengthened the run.
   # ─────────────────────────────────────────────
   lint:
     name: Fast Lint
     needs: changes
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    if: needs.changes.outputs.lint != ''
+    if: needs.changes.outputs.lint != '' && needs.changes.outputs.full != 'true'
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -319,11 +321,15 @@ jobs:
           version: v0.72.0 # keep in sync with security.yml
           cache: true
 
+      # Nightly and manual runs retry failed tests (-PretryFlakyTests) so the report can tell flaky
+      # tests from broken ones; the build still fails on either. PRs and main never retry.
       - name: Gradle build (${{ matrix.name }})
         env:
           GRADLE_ARGS: ${{ matrix.args }}
+          EVENT: ${{ github.event_name }}
         run: |
           set -f   # args contain globs (--tests *Foo); they are for Gradle, not the shell
+          case $EVENT in schedule|workflow_dispatch) GRADLE_ARGS="$GRADLE_ARGS -PretryFlakyTests" ;; esac
           echo "▶ ./gradlew $GRADLE_ARGS"
           # shellcheck disable=SC2086 # GRADLE_ARGS is intentionally word-split
           ./gradlew $GRADLE_ARGS

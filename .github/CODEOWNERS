@@ -1,5 +1,37 @@
 # SPDX-License-Identifier: Apache-2.0
 # SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
-# Default owners; GitHub requests review from them on every PR.
-* @arun-infenia @engineering-infenia
+# GitHub requests review from the owners of every path a PR touches; the last matching line wins.
+# Each area lists the current maintainers. To hand an area to someone, change only its line
+# (users or teams, e.g. @infenia/plugins).
+
+# Default
+*                     @arun-infenia @engineering-infenia
+
+# Build, CI and quality gates: a change here affects every module
+/.github/             @arun-infenia @engineering-infenia
+/build-logic/         @arun-infenia @engineering-infenia
+/gradle/              @arun-infenia @engineering-infenia
+/config/              @arun-infenia @engineering-infenia
+/*.gradle.kts         @arun-infenia @engineering-infenia
+
+# Platform and contracts
+/messaging/           @arun-infenia @engineering-infenia
+/plugin-api/          @arun-infenia @engineering-infenia
+/core/                @arun-infenia @engineering-infenia
+/web/                 @arun-infenia @engineering-infenia
+/mcp/                 @arun-infenia @engineering-infenia
+/boot/                @arun-infenia @engineering-infenia
+
+# Plugins
+/plugins/             @arun-infenia @engineering-infenia
+
+# Plus edition (AGPL-3.0-only)
+/plus/                @arun-infenia @engineering-infenia
+
+# Clients
+/ui/                  @arun-infenia @engineering-infenia
+/cli/                 @arun-infenia @engineering-infenia
+
+# Docs
+/docs/                @arun-infenia @engineering-infenia

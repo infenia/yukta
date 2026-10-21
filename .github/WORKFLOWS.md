@@ -41,8 +41,8 @@ generation, weekly CodeQL and OpenSSF Scorecard runs.
 | PR opened/updated | any | Build the changed modules **and every module that depends on them** |
 | PR with the `ci:full` label | any | Full build (add the label, then re-run or push) |
 | Push | main | Full build — every module's tests + quality gates |
-| Scheduled | daily @ 5:30 AM IST | Full build **including E2E**; failures open an issue (`nightly-report.yml`) |
-| Manual | workflow_dispatch | Full build |
+| Scheduled | daily @ 5:30 AM IST | Full build **including E2E**, failed tests retried to spot flaky ones; failures open an issue (`nightly-report.yml`) |
+| Manual | workflow_dispatch | Same as scheduled (no issue) |
 
 **What a PR builds**: `.github/scripts/ci-tasks.sh` reads the modules from
 `settings.gradle.kts` and the edges between them from every quoted module path
@@ -74,7 +74,8 @@ graph (reflection, resources, runtime wiring) is caught by the full build on
    A change to a root/build file (`build-logic`, `gradle/`, `gradle.properties`,
    `.github/workflows`, `.github/scripts`, ...) forces a full build.
 3. `lint` — Fast Lint: Spotless, Checkstyle, PMD and OpenGrep on the affected
-   modules, for an early signal.
+   modules, for an early signal. Partial PR builds only: on a full run every shard's
+   `build` runs the same checks, and linting all 30 modules (~7 min) was the slowest job.
 4. `build` — One matrix job per shard, run in parallel (`platform`, `infra`,
    `plugins`, `cli`, `ui`, plus the `postgres-acceptance` and `plus-acceptance`
    end-to-end runs). Each runs `:module:build`, which includes `check`:
@@ -107,9 +108,33 @@ one open issue per workflow, titled `Nightly failure: <workflow>` and labelled
 | Fails / times out, issue open | Adds the same report as a comment (one per night) |
 | Succeeds, issue open | Comments "green again" and closes it |
 
+**Flaky tests**: scheduled and manual CI runs pass `-PretryFlakyTests`, which
+retries a failed test up to twice (Gradle test-retry plugin, `java-conventions`).
+The build still fails, so a flaky test is never hidden; the report lists it under
+*Flaky tests — failed, then passed on retry*, apart from tests that never passed.
+PRs and `main` never retry.
+
+**Shard timing**: every scheduled CI run writes the test time per shard and the
+slowest test classes to the report job's summary. Use it to rebalance shards
+(`group_of` in `ci-tasks.sh`) or to speed up the slowest tests.
+
 `ci-nightly` issues are exempt from the stale bot. Fix the failure on a branch;
 the next green nightly closes the issue, or run CI manually (`workflow_dispatch`)
 to check sooner (manual runs don't touch the issue).
+
+---
+
+### `dependabot-automerge.yml` — Dependabot Auto-merge
+
+**Purpose**: Merge Dependabot patch and minor updates without a maintainer click
+
+Enables GitHub auto-merge (squash) on Dependabot PRs whose update type is
+`semver-patch` or `semver-minor` (grouped PRs use the largest bump in the group).
+GitHub merges only once branch protection passes, i.e. `CI Gate` is green and any
+required review is given. Major updates stay manual.
+
+**Requires**: Settings → General → *Allow auto-merge*, and `CI Gate` as a required
+status check on `main`. If auto-merge is off, the job logs a notice and does nothing.
 
 ---
 
@@ -286,6 +311,8 @@ is published. The container image (GraalVM native compile) is built locally, not
 - `Lint Workflows` fails if a `project()` dependency names a module missing from `settings.gradle.kts`.
 - A new module needs no CI edits: the planner reads `settings.gradle.kts` and the build files.
 - **Nightly report**: `.github/workflows/nightly-report.yml`
+- **Dependabot auto-merge**: `.github/workflows/dependabot-automerge.yml`
+- **Code owners** (review requests per area): `.github/CODEOWNERS`
 
 ---
 

@@ -5,7 +5,8 @@
 # Tracks a scheduled (nightly) workflow run in a GitHub issue, one open issue per workflow:
 #   failure  -> comment on the open "Nightly failure: <workflow>" issue, or open one;
 #   success  -> comment on that issue and close it.
-# The report lists the failed jobs and steps, and the failed tests from the build-reports artifacts.
+# The report lists the failed jobs and steps, and the failed and flaky tests from the build-reports
+# artifacts. Every run also writes test time per shard to the job summary, for balancing the shards.
 #
 # Env: GH_TOKEN, REPO, RUN_ID, RUN_URL, WORKFLOW, CONCLUSION, HEAD_SHA
 set -euo pipefail
@@ -16,10 +17,21 @@ title="Nightly failure: $WORKFLOW"
 sha=${HEAD_SHA:0:7}
 today=$(date -u +%Y-%m-%d)
 
+work=$(mktemp -d)
+trap 'rm -rf "$work"' EXIT
+report="$work/report.md"
+
+# Shards upload their JUnit XML as build-reports-<shard>; other workflows have none.
+reports=false
+if gh run download "$RUN_ID" -R "$REPO" -p 'build-reports-*' -D "$work/reports" 2>/dev/null; then
+  reports=true
+fi
+
 issue=$(gh issue list -R "$REPO" --label "$label" --state open --limit 100 --json number,title |
   jq -r --arg t "$title" 'map(select(.title == $t)) | first | .number // empty')
 
 if [ "$CONCLUSION" = success ]; then
+  [ "$reports" = false ] || python3 -I "$here/junit-failures.py" --durations "$work/reports" >>"${GITHUB_STEP_SUMMARY:-/dev/null}"
   if [ -n "$issue" ]; then
     gh issue close "$issue" -R "$REPO" --reason completed \
       --comment "The nightly **$WORKFLOW** run is green again on \`$sha\` ($today, [run]($RUN_URL)). Closing."
@@ -27,10 +39,6 @@ if [ "$CONCLUSION" = success ]; then
   fi
   exit 0
 fi
-
-work=$(mktemp -d)
-trap 'rm -rf "$work"' EXIT
-report="$work/report.md"
 
 {
   echo "### $today — \`$sha\` — $CONCLUSION ([run]($RUN_URL))"
@@ -43,10 +51,7 @@ report="$work/report.md"
         + ([.steps[]? | select(.conclusion == "failure") | .name]
            | if length > 0 then "; failed step: " + join(", ") else "" end)'
   echo
-  # Shards upload their JUnit XML as build-reports-<shard>; other workflows have none.
-  if gh run download "$RUN_ID" -R "$REPO" -p 'build-reports-*' -D "$work/reports" 2>/dev/null; then
-    python3 -I "$here/junit-failures.py" "$work/reports"
-  fi
+  [ "$reports" = false ] || python3 -I "$here/junit-failures.py" "$work/reports"
 } >"$report"
 
 # Issue bodies and comments are capped at 65536 characters.
@@ -56,6 +61,7 @@ if [ "$(wc -c <"$report")" -gt 60000 ]; then
   mv "$work/cut.md" "$report"
 fi
 cat "$report" >>"${GITHUB_STEP_SUMMARY:-/dev/null}"
+[ "$reports" = false ] || python3 -I "$here/junit-failures.py" --durations "$work/reports" >>"${GITHUB_STEP_SUMMARY:-/dev/null}"
 
 if [ -n "$issue" ]; then
   gh issue comment "$issue" -R "$REPO" -F "$report"
