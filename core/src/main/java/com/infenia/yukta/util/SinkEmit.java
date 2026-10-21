@@ -16,8 +16,15 @@ import reactor.core.publisher.Sinks;
 @SuppressWarnings({"PMD.AtLeastOneConstructor", "PMD.OnlyOneReturn"})
 public class SinkEmit {
 
-  /** How often a concurrent emission is retried before giving up. */
+  /** Busy retries before the thread starts to yield; keeps the common, brief clash cheap. */
   private static final int MAX_SPINS = 1_000;
+
+  /**
+   * How long a concurrent emission is retried before giving up. The other emitter finishes in
+   * microseconds unless it is descheduled (a CPU-limited container), so a count of spins is too
+   * short; the deadline also ends a reentrant emit from a subscriber, which can never succeed.
+   */
+  private static final long MAX_RETRY_NANOS = 250_000_000L;
 
   /**
    * Emits one element, retrying only while another thread is emitting at the same moment.
@@ -29,16 +36,20 @@ public class SinkEmit {
    *     subscriber that can take it
    */
   public <T> boolean offer(final Sinks.Many<T> sink, final T value) {
-    for (int attempt = 0; attempt < MAX_SPINS; attempt++) {
+    final long deadline = System.nanoTime() + MAX_RETRY_NANOS;
+    for (int attempt = 0; ; attempt++) {
       final Sinks.EmitResult result = sink.tryEmitNext(value);
       if (result == Sinks.EmitResult.OK) {
         return true;
       }
-      if (result != Sinks.EmitResult.FAIL_NON_SERIALIZED) {
+      if (result != Sinks.EmitResult.FAIL_NON_SERIALIZED || System.nanoTime() - deadline > 0) {
         return false;
       }
-      Thread.onSpinWait();
+      if (attempt < MAX_SPINS) {
+        Thread.onSpinWait();
+      } else {
+        Thread.yield();
+      }
     }
-    return false;
   }
 }

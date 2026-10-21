@@ -1,0 +1,25 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: 2026 Infenia Private Limited
+
+# Yukta with fixed resources, for repeatable benchmarks. Use perf/run.sh; knobs are env vars.
+services:
+  yukta:
+    image: ${IMAGE:-eclipse-temurin:25-jre}
+    command: ["java", "-jar", "/app/yukta.jar"]
+    cpus: ${CPUS:-2}
+    cpuset: ${CPUSET:-0,1}
+    mem_limit: ${MEMORY:-8g}
+    memswap_limit: ${MEMORY:-8g}   # no swap: results must not depend on it
+    environment:
+      JAVA_TOOL_OPTIONS: ${JAVA_OPTS:--XX:MaxRAMPercentage=75 -XX:+ExitOnOutOfMemoryError}
+      SPRING_PROFILES_ACTIVE: prod
+      YUKTA_SERVER_ADDRESS: 0.0.0.0
+      YUKTA_API_KEY: ${API_KEY:?set by run.sh}
+    volumes:
+      - ${JAR:?set by run.sh}:/app/yukta.jar:ro
+    ports:
+      - "127.0.0.1:8080:8080"   # loopback only, so k6 may send the key over http
+    healthcheck:
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/8080"]
+      interval: 2s
+      retries: 60

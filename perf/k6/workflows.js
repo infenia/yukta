@@ -41,8 +41,7 @@ export const CATALOG = {
   },
 };
 
-// fanout is left out until perf/KNOWN-ISSUES.md #2 is fixed; run it with -e WORKFLOWS=fanout.
-export const DEFAULT = ['trigger-terminal', 'mapper', 'filter', 'chain10'];
+export const DEFAULT = ['trigger-terminal', 'mapper', 'filter', 'chain10', 'fanout'];
 
 export function selected() {
   const names = (__ENV.WORKFLOWS ? __ENV.WORKFLOWS.split(',') : DEFAULT).map((s) => s.trim());

@@ -4,9 +4,9 @@
 import http from 'k6/http';
 import { sleep } from 'k6';
 import { Counter, Trend } from 'k6/metrics';
-import { BASE_URL, setup, runOnce, thresholds } from './lib.js';
+import { BASE_URL, headers, setup, teardown, runOnce, thresholds } from './lib.js';
 
-export { setup };
+export { setup, teardown };
 
 const duration = __ENV.DURATION || '1h';
 const samplerErrors = new Counter('sampler_errors');
@@ -17,6 +17,7 @@ const jvm = {
 };
 
 export const options = {
+  teardownTimeout: '5m',
   scenarios: {
     soak: {
       executor: 'constant-arrival-rate', rate: Number(__ENV.RATE || 20), timeUnit: '1s',
@@ -32,7 +33,7 @@ export function work(ctx) { runOnce(ctx); }
 // Needs /actuator/metrics exposed (on by default, also in the prod profile).
 export function sample() {
   for (const [name, trend] of Object.entries(jvm)) {
-    const r = http.get(`${BASE_URL}/actuator/metrics/${name}`);
+    const r = http.get(`${BASE_URL}/actuator/metrics/${name}`, { headers });
     if (r.status === 200) trend.add(r.json('measurements.0.value'));
     else samplerErrors.add(1);
   }
