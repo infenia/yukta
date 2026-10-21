@@ -89,3 +89,5 @@ Load the below skill for test generation and test improvement.
 ## Imports
 @.claude/rules/coding-standards.md
 @.claude/rules/git-workflow.md
+
+IMPORTANT: When applicable, prefer using intellij-index MCP tools for code navigation and refactoring.
