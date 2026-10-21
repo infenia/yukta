@@ -63,3 +63,7 @@ perf/reports/
 
 # PGO profile recorded per build (release/pgo-profile.sh); never committed
 /boot/pgo/
+
+# One-off backlog migration artifacts
+/backlog.json
+/id-map.json
