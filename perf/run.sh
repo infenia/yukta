@@ -20,7 +20,7 @@ export API_KEY=${API_KEY:-$(head -c 24 /dev/urandom | base64 | tr -dc 'A-Za-z0-9
 export JAR=${JAR:-$root/boot/build/libs/boot-0.0.1-SNAPSHOT.jar}
 if [[ -n ${BINARY:-} ]]; then
   JAR=$(realpath "$BINARY"); export RUN_CMD=/app/yukta.jar IMAGE=${IMAGE:-debian:12-slim}   # mounted at the jar's path
-  [[ -x $JAR ]] || { echo "BINARY $JAR is not an executable file" >&2; exit 2; }
+  [[ -f $JAR && -x $JAR ]] || { echo "BINARY $JAR is not an executable file" >&2; exit 2; }
 fi
 compose=(docker compose -f perf/compose.yaml -p yukta-perf)
 
@@ -49,7 +49,7 @@ done
 
 cat > "$dir/meta.json" <<JSON
 {"test":"$type","commit":"$sha","dirty":$dirty,"cpus":"$CPUS","cpuset":"$CPUSET","memory":"$MEMORY",
- "javaOpts":"$JAVA_OPTS","image":"${IMAGE:-eclipse-temurin:25-jre}","binary":"${BINARY:-}","k6":"$(k6 version | head -1)",
+ "javaOpts":"$JAVA_OPTS","image":"${IMAGE:-eclipse-temurin:25-jre}","binary":$(jq -Rn --arg b "${BINARY:-}" '$b'),"k6":"$(k6 version | head -1)",
  "docker":"$(docker --version)","rate":"${RATE:-default}","workflows":"${WORKFLOWS:-default}",
  "hold":"${HOLD:-default}","duration":"${DURATION:-default}","startedAt":"$(date -u +%FT%TZ)"}
 JSON

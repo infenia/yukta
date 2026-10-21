@@ -33,6 +33,8 @@ profile="$REPO_ROOT/boot/pgo/yukta.iprof"
 if [[ -z "${NATIVE_QUICK:-}" && -z "${NATIVE_PGO_INSTRUMENT:-}" && "${NATIVE_PGO:-1}" != 0 ]]; then
   rm -f "$profile"
   "$RELEASE_DIR/pgo-profile.sh" || log "WARNING: no PGO profile recorded; building without one (GraalNN)"
+elif [[ -z "${NATIVE_PGO_INSTRUMENT:-}" ]]; then
+  rm -f "$profile"   # quick or NATIVE_PGO=0 builds must not pick up a stale profile
 fi
 
 log "native compile for $platform (builder heap $heap)"

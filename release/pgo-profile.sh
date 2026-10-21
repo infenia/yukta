@@ -32,16 +32,20 @@ trap cleanup EXIT
 log "starting it and training with the examples"
 (cd "$work" && YUKTA_API_KEY="$key" exec "$bin") >"$work/server.log" 2>&1 &
 pid=$!
+up=""
 for _ in $(seq 1 60); do
-  curl -fsS "http://127.0.0.1:8080/actuator/health" 2>/dev/null | grep -q '"status":"UP"' && break
+  curl -fsS "http://127.0.0.1:8080/actuator/health" 2>/dev/null | grep -q '"status":"UP"' && { up=1; break; }
   kill -0 "$pid" 2>/dev/null || die "server exited early: $(tail -5 "$work/server.log")"
   sleep 2
 done
+[[ -n $up ]] || die "server not UP after 120s; see $work/server.log"
 
+ok=0
 for i in $(seq 1 "${ROUNDS:-5}"); do
   log "training round $i"
-  YUKTA_API_KEY="$key" "$REPO_ROOT/examples/run-all.sh" >>"$work/examples.log" 2>&1 || true
+  YUKTA_API_KEY="$key" "$REPO_ROOT/examples/run-all.sh" >>"$work/examples.log" 2>&1 && ok=$((ok + 1)) || true
 done
+[[ $ok -gt 0 ]] || die "every training round failed; see $work/examples.log"
 
 kill -TERM "$pid"
 wait "$pid" || true
