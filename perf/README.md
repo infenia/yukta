@@ -23,11 +23,11 @@ own status never turns final, so leave it off. Open problems found by these test
 ## Benchmark with fixed resources (recommended)
 
 `perf/run.sh <perf|load|soak> [k6 args]` runs the server in a container with fixed CPU and memory, runs the test
-from other cores, and writes a report. `MODE` picks what is run:
+from other cores, and writes a report. the server is one of:
 
-| `MODE` | Runs | Image | Needs |
+| Server | Runs | Image | Needs |
 |---|---|---|---|
-| `jar` (default) | `boot/build/libs/boot-0.0.1-SNAPSHOT.jar` on a JVM | `eclipse-temurin:25-jre` | nothing: the script runs `./gradlew :boot:bootJar` every time (a no-op when up to date), unless you set `JAR=<path>` |
+| jar (default) | `boot/build/libs/boot-0.0.1-SNAPSHOT.jar` on a JVM | `eclipse-temurin:25-jre` | nothing: the script runs `./gradlew :boot:bootJar` every time (a no-op when up to date), unless you set `JAR=<path>` |
 | `BINARY=<path>` (native) | the GraalVM binary, e.g. `dist/linux-amd64/yukta` | `debian:12-slim` | the binary, built once with `release/build-server.sh` (add `NATIVE_QUICK=1` for a fast, slower-running rehearsal build; `NATIVE_HEAP=24g` for more builder heap). |
 
 The native binary is **not** rebuilt by `run.sh` (a native compile takes a long time): rebuild it yourself after
@@ -44,7 +44,7 @@ CPUS=4 CPUSET=0-3 MEMORY=16g perf/run.sh load   # another size
 KEEP=1 perf/run.sh load                         # leave the server up to inspect stuck runs (prints the API key)
 ```
 
-To compare jar and native, run the same test and options once per `MODE` on the same commit, then compare the two
+To compare jar and native, run the same test and options once per server kind on the same commit, then compare the two
 `summary.json` files (and `container-stats.csv` for CPU and memory). Native starts faster and uses less memory;
 the jar is usually faster after warm-up, so use `load` or `soak` rather than a short `perf` for peak numbers.
 
