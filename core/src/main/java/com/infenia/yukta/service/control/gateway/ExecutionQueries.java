@@ -4,9 +4,11 @@ package com.infenia.yukta.service.control.gateway;
 
 import com.infenia.yukta.message.Message;
 import com.infenia.yukta.model.control.PendingApproval;
+import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
 import com.infenia.yukta.model.execution.WorkflowProgress;
 import com.infenia.yukta.plugin.util.SignalWaits;
+import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.control.ControlBusService;
 import com.infenia.yukta.service.orchestrator.tracker.DefaultTaskTrackerService;
 import java.util.List;
@@ -16,7 +18,7 @@ import reactor.core.publisher.Mono;
 
 /** Read-only views of executions, history and node state. */
 @Slf4j
-@SuppressWarnings("PMD.AvoidDuplicateLiterals")
+@SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.TooManyMethods"})
 final class ExecutionQueries {
 
   /** The task tracker service for tracking execution tasks. */
@@ -214,5 +216,20 @@ final class ExecutionQueries {
         .addKeyValue("totalActiveNodes", allActiveNodes.size())
         .log("All active nodes retrieved");
     return allActiveNodes;
+  }
+
+  /**
+   * Ends a run the tracker still shows as running although nothing executes it any more (its status
+   * event was lost), so it can be stopped instead of staying RUNNING for good.
+   */
+  /* default */ Mono<String> finishOrphan(final String executionId) {
+    final WorkflowProgress progress = taskTracker.getProgressByExecutionId(executionId);
+    final boolean orphan = progress != null && !TaskStatus.isTerminalName(progress.status());
+    if (orphan) {
+      log.atWarn().addKeyValue("executionId", executionId).log("Stopping orphaned execution");
+    }
+    return orphan
+        ? taskTracker.finishWorkflow(executionId, TaskStatus.STOPPED).thenReturn(executionId)
+        : Mono.error(new NotFoundException("Execution not found: " + executionId));
   }
 }

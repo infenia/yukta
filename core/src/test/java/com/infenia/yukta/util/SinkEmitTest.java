@@ -7,6 +7,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.atomic.AtomicInteger;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 import reactor.core.publisher.BaseSubscriber;
@@ -58,5 +59,20 @@ class SinkEmitTest {
     when(sink.tryEmitNext("a")).thenReturn(Sinks.EmitResult.FAIL_NON_SERIALIZED);
 
     assertThat(SinkEmit.offer(sink, "a")).isFalse();
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  void offer_keepsTryingPastTheSpinPhaseWhileTheOtherEmitterIsDescheduled() {
+    final AtomicInteger clashes = new AtomicInteger();
+    final Sinks.Many<String> sink = mock(Sinks.Many.class);
+    when(sink.tryEmitNext("a"))
+        .thenAnswer(
+            call ->
+                clashes.incrementAndGet() < 5_000
+                    ? Sinks.EmitResult.FAIL_NON_SERIALIZED
+                    : Sinks.EmitResult.OK);
+
+    assertThat(SinkEmit.offer(sink, "a")).isTrue();
   }
 }
