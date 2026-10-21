@@ -62,7 +62,7 @@ jobs:
     # GraalVM native-image cannot cross-compile, so arm64 needs an arm64 host. The amd64 server,
     # the images, the packages and the signing happen on the release machine (release/release.sh).
     runs-on: ubuntu-24.04-arm
-    timeout-minutes: 90
+    timeout-minutes: 180   # records a PGO profile (instrumented build + examples), then builds
     permissions:
       contents: read
       id-token: write       # build provenance (keyless signing)
@@ -72,12 +72,21 @@ jobs:
         with:
           persist-credentials: false
 
-      # Builds inside the pinned GraalVM image, the same way the release machine does.
+      # Builds inside the pinned Oracle GraalVM image, the same way the release machine does. It first
+      # records a PGO profile on this runner (release/pgo-profile.sh), so the profile matches the commit.
       # NATIVE_HEAP is lowered from 16g in case the hosted runner has less memory.
       - name: Native compile
         env:
           NATIVE_HEAP: 12g
         run: release/build-server.sh
+
+      # Kept for audit and to rebuild a release the same way; the build never reads an old one.
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: pgo-profile-linux-arm64
+          path: boot/pgo/yukta.iprof
+          if-no-files-found: warn
+          retention-days: 90
 
       - name: Smoke test
         run: |

@@ -55,7 +55,8 @@ Fields, views and triage rules: [.github/PROJECT.md](.github/PROJECT.md).
 5. **Write tests** for any new functionality.
 6. **Update documentation** if you're adding or changing features.
 7. **Submit a Pull Request**.
-    * Use a descriptive title.
+    * Title it as a Conventional Commit (`feat(core): add retry budget`); a check enforces it,
+      since the title becomes the squash commit on `main` and groups the release notes.
     * Link the issue it resolves (`Fixes #123`).
     * Provide a summary of your changes.
 

@@ -1,0 +1,53 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: 2026 Infenia Private Limited
+
+name: Weekly project health
+
+# Rewrites the pinned "Project health" issue every Monday (.github/scripts/project-health.sh): open issues
+# by type, untriaged issues older than a week, unassigned P0/P1, idle In progress items, high-impact risks
+# and code scanning alert counts (counts only: the issue is public). The project sections need the GitHub
+# App (vars.YUKTA_PROJECT_APP_CLIENT_ID, secrets.YUKTA_PROJECT_APP_KEY, vars.YUKTA_PROJECT_NUMBER).
+on:
+  schedule:
+    - cron: '17 3 * * 1' # Monday 8:47 AM IST (03:17 UTC)
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  report:
+    name: Project health report
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      issues: write            # create or edit the report issue
+      security-events: read    # count open code scanning alerts
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+          sparse-checkout: .github/scripts
+
+      - name: Mint the project token
+        id: app
+        if: vars.YUKTA_PROJECT_APP_CLIENT_ID != '' && vars.YUKTA_PROJECT_NUMBER != ''
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ vars.YUKTA_PROJECT_APP_CLIENT_ID }}
+          private-key: ${{ secrets.YUKTA_PROJECT_APP_KEY }}
+          permission-organization-projects: read
+
+      - name: Write the report
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PROJECT_TOKEN: ${{ steps.app.outputs.token }}
+          PROJECT_OWNER: ${{ github.repository_owner }}
+          PROJECT_NUMBER: ${{ vars.YUKTA_PROJECT_NUMBER }}
+        run: .github/scripts/project-health.sh

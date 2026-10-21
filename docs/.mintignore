@@ -2,3 +2,5 @@
 # Markdown files (plans, notes, drafts) must never become pages.
 *.md
 superpowers/
+# Backlog, risks and plans are GitHub issues and design/ files, never pages (see .github/PROJECT.md).
+internal/

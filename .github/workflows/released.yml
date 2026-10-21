@@ -1,0 +1,36 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: 2026 Infenia Private Limited
+
+name: Release follow-up
+
+# When a release is published (release.yml creates it as a draft; a person publishes it), tell every
+# issue it fixed and close its milestone (.github/scripts/released.sh).
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+jobs:
+  follow-up:
+    name: Comment on released issues
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      issues: write          # comment on fixed issues, close the milestone
+      pull-requests: read    # find the issues each pull request closed
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+          sparse-checkout: .github/scripts
+
+      - name: Comment on fixed issues and close the milestone
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          TAG: ${{ github.event.release.tag_name }}
+          RELEASE_URL: ${{ github.event.release.html_url }}
+        run: .github/scripts/released.sh

@@ -68,7 +68,7 @@ graph (reflection, resources, runtime wiring) is caught by the full build on
 **Jobs**:
 1. `lint-workflows` — yamllint, actionlint, zizmor, shellcheck for `.github/scripts`, the label
    check (`sync-labels.py --check`),
-   the shard-planner and project-helper table tests (`ci-tasks.test.sh`, `project-lib.test.sh`) and a module-graph check
+   the shard-planner and issue-automation table tests (`ci-tasks.test.sh`, `project-lib.test.sh`) and a module-graph check
    (`ci-tasks.sh --check`: every `project()` dependency is an included module).
 2. `changes` — Plan the run with `ci-tasks.sh` (fast, ~5s): changed modules and
    their dependents, as above. The plan is written to the job summary.
@@ -112,6 +112,10 @@ one open issue per workflow, titled `Nightly failure: <workflow>` and labelled
 A new issue also gets the **Bug** type and, when the project App is configured, goes on the Yukta
 Roadmap project in Triage as a P1 *CI failure* ([PROJECT.md](PROJECT.md)); closing it moves the
 project item to Done.
+
+**Flaky test issues**: each flaky test also gets its own `flaky-test` issue (`flaky-tests.sh`),
+commented on each time it is flaky again and closed after 7 days without a flaky run (checked on
+green runs only).
 
 **Flaky tests**: scheduled and manual CI runs pass `-PretryFlakyTests`, which
 retries a failed test up to twice (Gradle test-retry plugin, `java-conventions`).
@@ -221,6 +225,40 @@ Publishes to the OpenSSF API (powers the README badge) and uploads SARIF.
 Auto-label PRs by touched paths; mark and close stale issues/PRs. Issues labelled `risk`,
 `security`, `dogfood`, `flaky-test`, `ci-nightly`, `epic`, `needs-triage`, `blocked` or `pinned`
 never go stale.
+
+---
+
+### `pr-title.yml` — PR title
+
+**Purpose**: Keep `main`'s history in Conventional Commits.
+
+PRs are squash-merged, so the title becomes the commit. The check fails a title that is not
+`<type>(<scope>): <subject>` (types from `.gitmessage`), warns when a `feat` or `fix` PR does not
+link an issue (`Fixes #123`), and sets the PR's `type/*` label from the title (same-repository PRs
+only; fork PRs have a read-only token). The labels group the release notes (`.github/release.yml`).
+Dependabot PRs are skipped.
+
+---
+
+### `released.yml` — Release follow-up
+
+**Purpose**: Close the loop on fixed issues.
+
+When a release is published, `.github/scripts/released.sh` comments "Released in vX.Y.Z" on every
+issue closed by a PR between the previous release and this one, and closes the milestone with the
+tag's name.
+
+---
+
+### `weekly-health.yml` — Weekly project health
+
+**Purpose**: One place to see what needs attention.
+
+Every Monday `.github/scripts/project-health.sh` rewrites the pinned **Project health** issue
+(edited in place, so nobody is notified weekly): open issues by type, issues waiting for triage for
+more than a week, and, with the project App configured, unassigned P0/P1 issues, idle *In progress*
+items and open risks with impact 4 or 5. Code scanning alerts are counted, never listed: the issue
+is public, the Security tab is not.
 
 ---
 

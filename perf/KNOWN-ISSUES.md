@@ -2,6 +2,10 @@
 
 Logged, not fixed. Found 2026-10-11 on `main` at `6070249e`; updated 2026-10-21.
 
+This file is history. Open perf problems are GitHub issues labelled
+[`perf`](https://github.com/infenia/yukta/issues?q=is%3Aissue%20is%3Aopen%20label%3Aperf) (here: 3 and 5);
+file new ones there with `examples/11-dogfood/scripts/report-finding.sh` or the dogfood issue form.
+
 ## 1. Runs never finish: `CONSOLE_TERMINAL` stays `RUNNING` (fixed)
 
 Cause was a broadcast subscriber count that was only known once a subscriber arrived; fixed in #331. Checked
@@ -20,7 +24,7 @@ Same cause as #1. `fanout` is part of the 250 starts/s check above and finished 
 
 Under load on 2 vCPU the tracker lost status events (`Tracker event lost`), so finished runs stayed `RUNNING`
 and Stop/Pause/Restart answered 404. The k6 tests did not notice because `LENIENT` defaulted to true. Now
-`stuck_runs` and `tracker_events_lost` must be 0. See `docs/internal/bugs.mdx` DF-7.
+`stuck_runs` and `tracker_events_lost` must be 0. Tracked as DF-7 (fixed).
 
 ## 5. A started run is unreadable for a moment (open, DF-8)
 

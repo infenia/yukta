@@ -14,7 +14,7 @@ Core is Yukta's engine and control plane: it takes a workflow definition (a DAG 
 | Pluggable durability | Memory by default; files or PostgreSQL by configuration. What survives a restart depends on the profile (see Guarantees). |
 
 <Note>
-  Open risks, bugs and improvement ideas for this module are on the internal pages (sign-in required): [Risks](/internal/risks#core), [Bugs](/internal/bugs) and [Improvements](/internal/improvements#core).
+  Open work for this module is tracked in GitHub issues: [risks](https://github.com/infenia/yukta/issues?q=is%3Aissue%20is%3Aopen%20label%3Arisk%20label%3Acore), [bugs](https://github.com/infenia/yukta/issues?q=is%3Aissue%20is%3Aopen%20type%3ABug%20label%3Acore) and [all open issues](https://github.com/infenia/yukta/issues?q=is%3Aissue%20is%3Aopen%20label%3Acore). Its evolution path and quality lenses are in [design/assessments/core.md](https://github.com/infenia/yukta/blob/main/design/assessments/core.md).
 </Note>
 
 ## Primer
@@ -760,4 +760,4 @@ The full list of configuration properties, metrics and enums is in the [core ref
 | API key and role | A shared secret that guards the REST API (and, separately, MCP). Named keys carry a role: VIEWER reads, OPERATOR steers runs, ADMIN does everything. | The audit shows the key name as the actor. |
 | Host and Origin check | A server-side test of which website name and page a request came from, so a page in the operator's browser cannot drive a local server (CSRF, DNS rebinding). | Done by HostOriginFilter while no API key is set: unknown Host or foreign Origin on a non-GET gets 403 (yukta.allowed-hosts, yukta.allowed-origins). |
 | Expression ($\{...\}) | A placeholder in a node's configuration that is filled from the message, the run or the environment just before the node runs. | See Expressions & Secrets. |
-| B16, S4, F6 ... | IDs in [Bugs page](/internal/bugs) and 11-remediation-plan.md: B = bug, S = security, F = feature, R = restart. | Used in the Risks section. |
+| B16, S4, F6 ... | Legacy ids, kept in the GitHub issues (search `legacy id`) and the [remediation plan](https://github.com/infenia/yukta/blob/main/design/plans/remediation.md): B = bug, S = security, F = feature, R = restart. | Used in the Risks section. |

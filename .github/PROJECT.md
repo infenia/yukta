@@ -109,6 +109,18 @@ Aim to triage within 5 working days. P0 issues get an assignee the same day.
 | `issue-triage.yml` | an issue is opened | area label from the form's Module answer; project item in Triage with Module, Severity, Priority, Category, Impact, Effort from the form and Kind from the labels and type |
 | `nightly-report.yml` | a scheduled run fails and no tracking issue is open | the new `ci-nightly` issue gets the Bug type and a project item: Triage, Kind CI failure, Priority P1, Module build. The issue closes itself when the nightly is green, and the project moves it to Done |
 
-Both use `.github/scripts/project-lib.sh` (`project_add_item <url> Field=Value ...`), which looks up
+| `nightly-report.yml` (`flaky-tests.sh`) | a scheduled CI run has a test that failed, then passed on retry | one `flaky-test` issue per test method (Bug type; Triage, Kind Flaky test, Priority P2, its module); a comment each time it is flaky again; closed after 7 days without a flaky run, checked on green runs only |
+| `weekly-health.yml` | Mondays | rewrites the pinned **Project health** issue: open issues by type, untriaged for over a week, unassigned P0/P1, In progress with no activity for two weeks, open risks with impact 4 or 5, and code scanning alert counts (never the alerts themselves) |
+
+Other automation around issues and pull requests:
+
+| Workflow | What it does |
+|---|---|
+| `pr-title.yml` | fails a PR whose title is not a Conventional Commit (the squash commit on `main`), warns when a `feat`/`fix` PR links no issue, and sets the PR's `type/*` label from the title |
+| `release.yml` + `.github/release.yml` | release notes are generated and grouped by label: breaking changes, security, features, bug fixes, docs, dependencies, other |
+| `released.yml` | when a release is published, comments "Released in vX.Y.Z" on every issue a PR in it closed, and closes the milestone named like the tag |
+
+All of them use `.github/scripts/project-lib.sh` (`project_add_item <url> Field=Value ...`), which looks up
 fields and options by name and skips, with a warning, any that the project does not have.
-`project-lib.test.sh` tests it and the triage mapping in the `lint-workflows` CI job.
+`project-lib.test.sh` tests it, the triage mapping, flaky test tracking, the release follow-up and the
+health report in the `lint-workflows` CI job.
