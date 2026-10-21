@@ -1,0 +1,23 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: 2026 Infenia Private Limited
+
+# Groups GitHub's generated release notes (release.yml: generate_release_notes) by PR label.
+# type/* labels come from the PR title (pr-title.yml); a PR lands in the first category that matches.
+changelog:
+  exclude:
+    labels: [ "duplicate", "invalid", "wontfix" ]
+  categories:
+    - title: Breaking changes
+      labels: [ "breaking-change" ]
+    - title: Security
+      labels: [ "security" ]
+    - title: New features
+      labels: [ "type/feature" ]
+    - title: Bug fixes
+      labels: [ "type/bugfix" ]
+    - title: Documentation
+      labels: [ "type/docs" ]
+    - title: Dependencies
+      labels: [ "dependencies" ]
+    - title: Other changes
+      labels: [ "*" ]
