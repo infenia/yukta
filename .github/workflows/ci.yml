@@ -159,6 +159,7 @@ jobs:
   # violation is reported in a few minutes instead of after the full test run.
   # Skipped on full runs: every shard's `build` runs the same checks, and on all 30 modules this
   # job (~7 min) was slower than any shard, so it only lengthened the run.
+  # When it does run, ci-tasks.sh makes the shards `-x` these exact tasks, so no check runs twice.
   # ─────────────────────────────────────────────
   lint:
     name: Fast Lint
