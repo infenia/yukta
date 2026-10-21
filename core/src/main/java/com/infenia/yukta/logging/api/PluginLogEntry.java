@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.logging.api;
 
+import com.infenia.yukta.plugin.core.LogLevel;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;

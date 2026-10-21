@@ -7,12 +7,12 @@ import static org.awaitility.Awaitility.await;
 
 import com.infenia.yukta.event.TaskStatusEvent;
 import com.infenia.yukta.event.WorkflowStatusEvent;
-import com.infenia.yukta.logging.api.LogLevel;
 import com.infenia.yukta.logging.api.LogStream;
 import com.infenia.yukta.model.execution.ControlState;
 import com.infenia.yukta.model.execution.TaskProgress;
 import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.model.execution.WorkflowProgress;
+import com.infenia.yukta.plugin.core.LogLevel;
 import com.infenia.yukta.service.log.InMemoryExecutionLogStore;
 import com.infenia.yukta.service.streaming.StatusHistoryCache;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
@@ -2668,6 +2668,52 @@ class DefaultTaskTrackerServiceTest {
     StepVerifier.create(tracker.getLogFlux())
         .then(() -> tracker.emitLogEvent(executionId, "node1", "oops", true))
         .assertNext(entry -> assertThat(entry.stream()).isEqualTo(LogStream.STDERR))
+        .thenCancel()
+        .verify();
+  }
+
+  @Test
+  void testGetLogFluxRatesEachLineOnTheServer() {
+    StepVerifier.create(tracker.getLogFlux())
+        .then(() -> tracker.emitLogEvent("exec-rated", "n", "Execution failed for task ':x'"))
+        .assertNext(entry -> assertThat(entry.logLevel()).isEqualTo(LogLevel.ERROR))
+        .then(() -> tracker.emitLogEvent("exec-rated", "n", "warning: [deprecation] foo()"))
+        .assertNext(entry -> assertThat(entry.logLevel()).isEqualTo(LogLevel.WARN))
+        .then(() -> tracker.emitLogEvent("exec-rated", "n", "BUILD SUCCESSFUL"))
+        .assertNext(entry -> assertThat(entry.logLevel()).isEqualTo(LogLevel.INFO))
+        .thenCancel()
+        .verify();
+  }
+
+  @Test
+  void testGetLogFluxKeepsTheProducersLevel() {
+    StepVerifier.create(tracker.getLogFlux())
+        .then(
+            () ->
+                tracker.emitLogEvent("exec-given", "n", "all fine, no error", false, LogLevel.WARN))
+        .assertNext(entry -> assertThat(entry.logLevel()).isEqualTo(LogLevel.WARN))
+        .thenCancel()
+        .verify();
+  }
+
+  @Test
+  void testEmitLogEventSplitsSeveralLinesAndKeepsGradleContextAcrossThem() {
+    StepVerifier.create(tracker.getLogFlux())
+        .then(
+            () ->
+                tracker.emitLogEvent(
+                    "exec-split",
+                    "n",
+                    "> Task :x\n* What went wrong:\nSelection broke\n\n* Try:\nmore"))
+        .assertNext(entry -> assertThat(entry.message()).isEqualTo("> Task :x"))
+        .assertNext(entry -> assertThat(entry.logLevel()).isEqualTo(LogLevel.ERROR))
+        .assertNext(
+            entry -> {
+              assertThat(entry.message()).isEqualTo("Selection broke");
+              assertThat(entry.logLevel()).isEqualTo(LogLevel.ERROR);
+            })
+        .assertNext(entry -> assertThat(entry.logLevel()).isEqualTo(LogLevel.INFO))
+        .assertNext(entry -> assertThat(entry.message()).isEqualTo("more"))
         .thenCancel()
         .verify();
   }

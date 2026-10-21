@@ -19,23 +19,35 @@ const gradleFailure = "Process failed with exit code 1\n--- Output ---\n> Task :
 	"Execution failed for task ':checkstyleMain'.\n> Checkstyle rule violations were found.\n" +
 	"See the report at: file:///x/index.html\n* Try:\n> Run with --stacktrace"
 
-func nodeFailure(node, reason string) client.ExecutionEvent {
+func nodeFailure(node, reason string, problems ...map[string]any) client.ExecutionEvent {
+	metadata := map[string]any{"error": reason}
+	if len(problems) > 0 {
+		list := make([]any, len(problems))
+		for i, p := range problems {
+			list[i] = p
+		}
+		metadata["problems"] = list
+	}
 	return client.ExecutionEvent{
 		Type: client.EventNodeStatusChanged, NodeID: node, Status: "FAILURE", Severity: "ERROR",
-		Metadata: map[string]any{"error": reason},
+		Metadata: metadata,
 	}
 }
 
-func TestProblemFilter_reducesAFailureToItsCause(t *testing.T) {
-	got := newProblemFilter().render(nodeFailure("style", gradleFailure))
+func problem(level, line string) map[string]any {
+	return map[string]any{"level": level, "line": line}
+}
+
+func TestProblemFilter_reducesAFailureToTheLinesTheServerRated(t *testing.T) {
+	got := newProblemFilter().render(nodeFailure("style", gradleFailure,
+		problem("ERROR", "Process failed with exit code 1"),
+		problem("ERROR", "* What went wrong:"),
+		problem("ERROR", "See the report at: file:///x/index.html")))
 
 	want := []string{
 		"NODE style FAILURE",
 		"ERROR style: Process failed with exit code 1",
-		"ERROR style: [ant:checkstyle] [ERROR] Foo.java:3: bad",
 		"ERROR style: * What went wrong:",
-		"ERROR style: Execution failed for task ':checkstyleMain'.",
-		"ERROR style: > Checkstyle rule violations were found.",
 		"ERROR style: See the report at: file:///x/index.html",
 	}
 	if !reflect.DeepEqual(got, want) {
@@ -43,7 +55,7 @@ func TestProblemFilter_reducesAFailureToItsCause(t *testing.T) {
 	}
 }
 
-func TestProblemFilter_reasonWithoutKeywordKeepsItsFirstLine(t *testing.T) {
+func TestProblemFilter_reasonWithoutRatedLinesKeepsItsFirstLine(t *testing.T) {
 	got := newProblemFilter().render(nodeFailure("tests", "Process timed out after 3600s\nmore"))
 
 	want := []string{"NODE tests FAILURE", "ERROR tests: Process timed out after 3600s"}
@@ -52,20 +64,14 @@ func TestProblemFilter_reasonWithoutKeywordKeepsItsFirstLine(t *testing.T) {
 	}
 }
 
-func TestProblemFilter_theCauseEndsAtTheNextGradleSection(t *testing.T) {
-	got := newProblemFilter().lines("n", "* What went wrong:\nSelection failed\n* Try:\n> Run with --stacktrace")
+func TestProblemFilter_aReasonLineWithoutALevelOrTextIsIgnored(t *testing.T) {
+	got := newProblemFilter().render(nodeFailure("n", "boom\nmore",
+		problem("INFO", "fine"), problem("ERROR", ""), problem("", "no level")))
 
-	want := []string{"ERROR n: * What went wrong:", "ERROR n: Selection failed"}
+	// nothing usable among the rated lines, so the reason's first line stands in
+	want := []string{"NODE n FAILURE", "ERROR n: boom"}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("got %q, want %q", got, want)
-	}
-}
-
-func TestProblemFilter_aStackTraceLineIsAnError(t *testing.T) {
-	got := newProblemFilter().lines("n", "java.lang.IllegalStateException: boom\n\tat Foo.bar(Foo.java:1)")
-
-	if !reflect.DeepEqual(got, []string{"ERROR n: java.lang.IllegalStateException: boom"}) {
-		t.Errorf("got %q", got)
 	}
 }
 
@@ -86,7 +92,7 @@ func TestProblemFilter_logLinesKeepOnlyProblemsAndNeverRepeat(t *testing.T) {
 	f := newProblemFilter()
 	log := client.ExecutionEvent{
 		Type: client.EventLogLine, NodeID: "tests", Severity: "WARN",
-		Line: "> Task :test\nwarning: [deprecation] foo()\nBUILD SUCCESSFUL",
+		Line: "warning: [deprecation] foo()",
 	}
 
 	if got := f.render(log); !reflect.DeepEqual(got, []string{"WARN tests: warning: [deprecation] foo()"}) {
@@ -97,9 +103,9 @@ func TestProblemFilter_logLinesKeepOnlyProblemsAndNeverRepeat(t *testing.T) {
 	}
 }
 
-// A one-line log event is rated by the server as a whole, so the CLI takes that rating and does not
-// match keywords of its own: a line the server calls an error is one even if it has none of them.
-func TestProblemFilter_oneLineLogEventTakesTheServersRating(t *testing.T) {
+// The server rates every line, so the CLI takes that rating and has no keywords of its own: a line
+// the server calls an error is one even without them, and one it calls INFO is not.
+func TestProblemFilter_logEventTakesTheServersRating(t *testing.T) {
 	f := newProblemFilter()
 	rated := func(severity, line string) client.ExecutionEvent {
 		return client.ExecutionEvent{Type: client.EventLogLine, NodeID: "n", Severity: severity, Line: line}
@@ -114,39 +120,31 @@ func TestProblemFilter_oneLineLogEventTakesTheServersRating(t *testing.T) {
 	if got := f.render(rated("INFO", "error budget is fine")); len(got) != 0 {
 		t.Errorf("info is not a problem even with a keyword in it: %q", got)
 	}
+	if got := f.render(rated("", "error: boom")); len(got) != 0 {
+		t.Errorf("no rating is INFO, whatever the text says: %q", got)
+	}
 	if got := f.render(rated("ERROR", "   ")); len(got) != 0 {
 		t.Errorf("a blank line says nothing: %q", got)
-	}
-}
-
-// An event from a server that sends no rating still gets the keyword match.
-func TestProblemFilter_logEventWithoutRatingFallsBackToKeywords(t *testing.T) {
-	f := newProblemFilter()
-	e := client.ExecutionEvent{Type: client.EventLogLine, NodeID: "n", Line: "error: boom"}
-
-	if got := f.render(e); !reflect.DeepEqual(got, []string{"ERROR n: error: boom"}) {
-		t.Errorf("got %q", got)
 	}
 }
 
 func TestProblemFilter_capsALongLineAndANoisyNode(t *testing.T) {
 	f := newProblemFilter()
 
-	long := f.lines("n", "error: "+strings.Repeat("x", 1000))
+	long := f.admit("n", "ERROR", "error: "+strings.Repeat("x", 1000))
 	if len(long) != 1 || !strings.HasSuffix(long[0], "…") || len(long[0]) > maxProblemLineLength+20 {
 		t.Errorf("long line: %q", long)
 	}
 
-	var text strings.Builder
+	var got []string
 	for i := 0; i < maxProblemLinesPerNode+5; i++ {
-		fmt.Fprintf(&text, "error number %d\n", i)
+		got = append(got, f.admit("n", "ERROR", fmt.Sprintf("error number %d", i))...)
 	}
-	got := f.lines("n", text.String())
 	// one line is already used by the long one: the cap leaves room for the rest, then one notice
 	if len(got) != maxProblemLinesPerNode || !strings.Contains(got[len(got)-1], "suppressed") {
 		t.Errorf("got %d lines, last %q", len(got), got[len(got)-1])
 	}
-	if more := f.lines("n", "error: yet another"); len(more) != 0 {
+	if more := f.admit("n", "ERROR", "error: yet another"); len(more) != 0 {
 		t.Errorf("after the cap: %q", more)
 	}
 }
@@ -172,7 +170,7 @@ func TestIsWarnOrError(t *testing.T) {
 const problemsStream = "data: " + `{"type":"NodeStatusChanged","severity":"INFO","event":{"executionId":"e","nodeId":"spotless","status":"RUNNING"}}` + "\n\n" +
 	"data: " + `{"type":"LogLine","severity":"INFO","event":{"executionId":"e","nodeId":"spotless","line":"all good"}}` + "\n\n" +
 	"data: " + `{"type":"LogLine","severity":"WARN","event":{"executionId":"e","nodeId":"tests","line":"warning: [deprecation] foo()"}}` + "\n\n" +
-	"data: " + `{"type":"NodeStatusChanged","severity":"ERROR","event":{"executionId":"e","nodeId":"style","status":"FAILURE","metadata":{"error":"Process failed with exit code 1\n* What went wrong:\nExecution failed.\nSee the report at: file:///r"}}}` + "\n\n" +
+	"data: " + `{"type":"NodeStatusChanged","severity":"ERROR","event":{"executionId":"e","nodeId":"style","status":"FAILURE","metadata":{"error":"Process failed with exit code 1\n* What went wrong:\nExecution failed.\nSee the report at: file:///r","problems":[{"level":"ERROR","line":"Process failed with exit code 1"},{"level":"ERROR","line":"* What went wrong:"},{"level":"ERROR","line":"Execution failed."},{"level":"ERROR","line":"See the report at: file:///r"}]}}}` + "\n\n" +
 	"data: " + `{"type":"ControlOutcome","severity":"WARN","event":{"executionId":"e","command":"Pause","applied":false,"reason":"denied"}}` + "\n\n" +
 	"data: " + `{"type":"WorkflowStatusChanged","event":{"executionId":"e","status":"FAILURE"}}` + "\n\n"
 

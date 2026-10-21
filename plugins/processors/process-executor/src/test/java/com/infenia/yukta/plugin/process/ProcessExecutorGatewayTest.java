@@ -1048,7 +1048,7 @@ class ProcessExecutorGatewayTest {
             .build();
 
     StepVerifier.create(
-            gateway.executeForResult(spec, (stream, line) -> seen.add(stream + ":" + line)))
+            gateway.executeForResult(spec, (stream, line, level) -> seen.add(stream + ":" + line)))
         .assertNext(
             result -> {
               assertThat(result.stdoutLines()).containsExactly("1");
@@ -1072,7 +1072,7 @@ class ProcessExecutorGatewayTest {
         gateway
             .executeForResult(
                 spec,
-                (stream, line) -> {
+                (stream, line, level) -> {
                   if (EARLY_LINE.equals(line)) {
                     first.countDown();
                   }
@@ -1097,7 +1097,7 @@ class ProcessExecutorGatewayTest {
     StepVerifier.create(
             gateway.executeForResult(
                 spec,
-                (stream, line) -> {
+                (stream, line, level) -> {
                   throw new IllegalStateException("sink down");
                 }))
         .assertNext(result -> assertThat(result.stdoutLines()).containsExactly("a", "b"))

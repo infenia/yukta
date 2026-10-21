@@ -6,6 +6,7 @@ import com.infenia.yukta.model.execution.ControlState;
 import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
 import com.infenia.yukta.model.execution.WorkflowProgress;
+import com.infenia.yukta.plugin.core.LogLevel;
 import com.infenia.yukta.validation.NodeId;
 import com.infenia.yukta.validation.SessionId;
 import com.infenia.yukta.validation.WorkflowId;
@@ -15,6 +16,7 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import java.util.List;
 import java.util.Map;
+import org.jspecify.annotations.Nullable;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
@@ -255,4 +257,20 @@ public interface TaskTrackerService {
       final boolean stderr) {
     emitLogEvent(executionId, nodeId, line);
   }
+
+  /**
+   * Emit a log line with the level its plugin gave it, one event per line of the text.
+   *
+   * @param executionId the execution identifier
+   * @param nodeId the node identifier (for plugin resolution)
+   * @param line the log line
+   * @param stderr true if the line came from the plugin's error stream
+   * @param level the level, or {@code null} to have the tracker rate the line
+   */
+  void emitLogEvent(
+      @NotBlank String executionId,
+      @NotBlank String nodeId,
+      @NotBlank @Size(max = 16_384) String line,
+      boolean stderr,
+      @Nullable LogLevel level);
 }

@@ -10,6 +10,7 @@ import com.infenia.yukta.plugin.control.Decision;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.control.ExecutionEvent;
 import com.infenia.yukta.plugin.control.StopMode;
+import com.infenia.yukta.plugin.core.LogLevel;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -312,7 +313,7 @@ class RuleSupervisorTest {
               "then":{"command":"ResumeWorkflow"}},
              {"id":"c","when":{"event":"ControlOutcome","if":"actor == 'human' and !applied"},
               "then":{"command":"PauseWorkflow"}},
-             {"id":"l","when":{"event":"LogLine","if":"line == 'boom'"},
+             {"id":"l","when":{"event":"LogLine","if":"line == 'boom' or level == 'ERROR'"},
               "then":{"command":"StopWorkflow"}}]}
             """);
     final Instant now = Instant.now();
@@ -322,15 +323,17 @@ class RuleSupervisorTest {
                 rules,
                 new ExecutionEvent.WorkflowStatusChanged("e1", "wf", "FAILURE", now),
                 new ExecutionEvent.ControlOutcome("e1", "X", "human", false, "no", now),
-                new ExecutionEvent.LogLine("e1", "n1", "boom", now)))
+                new ExecutionEvent.LogLine("e1", "n1", "boom", LogLevel.INFO, now)))
         .hasSize(3);
     assertThat(
             run(
                 rules,
                 new ExecutionEvent.WorkflowStatusChanged("e1", "wf", "SUCCESS", now),
                 new ExecutionEvent.ControlOutcome("e1", "X", "rules", true, null, now),
-                new ExecutionEvent.LogLine("e1", "n1", "fine", now)))
+                new ExecutionEvent.LogLine("e1", "n1", "fine", LogLevel.INFO, now)))
         .isEmpty();
+    assertThat(run(rules, new ExecutionEvent.LogLine("e1", "n1", "fine", LogLevel.ERROR, now)))
+        .hasSize(1);
   }
 
   @Test

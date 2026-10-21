@@ -10,10 +10,10 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.infenia.yukta.logging.api.LogLevel;
 import com.infenia.yukta.logging.api.LogStream;
 import com.infenia.yukta.logging.api.PluginLogEntry;
 import com.infenia.yukta.logging.api.PluginLogStore;
+import com.infenia.yukta.plugin.core.LogLevel;
 import com.infenia.yukta.service.orchestrator.tracker.DefaultTaskTrackerService;
 import java.time.Duration;
 import java.time.Instant;

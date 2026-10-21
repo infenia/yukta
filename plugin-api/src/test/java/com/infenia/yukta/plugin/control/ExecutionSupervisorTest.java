@@ -4,6 +4,7 @@ package com.infenia.yukta.plugin.control;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.infenia.yukta.plugin.core.LogLevel;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
@@ -70,7 +71,7 @@ class ExecutionSupervisorTest {
             new ExecutionEvent.WorkflowStatusChanged("e", "wf", "SUCCESS", now),
             new ExecutionEvent.ControlOutcome(
                 "e", "PauseWorkflowCommand", "rules", true, null, now),
-            new ExecutionEvent.LogLine("e", "n", "line", now));
+            new ExecutionEvent.LogLine("e", "n", "line", LogLevel.INFO, now));
 
     assertThat(events).allSatisfy(event -> assertThat(event.executionId()).isEqualTo("e"));
     assertThat(events).allSatisfy(event -> assertThat(event.timestamp()).isEqualTo(now));

@@ -133,9 +133,9 @@ Each event's `data` is an envelope with the event `type`, its `severity` and the
 | `NodeStatusChanged` | `executionId`, `workflowId`, `nodeId`, `module`, `status`, `metadata`, `timestamp` |
 | `WorkflowStatusChanged` | `executionId`, `workflowId`, `status`, `timestamp` |
 | `ControlOutcome` | `executionId`, `command`, `actor`, `applied`, `reason`, `timestamp` |
-| `LogLine` | `executionId`, `nodeId`, `line`, `timestamp` |
+| `LogLine` | `executionId`, `nodeId`, `line`, `level`, `timestamp` |
 
-**Severity.** A node or run that ends `FAILURE`, `TIMED_OUT` or `ABORTED` is `ERROR`. One that ends `CANCELLED` is `WARN`. A node that ends `UPSTREAM_FAILED` stays `INFO`, because it only reflects the node before it. A control command that was not applied is `WARN`. A log line is `ERROR` if it contains words such as `error`, `failed`, `failure`, `exception` or `What went wrong`, `WARN` if it contains `warn`, `warning` or `deprecat`, and `INFO` otherwise.
+**Severity.** A node or run that ends `FAILURE`, `TIMED_OUT` or `ABORTED` is `ERROR`. One that ends `CANCELLED` is `WARN`. A node that ends `UPSTREAM_FAILED` stays `INFO`, because it only reflects the node before it. A control command that was not applied is `WARN`. A log line has a `level` (`DEBUG`, `INFO`, `WARN` or `ERROR`) and takes it as its severity, `DEBUG` counting as `INFO`. A plugin may report the level of a line. Otherwise the server rates each line once, as it is logged: `ERROR` if it contains words such as `error`, `failed`, `failure`, `exception` or `What went wrong` (and the few lines after that one), `WARN` if it contains `warn`, `warning` or `deprecat`, and `INFO` otherwise. A multi-line message becomes one `LogLine` per line. The metadata of a failed node has `problems`, the `{level, line}` pairs the server rated in its `error` text, next to the text itself.
 
 ```http
 GET /api/events/stream?executionId=550e8400-e29b-41d4-a716-446655440000&severity=WARN

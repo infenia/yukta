@@ -11,6 +11,7 @@ import com.infenia.yukta.model.execution.ControlState;
 import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
 import com.infenia.yukta.model.execution.WorkflowProgress;
+import com.infenia.yukta.plugin.core.LogLevel;
 import com.infenia.yukta.service.log.ExecutionLogStore;
 import com.infenia.yukta.service.log.InMemoryExecutionLogStore;
 import com.infenia.yukta.service.streaming.StatusHistoryCache;
@@ -497,11 +498,44 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
       @NotBlank final String nodeId,
       @NotBlank @Size(max = 16_384) final String line,
       final boolean stderr) {
+    emitLogEvent(executionId, nodeId, line, stderr, null);
+  }
+
+  /**
+   * Emit a log event with the level its plugin gave it. Every producer routes through here, so a
+   * text of several lines is split into one event per line and each line is rated on its own.
+   *
+   * @param executionId the execution identifier
+   * @param nodeId the node identifier (for plugin resolution)
+   * @param line the log line
+   * @param stderr true if the line came from the plugin's error stream
+   * @param level the level, or {@code null} to have the tracker rate the line
+   */
+  @Override
+  public void emitLogEvent(
+      @NotBlank final String executionId,
+      @NotBlank final String nodeId,
+      @NotBlank @Size(max = 16_384) final String line,
+      final boolean stderr,
+      @Nullable final LogLevel level) {
     log.atTrace()
         .addKeyValue("executionId", executionId)
         .addKeyValue("nodeId", nodeId)
         .addKeyValue("lineLength", line.length())
         .log("Emitting workflow log event");
+    for (final String piece : line.split("\\R")) {
+      if (!piece.isBlank()) {
+        emitSingleLine(executionId, nodeId, piece, stderr, level);
+      }
+    }
+  }
+
+  private void emitSingleLine(
+      final String executionId,
+      final String nodeId,
+      final String line,
+      final boolean stderr,
+      @Nullable final LogLevel level) {
     // Log lines are best effort: when too many are waiting they are dropped and counted, so they
     // can never delay or displace a state change.
     if (pendingLogs.incrementAndGet() > MAX_PENDING_LOGS) {
@@ -509,7 +543,7 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
       telemetry.dropped(DROPPED_METRIC, "log");
       return;
     }
-    publish(WorkflowLogEvent.create(executionId, nodeId, line, stderr));
+    publish(WorkflowLogEvent.create(executionId, nodeId, line, stderr, level));
   }
 
   /** Queues a state or log event; the queue is unbounded, so this only fails once terminated. */
@@ -864,6 +898,7 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
   private void cleanupExecution(final String executionId) {
     log.atDebug().addKeyValue("executionId", executionId).log("Cleaning up execution data");
     streams.close(executionId);
+    applier.forget(executionId);
     final WorkflowState state = executionIndex.remove(executionId);
     if (state != null) {
       history.trim(state);
