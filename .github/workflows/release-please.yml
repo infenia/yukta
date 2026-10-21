@@ -1,0 +1,41 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: 2026 Infenia Private Limited
+
+name: Release Please
+
+# Keeps one "release X.Y.Z" pull request up to date from the Conventional Commits on main (version in
+# gradle.properties and ui/package.json, plus CHANGELOG.md). Merging it creates the tag and a DRAFT
+# GitHub release; the tag starts release.yml, which builds, signs and tests. A person then publishes.
+on:
+  push:
+    branches: [ main ]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-please
+  cancel-in-progress: false
+
+jobs:
+  release-please:
+    name: Release PR
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      # An App token, not GITHUB_TOKEN: pull requests and tags made with GITHUB_TOKEN start no
+      # workflows, so the release PR would never get its required checks and the tag would build nothing.
+      - name: App token
+        id: app
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ vars.YUKTA_PROJECT_APP_CLIENT_ID }}
+          private-key: ${{ secrets.YUKTA_PROJECT_APP_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+
+      - uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
+        with:
+          token: ${{ steps.app.outputs.token }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
