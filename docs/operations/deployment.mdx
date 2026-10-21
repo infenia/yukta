@@ -55,7 +55,7 @@ It does not use `sudo` or administrator rights, does not edit shell profiles, an
 
 To install on a machine without internet access, or from a mirror, copy a release's files to a web server laid out as `<base>/vX.Y.Z/<file>` and set `YUKTA_DOWNLOAD_BASE=<base>`. To audit the script first, download it, read it and run it from the file.
 
-Every release also publishes a `SHA256SUMS` file for the downloads, and a signature file (`<file>.sigstore.json`) for each file that you can check with [`cosign`](https://docs.sigstore.dev/). See [Verify a download](/reference/releases#verify-a-download).
+Every release also publishes a `SHA256SUMS` file for the downloads, and a signature file (`SHA256SUMS.sigstore.json`) for it that you can check with [`cosign`](https://docs.sigstore.dev/). See [Verify a download](/reference/releases#verify-a-download).
 
 ### Run as a Linux service
 
