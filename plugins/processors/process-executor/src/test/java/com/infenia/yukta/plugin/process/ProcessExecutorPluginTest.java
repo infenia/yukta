@@ -103,7 +103,7 @@ class ProcessExecutorPluginTest {
 
   @Test
   void process_withLogSinkInContext_passesTheSinkToTheGateway() {
-    final PluginLogSink sink = (stream, line) -> {};
+    final PluginLogSink sink = (stream, line, level) -> {};
     when(gateway.executeForResult(any(), any())).thenReturn(Mono.just(successResult("ok")));
 
     StepVerifier.create(

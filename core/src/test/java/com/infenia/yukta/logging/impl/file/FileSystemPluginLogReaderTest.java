@@ -5,8 +5,8 @@ package com.infenia.yukta.logging.impl.file;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.infenia.yukta.logging.api.ExecutionSummary;
-import com.infenia.yukta.logging.api.LogLevel;
 import com.infenia.yukta.logging.api.PluginLogEntry;
+import com.infenia.yukta.plugin.core.LogLevel;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;

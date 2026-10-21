@@ -5,9 +5,11 @@ package com.infenia.yukta.service.orchestrator.stream;
 import com.infenia.yukta.message.Message;
 import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.model.workflow.WorkflowNode;
+import com.infenia.yukta.service.orchestrator.tracker.LogLineClassifier;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import java.time.Duration;
 import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -27,6 +29,9 @@ public class NodeStreams {
 
   /** Metadata key of a failed node's status event holding the reason. */
   public static final String ERROR_KEY = "error";
+
+  /** Metadata key of the rated warning and error lines in a failure reason. */
+  public static final String PROBLEMS_KEY = "problems";
 
   /** Longest reason kept on a status event; a longer one keeps its head and tail. */
   private static final int MAX_ERROR_CHARS = 8_000;
@@ -109,8 +114,19 @@ public class NodeStreams {
                   status,
                   status == TaskStatus.UPSTREAM_FAILED
                       ? Collections.emptyMap()
-                      : Map.of(ERROR_KEY, describe(error)));
+                      : failureMetadata(describe(error)));
             });
+  }
+
+  /**
+   * What a failed node's status event carries: the reason, and the rated warning and error lines in
+   * it, so a client never has to read keywords out of the reason.
+   */
+  private static Map<String, Object> failureMetadata(final String reason) {
+    final List<Map<String, String>> problems = LogLineClassifier.problems(reason);
+    return problems.isEmpty()
+        ? Map.of(ERROR_KEY, reason)
+        : Map.of(ERROR_KEY, reason, PROBLEMS_KEY, problems);
   }
 
   /**

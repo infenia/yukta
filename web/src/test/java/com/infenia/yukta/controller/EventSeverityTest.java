@@ -5,6 +5,7 @@ package com.infenia.yukta.controller;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.infenia.yukta.plugin.control.ExecutionEvent;
+import com.infenia.yukta.plugin.core.LogLevel;
 import java.time.Instant;
 import java.util.Map;
 import lombok.NoArgsConstructor;
@@ -51,19 +52,9 @@ class EventSeverityTest {
   }
 
   @ParameterizedTest
-  @CsvSource(
-      delimiter = '|',
-      value = {
-        "BUILD SUCCESSFUL in 4s|INFO",
-        "warning: [deprecation] foo() in Bar|WARN",
-        "Deprecated Gradle features were used|WARN",
-        "Execution failed for task ':core:test'|ERROR",
-        "* What went wrong:|ERROR",
-        "java.lang.IllegalStateException: boom|ERROR",
-        "errorprone plugin loaded|INFO"
-      })
-  void logLine(final String line, final EventSeverity expected) {
-    final var event = new ExecutionEvent.LogLine("e", "n", line, NOW);
+  @CsvSource({"DEBUG,INFO", "INFO,INFO", "WARN,WARN", "ERROR,ERROR"})
+  void logLine_takesTheLevelItCarries(final LogLevel level, final EventSeverity expected) {
+    final var event = new ExecutionEvent.LogLine("e", "n", "any text at all", level, NOW);
 
     assertThat(EventSeverity.of(event)).isEqualTo(expected);
   }

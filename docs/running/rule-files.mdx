@@ -70,7 +70,7 @@ Every field you set must match. Omit a field to match any value.
 | `NodeStatusChanged` | `workflowId`, `nodeId`, `module`, `status`, `metadata` (a map, for example `metadata['code']`) |
 | `WorkflowStatusChanged` | `workflowId`, `status` |
 | `ControlOutcome` | `command`, `actor`, `applied`, `reason` |
-| `LogLine` | `nodeId`, `line` |
+| `LogLine` | `nodeId`, `line`, `level` (`DEBUG`, `INFO`, `WARN` or `ERROR`) |
 
 A condition that cannot be evaluated counts as not matching, so a faulty reaction never fires.
 

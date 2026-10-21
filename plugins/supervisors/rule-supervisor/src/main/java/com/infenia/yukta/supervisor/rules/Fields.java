@@ -67,6 +67,7 @@ public class Fields {
       case ExecutionEvent.LogLine line -> {
         fields.put(NODE_ID, line.nodeId());
         fields.put("line", line.line());
+        fields.put("level", line.level().name());
       }
     }
     return fields;

@@ -15,7 +15,9 @@ import com.infenia.yukta.service.supervisor.ExecutionEventFeed;
 import java.time.Instant;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -55,6 +57,9 @@ final class TrackerEventApplier {
 
   /** Schedules the cleanup of an ended execution. */
   private final Consumer<String> cleanup;
+
+  /** Rates the log lines of each node, keyed by execution and node. */
+  private final Map<String, LogLineClassifier> classifiers = new ConcurrentHashMap<>();
 
   /* default */ TrackerEventApplier(
       final Function<String, WorkflowState> states,
@@ -209,12 +214,27 @@ final class TrackerEventApplier {
     }
   }
 
-  private void applyLog(final WorkflowLogEvent event) {
+  /** Drops what the applier keeps for an execution that was cleaned up. */
+  /* default */ void forget(final String executionId) {
+    classifiers.keySet().removeIf(key -> key.startsWith(executionId + "\0"));
+  }
+
+  private void applyLog(final WorkflowLogEvent unrated) {
     pendingLogs.decrementAndGet();
+    // The level a plugin reported wins; otherwise the line is rated here, once, in order.
+    final WorkflowLogEvent event =
+        unrated.level() != null
+            ? unrated
+            : unrated.withLevel(
+                classifiers
+                    .computeIfAbsent(
+                        unrated.executionId() + "\0" + unrated.nodeId(),
+                        _ -> new LogLineClassifier())
+                    .rate(unrated.line()));
     streams.feed(event);
     eventFeed.publish(
         new ExecutionEvent.LogLine(
-            event.executionId(), event.nodeId(), event.line(), Instant.now()));
+            event.executionId(), event.nodeId(), event.line(), event.level(), Instant.now()));
     streams.emitLine(event);
   }
 }

@@ -120,7 +120,7 @@ public final class ModelControlPlane implements ControlPlanePlugin {
           case ExecutionEvent.WorkflowStatusChanged workflow ->
               "The workflow run changed status to " + workflow.status() + ".";
           case ExecutionEvent.LogLine line ->
-              "Step " + line.nodeId() + " wrote the log line: " + line.line();
+              "Step " + line.nodeId() + " wrote the " + line.level() + " log line: " + line.line();
           case ExecutionEvent.ControlOutcome outcome ->
               "The command "
                   + outcome.command()

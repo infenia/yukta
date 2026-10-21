@@ -24,11 +24,12 @@ class PluginLogSinkTest {
   @Test
   void sinkKeyIsStableForPluginsThatLookItUp() {
     final List<String> seen = new ArrayList<>();
-    final PluginLogSink sink = (stream, line) -> seen.add(stream + ":" + line);
+    final PluginLogSink sink = (stream, line, level) -> seen.add(stream + ":" + line + ":" + level);
 
     sink.line("stderr", "boom");
+    sink.line("stdout", "careful", LogLevel.WARN);
 
-    assertEquals(List.of("stderr:boom"), seen);
+    assertEquals(List.of("stderr:boom:null", "stdout:careful:WARN"), seen);
     assertEquals("yukta.log-sink", WorkflowContext.LOG_SINK_KEY);
   }
 }

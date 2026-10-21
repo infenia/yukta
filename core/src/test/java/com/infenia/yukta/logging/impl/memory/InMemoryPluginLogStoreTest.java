@@ -4,10 +4,10 @@ package com.infenia.yukta.logging.impl.memory;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.infenia.yukta.logging.api.LogLevel;
 import com.infenia.yukta.logging.api.LogStream;
 import com.infenia.yukta.logging.api.PluginLogEntry;
 import com.infenia.yukta.logging.api.PluginLogStoreConfig;
+import com.infenia.yukta.plugin.core.LogLevel;
 import java.time.Duration;
 import java.time.Instant;
 import lombok.NoArgsConstructor;

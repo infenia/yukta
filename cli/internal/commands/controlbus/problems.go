@@ -5,7 +5,6 @@ package controlbus
 
 import (
 	"fmt"
-	"regexp"
 	"strings"
 
 	"com.infenia.yukta/go-cli/internal/client"
@@ -16,16 +15,6 @@ const (
 	// of output costs a fixed number of lines.
 	maxProblemLinesPerNode = 20
 	maxProblemLineLength   = 300
-	// wentWrongContext is how many lines after gradle's "What went wrong" are the cause.
-	wentWrongContext = 3
-)
-
-// The patterns are used for text the server rates only as a whole (several lines, or the reason of
-// a failed node) and for servers that send no rating. They are the server's EventSeverity ones plus
-// gradle's report pointer, which picks the useful line out of a failed node's reason.
-var (
-	errorLine = regexp.MustCompile(`(?i)\b(error|failed|failure)\b|exception|What went wrong|See the report at`)
-	warnLine  = regexp.MustCompile(`(?i)\bwarn(ing)?\b|deprecat`)
 )
 
 // problemFilter reduces events to the lines that say what went wrong:
@@ -61,9 +50,9 @@ func healLine(e client.ExecutionEvent) (string, bool) {
 	return line, strings.HasPrefix(line, healPrefix)
 }
 
-// render turns an event into output lines: a log line becomes its problem lines (or, for a HEAL
-// report, itself), a status change stays itself followed by the problem lines of the reason it
-// carries.
+// render turns an event into output lines: a log line becomes itself if the server rated it WARN or
+// ERROR (or, for a HEAL report, itself), a status change stays itself followed by the problem lines
+// the server rated in the reason it carries.
 func (p *problemFilter) render(e client.ExecutionEvent) []string {
 	if line, ok := healLine(e); ok {
 		return []string{line}
@@ -72,60 +61,38 @@ func (p *problemFilter) render(e client.ExecutionEvent) []string {
 		return p.logLine(e)
 	}
 	out := []string{formatEvent(e)}
-	if reason, _ := e.Metadata["error"].(string); strings.TrimSpace(reason) != "" {
-		found := p.lines(e.NodeID, reason)
-		if len(found) == 0 {
-			// a reason with no keyword ("Process timed out after 3600s") is still the reason
-			first, _, _ := strings.Cut(strings.TrimSpace(reason), "\n")
-			found = p.admit(e.NodeID, "ERROR", first)
-		}
+	if found := p.reasonLines(e); len(found) > 0 {
 		out = append(out, found...)
+	} else if reason, _ := e.Metadata["error"].(string); strings.TrimSpace(reason) != "" {
+		// a reason with no rated line ("Process timed out after 3600s") is still the reason
+		first, _, _ := strings.Cut(strings.TrimSpace(reason), "\n")
+		out = append(out, p.admit(e.NodeID, "ERROR", first)...)
 	}
 	return out
 }
 
-// logLine renders a log event. The server rates every event, so a one-line event takes that rating
-// and the CLI has no keywords of its own to keep in step with the server's. Text of several lines
-// (the server rates it as a whole) and events from a server that sends no rating are split into
-// lines and matched by keyword.
+// logLine renders a log event. The server rates every line, so the CLI keeps no keywords: a line
+// the server rated WARN or ERROR is printed, anything else (INFO, or no rating) is not.
 func (p *problemFilter) logLine(e client.ExecutionEvent) []string {
 	line := strings.TrimSpace(e.Line)
-	if line == "" || strings.Contains(line, "\n") || (e.Severity != "WARN" && e.Severity != "ERROR" && e.Severity != "INFO") {
-		return p.lines(e.NodeID, e.Line)
-	}
-	if e.Severity == "INFO" {
+	if line == "" || (e.Severity != "WARN" && e.Severity != "ERROR") {
 		return nil
 	}
 	return p.admit(e.NodeID, e.Severity, line)
 }
 
-// lines picks the problem lines out of text: error and warning lines, and the lines that follow
-// gradle's "What went wrong".
-func (p *problemFilter) lines(node, text string) []string {
+// reasonLines admits the problem lines the server rated in a failed node's reason, which arrive as
+// metadata "problems": a list of {level, line}.
+func (p *problemFilter) reasonLines(e client.ExecutionEvent) []string {
 	var out []string
-	context := 0
-	for _, raw := range strings.Split(text, "\n") {
-		line := strings.TrimSpace(raw)
-		if line == "" {
-			continue
+	list, _ := e.Metadata["problems"].([]any)
+	for _, item := range list {
+		entry, _ := item.(map[string]any)
+		level, _ := entry["level"].(string)
+		line, _ := entry["line"].(string)
+		if line != "" && (level == "WARN" || level == "ERROR") {
+			out = append(out, p.admit(e.NodeID, level, line)...)
 		}
-		level := "ERROR"
-		switch {
-		case strings.Contains(line, "What went wrong"):
-			context = wentWrongContext
-		case context > 0 && strings.HasPrefix(line, "* "):
-			// the next gradle section ("* Try:") ends the cause
-			context = 0
-			continue
-		case context > 0:
-			context--
-		case errorLine.MatchString(line):
-		case warnLine.MatchString(line):
-			level = "WARN"
-		default:
-			continue
-		}
-		out = append(out, p.admit(node, level, line)...)
 	}
 	return out
 }
