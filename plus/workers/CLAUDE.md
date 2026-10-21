@@ -1,7 +1,7 @@
 # Workers Module CLAUDE.md
 
 ## Overview
-Remote workers over RSocket (phases 1 and 2 of `docs/internal/plans/remote-workers.mdx`): the control plane's
+Remote workers over RSocket (phases 1 and 2 of `design/plans/remote-workers.md`): the control plane's
 `WorkerController`/`WorkerSessionHandler` (route `worker.session`), `WorkerNodeExecutor` (runs a node attempt on a
 worker) and `WorkerConnections`; the worker's `WorkerAgent` (connects out, registers, renews its lease) and
 `NodeRunner` (route `node.run`, runs the attempts). The registry is `WorkerRegistry` in core.

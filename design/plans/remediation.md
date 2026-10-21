@@ -1,14 +1,10 @@
----
-title: "Remediation plan"
-description: "Prioritised plan for the core bugs, security findings and enhancements found by re-verifying the backlog, with decisions needed and a suggested PR order."
-mode: "wide"
----
+# Remediation plan
 
-<Note>
-  Internal plan, restricted to project members. Back to the [internal index](/internal).
-</Note>
+Prioritised plan for the core bugs, security findings and enhancements found by re-verifying the backlog, with decisions needed and a suggested PR order.
 
-Source: re-verification of the core backlog (now the [bugs](/internal/bugs) and [improvements](/internal/improvements#core) pages) against `main@e8d62722` plus a fresh sweep of core and the
+Work on this plan is tracked in its Epic issue on the Yukta Roadmap project (search for `remediation plan`).
+
+Source: re-verification of the core backlog (now the [bugs](https://github.com/infenia/yukta/blob/6e7d2d9567ed1436904dda7d7c21473b3b062bba/docs/internal/bugs.mdx) and [improvements](https://github.com/infenia/yukta/blob/6e7d2d9567ed1436904dda7d7c21473b3b062bba/docs/internal/improvements.mdx#core) pages) against `main@e8d62722` plus a fresh sweep of core and the
 web/mcp edges (2026-10-13). **The sweep was static reading only; nothing below was reproduced or run.**
 `Conf` says how sure the finding is: `read` = the cited lines were read and show the behaviour,
 `plausible` = follows from documented framework behaviour, write the failing test first, `inferred` =
@@ -26,7 +22,7 @@ Effort: **S** up to half a day, **M** 1-3 days, **L** a week or more. Sev: C/H/M
 
 | Attacker | Findings that apply |
 |---|---|
-| Anyone who can reach the port (non-loopback bind, as the Docker image does) | S5, S6, S8, S4 through S6 (command execution), B28/B31/B34/B35 (memory growth, see [the performance plan](/internal/plans/performance)) |
+| Anyone who can reach the port (non-loopback bind, as the Docker image does) | S5, S6, S8, S4 through S6 (command execution), B28/B31/B34/B35 (memory growth, see [the performance plan](./performance.md)) |
 | A web page in the operator's browser (loopback bind) | S7, and S5/S6 if no key is set |
 | A holder of a low-role key (VIEWER/OPERATOR) | S10 (raw node command, limits, priority), F3 gaps (no MCP roles, no per-session scoping) |
 | An untrusted workflow author | S4, S11, S12, S13, F5; with such authors treat S11/S12 as **High** and run `PROCESS_EXECUTOR` disabled |
@@ -54,13 +50,13 @@ Until then do not expose workflow upload to anyone outside the trusted group.
 4. **B21 retention policy** for session state: evict (and serve history from the log) or keep everything?
 5. **S3**: fix the unused file plugin-log package, or delete it?
 6. **Workflow authors** (decided: trusted now, untrusted possible later): the gate list above applies before that changes.
-7. **Size limits** (B35 in [the performance plan](/internal/plans/performance)): which maximum start payload and definition size?
+7. **Size limits** (B35 in [the performance plan](./performance.md)): which maximum start payload and definition size?
 
 ## P0: security exposure, small fixes
 
 Suggested as one "edge hardening" PR (S5-S8) plus one core PR (S9, B28, R1, B31, B32). The memory
 bounds B28, B31, B34 and B35 are also denial-of-service fixes; their performance side is in
-[the performance plan](/internal/plans/performance).
+[the performance plan](./performance.md).
 
 | ID | Sev | Eff | Conf | Evidence | Issue | Fix | Test to add | Brk |
 |---|---|---|---|---|---|---|---|---|
@@ -112,7 +108,7 @@ bounds B28, B31, B34 and B35 are also denial-of-service fixes; their performance
 | F5 (done) | S-M | none; shipped: `deniedTools`, gateway-level allow-list, prompt filters | none |
 | F7 | M | `KV_STORE` durability, session-memory TTL | F10 |
 | F8 | S | Done: `tools/list` pagination, tool-role turns. Left: an example agent-loop workflow, streaming | none |
-| F11 | L | Remote workers: design only, open decisions in [the remote workers plan](/internal/plans/remote-workers) | F10 |
+| F11 | L | Remote workers: design only, open decisions in [the remote workers plan](./remote-workers.md) | F10 |
 | F12 | n/a | On demand. MDC today carries only the request id | none |
 
 ## Suggested order
@@ -124,6 +120,6 @@ bounds B28, B31, B34 and B35 are also denial-of-service fixes; their performance
 5. **PR-5** B29 + B27 guard + B33 + B26 + S3.
 6. P2 items one at a time, then P3 by product priority.
 
-Performance work: [the performance plan](/internal/plans/performance).
+Performance work: [the performance plan](./performance.md).
 
 Run the narrowest tests per `CLAUDE.md` tiers; each PR ends with `spotlessApply check` once.

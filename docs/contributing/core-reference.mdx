@@ -59,7 +59,7 @@ Last verified against commit `cc3db521` on 2026-10-20.
 - Application wiring and native image: `boot`
 
 <Note>
-  **Related documents.** The [core module guide](/contributing/modules/core) covers the design debate (scenario replays, quality lenses, risks, decisions). This page is the stable reference: use it for what exists and how to configure it. Known bugs are tracked in the [bug backlog](/internal/bugs); module build notes live in `core/CLAUDE.md`. Related public pages: [glossary](/reference/glossary), [limits and defaults](/reference/limits-and-defaults), [status values](/reference/status-values) and [configuration](/operations/configuration).
+  **Related documents.** The [core module guide](/contributing/modules/core) covers the design debate (scenario replays, quality lenses, risks, decisions). This page is the stable reference: use it for what exists and how to configure it. Known bugs are tracked in the [bug backlog](https://github.com/infenia/yukta/issues?q=is%3Aissue%20is%3Aopen%20type%3ABug%20label%3Acore); module build notes live in `core/CLAUDE.md`. Related public pages: [glossary](/reference/glossary), [limits and defaults](/reference/limits-and-defaults), [status values](/reference/status-values) and [configuration](/operations/configuration).
 </Note>
 
 ### Status legend
@@ -647,7 +647,7 @@ An older channel beside run commands, carrying heartbeats, statistics and raw si
 
 **Source:** `ControlBusService` `DirectiveDispatcher` `ActivePluginRegistry`
 
-**Limits:** No code emits heartbeats or statistics through it today. Two sessions with equal workflow and node ids would share its state if one ever did (tracked as a latent item, see the [bug backlog](/internal/bugs)).
+**Limits:** No code emits heartbeats or statistics through it today. Two sessions with equal workflow and node ids would share its state if one ever did (tracked as a latent item, see the [bug backlog](https://github.com/infenia/yukta/issues?q=is%3Aissue%20is%3Aopen%20type%3ABug%20label%3Acore)).
 
 ## Observability
 
@@ -857,7 +857,7 @@ A processor node with `engine.placement {pool}` runs on a worker process of that
 
 **Surface:** REST `GET /api/workers`. Gauges `yukta.workers`, `yukta.worker.slots`.
 
-**Source:** `WorkerRegistry` `RemoteProcessor` `RemoteNodes` `RemoteNodeExecutor` `WorkerRegistration`. Module `workers`. Design: [remote workers plan](/internal/plans/remote-workers).
+**Source:** `WorkerRegistry` `RemoteProcessor` `RemoteNodes` `RemoteNodeExecutor` `WorkerRegistration`. Module `workers`. Design: [remote workers plan](https://github.com/infenia/yukta/blob/main/design/plans/remote-workers.md).
 
 **Limits:** Triggers, terminals and the stateful plugins (`SESSION_MEMORY`, `KV_STORE`, `WAIT_FOR_SIGNAL`, `SUB_WORKFLOW`) cannot be placed. Without the `workers` module a placed node fails to prepare. The control plane still sees every message (a data hop). Default transport is a shared token over plain TCP. Native-image worker registration is not verified.
 
@@ -1180,7 +1180,7 @@ What survives a restart, by deployment profile. "Memory" is the default; "File" 
 - **Memory growth:** the state queue is unbounded; sessions are evicted only when `yukta.tracker.max-sessions` or `yukta.tracker.session-ttl` is set; the in-memory log and idempotency cache are bounded by their retention settings.
 - **Large payloads** are carried through memory by every node that touches them; there is no claim-check yet.
 
-Known gaps, risk analysis and design decisions are tracked in the [bug backlog](/internal/bugs), the [remediation plan](/internal/plans/remediation), the [performance plan](/internal/plans/performance), the [core risks](/internal/risks#core) and the [core module guide](/contributing/modules/core).
+Known gaps, risk analysis and design decisions are tracked in the [bug backlog](https://github.com/infenia/yukta/issues?q=is%3Aissue%20is%3Aopen%20type%3ABug%20label%3Acore), the [remediation plan](https://github.com/infenia/yukta/blob/main/design/plans/remediation.md), the [performance plan](https://github.com/infenia/yukta/blob/main/design/plans/performance.md), the [core risks](https://github.com/infenia/yukta/issues?q=is%3Aissue%20is%3Aopen%20label%3Arisk%20label%3Acore) and the [core module guide](/contributing/modules/core).
 
 ## Maintaining this document
 
