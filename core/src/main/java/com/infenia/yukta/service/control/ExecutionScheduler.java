@@ -539,6 +539,8 @@ public class ExecutionScheduler implements SmartLifecycle {
   @Override
   public void start() {
     synchronized (lock) {
+      // A stopped scheduler can be started again (Spring pauses and resumes cached test contexts).
+      closed = false;
       started = true;
     }
   }

@@ -1,0 +1,29 @@
+{
+  "sessionId": "demo",
+  "name": "Quickstart",
+  "description": "Greet a user",
+  "initiator": "me",
+  "projectPath": "/tmp",
+  "workflows": {
+    "greet": {
+      "workflowId": "greet",
+      "description": "Map the request payload into a greeting",
+      "nodes": [
+        { "nodeId": "trigger", "type": "API_TRIGGER", "config": {} },
+        {
+          "nodeId": "map",
+          "type": "MAPPER",
+          "config": {
+            "mode": "PROJECTION",
+            "mapping": { "greeting": "'Hello, ' + payload.name" }
+          }
+        },
+        { "nodeId": "end", "type": "CONSOLE_TERMINAL", "config": {} }
+      ],
+      "edges": [
+        { "source": "trigger", "target": "map" },
+        { "source": "map", "target": "end" }
+      ]
+    }
+  }
+}
