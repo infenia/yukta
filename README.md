@@ -17,6 +17,7 @@
 [![CI](https://github.com/infenia/yukta/actions/workflows/ci.yml/badge.svg)](https://github.com/infenia/yukta/actions/workflows/ci.yml)
 [![CodeQL](https://github.com/infenia/yukta/actions/workflows/codeql.yml/badge.svg)](https://github.com/infenia/yukta/actions/workflows/codeql.yml)
 [![codecov](https://codecov.io/gh/infenia/yukta/branch/main/graph/badge.svg)](https://codecov.io/gh/infenia/yukta)
+[![OpenSSF Best Practices](https://www.bestpractices.dev/projects/15487/badge)](https://www.bestpractices.dev/projects/15487)
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/infenia/yukta/badge)](https://scorecard.dev/viewer/?uri=github.com/infenia/yukta)
 [![REUSE status](https://api.reuse.software/badge/github.com/infenia/yukta)](https://api.reuse.software/info/github.com/infenia/yukta)
 [![License: Apache 2.0 / AGPL-3.0](https://img.shields.io/badge/license-Apache%202.0%20%2B%20AGPL--3.0-blue)](LICENSING.md)
