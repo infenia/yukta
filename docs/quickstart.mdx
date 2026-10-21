@@ -16,7 +16,7 @@ Technically, you will install and start the server, apply a session that contain
 You do **not** need Java or the source code. Building from source is the last option, for people who want to change Yukta itself.
 
 <Note>
-  **Alpha release.** Yukta `0.1.0-alpha.1` is the first release. It ships a native server for **Linux (amd64)**, a Docker image for `linux/amd64`, and the command-line client for Linux, macOS and Windows. Native servers for macOS and Windows and for ARM Linux come later; until then use Docker (Docker Desktop on macOS and Windows) or WSL 2. Expect breaking changes before 1.0. See [Releases](/reference/releases).
+  **Alpha release.** Yukta `0.1.0-alpha.2` is the first release. It ships a native server for **Linux (amd64)**, a Docker image for `linux/amd64`, and the command-line client for Linux, macOS and Windows. Native servers for macOS and Windows and for ARM Linux come later; until then use Docker (Docker Desktop on macOS and Windows) or WSL 2. Expect breaking changes before 1.0. See [Releases](/reference/releases).
 </Note>
 
 ## 1. Install and run the server
@@ -26,7 +26,7 @@ One command installs both programs: **`yukta`**, the server, and **`yukta-cli`**
 <Tabs>
   <Tab title="Linux" icon="terminal">
     ```bash
-    curl -fsSL https://github.com/infenia/yukta/releases/download/v0.1.0-alpha.1/install.sh | sh
+    curl -fsSL https://github.com/infenia/yukta/releases/download/v0.1.0-alpha.2/install.sh | sh
     ```
 
     The script finds your system, downloads the files from the GitHub release, **checks their checksums** and stops if one does not match, then copies the programs into `/usr/local/bin` if you are root, or `~/.local/bin` otherwise. It never uses `sudo`, never edits your shell profile and contacts only GitHub. If the folder is not on your `PATH` it tells you the line to add.
@@ -44,7 +44,7 @@ One command installs both programs: **`yukta`**, the server, and **`yukta-cli`**
     Options go after `sh -s --`. For example, to install a specific version into a folder you choose:
 
     ```bash
-    curl -fsSL https://github.com/infenia/yukta/releases/download/v0.1.0-alpha.1/install.sh \
+    curl -fsSL https://github.com/infenia/yukta/releases/download/v0.1.0-alpha.2/install.sh \
       | sh -s -- --install-dir /opt/yukta/bin
     ```
 
@@ -62,7 +62,7 @@ One command installs both programs: **`yukta`**, the server, and **`yukta-cli`**
     ```bash
     docker run --rm -p 127.0.0.1:8080:8080 \
       -e YUKTA_API_KEY=change-me \
-      ghcr.io/infenia/yukta:0.1.0-alpha.1
+      ghcr.io/infenia/yukta:0.1.0-alpha.2
     ```
 
     A container listens on all of its own network interfaces, and Yukta refuses to do that without an API key, so the key is required. `-p 127.0.0.1:8080:8080` publishes the port to your own machine only.
