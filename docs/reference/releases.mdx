@@ -55,16 +55,16 @@ Check the checksum first. Put the download and `SHA256SUMS` in one folder:
 sha256sum --check --ignore-missing SHA256SUMS
 ```
 
-Then check the signature of the checksums file (it covers every other file). It is signed without a stored key ([Sigstore keyless signing](https://docs.sigstore.dev/)): the signature records the signer's identity in a public log. The release notes name the identity and its sign-in provider; use them in the command:
+Then check the signature of the checksums file (it covers every other file). It is signed without a stored key ([Sigstore keyless signing](https://docs.sigstore.dev/)): the signature records the signer's identity in a public log. Releases are signed by the release workflow in this repository, so check for exactly that identity (`0.1.0-alpha.2` and earlier were signed by a maintainer instead; their release notes name the identity):
 
 ```bash
 cosign verify-blob --bundle SHA256SUMS.sigstore.json \
-  --certificate-identity SIGNER_IDENTITY \
-  --certificate-oidc-issuer SIGNER_ISSUER \
+  --certificate-identity-regexp '^https://github.com/infenia/yukta/.github/workflows/release.yml@refs/tags/v' \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
   SHA256SUMS
 ```
 
-Files built by GitHub Actions (the command-line client binaries and the server binary, when it was built there) also carry build provenance, which you can check with the GitHub CLI:
+Files built by GitHub Actions (the command-line client binaries and the server binary) also carry build provenance, which you can check with the GitHub CLI:
 
 ```bash
 gh attestation verify yukta-cli-linux-amd64 -R infenia/yukta

@@ -4,7 +4,8 @@
 name: Release follow-up
 
 # When a release is published (release.yml creates it as a draft; a person publishes it), tell every
-# issue it fixed and close its milestone (.github/scripts/released.sh).
+# issue it fixed and close its milestone (.github/scripts/released.sh), and open the pull request that
+# points the docs at it (.github/scripts/bump-docs.sh).
 on:
   release:
     types: [published]
@@ -34,3 +35,31 @@ jobs:
           TAG: ${{ github.event.release.tag_name }}
           RELEASE_URL: ${{ github.event.release.html_url }}
         run: .github/scripts/released.sh
+
+  docs:
+    name: Point the docs at the release
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: App token
+        id: app
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ vars.YUKTA_PROJECT_APP_CLIENT_ID }}
+          private-key: ${{ secrets.YUKTA_PROJECT_APP_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: main
+          persist-credentials: false
+
+      - name: Open the docs pull request
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          REPO: ${{ github.repository }}
+          TAG: ${{ github.event.release.tag_name }}
+        run: .github/scripts/bump-docs.sh
