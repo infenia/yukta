@@ -408,11 +408,11 @@ class Project:
             except RuntimeError as e:
                 if "already exists" not in str(e):
                     raise
-                for _ in range(10):  # the listing lags the auto-add by a moment
+                for _ in range(6):  # the listing lags the auto-add; each poll costs API quota
+                    time.sleep(5)
                     item = self.items().get(url)
                     if item:
                         break
-                    time.sleep(3)
                 else:
                     raise
         for name, value in {"Status": "Backlog", **values}.items():
