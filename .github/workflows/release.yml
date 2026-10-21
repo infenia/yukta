@@ -234,7 +234,8 @@ jobs:
 
       - name: Pull the image logged out and run the Quickstart
         run: |
-          export DOCKER_CONFIG="$(mktemp -d)"   # no credentials: proves the package is public
+          DOCKER_CONFIG="$(mktemp -d)"   # no credentials: proves the package is public
+          export DOCKER_CONFIG
           image="ghcr.io/$REPO:${TAG#v}"
           docker pull "$image"
           docker run -d --rm --name ytest -p 127.0.0.1:18081:8080 -e YUKTA_API_KEY=x "$image"
