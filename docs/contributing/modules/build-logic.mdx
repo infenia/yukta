@@ -252,7 +252,7 @@ Fails the build if any dependency uses a licence that is not on the approved lis
 
 - The licensee plugin (1.14.1) reads the licence of every dependency (from the library's metadata) and compares it to an allow-list: Apache-2.0, MIT, MIT-0, BSD-2-Clause, BSD-3-Clause, ISC, Unlicense, 0BSD, Python-2.0, EPL-1.0, EPL-2.0 and UPL-1.0. A dependency with any other licence fails `./gradlew licensee`.
 - Some libraries only publish a licence URL, not a licence name. About a dozen exact URLs are allowed (ANTLR, ASM, EDL, the MIT and UPL pages, and so on). A new URL form means a new line.
-- Copyleft licences are not allowed by default. The only exception is one named artifact: `org.openjdk.nashorn:nashorn-core:15.4` under GPL-2.0 with Classpath Exception. It arrives through Handlebars (the template library used by internal-core), not through the GraalVM JS plugin; the written reason in the code says 'pulled in by GraalVM JS in internal-core', which is out of date.
+- Copyleft licences are not allowed. There is no exception: `org.openjdk.nashorn:nashorn-core` (GPL-2.0 with Classpath Exception), which Handlebars pulls in for JavaScript helpers the mapper never uses, is excluded in internal-core.
 - Why per-artifact: a general GPL allowance would cover anything that later arrives by accident. Naming one artifact and one version means a version bump or a new copyleft library fails the build and forces a conscious decision. Legal sign-off for shipping it inside the GraalVM native image (which links libraries statically) is still pending.
 - CI runs this in its own workflow (license-compliance.yml): a REUSE check of file headers, `./gradlew licensee`, and a Trivy licence scan.
 
@@ -443,7 +443,7 @@ licensee compares the licence with the allow-list and fails with the artifact an
 Pick another library; or get legal approval and add an allowDependency(group, artifact, version) \{ because(...) \} entry. The exception names one artifact and one version, so it cannot cover anything else.
 </Step>
 <Step title="The existing example">
-nashorn-core 15.4 (GPL-2.0 with Classpath Exception) is allowed this way. It arrives with Handlebars in internal-core, and the reason text in the build file still blames GraalVM JS. Sign-off for static linking into the native image is still pending.
+Flyway Community Edition (Apache-2.0, its POM only links the README) is allowed this way, for persistence-postgres. nashorn-core used to be one; it is now excluded from Handlebars instead.
 </Step>
 </Steps>
 
@@ -642,7 +642,7 @@ The old guide listed eight modules with entries; none of that is true now. Verif
 | Kind | Entries |
 |---|---|
 | SPDX ids | Apache-2.0, MIT, MIT-0, BSD-2-Clause, BSD-3-Clause, ISC, Unlicense, 0BSD, Python-2.0, EPL-1.0, EPL-2.0, UPL-1.0 |
-| Per-artifact exception | org.openjdk.nashorn:nashorn-core:15.4 (GPL-2.0 with Classpath Exception; arrives via Handlebars in internal-core) |
+| Per-artifact exception | org.flywaydb:flyway-core and flyway-database-postgresql 12.4.0 (Apache-2.0; POM links the README) |
 | Allowed URLs | ANTLR (3 forms), ASM, webjars-locator-lite, ICU, JBoss Apache text, Eclipse EDL (2 forms), opensource.org MIT and UPL (3 forms) |
 
 ## Architecture decisions
@@ -713,7 +713,7 @@ The old guide listed eight modules with entries; none of that is true now. Verif
 
 **Decision.** Allow a list of permissive licences and a few exact URLs; allow a copyleft artifact only by group, name and version with a written reason.
 
-**Consequences.** Every copyleft dependency is a conscious decision, and a version bump re-opens it. Needs legal review, still pending for nashorn-core.
+**Consequences.** Every copyleft dependency is a conscious decision, and a version bump re-opens it. nashorn-core was avoided by excluding it from Handlebars.
 
 **Alternatives considered.** A broad allow-list: fewer failures, hidden risk. A deny-list: new licences pass unnoticed. Trivy licence scanning only: report-level, not a gate (it also runs in CI).
 
@@ -771,7 +771,7 @@ The old guide listed eight modules with entries; none of that is true now. Verif
 | nosem | A comment that tells OpenGrep to ignore one flagged line. | Must carry the rule id and a reason. |
 | licensee | A Gradle plugin that checks dependency licences against an allow-list. | Fails the build on an unapproved licence. |
 | Copyleft | A licence family (GPL, LGPL) that can require sharing source code of software combined with it. | Why only one such artifact is allowed, by name. |
-| Classpath Exception | A clause on GPL-2.0 that lets code link to a library without becoming GPL itself. | The licence of nashorn-core, still pending legal sign-off for native images. |
+| Classpath Exception | A clause on GPL-2.0 that lets code link to a library without becoming GPL itself. | The licence of nashorn-core, which is excluded from the build. |
 | REUSE | A standard for stating the licence of every file in a repository. | A CI job checks that headers comply. |
 | JaCoCo | A Java code-coverage tool that records which lines and branches tests ran. | Its verification task enforces the 100% rule. |
 | Line and branch coverage | Line coverage is the share of lines that ran; branch coverage is the share of if/else paths that ran. | 100% of both is required per class. |

@@ -30,6 +30,12 @@ val pnpmBuild = tasks.register<PnpmTask>("pnpmBuild") {
     outputs.dir(layout.projectDirectory.dir("dist"))
 }
 
+// -PskipUi: API-only build (offline or sandboxed, where Node and pnpm cannot be downloaded).
+if (providers.gradleProperty("skipUi").isPresent) {
+    tasks.matching { it.name in setOf("nodeSetup", "pnpmSetup", "pnpmInstall", "pnpmBuild") }
+        .configureEach { enabled = false }
+}
+
 // Wire SPA build into processResources to include dist/ in JAR
 tasks.named<ProcessResources>("processResources") {
     dependsOn(pnpmBuild)
